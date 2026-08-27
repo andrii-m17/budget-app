@@ -1,0 +1,16 @@
+{
+  "name": "Бюджет — локально в браузері",
+  "short_name": "Бюджет",
+  "description": "Особистий трекер витрат, доходів, боргів і оплат частинами — локально, без сервера.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F8FA",
+  "theme_color": "#F7F8FA",
+  "lang": "uk",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
