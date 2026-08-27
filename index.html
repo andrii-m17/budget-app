@@ -167,6 +167,18 @@
      категорію/прив'язку, а про сам факт "тут є незбережене з минулого разу"). */
   .field.draft-hint{ display:none; font-size:11.5px; color:var(--color-text-secondary); margin-bottom:14px; }
   .field.draft-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--color-surface-hover); padding:8px 10px; border-radius:var(--radius-sm); }
+  /* Rev 2.3.5 — автопідказка назви витрати за історією введень. Власний
+     DOM-компонент замість нативного <datalist> — той на iOS Safari (основний
+     пристрій тестування, див. мобільні фікси нижче) в багатьох версіях
+     взагалі не показує спадний список, тому нативний варіант ненадійний саме
+     там, де це найбільше потрібно. */
+  .name-suggest-list{ display:none; position:absolute; left:0; right:0; top:100%; margin-top:4px; background:var(--color-surface); border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:12; max-height:230px; overflow-y:auto; }
+  .name-suggest-list.show{ display:block; }
+  .name-suggest-item{ padding:10px 12px; font-size:14px; color:var(--color-text-primary); cursor:pointer; border-bottom:1px solid var(--color-border); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .name-suggest-item:last-child{ border-bottom:none; }
+  .name-suggest-item:hover, .name-suggest-item.active{ background:var(--color-surface-hover); }
+  .name-suggest-item .nsi-name{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .name-suggest-item .nsi-meta{ font-size:11px; color:var(--color-text-secondary); flex-shrink:0; white-space:nowrap; }
   .field.auto-hint.show #auto-hint-text{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   /* Rev 2.2.2 — підказка автозв'язку витрата↔ОЧ (метод C), той самий каркас, що
      .field.auto-hint вище, але окремий акцентний колір (фіолетовий, як і
@@ -940,8 +952,9 @@
           <span>Відновлено незбережений запис</span>
           <button type="button" class="auto-hint-edit-btn" onclick="discardExpenseDraft()">Очистити</button>
         </div>
-        <div class="field"><label>Назва витрати</label>
-          <input type="text" id="f-name" placeholder="напр. таксі додому" oninput="onNameInput()" autocomplete="off">
+        <div class="field" style="position:relative;"><label>Назва витрати</label>
+          <input type="text" id="f-name" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="off">
+          <div class="name-suggest-list" id="name-suggest-list"></div>
           <div class="field auto-hint" id="auto-hint">
             <span id="auto-hint-text">Знайдено автоматично</span>
             <button type="button" class="auto-hint-edit-btn" onclick="revealCategoryFields()">Змінити</button>
@@ -1048,7 +1061,7 @@
         </div>
       </div>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.3.3</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.3.5</div>
     </div>
   </div>
 </div>
@@ -1322,7 +1335,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.3.3';
+const APP_VERSION = '2.3.5';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -1513,6 +1526,7 @@ function onNameInput(){
   wrap.classList.toggle('open', shouldBeOpen);
   updateInstallmentLinkDetection(name);
   saveExpenseDraft();
+  updateNameSuggestions(name);
 }
 // Rev 2.2.2 — Автозв'язок витрата↔ОЧ, метод C (FINANCIAL_RULES §5): якщо текст
 // назви витрати збігається з назвою якоїсь ОЧ — пропонуємо прив'язати, АЛЕ
@@ -1795,6 +1809,7 @@ function restoreExpenseDraft(){
   }
   const hint = document.getElementById('draft-restored-hint');
   if(hint) hint.classList.add('show');
+  hideNameSuggestions(); // onNameInput() вище міг відкрити список — поле ще не в фокусі
   saveExpenseDraft(); // фіксуємо фінальний стан (категорію/прив'язку) у сховищі
 }
 function discardExpenseDraft(){
@@ -1823,6 +1838,7 @@ function resetExpenseForm(){
   clearExpenseDraft();
   const draftHint = document.getElementById('draft-restored-hint');
   if(draftHint) draftHint.classList.remove('show');
+  hideNameSuggestions();
 }
 // Rev 2.1.3 — стрілочки ±1 день біля поля дати; використовує той самий
 // shiftDate(), що й групування журналу по днях.
@@ -2899,11 +2915,125 @@ function safeCall(fn, label){
   catch(err){ console.error(`[Бюджет] Помилка в ${label}:`, err); }
 }
 function renderAll(){
+  safeCall(rebuildNameHistory, 'rebuildNameHistory');
   safeCall(renderRecords, 'renderRecords');
   safeCall(renderDashboard, 'renderDashboard');
   safeCall(populateIncomeTable, 'populateIncomeTable');
   safeCall(populateBankDebtTable, 'populateBankDebtTable');
   safeCall(populateInstallmentTable, 'populateInstallmentTable');
+}
+
+/* ============ Автопідказка назви витрати за історією (Rev 2.3.5) ============
+   На відміну від автокатегоризації за словником (ключове слово → категорія,
+   працює лише для наперед відомих слів) — це підказка САМОЇ НАЗВИ на основі
+   вже введених раніше витрат: "прод" → "Продукти", "прої" → "Проїзд самокат"
+   тощо, довільний текст, без словника. Суми свідомо НЕ пропонуються (за
+   проханням) — вони надто різні для типових категорій (продукти/розваги),
+   на відміну від ОЧ, де платіж дійсно майже завжди однаковий і вже має
+   власний окремий механізм (Модель C, Rev 2.2.x). */
+let nameHistoryMap = {};
+function rebuildNameHistory(){
+  nameHistoryMap = {};
+  expenses.forEach(function(e){
+    const key = (e.name||'').trim();
+    if(!key) return;
+    if(!nameHistoryMap[key]) nameHistoryMap[key] = { count:0, lastDate:'', lastCategory:'', lastSubcategory:'' };
+    const h = nameHistoryMap[key];
+    h.count++;
+    if(e.date > h.lastDate){ h.lastDate = e.date; h.lastCategory = e.category||''; h.lastSubcategory = e.subcategory||''; }
+  });
+}
+let nameSuggestions = [];
+let activeNameSuggestIdx = -1;
+// Поріг у 2 символи — на 1 символі кандидатів зазвичай забагато й підказка
+// стає шумом, а не допомогою.
+function updateNameSuggestions(text){
+  const listEl = document.getElementById('name-suggest-list');
+  if(!listEl) return;
+  const q = (text||'').trim().toLowerCase();
+  activeNameSuggestIdx = -1;
+  if(q.length < 2){ nameSuggestions = []; listEl.classList.remove('show'); listEl.innerHTML=''; return; }
+  const matches = Object.keys(nameHistoryMap)
+    .filter(function(n){ const low = n.toLowerCase(); return low !== q && low.includes(q); })
+    .sort(function(a,b){
+      const ha = nameHistoryMap[a], hb = nameHistoryMap[b];
+      if(hb.count !== ha.count) return hb.count - ha.count; // спершу найчастіші
+      return (hb.lastDate||'').localeCompare(ha.lastDate||''); // тай-брейк — новіші
+    })
+    .slice(0,6);
+  nameSuggestions = matches;
+  if(!matches.length){ listEl.classList.remove('show'); listEl.innerHTML=''; return; }
+  listEl.innerHTML = matches.map(function(n,i){
+    const h = nameHistoryMap[n];
+    const meta = h.lastCategory ? stripLeadingEmoji(h.lastCategory) : '';
+    return `<div class="name-suggest-item" data-idx="${i}" onmousedown="event.preventDefault(); selectNameSuggestion(${i})">
+      <span class="nsi-name">${escapeHtml(n)}</span>
+      ${meta ? `<span class="nsi-meta">${escapeHtml(meta)}</span>` : ''}
+    </div>`;
+  }).join('');
+  listEl.classList.add('show');
+}
+function highlightNameSuggestion(){
+  document.querySelectorAll('.name-suggest-item').forEach(function(el){
+    el.classList.toggle('active', Number(el.dataset.idx) === activeNameSuggestIdx);
+  });
+}
+function handleNameKeydown(e){
+  const listEl = document.getElementById('name-suggest-list');
+  if(!listEl || !listEl.classList.contains('show') || !nameSuggestions.length) return;
+  if(e.key === 'ArrowDown'){
+    e.preventDefault();
+    activeNameSuggestIdx = Math.min(nameSuggestions.length-1, activeNameSuggestIdx+1);
+    highlightNameSuggestion();
+  }else if(e.key === 'ArrowUp'){
+    e.preventDefault();
+    activeNameSuggestIdx = Math.max(0, activeNameSuggestIdx-1);
+    highlightNameSuggestion();
+  }else if(e.key === 'Enter'){
+    if(activeNameSuggestIdx >= 0){
+      // Enter підтверджує підсвічену підказку замість негайного сабміту
+      // всієї форми — узгоджено з глобальним Enter-to-submit (Rev 2.1.3),
+      // який діє лише коли жоден варіант тут не підсвічений. stopPropagation
+      // обов'язковий: без нього подія все одно долетить до keydown-слухача
+      // на #view-vytraty й викличе addExpense() ще й одночасно.
+      e.preventDefault();
+      e.stopPropagation();
+      selectNameSuggestion(activeNameSuggestIdx);
+    }
+  }else if(e.key === 'Escape'){
+    hideNameSuggestions();
+  }
+}
+function selectNameSuggestion(i){
+  const name = nameSuggestions[i];
+  if(name == null) return;
+  const nameInput = document.getElementById('f-name');
+  nameInput.value = name;
+  onNameInput(); // спершу звичайний шлях: словник автозв'язку/автокатегорії
+  hideNameSuggestions();
+  // Пріоритет над словником — реальна історія САМЕ цієї назви (точніше за
+  // загальне ключове слово словника, особливо для назв без запису в ньому,
+  // напр. "проїзд самокат"), але лише якщо категорія ще не вибрана вручну.
+  const h = nameHistoryMap[name];
+  const catSel = document.getElementById('f-category');
+  if(h && h.lastCategory && !catSel.classList.contains('manual-flag') && catSel.value !== h.lastCategory){
+    setCategorySelect(h.lastCategory, false);
+    if(h.lastSubcategory) setSubcategorySelect(h.lastSubcategory);
+    const hint = document.getElementById('auto-hint');
+    const hintText = document.getElementById('auto-hint-text');
+    if(hint && hintText){
+      hint.classList.add('show');
+      hintText.textContent = h.lastCategory + (h.lastSubcategory ? ' → ' + h.lastSubcategory : '');
+    }
+  }
+  saveExpenseDraft();
+  const amountInput = document.getElementById('f-amount');
+  if(amountInput){ try{ amountInput.focus({preventScroll:true}); }catch(e){ amountInput.focus(); } }
+}
+function hideNameSuggestions(){
+  const listEl = document.getElementById('name-suggest-list');
+  if(listEl){ listEl.classList.remove('show'); listEl.innerHTML=''; }
+  activeNameSuggestIdx = -1;
 }
 
 // Rev 2.1.2 — заголовки груп журналу: "Сьогодні"/"Вчора" для двох останніх днів,
@@ -4145,6 +4275,24 @@ function performSwitchTab(tab){
   // попередньої вкладки на нову. Скидаємо скрол на верх при кожному
   // перемиканні, щоб кожна вкладка завжди відкривалась зі свого початку.
   window.scrollTo(0, 0);
+  // Rev 2.3.4 — автофокус на "Назва витрати" при вході на вкладку "Витрати":
+  // єдина щоденна дія має починатись з можливості одразу друкувати, без
+  // зайвого тапу по полю. Виклик СИНХРОННИЙ (без setTimeout) — на iOS Safari
+  // клавіатура відкривається програмним focus() лише в межах того самого
+  // "жесту користувача" (клік по вкладці); асинхронний виклик цей контекст
+  // втрачає, і клавіатура просто не з'явиться. preventScroll:true — щоб
+  // власний scrollTo(0,0) вище не конфліктував із авто-скролом браузера
+  // "підняти поле над клавіатурою".
+  if(tab === 'vytraty'){
+    const nameInput = document.getElementById('f-name');
+    const amountInput = document.getElementById('f-amount');
+    // Якщо назва вже заповнена (відновлена чернетка з попереднього разу —
+    // Rev 2.3.2) — фокус одразу на суму, бо назва вводити вже не треба.
+    const target = (nameInput && nameInput.value.trim() && amountInput) ? amountInput : nameInput;
+    if(target){
+      try{ target.focus({preventScroll:true}); }catch(e){ target.focus(); }
+    }
+  }
 }
 
 /* ============ Налаштування (Drawer) ============ */
