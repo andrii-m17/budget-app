@@ -556,7 +556,22 @@
   /* "Витрати" — виділена кнопка по центру нижньої панелі (єдина щоденна дія,
      має бути одразу впізнавана, як "+" в Instagram/банківських застосунках). */
   nav.tabbar button.tab-vytraty{ position:relative; }
-  nav.tabbar button.tab-vytraty .tb-icon-wrap{ width:40px; height:40px; border-radius:50%; background:var(--color-primary); color:#fff; display:flex; align-items:center; justify-content:center; margin-top:-16px; box-shadow:0 4px 10px rgba(34,197,94,.35); transition:background var(--duration-fast) var(--easing-standard); }
+  nav.tabbar button.tab-vytraty .tb-icon-wrap{ position:relative; width:40px; height:40px; border-radius:50%; background:var(--color-primary); color:#fff; display:flex; align-items:center; justify-content:center; margin-top:-16px; box-shadow:0 4px 10px rgba(34,197,94,.35); transition:background var(--duration-fast) var(--easing-standard); }
+  /* Rev 2.3.6 — бейдж кількості витрат, внесених СЬОГОДНІ, на кнопці "Витрати"
+     (tabbar і sidebar): миттєво видно, чи вже щось внесено сьогодні, без
+     переходу на вкладку — та сама ідея, що бейдж непрочитаних повідомлень. */
+  .tb-count-badge{ position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:#fff; color:var(--color-primary-hover); font-size:10px; font-weight:800; line-height:16px; text-align:center; box-shadow:0 0 0 1.5px var(--color-primary-hover); }
+  .tb-count-badge.hidden{ display:none; }
+  .side-count-badge{ margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--color-primary-bg); color:var(--color-primary-hover); font-size:10.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .side-count-badge.hidden{ display:none; }
+  /* Rev 2.3.6 — кнопка "Доступне оновлення" (top header + sidebar): за
+     замовчуванням прихована inline-стилем у розмітці, JS лише вмикає
+     display:flex, коли service worker виявив нову версію. Зелений контур
+     (не сірий, як звичайний gear-btn) — щоб виділялась і не губилась поруч
+     із "Налаштування". */
+  .gear-btn.update-btn{ position:relative; border-color:var(--color-primary); color:var(--color-primary-hover); }
+  .gear-btn.update-btn:hover{ background:var(--color-primary-bg); }
+  .gear-btn.update-btn .update-dot{ position:absolute; top:-2px; right:-2px; width:9px; height:9px; border-radius:50%; background:var(--color-primary); border:2px solid var(--color-surface); }
   nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ width:20px; height:20px; }
   nav.tabbar button.tab-vytraty .tb-label{ margin-top:2px; color:var(--color-text-secondary); }
   nav.tabbar button.tab-vytraty.active .tb-icon-wrap{ background:var(--color-primary-hover); }
@@ -690,7 +705,7 @@
         <div class="brand-logo"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
         <h1>Бюджет</h1>
       </div>
-      <div class="tagline">локально · без сервера</div>
+      <div class="tagline" id="conn-status-side">локально · без сервера</div>
     </div>
     <div class="month-picker"><label>Місяць</label><select id="month-select-side" onchange="onMonthChange(this.value)"></select></div>
 
@@ -705,6 +720,7 @@
     <button class="side-tab tab-vytraty" data-tab="vytraty" onclick="switchTab('vytraty')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Витрати
+      <span class="side-count-badge hidden" id="side-count-badge"></span>
     </button>
     <button class="side-tab" data-tab="structure" onclick="switchTab('structure')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="4.5" r="2.5"/><circle cx="3" cy="19.5" r="2.5"/><circle cx="12" cy="19.5" r="2.5"/><circle cx="21" cy="19.5" r="2.5"/><path d="M12 7v3.5"/><path d="M3 17v-2.5a1.2 1.2 0 0 1 1.2-1.2h15.6a1.2 1.2 0 0 1 1.2 1.2v2.5"/><path d="M12 10.5v6.5"/></svg>
@@ -716,6 +732,10 @@
     </button>
 
     <div class="side-spacer"></div>
+    <button class="side-tab" id="update-btn-side" onclick="openUpdateModal()" style="display:none; color:var(--color-primary-hover);">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m6 11 6 6 6-6"/><path d="M4 21h16"/></svg>
+      Доступне оновлення
+    </button>
     <div class="side-divider"></div>
     <button class="side-tab" onclick="openSettings()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -731,11 +751,17 @@
             <div class="brand-logo"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
             <h1>Бюджет</h1>
           </div>
-          <div class="tagline">локально в браузері</div>
+          <div class="tagline" id="conn-status-top">локально в браузері</div>
         </div>
-        <button class="gear-btn" onclick="openSettings()" aria-label="Налаштування">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
+        <div class="brand-row" style="gap:8px;">
+          <button class="gear-btn update-btn" id="update-btn-top" onclick="openUpdateModal()" aria-label="Доступне оновлення" style="display:none;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m6 11 6 6 6-6"/><path d="M4 21h16"/></svg>
+            <span class="update-dot"></span>
+          </button>
+          <button class="gear-btn" onclick="openSettings()" aria-label="Налаштування">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
       </div>
       <div class="month-picker"><label>Місяць:</label><select id="month-select-top" onchange="onMonthChange(this.value)"></select></div>
     </div>
@@ -1061,7 +1087,7 @@
         </div>
       </div>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.3.5</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.3.6</div>
     </div>
   </div>
 </div>
@@ -1076,7 +1102,7 @@
     Облік
   </button>
   <button class="tab-vytraty" data-tab="vytraty" onclick="switchTab('vytraty')">
-    <span class="tb-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+    <span class="tb-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span class="tb-count-badge hidden" id="tb-count-badge"></span></span>
     <span class="tb-label">Витрати</span>
   </button>
   <button data-tab="structure" onclick="switchTab('structure')">
@@ -1335,7 +1361,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.3.5';
+const APP_VERSION = '2.3.6';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -2921,8 +2947,62 @@ function renderAll(){
   safeCall(populateIncomeTable, 'populateIncomeTable');
   safeCall(populateBankDebtTable, 'populateBankDebtTable');
   safeCall(populateInstallmentTable, 'populateInstallmentTable');
+  safeCall(updateTodayExpenseBadge, 'updateTodayExpenseBadge');
 }
 
+/* ============ Бейдж "витрат сьогодні" на кнопці "Витрати" (Rev 2.3.6) ============
+   Мета: видно з будь-якої вкладки, чи вже щось внесено сьогодні, без переходу
+   на "Витрати" — знижує шанс "забути й згадати ввечері". Рахує лише expenses
+   (не доходи) — саме витрати є тим типом запису, який найлегше відкласти. */
+function updateTodayExpenseBadge(){
+  const today = localDateISO();
+  const count = expenses.filter(function(e){ return e.date === today; }).length;
+  const text = count > 9 ? '9+' : String(count);
+  const topBadge = document.getElementById('tb-count-badge');
+  const sideBadge = document.getElementById('side-count-badge');
+  [topBadge, sideBadge].forEach(function(el){
+    if(!el) return;
+    el.textContent = text;
+    el.classList.toggle('hidden', count === 0);
+  });
+}
+
+/* ============ Індикатор мережі (Rev 2.3.6) ============
+   Замінює статичний підпис "локально в браузері"/"локально · без сервера" на
+   динамічний статус онлайн/офлайн — застосунок повністю робочий в обох
+   станах (дані завжди пишуться в localStorage), але корисно бачити це прямо
+   в шапці, а не здогадуватись. */
+function updateConnectionStatus(){
+  const online = navigator.onLine;
+  const text = online ? '🟢 Онлайн' : '⚪ Офлайн — дані локально';
+  const topEl = document.getElementById('conn-status-top');
+  const sideEl = document.getElementById('conn-status-side');
+  if(topEl) topEl.textContent = text;
+  if(sideEl) sideEl.textContent = text;
+}
+window.addEventListener('online', updateConnectionStatus);
+window.addEventListener('offline', updateConnectionStatus);
+
+/* ============ Індикатор доступного оновлення PWA (Rev 2.3.6) ============
+   Service worker (Rev 2.3.3) сам виявляє нову версію sw.js на сервері під
+   час навігації — подія "updatefound" на реєстрації. showUpdateAvailable()
+   вмикає кнопку в шапці/сайдбарі; клік показує пояснення через кастомну
+   модалку (той самий #app-modal, що й для решти підтверджень) і перезавантажує
+   сторінку. Дані НЕ зачіпаються оновленням — вони в localStorage, окремо від
+   самого файлу застосунку. */
+function showUpdateAvailable(){
+  const top = document.getElementById('update-btn-top');
+  const side = document.getElementById('update-btn-side');
+  if(top) top.style.display = 'flex';
+  if(side) side.style.display = 'flex';
+}
+function openUpdateModal(){
+  showConfirmModal(
+    'Доступна нова версія застосунку. Дані нікуди не зникають — усе зберігається окремо в памʼяті браузера, а не в самому файлі застосунку. Оновити зараз?',
+    function(){ window.location.reload(); },
+    'Оновити зараз'
+  );
+}
 /* ============ Автопідказка назви витрати за історією (Rev 2.3.5) ============
    На відміну від автокатегоризації за словником (ключове слово → категорія,
    працює лише для наперед відомих слів) — це підказка САМОЇ НАЗВИ на основі
@@ -4604,11 +4684,32 @@ restoreExpenseDraft();
 // тихо не спрацює, решта застосунку працює як і раніше.
 if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('./sw.js').catch(function(err){
+    navigator.serviceWorker.register('./sw.js').then(function(registration){
+      // Rev 2.3.6 — виявлення оновлення: якщо на сервері з'явився новий
+      // sw.js, браузер сам качає його у фоні (installing) і генерує
+      // "updatefound". navigator.serviceWorker.controller вже існує лише
+      // якщо це саме ОНОВЛЕННЯ (не перше встановлення) — на першому візиті
+      // controller ще null, і банер оновлення показувати нема сенсу.
+      if(registration.waiting && navigator.serviceWorker.controller){
+        showUpdateAvailable();
+      }
+      registration.addEventListener('updatefound', function(){
+        const newWorker = registration.installing;
+        if(!newWorker) return;
+        newWorker.addEventListener('statechange', function(){
+          if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
+            showUpdateAvailable();
+          }
+        });
+      });
+    }).catch(function(err){
       console.warn('[Бюджет] Service worker не зареєструвався:', err);
     });
   });
 }
+
+// Rev 2.3.6 — індикатор онлайн/офлайн у шапці (замінює статичний підпис).
+updateConnectionStatus();
 </script>
 </body>
 </html>
