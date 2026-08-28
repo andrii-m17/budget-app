@@ -550,8 +550,27 @@
   .summary-card{ background:var(--color-surface); }
   .summary-card p{ margin:0 0 8px; font-size:13.5px; line-height:1.6; } .summary-card p:last-child{ margin-bottom:0; }
 
-  nav.tabbar{ position:fixed; left:0; right:0; bottom:0; background:var(--color-surface); border-top:1px solid var(--color-border); display:flex; padding:0 6px calc(0px + env(safe-area-inset-bottom)); max-width:980px; margin:0 auto; box-shadow:0 -4px 14px rgba(16,24,40,.06); z-index:20; }
+  /* Rev 2.3.9 BugFix — раніше тут було calc(0px + env(safe-area-inset-bottom)),
+     що ДОДАВАВ повний safe-area ПОВЕРХ власного padding:10px кнопок таббару
+     (nav.tabbar button нижче) — сумарний відступ виходив набагато більшим за
+     реальну зону home indicator (10px кнопки + весь safe-area замість того,
+     щоб safe-area сама покривала цей простір). max(0px, calc(...)) віднімає
+     вже наявні 10px кнопки з safe-area, а не додає їх — сумарний відступ
+     тепер точно дорівнює system safe-area, без подвоєння. max() з 0px —
+     страховка для пристроїв без safe-area (Android/старі iPhone), де
+     env()=0 і calc() інакше пішов би в мінус. */
+  nav.tabbar{ position:fixed; left:0; right:0; bottom:0; background:var(--color-surface); border-top:1px solid var(--color-border); display:flex; padding:0 6px max(0px, calc(env(safe-area-inset-bottom) - 10px)); max-width:980px; margin:0 auto; box-shadow:0 -4px 14px rgba(16,24,40,.06); z-index:20; }
   nav.tabbar button{ background:none; border:none; color:var(--color-muted); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:10.5px; font-weight:600; padding:10px 4px; border-radius:var(--radius-md); flex-basis:20%; flex-grow:0; flex-shrink:0; min-width:44px; min-height:44px; box-sizing:border-box; }
+  /* Rev 2.3.9 — коли клавіатура активна (body.kb-open, див. JS нижче),
+     таббар повністю ховаємо: на iOS Safari position:fixed елементи під час
+     появи клавіатури можуть "спливати" посеред екрана над клавіатурою
+     замість того, щоб лишатись під нею (баг WebKit при resize видимого
+     viewport) — найнадійніший фікс не намагатись математично підлаштувати
+     позицію, а просто прибрати навбар з екрана, поки активне поле вводу.
+     padding-bottom на app-shell теж прибираємо — інакше лишається порожня
+     зона, зарезервована під навбар, якого зараз немає. */
+  body.kb-open nav.tabbar{ display:none; }
+  body.kb-open .app-shell{ padding-bottom:0; }
   nav.tabbar button.active{ color:var(--color-primary-hover); background:var(--color-primary-bg); }
   nav.tabbar svg{ width:18px; height:18px; }
   /* "Витрати" — виділена кнопка по центру нижньої панелі (єдина щоденна дія,
@@ -1088,7 +1107,7 @@
         </div>
       </div>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.3.8</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.3.9</div>
     </div>
   </div>
 </div>
@@ -1362,7 +1381,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.3.8';
+const APP_VERSION = '2.3.9';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -4725,6 +4744,44 @@ document.getElementById('view-vytraty').addEventListener('keydown', function(e){
   e.preventDefault();
   addExpense();
 });
+
+/* ============ Приховування таббару під час активної клавіатури (Rev 2.3.9) ============
+   BugFix: на iOS Safari position:fixed елементи (наш нижній таббар) під час
+   появи/зникнення системної клавіатури можуть "спливати" посеред екрана над
+   клавіатурою замість того, щоб лишатись під нею коректно приклеєними до
+   низу — задокументований баг WebKit при зміні видимого viewport. Намагатись
+   математично компенсувати позицію через VisualViewport API — крихко й
+   по-різному поводиться в різних версіях iOS. Найнадійніше — просто ховати
+   таббар, поки активне будь-яке поле вводу; коли клавіатура однаково займає
+   екран, таббар для навігації користувачу все одно не потрібен.
+   focusin/focusout (а не focus/blur) — бо саме вони спливають (bubbling) і
+   дозволяють один обробник на document замість по одному на кожне поле. */
+function isKeyboardField(el){
+  if(!el) return false;
+  const tag = el.tagName;
+  if(tag !== 'INPUT' && tag !== 'TEXTAREA') return false;
+  const type = (el.type || '').toLowerCase();
+  // select/checkbox/radio/date/file відкривають нативний пікер ОС, а не
+  // текстову клавіатуру — той баг з "спливанням" фіксбар до них не стосується.
+  return !['checkbox','radio','date','file','range','color'].includes(type);
+}
+let kbHideTimeout = null;
+document.addEventListener('focusin', function(e){
+  if(!isKeyboardField(e.target)) return;
+  if(kbHideTimeout){ clearTimeout(kbHideTimeout); kbHideTimeout = null; }
+  document.body.classList.add('kb-open');
+});
+document.addEventListener('focusout', function(e){
+  if(!isKeyboardField(e.target)) return;
+  // Невелика затримка: якщо фокус одразу перескочив на ІНШЕ поле вводу
+  // (Tab/Enter між полями форми), таббар не повинен блимнути назад і одразу
+  // сховатись знову — перевіряємо, куди саме перейшов фокус, з коротким
+  // таймаутом (activeElement оновлюється синхронно до цього моменту).
+  kbHideTimeout = setTimeout(function(){
+    if(!isKeyboardField(document.activeElement)) document.body.classList.remove('kb-open');
+  }, 100);
+});
+
 loadAll();
 // Rev 2.3.3 — відновлення чернетки після loadAll() (потребує вже завантажені
 // CATEGORIES/SUBCATEGORIES/installmentAccounts, інакше setCategorySelect()/
