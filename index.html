@@ -55,7 +55,11 @@
   button:disabled{ cursor:not-allowed; opacity:.7; }
   svg.icon{ width:18px; height:18px; flex-shrink:0; }
 
-  .app-shell{ max-width:980px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; padding-bottom:88px; background:var(--color-bg); }
+  /* Rev 2.4.0 — плаваюча "glass" капсула (nav.tabbar) тепер має власний
+     відступ від нижнього краю екрана (14px + safe-area), а не притиснута
+     впритул — тому резервний простір під неї збільшено, інакше контент
+     журналу/карток міг би ховатись під панеллю в самому кінці скролу. */
+  .app-shell{ max-width:980px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; padding-bottom:104px; background:var(--color-bg); }
   .side{ display:none; }
   .top{ padding:calc(env(safe-area-inset-top,0px) + 22px) 20px 16px; border-bottom:1px solid var(--color-border); }
   .brand{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
@@ -550,17 +554,43 @@
   .summary-card{ background:var(--color-surface); }
   .summary-card p{ margin:0 0 8px; font-size:13.5px; line-height:1.6; } .summary-card p:last-child{ margin-bottom:0; }
 
-  /* Rev 2.3.9 BugFix — раніше тут було calc(0px + env(safe-area-inset-bottom)),
-     що ДОДАВАВ повний safe-area ПОВЕРХ власного padding:10px кнопок таббару
-     (nav.tabbar button нижче) — сумарний відступ виходив набагато більшим за
-     реальну зону home indicator (10px кнопки + весь safe-area замість того,
-     щоб safe-area сама покривала цей простір). max(0px, calc(...)) віднімає
-     вже наявні 10px кнопки з safe-area, а не додає їх — сумарний відступ
-     тепер точно дорівнює system safe-area, без подвоєння. max() з 0px —
-     страховка для пристроїв без safe-area (Android/старі iPhone), де
-     env()=0 і calc() інакше пішов би в мінус. */
-  nav.tabbar{ position:fixed; left:0; right:0; bottom:0; background:var(--color-surface); border-top:1px solid var(--color-border); display:flex; padding:0 6px max(0px, calc(env(safe-area-inset-bottom) - 10px)); max-width:980px; margin:0 auto; box-shadow:0 -4px 14px rgba(16,24,40,.06); z-index:20; }
-  nav.tabbar button{ background:none; border:none; color:var(--color-muted); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; font-size:10.5px; font-weight:600; padding:10px 4px; border-radius:var(--radius-md); flex-basis:20%; flex-grow:0; flex-shrink:0; min-width:44px; min-height:44px; box-sizing:border-box; }
+  /* Rev 2.4.0 — "Liquid Glass" таббар: плаваюча напівпрозора капсула, не
+     притиснута до країв екрана (за мотивами iOS 26 tab bar), адаптована під
+     СВІТЛУ тему застосунку (біле розмиття, не темне — узгоджено з рештою
+     дизайн-системи, а не буквальна копія темного скріншота-референсу).
+     backdrop-filter розмиває те, що під панеллю (журнал/картки під час
+     скролу) — саме та "скляна" глибина, яку показує референс. */
+  nav.tabbar{
+    position:fixed; left:50%; transform:translateX(-50%);
+    bottom:calc(14px + env(safe-area-inset-bottom));
+    width:calc(100% - 28px); max-width:460px;
+    background:rgba(255,255,255,.68);
+    -webkit-backdrop-filter:blur(22px) saturate(180%);
+    backdrop-filter:blur(22px) saturate(180%);
+    border:1px solid rgba(255,255,255,.7);
+    border-radius:26px;
+    display:flex; align-items:stretch;
+    padding:6px 6px;
+    box-shadow:0 10px 32px rgba(16,24,40,.16), 0 2px 8px rgba(16,24,40,.06), inset 0 1px 0 rgba(255,255,255,.5);
+    z-index:20;
+  }
+  nav.tabbar button{ position:relative; z-index:1; background:none; border:none; color:var(--color-muted); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; font-size:10.5px; font-weight:600; padding:8px 4px; border-radius:18px; flex-basis:20%; flex-grow:0; flex-shrink:0; min-width:44px; min-height:44px; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  /* Rev 2.4.0 — "бульбашка" вибору: один плаваючий елемент замість статичного
+     background на кожній .active кнопці (як було раніше) — саме це дає ефект
+     плавного КОВЗАННЯ між вкладками замість миттєвого перемикання кольору.
+     Позиція/ширина рахуються в JS (updateTabBubble) через getBoundingClientRect,
+     а не в CSS-відсотках — так бульбашка завжди влучає точно під кнопку,
+     незалежно від фактичної ширини екрана. transition з "пружним" cubic-bezier
+     (легкий перескок за ціль і назад) — та сама "живість", що й у нативних
+     iOS-переходах, а не лінійний рух. */
+  .tabbar-bubble{
+    position:absolute; top:6px; left:0; height:calc(100% - 12px);
+    background:var(--color-primary-bg);
+    border-radius:18px;
+    z-index:0; opacity:0; pointer-events:none;
+    transition:transform .38s cubic-bezier(.34,1.56,.64,1), width .38s cubic-bezier(.34,1.56,.64,1), opacity .18s ease;
+  }
+  .tabbar-bubble.no-anim{ transition:none; }
   /* Rev 2.3.9 — коли клавіатура активна (body.kb-open, див. JS нижче),
      таббар повністю ховаємо: на iOS Safari position:fixed елементи під час
      появи клавіатури можуть "спливати" посеред екрана над клавіатурою
@@ -571,10 +601,15 @@
      зона, зарезервована під навбар, якого зараз немає. */
   body.kb-open nav.tabbar{ display:none; }
   body.kb-open .app-shell{ padding-bottom:0; }
-  nav.tabbar button.active{ color:var(--color-primary-hover); background:var(--color-primary-bg); }
+  /* Rev 2.4.0 — статичний background прибрано (тепер це робить .tabbar-bubble),
+     лишається лише зміна кольору іконки/тексту. */
+  nav.tabbar button.active{ color:var(--color-primary-hover); }
   nav.tabbar svg{ width:18px; height:18px; }
   /* "Витрати" — виділена кнопка по центру нижньої панелі (єдина щоденна дія,
-     має бути одразу впізнавана, як "+" в Instagram/банківських застосунках). */
+     має бути одразу впізнавана, як "+" в Instagram/банківських застосунках).
+     Свідомо ЛИШАЄТЬСЯ поза системою "бульбашки" — це не рівноправна вкладка
+     серед інших, а окремий акцентний елемент (той самий патерн, що floating
+     кнопка пошуку в референсі iOS 26 — плаваюча окремо від скляної капсули). */
   nav.tabbar button.tab-vytraty{ position:relative; }
   nav.tabbar button.tab-vytraty .tb-icon-wrap{ position:relative; width:40px; height:40px; border-radius:50%; background:var(--color-primary); color:#fff; display:flex; align-items:center; justify-content:center; margin-top:-16px; box-shadow:0 4px 10px rgba(34,197,94,.35); transition:background var(--duration-fast) var(--easing-standard); }
   /* Rev 2.3.6 — бейдж кількості витрат, внесених СЬОГОДНІ, на кнопці "Витрати"
@@ -1107,12 +1142,13 @@
         </div>
       </div>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.3.9</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.4.0</div>
     </div>
   </div>
 </div>
 
 <nav class="tabbar">
+  <div class="tabbar-bubble" id="tabbar-bubble"></div>
   <button class="active" data-tab="analytics" onclick="switchTab('analytics')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
     Аналітика
@@ -1381,7 +1417,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.3.9';
+const APP_VERSION = '2.4.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -4422,6 +4458,7 @@ function performSwitchTab(tab){
   });
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   document.querySelectorAll('.side-tab[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  updateTabBubble();
   // BugFix Rev 2.0.8: вкладки — це просто display:none/block перемикання
   // div-ів всередині ОДНІЄЇ сторінки, що скролиться (немає окремого
   // внутрішнього scroll-контейнера) — тому прокрутка "переносилась" з
@@ -4447,6 +4484,85 @@ function performSwitchTab(tab){
     }
   }
 }
+
+/* ============ "Liquid Glass" таббар: бульбашка + свайп (Rev 2.4.0) ============
+   updateTabBubble() позиціонує плаваючу підсвітку під АКТИВНУ кнопку таббару,
+   крім "Витрати" (та має власний окремий floating-стиль, поза системою
+   бульбашки — див. коментар у CSS). Позиція рахується через
+   getBoundingClientRect(), а не CSS-відсотками — так бульбашка завжди влучає
+   точно під кнопку незалежно від фактичної ширини екрана й того, що кнопка
+   "Витрати" має іншу ширину/висоту за решту. */
+function updateTabBubble(skipAnimation){
+  const bar = document.querySelector('nav.tabbar');
+  const bubble = document.getElementById('tabbar-bubble');
+  if(!bar || !bubble) return;
+  const activeBtn = bar.querySelector('button.active:not(.tab-vytraty)');
+  if(!activeBtn){
+    // Активна вкладка — "Витрати" (або взагалі не таббар-вкладка, напр.
+    // Налаштування): бульбашці нема під чим бути, ховаємо через opacity, а
+    // не миттєве display:none — так наступна поява знову плавно виникає з
+    // тієї самої точки, а не "телепортується".
+    bubble.style.opacity = '0';
+    return;
+  }
+  const barRect = bar.getBoundingClientRect();
+  const btnRect = activeBtn.getBoundingClientRect();
+  const x = btnRect.left - barRect.left;
+  if(skipAnimation) bubble.classList.add('no-anim');
+  bubble.style.width = btnRect.width + 'px';
+  bubble.style.transform = `translateX(${x}px)`;
+  bubble.style.opacity = '1';
+  if(skipAnimation){
+    // Форсуємо reflow, щоб браузер "побачив" стиль без transition ДО того,
+    // як ми знову дозволимо анімацію — інакше перше позиціювання при
+    // завантаженні сторінки саме теж плавно "приїжджало" б з кута (0,0).
+    void bubble.offsetHeight;
+    bubble.classList.remove('no-anim');
+  }
+}
+window.addEventListener('resize', function(){ updateTabBubble(true); });
+
+/* Rev 2.4.0 — свайп по самій панелі таббару (не по всьому екрану — щоб не
+   конфліктувати зі скролом журналу/розгортанням карток деінде в застосунку):
+   протяг вліво/вправо на самій капсулі перемикає на сусідню вкладку, той
+   самий порядок, що й зліва направо в розмітці. Короткий тап (без зсуву,
+   swiping лишається false) обробляється звичайним onclick кнопки як і
+   раніше — свайп цьому не заважає. */
+(function initTabbarSwipe(){
+  const bar = document.querySelector('nav.tabbar');
+  if(!bar) return;
+  const TAB_ORDER = ['analytics','accounting','vytraty','structure','service'];
+  const SWIPE_THRESHOLD = 40;
+  let startX = null, startY = null, swiping = false;
+  bar.addEventListener('touchstart', function(e){
+    if(e.touches.length !== 1) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    swiping = false;
+  }, {passive:true});
+  bar.addEventListener('touchmove', function(e){
+    if(startX == null || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if(!swiping && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) swiping = true;
+  }, {passive:true});
+  bar.addEventListener('touchend', function(e){
+    if(startX == null) return;
+    const touch = e.changedTouches && e.changedTouches[0];
+    const dx = touch ? touch.clientX - startX : 0;
+    const wasSwiping = swiping;
+    startX = null; startY = null; swiping = false;
+    if(!wasSwiping || Math.abs(dx) < SWIPE_THRESHOLD) return; // звичайний тап — кнопка сама обробить клік
+    // preventDefault прибирає "примарний" клік по кнопці під пальцем у
+    // момент відпускання — інакше свайп ще й одночасно "тапнув" би по тому,
+    // що опинилось під пальцем в кінці жесту.
+    e.preventDefault();
+    const idx = TAB_ORDER.indexOf(lastActiveTab);
+    if(idx === -1) return;
+    const nextIdx = Math.max(0, Math.min(TAB_ORDER.length-1, dx < 0 ? idx+1 : idx-1));
+    if(nextIdx !== idx) switchTab(TAB_ORDER[nextIdx]);
+  });
+})();
 
 /* ============ Налаштування (Drawer) ============ */
 function openSettings(){
@@ -4783,6 +4899,10 @@ document.addEventListener('focusout', function(e){
 });
 
 loadAll();
+// Rev 2.4.0 — початкове позиціювання "бульбашки" таббару під активну вкладку
+// за замовчуванням (Аналітика) — БЕЗ анімації, щоб не "прилітала" з кута
+// екрана при першому завантаженні сторінки.
+updateTabBubble(true);
 // Rev 2.3.3 — відновлення чернетки після loadAll() (потребує вже завантажені
 // CATEGORIES/SUBCATEGORIES/installmentAccounts, інакше setCategorySelect()/
 // автозв'язок ОЧ спрацювали б на порожніх довідниках).
