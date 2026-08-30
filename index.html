@@ -566,7 +566,7 @@
      безпечний. */
   nav.tabbar{
     position:fixed; left:0; right:0; margin:0 auto;
-    bottom:calc(14px + env(safe-area-inset-bottom));
+    bottom:calc(6px + env(safe-area-inset-bottom)); /* Rev 2.4.25 — зменшено з 14px: капсула сиділа надто високо над системною безпечною зоною */
     width:calc(100% - 28px); max-width:460px;
     z-index:20;
   }
@@ -1239,7 +1239,7 @@
         </div>
       </div>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.4.24</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.4.25</div>
     </div>
   </div>
 </div>
@@ -1516,7 +1516,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.4.24';
+const APP_VERSION = '2.4.25';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
