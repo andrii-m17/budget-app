@@ -1239,7 +1239,7 @@
         </div>
       </div>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.4.23</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.4.24</div>
     </div>
   </div>
 </div>
@@ -1516,7 +1516,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.4.23';
+const APP_VERSION = '2.4.24';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -4652,6 +4652,30 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
   let dragging = false;
   let previewBtn = null;
 
+  // Rev 2.4.24 BugFix — нативний window.scrollTo({behavior:'smooth'}) на iOS
+  // Safari має задокументований окремий баг WebKit: програмний плавний скрол
+  // (на відміну від звичайного скролу пальцем) обробляється рушієм по-іншому
+  // і відомий тим, що ламає рендер position:fixed елементів САМЕ під час
+  // своєї анімації (той самий симптом "бар полетів догори", що вже
+  // виправляли раніше для іншої причини). Власна rAF-реалізація — типовий
+  // обхідний шлях: серія дискретних миттєвих scrollTo(0,y) викликів замість
+  // однієї нативної анімованої команди, тому конкретно цей WebKit-баг не
+  // зачіпається.
+  function smoothScrollToTop(duration){
+    duration = duration || 380;
+    const startY = window.scrollY || window.pageYOffset || 0;
+    if(startY <= 0) return;
+    const startTime = performance.now();
+    function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
+    function step(now){
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      window.scrollTo(0, Math.round(startY * (1 - easeOutCubic(t))));
+      if(t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
   function applyBubbleX(x){ bubble.style.setProperty('--bubble-x', x + 'px'); }
   function setPreview(btn){
     if(previewBtn !== btn){
@@ -4838,7 +4862,7 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
     if(finalBtn && finalBtn.dataset.tab && finalBtn.dataset.tab !== lastActiveTab){
       switchTab(finalBtn.dataset.tab);
     }else if(finalBtn && finalBtn.dataset.tab === lastActiveTab && wasTap){
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      smoothScrollToTop();
     }else if(!finalBtn){
       updateTabBubble();
     }
