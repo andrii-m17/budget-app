@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.4.25';
+const CACHE_NAME = 'budget-app-v2.4.26';
 const APP_SHELL = [
   './',
   './index.html',
