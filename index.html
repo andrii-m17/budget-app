@@ -59,7 +59,10 @@
      відступ від нижнього краю екрана (14px + safe-area), а не притиснута
      впритул — тому резервний простір під неї збільшено, інакше контент
      журналу/карток міг би ховатись під панеллю в самому кінці скролу. */
-  .app-shell{ max-width:980px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; padding-bottom:104px; background:var(--color-bg); }
+  /* Rev 2.5.0 — padding-bottom піднято на ті самі +8px, що й сам таббар
+     нижче (див. bottom:var(--tabbar-bottom-offset...)), щоб контент і далі
+     повністю ховався під капсулою в самому кінці скролу, а не залишав щілину. */
+  .app-shell{ max-width:980px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; padding-bottom:112px; background:var(--color-bg); }
   .side{ display:none; }
   .top{ padding:calc(env(safe-area-inset-top,0px) + 22px) 20px 16px; border-bottom:1px solid var(--color-border); }
   .brand{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
@@ -577,7 +580,7 @@
        використовується завжди, доки JS (наприкінці скрипта) не встановить
        власне значення --tabbar-bottom-offset на documentElement, і лише в
        standalone — звичайний перегляд у браузері це не зачіпає. */
-    bottom:var(--tabbar-bottom-offset, calc(6px + env(safe-area-inset-bottom)));
+    bottom:var(--tabbar-bottom-offset, calc(14px + env(safe-area-inset-bottom)));
     width:calc(100% - 28px); max-width:460px;
     z-index:20;
   }
@@ -1250,7 +1253,7 @@
         </div>
       </div>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.4.26</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.5.0</div>
     </div>
   </div>
 </div>
@@ -1527,7 +1530,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.4.26';
+const APP_VERSION = '2.5.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -4786,25 +4789,37 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
   // CSS-транзишен-анімацією (той самий ефект, що при свайпі, тільки без
   // ручного відстеження пальця).
   let hasMoved = false;
+  // Rev 2.5.0 — координати старту жесту, потрібні лише для порогу
+  // "тап чи драг" нижче (buttonAtLocalX на touchstart цього не потребував).
+  let gestureStartX = 0, gestureStartY = 0;
+  // Rev 2.5.0 — мінімальна відстань пальця (у px), яку потрібно проїхати,
+  // перш ніж жест вважається перетягуванням, а не тремтінням руки під час
+  // тапу. Той самий порядок величини, що нативний iOS tap-tolerance.
+  const TAP_MOVE_THRESHOLD = 8;
   bar.addEventListener('touchstart', function(e){
     if(e.touches.length !== 1) return;
     resetGestureState(); // страховка від залишкового стану попереднього жесту
     dragging = true;
     hasMoved = false;
+    gestureStartX = e.touches[0].clientX;
+    gestureStartY = e.touches[0].clientY;
     bar.classList.add('pressed');
     const btn = buttonAtLocalX(localFingerX(e.touches[0].clientX));
     setPreview(btn); // миттєва кольорова реакція на дотик; форма бульбашки — ще ні
-  }, {passive:true});
+  }, {passive:true, capture:true});
 
   bar.addEventListener('touchmove', function(e){
     if(!dragging || e.touches.length !== 1) return;
-    e.preventDefault();
+    const t = e.touches[0];
     if(!hasMoved){
+      const dx = Math.abs(t.clientX - gestureStartX), dy = Math.abs(t.clientY - gestureStartY);
+      if(Math.max(dx, dy) < TAP_MOVE_THRESHOLD) return; // ще в межах порогу тапу — не починаємо драг
       hasMoved = true;
       bubble.classList.add('no-anim'); // щойно підтвердився реальний драг — вимикаємо transition для точного 1:1
     }
-    trackFinger(e.touches[0].clientX);
-  }, {passive:false});
+    e.preventDefault();
+    trackFinger(t.clientX);
+  }, {passive:false, capture:true});
 
 
   // Rev 2.4.7 — явне "доведення" бульбашки до ТОЧНОЇ форми/позиції цільової
@@ -4878,12 +4893,12 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
       updateTabBubble();
     }
   }
-  bar.addEventListener('touchend', finishGesture, {passive:false});
+  bar.addEventListener('touchend', finishGesture, {passive:false, capture:true});
   bar.addEventListener('touchcancel', function(){
     if(!dragging) return;
     resetGestureState();
     updateTabBubble();
-  }, {passive:true});
+  }, {passive:true, capture:true});
 })();
 
 /* ============ Налаштування (Drawer) ============ */
@@ -5274,13 +5289,17 @@ updateConnectionStatus();
 // інших браузерів/платформ, де може не бути navigator.standalone.
 // --tabbar-bottom-offset ПОВНІСТЮ перевизначає значення bottom (не залежить
 // від того, як саме env() поводиться в цьому режимі) — якщо капсула в
-// standalone і далі сидить зависоко/занизько, значення нижче (20px) легко
+// standalone і далі сидить зависоко/занизько, значення нижче (28px) легко
 // скоригувати саме тут, не займаючи звичайний перегляд у браузері.
+// Rev 2.5.0 — підняте на ті самі +8px, що й базове значення в CSS (6px→14px),
+// щоб капсула трохи відступала від нижнього краю екрана й зменшувала
+// випадкові натискання біля самого краю (за референсом системних панелей
+// iOS 26) — і в standalone, і в звичайному перегляді браузера однаково.
 (function detectStandalonePwa(){
   const isStandalone = (window.navigator && window.navigator.standalone === true)
     || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
   if(isStandalone){
-    document.documentElement.style.setProperty('--tabbar-bottom-offset', '20px');
+    document.documentElement.style.setProperty('--tabbar-bottom-offset', '28px');
   }
 })();
 
