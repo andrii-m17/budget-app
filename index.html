@@ -2,9 +2,27 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
+<script>
+// Rev 2.6.0 — визначення теми ПЕРШИМ ділом, до будь-якого CSS чи розмітки.
+// Синхронний (без defer/async/type=module) — це критично: якщо виставити
+// атрибут data-theme пізніше (напр. у кінці скрипта разом з рештою
+// ініціалізації), сторінка встигне на мить намалюватись зі світлою темою
+// за замовчуванням, і користувач побачить різкий "спалах" перед перемиканням
+// на темну — той самий клас проблеми, що anti-FOUC скрипти вирішують у
+// будь-якому застосунку з перемикачем теми.
+(function(){
+  try{
+    var saved = localStorage.getItem('budget_theme_v1') || 'auto';
+    var resolved = saved === 'auto'
+      ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : saved;
+    document.documentElement.setAttribute('data-theme', resolved);
+  }catch(e){ /* localStorage недоступний (напр. приватний режим) — лишаємось на світлій темі за замовчуванням */ }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="color-scheme" content="light">
-<meta name="theme-color" content="#F7F8FA">
+<meta name="color-scheme" id="meta-color-scheme" content="light">
+<meta name="theme-color" id="meta-theme-color" content="#F7F8FA">
 <!-- Rev 2.3.3 — PWA: маніфест дозволяє "Додати на головний екран" з
      правильною поведінкою (Android/Chrome). iOS Safari маніфест досі
      враховує частково, тому окремо дублюємо ключові речі apple-*
@@ -21,6 +39,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
+    color-scheme: light;
     /* --- Design System v2.0 — єдине джерело істини (замінює v1.1/v1.2) --- */
     --color-bg:#F7F8FA; --color-surface:#FFFFFF; --color-surface-hover:#F1F3F5;
     --color-border:#E6EAF2; --color-border-strong:#E6EAF2;
@@ -36,6 +55,27 @@
     --color-expense:#101828; --color-expense-bg:#F1F3F5;
     --color-accent-purple:#9333EA; --color-accent-purple-bg:#F5E9FE;
 
+    /* Rev 2.6.0 — нові токени: раніше ці кольори жили як прямі hex-значення
+       поза системою змінних (SVG-графіки, треки прогрес-барів, приглушені
+       підписи заголовків таблиць) — тому не підхоплювали б темну тему
+       автоматично. Винесено окремо, а не змішано з уже наявними
+       --color-muted/--color-border, бо це візуально інші відтінки
+       (світліший/приглушеніший), які потребують ВЛАСНОГО темного варіанту. */
+    --color-text-tertiary:#94A3B8;
+    --color-chart-grid:#D1D5DB;
+    --color-track-bg:#F1F5F9;
+
+    /* Rev 2.6.0 — "скляна" капсула нижнього таббару (Rev 2.4.x) досі мала
+       пряму білизну rgba(255,255,255,...) — на темному фоні виглядало б як
+       яскрава пляма замість скла. Власні токени, а не --color-surface,
+       бо ефект напівпрозорого скла (backdrop-filter) працює лише з rgba(),
+       а не суцільним кольором поверхні. */
+    --color-glass-bg:rgba(255,255,255,.52);
+    --color-glass-pressed-bg:rgba(255,255,255,.74);
+    --color-glass-border:rgba(255,255,255,.7);
+    --color-glass-shimmer:rgba(255,255,255,.65);
+    --shadow-glass:0 10px 32px rgba(16,24,40,.16), 0 2px 8px rgba(16,24,40,.06), inset 0 1px 0 rgba(255,255,255,.5);
+
     --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:24px;
     --space-6:32px; --space-7:40px; --space-8:48px; --space-9:64px;
     --radius-sm:10px; --radius-md:12px; --radius-lg:20px; --radius-xl:24px;
@@ -44,6 +84,52 @@
     --shadow-lg:0 2px 10px rgba(15,23,42,.05);
     --duration-fast:120ms; --duration-base:180ms; --duration-slow:240ms;
     --easing-standard:cubic-bezier(.4,0,.2,1);
+  }
+  /* Rev 2.6.0 — темна палітра. Керується атрибутом data-theme на <html>,
+     який виставляє JS (applyTheme()) ще ДО першого рендеру (синхронний
+     скрипт у самому початку <head>, щоб уникнути "спалаху світлої теми"
+     при завантаженні). CSS-селектор [data-theme="dark"] навмисно НЕ
+     дублюється через @media(prefers-color-scheme:dark) — вибір "Системна"
+     теж резолвиться в JS у явний атрибут, тому одне єдине джерело істини
+     для теми, а не два різні механізми, які можуть розійтись.
+     Принцип підбору кольорів: акцентні (зелений/червоний/жовтий/синій/
+     фіолетовий) лишаються впізнаваними, але трохи СВІТЛІШими за light-
+     версію — темний фон вимагає світлішого акценту для того самого
+     відчуття контрасту (протилежний напрям до звичного "щоб було темніше
+     при hover"). Фонові -bg відтінки (--color-*-bg) замінені з суцільних
+     пастельних на напівпрозорі rgba() того самого акцентного кольору —
+     суцільний блідо-м'ятний/бежевий фон на темній картці виглядав би як
+     "вирізана світла пляма", а напівпрозорий тон читається як природне
+     підсвічування поверх темної картки. */
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --color-bg:#0B0F16; --color-surface:#151B26; --color-surface-hover:#1E2530;
+    --color-border:#262E3B; --color-border-strong:#2E3745;
+    --color-text-primary:#F1F4F8; --color-text-secondary:#94A0B4; --color-muted:#94A0B4;
+    --color-hover-overlay:rgba(255,255,255,.06); --color-active-overlay:rgba(255,255,255,.1);
+    --color-disabled-bg:#1A212C; --color-disabled-text:#4B5563;
+
+    --color-primary:#22C55E; --color-primary-bg:rgba(34,197,94,.16); --color-primary-hover:#34D673;
+    --color-success:#22C55E; --color-success-bg:rgba(34,197,94,.16);
+    --color-warning:#F59E0B; --color-warning-bg:rgba(245,158,11,.16); --color-warning-hover:#FBBF24;
+    --color-error:#F87171; --color-error-bg:rgba(239,68,68,.18); --color-error-hover:#FCA5A5;
+    --color-info:#60A5FA; --color-info-bg:rgba(59,130,246,.18);
+    --color-expense:#F1F4F8; --color-expense-bg:#1E2530;
+    --color-accent-purple:#C084FC; --color-accent-purple-bg:rgba(147,51,234,.2);
+
+    --color-text-tertiary:#7C8BA3;
+    --color-chart-grid:#29323F;
+    --color-track-bg:#1E2530;
+
+    --color-glass-bg:rgba(21,27,38,.62);
+    --color-glass-pressed-bg:rgba(31,38,52,.82);
+    --color-glass-border:rgba(255,255,255,.1);
+    --color-glass-shimmer:rgba(255,255,255,.22);
+    --shadow-glass:0 10px 32px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.08);
+
+    --shadow-sm:0 2px 10px rgba(0,0,0,.35);
+    --shadow-md:0 2px 12px rgba(0,0,0,.35);
+    --shadow-lg:0 4px 18px rgba(0,0,0,.45);
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html{ background:var(--color-bg); min-height:100%; }
@@ -200,7 +286,7 @@
      першого-ліпшого в масиві. */
   .field.installment-link-hint.multi{ flex-direction:column; align-items:stretch; gap:8px; }
   .installment-link-candidates{ display:flex; flex-wrap:wrap; gap:6px; }
-  .installment-link-candidates button{ text-decoration:none; background:#fff; border:1.5px solid var(--color-accent-purple); border-radius:20px; padding:4px 10px; font-size:11px; font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }
+  .installment-link-candidates button{ text-decoration:none; background:var(--color-surface); border:1.5px solid var(--color-accent-purple); border-radius:20px; padding:4px 10px; font-size:11px; font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }
   .installment-link-candidates button:hover{ background:var(--color-accent-purple-bg); }
   /* Rev 2.1.6 — за порадою поради ззовні спростили форму: категорія/підкатегорія
      за замовчуванням приховані (щоб форма не лякала кількістю полів). Якщо
@@ -340,7 +426,7 @@
   /* ---- Огляд / Аналітика ---- */
   .ov-row1{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:0; }
   .ov-row1 .wide{ grid-column:span 2; }
-  .kpi-card.v2{ position:relative; min-width:0; height:180px; min-height:180px; padding:16px; display:flex; flex-direction:column; background:#fff; border:1px solid var(--color-border); border-radius:12px; box-shadow:none; }
+  .kpi-card.v2{ position:relative; min-width:0; height:180px; min-height:180px; padding:16px; display:flex; flex-direction:column; background:var(--color-surface); border:1px solid var(--color-border); border-radius:12px; box-shadow:none; }
   .kpi-card-header{ display:flex; align-items:center; gap:8px; margin-bottom:12px; }
   .kpi-icon-circle{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-bottom:0; }
   .kpi-icon-circle svg{ width:20px; height:20px; }
@@ -361,7 +447,7 @@
   .kpi-trend.is-negative{ color:var(--color-error) !important; }
   .kpi-trend .trend-main, .kpi-trend .trend-context{ display:block; }
   .kpi-card.v2.income .kpi-trend, .kpi-card.v2.expense .kpi-trend, .kpi-card.v2.savings .kpi-trend, .kpi-card.v2.debt .kpi-trend{ text-align:center; }
-  .kpi-trend .trend-context{ color:#475569; font-size:10px; font-weight:500; line-height:14px; }
+  .kpi-trend .trend-context{ color:var(--color-text-secondary); font-size:10px; font-weight:500; line-height:14px; }
   .kpi-card.v2.income .kpi-trend .trend-context, .kpi-card.v2.expense .kpi-trend .trend-context, .kpi-card.v2.savings .kpi-trend .trend-context, .kpi-card.v2.debt .kpi-trend .trend-context{ color:var(--color-muted); font-size:9px; font-weight:500; line-height:15px; }
   .kpi-card.v2.income .kpi-spark, .kpi-card.v2.expense .kpi-spark, .kpi-card.v2.savings .kpi-spark, .kpi-card.v2.debt .kpi-spark{ width:100%; }
   .kpi-card.v2.savings .kpi-icon-circle{ background:var(--color-info-bg); color:var(--color-info); }
@@ -378,10 +464,10 @@
 
   .ov-row2{ display:grid; grid-template-columns:1fr; gap:24px; margin:20px 0 24px; align-items:stretch; }
   .ov-row2 > .card{ margin-top:0; }
-  .gm-chart-card{ background:#FFFFFF; border:1px solid #E5E7EB; border-radius:24px; padding:24px; box-shadow:0 1px 2px rgba(16,24,40,0.04); display:flex; flex-direction:column; min-width:0; height:100%; }
+  .gm-chart-card{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:24px; padding:24px; box-shadow:0 1px 2px rgba(16,24,40,0.04); display:flex; flex-direction:column; min-width:0; height:100%; }
   .gm-chart-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--color-text-primary); line-height:14px; margin-bottom:8px; }
   .gm-legend{ display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
-  .gm-legend span{ display:flex; align-items:center; gap:6px; font-size:14px; font-weight:500; color:#6B7280; }
+  .gm-legend span{ display:flex; align-items:center; gap:6px; font-size:14px; font-weight:500; color:var(--color-text-secondary); }
   .gm-legend i{ width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
   .gm-chart-card > div[id^="chart-"]{ margin-top:auto; }
 
@@ -409,9 +495,9 @@
   /* Rev 1.6.4 — переоформлення блоку "Топ-5 / Топ-10 / Скоротити / Борги" за GM:
      менші й компактніші шрифти, довші прогрес-бари (звужені фіксовані колонки
      назви/суми/%), без лінії-роздільника під заголовком колонок. */
-  .ov-row3 .table-card-title{ color:#0F172A; font-size:12.5px; font-weight:700; line-height:16px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:16px; }
+  .ov-row3 .table-card-title{ color:var(--color-text-primary); font-size:12.5px; font-weight:700; line-height:16px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:16px; }
   .table-card-title{ font-weight:600; font-size:16px; line-height:24px; margin-bottom:12px; }
-  .table-header{ display:flex; align-items:center; gap:8px; font-size:11.5px; font-weight:500; text-transform:none; letter-spacing:0; color:#94A3B8; border-bottom:none; padding-bottom:0; margin-bottom:6px; }
+  .table-header{ display:flex; align-items:center; gap:8px; font-size:11.5px; font-weight:500; text-transform:none; letter-spacing:0; color:var(--color-text-tertiary); border-bottom:none; padding-bottom:0; margin-bottom:6px; }
   /* BugFix Rev 1.7.1 — раніше .t-name мав ФІКСОВАНУ вузьку ширину (58px/108px),
      а .t-bar-h ріс (flex:1 1 auto): при розгортанні картки назва обрізалась
      ("Опл...", "Кра..."), а бар розтягувався на весь вільний простір. Міняємо
@@ -426,11 +512,11 @@
   .t-row{ display:flex; align-items:center; gap:8px; padding:4.5px 0 4.5px 4px; margin-left:-4px; border-radius:var(--radius-sm); min-height:29px; transition:background var(--duration-fast) var(--easing-standard); }
   .t-row:not(.summary):hover{ background:var(--color-hover-overlay); }
   .t-row.summary{ font-weight:700; border-top:1.5px solid var(--color-border-strong); margin-top:2px; padding-top:7px; }
-  .t-row .t-name{ flex:1 1 auto; min-width:0; font-size:12.5px; font-weight:600; color:#0F172A; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .t-row .t-name{ flex:1 1 auto; min-width:0; font-size:12.5px; font-weight:600; color:var(--color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .t-row .t-bar-h{ flex:0 0 64px; min-width:40px; }
-  .t-row .t-bar-track{ height:6px; background:#F1F5F9; border-radius:20px; overflow:hidden; }
+  .t-row .t-bar-track{ height:6px; background:var(--color-track-bg); border-radius:20px; overflow:hidden; }
   .t-row .t-bar-fill{ height:100%; border-radius:20px; }
-  .t-row .t-amt{ flex:0 0 72px; min-width:0; text-align:right; font-size:12.5px; font-weight:700; color:#0F172A; font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:visible; }
+  .t-row .t-amt{ flex:0 0 72px; min-width:0; text-align:right; font-size:12.5px; font-weight:700; color:var(--color-text-primary); font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:visible; }
   /* Rev 2.1.20 — у детальному вигляді картки ОЧ дві колонки сум (Залишок +
      Платіж/міс) замість однієї (як у категорій/боргів) — за умови тісного
      мобільного екрана звужуємо обидві й ховаємо, а не показуємо, переповнення
@@ -438,7 +524,7 @@
   .t-row .t-amt.narrow{ flex:0 0 62px; overflow:hidden; text-overflow:ellipsis; }
   .t-row .t-pct{ flex:0 0 34px; min-width:0; text-align:right; font-size:10.5px; font-weight:500; color:var(--color-muted); font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; }
   .t-row .t-priority{ flex:0 0 58px; min-width:0; text-align:right; font-size:10.5px; font-weight:600; white-space:nowrap; }
-  .t-footer-link{ display:block; width:100%; background:none; border:none; font-family:inherit; text-align:center; font-weight:600; font-size:13px; color:#0F172A; margin-top:auto; padding-top:14px; cursor:pointer; }
+  .t-footer-link{ display:block; width:100%; background:none; border:none; font-family:inherit; text-align:center; font-weight:600; font-size:13px; color:var(--color-text-primary); margin-top:auto; padding-top:14px; cursor:pointer; }
   .t-footer-link .arrow{ margin-left:4px; }
   /* BugFix Rev 1.7.1 — "Потенціал економії": .t-name мав flex-grow:0 всередині
      justify-content:space-between. Через це вільний простір розподілявся МІЖ
@@ -487,12 +573,12 @@
   .ksi-sub{ font-size:11px; color:var(--color-muted); min-height:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* Rev 1.7.3 — "Висновки місяця": рядок карток-інсайтів (іконка + заголовок +
      опис) замість списку буллітів з однорядковим текстом, за референс-скріном. */
-  .summary-card .table-card-title{ text-transform:uppercase; font-size:12.5px; font-weight:700; letter-spacing:.4px; color:#0F172A; margin-bottom:18px; }
+  .summary-card .table-card-title{ text-transform:uppercase; font-size:12.5px; font-weight:700; letter-spacing:.4px; color:var(--color-text-primary); margin-bottom:18px; }
   .insights-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:22px 20px; }
   .insight-item{ display:flex; flex-direction:column; gap:10px; min-width:0; }
   .insight-icon{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .insight-icon svg{ width:15px; height:15px; display:block; }
-  .insight-title{ font-size:13.5px; font-weight:700; color:#0F172A; line-height:17px; }
+  .insight-title{ font-size:13.5px; font-weight:700; color:var(--color-text-primary); line-height:17px; }
   .insight-desc{ font-size:12.5px; color:var(--color-text-secondary); line-height:1.55; }
   @media (min-width:1280px){ .insights-row{ grid-template-columns:repeat(5,1fr); } }
 
@@ -531,6 +617,12 @@
   .drawer-head h2{ margin:0; font-size:17px; font-weight:700; }
   .drawer-close{ width:32px; height:32px; border-radius:var(--radius-md); border:none; background:var(--color-surface-hover); cursor:pointer; color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; }
   .drawer-empty{ font-size:13px; color:var(--color-text-secondary); line-height:1.6; background:var(--color-surface-hover); border-radius:var(--radius-md); padding:16px; }
+  /* Rev 2.6.0 — сегментований перемикач теми (Системна/Світла/Темна) */
+  .theme-toggle{ display:flex; gap:4px; background:var(--color-surface-hover); border-radius:var(--radius-md); padding:4px; margin-bottom:20px; }
+  .theme-toggle-btn{ flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; padding:11px 4px; border:none; background:none; border-radius:var(--radius-sm); color:var(--color-text-secondary); font-size:11px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
+  .theme-toggle-btn svg{ width:18px; height:18px; }
+  .theme-toggle-btn:hover{ color:var(--color-text-primary); }
+  .theme-toggle-btn.active{ background:var(--color-surface); color:var(--color-primary-hover); box-shadow:var(--shadow-sm); }
   /* Rev 2.0.5 — власний модал замість confirm()/prompt() */
   .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); background:var(--color-surface); border-radius:var(--radius-xl); padding:22px 20px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
   .app-modal.open{ opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
@@ -621,14 +713,14 @@
        тому залишкові артефакти розмиття менш помітні. Це часткова поступка
        від попередньої вимоги "-40% прозоріше" заради стабільності картинки;
        якщо це замало прозоро — скажи, підберемо інше число. */
-    background:rgba(255,255,255,.52);
+    background:var(--color-glass-bg);
     -webkit-backdrop-filter:blur(16px) saturate(180%);
     backdrop-filter:blur(16px) saturate(180%);
-    border:1px solid rgba(255,255,255,.7);
+    border:1px solid var(--color-glass-border);
     border-radius:26px;
     display:flex; align-items:stretch;
     padding:6px 6px;
-    box-shadow:0 10px 32px rgba(16,24,40,.16), 0 2px 8px rgba(16,24,40,.06), inset 0 1px 0 rgba(255,255,255,.5);
+    box-shadow:var(--shadow-glass);
     transform:scale(1) translateZ(0); /* translateZ(0) в тому самому transform — примусова апаратна композиція */
     transition:transform .82s cubic-bezier(.22,1,.36,1), background .82s cubic-bezier(.22,1,.36,1);
   }
@@ -636,7 +728,7 @@
      (не лише бульбашка) і плавно повертається до звичайного розміру, коли
      дотику більше немає — той самий клас .pressed, що вже вмикає ефекти
      бульбашки, керує і цим. */
-  nav.tabbar.pressed .tabbar-glass{ transform:scale(1.035) translateZ(0); background:rgba(255,255,255,.74); transition:transform .22s cubic-bezier(.22,1,.36,1), background .22s cubic-bezier(.22,1,.36,1); }
+  nav.tabbar.pressed .tabbar-glass{ transform:scale(1.035) translateZ(0); background:var(--color-glass-pressed-bg); transition:transform .22s cubic-bezier(.22,1,.36,1), background .22s cubic-bezier(.22,1,.36,1); }
   nav.tabbar button{ position:relative; z-index:1; background:none; border:none; color:var(--color-muted); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; font-size:10.5px; font-weight:600; padding:8px 4px; border-radius:18px; flex-basis:20%; flex-grow:0; flex-shrink:0; min-width:44px; min-height:44px; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   /* Rev 2.4.0 — "бульбашка" вибору: один плаваючий елемент замість статичного
      background на кожній .active кнопці (як було раніше) — саме це дає ефект
@@ -678,7 +770,7 @@
      рухається по ній по колу, поки палець утримується). */
   .tabbar-bubble::before{
     content:""; position:absolute; inset:0; border-radius:inherit;
-    background:linear-gradient(120deg, transparent 25%, rgba(255,255,255,.65) 50%, transparent 75%);
+    background:linear-gradient(120deg, transparent 25%, var(--color-glass-shimmer) 50%, transparent 75%);
     background-size:240% 240%; background-position:0% 50%;
     opacity:0; transition:opacity .2s ease; pointer-events:none;
   }
@@ -721,7 +813,7 @@
   /* Rev 2.3.6 — бейдж кількості витрат, внесених СЬОГОДНІ, на кнопці "Витрати"
      (tabbar і sidebar): миттєво видно, чи вже щось внесено сьогодні, без
      переходу на вкладку — та сама ідея, що бейдж непрочитаних повідомлень. */
-  .tb-count-badge{ position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:#fff; color:var(--color-primary-hover); font-size:10px; font-weight:800; line-height:16px; text-align:center; box-shadow:0 0 0 1.5px var(--color-primary-hover); }
+  .tb-count-badge{ position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--color-surface); color:var(--color-primary-hover); font-size:10px; font-weight:800; line-height:16px; text-align:center; box-shadow:0 0 0 1.5px var(--color-primary-hover); }
   .tb-count-badge.hidden{ display:none; }
   .side-count-badge{ margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--color-primary-bg); color:var(--color-primary-hover); font-size:10.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .side-count-badge.hidden{ display:none; }
@@ -1037,12 +1129,12 @@
       <div class="ov-row2">
         <div class="card gm-chart-card">
           <div class="gm-chart-title">Доходи vs Витрати</div>
-          <div class="gm-legend"><span><i style="background:#22C55E"></i>Доходи</span><span><i style="background:#EF4444"></i>Витрати</span></div>
+          <div class="gm-legend"><span><i style="background:var(--color-success)"></i>Доходи</span><span><i style="background:var(--color-error)"></i>Витрати</span></div>
           <div id="chart-income-expense"></div>
         </div>
         <div class="card gm-chart-card">
           <div class="gm-chart-title">Динаміка боргу</div>
-          <div class="gm-legend"><span><i style="background:#F59E0B"></i>Борг</span></div>
+          <div class="gm-legend"><span><i style="background:var(--color-warning)"></i>Борг</span></div>
           <div id="chart-debt-line"></div>
         </div>
       </div>
@@ -1253,7 +1345,7 @@
         </div>
       </div>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.5.0</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.6.0</div>
     </div>
   </div>
 </div>
@@ -1291,10 +1383,24 @@
     <h2>Налаштування</h2>
     <button class="drawer-close" onclick="closeSettings()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
+  <div class="section-label" style="margin-top:2px;">Тема</div>
+  <div class="theme-toggle" id="theme-toggle" role="radiogroup" aria-label="Тема застосунку">
+    <button type="button" class="theme-toggle-btn" data-theme-choice="auto" onclick="setThemeChoice('auto')" role="radio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
+      Системна
+    </button>
+    <button type="button" class="theme-toggle-btn" data-theme-choice="light" onclick="setThemeChoice('light')" role="radio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      Світла
+    </button>
+    <button type="button" class="theme-toggle-btn" data-theme-choice="dark" onclick="setThemeChoice('dark')" role="radio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      Темна
+    </button>
+  </div>
   <div class="drawer-empty">
-    Реальних налаштувань поки немає — застосунок працює лише українською, з ₴ і фіксованим форматом дат.
-    Тема, мова та валюта з'являться тут, тільки коли вони будуть реально працювати
-    (без декоративних перемикачів «про людське око»).
+    Мова та валюта поки фіксовані — українська, ₴. З'являться тут, тільки коли
+    будуть реально працювати (без декоративних перемикачів «про людське око»).
   </div>
 </div>
 
@@ -1530,7 +1636,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -3707,7 +3813,7 @@ function svgSparkline(values, colorVar){
     return [x, y];
   });
   const path = pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
-  const points = pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.25" fill="var(${colorVar})" stroke="#fff" stroke-width=".75"/>`).join('');
+  const points = pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.25" fill="var(${colorVar})" stroke="var(--color-surface)" stroke-width=".75"/>`).join('');
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:100%; display:block;"><path d="${path}" fill="none" stroke="var(${colorVar})" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>${points}</svg>`;
 }
 
@@ -3807,19 +3913,19 @@ function svgBarChart(trendData, totalSlots){
   for(let i=0;i<=numSteps;i++){
     const val = STEP*i;
     const y = padT+plotH-(val/axisMax*plotH);
-    grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="#D1D5DB" stroke-width="1"/>`;
-    grid += `<text x="${padL-8}" y="${(y+4).toFixed(1)}" font-size="12" font-weight="500" text-anchor="end" fill="#9CA3AF">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`;
+    grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--color-chart-grid)" stroke-width="1"/>`;
+    grid += `<text x="${padL-8}" y="${(y+4).toFixed(1)}" font-size="12" font-weight="500" text-anchor="end" fill="var(--color-text-tertiary)">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`;
   }
   trendData.forEach((t,i)=>{
     const gx = padL + i*groupW + groupW/2;
     const incH = t.totalIncome/axisMax*plotH, expH = t.totalExpense/axisMax*plotH;
     const incX = gx - barW - 3, expX = gx + 3;
     const incY = padT+plotH-incH, expY = padT+plotH-expH;
-    bars += `<path d="${roundedTopBarPath(incX, incY, barW, incH, 6)}" fill="#22C55E"/>`;
-    bars += `<path d="${roundedTopBarPath(expX, expY, barW, expH, 6)}" fill="#EF4444"/>`;
-    if(t.totalIncome>0) bars += `<text x="${(incX+barW/2).toFixed(1)}" y="${(incY-6).toFixed(1)}" font-size="12" text-anchor="middle" fill="#111827" font-weight="600">${Math.round(t.totalIncome/1000)}k</text>`;
-    if(t.totalExpense>0) bars += `<text x="${(expX+barW/2).toFixed(1)}" y="${(expY-6).toFixed(1)}" font-size="12" text-anchor="middle" fill="#111827" font-weight="600">${Math.round(t.totalExpense/1000)}k</text>`;
-    bars += `<text x="${gx.toFixed(1)}" y="${H-8}" font-size="12" font-weight="500" text-anchor="middle" fill="#6B7280">${monthLabelShort(t.m)}</text>`;
+    bars += `<path d="${roundedTopBarPath(incX, incY, barW, incH, 6)}" fill="var(--color-success)"/>`;
+    bars += `<path d="${roundedTopBarPath(expX, expY, barW, expH, 6)}" fill="var(--color-error)"/>`;
+    if(t.totalIncome>0) bars += `<text x="${(incX+barW/2).toFixed(1)}" y="${(incY-6).toFixed(1)}" font-size="12" text-anchor="middle" fill="var(--color-text-primary)" font-weight="600">${Math.round(t.totalIncome/1000)}k</text>`;
+    if(t.totalExpense>0) bars += `<text x="${(expX+barW/2).toFixed(1)}" y="${(expY-6).toFixed(1)}" font-size="12" text-anchor="middle" fill="var(--color-text-primary)" font-weight="600">${Math.round(t.totalExpense/1000)}k</text>`;
+    bars += `<text x="${gx.toFixed(1)}" y="${H-8}" font-size="12" font-weight="500" text-anchor="middle" fill="var(--color-text-secondary)">${monthLabelShort(t.m)}</text>`;
   });
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">${grid}${bars}</svg>`;
 }
@@ -3845,12 +3951,12 @@ function svgLineChart(debtTrend, totalSlots){
   for(let i=0;i<=numSteps;i++){
     const val = STEP*i;
     const y = padT+plotH-(val/axisMax*plotH);
-    grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="#D1D5DB" stroke-width="1"/>`;
-    grid += `<text x="${padL-8}" y="${(y+4).toFixed(1)}" font-size="12" font-weight="500" text-anchor="end" fill="#9CA3AF">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`;
+    grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--color-chart-grid)" stroke-width="1"/>`;
+    grid += `<text x="${padL-8}" y="${(y+4).toFixed(1)}" font-size="12" font-weight="500" text-anchor="end" fill="var(--color-text-tertiary)">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`;
   }
   const points = debtTrend.map((t,i)=>{
     const x = padL + inset + i*stepX;
-    labels += `<text x="${x.toFixed(1)}" y="${H-8}" font-size="12" font-weight="500" text-anchor="middle" fill="#6B7280">${monthLabelShort(t.m)}</text>`;
+    labels += `<text x="${x.toFixed(1)}" y="${H-8}" font-size="12" font-weight="500" text-anchor="middle" fill="var(--color-text-secondary)">${monthLabelShort(t.m)}</text>`;
     if(!t.actual) return { x, y:null, actual:false, total:t.total };
     const y = padT+plotH-(t.total/axisMax*plotH);
     return { x, y, actual:true, total:t.total };
@@ -3867,8 +3973,8 @@ function svgLineChart(debtTrend, totalSlots){
   let circles = '';
   points.forEach(p=>{
     if(!p.actual) return;
-    circles += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="#F59E0B" stroke="#FFFFFF" stroke-width="2"/>`;
-    if(p.total>0) labels += `<text x="${p.x.toFixed(1)}" y="${(p.y-12).toFixed(1)}" font-size="12" text-anchor="middle" fill="#111827" font-weight="600">${p.total>=1000?Math.round(p.total/1000)+'k':Math.round(p.total)}</text>`;
+    circles += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="#F59E0B" stroke="var(--color-surface)" stroke-width="2"/>`;
+    if(p.total>0) labels += `<text x="${p.x.toFixed(1)}" y="${(p.y-12).toFixed(1)}" font-size="12" text-anchor="middle" fill="var(--color-text-primary)" font-weight="600">${p.total>=1000?Math.round(p.total/1000)+'k':Math.round(p.total)}</text>`;
   });
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">${grid}
     <path d="${pathD}" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>${circles}${labels}</svg>`;
@@ -3987,7 +4093,7 @@ function renderDashboard(){
       : allCatSorted.map(function(pair){ var name=pair[0], sum=pair[1]; return `
         <div class="t-row">
           <span class="t-name">${name}</span>
-          <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(sum/maxCatAll*100).toFixed(0)}%; background:#F59E0B;"></div></div></span>
+          <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(sum/maxCatAll*100).toFixed(0)}%; background:var(--color-warning);"></div></div></span>
           <span class="t-amt">${fmt(sum)}</span>
           <span class="t-pct">${totalIncome>0 ? ((sum/totalIncome)*100).toFixed(1)+'%' : '—'}</span>
         </div>`; }).join(''))
@@ -4024,7 +4130,7 @@ function renderDashboard(){
       : top10.map(function(pair){ var name=pair[0], sum=pair[1]; return `
         <div class="t-row">
           <span class="t-name">${name}</span>
-          <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(sum/max10*100).toFixed(0)}%; background:#3B82F6;"></div></div></span>
+          <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(sum/max10*100).toFixed(0)}%; background:var(--color-info);"></div></div></span>
           <span class="t-amt">${fmt(sum)}</span>
           <span class="t-pct">${totalIncome>0 ? ((sum/totalIncome)*100).toFixed(1)+'%' : '—'}</span>
         </div>`; }).join('')) +
@@ -4093,7 +4199,7 @@ function renderDashboard(){
     debtsDetailBody = sortedCardDebts.map(function(d){ return `
       <div class="t-row">
         <span class="t-name">${bankIcon(d.name)}${escapeHtml(stripLeadingEmoji(d.name))}</span>
-        <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(d.balance/maxDebt*100).toFixed(0)}%; background:#22C55E;"></div></div></span>
+        <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(d.balance/maxDebt*100).toFixed(0)}%; background:var(--color-success);"></div></div></span>
         <span class="t-amt">${fmt(d.balance)}</span>
       </div>`; }).join('') +
       `<div class="t-row summary"><span class="t-name">Загальний борг</span><span class="t-bar-h"></span><span class="t-amt">${fmt(debtNow.total)}</span></div>`;
@@ -4492,7 +4598,7 @@ function renderInstallmentsCard(debtNow, hasDebtData){
     const initial = acc ? acc.initialAmount : null;
     const paidPct = (initial && initial>0) ? Math.max(0, Math.min(100, (initial-d.balance)/initial*100)) : null;
     const barHtml = paidPct!=null
-      ? `<div class="t-bar-track"><div class="t-bar-fill" style="width:${paidPct.toFixed(0)}%; background:#22C55E;"></div></div>`
+      ? `<div class="t-bar-track"><div class="t-bar-fill" style="width:${paidPct.toFixed(0)}%; background:var(--color-success);"></div></div>`
       : '';
     return `<div class="t-row">
       <span class="t-name">${bankIcon(d.name)}${escapeHtml(stripLeadingEmoji(d.name))}</span>
@@ -4905,12 +5011,70 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
 function openSettings(){
   document.getElementById('settings-backdrop').classList.add('open');
   document.getElementById('settings-drawer').classList.add('open');
+  syncThemeToggleUI();
 }
 function closeSettings(){
   document.getElementById('settings-backdrop').classList.remove('open');
   document.getElementById('settings-drawer').classList.remove('open');
 }
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); } });
+
+/* ============ Тема застосунку (Rev 2.6.0) ============
+   Три стани: 'auto' (за системною темою, дефолт), 'light', 'dark' — саме
+   значення користувацького ВИБОРУ зберігається в localStorage, а не
+   резолюцію ('light'/'dark') — так при зміні системної теми ОС значення
+   "Авто" автоматично підхоплює нову тему без додаткових дій користувача.
+   Сам факт застосування теми (виставлення атрибута data-theme на <html>)
+   відбувається у ДВОХ місцях: 1) синхронний anti-FOUC скрипт на самому
+   початку <head> (до першого рендеру, щоб не було спалаху) і 2) тут, у
+   applyTheme() — під час звичайної роботи застосунку (перемикання вручну,
+   зміна системної теми в режимі "Авто"). */
+const LS_KEY_THEME = 'budget_theme_v1';
+function getThemeChoice(){
+  try{ return localStorage.getItem(LS_KEY_THEME) || 'auto'; }catch(e){ return 'auto'; }
+}
+function resolveTheme(choice){
+  if(choice === 'auto'){
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  return choice;
+}
+// Rev 2.6.0 — theme-color узгоджений з фактичним --color-bg кожної теми
+// (значення продубльовані тут навмисно, а не читаються через
+// getComputedStyle — на самому старті застосунку, коли html.setAttribute
+// щойно відбувся, стилі можуть бути ще не застосовані для читання,
+// а theme-color для статус-бару/адресного рядка потрібен негайно).
+const THEME_COLOR_MAP = { light: '#F7F8FA', dark: '#0B0F16' };
+function applyTheme(){
+  const resolved = resolveTheme(getThemeChoice());
+  document.documentElement.setAttribute('data-theme', resolved);
+  const metaTheme = document.getElementById('meta-theme-color');
+  const metaScheme = document.getElementById('meta-color-scheme');
+  if(metaTheme) metaTheme.setAttribute('content', THEME_COLOR_MAP[resolved]);
+  if(metaScheme) metaScheme.setAttribute('content', resolved);
+  syncThemeToggleUI();
+}
+function setThemeChoice(choice){
+  try{ localStorage.setItem(LS_KEY_THEME, choice); }catch(e){}
+  applyTheme();
+}
+function syncThemeToggleUI(){
+  const choice = getThemeChoice();
+  document.querySelectorAll('.theme-toggle-btn').forEach(function(btn){
+    const isActive = btn.dataset.themeChoice === choice;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+  });
+}
+// Rev 2.6.0 — живе стеження за системною темою: якщо вибір користувача —
+// "Авто" і людина саме зараз (з увімкненим застосунком, напр. у standalone
+// PWA, який рідко повністю закривається) перемкне тему в самій ОС, застосунок
+// підхоплює це одразу, без потреби вручну оновлювати сторінку.
+if(window.matchMedia){
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(){
+    if(getThemeChoice() === 'auto') applyTheme();
+  });
+}
 
 /* ============ Власний модал (Rev 2.0.5) — заміна confirm()/prompt() ============
    Нативні window.confirm()/window.prompt() у деяких мобільних webview (напр.
@@ -5236,6 +5400,11 @@ document.addEventListener('focusout', function(e){
 });
 
 loadAll();
+// Rev 2.6.0 — meta-теги (theme-color/color-scheme) і стан перемикача в
+// Налаштуваннях синхронізуються тут: ранній anti-FOUC скрипт у <head> вже
+// виставив сам атрибут data-theme (щоб не було спалаху), але на тому етапі
+// ще не існувало ні meta-тегів з id, ні кнопок перемикача в DOM.
+applyTheme();
 // Rev 2.4.0 — початкове позиціювання "бульбашки" таббару під активну вкладку
 // за замовчуванням (Аналітика) — БЕЗ анімації, щоб не "прилітала" з кута
 // екрана при першому завантаженні сторінки.
