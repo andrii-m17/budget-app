@@ -28,8 +28,15 @@
      враховує частково, тому окремо дублюємо ключові речі apple-*
      мета-тегами й посиланням apple-touch-icon нижче. -->
 <link rel="manifest" href="./manifest.json">
-<link rel="icon" href="./icons/icon-192.png" type="image/png">
-<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<!-- Rev 2.6.1 — версійний суфікс "-v2" у назвах файлів іконок (замість
+     icon-192.png/apple-touch-icon.png без суфікса): заміна вмісту файлу під
+     ТІЄЮ САМОЮ назвою не пробивала кілька шарів кешу одночасно (CDN GitHub
+     Pages, Cache Storage самого Service Worker'а, окремий кеш фавіконок
+     Safari) — нова назва файлу гарантовано новий запит, жоден із цих кешів
+     просто не має що "пам'ятати" під цим шляхом. Те саме ім'я продубльовано
+     в manifest.json і sw.js (APP_SHELL) — усі три мають лишатись синхронними. -->
+<link rel="icon" href="./icons/icon-192-v2.png" type="image/png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon-v2.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Бюджет">
@@ -1345,7 +1352,7 @@
         </div>
       </div>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.6.0</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.6.1</div>
     </div>
   </div>
 </div>
@@ -1636,7 +1643,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.6.1';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
