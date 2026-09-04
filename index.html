@@ -140,7 +140,7 @@
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html{ background:var(--color-bg); min-height:100%; }
-  html,body{ margin:0; padding:0; min-height:100%; background:var(--color-bg); color:var(--color-text-primary); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
+  html,body{ margin:0; padding:0; height:100%; overflow:hidden; position:fixed; inset:0; width:100%; overscroll-behavior:none; background:var(--color-bg); color:var(--color-text-primary); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
   .mono{ font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
   button{ font-family:inherit; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); } input,select{ font-family:inherit; }
   button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible{ outline:2px solid var(--color-primary); outline-offset:2px; }
@@ -155,8 +155,9 @@
   /* Rev 2.5.0 — padding-bottom піднято на ті самі +8px, що й сам таббар
      нижче (див. bottom:var(--tabbar-bottom-offset...)), щоб контент і далі
      повністю ховався під капсулою в самому кінці скролу, а не залишав щілину. */
-  .app-shell{ max-width:980px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; padding-bottom:112px; background:var(--color-bg); }
+  .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--color-bg); }
   .side{ display:none; }
+  .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding-bottom:112px; }
   .top{ padding:calc(env(safe-area-inset-top,0px) + 22px) 20px 16px; border-bottom:1px solid var(--color-border); }
   .brand{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
   .brand h1{ margin:0; font-size:22px; line-height:30px; font-weight:700; letter-spacing:-.01em; }
@@ -790,10 +791,10 @@
      замість того, щоб лишатись під нею (баг WebKit при resize видимого
      viewport) — найнадійніший фікс не намагатись математично підлаштувати
      позицію, а просто прибрати навбар з екрана, поки активне поле вводу.
-     padding-bottom на app-shell теж прибираємо — інакше лишається порожня
+     padding-bottom на main-col теж прибираємо — інакше лишається порожня
      зона, зарезервована під навбар, якого зараз немає. */
   body.kb-open nav.tabbar{ display:none; }
-  body.kb-open .app-shell{ padding-bottom:0; }
+  body.kb-open .main-col{ padding-bottom:0; }
   /* Rev 2.4.0 — статичний background прибрано (тепер це робить .tabbar-bubble),
      лишається лише зміна кольору іконки/тексту. */
   /* Rev 2.4.3 — .preview-active: тимчасова підсвітка кнопки під пальцем ПІД
@@ -896,10 +897,10 @@
 
   /* ---- Desktop (≥1280px): Sidebar + повна сітка ---- */
   @media (min-width:1280px){
-    .app-shell{ flex-direction:row; max-width:1440px; padding-bottom:0; }
+    .app-shell{ flex-direction:row; max-width:1440px; }
     .top{ display:none; }
     .kpi-card.v2 .kpi-value{ font-size:24px; }
-    .side{ width:250px; flex-shrink:0; padding:26px 16px; border-right:1px solid var(--color-border); display:flex; flex-direction:column; gap:4px; min-height:100vh; }
+    .side{ width:250px; flex-shrink:0; padding:26px 16px; border-right:1px solid var(--color-border); display:flex; flex-direction:column; gap:4px; height:100vh; height:100dvh; overflow-y:auto; }
     .side .brand-side{ padding:4px 10px 18px; }
     .side .brand-side h1{ font-size:19px; margin:0; font-weight:700; }
     .side .brand-side .tagline{ font-size:11px; color:var(--color-text-secondary); text-transform:uppercase; }
@@ -1008,7 +1009,7 @@
     </button>
   </aside>
 
-  <div class="main-col" style="flex:1; min-width:0; display:flex; flex-direction:column;">
+  <div class="main-col" id="main-col">
     <div class="top">
       <div class="brand">
         <div>
@@ -1352,7 +1353,7 @@
         </div>
       </div>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.6.1</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.7.0</div>
     </div>
   </div>
 </div>
@@ -1643,7 +1644,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.6.1';
+const APP_VERSION = '2.7.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -4685,12 +4686,16 @@ function performSwitchTab(tab){
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   document.querySelectorAll('.side-tab[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   updateTabBubble();
-  // BugFix Rev 2.0.8: вкладки — це просто display:none/block перемикання
-  // div-ів всередині ОДНІЄЇ сторінки, що скролиться (немає окремого
-  // внутрішнього scroll-контейнера) — тому прокрутка "переносилась" з
-  // попередньої вкладки на нову. Скидаємо скрол на верх при кожному
-  // перемиканні, щоб кожна вкладка завжди відкривалась зі свого початку.
-  window.scrollTo(0, 0);
+  // BugFix Rev 2.0.8, переписано в Rev 2.7.0: вкладки — це просто
+  // display:none/block перемикання div-ів всередині ОДНОГО спільного
+  // контейнера прокрутки (.main-col, Rev 2.7.0) — тому прокрутка
+  // "переносилась" з попередньої вкладки на нову. Скидаємо скрол на верх при
+  // кожному перемиканні, щоб кожна вкладка завжди відкривалась зі свого
+  // початку. Раніше це робилось через window.scrollTo(0,0) (скролився сам
+  // документ); тепер скролиться лише .main-col, тому й скидати треба саме
+  // його scrollTop, а не позицію вікна.
+  const mainColEl = document.getElementById('main-col');
+  if(mainColEl) mainColEl.scrollTop = 0;
   // Rev 2.3.4 — автофокус на "Назва витрати" при вході на вкладку "Витрати":
   // єдина щоденна дія має починатись з можливості одразу друкувати, без
   // зайвого тапу по полю. Виклик СИНХРОННИЙ (без setTimeout) — на iOS Safari
@@ -4779,25 +4784,30 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
   let dragging = false;
   let previewBtn = null;
 
-  // Rev 2.4.24 BugFix — нативний window.scrollTo({behavior:'smooth'}) на iOS
-  // Safari має задокументований окремий баг WebKit: програмний плавний скрол
-  // (на відміну від звичайного скролу пальцем) обробляється рушієм по-іншому
-  // і відомий тим, що ламає рендер position:fixed елементів САМЕ під час
-  // своєї анімації (той самий симптом "бар полетів догори", що вже
-  // виправляли раніше для іншої причини). Власна rAF-реалізація — типовий
-  // обхідний шлях: серія дискретних миттєвих scrollTo(0,y) викликів замість
-  // однієї нативної анімованої команди, тому конкретно цей WebKit-баг не
-  // зачіпається.
+  // Rev 2.4.24 BugFix, переорієнтовано в Rev 2.7.0 — нативний
+  // el.scrollTo({behavior:'smooth'}) на iOS Safari мав задокументований
+  // окремий баг WebKit: програмний плавний скрол (на відміну від звичайного
+  // скролу пальцем) обробляється рушієм по-іншому і відомий тим, що ламає
+  // рендер position:fixed елементів САМЕ під час своєї анімації. Ця
+  // проблема була знайдена саме на рівні КОРЕНЕВОГО документа (window),
+  // який Rev 2.7.0 більше взагалі не скролить — тому теоретично для нового
+  // внутрішнього контейнера (#main-col) вона могла б і не повторюватись, але
+  // це припущення без підтвердження на реальному пристрої. Власна
+  // rAF-реалізація (серія дискретних миттєвих scrollTop=y замість однієї
+  // нативної анімованої команди) лишається без змін — вона вже перевірена й
+  // надійна, тому свідомо не замінюю на ще неперевірений нативний варіант.
   function smoothScrollToTop(duration){
     duration = duration || 380;
-    const startY = window.scrollY || window.pageYOffset || 0;
+    const mainColEl = document.getElementById('main-col');
+    if(!mainColEl) return;
+    const startY = mainColEl.scrollTop || 0;
     if(startY <= 0) return;
     const startTime = performance.now();
     function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
     function step(now){
       const elapsed = now - startTime;
       const t = Math.min(1, elapsed / duration);
-      window.scrollTo(0, Math.round(startY * (1 - easeOutCubic(t))));
+      mainColEl.scrollTop = Math.round(startY * (1 - easeOutCubic(t)));
       if(t < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
@@ -4988,7 +4998,7 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
     // вже перебуваємо (напр. провів пальцем по бару й повернувся на "Облік",
     // будучи вже на "Обліку") — switchTab() НЕ викликаємо взагалі. Раніше
     // виклик все одно спрацьовував і виглядав як "новий перехід": performSwitchTab()
-    // безумовно робить window.scrollTo(0,0), тому вкладка візуально
+    // безумовно скидає прокрутку .main-col на початок, тому вкладка візуально
     // "стрибала" на початок контенту, хоча користувач нікуди не переходив.
     // snapBubbleTo() вище вже й так поставив бульбашку точно на місце —
     // жодних додаткових дій не потрібно.
