@@ -622,11 +622,22 @@
   .kw-tag{ font-size:11px; background:var(--color-surface-hover); color:var(--color-text-secondary); padding:3px 8px; border-radius:20px; font-family:'JetBrains Mono',monospace; }
   .kw-target{ font-size:12.5px; color:var(--color-text-primary); margin-left:auto; font-weight:600; }
 
-  /* ---- Сервіс ---- */
-  .service-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--color-border); }
-  .service-row:last-child{ border-bottom:none; }
-  .service-row .sr-title{ font-weight:600; font-size:14px; }
-  .service-row .sr-desc{ font-size:12px; color:var(--color-muted); margin-top:2px; }
+  /* ---- Сервіс (Rev 2.10.0 — компактна сітка замість великих карток з описами) ---- */
+  .service-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; }
+  .service-tile{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; padding:16px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+  .service-tile:hover{ background:var(--color-surface-hover); }
+  .service-tile:disabled{ opacity:.6; cursor:not-allowed; }
+  .service-tile-icon{ width:38px; height:38px; border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .service-tile-icon svg{ width:19px; height:19px; }
+  .service-tile-icon.c-green{ background:var(--color-primary-bg); color:var(--color-primary-hover); }
+  .service-tile-icon.c-blue{ background:var(--color-info-bg); color:var(--color-info); }
+  .service-tile-label{ font-size:13.5px; font-weight:600; color:var(--color-text-primary); line-height:1.35; }
+  .service-danger-card{ display:flex; align-items:center; gap:14px; width:100%; padding:16px; margin-bottom:24px; background:var(--color-error-bg); border:1.5px solid var(--color-error); border-radius:var(--radius-lg); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+  .service-danger-card:hover{ filter:brightness(0.98); }
+  .service-danger-card .service-tile-icon{ background:none; color:var(--color-error); }
+  .service-danger-text{ display:flex; flex-direction:column; gap:2px; }
+  .service-danger-title{ font-size:14px; font-weight:700; color:var(--color-error); }
+  .service-danger-sub{ font-size:12px; color:var(--color-text-secondary); }
   .version-footer{ text-align:center; font-size:11.5px; color:var(--color-muted); padding:20px 0 4px; font-family:'JetBrains Mono',monospace; }
 
   /* ---- Налаштування (Drawer) ---- */
@@ -1320,57 +1331,44 @@
 
     <!-- ================= СЕРВІС (імпорт/експорт/очищення/резерв) ================= -->
     <div class="view hidden" id="view-service">
-      <div class="section-label" style="margin-top:0;">Експорт в Excel</div>
-      <div class="card">
-        <div class="import-desc" style="margin-bottom:12px;">
-          Вивантажує всі записи в новий файл `.xlsx` — аркуш «Витрати» у тому ж форматі, що
-          основний Excel-файл (можна скопіювати рядки напряму в нього), плюс окремі аркуші
-          «Доходи» та «Борги».
-        </div>
-        <button class="submit-btn secondary" id="export-btn" onclick="exportToExcel()">Експортувати в Excel</button>
+      <div class="section-label" style="margin-top:0;">Дані</div>
+      <div class="service-grid">
+        <button type="button" class="service-tile" id="export-btn" onclick="exportToExcel()">
+          <span class="service-tile-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="8 11 12 15 16 11"/><path d="M4 21h16"/></svg></span>
+          <span class="service-tile-label">Експорт в Excel</span>
+        </button>
+        <button type="button" class="service-tile" onclick="triggerImportFileInput()">
+          <span class="service-tile-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><polyline points="8 13 12 9 16 13"/><path d="M4 4h16"/></svg></span>
+          <span class="service-tile-label">Імпорт з Excel</span>
+        </button>
       </div>
+      <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none;" onchange="handleImportFile(event)">
+      <div class="import-status" id="import-status"></div>
 
-      <div class="section-label">Імпорт з файлу Excel</div>
-      <div class="card import-card">
-        <div class="import-desc">
-          Зчитує аркуш «Витрати» (дата · назва · категорія · підкатегорія · сума · статус автоматизації),
-          місячні доходи й <b>борги по картках та ОЧ</b> з аркуша «Історія».
-          Існуючі записи не видаляються — нові додаються поверх.
-        </div>
-        <input type="file" id="import-file" accept=".xlsx,.xls" onchange="handleImportFile(event)">
-        <div class="import-status" id="import-status"></div>
+      <div class="section-label">Резервна копія</div>
+      <div class="service-grid">
+        <button type="button" class="service-tile" onclick="exportBackup()">
+          <span class="service-tile-icon c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span>
+          <span class="service-tile-label">Зберегти резервну копію</span>
+        </button>
+        <button type="button" class="service-tile" onclick="triggerRestoreBackupInput()">
+          <span class="service-tile-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg></span>
+          <span class="service-tile-label">Відновити</span>
+        </button>
       </div>
+      <input type="file" id="restore-backup-file" accept=".json" style="display:none;" onchange="handleRestoreBackupFile(event)">
+      <div class="import-status" id="backup-status"></div>
 
-      <div class="section-label" style="color:var(--color-error);"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Очистити всі дані</div>
-      <div class="card">
-        <div class="import-desc" style="margin-bottom:12px;">Видаляє всі витрати, доходи й борги з цього браузера. Незворотно.</div>
-        <button class="submit-btn danger" onclick="clearAllData()">Очистити все</button>
-      </div>
+      <div class="section-label" style="color:var(--color-error);">Небезпечні дії</div>
+      <button type="button" class="service-danger-card" onclick="clearAllData()">
+        <span class="service-tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+        <span class="service-danger-text">
+          <span class="service-danger-title">Видалити всі дані</span>
+          <span class="service-danger-sub">Видаляє всі витрати, доходи та борги</span>
+        </span>
+      </button>
 
-      <div class="section-label">Резервне копіювання</div>
-      <div class="card">
-        <div class="import-desc" style="margin-bottom:12px;">
-          Повний знімок УСІХ даних застосунку (витрати, доходи, борги, ОЧ, довідники) — окремо
-          від Excel-експорту вище. Признач для відновлення після втрати браузера/пристрою, а не
-          для роботи з основним Excel-файлом.
-        </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="submit-btn secondary" style="margin-top:0; flex:1 1 160px;" onclick="exportBackup()">Зберегти бекап</button>
-          <button class="submit-btn secondary" style="margin-top:0; flex:1 1 160px;" onclick="triggerRestoreBackupInput()">Відновити з бекапу</button>
-        </div>
-        <input type="file" id="restore-backup-file" accept=".json" style="display:none;" onchange="handleRestoreBackupFile(event)">
-        <div class="import-status" id="backup-status"></div>
-      </div>
-
-      <div class="section-label">Резервні функції</div>
-      <div class="card">
-        <div class="service-row">
-          <div><div class="sr-title">Діагностика даних</div><div class="sr-desc">Ще не реалізовано в цій ревізії</div></div>
-          <span class="badge soon">незабаром</span>
-        </div>
-      </div>
-
-      <div class="version-footer">Бюджет-локально · Rev 2.8.1</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.10.0</div>
     </div>
   </div>
 </div>
@@ -1661,7 +1659,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.8.1';
+const APP_VERSION = '2.10.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -1689,6 +1687,12 @@ function exportBackup(){
 }
 function triggerRestoreBackupInput(){
   document.getElementById('restore-backup-file').click();
+}
+// Rev 2.10.0 — поле імпорту Excel тепер приховане (той самий принцип, що вже
+// діяв для відновлення бекапу) — компактна картка-плитка в новій сітці
+// "Сервісу" відкриває його програмно замість показу нативного file-інпута.
+function triggerImportFileInput(){
+  document.getElementById('import-file').click();
 }
 function handleRestoreBackupFile(event){
   const file = event.target.files[0];
@@ -2965,26 +2969,69 @@ function handleImportFile(event){
 
       const wsExp = wb.Sheets['Витрати'];
       if(!wsExp) missingSheets.push('Витрати');
+      let skippedDuplicateExpenses = 0;
       if(wsExp){
         const rows = XLSX.utils.sheet_to_json(wsExp, {defval:null});
+        // Rev 2.9.0 — дедублікація: природного унікального ключа у витрати
+        // немає (це просто список транзакцій), тому дедублікуємо за
+        // "відбитком" дата+назва+сума. Спершу парсимо ВСІ валідні рядки з
+        // файлу окремо (без запису в expenses), рахуємо скільки разів кожен
+        // відбиток зустрічається у файлі — і порівнюємо з тим, скільки таких
+        // самих відбитків УЖЕ є серед поточних витрат. Довантажуємо лише
+        // різницю (Math.max(0, файл−наявні)). Це навмисно дозволяє законні
+        // повтори (дві кави по 65₴ в один день не "з'їдять" одна одну), але
+        // повторний імпорт того самого файлу після цього додасть 0 записів.
+        function expenseFingerprint(iso, name, amount){
+          return iso + '|' + String(name).trim().toLowerCase() + '|' + Math.round(amount);
+        }
+        const parsedRows = [];
         for(const r of rows){
           const name = r['Витрата'];
           const amount = r['Сума'];
           if(!name || amount==null || amount==='') { skipped++; continue; }
           const iso = excelDateToISO(r['Дата']);
           if(!iso){ skipped++; continue; }
-          expenses.push({
-            id: 'imp-exp-'+addedExpenses+'-'+Date.now(),
+          parsedRows.push({
             date: iso, name: String(name), amount: parseFloat(amount),
             category: r['Категорія'] || '', subcategory: r['Підкатегорія'] || '',
             manual: r['Статус автоматизації'] ? String(r['Статус автоматизації']).toLowerCase() !== 'авто' : false
           });
-          addedExpenses++;
         }
+        const existingCounts = {};
+        expenses.forEach(function(e){
+          const fp = expenseFingerprint(e.date, e.name, e.amount);
+          existingCounts[fp] = (existingCounts[fp]||0) + 1;
+        });
+        const fileCounts = {};
+        parsedRows.forEach(function(row){
+          const fp = expenseFingerprint(row.date, row.name, row.amount);
+          fileCounts[fp] = (fileCounts[fp]||0) + 1;
+        });
+        // Скільки ще треба довантажити на кожен відбиток = скільки їх у файлі
+        // мінус скільки вже є в застосунку (не менше нуля).
+        const remainingNeeded = {};
+        Object.keys(fileCounts).forEach(function(fp){
+          remainingNeeded[fp] = Math.max(0, fileCounts[fp] - (existingCounts[fp]||0));
+        });
+        parsedRows.forEach(function(row){
+          const fp = expenseFingerprint(row.date, row.name, row.amount);
+          if(remainingNeeded[fp] > 0){
+            remainingNeeded[fp]--;
+            expenses.push({
+              id: 'imp-exp-'+addedExpenses+'-'+Date.now(),
+              date: row.date, name: row.name, amount: row.amount,
+              category: row.category, subcategory: row.subcategory, manual: row.manual
+            });
+            addedExpenses++;
+          }else{
+            skippedDuplicateExpenses++;
+          }
+        });
       }
 
       const wsHist = wb.Sheets['Історія'];
       if(!wsHist) missingSheets.push('Історія');
+      let skippedDuplicateIncomes = 0;
       if(wsHist){
         const rows = XLSX.utils.sheet_to_json(wsHist, {header:1, defval:null});
         for(let i=2; i<rows.length; i++){
@@ -2995,6 +3042,13 @@ function handleImportFile(event){
           const sources = [ ['Зарплата Андрій', row[1]], ['Зарплата Оля', row[2]], ['Інші доходи', row[3]] ];
           for(const [label, val] of sources){
             if(val && parseFloat(val) > 0){
+              // Rev 2.9.0 — той самий ключ (джерело+місяць), що вже
+              // використовує ручне збереження доходу (saveIncomeTable) —
+              // якщо запис за цей місяць+джерело вже є, пропускаємо, а не
+              // оновлюємо (щоб повторний імпорт не затер можливу ручну
+              // правку, зроблену після попереднього імпорту).
+              const alreadyExists = incomes.some(inc => inc.source===label && monthKey(inc.date)===monthKeyVal);
+              if(alreadyExists){ skippedDuplicateIncomes++; continue; }
               incomes.push({
                 id: 'imp-inc-'+i+'-'+label+'-'+Date.now(),
                 date: monthKeyVal+'-01', source: label, amount: parseFloat(val)
@@ -3007,6 +3061,7 @@ function handleImportFile(event){
 
       // --- Борги (аркуш "Історія", колонки P:V — банки; Z — ОЧ, лише як фолбек) ---
       const wsFin = wb.Sheets['Фінанси'];
+      let skippedDuplicateDebts = 0;
       if(wsHist){
         const rows = XLSX.utils.sheet_to_json(wsHist, {header:1, defval:null});
         const debtCols = [
@@ -3031,6 +3086,11 @@ function handleImportFile(event){
           for(const dc of debtCols){
             const val = row[dc.idx];
             if(val==null || val==='' || isNaN(parseFloat(val))) continue;
+            // Rev 2.9.0 — той самий ключ (назва+тип+місяць), що carry-forward
+            // логіка застосунку вже вважає "одним записом" — якщо вже є,
+            // пропускаємо замість дублювання.
+            const alreadyExists = debts.some(d => d.name===dc.name && d.kind===dc.kind && d.month===monthKeyVal);
+            if(alreadyExists){ skippedDuplicateDebts++; continue; }
             debts.push({
               id: 'imp-debt-'+i+'-'+dc.idx+'-'+Date.now(),
               name: dc.name, kind: dc.kind, month: monthKeyVal, balance: parseFloat(val)
@@ -3122,6 +3182,8 @@ function handleImportFile(event){
           }else{
             usedLabels[label] = 1;
           }
+          const alreadyExists = debts.some(d => d.name===label && d.kind==='installment' && d.month===finMonth);
+          if(alreadyExists){ skippedDuplicateDebts++; return; }
           debts.push({
             id: 'imp-fin-'+idx+'-'+Date.now(),
             name: label, kind:'installment', month: finMonth, balance: e.balance,
@@ -3171,8 +3233,13 @@ function handleImportFile(event){
         ? `\n\n— Діагностика ОЧ (аркуш «Фінанси») —\n` + finDebugLines.join('\n')
         : '';
 
+      const duplicatesTotal = skippedDuplicateExpenses + skippedDuplicateIncomes + skippedDuplicateDebts;
+      const duplicatesNote = duplicatesTotal
+        ? `\nПропущено дублікатів (уже були в застосунку): ${skippedDuplicateExpenses} витрат, ${skippedDuplicateIncomes} доходів, ${skippedDuplicateDebts} боргів.`
+        : '';
+
       statusEl.textContent = `Готово. Імпортовано: ${addedExpenses} витрат, ${addedIncomes} доходів, ${addedDebts} записів боргів.` +
-        (skipped ? `\nПропущено рядків без суми/дати: ${skipped}.` : '') + sheetsWarning + renderWarning + finDebugBlock;
+        (skipped ? `\nПропущено рядків без суми/дати: ${skipped}.` : '') + duplicatesNote + sheetsWarning + renderWarning + finDebugBlock;
     }catch(err){
       statusEl.textContent = 'Помилка при читанні файлу: ' + err.message;
       console.error(err);
