@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.10.0';
+const CACHE_NAME = 'budget-app-v2.11.0';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -19,7 +19,15 @@ const APP_SHELL = [
 ];
 
 self.addEventListener('install', function(event){
-  self.skipWaiting();
+  // Rev 2.11.0 BugFix (P1, PWA-аудит) — раніше тут стояв self.skipWaiting(),
+  // тому новий SW активувався одразу після встановлення, ще до того, як
+  // користувач взагалі побачив банер "Доступне оновлення". Комбінація зі
+  // self.clients.claim() у activate нижче означала, що новий SW брав
+  // контроль над уже відкритою вкладкою МОВЧКИ — хоча UI обіцяв "оновлення
+  // станеться лише після підтвердження". Тепер install НЕ форсує активацію:
+  // новий SW встановлюється і чекає у стані "waiting", доки сторінка сама не
+  // надішле команду SKIP_WAITING (див. обробник message нижче) — це
+  // відбувається лише у відповідь на клік "Оновити зараз" в openUpdateModal().
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache){
       return cache.addAll(APP_SHELL).catch(function(err){
@@ -29,6 +37,15 @@ self.addEventListener('install', function(event){
       });
     })
   );
+});
+
+// Rev 2.11.0 — явна команда активації від сторінки (замість автоматичного
+// skipWaiting вище). Сторінка надсилає це повідомлення лише після того, як
+// користувач сам натиснув "Оновити зараз" у модалці оновлення.
+self.addEventListener('message', function(event){
+  if(event.data === 'SKIP_WAITING'){
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', function(event){

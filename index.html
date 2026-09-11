@@ -1272,7 +1272,7 @@
           <span>Відновлено незбережений запис</span>
           <button type="button" class="auto-hint-edit-btn" onclick="discardExpenseDraft()">Очистити</button>
         </div>
-        <div class="field" style="position:relative;"><label>Назва витрати</label>
+        <div class="field" style="position:relative;"><label for="f-name">Назва витрати</label>
           <input type="text" id="f-name" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="off">
           <div class="name-suggest-list" id="name-suggest-list"></div>
           <div class="field auto-hint" id="auto-hint">
@@ -1281,9 +1281,9 @@
           </div>
           <div class="field installment-link-hint" id="installment-link-hint"></div>
         </div>
-        <div class="field"><label>Сума, ₴</label><input type="text" id="f-amount" placeholder="0" inputmode="decimal" oninput="saveExpenseDraft()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
+        <div class="field"><label for="f-amount">Сума, ₴</label><input type="text" id="f-amount" placeholder="0" inputmode="numeric" oninput="saveExpenseDraft()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
         <div class="field field-date">
-          <label>Дата</label>
+          <label for="f-date">Дата</label>
           <div class="date-nav-row">
             <button type="button" class="date-nav-btn" onclick="shiftExpenseDate(-1)" aria-label="На день раніше"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
             <div class="date-input-wrap"><input type="date" id="f-date" oninput="updateDateCaption(); saveExpenseDraft()"></div>
@@ -1292,8 +1292,8 @@
           <div class="date-caption" id="date-caption"></div>
         </div>
         <div class="cat-fields-wrap" id="cat-fields-wrap">
-          <div class="field"><label>Категорія</label><select id="f-category" onchange="onCategoryChange(true)"></select></div>
-          <div class="field"><label>Підкатегорія</label><select id="f-subcategory" onchange="onSubcategoryChange(true)"></select></div>
+          <div class="field"><label for="f-category">Категорія</label><select id="f-category" onchange="onCategoryChange(true)"></select></div>
+          <div class="field"><label for="f-subcategory">Підкатегорія</label><select id="f-subcategory" onchange="onSubcategoryChange(true)"></select></div>
         </div>
         <button class="submit-btn" onclick="addExpense()">Додати витрату</button>
       </div>
@@ -1368,7 +1368,7 @@
         </span>
       </button>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.10.0</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.11.0</div>
     </div>
   </div>
 </div>
@@ -1400,8 +1400,8 @@
 </nav>
 
 <!-- ================= Налаштування (Drawer, окремо від навігації) ================= -->
-<div class="drawer-backdrop" id="settings-backdrop" onclick="closeSettings()"></div>
-<div class="drawer" id="settings-drawer" role="dialog" aria-label="Налаштування">
+<div class="drawer-backdrop" id="settings-backdrop" onclick="closeSettings()" inert></div>
+<div class="drawer" id="settings-drawer" role="dialog" aria-label="Налаштування" aria-modal="true" inert>
   <div class="drawer-head">
     <h2>Налаштування</h2>
     <button class="drawer-close" onclick="closeSettings()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -1433,24 +1433,24 @@
      нативні діалоги мовчки блокуються: кнопка натискається, а діалог просто
      не з'являється, і дія тихо не відбувається. Власний DOM-модал працює
      завжди, незалежно від того, де саме відкрито файл. -->
-<div class="drawer-backdrop" id="modal-backdrop" onclick="closeAppModal()"></div>
-<div class="app-modal" id="app-modal" role="dialog" aria-modal="true">
+<div class="drawer-backdrop" id="modal-backdrop" onclick="closeAppModal()" inert></div>
+<div class="app-modal" id="app-modal" role="dialog" aria-modal="true" inert>
   <div class="app-modal-text" id="app-modal-text"></div>
   <div class="app-modal-input-wrap" id="app-modal-input-wrap">
-    <input type="text" id="app-modal-input" autocomplete="off">
+    <input type="text" id="app-modal-input" autocomplete="off" aria-labelledby="app-modal-text">
   </div>
   <div class="app-modal-amount-wrap" id="app-modal-amount-wrap">
-    <label>Початкова сума</label>
-    <input type="text" id="app-modal-amount-input" inputmode="decimal" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+    <label for="app-modal-amount-input">Початкова сума</label>
+    <input type="text" id="app-modal-amount-input" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
   </div>
   <div class="app-modal-select-wrap" id="app-modal-select-wrap">
-    <label id="app-modal-select-label">Приховати з місяця</label>
+    <label id="app-modal-select-label" for="app-modal-select">Приховати з місяця</label>
     <select id="app-modal-select"></select>
   </div>
   <!-- Rev 2.1.27 — другий select потрібен лише для підкатегорій (категорія +
        пріоритет одночасно); в усіх інших модалках лишається прихованим. -->
   <div class="app-modal-select-wrap" id="app-modal-select2-wrap">
-    <label id="app-modal-select2-label"></label>
+    <label id="app-modal-select2-label" for="app-modal-select2"></label>
     <select id="app-modal-select2"></select>
   </div>
   <div class="app-modal-actions">
@@ -1659,7 +1659,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.10.0';
+const APP_VERSION = '2.11.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -2062,7 +2062,8 @@ function populateIncomeTable(){
   el.innerHTML = INCOME_SOURCES.map(function(s){
     const existing = incomes.find(function(inc){ return inc.source===s.key && monthKey(inc.date)===selectedMonth; });
     const val = existing ? formatThousands(existing.amount) : '';
-    return `<div class="income-row"><label>${s.label}</label><input type="text" inputmode="decimal" placeholder="0" data-source="${s.key}" id="income-input-${INCOME_SOURCES.indexOf(s)}" value="${val}" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>`;
+    const incIdx = INCOME_SOURCES.indexOf(s);
+    return `<div class="income-row"><label for="income-input-${incIdx}">${s.label}</label><input type="text" inputmode="numeric" placeholder="0" data-source="${s.key}" id="income-input-${incIdx}" value="${val}" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>`;
   }).join('');
 }
 function saveIncomeTable(){
@@ -2346,13 +2347,13 @@ function populateInstallmentTable(){
       ${linkedNote}
       <div class="bdr-fields">
         <div class="bdr-field">
-          <span class="bdr-field-label">Залишок</span>
-          <input type="text" inputmode="decimal" class="${balPrefillClass.trim()}" placeholder="0" id="installment-bal-${i}"${expectedAttr} value="${balVal}" oninput="this.classList.remove('bdr-amount-prefill'); checkInstallmentDivergence(${i}); markInstallmentDirty(${i})" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markInstallmentDirty(${i})" onblur="formatAmountBlur(this)">
+          <span class="bdr-field-label" id="installment-bal-label-${i}">Залишок</span>
+          <input type="text" inputmode="numeric" class="${balPrefillClass.trim()}" placeholder="0" id="installment-bal-${i}"${expectedAttr} value="${balVal}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, залишок" oninput="this.classList.remove('bdr-amount-prefill'); checkInstallmentDivergence(${i}); markInstallmentDirty(${i})" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markInstallmentDirty(${i})" onblur="formatAmountBlur(this)">
           <span class="bdr-diff-warning" id="installment-diff-${i}"></span>
         </div>
         <div class="bdr-field">
-          <span class="bdr-field-label">Платіж/міс</span>
-          <input type="text" inputmode="decimal" class="${payPrefillClass.trim()}" placeholder="0" id="installment-pay-${i}"${payExpectedAttr} value="${payVal}" oninput="updateInstallmentTotal(); this.classList.remove('bdr-amount-prefill'); checkInstallmentPaymentDivergence(${i}); markInstallmentDirty(${i})" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markInstallmentDirty(${i})" onblur="formatAmountBlur(this)">
+          <span class="bdr-field-label" id="installment-pay-label-${i}">Платіж/міс</span>
+          <input type="text" inputmode="numeric" class="${payPrefillClass.trim()}" placeholder="0" id="installment-pay-${i}"${payExpectedAttr} value="${payVal}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, платіж на місяць" oninput="updateInstallmentTotal(); this.classList.remove('bdr-amount-prefill'); checkInstallmentPaymentDivergence(${i}); markInstallmentDirty(${i})" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markInstallmentDirty(${i})" onblur="formatAmountBlur(this)">
           <span class="bdr-diff-warning" id="installment-pay-diff-${i}"></span>
         </div>
       </div>
@@ -2653,7 +2654,7 @@ function populateBankDebtTable(){
     }
     return `<div class="bank-debt-row">
       <span class="bdr-label">${bankIcon(name)}${escapeHtml(stripLeadingEmoji(name))}<span class="bdr-unsaved-tag" id="bank-unsaved-${i}">⚠ не збережено</span></span>
-      <input type="text" inputmode="decimal" class="bdr-amount${prefillClass}" placeholder="0" id="bank-input-${i}" value="${val}" oninput="this.classList.remove('bdr-amount-prefill'); markBankDirty(${i})" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markBankDirty(${i})" onblur="formatAmountBlur(this)">
+      <input type="text" inputmode="numeric" class="bdr-amount${prefillClass}" placeholder="0" id="bank-input-${i}" value="${val}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, борг" oninput="this.classList.remove('bdr-amount-prefill'); markBankDirty(${i})" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markBankDirty(${i})" onblur="formatAmountBlur(this)">
       <span class="bdr-actions">
         <button type="button" class="bdr-icon-btn" onclick="renameBankAccount(${i})" aria-label="Перейменувати"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
         <button type="button" class="bdr-icon-btn danger" onclick="removeBankAccount(${i})" aria-label="Видалити банк"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -2992,7 +2993,7 @@ function handleImportFile(event){
           const iso = excelDateToISO(r['Дата']);
           if(!iso){ skipped++; continue; }
           parsedRows.push({
-            date: iso, name: String(name), amount: parseFloat(amount),
+            date: iso, name: String(name), amount: Math.round(parseFloat(amount)),
             category: r['Категорія'] || '', subcategory: r['Підкатегорія'] || '',
             manual: r['Статус автоматизації'] ? String(r['Статус автоматизації']).toLowerCase() !== 'авто' : false
           });
@@ -3051,7 +3052,7 @@ function handleImportFile(event){
               if(alreadyExists){ skippedDuplicateIncomes++; continue; }
               incomes.push({
                 id: 'imp-inc-'+i+'-'+label+'-'+Date.now(),
-                date: monthKeyVal+'-01', source: label, amount: parseFloat(val)
+                date: monthKeyVal+'-01', source: label, amount: Math.round(parseFloat(val))
               });
               addedIncomes++;
             }
@@ -3093,7 +3094,7 @@ function handleImportFile(event){
             if(alreadyExists){ skippedDuplicateDebts++; continue; }
             debts.push({
               id: 'imp-debt-'+i+'-'+dc.idx+'-'+Date.now(),
-              name: dc.name, kind: dc.kind, month: monthKeyVal, balance: parseFloat(val)
+              name: dc.name, kind: dc.kind, month: monthKeyVal, balance: Math.round(parseFloat(val))
             });
             addedDebts++;
           }
@@ -3149,9 +3150,9 @@ function handleImportFile(event){
           const bank = row && row[1];
           if(!bank){ finDebugLines.push(`рядок ${i+1}: порожня колонка "Банк" — зупинка циклу`); break; }
           if(String(bank).trim()==='Загалом'){ finDebugLines.push(`рядок ${i+1}: "Загалом" — зупинка циклу (підсумковий рядок)`); break; }
-          const monthlyPay = parseFloat(row[5]);   // "Сума в місяць"
-          const creditSum = parseFloat(row[6]);    // "Сума кредиту"
-          const balanceRaw = parseFloat(row[8]);   // "Залишок"
+          const monthlyPay = Math.round(parseFloat(row[5]));   // "Сума в місяць"
+          const creditSum = Math.round(parseFloat(row[6]));    // "Сума кредиту"
+          const balanceRaw = Math.round(parseFloat(row[8]));   // "Залишок"
           const rawDump = `[C=${JSON.stringify(row[2])}, D=${JSON.stringify(row[3])}, E=${JSON.stringify(row[4])}, F=${JSON.stringify(row[5])}, G=${JSON.stringify(row[6])}, H=${JSON.stringify(row[7])}, I=${JSON.stringify(row[8])}]`;
           // Rev 2.1.36 — BugFix: якщо "Залишок" порожній (напр. ОЧ щойно
           // почалась і клітинку ще не заповнили вручну), рядок раніше
@@ -3345,9 +3346,19 @@ function formatThousands(n){
   if(n===''||n==null||isNaN(n)) return '';
   return new Intl.NumberFormat('uk-UA',{maximumFractionDigits:0}).format(Math.round(Number(n)));
 }
+// Rev 2.10.3 (P1, аудит) — раніше parseAmount() пропускала дробову частину
+// (100.5 парсилось як 100.5, лише fmt()/formatThousands() округлювали ПРИ
+// ПОКАЗІ) — фінансові суми тихо втрачали копійки лише візуально, а фактично
+// збережене число в localStorage/debts/expenses могло лишатись дробовим.
+// Тепер округлення відбувається одразу в точці парсингу — єдиному місці,
+// звідки будь-яке введене число потрапляє далі в модель. Разом із фільтром
+// desyatkovyh символів на вводі (sanitizeAmountInput нижче) і
+// inputmode="numeric" (без крапки на iOS-клавіатурі) це усуває копійки
+// повністю, а не лише в останній момент показу.
 function parseAmount(str){
   if(str==null) return NaN;
-  return parseFloat(String(str).replace(/[\s\u00A0]/g,''));
+  const n = parseFloat(String(str).replace(/[\s\u00A0]/g,''));
+  return isNaN(n) ? NaN : Math.round(n);
 }
 function formatAmountBlur(el){
   const n = parseAmount(el.value);
@@ -3357,6 +3368,33 @@ function unformatAmountFocus(el){
   const n = parseAmount(el.value);
   el.value = isNaN(n) ? '' : String(Math.round(n));
 }
+// Rev 2.10.3 (P1, аудит) — "Копійки відкидаємо... лише цілі числа": на
+// відміну від попередньої поведінки (десяткову крапку можна було ввести, і
+// вона просто зникала при збереженні), тепер сам ВВІД крапки/коми
+// заборонений одразу. inputmode="numeric" на iOS/Android ховає десяткову
+// крапку в цифровій клавіатурі, але зовнішня Bluetooth-клавіатура чи вставка
+// з буфера обміну можуть однаково принести "100.50" — цей фільтр прибирає
+// будь-який символ, що не цифра чи пробіл (пробіл — розділювач тисяч, який
+// саме поле може містити після formatAmountBlur), одразу під час вводу.
+// Слухач на document з capture:true спрацьовує РАНІШЕ за власний inline
+// oninput="..." кожного поля (той виконується на фазі "at target", вже
+// ПІСЛЯ завершення capture-фази) — тому значення встигає очиститись до того,
+// як власна логіка поля (checkInstallmentDivergence, saveExpenseDraft тощо)
+// прочитає el.value.
+function isAmountField(el){
+  return !!el && el.tagName === 'INPUT' && el.type === 'text' && el.getAttribute('inputmode') === 'numeric';
+}
+document.addEventListener('input', function(e){
+  const el = e.target;
+  if(!isAmountField(el)) return;
+  const cleaned = el.value.replace(/[^\d\s\u00A0]/g, '');
+  if(cleaned !== el.value){
+    const posFromEnd = el.value.length - (el.selectionEnd || el.value.length);
+    el.value = cleaned;
+    const newPos = Math.max(0, cleaned.length - posFromEnd);
+    try{ el.setSelectionRange(newPos, newPos); }catch(err){}
+  }
+}, true);
 function safeCall(fn, label){
   try{ fn(); }
   catch(err){ console.error(`[Бюджет] Помилка в ${label}:`, err); }
@@ -3392,9 +3430,21 @@ function updateTodayExpenseBadge(){
    Service worker (Rev 2.3.3) сам виявляє нову версію sw.js на сервері під
    час навігації — подія "updatefound" на реєстрації. showUpdateAvailable()
    вмикає кнопку в шапці/сайдбарі; клік показує пояснення через кастомну
-   модалку (той самий #app-modal, що й для решти підтверджень) і перезавантажує
-   сторінку. Дані НЕ зачіпаються оновленням — вони в localStorage, окремо від
-   самого файлу застосунку. */
+   модалку (той самий #app-modal, що й для решти підтверджень). Дані НЕ
+   зачіпаються оновленням — вони в localStorage, окремо від самого файлу
+   застосунку.
+   Rev 2.11.0 (P1, PWA-аудит) — раніше клік "Оновити зараз" просто робив
+   window.location.reload(): це виглядало як контрольоване оновлення, але
+   sw.js насправді вже активував нову версію МИТТЄВО й автоматично (через
+   self.skipWaiting() одразу на install) задовго до цього кліку — банер
+   часто був суто декоративним, реальна заміна вже відбулась без відома
+   користувача. Тепер SW (Rev 2.11.0) чекає в стані "waiting", доки сторінка
+   сама не надішле команду SKIP_WAITING — тобто АЖ ДО натискання цієї кнопки
+   нова версія технічно неактивна. swRegistration зберігає посилання на
+   реєстрацію SW (виставляється в кінці файлу, після успішної реєстрації),
+   потрібне тут, щоб дістатись до registration.waiting. */
+let swRegistration = null;
+let swReloadTriggered = false;
 function showUpdateAvailable(){
   const top = document.getElementById('update-btn-top');
   const side = document.getElementById('update-btn-side');
@@ -3404,7 +3454,22 @@ function showUpdateAvailable(){
 function openUpdateModal(){
   showConfirmModal(
     'Доступна нова версія застосунку. Дані нікуди не зникають — усе зберігається окремо в памʼяті браузера, а не в самому файлі застосунку. Оновити зараз?',
-    function(){ window.location.reload(); },
+    function(){
+      if(swRegistration && swRegistration.waiting){
+        // Явна команда активації — щойно новий SW реально стане активним,
+        // подія 'controllerchange' (зареєстрована нижче, разом із
+        // реєстрацією SW) сама викличе перезавантаження сторінки. Тут
+        // навмисно НЕ викликаємо reload() напряму — інакше можливий
+        // короткий проміжок, коли сторінка вже перезавантажилась, а новий SW
+        // ще не встиг стати активним (перегляд на мить показав би старий
+        // офлайн-кеш замість щойно підтвердженого оновлення).
+        swRegistration.waiting.postMessage('SKIP_WAITING');
+      }else{
+        // Фолбек: немає зареєстрованого waiting-воркера (напр. викликали
+        // вручну без реального оновлення) — просто перезавантажуємо.
+        window.location.reload();
+      }
+    },
     'Оновити зараз'
   );
 }
@@ -3798,13 +3863,13 @@ function renderRecords(){
         : '';
       const editPanelHtml = isEditing ? `
         <div class="record-edit-panel" onclick="event.stopPropagation()">
-          <div class="field"><label>Назва</label><input type="text" id="edit-name-${e.id}" value="${escapeAttr(e.name)}"></div>
+          <div class="field"><label for="edit-name-${e.id}">Назва</label><input type="text" id="edit-name-${e.id}" value="${escapeAttr(e.name)}"></div>
           <div class="record-edit-row">
-            <div class="field"><label>Сума, ₴</label><input type="text" id="edit-amount-${e.id}" value="${formatThousands(e.amount)}" inputmode="decimal" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
-            <div class="field"><label>Дата</label><input type="date" id="edit-date-${e.id}" value="${e.date}"></div>
+            <div class="field"><label for="edit-amount-${e.id}">Сума, ₴</label><input type="text" id="edit-amount-${e.id}" value="${formatThousands(e.amount)}" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
+            <div class="field"><label for="edit-date-${e.id}">Дата</label><input type="date" id="edit-date-${e.id}" value="${e.date}"></div>
           </div>
-          <select id="edit-cat-${e.id}" onchange="onRecordCategoryChange('${e.id}')">${categoryOptionsHtml(e.category)}</select>
-          <select id="edit-sub-${e.id}">${subcategoryOptionsHtml(e.category, e.subcategory)}</select>
+          <select id="edit-cat-${e.id}" aria-label="Категорія" onchange="onRecordCategoryChange('${e.id}')">${categoryOptionsHtml(e.category)}</select>
+          <select id="edit-sub-${e.id}" aria-label="Підкатегорія">${subcategoryOptionsHtml(e.category, e.subcategory)}</select>
           <div class="record-edit-actions">
             <button type="button" class="rce-cancel" onclick="cancelEditRecord()">Скасувати</button>
             <button type="button" class="rce-save" onclick="saveRecordEdit('${e.id}')">Зберегти</button>
@@ -4445,13 +4510,24 @@ function renderDashboard(){
         desc:`У вас ${activeOchCount} ${activeOchCount===1?'активний платіж':'активних платежів'} на загальну суму ${fmt(debtNow.totalInstallment)}.`});
     }
     // 5. Борг
-    if(hasDebtData){
-      insights.push(debtChange>=0
-        ? {icon:'check', color:'success', title:'Чудова робота!', desc:`Ви зменшили борг на ${fmt(debtChange)} у порівнянні з минулим місяцем.`}
-        : {icon:'alert', color:'error', title:'Борг зростає', desc:`Борг зріс на ${fmt(Math.abs(debtChange))} у порівнянні з минулим місяцем.`});
-    }else{
+    // Rev 2.10.1 BugFix (P1, аудит) — раніше цей інсайт брав debtChange
+    // БЕЗ перевірки, чи є ФАКТИЧНІ записи карток за поточний і попередній
+    // місяць (та сама перевірка cardDeltaKnown, що вже захищає KPI "Динаміка
+    // боргу" в Row 2 — вона обчислюється вище, у цій самій функції). Без цієї
+    // перевірки carry-forward значення (борг просто не оновлювався кілька
+    // місяців, тому дельта виходить 0 чи випадкова) видавалось за реальний
+    // факт "Ви зменшили борг" — пряме порушення FINANCIAL_RULES §3.1: carry-
+    // forward ніколи не подається як підтверджена дельта місяця.
+    if(!hasDebtData){
       insights.push({icon:'dot', color:'muted', title:'Борги',
         desc:'Додай борги на вкладці «Облік», щоб бачити повну картину.'});
+    }else if(!cardDeltaKnown){
+      insights.push({icon:'dot', color:'muted', title:'Борг',
+        desc:'Потрібен факт за поточний і попередній місяць, щоб порахувати динаміку боргу.'});
+    }else{
+      insights.push(cardDelta>=0
+        ? {icon:'check', color:'success', title:'Чудова робота!', desc:`Ви зменшили борг на ${fmt(cardDelta)} у порівнянні з минулим місяцем.`}
+        : {icon:'alert', color:'error', title:'Борг зростає', desc:`Борг зріс на ${fmt(Math.abs(cardDelta))} у порівнянні з минулим місяцем.`});
     }
   }
   summaryEl.innerHTML = insights.map(function(i){
@@ -5119,15 +5195,76 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
   }, {passive:true, capture:true});
 })();
 
+/* ============ Доступність модальних шарів (Rev 2.10.2, P1 аудит) ============
+   Раніше settings-drawer/app-modal у ЗАКРИТОМУ стані ховались лише візуально
+   (transform:translateY(100%) / opacity:0) — сам DOM лишався в акседесібіліті-
+   дереві й у Tab-послідовності: скрінрідер міг "побачити" вміст закритого
+   діалогу, а Tab міг завести фокус у невидимий елемент. Атрибут `inert`
+   (нативний, без бібліотек) виключає піддерево з фокусу/акседесібіліті-дерева
+   повністю — знімаємо його лише на момент відкриття, повертаємо на закритті.
+   lastFocusedBeforeDialog / focusFirstIn / restoreFocus — спільні для обох
+   типів діалогів (drawer і app-modal): фокус переходить усередину при
+   відкритті і повертається на елемент-тригер при закритті. */
+let lastFocusedBeforeDialog = null;
+function focusFirstIn(container){
+  if(!container) return;
+  const candidates = container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  for(const el of candidates){
+    // offsetParent===null охоплює і display:none, і приховані predecessors —
+    // так фокус природно потрапляє на першу РЕАЛЬНО видиму кнопку/поле
+    // (напр. для showConfirmModal це кнопка "Так", бо всі текстові поля
+    // цієї модалки приховані), а не на технічно перший, але невидимий елемент.
+    if(el.offsetParent !== null && !el.disabled){
+      try{ el.focus({preventScroll:true}); }catch(e){ el.focus(); }
+      return;
+    }
+  }
+}
+function restoreFocus(){
+  const el = lastFocusedBeforeDialog;
+  lastFocusedBeforeDialog = null;
+  if(el && typeof el.focus === 'function' && document.contains(el)){
+    try{ el.focus({preventScroll:true}); }catch(e){ el.focus(); }
+  }
+}
+// Проста Tab-пастка: поки відкритий рівно один з двох діалогів (drawer або
+// app-modal — вони ніколи не відкриті одночасно в цьому застосунку), Tab/
+// Shift+Tab циклічно лишається всередині нього, не "втікаючи" у фонову
+// сторінку (яка й так позбавлена інтерактивності через inert на закритих
+// шарах, але сама по собі не inert — це стосується лише самих діалогів).
+function trapTabKey(e, container){
+  if(e.key !== 'Tab') return;
+  const focusables = Array.from(container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+    .filter(el => el.offsetParent !== null && !el.disabled);
+  if(!focusables.length) return;
+  const first = focusables[0], last = focusables[focusables.length-1];
+  if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+}
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Tab') return;
+  const modal = document.getElementById('app-modal');
+  const drawer = document.getElementById('settings-drawer');
+  if(modal && modal.classList.contains('open')) trapTabKey(e, modal);
+  else if(drawer && drawer.classList.contains('open')) trapTabKey(e, drawer);
+});
+
 /* ============ Налаштування (Drawer) ============ */
 function openSettings(){
+  lastFocusedBeforeDialog = document.activeElement;
+  document.getElementById('settings-backdrop').removeAttribute('inert');
+  document.getElementById('settings-drawer').removeAttribute('inert');
   document.getElementById('settings-backdrop').classList.add('open');
   document.getElementById('settings-drawer').classList.add('open');
   syncThemeToggleUI();
+  focusFirstIn(document.getElementById('settings-drawer'));
 }
 function closeSettings(){
   document.getElementById('settings-backdrop').classList.remove('open');
   document.getElementById('settings-drawer').classList.remove('open');
+  document.getElementById('settings-backdrop').setAttribute('inert','');
+  document.getElementById('settings-drawer').setAttribute('inert','');
+  restoreFocus();
 }
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); } });
 
@@ -5195,12 +5332,26 @@ if(window.matchMedia){
    діалог не з'являється, і функція просто "нічого не робить". Це виглядає як
    "кнопка не працює". Власний DOM-based модал не залежить від таких обмежень. */
 function openAppModal(){
+  // Rev 2.10.2 — фокус переходить у модалку тут, ЦЕНТРАЛІЗОВАНО: усі
+  // show*Modal() (Confirm/Prompt/Installment/MonthPicker/Category/
+  // Subcategory/Dictionary) уже викликають openAppModal() останнім рядком,
+  // тому одна зміна тут покриває їх усі без окремого патчу кожної функції.
+  // Ті з них, що потребують фокусу саме на конкретному текстовому полі,
+  // додатково виставляють його через свій власний setTimeout(...,60) одразу
+  // після — це не конфліктує, просто перебиває фокус на 60мс пізніше.
+  lastFocusedBeforeDialog = document.activeElement;
+  document.getElementById('modal-backdrop').removeAttribute('inert');
+  document.getElementById('app-modal').removeAttribute('inert');
   document.getElementById('modal-backdrop').classList.add('open');
   document.getElementById('app-modal').classList.add('open');
+  focusFirstIn(document.getElementById('app-modal'));
 }
 function closeAppModal(){
   document.getElementById('modal-backdrop').classList.remove('open');
   document.getElementById('app-modal').classList.remove('open');
+  document.getElementById('modal-backdrop').setAttribute('inert','');
+  document.getElementById('app-modal').setAttribute('inert','');
+  restoreFocus();
 }
 function showConfirmModal(message, onConfirm, confirmLabel){
   document.getElementById('app-modal-text').textContent = message;
@@ -5536,13 +5687,32 @@ restoreExpenseDraft();
 // хостингу на HTTPS/localhost; на file:// registerServiceWorker() просто
 // тихо не спрацює, решта застосунку працює як і раніше.
 if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+  // Rev 2.11.0 — 'controllerchange' спрацьовує РІВНО раз, коли новий SW
+  // реально бере контроль над сторінкою (тобто вже ПІСЛЯ того, як сторінка
+  // надіслала SKIP_WAITING у відповідь на клік "Оновити зараз" — див.
+  // openUpdateModal). Це єдине надійне місце для автоматичного
+  // перезавантаження: реагувати на сам факт зміни контролера, а не
+  // здогадуватись про час активації по таймеру. swReloadTriggered — захист
+  // від подвійного reload (подія теоретично може спрацювати й з інших
+  // причин, напр. якщо в іншій вкладці теж відкрито застосунок).
+  navigator.serviceWorker.addEventListener('controllerchange', function(){
+    if(swReloadTriggered) return;
+    swReloadTriggered = true;
+    window.location.reload();
+  });
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('./sw.js').then(function(registration){
+      swRegistration = registration;
       // Rev 2.3.6 — виявлення оновлення: якщо на сервері з'явився новий
       // sw.js, браузер сам качає його у фоні (installing) і генерує
       // "updatefound". navigator.serviceWorker.controller вже існує лише
       // якщо це саме ОНОВЛЕННЯ (не перше встановлення) — на першому візиті
       // controller ще null, і банер оновлення показувати нема сенсу.
+      // Rev 2.11.0 — тепер, коли SW більше не викликає skipWaiting()
+      // автоматично на install (sw.js), щойно завантажений новий SW реально
+      // ЗАЛИШАЄТЬСЯ в registration.waiting, доки користувач не підтвердить —
+      // цю перевірку більше не "з'їдає" гонка станів, як могло траплятись
+      // раніше.
       if(registration.waiting && navigator.serviceWorker.controller){
         showUpdateAvailable();
       }
