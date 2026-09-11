@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.11.0';
+const CACHE_NAME = 'budget-app-v2.11.1';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -28,13 +28,26 @@ self.addEventListener('install', function(event){
   // новий SW встановлюється і чекає у стані "waiting", доки сторінка сама не
   // надішле команду SKIP_WAITING (див. обробник message нижче) — це
   // відбувається лише у відповідь на клік "Оновити зараз" в openUpdateModal().
+  //
+  // Rev 2.11.1 BugFix (P1, PWA-аудит) — cache.addAll(APP_SHELL) атомарний:
+  // якщо ХОЧ ОДИН ресурс (напр. тимчасово недоступна іконка) не завантажився,
+  // ціла операція відхилялась, і catch() нижче це мовчки ковтав — офлайн-
+  // фолбек (caches.match('./index.html') у fetch-обробнику нижче) міг тоді
+  // лишитись БЕЗ жодного закешованого index.html, хоча install формально
+  // "успішно" завершився. Замість одного addAll кешуємо кожен ресурс
+  // НЕЗАЛЕЖНО (Promise.allSettled) — і найкритичніший з них (index.html,
+  // без якого офлайн-фолбек узагалі не спрацює) кешуємо окремим явним
+  // запитом ПЕРШИМ, а не як частину загального списку.
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache){
-      return cache.addAll(APP_SHELL).catch(function(err){
-        // Якщо якийсь файл shell недоступний під час першого деплою — не
-        // валимо всю інсталяцію SW, краще мати частковий кеш, ніж жодного.
-        console.warn('[SW] Не вдалося закешувати частину app shell:', err);
-      });
+      return cache.add('./index.html')
+        .catch(function(err){ console.error('[SW] Критично: не вдалося закешувати index.html —', err); })
+        .then(function(){
+          return Promise.allSettled(
+            APP_SHELL.filter(function(url){ return url !== './index.html'; })
+              .map(function(url){ return cache.add(url).catch(function(err){ console.warn('[SW] Не вдалося закешувати', url, err); }); })
+          );
+        });
     })
   );
 });

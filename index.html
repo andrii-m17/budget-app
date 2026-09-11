@@ -163,6 +163,13 @@
   .page-header-text{ padding:0 76px; }
   .page-header-text h1{ margin:0; font-size:21px; line-height:27px; font-weight:700; letter-spacing:-.01em; }
   .page-header-text .page-subtitle{ margin:3px 0 0; font-size:12.5px; color:var(--color-text-secondary); line-height:1.4; }
+  /* Rev 2.11.1 — офлайн-банер: той самий приглушений warning-тон, що вже
+     використовує .badge.stale для carry-forward позначок ("станом на") —
+     навмисно НЕ error-колір: офлайн — це очікуваний, безпечний стан
+     (дані й далі зберігаються локально), а не проблема, що вимагає тривоги. */
+  .status-banner{ display:flex; align-items:center; gap:8px; padding:9px 20px; font-size:12px; font-weight:600; background:var(--color-warning-bg); color:var(--color-warning); border-bottom:1px solid var(--color-border); }
+  .status-banner svg{ flex-shrink:0; }
+  .status-banner.hidden{ display:none; }
   /* Rev 2.8.0 — "пігулка" вибору місяця: той самий native <select>, що й раніше
      (повна доступність і нативний колесо-пікер на iOS лишаються), лише
      обгорнутий у <label> (клік будь-де по пігулці — не тільки по вузькому
@@ -357,6 +364,7 @@
   .import-card .import-title{ font-weight:700; font-size:14.5px; margin-bottom:4px; }
   .import-card .import-desc{ font-size:12.5px; color:var(--color-text-secondary); line-height:1.5; margin-bottom:12px; }
   .import-status{ font-size:12.5px; margin-top:10px; color:var(--color-text-primary); white-space:pre-line; }
+  .import-status.hidden{ display:none; }
 
   .section-label{ font-size:11px; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.6px; margin:26px 2px 10px; display:flex; align-items:center; gap:6px; }
   .section-label:first-child{ margin-top:2px; }
@@ -1039,6 +1047,15 @@
   </aside>
 
   <div class="main-col" id="main-col">
+    <!-- Rev 2.11.1 — індикатор офлайн/онлайн стану: за замовчуванням прихований
+         (hidden), JS вмикає/вимикає через window 'online'/'offline' + разову
+         перевірку navigator.onLine при старті (updateOnlineStatusUI). Мета —
+         дати чесний сигнал "дані зберігаються локально" замість тиші, коли
+         людина не впевнена, чи застосунок взагалі щось зберігає без мережі. -->
+    <div class="status-banner hidden" id="offline-banner" role="status" aria-live="polite">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 12.86a10 10 0 0 1 5.17-2.8"/><path d="M12 20h.01"/></svg>
+      <span>Офлайн-режим — зміни зберігаються локально на цьому пристрої</span>
+    </div>
     <div class="top">
       <div class="page-header-buttons">
         <button class="gear-btn update-btn" id="update-btn-top" onclick="openUpdateModal()" aria-label="Доступне оновлення" style="display:none;">
@@ -1337,11 +1354,18 @@
           <span class="service-tile-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="8 11 12 15 16 11"/><path d="M4 21h16"/></svg></span>
           <span class="service-tile-label">Експорт в Excel</span>
         </button>
-        <button type="button" class="service-tile" onclick="triggerImportFileInput()">
+        <button type="button" class="service-tile" id="import-tile" onclick="triggerImportFileInput()">
           <span class="service-tile-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><polyline points="8 13 12 9 16 13"/><path d="M4 4h16"/></svg></span>
           <span class="service-tile-label">Імпорт з Excel</span>
         </button>
       </div>
+      <!-- Rev 2.11.1 — SheetJS (XLSX) вантажиться з CDN, а не з app shell
+           (аудит: cross-origin ресурси Service Worker свідомо не кешує).
+           Якщо застосунок відкрито офлайн ще до того, як бібліотека хоч раз
+           завантажилась у цій сесії — Excel-функції реально недоступні, і
+           без цього попередження клік по кнопці впав би незрозумілою
+           технічною помилкою замість чіткого пояснення. -->
+      <div class="import-status hidden" id="excel-offline-notice" style="color:var(--color-warning);">Excel-функції потребують інтернету (бібліотека завантажується з мережі при відкритті) — зараз недоступні. З'явиться підключення — спробуємо підхопити автоматично.</div>
       <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none;" onchange="handleImportFile(event)">
       <div class="import-status" id="import-status"></div>
 
@@ -1368,7 +1392,7 @@
         </span>
       </button>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.11.0</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.11.1</div>
     </div>
   </div>
 </div>
@@ -1659,7 +1683,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.0';
+const APP_VERSION = '2.11.1';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
@@ -2852,6 +2876,55 @@ function renderStructure(){
   `).join('') : `<div class="empty-hint">Словник порожній</div>`;
 }
 
+/* ============ Мережевий стан: офлайн-банер + доступність Excel (Rev 2.11.1) ============
+   Два різні, але споріднені сигнали:
+   1) navigator.onLine / window 'online'-'offline' — загальний статус мережі,
+      показуємо банер зверху як просте заспокійливе підтвердження "дані й
+      далі зберігаються локально", без прив'язки до конкретної функції.
+   2) typeof XLSX — РЕАЛЬНИЙ технічний стан бібліотеки SheetJS. Вона
+      підвантажується з CDN (cdnjs), а Service Worker свідомо НЕ кешує
+      cross-origin ресурси (див. sw.js) — тому navigator.onLine=false ще не
+      означає "Excel не працює" (якщо сторінка вже була відкрита онлайн у цій
+      вкладці, бібліотека вже в пам'яті й Excel продовжує працювати офлайн:
+      і читання файлу через FileReader, і генерація .xlsx через Blob не
+      потребують мережі сама по собі). А от якщо PWA відкрито ОФЛАЙН з нуля
+      (застосунок закритий, телефон у авіарежимі) — <script src> з cdnjs
+      просто не завантажиться, і XLSX залишиться undefined на всю сесію, доки
+      не з'явиться мережа. Тому перевіряємо саме typeof XLSX, а не
+      navigator.onLine — це і є справжня причина, чому Excel міг би впасти.
+*/
+function updateOnlineStatusUI(){
+  const banner = document.getElementById('offline-banner');
+  if(banner) banner.classList.toggle('hidden', navigator.onLine);
+}
+function isExcelLibraryReady(){
+  return typeof XLSX !== 'undefined';
+}
+function updateExcelAvailabilityUI(){
+  const ready = isExcelLibraryReady();
+  const exportBtn = document.getElementById('export-btn');
+  const importTile = document.getElementById('import-tile');
+  const notice = document.getElementById('excel-offline-notice');
+  if(exportBtn) exportBtn.disabled = !ready;
+  if(importTile) importTile.disabled = !ready;
+  if(notice) notice.classList.toggle('hidden', ready);
+}
+// Rev 2.11.1 — коли з'являється мережа (подія 'online'), пробуємо
+// підвантажити бібліотеку ДИНАМІЧНО, замість вимагати від людини ручного
+// перезавантаження сторінки, щоб Excel запрацював знову.
+let excelLoadAttemptInProgress = false;
+function tryLoadExcelLibrary(){
+  if(isExcelLibraryReady() || excelLoadAttemptInProgress) return;
+  excelLoadAttemptInProgress = true;
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  script.onload = function(){ excelLoadAttemptInProgress = false; updateExcelAvailabilityUI(); };
+  script.onerror = function(){ excelLoadAttemptInProgress = false; };
+  document.head.appendChild(script);
+}
+window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); });
+window.addEventListener('offline', updateOnlineStatusUI);
+
 /* ============ Експорт в Excel ============ */
 function sheetOrPlaceholder(data, emptyMessage){
   if(!data.length) return XLSX.utils.aoa_to_sheet([[emptyMessage]]);
@@ -2874,6 +2947,16 @@ function isoToUaDateText(iso){
   return `${d}.${m}.${y}`;
 }
 function exportToExcel(){
+  // Rev 2.11.1 (P1, PWA-аудит) — захист про всяк випадок: кнопка й так
+  // задизейблена через updateExcelAvailabilityUI(), коли бібліотека
+  // недоступна, але цей ранній вихід рятує від "сирого" ReferenceError у
+  // рідкісному вікні гонки станів (напр. клік стався за мілісекунди до
+  // оновлення UI).
+  if(!isExcelLibraryReady()){
+    const statusEl = document.getElementById('import-status');
+    if(statusEl) statusEl.textContent = 'Excel-функції зараз недоступні — немає інтернету для завантаження бібліотеки.';
+    return;
+  }
   const btn = document.getElementById('export-btn');
   btn.classList.add('btn-loading'); btn.disabled = true;
   const expData = expenses.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>{
@@ -2957,6 +3040,15 @@ function handleImportFile(event){
   if(!file) return;
   const statusEl = document.getElementById('import-status');
   const inputEl = event.target;
+  // Rev 2.11.1 (P1, PWA-аудит) — той самий ранній вихід, що й у exportToExcel():
+  // кнопка вибору файлу задизейблена через updateExcelAvailabilityUI(), але
+  // сам input[type=file] теоретично лишається доступним іншим шляхом (напр.
+  // якщо файл обрано до втрати мережі) — перевіряємо тут теж.
+  if(!isExcelLibraryReady()){
+    statusEl.textContent = 'Excel-функції зараз недоступні — немає інтернету для завантаження бібліотеки.';
+    inputEl.value = '';
+    return;
+  }
   statusEl.innerHTML = '<span class="skeleton" style="display:inline-block; width:120px; height:12px; vertical-align:middle;"></span> Читаю файл…';
   inputEl.disabled = true;
 
@@ -5676,6 +5768,12 @@ applyTheme();
 // за замовчуванням (Аналітика) — БЕЗ анімації, щоб не "прилітала" з кута
 // екрана при першому завантаженні сторінки.
 updateTabBubble(true);
+// Rev 2.11.1 — початковий стан офлайн-банера й доступності Excel-кнопок:
+// без цього виклику обидва індикатори лишались би в дефолтному (порожньому)
+// стані аж до першої події 'online'/'offline', навіть якщо застосунок
+// відкрився офлайн з самого початку.
+updateOnlineStatusUI();
+updateExcelAvailabilityUI();
 // Rev 2.3.3 — відновлення чернетки після loadAll() (потребує вже завантажені
 // CATEGORIES/SUBCATEGORIES/installmentAccounts, інакше setCategorySelect()/
 // автозв'язок ОЧ спрацювали б на порожніх довідниках).
