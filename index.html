@@ -1428,6 +1428,23 @@
       <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none;" onchange="handleImportFile(event)">
       <div class="import-status" id="import-status"></div>
 
+      <div class="section-label">Спільні витрати</div>
+      <div class="service-grid">
+        <button type="button" class="service-tile" id="share-expenses-btn" onclick="openShareExpensesModal()">
+          <span class="service-tile-icon c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></span>
+          <span class="service-tile-label">Поділитися витратами</span>
+        </button>
+        <button type="button" class="service-tile" id="import-shared-tile" onclick="triggerShareImportInput()">
+          <span class="service-tile-icon c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg></span>
+          <span class="service-tile-label">Додати спільні витрати</span>
+        </button>
+      </div>
+      <div class="import-desc" style="margin:-10px 0 12px; font-size:12.5px; line-height:1.5; color:var(--color-text-secondary);">
+        Обмін витратами між твоїм телефоном і телефоном Олі — окремо від Excel і бекапу. Файл передається через звичайне «Поділитися» (Telegram, Messages тощо); дублікати при повторному додаванні пропускаються автоматично.
+      </div>
+      <input type="file" id="share-import-file" accept=".json" style="display:none;" onchange="handleShareImportFile(event)">
+      <div class="import-status" id="share-status"></div>
+
       <div class="section-label">Резервна копія</div>
       <div class="service-grid">
         <button type="button" class="service-tile" onclick="exportBackup()">
@@ -1521,7 +1538,7 @@
         </span>
       </button>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.11.1</div>
+      <div class="version-footer">Бюджет-локально · Rev 2.11.3</div>
     </div>
   </div>
 </div>
@@ -1758,10 +1775,74 @@ let selectedMonth = null;
 // картки Row 4, наповнюється заново при кожному renderDashboard(), щоб бути
 // завжди синхронним з місяцем. Прапорці розгорнутості — окремо, в
 // expandedRow4Key (див. нижче, біля toggleCardExpand) — одна на всі три картки.
+
+/* ============ Data Identity Foundation: UUID + schemaVersion (Rev 2.11.2) ============
+   Підготовка до Family Bridge (обмін витратами між телефонами Андрія й Олі
+   через JSON) і майбутнього Cloud: дедуплікація записів між двома незалежно
+   працюючими копіями застосунку можлива лише якщо кожен запис має стабільний,
+   гарантовано унікальний і НІКОЛИ не перевикористовуваний ідентифікатор.
+
+   Раніше id будувався як Date.now()+Math.random().toString(36).slice(2,6) —
+   унікальний В МЕЖАХ ОДНОГО пристрою (записи там завжди йдуть послідовно),
+   але не гарантовано унікальний МІЖ ДВОМА незалежними пристроями, що можуть
+   додати запис у той самий момент часу — саме така колізія зламала б
+   дедуплікацію при майбутньому обміні. crypto.randomUUID() (Safari з 15.4+,
+   тобто будь-який сучасний iPhone) дає справжній RFC4122 UUID v4 з
+   практично нульовою ймовірністю колізії між пристроями. */
+function generateUUID(){
+  if(window.crypto && typeof window.crypto.randomUUID === 'function'){
+    return window.crypto.randomUUID();
+  }
+  // Фолбек на випадок недоступності crypto.randomUUID (дуже старий WebView
+  // чи non-secure context, напр. відкриття через http:// у локальній мережі)
+  // — той самий формат UUID v4, згенерований вручну через Math.random().
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+    const r = Math.random()*16|0, v = c==='x' ? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+// SCHEMA_VERSION — версія СТРУКТУРИ ДАНИХ у localStorage/бекапі, не плутати
+// з APP_VERSION нижче (той про код/UI застосунку і піднімається щоревізії).
+// SCHEMA_VERSION зростає лише тоді, коли формат самих записів змінюється
+// несумісно — тоді майбутні ревізії зможуть додати послідовні кроки
+// міграції за номером версії (за зразком ensureExpenseIdentity нижче).
+const SCHEMA_VERSION = 1;
+const LS_KEY_SCHEMA_VERSION = 'budget_schema_version_v1';
+function ensureSchemaVersion(){
+  const stored = parseInt(localStorage.getItem(LS_KEY_SCHEMA_VERSION) || '0', 10);
+  if(stored < SCHEMA_VERSION) localStorage.setItem(LS_KEY_SCHEMA_VERSION, String(SCHEMA_VERSION));
+}
+// Rev 2.11.2 — ідемпотентна перевірка ідентичності витрат: заповнює ЛИШЕ
+// ВІДСУТНІ id/createdAt/updatedAt, ніколи не перезаписує вже наявні значення.
+// Тому повторний виклик (кожен старт застосунку, і навіть після відновлення
+// старого бекапу без цих полів) нічого зайвого не змінює — запис, що вже
+// має свій UUID, зберігає його назавжди. Викликається з loadAll(), отже й
+// одразу після відновлення бекапу (handleRestoreBackupFile викликає loadAll()
+// в кінці) — тож стара резервна копія теж самовідновлює ці поля без
+// додаткового коду в самому відновленні.
+function ensureExpenseIdentity(){
+  let changed = false;
+  const nowISO = new Date().toISOString();
+  expenses.forEach(function(e){
+    if(!e.id || typeof e.id !== 'string'){ e.id = generateUUID(); changed = true; }
+    if(!e.createdAt){
+      // Точний момент створення для старих записів невідомий (раніше не
+      // зберігався взагалі) — НЕ підставляємо "зараз" (це спотворило б
+      // реальну хронологію), а беремо початок дня фактичної дати витрати
+      // (e.date, вже відома й достовірна) як чесне наближення.
+      e.createdAt = e.date ? (e.date + 'T00:00:00.000Z') : nowISO;
+      changed = true;
+    }
+    if(!e.updatedAt){ e.updatedAt = e.createdAt; changed = true; }
+  });
+  if(changed) saveExpenses();
+}
 let cardVariants = {};
 
 function loadAll(){
   try{ expenses = JSON.parse(localStorage.getItem(LS_KEY_EXP) || '[]'); }catch(e){ expenses = []; }
+  ensureExpenseIdentity();
+  ensureSchemaVersion();
   try{ incomes = JSON.parse(localStorage.getItem(LS_KEY_INC) || '[]'); }catch(e){ incomes = []; }
   try{ debts = JSON.parse(localStorage.getItem(LS_KEY_DEBT) || '[]'); }catch(e){ debts = []; }
   try{
@@ -1812,10 +1893,11 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.1';
+const APP_VERSION = '2.11.3';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
-  LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY
+  LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
+  LS_KEY_SCHEMA_VERSION
 ];
 function exportBackup(){
   const payload = { __budgetBackup: true, version: APP_VERSION, exportedAt: new Date().toISOString(), data: {} };
@@ -2189,7 +2271,11 @@ function addExpense(){
   if(!name || !amount || amount<=0){ flashField(!name ? 'f-name' : 'f-amount'); return; }
   const auto = autocategorize(name);
   const isManual = !auto || auto.cat !== category;
-  const rec = { id: Date.now()+Math.random().toString(36).slice(2,6), date, name, amount, category, subcategory, manual:isManual };
+  // Rev 2.11.2 — стабільний UUID (generateUUID(), не Date.now()+random) і
+  // createdAt/updatedAt одразу при створенні — фундамент для майбутнього
+  // обміну витратами між пристроями (Family Bridge) та Cloud-синхронізації.
+  const nowISO = new Date().toISOString();
+  const rec = { id: generateUUID(), date, name, amount, category, subcategory, manual:isManual, createdAt: nowISO, updatedAt: nowISO };
   // Rev 2.2.2 — автозв'язок витрата↔ОЧ (метод C): лише якщо користувач явно
   // підтвердив підказку (confirmedInstallmentLinkIdx !== -1), інакше поле
   // взагалі не додається до запису (а не залишається порожнім/null) — так
@@ -3239,10 +3325,16 @@ function handleImportFile(event){
           const fp = expenseFingerprint(row.date, row.name, row.amount);
           if(remainingNeeded[fp] > 0){
             remainingNeeded[fp]--;
+            // Rev 2.11.2 — той самий підхід, що ensureExpenseIdentity():
+            // справжній UUID замість рядка з префіксом "imp-exp-", і createdAt
+            // від дати транзакції (точний момент імпорту невідомий і не
+            // важливий — важлива саме дата самої витрати).
+            const importedAt = row.date + 'T00:00:00.000Z';
             expenses.push({
-              id: 'imp-exp-'+addedExpenses+'-'+Date.now(),
+              id: generateUUID(),
               date: row.date, name: row.name, amount: row.amount,
-              category: row.category, subcategory: row.subcategory, manual: row.manual
+              category: row.category, subcategory: row.subcategory, manual: row.manual,
+              createdAt: importedAt, updatedAt: importedAt
             });
             addedExpenses++;
           }else{
@@ -3471,6 +3563,178 @@ function handleImportFile(event){
   };
   reader.onerror = () => { statusEl.textContent = 'Не вдалося прочитати файл.'; inputEl.disabled = false; };
   reader.readAsArrayBuffer(file);
+}
+
+/* ============ Спільні витрати: Family Bridge (Rev 2.11.3) ============
+   Обмін витратами між двома незалежними локальними копіями застосунку
+   (Андрій ⇄ Оля) через JSON-файл і системне меню "Поділитися" — окремо
+   від Excel (той працює з ГОЛОВНИМ файлом користувача) і від повного
+   бекапу (той про відновлення всього стану одного пристрою, а не про обмін
+   між двома). Дедуплікація спирається на стабільний id витрати (Rev 2.11.2,
+   Data Identity Foundation) — та сама витрата, передана повторно, не
+   створить дубль.
+
+   Rev 2.11.3 — за рішенням: лише два періоди на вибір (поточний місяць /
+   усі витрати), без "сьогодні"/"попередній місяць"/довільного діапазону —
+   свідомо мінімальний набір для першого реального тесту з Олею; розширимо
+   лише якщо реальне використання покаже потребу. */
+function expenseCountWord(n){
+  const mod10=n%10, mod100=n%100;
+  if(mod10===1 && mod100!==11) return 'витрата';
+  if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'витрати';
+  return 'витрат';
+}
+// Лише поля, що дійсно мають сенс для іншого пристрою — жодних внутрішніх
+// технічних артефактів (напр. майбутніх службових полів), щоб формат обміну
+// лишався стабільним і передбачуваним незалежно від внутрішньої еволюції
+// структури expenses[].
+function serializeExpenseForShare(e){
+  const out = {
+    id: e.id, date: e.date, name: e.name, amount: e.amount,
+    category: e.category || '', subcategory: e.subcategory || '',
+    manual: !!e.manual, createdAt: e.createdAt || null, updatedAt: e.updatedAt || null
+  };
+  if(e.linkedInstallment) out.linkedInstallment = e.linkedInstallment;
+  return out;
+}
+function openShareExpensesModal(){
+  if(!selectedMonth) return;
+  document.getElementById('app-modal-text').textContent = 'Який період передати?';
+  document.getElementById('app-modal-input-wrap').style.display = 'none';
+  document.getElementById('app-modal-amount-wrap').style.display = 'none';
+  const selectWrap = document.getElementById('app-modal-select-wrap');
+  selectWrap.style.display = 'block';
+  document.getElementById('app-modal-select2-wrap').style.display = 'none';
+  document.getElementById('app-modal-select-label').textContent = 'Період';
+  const select = document.getElementById('app-modal-select');
+  select.onchange = null; // захист: showDictionaryModal лишає тут live-обробник
+  select.innerHTML = `
+    <option value="month">Поточний місяць (${monthLabel(selectedMonth)})</option>
+    <option value="all">Усі витрати</option>
+  `;
+  const btn = document.getElementById('app-modal-confirm-btn');
+  btn.textContent = 'Поділитися';
+  btn.className = 'submit-btn';
+  btn.onclick = function(){
+    const period = select.value;
+    closeAppModal();
+    shareExpensesFile(period);
+  };
+  openAppModal();
+}
+async function shareExpensesFile(period){
+  const statusEl = document.getElementById('share-status');
+  const list = (period === 'month' ? expenses.filter(e => monthKey(e.date) === selectedMonth) : expenses)
+    .map(serializeExpenseForShare);
+  if(!list.length){
+    if(statusEl) statusEl.textContent = 'За обраний період немає жодної витрати — нема чого передавати.';
+    return;
+  }
+  const payload = {
+    __budgetShare: true,
+    schemaVersion: SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    period,
+    periodLabel: period === 'month' ? monthLabel(selectedMonth) : 'усі витрати',
+    expenses: list
+  };
+  const filename = `Бюджет-витрати-${period === 'month' ? selectedMonth : 'усі'}-${localDateISO()}.json`;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  // Rev 2.11.3 — на iPhone найзручніший шлях саме через navigator.share() з
+  // файлом: одразу відкриває системне меню "Поділитися" (Telegram, Messages,
+  // AirDrop тощо), без проміжного кроку "спершу збережи файл, потім знайди
+  // його у Files і розшар вручну". Фолбек на звичайне завантаження — для
+  // браузерів/контекстів без підтримки Web Share API з файлами (напр.
+  // desktop Chrome), той самий патерн, що вже використовує exportBackup().
+  let shared = false;
+  try{
+    const file = new File([blob], filename, {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({ files:[file], title:'Витрати — Бюджет-локально' });
+      shared = true;
+    }
+  }catch(err){
+    if(err && err.name === 'AbortError'){
+      // Користувач сам закрив системне меню "Поділитися" без вибору —
+      // це не помилка, нічого показувати не потрібно.
+      return;
+    }
+    // Будь-яка інша помилка Web Share API — тихо переходимо на фолбек нижче.
+  }
+  if(!shared){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+  if(statusEl) statusEl.textContent = `Готово: ${list.length} ${expenseCountWord(list.length)} (${payload.periodLabel}).`;
+}
+function triggerShareImportInput(){
+  document.getElementById('share-import-file').click();
+}
+function handleShareImportFile(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('share-status');
+  const inputEl = event.target;
+  statusEl.textContent = 'Читаю файл…';
+  const reader = new FileReader();
+  reader.onload = function(e){
+    let parsed;
+    try{ parsed = JSON.parse(e.target.result); }
+    catch(err){ statusEl.textContent = 'Помилка: файл пошкоджений або не є JSON.'; inputEl.value=''; return; }
+    if(!parsed || parsed.__budgetShare !== true || !Array.isArray(parsed.expenses)){
+      statusEl.textContent = 'Помилка: це не файл спільних витрат цього застосунку.';
+      inputEl.value = '';
+      return;
+    }
+    // Скидаємо input одразу після успішного зчитування (а не лише в кінці
+    // кожної гілки) — інакше повторний вибір ТОГО САМОГО файлу після
+    // натискання "Скасувати" у модалці підтвердження міг би не спрацювати
+    // (браузер не породжує подію change, якщо значення інпута не змінилось).
+    inputEl.value = '';
+    // Валідні мінімальні поля — id обов'язковий (саме на ньому базується
+    // дедуплікація), решта критичних полів теж мають бути присутні.
+    const incoming = parsed.expenses.filter(function(e){
+      return e && typeof e.id === 'string' && e.id && e.date && e.name && typeof e.amount === 'number';
+    });
+    if(!incoming.length){
+      statusEl.textContent = 'У файлі не знайдено жодної коректної витрати.';
+      return;
+    }
+    const existingIds = new Set(expenses.map(function(e){ return e.id; }));
+    const newOnes = incoming.filter(function(e){ return !existingIds.has(e.id); });
+    const dupCount = incoming.length - newOnes.length;
+    if(!newOnes.length){
+      statusEl.textContent = `Усі ${incoming.length} ${expenseCountWord(incoming.length)} з файлу вже є у вашому журналі — нічого не додано.`;
+      return;
+    }
+    const totalSum = newOnes.reduce(function(s,e){ return s+Math.round(e.amount); }, 0);
+    const message = `Знайдено ${incoming.length} ${expenseCountWord(incoming.length)} у файлі. `
+      + `Нових: ${newOnes.length} (${fmt(totalSum)}). `
+      + (dupCount>0 ? `Вже є: ${dupCount}. ` : '')
+      + `Додати нові витрати?`;
+    showConfirmModal(message, function(){
+      newOnes.forEach(function(e){
+        const fallbackTs = e.date + 'T00:00:00.000Z';
+        const rec = {
+          id: e.id, date: e.date, name: String(e.name), amount: Math.round(e.amount),
+          category: e.category || '', subcategory: e.subcategory || '',
+          manual: !!e.manual,
+          createdAt: e.createdAt || fallbackTs,
+          updatedAt: e.updatedAt || e.createdAt || fallbackTs
+        };
+        if(e.linkedInstallment) rec.linkedInstallment = e.linkedInstallment;
+        expenses.push(rec);
+      });
+      saveExpenses();
+      populateMonths(); renderAll();
+      statusEl.textContent = `Додано ${newOnes.length} ${expenseCountWord(newOnes.length)}.` + (dupCount>0 ? ` Пропущено ${dupCount} (вже є).` : '');
+    }, `Додати ${newOnes.length}`);
+  };
+  reader.onerror = function(){ statusEl.textContent = 'Не вдалося прочитати файл.'; inputEl.value=''; };
+  reader.readAsText(file);
 }
 
 /* ============ Місяці ============ */
@@ -3894,6 +4158,10 @@ function saveRecordEdit(id){
   rec.category = catSel.value;
   rec.subcategory = subSel.value;
   rec.manual = true; // редагування вручну через журнал — вважаємо ручним статусом
+  // Rev 2.11.2 — id і createdAt НІКОЛИ не змінюються редагуванням (запис
+  // лишається "тим самим" записом для майбутньої дедуплікації при обміні),
+  // оновлюється лише updatedAt.
+  rec.updatedAt = new Date().toISOString();
   saveExpenses();
   editingRecordKey = null;
   selectedRecordKey = null;
