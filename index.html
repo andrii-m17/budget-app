@@ -197,10 +197,41 @@
   .view{ padding:20px 20px 0; flex:1; } .view.hidden{ display:none; }
   .card{ background:var(--color-surface); border-radius:var(--radius-lg); padding:24px; box-shadow:var(--shadow-md); border:1px solid var(--color-border); }
   .card + .card{ margin-top:24px; }
-  .entry-card{ border-top:3px solid transparent; }
+  /* Rev 2.11.4 — за референс-скріном користувача: картки "Дохід за місяць",
+     "Борги по картках", "Оплати частинами" й "Нова витрата" більше НЕ мають
+     кольорової лінії зверху (раніше .expense-entry/.income-entry/.debt-entry
+     фарбували border-top у червоний/зелений/помаранчевий) — плоский,
+     однорідний вигляд картки ближчий до референсу.
+     Rev 2.11.5 BugFix — попередня версія лишала border-top:3px solid
+     transparent на .entry-card: цей товщий (3px, не 1px) прозорий бордер
+     ПЕРЕКРИВАВ звичайний border:1px solid var(--color-border) від .card,
+     тому зверху рамка виглядала відсутньою, хоча зліва/справа/знизу
+     лишався звичний 1px контур. Просто прибираємо перевизначення border-top
+     — картка успадковує суцільний 1px бордер з усіх чотирьох боків, як .card. */
   .entry-title{ font-weight:600; font-size:14px; line-height:20px; margin-bottom:14px; display:flex; align-items:center; gap:7px; }
-  .expense-entry{ border-top-color:var(--color-error); }
-  .income-entry{ border-top-color:var(--color-success); }
+  /* Rev 2.11.4 — той самий узагальнений рядок підсумку, що вже
+     використовувала лише картка ОЧ ("Разом на місяць") — перейменовано з
+     .installment-total на .total-row, бо тепер його перевикористовують і
+     "Борги по картках" ("Разом боргів"), і сама ОЧ ("Разом ОЧ"). Модифікатор
+     .warning фарбує суму в той самий приглушений warning-тон, що й бейдж
+     "станом на" — за референсом (амбер-колір для "Разом боргів"). */
+  .total-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 2px 4px; margin-bottom:14px; font-size:13px; font-weight:600; color:var(--color-text-primary); border-top:1.5px solid var(--color-border-strong); }
+  .total-row b{ font-family:'JetBrains Mono',monospace; font-size:15px; }
+  .total-row.warning b{ color:var(--color-warning); }
+  /* Rev 2.11.4 — кнопки збереження на Обліку округлені за референс-скріном.
+     Rev 2.11.5 — за проханням трохи менше округлення, ніж повний "pill"
+     (999px виглядав задовгою "таблеткою") — 18px лишає помітну, але
+     стриманішу округлість. */
+  .installment-pay-btn,
+  .add-trigger-btn,
+  .submit-btn.pill {border-radius: 18px;}
+  /* Rev 2.11.5 — "Зберегти дохід" ішла одразу за таблицею доходу без жодного
+     проміжного елемента (на відміну від карток боргів/ОЧ, де перед кнопкою
+     завжди є "+ Додати банк"/"+ Додати ОЧ", що й так дає відступ) — тому
+     саме тут бракувало повітря. Просто трохи більший margin-top для кнопки
+     конкретно в цій картці, а не для .submit-btn узагалі (щоб не зсунути
+     решту кнопок застосунку). */
+  .income-entry .submit-btn{ margin-top:20px; }
   /* Rev 2.0.1 — дохід: таблиця з фіксованими рядками (ЗП Андрій/Оля/Інше)
      замість вільного текстового поля "Джерело доходу". Природний ключ запису —
      джерело+місяць (як в Excel: одна колонка = одне число на місяць). */
@@ -239,7 +270,7 @@
      картки (завжди видимі інпути захаращували форму) — тепер лише кнопка,
      яка відкриває вже наявну кастомну модалку. Пунктирна рамка (той самий
      прийом, що import-card) сигналізує "додати нове", а не "зберегти". */
-  .add-trigger-btn{ width:100%; padding:12px; margin-bottom:14px; border:1.5px dashed var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-text-secondary); font-size:14px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
+  .add-trigger-btn{ width:100%; padding:12px; margin-bottom:14px; border:1.5px dashed var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); font-size:14px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
   .add-trigger-btn:hover{ background:var(--color-surface-hover); border-color:var(--color-primary); color:var(--color-primary-hover); }
   #banks-saved-hint{ color:var(--color-primary-hover); font-weight:600; }
   /* Rev 2.1.17 — підпис початкової суми ОЧ (потрібна для прогрес-бару на
@@ -269,15 +300,12 @@
   .installment-row .bdr-field-label{ font-size:10px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.3px; }
   .installment-row .bdr-field input{ width:100%; min-width:0; padding:9px 10px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:15px; text-align:right; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
   .installment-row .bdr-field input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
-  .installment-total{ display:flex; align-items:center; justify-content:space-between; padding:10px 2px 4px; margin-bottom:14px; font-size:13px; font-weight:600; color:var(--color-text-primary); border-top:1.5px solid var(--color-border-strong); }
-  .installment-total b{ font-family:'JetBrains Mono',monospace; font-size:15px; }
   /* Rev 2.2.3 — кнопка швидкої оплати ОЧ (метод B, FINANCIAL_RULES §5):
      відкриває форму витрати з передзаповненими назвою/сумою і вже готовою
      прив'язкою. Фіолетовий акцент — той самий, що категорія "Оплати Частинами"
      і підказка автозв'язку (метод C), щоб візуально пов'язати ці елементи. */
-  .installment-pay-btn{ width:100%; margin-top:10px; padding:10px; border:1.5px solid var(--color-accent-purple); border-radius:var(--radius-sm); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font-size:13px; font-weight:600; cursor:pointer; }
+  .installment-pay-btn{ width:100%; margin-top:10px; padding:10px; border:1.5px solid var(--color-accent-purple); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font-size:13px; font-weight:600; cursor:pointer; }
   .installment-pay-btn:hover{ filter:brightness(0.97); }
-  .debt-entry{ border-top-color:var(--color-warning); }
   .field{ margin-bottom:14px; min-width:0; } .field:last-child{ margin-bottom:0; }
   .field label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
@@ -354,6 +382,11 @@
   .submit-btn:hover{ background:var(--color-primary-hover); }
   .submit-btn.income{ background:var(--color-success); } .submit-btn.income:hover{ background:var(--color-primary-hover); }
   .submit-btn.debt{ background:var(--color-warning); } .submit-btn.debt:hover{ background:var(--color-warning-hover); }
+  /* Rev 2.11.4 — окремий модифікатор саме для "Додати витрату" (за референс-
+     скріном): червоний колір + трохи більше округлення, ніж базовий
+     .submit-btn (12px). НЕ чіпаємо сам .submit-btn — його ж використовують
+     кнопки підтвердження в модалках і скрізь по застосунку. */
+  .submit-btn.expense{ background:var(--color-error); border-radius:18px; } .submit-btn.expense:hover{ background:var(--color-error-hover); }
   .submit-btn.secondary{ background:var(--color-surface); color:var(--color-text-primary); border:1.5px solid var(--color-border-strong); }
   .submit-btn.secondary:hover{ background:var(--color-surface-hover); }
   .submit-btn.danger{ background:var(--color-error); color:#fff; }
@@ -1253,11 +1286,11 @@
       <div class="card entry-card income-entry">
         <div class="entry-title">Дохід за місяць</div>
         <div class="income-table" id="income-table"></div>
-        <button class="submit-btn income" onclick="saveIncomeTable()">Зберегти дохід</button>
+        <button class="submit-btn income pill" onclick="saveIncomeTable()">Зберегти дохід</button>
       </div>
       <div class="field auto-hint" id="income-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
 
-      <div class="struct-note">
+      <div class="struct-note" style="margin-top: 30px;">
         Приглушені пунктирні значення нижче — лише підказка з минулого місяця,
         ще не підтверджена. Торкнись поля, щоб підтвердити його для цього
         місяця; недоторкані рядки при натисканні "Зберегти" просто пропускаються
@@ -1266,17 +1299,19 @@
       <div class="section-label">Борги по картках</div>
       <div class="card entry-card debt-entry">
         <div class="bank-debt-table" id="bank-debt-table"></div>
+        <div class="total-row warning"><span>Разом боргів</span><b id="bank-debt-total-value">0 ₴</b></div>
         <button type="button" class="add-trigger-btn" onclick="openAddBankModal()">+ Додати банк</button>
-        <button class="submit-btn debt" onclick="saveBankDebtTable()">Зберегти борги</button>
+        <button class="submit-btn debt pill" onclick="saveBankDebtTable()">Зберегти борги</button>
       </div>
       <div class="field auto-hint" id="banks-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
 
       <div class="section-label">Оплати частинами (ОЧ)</div>
       <div class="card entry-card debt-entry">
         <div class="bank-debt-table" id="installment-table"></div>
-        <div class="installment-total"><span>Разом на місяць</span><b id="installment-total-value">0 ₴</b></div>
+        <div class="total-row warning"><span>Разом ОЧ</span><b id="installment-balance-total-value">0 ₴</b></div>
+        <div class="total-row"><span>Разом на місяць</span><b id="installment-total-value">0 ₴</b></div>
         <button type="button" class="add-trigger-btn" onclick="openAddInstallmentModal()">+ Додати ОЧ</button>
-        <button class="submit-btn debt" onclick="saveInstallmentTable()">Зберегти ОЧ</button>
+        <button class="submit-btn debt pill" onclick="saveInstallmentTable()">Зберегти ОЧ</button>
       </div>
       <div class="field auto-hint" id="installments-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
     </div>
@@ -1312,7 +1347,7 @@
           <div class="field"><label for="f-category">Категорія</label><select id="f-category" onchange="onCategoryChange(true)"></select></div>
           <div class="field"><label for="f-subcategory">Підкатегорія</label><select id="f-subcategory" onchange="onSubcategoryChange(true)"></select></div>
         </div>
-        <button class="submit-btn" onclick="addExpense()">Додати витрату</button>
+        <button class="submit-btn expense" onclick="addExpense()">Додати витрату</button>
       </div>
 
       <div class="section-label">Журнал усіх записів</div>
@@ -1460,7 +1495,7 @@
       </span>
       <span class="service-tile-label">
         <span>Поділитися витратами</span>
-        <span class="service-tile-sub">Надішліть файл з витратами</span>
+        <span class="service-tile-sub">Надішліть витрати файлом</span>
       </span>
     </button>
 
@@ -1510,8 +1545,8 @@
         </svg>
       </span>
       <span class="service-tile-label">
-        <span>Зберегти резервну копію</span>
-        <span class="service-tile-sub">Створіть копію ваших даних</span>
+        <span>Резервне копіювання</span>
+        <span class="service-tile-sub">Створіть копію усіх даних</span>
       </span>
     </button>
 
@@ -1541,7 +1576,7 @@
       </span>
       <span class="service-tile-label">
         <span>Відновити</span>
-        <span class="service-tile-sub">Відновіть дані з резервної копії</span>
+        <span class="service-tile-sub">Відновіть усі дані з копії</span>
       </span>
     </button>
   </div>
@@ -1942,7 +1977,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.3';
+const APP_VERSION = '2.11.5';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -2559,6 +2594,7 @@ function populateInstallmentTable(){
   if(visibleInstallmentCount===0){
     el.innerHTML = `<div class="empty-hint">Ще немає жодної ОЧ. Додай першу нижче.</div>`;
     updateInstallmentTotal();
+    updateInstallmentBalanceTotal();
     return;
   }
   el.innerHTML = installmentAccounts.map(function(acc, i){
@@ -2636,7 +2672,7 @@ function populateInstallmentTable(){
       <div class="bdr-fields">
         <div class="bdr-field">
           <span class="bdr-field-label" id="installment-bal-label-${i}">Залишок</span>
-          <input type="text" inputmode="numeric" class="${balPrefillClass.trim()}" placeholder="0" id="installment-bal-${i}"${expectedAttr} value="${balVal}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, залишок" oninput="this.classList.remove('bdr-amount-prefill'); checkInstallmentDivergence(${i}); markInstallmentDirty(${i})" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markInstallmentDirty(${i})" onblur="formatAmountBlur(this)">
+          <input type="text" inputmode="numeric" class="${balPrefillClass.trim()}" placeholder="0" id="installment-bal-${i}"${expectedAttr} value="${balVal}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, залишок" oninput="this.classList.remove('bdr-amount-prefill'); checkInstallmentDivergence(${i}); markInstallmentDirty(${i}); updateInstallmentBalanceTotal()" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markInstallmentDirty(${i})" onblur="formatAmountBlur(this)">
           <span class="bdr-diff-warning" id="installment-diff-${i}"></span>
         </div>
         <div class="bdr-field">
@@ -2649,6 +2685,7 @@ function populateInstallmentTable(){
     </div>`;
   }).join('');
   updateInstallmentTotal();
+  updateInstallmentBalanceTotal();
   installmentAccounts.forEach(function(_, i){ checkInstallmentDivergence(i); checkInstallmentPaymentDivergence(i); });
 }
 // Rev 2.0.4: живий підсумок "Разом на місяць" — рахується прямо з полів у формі
@@ -2660,6 +2697,19 @@ function updateInstallmentTotal(){
   let sum = 0;
   installmentAccounts.forEach(function(acc, i){
     const input = document.getElementById('installment-pay-'+i);
+    if(input && input.value.trim()) sum += parseAmount(input.value) || 0;
+  });
+  totalEl.textContent = fmt(sum);
+}
+// Rev 2.11.4 — та сама ідея, що updateInstallmentTotal() вище, але для
+// "Залишок" (сума боргу ОЧ, що лишилась), а не "Платіж/міс" (скільки треба
+// віддати цього місяця) — два різні числа, обидва живі ще до збереження.
+function updateInstallmentBalanceTotal(){
+  const totalEl = document.getElementById('installment-balance-total-value');
+  if(!totalEl) return;
+  let sum = 0;
+  installmentAccounts.forEach(function(acc, i){
+    const input = document.getElementById('installment-bal-'+i);
     if(input && input.value.trim()) sum += parseAmount(input.value) || 0;
   });
   totalEl.textContent = fmt(sum);
@@ -2921,6 +2971,7 @@ function populateBankDebtTable(){
   }).length;
   if(visibleBankCount===0){
     el.innerHTML = `<div class="empty-hint">Немає активних карток цього місяця.</div>`;
+    updateBankDebtTotal();
     return;
   }
   el.innerHTML = bankAccounts.map(function(name, i){
@@ -2942,13 +2993,27 @@ function populateBankDebtTable(){
     }
     return `<div class="bank-debt-row">
       <span class="bdr-label">${bankIcon(name)}${escapeHtml(stripLeadingEmoji(name))}<span class="bdr-unsaved-tag" id="bank-unsaved-${i}">⚠ не збережено</span></span>
-      <input type="text" inputmode="numeric" class="bdr-amount${prefillClass}" placeholder="0" id="bank-input-${i}" value="${val}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, борг" oninput="this.classList.remove('bdr-amount-prefill'); markBankDirty(${i})" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markBankDirty(${i})" onblur="formatAmountBlur(this)">
+      <input type="text" inputmode="numeric" class="bdr-amount${prefillClass}" placeholder="0" id="bank-input-${i}" value="${val}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, борг" oninput="this.classList.remove('bdr-amount-prefill'); markBankDirty(${i}); updateBankDebtTotal()" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markBankDirty(${i})" onblur="formatAmountBlur(this)">
       <span class="bdr-actions">
         <button type="button" class="bdr-icon-btn" onclick="renameBankAccount(${i})" aria-label="Перейменувати"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
         <button type="button" class="bdr-icon-btn danger" onclick="removeBankAccount(${i})" aria-label="Видалити банк"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </span>
     </div>`;
   }).join('');
+  updateBankDebtTotal();
+}
+// Rev 2.11.4 — той самий живий підсумок, що вже є для ОЧ (updateInstallmentTotal/
+// updateInstallmentBalanceTotal), тепер і для карток: сума полів "Борг" прямо
+// з форми, ще до натискання "Зберегти борги".
+function updateBankDebtTotal(){
+  const totalEl = document.getElementById('bank-debt-total-value');
+  if(!totalEl) return;
+  let sum = 0;
+  bankAccounts.forEach(function(name, i){
+    const input = document.getElementById('bank-input-'+i);
+    if(input && input.value.trim()) sum += parseAmount(input.value) || 0;
+  });
+  totalEl.textContent = fmt(sum);
 }
 // Rev 2.2.3 — той самий яскравий тег "не збережено", що вже є в таблиці ОЧ,
 // перенесений сюди для узгодженості (та сама механіка pre-fill+Save).
