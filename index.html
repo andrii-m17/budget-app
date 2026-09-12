@@ -1348,107 +1348,144 @@
 
     <!-- ================= СЕРВІС (імпорт/експорт/очищення/резерв) ================= -->
     <div class="view hidden" id="view-service">
-      <div class="section-label" style="margin-top:0;">Дані</div>
-      <div class="service-grid">
-        <button type="button" class="service-tile" id="export-btn" onclick="exportToExcel()">
-          <span
-      class="service-tile-icon service-tile-icon--right c-green"
-      style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;"
-    >
-      <svg
-        width="29"
-        height="29"
-        viewBox="69 37 213 210"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
+  <div class="section-label" style="margin-top:0;">Дані</div>
+  <div class="service-grid">
+    <button type="button" class="service-tile" id="export-btn" onclick="exportToExcel()">
+      <span
+        class="service-tile-icon service-tile-icon--right c-green"
+        style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;"
       >
-        <g transform="translate(20 0)">
-          <path
-            d="M 219.00 155.00 L 218.00 156.00 L 215.00 157.00 L 205.00 167.00 L 205.00 168.00 L 181.00 192.00 L 181.00 193.00 L 180.00 194.00 L 180.00 198.00 L 181.00 199.00 L 181.00 200.00 L 182.00 200.00 L 185.00 202.00 L 187.00 202.00 L 188.00 201.00 L 189.00 201.00 L 212.00 178.00 L 213.00 178.00 L 214.00 179.00 L 214.00 244.00 L 217.00 247.00 L 222.00 247.00 L 225.00 244.00 L 225.00 243.00 L 226.00 242.00 L 226.00 179.00 L 227.00 178.00 L 228.00 178.00 L 231.00 181.00 L 232.00 181.00 L 236.00 185.00 L 236.00 186.00 L 239.00 189.00 L 240.00 189.00 L 245.00 194.00 L 245.00 195.00 L 250.00 200.00 L 251.00 200.00 L 252.00 201.00 L 258.00 201.00 L 259.00 200.00 L 259.00 199.00 L 260.00 198.00 L 261.00 195.00 L 260.00 194.00 L 260.00 193.00 L 243.00 176.00 L 243.00 175.00 L 225.00 157.00 L 224.00 157.00 L 221.00 155.00 Z
-            M 104.00 106.00 L 101.00 109.00 L 101.00 114.00 L 102.00 115.00 L 102.00 116.00 L 106.00 120.00 L 106.00 121.00 L 108.00 123.00 L 108.00 124.00 L 111.00 127.00 L 111.00 128.00 L 113.00 130.00 L 113.00 131.00 L 115.00 133.00 L 115.00 134.00 L 118.00 137.00 L 118.00 138.00 L 120.00 140.00 L 120.00 141.00 L 121.00 142.00 L 121.00 144.00 L 118.00 147.00 L 118.00 148.00 L 115.00 151.00 L 115.00 152.00 L 113.00 154.00 L 113.00 155.00 L 110.00 158.00 L 110.00 159.00 L 108.00 161.00 L 108.00 162.00 L 105.00 165.00 L 105.00 166.00 L 103.00 168.00 L 103.00 169.00 L 101.00 171.00 L 101.00 177.00 L 103.00 179.00 L 105.00 179.00 L 106.00 180.00 L 107.00 180.00 L 108.00 179.00 L 109.00 179.00 L 110.00 178.00 L 111.00 178.00 L 111.00 177.00 L 114.00 174.00 L 114.00 173.00 L 117.00 170.00 L 117.00 169.00 L 119.00 167.00 L 119.00 166.00 L 121.00 164.00 L 121.00 163.00 L 123.00 161.00 L 123.00 160.00 L 126.00 157.00 L 126.00 156.00 L 128.00 154.00 L 130.00 154.00 L 131.00 155.00 L 131.00 156.00 L 134.00 159.00 L 134.00 160.00 L 136.00 162.00 L 136.00 163.00 L 138.00 165.00 L 138.00 166.00 L 141.00 169.00 L 141.00 170.00 L 144.00 173.00 L 144.00 174.00 L 146.00 176.00 L 146.00 177.00 L 148.00 179.00 L 150.00 179.00 L 151.00 180.00 L 152.00 180.00 L 153.00 179.00 L 155.00 179.00 L 157.00 177.00 L 157.00 176.00 L 158.00 175.00 L 158.00 173.00 L 157.00 172.00 L 157.00 171.00 L 155.00 169.00 L 155.00 168.00 L 152.00 165.00 L 152.00 164.00 L 150.00 162.00 L 150.00 161.00 L 148.00 159.00 L 148.00 158.00 L 145.00 155.00 L 145.00 154.00 L 142.00 151.00 L 142.00 150.00 L 139.00 147.00 L 139.00 146.00 L 137.00 144.00 L 137.00 141.00 L 140.00 138.00 L 140.00 137.00 L 143.00 134.00 L 143.00 133.00 L 145.00 131.00 L 145.00 130.00 L 148.00 127.00 L 148.00 126.00 L 150.00 124.00 L 150.00 123.00 L 153.00 120.00 L 153.00 119.00 L 155.00 117.00 L 155.00 116.00 L 157.00 114.00 L 157.00 109.00 L 154.00 106.00 L 149.00 106.00 L 148.00 107.00 L 147.00 107.00 L 146.00 108.00 L 146.00 109.00 L 144.00 111.00 L 144.00 112.00 L 142.00 114.00 L 142.00 115.00 L 139.00 118.00 L 139.00 119.00 L 137.00 121.00 L 137.00 122.00 L 134.00 125.00 L 134.00 126.00 L 132.00 128.00 L 132.00 129.00 L 130.00 131.00 L 128.00 131.00 L 126.00 129.00 L 126.00 128.00 L 123.00 125.00 L 123.00 124.00 L 121.00 122.00 L 121.00 121.00 L 119.00 119.00 L 119.00 118.00 L 116.00 115.00 L 116.00 114.00 L 114.00 112.00 L 114.00 111.00 L 111.00 108.00 L 111.00 107.00 L 110.00 107.00 L 109.00 106.00 Z
-            M 68.00 39.00 L 61.00 43.00 L 56.00 48.00 L 50.00 60.00 L 50.00 212.00 L 52.00 218.00 L 62.00 230.00 L 75.00 235.00 L 162.00 235.00 L 167.00 231.00 L 167.00 227.00 L 163.00 223.00 L 76.00 223.00 L 69.00 220.00 L 63.00 213.00 L 62.00 210.00 L 62.00 62.00 L 63.00 59.00 L 69.00 52.00 L 76.00 49.00 L 169.00 49.00 L 170.00 50.00 L 170.00 84.00 L 174.00 89.00 L 213.00 91.00 L 213.00 134.00 L 217.00 138.00 L 222.00 137.00 L 225.00 133.00 L 224.00 83.00 L 179.00 38.00 L 175.00 37.00 L 75.00 37.00 Z
-            M 182.00 60.00 L 183.00 59.00 L 184.00 59.00 L 202.00 77.00 L 202.00 78.00 L 201.00 79.00 L 183.00 79.00 L 182.00 78.00 Z"
-            fill="currentColor"
-            stroke="currentColor"
-            stroke-width="3.5"
-            stroke-linejoin="round"
-            fill-rule="evenodd"
-            clip-rule="evenodd"
-          />
-        </g>
-      </svg>
-    </span>
-          <span class="service-tile-label">Експорт в Excel</span>
-        </button>
-        <button type="button" class="service-tile" id="import-tile" onclick="triggerImportFileInput()">
-          <span
-      class="service-tile-icon service-tile-icon--right c-green"
-      style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;"
-    >
-      <svg
-        width="29"
-        height="29"
-        viewBox="74 37 213 202"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
+        <svg
+          width="29"
+          height="29"
+          viewBox="69 37 213 210"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <g transform="translate(20 0)">
+            <path
+              d="M 219.00 155.00 L 218.00 156.00 L 215.00 157.00 L 205.00 167.00 L 205.00 168.00 L 181.00 192.00 L 181.00 193.00 L 180.00 194.00 L 180.00 198.00 L 181.00 199.00 L 181.00 200.00 L 182.00 200.00 L 185.00 202.00 L 187.00 202.00 L 188.00 201.00 L 189.00 201.00 L 212.00 178.00 L 213.00 178.00 L 214.00 179.00 L 214.00 244.00 L 217.00 247.00 L 222.00 247.00 L 225.00 244.00 L 225.00 243.00 L 226.00 242.00 L 226.00 179.00 L 227.00 178.00 L 228.00 178.00 L 231.00 181.00 L 232.00 181.00 L 236.00 185.00 L 236.00 186.00 L 239.00 189.00 L 240.00 189.00 L 245.00 194.00 L 245.00 195.00 L 250.00 200.00 L 251.00 200.00 L 252.00 201.00 L 258.00 201.00 L 259.00 200.00 L 259.00 199.00 L 260.00 198.00 L 261.00 195.00 L 260.00 194.00 L 260.00 193.00 L 243.00 176.00 L 243.00 175.00 L 225.00 157.00 L 224.00 157.00 L 221.00 155.00 Z
+              M 104.00 106.00 L 101.00 109.00 L 101.00 114.00 L 102.00 115.00 L 102.00 116.00 L 106.00 120.00 L 106.00 121.00 L 108.00 123.00 L 108.00 124.00 L 111.00 127.00 L 111.00 128.00 L 113.00 130.00 L 113.00 131.00 L 115.00 133.00 L 115.00 134.00 L 118.00 137.00 L 118.00 138.00 L 120.00 140.00 L 120.00 141.00 L 121.00 142.00 L 121.00 144.00 L 118.00 147.00 L 118.00 148.00 L 115.00 151.00 L 115.00 152.00 L 113.00 154.00 L 113.00 155.00 L 110.00 158.00 L 110.00 159.00 L 108.00 161.00 L 108.00 162.00 L 105.00 165.00 L 105.00 166.00 L 103.00 168.00 L 103.00 169.00 L 101.00 171.00 L 101.00 177.00 L 103.00 179.00 L 105.00 179.00 L 106.00 180.00 L 107.00 180.00 L 108.00 179.00 L 109.00 179.00 L 110.00 178.00 L 111.00 178.00 L 111.00 177.00 L 114.00 174.00 L 114.00 173.00 L 117.00 170.00 L 117.00 169.00 L 119.00 167.00 L 119.00 166.00 L 121.00 164.00 L 121.00 163.00 L 123.00 161.00 L 123.00 160.00 L 126.00 157.00 L 126.00 156.00 L 128.00 154.00 L 130.00 154.00 L 131.00 155.00 L 131.00 156.00 L 134.00 159.00 L 134.00 160.00 L 136.00 162.00 L 136.00 163.00 L 138.00 165.00 L 138.00 166.00 L 141.00 169.00 L 141.00 170.00 L 144.00 173.00 L 144.00 174.00 L 146.00 176.00 L 146.00 177.00 L 148.00 179.00 L 150.00 179.00 L 151.00 180.00 L 152.00 180.00 L 153.00 179.00 L 155.00 179.00 L 157.00 177.00 L 157.00 176.00 L 158.00 175.00 L 158.00 173.00 L 157.00 172.00 L 157.00 171.00 L 155.00 169.00 L 155.00 168.00 L 152.00 165.00 L 152.00 164.00 L 150.00 162.00 L 150.00 161.00 L 148.00 159.00 L 148.00 158.00 L 145.00 155.00 L 145.00 154.00 L 142.00 151.00 L 142.00 150.00 L 139.00 147.00 L 139.00 146.00 L 137.00 144.00 L 137.00 141.00 L 140.00 138.00 L 140.00 137.00 L 143.00 134.00 L 143.00 133.00 L 145.00 131.00 L 145.00 130.00 L 148.00 127.00 L 148.00 126.00 L 150.00 124.00 L 150.00 123.00 L 153.00 120.00 L 153.00 119.00 L 155.00 117.00 L 155.00 116.00 L 157.00 114.00 L 157.00 109.00 L 154.00 106.00 L 149.00 106.00 L 148.00 107.00 L 147.00 107.00 L 146.00 108.00 L 146.00 109.00 L 144.00 111.00 L 144.00 112.00 L 142.00 114.00 L 142.00 115.00 L 139.00 118.00 L 139.00 119.00 L 137.00 121.00 L 137.00 122.00 L 134.00 125.00 L 134.00 126.00 L 132.00 128.00 L 132.00 129.00 L 130.00 131.00 L 128.00 131.00 L 126.00 129.00 L 126.00 128.00 L 123.00 125.00 L 123.00 124.00 L 121.00 122.00 L 121.00 121.00 L 119.00 119.00 L 119.00 118.00 L 116.00 115.00 L 116.00 114.00 L 114.00 112.00 L 114.00 111.00 L 111.00 108.00 L 111.00 107.00 L 110.00 107.00 L 109.00 106.00 Z
+              M 68.00 39.00 L 61.00 43.00 L 56.00 48.00 L 50.00 60.00 L 50.00 212.00 L 52.00 218.00 L 62.00 230.00 L 75.00 235.00 L 162.00 235.00 L 167.00 231.00 L 167.00 227.00 L 163.00 223.00 L 76.00 223.00 L 69.00 220.00 L 63.00 213.00 L 62.00 210.00 L 62.00 62.00 L 63.00 59.00 L 69.00 52.00 L 76.00 49.00 L 169.00 49.00 L 170.00 50.00 L 170.00 84.00 L 174.00 89.00 L 213.00 91.00 L 213.00 134.00 L 217.00 138.00 L 222.00 137.00 L 225.00 133.00 L 224.00 83.00 L 179.00 38.00 L 175.00 37.00 L 75.00 37.00 Z
+              M 182.00 60.00 L 183.00 59.00 L 184.00 59.00 L 202.00 77.00 L 202.00 78.00 L 201.00 79.00 L 183.00 79.00 L 182.00 78.00 Z"
+              fill="currentColor"
+              stroke="currentColor"
+              stroke-width="3.5"
+              stroke-linejoin="round"
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+            />
+          </g>
+        </svg>
+      </span>
+      <span class="service-tile-label">
+        <span>Експорт в Excel</span>
+        <span class="service-tile-sub">Збережіть дані у файл</span>
+      </span>
+    </button>
+
+    <button type="button" class="service-tile" id="import-tile" onclick="triggerImportFileInput()">
+      <span
+        class="service-tile-icon service-tile-icon--right c-green"
+        style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;"
       >
-        <g transform="translate(20 0)">
-          <path
-            d="M 223.00 151.00 L 222.00 152.00 L 221.00 152.00 L 219.00 155.00 L 219.00 216.00 L 218.00 217.00 L 217.00 217.00 L 211.00 211.00 L 211.00 210.00 L 206.00 205.00 L 205.00 205.00 L 201.00 201.00 L 201.00 200.00 L 195.00 194.00 L 194.00 194.00 L 193.00 193.00 L 190.00 193.00 L 189.00 194.00 L 188.00 194.00 L 186.00 196.00 L 186.00 202.00 L 200.00 216.00 L 200.00 217.00 L 221.00 238.00 L 222.00 238.00 L 223.00 239.00 L 229.00 239.00 L 265.00 203.00 L 265.00 202.00 L 266.00 201.00 L 266.00 198.00 L 265.00 197.00 L 265.00 196.00 L 263.00 194.00 L 261.00 194.00 L 260.00 193.00 L 257.00 194.00 L 233.00 218.00 L 232.00 218.00 L 231.00 217.00 L 231.00 155.00 L 229.00 152.00 L 228.00 152.00 L 227.00 151.00 Z
-            M 108.00 107.00 L 106.00 110.00 L 106.00 113.00 L 108.00 115.00 L 108.00 116.00 L 111.00 119.00 L 111.00 120.00 L 113.00 122.00 L 113.00 123.00 L 116.00 126.00 L 116.00 127.00 L 118.00 129.00 L 118.00 130.00 L 121.00 133.00 L 121.00 134.00 L 123.00 136.00 L 123.00 137.00 L 126.00 140.00 L 126.00 141.00 L 127.00 142.00 L 127.00 143.00 L 125.00 145.00 L 125.00 146.00 L 123.00 148.00 L 123.00 149.00 L 120.00 152.00 L 120.00 153.00 L 117.00 156.00 L 117.00 157.00 L 115.00 159.00 L 115.00 160.00 L 113.00 162.00 L 113.00 163.00 L 110.00 166.00 L 110.00 167.00 L 108.00 169.00 L 108.00 170.00 L 106.00 172.00 L 106.00 175.00 L 107.00 176.00 L 107.00 177.00 L 109.00 179.00 L 111.00 179.00 L 112.00 180.00 L 113.00 179.00 L 115.00 179.00 L 119.00 175.00 L 119.00 174.00 L 121.00 172.00 L 121.00 171.00 L 124.00 168.00 L 124.00 167.00 L 126.00 165.00 L 126.00 164.00 L 129.00 161.00 L 129.00 160.00 L 132.00 157.00 L 132.00 156.00 L 134.00 154.00 L 135.00 154.00 L 140.00 159.00 L 140.00 160.00 L 142.00 162.00 L 142.00 163.00 L 145.00 166.00 L 145.00 167.00 L 147.00 169.00 L 147.00 170.00 L 150.00 173.00 L 150.00 174.00 L 152.00 176.00 L 152.00 177.00 L 154.00 179.00 L 156.00 179.00 L 157.00 180.00 L 158.00 180.00 L 159.00 179.00 L 161.00 179.00 L 163.00 177.00 L 163.00 176.00 L 164.00 175.00 L 164.00 173.00 L 163.00 172.00 L 163.00 171.00 L 161.00 169.00 L 161.00 168.00 L 159.00 166.00 L 159.00 165.00 L 156.00 162.00 L 156.00 161.00 L 153.00 158.00 L 153.00 157.00 L 151.00 155.00 L 151.00 154.00 L 148.00 151.00 L 148.00 150.00 L 146.00 148.00 L 146.00 147.00 L 144.00 145.00 L 144.00 144.00 L 143.00 143.00 L 143.00 141.00 L 145.00 139.00 L 145.00 138.00 L 148.00 135.00 L 148.00 134.00 L 150.00 132.00 L 150.00 131.00 L 153.00 128.00 L 153.00 127.00 L 155.00 125.00 L 155.00 124.00 L 157.00 122.00 L 157.00 121.00 L 160.00 118.00 L 160.00 117.00 L 162.00 115.00 L 162.00 114.00 L 163.00 113.00 L 163.00 109.00 L 160.00 106.00 L 155.00 106.00 L 154.00 107.00 L 153.00 107.00 L 152.00 108.00 L 152.00 109.00 L 149.00 112.00 L 149.00 113.00 L 147.00 115.00 L 147.00 116.00 L 145.00 118.00 L 145.00 119.00 L 142.00 122.00 L 142.00 123.00 L 140.00 125.00 L 140.00 126.00 L 137.00 129.00 L 137.00 130.00 L 136.00 131.00 L 134.00 131.00 L 132.00 129.00 L 132.00 128.00 L 129.00 125.00 L 129.00 124.00 L 127.00 122.00 L 127.00 121.00 L 125.00 119.00 L 125.00 118.00 L 122.00 115.00 L 122.00 114.00 L 120.00 112.00 L 120.00 111.00 L 115.00 106.00 L 110.00 106.00 L 109.00 107.00 Z
-            M 76.00 38.00 L 67.00 43.00 L 61.00 49.00 L 57.00 56.00 L 55.00 64.00 L 55.00 209.00 L 57.00 216.00 L 65.00 228.00 L 76.00 234.00 L 81.00 235.00 L 168.00 235.00 L 173.00 230.00 L 172.00 226.00 L 169.00 223.00 L 82.00 223.00 L 75.00 220.00 L 70.00 215.00 L 67.00 207.00 L 67.00 65.00 L 68.00 61.00 L 75.00 52.00 L 82.00 49.00 L 175.00 49.00 L 176.00 50.00 L 176.00 84.00 L 178.00 88.00 L 182.00 90.00 L 217.00 90.00 L 218.00 91.00 L 218.00 134.00 L 223.00 138.00 L 228.00 137.00 L 230.00 134.00 L 229.00 83.00 L 186.00 39.00 L 181.00 37.00 Z
-            M 187.00 59.00 L 188.00 58.00 L 189.00 58.00 L 208.00 77.00 L 208.00 78.00 L 207.00 79.00 L 189.00 79.00 L 187.00 77.00 Z"
-            fill="currentColor"
-            stroke="currentColor"
-            stroke-width="3.5"
-            stroke-linejoin="round"
-            fill-rule="evenodd"
-            clip-rule="evenodd"
-          />
-        </g>
-      </svg>
-    </span>
-          <span class="service-tile-label">Імпорт з Excel</span>
-        </button>
-      </div>
-      <!-- Rev 2.11.1 — SheetJS (XLSX) вантажиться з CDN, а не з app shell
-           (аудит: cross-origin ресурси Service Worker свідомо не кешує).
-           Якщо застосунок відкрито офлайн ще до того, як бібліотека хоч раз
-           завантажилась у цій сесії — Excel-функції реально недоступні, і
-           без цього попередження клік по кнопці впав би незрозумілою
-           технічною помилкою замість чіткого пояснення. -->
-      <div class="import-status hidden" id="excel-offline-notice" style="color:var(--color-warning);">Excel-функції потребують інтернету (бібліотека завантажується з мережі при відкритті) — зараз недоступні. З'явиться підключення — спробуємо підхопити автоматично.</div>
-      <style>
-        .service-tile-icon--right svg {
-        transform: translateX(8%);
-      }
-      </style>
-      <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none;" onchange="handleImportFile(event)">
-      <div class="import-status" id="import-status"></div>
+        <svg
+          width="29"
+          height="29"
+          viewBox="74 37 213 202"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <g transform="translate(20 0)">
+            <path
+              d="M 223.00 151.00 L 222.00 152.00 L 221.00 152.00 L 219.00 155.00 L 219.00 216.00 L 218.00 217.00 L 217.00 217.00 L 211.00 211.00 L 211.00 210.00 L 206.00 205.00 L 205.00 205.00 L 201.00 201.00 L 201.00 200.00 L 195.00 194.00 L 194.00 194.00 L 193.00 193.00 L 190.00 193.00 L 189.00 194.00 L 188.00 194.00 L 186.00 196.00 L 186.00 202.00 L 200.00 216.00 L 200.00 217.00 L 221.00 238.00 L 222.00 238.00 L 223.00 239.00 L 229.00 239.00 L 265.00 203.00 L 265.00 202.00 L 266.00 201.00 L 266.00 198.00 L 265.00 197.00 L 265.00 196.00 L 263.00 194.00 L 261.00 194.00 L 260.00 193.00 L 257.00 194.00 L 233.00 218.00 L 232.00 218.00 L 231.00 217.00 L 231.00 155.00 L 229.00 152.00 L 228.00 152.00 L 227.00 151.00 Z
+              M 108.00 107.00 L 106.00 110.00 L 106.00 113.00 L 108.00 115.00 L 108.00 116.00 L 111.00 119.00 L 111.00 120.00 L 113.00 122.00 L 113.00 123.00 L 116.00 126.00 L 116.00 127.00 L 118.00 129.00 L 118.00 130.00 L 121.00 133.00 L 121.00 134.00 L 123.00 136.00 L 123.00 137.00 L 126.00 140.00 L 126.00 141.00 L 127.00 142.00 L 127.00 143.00 L 125.00 145.00 L 125.00 146.00 L 123.00 148.00 L 123.00 149.00 L 120.00 152.00 L 120.00 153.00 L 117.00 156.00 L 117.00 157.00 L 115.00 159.00 L 115.00 160.00 L 113.00 162.00 L 113.00 163.00 L 110.00 166.00 L 110.00 167.00 L 108.00 169.00 L 108.00 170.00 L 106.00 172.00 L 106.00 175.00 L 107.00 176.00 L 107.00 177.00 L 109.00 179.00 L 111.00 179.00 L 112.00 180.00 L 113.00 179.00 L 115.00 179.00 L 119.00 175.00 L 119.00 174.00 L 121.00 172.00 L 121.00 171.00 L 124.00 168.00 L 124.00 167.00 L 126.00 165.00 L 126.00 164.00 L 129.00 161.00 L 129.00 160.00 L 132.00 157.00 L 132.00 156.00 L 134.00 154.00 L 135.00 154.00 L 140.00 159.00 L 140.00 160.00 L 142.00 162.00 L 142.00 163.00 L 145.00 166.00 L 145.00 167.00 L 147.00 169.00 L 147.00 170.00 L 150.00 173.00 L 150.00 174.00 L 152.00 176.00 L 152.00 177.00 L 154.00 179.00 L 156.00 179.00 L 157.00 180.00 L 158.00 180.00 L 159.00 179.00 L 161.00 179.00 L 163.00 177.00 L 163.00 176.00 L 164.00 175.00 L 164.00 173.00 L 163.00 172.00 L 163.00 171.00 L 161.00 169.00 L 161.00 168.00 L 159.00 166.00 L 159.00 165.00 L 156.00 162.00 L 156.00 161.00 L 153.00 158.00 L 153.00 157.00 L 151.00 155.00 L 151.00 154.00 L 148.00 151.00 L 148.00 150.00 L 146.00 148.00 L 146.00 147.00 L 144.00 145.00 L 144.00 144.00 L 143.00 143.00 L 143.00 141.00 L 145.00 139.00 L 145.00 138.00 L 148.00 135.00 L 148.00 134.00 L 150.00 132.00 L 150.00 131.00 L 153.00 128.00 L 153.00 127.00 L 155.00 125.00 L 155.00 124.00 L 157.00 122.00 L 157.00 121.00 L 160.00 118.00 L 160.00 117.00 L 162.00 115.00 L 162.00 114.00 L 163.00 113.00 L 163.00 109.00 L 160.00 106.00 L 155.00 106.00 L 154.00 107.00 L 153.00 107.00 L 152.00 108.00 L 152.00 109.00 L 149.00 112.00 L 149.00 113.00 L 147.00 115.00 L 147.00 116.00 L 145.00 118.00 L 145.00 119.00 L 142.00 122.00 L 142.00 123.00 L 140.00 125.00 L 140.00 126.00 L 137.00 129.00 L 137.00 130.00 L 136.00 131.00 L 134.00 131.00 L 132.00 129.00 L 132.00 128.00 L 129.00 125.00 L 129.00 124.00 L 127.00 122.00 L 127.00 121.00 L 125.00 119.00 L 125.00 118.00 L 122.00 115.00 L 122.00 114.00 L 120.00 112.00 L 120.00 111.00 L 115.00 106.00 L 110.00 106.00 L 109.00 107.00 Z
+              M 76.00 38.00 L 67.00 43.00 L 61.00 49.00 L 57.00 56.00 L 55.00 64.00 L 55.00 209.00 L 57.00 216.00 L 65.00 228.00 L 76.00 234.00 L 81.00 235.00 L 168.00 235.00 L 173.00 230.00 L 172.00 226.00 L 169.00 223.00 L 82.00 223.00 L 75.00 220.00 L 70.00 215.00 L 67.00 207.00 L 67.00 65.00 L 68.00 61.00 L 75.00 52.00 L 82.00 49.00 L 175.00 49.00 L 176.00 50.00 L 176.00 84.00 L 178.00 88.00 L 182.00 90.00 L 217.00 90.00 L 218.00 91.00 L 218.00 134.00 L 223.00 138.00 L 228.00 137.00 L 230.00 134.00 L 229.00 83.00 L 186.00 39.00 L 181.00 37.00 Z
+              M 187.00 59.00 L 188.00 58.00 L 189.00 58.00 L 208.00 77.00 L 208.00 78.00 L 207.00 79.00 L 189.00 79.00 L 187.00 77.00 Z"
+              fill="currentColor"
+              stroke="currentColor"
+              stroke-width="3.5"
+              stroke-linejoin="round"
+              fill-rule="evenodd"
+              clip-rule="evenodd"
+            />
+          </g>
+        </svg>
+      </span>
+      <span class="service-tile-label">
+        <span>Імпорт з Excel</span>
+        <span class="service-tile-sub">Додайте дані з файлу</span>
+      </span>
+    </button>
+  </div>
 
-      <div class="section-label">Спільні витрати</div>
-      <div class="service-grid">
-        <button type="button" class="service-tile" id="share-expenses-btn" onclick="openShareExpensesModal()">
-          <span class="service-tile-icon c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></span>
-          <span class="service-tile-label">Поділитися витратами</span>
-        </button>
-        <button type="button" class="service-tile" id="import-shared-tile" onclick="triggerShareImportInput()">
-          <span class="service-tile-icon c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg></span>
-          <span class="service-tile-label">Додати спільні витрати</span>
-        </button>
-      </div>
-      <div class="import-desc" style="margin:-10px 0 12px; font-size:12.5px; line-height:1.5; color:var(--color-text-secondary);">
-        Обмін витратами між твоїм телефоном і телефоном Олі — окремо від Excel і бекапу. Файл передається через звичайне «Поділитися» (Telegram, Messages тощо); дублікати при повторному додаванні пропускаються автоматично.
-      </div>
-      <input type="file" id="share-import-file" accept=".json" style="display:none;" onchange="handleShareImportFile(event)">
-      <div class="import-status" id="share-status"></div>
+  <!-- Rev 2.11.1 — SheetJS (XLSX) вантажиться з CDN, а не з app shell
+       (аудит: cross-origin ресурси Service Worker свідомо не кешує).
+       Якщо застосунок відкрито офлайн ще до того, як бібліотека хоч раз
+       завантажилась у цій сесії — Excel-функції реально недоступні, і
+       без цього попередження клік по кнопці впав би незрозумілою
+       технічною помилкою замість чіткого пояснення. -->
+  <div class="import-status hidden" id="excel-offline-notice" style="color:var(--color-warning);">
+    Excel-функції потребують інтернету (бібліотека завантажується з мережі при відкритті) — зараз недоступні. З'явиться підключення — спробуємо підхопити автоматично.
+  </div>
 
-      <div class="section-label">Резервна копія</div>
-      <div class="service-grid">
-        <button type="button" class="service-tile" onclick="exportBackup()">
-          <span
+  <style>
+    .service-tile-icon--right svg {
+      transform: translateX(8%);
+    }
+
+    .service-tile-sub {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+      line-height: 1.3;
+      color: var(--color-text-secondary);
+    }
+  </style>
+
+  <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none;" onchange="handleImportFile(event)">
+  <div class="import-status" id="import-status"></div>
+
+  <div class="section-label">Спільні витрати</div>
+  <div class="service-grid">
+    <button type="button" class="service-tile" id="share-expenses-btn" onclick="openShareExpensesModal()">
+      <span class="service-tile-icon c-blue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>
+          <polyline points="16 6 12 2 8 6"/>
+          <line x1="12" y1="2" x2="12" y2="15"/>
+        </svg>
+      </span>
+      <span class="service-tile-label">
+        <span>Поділитися витратами</span>
+        <span class="service-tile-sub">Надішліть файл з витратами</span>
+      </span>
+    </button>
+
+    <button type="button" class="service-tile" id="import-shared-tile" onclick="triggerShareImportInput()">
+      <span class="service-tile-icon c-blue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M19 8v6"/>
+          <path d="M22 11h-6"/>
+        </svg>
+      </span>
+      <span class="service-tile-label">
+        <span>Додати спільні витрати</span>
+        <span class="service-tile-sub">Внесіть витрати з файлу</span>
+      </span>
+    </button>
+  </div>
+  <input type="file" id="share-import-file" accept=".json" style="display:none;" onchange="handleShareImportFile(event)">
+  <div class="import-status" id="share-status"></div>
+
+  <div class="section-label">Резервна копія</div>
+  <div class="service-grid">
+    <button type="button" class="service-tile" onclick="exportBackup()">
+      <span
         class="service-tile-icon c-blue"
         style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;"
       >
@@ -1472,10 +1509,14 @@
           />
         </svg>
       </span>
-          <span class="service-tile-label">Зберегти резервну копію</span>
-        </button>
-        <button type="button" class="service-tile" onclick="triggerRestoreBackupInput()">
-          <span
+      <span class="service-tile-label">
+        <span>Зберегти резервну копію</span>
+        <span class="service-tile-sub">Створіть копію ваших даних</span>
+      </span>
+    </button>
+
+    <button type="button" class="service-tile" onclick="triggerRestoreBackupInput()">
+      <span
         class="service-tile-icon c-green"
         style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;"
       >
@@ -1498,15 +1539,24 @@
           />
         </svg>
       </span>
-          <span class="service-tile-label">Відновити</span>
-        </button>
-      </div>
-      <input type="file" id="restore-backup-file" accept=".json" style="display:none;" onchange="handleRestoreBackupFile(event)">
-      <div class="import-status" id="backup-status"></div>
+      <span class="service-tile-label">
+        <span>Відновити</span>
+        <span class="service-tile-sub">Відновіть дані з резервної копії</span>
+      </span>
+    </button>
+  </div>
 
-      <div class="section-label" style="color:var(--color-error);">Небезпечні дії</div>
-      <button type="button" class="service-danger-card" onclick="clearAllData()">
-        <span
+  <input
+    type="file"
+    id="restore-backup-file"
+    accept=".json"
+    style="display:none;"
+    onchange="handleRestoreBackupFile(event)">
+  <div class="import-status" id="backup-status"></div>
+
+  <div class="section-label" style="color:var(--color-error);">Небезпечні дії</div>
+  <button type="button" class="service-danger-card" onclick="clearAllData()">
+    <span
       class="service-tile-icon"
       style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;"
     >
@@ -1532,15 +1582,14 @@
         />
       </svg>
     </span>
-        <span class="service-danger-text">
-          <span class="service-danger-title">Видалити всі дані</span>
-          <span class="service-danger-sub">Видаляє всі витрати, доходи та борги</span>
-        </span>
-      </button>
 
-      <div class="version-footer">Бюджет-локально · Rev 2.11.3</div>
-    </div>
-  </div>
+    <span class="service-danger-text">
+      <span class="service-danger-title">Видалити всі дані</span>
+      <span class="service-danger-sub">Видаляє всі витрати, доходи та борги</span>
+    </span>
+  </button>
+
+  <div class="version-footer">Бюджет-локально · Rev 2.11.3</div>
 </div>
 
 <nav class="tabbar">
