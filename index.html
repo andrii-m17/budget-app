@@ -1626,7 +1626,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.7</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.9</div>
 </div>
   </div>
 </div>
@@ -1964,6 +1964,7 @@ function loadAll(){
     }
   }catch(e){ installmentAccounts = []; }
   try{ hiddenFrom = JSON.parse(localStorage.getItem(LS_KEY_HIDDEN) || '{}'); }catch(e){ hiddenFrom = {}; }
+  ensureInstallmentFirstMonth();
   populateMonths(); renderAll(); renderStructure();
 }
 function saveExpenses(){ localStorage.setItem(LS_KEY_EXP, JSON.stringify(expenses)); }
@@ -1972,6 +1973,25 @@ function saveDebts(){ localStorage.setItem(LS_KEY_DEBT, JSON.stringify(debts)); 
 function saveBankAccounts(){ localStorage.setItem(LS_KEY_BANKS, JSON.stringify(bankAccounts)); }
 function saveInstallmentAccounts(){ localStorage.setItem(LS_KEY_INSTALLMENTS, JSON.stringify(installmentAccounts)); }
 function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hiddenFrom)); }
+// Rev 2.11.9 (Баг #5) — міграція для ОЧ, створених ДО цього фіксу (не мають
+// власного firstMonth): визначаємо його заднім числом як найраніший ФАКТИЧНИЙ
+// запис боргу для цієї ОЧ. Ідемпотентно — чіпає лише записи, де firstMonth
+// ще не встановлено, тому повторний виклик нічого не змінює. Якщо для ОЧ ще
+// взагалі немає жодного факту (earliest===null, напр. щойно створена без
+// збереженого балансу) — firstMonth свідомо лишається невизначеним: ховати
+// нічого, коли й так немає жодних даних.
+function ensureInstallmentFirstMonth(){
+  let changed = false;
+  installmentAccounts.forEach(function(acc){
+    if(acc.firstMonth) return;
+    let earliest = null;
+    debts.forEach(function(d){
+      if(d.kind==='installment' && d.name===acc.name && (!earliest || d.month<earliest)) earliest = d.month;
+    });
+    if(earliest){ acc.firstMonth = earliest; changed = true; }
+  });
+  if(changed) saveInstallmentAccounts();
+}
 
 /* ============ Повний бекап / відновлення (Rev 2.3.1) ============
    На відміну від Excel-експорту (лише часткова проекція: Витрати/Доходи/
@@ -1981,7 +2001,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.7';
+const APP_VERSION = '2.11.9';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -2062,6 +2082,24 @@ function hideKey(name, kind){ return kind+':'+name; }
 function isHiddenForMonth(name, kind, month){
   const from = hiddenFrom[hideKey(name, kind)];
   return !!from && month >= from;
+}
+// Rev 2.11.9 (Баги #1 і #5) — спільна перевірка видимості ОЧ для конкретного
+// місяця, об'єднує ДВІ окремі межі:
+//   1) "приховано з" (hiddenFrom) — верхня межа, коли ОЧ видалили зі списку;
+//      раніше цю межу перевіряла лише таблиця в Обліку, але НЕ перевіряла
+//      підказка автозв'язку у Витратах (Баг #1) — архівна ОЧ й далі
+//      пропонувалась для прив'язки навіть у місяцях, де вона вже прихована.
+//   2) acc.firstMonth — нижня межа, місяць, у якому ОЧ вперше з'явилась
+//      (Баг #5) — без неї щойно створена ОЧ показувалась як рядок для
+//      заповнення навіть у місяцях ДО того, як вона взагалі виникла (бо
+//      installmentAccounts — це просто список конфігурацій, не прив'язаний
+//      до місяця сам по собі). Для ОЧ, створених ДО цього фіксу і без
+//      власного firstMonth — обмеження просто не застосовується (див.
+//      ensureInstallmentFirstMonth), щоб нічого не зникло з наявних даних.
+function isInstallmentVisibleForMonth(acc, month){
+  if(isHiddenForMonth(acc.name, 'installment', month)) return false;
+  if(acc.firstMonth && month < acc.firstMonth) return false;
+  return true;
 }
 // Rev 2.1.0 — останній ФАКТИЧНИЙ баланс до (не включно) заданого місяця,
 // для pre-fill у формі щомісячного оновлення боргу карток.
@@ -2219,14 +2257,25 @@ let confirmedInstallmentLinkIdx = -1;
 function detectInstallmentMatches(text){
   const t = (text||'').toLowerCase();
   if(!t) return [];
+  // Rev 2.11.9 (Баг #1) — раніше цей пошук перебирав installmentAccounts БЕЗ
+  // жодної перевірки видимості: архівна ОЧ (прихована "з [місяць]") і далі
+  // пропонувалась для прив'язки навіть у місяцях ПІСЛЯ приховування. Місяць
+  // тут — саме дата САМОЇ витрати (f-date), а не поточний обраний місяць в
+  // Аналітиці/Обліку (це геть інша, не пов'язана навігація) — якщо витрата
+  // датована минулим місяцем заднім числом, перевіряємо видимість ОЧ саме на
+  // ту дату.
+  const dateEl = document.getElementById('f-date');
+  const expenseMonth = monthKey(dateEl && dateEl.value ? dateEl.value : localDateISO());
   const fullMatches = [];
   installmentAccounts.forEach(function(acc, i){
+    if(!isInstallmentVisibleForMonth(acc, expenseMonth)) return;
     const label = stripLeadingEmoji(acc.name).toLowerCase().trim();
     if(label.length>=3 && t.includes(label)) fullMatches.push(i);
   });
   if(fullMatches.length) return fullMatches;
   const wordMatches = [];
   installmentAccounts.forEach(function(acc, i){
+    if(!isInstallmentVisibleForMonth(acc, expenseMonth)) return;
     const label = stripLeadingEmoji(acc.name).toLowerCase().trim();
     // Rev 2.2.2 BugFix — перевіряємо ВСІ значущі слова назви (мін. 3 символи),
     // а не лише перше: "ПУМБ Диван" мав розпізнаватись і з тексту "диван"
@@ -2592,8 +2641,11 @@ function populateInstallmentTable(){
   // через isHiddenForMonth) для порожнього стану; сам масив installmentAccounts
   // і далі містить усі записи (включно з прихованими для майбутніх місяців),
   // бо видалення більше не стирає їх фізично (див. BugFix у removeInstallmentAccount).
+  // Rev 2.11.9 (Баг #5) — тепер isInstallmentVisibleForMonth() враховує ще й
+  // acc.firstMonth: щойно створена ОЧ більше не показується як порожній
+  // рядок "на заповнення" в місяцях ДО того, як вона взагалі виникла.
   const visibleInstallmentCount = installmentAccounts.filter(function(acc){
-    return !isHiddenForMonth(acc.name, 'installment', selectedMonth);
+    return isInstallmentVisibleForMonth(acc, selectedMonth);
   }).length;
   if(visibleInstallmentCount===0){
     el.innerHTML = `<div class="empty-hint">Ще немає жодної ОЧ. Додай першу нижче.</div>`;
@@ -2608,7 +2660,8 @@ function populateInstallmentTable(){
     // ОРИГІНАЛЬНОМУ масиві (map, не filter+map) — критично, бо саме на цей i
     // спираються editInstallmentAccount(i)/removeInstallmentAccount(i)/
     // payInstallmentQuick(i) та id полів (installment-bal-${i} тощо).
-    if(isHiddenForMonth(acc.name, 'installment', selectedMonth)) return '';
+    // Rev 2.11.9 (Баг #5) — та сама перевірка тепер включає й firstMonth.
+    if(!isInstallmentVisibleForMonth(acc, selectedMonth)) return '';
     const name = acc.name;
     const existing = debts.find(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
     const prevBal = lastKnownBalance(name, 'installment', selectedMonth);
@@ -2907,7 +2960,11 @@ function addInstallmentAccount(name, amount){
   if(!name) return;
   if(!amount || amount<=0) return;
   if(installmentAccounts.some(a=>a.name===name)) return;
-  installmentAccounts.push({ name, initialAmount: amount });
+  // Rev 2.11.9 (Баг #5) — firstMonth: обраний місяць у момент створення ОЧ —
+  // саме той, у якому вона "вперше згадується". Без цього щойно створена ОЧ
+  // показувалась би рядком-запрошенням заповнити її в УСІХ місяцях (включно
+  // з тими, що передують її реальному створенню), захаращуючи Облік.
+  installmentAccounts.push({ name, initialAmount: amount, firstMonth: selectedMonth });
   saveInstallmentAccounts();
   populateInstallmentTable();
 }
@@ -3628,7 +3685,7 @@ function handleImportFile(event){
           if(!isNaN(e.creditSum)){
             const existingAcc = installmentAccounts.find(a=>a.name===label);
             if(existingAcc){ existingAcc.initialAmount = e.creditSum; }
-            else{ installmentAccounts.push({ name: label, initialAmount: e.creditSum }); }
+            else{ installmentAccounts.push({ name: label, initialAmount: e.creditSum, firstMonth: finMonth }); }
           }
         });
       }
@@ -3644,6 +3701,10 @@ function handleImportFile(event){
         if(d.kind==='card' && !bankAccounts.includes(d.name)) bankAccounts.push(d.name);
         if(d.kind==='installment' && !installmentAccounts.some(a=>a.name===d.name)) installmentAccounts.push({ name: d.name, initialAmount: null });
       });
+      // Rev 2.11.9 (Баг #5) — щойно авто-створені вище записи (initialAmount:
+      // null) ще не мають firstMonth; довизначаємо його одразу тут-таки за
+      // найранішим імпортованим фактом, а не чекаємо наступного loadAll().
+      ensureInstallmentFirstMonth();
       saveBankAccounts(); saveInstallmentAccounts();
       populateMonths();
 
@@ -5947,6 +6008,27 @@ function applyTheme(){
   if(metaTheme) metaTheme.setAttribute('content', THEME_COLOR_MAP[resolved]);
   if(metaScheme) metaScheme.setAttribute('content', resolved);
   syncThemeToggleUI();
+  forceThemeRepaint();
+}
+// Rev 2.11.8 BugFix (#4) — після перемикання теми в safe-area зверху (під
+// "чубчиком"/статус-баром на iOS, у standalone PWA) інколи лишалась смуга
+// КОЛИШНЬОГО кольору фону, хоча решта застосунку вже перефарбувалась
+// коректно. Причина — WebKit-специфічна примха: html/body навмисно
+// position:fixed з inset:0 (щоб зафіксувати viewport і прибрати "bounce"
+// скролу), а їхній фон (background:var(--color-bg)) змінюється лише через
+// CSS custom property при зміні data-theme. У такій комбінації WebKit
+// подекуди НЕ перефарбовує position:fixed-фон негайно (найпомітніше — одразу
+// після "холодного" запуску PWA), доки щось інше не форсує перемальовку
+// (скрол, resize тощо) — звідси й "залипла" смуга старої теми. Фікс —
+// класичний, безпечний для ока прийом: нікчемна зміна opacity кореневого
+// елемента (0.999 — жодного видимого мерехтіння) примусово змушує WebKit
+// повністю перемалювати весь піддерево, після чого відкат назад на
+// наступному кадрі.
+function forceThemeRepaint(){
+  const el = document.documentElement;
+  if(!el) return;
+  el.style.opacity = '0.999';
+  requestAnimationFrame(function(){ el.style.opacity = ''; });
 }
 function setThemeChoice(choice){
   try{ localStorage.setItem(LS_KEY_THEME, choice); }catch(e){}
