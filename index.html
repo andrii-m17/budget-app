@@ -1324,9 +1324,11 @@
           <span>Відновлено незбережений запис</span>
           <button type="button" class="auto-hint-edit-btn" onclick="discardExpenseDraft()">Очистити</button>
         </div>
-        <div class="field" style="position:relative;"><label for="f-name">Назва витрати</label>
-          <input type="text" id="f-name" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="off">
-          <div class="name-suggest-list" id="name-suggest-list"></div>
+        <div class="field"><label for="f-name">Назва витрати</label>
+          <div style="position:relative;">
+            <input type="text" id="f-name" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="off">
+            <div class="name-suggest-list" id="name-suggest-list"></div>
+          </div>
           <div class="field auto-hint" id="auto-hint">
             <span id="auto-hint-text">Знайдено автоматично</span>
             <button type="button" class="auto-hint-edit-btn" onclick="revealCategoryFields()">Змінити</button>
@@ -1624,7 +1626,9 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.3</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.7</div>
+</div>
+  </div>
 </div>
 
 <nav class="tabbar">
@@ -1977,7 +1981,7 @@ function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hi
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.5';
+const APP_VERSION = '2.11.7';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -4094,6 +4098,44 @@ function rebuildNameHistory(){
 }
 let nameSuggestions = [];
 let activeNameSuggestIdx = -1;
+// Rev 2.11.7 BugFix (#3) — на iOS Safari перший дотик одразу після набору
+// тексту (тобто рівно той момент, коли з'являється підказка і людина одразу
+// тицяє в найкращий/перший варіант) іноді не породжує синтетичний mousedown
+// вчасно — система може трактувати цей дотик як "просто закрити клавіатуру",
+// і mousedown або взагалі не приходить, або приходить із помітною затримкою.
+// Звідси й спостереження "перший збіг не натискається, а другий — одразу
+// спрацьовує": другий дотик стається вже ПІСЛЯ того, як цей стан "згас".
+//
+// Рішення — дублюємо вибір на реальних touch-подіях (ті завжди спрацьовують
+// негайно, незалежно від того, чи браузер вирішив синтезувати mousedown):
+//   - touchstart лише запам'ятовує Y-координату старту. НЕ робимо тут
+//     preventDefault() — інакше зламали б природний скрол списку (до 6
+//     елементів можуть не вміщатись у max-height, тоді список стає
+//     прокручуваним).
+//   - touchend перевіряє, що палець не зʼїхав по вертикалі (це був тап, а
+//     не скрол/протяжка) — і лише тоді викликає вибір з preventDefault().
+// lastSuggestionPickAt — страховка від подвійного спрацювання (якщо
+// touchend все ж супроводжується пізнішим синтетичним mousedown/click для
+// того самого жесту): повторний виклик у межах короткого вікна ігнорується.
+let lastSuggestionPickAt = 0;
+let suggestTouchStartY = null;
+function handleSuggestionPick(e, i){
+  e.preventDefault();
+  const now = Date.now();
+  if(now - lastSuggestionPickAt < 400) return;
+  lastSuggestionPickAt = now;
+  selectNameSuggestion(i);
+}
+function handleSuggestionTouchStart(e){
+  suggestTouchStartY = e.touches && e.touches[0] ? e.touches[0].clientY : null;
+}
+function handleSuggestionTouchEnd(e, i){
+  const endY = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : null;
+  const moved = suggestTouchStartY != null && endY != null && Math.abs(endY - suggestTouchStartY) > 10;
+  suggestTouchStartY = null;
+  if(moved) return; // це був скрол/протяжка, а не тап по варіанту
+  handleSuggestionPick(e, i);
+}
 // Поріг у 2 символи — на 1 символі кандидатів зазвичай забагато й підказка
 // стає шумом, а не допомогою.
 function updateNameSuggestions(text){
@@ -4115,7 +4157,7 @@ function updateNameSuggestions(text){
   listEl.innerHTML = matches.map(function(n,i){
     const h = nameHistoryMap[n];
     const meta = h.lastCategory ? stripLeadingEmoji(h.lastCategory) : '';
-    return `<div class="name-suggest-item" data-idx="${i}" onmousedown="event.preventDefault(); selectNameSuggestion(${i})">
+    return `<div class="name-suggest-item" data-idx="${i}" onmousedown="handleSuggestionPick(event, ${i})" ontouchstart="handleSuggestionTouchStart(event)" ontouchend="handleSuggestionTouchEnd(event, ${i})">
       <span class="nsi-name">${escapeHtml(n)}</span>
       ${meta ? `<span class="nsi-meta">${escapeHtml(meta)}</span>` : ''}
     </div>`;
@@ -6329,7 +6371,22 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
         const newWorker = registration.installing;
         if(!newWorker) return;
         newWorker.addEventListener('statechange', function(){
-          if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
+          // Rev 2.11.6 BugFix — 'installed' — це ПЕРЕХІДНИЙ стан: якщо на
+          // момент оновлення немає інших відкритих "старих" клієнтів, що
+          // блокують активацію (типовий випадок — PWA була ПОВНІСТЮ закрита
+          // й щойно відкрита наново, задокументована примха iOS Safari),
+          // браузер сам проводить новий SW одразу через
+          // installed → activating → activated, НЕ чекаючи нашого
+          // SKIP_WAITING — оновлення застосовується автоматично. У цьому
+          // випадку registration.waiting вже null на момент перевірки, і
+          // показ банера був би оманливим: оновлення вже відбулось, а кнопка
+          // "Оновити" лише даремно перезавантажила б сторінку. Банер
+          // показуємо ЛИШЕ якщо новий SW дійсно ще сидить у "почекальні"
+          // (registration.waiting === newWorker) — тобто справді чекає на
+          // наш SKIP_WAITING, а не вже пройшов повз неї. Якщо оновлення
+          // застосувалось автоматично — 'controllerchange' (вище) сам
+          // перезавантажить сторінку, без зайвого попередження користувача.
+          if(newWorker.state === 'installed' && navigator.serviceWorker.controller && registration.waiting === newWorker){
             showUpdateAvailable();
           }
         });
