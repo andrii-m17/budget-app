@@ -761,16 +761,19 @@
        браузера — підтверджено скріншотами користувача (та сама CSS-формула
        давала різну фактичну позицію капсули залежно від контексту), тому
        JS-код (наприкінці скрипта) форсував фіксовані 28px замість env().
-       Rev 2.11.12 BugFix — той компенсаційний хардкод був відкалибрований
-       САМЕ під СТАРИЙ, непрозорий apple-mobile-web-app-status-bar-style
-       ("default"). Коли в Rev 2.11.11 статус-бар став прозорим
-       (black-translucent — виправлення "залипання" кольору теми в статус-барі),
-       геометрія viewport у standalone змінилась і env(safe-area-inset-bottom)
-       знову почав збігатись зі звичайним переглядом у браузері — тому старі
-       форсовані 28px тепер ЗАВИЩЕНІ й піднімають капсулу зависоко, лишаючи
-       порожню смугу знизу екрана. JS-форсування прибрано (див. кінець
-       скрипта) — формула нижче знову працює однаково в обох контекстах. */
-    bottom:calc(14px + env(safe-area-inset-bottom));
+       Rev 2.11.12 — прибрав цей хардкод, припустивши, що перехід на
+       black-translucent (Rev 2.11.11) заразом "нормалізував" і поведінку
+       safe-area-inset-bottom. Це виявилось НЕВІРНИМ припущенням: користувач
+       підтвердив скріншотом, що без компенсації капсула сіла ЩЕ ВИЩЕ, ніж
+       навіть зі старим хардкодом — тобто завищене значення env() у standalone
+       нікуди не поділось і не було пов'язане зі статус-баром узагалі, це
+       окрема, незалежна примха.
+       Rev 2.11.13 — компенсація повертається, але вже не як вгадане число, а
+       через РЕАЛЬНЕ вимірювання цього конкретного значення в цьому
+       конкретному середовищі (див. кінець скрипта) — --tabbar-bottom-offset
+       перевизначається лише якщо виміряне env() виглядає завищеним, інакше
+       формула нижче працює сама, без стороннього втручання. */
+    bottom:var(--tabbar-bottom-offset, calc(14px + env(safe-area-inset-bottom)));
     width:calc(100% - 28px); max-width:460px;
     z-index:20;
   }
@@ -1649,7 +1652,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.12</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.13</div>
 </div>
   </div>
 </div>
@@ -2024,7 +2027,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.12';
+const APP_VERSION = '2.11.13';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -6494,14 +6497,27 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
           // SKIP_WAITING — оновлення застосовується автоматично. У цьому
           // випадку registration.waiting вже null на момент перевірки, і
           // показ банера був би оманливим: оновлення вже відбулось, а кнопка
-          // "Оновити" лише даремно перезавантажила б сторінку. Банер
-          // показуємо ЛИШЕ якщо новий SW дійсно ще сидить у "почекальні"
-          // (registration.waiting === newWorker) — тобто справді чекає на
-          // наш SKIP_WAITING, а не вже пройшов повз неї. Якщо оновлення
-          // застосувалось автоматично — 'controllerchange' (вище) сам
-          // перезавантажить сторінку, без зайвого попередження користувача.
-          if(newWorker.state === 'installed' && navigator.serviceWorker.controller && registration.waiting === newWorker){
-            showUpdateAvailable();
+          // "Оновити" лише даремно перезавантажила б сторінку.
+          //
+          // Rev 2.11.13 BugFix — перевірка ОДРАЗУ в момент 'installed' (як
+          // було в Rev 2.11.6) виявилась недостатньою: банер і далі з'являвся
+          // навіть після повного закриття застосунку. Причина — гонка станів
+          // усередині самого браузера: перехід installed → activating може
+          // ще не встигнути завершитись до того, як наш listener встигає
+          // прочитати registration.waiting (той на цю мілісекунду міг ще
+          // технічно вказувати на newWorker, хоча й "прямує на вихід"). Коротка
+          // пауза (500мс) дає браузеру час довершити свій внутрішній перехід
+          // ДО того, як ми ухвалюємо остаточне рішення — перевіряємо
+          // registration.waiting вже ПІСЛЯ паузи, а не в момент самої події.
+          if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
+            setTimeout(function(){
+              if(registration.waiting === newWorker){
+                showUpdateAvailable();
+              }
+              // Якщо після паузи waiting вже не newWorker — оновлення
+              // застосувалось автоматично; 'controllerchange' (вище) сам
+              // перезавантажить сторінку, без зайвого попередження.
+            }, 500);
           }
         });
       });
@@ -6511,17 +6527,37 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
   });
 }
 
-// Rev 2.4.26 — раніше тут форсувався фіксований --tabbar-bottom-offset:28px
-// у standalone-режимі PWA (компенсація того, що safe-area-inset-bottom
-// поводився інакше, ніж у звичайному перегляді браузера — за старого,
-// непрозорого apple-mobile-web-app-status-bar-style).
-// Rev 2.11.12 BugFix — після переходу на black-translucent (Rev 2.11.11)
-// env(safe-area-inset-bottom) знову коректно збігається зі звичайним
-// переглядом у браузері, тож старий форсований 28px-хардкод лише піднімав
-// капсулу таббару зависоко, лишаючи порожню смугу знизу екрана. Прибрано —
-// CSS-формула (calc(14px + env(safe-area-inset-bottom))) тепер працює сама,
-// без винятку для standalone.
-
+// Rev 2.4.26 — тут форсувався фіксований --tabbar-bottom-offset:28px у
+// standalone-режимі PWA (компенсація того, що safe-area-inset-bottom
+// поводився інакше, ніж у звичайному перегляді браузера).
+// Rev 2.11.12 — прибрав цю компенсацію, припустивши, що перехід на
+// black-translucent (Rev 2.11.11) заразом нормалізував і цю поведінку.
+// Користувач скріншотом підтвердив, що це припущення було ХИБНИМ — без
+// компенсації капсула сіла ще вище, ніж навіть зі старим хардкодом.
+// Rev 2.11.13 BugFix — замість того, щоб знову вгадувати число (як 28px
+// раніше), тепер РЕАЛЬНО вимірюємо, у скільки саме env(safe-area-inset-bottom)
+// розгортається в ЦЬОМУ конкретному середовищі — через прихований тестовий
+// елемент. Стандартне значення safe-area-inset-bottom на iPhone з Face ID —
+// 34px (домашній індикатор); якщо виміряне значення в standalone помітно
+// більше за це (SAFE_AREA_BOTTOM_MAX — із запасом, 40px) — це і є та сама
+// задокументована примха, компенсуємо її, підставляючи "чесні" 34px замість
+// завищеного виміряного. Якщо ж значення в межах норми — нічого не чіпаємо,
+// CSS-формула в nav.tabbar працює сама.
+(function fixStandaloneSafeAreaBottom(){
+  const isStandalone = (window.navigator && window.navigator.standalone === true)
+    || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if(!isStandalone) return;
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed; bottom:0; left:0; width:0; height:0; padding-bottom:env(safe-area-inset-bottom); visibility:hidden; pointer-events:none;';
+  document.body.appendChild(probe);
+  const measured = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
+  document.body.removeChild(probe);
+  const SAFE_AREA_BOTTOM_MAX = 40;
+  const SAFE_AREA_BOTTOM_NORMAL = 34;
+  if(measured > SAFE_AREA_BOTTOM_MAX){
+    document.documentElement.style.setProperty('--tabbar-bottom-offset', (14 + SAFE_AREA_BOTTOM_NORMAL) + 'px');
+  }
+})();
 </script>
 </body>
 </html>
