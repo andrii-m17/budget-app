@@ -38,7 +38,26 @@
 <link rel="icon" href="./icons/icon-192-v2.png" type="image/png">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon-v2.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- Rev 2.11.11 BugFix (продовження Багу #4) — "default" тут раніше означав
+     ЖОРСТКО зафіксований непрозорий світлий статус-бар (чорний текст на
+     білому тлі) — і головна проблема не в кольорі самому по собі, а в тому,
+     що iOS у standalone PWA зчитує apple-mobile-web-app-status-bar-style
+     РІВНО ОДИН РАЗ, у момент запуску застосунку з іконки на головному екрані.
+     Зміна цього meta-тега через JS "на льоту" (як ми пробували для theme-color
+     нижче) НІЯК не впливає на вже відрендерений статус-бар у поточній сесії —
+     це системне обмеження iOS, а не наш недогляд і не те, що можна побороти
+     повторним "трюком з перемальовкою" (Rev 2.11.8 виправляв ІНШИЙ шар —
+     власний safe-area-фон нашого web-контенту, а не нативну смугу статус-бару
+     як таку). Тому й лишалась "залипла" смуга старої теми аж до перезапуску.
+     Рішення — black-translucent: сам статус-бар стає ПРОЗОРИМ, і крізь нього
+     видно наш ВЛАСНИЙ фон (той самий var(--color-bg), що вже реагує на тему
+     миттєво) — тобто окремого "нативного кольору, який треба міняти" більше
+     просто немає. Компроміс: іконки статус-бару (годинник/сигнал/батарея) в
+     цьому режимі iOS завжди малює світлими — це чудово читається на темній
+     темі; на світлій контраст трохи нижчий (light-сірий #F7F8FA — не
+     контрастний білий, тому лишається прийнятно читабельним, хоч і не
+     ідеально). Це системне обмеження iOS для двотемних PWA, а не наш баг. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Бюджет">
 <title>Бюджет — локально в браузері</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1626,7 +1645,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.9</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.11</div>
 </div>
   </div>
 </div>
@@ -2001,7 +2020,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.9';
+const APP_VERSION = '2.11.11';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -2273,6 +2292,15 @@ function detectInstallmentMatches(text){
     if(label.length>=3 && t.includes(label)) fullMatches.push(i);
   });
   if(fullMatches.length) return fullMatches;
+  // Rev 2.11.10 BugFix (Баг #2) — "перевіряємо ВСІ значущі слова назви"
+  // (Rev 2.2.2) раніше порівнювало через t.includes(w) — перевірку ПІДРЯДКА,
+  // а не цілого слова. Через це "банк" (слово з назви ОЧ "Приват Банк")
+  // хибно збігався з будь-яким словом, що просто МІСТИТЬ ці літери підряд —
+  // напр. "БАНКУ" в "пиво з БАНКУ пива" (родовий відмінок того самого кореня,
+  // але геть інше слово і геть інший контекст). Тепер токенізуємо сам текст
+  // витрати на окремі слова (Unicode-aware розбиття по нелітерах/нецифрах) і
+  // порівнюємо на ТОЧНИЙ збіг слова, а не на входження підрядка.
+  const textWords = t.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   const wordMatches = [];
   installmentAccounts.forEach(function(acc, i){
     if(!isInstallmentVisibleForMonth(acc, expenseMonth)) return;
@@ -2281,7 +2309,7 @@ function detectInstallmentMatches(text){
     // а не лише перше: "ПУМБ Диван" мав розпізнаватись і з тексту "диван"
     // (без згадки банку), не лише з "пумб".
     const words = label.split(/\s+/).filter(w => w.length>=3);
-    if(words.some(w => t.includes(w))) wordMatches.push(i);
+    if(words.some(w => textWords.includes(w))) wordMatches.push(i);
   });
   return wordMatches;
 }
