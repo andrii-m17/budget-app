@@ -172,8 +172,9 @@
      впритул — тому резервний простір під неї збільшено, інакше контент
      журналу/карток міг би ховатись під панеллю в самому кінці скролу. */
   /* Rev 2.5.0 — padding-bottom піднято на ті самі +8px, що й сам таббар
-     нижче (див. bottom:var(--tabbar-bottom-offset...)), щоб контент і далі
-     повністю ховався під капсулою в самому кінці скролу, а не залишав щілину. */
+     нижче (див. bottom:calc(14px + env(safe-area-inset-bottom)) у nav.tabbar),
+     щоб контент і далі повністю ховався під капсулою в самому кінці скролу,
+     а не залишав щілину. */
   .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--color-bg); }
   .side{ display:none; }
   .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding-bottom:112px; }
@@ -756,17 +757,20 @@
   nav.tabbar{
     position:fixed; left:0; right:0; margin:0 auto;
     /* Rev 2.4.26 — у standalone-режимі PWA (додано на головний екран) на iOS
-       safe-area-inset-bottom поводиться інакше, ніж у звичайному перегляді
+       safe-area-inset-bottom поводився інакше, ніж у звичайному перегляді
        браузера — підтверджено скріншотами користувача (та сама CSS-формула
-       дає різну фактичну позицію капсули залежно від контексту).
-       --tabbar-bottom-offset ПОВНІСТЮ перевизначає значення bottom (не лише
-       додатковий відступ поверх env()) — надійніше, бо не залежить від
-       припущення, що сама env(safe-area-inset-bottom) поводиться однаково в
-       обох контекстах. fallback (друге значення у var()) — 6px + env(),
-       використовується завжди, доки JS (наприкінці скрипта) не встановить
-       власне значення --tabbar-bottom-offset на documentElement, і лише в
-       standalone — звичайний перегляд у браузері це не зачіпає. */
-    bottom:var(--tabbar-bottom-offset, calc(14px + env(safe-area-inset-bottom)));
+       давала різну фактичну позицію капсули залежно від контексту), тому
+       JS-код (наприкінці скрипта) форсував фіксовані 28px замість env().
+       Rev 2.11.12 BugFix — той компенсаційний хардкод був відкалибрований
+       САМЕ під СТАРИЙ, непрозорий apple-mobile-web-app-status-bar-style
+       ("default"). Коли в Rev 2.11.11 статус-бар став прозорим
+       (black-translucent — виправлення "залипання" кольору теми в статус-барі),
+       геометрія viewport у standalone змінилась і env(safe-area-inset-bottom)
+       знову почав збігатись зі звичайним переглядом у браузері — тому старі
+       форсовані 28px тепер ЗАВИЩЕНІ й піднімають капсулу зависоко, лишаючи
+       порожню смугу знизу екрана. JS-форсування прибрано (див. кінець
+       скрипта) — формула нижче знову працює однаково в обох контекстах. */
+    bottom:calc(14px + env(safe-area-inset-bottom));
     width:calc(100% - 28px); max-width:460px;
     z-index:20;
   }
@@ -1645,7 +1649,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.11</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.12</div>
 </div>
   </div>
 </div>
@@ -2020,7 +2024,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.11';
+const APP_VERSION = '2.11.12';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -6507,29 +6511,16 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
   });
 }
 
-// Rev 2.4.26 — standalone-режим PWA (додано на головний екран) на iOS
-// поводиться інакше з env(safe-area-inset-bottom), ніж звичайний перегляд у
-// браузері Safari — підтверджено скріншотами: та сама CSS-формула дає
-// капсулу таббару значно вище в standalone, ніж у звичайному перегляді.
-// navigator.standalone — властивість, специфічна саме для iOS Safari,
-// true лише коли застосунок відкрито з іконки на головному екрані (не в
-// звичайній вкладці браузера). window.matchMedia як запасний варіант для
-// інших браузерів/платформ, де може не бути navigator.standalone.
-// --tabbar-bottom-offset ПОВНІСТЮ перевизначає значення bottom (не залежить
-// від того, як саме env() поводиться в цьому режимі) — якщо капсула в
-// standalone і далі сидить зависоко/занизько, значення нижче (28px) легко
-// скоригувати саме тут, не займаючи звичайний перегляд у браузері.
-// Rev 2.5.0 — підняте на ті самі +8px, що й базове значення в CSS (6px→14px),
-// щоб капсула трохи відступала від нижнього краю екрана й зменшувала
-// випадкові натискання біля самого краю (за референсом системних панелей
-// iOS 26) — і в standalone, і в звичайному перегляді браузера однаково.
-(function detectStandalonePwa(){
-  const isStandalone = (window.navigator && window.navigator.standalone === true)
-    || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-  if(isStandalone){
-    document.documentElement.style.setProperty('--tabbar-bottom-offset', '28px');
-  }
-})();
+// Rev 2.4.26 — раніше тут форсувався фіксований --tabbar-bottom-offset:28px
+// у standalone-режимі PWA (компенсація того, що safe-area-inset-bottom
+// поводився інакше, ніж у звичайному перегляді браузера — за старого,
+// непрозорого apple-mobile-web-app-status-bar-style).
+// Rev 2.11.12 BugFix — після переходу на black-translucent (Rev 2.11.11)
+// env(safe-area-inset-bottom) знову коректно збігається зі звичайним
+// переглядом у браузері, тож старий форсований 28px-хардкод лише піднімав
+// капсулу таббару зависоко, лишаючи порожню смугу знизу екрана. Прибрано —
+// CSS-формула (calc(14px + env(safe-area-inset-bottom))) тепер працює сама,
+// без винятку для standalone.
 
 </script>
 </body>
