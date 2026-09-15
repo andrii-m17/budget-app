@@ -49,11 +49,13 @@
      "дотягнутися", бо всі вони міряють сам WebView, а не фізичний екран.
      Ось чому наші попередні спроби компенсувати позицію ТАББАРУ (Rev
      2.11.12/2.11.13) не могли спрацювати — ми лікували симптом (позицію
-     одного елемента), а не причину (розмір самого контейнера). Справжній,
-     задокументований фікс — розтягнути сам контейнер на висоту цього зсуву
-     (див. html,body і .app-shell нижче, у @media (display-mode: standalone))
-     — тоді й таббар, і взагалі вся сторінка знову природно дотягуються до
-     справжнього низу екрана, без жодного хардкоду чи вгаданих пікселів. -->
+     одного елемента), а не причину (розмір самого контейнера).
+     Rev 2.11.15 пробував розтягнути контейнер через CSS calc(100% + env(...)),
+     але це не дало стабільного результату (ймовірно, конфлікт із position:fixed
+     + inset:0 — over-constrained система, яку різні версії WebKit можуть
+     розв'язувати по-різному). Rev 2.11.16 — той самий фікс, але через JS з
+     явною піксельною висотою (window.screen.height), без відсотків/vh/dvh/calc
+     узагалі — див. fixStandaloneViewportHeight() наприкінці файлу. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Бюджет">
 <title>Бюджет — локально в браузері</title>
@@ -157,19 +159,14 @@
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html{ background:var(--color-bg); min-height:100%; }
   html,body{ margin:0; padding:0; height:100%; overflow:hidden; position:fixed; inset:0; width:100%; overscroll-behavior:none; background:var(--color-bg); color:var(--color-text-primary); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
-  /* Rev 2.11.15 — справжній фікс кореневої причини "зсуву" з black-translucent
-     (див. розлогий коментар біля apple-mobile-web-app-status-bar-style у
-     <head>): у standalone WebView рахує свою висоту як
-     (висота_екрана − верхній_safe-area-inset), прив'язуючи її до ВЕРХНЬОГО
-     краю. Розтягуємо сам контейнер на точно ту саму величину — тоді він знову
-     дотягується до СПРАВЖНЬОГО низу екрана, і все, що спирається на 100%
-     висоти (.app-shell, position:fixed елементи всередині) знову працює
-     природно, без вгаданих чисел для кожного окремого елемента. Стосується
-     ЛИШЕ standalone (display-mode:standalone) — звичайний перегляд у Safari
-     ніколи не мав цієї примхи й не повинен її "лікувати". */
-  @media (display-mode: standalone){
-    html,body{ height:calc(100% + env(safe-area-inset-top,0px)); }
-  }
+  /* Rev 2.11.15 — спроба через CSS calc(100% + env(...)) у @media
+     (display-mode:standalone) не дала стабільного результату: ймовірно,
+     position:fixed + inset:0 РАЗОМ з явною height створюють суперечливу
+     (over-constrained) систему, яку різні версії WebKit можуть розв'язувати
+     по-різному — тому результат був непередбачуваним. Rev 2.11.16 — фікс
+     переїхав у JS (див. кінець файлу, fixStandaloneViewportHeight): там
+     виставляється явна піксельна висота від window.screen.height, без
+     відсотків/vh/dvh/calc узагалі, що прибирає цю невизначеність. */
   .mono{ font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
   button{ font-family:inherit; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); } input,select{ font-family:inherit; }
   button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible{ outline:2px solid var(--color-primary); outline-offset:2px; }
@@ -186,9 +183,6 @@
      щоб контент і далі повністю ховався під капсулою в самому кінці скролу,
      а не залишав щілину. */
   .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--color-bg); }
-  @media (display-mode: standalone){
-    .app-shell{ height:calc(100vh + env(safe-area-inset-top,0px)); height:calc(100dvh + env(safe-area-inset-top,0px)); }
-  }
   .side{ display:none; }
   .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding-bottom:112px; }
   .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 20px; border-bottom:1px solid var(--color-border); position:relative; text-align:center; }
@@ -1657,7 +1651,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.15</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.16</div>
 </div>
   </div>
 </div>
@@ -2032,7 +2026,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.15';
+const APP_VERSION = '2.11.16';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -6536,13 +6530,39 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
 // для компенсації зсуву капсули таббару в standalone-режимі PWA (спершу
 // через "чужу" поведінку safe-area-inset-bottom, потім — через побічний
 // ефект експерименту з black-translucent статус-баром). Уся ця історія спроб
-// описана в git-історії; тут лишати вже нема сенсу, бо:
-// Rev 2.11.15 — знайшли й виправили СПРАВЖНЮ причину зсуву — саме в розмірі
-// контейнера (html/body/.app-shell, див. CSS-коментар там), а не в позиції
-// самого таббару. Раз контейнер тепер знову дотягується до справжнього низу
-// екрана, кожен окремий елемент (включно з таббаром) рахує свою позицію
-// правильно сам, без стороннього втручання — тому весь цей JS-код можна
-// просто прибрати.
+// описана в git-історії.
+// Rev 2.11.15 — спроба виправити корінь проблеми (розмір контейнера, а не
+// позицію окремого таббару) через CSS calc(100% + env(safe-area-inset-top))
+// у @media(display-mode:standalone). Користувач підтвердив: після
+// перевстановлення PWA зсув повернувся — CSS-підхід не дав стабільного
+// результату (ймовірна причина: position:fixed + inset:0 РАЗОМ з явною
+// height — over-constrained система, де "виграє" залежно від конкретної
+// версії WebKit те top, то bottom, то сама height, без гарантії).
+// Rev 2.11.16 — той самий фікс кореневої причини, але через JS з явною
+// піксельною висотою (window.screen.height — фізична висота екрана,
+// апаратне значення, не залежить від internals WebView) замість
+// відсотків/vh/dvh/calc. Встановлюємо height напряму в px на html, body й
+// .app-shell — це прибирає саму можливість "суперечливого" розв'язання
+// CSS-блоку, бо тут уже нема на чому конфліктувати (одне явне число).
+(function fixStandaloneViewportHeight(){
+  const isStandalone = (window.navigator && window.navigator.standalone === true)
+    || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if(!isStandalone) return;
+  function apply(){
+    const h = window.screen && window.screen.height ? window.screen.height : window.innerHeight;
+    if(!h) return;
+    const px = h + 'px';
+    document.documentElement.style.height = px;
+    document.body.style.height = px;
+    const shell = document.querySelector('.app-shell');
+    if(shell) shell.style.height = px;
+  }
+  apply();
+  // На випадок повороту екрана чи зміни розмірів вікна (рідко для нашого
+  // portrait-only застосунку, але про всяк випадок) — перерахувати наново.
+  window.addEventListener('resize', apply);
+  window.addEventListener('orientationchange', function(){ setTimeout(apply, 300); });
+})();
 </script>
 </body>
 </html>
