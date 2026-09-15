@@ -38,25 +38,27 @@
 <link rel="icon" href="./icons/icon-192-v2.png" type="image/png">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon-v2.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<!-- Rev 2.11.15 — довелось двічі відкочувати black-translucent (Rev 2.11.14),
-     бо не могли зрозуміти причину зсуву таббару. Дослідив тему детальніше:
-     це відома, багаторічна (з iOS 10-11, підтверджена й дотепер) поведінка
-     WebKit — з black-translucent WebView у standalone PWA рахує свою висоту
-     як (висота_екрана − верхній_safe-area-inset) і прив'язує цю КОРОТШУ
-     область до ВЕРХНЬОГО краю екрана. Порожній простір знизу — буквально
-     територія ПОЗА межами самого WebView; жоден CSS/JS усередині сторінки
-     (100dvh, position:fixed, env(safe-area-inset-bottom)) не може туди
-     "дотягнутися", бо всі вони міряють сам WebView, а не фізичний екран.
-     Ось чому наші попередні спроби компенсувати позицію ТАББАРУ (Rev
-     2.11.12/2.11.13) не могли спрацювати — ми лікували симптом (позицію
-     одного елемента), а не причину (розмір самого контейнера).
-     Rev 2.11.15 пробував розтягнути контейнер через CSS calc(100% + env(...)),
-     але це не дало стабільного результату (ймовірно, конфлікт із position:fixed
-     + inset:0 — over-constrained система, яку різні версії WebKit можуть
-     розв'язувати по-різному). Rev 2.11.16 — той самий фікс, але через JS з
-     явною піксельною висотою (window.screen.height), без відсотків/vh/dvh/calc
-     узагалі — див. fixStandaloneViewportHeight() наприкінці файлу. -->
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- Rev 2.11.17 — ОСТАТОЧНЕ пояснення й фікс "мертвої зони" знизу.
+     Причина (підтверджена стороннім проєктом, що пройшов ІДЕНТИЧНУ
+     послідовність невдалих спроб — height:100%, 100dvh, fixed inset:0 і навіть
+     JS-виміряну висоту, тобто буквально наші Rev 2.11.12–2.11.16):
+     black-translucent змушує WebKit робити встановлений WebView розміром
+     (screen.height − верхній_safe-area-inset), прив'язаним до ВЕРХНЬОГО краю.
+     Нижня смуга safe-area тоді лежить ПОВНІСТЮ ПОЗА межами WebView — це
+     фізичний фон ОС, до якого ЖОДЕН CSS/JS усередині сторінки не може
+     дотягнутися й навіть виміряти його, бо все всередині міряє сам WebView,
+     а не екран. Ось чому всі наші спроби були приречені: ми намагались
+     заповнити простір, якого для сторінки просто не існує.
+     Виправлення — "black" (непрозорий), а НЕ "default" і не
+     black-translucent: саме з ним WebKit верстає WebView edge-to-edge (на всю
+     висоту екрана) і малює непрозорий статус-бар ПОВЕРХ нього — тож
+     env(safe-area-inset-bottom) у таббарі нарешті впирається у СПРАВЖНІЙ
+     нижній край екрана.
+     Компроміс: статус-бар тепер завжди непрозоро-чорний. У темній темі це
+     ідеально; у світлій — темна смужка зверху. Але, на відміну від Багу #4,
+     це СТАЛА й передбачувана поведінка, а не випадковий залишок кольору
+     попередньої теми. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Бюджет">
 <title>Бюджет — локально в браузері</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -159,14 +161,13 @@
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html{ background:var(--color-bg); min-height:100%; }
   html,body{ margin:0; padding:0; height:100%; overflow:hidden; position:fixed; inset:0; width:100%; overscroll-behavior:none; background:var(--color-bg); color:var(--color-text-primary); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
-  /* Rev 2.11.15 — спроба через CSS calc(100% + env(...)) у @media
-     (display-mode:standalone) не дала стабільного результату: ймовірно,
-     position:fixed + inset:0 РАЗОМ з явною height створюють суперечливу
-     (over-constrained) систему, яку різні версії WebKit можуть розв'язувати
-     по-різному — тому результат був непередбачуваним. Rev 2.11.16 — фікс
-     переїхав у JS (див. кінець файлу, fixStandaloneViewportHeight): там
-     виставляється явна піксельна висота від window.screen.height, без
-     відсотків/vh/dvh/calc узагалі, що прибирає цю невизначеність. */
+  /* Rev 2.11.15–2.11.16 — тут по черзі стояли компенсації "мертвої зони"
+     знизу (calc(100% + env(safe-area-inset-top)) у @media display-mode:
+     standalone, потім JS з явною піксельною висотою). Обидві прибрано:
+     Rev 2.11.17 усунув саму ПРИЧИНУ на рівні meta-тега статус-бару (black
+     замість black-translucent — див. коментар у <head>), тож WebView знову
+     верстається edge-to-edge і жодних костилів для геометрії не потрібно.
+     Ці правила повертаються до простого, звичайного вигляду. */
   .mono{ font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
   button{ font-family:inherit; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); } input,select{ font-family:inherit; }
   button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible{ outline:2px solid var(--color-primary); outline-offset:2px; }
@@ -1651,7 +1652,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.16</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.17</div>
 </div>
   </div>
 </div>
@@ -2026,7 +2027,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.16';
+const APP_VERSION = '2.11.17';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -6526,43 +6527,18 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
   });
 }
 
-// Rev 2.4.26–2.11.14 — тут довго жив хардкод/вимірювання --tabbar-bottom-offset
-// для компенсації зсуву капсули таббару в standalone-режимі PWA (спершу
-// через "чужу" поведінку safe-area-inset-bottom, потім — через побічний
-// ефект експерименту з black-translucent статус-баром). Уся ця історія спроб
-// описана в git-історії.
-// Rev 2.11.15 — спроба виправити корінь проблеми (розмір контейнера, а не
-// позицію окремого таббару) через CSS calc(100% + env(safe-area-inset-top))
-// у @media(display-mode:standalone). Користувач підтвердив: після
-// перевстановлення PWA зсув повернувся — CSS-підхід не дав стабільного
-// результату (ймовірна причина: position:fixed + inset:0 РАЗОМ з явною
-// height — over-constrained система, де "виграє" залежно від конкретної
-// версії WebKit те top, то bottom, то сама height, без гарантії).
-// Rev 2.11.16 — той самий фікс кореневої причини, але через JS з явною
-// піксельною висотою (window.screen.height — фізична висота екрана,
-// апаратне значення, не залежить від internals WebView) замість
-// відсотків/vh/dvh/calc. Встановлюємо height напряму в px на html, body й
-// .app-shell — це прибирає саму можливість "суперечливого" розв'язання
-// CSS-блоку, бо тут уже нема на чому конфліктувати (одне явне число).
-(function fixStandaloneViewportHeight(){
-  const isStandalone = (window.navigator && window.navigator.standalone === true)
-    || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-  if(!isStandalone) return;
-  function apply(){
-    const h = window.screen && window.screen.height ? window.screen.height : window.innerHeight;
-    if(!h) return;
-    const px = h + 'px';
-    document.documentElement.style.height = px;
-    document.body.style.height = px;
-    const shell = document.querySelector('.app-shell');
-    if(shell) shell.style.height = px;
-  }
-  apply();
-  // На випадок повороту екрана чи зміни розмірів вікна (рідко для нашого
-  // portrait-only застосунку, але про всяк випадок) — перерахувати наново.
-  window.addEventListener('resize', apply);
-  window.addEventListener('orientationchange', function(){ setTimeout(apply, 300); });
-})();
+// Rev 2.4.26–2.11.16 — тут по черзі жили: хардкод --tabbar-bottom-offset,
+// "розумне" вимірювання env(), CSS calc(100% + env(safe-area-inset-top)) і,
+// нарешті, JS з явною піксельною висотою від window.screen.height. Жоден із
+// цих підходів не спрацював — і тепер зрозуміло ЧОМУ: усі вони намагались
+// заповнити простір, якого для сторінки просто НЕ ІСНУЄ (нижня смуга лежала
+// поза межами самого WebView — див. розлогий коментар біля
+// apple-mobile-web-app-status-bar-style у <head>). Код усередині сторінки
+// фізично не може ні дотягнутись туди, ні навіть виміряти той простір.
+// Rev 2.11.17 — причину усунено на рівні meta-тега (black замість
+// black-translucent), тому WebView знову верстається edge-to-edge, і
+// звичайної CSS-формули calc(14px + env(safe-area-inset-bottom)) у
+// nav.tabbar достатньо. Жодного JS-втручання в геометрію більше не потрібно.
 </script>
 </body>
 </html>
