@@ -38,25 +38,22 @@
 <link rel="icon" href="./icons/icon-192-v2.png" type="image/png">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon-v2.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<!-- Rev 2.11.11 BugFix (продовження Багу #4) — "default" тут раніше означав
-     ЖОРСТКО зафіксований непрозорий світлий статус-бар (чорний текст на
-     білому тлі) — і головна проблема не в кольорі самому по собі, а в тому,
-     що iOS у standalone PWA зчитує apple-mobile-web-app-status-bar-style
-     РІВНО ОДИН РАЗ, у момент запуску застосунку з іконки на головному екрані.
-     Зміна цього meta-тега через JS "на льоту" (як ми пробували для theme-color
-     нижче) НІЯК не впливає на вже відрендерений статус-бар у поточній сесії —
-     це системне обмеження iOS, а не наш недогляд і не те, що можна побороти
-     повторним "трюком з перемальовкою" (Rev 2.11.8 виправляв ІНШИЙ шар —
-     власний safe-area-фон нашого web-контенту, а не нативну смугу статус-бару
-     як таку). Тому й лишалась "залипла" смуга старої теми аж до перезапуску.
-     Рішення — black-translucent: сам статус-бар стає ПРОЗОРИМ, і крізь нього
-     видно наш ВЛАСНИЙ фон (той самий var(--color-bg), що вже реагує на тему
-     миттєво) — тобто окремого "нативного кольору, який треба міняти" більше
-     просто немає. Компроміс: іконки статус-бару (годинник/сигнал/батарея) в
-     цьому режимі iOS завжди малює світлими — це чудово читається на темній
-     темі; на світлій контраст трохи нижчий (light-сірий #F7F8FA — не
-     контрастний білий, тому лишається прийнятно читабельним, хоч і не
-     ідеально). Це системне обмеження iOS для двотемних PWA, а не наш баг. -->
+<!-- Rev 2.11.15 — довелось двічі відкочувати black-translucent (Rev 2.11.14),
+     бо не могли зрозуміти причину зсуву таббару. Дослідив тему детальніше:
+     це відома, багаторічна (з iOS 10-11, підтверджена й дотепер) поведінка
+     WebKit — з black-translucent WebView у standalone PWA рахує свою висоту
+     як (висота_екрана − верхній_safe-area-inset) і прив'язує цю КОРОТШУ
+     область до ВЕРХНЬОГО краю екрана. Порожній простір знизу — буквально
+     територія ПОЗА межами самого WebView; жоден CSS/JS усередині сторінки
+     (100dvh, position:fixed, env(safe-area-inset-bottom)) не може туди
+     "дотягнутися", бо всі вони міряють сам WebView, а не фізичний екран.
+     Ось чому наші попередні спроби компенсувати позицію ТАББАРУ (Rev
+     2.11.12/2.11.13) не могли спрацювати — ми лікували симптом (позицію
+     одного елемента), а не причину (розмір самого контейнера). Справжній,
+     задокументований фікс — розтягнути сам контейнер на висоту цього зсуву
+     (див. html,body і .app-shell нижче, у @media (display-mode: standalone))
+     — тоді й таббар, і взагалі вся сторінка знову природно дотягуються до
+     справжнього низу екрана, без жодного хардкоду чи вгаданих пікселів. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Бюджет">
 <title>Бюджет — локально в браузері</title>
@@ -160,6 +157,19 @@
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html{ background:var(--color-bg); min-height:100%; }
   html,body{ margin:0; padding:0; height:100%; overflow:hidden; position:fixed; inset:0; width:100%; overscroll-behavior:none; background:var(--color-bg); color:var(--color-text-primary); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
+  /* Rev 2.11.15 — справжній фікс кореневої причини "зсуву" з black-translucent
+     (див. розлогий коментар біля apple-mobile-web-app-status-bar-style у
+     <head>): у standalone WebView рахує свою висоту як
+     (висота_екрана − верхній_safe-area-inset), прив'язуючи її до ВЕРХНЬОГО
+     краю. Розтягуємо сам контейнер на точно ту саму величину — тоді він знову
+     дотягується до СПРАВЖНЬОГО низу екрана, і все, що спирається на 100%
+     висоти (.app-shell, position:fixed елементи всередині) знову працює
+     природно, без вгаданих чисел для кожного окремого елемента. Стосується
+     ЛИШЕ standalone (display-mode:standalone) — звичайний перегляд у Safari
+     ніколи не мав цієї примхи й не повинен її "лікувати". */
+  @media (display-mode: standalone){
+    html,body{ height:calc(100% + env(safe-area-inset-top,0px)); }
+  }
   .mono{ font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
   button{ font-family:inherit; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); } input,select{ font-family:inherit; }
   button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible{ outline:2px solid var(--color-primary); outline-offset:2px; }
@@ -176,6 +186,9 @@
      щоб контент і далі повністю ховався під капсулою в самому кінці скролу,
      а не залишав щілину. */
   .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--color-bg); }
+  @media (display-mode: standalone){
+    .app-shell{ height:calc(100vh + env(safe-area-inset-top,0px)); height:calc(100dvh + env(safe-area-inset-top,0px)); }
+  }
   .side{ display:none; }
   .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding-bottom:112px; }
   .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 20px; border-bottom:1px solid var(--color-border); position:relative; text-align:center; }
@@ -756,24 +769,16 @@
      безпечний. */
   nav.tabbar{
     position:fixed; left:0; right:0; margin:0 auto;
-    /* Rev 2.4.26 — у standalone-режимі PWA (додано на головний екран) на iOS
-       safe-area-inset-bottom поводився інакше, ніж у звичайному перегляді
-       браузера — підтверджено скріншотами користувача (та сама CSS-формула
-       давала різну фактичну позицію капсули залежно від контексту), тому
-       JS-код (наприкінці скрипта) форсував фіксовані 28px замість env().
-       Rev 2.11.12 — прибрав цей хардкод, припустивши, що перехід на
-       black-translucent (Rev 2.11.11) заразом "нормалізував" і поведінку
-       safe-area-inset-bottom. Це виявилось НЕВІРНИМ припущенням: користувач
-       підтвердив скріншотом, що без компенсації капсула сіла ЩЕ ВИЩЕ, ніж
-       навіть зі старим хардкодом — тобто завищене значення env() у standalone
-       нікуди не поділось і не було пов'язане зі статус-баром узагалі, це
-       окрема, незалежна примха.
-       Rev 2.11.13 — компенсація повертається, але вже не як вгадане число, а
-       через РЕАЛЬНЕ вимірювання цього конкретного значення в цьому
-       конкретному середовищі (див. кінець скрипта) — --tabbar-bottom-offset
-       перевизначається лише якщо виміряне env() виглядає завищеним, інакше
-       формула нижче працює сама, без стороннього втручання. */
-    bottom:var(--tabbar-bottom-offset, calc(14px + env(safe-area-inset-bottom)));
+    /* Rev 2.4.26 — у standalone-режимі PWA safe-area-inset-bottom поводився
+       інакше, ніж у звичайному перегляді браузера — тому тут довго був
+       хардкод (28px замість env()), а потім (Rev 2.11.11–2.11.14) — цикл
+       спроб компенсувати ще й зсув від black-translucent безпосередньо тут.
+       Rev 2.11.15 — знайшли й виправили СПРАВЖНЮ причину зсуву в самому
+       контейнері (html/body/.app-shell, див. коментар там) — а не в позиції
+       окремого елемента. Тепер, коли сам контейнер знову дотягується до
+       справжнього низу екрана, стандартна формула нижче знову працює сама,
+       без жодного хардкоду чи вгаданих пікселів саме для таббару. */
+    bottom:calc(14px + env(safe-area-inset-bottom));
     width:calc(100% - 28px); max-width:460px;
     z-index:20;
   }
@@ -1652,7 +1657,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.13</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.15</div>
 </div>
   </div>
 </div>
@@ -2027,7 +2032,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.13';
+const APP_VERSION = '2.11.15';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -6527,37 +6532,17 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
   });
 }
 
-// Rev 2.4.26 — тут форсувався фіксований --tabbar-bottom-offset:28px у
-// standalone-режимі PWA (компенсація того, що safe-area-inset-bottom
-// поводився інакше, ніж у звичайному перегляді браузера).
-// Rev 2.11.12 — прибрав цю компенсацію, припустивши, що перехід на
-// black-translucent (Rev 2.11.11) заразом нормалізував і цю поведінку.
-// Користувач скріншотом підтвердив, що це припущення було ХИБНИМ — без
-// компенсації капсула сіла ще вище, ніж навіть зі старим хардкодом.
-// Rev 2.11.13 BugFix — замість того, щоб знову вгадувати число (як 28px
-// раніше), тепер РЕАЛЬНО вимірюємо, у скільки саме env(safe-area-inset-bottom)
-// розгортається в ЦЬОМУ конкретному середовищі — через прихований тестовий
-// елемент. Стандартне значення safe-area-inset-bottom на iPhone з Face ID —
-// 34px (домашній індикатор); якщо виміряне значення в standalone помітно
-// більше за це (SAFE_AREA_BOTTOM_MAX — із запасом, 40px) — це і є та сама
-// задокументована примха, компенсуємо її, підставляючи "чесні" 34px замість
-// завищеного виміряного. Якщо ж значення в межах норми — нічого не чіпаємо,
-// CSS-формула в nav.tabbar працює сама.
-(function fixStandaloneSafeAreaBottom(){
-  const isStandalone = (window.navigator && window.navigator.standalone === true)
-    || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-  if(!isStandalone) return;
-  const probe = document.createElement('div');
-  probe.style.cssText = 'position:fixed; bottom:0; left:0; width:0; height:0; padding-bottom:env(safe-area-inset-bottom); visibility:hidden; pointer-events:none;';
-  document.body.appendChild(probe);
-  const measured = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
-  document.body.removeChild(probe);
-  const SAFE_AREA_BOTTOM_MAX = 40;
-  const SAFE_AREA_BOTTOM_NORMAL = 34;
-  if(measured > SAFE_AREA_BOTTOM_MAX){
-    document.documentElement.style.setProperty('--tabbar-bottom-offset', (14 + SAFE_AREA_BOTTOM_NORMAL) + 'px');
-  }
-})();
+// Rev 2.4.26–2.11.14 — тут довго жив хардкод/вимірювання --tabbar-bottom-offset
+// для компенсації зсуву капсули таббару в standalone-режимі PWA (спершу
+// через "чужу" поведінку safe-area-inset-bottom, потім — через побічний
+// ефект експерименту з black-translucent статус-баром). Уся ця історія спроб
+// описана в git-історії; тут лишати вже нема сенсу, бо:
+// Rev 2.11.15 — знайшли й виправили СПРАВЖНЮ причину зсуву — саме в розмірі
+// контейнера (html/body/.app-shell, див. CSS-коментар там), а не в позиції
+// самого таббару. Раз контейнер тепер знову дотягується до справжнього низу
+// екрана, кожен окремий елемент (включно з таббаром) рахує свою позицію
+// правильно сам, без стороннього втручання — тому весь цей JS-код можна
+// просто прибрати.
 </script>
 </body>
 </html>
