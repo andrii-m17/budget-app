@@ -465,6 +465,26 @@
      кнопка-календар поруч, openJournalDatePicker()), той самий "невидимий
      інпут + своя кнопка" прийом, що інпути завантаження файлів. */
   .journal-date-input-hidden{ position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+  /* Rev 2.20.0 — пошук/фільтр Журналу: поле з іконкою лупи + inline "×", і
+     компактний select категорії поруч — той самий "рамка+радіус", що інші
+     інпути застосунку, але власна висота (44px), щоб уміститись поруч із
+     .date-nav-btn у ряду нижче. */
+  .journal-search-row{ display:flex; gap:8px; margin-bottom:14px; }
+  .journal-search-input-wrap{ position:relative; flex:1 1 auto; min-width:0; }
+  .journal-search-input-wrap svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--color-muted); pointer-events:none; }
+  .journal-search-input-wrap input{ width:100%; height:44px; padding:0 34px 0 36px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:14px; box-sizing:border-box; }
+  .journal-search-input-wrap input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
+  .journal-search-clear{ position:absolute; right:7px; top:50%; transform:translateY(-50%); width:22px; height:22px; border:none; background:var(--color-surface-hover); border-radius:50%; color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .journal-search-clear.hidden{ display:none; }
+  .journal-search-category{ flex:0 0 auto; max-width:132px; height:44px; padding:0 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:12.5px; }
+  .journal-search-category:focus{ outline:none; border-color:var(--color-primary); }
+  /* Rev 2.20.0 — "Результати пошуку (N)": замінює .journal-month-label, поки
+     активний пошук/фільтр (той самий момент, коли .journal-month-nav
+     ховається нижче) — сигналізує, що список тепер по ВСІЙ історії, а не
+     обраному місяцю. */
+  .journal-search-summary{ font-size:12px; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:14px; }
+  .journal-search-summary.hidden{ display:none; }
+  .journal-month-nav.hidden{ display:none; }
   /* Rev 2.1.15 — тап по картці витрати виділяє її (з'являється олівець для
      редагування категорії); .expense-row тепер контейнер-картка (може містити
      інлайн-панель редагування знизу), а сам горизонтальний рядок (назва+сума+
@@ -1803,7 +1823,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.19.1</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.20.0</div>
 </div>
   </div>
 </div>
@@ -1997,13 +2017,34 @@
     <div class="journal-overlay-title">Журнал усіх записів</div>
   </div>
   <div class="journal-body">
+    <!-- Rev 2.20.0 — пошук за назвою + фільтр категорії, під заголовком, над
+         навігацією по місяцях/календарем. Поки активний пошук/фільтр
+         (isJournalSearchActive) — .journal-month-nav (стрілки+календар,
+         Rev 2.19.0) ховається (не чіпаємо саму навігацію, лише клас-тогл), а
+         результати рахуються по ВСІЙ історії, не лише journalMonth — той
+         самий buildRecordGroupsHtml (не чіпаємо), що звичайний місячний
+         перегляд, лише на вхід йде filterJournalRecords() замість
+         recordsForMonth(). Фільтр категорій — лише категорії ВИТРАТ, що
+         реально зустрічаються (journalCategoryOptions, не хардкод CATEGORIES);
+         доходи завжди проходять фільтр категорії незалежно від вибору. -->
+    <div class="journal-search-row">
+      <div class="journal-search-input-wrap">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="journal-search-input" placeholder="Пошук за назвою" oninput="onJournalSearchChange()" autocomplete="off">
+        <button type="button" class="journal-search-clear hidden" id="journal-search-clear" onclick="clearJournalSearchText()" aria-label="Очистити пошук">
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <select class="journal-search-category" id="journal-search-category" onchange="onJournalSearchChange()" aria-label="Категорія"></select>
+    </div>
+    <div class="journal-search-summary hidden" id="journal-search-summary"></div>
     <!-- Rev 2.19.0 — кнопка календаря поруч зі стрілковою навігацією місяцями
          (не змінює саму стрілкову навігацію): прихований нативний
          <input type="date"> — той самий патерн, що #f-date у формі "Нова
          витрата" — відкривається через showPicker()/click() з onclick кнопки
          (це вибір усередині вже відкритого Журналу, НЕ нова "сторінка" — не
          створює history-запис, на відміну від openJournal()). -->
-    <div class="date-nav-row journal-month-nav">
+    <div class="date-nav-row journal-month-nav" id="journal-month-nav">
       <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
       <div class="journal-month-label" id="journal-month-label"></div>
       <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(1)" aria-label="Наступний місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
@@ -2354,7 +2395,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.19.1';
+const APP_VERSION = '2.20.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5407,6 +5448,10 @@ function renderRecords(){
    щоб відкриття Журналу ніколи не зсувало місяць в інших вкладках. */
 let isJournalOpen = false;
 let journalMonth = null;
+// Rev 2.20.0 — пошук/фільтр Журналу (Крок 5, ROADMAP п.38, фінальний):
+// journalSearchQuery/journalSearchCategory — стан панелі під заголовком.
+let journalSearchQuery = '';
+let journalSearchCategory = '';
 // Rev 2.19.1 BugFix — REGRESSION від Rev 2.18.1. Діагностика (підтверджено на
 // реальному iPhone: свайп-назад ЗАКРИВАВ Журнал, але щоразу з ~3с фризом
 // одразу після):
@@ -5449,6 +5494,14 @@ let journalMonth = null;
 function openJournal(){
   isJournalOpen = true;
   journalMonth = monthKey(localDateISO());
+  // Rev 2.20.0 — скидаємо пошук/фільтр при кожному новому відкритті: стан
+  // попереднього пошуку не повинен "виринати" несподівано наступного разу.
+  journalSearchQuery = '';
+  journalSearchCategory = '';
+  const searchInput = document.getElementById('journal-search-input');
+  if(searchInput) searchInput.value = '';
+  const clearBtn = document.getElementById('journal-search-clear');
+  if(clearBtn) clearBtn.classList.add('hidden');
   lastFocusedBeforeDialog = document.activeElement;
   const overlay = document.getElementById('journal-overlay');
   overlay.classList.remove('hidden');
@@ -5502,15 +5555,117 @@ function shiftJournalMonth(delta){
 function recordsForMonth(records, month){
   return records.filter(function(e){ return monthKey(e.date) === month; });
 }
+// Rev 2.20.0 — чиста функція: чи активний зараз пошук/фільтр Журналу
+// (непорожній текст АБО обрана конкретна категорія) — той самий стан
+// одночасно вирішує (а) чи рахувати результати по ВСІЙ історії, а не
+// journalMonth, і (б) чи ховати .journal-month-nav (стрілки+календар).
+function isJournalSearchActive(){
+  return journalSearchQuery.trim() !== '' || journalSearchCategory !== '';
+}
+// Rev 2.20.0 — чиста функція фільтрації: текст (contains, регістронезалежно,
+// коректно з кирилицею через toLowerCase()) + категорія. Категорія фільтрує
+// ЛИШЕ витрати (kind==='expense') — доходи завжди проходять цей фільтр
+// незалежно від вибору (за явним рішенням користувача: "Категорія" тут про
+// категорії витрат, не окремий пункт "Дохід"). category==='__none__' —
+// спеціальне значення "Без категорії".
+function filterJournalRecords(records, query, category){
+  const q = (query || '').trim().toLowerCase();
+  return records.filter(function(e){
+    if(q && !(e.name || '').toLowerCase().includes(q)) return false;
+    if(category){
+      if(e.kind !== 'expense') return true;
+      const cat = e.category || '';
+      if(category === '__none__') return !cat;
+      return cat === category;
+    }
+    return true;
+  });
+}
+// Rev 2.20.0 — чиста функція: категорії, що реально зустрічаються серед
+// ВИТРАТ (не хардкод CATEGORIES) — для випадаючого списку фільтра. '__none__'
+// у кінці — лише якщо є хоч одна витрата без категорії.
+function journalCategoryOptions(expenseRecords){
+  const set = new Set();
+  let hasNone = false;
+  expenseRecords.forEach(function(e){
+    if(e.category) set.add(e.category); else hasNone = true;
+  });
+  const list = Array.from(set).sort(function(a,b){ return a.localeCompare(b, 'uk'); });
+  if(hasNone) list.push('__none__');
+  return list;
+}
+// Rev 2.20.0 — перебудовує <select> категорій із поточних даних (кожен
+// рендер Журналу — дешево, завжди актуально навіть після редагування запису
+// прямо в Журналі) і зберігає поточний вибір користувача.
+function populateJournalCategoryOptions(){
+  const select = document.getElementById('journal-search-category');
+  if(!select) return;
+  const cats = journalCategoryOptions(expenses);
+  const opts = ['<option value="">Усі категорії</option>'].concat(
+    cats.map(function(c){
+      const label = c === '__none__' ? 'Без категорії' : c;
+      return `<option value="${escapeAttr(c)}">${escapeHtml(label)}</option>`;
+    })
+  );
+  select.innerHTML = opts.join('');
+  select.value = journalSearchCategory;
+}
+function onJournalSearchChange(){
+  const input = document.getElementById('journal-search-input');
+  const select = document.getElementById('journal-search-category');
+  journalSearchQuery = input ? input.value : '';
+  journalSearchCategory = select ? select.value : '';
+  const clearBtn = document.getElementById('journal-search-clear');
+  if(clearBtn) clearBtn.classList.toggle('hidden', !journalSearchQuery);
+  renderJournalView();
+}
+function clearJournalSearchText(){
+  const input = document.getElementById('journal-search-input');
+  if(input) input.value = '';
+  onJournalSearchChange();
+  if(input) input.focus();
+}
 function renderJournalView(){
   const container = document.getElementById('journal-list');
   if(!container || !journalMonth) return;
+  populateJournalCategoryOptions();
+  const monthNavEl = document.getElementById('journal-month-nav');
+  const searchSummaryEl = document.getElementById('journal-search-summary');
   const labelEl = document.getElementById('journal-month-label');
-  if(labelEl) labelEl.textContent = monthLabel(journalMonth);
-  const combined = recordsForMonth([
+  const allCombined = [
     ...expenses.map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
     ...incomes.map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
-  ], journalMonth).sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
+  ];
+
+  // Rev 2.20.0 — активний пошук/фільтр: результати по ВСІЙ історії
+  // (journalMonth ігнорується, поки триває пошук — узгоджене UX-рішення),
+  // .journal-month-nav ховається, "Результати пошуку (N)" замінює підпис
+  // місяця. Групування за днем (buildRecordGroupsHtml, не чіпаємо) лишається
+  // тим самим — дає часовий контекст навіть у режимі пошуку по всіх місяцях.
+  if(isJournalSearchActive()){
+    if(monthNavEl) monthNavEl.classList.add('hidden');
+    const filtered = filterJournalRecords(allCombined, journalSearchQuery, journalSearchCategory)
+      .sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
+    if(searchSummaryEl){
+      searchSummaryEl.textContent = `Результати пошуку (${filtered.length})`;
+      searchSummaryEl.classList.remove('hidden');
+    }
+    if(filtered.length===0){
+      container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><div class="es-title">Нічого не знайдено</div><div class="es-sub">Спробуй іншу назву або категорію.</div></div>`;
+      return;
+    }
+    container.innerHTML = buildRecordGroupsHtml(filtered);
+    return;
+  }
+
+  // Rev 2.20.0 — звичайний місячний перегляд (пошук/фільтр не активні):
+  // .journal-month-nav знову видима, "Результати пошуку" ховається — та сама
+  // логіка, що була в Rev 2.18.0/2.19.0, лише тепер з явним тоглом класів.
+  if(monthNavEl) monthNavEl.classList.remove('hidden');
+  if(searchSummaryEl) searchSummaryEl.classList.add('hidden');
+  if(labelEl) labelEl.textContent = monthLabel(journalMonth);
+  const combined = recordsForMonth(allCombined, journalMonth)
+    .sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
 
   if(combined.length===0){
     container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><div class="es-title">Немає записів за ${monthLabel(journalMonth)}</div><div class="es-sub">Оберіть інший місяць стрілками вище.</div></div>`;

@@ -11,6 +11,9 @@
 // повертає той самий DOM-id, який buildRecordGroupsHtml (не чіпали) вже
 // проставляє на рядок — використовується для flashDiagnosticTarget після
 // вибору дати в календарі.
+// Rev 2.20.0 — додано filterJournalRecords() (текст+категорія, по ВСІЙ
+// історії, Крок 5/фінальний ROADMAP п.38) і journalCategoryOptions()
+// (категорії, що реально зустрічаються серед витрат — не хардкод CATEGORIES).
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -19,7 +22,7 @@ const { buildSandbox } = require('./extract');
 function sandbox({ expenses, incomes } = {}){
   return buildSandbox(
     { expenses: expenses || [], incomes: incomes || [] },
-    ['shiftMonth', 'monthKey', 'recordsForMonth', 'findRecordIdForDate']
+    ['shiftMonth', 'monthKey', 'recordsForMonth', 'findRecordIdForDate', 'filterJournalRecords', 'journalCategoryOptions']
   );
 }
 
@@ -103,4 +106,102 @@ test('findRecordIdForDate: жодного запису на цю дату → nu
     expenses: [{ id: 'e1', name: 'Кава', date: '2026-09-14' }],
   });
   assert.equal(ctx.findRecordIdForDate('2026-09-20'), null);
+});
+
+test('filterJournalRecords: текстовий пошук — contains, регістронезалежно', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Кава в дорозі', category: '🍔 Їжа' },
+    { kind: 'expense', name: 'Хліб', category: '🍔 Їжа' },
+    { kind: 'expense', name: 'КАВА зі знижкою', category: '🏠 Побут' },
+  ];
+  const result = ctx.filterJournalRecords(records, 'кава', '');
+  assert.deepEqual(result.map(r => r.name), ['Кава в дорозі', 'КАВА зі знижкою']);
+});
+
+test('filterJournalRecords: текстовий пошук коректно працює з кирилицею (різний регістр)', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Черешня', category: '🍔 Їжа' },
+    { kind: 'expense', name: 'Груша', category: '🍔 Їжа' },
+  ];
+  assert.equal(ctx.filterJournalRecords(records, 'ЧЕРЕШНЯ', '').length, 1);
+});
+
+test('filterJournalRecords: фільтр категорії лишає лише витрати цієї категорії', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Кава', category: '🍔 Їжа' },
+    { kind: 'expense', name: 'Бензин', category: '🚗 Транспорт' },
+  ];
+  const result = ctx.filterJournalRecords(records, '', '🍔 Їжа');
+  assert.deepEqual(result.map(r => r.name), ['Кава']);
+});
+
+test('filterJournalRecords: категорія "__none__" — витрати без категорії', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Кава', category: '🍔 Їжа' },
+    { kind: 'expense', name: 'Щось', category: null },
+  ];
+  const result = ctx.filterJournalRecords(records, '', '__none__');
+  assert.deepEqual(result.map(r => r.name), ['Щось']);
+});
+
+test('filterJournalRecords: категорія фільтрує лише витрати — доходи завжди проходять', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Кава', category: '🍔 Їжа' },
+    { kind: 'income', name: 'Зарплата Андрій' },
+  ];
+  const result = ctx.filterJournalRecords(records, '', '🚗 Транспорт');
+  assert.deepEqual(result.map(r => r.name), ['Зарплата Андрій']);
+});
+
+test('filterJournalRecords: текст і категорія разом — обидві умови', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Кава', category: '🍔 Їжа' },
+    { kind: 'expense', name: 'Кавоварка', category: '🏠 Побут' },
+    { kind: 'expense', name: 'Хліб', category: '🍔 Їжа' },
+  ];
+  const result = ctx.filterJournalRecords(records, 'кав', '🍔 Їжа');
+  assert.deepEqual(result.map(r => r.name), ['Кава']);
+});
+
+test('filterJournalRecords: без запиту й категорії — повертає все як є', () => {
+  const ctx = sandbox();
+  const records = [{ kind: 'expense', name: 'Кава', category: '🍔 Їжа' }];
+  assert.deepEqual(ctx.filterJournalRecords(records, '', ''), records);
+});
+
+// Rev 2.20.0 — journalCategoryOptions() будує результат через Array.from(set)
+// ВСЕРЕДИНІ vm.Context — сам масив лишається "чужого" реалму, і
+// assert.deepEqual (=deepStrictEqual в node:assert/strict) на такому масиві
+// проти звичайного літералу падає з "same structure but not reference-equal"
+// (той самий клас cross-realm пасток, що вже задокументований у
+// tests/och-model.test.js для instanceof Date) — Array.from(...) у ГОЛОВНОМУ
+// реалмі нормалізує масив перед порівнянням.
+test('journalCategoryOptions: лише унікальні категорії, що реально зустрічаються, відсортовані', () => {
+  const ctx = sandbox();
+  const expenses = [
+    { name: 'Кава', category: '🍔 Їжа' },
+    { name: 'Бензин', category: '🚗 Транспорт' },
+    { name: 'Хліб', category: '🍔 Їжа' },
+  ];
+  assert.deepEqual(Array.from(ctx.journalCategoryOptions(expenses)), ['🍔 Їжа', '🚗 Транспорт']);
+});
+
+test('journalCategoryOptions: "__none__" в кінці, лише якщо є витрата без категорії', () => {
+  const ctx = sandbox();
+  const expenses = [
+    { name: 'Кава', category: '🍔 Їжа' },
+    { name: 'Щось', category: null },
+  ];
+  assert.deepEqual(Array.from(ctx.journalCategoryOptions(expenses)), ['🍔 Їжа', '__none__']);
+});
+
+test('journalCategoryOptions: без витрат → порожній список', () => {
+  const ctx = sandbox();
+  assert.deepEqual(Array.from(ctx.journalCategoryOptions([])), []);
 });
