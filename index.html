@@ -299,24 +299,58 @@
   .bdr-unsaved-tag.show{ display:inline; }
   /* Rev 2.0.4 — рядок ОЧ тепер двострокoвий: назва+іконки зверху, "Залишок" і
      "Платіж/міс" знизу поруч (щоб не тіснитись з іконками на mobile, як було
-     з банками при спробі влаштувати 2 інпути в один рядок).
-     Rev 2.16.4 — та сама верстка тепер і для .card-debt-row (картки боргу
-     отримали Кредитний ліміт/Борг по карті/Мін. платіж+чекбокс, той самий
-     UI-патерн, що ОЧ) — усі селектори нижче спільні для обох класів. */
-  .installment-row, .card-debt-row{ flex-direction:column; align-items:stretch; gap:8px; padding:10px 0; border-bottom:1px solid var(--color-border); }
-  .installment-row:last-child, .card-debt-row:last-child{ border-bottom:none; }
-  .installment-row .bdr-top, .card-debt-row .bdr-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .installment-row .bdr-fields, .card-debt-row .bdr-fields{ display:flex; gap:10px; }
-  .installment-row .bdr-field, .card-debt-row .bdr-field{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:3px; }
-  .installment-row .bdr-field-label, .card-debt-row .bdr-field-label{ font-size:10px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.3px; }
-  .installment-row .bdr-field input, .card-debt-row .bdr-field input{ width:100%; min-width:0; padding:9px 10px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:15px; text-align:right; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
-  .installment-row .bdr-field input:focus, .card-debt-row .bdr-field input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
+     з банками при спробі влаштувати 2 інпути в один рядок). */
+  .installment-row{ flex-direction:column; align-items:stretch; gap:8px; padding:10px 0; border-bottom:1px solid var(--color-border); }
+  .installment-row:last-child{ border-bottom:none; }
+  .installment-row .bdr-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .installment-row .bdr-fields{ display:flex; gap:10px; }
+  .installment-row .bdr-field{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .installment-row .bdr-field-label{ font-size:10px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.3px; }
+  .installment-row .bdr-field input{ width:100%; min-width:0; padding:9px 10px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:15px; text-align:right; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
+  .installment-row .bdr-field input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
   /* Rev 2.16.4 — чекбокс "Мінімальний платіж внесено": простий прапорець без
      побічних дій (за проханням користувача), :has() підсвічує підпис зеленим
-     при відмітці — той самий success-колір, що прогрес-бари ОЧ на Аналітиці. */
-  .bdr-minpay-check{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--color-text-secondary); cursor:pointer; -webkit-tap-highlight-color:transparent; margin-top:2px; }
-  .bdr-minpay-check input[type="checkbox"]{ width:18px; height:18px; accent-color:var(--color-success); cursor:pointer; flex-shrink:0; }
-  .bdr-minpay-check:has(input:checked){ color:var(--color-success); font-weight:600; }
+     при відмітці — той самий success-колір, що прогрес-бари ОЧ на Аналітиці.
+     Rev 2.16.5 — тепер живе всередині шторки редагування картки, не в
+     інлайновому рядку (див. .card-debt-compact-row нижче). */
+  .bdr-minpay-check{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--color-text-secondary); cursor:pointer; -webkit-tap-highlight-color:transparent; margin:2px 0 18px; background:var(--color-surface-hover); border-radius:var(--radius-sm); padding:12px 14px; }
+  .bdr-minpay-check input[type="checkbox"]{ width:19px; height:19px; accent-color:var(--color-success); cursor:pointer; flex-shrink:0; }
+  .bdr-minpay-check:has(input:checked){ color:var(--color-success); font-weight:600; background:var(--color-success-bg); }
+  /* Rev 2.16.5 — Борги по картках: компактний список (схвалений "Варіант A"
+     з демо-прев'ю) замість розгорнутих інлайн-форм — тап по картці відкриває
+     шторку (.drawer, той самий компонент, що Налаштування) з повним
+     редагуванням. Підсумкова картка над списком — 2 суми (загальний борг +
+     разом мін. платіж), той самий стиль картки, що .card{}. */
+  .card-summary{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); padding:16px 18px; margin-bottom:14px; }
+  .card-summary-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .card-summary-row + .card-summary-row{ margin-top:12px; padding-top:12px; border-top:1px solid var(--color-border); }
+  .card-summary-label{ font-size:12px; color:var(--color-text-secondary); font-weight:600; }
+  .card-summary-value{ font-size:18px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--color-text-primary); }
+  .card-summary-value.warn{ color:var(--color-warning); }
+  .card-debt-compact-row{ display:flex; align-items:center; gap:8px; width:100%; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:11px 12px; cursor:pointer; text-align:left; font-family:inherit; box-shadow:var(--shadow-sm); -webkit-tap-highlight-color:transparent; transition:background var(--duration-fast) var(--easing-standard); }
+  .card-debt-compact-row:hover{ background:var(--color-surface-hover); }
+  .cdr-avatar{ position:relative; flex-shrink:0; width:38px; height:38px; }
+  .cdr-avatar svg, .cdr-avatar .bank-badge{ margin-right:0 !important; display:block !important; }
+  .cdr-paid-badge{ position:absolute; right:-3px; bottom:-3px; width:16px; height:16px; border-radius:50%; background:var(--color-success); border:2px solid var(--color-surface); display:flex; align-items:center; justify-content:center; }
+  .cdr-main{ flex:1 1 auto; min-width:0; }
+  .cdr-name{ display:block; font-size:14px; font-weight:700; color:var(--color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cdr-sub{ display:block; font-size:11px; color:var(--color-text-secondary); margin-top:1px; }
+  .cdr-amounts{ flex-shrink:0; text-align:right; }
+  .cdr-balance{ display:block; font-size:14.5px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--color-text-primary); }
+  .cdr-minpay{ display:block; font-size:10.5px; color:var(--color-text-secondary); margin-top:2px; font-family:'JetBrains Mono',monospace; }
+  .cdr-minpay.paid{ color:var(--color-success); font-weight:700; }
+  .cdr-chevron{ flex-shrink:0; color:var(--color-muted); }
+  /* Rev 2.16.5 — шторка редагування однієї картки (.drawer вже стилізований
+     для Налаштувань — тут просто інший вміст: поля картки замість теми). */
+  .drawer-head-main{ display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 auto; }
+  #card-debt-drawer .drawer-head-icon{ flex-shrink:0; }
+  #card-debt-drawer .drawer-head-icon svg, #card-debt-drawer .drawer-head-icon .bank-badge{ margin-right:0 !important; display:block !important; width:34px; height:34px; }
+  #card-debt-drawer .drawer-head-text{ flex:1 1 auto; min-width:0; }
+  #card-debt-drawer .drawer-head-text h2{ font-size:16px; margin:0; }
+  #card-debt-drawer .drawer-head-sub{ font-size:11.5px; color:var(--color-text-secondary); margin-top:1px; }
+  .cdd-amount-input{ text-align:right; }
+  .cdd-delete-link{ display:block; width:100%; text-align:center; background:none; border:none; color:var(--color-error); font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer; padding:2px 0 0; }
+  .cdd-delete-link:hover{ text-decoration:underline; }
   /* Rev 2.2.3 — кнопка швидкої оплати ОЧ (метод B, FINANCIAL_RULES §5):
      відкриває форму витрати з передзаповненими назвою/сумою і вже готовою
      прив'язкою. Фіолетовий акцент — той самий, що категорія "Оплати Частинами"
@@ -1374,20 +1408,25 @@
       </div>
 
       <div class="struct-tab-panel hidden" id="acct-tab-panel-debts">
-        <!-- Rev 2.16.3 — та сама підказка про пунктирне приглушення, що й у
-             панелі ОЧ нижче: дублюємо в обох, бо dashed-prefill (bdr-amount-
-             prefill) реально працює в ОБОХ таблицях (Дохід так не показує). -->
-        <div class="info-note">
-          <span class="info-note-icon" aria-hidden="true">i</span>
-          <span>Приглушені пунктирні значення — підказка з минулого місяця. Торкніться поля, щоб підтвердити суму за цей місяць.</span>
+        <!-- Rev 2.16.5 — компактний список карток (Варіант A, штора) замість
+             розгорнутих інлайн-форм: підсумкова картка (загальний борг + разом
+             мін. платіж) над списком, тап по картці відкриває #card-debt-drawer
+             з повним редагуванням (назва/ліміт/борг/мін.платіж/чекбокс/
+             видалення) — там же й підтвердження (Зберегти), без окремого
+             глобального "Зберегти борги". -->
+        <div class="card-summary">
+          <div class="card-summary-row">
+            <span class="card-summary-label">Загальний борг</span>
+            <span class="card-summary-value" id="card-debt-summary-balance">0 ₴</span>
+          </div>
+          <div class="card-summary-row">
+            <span class="card-summary-label">Разом мін. платіж</span>
+            <span class="card-summary-value warn" id="card-debt-summary-minpay">0 ₴</span>
+          </div>
         </div>
         <div class="section-label" style="margin-top:0;">Борги по картках</div>
-        <div class="card entry-card debt-entry">
-          <div class="bank-debt-table" id="bank-debt-table"></div>
-          <div class="total-row warning"><span>Разом боргів</span><b id="bank-debt-total-value">0 ₴</b></div>
-          <button type="button" class="add-trigger-btn" onclick="openAddBankModal()">+ Додати банк</button>
-          <button class="submit-btn debt pill" onclick="saveBankDebtTable()">Зберегти борги</button>
-        </div>
+        <div class="bank-debt-table" id="bank-debt-table"></div>
+        <button type="button" class="add-trigger-btn" onclick="openAddBankModal()">+ Додати банк</button>
         <div class="field auto-hint" id="banks-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
       </div>
 
@@ -1753,7 +1792,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.16.4</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.16.5</div>
 </div>
   </div>
 </div>
@@ -1810,6 +1849,49 @@
     Мова та валюта поки фіксовані — українська, ₴. З'являться тут, тільки коли
     будуть реально працювати (без декоративних перемикачів «про людське око»).
   </div>
+</div>
+
+<!-- ================= Редагування картки боргу (Drawer, Rev 2.16.5) =================
+     Той самий .drawer компонент, що Налаштування вище — тап по компактному
+     рядку картки в "Борги по картках" відкриває цю шторку з повним набором
+     полів; Зберегти тут одразу й підтверджує зміни за цей місяць (немає
+     окремого глобального "Зберегти борги"). -->
+<div class="drawer-backdrop" id="card-debt-backdrop" onclick="closeCardDebtEditor()" inert></div>
+<div class="drawer" id="card-debt-drawer" role="dialog" aria-label="Картка" aria-modal="true" inert>
+  <div class="drawer-head">
+    <div class="drawer-head-main">
+      <span class="drawer-head-icon" id="cdd-icon"></span>
+      <div class="drawer-head-text">
+        <h2 id="cdd-heading">Картка</h2>
+        <div class="drawer-head-sub">Кредитна картка</div>
+      </div>
+    </div>
+    <button class="drawer-close" onclick="closeCardDebtEditor()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div class="field">
+    <label for="cdd-name">Назва</label>
+    <input type="text" id="cdd-name">
+  </div>
+  <div class="field">
+    <label for="cdd-limit">Кредитний ліміт</label>
+    <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-limit" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+  </div>
+  <div class="row-2">
+    <div class="field">
+      <label for="cdd-balance">Борг по карті</label>
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-balance" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+    </div>
+    <div class="field">
+      <label for="cdd-minpay">Мін. платіж</label>
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-minpay" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+    </div>
+  </div>
+  <label class="bdr-minpay-check">
+    <input type="checkbox" id="cdd-paid">
+    Мінімальний платіж внесено
+  </label>
+  <button type="button" class="submit-btn debt pill" onclick="saveCardDebtDrawer()">Зберегти</button>
+  <button type="button" class="cdd-delete-link" onclick="deleteCardDebtFromDrawer()">Видалити картку</button>
 </div>
 
 <!-- ================= Власний модальний діалог (Rev 2.0.5) =================
@@ -2152,7 +2234,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.16.4';
+const APP_VERSION = '2.16.5';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -3076,8 +3158,10 @@ function confirmDeleteRecord(kind, id){
 // без переписування логіки; скидається на початку кожного populate*() —
 // свіжий рендер = дані з localStorage, отже незбереженого вже немає.
 let dirtyInstallmentRows = new Set();
-let dirtyBankRows = new Set();
-function hasUnsavedAccountingChanges(){ return dirtyInstallmentRows.size>0 || dirtyBankRows.size>0; }
+// Rev 2.16.5 — dirtyBankRows прибрано: картки боргу редагуються в ізольованій
+// шторці (#card-debt-drawer) з власним явним "Зберегти", список більше не
+// має інлайн-полів, які можна лишити "напівзаповненими" між рендерами.
+function hasUnsavedAccountingChanges(){ return dirtyInstallmentRows.size>0; }
 function populateInstallmentTable(){
   const el = document.getElementById('installment-table');
   if(!el || !selectedMonth) return;
@@ -3393,8 +3477,7 @@ function saveInstallmentTable(){
   // Rev 2.2.3 BugFix — явне очищення ТУТ (а не всередині populateInstallmentTable
   // безумовно): саме факт успішного збереження знімає "заблокований" стан
   // рендеру для ЦІЄЇ таблиці, дозволяючи наступному renderAll() перебудувати її
-  // з чистого стану (теги "не збережено" зникають). Банки (dirtyBankRows) тут
-  // НЕ чіпаємо — якщо там є незбережене, воно мусить лишитись недоторканим.
+  // з чистого стану (теги "не збережено" зникають).
   dirtyInstallmentRows.clear();
   const hint = document.getElementById('installments-saved-hint');
   hint.textContent = skippedCount>0
@@ -3470,163 +3553,168 @@ function removeInstallmentAccount(i){
    доходів): повторне збереження оновлює існуючий запис за цей місяць, а не
    додає новий поверх. Список банків окремо зберігається в LS_KEY_BANKS і
    можна редагувати (додати/перейменувати/видалити), не втрачаючи історію. */
-// Rev 2.16.4 — картки боргу по кредитках отримали повний набір полів
-// (Кредитний ліміт / Борг по карті / Мін. платіж + чекбокс "внесено"),
-// той самий UI-патерн, що вже є для ОЧ (populateInstallmentTable):
-// bdr-top + статичний підпис ліміту + bdr-fields з двома полями. Раніше
-// рядок картки був простим однорядковим (лише назва+один інпут).
+// Rev 2.16.5 — компактний список карток (схвалений "Варіант A" з демо-
+// прев'ю): іконка/назва/борг/мін.платіж/стрілка, тап відкриває шторку
+// #card-debt-drawer з повним редагуванням (openCardDebtEditor нижче). Немає
+// більше інлайн-полів/dirty-стану в самому списку — рендер завжди вільний
+// (renderAll() більше не ризикує затерти щось "напівзаповнене", бо
+// редагування живе ізольовано в шторці, а не в цьому списку).
 function populateBankDebtTable(){
   const el = document.getElementById('bank-debt-table');
   if(!el || !selectedMonth) return;
-  // Rev 2.2.3 BugFix — той самий принцип, що в populateInstallmentTable: не
-  // чіпаємо таблицю, якщо в ній є незбережені зміни (не наш renderAll() їх
-  // викликав — можливо, зберігали ОЧ чи дохід). Скидання dirty — лише явно.
-  if(dirtyBankRows.size > 0) return;
   // Rev 2.3.8 — раніше такого стану не траплялось (bankAccounts завжди мав
   // дефолтний непорожній набір), але тепер видалення більше не спорожнює
   // масив фізично — теоретично можливий місяць, де всі банки приховані.
-  const visibleBankCount = bankAccounts.filter(function(acc){
-    return !isHiddenForMonth(acc.name, 'card', selectedMonth);
-  }).length;
-  if(visibleBankCount===0){
+  const visible = bankAccounts
+    .map(function(acc, i){ return { acc, i }; })
+    .filter(function(x){ return !isHiddenForMonth(x.acc.name, 'card', selectedMonth); });
+  if(visible.length===0){
     el.innerHTML = `<div class="empty-hint">Немає активних карток цього місяця.</div>`;
     updateBankDebtTotal();
     return;
   }
-  el.innerHTML = bankAccounts.map(function(acc, i){
-    const name = acc.name;
-    // Rev 2.3.8 — той самий фікс, що для ОЧ: прихована для ЦЬОГО місяця
-    // картка (видалена "з [місяць]" і далі) не рендериться, але масив
-    // bankAccounts і індекс i лишаються незмінними — інші місяці, включно з
-    // тими ДО дати приховування, і далі показують рядок як зазвичай.
-    if(isHiddenForMonth(name, 'card', selectedMonth)) return '';
+  const CHEVRON = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+  const CHECK = `<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+  el.innerHTML = visible.map(function(x){
+    const acc = x.acc, i = x.i, name = acc.name;
     const existing = debts.find(function(d){ return d.name===name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
-    // Rev 2.1.0 — Debt Data Integrity: якщо за цей місяць ще немає ФАКТИЧНОГО
-    // запису, підставляємо останній відомий баланс як pre-fill (не порожнє
-    // поле) — користувачу залишається перевірити й натиснути "Зберегти",
-    // а не вводити число заново. Запис стає фактом лише після Save.
-    let balVal = '', balPrefillClass = '';
-    if(existing){ balVal = formatThousands(existing.balance); }
-    else{
-      const prev = lastKnownBalance(name, 'card', selectedMonth);
-      if(prev != null){ balVal = formatThousands(prev); balPrefillClass = ' bdr-amount-prefill'; }
-    }
-    // Rev 2.16.4 — той самий carry-forward, тепер для мінімального платежу:
-    // якщо факт цього місяця вже є (навіть null — банк міг не вимагати
-    // платіж) показуємо його як є; інакше — останнє відоме значення як hint.
-    let minPayVal = '', minPayPrefillClass = '';
-    if(existing && existing.minPayment != null){ minPayVal = formatThousands(existing.minPayment); }
-    else if(!existing){
-      const prevMinPay = lastKnownCardMinPayment(name, selectedMonth);
-      if(prevMinPay != null){ minPayVal = formatThousands(prevMinPay); minPayPrefillClass = ' bdr-amount-prefill'; }
-    }
-    // Rev 2.16.4 — чекбокс НЕ переносить стан з минулого місяця (на відміну
-    // від сум вище) — "внесено" це факт саме ЦЬОГО місяця, перенесення
-    // старого "так" було б оманливим замовчуванням.
-    const minDoneChecked = existing && existing.minPaymentDone ? ' checked' : '';
-    const creditLimitLabel = acc.creditLimit
-      ? `<span class="bdr-init-amount">Кредитний ліміт: ${fmt(acc.creditLimit)}</span>`
-      : `<span class="bdr-init-amount missing">Кредитний ліміт не вказано — натисни ✎</span>`;
-    return `<div class="bank-debt-row card-debt-row" id="bank-debt-row-${i}">
-      <div class="bdr-top">
-        <span class="bdr-label">${bankIcon(name)}${escapeHtml(stripLeadingEmoji(name))}<span class="bdr-unsaved-tag" id="bank-unsaved-${i}">⚠ не збережено</span></span>
-        <span class="bdr-actions">
-          <button type="button" class="bdr-icon-btn" onclick="editBankAccount(${i})" aria-label="Редагувати"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
-          <button type="button" class="bdr-icon-btn danger" onclick="removeBankAccount(${i})" aria-label="Видалити банк"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-        </span>
-      </div>
-      ${creditLimitLabel}
-      <div class="bdr-fields">
-        <div class="bdr-field">
-          <span class="bdr-field-label">Борг по карті</span>
-          <input type="text" inputmode="numeric" class="${balPrefillClass.trim()}" placeholder="0" id="bank-input-${i}" value="${balVal}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, борг по карті" oninput="this.classList.remove('bdr-amount-prefill'); markBankDirty(${i}); updateBankDebtTotal()" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markBankDirty(${i})" onblur="formatAmountBlur(this)">
-        </div>
-        <div class="bdr-field">
-          <span class="bdr-field-label">Мін. платіж</span>
-          <input type="text" inputmode="numeric" class="${minPayPrefillClass.trim()}" placeholder="0" id="bank-minpay-${i}" value="${minPayVal}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, мінімальний платіж" oninput="this.classList.remove('bdr-amount-prefill'); markBankDirty(${i})" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markBankDirty(${i})" onblur="formatAmountBlur(this)">
-        </div>
-      </div>
-      <label class="bdr-minpay-check">
-        <input type="checkbox" id="bank-mindone-${i}"${minDoneChecked} onchange="markBankDirty(${i})">
-        Мінімальний платіж внесено
-      </label>
-    </div>`;
+    // Rev 2.1.0 — Debt Data Integrity: якщо за цей місяць ще немає факту,
+    // показуємо останній відомий баланс як орієнтир (не 0) — сама шторка
+    // при відкритті так само підставить це значення в поле для підтвердження.
+    const balance = existing ? existing.balance : (lastKnownBalance(name, 'card', selectedMonth) || 0);
+    const minPayment = (existing && existing.minPayment != null) ? existing.minPayment : (lastKnownCardMinPayment(name, selectedMonth) || 0);
+    const paid = !!(existing && existing.minPaymentDone);
+    const paidBadge = paid ? `<span class="cdr-paid-badge" aria-hidden="true">${CHECK}</span>` : '';
+    return `<button type="button" class="card-debt-compact-row" id="bank-debt-row-${i}" onclick="openCardDebtEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати">
+      <span class="cdr-avatar">${bankIcon(name, 38)}${paidBadge}</span>
+      <span class="cdr-main">
+        <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}</span>
+        <span class="cdr-sub">Кредитна картка</span>
+      </span>
+      <span class="cdr-amounts">
+        <span class="cdr-balance mono">${fmt(balance)}</span>
+        <span class="cdr-minpay mono${paid ? ' paid' : ''}">Мін. ${fmt(minPayment)}</span>
+      </span>
+      <span class="cdr-chevron" aria-hidden="true">${CHEVRON}</span>
+    </button>`;
   }).join('');
   updateBankDebtTotal();
 }
-// Rev 2.11.4 — той самий живий підсумок, що вже є для ОЧ (updateInstallmentTotal/
-// updateInstallmentBalanceTotal), тепер і для карток: сума полів "Борг" прямо
-// з форми, ще до натискання "Зберегти борги".
+// Rev 2.16.5 — підсумкова картка над списком: лише 2 суми (загальний борг +
+// разом мін. платіж), за явним рішенням користувача — без "Доступно" й без
+// лічильника "оплачено N з M" (та інформація вже видна прямо на картках).
 function updateBankDebtTotal(){
-  const totalEl = document.getElementById('bank-debt-total-value');
-  if(!totalEl) return;
-  let sum = 0;
-  bankAccounts.forEach(function(acc, i){
-    const input = document.getElementById('bank-input-'+i);
-    if(input && input.value.trim()) sum += parseAmount(input.value) || 0;
+  const balanceEl = document.getElementById('card-debt-summary-balance');
+  const minpayEl = document.getElementById('card-debt-summary-minpay');
+  if(!balanceEl || !minpayEl || !selectedMonth) return;
+  let totalBalance = 0, totalMinpay = 0;
+  bankAccounts.forEach(function(acc){
+    if(isHiddenForMonth(acc.name, 'card', selectedMonth)) return;
+    const existing = debts.find(function(d){ return d.name===acc.name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
+    totalBalance += existing ? existing.balance : (lastKnownBalance(acc.name, 'card', selectedMonth) || 0);
+    totalMinpay += (existing && existing.minPayment != null) ? existing.minPayment : (lastKnownCardMinPayment(acc.name, selectedMonth) || 0);
   });
-  totalEl.textContent = fmt(sum);
-}
-// Rev 2.2.3 — той самий яскравий тег "не збережено", що вже є в таблиці ОЧ,
-// перенесений сюди для узгодженості (та сама механіка pre-fill+Save).
-function markBankDirty(i){
-  dirtyBankRows.add(i);
-  const tag = document.getElementById('bank-unsaved-'+i);
-  if(tag) tag.classList.add('show');
+  balanceEl.textContent = fmt(totalBalance);
+  minpayEl.textContent = fmt(totalMinpay);
 }
 // д-місяць у боргах зберігався як 'YYYY-MM' (тип input=month), а monthKey()
 // в решті коду рахується з дати 'YYYY-MM-DD' через .slice(0,7) — для d.month
 // (вже 'YYYY-MM') просто повертаємо як є, окрема функція для ясності.
 function monthKey2(m){ return m || ''; }
-// Rev 2.16.4 — "Борг по карті" лишається "воротарем" запису (та сама Debt
-// Data Integrity логіка, що й раніше: недоторканий pre-fill = рядок
-// пропускається цілком) — Мін. платіж і чекбокс зберігаються РАЗОМ із
-// боргом, лише коли сам борг підтверджено, щоб не заводити "половинчастий"
-// факт місяця (борг не підтверджено, а платіж уже позначено внесеним).
-function saveBankDebtTable(){
-  if(!selectedMonth) return;
-  let skippedCount = 0;
-  bankAccounts.forEach(function(acc, i){
-    const name = acc.name;
-    const input = document.getElementById('bank-input-'+i);
-    if(!input) return;
-    // Rev 2.2.1 — те саме рішення, що для ОЧ (узгоджено, обидві таблиці мають
-    // ідентичну механіку pre-fill+Save): недоторканий цієї сесії рядок
-    // пропускається, замість автоматичного перетворення pre-fill на факт.
-    if(input.classList.contains('bdr-amount-prefill')){ skippedCount++; return; }
-    const raw = input.value.trim();
-    const amount = parseAmount(raw);
-    const existingIdx = debts.findIndex(function(d){ return d.name===name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
-    if(!raw || isNaN(amount) || amount<0){
-      if(existingIdx>=0) debts.splice(existingIdx,1);
-      return;
-    }
-    const minPayInput = document.getElementById('bank-minpay-'+i);
-    const minPayRaw = minPayInput ? minPayInput.value.trim() : '';
+let editingBankIdx = -1;
+// Rev 2.16.5 — тап по компактній картці відкриває шторку з усіма полями
+// одразу заповненими (карт-форвард з минулого місяця так само, як раніше в
+// інлайн-полях, лише без "dashed = ще не підтверджено": сам факт тапу
+// "Зберегти" в шторці — і є підтвердження, окремий dirty-стан не потрібен).
+function openCardDebtEditor(i){
+  const acc = bankAccounts[i];
+  if(!acc) return;
+  editingBankIdx = i;
+  lastFocusedBeforeDialog = document.activeElement;
+  const name = acc.name;
+  const existing = debts.find(function(d){ return d.name===name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
+  const balance = existing ? existing.balance : (lastKnownBalance(name, 'card', selectedMonth) || 0);
+  const minPayment = (existing && existing.minPayment != null) ? existing.minPayment : (lastKnownCardMinPayment(name, selectedMonth) || 0);
+  document.getElementById('cdd-icon').innerHTML = bankIcon(name, 34);
+  document.getElementById('cdd-heading').textContent = stripLeadingEmoji(name);
+  document.getElementById('cdd-name').value = stripLeadingEmoji(name);
+  document.getElementById('cdd-limit').value = acc.creditLimit ? formatThousands(acc.creditLimit) : '';
+  document.getElementById('cdd-balance').value = balance ? formatThousands(balance) : '';
+  document.getElementById('cdd-minpay').value = minPayment ? formatThousands(minPayment) : '';
+  document.getElementById('cdd-paid').checked = !!(existing && existing.minPaymentDone);
+  document.getElementById('card-debt-backdrop').removeAttribute('inert');
+  document.getElementById('card-debt-drawer').removeAttribute('inert');
+  document.getElementById('card-debt-backdrop').classList.add('open');
+  document.getElementById('card-debt-drawer').classList.add('open');
+  focusFirstIn(document.getElementById('card-debt-drawer'));
+}
+function closeCardDebtEditor(){
+  document.getElementById('card-debt-backdrop').classList.remove('open');
+  document.getElementById('card-debt-drawer').classList.remove('open');
+  document.getElementById('card-debt-backdrop').setAttribute('inert','');
+  document.getElementById('card-debt-drawer').setAttribute('inert','');
+  restoreFocus();
+}
+// Rev 2.16.5 — єдина точка збереження картки: назва+ліміт (bankAccounts) і
+// борг+мін.платіж+чекбокс (debts, цей місяць) одразу разом, один тап
+// "Зберегти" в шторці. Назва й ліміт лишаються обов'язковими (те саме
+// рішення, що addBankAccount) — решта полів можуть бути порожні (картка без
+// боргу цього місяця).
+function saveCardDebtDrawer(){
+  const acc = bankAccounts[editingBankIdx];
+  if(!acc || !selectedMonth) return;
+  const newName = document.getElementById('cdd-name').value.trim();
+  const newLimit = parseAmount(document.getElementById('cdd-limit').value);
+  if(!newName){ flashField('cdd-name'); return; }
+  if(!newLimit || isNaN(newLimit) || newLimit<=0){ flashField('cdd-limit'); return; }
+  const oldName = acc.name;
+  if(newName !== oldName && bankAccounts.some(function(b){ return b.name===newName; })){ flashField('cdd-name'); return; }
+  if(newName !== oldName){
+    // Перейменування ретроактивне: усі минулі записи з цим банком теж
+    // оновлюються, щоб історія й графіки лишались коректними під новою назвою.
+    debts.forEach(function(d){ if(d.name===oldName && d.kind==='card') d.name = newName; });
+  }
+  acc.name = newName;
+  acc.creditLimit = newLimit;
+  saveBankAccounts();
+
+  const balRaw = document.getElementById('cdd-balance').value.trim();
+  const balAmount = parseAmount(balRaw);
+  const existingIdx = debts.findIndex(function(d){ return d.name===newName && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
+  if(!balRaw || isNaN(balAmount) || balAmount<0){
+    // Порожній борг — як і раніше, прибираємо факт за цей місяць (не 0 ₴, а
+    // ВІДСУТНІСТЬ запису — Debt Data Integrity).
+    if(existingIdx>=0) debts.splice(existingIdx,1);
+  }else{
+    const minPayRaw = document.getElementById('cdd-minpay').value.trim();
     const minPayAmount = parseAmount(minPayRaw);
     const minPayment = (minPayRaw && !isNaN(minPayAmount) && minPayAmount>=0) ? minPayAmount : null;
-    const doneInput = document.getElementById('bank-mindone-'+i);
-    const minPaymentDone = !!(doneInput && doneInput.checked);
+    const minPaymentDone = !!document.getElementById('cdd-paid').checked;
     if(existingIdx>=0){
-      debts[existingIdx].balance = amount;
+      debts[existingIdx].balance = balAmount;
       debts[existingIdx].minPayment = minPayment;
       debts[existingIdx].minPaymentDone = minPaymentDone;
     }else{
-      debts.push({ id: Date.now()+Math.random().toString(36).slice(2,6), name, kind:'card', month:selectedMonth, balance:amount, minPayment, minPaymentDone });
+      debts.push({ id: Date.now()+Math.random().toString(36).slice(2,6), name:newName, kind:'card', month:selectedMonth, balance:balAmount, minPayment, minPaymentDone });
     }
-  });
+  }
   saveDebts();
-  // Rev 2.2.3 BugFix — те саме пояснення, що в saveInstallmentTable: явне
-  // очищення саме тут "розблоковує" рендер ЦІЄЇ таблиці, ОЧ (dirtyInstallmentRows)
-  // не чіпаємо, якщо там є незбережене.
-  dirtyBankRows.clear();
-  const hint = document.getElementById('banks-saved-hint');
-  hint.textContent = skippedCount>0
-    ? `Збережено. Пропущено ${skippedCount} ${rowCountWord(skippedCount)} (не торкались) — торкніться поля, щоб підтвердити.`
-    : 'Збережено';
-  hint.classList.add('show');
-  setTimeout(()=>{ hint.classList.remove('show'); hint.textContent = 'Збережено'; }, skippedCount>0 ? 3500 : 1500);
+  closeCardDebtEditor();
   renderAll();
+  const hint = document.getElementById('banks-saved-hint');
+  if(hint){
+    hint.textContent = 'Збережено';
+    hint.classList.add('show');
+    setTimeout(function(){ hint.classList.remove('show'); }, 1500);
+  }
+}
+// Rev 2.16.5 — "Видалити картку" тепер у самій шторці (не окрема іконка на
+// компактному рядку) — закриваємо шторку й одразу відкриваємо той самий
+// showMonthPickerModal, що й раніше (removeBankAccount без змін логіки).
+function deleteCardDebtFromDrawer(){
+  const i = editingBankIdx;
+  closeCardDebtEditor();
+  removeBankAccount(i);
 }
 // Rev 2.16.4 — "+ Додати банк" тепер збирає одразу й кредитний ліміт (той
 // самий showInstallmentModal, що для ОЧ, з іншим підписом суми) — користувач
@@ -3643,23 +3731,6 @@ function openAddBankModal(){
   showInstallmentModal('Новий банк/картка:', '', '', function(name, creditLimit){
     if(bankAccounts.some(function(b){ return b.name===name; })) return false;
     addBankAccount(name, creditLimit);
-  }, 'Кредитний ліміт');
-}
-// Rev 2.16.4 — замінює колишній renameBankAccount: тепер редагуємо і назву,
-// і кредитний ліміт разом (той самий підхід, що editInstallmentAccount для
-// ОЧ, Rev 2.1.17) — та сама кнопка ✎ покриває обидва поля.
-function editBankAccount(i){
-  const acc = bankAccounts[i];
-  showInstallmentModal('Редагувати банк/картку:', stripLeadingEmoji(acc.name), acc.creditLimit || '', function(newName, newLimit){
-    const oldName = acc.name;
-    if(newName !== oldName && bankAccounts.some(function(b){ return b.name===newName; })) return false;
-    // Перейменування ретроактивне: усі минулі записи з цим банком теж
-    // оновлюються, щоб історія й графіки лишались коректними під новою назвою.
-    debts.forEach(function(d){ if(d.name===oldName && d.kind==='card') d.name = newName; });
-    acc.name = newName;
-    acc.creditLimit = newLimit;
-    saveDebts(); saveBankAccounts();
-    renderAll();
   }, 'Кредитний ліміт');
 }
 function removeBankAccount(i){
@@ -4539,8 +4610,8 @@ function onMonthChange(val){
   if(hasUnsavedAccountingChanges()){
     document.getElementById('month-select-side').value = selectedMonth;
     document.getElementById('month-select-top').value = selectedMonth;
-    showConfirmModal('У вас є незбережені зміни в Обліку (борги/ОЧ). Перейти на інший місяць без збереження?', function(){
-      dirtyInstallmentRows.clear(); dirtyBankRows.clear();
+    showConfirmModal('У вас є незбережені зміни в Обліку (ОЧ). Перейти на інший місяць без збереження?', function(){
+      dirtyInstallmentRows.clear();
       performMonthChange(val);
     }, 'Так, перейти');
     return;
@@ -6073,8 +6144,8 @@ function switchTab(tab){
   // Rev 2.2.3 — той самий захист, що й onMonthChange: якщо є незбережене в
   // Обліку (борги/ОЧ), питаємо перед переходом, а не втрачаємо мовчки.
   if(tab !== lastActiveTab && hasUnsavedAccountingChanges()){
-    showConfirmModal('У вас є незбережені зміни в Обліку (борги/ОЧ). Перейти на іншу вкладку без збереження?', function(){
-      dirtyInstallmentRows.clear(); dirtyBankRows.clear();
+    showConfirmModal('У вас є незбережені зміни в Обліку (ОЧ). Перейти на іншу вкладку без збереження?', function(){
+      dirtyInstallmentRows.clear();
       // Rev 2.2.3 BugFix — без цього виклику DOM таблиць лишався б показувати
       // "покинуті" незбережені значення без жодного тега (dirty вже 0, але
       // populate*() ще не перебудовували поля) — виглядало б як тихий факт,
@@ -6536,7 +6607,7 @@ function closeSettings(){
   document.getElementById('settings-drawer').setAttribute('inert','');
   restoreFocus();
 }
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); } });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); closeCardDebtEditor(); } });
 
 /* ============ Тема застосунку (Rev 2.6.0) ============
    Три стани: 'auto' (за системною темою, дефолт), 'light', 'dark' — саме
@@ -6710,7 +6781,8 @@ function showPromptModal(message, defaultValue, onSave){
 // поле суми тепер з розділювачами тисяч (formatThousands/parseAmount).
 // Rev 2.16.4 — amountLabel: опційний підпис поля суми (за замовчуванням
 // "Початкова сума" для ОЧ) — той самий модал тепер перевикористовується й
-// для карток (addBankAccount/editBankAccount, підпис "Кредитний ліміт").
+// для нової картки (addBankAccount, підпис "Кредитний ліміт"); редагування
+// вже існуючої картки — через #card-debt-drawer (Rev 2.16.5).
 function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountLabel){
   document.getElementById('app-modal-text').textContent = title;
   const inputWrap = document.getElementById('app-modal-input-wrap');
