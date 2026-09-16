@@ -701,6 +701,20 @@
   .service-danger-title{ font-size:14px; font-weight:700; color:var(--color-error); }
   .service-danger-sub{ font-size:12px; color:var(--color-text-secondary); }
   .version-footer{ text-align:center; font-size:11.5px; color:var(--color-muted); padding:20px 0 4px; font-family:'JetBrains Mono',monospace; }
+  /* Rev 2.16.0 — Діагностика даних (ROADMAP п.20): той самий рядковий
+     патерн, що .struct-item/.kw-row (заголовок перевірки + статус-бейдж),
+     плюс список конкретних проблемних записів під ним, коли вони є. */
+  .diag-check{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--color-border); font-size:13px; }
+  .diag-check:last-child{ border-bottom:none; }
+  .diag-check-label{ font-weight:600; }
+  .diag-status{ flex:0 0 auto; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; }
+  .diag-status.ok{ background:var(--color-success-bg); color:var(--color-success); }
+  .diag-status.bad{ background:var(--color-error-bg); color:var(--color-error); }
+  .diag-issue-list{ margin:0 0 12px; }
+  .diag-issue{ font-size:12px; color:var(--color-text-secondary); padding:7px 0 7px 12px; border-left:2px solid var(--color-error); margin-bottom:6px; line-height:1.45; }
+  .diag-issue b{ color:var(--color-text-primary); }
+  .diag-summary-ok{ text-align:center; padding:16px 6px; color:var(--color-success); font-weight:600; font-size:13px; }
+  .diag-summary-meta{ text-align:center; font-size:11.5px; color:var(--color-muted); margin-top:6px; }
 
   /* ---- Налаштування (Drawer) ---- */
   .drawer-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
@@ -1629,6 +1643,24 @@
     onchange="handleRestoreBackupFile(event)">
   <div class="import-status" id="backup-status"></div>
 
+  <div class="section-label">Діагностика</div>
+  <div class="service-grid">
+    <button type="button" class="service-tile" id="diagnostics-btn" onclick="runDataDiagnostics()">
+      <span class="service-tile-icon c-blue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="4" rx="1"/>
+          <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/>
+          <path d="m9 14 2 2 4-4"/>
+        </svg>
+      </span>
+      <span class="service-tile-label">
+        <span>Діагностика даних</span>
+        <span class="service-tile-sub">Перевірка цілісності записів</span>
+      </span>
+    </button>
+  </div>
+  <div class="card hidden" id="diagnostics-results"></div>
+
   <div class="section-label" style="color:var(--color-error);">Небезпечні дії</div>
   <button type="button" class="service-danger-card" onclick="clearAllData()">
     <span
@@ -1664,7 +1696,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.15.0</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.16.0</div>
 </div>
   </div>
 </div>
@@ -2039,7 +2071,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.15.0';
+const APP_VERSION = '2.16.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -2266,6 +2298,110 @@ function clearAllData(){
     populateMonths(); renderAll();
     document.getElementById('import-status').textContent = 'Усі дані очищено.';
   });
+}
+
+/* ============ Діагностика даних (Rev 2.16.0, ROADMAP п.20) ============
+   Перевикористовує ті самі чисті функції, покриті тестами Rev 2.14.0
+   (lastKnownBalance/typicalMonthlyPayment/linkedExpensesSum —
+   tests/och-model.test.js) і той самий поріг 5%, що вже діє в Обліку
+   (checkInstallmentDivergence) — тепер застосовані до РЕАЛЬНИХ даних
+   користувача одразу по всій історії, а не одного рядка форми. */
+// Витрати без валідного UUID або з дубльованим UUID (той самий природний
+// ключ, на якому базується дедуплікація імпорту, computeImportPlan Rev 2.13).
+function findExpenseIdIssues(){
+  const issues = [];
+  const seen = new Map();
+  expenses.forEach(function(e){
+    if(!e.id || typeof e.id !== 'string'){
+      issues.push({ label: e.name || '(без назви)', date: e.date || '—', reason: 'відсутній або невалідний UUID' });
+      return;
+    }
+    if(seen.has(e.id)){
+      const other = seen.get(e.id);
+      issues.push({ label: e.name || '(без назви)', date: e.date || '—', reason: `дубльований UUID (як у «${other.name||'—'}», ${other.date||'—'})` });
+    }else{
+      seen.set(e.id, e);
+    }
+  });
+  return issues;
+}
+// Записи, де updatedAt раніше за createdAt — неможливо за нормального
+// життєвого циклу (ensureExpenseIdentity/saveRecordEdit завжди рухають
+// updatedAt вперед), ознака пошкодженого чи вручну відредагованого JSON.
+function findTimestampIssues(){
+  return expenses
+    .filter(function(e){ return e.createdAt && e.updatedAt && Date.parse(e.updatedAt) < Date.parse(e.createdAt); })
+    .map(function(e){ return { label: e.name || '(без назви)', date: e.date || '—', reason: 'updatedAt раніше за createdAt' }; });
+}
+// ОЧ без обов'язкових полів — без initialAmount неможливо порахувати
+// "Скорочення боргу" від початкової суми, без назви запис узагалі "невидимий".
+function findInstallmentFieldIssues(){
+  return installmentAccounts
+    .filter(function(acc){ return acc.initialAmount == null || acc.initialAmount === '' || !acc.name; })
+    .map(function(acc){
+      return {
+        label: acc.name || '(без назви)',
+        date: acc.firstMonth || '—',
+        reason: !acc.name ? 'відсутня назва' : 'відсутня початкова сума (initialAmount)'
+      };
+    });
+}
+// Розбіжність факт/очікування по ОЧ понад поріг 5% (Модель C, FINANCIAL_RULES
+// §4) — той самий розрахунок, що checkInstallmentDivergence() в Обліку
+// (lastKnownBalance + typicalMonthlyPayment/linkedExpensesSum), але
+// застосований до КОЖНОГО факту в історії боргів, а не лише до відкритого
+// зараз місяця/рядка форми.
+function findInstallmentDivergences(){
+  const issues = [];
+  const names = Array.from(new Set(debts.filter(function(d){ return d.kind==='installment'; }).map(function(d){ return d.name; })));
+  names.forEach(function(name){
+    debts.filter(function(d){ return d.kind==='installment' && d.name===name; }).forEach(function(rec){
+      const prevBal = lastKnownBalance(name, 'installment', rec.month);
+      if(prevBal == null) return; // немає попереднього факту — нема з чим порівнювати
+      const typicalPay = typicalMonthlyPayment(name, 'installment', rec.month);
+      const linkedSum = linkedExpensesSum(name, rec.month);
+      const estimatedPay = linkedSum > 0 ? linkedSum : typicalPay;
+      if(estimatedPay == null) return;
+      const expectedBalance = Math.max(0, prevBal - estimatedPay);
+      if(expectedBalance <= 0) return; // той самий guard, що в checkInstallmentDivergence (ділення на 0)
+      const diffPct = Math.abs(rec.balance - expectedBalance) / expectedBalance * 100;
+      if(diffPct > 5){
+        issues.push({
+          label: name,
+          date: rec.month,
+          reason: `факт ${fmt(rec.balance)} відхиляється від очікуваного ${fmt(expectedBalance)} на ${diffPct.toFixed(0)}%`
+        });
+      }
+    });
+  });
+  return issues;
+}
+function runDataDiagnostics(){
+  const checks = [
+    { title: 'Витрати: UUID (унікальність)', issues: findExpenseIdIssues() },
+    { title: 'Витрати: updatedAt/createdAt', issues: findTimestampIssues() },
+    { title: 'ОЧ: обов’язкові поля', issues: findInstallmentFieldIssues() },
+    { title: 'ОЧ: розбіжність факт/очікування (>5%)', issues: findInstallmentDivergences() },
+  ];
+  const totalIssues = checks.reduce(function(s,c){ return s+c.issues.length; }, 0);
+  const el = document.getElementById('diagnostics-results');
+  if(totalIssues === 0){
+    el.innerHTML = `<div class="diag-summary-ok">✓ Усе гаразд — проблем не знайдено</div>`
+      + `<div class="diag-summary-meta">Перевірено: ${expenses.length} ${expenseCountWord(expenses.length)}, ${installmentAccounts.length} ОЧ</div>`;
+  }else{
+    el.innerHTML = checks.map(function(c){
+      const statusHtml = c.issues.length
+        ? `<span class="diag-status bad">${c.issues.length}</span>`
+        : `<span class="diag-status ok">OK</span>`;
+      const listHtml = c.issues.length
+        ? `<div class="diag-issue-list">` + c.issues.map(function(i){
+            return `<div class="diag-issue"><b>${escapeHtml(i.label)}</b> (${escapeHtml(i.date)}) — ${escapeHtml(i.reason)}</div>`;
+          }).join('') + `</div>`
+        : '';
+      return `<div class="diag-check"><span class="diag-check-label">${c.title}</span>${statusHtml}</div>${listHtml}`;
+    }).join('');
+  }
+  el.classList.remove('hidden');
 }
 
 /* ============ Автокатегоризація ============ */
