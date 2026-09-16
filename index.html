@@ -1343,35 +1343,58 @@
 
     <!-- ================= ОБЛІК (форми + журнал + борги/погашення) ================= -->
     <div class="view hidden" id="view-accounting">
-      <div class="card entry-card income-entry">
-        <div class="entry-title">Дохід за місяць</div>
-        <div class="income-table" id="income-table"></div>
-        <button class="submit-btn income pill" onclick="saveIncomeTable()">Зберегти дохід</button>
+      <!-- Rev 2.16.3 — 3 вкладки замість суцільного списку карток (той самий
+           патерн, що Структура, Rev 2.11.24): struct-tabs/struct-tab-btn/
+           struct-tab-panel. Самі картки Дохід/Борги/ОЧ і їхня логіка (populate*/
+           save*) НЕ змінені — лише перегруповані під вкладки для навігації. -->
+      <div class="struct-tabs" role="tablist">
+        <button type="button" class="struct-tab-btn active" id="acct-tab-btn-data" onclick="switchAccountingTab('data')">Дані</button>
+        <button type="button" class="struct-tab-btn" id="acct-tab-btn-debts" onclick="switchAccountingTab('debts')">Борги</button>
+        <button type="button" class="struct-tab-btn" id="acct-tab-btn-installments" onclick="switchAccountingTab('installments')">ОЧ</button>
       </div>
-      <div class="field auto-hint" id="income-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
 
-      <div class="info-note" style="margin-top: 30px;">
-        <span class="info-note-icon" aria-hidden="true">i</span>
-        <span>Приглушені пунктирні значення — підказка з минулого місяця. Торкніться поля, щоб підтвердити суму за цей місяць.</span>
+      <div class="struct-tab-panel" id="acct-tab-panel-data">
+        <div class="card entry-card income-entry">
+          <div class="entry-title">Дохід за місяць</div>
+          <div class="income-table" id="income-table"></div>
+          <button class="submit-btn income pill" onclick="saveIncomeTable()">Зберегти дохід</button>
+        </div>
+        <div class="field auto-hint" id="income-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
       </div>
-      <div class="section-label">Борги по картках</div>
-      <div class="card entry-card debt-entry">
-        <div class="bank-debt-table" id="bank-debt-table"></div>
-        <div class="total-row warning"><span>Разом боргів</span><b id="bank-debt-total-value">0 ₴</b></div>
-        <button type="button" class="add-trigger-btn" onclick="openAddBankModal()">+ Додати банк</button>
-        <button class="submit-btn debt pill" onclick="saveBankDebtTable()">Зберегти борги</button>
-      </div>
-      <div class="field auto-hint" id="banks-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
 
-      <div class="section-label">Оплати частинами (ОЧ)</div>
-      <div class="card entry-card debt-entry">
-        <div class="bank-debt-table" id="installment-table"></div>
-        <div class="total-row warning"><span>Разом ОЧ</span><b id="installment-balance-total-value">0 ₴</b></div>
-        <div class="total-row"><span>Разом на місяць</span><b id="installment-total-value">0 ₴</b></div>
-        <button type="button" class="add-trigger-btn" onclick="openAddInstallmentModal()">+ Додати ОЧ</button>
-        <button class="submit-btn debt pill" onclick="saveInstallmentTable()">Зберегти ОЧ</button>
+      <div class="struct-tab-panel hidden" id="acct-tab-panel-debts">
+        <!-- Rev 2.16.3 — та сама підказка про пунктирне приглушення, що й у
+             панелі ОЧ нижче: дублюємо в обох, бо dashed-prefill (bdr-amount-
+             prefill) реально працює в ОБОХ таблицях (Дохід так не показує). -->
+        <div class="info-note">
+          <span class="info-note-icon" aria-hidden="true">i</span>
+          <span>Приглушені пунктирні значення — підказка з минулого місяця. Торкніться поля, щоб підтвердити суму за цей місяць.</span>
+        </div>
+        <div class="section-label" style="margin-top:0;">Борги по картках</div>
+        <div class="card entry-card debt-entry">
+          <div class="bank-debt-table" id="bank-debt-table"></div>
+          <div class="total-row warning"><span>Разом боргів</span><b id="bank-debt-total-value">0 ₴</b></div>
+          <button type="button" class="add-trigger-btn" onclick="openAddBankModal()">+ Додати банк</button>
+          <button class="submit-btn debt pill" onclick="saveBankDebtTable()">Зберегти борги</button>
+        </div>
+        <div class="field auto-hint" id="banks-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
       </div>
-      <div class="field auto-hint" id="installments-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
+
+      <div class="struct-tab-panel hidden" id="acct-tab-panel-installments">
+        <div class="info-note">
+          <span class="info-note-icon" aria-hidden="true">i</span>
+          <span>Приглушені пунктирні значення — підказка з минулого місяця. Торкніться поля, щоб підтвердити суму за цей місяць.</span>
+        </div>
+        <div class="section-label" style="margin-top:0;">Оплати частинами (ОЧ)</div>
+        <div class="card entry-card debt-entry">
+          <div class="bank-debt-table" id="installment-table"></div>
+          <div class="total-row warning"><span>Разом ОЧ</span><b id="installment-balance-total-value">0 ₴</b></div>
+          <div class="total-row"><span>Разом на місяць</span><b id="installment-total-value">0 ₴</b></div>
+          <button type="button" class="add-trigger-btn" onclick="openAddInstallmentModal()">+ Додати ОЧ</button>
+          <button class="submit-btn debt pill" onclick="saveInstallmentTable()">Зберегти ОЧ</button>
+        </div>
+        <div class="field auto-hint" id="installments-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
+      </div>
     </div>
 
     <!-- ================= ВИТРАТИ (винесено окремо — єдина щоденна дія) ================= -->
@@ -1719,7 +1742,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.16.2</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.16.3</div>
 </div>
   </div>
 </div>
@@ -2103,7 +2126,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.16.2';
+const APP_VERSION = '2.16.3';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -2811,6 +2834,17 @@ const INCOME_SOURCES = [
   { key:'Зарплата Оля', label:'ЗП Оля' },
   { key:'Інші доходи', label:'Інше' },
 ];
+// Rev 2.16.3 — перемикач вкладок Дані/Борги/ОЧ у "Обліку": той самий патерн,
+// що switchStructureTab() (Структура, Rev 2.11.24) — лише показуємо одну
+// панель за раз замість суцільного списку карток, розмітка/логіка карток
+// (populateIncomeTable/populateBankDebtTable/populateInstallmentTable — усі
+// й далі рендерять свій вміст незалежно від видимості панелі) не змінена.
+function switchAccountingTab(tab){
+  ['data','debts','installments'].forEach(function(t){
+    document.getElementById(`acct-tab-panel-${t}`).classList.toggle('hidden', t!==tab);
+    document.getElementById(`acct-tab-btn-${t}`).classList.toggle('active', t===tab);
+  });
+}
 function populateIncomeTable(){
   const el = document.getElementById('income-table');
   if(!el || !selectedMonth) return;
