@@ -438,6 +438,28 @@
   .jdh-net{ font-size:12.5px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--color-text-secondary); white-space:nowrap; }
   .jdh-net.is-positive{ color:var(--color-success); }
   .jdh-net.is-negative{ color:var(--color-error); }
+  /* Rev 2.18.0 — "Показати весь журнал": веде до #journal-overlay нижче.
+     Той самий прийом рядка-переходу, що .add-trigger-btn (повна ширина,
+     власна рамка), лише суцільна рамка (не пунктирна — це не "додати",
+     а навігація) і акцентний колір тексту/іконки. */
+  .show-journal-link{ display:flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:14px; padding:12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-primary-hover); font-size:13.5px; font-weight:600; font-family:inherit; cursor:pointer; }
+  .show-journal-link:hover{ background:var(--color-surface-hover); }
+  .show-journal-link.hidden{ display:none; }
+  /* Rev 2.18.0 — повноекранний Журнал: оверлей на весь viewport (не нова
+     вкладка bottom nav — їх і так 5, і не новий елемент switchTab()'s
+     фіксованого списку view'ів — оверлей найменше ламає ту архітектуру).
+     z-index:93 — вище .drawer (91), нижче app-modal/його backdrop (95-96),
+     щоб підтвердження видалення (confirmDeleteRecord → showConfirmModal)
+     коректно лягало ПОВЕРХ Журналу, а не під ним. */
+  .journal-overlay{ position:fixed; inset:0; z-index:93; background:var(--color-bg); display:flex; flex-direction:column; }
+  .journal-overlay.hidden{ display:none; }
+  .journal-overlay-top{ display:flex; align-items:center; gap:10px; padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 14px; border-bottom:1px solid var(--color-border); flex-shrink:0; }
+  .journal-back-btn{ flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1.5px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .journal-back-btn:hover{ background:var(--color-surface-hover); color:var(--color-text-primary); }
+  .journal-overlay-title{ font-size:17px; font-weight:800; color:var(--color-text-primary); }
+  .journal-body{ flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:16px 20px calc(env(safe-area-inset-bottom,0px) + 24px); }
+  .journal-month-nav{ margin-bottom:18px; }
+  .journal-month-label{ flex:1 1 auto; text-align:center; font-size:15px; font-weight:700; color:var(--color-text-primary); }
   /* Rev 2.1.15 — тап по картці витрати виділяє її (з'являється олівець для
      редагування категорії); .expense-row тепер контейнер-картка (може містити
      інлайн-панель редагування знизу), а сам горизонтальний рядок (назва+сума+
@@ -1458,8 +1480,17 @@
         <button class="submit-btn expense" onclick="addExpense()">Додати витрату</button>
       </div>
 
-      <div class="section-label">Журнал усіх записів</div>
+      <!-- Rev 2.18.0 — короткий список замість повного журналу без ліміту
+           (renderRecords тепер обрізає до SHORT_JOURNAL_LIMIT, було 80): вся
+           глибша історія переїхала в повноекранний #journal-overlay
+           (openJournal), з навігацією по місяцях — без жорсткого ліміту, бо
+           в межах ОДНОГО місяця записів завжди небагато. -->
+      <div class="section-label">Останні записи</div>
       <div id="records-list"></div>
+      <button type="button" class="show-journal-link hidden" id="show-journal-btn" onclick="openJournal()">
+        Показати весь журнал
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
     </div>
 
     <!-- ================= СТРУКТУРА (нове: категорії / підкатегорії / словник) ================= -->
@@ -1767,7 +1798,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.17.2</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.18.0</div>
 </div>
   </div>
 </div>
@@ -1942,6 +1973,32 @@
     <input type="text" inputmode="numeric" class="cdd-amount-input" id="ind-amount" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
   </div>
   <button type="button" class="submit-btn income pill" onclick="saveIncomeDrawer()">Зберегти</button>
+</div>
+
+<!-- ================= Повноекранний Журнал усіх записів (Rev 2.18.0) =================
+     Оверлей на весь екран (не окрема вкладка bottom nav, не новий елемент
+     switchTab()'s фіксованого списку view'ів) — відкривається з короткого
+     списку на "Витрати" (openJournal), показує ВСІ записи ОБРАНОГО місяця
+     (без жорсткого ліміту в 80/6 записів — renderJournalView), з навігацією
+     стрілками вперед/назад по місяцях (shiftJournalMonth), за замовчуванням
+     поточний місяць. Рядки й логіка вибору/редагування/видалення — ті самі
+     .expense-row/toggleRecordSelect/startEditRecord/confirmDeleteRecord, що
+     й короткий список (buildRecordGroupsHtml, спільна з renderRecords). -->
+<div class="journal-overlay hidden" id="journal-overlay" role="dialog" aria-label="Журнал усіх записів" aria-modal="true" inert>
+  <div class="journal-overlay-top">
+    <button type="button" class="journal-back-btn" onclick="closeJournal()" aria-label="Назад">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="journal-overlay-title">Журнал усіх записів</div>
+  </div>
+  <div class="journal-body">
+    <div class="date-nav-row journal-month-nav">
+      <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <div class="journal-month-label" id="journal-month-label"></div>
+      <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(1)" aria-label="Наступний місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+    <div id="journal-list"></div>
+  </div>
 </div>
 
 <!-- ================= Власний модальний діалог (Rev 2.0.5) =================
@@ -2284,7 +2341,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.17.2';
+const APP_VERSION = '2.18.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5207,27 +5264,22 @@ function deleteSubcategory(i){
     renderStructure();
   }, 'Так, видалити');
 }
-function renderRecords(){
-  const container = document.getElementById('records-list');
-  // Rev 2.16.1 — __srcIdx: індекс у ПОЧАТКОВОМУ масиві expenses/incomes (до
-  // сортування нижче) — стабільний DOM-якір "journal-row-expense-N" для
-  // навігації з діагностики (goToDiagnosticIssue), незалежний від id (саме
-  // id часто й є тим, що зіпсоване — відсутнє чи задубльоване).
-  const combined = [
-    ...expenses.map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
-    ...incomes.map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
-  ].sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
-
-  if(combined.length===0){
-    container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><div class="es-title">Ще немає жодного запису</div><div class="es-sub">Додай витрату/дохід вище або імпортуй з Excel у розділі «Сервіс».</div></div>`;
-    return;
-  }
-
+// Rev 2.18.0 — короткий список на "Витрати" показував ВСІ записи (лише
+// обрізані до 80) без фільтра — глибша історія просто зникала. Тепер короткий
+// список показує лише останні SHORT_JOURNAL_LIMIT (глядь. renderRecords), а
+// повна історія переїхала в окремий повноекранний Журнал з навігацією по
+// місяцях (renderJournalView), без жорсткого ліміту (в межах місяця записів
+// завжди небагато). Побудову групи-по-днях/рядків винесено в
+// buildRecordGroupsHtml() — САМЕ ТОЙ САМИЙ HTML/CSS патерн (.expense-row,
+// .journal-day-group), що й раніше, лише тепер перевикористовується обома
+// поданнями замість дублювання.
+const SHORT_JOURNAL_LIMIT = 6;
+function buildRecordGroupsHtml(items){
   // Групуємо по даті (рядки вже відсортовані спаданням, тому однакові дати
   // завжди йдуть підряд — досить порівнювати з попереднім ключем "на льоту").
   const groups = [];
   let currentKey = null, currentGroup = null;
-  combined.slice(0,80).forEach(function(e){
+  items.forEach(function(e){
     const key = e.date || '';
     if(key !== currentKey){
       currentGroup = { key, items: [] };
@@ -5237,7 +5289,7 @@ function renderRecords(){
     currentGroup.items.push(e);
   });
 
-  container.innerHTML = groups.map(function(g){
+  return groups.map(function(g){
     const dayIncome = g.items.filter(e=>e.kind==='income').reduce((s,e)=>s+e.amount,0);
     const dayExpense = g.items.filter(e=>e.kind==='expense').reduce((s,e)=>s+e.amount,0);
     const net = dayIncome - dayExpense;
@@ -5299,6 +5351,92 @@ function renderRecords(){
         ${rowsHtml}
       </div>`;
   }).join('');
+}
+function renderRecords(){
+  const container = document.getElementById('records-list');
+  const showJournalBtn = document.getElementById('show-journal-btn');
+  // Rev 2.18.0 — короткий список (#records-list) і повноекранний Журнал
+  // (#journal-list) рендерять ОДНІ Й ТІ САМІ рядки через buildRecordGroupsHtml
+  // з ОДНАКОВИМИ id полів редагування (edit-name-<id> і т.д. — саме так їх
+  // шукають onRecordCategoryChange/saveRecordEdit, без прив'язки до
+  // контейнера, і це НЕ чіпаємо). Якщо рендерити обидва подання одночасно —
+  // задубльовані id в DOM. Поки Журнал відкритий, короткий список просто не
+  // рендериться (і так візуально захований за оверлеєм) — toggleRecordSelect/
+  // startEditRecord/cancelEditRecord й далі просто викликають renderRecords(),
+  // яка тепер додатково оновлює Журнал, якщо він активний.
+  if(isJournalOpen){
+    if(container) container.innerHTML = '';
+    renderJournalView();
+    return;
+  }
+  // Rev 2.16.1 — __srcIdx: індекс у ПОЧАТКОВОМУ масиві expenses/incomes (до
+  // сортування нижче) — стабільний DOM-якір "journal-row-expense-N" для
+  // навігації з діагностики (goToDiagnosticIssue), незалежний від id (саме
+  // id часто й є тим, що зіпсоване — відсутнє чи задубльоване).
+  const combined = [
+    ...expenses.map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
+    ...incomes.map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
+  ].sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
+
+  if(showJournalBtn) showJournalBtn.classList.toggle('hidden', combined.length <= SHORT_JOURNAL_LIMIT);
+
+  if(combined.length===0){
+    container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><div class="es-title">Ще немає жодного запису</div><div class="es-sub">Додай витрату/дохід вище або імпортуй з Excel у розділі «Сервіс».</div></div>`;
+    return;
+  }
+
+  container.innerHTML = buildRecordGroupsHtml(combined.slice(0, SHORT_JOURNAL_LIMIT));
+}
+/* ============ Повноекранний Журнал усіх записів (Rev 2.18.0) ============
+   Оверлей поверх поточної вкладки (не окрема вкладка bottom nav, не новий
+   елемент фіксованого списку switchTab()) — власний стан місяця
+   (journalMonth), НЕЗАЛЕЖНИЙ від глобального selectedMonth (Аналітика/Облік),
+   щоб відкриття Журналу ніколи не зсувало місяць в інших вкладках. */
+let isJournalOpen = false;
+let journalMonth = null;
+function openJournal(){
+  isJournalOpen = true;
+  journalMonth = monthKey(localDateISO());
+  lastFocusedBeforeDialog = document.activeElement;
+  const overlay = document.getElementById('journal-overlay');
+  overlay.classList.remove('hidden');
+  overlay.removeAttribute('inert');
+  renderJournalView();
+  focusFirstIn(overlay);
+}
+function closeJournal(){
+  isJournalOpen = false;
+  const overlay = document.getElementById('journal-overlay');
+  overlay.classList.add('hidden');
+  overlay.setAttribute('inert','');
+  restoreFocus();
+  renderRecords();
+}
+function shiftJournalMonth(delta){
+  journalMonth = shiftMonth(journalMonth, delta);
+  renderJournalView();
+}
+// Rev 2.18.0 — чиста функція фільтрації записів за місяцем, винесена окремо
+// (раніше інлайн-.filter() у renderJournalView), щоб покрити тестом
+// (tests/journal-month.test.js) без потреби рендерити DOM.
+function recordsForMonth(records, month){
+  return records.filter(function(e){ return monthKey(e.date) === month; });
+}
+function renderJournalView(){
+  const container = document.getElementById('journal-list');
+  if(!container || !journalMonth) return;
+  const labelEl = document.getElementById('journal-month-label');
+  if(labelEl) labelEl.textContent = monthLabel(journalMonth);
+  const combined = recordsForMonth([
+    ...expenses.map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
+    ...incomes.map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
+  ], journalMonth).sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
+
+  if(combined.length===0){
+    container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><div class="es-title">Немає записів за ${monthLabel(journalMonth)}</div><div class="es-sub">Оберіть інший місяць стрілками вище.</div></div>`;
+    return;
+  }
+  container.innerHTML = buildRecordGroupsHtml(combined);
 }
 
 function monthAggregates(month){
@@ -6654,7 +6792,7 @@ function closeSettings(){
   document.getElementById('settings-drawer').setAttribute('inert','');
   restoreFocus();
 }
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); } });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); } });
 
 /* ============ Тема застосунку (Rev 2.6.0) ============
    Три стани: 'auto' (за системною темою, дефолт), 'light', 'dark' — саме
