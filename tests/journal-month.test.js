@@ -14,6 +14,8 @@
 // Rev 2.20.0 — додано filterJournalRecords() (текст+категорія, по ВСІЙ
 // історії, Крок 5/фінальний ROADMAP п.38) і journalCategoryOptions()
 // (категорії, що реально зустрічаються серед витрат — не хардкод CATEGORIES).
+// Rev 2.20.1 BugFix — текстовий пошук перевіряв лише name, ігноруючи
+// subcategory (те, що фактично показано чипом на рядку) — доповнено тестом.
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -173,6 +175,22 @@ test('filterJournalRecords: без запиту й категорії — пов
   const ctx = sandbox();
   const records = [{ kind: 'expense', name: 'Кава', category: '🍔 Їжа' }];
   assert.deepEqual(ctx.filterJournalRecords(records, '', ''), records);
+});
+
+test('filterJournalRecords: текстовий пошук знаходить і за підкатегорією, не лише назвою', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Латте на виніс', category: '🍔 Їжа', subcategory: 'Кафе' },
+    { kind: 'expense', name: 'Хліб і молоко', category: '🍔 Їжа', subcategory: 'Продукти' },
+  ];
+  const result = ctx.filterJournalRecords(records, 'кафе', '');
+  assert.deepEqual(result.map(r => r.name), ['Латте на виніс']);
+});
+
+test('filterJournalRecords: запис без підкатегорії не падає (undefined subcategory)', () => {
+  const ctx = sandbox();
+  const records = [{ kind: 'income', name: 'Зарплата Андрій' }];
+  assert.deepEqual(ctx.filterJournalRecords(records, 'зарплата', ''), records);
 });
 
 // Rev 2.20.0 — journalCategoryOptions() будує результат через Array.from(set)

@@ -1823,7 +1823,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.20.0</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.20.1</div>
 </div>
   </div>
 </div>
@@ -2395,7 +2395,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.20.0';
+const APP_VERSION = '2.20.1';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5568,10 +5568,19 @@ function isJournalSearchActive(){
 // незалежно від вибору (за явним рішенням користувача: "Категорія" тут про
 // категорії витрат, не окремий пункт "Дохід"). category==='__none__' —
 // спеціальне значення "Без категорії".
+// Rev 2.20.1 BugFix — текстовий пошук перевіряв лише e.name, тому пошук за
+// підкатегорією (напр. "Кафе") нічого не знаходив, хоча саме підкатегорія —
+// це те, що показано чипом на кожному рядку (chipText у buildRecordGroupsHtml:
+// subcategory || category), а не сам довільний текст назви — тепер підрядок
+// шукається і в e.subcategory теж.
 function filterJournalRecords(records, query, category){
   const q = (query || '').trim().toLowerCase();
   return records.filter(function(e){
-    if(q && !(e.name || '').toLowerCase().includes(q)) return false;
+    if(q){
+      const nameMatch = (e.name || '').toLowerCase().includes(q);
+      const subMatch = (e.subcategory || '').toLowerCase().includes(q);
+      if(!nameMatch && !subMatch) return false;
+    }
     if(category){
       if(e.kind !== 'expense') return true;
       const cat = e.category || '';
@@ -5676,18 +5685,24 @@ function renderJournalView(){
 // Rev 2.19.0 — календар для швидкого переходу на конкретну дату всередині
 // Журналу (Крок 2, ROADMAP п.38) — поруч зі стрілковою навігацією місяцями,
 // яку НЕ чіпаємо. Прихований <input type="date"> (той самий патерн, що
-// #f-date у формі "Нова витрата") відкриває ОС-пікер; showPicker()/click()
-// викликається СИНХРОННО з onclick кнопки-календаря (справжній user gesture),
-// інакше браузери відмовляють показувати пікер програмно.
+// #f-date у формі "Нова витрата") відкриває ОС-пікер; click() викликається
+// СИНХРОННО з onclick кнопки-календаря (справжній user gesture), інакше
+// браузери відмовляють показувати пікер програмно.
+// Rev 2.20.1 BugFix — showPicker() на реальному iPhone взагалі не відкривав
+// календар: showPicker() не кидає виняток (try/catch мовчки не спрацьовував),
+// а просто НІЧОГО не показує для майже невидимого 1x1px/opacity:0 інпута —
+// WebKit, судячи з усього, вважає такий елемент "недостатньо видимим", щоб
+// показати пікер через showPicker(), на відміну від .click() (старіший,
+// значно надійніший спосіб — саме той, що й спрацьовував як фолбек, лише
+// його ніколи не діставали, бо showPicker() "успішно" повертався без помилки
+// і функція одразу виходила через return). Тепер — лише click(), без
+// showPicker() узагалі.
 function openJournalDatePicker(){
   const input = document.getElementById('journal-date-input');
   if(!input) return;
   // Відкриваємо пікер поблизу поточного місяця Журналу, а не завжди на
   // "сьогодні" — так стрілки й календар лишаються узгодженими одне з одним.
   if(journalMonth) input.value = journalMonth + '-01';
-  if(typeof input.showPicker === 'function'){
-    try{ input.showPicker(); return; }catch(e){}
-  }
   input.click();
 }
 // Rev 2.19.0 — чиста функція: перший запис (витрата чи дохід) на точну дату,
