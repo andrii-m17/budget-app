@@ -656,6 +656,14 @@
   .bank-badge{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:7px; font-size:9.5px; font-weight:700; color:#fff; margin-right:2px; flex-shrink:0; }
 
   /* ---- Структура ---- */
+  /* Rev 2.11.24 — сегментовані вкладки Категорії/Підкатегорії/Словник: та сама
+     логіка карток лишається, лише розведена по трьох панелях замість одного
+     суцільного списку — навігація стає простішою на маленькому екрані. */
+  .struct-tabs{ display:flex; gap:4px; background:var(--color-surface-hover); border-radius:var(--radius-md); padding:4px; margin-bottom:14px; }
+  .struct-tab-btn{ flex:1; padding:9px 4px; border:none; background:none; border-radius:var(--radius-sm); color:var(--color-text-secondary); font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
+  .struct-tab-btn:hover{ color:var(--color-text-primary); }
+  .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
+  .struct-tab-panel.hidden{ display:none; }
   .struct-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--color-border); font-size:13px; }
   .struct-item:last-child{ border-bottom:none; }
   .struct-item .s-name{ font-weight:600; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -962,7 +970,6 @@
     .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; border-left:1px solid var(--color-border); padding-left:14px; }
     .kpi-strip-item:nth-child(3n+1){ border-left:none; padding-left:0; }
     .kpi-strip-item:nth-child(n+4){ border-top:1px solid var(--color-border); margin-top:12px; padding-top:12px; }
-    .struct-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
   }
 
   /* ---- Desktop (≥1280px): Sidebar + повна сітка ---- */
@@ -1005,7 +1012,6 @@
     .kpi-strip{ grid-template-columns:repeat(6,1fr); }
     .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; padding-right:0; border-left:1px solid var(--color-border); padding-left:16px; }
     .kpi-strip-item:first-child{ border-left:none; padding-left:0; }
-    .struct-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
 
     /* Rev 2.1.2 — картка "Нова витрата" на desktop розтягувалась на всю
        ширину колонки (>1000px) — форма з 4-5 полів у такій ширині виглядає
@@ -1361,17 +1367,32 @@
 
     <!-- ================= СТРУКТУРА (нове: категорії / підкатегорії / словник) ================= -->
     <div class="view hidden" id="view-structure">
-      <div class="struct-note">
-        Категорії й підкатегорії тепер можна редагувати прямо тут — перейменування
-        чи видалення не змінює вже існуючі записи витрат (вони зберігають ту
-        назву, з якою були створені). Словник поки лише перегляд — редагування
-        для нього з'явиться в одній з наступних ревізій.
+      <!-- Rev 2.11.24 — 3 вкладки замість суцільного списку карток, та сама
+           логіка/розмітка карток всередині кожної не змінена. -->
+      <div class="struct-tabs" role="tablist">
+        <button type="button" class="struct-tab-btn active" id="struct-tab-btn-categories" onclick="switchStructureTab('categories')">Категорії</button>
+        <button type="button" class="struct-tab-btn" id="struct-tab-btn-subcategories" onclick="switchStructureTab('subcategories')">Підкатегорії</button>
+        <button type="button" class="struct-tab-btn" id="struct-tab-btn-dictionary" onclick="switchStructureTab('dictionary')">Словник</button>
       </div>
-      <div class="struct-grid">
+
+      <div class="struct-tab-panel" id="struct-tab-panel-categories">
+        <div class="struct-note">
+          Категорії тепер можна редагувати прямо тут — перейменування чи
+          видалення не змінює вже існуючі записи витрат (вони зберігають ту
+          назву, з якою були створені).
+        </div>
         <div class="card">
           <div class="table-card-title">Категорії</div>
           <div id="struct-categories"></div>
           <button type="button" class="add-trigger-btn" onclick="openAddCategoryModal()">+ Додати категорію</button>
+        </div>
+      </div>
+
+      <div class="struct-tab-panel hidden" id="struct-tab-panel-subcategories">
+        <div class="struct-note">
+          Підкатегорії тепер можна редагувати прямо тут — перейменування чи
+          видалення не змінює вже існуючі записи витрат (вони зберігають ту
+          назву, з якою були створені).
         </div>
         <div class="card">
           <div class="table-card-title">Підкатегорії</div>
@@ -1379,10 +1400,17 @@
           <button type="button" class="add-trigger-btn" onclick="openAddSubcategoryModal()">+ Додати підкатегорію</button>
         </div>
       </div>
-      <div class="card" style="margin-top:14px;">
-        <div class="table-card-title">Словник автоматизації (ключове слово → категорія)</div>
-        <div id="struct-dictionary"></div>
-        <button type="button" class="add-trigger-btn" onclick="openAddDictionaryModal()">+ Додати слово</button>
+
+      <div class="struct-tab-panel hidden" id="struct-tab-panel-dictionary">
+        <div class="struct-note">
+          Словник поки лише перегляд — редагування для нього з'явиться в
+          одній з наступних ревізій.
+        </div>
+        <div class="card">
+          <div class="table-card-title">Словник автоматизації (ключове слово → категорія)</div>
+          <div id="struct-dictionary"></div>
+          <button type="button" class="add-trigger-btn" onclick="openAddDictionaryModal()">+ Додати слово</button>
+        </div>
       </div>
     </div>
 
@@ -1629,7 +1657,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.23</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.24</div>
 </div>
   </div>
 </div>
@@ -2004,7 +2032,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.23';
+const APP_VERSION = '2.11.24';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -3233,6 +3261,14 @@ function earliestActivityMonth(){
 }
 
 /* ============ Структура (Rev 2.1.26: категорії редаговані) ============ */
+// Rev 2.11.24 — перемикач вкладок Категорії/Підкатегорії/Словник: та сама
+// розмітка карток, лише показуємо одну панель за раз замість суцільного списку.
+function switchStructureTab(tab){
+  ['categories','subcategories','dictionary'].forEach(t=>{
+    document.getElementById(`struct-tab-panel-${t}`).classList.toggle('hidden', t!==tab);
+    document.getElementById(`struct-tab-btn-${t}`).classList.toggle('active', t===tab);
+  });
+}
 function renderStructure(){
   const catEl = document.getElementById('struct-categories');
   if(!catEl) return;
