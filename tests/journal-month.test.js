@@ -16,6 +16,9 @@
 // (категорії, що реально зустрічаються серед витрат — не хардкод CATEGORIES).
 // Rev 2.20.1 BugFix — текстовий пошук перевіряв лише name, ігноруючи
 // subcategory (те, що фактично показано чипом на рядку) — доповнено тестом.
+// Rev 2.20.2 — додано ОКРЕМИЙ фільтр підкатегорії (журнал-панель, 4-й
+// параметр filterJournalRecords) і journalSubcategoryOptions() (каскадно
+// звужені під обрану категорію, аналогічно journalCategoryOptions).
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -24,7 +27,7 @@ const { buildSandbox } = require('./extract');
 function sandbox({ expenses, incomes } = {}){
   return buildSandbox(
     { expenses: expenses || [], incomes: incomes || [] },
-    ['shiftMonth', 'monthKey', 'recordsForMonth', 'findRecordIdForDate', 'filterJournalRecords', 'journalCategoryOptions']
+    ['shiftMonth', 'monthKey', 'recordsForMonth', 'findRecordIdForDate', 'filterJournalRecords', 'journalCategoryOptions', 'journalSubcategoryOptions']
   );
 }
 
@@ -222,4 +225,79 @@ test('journalCategoryOptions: "__none__" в кінці, лише якщо є в�
 test('journalCategoryOptions: без витрат → порожній список', () => {
   const ctx = sandbox();
   assert.deepEqual(Array.from(ctx.journalCategoryOptions([])), []);
+});
+
+test('filterJournalRecords: фільтр підкатегорії лишає лише витрати цієї підкатегорії', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Латте', category: '🍔 Їжа', subcategory: 'Кафе' },
+    { kind: 'expense', name: 'Хліб', category: '🍔 Їжа', subcategory: 'Продукти' },
+  ];
+  const result = ctx.filterJournalRecords(records, '', '', 'Кафе');
+  assert.deepEqual(result.map(r => r.name), ['Латте']);
+});
+
+test('filterJournalRecords: підкатегорія "__none__" — витрати без підкатегорії', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Латте', category: '🍔 Їжа', subcategory: 'Кафе' },
+    { kind: 'expense', name: 'Щось', category: '🍔 Їжа', subcategory: null },
+  ];
+  const result = ctx.filterJournalRecords(records, '', '', '__none__');
+  assert.deepEqual(result.map(r => r.name), ['Щось']);
+});
+
+test('filterJournalRecords: підкатегорія фільтрує лише витрати — доходи завжди проходять', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Латте', category: '🍔 Їжа', subcategory: 'Кафе' },
+    { kind: 'income', name: 'Зарплата Андрій' },
+  ];
+  const result = ctx.filterJournalRecords(records, '', '', 'Продукти');
+  assert.deepEqual(result.map(r => r.name), ['Зарплата Андрій']);
+});
+
+test('filterJournalRecords: категорія і підкатегорія разом — обидві незалежні AND-умови', () => {
+  const ctx = sandbox();
+  const records = [
+    { kind: 'expense', name: 'Латте', category: '🍔 Їжа', subcategory: 'Кафе' },
+    { kind: 'expense', name: 'Кавоварка', category: '🏠 Побут', subcategory: 'Техніка' },
+    { kind: 'expense', name: 'Печиво', category: '🍔 Їжа', subcategory: 'Продукти' },
+  ];
+  const result = ctx.filterJournalRecords(records, '', '🍔 Їжа', 'Кафе');
+  assert.deepEqual(result.map(r => r.name), ['Латте']);
+});
+
+test('journalSubcategoryOptions: без category — усі підкатегорії з усіх витрат, відсортовані', () => {
+  const ctx = sandbox();
+  const expenses = [
+    { name: 'Латте', category: '🍔 Їжа', subcategory: 'Кафе' },
+    { name: 'Бензин', category: '🚗 Транспорт', subcategory: 'Паливо' },
+  ];
+  assert.deepEqual(Array.from(ctx.journalSubcategoryOptions(expenses, '')), ['Кафе', 'Паливо']);
+});
+
+test('journalSubcategoryOptions: з category — каскадно звужено лише до цієї категорії', () => {
+  const ctx = sandbox();
+  const expenses = [
+    { name: 'Латте', category: '🍔 Їжа', subcategory: 'Кафе' },
+    { name: 'Хліб', category: '🍔 Їжа', subcategory: 'Продукти' },
+    { name: 'Бензин', category: '🚗 Транспорт', subcategory: 'Паливо' },
+  ];
+  assert.deepEqual(Array.from(ctx.journalSubcategoryOptions(expenses, '🍔 Їжа')), ['Кафе', 'Продукти']);
+});
+
+test('journalSubcategoryOptions: "__none__" в кінці, лише якщо є витрата без підкатегорії', () => {
+  const ctx = sandbox();
+  const expenses = [
+    { name: 'Латте', category: '🍔 Їжа', subcategory: 'Кафе' },
+    { name: 'Щось', category: '🍔 Їжа', subcategory: null },
+  ];
+  assert.deepEqual(Array.from(ctx.journalSubcategoryOptions(expenses, '')), ['Кафе', '__none__']);
+});
+
+test('journalSubcategoryOptions: category без жодної витрати → порожній список', () => {
+  const ctx = sandbox();
+  const expenses = [{ name: 'Латте', category: '🍔 Їжа', subcategory: 'Кафе' }];
+  assert.deepEqual(Array.from(ctx.journalSubcategoryOptions(expenses, '🚗 Транспорт')), []);
 });

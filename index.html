@@ -460,23 +460,33 @@
   .journal-body{ flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:16px 20px calc(env(safe-area-inset-bottom,0px) + 24px); }
   .journal-month-nav{ margin-bottom:18px; }
   .journal-month-label{ flex:1 1 auto; text-align:center; font-size:15px; font-weight:700; color:var(--color-text-primary); }
-  /* Rev 2.19.0 — прихований тригер нативного date-picker'а: сам інпут ніколи
-     не видно й не приймає прямий тап (pointer-events:none — єдиний вхід це
-     кнопка-календар поруч, openJournalDatePicker()), той самий "невидимий
-     інпут + своя кнопка" прийом, що інпути завантаження файлів. */
-  .journal-date-input-hidden{ position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
-  /* Rev 2.20.0 — пошук/фільтр Журналу: поле з іконкою лупи + inline "×", і
-     компактний select категорії поруч — той самий "рамка+радіус", що інші
-     інпути застосунку, але власна висота (44px), щоб уміститись поруч із
-     .date-nav-btn у ряду нижче. */
-  .journal-search-row{ display:flex; gap:8px; margin-bottom:14px; }
-  .journal-search-input-wrap{ position:relative; flex:1 1 auto; min-width:0; }
+  /* Rev 2.20.2 BugFix — Rev 2.19.0/2.20.1 тригерили нативний date-picker
+     ПРОГРАМНО (showPicker(), потім click()) на майже невидимому 1x1px/
+     opacity:0 інпуті — обидва підходи не відкривали пікер на реальному
+     iPhone (WebKit, судячи з усього, вимагає, щоб інпут був СПРАВДІ видимим/
+     мав реальні розміри, щоб узагалі показати пікер, програмно чи ні).
+     Тепер — без жодного програмного тригера: сам #journal-date-input лежить
+     ПОВЕРХ кнопки-іконки (той самий розмір, що .date-nav-btn), візуально
+     прозорий (opacity:0), але СПРАВДІ на екрані й приймає тап напряму —
+     природний user gesture на нативний контрол, найнадійніший можливий
+     спосіб (той самий принцип, що вже працює в #f-date, лише замаскований
+     під кнопку). Іконка календаря під інпутом суто декоративна
+     (pointer-events:none) — сам тап завжди потрапляє на інпут. */
+  .journal-calendar-btn-wrap{ position:relative; flex:0 0 auto; width:48px; height:48px; border-radius:var(--radius-sm); border:1.5px solid var(--color-border-strong); background:var(--color-surface); display:flex; align-items:center; justify-content:center; color:var(--color-text-secondary); }
+  .journal-calendar-btn-wrap svg{ pointer-events:none; }
+  #journal-date-input.journal-date-input-overlay{ position:absolute; inset:0; width:100%; min-width:0; height:100%; margin:0; padding:0; border:none; opacity:0; cursor:pointer; }
+  /* Rev 2.20.2 — пошук/фільтр Журналу: окремий рядок для поля пошуку (на всю
+     ширину) і окремий рядок для двох select'ів (категорія/підкатегорія) —
+     трьом контролам разом в одному рядку на 375px затісно. */
+  .journal-search-row{ margin-bottom:8px; }
+  .journal-search-input-wrap{ position:relative; }
   .journal-search-input-wrap svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--color-muted); pointer-events:none; }
   .journal-search-input-wrap input{ width:100%; height:44px; padding:0 34px 0 36px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:14px; box-sizing:border-box; }
   .journal-search-input-wrap input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
   .journal-search-clear{ position:absolute; right:7px; top:50%; transform:translateY(-50%); width:22px; height:22px; border:none; background:var(--color-surface-hover); border-radius:50%; color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .journal-search-clear.hidden{ display:none; }
-  .journal-search-category{ flex:0 0 auto; max-width:132px; height:44px; padding:0 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:12.5px; }
+  .journal-search-filters-row{ display:flex; gap:8px; margin-bottom:14px; }
+  .journal-search-category{ flex:1 1 0; min-width:0; height:44px; padding:0 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:12.5px; }
   .journal-search-category:focus{ outline:none; border-color:var(--color-primary); }
   /* Rev 2.20.0 — "Результати пошуку (N)": замінює .journal-month-label, поки
      активний пошук/фільтр (той самий момент, коли .journal-month-nav
@@ -1823,7 +1833,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.20.1</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.20.2</div>
 </div>
   </div>
 </div>
@@ -2024,32 +2034,37 @@
          результати рахуються по ВСІЙ історії, не лише journalMonth — той
          самий buildRecordGroupsHtml (не чіпаємо), що звичайний місячний
          перегляд, лише на вхід йде filterJournalRecords() замість
-         recordsForMonth(). Фільтр категорій — лише категорії ВИТРАТ, що
-         реально зустрічаються (journalCategoryOptions, не хардкод CATEGORIES);
-         доходи завжди проходять фільтр категорії незалежно від вибору. -->
+         recordsForMonth(). Rev 2.20.2 — окремий фільтр підкатегорії поруч із
+         категорією (каскадно звужується під обрану категорію); доходи завжди
+         проходять обидва фільтри незалежно від вибору. -->
     <div class="journal-search-row">
       <div class="journal-search-input-wrap">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="journal-search-input" placeholder="Пошук за назвою" oninput="onJournalSearchChange()" autocomplete="off">
+        <input type="text" id="journal-search-input" placeholder="Пошук за назвою чи підкатегорією" oninput="onJournalSearchChange()" autocomplete="off">
         <button type="button" class="journal-search-clear hidden" id="journal-search-clear" onclick="clearJournalSearchText()" aria-label="Очистити пошук">
           <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
       </div>
-      <select class="journal-search-category" id="journal-search-category" onchange="onJournalSearchChange()" aria-label="Категорія"></select>
+    </div>
+    <div class="journal-search-filters-row">
+      <select class="journal-search-category" id="journal-search-category" onchange="onJournalCategoryFilterChange()" aria-label="Категорія"></select>
+      <select class="journal-search-category" id="journal-search-subcategory" onchange="onJournalSearchChange()" aria-label="Підкатегорія"></select>
     </div>
     <div class="journal-search-summary hidden" id="journal-search-summary"></div>
-    <!-- Rev 2.19.0 — кнопка календаря поруч зі стрілковою навігацією місяцями
-         (не змінює саму стрілкову навігацію): прихований нативний
-         <input type="date"> — той самий патерн, що #f-date у формі "Нова
-         витрата" — відкривається через showPicker()/click() з onclick кнопки
-         (це вибір усередині вже відкритого Журналу, НЕ нова "сторінка" — не
-         створює history-запис, на відміну від openJournal()). -->
+    <!-- Rev 2.20.2 BugFix — календар більше НЕ тригериться програмно
+         (showPicker()/click() з Rev 2.19.0/2.20.1 не відкривали пікер на
+         реальному iPhone) — #journal-date-input тепер лежить ПРЯМО поверх
+         кнопки-іконки (той самий розмір, opacity:0, приймає тап напряму) —
+         справжній нативний тап, а не програмний виклик. Іконка під інпутом
+         суто декоративна. -->
     <div class="date-nav-row journal-month-nav" id="journal-month-nav">
       <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
       <div class="journal-month-label" id="journal-month-label"></div>
       <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(1)" aria-label="Наступний місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
-      <button type="button" class="date-nav-btn" onclick="openJournalDatePicker()" aria-label="Перейти до дати"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
-      <input type="date" id="journal-date-input" class="journal-date-input-hidden" onchange="onJournalDatePicked(this.value)" aria-hidden="true" tabindex="-1">
+      <div class="journal-calendar-btn-wrap" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <input type="date" id="journal-date-input" class="journal-date-input-overlay" onchange="onJournalDatePicked(this.value)" aria-label="Перейти до дати">
+      </div>
     </div>
     <div id="journal-list"></div>
   </div>
@@ -2395,7 +2410,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.20.1';
+const APP_VERSION = '2.20.2';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5450,8 +5465,11 @@ let isJournalOpen = false;
 let journalMonth = null;
 // Rev 2.20.0 — пошук/фільтр Журналу (Крок 5, ROADMAP п.38, фінальний):
 // journalSearchQuery/journalSearchCategory — стан панелі під заголовком.
+// Rev 2.20.2 — додано journalSearchSubcategory (окремий фільтр підкатегорії,
+// каскадно звужений під обрану категорію).
 let journalSearchQuery = '';
 let journalSearchCategory = '';
+let journalSearchSubcategory = '';
 // Rev 2.19.1 BugFix — REGRESSION від Rev 2.18.1. Діагностика (підтверджено на
 // реальному iPhone: свайп-назад ЗАКРИВАВ Журнал, але щоразу з ~3с фризом
 // одразу після):
@@ -5498,6 +5516,7 @@ function openJournal(){
   // попереднього пошуку не повинен "виринати" несподівано наступного разу.
   journalSearchQuery = '';
   journalSearchCategory = '';
+  journalSearchSubcategory = '';
   const searchInput = document.getElementById('journal-search-input');
   if(searchInput) searchInput.value = '';
   const clearBtn = document.getElementById('journal-search-clear');
@@ -5556,24 +5575,30 @@ function recordsForMonth(records, month){
   return records.filter(function(e){ return monthKey(e.date) === month; });
 }
 // Rev 2.20.0 — чиста функція: чи активний зараз пошук/фільтр Журналу
-// (непорожній текст АБО обрана конкретна категорія) — той самий стан
-// одночасно вирішує (а) чи рахувати результати по ВСІЙ історії, а не
+// (непорожній текст АБО обрана конкретна категорія/підкатегорія) — той самий
+// стан одночасно вирішує (а) чи рахувати результати по ВСІЙ історії, а не
 // journalMonth, і (б) чи ховати .journal-month-nav (стрілки+календар).
+// Rev 2.20.2 — додано підкатегорію до умови.
 function isJournalSearchActive(){
-  return journalSearchQuery.trim() !== '' || journalSearchCategory !== '';
+  return journalSearchQuery.trim() !== '' || journalSearchCategory !== '' || journalSearchSubcategory !== '';
 }
 // Rev 2.20.0 — чиста функція фільтрації: текст (contains, регістронезалежно,
-// коректно з кирилицею через toLowerCase()) + категорія. Категорія фільтрує
-// ЛИШЕ витрати (kind==='expense') — доходи завжди проходять цей фільтр
-// незалежно від вибору (за явним рішенням користувача: "Категорія" тут про
-// категорії витрат, не окремий пункт "Дохід"). category==='__none__' —
-// спеціальне значення "Без категорії".
+// коректно з кирилицею через toLowerCase()) + категорія + підкатегорія.
+// Категорія/підкатегорія фільтрують ЛИШЕ витрати (kind==='expense') — доходи
+// завжди проходять цей фільтр незалежно від вибору (за явним рішенням
+// користувача: "Категорія"/"Підкатегорія" тут про витрати, не окремий пункт
+// "Дохід"). '__none__' — спеціальне значення "без категорії"/"без
+// підкатегорії".
 // Rev 2.20.1 BugFix — текстовий пошук перевіряв лише e.name, тому пошук за
 // підкатегорією (напр. "Кафе") нічого не знаходив, хоча саме підкатегорія —
 // це те, що показано чипом на кожному рядку (chipText у buildRecordGroupsHtml:
 // subcategory || category), а не сам довільний текст назви — тепер підрядок
 // шукається і в e.subcategory теж.
-function filterJournalRecords(records, query, category){
+// Rev 2.20.2 — додано ОКРЕМИЙ фільтр підкатегорії (4-й параметр), незалежний
+// від текстового пошуку — category і subcategory тепер незалежні AND-умови
+// (раніше category гілка робила return одразу, через що subcategory-перевірку
+// довелось би дублювати всередині неї — переписано без раннього return).
+function filterJournalRecords(records, query, category, subcategory){
   const q = (query || '').trim().toLowerCase();
   return records.filter(function(e){
     if(q){
@@ -5581,11 +5606,13 @@ function filterJournalRecords(records, query, category){
       const subMatch = (e.subcategory || '').toLowerCase().includes(q);
       if(!nameMatch && !subMatch) return false;
     }
-    if(category){
-      if(e.kind !== 'expense') return true;
+    if(category && e.kind === 'expense'){
       const cat = e.category || '';
-      if(category === '__none__') return !cat;
-      return cat === category;
+      if(category === '__none__' ? !!cat : cat !== category) return false;
+    }
+    if(subcategory && e.kind === 'expense'){
+      const sub = e.subcategory || '';
+      if(subcategory === '__none__' ? !!sub : sub !== subcategory) return false;
     }
     return true;
   });
@@ -5598,6 +5625,23 @@ function journalCategoryOptions(expenseRecords){
   let hasNone = false;
   expenseRecords.forEach(function(e){
     if(e.category) set.add(e.category); else hasNone = true;
+  });
+  const list = Array.from(set).sort(function(a,b){ return a.localeCompare(b, 'uk'); });
+  if(hasNone) list.push('__none__');
+  return list;
+}
+// Rev 2.20.2 — чиста функція: підкатегорії, що реально зустрічаються серед
+// ВИТРАТ, каскадно звужені під category (якщо задано — лише підкатегорії
+// записів САМЕ цієї категорії; якщо '' — підкатегорії з усіх витрат). Той
+// самий принцип, що journalCategoryOptions() вище.
+function journalSubcategoryOptions(expenseRecords, category){
+  const scoped = category ? expenseRecords.filter(function(e){
+    return category === '__none__' ? !e.category : e.category === category;
+  }) : expenseRecords;
+  const set = new Set();
+  let hasNone = false;
+  scoped.forEach(function(e){
+    if(e.subcategory) set.add(e.subcategory); else hasNone = true;
   });
   const list = Array.from(set).sort(function(a,b){ return a.localeCompare(b, 'uk'); });
   if(hasNone) list.push('__none__');
@@ -5618,12 +5662,45 @@ function populateJournalCategoryOptions(){
   );
   select.innerHTML = opts.join('');
   select.value = journalSearchCategory;
+  populateJournalSubcategoryOptions();
+}
+// Rev 2.20.2 — перебудовує <select> підкатегорій, каскадно звужений під
+// journalSearchCategory. Викликається і з populateJournalCategoryOptions
+// (кожен рендер), і одразу після зміни категорії (onJournalCategoryFilterChange).
+function populateJournalSubcategoryOptions(){
+  const select = document.getElementById('journal-search-subcategory');
+  if(!select) return;
+  const subs = journalSubcategoryOptions(expenses, journalSearchCategory);
+  const opts = ['<option value="">Усі підкатегорії</option>'].concat(
+    subs.map(function(s){
+      const label = s === '__none__' ? 'Без підкатегорії' : s;
+      return `<option value="${escapeAttr(s)}">${escapeHtml(label)}</option>`;
+    })
+  );
+  select.innerHTML = opts.join('');
+  // Якщо попередньо обрана підкатегорія більше не входить у список (бо
+  // категорію щойно змінили) — скидаємо на "Усі підкатегорії", а не лишаємо
+  // "зависле" значення, якого немає серед опцій.
+  if(subs.indexOf(journalSearchSubcategory) === -1) journalSearchSubcategory = '';
+  select.value = journalSearchSubcategory;
+}
+// Rev 2.20.2 — onchange select КАТЕГОРІЇ: окремо від onJournalSearchChange,
+// бо зміна категорії мусить спершу перебудувати список підкатегорій
+// (каскадно), а вже тоді застосувати фільтр — інакше select підкатегорії міг
+// би на мить лишитись зі старими опціями під нову категорію.
+function onJournalCategoryFilterChange(){
+  const select = document.getElementById('journal-search-category');
+  journalSearchCategory = select ? select.value : '';
+  populateJournalSubcategoryOptions();
+  onJournalSearchChange();
 }
 function onJournalSearchChange(){
   const input = document.getElementById('journal-search-input');
-  const select = document.getElementById('journal-search-category');
+  const categorySelect = document.getElementById('journal-search-category');
+  const subcategorySelect = document.getElementById('journal-search-subcategory');
   journalSearchQuery = input ? input.value : '';
-  journalSearchCategory = select ? select.value : '';
+  journalSearchCategory = categorySelect ? categorySelect.value : '';
+  journalSearchSubcategory = subcategorySelect ? subcategorySelect.value : '';
   const clearBtn = document.getElementById('journal-search-clear');
   if(clearBtn) clearBtn.classList.toggle('hidden', !journalSearchQuery);
   renderJournalView();
@@ -5653,7 +5730,7 @@ function renderJournalView(){
   // тим самим — дає часовий контекст навіть у режимі пошуку по всіх місяцях.
   if(isJournalSearchActive()){
     if(monthNavEl) monthNavEl.classList.add('hidden');
-    const filtered = filterJournalRecords(allCombined, journalSearchQuery, journalSearchCategory)
+    const filtered = filterJournalRecords(allCombined, journalSearchQuery, journalSearchCategory, journalSearchSubcategory)
       .sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
     if(searchSummaryEl){
       searchSummaryEl.textContent = `Результати пошуку (${filtered.length})`;
@@ -5673,6 +5750,12 @@ function renderJournalView(){
   if(monthNavEl) monthNavEl.classList.remove('hidden');
   if(searchSummaryEl) searchSummaryEl.classList.add('hidden');
   if(labelEl) labelEl.textContent = monthLabel(journalMonth);
+  // Rev 2.20.2 — #journal-date-input більше не готується окремою функцією
+  // перед відкриттям (openJournalDatePicker прибрано) — сам інпут ЗАВЖДИ
+  // лежить поверх кнопки-іконки й приймає тап напряму, тому його значення
+  // тримаємо синхронним з journalMonth тут, при кожному рендері.
+  const dateInputEl = document.getElementById('journal-date-input');
+  if(dateInputEl) dateInputEl.value = journalMonth + '-01';
   const combined = recordsForMonth(allCombined, journalMonth)
     .sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
 
@@ -5681,29 +5764,6 @@ function renderJournalView(){
     return;
   }
   container.innerHTML = buildRecordGroupsHtml(combined);
-}
-// Rev 2.19.0 — календар для швидкого переходу на конкретну дату всередині
-// Журналу (Крок 2, ROADMAP п.38) — поруч зі стрілковою навігацією місяцями,
-// яку НЕ чіпаємо. Прихований <input type="date"> (той самий патерн, що
-// #f-date у формі "Нова витрата") відкриває ОС-пікер; click() викликається
-// СИНХРОННО з onclick кнопки-календаря (справжній user gesture), інакше
-// браузери відмовляють показувати пікер програмно.
-// Rev 2.20.1 BugFix — showPicker() на реальному iPhone взагалі не відкривав
-// календар: showPicker() не кидає виняток (try/catch мовчки не спрацьовував),
-// а просто НІЧОГО не показує для майже невидимого 1x1px/opacity:0 інпута —
-// WebKit, судячи з усього, вважає такий елемент "недостатньо видимим", щоб
-// показати пікер через showPicker(), на відміну від .click() (старіший,
-// значно надійніший спосіб — саме той, що й спрацьовував як фолбек, лише
-// його ніколи не діставали, бо showPicker() "успішно" повертався без помилки
-// і функція одразу виходила через return). Тепер — лише click(), без
-// showPicker() узагалі.
-function openJournalDatePicker(){
-  const input = document.getElementById('journal-date-input');
-  if(!input) return;
-  // Відкриваємо пікер поблизу поточного місяця Журналу, а не завжди на
-  // "сьогодні" — так стрілки й календар лишаються узгодженими одне з одним.
-  if(journalMonth) input.value = journalMonth + '-01';
-  input.click();
 }
 // Rev 2.19.0 — чиста функція: перший запис (витрата чи дохід) на точну дату,
 // з тим самим __srcIdx/id-схемою (journal-row-<kind>-<srcIdx>), яку
