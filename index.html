@@ -1798,7 +1798,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.18.0</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.18.1</div>
 </div>
   </div>
 </div>
@@ -2341,7 +2341,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.18.0';
+const APP_VERSION = '2.18.1';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5394,6 +5394,17 @@ function renderRecords(){
    щоб відкриття Журналу ніколи не зсувало місяць в інших вкладках. */
 let isJournalOpen = false;
 let journalMonth = null;
+// Rev 2.18.1 BugFix — оверлей раніше не лишав жодного сліду в history
+// браузера, тому системний свайп-назад (і апаратна/програмна кнопка "назад")
+// його "не бачив" — жест просто йшов далі, у застосунок/сторінку позаду,
+// замість очікуваної app-like поведінки "назад закриває поточний повноекранний
+// шар". journalHistoryPushed — чи зараз "живий" НАШ pushState-запис: true між
+// openJournal() і моментом, коли він спожитий (або через popstate від
+// реального "назад", або через один history.back() при явному закритті
+// кнопкою "‹"/Escape) — щоб НІКОЛИ не викликати history.back() двічі на одне
+// відкриття (це накопичувало б зайві кроки в history) і не зациклити
+// навігацію, викликаючи back() з середини самого popstate-обробника.
+let journalHistoryPushed = false;
 function openJournal(){
   isJournalOpen = true;
   journalMonth = monthKey(localDateISO());
@@ -5403,6 +5414,8 @@ function openJournal(){
   overlay.removeAttribute('inert');
   renderJournalView();
   focusFirstIn(overlay);
+  history.pushState({ journalOpen: true }, '');
+  journalHistoryPushed = true;
 }
 function closeJournal(){
   isJournalOpen = false;
@@ -5411,7 +5424,26 @@ function closeJournal(){
   overlay.setAttribute('inert','');
   restoreFocus();
   renderRecords();
+  // Rev 2.18.1 — явне закриття (кнопка "‹"/Escape, НЕ системний "назад") —
+  // наш запис в history ще там і його треба самим відкликати одним
+  // history.back(), інакше він лишиться "сміттям": наступний реальний "назад"
+  // від користувача просто прибрав би порожній запис і нічого візуально не
+  // сталось би (сюрприз — довелось би тиснути "назад" двічі).
+  if(journalHistoryPushed){
+    journalHistoryPushed = false;
+    history.back();
+  }
 }
+// Rev 2.18.1 — popstate спрацьовує ВЖЕ ПІСЛЯ того, як браузер прибрав наш
+// pushState-запис (сам факт "назад" його й спожив) — тому тут лише закриваємо
+// оверлей, БЕЗ додаткового history.back() всередині обробника (інакше
+// programmatic back() під час обробки popstate зациклив би навігацію).
+window.addEventListener('popstate', function(){
+  if(isJournalOpen){
+    journalHistoryPushed = false;
+    closeJournal();
+  }
+});
 function shiftJournalMonth(delta){
   journalMonth = shiftMonth(journalMonth, delta);
   renderJournalView();
