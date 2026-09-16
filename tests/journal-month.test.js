@@ -6,13 +6,21 @@
 // той самий клас функцій, що вже задокументований як невідʼємний від DOM у
 // tests/och-model.test.js (populateInstallmentTable) — тестуємо лише чисту
 // логіку, якою він живиться.
+// Rev 2.19.0 — додано findRecordIdForDate() (календар Журналу, Крок 2 ROADMAP
+// п.38): чистий пошук першого запису (витрата/дохід) на точну дату, що
+// повертає той самий DOM-id, який buildRecordGroupsHtml (не чіпали) вже
+// проставляє на рядок — використовується для flashDiagnosticTarget після
+// вибору дати в календарі.
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 
-function sandbox(){
-  return buildSandbox({}, ['shiftMonth', 'monthKey', 'recordsForMonth']);
+function sandbox({ expenses, incomes } = {}){
+  return buildSandbox(
+    { expenses: expenses || [], incomes: incomes || [] },
+    ['shiftMonth', 'monthKey', 'recordsForMonth', 'findRecordIdForDate']
+  );
 }
 
 test('shiftMonth: вперед у межах року', () => {
@@ -62,4 +70,37 @@ test('recordsForMonth: місяць без жодного запису → по�
 test('recordsForMonth: порожній вхідний масив → порожній результат', () => {
   const ctx = sandbox();
   assert.deepEqual(ctx.recordsForMonth([], '2026-09'), []);
+});
+
+test('findRecordIdForDate: знаходить витрату на точну дату', () => {
+  const ctx = sandbox({
+    expenses: [
+      { id: 'e1', name: 'Кава', date: '2026-09-14' },
+      { id: 'e2', name: 'Хліб', date: '2026-09-15' },
+    ],
+  });
+  assert.equal(ctx.findRecordIdForDate('2026-09-15'), 'journal-row-expense-1');
+});
+
+test('findRecordIdForDate: витрата пріоритетніша за дохід на ту саму дату', () => {
+  const ctx = sandbox({
+    expenses: [{ id: 'e1', name: 'Кава', date: '2026-09-15' }],
+    incomes: [{ id: 'i1', source: 'Зарплата Андрій', date: '2026-09-15' }],
+  });
+  assert.equal(ctx.findRecordIdForDate('2026-09-15'), 'journal-row-expense-0');
+});
+
+test('findRecordIdForDate: без витрат на цю дату — шукає серед доходів', () => {
+  const ctx = sandbox({
+    expenses: [{ id: 'e1', name: 'Кава', date: '2026-09-14' }],
+    incomes: [{ id: 'i1', source: 'Зарплата Андрій', date: '2026-09-15' }],
+  });
+  assert.equal(ctx.findRecordIdForDate('2026-09-15'), 'journal-row-income-0');
+});
+
+test('findRecordIdForDate: жодного запису на цю дату → null (не помилка)', () => {
+  const ctx = sandbox({
+    expenses: [{ id: 'e1', name: 'Кава', date: '2026-09-14' }],
+  });
+  assert.equal(ctx.findRecordIdForDate('2026-09-20'), null);
 });

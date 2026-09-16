@@ -460,6 +460,11 @@
   .journal-body{ flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:16px 20px calc(env(safe-area-inset-bottom,0px) + 24px); }
   .journal-month-nav{ margin-bottom:18px; }
   .journal-month-label{ flex:1 1 auto; text-align:center; font-size:15px; font-weight:700; color:var(--color-text-primary); }
+  /* Rev 2.19.0 — прихований тригер нативного date-picker'а: сам інпут ніколи
+     не видно й не приймає прямий тап (pointer-events:none — єдиний вхід це
+     кнопка-календар поруч, openJournalDatePicker()), той самий "невидимий
+     інпут + своя кнопка" прийом, що інпути завантаження файлів. */
+  .journal-date-input-hidden{ position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
   /* Rev 2.1.15 — тап по картці витрати виділяє її (з'являється олівець для
      редагування категорії); .expense-row тепер контейнер-картка (може містити
      інлайн-панель редагування знизу), а сам горизонтальний рядок (назва+сума+
@@ -1798,7 +1803,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.18.1</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.19.0</div>
 </div>
   </div>
 </div>
@@ -1992,10 +1997,18 @@
     <div class="journal-overlay-title">Журнал усіх записів</div>
   </div>
   <div class="journal-body">
+    <!-- Rev 2.19.0 — кнопка календаря поруч зі стрілковою навігацією місяцями
+         (не змінює саму стрілкову навігацію): прихований нативний
+         <input type="date"> — той самий патерн, що #f-date у формі "Нова
+         витрата" — відкривається через showPicker()/click() з onclick кнопки
+         (це вибір усередині вже відкритого Журналу, НЕ нова "сторінка" — не
+         створює history-запис, на відміну від openJournal()). -->
     <div class="date-nav-row journal-month-nav">
       <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
       <div class="journal-month-label" id="journal-month-label"></div>
       <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(1)" aria-label="Наступний місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+      <button type="button" class="date-nav-btn" onclick="openJournalDatePicker()" aria-label="Перейти до дати"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
+      <input type="date" id="journal-date-input" class="journal-date-input-hidden" onchange="onJournalDatePicked(this.value)" aria-hidden="true" tabindex="-1">
     </div>
     <div id="journal-list"></div>
   </div>
@@ -2341,7 +2354,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.18.1';
+const APP_VERSION = '2.19.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5469,6 +5482,52 @@ function renderJournalView(){
     return;
   }
   container.innerHTML = buildRecordGroupsHtml(combined);
+}
+// Rev 2.19.0 — календар для швидкого переходу на конкретну дату всередині
+// Журналу (Крок 2, ROADMAP п.38) — поруч зі стрілковою навігацією місяцями,
+// яку НЕ чіпаємо. Прихований <input type="date"> (той самий патерн, що
+// #f-date у формі "Нова витрата") відкриває ОС-пікер; showPicker()/click()
+// викликається СИНХРОННО з onclick кнопки-календаря (справжній user gesture),
+// інакше браузери відмовляють показувати пікер програмно.
+function openJournalDatePicker(){
+  const input = document.getElementById('journal-date-input');
+  if(!input) return;
+  // Відкриваємо пікер поблизу поточного місяця Журналу, а не завжди на
+  // "сьогодні" — так стрілки й календар лишаються узгодженими одне з одним.
+  if(journalMonth) input.value = journalMonth + '-01';
+  if(typeof input.showPicker === 'function'){
+    try{ input.showPicker(); return; }catch(e){}
+  }
+  input.click();
+}
+// Rev 2.19.0 — чиста функція: перший запис (витрата чи дохід) на точну дату,
+// з тим самим __srcIdx/id-схемою (journal-row-<kind>-<srcIdx>), яку
+// buildRecordGroupsHtml (не чіпали) вже проставляє на кожен рядок — щоб
+// знайти DOM-елемент для flashDiagnosticTarget (Rev 2.16.1) без жодної зміни
+// самого рендеру рядків.
+function findRecordIdForDate(dateStr){
+  const expIdx = expenses.findIndex(function(e){ return e.date === dateStr; });
+  if(expIdx !== -1) return 'journal-row-expense-' + expIdx;
+  const incIdx = incomes.findIndex(function(e){ return e.date === dateStr; });
+  if(incIdx !== -1) return 'journal-row-income-' + incIdx;
+  return null;
+}
+// Rev 2.19.0 — onchange прихованого #journal-date-input: перемикає
+// journalMonth лише якщо місяць обраної дати відрізняється (renderJournalView
+// вже коректно показує порожній стан, якщо в цьому місяці взагалі немає
+// записів — окремої обробки тут не треба), і підсвічує сам рядок, якщо на цю
+// точну дату є запис. showPicker()/click() — нативний ОС-контрол, не чіпає
+// SPA-навігацію: жодного history.pushState тут немає (на відміну від
+// openJournal), і не повинно бути.
+function onJournalDatePicked(dateStr){
+  if(!dateStr) return;
+  const month = monthKey(dateStr);
+  if(month !== journalMonth){
+    journalMonth = month;
+    renderJournalView();
+  }
+  const targetId = findRecordIdForDate(dateStr);
+  if(targetId) flashDiagnosticTarget(targetId);
 }
 
 function monthAggregates(month){
