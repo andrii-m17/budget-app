@@ -670,7 +670,12 @@
   .struct-item .s-parent{ font-size:11.5px; color:var(--color-muted); margin-left:4px; font-weight:400; }
   .struct-item .badge{ flex:0 0 auto; }
   .struct-item .bdr-actions{ flex:0 0 auto; }
-  .struct-note{ font-size:12px; color:var(--color-text-secondary); background:var(--color-surface-hover); border-radius:var(--radius-sm); padding:10px 12px; margin-bottom:14px; line-height:1.5; }
+  /* Rev 2.11.25 — уніфіковані інформаційні підказки: кружечок з іконкою "i"
+     зліва + короткий текст користувацькою мовою (замість опису "що і чому
+     змінено в коді", яким ці підказки були раніше). */
+  .info-note{ display:flex; align-items:flex-start; gap:10px; font-size:12.5px; color:var(--color-text-secondary); background:var(--color-surface-hover); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:14px; line-height:1.5; }
+  .info-note-icon{ flex:0 0 auto; width:20px; height:20px; color:var(--color-info); }
+  .info-note-icon svg{ width:20px; height:20px; display:block; }
   .kw-row{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:8px 0; border-bottom:1px solid var(--color-border); }
   .kw-row:last-child{ border-bottom:none; }
   .kw-tag{ font-size:11px; background:var(--color-surface-hover); color:var(--color-text-secondary); padding:3px 8px; border-radius:20px; font-family:'JetBrains Mono',monospace; }
@@ -1299,11 +1304,9 @@
       </div>
       <div class="field auto-hint" id="income-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
 
-      <div class="struct-note" style="margin-top: 30px;">
-        Приглушені пунктирні значення нижче — лише підказка з минулого місяця,
-        ще не підтверджена. Торкнись поля, щоб підтвердити його для цього
-        місяця; недоторкані рядки при натисканні "Зберегти" просто пропускаються
-        (не фіксуються як факт).
+      <div class="info-note" style="margin-top: 30px;">
+        <span class="info-note-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/></svg></span>
+        <span>Приглушені пунктирні значення — підказка з минулого місяця. Торкніться поля, щоб підтвердити суму за цей місяць.</span>
       </div>
       <div class="section-label">Борги по картках</div>
       <div class="card entry-card debt-entry">
@@ -1376,10 +1379,9 @@
       </div>
 
       <div class="struct-tab-panel" id="struct-tab-panel-categories">
-        <div class="struct-note">
-          Категорії тепер можна редагувати прямо тут — перейменування чи
-          видалення не змінює вже існуючі записи витрат (вони зберігають ту
-          назву, з якою були створені).
+        <div class="info-note">
+          <span class="info-note-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/></svg></span>
+          <span>Перейменування чи видалення категорії не зачіпає вже додані витрати.</span>
         </div>
         <div class="card">
           <div class="table-card-title">Категорії</div>
@@ -1389,10 +1391,9 @@
       </div>
 
       <div class="struct-tab-panel hidden" id="struct-tab-panel-subcategories">
-        <div class="struct-note">
-          Підкатегорії тепер можна редагувати прямо тут — перейменування чи
-          видалення не змінює вже існуючі записи витрат (вони зберігають ту
-          назву, з якою були створені).
+        <div class="info-note">
+          <span class="info-note-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/></svg></span>
+          <span>Перейменування чи видалення підкатегорії не зачіпає вже додані витрати.</span>
         </div>
         <div class="card">
           <div class="table-card-title">Підкатегорії</div>
@@ -1402,9 +1403,9 @@
       </div>
 
       <div class="struct-tab-panel hidden" id="struct-tab-panel-dictionary">
-        <div class="struct-note">
-          Словник поки лише перегляд — редагування для нього з'явиться в
-          одній з наступних ревізій.
+        <div class="info-note">
+          <span class="info-note-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/></svg></span>
+          <span>Слова тут допомагають автоматично визначати категорію під час додавання витрати.</span>
         </div>
         <div class="card">
           <div class="table-card-title">Словник автоматизації (ключове слово → категорія)</div>
@@ -1657,7 +1658,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.24</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.25</div>
 </div>
   </div>
 </div>
@@ -2032,7 +2033,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.24';
+const APP_VERSION = '2.11.25';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
