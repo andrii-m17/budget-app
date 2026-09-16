@@ -229,6 +229,7 @@
      стриманішу округлість. */
   .installment-pay-btn,
   .add-trigger-btn,
+  .struct-tab-btn,
   .submit-btn.pill {border-radius: 18px;}
   /* Rev 2.11.5 — "Зберегти дохід" ішла одразу за таблицею доходу без жодного
      проміжного елемента (на відміну від карток боргів/ОЧ, де перед кнопкою
@@ -660,7 +661,7 @@
      логіка карток лишається, лише розведена по трьох панелях замість одного
      суцільного списку — навігація стає простішою на маленькому екрані. */
   .struct-tabs{ display:flex; gap:4px; background:var(--color-surface-hover); border-radius:var(--radius-md); padding:4px; margin-bottom:14px; }
-  .struct-tab-btn{ flex:1; padding:9px 4px; border:none; background:none; border-radius:var(--radius-sm); color:var(--color-text-secondary); font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
+  .struct-tab-btn{ flex:1; padding:9px 4px; border:none; background:none; color:var(--color-text-secondary); font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
   .struct-tab-btn:hover{ color:var(--color-text-primary); }
   .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
   .struct-tab-panel.hidden{ display:none; }
@@ -674,8 +675,10 @@
      зліва + короткий текст користувацькою мовою (замість опису "що і чому
      змінено в коді", яким ці підказки були раніше). */
   .info-note{ display:flex; align-items:flex-start; gap:10px; font-size:12.5px; color:var(--color-text-secondary); background:var(--color-surface-hover); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:14px; line-height:1.5; }
-  .info-note-icon{ flex:0 0 auto; width:20px; height:20px; color:var(--color-info); }
-  .info-note-icon svg{ width:20px; height:20px; display:block; }
+  /* Rev 2.11.26 — іконка "i" як текстовий гліф у колі замість тонкого SVG-контуру:
+     на маленькому розмірі лінія SVG виглядала кривою й малопомітною, жирна
+     курсивна літера в заповненому колі читається набагато чіткіше. */
+  .info-note-icon{ flex:0 0 auto; width:22px; height:22px; border-radius:50%; background:var(--color-info-bg); color:var(--color-info); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:800; font-style:italic; font-family:Georgia,'Times New Roman',serif; line-height:1; }
   .kw-row{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:8px 0; border-bottom:1px solid var(--color-border); }
   .kw-row:last-child{ border-bottom:none; }
   .kw-tag{ font-size:11px; background:var(--color-surface-hover); color:var(--color-text-secondary); padding:3px 8px; border-radius:20px; font-family:'JetBrains Mono',monospace; }
@@ -1154,7 +1157,7 @@
         <div class="kpi-card v2 savings" id="kpi-savings-card">
           <div class="kpi-card-header">
             <div class="kpi-icon-circle"><img src="data:image/png;base64,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" alt="" style="width:22px;height:auto;display:block;"></div>
-            <div class="kpi-label">Заощадження</div>
+            <div class="kpi-label">Баланс</div>
           </div>
           <div class="kpi-value mono" id="kpi-savings">0 ₴</div>
           <div class="kpi-trend" id="trend-savings">—</div>
@@ -1203,7 +1206,7 @@
               <div class="ksi-sub" id="kpi-mandatory-sub">—</div>
             </div>
             <div class="kpi-strip-item">
-              <div class="ksi-head"><span class="ksi-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span><span class="ksi-label">Вільні гроші</span></div>
+              <div class="ksi-head"><span class="ksi-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span><span class="ksi-label">Після обов'язкових</span></div>
               <div class="ksi-value" id="kpi-free">0 ₴</div>
               <div class="ksi-sub" id="kpi-free-sub">—</div>
             </div>
@@ -1305,7 +1308,7 @@
       <div class="field auto-hint" id="income-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
 
       <div class="info-note" style="margin-top: 30px;">
-        <span class="info-note-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/></svg></span>
+        <span class="info-note-icon" aria-hidden="true">i</span>
         <span>Приглушені пунктирні значення — підказка з минулого місяця. Торкніться поля, щоб підтвердити суму за цей місяць.</span>
       </div>
       <div class="section-label">Борги по картках</div>
@@ -1380,7 +1383,7 @@
 
       <div class="struct-tab-panel" id="struct-tab-panel-categories">
         <div class="info-note">
-          <span class="info-note-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/></svg></span>
+          <span class="info-note-icon" aria-hidden="true">i</span>
           <span>Перейменування чи видалення категорії не зачіпає вже додані витрати.</span>
         </div>
         <div class="card">
@@ -1392,7 +1395,7 @@
 
       <div class="struct-tab-panel hidden" id="struct-tab-panel-subcategories">
         <div class="info-note">
-          <span class="info-note-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/></svg></span>
+          <span class="info-note-icon" aria-hidden="true">i</span>
           <span>Перейменування чи видалення підкатегорії не зачіпає вже додані витрати.</span>
         </div>
         <div class="card">
@@ -1404,7 +1407,7 @@
 
       <div class="struct-tab-panel hidden" id="struct-tab-panel-dictionary">
         <div class="info-note">
-          <span class="info-note-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke="none"/></svg></span>
+          <span class="info-note-icon" aria-hidden="true">i</span>
           <span>Слова тут допомагають автоматично визначати категорію під час додавання витрати.</span>
         </div>
         <div class="card">
@@ -1528,8 +1531,8 @@
         </svg>
       </span>
       <span class="service-tile-label">
-        <span>Поділитися витратами</span>
-        <span class="service-tile-sub">Надішліть витрати файлом</span>
+        <span>Надішліть файл витрат</span>
+        <span class="service-tile-sub">Поділіться з членом родини</span>
       </span>
     </button>
 
@@ -1658,7 +1661,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.25</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.26</div>
 </div>
   </div>
 </div>
@@ -2033,7 +2036,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.25';
+const APP_VERSION = '2.11.26';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
