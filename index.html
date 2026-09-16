@@ -1661,7 +1661,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.28</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.13.0</div>
 </div>
   </div>
 </div>
@@ -2036,7 +2036,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.28';
+const APP_VERSION = '2.13.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -3934,18 +3934,36 @@ function handleShareImportFile(event){
       statusEl.textContent = 'У файлі не знайдено жодної коректної витрати.';
       return;
     }
-    const existingIds = new Set(expenses.map(function(e){ return e.id; }));
-    const newOnes = incoming.filter(function(e){ return !existingIds.has(e.id); });
-    const dupCount = incoming.length - newOnes.length;
-    if(!newOnes.length){
+    // Rev 2.13.0 — раніше дедуплікація за наявним id ЗАВЖДИ пропускала запис,
+    // навіть якщо вхідна версія була відредагована (новіший updatedAt) —
+    // будь-яка правка витрати після першого обміну файлом просто губилась при
+    // повторному імпорті. Тепер існуючий id ділиться на два випадки:
+    // вхідний updatedAt новіший за наявний → поля запису оновлюються "на
+    // місці" (id/createdAt лишаються), інакше — як і раніше, пропуск.
+    const existingById = new Map(expenses.map(function(e){ return [e.id, e]; }));
+    const newOnes = [];
+    const updatedOnes = [];
+    incoming.forEach(function(e){
+      const existing = existingById.get(e.id);
+      if(!existing){ newOnes.push(e); return; }
+      const incomingTs = e.updatedAt ? Date.parse(e.updatedAt) : NaN;
+      const existingTs = existing.updatedAt ? Date.parse(existing.updatedAt) : NaN;
+      if(!isNaN(incomingTs) && (isNaN(existingTs) || incomingTs > existingTs)){
+        updatedOnes.push(e);
+      }
+    });
+    const dupCount = incoming.length - newOnes.length - updatedOnes.length;
+    if(!newOnes.length && !updatedOnes.length){
       statusEl.textContent = `Усі ${incoming.length} ${expenseCountWord(incoming.length)} з файлу вже є у вашому журналі — нічого не додано.`;
       return;
     }
     const totalSum = newOnes.reduce(function(s,e){ return s+Math.round(e.amount); }, 0);
-    const message = `Знайдено ${incoming.length} ${expenseCountWord(incoming.length)} у файлі. `
-      + `Нових: ${newOnes.length} (${fmt(totalSum)}). `
-      + (dupCount>0 ? `Вже є: ${dupCount}. ` : '')
-      + `Додати нові витрати?`;
+    const parts = [`Знайдено ${incoming.length} ${expenseCountWord(incoming.length)} у файлі.`];
+    parts.push(`Нових: ${newOnes.length} (${fmt(totalSum)}).`);
+    if(updatedOnes.length>0) parts.push(`Оновлено: ${updatedOnes.length}.`);
+    if(dupCount>0) parts.push(`Вже є: ${dupCount}.`);
+    parts.push('Застосувати зміни?');
+    const message = parts.join(' ');
     showConfirmModal(message, function(){
       newOnes.forEach(function(e){
         const fallbackTs = e.date + 'T00:00:00.000Z';
@@ -3959,10 +3977,23 @@ function handleShareImportFile(event){
         if(e.linkedInstallment) rec.linkedInstallment = e.linkedInstallment;
         expenses.push(rec);
       });
+      updatedOnes.forEach(function(e){
+        const rec = existingById.get(e.id);
+        rec.date = e.date; rec.name = String(e.name); rec.amount = Math.round(e.amount);
+        rec.category = e.category || ''; rec.subcategory = e.subcategory || '';
+        rec.manual = !!e.manual;
+        rec.updatedAt = e.updatedAt;
+        if(e.linkedInstallment) rec.linkedInstallment = e.linkedInstallment;
+        else delete rec.linkedInstallment;
+      });
       saveExpenses();
       populateMonths(); renderAll();
-      statusEl.textContent = `Додано ${newOnes.length} ${expenseCountWord(newOnes.length)}.` + (dupCount>0 ? ` Пропущено ${dupCount} (вже є).` : '');
-    }, `Додати ${newOnes.length}`);
+      const resultParts = [];
+      if(newOnes.length>0) resultParts.push(`додано ${newOnes.length} ${expenseCountWord(newOnes.length)}`);
+      if(updatedOnes.length>0) resultParts.push(`оновлено ${updatedOnes.length}`);
+      if(dupCount>0) resultParts.push(`пропущено ${dupCount} (вже є)`);
+      statusEl.textContent = resultParts.length ? (resultParts[0][0].toUpperCase()+resultParts[0].slice(1)+(resultParts.length>1?', '+resultParts.slice(1).join(', '):'')+'.') : '';
+    }, updatedOnes.length>0 ? `Застосувати (${newOnes.length + updatedOnes.length})` : `Додати ${newOnes.length}`);
   };
   reader.onerror = function(){ statusEl.textContent = 'Не вдалося прочитати файл.'; inputEl.value=''; };
   reader.readAsText(file);
