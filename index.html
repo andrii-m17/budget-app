@@ -1833,7 +1833,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.20.2</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.20.3</div>
 </div>
   </div>
 </div>
@@ -2410,7 +2410,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.20.2';
+const APP_VERSION = '2.20.3';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5179,6 +5179,7 @@ function saveRecordEdit(id){
   const dateInput = document.getElementById('edit-date-'+id);
   const catSel = document.getElementById('edit-cat-'+id);
   const subSel = document.getElementById('edit-sub-'+id);
+  const instSel = document.getElementById('edit-installment-'+id);
   const name = nameInput.value.trim();
   const amount = parseAmount(amountInput.value);
   const date = dateInput.value;
@@ -5190,6 +5191,18 @@ function saveRecordEdit(id){
   rec.date = date;
   rec.category = catSel.value;
   rec.subcategory = subSel.value;
+  // Rev 2.20.3 — прив'язка до ОЧ тепер редагована й для ВЖЕ ІСНУЮЧОЇ витрати
+  // (раніше — лише при створенні, методи B/C). instSel може не існувати,
+  // якщо installmentAccounts порожній (select узагалі не рендериться) —
+  // тоді linkedInstallment просто не чіпаємо. Порожнє value select'а —
+  // явне "без прив'язки", прибирає поле повністю (як і creating-flow: якщо
+  // немає прив'язки, поля linkedInstallment взагалі немає в записі, не
+  // порожній рядок — так linkedExpensesSum/діагностика однаково коректно
+  // рахують лише реально прив'язані записи).
+  if(instSel){
+    if(instSel.value) rec.linkedInstallment = instSel.value;
+    else delete rec.linkedInstallment;
+  }
   rec.manual = true; // редагування вручну через журнал — вважаємо ручним статусом
   // Rev 2.11.2 — id і createdAt НІКОЛИ не змінюються редагуванням (запис
   // лишається "тим самим" записом для майбутньої дедуплікації при обміні),
@@ -5214,6 +5227,18 @@ function categoryOptionsHtml(selectedCat){
 function subcategoryOptionsHtml(forCategory, selectedSub){
   const subs = SUBCATEGORIES.filter(s=>s.category===forCategory && (s.active || s.name===selectedSub));
   return '<option value="">—</option>' + subs.map(s=>`<option value="${s.name}"${s.name===selectedSub?' selected':''}>${s.name}${!s.active?' (видалено)':''}</option>`).join('');
+}
+// Rev 2.20.3 — той самий принцип, що categoryOptionsHtml/subcategoryOptionsHtml
+// вище: список усіх ОЧ (installmentAccounts, без фільтра "прихована з
+// місяця" — це ручний вибір в редагуванні, не автопідказка форми "Нова
+// витрата", тож навіть архівна ОЧ лишається доступною для виправлення старого
+// запису) + "без прив'язки" першим пунктом.
+function installmentLinkOptionsHtml(selectedName){
+  const opts = installmentAccounts.map(function(acc){
+    const label = stripLeadingEmoji(acc.name);
+    return `<option value="${escapeAttr(acc.name)}"${acc.name===selectedName?' selected':''}>${escapeHtml(label)}</option>`;
+  }).join('');
+  return `<option value="">— без прив'язки —</option>${opts}`;
 }
 function openAddCategoryModal(){
   showCategoryModal('Нова категорія:', '', "Гнучка", function(name, type){
@@ -5391,6 +5416,16 @@ function buildRecordGroupsHtml(items){
           </div>
           <select id="edit-cat-${e.id}" aria-label="Категорія" onchange="onRecordCategoryChange('${e.id}')">${categoryOptionsHtml(e.category)}</select>
           <select id="edit-sub-${e.id}" aria-label="Підкатегорія">${subcategoryOptionsHtml(e.category, e.subcategory)}</select>
+          <!-- Rev 2.20.3 — раніше прив'язку витрата↔ОЧ можна було встановити
+               ЛИШЕ при СТВОРЕННІ витрати (методи B/C, FINANCIAL_RULES §5) —
+               для вже існуючого запису виправити помилкову/відсутню прив'язку
+               можна було тільки видаливши й перестворивши витрату. Тепер і
+               тут, у панелі редагування — звичайний select, як
+               категорія/підкатегорія вище (не копіюємо систему підказок з
+               форми "Нова витрата" — тут це свідомий ручний вибір, а не
+               автозбіг за текстом). Порожній value = зняти прив'язку. Не
+               показуємо select узагалі, якщо жодної ОЧ ще не створено. -->
+          ${installmentAccounts.length ? `<select id="edit-installment-${e.id}" aria-label="Прив'язка до ОЧ">${installmentLinkOptionsHtml(e.linkedInstallment)}</select>` : ''}
           <div class="record-edit-actions">
             <button type="button" class="rce-cancel" onclick="cancelEditRecord()">Скасувати</button>
             <button type="button" class="rce-save" onclick="saveRecordEdit('${e.id}')">Зберегти</button>
