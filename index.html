@@ -252,19 +252,6 @@
      що й для доходів. */
   .bank-debt-table{ display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
   .bank-debt-row{ display:flex; align-items:center; gap:10px; }
-  .bank-debt-row .bdr-label{ flex:1 1 auto; display:flex; align-items:center; gap:8px; min-width:0; font-size:14px; font-weight:600; color:var(--color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .bank-debt-row input.bdr-amount{ flex:0 0 130px; min-width:0; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); text-align:right; }
-  .bank-debt-row input.bdr-amount:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
-  /* Rev 2.1.0 — pre-filled (перенесене з попереднього місяця, ще не збережене
-     як факт цього місяця) значення виглядає легко приглушеним, щоб було видно
-     різницю з уже підтвердженим записом; зникає при першому редагуванні. */
-  .bank-debt-row input.bdr-amount.bdr-amount-prefill{ color:var(--color-text-secondary); font-style:italic; border-style:dashed; }
-  /* Rev 2.2.0 — той самий приглушений pre-fill вигляд, але для поля "Залишок"
-     у рядку ОЧ (.installment-row .bdr-field input не має класу bdr-amount,
-     тому правило вище тут не спрацює — окремий селектор).
-     Rev 2.16.4 — той самий селектор тепер і для .card-debt-row (Борг по
-     карті/Мін. платіж мають ту саму верстку двох полів, що ОЧ). */
-  .installment-row .bdr-field input.bdr-amount-prefill, .card-debt-row .bdr-field input.bdr-amount-prefill{ color:var(--color-text-secondary); font-style:italic; border-style:dashed; }
   .bdr-actions{ display:flex; gap:2px; flex-shrink:0; }
   .bdr-icon-btn{ width:28px; height:28px; border:none; background:none; color:var(--color-muted); cursor:pointer; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .bdr-icon-btn:hover{ background:var(--color-hover-overlay); color:var(--color-text-primary); }
@@ -291,23 +278,6 @@
   .bdr-diff-warning{ display:none; font-size:10.5px; color:var(--color-warning); margin-top:3px; }
   .bdr-diff-warning.show{ display:block; }
   .bdr-diff-warning .bdr-diff-apply{ background:none; border:none; font:inherit; font-size:10.5px; font-weight:700; color:var(--color-warning); cursor:pointer; padding:0; text-decoration:underline; text-underline-offset:2px; }
-  /* Rev 2.2.3 — тихий тег "не збережено" біля назви ОЧ/картки: свідомо
-     приглушений (без "⚠" чи яскравого кольору) — просто нагадування, а не
-     тривога. Курсив + муований колір, той самий тон, що вже використовує
-     .bdr-init-amount для другорядних підписів. */
-  .bdr-unsaved-tag{ display:none; font-size:11px; font-weight:700; color:var(--color-warning); margin-left:8px; }
-  .bdr-unsaved-tag.show{ display:inline; }
-  /* Rev 2.0.4 — рядок ОЧ тепер двострокoвий: назва+іконки зверху, "Залишок" і
-     "Платіж/міс" знизу поруч (щоб не тіснитись з іконками на mobile, як було
-     з банками при спробі влаштувати 2 інпути в один рядок). */
-  .installment-row{ flex-direction:column; align-items:stretch; gap:8px; padding:10px 0; border-bottom:1px solid var(--color-border); }
-  .installment-row:last-child{ border-bottom:none; }
-  .installment-row .bdr-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .installment-row .bdr-fields{ display:flex; gap:10px; }
-  .installment-row .bdr-field{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:3px; }
-  .installment-row .bdr-field-label{ font-size:10px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.3px; }
-  .installment-row .bdr-field input{ width:100%; min-width:0; padding:9px 10px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:15px; text-align:right; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
-  .installment-row .bdr-field input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
   /* Rev 2.16.4 — чекбокс "Мінімальний платіж внесено": простий прапорець без
      побічних дій (за проханням користувача), :has() підсвічує підпис зеленим
      при відмітці — той самий success-колір, що прогрес-бари ОЧ на Аналітиці.
@@ -349,7 +319,11 @@
   #card-debt-drawer .drawer-head-text h2{ font-size:16px; margin:0; }
   #card-debt-drawer .drawer-head-sub{ font-size:11.5px; color:var(--color-text-secondary); margin-top:1px; }
   .cdd-amount-input{ text-align:right; }
-  .cdd-delete-link{ display:block; width:100%; text-align:center; background:none; border:none; color:var(--color-error); font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer; padding:2px 0 0; }
+  /* Rev 2.16.6 BugFix — "Видалити картку" стояла одразу під "Зберегти" (2px
+     відступу) — легко натиснути випадково відразу після Save. Відокремлено
+     виразним відступом + верхньою лінією-розділювачем, щоб це читалось як
+     окрема, свідома дія, а не продовження форми. */
+  .cdd-delete-link{ display:block; width:100%; text-align:center; background:none; border:none; border-top:1px solid var(--color-border); color:var(--color-error); font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer; margin-top:18px; padding:16px 0 0; }
   .cdd-delete-link:hover{ text-decoration:underline; }
   /* Rev 2.2.3 — кнопка швидкої оплати ОЧ (метод B, FINANCIAL_RULES §5):
      відкриває форму витрати з передзаповненими назвою/сумою і вже готовою
@@ -1431,18 +1405,22 @@
       </div>
 
       <div class="struct-tab-panel hidden" id="acct-tab-panel-installments">
-        <div class="info-note">
-          <span class="info-note-icon" aria-hidden="true">i</span>
-          <span>Приглушені пунктирні значення — підказка з минулого місяця. Торкніться поля, щоб підтвердити суму за цей місяць.</span>
+        <!-- Rev 2.16.6 — той самий компактний список + шторка, що Борги по
+             картках (Rev 2.16.5): підсумкова картка (Разом ОЧ + Разом на
+             місяць) над списком, тап відкриває #installment-drawer. -->
+        <div class="card-summary">
+          <div class="card-summary-row">
+            <span class="card-summary-label">Разом ОЧ</span>
+            <span class="card-summary-value" id="installment-balance-total-value">0 ₴</span>
+          </div>
+          <div class="card-summary-row">
+            <span class="card-summary-label">Разом на місяць</span>
+            <span class="card-summary-value warn" id="installment-total-value">0 ₴</span>
+          </div>
         </div>
         <div class="section-label" style="margin-top:0;">Оплати частинами (ОЧ)</div>
-        <div class="card entry-card debt-entry">
-          <div class="bank-debt-table" id="installment-table"></div>
-          <div class="total-row warning"><span>Разом ОЧ</span><b id="installment-balance-total-value">0 ₴</b></div>
-          <div class="total-row"><span>Разом на місяць</span><b id="installment-total-value">0 ₴</b></div>
-          <button type="button" class="add-trigger-btn" onclick="openAddInstallmentModal()">+ Додати ОЧ</button>
-          <button class="submit-btn debt pill" onclick="saveInstallmentTable()">Зберегти ОЧ</button>
-        </div>
+        <div class="bank-debt-table" id="installment-table"></div>
+        <button type="button" class="add-trigger-btn" onclick="openAddInstallmentModal()">+ Додати ОЧ</button>
         <div class="field auto-hint" id="installments-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
       </div>
     </div>
@@ -1792,7 +1770,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.16.5</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.16.6</div>
 </div>
   </div>
 </div>
@@ -1892,6 +1870,49 @@
   </label>
   <button type="button" class="submit-btn debt pill" onclick="saveCardDebtDrawer()">Зберегти</button>
   <button type="button" class="cdd-delete-link" onclick="deleteCardDebtFromDrawer()">Видалити картку</button>
+</div>
+
+<!-- ================= Редагування ОЧ (Drawer, Rev 2.16.6) =================
+     Той самий патерн, що #card-debt-drawer вище — плюс жива перевірка
+     розбіжності факт/очікування (checkInstallmentDivergence) і кнопка
+     "Оплатити цю ОЧ" (payInstallmentQuick), обидві збережені за проханням
+     користувача. -->
+<div class="drawer-backdrop" id="installment-backdrop" onclick="closeInstallmentEditor()" inert></div>
+<div class="drawer" id="installment-drawer" role="dialog" aria-label="ОЧ" aria-modal="true" inert>
+  <div class="drawer-head">
+    <div class="drawer-head-main">
+      <span class="drawer-head-icon" id="idd-icon"></span>
+      <div class="drawer-head-text">
+        <h2 id="idd-heading">ОЧ</h2>
+        <div class="drawer-head-sub">Оплата частинами</div>
+      </div>
+    </div>
+    <button class="drawer-close" onclick="closeInstallmentEditor()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div class="field">
+    <label for="idd-name">Назва</label>
+    <input type="text" id="idd-name">
+  </div>
+  <div class="field">
+    <label for="idd-initial">Початкова сума</label>
+    <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-initial" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+  </div>
+  <div class="bdr-init-amount" id="idd-linked-note"></div>
+  <div class="row-2">
+    <div class="field">
+      <label for="idd-balance">Залишок</label>
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-balance" oninput="checkInstallmentDivergence()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+      <span class="bdr-diff-warning" id="idd-balance-diff"></span>
+    </div>
+    <div class="field">
+      <label for="idd-pay">Платіж/міс</label>
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-pay" oninput="checkInstallmentPaymentDivergence()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+      <span class="bdr-diff-warning" id="idd-pay-diff"></span>
+    </div>
+  </div>
+  <button type="button" class="installment-pay-btn" onclick="payInstallmentQuick()">💳 Оплатити цю ОЧ</button>
+  <button type="button" class="submit-btn debt pill" onclick="saveInstallmentDrawer()">Зберегти</button>
+  <button type="button" class="cdd-delete-link" onclick="deleteInstallmentFromDrawer()">Видалити ОЧ</button>
 </div>
 
 <!-- ================= Власний модальний діалог (Rev 2.0.5) =================
@@ -2234,7 +2255,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.16.5';
+const APP_VERSION = '2.16.6';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -2667,7 +2688,7 @@ function goToDiagnosticIssue(i){
     showConfirmModal('У цього ОЧ немає назви — знайти його автоматично неможливо. Перевір список ОЧ в «Обліку» вручну.', function(){}, 'Зрозуміло');
     return;
   }
-  if(target.month && target.month !== selectedMonth && !hasUnsavedAccountingChanges()){
+  if(target.month && target.month !== selectedMonth){
     performMonthChange(target.month);
   }
   switchTab('accounting');
@@ -2756,7 +2777,7 @@ function onNameInput(){
 // сам факт збігу нічого не змінює мовчки. Прив'язка стається лише після явного
 // натискання "Так, прив'язати" (confirmInstallmentLink). Індекси ОЧ (а не
 // назви-рядки) передаються в onclick — той самий безпечний патерн, що вже
-// використовує editInstallmentAccount(i)/removeInstallmentAccount(i), щоб не
+// використовує openInstallmentEditor(i)/removeInstallmentAccount(i), щоб не
 // ризикувати лапками/спецсимволами в довільній назві ОЧ.
 let pendingInstallmentMatchIndices = [];
 let confirmedInstallmentLinkIdx = -1;
@@ -3152,28 +3173,13 @@ function confirmDeleteRecord(kind, id){
    Природний ключ так само назва+місяць (upsert), список назв — окремо в
    LS_KEY_INSTALLMENTS, можна додавати/перейменовувати/видаляти без втрати
    історичних записів (та сама логіка, що для банків). */
-// Rev 2.2.3 — глобальний стан "є незбережені зміни" для захисту при переході
-// на іншу вкладку/місяць (onMonthChange/switchTab нижче). Set індексів рядків,
-// а не просто boolean — щоб можна було в майбутньому показати "скільки саме"
-// без переписування логіки; скидається на початку кожного populate*() —
-// свіжий рендер = дані з localStorage, отже незбереженого вже немає.
-let dirtyInstallmentRows = new Set();
-// Rev 2.16.5 — dirtyBankRows прибрано: картки боргу редагуються в ізольованій
-// шторці (#card-debt-drawer) з власним явним "Зберегти", список більше не
-// має інлайн-полів, які можна лишити "напівзаповненими" між рендерами.
-function hasUnsavedAccountingChanges(){ return dirtyInstallmentRows.size>0; }
+// Rev 2.16.6 — компактний список ОЧ (той самий "Варіант A", що картки боргу
+// Rev 2.16.5): dirtyInstallmentRows/markInstallmentDirty/hasUnsavedAccountingChanges
+// прибрані — редагування живе ізольовано в шторці #installment-drawer, список
+// більше не має інлайн-полів, які можна лишити "напівзаповненими".
 function populateInstallmentTable(){
   const el = document.getElementById('installment-table');
   if(!el || !selectedMonth) return;
-  // Rev 2.2.3 BugFix — раніше тут БЕЗУМОВНО скидався dirtyInstallmentRows на
-  // початку кожного рендеру. Проблема: renderAll() викликається з БАГАТЬОХ
-  // місць (збереження доходу, збереження банків, додавання витрати тощо), не
-  // лише після "Зберегти ОЧ" — тож збереження чогось ІНШОГО побічно "чистило"
-  // незбережені зміни саме тут, хоча вони не зберігались. Тепер: якщо є
-  // незбережене в цій таблиці — рендер повністю пропускається (DOM і теги
-  // лишаються як є); скидання dirty відбувається ЯВНО лише в saveInstallmentTable()
-  // (після реального збереження) або в discard-гілках onMonthChange/switchTab.
-  if(dirtyInstallmentRows.size > 0) return;
   // Rev 2.3.8 — рахуємо лише ВИДИМІ для цього місяця записи (не приховані
   // через isHiddenForMonth) для порожнього стану; сам масив installmentAccounts
   // і далі містить усі записи (включно з прихованими для майбутніх місяців),
@@ -3181,147 +3187,131 @@ function populateInstallmentTable(){
   // Rev 2.11.9 (Баг #5) — тепер isInstallmentVisibleForMonth() враховує ще й
   // acc.firstMonth: щойно створена ОЧ більше не показується як порожній
   // рядок "на заповнення" в місяцях ДО того, як вона взагалі виникла.
-  const visibleInstallmentCount = installmentAccounts.filter(function(acc){
-    return isInstallmentVisibleForMonth(acc, selectedMonth);
-  }).length;
-  if(visibleInstallmentCount===0){
+  const visible = installmentAccounts
+    .map(function(acc, i){ return { acc, i }; })
+    .filter(function(x){ return isInstallmentVisibleForMonth(x.acc, selectedMonth); });
+  if(visible.length===0){
     el.innerHTML = `<div class="empty-hint">Ще немає жодної ОЧ. Додай першу нижче.</div>`;
     updateInstallmentTotal();
     updateInstallmentBalanceTotal();
     return;
   }
-  el.innerHTML = installmentAccounts.map(function(acc, i){
-    // Rev 2.3.8 — прихована для ЦЬОГО місяця ОЧ (видалена "з [місяць]" і далі)
-    // не рендериться зовсім; iнші місяці, включно з тими ДО дати приховування,
-    // і далі показують рядок як зазвичай. Індекс i лишається позицією в
-    // ОРИГІНАЛЬНОМУ масиві (map, не filter+map) — критично, бо саме на цей i
-    // спираються editInstallmentAccount(i)/removeInstallmentAccount(i)/
-    // payInstallmentQuick(i) та id полів (installment-bal-${i} тощо).
-    // Rev 2.11.9 (Баг #5) — та сама перевірка тепер включає й firstMonth.
-    if(!isInstallmentVisibleForMonth(acc, selectedMonth)) return '';
-    const name = acc.name;
+  const CHEVRON = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+  el.innerHTML = visible.map(function(x){
+    const acc = x.acc, i = x.i, name = acc.name;
+    const est = estimateInstallment(name, selectedMonth);
     const existing = debts.find(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
-    const prevBal = lastKnownBalance(name, 'installment', selectedMonth);
-    // Rev 2.2.2 — Модель C, "очікуваний залишок" (FINANCIAL_RULES §4 і §5):
-    // джерело оцінки платежу цього місяця тепер має пріоритет — спершу сума
-    // РЕАЛЬНО прив'язаних витрат (linkedExpensesSum, автозв'язок метод C),
-    // і лише якщо прив'язаних витрат немає — typicalMonthlyPayment() (мода з
-    // історії, Rev 2.2.1) як здогадка за відсутності точніших даних.
-    const linkedSum = linkedExpensesSum(name, selectedMonth);
-    const typicalPay = typicalMonthlyPayment(name, 'installment', selectedMonth);
-    const estimatedPay = linkedSum > 0 ? linkedSum : typicalPay;
-    const estimatedBalance = (prevBal != null)
-      ? (estimatedPay != null ? Math.max(0, prevBal - estimatedPay) : prevBal)
-      : null;
-    let balVal = '', balPrefillClass = '', payVal = '', payPrefillClass = '';
-    if(existing){
-      balVal = formatThousands(existing.balance);
-      // Rev 2.2.2 BugFix — якщо факт балансу вже є, а "Платіж/міс" ніколи не
-      // заповнювався (типово для записів, збережених до Rev 2.2.2) — поле
-      // лишалось порожнім назавжди, і порівнювати не було з чим (NaN). Тепер
-      // пропонуємо оцінку і для нього, як для звичайного pre-fill.
-      if(existing.monthlyPayment != null){
-        payVal = formatThousands(existing.monthlyPayment);
-      }else if(estimatedPay != null){
-        payVal = formatThousands(estimatedPay);
-        payPrefillClass = ' bdr-amount-prefill';
-      }
-    }else{
-      if(estimatedPay != null){ payVal = formatThousands(estimatedPay); payPrefillClass = ' bdr-amount-prefill'; }
-      if(estimatedBalance != null){ balVal = formatThousands(estimatedBalance); balPrefillClass = ' bdr-amount-prefill'; }
-    }
-    // Rev 2.2.2 BugFix — раніше "Підхоплено з прив'язаної витрати" показувалась
-    // ЛИШЕ коли за місяць ще нема факту (!existing) — тобто якщо факт уже
-    // збережено (напр. раніше цього ж місяця), нова прив'язка залишалась
-    // абсолютно непомітною в Обліку. Тепер напис завжди видно, коли linkedSum>0,
-    // незалежно від існування факту — а розбіжність із фактом видно нижче,
-    // біля поля "Залишок" (checkInstallmentDivergence + кнопка "Застосувати").
-    const linkedNote = linkedSum > 0
-      ? `<span class="bdr-init-amount">Прив'язана витрата цього місяця: ${fmt(linkedSum)}</span>`
-      : '';
-    // Rev 2.2.2 BugFix — раніше data-expected для розбіжності був ЛИШЕ на полі
-    // "Залишок" і залежав від наявності prevBal (попереднього факту): якщо ОЧ
-    // ще не має історії ЗА МИНУЛИЙ місяць, prevBal=null → estimatedBalance=null
-    // → жодного попередження взагалі, ХОЧА "Платіж/міс" (estimatedPay) від
-    // prevBal не залежить і мав перевірятись незалежно. Тепер кожне поле має
-    // ВЛАСНИЙ data-expected і власну перевірку розбіжності.
-    const expectedAttr = estimatedBalance != null ? ` data-expected="${estimatedBalance}"` : '';
-    const payExpectedAttr = estimatedPay != null ? ` data-expected="${estimatedPay}"` : '';
-    // Rev 2.1.17 — показуємо початкову суму (потрібна для прогрес-бару на
-    // Аналітиці); якщо ще не введена (стара ОЧ до цієї фічі) — тиха підказка
-    // замість числа, натискання на ✎ дозволяє додати.
-    const initAmountLabel = acc.initialAmount
-      ? `<span class="bdr-init-amount">Початкова сума: ${fmt(acc.initialAmount)}</span>`
-      : `<span class="bdr-init-amount missing">Початкова сума не вказана — натисни ✎</span>`;
-    return `<div class="bank-debt-row installment-row" id="installment-row-${i}">
-      <div class="bdr-top">
-        <span class="bdr-label">${bankIcon(name)}${escapeHtml(stripLeadingEmoji(name))}<span class="bdr-unsaved-tag" id="installment-unsaved-${i}">⚠ не збережено</span></span>
-        <span class="bdr-actions">
-          <button type="button" class="bdr-icon-btn" onclick="editInstallmentAccount(${i})" aria-label="Редагувати"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
-          <button type="button" class="bdr-icon-btn danger" onclick="removeInstallmentAccount(${i})" aria-label="Видалити ОЧ"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-        </span>
-      </div>
-      ${initAmountLabel}
-      ${linkedNote}
-      <div class="bdr-fields">
-        <div class="bdr-field">
-          <span class="bdr-field-label" id="installment-bal-label-${i}">Залишок</span>
-          <input type="text" inputmode="numeric" class="${balPrefillClass.trim()}" placeholder="0" id="installment-bal-${i}"${expectedAttr} value="${balVal}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, залишок" oninput="this.classList.remove('bdr-amount-prefill'); checkInstallmentDivergence(${i}); markInstallmentDirty(${i}); updateInstallmentBalanceTotal()" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markInstallmentDirty(${i})" onblur="formatAmountBlur(this)">
-          <span class="bdr-diff-warning" id="installment-diff-${i}"></span>
-        </div>
-        <div class="bdr-field">
-          <span class="bdr-field-label" id="installment-pay-label-${i}">Платіж/міс</span>
-          <input type="text" inputmode="numeric" class="${payPrefillClass.trim()}" placeholder="0" id="installment-pay-${i}"${payExpectedAttr} value="${payVal}" aria-label="${escapeAttr(stripLeadingEmoji(name))}, платіж на місяць" oninput="updateInstallmentTotal(); this.classList.remove('bdr-amount-prefill'); checkInstallmentPaymentDivergence(${i}); markInstallmentDirty(${i})" onfocus="unformatAmountFocus(this); this.classList.remove('bdr-amount-prefill'); markInstallmentDirty(${i})" onblur="formatAmountBlur(this)">
-          <span class="bdr-diff-warning" id="installment-pay-diff-${i}"></span>
-        </div>
-      </div>
-      <button type="button" class="installment-pay-btn" onclick="payInstallmentQuick(${i})">💳 Оплатити цю ОЧ</button>
-    </div>`;
+    const balance = existing ? existing.balance : (est.balance != null ? est.balance : 0);
+    const payment = (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : (est.pay != null ? est.pay : 0);
+    return `<button type="button" class="card-debt-compact-row" id="installment-row-${i}" onclick="openInstallmentEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати">
+      <span class="cdr-avatar">${bankIcon(name, 38)}</span>
+      <span class="cdr-main">
+        <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}</span>
+        <span class="cdr-sub">Оплата частинами</span>
+      </span>
+      <span class="cdr-amounts">
+        <span class="cdr-balance mono">${fmt(balance)}</span>
+        <span class="cdr-minpay mono">Платіж ${fmt(payment)}</span>
+      </span>
+      <span class="cdr-chevron" aria-hidden="true">${CHEVRON}</span>
+    </button>`;
   }).join('');
   updateInstallmentTotal();
   updateInstallmentBalanceTotal();
-  installmentAccounts.forEach(function(_, i){ checkInstallmentDivergence(i); checkInstallmentPaymentDivergence(i); });
 }
-// Rev 2.0.4: живий підсумок "Разом на місяць" — рахується прямо з полів у формі
-// (ще до збереження), щоб одразу орієнтуватись, скільки треба буде віддати
-// грошей на ОЧ цього місяця, а не лише скільки лишилось боргу.
+// Rev 2.16.6 — винесено з populateInstallmentTable/checkInstallmentDivergence:
+// та сама "очікувана" пара залишок/платіж (Модель C, FINANCIAL_RULES §4-5),
+// тепер обчислюється в одному місці — і для компактного рядка (pre-fill без
+// факту), і для шторки (data-expected для перевірки розбіжності).
+function estimateInstallment(name, month){
+  const prevBal = lastKnownBalance(name, 'installment', month);
+  const linkedSum = linkedExpensesSum(name, month);
+  const typicalPay = typicalMonthlyPayment(name, 'installment', month);
+  const pay = linkedSum > 0 ? linkedSum : typicalPay;
+  const balance = (prevBal != null) ? (pay != null ? Math.max(0, prevBal - pay) : prevBal) : null;
+  return { balance, pay, linkedSum };
+}
+// Rev 2.0.4: живий підсумок "Разом на місяць" — рахується зі "збереженого чи
+// оціненого" значення кожної ОЧ (та сама логіка, що рядок списку), бо форми
+// per-рядок більше немає (Rev 2.16.6).
 function updateInstallmentTotal(){
   const totalEl = document.getElementById('installment-total-value');
-  if(!totalEl) return;
+  if(!totalEl || !selectedMonth) return;
   let sum = 0;
-  installmentAccounts.forEach(function(acc, i){
-    const input = document.getElementById('installment-pay-'+i);
-    if(input && input.value.trim()) sum += parseAmount(input.value) || 0;
+  installmentAccounts.forEach(function(acc){
+    if(!isInstallmentVisibleForMonth(acc, selectedMonth)) return;
+    const existing = debts.find(function(d){ return d.name===acc.name && d.kind==='installment' && d.month===selectedMonth; });
+    const est = estimateInstallment(acc.name, selectedMonth);
+    sum += (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : (est.pay || 0);
   });
   totalEl.textContent = fmt(sum);
 }
 // Rev 2.11.4 — та сама ідея, що updateInstallmentTotal() вище, але для
-// "Залишок" (сума боргу ОЧ, що лишилась), а не "Платіж/міс" (скільки треба
-// віддати цього місяця) — два різні числа, обидва живі ще до збереження.
+// "Залишок" (сума боргу ОЧ, що лишилась), а не "Платіж/міс".
 function updateInstallmentBalanceTotal(){
   const totalEl = document.getElementById('installment-balance-total-value');
-  if(!totalEl) return;
+  if(!totalEl || !selectedMonth) return;
   let sum = 0;
-  installmentAccounts.forEach(function(acc, i){
-    const input = document.getElementById('installment-bal-'+i);
-    if(input && input.value.trim()) sum += parseAmount(input.value) || 0;
+  installmentAccounts.forEach(function(acc){
+    if(!isInstallmentVisibleForMonth(acc, selectedMonth)) return;
+    const existing = debts.find(function(d){ return d.name===acc.name && d.kind==='installment' && d.month===selectedMonth; });
+    const est = estimateInstallment(acc.name, selectedMonth);
+    sum += existing ? existing.balance : (est.balance || 0);
   });
   totalEl.textContent = fmt(sum);
 }
-// Rev 2.2.3 — Автозв'язок, метод B (FINANCIAL_RULES §5): "швидкий екран
-// Оплатити ОЧ" — кнопка біля кожного ОЧ у Обліку відкриває форму витрати з
-// передзаповненими назвою, сумою (з планового платежу, можна змінити) і вже
-// встановленою прив'язкою — на відміну від методу C (підказка за збігом
-// тексту), тут прив'язка вже підтверджена самим фактом виклику цієї кнопки
-// (явна дія користувача = те саме "явне підтвердження", що вимагає §5).
-function payInstallmentQuick(i){
+let editingInstallmentIdx = -1;
+// Rev 2.16.6 — тап по компактній ОЧ відкриває шторку з полями, заповненими
+// збереженим фактом або "очікуваним" значенням (той самий carry-forward, що
+// раніше в інлайн-полях) — і з тією самою живою перевіркою розбіжності
+// (checkInstallmentDivergence нижче), яку користувач попросив зберегти.
+function openInstallmentEditor(i){
   const acc = installmentAccounts[i];
   if(!acc) return;
-  // Сума: пріоритет — те, що зараз видно в полі "Платіж/міс" цього рядка
-  // (могло бути щойно відредаговано/застосовано), інакше типовий платіж з
-  // історії (той самий typicalMonthlyPayment, що й для pre-fill вище).
+  editingInstallmentIdx = i;
+  lastFocusedBeforeDialog = document.activeElement;
+  const name = acc.name;
+  const existing = debts.find(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
+  const est = estimateInstallment(name, selectedMonth);
+  const balance = existing ? existing.balance : est.balance;
+  const payment = (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : est.pay;
+  document.getElementById('idd-icon').innerHTML = bankIcon(name, 34);
+  document.getElementById('idd-heading').textContent = stripLeadingEmoji(name);
+  document.getElementById('idd-name').value = stripLeadingEmoji(name);
+  document.getElementById('idd-initial').value = acc.initialAmount ? formatThousands(acc.initialAmount) : '';
+  document.getElementById('idd-balance').value = balance != null ? formatThousands(balance) : '';
+  document.getElementById('idd-pay').value = payment != null ? formatThousands(payment) : '';
+  document.getElementById('idd-balance').dataset.expected = est.balance != null ? est.balance : '';
+  document.getElementById('idd-pay').dataset.expected = est.pay != null ? est.pay : '';
+  document.getElementById('idd-linked-note').innerHTML = est.linkedSum > 0
+    ? `Прив'язана витрата цього місяця: ${fmt(est.linkedSum)}`
+    : '';
+  checkInstallmentDivergence();
+  checkInstallmentPaymentDivergence();
+  document.getElementById('installment-backdrop').removeAttribute('inert');
+  document.getElementById('installment-drawer').removeAttribute('inert');
+  document.getElementById('installment-backdrop').classList.add('open');
+  document.getElementById('installment-drawer').classList.add('open');
+  focusFirstIn(document.getElementById('installment-drawer'));
+}
+function closeInstallmentEditor(){
+  document.getElementById('installment-backdrop').classList.remove('open');
+  document.getElementById('installment-drawer').classList.remove('open');
+  document.getElementById('installment-backdrop').setAttribute('inert','');
+  document.getElementById('installment-drawer').setAttribute('inert','');
+  restoreFocus();
+}
+// Rev 2.2.3 — Автозв'язок, метод B (FINANCIAL_RULES §5): "швидкий екран
+// Оплатити ОЧ" — кнопка в шторці відкриває форму витрати з передзаповненими
+// назвою, сумою (з поля "Платіж/міс" у шторці, можна змінити) і вже
+// встановленою прив'язкою — на відміну від методу C (підказка за збігом
+// тексту), тут прив'язка вже підтверджена самим фактом виклику цієї кнопки.
+function payInstallmentQuick(){
+  const i = editingInstallmentIdx;
+  const acc = installmentAccounts[i];
+  if(!acc) return;
   let amount = null;
-  const payInput = document.getElementById('installment-pay-'+i);
+  const payInput = document.getElementById('idd-pay');
   if(payInput){
     const v = parseAmount(payInput.value);
     if(!isNaN(v) && v>0) amount = v;
@@ -3330,6 +3320,7 @@ function payInstallmentQuick(i){
     const typical = typicalMonthlyPayment(acc.name, 'installment', selectedMonth);
     if(typical != null) amount = typical;
   }
+  closeInstallmentEditor();
   switchTab('vytraty');
   document.getElementById('f-name').value = stripLeadingEmoji(acc.name);
   if(amount != null) document.getElementById('f-amount').value = formatThousands(amount);
@@ -3352,19 +3343,11 @@ function payInstallmentQuick(i){
 // компроміс — фіксований поріг у ₴ був би неадекватний і для маленьких (300₴),
 // і для великих (30000₴) ОЧ одночасно. ЛИШЕ інформаційне попередження — ніколи
 // не блокує збереження, користувач може ввести будь-яке число.
-// Rev 2.2.3 — тихий тег "не збережено" біля назви ОЧ: щойно користувач
-// торкнувся (фокус/ввід) поля "Залишок" чи "Платіж/міс" цього рядка, або
-// натиснув "Застосувати" — з'являється яскравий тег, який зникає лише після
-// повторного рендеру таблиці (тобто після успішного "Зберегти ОЧ" або зміни
-// місяця/переходу, коли таблиця перебудовується заново).
-function markInstallmentDirty(i){
-  dirtyInstallmentRows.add(i);
-  const tag = document.getElementById('installment-unsaved-'+i);
-  if(tag) tag.classList.add('show');
-}
-function checkInstallmentDivergence(i){
-  const input = document.getElementById('installment-bal-'+i);
-  const warnEl = document.getElementById('installment-diff-'+i);
+// Rev 2.16.6 — читає/пише поля ЄДИНОЇ відкритої шторки (без параметра i — у
+// списку більше немає N одночасно видимих рядків із власними полями).
+function checkInstallmentDivergence(){
+  const input = document.getElementById('idd-balance');
+  const warnEl = document.getElementById('idd-balance-diff');
   if(!input || !warnEl) return;
   const expected = parseFloat(input.dataset.expected);
   const actual = parseAmount(input.value);
@@ -3377,7 +3360,7 @@ function checkInstallmentDivergence(i){
     // вручну перебивати число (актуально саме для випадку "факт вже збережено
     // раніше, а тепер з'явилась прив'язана витрата" — розбіжність інакше була б
     // помітна, але виправити її можна було лише вручну).
-    warnEl.innerHTML = `Відхилення від очікуваного (${fmt(expected)}) на ${diffPct.toFixed(0)}% ${direction} · <button type="button" class="bdr-diff-apply" onclick="applyEstimatedInstallmentValues(${i})">Застосувати</button>`;
+    warnEl.innerHTML = `Відхилення від очікуваного (${fmt(expected)}) на ${diffPct.toFixed(0)}% ${direction} · <button type="button" class="bdr-diff-apply" onclick="applyEstimatedInstallmentValues()">Застосувати</button>`;
     warnEl.classList.add('show');
   }else{
     warnEl.innerHTML = '';
@@ -3386,39 +3369,27 @@ function checkInstallmentDivergence(i){
 }
 // Rev 2.2.2 BugFix — підставляє очікуване значення "Залишок" одним тапом;
 // заодно синхронізує "Платіж/міс" (якщо для нього теж є очікуване значення) —
-// разом вони одна узгоджена пропозиція. Знімає prefill-клас (поле стає
-// "торкнутим" — див. Rev 2.2.1), тому наступне "Зберегти ОЧ" збереже це
-// значення як факт.
-function applyEstimatedInstallmentValues(i){
-  const balInput = document.getElementById('installment-bal-'+i);
-  const payInput = document.getElementById('installment-pay-'+i);
+// разом вони одна узгоджена пропозиція.
+function applyEstimatedInstallmentValues(){
+  const balInput = document.getElementById('idd-balance');
+  const payInput = document.getElementById('idd-pay');
   if(!balInput) return;
   const expected = parseFloat(balInput.dataset.expected);
-  if(!isNaN(expected)){
-    balInput.value = formatThousands(expected);
-    balInput.classList.remove('bdr-amount-prefill');
-  }
+  if(!isNaN(expected)) balInput.value = formatThousands(expected);
   if(payInput){
     const expectedPay = parseFloat(payInput.dataset.expected);
-    if(!isNaN(expectedPay)){
-      payInput.value = formatThousands(expectedPay);
-      payInput.classList.remove('bdr-amount-prefill');
-    }
+    if(!isNaN(expectedPay)) payInput.value = formatThousands(expectedPay);
   }
-  checkInstallmentDivergence(i);
-  checkInstallmentPaymentDivergence(i);
-  updateInstallmentTotal();
-  markInstallmentDirty(i);
+  checkInstallmentDivergence();
+  checkInstallmentPaymentDivergence();
 }
 // Rev 2.2.2 BugFix — та сама перевірка розбіжності, але для поля "Платіж/міс"
 // ОКРЕМО від "Залишок". Критично: estimatedPay (прив'язана витрата або типовий
 // платіж) НЕ залежить від prevBal — тому це попередження мусить працювати
-// незалежно, навіть коли для ОЧ ще немає попереднього місяця з фактом
-// (estimatedBalance тоді null, і стара версія через це не показувала взагалі
-// нічого — ні тут, ні там).
-function checkInstallmentPaymentDivergence(i){
-  const input = document.getElementById('installment-pay-'+i);
-  const warnEl = document.getElementById('installment-pay-diff-'+i);
+// незалежно, навіть коли для ОЧ ще немає попереднього місяця з фактом.
+function checkInstallmentPaymentDivergence(){
+  const input = document.getElementById('idd-pay');
+  const warnEl = document.getElementById('idd-pay-diff');
   if(!input || !warnEl) return;
   const expected = parseFloat(input.dataset.expected);
   const actual = parseAmount(input.value);
@@ -3426,72 +3397,74 @@ function checkInstallmentPaymentDivergence(i){
   const diffPct = Math.abs(actual-expected) / expected * 100;
   if(diffPct > 5){
     const direction = actual > expected ? 'більше' : 'менше';
-    warnEl.innerHTML = `Відхилення від очікуваного (${fmt(expected)}) на ${diffPct.toFixed(0)}% ${direction} · <button type="button" class="bdr-diff-apply" onclick="applyEstimatedPayment(${i})">Застосувати</button>`;
+    warnEl.innerHTML = `Відхилення від очікуваного (${fmt(expected)}) на ${diffPct.toFixed(0)}% ${direction} · <button type="button" class="bdr-diff-apply" onclick="applyEstimatedPayment()">Застосувати</button>`;
     warnEl.classList.add('show');
   }else{
     warnEl.innerHTML = '';
     warnEl.classList.remove('show');
   }
 }
-function applyEstimatedPayment(i){
-  const input = document.getElementById('installment-pay-'+i);
+function applyEstimatedPayment(){
+  const input = document.getElementById('idd-pay');
   if(!input) return;
   const expected = parseFloat(input.dataset.expected);
-  if(!isNaN(expected)){
-    input.value = formatThousands(expected);
-    input.classList.remove('bdr-amount-prefill');
-  }
-  checkInstallmentPaymentDivergence(i);
-  updateInstallmentTotal();
-  markInstallmentDirty(i);
+  if(!isNaN(expected)) input.value = formatThousands(expected);
+  checkInstallmentPaymentDivergence();
 }
-function saveInstallmentTable(){
-  if(!selectedMonth || installmentAccounts.length===0) return;
-  let skippedCount = 0;
-  installmentAccounts.forEach(function(acc, i){
-    const name = acc.name;
-    const balInput = document.getElementById('installment-bal-'+i);
-    const payInput = document.getElementById('installment-pay-'+i);
-    if(!balInput) return;
-    // Rev 2.2.1 — вирішення проблеми "зберігаю одне — фіксується все": якщо
-    // поле "Залишок" ще показує НЕДОТОРКАНИЙ pre-fill (користувач жодного разу
-    // не сфокусував/не редагував це поле цієї сесії — див. onfocus у розмітці
-    // вище), рядок пропускається повністю — жоден запис не створюється й не
-    // оновлюється. "Торкнувся" = focus достатньо (не обов'язково змінювати
-    // число) — узгоджено з §3.2 "Відкрив і зберіг те саме число → факт", лише
-    // тепер це рахується ПОРЯДКОВО, а не для всієї таблиці одразу.
-    if(balInput.classList.contains('bdr-amount-prefill')){ skippedCount++; return; }
-    const rawBal = balInput.value.trim();
-    const balance = parseAmount(rawBal);
-    const rawPay = payInput ? payInput.value.trim() : '';
+// Rev 2.16.6 — єдина точка збереження ОЧ: назва+початкова сума
+// (installmentAccounts) і залишок+платіж (debts, цей місяць) разом, один тап
+// "Зберегти" в шторці — той самий принцип, що saveCardDebtDrawer() для карток.
+function saveInstallmentDrawer(){
+  const acc = installmentAccounts[editingInstallmentIdx];
+  if(!acc || !selectedMonth) return;
+  const newName = document.getElementById('idd-name').value.trim();
+  const newInitial = parseAmount(document.getElementById('idd-initial').value);
+  if(!newName){ flashField('idd-name'); return; }
+  if(!newInitial || isNaN(newInitial) || newInitial<=0){ flashField('idd-initial'); return; }
+  const oldName = acc.name;
+  if(newName !== oldName && installmentAccounts.some(function(a){ return a.name===newName; })){ flashField('idd-name'); return; }
+  if(newName !== oldName){
+    debts.forEach(function(d){ if(d.name===oldName && d.kind==='installment') d.name = newName; });
+  }
+  acc.name = newName;
+  acc.initialAmount = newInitial;
+  saveInstallmentAccounts();
+
+  const rawBal = document.getElementById('idd-balance').value.trim();
+  const balance = parseAmount(rawBal);
+  const existingIdx = debts.findIndex(function(d){ return d.name===newName && d.kind==='installment' && d.month===selectedMonth; });
+  if(!rawBal || isNaN(balance) || balance<0){
+    if(existingIdx>=0) debts.splice(existingIdx,1);
+  }else{
+    const rawPay = document.getElementById('idd-pay').value.trim();
     const monthlyPayment = rawPay ? parseAmount(rawPay) : undefined;
-    const existingIdx = debts.findIndex(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
-    if(!rawBal || isNaN(balance) || balance<0){
-      if(existingIdx>=0) debts.splice(existingIdx,1);
-      return;
+    if(existingIdx>=0){
+      debts[existingIdx].balance = balance;
+      debts[existingIdx].monthlyPayment = monthlyPayment;
+    }else{
+      debts.push({ id: Date.now()+Math.random().toString(36).slice(2,6), name:newName, kind:'installment', month:selectedMonth, balance, monthlyPayment });
     }
-    if(existingIdx>=0){ debts[existingIdx].balance = balance; debts[existingIdx].monthlyPayment = monthlyPayment; }
-    else{ debts.push({ id: Date.now()+Math.random().toString(36).slice(2,6), name, kind:'installment', month:selectedMonth, balance, monthlyPayment }); }
-  });
+  }
   saveDebts();
-  // Rev 2.2.3 BugFix — явне очищення ТУТ (а не всередині populateInstallmentTable
-  // безумовно): саме факт успішного збереження знімає "заблокований" стан
-  // рендеру для ЦІЄЇ таблиці, дозволяючи наступному renderAll() перебудувати її
-  // з чистого стану (теги "не збережено" зникають).
-  dirtyInstallmentRows.clear();
-  const hint = document.getElementById('installments-saved-hint');
-  hint.textContent = skippedCount>0
-    ? `Збережено. Пропущено ${skippedCount} ${rowCountWord(skippedCount)} (не торкались) — торкніться поля "Залишок", щоб підтвердити.`
-    : 'Збережено';
-  hint.classList.add('show');
-  setTimeout(()=>{ hint.classList.remove('show'); hint.textContent = 'Збережено'; }, skippedCount>0 ? 3500 : 1500);
+  closeInstallmentEditor();
   renderAll();
+  const hint = document.getElementById('installments-saved-hint');
+  if(hint){
+    hint.textContent = 'Збережено';
+    hint.classList.add('show');
+    setTimeout(function(){ hint.classList.remove('show'); }, 1500);
+  }
+}
+function deleteInstallmentFromDrawer(){
+  const i = editingInstallmentIdx;
+  closeInstallmentEditor();
+  removeInstallmentAccount(i);
 }
 // Rev 2.1.17 — початкова сума тепер обов'язкова при створенні нового ОЧ:
 // без неї неможливо порахувати прогрес-бар на Аналітиці (Block 5).
 // Rev 2.1.24 — форма "+ Додати ОЧ" замінена на кнопку, що відкриває вже
-// наявну кастомну модалку (той самий showInstallmentModal, що й редагування,
-// див. editInstallmentAccount нижче) — приймає параметри, а не читає DOM.
+// наявну кастомну модалку (той самий showInstallmentModal, що й редагування
+// вже існуючої — тепер через #installment-drawer, Rev 2.16.6).
 function addInstallmentAccount(name, amount){
   if(!name) return;
   if(!amount || amount<=0) return;
@@ -3508,23 +3481,6 @@ function openAddInstallmentModal(){
   showInstallmentModal('Нова ОЧ:', '', '', function(name, amount){
     if(installmentAccounts.some(a=>a.name===name)) return false;
     addInstallmentAccount(name, amount);
-  });
-}
-// Rev 2.1.17 — замінює колишній renameInstallmentAccount: тепер редагуємо і
-// назву, і початкову суму разом (одна кнопка ✎ замість двох окремих дій).
-// Rev 2.1.25 — додано перевірку дублікату назви серед ІНШИХ ОЧ (раніше цього
-// не було взагалі — можна було випадково перейменувати два ОЧ на однакову
-// назву, що зламало б їх розрізнення в debts).
-function editInstallmentAccount(i){
-  const acc = installmentAccounts[i];
-  showInstallmentModal('Редагувати ОЧ:', stripLeadingEmoji(acc.name), acc.initialAmount, function(newName, newAmount){
-    const oldName = acc.name;
-    if(newName !== oldName && installmentAccounts.some(a=>a.name===newName)) return false;
-    debts.forEach(function(d){ if(d.name===oldName && d.kind==='installment') d.name = newName; });
-    acc.name = newName;
-    acc.initialAmount = newAmount;
-    saveDebts(); saveInstallmentAccounts();
-    renderAll();
   });
 }
 function removeInstallmentAccount(i){
@@ -4600,22 +4556,13 @@ function populateMonths(){
     const el = document.getElementById(id); el.innerHTML = opts; el.value = selectedMonth;
   });
 }
-// Rev 2.2.3 — захист від втрати незбережених змін в Обліку (борги/ОЧ) при
-// зміні місяця: renderAll() перебудовує обидві таблиці з нуля з localStorage,
-// тому будь-що недоторкане (тег "⚠ не збережено") мовчки зникло б без сліду.
-// select вже показує НОВЕ значення до виклику onchange — якщо користувач
-// скасовує перехід, повертаємо видиме значення селектів назад вручну.
+// Rev 2.16.6 — захист від "незбережених змін" прибрано: і картки (Rev
+// 2.16.5), і ОЧ тепер редагуються виключно в ізольованій шторці з власним
+// явним "Зберегти" — списки самі по собі більше не мають інлайн-полів, які
+// можна лишити недоторканими між рендерами, тому втрачати при зміні місяця
+// вже нічого.
 function onMonthChange(val){
   if(val === selectedMonth) return;
-  if(hasUnsavedAccountingChanges()){
-    document.getElementById('month-select-side').value = selectedMonth;
-    document.getElementById('month-select-top').value = selectedMonth;
-    showConfirmModal('У вас є незбережені зміни в Обліку (ОЧ). Перейти на інший місяць без збереження?', function(){
-      dirtyInstallmentRows.clear();
-      performMonthChange(val);
-    }, 'Так, перейти');
-    return;
-  }
   performMonthChange(val);
 }
 function performMonthChange(val){
@@ -6140,21 +6087,9 @@ function toggleInstallmentsCardExpand(){
 // (нічого не робити з датою) і "прийшов на Витрати з іншої вкладки" (скинути
 // дату на сьогодні) — просте порівняння з попередньою активною вкладкою.
 let lastActiveTab = 'analytics';
+// Rev 2.16.6 — той самий захист від "незбережених змін" прибрано (див.
+// onMonthChange вище) — редагування Обліку тепер завжди йде через шторку.
 function switchTab(tab){
-  // Rev 2.2.3 — той самий захист, що й onMonthChange: якщо є незбережене в
-  // Обліку (борги/ОЧ), питаємо перед переходом, а не втрачаємо мовчки.
-  if(tab !== lastActiveTab && hasUnsavedAccountingChanges()){
-    showConfirmModal('У вас є незбережені зміни в Обліку (ОЧ). Перейти на іншу вкладку без збереження?', function(){
-      dirtyInstallmentRows.clear();
-      // Rev 2.2.3 BugFix — без цього виклику DOM таблиць лишався б показувати
-      // "покинуті" незбережені значення без жодного тега (dirty вже 0, але
-      // populate*() ще не перебудовували поля) — виглядало б як тихий факт,
-      // хоча насправді дані НЕ збережені і НЕ відповідають реальному стану.
-      populateBankDebtTable(); populateInstallmentTable();
-      performSwitchTab(tab);
-    }, 'Так, перейти');
-    return;
-  }
   performSwitchTab(tab);
 }
 /* ============ Заголовок вкладки (Rev 2.8.0) ============
@@ -6607,7 +6542,7 @@ function closeSettings(){
   document.getElementById('settings-drawer').setAttribute('inert','');
   restoreFocus();
 }
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); closeCardDebtEditor(); } });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); } });
 
 /* ============ Тема застосунку (Rev 2.6.0) ============
    Три стани: 'auto' (за системною темою, дефолт), 'light', 'dark' — саме
@@ -6776,7 +6711,8 @@ function showPromptModal(message, defaultValue, onSave){
 // модалці (окремий "amount-wrap" поруч з вже наявним текстовим input-wrap).
 // Rev 2.1.24 — узагальнено з showEditInstallmentModal: параметр title тепер
 // дозволяє використовувати ту саму модалку і для додавання нової ОЧ
-// (openAddInstallmentModal), і для редагування (editInstallmentAccount).
+// (openAddInstallmentModal), і для нового банку (openAddBankModal); редагування
+// вже існуючих карток/ОЧ — через відповідну шторку (Rev 2.16.5/2.16.6).
 // Rev 2.1.25 — та сама підсвітка-блокування, що й showPromptModal вище, плюс
 // поле суми тепер з розділювачами тисяч (formatThousands/parseAmount).
 // Rev 2.16.4 — amountLabel: опційний підпис поля суми (за замовчуванням
