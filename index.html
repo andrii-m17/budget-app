@@ -722,9 +722,15 @@
   .diag-status.ok{ background:var(--color-success-bg); color:var(--color-success); }
   .diag-status.bad{ background:var(--color-error-bg); color:var(--color-error); }
   .diag-issue-list{ margin:0 0 12px; }
-  .diag-issue{ display:block; width:100%; font-size:12px; color:var(--color-text-secondary); padding:7px 10px 7px 12px; margin-bottom:6px; line-height:1.45; font-family:inherit; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; background:var(--color-surface-hover); border:none; border-left:2px solid var(--color-error); border-radius:0 var(--radius-sm) var(--radius-sm) 0; }
+  /* Rev 2.16.2 — .diag-issue-row обгортає кнопку-проблему й (для розбіжностей
+     ОЧ) кнопку "Ігнорувати" поруч — раніше margin-bottom був на самій
+     .diag-issue, тепер переїхав на обгортку, бо issue-кнопка стала flex:1. */
+  .diag-issue-row{ display:flex; align-items:stretch; gap:6px; margin-bottom:6px; }
+  .diag-issue{ display:block; flex:1 1 auto; min-width:0; font-size:12px; color:var(--color-text-secondary); padding:7px 10px 7px 12px; line-height:1.45; font-family:inherit; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; background:var(--color-surface-hover); border:none; border-left:2px solid var(--color-error); border-radius:0 var(--radius-sm) var(--radius-sm) 0; }
   .diag-issue:hover{ background:var(--color-border); }
   .diag-issue b{ color:var(--color-text-primary); }
+  .diag-issue-ignore{ flex:0 0 auto; font-size:11px; font-weight:600; color:var(--color-text-secondary); background:var(--color-surface-hover); border:1px solid var(--color-border-strong); border-radius:var(--radius-sm); padding:0 10px; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+  .diag-issue-ignore:hover{ background:var(--color-border); color:var(--color-text-primary); }
   .diag-summary-ok{ text-align:center; padding:16px 6px; color:var(--color-success); font-weight:600; font-size:13px; }
   .diag-summary-meta{ text-align:center; font-size:11.5px; color:var(--color-muted); margin-top:6px; }
   /* Rev 2.16.1 — коротке підсвічування запису, до якого перейшли з
@@ -1713,7 +1719,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.16.1</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.16.2</div>
 </div>
   </div>
 </div>
@@ -1935,6 +1941,12 @@ const LS_KEY_INSTALLMENTS = 'budget_installmentaccounts_v1';
 // зберігається, але для місяців >= зазначеного запис більше не враховується
 // в "Борги по картках" / KPI. Ключ: "kind:name" -> "YYYY-MM".
 const LS_KEY_HIDDEN = 'budget_debthidden_v1';
+// Rev 2.16.2 — Діагностика даних: розбіжність факт/очікування по ОЧ (>5%) не
+// завжди помилка — заплановано 2000, а фактично внесено 3000 (свідома
+// переплата) теж дає диффPct>5%, хоча дані коректні. Ключ: "name|YYYY-MM" ->
+// true, дає користувачу позначити конкретний місяць/ОЧ як "перевірено,
+// це не помилка", щоб він не зʼявлявся знову при кожному запуску діагностики.
+const LS_KEY_IGNORED_DIVERGENCES = 'budget_ignored_divergences_v1';
 // Rev 2.0.2 — дефолтний список банків/карток для керованої таблиці боргів,
 // назви точно збігаються з тим, що вже створює імпорт з Excel (debtCols) —
 // тому старі імпортовані записи одразу підхоплюються таблицею без міграції.
@@ -1945,6 +1957,7 @@ let debts = []; // {id, name, kind:'card'|'installment', month:'YYYY-MM', balanc
 let bankAccounts = []; // ['🟩 Приват Банк', ...] — керований список, можна додавати/перейменовувати/видаляти
 let installmentAccounts = []; // [{name:'iPhone', initialAmount:25000}, ...] — Rev 2.1.17: був масив рядків, тепер об'єктів (потрібна початкова сума для прогрес-бару)
 let hiddenFrom = {}; // Rev 2.1.0: {"card:🟩 Приват Банк": "2026-08", ...}
+let ignoredDivergences = {}; // Rev 2.16.2: {"ОЧ Приватбанк|2026-02": true, ...}
 let selectedMonth = null;
 // Rev 2.1.33 — кеш обох варіантів вмісту (компактний/детальний) кожної
 // картки Row 4, наповнюється заново при кожному renderDashboard(), щоб бути
@@ -2051,6 +2064,7 @@ function loadAll(){
     }
   }catch(e){ installmentAccounts = []; }
   try{ hiddenFrom = JSON.parse(localStorage.getItem(LS_KEY_HIDDEN) || '{}'); }catch(e){ hiddenFrom = {}; }
+  try{ ignoredDivergences = JSON.parse(localStorage.getItem(LS_KEY_IGNORED_DIVERGENCES) || '{}'); }catch(e){ ignoredDivergences = {}; }
   ensureInstallmentFirstMonth();
   populateMonths(); renderAll(); renderStructure();
 }
@@ -2060,6 +2074,7 @@ function saveDebts(){ localStorage.setItem(LS_KEY_DEBT, JSON.stringify(debts)); 
 function saveBankAccounts(){ localStorage.setItem(LS_KEY_BANKS, JSON.stringify(bankAccounts)); }
 function saveInstallmentAccounts(){ localStorage.setItem(LS_KEY_INSTALLMENTS, JSON.stringify(installmentAccounts)); }
 function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hiddenFrom)); }
+function saveIgnoredDivergences(){ localStorage.setItem(LS_KEY_IGNORED_DIVERGENCES, JSON.stringify(ignoredDivergences)); }
 // Rev 2.11.9 (Баг #5) — міграція для ОЧ, створених ДО цього фіксу (не мають
 // власного firstMonth): визначаємо його заднім числом як найраніший ФАКТИЧНИЙ
 // запис боргу для цієї ОЧ. Ідемпотентно — чіпає лише записи, де firstMonth
@@ -2088,11 +2103,11 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.16.1';
+const APP_VERSION = '2.16.2';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
-  LS_KEY_SCHEMA_VERSION
+  LS_KEY_SCHEMA_VERSION, LS_KEY_IGNORED_DIVERGENCES
 ];
 // Rev 2.15.0 — контрольований snapshot (ROADMAP п.19): додано явні метадані
 // schemaVersion/appVersion/createdAt замість лише "version"/"exportedAt" —
@@ -2310,8 +2325,9 @@ function clearAllData(){
     bankAccounts = DEFAULT_BANKS.slice();
     installmentAccounts = [];
     hiddenFrom = {};
+    ignoredDivergences = {}; // Rev 2.16.2 — той самий принцип: без боргів ігноровані розбіжності теж втрачають сенс
     saveExpenses(); saveIncomes(); saveDebts();
-    saveBankAccounts(); saveInstallmentAccounts(); saveHiddenFrom();
+    saveBankAccounts(); saveInstallmentAccounts(); saveHiddenFrom(); saveIgnoredDivergences();
     populateMonths(); renderAll();
     document.getElementById('import-status').textContent = 'Усі дані очищено.';
   });
@@ -2372,16 +2388,24 @@ function findInstallmentFieldIssues(){
       };
     });
 }
+// Rev 2.16.2 — ключ ігнорування розбіжності: та сама пара "назва+місяць", що
+// вже природно ідентифікує конкретний запис боргу (debts[].name+.month).
+function divergenceKey(name, month){ return name + '|' + month; }
 // Розбіжність факт/очікування по ОЧ понад поріг 5% (Модель C, FINANCIAL_RULES
 // §4) — той самий розрахунок, що checkInstallmentDivergence() в Обліку
 // (lastKnownBalance + typicalMonthlyPayment/linkedExpensesSum), але
 // застосований до КОЖНОГО факту в історії боргів, а не лише до відкритого
 // зараз місяця/рядка форми.
+// Rev 2.16.2 — не кожна розбіжність понад 5% є помилкою (напр. свідома
+// переплата: заплановано 2000, а фактично внесено 3000) — записи, позначені
+// через "Ігнорувати" (ignoreDiagnosticDivergence нижче), сюди більше не
+// потрапляють.
 function findInstallmentDivergences(){
   const issues = [];
   const names = Array.from(new Set(debts.filter(function(d){ return d.kind==='installment'; }).map(function(d){ return d.name; })));
   names.forEach(function(name){
     debts.filter(function(d){ return d.kind==='installment' && d.name===name; }).forEach(function(rec){
+      if(ignoredDivergences[divergenceKey(name, rec.month)]) return;
       const prevBal = lastKnownBalance(name, 'installment', rec.month);
       if(prevBal == null) return; // немає попереднього факту — нема з чим порівнювати
       const typicalPay = typicalMonthlyPayment(name, 'installment', rec.month);
@@ -2403,11 +2427,15 @@ function findInstallmentDivergences(){
   });
   return issues;
 }
-// Rev 2.16.1 — заповнюється заново при кожному runDataDiagnostics(): індекс
-// у масиві = номер кнопки-проблеми в модалці, звідки onclick="goToDiagnosticIssue(N)"
+// Rev 2.16.1 — заповнюється заново при кожній побудові звіту: індекс у
+// масиві = номер кнопки-проблеми в модалці, звідки onclick="goToDiagnosticIssue(N)"
 // бере, куди саме переходити.
 let diagnosticIssueTargets = [];
-function runDataDiagnostics(){
+// Rev 2.16.2 — винесено з runDataDiagnostics() в окрему функцію: потрібно
+// перебудовувати HTML звіту ПОВТОРНО, не закриваючи модалку (після кліку
+// "Ігнорувати" — див. ignoreDiagnosticDivergence), а не лише один раз при
+// першому відкритті.
+function buildDiagnosticsReport(){
   const checks = [
     { title: 'Витрати: UUID (унікальність)', issues: findExpenseIdIssues() },
     { title: 'Витрати: updatedAt/createdAt', issues: findTimestampIssues() },
@@ -2416,26 +2444,49 @@ function runDataDiagnostics(){
   ];
   diagnosticIssueTargets = [];
   const totalIssues = checks.reduce(function(s,c){ return s+c.issues.length; }, 0);
-  let html;
   if(totalIssues === 0){
-    html = `<div class="diag-summary-ok">✓ Усе гаразд — проблем не знайдено</div>`
+    return `<div class="diag-summary-ok">✓ Усе гаразд — проблем не знайдено</div>`
       + `<div class="diag-summary-meta">Перевірено: ${expenses.length} ${expenseCountWord(expenses.length)}, ${installmentAccounts.length} ОЧ</div>`;
-  }else{
-    html = checks.map(function(c){
-      const statusHtml = c.issues.length
-        ? `<span class="diag-status bad">${c.issues.length}</span>`
-        : `<span class="diag-status ok">OK</span>`;
-      const listHtml = c.issues.length
-        ? `<div class="diag-issue-list">` + c.issues.map(function(i){
-            const targetIdx = diagnosticIssueTargets.length;
-            diagnosticIssueTargets.push(i.target);
-            return `<button type="button" class="diag-issue" onclick="goToDiagnosticIssue(${targetIdx})"><b>${escapeHtml(i.label)}</b> (${escapeHtml(i.date)}) — ${escapeHtml(i.reason)}</button>`;
-          }).join('') + `</div>`
-        : '';
-      return `<div class="diag-check"><span class="diag-check-label">${c.title}</span>${statusHtml}</div>${listHtml}`;
-    }).join('');
   }
-  showDiagnosticsModal(html);
+  return checks.map(function(c){
+    const statusHtml = c.issues.length
+      ? `<span class="diag-status bad">${c.issues.length}</span>`
+      : `<span class="diag-status ok">OK</span>`;
+    const listHtml = c.issues.length
+      ? `<div class="diag-issue-list">` + c.issues.map(function(i){
+          const targetIdx = diagnosticIssueTargets.length;
+          diagnosticIssueTargets.push(i.target);
+          const issueBtn = `<button type="button" class="diag-issue" onclick="goToDiagnosticIssue(${targetIdx})"><b>${escapeHtml(i.label)}</b> (${escapeHtml(i.date)}) — ${escapeHtml(i.reason)}</button>`;
+          // Rev 2.16.2 — кнопка "Ігнорувати" лише для розбіжностей (installment-month):
+          // єдиний тип перевірки тут, де високий шанс хибного спрацювання
+          // (свідома переплата), на відміну від UUID/timestamp/полів ОЧ, де
+          // "проблема" завжди справжня.
+          // Rev 2.16.2 BugFix — передаємо targetIdx (число), а не назву ОЧ
+          // напряму в onclick: назва може містити апостроф (укр. назви
+          // банків/карток), що зламало б лапки в onclick-рядку. Той самий
+          // прийом, що вже в issueBtn вище — пошук через diagnosticIssueTargets.
+          const ignoreBtn = i.target.type === 'installment-month'
+            ? `<button type="button" class="diag-issue-ignore" onclick="ignoreDiagnosticDivergence(${targetIdx})">Ігнорувати</button>`
+            : '';
+          return `<div class="diag-issue-row">${issueBtn}${ignoreBtn}</div>`;
+        }).join('') + `</div>`
+      : '';
+    return `<div class="diag-check"><span class="diag-check-label">${c.title}</span>${statusHtml}</div>${listHtml}`;
+  }).join('');
+}
+function runDataDiagnostics(){
+  showDiagnosticsModal(buildDiagnosticsReport());
+}
+// Rev 2.16.2 — позначає конкретну розбіжність (назва ОЧ + місяць) як свідомо
+// прийнятну (напр. переплата) і одразу перебудовує вміст УЖЕ ВІДКРИТОЇ
+// модалки на місці (без закриття/повторного відкриття — інакше користувач
+// щоразу губив би позицію прокрутки серед інших проблем).
+function ignoreDiagnosticDivergence(targetIdx){
+  const target = diagnosticIssueTargets[targetIdx];
+  if(!target || target.type !== 'installment-month') return;
+  ignoredDivergences[divergenceKey(target.name, target.month)] = true;
+  saveIgnoredDivergences();
+  document.getElementById('app-modal-text').innerHTML = buildDiagnosticsReport();
 }
 // Rev 2.16.1 — звіт діагностики тепер у #app-modal (тимчасове повідомлення,
 // а не постійний блок на сторінці): той самий модал, що й showConfirmModal,
@@ -6458,14 +6509,19 @@ function closeAppModal(){
   document.getElementById('app-modal').classList.remove('open');
   document.getElementById('modal-backdrop').setAttribute('inert','');
   document.getElementById('app-modal').setAttribute('inert','');
-  // Rev 2.16.1 — showDiagnosticsModal() ховає кнопку "Так" і перейменовує
-  // "Скасувати" на "Закрити" (інформаційний звіт, не підтвердження дії) —
-  // повертаємо дефолтний вигляд одразу тут, щоб наступна звичайна модалка
-  // (showConfirmModal і подібні) не успадкувала цей стан.
-  const cancelBtn = document.getElementById('app-modal-cancel-btn');
-  if(cancelBtn){ cancelBtn.textContent = 'Скасувати'; cancelBtn.style.display = ''; }
-  const confirmBtn = document.getElementById('app-modal-confirm-btn');
-  if(confirmBtn) confirmBtn.style.display = '';
+  // Rev 2.16.2 BugFix — це скидання (showDiagnosticsModal ховає кнопку "Так"
+  // і перейменовує "Скасувати" на "Закрити") раніше відбувалось СИНХРОННО,
+  // тобто ще ДО завершення CSS-переходу opacity (180ms, --duration-base) —
+  // модалка на цей момент лише починає зникати, тому користувач встигав
+  // помітити, як "Закрити" на мить перетворюється назад на "Скасувати"/"Так"
+  // прямо в неї на очах. Тепер скидання відкладене на час переходу, щоб
+  // відбутись вже після того, як модалка стане невидимою (opacity:0).
+  setTimeout(function(){
+    const cancelBtn = document.getElementById('app-modal-cancel-btn');
+    if(cancelBtn){ cancelBtn.textContent = 'Скасувати'; cancelBtn.style.display = ''; }
+    const confirmBtn = document.getElementById('app-modal-confirm-btn');
+    if(confirmBtn) confirmBtn.style.display = '';
+  }, 200);
   restoreFocus();
 }
 function showConfirmModal(message, onConfirm, confirmLabel){

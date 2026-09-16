@@ -9,18 +9,19 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 
-function sandbox({ expenses, debts, installmentAccounts, hiddenFrom }){
+function sandbox({ expenses, debts, installmentAccounts, hiddenFrom, ignoredDivergences }){
   return buildSandbox(
     {
       expenses: expenses || [],
       debts: debts || [],
       installmentAccounts: installmentAccounts || [],
       hiddenFrom: hiddenFrom || {},
+      ignoredDivergences: ignoredDivergences || {},
       fmt: (n) => String(Math.round(n)) + ' ₴',
     },
     [
       'findExpenseIdIssues', 'findTimestampIssues', 'findInstallmentFieldIssues', 'findInstallmentDivergences',
-      'hideKey', 'isHiddenForMonth', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum',
+      'divergenceKey', 'hideKey', 'isHiddenForMonth', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum',
     ]
   );
 }
@@ -103,4 +104,19 @@ test('findInstallmentDivergences: немає попереднього факту
   ];
   const ctx = sandbox({ debts });
   assert.equal(ctx.findInstallmentDivergences().length, 0);
+});
+
+test('findInstallmentDivergences: ігнорована розбіжність (name|month) більше не потрапляє в список', () => {
+  const debts = [
+    { name: 'ОЧ Приватбанк', kind: 'installment', month: '2026-01', balance: 10000, monthlyPayment: 3000 },
+    { name: 'ОЧ Приватбанк', kind: 'installment', month: '2026-02', balance: 9000, monthlyPayment: 3000 }, // свідома переплата, як приклад з фідбеку
+  ];
+  const ignoredDivergences = { 'ОЧ Приватбанк|2026-02': true };
+  const ctx = sandbox({ debts, ignoredDivergences });
+  assert.equal(ctx.findInstallmentDivergences().length, 0);
+});
+
+test('divergenceKey: об\'єднує назву і місяць через "|"', () => {
+  const ctx = sandbox({});
+  assert.equal(ctx.divergenceKey('ОЧ Приватбанк', '2026-02'), 'ОЧ Приватбанк|2026-02');
 });
