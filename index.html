@@ -701,9 +701,20 @@
   .service-danger-title{ font-size:14px; font-weight:700; color:var(--color-error); }
   .service-danger-sub{ font-size:12px; color:var(--color-text-secondary); }
   .version-footer{ text-align:center; font-size:11.5px; color:var(--color-muted); padding:20px 0 4px; font-family:'JetBrains Mono',monospace; }
+  /* Rev 2.16.1 — "Діагностика даних" стала повноширинною карткою (той самий
+     розмір/раскладка, що .service-danger-card нижче), але зі звичайними
+     (не error) кольорами — це не небезпечна дія, лише інша вага на екрані. */
+  .service-wide-card{ display:flex; align-items:center; gap:14px; width:100%; padding:16px; margin-bottom:24px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+  .service-wide-card:hover{ background:var(--color-surface-hover); }
+  .service-wide-card .service-tile-icon{ flex-shrink:0; }
+  .service-wide-text{ display:flex; flex-direction:column; gap:2px; }
+  .service-wide-title{ font-size:14px; font-weight:700; color:var(--color-text-primary); }
+  .service-wide-sub{ font-size:12px; color:var(--color-text-secondary); }
   /* Rev 2.16.0 — Діагностика даних (ROADMAP п.20): той самий рядковий
      патерн, що .struct-item/.kw-row (заголовок перевірки + статус-бейдж),
-     плюс список конкретних проблемних записів під ним, коли вони є. */
+     плюс список конкретних проблемних записів під ним, коли вони є.
+     Rev 2.16.1 — звіт тепер живе в #app-modal (тимчасове повідомлення), і
+     кожен .diag-issue — клікабельна кнопка "перейти до запису", не div. */
   .diag-check{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--color-border); font-size:13px; }
   .diag-check:last-child{ border-bottom:none; }
   .diag-check-label{ font-weight:600; }
@@ -711,10 +722,16 @@
   .diag-status.ok{ background:var(--color-success-bg); color:var(--color-success); }
   .diag-status.bad{ background:var(--color-error-bg); color:var(--color-error); }
   .diag-issue-list{ margin:0 0 12px; }
-  .diag-issue{ font-size:12px; color:var(--color-text-secondary); padding:7px 0 7px 12px; border-left:2px solid var(--color-error); margin-bottom:6px; line-height:1.45; }
+  .diag-issue{ display:block; width:100%; font-size:12px; color:var(--color-text-secondary); padding:7px 10px 7px 12px; margin-bottom:6px; line-height:1.45; font-family:inherit; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; background:var(--color-surface-hover); border:none; border-left:2px solid var(--color-error); border-radius:0 var(--radius-sm) var(--radius-sm) 0; }
+  .diag-issue:hover{ background:var(--color-border); }
   .diag-issue b{ color:var(--color-text-primary); }
   .diag-summary-ok{ text-align:center; padding:16px 6px; color:var(--color-success); font-weight:600; font-size:13px; }
   .diag-summary-meta{ text-align:center; font-size:11.5px; color:var(--color-muted); margin-top:6px; }
+  /* Rev 2.16.1 — коротке підсвічування запису, до якого перейшли з
+     діагностики (Журнал/Облік) — щоб було видно, який саме рядок мався на
+     увазі, а не лише проскролити екран. */
+  @keyframes diagFlash{ 0%{ background:var(--color-warning-bg); } 100%{ background:transparent; } }
+  .diag-flash{ animation: diagFlash 1.6s ease-out; }
 
   /* ---- Налаштування (Drawer) ---- */
   .drawer-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
@@ -734,7 +751,10 @@
   .theme-toggle-btn:hover{ color:var(--color-text-primary); }
   .theme-toggle-btn.active{ background:var(--color-surface); color:var(--color-primary-hover); box-shadow:var(--shadow-sm); }
   /* Rev 2.0.5 — власний модал замість confirm()/prompt() */
-  .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); background:var(--color-surface); border-radius:var(--radius-xl); padding:22px 20px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
+  /* Rev 2.16.1 — max-height/overflow-y: звіт діагностики може мати багато
+     рядків проблем і не поміщатись у фіксовану висоту; для решти (коротких)
+     модалок це нічого не змінює, бо контент завжди був нижчий за 80vh. */
+  .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); max-height:80vh; overflow-y:auto; background:var(--color-surface); border-radius:var(--radius-xl); padding:22px 20px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
   .app-modal.open{ opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
   #modal-backdrop{ z-index:95; }
   /* Rev 2.15.0 — white-space:pre-line: прев'ю відновлення бекапу тепер
@@ -1644,22 +1664,19 @@
   <div class="import-status" id="backup-status"></div>
 
   <div class="section-label">Діагностика</div>
-  <div class="service-grid">
-    <button type="button" class="service-tile" id="diagnostics-btn" onclick="runDataDiagnostics()">
-      <span class="service-tile-icon c-blue">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="2" width="6" height="4" rx="1"/>
-          <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/>
-          <path d="m9 14 2 2 4-4"/>
-        </svg>
-      </span>
-      <span class="service-tile-label">
-        <span>Діагностика даних</span>
-        <span class="service-tile-sub">Перевірка цілісності записів</span>
-      </span>
-    </button>
-  </div>
-  <div class="card hidden" id="diagnostics-results"></div>
+  <button type="button" class="service-wide-card" id="diagnostics-btn" onclick="runDataDiagnostics()">
+    <span class="service-tile-icon c-blue">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="2" width="6" height="4" rx="1"/>
+        <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/>
+        <path d="m9 14 2 2 4-4"/>
+      </svg>
+    </span>
+    <span class="service-wide-text">
+      <span class="service-wide-title">Діагностика даних</span>
+      <span class="service-wide-sub">Перевірка цілісності записів</span>
+    </span>
+  </button>
 
   <div class="section-label" style="color:var(--color-error);">Небезпечні дії</div>
   <button type="button" class="service-danger-card" onclick="clearAllData()">
@@ -1696,7 +1713,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.16.0</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.16.1</div>
 </div>
   </div>
 </div>
@@ -1782,7 +1799,7 @@
     <select id="app-modal-select2"></select>
   </div>
   <div class="app-modal-actions">
-    <button type="button" class="submit-btn secondary" onclick="closeAppModal()">Скасувати</button>
+    <button type="button" class="submit-btn secondary" id="app-modal-cancel-btn" onclick="closeAppModal()">Скасувати</button>
     <button type="button" class="submit-btn" id="app-modal-confirm-btn">Так</button>
   </div>
 </div>
@@ -2071,7 +2088,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.16.0';
+const APP_VERSION = '2.16.1';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -2308,17 +2325,21 @@ function clearAllData(){
    користувача одразу по всій історії, а не одного рядка форми. */
 // Витрати без валідного UUID або з дубльованим UUID (той самий природний
 // ключ, на якому базується дедуплікація імпорту, computeImportPlan Rev 2.13).
+// Кожна проблема несе "target" — куди перейти по кліку (Rev 2.16.1,
+// goToDiagnosticIssue нижче): для витрат — індекс у масиві expenses (не id,
+// бо саме id часто й є проблемою — відсутній чи задубльований), для ОЧ —
+// назва рахунку (+ місяць для розбіжностей).
 function findExpenseIdIssues(){
   const issues = [];
   const seen = new Map();
-  expenses.forEach(function(e){
+  expenses.forEach(function(e, idx){
     if(!e.id || typeof e.id !== 'string'){
-      issues.push({ label: e.name || '(без назви)', date: e.date || '—', reason: 'відсутній або невалідний UUID' });
+      issues.push({ label: e.name || '(без назви)', date: e.date || '—', reason: 'відсутній або невалідний UUID', target: { type:'expense', idx: idx } });
       return;
     }
     if(seen.has(e.id)){
       const other = seen.get(e.id);
-      issues.push({ label: e.name || '(без назви)', date: e.date || '—', reason: `дубльований UUID (як у «${other.name||'—'}», ${other.date||'—'})` });
+      issues.push({ label: e.name || '(без назви)', date: e.date || '—', reason: `дубльований UUID (як у «${other.name||'—'}», ${other.date||'—'})`, target: { type:'expense', idx: idx } });
     }else{
       seen.set(e.id, e);
     }
@@ -2329,9 +2350,13 @@ function findExpenseIdIssues(){
 // життєвого циклу (ensureExpenseIdentity/saveRecordEdit завжди рухають
 // updatedAt вперед), ознака пошкодженого чи вручну відредагованого JSON.
 function findTimestampIssues(){
-  return expenses
-    .filter(function(e){ return e.createdAt && e.updatedAt && Date.parse(e.updatedAt) < Date.parse(e.createdAt); })
-    .map(function(e){ return { label: e.name || '(без назви)', date: e.date || '—', reason: 'updatedAt раніше за createdAt' }; });
+  const issues = [];
+  expenses.forEach(function(e, idx){
+    if(e.createdAt && e.updatedAt && Date.parse(e.updatedAt) < Date.parse(e.createdAt)){
+      issues.push({ label: e.name || '(без назви)', date: e.date || '—', reason: 'updatedAt раніше за createdAt', target: { type:'expense', idx: idx } });
+    }
+  });
+  return issues;
 }
 // ОЧ без обов'язкових полів — без initialAmount неможливо порахувати
 // "Скорочення боргу" від початкової суми, без назви запис узагалі "невидимий".
@@ -2342,7 +2367,8 @@ function findInstallmentFieldIssues(){
       return {
         label: acc.name || '(без назви)',
         date: acc.firstMonth || '—',
-        reason: !acc.name ? 'відсутня назва' : 'відсутня початкова сума (initialAmount)'
+        reason: !acc.name ? 'відсутня назва' : 'відсутня початкова сума (initialAmount)',
+        target: { type:'installment', name: acc.name || null }
       };
     });
 }
@@ -2369,13 +2395,18 @@ function findInstallmentDivergences(){
         issues.push({
           label: name,
           date: rec.month,
-          reason: `факт ${fmt(rec.balance)} відхиляється від очікуваного ${fmt(expectedBalance)} на ${diffPct.toFixed(0)}%`
+          reason: `факт ${fmt(rec.balance)} відхиляється від очікуваного ${fmt(expectedBalance)} на ${diffPct.toFixed(0)}%`,
+          target: { type:'installment-month', name: name, month: rec.month }
         });
       }
     });
   });
   return issues;
 }
+// Rev 2.16.1 — заповнюється заново при кожному runDataDiagnostics(): індекс
+// у масиві = номер кнопки-проблеми в модалці, звідки onclick="goToDiagnosticIssue(N)"
+// бере, куди саме переходити.
+let diagnosticIssueTargets = [];
 function runDataDiagnostics(){
   const checks = [
     { title: 'Витрати: UUID (унікальність)', issues: findExpenseIdIssues() },
@@ -2383,25 +2414,79 @@ function runDataDiagnostics(){
     { title: 'ОЧ: обов’язкові поля', issues: findInstallmentFieldIssues() },
     { title: 'ОЧ: розбіжність факт/очікування (>5%)', issues: findInstallmentDivergences() },
   ];
+  diagnosticIssueTargets = [];
   const totalIssues = checks.reduce(function(s,c){ return s+c.issues.length; }, 0);
-  const el = document.getElementById('diagnostics-results');
+  let html;
   if(totalIssues === 0){
-    el.innerHTML = `<div class="diag-summary-ok">✓ Усе гаразд — проблем не знайдено</div>`
+    html = `<div class="diag-summary-ok">✓ Усе гаразд — проблем не знайдено</div>`
       + `<div class="diag-summary-meta">Перевірено: ${expenses.length} ${expenseCountWord(expenses.length)}, ${installmentAccounts.length} ОЧ</div>`;
   }else{
-    el.innerHTML = checks.map(function(c){
+    html = checks.map(function(c){
       const statusHtml = c.issues.length
         ? `<span class="diag-status bad">${c.issues.length}</span>`
         : `<span class="diag-status ok">OK</span>`;
       const listHtml = c.issues.length
         ? `<div class="diag-issue-list">` + c.issues.map(function(i){
-            return `<div class="diag-issue"><b>${escapeHtml(i.label)}</b> (${escapeHtml(i.date)}) — ${escapeHtml(i.reason)}</div>`;
+            const targetIdx = diagnosticIssueTargets.length;
+            diagnosticIssueTargets.push(i.target);
+            return `<button type="button" class="diag-issue" onclick="goToDiagnosticIssue(${targetIdx})"><b>${escapeHtml(i.label)}</b> (${escapeHtml(i.date)}) — ${escapeHtml(i.reason)}</button>`;
           }).join('') + `</div>`
         : '';
       return `<div class="diag-check"><span class="diag-check-label">${c.title}</span>${statusHtml}</div>${listHtml}`;
     }).join('');
   }
-  el.classList.remove('hidden');
+  showDiagnosticsModal(html);
+}
+// Rev 2.16.1 — звіт діагностики тепер у #app-modal (тимчасове повідомлення,
+// а не постійний блок на сторінці): той самий модал, що й showConfirmModal,
+// але з innerHTML (потрібні клікабельні кнопки-проблеми) і без кнопки "Так"
+// — це інформаційний звіт, єдиний вихід — "Закрити" (перейменована "Скасувати").
+function showDiagnosticsModal(html){
+  document.getElementById('app-modal-text').innerHTML = html;
+  document.getElementById('app-modal-input-wrap').style.display = 'none';
+  document.getElementById('app-modal-amount-wrap').style.display = 'none';
+  document.getElementById('app-modal-select-wrap').style.display = 'none';
+  document.getElementById('app-modal-select2-wrap').style.display = 'none';
+  document.getElementById('app-modal-confirm-btn').style.display = 'none';
+  const cancelBtn = document.getElementById('app-modal-cancel-btn');
+  if(cancelBtn) cancelBtn.textContent = 'Закрити';
+  openAppModal();
+}
+// Rev 2.16.1 — клік по конкретній проблемі в модалці діагностики: закриває
+// звіт і веде до самого запису для виправлення (Журнал для витрат, Облік для
+// ОЧ — за потреби перемикаючи місяць на той, де сталась розбіжність).
+function goToDiagnosticIssue(i){
+  const target = diagnosticIssueTargets[i];
+  if(!target) return;
+  closeAppModal();
+  if(target.type === 'expense'){
+    switchTab('vytraty');
+    const e = expenses[target.idx];
+    if(e){ selectedRecordKey = recordKey('expense', e.id); editingRecordKey = null; renderRecords(); }
+    flashDiagnosticTarget('journal-row-expense-' + target.idx);
+    return;
+  }
+  // 'installment' або 'installment-month'
+  if(!target.name){
+    showConfirmModal('У цього ОЧ немає назви — знайти його автоматично неможливо. Перевір список ОЧ в «Обліку» вручну.', function(){}, 'Зрозуміло');
+    return;
+  }
+  if(target.month && target.month !== selectedMonth && !hasUnsavedAccountingChanges()){
+    performMonthChange(target.month);
+  }
+  switchTab('accounting');
+  const idx = installmentAccounts.findIndex(function(a){ return a.name === target.name; });
+  if(idx !== -1) flashDiagnosticTarget('installment-row-' + idx);
+}
+function flashDiagnosticTarget(domId){
+  const row = document.getElementById(domId);
+  if(!row){
+    showConfirmModal('Цей запис не вдалось знайти на екрані (можливо, поза видимим діапазоном журналу). Знайди його вручну за назвою й датою, показаними в діагностиці.', function(){}, 'Зрозуміло');
+    return;
+  }
+  row.scrollIntoView({ behavior:'smooth', block:'center' });
+  row.classList.add('diag-flash');
+  setTimeout(function(){ row.classList.remove('diag-flash'); }, 1600);
 }
 
 /* ============ Автокатегоризація ============ */
@@ -2959,7 +3044,7 @@ function populateInstallmentTable(){
     const initAmountLabel = acc.initialAmount
       ? `<span class="bdr-init-amount">Початкова сума: ${fmt(acc.initialAmount)}</span>`
       : `<span class="bdr-init-amount missing">Початкова сума не вказана — натисни ✎</span>`;
-    return `<div class="bank-debt-row installment-row">
+    return `<div class="bank-debt-row installment-row" id="installment-row-${i}">
       <div class="bdr-top">
         <span class="bdr-label">${bankIcon(name)}${escapeHtml(stripLeadingEmoji(name))}<span class="bdr-unsaved-tag" id="installment-unsaved-${i}">⚠ не збережено</span></span>
         <span class="bdr-actions">
@@ -4810,9 +4895,13 @@ function deleteSubcategory(i){
 }
 function renderRecords(){
   const container = document.getElementById('records-list');
+  // Rev 2.16.1 — __srcIdx: індекс у ПОЧАТКОВОМУ масиві expenses/incomes (до
+  // сортування нижче) — стабільний DOM-якір "journal-row-expense-N" для
+  // навігації з діагностики (goToDiagnosticIssue), незалежний від id (саме
+  // id часто й є тим, що зіпсоване — відсутнє чи задубльоване).
   const combined = [
-    ...expenses.map(e=>({...e, kind:'expense'})),
-    ...incomes.map(e=>({...e, kind:'income', name:e.source}))
+    ...expenses.map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
+    ...incomes.map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
   ].sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
 
   if(combined.length===0){
@@ -4873,7 +4962,7 @@ function renderRecords(){
           </div>
         </div>` : '';
       return `
-        <div class="expense-row ${rowClass}" onclick="toggleRecordSelect('${e.kind}','${e.id}')">
+        <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}" onclick="toggleRecordSelect('${e.kind}','${e.id}')">
           <div class="exp-row-top">
             <div class="exp-main">
               <div class="exp-name">${escapeHtml(e.name)}</div>
@@ -6369,6 +6458,14 @@ function closeAppModal(){
   document.getElementById('app-modal').classList.remove('open');
   document.getElementById('modal-backdrop').setAttribute('inert','');
   document.getElementById('app-modal').setAttribute('inert','');
+  // Rev 2.16.1 — showDiagnosticsModal() ховає кнопку "Так" і перейменовує
+  // "Скасувати" на "Закрити" (інформаційний звіт, не підтвердження дії) —
+  // повертаємо дефолтний вигляд одразу тут, щоб наступна звичайна модалка
+  // (showConfirmModal і подібні) не успадкувала цей стан.
+  const cancelBtn = document.getElementById('app-modal-cancel-btn');
+  if(cancelBtn){ cancelBtn.textContent = 'Скасувати'; cancelBtn.style.display = ''; }
+  const confirmBtn = document.getElementById('app-modal-confirm-btn');
+  if(confirmBtn) confirmBtn.style.display = '';
   restoreFocus();
 }
 function showConfirmModal(message, onConfirm, confirmLabel){
