@@ -723,7 +723,10 @@
   .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); background:var(--color-surface); border-radius:var(--radius-xl); padding:22px 20px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
   .app-modal.open{ opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
   #modal-backdrop{ z-index:95; }
-  .app-modal-text{ font-size:14.5px; line-height:1.5; color:var(--color-text-primary); margin-bottom:16px; }
+  /* Rev 2.15.0 — white-space:pre-line: прев'ю відновлення бекапу тепер
+     багаторядкове (кількість записів + Schema/App), а textContent за
+     замовчуванням схлопує "\n" в один рядок без цього правила. */
+  .app-modal-text{ font-size:14.5px; line-height:1.5; color:var(--color-text-primary); margin-bottom:16px; white-space:pre-line; }
   .app-modal-input-wrap{ display:none; margin-bottom:16px; }
   .app-modal-input-wrap input{ width:100%; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
   .app-modal-input-wrap input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
@@ -1661,7 +1664,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.14.0</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.15.0</div>
 </div>
   </div>
 </div>
@@ -2036,14 +2039,24 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.14.0';
+const APP_VERSION = '2.15.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
   LS_KEY_SCHEMA_VERSION
 ];
+// Rev 2.15.0 — контрольований snapshot (ROADMAP п.19): додано явні метадані
+// schemaVersion/appVersion/createdAt замість лише "version"/"exportedAt" —
+// потрібні для попереднього перегляду перед Restore (handleRestoreBackupFile
+// нижче). Сам механізм збереження (localStorage → data{}) НЕ змінено.
 function exportBackup(){
-  const payload = { __budgetBackup: true, version: APP_VERSION, exportedAt: new Date().toISOString(), data: {} };
+  const payload = {
+    __budgetBackup: true,
+    appVersion: APP_VERSION,
+    schemaVersion: SCHEMA_VERSION,
+    createdAt: new Date().toISOString(),
+    data: {}
+  };
   // Значення localStorage вже валідний JSON-текст (кожен saveXxx() робить
   // JSON.stringify перед записом) — зберігаємо як є, без зайвого
   // parse+stringify, щоб бекап 1:1 відповідав реальному вмісту localStorage.
@@ -2072,6 +2085,28 @@ function triggerRestoreBackupInput(){
 function triggerImportFileInput(){
   document.getElementById('import-file').click();
 }
+// Rev 2.15.0 — рахує кількість елементів масиву в одному "сирому" (ще не
+// розпарсеному) значенні localStorage з бекапу, для прев'ю перед Restore
+// нижче. 0 при відсутньому ключі чи пошкодженому JSON — прев'ю не повинно
+// падати через один зіпсований розділ старого/чужого файлу.
+function backupArrayCount(parsed, key){
+  const raw = parsed.data && parsed.data[key];
+  if(raw == null) return 0;
+  try{ const val = JSON.parse(raw); return Array.isArray(val) ? val.length : 0; }
+  catch(err){ return 0; }
+}
+function incomeCountWord(n){
+  const mod10=n%10, mod100=n%100;
+  if(mod10===1 && mod100!==11) return 'дохід';
+  if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'доходи';
+  return 'доходів';
+}
+function debtCountWord(n){
+  const mod10=n%10, mod100=n%100;
+  if(mod10===1 && mod100!==11) return 'борг';
+  if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'борги';
+  return 'боргів';
+}
 function handleRestoreBackupFile(event){
   const file = event.target.files[0];
   if(!file) return;
@@ -2088,9 +2123,37 @@ function handleRestoreBackupFile(event){
       inputEl.value = '';
       return;
     }
-    const dateLabel = parsed.exportedAt ? new Date(parsed.exportedAt).toLocaleString('uk-UA') : 'невідомої дати';
+    // Rev 2.15.0 — сумісність зі старішими бекапами (до Rev 2.15.0): метадані
+    // раніше звались "version"/"exportedAt" і не мали власного schemaVersion
+    // на верхньому рівні (лише всередині data[LS_KEY_SCHEMA_VERSION]).
+    const createdAtRaw = parsed.createdAt || parsed.exportedAt;
+    const dateLabel = createdAtRaw ? new Date(createdAtRaw).toLocaleString('uk-UA') : 'невідомої дати';
+    const appVersionLabel = parsed.appVersion || parsed.version || '—';
+    let schemaVersion = parsed.schemaVersion;
+    if(schemaVersion == null){
+      const legacy = parseInt(parsed.data[LS_KEY_SCHEMA_VERSION], 10);
+      schemaVersion = isNaN(legacy) ? null : legacy;
+    }
+    const expCount = backupArrayCount(parsed, LS_KEY_EXP);
+    const incCount = backupArrayCount(parsed, LS_KEY_INC);
+    const debtCount = backupArrayCount(parsed, LS_KEY_DEBT);
+    // Rev 2.15.0 — контрольований прев'ю замість миттєвої заміни (ROADMAP
+    // п.19): кількість записів + Schema/App ДО підтвердження, і окреме
+    // попередження (не блокування!), якщо бекап зі старішої схеми даних.
+    const parts = [
+      `Знайдено в бекапі від ${dateLabel}:`,
+      `• ${expCount} ${expenseCountWord(expCount)}`,
+      `• ${incCount} ${incomeCountWord(incCount)}`,
+      `• ${debtCount} ${debtCountWord(debtCount)}`,
+      '',
+      `Schema: ${schemaVersion != null ? schemaVersion : '?'} · App: ${appVersionLabel}`,
+    ];
+    if(schemaVersion != null && schemaVersion < SCHEMA_VERSION){
+      parts.push('', `⚠️ Бекап зі старішої версії структури даних (Schema ${schemaVersion} → зараз ${SCHEMA_VERSION}). Відновлення однаково спрацює, але варто перевірити дані після нього.`);
+    }
+    parts.push('', 'Це ПОВНІСТЮ замінить усі поточні дані в цьому браузері (витрати, доходи, борги, ОЧ, довідники). Незворотно.');
     showConfirmModal(
-      `Відновити дані з бекапу від ${dateLabel}? Це ПОВНІСТЮ замінить усі поточні дані в цьому браузері (витрати, доходи, борги, ОЧ, довідники). Незворотно.`,
+      parts.join('\n'),
       function(){
         // Спершу прибираємо ВСІ ключі бекапу з localStorage (а не лише ті, що
         // є у файлі) — інакше залишки поточних даних за ключами, яких у

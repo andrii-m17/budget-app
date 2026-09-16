@@ -10,7 +10,7 @@
 відкочено в Rev 2.11.23 (свідоме продуктове рішення, див. "Продуктова концепція" нижче).
 Позначки: 🔎 — перевірено в коді, ✔️ — підтверджено користувачем.
 
-### Поточний статус: **Rev 2.14.0** (SW `CACHE_NAME: budget-app-v2.14.0`)
+### Поточний статус: **Rev 2.15.0** (SW `CACHE_NAME: budget-app-v2.15.0`)
 Вже зроблено:
 - ✅ контрольоване оновлення Service Worker
 - ✅ надійніший offline cache
@@ -211,38 +211,24 @@ function/const-декларації з `index.html` (`tests/extract.js`, зба�
   `payInstallmentQuick` тощо) — записують у `localStorage`/DOM напряму,
   не досліджено детально цього разу.
 
-### 19. Robust Backup / Restore
+### 19. Robust Backup / Restore ✅ Rev 2.15.0
 
-Зробити backup не просто як JSON-файл, а як контрольований snapshot:
+Формат бекапу (`exportBackup()`) тепер контрольований snapshot з явними метаданими
+на верхньому рівні — `appVersion`, `schemaVersion`, `createdAt` (раніше лише
+`version`/`exportedAt`, без окремого `schemaVersion`). Сам механізм збереження
+(localStorage-ключі → `data{}`, повний snapshot 1:1) НЕ змінено — ізольована зміна,
+як і планувалось.
 
-```text
-Backup
-├── appVersion
-├── schemaVersion
-├── createdAt
-├── expenses
-├── incomes
-├── debts
-├── installments
-└── validation metadata
-```
+Restore (`handleRestoreBackupFile()`) тепер показує прев'ю ПЕРЕД заміною даних —
+кількість витрат/доходів/боргів у файлі + `Schema`/`App`, і лише після явного
+підтвердження виконує заміну (сам крок заміни — той самий код, що й раніше).
+Якщо `schemaVersion` бекапу старіший за поточний `SCHEMA_VERSION` — окремий
+попереджувальний рядок у тій самій модалці, відновлення НЕ блокується. Старіші
+бекапи (до Rev 2.15.0, без `appVersion`/`createdAt`/верхньорівневого
+`schemaVersion`) підтримуються через fallback на старі назви полів.
 
-Перед Restore:
-
-```text
-Знайдено:
-• 247 витрат
-• 12 доходів
-• 5 боргів
-
-Schema: 3
-App: 2.XX
-
-[Скасувати]
-[Відновити]
-```
-
-І бажано: **automatic backup → restore → rollback**
+Не реалізовано з цього пункту (свідомо відкладено, не входило до ізольованої
+зміни): **automatic backup → restore → rollback**.
 
 ### 20. Діагностика даних у «Сервісі»
 
@@ -438,7 +424,7 @@ Server → Web Push → Phone.
 
 ## 🎯 А що робимо прямо зараз
 
-Стан на сьогодні (16.09, Rev 2.14.0):
+Стан на сьогодні (16.09, Rev 2.15.0):
 
 - **Stage 1 — повністю закритий** (Mobile Zoom свідомо відкочено як продуктове рішення
   — див. "Продуктова концепція" і #36, swipe вирішено, theme-стрічка заблокована
@@ -446,7 +432,8 @@ Server → Web Push → Phone.
 - **Stage 2 — закритий**: тест Family Bridge з Олею (#15) проведено і підтверджено —
   імпорт спільних витрат та оновлення відредагованих записів за `updatedAt` (#16,
   Rev 2.13.0) працюють коректно на реальних пристроях.
-- **Stage 3 розпочато**: Automated Financial Logic Tests (#18) — ✅ Rev 2.14.0
-  (`tests/`, `npm test`), детальний чек-лист покритого/неізольованого — див. п.18 вище.
+- **Stage 3 у процесі**: Automated Financial Logic Tests (#18) — ✅ Rev 2.14.0
+  (`tests/`, `npm test`); Robust Backup/Restore (#19) — ✅ Rev 2.15.0 (контрольовані
+  метадані snapshot + прев'ю перед Restore, детальніше — п.18/п.19 вище).
 
-Наступний крок — **Stage 3**: Robust Backup/Restore (#19) + Діагностика даних (#20).
+Наступний крок — **Stage 3**: Діагностика даних у «Сервісі» (#20).
