@@ -314,7 +314,7 @@
      відкриває форму витрати з передзаповненими назвою/сумою і вже готовою
      прив'язкою. Фіолетовий акцент — той самий, що категорія "Оплати Частинами"
      і підказка автозв'язку (метод C), щоб візуально пов'язати ці елементи. */
-  .installment-pay-btn{ width:100%; margin-top:10px; padding:10px; border:1.5px solid var(--color-accent-purple); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font-size:13px; font-weight:600; cursor:pointer; }
+  .installment-pay-btn{ width:100%; margin-top:10px; margin-bottom:14px; padding:10px; border:1.5px solid var(--color-accent-purple); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font-size:13px; font-weight:600; cursor:pointer; }
   .installment-pay-btn:hover{ filter:brightness(0.97); }
   .field{ margin-bottom:14px; min-width:0; } .field:last-child{ margin-bottom:0; }
   .field label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
@@ -1762,7 +1762,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.17.0</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.17.1</div>
 </div>
   </div>
 </div>
@@ -1885,15 +1885,19 @@
     <label for="idd-name">Назва</label>
     <input type="text" id="idd-name">
   </div>
-  <div class="field">
-    <label for="idd-initial">Початкова сума</label>
-    <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-initial" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
-  </div>
-  <!-- Rev 2.17.0 — "Дата платежу": фіксоване число місяця (1-31), одне на
-       весь термін ОЧ (як кредитний ліміт картки), не щомісячний запис. -->
-  <div class="field">
-    <label for="idd-due-day">Дата платежу (число місяця)</label>
-    <input type="text" inputmode="numeric" id="idd-due-day" placeholder="напр. 15">
+  <!-- Rev 2.17.1 — "Початкова сума" і "Дата платежу" в одному рядку (той
+       самий .row-2, що Залишок/Платіж нижче) — поле дати вузьке (лише 1-2
+       цифри), окремим повнорозмірним рядком воно лише тягнуло картку вгору
+       зайвим вільним простором. -->
+  <div class="row-2">
+    <div class="field" style="flex:2 1 160px;">
+      <label for="idd-initial">Початкова сума</label>
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-initial" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+    </div>
+    <div class="field" style="flex:1 1 80px;">
+      <label for="idd-due-day">Дата платежу</label>
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-due-day" placeholder="15">
+    </div>
   </div>
   <div class="bdr-init-amount" id="idd-linked-note"></div>
   <div class="row-2">
@@ -2276,7 +2280,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.17.0';
+const APP_VERSION = '2.17.1';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -2987,11 +2991,18 @@ function addExpense(){
 // (той самий список, що вже використовує імпорт з Excel: "Зарплата Андрій" /
 // "Зарплата Оля" / "Інші доходи" — тому старі імпортовані записи одразу
 // підхоплюються цією таблицею без жодної міграції даних).
+// Rev 2.17.1 — icon/color: bankIcon() малює логотип банку або ініціали з
+// НАЗВИ джерела ("ЗП" для обох зарплат — не розрізнити), тому для доходів
+// власна пара емодзі+колір на джерело (incomeIconHtml нижче).
 const INCOME_SOURCES = [
-  { key:'Зарплата Андрій', label:'ЗП Андрій' },
-  { key:'Зарплата Оля', label:'ЗП Оля' },
-  { key:'Інші доходи', label:'Інше' },
+  { key:'Зарплата Андрій', label:'ЗП Андрій', icon:'💼', color:'#3B82F6' },
+  { key:'Зарплата Оля', label:'ЗП Оля', icon:'💼', color:'#EC4899' },
+  { key:'Інші доходи', label:'Інше', icon:'💰', color:'#F59E0B' },
 ];
+function incomeIconHtml(source, size){
+  const s = size || 22;
+  return `<span class="bank-badge" style="background:${source.color}; width:${s}px; height:${s}px; border-radius:${(s*0.27).toFixed(1)}px; font-size:${(s*0.55).toFixed(0)}px;">${source.icon}</span>`;
+}
 // Rev 2.16.3 — перемикач вкладок Дані/Борги/ОЧ у "Обліку": той самий патерн,
 // що switchStructureTab() (Структура, Rev 2.11.24) — лише показуємо одну
 // панель за раз замість суцільного списку карток, розмітка/логіка карток
@@ -3016,7 +3027,7 @@ function populateIncomeTable(){
     const existing = incomes.find(function(inc){ return inc.source===s.key && monthKey(inc.date)===selectedMonth; });
     const amount = existing ? existing.amount : 0;
     return `<button type="button" class="card-debt-compact-row" id="income-row-${i}" onclick="openIncomeEditor(${i})" aria-label="${escapeAttr(s.label)}, редагувати">
-      <span class="cdr-avatar">${bankIcon(s.label, 38)}</span>
+      <span class="cdr-avatar">${incomeIconHtml(s, 38)}</span>
       <span class="cdr-main">
         <span class="cdr-name">${escapeHtml(s.label)}</span>
         <span class="cdr-sub">Дохід</span>
@@ -3046,7 +3057,7 @@ function openIncomeEditor(i){
   editingIncomeIdx = i;
   lastFocusedBeforeDialog = document.activeElement;
   const existing = incomes.find(function(inc){ return inc.source===s.key && monthKey(inc.date)===selectedMonth; });
-  document.getElementById('ind-icon').innerHTML = bankIcon(s.label, 34);
+  document.getElementById('ind-icon').innerHTML = incomeIconHtml(s, 34);
   document.getElementById('ind-heading').textContent = s.label;
   document.getElementById('ind-amount').value = existing ? formatThousands(existing.amount) : '';
   document.getElementById('income-backdrop').removeAttribute('inert');
