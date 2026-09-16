@@ -1661,7 +1661,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.13.0</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.14.0</div>
 </div>
   </div>
 </div>
@@ -2036,7 +2036,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.13.0';
+const APP_VERSION = '2.14.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -3904,6 +3904,28 @@ async function shareExpensesFile(period){
 function triggerShareImportInput(){
   document.getElementById('share-import-file').click();
 }
+// Rev 2.13.0 — дедуплікація/оновлення записів з файлу спільних витрат за id
+// й updatedAt (винесено як самостійна функція в Rev 2.14.0, tests/import-
+// dedup.test.js): id новий → newOnes; id вже є і вхідний updatedAt новіший
+// за наявний → updatedOnes (заміщення); id вже є, updatedAt той самий/
+// старіший → мовчазний пропуск (враховано лише у dupCount). Чиста функція:
+// не читає localStorage/DOM, легко тестується без ініціалізації застосунку.
+function computeImportPlan(incoming, existingExpenses){
+  const existingById = new Map(existingExpenses.map(function(e){ return [e.id, e]; }));
+  const newOnes = [];
+  const updatedOnes = [];
+  incoming.forEach(function(e){
+    const existing = existingById.get(e.id);
+    if(!existing){ newOnes.push(e); return; }
+    const incomingTs = e.updatedAt ? Date.parse(e.updatedAt) : NaN;
+    const existingTs = existing.updatedAt ? Date.parse(existing.updatedAt) : NaN;
+    if(!isNaN(incomingTs) && (isNaN(existingTs) || incomingTs > existingTs)){
+      updatedOnes.push(e);
+    }
+  });
+  const dupCount = incoming.length - newOnes.length - updatedOnes.length;
+  return { existingById, newOnes, updatedOnes, dupCount };
+}
 function handleShareImportFile(event){
   const file = event.target.files[0];
   if(!file) return;
@@ -3934,25 +3956,12 @@ function handleShareImportFile(event){
       statusEl.textContent = 'У файлі не знайдено жодної коректної витрати.';
       return;
     }
-    // Rev 2.13.0 — раніше дедуплікація за наявним id ЗАВЖДИ пропускала запис,
-    // навіть якщо вхідна версія була відредагована (новіший updatedAt) —
-    // будь-яка правка витрати після першого обміну файлом просто губилась при
-    // повторному імпорті. Тепер існуючий id ділиться на два випадки:
-    // вхідний updatedAt новіший за наявний → поля запису оновлюються "на
-    // місці" (id/createdAt лишаються), інакше — як і раніше, пропуск.
-    const existingById = new Map(expenses.map(function(e){ return [e.id, e]; }));
-    const newOnes = [];
-    const updatedOnes = [];
-    incoming.forEach(function(e){
-      const existing = existingById.get(e.id);
-      if(!existing){ newOnes.push(e); return; }
-      const incomingTs = e.updatedAt ? Date.parse(e.updatedAt) : NaN;
-      const existingTs = existing.updatedAt ? Date.parse(existing.updatedAt) : NaN;
-      if(!isNaN(incomingTs) && (isNaN(existingTs) || incomingTs > existingTs)){
-        updatedOnes.push(e);
-      }
-    });
-    const dupCount = incoming.length - newOnes.length - updatedOnes.length;
+    // Rev 2.14.0 — сама дедуплікація/оновлення (Rev 2.13.0) винесена в окрему
+    // функцію computeImportPlan() нижче (без localStorage/DOM), щоб її можна
+    // було покрити автотестом (tests/import-dedup.test.js) без ініціалізації
+    // файлового діалогу й усього застосунку. Поведінка не змінена.
+    const plan = computeImportPlan(incoming, expenses);
+    const existingById = plan.existingById, newOnes = plan.newOnes, updatedOnes = plan.updatedOnes, dupCount = plan.dupCount;
     if(!newOnes.length && !updatedOnes.length){
       statusEl.textContent = `Усі ${incoming.length} ${expenseCountWord(incoming.length)} з файлу вже є у вашому журналі — нічого не додано.`;
       return;

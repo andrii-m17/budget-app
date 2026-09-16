@@ -1,0 +1,9 @@
+{
+  "name": "budget-app",
+  "private": true,
+  "version": "2.14.0",
+  "description": "Тести фінансової логіки (Rev 2.14.0) — без production-залежностей, лише вбудований node:test.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

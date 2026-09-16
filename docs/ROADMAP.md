@@ -10,7 +10,7 @@
 відкочено в Rev 2.11.23 (свідоме продуктове рішення, див. "Продуктова концепція" нижче).
 Позначки: 🔎 — перевірено в коді, ✔️ — підтверджено користувачем.
 
-### Поточний статус: **Rev 2.13.0** (SW `CACHE_NAME: budget-app-v2.13.0`)
+### Поточний статус: **Rev 2.14.0** (SW `CACHE_NAME: budget-app-v2.14.0`)
 Вже зроблено:
 - ✅ контрольоване оновлення Service Worker
 - ✅ надійніший offline cache
@@ -162,10 +162,54 @@ iOS 26 Liquid Glass семплить колір із CSS живих елемен
 
 Наступний великий пріоритет після тесту Family Bridge.
 
-### 18. Automated financial logic tests
+### 18. Automated financial logic tests ✅ Rev 2.14.0
 
-Перевірити автоматично: доходи; витрати; залишок; категорії; місячні агрегати; борги;
-carry-forward; ОЧ; розстрочки; місячні переходи; Excel import; deduplication.
+`tests/` у корені репо, чистий `node --test` (без production-залежностей), запуск
+`npm test` або `node --test`. Технічний підхід: Financial Logic ще НЕ відокремлена
+від DOM-рендерингу (Stage 5, п.26), тому вручну витягуємо вихідний код конкретної
+function/const-декларації з `index.html` (`tests/extract.js`, збалансовані дужки) і
+виконуємо в ізольованому `vm.Context` з підставленими мінімальними глобальними
+заглушками (`debts`, `expenses`, `CATEGORIES` тощо) — реальний код застосунку,
+без ініціалізації DOM/localStorage/усього застосунку.
+
+**Покрито тестами (35 кейсів, усі пройдені):**
+- `debtAsOfInfo`, `lastKnownBalance` — carry-forward боргів/ОЧ, "станом на [місяць]"
+  (`tests/carry-forward.test.js`)
+- `typicalMonthlyPayment` (мода з тай-брейком), `linkedExpensesSum`, і композиція
+  "очікуваний залишок = попередній факт − (прив'язана сума або мода)" —
+  FINANCIAL_RULES §4 Модель C (`tests/och-model.test.js`)
+- `monthAggregates`, `getCategoryType` і композиція "Обов'язкові платежі" /
+  "Після обов'язкових" (`tests/monthly-aggregates.test.js`)
+- `computeImportPlan` — дедуплікація/оновлення за UUID, Rev 2.13.0
+  (`tests/import-dedup.test.js`). Ця логіка раніше була інлайн у
+  `handleShareImportFile` — винесена в самостійну функцію (Rev 2.14.0, без
+  зміни поведінки) саме для тестованості.
+- `excelDateToISO`, `parseUaMonth` — базові кейси парсингу Excel-імпорту
+  (`tests/excel-parsing.test.js`); числовий Excel-серійний шлях перевірено із
+  заглушкою `XLSX.SSF.parse_date_code` (сам алгоритм SheetJS не тестується).
+- `autocategorize` — словникове автовизначення категорії за ключовим словом,
+  додатковий кандидат, знайдений під час інвентаризації
+  (`tests/autocategorize.test.js`)
+
+**НЕ вдалось ізолювати (потребують Stage 5, п.26 — відокремлення логіки від
+рендеру; чек-лист на майбутнє, рефакторити зараз НЕ треба):**
+- `detectInstallmentMatches` / `updateInstallmentLinkDetection` (автозв'язок
+  витрата↔ОЧ) — читає `document.getElementById('f-date')` напряму всередині
+  функції.
+- "Очікуваний залишок" (estimatedBalance) як єдина функція — формула порахована
+  інлайн усередині `populateInstallmentTable()` (будує HTML таблиці Обліку);
+  усі три складові (`lastKnownBalance`/`typicalMonthlyPayment`/
+  `linkedExpensesSum`) уже покриті окремо, лишається лиш однорядковий
+  `Math.max(0, prevBal-estimatedPay)`.
+- "Обов'язкові платежі" / "Після обов'язкових" так само — лічені інлайн
+  усередині `renderDashboard()`, величезної DOM-функції з десятками
+  `getElementById`; складові (`monthAggregates`/`getCategoryType`) покриті.
+- `handleImportFile` (парсинг Excel-файлу) — тісно пов'язаний з DOM (модалка
+  preview) і глобальним об'єктом `XLSX`; ізольовані лише дрібні утиліти
+  всередині (`excelDateToISO`, `parseUaMonth`), сам парсинг аркуша — ні.
+- Розстрочки/місячні переходи (`ensureInstallmentFirstMonth`,
+  `payInstallmentQuick` тощо) — записують у `localStorage`/DOM напряму,
+  не досліджено детально цього разу.
 
 ### 19. Robust Backup / Restore
 
@@ -394,7 +438,7 @@ Server → Web Push → Phone.
 
 ## 🎯 А що робимо прямо зараз
 
-Стан на сьогодні (16.09, Rev 2.13.0):
+Стан на сьогодні (16.09, Rev 2.14.0):
 
 - **Stage 1 — повністю закритий** (Mobile Zoom свідомо відкочено як продуктове рішення
   — див. "Продуктова концепція" і #36, swipe вирішено, theme-стрічка заблокована
@@ -402,6 +446,7 @@ Server → Web Push → Phone.
 - **Stage 2 — закритий**: тест Family Bridge з Олею (#15) проведено і підтверджено —
   імпорт спільних витрат та оновлення відредагованих записів за `updatedAt` (#16,
   Rev 2.13.0) працюють коректно на реальних пристроях.
+- **Stage 3 розпочато**: Automated Financial Logic Tests (#18) — ✅ Rev 2.14.0
+  (`tests/`, `npm test`), детальний чек-лист покритого/неізольованого — див. п.18 вище.
 
-Наступний крок — **Stage 3**: Automated Financial Logic Tests + Robust Backup/Restore +
-Діагностика даних.
+Наступний крок — **Stage 3**: Robust Backup/Restore (#19) + Діагностика даних (#20).
