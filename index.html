@@ -20,11 +20,10 @@
   }catch(e){ /* localStorage недоступний (напр. приватний режим) — лишаємось на світлій темі за замовчуванням */ }
 })();
 </script>
-<!-- Rev 2.11.22 — Mobile Zoom: прибрано maximum-scale=1, user-scalable=no —
-     ці обмеження блокували pinch-to-zoom на мобільних, що погано впливає на
-     доступність (accessibility). Ризик: користувач може випадково змінити
-     масштаб інтерфейсу — прийнятний компроміс на користь доступності. -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- Rev 2.11.23 — відкат Mobile Zoom (Rev 2.11.22): pinch-to-zoom ламав app-like
+     відчуття застосунку (продуктове рішення, не баг). Альтернатива для
+     accessibility — окремий in-app перемикач розміру шрифту, а не browser-level zoom. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="color-scheme" id="meta-color-scheme" content="light">
 <meta name="theme-color" id="meta-theme-color" content="#F7F8FA">
 <!-- Rev 2.3.3 — PWA: маніфест дозволяє "Додати на головний екран" з
@@ -1630,7 +1629,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.11.22</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.11.23</div>
 </div>
   </div>
 </div>
@@ -2005,7 +2004,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.11.22';
+const APP_VERSION = '2.11.23';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
