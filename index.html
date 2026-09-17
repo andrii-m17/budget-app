@@ -1085,6 +1085,16 @@
     .bdr-icon-btn svg{ width:13px; height:13px; }
   }
 
+  /* Rev 2.21.3 — "Витрати" на ≥768px: форма "Нова витрата" і короткий список
+     "Останні записи" поруч у 2 колонки (форма зліва, список справа), а не
+     одне під одним на всю ширину, як на mobile (<768px, лишається без змін).
+     minmax(280px,420px) — той самий 420px, що вже обмежує .entry-card на
+     ≥1280px (Rev 2.1.2) нижче, тепер як ширина grid-колонки на ВСІХ ширинах
+     ≥768px, а не лише на найширшому desktop-брейкпоінті. */
+  @media (min-width:768px){
+    #vytraty-default-view{ display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:24px; align-items:start; }
+    #vytraty-default-view .vytraty-recent-col{ min-width:0; }
+  }
   /* ---- Tablet (768–1279px): навігація як на mobile (нижня), але сітка на 2 колонки ---- */
   @media (min-width:768px) and (max-width:1279px){
     .ov-row1{ grid-template-columns:repeat(2,1fr); }
@@ -1532,13 +1542,19 @@
            (renderRecords тепер обрізає до SHORT_JOURNAL_LIMIT, було 80): вся
            глибша історія переїхала в повноекранний #journal-overlay
            (openJournal), з навігацією по місяцях — без жорсткого ліміту, бо
-           в межах ОДНОГО місяця записів завжди небагато. -->
-      <div class="section-label">Останні записи</div>
-      <div id="records-list"></div>
-      <button type="button" class="show-journal-link hidden" id="show-journal-btn" onclick="openJournal()">
-        Показати весь журнал
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
+           в межах ОДНОГО місяця записів завжди небагато.
+           Rev 2.21.3 — обгортка .vytraty-recent-col потрібна лише для
+           двоколоночного макета на ≥768px (форма зліва, короткий список
+           справа, замість одне під одним на всю ширину) — сам вміст не
+           змінено. -->
+      <div class="vytraty-recent-col">
+        <div class="section-label">Останні записи</div>
+        <div id="records-list"></div>
+        <button type="button" class="show-journal-link hidden" id="show-journal-btn" onclick="openJournal()">
+          Показати весь журнал
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
     </div>
     <!-- Rev 2.21.0 — #journal-overlay перенесено сюди (був окремим блоком у
          кінці body, fixed-оверлей на весь viewport) — тепер це другий стан
@@ -1896,7 +1912,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.2</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.3</div>
 </div>
   </div>
 </div>
@@ -2413,7 +2429,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.2';
+const APP_VERSION = '2.21.3';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
