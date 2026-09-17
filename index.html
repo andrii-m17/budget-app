@@ -445,19 +445,31 @@
   .show-journal-link{ display:flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:14px; padding:12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-primary-hover); font-size:13.5px; font-weight:600; font-family:inherit; cursor:pointer; }
   .show-journal-link:hover{ background:var(--color-surface-hover); }
   .show-journal-link.hidden{ display:none; }
-  /* Rev 2.18.0 — повноекранний Журнал: оверлей на весь viewport (не нова
-     вкладка bottom nav — їх і так 5, і не новий елемент switchTab()'s
-     фіксованого списку view'ів — оверлей найменше ламає ту архітектуру).
-     z-index:93 — вище .drawer (91), нижче app-modal/його backdrop (95-96),
-     щоб підтвердження видалення (confirmDeleteRecord → showConfirmModal)
-     коректно лягало ПОВЕРХ Журналу, а не під ним. */
-  .journal-overlay{ position:fixed; inset:0; z-index:93; background:var(--color-bg); display:flex; flex-direction:column; }
+  /* Rev 2.18.0 — Журнал усіх записів (не нова вкладка bottom nav — їх і так
+     5, і не новий елемент switchTab()'s фіксованого списку view'ів).
+     Rev 2.21.0 — БУВ fixed-оверлеєм на весь viewport (position:fixed;
+     inset:0; z-index:93) поверх усього, включно з бічною панеллю (ПК) і
+     нижньою панеллю-навігацією (телефон). Тепер #journal-overlay — другий
+     стан вкладки "Витрати" (перемикається з #vytraty-default-view простим
+     .hidden-тоглом, як і решта .view), тому: (а) нав-панель лишається
+     видимою й клікабельною, поки Журнал відкритий; (б) ширина природно
+     обмежена тим самим контейнером (.app-shell/.main-col), що й решта
+     вкладок — більше не "розповзається" по всьому viewport при зменшенні
+     масштабу сторінки; (в) performSwitchTab() явно закриває Журнал при
+     переході на будь-яку іншу вкладку. app-modal/його backdrop лишаються
+     position:fixed (z-index 95-96) — підтвердження видалення й далі коректно
+     лягає поверх Журналу незалежно від його власного стекінгу. */
+  .journal-overlay{ display:flex; flex-direction:column; }
   .journal-overlay.hidden{ display:none; }
-  .journal-overlay-top{ display:flex; align-items:center; gap:10px; padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 14px; border-bottom:1px solid var(--color-border); flex-shrink:0; }
+  /* Rev 2.21.0 — .hidden у цьому проєкті завжди СКОПОВАНИЙ під конкретний
+     компонент (.view.hidden, .status-banner.hidden тощо), немає загального
+     утилітарного правила — тому пара до .journal-overlay.hidden вище. */
+  #vytraty-default-view.hidden{ display:none; }
+  .journal-overlay-top{ display:flex; align-items:center; gap:10px; padding:0 0 14px; border-bottom:1px solid var(--color-border); margin-bottom:16px; flex-shrink:0; }
   .journal-back-btn{ flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1.5px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .journal-back-btn:hover{ background:var(--color-surface-hover); color:var(--color-text-primary); }
   .journal-overlay-title{ font-size:17px; font-weight:800; color:var(--color-text-primary); }
-  .journal-body{ flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:16px 20px calc(env(safe-area-inset-bottom,0px) + 24px); }
+  .journal-body{ padding:0 0 calc(env(safe-area-inset-bottom,0px) + 24px); }
   .journal-month-nav{ margin-bottom:18px; }
   .journal-month-label{ flex:1 1 auto; text-align:center; font-size:15px; font-weight:700; color:var(--color-text-primary); }
   /* Rev 2.20.2 BugFix — Rev 2.19.0/2.20.1 тригерили нативний date-picker
@@ -1481,6 +1493,12 @@
 
     <!-- ================= ВИТРАТИ (винесено окремо — єдина щоденна дія) ================= -->
     <div class="view hidden" id="view-vytraty">
+    <!-- Rev 2.21.0 — форма+короткий список і Журнал тепер два "стани" ОДНІЄЇ
+         вкладки "Витрати" (перемикаються тогглом .hidden), а не форма +
+         фіксований повноекранний оверлей Журналу поверх усього. Обгортка
+         #vytraty-default-view потрібна лише як пара до #journal-overlay
+         нижче — сам вміст не змінено. -->
+    <div id="vytraty-default-view">
       <div class="card entry-card expense-entry">
         <div class="entry-title">Нова витрата</div>
         <div class="field draft-hint" id="draft-restored-hint">
@@ -1526,6 +1544,47 @@
         Показати весь журнал
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
+    </div>
+    <!-- Rev 2.21.0 — #journal-overlay перенесено сюди (був окремим блоком у
+         кінці body, fixed-оверлей на весь viewport) — тепер це другий стан
+         #vytraty-default-view вище, тому Журнал більше НЕ ховає бокову
+         панель (ПК) / нижню панель-навігацію (телефон), і перемикання
+         вкладки (performSwitchTab) явно закриває Журнал. Розмітка й уся
+         логіка пошуку/фільтра/календаря/групування всередині — без змін. -->
+    <div class="journal-overlay hidden" id="journal-overlay" role="region" aria-label="Журнал усіх записів" inert>
+      <div class="journal-overlay-top">
+        <button type="button" class="journal-back-btn" onclick="closeJournal()" aria-label="Назад">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="journal-overlay-title">Журнал усіх записів</div>
+      </div>
+      <div class="journal-body">
+        <div class="journal-search-row">
+          <div class="journal-search-input-wrap">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="journal-search-input" placeholder="Пошук за назвою чи підкатегорією" oninput="onJournalSearchChange()" autocomplete="off">
+            <button type="button" class="journal-search-clear hidden" id="journal-search-clear" onclick="clearJournalSearchText()" aria-label="Очистити пошук">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="journal-search-filters-row">
+          <select class="journal-search-category" id="journal-search-category" onchange="onJournalCategoryFilterChange()" aria-label="Категорія"></select>
+          <select class="journal-search-category" id="journal-search-subcategory" onchange="onJournalSearchChange()" aria-label="Підкатегорія"></select>
+        </div>
+        <div class="journal-search-summary hidden" id="journal-search-summary"></div>
+        <div class="date-nav-row journal-month-nav" id="journal-month-nav">
+          <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <div class="journal-month-label" id="journal-month-label"></div>
+          <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(1)" aria-label="Наступний місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+          <div class="journal-calendar-btn-wrap" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <input type="date" id="journal-date-input" class="journal-date-input-overlay" onchange="onJournalDatePicked(this.value)" aria-label="Перейти до дати">
+          </div>
+        </div>
+        <div id="journal-list"></div>
+      </div>
+    </div>
     </div>
 
     <!-- ================= СТРУКТУРА (нове: категорії / підкатегорії / словник) ================= -->
@@ -1833,7 +1892,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.20.3</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.0</div>
 </div>
   </div>
 </div>
@@ -2008,66 +2067,6 @@
     <input type="text" inputmode="numeric" class="cdd-amount-input" id="ind-amount" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
   </div>
   <button type="button" class="submit-btn income pill" onclick="saveIncomeDrawer()">Зберегти</button>
-</div>
-
-<!-- ================= Повноекранний Журнал усіх записів (Rev 2.18.0) =================
-     Оверлей на весь екран (не окрема вкладка bottom nav, не новий елемент
-     switchTab()'s фіксованого списку view'ів) — відкривається з короткого
-     списку на "Витрати" (openJournal), показує ВСІ записи ОБРАНОГО місяця
-     (без жорсткого ліміту в 80/6 записів — renderJournalView), з навігацією
-     стрілками вперед/назад по місяцях (shiftJournalMonth), за замовчуванням
-     поточний місяць. Рядки й логіка вибору/редагування/видалення — ті самі
-     .expense-row/toggleRecordSelect/startEditRecord/confirmDeleteRecord, що
-     й короткий список (buildRecordGroupsHtml, спільна з renderRecords). -->
-<div class="journal-overlay hidden" id="journal-overlay" role="dialog" aria-label="Журнал усіх записів" aria-modal="true" inert>
-  <div class="journal-overlay-top">
-    <button type="button" class="journal-back-btn" onclick="closeJournal()" aria-label="Назад">
-      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
-    <div class="journal-overlay-title">Журнал усіх записів</div>
-  </div>
-  <div class="journal-body">
-    <!-- Rev 2.20.0 — пошук за назвою + фільтр категорії, під заголовком, над
-         навігацією по місяцях/календарем. Поки активний пошук/фільтр
-         (isJournalSearchActive) — .journal-month-nav (стрілки+календар,
-         Rev 2.19.0) ховається (не чіпаємо саму навігацію, лише клас-тогл), а
-         результати рахуються по ВСІЙ історії, не лише journalMonth — той
-         самий buildRecordGroupsHtml (не чіпаємо), що звичайний місячний
-         перегляд, лише на вхід йде filterJournalRecords() замість
-         recordsForMonth(). Rev 2.20.2 — окремий фільтр підкатегорії поруч із
-         категорією (каскадно звужується під обрану категорію); доходи завжди
-         проходять обидва фільтри незалежно від вибору. -->
-    <div class="journal-search-row">
-      <div class="journal-search-input-wrap">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="journal-search-input" placeholder="Пошук за назвою чи підкатегорією" oninput="onJournalSearchChange()" autocomplete="off">
-        <button type="button" class="journal-search-clear hidden" id="journal-search-clear" onclick="clearJournalSearchText()" aria-label="Очистити пошук">
-          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-        </button>
-      </div>
-    </div>
-    <div class="journal-search-filters-row">
-      <select class="journal-search-category" id="journal-search-category" onchange="onJournalCategoryFilterChange()" aria-label="Категорія"></select>
-      <select class="journal-search-category" id="journal-search-subcategory" onchange="onJournalSearchChange()" aria-label="Підкатегорія"></select>
-    </div>
-    <div class="journal-search-summary hidden" id="journal-search-summary"></div>
-    <!-- Rev 2.20.2 BugFix — календар більше НЕ тригериться програмно
-         (showPicker()/click() з Rev 2.19.0/2.20.1 не відкривали пікер на
-         реальному iPhone) — #journal-date-input тепер лежить ПРЯМО поверх
-         кнопки-іконки (той самий розмір, opacity:0, приймає тап напряму) —
-         справжній нативний тап, а не програмний виклик. Іконка під інпутом
-         суто декоративна. -->
-    <div class="date-nav-row journal-month-nav" id="journal-month-nav">
-      <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-      <div class="journal-month-label" id="journal-month-label"></div>
-      <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(1)" aria-label="Наступний місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
-      <div class="journal-calendar-btn-wrap" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <input type="date" id="journal-date-input" class="journal-date-input-overlay" onchange="onJournalDatePicked(this.value)" aria-label="Перейти до дати">
-      </div>
-    </div>
-    <div id="journal-list"></div>
-  </div>
 </div>
 
 <!-- ================= Власний модальний діалог (Rev 2.0.5) =================
@@ -2410,7 +2409,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.20.3';
+const APP_VERSION = '2.21.0';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5557,7 +5556,12 @@ function openJournal(){
   const clearBtn = document.getElementById('journal-search-clear');
   if(clearBtn) clearBtn.classList.add('hidden');
   lastFocusedBeforeDialog = document.activeElement;
+  const defaultView = document.getElementById('vytraty-default-view');
   const overlay = document.getElementById('journal-overlay');
+  // Rev 2.21.0 — Журнал і форма+короткий список тепер два стани ОДНІЄЇ
+  // вкладки "Витрати" (той самий .hidden/inert-тогл, що й решта .view) —
+  // раніше forma просто лишалась у DOM під fixed-оверлеєм.
+  if(defaultView){ defaultView.classList.add('hidden'); defaultView.setAttribute('inert',''); }
   overlay.classList.remove('hidden');
   overlay.removeAttribute('inert');
   renderJournalView();
@@ -5565,9 +5569,11 @@ function openJournal(){
 }
 function closeJournal(){
   isJournalOpen = false;
+  const defaultView = document.getElementById('vytraty-default-view');
   const overlay = document.getElementById('journal-overlay');
   overlay.classList.add('hidden');
   overlay.setAttribute('inert','');
+  if(defaultView){ defaultView.classList.remove('hidden'); defaultView.removeAttribute('inert'); }
   restoreFocus();
   renderRecords();
 }
@@ -6760,6 +6766,12 @@ function updatePageHeader(tab){
   if(monthPillEl) monthPillEl.classList.toggle('hidden', !meta.showMonthPill);
 }
 function performSwitchTab(tab){
+  // Rev 2.21.0 — Журнал (#journal-overlay) більше не fixed-оверлей поверх
+  // усього застосунку, а другий стан вкладки "Витрати" — тому перемикання
+  // вкладки (навіть повторний клік на "Витрати") явно закриває Журнал, щоб
+  // користувач завжди повертався на форму внесення нової витрати (типовий
+  // стан вкладки), а не "застрягав" на Журналі під іншою вкладкою.
+  if(isJournalOpen) closeJournal();
   // Rev 2.3.2 — якщо є незбережена чернетка (напр. з датою "позавчора",
   // свідомо обраною користувачем перед тим, як він відволікся), скидання на
   // "сьогодні" при поверненні на вкладку стерло б саме ту дату, яку людина
