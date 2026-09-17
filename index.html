@@ -1141,7 +1141,7 @@
        liquid-glass справді плавно згасає, а не різко "виїжджає" за межі
        екрана одночасно з тим, як гасне сама зелена підсвітка (.scrolling
        нижче). */
-    transition:opacity .38s ease, transform .42s cubic-bezier(.22,1,.36,1), background .2s ease, border-color .2s ease, box-shadow .2s ease;
+    transition:opacity .38s ease, transform .42s cubic-bezier(.22,1,.36,1), background .2s ease, border-color .2s ease, box-shadow .2s ease, color .2s ease;
   }
   .scroll-top-btn.visible{
     opacity:1; pointer-events:auto;
@@ -1172,20 +1172,29 @@
      під час самого дотику (.pressed вище). opacity/pointer-events:auto тут
      явно перекривають "приховану" базову стилізацію — інакше кнопка почала
      б зникати ще ДО завершення скролу, щойно scrollTop перетне поріг
-     видимості (updateScrollTopBtn(), 240px), хоча анімація ще триває. Коли
-     .scrolling знімається (скрол дійсно завершився, scrollTop=0) — .visible
-     на цей момент вже знято раніше (тим самим порогом), тому кнопка одразу
-     переходить на базовий "прихований" стан і плавно/"красиво" зникає
-     власною, трохи стишеною (Rev 2.21.20 вище) transition-кривою — саме
-     момент "гарного зникнення бульбашки", про який просив користувач. */
+     видимості (updateScrollTopBtn(), 240px), хоча анімація ще триває.
+     Rev 2.21.21 — за проханням: бульбашка більше НЕ тримає фіксований
+     збільшений масштаб (1.35) весь час скролу, а поступово зменшується до
+     звичайного розміру кнопки (scale(1)) — transform-transition тут (.38s,
+     та сама тривалість/крива, що й у smoothScrollToTop(380,...) з
+     scrollTopBtnClick()) синхронізує "стиснення" з фактичною тривалістю
+     скрол-анімації, тож бульбашка приймає розмір кнопки САМЕ до моменту,
+     коли скрол завершується — чистий CSS, без ручного rAF-трекінгу
+     прогресу. Фон/рамка/тінь/колір лишаються зеленими (активними) весь цей
+     час — це і є "звичайний розмір, але ще активний стан". Лише коли
+     .scrolling знімається (скрол дійсно завершився) — .visible на цей
+     момент вже знято раніше (тим самим порогом), тому кнопка одразу
+     переходить на базовий "прихований" стан: САМЕ тоді, коли вона починає
+     зникати, і колір/фон повертаються до звичайного (неактивного) —
+     транзиції на це є у базовому правилі вище (.2s/.38s/.42s). */
   .scroll-top-btn.scrolling{
     opacity:1; pointer-events:auto;
-    transform:translateY(0) scale(1.35);
+    transform:translateY(0) scale(1);
     background:rgba(34,197,94,.16);
     border-color:rgba(34,197,94,.32);
     box-shadow:var(--shadow-glass), 0 2px 8px rgba(34,197,94,.22);
     color:var(--color-primary-hover);
-    transition:opacity .2s ease, transform .32s cubic-bezier(.34,1.56,.64,1), background .22s ease, border-color .22s ease, box-shadow .22s ease, color .22s ease;
+    transition:opacity .2s ease, transform .38s cubic-bezier(.22,1,.36,1), background .22s ease, border-color .22s ease, box-shadow .22s ease, color .22s ease;
   }
   .scroll-top-btn::before{
     content:""; position:absolute; inset:0; border-radius:inherit;
@@ -2238,7 +2247,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.20</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.21</div>
 </div>
   </div>
 </div>
@@ -2766,7 +2775,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.20';
+const APP_VERSION = '2.21.21';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
