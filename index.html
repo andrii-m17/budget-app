@@ -2210,7 +2210,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.17</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.18</div>
 </div>
   </div>
 </div>
@@ -2738,7 +2738,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.17';
+const APP_VERSION = '2.21.18';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -4344,11 +4344,11 @@ function renderDataStatusDot(elId, uiStatus, month){
   const textEl = wrap.querySelector('.dsp-text');
   if(uiStatus.status==='incomplete'){
     btn.setAttribute('aria-label', 'Стан даних: неповні дані за цей місяць');
-    titleEl.textContent = 'Неповний';
+    titleEl.textContent = 'Інформація неповна';
     textEl.textContent = 'Дані за поточний місяць внесені не повністю. Значення може бути неповним.';
   }else{
     btn.setAttribute('aria-label', 'Стан даних: останнє відоме значення');
-    titleEl.textContent = 'Останнє відоме';
+    titleEl.textContent = 'Останнє відоме значення';
     textEl.textContent = `Дані за ${monthLabel(month)} ще не внесені. Показано останнє відоме значення за ${monthLabel(uiStatus.asOfMonth)}.`;
   }
 }
@@ -7194,6 +7194,11 @@ function performSwitchTab(tab){
   // користувач завжди повертався на форму внесення нової витрати (типовий
   // стан вкладки), а не "застрягав" на Журналі під іншою вкладкою.
   if(isJournalOpen) closeJournal();
+  // Rev #21+#23 (bugfix) — data-status popover (крапка "станом на" на
+  // KPI "Борг"/"Скорочення боргу") лишався відкритим і після переходу на
+  // іншу вкладку, бо закривався лише по кліку поза його межами/Escape —
+  // перемикання вкладки таким кліком не вважається. Закриваємо явно.
+  closeAllDataStatusPopovers();
   // Rev 2.3.2 — якщо є незбережена чернетка (напр. з датою "позавчора",
   // свідомо обраною користувачем перед тим, як він відволікся), скидання на
   // "сьогодні" при поверненні на вкладку стерло б саме ту дату, яку людина
