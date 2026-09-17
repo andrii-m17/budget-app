@@ -1896,7 +1896,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.1</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.2</div>
 </div>
   </div>
 </div>
@@ -2413,7 +2413,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.1';
+const APP_VERSION = '2.21.2';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5370,7 +5370,10 @@ function deleteSubcategory(i){
 // buildRecordGroupsHtml() — САМЕ ТОЙ САМИЙ HTML/CSS патерн (.expense-row,
 // .journal-day-group), що й раніше, лише тепер перевикористовується обома
 // поданнями замість дублювання.
-const SHORT_JOURNAL_LIMIT = 6;
+// Rev 2.21.2 — 6 → 10: короткий список навіть на найтиповіших днях (кілька
+// покупок за день) занадто швидко упирався в ліміт і ховав "сьогоднішні"
+// записи за кнопкою "Показати весь журнал".
+const SHORT_JOURNAL_LIMIT = 10;
 function buildRecordGroupsHtml(items){
   // Групуємо по даті (рядки вже відсортовані спаданням, тому однакові дати
   // завжди йдуть підряд — досить порівнювати з попереднім ключем "на льоту").
