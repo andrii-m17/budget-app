@@ -1940,7 +1940,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.5</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.6</div>
 </div>
   </div>
 </div>
@@ -2457,7 +2457,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.5';
+const APP_VERSION = '2.21.6';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5617,6 +5617,16 @@ function openJournal(){
   overlay.removeAttribute('inert');
   renderJournalView();
   focusFirstIn(overlay);
+  // Rev 2.21.6 — відкриття Журналу зі скролу в середині/низу короткого
+  // списку (напр. після догортання до кнопки "Показати весь журнал")
+  // раніше лишало #main-col на тій самій позиції скролу, тому Журнал
+  // відкривався "з середини" замість зі свого початку. #main-col — спільний
+  // контейнер прокрутки для ВСІХ вкладок (той самий, який performSwitchTab()
+  // вже скидає на 0 при кожному перемиканні вкладки, Rev 2.7.0) — тут той
+  // самий скид, лише додатково й при відкритті Журналу (яке НЕ перемикає
+  // вкладку, тому той код не спрацьовує).
+  const mainColEl = document.getElementById('main-col');
+  if(mainColEl) mainColEl.scrollTop = 0;
 }
 function closeJournal(){
   isJournalOpen = false;
