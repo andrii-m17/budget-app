@@ -2262,7 +2262,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.27</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.28</div>
 </div>
   </div>
 </div>
@@ -2790,7 +2790,15 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.27';
+const APP_VERSION = '2.21.28';
+// Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
+// усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
+// підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
+// витрата" — короткоживучий, ефемерний стан; втратити його при відновленні
+// з бекапу прийнятно) і LS_KEY_THEME (вибір теми — UI-преференція
+// пристрою/браузера, а не фінансові дані користувача, тому не частина
+// "даних" у сенсі цього бекапу). Обидва визначені далі у файлі (LS_KEY_DRAFT,
+// LS_KEY_THEME) і свідомо не додаються сюди.
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -3633,7 +3641,26 @@ function flashField(id){ const el=document.getElementById(id); el.style.borderCo
    це геть інший, короткоживучий стан лише незбереженої форми), очищується
    автоматично одразу після успішного addExpense() (див. resetExpenseForm).
    Порожня чернетка (немає ні назви, ні суми) взагалі не зберігається —
-   немає сенсу засмічувати localStorage порожнім станом. */
+   немає сенсу засмічувати localStorage порожнім станом.
+
+   Rev #27.1 — Stage 5, п.27: свідомо ЛИШЕНО як 4 окремі функції
+   (save/clear/has/restore), а НЕ зведено до звичного loadX()/saveX()-патерну
+   інших доменів — тут це не два дзеркальні боки одного стану (прочитати/
+   записати той самий об'єкт), а 4 різні дії з різною семантикою: save —
+   постійно на кожен ввід (oninput), clear — після успішного addExpense()
+   чи явної відмови, has — легка перевірка "чи є що відновлювати" без
+   побічних ефектів на DOM (potребується в performSwitchTab(), де форму
+   ще рано наповнювати), restore — одноразовий виклик при старті, що саме
+   й наповнює DOM-поля форми. Стиснення в пару зробило б виклики на місцях
+   менш читабельними, не даючи реальної переваги. try/catch — за тим самим
+   принципом, що і в решти застосунку: READ-функції (has/restore) обгорнуті,
+   WRITE-функції (save/clear) — ні, як і всі save*() по інших доменах
+   (saveExpenses/saveDebts/... теж без try/catch; лише setThemeChoice() —
+   єдиний виняток на запис у всьому файлі, тут не займаний). Звірено: усі 4
+   функції узгоджені одна з одною (clearExpenseDraft() дійсно робить
+   removeItem, а не setItem('') — hasExpenseDraft()/restoreExpenseDraft()
+   коректно трактують відсутній ключ як "чернетки нема"), формат/ключ не
+   змінені. */
 const LS_KEY_DRAFT = 'budget_expense_draft_v1';
 function saveExpenseDraft(){
   const nameEl = document.getElementById('f-name');
