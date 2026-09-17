@@ -1050,6 +1050,17 @@
      tabbarBubbleShimmer, той самий keyframes, не дублюємо); (б) поява тепер
      "виринає" здалеку знизу екрана (translateY(60px), було 8px) — більш
      виражений ефект "спливання", а не просто легке зміщення+fade. */
+  /* Rev 2.21.14 — за проханням: (а) довша й плавніша поява (0.45s→0.6s,
+     пружний cubic-bezier лишається — саме він і дає ефект "виринання"), АЛЕ
+     ОКРЕМА, спокійніша крива для зникнення (без пружного перескоку — той
+     виглядав дивно "у зворотному напрямку"). CSS-трюк: transition, який
+     реально застосовується при зміні стилю, береться зі СТАНУ, В ЯКИЙ
+     елемент переходить — тому entrance-transition (пружна, довша) живе в
+     .visible, а exit-transition (спокійна, коротша) — у базовому правилі
+     тут; (б) на .pressed — той самий зелений акцент, що бульбашка вибору в
+     таббарі (.tabbar-bubble: rgba(34,197,94,...) фон/рамка/тінь), разом із
+     ліквід-глас розмиттям, що вже було — "рідний" елемент таббару, а не
+     просто прозоре скло без кольору. */
   .scroll-top-btn{
     position:fixed; right:16px; z-index:19;
     bottom:calc(env(safe-area-inset-bottom,0px) + 78px);
@@ -1064,10 +1075,20 @@
     cursor:pointer;
     opacity:0; pointer-events:none;
     transform:translateY(60px) scale(.9);
-    transition:opacity .3s ease, transform .45s cubic-bezier(.34,1.56,.64,1), background .22s cubic-bezier(.22,1,.36,1);
+    transition:opacity .3s ease, transform .35s cubic-bezier(.4,0,.2,1), background .2s ease, border-color .2s ease, box-shadow .2s ease;
   }
-  .scroll-top-btn.visible{ opacity:1; pointer-events:auto; transform:translateY(0) scale(1); }
-  .scroll-top-btn.pressed{ transform:translateY(0) scale(1.15); background:var(--color-glass-pressed-bg); }
+  .scroll-top-btn.visible{
+    opacity:1; pointer-events:auto;
+    transform:translateY(0) scale(1);
+    transition:opacity .35s ease, transform .6s cubic-bezier(.34,1.56,.64,1), background .22s cubic-bezier(.22,1,.36,1), border-color .22s ease, box-shadow .22s ease;
+  }
+  .scroll-top-btn.pressed{
+    transform:translateY(0) scale(1.15);
+    background:rgba(34,197,94,.16);
+    border-color:rgba(34,197,94,.32);
+    box-shadow:var(--shadow-glass), 0 2px 8px rgba(34,197,94,.22);
+    color:var(--color-primary-hover);
+  }
   .scroll-top-btn::before{
     content:""; position:absolute; inset:0; border-radius:inherit;
     background:linear-gradient(120deg, transparent 25%, var(--color-glass-shimmer) 50%, transparent 75%);
@@ -1190,28 +1211,49 @@
      (align-items:center, було start) — права колонка (список) лишається
      природної висоти (з поміркованим стисканням рядків нижче, суто
      естетичним, не для підгонки висот), а форма просто центрується поруч із
-     нею, а не притискається до верхнього краю з порожнечею знизу. */
+     нею, а не притискається до верхнього краю з порожнечею знизу.
+     Rev 2.21.14 — align-items:center (весь .vytraty-form-col як один блок)
+     замінено на align-items:stretch + внутрішнє центрування картки: за
+     проханням, заголовок "Нова витрата" має "сидіти на рівні" підпису
+     "Останні записи" (одна умовна лінія заголовків над обома колонками), а
+     не спливати кудись у середину разом з усією формою. Тепер
+     .vytraty-form-col — flex-колонка на всю висоту рядка (stretch): заголовок
+     лишається зверху (природний потік, збігається по Y з "Останні записи",
+     бо обидві колонки тепер РІВНОЇ висоти й починаються з тієї самої точки),
+     а картка з полями центрується (margin:auto) у РЕШТІ висоти під ним —
+     той самий трюк, що вже використовувався для кнопки "Показати весь
+     журнал" у Rev 2.21.10 (fallback), лише тепер для картки. */
   @media (min-width:768px){
-    #vytraty-default-view{ display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:24px; align-items:center; }
+    #vytraty-default-view{ display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:24px; align-items:stretch; }
+    #vytraty-default-view .vytraty-form-col{ display:flex; flex-direction:column; }
+    #vytraty-default-view .vytraty-form-col .entry-card{ margin-top:auto; margin-bottom:auto; }
+    /* Rev 2.21.14 — на ≥768px "Нова витрата" перестає бути окремим великим
+       заголовком (17px/800, той стиль лишається для mobile) і переймає
+       ТОЧНО стиль .section-label ("ОСТАННІ ЗАПИСИ" праворуч) — та сама
+       умовна "лінія заголовків" над обома колонками: однаковий розмір,
+       регістр, колір, вирівнювання по Y (margin:26px 2px 10px — той самий,
+       що в .section-label, тому обидва підписи стоять на одній висоті,
+       щойно колонки стали рівної висоти вище). */
+    /* margin-top:2px, не 26px — .section-label теж має власне
+       :first-child{margin-top:2px}, яке саме тут і застосовується (обидва
+       підписи — перші дочірні елементи своїх колонок). */
+    #vytraty-default-view .vytraty-form-title{ font-size:11px; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.6px; margin:2px 2px 10px; }
     #vytraty-default-view .vytraty-recent-col{ min-width:0; }
-    /* Rev 2.21.13 — "Показати весь журнал" тепер третій grid-child (не
-       всередині .vytraty-recent-col) — grid-column:1/-1 займає ОБИДВІ
-       колонки, формуючи власний рядок під ними (auto-placement grid: 3-й
-       елемент не влазить у заповнений row1 з 2 колонками → переходить у
-       row2), а justify-self:center центрує саму кнопку (не на всю ширину,
-       той самий розмір/стиль .show-journal-link) у цьому рядку. */
-    #vytraty-default-view #show-journal-btn{ grid-column:1 / -1; justify-self:center; width:auto; min-width:220px; margin-top:8px; }
-    /* Rev 2.21.13 — ряд вибору дати (стрілки+поле) на ≥768px: поле дати
-       раніше розтягувалось на всю решту ширини (flex:1 1 auto) — поруч із
-       відносно малими стрілками (38-48px) виглядало непропорційно "задовгим".
-       Обмежуємо поле фіксованою шириною (~140px) і центруємо весь ряд —
-       той самий #view-vytraty (охоплює і #f-date, і #journal-date-input,
-       обидва вже мають ідентичний стиль з Rev 2.21.11). Стрілки збільшені
-       окремо (44px — тут і в ≥1280-компактному блоці нижче, було 38px). */
-    #view-vytraty .date-nav-row{ justify-content:center; }
-    #view-vytraty .date-input-wrap{ flex:0 1 140px; }
+    /* Rev 2.21.13 (кнопка "Показати весь журнал" третім grid-child, під
+       обома колонками) відкочено в Rev 2.21.14 за проханням користувача —
+       кнопка знову звичайний потік усередині .vytraty-recent-col, під
+       останнім записом (як до Rev 2.21.13). */
+    /* Rev 2.21.13 звужувало поле дати (flex:0 1 140px) + центрувало весь
+       ряд (justify-content:center) — відкочено в Rev 2.21.14 за проханням:
+       ряд стрілки+поле знову flex:1 1 auto (як до Rev 2.21.13, довжина всього
+       ряду = довжина решти 3 полів картки), text-align:center на самому
+       інпуті ЛИШИЛИ (окремий, раніше підтверджений фікс — на ПК текст
+       раніше йшов зліва, а на mobile центрувався). Замість звуження поля —
+       розширення СТРІЛОК (нижче, ≥1280px-компактний блок): бокс звужується
+       сам собою, бо й далі flex:1 1 auto й "віддає" стрілкам рівно стільки,
+       скільки вони забрали своєю новою шириною — той самий загальний
+       розмір ряду, просто інший розподіл між стрілками й полем усередині. */
     #view-vytraty input[type="date"]{ text-align:center; }
-    #view-vytraty .date-nav-btn{ width:44px; height:44px; }
     #vytraty-default-view .vytraty-recent-col .journal-day-group{ margin-bottom:12px; }
     #vytraty-default-view .vytraty-recent-col .journal-day-head{ padding:0 2px 6px; margin-bottom:8px; }
     #vytraty-default-view .vytraty-recent-col .jdh-date{ font-size:12.5px; }
@@ -1293,13 +1335,16 @@
     #view-vytraty .entry-card{ max-width:420px; padding:18px 20px; }
     #view-vytraty .vytraty-form-col{ max-width:420px; }
     #view-vytraty .entry-title{ font-size:13px; margin-bottom:10px; }
-    /* Rev 2.21.13 — .vytraty-form-title (Apple-стиль заголовок ПОЗА
-       карткою) навмисно НЕ повинен зменшуватись слідом за компактними
-       полями картки на ≥1280px — це тепер заголовок сторінки, а не рядок
-       усередині тісної картки. Перевизначення тут (після рядка вище, та
-       сама специфічність — виграє за порядком у файлі) повертає йому
-       "повний" розмір з базового правила .vytraty-form-title. */
-    #view-vytraty .vytraty-form-title{ font-size:17px; margin-bottom:12px; }
+    /* Rev 2.21.13 форсувало .vytraty-form-title назад до 17px на ≥1280px
+       (щоб не "зменшувався слідом за карткою") — відкочено в Rev 2.21.14:
+       тепер на ВСІХ ширинах ≥768px .vytraty-form-title свідомо переймає
+       стиль .section-label (11px, той самий рядок у ≥768px-блоці вище) —
+       "зменшення" тут більше не проблема, бо це вже не окремий "заголовок
+       сторінки", а свідомо пара до "ОСТАННІ ЗАПИСИ". Рядок ВИЩЕ
+       (#view-vytraty .entry-title) з тією самою специфічністю (обидва
+       #view-vytraty + один клас) все одно перекрив би font-size/margin-bottom
+       через порядок у файлі — тому явно повертаємо потрібні 11px/10px тут. */
+    #view-vytraty .vytraty-form-title{ font-size:11px; margin-bottom:10px; }
     #view-vytraty .field{ margin-bottom:10px; }
     #view-vytraty .field label{ font-size:10px; margin-bottom:4px; }
     #view-vytraty .field input, #view-vytraty .field select{ height:38px; padding:8px 10px; font-size:13.5px; }
@@ -1311,11 +1356,15 @@
     #view-vytraty #journal-date-input{ height:38px; padding:8px 10px; font-size:13.5px; }
     #view-vytraty .cat-fields-wrap select{ height:42px; padding-top:6px; padding-bottom:6px; line-height:26px; }
     #view-vytraty .row-2{ gap:8px; }
-    /* Rev 2.21.13 — 38px → 44px, за проханням ("стрілки надто малі поруч із
-       задовгим полем дати") — той самий розмір, що встановлюється нижче для
-       ≥768px загалом (тут просто перекриває старе 38px значення на ще
-       вужчому ≥1280px-підмножині). */
-    #view-vytraty .date-nav-btn{ width:44px; height:44px; }
+    /* Rev 2.21.13 пробувало 44px — відкочено. Rev 2.21.14, за проханням:
+       стрілки вдвічі ШИРШІ за початковий (до Rev 2.21.13) стан 38px → 76px.
+       Висота НЕ чіпалась (лишається 38px, як і рядок/поле поруч) — саме
+       "ширша", не "більша" загалом; .date-nav-row/.date-input-wrap й далі
+       flex:1 1 auto (не чіпали вище), тому поле дати автоматично звужується
+       рівно на стільки, на скільки стрілки "забрали" собі ширини — довжина
+       всього ряду (стрілки+поле) лишається тією самою, що й решта 3 полів
+       картки. */
+    #view-vytraty .date-nav-btn{ width:76px; height:38px; }
     #view-vytraty .date-caption{ font-size:11px; margin-top:4px; }
     #view-vytraty .field.auto-hint{ font-size:11px; margin-top:4px; }
     #view-vytraty .submit-btn{ padding:11px; font-size:13.5px; margin-top:4px; }
@@ -1715,17 +1764,11 @@
       <div class="vytraty-recent-col">
         <div class="section-label">Останні записи</div>
         <div id="records-list"></div>
+        <button type="button" class="show-journal-link hidden" id="show-journal-btn" onclick="openJournal()">
+          Показати весь журнал
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
       </div>
-      <!-- Rev 2.21.13 — "Показати весь журнал" винесено ЗА межі
-           .vytraty-recent-col — на ≥768px (2 колонки, Rev 2.21.3) стає
-           третім grid-child, що займає ОБИДВІ колонки (grid-column:1/-1) і
-           горизонтально центрується під ними (не пришитий до низу лише
-           правої колонки). На mobile (<768px, звичайний document flow) —
-           та сама позиція, що й раніше, одразу під коротким списком. -->
-      <button type="button" class="show-journal-link hidden" id="show-journal-btn" onclick="openJournal()">
-        Показати весь журнал
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
     </div>
     <!-- Rev 2.21.0 — #journal-overlay перенесено сюди (був окремим блоком у
          кінці body, fixed-оверлей на весь viewport) — тепер це другий стан
@@ -2089,7 +2132,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.13</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.14</div>
 </div>
   </div>
 </div>
@@ -2617,7 +2660,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.13';
+const APP_VERSION = '2.21.14';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -5998,56 +6041,53 @@ function clearJournalSearchText(){
   onJournalSearchChange();
   if(input) input.focus();
 }
+// Rev 2.21.14 BugFix — за проханням: раніше активний пошук/фільтр ховав
+// .journal-month-nav і шукав по ВСІЙ історії (Rev 2.20.0), тому не можна
+// було одночасно бачити стрілки/календар місяця й користуватись пошуком —
+// користувач попросив залишити навігацію по місяцях завжди видимою, а
+// пошук/фільтр звужувати до ОБРАНОГО місяця (journalMonth), а не по всій
+// історії — той самий звичний патерн "пошук у межах виду", а не "пошук по
+// всьому". .journal-month-nav.hidden/#journal-search-summary "Результати
+// пошуку (N)" (Rev 2.20.0/2.21.13) — більше не потрібні, місяць-навігація
+// й так завжди на місці; замість "Результати пошуку" — короткий підпис
+// "Знайдено N" поруч із назвою місяця, лише коли пошук/фільтр активні.
 function renderJournalView(){
   const container = document.getElementById('journal-list');
   if(!container || !journalMonth) return;
   populateJournalCategoryOptions();
-  const monthNavEl = document.getElementById('journal-month-nav');
   const searchSummaryEl = document.getElementById('journal-search-summary');
   const labelEl = document.getElementById('journal-month-label');
   const allCombined = [
     ...expenses.map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
     ...incomes.map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
   ];
-
-  // Rev 2.20.0 — активний пошук/фільтр: результати по ВСІЙ історії
-  // (journalMonth ігнорується, поки триває пошук — узгоджене UX-рішення),
-  // .journal-month-nav ховається, "Результати пошуку (N)" замінює підпис
-  // місяця. Групування за днем (buildRecordGroupsHtml, не чіпаємо) лишається
-  // тим самим — дає часовий контекст навіть у режимі пошуку по всіх місяцях.
-  if(isJournalSearchActive()){
-    if(monthNavEl) monthNavEl.classList.add('hidden');
-    const filtered = filterJournalRecords(allCombined, journalSearchQuery, journalSearchCategory, journalSearchSubcategory)
-      .sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
-    if(searchSummaryEl){
-      searchSummaryEl.textContent = `Результати пошуку (${filtered.length})`;
-      searchSummaryEl.classList.remove('hidden');
-    }
-    if(filtered.length===0){
-      container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><div class="es-title">Нічого не знайдено</div><div class="es-sub">Спробуй іншу назву або категорію.</div></div>`;
-      return;
-    }
-    container.innerHTML = buildRecordGroupsHtml(filtered);
-    return;
-  }
-
-  // Rev 2.20.0 — звичайний місячний перегляд (пошук/фільтр не активні):
-  // .journal-month-nav знову видима, "Результати пошуку" ховається — та сама
-  // логіка, що була в Rev 2.18.0/2.19.0, лише тепер з явним тоглом класів.
-  if(monthNavEl) monthNavEl.classList.remove('hidden');
-  if(searchSummaryEl) searchSummaryEl.classList.add('hidden');
-  if(labelEl) labelEl.textContent = monthLabel(journalMonth);
-  // Rev 2.20.2 — #journal-date-input більше не готується окремою функцією
-  // перед відкриттям (openJournalDatePicker прибрано) — сам інпут ЗАВЖДИ
-  // лежить поверх кнопки-іконки й приймає тап напряму, тому його значення
-  // тримаємо синхронним з journalMonth тут, при кожному рендері.
   const dateInputEl = document.getElementById('journal-date-input');
   if(dateInputEl) dateInputEl.value = journalMonth + '-01';
-  const combined = recordsForMonth(allCombined, journalMonth)
-    .sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
+  if(labelEl) labelEl.textContent = monthLabel(journalMonth);
+
+  const monthRecords = recordsForMonth(allCombined, journalMonth);
+  const searchActive = isJournalSearchActive();
+  const combined = (searchActive
+    ? filterJournalRecords(monthRecords, journalSearchQuery, journalSearchCategory, journalSearchSubcategory)
+    : monthRecords
+  ).sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
+
+  if(searchSummaryEl){
+    if(searchActive){
+      searchSummaryEl.textContent = `Знайдено ${combined.length}`;
+      searchSummaryEl.classList.remove('hidden');
+    }else{
+      searchSummaryEl.classList.add('hidden');
+    }
+  }
 
   if(combined.length===0){
-    container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><div class="es-title">Немає записів за ${monthLabel(journalMonth)}</div><div class="es-sub">Оберіть інший місяць стрілками вище.</div></div>`;
+    const title = searchActive ? 'Нічого не знайдено' : `Немає записів за ${monthLabel(journalMonth)}`;
+    const sub = searchActive ? `За цим запитом у ${monthLabel(journalMonth)} нічого немає — спробуй інший місяць чи назву.` : 'Оберіть інший місяць стрілками вище.';
+    const icon = searchActive
+      ? `<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>`
+      : `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>`;
+    container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></div><div class="es-title">${title}</div><div class="es-sub">${sub}</div></div>`;
     return;
   }
   container.innerHTML = buildRecordGroupsHtml(combined);
