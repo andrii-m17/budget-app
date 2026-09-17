@@ -1159,6 +1159,15 @@
     color:var(--color-primary-hover);
     transition:transform .32s cubic-bezier(.34,1.56,.64,1), background .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease;
   }
+  /* Rev 2.21.19 — за проханням: стрілка лишається зеленою не лише під час
+     самого натиску (.pressed, тривалість дотику), а й ВЕСЬ час, поки контент
+     гортається до початку — і повертається до звичайного кольору саме тоді,
+     коли скрол завершується (в цей момент scrollTop вже перетнув поріг
+     видимості, і кнопка й так починає ховатись, updateScrollTopBtn()). Лише
+     колір (не масштаб/фон/бульбашка — ті лишаються ефектом самого натиску,
+     .pressed вище) — .scrolling вмикається/знімається з JS у
+     smoothScrollToTop()'s onDone (див. нижче). */
+  .scroll-top-btn.scrolling{ color:var(--color-primary-hover); transition:color .2s ease; }
   .scroll-top-btn::before{
     content:""; position:absolute; inset:0; border-radius:inherit;
     background:linear-gradient(120deg, transparent 25%, var(--color-glass-shimmer) 50%, transparent 75%);
@@ -2210,7 +2219,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.18</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.19</div>
 </div>
   </div>
 </div>
@@ -2248,7 +2257,7 @@
      з'являється лише коли #main-col проскрольовано вниз (updateScrollTopBtn,
      нижче), і зникає при поверненні нагору. Особливо корисна після переходу
      на конкретну дату в Журналі чи довгого догортання списку. -->
-<button type="button" class="scroll-top-btn" id="scroll-top-btn" onclick="smoothScrollToTop()" aria-label="Прокрутити до початку">
+<button type="button" class="scroll-top-btn" id="scroll-top-btn" onclick="scrollTopBtnClick()" aria-label="Прокрутити до початку">
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>
 </button>
 
@@ -2738,7 +2747,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.18';
+const APP_VERSION = '2.21.19';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -7320,12 +7329,16 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
 // раніше функція існувала лише всередині тієї IIFE (доступна тільки жесту
 // таббару), тепер її також викликає нова кнопка "Прокрутити до початку"
 // (onclick у розмітці) — сама логіка не змінена.
-function smoothScrollToTop(duration){
+// Rev 2.21.19 — необов'язковий onDone: викликається, коли анімація реально
+// завершилась (або одразу, якщо скролити не було звідки) — потрібен кнопці
+// "нагору", щоб точно знати момент, коли прибрати .scrolling (зелений колір
+// стрілки), а не гадати про тривалість ззовні.
+function smoothScrollToTop(duration, onDone){
   duration = duration || 380;
   const mainColEl = document.getElementById('main-col');
-  if(!mainColEl) return;
+  if(!mainColEl){ if(onDone) onDone(); return; }
   const startY = mainColEl.scrollTop || 0;
-  if(startY <= 0) return;
+  if(startY <= 0){ if(onDone) onDone(); return; }
   killMainColMomentumScroll();
   const startTime = performance.now();
   function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
@@ -7334,6 +7347,7 @@ function smoothScrollToTop(duration){
     const t = Math.min(1, elapsed / duration);
     mainColEl.scrollTop = Math.round(startY * (1 - easeOutCubic(t)));
     if(t < 1) requestAnimationFrame(step);
+    else if(onDone) onDone();
   }
   requestAnimationFrame(step);
 }
@@ -7364,6 +7378,15 @@ function updateScrollTopBtn(){
     });
   }
 })();
+// Rev 2.21.19 — стрілка лишається зеленою (.scrolling) не лише під час
+// натиску, а й весь час, поки контент реально гортається до початку —
+// прибирається тільки коли анімація завершилась (onDone), а не за
+// фіксованим таймером, тому колір і реальний скрол завжди узгоджені.
+function scrollTopBtnClick(){
+  const btn = document.getElementById('scroll-top-btn');
+  if(btn) btn.classList.add('scrolling');
+  smoothScrollToTop(380, function(){ if(btn) btn.classList.remove('scrolling'); });
+}
 
 (function initTabbarSwipe(){
   const bar = document.querySelector('nav.tabbar');
