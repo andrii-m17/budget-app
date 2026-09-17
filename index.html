@@ -2273,7 +2273,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.29</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.30</div>
 </div>
   </div>
 </div>
@@ -2677,6 +2677,16 @@ function generateUUID(){
 // SCHEMA_VERSION зростає лише тоді, коли формат самих записів змінюється
 // несумісно — тоді майбутні ревізії зможуть додати послідовні кроки
 // міграції за номером версії (за зразком ensureExpenseIdentity нижче).
+// Rev #27.3 — Stage 5, п.27: LS_KEY_SCHEMA_VERSION — ЄДИНИЙ ключ у
+// застосунку, що серіалізується НЕ через JSON.stringify/JSON.parse, а як
+// голе число-рядок (String(SCHEMA_VERSION) на запис, parseInt(...,10) на
+// читання) — свідомо, не недогляд: єдиний скаляр не потребує структури
+// JSON, а parseInt/String простіші й надійніші для одного числа. Якщо
+// колись торкнешся цього ключа за аналогією з іншими доменами (де все —
+// JSON) — не копіюй JSON.parse/JSON.stringify сюди без потреби. Той самий
+// голий-число-рядок формат (не JSON) використовується і в
+// handleRestoreBackupFile() при розборі legacy-бекапу — окремий домен
+// (backup/restore, не storage-доступ), тут не рефакториться.
 const SCHEMA_VERSION = 1;
 const LS_KEY_SCHEMA_VERSION = 'budget_schema_version_v1';
 function ensureSchemaVersion(){
@@ -2801,7 +2811,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.29';
+const APP_VERSION = '2.21.30';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
