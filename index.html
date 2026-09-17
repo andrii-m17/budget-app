@@ -455,19 +455,28 @@
   .section-label:first-child{ margin-top:2px; }
 
   .badge{ display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:var(--radius-sm); }
-  /* Rev 2.1.1 BugFix — бейдж "станом на" раніше стояв у звичайному flex-потоці
-     фіксованої 180px картки: довгий текст переносився на 2 рядки й ламав
-     висоту/межі картки (виходив за border на десктопі). Абсолютне позиціювання
-     в кутку прибирає бейдж з потоку документа повністю — картка більше не може
-     "розтягнутись" через нього, незалежно від довжини тексту чи ширини екрана. */
-  .badge.corner-badge{ position:absolute; top:12px; right:12px; font-size:9.5px; padding:2px 7px; white-space:nowrap; z-index:2; max-width:calc(100% - 24px); overflow:hidden; text-overflow:ellipsis; }
   .badge.soon{ background:var(--color-disabled-bg); color:var(--color-muted); }
   .badge.role-obligatory{ background:var(--color-warning-bg); color:var(--color-warning); }
   .badge.role-flexible{ background:var(--color-info-bg); color:var(--color-info); }
   .badge.role-reducible{ background:var(--color-success-bg); color:var(--color-success); }
-  /* Rev 2.1.0 — позначка "станом на"/"немає даних" для carry-forward значень боргу */
-  .badge.stale{ background:var(--color-warning-bg); color:var(--color-warning); }
   .badge.hidden{ display:none; }
+
+  /* Rev #21 + #23 — Unified Data Status: замінює текстовий бейдж "Станом на
+     ..." на малопомітну status dot у кутку картки + contextual popover за
+     кліком/тапом. Якщо дані актуальні — dot взагалі не показується (картка
+     виглядає так, ніби ніякого data-status немає). Touch target (34px)
+     значно більший за видиму крапку (7px), щоб не треба було влучати
+     точно в неї на мобільному — сам wrap лишається розміру точки, тому
+     layout картки не змінюється. */
+  .data-status{ position:absolute; top:12px; right:12px; z-index:3; }
+  .data-status.hidden{ display:none; }
+  .data-status-dot{ width:34px; height:34px; margin:-13.5px; padding:0; border:none; background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; border-radius:50%; }
+  .data-status-dot::after{ content:""; width:7px; height:7px; border-radius:50%; background:var(--color-info); flex-shrink:0; }
+  .data-status.warning .data-status-dot::after{ background:var(--color-warning); }
+  .data-status-popover{ display:none; position:absolute; top:100%; right:0; margin-top:8px; width:220px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); padding:10px 12px; text-align:left; }
+  .data-status.open .data-status-popover{ display:block; }
+  .dsp-title{ font-size:12px; font-weight:700; color:var(--color-text-primary); margin-bottom:3px; }
+  .dsp-text{ font-size:11.5px; color:var(--color-text-secondary); line-height:1.4; }
 
   /* Rev 2.1.2 — журнал згруповано по днях замість плаского списку: дата тепер
      показується один раз у заголовку групи (разом з підсумком дня), а не в
@@ -1551,7 +1560,13 @@
           <div class="kpi-spark" id="spark-savings"></div>
         </div>
         <div class="kpi-card v2 debt">
-          <span class="badge stale corner-badge hidden" id="kpi-debt-asof"></span>
+          <div class="data-status hidden" id="kpi-debt-asof">
+            <button type="button" class="data-status-dot" aria-haspopup="true" aria-expanded="false" aria-label="Стан даних"></button>
+            <div class="data-status-popover" role="note">
+              <div class="dsp-title"></div>
+              <div class="dsp-text"></div>
+            </div>
+          </div>
           <div class="kpi-card-header">
             <div class="kpi-icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
             <div class="kpi-label">Борг</div>
@@ -1561,7 +1576,13 @@
           <div class="kpi-spark" id="spark-debt"></div>
         </div>
         <div class="kpi-card v2 donutcard wide">
-          <span class="badge stale corner-badge hidden" id="debt-donut-asof"></span>
+          <div class="data-status hidden" id="debt-donut-asof">
+            <button type="button" class="data-status-dot" aria-haspopup="true" aria-expanded="false" aria-label="Стан даних"></button>
+            <div class="data-status-popover" role="note">
+              <div class="dsp-title"></div>
+              <div class="dsp-text"></div>
+            </div>
+          </div>
           <div class="kpi-label" id="debt-donut-title">Скорочення боргу</div>
           <div class="donut-row">
             <svg width="100" height="100" viewBox="0 0 108 108" id="debt-donut" style="flex-shrink:0;"></svg>
@@ -2189,7 +2210,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.16</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.17</div>
 </div>
   </div>
 </div>
@@ -2717,7 +2738,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.16';
+const APP_VERSION = '2.21.17';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -4289,6 +4310,75 @@ function debtAsOfInfo(month, kind){
   const asOfMonth = months.reduce((min,m)=> m<min?m:min, months[0]);
   return { hasData:true, isCurrent: asOfMonth===month, asOfMonth };
 }
+// Rev #21 + #23 — Unified Data Status: перетворює вже існуючий debtAsOfInfo()
+// на компактний UI-статус ('actual'/'last-known'/'incomplete'/'none') для
+// status dot. НЕ рахує борги/платежі, НЕ змінює totals — лише читає готовий
+// результат перевірки даних. 'incomplete' відрізняється від 'last-known'
+// достовірною, вже наявною ознакою: kindHasActualForMonth() каже, чи хоча б
+// один запис "kind" вже фактично внесений за поточний місяць. Якщо так, але
+// debtAsOfInfo() все одно не isCurrent — значить частину карток/кредитів уже
+// оновили цього місяця, а частину ще ні (несуперечливий, а не вигаданий стан).
+// Якщо ж жодного фактичного запису за місяць ще немає — це звичайне
+// "останнє відоме" значення, перенесене з минулого місяця.
+function debtUiStatus(asOfInfo, month, kind){
+  if(!asOfInfo.hasData) return { status:'none' };
+  if(asOfInfo.isCurrent) return { status:'actual' };
+  if(kindHasActualForMonth(kind, month)) return { status:'incomplete', asOfMonth: asOfInfo.asOfMonth };
+  return { status:'last-known', asOfMonth: asOfInfo.asOfMonth };
+}
+// Rev #21 + #23 — Unified Data Status: рендерить один status dot (+ його
+// popover-текст) за готовим UI-статусом. 'actual'/'none' → dot повністю
+// прихований, картка виглядає так, ніби ніякого data-status немає.
+function renderDataStatusDot(elId, uiStatus, month){
+  const wrap = document.getElementById(elId);
+  if(!wrap) return;
+  if(!uiStatus || uiStatus.status==='actual' || uiStatus.status==='none'){
+    wrap.classList.add('hidden');
+    closeDataStatusPopover(wrap);
+    return;
+  }
+  wrap.classList.remove('hidden');
+  wrap.classList.toggle('warning', uiStatus.status==='incomplete');
+  const btn = wrap.querySelector('.data-status-dot');
+  const titleEl = wrap.querySelector('.dsp-title');
+  const textEl = wrap.querySelector('.dsp-text');
+  if(uiStatus.status==='incomplete'){
+    btn.setAttribute('aria-label', 'Стан даних: неповні дані за цей місяць');
+    titleEl.textContent = 'Неповний';
+    textEl.textContent = 'Дані за поточний місяць внесені не повністю. Значення може бути неповним.';
+  }else{
+    btn.setAttribute('aria-label', 'Стан даних: останнє відоме значення');
+    titleEl.textContent = 'Останнє відоме';
+    textEl.textContent = `Дані за ${monthLabel(month)} ще не внесені. Показано останнє відоме значення за ${monthLabel(uiStatus.asOfMonth)}.`;
+  }
+}
+// Rev #21 + #23 — Unified Data Status: клік/тап по крапці відкриває
+// contextual popover (прив'язаний до картки, не повноекранний modal); клік
+// поза межами popover або повторний клік по тій самій крапці — закриває.
+function openDataStatusPopover(wrap){
+  document.querySelectorAll('.data-status.open').forEach(w=>{ if(w!==wrap) closeDataStatusPopover(w); });
+  wrap.classList.add('open');
+  const btn = wrap.querySelector('.data-status-dot');
+  if(btn) btn.setAttribute('aria-expanded','true');
+}
+function closeDataStatusPopover(wrap){
+  wrap.classList.remove('open');
+  const btn = wrap.querySelector('.data-status-dot');
+  if(btn) btn.setAttribute('aria-expanded','false');
+}
+function closeAllDataStatusPopovers(){
+  document.querySelectorAll('.data-status.open').forEach(closeDataStatusPopover);
+}
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('.data-status-dot');
+  if(btn){
+    const wrap = btn.closest('.data-status');
+    if(wrap.classList.contains('open')) closeDataStatusPopover(wrap);
+    else openDataStatusPopover(wrap);
+    return;
+  }
+  if(!e.target.closest('.data-status-popover')) closeAllDataStatusPopovers();
+});
 // Найперший місяць, за який взагалі є хоч один запис боргу — "точка відліку"
 // для картки "Скорочення боргу" (прогрес з початку ведення обліку, Rev 1.3).
 function earliestDebtMonth(){
@@ -5071,9 +5161,6 @@ function monthLabelShort(key){
   const short=['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
   const [y,m]=key.split('-'); return short[parseInt(m,10)-1];
 }
-// Rev 2.1.1 — компактний формат "Сер 26" для бейджів "станом на" (одним рядком,
-// щоб не переносився й не ламав фіксовану висоту KPI-картки).
-function shortAsOf(key){ return monthLabelShort(key) + ' ' + key.slice(2,4); }
 function allMonths(){
   const set = new Set([...expenses.map(e=>monthKey(e.date)), ...incomes.map(e=>monthKey(e.date)), ...debts.map(d=>d.month)].filter(Boolean));
   const todayKey = monthKey(localDateISO());
@@ -6448,21 +6535,21 @@ function renderDashboard(){
   // проценту зміни (сам проценти залишаємо тільки коли дані дійсно свіжі).
   const cardAsOf = debtAsOfInfo(month, 'card');
   const trendDebtEl = document.getElementById('trend-debt');
-  const debtAsofBadge = document.getElementById('kpi-debt-asof');
   trendDebtEl.classList.remove('is-positive','is-negative');
   if(!hasDebtData || !cardAsOf.hasData){
     trendDebtEl.textContent = 'Немає даних';
-    debtAsofBadge.classList.add('hidden');
   }else if(!cardAsOf.isCurrent){
     trendDebtEl.textContent = '—';
-    debtAsofBadge.textContent = 'Станом на ' + shortAsOf(cardAsOf.asOfMonth);
-    debtAsofBadge.classList.remove('hidden');
   }else{
-    debtAsofBadge.classList.add('hidden');
     setKpiTrend('trend-debt', 'debt', debtNow.total, debtPrev.total, month);
   }
+  // Rev #21 + #23 — Unified Data Status: «Борг» і «Скорочення боргу»
+  // використовують ОДИН і той самий debtAsOfInfo(month,'card'), тому завжди
+  // показують однаковий статус — рахуємо його раз і застосовуємо до обох dots.
+  const debtUiStatusNow = debtUiStatus(cardAsOf, month, 'card');
+  renderDataStatusDot('kpi-debt-asof', debtUiStatusNow, month);
 
-  renderDebtDonut(hasDebtData, debtStart.total, debtNow.total, paidSinceStart, cardAsOf);
+  renderDebtDonut(hasDebtData, debtStart.total, debtNow.total, paidSinceStart, debtUiStatusNow, month);
 
   /* --- Ряд 2: графіки --- */
   // Дані завжди починаються зліва: беремо тільки ту частину 6-місячного вікна,
@@ -6819,7 +6906,7 @@ function renderDashboard(){
   }).join('');
 }
 
-function renderDebtDonut(hasDebtData, startTotal, currTotal, change, cardAsOf){
+function renderDebtDonut(hasDebtData, startTotal, currTotal, change, debtStatus, month){
   // startTotal — борг станом на найперший місяць обліку (не минулий місяць!);
   // change — скільки погашено з того моменту. Разом дають прогрес "з початку обліку" (Rev 1.3).
   // Rev 1.5.6: SVG-кільце завжди малюється НЕВІД'ЄМНОЮ довжиною дуги (stroke-dasharray не може
@@ -6835,7 +6922,6 @@ function renderDebtDonut(hasDebtData, startTotal, currTotal, change, cardAsOf){
   const startAmountEl = document.getElementById('m-remaining');
   const r = 45, cx = 54, cy = 54, circumference = 2 * Math.PI * r;
   const ringWidth = 8; // BugFix/ревізія: було 14 — за проханням зробили кільце тоншим
-  const asofEl = document.getElementById('debt-donut-asof');
 
   if(!hasDebtData || startTotal <= 0){
     svg.innerHTML = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--color-border)" stroke-width="${ringWidth}"/>
@@ -6844,20 +6930,13 @@ function renderDebtDonut(hasDebtData, startTotal, currTotal, change, cardAsOf){
     statusLabelEl.textContent = 'Погашено';
     amountEl.textContent = '—'; amountEl.style.color = '';
     startAmountEl.textContent = '—';
-    if(asofEl) asofEl.classList.add('hidden');
+    renderDataStatusDot('debt-donut-asof', { status:'none' }, month);
     return;
   }
-  // Rev 2.1.0 — Debt Data Integrity: прогрес "з початку обліку" рахується від
-  // debtNow, який може бути carry-forward — якщо це так, показуємо бейдж
-  // "Станом на [місяць]", щоб не видавати старі дані за сьогоднішній факт.
-  if(asofEl){
-    if(cardAsOf && cardAsOf.hasData && !cardAsOf.isCurrent){
-      asofEl.textContent = 'Станом на ' + shortAsOf(cardAsOf.asOfMonth);
-      asofEl.classList.remove('hidden');
-    }else{
-      asofEl.classList.add('hidden');
-    }
-  }
+  // Rev #21 + #23 — Unified Data Status: той самий статус, що вже показаний
+  // на картці «Борг» (debtStatus рахується один раз у caller, обидві картки
+  // завжди узгоджені між собою).
+  renderDataStatusDot('debt-donut-asof', debtStatus, month);
 
   const isPositive = change >= 0; // борг зменшився (або без змін) = позитивний результат
   const rawPercent = (change / startTotal) * 100; // підписане число, лише для форматування тексту
@@ -7585,7 +7664,7 @@ function closeSettings(){
   document.getElementById('settings-drawer').setAttribute('inert','');
   restoreFocus();
 }
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); } });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
 
 /* ============ Тема застосунку (Rev 2.6.0) ============
    Три стани: 'auto' (за системною темою, дефолт), 'light', 'dark' — саме
