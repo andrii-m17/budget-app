@@ -1970,7 +1970,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.7</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.8</div>
 </div>
   </div>
 </div>
@@ -2498,7 +2498,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.7';
+const APP_VERSION = '2.21.8';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -7231,7 +7231,20 @@ function updateScrollTopBtn(){
     // завершився на тій самій вкладці, свідомо НЕ викликає скрол — це
     // навмисно (Rev 2.4.10): під час перетягування вибір може "проїжджати"
     // через ту саму вкладку туди-сюди, і скролити щоразу було б дратівливо.
-    if(finalBtn && finalBtn.dataset.tab && finalBtn.dataset.tab !== lastActiveTab){
+    // Rev 2.21.8 BugFix — "+" ("Витрати") — не звичайна вкладка-навігація, а
+    // кнопка швидкої дії "додати запис", тому правило Rev 2.4.10/2.4.23 вище
+    // (тап по вже активній вкладці → лише скрол) для неї не підходить: якщо
+    // користувач був у Журналі (та сама вкладка "Витрати", Rev 2.21.0) або
+    // догорнутий углиб короткого списку й тис "+", реальна дія мала бути
+    // "перейти до форми нової витрати", а не просто scrollTo(0) — Журнал
+    // лишався відкритим, скролилась лише (невидима) форма під ним. Тому для
+    // ЧИСТОГО ТАПУ саме по "+" завжди викликаємо switchTab('vytraty')
+    // (закриває Журнал, фокусує назву, скидає скрол) — незалежно від того,
+    // яка вкладка вже активна. Свайп, що завершився на "+", і далі підкоряється
+    // звичайному правилу нижче (Rev 2.4.10 — не чіпаємо).
+    if(finalBtn && finalBtn.dataset.tab === 'vytraty' && wasTap){
+      switchTab('vytraty');
+    }else if(finalBtn && finalBtn.dataset.tab && finalBtn.dataset.tab !== lastActiveTab){
       switchTab(finalBtn.dataset.tab);
     }else if(finalBtn && finalBtn.dataset.tab === lastActiveTab && wasTap){
       smoothScrollToTop();
