@@ -1290,6 +1290,167 @@ backup/restore (generic-цикл по `BACKUP_LS_KEYS`, не прив'язани
 
 Перед повноцінним Cloud варто — краще підходить для offline-first і conflict resolution.
 
+Наскрізний inviant (діє для Stage A/B/C/D): після успішної міграції
+`localStorage` стає **read-only архівом** — ніколи більше не приймає нові
+записи. Жодного dual-write (`IndexedDB` + `localStorage` одночасно), жодного
+silent fallback назад на `localStorage` після того, як `IndexedDB` стала
+authoritative storage (`READ → IndexedDB`, `WRITE → IndexedDB`). На кожному
+етапі regression testing явно перевіряти, що `localStorage` не отримує нових
+записів після активації.
+
+#### Stage A — Аудит (завершено, код не змінювався)
+
+**1. Сховище-рівень** (актуалізовано після Rev 2.21.28–2.21.30, не
+відрізняється від інвентаризації #27): 34 прямі виклики
+`localStorage.getItem/setItem/removeItem` (17 get / 15 set / 2 remove) у 23
+іменованих функціях + 1 анонімний IIFE (anti-FOUC, п.3) = 24 точки доступу
+всього; 14 унікальних ключів.
+
+**2. Карта ключ → домен → loadX/saveX → виклики:**
+
+| Ключ | Домен | load/save | Кількість зовнішніх викликів |
+|---|---|---|---|
+| `LS_KEY_CATEGORIES` | категорії | `loadStructureRefs()` / `saveCategories()` | 3 (`saveCategories`) |
+| `LS_KEY_SUBCATEGORIES` | підкатегорії | `loadStructureRefs()` / `saveSubcategories()` | 5 |
+| `LS_KEY_SUBCATEGORY_PRIORITY` | пріоритет підкатегорій | `loadStructureRefs()` / `saveSubcategoryPriority()` | 2 |
+| `LS_KEY_DICTIONARY` | словник автопідказок | `loadStructureRefs()` / `saveDictionary()` | 6 |
+| `LS_KEY_EXP` | витрати | `loadAll()` / `saveExpenses()` | 8 |
+| `LS_KEY_INC` | доходи | `loadAll()` / `saveIncomes()` | 4 |
+| `LS_KEY_DEBT` | борги | `loadAll()` / `saveDebts()` | 4 |
+| `LS_KEY_BANKS` | банки/картки | `loadAll()` / `saveBankAccounts()` | 5 |
+| `LS_KEY_INSTALLMENTS` | ОЧ | `loadAll()` / `saveInstallmentAccounts()` | 5 |
+| `LS_KEY_HIDDEN` | приховано-з-місяця | `loadAll()` / `saveHiddenFrom()` | 2 |
+| `LS_KEY_IGNORED_DIVERGENCES` | ігноровані розбіжності | `loadAll()` / `saveIgnoredDivergences()` | 1 |
+| `LS_KEY_SCHEMA_VERSION` | версія схеми | `ensureSchemaVersion()` (голий рядок-число, не JSON) | — (+ окремий legacy-парсинг у `handleRestoreBackupFile()`, інший домен) |
+| `LS_KEY_DRAFT` | чернетка витрати | 4 окремі функції: `saveExpenseDraft`/`clearExpenseDraft`/`hasExpenseDraft`/`restoreExpenseDraft` | save×5, clear×2, has×1, restore×1 |
+| `LS_KEY_THEME` (`'budget_theme_v1'`) | тема | `getThemeChoice()`/`setThemeChoice()` **+ дубльований хардкод у anti-FOUC IIFE** | get×3, set×1 (кнопки) |
+
+`loadAll()`/`loadStructureRefs()` самі викликаються з 2 місць кожна:
+старт застосунку (кінець файлу) і `handleRestoreBackupFile()` (після
+відновлення бекапу). `exportBackup()`/`handleRestoreBackupFile()` — окремий
+generic-цикл по `BACKUP_LS_KEYS` (12 з 14 ключів, без `LS_KEY_DRAFT`/
+`LS_KEY_THEME`), не прив'язаний до жодного окремого домену.
+
+**3. Race-condition кандидати (save → синхронний read того самого):**
+
+- 🔴 **`handleRestoreBackupFile()`, найкритичніше місце.** Послідовність:
+  `BACKUP_LS_KEYS.forEach(removeItem)` → `BACKUP_LS_KEYS.forEach(setItem)` →
+  одразу `loadStructureRefs()` + `loadAll()`, які **читають ті самі ключі
+  назад** із припущенням, що запис уже завершився. З асинхронним storage
+  цей ланцюжок мусить стати `await`-послідовністю (clear → write усіх
+  ключів → дочекатись підтвердження запису → лише тоді read), інакше
+  `loadAll()` прочитає порожню/часткову базу.
+- 🟡 **Init-каскад застосунку** (кінець файлу): `loadAll()` →
+  `updatePageHeader()` → `applyTheme()` → `updateTabBubble()` →
+  `updateOnlineStatusUI()` → `updateExcelAvailabilityUI()` →
+  `restoreExpenseDraft()` — весь ланцюжок написаний як послідовний
+  синхронний код на верхньому рівні скрипта, що покладається на
+  завершення `loadAll()` (і заповнення `CATEGORIES`/`SUBCATEGORIES`/
+  `installmentAccounts` через `loadStructureRefs()`, що йде ще раніше)
+  ДО виконання наступного рядка. Асинхронний `loadAll()` вимагає
+  переписати весь цей блок на `await`-ланцюжок (або обгорнути в один
+  `async function init(){...}`).
+- 🟡 **`hasExpenseDraft()` усередині `performSwitchTab()`** (рішення "чи
+  скидати дату на сьогодні при переході на вкладку Витрати"). На відміну
+  від доменів expenses/incomes/…, у чернетки **немає in-memory кешу** —
+  кожен виклик `hasExpenseDraft()`/`restoreExpenseDraft()` читає
+  `localStorage` напряму. Переведення в IndexedDB зробило б цю перевірку
+  асинхронною і каскадно "заразило" б `async` саму `performSwitchTab()` —
+  функцію, що викликається при КОЖНОМУ переході між вкладками, однією з
+  найчастіших дій у застосунку.
+- ⚪ Решта патернів `saveX(); render…();` (`clearAllData()`,
+  `saveRecordEdit()`, `saveIncomeDrawer()`, `saveInstallmentDrawer()`,
+  `saveCardDebtDrawer()`, Excel-імпорт `handleImportFile()`) — **НЕ race**:
+  усі рендер-функції читають вже змінені in-memory масиви
+  (`expenses`/`incomes`/`debts`/…), а не звертаються до сховища назад.
+  Це справджується і для коментаря в Excel-імпорті (рядки біля
+  `ensureInstallmentFirstMonth()`), який явно згадує "а не чекаємо
+  наступного `loadAll()`" — сам `ensureInstallmentFirstMonth()` теж працює
+  з in-memory `installmentAccounts`, сховище не чіпає.
+
+**4. Anti-FOUC IIFE (`<head>`, до `<body>`).** Підтверджено: лишається на
+`localStorage` **назавжди**, незалежно від решти міграції — технічне
+обмеження, не архітектурний вибір. Причини: (а) виконується синхронно ДО
+завантаження основного `<script>` і взагалі ДО існування будь-якого
+async/await контексту сторінки; (б) IndexedDB — принципово асинхронний API,
+з ним неможливо виставити `data-theme` до першого малювання без миготіння
+(FOUC), заради уникнення якого цей IIFE і існує (Rev 2.6.0).
+
+**5. Побічна знахідка щодо theme (не було явно в задачі, прямий наслідок
+invariant read/write→IndexedDB).** `getThemeChoice()`/`setThemeChoice()` —
+той самий структурний випадок, що й `LS_KEY_DRAFT`: **немає in-memory
+кешу**, кожен виклик (`applyTheme()`, `syncThemeToggleUI()`, live-стеження
+за системною темою через `matchMedia`) читає `localStorage` напряму. Якщо
+theme перенести в IndexedDB — ці виклики теж стають async-кандидатами,
+АЛЕ anti-FOUC IIFE (п.4) все одно назавжди лишається на `localStorage` —
+тобто theme неминуче отримає **два джерела** одного значення одночасно
+(anti-FOUC читає `localStorage` синхронно до першого малювання;
+"канонічний" `getThemeChoice()` читав би вже IndexedDB) — за буквою це не
+dual-write (запис і далі лише один, через `setThemeChoice()`), але це саме
+той різновид розбіжності "джерел читання", якого invariant хоче уникнути
+по духу. Рішення — за Stage B, тут лише фіксується конфлікт.
+
+**6. Рекомендація щодо `LS_KEY_DRAFT`: лишити на `localStorage`, не
+переносити.** Причини: (а) ефемерна UI-чернетка, не потребує надійності/
+атомарності IndexedDB; (б) синхронний доступ тут об'єктивно кращий —
+жодної затримки при автозбереженні на кожен `oninput`; (в) п.3
+(`hasExpenseDraft()` у `performSwitchTab()`) — переведення в async коштує
+дорожче (заражає найчастішу дію застосунку), ніж дає вигоди. За тією ж
+логікою п.5 пропонує розглянути **theme** як другий кандидат лишити на
+`localStorage`.
+
+**7. `exportBackup()`/`handleRestoreBackupFile()` — глибина прив'язки до
+синхронного `localStorage`.** `exportBackup()`: generic-цикл
+`BACKUP_LS_KEYS.forEach(key => localStorage.getItem(key))`, зберігає сирий
+JSON-текст як є (без parse/stringify). `handleRestoreBackupFile()`: цикл
+`removeItem` по всіх ключах бекапу, потім цикл `setItem` з нових значень,
+потім `loadStructureRefs()`+`loadAll()` (п.3, критичний race). Обидві
+функції органічно "generic" — не прив'язані до одного домену, а до самого
+списку `BACKUP_LS_KEYS` — тому після міграції мусять звертатись до
+IndexedDB (бо `localStorage` більше не live source of truth, invariant
+вище), а весь `showConfirmModal`-колбек у `handleRestoreBackupFile()`
+стане `async`.
+
+**8. Оцінка обсягу.** З 24 точок доступу (17 функцій + `loadAll`/
+`loadStructureRefs` + 4 draft-функції + `getThemeChoice`/`setThemeChoice` +
+anti-FOUC IIFE): **17 функцій — реальні async-кандидати**
+(`loadStructureRefs`, `saveCategories/Subcategories/SubcategoryPriority/
+Dictionary`, `ensureSchemaVersion`, `loadAll`, `saveExpenses/Incomes/Debts/
+BankAccounts/InstallmentAccounts/HiddenFrom/IgnoredDivergences`,
+`exportBackup`, `backupArrayCount`, `handleRestoreBackupFile`); 4 draft-
+функції й 2 theme-функції — кандидати ЗАЛИШИТИСЬ на `localStorage` (п.6);
+anti-FOUC IIFE — залишається назавжди (п.4). Ці 17 функцій мають **~30
+викликів** по коду (без урахування самого визначення) — практично кожен
+UI-обробник, що додає/редагує/видаляє запис, Excel-імпорт і backup/restore,
+а також весь init-каскад (п.3) — стають кандидатами на `async`/`await`.
+
+**9. "Міграція завершена" vs "IndexedDB підтримується браузером" — де
+жити прапорцю.** Це два різні факти: перший — про МОЖЛИВІСТЬ (feature-
+detection, напр. `typeof indexedDB !== 'undefined'`, обчислюється заново
+щоразу, ніде не зберігається, факт про середовище); другий — про
+ФАКТИЧНИЙ СТАН цього конкретного користувача/пристрою (чи саме ЙОГО дані
+вже перенесені), мусить персистувати між сесіями. Stage A лише називає
+можливі місця для другого прапорця, вибір — за Stage B:
+  - окремий ключ/object store всередині самої IndexedDB (self-referential,
+    але працює — сама наявність відкритої БД + відомого store вже частково
+    відповідає на питання);
+  - маркер у `localStorage` (дешевий синхронний read до відкриття
+    IndexedDB) — але це потребує окремого рішення Stage B, чи такий
+    маркер вважається "новим записом" і порушує invariant "read-only
+    архів", чи це метадані міграції, а не користувацькі дані, і тому
+    виняток;
+  - енумерація `indexedDB.databases()` (нестабільна підтримка в Safari) —
+    ймовірно недостатньо надійно як єдине джерело істини.
+
+**DoD Stage A:** ✅ повна карта ключ→домен→функція→виклики; ✅ race-
+condition місця явно позначені (п.3); ✅ anti-FOUC підтверджено
+синхронним/localStorage назавжди (п.4); ✅ рекомендація по draft (п.6);
+✅ оцінка обсягу async-каскаду (п.8); ✅ відмінність "підтримка" vs
+"факт міграції" зафіксована, можливі місця для прапорця названі (п.9);
+✅ жодного рядка коду не змінено — код перевірявся лише через `grep`/
+`Read`, Stage B (adapter) і поділ на ревізії — окремим кроком після
+рішення користувача.
+
 ### 29. Рефакторинг модалки `#app-modal`
 
 🔎 Перевірено в коді — досі одна модалка обслуговує всі сценарії. Технічний борг не
