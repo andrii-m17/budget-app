@@ -471,22 +471,17 @@
   .journal-overlay-title{ font-size:17px; font-weight:800; color:var(--color-text-primary); }
   .journal-body{ padding:0 0 calc(env(safe-area-inset-bottom,0px) + 24px); }
   .journal-month-nav{ margin-bottom:18px; }
-  .journal-month-label{ flex:1 1 auto; text-align:center; font-size:15px; font-weight:700; color:var(--color-text-primary); }
-  /* Rev 2.20.2 BugFix — Rev 2.19.0/2.20.1 тригерили нативний date-picker
-     ПРОГРАМНО (showPicker(), потім click()) на майже невидимому 1x1px/
-     opacity:0 інпуті — обидва підходи не відкривали пікер на реальному
-     iPhone (WebKit, судячи з усього, вимагає, щоб інпут був СПРАВДІ видимим/
-     мав реальні розміри, щоб узагалі показати пікер, програмно чи ні).
-     Тепер — без жодного програмного тригера: сам #journal-date-input лежить
-     ПОВЕРХ кнопки-іконки (той самий розмір, що .date-nav-btn), візуально
-     прозорий (opacity:0), але СПРАВДІ на екрані й приймає тап напряму —
-     природний user gesture на нативний контрол, найнадійніший можливий
-     спосіб (той самий принцип, що вже працює в #f-date, лише замаскований
-     під кнопку). Іконка календаря під інпутом суто декоративна
-     (pointer-events:none) — сам тап завжди потрапляє на інпут. */
-  .journal-calendar-btn-wrap{ position:relative; flex:0 0 auto; width:48px; height:48px; border-radius:var(--radius-sm); border:1.5px solid var(--color-border-strong); background:var(--color-surface); display:flex; align-items:center; justify-content:center; color:var(--color-text-secondary); }
-  .journal-calendar-btn-wrap svg{ pointer-events:none; }
-  #journal-date-input.journal-date-input-overlay{ position:absolute; inset:0; width:100%; min-width:0; height:100%; margin:0; padding:0; border:none; opacity:0; cursor:pointer; }
+  /* Rev 2.21.1 — перехід на дату: БУВ декоративною 48x48px кнопкою-іконкою з
+     невидимим (opacity:0) #journal-date-input-оверлеєм поверх, окремо від
+     ряду стрілок+підпису місяця (Rev 2.19.0-2.20.2, костиль, щоб зберегти
+     компактний вигляд іконки, водночас тримаючи справжній нативний інпут для
+     надійного тапу на реальному iPhone). Тепер — той самий #journal-date-input,
+     але СПРАВДІ видимий, у спільному .date-nav-row зі стрілками (той самий
+     .date-input-wrap/input[type=date], що вже надійно працює в #f-date, без
+     жодних оверлей-хитрощів) — простіше й візуально узгоджено з карткою
+     "Нова витрата". Дружній підпис місяця (.journal-month-label) переїхав під
+     ряд, той самий принцип, що .date-caption під #f-date. */
+  .journal-month-label{ text-align:center; margin-top:6px; font-size:12.5px; font-weight:600; color:var(--color-text-secondary); }
   /* Rev 2.20.2 — пошук/фільтр Журналу: окремий рядок для поля пошуку (на всю
      ширину) і окремий рядок для двох select'ів (категорія/підкатегорія) —
      трьом контролам разом в одному рядку на 375px затісно. */
@@ -1573,14 +1568,23 @@
           <select class="journal-search-category" id="journal-search-subcategory" onchange="onJournalSearchChange()" aria-label="Підкатегорія"></select>
         </div>
         <div class="journal-search-summary hidden" id="journal-search-summary"></div>
-        <div class="date-nav-row journal-month-nav" id="journal-month-nav">
-          <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-          <div class="journal-month-label" id="journal-month-label"></div>
-          <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(1)" aria-label="Наступний місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
-          <div class="journal-calendar-btn-wrap" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <input type="date" id="journal-date-input" class="journal-date-input-overlay" onchange="onJournalDatePicked(this.value)" aria-label="Перейти до дати">
+        <!-- Rev 2.21.1 — перехід на конкретну дату тепер той самий прийом, що
+             поле "Дата" в картці "Нова витрата" (#f-date): справжній видимий
+             input[type=date] по центру ряду зі стрілками, а не окрема
+             декоративна кнопка-іконка з невидимим інпутом-оверлеєм поверх
+             (Rev 2.19.0-2.20.2). Стрілки й далі гортають МІСЯЦЬ
+             (shiftJournalMonth, не чіпали) — сам #journal-date-input лише
+             показує/приймає точну дату (синхронізується з journalMonth у
+             renderJournalView, теж не чіпали); дружній підпис місяця
+             (.journal-month-label) переїхав під ряд — той самий принцип, що
+             .date-caption під #f-date. -->
+        <div class="journal-month-nav" id="journal-month-nav">
+          <div class="date-nav-row">
+            <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+            <div class="date-input-wrap"><input type="date" id="journal-date-input" onchange="onJournalDatePicked(this.value)" aria-label="Перейти до дати"></div>
+            <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(1)" aria-label="Наступний місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
           </div>
+          <div class="journal-month-label" id="journal-month-label"></div>
         </div>
         <div id="journal-list"></div>
       </div>
@@ -1892,7 +1896,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.0</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.1</div>
 </div>
   </div>
 </div>
@@ -2409,7 +2413,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.0';
+const APP_VERSION = '2.21.1';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
