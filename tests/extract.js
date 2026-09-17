@@ -22,11 +22,21 @@ const SOURCE_PATH = path.join(__dirname, '..', 'index.html');
 const SOURCE = fs.readFileSync(SOURCE_PATH, 'utf8');
 
 // Повертає вихідний код однієї function-декларації (з тілом) за назвою.
+// Rev #28.B — тепер розпізнає й `async function NAME(...)`: без цього
+// маркер `function NAME(` знаходив старт ПІСЛЯ ключового слова `async `,
+// і вирізаний фрагмент (function-тіло з `await` усередині, але без самого
+// `async`) падав у vm.runInContext з "await is only valid in async
+// functions" — перший async-код серед extract-тестів (idbAdapter*/
+// migrateLocalStorageToIndexedDb, Stage B).
 function extractFunctionSource(fnName){
   const marker = `function ${fnName}(`;
-  const start = SOURCE.indexOf(marker);
+  let start = SOURCE.indexOf(marker);
   if(start === -1){
     throw new Error(`extractFunctionSource: функцію "${fnName}" не знайдено в index.html — можливо, її перейменували/видалили. Онови tests/.`);
+  }
+  const asyncPrefix = 'async ';
+  if(SOURCE.slice(Math.max(0, start - asyncPrefix.length), start) === asyncPrefix){
+    start -= asyncPrefix.length;
   }
   const braceOpen = SOURCE.indexOf('{', start);
   let depth = 0;
