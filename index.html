@@ -1134,8 +1134,14 @@
     color:var(--color-text-secondary);
     cursor:pointer;
     opacity:0; pointer-events:none;
-    transform:translateY(60px) scale(.9);
-    transition:opacity .3s ease, transform .35s cubic-bezier(.4,0,.2,1), background .2s ease, border-color .2s ease, box-shadow .2s ease;
+    transform:translateY(40px) scale(.94);
+    /* Rev 2.21.20 — за проханням: трохи стишена (менша дистанція/масштаб:
+       60px→40px, .9→.94) і трохи довша, м'якіша крива зникнення (замість
+       "механічного" material-easing) — щоб було видно, як бульбашка
+       liquid-glass справді плавно згасає, а не різко "виїжджає" за межі
+       екрана одночасно з тим, як гасне сама зелена підсвітка (.scrolling
+       нижче). */
+    transition:opacity .38s ease, transform .42s cubic-bezier(.22,1,.36,1), background .2s ease, border-color .2s ease, box-shadow .2s ease;
   }
   .scroll-top-btn.visible{
     opacity:1; pointer-events:auto;
@@ -1159,22 +1165,35 @@
     color:var(--color-primary-hover);
     transition:transform .32s cubic-bezier(.34,1.56,.64,1), background .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease;
   }
-  /* Rev 2.21.19 — за проханням: стрілка лишається зеленою не лише під час
-     самого натиску (.pressed, тривалість дотику), а й ВЕСЬ час, поки контент
-     гортається до початку — і повертається до звичайного кольору саме тоді,
-     коли скрол завершується (в цей момент scrollTop вже перетнув поріг
-     видимості, і кнопка й так починає ховатись, updateScrollTopBtn()). Лише
-     колір (не масштаб/фон/бульбашка — ті лишаються ефектом самого натиску,
-     .pressed вище) — .scrolling вмикається/знімається з JS у
-     smoothScrollToTop()'s onDone (див. нижче). */
-  .scroll-top-btn.scrolling{ color:var(--color-primary-hover); transition:color .2s ease; }
+  /* Rev 2.21.20 — за проханням: не лише колір стрілки (Rev 2.21.19), а й уся
+     "бульбашка" (масштаб + зелений liquid-glass фон/рамка/тінь + шиммер)
+     тепер тримається ВЕСЬ час, поки контент реально гортається до початку
+     (.scrolling — JS керує у scrollTopBtnClick()/onDone нижче), а не лише
+     під час самого дотику (.pressed вище). opacity/pointer-events:auto тут
+     явно перекривають "приховану" базову стилізацію — інакше кнопка почала
+     б зникати ще ДО завершення скролу, щойно scrollTop перетне поріг
+     видимості (updateScrollTopBtn(), 240px), хоча анімація ще триває. Коли
+     .scrolling знімається (скрол дійсно завершився, scrollTop=0) — .visible
+     на цей момент вже знято раніше (тим самим порогом), тому кнопка одразу
+     переходить на базовий "прихований" стан і плавно/"красиво" зникає
+     власною, трохи стишеною (Rev 2.21.20 вище) transition-кривою — саме
+     момент "гарного зникнення бульбашки", про який просив користувач. */
+  .scroll-top-btn.scrolling{
+    opacity:1; pointer-events:auto;
+    transform:translateY(0) scale(1.35);
+    background:rgba(34,197,94,.16);
+    border-color:rgba(34,197,94,.32);
+    box-shadow:var(--shadow-glass), 0 2px 8px rgba(34,197,94,.22);
+    color:var(--color-primary-hover);
+    transition:opacity .2s ease, transform .32s cubic-bezier(.34,1.56,.64,1), background .22s ease, border-color .22s ease, box-shadow .22s ease, color .22s ease;
+  }
   .scroll-top-btn::before{
     content:""; position:absolute; inset:0; border-radius:inherit;
     background:linear-gradient(120deg, transparent 25%, var(--color-glass-shimmer) 50%, transparent 75%);
     background-size:240% 240%; background-position:0% 50%;
     opacity:0; transition:opacity .2s ease; pointer-events:none;
   }
-  .scroll-top-btn.pressed::before{ opacity:1; animation:tabbarBubbleShimmer 1s ease-in-out infinite; }
+  .scroll-top-btn.pressed::before, .scroll-top-btn.scrolling::before{ opacity:1; animation:tabbarBubbleShimmer 1s ease-in-out infinite; }
   body.kb-open .scroll-top-btn{ display:none; }
   @media (min-width:1280px){ .scroll-top-btn{ bottom:24px; } }
   /* Rev 2.4.0 — статичний background прибрано (тепер це робить .tabbar-bubble),
@@ -2219,7 +2238,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.19</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.20</div>
 </div>
   </div>
 </div>
@@ -2747,7 +2766,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.19';
+const APP_VERSION = '2.21.20';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
