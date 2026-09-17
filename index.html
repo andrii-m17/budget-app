@@ -482,6 +482,10 @@
      "Нова витрата". Дружній підпис місяця (.journal-month-label) переїхав під
      ряд, той самий принцип, що .date-caption під #f-date. */
   .journal-month-label{ text-align:center; margin-top:6px; font-size:12.5px; font-weight:600; color:var(--color-text-secondary); }
+  /* Rev 2.21.5 — той самий стиль, що .field label ("ДАТА" над #f-date) — щоб
+     ряд стрілки+поле дати в Журналі читався як той самий загальноприйнятий
+     патерн, а не безіменний ряд контролів під фільтрами пошуку. */
+  .journal-date-label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   /* Rev 2.20.2 — пошук/фільтр Журналу: окремий рядок для поля пошуку (на всю
      ширину) і окремий рядок для двох select'ів (категорія/підкатегорія) —
      трьом контролам разом в одному рядку на 375px затісно. */
@@ -1610,8 +1614,15 @@
              показує/приймає точну дату (синхронізується з journalMonth у
              renderJournalView, теж не чіпали); дружній підпис місяця
              (.journal-month-label) переїхав під ряд — той самий принцип, що
-             .date-caption під #f-date. -->
+             .date-caption під #f-date.
+             Rev 2.21.5 — за проханням (після реального тестування на iPhone):
+             додано підпис "ПЕРЕХІД ДО ДАТИ" над рядом — той самий
+             .field label стиль (uppercase, дрібний, вторинний колір), що
+             "ДАТА" над #f-date у картці "Нова витрата" — раніше ряд
+             стрілки+поле йшов одразу під фільтрами пошуку БЕЗ жодного
+             заголовка, тому візуально не читався як той самий патерн. -->
         <div class="journal-month-nav" id="journal-month-nav">
+          <div class="journal-date-label">Перехід до дати</div>
           <div class="date-nav-row">
             <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
             <div class="date-input-wrap"><input type="date" id="journal-date-input" onchange="onJournalDatePicked(this.value)" aria-label="Перейти до дати"></div>
@@ -1929,7 +1940,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.4</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.5</div>
 </div>
   </div>
 </div>
@@ -2446,7 +2457,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.4';
+const APP_VERSION = '2.21.5';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
