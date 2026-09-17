@@ -2247,7 +2247,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.21</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.22</div>
 </div>
   </div>
 </div>
@@ -2775,7 +2775,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.21';
+const APP_VERSION = '2.21.22';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -3304,7 +3304,13 @@ let confirmedInstallmentLinkIdx = -1;
 //  2) Якщо повних збігів нема — збіг по першому слову; може дати ДЕКІЛЬКА
 //     кандидатів одразу (не вгадуємо, повертаємо всіх — рендер підказки нижче
 //     покаже вибір, а не мовчки візьме перший-ліпший).
-function detectInstallmentMatches(text){
+// Rev #26.1 — Відокремити Financial Logic: раніше ця функція сама читала
+// document.getElementById('f-date') всередині, тому не могла виконуватись
+// поза DOM (позначено в ROADMAP.md як "не вдалось ізолювати", Rev 2.14.0).
+// Тепер expenseMonth — явний параметр, DOM-читання переїхало в тонкий
+// caller updateInstallmentLinkDetection() нижче. Формула/умови збігу НЕ
+// змінені — лише перенесено джерело місяця з DOM у сигнатуру функції.
+function detectInstallmentMatches(text, expenseMonth){
   const t = (text||'').toLowerCase();
   if(!t) return [];
   // Rev 2.11.9 (Баг #1) — раніше цей пошук перебирав installmentAccounts БЕЗ
@@ -3314,8 +3320,6 @@ function detectInstallmentMatches(text){
   // Аналітиці/Обліку (це геть інша, не пов'язана навігація) — якщо витрата
   // датована минулим місяцем заднім числом, перевіряємо видимість ОЧ саме на
   // ту дату.
-  const dateEl = document.getElementById('f-date');
-  const expenseMonth = monthKey(dateEl && dateEl.value ? dateEl.value : localDateISO());
   const fullMatches = [];
   installmentAccounts.forEach(function(acc, i){
     if(!isInstallmentVisibleForMonth(acc, expenseMonth)) return;
@@ -3344,8 +3348,13 @@ function detectInstallmentMatches(text){
   });
   return wordMatches;
 }
+// Rev #26.1 — тонкий wrapper: читає DOM (дата витрати з форми) і стан, лише
+// передає готовий expenseMonth у чисту detectInstallmentMatches() вище,
+// а сам далі оновлює модульний стан і викликає рендер підказки.
 function updateInstallmentLinkDetection(name){
-  const matches = detectInstallmentMatches(name);
+  const dateEl = document.getElementById('f-date');
+  const expenseMonth = monthKey(dateEl && dateEl.value ? dateEl.value : localDateISO());
+  const matches = detectInstallmentMatches(name, expenseMonth);
   // Якщо вже підтверджено прив'язку, але текст більше не дає збігу саме на цю
   // ОЧ — знімаємо прив'язку автоматично (вона стосувалась саме цього тексту).
   if(confirmedInstallmentLinkIdx !== -1 && !matches.includes(confirmedInstallmentLinkIdx)){
