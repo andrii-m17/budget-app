@@ -1001,6 +1001,36 @@
      зона, зарезервована під навбар, якого зараз немає. */
   body.kb-open nav.tabbar{ display:none; }
   body.kb-open .main-col{ padding-bottom:0; }
+  /* Rev 2.21.7 — кнопка "Прокрутити до початку": той самий "ліквід глас"
+     стиль (background/backdrop-filter/border/shadow), що .tabbar-glass, але
+     власна кругла кнопка ПОЗА системою .tabbar-bubble (не переїжджає між
+     вкладками). bottom — над капсулою таббару (той самий відступ від низу +
+     висота капсули ≈56px + проміжок); ≥1280px таббару вже немає (sidebar-
+     макет), тому там просто звичайний відступ від низу екрана. Ховається й
+     показується через .visible (updateScrollTopBtn, JS) залежно від
+     #main-col.scrollTop — не через сам факт існування, щоб не займати місце
+     заради самої появи/зникнення (opacity+transform, той самий підхід, що
+     .tabbar-bubble). */
+  .scroll-top-btn{
+    position:fixed; right:16px; z-index:19;
+    bottom:calc(env(safe-area-inset-bottom,0px) + 78px);
+    width:44px; height:44px; border-radius:50%;
+    background:var(--color-glass-bg);
+    -webkit-backdrop-filter:blur(16px) saturate(180%);
+    backdrop-filter:blur(16px) saturate(180%);
+    border:1px solid var(--color-glass-border);
+    box-shadow:var(--shadow-glass);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--color-text-secondary);
+    cursor:pointer;
+    opacity:0; pointer-events:none;
+    transform:translateY(8px) scale(.9);
+    transition:opacity .25s ease, transform .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  .scroll-top-btn.visible{ opacity:1; pointer-events:auto; transform:translateY(0) scale(1); }
+  .scroll-top-btn:active{ transform:scale(.92); }
+  body.kb-open .scroll-top-btn{ display:none; }
+  @media (min-width:1280px){ .scroll-top-btn{ bottom:24px; } }
   /* Rev 2.4.0 — статичний background прибрано (тепер це робить .tabbar-bubble),
      лишається лише зміна кольору іконки/тексту. */
   /* Rev 2.4.3 — .preview-active: тимчасова підсвітка кнопки під пальцем ПІД
@@ -1940,7 +1970,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.6</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.7</div>
 </div>
   </div>
 </div>
@@ -1970,6 +2000,17 @@
     </button>
   </div>
 </nav>
+
+<!-- Rev 2.21.7 — "Прокрутити до початку": окрема плаваюча кругла кнопка,
+     той самий "ліквід глас" стиль, що .tabbar-glass (backdrop-filter blur +
+     напівпрозорий фон + тонка рамка), АЛЕ поза системою .tabbar-bubble —
+     не переїжджає між вкладками, не бере участі у свайп-жесті таббару,
+     з'являється лише коли #main-col проскрольовано вниз (updateScrollTopBtn,
+     нижче), і зникає при поверненні нагору. Особливо корисна після переходу
+     на конкретну дату в Журналі чи довгого догортання списку. -->
+<button type="button" class="scroll-top-btn" id="scroll-top-btn" onclick="smoothScrollToTop()" aria-label="Прокрутити до початку">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>
+</button>
 
 <!-- ================= Налаштування (Drawer, окремо від навігації) ================= -->
 <div class="drawer-backdrop" id="settings-backdrop" onclick="closeSettings()" inert></div>
@@ -2457,7 +2498,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.6';
+const APP_VERSION = '2.21.7';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -6937,6 +6978,55 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
    Тепер ЖОДНА геометрія не кешується між кадрами — trackFinger() наживо
    вимірює bar/кнопки при КОЖНОМУ touchmove, тому завжди узгоджена з тим, що
    реально намальовано просто зараз, незалежно від стану transform. */
+// Rev 2.4.24 BugFix, переорієнтовано в Rev 2.7.0 — нативний
+// el.scrollTo({behavior:'smooth'}) на iOS Safari мав задокументований
+// окремий баг WebKit: програмний плавний скрол (на відміну від звичайного
+// скролу пальцем) обробляється рушієм по-іншому і відомий тим, що ламає
+// рендер position:fixed елементів САМЕ під час своєї анімації. Ця
+// проблема була знайдена саме на рівні КОРЕНЕВОГО документа (window),
+// який Rev 2.7.0 більше взагалі не скролить — тому теоретично для нового
+// внутрішнього контейнера (#main-col) вона могла б і не повторюватись, але
+// це припущення без підтвердження на реальному пристрої. Власна
+// rAF-реалізація (серія дискретних миттєвих scrollTop=y замість однієї
+// нативної анімованої команди) лишається без змін — вона вже перевірена й
+// надійна, тому свідомо не замінюю на ще неперевірений нативний варіант.
+// Rev 2.21.7 — винесено з initTabbarSwipe() у глобальну область видимості:
+// раніше функція існувала лише всередині тієї IIFE (доступна тільки жесту
+// таббару), тепер її також викликає нова кнопка "Прокрутити до початку"
+// (onclick у розмітці) — сама логіка не змінена.
+function smoothScrollToTop(duration){
+  duration = duration || 380;
+  const mainColEl = document.getElementById('main-col');
+  if(!mainColEl) return;
+  const startY = mainColEl.scrollTop || 0;
+  if(startY <= 0) return;
+  const startTime = performance.now();
+  function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
+  function step(now){
+    const elapsed = now - startTime;
+    const t = Math.min(1, elapsed / duration);
+    mainColEl.scrollTop = Math.round(startY * (1 - easeOutCubic(t)));
+    if(t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+// Rev 2.21.7 — показує/ховає #scroll-top-btn залежно від scrollTop
+// #main-col (той самий спільний контейнер прокрутки для всіх вкладок,
+// Rev 2.7.0). Поріг 240px — щоб кнопка не блимала одразу при щонайменшому
+// скролі, лише коли реально є куди "повертатись".
+const SCROLL_TOP_BTN_THRESHOLD = 240;
+function updateScrollTopBtn(){
+  const mainColEl = document.getElementById('main-col');
+  const btn = document.getElementById('scroll-top-btn');
+  if(!mainColEl || !btn) return;
+  btn.classList.toggle('visible', mainColEl.scrollTop > SCROLL_TOP_BTN_THRESHOLD);
+}
+(function initScrollTopBtn(){
+  const mainColEl = document.getElementById('main-col');
+  if(!mainColEl) return;
+  mainColEl.addEventListener('scroll', updateScrollTopBtn, {passive:true});
+})();
+
 (function initTabbarSwipe(){
   const bar = document.querySelector('nav.tabbar');
   const bubble = document.getElementById('tabbar-bubble');
@@ -6945,35 +7035,6 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
   const buttons = Array.from(bar.querySelectorAll('button[data-tab]'));
   let dragging = false;
   let previewBtn = null;
-
-  // Rev 2.4.24 BugFix, переорієнтовано в Rev 2.7.0 — нативний
-  // el.scrollTo({behavior:'smooth'}) на iOS Safari мав задокументований
-  // окремий баг WebKit: програмний плавний скрол (на відміну від звичайного
-  // скролу пальцем) обробляється рушієм по-іншому і відомий тим, що ламає
-  // рендер position:fixed елементів САМЕ під час своєї анімації. Ця
-  // проблема була знайдена саме на рівні КОРЕНЕВОГО документа (window),
-  // який Rev 2.7.0 більше взагалі не скролить — тому теоретично для нового
-  // внутрішнього контейнера (#main-col) вона могла б і не повторюватись, але
-  // це припущення без підтвердження на реальному пристрої. Власна
-  // rAF-реалізація (серія дискретних миттєвих scrollTop=y замість однієї
-  // нативної анімованої команди) лишається без змін — вона вже перевірена й
-  // надійна, тому свідомо не замінюю на ще неперевірений нативний варіант.
-  function smoothScrollToTop(duration){
-    duration = duration || 380;
-    const mainColEl = document.getElementById('main-col');
-    if(!mainColEl) return;
-    const startY = mainColEl.scrollTop || 0;
-    if(startY <= 0) return;
-    const startTime = performance.now();
-    function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
-    function step(now){
-      const elapsed = now - startTime;
-      const t = Math.min(1, elapsed / duration);
-      mainColEl.scrollTop = Math.round(startY * (1 - easeOutCubic(t)));
-      if(t < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
 
   function applyBubbleX(x){ bubble.style.setProperty('--bubble-x', x + 'px'); }
   function setPreview(btn){
