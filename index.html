@@ -193,7 +193,12 @@
   .brand-logo{ width:28px; height:28px; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .brand-logo img{ width:100%; height:100%; object-fit:cover; display:block; }
   .gear-btn{ width:36px; height:36px; border-radius:var(--radius-md); border:1.5px solid var(--color-border-strong); background:var(--color-surface); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--color-text-secondary); flex-shrink:0; }
-  .gear-btn:hover{ background:var(--color-hover-overlay); }
+  /* Rev 2.21.16 — те саме "залипаюче :hover" на iOS Safari, що виправлено для
+     .submit-btn у Rev 2.21.15 (див. коментар нижче), виявилось системним:
+     будь-яка :hover-стилізація на тач-екрані лишається "приклеєною" після
+     тапу. Проходимось по всіх подібних правилах на тапабельних елементах і
+     ховаємо їх за @media (hover:hover), як тут. */
+  @media (hover:hover){ .gear-btn:hover{ background:var(--color-hover-overlay); } }
   .month-picker{ display:flex; align-items:center; gap:8px; margin-top:16px; }
   .month-picker label{ font-size:12px; color:var(--color-text-secondary); font-weight:600; }
   .month-picker select{ border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); padding:8px 10px; font-size:14px; background:var(--color-surface); color:var(--color-text-primary); font-weight:600; }
@@ -247,8 +252,11 @@
   .bank-debt-row{ display:flex; align-items:center; gap:10px; }
   .bdr-actions{ display:flex; gap:2px; flex-shrink:0; }
   .bdr-icon-btn{ width:28px; height:28px; border:none; background:none; color:var(--color-muted); cursor:pointer; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .bdr-icon-btn:hover{ background:var(--color-hover-overlay); color:var(--color-text-primary); }
-  .bdr-icon-btn.danger:hover{ background:var(--color-error-bg); color:var(--color-error); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){
+    .bdr-icon-btn:hover{ background:var(--color-hover-overlay); color:var(--color-text-primary); }
+    .bdr-icon-btn.danger:hover{ background:var(--color-error-bg); color:var(--color-error); }
+  }
   .add-bank-row{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
   .add-bank-row input{ flex:1 1 auto; min-width:0; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--color-surface); color:var(--color-text-primary); }
   .add-bank-row input.amount-input{ flex:0 1 140px; }
@@ -259,7 +267,8 @@
      яка відкриває вже наявну кастомну модалку. Пунктирна рамка (той самий
      прийом, що import-card) сигналізує "додати нове", а не "зберегти". */
   .add-trigger-btn{ width:100%; padding:12px; margin-bottom:14px; border:1.5px dashed var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); font-size:14px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
-  .add-trigger-btn:hover{ background:var(--color-surface-hover); border-color:var(--color-primary); color:var(--color-primary-hover); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .add-trigger-btn:hover{ background:var(--color-surface-hover); border-color:var(--color-primary); color:var(--color-primary-hover); } }
   #banks-saved-hint{ color:var(--color-primary-hover); font-weight:600; }
   /* Rev 2.1.17 — підпис початкової суми ОЧ (потрібна для прогрес-бару на
      Аналітиці); якщо ще не вказана — приглушене попередження замість числа. */
@@ -291,7 +300,8 @@
   .card-summary-value{ font-size:18px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--color-text-primary); }
   .card-summary-value.warn{ color:var(--color-warning); }
   .card-debt-compact-row{ display:flex; align-items:center; gap:8px; width:100%; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:11px 12px; cursor:pointer; text-align:left; font-family:inherit; box-shadow:var(--shadow-sm); -webkit-tap-highlight-color:transparent; transition:background var(--duration-fast) var(--easing-standard); }
-  .card-debt-compact-row:hover{ background:var(--color-surface-hover); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .card-debt-compact-row:hover{ background:var(--color-surface-hover); } }
   .cdr-avatar{ position:relative; flex-shrink:0; width:38px; height:38px; }
   .cdr-avatar svg, .cdr-avatar .bank-badge{ margin-right:0 !important; display:block !important; }
   .cdr-paid-badge{ position:absolute; right:-3px; bottom:-3px; width:16px; height:16px; border-radius:50%; background:var(--color-success); border:2px solid var(--color-surface); display:flex; align-items:center; justify-content:center; }
@@ -317,13 +327,15 @@
      виразним відступом + верхньою лінією-розділювачем, щоб це читалось як
      окрема, свідома дія, а не продовження форми. */
   .cdd-delete-link{ display:block; width:100%; text-align:center; background:none; border:none; border-top:1px solid var(--color-border); color:var(--color-error); font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer; margin-top:18px; padding:16px 0 0; }
-  .cdd-delete-link:hover{ text-decoration:underline; }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .cdd-delete-link:hover{ text-decoration:underline; } }
   /* Rev 2.2.3 — кнопка швидкої оплати ОЧ (метод B, FINANCIAL_RULES §5):
      відкриває форму витрати з передзаповненими назвою/сумою і вже готовою
      прив'язкою. Фіолетовий акцент — той самий, що категорія "Оплати Частинами"
      і підказка автозв'язку (метод C), щоб візуально пов'язати ці елементи. */
   .installment-pay-btn{ width:100%; margin-top:10px; margin-bottom:14px; padding:10px; border:1.5px solid var(--color-accent-purple); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font-size:13px; font-weight:600; cursor:pointer; }
-  .installment-pay-btn:hover{ filter:brightness(0.97); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .installment-pay-btn:hover{ filter:brightness(0.97); } }
   .field{ margin-bottom:14px; min-width:0; } .field:last-child{ margin-bottom:0; }
   .field label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
@@ -346,7 +358,12 @@
   .name-suggest-list.show{ display:block; }
   .name-suggest-item{ padding:10px 12px; font-size:14px; color:var(--color-text-primary); cursor:pointer; border-bottom:1px solid var(--color-border); display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .name-suggest-item:last-child{ border-bottom:none; }
-  .name-suggest-item:hover, .name-suggest-item.active{ background:var(--color-surface-hover); }
+  /* Rev 2.21.16 — розділено з .name-suggest-item.active: :hover-частину
+     ховаємо за @media (hover:hover) (той самий фікс, що .gear-btn вище),
+     .active (клас, який виставляє JS для клавіатурної навігації) лишається
+     без умови — це не hover-стан, а звичайний вибір, він має діяти скрізь. */
+  .name-suggest-item.active{ background:var(--color-surface-hover); }
+  @media (hover:hover){ .name-suggest-item:hover{ background:var(--color-surface-hover); } }
   .name-suggest-item .nsi-name{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .name-suggest-item .nsi-meta{ font-size:11px; color:var(--color-text-secondary); flex-shrink:0; white-space:nowrap; }
   .field.auto-hint.show #auto-hint-text{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -363,7 +380,8 @@
   .field.installment-link-hint.multi{ flex-direction:column; align-items:stretch; gap:8px; }
   .installment-link-candidates{ display:flex; flex-wrap:wrap; gap:6px; }
   .installment-link-candidates button{ text-decoration:none; background:var(--color-surface); border:1.5px solid var(--color-accent-purple); border-radius:20px; padding:4px 10px; font-size:11px; font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }
-  .installment-link-candidates button:hover{ background:var(--color-accent-purple-bg); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .installment-link-candidates button:hover{ background:var(--color-accent-purple-bg); } }
   /* Rev 2.1.6 — за порадою поради ззовні спростили форму: категорія/підкатегорія
      за замовчуванням приховані (щоб форма не лякала кількістю полів). Якщо
      автопідбір спрацював — видно лише короткий напис + посилання "Змінити"
@@ -394,7 +412,8 @@
   }
   .cat-fields-wrap.open{ display:block; }
   .auto-hint-edit-btn{ flex:0 0 auto; background:none; border:none; padding:0; font:inherit; font-size:11.5px; font-weight:700; color:var(--color-text-secondary); cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
-  .auto-hint-edit-btn:hover{ color:var(--color-text-primary); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .auto-hint-edit-btn:hover{ color:var(--color-text-primary); } }
   .field select.manual-flag{ border-color:var(--color-warning); background:var(--color-warning-bg); }
   .submit-btn{ width:100%; margin-top:6px; background:var(--color-primary); color:#fff; border:none; border-radius:var(--radius-md); padding:14px; font-size:15px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard); }
   .submit-btn.income{ background:var(--color-success); }
@@ -412,15 +431,18 @@
      нічим "зняти" назад. @media (hover:hover) — стандартний фікс: :hover
      застосовується лише на пристроях зі СПРАВЖНІМ hover (миша/трекпад), на
      тач-екранах кнопка одразу повертається до звичайного кольору. */
+  /* Rev 2.21.16 — .submit-btn.danger:hover пропущено в Rev 2.21.15: та сама
+     кнопка-родина (submit-btn), той самий залипаючий :hover на iOS Safari,
+     тому доносимо її в спільний блок нижче. */
   @media (hover:hover){
     .submit-btn:hover{ background:var(--color-primary-hover); }
     .submit-btn.income:hover{ background:var(--color-primary-hover); }
     .submit-btn.debt:hover{ background:var(--color-warning-hover); }
     .submit-btn.expense:hover{ background:var(--color-error-hover); }
     .submit-btn.secondary:hover{ background:var(--color-surface-hover); }
+    .submit-btn.danger:hover{ background:var(--color-error-hover); }
   }
   .submit-btn.danger{ background:var(--color-error); color:#fff; }
-  .submit-btn.danger:hover{ background:var(--color-error-hover); }
   .submit-btn.disabled-soon{ background:var(--color-disabled-bg); color:var(--color-disabled-text); cursor:not-allowed; }
 
   .import-card{ border:1.5px dashed var(--color-border-strong); background:var(--color-surface-hover); }
@@ -463,7 +485,8 @@
      власна рамка), лише суцільна рамка (не пунктирна — це не "додати",
      а навігація) і акцентний колір тексту/іконки. */
   .show-journal-link{ display:flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:14px; padding:12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-primary-hover); font-size:13.5px; font-weight:600; font-family:inherit; cursor:pointer; }
-  .show-journal-link:hover{ background:var(--color-surface-hover); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .show-journal-link:hover{ background:var(--color-surface-hover); } }
   .show-journal-link.hidden{ display:none; }
   /* Rev 2.18.0 — Журнал усіх записів (не нова вкладка bottom nav — їх і так
      5, і не новий елемент switchTab()'s фіксованого списку view'ів).
@@ -487,7 +510,8 @@
   #vytraty-default-view.hidden{ display:none; }
   .journal-overlay-top{ display:flex; align-items:center; gap:10px; padding:0 0 14px; border-bottom:1px solid var(--color-border); margin-bottom:16px; flex-shrink:0; }
   .journal-back-btn{ flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1.5px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
-  .journal-back-btn:hover{ background:var(--color-surface-hover); color:var(--color-text-primary); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .journal-back-btn:hover{ background:var(--color-surface-hover); color:var(--color-text-primary); } }
   .journal-overlay-title{ font-size:17px; font-weight:800; color:var(--color-text-primary); }
   .journal-body{ padding:0 0 calc(env(safe-area-inset-bottom,0px) + 24px); }
   .journal-month-nav{ margin-bottom:18px; }
@@ -556,7 +580,8 @@
      інлайн-панель редагування знизу), а сам горизонтальний рядок (назва+сума+
      кнопки) переїхав у вкладений .exp-row-top, щоб не ламати існуючий вигляд. */
   .expense-row{ background:var(--color-surface); border-radius:13px; padding:12px 14px; margin-bottom:8px; box-shadow:var(--shadow-sm); border:1px solid var(--color-border); border-left:3px solid transparent; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard); }
-  .expense-row:hover{ background:var(--color-surface-hover); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .expense-row:hover{ background:var(--color-surface-hover); } }
   .expense-row.manual{ border-left-color:var(--color-warning); }
   .expense-row.income-row{ border-left-color:var(--color-success); }
   .expense-row.selected{ border-color:var(--color-primary); box-shadow:0 0 0 1px var(--color-primary); }
@@ -572,8 +597,11 @@
   .exp-amount{ font-weight:700; font-size:15px; white-space:nowrap; font-family:'JetBrains Mono',monospace; }
   .exp-amount.income{ color:var(--color-success); }
   .exp-del, .exp-edit-cat{ background:none; border:none; color:var(--color-muted); cursor:pointer; padding:6px; line-height:1; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm); flex-shrink:0; }
-  .exp-del:hover{ background:var(--color-error-bg); color:var(--color-error); }
-  .exp-edit-cat:hover{ background:var(--color-hover-overlay); color:var(--color-primary-hover); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){
+    .exp-del:hover{ background:var(--color-error-bg); color:var(--color-error); }
+    .exp-edit-cat:hover{ background:var(--color-hover-overlay); color:var(--color-primary-hover); }
+  }
   /* Інлайн-редактор категорії/підкатегорії запису — з'являється під рядком
      після кліку на олівець; той самий компактний патерн, що вже є в застосунку
      для рядків банків/ОЧ (bank-debt-row), лише в меншому масштабі. */
@@ -588,9 +616,12 @@
   .record-edit-actions{ display:flex; gap:8px; }
   .record-edit-actions button{ flex:1; padding:9px; font-size:13px; font-weight:600; border-radius:var(--radius-sm); cursor:pointer; }
   .rce-save{ background:var(--color-primary); color:#fff; border:none; }
-  .rce-save:hover{ background:var(--color-primary-hover); }
   .rce-cancel{ background:var(--color-surface); color:var(--color-text-secondary); border:1.5px solid var(--color-border-strong); }
-  .rce-cancel:hover{ background:var(--color-surface-hover); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){
+    .rce-save:hover{ background:var(--color-primary-hover); }
+    .rce-cancel:hover{ background:var(--color-surface-hover); }
+  }
   .empty-state{ text-align:center; padding:40px 20px; color:var(--color-text-secondary); }
   .empty-state .glyph{ margin-bottom:8px; display:flex; justify-content:center; color:var(--color-muted); }
   .empty-state .es-title{ font-weight:700; font-size:15px; color:var(--color-text-primary); margin-bottom:4px; }
@@ -697,7 +728,8 @@
   .table-header .t-pct{ flex:0 0 34px; text-align:right; }
   .table-header .t-priority{ flex:0 0 58px; text-align:right; }
   .t-row{ display:flex; align-items:center; gap:8px; padding:4.5px 0 4.5px 4px; margin-left:-4px; border-radius:var(--radius-sm); min-height:29px; transition:background var(--duration-fast) var(--easing-standard); }
-  .t-row:not(.summary):hover{ background:var(--color-hover-overlay); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .t-row:not(.summary):hover{ background:var(--color-hover-overlay); } }
   .t-row.summary{ font-weight:700; border-top:1.5px solid var(--color-border-strong); margin-top:2px; padding-top:7px; }
   .t-row .t-name{ flex:1 1 auto; min-width:0; font-size:12.5px; font-weight:600; color:var(--color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .t-row .t-bar-h{ flex:0 0 64px; min-width:40px; }
@@ -784,7 +816,8 @@
      суцільного списку — навігація стає простішою на маленькому екрані. */
   .struct-tabs{ display:flex; gap:4px; background:var(--color-surface-hover); border-radius:22px; padding:4px; margin-bottom:14px; }
   .struct-tab-btn{ flex:1; padding:9px 4px; border:none; background:none; color:var(--color-text-secondary); font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
-  .struct-tab-btn:hover{ color:var(--color-text-primary); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .struct-tab-btn:hover{ color:var(--color-text-primary); } }
   .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
   .struct-tab-panel.hidden{ display:none; }
   .struct-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--color-border); font-size:13px; }
@@ -809,7 +842,8 @@
   /* ---- Сервіс (Rev 2.10.0 — компактна сітка замість великих карток з описами) ---- */
   .service-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; }
   .service-tile{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; padding:16px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
-  .service-tile:hover{ background:var(--color-surface-hover); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .service-tile:hover{ background:var(--color-surface-hover); } }
   .service-tile:disabled{ opacity:.6; cursor:not-allowed; }
   .service-tile-icon{ width:38px; height:38px; border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .service-tile-icon svg{ width:19px; height:19px; }
@@ -817,7 +851,8 @@
   .service-tile-icon.c-blue{ background:var(--color-info-bg); color:var(--color-info); }
   .service-tile-label{ font-size:13.5px; font-weight:600; color:var(--color-text-primary); line-height:1.35; }
   .service-danger-card{ display:flex; align-items:center; gap:14px; width:100%; padding:16px; margin-bottom:24px; background:var(--color-error-bg); border:1.5px solid var(--color-error); border-radius:var(--radius-lg); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
-  .service-danger-card:hover{ filter:brightness(0.98); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .service-danger-card:hover{ filter:brightness(0.98); } }
   .service-danger-card .service-tile-icon{ background:none; color:var(--color-error); }
   .service-danger-text{ display:flex; flex-direction:column; gap:2px; }
   .service-danger-title{ font-size:14px; font-weight:700; color:var(--color-error); }
@@ -827,7 +862,8 @@
      розмір/раскладка, що .service-danger-card нижче), але зі звичайними
      (не error) кольорами — це не небезпечна дія, лише інша вага на екрані. */
   .service-wide-card{ display:flex; align-items:center; gap:14px; width:100%; padding:16px; margin-bottom:24px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
-  .service-wide-card:hover{ background:var(--color-surface-hover); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .service-wide-card:hover{ background:var(--color-surface-hover); } }
   .service-wide-card .service-tile-icon{ flex-shrink:0; }
   .service-wide-text{ display:flex; flex-direction:column; gap:2px; }
   .service-wide-title{ font-size:14px; font-weight:700; color:var(--color-text-primary); }
@@ -849,10 +885,12 @@
      .diag-issue, тепер переїхав на обгортку, бо issue-кнопка стала flex:1. */
   .diag-issue-row{ display:flex; align-items:stretch; gap:6px; margin-bottom:6px; }
   .diag-issue{ display:block; flex:1 1 auto; min-width:0; font-size:12px; color:var(--color-text-secondary); padding:7px 10px 7px 12px; line-height:1.45; font-family:inherit; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; background:var(--color-surface-hover); border:none; border-left:2px solid var(--color-error); border-radius:0 var(--radius-sm) var(--radius-sm) 0; }
-  .diag-issue:hover{ background:var(--color-border); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .diag-issue:hover{ background:var(--color-border); } }
   .diag-issue b{ color:var(--color-text-primary); }
   .diag-issue-ignore{ flex:0 0 auto; font-size:11px; font-weight:600; color:var(--color-text-secondary); background:var(--color-surface-hover); border:1px solid var(--color-border-strong); border-radius:var(--radius-sm); padding:0 10px; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
-  .diag-issue-ignore:hover{ background:var(--color-border); color:var(--color-text-primary); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .diag-issue-ignore:hover{ background:var(--color-border); color:var(--color-text-primary); } }
   .diag-summary-ok{ text-align:center; padding:16px 6px; color:var(--color-success); font-weight:600; font-size:13px; }
   .diag-summary-meta{ text-align:center; font-size:11.5px; color:var(--color-muted); margin-top:6px; }
   /* Rev 2.16.1 — коротке підсвічування запису, до якого перейшли з
@@ -876,7 +914,8 @@
   .theme-toggle{ display:flex; gap:4px; background:var(--color-surface-hover); border-radius:var(--radius-md); padding:4px; margin-bottom:20px; }
   .theme-toggle-btn{ flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; padding:11px 4px; border:none; background:none; border-radius:var(--radius-sm); color:var(--color-text-secondary); font-size:11px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
   .theme-toggle-btn svg{ width:18px; height:18px; }
-  .theme-toggle-btn:hover{ color:var(--color-text-primary); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .theme-toggle-btn:hover{ color:var(--color-text-primary); } }
   .theme-toggle-btn.active{ background:var(--color-surface); color:var(--color-primary-hover); box-shadow:var(--shadow-sm); }
   /* Rev 2.0.5 — власний модал замість confirm()/prompt() */
   /* Rev 2.16.1 — max-height/overflow-y: звіт діагностики може мати багато
@@ -1156,7 +1195,8 @@
      (не сірий, як звичайний gear-btn) — щоб виділялась і не губилась поруч
      із "Налаштування". */
   .gear-btn.update-btn{ position:relative; border-color:var(--color-primary); color:var(--color-primary-hover); }
-  .gear-btn.update-btn:hover{ background:var(--color-primary-bg); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .gear-btn.update-btn:hover{ background:var(--color-primary-bg); } }
   .gear-btn.update-btn .update-dot{ position:absolute; top:-2px; right:-2px; width:9px; height:9px; border-radius:50%; background:var(--color-primary); border:2px solid var(--color-surface); }
   nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ width:20px; height:20px; }
   nav.tabbar button.tab-vytraty .tb-label{ margin-top:2px; color:var(--color-text-secondary); }
@@ -1197,7 +1237,8 @@
      двом кнопкам + інпуту дати в спільному ряду з "Сумою" було б затісно. */
   .date-nav-row{ display:flex; align-items:center; gap:8px; }
   .date-nav-btn{ flex:0 0 auto; width:48px; height:48px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
-  .date-nav-btn:hover{ background:var(--color-hover-overlay); color:var(--color-text-primary); }
+  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
+  @media (hover:hover){ .date-nav-btn:hover{ background:var(--color-hover-overlay); color:var(--color-text-primary); } }
   .date-nav-btn:active{ background:var(--color-active-overlay); }
   .date-input-wrap{ flex:1 1 auto; min-width:0; overflow:hidden; }
   /* Rev 2.1.7 — нативний input[type=date] не можна надійно змусити показувати
@@ -2148,7 +2189,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.15</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.16</div>
 </div>
   </div>
 </div>
@@ -2676,7 +2717,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.15';
+const APP_VERSION = '2.21.16';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
