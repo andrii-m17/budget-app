@@ -1088,12 +1088,25 @@
   /* Rev 2.21.3 — "Витрати" на ≥768px: форма "Нова витрата" і короткий список
      "Останні записи" поруч у 2 колонки (форма зліва, список справа), а не
      одне під одним на всю ширину, як на mobile (<768px, лишається без змін).
-     minmax(280px,420px) — той самий 420px, що вже обмежує .entry-card на
-     ≥1280px (Rev 2.1.2) нижче, тепер як ширина grid-колонки на ВСІХ ширинах
-     ≥768px, а не лише на найширшому desktop-брейкпоінті. */
+     Rev 2.21.4 — за проханням: (а) колонки тепер РІВНІ по висоті
+     (align-items:stretch, було start) — форма трохи ширша (460px, було 420),
+     а список праворуч компактніший (нижче), тому природно вирівнюються;
+     (б) .vytraty-recent-col — flex-колонка, кнопка "Показати весь журнал"
+     (той самий розмір, .show-journal-link не чіпали) з margin:auto — займає
+     РЕШТУ висоти колонки й центрується в ній по вертикалі, замість
+     "прилипати" одразу під останнім записом з порожнечею нижче. */
   @media (min-width:768px){
-    #vytraty-default-view{ display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:24px; align-items:start; }
-    #vytraty-default-view .vytraty-recent-col{ min-width:0; }
+    #vytraty-default-view{ display:grid; grid-template-columns:minmax(300px,460px) 1fr; gap:24px; align-items:stretch; }
+    #vytraty-default-view .vytraty-recent-col{ min-width:0; display:flex; flex-direction:column; }
+    #vytraty-default-view .vytraty-recent-col #show-journal-btn:not(.hidden){ margin-top:auto; margin-bottom:auto; }
+    /* Rev 2.21.4 — компактніший вигляд рядків короткого списку праворуч (не
+       чіпає buildRecordGroupsHtml/.expense-row саму розмітку — той самий
+       прийом, що вже використаний для #view-vytraty .entry-card на ≥1280px
+       нижче: скоповані CSS-перевизначення розмірів, без зміни HTML/JS). */
+    #vytraty-default-view .vytraty-recent-col .journal-day-group{ margin-bottom:14px; }
+    #vytraty-default-view .vytraty-recent-col .expense-row{ padding:9px 12px; margin-bottom:6px; }
+    #vytraty-default-view .vytraty-recent-col .expense-row .exp-name{ font-size:13.5px; }
+    #vytraty-default-view .vytraty-recent-col .expense-row .exp-meta{ margin-top:2px; }
   }
   /* ---- Tablet (768–1279px): навігація як на mobile (нижня), але сітка на 2 колонки ---- */
   @media (min-width:768px) and (max-width:1279px){
@@ -1152,8 +1165,12 @@
        порожньо й непропорційно. Обмежуємо ширину (компактна форма введення,
        не дашборд-картка) + трохи зменшуємо поля/шрифти, щоб картка не займала
        пів екрана по вертикалі. Ліве вирівнювання (не по центру) — узгоджено
-       з рештою карток застосунку, які завжди починаються від лівого краю. */
-    #view-vytraty .entry-card{ max-width:420px; padding:18px 20px; }
+       з рештою карток застосунку, які завжди починаються від лівого краю.
+       Rev 2.21.4 — 420px → 460px, узгоджено з новою шириною лівої
+       grid-колонки #vytraty-default-view (Rev 2.21.4 вище) — інакше картка
+       була б вузькою за колонку й лишала порожній проміжок праворуч від
+       себе, ще ДО проміжку між колонками. */
+    #view-vytraty .entry-card{ max-width:460px; padding:18px 20px; }
     #view-vytraty .entry-title{ font-size:13px; margin-bottom:10px; }
     #view-vytraty .field{ margin-bottom:10px; }
     #view-vytraty .field label{ font-size:10px; margin-bottom:4px; }
@@ -1912,7 +1929,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.3</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.4</div>
 </div>
   </div>
 </div>
@@ -2429,7 +2446,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.3';
+const APP_VERSION = '2.21.4';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
