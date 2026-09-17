@@ -2262,7 +2262,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.26</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.27</div>
 </div>
   </div>
 </div>
@@ -2790,7 +2790,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.26';
+const APP_VERSION = '2.21.27';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
@@ -4667,6 +4667,74 @@ function parseUaMonth(text){
   if(!year) return null;
   return `${year}-${String(idx+1).padStart(2,'0')}`;
 }
+// Rev #26.4 — Stage 5, п.26.4 (Відокремити Financial Logic, останній пункт
+// зі списку): чиста трансформація "рядок Excel (аркуш 'Витрати') →
+// внутрішній об'єкт витрати", винесена з циклу парсингу handleImportFile()
+// нижче. Приймає вже прочитаний рядок (як його віддає
+// XLSX.utils.sheet_to_json з defval:null) — НЕ звертається ні до document,
+// ні до XLSX-об'єкта напряму. Повертає null, якщо рядок невалідний (нема
+// назви/суми, або дата не розпізналась excelDateToISO) — виклик сам
+// вирішує, як порахувати "пропущено". Мапінг колонок за точним ім'ям і
+// нормалізація значень — ті самі, що були інлайн, формула не змінена.
+function mapExcelExpenseRow(r){
+  const name = r['Витрата'];
+  const amount = r['Сума'];
+  if(!name || amount==null || amount==='') return null;
+  const iso = excelDateToISO(r['Дата']);
+  if(!iso) return null;
+  return {
+    date: iso, name: String(name), amount: Math.round(parseFloat(amount)),
+    category: r['Категорія'] || '', subcategory: r['Підкатегорія'] || '',
+    manual: r['Статус автоматизації'] ? String(r['Статус автоматизації']).toLowerCase() !== 'авто' : false
+  };
+}
+// Rev #26.4 — те саме, для аркуша "Історія" (колонки B/C/D = Андрій/Оля/
+// Інше): рядок уже задає monthKeyVal (parseUaMonth(row[0]) лишається в
+// handleImportFile() — той самий виклик, що вже й так там був). Повертає
+// масив кандидатів {source, amount, date} — лише для колонок зі значенням
+// > 0; порожня/нульова/невалідна колонка просто відсутня в результаті.
+function mapExcelIncomeRow(row, monthKeyVal){
+  const sources = [ ['Зарплата Андрій', row[1]], ['Зарплата Оля', row[2]], ['Інші доходи', row[3]] ];
+  const out = [];
+  for(const [label, val] of sources){
+    if(val && parseFloat(val) > 0){
+      out.push({ source: label, amount: Math.round(parseFloat(val)), date: monthKeyVal+'-01' });
+    }
+  }
+  return out;
+}
+// Rev #26.4 — те саме, для колонок банківських карток аркуша "Історія"
+// (debtCols — фіксований список {idx, name, kind}, будується в
+// handleImportFile()). Повертає масив кандидатів {name, kind, month,
+// balance, idx} — idx лишається в результаті лише для того, щоб caller міг
+// побудувати той самий id-рядок, що й раніше (imp-debt-i-idx-...), не
+// потрапляючи в сам збережений запис боргу.
+function mapExcelDebtColumnsRow(row, monthKeyVal, debtCols){
+  const out = [];
+  for(const dc of debtCols){
+    const val = row[dc.idx];
+    if(val==null || val==='' || isNaN(parseFloat(val))) continue;
+    out.push({ name: dc.name, kind: dc.kind, month: monthKeyVal, balance: Math.round(parseFloat(val)), idx: dc.idx });
+  }
+  return out;
+}
+// Rev #26.4 — те саме, для лівої таблиці "Оплати Частинами" аркуша
+// "Фінанси" (детальний знімок ОЧ). Лише сама трансформація значень рядка
+// (Залишок/Сума кредиту/Платіж у місяць, з фолбеком на creditSum, якщо
+// Залишок порожній — Rev 2.1.36) — рішення "зупинити цикл" (порожня колонка
+// "Банк"/рядок "Загалом") і другий прохід (унікальні label з дедуп
+// лічильником по ВСЬОМУ масиву записів, не одному рядку) лишаються в
+// handleImportFile(), бо це не "рядок → об'єкт", а керування циклом і
+// пакетна обробка. Повертає null, якщо в рядку немає ні залишку, ні суми
+// кредиту (нема що імпортувати).
+function mapExcelInstallmentDetailRow(row){
+  const monthlyPay = Math.round(parseFloat(row[5]));   // "Сума в місяць"
+  const creditSum = Math.round(parseFloat(row[6]));    // "Сума кредиту"
+  const balanceRaw = Math.round(parseFloat(row[8]));   // "Залишок"
+  if(isNaN(balanceRaw) && isNaN(creditSum)) return null;
+  const balance = isNaN(balanceRaw) ? creditSum : balanceRaw;
+  return { baseName: String(row[1]).trim(), monthlyPay, creditSum, balance };
+}
 
 function handleImportFile(event){
   const file = event.target.files[0];
@@ -4712,16 +4780,9 @@ function handleImportFile(event){
         }
         const parsedRows = [];
         for(const r of rows){
-          const name = r['Витрата'];
-          const amount = r['Сума'];
-          if(!name || amount==null || amount==='') { skipped++; continue; }
-          const iso = excelDateToISO(r['Дата']);
-          if(!iso){ skipped++; continue; }
-          parsedRows.push({
-            date: iso, name: String(name), amount: Math.round(parseFloat(amount)),
-            category: r['Категорія'] || '', subcategory: r['Підкатегорія'] || '',
-            manual: r['Статус автоматизації'] ? String(r['Статус автоматизації']).toLowerCase() !== 'авто' : false
-          });
+          const mapped = mapExcelExpenseRow(r);
+          if(!mapped){ skipped++; continue; }
+          parsedRows.push(mapped);
         }
         const existingCounts = {};
         expenses.forEach(function(e){
@@ -4771,22 +4832,20 @@ function handleImportFile(event){
           if(!row || !row[0]) continue;
           const monthKeyVal = parseUaMonth(row[0]);
           if(!monthKeyVal) continue;
-          const sources = [ ['Зарплата Андрій', row[1]], ['Зарплата Оля', row[2]], ['Інші доходи', row[3]] ];
-          for(const [label, val] of sources){
-            if(val && parseFloat(val) > 0){
-              // Rev 2.9.0 — той самий ключ (джерело+місяць), що вже
-              // використовує ручне збереження доходу (saveIncomeDrawer) —
-              // якщо запис за цей місяць+джерело вже є, пропускаємо, а не
-              // оновлюємо (щоб повторний імпорт не затер можливу ручну
-              // правку, зроблену після попереднього імпорту).
-              const alreadyExists = incomes.some(inc => inc.source===label && monthKey(inc.date)===monthKeyVal);
-              if(alreadyExists){ skippedDuplicateIncomes++; continue; }
-              incomes.push({
-                id: 'imp-inc-'+i+'-'+label+'-'+Date.now(),
-                date: monthKeyVal+'-01', source: label, amount: Math.round(parseFloat(val))
-              });
-              addedIncomes++;
-            }
+          const candidates = mapExcelIncomeRow(row, monthKeyVal);
+          for(const c of candidates){
+            // Rev 2.9.0 — той самий ключ (джерело+місяць), що вже
+            // використовує ручне збереження доходу (saveIncomeDrawer) —
+            // якщо запис за цей місяць+джерело вже є, пропускаємо, а не
+            // оновлюємо (щоб повторний імпорт не затер можливу ручну
+            // правку, зроблену після попереднього імпорту).
+            const alreadyExists = incomes.some(inc => inc.source===c.source && monthKey(inc.date)===monthKeyVal);
+            if(alreadyExists){ skippedDuplicateIncomes++; continue; }
+            incomes.push({
+              id: 'imp-inc-'+i+'-'+c.source+'-'+Date.now(),
+              date: c.date, source: c.source, amount: c.amount
+            });
+            addedIncomes++;
           }
         }
       }
@@ -4815,17 +4874,16 @@ function handleImportFile(event){
           if(!row || !row[0]) continue;
           const monthKeyVal = parseUaMonth(row[0]);
           if(!monthKeyVal) continue;
-          for(const dc of debtCols){
-            const val = row[dc.idx];
-            if(val==null || val==='' || isNaN(parseFloat(val))) continue;
+          const candidates = mapExcelDebtColumnsRow(row, monthKeyVal, debtCols);
+          for(const c of candidates){
             // Rev 2.9.0 — той самий ключ (назва+тип+місяць), що carry-forward
             // логіка застосунку вже вважає "одним записом" — якщо вже є,
             // пропускаємо замість дублювання.
-            const alreadyExists = debts.some(d => d.name===dc.name && d.kind===dc.kind && d.month===monthKeyVal);
+            const alreadyExists = debts.some(d => d.name===c.name && d.kind===c.kind && d.month===c.month);
             if(alreadyExists){ skippedDuplicateDebts++; continue; }
             debts.push({
-              id: 'imp-debt-'+i+'-'+dc.idx+'-'+Date.now(),
-              name: dc.name, kind: dc.kind, month: monthKeyVal, balance: Math.round(parseFloat(val))
+              id: 'imp-debt-'+i+'-'+c.idx+'-'+Date.now(),
+              name: c.name, kind: c.kind, month: c.month, balance: c.balance
             });
             addedDebts++;
           }
@@ -4881,9 +4939,6 @@ function handleImportFile(event){
           const bank = row && row[1];
           if(!bank){ finDebugLines.push(`рядок ${i+1}: порожня колонка "Банк" — зупинка циклу`); break; }
           if(String(bank).trim()==='Загалом'){ finDebugLines.push(`рядок ${i+1}: "Загалом" — зупинка циклу (підсумковий рядок)`); break; }
-          const monthlyPay = Math.round(parseFloat(row[5]));   // "Сума в місяць"
-          const creditSum = Math.round(parseFloat(row[6]));    // "Сума кредиту"
-          const balanceRaw = Math.round(parseFloat(row[8]));   // "Залишок"
           const rawDump = `[C=${JSON.stringify(row[2])}, D=${JSON.stringify(row[3])}, E=${JSON.stringify(row[4])}, F=${JSON.stringify(row[5])}, G=${JSON.stringify(row[6])}, H=${JSON.stringify(row[7])}, I=${JSON.stringify(row[8])}]`;
           // Rev 2.1.36 — BugFix: якщо "Залишок" порожній (напр. ОЧ щойно
           // почалась і клітинку ще не заповнили вручну), рядок раніше
@@ -4892,13 +4947,13 @@ function handleImportFile(event){
           // залишок дорівнює повній сумі кредиту (розумне припущення для
           // щойно початої розстрочки). Пропускаємо рядок лише якщо ОБИДВА
           // числа відсутні — тоді дійсно нема що імпортувати.
-          if(isNaN(balanceRaw) && isNaN(creditSum)){
+          const mapped = mapExcelInstallmentDetailRow(row);
+          if(!mapped){
             finDebugLines.push(`✗ рядок ${i+1} "${String(bank).trim()}" ПРОПУЩЕНО — немає ні залишку, ні суми кредиту. ${rawDump}`);
             continue;
           }
-          const balance = isNaN(balanceRaw) ? creditSum : balanceRaw;
-          finEntries.push({ baseName: String(bank).trim(), monthlyPay, creditSum, balance });
-          finDebugLines.push(`✓ рядок ${i+1} "${String(bank).trim()}" додано — залишок=${balance}, платіж=${monthlyPay}. ${rawDump}`);
+          finEntries.push(mapped);
+          finDebugLines.push(`✓ рядок ${i+1} "${String(bank).trim()}" додано — залишок=${mapped.balance}, платіж=${mapped.monthlyPay}. ${rawDump}`);
         }
         const nameCounts = {};
         finEntries.forEach(function(e){ nameCounts[e.baseName] = (nameCounts[e.baseName]||0) + 1; });
