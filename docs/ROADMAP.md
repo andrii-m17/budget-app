@@ -1552,6 +1552,131 @@ success/failure, **не встановлює прапорець сама**; ✅ 
 в цій ревізії, і жоден тестовий прогін не залишає слідів у production
 `localStorage`.
 
+#### Stage C — Pilot Activation (Rev 2.21.32)
+
+Перший реальний момент, коли `migration completed` стає `true` і
+IndexedDB — authoritative storage для 4 pilot-доменів (`categories`,
+`subcategories`, `subcategoryPriority`, `dictionary`).
+
+**Перевірка форми прапорця перед стартом (за явним запитом користувача).**
+Stage B лишив `isMigrationCompleted()`/`markMigrationCompleted()` ОДНИМ
+глобальним boolean, що мігрував усі 12 `BACKUP_LS_KEYS` атомарно —
+несумісно з поступовою по-доменною активацією (Stage C — 4 домени, Stage
+D — решта пізніше). Оскільки жоден реальний код так і не викликав
+`markMigrationCompleted()` (підтверджено — прапорець був відсутній у
+кожному живому браузері), зміна формату БЕЗКОШТОВНА. Замінено ДО написання
+routing-коду на доменно-орієнтовану мапу: `DOMAIN_MIGRATION_KEYS`
+(домен→ключі, наразі лише 4 pilot-домени), `getMigrationStatusMap()`/
+`isDomainMigrated(domain)`/`markDomainMigrated(domain)`,
+`migrateDomainToIndexedDb(domain)` (по-доменна версія Stage B routine).
+
+**Repository routing invariant (за фінальним уточненням користувача).**
+`loadX()`/`saveX()` кожного домену самі визначають authoritative storage
+через `isDomainMigrated(domain)` — НЕ через захардкоджений список
+"pilot-доменів" у коді поза цими функціями. `loadCategories()`/
+`loadSubcategories()`/`loadSubcategoryPriority()`/`loadDictionary()` —
+НОВІ функції (раніше все 4 було всередині одного `loadStructureRefs()`,
+асиметрично з уже окремими `saveCategories()`/…) — кожна перевіряє свій
+домен і читає localStorage або IndexedDB відповідно; `saveCategories()`/…
+(існуючі, той самий 0-аргументний виклик) — так само, і тепер повертають
+`{success, error?}` замість undefined. `loadStructureRefs()` лишається
+єдиною точкою входу для двох існуючих викликів (init, restore) — просто
+`await`-ить усі 4 нові loader'и послідовно. Перевірено `grep`'ом: жоден
+інший код (UI, backup) не викликає `isDomainMigrated()`/`idbAdapterGet/Set`
+напряму — лише ці 8 Repository-функцій.
+
+**Startup ordering.** `ensureDomainsMigrated(Object.keys(
+DOMAIN_MIGRATION_KEYS))` — перший рядок єдиного `async function
+initApp(){...}` (IIFE в кінці файлу, обгортає весь колишній
+top-level-init-каскад від `loadStructureRefs()` до `restoreExpenseDraft()`,
+Stage A, п.3), повністю `await`-иться ДО `await loadStructureRefs()` — жоден
+`loadX()` pilot-домену не викликається в "проміжному" стані міграції.
+Водночас кожен `loadX()`/`saveX()` сам перевіряє `isDomainMigrated()` при
+КОЖНОМУ виклику (не покладається на порядок ініціалізації) — тому
+коректний навіть якби викликався поза цим init-ланцюжком.
+
+**Обробка помилок міграції.** Кожен pilot-домен мігрується незалежно
+(`ensureDomainsMigrated()` не зупиняється на першому збої) — збій одного
+домену лишає його на `localStorage` (спроба повториться наступного
+старту), не показується як помилка користувачу.
+
+**Backup/restore — storage-agnostic.** Витягнуто з `exportBackup()`/
+`handleRestoreBackupFile()` дві чисті функції заради явної перевірки
+архітектури й тестованості: `buildBackupPayloadData()` (для pilot-ключів
+бере `JSON.stringify(CATEGORIES)`/… — ПОТОЧНИЙ in-memory стан, той самий,
+що серіалізує `saveCategories()`, а НЕ `localStorage.getItem()` напряму —
+бо для мігрованого домену `localStorage` вже архів) і `applyBackupData(
+data)` (для pilot-ключів — новий `restoreXFromBackup(raw)` на кожен домен:
+parse+fallback-на-DEFAULT_* + `await saveX()`, routing-aware; для решти
+(ще не активованих Stage D) ключів — той самий прямий `localStorage`
+clear→write, що й раніше). Жодного прямого звернення до `localStorage`/
+adapter для 4 pilot-ключів більше немає в backup-коді.
+
+**Обробка помилок запису — перевірено готовий патерн перед впровадженням
+нового** (за явним запитом користувача): у застосунку вже є `.status-
+banner` (єдиний випадок — `#offline-banner`, warning-колір) і
+per-feature inline `-status`-текстові вузли (`backup-status`,
+`import-status`) — жоден не є generic "показати помилку де завгодно".
+Додано другий `.status-banner` (`#storage-error-banner`, новий колірний
+варіант `.error` на існуючих `--color-error*` токенах) — той самий
+компонент, не новий патерн. `reportSaveResult(result)` — єдина точка, де
+UI реагує на `{success:false}` від будь-якої з 4 save-функцій; викликана
+на кожному з ~15 call sites.
+
+**🐛 BugFix, виявлений живою перевіркою (не було в жодному тесті до
+цього):** гілка IndexedDB усіх 4 `loadX()` не сідувала (seed) дефолт при
+першому читанні порожнього/щойно мігрованого домену — на відміну від
+localStorage-гілки (`if(!raw) await saveX()`), через що щойно мігрований
+(і порожній до міграції) домен тихо скидався б до `DEFAULT_*` при
+КОЖНОМУ старті, ніколи не зберігаючись у IndexedDB. Виправлено (той самий
+`if(!raw) await saveX()`, тепер симетрично в обох гілках) і покрито
+регресійним тестом.
+
+**Тестування:** `tests/pilot-repository.test.js` (новий, 10 тестів) —
+routing `loadCategories`/`saveCategories` (localStorage/IndexedDB/помилка
+запису), acceptance-тест "mixed-storage export→restore" (частина
+доменів мігрована, частина ні — повний стан усіх 4 доменів відтворюється
+коректно, кожен пише туди, де насправді authoritative), непілотний ключ
+(Stage D territory) — той самий clear→write, що й до Stage C.
+`tests/storage-adapter.test.js` (25 тестів, повністю переписані під
+доменно-орієнтоване API). Разом зі старими: **`node --test`: 135/135**.
+
+**Жива перевірка в браузері** (localhost, справжній `idb`-CDN, справжня
+IndexedDB): (1) чистий старт (localStorage+IndexedDB очищені) —
+консоль без помилок, усі 4 домени мігрували й позначились, дефолти
+коректно засіялись в IndexedDB (де й виявлено баг вище); (2) реальний
+клік "Додати категорію" через UI → запис одразу в IndexedDB; (3) повний
+`location.reload()` — новий запис пережив перезапуск; (4) симуляція
+збою запису (поламаний `idbAdapterSet`) → банер помилки з'явився,
+наступний успішний запис — зник; (5) mixed-storage backup: збудовано
+payload через `buildBackupPayloadData()`, змінено `CATEGORIES` в
+пам'яті, відновлено через `applyBackupData()` — "привид" зник, дані
+збіглися з бекапом, запис пішов саме в IndexedDB (не localStorage);
+(6) рендер "Категорії"/"Словник" на Структурі — коректний після кожного
+кроку. **Offline-сценарій і повторний iPhone-тест — не виконані в цій
+сесії (модель не має доступу до реального iPhone/офлайн-мережі
+браузера-прев'ю) — обов'язково перевір вручну перед тим, як вважати цю
+ревізію остаточно завершеною**, особливо: (а) відкриття застосунку в
+авіарежимі одразу після встановлення оновлення (idb з CDN міг ще не
+закешуватись), (б) що existing PWA на iPhone коректно підхоплює
+оновлення (Service Worker), не губить наявні дані під час першої міграції.
+
+**DoD Stage C:** ✅ storage-routing виключно всередині 4+4
+Repository-функцій (перевірено `grep`'ом); ✅ init-послідовність гарантує
+відсутність "проміжного" стану міграції; ✅ кожен `loadX()`/`saveX()`
+перевіряє стан сам, не покладаючись на порядок init; ✅ migration
+незалежна по домену, збій — тихий; ✅ `exportBackup()`/
+`handleRestoreBackupFile()` для pilot-доменів викликають `loadX()`/
+`saveX()`, не storage напряму; ✅ restore — контрольована послідовність
+(parse+fallback→await saveX()→перевірка), не наївний
+clear→write→read-back; ✅ `localStorage` мігрованого домену не
+читається/не оновлюється в backup/restore; ✅ помилка запису показана
+явно (перевірений живий банер); ✅ усі call sites 4 pilot-функцій —
+`await`-ed; ✅ acceptance-тест mixed-storage backup/restore; ✅
+`node --test` 135/135; ✅ жива перевірка create/edit/delete/reload/
+backup-restore/симуляція-збою; ⏳ **iPhone-тест і офлайн-сценарій —
+обов'язкові ручні кроки користувача перед закриттям цієї ревізії**.
+
 ### 29. Рефакторинг модалки `#app-modal`
 
 🔎 Перевірено в коді — досі одна модалка обслуговує всі сценарії. Технічний борг не

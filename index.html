@@ -186,6 +186,13 @@
   .status-banner{ display:flex; align-items:center; gap:8px; padding:9px 20px; font-size:12px; font-weight:600; background:var(--color-warning-bg); color:var(--color-warning); border-bottom:1px solid var(--color-border); }
   .status-banner svg{ flex-shrink:0; }
   .status-banner.hidden{ display:none; }
+  /* Rev #28.C — той самий компонент .status-banner, що вже #offline-banner
+     вище (не винаходимо новий патерн повідомлень — узгоджено з користувачем
+     явним уточненням перед стартом Stage C), лише кольоровий варіант
+     .error: на відміну від офлайн-режиму (очікуваний, безпечний стан) збій
+     запису pilot-домену — це реальна проблема ("без silent retry", раніше
+     узгоджено), тому колір саме error, не warning. */
+  .status-banner.error{ background:var(--color-error-bg); color:var(--color-error); }
   /* Rev 2.8.0 — "пігулка" вибору місяця: той самий native <select>, що й раніше
      (повна доступність і нативний колесо-пікер на iOS лишаються), лише
      обгорнутий у <label> (клік будь-де по пігулці — не тільки по вузькому
@@ -1565,6 +1572,15 @@
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 12.86a10 10 0 0 1 5.17-2.8"/><path d="M12 20h.01"/></svg>
       <span>Офлайн-режим — зміни зберігаються локально на цьому пристрої</span>
     </div>
+    <!-- Rev #28.C — той самий компонент, що #offline-banner вище (.status-
+         banner, лише варіант .error), для явної помилки запису pilot-домену
+         (categories/subcategories/subcategoryPriority/dictionary) —
+         "без silent retry" (раніше узгоджено): показуємо факт збою, не
+         ховаємо його і не повторюємо спробу автоматично. -->
+    <div class="status-banner error hidden" id="storage-error-banner" role="alert" aria-live="assertive">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="storage-error-banner-text"></span>
+    </div>
     <div class="top">
       <div class="page-header-buttons">
         <button class="gear-btn update-btn" id="update-btn-top" onclick="openUpdateModal()" aria-label="Доступне оновлення" style="display:none;">
@@ -2273,7 +2289,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.31</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.32</div>
 </div>
   </div>
 </div>
@@ -2580,12 +2596,54 @@ const LS_KEY_CATEGORIES = 'budget_categories_v1';
 const LS_KEY_SUBCATEGORIES = 'budget_subcategories_v1';
 const LS_KEY_SUBCATEGORY_PRIORITY = 'budget_subcategory_priority_v1';
 const LS_KEY_DICTIONARY = 'budget_dictionary_v1';
-function loadStructureRefs(){
+// Rev #28.C — Stage C (docs/ROADMAP.md, п.28): усі 4 нижче — РЕАЛЬНІ pilot-
+// Repository-функції. Storage-routing ("localStorage чи IndexedDB для цього
+// домену?") живе ВИКЛЮЧНО тут (isDomainMigrated(), визначена далі за
+// текстом разом з adapter'ом) — жоден інший код (exportBackup(),
+// handleRestoreBackupFile(), UI) не перевіряє isDomainMigrated() і не
+// звертається до idbAdapterGet/Set напряму: усі як і раніше кличуть
+// loadCategories()/saveCategories() тощо, не знаючи, де фізично дані.
+// Сигнатури (0 аргументів — читають/пишуть відповідний module-level масив,
+// той самий стиль, що вже саveExpenses()/saveDebts()/…) НЕ змінені порівняно
+// з Stage A/B — змінилось лише тіло (async + маршрутизація), тому кожен
+// існуючий виклик saveCategories() і т.д. лишається валідним синтаксично,
+// але тепер повертає Promise<{success, error?}> замість undefined — усі call
+// sites нижче за текстом файлу оновлені на `await` + перевірку результату.
+async function loadCategories(){
+  if(isDomainMigrated('categories')){
+    try{
+      const raw = await idbAdapterGet(LS_KEY_CATEGORIES);
+      CATEGORIES = raw ? JSON.parse(raw) : DEFAULT_CATEGORIES.map(c=>({...c}));
+      // Rev #28.C BugFix — виявлено живим тестом: на щойно мігрованому
+      // домені, у якого в IndexedDB ще НЕМАЄ значення (напр. домен був
+      // порожнім/відсутнім у localStorage ще до міграції), без цього
+      // seed-запису CATEGORIES щоразу тихо скидався б до DEFAULT_CATEGORIES
+      // при кожному наступному старті, НІКОЛИ не зберігаючись в IndexedDB —
+      // той самий "зберігаємо дефолт при першому запуску" принцип, що вже
+      // localStorage-гілка нижче, тепер симетрично і для adapter-гілки.
+      if(!raw) reportSaveResult(await saveCategories());
+    }catch(e){ CATEGORIES = DEFAULT_CATEGORIES.map(c=>({...c})); }
+    return;
+  }
+  // Гілка нижче — точна копія поведінки ДО Stage C (Rev 2.21.30 і раніше):
+  // доки домен не мігровано, жодної зміни в тому, що і як читається/пишеться.
   try{
     const raw = localStorage.getItem(LS_KEY_CATEGORIES);
     CATEGORIES = raw ? JSON.parse(raw) : DEFAULT_CATEGORIES.map(c=>({...c}));
-    if(!raw) saveCategories();
+    if(!raw) await saveCategories();
   }catch(e){ CATEGORIES = DEFAULT_CATEGORIES.map(c=>({...c})); }
+}
+async function loadSubcategories(){
+  if(isDomainMigrated('subcategories')){
+    try{
+      const raw = await idbAdapterGet(LS_KEY_SUBCATEGORIES);
+      SUBCATEGORIES = raw ? JSON.parse(raw) : DEFAULT_SUBCATEGORIES.map(s=>({...s}));
+      // Rev #28.C BugFix — той самий seed-на-першому-читанні фікс, що вище
+      // в loadCategories() (дивись коментар там).
+      if(!raw) reportSaveResult(await saveSubcategories());
+    }catch(e){ SUBCATEGORIES = DEFAULT_SUBCATEGORIES.map(s=>({...s})); }
+    return;
+  }
   try{
     const raw = localStorage.getItem(LS_KEY_SUBCATEGORIES);
     SUBCATEGORIES = raw ? JSON.parse(raw) : DEFAULT_SUBCATEGORIES.map(s=>({...s}));
@@ -2594,24 +2652,119 @@ function loadStructureRefs(){
     // (потрібен active для м'якого видалення, як у категорій).
     if(!Array.isArray(SUBCATEGORIES)){
       SUBCATEGORIES = Object.entries(SUBCATEGORIES).map(([name,category])=>({name, category, active:true}));
-      saveSubcategories();
-    }else if(!raw) saveSubcategories();
+      await saveSubcategories();
+    }else if(!raw) await saveSubcategories();
   }catch(e){ SUBCATEGORIES = DEFAULT_SUBCATEGORIES.map(s=>({...s})); }
+}
+async function loadSubcategoryPriority(){
+  if(isDomainMigrated('subcategoryPriority')){
+    try{
+      const raw = await idbAdapterGet(LS_KEY_SUBCATEGORY_PRIORITY);
+      SUBCATEGORY_PRIORITY = raw ? JSON.parse(raw) : {...DEFAULT_SUBCATEGORY_PRIORITY};
+      // Rev #28.C BugFix — той самий seed-на-першому-читанні фікс, що вище
+      // в loadCategories() (дивись коментар там).
+      if(!raw) reportSaveResult(await saveSubcategoryPriority());
+    }catch(e){ SUBCATEGORY_PRIORITY = {...DEFAULT_SUBCATEGORY_PRIORITY}; }
+    return;
+  }
   try{
     const raw = localStorage.getItem(LS_KEY_SUBCATEGORY_PRIORITY);
     SUBCATEGORY_PRIORITY = raw ? JSON.parse(raw) : {...DEFAULT_SUBCATEGORY_PRIORITY};
-    if(!raw) saveSubcategoryPriority();
+    if(!raw) await saveSubcategoryPriority();
   }catch(e){ SUBCATEGORY_PRIORITY = {...DEFAULT_SUBCATEGORY_PRIORITY}; }
+}
+async function loadDictionary(){
+  if(isDomainMigrated('dictionary')){
+    try{
+      const raw = await idbAdapterGet(LS_KEY_DICTIONARY);
+      DICTIONARY = raw ? JSON.parse(raw) : DEFAULT_DICTIONARY.map(d=>({...d}));
+      // Rev #28.C BugFix — той самий seed-на-першому-читанні фікс, що вище
+      // в loadCategories() (дивись коментар там).
+      if(!raw) reportSaveResult(await saveDictionary());
+    }catch(e){ DICTIONARY = DEFAULT_DICTIONARY.map(d=>({...d})); }
+    return;
+  }
   try{
     const raw = localStorage.getItem(LS_KEY_DICTIONARY);
     DICTIONARY = raw ? JSON.parse(raw) : DEFAULT_DICTIONARY.map(d=>({...d}));
-    if(!raw) saveDictionary();
+    if(!raw) await saveDictionary();
   }catch(e){ DICTIONARY = DEFAULT_DICTIONARY.map(d=>({...d})); }
 }
-function saveCategories(){ localStorage.setItem(LS_KEY_CATEGORIES, JSON.stringify(CATEGORIES)); }
-function saveSubcategories(){ localStorage.setItem(LS_KEY_SUBCATEGORIES, JSON.stringify(SUBCATEGORIES)); }
-function saveSubcategoryPriority(){ localStorage.setItem(LS_KEY_SUBCATEGORY_PRIORITY, JSON.stringify(SUBCATEGORY_PRIORITY)); }
-function saveDictionary(){ localStorage.setItem(LS_KEY_DICTIONARY, JSON.stringify(DICTIONARY)); }
+// loadStructureRefs() лишається єдиною точкою входу для обох існуючих
+// викликів (старт застосунку і handleRestoreBackupFile()) — тепер просто
+// послідовно await'ить 4 окремі Repository-завантажувачі вище.
+async function loadStructureRefs(){
+  await loadCategories();
+  await loadSubcategories();
+  await loadSubcategoryPriority();
+  await loadDictionary();
+}
+// Кожна save-функція повертає { success, error? } (замість undefined, як
+// до Stage C) — саме через це значення UI (reportSaveResult(), нижче за
+// текстом біля storage-error-banner) показує явну помилку користувачу, без
+// silent retry. Гілка localStorage навмисно НЕ обгорнута в try/catch —
+// та сама межа, що вже задокументована для решти saveX() (Stage A, п.1):
+// localStorage.setItem практично не кидає в реальному використанні, і
+// додавання нового try/catch сюди було б розширенням скоупу за межі Stage C.
+async function saveCategories(){
+  if(isDomainMigrated('categories')){
+    try{ await idbAdapterSet(LS_KEY_CATEGORIES, JSON.stringify(CATEGORIES)); return { success: true }; }
+    catch(err){ return { success: false, error: err.message }; }
+  }
+  localStorage.setItem(LS_KEY_CATEGORIES, JSON.stringify(CATEGORIES));
+  return { success: true };
+}
+async function saveSubcategories(){
+  if(isDomainMigrated('subcategories')){
+    try{ await idbAdapterSet(LS_KEY_SUBCATEGORIES, JSON.stringify(SUBCATEGORIES)); return { success: true }; }
+    catch(err){ return { success: false, error: err.message }; }
+  }
+  localStorage.setItem(LS_KEY_SUBCATEGORIES, JSON.stringify(SUBCATEGORIES));
+  return { success: true };
+}
+async function saveSubcategoryPriority(){
+  if(isDomainMigrated('subcategoryPriority')){
+    try{ await idbAdapterSet(LS_KEY_SUBCATEGORY_PRIORITY, JSON.stringify(SUBCATEGORY_PRIORITY)); return { success: true }; }
+    catch(err){ return { success: false, error: err.message }; }
+  }
+  localStorage.setItem(LS_KEY_SUBCATEGORY_PRIORITY, JSON.stringify(SUBCATEGORY_PRIORITY));
+  return { success: true };
+}
+async function saveDictionary(){
+  if(isDomainMigrated('dictionary')){
+    try{ await idbAdapterSet(LS_KEY_DICTIONARY, JSON.stringify(DICTIONARY)); return { success: true }; }
+    catch(err){ return { success: false, error: err.message }; }
+  }
+  localStorage.setItem(LS_KEY_DICTIONARY, JSON.stringify(DICTIONARY));
+  return { success: true };
+}
+// Rev #28.C — 4 хелпери ВИКЛЮЧНО для handleRestoreBackupFile() (нижче за
+// текстом файлу): той самий parse+fallback-на-DEFAULT_*, що вже
+// loadCategories()/…, лише джерело значення — рядок з розпарсеного файлу
+// бекапу, а не localStorage/adapter. Завершують присвоєння викликом
+// saveCategories() і т.д. (routing-aware) — тому restore для pilot-доменів
+// НІКОЛИ не пише в localStorage/IndexedDB напряму, лише через ті самі
+// Repository-функції, що й решта коду (invariant Stage C, ROADMAP п.28).
+async function restoreCategoriesFromBackup(raw){
+  try{ CATEGORIES = raw != null ? JSON.parse(raw) : DEFAULT_CATEGORIES.map(c=>({...c})); }
+  catch(e){ CATEGORIES = DEFAULT_CATEGORIES.map(c=>({...c})); }
+  return saveCategories();
+}
+async function restoreSubcategoriesFromBackup(raw){
+  try{ SUBCATEGORIES = raw != null ? JSON.parse(raw) : DEFAULT_SUBCATEGORIES.map(s=>({...s})); }
+  catch(e){ SUBCATEGORIES = DEFAULT_SUBCATEGORIES.map(s=>({...s})); }
+  return saveSubcategories();
+}
+async function restoreSubcategoryPriorityFromBackup(raw){
+  try{ SUBCATEGORY_PRIORITY = raw != null ? JSON.parse(raw) : {...DEFAULT_SUBCATEGORY_PRIORITY}; }
+  catch(e){ SUBCATEGORY_PRIORITY = {...DEFAULT_SUBCATEGORY_PRIORITY}; }
+  return saveSubcategoryPriority();
+}
+async function restoreDictionaryFromBackup(raw){
+  try{ DICTIONARY = raw != null ? JSON.parse(raw) : DEFAULT_DICTIONARY.map(d=>({...d})); }
+  catch(e){ DICTIONARY = DEFAULT_DICTIONARY.map(d=>({...d})); }
+  return saveDictionary();
+}
 const UA_MONTHS = ['січень','лютий','березень','квітень','травень','червень','липень','серпень','вересень','жовтень','листопад','грудень'];
 
 /* ============ Стан + localStorage ============ */
@@ -2811,7 +2964,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.31';
+const APP_VERSION = '2.21.32';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -2829,21 +2982,52 @@ const BACKUP_LS_KEYS = [
 // schemaVersion/appVersion/createdAt замість лише "version"/"exportedAt" —
 // потрібні для попереднього перегляду перед Restore (handleRestoreBackupFile
 // нижче). Сам механізм збереження (localStorage → data{}) НЕ змінено.
+// Rev #28.C — набір ключів pilot-доменів (categories/subcategories/
+// subcategoryPriority/dictionary), похідний від DOMAIN_MIGRATION_KEYS
+// (визначена нижче за текстом файлу разом з adapter'ом — forward-
+// посилання тут безпечне: обчислюється лише в МОМЕНТ виклику exportBackup/
+// handleRestoreBackupFile, коли весь файл вже виконаний). НЕ окремий
+// хардкод-список — інакше Stage D, додаючи новий домен у
+// DOMAIN_MIGRATION_KEYS, мусив би пам'ятати оновити ще й це місце.
+function pilotBackupKeys(){ return Object.values(DOMAIN_MIGRATION_KEYS).flat(); }
+// Поточне in-memory значення ОДНОГО pilot-ключа (те саме, що відповідний
+// saveX() серіалізує) — undefined для непілотного ключа (викликач тоді
+// бере localStorage.getItem() як і раніше).
+function pilotBackupValue(key){
+  if(key === LS_KEY_CATEGORIES) return JSON.stringify(CATEGORIES);
+  if(key === LS_KEY_SUBCATEGORIES) return JSON.stringify(SUBCATEGORIES);
+  if(key === LS_KEY_SUBCATEGORY_PRIORITY) return JSON.stringify(SUBCATEGORY_PRIORITY);
+  if(key === LS_KEY_DICTIONARY) return JSON.stringify(DICTIONARY);
+  return undefined;
+}
+// Rev #28.C — витягнуто з exportBackup() окремою чистою функцією (без
+// DOM/Blob) заради тестованості: "які дані йдуть у бекап" окремо від "як
+// зробити файл для завантаження" (tests/pilot-repository.test.js викликає
+// саме цю функцію напряму, без document/Blob/URL, яких нема в Node).
+// Invariant "backup storage-agnostic" (ROADMAP п.28): pilot-домени (може
+// вже жити в IndexedDB, для якого localStorage — архів, не live source of
+// truth) читаються з ПОТОЧНОГО in-memory стану (CATEGORIES/…) — того
+// самого, що saveCategories()/… серіалізують, НЕ напряму з
+// localStorage.getItem(key), як решта (ще не активованих Stage D) ключів.
+function buildBackupPayloadData(){
+  const data = {};
+  const pilotKeys = pilotBackupKeys();
+  BACKUP_LS_KEYS.forEach(function(key){
+    // Не pilot — значення localStorage вже валідний JSON-текст (кожен
+    // saveXxx() робить JSON.stringify перед записом), беремо як є.
+    const raw = pilotKeys.includes(key) ? pilotBackupValue(key) : localStorage.getItem(key);
+    if(raw != null) data[key] = raw;
+  });
+  return data;
+}
 function exportBackup(){
   const payload = {
     __budgetBackup: true,
     appVersion: APP_VERSION,
     schemaVersion: SCHEMA_VERSION,
     createdAt: new Date().toISOString(),
-    data: {}
+    data: buildBackupPayloadData()
   };
-  // Значення localStorage вже валідний JSON-текст (кожен saveXxx() робить
-  // JSON.stringify перед записом) — зберігаємо як є, без зайвого
-  // parse+stringify, щоб бекап 1:1 відповідав реальному вмісту localStorage.
-  BACKUP_LS_KEYS.forEach(function(key){
-    const raw = localStorage.getItem(key);
-    if(raw != null) payload.data[key] = raw;
-  });
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2886,6 +3070,44 @@ function debtCountWord(n){
   if(mod10===1 && mod100!==11) return 'борг';
   if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'борги';
   return 'боргів';
+}
+// Rev #28.C — витягнуто з handleRestoreBackupFile() окремою async функцією
+// (без FileReader/confirm-modal/статус-тексту навколо) заради тестованості
+// (tests/pilot-repository.test.js викликає її напряму з фіктурою "розпарсені
+// дані бекапу") і чіткого поділу "застосувати дані" від "як їх отримали".
+// Invariant "backup storage-agnostic" (ROADMAP п.28): pilot-домени
+// (categories/subcategories/subcategoryPriority/dictionary) НЕ проходять
+// через прямий localStorage.removeItem/setItem нижче — для мігрованого
+// домену localStorage вже архів, restore пише в authoritative сховище
+// через ту саму saveX(), що й решта коду (не наївний clear→write→
+// read-back, а контрольована послідовність: parse+fallback → await
+// saveX() → перевірка результату на кожному кроці, restoreXFromBackup()
+// вище). Повертає { domain: {success, error?} } — виклик reportSaveResult()
+// на кожен результат лишається на викликачі (UI-шар).
+async function applyBackupData(data){
+  const pilotKeys = pilotBackupKeys();
+  const nonPilotKeys = BACKUP_LS_KEYS.filter(function(key){ return !pilotKeys.includes(key); });
+  // Решта (ще не активованих Stage D) доменів — та сама поведінка, що й до
+  // Stage C: прибираємо ВСІ ключі бекапу з localStorage (а не лише ті, що
+  // є у файлі) — інакше залишки поточних даних за ключами, яких у бекапі
+  // раптом нема (напр. старіший бекап без словника), лишились би висіти
+  // "привидом" після відновлення.
+  nonPilotKeys.forEach(function(key){ localStorage.removeItem(key); });
+  nonPilotKeys.forEach(function(key){
+    if(data[key] != null) localStorage.setItem(key, data[key]);
+  });
+  const results = {
+    categories: await restoreCategoriesFromBackup(data[LS_KEY_CATEGORIES]),
+    subcategories: await restoreSubcategoriesFromBackup(data[LS_KEY_SUBCATEGORIES]),
+    subcategoryPriority: await restoreSubcategoryPriorityFromBackup(data[LS_KEY_SUBCATEGORY_PRIORITY]),
+    dictionary: await restoreDictionaryFromBackup(data[LS_KEY_DICTIONARY]),
+  };
+  // Підтверджувальне перечитування (не єдине джерело присвоєння, як до
+  // Stage C, — pilot-домени вже записані щойно через saveX() вище): читає
+  // з того самого сховища, куди щойно писали (routing-aware).
+  await loadStructureRefs();
+  await loadAll();
+  return results;
 }
 function handleRestoreBackupFile(event){
   const file = event.target.files[0];
@@ -2934,17 +3156,9 @@ function handleRestoreBackupFile(event){
     parts.push('', 'Це ПОВНІСТЮ замінить усі поточні дані в цьому браузері (витрати, доходи, борги, ОЧ, довідники). Незворотно.');
     showConfirmModal(
       parts.join('\n'),
-      function(){
-        // Спершу прибираємо ВСІ ключі бекапу з localStorage (а не лише ті, що
-        // є у файлі) — інакше залишки поточних даних за ключами, яких у
-        // бекапі раптом нема (напр. старіший бекап без словника), лишились
-        // би висіти "привидом" після відновлення.
-        BACKUP_LS_KEYS.forEach(function(key){ localStorage.removeItem(key); });
-        BACKUP_LS_KEYS.forEach(function(key){
-          if(parsed.data[key] != null) localStorage.setItem(key, parsed.data[key]);
-        });
-        loadStructureRefs();
-        loadAll();
+      async function(){
+        const results = await applyBackupData(parsed.data);
+        Object.values(results).forEach(reportSaveResult);
         statusEl.textContent = 'Дані відновлено з бекапу від ' + dateLabel + '.';
         inputEl.value = '';
       },
@@ -3036,20 +3250,35 @@ async function idbAdapterRemove(key){
   await db.delete(IDB_STORE_NAME, key);
 }
 
-// Той самий набір ключів, що BACKUP_LS_KEYS (навмисно — обидва означають
-// "усі дані користувача, крім theme/draft/сервісних прапорців"), але
-// СЕМАНТИЧНО окреме поняття (вхід для міграції в IndexedDB, а не вихід у
-// файл бекапу) — псевдонім, а не збіг: якщо один список колись зміниться
-// незалежно від іншого, на це посилання покладатись не можна.
-const MIGRATION_LS_KEYS = BACKUP_LS_KEYS;
+// Rev #28.C — Stage C виправлення архітектури Stage B: прапорець міграції
+// був ОДНИМ глобальним boolean (isMigrationCompleted()) і мігрував УСІ 12
+// BACKUP_LS_KEYS атомарно одним прогоном (MIGRATION_LS_KEYS = BACKUP_LS_KEYS,
+// видалено). Це не сумісно з поступовою по-доменною активацією (Stage C —
+// лише 4 pilot-домени, Stage D — решта пізніше, окремими ревізіями): жоден
+// реальний код так і не викликав markMigrationCompleted() (перевірено —
+// живий localStorage завжди мав цей ключ відсутнім), тому зміна формату
+// прапорця зараз БЕЗКОШТОВНА — немає жодного стану в чужому браузері, який
+// довелось би мігрувати "з мігр入ції". Замінено на доменно-орієнтовану мапу.
+//
+// DOMAIN_MIGRATION_KEYS — реєстр "домен → його ключі localStorage". Наразі
+// лише 4 pilot-домени (Stage C, docs/ROADMAP.md п.28) — Stage D дописуватиме
+// сюди решту 8 доменів по одному, не чіпаючи цей блок і не вигадуючи нового
+// механізму (саме та проблема, якій це виправлення й запобігає).
+const DOMAIN_MIGRATION_KEYS = {
+  categories: [LS_KEY_CATEGORIES],
+  subcategories: [LS_KEY_SUBCATEGORIES],
+  subcategoryPriority: [LS_KEY_SUBCATEGORY_PRIORITY],
+  dictionary: [LS_KEY_DICTIONARY],
+};
 
 // Базова валідація одного "сирого" значення localStorage перед записом у
 // IndexedDB: LS_KEY_SCHEMA_VERSION — голий рядок-число, НЕ JSON (Rev
-// #27.3), решта MIGRATION_LS_KEYS — валідний JSON. Перевіряє лише "чи
-// взагалі парситься" (той самий рівень суворості, що вже прийнятий у
-// backupArrayCount()/handleRestoreBackupFile() для чужих/пошкоджених
-// бекапів) — не перевіряє внутрішню структуру значення. Відсутній ключ
-// (raw == null) — валідно, просто нема що мігрувати (як і в backup-коді).
+// #27.3) — не актуально для жодного з 4 pilot-доменів зараз, але лишається
+// загальною на майбутні домени Stage D. Решта ключів — валідний JSON.
+// Перевіряє лише "чи взагалі парситься" (той самий рівень суворості, що
+// вже прийнятий у backupArrayCount()/handleRestoreBackupFile() для
+// чужих/пошкоджених бекапів) — не перевіряє внутрішню структуру значення.
+// Відсутній ключ (raw == null) — валідно, просто нема що мігрувати.
 function validateRawStorageValue(key, raw){
   if(raw == null) return { valid: true };
   if(key === LS_KEY_SCHEMA_VERSION){
@@ -3059,35 +3288,54 @@ function validateRawStorageValue(key, raw){
   catch(e){ return { valid: false, reason: `${key}: пошкоджений JSON` }; }
 }
 
-// Migration routine (Stage B): читає MIGRATION_LS_KEYS з localStorage,
-// валідує (усі ключі, до будь-якого запису — щоб зіпсований ключ НЕ
-// призводив до часткового запису решти), пише в IndexedDB через adapter,
-// верифікує читанням назад побайтово. Повертає { success, error? } —
-// САМА НЕ встановлює LS_KEY_MIGRATION_STATUS (окрема дія,
-// markMigrationCompleted() нижче, за явним рішенням користувача: рішення
-// "вважати міграцію завершеною" ухвалює викликач, Stage C, не ця функція).
-// При будь-якій помилці — localStorage НЕ чіпається (ця функція його
-// взагалі лише читає, ніколи не пише/не видаляє). Якщо міграція вже
-// позначена завершеною (isMigrationCompleted()) — no-op, IndexedDB вдруге
-// не переписується. Ніде в реальному потоці застосунку не викликається.
-async function migrateLocalStorageToIndexedDb(){
-  if(isMigrationCompleted()) return { success: true, skipped: true };
+// Прапорець зберігається В localStorage (НЕ в IndexedDB!) — той самий
+// принцип, що вже theme (Rev #27.2): читається синхронно, ДО того, як
+// застосунок взагалі вирішує, з якого сховища читати дані, а IndexedDB
+// принципово асинхронна (anti-FOUC аргумент, docs/ROADMAP.md п.28 Stage A,
+// п.4). JSON-мапа {домен: true}, а не голий 'true' — саме це виправлення
+// Stage C (див. коментар над DOMAIN_MIGRATION_KEYS вище).
+const LS_KEY_MIGRATION_STATUS = 'budget_migration_status_v1';
+function getMigrationStatusMap(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY_MIGRATION_STATUS) || '{}'); }
+  catch(e){ return {}; }
+}
+function isDomainMigrated(domain){
+  return getMigrationStatusMap()[domain] === true;
+}
+function markDomainMigrated(domain){
+  const map = getMigrationStatusMap();
+  map[domain] = true;
+  localStorage.setItem(LS_KEY_MIGRATION_STATUS, JSON.stringify(map));
+}
+
+// Migration routine (Stage B, тепер по-доменна): читає ключі ОДНОГО домену
+// (DOMAIN_MIGRATION_KEYS[domain]) з localStorage, валідує (усі ключі
+// домену, до будь-якого запису — щоб зіпсований ключ не призводив до
+// часткового запису решти), пише в IndexedDB через adapter, верифікує
+// читанням назад побайтово. Повертає { success, error? } — САМА НЕ
+// встановлює прапорець (окрема дія, markDomainMigrated() вище: рішення
+// "вважати домен мігрованим" ухвалює викликач, ensureDomainsMigrated()
+// нижче). При будь-якій помилці — localStorage НЕ чіпається (лише
+// читається). Якщо домен вже позначено мігрованим — no-op.
+async function migrateDomainToIndexedDb(domain){
+  if(isDomainMigrated(domain)) return { success: true, skipped: true };
+  const keys = DOMAIN_MIGRATION_KEYS[domain];
   const snapshot = {};
-  for(const key of MIGRATION_LS_KEYS){
+  for(const key of keys){
     const raw = localStorage.getItem(key);
     const check = validateRawStorageValue(key, raw);
     if(!check.valid) return { success: false, error: `Валідація не пройдена — ${check.reason}` };
     snapshot[key] = raw;
   }
   try{
-    for(const key of MIGRATION_LS_KEYS){
+    for(const key of keys){
       if(snapshot[key] == null) continue;
       await idbAdapterSet(key, snapshot[key]);
     }
   }catch(err){
     return { success: false, error: `Запис у IndexedDB не вдався: ${err.message}` };
   }
-  for(const key of MIGRATION_LS_KEYS){
+  for(const key of keys){
     if(snapshot[key] == null) continue;
     let readBack;
     try{ readBack = await idbAdapterGet(key); }
@@ -3097,23 +3345,22 @@ async function migrateLocalStorageToIndexedDb(){
   return { success: true };
 }
 
-// LS_KEY_MIGRATION_STATUS зберігається В localStorage (НЕ в IndexedDB!) —
-// навмисно, той самий принцип, що вже theme (Rev #27.2): має читатись
-// синхронно, ДО того, як застосунок взагалі вирішує, з якого сховища
-// читати дані, а IndexedDB принципово асинхронна (той самий anti-FOUC
-// аргумент, docs/ROADMAP.md п.28 Stage A, п.4). Разом з theme й draft —
-// ЦЕЙ ключ НІКОЛИ не входить у MIGRATION_LS_KEYS і не мігрується всередину
-// самої IndexedDB. markMigrationCompleted() — ОКРЕМА від migration routine
-// дія (за явним рішенням користувача): у цій ревізії її не викликає
-// НІЩО — навіть після успішного тестового прогону migrateLocalStorageToIndexedDb()
-// у tests/storage-adapter.test.js прапорець у РЕАЛЬНОМУ localStorage
-// браузера не встановлюється, Stage B не лишає слідів у production-стані.
-const LS_KEY_MIGRATION_STATUS = 'budget_migration_status_v1';
-function markMigrationCompleted(){
-  localStorage.setItem(LS_KEY_MIGRATION_STATUS, 'true');
-}
-function isMigrationCompleted(){
-  return localStorage.getItem(LS_KEY_MIGRATION_STATUS) === 'true';
+// Rev #28.C — викликається ОДИН раз, на самому початку init-ланцюжка
+// (див. "Ініціалізація" в кінці файлу), ДО await loadStructureRefs() і
+// ДО будь-якого іншого loadX() pilot-доменів: гарантує, що жоден
+// loadCategories()/loadSubcategories()/… не побачить "проміжний" стан
+// (спроба міграції почалась, але ще не завершена/не позначена) — виклик
+// нижче повністю await'иться перед тим, як застосунок продовжить init.
+// Збій одного домену НЕ зупиняє спробу для решти (кожен домен незалежний)
+// і НЕ показується як помилка користувачу — домен просто лишається на
+// localStorage, спроба повториться наступного старту (loadX()/saveX() для
+// цього домену самі про це подбають через isDomainMigrated()).
+async function ensureDomainsMigrated(domains){
+  for(const domain of domains){
+    if(isDomainMigrated(domain)) continue;
+    const result = await migrateDomainToIndexedDb(domain);
+    if(result.success) markDomainMigrated(domain);
+  }
 }
 
 // Rev 2.1.0 — чи прихований запис "name"(kind) для конкретного місяця (включно з
@@ -4740,6 +4987,34 @@ function updateOnlineStatusUI(){
   const banner = document.getElementById('offline-banner');
   if(banner) banner.classList.toggle('hidden', navigator.onLine);
 }
+// Rev #28.C — той самий компонент, що #offline-banner вище (.status-banner),
+// для явної помилки запису pilot-домену (categories/subcategories/
+// subcategoryPriority/dictionary): показуємо, поки користувач не повторить
+// дію успішно (hideStorageErrorBanner() викликається лише з успішного
+// reportSaveResult() нижче) — жодного автоматичного retry чи таймера.
+function showStorageErrorBanner(message){
+  const banner = document.getElementById('storage-error-banner');
+  const text = document.getElementById('storage-error-banner-text');
+  if(!banner || !text) return;
+  text.textContent = message;
+  banner.classList.remove('hidden');
+}
+function hideStorageErrorBanner(){
+  const banner = document.getElementById('storage-error-banner');
+  if(banner) banner.classList.add('hidden');
+}
+// Спільна обгортка над результатом saveCategories()/saveSubcategories()/
+// saveSubcategoryPriority()/saveDictionary() ({success, error?}) — єдине
+// місце, де UI реагує на збій запису pilot-домену, щоб не дублювати
+// перевірку в кожному з ~15 call sites нижче за текстом файлу.
+function reportSaveResult(result){
+  if(result && result.success === false){
+    showStorageErrorBanner('Не вдалося зберегти зміни' + (result.error ? ` (${result.error})` : '') + '. Спробуй ще раз.');
+  }else{
+    hideStorageErrorBanner();
+  }
+  return result;
+}
 function isExcelLibraryReady(){
   return typeof XLSX !== 'undefined';
 }
@@ -5961,10 +6236,10 @@ function installmentLinkOptionsHtml(selectedName){
   return `<option value="">— без прив'язки —</option>${opts}`;
 }
 function openAddCategoryModal(){
-  showCategoryModal('Нова категорія:', '', "Гнучка", function(name, type){
+  showCategoryModal('Нова категорія:', '', "Гнучка", async function(name, type){
     if(CATEGORIES.some(c=>c.name===name)) return false;
     CATEGORIES.push({name, type, active:true});
-    saveCategories();
+    reportSaveResult(await saveCategories());
     renderStructure();
     populateCategorySelect();
   });
@@ -5978,20 +6253,20 @@ function openAddCategoryModal(){
 // рівно в момент перейменування.
 function editCategory(i){
   const cat = CATEGORIES[i];
-  showCategoryModal('Редагувати категорію:', cat.name, cat.type, function(newName, newType){
+  showCategoryModal('Редагувати категорію:', cat.name, cat.type, async function(newName, newType){
     if(newName !== cat.name && CATEGORIES.some(c=>c.name===newName)) return false;
     const oldName = cat.name;
     if(newName !== oldName){
       expenses.forEach(function(e){ if(e.category===oldName) e.category = newName; });
       saveExpenses();
       SUBCATEGORIES.forEach(function(s){ if(s.category===oldName) s.category = newName; });
-      saveSubcategories();
+      reportSaveResult(await saveSubcategories());
       DICTIONARY.forEach(function(d){ if(d.cat===oldName) d.cat = newName; });
-      saveDictionary();
+      reportSaveResult(await saveDictionary());
     }
     cat.name = newName;
     cat.type = newType;
-    saveCategories();
+    reportSaveResult(await saveCategories());
     populateMonths(); renderAll(); renderStructure(); populateCategorySelect();
   });
 }
@@ -6014,31 +6289,32 @@ function deleteCategory(i){
   const warning = orphanedSubs.length>0
     ? `Категорія «${label}» має ${orphanedSubs.length} підкатегорій — вони теж будуть видалені зі списку вибору. Історичні записи витрат не постраждають. Продовжити?`
     : `Видалити категорію «${label}» зі списку вибору? Історичні записи витрат не постраждають.`;
-  showConfirmModal(warning, function(){
+  showConfirmModal(warning, async function(){
     cat.active = false;
     const orphanedNames = orphanedSubs.map(s=>s.name);
     orphanedSubs.forEach(function(s){ s.active = false; });
-    saveSubcategories();
+    reportSaveResult(await saveSubcategories());
     // Записи словника, що вказували на цю категорію або на видалені разом з
     // нею підкатегорії, теж прибираємо — інакше вони "мовчки" пропонували б
     // категорію/підкатегорію, якої вже нема в активному списку.
     for(let j = DICTIONARY.length-1; j>=0; j--){
       if(DICTIONARY[j].cat===cat.name || orphanedNames.includes(DICTIONARY[j].sub)) DICTIONARY.splice(j,1);
     }
-    saveDictionary();
-    saveCategories();
+    reportSaveResult(await saveDictionary());
+    reportSaveResult(await saveCategories());
     renderStructure(); populateCategorySelect();
   }, 'Так, видалити');
 }
 function openAddSubcategoryModal(){
   const activeCats = CATEGORIES.filter(c=>c.active);
   if(activeCats.length===0) return; // нема куди прив'язати нову підкатегорію
-  showSubcategoryModal('Нова підкатегорія:', '', activeCats[0].name, 'Середній', function(name, category, priorityLabel){
+  showSubcategoryModal('Нова підкатегорія:', '', activeCats[0].name, 'Середній', async function(name, category, priorityLabel){
     if(SUBCATEGORIES.some(s=>s.name===name)) return false;
     SUBCATEGORIES.push({name, category, active:true});
     const p = SUBCATEGORY_PRIORITY_OPTIONS.find(o=>o.label===priorityLabel);
     SUBCATEGORY_PRIORITY[name] = {label:p.label, score:p.score, color:p.color};
-    saveSubcategories(); saveSubcategoryPriority();
+    reportSaveResult(await saveSubcategories());
+    reportSaveResult(await saveSubcategoryPriority());
     renderStructure();
   });
 }
@@ -6048,21 +6324,22 @@ function openAddSubcategoryModal(){
 function editSubcategory(i){
   const sub = SUBCATEGORIES[i];
   const currentPriority = SUBCATEGORY_PRIORITY[sub.name] ? SUBCATEGORY_PRIORITY[sub.name].label : 'Середній';
-  showSubcategoryModal('Редагувати підкатегорію:', sub.name, sub.category, currentPriority, function(newName, newCategory, priorityLabel){
+  showSubcategoryModal('Редагувати підкатегорію:', sub.name, sub.category, currentPriority, async function(newName, newCategory, priorityLabel){
     if(newName !== sub.name && SUBCATEGORIES.some(s=>s.name===newName)) return false;
     const oldName = sub.name;
     if(newName !== oldName){
       expenses.forEach(function(e){ if(e.subcategory===oldName) e.subcategory = newName; });
       saveExpenses();
       DICTIONARY.forEach(function(d){ if(d.sub===oldName) d.sub = newName; });
-      saveDictionary();
+      reportSaveResult(await saveDictionary());
       delete SUBCATEGORY_PRIORITY[oldName];
     }
     sub.name = newName;
     sub.category = newCategory;
     const p = SUBCATEGORY_PRIORITY_OPTIONS.find(o=>o.label===priorityLabel);
     SUBCATEGORY_PRIORITY[newName] = {label:p.label, score:p.score, color:p.color};
-    saveSubcategories(); saveSubcategoryPriority();
+    reportSaveResult(await saveSubcategories());
+    reportSaveResult(await saveSubcategoryPriority());
     populateMonths(); renderAll(); renderStructure();
   });
 }
@@ -6071,10 +6348,11 @@ function editSubcategory(i){
 function deleteSubcategory(i){
   const sub = SUBCATEGORIES[i];
   const label = stripLeadingEmoji(sub.name);
-  showConfirmModal(`Видалити підкатегорію «${label}» зі списку вибору? Історичні записи витрат не постраждають.`, function(){
+  showConfirmModal(`Видалити підкатегорію «${label}» зі списку вибору? Історичні записи витрат не постраждають.`, async function(){
     sub.active = false;
     for(let j=DICTIONARY.length-1; j>=0; j--){ if(DICTIONARY[j].sub===sub.name) DICTIONARY.splice(j,1); }
-    saveDictionary(); saveSubcategories();
+    reportSaveResult(await saveDictionary());
+    reportSaveResult(await saveSubcategories());
     renderStructure();
   }, 'Так, видалити');
 }
@@ -8316,11 +8594,16 @@ function showCategoryModal(title, defaultName, defaultType, onSave){
   const btn = document.getElementById('app-modal-confirm-btn');
   btn.textContent = 'Зберегти';
   btn.className = 'submit-btn';
-  btn.onclick = function(){
+  // Rev #28.C — onSave (openAddCategoryModal/editCategory) тепер async
+  // (пише через pilot-Repository-функції) — onclick теж async і await'ить
+  // результат ПЕРЕД перевіркою `ok === false`: без цього `ok` був би самим
+  // Promise-об'єктом (завжди truthy), і валідація дубліката назви ніколи
+  // не спрацювала б.
+  btn.onclick = async function(){
     const name = input.value.trim();
     const type = select.value;
     if(!name){ flashField('app-modal-input'); return; }
-    const ok = onSave(name, type);
+    const ok = await onSave(name, type);
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
@@ -8357,13 +8640,14 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
   const btn = document.getElementById('app-modal-confirm-btn');
   btn.textContent = 'Зберегти';
   btn.className = 'submit-btn';
-  btn.onclick = function(){
+  // Rev #28.C — onSave тепер async (той самий принцип, що showCategoryModal вище).
+  btn.onclick = async function(){
     const name = input.value.trim();
     const category = catSelect.value;
     const priorityLabel = prioSelect.value;
     if(!name){ flashField('app-modal-input'); return; }
     if(!category){ flashField('app-modal-select'); return; } // немає жодної активної категорії
-    const ok = onSave(name, category, priorityLabel);
+    const ok = await onSave(name, category, priorityLabel);
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
@@ -8401,13 +8685,14 @@ function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave){
   const btn = document.getElementById('app-modal-confirm-btn');
   btn.textContent = 'Зберегти';
   btn.className = 'submit-btn';
-  btn.onclick = function(){
+  // Rev #28.C — onSave тепер async (той самий принцип, що showCategoryModal вище).
+  btn.onclick = async function(){
     const kw = input.value.trim().toLowerCase();
     const cat = catSelect.value;
     const sub = subSelect.value || null;
     if(!kw){ flashField('app-modal-input'); return; }
     if(!cat){ flashField('app-modal-select'); return; }
-    const ok = onSave(kw, cat, sub);
+    const ok = await onSave(kw, cat, sub);
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
@@ -8417,19 +8702,19 @@ function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave){
 function openAddDictionaryModal(){
   const activeCats = CATEGORIES.filter(c=>c.active);
   if(activeCats.length===0) return; // нема куди прив'язати нове слово
-  showDictionaryModal('Нове слово словника:', '', activeCats[0].name, null, function(kw, cat, sub){
+  showDictionaryModal('Нове слово словника:', '', activeCats[0].name, null, async function(kw, cat, sub){
     if(DICTIONARY.some(d=>d.kw===kw)) return false;
     DICTIONARY.push({kw, cat, sub});
-    saveDictionary();
+    reportSaveResult(await saveDictionary());
     renderStructure();
   });
 }
 function editDictionaryEntry(i){
   const entry = DICTIONARY[i];
-  showDictionaryModal('Редагувати слово:', entry.kw, entry.cat, entry.sub, function(kw, cat, sub){
+  showDictionaryModal('Редагувати слово:', entry.kw, entry.cat, entry.sub, async function(kw, cat, sub){
     if(kw !== entry.kw && DICTIONARY.some(d=>d.kw===kw)) return false;
     entry.kw = kw; entry.cat = cat; entry.sub = sub;
-    saveDictionary();
+    reportSaveResult(await saveDictionary());
     renderStructure();
   });
 }
@@ -8439,16 +8724,28 @@ function editDictionaryEntry(i){
 // зберігати історію видалених слів немає сенсу.
 function deleteDictionaryEntry(i){
   const entry = DICTIONARY[i];
-  showConfirmModal(`Видалити слово «${entry.kw}» зі словника?`, function(){
+  showConfirmModal(`Видалити слово «${entry.kw}» зі словника?`, async function(){
     DICTIONARY.splice(i,1);
-    saveDictionary();
+    reportSaveResult(await saveDictionary());
     renderStructure();
   }, 'Так, видалити');
 }
 
 /* ============ Ініціалізація ============ */
-loadStructureRefs();
-populateCategorySelect();
+// Rev #28.C — весь блок нижче (до restoreExpenseDraft() включно) обгорнутий
+// в один async IIFE: loadStructureRefs()/loadAll() тепер асинхронні
+// (маршрутизація localStorage/IndexedDB для 4 pilot-доменів), а решта коду
+// нижче (populateCategorySelect(), applyTheme(), restoreExpenseDraft()…)
+// покладається на те, що вони вже ЗАВЕРШИЛИСЬ — тому кожен колишній
+// "top-level виклик функції" тепер await'иться замість просто виклику,
+// зберігаючи той самий послідовний порядок виконання, що й до Stage C.
+// ensureDomainsMigrated() йде НАЙПЕРШИМ (до будь-якого loadX() pilot-
+// доменів) — саме той await-ланцюжок, що гарантує відсутність
+// "проміжного" стану міграції (docs/ROADMAP.md, п.28 Stage C, п.1).
+(async function initApp(){
+  await ensureDomainsMigrated(Object.keys(DOMAIN_MIGRATION_KEYS));
+  await loadStructureRefs();
+  populateCategorySelect();
 populateSubcategorySelect('');
 document.getElementById('f-date').value = localDateISO();
 updateDateCaption();
@@ -8502,7 +8799,7 @@ document.addEventListener('focusout', function(e){
   }, 100);
 });
 
-loadAll();
+await loadAll();
 // Rev 2.8.0 — оновлення заголовка вкладки одразу після завантаження: без
 // цього виклику підзаголовок Аналітики лишався б із заглушковим текстом
 // із розмітки ("вересень 2026") замість реально обраного місяця.
@@ -8526,6 +8823,7 @@ updateExcelAvailabilityUI();
 // CATEGORIES/SUBCATEGORIES/installmentAccounts, інакше setCategorySelect()/
 // автозв'язок ОЧ спрацювали б на порожніх довідниках).
 restoreExpenseDraft();
+})();
 
 // Rev 2.3.3 — реєстрація Service Worker (PWA: офлайн-доступ + "Додати на
 // головний екран"). На file:// service worker в принципі не реєструється
