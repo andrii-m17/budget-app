@@ -2,13 +2,11 @@
 // (monthAggregates) і композиції "Обов'язкові платежі" / "Після обов'язкових"
 // (KPI на Дашборді).
 //
-// ВАЖЛИВО: сама композиція mandatory/freeMoney НЕ є окремою функцією — вона
-// порахована інлайн усередині renderDashboard() (index.html), величезної
-// DOM-рендер функції, яку не можна викликати без готового DOM (getElementById
-// по десятках id). Тест нижче ("Обов'язкові платежі...") викликає РЕАЛЬНІ
-// ізольовані functions (monthAggregates + getCategoryType) і відтворює лише
-// фінальний filter/reduce одним рядком — так само задокументовано як
-// прогалина для Stage 5 (винести розрахунок KPI окремо від рендеру).
+// Rev #26.3 — mandatory/freeMoney тепер реальна окрема функція
+// (mandatoryPaymentsSummary(monthExp, totalIncome), index.html) — раніше
+// рахувалась інлайн усередині renderDashboard(), тест відтворював формулу
+// вручну (задокументовано як прогалина для Stage 5, п.26). renderDashboard()
+// тепер лише викликає mandatoryPaymentsSummary() і рендерить результат.
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -17,7 +15,7 @@ const { buildSandbox } = require('./extract');
 function sandbox({ expenses, incomes, categories }){
   return buildSandbox(
     { expenses: expenses || [], incomes: incomes || [], monthKey: (d) => (d ? d.slice(0,7) : ''), CATEGORIES: categories || [] },
-    ['monthAggregates', 'getCategoryType']
+    ['monthAggregates', 'getCategoryType', 'mandatoryPaymentsSummary']
   );
 }
 
@@ -57,7 +55,7 @@ test('getCategoryType: повертає роль активної категор
   assert.equal(ctx.getCategoryType("Неіснуюча категорія"), null);
 });
 
-test('Обов\'язкові платежі / Після обов\'язкових: композиція monthAggregates+getCategoryType', () => {
+test('mandatoryPaymentsSummary: обов\'язкові платежі та вільні гроші після них', () => {
   const categories = [
     { name: "🏠 Житло", type: "Обов'язкова", active: true },
     { name: "🎮 Розваги", type: "Гнучка", active: true },
@@ -69,10 +67,7 @@ test('Обов\'язкові платежі / Після обов\'язкови�
   const incomes = [{ date: '2026-03-01', amount: 20000 }];
   const ctx = sandbox({ expenses, incomes, categories });
   const { monthExp, totalIncome } = ctx.monthAggregates('2026-03');
-  const mandatory = monthExp
-    .filter(e => ctx.getCategoryType(e.category) === "Обов'язкова")
-    .reduce((s, e) => s + e.amount, 0);
-  const freeMoney = totalIncome - mandatory;
+  const { mandatory, freeMoney } = ctx.mandatoryPaymentsSummary(monthExp, totalIncome);
   assert.equal(mandatory, 8000);
   assert.equal(freeMoney, 12000);
 });
