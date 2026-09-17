@@ -397,16 +397,28 @@
   .auto-hint-edit-btn:hover{ color:var(--color-text-primary); }
   .field select.manual-flag{ border-color:var(--color-warning); background:var(--color-warning-bg); }
   .submit-btn{ width:100%; margin-top:6px; background:var(--color-primary); color:#fff; border:none; border-radius:var(--radius-md); padding:14px; font-size:15px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard); }
-  .submit-btn:hover{ background:var(--color-primary-hover); }
-  .submit-btn.income{ background:var(--color-success); } .submit-btn.income:hover{ background:var(--color-primary-hover); }
-  .submit-btn.debt{ background:var(--color-warning); } .submit-btn.debt:hover{ background:var(--color-warning-hover); }
+  .submit-btn.income{ background:var(--color-success); }
+  .submit-btn.debt{ background:var(--color-warning); }
   /* Rev 2.11.4 — окремий модифікатор саме для "Додати витрату" (за референс-
      скріном): червоний колір + трохи більше округлення, ніж базовий
      .submit-btn (12px). НЕ чіпаємо сам .submit-btn — його ж використовують
      кнопки підтвердження в модалках і скрізь по застосунку. */
-  .submit-btn.expense{ background:var(--color-error); border-radius:18px; } .submit-btn.expense:hover{ background:var(--color-error-hover); }
+  .submit-btn.expense{ background:var(--color-error); border-radius:18px; }
   .submit-btn.secondary{ background:var(--color-surface); color:var(--color-text-primary); border:1.5px solid var(--color-border-strong); }
-  .submit-btn.secondary:hover{ background:var(--color-surface-hover); }
+  /* Rev 2.21.15 BugFix — "залипаючий :hover" на iOS Safari: після тапу по
+     "Додати витрату" кнопка лишалась у світлішому :hover-кольорі, поки
+     користувач не тапав деінде — задокументована примха WebKit: сенсорний
+     тап на touch-пристрої триґерить :hover-стан, а без реальної миші його
+     нічим "зняти" назад. @media (hover:hover) — стандартний фікс: :hover
+     застосовується лише на пристроях зі СПРАВЖНІМ hover (миша/трекпад), на
+     тач-екранах кнопка одразу повертається до звичайного кольору. */
+  @media (hover:hover){
+    .submit-btn:hover{ background:var(--color-primary-hover); }
+    .submit-btn.income:hover{ background:var(--color-primary-hover); }
+    .submit-btn.debt:hover{ background:var(--color-warning-hover); }
+    .submit-btn.expense:hover{ background:var(--color-error-hover); }
+    .submit-btn.secondary:hover{ background:var(--color-surface-hover); }
+  }
   .submit-btn.danger{ background:var(--color-error); color:#fff; }
   .submit-btn.danger:hover{ background:var(--color-error-hover); }
   .submit-btn.disabled-soon{ background:var(--color-disabled-bg); color:var(--color-disabled-text); cursor:not-allowed; }
@@ -1082,12 +1094,22 @@
     transform:translateY(0) scale(1);
     transition:opacity .35s ease, transform .6s cubic-bezier(.34,1.56,.64,1), background .22s cubic-bezier(.22,1,.36,1), border-color .22s ease, box-shadow .22s ease;
   }
+  /* Rev 2.21.15 — за проханням: натиск мав бути ПОМІТНО довшим, щоб було
+     видно, як зелена бульбашка справді виходить ЗА контури самої кнопки
+     (1.15 замало помітно, підняли до 1.35), а тоді плавно "стискається"
+     назад до форми кнопки. .pressed задає ВЛАСНИЙ transform-transition
+     (0.32s) — швидший за entrance/exit криві вище, тому натиск відчувається
+     чіткіше й окремо від появи/зникнення. Коли .pressed знімається
+     (відпускання пальця), transform далі керується .visible (0.6s, пружна
+     крива) — саме та "плавна" частина "стиснулась назад" з запиту, перш ніж
+     сама кнопка (окремо, за scrollTop) почне зникати. */
   .scroll-top-btn.pressed{
-    transform:translateY(0) scale(1.15);
+    transform:translateY(0) scale(1.35);
     background:rgba(34,197,94,.16);
     border-color:rgba(34,197,94,.32);
     box-shadow:var(--shadow-glass), 0 2px 8px rgba(34,197,94,.22);
     color:var(--color-primary-hover);
+    transition:transform .32s cubic-bezier(.34,1.56,.64,1), background .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease;
   }
   .scroll-top-btn::before{
     content:""; position:absolute; inset:0; border-radius:inherit;
@@ -1227,17 +1249,14 @@
     #vytraty-default-view{ display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:24px; align-items:stretch; }
     #vytraty-default-view .vytraty-form-col{ display:flex; flex-direction:column; }
     #vytraty-default-view .vytraty-form-col .entry-card{ margin-top:auto; margin-bottom:auto; }
-    /* Rev 2.21.14 — на ≥768px "Нова витрата" перестає бути окремим великим
-       заголовком (17px/800, той стиль лишається для mobile) і переймає
-       ТОЧНО стиль .section-label ("ОСТАННІ ЗАПИСИ" праворуч) — та сама
-       умовна "лінія заголовків" над обома колонками: однаковий розмір,
-       регістр, колір, вирівнювання по Y (margin:26px 2px 10px — той самий,
-       що в .section-label, тому обидва підписи стоять на одній висоті,
-       щойно колонки стали рівної висоти вище). */
-    /* margin-top:2px, не 26px — .section-label теж має власне
-       :first-child{margin-top:2px}, яке саме тут і застосовується (обидва
-       підписи — перші дочірні елементи своїх колонок). */
-    #vytraty-default-view .vytraty-form-title{ font-size:11px; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.6px; margin:2px 2px 10px; }
+    /* Rev 2.21.14 пробувало "спарувати" "Нова витрата" зі стилем
+       .section-label (11px, uppercase, "ОСТАННІ ЗАПИСИ") — за проханням
+       (Rev 2.21.15) повернено ОДИН спільний стиль для mobile ТА desktop:
+       базове правило .vytraty-form-title (17px/800, вище у файлі) тепер
+       діє на ВСІХ ширинах без перевизначень тут — той самий вигляд
+       заголовка, що на mobile, а не окремий "спарований" варіант лише для
+       ≥768px. Позиція (зверху колонки) лишається — просто без вирівнювання
+       з .section-label по шрифту/регістру. */
     #vytraty-default-view .vytraty-recent-col{ min-width:0; }
     /* Rev 2.21.13 (кнопка "Показати весь журнал" третім grid-child, під
        обома колонками) відкочено в Rev 2.21.14 за проханням користувача —
@@ -1335,16 +1354,13 @@
     #view-vytraty .entry-card{ max-width:420px; padding:18px 20px; }
     #view-vytraty .vytraty-form-col{ max-width:420px; }
     #view-vytraty .entry-title{ font-size:13px; margin-bottom:10px; }
-    /* Rev 2.21.13 форсувало .vytraty-form-title назад до 17px на ≥1280px
-       (щоб не "зменшувався слідом за карткою") — відкочено в Rev 2.21.14:
-       тепер на ВСІХ ширинах ≥768px .vytraty-form-title свідомо переймає
-       стиль .section-label (11px, той самий рядок у ≥768px-блоці вище) —
-       "зменшення" тут більше не проблема, бо це вже не окремий "заголовок
-       сторінки", а свідомо пара до "ОСТАННІ ЗАПИСИ". Рядок ВИЩЕ
+    /* Rev 2.21.15 — .vytraty-form-title має лишатись ОДНАКОВОГО вигляду
+       на mobile й desktop (17px/800, базове правило) — рядок ВИЩЕ
        (#view-vytraty .entry-title) з тією самою специфічністю (обидва
-       #view-vytraty + один клас) все одно перекрив би font-size/margin-bottom
-       через порядок у файлі — тому явно повертаємо потрібні 11px/10px тут. */
-    #view-vytraty .vytraty-form-title{ font-size:11px; margin-bottom:10px; }
+       #view-vytraty + один клас) інакше перекрив би font-size/margin-bottom
+       на ≥1280px через порядок у файлі (та сама колізія класів, що вже
+       задокументована при базовому правилі .vytraty-form-title). */
+    #view-vytraty .vytraty-form-title{ font-size:17px; margin-bottom:12px; }
     #view-vytraty .field{ margin-bottom:10px; }
     #view-vytraty .field label{ font-size:10px; margin-bottom:4px; }
     #view-vytraty .field input, #view-vytraty .field select{ height:38px; padding:8px 10px; font-size:13.5px; }
@@ -2132,7 +2148,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.14</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.15</div>
 </div>
   </div>
 </div>
@@ -2660,7 +2676,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.14';
+const APP_VERSION = '2.21.15';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
