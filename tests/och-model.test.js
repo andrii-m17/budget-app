@@ -3,14 +3,18 @@
 // одиничних відхилень); linkedExpensesSum() — сума витрат, прив'язаних до
 // ОЧ автозв'язком за конкретний місяць (точніша основа за моду, коли є).
 //
-// ВАЖЛИВО: сама фінальна формула "очікуваний залишок = попередній факт −
-// (прив'язана сума або мода)" НЕ є окремою функцією — вона порахована
-// інлайн усередині populateInstallmentTable() (index.html), функції, що
-// одночасно рендерить DOM-таблицю і тому не ізольована без рефакторингу
-// (Stage 5, п.26 ROADMAP.md). Тест нижче ("композиція...") викликає РЕАЛЬНІ
-// isolated-функції (typicalMonthlyPayment/lastKnownBalance/linkedExpensesSum)
-// і лише останній однорядковий Math.max(...) дублює вручну — це задокументовано
-// тут, а не приховано, як прогалина покриття до Stage 5.
+// Rev #26.4 — "очікуваний залишок = попередній факт − (прив'язана сума або
+// мода)" НАСПРАВДІ вже є окремою чистою функцією, estimateInstallment(name,
+// month) (index.html, винесена ще в Rev 2.16.6 — до речі, РАНІШЕ, ніж цей
+// файл встиг про це дізнатись: попередній коментар тут стверджував, що
+// формула "не є окремою функцією" і дублював її вручну в тесті — це було
+// застарілим твердженням, а не актуальним станом коду, виявлено під час
+// перевірки перед крок 2 п.26 ROADMAP.md). populateInstallmentTable() і ще
+// три функції (updateInstallmentTotal/updateInstallmentBalanceTotal/
+// openInstallmentEditor) вже й так лише викликають estimateInstallment() і
+// рендерять результат — жодних змін в index.html цим Rev не знадобилось.
+// Тест нижче тепер викликає САМУ estimateInstallment() напряму, а не
+// дублює її формулу вручну.
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -19,7 +23,7 @@ const { buildSandbox } = require('./extract');
 function sandbox({ debts, expenses, hiddenFrom }){
   return buildSandbox(
     { debts: debts || [], expenses: expenses || [], hiddenFrom: hiddenFrom || {} },
-    ['hideKey', 'isHiddenForMonth', 'typicalMonthlyPayment', 'lastKnownBalance', 'monthKey', 'linkedExpensesSum']
+    ['hideKey', 'isHiddenForMonth', 'typicalMonthlyPayment', 'lastKnownBalance', 'monthKey', 'linkedExpensesSum', 'estimateInstallment']
   );
 }
 
@@ -60,7 +64,7 @@ test('linkedExpensesSum: сумує лише витрати, прив\'язан�
   assert.equal(ctx.linkedExpensesSum('ОЧ Приватбанк', '2026-03'), 3500);
 });
 
-test('композиція "очікуваний залишок": прив\'язана сума перекриває моду, коли вона є', () => {
+test('estimateInstallment: прив\'язана сума перекриває моду, коли вона є', () => {
   const debts = [
     { name: 'ОЧ Приватбанк', kind: 'installment', month: '2026-01', balance: 10000, monthlyPayment: 3000 },
   ];
@@ -68,30 +72,19 @@ test('композиція "очікуваний залишок": прив\'яз
     { date: '2026-02-10', amount: 3500, linkedInstallment: 'ОЧ Приватбанк' },
   ];
   const ctx = sandbox({ debts, expenses });
-  const prevBal = ctx.lastKnownBalance('ОЧ Приватбанк', 'installment', '2026-02');
-  const typicalPay = ctx.typicalMonthlyPayment('ОЧ Приватбанк', 'installment', '2026-02');
-  const linkedSum = ctx.linkedExpensesSum('ОЧ Приватбанк', '2026-02');
-  const estimatedPay = linkedSum > 0 ? linkedSum : typicalPay;
-  const estimatedBalance = prevBal != null
-    ? (estimatedPay != null ? Math.max(0, prevBal - estimatedPay) : prevBal)
-    : null;
-  assert.equal(prevBal, 10000);
-  assert.equal(estimatedPay, 3500); // прив'язана сума (3500), а не мода (3000)
-  assert.equal(estimatedBalance, 6500);
+  const est = ctx.estimateInstallment('ОЧ Приватбанк', '2026-02');
+  assert.equal(est.pay, 3500); // прив'язана сума (3500), а не мода (3000)
+  assert.equal(est.balance, 6500);
+  assert.equal(est.linkedSum, 3500);
 });
 
-test('композиція "очікуваний залишок": без прив\'язаних витрат використовує моду, не йде в мінус', () => {
+test('estimateInstallment: без прив\'язаних витрат використовує моду, не йде в мінус', () => {
   const debts = [
     { name: 'ОЧ Mono', kind: 'installment', month: '2026-01', balance: 2000, monthlyPayment: 3000 },
   ];
   const ctx = sandbox({ debts, expenses: [] });
-  const prevBal = ctx.lastKnownBalance('ОЧ Mono', 'installment', '2026-02');
-  const typicalPay = ctx.typicalMonthlyPayment('ОЧ Mono', 'installment', '2026-02');
-  const linkedSum = ctx.linkedExpensesSum('ОЧ Mono', '2026-02');
-  const estimatedPay = linkedSum > 0 ? linkedSum : typicalPay;
-  const estimatedBalance = prevBal != null
-    ? (estimatedPay != null ? Math.max(0, prevBal - estimatedPay) : prevBal)
-    : null;
-  assert.equal(estimatedPay, 3000);
-  assert.equal(estimatedBalance, 0); // 2000-3000 обрізано до 0, а не -1000
+  const est = ctx.estimateInstallment('ОЧ Mono', '2026-02');
+  assert.equal(est.pay, 3000);
+  assert.equal(est.balance, 0); // 2000-3000 обрізано до 0, а не -1000
+  assert.equal(est.linkedSum, 0);
 });
