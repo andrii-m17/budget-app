@@ -482,10 +482,6 @@
      "Нова витрата". Дружній підпис місяця (.journal-month-label) переїхав під
      ряд, той самий принцип, що .date-caption під #f-date. */
   .journal-month-label{ text-align:center; margin-top:6px; font-size:12.5px; font-weight:600; color:var(--color-text-secondary); }
-  /* Rev 2.21.5 — той самий стиль, що .field label ("ДАТА" над #f-date) — щоб
-     ряд стрілки+поле дати в Журналі читався як той самий загальноприйнятий
-     патерн, а не безіменний ряд контролів під фільтрами пошуку. */
-  .journal-date-label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   /* Rev 2.20.2 — пошук/фільтр Журналу: окремий рядок для поля пошуку (на всю
      ширину) і окремий рядок для двох select'ів (категорія/підкатегорія) —
      трьом контролам разом в одному рядку на 375px затісно. */
@@ -1122,25 +1118,39 @@
   /* Rev 2.21.3 — "Витрати" на ≥768px: форма "Нова витрата" і короткий список
      "Останні записи" поруч у 2 колонки (форма зліва, список справа), а не
      одне під одним на всю ширину, як на mobile (<768px, лишається без змін).
-     Rev 2.21.4 — за проханням: (а) колонки тепер РІВНІ по висоті
-     (align-items:stretch, було start) — форма трохи ширша (460px, було 420),
-     а список праворуч компактніший (нижче), тому природно вирівнюються;
-     (б) .vytraty-recent-col — flex-колонка, кнопка "Показати весь журнал"
-     (той самий розмір, .show-journal-link не чіпали) з margin:auto — займає
-     РЕШТУ висоти колонки й центрується в ній по вертикалі, замість
-     "прилипати" одразу під останнім записом з порожнечею нижче. */
+     Rev 2.21.4 — колонки РІВНІ по висоті (align-items:stretch, було start),
+     форма трохи ширша (460px, було 420), список праворуч компактніший.
+     Rev 2.21.10 BugFix — за проханням: Rev 2.21.4 покладався переважно на
+     розтягування колонки (align-items:stretch) + margin:auto на кнопці, щоб
+     ВІЗУАЛЬНО вирівняти висоту — це технічно працювало, але могло лишати
+     кнопку "по центру" великої порожньої ділянки, що виглядало неприродно.
+     Правильний пріоритет (за проханням): спершу максимально ущільнити САМ
+     список (нижче — ще щільніше, ніж у першій версії), і лише як fallback
+     (мало записів навіть після ущільнення) — залишковий простір під кнопку
+     через margin:auto. Форма НЕ мала додатково "чекати" на короткий список —
+     її 460px з Rev 2.21.4 не займаний, бо це вже мінімальне збільшення. */
   @media (min-width:768px){
     #vytraty-default-view{ display:grid; grid-template-columns:minmax(300px,460px) 1fr; gap:24px; align-items:stretch; }
     #vytraty-default-view .vytraty-recent-col{ min-width:0; display:flex; flex-direction:column; }
     #vytraty-default-view .vytraty-recent-col #show-journal-btn:not(.hidden){ margin-top:auto; margin-bottom:auto; }
-    /* Rev 2.21.4 — компактніший вигляд рядків короткого списку праворуч (не
-       чіпає buildRecordGroupsHtml/.expense-row саму розмітку — той самий
-       прийом, що вже використаний для #view-vytraty .entry-card на ≥1280px
-       нижче: скоповані CSS-перевизначення розмірів, без зміни HTML/JS). */
-    #vytraty-default-view .vytraty-recent-col .journal-day-group{ margin-bottom:14px; }
-    #vytraty-default-view .vytraty-recent-col .expense-row{ padding:9px 12px; margin-bottom:6px; }
-    #vytraty-default-view .vytraty-recent-col .expense-row .exp-name{ font-size:13.5px; }
-    #vytraty-default-view .vytraty-recent-col .expense-row .exp-meta{ margin-top:2px; }
+    /* Rev 2.21.4/2.21.10 — компактніший вигляд рядків короткого списку
+       праворуч (не чіпає buildRecordGroupsHtml/.expense-row саму розмітку —
+       той самий прийом, що вже використаний для #view-vytraty .entry-card на
+       ≥1280px нижче: скоповані CSS-перевизначення розмірів, без зміни
+       HTML/JS). Rev 2.21.10 — за проханням: список мав пріоритетно
+       підтягуватись до висоти форми ЗА РАХУНОК щільності (не навпаки, форма
+       не мала штучно "чекати" на короткий список) — тому ряди/заголовки днів
+       стиснуті ще щільніше, ніж у першій версії Rev 2.21.4. margin:auto на
+       кнопці нижче лишається лише як fallback для випадків, коли записів
+       справді мало (напр. 2-3 за день) — тоді порожній залишок природно
+       піде під кнопку, а не в ряди. */
+    #vytraty-default-view .vytraty-recent-col .journal-day-group{ margin-bottom:8px; }
+    #vytraty-default-view .vytraty-recent-col .journal-day-head{ padding:0 2px 5px; margin-bottom:6px; }
+    #vytraty-default-view .vytraty-recent-col .jdh-date{ font-size:12px; }
+    #vytraty-default-view .vytraty-recent-col .jdh-net{ font-size:11px; }
+    #vytraty-default-view .vytraty-recent-col .expense-row{ padding:7px 10px; margin-bottom:4px; }
+    #vytraty-default-view .vytraty-recent-col .expense-row .exp-name{ font-size:13px; }
+    #vytraty-default-view .vytraty-recent-col .expense-row .exp-meta{ margin-top:1px; }
   }
   /* ---- Tablet (768–1279px): навігація як на mobile (нижня), але сітка на 2 колонки ---- */
   @media (min-width:768px) and (max-width:1279px){
@@ -1645,14 +1655,13 @@
              renderJournalView, теж не чіпали); дружній підпис місяця
              (.journal-month-label) переїхав під ряд — той самий принцип, що
              .date-caption під #f-date.
-             Rev 2.21.5 — за проханням (після реального тестування на iPhone):
-             додано підпис "ПЕРЕХІД ДО ДАТИ" над рядом — той самий
-             .field label стиль (uppercase, дрібний, вторинний колір), що
-             "ДАТА" над #f-date у картці "Нова витрата" — раніше ряд
-             стрілки+поле йшов одразу під фільтрами пошуку БЕЗ жодного
-             заголовка, тому візуально не читався як той самий патерн. -->
+             Rev 2.21.5 (додано підпис "ПЕРЕХІД ДО ДАТИ") відкочено в
+             Rev 2.21.10 — за проханням користувача жодного текстового
+             підпису тут не треба; сам ряд стрілки+поле й так на 100%
+             ідентичний #f-date (ті самі .date-nav-row/.date-nav-btn/
+             .date-input-wrap/input[type=date] класи, без жодних відхилень
+             у стилі). -->
         <div class="journal-month-nav" id="journal-month-nav">
-          <div class="journal-date-label">Перехід до дати</div>
           <div class="date-nav-row">
             <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
             <div class="date-input-wrap"><input type="date" id="journal-date-input" onchange="onJournalDatePicked(this.value)" aria-label="Перейти до дати"></div>
@@ -1970,7 +1979,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.9</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.10</div>
 </div>
   </div>
 </div>
@@ -2498,7 +2507,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.9';
+const APP_VERSION = '2.21.10';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
