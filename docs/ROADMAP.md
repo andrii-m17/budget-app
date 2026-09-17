@@ -1677,6 +1677,137 @@ clear→write→read-back; ✅ `localStorage` мігрованого домен�
 backup-restore/симуляція-збою; ⏳ **iPhone-тест і офлайн-сценарій —
 обов'язкові ручні кроки користувача перед закриттям цієї ревізії**.
 
+**Підтверджено користувачем:** Rev 2.21.31–2.21.32 (Stage B/C + seeding-фікс)
+перевірені і на desktop, і на iPhone, включно з офлайн-сценарієм.
+Розбито Stage D на два під-етапи (пропозиція користувача, прийнято):
+D1 — bankAccounts/installmentAccounts/hiddenFrom/ignoredDivergences
+(рідше пишуться, вже фінансові — проміжний крок); D2 — expenses/incomes/
+debts (найвища частота запису, найцентральніші для FINANCIAL_RULES) —
+лише після повного підтвердження D1 на iPhone.
+
+#### Stage D1 — Критичні дані, частина 1 (Rev 2.21.33)
+
+**Обов'язкова перевірка перед кодом (за явним запитом користувача) —
+знайдено реальну доменну залежність, описано користувачу до старту
+routing-коду:**
+- `installmentAccounts`'s fallback за відсутності збереженого значення
+  НЕ константний дефолт (як `DEFAULT_BANKS` для bankAccounts) — він
+  РЕКОНСТРУЮЄТЬСЯ з `debts` (унікальні назви `kind==='installment'`).
+  Отже `loadInstallmentAccounts()` має реальну read-залежність від
+  `debts` (Stage D2, ще не мігрований) уже будучи в пам'яті — збережено
+  той самий порядок, що й до цієї ревізії (`debts` вантажиться в
+  `loadAll()` РАНІШЕ, ніж викликається `loadInstallmentAccounts()`).
+- `ensureInstallmentFirstMonth()` теж читає `debts` для backfill
+  `installmentAccounts[].firstMonth` — та сама залежність, не нова.
+- Excel-імпорт і `clearAllData()`/`saveInstallmentDrawer()`/
+  `saveCardDebtDrawer()` мішають D1- і D2-збереження в одному потоці —
+  перевірено: НІЖОДЕН з них не читає D1-домен НАЗАД зі сховища одразу
+  після запису (усе після — операції з in-memory `debts`), тому це не
+  race condition, лише потребує `await`+`async`-обгортки.
+- **Висновок: реальної race condition немає** — є доменна ordering-
+  залежність (`debts` має бути в пам'яті раніше), яка вже задовольняється
+  тим, що `expenses`/`incomes`/`debts` лишаються інлайн у `loadAll()` (не
+  мігровані Stage D1) і завантажуються ПЕРШИМИ.
+- `estimateInstallment()`/`lastKnownBalance()`/`typicalMonthlyPayment()`/
+  `linkedExpensesSum()` — уточнення: вони НЕ беруть `debts`/`hiddenFrom`
+  явними аргументами (закриваються на module-level змінні, той самий
+  стиль, що й решта бізнес-логіки застосунку), але вже НЕ знають про
+  сховище — це й задовольняє дух DoD-пункту, форсований рефакторинг на
+  явні параметри — поза мінімально потрібним скоупом, не зроблено.
+- Backup/restore для 4 нових доменів НЕ "просто запрацювало" —
+  перевірено явно: `pilotBackupValue()`/`applyBackupData()`'s `results`
+  жорстко перелічують домени, тому додано 4 нові гілки + 4 нові
+  `restoreXFromBackup()` (симетрично Stage C). Лише `pilotBackupKeys()`
+  (похідна від `DOMAIN_MIGRATION_KEYS`) підхопила нові ключі автоматично.
+
+**Розділення `loadAll()`:** `loadBankAccounts()`/`loadInstallmentAccounts()`/
+`loadHiddenFrom()`/`loadIgnoredDivergences()` — нові Repository-функції
+(той самий патерн, що Stage C: кожна перевіряє `isDomainMigrated()`).
+`expenses`/`incomes`/`debts` лишились інлайн — `loadAll()` тепер
+СУМІШ (підтверджено користувачем як прийнятний проміжний стан):
+```js
+async function loadAll(){
+  // expenses/incomes/debts — інлайн (Stage D2)
+  await loadBankAccounts();
+  await loadInstallmentAccounts(); // після debts
+  await loadHiddenFrom();
+  await loadIgnoredDivergences();
+  await ensureInstallmentFirstMonth();
+  ...
+}
+```
+
+**Seed-on-first-read, розрізнення за доменом (за явним запитом
+користувача):** `bankAccounts` (константний `DEFAULT_BANKS`) та
+`installmentAccounts` (реконструкція з `debts`) — ОБИДВА потребують
+seed-фіксу в IndexedDB-гілці (той самий клас бага, що Stage C: без
+`if(!raw) await saveX()` у гілці adapter'а щойно мігрований порожній
+домен тихо скидався б до дефолту щоразу). `hiddenFrom`/`ignoredDivergences`
+— легітимно порожні `{}` за замовчуванням, БЕЗ "стартових даних" —
+жодної seed-логіки в жодній з двох гілок не було до цієї ревізії і не
+додано зараз (симетрично, обидві гілки однаково нічого не пишуть).
+Обидва випадки покриті тестами (`tests/pilot-repository.test.js`).
+
+**`installmentAccounts` — restore зі старого бекапу без цього ключа
+(окремий, непередбачений у чернетці задачі, але знайдений при
+проєктуванні edge case):** якби `restoreInstallmentAccountsFromBackup(null)`
+писав порожній масив `[]`, це назавжди заблокувало б природну
+реконструкцію з `debts` при наступному `loadInstallmentAccounts()`
+(`raw==='[]'` — не порожньо). Замість цього — `idbAdapterRemove()`/
+`localStorage.removeItem()` (routing-aware) видаляє ключ, і реконструкція
+відбувається у фінальному `loadStructureRefs()+loadAll()` всередині
+`applyBackupData()`, коли `debts` вже відновлено.
+
+**`clearAllData()`:** перевірено явно (DoD-вимога) — тепер `await`-ить усі
+4 D1 `saveX()`, кожна з яких сама маршрутизує в authoritative сховище;
+жива перевірка підтверджує, що після очищення `bankAccounts` в
+IndexedDB (не localStorage) справді скинуто до `DEFAULT_BANKS`, а
+`installmentAccounts`/`hiddenFrom` — до порожніх значень.
+
+**Помилка запису:** той самий `#storage-error-banner`/`reportSaveResult()`
+зі Stage C — перевірено живо для D1-домену (симуляція збою
+`saveBankAccounts()`), банер з'явився і зник після успішного повтору.
+
+**Тестування:** `tests/pilot-repository.test.js` розширено до 8 доменів
+(27 тестів, +17 нових: routing bankAccounts/installmentAccounts,
+реконструкція з `debts`, `ensureInstallmentFirstMonth`, легітимно-порожні
+`hiddenFrom`/`ignoredDivergences`, спецвипадок
+`restoreInstallmentAccountsFromBackup`, окремий acceptance-тест
+mixed-storage для D1). `tests/storage-adapter.test.js` — оновлено
+перевірку `DOMAIN_MIGRATION_KEYS` на 8 доменів. Разом: **`node --test`
+152/152**.
+
+**Жива перевірка в браузері** (localhost, справжня IndexedDB): чистий
+старт — усі 8 доменів мігрували, `bankAccounts` засіяно `DEFAULT_BANKS`
+в IndexedDB, `installmentAccounts` коректно `[]` (нема `debts`),
+`hiddenFrom`/`ignoredDivergences` без жодного зайвого запису; реальний
+клік "Додати ОЧ" (`showInstallmentModal`, той самий `await onSave` фікс,
+що Stage C) → запис в IndexedDB; "Прибрати ОЧ" (`hiddenFrom`) → IndexedDB;
+повний `reload` — усе пережило; `clearAllData()` → коректний скид усіх
+4 доменів в IndexedDB; mixed-storage export→restore для D1 (частина
+доменів мігрована, частина ні) → повний стан відтворено, привиди-записи
+зникли; симуляція збою запису → банер з'явився й зник.
+
+**DoD Stage D1:** ✅ `loadAll()` розділена (4 нові функції, expenses/
+incomes/debts лишились інлайн); ✅ доменна залежність
+`installmentAccounts`→`debts` знайдена, описана користувачу, збережена
+(не race condition); ✅ `DOMAIN_MIGRATION_KEYS` розширено 4 доменами;
+✅ routing виключно в Repository-функціях (перевірено `grep`'ом); ✅
+`clearAllData` коректно очищує IndexedDB-гілку (перевірено живо); ✅
+`estimateInstallment()`/carry-forward не знають про storage (уточнення:
+закриваються на module-level змінні, як і решта бізнес-логіки —
+рефакторинг на явні параметри свідомо НЕ зроблено, поза скоупом); ✅
+seed-логіка розрізняє "порожньо за замовчуванням" (hiddenFrom/
+ignoredDivergences, без seed) від "має дефолт/реконструкцію"
+(bankAccounts/installmentAccounts, seed-фікс застосовано); ✅ backup/
+restore перевірено явно, не "мало б запрацювати" (4 нові
+restoreXFromBackup, спецвипадок для installmentAccounts); ✅ помилка
+запису — той самий банер; ✅ усі call sites — `await`-ed (перевірено
+`grep`'ом); ✅ `node --test` 152/152; ✅ жива перевірка create/edit/
+delete/hide/clearAllData/reload/backup-restore/симуляція-збою; ⏳
+**iPhone-тест — обов'язковий крок користувача перед стартом Stage D2**
+(фінансова природа даних, без відкладання).
+
 ### 29. Рефакторинг модалки `#app-modal`
 
 🔎 Перевірено в коді — досі одна модалка обслуговує всі сценарії. Технічний борг не

@@ -1,17 +1,25 @@
-// Rev #28.C — Stage C (docs/ROADMAP.md, п.28): тести Repository-routing для
-// 4 pilot-доменів (categories/subcategories/subcategoryPriority/
-// dictionary) — loadX()/saveX() самі обирають localStorage чи IndexedDB
-// через isDomainMigrated(), і backup/restore (buildBackupPayloadData()/
-// applyBackupData(), витягнуті з exportBackup()/handleRestoreBackupFile()
-// саме заради цієї тестованості) лишаються storage-agnostic: викликають ті
-// самі Repository-функції, не звертаються до localStorage/adapter напряму.
+// Rev #28.C/D1 — Stage C+D1 (docs/ROADMAP.md, п.28): тести Repository-
+// routing для 8 доменів — 4 pilot (categories/subcategories/
+// subcategoryPriority/dictionary, Stage C) + 4 D1 (bankAccounts/
+// installmentAccounts/hiddenFrom/ignoredDivergences) — loadX()/saveX() самі
+// обирають localStorage чи IndexedDB через isDomainMigrated(), і
+// backup/restore (buildBackupPayloadData()/applyBackupData(), витягнуті з
+// exportBackup()/handleRestoreBackupFile() саме заради цієї тестованості)
+// лишаються storage-agnostic: викликають ті самі Repository-функції, не
+// звертаються до localStorage/adapter напряму.
 //
-// loadAll() (10 інших доменів — expenses/incomes/debts/…) НЕ під тестом
-// тут — глибоко DOM-залежна (populateMonths/renderAll/renderStructure), і
-// applyBackupData()/loadStructureRefs()-цикл викликає її лише як частину
-// повного відновлення. Підмінена заглушкою-no-op (той самий принцип, що
-// стаб XLSX.SSF.parse_date_code в tests/excel-parsing.test.js) — тести тут
-// перевіряють ЛИШЕ 4 pilot-домени, а не інтеграцію з рештою застосунку.
+// loadAll() САМА (як функція) НЕ під тестом тут — глибоко DOM-залежна
+// (populateMonths/renderAll/renderStructure) і тепер лише експедиторський
+// диспетчер (delegating) до 4+4 окремих load-функцій + інлайн-читання
+// expenses/incomes/debts (Stage D2). Підмінена заглушкою-no-op у
+// applyBackupData()'s фінальному виклику (той самий принцип, що стаб
+// XLSX.SSF.parse_date_code в tests/excel-parsing.test.js) — тести тут
+// перевіряють ЛИШЕ ці 8 доменів, а не інтеграцію з рештою застосунку.
+// debts — module-level масив (Stage D2, не мігрований), інжектований як
+// звичайний global-стаб (той самий принцип, що expenses/incomes деінде):
+// installmentAccounts читає ЙОГО (не сховище) для fallback-реконструкції
+// за відсутності збереженого значення (дивись коментар в index.html над
+// loadInstallmentAccounts()).
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -69,6 +77,7 @@ const REPOSITORY_NAMES = [
   'LS_KEY_HIDDEN', 'LS_KEY_SCHEMA_VERSION', 'LS_KEY_IGNORED_DIVERGENCES',
   'BACKUP_LS_KEYS',
   'DEFAULT_CATEGORIES', 'DEFAULT_SUBCATEGORIES', 'DEFAULT_SUBCATEGORY_PRIORITY', 'DEFAULT_DICTIONARY',
+  'DEFAULT_BANKS',
   'IDB_CDN_URL', 'IDB_DB_NAME', 'IDB_STORE_NAME', 'IDB_DB_VERSION',
   'DOMAIN_MIGRATION_KEYS', 'LS_KEY_MIGRATION_STATUS',
   // functions (порядок не критичний — function-декларації хойстяться в
@@ -82,6 +91,12 @@ const REPOSITORY_NAMES = [
   'saveCategories', 'saveSubcategories', 'saveSubcategoryPriority', 'saveDictionary',
   'restoreCategoriesFromBackup', 'restoreSubcategoriesFromBackup',
   'restoreSubcategoryPriorityFromBackup', 'restoreDictionaryFromBackup',
+  // Rev #28.D1
+  'loadBankAccounts', 'loadInstallmentAccounts', 'loadHiddenFrom', 'loadIgnoredDivergences',
+  'saveBankAccounts', 'saveInstallmentAccounts', 'saveHiddenFrom', 'saveIgnoredDivergences',
+  'ensureInstallmentFirstMonth',
+  'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
+  'restoreHiddenFromFromBackup', 'restoreIgnoredDivergencesFromBackup',
   'pilotBackupKeys', 'pilotBackupValue', 'buildBackupPayloadData', 'applyBackupData',
 ];
 
@@ -97,10 +112,17 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       SUBCATEGORIES: [],
       SUBCATEGORY_PRIORITY: {},
       DICTIONARY: [],
-      // Rev #28.C — 10 інших доменів (Stage D) не під тестом тут; loadAll()
-      // сама глибоко DOM-залежна (populateMonths/renderAll/renderStructure) —
-      // applyBackupData() її викликає як частину повного відновлення, тому
-      // підміняємо no-op заглушкою, щоб тестувати ЛИШЕ 4 pilot-домени.
+      bankAccounts: [],
+      installmentAccounts: [],
+      hiddenFrom: {},
+      ignoredDivergences: {},
+      // Stage D2 (не мігрований) — module-level стаб, той самий принцип, що
+      // expenses/incomes деінде; installmentAccounts читає ЙОГО напряму
+      // (не сховище) для fallback-реконструкції.
+      debts: [],
+      // Rev #28.C — loadAll() САМА (як функція) не під тестом тут (глибоко
+      // DOM-залежна) — applyBackupData() викликає її лише як частину
+      // повного відновлення; підміняємо no-op заглушкою.
       loadAll: async function(){},
       // reportSaveResult (Rev #28.C BugFix, loadCategories()/…) звертається
       // до document.getElementById() для storage-error-banner — DOM-шар,
@@ -119,6 +141,15 @@ function pilotFixture(){
     subcategories: [{ name: 'Кафе', category: '🍔 Їжа', active: true }],
     subcategoryPriority: { Кафе: { label: 'Середній', score: 0.65, color: 'warning' } },
     dictionary: [{ kw: 'кава', cat: '🍔 Їжа', sub: 'Кафе' }],
+  };
+}
+
+function d1Fixture(){
+  return {
+    bankAccounts: [{ name: '🟩 Приват Банк', creditLimit: 50000 }],
+    installmentAccounts: [{ name: 'iPhone', initialAmount: 25000, firstMonth: '2026-01' }],
+    hiddenFrom: { 'card:🟨 Raifaizen': '2026-06' },
+    ignoredDivergences: { 'iPhone|2026-03': true },
   };
 }
 
@@ -200,6 +231,162 @@ test('saveCategories: домен мігровано, IndexedDB кидає → { 
   assert.match(result.error, /симульований збій/);
 });
 
+/* ============ D1: loadBankAccounts/saveBankAccounts — routing ============ */
+
+test('loadBankAccounts: домен не мігровано, немає ключа → DEFAULT_BANKS, зберігається в localStorage', async () => {
+  const { ctx } = sandbox({ localStorageInitial: {} });
+  await ctx.loadBankAccounts();
+  const expected = plain(readConst(ctx, 'DEFAULT_BANKS')).map(name => ({ name, creditLimit: null }));
+  assert.deepEqual(plain(ctx.bankAccounts), expected);
+  assert.equal(ctx.localStorage.getItem('budget_bankaccounts_v1'), JSON.stringify(ctx.bankAccounts));
+});
+
+test('loadBankAccounts: BugFix — домен мігровано, IndexedDB порожня → DEFAULT_BANKS одразу зберігається В IndexedDB', async () => {
+  const { ctx, fakeIdbInstance } = sandbox({ localStorageInitial: {} });
+  ctx.markDomainMigrated('bankAccounts');
+  await ctx.loadBankAccounts();
+  assert.equal(fakeIdbInstance.store.get('budget_bankaccounts_v1'), JSON.stringify(ctx.bankAccounts));
+  assert.equal(ctx.localStorage.getItem('budget_bankaccounts_v1'), null);
+});
+
+test('loadBankAccounts: домен мігровано, старий формат (масив рядків) → мігрує в об\'єкти й перезберігає', async () => {
+  const { ctx, fakeIdbInstance } = sandbox();
+  ctx.markDomainMigrated('bankAccounts');
+  fakeIdbInstance.store.set('budget_bankaccounts_v1', JSON.stringify(['🟩 Приват Банк']));
+  await ctx.loadBankAccounts();
+  assert.deepEqual(plain(ctx.bankAccounts), [{ name: '🟩 Приват Банк', creditLimit: null }]);
+  assert.equal(fakeIdbInstance.store.get('budget_bankaccounts_v1'), JSON.stringify(ctx.bankAccounts));
+});
+
+test('saveBankAccounts: домен мігровано → IndexedDB, не localStorage', async () => {
+  const { ctx, fakeIdbInstance } = sandbox();
+  ctx.markDomainMigrated('bankAccounts');
+  ctx.bankAccounts = d1Fixture().bankAccounts;
+  const result = await ctx.saveBankAccounts();
+  assert.equal(result.success, true);
+  assert.equal(fakeIdbInstance.store.get('budget_bankaccounts_v1'), JSON.stringify(ctx.bankAccounts));
+  assert.equal(ctx.localStorage.getItem('budget_bankaccounts_v1'), null);
+});
+
+/* ============ D1: loadInstallmentAccounts — реконструкція з debts ============ */
+
+test('loadInstallmentAccounts: домен не мігровано, немає ключа → реконструює з debts (module-level, не сховище)', async () => {
+  const { ctx } = sandbox({ localStorageInitial: {} });
+  ctx.debts = [
+    { id: 'd1', kind: 'installment', name: 'iPhone', month: '2026-01', balance: 20000 },
+    { id: 'd2', kind: 'installment', name: 'iPhone', month: '2026-02', balance: 17000 },
+    { id: 'd3', kind: 'card', name: '🟩 Приват Банк', month: '2026-01', balance: 5000 },
+  ];
+  await ctx.loadInstallmentAccounts();
+  assert.deepEqual(plain(ctx.installmentAccounts), [{ name: 'iPhone', initialAmount: null }]);
+});
+
+test('loadInstallmentAccounts: BugFix — домен мігровано, IndexedDB порожня, debts порожній → seed [] одразу зберігається В IndexedDB', async () => {
+  const { ctx, fakeIdbInstance } = sandbox({ localStorageInitial: {} });
+  ctx.markDomainMigrated('installmentAccounts');
+  ctx.debts = [];
+  await ctx.loadInstallmentAccounts();
+  assert.deepEqual(plain(ctx.installmentAccounts), []);
+  assert.equal(fakeIdbInstance.store.get('budget_installmentaccounts_v1'), '[]');
+});
+
+test('loadInstallmentAccounts: домен мігровано, IndexedDB порожня, debts має записи → реконструює й зберігає В IndexedDB (не localStorage)', async () => {
+  const { ctx, fakeIdbInstance } = sandbox({ localStorageInitial: {} });
+  ctx.markDomainMigrated('installmentAccounts');
+  ctx.debts = [{ id: 'd1', kind: 'installment', name: 'iPhone', month: '2026-01', balance: 20000 }];
+  await ctx.loadInstallmentAccounts();
+  assert.deepEqual(plain(ctx.installmentAccounts), [{ name: 'iPhone', initialAmount: null }]);
+  assert.equal(fakeIdbInstance.store.get('budget_installmentaccounts_v1'), JSON.stringify(ctx.installmentAccounts));
+  assert.equal(ctx.localStorage.getItem('budget_installmentaccounts_v1'), null);
+});
+
+/* ============ D1: ensureInstallmentFirstMonth ============ */
+
+test('ensureInstallmentFirstMonth: backfills firstMonth з debts і зберігає через routing-aware saveInstallmentAccounts', async () => {
+  const { ctx, fakeIdbInstance } = sandbox();
+  ctx.markDomainMigrated('installmentAccounts');
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000 }]; // без firstMonth
+  ctx.debts = [
+    { kind: 'installment', name: 'iPhone', month: '2026-03' },
+    { kind: 'installment', name: 'iPhone', month: '2026-01' }, // найраніший
+  ];
+  await ctx.ensureInstallmentFirstMonth();
+  assert.equal(ctx.installmentAccounts[0].firstMonth, '2026-01');
+  assert.equal(JSON.parse(fakeIdbInstance.store.get('budget_installmentaccounts_v1'))[0].firstMonth, '2026-01');
+});
+
+test('ensureInstallmentFirstMonth: нічого не змінилось → не зберігає (не чіпає сховище)', async () => {
+  const { ctx, fakeIdbInstance } = sandbox();
+  ctx.markDomainMigrated('installmentAccounts');
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000, firstMonth: '2026-01' }]; // вже є
+  ctx.debts = [];
+  await ctx.ensureInstallmentFirstMonth();
+  assert.equal(fakeIdbInstance.store.has('budget_installmentaccounts_v1'), false);
+});
+
+/* ============ D1: hiddenFrom/ignoredDivergences — легітимно порожні, без seed ============ */
+
+test('loadHiddenFrom: немає ключа (не мігровано і не мігровано) → {} в обох гілках, без запису в сховище', async () => {
+  const { ctx: notMigrated } = sandbox({ localStorageInitial: {} });
+  await notMigrated.loadHiddenFrom();
+  assert.deepEqual(plain(notMigrated.hiddenFrom), {});
+  assert.equal(notMigrated.localStorage.getItem('budget_debthidden_v1'), null); // жодного seed-запису
+
+  const { ctx: migrated, fakeIdbInstance } = sandbox({ localStorageInitial: {} });
+  migrated.markDomainMigrated('hiddenFrom');
+  await migrated.loadHiddenFrom();
+  assert.deepEqual(plain(migrated.hiddenFrom), {});
+  assert.equal(fakeIdbInstance.store.has('budget_debthidden_v1'), false); // теж без seed-запису
+});
+
+test('loadIgnoredDivergences: той самий принцип — {} без запису в жодній гілці', async () => {
+  const { ctx, fakeIdbInstance } = sandbox({ localStorageInitial: {} });
+  ctx.markDomainMigrated('ignoredDivergences');
+  await ctx.loadIgnoredDivergences();
+  assert.deepEqual(plain(ctx.ignoredDivergences), {});
+  assert.equal(fakeIdbInstance.store.has('budget_ignored_divergences_v1'), false);
+});
+
+test('saveHiddenFrom/saveIgnoredDivergences: домен мігровано → пишуть в IndexedDB', async () => {
+  const { ctx, fakeIdbInstance } = sandbox();
+  ctx.markDomainMigrated('hiddenFrom');
+  ctx.markDomainMigrated('ignoredDivergences');
+  ctx.hiddenFrom = d1Fixture().hiddenFrom;
+  ctx.ignoredDivergences = d1Fixture().ignoredDivergences;
+  reportSaveResultCheck(await ctx.saveHiddenFrom());
+  reportSaveResultCheck(await ctx.saveIgnoredDivergences());
+  assert.equal(fakeIdbInstance.store.get('budget_debthidden_v1'), JSON.stringify(d1Fixture().hiddenFrom));
+  assert.equal(fakeIdbInstance.store.get('budget_ignored_divergences_v1'), JSON.stringify(d1Fixture().ignoredDivergences));
+  function reportSaveResultCheck(r){ assert.equal(r.success, true); }
+});
+
+/* ============ D1: restoreInstallmentAccountsFromBackup — спецвипадок відсутнього ключа ============ */
+
+test('restoreInstallmentAccountsFromBackup: raw присутній → parse+save, той самий принцип, що інші restoreXFromBackup', async () => {
+  const { ctx, fakeIdbInstance } = sandbox();
+  ctx.markDomainMigrated('installmentAccounts');
+  const raw = JSON.stringify(d1Fixture().installmentAccounts);
+  const result = await ctx.restoreInstallmentAccountsFromBackup(raw);
+  assert.equal(result.success, true);
+  assert.deepEqual(plain(ctx.installmentAccounts), d1Fixture().installmentAccounts);
+  assert.equal(fakeIdbInstance.store.get('budget_installmentaccounts_v1'), raw);
+});
+
+test('restoreInstallmentAccountsFromBackup: raw відсутній (старий бекап без ОЧ) → ВИДАЛЯЄ ключ, не пише [] (щоб не заблокувати майбутню реконструкцію з debts)', async () => {
+  const { ctx, fakeIdbInstance } = sandbox();
+  ctx.markDomainMigrated('installmentAccounts');
+  fakeIdbInstance.store.set('budget_installmentaccounts_v1', JSON.stringify(d1Fixture().installmentAccounts)); // старе значення до restore
+  const result = await ctx.restoreInstallmentAccountsFromBackup(null);
+  assert.equal(result.success, true);
+  assert.equal(fakeIdbInstance.store.has('budget_installmentaccounts_v1'), false);
+});
+
+test('restoreInstallmentAccountsFromBackup: raw відсутній, домен НЕ мігровано → видаляє ключ з localStorage', async () => {
+  const { ctx } = sandbox({ localStorageInitial: { budget_installmentaccounts_v1: JSON.stringify(d1Fixture().installmentAccounts) } });
+  await ctx.restoreInstallmentAccountsFromBackup(null);
+  assert.equal(ctx.localStorage.getItem('budget_installmentaccounts_v1'), null);
+});
+
 /* ============ Acceptance: mixed-storage export → restore ============ */
 
 test('acceptance: mixed-storage (частина доменів мігрована, частина ні) — export потім restore відтворює повний стан усіх 4 доменів', async () => {
@@ -272,4 +459,65 @@ test('acceptance: непілотний ключ відсутній у бекап
   const { ctx } = sandbox({ localStorageInitial: { budget_debts_v1: JSON.stringify([{ id: 'ghost' }]) } });
   await ctx.applyBackupData({});
   assert.equal(ctx.localStorage.getItem('budget_debts_v1'), null);
+});
+
+/* ============ Acceptance D1: mixed-storage export → restore для 4 D1-доменів ============ */
+
+test('acceptance D1: mixed-storage — bankAccounts/hiddenFrom мігровані, installmentAccounts/ignoredDivergences ні — export→restore відтворює всі 4', async () => {
+  const fixture = d1Fixture();
+  const { ctx, fakeIdbInstance } = sandbox({
+    localStorageInitial: {
+      budget_installmentaccounts_v1: JSON.stringify(fixture.installmentAccounts),
+      budget_ignored_divergences_v1: JSON.stringify(fixture.ignoredDivergences),
+    },
+  });
+  ctx.markDomainMigrated('bankAccounts');
+  ctx.markDomainMigrated('hiddenFrom');
+  fakeIdbInstance.store.set('budget_bankaccounts_v1', JSON.stringify(fixture.bankAccounts));
+  fakeIdbInstance.store.set('budget_debthidden_v1', JSON.stringify(fixture.hiddenFrom));
+  ctx.bankAccounts = fixture.bankAccounts;
+  ctx.installmentAccounts = fixture.installmentAccounts;
+  ctx.hiddenFrom = fixture.hiddenFrom;
+  ctx.ignoredDivergences = fixture.ignoredDivergences;
+
+  const exportedData = ctx.buildBackupPayloadData();
+  assert.deepEqual(JSON.parse(exportedData.budget_bankaccounts_v1), fixture.bankAccounts);
+  assert.deepEqual(JSON.parse(exportedData.budget_installmentaccounts_v1), fixture.installmentAccounts);
+  assert.deepEqual(JSON.parse(exportedData.budget_debthidden_v1), fixture.hiddenFrom);
+  assert.deepEqual(JSON.parse(exportedData.budget_ignored_divergences_v1), fixture.ignoredDivergences);
+
+  // Restore у "чистому" застосунку з ІНШИМ mixed-станом (installmentAccounts
+  // мігровано, bankAccounts — ні) — той самий acceptance-принцип, що pilot-тест.
+  const { ctx: freshCtx, fakeIdbInstance: freshIdb } = sandbox({ localStorageInitial: {} });
+  freshCtx.markDomainMigrated('installmentAccounts');
+
+  const results = await freshCtx.applyBackupData(exportedData);
+  assert.equal(results.bankAccounts.success, true);
+  assert.equal(results.installmentAccounts.success, true);
+  assert.equal(results.hiddenFrom.success, true);
+  assert.equal(results.ignoredDivergences.success, true);
+
+  assert.deepEqual(plain(freshCtx.bankAccounts), fixture.bankAccounts);
+  assert.deepEqual(plain(freshCtx.installmentAccounts), fixture.installmentAccounts);
+  assert.deepEqual(plain(freshCtx.hiddenFrom), fixture.hiddenFrom);
+  assert.deepEqual(plain(freshCtx.ignoredDivergences), fixture.ignoredDivergences);
+
+  // installmentAccounts мігровано у freshCtx → IndexedDB, не localStorage.
+  assert.equal(freshIdb.store.get('budget_installmentaccounts_v1'), JSON.stringify(fixture.installmentAccounts));
+  assert.equal(freshCtx.localStorage.getItem('budget_installmentaccounts_v1'), null);
+  // bankAccounts/hiddenFrom/ignoredDivergences НЕ мігровані у freshCtx → localStorage.
+  assert.equal(freshCtx.localStorage.getItem('budget_bankaccounts_v1'), JSON.stringify(fixture.bankAccounts));
+  assert.equal(freshCtx.localStorage.getItem('budget_debthidden_v1'), JSON.stringify(fixture.hiddenFrom));
+  assert.equal(freshCtx.localStorage.getItem('budget_ignored_divergences_v1'), JSON.stringify(fixture.ignoredDivergences));
+});
+
+test('acceptance D1: старий бекап без installmentAccounts + мігрований домен → ключ видалено з IndexedDB, реконструкція лишається наступному loadAll()', async () => {
+  const { ctx, fakeIdbInstance } = sandbox({ localStorageInitial: {} });
+  ctx.markDomainMigrated('installmentAccounts');
+  fakeIdbInstance.store.set('budget_installmentaccounts_v1', JSON.stringify(d1Fixture().installmentAccounts)); // старе значення
+  // Бекап явно НЕ містить budget_installmentaccounts_v1 (старий файл до появи ОЧ).
+  const backupWithoutInstallments = { budget_categories_v1: JSON.stringify([]) };
+  const results = await ctx.applyBackupData(backupWithoutInstallments);
+  assert.equal(results.installmentAccounts.success, true);
+  assert.equal(fakeIdbInstance.store.has('budget_installmentaccounts_v1'), false);
 });

@@ -2289,7 +2289,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.32</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.33</div>
 </div>
   </div>
 </div>
@@ -2765,6 +2765,49 @@ async function restoreDictionaryFromBackup(raw){
   catch(e){ DICTIONARY = DEFAULT_DICTIONARY.map(d=>({...d})); }
   return saveDictionary();
 }
+// Rev #28.D1 — той самий принцип, що 4 хелпери вище, для bankAccounts/
+// hiddenFrom/ignoredDivergences: parse+fallback-на-власний-дефолт + await
+// saveX() (routing-aware).
+async function restoreBankAccountsFromBackup(raw){
+  try{ bankAccounts = raw != null ? JSON.parse(raw) : DEFAULT_BANKS.map(name=>({name, creditLimit:null})); }
+  catch(e){ bankAccounts = DEFAULT_BANKS.map(name=>({name, creditLimit:null})); }
+  return saveBankAccounts();
+}
+async function restoreHiddenFromFromBackup(raw){
+  try{ hiddenFrom = raw != null ? JSON.parse(raw) : {}; }
+  catch(e){ hiddenFrom = {}; }
+  return saveHiddenFrom();
+}
+async function restoreIgnoredDivergencesFromBackup(raw){
+  try{ ignoredDivergences = raw != null ? JSON.parse(raw) : {}; }
+  catch(e){ ignoredDivergences = {}; }
+  return saveIgnoredDivergences();
+}
+// installmentAccounts — ОКРЕМИЙ випадок (не як 3 вище): не має власного
+// константного дефолту, а РЕКОНСТРУЮЄТЬСЯ з debts, коли значення відсутнє
+// (той самий принцип, що loadInstallmentAccounts(), коментар там). Якщо
+// просто записати сюди порожній масив при відсутньому raw — це назавжди
+// заблокувало б реконструкцію (наступний loadInstallmentAccounts() побачив
+// би "[]" як валідне збережене значення, не "порожньо", і не спробував би
+// відновити з debts). Замість цього — ВИДАЛЯЄМО ключ з authoritative
+// сховища (той самий результат, що generic clear-без-set для непілотного
+// ключа ДО Stage D1) і лишаємо саму реконструкцію фінальному
+// loadStructureRefs()+loadAll() у applyBackupData() нижче — на той момент
+// debts вже відновлено (loadAll() читає debts РАНІШЕ за installmentAccounts,
+// той самий порядок, що завжди).
+async function restoreInstallmentAccountsFromBackup(raw){
+  if(raw == null){
+    if(isDomainMigrated('installmentAccounts')){
+      try{ await idbAdapterRemove(LS_KEY_INSTALLMENTS); return { success: true }; }
+      catch(err){ return { success: false, error: err.message }; }
+    }
+    localStorage.removeItem(LS_KEY_INSTALLMENTS);
+    return { success: true };
+  }
+  try{ installmentAccounts = JSON.parse(raw); }
+  catch(e){ installmentAccounts = []; }
+  return saveInstallmentAccounts();
+}
 const UA_MONTHS = ['січень','лютий','березень','квітень','травень','червень','липень','серпень','вересень','жовтень','листопад','грудень'];
 
 /* ============ Стан + localStorage ============ */
@@ -2873,12 +2916,46 @@ function ensureExpenseIdentity(){
 }
 let cardVariants = {};
 
-function loadAll(){
-  try{ expenses = JSON.parse(localStorage.getItem(LS_KEY_EXP) || '[]'); }catch(e){ expenses = []; }
-  ensureExpenseIdentity();
-  ensureSchemaVersion();
-  try{ incomes = JSON.parse(localStorage.getItem(LS_KEY_INC) || '[]'); }catch(e){ incomes = []; }
-  try{ debts = JSON.parse(localStorage.getItem(LS_KEY_DEBT) || '[]'); }catch(e){ debts = []; }
+// Rev #28.D1 — bankAccounts/installmentAccounts/hiddenFrom/ignoredDivergences
+// тепер окремі Repository-функції (той самий патерн, що Stage C) —
+// expenses/incomes/debts свідомо лишаються інлайн у loadAll() нижче, вони
+// переїдуть у Stage D2. Storage-routing живе ВИКЛЮЧНО в цих 4 парах
+// load/saveX() — жоден інший код (backup, UI) не перевіряє
+// isDomainMigrated()/не звертається до adapter'а напряму.
+//
+// installmentAccounts має РЕАЛЬНУ read-залежність від debts (не просто
+// порядок зручності): за відсутності збереженого значення вона
+// РЕКОНСТРУЮЄТЬСЯ зі списку debts (унікальні назви kind==='installment') —
+// на відміну від bankAccounts (константний DEFAULT_BANKS) чи hiddenFrom/
+// ignoredDivergences (легітимно порожні {} за замовчуванням, без "дефолтних
+// стартових даних" узагалі). Тому loadInstallmentAccounts() читає module-
+// level `debts` (не storage) і МУСИТЬ викликатись ПІСЛЯ рядка, що заповнює
+// debts, — так само, як і до цієї ревізії.
+async function loadBankAccounts(){
+  if(isDomainMigrated('bankAccounts')){
+    try{
+      const raw = await idbAdapterGet(LS_KEY_BANKS);
+      if(raw){
+        bankAccounts = JSON.parse(raw);
+        let migrated = false;
+        bankAccounts = bankAccounts.map(function(b){
+          if(typeof b === 'string'){ migrated = true; return { name: b, creditLimit: null }; }
+          return b;
+        });
+        if(migrated) reportSaveResult(await saveBankAccounts());
+      }else{
+        bankAccounts = DEFAULT_BANKS.map(function(name){ return { name, creditLimit: null }; });
+        // Rev #28.D1 — той самий seed-на-першому-читанні фікс, що Stage C
+        // (BugFix, знайдений живою перевіркою): без цього щойно мігрований
+        // порожній домен тихо скидався б до DEFAULT_BANKS щоразу, ніколи не
+        // зберігаючись у IndexedDB.
+        reportSaveResult(await saveBankAccounts());
+      }
+    }catch(e){ bankAccounts = DEFAULT_BANKS.map(function(name){ return { name, creditLimit: null }; }); }
+    return;
+  }
+  // Гілка нижче — точна копія поведінки ДО Stage D1: доки домен не
+  // мігровано, жодної зміни в тому, що і як читається/пишеться.
   try{
     const rawBanks = localStorage.getItem(LS_KEY_BANKS);
     if(rawBanks){
@@ -2893,12 +2970,36 @@ function loadAll(){
         if(typeof b === 'string'){ migrated = true; return { name: b, creditLimit: null }; }
         return b;
       });
-      if(migrated) saveBankAccounts();
+      if(migrated) await saveBankAccounts();
     }else{
       bankAccounts = DEFAULT_BANKS.map(function(name){ return { name, creditLimit: null }; });
-      saveBankAccounts(); // перший запуск — одразу зберігаємо дефолт
+      await saveBankAccounts(); // перший запуск — одразу зберігаємо дефолт
     }
   }catch(e){ bankAccounts = DEFAULT_BANKS.map(function(name){ return { name, creditLimit: null }; }); }
+}
+async function loadInstallmentAccounts(){
+  if(isDomainMigrated('installmentAccounts')){
+    try{
+      const raw = await idbAdapterGet(LS_KEY_INSTALLMENTS);
+      if(raw){
+        installmentAccounts = JSON.parse(raw);
+        let migrated = false;
+        installmentAccounts = installmentAccounts.map(function(acc){
+          if(typeof acc === 'string'){ migrated = true; return { name: acc, initialAmount: null }; }
+          return acc;
+        });
+        if(migrated) reportSaveResult(await saveInstallmentAccounts());
+      }else{
+        // Немає дефолтного набору ОЧ (див. коментар над loadBankAccounts) —
+        // реконструюємо з debts (module-level, вже заповнений рядком вище
+        // в loadAll()), той самий принцип, що localStorage-гілка нижче.
+        installmentAccounts = Array.from(new Set(debts.filter(d=>d.kind==='installment').map(d=>d.name)))
+          .map(function(name){ return { name, initialAmount: null }; });
+        reportSaveResult(await saveInstallmentAccounts()); // Rev #28.D1 — seed-фікс, як у bankAccounts
+      }
+    }catch(e){ installmentAccounts = []; }
+    return;
+  }
   try{
     const rawInst = localStorage.getItem(LS_KEY_INSTALLMENTS);
     if(rawInst){
@@ -2913,7 +3014,7 @@ function loadAll(){
         if(typeof acc === 'string'){ migrated = true; return { name: acc, initialAmount: null }; }
         return acc;
       });
-      if(migrated) saveInstallmentAccounts();
+      if(migrated) await saveInstallmentAccounts();
     }
     else{
       // Rev 2.0.3 — немає дефолтного набору ОЧ (це особисті покупки, не банки),
@@ -2921,21 +3022,89 @@ function loadAll(){
       // підхоплюємо їх унікальні назви, щоб нічого не "зникло" з вигляду.
       installmentAccounts = Array.from(new Set(debts.filter(d=>d.kind==='installment').map(d=>d.name)))
         .map(function(name){ return { name, initialAmount: null }; });
-      saveInstallmentAccounts();
+      await saveInstallmentAccounts();
     }
   }catch(e){ installmentAccounts = []; }
+}
+// hiddenFrom/ignoredDivergences: легітимно порожній стан за замовчуванням
+// (не "дефолтні стартові дані", як DEFAULT_BANKS) — тому ЖОДНОЇ seed-логіки
+// в жодній з двох гілок не потрібно (localStorage-гілка ніколи цього не
+// робила, тепер symmetричн так само IndexedDB-гілка).
+async function loadHiddenFrom(){
+  if(isDomainMigrated('hiddenFrom')){
+    try{
+      const raw = await idbAdapterGet(LS_KEY_HIDDEN);
+      hiddenFrom = raw ? JSON.parse(raw) : {};
+    }catch(e){ hiddenFrom = {}; }
+    return;
+  }
   try{ hiddenFrom = JSON.parse(localStorage.getItem(LS_KEY_HIDDEN) || '{}'); }catch(e){ hiddenFrom = {}; }
+}
+async function loadIgnoredDivergences(){
+  if(isDomainMigrated('ignoredDivergences')){
+    try{
+      const raw = await idbAdapterGet(LS_KEY_IGNORED_DIVERGENCES);
+      ignoredDivergences = raw ? JSON.parse(raw) : {};
+    }catch(e){ ignoredDivergences = {}; }
+    return;
+  }
   try{ ignoredDivergences = JSON.parse(localStorage.getItem(LS_KEY_IGNORED_DIVERGENCES) || '{}'); }catch(e){ ignoredDivergences = {}; }
-  ensureInstallmentFirstMonth();
+}
+// Rev #28.D1 — loadAll() тепер async: expenses/incomes/debts лишились
+// інлайн (Stage D2), 4 D1-домени делегуються щойно доданим load-функціям.
+// Проміжний стан свідомо прийнятний (підтверджено користувачем перед
+// стартом D1) — після цієї ревізії loadAll() завантажує СУМІШ: частину
+// доменів через окремі routing-aware функції, частину досі інлайн.
+async function loadAll(){
+  try{ expenses = JSON.parse(localStorage.getItem(LS_KEY_EXP) || '[]'); }catch(e){ expenses = []; }
+  ensureExpenseIdentity();
+  ensureSchemaVersion();
+  try{ incomes = JSON.parse(localStorage.getItem(LS_KEY_INC) || '[]'); }catch(e){ incomes = []; }
+  try{ debts = JSON.parse(localStorage.getItem(LS_KEY_DEBT) || '[]'); }catch(e){ debts = []; }
+  await loadBankAccounts();
+  await loadInstallmentAccounts(); // після debts (читає module-level debts, дивись коментар вище)
+  await loadHiddenFrom();
+  await loadIgnoredDivergences();
+  await ensureInstallmentFirstMonth();
   populateMonths(); renderAll(); renderStructure();
 }
 function saveExpenses(){ localStorage.setItem(LS_KEY_EXP, JSON.stringify(expenses)); }
 function saveIncomes(){ localStorage.setItem(LS_KEY_INC, JSON.stringify(incomes)); }
 function saveDebts(){ localStorage.setItem(LS_KEY_DEBT, JSON.stringify(debts)); }
-function saveBankAccounts(){ localStorage.setItem(LS_KEY_BANKS, JSON.stringify(bankAccounts)); }
-function saveInstallmentAccounts(){ localStorage.setItem(LS_KEY_INSTALLMENTS, JSON.stringify(installmentAccounts)); }
-function saveHiddenFrom(){ localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hiddenFrom)); }
-function saveIgnoredDivergences(){ localStorage.setItem(LS_KEY_IGNORED_DIVERGENCES, JSON.stringify(ignoredDivergences)); }
+// Кожна з 4 нижче повертає { success, error? } (той самий контракт, що
+// Stage C) — reportSaveResult() на кожному call site показує явну помилку.
+async function saveBankAccounts(){
+  if(isDomainMigrated('bankAccounts')){
+    try{ await idbAdapterSet(LS_KEY_BANKS, JSON.stringify(bankAccounts)); return { success: true }; }
+    catch(err){ return { success: false, error: err.message }; }
+  }
+  localStorage.setItem(LS_KEY_BANKS, JSON.stringify(bankAccounts));
+  return { success: true };
+}
+async function saveInstallmentAccounts(){
+  if(isDomainMigrated('installmentAccounts')){
+    try{ await idbAdapterSet(LS_KEY_INSTALLMENTS, JSON.stringify(installmentAccounts)); return { success: true }; }
+    catch(err){ return { success: false, error: err.message }; }
+  }
+  localStorage.setItem(LS_KEY_INSTALLMENTS, JSON.stringify(installmentAccounts));
+  return { success: true };
+}
+async function saveHiddenFrom(){
+  if(isDomainMigrated('hiddenFrom')){
+    try{ await idbAdapterSet(LS_KEY_HIDDEN, JSON.stringify(hiddenFrom)); return { success: true }; }
+    catch(err){ return { success: false, error: err.message }; }
+  }
+  localStorage.setItem(LS_KEY_HIDDEN, JSON.stringify(hiddenFrom));
+  return { success: true };
+}
+async function saveIgnoredDivergences(){
+  if(isDomainMigrated('ignoredDivergences')){
+    try{ await idbAdapterSet(LS_KEY_IGNORED_DIVERGENCES, JSON.stringify(ignoredDivergences)); return { success: true }; }
+    catch(err){ return { success: false, error: err.message }; }
+  }
+  localStorage.setItem(LS_KEY_IGNORED_DIVERGENCES, JSON.stringify(ignoredDivergences));
+  return { success: true };
+}
 // Rev 2.11.9 (Баг #5) — міграція для ОЧ, створених ДО цього фіксу (не мають
 // власного firstMonth): визначаємо його заднім числом як найраніший ФАКТИЧНИЙ
 // запис боргу для цієї ОЧ. Ідемпотентно — чіпає лише записи, де firstMonth
@@ -2943,7 +3112,7 @@ function saveIgnoredDivergences(){ localStorage.setItem(LS_KEY_IGNORED_DIVERGENC
 // взагалі немає жодного факту (earliest===null, напр. щойно створена без
 // збереженого балансу) — firstMonth свідомо лишається невизначеним: ховати
 // нічого, коли й так немає жодних даних.
-function ensureInstallmentFirstMonth(){
+async function ensureInstallmentFirstMonth(){
   let changed = false;
   installmentAccounts.forEach(function(acc){
     if(acc.firstMonth) return;
@@ -2953,7 +3122,7 @@ function ensureInstallmentFirstMonth(){
     });
     if(earliest){ acc.firstMonth = earliest; changed = true; }
   });
-  if(changed) saveInstallmentAccounts();
+  if(changed) reportSaveResult(await saveInstallmentAccounts());
 }
 
 /* ============ Повний бекап / відновлення (Rev 2.3.1) ============
@@ -2964,7 +3133,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.32';
+const APP_VERSION = '2.21.33';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -2998,6 +3167,11 @@ function pilotBackupValue(key){
   if(key === LS_KEY_SUBCATEGORIES) return JSON.stringify(SUBCATEGORIES);
   if(key === LS_KEY_SUBCATEGORY_PRIORITY) return JSON.stringify(SUBCATEGORY_PRIORITY);
   if(key === LS_KEY_DICTIONARY) return JSON.stringify(DICTIONARY);
+  // Rev #28.D1
+  if(key === LS_KEY_BANKS) return JSON.stringify(bankAccounts);
+  if(key === LS_KEY_INSTALLMENTS) return JSON.stringify(installmentAccounts);
+  if(key === LS_KEY_HIDDEN) return JSON.stringify(hiddenFrom);
+  if(key === LS_KEY_IGNORED_DIVERGENCES) return JSON.stringify(ignoredDivergences);
   return undefined;
 }
 // Rev #28.C — витягнуто з exportBackup() окремою чистою функцією (без
@@ -3101,6 +3275,11 @@ async function applyBackupData(data){
     subcategories: await restoreSubcategoriesFromBackup(data[LS_KEY_SUBCATEGORIES]),
     subcategoryPriority: await restoreSubcategoryPriorityFromBackup(data[LS_KEY_SUBCATEGORY_PRIORITY]),
     dictionary: await restoreDictionaryFromBackup(data[LS_KEY_DICTIONARY]),
+    // Rev #28.D1
+    bankAccounts: await restoreBankAccountsFromBackup(data[LS_KEY_BANKS]),
+    installmentAccounts: await restoreInstallmentAccountsFromBackup(data[LS_KEY_INSTALLMENTS]),
+    hiddenFrom: await restoreHiddenFromFromBackup(data[LS_KEY_HIDDEN]),
+    ignoredDivergences: await restoreIgnoredDivergencesFromBackup(data[LS_KEY_IGNORED_DIVERGENCES]),
   };
   // Підтверджувальне перечитування (не єдине джерело присвоєння, як до
   // Stage C, — pilot-домени вже записані щойно через saveX() вище): читає
@@ -3260,15 +3439,21 @@ async function idbAdapterRemove(key){
 // прапорця зараз БЕЗКОШТОВНА — немає жодного стану в чужому браузері, який
 // довелось би мігрувати "з мігр入ції". Замінено на доменно-орієнтовану мапу.
 //
-// DOMAIN_MIGRATION_KEYS — реєстр "домен → його ключі localStorage". Наразі
-// лише 4 pilot-домени (Stage C, docs/ROADMAP.md п.28) — Stage D дописуватиме
-// сюди решту 8 доменів по одному, не чіпаючи цей блок і не вигадуючи нового
-// механізму (саме та проблема, якій це виправлення й запобігає).
+// DOMAIN_MIGRATION_KEYS — реєстр "домен → його ключі localStorage". Stage C
+// додав перші 4 (pilot), Rev #28.D1 додає ще 4 (bankAccounts/
+// installmentAccounts/hiddenFrom/ignoredDivergences) — Stage D2 дописуватиме
+// сюди останні 3 (expenses/incomes/debts) окремою ревізією, не чіпаючи цей
+// блок і не вигадуючи нового механізму (саме та проблема, якій це
+// виправлення й запобігає).
 const DOMAIN_MIGRATION_KEYS = {
   categories: [LS_KEY_CATEGORIES],
   subcategories: [LS_KEY_SUBCATEGORIES],
   subcategoryPriority: [LS_KEY_SUBCATEGORY_PRIORITY],
   dictionary: [LS_KEY_DICTIONARY],
+  bankAccounts: [LS_KEY_BANKS],
+  installmentAccounts: [LS_KEY_INSTALLMENTS],
+  hiddenFrom: [LS_KEY_HIDDEN],
+  ignoredDivergences: [LS_KEY_IGNORED_DIVERGENCES],
 };
 
 // Базова валідація одного "сирого" значення localStorage перед записом у
@@ -3440,7 +3625,7 @@ function linkedExpensesSum(installmentName, month){
 }
 
 function clearAllData(){
-  showConfirmModal('Точно видалити всі витрати, доходи й борги (включно зі списками карток/ОЧ) з цього браузера? Це незворотно.', function(){
+  showConfirmModal('Точно видалити всі витрати, доходи й борги (включно зі списками карток/ОЧ) з цього браузера? Це незворотно.', async function(){
     expenses = []; incomes = []; debts = [];
     // Rev 2.3.8 BugFix — раніше тут скидались лише expenses/incomes/debts, а
     // керовані списки bankAccounts/installmentAccounts і hiddenFrom лишались
@@ -3460,7 +3645,14 @@ function clearAllData(){
     hiddenFrom = {};
     ignoredDivergences = {}; // Rev 2.16.2 — той самий принцип: без боргів ігноровані розбіжності теж втрачають сенс
     saveExpenses(); saveIncomes(); saveDebts();
-    saveBankAccounts(); saveInstallmentAccounts(); saveHiddenFrom(); saveIgnoredDivergences();
+    // Rev #28.D1 — 4 нижче тепер routing-aware: для мігрованого домену
+    // пишуть в IndexedDB, не в localStorage — clearAllData() коректно
+    // очищує ОБИДВА можливі сховища через ту саму saveX(), не знаючи, де
+    // саме дані фізично лежать (invariant, ROADMAP п.28).
+    reportSaveResult(await saveBankAccounts());
+    reportSaveResult(await saveInstallmentAccounts());
+    reportSaveResult(await saveHiddenFrom());
+    reportSaveResult(await saveIgnoredDivergences());
     populateMonths(); renderAll();
     document.getElementById('import-status').textContent = 'Усі дані очищено.';
   });
@@ -3614,11 +3806,11 @@ function runDataDiagnostics(){
 // прийнятну (напр. переплата) і одразу перебудовує вміст УЖЕ ВІДКРИТОЇ
 // модалки на місці (без закриття/повторного відкриття — інакше користувач
 // щоразу губив би позицію прокрутки серед інших проблем).
-function ignoreDiagnosticDivergence(targetIdx){
+async function ignoreDiagnosticDivergence(targetIdx){
   const target = diagnosticIssueTargets[targetIdx];
   if(!target || target.type !== 'installment-month') return;
   ignoredDivergences[divergenceKey(target.name, target.month)] = true;
-  saveIgnoredDivergences();
+  reportSaveResult(await saveIgnoredDivergences());
   document.getElementById('app-modal-text').innerHTML = buildDiagnosticsReport();
 }
 // Rev 2.16.1 — звіт діагностики тепер у #app-modal (тимчасове повідомлення,
@@ -4483,7 +4675,7 @@ function applyEstimatedPayment(){
 // Rev 2.16.6 — єдина точка збереження ОЧ: назва+початкова сума
 // (installmentAccounts) і залишок+платіж (debts, цей місяць) разом, один тап
 // "Зберегти" в шторці — той самий принцип, що saveCardDebtDrawer() для карток.
-function saveInstallmentDrawer(){
+async function saveInstallmentDrawer(){
   const acc = installmentAccounts[editingInstallmentIdx];
   if(!acc || !selectedMonth) return;
   const newName = document.getElementById('idd-name').value.trim();
@@ -4509,7 +4701,7 @@ function saveInstallmentDrawer(){
   }else{
     flashField('idd-due-day'); return;
   }
-  saveInstallmentAccounts();
+  reportSaveResult(await saveInstallmentAccounts());
 
   const rawBal = document.getElementById('idd-balance').value.trim();
   const balance = parseAmount(rawBal);
@@ -4546,7 +4738,7 @@ function deleteInstallmentFromDrawer(){
 // Rev 2.1.24 — форма "+ Додати ОЧ" замінена на кнопку, що відкриває вже
 // наявну кастомну модалку (той самий showInstallmentModal, що й редагування
 // вже існуючої — тепер через #installment-drawer, Rev 2.16.6).
-function addInstallmentAccount(name, amount){
+async function addInstallmentAccount(name, amount){
   if(!name) return;
   if(!amount || amount<=0) return;
   if(installmentAccounts.some(a=>a.name===name)) return;
@@ -4555,13 +4747,13 @@ function addInstallmentAccount(name, amount){
   // показувалась би рядком-запрошенням заповнити її в УСІХ місяцях (включно
   // з тими, що передують її реальному створенню), захаращуючи Облік.
   installmentAccounts.push({ name, initialAmount: amount, firstMonth: selectedMonth });
-  saveInstallmentAccounts();
+  reportSaveResult(await saveInstallmentAccounts());
   populateInstallmentTable();
 }
 function openAddInstallmentModal(){
-  showInstallmentModal('Нова ОЧ:', '', '', function(name, amount){
+  showInstallmentModal('Нова ОЧ:', '', '', async function(name, amount){
     if(installmentAccounts.some(a=>a.name===name)) return false;
-    addInstallmentAccount(name, amount);
+    await addInstallmentAccount(name, amount);
   });
 }
 function removeInstallmentAccount(i){
@@ -4569,9 +4761,9 @@ function removeInstallmentAccount(i){
   showMonthPickerModal(
     `Прибрати «${stripLeadingEmoji(name)}» зі списку? Історичні записи до обраного місяця збережуться, з нього — зникне з Obligations.`,
     allMonths(), selectedMonth,
-    function(fromMonth){
+    async function(fromMonth){
       hiddenFrom[hideKey(name,'installment')] = fromMonth;
-      saveHiddenFrom();
+      reportSaveResult(await saveHiddenFrom());
       // Rev 2.3.8 BugFix — раніше тут ще й installmentAccounts.splice(i,1)
       // видаляв конфігурацію ОЧ ПОВНІСТЮ з масиву, тому запис зникав з
       // Обліку для УСІХ місяців (включно з тими, що ДО обраного "Приховати
@@ -4700,7 +4892,7 @@ function closeCardDebtEditor(){
 // "Зберегти" в шторці. Назва й ліміт лишаються обов'язковими (те саме
 // рішення, що addBankAccount) — решта полів можуть бути порожні (картка без
 // боргу цього місяця).
-function saveCardDebtDrawer(){
+async function saveCardDebtDrawer(){
   const acc = bankAccounts[editingBankIdx];
   if(!acc || !selectedMonth) return;
   const newName = document.getElementById('cdd-name').value.trim();
@@ -4716,7 +4908,7 @@ function saveCardDebtDrawer(){
   }
   acc.name = newName;
   acc.creditLimit = newLimit;
-  saveBankAccounts();
+  reportSaveResult(await saveBankAccounts());
 
   const balRaw = document.getElementById('cdd-balance').value.trim();
   const balAmount = parseAmount(balRaw);
@@ -4760,17 +4952,17 @@ function deleteCardDebtFromDrawer(){
 // самий showInstallmentModal, що для ОЧ, з іншим підписом суми) — користувач
 // явно попросив вводити ліміт одразу при створенні картки, а не окремим
 // кроком. addBankAccount() приймає обидва значення параметрами.
-function addBankAccount(name, creditLimit){
+async function addBankAccount(name, creditLimit){
   if(!name) return;
   if(bankAccounts.some(function(b){ return b.name===name; })) return;
   bankAccounts.push({ name, creditLimit: creditLimit || null });
-  saveBankAccounts();
+  reportSaveResult(await saveBankAccounts());
   populateBankDebtTable();
 }
 function openAddBankModal(){
-  showInstallmentModal('Новий банк/картка:', '', '', function(name, creditLimit){
+  showInstallmentModal('Новий банк/картка:', '', '', async function(name, creditLimit){
     if(bankAccounts.some(function(b){ return b.name===name; })) return false;
-    addBankAccount(name, creditLimit);
+    await addBankAccount(name, creditLimit);
   }, 'Кредитний ліміт');
 }
 function removeBankAccount(i){
@@ -4778,9 +4970,9 @@ function removeBankAccount(i){
   showMonthPickerModal(
     `Прибрати «${stripLeadingEmoji(name)}» зі списку? Історичні записи до обраного місяця збережуться, з нього — зникне з "Борги по картках".`,
     allMonths(), selectedMonth,
-    function(fromMonth){
+    async function(fromMonth){
       hiddenFrom[hideKey(name,'card')] = fromMonth;
-      saveHiddenFrom();
+      reportSaveResult(await saveHiddenFrom());
       // Rev 2.3.8 BugFix — той самий фікс, що для ОЧ вище: масив bankAccounts
       // більше не чіпаємо при видаленні, інакше банк зникав би з Обліку і
       // для минулих місяців теж.
@@ -5239,7 +5431,7 @@ function handleImportFile(event){
   inputEl.disabled = true;
 
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try{
       const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
       let addedExpenses = 0, addedIncomes = 0, addedDebts = 0, skipped = 0;
@@ -5487,8 +5679,9 @@ function handleImportFile(event){
       // Rev 2.11.9 (Баг #5) — щойно авто-створені вище записи (initialAmount:
       // null) ще не мають firstMonth; довизначаємо його одразу тут-таки за
       // найранішим імпортованим фактом, а не чекаємо наступного loadAll().
-      ensureInstallmentFirstMonth();
-      saveBankAccounts(); saveInstallmentAccounts();
+      await ensureInstallmentFirstMonth();
+      reportSaveResult(await saveBankAccounts());
+      reportSaveResult(await saveInstallmentAccounts());
       populateMonths();
 
       let renderWarning = '';
@@ -8537,14 +8730,19 @@ function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountL
   const btn = document.getElementById('app-modal-confirm-btn');
   btn.textContent = 'Зберегти';
   btn.className = 'submit-btn';
-  btn.onclick = function(){
+  // Rev #28.D1 — onSave (openAddInstallmentModal/openAddBankModal) тепер
+  // async (пише через pilot/D1 Repository-функції) — той самий фікс, що
+  // showCategoryModal/showSubcategoryModal/showDictionaryModal у Stage C:
+  // без await `ok` був би Promise-об'єктом (завжди truthy), і валідація
+  // дубліката назви ніколи не спрацювала б.
+  btn.onclick = async function(){
     const name = input.value.trim();
     const amount = parseAmount(amountInput.value);
     let valid = true;
     if(!name){ flashField('app-modal-input'); valid = false; }
     if(!amount || isNaN(amount) || amount<=0){ flashField('app-modal-amount-input'); valid = false; }
     if(!valid) return;
-    const ok = onSave(name, amount);
+    const ok = await onSave(name, amount);
     if(ok === false){ flashField('app-modal-input'); return; } // дублікат — завжди про назву
     closeAppModal();
   };
