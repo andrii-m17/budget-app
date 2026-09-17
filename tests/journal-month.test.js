@@ -180,14 +180,18 @@ test('filterJournalRecords: без запиту й категорії — пов
   assert.deepEqual(ctx.filterJournalRecords(records, '', ''), records);
 });
 
-test('filterJournalRecords: текстовий пошук знаходить і за підкатегорією, не лише назвою', () => {
+// Rev 2.21.13 — текстовий пошук за підкатегорією (Rev 2.20.1) прибрано за
+// проханням користувача (неправильно розпізнане завдання — малась на увазі
+// лише окрема ФІЛЬТР-опція за підкатегорією, journalSearchSubcategory,
+// не чіпали). Пошук тепер знову лише за НАЗВОЮ.
+test('filterJournalRecords: текстовий пошук шукає лише за назвою, НЕ за підкатегорією', () => {
   const ctx = sandbox();
   const records = [
     { kind: 'expense', name: 'Латте на виніс', category: '🍔 Їжа', subcategory: 'Кафе' },
     { kind: 'expense', name: 'Хліб і молоко', category: '🍔 Їжа', subcategory: 'Продукти' },
   ];
   const result = ctx.filterJournalRecords(records, 'кафе', '');
-  assert.deepEqual(result.map(r => r.name), ['Латте на виніс']);
+  assert.deepEqual(result, []);
 });
 
 test('filterJournalRecords: запис без підкатегорії не падає (undefined subcategory)', () => {
