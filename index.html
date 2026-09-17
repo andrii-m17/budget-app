@@ -1091,6 +1091,10 @@
      має 24px padding від картки) - прибираємо, щоб "Обов'язкові платежі" влізло в один рядок ---- */
   @media (max-width:767px){
     .kpi-strip-item:nth-child(even){ padding-right:0; }
+    /* Rev 2.21.12 — на mobile (одна колонка) "ОСТАННІ ЗАПИСИ" йде одразу під
+       карткою "Нова витрата" — стандартного margin-top:26px (.section-label)
+       виявилось замало, підпис читався як "приклеєний" до картки над ним. */
+    #vytraty-default-view .vytraty-recent-col .section-label{ margin-top:34px; }
   }
   /* BugFix Rev 2.0.7: справжня причина того, що <input type="date"> вилазив
      за межі картки — iOS Safari в певних версіях ІГНОРУЄ width:100% для цього
@@ -1132,23 +1136,21 @@
      одне під одним на всю ширину, як на mobile (<768px, лишається без змін).
      Rev 2.21.4/2.21.10 пробували вирівняти висоту через розтягування
      колонки (align-items:stretch) + компактні рядки/margin:auto на кнопці —
-     відкочено в Rev 2.21.11 за проханням користувача, жодного "штучного"
-     розтягування (align-items:start, без stretch/margin:auto).
-     Виміряно наживо (SHORT_JOURNAL_LIMIT=6, без стискання рядків): у
-     НАЙГІРШОМУ випадку (6 записів — 6 РІЗНИХ днів) список ≈700px, а форма
-     (компактні поля ≥1280px, Rev 2.1.2) лише ≈320-396px — список НАБАГАТО
-     вищий за форму, не навпаки. Щоб форма "наздогнала" це лише відступами,
-     довелось би майже подвоїти проміжки між полями — виглядало б зламано.
-     Поміркований компроміс (за проханням): (а) рядки списку СТИСНУТІ, але
-     не екстремально, як Rev 2.21.10 (нижче); (б) форма отримала помітно
-     більші, але не гротескні відступи між полями (.vytraty-form-spacious
-     нижче) — обидва підібрані вимірюванням так, щоб зійтись приблизно на
-     одному рівні в НАЙГІРШОМУ випадку (6 різних днів). Якщо в реальних
-     даних записів менше днів (компактніший список) — права колонка законно
-     виявиться нижчою за форму (align-items:start, без стретчу) — це
-     очікувано й свідомо, за проханням користувача. */
+     відкочено в Rev 2.21.11 (align-items:start + збільшені відступи форми,
+     щоб "наздогнати" найгірший випадок списку — 6 записів різних днів
+     ≈700px проти форми ≈320-396px) — та відкочено ЩЕ РАЗ у Rev 2.21.12,
+     за остаточним рішенням користувача: замість намагання зрівняти висоти
+     впритул (що вимагало б майже подвоїти відступи форми — виглядало б
+     зламано), форма лишається БЛИЗЬКОЮ до стандартного розміру (лише
+     символічно більша, .vytraty-form-spacious нижче — суто естетична
+     "легкість", а не спроба досягти конкретної висоти), а сама ПОЗИЦІЯ
+     форми в рядку тепер по ВЕРТИКАЛЬНОМУ ЦЕНТРУ висоти правої колонки
+     (align-items:center, було start) — права колонка (список) лишається
+     природної висоти (з поміркованим стисканням рядків нижче, суто
+     естетичним, не для підгонки висот), а форма просто центрується поруч із
+     нею, а не притискається до верхнього краю з порожнечею знизу. */
   @media (min-width:768px){
-    #vytraty-default-view{ display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:24px; align-items:start; }
+    #vytraty-default-view{ display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:24px; align-items:center; }
     #vytraty-default-view .vytraty-recent-col{ min-width:0; }
     #vytraty-default-view .vytraty-recent-col .journal-day-group{ margin-bottom:12px; }
     #vytraty-default-view .vytraty-recent-col .journal-day-head{ padding:0 2px 6px; margin-bottom:8px; }
@@ -1156,13 +1158,13 @@
     #vytraty-default-view .vytraty-recent-col .jdh-net{ font-size:11.5px; }
     #vytraty-default-view .vytraty-recent-col .expense-row{ padding:9px 12px; margin-bottom:6px; }
     #vytraty-default-view .vytraty-recent-col .expense-row .exp-name{ font-size:13.5px; }
-    /* .vytraty-form-spacious — навмисно більші (не гротескні) відступи між
-       полями форми "Нова витрата", підібрані вимірюванням разом зі
-       стисканням списку вище так, щоб зійтись приблизно на одному рівні у
-       найгіршому випадку (6 записів різних днів). */
-    #vytraty-default-view .entry-card.vytraty-form-spacious .field{ margin-bottom:76px; }
-    #vytraty-default-view .entry-card.vytraty-form-spacious .entry-title{ margin-bottom:56px; }
-    #vytraty-default-view .entry-card.vytraty-form-spacious .submit-btn{ margin-top:20px; padding-top:17px; padding-bottom:17px; }
+    /* .vytraty-form-spacious — Rev 2.21.12: символічне збільшення (не для
+       підгонки під висоту списку — це тепер робить align-items:center вище)
+       — трохи просторіші відступи між полями/заголовком/кнопкою, щоб форма
+       не виглядала надто стиснутою поруч із центрованим положенням. */
+    #vytraty-default-view .entry-card.vytraty-form-spacious .field{ margin-bottom:22px; }
+    #vytraty-default-view .entry-card.vytraty-form-spacious .entry-title{ margin-bottom:16px; }
+    #vytraty-default-view .entry-card.vytraty-form-spacious .submit-btn{ margin-top:10px; padding-top:15px; padding-bottom:15px; }
   }
   /* ---- Tablet (768–1279px): навігація як на mobile (нижня), але сітка на 2 колонки ---- */
   @media (min-width:768px) and (max-width:1279px){
@@ -1997,7 +1999,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.11</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.12</div>
 </div>
   </div>
 </div>
@@ -2525,7 +2527,7 @@ function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.11';
+const APP_VERSION = '2.21.12';
 const BACKUP_LS_KEYS = [
   LS_KEY_EXP, LS_KEY_INC, LS_KEY_DEBT, LS_KEY_BANKS, LS_KEY_INSTALLMENTS, LS_KEY_HIDDEN,
   LS_KEY_CATEGORIES, LS_KEY_SUBCATEGORIES, LS_KEY_SUBCATEGORY_PRIORITY, LS_KEY_DICTIONARY,
