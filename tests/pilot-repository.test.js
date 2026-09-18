@@ -18,6 +18,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const nodeCrypto = require('node:crypto');
 const { buildSandbox, evalInSandbox } = require('./extract');
 
 // Та сама пастка vm.Context, що вже tests/storage-adapter.test.js — const/
@@ -30,6 +31,22 @@ function readConst(ctx, name){ return evalInSandbox(ctx, name); }
 // ІНШОМУ реалмі — assert.deepEqual падає навіть при структурному збігу.
 // JSON-round-trip нормалізує їх як звичайні дані головного реалму.
 function plain(x){ return JSON.parse(JSON.stringify(x)); }
+
+// Rev #30 (6D.1) — лічильник викликів для перевірки "saveX() викликається
+// ЛИШЕ за реальної зміни" (changed-прапорець в ensureIncomeIdentity/
+// ensureDebtIdentity/ensureExpenseIdentity). Підміна властивості на
+// context-об'єкті працює так само, як уже підмінені loadAll/reportSaveResult
+// вище: top-level function-декларації з index.html виконуються в
+// НЕ-строгому режимі як властивості глобального об'єкта vm.Context, тому
+// виклик `saveExpenses()` УСЕРЕДИНІ ensureExpenseIdentity() резолвиться
+// через той самий глобальний об'єкт і побачить підміну, зроблену вже ПІСЛЯ
+// buildSandbox().
+function spyOn(ctx, name){
+  const original = ctx[name];
+  let calls = 0;
+  ctx[name] = function(...args){ calls++; return original.apply(this, args); };
+  return { count: () => calls };
+}
 
 function fakeLocalStorage(initial){
   const map = new Map(Object.entries(initial || {}));
@@ -97,6 +114,13 @@ const REPOSITORY_NAMES = [
   'saveExpenses', 'saveIncomes', 'saveDebts',
   'restoreExpensesFromBackup', 'restoreIncomesFromBackup', 'restoreDebtsFromBackup',
   'pilotBackupKeys', 'pilotBackupValue', 'buildBackupPayloadData', 'applyBackupData',
+  // Rev #30 (6D.1) — генерація/нормалізація id (UUID_FORMAT_RE — const,
+  // мусить іти ПЕРЕД функціями, що на неї посилаються, хоч TDZ тут і не
+  // критичний: тіла ensureIncomeIdentity/ensureDebtIdentity виконуються
+  // лише при явному виклику, вже після того, як увесь sandbox-скрипт
+  // відпрацював).
+  'UUID_FORMAT_RE', 'generateUUID',
+  'ensureExpenseIdentity', 'ensureIncomeIdentity', 'ensureDebtIdentity',
 ];
 
 function sandbox({ localStorageInitial, idbImpl } = {}){
@@ -118,6 +142,12 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       expenses: [],
       incomes: [],
       debts: [],
+      // Rev #30 (6D.1) — generateUUID() перевіряє window.crypto.randomUUID
+      // (справжній шлях у браузері) — vm.Context не має глобального `window`,
+      // тому підставляємо мінімальну заглушку поверх реального Node
+      // node:crypto.randomUUID (не власний фейковий генератор — тест мусить
+      // ганяти РЕАЛЬНИЙ формат UUID v4, а не свій імітований).
+      window: { crypto: { randomUUID: () => nodeCrypto.randomUUID() } },
       // Rev #28.C — loadAll() САМА (як функція) не під тестом тут: навіть
       // після Rev #28.D2 (усі 7 доменів делегують окремим loadX()) вона й
       // далі закінчується DOM-рендером (populateMonths/renderAll/
@@ -664,3 +694,185 @@ test('acceptance D2: mixed-storage — expenses мігровано, incomes/debt
   assert.equal(freshCtx.localStorage.getItem('budget_incomes_v1'), JSON.stringify(fixture.incomes));
   assert.equal(freshCtx.localStorage.getItem('budget_debts_v1'), JSON.stringify(fixture.debts));
 });
+
+/* ============ Rev #30 (6D.1): ensureExpenseIdentity/ensureIncomeIdentity/
+   ensureDebtIdentity — технічний борг: ці три функції існували з Rev 2.11.2
+   (expenses) і Rev 2.21.37 (incomes/debts) без unit-тестів, покриті лише
+   живою browser-перевіркою. Ризик, названий явно: "save лише за changed" —
+   умовна гілка, яку легко тихо зламати майбутнім рефакторингом (#31 Sync
+   Engine). П'ять симетричних кейсів на кожну функцію: старий формат →
+   новий UUID; вже валідний UUID → НЕ перегенеровується; змішаний масив →
+   лише невалідні замінені; порожній масив → без помилок і без save;
+   ідемпотентність — другий виклик на вже мігрований масив save не кличе. ============ */
+
+const VALID_UUID_1 = '11111111-1111-4111-8111-111111111111';
+const VALID_UUID_2 = '22222222-2222-4222-8222-222222222222';
+const OLD_FORMAT_ID = '1700000000000abcd'; // Date.now()+Math.random().toString(36).slice(2,6), формат до Rev 2.21.37
+
+test('ensureExpenseIdentity: старий запис без id → отримує UUID, решта полів незмінна', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [{ date: '2026-09-01', name: 'Кава', amount: 65, category: '🍔 Харчування', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveExpenses');
+  await ctx.ensureExpenseIdentity();
+  assert.match(ctx.expenses[0].id, UUID_FORMAT_RE_JS());
+  assert.equal(ctx.expenses[0].name, 'Кава');
+  assert.equal(ctx.expenses[0].amount, 65);
+  assert.equal(ctx.expenses[0].createdAt, '2026-09-01T00:00:00.000Z'); // не зачеплено цим кроком
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureExpenseIdentity: запис уже з валідним UUID → id не змінюється, save не викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [{ id: VALID_UUID_1, date: '2026-09-01', name: 'Кава', amount: 65, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveExpenses');
+  await ctx.ensureExpenseIdentity();
+  assert.equal(ctx.expenses[0].id, VALID_UUID_1);
+  assert.equal(spy.count(), 0);
+  assert.equal(ctx.localStorage.getItem('budget_expenses_v1'), null);
+});
+
+test('ensureExpenseIdentity: змішаний масив → лише запис без id замінено, валідний лишається', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [
+    { id: VALID_UUID_1, date: '2026-09-01', name: 'Кава', amount: 65, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' },
+    { date: '2026-09-02', name: 'Обід', amount: 200, category: '', subcategory: '', manual: true, createdAt: '2026-09-02T00:00:00.000Z', updatedAt: '2026-09-02T00:00:00.000Z' },
+  ];
+  await ctx.ensureExpenseIdentity();
+  assert.equal(ctx.expenses[0].id, VALID_UUID_1); // валідний — незмінний
+  assert.match(ctx.expenses[1].id, UUID_FORMAT_RE_JS()); // невалідний (був відсутній) — замінений
+});
+
+test('ensureExpenseIdentity: порожній масив → без помилок, save не викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [];
+  const spy = spyOn(ctx, 'saveExpenses');
+  await assert.doesNotReject(ctx.ensureExpenseIdentity());
+  assert.equal(spy.count(), 0);
+});
+
+test('ensureExpenseIdentity: ідемпотентність — другий виклик на вже мігрований масив save не кличе, id той самий', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [{ date: '2026-09-01', name: 'Кава', amount: 65, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveExpenses');
+  await ctx.ensureExpenseIdentity();
+  assert.equal(spy.count(), 1);
+  const idAfterFirstCall = ctx.expenses[0].id;
+  await ctx.ensureExpenseIdentity();
+  assert.equal(spy.count(), 1); // другий виклик НЕ зберігав
+  assert.equal(ctx.expenses[0].id, idAfterFirstCall);
+});
+
+test('ensureIncomeIdentity: старий формат id (Date.now()+random) → новий UUID, решта полів незмінна', async () => {
+  const { ctx } = sandbox();
+  ctx.incomes = [{ id: OLD_FORMAT_ID, date: '2026-09-01', source: 'Інші доходи', amount: 1234 }];
+  const spy = spyOn(ctx, 'saveIncomes');
+  await ctx.ensureIncomeIdentity();
+  assert.match(ctx.incomes[0].id, UUID_FORMAT_RE_JS());
+  assert.notEqual(ctx.incomes[0].id, OLD_FORMAT_ID);
+  assert.equal(ctx.incomes[0].source, 'Інші доходи');
+  assert.equal(ctx.incomes[0].amount, 1234);
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureIncomeIdentity: запис уже з валідним UUID → id не змінюється, save не викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.incomes = [{ id: VALID_UUID_1, date: '2026-09-01', source: 'Інші доходи', amount: 1234 }];
+  const spy = spyOn(ctx, 'saveIncomes');
+  await ctx.ensureIncomeIdentity();
+  assert.equal(ctx.incomes[0].id, VALID_UUID_1);
+  assert.equal(spy.count(), 0);
+  assert.equal(ctx.localStorage.getItem('budget_incomes_v1'), null);
+});
+
+test('ensureIncomeIdentity: змішаний масив → лише невалідний id замінено', async () => {
+  const { ctx } = sandbox();
+  ctx.incomes = [
+    { id: VALID_UUID_1, date: '2026-09-01', source: 'Зарплата Андрій', amount: 20000 },
+    { id: OLD_FORMAT_ID, date: '2026-09-01', source: 'Зарплата Оля', amount: 18000 },
+  ];
+  await ctx.ensureIncomeIdentity();
+  assert.equal(ctx.incomes[0].id, VALID_UUID_1);
+  assert.match(ctx.incomes[1].id, UUID_FORMAT_RE_JS());
+  assert.notEqual(ctx.incomes[1].id, OLD_FORMAT_ID);
+});
+
+test('ensureIncomeIdentity: порожній масив → без помилок, save не викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.incomes = [];
+  const spy = spyOn(ctx, 'saveIncomes');
+  await assert.doesNotReject(ctx.ensureIncomeIdentity());
+  assert.equal(spy.count(), 0);
+});
+
+test('ensureIncomeIdentity: ідемпотентність — другий виклик на вже мігрований масив save не кличе, id той самий', async () => {
+  const { ctx } = sandbox();
+  ctx.incomes = [{ id: OLD_FORMAT_ID, date: '2026-09-01', source: 'Інші доходи', amount: 1234 }];
+  const spy = spyOn(ctx, 'saveIncomes');
+  await ctx.ensureIncomeIdentity();
+  assert.equal(spy.count(), 1);
+  const idAfterFirstCall = ctx.incomes[0].id;
+  await ctx.ensureIncomeIdentity();
+  assert.equal(spy.count(), 1);
+  assert.equal(ctx.incomes[0].id, idAfterFirstCall);
+});
+
+test('ensureDebtIdentity: старий формат id (Date.now()+random) → новий UUID, решта полів незмінна (kind:card)', async () => {
+  const { ctx } = sandbox();
+  ctx.debts = [{ id: OLD_FORMAT_ID, name: '🟩 Приват Банк', kind: 'card', month: '2026-09', balance: 5000, minPayment: null, minPaymentDone: false }];
+  const spy = spyOn(ctx, 'saveDebts');
+  await ctx.ensureDebtIdentity();
+  assert.match(ctx.debts[0].id, UUID_FORMAT_RE_JS());
+  assert.notEqual(ctx.debts[0].id, OLD_FORMAT_ID);
+  assert.equal(ctx.debts[0].name, '🟩 Приват Банк');
+  assert.equal(ctx.debts[0].balance, 5000);
+  assert.equal(ctx.debts[0].minPaymentDone, false);
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureDebtIdentity: запис уже з валідним UUID → id не змінюється, save не викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.debts = [{ id: VALID_UUID_1, name: 'iPhone', kind: 'installment', month: '2026-09', balance: 20000, monthlyPayment: 2000 }];
+  const spy = spyOn(ctx, 'saveDebts');
+  await ctx.ensureDebtIdentity();
+  assert.equal(ctx.debts[0].id, VALID_UUID_1);
+  assert.equal(spy.count(), 0);
+  assert.equal(ctx.localStorage.getItem('budget_debts_v1'), null);
+});
+
+test('ensureDebtIdentity: змішаний масив (card+installment) → лише невалідний id замінено', async () => {
+  const { ctx } = sandbox();
+  ctx.debts = [
+    { id: VALID_UUID_2, name: '🟩 Приват Банк', kind: 'card', month: '2026-09', balance: 5000 },
+    { id: OLD_FORMAT_ID, name: 'iPhone', kind: 'installment', month: '2026-09', balance: 20000 },
+  ];
+  await ctx.ensureDebtIdentity();
+  assert.equal(ctx.debts[0].id, VALID_UUID_2);
+  assert.match(ctx.debts[1].id, UUID_FORMAT_RE_JS());
+  assert.notEqual(ctx.debts[1].id, OLD_FORMAT_ID);
+});
+
+test('ensureDebtIdentity: порожній масив → без помилок, save не викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.debts = [];
+  const spy = spyOn(ctx, 'saveDebts');
+  await assert.doesNotReject(ctx.ensureDebtIdentity());
+  assert.equal(spy.count(), 0);
+});
+
+test('ensureDebtIdentity: ідемпотентність — другий виклик на вже мігрований масив save не кличе, id той самий', async () => {
+  const { ctx } = sandbox();
+  ctx.debts = [{ id: OLD_FORMAT_ID, name: '🟩 Приват Банк', kind: 'card', month: '2026-09', balance: 5000 }];
+  const spy = spyOn(ctx, 'saveDebts');
+  await ctx.ensureDebtIdentity();
+  assert.equal(spy.count(), 1);
+  const idAfterFirstCall = ctx.debts[0].id;
+  await ctx.ensureDebtIdentity();
+  assert.equal(spy.count(), 1);
+  assert.equal(ctx.debts[0].id, idAfterFirstCall);
+});
+
+// UUID_FORMAT_RE — властивість vm.Context, не звичайний RegExp головного
+// реалму (та сама cross-realm пастка, що plain(): `instanceof RegExp` і
+// assert.match() з іншого реалму можуть повестись несподівано) — власна
+// копія того самого патерну в реалмі тесту, лише для читабельних asserts.
+function UUID_FORMAT_RE_JS(){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i; }
