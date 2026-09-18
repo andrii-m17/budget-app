@@ -110,7 +110,7 @@ const REPOSITORY_NAMES = [
   // включені лише тому, що saveCategoriesLocal/pushCategoriesPilot фізично
   // посилаються на них (навіть недосяжним для тестів кодом).
   'isSupabaseSdkReady', 'getSupabaseClient', 'loadCloudFamilyId', 'clearCloudFamilyId',
-  'saveCategories', 'saveCategoriesLocal', 'pushCategoriesPilot',
+  'saveCategories', 'saveCategoriesLocal', 'pushCategoriesPilot', 'reconcileCategoryCloudId',
   'saveSubcategories', 'saveSubcategoryPriority', 'saveDictionary',
   'restoreCategoriesFromBackup', 'restoreSubcategoriesFromBackup',
   'restoreSubcategoryPriorityFromBackup', 'restoreDictionaryFromBackup',

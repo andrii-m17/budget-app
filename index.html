@@ -2320,7 +2320,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.38</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.39</div>
 </div>
   </div>
 </div>
@@ -2767,6 +2767,19 @@ async function saveCategoriesLocal(){
 // наступних викликів. Мережева помилка на ОДНОМУ записі не перериває
 // прохід решти масиву (кожен try/catch — незалежний), і НІКОЛИ не
 // відкочує вже збережені локальні дані.
+//
+// BugFix (6D) — виявлено незалежною перевіркою бази: другий пристрій (та
+// сама family, окрема локальна IndexedDB, `cloudId` там ще ні на чому не
+// стоїть) без name-based reconciliation дублював би КОЖНУ категорію при
+// першому ж push (11 пар дублікатів на iPhone). Перед INSERT (як за
+// відсутності cloudId, так і коли UPDATE виявив "висячий" cloudId — рядок
+// уже видалено/не існує, 0 змінених рядків) — спершу пошук за
+// name+family_id: той самий принцип, що вже Family Bridge (name-based
+// reconciliation при об'єднанні даних з різних джерел, FINANCIAL_RULES),
+// тепер застосований до Cloud push. Перевірено (6D): `name` — гарантовано
+// унікальний локальний ключ (перевірка і при створенні, і при
+// перейменуванні), омонімії "різні локальні категорії → один Cloud-рядок"
+// не існує.
 async function pushCategoriesPilot(){
   if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
   if(!isSupabaseSdkReady()) return;
@@ -2776,10 +2789,20 @@ async function pushCategoriesPilot(){
   for(const cat of CATEGORIES){
     try{
       if(cat.cloudId){
-        await client.from('categories').update({ name: cat.name, active: cat.active, updated_by: userId }).eq('id', cat.cloudId);
+        const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, updated_by: userId }).eq('id', cat.cloudId).select('id');
+        if(error) continue;
+        if(data && data.length === 0){
+          // "Висячий" cloudId — не мережева помилка, а сигнал, що рядок з
+          // таким id більше не існує (напр. видалений вручну дублікат).
+          // Самозцілення: скидаємо cloudId і йдемо тим самим шляхом
+          // reconciliation, що й запис без cloudId узагалі.
+          cat.cloudId = null;
+          await reconcileCategoryCloudId(client, userId, cat);
+          localChanged = true;
+        }
       }else{
-        const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, created_by: userId, updated_by: userId }).select('id').single();
-        if(!error && data){ cat.cloudId = data.id; localChanged = true; }
+        await reconcileCategoryCloudId(client, userId, cat);
+        if(cat.cloudId) localChanged = true;
       }
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск,
@@ -2787,6 +2810,16 @@ async function pushCategoriesPilot(){
     }
   }
   if(localChanged) await saveCategoriesLocal();
+}
+// Rev #30 (6D fix) — спершу шукаємо ІСНУЮЧИЙ Cloud-рядок за name+family_id
+// (coalesce з тим, що вже запушив інший пристрій), і лише за відсутності —
+// створюємо новий. Викликається і для "немає cloudId", і для "cloudId
+// виявився висячим" (той самий механізм, каузально інакший вхідний стан).
+async function reconcileCategoryCloudId(client, userId, cat){
+  const { data: existing } = await client.from('categories').select('id').eq('family_id', cloudFamilyId).eq('name', cat.name).maybeSingle();
+  if(existing){ cat.cloudId = existing.id; return; }
+  const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, created_by: userId, updated_by: userId }).select('id').single();
+  if(!error && data) cat.cloudId = data.id;
 }
 async function saveSubcategories(){
   if(isDomainMigrated('subcategories')){
@@ -3318,7 +3351,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.38';
+const APP_VERSION = '2.21.39';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
