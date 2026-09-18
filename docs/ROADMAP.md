@@ -1808,6 +1808,138 @@ delete/hide/clearAllData/reload/backup-restore/симуляція-збою; ⏳
 **iPhone-тест — обов'язковий крок користувача перед стартом Stage D2**
 (фінансова природа даних, без відкладання).
 
+**Підтверджено користувачем:** усі 4 D1-домени живуть на iOS без регресій.
+
+#### Stage D2 — Критичні дані, частина 2 (Rev 2.21.34) — #28 ЗАВЕРШЕНО
+
+Фінальний крок: `expenses`, `incomes`, `debts` — найвища частота запису,
+найцентральніші для `FINANCIAL_RULES`.
+
+**Обов'язкова перевірка перед кодом (глибша за D1, за явним запитом
+користувача) — 5 пунктів, усі перевірені явно:**
+1. **Порядок `await`-завантаження.** `installmentAccounts` (D1) читає
+   module-level `debts` для fallback-реконструкції — Stage D1 залишив цю
+   залежність на "порядок рядків монолітного `loadAll()`". Тепер, коли
+   `debts` теж окрема `loadX()`-функція, порядок вирішено ЯВНО:
+   `loadAll()` викликає `await loadDebts()` ПОВНІСТЮ ДО
+   `await loadInstallmentAccounts()` — залежність та сама, механізм
+   тепер явний await-ланцюжок, а не побічний ефект порядку рядків.
+2. **Дедуплікація/імпорт.** `computeImportPlan(incoming, existingExpenses)`
+   вже приймає `existingExpenses` явним параметром (не замиканням) —
+   викликається з `expenses` (module-level, уже завантажений). Excel-
+   імпорт (`handleImportFile`) так само читає `expenses`/`debts` як
+   module-level масиви, ніде не звертається до `localStorage` напряму.
+   Жодної прихованої залежності від sync/async доступу не знайдено.
+3. **Auto-link (`detectInstallmentMatches`).** Закривається на
+   `installmentAccounts` (module-level), не бере `expenses` як параметр
+   узагалі (лише текст+місяць) — той самий факт, що вже зафіксовано для
+   `estimateInstallment()` у Stage D1, форсована зміна НЕ зроблена.
+4. **Carry-forward pre-fill.** `openInstallmentEditor()`/
+   `openCardDebtEditor()` читають `debts`/`installmentAccounts` лише щоб
+   заповнити DOM `.value` — жодного запису. Єдиний шлях персистенції —
+   явний клік "Зберегти" (`saveInstallmentDrawer()`/`saveCardDebtDrawer()`,
+   окремий виклик). "Pre-fill ніколи не auto-commit" не під загрозою
+   async-межі — pre-fill і save ніде не в одній функції.
+5. **Валідації "не credit card"/"цілі гривні".** `parseAmount()`
+   (`Math.round`) — синхронний парсер INPUT-рядка, виконується ДО будь-
+   якого `saveX()`, async-межа його не зачіпає. "Card balance ніколи не
+   expense" — структурне розділення масивів (`debts[]` через
+   `saveCardDebtDrawer()`, `expenses[]` через форму витрати) — два
+   різних UI-входи, дві різні Repository-функції, не runtime-перевірка,
+   яку можна було б випадково розмістити не по той бік межі.
+
+**`loadAll()` тепер повністю делегує всі 7 "великих" доменів** (Stage D1
+лишало `expenses`/`incomes`/`debts` інлайн — саме це виправлено тут):
+```js
+async function loadAll(){
+  await loadExpenses();
+  await ensureExpenseIdentity();
+  ensureSchemaVersion();
+  await loadIncomes();
+  await loadDebts();
+  await loadBankAccounts();
+  await loadInstallmentAccounts(); // після await loadDebts() — явно
+  await loadHiddenFrom();
+  await loadIgnoredDivergences();
+  await ensureInstallmentFirstMonth();
+  populateMonths(); renderAll(); renderStructure();
+}
+```
+
+**Seed-on-first-read — підтверджено, не за аналогією.** `expenses`/
+`incomes`/`debts` — та сама категорія, що `hiddenFrom`/`ignoredDivergences`
+(D1): немає константного дефолту (як `DEFAULT_BANKS`) І немає
+реконструкції з іншого домену (як `installmentAccounts`) — просто `[]`.
+Жодної seed-логіки не потрібно в жодній з двох гілок — перевірено явно
+читанням коду `loadAll()` ДО правок, не припущено за схожістю з D1.
+
+**`debtUiStatus()`/`debtAsOfInfo()` (#21+#23).** Закриваються на `debts`
+(module-level), не знають про storage — жива перевірка підтверджує: КПІ
+"Борг" і статус-дот коректно відображають дані після reload, незалежно
+від джерела (IndexedDB чи localStorage).
+
+**Backup/restore розширено на 3 фінальні домени** — перевірено явно
+(за прецедентом D1): `pilotBackupValue()`/`applyBackupData()`'s `results{}`
+отримали 3 нові гілки + `restoreExpensesFromBackup`/
+`restoreIncomesFromBackup`/`restoreDebtsFromBackup` (parse+fallback-[]+
+save, БЕЗ спецвипадку "видалити ключ", на відміну від
+`restoreInstallmentAccountsFromBackup` — тут немає чужої реконструкції,
+яку можна заблокувати). Після цієї ревізії `nonPilotKeys` (у
+`applyBackupData()`) звужується до ЄДИНОГО ключа — `LS_KEY_SCHEMA_VERSION`
+(метадані схеми, навмисно поза `DOMAIN_MIGRATION_KEYS` назавжди, той
+самий принцип, що `LS_KEY_MIGRATION_STATUS`/theme/draft) — generic-цикл
+і далі коректно його обробляє без жодної зміни коду.
+
+**`DOMAIN_MIGRATION_KEYS` — усі 11 доменів охоплені** (14 ключів застосунку
+мінус `theme`/`draft`, свідомо назавжди на `localStorage`, мінус
+`LS_KEY_SCHEMA_VERSION`, метадані не домен): `categories`,
+`subcategories`, `subcategoryPriority`, `dictionary`, `bankAccounts`,
+`installmentAccounts`, `hiddenFrom`, `ignoredDivergences`, `expenses`,
+`incomes`, `debts`.
+
+**Тестування:** `tests/pilot-repository.test.js` розширено до 11 доменів
+(36 тестів, +9 нових: routing `loadExpenses`/`saveExpenses`/…, легітимно-
+порожній стан без seed, `restoreXFromBackup` без спецвипадку, окремий
+acceptance-тест mixed-storage для D2 з реальною `installmentAccounts`↔
+`debts` реконструкцією після restore). `tests/storage-adapter.test.js` —
+`DOMAIN_MIGRATION_KEYS` тепер перевіряється на всі 11. Разом:
+**`node --test` 161/161**.
+
+**Жива перевірка в браузері** (localhost, справжня IndexedDB): чистий
+старт — усі 11 доменів мігрували, консоль без помилок; реальний UI-клік
+"Додати витрату" (`addExpense()`) → IndexedDB, не localStorage; дохід
+через `saveIncomeDrawer()` → IndexedDB; борг по картці через
+`saveCardDebtDrawer()` → IndexedDB (валідація "Кредитний ліміт
+обов'язковий" коректно спрацювала першою спробою — не баг, очікувана
+поведінка); повний `reload` — усі 3 домени + КПІ "Доходи/Витрати/Баланс/
+Борг" на Аналітиці коректні; симуляція збою запису → банер з'явився й
+зник; повний export→restore (усі 12 ключів бекапу, mixed-стан із
+"привидами" в усіх 3 доменах) → привиди зникли, точний стан бекапу
+відтворено, усі 11 `results{}` — success; `clearAllData()` через реальний
+confirm-modal → усі 3 домени коректно обнулені в IndexedDB.
+
+**DoD Stage D2:** ✅ порядок `await`-завантаження `debts`→
+`installmentAccounts` вирішено явно й задокументовано; ✅ дедуплікація/
+імпорт перевірені на приховані sync-залежності (не знайдено); ✅
+auto-link/carry-forward зафіксовані як "замикання на module-level, не
+знають про storage" (не змінено, поза скоупом); ✅ валідації "не credit
+card"/"цілі гривні" лишаються на тому самому боці операції (структурне
+розділення, не runtime-перевірка); ✅ `DOMAIN_MIGRATION_KEYS` — усі 11
+доменів; ✅ `debtUiStatus()` коректно працює (жива перевірка); ✅
+backup/restore розширено й перевірено явно для 3 доменів; ✅ помилка
+запису — той самий банер; ✅ усі call sites — `await`-ed (перевірено
+`grep`'ом); ✅ `node --test` 161/161; ✅ жива перевірка додати/
+редагувати/видалити витрату/дохід/борг, export→restore, `clearAllData`,
+reload, симуляція збою; ⏳ **iPhone-тест — фінальна й найважливіша
+перевірка всього #28, обов'язковий крок користувача**.
+
+**#28 "Перехід із localStorage → IndexedDB" — усі 4 стадії (A/B/C/D1/D2)
+завершено цією ревізією**, за умови підтвердження iPhone-тесту. Після
+цього `localStorage` остаточно стає read-only архівом для всіх
+фінансових даних застосунку — жива authoritative storage для всього,
+крім `theme`/`draft`/`LS_KEY_MIGRATION_STATUS`/`LS_KEY_SCHEMA_VERSION`
+(4 свідомих, задокументованих винятки), — тепер IndexedDB.
+
 ### 29. Рефакторинг модалки `#app-modal`
 
 🔎 Перевірено в коді — досі одна модалка обслуговує всі сценарії. Технічний борг не

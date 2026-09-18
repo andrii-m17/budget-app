@@ -125,12 +125,13 @@ test('isIdbLibraryReady: глобальний idb відсутній → false (
 
 /* ============ DOMAIN_MIGRATION_KEYS ============ */
 
-test('DOMAIN_MIGRATION_KEYS: 4 pilot-домени (Stage C) + 4 D1-домени (Rev #28.D1), кожен → свій єдиний ключ', () => {
+test('DOMAIN_MIGRATION_KEYS: 4 pilot (Stage C) + 4 D1 + 3 D2 (Rev #28.D2) — усі 11 доменів, кожен → свій єдиний ключ', () => {
   const { ctx } = sandbox();
   const map = readConst(ctx, 'DOMAIN_MIGRATION_KEYS');
   assert.deepEqual(Object.keys(map).sort(), [
     'categories', 'dictionary', 'subcategories', 'subcategoryPriority',
     'bankAccounts', 'installmentAccounts', 'hiddenFrom', 'ignoredDivergences',
+    'expenses', 'incomes', 'debts',
   ].sort());
   assert.deepEqual(Array.from(map.categories), [readConst(ctx, 'LS_KEY_CATEGORIES')]);
   assert.deepEqual(Array.from(map.dictionary), [readConst(ctx, 'LS_KEY_DICTIONARY')]);
@@ -138,6 +139,9 @@ test('DOMAIN_MIGRATION_KEYS: 4 pilot-домени (Stage C) + 4 D1-домени 
   assert.deepEqual(Array.from(map.installmentAccounts), [readConst(ctx, 'LS_KEY_INSTALLMENTS')]);
   assert.deepEqual(Array.from(map.hiddenFrom), [readConst(ctx, 'LS_KEY_HIDDEN')]);
   assert.deepEqual(Array.from(map.ignoredDivergences), [readConst(ctx, 'LS_KEY_IGNORED_DIVERGENCES')]);
+  assert.deepEqual(Array.from(map.expenses), [readConst(ctx, 'LS_KEY_EXP')]);
+  assert.deepEqual(Array.from(map.incomes), [readConst(ctx, 'LS_KEY_INC')]);
+  assert.deepEqual(Array.from(map.debts), [readConst(ctx, 'LS_KEY_DEBT')]);
 });
 
 /* ============ validateRawStorageValue ============ */
