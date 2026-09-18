@@ -2289,7 +2289,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.34</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.35</div>
 </div>
   </div>
 </div>
@@ -3217,7 +3217,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.34';
+const APP_VERSION = '2.21.35';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -3919,14 +3919,10 @@ async function ignoreDiagnosticDivergence(targetIdx){
 // — це інформаційний звіт, єдиний вихід — "Закрити" (перейменована "Скасувати").
 function showDiagnosticsModal(html){
   document.getElementById('app-modal-text').innerHTML = html;
-  document.getElementById('app-modal-input-wrap').style.display = 'none';
-  document.getElementById('app-modal-amount-wrap').style.display = 'none';
-  document.getElementById('app-modal-select-wrap').style.display = 'none';
-  document.getElementById('app-modal-select2-wrap').style.display = 'none';
   document.getElementById('app-modal-confirm-btn').style.display = 'none';
   const cancelBtn = document.getElementById('app-modal-cancel-btn');
   if(cancelBtn) cancelBtn.textContent = 'Закрити';
-  openAppModal();
+  presentAppModal();
 }
 // Rev 2.16.1 — клік по конкретній проблемі в модалці діагностики: закриває
 // звіт і веде до самого запису для виправлення (Журнал для витрат, Облік для
@@ -3944,7 +3940,7 @@ function goToDiagnosticIssue(i){
   }
   // 'installment' або 'installment-month'
   if(!target.name){
-    showConfirmModal('У цього ОЧ немає назви — знайти його автоматично неможливо. Перевір список ОЧ в «Обліку» вручну.', function(){}, 'Зрозуміло');
+    showAlertModal('У цього ОЧ немає назви — знайти його автоматично неможливо. Перевір список ОЧ в «Обліку» вручну.');
     return;
   }
   if(target.month && target.month !== selectedMonth){
@@ -3957,7 +3953,7 @@ function goToDiagnosticIssue(i){
 function flashDiagnosticTarget(domId){
   const row = document.getElementById(domId);
   if(!row){
-    showConfirmModal('Цей запис не вдалось знайти на екрані (можливо, поза видимим діапазоном журналу). Знайди його вручну за назвою й датою, показаними в діагностиці.', function(){}, 'Зрозуміло');
+    showAlertModal('Цей запис не вдалось знайти на екрані (можливо, поза видимим діапазоном журналу). Знайди його вручну за назвою й датою, показаними в діагностиці.');
     return;
   }
   row.scrollIntoView({ behavior:'smooth', block:'center' });
@@ -8726,14 +8722,26 @@ if(window.matchMedia){
    Safari/Chrome) мовчки блокуються рушієм — клік по кнопці реєструється, але
    діалог не з'являється, і функція просто "нічого не робить". Це виглядає як
    "кнопка не працює". Власний DOM-based модал не залежить від таких обмежень. */
+// Rev #29 — appModalGeneration: лічильник, що зростає на кожен openAppModal().
+// Потрібен closeAppModal()'s відкладеному скиданню нижче (Rev 2.16.2), щоб
+// відрізнити "модалка й досі закрита" від "модалку встигли переоткрити за ці
+// 200мс" — інакше стале скидання із СТАРОГО закриття клобберило б кнопки
+// ЩОЙНО відкритої (goToDiagnosticIssue() робить саме так: closeAppModal(),
+// а одразу в тому ж синхронному тіку — showAlertModal(), яка ховає "Так" і
+// перейменовує "Скасувати"→"Закрити"; на відміну від старого
+// showConfirmModal(...,'Зрозуміло'), що НЕ чіпав жодної з цих двох
+// властивостей, тому ця гонка раніше не проявлялась — виявлено живою
+// перевіркою Rev #29).
+let appModalGeneration = 0;
 function openAppModal(){
   // Rev 2.10.2 — фокус переходить у модалку тут, ЦЕНТРАЛІЗОВАНО: усі
-  // show*Modal() (Confirm/Prompt/Installment/MonthPicker/Category/
-  // Subcategory/Dictionary) уже викликають openAppModal() останнім рядком,
-  // тому одна зміна тут покриває їх усі без окремого патчу кожної функції.
-  // Ті з них, що потребують фокусу саме на конкретному текстовому полі,
+  // show*Modal()/openShareExpensesModal() уже викликають openAppModal()
+  // (напряму або через presentAppModal(), Rev #29) останнім рядком, тому
+  // одна зміна тут покриває їх усі без окремого патчу кожної функції. Ті з
+  // них, що потребують фокусу саме на конкретному текстовому полі,
   // додатково виставляють його через свій власний setTimeout(...,60) одразу
   // після — це не конфліктує, просто перебиває фокус на 60мс пізніше.
+  appModalGeneration++;
   lastFocusedBeforeDialog = document.activeElement;
   document.getElementById('modal-backdrop').removeAttribute('inert');
   document.getElementById('app-modal').removeAttribute('inert');
@@ -8753,7 +8761,13 @@ function closeAppModal(){
   // помітити, як "Закрити" на мить перетворюється назад на "Скасувати"/"Так"
   // прямо в неї на очах. Тепер скидання відкладене на час переходу, щоб
   // відбутись вже після того, як модалка стане невидимою (opacity:0).
+  // Rev #29 — generationAtClose-перевірка: якщо модалку встигли переоткрити
+  // (appModalGeneration змінився) до спливання цих 200мс, стале скидання
+  // пропускається — інакше воно клобберило б кнопки вже НОВОЇ модалки
+  // (дивись коментар над appModalGeneration вище).
+  const generationAtClose = appModalGeneration;
   setTimeout(function(){
+    if(appModalGeneration !== generationAtClose) return;
     const cancelBtn = document.getElementById('app-modal-cancel-btn');
     if(cancelBtn){ cancelBtn.textContent = 'Скасувати'; cancelBtn.style.display = ''; }
     const confirmBtn = document.getElementById('app-modal-confirm-btn');
@@ -8761,49 +8775,45 @@ function closeAppModal(){
   }, 200);
   restoreFocus();
 }
+// Rev #29 — спільний presentation-boilerplate для 8 content-функцій
+// #app-modal (усі show*Modal + showDiagnosticsModal), витягнутий за
+// результатами інвентаризації (docs/ROADMAP.md, п.29): кожна з них раніше
+// вручну виставляла display кожного з 4 змінних слотів (input/amount/
+// select/select2-wrap) і сама викликала openAppModal() останнім рядком —
+// ідентичний boilerplate, доменна відмінність лише "які слоти видимі".
+// НЕ generic modal-framework: ця функція відповідає ВИКЛЮЧНО за
+// presentation-механіку (які слоти показати + сам виклик lifecycle), а не
+// за вміст усередині них (текст/опції/onclick — і далі в кожній функції
+// окремо) чи за поведінку кнопок (showAlertModal/showDiagnosticsModal
+// самі ховають/перейменовують кнопки — до цього helper не торкається).
+function presentAppModal({ input = false, amount = false, select = false, select2 = false } = {}){
+  document.getElementById('app-modal-input-wrap').style.display = input ? 'block' : 'none';
+  document.getElementById('app-modal-amount-wrap').style.display = amount ? 'block' : 'none';
+  document.getElementById('app-modal-select-wrap').style.display = select ? 'block' : 'none';
+  document.getElementById('app-modal-select2-wrap').style.display = select2 ? 'block' : 'none';
+  openAppModal();
+}
 function showConfirmModal(message, onConfirm, confirmLabel){
   document.getElementById('app-modal-text').textContent = message;
-  document.getElementById('app-modal-input-wrap').style.display = 'none';
-  document.getElementById('app-modal-amount-wrap').style.display = 'none';
-  document.getElementById('app-modal-select-wrap').style.display = 'none';
-  document.getElementById('app-modal-select2-wrap').style.display = 'none';
   const btn = document.getElementById('app-modal-confirm-btn');
   btn.textContent = confirmLabel || 'Так, прибрати';
   btn.className = 'submit-btn danger';
   btn.onclick = function(){ closeAppModal(); onConfirm(); };
-  openAppModal();
+  presentAppModal();
 }
-// Rev 2.1.25 — BugFix/UX: раніше при порожньому чи дубльованому значенні
-// модалка просто тихо закривалась без збереження — виглядало як "нічого не
-// відбулось", не пояснюючи чому. Тепер невалідне поле підсвічується червоним
-// (той самий flashField(), що вже використовує форма "Нова витрата") і
-// модалка НЕ закривається, доки значення не стане коректним. onSave може
-// повернути `false`, щоб сигналізувати власну валідацію (напр. дублікат
-// назви) — тоді теж підсвічується і закриття блокується; якщо onSave нічого
-// не повертає (undefined) — вважається успіхом, як і раніше (сумісно зі
-// старими викликами).
-function showPromptModal(message, defaultValue, onSave){
+// Rev #29 — виділено з showConfirmModal(): 2 виклики (goToDiagnosticIssue/
+// flashDiagnosticTarget) використовували showConfirmModal() з порожнім
+// onConfirm і confirmLabel:"Зрозуміло" як імітацію alert() — два видимі
+// кнопки ("Скасувати" + "Зрозуміло") для дії, що нічого не підтверджує.
+// showAlertModal — чесний однокнопковий варіант (той самий прийом, що вже
+// showDiagnosticsModal: ховає "Так", перейменовує "Скасувати"→"Закрити") —
+// лише ознайомлення, без рішення користувача.
+function showAlertModal(message){
   document.getElementById('app-modal-text').textContent = message;
-  const inputWrap = document.getElementById('app-modal-input-wrap');
-  inputWrap.style.display = 'block';
-  document.getElementById('app-modal-amount-wrap').style.display = 'none';
-  document.getElementById('app-modal-select-wrap').style.display = 'none';
-  document.getElementById('app-modal-select2-wrap').style.display = 'none';
-  const input = document.getElementById('app-modal-input');
-  input.value = defaultValue || '';
-  const btn = document.getElementById('app-modal-confirm-btn');
-  btn.textContent = 'Зберегти';
-  btn.className = 'submit-btn';
-  btn.onclick = function(){
-    const v = input.value.trim();
-    if(!v){ flashField('app-modal-input'); return; }
-    if(v === defaultValue){ closeAppModal(); return; } // нічого не змінили — просто закриваємо
-    const ok = onSave(v);
-    if(ok === false){ flashField('app-modal-input'); return; }
-    closeAppModal();
-  };
-  openAppModal();
-  setTimeout(()=>{ input.focus(); input.select(); }, 60);
+  document.getElementById('app-modal-confirm-btn').style.display = 'none';
+  const cancelBtn = document.getElementById('app-modal-cancel-btn');
+  if(cancelBtn) cancelBtn.textContent = 'Закрити';
+  presentAppModal();
 }
 // Rev 2.1.17 — редагування ОЧ: назва + початкова сума разом у тій самій
 // модалці (окремий "amount-wrap" поруч з вже наявним текстовим input-wrap).
@@ -8811,21 +8821,17 @@ function showPromptModal(message, defaultValue, onSave){
 // дозволяє використовувати ту саму модалку і для додавання нової ОЧ
 // (openAddInstallmentModal), і для нового банку (openAddBankModal); редагування
 // вже існуючих карток/ОЧ — через відповідну шторку (Rev 2.16.5/2.16.6).
-// Rev 2.1.25 — та сама підсвітка-блокування, що й showPromptModal вище, плюс
-// поле суми тепер з розділювачами тисяч (formatThousands/parseAmount).
+// Rev 2.1.25 — підсвітка-блокування невалідного поля через flashField() (той
+// самий принцип, що форма "Нова витрата"): onSave може повернути `false`
+// (напр. дублікат назви), тоді модалка НЕ закривається — плюс поле суми з
+// розділювачами тисяч (formatThousands/parseAmount).
 // Rev 2.16.4 — amountLabel: опційний підпис поля суми (за замовчуванням
 // "Початкова сума" для ОЧ) — той самий модал тепер перевикористовується й
 // для нової картки (addBankAccount, підпис "Кредитний ліміт"); редагування
 // вже існуючої картки — через #card-debt-drawer (Rev 2.16.5).
 function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountLabel){
   document.getElementById('app-modal-text').textContent = title;
-  const inputWrap = document.getElementById('app-modal-input-wrap');
-  inputWrap.style.display = 'block';
-  const amountWrap = document.getElementById('app-modal-amount-wrap');
-  amountWrap.style.display = 'block';
   document.getElementById('app-modal-amount-label').textContent = amountLabel || 'Початкова сума';
-  document.getElementById('app-modal-select-wrap').style.display = 'none';
-  document.getElementById('app-modal-select2-wrap').style.display = 'none';
   const input = document.getElementById('app-modal-input');
   input.value = defaultName || '';
   const amountInput = document.getElementById('app-modal-amount-input');
@@ -8849,7 +8855,7 @@ function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountL
     if(ok === false){ flashField('app-modal-input'); return; } // дублікат — завжди про назву
     closeAppModal();
   };
-  openAppModal();
+  presentAppModal({ input: true, amount: true });
   setTimeout(()=>{ input.focus(); input.select(); }, 60);
 }
 // Rev 2.1.0 — модал видалення картки/ОЧ з вибором місяця "Приховати з...".
@@ -8857,11 +8863,6 @@ function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountL
 // нього лишається без змін (Debt Data Integrity, розділ 3.4 специфікації).
 function showMonthPickerModal(message, months, defaultMonth, onConfirm){
   document.getElementById('app-modal-text').textContent = message;
-  document.getElementById('app-modal-input-wrap').style.display = 'none';
-  document.getElementById('app-modal-amount-wrap').style.display = 'none';
-  const selectWrap = document.getElementById('app-modal-select-wrap');
-  selectWrap.style.display = 'block';
-  document.getElementById('app-modal-select2-wrap').style.display = 'none';
   document.getElementById('app-modal-select-label').textContent = 'Приховати з місяця';
   const select = document.getElementById('app-modal-select');
   select.onchange = null; // захист: showDictionaryModal лишає тут live-обробник
@@ -8870,7 +8871,7 @@ function showMonthPickerModal(message, months, defaultMonth, onConfirm){
   btn.textContent = 'Прибрати';
   btn.className = 'submit-btn danger';
   btn.onclick = function(){ const v = select.value; closeAppModal(); onConfirm(v); };
-  openAppModal();
+  presentAppModal({ select: true });
 }
 // Rev 2.1.26 — модалка додавання/редагування категорії: назва + тип
 // (Обов'язкова/Гнучка/Скорочувана) разом. Той самий select-wrap, що й
@@ -8880,12 +8881,6 @@ function showMonthPickerModal(message, months, defaultMonth, onConfirm){
 const CATEGORY_TYPES = ["Обов'язкова", "Гнучка", "Скорочувана"];
 function showCategoryModal(title, defaultName, defaultType, onSave){
   document.getElementById('app-modal-text').textContent = title;
-  const inputWrap = document.getElementById('app-modal-input-wrap');
-  inputWrap.style.display = 'block';
-  document.getElementById('app-modal-amount-wrap').style.display = 'none';
-  const selectWrap = document.getElementById('app-modal-select-wrap');
-  selectWrap.style.display = 'block';
-  document.getElementById('app-modal-select2-wrap').style.display = 'none';
   document.getElementById('app-modal-select-label').textContent = 'Тип категорії';
   const input = document.getElementById('app-modal-input');
   input.value = defaultName || '';
@@ -8908,7 +8903,7 @@ function showCategoryModal(title, defaultName, defaultType, onSave){
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  openAppModal();
+  presentAppModal({ input: true, select: true });
   setTimeout(()=>{ input.focus(); input.select(); }, 60);
 }
 // Rev 2.1.27 — модалка додавання/редагування підкатегорії: назва + категорія
@@ -8921,11 +8916,6 @@ const SUBCATEGORY_PRIORITY_OPTIONS = [
 ];
 function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriorityLabel, onSave){
   document.getElementById('app-modal-text').textContent = title;
-  const inputWrap = document.getElementById('app-modal-input-wrap');
-  inputWrap.style.display = 'block';
-  document.getElementById('app-modal-amount-wrap').style.display = 'none';
-  const catWrap = document.getElementById('app-modal-select-wrap');
-  catWrap.style.display = 'block';
   document.getElementById('app-modal-select-label').textContent = 'Категорія';
   const input = document.getElementById('app-modal-input');
   input.value = defaultName || '';
@@ -8933,8 +8923,6 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
   catSelect.onchange = null; // захист: showDictionaryModal лишає тут live-обробник
   const activeCats = CATEGORIES.filter(c=>c.active);
   catSelect.innerHTML = activeCats.map(c=>`<option value="${c.name}"${c.name===defaultCategory?' selected':''}>${c.name}</option>`).join('');
-  const prioWrap = document.getElementById('app-modal-select2-wrap');
-  prioWrap.style.display = 'block';
   document.getElementById('app-modal-select2-label').textContent = 'Потенціал економії';
   const prioSelect = document.getElementById('app-modal-select2');
   prioSelect.innerHTML = SUBCATEGORY_PRIORITY_OPTIONS.map(p=>`<option value="${p.label}"${p.label===defaultPriorityLabel?' selected':''}>${p.label}</option>`).join('');
@@ -8952,7 +8940,7 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  openAppModal();
+  presentAppModal({ input: true, select: true, select2: true });
   setTimeout(()=>{ input.focus(); input.select(); }, 60);
 }
 // Rev 2.1.28 — модалка додавання/редагування слова словника: ключове слово +
@@ -8962,19 +8950,12 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
 // патерн, що onCategoryChange() у формі "Нова витрата").
 function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave){
   document.getElementById('app-modal-text').textContent = title;
-  const inputWrap = document.getElementById('app-modal-input-wrap');
-  inputWrap.style.display = 'block';
-  document.getElementById('app-modal-amount-wrap').style.display = 'none';
-  const catWrap = document.getElementById('app-modal-select-wrap');
-  catWrap.style.display = 'block';
   document.getElementById('app-modal-select-label').textContent = 'Категорія';
   const input = document.getElementById('app-modal-input');
   input.value = defaultKw || '';
   const catSelect = document.getElementById('app-modal-select');
   const activeCats = CATEGORIES.filter(c=>c.active);
   catSelect.innerHTML = activeCats.map(c=>`<option value="${c.name}"${c.name===defaultCat?' selected':''}>${c.name}</option>`).join('');
-  const subWrap = document.getElementById('app-modal-select2-wrap');
-  subWrap.style.display = 'block';
   document.getElementById('app-modal-select2-label').textContent = 'Підкатегорія (необов’язково)';
   const subSelect = document.getElementById('app-modal-select2');
   function refreshSubOptions(){
@@ -8997,7 +8978,7 @@ function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave){
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  openAppModal();
+  presentAppModal({ input: true, select: true, select2: true });
   setTimeout(()=>{ input.focus(); input.select(); }, 60);
 }
 function openAddDictionaryModal(){

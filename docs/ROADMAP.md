@@ -1942,8 +1942,79 @@ reload, симуляція збою; ⏳ **iPhone-тест — фінальна 
 
 ### 29. Рефакторинг модалки `#app-modal`
 
-🔎 Перевірено в коді — досі одна модалка обслуговує всі сценарії. Технічний борг не
-зменшився.
+✅ Завершено, Rev 2.21.35, за результатами кроку 0 (повна інвентаризація —
+див. запис нижче).
+
+**Крок 0 — інвентаризація (без змін коду).** Знайдено 10 функцій/~25
+call sites: 8 `show*Modal()` + `showDiagnosticsModal()` (innerHTML, ховає
+"Так") + `openShareExpensesModal()` (без "show"-обгортки, напряму через
+`openAppModal()`/`closeAppModal()`) + окремий третій контракт —
+`ignoreDiagnosticDivergence()` (in-place update вже відкритої модалки,
+без close/reopen). Структура вже частково розділена: один статичний
+HTML-каркас + централізований shell (`openAppModal()`/`closeAppModal()`,
+**єдині** місця, що чіпають `inert`/клас самого `#app-modal`) + 9
+незалежних content-функцій з дубльованим boilerplate (5 рядків
+`style.display` на функцію). Знайдено: `showPromptModal()` — **мертвий
+код** (0 call sites); анти-патерн alert-через-confirm (`showConfirmModal`
+з порожнім `onConfirm` + `confirmLabel:"Зрозуміло"`, 2 call sites в
+`goToDiagnosticIssue`/`flashDiagnosticTarget`); 2 різні async-контракти
+callback'а (await+перевірка `ok===false` для 4 функцій vs
+fire-and-forget для решти, обидва мали зберегтись без уніфікації).
+
+**Реалізовано:**
+- `showPromptModal()` видалена (мертвий код, 0 call sites) — підтверджено
+  `grep`'ом відсутність залишкових посилань.
+- `showConfirmModal`/`showAlertModal` розділені: `showAlertModal(message)`
+  — чесний однокнопковий "Закрити" (той самий прийом, що вже
+  `showDiagnosticsModal`: ховає "Так", перейменовує "Скасувати"→"Закрити").
+  Обидва виклики `goToDiagnosticIssue`/`flashDiagnosticTarget` оновлено.
+- `presentAppModal({input, amount, select, select2})` — internal shared
+  helper (НЕ generic modal-framework: лише слот-toggling +
+  `openAppModal()`), викликається з усіх 8 content-функцій
+  (`showConfirmModal`, `showAlertModal`, `showInstallmentModal`,
+  `showMonthPickerModal`, `showCategoryModal`, `showSubcategoryModal`,
+  `showDictionaryModal`, `showDiagnosticsModal`). `openShareExpensesModal()`
+  і `ignoreDiagnosticDivergence()` свідомо НЕ форсовані під цей контракт
+  (як і узгоджено) — перше й далі напряму через `openAppModal()`, друге —
+  той самий in-place `innerHTML`, без close/reopen.
+- Обидва async-контракти збережені без змін (перевірено — жоден
+  `await`/fire-and-forget патерн не чіпався).
+
+**🐛 Реальна регресія, знайдена й виправлена ЖИВОЮ перевіркою (не
+юніт-тестами):** `closeAppModal()`'s відкладене (200мс) скидання кнопок
+(Rev 2.16.2 BugFix) конфліктувало з новим `showAlertModal()` у сценарії
+`goToDiagnosticIssue()` — `closeAppModal()` і одразу в тому ж
+синхронному тіку `showAlertModal()` (закриває діагностичний звіт і
+одразу показує "немає назви"-попередження). Стара версія цього
+alert-через-confirm НЕ ховала жодної кнопки, тому 200мс-скидання ніколи
+не мало що клобберити; нова `showAlertModal()` ховає "Так" і перейменовує
+"Скасувати" — саме ті 2 властивості, які стале скидання переписує назад
+через 200мс після ПОПЕРЕДНЬОГО закриття, псуючи щойно відкриту нову
+модалку. Виправлено мінімально: `appModalGeneration` — лічильник,
+інкрементований в `openAppModal()`; `closeAppModal()`'s `setTimeout`
+захоплює номер покоління на момент закриття і скасовує скидання, якщо
+модалку встигли переоткрити. Полагоджено й перевірено живо (з
+відтворенням точного таймінгу гонки і повторною перевіркою через
+250мс) — жодного іншого впливу на існуючу поведінку (усі "нормальні"
+close без негайного reopen поводяться ідентично до і після).
+
+**Тестування:** зміни не торкаються Repository/бізнес-логіки — жоден
+тест не посилається на модальні функції — `node --test`: 161/161 без змін.
+
+**Жива перевірка в браузері** (mobile-viewport): усі 8 сценаріїв —
+категорія (додавання + блокування на дублікаті через `await onSave`),
+підкатегорія, словник, ОЧ, банк, місяць-пікер (приховати банк →
+`hiddenFrom`), confirm (`deleteCategory`, soft-delete), новий
+`showAlertModal` (як напряму, так і через реальний
+`goToDiagnosticIssue()`-сценарій з відтворенням race condition і
+підтвердженим фіксом), `showDiagnosticsModal` (усе гаразд/збіг слотів),
+`ignoreDiagnosticDivergence()` (in-place: прапорець виставлено, звіт
+перебудовано, модалка НЕ закривалась і не переоткривалась),
+`openShareExpensesModal()` (не форсовано під спільний helper, працює як
+і раніше). Accessibility: `inert` на backdrop+modal коректно
+знімається/повертається; фокус переходить у модалку при відкритті;
+Escape закриває; `#settings-drawer` відкривається/закривається незалежно
+від `#app-modal`, спільна `lastFocusedBeforeDialog` не зламана.
 
 ---
 
