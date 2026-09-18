@@ -468,6 +468,11 @@
   .import-card .import-desc{ font-size:12.5px; color:var(--color-text-secondary); line-height:1.5; margin-bottom:12px; }
   .import-status{ font-size:12.5px; margin-top:10px; color:var(--color-text-primary); white-space:pre-line; }
   .import-status.hidden{ display:none; }
+  /* Rev #30 — той самий скопований принцип, що решта .hidden у проєкті
+     (див. коментар біля .journal-overlay.hidden): загального утилітарного
+     правила немає, тому #cloud-login-form/#cloud-signed-in отримують
+     власний скопований клас. */
+  .cloud-auth-block.hidden{ display:none; }
 
   .section-label{ font-size:11px; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.6px; margin:26px 2px 10px; display:flex; align-items:center; gap:6px; }
   .section-label:first-child{ margin-top:2px; }
@@ -2033,7 +2038,33 @@
 
     <!-- ================= СЕРВІС (імпорт/експорт/очищення/резерв) ================= -->
     <div class="view hidden" id="view-service">
-  <div class="section-label" style="margin-top:0;">Дані</div>
+  <!-- Rev #30 — Stage 6, Cloud Auth. Свідомо лише вхід/вихід, без жодної
+       синхронізації даних (Sync Engine — #31, окремий крок). Той самий
+       офлайн-принцип, що вже задокументований для Excel нижче: SDK
+       вантажиться з CDN лише при відкритті цієї вкладки, і без мережі —
+       явне попередження замість мовчазної непрацюючої кнопки. -->
+  <div class="section-label" style="margin-top:0;">Хмара</div>
+  <div class="import-status hidden" id="cloud-offline-notice" style="color:var(--color-warning);">
+    Вхід у Cloud потребує інтернету (бібліотека завантажується з мережі при відкритті) — зараз недоступний.
+  </div>
+  <div id="cloud-login-form" class="cloud-auth-block">
+    <div class="field">
+      <label for="cloud-email">Email</label>
+      <input type="email" id="cloud-email" autocomplete="username">
+    </div>
+    <div class="field">
+      <label for="cloud-password">Пароль</label>
+      <input type="password" id="cloud-password" autocomplete="current-password">
+    </div>
+    <div class="import-status" id="cloud-auth-error" style="color:var(--color-error);"></div>
+    <button type="button" class="submit-btn debt pill" onclick="signInCloudAccount()">Увійти</button>
+  </div>
+  <div id="cloud-signed-in" class="cloud-auth-block hidden">
+    <button type="button" class="submit-btn debt pill" onclick="signOutCloudAccount()">Вийти</button>
+  </div>
+  <div class="import-status" id="cloud-auth-status"></div>
+
+  <div class="section-label">Дані</div>
   <div class="service-grid">
     <button type="button" class="service-tile" id="export-btn" onclick="exportToExcel()">
       <span
@@ -2289,7 +2320,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.35</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.36</div>
 </div>
   </div>
 </div>
@@ -3217,7 +3248,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.35';
+const APP_VERSION = '2.21.36';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -3756,6 +3787,135 @@ function clearAllData(){
     populateMonths(); renderAll();
     document.getElementById('import-status').textContent = 'Усі дані очищено.';
   });
+}
+
+/* ============ #30 Stage 6 — Cloud Auth (Rev 2.21.36, ROADMAP п.30) ============
+   Свідомо ВУЗЬКИЙ крок: лише автентифікація через Supabase Auth, жодної
+   синхронізації даних. Весь Stage 5 (IndexedDB/localStorage, loadX()/saveX())
+   лишається абсолютно незмінним і працює паралельно та незалежно — Sync
+   Engine (реальна робота з таблицями) це вже #31, окремий крок.
+
+   Supabase JS SDK підвантажується з CDN ЛІНИВО, тим самим патерном, що idb
+   (див. #28 Stage B вище) — а не eager, як XLSX: вхід за задумом опціональний
+   (застосунок мусить лишатись повністю функціональним без Cloud), тож немає
+   причин тягнути мережевий запит при кожному відкритті, включно з офлайн-
+   сесіями, де він однаково не завантажиться. Той самий, уже задокументований
+   для XLSX факт (див. коментар біля #excel-offline-notice): Service Worker
+   свідомо НЕ кешує cross-origin ресурси (sw.js, fetch-handler, перевірка
+   req.url.indexOf(self.location.origin)===0) — тому sw.js для цього кроку
+   лишається зовсім не зміненим, а офлайн-стан SDK так само явно показуємо
+   користувачу (#cloud-offline-notice), а не ковтаємо мовчки.
+
+   Сесію свідомо зберігає сам SDK через localStorage за замовчуванням (ключ
+   виду 'sb-<project-ref>-auth-token') — той самий клас свідомого винятку з
+   правила "лише IndexedDB", що вже узгоджений для theme/draft (нефінансові,
+   ефемерні для бізнес-логіки дані). Жодного виклику до жодної з таблиць
+   проєкту тут немає — лише supabase.auth.*. */
+const SUPABASE_SDK_CDN_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+const SUPABASE_PROJECT_URL = 'https://nbykagbcvjryxiaxqwbk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ieWthZ2JjdmpyeXhpYXhxd2JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3NjA2NjEsImV4cCI6MjEwNTMzNjY2MX0.JDT57OofJ_m2Xq4Vv9sZODTKx54AoKhURYAbg5Bz8qg';
+
+function isSupabaseSdkReady(){
+  return typeof supabase !== 'undefined' && typeof supabase.createClient === 'function';
+}
+let supabaseSdkLoadPromise = null;
+function loadSupabaseSdk(){
+  if(isSupabaseSdkReady()) return Promise.resolve();
+  if(supabaseSdkLoadPromise) return supabaseSdkLoadPromise;
+  supabaseSdkLoadPromise = new Promise(function(resolve, reject){
+    const script = document.createElement('script');
+    script.src = SUPABASE_SDK_CDN_URL;
+    script.onload = function(){ resolve(); };
+    script.onerror = function(){
+      supabaseSdkLoadPromise = null;
+      reject(new Error('Не вдалося завантажити Supabase SDK з CDN'));
+    };
+    document.head.appendChild(script);
+  });
+  return supabaseSdkLoadPromise;
+}
+let supabaseClient = null;
+// Один спільний клієнт на весь модуль (той самий принцип, що openIdbDatabase()
+// вище для idb.openDB) — SDK сам керує onAuthStateChange-передплатниками,
+// повторне createClient() створило б другий незалежний слухач сесії.
+function getSupabaseClient(){
+  if(supabaseClient) return supabaseClient;
+  supabaseClient = supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
+  return supabaseClient;
+}
+
+function setCloudAuthStatus(text){
+  const el = document.getElementById('cloud-auth-status');
+  if(el) el.textContent = text;
+}
+function setCloudAuthOffline(isOffline){
+  const notice = document.getElementById('cloud-offline-notice');
+  if(notice) notice.classList.toggle('hidden', !isOffline);
+}
+function setCloudAuthFormVisible(visible){
+  const form = document.getElementById('cloud-login-form');
+  const signedIn = document.getElementById('cloud-signed-in');
+  if(form) form.classList.toggle('hidden', !visible);
+  if(signedIn) signedIn.classList.toggle('hidden', visible);
+}
+
+// Rev #30 — ініціалізація стану входу при відкритті "Сервісу": SDK
+// підвантажується лише тут (перше реальне звернення), не при завантаженні
+// сторінки. Якщо мережі немає — явний офлайн-індикатор замість мовчазної
+// відсутності реакції на кнопку "Увійти".
+async function initCloudAuthUI(){
+  setCloudAuthOffline(false);
+  document.getElementById('cloud-auth-error').textContent = '';
+  try{
+    await loadSupabaseSdk();
+  }catch(e){
+    setCloudAuthOffline(true);
+    setCloudAuthStatus('Не вдалося перевірити стан входу.');
+    return;
+  }
+  const client = getSupabaseClient();
+  const { data } = await client.auth.getSession();
+  applyCloudSession(data && data.session);
+  // Rev #30 — підписка одноразова (module-level guard), щоб повторні відкриття
+  // "Сервісу" не плодили дублікати слухача onAuthStateChange.
+  if(!cloudAuthListenerBound){
+    cloudAuthListenerBound = true;
+    client.auth.onAuthStateChange(function(event, session){ applyCloudSession(session); });
+  }
+}
+let cloudAuthListenerBound = false;
+function applyCloudSession(session){
+  if(session && session.user){
+    setCloudAuthFormVisible(false);
+    setCloudAuthStatus(`Увійшли як ${session.user.email}`);
+  }else{
+    setCloudAuthFormVisible(true);
+    setCloudAuthStatus('Не увійшли');
+  }
+}
+
+async function signInCloudAccount(){
+  const errEl = document.getElementById('cloud-auth-error');
+  errEl.textContent = '';
+  const email = document.getElementById('cloud-email').value.trim();
+  const password = document.getElementById('cloud-password').value;
+  if(!email || !password){ errEl.textContent = 'Вкажіть email і пароль.'; return; }
+  let client;
+  try{
+    await loadSupabaseSdk();
+    client = getSupabaseClient();
+  }catch(e){
+    setCloudAuthOffline(true);
+    errEl.textContent = "Немає з'єднання з Cloud — спробуйте пізніше.";
+    return;
+  }
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if(error){ errEl.textContent = 'Не вдалося увійти: '+error.message; return; }
+  document.getElementById('cloud-password').value = '';
+}
+async function signOutCloudAccount(){
+  if(!isSupabaseSdkReady()) return;
+  await getSupabaseClient().auth.signOut();
 }
 
 /* ============ Діагностика даних (Rev 2.16.0, ROADMAP п.20) ============
@@ -8115,6 +8275,13 @@ function performSwitchTab(tab){
   // навмисно виставила — тому скидаємо лише за відсутності чернетки.
   if(tab === 'vytraty' && lastActiveTab !== 'vytraty' && !hasExpenseDraft()){
     resetVytratyDateToToday();
+  }
+  // Rev #30 — Cloud Auth SDK підвантажується лише при реальному відкритті
+  // "Сервісу" (той самий "лінивий" принцип, що idb вище), і лише один раз
+  // за сесію (initCloudAuthUI сама підписується на onAuthStateChange), а не
+  // при кожному перемиканні на цю вкладку.
+  if(tab === 'service' && lastActiveTab !== 'service'){
+    initCloudAuthUI();
   }
   lastActiveTab = tab;
   updatePageHeader(tab);
