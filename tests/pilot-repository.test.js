@@ -100,7 +100,18 @@ const REPOSITORY_NAMES = [
   'validateRawStorageValue', 'getMigrationStatusMap', 'isDomainMigrated', 'markDomainMigrated',
   'migrateDomainToIndexedDb', 'ensureDomainsMigrated',
   'loadCategories', 'loadSubcategories', 'loadSubcategoryPriority', 'loadDictionary', 'loadStructureRefs',
-  'saveCategories', 'saveSubcategories', 'saveSubcategoryPriority', 'saveDictionary',
+  // Rev #30 (6D.2) — Sync Engine v1 pilot push для categories. cloudSession/
+  // cloudFamilyId за замовчуванням null у globals нижче (sandbox() → "не
+  // залогінений") — pushCategoriesPilot() тому завжди повертається одразу
+  // (guard clause), без потреби мокати реальний Supabase-клієнт: existing
+  // routing/backup-тести saveCategories() лишаються коректними, бо push —
+  // чистий no-op у їхньому контексті. isSupabaseSdkReady/getSupabaseClient
+  // тут НЕ під тестом (реальний мережевий шар, жива browser-перевірка) —
+  // включені лише тому, що saveCategoriesLocal/pushCategoriesPilot фізично
+  // посилаються на них (навіть недосяжним для тестів кодом).
+  'isSupabaseSdkReady', 'getSupabaseClient', 'loadCloudFamilyId', 'clearCloudFamilyId',
+  'saveCategories', 'saveCategoriesLocal', 'pushCategoriesPilot',
+  'saveSubcategories', 'saveSubcategoryPriority', 'saveDictionary',
   'restoreCategoriesFromBackup', 'restoreSubcategoriesFromBackup',
   'restoreSubcategoryPriorityFromBackup', 'restoreDictionaryFromBackup',
   // Rev #28.D1
@@ -142,6 +153,13 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       expenses: [],
       incomes: [],
       debts: [],
+      // Rev #30 (6D.2) — за замовчуванням "не залогінений" (той самий стан,
+      // що свіжий localStorage без sb-*-auth-token): pushCategoriesPilot()
+      // всередині saveCategories() одразу повертається на guard clause,
+      // не звертаючись до Supabase — routing/backup-тести saveCategories()
+      // нижче лишаються чистими unit-тестами локального шару.
+      cloudSession: null,
+      cloudFamilyId: null,
       // Rev #30 (6D.1) — generateUUID() перевіряє window.crypto.randomUUID
       // (справжній шлях у браузері) — vm.Context не має глобального `window`,
       // тому підставляємо мінімальну заглушку поверх реального Node

@@ -2320,7 +2320,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.37</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.38</div>
 </div>
   </div>
 </div>
@@ -2737,13 +2737,56 @@ async function loadStructureRefs(){
 // та сама межа, що вже задокументована для решти saveX() (Stage A, п.1):
 // localStorage.setItem практично не кидає в реальному використанні, і
 // додавання нового try/catch сюди було б розширенням скоупу за межі Stage C.
+// Rev #30 (6D.2) — Sync Engine v1, пілот-домен `categories`. saveCategories()
+// лишається гарантованою локальною операцією (той самий контракт
+// {success,error?}, той самий routing) — push у Cloud винесений в окрему
+// saveCategoriesLocal()+pushCategoriesPilot(), викликану ПІСЛЯ успішного
+// локального запису, БЕЗ await (не блокує UI/рендер, що викликав
+// saveCategories()). Помилка/відсутність мережі під час push НІКОЛИ не
+// впливає на результат saveCategories() — локальні дані вже в безпеці
+// до моменту виклику push.
 async function saveCategories(){
+  const result = await saveCategoriesLocal();
+  if(result.success) pushCategoriesPilot();
+  return result;
+}
+async function saveCategoriesLocal(){
   if(isDomainMigrated('categories')){
     try{ await idbAdapterSet(LS_KEY_CATEGORIES, JSON.stringify(CATEGORIES)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
   }
   localStorage.setItem(LS_KEY_CATEGORIES, JSON.stringify(CATEGORIES));
   return { success: true };
+}
+// Не залогінений / немає family_id / SDK не завантажений — тихий пропуск,
+// нічого не показуємо користувачу (той самий принцип, що офлайн-хвіст
+// Excel/idb вище: мовчазна недоступність мережевого шару, не помилка).
+// cloudId — НОВЕ поле на категорії (не мапінг існуючого; категорії локально
+// взагалі не мали id, 6D крок 0 pre-check) — з'являється лише після
+// першого успішного push, визначає INSERT (немає) чи UPDATE (є) для
+// наступних викликів. Мережева помилка на ОДНОМУ записі не перериває
+// прохід решти масиву (кожен try/catch — незалежний), і НІКОЛИ не
+// відкочує вже збережені локальні дані.
+async function pushCategoriesPilot(){
+  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
+  if(!isSupabaseSdkReady()) return;
+  const client = getSupabaseClient();
+  const userId = cloudSession.user.id;
+  let localChanged = false;
+  for(const cat of CATEGORIES){
+    try{
+      if(cat.cloudId){
+        await client.from('categories').update({ name: cat.name, active: cat.active, updated_by: userId }).eq('id', cat.cloudId);
+      }else{
+        const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, created_by: userId, updated_by: userId }).select('id').single();
+        if(!error && data){ cat.cloudId = data.id; localChanged = true; }
+      }
+    }catch(e){
+      // мережа/CORS/офлайн під час push одного запису — тихий пропуск,
+      // решта масиву й так продовжить обробку в наступній ітерації циклу.
+    }
+  }
+  if(localChanged) await saveCategoriesLocal();
 }
 async function saveSubcategories(){
   if(isDomainMigrated('subcategories')){
@@ -3275,7 +3318,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.37';
+const APP_VERSION = '2.21.38';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -3902,7 +3945,7 @@ async function initCloudAuthUI(){
   }
   const client = getSupabaseClient();
   const { data } = await client.auth.getSession();
-  applyCloudSession(data && data.session);
+  await applyCloudSession(data && data.session);
   // Rev #30 — підписка одноразова (module-level guard), щоб повторні відкриття
   // "Сервісу" не плодили дублікати слухача onAuthStateChange.
   if(!cloudAuthListenerBound){
@@ -3911,14 +3954,43 @@ async function initCloudAuthUI(){
   }
 }
 let cloudAuthListenerBound = false;
-function applyCloudSession(session){
+// Rev #30 (6D.2) — 6D крок 0 pre-check виявив: сесія ніде не кешувалась
+// (лише транзитивний параметр для тексту UI), family_id — теж відсутній
+// узагалі. Обидва тепер кешуються тут, у тому самому місці, де й раніше
+// оновлювався статус "Увійшли як…" — module-level `cloudSession`, щоб
+// pushCategoriesPilot() (нижче, біля saveCategories()) міг синхронно
+// перевірити "чи залогінений" без звернення до SDK щоразу.
+let cloudSession = null;
+async function applyCloudSession(session){
+  cloudSession = session || null;
   if(session && session.user){
     setCloudAuthFormVisible(false);
     setCloudAuthStatus(`Увійшли як ${session.user.email}`);
+    await loadCloudFamilyId(getSupabaseClient(), session.user.id);
   }else{
     setCloudAuthFormVisible(true);
     setCloudAuthStatus('Не увійшли');
+    clearCloudFamilyId();
   }
+}
+// family_id — той самий клас свідомого винятку з "лише IndexedDB", що вже
+// сесія SDK/theme/draft: сесійний, не фінансовий стан, безпечно тримати в
+// localStorage. Немає запису в family_members (запит не вдався чи порожній)
+// → Sync Engine просто неактивний (cloudFamilyId лишається null), без
+// помилки користувачу — той самий "тихий пропуск", що й сам push нижче.
+const LS_KEY_CLOUD_FAMILY_ID = 'budget_cloud_family_id_v1';
+let cloudFamilyId = null;
+async function loadCloudFamilyId(client, userId){
+  try{
+    const { data, error } = await client.from('family_members').select('family_id').eq('user_id', userId).maybeSingle();
+    if(error || !data){ clearCloudFamilyId(); return; }
+    cloudFamilyId = data.family_id;
+    localStorage.setItem(LS_KEY_CLOUD_FAMILY_ID, cloudFamilyId);
+  }catch(e){ clearCloudFamilyId(); }
+}
+function clearCloudFamilyId(){
+  cloudFamilyId = null;
+  localStorage.removeItem(LS_KEY_CLOUD_FAMILY_ID);
 }
 
 async function signInCloudAccount(){

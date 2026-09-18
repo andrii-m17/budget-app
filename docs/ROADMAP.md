@@ -2118,6 +2118,70 @@ Sync Engine (реальна робота з таблицями) — **#31, на�
   через реальний `saveCardDebtDrawer()`, одразу отримав UUID. Жодних
   видимих для користувача змін — суто внутрішній ідентифікатор.
 
+### 6D, крок 2 — Sync Engine v1: pilot push `categories` ✅ Rev 2.21.38
+
+Той самий принцип, що #28 Stage C: найнижчий ризик домен (`categories`,
+низька частота запису, не фінансові дані), end-to-end механізм, лише
+**push** (локально→Cloud), без pull і без retry-черги — тихий пропуск за
+будь-якою помилкою.
+
+- **Крок 0 (перевірено перед кодом):** сесія ніде не кешувалась
+  (`applyCloudSession(session)` використовувала параметр лише транзитивно
+  для тексту UI); `family_id` — відсутній узагалі. Обидва тепер кешуються
+  в тому самому місці, module-level `cloudSession`/`cloudFamilyId`.
+  Схема Cloud (`categories`: `id, family_id, name, active, created_by,
+  updated_by, created_at, updated_at` — без локального поля `type`, просто
+  не пушиться) і RLS (`family_id in auth_family_ids()`, `auth_family_ids()`
+  SECURITY DEFINER на `auth.uid()`) перевірені через Supabase-конектор.
+- **`family_id`-кеш:** `loadCloudFamilyId(client, userId)` —
+  `select family_id from family_members where user_id = …`, кешується в
+  `cloudFamilyId` + `localStorage` (`budget_cloud_family_id_v1`, той самий
+  клас винятку, що сесія SDK/theme/draft). Викликається з
+  `applyCloudSession()` при появі сесії; `clearCloudFamilyId()` — при
+  виході/відсутності сесії. Порожньо/помилка → `cloudFamilyId = null`,
+  без помилки користувачу.
+- **`cloudId`:** нове поле на об'єктах `CATEGORIES[]`, з'являється лише
+  після першого успішного `INSERT`. Локально категорії й досі не мають
+  жодного `id` — `cloudId` це окремий, додатковий шар (підтверджено 6D
+  крок 0).
+- **`saveCategories()` розділено:** `saveCategoriesLocal()` — точно та сама
+  логіка, що раніше (routing localStorage/IndexedDB, той самий
+  `{success,error?}` контракт); `saveCategories()` викликає її, і за
+  успіху — **не блокуючий** (без `await`) виклик `pushCategoriesPilot()`.
+  `pushCategoriesPilot()` для кожного запису: є `cloudId` → `UPDATE` за
+  ним; немає → `INSERT`, отриманий `id` → `cat.cloudId`, і якщо хоч один
+  запис отримав новий `cloudId` — один додатковий `saveCategoriesLocal()`
+  для збереження цього факту локально (без рекурсивного push). Guard на
+  вході: не залогінений / немає `family_id` / SDK не завантажений → тихий
+  вихід без жодного мережевого виклику.
+- **Тестування:** `node --test` — 176/176 без регресій. `saveCategories`/
+  `saveCategoriesLocal`/`pushCategoriesPilot`/`getSupabaseClient`/
+  `isSupabaseSdkReady`/`loadCloudFamilyId`/`clearCloudFamilyId` додані до
+  sandbox (`tests/pilot-repository.test.js`) з `cloudSession: null` за
+  замовчуванням — push залишається чистим no-op у контексті існуючих
+  routing/backup-тестів `saveCategories()`, реальний мережевий шар тут не
+  під тестом (для нього — жива перевірка нижче).
+- **Живо перевірено (реальний Supabase-проєкт, підтверджено через
+  конектор):** без входу — нова категорія зберігається локально, `cloudId`
+  не з'являється, жодного мережевого запиту; вхід (`andrii.m17a@gmail.com`)
+  → `cloudFamilyId` коректно закешований і збігається з БД; додавання
+  категорії → `INSERT`, `cloudId` присвоєно (побічний ефект: усі 11
+  дефолтних категорій пушнулись при першому ж `saveCategories()` після
+  входу — очікувано, push обробляє весь масив, не лише diff); редагування
+  тієї самої категорії → `UPDATE` за тим самим `cloudId`, підтверджено в
+  БД — той самий рядок (`id` незмінний), не дублікат, `updated_at` оновлено;
+  вихід → `cloudSession`/`cloudFamilyId` очищені, нова категорія після
+  виходу зберігається локально, у Cloud НЕ з'являється; симуляція
+  мережевої помилки під час push (замінений `getSupabaseClient()`,
+  кидає на `update`/`insert`) → `saveCategories()` не кинула винятку,
+  локальний запис відбувся, `cloudId` просто не з'явився. Жодних
+  консольних помилок, крім однієї стало-відомої з попередньої сесії
+  (не від цього тесту — підтверджено відсутністю відповідних мережевих
+  запитів у логах). Усі тестові рядки прибрані локально й у Cloud.
+- ⚠️ **iPhone-тест не проведений у цій сесії** — найкритичніший сценарій
+  цього кроку (реальний мережевий виклик з мобільного Safari/PWA), явно
+  позначено як обов'язковий перед закриттям.
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.
