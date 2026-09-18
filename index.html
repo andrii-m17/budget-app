@@ -2320,7 +2320,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.36</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.37</div>
 </div>
   </div>
 </div>
@@ -2963,6 +2963,31 @@ async function ensureExpenseIdentity(){
   });
   if(changed) reportSaveResult(await saveExpenses());
 }
+// Rev #30 (6D.1) — той самий ідемпотентний принцип, що ensureExpenseIdentity()
+// вище, але інша перевірка: тут `id` в старих записах ВЖЕ є (не відсутній),
+// просто у форматі Date.now()+Math.random().toString(36).slice(2,6) —
+// унікальному лише в межах одного пристрою (Rev 2.11.2 вище пояснює, чому
+// цього недостатньо для Cloud-дедуплікації між пристроями). Перевірено
+// (6D, крок 1): ані incomes.id, ані debts.id ніде не зберігаються як
+// довгострокове ПОСИЛАННЯ з іншого місця (ignoredDivergences/diagnostics —
+// name+month based; єдине використання, confirmDeleteRecord(), передається
+// транзитивно через onclick при кожному renderAll(), не персиститься) —
+// тому заміну значення можна робити на місці, не оновлюючи нічого іншого.
+const UUID_FORMAT_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function ensureIncomeIdentity(){
+  let changed = false;
+  incomes.forEach(function(inc){
+    if(!UUID_FORMAT_RE.test(inc.id)){ inc.id = generateUUID(); changed = true; }
+  });
+  if(changed) reportSaveResult(await saveIncomes());
+}
+async function ensureDebtIdentity(){
+  let changed = false;
+  debts.forEach(function(d){
+    if(!UUID_FORMAT_RE.test(d.id)){ d.id = generateUUID(); changed = true; }
+  });
+  if(changed) reportSaveResult(await saveDebts());
+}
 let cardVariants = {};
 
 // Rev #28.D1 — bankAccounts/installmentAccounts/hiddenFrom/ignoredDivergences
@@ -3149,7 +3174,9 @@ async function loadAll(){
   await ensureExpenseIdentity();
   ensureSchemaVersion();
   await loadIncomes();
+  await ensureIncomeIdentity();
   await loadDebts();
+  await ensureDebtIdentity();
   await loadBankAccounts();
   await loadInstallmentAccounts(); // після await loadDebts() вище — явно, не порядком рядків
   await loadHiddenFrom();
@@ -3248,7 +3275,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.36';
+const APP_VERSION = '2.21.37';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -4500,7 +4527,7 @@ async function saveIncomeDrawer(){
   }else if(existingIdx>=0){
     incomes[existingIdx].amount = amount;
   }else{
-    incomes.push({ id: Date.now()+Math.random().toString(36).slice(2,6), date: selectedMonth+'-01', source:s.key, amount });
+    incomes.push({ id: generateUUID(), date: selectedMonth+'-01', source:s.key, amount });
   }
   reportSaveResult(await saveIncomes());
   closeIncomeEditor();
@@ -4972,7 +4999,7 @@ async function saveInstallmentDrawer(){
       debts[existingIdx].balance = balance;
       debts[existingIdx].monthlyPayment = monthlyPayment;
     }else{
-      debts.push({ id: Date.now()+Math.random().toString(36).slice(2,6), name:newName, kind:'installment', month:selectedMonth, balance, monthlyPayment });
+      debts.push({ id: generateUUID(), name:newName, kind:'installment', month:selectedMonth, balance, monthlyPayment });
     }
   }
   reportSaveResult(await saveDebts());
@@ -5184,7 +5211,7 @@ async function saveCardDebtDrawer(){
       debts[existingIdx].minPayment = minPayment;
       debts[existingIdx].minPaymentDone = minPaymentDone;
     }else{
-      debts.push({ id: Date.now()+Math.random().toString(36).slice(2,6), name:newName, kind:'card', month:selectedMonth, balance:balAmount, minPayment, minPaymentDone });
+      debts.push({ id: generateUUID(), name:newName, kind:'card', month:selectedMonth, balance:balAmount, minPayment, minPaymentDone });
     }
   }
   reportSaveResult(await saveDebts());
