@@ -181,24 +181,45 @@
      .top, що вже спільний для всіх вкладок (не по одному на вкладку). */
   .page-header-buttons-left{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); left:20px; display:flex; gap:8px; z-index:2; }
   .page-header-text{ padding:0 76px; }
-  /* Rev #30 (6D.8) — буквений аватар: той самий принцип, що .bank-badge
-     (bankIcon() fallback) — коло + ініціали, лише окремий клас, бо семантика
-     інша (профіль користувача, не банк). Статус-крапка — той самий прийом,
-     що update-dot на .gear-btn.update-btn вище. */
-  .avatar-badge{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; overflow:hidden; background:var(--color-primary); color:#fff; font-size:14px; font-weight:700; flex-shrink:0; position:relative; }
-  .avatar-badge.guest{ background:var(--color-surface); color:var(--color-text-secondary); border:1.5px solid var(--color-border-strong); }
-  /* Rev #30 (6D.9) — BugFix: #profile-btn-top обгортає .avatar-badge (коло)
-     у .gear-btn, який сам має border-radius:var(--radius-md) (прямокутне
-     заокруглення) — без явного перекриття кути кнопки "виступали" за межі
-     вписаного кола. Власний клас замість inline-стилю, щоб не загубити фікс
-     при майбутніх правках. */
-  .profile-header-btn{ border:none; padding:0; background:none; border-radius:50%; overflow:visible; }
+  /* Rev #30 (6D.10) — BugFix структурний: .avatar-badge раніше сам ніс і
+     коло (border-radius:50%+overflow:hidden), і був контейнером
+     статус-крапки (position:absolute; bottom:-1px; right:-1px — за
+     дизайном частково ЗА межами кола). Власний overflow:hidden на тому
+     самому елементі різав крапку (скрін user, 3 місця одразу: header/
+     sidebar/картка "Сервісу"). Рішення (варіант "б" з промпту) —
+     .avatar-badge стає невидимим "холстом" без власної форми/кольору,
+     видима кругла "особа" — вкладений .avatar-face з border-radius:50%+
+     overflow:hidden, крапка — сестринський елемент .avatar-face всередині
+     .avatar-badge, поза межами обрізання. */
+  .avatar-badge{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; flex-shrink:0; position:relative; }
+  .avatar-face{ display:flex; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; border-radius:50%; overflow:hidden; background:var(--color-primary); color:#fff; font-size:14px; font-weight:700; }
+  .avatar-face.guest{ background:var(--color-surface); color:var(--color-text-secondary); border:1.5px solid var(--color-border-strong); }
+  /* Rev #30 (6D.9→6D.10) — BugFix: #profile-btn-top обгортає .avatar-badge
+     у .gear-btn (прямокутне border-radius:var(--radius-md)) — inline-стиль
+     не перекривав його, бо .gear-btn у каскаді визначений НИЖЧЕ за файлом
+     (виграє за порядком при однаковій специфічності). Складений селектор
+     .gear-btn.profile-header-btn — вища специфічність, не залежить від
+     порядку правил. */
+  .gear-btn.profile-header-btn{ border:none; padding:0; background:none; overflow:visible; }
   .profile-preview-icon-wrap{ display:flex; justify-content:center; margin:6px 0 18px; }
   .profile-preview-hint{ text-align:center; font-size:12.5px; color:var(--color-text-secondary); margin-top:12px; line-height:1.4; }
   .avatar-status-dot{ position:absolute; bottom:-1px; right:-1px; width:11px; height:11px; border-radius:50%; border:2px solid var(--color-surface); background:var(--color-text-secondary); }
   .avatar-status-dot.online{ background:var(--color-success); }
   .avatar-status-dot.offline{ background:var(--color-error); }
   .avatar-status-dot.hidden{ display:none; }
+  /* Rev #30 (6D.10) — новий заякорений UI-примітив (третій, на додачу до
+     #app-modal і .drawer): #profile-popover, той самий підхід, що вже
+     .data-status-popover (KPI-картки, "Стан даних") — не bottom sheet,
+     не modal, а компактна картка, позиційована JS-ом відносно поточного
+     видимого тригера (mobile-header чи desktop-sidebar, лише один із них
+     видимий одночасно). position:fixed (не absolute відносно спільного
+     батька, як .data-status-popover) — тому що у нас ДВА різні тригери
+     в різних контейнерах (.top для mobile, .side для desktop), а не один
+     завжди присутній батько. */
+  .profile-popover{ position:fixed; z-index:91; width:270px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:18px; display:none; }
+  .profile-popover.open{ display:block; }
+  .profile-popover-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
+  .profile-popover-backdrop.open{ display:block; }
   .page-header-text h1{ margin:0; font-size:21px; line-height:27px; font-weight:700; letter-spacing:-.01em; }
   .page-header-text .page-subtitle{ margin:3px 0 0; font-size:12.5px; color:var(--color-text-secondary); line-height:1.4; }
   /* Rev 2.11.1 — офлайн-банер: той самий приглушений warning-тон, що вже
@@ -1614,8 +1635,8 @@
          desktop — .side-tab тут. id="profile-avatar-side" оновлюється
          renderProfileUI() (буква/колір/aria-label), сам вміст іконки —
          placeholder, замінюється JS. -->
-    <button class="side-tab" onclick="openProfileMenu()">
-      <span class="avatar-badge guest" id="profile-avatar-side" style="width:22px; height:22px; font-size:10.5px;" aria-hidden="true"></span>
+    <button class="side-tab" id="profile-side-trigger" onclick="openProfileMenu()">
+      <span class="avatar-badge" id="profile-avatar-side" style="width:22px; height:22px;" aria-hidden="true"><span class="avatar-face guest" style="font-size:10.5px;"></span></span>
       Профіль
     </button>
     <button class="side-tab" onclick="openSettings()">
@@ -1651,7 +1672,7 @@
            стану сесії. -->
       <div class="page-header-buttons-left">
         <button class="gear-btn profile-header-btn" onclick="openProfileMenu()" aria-label="Профіль" id="profile-btn-top">
-          <span class="avatar-badge guest" id="profile-avatar-top" aria-hidden="true"></span>
+          <span class="avatar-badge" id="profile-avatar-top" aria-hidden="true"><span class="avatar-face guest"></span></span>
         </button>
       </div>
       <div class="page-header-buttons">
@@ -2112,8 +2133,8 @@
        профілю в header). Форма входу/стан "увійшли" тепер живуть усередині
        drawer'а нижче (renderProfileUI() наповнює цю картку тим самим
        текстом, що раніше показував #cloud-auth-status). -->
-  <button type="button" class="cloud-service-card" id="cloud-service-card" onclick="openProfileMenu()">
-    <span class="avatar-badge guest" id="profile-avatar-service" aria-hidden="true"></span>
+  <button type="button" class="cloud-service-card" id="cloud-service-card" onclick="openProfileMenu(this)">
+    <span class="avatar-badge" id="profile-avatar-service" aria-hidden="true"><span class="avatar-face guest"></span></span>
     <div class="cloud-service-card-text">
       <div class="cloud-service-card-name" id="cloud-service-card-name">Не увійшли</div>
       <div class="cloud-service-card-email" id="cloud-service-card-status">Увійдіть, щоб синхронізувати дані на всіх пристроях</div>
@@ -2377,7 +2398,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.45</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.46</div>
 </div>
   </div>
 </div>
@@ -2458,43 +2479,82 @@
      auth-логіка (signInCloudAccount/signOutCloudAccount/applyCloudSession/
      офлайн-нотіс) — та сама, лише DOM-розташування й оформлення змінились
      (ids незмінні, тому JS Rev 2.21.36 працює без правок). -->
-<div class="drawer-backdrop" id="profile-backdrop" onclick="closeProfileMenu()" inert></div>
-<div class="drawer" id="profile-drawer" role="dialog" aria-label="Профіль" aria-modal="true" inert>
-  <div class="drawer-head">
-    <h2>Профіль</h2>
-    <button class="drawer-close" onclick="closeProfileMenu()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-  </div>
+<!-- Rev #30 (6D.10) — ЗАМІНА підходу з Rev 2.21.44, не її розширення:
+     крок 1 (гість) і повне меню (залогінений) БІЛЬШЕ НЕ стани
+     #profile-drawer (bottom sheet) — обидва тепер #profile-popover,
+     третій UI-примітив у проєкті (на додачу до #app-modal і .drawer),
+     заякорений відносно тригера (mobile header-кнопка чи desktop
+     sidebar-рядок — лише один видимий одночасно), той самий принцип
+     click-outside/backdrop, що вже .drawer-backdrop всюди в проєкті.
+     Позиція обчислюється JS-ом (positionProfilePopover()), бо в нас ДВА
+     різних тригери в різних контейнерах, не один спільний
+     position:relative-батько, як у .data-status-popover (KPI-картки). -->
+<div class="profile-popover-backdrop" id="profile-popover-backdrop" onclick="closeProfileMenu()"></div>
+<div class="profile-popover" id="profile-popover" role="dialog" aria-label="Профіль">
+  <h2 style="margin:0 0 14px; font-size:16px; font-weight:700;">Профіль</h2>
   <div class="import-status hidden" id="cloud-offline-notice" style="color:var(--color-warning);">
     Вхід у Cloud потребує інтернету (бібліотека завантажується з мережі при відкритті) — зараз недоступний.
   </div>
-  <!-- Rev #30 (6D.9) — ЗМІНА ВИМОГИ (не помилка 6D.8, свідомо скасовує те
-       рішення за новим референсом): раніше "не увійшли" було об'єднано з
-       формою входу напряму (одразу форма, без прев'ю) — тепер явно
-       потрібен проміжний крок. Третій стан ТОГО САМОГО #profile-drawer
-       (не новий UI-примітим): #profile-guest-preview показується першим
-       для гостя, "Увійти" в ньому перемикає на #cloud-login-form
-       (showProfileLoginForm()). "Вийти" тут свідомо відсутній — нема з
-       чого виходити (узгоджено, на відміну від референсу). -->
+  <!-- "Вийти" тут свідомо відсутній — нема з чого виходити (узгоджено, на
+       відміну від референсу). "Увійти" перемикає на #profile-drawer
+       (showProfileLoginForm() закриває popover, відкриває drawer). -->
   <div id="profile-guest-preview" class="cloud-auth-block">
     <div class="profile-preview-icon-wrap">
-      <span class="avatar-badge guest" style="width:64px; height:64px;" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span class="avatar-badge" style="width:64px; height:64px;" aria-hidden="true">
+        <span class="avatar-face guest">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </span>
       </span>
     </div>
-    <button type="button" class="submit-btn debt pill" onclick="showProfileLoginForm()">Увійти</button>
+    <button type="button" class="submit-btn pill" onclick="showProfileLoginForm()">Увійти</button>
     <div class="profile-preview-hint">Увійдіть, щоб синхронізувати дані та налаштування</div>
     <button type="button" class="profile-menu-item" onclick="closeProfileMenu(); openSettings();">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       Налаштування
     </button>
   </div>
-  <!-- Крок 2 (Rev #30 6D.9): показується лише після тапу "Увійти" в
-       прев'ю вище — та сама форма, що вже була в Rev 2.21.36/6D.8, лише
-       тепер другий крок, не перший екран. -->
-  <div id="cloud-login-form" class="cloud-auth-block hidden">
+  <!-- Rev #30 (6D.10) — уточнення користувача: залогінений стан теж
+       popover (не bottom sheet), для візуальної консистентності з гостем.
+       БЕЗ "Мій профіль"/"Безпека"/"Синхронізація" з референсу: немає
+       відповідного функціоналу (той самий принцип, що вже сформульований
+       для мови/валюти — "без декоративних перемикачів «про людське око»"). -->
+  <div id="cloud-signed-in" class="cloud-auth-block hidden">
     <div class="profile-head">
-      <span class="avatar-badge guest" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span class="avatar-badge" id="profile-avatar-drawer" aria-hidden="true"><span class="avatar-face"></span></span>
+      <div class="profile-head-text">
+        <div class="profile-head-name" id="profile-drawer-name"></div>
+        <div class="profile-head-email" id="profile-drawer-email"></div>
+        <div class="profile-status-line"><span class="profile-status-dot" id="profile-status-dot"></span><span id="profile-status-text"></span></div>
+      </div>
+    </div>
+    <button type="button" class="profile-menu-item" onclick="closeProfileMenu(); openSettings();">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      Налаштування
+    </button>
+    <button type="button" class="profile-menu-item danger" onclick="signOutCloudAccount()">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Вийти
+    </button>
+  </div>
+</div>
+
+<!-- ================= Вхід (Drawer, Rev #30 6D.10) =================
+     Той самий .drawer компонент, що Налаштування — тепер ЄДИНИЙ вміст:
+     повна форма email+пароль (Rev 2.21.36, без правок по суті). Відкривається
+     лише з #profile-popover ("Увійти" у прев'ю → showProfileLoginForm()),
+     не напряму з іконки профілю. -->
+<div class="drawer-backdrop" id="profile-backdrop" onclick="closeProfileLoginDrawer()" inert></div>
+<div class="drawer" id="profile-drawer" role="dialog" aria-label="Вхід" aria-modal="true" inert>
+  <div class="drawer-head">
+    <h2>Вхід</h2>
+    <button class="drawer-close" onclick="closeProfileLoginDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div id="cloud-login-form" class="cloud-auth-block">
+    <div class="profile-head">
+      <span class="avatar-badge" aria-hidden="true">
+        <span class="avatar-face guest">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </span>
       </span>
       <div class="profile-head-text">
         <div class="profile-head-name">Ви не увійшли</div>
@@ -2510,30 +2570,7 @@
       <input type="password" id="cloud-password" autocomplete="current-password">
     </div>
     <div class="import-status" id="cloud-auth-error" style="color:var(--color-error);"></div>
-    <button type="button" class="submit-btn debt pill" onclick="signInCloudAccount()">Увійти</button>
-  </div>
-  <!-- Стан "увійшли": буквений аватар+ім'я+email+статус, "Налаштування" й
-       "Вийти" — БЕЗ "Мій профіль"/"Безпека"/"Синхронізація" з референсу:
-       немає відповідного функціоналу, і додавання неробочих пунктів
-       порушило б той самий принцип, що вже сформульований вище для
-       мови/валюти ("без декоративних перемикачів «про людське око»"). -->
-  <div id="cloud-signed-in" class="cloud-auth-block hidden">
-    <div class="profile-head">
-      <span class="avatar-badge" id="profile-avatar-drawer" aria-hidden="true"></span>
-      <div class="profile-head-text">
-        <div class="profile-head-name" id="profile-drawer-name"></div>
-        <div class="profile-head-email" id="profile-drawer-email"></div>
-        <div class="profile-status-line"><span class="profile-status-dot" id="profile-status-dot"></span><span id="profile-status-text"></span></div>
-      </div>
-    </div>
-    <button type="button" class="profile-menu-item" onclick="closeProfileMenu(); openSettings();">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-      Налаштування
-    </button>
-    <button type="button" class="profile-menu-item danger" onclick="signOutCloudAccount()">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      Вийти
-    </button>
+    <button type="button" class="submit-btn pill" onclick="signInCloudAccount()">Увійти</button>
   </div>
 </div>
 
@@ -3826,7 +3863,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.45';
+const APP_VERSION = '2.21.46';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -4430,25 +4467,48 @@ function setCloudAuthOffline(isOffline){
   const notice = document.getElementById('cloud-offline-notice');
   if(notice) notice.classList.toggle('hidden', !isOffline);
 }
-// Rev #30 (6D.9) — тепер 3 стани, не 2: "не увійшли" веде на
-// #profile-guest-preview (крок 1), не одразу на форму. Кожен виклик
-// (з applyCloudSession(), тобто кожна переоцінка сесії) явно скидає форму
-// назад у hidden — showProfileLoginForm() нижче єдина дія, що її розкриває,
-// і триває, доки сесія не переоцінюється знову (типово: наступне відкриття
-// #profile-drawer через openProfileMenu()→initCloudAuthUI()).
+// Rev #30 (6D.10) — ЗАМІНА підходу з 6D.9 (не розширення): #profile-drawer
+// більше не тримає ні гостьового прев'ю, ні залогінованого меню — обидва
+// переїхали в #profile-popover. Ця функція тепер керує лише 2 станами
+// popover'а (guest-preview/signed-in) і, за потреби, закриває drawer
+// форми входу (успішний вхід чи вже наявна сесія — форма входу більше не
+// актуальна, якщо користувач якимось чином лишив її відкритою).
 function setCloudAuthFormVisible(visible){
   const preview = document.getElementById('profile-guest-preview');
-  const form = document.getElementById('cloud-login-form');
   const signedIn = document.getElementById('cloud-signed-in');
   if(preview) preview.classList.toggle('hidden', !visible);
-  if(form) form.classList.add('hidden');
   if(signedIn) signedIn.classList.toggle('hidden', visible);
+  if(!visible) closeProfileLoginDrawer(); // visible=false означає "залогінений"
 }
+// Rev #30 (6D.10) — "Увійти" в #profile-popover: закриває popover,
+// відкриває #profile-drawer (форма входу) — той самий bottom-sheet
+// .drawer-компонент, що вже Налаштування/картка боргу/тощо.
 function showProfileLoginForm(){
-  document.getElementById('profile-guest-preview').classList.add('hidden');
-  document.getElementById('cloud-login-form').classList.remove('hidden');
-  const emailInput = document.getElementById('cloud-email');
-  if(emailInput) emailInput.focus();
+  closeProfileMenu();
+  openProfileLoginDrawer();
+}
+function openProfileLoginDrawer(){
+  lastFocusedBeforeDialog = document.activeElement;
+  document.getElementById('profile-backdrop').removeAttribute('inert');
+  document.getElementById('profile-drawer').removeAttribute('inert');
+  document.getElementById('profile-backdrop').classList.add('open');
+  document.getElementById('profile-drawer').classList.add('open');
+  focusFirstIn(document.getElementById('profile-drawer'));
+}
+function closeProfileLoginDrawer(){
+  const drawer = document.getElementById('profile-drawer');
+  // Guard: setCloudAuthFormVisible(false) кличе цю функцію БЕЗУМОВНО за
+  // кожної переоцінки сесії (типово: щоразу, коли popover відкривається
+  // вже залогіненому користувачу) — без цієї перевірки restoreFocus()
+  // спрацював би, навіть коли drawer ніколи не відкривався, і "з'їв" би
+  // lastFocusedBeforeDialog, щойно встановлений openProfileMenu() для
+  // самого popover'а.
+  if(!drawer.classList.contains('open')) return;
+  document.getElementById('profile-backdrop').classList.remove('open');
+  drawer.classList.remove('open');
+  document.getElementById('profile-backdrop').setAttribute('inert','');
+  drawer.setAttribute('inert','');
+  restoreFocus();
 }
 
 // Rev #30 — ініціалізація стану входу при відкритті "Сервісу": SDK
@@ -4546,13 +4606,26 @@ function renderProfileUI(){
   const letter = signedIn ? (cloudDisplayName || session.user.email || '?').trim().charAt(0).toUpperCase() : '';
   const online = navigator.onLine;
 
+  // Rev #30 (6D.10) — BugFix: контент (буква/силует) тепер пишеться у
+  // ВКЛАДЕНИЙ .avatar-face, не в сам .avatar-badge — той самий елемент,
+  // що раніше ніс і форму (border-radius:50%+overflow:hidden), і був
+  // контейнером статус-крапки (position:absolute, частково ЗА межами
+  // кола за дизайном) — власний overflow:hidden різав крапку. Тепер
+  // .avatar-badge — невидимий "холст" (без border-radius/overflow),
+  // .avatar-face — видима кругла "особа", крапка — сестра .avatar-face
+  // всередині .avatar-badge, поза межами обрізання.
   document.querySelectorAll('.avatar-badge[id^="profile-avatar-"]').forEach(function(el){
-    el.classList.toggle('guest', !signedIn);
-    if(signedIn) el.textContent = letter;
-    else el.innerHTML = GUEST_AVATAR_ICON_SVG;
+    const face = el.querySelector('.avatar-face');
+    if(!face) return;
+    face.classList.toggle('guest', !signedIn);
+    if(signedIn) face.textContent = letter;
+    else face.innerHTML = GUEST_AVATAR_ICON_SVG;
   });
   const dotClass = !signedIn ? '' : (online ? 'online' : 'offline');
-  ['profile-avatar-top', 'profile-avatar-service'].forEach(function(id){
+  // Rev #30 (6D.10) — розширено з 2 до 3 місць: 'profile-avatar-side'
+  // (desktop sidebar) раніше взагалі не мав крапки — той самий "холст"-
+  // фікс тепер застосований однаково для header/sidebar/картки "Сервісу".
+  ['profile-avatar-top', 'profile-avatar-side', 'profile-avatar-service'].forEach(function(id){
     const host = document.getElementById(id);
     if(!host) return;
     let dot = host.querySelector('.avatar-status-dot');
@@ -4586,26 +4659,68 @@ function renderProfileUI(){
     if(cardStatus) cardStatus.textContent = 'Увійдіть, щоб синхронізувати дані на всіх пристроях';
   }
 }
-// Rev #30 (6D.8) — той самий .drawer-патерн, що #settings-drawer
-// (openSettings()/closeSettings()) — не новий UI-примітив. Профіль
-// відкривається з будь-якої вкладки (іконка в спільному .top header,
-// Крок 0 п.2), тому лінива ініціалізація Cloud Auth (initCloudAuthUI())
-// викликається і тут, не лише при відкритті "Сервісу" — обидва виклики
-// ідемпотентні (isSupabaseSdkReady()/cloudAuthListenerBound guard).
-function openProfileMenu(){
+// Rev #30 (6D.10) — ЗАМІНА підходу з 6D.8/6D.9 (не розширення): раніше
+// openProfileMenu() відкривала #profile-drawer (bottom sheet). Референс
+// вимагає заякорений popover — тому тепер це заякорений #profile-popover,
+// третій UI-примітив у проєкті (не #app-modal, не .drawer). Позиція
+// обчислюється відносно ФАКТИЧНО клікнутого тригера (explicitTrigger,
+// якщо переданий — напр. компактна картка в "Сервісі"), інакше — відносно
+// поточного видимого стандартного тригера (mobile header-кнопка чи
+// desktop sidebar-рядок, лише один видимий одночасно).
+//
+// BugFix, знайдений живою перевіркою: якщо позиціювання завжди прив'язане
+// ЛИШЕ до header/sidebar-тригера, а картка в "Сервісі" прокручена вниз —
+// header-кнопка опиняється за межами viewport (від'ємний rect.top),
+// popover відкрився б повністю поза екраном. Тепер картка передає себе
+// (`onclick="openProfileMenu(this)"`), і позиція додатково кламписться
+// у межах viewport ПІСЛЯ рендеру (виміряний реальний розмір popover'а —
+// він відрізняється для guest/signed-in станів).
+function positionProfilePopover(explicitTrigger){
+  const popover = document.getElementById('profile-popover');
+  let trigger = explicitTrigger;
+  if(!trigger){
+    const mobileTrigger = document.getElementById('profile-btn-top');
+    const desktopTrigger = document.getElementById('profile-side-trigger');
+    trigger = mobileTrigger.offsetParent !== null ? mobileTrigger : desktopTrigger;
+  }
+  const rect = trigger.getBoundingClientRect();
+  const popoverWidth = 270;
+  let top, left;
+  if(trigger.id === 'profile-side-trigger'){
+    // Desktop sidebar: розкриття ПРАВОРУЧ від іконки (інша сторона,
+    // sidebar сам вузький і зафіксований зліва).
+    top = rect.top;
+    left = rect.right + 10;
+  }else{
+    // Mobile header-кнопка або компактна картка "Сервісу": розкриття ПІД
+    // елементом, зліва (там, де сам елемент).
+    top = rect.bottom + 8;
+    left = Math.max(16, Math.min(rect.left, window.innerWidth - popoverWidth - 16));
+  }
+  popover.style.top = top + 'px';
+  popover.style.left = left + 'px';
+  // Кламп у межах viewport за фактично відрендерованим розміром (popover
+  // вже має бути .open до цього виклику, інакше getBoundingClientRect
+  // поверне розмір закритого/невидимого стану).
+  const popoverRect = popover.getBoundingClientRect();
+  if(popoverRect.bottom > window.innerHeight - 16){
+    popover.style.top = Math.max(16, window.innerHeight - popoverRect.height - 16) + 'px';
+  }
+  if(popoverRect.right > window.innerWidth - 16){
+    popover.style.left = Math.max(16, window.innerWidth - popoverRect.width - 16) + 'px';
+  }
+}
+function openProfileMenu(explicitTrigger){
   lastFocusedBeforeDialog = document.activeElement;
-  document.getElementById('profile-backdrop').removeAttribute('inert');
-  document.getElementById('profile-drawer').removeAttribute('inert');
-  document.getElementById('profile-backdrop').classList.add('open');
-  document.getElementById('profile-drawer').classList.add('open');
-  focusFirstIn(document.getElementById('profile-drawer'));
+  document.getElementById('profile-popover-backdrop').classList.add('open');
+  document.getElementById('profile-popover').classList.add('open');
+  positionProfilePopover(explicitTrigger);
+  focusFirstIn(document.getElementById('profile-popover'));
   initCloudAuthUI();
 }
 function closeProfileMenu(){
-  document.getElementById('profile-backdrop').classList.remove('open');
-  document.getElementById('profile-drawer').classList.remove('open');
-  document.getElementById('profile-backdrop').setAttribute('inert','');
-  document.getElementById('profile-drawer').setAttribute('inert','');
+  document.getElementById('profile-popover-backdrop').classList.remove('open');
+  document.getElementById('profile-popover').classList.remove('open');
   restoreFocus();
 }
 
@@ -9556,9 +9671,15 @@ document.addEventListener('keydown', function(e){
   // Rev #30 (6D.8) — #profile-drawer той самий .drawer-патерн, той самий
   // focus-trap, що вже settings-drawer тут.
   const profileDrawer = document.getElementById('profile-drawer');
+  // Rev #30 (6D.10) — #profile-popover: новий заякорений примітив, той
+  // самий принцип трапу, що й решта діалогів тут (ніколи не відкритий
+  // одночасно з drawer/modal — showProfileLoginForm() явно закриває
+  // popover перед відкриттям drawer).
+  const profilePopover = document.getElementById('profile-popover');
   if(modal && modal.classList.contains('open')) trapTabKey(e, modal);
   else if(drawer && drawer.classList.contains('open')) trapTabKey(e, drawer);
   else if(profileDrawer && profileDrawer.classList.contains('open')) trapTabKey(e, profileDrawer);
+  else if(profilePopover && profilePopover.classList.contains('open')) trapTabKey(e, profilePopover);
 });
 
 /* ============ Налаштування (Drawer) ============ */
@@ -9578,7 +9699,7 @@ function closeSettings(){
   document.getElementById('settings-drawer').setAttribute('inert','');
   restoreFocus();
 }
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeProfileMenu(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeProfileMenu(); closeProfileLoginDrawer(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
 
 /* ============ Тема застосунку (Rev 2.6.0) ============
    Три стани: 'auto' (за системною темою, дефолт), 'light', 'dark' — саме
