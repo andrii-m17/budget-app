@@ -556,6 +556,12 @@
   .profile-menu-item svg{ flex-shrink:0; color:var(--color-text-secondary); }
   .profile-menu-item.danger{ color:var(--color-error); }
   .profile-menu-item.danger svg{ color:var(--color-error); }
+  /* Rev #30 (6D крок 9) — той самий "scoped .hidden" підхід, що вже
+     .view.hidden/.import-status.hidden тощо (у проєкті НЕМАЄ спільного
+     .hidden{display:none}) — .profile-menu-item тут використана поза
+     popover'ом (кнопка ручного pull у "Сервісі"), тому потребує власного
+     правила. */
+  .profile-menu-item.hidden{ display:none; }
   @media (hover:hover){ .profile-menu-item:hover{ background:var(--color-hover-overlay); } }
   .cloud-service-card{ display:flex; align-items:center; gap:12px; width:100%; padding:14px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); cursor:pointer; text-align:left; font-family:inherit; margin-bottom:4px; }
   @media (hover:hover){ .cloud-service-card:hover{ background:var(--color-surface-hover); } }
@@ -2195,6 +2201,18 @@
     <svg class="cloud-service-card-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
   </button>
 
+  <!-- Rev #30 (6D крок 9) — ручний Pull pilot (categories): видимий лише
+       залогіненому (toggle у renderProfileUI()) — pull без сесії/family_id
+       все одно мовчки пропускається у pullCategoriesCore(), але кнопка тут
+       БЕЗ сенсу її показувати гостю. .profile-menu-item — той самий готовий
+       клас, що пункти popover'а (border-top-роздільник), тут використаний
+       окремо поза popover — не новий CSS-патерн. -->
+  <button type="button" class="profile-menu-item hidden" id="sync-categories-btn" onclick="pullCategoriesPilotManual()" style="margin-bottom:4px;">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+    Синхронізувати категорії
+  </button>
+  <div class="import-status hidden" id="sync-categories-status"></div>
+
   <div class="section-label">Дані</div>
   <div class="service-grid">
     <button type="button" class="service-tile" id="export-btn" onclick="exportToExcel()">
@@ -2451,7 +2469,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.52</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.53</div>
 </div>
   </div>
 </div>
@@ -3062,6 +3080,100 @@ async function reconcileCategoryCloudId(client, userId, cat){
   if(existing){ cat.cloudId = existing.id; return; }
   const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) cat.cloudId = data.id;
+}
+// Rev #30 (6D крок 9) — Pull pilot: categories. Дзеркальне до push (6D fix
+// вище) reconciliation, у зворотному напрямку. 6D крок 0 pre-check:
+// reconcileCategoryCloudId() НЕ перевикористовна напряму (вона шукає
+// Cloud-рядок ЗА локальним cat.name; тут навпаки — вже маємо Cloud-рядок і
+// шукаємо локальний відповідник), тому симетрична логіка написана окремо,
+// той самий принцип матчингу (name-based reconciliation), інший напрямок.
+// Для КОЖНОГО Cloud-рядка:
+//   1) є local з тим самим cloudId? → оновити name/active з Cloud-версії
+//      (Cloud перемагає для вже пов'язаних записів — спрощений LWW,
+//      узгоджений раніше через відсутність updatedAt у Категорії B).
+//   2) немає local з таким cloudId, але є unlinked local з тим самим name?
+//      → зв'язати (прописати cloudId), не дублювати.
+//   3) жодного відповідника? → новий запис з іншого пристрою, додати
+//      локально з cloudId. `type` (Обов'язкова/Гнучка/Скорочувана) —
+//      ЛОКАЛЬНЕ поле, якого немає в Cloud-таблиці categories (push теж
+//      його не надсилає, крок 0 підтвердив) — новій категорії з Cloud
+//      підставляється дефолт "Гнучка", той самий, що openAddCategoryModal()
+//      для нових локальних категорій; якщо це не так — легко виправити
+//      вручну в "Структурі" (не критичний фінансовий параметр сам по собі,
+//      лише вплив на розподіл "Обов'язкові/Вільні" до першого редагування).
+// Видалення НЕ синхронізується (свідомо, як і push): local-запис з "висячим"
+// cloudId (Cloud-рядок видалено на іншому пристрої) тут НЕ чіпається — той
+// самий принцип, що push крок 5.
+// Пише лише через saveCategoriesLocal() (БЕЗ push-хука) — pull не повинен
+// тригерити зворотний pushCategoriesPilot() (там же й ризик зациклення,
+// прямо позначений користувачем).
+async function pullCategoriesCore(){
+  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return { skipped: true };
+  if(!isSupabaseSdkReady()) return { skipped: true };
+  const client = getSupabaseClient();
+  let updated = 0, linked = 0, added = 0;
+  try{
+    const { data, error } = await client.from('categories').select('id,name,active').eq('family_id', cloudFamilyId);
+    if(error || !data) return { skipped: true };
+    for(const row of data){
+      const byCloudId = CATEGORIES.find(function(c){ return c.cloudId === row.id; });
+      if(byCloudId){
+        if(byCloudId.name !== row.name || byCloudId.active !== row.active){
+          byCloudId.name = row.name;
+          byCloudId.active = row.active;
+          updated++;
+        }
+        continue;
+      }
+      const byName = CATEGORIES.find(function(c){ return !c.cloudId && c.name === row.name; });
+      if(byName){
+        byName.cloudId = row.id;
+        linked++;
+        continue;
+      }
+      CATEGORIES.push({ name: row.name, type: 'Гнучка', active: row.active, cloudId: row.id });
+      added++;
+    }
+  }catch(e){
+    return { skipped: true };
+  }
+  if(updated || linked || added) await saveCategoriesLocal();
+  return { skipped: false, updated: updated, linked: linked, added: added };
+}
+// Автоматичний виклик при вході (applyCloudSession()) — тихий, без UI-
+// зворотного зв'язку (той самий принцип, що push: мережева помилка чи
+// відсутність сесії НІКОЛИ не показується користувачу як помилка).
+async function pullCategoriesPilot(){
+  return await pullCategoriesCore();
+}
+// Ручний виклик кнопкою в "Сервісі" — той самий core, але З видимим
+// результатом (на відміну від тихого автоматичного pull при вході).
+async function pullCategoriesPilotManual(){
+  const statusEl = document.getElementById('sync-categories-status');
+  statusEl.classList.remove('hidden');
+  if(!cloudSession || !cloudSession.user){
+    statusEl.textContent = 'Спершу увійдіть у Cloud.';
+    return;
+  }
+  if(!isSupabaseSdkReady() || !cloudFamilyId){
+    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
+    return;
+  }
+  statusEl.textContent = 'Синхронізація…';
+  const result = await pullCategoriesCore();
+  if(!result || result.skipped){
+    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
+    return;
+  }
+  if(result.updated || result.linked || result.added){
+    renderStructure();
+    populateCategorySelect();
+  }
+  const parts = [];
+  if(result.added) parts.push(result.added + ' нових');
+  if(result.linked) parts.push(result.linked + ' зв\'язано');
+  if(result.updated) parts.push(result.updated + ' оновлено');
+  statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
 }
 async function saveSubcategories(){
   const result = await saveSubcategoriesLocal();
@@ -3921,7 +4033,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.52';
+const APP_VERSION = '2.21.53';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -4603,12 +4715,27 @@ let cloudAuthListenerBound = false;
 // перевірити "чи залогінений" без звернення до SDK щоразу.
 let cloudSession = null;
 async function applyCloudSession(session){
+  // Rev #30 (6D крок 9) — wasSignedIn ЗНЯТО ДО перезапису cloudSession
+  // нижче: applyCloudSession() викликається і при кожному відкритті
+  // "Сервісу" (initCloudAuthUI), і на КОЖНІЙ події onAuthStateChange
+  // (включно з TOKEN_REFRESHED, що трапляється періодично, поки вкладка
+  // відкрита) — без цієї перевірки pull перетворився б на прихований
+  // періодичний polling, що прямо заборонено в DoD цього кроку. Pull
+  // викликається РІВНО ОДИН РАЗ — на переході "не увійшли → увійшли".
+  const wasSignedIn = !!(cloudSession && cloudSession.user);
   cloudSession = session || null;
   if(session && session.user){
     setCloudAuthFormVisible(false);
     setCloudAuthStatus(`Увійшли як ${session.user.email}`);
     await loadCloudFamilyId(getSupabaseClient(), session.user.id);
     await loadCloudDisplayName(getSupabaseClient(), session.user.id);
+    if(!wasSignedIn){
+      const result = await pullCategoriesPilot();
+      if(result && !result.skipped && (result.updated || result.linked || result.added)){
+        renderStructure();
+        populateCategorySelect();
+      }
+    }
   }else{
     setCloudAuthFormVisible(true);
     setCloudAuthStatus('Не увійшли');
@@ -4663,6 +4790,10 @@ function renderProfileUI(){
   const signedIn = !!(session && session.user);
   const letter = signedIn ? (cloudDisplayName || session.user.email || '?').trim().charAt(0).toUpperCase() : '';
   const online = navigator.onLine;
+
+  // Rev #30 (6D крок 9) — ручний Pull-кнопка видима лише залогіненому.
+  const syncBtn = document.getElementById('sync-categories-btn');
+  if(syncBtn) syncBtn.classList.toggle('hidden', !signedIn);
 
   // Rev #30 (6D.10) — BugFix: контент (буква/силует) тепер пишеться у
   // ВКЛАДЕНИЙ .avatar-face, не в сам .avatar-badge — той самий елемент,
