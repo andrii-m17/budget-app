@@ -216,7 +216,10 @@
      батька, як .data-status-popover) — тому що у нас ДВА різні тригери
      в різних контейнерах (.top для mobile, .side для desktop), а не один
      завжди присутній батько. */
-  .profile-popover{ position:fixed; z-index:91; width:270px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:18px; display:none; }
+  /* Rev #30 (6D.11) — звужено з 270px (орієнтир референсу: права межа
+     popover десь на рівні "л" у слові "Аналітика") — висота НЕ фіксована
+     (розтягується під вміст природно, як і раніше), лише ширина менша. */
+  .profile-popover{ position:fixed; z-index:91; width:200px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:16px; display:none; }
   .profile-popover.open{ display:block; }
   .profile-popover-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
   .profile-popover-backdrop.open{ display:block; }
@@ -401,6 +404,15 @@
   .field label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
   .field input:focus, .field select:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
+  /* Rev #30 (6D.11) — форма входу: label над полем → іконка+placeholder
+     усередині поля (референс). Той самий технічний прийом, що вже
+     .journal-search-input-wrap (пошук у Журналі) — не новий патерн,
+     власний scoped-клас (не чіпає спільний .field, який використовує
+     кожна форма в застосунку). flashField() працює напряму через
+     el.style.borderColor, не залежить від <label> — безпечно. */
+  .field-icon-wrap{ position:relative; }
+  .field-icon-wrap > svg{ position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--color-text-secondary); pointer-events:none; }
+  .field-icon-wrap input{ padding-left:40px; }
   .row-2{ display:flex; flex-wrap:wrap; gap:12px; }
   .row-2 > .field{ flex:1 1 130px; min-width:0; }
   .field.auto-hint{ font-size:11.5px; color:var(--color-primary-hover); margin-top:6px; display:none; }
@@ -1002,9 +1014,27 @@
   /* ---- Налаштування (Drawer) ---- */
   .drawer-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
   .drawer-backdrop.open{ display:block; }
+  /* Rev #30 (6D.11) — редизайн mobile bottom sheet → floating card (за
+     референсом): відступи з боків і знизу (не full-bleed, не впритул до
+     .tabbar), скруглення з УСІХ боків (не лише зверху). Той самий базовий
+     .drawer-клас, спільний для всіх 5 drawer'ів (settings/profile-login/
+     card-debt/installment/income) — зміна тут одразу застосовується
+     всюди. Десктопний варіант (≥1280px, права панель на всю висоту)
+     свідомо НЕ чіпається нижче — це вже інший патерн, не "bottom sheet".
+     Свайп-риска (grab handle) НЕ додається: перевірено (6D.11 крок 0) —
+     її ніколи не було в коді (ні візуально, ні як drag-to-dismiss логіка),
+     лише на оригінальному дизайн-референсі. */
   .drawer{ position:fixed; z-index:91; background:var(--color-surface); box-shadow:var(--shadow-lg);
-    left:0; right:0; bottom:0; border-radius:var(--radius-xl) var(--radius-xl) 0 0; padding:20px 20px calc(20px + env(safe-area-inset-bottom));
-    transform:translateY(100%); transition:transform var(--duration-slow) var(--easing-standard); max-height:80vh; overflow-y:auto; }
+    left:16px; right:16px; bottom:max(84px, calc(env(safe-area-inset-bottom) + 70px));
+    border-radius:var(--radius-xl); padding:20px;
+    /* BugFix (6D.11, знайдено живою перевіркою): translateY(100%) рахується
+       від ВЛАСНОЇ висоти елемента, не від нового bottom-відступу картки —
+       короткий drawer (напр. "Дохід") лишав видимий "хвостик" знизу
+       екрана в закритому стані, бо зсув не покривав anchor-gap до
+       viewport-bottom. 100vh замість 100% — зсув відносно висоти
+       viewport, що завжди перевищує max-height:74vh + будь-який
+       bottom-відступ, тому картка гарантовано повністю за межами екрана. */
+    transform:translateY(100vh); transition:transform var(--duration-slow) var(--easing-standard); max-height:74vh; overflow-y:auto; }
   .drawer.open{ transform:translateY(0); }
   .drawer-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .drawer-head h2{ margin:0; font-size:17px; font-weight:700; }
@@ -2398,7 +2428,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.46</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.47</div>
 </div>
   </div>
 </div>
@@ -2561,13 +2591,13 @@
         <div class="profile-head-email">Увійдіть, щоб синхронізувати дані на всіх пристроях</div>
       </div>
     </div>
-    <div class="field">
-      <label for="cloud-email">Email</label>
-      <input type="email" id="cloud-email" autocomplete="username">
+    <div class="field field-icon-wrap">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+      <input type="email" id="cloud-email" placeholder="Email" aria-label="Email" autocomplete="username">
     </div>
-    <div class="field">
-      <label for="cloud-password">Пароль</label>
-      <input type="password" id="cloud-password" autocomplete="current-password">
+    <div class="field field-icon-wrap">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <input type="password" id="cloud-password" placeholder="Пароль" aria-label="Пароль" autocomplete="current-password">
     </div>
     <div class="import-status" id="cloud-auth-error" style="color:var(--color-error);"></div>
     <button type="button" class="submit-btn pill" onclick="signInCloudAccount()">Увійти</button>
@@ -3863,7 +3893,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.46';
+const APP_VERSION = '2.21.47';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -4646,7 +4676,10 @@ function renderProfileUI(){
     if(nameEl) nameEl.textContent = name;
     if(emailEl) emailEl.textContent = session.user.email;
     if(statusDot) statusDot.className = 'profile-status-dot ' + (online ? 'online' : 'offline');
-    if(statusText) statusText.textContent = online ? 'Синхронізація увімкнена' : 'Синхронізація призупинена (немає мережі)';
+    // Rev #30 (6D.11) — скорочено спеціально для вузького popover (200px,
+    // Задача 1); картка в "Сервісі" (cardStatus нижче) лишається повним
+    // текстом — там достатньо горизонтального місця, не була частиною запиту.
+    if(statusText) statusText.textContent = online ? 'Синхронізовано' : 'Призупинено (немає мережі)';
 
     const cardName = document.getElementById('cloud-service-card-name');
     const cardStatus = document.getElementById('cloud-service-card-status');
@@ -4684,7 +4717,7 @@ function positionProfilePopover(explicitTrigger){
     trigger = mobileTrigger.offsetParent !== null ? mobileTrigger : desktopTrigger;
   }
   const rect = trigger.getBoundingClientRect();
-  const popoverWidth = 270;
+  const popoverWidth = 200; // Rev #30 (6D.11) — синхронізовано з .profile-popover CSS
   let top, left;
   if(trigger.id === 'profile-side-trigger'){
     // Desktop sidebar: розкриття ПРАВОРУЧ від іконки (інша сторона,
@@ -9676,10 +9709,23 @@ document.addEventListener('keydown', function(e){
   // одночасно з drawer/modal — showProfileLoginForm() явно закриває
   // popover перед відкриттям drawer).
   const profilePopover = document.getElementById('profile-popover');
+  // Rev #30 (6D.11) — BugFix, знайдений живою перевіркою Tab-циклу під час
+  // цього Rev (не регресія самого Rev — пробіл існував і раніше): жоден з
+  // цих трьох drawer'ів ніколи не був підключений до Tab-трапу, хоча всі
+  // троє мають той самий inert/.open-механізм, що вже settings-drawer.
+  // Tab з останнього фокусованого елемента (напр. "Видалити картку")
+  // "втікав" у фонові елементи (header/сайдбар) замість циклічного
+  // повернення на перший (кнопка закриття).
+  const cardDebtDrawer = document.getElementById('card-debt-drawer');
+  const installmentDrawer = document.getElementById('installment-drawer');
+  const incomeDrawer = document.getElementById('income-drawer');
   if(modal && modal.classList.contains('open')) trapTabKey(e, modal);
   else if(drawer && drawer.classList.contains('open')) trapTabKey(e, drawer);
   else if(profileDrawer && profileDrawer.classList.contains('open')) trapTabKey(e, profileDrawer);
   else if(profilePopover && profilePopover.classList.contains('open')) trapTabKey(e, profilePopover);
+  else if(cardDebtDrawer && cardDebtDrawer.classList.contains('open')) trapTabKey(e, cardDebtDrawer);
+  else if(installmentDrawer && installmentDrawer.classList.contains('open')) trapTabKey(e, installmentDrawer);
+  else if(incomeDrawer && incomeDrawer.classList.contains('open')) trapTabKey(e, incomeDrawer);
 });
 
 /* ============ Налаштування (Drawer) ============ */
