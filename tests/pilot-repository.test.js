@@ -355,46 +355,68 @@ test('pullCategoriesCore: мережева помилка → { skipped:true }, 
   assert.deepEqual(plain(ctx.CATEGORIES), [{ name: 'X', type: 'Гнучка', active: true }]);
 });
 
-test('pullCategoriesCore: правило 1 — local з тим самим cloudId → оновлюється name/active з Cloud-версії', async () => {
-  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа (нова назва)', active: false }]);
+test('pullCategoriesCore: правило 1 — local з тим самим cloudId → оновлюється name/active/type з Cloud-версії', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа (нова назва)', active: false, type: "Обов'язкова" }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
   const result = await ctx.pullCategoriesCore();
   assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0 });
   assert.equal(ctx.CATEGORIES[0].name, '🍔 Їжа (нова назва)');
   assert.equal(ctx.CATEGORIES[0].active, false);
-  // type — локальне поле, Cloud його не надсилає й не чіпає при update.
-  assert.equal(ctx.CATEGORIES[0].type, 'Гнучка');
+  assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
 });
 
-test('pullCategoriesCore: правило 1 (no-op) — cloudId збігається, дані вже ідентичні → лічильники нульові', async () => {
-  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true }]);
+test('pullCategoriesCore: BugFix — type тепер РЕАЛЬНО синхронізується з Cloud (не завжди дефолт "Гнучка")', async () => {
+  // Регресійний тест на знайдений користувачем ризик: категорія, що на
+  // пристрої-джерелі має type:"Обов'язкова", НЕ повинна тихо ставати
+  // "Гнучка" після pull на іншому пристрої — inline з mandatoryPaymentsSummary()
+  // (#26), яка фільтрує саме за цим полем для KPI "Обов'язкові платежі".
+  const ctx = pullSandbox([{ id: 'c9', name: '💳 Підписки', active: true, type: "Обов'язкова" }]);
+  ctx.CATEGORIES = [];
+  const result = await ctx.pullCategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1 });
+  assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
+});
+
+test('pullCategoriesCore: правило 1 (no-op) — cloudId збігається, дані вже ідентичні (враховуючи type) → лічильники нульові', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка' }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
   const result = await ctx.pullCategoriesCore();
   assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0 });
 });
 
-test('pullCategoriesCore: правило 2 — unlinked local з тим самим name → зв\'язується (cloudId), не дублюється', async () => {
-  const ctx = pullSandbox([{ id: 'c2', name: '🍔 Їжа', active: true }]);
+test('pullCategoriesCore: правило 2 — unlinked local з тим самим name → зв\'язується (cloudId), не дублюється, local type НЕ перезаписується', async () => {
+  const ctx = pullSandbox([{ id: 'c2', name: '🍔 Їжа', active: true, type: "Обов'язкова" }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true }]; // без cloudId — ще не пушилась
   const result = await ctx.pullCategoriesCore();
   assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0 });
   assert.equal(ctx.CATEGORIES.length, 1); // НЕ задублювалось
   assert.equal(ctx.CATEGORIES[0].cloudId, 'c2');
+  // Лінк лише прописує cloudId — Cloud-версія type застосується вже
+  // НАСТУПНИМ pull-циклом через правило 1 (byCloudId), не одразу тут.
+  assert.equal(ctx.CATEGORIES[0].type, 'Гнучка');
 });
 
-test('pullCategoriesCore: правило 3 — новий Cloud-рядок без local-відповідника → додається з дефолтним type "Гнучка"', async () => {
-  const ctx = pullSandbox([{ id: 'c3', name: '🎮 Розваги (з іншого пристрою)', active: true }]);
+test('pullCategoriesCore: правило 3 — новий Cloud-рядок без local-відповідника → додається з РЕАЛЬНИМ Cloud type', async () => {
+  const ctx = pullSandbox([{ id: 'c3', name: '🎮 Розваги (з іншого пристрою)', active: true, type: 'Скорочувана' }]);
   ctx.CATEGORIES = [];
   const result = await ctx.pullCategoriesCore();
   assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1 });
   assert.equal(ctx.CATEGORIES.length, 1);
   assert.equal(ctx.CATEGORIES[0].name, '🎮 Розваги (з іншого пристрою)');
   assert.equal(ctx.CATEGORIES[0].cloudId, 'c3');
+  assert.equal(ctx.CATEGORIES[0].type, 'Скорочувана');
+});
+
+test('pullCategoriesCore: правило 3 — Cloud-рядок БЕЗ type (страховка на старий/нестандартний рядок) → фолбек "Гнучка"', async () => {
+  const ctx = pullSandbox([{ id: 'c4', name: '🧾 Легасі-рядок', active: true }]); // type відсутній у моці
+  ctx.CATEGORIES = [];
+  const result = await ctx.pullCategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1 });
   assert.equal(ctx.CATEGORIES[0].type, 'Гнучка');
 });
 
 test('pullCategoriesCore: локальна незв\'язана категорія БЕЗ Cloud-відповідника → не чіпається', async () => {
-  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true }]);
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка' }]);
   ctx.CATEGORIES = [
     { name: '🍔 Їжа', type: 'Гнучка', active: true }, // зв'яжеться (правило 2)
     { name: '🧘 Особисте (лише локальна)', type: 'Гнучка', active: true }, // немає в Cloud — недоторкана
@@ -414,7 +436,7 @@ test('pullCategoriesCore: видалення НЕ синхронізується
 });
 
 test('pullCategoriesCore: пише лише saveCategoriesLocal() — pushCategoriesPilot() НЕ тригериться (без зациклення pull→push)', async () => {
-  const ctx = pullSandbox([{ id: 'c3', name: '🎮 Розваги', active: true }]);
+  const ctx = pullSandbox([{ id: 'c3', name: '🎮 Розваги', active: true, type: 'Гнучка' }]);
   ctx.CATEGORIES = [];
   const pushSpy = spyOn(ctx, 'pushCategoriesPilot');
   await ctx.pullCategoriesCore();
@@ -425,7 +447,7 @@ test('pullCategoriesCore: пише лише saveCategoriesLocal() — pushCatego
 });
 
 test('pullCategoriesCore: домен мігровано на IndexedDB → зберігає туди (routing спільний з saveCategoriesLocal)', async () => {
-  const ctx = pullSandbox([{ id: 'c3', name: '🎮 Розваги', active: true }]);
+  const ctx = pullSandbox([{ id: 'c3', name: '🎮 Розваги', active: true, type: 'Гнучка' }]);
   ctx.markDomainMigrated('categories');
   ctx.CATEGORIES = [];
   await ctx.pullCategoriesCore();
@@ -434,9 +456,9 @@ test('pullCategoriesCore: домен мігровано на IndexedDB → зб�
 
 test('pullCategoriesCore: змішаний сценарій — усі три правила одночасно, кожен по своєму шляху', async () => {
   const ctx = pullSandbox([
-    { id: 'c1', name: '🍔 Їжа (оновлено)', active: true },     // правило 1: update
-    { id: 'c2', name: '🚗 Транспорт', active: true },           // правило 2: link
-    { id: 'c3', name: '🎮 Розваги', active: true },             // правило 3: add
+    { id: 'c1', name: '🍔 Їжа (оновлено)', active: true, type: "Обов'язкова" },  // правило 1: update (i.e. type теж)
+    { id: 'c2', name: '🚗 Транспорт', active: true, type: 'Гнучка' },            // правило 2: link
+    { id: 'c3', name: '🎮 Розваги', active: true, type: 'Скорочувана' },         // правило 3: add
   ]);
   ctx.CATEGORIES = [
     { name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' },
@@ -447,13 +469,15 @@ test('pullCategoriesCore: змішаний сценарій — усі три п
   assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 1, added: 1 });
   assert.equal(ctx.CATEGORIES.length, 4);
   assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c1').name, '🍔 Їжа (оновлено)');
+  assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c1').type, "Обов'язкова");
   assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c2').name, '🚗 Транспорт');
   assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c3').name, '🎮 Розваги');
+  assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c3').type, 'Скорочувана');
   assert.equal(ctx.CATEGORIES.find(c => c.name === '🧘 Особисте').cloudId, undefined);
 });
 
 test('pullCategoriesPilot: тонка обгортка над pullCategoriesCore (той самий результат)', async () => {
-  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true }]);
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка' }]);
   ctx.CATEGORIES = [];
   const result = await ctx.pullCategoriesPilot();
   assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1 });

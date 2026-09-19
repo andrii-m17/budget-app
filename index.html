@@ -2469,7 +2469,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.53</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.54</div>
 </div>
   </div>
 </div>
@@ -3049,7 +3049,7 @@ async function pushCategoriesPilot(){
   for(const cat of CATEGORIES){
     try{
       if(cat.cloudId){
-        const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, updated_by: userId }).eq('id', cat.cloudId).select('id');
+        const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, type: cat.type, updated_by: userId }).eq('id', cat.cloudId).select('id');
         if(error) continue;
         if(data && data.length === 0){
           // "Висячий" cloudId — не мережева помилка, а сигнал, що рядок з
@@ -3078,7 +3078,7 @@ async function pushCategoriesPilot(){
 async function reconcileCategoryCloudId(client, userId, cat){
   const { data: existing } = await client.from('categories').select('id').eq('family_id', cloudFamilyId).eq('name', cat.name).maybeSingle();
   if(existing){ cat.cloudId = existing.id; return; }
-  const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, created_by: userId, updated_by: userId }).select('id').single();
+  const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, type: cat.type, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) cat.cloudId = data.id;
 }
 // Rev #30 (6D крок 9) — Pull pilot: categories. Дзеркальне до push (6D fix
@@ -3088,19 +3088,30 @@ async function reconcileCategoryCloudId(client, userId, cat){
 // шукаємо локальний відповідник), тому симетрична логіка написана окремо,
 // той самий принцип матчингу (name-based reconciliation), інший напрямок.
 // Для КОЖНОГО Cloud-рядка:
-//   1) є local з тим самим cloudId? → оновити name/active з Cloud-версії
+//   1) є local з тим самим cloudId? → оновити name/active/type з Cloud-версії
 //      (Cloud перемагає для вже пов'язаних записів — спрощений LWW,
 //      узгоджений раніше через відсутність updatedAt у Категорії B).
 //   2) немає local з таким cloudId, але є unlinked local з тим самим name?
-//      → зв'язати (прописати cloudId), не дублювати.
+//      → зв'язати (прописати cloudId), не дублювати. Локальний `type`
+//      лишається як є (лінкуємо, не перезаписуємо) — той самий принцип, що
+//      симетричний push-кейс (reconcileCategoryCloudId лінкує за name, не
+//      чіпаючи Cloud-версію).
 //   3) жодного відповідника? → новий запис з іншого пристрою, додати
-//      локально з cloudId. `type` (Обов'язкова/Гнучка/Скорочувана) —
-//      ЛОКАЛЬНЕ поле, якого немає в Cloud-таблиці categories (push теж
-//      його не надсилає, крок 0 підтвердив) — новій категорії з Cloud
-//      підставляється дефолт "Гнучка", той самий, що openAddCategoryModal()
-//      для нових локальних категорій; якщо це не так — легко виправити
-//      вручну в "Структурі" (не критичний фінансовий параметр сам по собі,
-//      лише вплив на розподіл "Обов'язкові/Вільні" до першого редагування).
+//      локально з cloudId, використовуючи РЕАЛЬНИЙ `type` з Cloud-рядка.
+// BugFix (6D крок 9, знайдено користувачем ПІСЛЯ первинної реалізації) —
+// `type` (Обов'язкова/Гнучка/Скорочувана) спершу вважався суто локальним
+// полем (push його не надсилав, бо колонки не було в Cloud-схемі взагалі) —
+// новій категорії з Cloud підставлявся дефолт "Гнучка" незалежно від
+// реального значення на пристрої, що її створив. Ризик підтверджено не
+// абстрактним: mandatoryPaymentsSummary() (#26) фільтрує витрати саме за
+// getCategoryType(e.category)==="Обов'язкова" для KPI "Обов'язкові платежі"/
+// "Після обов'язкових" — категорія, що прийшла через pull з тихо неправильним
+// дефолтним type, могла б систематично приховувати витрати з "Обов'язкових"
+// на кожному пристрої, крім того, де категорію реально створили. Виправлено
+// в СХЕМІ (не костиль у коді): `categories.type` додано в Cloud (ALTER
+// TABLE + CHECK на ті самі 3 значення, що CATEGORY_TYPES), push тепер
+// надсилає `cat.type` і при update, і при insert (reconcileCategoryCloudId),
+// pull читає РЕАЛЬНЕ значення замість дефолту.
 // Видалення НЕ синхронізується (свідомо, як і push): local-запис з "висячим"
 // cloudId (Cloud-рядок видалено на іншому пристрої) тут НЕ чіпається — той
 // самий принцип, що push крок 5.
@@ -3113,14 +3124,15 @@ async function pullCategoriesCore(){
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0;
   try{
-    const { data, error } = await client.from('categories').select('id,name,active').eq('family_id', cloudFamilyId);
+    const { data, error } = await client.from('categories').select('id,name,active,type').eq('family_id', cloudFamilyId);
     if(error || !data) return { skipped: true };
     for(const row of data){
       const byCloudId = CATEGORIES.find(function(c){ return c.cloudId === row.id; });
       if(byCloudId){
-        if(byCloudId.name !== row.name || byCloudId.active !== row.active){
+        if(byCloudId.name !== row.name || byCloudId.active !== row.active || byCloudId.type !== row.type){
           byCloudId.name = row.name;
           byCloudId.active = row.active;
+          byCloudId.type = row.type;
           updated++;
         }
         continue;
@@ -3131,7 +3143,10 @@ async function pullCategoriesCore(){
         linked++;
         continue;
       }
-      CATEGORIES.push({ name: row.name, type: 'Гнучка', active: row.active, cloudId: row.id });
+      // row.type — NOT NULL у Cloud-схемі (DEFAULT 'Гнучка'), тому фолбек
+      // нижче недосяжний за нормальних умов; лишається як страховка на
+      // випадок старого/нестандартного рядка без явного значення.
+      CATEGORIES.push({ name: row.name, type: row.type || 'Гнучка', active: row.active, cloudId: row.id });
       added++;
     }
   }catch(e){
@@ -4033,7 +4048,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.53';
+const APP_VERSION = '2.21.54';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
