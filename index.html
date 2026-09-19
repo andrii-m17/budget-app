@@ -185,8 +185,16 @@
      (bankIcon() fallback) — коло + ініціали, лише окремий клас, бо семантика
      інша (профіль користувача, не банк). Статус-крапка — той самий прийом,
      що update-dot на .gear-btn.update-btn вище. */
-  .avatar-badge{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:var(--color-primary); color:#fff; font-size:14px; font-weight:700; flex-shrink:0; position:relative; }
+  .avatar-badge{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; overflow:hidden; background:var(--color-primary); color:#fff; font-size:14px; font-weight:700; flex-shrink:0; position:relative; }
   .avatar-badge.guest{ background:var(--color-surface); color:var(--color-text-secondary); border:1.5px solid var(--color-border-strong); }
+  /* Rev #30 (6D.9) — BugFix: #profile-btn-top обгортає .avatar-badge (коло)
+     у .gear-btn, який сам має border-radius:var(--radius-md) (прямокутне
+     заокруглення) — без явного перекриття кути кнопки "виступали" за межі
+     вписаного кола. Власний клас замість inline-стилю, щоб не загубити фікс
+     при майбутніх правках. */
+  .profile-header-btn{ border:none; padding:0; background:none; border-radius:50%; overflow:visible; }
+  .profile-preview-icon-wrap{ display:flex; justify-content:center; margin:6px 0 18px; }
+  .profile-preview-hint{ text-align:center; font-size:12.5px; color:var(--color-text-secondary); margin-top:12px; line-height:1.4; }
   .avatar-status-dot{ position:absolute; bottom:-1px; right:-1px; width:11px; height:11px; border-radius:50%; border:2px solid var(--color-surface); background:var(--color-text-secondary); }
   .avatar-status-dot.online{ background:var(--color-success); }
   .avatar-status-dot.offline{ background:var(--color-error); }
@@ -1642,7 +1650,7 @@
            #profile-avatar-top (буква/колір/статус-крапка) при кожній зміні
            стану сесії. -->
       <div class="page-header-buttons-left">
-        <button class="gear-btn" onclick="openProfileMenu()" aria-label="Профіль" id="profile-btn-top" style="border:none; padding:0; overflow:visible;">
+        <button class="gear-btn profile-header-btn" onclick="openProfileMenu()" aria-label="Профіль" id="profile-btn-top">
           <span class="avatar-badge guest" id="profile-avatar-top" aria-hidden="true"></span>
         </button>
       </div>
@@ -2369,7 +2377,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.43</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.44</div>
 </div>
   </div>
 </div>
@@ -2459,11 +2467,31 @@
   <div class="import-status hidden" id="cloud-offline-notice" style="color:var(--color-warning);">
     Вхід у Cloud потребує інтернету (бібліотека завантажується з мережі при відкритті) — зараз недоступний.
   </div>
-  <!-- Стан "не увійшли": форма входу напряму (без окремого проміжного
-       екрана "Ви не увійшли" + кнопка "Увійти" — свідоме спрощення 6D.8:
-       це й так один із двох станів того самого toggle, третій проміжний
-       додавав би стан, якого не існує в коді). -->
-  <div id="cloud-login-form" class="cloud-auth-block">
+  <!-- Rev #30 (6D.9) — ЗМІНА ВИМОГИ (не помилка 6D.8, свідомо скасовує те
+       рішення за новим референсом): раніше "не увійшли" було об'єднано з
+       формою входу напряму (одразу форма, без прев'ю) — тепер явно
+       потрібен проміжний крок. Третій стан ТОГО САМОГО #profile-drawer
+       (не новий UI-примітим): #profile-guest-preview показується першим
+       для гостя, "Увійти" в ньому перемикає на #cloud-login-form
+       (showProfileLoginForm()). "Вийти" тут свідомо відсутній — нема з
+       чого виходити (узгоджено, на відміну від референсу). -->
+  <div id="profile-guest-preview" class="cloud-auth-block">
+    <div class="profile-preview-icon-wrap">
+      <span class="avatar-badge guest" style="width:64px; height:64px;" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </span>
+    </div>
+    <button type="button" class="submit-btn debt pill" onclick="showProfileLoginForm()">Увійти</button>
+    <div class="profile-preview-hint">Увійдіть, щоб синхронізувати дані та налаштування</div>
+    <button type="button" class="profile-menu-item" onclick="closeProfileMenu(); openSettings();">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      Налаштування
+    </button>
+  </div>
+  <!-- Крок 2 (Rev #30 6D.9): показується лише після тапу "Увійти" в
+       прев'ю вище — та сама форма, що вже була в Rev 2.21.36/6D.8, лише
+       тепер другий крок, не перший екран. -->
+  <div id="cloud-login-form" class="cloud-auth-block hidden">
     <div class="profile-head">
       <span class="avatar-badge guest" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -3798,7 +3826,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.43';
+const APP_VERSION = '2.21.44';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -4402,11 +4430,25 @@ function setCloudAuthOffline(isOffline){
   const notice = document.getElementById('cloud-offline-notice');
   if(notice) notice.classList.toggle('hidden', !isOffline);
 }
+// Rev #30 (6D.9) — тепер 3 стани, не 2: "не увійшли" веде на
+// #profile-guest-preview (крок 1), не одразу на форму. Кожен виклик
+// (з applyCloudSession(), тобто кожна переоцінка сесії) явно скидає форму
+// назад у hidden — showProfileLoginForm() нижче єдина дія, що її розкриває,
+// і триває, доки сесія не переоцінюється знову (типово: наступне відкриття
+// #profile-drawer через openProfileMenu()→initCloudAuthUI()).
 function setCloudAuthFormVisible(visible){
+  const preview = document.getElementById('profile-guest-preview');
   const form = document.getElementById('cloud-login-form');
   const signedIn = document.getElementById('cloud-signed-in');
-  if(form) form.classList.toggle('hidden', !visible);
+  if(preview) preview.classList.toggle('hidden', !visible);
+  if(form) form.classList.add('hidden');
   if(signedIn) signedIn.classList.toggle('hidden', visible);
+}
+function showProfileLoginForm(){
+  document.getElementById('profile-guest-preview').classList.add('hidden');
+  document.getElementById('cloud-login-form').classList.remove('hidden');
+  const emailInput = document.getElementById('cloud-email');
+  if(emailInput) emailInput.focus();
 }
 
 // Rev #30 — ініціалізація стану входу при відкритті "Сервісу": SDK
@@ -4494,6 +4536,10 @@ async function loadCloudDisplayName(client, userId){
 // в "Сервісі". Викликається з applyCloudSession() (зміна сесії) і
 // updateOnlineStatusUI() (зміна мережі) — той самий принцип єдиного
 // джерела правди, що вже renderAll() для фінансових даних.
+// Rev #30 (6D.9) — той самий силует людини, що тепер і в
+// #profile-guest-preview/#cloud-login-form (один візуальний елемент, різні
+// розмірності — не окремий актив на мале й велике використання).
+const GUEST_AVATAR_ICON_SVG = '<svg viewBox="0 0 24 24" width="60%" height="60%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
 function renderProfileUI(){
   const session = cloudSession;
   const signedIn = !!(session && session.user);
@@ -4501,8 +4547,9 @@ function renderProfileUI(){
   const online = navigator.onLine;
 
   document.querySelectorAll('.avatar-badge[id^="profile-avatar-"]').forEach(function(el){
-    el.textContent = letter;
     el.classList.toggle('guest', !signedIn);
+    if(signedIn) el.textContent = letter;
+    else el.innerHTML = GUEST_AVATAR_ICON_SVG;
   });
   const dotClass = !signedIn ? '' : (online ? 'online' : 'offline');
   ['profile-avatar-top', 'profile-avatar-service'].forEach(function(id){
