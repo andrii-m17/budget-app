@@ -219,7 +219,10 @@
   /* Rev #30 (6D.11) — звужено з 270px (орієнтир референсу: права межа
      popover десь на рівні "л" у слові "Аналітика") — висота НЕ фіксована
      (розтягується під вміст природно, як і раніше), лише ширина менша. */
-  .profile-popover{ position:fixed; z-index:91; width:200px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:16px; display:none; }
+  /* Rev #30 (6D.12) — +10% до ширини з 6D.11 (200px→220px): підпис
+     "Увійдіть, щоб синхронізувати дані та налаштування" ламався на 3 рядки
+     замість 2 — трохи ширше вирішує без повернення до попередньої 270px. */
+  .profile-popover{ position:fixed; z-index:91; width:220px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:16px; display:none; }
   .profile-popover.open{ display:block; }
   .profile-popover-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
   .profile-popover-backdrop.open{ display:block; }
@@ -1025,7 +1028,10 @@
      її ніколи не було в коді (ні візуально, ні як drag-to-dismiss логіка),
      лише на оригінальному дизайн-референсі. */
   .drawer{ position:fixed; z-index:91; background:var(--color-surface); box-shadow:var(--shadow-lg);
-    left:16px; right:16px; bottom:max(84px, calc(env(safe-area-inset-bottom) + 70px));
+    /* Rev #30 (6D.12) — відступ від таб-бару вдвічі більший за 6D.11
+       (84px/70px → 168px/140px) за проханням користувача — картка мала
+       вигляд "прилиплої" до таб-бару навіть у floating-стилі. */
+    left:16px; right:16px; bottom:max(168px, calc(env(safe-area-inset-bottom) + 140px));
     border-radius:var(--radius-xl); padding:20px;
     /* BugFix (6D.11, знайдено живою перевіркою): translateY(100%) рахується
        від ВЛАСНОЇ висоти елемента, не від нового bottom-відступу картки —
@@ -1036,6 +1042,13 @@
        bottom-відступ, тому картка гарантовано повністю за межами екрана. */
     transform:translateY(100vh); transition:transform var(--duration-slow) var(--easing-standard); max-height:74vh; overflow-y:auto; }
   .drawer.open{ transform:translateY(0); }
+  /* Rev #30 (6D.12) — рисочка-хендл для свайпу-донизу (як iOS bottom sheet):
+     суто візуальний індикатор, драг-логіка навішується окремо в JS
+     (initDrawerSwipeToDismiss) на цей самий елемент за класом. Від'ємний
+     верхній margin компенсує padding:20px самого .drawer, щоб рисочка не
+     з'їдала зайвий простір над заголовком. */
+  .drawer-handle{ display:flex; justify-content:center; margin:-8px -20px 6px; padding:8px 0 6px; cursor:grab; touch-action:none; }
+  .drawer-handle::before{ content:''; width:36px; height:4px; border-radius:2px; background:var(--color-border); }
   .drawer-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .drawer-head h2{ margin:0; font-size:17px; font-weight:700; }
   .drawer-close{ width:32px; height:32px; border-radius:var(--radius-md); border:none; background:var(--color-surface-hover); cursor:pointer; color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; }
@@ -1556,6 +1569,10 @@
     .dash-grid .kpi-grid{ grid-column:1 / -1; }
     .drawer{ left:auto; right:0; top:0; bottom:0; width:360px; max-width:90vw; max-height:none; border-radius:var(--radius-xl) 0 0 var(--radius-xl); transform:translateX(100%); }
     .drawer.open{ transform:translateX(0); }
+    /* Rev #30 (6D.12) — десктопний варіант .drawer лишається бічною
+       панеллю (не bottom sheet), тому свайп-хендл тут не потрібен і
+       навіть шкодить — прибрати. */
+    .drawer-handle{ display:none; }
     .ov-row1{ grid-template-columns:repeat(5,minmax(0,1fr)); gap:16px; }
     .ov-row1 .wide{ grid-column:span 1; }
     .ov-row3{ grid-template-columns: var(--row3-col-1,1fr) var(--row3-col-2,1fr) var(--row3-col-3,1fr); transition:grid-template-columns .25s var(--easing-standard); }
@@ -2428,7 +2445,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.47</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.48</div>
 </div>
   </div>
 </div>
@@ -2473,6 +2490,7 @@
 <!-- ================= Налаштування (Drawer, окремо від навігації) ================= -->
 <div class="drawer-backdrop" id="settings-backdrop" onclick="closeSettings()" inert></div>
 <div class="drawer" id="settings-drawer" role="dialog" aria-label="Налаштування" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
     <h2>Налаштування</h2>
     <button class="drawer-close" onclick="closeSettings()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -2575,6 +2593,7 @@
      не напряму з іконки профілю. -->
 <div class="drawer-backdrop" id="profile-backdrop" onclick="closeProfileLoginDrawer()" inert></div>
 <div class="drawer" id="profile-drawer" role="dialog" aria-label="Вхід" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
     <h2>Вхід</h2>
     <button class="drawer-close" onclick="closeProfileLoginDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -2611,6 +2630,7 @@
      окремого глобального "Зберегти борги"). -->
 <div class="drawer-backdrop" id="card-debt-backdrop" onclick="closeCardDebtEditor()" inert></div>
 <div class="drawer" id="card-debt-drawer" role="dialog" aria-label="Картка" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
     <div class="drawer-head-main">
       <span class="drawer-head-icon" id="cdd-icon"></span>
@@ -2654,6 +2674,7 @@
      користувача. -->
 <div class="drawer-backdrop" id="installment-backdrop" onclick="closeInstallmentEditor()" inert></div>
 <div class="drawer" id="installment-drawer" role="dialog" aria-label="ОЧ" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
     <div class="drawer-head-main">
       <span class="drawer-head-icon" id="idd-icon"></span>
@@ -2705,6 +2726,7 @@
      має лише одне поле суми за обраний місяць. -->
 <div class="drawer-backdrop" id="income-backdrop" onclick="closeIncomeEditor()" inert></div>
 <div class="drawer" id="income-drawer" role="dialog" aria-label="Дохід" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
     <div class="drawer-head-main">
       <span class="drawer-head-icon" id="ind-icon"></span>
@@ -3893,7 +3915,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.47';
+const APP_VERSION = '2.21.48';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -4717,7 +4739,7 @@ function positionProfilePopover(explicitTrigger){
     trigger = mobileTrigger.offsetParent !== null ? mobileTrigger : desktopTrigger;
   }
   const rect = trigger.getBoundingClientRect();
-  const popoverWidth = 200; // Rev #30 (6D.11) — синхронізовано з .profile-popover CSS
+  const popoverWidth = 220; // Rev #30 (6D.12) — синхронізовано з .profile-popover CSS
   let top, left;
   if(trigger.id === 'profile-side-trigger'){
     // Desktop sidebar: розкриття ПРАВОРУЧ від іконки (інша сторона,
@@ -9746,6 +9768,53 @@ function closeSettings(){
   restoreFocus();
 }
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeProfileMenu(); closeProfileLoginDrawer(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
+
+// Rev #30 (6D.12) — свайп-донизу для закриття .drawer (як iOS bottom sheet).
+// Один генеричний обробник на всі 5 drawer'ів через спільний .drawer-handle
+// клас — НЕ дублює close-логіку кожного drawer'а (валідацію/збереження не
+// чіпаємо), а просто клікає вже наявну .drawer-close кнопку цього ж
+// drawer'а по завершенню жесту. Під час драгу transition вимкнено і
+// transform керується напряму пальцем; відпущено вище порогу (90px) —
+// клік по close, інакше — inline-стилі скидаються й .drawer.open transition
+// сам плавно повертає картку на місце.
+(function initDrawerSwipeToDismiss(){
+  document.querySelectorAll('.drawer').forEach(function(drawer){
+    const handle = drawer.querySelector('.drawer-handle');
+    if(!handle) return;
+    let startY = 0, currentY = 0, dragging = false;
+    function onStart(e){
+      dragging = true;
+      startY = currentY = (e.touches ? e.touches[0].clientY : e.clientY);
+      drawer.style.transition = 'none';
+      if(e.pointerId !== undefined && handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
+    }
+    function onMove(e){
+      if(!dragging) return;
+      currentY = (e.touches ? e.touches[0].clientY : e.clientY);
+      const dy = Math.max(0, currentY - startY);
+      drawer.style.transform = 'translateY(' + dy + 'px)';
+    }
+    function onEnd(){
+      if(!dragging) return;
+      dragging = false;
+      const dy = currentY - startY;
+      drawer.style.transition = '';
+      drawer.style.transform = '';
+      if(dy > 90){
+        const closeBtn = drawer.querySelector('.drawer-close');
+        if(closeBtn) closeBtn.click();
+      }
+    }
+    handle.addEventListener('touchstart', onStart, {passive:true});
+    handle.addEventListener('touchmove', onMove, {passive:true});
+    handle.addEventListener('touchend', onEnd);
+    handle.addEventListener('touchcancel', onEnd);
+    handle.addEventListener('pointerdown', onStart);
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onEnd);
+    handle.addEventListener('pointercancel', onEnd);
+  });
+})();
 
 /* ============ Тема застосунку (Rev 2.6.0) ============
    Три стани: 'auto' (за системною темою, дефолт), 'light', 'dark' — саме
