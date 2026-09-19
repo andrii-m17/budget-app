@@ -2320,7 +2320,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.41</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.42</div>
 </div>
   </div>
 </div>
@@ -3679,7 +3679,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.41';
+const APP_VERSION = '2.21.42';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -4965,9 +4965,15 @@ async function saveIncomeDrawer(){
     if(existingIdx>=0) incomes.splice(existingIdx,1);
   }else if(existingIdx>=0){
     incomes[existingIdx].amount = amount;
+    // Rev #30 (6D.7) — updatedAt тепер оновлюється й при редагуванні
+    // існуючого запису (раніше це була "проста мутація поля, без
+    // timestamp"), createdAt лишається як був — той самий принцип, що
+    // вже діє для expenses (addExpense()/ensureExpenseIdentity()).
+    incomes[existingIdx].updatedAt = new Date().toISOString();
     pushedRecord = incomes[existingIdx];
   }else{
-    const rec = { id: generateUUID(), date: selectedMonth+'-01', source:s.key, amount };
+    const nowISO = new Date().toISOString();
+    const rec = { id: generateUUID(), date: selectedMonth+'-01', source:s.key, amount, createdAt: nowISO, updatedAt: nowISO };
     incomes.push(rec);
     pushedRecord = rec;
   }
@@ -5444,9 +5450,13 @@ async function saveInstallmentDrawer(){
     if(existingIdx>=0){
       debts[existingIdx].balance = balance;
       debts[existingIdx].monthlyPayment = monthlyPayment;
+      // Rev #30 (6D.7) — той самий принцип, що saveIncomeDrawer(): updatedAt
+      // оновлюється й при редагуванні, createdAt лишається як був.
+      debts[existingIdx].updatedAt = new Date().toISOString();
       pushedRecord = debts[existingIdx];
     }else{
-      const rec = { id: generateUUID(), name:newName, kind:'installment', month:selectedMonth, balance, monthlyPayment };
+      const nowISO = new Date().toISOString();
+      const rec = { id: generateUUID(), name:newName, kind:'installment', month:selectedMonth, balance, monthlyPayment, createdAt: nowISO, updatedAt: nowISO };
       debts.push(rec);
       pushedRecord = rec;
     }
@@ -5663,9 +5673,13 @@ async function saveCardDebtDrawer(){
       debts[existingIdx].balance = balAmount;
       debts[existingIdx].minPayment = minPayment;
       debts[existingIdx].minPaymentDone = minPaymentDone;
+      // Rev #30 (6D.7) — той самий принцип, що saveInstallmentDrawer():
+      // updatedAt оновлюється й при редагуванні, createdAt лишається як був.
+      debts[existingIdx].updatedAt = new Date().toISOString();
       pushedRecord = debts[existingIdx];
     }else{
-      const rec = { id: generateUUID(), name:newName, kind:'card', month:selectedMonth, balance:balAmount, minPayment, minPaymentDone };
+      const nowISO = new Date().toISOString();
+      const rec = { id: generateUUID(), name:newName, kind:'card', month:selectedMonth, balance:balAmount, minPayment, minPaymentDone, createdAt: nowISO, updatedAt: nowISO };
       debts.push(rec);
       pushedRecord = rec;
     }
@@ -6124,9 +6138,9 @@ function mapExcelIncomeRow(row, monthKeyVal){
 // Rev #26.4 — те саме, для колонок банківських карток аркуша "Історія"
 // (debtCols — фіксований список {idx, name, kind}, будується в
 // handleImportFile()). Повертає масив кандидатів {name, kind, month,
-// balance, idx} — idx лишається в результаті лише для того, щоб caller міг
-// побудувати той самий id-рядок, що й раніше (imp-debt-i-idx-...), не
-// потрапляючи в сам збережений запис боргу.
+// balance, idx} — idx історично використовувався caller'ом для побудови
+// id-рядка (imp-debt-i-idx-...), з Rev #30 (6D.7) той id — generateUUID(),
+// idx у самому збереженому запису боргу й далі не з'являється.
 function mapExcelDebtColumnsRow(row, monthKeyVal, debtCols){
   const out = [];
   for(const dc of debtCols){
@@ -6260,7 +6274,13 @@ function handleImportFile(event){
             const alreadyExists = incomes.some(inc => inc.source===c.source && monthKey(inc.date)===monthKeyVal);
             if(alreadyExists){ skippedDuplicateIncomes++; continue; }
             incomes.push({
-              id: 'imp-inc-'+i+'-'+c.source+'-'+Date.now(),
+              // Rev #30 (6D.7) — generateUUID() одразу при імпорті, не
+              // покладаючись на post-factum виправлення ensureIncomeIdentity()
+              // при наступному loadAll(): якщо push (6D.5) станеться ДО
+              // reload — Cloud отримав би неправильний id як первинний
+              // ключ, а міграція замінила б локальний id на UUID, розірвавши
+              // зв'язок із уже запушеним Cloud-записом.
+              id: generateUUID(),
               date: c.date, source: c.source, amount: c.amount
             });
             addedIncomes++;
@@ -6300,7 +6320,8 @@ function handleImportFile(event){
             const alreadyExists = debts.some(d => d.name===c.name && d.kind===c.kind && d.month===c.month);
             if(alreadyExists){ skippedDuplicateDebts++; continue; }
             debts.push({
-              id: 'imp-debt-'+i+'-'+c.idx+'-'+Date.now(),
+              // Rev #30 (6D.7) — той самий принцип, що incomes вище.
+              id: generateUUID(),
               name: c.name, kind: c.kind, month: c.month, balance: c.balance
             });
             addedDebts++;
@@ -6390,7 +6411,7 @@ function handleImportFile(event){
           const alreadyExists = debts.some(d => d.name===label && d.kind==='installment' && d.month===finMonth);
           if(alreadyExists){ skippedDuplicateDebts++; return; }
           debts.push({
-            id: 'imp-fin-'+idx+'-'+Date.now(),
+            id: generateUUID(), // Rev #30 (6D.7) — той самий принцип, що вище
             name: label, kind:'installment', month: finMonth, balance: e.balance,
             monthlyPayment: isNaN(e.monthlyPay) ? undefined : e.monthlyPay
           });
