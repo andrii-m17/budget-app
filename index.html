@@ -202,7 +202,10 @@
      порядку правил. */
   .gear-btn.profile-header-btn{ border:none; padding:0; background:none; overflow:visible; }
   .profile-preview-icon-wrap{ display:flex; justify-content:center; margin:6px 0 18px; }
-  .profile-preview-hint{ text-align:center; font-size:12.5px; color:var(--color-text-secondary); margin-top:12px; line-height:1.4; }
+  /* Rev #30 (6D.13) — margin-bottom додано: підпис впритул торкався
+     розділювальної лінії (border-top наступного .profile-menu-item) —
+     за словами користувача, "занадто близько". */
+  .profile-preview-hint{ text-align:center; font-size:12.5px; color:var(--color-text-secondary); margin:12px 0 12px; line-height:1.4; }
   .avatar-status-dot{ position:absolute; bottom:-1px; right:-1px; width:11px; height:11px; border-radius:50%; border:2px solid var(--color-surface); background:var(--color-text-secondary); }
   .avatar-status-dot.online{ background:var(--color-success); }
   .avatar-status-dot.offline{ background:var(--color-error); }
@@ -1028,10 +1031,10 @@
      її ніколи не було в коді (ні візуально, ні як drag-to-dismiss логіка),
      лише на оригінальному дизайн-референсі. */
   .drawer{ position:fixed; z-index:91; background:var(--color-surface); box-shadow:var(--shadow-lg);
-    /* Rev #30 (6D.12) — відступ від таб-бару вдвічі більший за 6D.11
-       (84px/70px → 168px/140px) за проханням користувача — картка мала
-       вигляд "прилиплої" до таб-бару навіть у floating-стилі. */
-    left:16px; right:16px; bottom:max(168px, calc(env(safe-area-inset-bottom) + 140px));
+    /* Rev #30 (6D.13) — 6D.12 подвоїв відступ (84→168px), але це виявилось
+       забагато (картка "полетіла занадто високо" за словами користувача) —
+       скориговано до референс-скріну, десь посередині між 6D.11 і 6D.12. */
+    left:16px; right:16px; bottom:max(116px, calc(env(safe-area-inset-bottom) + 96px));
     border-radius:var(--radius-xl); padding:20px;
     /* BugFix (6D.11, знайдено живою перевіркою): translateY(100%) рахується
        від ВЛАСНОЇ висоти елемента, не від нового bottom-відступу картки —
@@ -2445,7 +2448,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.48</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.49</div>
 </div>
   </div>
 </div>
@@ -3915,7 +3918,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.48';
+const APP_VERSION = '2.21.49';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
