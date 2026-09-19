@@ -2377,7 +2377,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.44</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.45</div>
 </div>
   </div>
 </div>
@@ -3826,7 +3826,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.44';
+const APP_VERSION = '2.21.45';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6531,6 +6531,14 @@ function handleImportFile(event){
             // правку, зроблену після попереднього імпорту).
             const alreadyExists = incomes.some(inc => inc.source===c.source && monthKey(inc.date)===monthKeyVal);
             if(alreadyExists){ skippedDuplicateIncomes++; continue; }
+            // Rev #30 (6D.8) — той самий момент для обох полів, що вже
+            // addExpense()/saveIncomeDrawer(): createdAt/updatedAt були
+            // відсутні тут узагалі (6D крок 6 pre-check), через що чесний
+            // LWW для Excel-імпортованих записів був неможливий. Дублікат
+            // (alreadyExists вище) НІКОЛИ не потрапляє в цю гілку — існуючий
+            // запис і його updatedAt тут не чіпаються, лише НОВІ записи
+            // отримують timestamp моменту імпорту.
+            const importNowIso = new Date().toISOString();
             incomes.push({
               // Rev #30 (6D.7) — generateUUID() одразу при імпорті, не
               // покладаючись на post-factum виправлення ensureIncomeIdentity()
@@ -6539,7 +6547,8 @@ function handleImportFile(event){
               // ключ, а міграція замінила б локальний id на UUID, розірвавши
               // зв'язок із уже запушеним Cloud-записом.
               id: generateUUID(),
-              date: c.date, source: c.source, amount: c.amount
+              date: c.date, source: c.source, amount: c.amount,
+              createdAt: importNowIso, updatedAt: importNowIso
             });
             addedIncomes++;
           }
@@ -6577,10 +6586,15 @@ function handleImportFile(event){
             // пропускаємо замість дублювання.
             const alreadyExists = debts.some(d => d.name===c.name && d.kind===c.kind && d.month===c.month);
             if(alreadyExists){ skippedDuplicateDebts++; continue; }
+            // Rev #30 (6D.8) — той самий принцип, що incomes вище: дублікат
+            // (alreadyExists) сюди не потрапляє, updatedAt наявного запису
+            // ніколи не чіпається повторним імпортом.
+            const importNowIsoDebt = new Date().toISOString();
             debts.push({
               // Rev #30 (6D.7) — той самий принцип, що incomes вище.
               id: generateUUID(),
-              name: c.name, kind: c.kind, month: c.month, balance: c.balance
+              name: c.name, kind: c.kind, month: c.month, balance: c.balance,
+              createdAt: importNowIsoDebt, updatedAt: importNowIsoDebt
             });
             addedDebts++;
           }
@@ -6668,10 +6682,13 @@ function handleImportFile(event){
           }
           const alreadyExists = debts.some(d => d.name===label && d.kind==='installment' && d.month===finMonth);
           if(alreadyExists){ skippedDuplicateDebts++; return; }
+          // Rev #30 (6D.8) — той самий принцип, що обидва місця вище.
+          const importNowIsoFin = new Date().toISOString();
           debts.push({
             id: generateUUID(), // Rev #30 (6D.7) — той самий принцип, що вище
             name: label, kind:'installment', month: finMonth, balance: e.balance,
-            monthlyPayment: isNaN(e.monthlyPay) ? undefined : e.monthlyPay
+            monthlyPayment: isNaN(e.monthlyPay) ? undefined : e.monthlyPay,
+            createdAt: importNowIsoFin, updatedAt: importNowIsoFin
           });
           addedDebts++;
           // Rev 2.1.17 — "Сума кредиту" тепер записується і як справжнє поле
