@@ -111,12 +111,21 @@ const REPOSITORY_NAMES = [
   // посилаються на них (навіть недосяжним для тестів кодом).
   'isSupabaseSdkReady', 'getSupabaseClient', 'loadCloudFamilyId', 'clearCloudFamilyId',
   'saveCategories', 'saveCategoriesLocal', 'pushCategoriesPilot', 'reconcileCategoryCloudId',
-  'saveSubcategories', 'saveSubcategoryPriority', 'saveDictionary',
+  // Rev #30 (6D.4) — той самий принцип, що categories вище: cloudSession
+  // null за замовчуванням → усі 4 нові pushXPilot() одразу повертаються на
+  // guard clause, без реального Supabase-клієнта. reconcileXCloudId — не
+  // під тестом (мережевий шар), включені лише тому, що saveXLocal/pushXPilot
+  // фізично на них посилаються.
+  'saveSubcategories', 'saveSubcategoriesLocal', 'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId',
+  'saveSubcategoryPriority',
+  'saveDictionary', 'saveDictionaryLocal', 'pushDictionaryPilot', 'reconcileDictionaryCloudId',
   'restoreCategoriesFromBackup', 'restoreSubcategoriesFromBackup',
   'restoreSubcategoryPriorityFromBackup', 'restoreDictionaryFromBackup',
   // Rev #28.D1
   'loadBankAccounts', 'loadInstallmentAccounts', 'loadHiddenFrom', 'loadIgnoredDivergences',
-  'saveBankAccounts', 'saveInstallmentAccounts', 'saveHiddenFrom', 'saveIgnoredDivergences',
+  'saveBankAccounts', 'saveBankAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId',
+  'saveInstallmentAccounts', 'saveInstallmentAccountsLocal', 'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId',
+  'saveHiddenFrom', 'saveIgnoredDivergences',
   'ensureInstallmentFirstMonth',
   'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
   'restoreHiddenFromFromBackup', 'restoreIgnoredDivergencesFromBackup',

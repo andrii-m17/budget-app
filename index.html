@@ -2320,7 +2320,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.39</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.40</div>
 </div>
   </div>
 </div>
@@ -2822,12 +2822,68 @@ async function reconcileCategoryCloudId(client, userId, cat){
   if(!error && data) cat.cloudId = data.id;
 }
 async function saveSubcategories(){
+  const result = await saveSubcategoriesLocal();
+  if(result.success) pushSubcategoriesPilot();
+  return result;
+}
+async function saveSubcategoriesLocal(){
   if(isDomainMigrated('subcategories')){
     try{ await idbAdapterSet(LS_KEY_SUBCATEGORIES, JSON.stringify(SUBCATEGORIES)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
   }
   localStorage.setItem(LS_KEY_SUBCATEGORIES, JSON.stringify(SUBCATEGORIES));
   return { success: true };
+}
+// Rev #30 (6D.4) — той самий name-based reconciliation, що categories (6D
+// fix), плюс залежність на батьківську категорію: subcategories.category_id
+// у Cloud — NOT NULL FK на categories(id), тому підкатегорія НЕ пушиться,
+// доки категорія-батько сама не має cloudId — тихий пропуск ЦІЛОГО запису,
+// а не half-синхронізований стан із відсутнім/неправильним зв'язком.
+// Reconciliation-ключ — name+family_id (НЕ category+name — 6D крок 3
+// pre-check підтвердив: SUBCATEGORIES.some(s=>s.name===name) перевіряє
+// унікальність ГЛОБАЛЬНО, не в межах категорії, тому просто name безпечний).
+//
+// Відомий (прийнятний) edge case: editCategory() при перейменуванні
+// оновлює sub.category (локальне поле-ім'я) РАНІШЕ, ніж саму CATEGORIES[i].name
+// (порядок await saveSubcategories() → await saveCategories()) — тому
+// впродовж цього одного проміжного вікна CATEGORIES.find() тут може не
+// знайти батька за новим ім'ям і мовчки пропустити пуш. Не проблема:
+// category_id підкатегорії в Cloud не потребує зміни при рename категорії
+// (FK на id, не на name) — пропущений цикл просто нічого корисного не
+// зробив би, а наступний реальний saveSubcategories() пуштить коректно.
+async function pushSubcategoriesPilot(){
+  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
+  if(!isSupabaseSdkReady()) return;
+  const client = getSupabaseClient();
+  const userId = cloudSession.user.id;
+  let localChanged = false;
+  for(const sub of SUBCATEGORIES){
+    const parentCat = CATEGORIES.find(function(c){ return c.name === sub.category; });
+    if(!parentCat || !parentCat.cloudId) continue; // батьківська категорія ще не синхронізована
+    try{
+      if(sub.cloudId){
+        const { data, error } = await client.from('subcategories').update({ name: sub.name, category_id: parentCat.cloudId, active: sub.active, updated_by: userId }).eq('id', sub.cloudId).select('id');
+        if(error) continue;
+        if(data && data.length === 0){
+          sub.cloudId = null;
+          await reconcileSubcategoryCloudId(client, userId, sub, parentCat.cloudId);
+          localChanged = true;
+        }
+      }else{
+        await reconcileSubcategoryCloudId(client, userId, sub, parentCat.cloudId);
+        if(sub.cloudId) localChanged = true;
+      }
+    }catch(e){
+      // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
+    }
+  }
+  if(localChanged) await saveSubcategoriesLocal();
+}
+async function reconcileSubcategoryCloudId(client, userId, sub, categoryId){
+  const { data: existing } = await client.from('subcategories').select('id').eq('family_id', cloudFamilyId).eq('name', sub.name).maybeSingle();
+  if(existing){ sub.cloudId = existing.id; return; }
+  const { data, error } = await client.from('subcategories').insert({ family_id: cloudFamilyId, category_id: categoryId, name: sub.name, active: sub.active, created_by: userId, updated_by: userId }).select('id').single();
+  if(!error && data) sub.cloudId = data.id;
 }
 async function saveSubcategoryPriority(){
   if(isDomainMigrated('subcategoryPriority')){
@@ -2838,12 +2894,67 @@ async function saveSubcategoryPriority(){
   return { success: true };
 }
 async function saveDictionary(){
+  const result = await saveDictionaryLocal();
+  if(result.success) pushDictionaryPilot();
+  return result;
+}
+async function saveDictionaryLocal(){
   if(isDomainMigrated('dictionary')){
     try{ await idbAdapterSet(LS_KEY_DICTIONARY, JSON.stringify(DICTIONARY)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
   }
   localStorage.setItem(LS_KEY_DICTIONARY, JSON.stringify(DICTIONARY));
   return { success: true };
+}
+// Rev #30 (6D.4) — той самий принцип залежності, що subcategories вище:
+// dictionary.category_id є NULLABLE у Cloud-схемі, але якщо локально `cat`
+// вказано (а він завжди вказаний — обов'язкове поле форми), відповідна
+// категорія МАЄ вже мати cloudId, інакше тихий пропуск усього запису
+// словника (не пишемо частковий стан із неправильним/відсутнім зв'язком).
+// `sub` — легітимно необов'язковий локально (null дозволений формою) —
+// тоді subcategory_id теж null, це НЕ залежність, що блокує пуш.
+// Reconciliation-ключ — kw+family_id (локальне поле kw → Cloud-колонка
+// keyword, 6D крок 3 pre-check підтвердив: DICTIONARY.some(d=>d.kw===kw)
+// глобально унікальний, безпечно).
+async function pushDictionaryPilot(){
+  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
+  if(!isSupabaseSdkReady()) return;
+  const client = getSupabaseClient();
+  const userId = cloudSession.user.id;
+  let localChanged = false;
+  for(const entry of DICTIONARY){
+    const parentCat = CATEGORIES.find(function(c){ return c.name === entry.cat; });
+    if(!parentCat || !parentCat.cloudId) continue; // категорія ще не синхронізована
+    let subcategoryId = null;
+    if(entry.sub){
+      const parentSub = SUBCATEGORIES.find(function(s){ return s.name === entry.sub; });
+      if(!parentSub || !parentSub.cloudId) continue; // підкатегорія вказана, але ще не синхронізована
+      subcategoryId = parentSub.cloudId;
+    }
+    try{
+      if(entry.cloudId){
+        const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, updated_by: userId }).eq('id', entry.cloudId).select('id');
+        if(error) continue;
+        if(data && data.length === 0){
+          entry.cloudId = null;
+          await reconcileDictionaryCloudId(client, userId, entry, parentCat.cloudId, subcategoryId);
+          localChanged = true;
+        }
+      }else{
+        await reconcileDictionaryCloudId(client, userId, entry, parentCat.cloudId, subcategoryId);
+        if(entry.cloudId) localChanged = true;
+      }
+    }catch(e){
+      // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
+    }
+  }
+  if(localChanged) await saveDictionaryLocal();
+}
+async function reconcileDictionaryCloudId(client, userId, entry, categoryId, subcategoryId){
+  const { data: existing } = await client.from('dictionary').select('id').eq('family_id', cloudFamilyId).eq('keyword', entry.kw).maybeSingle();
+  if(existing){ entry.cloudId = existing.id; return; }
+  const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, created_by: userId, updated_by: userId }).select('id').single();
+  if(!error && data) entry.cloudId = data.id;
 }
 // Rev #28.C — 4 хелпери ВИКЛЮЧНО для handleRestoreBackupFile() (нижче за
 // текстом файлу): той самий parse+fallback-на-DEFAULT_*, що вже
@@ -3292,6 +3403,11 @@ async function saveDebts(){
 // Кожна з 4 нижче повертає { success, error? } (той самий контракт, що
 // Stage C) — reportSaveResult() на кожному call site показує явну помилку.
 async function saveBankAccounts(){
+  const result = await saveBankAccountsLocal();
+  if(result.success) pushBankAccountsPilot();
+  return result;
+}
+async function saveBankAccountsLocal(){
   if(isDomainMigrated('bankAccounts')){
     try{ await idbAdapterSet(LS_KEY_BANKS, JSON.stringify(bankAccounts)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
@@ -3299,13 +3415,100 @@ async function saveBankAccounts(){
   localStorage.setItem(LS_KEY_BANKS, JSON.stringify(bankAccounts));
   return { success: true };
 }
+// Rev #30 (6D.4) — той самий name-based reconciliation, що categories (6D
+// fix). 6D крок 3 pre-check підтвердив: bankAccounts.some(b=>b.name===name)
+// глобально унікальний і при створенні, і при перейменуванні — безпечно
+// сьогодні.
+// TODO: name-based reconciliation тут стане РИЗИКОВАНИМ, якщо колись
+// з'явиться функція "звільнення назви" для приховок карток (hidden_entities/
+// hiddenFrom вже дозволяє "приховати" банк з певного місяця, залишаючи
+// історичні записи — якщо колись стане можливим повторно ЗАВЕСТИ банк з
+// тією самою назвою як окремий, незалежний запис, один name зможе
+// відповідати кільком легітимно різним записам одночасно, і ця
+// SELECT-за-name логіка почне помилково зливати їх в один Cloud-рядок).
+async function pushBankAccountsPilot(){
+  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
+  if(!isSupabaseSdkReady()) return;
+  const client = getSupabaseClient();
+  const userId = cloudSession.user.id;
+  let localChanged = false;
+  for(const acc of bankAccounts){
+    try{
+      if(acc.cloudId){
+        const { data, error } = await client.from('bank_accounts').update({ name: acc.name, credit_limit: acc.creditLimit, updated_by: userId }).eq('id', acc.cloudId).select('id');
+        if(error) continue;
+        if(data && data.length === 0){
+          acc.cloudId = null;
+          await reconcileBankAccountCloudId(client, userId, acc);
+          localChanged = true;
+        }
+      }else{
+        await reconcileBankAccountCloudId(client, userId, acc);
+        if(acc.cloudId) localChanged = true;
+      }
+    }catch(e){
+      // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
+    }
+  }
+  if(localChanged) await saveBankAccountsLocal();
+}
+async function reconcileBankAccountCloudId(client, userId, acc){
+  const { data: existing } = await client.from('bank_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).maybeSingle();
+  if(existing){ acc.cloudId = existing.id; return; }
+  const { data, error } = await client.from('bank_accounts').insert({ family_id: cloudFamilyId, name: acc.name, credit_limit: acc.creditLimit, created_by: userId, updated_by: userId }).select('id').single();
+  if(!error && data) acc.cloudId = data.id;
+}
 async function saveInstallmentAccounts(){
+  const result = await saveInstallmentAccountsLocal();
+  if(result.success) pushInstallmentAccountsPilot();
+  return result;
+}
+async function saveInstallmentAccountsLocal(){
   if(isDomainMigrated('installmentAccounts')){
     try{ await idbAdapterSet(LS_KEY_INSTALLMENTS, JSON.stringify(installmentAccounts)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
   }
   localStorage.setItem(LS_KEY_INSTALLMENTS, JSON.stringify(installmentAccounts));
   return { success: true };
+}
+// Rev #30 (6D.4) — той самий name-based reconciliation, що categories (6D
+// fix). `firstMonth` — локальне поле без відповідної Cloud-колонки (схема
+// не чіпалась) — не пушиться, лишається суто локальним.
+// TODO: name-based reconciliation тут стане РИЗИКОВАНИМ, якщо колись
+// з'явиться функція "звільнення назви" для приховок ОЧ (те саме
+// застереження, що вище для bank_accounts, той самий hidden_entities-клас
+// проблеми).
+async function pushInstallmentAccountsPilot(){
+  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
+  if(!isSupabaseSdkReady()) return;
+  const client = getSupabaseClient();
+  const userId = cloudSession.user.id;
+  let localChanged = false;
+  for(const acc of installmentAccounts){
+    try{
+      if(acc.cloudId){
+        const { data, error } = await client.from('installment_accounts').update({ name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, updated_by: userId }).eq('id', acc.cloudId).select('id');
+        if(error) continue;
+        if(data && data.length === 0){
+          acc.cloudId = null;
+          await reconcileInstallmentAccountCloudId(client, userId, acc);
+          localChanged = true;
+        }
+      }else{
+        await reconcileInstallmentAccountCloudId(client, userId, acc);
+        if(acc.cloudId) localChanged = true;
+      }
+    }catch(e){
+      // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
+    }
+  }
+  if(localChanged) await saveInstallmentAccountsLocal();
+}
+async function reconcileInstallmentAccountCloudId(client, userId, acc){
+  const { data: existing } = await client.from('installment_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).maybeSingle();
+  if(existing){ acc.cloudId = existing.id; return; }
+  const { data, error } = await client.from('installment_accounts').insert({ family_id: cloudFamilyId, name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, created_by: userId, updated_by: userId }).select('id').single();
+  if(!error && data) acc.cloudId = data.id;
 }
 async function saveHiddenFrom(){
   if(isDomainMigrated('hiddenFrom')){
@@ -3351,7 +3554,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.39';
+const APP_VERSION = '2.21.40';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
