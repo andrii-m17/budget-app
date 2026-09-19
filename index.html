@@ -225,7 +225,11 @@
   /* Rev #30 (6D.12) — +10% до ширини з 6D.11 (200px→220px): підпис
      "Увійдіть, щоб синхронізувати дані та налаштування" ламався на 3 рядки
      замість 2 — трохи ширше вирішує без повернення до попередньої 270px. */
-  .profile-popover{ position:fixed; z-index:91; width:220px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:16px; display:none; }
+  /* Rev #30 (6D.14) — 220px обрізало email залогіненого стану
+     ("andrii.m17a@gmail.c...") через `.profile-head-email` ellipsis;
+     виміряно scrollWidth реального рядка (139px) проти доступного
+     clientWidth (134px) — 230px дає запас. */
+  .profile-popover{ position:fixed; z-index:91; width:230px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:16px; display:none; }
   .profile-popover.open{ display:block; }
   .profile-popover-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
   .profile-popover-backdrop.open{ display:block; }
@@ -1031,10 +1035,10 @@
      її ніколи не було в коді (ні візуально, ні як drag-to-dismiss логіка),
      лише на оригінальному дизайн-референсі. */
   .drawer{ position:fixed; z-index:91; background:var(--color-surface); box-shadow:var(--shadow-lg);
-    /* Rev #30 (6D.13) — 6D.12 подвоїв відступ (84→168px), але це виявилось
-       забагато (картка "полетіла занадто високо" за словами користувача) —
-       скориговано до референс-скріну, десь посередині між 6D.11 і 6D.12. */
-    left:16px; right:16px; bottom:max(116px, calc(env(safe-area-inset-bottom) + 96px));
+    /* Rev #30 (6D.14) — точний вимір getBoundingClientRect() показав 36.5px
+       між карткою і таб-баром при 116px/96px (6D.13) — користувач попросив
+       рівно 30px; -6px від обох доданків дає виміряний результат ≈30px. */
+    left:16px; right:16px; bottom:max(110px, calc(env(safe-area-inset-bottom) + 90px));
     border-radius:var(--radius-xl); padding:20px;
     /* BugFix (6D.11, знайдено живою перевіркою): translateY(100%) рахується
        від ВЛАСНОЇ висоти елемента, не від нового bottom-відступу картки —
@@ -2448,7 +2452,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.49</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.50</div>
 </div>
   </div>
 </div>
@@ -3918,7 +3922,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.49';
+const APP_VERSION = '2.21.50';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -4742,7 +4746,7 @@ function positionProfilePopover(explicitTrigger){
     trigger = mobileTrigger.offsetParent !== null ? mobileTrigger : desktopTrigger;
   }
   const rect = trigger.getBoundingClientRect();
-  const popoverWidth = 220; // Rev #30 (6D.12) — синхронізовано з .profile-popover CSS
+  const popoverWidth = 230; // Rev #30 (6D.14) — синхронізовано з .profile-popover CSS
   let top, left;
   if(trigger.id === 'profile-side-trigger'){
     // Desktop sidebar: розкриття ПРАВОРУЧ від іконки (інша сторона,
