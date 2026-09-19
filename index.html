@@ -176,7 +176,21 @@
   .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding-bottom:112px; }
   .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 20px; border-bottom:1px solid var(--color-border); position:relative; text-align:center; }
   .page-header-buttons{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); right:20px; display:flex; gap:8px; z-index:2; }
+  /* Rev #30 (6D.8) — дзеркало .page-header-buttons (той самий .gear-btn,
+     лише зліва) — природне місце для іконки профілю, той самий контейнер
+     .top, що вже спільний для всіх вкладок (не по одному на вкладку). */
+  .page-header-buttons-left{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); left:20px; display:flex; gap:8px; z-index:2; }
   .page-header-text{ padding:0 76px; }
+  /* Rev #30 (6D.8) — буквений аватар: той самий принцип, що .bank-badge
+     (bankIcon() fallback) — коло + ініціали, лише окремий клас, бо семантика
+     інша (профіль користувача, не банк). Статус-крапка — той самий прийом,
+     що update-dot на .gear-btn.update-btn вище. */
+  .avatar-badge{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:var(--color-primary); color:#fff; font-size:14px; font-weight:700; flex-shrink:0; position:relative; }
+  .avatar-badge.guest{ background:var(--color-surface); color:var(--color-text-secondary); border:1.5px solid var(--color-border-strong); }
+  .avatar-status-dot{ position:absolute; bottom:-1px; right:-1px; width:11px; height:11px; border-radius:50%; border:2px solid var(--color-surface); background:var(--color-text-secondary); }
+  .avatar-status-dot.online{ background:var(--color-success); }
+  .avatar-status-dot.offline{ background:var(--color-error); }
+  .avatar-status-dot.hidden{ display:none; }
   .page-header-text h1{ margin:0; font-size:21px; line-height:27px; font-weight:700; letter-spacing:-.01em; }
   .page-header-text .page-subtitle{ margin:3px 0 0; font-size:12.5px; color:var(--color-text-secondary); line-height:1.4; }
   /* Rev 2.11.1 — офлайн-банер: той самий приглушений warning-тон, що вже
@@ -473,6 +487,31 @@
      правила немає, тому #cloud-login-form/#cloud-signed-in отримують
      власний скопований клас. */
   .cloud-auth-block.hidden{ display:none; }
+  /* Rev #30 (6D.8) — редизайн Cloud Auth UI: #profile-drawer (той самий
+     .drawer/.drawer-head компонент, що #settings-drawer), список пунктів
+     меню (.profile-menu-item, та сама роль, що .side-tab у сайдбарі —
+     рядок-кнопка з іконкою й текстом) і компактна картка в "Сервісі"
+     (.cloud-service-card), що відкриває те саме меню — не новий паралельний
+     UI, а спільний вхід. */
+  .profile-head{ display:flex; align-items:center; gap:12px; padding:4px 2px 18px; }
+  .profile-head-text{ min-width:0; }
+  .profile-head-name{ font-weight:700; font-size:15px; }
+  .profile-head-email{ font-size:12.5px; color:var(--color-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .profile-status-line{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--color-text-secondary); margin-top:2px; }
+  .profile-status-dot{ width:7px; height:7px; border-radius:50%; background:var(--color-text-secondary); flex-shrink:0; }
+  .profile-status-dot.online{ background:var(--color-success); }
+  .profile-status-dot.offline{ background:var(--color-error); }
+  .profile-menu-item{ display:flex; align-items:center; gap:12px; width:100%; padding:13px 4px; border:none; background:none; border-top:1px solid var(--color-border); font-size:14.5px; color:var(--color-text-primary); cursor:pointer; text-align:left; font-family:inherit; }
+  .profile-menu-item svg{ flex-shrink:0; color:var(--color-text-secondary); }
+  .profile-menu-item.danger{ color:var(--color-error); }
+  .profile-menu-item.danger svg{ color:var(--color-error); }
+  @media (hover:hover){ .profile-menu-item:hover{ background:var(--color-hover-overlay); } }
+  .cloud-service-card{ display:flex; align-items:center; gap:12px; width:100%; padding:14px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); cursor:pointer; text-align:left; font-family:inherit; margin-bottom:4px; }
+  @media (hover:hover){ .cloud-service-card:hover{ background:var(--color-surface-hover); } }
+  .cloud-service-card-text{ min-width:0; flex:1; }
+  .cloud-service-card-name{ font-weight:700; font-size:14.5px; }
+  .cloud-service-card-email{ font-size:12px; color:var(--color-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cloud-service-card-chevron{ flex-shrink:0; color:var(--color-text-secondary); }
 
   .section-label{ font-size:11px; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.6px; margin:26px 2px 10px; display:flex; align-items:center; gap:6px; }
   .section-label:first-child{ margin-top:2px; }
@@ -1430,6 +1469,7 @@
     .app-shell{ flex-direction:row; max-width:1440px; }
     .top{ display:block; text-align:left; padding:0 0 20px; border-bottom:none; }
     .page-header-buttons{ display:none; }
+    .page-header-buttons-left{ display:none; }
     .page-header-text{ padding:0; }
     .page-header-text h1{ font-size:28px; line-height:34px; }
     .page-header-text .page-subtitle{ font-size:13.5px; margin-top:5px; }
@@ -1561,6 +1601,15 @@
       Доступне оновлення
     </button>
     <div class="side-divider"></div>
+    <!-- Rev #30 (6D.8) — той самий дуальний патерн, що вже .gear-btn/
+         "Налаштування" вище: mobile — кнопка в .page-header-buttons-left,
+         desktop — .side-tab тут. id="profile-avatar-side" оновлюється
+         renderProfileUI() (буква/колір/aria-label), сам вміст іконки —
+         placeholder, замінюється JS. -->
+    <button class="side-tab" onclick="openProfileMenu()">
+      <span class="avatar-badge guest" id="profile-avatar-side" style="width:22px; height:22px; font-size:10.5px;" aria-hidden="true"></span>
+      Профіль
+    </button>
     <button class="side-tab" onclick="openSettings()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       Налаштування
@@ -1587,6 +1636,16 @@
       <span id="storage-error-banner-text"></span>
     </div>
     <div class="top">
+      <!-- Rev #30 (6D.8) — та сама .top, спільна для всіх вкладок (не по
+           одному хедеру на вкладку) — тому іконка профілю додається ОДИН
+           раз тут, а не в кожному .view. renderProfileUI() наповнює
+           #profile-avatar-top (буква/колір/статус-крапка) при кожній зміні
+           стану сесії. -->
+      <div class="page-header-buttons-left">
+        <button class="gear-btn" onclick="openProfileMenu()" aria-label="Профіль" id="profile-btn-top" style="border:none; padding:0; overflow:visible;">
+          <span class="avatar-badge guest" id="profile-avatar-top" aria-hidden="true"></span>
+        </button>
+      </div>
       <div class="page-header-buttons">
         <button class="gear-btn update-btn" id="update-btn-top" onclick="openUpdateModal()" aria-label="Доступне оновлення" style="display:none;">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m6 11 6 6 6-6"/><path d="M4 21h16"/></svg>
@@ -2038,31 +2097,21 @@
 
     <!-- ================= СЕРВІС (імпорт/експорт/очищення/резерв) ================= -->
     <div class="view hidden" id="view-service">
-  <!-- Rev #30 — Stage 6, Cloud Auth. Свідомо лише вхід/вихід, без жодної
-       синхронізації даних (Sync Engine — #31, окремий крок). Той самий
-       офлайн-принцип, що вже задокументований для Excel нижче: SDK
-       вантажиться з CDN лише при відкритті цієї вкладки, і без мережі —
-       явне попередження замість мовчазної непрацюючої кнопки. -->
-  <div class="section-label" style="margin-top:0;">Хмара</div>
-  <div class="import-status hidden" id="cloud-offline-notice" style="color:var(--color-warning);">
-    Вхід у Cloud потребує інтернету (бібліотека завантажується з мережі при відкритті) — зараз недоступний.
-  </div>
-  <div id="cloud-login-form" class="cloud-auth-block">
-    <div class="field">
-      <label for="cloud-email">Email</label>
-      <input type="email" id="cloud-email" autocomplete="username">
+  <!-- Rev #30 (6D.8) — редизайн Cloud Auth UI: компактна картка замінює
+       inline-форму Rev 2.21.36 (яка й досі жила прямо в тілі вкладки) —
+       та сама auth-логіка (signInWithPassword/signOut/сесія/офлайн-нотіс),
+       лише відкриває спільне #profile-drawer (той самий вхід, що іконка
+       профілю в header). Форма входу/стан "увійшли" тепер живуть усередині
+       drawer'а нижче (renderProfileUI() наповнює цю картку тим самим
+       текстом, що раніше показував #cloud-auth-status). -->
+  <button type="button" class="cloud-service-card" id="cloud-service-card" onclick="openProfileMenu()">
+    <span class="avatar-badge guest" id="profile-avatar-service" aria-hidden="true"></span>
+    <div class="cloud-service-card-text">
+      <div class="cloud-service-card-name" id="cloud-service-card-name">Не увійшли</div>
+      <div class="cloud-service-card-email" id="cloud-service-card-status">Увійдіть, щоб синхронізувати дані на всіх пристроях</div>
     </div>
-    <div class="field">
-      <label for="cloud-password">Пароль</label>
-      <input type="password" id="cloud-password" autocomplete="current-password">
-    </div>
-    <div class="import-status" id="cloud-auth-error" style="color:var(--color-error);"></div>
-    <button type="button" class="submit-btn debt pill" onclick="signInCloudAccount()">Увійти</button>
-  </div>
-  <div id="cloud-signed-in" class="cloud-auth-block hidden">
-    <button type="button" class="submit-btn debt pill" onclick="signOutCloudAccount()">Вийти</button>
-  </div>
-  <div class="import-status" id="cloud-auth-status"></div>
+    <svg class="cloud-service-card-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
 
   <div class="section-label">Дані</div>
   <div class="service-grid">
@@ -2320,7 +2369,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.42</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.43</div>
 </div>
   </div>
 </div>
@@ -2387,6 +2436,76 @@
   <div class="drawer-empty">
     Мова та валюта поки фіксовані — українська, ₴. З'являться тут, тільки коли
     будуть реально працювати (без декоративних перемикачів «про людське око»).
+  </div>
+</div>
+
+<!-- ================= Профіль / Cloud Auth (Drawer, Rev #30 6D.8) =================
+     Той самий .drawer компонент, що Налаштування вище — не новий UI-патерн.
+     Два стани через уже наявний #cloud-login-form/#cloud-signed-in toggle
+     (Rev 2.21.36, .cloud-auth-block.hidden), лише перенесені сюди з тіла
+     "Сервісу" й переоформлені: форма входу (email+пароль, БЕЗ OAuth і БЕЗ
+     "забули пароль" — жодного з них не було в Rev 2.21.36 і не додається
+     зараз) для стану "не увійшли"; буквений аватар+ім'я+email+статус
+     синхронізації+"Налаштування"+"Вийти" для стану "увійшли". Уся
+     auth-логіка (signInCloudAccount/signOutCloudAccount/applyCloudSession/
+     офлайн-нотіс) — та сама, лише DOM-розташування й оформлення змінились
+     (ids незмінні, тому JS Rev 2.21.36 працює без правок). -->
+<div class="drawer-backdrop" id="profile-backdrop" onclick="closeProfileMenu()" inert></div>
+<div class="drawer" id="profile-drawer" role="dialog" aria-label="Профіль" aria-modal="true" inert>
+  <div class="drawer-head">
+    <h2>Профіль</h2>
+    <button class="drawer-close" onclick="closeProfileMenu()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div class="import-status hidden" id="cloud-offline-notice" style="color:var(--color-warning);">
+    Вхід у Cloud потребує інтернету (бібліотека завантажується з мережі при відкритті) — зараз недоступний.
+  </div>
+  <!-- Стан "не увійшли": форма входу напряму (без окремого проміжного
+       екрана "Ви не увійшли" + кнопка "Увійти" — свідоме спрощення 6D.8:
+       це й так один із двох станів того самого toggle, третій проміжний
+       додавав би стан, якого не існує в коді). -->
+  <div id="cloud-login-form" class="cloud-auth-block">
+    <div class="profile-head">
+      <span class="avatar-badge guest" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </span>
+      <div class="profile-head-text">
+        <div class="profile-head-name">Ви не увійшли</div>
+        <div class="profile-head-email">Увійдіть, щоб синхронізувати дані на всіх пристроях</div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="cloud-email">Email</label>
+      <input type="email" id="cloud-email" autocomplete="username">
+    </div>
+    <div class="field">
+      <label for="cloud-password">Пароль</label>
+      <input type="password" id="cloud-password" autocomplete="current-password">
+    </div>
+    <div class="import-status" id="cloud-auth-error" style="color:var(--color-error);"></div>
+    <button type="button" class="submit-btn debt pill" onclick="signInCloudAccount()">Увійти</button>
+  </div>
+  <!-- Стан "увійшли": буквений аватар+ім'я+email+статус, "Налаштування" й
+       "Вийти" — БЕЗ "Мій профіль"/"Безпека"/"Синхронізація" з референсу:
+       немає відповідного функціоналу, і додавання неробочих пунктів
+       порушило б той самий принцип, що вже сформульований вище для
+       мови/валюти ("без декоративних перемикачів «про людське око»"). -->
+  <div id="cloud-signed-in" class="cloud-auth-block hidden">
+    <div class="profile-head">
+      <span class="avatar-badge" id="profile-avatar-drawer" aria-hidden="true"></span>
+      <div class="profile-head-text">
+        <div class="profile-head-name" id="profile-drawer-name"></div>
+        <div class="profile-head-email" id="profile-drawer-email"></div>
+        <div class="profile-status-line"><span class="profile-status-dot" id="profile-status-dot"></span><span id="profile-status-text"></span></div>
+      </div>
+    </div>
+    <button type="button" class="profile-menu-item" onclick="closeProfileMenu(); openSettings();">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      Налаштування
+    </button>
+    <button type="button" class="profile-menu-item danger" onclick="signOutCloudAccount()">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Вийти
+    </button>
   </div>
 </div>
 
@@ -3679,7 +3798,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.42';
+const APP_VERSION = '2.21.43';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -4302,6 +4421,7 @@ async function initCloudAuthUI(){
   }catch(e){
     setCloudAuthOffline(true);
     setCloudAuthStatus('Не вдалося перевірити стан входу.');
+    renderProfileUI();
     return;
   }
   const client = getSupabaseClient();
@@ -4328,11 +4448,14 @@ async function applyCloudSession(session){
     setCloudAuthFormVisible(false);
     setCloudAuthStatus(`Увійшли як ${session.user.email}`);
     await loadCloudFamilyId(getSupabaseClient(), session.user.id);
+    await loadCloudDisplayName(getSupabaseClient(), session.user.id);
   }else{
     setCloudAuthFormVisible(true);
     setCloudAuthStatus('Не увійшли');
     clearCloudFamilyId();
+    cloudDisplayName = null;
   }
+  renderProfileUI();
 }
 // family_id — той самий клас свідомого винятку з "лише IndexedDB", що вже
 // сесія SDK/theme/draft: сесійний, не фінансовий стан, безпечно тримати в
@@ -4352,6 +4475,91 @@ async function loadCloudFamilyId(client, userId){
 function clearCloudFamilyId(){
   cloudFamilyId = null;
   localStorage.removeItem(LS_KEY_CLOUD_FAMILY_ID);
+}
+// Rev #30 (6D.8) — display_name (public.users) для буквеного аватара в
+// редизайні Cloud Auth UI. 6D крок 0 pre-check підтвердив: ніде раніше не
+// використовувався (лише session.user.email) — той самий клас даних, що
+// family_id (сесійне, не фінансове), той самий підхід до fetch (SELECT
+// власного рядка через client, RLS дозволяє id=auth.uid()). Немає рядка/
+// display_name — тихий фолбек на email, без помилки користувачу.
+let cloudDisplayName = null;
+async function loadCloudDisplayName(client, userId){
+  try{
+    const { data, error } = await client.from('users').select('display_name').eq('id', userId).maybeSingle();
+    cloudDisplayName = (!error && data && data.display_name) ? data.display_name : null;
+  }catch(e){ cloudDisplayName = null; }
+}
+// Rev #30 (6D.8) — єдина точка рендеру профіль-UI: аватар (header mobile/
+// desktop/сервіс-картка/drawer), ім'я/email/статус у drawer'і, текст картки
+// в "Сервісі". Викликається з applyCloudSession() (зміна сесії) і
+// updateOnlineStatusUI() (зміна мережі) — той самий принцип єдиного
+// джерела правди, що вже renderAll() для фінансових даних.
+function renderProfileUI(){
+  const session = cloudSession;
+  const signedIn = !!(session && session.user);
+  const letter = signedIn ? (cloudDisplayName || session.user.email || '?').trim().charAt(0).toUpperCase() : '';
+  const online = navigator.onLine;
+
+  document.querySelectorAll('.avatar-badge[id^="profile-avatar-"]').forEach(function(el){
+    el.textContent = letter;
+    el.classList.toggle('guest', !signedIn);
+  });
+  const dotClass = !signedIn ? '' : (online ? 'online' : 'offline');
+  ['profile-avatar-top', 'profile-avatar-service'].forEach(function(id){
+    const host = document.getElementById(id);
+    if(!host) return;
+    let dot = host.querySelector('.avatar-status-dot');
+    if(!signedIn){
+      if(dot) dot.remove();
+      return;
+    }
+    if(!dot){ dot = document.createElement('span'); dot.className = 'avatar-status-dot'; host.appendChild(dot); }
+    dot.className = 'avatar-status-dot ' + dotClass;
+  });
+
+  if(signedIn){
+    const name = cloudDisplayName || session.user.email;
+    const nameEl = document.getElementById('profile-drawer-name');
+    const emailEl = document.getElementById('profile-drawer-email');
+    const statusDot = document.getElementById('profile-status-dot');
+    const statusText = document.getElementById('profile-status-text');
+    if(nameEl) nameEl.textContent = name;
+    if(emailEl) emailEl.textContent = session.user.email;
+    if(statusDot) statusDot.className = 'profile-status-dot ' + (online ? 'online' : 'offline');
+    if(statusText) statusText.textContent = online ? 'Синхронізація увімкнена' : 'Синхронізація призупинена (немає мережі)';
+
+    const cardName = document.getElementById('cloud-service-card-name');
+    const cardStatus = document.getElementById('cloud-service-card-status');
+    if(cardName) cardName.textContent = name;
+    if(cardStatus) cardStatus.textContent = online ? 'Синхронізація увімкнена' : 'Синхронізація призупинена (немає мережі)';
+  }else{
+    const cardName = document.getElementById('cloud-service-card-name');
+    const cardStatus = document.getElementById('cloud-service-card-status');
+    if(cardName) cardName.textContent = 'Не увійшли';
+    if(cardStatus) cardStatus.textContent = 'Увійдіть, щоб синхронізувати дані на всіх пристроях';
+  }
+}
+// Rev #30 (6D.8) — той самий .drawer-патерн, що #settings-drawer
+// (openSettings()/closeSettings()) — не новий UI-примітив. Профіль
+// відкривається з будь-якої вкладки (іконка в спільному .top header,
+// Крок 0 п.2), тому лінива ініціалізація Cloud Auth (initCloudAuthUI())
+// викликається і тут, не лише при відкритті "Сервісу" — обидва виклики
+// ідемпотентні (isSupabaseSdkReady()/cloudAuthListenerBound guard).
+function openProfileMenu(){
+  lastFocusedBeforeDialog = document.activeElement;
+  document.getElementById('profile-backdrop').removeAttribute('inert');
+  document.getElementById('profile-drawer').removeAttribute('inert');
+  document.getElementById('profile-backdrop').classList.add('open');
+  document.getElementById('profile-drawer').classList.add('open');
+  focusFirstIn(document.getElementById('profile-drawer'));
+  initCloudAuthUI();
+}
+function closeProfileMenu(){
+  document.getElementById('profile-backdrop').classList.remove('open');
+  document.getElementById('profile-drawer').classList.remove('open');
+  document.getElementById('profile-backdrop').setAttribute('inert','');
+  document.getElementById('profile-drawer').setAttribute('inert','');
+  restoreFocus();
 }
 
 async function signInCloudAccount(){
@@ -5933,6 +6141,9 @@ function renderStructure(){
 function updateOnlineStatusUI(){
   const banner = document.getElementById('offline-banner');
   if(banner) banner.classList.toggle('hidden', navigator.onLine);
+  // Rev #30 (6D.8) — статус-крапка аватара профілю (онлайн/офлайн) реагує
+  // на ту саму подію, що вже #offline-banner — не окремий детектор мережі.
+  renderProfileUI();
 }
 // Rev #28.C — той самий компонент, що #offline-banner вище (.status-banner),
 // для явної помилки запису pilot-домену (categories/subcategories/
@@ -9278,8 +9489,12 @@ document.addEventListener('keydown', function(e){
   if(e.key !== 'Tab') return;
   const modal = document.getElementById('app-modal');
   const drawer = document.getElementById('settings-drawer');
+  // Rev #30 (6D.8) — #profile-drawer той самий .drawer-патерн, той самий
+  // focus-trap, що вже settings-drawer тут.
+  const profileDrawer = document.getElementById('profile-drawer');
   if(modal && modal.classList.contains('open')) trapTabKey(e, modal);
   else if(drawer && drawer.classList.contains('open')) trapTabKey(e, drawer);
+  else if(profileDrawer && profileDrawer.classList.contains('open')) trapTabKey(e, profileDrawer);
 });
 
 /* ============ Налаштування (Drawer) ============ */
@@ -9299,7 +9514,7 @@ function closeSettings(){
   document.getElementById('settings-drawer').setAttribute('inert','');
   restoreFocus();
 }
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeProfileMenu(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
 
 /* ============ Тема застосунку (Rev 2.6.0) ============
    Три стани: 'auto' (за системною темою, дефолт), 'light', 'dark' — саме
