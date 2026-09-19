@@ -1035,10 +1035,9 @@
      її ніколи не було в коді (ні візуально, ні як drag-to-dismiss логіка),
      лише на оригінальному дизайн-референсі. */
   .drawer{ position:fixed; z-index:91; background:var(--color-surface); box-shadow:var(--shadow-lg);
-    /* Rev #30 (6D.14) — точний вимір getBoundingClientRect() показав 36.5px
-       між карткою і таб-баром при 116px/96px (6D.13) — користувач попросив
-       рівно 30px; -6px від обох доданків дає виміряний результат ≈30px. */
-    left:16px; right:16px; bottom:max(110px, calc(env(safe-area-inset-bottom) + 90px));
+    /* Rev #30 (6D.15) — 6D.14 дав виміряні ≈30.5px, попрошено 25px;
+       -5px від обох доданків (110→105, 90→85) за тією ж пропорцією зсуву. */
+    left:16px; right:16px; bottom:max(105px, calc(env(safe-area-inset-bottom) + 85px));
     border-radius:var(--radius-xl); padding:20px;
     /* BugFix (6D.11, знайдено живою перевіркою): translateY(100%) рахується
        від ВЛАСНОЇ висоти елемента, не від нового bottom-відступу картки —
@@ -2452,7 +2451,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.50</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.51</div>
 </div>
   </div>
 </div>
@@ -3922,7 +3921,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.50';
+const APP_VERSION = '2.21.51';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
