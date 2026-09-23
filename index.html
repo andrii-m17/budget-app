@@ -2478,7 +2478,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.58</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.59</div>
 </div>
   </div>
 </div>
@@ -4260,7 +4260,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.58';
+const APP_VERSION = '2.21.59';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6209,11 +6209,16 @@ function applyEstimatedPayment(){
 async function saveInstallmentDrawer(){
   const acc = installmentAccounts[editingInstallmentIdx];
   if(!acc || !selectedMonth) return;
-  const newName = document.getElementById('idd-name').value.trim();
+  const rawName = document.getElementById('idd-name').value.trim();
   const newInitial = parseAmount(document.getElementById('idd-initial').value);
-  if(!newName){ flashField('idd-name'); return; }
+  if(!rawName){ flashField('idd-name'); return; }
   if(!newInitial || isNaN(newInitial) || newInitial<=0){ flashField('idd-initial'); return; }
   const oldName = acc.name;
+  // BugFix (6D, emoji-фікс) — той самий патерн і причина, що
+  // saveCardDebtDrawer() (openInstallmentEditor() теж показує #idd-name
+  // без емодзі-префікса). Якщо текстова частина не змінилась — відновити
+  // оригінальний emoji-префікс замість тихої втрати.
+  const newName = (rawName === stripLeadingEmoji(oldName)) ? oldName : rawName;
   if(newName !== oldName && installmentAccounts.some(function(a){ return a.name===newName; })){ flashField('idd-name'); return; }
   if(newName !== oldName){
     debts.forEach(function(d){ if(d.name===oldName && d.kind==='installment') d.name = newName; });
@@ -6437,11 +6442,22 @@ function closeCardDebtEditor(){
 async function saveCardDebtDrawer(){
   const acc = bankAccounts[editingBankIdx];
   if(!acc || !selectedMonth) return;
-  const newName = document.getElementById('cdd-name').value.trim();
+  const rawName = document.getElementById('cdd-name').value.trim();
   const newLimit = parseAmount(document.getElementById('cdd-limit').value);
-  if(!newName){ flashField('cdd-name'); return; }
+  if(!rawName){ flashField('cdd-name'); return; }
   if(!newLimit || isNaN(newLimit) || newLimit<=0){ flashField('cdd-limit'); return; }
   const oldName = acc.name;
+  // BugFix (6D, emoji-фікс) — openCardDebtEditor() навмисно показує
+  // #cdd-name БЕЗ емодзі-префікса (stripLeadingEmoji(), емодзі й так
+  // показане окремою іконкою зліва). Раніше saveCardDebtDrawer() читав це
+  // поле напряму й трактував "текст без емодзі" як НОВУ назву — будь-яке
+  // збереження (навіть лише зміна ліміту, без дотику до поля назви)
+  // silently стирало emoji-префікс НАЗАВЖДИ, ще й ретроактивно
+  // перейменовуючи історичні debts-записи. Якщо текстова частина не
+  // змінилась (rawName === назва без емодзі) — відновлюємо оригінальний
+  // emoji-префікс; якщо користувач дійсно ввів іншу назву — це і є нова
+  // назва, як і раніше.
+  const newName = (rawName === stripLeadingEmoji(oldName)) ? oldName : rawName;
   if(newName !== oldName && bankAccounts.some(function(b){ return b.name===newName; })){ flashField('cdd-name'); return; }
   if(newName !== oldName){
     // Перейменування ретроактивне: усі минулі записи з цим банком теж
