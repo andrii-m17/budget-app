@@ -120,6 +120,12 @@ const REPOSITORY_NAMES = [
   // (document.getElementById), той самий принцип виключення, що вже
   // initCloudAuthUI/applyCloudSession (не extract-тестуються тут).
   'pullCategoriesCore', 'pullCategoriesPilot',
+  // Rev #30 (6D, Варіант А) — createdAt/updatedAt backfill (той самий
+  // ідемпотентний принцип, що ensureExpenseIdentity()) — потрібна тут
+  // ЛИШЕ тому, що loadStructureRefs() тепер на неї посилається
+  // (недосяжним для routing-тестів кодом, cloudSession:null → саve
+  // Categories() усередині — чистий local-write no-op).
+  'ensureCategoryIdentity',
   // Rev #30 (6D.4) — той самий принцип, що categories вище: cloudSession
   // null за замовчуванням → усі 4 нові pushXPilot() одразу повертаються на
   // guard clause, без реального Supabase-клієнта. reconcileXCloudId — не
@@ -355,14 +361,46 @@ test('pullCategoriesCore: мережева помилка → { skipped:true }, 
   assert.deepEqual(plain(ctx.CATEGORIES), [{ name: 'X', type: 'Гнучка', active: true }]);
 });
 
-test('pullCategoriesCore: правило 1 — local з тим самим cloudId → оновлюється name/active/type з Cloud-версії', async () => {
-  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа (нова назва)', active: false, type: "Обов'язкова" }]);
-  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+test('pullCategoriesCore: правило 1 — Cloud новіший (LWW) → оновлюється name/active/type з Cloud-версії', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа (нова назва)', active: false, type: "Обов'язкова", created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0 });
   assert.equal(ctx.CATEGORIES[0].name, '🍔 Їжа (нова назва)');
   assert.equal(ctx.CATEGORIES[0].active, false);
   assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
+  assert.equal(ctx.CATEGORIES[0].updatedAt, '2024-06-01T00:00:00.000Z');
+});
+
+test('pullCategoriesCore: LWW — локальний СТРОГО новіший за Cloud → local НЕ перезаписується (keptLocal)', async () => {
+  // Точний сценарій з DoD: користувач змінив тип локально (updatedAt
+  // свіжий), Cloud ще має старе значення (updated_at давніший) — pull НЕ
+  // повинен відкотити локальну зміну.
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: "Обов'язкова", active: true, cloudId: 'c1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const result = await ctx.pullCategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 1 });
+  // Локальна версія лишається БЕЗ ЗМІН — Cloud НЕ перезаписав тип.
+  assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
+  assert.equal(ctx.CATEGORIES[0].active, true);
+  assert.equal(ctx.CATEGORIES[0].updatedAt, '2024-06-01T00:00:00.000Z');
+});
+
+test('pullCategoriesCore: LWW — рівні updatedAt → Cloud перемагає (той самий fallback, що діяв раніше для всіх випадків)', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа (Cloud)', active: true, type: 'Гнучка', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullCategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0 });
+  assert.equal(ctx.CATEGORIES[0].name, '🍔 Їжа (Cloud)');
+});
+
+test('pullCategoriesCore: LWW — local без updatedAt (перехідний стан, ще не backfill-ився) → Cloud перемагає', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа (Cloud)', active: true, type: 'Гнучка', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }]; // немає createdAt/updatedAt узагалі
+  const result = await ctx.pullCategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0 });
+  assert.equal(ctx.CATEGORIES[0].name, '🍔 Їжа (Cloud)');
+  assert.equal(ctx.CATEGORIES[0].updatedAt, '2024-01-01T00:00:00.000Z');
 });
 
 test('pullCategoriesCore: BugFix — type тепер РЕАЛЬНО синхронізується з Cloud (не завжди дефолт "Гнучка")', async () => {
@@ -373,22 +411,22 @@ test('pullCategoriesCore: BugFix — type тепер РЕАЛЬНО синхро
   const ctx = pullSandbox([{ id: 'c9', name: '💳 Підписки', active: true, type: "Обов'язкова" }]);
   ctx.CATEGORIES = [];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
   assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
 });
 
-test('pullCategoriesCore: правило 1 (no-op) — cloudId збігається, дані вже ідентичні (враховуючи type) → лічильники нульові', async () => {
-  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка' }]);
-  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+test('pullCategoriesCore: правило 1 (no-op) — cloudId збігається, дані вже ідентичні (враховуючи type/updatedAt) → лічильники нульові', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 0 });
 });
 
 test('pullCategoriesCore: правило 2 — unlinked (без cloudId) local з тим самим name → зв\'язується (cloudId) і self-heal одразу підтягує Cloud active/type, не дублюється', async () => {
   const ctx = pullSandbox([{ id: 'c2', name: '🍔 Їжа', active: true, type: "Обов'язкова" }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true }]; // без cloudId — ще не пушилась
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
   assert.equal(ctx.CATEGORIES.length, 1); // НЕ задублювалось
   assert.equal(ctx.CATEGORIES[0].cloudId, 'c2');
   assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
@@ -408,7 +446,7 @@ test('pullCategoriesCore: BugFix (6D) — local з "МЕРТВИМ" cloudId (Clo
   const ctx = pullSandbox([{ id: 'c1', name: '🍔 Харчування', active: true, type: 'Скорочувана' }]);
   ctx.CATEGORIES = [{ name: '🍔 Харчування', type: 'Гнучка', active: true, cloudId: 'dead-old-selfheal-id' }];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
   assert.equal(ctx.CATEGORIES.length, 1); // КРИТИЧНО: НЕ задублювалось
   assert.equal(ctx.CATEGORIES[0].cloudId, 'c1'); // self-heal перезаписав мертвий cloudId
   assert.equal(ctx.CATEGORIES[0].active, true);
@@ -419,7 +457,7 @@ test('pullCategoriesCore: правило 3 — новий Cloud-рядок бе�
   const ctx = pullSandbox([{ id: 'c3', name: '🎮 Розваги (з іншого пристрою)', active: true, type: 'Скорочувана' }]);
   ctx.CATEGORIES = [];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
   assert.equal(ctx.CATEGORIES.length, 1);
   assert.equal(ctx.CATEGORIES[0].name, '🎮 Розваги (з іншого пристрою)');
   assert.equal(ctx.CATEGORIES[0].cloudId, 'c3');
@@ -430,7 +468,7 @@ test('pullCategoriesCore: правило 3 — Cloud-рядок БЕЗ type (с�
   const ctx = pullSandbox([{ id: 'c4', name: '🧾 Легасі-рядок', active: true }]); // type відсутній у моці
   ctx.CATEGORIES = [];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
   assert.equal(ctx.CATEGORIES[0].type, 'Гнучка');
 });
 
@@ -449,7 +487,7 @@ test('pullCategoriesCore: видалення НЕ синхронізується
   const ctx = pullSandbox([]); // Cloud family — порожній набір (усе видалено на іншому пристрої)
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 0 });
   assert.equal(ctx.CATEGORIES.length, 1); // НЕ видалено
   assert.equal(ctx.CATEGORIES[0].cloudId, 'c1');
 });
@@ -485,7 +523,7 @@ test('pullCategoriesCore: змішаний сценарій — усі три п
     { name: '🧘 Особисте', type: 'Гнучка', active: true },
   ];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 1, added: 1 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 1, added: 1, keptLocal: 0 });
   assert.equal(ctx.CATEGORIES.length, 4);
   assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c1').name, '🍔 Їжа (оновлено)');
   assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c1').type, "Обов'язкова");
@@ -499,7 +537,7 @@ test('pullCategoriesPilot: тонка обгортка над pullCategoriesCore
   const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка' }]);
   ctx.CATEGORIES = [];
   const result = await ctx.pullCategoriesPilot();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
 });
 
 /* ============ D1: loadBankAccounts/saveBankAccounts — routing ============ */
@@ -706,14 +744,26 @@ test('acceptance: mixed-storage (частина доменів мігрован�
   assert.equal(results.dictionary.success, true);
 
   // Повний стан усіх 4 доменів відтворений — незалежно від того, куди КОЖЕН
-  // із них фактично записався під час restore.
-  assert.deepEqual(plain(freshCtx.CATEGORIES), fixture.categories);
+  // із них фактично записався під час restore. categories — окремо:
+  // applyBackupData() завершується await loadStructureRefs(), яка (Rev #30,
+  // 6D Варіант А) тепер викликає ensureCategoryIdentity() — фікстура без
+  // createdAt/updatedAt ЗАКОНОМІРНО отримує backfill тут, це не регресія.
+  assert.equal(freshCtx.CATEGORIES.length, fixture.categories.length);
+  freshCtx.CATEGORIES.forEach((c, i) => {
+    assert.equal(c.name, fixture.categories[i].name);
+    assert.equal(c.type, fixture.categories[i].type);
+    assert.equal(c.active, fixture.categories[i].active);
+    assert.ok(c.createdAt, 'ensureCategoryIdentity() мала заповнити createdAt');
+    assert.equal(c.updatedAt, c.createdAt); // backfill: updatedAt = createdAt при першому заповненні
+  });
   assert.deepEqual(plain(freshCtx.SUBCATEGORIES), fixture.subcategories);
   assert.deepEqual(plain(freshCtx.SUBCATEGORY_PRIORITY), fixture.subcategoryPriority);
   assert.deepEqual(plain(freshCtx.DICTIONARY), fixture.dictionary);
 
-  // categories мігровано у freshCtx → restore писав в IndexedDB, НЕ localStorage.
-  assert.equal(freshIdb.store.get('budget_categories_v1'), JSON.stringify(fixture.categories));
+  // categories мігровано у freshCtx → restore (і наступний ensureCategoryIdentity()
+  // backfill) писали в IndexedDB, НЕ localStorage. Порівнюємо розпарсено
+  // (не сирим рядком) — persisted-значення тепер несе backfilled timestamps.
+  assert.deepEqual(JSON.parse(freshIdb.store.get('budget_categories_v1')), plain(freshCtx.CATEGORIES));
   assert.equal(freshCtx.localStorage.getItem('budget_categories_v1'), null);
   // subcategories/subcategoryPriority/dictionary НЕ мігровані у freshCtx → localStorage.
   assert.equal(freshCtx.localStorage.getItem('budget_subcategories_v1'), JSON.stringify(fixture.subcategories));
@@ -1110,6 +1160,51 @@ test('ensureDebtIdentity: ідемпотентність — другий вик
   await ctx.ensureDebtIdentity();
   assert.equal(spy.count(), 1);
   assert.equal(ctx.debts[0].id, idAfterFirstCall);
+});
+
+/* ============ ensureCategoryIdentity (Rev #30, 6D Варіант А) ============ */
+
+test('ensureCategoryIdentity: категорія без createdAt/updatedAt → заповнюється "зараз" (немає кращого проксі, на відміну від expenses.date)', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true }];
+  const spy = spyOn(ctx, 'saveCategories');
+  await ctx.ensureCategoryIdentity();
+  assert.ok(ctx.CATEGORIES[0].createdAt);
+  assert.equal(ctx.CATEGORIES[0].updatedAt, ctx.CATEGORIES[0].createdAt);
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureCategoryIdentity: категорія вже МАЄ createdAt/updatedAt → не перезаписується, save не кличе', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveCategories');
+  await ctx.ensureCategoryIdentity();
+  assert.equal(ctx.CATEGORIES[0].createdAt, '2024-01-01T00:00:00.000Z');
+  assert.equal(ctx.CATEGORIES[0].updatedAt, '2024-06-01T00:00:00.000Z');
+  assert.equal(spy.count(), 0);
+});
+
+test('ensureCategoryIdentity: змішаний масив → лише запис без timestamps змінено', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [
+    { name: '🍔 Їжа', type: 'Гнучка', active: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' },
+    { name: '🚗 Транспорт', type: 'Гнучка', active: true },
+  ];
+  await ctx.ensureCategoryIdentity();
+  assert.equal(ctx.CATEGORIES[0].createdAt, '2024-01-01T00:00:00.000Z'); // незмінний
+  assert.ok(ctx.CATEGORIES[1].createdAt); // заповнений
+});
+
+test('ensureCategoryIdentity: ідемпотентність — другий виклик save не кличе', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true }];
+  const spy = spyOn(ctx, 'saveCategories');
+  await ctx.ensureCategoryIdentity();
+  assert.equal(spy.count(), 1);
+  const createdAtAfterFirst = ctx.CATEGORIES[0].createdAt;
+  await ctx.ensureCategoryIdentity();
+  assert.equal(spy.count(), 1);
+  assert.equal(ctx.CATEGORIES[0].createdAt, createdAtAfterFirst);
 });
 
 // UUID_FORMAT_RE — властивість vm.Context, не звичайний RegExp головного

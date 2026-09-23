@@ -2469,7 +2469,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.55</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.56</div>
 </div>
   </div>
 </div>
@@ -2986,6 +2986,7 @@ async function loadDictionary(){
 // послідовно await'ить 4 окремі Repository-завантажувачі вище.
 async function loadStructureRefs(){
   await loadCategories();
+  await ensureCategoryIdentity();
   await loadSubcategories();
   await loadSubcategoryPriority();
   await loadDictionary();
@@ -3049,7 +3050,7 @@ async function pushCategoriesPilot(){
   for(const cat of CATEGORIES){
     try{
       if(cat.cloudId){
-        const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, type: cat.type, updated_by: userId }).eq('id', cat.cloudId).select('id');
+        const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, type: cat.type, updated_at: cat.updatedAt, updated_by: userId }).eq('id', cat.cloudId).select('id');
         if(error) continue;
         if(data && data.length === 0){
           // "Висячий" cloudId — не мережева помилка, а сигнал, що рядок з
@@ -3078,7 +3079,7 @@ async function pushCategoriesPilot(){
 async function reconcileCategoryCloudId(client, userId, cat){
   const { data: existing } = await client.from('categories').select('id').eq('family_id', cloudFamilyId).eq('name', cat.name).maybeSingle();
   if(existing){ cat.cloudId = existing.id; return; }
-  const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, type: cat.type, created_by: userId, updated_by: userId }).select('id').single();
+  const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, type: cat.type, created_at: cat.createdAt, updated_at: cat.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) cat.cloudId = data.id;
 }
 // Rev #30 (6D крок 9) — Pull pilot: categories. Дзеркальне до push (6D fix
@@ -3088,9 +3089,13 @@ async function reconcileCategoryCloudId(client, userId, cat){
 // шукаємо локальний відповідник), тому симетрична логіка написана окремо,
 // той самий принцип матчингу (name-based reconciliation), інший напрямок.
 // Для КОЖНОГО Cloud-рядка:
-//   1) є local з тим самим cloudId? → оновити name/active/type з Cloud-версії
-//      (Cloud перемагає для вже пов'язаних записів — спрощений LWW,
-//      узгоджений раніше через відсутність updatedAt у Категорії B).
+//   1) є local з тим самим cloudId? → СПРАВЖНІЙ LWW (Rev #30, 6D Варіант А
+//      — раніше тут було спрощене "Cloud завжди перемагає", допоки в
+//      Категорії B не було updatedAt): порівняти updatedAt (Cloud) з
+//      updatedAt (локальний). Локальний СТРОГО новіший → не чіпати
+//      (наступний push сам донесе локальну версію до Cloud). Рівні,
+//      відсутні (NaN після Date.parse), чи Cloud новіший/дорівнює → Cloud
+//      перемагає (той самий fallback, що діяв раніше для ВСІХ випадків).
 //   2) немає local з ТАКИМ cloudId (ні збігом, ні взагалі), але є local з
 //      тим самим name? → зв'язати/самозцілити: прописати cloudId, оновити
 //      name/active/type з Cloud-версії. НЕ дублювати. Матчинг за іменем НЕ
@@ -3139,16 +3144,34 @@ async function pullCategoriesCore(){
   if(!isSupabaseSdkReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0;
+  let keptLocal = 0;
   try{
-    const { data, error } = await client.from('categories').select('id,name,active,type').eq('family_id', cloudFamilyId);
+    const { data, error } = await client.from('categories').select('id,name,active,type,created_at,updated_at').eq('family_id', cloudFamilyId);
     if(error || !data) return { skipped: true };
     for(const row of data){
       const byCloudId = CATEGORIES.find(function(c){ return c.cloudId === row.id; });
       if(byCloudId){
-        if(byCloudId.name !== row.name || byCloudId.active !== row.active || byCloudId.type !== row.type){
+        // Rev #30 (6D, Варіант А) — справжній LWW замість "Cloud завжди
+        // перемагає": порівнюємо updatedAt. Локальний СТРОГО новіший →
+        // НЕ чіпаємо (наступний push, ЯКИЙ ВЖЕ тригериться будь-якою
+        // локальною зміною категорій, сам донесе цю версію до Cloud —
+        // тут свідомо немає окремої черги повторних спроб, той самий
+        // принцип "тихий пропуск", що й решта Sync Engine v1). Рівні,
+        // відсутні, чи Cloud новіший/дорівнює → Cloud перемагає (той
+        // самий fallback, що діяв ДО цього Rev для всіх випадків).
+        const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
+        const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        if(localIsNewer){
+          keptLocal++;
+          continue;
+        }
+        if(byCloudId.name !== row.name || byCloudId.active !== row.active || byCloudId.type !== row.type || byCloudId.updatedAt !== row.updated_at){
           byCloudId.name = row.name;
           byCloudId.active = row.active;
           byCloudId.type = row.type;
+          byCloudId.createdAt = row.created_at;
+          byCloudId.updatedAt = row.updated_at;
           updated++;
         }
         continue;
@@ -3162,20 +3185,22 @@ async function pullCategoriesCore(){
         byName.cloudId = row.id;
         byName.active = row.active;
         byName.type = row.type;
+        byName.createdAt = row.created_at;
+        byName.updatedAt = row.updated_at;
         linked++;
         continue;
       }
       // row.type — NOT NULL у Cloud-схемі (DEFAULT 'Гнучка'), тому фолбек
       // нижче недосяжний за нормальних умов; лишається як страховка на
       // випадок старого/нестандартного рядка без явного значення.
-      CATEGORIES.push({ name: row.name, type: row.type || 'Гнучка', active: row.active, cloudId: row.id });
+      CATEGORIES.push({ name: row.name, type: row.type || 'Гнучка', active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
       added++;
     }
   }catch(e){
     return { skipped: true };
   }
   if(updated || linked || added) await saveCategoriesLocal();
-  return { skipped: false, updated: updated, linked: linked, added: added };
+  return { skipped: false, updated: updated, linked: linked, added: added, keptLocal: keptLocal };
 }
 // Автоматичний виклик при вході (applyCloudSession()) — тихий, без UI-
 // зворотного зв'язку (той самий принцип, що push: мережева помилка чи
@@ -3185,6 +3210,13 @@ async function pullCategoriesPilot(){
 }
 // Ручний виклик кнопкою в "Сервісі" — той самий core, але З видимим
 // результатом (на відміну від тихого автоматичного pull при вході).
+// Rev #30 (6D, Варіант А) — свідомий вибір: результат `keptLocal` (LWW
+// захистив локальну зміну від перезапису) НЕ виводиться окремим
+// повідомленням користувачу — мовчазний пріоритет локальної версії
+// прийнятний для v1 (той самий рівень деталізації, що вже мав UI до
+// цього Rev, коли Cloud просто завжди перемагав без жодного індикатора
+// "чий" запис застосувався). Якщо колись знадобиться видимість
+// конфліктів — `result.keptLocal` уже повертається з pullCategoriesCore().
 async function pullCategoriesPilotManual(){
   const statusEl = document.getElementById('sync-categories-status');
   statusEl.classList.remove('hidden');
@@ -3565,6 +3597,30 @@ async function ensureDebtIdentity(){
     if(!UUID_FORMAT_RE.test(d.id)){ d.id = generateUUID(); changed = true; }
   });
   if(changed) reportSaveResult(await saveDebts());
+}
+// Rev #30 (6D, Варіант А) — той самий ідемпотентний принцип, що
+// ensureExpenseIdentity() вище: заповнює ЛИШЕ ВІДСУТНІ createdAt/updatedAt,
+// ніколи не перезаписує вже наявні значення. Категорії НЕ мають власного
+// "date"-подібного поля (на відміну від витрат, де e.date дає чесне
+// наближення моменту створення) — тому єдиний доступний проксі для старих
+// записів без цих полів (усі існуючі локально категорії до цього Rev) це
+// "зараз" у момент першого запуску оновленого коду. Свідомий компроміс,
+// задокументований у ROADMAP: перший пристрій, що відкриє застосунок після
+// оновлення, отримає свіжий createdAt/updatedAt для вже наявних категорій
+// (переважно ідентичних на всіх пристроях — LWW-конфлікт тут не про
+// РЕАЛЬНІ розбіжні дані, а про встановлення початкової точки відліку).
+// Викликає saveCategories() (НЕ saveCategoriesLocal()) — свідомо, з push:
+// Cloud.updated_at для цих 11 категорій зараз "застряг" на моменті
+// первинного INSERT (18.09, ще до type-фіксу) — цей backfill+push одразу
+// виправляє й це, не чекаючи, доки користувач вручну відредагує категорію.
+async function ensureCategoryIdentity(){
+  let changed = false;
+  const nowISO = new Date().toISOString();
+  CATEGORIES.forEach(function(c){
+    if(!c.createdAt){ c.createdAt = nowISO; changed = true; }
+    if(!c.updatedAt){ c.updatedAt = c.createdAt; changed = true; }
+  });
+  if(changed) reportSaveResult(await saveCategories());
 }
 let cardVariants = {};
 
@@ -4070,7 +4126,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.55';
+const APP_VERSION = '2.21.56';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7814,7 +7870,11 @@ function installmentLinkOptionsHtml(selectedName){
 function openAddCategoryModal(){
   showCategoryModal('Нова категорія:', '', "Гнучка", async function(name, type){
     if(CATEGORIES.some(c=>c.name===name)) return false;
-    CATEGORIES.push({name, type, active:true});
+    // Rev #30 (6D, Варіант А) — createdAt/updatedAt одразу при створенні,
+    // той самий принцип, що вже addExpense()/saveIncomeDrawer()/
+    // saveCardDebtEditor() (Rev 2.21.42).
+    const nowISO = new Date().toISOString();
+    CATEGORIES.push({name, type, active:true, createdAt: nowISO, updatedAt: nowISO});
     reportSaveResult(await saveCategories());
     renderStructure();
     populateCategorySelect();
@@ -7842,6 +7902,10 @@ function editCategory(i){
     }
     cat.name = newName;
     cat.type = newType;
+    // Rev #30 (6D, Варіант А) — updatedAt оновлюється й при редагуванні,
+    // createdAt лишається як був (той самий принцип, що вже саve*Editor()
+    // для боргів, Rev 2.21.42).
+    cat.updatedAt = new Date().toISOString();
     reportSaveResult(await saveCategories());
     populateMonths(); renderAll(); renderStructure(); populateCategorySelect();
   });
@@ -7867,6 +7931,12 @@ function deleteCategory(i){
     : `Видалити категорію «${label}» зі списку вибору? Історичні записи витрат не постраждають.`;
   showConfirmModal(warning, async function(){
     cat.active = false;
+    // Rev #30 (6D, Варіант А) — за межами буквальної специфікації кроку
+    // (openAddCategoryModal()/editCategory()), але необхідно для коректності
+    // LWW: без цього soft-delete (active:false) НЕ бере нового updatedAt,
+    // тож наступний pull міг би побачити застарілий Cloud updated_at як
+    // "новіший" і мовчки повернути cat.active=true, скасовуючи видалення.
+    cat.updatedAt = new Date().toISOString();
     const orphanedNames = orphanedSubs.map(s=>s.name);
     orphanedSubs.forEach(function(s){ s.active = false; });
     reportSaveResult(await saveSubcategories());
