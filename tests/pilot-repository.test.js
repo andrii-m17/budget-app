@@ -129,6 +129,10 @@ const REPOSITORY_NAMES = [
   // (недосяжним для routing-тестів кодом, cloudSession:null → саve
   // Categories() усередині — чистий local-write no-op).
   'ensureCategoryIdentity',
+  // Rev #30 (6D, термінове розслідування — фікс подвійного push) — чистий
+  // stamp-хелпер, витягнутий з усіх 5 ensureXIdentity(); restoreXFromBackup()
+  // нижче теж на нього посилається (недосяжним для routing-тестів кодом).
+  'stampMissingTimestamps',
   // Rev #30 (6D.4) — той самий принцип, що categories вище: cloudSession
   // null за замовчуванням → усі 4 нові pushXPilot() одразу повертаються на
   // guard clause, без реального Supabase-клієнта. reconcileXCloudId — не
@@ -223,6 +227,64 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
     REPOSITORY_NAMES
   );
   return { ctx, fakeIdbInstance };
+}
+
+// Rev #30 (6D, термінове розслідування — фікс подвійного push) — на
+// відміну від fakeSupabaseCategoriesClient() нижче (мертвий "прочитати весь
+// масив" mock для pull), цей — СТАТЕФУЛ mock для push/reconcile-ланцюжка
+// (select().eq().eq().maybeSingle() → insert().select().single(), або
+// update().eq().select()), що імітує РЕАЛЬНУ Cloud-таблицю з ключем за
+// назвою (byName Map) — потрібен, щоб перевірити (не припустити), що ДРУГИЙ
+// push-виклик після фіксу дійсно бачить рядок, вставлений ПЕРШИМ (реальна
+// поведінка Postgres у не-конкурентному випадку), а не сліпо рахує виклики.
+function fakeSupabaseStatefulClient(table, nameField){
+  const byName = new Map();
+  let insertCount = 0, updateCount = 0;
+  const client = {
+    from(t){
+      assert.equal(t, table);
+      return {
+        select(cols){
+          return {
+            eq(col1, val1){
+              return {
+                eq(col2, val2){
+                  return {
+                    maybeSingle(){
+                      const row = byName.get(val2);
+                      return Promise.resolve({ data: row ? { id: row.id } : null, error: null });
+                    },
+                  };
+                },
+              };
+            },
+          };
+        },
+        insert(fields){
+          insertCount++;
+          const id = 'gen-' + insertCount;
+          const row = { id, ...fields };
+          byName.set(fields[nameField], row);
+          return { select(){ return { single(){ return Promise.resolve({ data: { id }, error: null }); } }; } };
+        },
+        update(fields){
+          updateCount++;
+          return {
+            eq(col, id){
+              return {
+                select(cols){
+                  const found = [...byName.values()].find(r => r.id === id);
+                  if(found) Object.assign(found, fields);
+                  return Promise.resolve({ data: found ? [{ id }] : [], error: null });
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+  return { client, getInsertCount: () => insertCount, getUpdateCount: () => updateCount, byName };
 }
 
 // Rev #30 (6D крок 9) — мінімальний фейковий Supabase-клієнт для
@@ -1261,6 +1323,107 @@ test('ensureDictionaryIdentity: запис вже МАЄ createdAt/updatedAt →
   assert.equal(spy.count(), 0);
 });
 
+/* ============ Фікс подвійного push при restore (6D, термінове розслідування) ============
+   Корінь: restoreXFromBackup() тригерив ПЕРШИЙ push (усередині власного
+   saveX()), а ensureXIdentity() (викликана пізніше в тому самому
+   applyBackupData(), з loadStructureRefs()/loadAll()) бачила щойно
+   відновлені записи БЕЗ timestamps і сама тригерила ДРУГИЙ, незалежний
+   push — обидва конкурентно проходили неатомарний "SELECT за name, якщо
+   нема — INSERT" у reconcileXCloudId(), і при живому відтворенні (два
+   реальні мережеві запити з затримкою) обидва встигали побачити "нема" до
+   того, як інший закомітив — 2 Cloud-рядки з одного відновлення (доведено
+   контрольовано на bank_accounts І на categories, домен-агностична race).
+   Фікс: restoreXFromBackup() тепер сам стемпає ПЕРЕД єдиним save() —
+   ensureXIdentity() пізніше вже нічого не стемпає й не викликає saveX()
+   вдруге. Тести нижче перевіряють МЕХАНІЗМ фіксу (не таймінг): другий
+   виклик ensureXIdentity() після restore має бути справжнім no-op. */
+
+test('фікс подвійного push: restoreCategoriesFromBackup() стемпає одразу → наступний ensureCategoryIdentity() saveCategories() вдруге НЕ кличе', async () => {
+  const { ctx } = sandbox();
+  const raw = JSON.stringify([{ name: 'Тест', type: 'Гнучка', active: true }]); // без timestamps
+  await ctx.restoreCategoriesFromBackup(raw);
+  assert.ok(ctx.CATEGORIES[0].createdAt, 'restoreCategoriesFromBackup() мала стемпати одразу');
+  const spy = spyOn(ctx, 'saveCategories');
+  await ctx.ensureCategoryIdentity();
+  assert.equal(spy.count(), 0, 'другий виклик не має нічого стемпати — save/push НЕ кличеться вдруге');
+});
+
+test('фікс подвійного push: restoreSubcategoriesFromBackup() стемпає одразу → наступний ensureSubcategoryIdentity() saveSubcategories() вдруге НЕ кличе', async () => {
+  const { ctx } = sandbox();
+  const raw = JSON.stringify([{ name: 'Кафе', category: '🍔 Їжа', active: true }]);
+  await ctx.restoreSubcategoriesFromBackup(raw);
+  assert.ok(ctx.SUBCATEGORIES[0].createdAt);
+  const spy = spyOn(ctx, 'saveSubcategories');
+  await ctx.ensureSubcategoryIdentity();
+  assert.equal(spy.count(), 0);
+});
+
+test('фікс подвійного push: restoreDictionaryFromBackup() стемпає одразу → наступний ensureDictionaryIdentity() saveDictionary() вдруге НЕ кличе', async () => {
+  const { ctx } = sandbox();
+  const raw = JSON.stringify([{ kw: 'кава', cat: '🍔 Їжа', sub: null }]);
+  await ctx.restoreDictionaryFromBackup(raw);
+  assert.ok(ctx.DICTIONARY[0].createdAt);
+  const spy = spyOn(ctx, 'saveDictionary');
+  await ctx.ensureDictionaryIdentity();
+  assert.equal(spy.count(), 0);
+});
+
+test('фікс подвійного push: restoreBankAccountsFromBackup() стемпає одразу → наступний ensureBankAccountIdentity() saveBankAccounts() вдруге НЕ кличе', async () => {
+  const { ctx } = sandbox();
+  const raw = JSON.stringify([{ name: '🟩 Приват Банк', creditLimit: 50000 }]);
+  await ctx.restoreBankAccountsFromBackup(raw);
+  assert.ok(ctx.bankAccounts[0].createdAt);
+  const spy = spyOn(ctx, 'saveBankAccounts');
+  await ctx.ensureBankAccountIdentity();
+  assert.equal(spy.count(), 0);
+});
+
+test('фікс подвійного push: restoreInstallmentAccountsFromBackup() стемпає одразу → наступний ensureInstallmentAccountIdentity() saveInstallmentAccounts() вдруге НЕ кличе', async () => {
+  const { ctx } = sandbox();
+  const raw = JSON.stringify([{ name: 'iPhone', initialAmount: 25000 }]);
+  await ctx.restoreInstallmentAccountsFromBackup(raw);
+  assert.ok(ctx.installmentAccounts[0].createdAt);
+  const spy = spyOn(ctx, 'saveInstallmentAccounts');
+  await ctx.ensureInstallmentAccountIdentity();
+  assert.equal(spy.count(), 0);
+});
+
+// Rev #30 (6D, термінове розслідування) — end-to-end регресія з реальним
+// (стейтфул) Cloud-mock'ом, ТІЄЮ САМОЮ послідовністю викликів, що
+// applyBackupData() робить для categories: restoreCategoriesFromBackup()
+// (перший push) → loadStructureRefs() (реальна функція, НЕ стаб — саме тут
+// раніше жив другий push через ensureCategoryIdentity()). До фіксу це дало
+// б 2 INSERT; після — точно 1, а другий restore того самого фантомного
+// запису (без cloudId — бекап його не ніс) лише ЗВ'ЯЗУЄ вже вставлений
+// рядок (лишається 1), той самий "2 відновлення" сценарій з живого тесту.
+test('регресія (стейтфул Cloud-mock): одне відновлення бекапу з фантомним записом без timestamp → РІВНО один Cloud-рядок, не два', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const fake = fakeSupabaseStatefulClient('categories', 'name');
+  ctx.getSupabaseClient = () => fake.client;
+
+  const raw = JSON.stringify([{ name: 'Тест Рейс', type: 'Гнучка', active: true }]); // без timestamps, без cloudId
+  await ctx.restoreCategoriesFromBackup(raw);
+  await new Promise(r => setTimeout(r, 0)); // дати відпрацювати fire-and-forget push #1
+  await ctx.loadStructureRefs(); // реальний виклик, той самий, що всередині applyBackupData()
+  await new Promise(r => setTimeout(r, 0)); // дати відпрацювати fire-and-forget push #2 (якби він стався)
+
+  assert.equal(fake.getInsertCount(), 1, 'мало бути РІВНО 1 INSERT — до фіксу тут було 2');
+  assert.ok(ctx.CATEGORIES[0].cloudId, 'перший push мав зв\'язати cloudId');
+
+  // Той самий "2 відновлення" сценарій з живого тесту: другий restore ТІЄЇ
+  // САМОЇ фантомної фікстури (без cloudId — бекап його не ніс) не мав би
+  // створити ЩЕ один рядок — byName reconciliation знаходить уже вставлений.
+  await ctx.restoreCategoriesFromBackup(raw);
+  await new Promise(r => setTimeout(r, 0));
+  await ctx.loadStructureRefs();
+  await new Promise(r => setTimeout(r, 0));
+
+  assert.equal(fake.getInsertCount(), 1, 'другe відновлення не мало додати ще один INSERT — до фіксу тут було 4 сумарно');
+});
+
 /* ============ D1: loadBankAccounts/saveBankAccounts — routing ============ */
 
 test('loadBankAccounts: домен не мігровано, немає ключа → DEFAULT_BANKS, зберігається в localStorage', async () => {
@@ -1398,8 +1561,16 @@ test('restoreInstallmentAccountsFromBackup: raw присутній → parse+sav
   const raw = JSON.stringify(d1Fixture().installmentAccounts);
   const result = await ctx.restoreInstallmentAccountsFromBackup(raw);
   assert.equal(result.success, true);
-  assert.deepEqual(plain(ctx.installmentAccounts), d1Fixture().installmentAccounts);
-  assert.equal(fakeIdbInstance.store.get('budget_installmentaccounts_v1'), raw);
+  // Rev #30 (6D, фікс подвійного push) — restoreXFromBackup() тепер сам
+  // стемпає createdAt/updatedAt ПЕРЕД єдиним save(), а не покладається на
+  // пізніший ensureInstallmentAccountIdentity() — фікстура без timestamps
+  // ЗАКОНОМІРНО отримує їх тут, це не регресія.
+  assert.equal(ctx.installmentAccounts.length, 1);
+  assert.equal(ctx.installmentAccounts[0].name, d1Fixture().installmentAccounts[0].name);
+  assert.equal(ctx.installmentAccounts[0].initialAmount, d1Fixture().installmentAccounts[0].initialAmount);
+  assert.ok(ctx.installmentAccounts[0].createdAt);
+  assert.equal(ctx.installmentAccounts[0].updatedAt, ctx.installmentAccounts[0].createdAt);
+  assert.equal(fakeIdbInstance.store.get('budget_installmentaccounts_v1'), JSON.stringify(ctx.installmentAccounts));
 });
 
 test('restoreInstallmentAccountsFromBackup: raw відсутній (старий бекап без ОЧ) → ВИДАЛЯЄ ключ, не пише [] (щоб не заблокувати майбутню реконструкцію з debts)', async () => {
@@ -1561,16 +1732,35 @@ test('acceptance D1: mixed-storage — bankAccounts/hiddenFrom мігрован�
   assert.equal(results.hiddenFrom.success, true);
   assert.equal(results.ignoredDivergences.success, true);
 
-  assert.deepEqual(plain(freshCtx.bankAccounts), fixture.bankAccounts);
-  assert.deepEqual(plain(freshCtx.installmentAccounts), fixture.installmentAccounts);
+  // Rev #30 (6D, фікс подвійного push) — restoreBankAccountsFromBackup()/
+  // restoreInstallmentAccountsFromBackup() тепер самі стемплять
+  // createdAt/updatedAt ПЕРЕД save() — фікстури без timestamps ЗАКОНОМІРНО
+  // отримують їх тут, це не регресія (той самий принцип, що вже
+  // застосований для categories/subcategories/dictionary раніше).
+  assert.equal(freshCtx.bankAccounts.length, fixture.bankAccounts.length);
+  freshCtx.bankAccounts.forEach((b, i) => {
+    assert.equal(b.name, fixture.bankAccounts[i].name);
+    assert.equal(b.creditLimit, fixture.bankAccounts[i].creditLimit);
+    assert.ok(b.createdAt);
+    assert.equal(b.updatedAt, b.createdAt);
+  });
+  assert.equal(freshCtx.installmentAccounts.length, fixture.installmentAccounts.length);
+  freshCtx.installmentAccounts.forEach((a, i) => {
+    assert.equal(a.name, fixture.installmentAccounts[i].name);
+    assert.equal(a.initialAmount, fixture.installmentAccounts[i].initialAmount);
+    assert.ok(a.createdAt);
+    assert.equal(a.updatedAt, a.createdAt);
+  });
   assert.deepEqual(plain(freshCtx.hiddenFrom), fixture.hiddenFrom);
   assert.deepEqual(plain(freshCtx.ignoredDivergences), fixture.ignoredDivergences);
 
   // installmentAccounts мігровано у freshCtx → IndexedDB, не localStorage.
-  assert.equal(freshIdb.store.get('budget_installmentaccounts_v1'), JSON.stringify(fixture.installmentAccounts));
+  // Порівнюємо розпарсено (не сирим рядком) — persisted-значення тепер
+  // несе backfilled timestamps.
+  assert.deepEqual(JSON.parse(freshIdb.store.get('budget_installmentaccounts_v1')), plain(freshCtx.installmentAccounts));
   assert.equal(freshCtx.localStorage.getItem('budget_installmentaccounts_v1'), null);
   // bankAccounts/hiddenFrom/ignoredDivergences НЕ мігровані у freshCtx → localStorage.
-  assert.equal(freshCtx.localStorage.getItem('budget_bankaccounts_v1'), JSON.stringify(fixture.bankAccounts));
+  assert.deepEqual(JSON.parse(freshCtx.localStorage.getItem('budget_bankaccounts_v1')), plain(freshCtx.bankAccounts));
   assert.equal(freshCtx.localStorage.getItem('budget_debthidden_v1'), JSON.stringify(fixture.hiddenFrom));
   assert.equal(freshCtx.localStorage.getItem('budget_ignored_divergences_v1'), JSON.stringify(fixture.ignoredDivergences));
 });

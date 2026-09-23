@@ -2515,7 +2515,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.63</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.64</div>
 </div>
   </div>
 </div>
@@ -3632,14 +3632,23 @@ async function pullDictionaryPilotManual(){
 // saveCategories() і т.д. (routing-aware) — тому restore для pilot-доменів
 // НІКОЛИ не пише в localStorage/IndexedDB напряму, лише через ті самі
 // Repository-функції, що й решта коду (invariant Stage C, ROADMAP п.28).
+// Rev #30 (6D, термінове розслідування — фікс подвійного push) — стемпаємо
+// createdAt/updatedAt ТУТ, ПЕРЕД єдиним saveX() нижче (не покладаємось на
+// пізніший ensureXIdentity() у loadStructureRefs()/loadAll() того самого
+// applyBackupData() — саме ЦЕЙ другий, незалежний виклик і був джерелом
+// дублікатів, dockomentar над stampMissingTimestamps() нижче за текстом
+// файлу). DEFAULT_CATEGORIES-фолбек (raw==null) синтетичний, timestamps
+// йому не потрібні — стемпаємо лише реальний парсений масив.
 async function restoreCategoriesFromBackup(raw){
   try{ CATEGORIES = raw != null ? JSON.parse(raw) : DEFAULT_CATEGORIES.map(c=>({...c})); }
   catch(e){ CATEGORIES = DEFAULT_CATEGORIES.map(c=>({...c})); }
+  stampMissingTimestamps(CATEGORIES);
   return saveCategories();
 }
 async function restoreSubcategoriesFromBackup(raw){
   try{ SUBCATEGORIES = raw != null ? JSON.parse(raw) : DEFAULT_SUBCATEGORIES.map(s=>({...s})); }
   catch(e){ SUBCATEGORIES = DEFAULT_SUBCATEGORIES.map(s=>({...s})); }
+  stampMissingTimestamps(SUBCATEGORIES);
   return saveSubcategories();
 }
 async function restoreSubcategoryPriorityFromBackup(raw){
@@ -3650,6 +3659,7 @@ async function restoreSubcategoryPriorityFromBackup(raw){
 async function restoreDictionaryFromBackup(raw){
   try{ DICTIONARY = raw != null ? JSON.parse(raw) : DEFAULT_DICTIONARY.map(d=>({...d})); }
   catch(e){ DICTIONARY = DEFAULT_DICTIONARY.map(d=>({...d})); }
+  stampMissingTimestamps(DICTIONARY);
   return saveDictionary();
 }
 // Rev #28.D1 — той самий принцип, що 4 хелпери вище, для bankAccounts/
@@ -3658,6 +3668,7 @@ async function restoreDictionaryFromBackup(raw){
 async function restoreBankAccountsFromBackup(raw){
   try{ bankAccounts = raw != null ? JSON.parse(raw) : DEFAULT_BANKS.map(name=>({name, creditLimit:null})); }
   catch(e){ bankAccounts = DEFAULT_BANKS.map(name=>({name, creditLimit:null})); }
+  stampMissingTimestamps(bankAccounts);
   return saveBankAccounts();
 }
 async function restoreHiddenFromFromBackup(raw){
@@ -3693,6 +3704,7 @@ async function restoreInstallmentAccountsFromBackup(raw){
   }
   try{ installmentAccounts = JSON.parse(raw); }
   catch(e){ installmentAccounts = []; }
+  stampMissingTimestamps(installmentAccounts);
   return saveInstallmentAccounts();
 }
 // Rev #28.D2 — expenses/incomes/debts: та сама "легітимно порожній стан"
@@ -3859,26 +3871,45 @@ async function ensureDebtIdentity(){
 // Cloud.updated_at для цих 11 категорій зараз "застряг" на моменті
 // первинного INSERT (18.09, ще до type-фіксу) — цей backfill+push одразу
 // виправляє й це, не чекаючи, доки користувач вручну відредагує категорію.
-async function ensureCategoryIdentity(){
+// Rev #30 (6D, термінове розслідування — фікс подвійного push) — чиста,
+// синхронна, БЕЗ save/push функція, витягнута з 5 ensureXIdentity() нижче:
+// сам ідемпотентний backfill (те, ЩО стемпається) не мінявся, лише
+// відокремлений від "коли це призводить до save+push". Контрольоване
+// відтворення підтвердило причину дублікатів: restoreXFromBackup() робив
+// перший push одразу після відновлення, а ensureXIdentity() (викликана
+// пізніше, з loadStructureRefs()/loadAll() у тому ж applyBackupData())
+// бачила щойно відновлені записи БЕЗ timestamps, сама їх стемпала і
+// робила ДРУГИЙ, незалежний push — обидва fire-and-forget, обидва
+// конкурентно проходили "SELECT за name, якщо нема — INSERT" у
+// reconcileXCloudId(), і обидва встигали побачити "нема" до того, як
+// інший закомітив свій INSERT → 2 Cloud-рядки з одного відновлення.
+// Підтверджено на bank_accounts І на categories (домен, що в реальному
+// тесті НЕ постраждав) — race домен-агностична, залежить лише від того,
+// чи запис на момент restore вже мав timestamps. Фікс — усунути ДРУГИЙ
+// тригер узагалі: restoreXFromBackup() тепер сам стемпає ПЕРЕД єдиним
+// saveX()-викликом (нижче), тому коли ensureXIdentity() дістається до
+// цього ж масиву пізніше в тому самому applyBackupData(), стемпати вже
+// нічого — save/push не викликається вдруге. Свідомо НЕ обрано `await`
+// для push (Крок 0): це змінило б UX-очікування ("push не блокує") для
+// ВСІХ викликів saveX(), не лише restore-шляху — цей фікс вужчий і не
+// чіпає fire-and-forget природу.
+function stampMissingTimestamps(items){
   let changed = false;
   const nowISO = new Date().toISOString();
-  CATEGORIES.forEach(function(c){
-    if(!c.createdAt){ c.createdAt = nowISO; changed = true; }
-    if(!c.updatedAt){ c.updatedAt = c.createdAt; changed = true; }
+  items.forEach(function(item){
+    if(!item.createdAt){ item.createdAt = nowISO; changed = true; }
+    if(!item.updatedAt){ item.updatedAt = item.createdAt; changed = true; }
   });
-  if(changed) reportSaveResult(await saveCategories());
+  return changed;
+}
+async function ensureCategoryIdentity(){
+  if(stampMissingTimestamps(CATEGORIES)) reportSaveResult(await saveCategories());
 }
 // Rev #30 (6D, bank_accounts Варіант А) — той самий ідемпотентний принцип
 // і той самий компроміс, що ensureCategoryIdentity() (немає власного
 // "date"-подібного поля для чесного наближення — фолбек на "зараз").
 async function ensureBankAccountIdentity(){
-  let changed = false;
-  const nowISO = new Date().toISOString();
-  bankAccounts.forEach(function(acc){
-    if(!acc.createdAt){ acc.createdAt = nowISO; changed = true; }
-    if(!acc.updatedAt){ acc.updatedAt = acc.createdAt; changed = true; }
-  });
-  if(changed) reportSaveResult(await saveBankAccounts());
+  if(stampMissingTimestamps(bankAccounts)) reportSaveResult(await saveBankAccounts());
 }
 // Rev #30 (6D.27, installment_accounts повний цикл) — той самий ідемпотентний
 // принцип, що ensureCategoryIdentity()/ensureBankAccountIdentity(): на
@@ -3887,34 +3918,16 @@ async function ensureBankAccountIdentity(){
 // createdAt/updatedAt у addInstallmentAccount()/saveInstallmentDrawer() ще
 // не проставлялись до цієї ревізії.
 async function ensureInstallmentAccountIdentity(){
-  let changed = false;
-  const nowISO = new Date().toISOString();
-  installmentAccounts.forEach(function(acc){
-    if(!acc.createdAt){ acc.createdAt = nowISO; changed = true; }
-    if(!acc.updatedAt){ acc.updatedAt = acc.createdAt; changed = true; }
-  });
-  if(changed) reportSaveResult(await saveInstallmentAccounts());
+  if(stampMissingTimestamps(installmentAccounts)) reportSaveResult(await saveInstallmentAccounts());
 }
 // Rev #30 (6D.28, subcategories+dictionary повний цикл) — той самий
 // ідемпотентний принцип: Крок 0 підтвердив грепом — SUBCATEGORIES/DICTIONARY
 // досі не мали жодного з двох полів (як installmentAccounts до 6D.27).
 async function ensureSubcategoryIdentity(){
-  let changed = false;
-  const nowISO = new Date().toISOString();
-  SUBCATEGORIES.forEach(function(s){
-    if(!s.createdAt){ s.createdAt = nowISO; changed = true; }
-    if(!s.updatedAt){ s.updatedAt = s.createdAt; changed = true; }
-  });
-  if(changed) reportSaveResult(await saveSubcategories());
+  if(stampMissingTimestamps(SUBCATEGORIES)) reportSaveResult(await saveSubcategories());
 }
 async function ensureDictionaryIdentity(){
-  let changed = false;
-  const nowISO = new Date().toISOString();
-  DICTIONARY.forEach(function(d){
-    if(!d.createdAt){ d.createdAt = nowISO; changed = true; }
-    if(!d.updatedAt){ d.updatedAt = d.createdAt; changed = true; }
-  });
-  if(changed) reportSaveResult(await saveDictionary());
+  if(stampMissingTimestamps(DICTIONARY)) reportSaveResult(await saveDictionary());
 }
 let cardVariants = {};
 
@@ -4596,7 +4609,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.63';
+const APP_VERSION = '2.21.64';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
