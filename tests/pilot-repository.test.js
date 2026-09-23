@@ -137,6 +137,12 @@ const REPOSITORY_NAMES = [
   'saveSubcategories', 'saveSubcategoriesLocal', 'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId',
   'saveSubcategoryPriority',
   'saveDictionary', 'saveDictionaryLocal', 'pushDictionaryPilot', 'reconcileDictionaryCloudId',
+  // Rev #30 (6D.28, subcategories+dictionary повний цикл) — той самий
+  // cross-realm-override прийом, що pullBankAccountsCore/
+  // pullInstallmentAccountsCore тести. pullSubcategoriesPilotManual/
+  // pullDictionaryPilotManual НЕ включені (DOM-шар).
+  'pullSubcategoriesCore', 'pullSubcategoriesPilot', 'ensureSubcategoryIdentity',
+  'pullDictionaryCore', 'pullDictionaryPilot', 'ensureDictionaryIdentity',
   'restoreCategoriesFromBackup', 'restoreSubcategoriesFromBackup',
   'restoreSubcategoryPriorityFromBackup', 'restoreDictionaryFromBackup',
   // Rev #28.D1
@@ -266,6 +272,42 @@ function fakeSupabaseInstallmentAccountsClient(rows, opts){
   return {
     from(table){
       assert.equal(table, 'installment_accounts');
+      return {
+        select(cols){
+          return {
+            eq(col, val){
+              if(opts && opts.error) return Promise.resolve({ data: null, error: new Error('симульована мережева помилка') });
+              return Promise.resolve({ data: rows, error: null });
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
+function fakeSupabaseSubcategoriesClient(rows, opts){
+  return {
+    from(table){
+      assert.equal(table, 'subcategories');
+      return {
+        select(cols){
+          return {
+            eq(col, val){
+              if(opts && opts.error) return Promise.resolve({ data: null, error: new Error('симульована мережева помилка') });
+              return Promise.resolve({ data: rows, error: null });
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
+function fakeSupabaseDictionaryClient(rows, opts){
+  return {
+    from(table){
+      assert.equal(table, 'dictionary');
       return {
         select(cols){
           return {
@@ -436,6 +478,24 @@ function pullInstallmentSandbox(rows, opts){
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.getSupabaseClient = () => fakeSupabaseInstallmentAccountsClient(rows, opts);
+  return ctx;
+}
+
+function pullSubcategoriesSandbox(rows, opts){
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => fakeSupabaseSubcategoriesClient(rows, opts);
+  return ctx;
+}
+
+function pullDictionarySandbox(rows, opts){
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => fakeSupabaseDictionaryClient(rows, opts);
   return ctx;
 }
 
@@ -940,6 +1000,267 @@ test('ensureInstallmentAccountIdentity: запис вже МАЄ createdAt/updat
   assert.equal(spy.count(), 0);
 });
 
+/* ============ pullSubcategoriesCore: Pull pilot (subcategories, повний цикл) ============
+   Rev #30 (6D.28) — четвертий раз той самий шаблон, з ОДНІЄЮ новою
+   відмінністю: FK-залежність на category_id, resolved через local CATEGORIES
+   за cloudId (не за назвою — назва може розійтись, id — стабільний). */
+
+test('pullSubcategoriesCore: не залогінений → { skipped:true }, SUBCATEGORIES не чіпаються', async () => {
+  const ctx = pullSubcategoriesSandbox([{ id: 's1', name: 'Кафе', category_id: 'c1', active: true }]);
+  ctx.cloudSession = null;
+  ctx.SUBCATEGORIES = [{ name: 'X', category: 'Y', active: true }];
+  const result = await ctx.pullSubcategoriesCore();
+  assert.deepEqual(plain(result), { skipped: true });
+  assert.deepEqual(plain(ctx.SUBCATEGORIES), [{ name: 'X', category: 'Y', active: true }]);
+});
+
+test('pullSubcategoriesCore: немає cloudFamilyId → { skipped:true }', async () => {
+  const ctx = pullSubcategoriesSandbox([{ id: 's1', name: 'Кафе', category_id: 'c1', active: true }]);
+  ctx.cloudFamilyId = null;
+  const result = await ctx.pullSubcategoriesCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullSubcategoriesCore: мережева помилка → { skipped:true }, без винятку', async () => {
+  const ctx = pullSubcategoriesSandbox(null, { error: true });
+  ctx.SUBCATEGORIES = [{ name: 'X', category: 'Y', active: true }];
+  const result = await ctx.pullSubcategoriesCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullSubcategoriesCore: Крок 0 edge case — батьківська категорія відсутня локально (не лінкована за cloudId) → рядок МОВЧКИ пропускається (skippedFk), НЕ додається "осиротілим"', async () => {
+  const ctx = pullSubcategoriesSandbox([{ id: 's1', name: 'Кафе', category_id: 'c-unknown', active: true }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }]; // інший cloudId, не 'c-unknown'
+  ctx.SUBCATEGORIES = [];
+  const result = await ctx.pullSubcategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 0, skippedFk: 1 });
+  assert.equal(ctx.SUBCATEGORIES.length, 0); // нічого не додано з відсутнім/неправильним зв'язком
+});
+
+test('pullSubcategoriesCore: правило 1 — Cloud новіший (LWW) → оновлюється name/category(resolved за cloudId)/active', async () => {
+  const ctx = pullSubcategoriesSandbox([{ id: 's1', name: 'Кафе і ресторани', category_id: 'c1', active: true, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: '🍔 Їжа', active: true, cloudId: 's1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullSubcategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.SUBCATEGORIES[0].name, 'Кафе і ресторани');
+  assert.equal(ctx.SUBCATEGORIES[0].category, '🍔 Їжа');
+});
+
+test('pullSubcategoriesCore: LWW — локальний СТРОГО новіший → НЕ перезаписується (keptLocal) + push-retry', async () => {
+  const ctx = pullSubcategoriesSandbox([{ id: 's1', name: 'Кафе', category_id: 'c1', active: true, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.SUBCATEGORIES = [{ name: 'Кафе (нова назва)', category: '🍔 Їжа', active: true, cloudId: 's1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushSubcategoriesPilot');
+  const result = await ctx.pullSubcategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 1, skippedFk: 0 });
+  assert.equal(ctx.SUBCATEGORIES[0].name, 'Кафе (нова назва)'); // локальне НЕ перезаписано
+  assert.equal(pushSpy.count(), 1); // Частина 1: push-retry тригериться одразу
+});
+
+test('pullSubcategoriesCore: правило 2 — unlinked local з тим самим name → зв\'язується, category резолвиться за cloudId', async () => {
+  const ctx = pullSubcategoriesSandbox([{ id: 's2', name: 'Кафе', category_id: 'c1', active: true }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: '🍔 Їжа', active: true }];
+  const result = await ctx.pullSubcategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.SUBCATEGORIES.length, 1);
+  assert.equal(ctx.SUBCATEGORIES[0].cloudId, 's2');
+});
+
+test('pullSubcategoriesCore: правило 3 — новий Cloud-рядок без local-відповідника → додається', async () => {
+  const ctx = pullSubcategoriesSandbox([{ id: 's3', name: 'Ресторани (з іншого пристрою)', category_id: 'c1', active: true }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.SUBCATEGORIES = [];
+  const result = await ctx.pullSubcategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.SUBCATEGORIES[0].name, 'Ресторани (з іншого пристрою)');
+  assert.equal(ctx.SUBCATEGORIES[0].category, '🍔 Їжа');
+  assert.equal(ctx.SUBCATEGORIES[0].cloudId, 's3');
+});
+
+test('pullSubcategoriesCore: локальний БЕЗ Cloud-відповідника → не чіпається (видалення не синхронізується)', async () => {
+  const ctx = pullSubcategoriesSandbox([{ id: 's1', name: 'Кафе', category_id: 'c1', active: true }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.SUBCATEGORIES = [
+    { name: 'Кафе', category: '🍔 Їжа', active: true },
+    { name: 'Лише локальна підкатегорія', category: '🍔 Їжа', active: true },
+  ];
+  await ctx.pullSubcategoriesCore();
+  const untouched = ctx.SUBCATEGORIES.find(s => s.name === 'Лише локальна підкатегорія');
+  assert.deepEqual(plain(untouched), { name: 'Лише локальна підкатегорія', category: '🍔 Їжа', active: true });
+});
+
+test('pullSubcategoriesPilot: тонка обгортка над pullSubcategoriesCore (той самий результат)', async () => {
+  const ctx = pullSubcategoriesSandbox([{ id: 's1', name: 'Кафе', category_id: 'c1', active: true }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.SUBCATEGORIES = [];
+  const result = await ctx.pullSubcategoriesPilot();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+});
+
+/* ============ ensureSubcategoryIdentity (Rev #30, 6D.28) ============ */
+
+test('ensureSubcategoryIdentity: запис без createdAt/updatedAt → заповнюється "зараз"', async () => {
+  const { ctx } = sandbox();
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: '🍔 Їжа', active: true }];
+  const spy = spyOn(ctx, 'saveSubcategories');
+  await ctx.ensureSubcategoryIdentity();
+  assert.ok(ctx.SUBCATEGORIES[0].createdAt);
+  assert.equal(ctx.SUBCATEGORIES[0].updatedAt, ctx.SUBCATEGORIES[0].createdAt);
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureSubcategoryIdentity: запис вже МАЄ createdAt/updatedAt → не перезаписується, save не кличе', async () => {
+  const { ctx } = sandbox();
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: '🍔 Їжа', active: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveSubcategories');
+  await ctx.ensureSubcategoryIdentity();
+  assert.equal(ctx.SUBCATEGORIES[0].createdAt, '2024-01-01T00:00:00.000Z');
+  assert.equal(ctx.SUBCATEGORIES[0].updatedAt, '2024-06-01T00:00:00.000Z');
+  assert.equal(spy.count(), 0);
+});
+
+/* ============ pullDictionaryCore: Pull pilot (dictionary, повний цикл) ============
+   Rev #30 (6D.28) — той самий шаблон, ПОДВІЙНА FK-залежність: category_id
+   (обов'язковий) і subcategory_id (опціональний — null легітимний, НЕ
+   причина для skippedFk). */
+
+test('pullDictionaryCore: не залогінений → { skipped:true }, DICTIONARY не чіпається', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'кава', category_id: 'c1', subcategory_id: null }]);
+  ctx.cloudSession = null;
+  ctx.DICTIONARY = [{ kw: 'X', cat: 'Y', sub: null }];
+  const result = await ctx.pullDictionaryCore();
+  assert.deepEqual(plain(result), { skipped: true });
+  assert.deepEqual(plain(ctx.DICTIONARY), [{ kw: 'X', cat: 'Y', sub: null }]);
+});
+
+test('pullDictionaryCore: немає cloudFamilyId → { skipped:true }', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'кава', category_id: 'c1', subcategory_id: null }]);
+  ctx.cloudFamilyId = null;
+  const result = await ctx.pullDictionaryCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullDictionaryCore: мережева помилка → { skipped:true }, без винятку', async () => {
+  const ctx = pullDictionarySandbox(null, { error: true });
+  ctx.DICTIONARY = [{ kw: 'X', cat: 'Y', sub: null }];
+  const result = await ctx.pullDictionaryCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullDictionaryCore: Крок 0 edge case — категорія відсутня локально → skippedFk, не додається', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'кава', category_id: 'c-unknown', subcategory_id: null }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.DICTIONARY = [];
+  const result = await ctx.pullDictionaryCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 0, skippedFk: 1 });
+  assert.equal(ctx.DICTIONARY.length, 0);
+});
+
+test('pullDictionaryCore: Крок 0 edge case — категорія знайдена, але підкатегорія відсутня локально → skippedFk (subcategory_id вказаний, але не лінкований)', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'кава', category_id: 'c1', subcategory_id: 's-unknown' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: '🍔 Їжа', active: true, cloudId: 's1' }]; // інший cloudId
+  ctx.DICTIONARY = [];
+  const result = await ctx.pullDictionaryCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 0, skippedFk: 1 });
+  assert.equal(ctx.DICTIONARY.length, 0);
+});
+
+test('pullDictionaryCore: subcategory_id === null → легітимний стан, НЕ skippedFk, додається з sub:null', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'кава', category_id: 'c1', subcategory_id: null }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.DICTIONARY = [];
+  const result = await ctx.pullDictionaryCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.DICTIONARY[0].kw, 'кава');
+  assert.equal(ctx.DICTIONARY[0].cat, '🍔 Їжа');
+  assert.equal(ctx.DICTIONARY[0].sub, null);
+});
+
+test('pullDictionaryCore: правило 1 — Cloud новіший (LWW) → оновлюється kw/cat/sub (резолвлені за cloudId)', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'капучино', category_id: 'c1', subcategory_id: 's1', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: '🍔 Їжа', active: true, cloudId: 's1' }];
+  ctx.DICTIONARY = [{ kw: 'кава', cat: '🍔 Їжа', sub: null, cloudId: 'd1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullDictionaryCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.DICTIONARY[0].kw, 'капучино');
+  assert.equal(ctx.DICTIONARY[0].sub, 'Кафе');
+});
+
+test('pullDictionaryCore: LWW — локальний СТРОГО новіший → НЕ перезаписується (keptLocal) + push-retry', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'кава', category_id: 'c1', subcategory_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.DICTIONARY = [{ kw: 'кава латте', cat: '🍔 Їжа', sub: null, cloudId: 'd1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushDictionaryPilot');
+  const result = await ctx.pullDictionaryCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 1, skippedFk: 0 });
+  assert.equal(ctx.DICTIONARY[0].kw, 'кава латте');
+  assert.equal(pushSpy.count(), 1);
+});
+
+test('pullDictionaryCore: правило 2 — unlinked local з тим самим kw → зв\'язується', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd2', keyword: 'кава', category_id: 'c1', subcategory_id: null }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.DICTIONARY = [{ kw: 'кава', cat: '🍔 Їжа', sub: null }];
+  const result = await ctx.pullDictionaryCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.DICTIONARY[0].cloudId, 'd2');
+});
+
+test('pullDictionaryCore: правило 3 — новий Cloud-рядок без local-відповідника → додається', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd3', keyword: 'еспресо (з іншого пристрою)', category_id: 'c1', subcategory_id: null }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.DICTIONARY = [];
+  const result = await ctx.pullDictionaryCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.DICTIONARY[0].kw, 'еспресо (з іншого пристрою)');
+});
+
+test('pullDictionaryCore: локальний БЕЗ Cloud-відповідника → не чіпається (видалення не синхронізується)', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'кава', category_id: 'c1', subcategory_id: null }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.DICTIONARY = [
+    { kw: 'кава', cat: '🍔 Їжа', sub: null },
+    { kw: 'лише локальне слово', cat: '🍔 Їжа', sub: null },
+  ];
+  await ctx.pullDictionaryCore();
+  const untouched = ctx.DICTIONARY.find(d => d.kw === 'лише локальне слово');
+  assert.deepEqual(plain(untouched), { kw: 'лише локальне слово', cat: '🍔 Їжа', sub: null });
+});
+
+test('pullDictionaryPilot: тонка обгортка над pullDictionaryCore (той самий результат)', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'кава', category_id: 'c1', subcategory_id: null }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.DICTIONARY = [];
+  const result = await ctx.pullDictionaryPilot();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+});
+
+/* ============ ensureDictionaryIdentity (Rev #30, 6D.28) ============ */
+
+test('ensureDictionaryIdentity: запис без createdAt/updatedAt → заповнюється "зараз"', async () => {
+  const { ctx } = sandbox();
+  ctx.DICTIONARY = [{ kw: 'кава', cat: '🍔 Їжа', sub: null }];
+  const spy = spyOn(ctx, 'saveDictionary');
+  await ctx.ensureDictionaryIdentity();
+  assert.ok(ctx.DICTIONARY[0].createdAt);
+  assert.equal(ctx.DICTIONARY[0].updatedAt, ctx.DICTIONARY[0].createdAt);
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureDictionaryIdentity: запис вже МАЄ createdAt/updatedAt → не перезаписується, save не кличе', async () => {
+  const { ctx } = sandbox();
+  ctx.DICTIONARY = [{ kw: 'кава', cat: '🍔 Їжа', sub: null, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveDictionary');
+  await ctx.ensureDictionaryIdentity();
+  assert.equal(ctx.DICTIONARY[0].createdAt, '2024-01-01T00:00:00.000Z');
+  assert.equal(ctx.DICTIONARY[0].updatedAt, '2024-06-01T00:00:00.000Z');
+  assert.equal(spy.count(), 0);
+});
+
 /* ============ D1: loadBankAccounts/saveBankAccounts — routing ============ */
 
 test('loadBankAccounts: домен не мігровано, немає ключа → DEFAULT_BANKS, зберігається в localStorage', async () => {
@@ -1156,18 +1477,39 @@ test('acceptance: mixed-storage (частина доменів мігрован�
     assert.ok(c.createdAt, 'ensureCategoryIdentity() мала заповнити createdAt');
     assert.equal(c.updatedAt, c.createdAt); // backfill: updatedAt = createdAt при першому заповненні
   });
-  assert.deepEqual(plain(freshCtx.SUBCATEGORIES), fixture.subcategories);
+  // Rev #30 (6D.28) — та сама логіка, що categories вище: SUBCATEGORIES/
+  // DICTIONARY фікстури без createdAt/updatedAt ЗАКОНОМІРНО отримують
+  // backfill від ensureSubcategoryIdentity()/ensureDictionaryIdentity()
+  // (обидві теж викликані з loadStructureRefs()) — не регресія.
+  assert.equal(freshCtx.SUBCATEGORIES.length, fixture.subcategories.length);
+  freshCtx.SUBCATEGORIES.forEach((s, i) => {
+    assert.equal(s.name, fixture.subcategories[i].name);
+    assert.equal(s.category, fixture.subcategories[i].category);
+    assert.equal(s.active, fixture.subcategories[i].active);
+    assert.ok(s.createdAt, 'ensureSubcategoryIdentity() мала заповнити createdAt');
+    assert.equal(s.updatedAt, s.createdAt);
+  });
   assert.deepEqual(plain(freshCtx.SUBCATEGORY_PRIORITY), fixture.subcategoryPriority);
-  assert.deepEqual(plain(freshCtx.DICTIONARY), fixture.dictionary);
+  assert.equal(freshCtx.DICTIONARY.length, fixture.dictionary.length);
+  freshCtx.DICTIONARY.forEach((d, i) => {
+    assert.equal(d.kw, fixture.dictionary[i].kw);
+    assert.equal(d.cat, fixture.dictionary[i].cat);
+    assert.equal(d.sub, fixture.dictionary[i].sub);
+    assert.ok(d.createdAt, 'ensureDictionaryIdentity() мала заповнити createdAt');
+    assert.equal(d.updatedAt, d.createdAt);
+  });
 
   // categories мігровано у freshCtx → restore (і наступний ensureCategoryIdentity()
   // backfill) писали в IndexedDB, НЕ localStorage. Порівнюємо розпарсено
   // (не сирим рядком) — persisted-значення тепер несе backfilled timestamps.
   assert.deepEqual(JSON.parse(freshIdb.store.get('budget_categories_v1')), plain(freshCtx.CATEGORIES));
   assert.equal(freshCtx.localStorage.getItem('budget_categories_v1'), null);
-  // subcategories/subcategoryPriority/dictionary НЕ мігровані у freshCtx → localStorage.
-  assert.equal(freshCtx.localStorage.getItem('budget_subcategories_v1'), JSON.stringify(fixture.subcategories));
-  assert.equal(freshCtx.localStorage.getItem('budget_dictionary_v1'), JSON.stringify(fixture.dictionary));
+  // subcategories/subcategoryPriority/dictionary НЕ мігровані у freshCtx →
+  // localStorage — але й тут backfill дописав timestamps ПІСЛЯ restore,
+  // тому порівнюємо розпарсено (persisted-значення несе timestamps), не
+  // сирим рядком проти фікстури без них.
+  assert.deepEqual(JSON.parse(freshCtx.localStorage.getItem('budget_subcategories_v1')), plain(freshCtx.SUBCATEGORIES));
+  assert.deepEqual(JSON.parse(freshCtx.localStorage.getItem('budget_dictionary_v1')), plain(freshCtx.DICTIONARY));
 });
 
 test('acceptance: єдиний непілотний ключ (LS_KEY_SCHEMA_VERSION) відновлюється прямим localStorage clear→write, як і до Stage C', async () => {

@@ -3603,6 +3603,102 @@ field-level"), + 2 на `ensureInstallmentAccountIdentity()`, + 2 D1-
   редагування ОЧ (включно з `due_day`), офлайн-сценарій (push-retry/
   online-подія), ручна кнопка "Синхронізувати ОЧ".
 
+### 6D.28 — `subcategories` + `dictionary`: повний цикл (push+pull+LWW+push-retry+online-подія+індикатор) ✅ Rev 2.21.63
+
+Четвертий раз той самий шаблон, з ОДНІЄЮ структурно новою відмінністю
+для обох доменів: FK-залежність на батьківські сутності (категорія, і
+для словника — опціонально підкатегорія), яку жоден із трьох попередніх
+pull-циклів (categories/bank_accounts/installment_accounts) не мав.
+
+**Крок 0 — перевірено (не гадано):**
+- `createdAt`/`updatedAt` для обох доменів: **повністю відсутні**
+  локально (той самий стан, що `installment_accounts` до 6D.27, не
+  застарілі значення).
+- Cloud-схема: обидві таблиці мають `created_at`/`updated_at`
+  (`timestamptz`, `default now()`); на момент перевірки — 10 рядків
+  `subcategories`, 24 рядки `dictionary`, **усі** з `created_at===updated_at`
+  (той самий stale-DB-default патерн, що `categories`/`bank_accounts`) —
+  backfill+push одразу після 6D.28 виправляє це так само.
+- **Edge case "батьківський запис відсутній локально"** — явно
+  визначено, не залишено мовчазним припущенням: рядок `subcategories`/
+  `dictionary` МОВЧКИ пропускається (новий лічильник `skippedFk`), якщо
+  локальний `CATEGORIES`/`SUBCATEGORIES` ще не має відповідного
+  `cloudId`. Це НЕ втрата даних — рядок і далі існує в Cloud, наступний
+  pull (коли батько вже пов'язаний) підхопить його нормально. Категорії
+  й підкатегорії ніколи не видаляються фізично (лише `active:false`) —
+  тому "справжнього" видаленого власника FK не буває; єдиний реальний
+  шлях сюди — порядок pull. Вирішено явним порядком у
+  `applyCloudSession()`: categories → subcategories → dictionary
+  (той самий порядок, що вже діяв у push).
+- Один спільний `pullReferenceDataCore()`-хелпер — **не виділено**:
+  дві функції написані окремо (`pullSubcategoriesCore()`/
+  `pullDictionaryCore()`), той самий вибір, що вже зроблено для push
+  (Rev 2.21.40) — FK-глибина відрізняється (одинарна проти подвійної),
+  спільна абстракція додала б непотрібну непрямість заради економії
+  ~30 рядків.
+
+**Реалізація:**
+- `ensureSubcategoryIdentity()`/`ensureDictionaryIdentity()` — той
+  самий ідемпотентний backfill, викликаються з `loadStructureRefs()`
+  одразу після відповідного `loadX()`.
+- `openAddSubcategoryModal()`/`editSubcategory()`/`deleteSubcategory()`
+  (м'яке видалення, `active:false`) та `openAddDictionaryModal()`/
+  `editDictionaryEntry()` — стемплять `createdAt`/`updatedAt`. Фізичне
+  видалення слова словника (`deleteDictionaryEntry()`) timestamp не
+  потребує — запис зникає повністю, не залишає стан для LWW.
+- `pushSubcategoriesPilot()`/`pushDictionaryPilot()` — тепер шлють
+  реальні `updated_at`/`created_at`.
+- `pullSubcategoriesCore()`/`pullSubcategoriesPilot()`/
+  `pullSubcategoriesPilotManual()` та `pullDictionaryCore()`/
+  `pullDictionaryPilot()`/`pullDictionaryPilotManual()` (нові) —
+  батьківська сутність резолвиться за `cloudId` (не за назвою —
+  стабільніше при перейменуванні), справжній LWW, push-retry, той
+  самий "видалення не синхронізується" принцип.
+- Дві нові кнопки — "Синхронізувати підкатегорії"/"Синхронізувати
+  словник" (окремі, не об'єднані — той самий узгоджений принцип, що всі
+  попередні три домени).
+- `applyCloudSession()` — на переході "не увійшли → увійшли" пул
+  подій розширено: categories → **subcategories → dictionary** →
+  bank_accounts → installment_accounts (порядок критичний для перших
+  двох, обов'язковий FK).
+- `online`-listener розширено двома викликами:
+  `pushSubcategoriesPilot()`, `pushDictionaryPilot()`.
+- `installSyncIndicatorHooks()` — `pullSubcategoriesCore`/
+  `pullDictionaryCore` додані як 12-та й 13-та функції (push-версії обох
+  уже були в списку з 6D.25).
+
+**Тестування:** `node --test` — 260/260 (234 існуючих + 1 оновлений
+D1/D2 acceptance-тест, що тепер враховує backfilled timestamps для
+SUBCATEGORIES/DICTIONARY, той самий принцип, що вже застосований для
+CATEGORIES у 6D.20 + 26 нових: по 11 сценаріїв pull для кожного домену
+(включно з обома FK edge case тестами — категорія відсутня, підкатегорія
+відсутня, `subcategory_id===null` — легітимний стан) + по 2 на
+`ensureXIdentity()`).
+
+**Живо перевірено проти `budget-app-dev`:**
+- Персистентна Supabase-сесія (`sb-*-auth-token` у localStorage)
+  коректно відновилась при перезавантаженні сторінки й одразу
+  тригернула правильний "не увійшли → увійшли"-перехід —
+  `pullSubcategoriesPilot()`/`pullDictionaryPilot()` виконались
+  автоматично, реальні Cloud-timestamps і коректна FK-резолюція
+  (`dict.sub` правильно розв'язаний через `subcategory_id`)
+  підтверджені без жодної ручної дії.
+- Створення нової підкатегорії через UI → `createdAt`/`updatedAt`
+  дійшли до Cloud РІВНО тими самими значеннями, `category_id`
+  правильний (перевірено JOIN-запитом).
+- Створення слова словника з прив'язкою і до категорії, і до щойно
+  створеної підкатегорії → ОБИДВА FK (`category_id`+`subcategory_id`)
+  правильно резолвлені й дійшли до Cloud.
+- Симуляція іншого пристрою (прямий `UPDATE` в Cloud для обох рядків)
+  → обидві ручні кнопки підтягнули зміни ("1 оновлено" кожна),
+  індикатор пройшов повний `syncing → done → online` цикл для КОЖНОЇ
+  (підтверджує, що 12-та й 13-та функції реально підключені до хука).
+- Тестові дані прибрано і локально, і в Cloud. Консоль: без нових
+  помилок протягом усього сценарію.
+- ⚠️ **iPhone-тест обох доменів — обов'язково**, ще не виконаний:
+  створення/редагування підкатегорії й слова словника, офлайн-сценарій,
+  обидві ручні кнопки синхронізації.
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.

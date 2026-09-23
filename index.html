@@ -2227,6 +2227,21 @@
   </button>
   <div class="import-status hidden" id="sync-categories-status"></div>
 
+  <!-- Rev #30 (6D.28, subcategories+dictionary повний цикл) — той самий
+       патерн, що sync-categories-btn вище: окрема кнопка на домен
+       (не об'єднана, той самий узгоджений принцип, що всі попередні). -->
+  <button type="button" class="profile-menu-item hidden" id="sync-subcategories-btn" onclick="pullSubcategoriesPilotManual()" style="margin-bottom:4px;">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+    Синхронізувати підкатегорії
+  </button>
+  <div class="import-status hidden" id="sync-subcategories-status"></div>
+
+  <button type="button" class="profile-menu-item hidden" id="sync-dictionary-btn" onclick="pullDictionaryPilotManual()" style="margin-bottom:4px;">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+    Синхронізувати словник
+  </button>
+  <div class="import-status hidden" id="sync-dictionary-status"></div>
+
   <!-- Rev #30 (6D, bank_accounts повний цикл) — той самий патерн, що
        sync-categories-btn вище: окрема кнопка на домен (не об'єднана),
        узгоджено з "один домен за раз". -->
@@ -2500,7 +2515,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.62</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.63</div>
 </div>
   </div>
 </div>
@@ -3019,8 +3034,10 @@ async function loadStructureRefs(){
   await loadCategories();
   await ensureCategoryIdentity();
   await loadSubcategories();
+  await ensureSubcategoryIdentity();
   await loadSubcategoryPriority();
   await loadDictionary();
+  await ensureDictionaryIdentity();
 }
 // Кожна save-функція повертає { success, error? } (замість undefined, як
 // до Stage C) — саме через це значення UI (reportSaveResult(), нижче за
@@ -3328,7 +3345,7 @@ async function pushSubcategoriesPilot(){
     if(!parentCat || !parentCat.cloudId) continue; // батьківська категорія ще не синхронізована
     try{
       if(sub.cloudId){
-        const { data, error } = await client.from('subcategories').update({ name: sub.name, category_id: parentCat.cloudId, active: sub.active, updated_by: userId }).eq('id', sub.cloudId).select('id');
+        const { data, error } = await client.from('subcategories').update({ name: sub.name, category_id: parentCat.cloudId, active: sub.active, updated_at: sub.updatedAt, updated_by: userId }).eq('id', sub.cloudId).select('id');
         if(error) continue;
         if(data && data.length === 0){
           sub.cloudId = null;
@@ -3348,7 +3365,7 @@ async function pushSubcategoriesPilot(){
 async function reconcileSubcategoryCloudId(client, userId, sub, categoryId){
   const { data: existing } = await client.from('subcategories').select('id').eq('family_id', cloudFamilyId).eq('name', sub.name).maybeSingle();
   if(existing){ sub.cloudId = existing.id; return; }
-  const { data, error } = await client.from('subcategories').insert({ family_id: cloudFamilyId, category_id: categoryId, name: sub.name, active: sub.active, created_by: userId, updated_by: userId }).select('id').single();
+  const { data, error } = await client.from('subcategories').insert({ family_id: cloudFamilyId, category_id: categoryId, name: sub.name, active: sub.active, created_at: sub.createdAt, updated_at: sub.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) sub.cloudId = data.id;
 }
 async function saveSubcategoryPriority(){
@@ -3398,7 +3415,7 @@ async function pushDictionaryPilot(){
     }
     try{
       if(entry.cloudId){
-        const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, updated_by: userId }).eq('id', entry.cloudId).select('id');
+        const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).select('id');
         if(error) continue;
         if(data && data.length === 0){
           entry.cloudId = null;
@@ -3418,8 +3435,195 @@ async function pushDictionaryPilot(){
 async function reconcileDictionaryCloudId(client, userId, entry, categoryId, subcategoryId){
   const { data: existing } = await client.from('dictionary').select('id').eq('family_id', cloudFamilyId).eq('keyword', entry.kw).maybeSingle();
   if(existing){ entry.cloudId = existing.id; return; }
-  const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, created_by: userId, updated_by: userId }).select('id').single();
+  const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, created_at: entry.createdAt, updated_at: entry.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) entry.cloudId = data.id;
+}
+// Rev #30 (6D.28, subcategories+dictionary повний цикл) — Pull pilot,
+// написаний ОДРАЗУ у фінальному вигляді (четвертий раз той самий шаблон:
+// categories → bank_accounts → installment_accounts → subcategories/
+// dictionary), з ОДНІЄЮ новою відмінністю — FK-залежність на РОДИЧА, яку
+// pull-версії bank_accounts/installment_accounts не мали.
+//
+// Крок 0 — явно визначений edge case "батьківський запис відсутній
+// локально" (напр. категорія ще не підтягнута цим pull-циклом, або
+// втрачений зв'язок через ще не вирішене "звільнення назви"-подібне
+// майбутнє): рядок МОВЧКИ пропускається (skippedFk++, НЕ додається як
+// "осиротілий" запис з відсутнім/неправильним category_id) — той самий
+// принцип "тихий пропуск цілого запису", що вже діє у push-версії обох
+// доменів. Це НЕ втрата даних: рядок і далі існує в Cloud, наступний
+// pull (після того, як категорія лінкується) підхопить його нормально —
+// нічого не позначається як "оброблено назавжди". Категорії й ДАЛІ
+// ніколи не видаляються фізично (лише active:false, 6D.20) — тому
+// "справжнього" видаленого family_id-власника FK не буває; єдиний
+// реальний шлях сюди — порядок pull (subcategories/dictionary мусять
+// пулитись ПІСЛЯ categories, applyCloudSession() дотримується цього).
+async function pullSubcategoriesCore(){
+  if(!isCloudSessionReady()) return { skipped: true };
+  const client = getSupabaseClient();
+  let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
+  try{
+    const { data, error } = await client.from('subcategories').select('id,name,category_id,active,created_at,updated_at').eq('family_id', cloudFamilyId);
+    if(error || !data) return { skipped: true };
+    for(const row of data){
+      const parentCat = CATEGORIES.find(function(c){ return c.cloudId === row.category_id; });
+      if(!parentCat){ skippedFk++; continue; }
+      const byCloudId = SUBCATEGORIES.find(function(s){ return s.cloudId === row.id; });
+      if(byCloudId){
+        const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
+        const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        if(localIsNewer){
+          keptLocal++;
+          pushSubcategoriesPilot();
+          continue;
+        }
+        if(byCloudId.name !== row.name || byCloudId.category !== parentCat.name || byCloudId.active !== row.active || byCloudId.updatedAt !== row.updated_at){
+          byCloudId.name = row.name;
+          byCloudId.category = parentCat.name;
+          byCloudId.active = row.active;
+          byCloudId.createdAt = row.created_at;
+          byCloudId.updatedAt = row.updated_at;
+          updated++;
+        }
+        continue;
+      }
+      const byName = SUBCATEGORIES.find(function(s){ return s.name === row.name; });
+      if(byName){
+        byName.cloudId = row.id;
+        byName.category = parentCat.name;
+        byName.active = row.active;
+        byName.createdAt = row.created_at;
+        byName.updatedAt = row.updated_at;
+        linked++;
+        continue;
+      }
+      SUBCATEGORIES.push({ name: row.name, category: parentCat.name, active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
+      added++;
+    }
+  }catch(e){
+    return { skipped: true };
+  }
+  if(updated || linked || added) await saveSubcategoriesLocal();
+  return { skipped: false, updated: updated, linked: linked, added: added, keptLocal: keptLocal, skippedFk: skippedFk };
+}
+async function pullSubcategoriesPilot(){
+  return await pullSubcategoriesCore();
+}
+async function pullSubcategoriesPilotManual(){
+  const statusEl = document.getElementById('sync-subcategories-status');
+  statusEl.classList.remove('hidden');
+  if(!cloudSession || !cloudSession.user){
+    statusEl.textContent = 'Спершу увійдіть у Cloud.';
+    return;
+  }
+  if(!isSupabaseSdkReady() || !cloudFamilyId){
+    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
+    return;
+  }
+  statusEl.textContent = 'Синхронізація…';
+  const result = await pullSubcategoriesCore();
+  if(!result || result.skipped){
+    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
+    return;
+  }
+  if(result.updated || result.linked || result.added){
+    renderStructure();
+    populateCategorySelect();
+  }
+  const parts = [];
+  if(result.added) parts.push(result.added + ' нових');
+  if(result.linked) parts.push(result.linked + ' зв\'язано');
+  if(result.updated) parts.push(result.updated + ' оновлено');
+  statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
+}
+// Rev #30 (6D.28) — той самий FK-принцип, що pullSubcategoriesCore() вище,
+// ПОДВІЙНИЙ: category_id (обов'язковий) і subcategory_id (опціональний,
+// null — легітимний стан, НЕ помилка й НЕ причина для skippedFk). Мусить
+// пулитись ПІСЛЯ subcategories (той самий порядок, що вже діє в push,
+// застосований симетрично тут — applyCloudSession() дотримується).
+async function pullDictionaryCore(){
+  if(!isCloudSessionReady()) return { skipped: true };
+  const client = getSupabaseClient();
+  let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
+  try{
+    const { data, error } = await client.from('dictionary').select('id,keyword,category_id,subcategory_id,created_at,updated_at').eq('family_id', cloudFamilyId);
+    if(error || !data) return { skipped: true };
+    for(const row of data){
+      const parentCat = CATEGORIES.find(function(c){ return c.cloudId === row.category_id; });
+      if(!parentCat){ skippedFk++; continue; }
+      let parentSub = null;
+      if(row.subcategory_id){
+        parentSub = SUBCATEGORIES.find(function(s){ return s.cloudId === row.subcategory_id; });
+        if(!parentSub){ skippedFk++; continue; }
+      }
+      const subName = parentSub ? parentSub.name : null;
+      const byCloudId = DICTIONARY.find(function(d){ return d.cloudId === row.id; });
+      if(byCloudId){
+        const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
+        const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        if(localIsNewer){
+          keptLocal++;
+          pushDictionaryPilot();
+          continue;
+        }
+        if(byCloudId.kw !== row.keyword || byCloudId.cat !== parentCat.name || byCloudId.sub !== subName || byCloudId.updatedAt !== row.updated_at){
+          byCloudId.kw = row.keyword;
+          byCloudId.cat = parentCat.name;
+          byCloudId.sub = subName;
+          byCloudId.createdAt = row.created_at;
+          byCloudId.updatedAt = row.updated_at;
+          updated++;
+        }
+        continue;
+      }
+      const byKw = DICTIONARY.find(function(d){ return d.kw === row.keyword; });
+      if(byKw){
+        byKw.cloudId = row.id;
+        byKw.cat = parentCat.name;
+        byKw.sub = subName;
+        byKw.createdAt = row.created_at;
+        byKw.updatedAt = row.updated_at;
+        linked++;
+        continue;
+      }
+      DICTIONARY.push({ kw: row.keyword, cat: parentCat.name, sub: subName, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
+      added++;
+    }
+  }catch(e){
+    return { skipped: true };
+  }
+  if(updated || linked || added) await saveDictionaryLocal();
+  return { skipped: false, updated: updated, linked: linked, added: added, keptLocal: keptLocal, skippedFk: skippedFk };
+}
+async function pullDictionaryPilot(){
+  return await pullDictionaryCore();
+}
+async function pullDictionaryPilotManual(){
+  const statusEl = document.getElementById('sync-dictionary-status');
+  statusEl.classList.remove('hidden');
+  if(!cloudSession || !cloudSession.user){
+    statusEl.textContent = 'Спершу увійдіть у Cloud.';
+    return;
+  }
+  if(!isSupabaseSdkReady() || !cloudFamilyId){
+    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
+    return;
+  }
+  statusEl.textContent = 'Синхронізація…';
+  const result = await pullDictionaryCore();
+  if(!result || result.skipped){
+    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
+    return;
+  }
+  if(result.updated || result.linked || result.added){
+    renderStructure();
+  }
+  const parts = [];
+  if(result.added) parts.push(result.added + ' нових');
+  if(result.linked) parts.push(result.linked + ' зв\'язано');
+  if(result.updated) parts.push(result.updated + ' оновлено');
+  statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
 }
 // Rev #28.C — 4 хелпери ВИКЛЮЧНО для handleRestoreBackupFile() (нижче за
 // текстом файлу): той самий parse+fallback-на-DEFAULT_*, що вже
@@ -3690,6 +3894,27 @@ async function ensureInstallmentAccountIdentity(){
     if(!acc.updatedAt){ acc.updatedAt = acc.createdAt; changed = true; }
   });
   if(changed) reportSaveResult(await saveInstallmentAccounts());
+}
+// Rev #30 (6D.28, subcategories+dictionary повний цикл) — той самий
+// ідемпотентний принцип: Крок 0 підтвердив грепом — SUBCATEGORIES/DICTIONARY
+// досі не мали жодного з двох полів (як installmentAccounts до 6D.27).
+async function ensureSubcategoryIdentity(){
+  let changed = false;
+  const nowISO = new Date().toISOString();
+  SUBCATEGORIES.forEach(function(s){
+    if(!s.createdAt){ s.createdAt = nowISO; changed = true; }
+    if(!s.updatedAt){ s.updatedAt = s.createdAt; changed = true; }
+  });
+  if(changed) reportSaveResult(await saveSubcategories());
+}
+async function ensureDictionaryIdentity(){
+  let changed = false;
+  const nowISO = new Date().toISOString();
+  DICTIONARY.forEach(function(d){
+    if(!d.createdAt){ d.createdAt = nowISO; changed = true; }
+    if(!d.updatedAt){ d.updatedAt = d.createdAt; changed = true; }
+  });
+  if(changed) reportSaveResult(await saveDictionary());
 }
 let cardVariants = {};
 
@@ -4371,7 +4596,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.62';
+const APP_VERSION = '2.21.63';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -5073,6 +5298,19 @@ async function applyCloudSession(session){
         renderStructure();
         populateCategorySelect();
       }
+      // Rev #30 (6D.28) — subcategories/dictionary МУСЯТЬ пулитись ПІСЛЯ
+      // categories (FK-залежність category_id) — і dictionary ПІСЛЯ
+      // subcategories (subcategory_id) — той самий порядок, що вже
+      // await-ланцюжок вище, тут явно дотриманий.
+      const subResult = await pullSubcategoriesPilot();
+      if(subResult && !subResult.skipped && (subResult.updated || subResult.linked || subResult.added)){
+        renderStructure();
+        populateCategorySelect();
+      }
+      const dictResult = await pullDictionaryPilot();
+      if(dictResult && !dictResult.skipped && (dictResult.updated || dictResult.linked || dictResult.added)){
+        renderStructure();
+      }
       // Rev #30 (6D, bank_accounts повний цикл) — той самий "один раз на
       // sign-in transition" принцип, окремий виклик на власний домен.
       const bankResult = await pullBankAccountsPilot();
@@ -5228,6 +5466,9 @@ function withSyncIndicator(fn){
 // pullInstallmentAccountsCore — нова, 11-та функція, додана явно (Крок 0
 // цього Rev підтвердив: список — простий масив, розширюється додаванням
 // одного імені, жодної додаткової структури міняти не треба).
+// Rev #30 (6D.28) — той самий принцип: pullSubcategoriesCore/
+// pullDictionaryCore — 12-та й 13-та, обидві нові (push-версії обох уже
+// були в списку з 6D.25).
 // Rev #30 (6D крок 0) — точний список: 8 push + 2 pull, підтверджено
 // грепом усіх `async function push*Pilot`/`pull*Core` у файлі. Обгортка —
 // ПІСЛЯ оригінальних function-декларацій (ті хойстяться в межах скрипта,
@@ -5241,7 +5482,8 @@ function withSyncIndicator(fn){
 function installSyncIndicatorHooks(){
   ['pushCategoriesPilot','pullCategoriesCore','pushSubcategoriesPilot','pushDictionaryPilot',
    'pushExpenseRecordPilot','pushIncomeRecordPilot','pushDebtRecordPilot',
-   'pushBankAccountsPilot','pullBankAccountsCore','pushInstallmentAccountsPilot','pullInstallmentAccountsCore'
+   'pushBankAccountsPilot','pullBankAccountsCore','pushInstallmentAccountsPilot','pullInstallmentAccountsCore',
+   'pullSubcategoriesCore','pullDictionaryCore'
   ].forEach(function(name){
     const original = window[name];
     window[name] = withSyncIndicator(original);
@@ -5256,6 +5498,10 @@ function renderProfileUI(){
   // Rev #30 (6D крок 9) — ручний Pull-кнопка видима лише залогіненому.
   const syncBtn = document.getElementById('sync-categories-btn');
   if(syncBtn) syncBtn.classList.toggle('hidden', !signedIn);
+  const syncSubBtn = document.getElementById('sync-subcategories-btn');
+  if(syncSubBtn) syncSubBtn.classList.toggle('hidden', !signedIn);
+  const syncDictBtn = document.getElementById('sync-dictionary-btn');
+  if(syncDictBtn) syncDictBtn.classList.toggle('hidden', !signedIn);
   const syncBankBtn = document.getElementById('sync-bankaccounts-btn');
   if(syncBankBtn) syncBankBtn.classList.toggle('hidden', !signedIn);
   const syncInstallBtn = document.getElementById('sync-installments-btn');
@@ -7075,7 +7321,7 @@ function tryLoadExcelLibrary(){
 // самий listener (крок 0 підтвердив: попередній виклик БУВ захардкоджений
 // лише на pushCategoriesPilot(), не generic-цикл по доменах — явно додано
 // другий виклик тут, не написано новий listener).
-window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); pushCategoriesPilot(); pushBankAccountsPilot(); pushInstallmentAccountsPilot(); });
+window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); pushCategoriesPilot(); pushSubcategoriesPilot(); pushDictionaryPilot(); pushBankAccountsPilot(); pushInstallmentAccountsPilot(); });
 window.addEventListener('offline', updateOnlineStatusUI);
 
 /* ============ Експорт в Excel ============ */
@@ -8386,7 +8632,10 @@ function openAddSubcategoryModal(){
   if(activeCats.length===0) return; // нема куди прив'язати нову підкатегорію
   showSubcategoryModal('Нова підкатегорія:', '', activeCats[0].name, 'Середній', async function(name, category, priorityLabel){
     if(SUBCATEGORIES.some(s=>s.name===name)) return false;
-    SUBCATEGORIES.push({name, category, active:true});
+    // Rev #30 (6D.28) — createdAt/updatedAt при створенні, той самий
+    // принцип, що addBankAccount()/addInstallmentAccount().
+    const nowISO = new Date().toISOString();
+    SUBCATEGORIES.push({name, category, active:true, createdAt: nowISO, updatedAt: nowISO});
     const p = SUBCATEGORY_PRIORITY_OPTIONS.find(o=>o.label===priorityLabel);
     SUBCATEGORY_PRIORITY[name] = {label:p.label, score:p.score, color:p.color};
     reportSaveResult(await saveSubcategories());
@@ -8412,6 +8661,9 @@ function editSubcategory(i){
     }
     sub.name = newName;
     sub.category = newCategory;
+    // Rev #30 (6D.28) — updatedAt при редагуванні, той самий принцип, що
+    // saveCardDebtDrawer()/saveInstallmentDrawer().
+    sub.updatedAt = new Date().toISOString();
     const p = SUBCATEGORY_PRIORITY_OPTIONS.find(o=>o.label===priorityLabel);
     SUBCATEGORY_PRIORITY[newName] = {label:p.label, score:p.score, color:p.color};
     reportSaveResult(await saveSubcategories());
@@ -8426,6 +8678,10 @@ function deleteSubcategory(i){
   const label = stripLeadingEmoji(sub.name);
   showConfirmModal(`Видалити підкатегорію «${label}» зі списку вибору? Історичні записи витрат не постраждають.`, async function(){
     sub.active = false;
+    // Rev #30 (6D.28) — той самий принцип, що deleteCategory(): м'яке
+    // видалення (active:false) теж потребує timestamp, інакше pull міг би
+    // мовчки скасувати його (Cloud без updatedAt виглядав би "не новішим").
+    sub.updatedAt = new Date().toISOString();
     for(let j=DICTIONARY.length-1; j>=0; j--){ if(DICTIONARY[j].sub===sub.name) DICTIONARY.splice(j,1); }
     reportSaveResult(await saveDictionary());
     reportSaveResult(await saveSubcategories());
@@ -10847,7 +11103,10 @@ function openAddDictionaryModal(){
   if(activeCats.length===0) return; // нема куди прив'язати нове слово
   showDictionaryModal('Нове слово словника:', '', activeCats[0].name, null, async function(kw, cat, sub){
     if(DICTIONARY.some(d=>d.kw===kw)) return false;
-    DICTIONARY.push({kw, cat, sub});
+    // Rev #30 (6D.28) — createdAt/updatedAt при створенні, той самий
+    // принцип, що addBankAccount()/addInstallmentAccount()/openAddSubcategoryModal().
+    const nowISO = new Date().toISOString();
+    DICTIONARY.push({kw, cat, sub, createdAt: nowISO, updatedAt: nowISO});
     reportSaveResult(await saveDictionary());
     renderStructure();
   });
@@ -10857,6 +11116,8 @@ function editDictionaryEntry(i){
   showDictionaryModal('Редагувати слово:', entry.kw, entry.cat, entry.sub, async function(kw, cat, sub){
     if(kw !== entry.kw && DICTIONARY.some(d=>d.kw===kw)) return false;
     entry.kw = kw; entry.cat = cat; entry.sub = sub;
+    // Rev #30 (6D.28) — updatedAt при редагуванні.
+    entry.updatedAt = new Date().toISOString();
     reportSaveResult(await saveDictionary());
     renderStructure();
   });
