@@ -492,7 +492,7 @@ test('pullCategoriesCore: видалення НЕ синхронізується
   assert.equal(ctx.CATEGORIES[0].cloudId, 'c1');
 });
 
-test('pullCategoriesCore: пише лише saveCategoriesLocal() — pushCategoriesPilot() НЕ тригериться (без зациклення pull→push)', async () => {
+test('pullCategoriesCore: пише лише saveCategoriesLocal() — pushCategoriesPilot() НЕ тригериться для звичайного "додати з Cloud" (без зациклення pull→push)', async () => {
   const ctx = pullSandbox([{ id: 'c3', name: '🎮 Розваги', active: true, type: 'Гнучка' }]);
   ctx.CATEGORIES = [];
   const pushSpy = spyOn(ctx, 'pushCategoriesPilot');
@@ -501,6 +501,24 @@ test('pullCategoriesCore: пише лише saveCategoriesLocal() — pushCatego
   // саме збереження ВІДБУЛОСЬ (не порожня операція) — підтверджує, що
   // пропущений push — не випадковість (напр. guard clause на іншому кроці).
   assert.equal(ctx.localStorage.getItem('budget_categories_v1'), JSON.stringify(ctx.CATEGORIES));
+});
+
+test('pullCategoriesCore: push-retry — LWW-переможець (keptLocal) ОДРАЗУ тригерить pushCategoriesPilot(), не чекаючи ручного редагування', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: "Обов'язкова", active: true, cloudId: 'c1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushCategoriesPilot');
+  const result = await ctx.pullCategoriesCore();
+  assert.equal(result.keptLocal, 1);
+  assert.equal(pushSpy.count(), 1);
+});
+
+test('pullCategoriesCore: push-retry НЕ тригериться, коли Cloud перемагає (лише правило 1 "keptLocal" гілка це робить)', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа (Cloud новіший)', active: true, type: 'Гнучка', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: "Обов'язкова", active: true, cloudId: 'c1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushCategoriesPilot');
+  const result = await ctx.pullCategoriesCore();
+  assert.equal(result.updated, 1);
+  assert.equal(pushSpy.count(), 0);
 });
 
 test('pullCategoriesCore: домен мігровано на IndexedDB → зберігає туди (routing спільний з saveCategoriesLocal)', async () => {

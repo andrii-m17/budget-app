@@ -2469,7 +2469,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.56</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.57</div>
 </div>
   </div>
 </div>
@@ -3136,9 +3136,15 @@ async function reconcileCategoryCloudId(client, userId, cat){
 // Видалення НЕ синхронізується (свідомо, як і push): local-запис з "висячим"
 // cloudId (Cloud-рядок видалено на іншому пристрої) тут НЕ чіпається — той
 // самий принцип, що push крок 5.
-// Пише лише через saveCategoriesLocal() (БЕЗ push-хука) — pull не повинен
-// тригерити зворотний pushCategoriesPilot() (там же й ризик зациклення,
-// прямо позначений користувачем).
+// Пише лише через saveCategoriesLocal() (БЕЗ push-хука saveCategories()) —
+// принцип лишається: pull САМ ПО СОБІ не тригерить push для щойно
+// прийнятих із Cloud даних (зациклення тут неможливе — push ніколи не
+// викликає pull). Rev #30 (6D, push-retry) — ЄДИНИЙ свідомий виняток:
+// коли LWW визначає local-переможця (правило 1 нижче), одразу
+// викликається pushCategoriesPilot(), щоб донести цю версію до Cloud, не
+// чекаючи ручного редагування — це не "pull → push" для отриманих даних,
+// а "pull виявив, що ЛОКАЛЬНІ дані ще не дійшли до Cloud → допомагає їм
+// дійти".
 async function pullCategoriesCore(){
   if(!cloudSession || !cloudSession.user || !cloudFamilyId) return { skipped: true };
   if(!isSupabaseSdkReady()) return { skipped: true };
@@ -3164,6 +3170,15 @@ async function pullCategoriesCore(){
         const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
         if(localIsNewer){
           keptLocal++;
+          // Rev #30 (6D, push-retry) — не чекаємо наступного ручного
+          // редагування, щоб донести переможну локальну версію до Cloud:
+          // одразу тригеримо push (не await — той самий fire-and-forget
+          // принцип, що вже saveCategories()). pushCategoriesPilot()
+          // проходить ВЕСЬ масив (не лише цей запис) — простіше й
+          // безпечніше, ніж виділяти single-record push helper, і
+          // ідемпотентне (зайві UPDATE для вже синхронних категорій —
+          // не шкідливі, лише зайвий мережевий виклик).
+          pushCategoriesPilot();
           continue;
         }
         if(byCloudId.name !== row.name || byCloudId.active !== row.active || byCloudId.type !== row.type || byCloudId.updatedAt !== row.updated_at){
@@ -4126,7 +4141,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.56';
+const APP_VERSION = '2.21.57';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6645,7 +6660,23 @@ function tryLoadExcelLibrary(){
   script.onerror = function(){ excelLoadAttemptInProgress = false; };
   document.head.appendChild(script);
 }
-window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); });
+// Rev #30 (6D, push-retry) — перевикористано ТОЙ САМИЙ 'online'-детектор,
+// що вже updateOnlineStatusUI()/tryLoadExcelLibrary() вище (Rev 2.11.1) —
+// не новий незалежний слухач мережі. pushCategoriesPilot() має власний
+// guard clause (не залогінений/немає family_id → одразу return) — тому
+// виклик тут БЕЗУМОВНИЙ, "тихий пропуск" спрацьовує сам, без додаткової
+// перевірки cloudSession в цьому обробнику. Ризик "подвійного push" з
+// Частиною 1 (pullCategoriesCore() нижче теж може викликати
+// pushCategoriesPilot() для того самого запису) — НЕ шкідливий: upsert за
+// cloudId ідемпотентний (повторний UPDATE тим самим значенням — зайвий
+// мережевий виклик, не псує дані), явно перевірено живою перевіркою.
+// ВІДОМЕ ОБМЕЖЕННЯ (задокументовано і в ROADMAP): подія 'online' у PWA на
+// iOS Safari має історію ненадійності (той самий клас WebKit-специфіки,
+// що вже не раз спливав у цьому проєкті, напр. status-bar bug) — це
+// ДОДАТКОВИЙ шлях відновлення, не єдиний (pull при вході/вручну лишається
+// основним), тому відсутність спрацювання на iOS не є критичною, лише
+// звужує вікно "застряглих" офлайн-змін менше, ніж очікувалось.
+window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); pushCategoriesPilot(); });
 window.addEventListener('offline', updateOnlineStatusUI);
 
 /* ============ Експорт в Excel ============ */
