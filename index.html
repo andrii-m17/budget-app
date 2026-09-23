@@ -2236,6 +2236,14 @@
   </button>
   <div class="import-status hidden" id="sync-bankaccounts-status"></div>
 
+  <!-- Rev #30 (6D.27, installment_accounts повний цикл) — той самий патерн,
+       що sync-bankaccounts-btn вище. -->
+  <button type="button" class="profile-menu-item hidden" id="sync-installments-btn" onclick="pullInstallmentAccountsPilotManual()" style="margin-bottom:4px;">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+    Синхронізувати ОЧ
+  </button>
+  <div class="import-status hidden" id="sync-installments-status"></div>
+
   <div class="section-label">Дані</div>
   <div class="service-grid">
     <button type="button" class="service-tile" id="export-btn" onclick="exportToExcel()">
@@ -2492,7 +2500,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.61</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.62</div>
 </div>
   </div>
 </div>
@@ -3668,6 +3676,21 @@ async function ensureBankAccountIdentity(){
   });
   if(changed) reportSaveResult(await saveBankAccounts());
 }
+// Rev #30 (6D.27, installment_accounts повний цикл) — той самий ідемпотентний
+// принцип, що ensureCategoryIdentity()/ensureBankAccountIdentity(): на
+// відміну від них installmentAccounts досі НЕ мав жодного з двох полів
+// (не просто застарілі значення) — Крок 0 підтвердив грепом, що
+// createdAt/updatedAt у addInstallmentAccount()/saveInstallmentDrawer() ще
+// не проставлялись до цієї ревізії.
+async function ensureInstallmentAccountIdentity(){
+  let changed = false;
+  const nowISO = new Date().toISOString();
+  installmentAccounts.forEach(function(acc){
+    if(!acc.createdAt){ acc.createdAt = nowISO; changed = true; }
+    if(!acc.updatedAt){ acc.updatedAt = acc.createdAt; changed = true; }
+  });
+  if(changed) reportSaveResult(await saveInstallmentAccounts());
+}
 let cardVariants = {};
 
 // Rev #28.D1 — bankAccounts/installmentAccounts/hiddenFrom/ignoredDivergences
@@ -3860,6 +3883,7 @@ async function loadAll(){
   await loadBankAccounts();
   await ensureBankAccountIdentity();
   await loadInstallmentAccounts(); // після await loadDebts() вище — явно, не порядком рядків
+  await ensureInstallmentAccountIdentity();
   await loadHiddenFrom();
   await loadIgnoredDivergences();
   await ensureInstallmentFirstMonth();
@@ -4197,7 +4221,7 @@ async function pushInstallmentAccountsPilot(){
   for(const acc of installmentAccounts){
     try{
       if(acc.cloudId){
-        const { data, error } = await client.from('installment_accounts').update({ name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, updated_by: userId }).eq('id', acc.cloudId).select('id');
+        const { data, error } = await client.from('installment_accounts').update({ name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
         if(error) continue;
         if(data && data.length === 0){
           acc.cloudId = null;
@@ -4217,8 +4241,91 @@ async function pushInstallmentAccountsPilot(){
 async function reconcileInstallmentAccountCloudId(client, userId, acc){
   const { data: existing } = await client.from('installment_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).maybeSingle();
   if(existing){ acc.cloudId = existing.id; return; }
-  const { data, error } = await client.from('installment_accounts').insert({ family_id: cloudFamilyId, name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, created_by: userId, updated_by: userId }).select('id').single();
+  const { data, error } = await client.from('installment_accounts').insert({ family_id: cloudFamilyId, name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) acc.cloudId = data.id;
+}
+// Rev #30 (6D.27, installment_accounts повний цикл) — Pull pilot, написаний
+// ОДРАЗУ у фінальному вигляді pullBankAccountsCore() (третій раз той самий
+// шаблон: categories → bank_accounts → installment_accounts), той самий
+// TODO-застереження щодо "звільнення назви" (byName reconciliation), той
+// самий свідомий пропуск синхронізації видалення (installmentAccounts, як
+// і bankAccounts, не має локального "active"-поля).
+async function pullInstallmentAccountsCore(){
+  if(!isCloudSessionReady()) return { skipped: true };
+  const client = getSupabaseClient();
+  let updated = 0, linked = 0, added = 0, keptLocal = 0;
+  try{
+    const { data, error } = await client.from('installment_accounts').select('id,name,initial_amount,due_day,created_at,updated_at').eq('family_id', cloudFamilyId);
+    if(error || !data) return { skipped: true };
+    for(const row of data){
+      const byCloudId = installmentAccounts.find(function(a){ return a.cloudId === row.id; });
+      if(byCloudId){
+        const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
+        const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        if(localIsNewer){
+          keptLocal++;
+          pushInstallmentAccountsPilot();
+          continue;
+        }
+        if(byCloudId.name !== row.name || byCloudId.initialAmount !== row.initial_amount || byCloudId.dueDay !== row.due_day || byCloudId.updatedAt !== row.updated_at){
+          byCloudId.name = row.name;
+          byCloudId.initialAmount = row.initial_amount;
+          byCloudId.dueDay = row.due_day;
+          byCloudId.createdAt = row.created_at;
+          byCloudId.updatedAt = row.updated_at;
+          updated++;
+        }
+        continue;
+      }
+      const byName = installmentAccounts.find(function(a){ return a.name === row.name; });
+      if(byName){
+        byName.cloudId = row.id;
+        byName.initialAmount = row.initial_amount;
+        byName.dueDay = row.due_day;
+        byName.createdAt = row.created_at;
+        byName.updatedAt = row.updated_at;
+        linked++;
+        continue;
+      }
+      installmentAccounts.push({ name: row.name, initialAmount: row.initial_amount, dueDay: row.due_day, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
+      added++;
+    }
+  }catch(e){
+    return { skipped: true };
+  }
+  if(updated || linked || added) await saveInstallmentAccountsLocal();
+  return { skipped: false, updated: updated, linked: linked, added: added, keptLocal: keptLocal };
+}
+async function pullInstallmentAccountsPilot(){
+  return await pullInstallmentAccountsCore();
+}
+async function pullInstallmentAccountsPilotManual(){
+  const statusEl = document.getElementById('sync-installments-status');
+  statusEl.classList.remove('hidden');
+  if(!cloudSession || !cloudSession.user){
+    statusEl.textContent = 'Спершу увійдіть у Cloud.';
+    return;
+  }
+  if(!isSupabaseSdkReady() || !cloudFamilyId){
+    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
+    return;
+  }
+  statusEl.textContent = 'Синхронізація…';
+  const result = await pullInstallmentAccountsCore();
+  if(!result || result.skipped){
+    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
+    return;
+  }
+  if(result.updated || result.linked || result.added){
+    populateInstallmentTable();
+    renderAll();
+  }
+  const parts = [];
+  if(result.added) parts.push(result.added + ' нових');
+  if(result.linked) parts.push(result.linked + ' зв\'язано');
+  if(result.updated) parts.push(result.updated + ' оновлено');
+  statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
 }
 async function saveHiddenFrom(){
   if(isDomainMigrated('hiddenFrom')){
@@ -4264,7 +4371,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.61';
+const APP_VERSION = '2.21.62';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -4973,6 +5080,13 @@ async function applyCloudSession(session){
         populateBankDebtTable();
         renderAll();
       }
+      // Rev #30 (6D.27) — той самий "один раз на sign-in transition"
+      // принцип, окремий виклик на власний домен.
+      const installResult = await pullInstallmentAccountsPilot();
+      if(installResult && !installResult.skipped && (installResult.updated || installResult.linked || installResult.added)){
+        populateInstallmentTable();
+        renderAll();
+      }
     }
   }else{
     setCloudAuthFormVisible(true);
@@ -5109,6 +5223,11 @@ function withSyncIndicator(fn){
     return Promise.resolve(fn.apply(this, args)).finally(syncOpEnd);
   };
 }
+// Rev #30 (6D.27) — installment_accounts: pushInstallmentAccountsPilot уже
+// був у списку нижче (додано ще до Крок 0 6D.26, коли лише push існував);
+// pullInstallmentAccountsCore — нова, 11-та функція, додана явно (Крок 0
+// цього Rev підтвердив: список — простий масив, розширюється додаванням
+// одного імені, жодної додаткової структури міняти не треба).
 // Rev #30 (6D крок 0) — точний список: 8 push + 2 pull, підтверджено
 // грепом усіх `async function push*Pilot`/`pull*Core` у файлі. Обгортка —
 // ПІСЛЯ оригінальних function-декларацій (ті хойстяться в межах скрипта,
@@ -5122,7 +5241,7 @@ function withSyncIndicator(fn){
 function installSyncIndicatorHooks(){
   ['pushCategoriesPilot','pullCategoriesCore','pushSubcategoriesPilot','pushDictionaryPilot',
    'pushExpenseRecordPilot','pushIncomeRecordPilot','pushDebtRecordPilot',
-   'pushBankAccountsPilot','pullBankAccountsCore','pushInstallmentAccountsPilot'
+   'pushBankAccountsPilot','pullBankAccountsCore','pushInstallmentAccountsPilot','pullInstallmentAccountsCore'
   ].forEach(function(name){
     const original = window[name];
     window[name] = withSyncIndicator(original);
@@ -5139,6 +5258,8 @@ function renderProfileUI(){
   if(syncBtn) syncBtn.classList.toggle('hidden', !signedIn);
   const syncBankBtn = document.getElementById('sync-bankaccounts-btn');
   if(syncBankBtn) syncBankBtn.classList.toggle('hidden', !signedIn);
+  const syncInstallBtn = document.getElementById('sync-installments-btn');
+  if(syncInstallBtn) syncInstallBtn.classList.toggle('hidden', !signedIn);
 
   // Rev #30 (6D.10) — BugFix: контент (буква/силует) тепер пишеться у
   // ВКЛАДЕНИЙ .avatar-face, не в сам .avatar-badge — той самий елемент,
@@ -6353,6 +6474,11 @@ async function saveInstallmentDrawer(){
   }else{
     flashField('idd-due-day'); return;
   }
+  // Rev #30 (6D.27) — updatedAt оновлюється при редагуванні (назва/сума/
+  // дата платежу разом, той самий принцип, що saveCardDebtDrawer()) —
+  // Крок 0 явно перевіряв, що due_day теж мусить тригерити цей штамп, а не
+  // лише name/initialAmount.
+  acc.updatedAt = new Date().toISOString();
   reportSaveResult(await saveInstallmentAccounts());
 
   const rawBal = document.getElementById('idd-balance').value.trim();
@@ -6409,7 +6535,10 @@ async function addInstallmentAccount(name, amount){
   // саме той, у якому вона "вперше згадується". Без цього щойно створена ОЧ
   // показувалась би рядком-запрошенням заповнити її в УСІХ місяцях (включно
   // з тими, що передують її реальному створенню), захаращуючи Облік.
-  installmentAccounts.push({ name, initialAmount: amount, firstMonth: selectedMonth });
+  // Rev #30 (6D.27) — createdAt/updatedAt при створенні, той самий принцип,
+  // що addBankAccount().
+  const nowISO = new Date().toISOString();
+  installmentAccounts.push({ name, initialAmount: amount, firstMonth: selectedMonth, createdAt: nowISO, updatedAt: nowISO });
   reportSaveResult(await saveInstallmentAccounts());
   populateInstallmentTable();
 }
@@ -6946,7 +7075,7 @@ function tryLoadExcelLibrary(){
 // самий listener (крок 0 підтвердив: попередній виклик БУВ захардкоджений
 // лише на pushCategoriesPilot(), не generic-цикл по доменах — явно додано
 // другий виклик тут, не написано новий listener).
-window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); pushCategoriesPilot(); pushBankAccountsPilot(); });
+window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); pushCategoriesPilot(); pushBankAccountsPilot(); pushInstallmentAccountsPilot(); });
 window.addEventListener('offline', updateOnlineStatusUI);
 
 /* ============ Експорт в Excel ============ */

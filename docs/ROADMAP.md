@@ -3519,6 +3519,90 @@ pull проти живого `budget-app-dev`, (3) дослідження риз
   проблему: авіарежим, зміна даних, "Синхронізувати" — індикатор тепер
   мовчить, не блимає.
 
+### 6D.27 — `installment_accounts`: повний цикл (push+pull+LWW+push-retry+online-подія+індикатор) ✅ Rev 2.21.62
+
+Третій раз той самий, уже двічі перевірений шаблон (categories →
+bank_accounts → installment_accounts), написаний одразу у фінальному
+вигляді — значно менше несподіванок, ніж попередні два рази.
+
+**Крок 0 — перевірено (не гадано):**
+- `createdAt`/`updatedAt` для `installmentAccounts` локально: **були
+  повністю відсутні** (не застарілі, як `categories` до 6D.20, — взагалі
+  ще жодного разу не проставлялись; `addInstallmentAccount()`/
+  `saveInstallmentDrawer()` їх не писали).
+- Cloud-схема (`installment_accounts`): колонки `created_at`/`updated_at`
+  вже існують (`timestamptz`, `default now()`), таблиця на момент
+  перевірки **порожня** — жодного pre-existing рядка, тому міграційний
+  ризик "усі старі рядки мають `updated_at===created_at`" (як був у
+  `categories`) тут структурно НЕ виник — backfill потрібен лише на
+  локальній стороні.
+- `online`-listener: підтверджено грепом — і далі хардкоджений список
+  викликів (`pushCategoriesPilot(); pushBankAccountsPilot();`), не
+  узагальнений цикл по доменах. Розширено вручну третім викликом.
+- Індикатор (`installSyncIndicatorHooks()`): підтверджено — простий
+  масив імен функцій, розширюється додаванням одного рядка.
+  `pushInstallmentAccountsPilot` уже був у списку (додано ще в 6D.26,
+  коли існував лише push); `pullInstallmentAccountsCore` — нова, 11-та
+  функція, додана явно.
+- `due_day` — перевірено (не припущено): `saveInstallmentDrawer()`
+  штампує `acc.updatedAt` ПІСЛЯ всіх трьох присвоєнь (name/initialAmount/
+  dueDay) одним рядком — зміна лише дати платежу так само тригерить
+  timestamp, як зміна назви чи суми.
+
+**Реалізація:**
+- `ensureInstallmentAccountIdentity()` — той самий ідемпотентний
+  backfill-принцип, що `ensureCategoryIdentity()`/`ensureBankAccountIdentity()`,
+  викликається з `loadAll()` одразу після `loadInstallmentAccounts()`.
+- `addInstallmentAccount()`/`saveInstallmentDrawer()` — стемплять
+  `createdAt`/`updatedAt` (створення/редагування), той самий принцип,
+  що `addBankAccount()`/`saveCardDebtDrawer()`.
+- `pushInstallmentAccountsPilot()`/`reconcileInstallmentAccountCloudId()`
+  — тепер шлють реальні `updated_at`/`created_at` замість покладання на
+  DB-дефолт `now()`.
+- `pullInstallmentAccountsCore()`/`pullInstallmentAccountsPilot()`/
+  `pullInstallmentAccountsPilotManual()` (нові) — написані одразу у
+  фінальному вигляді `pullBankAccountsCore()`: справжній LWW (правило 1),
+  `byName`-fallback БЕЗ умови `!cloudId` (правило 2, уникає 6D.19-бага
+  превентивно), новий Cloud-рядок → додається (правило 3), локальний без
+  Cloud-відповідника — не чіпається (видалення не синхронізується, той
+  самий структурний факт, що й `bankAccounts` — немає `active`-поля).
+  Той самий push-retry (Частина 1, 6D.21), що categories/bank_accounts.
+- Нова кнопка "Синхронізувати ОЧ" (`#sync-installments-btn`/
+  `#sync-installments-status`) — той самий патерн, що
+  `sync-bankaccounts-btn`.
+- `applyCloudSession()` — на переході "не увійшли → увійшли" тепер
+  також викликає `pullInstallmentAccountsPilot()`.
+- `online`-listener розширено третім викликом:
+  `pushInstallmentAccountsPilot()`.
+- `installSyncIndicatorHooks()` — `pullInstallmentAccountsCore` додана
+  до списку.
+
+**Тестування:** `node --test` — 234/234 (219 існуючих без регресій + 15
+нових: 11 сценаріїв `pullInstallmentAccountsCore`/Pilot, включно з
+превентивним 6D.19-стиль тестом і явним reconciliation-тестом на два
+пристрої з різними полями (`initialAmount` vs `dueDay`, локальний
+новіший виграє ЦІЛИМ записом — задокументований компроміс "LWW не
+field-level"), + 2 на `ensureInstallmentAccountIdentity()`, + 2 D1-
+регресійні незмінні).
+
+**Живо перевірено проти `budget-app-dev` (реальний Supabase, не мок):**
+- Створення нової ОЧ через UI → `createdAt`/`updatedAt` проставлені
+  локально й дійшли до Cloud РІВНО тими самими значеннями (не
+  `now()`-дефолтом БД).
+- Редагування ЛИШЕ `due_day` (без дотику до назви/суми) → `updatedAt`
+  бумпнувся, `createdAt` не змінився, зміна дійшла до Cloud.
+- Симуляція іншого пристрою: прямий `UPDATE` в Cloud (name/
+  initial_amount/due_day/updated_at) → ручна кнопка "Синхронізувати ОЧ"
+  коректно підтягнула нову версію, статус-текст "Синхронізовано: 1
+  оновлено", індикатор пройшов повний `syncing` → `done` → `online`
+  цикл (підтверджує, що 11-та функція справді підключена до хука, не
+  пропущена).
+- Тестові дані прибрано і локально, і в Cloud після перевірки.
+- Консоль: без нових помилок протягом усього сценарію.
+- ⚠️ **iPhone-тест — обов'язково**, ще не виконаний: створення/
+  редагування ОЧ (включно з `due_day`), офлайн-сценарій (push-retry/
+  online-подія), ручна кнопка "Синхронізувати ОЧ".
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.

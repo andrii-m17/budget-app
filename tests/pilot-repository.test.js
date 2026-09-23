@@ -148,6 +148,10 @@ const REPOSITORY_NAMES = [
   // pullBankAccountsPilotManual НЕ включена (DOM-шар).
   'pullBankAccountsCore', 'pullBankAccountsPilot', 'ensureBankAccountIdentity',
   'saveInstallmentAccounts', 'saveInstallmentAccountsLocal', 'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId',
+  // Rev #30 (6D.27, installment_accounts повний цикл) — той самий
+  // cross-realm-override прийом, що pullBankAccountsCore тести.
+  // pullInstallmentAccountsPilotManual НЕ включена (DOM-шар).
+  'pullInstallmentAccountsCore', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
   'saveHiddenFrom', 'saveIgnoredDivergences',
   'ensureInstallmentFirstMonth',
   'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
@@ -244,6 +248,24 @@ function fakeSupabaseBankAccountsClient(rows, opts){
   return {
     from(table){
       assert.equal(table, 'bank_accounts');
+      return {
+        select(cols){
+          return {
+            eq(col, val){
+              if(opts && opts.error) return Promise.resolve({ data: null, error: new Error('симульована мережева помилка') });
+              return Promise.resolve({ data: rows, error: null });
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
+function fakeSupabaseInstallmentAccountsClient(rows, opts){
+  return {
+    from(table){
+      assert.equal(table, 'installment_accounts');
       return {
         select(cols){
           return {
@@ -405,6 +427,15 @@ function pullBankSandbox(rows, opts){
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.getSupabaseClient = () => fakeSupabaseBankAccountsClient(rows, opts);
+  return ctx;
+}
+
+function pullInstallmentSandbox(rows, opts){
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => fakeSupabaseInstallmentAccountsClient(rows, opts);
   return ctx;
 }
 
@@ -759,6 +790,153 @@ test('ensureBankAccountIdentity: запис вже МАЄ createdAt/updatedAt �
   await ctx.ensureBankAccountIdentity();
   assert.equal(ctx.bankAccounts[0].createdAt, '2024-01-01T00:00:00.000Z');
   assert.equal(ctx.bankAccounts[0].updatedAt, '2024-06-01T00:00:00.000Z');
+  assert.equal(spy.count(), 0);
+});
+
+/* ============ pullInstallmentAccountsCore: Pull pilot (installment_accounts, повний цикл) ============
+   Rev #30 (6D.27) — третій раз той самий шаблон (categories → bank_accounts →
+   installment_accounts), написаний одразу у фінальному вигляді. Тести нижче
+   дзеркалять ті самі сценарії, що pullBankAccountsCore вище. */
+
+test('pullInstallmentAccountsCore: не залогінений → { skipped:true }, installmentAccounts не чіпаються', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 5 }]);
+  ctx.cloudSession = null;
+  ctx.installmentAccounts = [{ name: 'X', initialAmount: 1000 }];
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.deepEqual(plain(result), { skipped: true });
+  assert.deepEqual(plain(ctx.installmentAccounts), [{ name: 'X', initialAmount: 1000 }]);
+});
+
+test('pullInstallmentAccountsCore: немає cloudFamilyId → { skipped:true }', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 5 }]);
+  ctx.cloudFamilyId = null;
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullInstallmentAccountsCore: мережева помилка → { skipped:true }, без винятку', async () => {
+  const ctx = pullInstallmentSandbox(null, { error: true });
+  ctx.installmentAccounts = [{ name: 'X', initialAmount: 1000 }];
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullInstallmentAccountsCore: правило 1 — Cloud новіший (LWW) → оновлюється name/initialAmount/dueDay', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone (новий)', initial_amount: 30000, due_day: 10, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000, dueDay: 5, cloudId: 'i1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0 });
+  assert.equal(ctx.installmentAccounts[0].name, 'iPhone (новий)');
+  assert.equal(ctx.installmentAccounts[0].initialAmount, 30000);
+  assert.equal(ctx.installmentAccounts[0].dueDay, 10);
+});
+
+test('pullInstallmentAccountsCore: LWW — локальний СТРОГО новіший → НЕ перезаписується (keptLocal) + push-retry', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 5, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 27000, dueDay: 15, cloudId: 'i1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushInstallmentAccountsPilot');
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 1 });
+  assert.equal(ctx.installmentAccounts[0].initialAmount, 27000); // локальне НЕ перезаписано
+  assert.equal(ctx.installmentAccounts[0].dueDay, 15);
+  assert.equal(pushSpy.count(), 1); // Частина 1: push-retry тригериться одразу
+});
+
+test('pullInstallmentAccountsCore: push-retry НЕ тригериться, коли Cloud перемагає', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 5, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 27000, dueDay: 15, cloudId: 'i1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushInstallmentAccountsPilot');
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.equal(result.updated, 1);
+  assert.equal(pushSpy.count(), 0);
+});
+
+test('pullInstallmentAccountsCore: BugFix 6D.19-стиль (превентивно) — local з "мертвим" cloudId + правильний name → self-heal, БЕЗ дублювання', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 5 }]);
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000, dueDay: 5, cloudId: 'dead-old-id' }];
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
+  assert.equal(ctx.installmentAccounts.length, 1); // КРИТИЧНО: не задублювалось
+  assert.equal(ctx.installmentAccounts[0].cloudId, 'i1');
+});
+
+test('pullInstallmentAccountsCore: правило 2 — unlinked local з тим самим name → зв\'язується, не дублюється', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i2', name: 'iPhone', initial_amount: 25000, due_day: 5 }]);
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000 }];
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
+  assert.equal(ctx.installmentAccounts.length, 1);
+  assert.equal(ctx.installmentAccounts[0].cloudId, 'i2');
+});
+
+test('pullInstallmentAccountsCore: правило 3 — новий Cloud-рядок без local-відповідника → додається', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i3', name: 'MacBook (з іншого пристрою)', initial_amount: 45000, due_day: 20 }]);
+  ctx.installmentAccounts = [];
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+  assert.equal(ctx.installmentAccounts[0].name, 'MacBook (з іншого пристрою)');
+  assert.equal(ctx.installmentAccounts[0].cloudId, 'i3');
+});
+
+test('pullInstallmentAccountsCore: локальний БЕЗ Cloud-відповідника → не чіпається (видалення не синхронізується)', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 5 }]);
+  ctx.installmentAccounts = [
+    { name: 'iPhone', initialAmount: 25000 },
+    { name: 'Лише локальна ОЧ', initialAmount: 1000 },
+  ];
+  await ctx.pullInstallmentAccountsCore();
+  const untouched = ctx.installmentAccounts.find(a => a.name === 'Лише локальна ОЧ');
+  assert.deepEqual(plain(untouched), { name: 'Лише локальна ОЧ', initialAmount: 1000 });
+});
+
+test('pullInstallmentAccountsCore: пише лише saveInstallmentAccountsLocal() для звичайного "додати" — pushInstallmentAccountsPilot() НЕ тригериться', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i3', name: 'MacBook', initial_amount: 45000, due_day: 20 }]);
+  ctx.installmentAccounts = [];
+  const pushSpy = spyOn(ctx, 'pushInstallmentAccountsPilot');
+  await ctx.pullInstallmentAccountsCore();
+  assert.equal(pushSpy.count(), 0);
+  assert.equal(ctx.localStorage.getItem('budget_installmentaccounts_v1'), JSON.stringify(ctx.installmentAccounts));
+});
+
+test('pullInstallmentAccountsCore: reconciliation на два пристрої з різними полями (один міняє initialAmount, другий — dueDay) — новіший локально виграє ЦІЛИМ записом (LWW не field-level)', async () => {
+  // Той самий, задокументований у "Відомі обмеження" компроміс, що
+  // pullCategoriesCore/pullBankAccountsCore: LWW порівнює УВЕСЬ запис за
+  // updatedAt, не зливає поля окремо — тут явно перевірено на installment_accounts.
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 20, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 27000, dueDay: 5, cloudId: 'i1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-02T00:00:00.000Z' }];
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.equal(result.keptLocal, 1);
+  // локальний (initialAmount:27000, dueDay:5) новіший за Cloud (due_day:20) → весь запис лишається локальним
+  assert.equal(ctx.installmentAccounts[0].initialAmount, 27000);
+  assert.equal(ctx.installmentAccounts[0].dueDay, 5);
+});
+
+test('pullInstallmentAccountsPilot: тонка обгортка над pullInstallmentAccountsCore (той самий результат)', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 5 }]);
+  ctx.installmentAccounts = [];
+  const result = await ctx.pullInstallmentAccountsPilot();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+});
+
+/* ============ ensureInstallmentAccountIdentity (Rev #30, 6D.27) ============ */
+
+test('ensureInstallmentAccountIdentity: запис без createdAt/updatedAt → заповнюється "зараз"', async () => {
+  const { ctx } = sandbox();
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000 }];
+  const spy = spyOn(ctx, 'saveInstallmentAccounts');
+  await ctx.ensureInstallmentAccountIdentity();
+  assert.ok(ctx.installmentAccounts[0].createdAt);
+  assert.equal(ctx.installmentAccounts[0].updatedAt, ctx.installmentAccounts[0].createdAt);
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureInstallmentAccountIdentity: запис вже МАЄ createdAt/updatedAt → не перезаписується, save не кличе', async () => {
+  const { ctx } = sandbox();
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveInstallmentAccounts');
+  await ctx.ensureInstallmentAccountIdentity();
+  assert.equal(ctx.installmentAccounts[0].createdAt, '2024-01-01T00:00:00.000Z');
+  assert.equal(ctx.installmentAccounts[0].updatedAt, '2024-06-01T00:00:00.000Z');
   assert.equal(spy.count(), 0);
 });
 
