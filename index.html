@@ -210,6 +210,18 @@
   .avatar-status-dot.online{ background:var(--color-success); }
   .avatar-status-dot.offline{ background:var(--color-error); }
   .avatar-status-dot.hidden{ display:none; }
+  /* Rev #30 (6D, індикатор синхронізації) — третій, тимчасовий стан
+     статус-крапки: "syncing" (синій, пульсує, поки триває push/pull) →
+     "done" (зелений, короткий "pop"-акцент замість буквального ✓ — 11px
+     крапка занадто мала для читабельного гліфа). Той самий keyframes
+     spin, що вже .btn-loading, тут НЕ підходить (обертання не читається
+     на суцільному кольорі без border-контрасту) — окремі keyframes.
+     .profile-status-dot (у popover, 7px) — той самий принцип, свої класи
+     нижче біля existing .online/.offline. */
+  .avatar-status-dot.syncing{ background:var(--color-info); animation:syncPulse 1s ease-in-out infinite; }
+  .avatar-status-dot.done{ background:var(--color-success); animation:syncPop .35s ease-out; }
+  @keyframes syncPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+  @keyframes syncPop{ 0%{ transform:scale(1); } 45%{ transform:scale(1.7); } 100%{ transform:scale(1); } }
   /* Rev #30 (6D.10) — новий заякорений UI-примітив (третій, на додачу до
      #app-modal і .drawer): #profile-popover, той самий підхід, що вже
      .data-status-popover (KPI-картки, "Стан даних") — не bottom sheet,
@@ -552,6 +564,8 @@
   .profile-status-dot{ width:7px; height:7px; border-radius:50%; background:var(--color-text-secondary); flex-shrink:0; }
   .profile-status-dot.online{ background:var(--color-success); }
   .profile-status-dot.offline{ background:var(--color-error); }
+  .profile-status-dot.syncing{ background:var(--color-info); animation:syncPulse 1s ease-in-out infinite; }
+  .profile-status-dot.done{ background:var(--color-success); animation:syncPop .35s ease-out; }
   .profile-menu-item{ display:flex; align-items:center; gap:12px; width:100%; padding:13px 4px; border:none; background:none; border-top:1px solid var(--color-border); font-size:14.5px; color:var(--color-text-primary); cursor:pointer; text-align:left; font-family:inherit; }
   .profile-menu-item svg{ flex-shrink:0; color:var(--color-text-secondary); }
   .profile-menu-item.danger{ color:var(--color-error); }
@@ -2478,7 +2492,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.59</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.60</div>
 </div>
   </div>
 </div>
@@ -4260,7 +4274,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.59';
+const APP_VERSION = '2.21.60';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -5019,6 +5033,81 @@ async function loadCloudDisplayName(client, userId){
 // #profile-guest-preview/#cloud-login-form (один візуальний елемент, різні
 // розмірності — не окремий актив на мале й велике використання).
 const GUEST_AVATAR_ICON_SVG = '<svg viewBox="0 0 24 24" width="60%" height="60%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+// Rev #30 (6D, індикатор синхронізації) — тонкий UI-хук навколо ВСІХ 10
+// push/pull-функцій (8 push + 2 pull, 6D крок 0 підтвердив точний список),
+// САМУ логіку синхронізації не чіпає. Лічильник активних операцій
+// (syncActiveOps) стійкий до паралельних викликів — кілька push/pull
+// одночасно чи поспіль тримають "syncing" суцільно, не блимають.
+// "Мінімум 3с/1с" — НЕ Promise.race навколо кожного окремого виклику
+// (це продовжило б реальну ЗАТРИМКУ push/pull, чого явно заборонено:
+// "не чіпаємо саму логіку"), а суто ВІЗУАЛЬНИЙ таймер, незалежний від
+// реального завершення: syncVisualStartedAt фіксується один раз на
+// ВХОДІ в "syncing", і коли останній реальний виклик завершується
+// (syncActiveOps→0), рахуємо, скільки ще лишилось до 3с з цього
+// моменту, і лише тоді (за умови, що НОВИЙ виклик не встиг початись
+// за цей час) переходимо в "done" на 1с, потім у звичайний стан.
+let syncActiveOps = 0;
+let syncVisualState = 'idle'; // 'idle' | 'syncing' | 'done'
+let syncVisualStartedAt = 0;
+let syncSettleTimer = null;
+const SYNC_MIN_SYNCING_MS = 3000;
+const SYNC_DONE_MS = 1000;
+function syncOpBegin(){
+  syncActiveOps++;
+  if(syncVisualState !== 'syncing'){
+    syncVisualState = 'syncing';
+    syncVisualStartedAt = Date.now();
+    if(syncSettleTimer){ clearTimeout(syncSettleTimer); syncSettleTimer = null; }
+    renderProfileUI();
+  }
+}
+function syncOpEnd(){
+  syncActiveOps = Math.max(0, syncActiveOps - 1);
+  if(syncActiveOps > 0) return; // інша операція ще триває — лишаємось у "syncing"
+  scheduleSyncSettle();
+}
+function scheduleSyncSettle(){
+  const remaining = Math.max(0, SYNC_MIN_SYNCING_MS - (Date.now() - syncVisualStartedAt));
+  if(syncSettleTimer) clearTimeout(syncSettleTimer);
+  syncSettleTimer = setTimeout(function(){
+    if(syncActiveOps > 0) return; // нова операція почалась за час очікування — syncOpEnd() перепланує сам
+    syncVisualState = 'done';
+    renderProfileUI();
+    syncSettleTimer = setTimeout(function(){
+      if(syncActiveOps > 0) return;
+      syncVisualState = 'idle';
+      renderProfileUI();
+    }, SYNC_DONE_MS);
+  }, remaining);
+}
+// Обгортає push/pull-функцію: syncOpBegin() СИНХРОННО до виклику (щоб
+// лічильник відреагував негайно, не після першого await всередині),
+// syncOpEnd() у finally (гарантовано і при помилці/винятку).
+function withSyncIndicator(fn){
+  return function(...args){
+    syncOpBegin();
+    return Promise.resolve(fn.apply(this, args)).finally(syncOpEnd);
+  };
+}
+// Rev #30 (6D крок 0) — точний список: 8 push + 2 pull, підтверджено
+// грепом усіх `async function push*Pilot`/`pull*Core` у файлі. Обгортка —
+// ПІСЛЯ оригінальних function-декларацій (ті хойстяться в межах скрипта,
+// порядок цього рядка відносно них не критичний, але текстово розміщено
+// одразу після renderProfileUI()/останньої з 10 функцій для локальності).
+// Функції — властивості глобального об'єкта (non-strict top-level script,
+// той самий факт, що вже використовує spyOn() у тестах) — переприсвоєння
+// тут автоматично підхоплюється УСІМА існуючими call sites по всьому
+// файлу (editCategory/saveCardDebtDrawer/online-listener/
+// applyCloudSession/pullXPilotManual тощо), без правок кожного окремо.
+function installSyncIndicatorHooks(){
+  ['pushCategoriesPilot','pullCategoriesCore','pushSubcategoriesPilot','pushDictionaryPilot',
+   'pushExpenseRecordPilot','pushIncomeRecordPilot','pushDebtRecordPilot',
+   'pushBankAccountsPilot','pullBankAccountsCore','pushInstallmentAccountsPilot'
+  ].forEach(function(name){
+    const original = window[name];
+    window[name] = withSyncIndicator(original);
+  });
+}
 function renderProfileUI(){
   const session = cloudSession;
   const signedIn = !!(session && session.user);
@@ -5046,7 +5135,12 @@ function renderProfileUI(){
     if(signedIn) face.textContent = letter;
     else face.innerHTML = GUEST_AVATAR_ICON_SVG;
   });
-  const dotClass = !signedIn ? '' : (online ? 'online' : 'offline');
+  // Rev #30 (6D, індикатор синхронізації) — syncing/done переважають над
+  // звичайним online/offline, лише поки signedIn (гостю/офлайн-без-сесії
+  // індикатор синхронізації не має сенсу — усі push/pull функції й так
+  // тихо не спрацьовують без сесії, syncOpBegin() просто не встигне
+  // викликатись у таких випадках).
+  const dotClass = !signedIn ? '' : (syncVisualState === 'syncing' ? 'syncing' : syncVisualState === 'done' ? 'done' : (online ? 'online' : 'offline'));
   // Rev #30 (6D.10) — розширено з 2 до 3 місць: 'profile-avatar-side'
   // (desktop sidebar) раніше взагалі не мав крапки — той самий "холст"-
   // фікс тепер застосований однаково для header/sidebar/картки "Сервісу".
@@ -5070,11 +5164,13 @@ function renderProfileUI(){
     const statusText = document.getElementById('profile-status-text');
     if(nameEl) nameEl.textContent = name;
     if(emailEl) emailEl.textContent = session.user.email;
-    if(statusDot) statusDot.className = 'profile-status-dot ' + (online ? 'online' : 'offline');
+    if(statusDot) statusDot.className = 'profile-status-dot ' + dotClass;
     // Rev #30 (6D.11) — скорочено спеціально для вузького popover (200px,
     // Задача 1); картка в "Сервісі" (cardStatus нижче) лишається повним
     // текстом — там достатньо горизонтального місця, не була частиною запиту.
-    if(statusText) statusText.textContent = online ? 'Синхронізовано' : 'Призупинено (немає мережі)';
+    // Rev #30 (6D, індикатор синхронізації) — текст теж відображає
+    // syncing/done, той самий dotClass, що вище.
+    if(statusText) statusText.textContent = dotClass === 'syncing' ? 'Синхронізується…' : dotClass === 'done' ? '✓ Синхронізовано' : (online ? 'Синхронізовано' : 'Призупинено (немає мережі)');
 
     const cardName = document.getElementById('cloud-service-card-name');
     const cardStatus = document.getElementById('cloud-service-card-status');
@@ -10717,6 +10813,10 @@ updateTabBubble(true);
 // відкрився офлайн з самого початку.
 updateOnlineStatusUI();
 updateExcelAvailabilityUI();
+// Rev #30 (6D, індикатор синхронізації) — одноразова інсталяція хуків при
+// старті скрипта (усі 10 push/pull function-декларацій вже хойстнуті на
+// цей момент, порядок безпечний).
+installSyncIndicatorHooks();
 // Rev 2.3.3 — відновлення чернетки після loadAll() (потребує вже завантажені
 // CATEGORIES/SUBCATEGORIES/installmentAccounts, інакше setCategorySelect()/
 // автозв'язок ОЧ спрацювали б на порожніх довідниках).
