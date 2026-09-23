@@ -2523,7 +2523,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.66</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.67</div>
 </div>
   </div>
 </div>
@@ -4799,7 +4799,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.66';
+const APP_VERSION = '2.21.67';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7254,14 +7254,25 @@ function removeBankAccount(i){
 }
 // Залишок кожного рахунку "станом на" обраний місяць = останній відомий
 // запис із місяцем <= обраного (те саме правило, що в аркуші "Історія" Excel)
+// BugFix (термінове розслідування, вересень 2026) — ключ мапи дедуплікації
+// був лише `d.name`, БЕЗ `d.kind`: якщо картка й ОЧ мають однакову назву
+// (легітимний стан, не форсуємо перейменування), записи різних kind з тим
+// самим/пізнішим місяцем тихо перезаписували один одного в byName —
+// installment-запис зникав із dashboard-агрегації (populateInstallmentTable()
+// в "Обліку" НЕ постраждала, вона й так фільтрує за name+kind разом).
+// Ключ тепер `kind:name` (той самий hideKey()-патерн, що вже в коді) —
+// суто внутрішня зміна: Object.values(byName) нижче однаково відкидає
+// ключі, жоден виклик цієї функції їх не читає. Фінансові формули
+// (totalCard/totalInstallment/totalMonthlyInstallment) не змінені.
 function debtTotalsForMonth(month){
-  const byName = {};
+  const byKindName = {};
   debts.forEach(d=>{
     if(d.month <= month && !isHiddenForMonth(d.name, d.kind, month)){
-      if(!byName[d.name] || d.month > byName[d.name].month) byName[d.name] = d;
+      const key = hideKey(d.name, d.kind);
+      if(!byKindName[key] || d.month > byKindName[key].month) byKindName[key] = d;
     }
   });
-  const list = Object.values(byName);
+  const list = Object.values(byKindName);
   // "Борг" (як в Excel, колонка H) — сума лише карток/кредитів, БЕЗ оплат частинами.
   // "ОЧ" (колонка Z) рахується окремо і не входить у загальний борг.
   const totalCard = list.filter(d=>d.kind==='card').reduce((s,d)=>s+d.balance,0);
