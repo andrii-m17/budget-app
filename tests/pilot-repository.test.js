@@ -139,6 +139,11 @@ const REPOSITORY_NAMES = [
   // Rev #28.D1
   'loadBankAccounts', 'loadInstallmentAccounts', 'loadHiddenFrom', 'loadIgnoredDivergences',
   'saveBankAccounts', 'saveBankAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId',
+  // Rev #30 (6D, bank_accounts повний цикл) — той самий cross-realm-override
+  // прийом, що pullCategoriesCore тести нижче: cloudSession/cloudFamilyId/
+  // getSupabaseClient/isSupabaseSdkReady підмінюються після buildSandbox().
+  // pullBankAccountsPilotManual НЕ включена (DOM-шар).
+  'pullBankAccountsCore', 'pullBankAccountsPilot', 'ensureBankAccountIdentity',
   'saveInstallmentAccounts', 'saveInstallmentAccountsLocal', 'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId',
   'saveHiddenFrom', 'saveIgnoredDivergences',
   'ensureInstallmentFirstMonth',
@@ -216,6 +221,26 @@ function fakeSupabaseCategoriesClient(rows, opts){
   return {
     from(table){
       assert.equal(table, 'categories');
+      return {
+        select(cols){
+          return {
+            eq(col, val){
+              if(opts && opts.error) return Promise.resolve({ data: null, error: new Error('симульована мережева помилка') });
+              return Promise.resolve({ data: rows, error: null });
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
+// Rev #30 (6D, bank_accounts повний цикл) — той самий мінімальний mock, що
+// fakeSupabaseCategoriesClient(), для pullBankAccountsCore().
+function fakeSupabaseBankAccountsClient(rows, opts){
+  return {
+    from(table){
+      assert.equal(table, 'bank_accounts');
       return {
         select(cols){
           return {
@@ -334,6 +359,15 @@ function pullSandbox(rows, opts){
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.getSupabaseClient = () => fakeSupabaseCategoriesClient(rows, opts);
+  return ctx;
+}
+
+function pullBankSandbox(rows, opts){
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => fakeSupabaseBankAccountsClient(rows, opts);
   return ctx;
 }
 
@@ -556,6 +590,139 @@ test('pullCategoriesPilot: тонка обгортка над pullCategoriesCore
   ctx.CATEGORIES = [];
   const result = await ctx.pullCategoriesPilot();
   assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+});
+
+/* ============ pullBankAccountsCore: Pull pilot (bank_accounts, повний цикл) ============
+   Написаний одразу у фінальному вигляді pullCategoriesCore (6D.17→6D.19→6D.20) —
+   тести нижче дзеркалять ті самі сценарії, включно з регресійним тестом на
+   BugFix 6D.19 (мертвий cloudId → self-heal, не дублювання), написаним тут
+   ПРЕВЕНТИВНО, а не після знайденого бага. */
+
+test('pullBankAccountsCore: не залогінений → { skipped:true }, bankAccounts не чіпаються', async () => {
+  const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват Банк', credit_limit: 50000 }]);
+  ctx.cloudSession = null;
+  ctx.bankAccounts = [{ name: 'X', creditLimit: 1000 }];
+  const result = await ctx.pullBankAccountsCore();
+  assert.deepEqual(plain(result), { skipped: true });
+  assert.deepEqual(plain(ctx.bankAccounts), [{ name: 'X', creditLimit: 1000 }]);
+});
+
+test('pullBankAccountsCore: немає cloudFamilyId → { skipped:true }', async () => {
+  const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват Банк', credit_limit: 50000 }]);
+  ctx.cloudFamilyId = null;
+  const result = await ctx.pullBankAccountsCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullBankAccountsCore: мережева помилка → { skipped:true }, без винятку', async () => {
+  const ctx = pullBankSandbox(null, { error: true });
+  ctx.bankAccounts = [{ name: 'X', creditLimit: 1000 }];
+  const result = await ctx.pullBankAccountsCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullBankAccountsCore: правило 1 — Cloud новіший (LWW) → оновлюється name/creditLimit', async () => {
+  const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват Банк (новий)', credit_limit: 60000, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 50000, cloudId: 'b1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullBankAccountsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0 });
+  assert.equal(ctx.bankAccounts[0].name, '🟩 Приват Банк (новий)');
+  assert.equal(ctx.bankAccounts[0].creditLimit, 60000);
+});
+
+test('pullBankAccountsCore: LWW — локальний СТРОГО новіший → НЕ перезаписується (keptLocal) + push-retry', async () => {
+  const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват Банк', credit_limit: 50000, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 75000, cloudId: 'b1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushBankAccountsPilot');
+  const result = await ctx.pullBankAccountsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 1 });
+  assert.equal(ctx.bankAccounts[0].creditLimit, 75000); // локальне НЕ перезаписано
+  assert.equal(pushSpy.count(), 1); // Частина 1: push-retry тригериться одразу
+});
+
+test('pullBankAccountsCore: push-retry НЕ тригериться, коли Cloud перемагає', async () => {
+  const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват Банк', credit_limit: 50000, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 75000, cloudId: 'b1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushBankAccountsPilot');
+  const result = await ctx.pullBankAccountsCore();
+  assert.equal(result.updated, 1);
+  assert.equal(pushSpy.count(), 0);
+});
+
+test('pullBankAccountsCore: BugFix 6D.19 (превентивно) — local з "мертвим" cloudId + правильний name → self-heal, БЕЗ дублювання', async () => {
+  const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват Банк', credit_limit: 50000 }]);
+  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 50000, cloudId: 'dead-old-id' }];
+  const result = await ctx.pullBankAccountsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
+  assert.equal(ctx.bankAccounts.length, 1); // КРИТИЧНО: не задублювалось
+  assert.equal(ctx.bankAccounts[0].cloudId, 'b1');
+});
+
+test('pullBankAccountsCore: правило 2 — unlinked local з тим самим name → зв\'язується, не дублюється', async () => {
+  const ctx = pullBankSandbox([{ id: 'b2', name: '🟩 Приват Банк', credit_limit: 50000 }]);
+  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 50000 }];
+  const result = await ctx.pullBankAccountsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
+  assert.equal(ctx.bankAccounts.length, 1);
+  assert.equal(ctx.bankAccounts[0].cloudId, 'b2');
+});
+
+test('pullBankAccountsCore: правило 3 — новий Cloud-рядок без local-відповідника → додається', async () => {
+  const ctx = pullBankSandbox([{ id: 'b3', name: '🟨 Raifaizen (з іншого пристрою)', credit_limit: 30000 }]);
+  ctx.bankAccounts = [];
+  const result = await ctx.pullBankAccountsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+  assert.equal(ctx.bankAccounts[0].name, '🟨 Raifaizen (з іншого пристрою)');
+  assert.equal(ctx.bankAccounts[0].cloudId, 'b3');
+});
+
+test('pullBankAccountsCore: локальний БЕЗ Cloud-відповідника → не чіпається (видалення не синхронізується)', async () => {
+  const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват Банк', credit_limit: 50000 }]);
+  ctx.bankAccounts = [
+    { name: '🟩 Приват Банк', creditLimit: 50000 },
+    { name: '🟪 Лише локальний банк', creditLimit: 1000 },
+  ];
+  await ctx.pullBankAccountsCore();
+  const untouched = ctx.bankAccounts.find(a => a.name === '🟪 Лише локальний банк');
+  assert.deepEqual(plain(untouched), { name: '🟪 Лише локальний банк', creditLimit: 1000 });
+});
+
+test('pullBankAccountsCore: пише лише saveBankAccountsLocal() для звичайного "додати" — pushBankAccountsPilot() НЕ тригериться', async () => {
+  const ctx = pullBankSandbox([{ id: 'b3', name: '🟨 Raifaizen', credit_limit: 30000 }]);
+  ctx.bankAccounts = [];
+  const pushSpy = spyOn(ctx, 'pushBankAccountsPilot');
+  await ctx.pullBankAccountsCore();
+  assert.equal(pushSpy.count(), 0);
+  assert.equal(ctx.localStorage.getItem('budget_bankaccounts_v1'), JSON.stringify(ctx.bankAccounts));
+});
+
+test('pullBankAccountsPilot: тонка обгортка над pullBankAccountsCore (той самий результат)', async () => {
+  const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват Банк', credit_limit: 50000 }]);
+  ctx.bankAccounts = [];
+  const result = await ctx.pullBankAccountsPilot();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+});
+
+/* ============ ensureBankAccountIdentity (Rev #30, bank_accounts Варіант А) ============ */
+
+test('ensureBankAccountIdentity: запис без createdAt/updatedAt → заповнюється "зараз"', async () => {
+  const { ctx } = sandbox();
+  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 50000 }];
+  const spy = spyOn(ctx, 'saveBankAccounts');
+  await ctx.ensureBankAccountIdentity();
+  assert.ok(ctx.bankAccounts[0].createdAt);
+  assert.equal(ctx.bankAccounts[0].updatedAt, ctx.bankAccounts[0].createdAt);
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureBankAccountIdentity: запис вже МАЄ createdAt/updatedAt → не перезаписується, save не кличе', async () => {
+  const { ctx } = sandbox();
+  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 50000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveBankAccounts');
+  await ctx.ensureBankAccountIdentity();
+  assert.equal(ctx.bankAccounts[0].createdAt, '2024-01-01T00:00:00.000Z');
+  assert.equal(ctx.bankAccounts[0].updatedAt, '2024-06-01T00:00:00.000Z');
+  assert.equal(spy.count(), 0);
 });
 
 /* ============ D1: loadBankAccounts/saveBankAccounts — routing ============ */
