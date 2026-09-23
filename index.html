@@ -2492,7 +2492,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.60</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.61</div>
 </div>
   </div>
 </div>
@@ -3065,8 +3065,7 @@ async function saveCategoriesLocal(){
 // перейменуванні), омонімії "різні локальні категорії → один Cloud-рядок"
 // не існує.
 async function pushCategoriesPilot(){
-  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
-  if(!isSupabaseSdkReady()) return;
+  if(!isCloudSessionReady()) return;
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
@@ -3169,8 +3168,7 @@ async function reconcileCategoryCloudId(client, userId, cat){
 // а "pull виявив, що ЛОКАЛЬНІ дані ще не дійшли до Cloud → допомагає їм
 // дійти".
 async function pullCategoriesCore(){
-  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return { skipped: true };
-  if(!isSupabaseSdkReady()) return { skipped: true };
+  if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0;
   let keptLocal = 0;
@@ -3313,8 +3311,7 @@ async function saveSubcategoriesLocal(){
 // (FK на id, не на name) — пропущений цикл просто нічого корисного не
 // зробив би, а наступний реальний saveSubcategories() пуштить коректно.
 async function pushSubcategoriesPilot(){
-  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
-  if(!isSupabaseSdkReady()) return;
+  if(!isCloudSessionReady()) return;
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
@@ -3378,8 +3375,7 @@ async function saveDictionaryLocal(){
 // keyword, 6D крок 3 pre-check підтвердив: DICTIONARY.some(d=>d.kw===kw)
 // глобально унікальний, безпечно).
 async function pushDictionaryPilot(){
-  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
-  if(!isSupabaseSdkReady()) return;
+  if(!isCloudSessionReady()) return;
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
@@ -3942,8 +3938,7 @@ async function saveDebts(){
       фічею; повний upsert без окремого SELECT-перед-UPDATE відповідає
       вимозі "без reconciliation-логіки" для цього кроку. */
 async function pushExpenseRecordPilot(rec){
-  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
-  if(!isSupabaseSdkReady()) return;
+  if(!isCloudSessionReady()) return;
   let linkedInstallmentId = null;
   if(rec.linkedInstallment){
     const acc = installmentAccounts.find(function(a){ return a.name === rec.linkedInstallment; });
@@ -3970,8 +3965,7 @@ async function pushExpenseRecordPilot(rec){
   }
 }
 async function pushIncomeRecordPilot(rec){
-  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
-  if(!isSupabaseSdkReady()) return;
+  if(!isCloudSessionReady()) return;
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   try{
@@ -3989,8 +3983,7 @@ async function pushIncomeRecordPilot(rec){
   }
 }
 async function pushDebtRecordPilot(rec){
-  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
-  if(!isSupabaseSdkReady()) return;
+  if(!isCloudSessionReady()) return;
   let bankAccountId = null, installmentAccountId = null;
   if(rec.kind === 'card'){
     const acc = bankAccounts.find(function(b){ return b.name === rec.name; });
@@ -4056,8 +4049,7 @@ async function saveBankAccountsLocal(){
 // push, і pull доведеться переглянути разом. Задокументовано і в
 // docs/ROADMAP.md, розділ "Відомі обмеження синхронізації".
 async function pushBankAccountsPilot(){
-  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
-  if(!isSupabaseSdkReady()) return;
+  if(!isCloudSessionReady()) return;
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
@@ -4100,8 +4092,7 @@ async function reconcileBankAccountCloudId(client, userId, acc){
 // "active"-поля (картки ховаються через hiddenFrom, не через масив), тому
 // це питання тут ще й структурно неактуальне.
 async function pullBankAccountsCore(){
-  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return { skipped: true };
-  if(!isSupabaseSdkReady()) return { skipped: true };
+  if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0;
   try{
@@ -4199,8 +4190,7 @@ async function saveInstallmentAccountsLocal(){
 // застереження, що вище для bank_accounts, той самий hidden_entities-клас
 // проблеми).
 async function pushInstallmentAccountsPilot(){
-  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
-  if(!isSupabaseSdkReady()) return;
+  if(!isCloudSessionReady()) return;
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
@@ -4274,7 +4264,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.60';
+const APP_VERSION = '2.21.61';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -5011,6 +5001,18 @@ function clearCloudFamilyId(){
   cloudFamilyId = null;
   localStorage.removeItem(LS_KEY_CLOUD_FAMILY_ID);
 }
+// Rev #30 (6D, індикатор — фікс дублювання) — ЄДИНЕ джерело правди для
+// "чи сесія готова синхронізувати" (залогінений+family_id+SDK). До цього
+// кожна з 10 push/pull pilot-функцій мала ІДЕНТИЧНИЙ, але окремо
+// написаний guard clause (той самий текст у 10 місцях) — тепер один
+// виклик замість двох рядків, truth-table НЕ змінена (суто механічна
+// екстракція, не зачіпає саму push/pull/LWW-логіку). Викликається і
+// самими 10 функціями (замінили свій inline-guard на цей виклик), і
+// withSyncIndicator() нижче (щоб індикатор знав, чи варто взагалі
+// анімуватись, БЕЗ дублювання умови другим написом).
+function isCloudSessionReady(){
+  return !!(cloudSession && cloudSession.user && cloudFamilyId && isSupabaseSdkReady());
+}
 // Rev #30 (6D.8) — display_name (public.users) для буквеного аватара в
 // редизайні Cloud Auth UI. 6D крок 0 pre-check підтвердив: ніде раніше не
 // використовувався (лише session.user.email) — той самий клас даних, що
@@ -5083,8 +5085,26 @@ function scheduleSyncSettle(){
 // Обгортає push/pull-функцію: syncOpBegin() СИНХРОННО до виклику (щоб
 // лічильник відреагував негайно, не після першого await всередині),
 // syncOpEnd() у finally (гарантовано і при помилці/винятку).
+// Rev #30 (6D, індикатор — фікс "порожньої" анімації) — перед стартом
+// візуального циклу перевіряємо isCloudSessionReady() (та сама функція,
+// що й самі 10 push/pull, жодного другого запису умови) + navigator.onLine
+// (НОВИЙ, суто UI-шар сигнал — жодна з 10 функцій його раніше не
+// перевіряла, тож це не дублювання чогось наявного, а додатковий
+// pre-flight ГІРШЕ ЗА isCloudSessionReady, лише для індикатора).
+// Якщо синхронізація точно не відбудеться (немає сесії/family_id/SDK,
+// чи браузер сам каже "офлайн") — функція викликається як завжди (її
+// власний тихий пропуск спрацює сам, поведінка НЕ змінена), але БЕЗ
+// syncOpBegin()/syncOpEnd() — індикатор просто не бере участі.
+// Залишковий, свідомо прийнятий (не "додаємо помилка-стан") пробіл:
+// navigator.onLine===true, але конкретний fetch усередині все одно може
+// впасти (нестабільна мережа) — у цьому випадку індикатор ще покаже
+// цикл, хоч синхронізація й не відбулась; це вже не "точно не
+// відбудеться", а "може не відбутись", поза межами цього фіксу.
 function withSyncIndicator(fn){
   return function(...args){
+    if(!isCloudSessionReady() || !navigator.onLine){
+      return fn.apply(this, args);
+    }
     syncOpBegin();
     return Promise.resolve(fn.apply(this, args)).finally(syncOpEnd);
   };

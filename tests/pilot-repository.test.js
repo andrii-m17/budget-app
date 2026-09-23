@@ -110,6 +110,9 @@ const REPOSITORY_NAMES = [
   // включені лише тому, що saveCategoriesLocal/pushCategoriesPilot фізично
   // посилаються на них (навіть недосяжним для тестів кодом).
   'isSupabaseSdkReady', 'getSupabaseClient', 'loadCloudFamilyId', 'clearCloudFamilyId',
+  // Rev #30 (6D, індикатор — фікс дублювання) — усі 10 push/pull-функцій
+  // тепер посилаються на isCloudSessionReady() замість inline-guard'а.
+  'isCloudSessionReady',
   'saveCategories', 'saveCategoriesLocal', 'pushCategoriesPilot', 'reconcileCategoryCloudId',
   // Rev #30 (6D крок 9) — Pull pilot: categories. На відміну від push-тестів
   // вище (де cloudSession:null завжди зупиняє на guard clause), тут
@@ -352,6 +355,40 @@ test('saveCategories: домен мігровано, IndexedDB кидає → { 
 });
 
 /* ============ pullCategoriesCore: Pull pilot (6D крок 9) ============ */
+
+/* ============ isCloudSessionReady (Rev #30, 6D індикатор — фікс дублювання) ============ */
+
+test('isCloudSessionReady: усі умови виконані → true', () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'u1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  assert.equal(ctx.isCloudSessionReady(), true);
+});
+
+test('isCloudSessionReady: не залогінений → false', () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = null;
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  assert.equal(ctx.isCloudSessionReady(), false);
+});
+
+test('isCloudSessionReady: немає cloudFamilyId → false', () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'u1' } };
+  ctx.cloudFamilyId = null;
+  ctx.isSupabaseSdkReady = () => true;
+  assert.equal(ctx.isCloudSessionReady(), false);
+});
+
+test('isCloudSessionReady: SDK не готовий → false', () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'u1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => false;
+  assert.equal(ctx.isCloudSessionReady(), false);
+});
 
 function pullSandbox(rows, opts){
   const { ctx } = sandbox();
