@@ -2531,7 +2531,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.68</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.69</div>
 </div>
   </div>
 </div>
@@ -4839,7 +4839,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.68';
+const APP_VERSION = '2.21.69';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -5671,8 +5671,13 @@ let syncVisualState = 'idle'; // 'idle' | 'syncing' | 'done' | 'error'
 let syncVisualStartedAt = 0;
 let syncSettleTimer = null;
 let syncHadError = false;
-const SYNC_MIN_SYNCING_MS = 1500;
-const SYNC_RESULT_MS = 500;
+// Rev #30 (6D.35) — повернуто на прохання користувача до тайминга
+// 6D.25/26 (3с+1с=4с): 6D.34 коротко пробував 1.5с+0.5с за уточненою
+// специфікацією, але користувач попросив лишити оригінальний, довший
+// таймінг — решта 6D.34 (стан "помилка", іконки, success/failure-сигнали
+// з push-функцій) залишається без змін.
+const SYNC_MIN_SYNCING_MS = 3000;
+const SYNC_RESULT_MS = 1000;
 function syncOpBegin(){
   syncActiveOps++;
   if(syncVisualState !== 'syncing'){
