@@ -163,6 +163,11 @@ const REPOSITORY_NAMES = [
   // pullInstallmentAccountsPilotManual НЕ включена (DOM-шар).
   'pullInstallmentAccountsCore', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
   'saveHiddenFrom', 'saveIgnoredDivergences',
+  // Rev #30 (6D.31, повне прибирання emoji) — одноразова міграція +
+  // чистий rename-хелпер, витягнутий з неї (потрібен тут ЛИШЕ тому, що
+  // loadAll() на нього посилається; loadAll сама не під тестом, стаб).
+  'renameStrippingEmoji', 'ensureBankInstallmentNamesStripped', 'stripLeadingEmoji',
+  'hideKey', 'divergenceKey',
   'ensureInstallmentFirstMonth',
   'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
   'restoreHiddenFromFromBackup', 'restoreIgnoredDivergencesFromBackup',
@@ -1060,6 +1065,87 @@ test('ensureInstallmentAccountIdentity: запис вже МАЄ createdAt/updat
   assert.equal(ctx.installmentAccounts[0].createdAt, '2024-01-01T00:00:00.000Z');
   assert.equal(ctx.installmentAccounts[0].updatedAt, '2024-06-01T00:00:00.000Z');
   assert.equal(spy.count(), 0);
+});
+
+/* ============ ensureBankInstallmentNamesStripped (Rev #30, 6D.31 — повне прибирання emoji) ============
+   Одноразова, ідемпотентна міграція: emoji прибирається з name, і той самий
+   рядок оновлюється всюди, де він natural-key — debts[], hiddenFrom,
+   ignoredDivergences (лише installment), expenses[].linkedInstallment
+   (лише installment). */
+
+test('renameStrippingEmoji: назва без emoji-префікса → no-op, changed:false, нічого не чіпає', () => {
+  const { ctx } = sandbox();
+  ctx.bankAccounts = [{ name: 'Приват Банк', creditLimit: 1000 }];
+  ctx.debts = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-01', balance: 500 }];
+  const changed = ctx.renameStrippingEmoji(ctx.bankAccounts, 'card');
+  assert.equal(changed, false);
+  assert.equal(ctx.bankAccounts[0].name, 'Приват Банк');
+  assert.equal(ctx.debts[0].name, 'Приват Банк');
+});
+
+test('renameStrippingEmoji: bankAccounts (kind card) — emoji прибрано, debts перейменовано ретроактивно, hiddenFrom rekeyed, updatedAt проставлено', () => {
+  const { ctx } = sandbox();
+  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 1000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  ctx.debts = [
+    { id: 'd1', name: '🟩 Приват Банк', kind: 'card', month: '2026-01', balance: 500 },
+    { id: 'd2', name: '🟩 Приват Банк', kind: 'installment', month: '2026-01', balance: 999 }, // інший kind — НЕ чіпати
+  ];
+  ctx.hiddenFrom = { [ctx.hideKey('🟩 Приват Банк', 'card')]: '2026-06' };
+  const changed = ctx.renameStrippingEmoji(ctx.bankAccounts, 'card');
+  assert.equal(changed, true);
+  assert.equal(ctx.bankAccounts[0].name, 'Приват Банк');
+  assert.equal(ctx.bankAccounts[0].createdAt, '2024-01-01T00:00:00.000Z'); // createdAt незмінний
+  assert.notEqual(ctx.bankAccounts[0].updatedAt, '2024-01-01T00:00:00.000Z'); // updatedAt — реальна зміна
+  assert.equal(ctx.debts[0].name, 'Приват Банк'); // kind='card' — перейменовано
+  assert.equal(ctx.debts[1].name, '🟩 Приват Банк'); // kind='installment' — НЕ чіпалось
+  assert.equal(ctx.hiddenFrom[ctx.hideKey('Приват Банк', 'card')], '2026-06');
+  assert.equal(ctx.hiddenFrom[ctx.hideKey('🟩 Приват Банк', 'card')], undefined);
+});
+
+test('renameStrippingEmoji: installmentAccounts (kind installment) — debts, expenses.linkedInstallment, hiddenFrom, ignoredDivergences всі оновлені', () => {
+  const { ctx } = sandbox();
+  ctx.installmentAccounts = [{ name: '📱 iPhone', initialAmount: 25000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  ctx.debts = [{ id: 'd1', name: '📱 iPhone', kind: 'installment', month: '2026-01', balance: 500 }];
+  ctx.expenses = [{ id: 'e1', date: '2026-01-05', name: '📱 iPhone', amount: 500, linkedInstallment: '📱 iPhone' }];
+  ctx.hiddenFrom = { [ctx.hideKey('📱 iPhone', 'installment')]: '2026-06' };
+  ctx.ignoredDivergences = { [ctx.divergenceKey('📱 iPhone', '2026-03')]: true };
+  const changed = ctx.renameStrippingEmoji(ctx.installmentAccounts, 'installment');
+  assert.equal(changed, true);
+  assert.equal(ctx.installmentAccounts[0].name, 'iPhone');
+  assert.equal(ctx.debts[0].name, 'iPhone');
+  assert.equal(ctx.expenses[0].linkedInstallment, 'iPhone');
+  assert.equal(ctx.hiddenFrom[ctx.hideKey('iPhone', 'installment')], '2026-06');
+  assert.equal(ctx.ignoredDivergences[ctx.divergenceKey('iPhone', '2026-03')], true);
+  assert.equal(ctx.ignoredDivergences[ctx.divergenceKey('📱 iPhone', '2026-03')], undefined);
+});
+
+test('ensureBankInstallmentNamesStripped: мігрує обидва домени за один прогін, save/push лише для того, що реально змінилось', async () => {
+  const { ctx } = sandbox();
+  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 1000 }];
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000 }]; // вже без emoji
+  ctx.debts = [];
+  const bankSpy = spyOn(ctx, 'saveBankAccounts');
+  const instSpy = spyOn(ctx, 'saveInstallmentAccounts');
+  const debtsSpy = spyOn(ctx, 'saveDebts');
+  await ctx.ensureBankInstallmentNamesStripped();
+  assert.equal(ctx.bankAccounts[0].name, 'Приват Банк');
+  assert.equal(ctx.installmentAccounts[0].name, 'iPhone');
+  assert.equal(bankSpy.count(), 1);
+  assert.equal(instSpy.count(), 0); // installmentAccounts не змінювався — save НЕ кличеться
+  assert.equal(debtsSpy.count(), 1); // bankChanged=true — допоміжні домени зберігаються
+});
+
+test('ensureBankInstallmentNamesStripped: ідемпотентність — повторний виклик на вже мігровані дані НІЧОГО не кличе', async () => {
+  const { ctx } = sandbox();
+  ctx.bankAccounts = [{ name: 'Приват Банк', creditLimit: 1000 }];
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000 }];
+  const bankSpy = spyOn(ctx, 'saveBankAccounts');
+  const instSpy = spyOn(ctx, 'saveInstallmentAccounts');
+  const debtsSpy = spyOn(ctx, 'saveDebts');
+  await ctx.ensureBankInstallmentNamesStripped();
+  assert.equal(bankSpy.count(), 0);
+  assert.equal(instSpy.count(), 0);
+  assert.equal(debtsSpy.count(), 0);
 });
 
 /* ============ pullSubcategoriesCore: Pull pilot (subcategories, повний цикл) ============

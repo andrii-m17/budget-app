@@ -2515,7 +2515,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.64</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.65</div>
 </div>
   </div>
 </div>
@@ -3746,7 +3746,10 @@ const LS_KEY_IGNORED_DIVERGENCES = 'budget_ignored_divergences_v1';
 // Rev 2.0.2 — дефолтний список банків/карток для керованої таблиці боргів,
 // назви точно збігаються з тим, що вже створює імпорт з Excel (debtCols) —
 // тому старі імпортовані записи одразу підхоплюються таблицею без міграції.
-const DEFAULT_BANKS = ['🟩 Приват Банк','⬛️ Моно Банк','🟨 Raifaizen','🟥 ПУМБ Банк','🟪 Sense Банк','🟩 Приват Банк Оля','⬛️ Моно Банк Оля'];
+// Rev #30 (6D.31) — без emoji-префіксів: bankIcon() і так матчить за
+// текстом банку, emoji в name більше не мали б сенсу навіть для щойно
+// засіяного (першого запуску) списку.
+const DEFAULT_BANKS = ['Приват Банк','Моно Банк','Raifaizen','ПУМБ Банк','Sense Банк','Приват Банк Оля','Моно Банк Оля'];
 let expenses = [];
 let incomes = [];
 let debts = []; // {id, name, kind:'card'|'installment', month:'YYYY-MM', balance, minPayment?, minPaymentDone?} — minPayment/minPaymentDone лише для kind==='card' (Rev 2.16.4)
@@ -3919,6 +3922,63 @@ async function ensureBankAccountIdentity(){
 // не проставлялись до цієї ревізії.
 async function ensureInstallmentAccountIdentity(){
   if(stampMissingTimestamps(installmentAccounts)) reportSaveResult(await saveInstallmentAccounts());
+}
+// Rev #30 (6D.31, повне прибирання emoji з bank_accounts/installment_accounts)
+// — одноразова, ідемпотентна міграція. Крок 0 підтвердив: emoji в `name`
+// цих двох доменів не дає жодної реальної переваги в поточному UI —
+// bankIcon() матчить за текстом банку ("приват"/"моно"/...), НЕ за emoji;
+// fallback-ініціали й так проганяються через stripLeadingEmoji(). Водночас
+// emoji вже двічі спричинили реальні проблеми в цій сесії: втрату
+// emoji-префікса при редагуванні (6D.24) і, непрямо, дублікати при
+// backup-restore (byName reconciliation ламалась там, де emoji розходились
+// між пристроями/бекапами, 6D.29). Рішення — прибрати emoji з моделі даних
+// узагалі, а не продовжувати захищатись від нього.
+// `name` тут — природний ключ, на який посилаються debts[] (retroactive
+// rename, той самий принцип, що вже в saveCardDebtDrawer()/
+// saveInstallmentDrawer()), expenses[].linkedInstallment (для installment —
+// цей зв'язок навіть ручний rename досі НЕ оновлював, це давня, окрема від
+// emoji прогалина; міграція, що чіпає ВСІ записи одразу, свідомо її тут
+// закриває, щоб масово не поламати існуючі зв'язки), hiddenFrom (ключ
+// kind:name) і ignoredDivergences (ключ name|month, лише installment).
+function renameStrippingEmoji(list, kind){
+  let changed = false;
+  const nowISO = new Date().toISOString();
+  list.forEach(function(acc){
+    const stripped = stripLeadingEmoji(acc.name);
+    if(stripped === acc.name) return; // вже без emoji-префікса — no-op
+    const oldName = acc.name;
+    acc.name = stripped;
+    acc.updatedAt = nowISO; // справжня зміна даних — LWW/push мають її побачити
+    changed = true;
+    debts.forEach(function(d){ if(d.kind===kind && d.name===oldName) d.name = stripped; });
+    if(kind==='installment'){
+      expenses.forEach(function(e){ if(e.linkedInstallment===oldName) e.linkedInstallment = stripped; });
+      Object.keys(ignoredDivergences).forEach(function(key){
+        if(key.indexOf(oldName + '|') === 0){
+          ignoredDivergences[divergenceKey(stripped, key.slice(oldName.length + 1))] = ignoredDivergences[key];
+          delete ignoredDivergences[key];
+        }
+      });
+    }
+    const oldHideKey = hideKey(oldName, kind);
+    if(hiddenFrom[oldHideKey] !== undefined){
+      hiddenFrom[hideKey(stripped, kind)] = hiddenFrom[oldHideKey];
+      delete hiddenFrom[oldHideKey];
+    }
+  });
+  return changed;
+}
+async function ensureBankInstallmentNamesStripped(){
+  const bankChanged = renameStrippingEmoji(bankAccounts, 'card');
+  const instChanged = renameStrippingEmoji(installmentAccounts, 'installment');
+  if(bankChanged || instChanged){
+    reportSaveResult(await saveDebts());
+    reportSaveResult(await saveExpenses());
+    reportSaveResult(await saveHiddenFrom());
+    reportSaveResult(await saveIgnoredDivergences());
+  }
+  if(bankChanged) reportSaveResult(await saveBankAccounts());
+  if(instChanged) reportSaveResult(await saveInstallmentAccounts());
 }
 // Rev #30 (6D.28, subcategories+dictionary повний цикл) — той самий
 // ідемпотентний принцип: Крок 0 підтвердив грепом — SUBCATEGORIES/DICTIONARY
@@ -4124,6 +4184,7 @@ async function loadAll(){
   await ensureInstallmentAccountIdentity();
   await loadHiddenFrom();
   await loadIgnoredDivergences();
+  await ensureBankInstallmentNamesStripped();
   await ensureInstallmentFirstMonth();
   populateMonths(); renderAll(); renderStructure();
 }
@@ -4609,7 +4670,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.64';
+const APP_VERSION = '2.21.65';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6710,11 +6771,10 @@ async function saveInstallmentDrawer(){
   if(!rawName){ flashField('idd-name'); return; }
   if(!newInitial || isNaN(newInitial) || newInitial<=0){ flashField('idd-initial'); return; }
   const oldName = acc.name;
-  // BugFix (6D, emoji-фікс) — той самий патерн і причина, що
-  // saveCardDebtDrawer() (openInstallmentEditor() теж показує #idd-name
-  // без емодзі-префікса). Якщо текстова частина не змінилась — відновити
-  // оригінальний emoji-префікс замість тихої втрати.
-  const newName = (rawName === stripLeadingEmoji(oldName)) ? oldName : rawName;
+  // Rev #30 (6D.31) — простий прямий присвоєння: emoji-відновлення (6D.24
+  // BugFix) стало зайвим після повного прибирання emoji з name (6D.31) —
+  // #idd-name і так більше ніколи не показує/не отримує emoji-префікс.
+  const newName = rawName;
   if(newName !== oldName && installmentAccounts.some(function(a){ return a.name===newName; })){ flashField('idd-name'); return; }
   if(newName !== oldName){
     debts.forEach(function(d){ if(d.name===oldName && d.kind==='installment') d.name = newName; });
@@ -6951,17 +7011,10 @@ async function saveCardDebtDrawer(){
   if(!rawName){ flashField('cdd-name'); return; }
   if(!newLimit || isNaN(newLimit) || newLimit<=0){ flashField('cdd-limit'); return; }
   const oldName = acc.name;
-  // BugFix (6D, emoji-фікс) — openCardDebtEditor() навмисно показує
-  // #cdd-name БЕЗ емодзі-префікса (stripLeadingEmoji(), емодзі й так
-  // показане окремою іконкою зліва). Раніше saveCardDebtDrawer() читав це
-  // поле напряму й трактував "текст без емодзі" як НОВУ назву — будь-яке
-  // збереження (навіть лише зміна ліміту, без дотику до поля назви)
-  // silently стирало emoji-префікс НАЗАВЖДИ, ще й ретроактивно
-  // перейменовуючи історичні debts-записи. Якщо текстова частина не
-  // змінилась (rawName === назва без емодзі) — відновлюємо оригінальний
-  // emoji-префікс; якщо користувач дійсно ввів іншу назву — це і є нова
-  // назва, як і раніше.
-  const newName = (rawName === stripLeadingEmoji(oldName)) ? oldName : rawName;
+  // Rev #30 (6D.31) — простий прямий присвоєння: emoji-відновлення (6D.24
+  // BugFix) стало зайвим після повного прибирання emoji з name (6D.31) —
+  // #cdd-name і так більше ніколи не показує/не отримує emoji-префікс.
+  const newName = rawName;
   if(newName !== oldName && bankAccounts.some(function(b){ return b.name===newName; })){ flashField('cdd-name'); return; }
   if(newName !== oldName){
     // Перейменування ретроактивне: усі минулі записи з цим банком теж
