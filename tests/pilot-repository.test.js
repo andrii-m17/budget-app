@@ -384,16 +384,35 @@ test('pullCategoriesCore: правило 1 (no-op) — cloudId збігаєть�
   assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0 });
 });
 
-test('pullCategoriesCore: правило 2 — unlinked local з тим самим name → зв\'язується (cloudId), не дублюється, local type НЕ перезаписується', async () => {
+test('pullCategoriesCore: правило 2 — unlinked (без cloudId) local з тим самим name → зв\'язується (cloudId) і self-heal одразу підтягує Cloud active/type, не дублюється', async () => {
   const ctx = pullSandbox([{ id: 'c2', name: '🍔 Їжа', active: true, type: "Обов'язкова" }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true }]; // без cloudId — ще не пушилась
   const result = await ctx.pullCategoriesCore();
   assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0 });
   assert.equal(ctx.CATEGORIES.length, 1); // НЕ задублювалось
   assert.equal(ctx.CATEGORIES[0].cloudId, 'c2');
-  // Лінк лише прописує cloudId — Cloud-версія type застосується вже
-  // НАСТУПНИМ pull-циклом через правило 1 (byCloudId), не одразу тут.
-  assert.equal(ctx.CATEGORIES[0].type, 'Гнучка');
+  assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
+});
+
+test('pullCategoriesCore: BugFix (6D) — local з "МЕРТВИМ" cloudId (Cloud-рядок з таким id більше не існує) + правильний name → self-heal, БЕЗ дублювання', async () => {
+  // Регресійний тест на точний сценарій з реального інциденту: користувач
+  // відновив локальний бекап, у якому "Харчування" несла застарілий
+  // cloudId з давнього self-heal-тесту (рядок з таким id давно не існує
+  // в Cloud). До фіксу: byCloudId не знаходив (id чужий), byName ТЕЖ не
+  // знаходив (умова `!c.cloudId` виключала запис, бо він МАЄ якийсь
+  // cloudId, хай і мертвий) → падало у гілку "новий запис", утворюючи
+  // ДРУГИЙ локальний об'єкт з тим самим name, лишаючи старий сиротою
+  // назавжди. Підтверджено контрольованим відтворенням у browser preview
+  // (мокнутий Supabase-клієнт, реальний UI-флоу deleteCategory() +
+  // applyBackupData() + pullCategoriesCore()) перед фіксом.
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Харчування', active: true, type: 'Скорочувана' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Харчування', type: 'Гнучка', active: true, cloudId: 'dead-old-selfheal-id' }];
+  const result = await ctx.pullCategoriesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0 });
+  assert.equal(ctx.CATEGORIES.length, 1); // КРИТИЧНО: НЕ задублювалось
+  assert.equal(ctx.CATEGORIES[0].cloudId, 'c1'); // self-heal перезаписав мертвий cloudId
+  assert.equal(ctx.CATEGORIES[0].active, true);
+  assert.equal(ctx.CATEGORIES[0].type, 'Скорочувана');
 });
 
 test('pullCategoriesCore: правило 3 — новий Cloud-рядок без local-відповідника → додається з РЕАЛЬНИМ Cloud type', async () => {
