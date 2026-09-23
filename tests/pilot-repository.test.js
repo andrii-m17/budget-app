@@ -162,7 +162,12 @@ const REPOSITORY_NAMES = [
   // cross-realm-override прийом, що pullBankAccountsCore тести.
   // pullInstallmentAccountsPilotManual НЕ включена (DOM-шар).
   'pullInstallmentAccountsCore', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
-  'saveHiddenFrom', 'saveIgnoredDivergences',
+  // Rev #30 (6D.32, hidden_entities перша реалізація) — той самий
+  // local/push розподіл, що решта 5 доменів. pullHiddenEntitiesPilotManual
+  // НЕ включена (DOM-шар).
+  'saveHiddenFrom', 'saveHiddenFromLocal', 'monthToDate', 'dateToMonth', 'pushHiddenEntitiesPilot',
+  'pullHiddenEntitiesCore', 'pullHiddenEntitiesPilot',
+  'saveIgnoredDivergences',
   // Rev #30 (6D.31, повне прибирання emoji) — одноразова міграція +
   // чистий rename-хелпер, витягнутий з неї (потрібен тут ЛИШЕ тому, що
   // loadAll() на нього посилається; loadAll сама не під тестом, стаб).
@@ -375,6 +380,46 @@ function fakeSupabaseDictionaryClient(rows, opts){
   return {
     from(table){
       assert.equal(table, 'dictionary');
+      return {
+        select(cols){
+          return {
+            eq(col, val){
+              if(opts && opts.error) return Promise.resolve({ data: null, error: new Error('симульована мережева помилка') });
+              return Promise.resolve({ data: rows, error: null });
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
+// Rev #30 (6D.32, hidden_entities — перша реалізація) — push тут ЗАВЖДИ
+// upsert (не update-if-cloudId/insert-if-not, як решта доменів), тому
+// мок відрізняється: track-mock для .upsert(), окремий read-only mock
+// для pull (той самий select().eq() шаблон, що решта pull-мок'ів).
+function fakeSupabaseHiddenEntitiesUpsertClient(opts){
+  const calls = [];
+  return {
+    client: {
+      from(table){
+        assert.equal(table, 'hidden_entities');
+        return {
+          upsert(payload, upsertOpts){
+            calls.push({ payload, upsertOpts });
+            if(opts && opts.error) return Promise.resolve({ data: null, error: new Error('симульована мережева помилка') });
+            return Promise.resolve({ data: [payload], error: null });
+          },
+        };
+      },
+    },
+    calls,
+  };
+}
+function fakeSupabaseHiddenEntitiesClient(rows, opts){
+  return {
+    from(table){
+      assert.equal(table, 'hidden_entities');
       return {
         select(cols){
           return {
@@ -1146,6 +1191,154 @@ test('ensureBankInstallmentNamesStripped: ідемпотентність — п�
   assert.equal(bankSpy.count(), 0);
   assert.equal(instSpy.count(), 0);
   assert.equal(debtsSpy.count(), 0);
+});
+
+/* ============ hidden_entities — перша реалізація (Rev #30, 6D.32) ============
+   Найпростіший домен: reconciliation за (family_id, entity_type,
+   entity_id) — UNIQUE у Cloud-схемі, entity_id = cloudId батька (не name).
+   push — ЗАВЖДИ upsert. Немає updated_at — LWW спрощений до "приховати
+   перемагає" (push) / "не перезаписувати вже приховане" (pull). */
+
+test('pushHiddenEntitiesPilot: не залогінений → жодного виклику Cloud', async () => {
+  const { ctx } = sandbox();
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  await ctx.pushHiddenEntitiesPilot(); // guard clause, getSupabaseClient не викликається взагалі
+});
+
+test('pushHiddenEntitiesPilot: батько (bankAccounts) ще не синхронізований (немає cloudId) → тихий пропуск, upsert НЕ викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const fake = fakeSupabaseHiddenEntitiesUpsertClient();
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  ctx.bankAccounts = [{ name: 'Приват Банк' }]; // без cloudId
+  await ctx.pushHiddenEntitiesPilot();
+  assert.equal(fake.calls.length, 0);
+});
+
+test('pushHiddenEntitiesPilot: kind "card" → entity_type "bank", entity_id = cloudId, upsert на onConflict family_id,entity_type,entity_id', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const fake = fakeSupabaseHiddenEntitiesUpsertClient();
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  await ctx.pushHiddenEntitiesPilot();
+  assert.equal(fake.calls.length, 1);
+  assert.equal(fake.calls[0].payload.entity_type, 'bank');
+  assert.equal(fake.calls[0].payload.entity_id, 'b1');
+  // Rev #30 (6D.32 BugFix) — hidden_from_month у Cloud типу `date`, тому
+  // push конвертує "YYYY-MM" → "YYYY-MM-01" (monthToDate()).
+  assert.equal(fake.calls[0].payload.hidden_from_month, '2026-06-01');
+  assert.equal(fake.calls[0].payload.family_id, 'fam-1');
+  assert.equal(fake.calls[0].upsertOpts.onConflict, 'family_id,entity_type,entity_id');
+});
+
+test('pushHiddenEntitiesPilot: kind "installment" → entity_type "installment"', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const fake = fakeSupabaseHiddenEntitiesUpsertClient();
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.hiddenFrom = { 'installment:iPhone': '2026-03' };
+  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'i1' }];
+  await ctx.pushHiddenEntitiesPilot();
+  assert.equal(fake.calls.length, 1);
+  assert.equal(fake.calls[0].payload.entity_type, 'installment');
+  assert.equal(fake.calls[0].payload.entity_id, 'i1');
+});
+
+test('pushHiddenEntitiesPilot: мережева помилка одного запису → тихий пропуск, решта масиву обробляється', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const fake = fakeSupabaseHiddenEntitiesUpsertClient({ error: true });
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  await ctx.pushHiddenEntitiesPilot(); // не кидає — catch у циклі
+  assert.equal(fake.calls.length, 1); // спроба відбулась, помилка тиха
+});
+
+function pullHiddenSandbox(rows, opts){
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => fakeSupabaseHiddenEntitiesClient(rows, opts);
+  return ctx;
+}
+
+test('pullHiddenEntitiesCore: не залогінений → { skipped:true }', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01' }]);
+  ctx.cloudSession = null;
+  const result = await ctx.pullHiddenEntitiesCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullHiddenEntitiesCore: мережева помилка → { skipped:true }', async () => {
+  const ctx = pullHiddenSandbox(null, { error: true });
+  const result = await ctx.pullHiddenEntitiesCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullHiddenEntitiesCore: батько (за entity_id) не знайдений локально → skippedFk, hiddenFrom не чіпається', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b-unknown', hidden_from_month: '2026-06-01' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }]; // інший cloudId
+  ctx.hiddenFrom = {};
+  const result = await ctx.pullHiddenEntitiesCore();
+  assert.deepEqual(plain(result), { skipped: false, added: 0, skippedFk: 1 });
+  assert.deepEqual(plain(ctx.hiddenFrom), {});
+});
+
+test('pullHiddenEntitiesCore: entity_type "bank" резолвиться в bankAccounts за cloudId, kind "card" у ключі — додається (локально не було)', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.hiddenFrom = {};
+  const result = await ctx.pullHiddenEntitiesCore();
+  assert.deepEqual(plain(result), { skipped: false, added: 1, skippedFk: 0 });
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-06');
+});
+
+test('pullHiddenEntitiesCore: entity_type "installment" резолвиться в installmentAccounts за cloudId, kind "installment" у ключі', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'installment', entity_id: 'i1', hidden_from_month: '2026-03-01' }]);
+  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'i1' }];
+  ctx.hiddenFrom = {};
+  const result = await ctx.pullHiddenEntitiesCore();
+  assert.deepEqual(plain(result), { skipped: false, added: 1, skippedFk: 0 });
+  assert.equal(ctx.hiddenFrom['installment:iPhone'], '2026-03');
+});
+
+test('pullHiddenEntitiesCore: "приховати перемагає" — локально ВЖЕ приховано (інший місяць) → Cloud-версію НЕ перезаписує, added:0', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-08-01' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' }; // локальна версія вже є
+  const result = await ctx.pullHiddenEntitiesCore();
+  assert.deepEqual(plain(result), { skipped: false, added: 0, skippedFk: 0 });
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-06'); // не перезаписано Cloud-версією
+});
+
+test('pullHiddenEntitiesCore: локально приховане, якого Cloud не має → не чіпається (це відповідальність push, не pull)', async () => {
+  const ctx = pullHiddenSandbox([]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  await ctx.pullHiddenEntitiesCore();
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-06');
+});
+
+test('pullHiddenEntitiesPilot: тонка обгортка над pullHiddenEntitiesCore (той самий результат)', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.hiddenFrom = {};
+  const result = await ctx.pullHiddenEntitiesPilot();
+  assert.deepEqual(plain(result), { skipped: false, added: 1, skippedFk: 0 });
 });
 
 /* ============ pullSubcategoriesCore: Pull pilot (subcategories, повний цикл) ============
