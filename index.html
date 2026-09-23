@@ -206,22 +206,29 @@
      розділювальної лінії (border-top наступного .profile-menu-item) —
      за словами користувача, "занадто близько". */
   .profile-preview-hint{ text-align:center; font-size:12.5px; color:var(--color-text-secondary); margin:12px 0 12px; line-height:1.4; }
-  .avatar-status-dot{ position:absolute; bottom:-1px; right:-1px; width:11px; height:11px; border-radius:50%; border:2px solid var(--color-surface); background:var(--color-text-secondary); }
+  .avatar-status-dot{ position:absolute; bottom:-1px; right:-1px; width:11px; height:11px; border-radius:50%; border:2px solid var(--color-surface); background:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; }
   .avatar-status-dot.online{ background:var(--color-success); }
   .avatar-status-dot.offline{ background:var(--color-error); }
   .avatar-status-dot.hidden{ display:none; }
-  /* Rev #30 (6D, індикатор синхронізації) — третій, тимчасовий стан
-     статус-крапки: "syncing" (синій, пульсує, поки триває push/pull) →
-     "done" (зелений, короткий "pop"-акцент замість буквального ✓ — 11px
-     крапка занадто мала для читабельного гліфа). Той самий keyframes
-     spin, що вже .btn-loading, тут НЕ підходить (обертання не читається
-     на суцільному кольорі без border-контрасту) — окремі keyframes.
-     .profile-status-dot (у popover, 7px) — той самий принцип, свої класи
-     нижче біля existing .online/.offline. */
-  .avatar-status-dot.syncing{ background:var(--color-info); animation:syncPulse 1s ease-in-out infinite; }
+  /* Rev #30 (6D, індикатор синхронізації; 6D.34 — редизайн за референсом) —
+     4 тимчасові/фінальні стани поверх online/offline: "syncing" (синій,
+     іконка обертових стрілок, безперервне обертання) → "done" (зелений
+     ✓, короткий "pop") або, новий у 6D.34, "error" (червоний !, той самий
+     "pop", коли push/pull реально провалився — не плутати зі статичним
+     "offline"). Іконка — той самий inline SVG (70% розміру крапки, білий
+     stroke), що вже "Синхронізувати X"-кнопки/CHECK-гліф деінде в файлі,
+     вставляється/прибирається в renderProfileUI() через dot.innerHTML —
+     .profile-status-dot (7px, popover) СВІДОМО без іконки (замало місця
+     для читабельного гліфа навіть на 70%), лишається color+анімація-only,
+     той самий принцип, що вже був. */
+  .avatar-status-dot svg{ width:70%; height:70%; color:#fff; display:block; }
+  .avatar-status-dot.syncing{ background:var(--color-info); }
+  .avatar-status-dot.syncing svg{ animation:syncSpin .9s linear infinite; }
   .avatar-status-dot.done{ background:var(--color-success); animation:syncPop .35s ease-out; }
+  .avatar-status-dot.error{ background:var(--color-error); animation:syncPop .35s ease-out; }
   @keyframes syncPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
   @keyframes syncPop{ 0%{ transform:scale(1); } 45%{ transform:scale(1.7); } 100%{ transform:scale(1); } }
+  @keyframes syncSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
   /* Rev #30 (6D.10) — новий заякорений UI-примітив (третій, на додачу до
      #app-modal і .drawer): #profile-popover, той самий підхід, що вже
      .data-status-popover (KPI-картки, "Стан даних") — не bottom sheet,
@@ -566,6 +573,7 @@
   .profile-status-dot.offline{ background:var(--color-error); }
   .profile-status-dot.syncing{ background:var(--color-info); animation:syncPulse 1s ease-in-out infinite; }
   .profile-status-dot.done{ background:var(--color-success); animation:syncPop .35s ease-out; }
+  .profile-status-dot.error{ background:var(--color-error); animation:syncPop .35s ease-out; }
   .profile-menu-item{ display:flex; align-items:center; gap:12px; width:100%; padding:13px 4px; border:none; background:none; border-top:1px solid var(--color-border); font-size:14.5px; color:var(--color-text-primary); cursor:pointer; text-align:left; font-family:inherit; }
   .profile-menu-item svg{ flex-shrink:0; color:var(--color-text-secondary); }
   .profile-menu-item.danger{ color:var(--color-error); }
@@ -2523,7 +2531,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.67</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.68</div>
 </div>
   </div>
 </div>
@@ -3097,16 +3105,24 @@ async function saveCategoriesLocal(){
 // унікальний локальний ключ (перевірка і при створенні, і при
 // перейменуванні), омонімії "різні локальні категорії → один Cloud-рядок"
 // не існує.
+// Rev #30 (6D.34, індикатор — стан "помилка") — `anyError` тут НЕ впливає
+// на саму reconciliation-логіку (жодна гілка вище не змінена) — лише
+// збирає, чи хоч ОДИН запис за цей прогін реально впав (мережева помилка/
+// виняток, АБО явний `error` від Supabase), щоб withSyncIndicator() міг
+// показати "помилка", а не мовчки "успіх". "Тихі пропуски" (батько ще не
+// синхронізований і т.п. в інших доменах) свідомо НЕ рахуються помилкою —
+// це очікуваний, не аварійний стан.
 async function pushCategoriesPilot(){
-  if(!isCloudSessionReady()) return;
+  if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
+  let anyError = false;
   for(const cat of CATEGORIES){
     try{
       if(cat.cloudId){
         const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, type: cat.type, updated_at: cat.updatedAt, updated_by: userId }).eq('id', cat.cloudId).select('id');
-        if(error) continue;
+        if(error){ anyError = true; continue; }
         if(data && data.length === 0){
           // "Висячий" cloudId — не мережева помилка, а сигнал, що рядок з
           // таким id більше не існує (напр. видалений вручну дублікат).
@@ -3123,9 +3139,11 @@ async function pushCategoriesPilot(){
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск,
       // решта масиву й так продовжить обробку в наступній ітерації циклу.
+      anyError = true;
     }
   }
   if(localChanged) await saveCategoriesLocal();
+  return { success: !anyError };
 }
 // Rev #30 (6D fix) — спершу шукаємо ІСНУЮЧИЙ Cloud-рядок за name+family_id
 // (coalesce з тим, що вже запушив інший пристрій), і лише за відсутності —
@@ -3344,17 +3362,18 @@ async function saveSubcategoriesLocal(){
 // (FK на id, не на name) — пропущений цикл просто нічого корисного не
 // зробив би, а наступний реальний saveSubcategories() пуштить коректно.
 async function pushSubcategoriesPilot(){
-  if(!isCloudSessionReady()) return;
+  if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
+  let anyError = false;
   for(const sub of SUBCATEGORIES){
     const parentCat = CATEGORIES.find(function(c){ return c.name === sub.category; });
-    if(!parentCat || !parentCat.cloudId) continue; // батьківська категорія ще не синхронізована
+    if(!parentCat || !parentCat.cloudId) continue; // батьківська категорія ще не синхронізована — не помилка
     try{
       if(sub.cloudId){
         const { data, error } = await client.from('subcategories').update({ name: sub.name, category_id: parentCat.cloudId, active: sub.active, updated_at: sub.updatedAt, updated_by: userId }).eq('id', sub.cloudId).select('id');
-        if(error) continue;
+        if(error){ anyError = true; continue; }
         if(data && data.length === 0){
           sub.cloudId = null;
           await reconcileSubcategoryCloudId(client, userId, sub, parentCat.cloudId);
@@ -3366,9 +3385,11 @@ async function pushSubcategoriesPilot(){
       }
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
+      anyError = true;
     }
   }
   if(localChanged) await saveSubcategoriesLocal();
+  return { success: !anyError };
 }
 async function reconcileSubcategoryCloudId(client, userId, sub, categoryId){
   const { data: existing } = await client.from('subcategories').select('id').eq('family_id', cloudFamilyId).eq('name', sub.name).maybeSingle();
@@ -3408,23 +3429,24 @@ async function saveDictionaryLocal(){
 // keyword, 6D крок 3 pre-check підтвердив: DICTIONARY.some(d=>d.kw===kw)
 // глобально унікальний, безпечно).
 async function pushDictionaryPilot(){
-  if(!isCloudSessionReady()) return;
+  if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
+  let anyError = false;
   for(const entry of DICTIONARY){
     const parentCat = CATEGORIES.find(function(c){ return c.name === entry.cat; });
-    if(!parentCat || !parentCat.cloudId) continue; // категорія ще не синхронізована
+    if(!parentCat || !parentCat.cloudId) continue; // категорія ще не синхронізована — не помилка
     let subcategoryId = null;
     if(entry.sub){
       const parentSub = SUBCATEGORIES.find(function(s){ return s.name === entry.sub; });
-      if(!parentSub || !parentSub.cloudId) continue; // підкатегорія вказана, але ще не синхронізована
+      if(!parentSub || !parentSub.cloudId) continue; // підкатегорія вказана, але ще не синхронізована — не помилка
       subcategoryId = parentSub.cloudId;
     }
     try{
       if(entry.cloudId){
         const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).select('id');
-        if(error) continue;
+        if(error){ anyError = true; continue; }
         if(data && data.length === 0){
           entry.cloudId = null;
           await reconcileDictionaryCloudId(client, userId, entry, parentCat.cloudId, subcategoryId);
@@ -3436,9 +3458,11 @@ async function pushDictionaryPilot(){
       }
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
+      anyError = true;
     }
   }
   if(localChanged) await saveDictionaryLocal();
+  return { success: !anyError };
 }
 async function reconcileDictionaryCloudId(client, userId, entry, categoryId, subcategoryId){
   const { data: existing } = await client.from('dictionary').select('id').eq('family_id', cloudFamilyId).eq('keyword', entry.kw).maybeSingle();
@@ -4269,17 +4293,17 @@ async function saveDebts(){
       фічею; повний upsert без окремого SELECT-перед-UPDATE відповідає
       вимозі "без reconciliation-логіки" для цього кроку. */
 async function pushExpenseRecordPilot(rec){
-  if(!isCloudSessionReady()) return;
+  if(!isCloudSessionReady()) return { success: true };
   let linkedInstallmentId = null;
   if(rec.linkedInstallment){
     const acc = installmentAccounts.find(function(a){ return a.name === rec.linkedInstallment; });
-    if(!acc || !acc.cloudId) return; // ОЧ-залежність ще не синхронізована — тихий пропуск ЦІЄЇ витрати
+    if(!acc || !acc.cloudId) return { success: true }; // ОЧ-залежність ще не синхронізована — тихий пропуск, не помилка
     linkedInstallmentId = acc.cloudId;
   }
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   try{
-    await client.from('expenses').upsert({
+    const { error } = await client.from('expenses').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
       amount: rec.amount,
@@ -4291,16 +4315,18 @@ async function pushExpenseRecordPilot(rec){
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
+    return { success: !error };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск, той самий принцип, що решта push-логіки.
+    return { success: false };
   }
 }
 async function pushIncomeRecordPilot(rec){
-  if(!isCloudSessionReady()) return;
+  if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   try{
-    await client.from('incomes').upsert({
+    const { error } = await client.from('incomes').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
       amount: rec.amount,
@@ -4309,26 +4335,28 @@ async function pushIncomeRecordPilot(rec){
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
+    return { success: !error };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск.
+    return { success: false };
   }
 }
 async function pushDebtRecordPilot(rec){
-  if(!isCloudSessionReady()) return;
+  if(!isCloudSessionReady()) return { success: true };
   let bankAccountId = null, installmentAccountId = null;
   if(rec.kind === 'card'){
     const acc = bankAccounts.find(function(b){ return b.name === rec.name; });
-    if(!acc || !acc.cloudId) return; // рахунок ще не синхронізований — тихий пропуск ЦЬОГО боргу
+    if(!acc || !acc.cloudId) return { success: true }; // рахунок ще не синхронізований — тихий пропуск, не помилка
     bankAccountId = acc.cloudId;
   }else{
     const acc = installmentAccounts.find(function(a){ return a.name === rec.name; });
-    if(!acc || !acc.cloudId) return; // ОЧ ще не синхронізована — тихий пропуск ЦЬОГО боргу
+    if(!acc || !acc.cloudId) return { success: true }; // ОЧ ще не синхронізована — тихий пропуск, не помилка
     installmentAccountId = acc.cloudId;
   }
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   try{
-    await client.from('debts').upsert({
+    const { error } = await client.from('debts').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
       bank_account_id: bankAccountId,
@@ -4343,8 +4371,10 @@ async function pushDebtRecordPilot(rec){
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
+    return { success: !error };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск.
+    return { success: false };
   }
 }
 // Кожна з 4 нижче повертає { success, error? } (той самий контракт, що
@@ -4380,15 +4410,16 @@ async function saveBankAccountsLocal(){
 // push, і pull доведеться переглянути разом. Задокументовано і в
 // docs/ROADMAP.md, розділ "Відомі обмеження синхронізації".
 async function pushBankAccountsPilot(){
-  if(!isCloudSessionReady()) return;
+  if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
+  let anyError = false;
   for(const acc of bankAccounts){
     try{
       if(acc.cloudId){
         const { data, error } = await client.from('bank_accounts').update({ name: acc.name, credit_limit: acc.creditLimit, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
-        if(error) continue;
+        if(error){ anyError = true; continue; }
         if(data && data.length === 0){
           acc.cloudId = null;
           await reconcileBankAccountCloudId(client, userId, acc);
@@ -4400,9 +4431,11 @@ async function pushBankAccountsPilot(){
       }
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
+      anyError = true;
     }
   }
   if(localChanged) await saveBankAccountsLocal();
+  return { success: !anyError };
 }
 async function reconcileBankAccountCloudId(client, userId, acc){
   const { data: existing } = await client.from('bank_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).maybeSingle();
@@ -4521,15 +4554,16 @@ async function saveInstallmentAccountsLocal(){
 // застереження, що вище для bank_accounts, той самий hidden_entities-клас
 // проблеми).
 async function pushInstallmentAccountsPilot(){
-  if(!isCloudSessionReady()) return;
+  if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
+  let anyError = false;
   for(const acc of installmentAccounts){
     try{
       if(acc.cloudId){
         const { data, error } = await client.from('installment_accounts').update({ name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
-        if(error) continue;
+        if(error){ anyError = true; continue; }
         if(data && data.length === 0){
           acc.cloudId = null;
           await reconcileInstallmentAccountCloudId(client, userId, acc);
@@ -4541,9 +4575,11 @@ async function pushInstallmentAccountsPilot(){
       }
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
+      anyError = true;
     }
   }
   if(localChanged) await saveInstallmentAccountsLocal();
+  return { success: !anyError };
 }
 async function reconcileInstallmentAccountCloudId(client, userId, acc){
   const { data: existing } = await client.from('installment_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).maybeSingle();
@@ -4664,9 +4700,10 @@ async function pullInstallmentAccountsPilotManual(){
 function monthToDate(month){ return month + '-01'; }
 function dateToMonth(dateStr){ return (dateStr || '').slice(0, 7); }
 async function pushHiddenEntitiesPilot(){
-  if(!isCloudSessionReady()) return;
+  if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
+  let anyError = false;
   for(const key of Object.keys(hiddenFrom)){
     const sepIdx = key.indexOf(':');
     const kind = key.slice(0, sepIdx);
@@ -4674,16 +4711,19 @@ async function pushHiddenEntitiesPilot(){
     const entityType = kind === 'card' ? 'bank' : 'installment';
     const list = kind === 'card' ? bankAccounts : installmentAccounts;
     const entity = list.find(function(x){ return x.name === name; });
-    if(!entity || !entity.cloudId) continue; // батько ще не синхронізований — тихий пропуск
+    if(!entity || !entity.cloudId) continue; // батько ще не синхронізований — тихий пропуск, не помилка
     try{
-      await client.from('hidden_entities').upsert(
+      const { error } = await client.from('hidden_entities').upsert(
         { family_id: cloudFamilyId, entity_type: entityType, entity_id: entity.cloudId, hidden_from_month: monthToDate(hiddenFrom[key]), created_by: userId },
         { onConflict: 'family_id,entity_type,entity_id' }
       );
+      if(error) anyError = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
+      anyError = true;
     }
   }
+  return { success: !anyError };
 }
 // Pull: entity_id резолвиться в local-запис за cloudId (не назвою) у
 // відповідному списку. Якщо батько ще не лінкований локально (Крок 0
@@ -4799,7 +4839,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.67';
+const APP_VERSION = '2.21.68';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -5598,33 +5638,56 @@ async function loadCloudDisplayName(client, userId){
 // #profile-guest-preview/#cloud-login-form (один візуальний елемент, різні
 // розмірності — не окремий актив на мале й велике використання).
 const GUEST_AVATAR_ICON_SVG = '<svg viewBox="0 0 24 24" width="60%" height="60%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-// Rev #30 (6D, індикатор синхронізації) — тонкий UI-хук навколо ВСІХ 10
-// push/pull-функцій (8 push + 2 pull, 6D крок 0 підтвердив точний список),
-// САМУ логіку синхронізації не чіпає. Лічильник активних операцій
-// (syncActiveOps) стійкий до паралельних викликів — кілька push/pull
-// одночасно чи поспіль тримають "syncing" суцільно, не блимають.
-// "Мінімум 3с/1с" — НЕ Promise.race навколо кожного окремого виклику
-// (це продовжило б реальну ЗАТРИМКУ push/pull, чого явно заборонено:
-// "не чіпаємо саму логіку"), а суто ВІЗУАЛЬНИЙ таймер, незалежний від
-// реального завершення: syncVisualStartedAt фіксується один раз на
-// ВХОДІ в "syncing", і коли останній реальний виклик завершується
-// (syncActiveOps→0), рахуємо, скільки ще лишилось до 3с з цього
-// моменту, і лише тоді (за умови, що НОВИЙ виклик не встиг початись
-// за цей час) переходимо в "done" на 1с, потім у звичайний стан.
+// Rev #30 (6D.34, редизайн статусів за референсом) — 3 маленькі іконки для
+// .avatar-status-dot (11px): "syncing" — та сама кругла двостороння
+// стрілка, що вже "Синхронізувати X"-кнопки (обертається через CSS
+// .syncing svg{animation:syncSpin}, не окрема анімована іконка); "done" —
+// той самий CHECK-гліф, що вже populateInstallmentTable(); "error" —
+// проста "!" (вертикальна риска + крапка), новий у цьому Rev.
+const SYNC_SPIN_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>';
+const SYNC_DONE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const SYNC_ERROR_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="7" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+// Rev #30 (6D, індикатор синхронізації; 6D.34 — редизайн станів+помилка) —
+// тонкий UI-хук навколо ВСІХ push/pull-функцій, САМУ логіку синхронізації
+// не чіпає. Лічильник активних операцій (syncActiveOps) стійкий до
+// паралельних викликів — кілька push/pull одночасно чи поспіль тримають
+// "syncing" суцільно, не блимають. Мінімальна тривалість — НЕ Promise.race
+// навколо кожного окремого виклику (це продовжило б реальну ЗАТРИМКУ
+// push/pull, чого явно заборонено: "не чіпаємо саму логіку"), а суто
+// ВІЗУАЛЬНИЙ таймер, незалежний від реального завершення:
+// syncVisualStartedAt фіксується один раз на ВХОДІ в "syncing", і коли
+// останній реальний виклик завершується (syncActiveOps→0), рахуємо,
+// скільки ще лишилось до мінімуму з цього моменту, і лише тоді (за умови,
+// що НОВИЙ виклик не встиг початись за цей час) переходимо в
+// "done"/"error" (за результатом усієї серії), потім у звичайний стан.
+// Rev #30 (6D.34) — новий 4-й фінальний стан: syncHadError накопичує,
+// чи хоч ОДНА операція за цю серію реально провалилась (мережева
+// помилка/виняток АБО явний `error` від Supabase — тепер повертається з
+// усіх push-функцій, Крок 0 підтвердив, що досі це ніде не сигналізувалось
+// явно). "Тихі пропуски" (батько ще не синхронізований і т.п.) НЕ
+// рахуються помилкою — вони повертають { success: true }.
 let syncActiveOps = 0;
-let syncVisualState = 'idle'; // 'idle' | 'syncing' | 'done'
+let syncVisualState = 'idle'; // 'idle' | 'syncing' | 'done' | 'error'
 let syncVisualStartedAt = 0;
 let syncSettleTimer = null;
-const SYNC_MIN_SYNCING_MS = 3000;
-const SYNC_DONE_MS = 1000;
+let syncHadError = false;
+const SYNC_MIN_SYNCING_MS = 1500;
+const SYNC_RESULT_MS = 500;
 function syncOpBegin(){
   syncActiveOps++;
   if(syncVisualState !== 'syncing'){
     syncVisualState = 'syncing';
     syncVisualStartedAt = Date.now();
+    syncHadError = false; // нова серія — скидаємо результат попередньої
     if(syncSettleTimer){ clearTimeout(syncSettleTimer); syncSettleTimer = null; }
     renderProfileUI();
   }
+}
+// Rev #30 (6D.34) — викликається з withSyncIndicator() після завершення
+// КОЖНОЇ обгорнутої операції (до syncOpEnd(), у той самий .then()/.catch()),
+// щоб зафіксувати результат ще ДО того, як лічильник впаде до 0.
+function syncOpReportResult(failed){
+  if(failed) syncHadError = true;
 }
 function syncOpEnd(){
   syncActiveOps = Math.max(0, syncActiveOps - 1);
@@ -5636,40 +5699,56 @@ function scheduleSyncSettle(){
   if(syncSettleTimer) clearTimeout(syncSettleTimer);
   syncSettleTimer = setTimeout(function(){
     if(syncActiveOps > 0) return; // нова операція почалась за час очікування — syncOpEnd() перепланує сам
-    syncVisualState = 'done';
+    syncVisualState = syncHadError ? 'error' : 'done';
     renderProfileUI();
     syncSettleTimer = setTimeout(function(){
       if(syncActiveOps > 0) return;
       syncVisualState = 'idle';
       renderProfileUI();
-    }, SYNC_DONE_MS);
+    }, SYNC_RESULT_MS);
   }, remaining);
+}
+// Rev #30 (6D.34) — з результату push/pull-функції визначає, чи це
+// "провал" для індикатора. Push-функції тепер повертають { success }
+// (Крок 0: досі жодна цього не робила явно — мінімально необхідне
+// додавання). Pull-функції й раніше повертали { skipped } — skipped:true
+// ТУТ (усередині withSyncIndicator, після зовнішньої isCloudSessionReady()/
+// navigator.onLine перевірки) означає, що виклик почався "готовим", але
+// реальний запит усе одно не відбувся/впав — саме той залишковий пробіл,
+// що свідомо прийняли в 6D.26 ("може не відбутись", не "точно не
+// відбудеться"). Відсутність result (не всі функції завжди щось
+// повертають) трактується як "не знаємо" — НЕ помилка, щоб не
+// фолсити-позитивити на щось, що не мало явного контракту.
+function isSyncResultFailure(result){
+  if(!result) return false;
+  if(result.success === false) return true;
+  if(result.skipped === true) return true;
+  return false;
 }
 // Обгортає push/pull-функцію: syncOpBegin() СИНХРОННО до виклику (щоб
 // лічильник відреагував негайно, не після першого await всередині),
-// syncOpEnd() у finally (гарантовано і при помилці/винятку).
+// syncOpReportResult()+syncOpEnd() гарантовано і при помилці/винятку.
 // Rev #30 (6D, індикатор — фікс "порожньої" анімації) — перед стартом
 // візуального циклу перевіряємо isCloudSessionReady() (та сама функція,
-// що й самі 10 push/pull, жодного другого запису умови) + navigator.onLine
-// (НОВИЙ, суто UI-шар сигнал — жодна з 10 функцій його раніше не
-// перевіряла, тож це не дублювання чогось наявного, а додатковий
-// pre-flight ГІРШЕ ЗА isCloudSessionReady, лише для індикатора).
-// Якщо синхронізація точно не відбудеться (немає сесії/family_id/SDK,
-// чи браузер сам каже "офлайн") — функція викликається як завжди (її
-// власний тихий пропуск спрацює сам, поведінка НЕ змінена), але БЕЗ
-// syncOpBegin()/syncOpEnd() — індикатор просто не бере участі.
-// Залишковий, свідомо прийнятий (не "додаємо помилка-стан") пробіл:
-// navigator.onLine===true, але конкретний fetch усередині все одно може
-// впасти (нестабільна мережа) — у цьому випадку індикатор ще покаже
-// цикл, хоч синхронізація й не відбулась; це вже не "точно не
-// відбудеться", а "може не відбутись", поза межами цього фіксу.
+// що й самі push/pull, жодного другого запису умови) + navigator.onLine
+// (суто UI-шар сигнал — жодна з push/pull-функцій його не перевіряє, тож
+// це не дублювання чогось наявного, а додатковий pre-flight ГІРШЕ ЗА
+// isCloudSessionReady, лише для індикатора). Якщо синхронізація точно не
+// відбудеться (немає сесії/family_id/SDK, чи браузер сам каже "офлайн") —
+// функція викликається як завжди (її власний тихий пропуск спрацює сам,
+// поведінка НЕ змінена), але БЕЗ syncOpBegin()/syncOpEnd() — індикатор
+// просто не бере участі (це НЕ новий "помилка"-стан — саме той сценарій,
+// що 6D.26 явно вирішив мовчати, а не показувати щось помилкове).
 function withSyncIndicator(fn){
   return function(...args){
     if(!isCloudSessionReady() || !navigator.onLine){
       return fn.apply(this, args);
     }
     syncOpBegin();
-    return Promise.resolve(fn.apply(this, args)).finally(syncOpEnd);
+    return Promise.resolve(fn.apply(this, args)).then(
+      function(result){ syncOpReportResult(isSyncResultFailure(result)); return result; },
+      function(err){ syncOpReportResult(true); throw err; }
+    ).finally(syncOpEnd);
   };
 }
 // Rev #30 (6D.27) — installment_accounts: pushInstallmentAccountsPilot уже
@@ -5741,7 +5820,11 @@ function renderProfileUI(){
   // індикатор синхронізації не має сенсу — усі push/pull функції й так
   // тихо не спрацьовують без сесії, syncOpBegin() просто не встигне
   // викликатись у таких випадках).
-  const dotClass = !signedIn ? '' : (syncVisualState === 'syncing' ? 'syncing' : syncVisualState === 'done' ? 'done' : (online ? 'online' : 'offline'));
+  // Rev #30 (6D.34) — 4-й фінальний стан "error" додано в той самий
+  // ланцюжок (перевіряється ПІСЛЯ syncing/done, ПЕРЕД звичайним
+  // online/offline — той самий пріоритет, що вже мали syncing/done).
+  const dotClass = !signedIn ? '' : (syncVisualState === 'syncing' ? 'syncing' : syncVisualState === 'done' ? 'done' : syncVisualState === 'error' ? 'error' : (online ? 'online' : 'offline'));
+  const dotIconHtml = dotClass === 'syncing' ? SYNC_SPIN_ICON_SVG : dotClass === 'done' ? SYNC_DONE_ICON_SVG : dotClass === 'error' ? SYNC_ERROR_ICON_SVG : '';
   // Rev #30 (6D.10) — розширено з 2 до 3 місць: 'profile-avatar-side'
   // (desktop sidebar) раніше взагалі не мав крапки — той самий "холст"-
   // фікс тепер застосований однаково для header/sidebar/картки "Сервісу".
@@ -5755,6 +5838,7 @@ function renderProfileUI(){
     }
     if(!dot){ dot = document.createElement('span'); dot.className = 'avatar-status-dot'; host.appendChild(dot); }
     dot.className = 'avatar-status-dot ' + dotClass;
+    dot.innerHTML = dotIconHtml;
   });
 
   if(signedIn){
@@ -5771,7 +5855,7 @@ function renderProfileUI(){
     // текстом — там достатньо горизонтального місця, не була частиною запиту.
     // Rev #30 (6D, індикатор синхронізації) — текст теж відображає
     // syncing/done, той самий dotClass, що вище.
-    if(statusText) statusText.textContent = dotClass === 'syncing' ? 'Синхронізується…' : dotClass === 'done' ? '✓ Синхронізовано' : (online ? 'Синхронізовано' : 'Призупинено (немає мережі)');
+    if(statusText) statusText.textContent = dotClass === 'syncing' ? 'Синхронізується…' : dotClass === 'done' ? '✓ Синхронізовано' : dotClass === 'error' ? '! Помилка синхронізації' : (online ? 'Синхронізовано' : 'Призупинено (немає мережі)');
 
     const cardName = document.getElementById('cloud-service-card-name');
     const cardStatus = document.getElementById('cloud-service-card-status');

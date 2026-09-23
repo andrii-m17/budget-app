@@ -172,6 +172,10 @@ const REPOSITORY_NAMES = [
   // чистий rename-хелпер, витягнутий з неї (потрібен тут ЛИШЕ тому, що
   // loadAll() на нього посилається; loadAll сама не під тестом, стаб).
   'renameStrippingEmoji', 'ensureBankInstallmentNamesStripped', 'stripLeadingEmoji',
+  // Rev #30 (6D.34, індикатор — стан "помилка") — 3 single-record push
+  // функції ще не мали власного extract-покриття (лише array-домени вище);
+  // isSyncResultFailure — чистий, DOM-незалежний хелпер з withSyncIndicator().
+  'pushExpenseRecordPilot', 'pushIncomeRecordPilot', 'pushDebtRecordPilot', 'isSyncResultFailure',
   'hideKey', 'divergenceKey',
   'ensureInstallmentFirstMonth',
   'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
@@ -1199,14 +1203,15 @@ test('ensureBankInstallmentNamesStripped: ідемпотентність — п�
    push — ЗАВЖДИ upsert. Немає updated_at — LWW спрощений до "приховати
    перемагає" (push) / "не перезаписувати вже приховане" (pull). */
 
-test('pushHiddenEntitiesPilot: не залогінений → жодного виклику Cloud', async () => {
+test('pushHiddenEntitiesPilot: не залогінений → жодного виклику Cloud, { success:true } (не помилка, не спробували)', async () => {
   const { ctx } = sandbox();
   ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
-  await ctx.pushHiddenEntitiesPilot(); // guard clause, getSupabaseClient не викликається взагалі
+  const result = await ctx.pushHiddenEntitiesPilot(); // guard clause, getSupabaseClient не викликається взагалі
+  assert.deepEqual(plain(result), { success: true });
 });
 
-test('pushHiddenEntitiesPilot: батько (bankAccounts) ще не синхронізований (немає cloudId) → тихий пропуск, upsert НЕ викликається', async () => {
+test('pushHiddenEntitiesPilot: батько (bankAccounts) ще не синхронізований (немає cloudId) → тихий пропуск, upsert НЕ викликається, { success:true }', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -1215,8 +1220,9 @@ test('pushHiddenEntitiesPilot: батько (bankAccounts) ще не синхр�
   ctx.getSupabaseClient = () => fake.client;
   ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
   ctx.bankAccounts = [{ name: 'Приват Банк' }]; // без cloudId
-  await ctx.pushHiddenEntitiesPilot();
+  const result = await ctx.pushHiddenEntitiesPilot();
   assert.equal(fake.calls.length, 0);
+  assert.deepEqual(plain(result), { success: true }); // тихий пропуск — НЕ помилка
 });
 
 test('pushHiddenEntitiesPilot: kind "card" → entity_type "bank", entity_id = cloudId, upsert на onConflict family_id,entity_type,entity_id', async () => {
@@ -1228,7 +1234,7 @@ test('pushHiddenEntitiesPilot: kind "card" → entity_type "bank", entity_id = c
   ctx.getSupabaseClient = () => fake.client;
   ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
-  await ctx.pushHiddenEntitiesPilot();
+  const result = await ctx.pushHiddenEntitiesPilot();
   assert.equal(fake.calls.length, 1);
   assert.equal(fake.calls[0].payload.entity_type, 'bank');
   assert.equal(fake.calls[0].payload.entity_id, 'b1');
@@ -1237,6 +1243,7 @@ test('pushHiddenEntitiesPilot: kind "card" → entity_type "bank", entity_id = c
   assert.equal(fake.calls[0].payload.hidden_from_month, '2026-06-01');
   assert.equal(fake.calls[0].payload.family_id, 'fam-1');
   assert.equal(fake.calls[0].upsertOpts.onConflict, 'family_id,entity_type,entity_id');
+  assert.deepEqual(plain(result), { success: true });
 });
 
 test('pushHiddenEntitiesPilot: kind "installment" → entity_type "installment"', async () => {
@@ -1263,8 +1270,105 @@ test('pushHiddenEntitiesPilot: мережева помилка одного за
   ctx.getSupabaseClient = () => fake.client;
   ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
-  await ctx.pushHiddenEntitiesPilot(); // не кидає — catch у циклі
-  assert.equal(fake.calls.length, 1); // спроба відбулась, помилка тиха
+  const result = await ctx.pushHiddenEntitiesPilot(); // не кидає, але тепер сигналізує невдачу явно
+  assert.equal(fake.calls.length, 1); // спроба відбулась
+  // Rev #30 (6D.34, індикатор — стан "помилка") — реальний Supabase-error
+  // (не мережевий виняток) тепер теж явно позначається як { success:false },
+  // не лише мовчки пропускається — саме це читає withSyncIndicator().
+  assert.deepEqual(plain(result), { success: false });
+});
+
+/* ============ Індикатор синхронізації — стан "помилка" (Rev #30, 6D.34) ============
+   Push-функції тепер явно повертають { success }, а не undefined —
+   withSyncIndicator() (DOM-шар, не тестується тут напряму) читає це через
+   isSyncResultFailure(). Тести нижче перевіряють САМЕ ЦЕЙ контракт:
+   реальна Cloud-помилка (не мережевий виняток, а `error` у відповіді) →
+   success:false; guard clause/тихий пропуск (батько ще не синхронізований
+   тощо) → success:true (це НЕ помилка). */
+
+test('pushCategoriesPilot: реальна Cloud-помилка (error, не виняток) при update → { success:false }', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => ({
+    from(table){
+      assert.equal(table, 'categories');
+      return {
+        update(){ return { eq(){ return { select(){ return Promise.resolve({ data: null, error: new Error('симульована Cloud-помилка') }); } }; } }; },
+      };
+    },
+  });
+  ctx.CATEGORIES = [{ name: 'Тест', type: 'Гнучка', active: true, cloudId: 'c1', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pushCategoriesPilot();
+  assert.deepEqual(plain(result), { success: false });
+});
+
+test('pushCategoriesPilot: не залогінений → { success:true } (тихий пропуск, не помилка)', async () => {
+  const { ctx } = sandbox();
+  const result = await ctx.pushCategoriesPilot();
+  assert.deepEqual(plain(result), { success: true });
+});
+
+test('pushIncomeRecordPilot: успішний upsert → { success:true }', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: [{}], error: null }); } }; } });
+  const result = await ctx.pushIncomeRecordPilot({ id: 'i1', date: '2026-01-01', amount: 1000, source: 'ЗП' });
+  assert.deepEqual(plain(result), { success: true });
+});
+
+test('pushIncomeRecordPilot: реальна Cloud-помилка від upsert → { success:false }', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: null, error: new Error('симульована помилка') }); } }; } });
+  const result = await ctx.pushIncomeRecordPilot({ id: 'i1', date: '2026-01-01', amount: 1000, source: 'ЗП' });
+  assert.deepEqual(plain(result), { success: false });
+});
+
+test('pushExpenseRecordPilot: ОЧ-залежність ще не синхронізована → тихий пропуск, { success:true } (не помилка)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.installmentAccounts = [{ name: 'iPhone' }]; // без cloudId
+  const result = await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500, linkedInstallment: 'iPhone' });
+  assert.deepEqual(plain(result), { success: true });
+});
+
+test('pushDebtRecordPilot: рахунок ще не синхронізований → тихий пропуск, { success:true } (не помилка)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.bankAccounts = [{ name: 'Приват Банк' }]; // без cloudId
+  const result = await ctx.pushDebtRecordPilot({ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-01', balance: 1000 });
+  assert.deepEqual(plain(result), { success: true });
+});
+
+test('isSyncResultFailure: { success:false } → true', () => {
+  const { ctx } = sandbox();
+  assert.equal(ctx.isSyncResultFailure({ success: false }), true);
+});
+test('isSyncResultFailure: { success:true } → false', () => {
+  const { ctx } = sandbox();
+  assert.equal(ctx.isSyncResultFailure({ success: true }), false);
+});
+test('isSyncResultFailure: { skipped:true } (pull, реальний провал усередині withSyncIndicator) → true', () => {
+  const { ctx } = sandbox();
+  assert.equal(ctx.isSyncResultFailure({ skipped: true }), true);
+});
+test('isSyncResultFailure: { skipped:false, added:1 } → false', () => {
+  const { ctx } = sandbox();
+  assert.equal(ctx.isSyncResultFailure({ skipped: false, added: 1 }), false);
+});
+test('isSyncResultFailure: відсутній результат (undefined) → false ("не знаємо", не помилка)', () => {
+  const { ctx } = sandbox();
+  assert.equal(ctx.isSyncResultFailure(undefined), false);
 });
 
 function pullHiddenSandbox(rows, opts){
