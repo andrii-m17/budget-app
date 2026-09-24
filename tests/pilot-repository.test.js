@@ -217,6 +217,10 @@ const REPOSITORY_NAMES = [
   // реюз усередині неї) НЕ під тестом тут — той самий скоуп-принцип;
   // перевірено натомість живо в браузері. activeIncomes() чиста.
   'activeIncomes',
+  // Rev #30 (6D.44) — tombstone для debts (домен 3/3, останній). Той самий
+  // принцип: saveInstallmentDrawer()/saveCardDebtDrawer() НЕ під тестом тут
+  // (DOM-термінальні), перевірено живо. activeDebts() чиста.
+  'activeDebts',
 ];
 
 function sandbox({ localStorageInitial, idbImpl } = {}){
@@ -1467,6 +1471,29 @@ test('pushDebtRecordPilot: рахунок ще не синхронізовани
   assert.deepEqual(plain(result), { success: true });
 });
 
+// Rev #30 (6D.44) — Sync Safety Patch P0.1, tombstone для debts.
+test('activeDebts: приховує записи з deletedAt, лишає решту', () => {
+  const { ctx } = sandbox();
+  ctx.debts = [
+    { id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-01', balance: 1000 },
+    { id: 'd2', name: 'iPhone', kind: 'installment', month: '2026-01', balance: 5000, deletedAt: '2026-03-01T00:00:00.000Z' },
+  ];
+  const result = ctx.activeDebts();
+  assert.equal(result.length, 1);
+  assert.equal(result[0].id, 'd1');
+});
+test('pushDebtRecordPilot: rec.deletedAt встановлено → payload несе deleted_at', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  let capturedPayload = null;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(payload){ capturedPayload = payload; return Promise.resolve({ data: [{}], error: null }); } }; } });
+  await ctx.pushDebtRecordPilot({ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-01', balance: 1000, deletedAt: '2026-03-01T00:00:00.000Z', updatedAt: '2026-03-01T00:00:00.000Z' });
+  assert.equal(capturedPayload.deleted_at, '2026-03-01T00:00:00.000Z');
+});
+
 test('isSyncResultFailure: { success:false } → true', () => {
   const { ctx } = sandbox();
   assert.equal(ctx.isSyncResultFailure({ success: false }), true);
@@ -1842,6 +1869,27 @@ test('pullDebtsCore: LWW — локальний СТРОГО новіший → 
   assert.equal(result.keptLocal, 1);
   assert.equal(ctx.debts[0].balance, 1500);
   assert.equal(pushSpy.count(), 1);
+});
+
+// Rev #30 (6D.44) — Sync Safety Patch P0.1, tombstone для debts.
+test('pullDebtsCore: Cloud-рядок з deleted_at, НОВИЙ для цього пристрою → створюється одразу з deletedAt ("пристрій C")', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Приват Банк', kind: 'card', month: '2026-05-01', balance: 1000, deleted_at: '2026-05-06T00:00:00.000Z', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2026-05-06T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.debts = [];
+  const result = await ctx.pullDebtsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.debts[0].deletedAt, '2026-05-06T00:00:00.000Z');
+  assert.deepEqual(ctx.activeDebts(), []);
+});
+
+test('pullDebtsCore: Cloud-рядок з deleted_at, локальний ІСНУЄ (не видалений) → LWW-переможець Cloud позначає deletedAt локально', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Приват Банк', kind: 'card', month: '2026-05-01', balance: 1000, deleted_at: '2026-05-07T00:00:00.000Z', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2026-05-07T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.debts = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-05', balance: 1000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullDebtsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.debts[0].deletedAt, '2026-05-07T00:00:00.000Z');
+  assert.equal(ctx.debts.length, 1);
 });
 
 test('pullDebtsPilot: тонка обгортка над pullDebtsCore (той самий результат)', async () => {

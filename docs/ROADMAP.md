@@ -4572,6 +4572,101 @@ carry-forward-перевірка (чи tombstoned борг має врахову
 відсутня для debts взагалі — лише shторка з порожнім балансом), про який
 попереджав користувач заздалегідь.
 
+### 6D.44 — Sync Safety Patch, P0.1: tombstone для `debts` (домен 3/3, останній) ✅ Rev 2.21.76
+
+Той самий принцип, що 6D.42/6D.43, плюс 4 специфічні для debts перевірки,
+про які попереджав користувач заздалегідь.
+
+**1. Carry-forward — найважливіше питання кроку, вирішене через аналіз
+поточної поведінки, не довільний вибір.** `lastKnownBalance()`/
+`typicalMonthlyPayment()`/`estimateInstallment()` (делегує до перших двох)
+тепер читають `activeDebts()`. Обґрунтування: сьогодні (до tombstone)
+фізичний `splice()` прибирає запис місяця з масиву — carry-forward "бачить
+крізь" цю прогалину до останнього РЕАЛЬНОГО факту. `activeDebts()`
+відтворює цю саму поведінку точно (tombstoned запис теж "невидимий" для
+carry-forward) — tombstone тут ЧИСТО механізм синхронізації, не нова
+політика відображення. Якби carry-forward читав сирий `debts` — це була б
+реальна регресія (застарілий баланс тихо повернувся б у прогноз).
+
+**2. Подвійний механізм видалення / "відсутність запису — значущий стан"
+(6A.1) — підтверджено, не суперечить tombstone.** Для `debts` узагалі немає
+Журнал-кнопки видалення (немає `confirmDeleteRecord`-шляху) — єдиний спосіб
+"видалити" факт місяця це порожній баланс у шторці
+(`saveInstallmentDrawer()`/`saveCardDebtDrawer()`). Коментар у коді прямо
+каже "не 0 ₴, а ВІДСУТНІСТЬ запису — Debt Data Integrity". tombstone не
+змінює це значення — `activeDebts()`-фільтрація відтворює саме
+"відсутність", лише тепер синхронізовано.
+
+**3. `debtTotalsForMonth()` (hideKey-фікс 6D.33) — конфлікту немає.**
+`activeDebts()` вставлено ПЕРЕД hideKey-based дедуп-циклом — сам цикл і
+його ключ незмінні, лише вхідний набір записів звужений.
+
+**4. FK на bank/installment account — не впливає, підтверджено читанням
+коду.** `bank_account_id`/`installment_account_id` у `pushDebtRecordPilot`
+резолвляться від САМОГО рахунку (`bankAccounts`/`installmentAccounts`), не
+від записів `debts[]` — tombstone конкретного місячного факту жодним чином
+не зачіпає видимість картки/ОЧ.
+
+**Самокорекція — знайдено ПІД ЧАС наскрізної перевірки debts, хоча
+зачіпає всі 3 Rev патчу:** попередній grep (`expenses\.(filter|forEach|
+...)\(` рядок-за-рядком) пропускав (а) бере `.length` без дужок, (б) виклик
+методу, розбитий на ДВА рядки (назва масиву й `.filter(` на різних рядках
+через форматування коду). Знайдено й виправлено:
+- **`linkedExpensesSum()`** (`expenses`/`.filter(` на різних рядках) —
+  досі читала сирий `expenses`, попри те що це саме той параметр, який
+  живить `estimateInstallment()`/"оплачено"-бейдж ОЧ. Виправлено на
+  `activeExpenses()`.
+- **Excel-експорт** (`exportToExcel()`, усі 3 домени, `.slice()`) — досі
+  експортував видалені записи у файл, який користувач забирає з собою.
+  Виправлено на `activeExpenses()`/`activeIncomes()`/`activeDebts()`.
+- **Лічильник діагностики** ("Перевірено: N витрат") і **Dashboard
+  empty-стан** (`hasDebtData`/`analyticsIsEmpty`, `.length` без дужок) —
+  виправлено на `activeX().length`.
+- Стара документація-коментар (рядок ~4182) про "видалення НЕ
+  синхронізується" — оновлено, більше не відповідає дійсності.
+
+Після цього виконано node-скрипт незалежної перевірки (не рядковий grep, а
+регексп, що враховує можливий перенос рядка між назвою масиву й методом) —
+підтвердив: жодного `.filter/.forEach/.find/.findIndex/.some/.map/.length/
+.slice` на сирих `expenses`/`incomes`/`debts` поза свідомо задокументованими
+винятками більше не лишилось.
+
+**Реалізація:** `activeDebts()`; `saveInstallmentDrawer()`/
+`saveCardDebtDrawer()` — порожній баланс тепер стампить `deletedAt`+
+`updatedAt` (guard проти повторного "видалення" вже видаленого) замість
+`splice()`, непорожній баланс на existingIdx — `delete rec.deletedAt`
+(воскресіння, той самий принцип, що incomes); `pushDebtRecordPilot`
+надсилає `deleted_at`; `pullDebtsCore` — `deleted_at` у select/diff/assign.
+Cloud: `alter table debts add column deleted_at timestamptz null`.
+
+**Тестування:** `node --test` — 346/346 (5 нових тестів: `activeDebts()`,
+`pushDebtRecordPilot` incl. `deleted_at`, `pullDebtsCore` —
+новий-tombstoned/LWW-Cloud-переможець). `saveInstallmentDrawer()`/
+`saveCardDebtDrawer()` самі DOM-термінальні, "воскресіння"-логіка
+перевірена лише живо — той самий скоуп-принцип, що вже задокументований.
+
+**Живо перевірено проти `budget-app-dev` — повний цикл:**
+- `alter table` підтверджено через `information_schema.columns`.
+- Tombstone через `saveCardDebtDrawer()` (порожній баланс) → `deletedAt`
+  локально й у Cloud, `activeDebts()` не бачить, `lastKnownBalance()` для
+  наступного місяця коректно повернув `null` (carry-forward "бачить крізь").
+- **Воскресіння**: нова сума (777) для того самого місяця → той самий
+  `id`, `deletedAt` зникло локально й у Cloud (`deleted_at: null`
+  підтверджено SQL).
+- **Симуляція "пристрою C"** (з явним `await` на push, щоб уникнути
+  гонки fire-and-forget push vs. симульований pull) — `pullDebtsCore()`
+  створив tombstoned запис одразу, `activeDebts()` не бачить.
+- `renderDashboard()` і Excel-експорт (`activeExpenses()`/`activeDebts()`)
+  відпрацювали без помилок після всіх змін.
+- Тестовий запис відновлено (баланс 2, без `deletedAt`).
+
+⚠️ **iPhone-тест — обов'язково**, ще не виконаний.
+
+**Sync Safety Patch P0.1 (tombstone) тепер повний для всіх трьох
+фінансових доменів (expenses/incomes/debts).** Далі за патчем —
+P1.1/P1.2 вже закриті (6D.39/6D.40), P0.3 закритий (6D.41), лишається
+P1.3 (backup restore safety snapshot).
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.

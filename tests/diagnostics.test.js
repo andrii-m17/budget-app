@@ -24,6 +24,8 @@ function sandbox({ expenses, debts, installmentAccounts, hiddenFrom, ignoredDive
       'divergenceKey', 'hideKey', 'isHiddenForMonth', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum',
       // Rev #30 (6D.42) — findExpenseIdIssues()/findTimestampIssues() тепер сканують activeExpenses(), не сирий expenses.
       'activeExpenses',
+      // Rev #30 (6D.44) — findInstallmentDivergences()/lastKnownBalance()/typicalMonthlyPayment() тепер сканують activeDebts().
+      'activeDebts',
     ]
   );
 }

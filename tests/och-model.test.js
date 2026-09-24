@@ -23,7 +23,9 @@ const { buildSandbox } = require('./extract');
 function sandbox({ debts, expenses, hiddenFrom }){
   return buildSandbox(
     { debts: debts || [], expenses: expenses || [], hiddenFrom: hiddenFrom || {} },
-    ['hideKey', 'isHiddenForMonth', 'typicalMonthlyPayment', 'lastKnownBalance', 'monthKey', 'linkedExpensesSum', 'estimateInstallment']
+    ['hideKey', 'isHiddenForMonth', 'typicalMonthlyPayment', 'lastKnownBalance', 'monthKey', 'linkedExpensesSum', 'estimateInstallment',
+      // Rev #30 (6D.44) — typicalMonthlyPayment()/lastKnownBalance() сканують activeDebts(); linkedExpensesSum() (6D.42) — activeExpenses().
+      'activeDebts', 'activeExpenses']
   );
 }
 

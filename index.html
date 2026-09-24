@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.75</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.76</div>
 </div>
   </div>
 </div>
@@ -4179,9 +4179,11 @@ async function saveDebts(){
       неактуальними в Cloud до наступного одиничного редагування. Не
       retry-черга, узгоджено тим самим принципом, що решта пілоту.
 
-   3) Видалення (deleteRecord() для expenses/incomes; debts.splice() при
-      спорожненні балансу) СВІДОМО не синхронізується цим кроком — окрема
-      майбутня задача.
+   3) Видалення (deleteRecord() для expenses/incomes; порожній баланс у
+      saveInstallmentDrawer()/saveCardDebtDrawer() для debts) СВІДОМО НЕ
+      синхронізувалось цим кроком (6D.5-6D.37) — закрито окремо пізніше,
+      Sync Safety Patch P0.1 (6D.42-6D.44): tombstone (deletedAt) замість
+      фізичного видалення для всіх трьох доменів.
 
    4) FK-залежності (linked_installment_id/bank_account_id/installment_account_id)
       резолвляться за локальним name-полем (linkedInstallment/name+kind) —
@@ -4284,6 +4286,8 @@ async function pushDebtRecordPilot(rec){
       min_payment: rec.minPayment != null ? rec.minPayment : null,
       min_payment_done: rec.minPaymentDone != null ? rec.minPaymentDone : null,
       monthly_payment: rec.monthlyPayment != null ? rec.monthlyPayment : null,
+      // Rev #30 (6D.44) — tombstone, той самий принцип, що expenses/incomes.
+      deleted_at: rec.deletedAt || null,
       created_at: rec.createdAt,
       updated_at: rec.updatedAt,
       created_by: userId,
@@ -4468,7 +4472,7 @@ async function pullDebtsCore(){
   let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
   let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
   try{
-    let query = client.from('debts').select('id,bank_account_id,installment_account_id,name,kind,month,balance,min_payment,min_payment_done,monthly_payment,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('debts').select('id,bank_account_id,installment_account_id,name,kind,month,balance,min_payment,min_payment_done,monthly_payment,deleted_at,created_at,updated_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'debts');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
@@ -4495,7 +4499,8 @@ async function pullDebtsCore(){
           pushDebtRecordPilot(local);
           continue;
         }
-        if(local.name !== resolvedName || local.month !== month || local.balance !== row.balance || local.minPayment !== row.min_payment || local.minPaymentDone !== row.min_payment_done || local.monthlyPayment !== row.monthly_payment || local.updatedAt !== row.updated_at){
+        // Rev #30 (6D.44) — deletedAt як звичайне синхронізоване поле (LWW), той самий принцип, що pullExpensesCore()/pullIncomesCore().
+        if(local.name !== resolvedName || local.month !== month || local.balance !== row.balance || local.minPayment !== row.min_payment || local.minPaymentDone !== row.min_payment_done || local.monthlyPayment !== row.monthly_payment || (local.deletedAt||null) !== (row.deleted_at||null) || local.updatedAt !== row.updated_at){
           local.name = resolvedName;
           local.kind = row.kind;
           local.month = month;
@@ -4503,6 +4508,7 @@ async function pullDebtsCore(){
           if(row.min_payment != null) local.minPayment = row.min_payment; else delete local.minPayment;
           if(row.min_payment_done != null) local.minPaymentDone = row.min_payment_done; else delete local.minPaymentDone;
           if(row.monthly_payment != null) local.monthlyPayment = row.monthly_payment; else delete local.monthlyPayment;
+          if(row.deleted_at) local.deletedAt = row.deleted_at; else delete local.deletedAt;
           local.createdAt = row.created_at;
           local.updatedAt = row.updated_at;
           updated++;
@@ -4513,6 +4519,8 @@ async function pullDebtsCore(){
       if(row.min_payment != null) rec.minPayment = row.min_payment;
       if(row.min_payment_done != null) rec.minPaymentDone = row.min_payment_done;
       if(row.monthly_payment != null) rec.monthlyPayment = row.monthly_payment;
+      // Rev #30 (6D.44) — новий для цього пристрою запис, вже tombstoned у Cloud — "пристрій C" DoD-сценарій.
+      if(row.deleted_at) rec.deletedAt = row.deleted_at;
       debts.push(rec);
       added++;
     }
@@ -4938,7 +4946,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.75';
+const APP_VERSION = '2.21.76';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -5395,7 +5403,9 @@ function isInstallmentVisibleForMonth(acc, month){
 // для pre-fill у формі щомісячного оновлення боргу карток.
 function lastKnownBalance(name, kind, beforeMonth){
   let best = null;
-  debts.forEach(d=>{
+  // Rev #30 (6D.44) — activeDebts(): tombstoned (порожній баланс) місяць має
+  // лишатись "невидимим" для carry-forward, точно як фізичне splice() досі.
+  activeDebts().forEach(d=>{
     if(d.name===name && d.kind===kind && d.month<beforeMonth && !isHiddenForMonth(d.name, d.kind, beforeMonth)){
       if(!best || d.month>best.month) best = d;
     }
@@ -5418,7 +5428,8 @@ function lastKnownBalance(name, kind, beforeMonth){
 // назавжди. Мода стійка до одиничних відхилень: 4 місяці по 3500 + 1 місяць
 // 4000 → типовим лишається 3500. Тай-брейк при рівній частоті — новіше значення.
 function typicalMonthlyPayment(name, kind, beforeMonth){
-  const records = debts
+  // Rev #30 (6D.44) — activeDebts(), той самий принцип, що lastKnownBalance().
+  const records = activeDebts()
     .filter(d=> d.name===name && d.kind===kind && d.month<beforeMonth && d.monthlyPayment!=null && !isHiddenForMonth(d.name, d.kind, beforeMonth))
     .sort((a,b)=> a.month.localeCompare(b.month)); // хронологічно, щоб тай-брейк природно брав новіший запис
   if(!records.length) return null;
@@ -5436,8 +5447,16 @@ function typicalMonthlyPayment(name, kind, beforeMonth){
 // така сума є — вона точніша основа для "очікуваного залишку", ніж
 // typicalMonthlyPayment() вище (той лише статистична здогадка за відсутності
 // реальних прив'язаних даних цього місяця).
+// Rev #30 (6D.44) — Самокорекція: activeExpenses() замість сирого expenses
+// — знайдено ПІД ЧАС 6D.44, хоча зачіпає 6D.42/expenses (переніс сюди, а не
+// назад у 6D.42, бо саме зараз наскрізна перевірка debts-carry-forward
+// (estimateInstallment→linkedExpensesSum) це виявила). Видалена витрата не
+// мала б і надалі "рахуватись оплатою" ОЧ цього місяця (paid-бейдж,
+// estimateInstallment) — той самий grep-розрив, що й пропущені .findIndex(/
+// .slice()/.length раніше: `expenses` і `.filter(` тут на РІЗНИХ рядках,
+// рядковий grep їх не бачив разом.
 function linkedExpensesSum(installmentName, month){
-  return expenses
+  return activeExpenses()
     .filter(e => e.linkedInstallment===installmentName && monthKey(e.date)===month)
     .reduce((s,e)=>s+e.amount, 0);
 }
@@ -6272,9 +6291,10 @@ function divergenceKey(name, month){ return name + '|' + month; }
 // потрапляють.
 function findInstallmentDivergences(){
   const issues = [];
-  const names = Array.from(new Set(debts.filter(function(d){ return d.kind==='installment'; }).map(function(d){ return d.name; })));
+  // Rev #30 (6D.44) — activeDebts(): видалений (tombstoned) факт більше не "факт", нема що звіряти з очікуванням.
+  const names = Array.from(new Set(activeDebts().filter(function(d){ return d.kind==='installment'; }).map(function(d){ return d.name; })));
   names.forEach(function(name){
-    debts.filter(function(d){ return d.kind==='installment' && d.name===name; }).forEach(function(rec){
+    activeDebts().filter(function(d){ return d.kind==='installment' && d.name===name; }).forEach(function(rec){
       if(ignoredDivergences[divergenceKey(name, rec.month)]) return;
       const prevBal = lastKnownBalance(name, 'installment', rec.month);
       if(prevBal == null) return; // немає попереднього факту — нема з чим порівнювати
@@ -6315,8 +6335,9 @@ function buildDiagnosticsReport(){
   diagnosticIssueTargets = [];
   const totalIssues = checks.reduce(function(s,c){ return s+c.issues.length; }, 0);
   if(totalIssues === 0){
+    // Rev #30 (6D.44) — activeExpenses(): findExpenseIdIssues()/findTimestampIssues() вище тепер теж сканують лише активні — лічильник має відповідати.
     return `<div class="diag-summary-ok">✓ Усе гаразд — проблем не знайдено</div>`
-      + `<div class="diag-summary-meta">Перевірено: ${expenses.length} ${expenseCountWord(expenses.length)}, ${installmentAccounts.length} ОЧ</div>`;
+      + `<div class="diag-summary-meta">Перевірено: ${activeExpenses().length} ${expenseCountWord(activeExpenses().length)}, ${installmentAccounts.length} ОЧ</div>`;
   }
   return checks.map(function(c){
     const statusHtml = c.issues.length
@@ -7000,6 +7021,18 @@ function activeExpenses(){
 function activeIncomes(){
   return incomes.filter(function(e){ return !e.deletedAt; });
 }
+// Rev #30 (6D.44) — той самий патерн для debts (домен 3/3, останній).
+// Крок 0 підтвердив: "відсутність debts-запису за місяць — значущий стан
+// сам по собі" (6A.1) лишається чинним і з tombstone — activeDebts()
+// точно відтворює сьогоднішню поведінку фізичного splice() (carry-forward
+// "бачить крізь" прогалину до останнього РЕАЛЬНОГО факту), tombstone лише
+// синхронізує цей факт, не змінює його значення. deleteRecord() для debts
+// НЕ отримує гілку — на відміну від expenses/incomes, тут узагалі немає
+// Журнал-кнопки видалення, єдиний шлях — порожній баланс у шторці
+// (saveInstallmentDrawer()/saveCardDebtDrawer() нижче).
+function activeDebts(){
+  return debts.filter(function(d){ return !d.deletedAt; });
+}
 async function deleteRecord(kind, id){
   if(kind==='expense'){
     const rec = expenses.find(function(e){ return e.id===id; });
@@ -7069,7 +7102,8 @@ function populateInstallmentTable(){
   el.innerHTML = visible.map(function(x){
     const acc = x.acc, i = x.i, name = acc.name;
     const est = estimateInstallment(name, selectedMonth);
-    const existing = debts.find(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
+    // Rev #30 (6D.44) — activeDebts(): tombstoned факт цього місяця має показувати оцінку (est), не свій застарілий баланс.
+    const existing = activeDebts().find(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
     const balance = existing ? existing.balance : (est.balance != null ? est.balance : 0);
     const payment = (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : (est.pay != null ? est.pay : 0);
     // Rev 2.17.0 — "оплата цього місяця внесена" для ОЧ визначається
@@ -7116,7 +7150,8 @@ function updateInstallmentTotal(){
   let sum = 0;
   installmentAccounts.forEach(function(acc){
     if(!isInstallmentVisibleForMonth(acc, selectedMonth)) return;
-    const existing = debts.find(function(d){ return d.name===acc.name && d.kind==='installment' && d.month===selectedMonth; });
+    // Rev #30 (6D.44) — activeDebts().
+    const existing = activeDebts().find(function(d){ return d.name===acc.name && d.kind==='installment' && d.month===selectedMonth; });
     const est = estimateInstallment(acc.name, selectedMonth);
     sum += (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : (est.pay || 0);
   });
@@ -7130,7 +7165,8 @@ function updateInstallmentBalanceTotal(){
   let sum = 0;
   installmentAccounts.forEach(function(acc){
     if(!isInstallmentVisibleForMonth(acc, selectedMonth)) return;
-    const existing = debts.find(function(d){ return d.name===acc.name && d.kind==='installment' && d.month===selectedMonth; });
+    // Rev #30 (6D.44) — activeDebts().
+    const existing = activeDebts().find(function(d){ return d.name===acc.name && d.kind==='installment' && d.month===selectedMonth; });
     const est = estimateInstallment(acc.name, selectedMonth);
     sum += existing ? existing.balance : (est.balance || 0);
   });
@@ -7147,7 +7183,8 @@ function openInstallmentEditor(i){
   editingInstallmentIdx = i;
   lastFocusedBeforeDialog = document.activeElement;
   const name = acc.name;
-  const existing = debts.find(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
+  // Rev #30 (6D.44) — activeDebts(): tombstoned факт має відкриватись ПОРОЖНІМ (як ніколи не введений), не своїм старим значенням.
+  const existing = activeDebts().find(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
   const est = estimateInstallment(name, selectedMonth);
   const balance = existing ? existing.balance : est.balance;
   const payment = (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : est.pay;
@@ -7330,12 +7367,21 @@ async function saveInstallmentDrawer(){
 
   const rawBal = document.getElementById('idd-balance').value.trim();
   const balance = parseAmount(rawBal);
+  // Rev #30 (6D.44) — existingIdx МАЄ лишатись сирим (не activeDebts()), той
+  // самий принцип, що saveIncomeDrawer(): має знайти tombstoned запис і для
+  // повторного "видалення" (guard нижче), і для "воскресіння" (той самий id,
+  // природний ключ назва+kind+місяць не змінився).
   const existingIdx = debts.findIndex(function(d){ return d.name===newName && d.kind==='installment' && d.month===selectedMonth; });
-  // Rev #30 (6D.5) — той самий принцип, що saveIncomeDrawer() вище: push
-  // одного запису (не всього debts[]), видалення (splice нижче) не пушиться.
   let pushedRecord = null;
   if(!rawBal || isNaN(balance) || balance<0){
-    if(existingIdx>=0) debts.splice(existingIdx,1);
+    // Rev #30 (6D.44) — порожнє поле: tombstone замість фізичного splice()
+    // (лише якщо ще НЕ tombstoned — нема що видаляти вдруге), одразу пушиться.
+    if(existingIdx>=0 && !debts[existingIdx].deletedAt){
+      const nowISO = new Date().toISOString();
+      debts[existingIdx].deletedAt = nowISO;
+      debts[existingIdx].updatedAt = nowISO;
+      pushedRecord = debts[existingIdx];
+    }
   }else{
     const rawPay = document.getElementById('idd-pay').value.trim();
     const monthlyPayment = rawPay ? parseAmount(rawPay) : undefined;
@@ -7345,6 +7391,10 @@ async function saveInstallmentDrawer(){
       // Rev #30 (6D.7) — той самий принцип, що saveIncomeDrawer(): updatedAt
       // оновлюється й при редагуванні, createdAt лишається як був.
       debts[existingIdx].updatedAt = new Date().toISOString();
+      // Rev #30 (6D.44) — воскресіння: якщо цей природний ключ раніше
+      // видалявся (порожній баланс), а тепер знову введено суму — той самий
+      // запис знову активний.
+      delete debts[existingIdx].deletedAt;
       pushedRecord = debts[existingIdx];
     }else{
       const nowISO = new Date().toISOString();
@@ -7445,7 +7495,8 @@ function populateBankDebtTable(){
   const CHECK = `<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
   el.innerHTML = visible.map(function(x){
     const acc = x.acc, i = x.i, name = acc.name;
-    const existing = debts.find(function(d){ return d.name===name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
+    // Rev #30 (6D.44) — activeDebts(): tombstoned факт цього місяця показує 0, не своє старе значення.
+    const existing = activeDebts().find(function(d){ return d.name===name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
     // Rev 2.1.0 — Debt Data Integrity: якщо за цей місяць ще немає факту,
     // показуємо останній відомий баланс як орієнтир (не 0) — сама шторка
     // при відкритті так само підставить це значення в поле для підтвердження.
@@ -7481,7 +7532,8 @@ function updateBankDebtTotal(){
   let totalBalance = 0, totalMinpay = 0;
   bankAccounts.forEach(function(acc){
     if(isHiddenForMonth(acc.name, 'card', selectedMonth)) return;
-    const existing = debts.find(function(d){ return d.name===acc.name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
+    // Rev #30 (6D.44) — activeDebts().
+    const existing = activeDebts().find(function(d){ return d.name===acc.name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
     totalBalance += existing ? existing.balance : 0;
     totalMinpay += (existing && existing.minPayment != null) ? existing.minPayment : 0;
   });
@@ -7503,7 +7555,8 @@ function openCardDebtEditor(i){
   editingBankIdx = i;
   lastFocusedBeforeDialog = document.activeElement;
   const name = acc.name;
-  const existing = debts.find(function(d){ return d.name===name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
+  // Rev #30 (6D.44) — activeDebts(): tombstoned факт має відкриватись порожнім (0), не своїм старим значенням.
+  const existing = activeDebts().find(function(d){ return d.name===name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
   const balance = existing ? existing.balance : 0;
   const minPayment = (existing && existing.minPayment != null) ? existing.minPayment : 0;
   document.getElementById('cdd-icon').innerHTML = bankIcon(name, 34);
@@ -7558,14 +7611,21 @@ async function saveCardDebtDrawer(){
 
   const balRaw = document.getElementById('cdd-balance').value.trim();
   const balAmount = parseAmount(balRaw);
+  // Rev #30 (6D.44) — existingIdx сирий, той самий принцип, що saveInstallmentDrawer().
   const existingIdx = debts.findIndex(function(d){ return d.name===newName && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
-  // Rev #30 (6D.5) — той самий принцип, що saveInstallmentDrawer() вище:
-  // push одного запису, видалення (splice нижче) не пушиться цим кроком.
   let pushedRecord = null;
   if(!balRaw || isNaN(balAmount) || balAmount<0){
-    // Порожній борг — як і раніше, прибираємо факт за цей місяць (не 0 ₴, а
-    // ВІДСУТНІСТЬ запису — Debt Data Integrity).
-    if(existingIdx>=0) debts.splice(existingIdx,1);
+    // Rev #30 (6D.44) — порожній борг: tombstone замість фізичного splice()
+    // — "ВІДСУТНІСТЬ запису" (Debt Data Integrity) лишається значущим
+    // локальним станом (activeDebts() відтворює його точно), але тепер
+    // синхронізується, а не губиться на інших пристроях. Guard — лише
+    // якщо ще НЕ tombstoned.
+    if(existingIdx>=0 && !debts[existingIdx].deletedAt){
+      const nowISO = new Date().toISOString();
+      debts[existingIdx].deletedAt = nowISO;
+      debts[existingIdx].updatedAt = nowISO;
+      pushedRecord = debts[existingIdx];
+    }
   }else{
     const minPayRaw = document.getElementById('cdd-minpay').value.trim();
     const minPayAmount = parseAmount(minPayRaw);
@@ -7578,6 +7638,7 @@ async function saveCardDebtDrawer(){
       // Rev #30 (6D.7) — той самий принцип, що saveInstallmentDrawer():
       // updatedAt оновлюється й при редагуванні, createdAt лишається як був.
       debts[existingIdx].updatedAt = new Date().toISOString();
+      delete debts[existingIdx].deletedAt; // Rev #30 (6D.44) — воскресіння
       pushedRecord = debts[existingIdx];
     }else{
       const nowISO = new Date().toISOString();
@@ -7654,7 +7715,9 @@ function removeBankAccount(i){
 // (totalCard/totalInstallment/totalMonthlyInstallment) не змінені.
 function debtTotalsForMonth(month){
   const byKindName = {};
-  debts.forEach(d=>{
+  // Rev #30 (6D.44) — activeDebts() вставлено ПЕРЕД hideKey-дедуп циклом
+  // (6D.33 BugFix) — сам дедуп-цикл і його ключ незмінні, лише вхідний набір записів.
+  activeDebts().forEach(d=>{
     if(d.month <= month && !isHiddenForMonth(d.name, d.kind, month)){
       const key = hideKey(d.name, d.kind);
       if(!byKindName[key] || d.month > byKindName[key].month) byKindName[key] = d;
@@ -7674,14 +7737,16 @@ function debtTotalsForMonth(month){
 // місяць (а не перенесений з минулого) — використовується для суворої дельти
 // "Динаміка боргу" (треба знати і поточний, і попередній місяць як факт).
 function kindHasActualForMonth(kind, month){
-  return debts.some(d=> d.kind===kind && d.month===month && !isHiddenForMonth(d.name, d.kind, month));
+  // Rev #30 (6D.44) — activeDebts(): tombstoned запис не "факт", не має рахуватись як актуальний.
+  return activeDebts().some(d=> d.kind===kind && d.month===month && !isHiddenForMonth(d.name, d.kind, month));
 }
 // Rev 2.1.0 — для KPI "Борг" (знімок) і донату "Скорочення боргу": чи всі
 // включені записи "kind" актуальні саме на обраний місяць, і якщо ні —
 // яка найстаріша дата серед них (консервативна оцінка "станом на").
 function debtAsOfInfo(month, kind){
   const byName = {};
-  debts.forEach(d=>{
+  // Rev #30 (6D.44) — activeDebts().
+  activeDebts().forEach(d=>{
     if(d.kind===kind && d.month<=month && !isHiddenForMonth(d.name, d.kind, month)){
       if(!byName[d.name] || d.month > byName[d.name].month) byName[d.name] = d;
     }
@@ -7763,8 +7828,10 @@ document.addEventListener('click', function(e){
 // Найперший місяць, за який взагалі є хоч один запис боргу — "точка відліку"
 // для картки "Скорочення боргу" (прогрес з початку ведення обліку, Rev 1.3).
 function earliestDebtMonth(){
-  if(!debts.length) return null;
-  return debts.reduce((min,d)=> d.month < min ? d.month : min, debts[0].month);
+  // Rev #30 (6D.44) — activeDebts(), той самий принцип, що earliestActivityMonth() для expenses/incomes.
+  const active = activeDebts();
+  if(!active.length) return null;
+  return active.reduce((min,d)=> d.month < min ? d.month : min, active[0].month);
 }
 // Найперший місяць, за який є хоч один запис доходу/витрати — потрібен графіку
 // "Доходи vs Витрати", щоб дані завжди починались зліва, а не зсувались вправо
@@ -7971,7 +8038,14 @@ function exportToExcel(){
   }
   const btn = document.getElementById('export-btn');
   btn.classList.add('btn-loading'); btn.disabled = true;
-  const expData = expenses.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>{
+  // Rev #30 (6D.44) — Самокорекція: grep у 6D.42-6D.44 шукав лише `.find(`/
+  // `.filter(` тощо, пропустивши `.slice()` — Excel-експорт досі читав сирі
+  // масиви для всіх трьох доменів. Видалений (tombstoned) запис не мав би
+  // потрапляти у файл, який користувач забирає з собою — activeExpenses()/
+  // activeIncomes()/activeDebts() замість .slice() на сирому масиві (той
+  // самий .sort()-безпечний clone-ефект, .slice() тут був не для копіювання
+  // per se, а щоб не мутувати оригінал сортуванням — filter() і так повертає новий масив).
+  const expData = activeExpenses().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>{
     const d = new Date(e.date);
     const monthLbl = isNaN(d) ? '' : `${UA_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
     return {
@@ -7980,10 +8054,10 @@ function exportToExcel(){
       'Сума': e.amount, 'Статус автоматизації': e.manual ? 'Ручний' : 'Авто'
     };
   });
-  const incData = incomes.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>({
+  const incData = activeIncomes().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>({
     'Дата': isoToUaDateText(e.date), 'Джерело': e.source, 'Сума': e.amount
   }));
-  const debtData = debts.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(d=>({
+  const debtData = activeDebts().sort((a,b)=>a.month.localeCompare(b.month)).map(d=>({
     'Місяць': monthLabel(d.month), 'Назва': d.name,
     'Тип': d.kind==='installment' ? 'ОЧ' : 'Картка', 'Залишок': d.balance
   }));
@@ -8691,8 +8765,8 @@ function monthLabelShort(key){
   const [y,m]=key.split('-'); return short[parseInt(m,10)-1];
 }
 function allMonths(){
-  // Rev #30 (6D.42/6D.43) — activeExpenses()/activeIncomes() (debts без tombstone — окремий наступний Rev).
-  const set = new Set([...activeExpenses().map(e=>monthKey(e.date)), ...activeIncomes().map(e=>monthKey(e.date)), ...debts.map(d=>d.month)].filter(Boolean));
+  // Rev #30 (6D.42/6D.43/6D.44) — activeExpenses()/activeIncomes()/activeDebts().
+  const set = new Set([...activeExpenses().map(e=>monthKey(e.date)), ...activeIncomes().map(e=>monthKey(e.date)), ...activeDebts().map(d=>d.month)].filter(Boolean));
   const todayKey = monthKey(localDateISO());
   // BugFix Rev 2.0.3: раніше в списку були лише місяці, де вже є хоч якийсь
   // запис — а оскільки дохід/борги тепер вносяться через таблицю, прив'язану
@@ -10078,7 +10152,8 @@ function renderDashboard(){
   const { monthExp, monthInc, totalIncome, totalExpense, savings } = monthAggregates(month);
   const debtNow = debtTotalsForMonth(month);
   const debtPrev = debtTotalsForMonth(shiftMonth(month,-1));
-  const hasDebtData = debts.length > 0;
+  // Rev #30 (6D.44) — activeDebts(): якщо всі борги tombstoned, це логічно "немає даних", не "є дані".
+  const hasDebtData = activeDebts().length > 0;
   const debtChange = debtPrev.total - debtNow.total; // позитивне = борг зменшився (за місяць)
   const startMonth = earliestDebtMonth();
   const debtStart = startMonth ? debtTotalsForMonth(startMonth) : { total: 0 };
@@ -10087,7 +10162,8 @@ function renderDashboard(){
   const prev = monthAggregates(prevMonth);
 
   /* --- Порожній стан Аналітики (немає жодного запису в системі взагалі) --- */
-  const analyticsIsEmpty = expenses.length===0 && incomes.length===0 && debts.length===0;
+  // Rev #30 (6D.44) — activeExpenses()/activeIncomes()/activeDebts(): якщо все видалено, це порожній стан.
+  const analyticsIsEmpty = activeExpenses().length===0 && activeIncomes().length===0 && activeDebts().length===0;
   document.getElementById('analytics-empty').classList.toggle('hidden', !analyticsIsEmpty);
   document.getElementById('analytics-body').classList.toggle('hidden', analyticsIsEmpty);
   if(analyticsIsEmpty){ expandedRow4Key = null; secondaryExpandedKey = null; return; } // немає сенсу рахувати картки/графіки по порожніх даних

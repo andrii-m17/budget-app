@@ -10,7 +10,9 @@ const { buildSandbox } = require('./extract');
 function sandbox(debts, hiddenFrom){
   return buildSandbox(
     { debts, hiddenFrom: hiddenFrom || {} },
-    ['hideKey', 'isHiddenForMonth', 'debtAsOfInfo', 'lastKnownBalance']
+    ['hideKey', 'isHiddenForMonth', 'debtAsOfInfo', 'lastKnownBalance',
+      // Rev #30 (6D.44) — debtAsOfInfo()/lastKnownBalance() тепер сканують activeDebts(), не сирий debts.
+      'activeDebts']
   );
 }
 
