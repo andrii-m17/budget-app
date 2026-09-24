@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.71</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.72</div>
 </div>
   </div>
 </div>
@@ -3187,7 +3187,11 @@ async function pullCategoriesCore(){
   let updated = 0, linked = 0, added = 0;
   let keptLocal = 0;
   try{
-    const { data, error } = await client.from('categories').select('id,name,active,type,created_at,updated_at').eq('family_id', cloudFamilyId);
+    // Rev #30 (6D.38) — інкрементальний pull: applySyncMarker() додає
+    // .gte('updated_at', marker) лише якщо маркер уже є для цього домену.
+    let query = client.from('categories').select('id,name,active,type,created_at,updated_at').eq('family_id', cloudFamilyId);
+    query = applySyncMarker(query, 'categories');
+    const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of data){
       const byCloudId = CATEGORIES.find(function(c){ return c.cloudId === row.id; });
@@ -3246,6 +3250,7 @@ async function pullCategoriesCore(){
       CATEGORIES.push({ name: row.name, type: row.type || 'Гнучка', active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
       added++;
     }
+    updateSyncMarkerFromAllRows('categories', data); // Rev #30 (6D.38) — усередині try: `data` block-scoped
   }catch(e){
     return { skipped: true };
   }
@@ -3426,12 +3431,22 @@ async function pullSubcategoriesCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
+  let maxSeen = null; // Rev #30 (6D.38) — max(updated_at) ЛИШЕ серед рядків, що пройшли FK-резолюцію (нижче)
   try{
-    const { data, error } = await client.from('subcategories').select('id,name,category_id,active,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('subcategories').select('id,name,category_id,active,created_at,updated_at').eq('family_id', cloudFamilyId);
+    query = applySyncMarker(query, 'subcategories');
+    const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of data){
       const parentCat = CATEGORIES.find(function(c){ return c.cloudId === row.category_id; });
+      // Rev #30 (6D.38) — skippedFk-рядок НЕ рухає маркер: якщо маркер
+      // "перестрибне" його timestamp, цей запис ніколи більше не
+      // потрапить у наступний інкрементальний pull, навіть коли батько
+      // (категорія) зрештою синхронізується — тихий self-heal тоді
+      // назавжди зламається саме для цього запису. continue тут
+      // навмисно ПЕРЕД оновленням maxSeen нижче.
       if(!parentCat){ skippedFk++; continue; }
+      if(!maxSeen || row.updated_at > maxSeen) maxSeen = row.updated_at;
       const byCloudId = SUBCATEGORIES.find(function(s){ return s.cloudId === row.id; });
       if(byCloudId){
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
@@ -3465,6 +3480,7 @@ async function pullSubcategoriesCore(){
       SUBCATEGORIES.push({ name: row.name, category: parentCat.name, active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
       added++;
     }
+    if(maxSeen) setSyncMarker('subcategories', maxSeen);
   }catch(e){
     return { skipped: true };
   }
@@ -3486,8 +3502,11 @@ async function pullDictionaryCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
+  let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
   try{
-    const { data, error } = await client.from('dictionary').select('id,keyword,category_id,subcategory_id,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('dictionary').select('id,keyword,category_id,subcategory_id,created_at,updated_at').eq('family_id', cloudFamilyId);
+    query = applySyncMarker(query, 'dictionary');
+    const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of data){
       const parentCat = CATEGORIES.find(function(c){ return c.cloudId === row.category_id; });
@@ -3497,6 +3516,7 @@ async function pullDictionaryCore(){
         parentSub = SUBCATEGORIES.find(function(s){ return s.cloudId === row.subcategory_id; });
         if(!parentSub){ skippedFk++; continue; }
       }
+      if(!maxSeen || row.updated_at > maxSeen) maxSeen = row.updated_at;
       const subName = parentSub ? parentSub.name : null;
       const byCloudId = DICTIONARY.find(function(d){ return d.cloudId === row.id; });
       if(byCloudId){
@@ -3531,6 +3551,7 @@ async function pullDictionaryCore(){
       DICTIONARY.push({ kw: row.keyword, cat: parentCat.name, sub: subName, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
       added++;
     }
+    if(maxSeen) setSyncMarker('dictionary', maxSeen);
   }catch(e){
     return { skipped: true };
   }
@@ -4311,8 +4332,11 @@ async function pullExpensesCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
+  let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
   try{
-    const { data, error } = await client.from('expenses').select('id,amount,expense_date,category,subcategory,note,linked_installment_id,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('expenses').select('id,amount,expense_date,category,subcategory,note,linked_installment_id,created_at,updated_at').eq('family_id', cloudFamilyId);
+    query = applySyncMarker(query, 'expenses');
+    const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of data){
       let linkedInstallmentName = null;
@@ -4321,6 +4345,7 @@ async function pullExpensesCore(){
         if(!acc){ skippedFk++; continue; } // ОЧ ще не синхронізована локально — тихий пропуск ЦІЄЇ витрати
         linkedInstallmentName = acc.name;
       }
+      if(!maxSeen || row.updated_at > maxSeen) maxSeen = row.updated_at;
       const local = expenses.find(function(e){ return e.id === row.id; });
       if(local){
         const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
@@ -4353,6 +4378,7 @@ async function pullExpensesCore(){
       expenses.push(rec);
       added++;
     }
+    if(maxSeen) setSyncMarker('expenses', maxSeen);
   }catch(e){
     return { skipped: true };
   }
@@ -4371,7 +4397,9 @@ async function pullIncomesCore(){
   const client = getSupabaseClient();
   let updated = 0, added = 0, keptLocal = 0;
   try{
-    const { data, error } = await client.from('incomes').select('id,amount,income_date,note,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('incomes').select('id,amount,income_date,note,created_at,updated_at').eq('family_id', cloudFamilyId);
+    query = applySyncMarker(query, 'incomes');
+    const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of data){
       const local = incomes.find(function(i){ return i.id === row.id; });
@@ -4398,6 +4426,7 @@ async function pullIncomesCore(){
       incomes.push({ id: row.id, date: row.income_date, source: row.note || '', amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at });
       added++;
     }
+    updateSyncMarkerFromAllRows('incomes', data);
   }catch(e){
     return { skipped: true };
   }
@@ -4413,8 +4442,11 @@ async function pullDebtsCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
+  let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
   try{
-    const { data, error } = await client.from('debts').select('id,bank_account_id,installment_account_id,name,kind,month,balance,min_payment,min_payment_done,monthly_payment,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('debts').select('id,bank_account_id,installment_account_id,name,kind,month,balance,min_payment,min_payment_done,monthly_payment,created_at,updated_at').eq('family_id', cloudFamilyId);
+    query = applySyncMarker(query, 'debts');
+    const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of data){
       let resolvedName;
@@ -4427,6 +4459,7 @@ async function pullDebtsCore(){
         if(!acc){ skippedFk++; continue; } // ОЧ ще не синхронізована локально — тихий пропуск ЦЬОГО боргу
         resolvedName = acc.name;
       }
+      if(!maxSeen || row.updated_at > maxSeen) maxSeen = row.updated_at;
       const month = dateToMonth(row.month); // Cloud-колонка типу date, локально 'YYYY-MM'
       const local = debts.find(function(d){ return d.id === row.id; });
       if(local){
@@ -4459,6 +4492,7 @@ async function pullDebtsCore(){
       debts.push(rec);
       added++;
     }
+    if(maxSeen) setSyncMarker('debts', maxSeen);
   }catch(e){
     return { skipped: true };
   }
@@ -4555,7 +4589,9 @@ async function pullBankAccountsCore(){
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0;
   try{
-    const { data, error } = await client.from('bank_accounts').select('id,name,credit_limit,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('bank_accounts').select('id,name,credit_limit,created_at,updated_at').eq('family_id', cloudFamilyId);
+    query = applySyncMarker(query, 'bankAccounts');
+    const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of data){
       const byCloudId = bankAccounts.find(function(a){ return a.cloudId === row.id; });
@@ -4592,6 +4628,7 @@ async function pullBankAccountsCore(){
       bankAccounts.push({ name: row.name, creditLimit: row.credit_limit, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
       added++;
     }
+    updateSyncMarkerFromAllRows('bankAccounts', data);
   }catch(e){
     return { skipped: true };
   }
@@ -4668,7 +4705,9 @@ async function pullInstallmentAccountsCore(){
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0;
   try{
-    const { data, error } = await client.from('installment_accounts').select('id,name,initial_amount,due_day,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('installment_accounts').select('id,name,initial_amount,due_day,created_at,updated_at').eq('family_id', cloudFamilyId);
+    query = applySyncMarker(query, 'installmentAccounts');
+    const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of data){
       const byCloudId = installmentAccounts.find(function(a){ return a.cloudId === row.id; });
@@ -4704,6 +4743,7 @@ async function pullInstallmentAccountsCore(){
       installmentAccounts.push({ name: row.name, initialAmount: row.initial_amount, dueDay: row.due_day, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
       added++;
     }
+    updateSyncMarkerFromAllRows('installmentAccounts', data);
   }catch(e){
     return { skipped: true };
   }
@@ -4779,6 +4819,18 @@ async function pushHiddenEntitiesPilot(){
 // концепції "показати", тому нема що порівнювати датами) — якщо ЛОКАЛЬНО
 // відсутнє, а Cloud МАЄ запис — застосовуємо (додаємо). Зворотний випадок
 // (локально приховано, Cloud не має) обробляє push вище, не pull.
+// Rev #30 (6D.38) — СВІДОМО ВИКЛЮЧЕНИЙ з інкрементального pull, на
+// відміну від решти 8 доменів (Крок 0 п.3, явно обґрунтовано): Cloud-
+// схема `hidden_entities` НЕ має колонки `updated_at` узагалі (лише
+// `created_at`, проставляється РАЗ, при INSERT). Якщо той самий рядок
+// пізніше EDIT-иться через upsert (інший пристрій змінює
+// `hidden_from_month`) — `created_at` НЕ рухається, тому маркер за
+// `created_at` не помітив би цю зміну: рядок, вставлений ДО маркера,
+// але відредагований ПІСЛЯ, назавжди випав би з інкрементальних
+// відповідей. Замість ризикувати цим — цей домен і далі робить повний
+// pull щоразу. Датасет структурно малий (кількість прихованих карток/ОЧ
+// на сім'ю, не росте з часом використання, як expenses) — вигода від
+// інкременту тут мінімальна, а корективність важливіша.
 async function pullHiddenEntitiesCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
@@ -4862,7 +4914,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.71';
+const APP_VERSION = '2.21.72';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -5641,6 +5693,64 @@ async function loadCloudFamilyId(client, userId){
 function clearCloudFamilyId(){
   cloudFamilyId = null;
   localStorage.removeItem(LS_KEY_CLOUD_FAMILY_ID);
+  clearSyncMarkers(); // Rev #30 (6D.38) — див. докоментар нижче: маркери прив'язані до сесії/family_id, не переживають зміну акаунта
+}
+// Rev #30 (6D.38, інкрементальний pull) — `lastSyncMarker` для кожного з
+// 8 доменів (не 9 — `hidden_entities` свідомо виключений, окремий
+// докоментар над pullHiddenEntitiesCore()). Той самий клас стану, що
+// `cloudFamilyId` вище/`theme`/`draft`: сесійний/пристрій-специфічний,
+// НЕ routing-aware pilot-домен (`isDomainMigrated()`/IndexedDB тут ні до
+// чого — це не фінансові/структурні дані користувача, а суто службова
+// "де я зупинився востаннє" мітка). Значення — `updated_at` найновішого
+// РЕАЛЬНО ОБРОБЛЕНОГО рядка з останнього pull для цього домену (не
+// годинник пристрою — Крок 0 підтвердив цей вибір явно, узгоджено з
+// користувачем).
+//
+// Скидання (Крок 0 п.3): clearCloudFamilyId() (вище) чистить усі маркери
+// разом із самим family_id — без цього зміна акаунта на тому самому
+// пристрої (напр. тестовий/спільний пристрій) могла б порівнювати
+// маркер від СТАРОЇ сім'ї з даними НОВОЇ, і якщо в нової сім'ї всі
+// timestamps старіші за застарілий маркер — pull мовчки пропустив би
+// геть усе. Скидання прибирає цей ризик повністю, ціною одного зайвого
+// повного pull при вході в інший акаунт — прийнятна ціна за безпеку.
+const LS_KEY_SYNC_MARKERS = 'budget_sync_markers_v1';
+function loadSyncMarkers(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY_SYNC_MARKERS) || '{}'); }
+  catch(e){ return {}; }
+}
+function getSyncMarker(domain){
+  return loadSyncMarkers()[domain] || null;
+}
+function setSyncMarker(domain, isoTimestamp){
+  const markers = loadSyncMarkers();
+  markers[domain] = isoTimestamp;
+  localStorage.setItem(LS_KEY_SYNC_MARKERS, JSON.stringify(markers));
+}
+function clearSyncMarkers(){
+  localStorage.removeItem(LS_KEY_SYNC_MARKERS);
+}
+// Додає `.gte('updated_at', marker)` до вже побудованого select()-запиту,
+// ЯКЩО для цього домену вже є маркер — інакше повертає query без змін
+// (перший pull домену завжди повний, DoD). Крок 0 п.1 — свідомо `.gte`
+// (не строгий `.gt`): захищає від пропуску запису з ТОЧНО таким самим
+// updated_at, що вже є маркером (малоймовірно, але технічно можливо при
+// одночасних правках). Повторне отримання самого маркерного рядка —
+// нешкідливе: LWW-порівняння всередині циклу знайде рівні timestamps,
+// жодне поле не відрізнятиметься від уже застосованого — updated/added
+// не зростає, просто один зайвий (але безпечний) рядок у відповіді.
+function applySyncMarker(query, domain){
+  const marker = getSyncMarker(domain);
+  return marker ? query.gte('updated_at', marker) : query;
+}
+// Для доменів БЕЗ FK-залежності (categories/bank_accounts/
+// installment_accounts) — кожен рядок відповіді завжди повністю
+// оброблюється (жодного skippedFk), тому маркер безпечно рахувати як
+// max(updated_at) по ВСІХ отриманих рядках одразу.
+function updateSyncMarkerFromAllRows(domain, rows){
+  if(!rows || !rows.length) return; // DoD — порожня відповідь маркер НЕ рухає
+  let max = rows[0].updated_at;
+  for(const r of rows){ if(r.updated_at > max) max = r.updated_at; }
+  setSyncMarker(domain, max);
 }
 // Rev #30 (6D, індикатор — фікс дублювання) — ЄДИНЕ джерело правди для
 // "чи сесія готова синхронізувати" (залогінений+family_id+SDK). До цього

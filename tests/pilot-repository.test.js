@@ -110,9 +110,16 @@ const REPOSITORY_NAMES = [
   // включені лише тому, що saveCategoriesLocal/pushCategoriesPilot фізично
   // посилаються на них (навіть недосяжним для тестів кодом).
   'isSupabaseSdkReady', 'getSupabaseClient', 'loadCloudFamilyId', 'clearCloudFamilyId',
+  'LS_KEY_CLOUD_FAMILY_ID',
   // Rev #30 (6D, індикатор — фікс дублювання) — усі 10 push/pull-функцій
   // тепер посилаються на isCloudSessionReady() замість inline-guard'а.
   'isCloudSessionReady',
+  // Rev #30 (6D.38, інкрементальний pull) — усі 9 pullXCore() тепер
+  // посилаються на ці хелпери (недосяжним для решти тестів кодом,
+  // localStorage:{} за замовчуванням → getSyncMarker завжди null →
+  // applySyncMarker() — прозорий no-op, повний pull як і раніше).
+  'LS_KEY_SYNC_MARKERS', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker',
+  'clearSyncMarkers', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
   'saveCategories', 'saveCategoriesLocal', 'pushCategoriesPilot', 'reconcileCategoryCloudId',
   // Rev #30 (6D крок 9) — Pull pilot: categories. На відміну від push-тестів
   // вище (де cloudSession:null завжди зупиняє на guard clause), тут
@@ -313,6 +320,41 @@ function fakeSupabaseStatefulClient(table, nameField){
 // РЕАЛЬНИЙ код використовує — client.from('categories').select(...).eq(...)
 // повертає Promise<{data,error}> напряму (без .maybeSingle()/.single(), на
 // відміну від push — pull читає ВЕСЬ масив рядків family одним запитом).
+// Rev #30 (6D.38, інкрементальний pull) — на відміну від решти fake-
+// клієнтів (одноразовий .eq() → Promise), цей МУСИТЬ підтримувати ОБИДВА
+// шляхи `applySyncMarker()`: без маркера — `.eq()` сам awaitable
+// (потребує `.then()`); з маркером — `.eq().gte()` повертає Promise
+// напряму. `allRows` реально фільтрується за `updated_at >= gte`-значенням
+// (як справжній Postgres), щоб тест міг перевірити НЕ ЛИШЕ факт виклику
+// `.gte()`, а й що результат справді звузився.
+function fakeSupabaseMarkerAwareClient(table, allRows){
+  const calls = [];
+  const client = {
+    from(t){
+      assert.equal(t, table);
+      return {
+        select(cols){
+          return {
+            eq(col, val){
+              return {
+                gte(col2, val2){
+                  calls.push(val2);
+                  return Promise.resolve({ data: allRows.filter(r => r.updated_at >= val2), error: null });
+                },
+                then(resolve, reject){
+                  calls.push(null);
+                  return Promise.resolve({ data: allRows, error: null }).then(resolve, reject);
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+  return { client, calls };
+}
+
 function fakeSupabaseCategoriesClient(rows, opts){
   return {
     from(table){
@@ -1692,6 +1734,126 @@ test('pullDebtsPilot: тонка обгортка над pullDebtsCore (той �
   ctx.debts = [];
   const result = await ctx.pullDebtsPilot();
   assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+});
+
+/* ============ Інкрементальний pull — lastSyncMarker (Rev #30, 6D.38) ============
+   Маркер — device-local стан (localStorage, як theme/draft), НЕ фінансові
+   дані. Перший pull домену (немає маркера) — повний, як і завжди
+   (applySyncMarker() — прозорий no-op). Наступний — WHERE updated_at>=
+   marker (Крок 0 п.1: `.gte`, не строгий `.gt`, безпечніше при
+   одночасних правках з тим самим timestamp). Маркер оновлюється ЛИШЕ
+   при реальному отриманні даних (DoD), і ЛИШЕ на основі рядків, що
+   пройшли FK-резолюцію (skippedFk-рядки маркер не рухають — інакше
+   self-heal назавжди зламався б саме для них). */
+
+test('getSyncMarker/setSyncMarker/clearSyncMarkers: базовий round-trip, домени незалежні', () => {
+  const { ctx } = sandbox();
+  assert.equal(ctx.getSyncMarker('categories'), null);
+  ctx.setSyncMarker('categories', '2024-01-01T00:00:00.000Z');
+  ctx.setSyncMarker('expenses', '2024-06-01T00:00:00.000Z');
+  assert.equal(ctx.getSyncMarker('categories'), '2024-01-01T00:00:00.000Z');
+  assert.equal(ctx.getSyncMarker('expenses'), '2024-06-01T00:00:00.000Z');
+  ctx.clearSyncMarkers();
+  assert.equal(ctx.getSyncMarker('categories'), null);
+  assert.equal(ctx.getSyncMarker('expenses'), null);
+});
+
+test('applySyncMarker: маркера немає → query повертається БЕЗ змін (повний pull)', () => {
+  const { ctx } = sandbox();
+  const fakeQuery = { gte(){ throw new Error('НЕ мало викликатись — маркера немає'); } };
+  const result = ctx.applySyncMarker(fakeQuery, 'categories');
+  assert.equal(result, fakeQuery);
+});
+
+test('updateSyncMarkerFromAllRows: порожній масив → маркер НЕ рухається (DoD)', () => {
+  const { ctx } = sandbox();
+  ctx.updateSyncMarkerFromAllRows('categories', []);
+  assert.equal(ctx.getSyncMarker('categories'), null);
+});
+
+test('updateSyncMarkerFromAllRows: max(updated_at) серед рядків, не порядок масиву', () => {
+  const { ctx } = sandbox();
+  ctx.updateSyncMarkerFromAllRows('categories', [
+    { updated_at: '2024-03-01T00:00:00.000Z' },
+    { updated_at: '2024-06-01T00:00:00.000Z' },
+    { updated_at: '2024-02-01T00:00:00.000Z' },
+  ]);
+  assert.equal(ctx.getSyncMarker('categories'), '2024-06-01T00:00:00.000Z');
+});
+
+test('pullCategoriesCore: перший pull (немає маркера) → повний запит (без .gte), маркер встановлюється з max(updated_at)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const rows = [
+    { id: 'c1', name: 'Старіша', active: true, type: 'Гнучка', updated_at: '2024-01-01T00:00:00.000Z' },
+    { id: 'c2', name: 'Новіша', active: true, type: 'Гнучка', updated_at: '2024-06-01T00:00:00.000Z' },
+  ];
+  const fake = fakeSupabaseMarkerAwareClient('categories', rows);
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.CATEGORIES = [];
+  const result = await ctx.pullCategoriesCore();
+  assert.equal(result.added, 2);
+  assert.deepEqual(fake.calls, [null]); // .gte() НЕ викликаний — перший pull повний
+  assert.equal(ctx.getSyncMarker('categories'), '2024-06-01T00:00:00.000Z');
+});
+
+test('pullCategoriesCore: другий pull (є маркер, нових Cloud-змін немає) → запит із .gte(marker), порожній результат, маркер НЕ рухається', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.setSyncMarker('categories', '2024-06-01T00:00:00.000Z');
+  // Cloud більше не повертає нічого НОВІШОГО за маркер — fakeClient фільтрує сам.
+  const rows = [{ id: 'c1', name: 'Стара', active: true, type: 'Гнучка', updated_at: '2024-01-01T00:00:00.000Z' }];
+  const fake = fakeSupabaseMarkerAwareClient('categories', rows);
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.CATEGORIES = [{ name: 'Стара', cloudId: 'c1', active: true, type: 'Гнучка', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullCategoriesCore();
+  assert.deepEqual(fake.calls, ['2024-06-01T00:00:00.000Z']); // .gte() викликаний з маркером
+  assert.equal(result.added, 0);
+  assert.equal(result.updated, 0);
+  assert.equal(ctx.getSyncMarker('categories'), '2024-06-01T00:00:00.000Z'); // не зрушив — нічого нового не прийшло
+});
+
+test('pullCategoriesCore: третій pull (є нова Cloud-зміна після маркера) → отримує лише нове, маркер посувається на неї', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.setSyncMarker('categories', '2024-06-01T00:00:00.000Z');
+  const rows = [{ id: 'c2', name: 'Нова категорія', active: true, type: 'Гнучка', updated_at: '2024-09-01T00:00:00.000Z' }];
+  const fake = fakeSupabaseMarkerAwareClient('categories', rows);
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.CATEGORIES = [];
+  const result = await ctx.pullCategoriesCore();
+  assert.equal(result.added, 1);
+  assert.equal(ctx.getSyncMarker('categories'), '2024-09-01T00:00:00.000Z'); // посунувся на нову зміну
+});
+
+test('pullExpensesCore: skippedFk-рядок НЕ рухає маркер (інакше self-heal назавжди зламався б для цього запису)', async () => {
+  const ctx = pullExpensesSandbox([
+    { id: 'e1', amount: 500, expense_date: '2026-05-05', note: 'Оброблено', linked_installment_id: null, updated_at: '2024-01-01T00:00:00.000Z' },
+    { id: 'e2', amount: 2500, expense_date: '2026-05-06', note: 'FK ще не готовий', linked_installment_id: 'i-unknown', updated_at: '2024-06-01T00:00:00.000Z' }, // пізніший timestamp, але skippedFk
+  ]);
+  ctx.installmentAccounts = [];
+  ctx.expenses = [];
+  const result = await ctx.pullExpensesCore();
+  assert.equal(result.added, 1);
+  assert.equal(result.skippedFk, 1);
+  // Маркер зупинився на ОБРОБЛЕНОМУ рядку (e1), НЕ на пізнішому skippedFk (e2) —
+  // інакше e2 ніколи більше не потрапив би в наступний інкрементальний pull.
+  assert.equal(ctx.getSyncMarker('expenses'), '2024-01-01T00:00:00.000Z');
+});
+
+test('clearCloudFamilyId: очищує маркери разом із family_id (Крок 0 п.3 — захист від застарілого маркера іншого акаунта)', async () => {
+  const { ctx } = sandbox();
+  ctx.setSyncMarker('categories', '2024-01-01T00:00:00.000Z');
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.clearCloudFamilyId();
+  assert.equal(ctx.cloudFamilyId, null);
+  assert.equal(ctx.getSyncMarker('categories'), null);
 });
 
 /* ============ pullSubcategoriesCore: Pull pilot (subcategories, повний цикл) ============
