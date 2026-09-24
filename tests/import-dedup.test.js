@@ -64,6 +64,23 @@ test('id вже є, вхідний БЕЗ updatedAt → трактується �
   assert.equal(plan.dupCount, 1);
 });
 
+// Rev #30 (6D.42) — Sync Safety Patch P0.1: локально видалений (tombstoned)
+// запис безумовно виграє, навіть якщо вхідний файл має НОВІШИЙ updatedAt —
+// без цього повторний Family Bridge-імпорт міг би тихо оновити поля вже
+// видаленого запису під tombstone (undelete-механізму в UI немає взагалі,
+// тож порівнювати часи нема сенсу — deletedAt завжди переможець).
+test('id вже є, existing.deletedAt встановлено → пропуск (dupCount), НАВІТЬ якщо вхідний updatedAt новіший', () => {
+  const ctx = sandbox();
+  const existing = [{ id: 'a1', amount: 80, updatedAt: '2026-03-01T08:00:00.000Z', deletedAt: '2026-03-01T08:00:00.000Z' }];
+  const incoming = [{ id: 'a1', date: '2026-03-05', name: 'Кава', amount: 999, updatedAt: '2026-03-10T00:00:00.000Z' }];
+  const plan = ctx.computeImportPlan(incoming, existing);
+  assert.equal(plan.newOnes.length, 0);
+  assert.equal(plan.updatedOnes.length, 0);
+  assert.equal(plan.dupCount, 1);
+  // existing-об'єкт лишається незайманим — жодне поле не мало торкнутись.
+  assert.equal(existing[0].amount, 80);
+});
+
 test('змішаний файл: одночасно нові, оновлені й дублікати рахуються окремо', () => {
   const ctx = sandbox();
   const existing = [

@@ -15,7 +15,7 @@ const { buildSandbox } = require('./extract');
 function sandbox({ expenses, incomes, categories }){
   return buildSandbox(
     { expenses: expenses || [], incomes: incomes || [], monthKey: (d) => (d ? d.slice(0,7) : ''), CATEGORIES: categories || [] },
-    ['monthAggregates', 'getCategoryType', 'mandatoryPaymentsSummary']
+    ['monthAggregates', 'getCategoryType', 'mandatoryPaymentsSummary', 'activeExpenses']
   );
 }
 

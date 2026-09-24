@@ -4398,6 +4398,94 @@ Postgres-тригер `BEFORE UPDATE`, що примусово встановл�
 ⚠️ **iPhone-тест — не застосовується до цього кроку** (без клієнтських
 змін), але лишається обов'язковим кумулятивно для 6D.39 і всіх попередніх.
 
+### 6D.42 — Sync Safety Patch, P0.1: tombstone для `expenses` (домен 1/3) ✅ Rev 2.21.74
+
+Найризикованіший крок усього патчу (за оцінкою користувача) — розбитий на
+3 ізольовані Rev по доменах (`expenses` → `incomes` → `debts`), а не один
+великий, за узгодженням. Причина попереднього бага: фізичне видалення
+(`expenses.filter(e=>e.id!==id)`) ніколи не повідомляло Cloud — на іншому
+пристрої запис "воскресав" при наступному pull.
+
+**Крок 0 — вимірювання, не оцінка "на око":** grep за прямими ітераціями
+(`expenses.(filter|forEach|reduce|map|some|find|length)(`) знайшов 19 місць
+(включно з одним false positive — `parsed.expenses`, інша змінна). Кожне
+пройдено поіменно, не масовою заміною.
+
+**Дві реальні знахідки, які механічна заміна зламала б мовчки:**
+1. **Індексна прив'язка Журнал↔Діагностика.** `renderRecords()`/
+   `renderJournalView()` будують `__srcIdx: i` через `.map()` по `expenses`
+   → DOM id `journal-row-expense-N`. `goToDiagnosticIssue()` використовує
+   **той самий індекс** (`expenses[target.idx]`) із `findExpenseIdIssues()`/
+   `findTimestampIssues()`, теж сканованих по `expenses`. Фільтрація лише
+   Журналу без синхронної фільтрації діагностики розсинхронізувала б
+   індекси — клік "перейти до проблеми" стрибав би на випадковий сусідній
+   рядок. Виправлено: усі чотири місця (Журнал ×2, діагностика ×2,
+   `goToDiagnosticIssue`) фільтруються ОДНИМ і тим самим `activeExpenses()`.
+2. **Excel-дедуп fingerprint (рядок ~8078) — свідомо лишений сирим.**
+   Якби відфільтрувати — видалений локально запис перестав би "рахуватись
+   існуючим", і повторний імпорт того самого Excel-файлу тихо воскресив би
+   щойно видалений запис через імпорт, а не Cloud — пряме порушення самої
+   мети патчу.
+
+**Класифікація 19 місць:** 10 фільтруються через новий `activeExpenses()`
+(`array.filter(e=>!e.deletedAt)`, той самий idiom, що вже `active` для
+категорій) — `findExpenseIdIssues`, `findTimestampIssues`,
+`earliestActivityMonth`, Family Bridge export, `allMonths`,
+`updateTodayExpenseBadge`, `rebuildNameHistory`, Журнал ×2,
+`monthAggregates` (формула reduce НЕ змінена, лише вхідний набір записів).
+9 лишаються сирими з явним обґрунтуванням — `ensureExpenseIdentity`/
+rename-propagation (мають торкатись усіх записів), pull-matching у
+`pullExpensesCore` (має бачити tombstone для LWW), сам `deleteRecord`, Excel-
+дедуп (вище), `saveRecordEdit` id-lookup (недосяжний для видаленого з UI).
+Плюс 20-та правка поза grep-підрахунком (пряма індексація, не метод-виклик):
+`goToDiagnosticIssue()`.
+
+**Попутно знайдений і виправлений другий resurrection-вектор, поза
+початковим скоупом P0.1 — Family Bridge ("Спільні витрати", JSON-обмін
+device-to-device, окрема від Cloud фіча).** `computeImportPlan()` (дедуп за
+`id`+`updatedAt`) не стирала `deletedAt` явно (не буквальне воскресіння),
+але тихо оновлювала ІНШІ поля (`date`/`amount`/`category`) вже видаленого
+запису, якщо вхідний файл мав новіший `updatedAt` — залишаючи неконсистент-
+ний стан (видалено, але зі "свіжішими" даними під tombstone). Фікс:
+безумовний guard — якщо `existing.deletedAt` встановлено, запис повністю
+пропускається (не в `newOnes`, не в `updatedOnes`), без порівняння
+timestamp (undelete-механізму в UI немає взагалі — нема що порівнювати).
+
+**Реалізація:** `activeExpenses()`; `deleteRecord('expense', id)` тепер
+стампить `deletedAt`+`updatedAt` замість `filter()` і одразу викликає
+`pushExpenseRecordPilot(rec)` (той самий принцип, що редагування);
+`pushExpenseRecordPilot` надсилає `deleted_at: rec.deletedAt || null`;
+`pullExpensesCore` — `deleted_at` у select, у diff/assign-блоці як звичайне
+синхронізоване поле (LWW), і одразу з `deletedAt` для НОВОГО для пристрою
+запису (`device C` DoD-сценарій). Cloud: `alter table expenses add column
+deleted_at timestamptz null` на `budget-app-dev`.
+
+**Тестування:** `node --test` — 338/338 (7 нових тестів: `activeExpenses()`
+базовий фільтр, `pushExpenseRecordPilot` incl./excl. `deleted_at` у payload,
+`pullExpensesCore` — новий-tombstoned/LWW-Cloud-переможець/LWW-local-
+переможець, `computeImportPlan()` — безумовний skip tombstoned навіть проти
+новішого `updatedAt`).
+
+**Живо перевірено проти `budget-app-dev` — повний цикл, не лише код:**
+- `alter table` підтверджено через `information_schema.columns`.
+- Реальний `deleteRecord('expense', id)` у браузері → `deletedAt` локально,
+  запис фізично лишився в масиві (`totalCount:4`), зник з
+  `activeExpenses()` (`activeCount:3`).
+- Прямий SQL-запит підтвердив `deleted_at` дійшов у Cloud, `updated_at`
+  показує серверний (тригерний, 6D.41) час — обидва Rev працюють разом
+  коректно.
+- **Симуляція "пристрою C"**: локально прибрано запис + `clearSyncMarkers()`
+  (повний pull) → `pullExpensesCore()` створив запис ОДРАЗУ з `deletedAt`,
+  `activeExpenses()` його не бачить — новий пристрій ніколи не бачить
+  видалений запис.
+- Журнал (реальний DOM, після перезавантаження сторінки з persisted
+  IndexedDB) — 3 "Продукти" видимі, "Кава (тест)" (видалена) відсутня.
+
+⚠️ **iPhone-тест — обов'язково**, ще не виконаний.
+
+**Далі за планом:** 6D.43 (`incomes`, той самий патерн), 6D.44 (`debts`,
+той самий патерн + carry-forward-питання окремо).
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.

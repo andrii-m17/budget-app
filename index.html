@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.73</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.74</div>
 </div>
   </div>
 </div>
@@ -4218,6 +4218,10 @@ async function pushExpenseRecordPilot(rec){
       subcategory: rec.subcategory || null,
       note: rec.name || null,
       linked_installment_id: linkedInstallmentId,
+      // Rev #30 (6D.42) — tombstone: deleted_at || null, той самий принцип,
+      // що решта полів — send-whatever-local-has, сервер (тригер 6D.41)
+      // усе одно перезапише updated_at реальним часом.
+      deleted_at: rec.deletedAt || null,
       created_at: rec.createdAt,
       updated_at: rec.updatedAt,
       created_by: userId,
@@ -4334,7 +4338,7 @@ async function pullExpensesCore(){
   let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
   let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
   try{
-    let query = client.from('expenses').select('id,amount,expense_date,category,subcategory,note,linked_installment_id,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('expenses').select('id,amount,expense_date,category,subcategory,note,linked_installment_id,deleted_at,created_at,updated_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'expenses');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
@@ -4359,7 +4363,11 @@ async function pullExpensesCore(){
         const cloudName = row.note || '';
         const cloudCat = row.category || '';
         const cloudSub = row.subcategory || '';
-        if(local.amount !== row.amount || local.date !== row.expense_date || local.category !== cloudCat || local.subcategory !== cloudSub || local.name !== cloudName || local.linkedInstallment !== (linkedInstallmentName || undefined) || local.updatedAt !== row.updated_at){
+        // Rev #30 (6D.42) — deletedAt тепер таке саме синхронізоване поле,
+        // як решта: (local.deletedAt||null) !== (row.deleted_at||null) у
+        // тому самому OR-ланцюжку, delete/assign нижче — той самий принцип,
+        // що linkedInstallment (falsy → delete локального поля).
+        if(local.amount !== row.amount || local.date !== row.expense_date || local.category !== cloudCat || local.subcategory !== cloudSub || local.name !== cloudName || local.linkedInstallment !== (linkedInstallmentName || undefined) || (local.deletedAt||null) !== (row.deleted_at||null) || local.updatedAt !== row.updated_at){
           local.amount = row.amount;
           local.date = row.expense_date;
           local.category = cloudCat;
@@ -4367,6 +4375,8 @@ async function pullExpensesCore(){
           local.name = cloudName;
           if(linkedInstallmentName) local.linkedInstallment = linkedInstallmentName;
           else delete local.linkedInstallment;
+          if(row.deleted_at) local.deletedAt = row.deleted_at;
+          else delete local.deletedAt;
           local.createdAt = row.created_at;
           local.updatedAt = row.updated_at;
           updated++;
@@ -4375,6 +4385,12 @@ async function pullExpensesCore(){
       }
       const rec = { id: row.id, date: row.expense_date, name: row.note || '', amount: row.amount, category: row.category || '', subcategory: row.subcategory || '', manual: true, createdAt: row.created_at, updatedAt: row.updated_at };
       if(linkedInstallmentName) rec.linkedInstallment = linkedInstallmentName;
+      // Rev #30 (6D.42) — новий для цього пристрою запис, що вже tombstoned
+      // у Cloud (напр. видалений на іншому пристрої ДО першого pull тут) —
+      // одразу створюється зі своїм deletedAt, activeExpenses() приховає
+      // його з відображення негайно. Новий пристрій НІКОЛИ не бачить
+      // видалений запис — саме той DoD-сценарій "device C".
+      if(row.deleted_at) rec.deletedAt = row.deleted_at;
       expenses.push(rec);
       added++;
     }
@@ -4914,7 +4930,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.73';
+const APP_VERSION = '2.21.74';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6188,7 +6204,12 @@ async function signOutCloudAccount(){
 function findExpenseIdIssues(){
   const issues = [];
   const seen = new Map();
-  expenses.forEach(function(e, idx){
+  // Rev #30 (6D.42) — activeExpenses(): видалений (tombstoned) запис
+  // недосяжний із Журналу, тож "перейти до нього" (goToDiagnosticIssue)
+  // однаково нікуди не веде — і, критичніше, idx тут має відповідати ТОМУ
+  // САМОМУ __srcIdx, що будує Журнал (renderRecords/renderJournalView) —
+  // обидва мають фільтруватись однаково, інакше idx розійдеться.
+  activeExpenses().forEach(function(e, idx){
     if(!e.id || typeof e.id !== 'string'){
       issues.push({ label: e.name || '(без назви)', date: e.date || '—', reason: 'відсутній або невалідний UUID', target: { type:'expense', idx: idx } });
       return;
@@ -6207,7 +6228,8 @@ function findExpenseIdIssues(){
 // updatedAt вперед), ознака пошкодженого чи вручну відредагованого JSON.
 function findTimestampIssues(){
   const issues = [];
-  expenses.forEach(function(e, idx){
+  // Rev #30 (6D.42) — activeExpenses(), той самий принцип, що findExpenseIdIssues() вище.
+  activeExpenses().forEach(function(e, idx){
     if(e.createdAt && e.updatedAt && Date.parse(e.updatedAt) < Date.parse(e.createdAt)){
       issues.push({ label: e.name || '(без назви)', date: e.date || '—', reason: 'updatedAt раніше за createdAt', target: { type:'expense', idx: idx } });
     }
@@ -6348,7 +6370,9 @@ function goToDiagnosticIssue(i){
   closeAppModal();
   if(target.type === 'expense'){
     switchTab('vytraty');
-    const e = expenses[target.idx];
+    // Rev #30 (6D.42) — activeExpenses(), узгоджено з findExpenseIdIssues()/
+    // findTimestampIssues() (той самий idx-простір) і Журналом (__srcIdx).
+    const e = activeExpenses()[target.idx];
     if(e){ selectedRecordKey = recordKey('expense', e.id); editingRecordKey = null; renderRecords(); }
     flashDiagnosticTarget('journal-row-expense-' + target.idx);
     return;
@@ -6928,8 +6952,29 @@ function updateDateCaption(){
   if(isNaN(d)){ cap.textContent = ''; return; }
   cap.textContent = `${d.getDate()} ${monthGenitive(monthKey(val))} ${d.getFullYear()}, ${weekdayShort(val)}`;
 }
+// Rev #30 (6D.42) — Sync Safety Patch P0.1, tombstone для expenses (перший
+// з 3 доменів, incomes/debts — окремі наступні Rev, той самий патерн).
+// Крок 0 виявив: попередня фізична фільтрація (`expenses.filter(e=>e.id!
+// ==id)`) ніколи не повідомляла Cloud про видалення — на іншому пристрої
+// запис "воскресав" при наступному pull. Тепер видалення — це позначення
+// (`deletedAt`+`updatedAt`), запис фізично лишається в масиві (як уже
+// active:false для категорій/hiddenFrom для карток) до підтвердженого
+// push, і push відбувається одразу — той самий принцип, що вже діє для
+// редагування (pushExpenseRecordPilot викликається так само, як з
+// saveRecordEdit()). incomes-гілка нижче свідомо БЕЗ змін — окремий Rev.
+function activeExpenses(){
+  return expenses.filter(function(e){ return !e.deletedAt; });
+}
 async function deleteRecord(kind, id){
-  if(kind==='expense'){ expenses = expenses.filter(e=>e.id!==id); reportSaveResult(await saveExpenses()); }
+  if(kind==='expense'){
+    const rec = expenses.find(function(e){ return e.id===id; });
+    if(!rec) return;
+    const nowISO = new Date().toISOString();
+    rec.deletedAt = nowISO;
+    rec.updatedAt = nowISO;
+    reportSaveResult(await saveExpenses());
+    pushExpenseRecordPilot(rec);
+  }
   else{ incomes = incomes.filter(e=>e.id!==id); reportSaveResult(await saveIncomes()); }
   populateMonths(); renderAll();
 }
@@ -7682,7 +7727,8 @@ function earliestDebtMonth(){
 // "Доходи vs Витрати", щоб дані завжди починались зліва, а не зсувались вправо
 // нульовими "місяцями до початку обліку" (Rev: графіки).
 function earliestActivityMonth(){
-  const monthsList = [...expenses.map(e=>monthKey(e.date)), ...incomes.map(e=>monthKey(e.date))].filter(Boolean);
+  // Rev #30 (6D.42) — activeExpenses() (incomes ще без tombstone — окремий наступний Rev).
+  const monthsList = [...activeExpenses().map(e=>monthKey(e.date)), ...incomes.map(e=>monthKey(e.date))].filter(Boolean);
   if(!monthsList.length) return null;
   return monthsList.reduce((min,m)=> m<min ? m : min, monthsList[0]);
 }
@@ -8418,7 +8464,8 @@ function openShareExpensesModal(){
 }
 async function shareExpensesFile(period){
   const statusEl = document.getElementById('share-status');
-  const list = (period === 'month' ? expenses.filter(e => monthKey(e.date) === selectedMonth) : expenses)
+  // Rev #30 (6D.42) — activeExpenses(): видалений запис не мав би "ділитись" далі.
+  const list = (period === 'month' ? activeExpenses().filter(e => monthKey(e.date) === selectedMonth) : activeExpenses())
     .map(serializeExpenseForShare);
   if(!list.length){
     if(statusEl) statusEl.textContent = 'За обраний період немає жодної витрати — нема чого передавати.';
@@ -8480,6 +8527,12 @@ function computeImportPlan(incoming, existingExpenses){
   incoming.forEach(function(e){
     const existing = existingById.get(e.id);
     if(!existing){ newOnes.push(e); return; }
+    // Rev #30 (6D.42) — tombstone: локально видалений запис (existing.
+    // deletedAt) безумовно виграє — ні в newOnes, ні в updatedOnes (лічиться
+    // в dupCount). Без порівняння updatedAt: жодного undelete-механізму в
+    // UI немає, тож новіший updatedAt вхідного файлу нічого б не "відновив",
+    // лише тихо переписав би поля під уже встановленим tombstone.
+    if(existing.deletedAt) return;
     const incomingTs = e.updatedAt ? Date.parse(e.updatedAt) : NaN;
     const existingTs = existing.updatedAt ? Date.parse(existing.updatedAt) : NaN;
     if(!isNaN(incomingTs) && (isNaN(existingTs) || incomingTs > existingTs)){
@@ -8595,7 +8648,8 @@ function monthLabelShort(key){
   const [y,m]=key.split('-'); return short[parseInt(m,10)-1];
 }
 function allMonths(){
-  const set = new Set([...expenses.map(e=>monthKey(e.date)), ...incomes.map(e=>monthKey(e.date)), ...debts.map(d=>d.month)].filter(Boolean));
+  // Rev #30 (6D.42) — activeExpenses() (incomes/debts без tombstone — окремі наступні Rev).
+  const set = new Set([...activeExpenses().map(e=>monthKey(e.date)), ...incomes.map(e=>monthKey(e.date)), ...debts.map(d=>d.month)].filter(Boolean));
   const todayKey = monthKey(localDateISO());
   // BugFix Rev 2.0.3: раніше в списку були лише місяці, де вже є хоч якийсь
   // запис — а оскільки дохід/борги тепер вносяться через таблицю, прив'язану
@@ -8722,7 +8776,8 @@ function renderAll(){
    (не доходи) — саме витрати є тим типом запису, який найлегше відкласти. */
 function updateTodayExpenseBadge(){
   const today = localDateISO();
-  const count = expenses.filter(function(e){ return e.date === today; }).length;
+  // Rev #30 (6D.42) — activeExpenses(): видалена сьогоднішня витрата не мала б рахуватись у бейджі.
+  const count = activeExpenses().filter(function(e){ return e.date === today; }).length;
   const text = count > 9 ? '9+' : String(count);
   const topBadge = document.getElementById('tb-count-badge');
   const sideBadge = document.getElementById('side-count-badge');
@@ -8791,7 +8846,8 @@ function openUpdateModal(){
 let nameHistoryMap = {};
 function rebuildNameHistory(){
   nameHistoryMap = {};
-  expenses.forEach(function(e){
+  // Rev #30 (6D.42) — activeExpenses(): видалена витрата не мала б впливати на автопідказки.
+  activeExpenses().forEach(function(e){
     const key = (e.name||'').trim();
     if(!key) return;
     if(!nameHistoryMap[key]) nameHistoryMap[key] = { count:0, lastDate:'', lastCategory:'', lastSubcategory:'' };
@@ -9334,8 +9390,11 @@ function renderRecords(){
   // сортування нижче) — стабільний DOM-якір "journal-row-expense-N" для
   // навігації з діагностики (goToDiagnosticIssue), незалежний від id (саме
   // id часто й є тим, що зіпсоване — відсутнє чи задубльоване).
+  // Rev #30 (6D.42) — activeExpenses(): МАЄ бути той самий idx-простір, що
+  // findExpenseIdIssues()/findTimestampIssues()/goToDiagnosticIssue() —
+  // інакше __srcIdx і target.idx розійдуться (incomes ще без tombstone).
   const combined = [
-    ...expenses.map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
+    ...activeExpenses().map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
     ...incomes.map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
   ].sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
 
@@ -9661,8 +9720,9 @@ function renderJournalView(){
   populateJournalCategoryOptions();
   const searchSummaryEl = document.getElementById('journal-search-summary');
   const labelEl = document.getElementById('journal-month-label');
+  // Rev #30 (6D.42) — activeExpenses(), той самий принцип/idx-простір, що renderRecords() вище.
   const allCombined = [
-    ...expenses.map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
+    ...activeExpenses().map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
     ...incomes.map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
   ];
   const dateInputEl = document.getElementById('journal-date-input');
@@ -9728,7 +9788,10 @@ function onJournalDatePicked(dateStr){
 }
 
 function monthAggregates(month){
-  const monthExp = expenses.filter(e=>monthKey(e.date)===month);
+  // Rev #30 (6D.42) — activeExpenses(): єдина точка для всіх фінансових
+  // KPI/Дашборду/Аналітики, що споживають monthAggregates() — формула
+  // (reduce) нижче НЕ змінена, лише вхідний набір записів.
+  const monthExp = activeExpenses().filter(e=>monthKey(e.date)===month);
   const monthInc = incomes.filter(e=>monthKey(e.date)===month);
   const totalIncome = monthInc.reduce((s,e)=>s+e.amount,0);
   const totalExpense = monthExp.reduce((s,e)=>s+e.amount,0);

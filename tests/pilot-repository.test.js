@@ -206,6 +206,12 @@ const REPOSITORY_NAMES = [
   // відпрацював).
   'UUID_FORMAT_RE', 'generateUUID',
   'ensureExpenseIdentity', 'ensureIncomeIdentity', 'ensureDebtIdentity',
+  // Rev #30 (6D.42) — Sync Safety Patch P0.1, tombstone для expenses.
+  // deleteRecord() САМА (DOM-термінальна: populateMonths()/renderAll())
+  // тут НЕ під тестом — той самий скоуп-принцип, що вже задокументований
+  // для handleImportFile() (excel-parsing.test.js:9-14); activeExpenses()
+  // — чиста, DOM-незалежна, тому й покрита напряму.
+  'activeExpenses',
 ];
 
 function sandbox({ localStorageInitial, idbImpl } = {}){
@@ -1389,6 +1395,41 @@ test('pushExpenseRecordPilot: ОЧ-залежність ще не синхрон
   assert.deepEqual(plain(result), { success: true });
 });
 
+// Rev #30 (6D.42) — Sync Safety Patch P0.1, tombstone для expenses.
+test('activeExpenses: приховує записи з deletedAt, лишає решту', () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [
+    { id: 'e1', name: 'Активна' },
+    { id: 'e2', name: 'Видалена', deletedAt: '2026-03-01T00:00:00.000Z' },
+    { id: 'e3', name: 'Теж активна' },
+  ];
+  const result = ctx.activeExpenses();
+  assert.equal(result.length, 2);
+  assert.deepEqual(result.map(function(e){ return e.id; }), ['e1', 'e3']);
+});
+
+test('pushExpenseRecordPilot: rec.deletedAt встановлено → payload несе deleted_at', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  let capturedPayload = null;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(payload){ capturedPayload = payload; return Promise.resolve({ data: [{}], error: null }); } }; } });
+  const result = await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500, deletedAt: '2026-03-01T00:00:00.000Z', updatedAt: '2026-03-01T00:00:00.000Z' });
+  assert.deepEqual(plain(result), { success: true });
+  assert.equal(capturedPayload.deleted_at, '2026-03-01T00:00:00.000Z');
+});
+test('pushExpenseRecordPilot: без deletedAt → payload несе deleted_at:null', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  let capturedPayload = null;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(payload){ capturedPayload = payload; return Promise.resolve({ data: [{}], error: null }); } }; } });
+  await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500 });
+  assert.equal(capturedPayload.deleted_at, null);
+});
+
 test('pushDebtRecordPilot: рахунок ще не синхронізований → тихий пропуск, { success:true } (не помилка)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
@@ -1611,6 +1652,35 @@ test('pullExpensesCore: локальний запис без Cloud-відпов�
   await ctx.pullExpensesCore();
   assert.equal(ctx.expenses.length, 1);
   assert.equal(ctx.expenses[0].name, 'Лише локальна витрата');
+});
+
+// Rev #30 (6D.42) — Sync Safety Patch P0.1, tombstone для expenses.
+test('pullExpensesCore: Cloud-рядок з deleted_at, НОВИЙ для цього пристрою → створюється одразу з deletedAt ("пристрій C ніколи не бачить")', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-05', note: 'Видалене на іншому пристрої', linked_installment_id: null, deleted_at: '2026-05-06T00:00:00.000Z', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2026-05-06T00:00:00.000Z' }]);
+  ctx.expenses = [];
+  const result = await ctx.pullExpensesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.expenses[0].deletedAt, '2026-05-06T00:00:00.000Z');
+  assert.deepEqual(ctx.activeExpenses(), []);
+});
+
+test('pullExpensesCore: Cloud-рядок з deleted_at, локальний запис ІСНУЄ (не видалений) → LWW-переможець Cloud позначає deletedAt локально', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-05', note: 'Кава', linked_installment_id: null, deleted_at: '2026-05-07T00:00:00.000Z', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2026-05-07T00:00:00.000Z' }]);
+  ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Кава', amount: 500, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullExpensesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.expenses[0].deletedAt, '2026-05-07T00:00:00.000Z');
+  assert.equal(ctx.expenses.length, 1); // фізично лишається в масиві — не спліситься
+});
+
+test('pullExpensesCore: локальний СТРОГО новіший за Cloud-tombstone → keptLocal + push-retry, deletedAt НЕ застосовується', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-05', note: 'Кава', linked_installment_id: null, deleted_at: '2026-05-06T00:00:00.000Z', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2026-05-06T00:00:00.000Z' }]);
+  ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Кава (відредаговано ПІСЛЯ видалення на іншому пристрої)', amount: 600, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2026-05-08T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushExpenseRecordPilot');
+  const result = await ctx.pullExpensesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 0, keptLocal: 1, skippedFk: 0 });
+  assert.equal(ctx.expenses[0].deletedAt, undefined);
+  assert.equal(pushSpy.count(), 1);
 });
 
 test('pullExpensesPilot: тонка обгортка над pullExpensesCore (той самий результат)', async () => {
