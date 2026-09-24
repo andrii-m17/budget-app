@@ -2808,17 +2808,23 @@ test('saveDebts: домен мігровано, IndexedDB кидає → { succe
 
 /* ============ D2: restoreXFromBackup — легітимно порожньо, не спецвипадок (на відміну від installmentAccounts) ============ */
 
-test('restoreExpensesFromBackup: raw відсутній → [] і зберігається (НЕ видаляє ключ, на відміну від restoreInstallmentAccountsFromBackup)', async () => {
+// Rev #30 (6D.46) — P1.3 (переглянуто): restoreXFromBackup для expenses/
+// incomes/debts більше НЕ безумовна заміна — LWW-merge. Тест нижче
+// переписаний: раніше документував "raw відсутній → [] і зберігається"
+// (старий безумовний replace); тепер це БУЛО Б втратою даних — порожній/
+// відсутній бекап-домен не повинен видаляти те, що вже є локально (той
+// самий принцип, що P1.2 для Excel-імпорту).
+test('restoreExpensesFromBackup: raw відсутній → існуючі локальні записи НЕ видаляються (P1.3, не старий unconditional replace)', async () => {
   const { ctx, fakeIdbInstance } = sandbox();
   ctx.markDomainMigrated('expenses');
-  fakeIdbInstance.store.set('budget_expenses_v1', JSON.stringify(d2Fixture().expenses)); // старе значення
+  ctx.expenses = d2Fixture().expenses; // вже є локально
   const result = await ctx.restoreExpensesFromBackup(null);
   assert.equal(result.success, true);
-  assert.equal(fakeIdbInstance.store.get('budget_expenses_v1'), '[]');
-  assert.deepEqual(plain(ctx.expenses), []);
+  assert.deepEqual(plain(ctx.expenses), d2Fixture().expenses); // незмінно
+  assert.equal(fakeIdbInstance.store.get('budget_expenses_v1'), JSON.stringify(d2Fixture().expenses));
 });
 
-test('restoreIncomesFromBackup/restoreDebtsFromBackup: raw присутній → parse+save', async () => {
+test('restoreIncomesFromBackup/restoreDebtsFromBackup: локально порожньо → усі записи бекапу додаються (не тестує LWW-конфлікт, лише "немає з чим порівнювати")', async () => {
   const fixture = d2Fixture();
   const { ctx, fakeIdbInstance } = sandbox();
   ctx.markDomainMigrated('incomes');
@@ -2829,6 +2835,73 @@ test('restoreIncomesFromBackup/restoreDebtsFromBackup: raw присутній �
   assert.deepEqual(plain(ctx.incomes), fixture.incomes);
   assert.deepEqual(plain(ctx.debts), fixture.debts);
   assert.equal(fakeIdbInstance.store.get('budget_incomes_v1'), JSON.stringify(fixture.incomes));
+});
+
+// Rev #30 (6D.46) — LWW-конфлікт: реальні сценарії, не лише "локально порожньо".
+test('restoreExpensesFromBackup: запис у бекапі СТАРІШИЙ за локальний → НЕ застосовується, локальне лишається', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [{ id: 'e1', date: '2026-09-05', name: 'Локальна (новіша)', amount: 999, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-05T00:00:00.000Z' }];
+  const backup = [{ id: 'e1', date: '2026-09-01', name: 'З бекапу (старіша)', amount: 65, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
+  assert.equal(result.kept, 1);
+  assert.equal(result.updated, 0);
+  assert.equal(ctx.expenses[0].amount, 999);
+  assert.equal(ctx.expenses[0].name, 'Локальна (новіша)');
+});
+
+test('restoreExpensesFromBackup: запис у бекапі НОВІШИЙ за локальний → застосовується', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [{ id: 'e1', date: '2026-09-01', name: 'Локальна (старіша)', amount: 65, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const backup = [{ id: 'e1', date: '2026-09-05', name: 'З бекапу (новіша)', amount: 999, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-05T00:00:00.000Z' }];
+  const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
+  assert.equal(result.updated, 1);
+  assert.equal(result.kept, 0);
+  assert.equal(ctx.expenses[0].amount, 999);
+  assert.equal(ctx.expenses[0].name, 'З бекапу (новіша)');
+});
+
+test('restoreExpensesFromBackup: локальний tombstoned (новіший за бекап) → deletedAt НЕ "воскрешається"', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [{ id: 'e1', date: '2026-09-01', name: 'Видалена', amount: 65, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-10T00:00:00.000Z', deletedAt: '2026-09-10T00:00:00.000Z' }];
+  const backup = [{ id: 'e1', date: '2026-09-01', name: 'Стара версія (без tombstone)', amount: 65, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
+  assert.equal(result.kept, 1);
+  assert.equal(ctx.expenses[0].deletedAt, '2026-09-10T00:00:00.000Z'); // лишається видаленим
+});
+
+test('restoreExpensesFromBackup: бекап новіший І несе deletedAt → tombstone застосовується (не "воскресіння", а коректне поширення видалення з бекапу)', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [{ id: 'e1', date: '2026-09-01', name: 'Кава', amount: 65, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const backup = [{ id: 'e1', date: '2026-09-01', name: 'Кава', amount: 65, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-10T00:00:00.000Z', deletedAt: '2026-09-10T00:00:00.000Z' }];
+  const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
+  assert.equal(result.updated, 1);
+  assert.equal(ctx.expenses[0].deletedAt, '2026-09-10T00:00:00.000Z');
+});
+
+test('restoreExpensesFromBackup: запису немає локально → додається як новий, push-спроба (не помилка навіть без Cloud-сесії)', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [];
+  const backup = [{ id: 'e1', date: '2026-09-01', name: 'Нова з бекапу', amount: 65, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
+  assert.equal(result.added, 1);
+  assert.equal(ctx.expenses.length, 1);
+});
+
+test('restoreExpensesFromBackup: запису немає в бекапі → локальний-only запис НЕ видаляється (той самий принцип, що P1.2 Excel)', async () => {
+  const { ctx } = sandbox();
+  ctx.expenses = [{ id: 'e1', date: '2026-09-01', name: 'Лише локальна', amount: 65, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const result = await ctx.restoreExpensesFromBackup(JSON.stringify([]));
+  assert.equal(ctx.expenses.length, 1);
+  assert.equal(ctx.expenses[0].id, 'e1');
+});
+
+test('restoreDebtsFromBackup: LWW-конфлікт (той самий принцип, окремо перевірений для природного-ключа домену)', async () => {
+  const { ctx } = sandbox();
+  ctx.debts = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-09', balance: 999, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-05T00:00:00.000Z' }];
+  const backup = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-09', balance: 111, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const result = await ctx.restoreDebtsFromBackup(JSON.stringify(backup));
+  assert.equal(result.kept, 1);
+  assert.equal(ctx.debts[0].balance, 999);
 });
 
 /* ============ Acceptance D2: mixed-storage export → restore для 3 фінальних доменів ============ */

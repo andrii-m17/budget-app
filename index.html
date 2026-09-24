@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.77</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.78</div>
 </div>
   </div>
 </div>
@@ -3645,23 +3645,120 @@ async function restoreInstallmentAccountsFromBackup(raw){
   stampMissingTimestamps(installmentAccounts);
   return saveInstallmentAccounts();
 }
-// Rev #28.D2 — expenses/incomes/debts: та сама "легітимно порожній стан"
-// категорія, що ignoredDivergences/hiddenFrom вище (не installmentAccounts —
-// немає реконструкції з іншого домену) — parse+fallback-на-[] + await saveX().
+// Rev #30 (6D.46) — P1.3 (переглянуто): відновлення бекапу для 3 id-based
+// доменів (Категорія A) тепер LWW-merge, не безумовна заміна. Крок 0
+// підтвердив: бекап — буквальна серіалізація in-memory масиву, кожен запис
+// вже несе свій updatedAt (і deletedAt, якщо tombstoned) — нічого
+// перетворювати, поля ті самі, що локально (на відміну від Cloud-рядків із
+// snake_case-назвами колонок). Спершу (якщо Cloud доступний) — свіжий pull,
+// щоб порівняння відбувалось проти РЕАЛЬНО найновішого відомого стану, а не
+// потенційно застарілого local (DoD: "проти Cloud, не лише локально").
+// Далі — по кожному запису з бекапу: знайти локальний за id; відсутній →
+// додати (як новий, push); є, бекап НЕ новіший → лишити як є (locally-
+// newer/tombstone-locally-newer виграє автоматично, той самий effect, що
+// tombstone розглядався б окремо — жодного спецкоду для deletedAt не
+// знадобилось, це просто ще одне поле в порівнянні updatedAt); бекап
+// новіший → застосувати всі поля (включно з deletedAt/його відсутністю) і
+// запушити. Запис, якого нема в бекапі — не чіпається (той самий принцип,
+// що вже P1.2 для Excel-імпорту).
 async function restoreExpensesFromBackup(raw){
-  try{ expenses = raw != null ? JSON.parse(raw) : []; }
-  catch(e){ expenses = []; }
-  return saveExpenses();
+  let backupList;
+  try{ backupList = raw != null ? JSON.parse(raw) : []; }
+  catch(e){ backupList = []; }
+  if(isCloudSessionReady()) await pullExpensesCore();
+  let added = 0, updated = 0, kept = 0;
+  for(const rec of backupList){
+    const local = expenses.find(function(e){ return e.id === rec.id; });
+    if(!local){
+      expenses.push(rec);
+      added++;
+      pushExpenseRecordPilot(rec);
+      continue;
+    }
+    const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
+    const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
+    if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)){ kept++; continue; }
+    local.date = rec.date;
+    local.name = rec.name;
+    local.amount = rec.amount;
+    local.category = rec.category;
+    local.subcategory = rec.subcategory;
+    local.manual = rec.manual;
+    if(rec.linkedInstallment) local.linkedInstallment = rec.linkedInstallment;
+    else delete local.linkedInstallment;
+    if(rec.deletedAt) local.deletedAt = rec.deletedAt;
+    else delete local.deletedAt;
+    local.createdAt = rec.createdAt;
+    local.updatedAt = rec.updatedAt;
+    updated++;
+    pushExpenseRecordPilot(local);
+  }
+  const saveResult = await saveExpenses();
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept });
 }
 async function restoreIncomesFromBackup(raw){
-  try{ incomes = raw != null ? JSON.parse(raw) : []; }
-  catch(e){ incomes = []; }
-  return saveIncomes();
+  let backupList;
+  try{ backupList = raw != null ? JSON.parse(raw) : []; }
+  catch(e){ backupList = []; }
+  if(isCloudSessionReady()) await pullIncomesCore();
+  let added = 0, updated = 0, kept = 0;
+  for(const rec of backupList){
+    const local = incomes.find(function(i){ return i.id === rec.id; });
+    if(!local){
+      incomes.push(rec);
+      added++;
+      pushIncomeRecordPilot(rec);
+      continue;
+    }
+    const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
+    const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
+    if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)){ kept++; continue; }
+    local.date = rec.date;
+    local.source = rec.source;
+    local.amount = rec.amount;
+    if(rec.deletedAt) local.deletedAt = rec.deletedAt;
+    else delete local.deletedAt;
+    local.createdAt = rec.createdAt;
+    local.updatedAt = rec.updatedAt;
+    updated++;
+    pushIncomeRecordPilot(local);
+  }
+  const saveResult = await saveIncomes();
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept });
 }
 async function restoreDebtsFromBackup(raw){
-  try{ debts = raw != null ? JSON.parse(raw) : []; }
-  catch(e){ debts = []; }
-  return saveDebts();
+  let backupList;
+  try{ backupList = raw != null ? JSON.parse(raw) : []; }
+  catch(e){ backupList = []; }
+  if(isCloudSessionReady()) await pullDebtsCore();
+  let added = 0, updated = 0, kept = 0;
+  for(const rec of backupList){
+    const local = debts.find(function(d){ return d.id === rec.id; });
+    if(!local){
+      debts.push(rec);
+      added++;
+      pushDebtRecordPilot(rec);
+      continue;
+    }
+    const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
+    const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
+    if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)){ kept++; continue; }
+    local.name = rec.name;
+    local.kind = rec.kind;
+    local.month = rec.month;
+    local.balance = rec.balance;
+    if(rec.minPayment != null) local.minPayment = rec.minPayment; else delete local.minPayment;
+    if(rec.minPaymentDone != null) local.minPaymentDone = rec.minPaymentDone; else delete local.minPaymentDone;
+    if(rec.monthlyPayment != null) local.monthlyPayment = rec.monthlyPayment; else delete local.monthlyPayment;
+    if(rec.deletedAt) local.deletedAt = rec.deletedAt;
+    else delete local.deletedAt;
+    local.createdAt = rec.createdAt;
+    local.updatedAt = rec.updatedAt;
+    updated++;
+    pushDebtRecordPilot(local);
+  }
+  const saveResult = await saveDebts();
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept });
 }
 const UA_MONTHS = ['січень','лютий','березень','квітень','травень','червень','липень','серпень','вересень','жовтень','листопад','грудень'];
 
@@ -4946,7 +5043,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.77';
+const APP_VERSION = '2.21.78';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
