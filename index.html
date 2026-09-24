@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.74</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.75</div>
 </div>
   </div>
 </div>
@@ -4244,6 +4244,8 @@ async function pushIncomeRecordPilot(rec){
       amount: rec.amount,
       income_date: rec.date,
       note: rec.source || null,
+      // Rev #30 (6D.43) — tombstone, той самий принцип, що pushExpenseRecordPilot.
+      deleted_at: rec.deletedAt || null,
       created_at: rec.createdAt,
       updated_at: rec.updatedAt,
       created_by: userId,
@@ -4413,7 +4415,7 @@ async function pullIncomesCore(){
   const client = getSupabaseClient();
   let updated = 0, added = 0, keptLocal = 0;
   try{
-    let query = client.from('incomes').select('id,amount,income_date,note,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('incomes').select('id,amount,income_date,note,deleted_at,created_at,updated_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'incomes');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
@@ -4429,17 +4431,23 @@ async function pullIncomesCore(){
           continue;
         }
         const cloudSource = row.note || '';
-        if(local.amount !== row.amount || local.date !== row.income_date || local.source !== cloudSource || local.updatedAt !== row.updated_at){
+        // Rev #30 (6D.43) — deletedAt як звичайне синхронізоване поле (LWW), той самий принцип, що pullExpensesCore().
+        if(local.amount !== row.amount || local.date !== row.income_date || local.source !== cloudSource || (local.deletedAt||null) !== (row.deleted_at||null) || local.updatedAt !== row.updated_at){
           local.amount = row.amount;
           local.date = row.income_date;
           local.source = cloudSource;
+          if(row.deleted_at) local.deletedAt = row.deleted_at;
+          else delete local.deletedAt;
           local.createdAt = row.created_at;
           local.updatedAt = row.updated_at;
           updated++;
         }
         continue;
       }
-      incomes.push({ id: row.id, date: row.income_date, source: row.note || '', amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at });
+      // Rev #30 (6D.43) — новий для цього пристрою запис, вже tombstoned у Cloud — "пристрій C" DoD-сценарій.
+      const rec = { id: row.id, date: row.income_date, source: row.note || '', amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at };
+      if(row.deleted_at) rec.deletedAt = row.deleted_at;
+      incomes.push(rec);
       added++;
     }
     updateSyncMarkerFromAllRows('incomes', data);
@@ -4930,7 +4938,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.74';
+const APP_VERSION = '2.21.75';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6717,7 +6725,8 @@ function populateIncomeTable(){
   if(!el || !selectedMonth) return;
   const CHEVRON = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
   el.innerHTML = INCOME_SOURCES.map(function(s, i){
-    const existing = incomes.find(function(inc){ return inc.source===s.key && monthKey(inc.date)===selectedMonth; });
+    // Rev #30 (6D.43) — activeIncomes(): видалене джерело доходу мало б показувати 0, не свою стару суму.
+    const existing = activeIncomes().find(function(inc){ return inc.source===s.key && monthKey(inc.date)===selectedMonth; });
     const amount = existing ? existing.amount : 0;
     return `<button type="button" class="card-debt-compact-row" id="income-row-${i}" onclick="openIncomeEditor(${i})" aria-label="${escapeAttr(s.label)}, редагувати">
       <span class="cdr-avatar">${incomeIconHtml(s, 38)}</span>
@@ -6738,7 +6747,8 @@ function updateIncomeTotal(){
   if(!el || !selectedMonth) return;
   let sum = 0;
   INCOME_SOURCES.forEach(function(s){
-    const existing = incomes.find(function(inc){ return inc.source===s.key && monthKey(inc.date)===selectedMonth; });
+    // Rev #30 (6D.43) — activeIncomes(): видалене джерело не мало б рахуватись у сумі.
+    const existing = activeIncomes().find(function(inc){ return inc.source===s.key && monthKey(inc.date)===selectedMonth; });
     if(existing) sum += existing.amount;
   });
   el.textContent = fmt(sum);
@@ -6749,7 +6759,8 @@ function openIncomeEditor(i){
   if(!s || !selectedMonth) return;
   editingIncomeIdx = i;
   lastFocusedBeforeDialog = document.activeElement;
-  const existing = incomes.find(function(inc){ return inc.source===s.key && monthKey(inc.date)===selectedMonth; });
+  // Rev #30 (6D.43) — activeIncomes(): видалене джерело має відкриватись порожнім, як ніколи не введене.
+  const existing = activeIncomes().find(function(inc){ return inc.source===s.key && monthKey(inc.date)===selectedMonth; });
   document.getElementById('ind-icon').innerHTML = incomeIconHtml(s, 34);
   document.getElementById('ind-heading').textContent = s.label;
   document.getElementById('ind-amount').value = existing ? formatThousands(existing.amount) : '';
@@ -6773,15 +6784,27 @@ async function saveIncomeDrawer(){
   const amount = parseAmount(raw);
   // Природний ключ запису — джерело+місяць (як в Excel: одна колонка = одне
   // число на місяць), тому це UPSERT, а не додавання нового запису щоразу.
+  // Rev #30 (6D.43) — existingIdx МАЄ лишатись сирим (не activeIncomes()):
+  // якщо для цього джерела+місяця вже є tombstoned запис, наступні дві
+  // гілки мають його знайти — щоб і видалення вдруге не плодило дублів
+  // (нижче), і повторне введення суми "воскрешало" ТОЙ САМИЙ id, а не
+  // створювало новий (та сама identity, природний ключ не змінився).
   const existingIdx = incomes.findIndex(function(inc){ return inc.source===s.key && monthKey(inc.date)===selectedMonth; });
   // Rev #30 (6D.5) — pushedRecord: посилання на запис, що щойно створений/
   // змінений цим викликом (не весь масив incomes) — push одного запису,
-  // не всього масиву (той самий принцип, що addExpense() вище). Видалення
-  // (гілка splice нижче) свідомо НЕ пушиться цим кроком.
+  // не всього масиву (той самий принцип, що addExpense() вище).
   let pushedRecord = null;
   if(!raw || isNaN(amount) || amount<=0){
-    // Порожнє/нульове поле — прибираємо запис за цей місяць, якщо він був.
-    if(existingIdx>=0) incomes.splice(existingIdx,1);
+    // Rev #30 (6D.43) — порожнє/нульове поле: якщо запис був і ще НЕ
+    // tombstoned — позначаємо (deletedAt+updatedAt), лишаємо фізично в
+    // масиві (той самий принцип, що deleteRecord()) і пушимо. Якщо вже
+    // tombstoned — нічого робити, немає що видаляти вдруге.
+    if(existingIdx>=0 && !incomes[existingIdx].deletedAt){
+      const nowISO = new Date().toISOString();
+      incomes[existingIdx].deletedAt = nowISO;
+      incomes[existingIdx].updatedAt = nowISO;
+      pushedRecord = incomes[existingIdx];
+    }
   }else if(existingIdx>=0){
     incomes[existingIdx].amount = amount;
     // Rev #30 (6D.7) — updatedAt тепер оновлюється й при редагуванні
@@ -6789,6 +6812,11 @@ async function saveIncomeDrawer(){
     // timestamp"), createdAt лишається як був — той самий принцип, що
     // вже діє для expenses (addExpense()/ensureExpenseIdentity()).
     incomes[existingIdx].updatedAt = new Date().toISOString();
+    // Rev #30 (6D.43) — "воскресіння": якщо цей природний ключ раніше
+    // видалявся, а тепер користувач знову ввів суму — це той самий запис
+    // (той самий id), просто знову активний. Без цього поле лишилось б
+    // невидимим назавжди (deletedAt все одно true), попри нову суму.
+    delete incomes[existingIdx].deletedAt;
     pushedRecord = incomes[existingIdx];
   }else{
     const nowISO = new Date().toISOString();
@@ -6961,9 +6989,16 @@ function updateDateCaption(){
 // active:false для категорій/hiddenFrom для карток) до підтвердженого
 // push, і push відбувається одразу — той самий принцип, що вже діє для
 // редагування (pushExpenseRecordPilot викликається так само, як з
-// saveRecordEdit()). incomes-гілка нижче свідомо БЕЗ змін — окремий Rev.
+// saveRecordEdit()).
+// Rev #30 (6D.43) — той самий патерн для incomes (домен 2/3). Крок 0
+// підтвердив: Family Bridge — виключно expenses (parsed.expenses,
+// computeImportPlan() параметризована лише під expenses), для incomes
+// такої фічі взагалі не існує — жодного resurrection-фіксу тут не треба.
 function activeExpenses(){
   return expenses.filter(function(e){ return !e.deletedAt; });
+}
+function activeIncomes(){
+  return incomes.filter(function(e){ return !e.deletedAt; });
 }
 async function deleteRecord(kind, id){
   if(kind==='expense'){
@@ -6975,7 +7010,15 @@ async function deleteRecord(kind, id){
     reportSaveResult(await saveExpenses());
     pushExpenseRecordPilot(rec);
   }
-  else{ incomes = incomes.filter(e=>e.id!==id); reportSaveResult(await saveIncomes()); }
+  else{
+    const rec = incomes.find(function(e){ return e.id===id; });
+    if(!rec) return;
+    const nowISO = new Date().toISOString();
+    rec.deletedAt = nowISO;
+    rec.updatedAt = nowISO;
+    reportSaveResult(await saveIncomes());
+    pushIncomeRecordPilot(rec);
+  }
   populateMonths(); renderAll();
 }
 // Rev 2.1.15 — раніше клік на "×" видаляв запис миттєво, без підтвердження —
@@ -7727,8 +7770,8 @@ function earliestDebtMonth(){
 // "Доходи vs Витрати", щоб дані завжди починались зліва, а не зсувались вправо
 // нульовими "місяцями до початку обліку" (Rev: графіки).
 function earliestActivityMonth(){
-  // Rev #30 (6D.42) — activeExpenses() (incomes ще без tombstone — окремий наступний Rev).
-  const monthsList = [...activeExpenses().map(e=>monthKey(e.date)), ...incomes.map(e=>monthKey(e.date))].filter(Boolean);
+  // Rev #30 (6D.42/6D.43) — activeExpenses()/activeIncomes().
+  const monthsList = [...activeExpenses().map(e=>monthKey(e.date)), ...activeIncomes().map(e=>monthKey(e.date))].filter(Boolean);
   if(!monthsList.length) return null;
   return monthsList.reduce((min,m)=> m<min ? m : min, monthsList[0]);
 }
@@ -8648,8 +8691,8 @@ function monthLabelShort(key){
   const [y,m]=key.split('-'); return short[parseInt(m,10)-1];
 }
 function allMonths(){
-  // Rev #30 (6D.42) — activeExpenses() (incomes/debts без tombstone — окремі наступні Rev).
-  const set = new Set([...activeExpenses().map(e=>monthKey(e.date)), ...incomes.map(e=>monthKey(e.date)), ...debts.map(d=>d.month)].filter(Boolean));
+  // Rev #30 (6D.42/6D.43) — activeExpenses()/activeIncomes() (debts без tombstone — окремий наступний Rev).
+  const set = new Set([...activeExpenses().map(e=>monthKey(e.date)), ...activeIncomes().map(e=>monthKey(e.date)), ...debts.map(d=>d.month)].filter(Boolean));
   const todayKey = monthKey(localDateISO());
   // BugFix Rev 2.0.3: раніше в списку були лише місяці, де вже є хоч якийсь
   // запис — а оскільки дохід/борги тепер вносяться через таблицю, прив'язану
@@ -9390,12 +9433,12 @@ function renderRecords(){
   // сортування нижче) — стабільний DOM-якір "journal-row-expense-N" для
   // навігації з діагностики (goToDiagnosticIssue), незалежний від id (саме
   // id часто й є тим, що зіпсоване — відсутнє чи задубльоване).
-  // Rev #30 (6D.42) — activeExpenses(): МАЄ бути той самий idx-простір, що
-  // findExpenseIdIssues()/findTimestampIssues()/goToDiagnosticIssue() —
-  // інакше __srcIdx і target.idx розійдуться (incomes ще без tombstone).
+  // Rev #30 (6D.42/6D.43) — activeExpenses()/activeIncomes(): МАЄ бути той
+  // самий idx-простір, що findExpenseIdIssues()/goToDiagnosticIssue()/
+  // findRecordIdForDate() — інакше __srcIdx і target.idx розійдуться.
   const combined = [
     ...activeExpenses().map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
-    ...incomes.map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
+    ...activeIncomes().map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
   ].sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
 
   if(showJournalBtn) showJournalBtn.classList.toggle('hidden', combined.length <= SHORT_JOURNAL_LIMIT);
@@ -9720,10 +9763,10 @@ function renderJournalView(){
   populateJournalCategoryOptions();
   const searchSummaryEl = document.getElementById('journal-search-summary');
   const labelEl = document.getElementById('journal-month-label');
-  // Rev #30 (6D.42) — activeExpenses(), той самий принцип/idx-простір, що renderRecords() вище.
+  // Rev #30 (6D.42/6D.43) — activeExpenses()/activeIncomes(), той самий принцип/idx-простір, що renderRecords() вище.
   const allCombined = [
     ...activeExpenses().map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
-    ...incomes.map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
+    ...activeIncomes().map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
   ];
   const dateInputEl = document.getElementById('journal-date-input');
   if(dateInputEl) dateInputEl.value = journalMonth + '-01';
@@ -9761,10 +9804,15 @@ function renderJournalView(){
 // buildRecordGroupsHtml (не чіпали) вже проставляє на кожен рядок — щоб
 // знайти DOM-елемент для flashDiagnosticTarget (Rev 2.16.1) без жодної зміни
 // самого рендеру рядків.
+// Rev #30 (6D.43) — Самокорекція: цю функцію grep у 6D.42 пропустив (шукав
+// лише `.find(`, не `.findIndex(`) — indexOf тут МАВ фільтруватись тим
+// самим activeExpenses()/activeIncomes(), що вже Журнал і
+// findExpenseIdIssues()/goToDiagnosticIssue(), інакше стрибок за датою вів
+// би на хибний DOM-рядок щойно в даних є хоч один tombstoned запис.
 function findRecordIdForDate(dateStr){
-  const expIdx = expenses.findIndex(function(e){ return e.date === dateStr; });
+  const expIdx = activeExpenses().findIndex(function(e){ return e.date === dateStr; });
   if(expIdx !== -1) return 'journal-row-expense-' + expIdx;
-  const incIdx = incomes.findIndex(function(e){ return e.date === dateStr; });
+  const incIdx = activeIncomes().findIndex(function(e){ return e.date === dateStr; });
   if(incIdx !== -1) return 'journal-row-income-' + incIdx;
   return null;
 }
@@ -9792,7 +9840,8 @@ function monthAggregates(month){
   // KPI/Дашборду/Аналітики, що споживають monthAggregates() — формула
   // (reduce) нижче НЕ змінена, лише вхідний набір записів.
   const monthExp = activeExpenses().filter(e=>monthKey(e.date)===month);
-  const monthInc = incomes.filter(e=>monthKey(e.date)===month);
+  // Rev #30 (6D.43) — activeIncomes(), той самий принцип.
+  const monthInc = activeIncomes().filter(e=>monthKey(e.date)===month);
   const totalIncome = monthInc.reduce((s,e)=>s+e.amount,0);
   const totalExpense = monthExp.reduce((s,e)=>s+e.amount,0);
   return { monthExp, monthInc, totalIncome, totalExpense, savings: totalIncome-totalExpense };

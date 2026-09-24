@@ -27,7 +27,9 @@ const { buildSandbox } = require('./extract');
 function sandbox({ expenses, incomes } = {}){
   return buildSandbox(
     { expenses: expenses || [], incomes: incomes || [] },
-    ['shiftMonth', 'monthKey', 'recordsForMonth', 'findRecordIdForDate', 'filterJournalRecords', 'journalCategoryOptions', 'journalSubcategoryOptions']
+    ['shiftMonth', 'monthKey', 'recordsForMonth', 'findRecordIdForDate', 'filterJournalRecords', 'journalCategoryOptions', 'journalSubcategoryOptions',
+      // Rev #30 (6D.43) — findRecordIdForDate() тепер сканує activeExpenses()/activeIncomes(), не сирі масиви.
+      'activeExpenses', 'activeIncomes']
   );
 }
 

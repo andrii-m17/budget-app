@@ -212,6 +212,11 @@ const REPOSITORY_NAMES = [
   // для handleImportFile() (excel-parsing.test.js:9-14); activeExpenses()
   // — чиста, DOM-незалежна, тому й покрита напряму.
   'activeExpenses',
+  // Rev #30 (6D.43) — tombstone для incomes (домен 2/3), той самий принцип.
+  // saveIncomeDrawer() (DOM-термінальна, "воскресіння" через existingIdx-
+  // реюз усередині неї) НЕ під тестом тут — той самий скоуп-принцип;
+  // перевірено натомість живо в браузері. activeIncomes() чиста.
+  'activeIncomes',
 ];
 
 function sandbox({ localStorageInitial, idbImpl } = {}){
@@ -1375,6 +1380,28 @@ test('pushIncomeRecordPilot: успішний upsert → { success:true }', asyn
   assert.deepEqual(plain(result), { success: true });
 });
 
+// Rev #30 (6D.43) — Sync Safety Patch P0.1, tombstone для incomes.
+test('activeIncomes: приховує записи з deletedAt, лишає решту', () => {
+  const { ctx } = sandbox();
+  ctx.incomes = [
+    { id: 'i1', source: 'ЗП', deletedAt: undefined },
+    { id: 'i2', source: 'Фріланс', deletedAt: '2026-03-01T00:00:00.000Z' },
+  ];
+  const result = ctx.activeIncomes();
+  assert.equal(result.length, 1);
+  assert.equal(result[0].id, 'i1');
+});
+test('pushIncomeRecordPilot: rec.deletedAt встановлено → payload несе deleted_at', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  let capturedPayload = null;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(payload){ capturedPayload = payload; return Promise.resolve({ data: [{}], error: null }); } }; } });
+  await ctx.pushIncomeRecordPilot({ id: 'i1', date: '2026-01-01', amount: 1000, source: 'ЗП', deletedAt: '2026-03-01T00:00:00.000Z', updatedAt: '2026-03-01T00:00:00.000Z' });
+  assert.equal(capturedPayload.deleted_at, '2026-03-01T00:00:00.000Z');
+});
+
 test('pushIncomeRecordPilot: реальна Cloud-помилка від upsert → { success:false }', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
@@ -1728,6 +1755,25 @@ test('pullIncomesCore: LWW — локальний СТРОГО новіший �
   assert.equal(result.keptLocal, 1);
   assert.equal(ctx.incomes[0].amount, 20000);
   assert.equal(pushSpy.count(), 1);
+});
+
+// Rev #30 (6D.43) — Sync Safety Patch P0.1, tombstone для incomes.
+test('pullIncomesCore: Cloud-рядок з deleted_at, НОВИЙ для цього пристрою → створюється одразу з deletedAt ("пристрій C")', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'Видалено на іншому пристрої', deleted_at: '2026-05-06T00:00:00.000Z', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2026-05-06T00:00:00.000Z' }]);
+  ctx.incomes = [];
+  const result = await ctx.pullIncomesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0 });
+  assert.equal(ctx.incomes[0].deletedAt, '2026-05-06T00:00:00.000Z');
+  assert.deepEqual(ctx.activeIncomes(), []);
+});
+
+test('pullIncomesCore: Cloud-рядок з deleted_at, локальний ІСНУЄ (не видалений) → LWW-переможець Cloud позначає deletedAt локально', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'ЗП', deleted_at: '2026-05-07T00:00:00.000Z', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2026-05-07T00:00:00.000Z' }]);
+  ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: 'ЗП', amount: 20000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullIncomesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, added: 0, keptLocal: 0 });
+  assert.equal(ctx.incomes[0].deletedAt, '2026-05-07T00:00:00.000Z');
+  assert.equal(ctx.incomes.length, 1);
 });
 
 test('pullIncomesPilot: тонка обгортка над pullIncomesCore (той самий результат)', async () => {

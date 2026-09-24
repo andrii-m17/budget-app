@@ -4486,6 +4486,92 @@ deleted_at timestamptz null` на `budget-app-dev`.
 **Далі за планом:** 6D.43 (`incomes`, той самий патерн), 6D.44 (`debts`,
 той самий патерн + carry-forward-питання окремо).
 
+### 6D.43 — Sync Safety Patch, P0.1: tombstone для `incomes` (домен 2/3) ✅ Rev 2.21.75
+
+Той самий принцип, що 6D.42, з чотирма явно перевіреними (не перенесеними
+автоматично) уроками з `expenses`.
+
+**Самокорекція, знайдена ДО написання нового коду:** `findRecordIdForDate()`
+(дата-джамп у Журналі) — grep 6D.42 шукав лише `.find(`, пропустивши
+`.findIndex(`. Функція й досі читала СИРІ `expenses`/`incomes` для того
+самого DOM-якоря (`journal-row-<kind>-N`), що вже фільтрований Журнал —
+реальна, хоч і малопомітна, розсинхронізація indexів, що лишилась із
+попереднього Rev. Виправлено для ОБОХ доменів разом (`activeExpenses()`/
+`activeIncomes()`), а не лише для incomes.
+
+**4 явні перевірки замість перенесення "очевидно те саме":**
+1. **Журнал↔Діагностика пастка для incomes?** Перевірено явно:
+   `findExpenseIdIssues`/`findTimestampIssues`/`goToDiagnosticIssue` — ЛИШЕ
+   для `expenses`, аналога для incomes не існує взагалі. Спільний
+   `__srcIdx`-простір Журналу торкається лише `findRecordIdForDate()` (вище)
+   — інших залежностей від incomes-індексів не знайдено.
+2. **Excel-дедуп для incomes** — підтверджено окремо (не "той самий, тому
+   не дивимось"): `incomes.some(inc=>inc.source===c.source && ...)`
+   (рядок ~8178) — той самий fingerprint-патерн (джерело+місяць), той самий
+   намір (видалений локально дохід і надалі блокує повторне створення через
+   імпорт) — лишений сирим свідомо, не за аналогією.
+3. **Family Bridge для incomes** — перевірено прямим grep
+   (`parsed.incomes`, share-income) — **не існує взагалі**, фіча лише для
+   `expenses` (`parsed.expenses`). Жодного resurrection-фіксу типу 6D.42
+   тут не потрібно.
+4. **`debts`-подібна подвійність механізмів видалення — виявилась
+   актуальною і для incomes, не лише майбутнього `debts`.** `saveIncomeDrawer()`
+   мала ДРУГИЙ шлях видалення (не через Журнал-кнопку "×", а через
+   очищення поля суми в шторці — `incomes.splice()` при порожньому/
+   нульовому значенні) з природним ключем джерело+місяць. Обидва шляхи
+   (Журнал-кнопка через `deleteRecord()`, шторка через `saveIncomeDrawer()`)
+   тепер узгоджені на одному tombstone-механізмі.
+
+**Нова, специфічна для природного ключа incomes поведінка —
+"воскресіння":** якщо для джерела+місяця вже є tombstoned запис, і
+користувач знову вводить суму в тому самому полі — `existingIdx`
+(навмисно СИРИЙ, не `activeIncomes()`) знаходить ТОЙ САМИЙ запис і
+`deletedAt` явно прибирається (`delete`). Без цього довелось би або
+створювати новий `id` для того самого джерела+місяця (порушуючи
+природний-ключ-інваріант, що діє для всього домену), або запис лишався б
+невидимим НАЗАВЖДИ попри нову суму. `openIncomeEditor()` (тепер через
+`activeIncomes()`) відкриває поле ПОРОЖНІМ для tombstoned запису — той
+самий UX, що "ніколи не введено", хоча технічно це той самий `id`.
+
+**Реалізація:** `activeIncomes()`; `deleteRecord('income', id)` — та сама
+tombstone-логіка, що expense-гілка; `saveIncomeDrawer()` — порожнє поле
+тепер стампить `deletedAt`+`updatedAt` (лише якщо ще не tombstoned —
+guard проти повторного "видалення" вже видаленого), непорожнє поле на
+existingIdx — `delete rec.deletedAt` (воскресіння); `pushIncomeRecordPilot`
+надсилає `deleted_at`; `pullIncomesCore` — `deleted_at` у select/diff/
+assign, той самий принцип, що `pullExpensesCore`. Cloud: `alter table
+incomes add column deleted_at timestamptz null` на `budget-app-dev`.
+
+**Тестування:** `node --test` — 342/342 (6 нових тестів: `activeIncomes()`,
+`pushIncomeRecordPilot` incl. `deleted_at`, `pullIncomesCore` —
+новий-tombstoned/LWW-Cloud-переможець; `saveIncomeDrawer()` САМА
+DOM-термінальна, воскресіння-логіка перевірена лише живо, той самий
+скоуп-принцип, що вже задокументований для `handleImportFile()`).
+
+**Живо перевірено проти `budget-app-dev` — повний цикл, включно з
+унікальним для incomes сценарієм:**
+- `alter table` підтверджено через `information_schema.columns`.
+- `deleteRecord('income', id)` у браузері → `deletedAt` локально й у Cloud
+  (`deleted_at` підтверджено прямим SQL), запис фізично лишився
+  (`totalCount:1`), зник з `activeIncomes()`.
+- `openIncomeEditor()` для tombstoned джерела+місяця → поле ПОРОЖНЄ.
+- **Воскресіння**: введено нову суму (25000) через той самий `editingIncomeIdx`
+  → `saveIncomeDrawer()` знайшов ТОЙ САМИЙ `id`, `deletedAt` зник локально
+  Й у Cloud (`deleted_at: null` підтверджено SQL), `totalCount` не зріс
+  (дубля не створено).
+- **Симуляція "пристрою C"**: `pullIncomesCore()` після `clearSyncMarkers()`
+  створив tombstoned запис одразу, `activeIncomes()` його не бачить.
+  `findRecordIdForDate()` викликаний після фіксу — не падає.
+- Тестовий запис відновлено до вихідного стану (сума 2) наприкінці.
+
+⚠️ **iPhone-тест — обов'язково**, ще не виконаний.
+
+**Далі за планом:** 6D.44 (`debts`) — той самий патерн, плюс explicit
+carry-forward-перевірка (чи tombstoned борг має враховуватись у
+"останній відомий баланс") і подвійний механізм видалення (Журнал-кнопка
+відсутня для debts взагалі — лише shторка з порожнім балансом), про який
+попереджав користувач заздалегідь.
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.
