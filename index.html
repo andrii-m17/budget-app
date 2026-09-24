@@ -2531,7 +2531,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.69</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.70</div>
 </div>
   </div>
 </div>
@@ -4839,7 +4839,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.69';
+const APP_VERSION = '2.21.70';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -5644,7 +5644,10 @@ const GUEST_AVATAR_ICON_SVG = '<svg viewBox="0 0 24 24" width="60%" height="60%"
 // .syncing svg{animation:syncSpin}, не окрема анімована іконка); "done" —
 // той самий CHECK-гліф, що вже populateInstallmentTable(); "error" —
 // проста "!" (вертикальна риска + крапка), новий у цьому Rev.
-const SYNC_SPIN_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>';
+// Rev #30 (6D.36) — замінено на "двострілковий" sync-гліф (як 🔄): дві
+// дзеркальні дуги-стрілки замість однієї, за проханням користувача (одна
+// стрілка виглядала як просте "оновити", не як double-headed sync-цикл).
+const SYNC_SPIN_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
 const SYNC_DONE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 const SYNC_ERROR_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="7" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
 // Rev #30 (6D, індикатор синхронізації; 6D.34 — редизайн станів+помилка) —
