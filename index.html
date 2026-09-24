@@ -2223,57 +2223,20 @@
     <svg class="cloud-service-card-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
   </button>
 
-  <!-- Rev #30 (6D крок 9) — ручний Pull pilot (categories): видимий лише
-       залогіненому (toggle у renderProfileUI()) — pull без сесії/family_id
-       все одно мовчки пропускається у pullCategoriesCore(), але кнопка тут
-       БЕЗ сенсу її показувати гостю. .profile-menu-item — той самий готовий
-       клас, що пункти popover'а (border-top-роздільник), тут використаний
-       окремо поза popover — не новий CSS-патерн. -->
-  <button type="button" class="profile-menu-item hidden" id="sync-categories-btn" onclick="pullCategoriesPilotManual()" style="margin-bottom:4px;">
+  <!-- Rev #30 (6D.37) — ЗАМІНА 6 окремих "Синхронізувати X"-кнопок
+       (categories/subcategories/dictionary/bank_accounts/
+       installment_accounts/hidden_entities, 6D крок 9 → 6D.32) на ОДНУ
+       "Синхронізувати все": з 9 pull-доменами (додались expenses/incomes/
+       debts) окремий рядок на кожен став забагато для одного екрана —
+       продуктове рішення користувача (явно підтверджено, не мовчки).
+       Видимий лише залогіненому (toggle у renderProfileUI()) — той самий
+       принцип, що всі попередні. .profile-menu-item — той самий готовий
+       клас, що пункти popover'а. -->
+  <button type="button" class="profile-menu-item hidden" id="sync-all-btn" onclick="syncAllPilotManual()" style="margin-bottom:4px;">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
-    Синхронізувати категорії
+    Синхронізувати все
   </button>
-  <div class="import-status hidden" id="sync-categories-status"></div>
-
-  <!-- Rev #30 (6D.28, subcategories+dictionary повний цикл) — той самий
-       патерн, що sync-categories-btn вище: окрема кнопка на домен
-       (не об'єднана, той самий узгоджений принцип, що всі попередні). -->
-  <button type="button" class="profile-menu-item hidden" id="sync-subcategories-btn" onclick="pullSubcategoriesPilotManual()" style="margin-bottom:4px;">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
-    Синхронізувати підкатегорії
-  </button>
-  <div class="import-status hidden" id="sync-subcategories-status"></div>
-
-  <button type="button" class="profile-menu-item hidden" id="sync-dictionary-btn" onclick="pullDictionaryPilotManual()" style="margin-bottom:4px;">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
-    Синхронізувати словник
-  </button>
-  <div class="import-status hidden" id="sync-dictionary-status"></div>
-
-  <!-- Rev #30 (6D, bank_accounts повний цикл) — той самий патерн, що
-       sync-categories-btn вище: окрема кнопка на домен (не об'єднана),
-       узгоджено з "один домен за раз". -->
-  <button type="button" class="profile-menu-item hidden" id="sync-bankaccounts-btn" onclick="pullBankAccountsPilotManual()" style="margin-bottom:4px;">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
-    Синхронізувати банки/картки
-  </button>
-  <div class="import-status hidden" id="sync-bankaccounts-status"></div>
-
-  <!-- Rev #30 (6D.27, installment_accounts повний цикл) — той самий патерн,
-       що sync-bankaccounts-btn вище. -->
-  <button type="button" class="profile-menu-item hidden" id="sync-installments-btn" onclick="pullInstallmentAccountsPilotManual()" style="margin-bottom:4px;">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
-    Синхронізувати ОЧ
-  </button>
-  <div class="import-status hidden" id="sync-installments-status"></div>
-
-  <!-- Rev #30 (6D.32, hidden_entities перша реалізація) — той самий
-       патерн, що sync-installments-btn вище. -->
-  <button type="button" class="profile-menu-item hidden" id="sync-hidden-btn" onclick="pullHiddenEntitiesPilotManual()" style="margin-bottom:4px;">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
-    Синхронізувати приховані
-  </button>
-  <div class="import-status hidden" id="sync-hidden-status"></div>
+  <div class="import-status hidden" id="sync-all-status"></div>
 
   <div class="section-label">Дані</div>
   <div class="service-grid">
@@ -2531,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.70</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.71</div>
 </div>
   </div>
 </div>
@@ -3295,42 +3258,12 @@ async function pullCategoriesCore(){
 async function pullCategoriesPilot(){
   return await pullCategoriesCore();
 }
-// Ручний виклик кнопкою в "Сервісі" — той самий core, але З видимим
-// результатом (на відміну від тихого автоматичного pull при вході).
-// Rev #30 (6D, Варіант А) — свідомий вибір: результат `keptLocal` (LWW
-// захистив локальну зміну від перезапису) НЕ виводиться окремим
-// повідомленням користувачу — мовчазний пріоритет локальної версії
-// прийнятний для v1 (той самий рівень деталізації, що вже мав UI до
-// цього Rev, коли Cloud просто завжди перемагав без жодного індикатора
-// "чий" запис застосувався). Якщо колись знадобиться видимість
-// конфліктів — `result.keptLocal` уже повертається з pullCategoriesCore().
-async function pullCategoriesPilotManual(){
-  const statusEl = document.getElementById('sync-categories-status');
-  statusEl.classList.remove('hidden');
-  if(!cloudSession || !cloudSession.user){
-    statusEl.textContent = 'Спершу увійдіть у Cloud.';
-    return;
-  }
-  if(!isSupabaseSdkReady() || !cloudFamilyId){
-    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
-    return;
-  }
-  statusEl.textContent = 'Синхронізація…';
-  const result = await pullCategoriesCore();
-  if(!result || result.skipped){
-    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
-    return;
-  }
-  if(result.updated || result.linked || result.added){
-    renderStructure();
-    populateCategorySelect();
-  }
-  const parts = [];
-  if(result.added) parts.push(result.added + ' нових');
-  if(result.linked) parts.push(result.linked + ' зв\'язано');
-  if(result.updated) parts.push(result.updated + ' оновлено');
-  statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
-}
+// Rev #30 (6D.37) — pullCategoriesPilotManual() (окрема кнопка,
+// per-domain статус-текст) ВИДАЛЕНА: замінена єдиною syncAllPilotManual()
+// нижче за файлом (одна кнопка "Синхронізувати все" замість 6 окремих,
+// продуктове рішення користувача — див. коментар біля #sync-all-btn).
+// pullCategoriesCore()/pullCategoriesPilot() (автоматичний виклик при
+// вході) лишаються без змін.
 async function saveSubcategories(){
   const result = await saveSubcategoriesLocal();
   if(result.success) pushSubcategoriesPilot();
@@ -3541,33 +3474,9 @@ async function pullSubcategoriesCore(){
 async function pullSubcategoriesPilot(){
   return await pullSubcategoriesCore();
 }
-async function pullSubcategoriesPilotManual(){
-  const statusEl = document.getElementById('sync-subcategories-status');
-  statusEl.classList.remove('hidden');
-  if(!cloudSession || !cloudSession.user){
-    statusEl.textContent = 'Спершу увійдіть у Cloud.';
-    return;
-  }
-  if(!isSupabaseSdkReady() || !cloudFamilyId){
-    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
-    return;
-  }
-  statusEl.textContent = 'Синхронізація…';
-  const result = await pullSubcategoriesCore();
-  if(!result || result.skipped){
-    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
-    return;
-  }
-  if(result.updated || result.linked || result.added){
-    renderStructure();
-    populateCategorySelect();
-  }
-  const parts = [];
-  if(result.added) parts.push(result.added + ' нових');
-  if(result.linked) parts.push(result.linked + ' зв\'язано');
-  if(result.updated) parts.push(result.updated + ' оновлено');
-  statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
-}
+// Rev #30 (6D.37) — pullSubcategoriesPilotManual() ВИДАЛЕНА, замінена
+// syncAllPilotManual() (див. коментар біля pullCategoriesPilotManual()
+// вище).
 // Rev #30 (6D.28) — той самий FK-принцип, що pullSubcategoriesCore() вище,
 // ПОДВІЙНИЙ: category_id (обов'язковий) і subcategory_id (опціональний,
 // null — легітимний стан, НЕ помилка й НЕ причина для skippedFk). Мусить
@@ -3631,32 +3540,8 @@ async function pullDictionaryCore(){
 async function pullDictionaryPilot(){
   return await pullDictionaryCore();
 }
-async function pullDictionaryPilotManual(){
-  const statusEl = document.getElementById('sync-dictionary-status');
-  statusEl.classList.remove('hidden');
-  if(!cloudSession || !cloudSession.user){
-    statusEl.textContent = 'Спершу увійдіть у Cloud.';
-    return;
-  }
-  if(!isSupabaseSdkReady() || !cloudFamilyId){
-    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
-    return;
-  }
-  statusEl.textContent = 'Синхронізація…';
-  const result = await pullDictionaryCore();
-  if(!result || result.skipped){
-    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
-    return;
-  }
-  if(result.updated || result.linked || result.added){
-    renderStructure();
-  }
-  const parts = [];
-  if(result.added) parts.push(result.added + ' нових');
-  if(result.linked) parts.push(result.linked + ' зв\'язано');
-  if(result.updated) parts.push(result.updated + ' оновлено');
-  statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
-}
+// Rev #30 (6D.37) — pullDictionaryPilotManual() ВИДАЛЕНА, замінена
+// syncAllPilotManual().
 // Rev #28.C — 4 хелпери ВИКЛЮЧНО для handleRestoreBackupFile() (нижче за
 // текстом файлу): той самий parse+fallback-на-DEFAULT_*, що вже
 // loadCategories()/…, лише джерело значення — рядок з розпарсеного файлу
@@ -4312,6 +4197,8 @@ async function pushExpenseRecordPilot(rec){
       subcategory: rec.subcategory || null,
       note: rec.name || null,
       linked_installment_id: linkedInstallmentId,
+      created_at: rec.createdAt,
+      updated_at: rec.updatedAt,
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
@@ -4332,6 +4219,8 @@ async function pushIncomeRecordPilot(rec){
       amount: rec.amount,
       income_date: rec.date,
       note: rec.source || null,
+      created_at: rec.createdAt,
+      updated_at: rec.updatedAt,
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
@@ -4368,6 +4257,8 @@ async function pushDebtRecordPilot(rec){
       min_payment: rec.minPayment != null ? rec.minPayment : null,
       min_payment_done: rec.minPaymentDone != null ? rec.minPaymentDone : null,
       monthly_payment: rec.monthlyPayment != null ? rec.monthlyPayment : null,
+      created_at: rec.createdAt,
+      updated_at: rec.updatedAt,
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
@@ -4377,6 +4268,210 @@ async function pushDebtRecordPilot(rec){
     return { success: false };
   }
 }
+/* ============ Rev #30 (6D.37) — Sync Engine pull, expenses/incomes/debts ============
+   Категорія A: серце фінансових даних, водночас архітектурно найпростіша
+   з-поміж шести уже завершених доменів — reconciliation тут ПРОСТА (`id` —
+   уже стабільний UUID, генерується локально, без name-based self-heal),
+   на відміну від categories/subcategories/dictionary/bank_accounts/
+   installment_accounts, де reconciliation-ключ доводилось шукати за `name`.
+
+   Крок 0 — перевірено (не припущено):
+   1) Push-функції ВЖЕ повертали { success } (Rev 2.21.68, 6D.34) — жодних
+      змін контракту тут не знадобилось. Єдине, чого їм БРАКУВАЛО —
+      created_at/updated_at узагалі НЕ надсилались у payload (додано вище,
+      у тому самому Rev, ПЕРЕД цими pull-функціями) — без цього LWW тут
+      узагалі не мав би на чому працювати (Cloud updated_at назавжди
+      "застряг" би на моменті INSERT).
+   2) Migration hazard: усі три таблиці (expenses/incomes/debts) на момент
+      перевірки — ПОРОЖНІ (0 рядків), попри те що push існує з Rev
+      2.21.41 — жодного backfill не потрібно, чистий старт.
+   3) Обсяг першого pull: реалістичний обсяг (сотні витрat за рік) —
+      прийнятний для ОДНОГО SELECT-запиту без пагінації, той самий підхід,
+      що вже 6 завершених доменів (жодного з них не довелось "вікнити").
+      Windowing (лише поточний+попередній місяць) свідомо НЕ реалізовано
+      у v1 — можливе майбутнє покращення, не заблоковане цим рішенням.
+   4) FK-edge-case (лінк на ще не синхронізований bank/installment) —
+      той самий принцип, що вже subcategories/dictionary: тихий пропуск
+      ЦІЛОГО запису (skippedFk), не half-синхронізований стан із
+      відсутнім/неправильним зв'язком. Для expenses це стосується лише
+      ОПЦІОНАЛЬНОГО linked_installment_id (сама витрата, без прив'язки,
+      не має FK-залежності); для debts — ОБОВ'ЯЗКОВОГО bank_account_id/
+      installment_account_id (борг без розв'язаного рахунку взагалі не
+      має сенсу, пропускається цілком).
+   5) Числові Cloud-типи (`numeric`: balance/min_payment/monthly_payment)
+      емпірично перевірені (не припущено) — реальний виклик через
+      getSupabaseClient() підтвердив: приходять як JS `number`, не
+      рядком — жодної конверсії типів не потрібно.
+
+   Синхронізація ВИДАЛЕННЯ — і тут свідомо НЕ реалізована (той самий,
+   уже задокументований принцип, що в решти 6 доменів): локальний запис
+   без Cloud-відповідника НЕ чіпається. Жодна фінансова формула не
+   змінена — pull лише записує сирі поля, розрахунки й далі локальні. */
+async function pullExpensesCore(){
+  if(!isCloudSessionReady()) return { skipped: true };
+  const client = getSupabaseClient();
+  let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
+  try{
+    const { data, error } = await client.from('expenses').select('id,amount,expense_date,category,subcategory,note,linked_installment_id,created_at,updated_at').eq('family_id', cloudFamilyId);
+    if(error || !data) return { skipped: true };
+    for(const row of data){
+      let linkedInstallmentName = null;
+      if(row.linked_installment_id){
+        const acc = installmentAccounts.find(function(a){ return a.cloudId === row.linked_installment_id; });
+        if(!acc){ skippedFk++; continue; } // ОЧ ще не синхронізована локально — тихий пропуск ЦІЄЇ витрати
+        linkedInstallmentName = acc.name;
+      }
+      const local = expenses.find(function(e){ return e.id === row.id; });
+      if(local){
+        const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
+        const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        if(localIsNewer){
+          keptLocal++;
+          pushExpenseRecordPilot(local); // push-retry, той самий принцип, що решта доменів
+          continue;
+        }
+        const cloudName = row.note || '';
+        const cloudCat = row.category || '';
+        const cloudSub = row.subcategory || '';
+        if(local.amount !== row.amount || local.date !== row.expense_date || local.category !== cloudCat || local.subcategory !== cloudSub || local.name !== cloudName || local.linkedInstallment !== (linkedInstallmentName || undefined) || local.updatedAt !== row.updated_at){
+          local.amount = row.amount;
+          local.date = row.expense_date;
+          local.category = cloudCat;
+          local.subcategory = cloudSub;
+          local.name = cloudName;
+          if(linkedInstallmentName) local.linkedInstallment = linkedInstallmentName;
+          else delete local.linkedInstallment;
+          local.createdAt = row.created_at;
+          local.updatedAt = row.updated_at;
+          updated++;
+        }
+        continue;
+      }
+      const rec = { id: row.id, date: row.expense_date, name: row.note || '', amount: row.amount, category: row.category || '', subcategory: row.subcategory || '', manual: true, createdAt: row.created_at, updatedAt: row.updated_at };
+      if(linkedInstallmentName) rec.linkedInstallment = linkedInstallmentName;
+      expenses.push(rec);
+      added++;
+    }
+  }catch(e){
+    return { skipped: true };
+  }
+  if(updated || added) await saveExpenses();
+  return { skipped: false, updated: updated, added: added, keptLocal: keptLocal, skippedFk: skippedFk };
+}
+async function pullExpensesPilot(){
+  return await pullExpensesCore();
+}
+// Rev #30 (6D.37) — pullExpensesPilotManual() (окрема кнопка) НЕ додана
+// узагалі — з самого початку об'єднано в syncAllPilotManual() нижче за
+// файлом (продуктове рішення користувача, той самий принцип, що вже
+// застосований ретроактивно до попередніх 5 доменів вище).
+async function pullIncomesCore(){
+  if(!isCloudSessionReady()) return { skipped: true };
+  const client = getSupabaseClient();
+  let updated = 0, added = 0, keptLocal = 0;
+  try{
+    const { data, error } = await client.from('incomes').select('id,amount,income_date,note,created_at,updated_at').eq('family_id', cloudFamilyId);
+    if(error || !data) return { skipped: true };
+    for(const row of data){
+      const local = incomes.find(function(i){ return i.id === row.id; });
+      if(local){
+        const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
+        const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        if(localIsNewer){
+          keptLocal++;
+          pushIncomeRecordPilot(local);
+          continue;
+        }
+        const cloudSource = row.note || '';
+        if(local.amount !== row.amount || local.date !== row.income_date || local.source !== cloudSource || local.updatedAt !== row.updated_at){
+          local.amount = row.amount;
+          local.date = row.income_date;
+          local.source = cloudSource;
+          local.createdAt = row.created_at;
+          local.updatedAt = row.updated_at;
+          updated++;
+        }
+        continue;
+      }
+      incomes.push({ id: row.id, date: row.income_date, source: row.note || '', amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at });
+      added++;
+    }
+  }catch(e){
+    return { skipped: true };
+  }
+  if(updated || added) await saveIncomes();
+  return { skipped: false, updated: updated, added: added, keptLocal: keptLocal };
+}
+async function pullIncomesPilot(){
+  return await pullIncomesCore();
+}
+// Rev #30 (6D.37) — pullIncomesPilotManual() (окрема кнопка) не додана —
+// той самий принцип, що pullExpensesPilotManual() вище.
+async function pullDebtsCore(){
+  if(!isCloudSessionReady()) return { skipped: true };
+  const client = getSupabaseClient();
+  let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
+  try{
+    const { data, error } = await client.from('debts').select('id,bank_account_id,installment_account_id,name,kind,month,balance,min_payment,min_payment_done,monthly_payment,created_at,updated_at').eq('family_id', cloudFamilyId);
+    if(error || !data) return { skipped: true };
+    for(const row of data){
+      let resolvedName;
+      if(row.kind === 'card'){
+        const acc = bankAccounts.find(function(b){ return b.cloudId === row.bank_account_id; });
+        if(!acc){ skippedFk++; continue; } // рахунок ще не синхронізований локально — тихий пропуск ЦЬОГО боргу
+        resolvedName = acc.name;
+      }else{
+        const acc = installmentAccounts.find(function(a){ return a.cloudId === row.installment_account_id; });
+        if(!acc){ skippedFk++; continue; } // ОЧ ще не синхронізована локально — тихий пропуск ЦЬОГО боргу
+        resolvedName = acc.name;
+      }
+      const month = dateToMonth(row.month); // Cloud-колонка типу date, локально 'YYYY-MM'
+      const local = debts.find(function(d){ return d.id === row.id; });
+      if(local){
+        const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
+        const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        if(localIsNewer){
+          keptLocal++;
+          pushDebtRecordPilot(local);
+          continue;
+        }
+        if(local.name !== resolvedName || local.month !== month || local.balance !== row.balance || local.minPayment !== row.min_payment || local.minPaymentDone !== row.min_payment_done || local.monthlyPayment !== row.monthly_payment || local.updatedAt !== row.updated_at){
+          local.name = resolvedName;
+          local.kind = row.kind;
+          local.month = month;
+          local.balance = row.balance;
+          if(row.min_payment != null) local.minPayment = row.min_payment; else delete local.minPayment;
+          if(row.min_payment_done != null) local.minPaymentDone = row.min_payment_done; else delete local.minPaymentDone;
+          if(row.monthly_payment != null) local.monthlyPayment = row.monthly_payment; else delete local.monthlyPayment;
+          local.createdAt = row.created_at;
+          local.updatedAt = row.updated_at;
+          updated++;
+        }
+        continue;
+      }
+      const rec = { id: row.id, name: resolvedName, kind: row.kind, month, balance: row.balance, createdAt: row.created_at, updatedAt: row.updated_at };
+      if(row.min_payment != null) rec.minPayment = row.min_payment;
+      if(row.min_payment_done != null) rec.minPaymentDone = row.min_payment_done;
+      if(row.monthly_payment != null) rec.monthlyPayment = row.monthly_payment;
+      debts.push(rec);
+      added++;
+    }
+  }catch(e){
+    return { skipped: true };
+  }
+  if(updated || added) await saveDebts();
+  return { skipped: false, updated: updated, added: added, keptLocal: keptLocal, skippedFk: skippedFk };
+}
+async function pullDebtsPilot(){
+  return await pullDebtsCore();
+}
+// Rev #30 (6D.37) — pullDebtsPilotManual() (окрема кнопка) не додана —
+// той самий принцип, що pullExpensesPilotManual()/pullIncomesPilotManual()
+// вище. Єдина ручна кнопка для ВСІХ 9 pull-доменів —
+// syncAllPilotManual() нижче за файлом.
 // Кожна з 4 нижче повертає { success, error? } (той самий контракт, що
 // Stage C) — reportSaveResult() на кожному call site показує явну помилку.
 async function saveBankAccounts(){
@@ -4506,33 +4601,8 @@ async function pullBankAccountsCore(){
 async function pullBankAccountsPilot(){
   return await pullBankAccountsCore();
 }
-async function pullBankAccountsPilotManual(){
-  const statusEl = document.getElementById('sync-bankaccounts-status');
-  statusEl.classList.remove('hidden');
-  if(!cloudSession || !cloudSession.user){
-    statusEl.textContent = 'Спершу увійдіть у Cloud.';
-    return;
-  }
-  if(!isSupabaseSdkReady() || !cloudFamilyId){
-    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
-    return;
-  }
-  statusEl.textContent = 'Синхронізація…';
-  const result = await pullBankAccountsCore();
-  if(!result || result.skipped){
-    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
-    return;
-  }
-  if(result.updated || result.linked || result.added){
-    populateBankDebtTable();
-    renderAll();
-  }
-  const parts = [];
-  if(result.added) parts.push(result.added + ' нових');
-  if(result.linked) parts.push(result.linked + ' зв\'язано');
-  if(result.updated) parts.push(result.updated + ' оновлено');
-  statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
-}
+// Rev #30 (6D.37) — pullBankAccountsPilotManual() ВИДАЛЕНА, замінена
+// syncAllPilotManual().
 async function saveInstallmentAccounts(){
   const result = await saveInstallmentAccountsLocal();
   if(result.success) pushInstallmentAccountsPilot();
@@ -4643,33 +4713,8 @@ async function pullInstallmentAccountsCore(){
 async function pullInstallmentAccountsPilot(){
   return await pullInstallmentAccountsCore();
 }
-async function pullInstallmentAccountsPilotManual(){
-  const statusEl = document.getElementById('sync-installments-status');
-  statusEl.classList.remove('hidden');
-  if(!cloudSession || !cloudSession.user){
-    statusEl.textContent = 'Спершу увійдіть у Cloud.';
-    return;
-  }
-  if(!isSupabaseSdkReady() || !cloudFamilyId){
-    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
-    return;
-  }
-  statusEl.textContent = 'Синхронізація…';
-  const result = await pullInstallmentAccountsCore();
-  if(!result || result.skipped){
-    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
-    return;
-  }
-  if(result.updated || result.linked || result.added){
-    populateInstallmentTable();
-    renderAll();
-  }
-  const parts = [];
-  if(result.added) parts.push(result.added + ' нових');
-  if(result.linked) parts.push(result.linked + ' зв\'язано');
-  if(result.updated) parts.push(result.updated + ' оновлено');
-  statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
-}
+// Rev #30 (6D.37) — pullInstallmentAccountsPilotManual() ВИДАЛЕНА,
+// замінена syncAllPilotManual().
 // Rev #30 (6D.32, hidden_entities — перша реалізація) — структурно НАЙПРОСТІШИЙ
 // домен з усіх шести: reconciliation іде за (family_id, entity_type,
 // entity_id) — UNIQUE-обмеження в Cloud-схемі, entity_id = cloudId
@@ -4761,30 +4806,8 @@ async function pullHiddenEntitiesCore(){
 async function pullHiddenEntitiesPilot(){
   return await pullHiddenEntitiesCore();
 }
-async function pullHiddenEntitiesPilotManual(){
-  const statusEl = document.getElementById('sync-hidden-status');
-  statusEl.classList.remove('hidden');
-  if(!cloudSession || !cloudSession.user){
-    statusEl.textContent = 'Спершу увійдіть у Cloud.';
-    return;
-  }
-  if(!isSupabaseSdkReady() || !cloudFamilyId){
-    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
-    return;
-  }
-  statusEl.textContent = 'Синхронізація…';
-  const result = await pullHiddenEntitiesCore();
-  if(!result || result.skipped){
-    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
-    return;
-  }
-  if(result.added){
-    populateBankDebtTable();
-    populateInstallmentTable();
-    renderAll();
-  }
-  statusEl.textContent = result.added ? ('Синхронізовано: ' + result.added + ' приховано.') : 'Уже синхронізовано, змін немає.';
-}
+// Rev #30 (6D.37) — pullHiddenEntitiesPilotManual() ВИДАЛЕНА, замінена
+// syncAllPilotManual().
 // Rev #30 (6D.32, hidden_entities перша реалізація) — той самий local/push
 // розподіл, що всі попередні 5 доменів: saveHiddenFrom() лишається
 // гарантованою локальною операцією (existing call sites не міняються),
@@ -4839,7 +4862,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.70';
+const APP_VERSION = '2.21.71';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -5576,6 +5599,21 @@ async function applyCloudSession(session){
         populateInstallmentTable();
         renderAll();
       }
+      // Rev #30 (6D.37) — expenses/incomes незалежні одне від одного, debts
+      // МУСИТЬ пулитись ОСТАННІМ (залежить від cloudId bank_accounts/
+      // installment_accounts, уже пролінкованих вище в тому самому ланцюжку).
+      const expResult = await pullExpensesPilot();
+      if(expResult && !expResult.skipped && (expResult.updated || expResult.added)){
+        populateMonths(); renderAll();
+      }
+      const incResult = await pullIncomesPilot();
+      if(incResult && !incResult.skipped && (incResult.updated || incResult.added)){
+        populateMonths(); renderAll();
+      }
+      const debtResult = await pullDebtsPilot();
+      if(debtResult && !debtResult.skipped && (debtResult.updated || debtResult.added)){
+        populateMonths(); renderAll();
+      }
     }
   }else{
     setCloudAuthFormVisible(true);
@@ -5782,11 +5820,71 @@ function installSyncIndicatorHooks(){
    'pushExpenseRecordPilot','pushIncomeRecordPilot','pushDebtRecordPilot',
    'pushBankAccountsPilot','pullBankAccountsCore','pushInstallmentAccountsPilot','pullInstallmentAccountsCore',
    'pullSubcategoriesCore','pullDictionaryCore',
-   'pushHiddenEntitiesPilot','pullHiddenEntitiesCore'
+   'pushHiddenEntitiesPilot','pullHiddenEntitiesCore',
+   'pullExpensesCore','pullIncomesCore','pullDebtsCore'
   ].forEach(function(name){
     const original = window[name];
     window[name] = withSyncIndicator(original);
   });
+}
+// Rev #30 (6D.37) — єдина ручна кнопка "Синхронізувати все" замінила 6
+// окремих "Синхронізувати X" (categories/subcategories/dictionary/
+// bank_accounts/installment_accounts/hidden_entities) і НЕ додала окремих
+// кнопок для нових expenses/incomes/debts — продуктове рішення
+// користувача (9 окремих рядків у "Сервісі" визнано забагато).
+// Порядок викликів — ТОЙ САМИЙ, що вже в applyCloudSession() (категорії →
+// підкатегорії → словник → банки → ОЧ → приховані → витрати → доходи →
+// борги) — FK-залежності (category_id/subcategory_id/entity_id/
+// linked_installment_id/bank_account_id/installment_account_id) мусять
+// резолвитись у тому самому порядку, інакше pull боргів/витрат
+// натрапить на ще не пролінкованих батьків і мовчки пропустить записи
+// (skippedFk) до наступного разу. Кожен виклик — той самий *Core(), що
+// вже викликають *Pilot()-обгортки — жоден статус-текст не пишеться
+// проміжно, лише один сумарний рядок наприкінці.
+async function syncAllPilotManual(){
+  const statusEl = document.getElementById('sync-all-status');
+  statusEl.classList.remove('hidden');
+  if(!cloudSession || !cloudSession.user){
+    statusEl.textContent = 'Спершу увійдіть у Cloud.';
+    return;
+  }
+  if(!isSupabaseSdkReady() || !cloudFamilyId){
+    statusEl.textContent = "Синхронізація недоступна — перевірте з'єднання.";
+    return;
+  }
+  statusEl.textContent = 'Синхронізація…';
+  const steps = [
+    pullCategoriesCore, pullSubcategoriesCore, pullDictionaryCore,
+    pullBankAccountsCore, pullInstallmentAccountsCore, pullHiddenEntitiesCore,
+    pullExpensesCore, pullIncomesCore, pullDebtsCore,
+  ];
+  let added = 0, updated = 0, linked = 0;
+  let anySucceeded = false;
+  for(const step of steps){
+    const result = await step();
+    if(!result || result.skipped) continue;
+    anySucceeded = true;
+    added += result.added || 0;
+    updated += result.updated || 0;
+    linked += result.linked || 0;
+  }
+  if(!anySucceeded){
+    statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
+    return;
+  }
+  if(added || updated || linked){
+    renderStructure();
+    populateCategorySelect();
+    populateBankDebtTable();
+    populateInstallmentTable();
+    populateMonths();
+    renderAll();
+  }
+  const parts = [];
+  if(added) parts.push(added + ' нових');
+  if(linked) parts.push(linked + ' зв\'язано');
+  if(updated) parts.push(updated + ' оновлено');
+  statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
 }
 function renderProfileUI(){
   const session = cloudSession;
@@ -5795,18 +5893,11 @@ function renderProfileUI(){
   const online = navigator.onLine;
 
   // Rev #30 (6D крок 9) — ручний Pull-кнопка видима лише залогіненому.
-  const syncBtn = document.getElementById('sync-categories-btn');
-  if(syncBtn) syncBtn.classList.toggle('hidden', !signedIn);
-  const syncSubBtn = document.getElementById('sync-subcategories-btn');
-  if(syncSubBtn) syncSubBtn.classList.toggle('hidden', !signedIn);
-  const syncDictBtn = document.getElementById('sync-dictionary-btn');
-  if(syncDictBtn) syncDictBtn.classList.toggle('hidden', !signedIn);
-  const syncBankBtn = document.getElementById('sync-bankaccounts-btn');
-  if(syncBankBtn) syncBankBtn.classList.toggle('hidden', !signedIn);
-  const syncInstallBtn = document.getElementById('sync-installments-btn');
-  if(syncInstallBtn) syncInstallBtn.classList.toggle('hidden', !signedIn);
-  const syncHiddenBtn = document.getElementById('sync-hidden-btn');
-  if(syncHiddenBtn) syncHiddenBtn.classList.toggle('hidden', !signedIn);
+  // Rev #30 (6D.37) — 6 окремих toggle-рядків замінено на 1 (sync-all-btn
+  // замінив sync-categories/subcategories/dictionary/bankaccounts/
+  // installments/hidden-btn).
+  const syncAllBtn = document.getElementById('sync-all-btn');
+  if(syncAllBtn) syncAllBtn.classList.toggle('hidden', !signedIn);
 
   // Rev #30 (6D.10) — BugFix: контент (буква/силует) тепер пишеться у
   // ВКЛАДЕНИЙ .avatar-face, не в сам .avatar-badge — той самий елемент,
@@ -7630,7 +7721,14 @@ function tryLoadExcelLibrary(){
 // самий listener (крок 0 підтвердив: попередній виклик БУВ захардкоджений
 // лише на pushCategoriesPilot(), не generic-цикл по доменах — явно додано
 // другий виклик тут, не написано новий listener).
-window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); pushCategoriesPilot(); pushSubcategoriesPilot(); pushDictionaryPilot(); pushBankAccountsPilot(); pushInstallmentAccountsPilot(); pushHiddenEntitiesPilot(); });
+// Rev #30 (6D.37) — expenses/incomes/debts НЕ мають аналога "push весь
+// масив" (push тут одиничний, за конкретним записом, немає retry-черги
+// непротовлених редагувань — свідомо прийнятий компроміс ще з 6D.5).
+// Замість цього тут на reconnect викликається PULL (не push) — той самий
+// ефект з іншого боку: pull підхопить усе, що Cloud накопичив, поки
+// пристрій був офлайн, а вбудований push-retry всередині pull (keptLocal)
+// сам донесе локально-новіші записи назад.
+window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); pushCategoriesPilot(); pushSubcategoriesPilot(); pushDictionaryPilot(); pushBankAccountsPilot(); pushInstallmentAccountsPilot(); pushHiddenEntitiesPilot(); pullExpensesPilot(); pullIncomesPilot(); pullDebtsPilot(); });
 window.addEventListener('offline', updateOnlineStatusUI);
 
 /* ============ Експорт в Excel ============ */

@@ -183,6 +183,13 @@ const REPOSITORY_NAMES = [
   // Rev #28.D2
   'loadExpenses', 'loadIncomes', 'loadDebts',
   'saveExpenses', 'saveIncomes', 'saveDebts',
+  // Rev #30 (6D.37, Категорія A — expenses/incomes/debts повний цикл) —
+  // той самий cross-realm-override прийом, що pullBankAccountsCore тощо.
+  // syncAllPilotManual() (DOM-шар) НЕ включена, той самий принцип, що всі
+  // *PilotManual().
+  'pullExpensesCore', 'pullExpensesPilot',
+  'pullIncomesCore', 'pullIncomesPilot',
+  'pullDebtsCore', 'pullDebtsPilot',
   'restoreExpensesFromBackup', 'restoreIncomesFromBackup', 'restoreDebtsFromBackup',
   'pilotBackupKeys', 'pilotBackupValue', 'buildBackupPayloadData', 'applyBackupData',
   // Rev #30 (6D.1) — генерація/нормалізація id (UUID_FORMAT_RE — const,
@@ -1443,6 +1450,248 @@ test('pullHiddenEntitiesPilot: тонка обгортка над pullHiddenEnti
   ctx.hiddenFrom = {};
   const result = await ctx.pullHiddenEntitiesPilot();
   assert.deepEqual(plain(result), { skipped: false, added: 1, skippedFk: 0 });
+});
+
+/* ============ pullExpensesCore/pullIncomesCore/pullDebtsCore (Rev #30, 6D.37) ============
+   Категорія A: серце фінансових даних, архітектурно найпростіша з шести
+   вже завершених доменів — reconciliation за `id` (стабільний UUID,
+   генерується локально), БЕЗ name-based self-heal. LWW — той самий
+   принцип, що всюди. FK (linked_installment_id/bank_account_id/
+   installment_account_id) резолвиться за cloudId батька —skippedFk той
+   самий edge case, що вже subcategories/dictionary. */
+
+function fakeSupabaseSelectClient(table, rows, opts){
+  return {
+    from(t){
+      assert.equal(t, table);
+      return {
+        select(cols){
+          return {
+            eq(col, val){
+              if(opts && opts.error) return Promise.resolve({ data: null, error: new Error('симульована мережева помилка') });
+              return Promise.resolve({ data: rows, error: null });
+            },
+          };
+        },
+      };
+    },
+  };
+}
+function pullExpensesSandbox(rows, opts){
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => fakeSupabaseSelectClient('expenses', rows, opts);
+  return ctx;
+}
+function pullIncomesSandbox(rows, opts){
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => fakeSupabaseSelectClient('incomes', rows, opts);
+  return ctx;
+}
+function pullDebtsSandbox(rows, opts){
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => fakeSupabaseSelectClient('debts', rows, opts);
+  return ctx;
+}
+
+test('pullExpensesCore: не залогінений → { skipped:true }', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-01', note: 'Кава' }]);
+  ctx.cloudSession = null;
+  const result = await ctx.pullExpensesCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullExpensesCore: мережева помилка → { skipped:true }', async () => {
+  const ctx = pullExpensesSandbox(null, { error: true });
+  const result = await ctx.pullExpensesCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullExpensesCore: без linked_installment_id → додається напряму, без FK-залежності', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-05', category: '🍔 Їжа', subcategory: 'Кафе', note: 'Кава', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.expenses = [];
+  const result = await ctx.pullExpensesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.expenses[0].name, 'Кава');
+  assert.equal(ctx.expenses[0].amount, 500);
+  assert.equal(ctx.expenses[0].manual, true);
+  assert.equal(ctx.expenses[0].linkedInstallment, undefined);
+});
+
+test('pullExpensesCore: linked_installment_id вказаний, батько не пролінкований локально → skippedFk, не додається', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-05', note: 'iPhone внесок', linked_installment_id: 'i-unknown' }]);
+  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'i1' }]; // інший cloudId
+  ctx.expenses = [];
+  const result = await ctx.pullExpensesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 0, keptLocal: 0, skippedFk: 1 });
+  assert.equal(ctx.expenses.length, 0);
+});
+
+test('pullExpensesCore: linked_installment_id резолвиться за cloudId → linkedInstallment = ім\'я локальної ОЧ', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 2500, expense_date: '2026-05-05', note: 'iPhone внесок', linked_installment_id: 'i1', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'i1' }];
+  ctx.expenses = [];
+  const result = await ctx.pullExpensesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.expenses[0].linkedInstallment, 'iPhone');
+});
+
+test('pullExpensesCore: LWW — Cloud новіший → оновлює локальний запис за id', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 999, expense_date: '2026-05-06', category: '🍔 Їжа', subcategory: 'Кафе', note: 'Оновлено', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Стара назва', amount: 500, category: '🍔 Їжа', subcategory: 'Кафе', manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullExpensesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.expenses[0].amount, 999);
+  assert.equal(ctx.expenses[0].name, 'Оновлено');
+});
+
+test('pullExpensesCore: LWW — локальний СТРОГО новіший → keptLocal + push-retry, Cloud НЕ перезаписує', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 999, expense_date: '2026-05-06', note: 'Cloud-версія', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Локальна версія', amount: 500, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushExpenseRecordPilot');
+  const result = await ctx.pullExpensesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 0, keptLocal: 1, skippedFk: 0 });
+  assert.equal(ctx.expenses[0].name, 'Локальна версія');
+  assert.equal(pushSpy.count(), 1);
+});
+
+test('pullExpensesCore: локальний запис без Cloud-відповідника → не чіпається (видалення не синхронізується)', async () => {
+  const ctx = pullExpensesSandbox([]);
+  ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Лише локальна витрата', amount: 500, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  await ctx.pullExpensesCore();
+  assert.equal(ctx.expenses.length, 1);
+  assert.equal(ctx.expenses[0].name, 'Лише локальна витрата');
+});
+
+test('pullExpensesPilot: тонка обгортка над pullExpensesCore (той самий результат)', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-05', note: 'Кава', linked_installment_id: null }]);
+  ctx.expenses = [];
+  const result = await ctx.pullExpensesPilot();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+});
+
+test('pullIncomesCore: не залогінений → { skipped:true }', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'ЗП' }]);
+  ctx.cloudSession = null;
+  const result = await ctx.pullIncomesCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullIncomesCore: мережева помилка → { skipped:true }', async () => {
+  const ctx = pullIncomesSandbox(null, { error: true });
+  const result = await ctx.pullIncomesCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullIncomesCore: новий Cloud-запис → додається (note → source)', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'Зарплата Андрій', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.incomes = [];
+  const result = await ctx.pullIncomesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0 });
+  assert.equal(ctx.incomes[0].source, 'Зарплата Андрій');
+  assert.equal(ctx.incomes[0].amount, 20000);
+});
+
+test('pullIncomesCore: LWW — Cloud новіший → оновлює', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 25000, income_date: '2026-05-01', note: 'Зарплата Андрій', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: 'Зарплата Андрій', amount: 20000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullIncomesCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, added: 0, keptLocal: 0 });
+  assert.equal(ctx.incomes[0].amount, 25000);
+});
+
+test('pullIncomesCore: LWW — локальний СТРОГО новіший → keptLocal + push-retry', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 25000, income_date: '2026-05-01', note: 'Зарплата', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: 'Зарплата', amount: 20000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushIncomeRecordPilot');
+  const result = await ctx.pullIncomesCore();
+  assert.equal(result.keptLocal, 1);
+  assert.equal(ctx.incomes[0].amount, 20000);
+  assert.equal(pushSpy.count(), 1);
+});
+
+test('pullIncomesPilot: тонка обгортка над pullIncomesCore (той самий результат)', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'ЗП' }]);
+  ctx.incomes = [];
+  const result = await ctx.pullIncomesPilot();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0 });
+});
+
+test('pullDebtsCore: не залогінений → { skipped:true }', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Приват Банк', kind: 'card', month: '2026-05-01', balance: 1000 }]);
+  ctx.cloudSession = null;
+  const result = await ctx.pullDebtsCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullDebtsCore: мережева помилка → { skipped:true }', async () => {
+  const ctx = pullDebtsSandbox(null, { error: true });
+  const result = await ctx.pullDebtsCore();
+  assert.deepEqual(plain(result), { skipped: true });
+});
+
+test('pullDebtsCore: kind card, bank_account_id не пролінкований локально → skippedFk, не додається', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b-unknown', installment_account_id: null, name: 'Приват Банк', kind: 'card', month: '2026-05-01', balance: 1000 }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.debts = [];
+  const result = await ctx.pullDebtsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 0, keptLocal: 0, skippedFk: 1 });
+  assert.equal(ctx.debts.length, 0);
+});
+
+test('pullDebtsCore: kind installment, installment_account_id не пролінкований → skippedFk', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: null, installment_account_id: 'i-unknown', name: 'iPhone', kind: 'installment', month: '2026-05-01', balance: 15000 }]);
+  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'i1' }];
+  ctx.debts = [];
+  const result = await ctx.pullDebtsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 0, keptLocal: 0, skippedFk: 1 });
+});
+
+test('pullDebtsCore: новий Cloud-запис (kind card) → додається, month конвертовано "YYYY-MM-DD"→"YYYY-MM", name резолвлено за cloudId', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Приват Банк (з Cloud)', kind: 'card', month: '2026-05-01', balance: 1000, min_payment: 100, min_payment_done: false, monthly_payment: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.debts = [];
+  const result = await ctx.pullDebtsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.debts[0].name, 'Приват Банк'); // резолвлено локально за cloudId, не Cloud-назвою
+  assert.equal(ctx.debts[0].month, '2026-05');
+  assert.equal(ctx.debts[0].minPayment, 100);
+});
+
+test('pullDebtsCore: LWW — Cloud новіший → оновлює баланс', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Приват Банк', kind: 'card', month: '2026-05-01', balance: 2000, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.debts = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-05', balance: 1000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullDebtsCore();
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.debts[0].balance, 2000);
+});
+
+test('pullDebtsCore: LWW — локальний СТРОГО новіший → keptLocal + push-retry, Cloud не перезаписує', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Приват Банк', kind: 'card', month: '2026-05-01', balance: 2000, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.debts = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-05', balance: 1500, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushDebtRecordPilot');
+  const result = await ctx.pullDebtsCore();
+  assert.equal(result.keptLocal, 1);
+  assert.equal(ctx.debts[0].balance, 1500);
+  assert.equal(pushSpy.count(), 1);
+});
+
+test('pullDebtsPilot: тонка обгортка над pullDebtsCore (той самий результат)', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Приват Банк', kind: 'card', month: '2026-05-01', balance: 1000 }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.debts = [];
+  const result = await ctx.pullDebtsPilot();
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0, skippedFk: 0 });
 });
 
 /* ============ pullSubcategoriesCore: Pull pilot (subcategories, повний цикл) ============
