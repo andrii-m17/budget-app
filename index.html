@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.76</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.77</div>
 </div>
   </div>
 </div>
@@ -4946,7 +4946,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.76';
+const APP_VERSION = '2.21.77';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9209,6 +9209,15 @@ async function saveRecordEdit(id){
   // оновлюється лише updatedAt.
   rec.updatedAt = new Date().toISOString();
   reportSaveResult(await saveExpenses());
+  // Rev #30 (6D.45) — ТЕРМІНОВИЙ фікс: saveRecordEdit() (редагування
+  // витрати прямо в Журналі) ніколи не пушила зміну в Cloud — пропуск ще з
+  // самого дизайну push-механізму (6D.5, Rev 2.21.41), не регресія
+  // tombstone-патчу. Оригінальний коментар 6D.5 (рядок ~4173) explicitly
+  // перелічував лише 4 місця push (addExpense/saveIncomeDrawer/
+  // saveCardDebtDrawer/saveInstallmentDrawer) — цю функцію туди просто не
+  // додали. Знайдено через незалежну перевірку реального стану Cloud
+  // (updated_at===created_at після локального редагування), не гіпотезу.
+  pushExpenseRecordPilot(rec);
   editingRecordKey = null;
   selectedRecordKey = null;
   populateMonths(); renderAll();
