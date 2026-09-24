@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.79</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.80</div>
 </div>
   </div>
 </div>
@@ -3678,10 +3678,27 @@ async function restoreBankAccountsFromBackup(raw){
   if(counts.updated || counts.added) pushBankAccountsPilot();
   return Object.assign({}, saveResult, counts);
 }
+// Rev #30 (6D.48) — P1.3 (переглянуто, фінальний домен): hiddenFrom НЕ
+// отримує LWW (немає per-entry timestamp, той самий факт, що вже
+// встановлений для hidden_entities у 6D.32/6D.38) — замість цього той
+// самий existence-based принцип, що вже в pullHiddenEntitiesCore(): ключ
+// відсутній локально → додати з бекапу; вже є локально → НЕ чіпати
+// (бекап ніколи не перезаписує вже наявний локальний запис). raw===null
+// → порожній merge, локальне не чіпається (той самий принцип, що решта 8 доменів).
 async function restoreHiddenFromFromBackup(raw){
-  try{ hiddenFrom = raw != null ? JSON.parse(raw) : {}; }
-  catch(e){ hiddenFrom = {}; }
-  return saveHiddenFrom();
+  let backupDict;
+  try{ backupDict = raw != null ? JSON.parse(raw) : {}; }
+  catch(e){ backupDict = {}; }
+  if(isCloudSessionReady()) await pullHiddenEntitiesCore();
+  let added = 0;
+  Object.keys(backupDict).forEach(function(key){
+    if(hiddenFrom[key] === undefined){
+      hiddenFrom[key] = backupDict[key];
+      added++;
+    }
+  });
+  const saveResult = await saveHiddenFrom();
+  return Object.assign({}, saveResult, { added: added });
 }
 async function restoreIgnoredDivergencesFromBackup(raw){
   try{ ignoredDivergences = raw != null ? JSON.parse(raw) : {}; }
@@ -5107,7 +5124,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.79';
+const APP_VERSION = '2.21.80';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -5172,7 +5189,10 @@ function buildBackupPayloadData(){
   });
   return data;
 }
-function exportBackup(){
+// Rev #30 (6D.48) — винесено з exportBackup() окремою функцією (без
+// статус-тексту/DOM-специфічних побічних ефектів exportBackup), щоб той
+// самий механізм міг використати і безшумний safety snapshot нижче.
+function downloadBackupBlob(filename){
   const payload = {
     __budgetBackup: true,
     appVersion: APP_VERSION,
@@ -5184,13 +5204,29 @@ function exportBackup(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `Бюджет-бекап-${localDateISO()}.json`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+function exportBackup(){
+  downloadBackupBlob(`Бюджет-бекап-${localDateISO()}.json`);
   const statusEl = document.getElementById('backup-status');
   if(statusEl) statusEl.textContent = 'Бекап збережено у завантаження браузера.';
+}
+// Rev #30 (6D.48) — P1.3, друга лінія захисту поверх LWW-merge (6D.46/47):
+// автоматичний, безшумний знімок ПОТОЧНОГО стану — той самий механізм, що
+// ручний "Резервне копіювання" — прямо перед застосуванням стороннього
+// файлу відновлення. Не UI-подія (не показує підтвердження, не рахується
+// як "ручний бекап користувача") — страховка на випадок, якщо в самій
+// LWW-логіці 6D.46/47 виявиться прогалина, яку живі перевірки не
+// зловили. Файл однаково лишається у завантаженнях браузера — той самий
+// доступ, що звичайний експорт, лише інша назва (timestamp, не дата, бо
+// відновлень за один день теоретично може бути кілька).
+function createRestoreSafetySnapshot(){
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  downloadBackupBlob(`Бюджет-знімок-перед-відновленням-${ts}.json`);
 }
 function triggerRestoreBackupInput(){
   document.getElementById('restore-backup-file').click();
@@ -5317,10 +5353,14 @@ function handleRestoreBackupFile(event){
     if(schemaVersion != null && schemaVersion < SCHEMA_VERSION){
       parts.push('', `⚠️ Бекап зі старішої версії структури даних (Schema ${schemaVersion} → зараз ${SCHEMA_VERSION}). Відновлення однаково спрацює, але варто перевірити дані після нього.`);
     }
-    parts.push('', 'Це ПОВНІСТЮ замінить усі поточні дані в цьому браузері (витрати, доходи, борги, ОЧ, довідники). Незворотно.');
+    // Rev #30 (6D.48) — текст оновлено: відновлення більше НЕ безумовна
+    // заміна (6D.46/47, LWW-merge) — новіші локальні/Cloud дані виживають
+    // автоматично. Плюс явна згадка safety snapshot нижче.
+    parts.push('', 'Кожен запис із файлу порівнюється з тим, що вже є (новіше — виграє, старіше з файлу — ігнорується). Перед застосуванням буде автоматично збережено знімок поточного стану у завантаження браузера — про всяк випадок.');
     showConfirmModal(
       parts.join('\n'),
       async function(){
+        createRestoreSafetySnapshot();
         const results = await applyBackupData(parsed.data);
         Object.values(results).forEach(reportSaveResult);
         statusEl.textContent = 'Дані відновлено з бекапу від ' + dateLabel + '.';

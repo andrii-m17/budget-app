@@ -2531,6 +2531,32 @@ test('ensureInstallmentFirstMonth: нічого не змінилось → не
 
 /* ============ D1: hiddenFrom/ignoredDivergences — легітимно порожні, без seed ============ */
 
+// Rev #30 (6D.48) — restoreHiddenFromFromBackup(): existence-based merge,
+// той самий принцип, що pullHiddenEntitiesCore() (6D.32).
+test('restoreHiddenFromFromBackup: ключ відсутній локально → додається з бекапу', async () => {
+  const { ctx } = sandbox();
+  ctx.hiddenFrom = {};
+  const result = await ctx.restoreHiddenFromFromBackup(JSON.stringify({ 'card:Приват Банк': '2026-06' }));
+  assert.equal(result.added, 1);
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-06');
+});
+
+test('restoreHiddenFromFromBackup: ключ УЖЕ Є локально → НЕ перезаписується значенням з бекапу', async () => {
+  const { ctx } = sandbox();
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-09' }; // локальне значення
+  const result = await ctx.restoreHiddenFromFromBackup(JSON.stringify({ 'card:Приват Банк': '2026-01' })); // інше значення в бекапі
+  assert.equal(result.added, 0);
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-09'); // локальне лишається
+});
+
+test('restoreHiddenFromFromBackup: raw відсутній → існуючі локальні ключі НЕ видаляються', async () => {
+  const { ctx } = sandbox();
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-09' };
+  const result = await ctx.restoreHiddenFromFromBackup(null);
+  assert.equal(result.added, 0);
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-09');
+});
+
 test('loadHiddenFrom: немає ключа (не мігровано і не мігровано) → {} в обох гілках, без запису в сховище', async () => {
   const { ctx: notMigrated } = sandbox({ localStorageInitial: {} });
   await notMigrated.loadHiddenFrom();
