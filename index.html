@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.78</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.79</div>
 </div>
   </div>
 </div>
@@ -3577,17 +3577,75 @@ async function pullDictionaryPilot(){
 // дублікатів, dockomentar над stampMissingTimestamps() нижче за текстом
 // файлу). DEFAULT_CATEGORIES-фолбек (raw==null) синтетичний, timestamps
 // йому не потрібні — стемпаємо лише реальний парсений масив.
+// Rev #30 (6D.47) — P1.3 (переглянуто): той самий LWW-merge принцип, що
+// 6D.46 (expenses/incomes/debts), тепер для 5 name/cloudId-based доменів
+// (Категорія B). Крок 0 підтвердив: backup-запис уже несе `cloudId` (якщо
+// синхронізований) і всі локальні поля в ЛОКАЛЬНОМУ форматі (не
+// snake_case Cloud-колонки) — на відміну від pull, тут не потрібна FK-
+// резолюція (category/sub/cat зберігаються як текстові назви, не Cloud-id).
+// Ідентифікація: cloudId-first (якщо backup-запис МАЄ cloudId і він
+// збігається з локальним), інакше name-fallback (той самий принцип, що
+// pull's self-heal). НАВМИСНО НЕ переносимо cloudId із backup-запису на
+// вже існуючий local-запис, знайдений лише за name: якщо local.cloudId
+// уже є (навіть інший) — довіряємо ЙОМУ (він пройшов через реальний
+// pull/push цього сеансу, backup-копія могла застаріти й вказувати на
+// чужий/перевикористаний Cloud-рядок — ризик тихого перезапису невірного
+// запису через RLS без явного family_id-фільтра в push-update). Для
+// НОВОГО (не знайденого локально) запису — cloudId з backup теж
+// відкидається (delete), новий запис іде звичайним self-heal-шляхом
+// push'а (пошук за іменем у Cloud чи insert), а не довіряє потенційно
+// застарілому id напряму.
+// Push цих 5 доменів — bulk (увесь масив), не single-record (на відміну
+// від expenses/incomes/debts) — тому виклик pushXPilot() один раз ПІСЛЯ
+// всього циклу merge, не всередині нього.
+// raw===null (домен відсутній у файлі взагалі) — тепер НЕ скидає на
+// DEFAULT_*/видаляє ключ (стара поведінка), а трактується як порожній
+// список для merge — існуючі локальні записи не чіпаються (той самий
+// принцип DoD, що й "відсутність запису в бекапі").
+function mergeBackupRecordsByCloudIdOrName(list, backupList, nameField){
+  let added = 0, updated = 0, kept = 0;
+  for(const rec of backupList){
+    const byCloudId = rec.cloudId ? list.find(function(x){ return x.cloudId === rec.cloudId; }) : null;
+    const local = byCloudId || list.find(function(x){ return x[nameField] === rec[nameField]; });
+    if(!local){
+      const toAdd = Object.assign({}, rec);
+      delete toAdd.cloudId;
+      list.push(toAdd);
+      added++;
+      continue;
+    }
+    const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
+    const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
+    if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)){ kept++; continue; }
+    Object.keys(rec).forEach(function(key){
+      if(key === 'cloudId') return; // НІКОЛИ не переносимо cloudId з бекапу — див. коментар вище
+      local[key] = rec[key];
+    });
+    updated++;
+  }
+  return { added: added, updated: updated, kept: kept };
+}
 async function restoreCategoriesFromBackup(raw){
-  try{ CATEGORIES = raw != null ? JSON.parse(raw) : DEFAULT_CATEGORIES.map(c=>({...c})); }
-  catch(e){ CATEGORIES = DEFAULT_CATEGORIES.map(c=>({...c})); }
+  let backupList;
+  try{ backupList = raw != null ? JSON.parse(raw) : []; }
+  catch(e){ backupList = []; }
+  if(isCloudSessionReady()) await pullCategoriesCore();
+  const counts = mergeBackupRecordsByCloudIdOrName(CATEGORIES, backupList, 'name');
   stampMissingTimestamps(CATEGORIES);
-  return saveCategories();
+  const saveResult = await saveCategoriesLocal();
+  if(counts.updated || counts.added) pushCategoriesPilot();
+  return Object.assign({}, saveResult, counts);
 }
 async function restoreSubcategoriesFromBackup(raw){
-  try{ SUBCATEGORIES = raw != null ? JSON.parse(raw) : DEFAULT_SUBCATEGORIES.map(s=>({...s})); }
-  catch(e){ SUBCATEGORIES = DEFAULT_SUBCATEGORIES.map(s=>({...s})); }
+  let backupList;
+  try{ backupList = raw != null ? JSON.parse(raw) : []; }
+  catch(e){ backupList = []; }
+  if(isCloudSessionReady()) await pullSubcategoriesCore();
+  const counts = mergeBackupRecordsByCloudIdOrName(SUBCATEGORIES, backupList, 'name');
   stampMissingTimestamps(SUBCATEGORIES);
-  return saveSubcategories();
+  const saveResult = await saveSubcategoriesLocal();
+  if(counts.updated || counts.added) pushSubcategoriesPilot();
+  return Object.assign({}, saveResult, counts);
 }
 async function restoreSubcategoryPriorityFromBackup(raw){
   try{ SUBCATEGORY_PRIORITY = raw != null ? JSON.parse(raw) : {...DEFAULT_SUBCATEGORY_PRIORITY}; }
@@ -3595,19 +3653,30 @@ async function restoreSubcategoryPriorityFromBackup(raw){
   return saveSubcategoryPriority();
 }
 async function restoreDictionaryFromBackup(raw){
-  try{ DICTIONARY = raw != null ? JSON.parse(raw) : DEFAULT_DICTIONARY.map(d=>({...d})); }
-  catch(e){ DICTIONARY = DEFAULT_DICTIONARY.map(d=>({...d})); }
+  let backupList;
+  try{ backupList = raw != null ? JSON.parse(raw) : []; }
+  catch(e){ backupList = []; }
+  if(isCloudSessionReady()) await pullDictionaryCore();
+  const counts = mergeBackupRecordsByCloudIdOrName(DICTIONARY, backupList, 'kw');
   stampMissingTimestamps(DICTIONARY);
-  return saveDictionary();
+  const saveResult = await saveDictionaryLocal();
+  if(counts.updated || counts.added) pushDictionaryPilot();
+  return Object.assign({}, saveResult, counts);
 }
-// Rev #28.D1 — той самий принцип, що 4 хелпери вище, для bankAccounts/
-// hiddenFrom/ignoredDivergences: parse+fallback-на-власний-дефолт + await
-// saveX() (routing-aware).
+// Rev #28.D1 — той самий принцип, що 4 хелпери вище, для hiddenFrom/
+// ignoredDivergences: parse+fallback-на-власний-дефолт + await saveX()
+// (routing-aware). Rev #30 (6D.47) — bankAccounts тепер LWW-merge, той
+// самий принцип, що categories/subcategories/dictionary вище.
 async function restoreBankAccountsFromBackup(raw){
-  try{ bankAccounts = raw != null ? JSON.parse(raw) : DEFAULT_BANKS.map(name=>({name, creditLimit:null})); }
-  catch(e){ bankAccounts = DEFAULT_BANKS.map(name=>({name, creditLimit:null})); }
+  let backupList;
+  try{ backupList = raw != null ? JSON.parse(raw) : []; }
+  catch(e){ backupList = []; }
+  if(isCloudSessionReady()) await pullBankAccountsCore();
+  const counts = mergeBackupRecordsByCloudIdOrName(bankAccounts, backupList, 'name');
   stampMissingTimestamps(bankAccounts);
-  return saveBankAccounts();
+  const saveResult = await saveBankAccountsLocal();
+  if(counts.updated || counts.added) pushBankAccountsPilot();
+  return Object.assign({}, saveResult, counts);
 }
 async function restoreHiddenFromFromBackup(raw){
   try{ hiddenFrom = raw != null ? JSON.parse(raw) : {}; }
@@ -3619,31 +3688,26 @@ async function restoreIgnoredDivergencesFromBackup(raw){
   catch(e){ ignoredDivergences = {}; }
   return saveIgnoredDivergences();
 }
-// installmentAccounts — ОКРЕМИЙ випадок (не як 3 вище): не має власного
-// константного дефолту, а РЕКОНСТРУЮЄТЬСЯ з debts, коли значення відсутнє
-// (той самий принцип, що loadInstallmentAccounts(), коментар там). Якщо
-// просто записати сюди порожній масив при відсутньому raw — це назавжди
-// заблокувало б реконструкцію (наступний loadInstallmentAccounts() побачив
-// би "[]" як валідне збережене значення, не "порожньо", і не спробував би
-// відновити з debts). Замість цього — ВИДАЛЯЄМО ключ з authoritative
-// сховища (той самий результат, що generic clear-без-set для непілотного
-// ключа ДО Stage D1) і лишаємо саму реконструкцію фінальному
-// loadStructureRefs()+loadAll() у applyBackupData() нижче — на той момент
-// debts вже відновлено (loadAll() читає debts РАНІШЕ за installmentAccounts,
-// той самий порядок, що завжди).
+// Rev #30 (6D.47) — installmentAccounts тепер той самий LWW-merge
+// принцип, що решта 4 доменів Категорії B. Стара спецповедінка (raw===null
+// → ВИДАЛИТИ ключ, форсуючи реконструкцію з debts при наступному
+// loadAll()) прибрана: під новою філософією "бекап ніколи не стирає
+// наявне" примусова реконструкція з debts втратила б initialAmount/dueDay
+// уже існуючих ОЧ, яких немає серед відновлених debts-фактів (напр.
+// щойно створена ОЧ без жодного збереженого балансу). raw===null тепер —
+// просто порожній список для merge, як і решта доменів: локальний стан
+// не чіпається, природна реконструкція (loadInstallmentAccounts()) і
+// далі спрацює сама, якщо колись installmentAccounts дійсно порожній.
 async function restoreInstallmentAccountsFromBackup(raw){
-  if(raw == null){
-    if(isDomainMigrated('installmentAccounts')){
-      try{ await idbAdapterRemove(LS_KEY_INSTALLMENTS); return { success: true }; }
-      catch(err){ return { success: false, error: err.message }; }
-    }
-    localStorage.removeItem(LS_KEY_INSTALLMENTS);
-    return { success: true };
-  }
-  try{ installmentAccounts = JSON.parse(raw); }
-  catch(e){ installmentAccounts = []; }
+  let backupList;
+  try{ backupList = raw != null ? JSON.parse(raw) : []; }
+  catch(e){ backupList = []; }
+  if(isCloudSessionReady()) await pullInstallmentAccountsCore();
+  const counts = mergeBackupRecordsByCloudIdOrName(installmentAccounts, backupList, 'name');
   stampMissingTimestamps(installmentAccounts);
-  return saveInstallmentAccounts();
+  const saveResult = await saveInstallmentAccountsLocal();
+  if(counts.updated || counts.added) pushInstallmentAccountsPilot();
+  return Object.assign({}, saveResult, counts);
 }
 // Rev #30 (6D.46) — P1.3 (переглянуто): відновлення бекапу для 3 id-based
 // доменів (Категорія A) тепер LWW-merge, не безумовна заміна. Крок 0
@@ -5043,7 +5107,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.78';
+const APP_VERSION = '2.21.79';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

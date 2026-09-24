@@ -221,6 +221,9 @@ const REPOSITORY_NAMES = [
   // принцип: saveInstallmentDrawer()/saveCardDebtDrawer() НЕ під тестом тут
   // (DOM-термінальні), перевірено живо. activeDebts() чиста.
   'activeDebts',
+  // Rev #30 (6D.47) — P1.3, LWW-merge для 5 name/cloudId-based доменів;
+  // спільний хелпер, яким тепер користуються всі 5 restoreXFromBackup().
+  'mergeBackupRecordsByCloudIdOrName',
 ];
 
 function sandbox({ localStorageInitial, idbImpl } = {}){
@@ -2346,6 +2349,57 @@ test('фікс подвійного push: restoreInstallmentAccountsFromBackup()
   assert.equal(spy.count(), 0);
 });
 
+// Rev #30 (6D.47) — LWW-конфлікт для name/cloudId-based доменів
+// (представницьки на categories — той самий mergeBackupRecordsByCloudIdOrName()
+// код обслуговує всі 5).
+test('restoreCategoriesFromBackup: запис у бекапі СТАРІШИЙ за локальний (той самий cloudId) → НЕ застосовується', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Локальна (новіша)', type: 'Гнучка', active: true, cloudId: 'c1', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-05T00:00:00.000Z' }];
+  const backup = [{ name: 'З бекапу (старіша)', type: "Обов'язкова", active: true, cloudId: 'c1', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const result = await ctx.restoreCategoriesFromBackup(JSON.stringify(backup));
+  assert.equal(result.kept, 1);
+  assert.equal(result.updated, 0);
+  assert.equal(ctx.CATEGORIES[0].name, 'Локальна (новіша)');
+});
+
+test('restoreCategoriesFromBackup: запис у бекапі НОВІШИЙ (за name, cloudId відсутній у local) → застосовується', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Кафе', type: 'Гнучка', active: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const backup = [{ name: 'Кафе', type: "Обов'язкова", active: false, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-05T00:00:00.000Z' }];
+  const result = await ctx.restoreCategoriesFromBackup(JSON.stringify(backup));
+  assert.equal(result.updated, 1);
+  assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
+  assert.equal(ctx.CATEGORIES[0].active, false);
+});
+
+// Rev #30 (6D.47) — cloudId-безпека: backup-cloudId НІКОЛИ не переноситься
+// на local-запис, знайдений лише за іменем — навіть коли бекап "виграє".
+test('restoreCategoriesFromBackup: matched за name (не cloudId), бекап новіший → local.cloudId НЕ перезаписується значенням з бекапу', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Кафе', type: 'Гнучка', active: true, cloudId: 'real-c1', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const backup = [{ name: 'Кафе', type: "Обов'язкова", active: true, cloudId: 'stale-backup-id', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-05T00:00:00.000Z' }];
+  const result = await ctx.restoreCategoriesFromBackup(JSON.stringify(backup));
+  assert.equal(result.updated, 1);
+  assert.equal(ctx.CATEGORIES[0].cloudId, 'real-c1'); // не 'stale-backup-id'
+});
+
+test('restoreCategoriesFromBackup: новий запис із бекапу (немає локально) → додається БЕЗ cloudId з бекапу (self-heal через push, не довіра застарілому id)', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [];
+  const backup = [{ name: 'Нова категорія', type: 'Гнучка', active: true, cloudId: 'maybe-stale', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const result = await ctx.restoreCategoriesFromBackup(JSON.stringify(backup));
+  assert.equal(result.added, 1);
+  assert.equal(ctx.CATEGORIES[0].cloudId, undefined);
+});
+
+test('restoreCategoriesFromBackup: запису немає в бекапі → локальний-only запис НЕ видаляється', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Лише локальна', type: 'Гнучка', active: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const result = await ctx.restoreCategoriesFromBackup(JSON.stringify([]));
+  assert.equal(ctx.CATEGORIES.length, 1);
+  assert.equal(ctx.CATEGORIES[0].name, 'Лише локальна');
+});
+
 // Rev #30 (6D, термінове розслідування) — end-to-end регресія з реальним
 // (стейтфул) Cloud-mock'ом, ТІЄЮ САМОЮ послідовністю викликів, що
 // applyBackupData() робить для categories: restoreCategoriesFromBackup()
@@ -2531,19 +2585,24 @@ test('restoreInstallmentAccountsFromBackup: raw присутній → parse+sav
   assert.equal(fakeIdbInstance.store.get('budget_installmentaccounts_v1'), JSON.stringify(ctx.installmentAccounts));
 });
 
-test('restoreInstallmentAccountsFromBackup: raw відсутній (старий бекап без ОЧ) → ВИДАЛЯЄ ключ, не пише [] (щоб не заблокувати майбутню реконструкцію з debts)', async () => {
+// Rev #30 (6D.47) — стара спецповедінка ("ВИДАЛЯЄ ключ, форсуючи
+// реконструкцію з debts") прибрана — під новою LWW-merge філософією
+// (raw===null → порожній список для merge) примусова реконструкція
+// втратила б initialAmount/dueDay записів, яких нема серед debts. Тепер:
+// raw відсутній → існуючі локальні ОЧ НЕ чіпаються (той самий принцип,
+// що вже 6D.46 для expenses/incomes/debts).
+test('restoreInstallmentAccountsFromBackup: raw відсутній → існуючі локальні ОЧ НЕ видаляються (P1.3, не стара реконструкція з debts)', async () => {
   const { ctx, fakeIdbInstance } = sandbox();
   ctx.markDomainMigrated('installmentAccounts');
-  fakeIdbInstance.store.set('budget_installmentaccounts_v1', JSON.stringify(d1Fixture().installmentAccounts)); // старе значення до restore
+  ctx.installmentAccounts = d1Fixture().installmentAccounts;
   const result = await ctx.restoreInstallmentAccountsFromBackup(null);
   assert.equal(result.success, true);
-  assert.equal(fakeIdbInstance.store.has('budget_installmentaccounts_v1'), false);
-});
-
-test('restoreInstallmentAccountsFromBackup: raw відсутній, домен НЕ мігровано → видаляє ключ з localStorage', async () => {
-  const { ctx } = sandbox({ localStorageInitial: { budget_installmentaccounts_v1: JSON.stringify(d1Fixture().installmentAccounts) } });
-  await ctx.restoreInstallmentAccountsFromBackup(null);
-  assert.equal(ctx.localStorage.getItem('budget_installmentaccounts_v1'), null);
+  assert.equal(ctx.installmentAccounts.length, 1);
+  assert.equal(ctx.installmentAccounts[0].name, d1Fixture().installmentAccounts[0].name);
+  assert.equal(ctx.installmentAccounts[0].initialAmount, d1Fixture().installmentAccounts[0].initialAmount);
+  // stampMissingTimestamps() виконується безумовно (той самий ensureXIdentity-
+  // принцип) — фікстура без timestamps їх тут ЗАКОНОМІРНО отримує, це не втрата даних.
+  assert.ok(ctx.installmentAccounts[0].createdAt);
 });
 
 /* ============ Acceptance: mixed-storage export → restore ============ */
@@ -2723,15 +2782,20 @@ test('acceptance D1: mixed-storage — bankAccounts/hiddenFrom мігрован�
   assert.equal(freshCtx.localStorage.getItem('budget_ignored_divergences_v1'), JSON.stringify(fixture.ignoredDivergences));
 });
 
-test('acceptance D1: старий бекап без installmentAccounts + мігрований домен → ключ видалено з IndexedDB, реконструкція лишається наступному loadAll()', async () => {
+// Rev #30 (6D.47) — той самий принцип, що тест вище: старий бекап без
+// installmentAccounts-ключа більше НЕ видаляє наявні локальні ОЧ.
+test('acceptance D1: старий бекап без installmentAccounts + мігрований домен → наявні локальні ОЧ НЕ видаляються (P1.3, не стара реконструкція)', async () => {
   const { ctx, fakeIdbInstance } = sandbox({ localStorageInitial: {} });
   ctx.markDomainMigrated('installmentAccounts');
+  ctx.installmentAccounts = d1Fixture().installmentAccounts;
   fakeIdbInstance.store.set('budget_installmentaccounts_v1', JSON.stringify(d1Fixture().installmentAccounts)); // старе значення
   // Бекап явно НЕ містить budget_installmentaccounts_v1 (старий файл до появи ОЧ).
   const backupWithoutInstallments = { budget_categories_v1: JSON.stringify([]) };
   const results = await ctx.applyBackupData(backupWithoutInstallments);
   assert.equal(results.installmentAccounts.success, true);
-  assert.equal(fakeIdbInstance.store.has('budget_installmentaccounts_v1'), false);
+  assert.equal(ctx.installmentAccounts.length, 1);
+  assert.equal(ctx.installmentAccounts[0].name, d1Fixture().installmentAccounts[0].name);
+  assert.equal(ctx.installmentAccounts[0].initialAmount, d1Fixture().installmentAccounts[0].initialAmount);
 });
 
 /* ============ D2: loadExpenses/loadIncomes/loadDebts — routing ============ */
