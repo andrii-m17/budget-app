@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.87</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.88</div>
 </div>
   </div>
 </div>
@@ -3283,6 +3283,12 @@ async function pullCategoriesCore(){
     return { skipped: true };
   }
   if(updated || linked || added) await saveCategoriesLocal();
+  // Rev #30 (6D.55) — pull (у т.ч. pull-after-push, 6D.49) міняв масив
+  // CATEGORIES мовчки, без перерендеру — щойно підтягнутий з Cloud запис
+  // лишався невидимим, доки якась ІНША дія (напр. власний наступний push)
+  // випадково не перемалює екран. Дзеркалимо ТІ САМІ render-виклики, що
+  // вже йдуть після локального save в openAddCategoryModal()/deleteCategory().
+  if(updated || linked || added){ renderStructure(); populateCategorySelect(); }
   return { skipped: false, updated: updated, linked: linked, added: added, keptLocal: keptLocal };
 }
 // Автоматичний виклик при вході (applyCloudSession()) — тихий, без UI-
@@ -3523,6 +3529,9 @@ async function pullSubcategoriesCore(){
     return { skipped: true };
   }
   if(updated || linked || added) await saveSubcategoriesLocal();
+  // Rev #30 (6D.55) — той самий принцип, що pullCategoriesCore() вище:
+  // дзеркалимо render-виклик локального save (openAddSubcategoryModal()/deleteSubcategory()).
+  if(updated || linked || added) renderStructure();
   return { skipped: false, updated: updated, linked: linked, added: added, keptLocal: keptLocal, skippedFk: skippedFk };
 }
 async function pullSubcategoriesPilot(){
@@ -3596,6 +3605,9 @@ async function pullDictionaryCore(){
     return { skipped: true };
   }
   if(updated || linked || added) await saveDictionaryLocal();
+  // Rev #30 (6D.55) — той самий принцип, що pullCategoriesCore() вище:
+  // дзеркалимо render-виклик локального save (openAddDictionaryModal()/deleteDictionaryEntry()).
+  if(updated || linked || added) renderStructure();
   return { skipped: false, updated: updated, linked: linked, added: added, keptLocal: keptLocal, skippedFk: skippedFk };
 }
 async function pullDictionaryPilot(){
@@ -4648,6 +4660,12 @@ async function pullExpensesCore(){
     return { skipped: true };
   }
   if(updated || added) await saveExpenses();
+  // Rev #30 (6D.55) — pull (у т.ч. pull-after-push, 6D.49) міняв масив
+  // expenses мовчки, без перерендеру — той самий gap, що й у 5 доменів
+  // Категорії B. Дзеркалимо render-виклик, що вже йде після локального
+  // редагування існуючого запису (saveRecordEdit()), не addExpense()
+  // (той ще й скидає форму — тут форму не чіпаємо).
+  if(updated || added){ populateMonths(); renderAll(); }
   return { skipped: false, updated: updated, added: added, keptLocal: keptLocal, skippedFk: skippedFk };
 }
 async function pullExpensesPilot(){
@@ -4702,6 +4720,9 @@ async function pullIncomesCore(){
     return { skipped: true };
   }
   if(updated || added) await saveIncomes();
+  // Rev #30 (6D.55) — той самий принцип, що pullExpensesCore() вище:
+  // дзеркалимо render-виклик локального save (saveIncomeDrawer()).
+  if(updated || added) renderAll();
   return { skipped: false, updated: updated, added: added, keptLocal: keptLocal };
 }
 async function pullIncomesPilot(){
@@ -4772,6 +4793,9 @@ async function pullDebtsCore(){
     return { skipped: true };
   }
   if(updated || added) await saveDebts();
+  // Rev #30 (6D.55) — той самий принцип, що pullExpensesCore() вище:
+  // дзеркалимо render-виклик локального save (saveCardDebtDrawer()/saveInstallmentDrawer()).
+  if(updated || added) renderAll();
   return { skipped: false, updated: updated, added: added, keptLocal: keptLocal, skippedFk: skippedFk };
 }
 async function pullDebtsPilot(){
@@ -4914,6 +4938,9 @@ async function pullBankAccountsCore(){
     return { skipped: true };
   }
   if(updated || linked || added) await saveBankAccountsLocal();
+  // Rev #30 (6D.55) — той самий принцип, що pullCategoriesCore() вище:
+  // дзеркалимо render-виклик локального save (addBankAccount()).
+  if(updated || linked || added) populateBankDebtTable();
   return { skipped: false, updated: updated, linked: linked, added: added, keptLocal: keptLocal };
 }
 async function pullBankAccountsPilot(){
@@ -5035,6 +5062,9 @@ async function pullInstallmentAccountsCore(){
     return { skipped: true };
   }
   if(updated || linked || added) await saveInstallmentAccountsLocal();
+  // Rev #30 (6D.55) — той самий принцип, що pullCategoriesCore() вище:
+  // дзеркалимо render-виклик локального save (addInstallmentAccount()).
+  if(updated || linked || added) populateInstallmentTable();
   return { skipped: false, updated: updated, linked: linked, added: added, keptLocal: keptLocal };
 }
 async function pullInstallmentAccountsPilot(){
@@ -5146,6 +5176,9 @@ async function pullHiddenEntitiesCore(){
     return { skipped: true };
   }
   if(added) await saveHiddenFromLocal();
+  // Rev #30 (6D.55) — той самий принцип, що pullCategoriesCore() вище:
+  // дзеркалимо render-виклик локального save (removeInstallmentAccount()).
+  if(added) renderAll();
   return { skipped: false, added: added, skippedFk: skippedFk };
 }
 async function pullHiddenEntitiesPilot(){
@@ -5207,7 +5240,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.87';
+const APP_VERSION = '2.21.88';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

@@ -269,6 +269,16 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       // не під тестом тут (UI-показ помилки перевіряється окремо в майбутніх
       // тестах на реальний DOM/браузер). Підміняємо прозорим pass-through.
       reportSaveResult: function(r){ return r; },
+      // Rev #30 (6D.55) — усі 9 pullXCore() тепер рендерять після реальної
+      // зміни (renderStructure()/populateCategorySelect()/renderAll()/…,
+      // dзеркалять render локального save-шляху) — той самий DOM-шар, що
+      // loadAll()/reportSaveResult() вище, підміняємо no-op заглушками.
+      renderStructure: function(){},
+      populateCategorySelect: function(){},
+      populateBankDebtTable: function(){},
+      populateInstallmentTable: function(){},
+      renderAll: function(){},
+      populateMonths: function(){},
     },
     REPOSITORY_NAMES
   );
@@ -3469,3 +3479,147 @@ test('ensureCategoryIdentity: ідемпотентність — другий в
 // assert.match() з іншого реалму можуть повестись несподівано) — власна
 // копія того самого патерну в реалмі тесту, лише для читабельних asserts.
 function UUID_FORMAT_RE_JS(){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i; }
+
+/* ============ Rev #30 (6D.55) — перерендер після pull (у т.ч. pull-after-push) ============
+   Крок 0 термінового розслідування: pullXCore() усіх 9 доменів міняв масив і
+   зберігав його, але НІКОЛИ не рендерив — щойно підтягнутий з Cloud запис
+   лишався невидимим, доки якась ІНША дія випадково не перемалює екран (звідси
+   "синхронізація відстає на 1-2 кроки", описане користувачем). Фікс дзеркалить
+   ТІ САМІ render-виклики, що вже йдуть після відповідного локального save —
+   тести нижче перевіряють: render-стаб викликається РІВНО за реальної зміни
+   (added/updated/linked > 0), і НЕ викликається, коли pull нічого не змінив. */
+test('pullCategoriesCore: є зміна (added) → renderStructure()+populateCategorySelect() викликані', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🎮 Розваги', active: true, type: 'Скорочувана' }]);
+  ctx.CATEGORIES = [];
+  const renderSpy = spyOn(ctx, 'renderStructure');
+  const selectSpy = spyOn(ctx, 'populateCategorySelect');
+  await ctx.pullCategoriesCore();
+  assert.equal(renderSpy.count(), 1);
+  assert.equal(selectSpy.count(), 1);
+});
+test('pullCategoriesCore: без змін (no-op) → render НЕ викликається', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const renderSpy = spyOn(ctx, 'renderStructure');
+  await ctx.pullCategoriesCore();
+  assert.equal(renderSpy.count(), 0);
+});
+
+test('pullSubcategoriesCore: є зміна (added) → renderStructure() викликаний', async () => {
+  const ctx = pullSubcategoriesSandbox([{ id: 's1', name: 'Кафе', category_id: 'c1', active: true }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.SUBCATEGORIES = [];
+  const renderSpy = spyOn(ctx, 'renderStructure');
+  await ctx.pullSubcategoriesCore();
+  assert.equal(renderSpy.count(), 1);
+});
+test('pullSubcategoriesCore: без змін → render НЕ викликається', async () => {
+  const ctx = pullSubcategoriesSandbox([]);
+  ctx.CATEGORIES = [];
+  const renderSpy = spyOn(ctx, 'renderStructure');
+  await ctx.pullSubcategoriesCore();
+  assert.equal(renderSpy.count(), 0);
+});
+
+test('pullDictionaryCore: є зміна (added) → renderStructure() викликаний', async () => {
+  const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'кава', category_id: 'c1', subcategory_id: null }]);
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
+  ctx.DICTIONARY = [];
+  const renderSpy = spyOn(ctx, 'renderStructure');
+  await ctx.pullDictionaryCore();
+  assert.equal(renderSpy.count(), 1);
+});
+test('pullDictionaryCore: без змін → render НЕ викликається', async () => {
+  const ctx = pullDictionarySandbox([]);
+  const renderSpy = spyOn(ctx, 'renderStructure');
+  await ctx.pullDictionaryCore();
+  assert.equal(renderSpy.count(), 0);
+});
+
+test('pullBankAccountsCore: є зміна (added) → populateBankDebtTable() викликаний', async () => {
+  const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват', credit_limit: 10000 }]);
+  ctx.bankAccounts = [];
+  const renderSpy = spyOn(ctx, 'populateBankDebtTable');
+  await ctx.pullBankAccountsCore();
+  assert.equal(renderSpy.count(), 1);
+});
+test('pullBankAccountsCore: без змін → render НЕ викликається', async () => {
+  const ctx = pullBankSandbox([]);
+  const renderSpy = spyOn(ctx, 'populateBankDebtTable');
+  await ctx.pullBankAccountsCore();
+  assert.equal(renderSpy.count(), 0);
+});
+
+test('pullInstallmentAccountsCore: є зміна (added) → populateInstallmentTable() викликаний', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 30000 }]);
+  ctx.installmentAccounts = [];
+  const renderSpy = spyOn(ctx, 'populateInstallmentTable');
+  await ctx.pullInstallmentAccountsCore();
+  assert.equal(renderSpy.count(), 1);
+});
+test('pullInstallmentAccountsCore: без змін → render НЕ викликається', async () => {
+  const ctx = pullInstallmentSandbox([]);
+  const renderSpy = spyOn(ctx, 'populateInstallmentTable');
+  await ctx.pullInstallmentAccountsCore();
+  assert.equal(renderSpy.count(), 0);
+});
+
+test('pullHiddenEntitiesCore: є зміна (added) → renderAll() викликаний', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-05-01' }]);
+  ctx.bankAccounts = [{ name: '🟩 Приват', cloudId: 'b1' }];
+  ctx.hiddenFrom = {};
+  const renderSpy = spyOn(ctx, 'renderAll');
+  await ctx.pullHiddenEntitiesCore();
+  assert.equal(renderSpy.count(), 1);
+});
+test('pullHiddenEntitiesCore: без змін → render НЕ викликається', async () => {
+  const ctx = pullHiddenSandbox([]);
+  const renderSpy = spyOn(ctx, 'renderAll');
+  await ctx.pullHiddenEntitiesCore();
+  assert.equal(renderSpy.count(), 0);
+});
+
+test('pullExpensesCore: є зміна (added) → populateMonths()+renderAll() викликані', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-01', note: 'Кава', created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' }]);
+  ctx.expenses = [];
+  const monthsSpy = spyOn(ctx, 'populateMonths');
+  const renderSpy = spyOn(ctx, 'renderAll');
+  await ctx.pullExpensesCore();
+  assert.equal(monthsSpy.count(), 1);
+  assert.equal(renderSpy.count(), 1);
+});
+test('pullExpensesCore: без змін → render НЕ викликається', async () => {
+  const ctx = pullExpensesSandbox([]);
+  const renderSpy = spyOn(ctx, 'renderAll');
+  await ctx.pullExpensesCore();
+  assert.equal(renderSpy.count(), 0);
+});
+
+test('pullIncomesCore: є зміна (added) → renderAll() викликаний', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'Зарплата Андрій', created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' }]);
+  ctx.incomes = [];
+  const renderSpy = spyOn(ctx, 'renderAll');
+  await ctx.pullIncomesCore();
+  assert.equal(renderSpy.count(), 1);
+});
+test('pullIncomesCore: без змін → render НЕ викликається', async () => {
+  const ctx = pullIncomesSandbox([]);
+  const renderSpy = spyOn(ctx, 'renderAll');
+  await ctx.pullIncomesCore();
+  assert.equal(renderSpy.count(), 0);
+});
+
+test('pullDebtsCore: є зміна (added) → renderAll() викликаний', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: null, kind: 'card', month: '2026-05-01', balance: 5000, min_payment: null, min_payment_done: false, monthly_payment: null, created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: '🟩 Приват', cloudId: 'b1' }];
+  ctx.debts = [];
+  const renderSpy = spyOn(ctx, 'renderAll');
+  await ctx.pullDebtsCore();
+  assert.equal(renderSpy.count(), 1);
+});
+test('pullDebtsCore: без змін → render НЕ викликається', async () => {
+  const ctx = pullDebtsSandbox([]);
+  const renderSpy = spyOn(ctx, 'renderAll');
+  await ctx.pullDebtsCore();
+  assert.equal(renderSpy.count(), 0);
+});

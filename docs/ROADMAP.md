@@ -5259,6 +5259,66 @@ return {success:true}` на початку кожної push-функції ви
 реальні пристрої, як у цьому Rev) і підтвердити, що жодному з них
 більше не треба відвідувати "Сервіс", щоб синхронізація активувалась.
 
+### 6D.55 — Фікс: перерендер після pull (синхронізація "відставала на 1-2 кроки") ✅ Rev 2.21.88
+
+Прямий наслідок 6D.54: після того, як `isCloudSessionReady()` стала
+`true` одразу при старті, живий тест на двох реальних пристроях виявив
+НОВИЙ, окремий симптом — синхронізація підхоплювалась лише на 3-є коло
+"додав запис → інший пристрій додав запис", не одразу.
+
+**Причина (не race/timestamp-баг):** усі 9 `pullXCore()` (включно з
+pull-after-push, 6D.49) оновлювали масив і зберігали в storage, але
+**ніколи не викликали перерендер** (`renderRecords()`/`renderAll()`/
+`renderStructure()`/…). Щойно підтягнутий з Cloud запис лишався в
+пам'яті коректно, але невидимим на екрані, доки якась ІНША дія
+(типово — власний наступний push, чий рендер сам випереджав СВІЙ pull)
+випадково не перемалює UI. Звідси й "відставання на крок" — рівно той
+патерн, що описав користувач.
+
+**Підхід (узгоджено з користувачем): НЕ новий генералізований
+"render everything" механізм — дзеркалити ТІ САМІ render-виклики, що
+вже йдуть після відповідного ЛОКАЛЬНОГО save для кожного домену.**
+Крок 0 звірив точний набір для кожного з 9:
+
+| Домен | Локальний "оригінал" (звідки взято набір) | Render-виклик у pullXCore() |
+|---|---|---|
+| categories | `openAddCategoryModal()`/`deleteCategory()` | `renderStructure(); populateCategorySelect();` |
+| subcategories | `openAddSubcategoryModal()`/`deleteSubcategory()` | `renderStructure();` |
+| dictionary | `openAddDictionaryModal()`/`deleteDictionaryEntry()` | `renderStructure();` |
+| bankAccounts | `addBankAccount()` | `populateBankDebtTable();` |
+| installmentAccounts | `addInstallmentAccount()` | `populateInstallmentTable();` |
+| hiddenEntities | `removeInstallmentAccount()` | `renderAll();` |
+| expenses | `saveRecordEdit()` (не `addExpense()` — той ще й скидає форму) | `populateMonths(); renderAll();` |
+| incomes | `saveIncomeDrawer()` | `renderAll();` |
+| debts | `saveCardDebtDrawer()`/`saveInstallmentDrawer()` | `renderAll();` |
+
+Render викликається лише за реальної зміни (`added`/`updated`/`linked`
+> 0 — той самий прапорець, що вже визначає, чи взагалі викликати
+`saveXLocal()`), не на кожен pull. `renderAll()`/`renderStructure()`
+вже й раніше оновлювали DOM усіх вкладок безумовно (не лише активної)
+— той самий принцип, що вже діє для будь-якого локального редагування
+незалежно від активної вкладки; окремого "рендерити лише видиме"
+механізму не знадобилось.
+
+**Тестування:** `node --test` — 402/402 (18 нових тестів — по 2 на
+кожен з 9 доменів: render-стаб викликається за реальної зміни, і НЕ
+викликається за no-op pull; `renderStructure`/`populateCategorySelect`/
+`populateBankDebtTable`/`populateInstallmentTable`/`renderAll`/
+`populateMonths` підмінені no-op заглушками в sandbox, той самий
+принцип, що вже `loadAll`/`reportSaveResult`).
+
+**Живо перевірено в browser preview:** симуляція "іншого пристрою" —
+прямий SQL-insert витрати в `budget-app-dev` (чесний і достатній спосіб
+саме для ЦЬОГО фіксу — сам механізм push/pull-after-push вже окремо
+підтверджено двосесійно в 6D.54, тут під тестом лише render-виклик).
+Не виходячи з вкладки "Витрати", додано власну витрату — pull-after-push
+підхопив і одразу показав на екрані "чужий" запис, **без жодного
+додаткового кола чи переходу вкладки**. Тестові записи прибрані з Cloud.
+
+⚠️ **iPhone-тест — обов'язково**, ще не виконаний: точний сценарій, що
+виявив баг — лишатись на "Витрати", по черзі додавати записи на двох
+пристроях, підтвердити, що кожен з'являється одразу (не на 3-є коло).
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.
