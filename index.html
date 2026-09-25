@@ -174,12 +174,21 @@
   .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--color-bg); }
   .side{ display:none; }
   .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding-bottom:112px; }
-  .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 20px; border-bottom:1px solid var(--color-border); position:relative; text-align:center; }
-  .page-header-buttons{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); right:20px; display:flex; gap:8px; z-index:2; }
+  /* Rev #30 (6D.53 — закомічено на прохання користувача ДО живого
+     iPhone-підтвердження, той самий крок, що repaintTabbar() нижче за
+     текстом) — Симптом 1a термінового розслідування: env(safe-area-inset-left)/-right ніде в проєкті не
+     враховувались (лише -top/-bottom) — у портреті непомітно (чілка
+     зверху, -left/-right ≈0), в альбомному режимі чілка фізично опиняється
+     збоку, і без цих відступів контент/кнопки заголовка могли б опинитись
+     під чілкою чи скругленим кутом екрана. Додано calc(env(...,0px) + N)
+     туди, де раніше було просто фіксоване число — на пристроях без чілки
+     (env()=0) поведінка ідентична попередній. */
+  .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) calc(env(safe-area-inset-right,0px) + 20px) 20px calc(env(safe-area-inset-left,0px) + 20px); border-bottom:1px solid var(--color-border); position:relative; text-align:center; }
+  .page-header-buttons{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); right:calc(env(safe-area-inset-right,0px) + 20px); display:flex; gap:8px; z-index:2; }
   /* Rev #30 (6D.8) — дзеркало .page-header-buttons (той самий .gear-btn,
      лише зліва) — природне місце для іконки профілю, той самий контейнер
      .top, що вже спільний для всіх вкладок (не по одному на вкладку). */
-  .page-header-buttons-left{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); left:20px; display:flex; gap:8px; z-index:2; }
+  .page-header-buttons-left{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); left:calc(env(safe-area-inset-left,0px) + 20px); display:flex; gap:8px; z-index:2; }
   .page-header-text{ padding:0 76px; }
   /* Rev #30 (6D.10) — BugFix структурний: .avatar-badge раніше сам ніс і
      коло (border-radius:50%+overflow:hidden), і був контейнером
@@ -1137,7 +1146,11 @@
      position:relative дочірній елемент, якому transform:scale() абсолютно
      безпечний. */
   nav.tabbar{
-    position:fixed; left:0; right:0; margin:0 auto;
+    /* Rev #30 (6D.53) — Симптом 1a: раніше left:0;right:0
+       центрувало капсулу в межах ПОВНОЇ ширини екрана, ігноруючи чілку
+       збоку в альбомному режимі (там, де left:0/right:0 обидва 0 — портрет
+       без чілки збоку — env()=0px, поведінка ідентична попередній). */
+    position:fixed; left:env(safe-area-inset-left,0px); right:env(safe-area-inset-right,0px); margin:0 auto;
     /* Відступ від нижнього краю. Виміряно за пікселями двох реальних
        скріншотів (той самий пристрій, 3x): референс iOS (перемикач у
        "Телефоні") тримає ~8pt проміжку між капсулою і смужкою home indicator;
@@ -2494,7 +2507,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.84</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.85</div>
 </div>
   </div>
 </div>
@@ -5207,7 +5220,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.84';
+const APP_VERSION = '2.21.85';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11262,6 +11275,64 @@ function updateTabBubble(skipAnimation){
   }
 }
 window.addEventListener('resize', function(){ updateTabBubble(true); });
+
+// Rev #30 (6D.53 — закомічено на прохання користувача ДО живого
+// iPhone-підтвердження, свідомо як окремий, легко відкатний коміт) —
+// Баг 1 (термінове розслідування двох UI-багів):
+// таб-бар після повороту екрана (портрет→ландшафт→портрет) лишається
+// візуально на місці, але не реагує на дотики, допомагає лише перезапуск.
+// У коді немає жодної orientationchange-логіки, що щось невірно
+// перераховує — гіпотеза (з коду, НЕ підтверджена живим пристроєм):
+// html,body мають position:fixed;inset:0;overflow:hidden (app-shell
+// патерн проти bounce-скролу) — та сама комбінація, де в WebKit
+// задокументовано розходження compositor-шару (де малюється) і
+// hit-test-шару (де приймаються дотики) для position:fixed-елементів
+// після orientationchange, до першого forced-repaint.
+//
+// v1 (попередня ітерація) форсувала repaint СИНХРОННО всередині самого
+// orientationchange — живий тест на пристрої показав НОВИЙ побічний
+// симптом: таб-бар починає реагувати, але зі зсувом координат кліку
+// (клік вище фактичної позиції влучає в неї), і паралельно —
+// safe-area-inset в альбомному режимі перекриває контент. Обидва нові
+// симптоми, ймовірно, ОДНА причина: orientationchange в iOS Safari
+// документовано спрацьовує ДО того, як env(safe-area-inset-*) й
+// viewport-метрики остаточно "усядуться" під нову орієнтацію —
+// форсований repaint У ЦЕЙ момент "запікає" в compositor-шар
+// ПЕРЕХІДНУ/застарілу геометрію замість фінальної.
+//
+// v2: замість repaint синхронно в orientationchange, чекаємо на resize —
+// у WebKit resize після повороту зазвичай спрацьовує ПІЗНІШЕ, коли
+// viewport/safe-area метрики вже остаточні (той самий resize, на який уже
+// покладається updateTabBubble() вище). setTimeout(120мс) — фолбек НА
+// ВИПАДОК, якщо resize взагалі не спрацює після orientationchange (не
+// мало б, але дешева страховка) — обидва шляхи ведуть в один
+// ідемпотентний repaintTabbar(), тому подвійний виклик (і resize, і
+// timeout встигли) нешкідливий.
+// Ризик (чому досі НЕ в кожному звичайному resize, а лише після
+// orientationchange): forced-repaint потенційно дає помітний візуальний
+// "блимок". ⚠️ Цей Rev ЩЕ НЕ підтверджено на реальному iPhone — див.
+// ROADMAP.md, 6D.53: якщо на пристрої (а) один із симптомів не зникає,
+// або (б) блимок помітний — очікується revert цього коміту, не
+// патч-поверх.
+function repaintTabbar(){
+  const bar = document.querySelector('nav.tabbar');
+  if(!bar) return;
+  const prevDisplay = bar.style.display;
+  bar.style.display = 'none';
+  void bar.offsetHeight;
+  bar.style.display = prevDisplay;
+}
+window.addEventListener('orientationchange', function(){
+  let done = false;
+  function runOnce(){
+    if(done) return;
+    done = true;
+    repaintTabbar();
+    window.removeEventListener('resize', runOnce);
+  }
+  window.addEventListener('resize', runOnce);
+  setTimeout(runOnce, 120);
+});
 
 /* Rev 2.4.0 — свайп по самій панелі таббару (не по всьому екрану — щоб не
    конфліктувати зі скролом журналу/розгортанням карток деінде в застосунку):
