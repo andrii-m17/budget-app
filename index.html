@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.81</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.82</div>
 </div>
   </div>
 </div>
@@ -3082,6 +3082,17 @@ async function pushCategoriesPilot(){
   let localChanged = false;
   let anyError = false;
   for(const cat of CATEGORIES){
+    // Rev #30 (6D.50) — BugFix (знайдено 6D.49 живою перевіркою): раніше
+    // КОЖЕН виклик пересилав УСІ категорії, незалежно від того, чи вони
+    // реально змінились локально — застаріле значення могло затерти
+    // одночасну чужу зміну ІНШОГО запису в Cloud (контрольовано
+    // відтворено). syncedUpdatedAt — суто локальне bookkeeping-поле
+    // (ніколи не потрапляє в Cloud-payload нижче), виставляється = updatedAt
+    // одразу після успішного push цього запису. Якщо cloudId уже є і
+    // syncedUpdatedAt === updatedAt — запис не змінювався локально з часу
+    // останньої успішної синхронізації, пропускаємо його повністю, Cloud
+    // не чіпаємо взагалі.
+    if(cat.cloudId && cat.syncedUpdatedAt === cat.updatedAt) continue;
     try{
       if(cat.cloudId){
         const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, type: cat.type, updated_at: cat.updatedAt, updated_by: userId }).eq('id', cat.cloudId).select('id');
@@ -3093,12 +3104,14 @@ async function pushCategoriesPilot(){
           // reconciliation, що й запис без cloudId узагалі.
           cat.cloudId = null;
           await reconcileCategoryCloudId(client, userId, cat);
-          localChanged = true;
         }
       }else{
         await reconcileCategoryCloudId(client, userId, cat);
-        if(cat.cloudId) localChanged = true;
       }
+      // Rev #30 (6D.50) — лише після успіху (не в catch): позначає запис
+      // синхронізованим на ПОТОЧНЕ значення updatedAt.
+      cat.syncedUpdatedAt = cat.updatedAt;
+      localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск,
       // решта масиву й так продовжить обробку в наступній ітерації циклу.
@@ -3235,6 +3248,10 @@ async function pullCategoriesCore(){
           byCloudId.type = row.type;
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
+          // Rev #30 (6D.50) — local тепер точно відповідає Cloud (щойно
+          // застосовано) — синхронізовано, наступний push цей запис
+          // пропустить, доки він знову НЕ зміниться локально.
+          byCloudId.syncedUpdatedAt = row.updated_at;
           updated++;
         }
         continue;
@@ -3250,13 +3267,15 @@ async function pullCategoriesCore(){
         byName.type = row.type;
         byName.createdAt = row.created_at;
         byName.updatedAt = row.updated_at;
+        byName.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
         linked++;
         continue;
       }
       // row.type — NOT NULL у Cloud-схемі (DEFAULT 'Гнучка'), тому фолбек
       // нижче недосяжний за нормальних умов; лишається як страховка на
       // випадок старого/нестандартного рядка без явного значення.
-      CATEGORIES.push({ name: row.name, type: row.type || 'Гнучка', active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
+      // Rev #30 (6D.50) — syncedUpdatedAt: row.updated_at — щойно з Cloud, синхронізовано за визначенням.
+      CATEGORIES.push({ name: row.name, type: row.type || 'Гнучка', active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
       added++;
     }
     updateSyncMarkerFromAllRows('categories', data); // Rev #30 (6D.38) — усередині try: `data` block-scoped
@@ -3317,6 +3336,8 @@ async function pushSubcategoriesPilot(){
   for(const sub of SUBCATEGORIES){
     const parentCat = CATEGORIES.find(function(c){ return c.name === sub.category; });
     if(!parentCat || !parentCat.cloudId) continue; // батьківська категорія ще не синхронізована — не помилка
+    // Rev #30 (6D.50) — той самий принцип, що pushCategoriesPilot() (BugFix, знайдено 6D.49).
+    if(sub.cloudId && sub.syncedUpdatedAt === sub.updatedAt) continue;
     try{
       if(sub.cloudId){
         const { data, error } = await client.from('subcategories').update({ name: sub.name, category_id: parentCat.cloudId, active: sub.active, updated_at: sub.updatedAt, updated_by: userId }).eq('id', sub.cloudId).select('id');
@@ -3324,12 +3345,12 @@ async function pushSubcategoriesPilot(){
         if(data && data.length === 0){
           sub.cloudId = null;
           await reconcileSubcategoryCloudId(client, userId, sub, parentCat.cloudId);
-          localChanged = true;
         }
       }else{
         await reconcileSubcategoryCloudId(client, userId, sub, parentCat.cloudId);
-        if(sub.cloudId) localChanged = true;
       }
+      sub.syncedUpdatedAt = sub.updatedAt;
+      localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
       anyError = true;
@@ -3392,6 +3413,8 @@ async function pushDictionaryPilot(){
       if(!parentSub || !parentSub.cloudId) continue; // підкатегорія вказана, але ще не синхронізована — не помилка
       subcategoryId = parentSub.cloudId;
     }
+    // Rev #30 (6D.50) — той самий принцип, що pushCategoriesPilot() (BugFix, знайдено 6D.49).
+    if(entry.cloudId && entry.syncedUpdatedAt === entry.updatedAt) continue;
     try{
       if(entry.cloudId){
         const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).select('id');
@@ -3399,12 +3422,12 @@ async function pushDictionaryPilot(){
         if(data && data.length === 0){
           entry.cloudId = null;
           await reconcileDictionaryCloudId(client, userId, entry, parentCat.cloudId, subcategoryId);
-          localChanged = true;
         }
       }else{
         await reconcileDictionaryCloudId(client, userId, entry, parentCat.cloudId, subcategoryId);
-        if(entry.cloudId) localChanged = true;
       }
+      entry.syncedUpdatedAt = entry.updatedAt;
+      localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
       anyError = true;
@@ -3476,6 +3499,7 @@ async function pullSubcategoriesCore(){
           byCloudId.active = row.active;
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
+          byCloudId.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
           updated++;
         }
         continue;
@@ -3487,10 +3511,11 @@ async function pullSubcategoriesCore(){
         byName.active = row.active;
         byName.createdAt = row.created_at;
         byName.updatedAt = row.updated_at;
+        byName.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
         linked++;
         continue;
       }
-      SUBCATEGORIES.push({ name: row.name, category: parentCat.name, active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
+      SUBCATEGORIES.push({ name: row.name, category: parentCat.name, active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
       added++;
     }
     if(maxSeen) setSyncMarker('subcategories', maxSeen);
@@ -3547,6 +3572,7 @@ async function pullDictionaryCore(){
           byCloudId.sub = subName;
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
+          byCloudId.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
           updated++;
         }
         continue;
@@ -3558,10 +3584,11 @@ async function pullDictionaryCore(){
         byKw.sub = subName;
         byKw.createdAt = row.created_at;
         byKw.updatedAt = row.updated_at;
+        byKw.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
         linked++;
         continue;
       }
-      DICTIONARY.push({ kw: row.keyword, cat: parentCat.name, sub: subName, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
+      DICTIONARY.push({ kw: row.keyword, cat: parentCat.name, sub: subName, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
       added++;
     }
     if(maxSeen) setSyncMarker('dictionary', maxSeen);
@@ -4775,6 +4802,8 @@ async function pushBankAccountsPilot(){
   let localChanged = false;
   let anyError = false;
   for(const acc of bankAccounts){
+    // Rev #30 (6D.50) — той самий принцип, що pushCategoriesPilot() (BugFix, знайдено 6D.49).
+    if(acc.cloudId && acc.syncedUpdatedAt === acc.updatedAt) continue;
     try{
       if(acc.cloudId){
         const { data, error } = await client.from('bank_accounts').update({ name: acc.name, credit_limit: acc.creditLimit, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
@@ -4782,12 +4811,12 @@ async function pushBankAccountsPilot(){
         if(data && data.length === 0){
           acc.cloudId = null;
           await reconcileBankAccountCloudId(client, userId, acc);
-          localChanged = true;
         }
       }else{
         await reconcileBankAccountCloudId(client, userId, acc);
-        if(acc.cloudId) localChanged = true;
       }
+      acc.syncedUpdatedAt = acc.updatedAt;
+      localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
       anyError = true;
@@ -4844,6 +4873,7 @@ async function pullBankAccountsCore(){
           byCloudId.creditLimit = row.credit_limit;
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
+          byCloudId.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
           updated++;
         }
         continue;
@@ -4854,10 +4884,11 @@ async function pullBankAccountsCore(){
         byName.creditLimit = row.credit_limit;
         byName.createdAt = row.created_at;
         byName.updatedAt = row.updated_at;
+        byName.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
         linked++;
         continue;
       }
-      bankAccounts.push({ name: row.name, creditLimit: row.credit_limit, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
+      bankAccounts.push({ name: row.name, creditLimit: row.credit_limit, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
       added++;
     }
     updateSyncMarkerFromAllRows('bankAccounts', data);
@@ -4899,6 +4930,8 @@ async function pushInstallmentAccountsPilot(){
   let localChanged = false;
   let anyError = false;
   for(const acc of installmentAccounts){
+    // Rev #30 (6D.50) — той самий принцип, що pushCategoriesPilot() (BugFix, знайдено 6D.49).
+    if(acc.cloudId && acc.syncedUpdatedAt === acc.updatedAt) continue;
     try{
       if(acc.cloudId){
         const { data, error } = await client.from('installment_accounts').update({ name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
@@ -4906,12 +4939,12 @@ async function pushInstallmentAccountsPilot(){
         if(data && data.length === 0){
           acc.cloudId = null;
           await reconcileInstallmentAccountCloudId(client, userId, acc);
-          localChanged = true;
         }
       }else{
         await reconcileInstallmentAccountCloudId(client, userId, acc);
-        if(acc.cloudId) localChanged = true;
       }
+      acc.syncedUpdatedAt = acc.updatedAt;
+      localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
       anyError = true;
@@ -4960,6 +4993,7 @@ async function pullInstallmentAccountsCore(){
           byCloudId.dueDay = row.due_day;
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
+          byCloudId.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
           updated++;
         }
         continue;
@@ -4971,10 +5005,11 @@ async function pullInstallmentAccountsCore(){
         byName.dueDay = row.due_day;
         byName.createdAt = row.created_at;
         byName.updatedAt = row.updated_at;
+        byName.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
         linked++;
         continue;
       }
-      installmentAccounts.push({ name: row.name, initialAmount: row.initial_amount, dueDay: row.due_day, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at });
+      installmentAccounts.push({ name: row.name, initialAmount: row.initial_amount, dueDay: row.due_day, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
       added++;
     }
     updateSyncMarkerFromAllRows('installmentAccounts', data);
@@ -5154,7 +5189,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.81';
+const APP_VERSION = '2.21.82';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

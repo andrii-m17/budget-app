@@ -1523,6 +1523,73 @@ test('pushCategoriesPilot: реальна Cloud-помилка (anyError:true) �
   assert.equal(pullSpy.count(), 0);
 });
 
+// Rev #30 (6D.50) — BugFix: bulk-push більше не пересилає незмінені записи
+// (знайдено 6D.49 живою перевіркою — контрольовано відтворений clobber
+// одночасної чужої зміни).
+test('pushCategoriesPilot: запис із syncedUpdatedAt===updatedAt (не змінювався локально) → Cloud НЕ чіпається взагалі', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.CATEGORIES = [{ name: 'Незмінена', type: 'Гнучка', active: true, cloudId: 'c1', updatedAt: '2024-01-01T00:00:00.000Z', syncedUpdatedAt: '2024-01-01T00:00:00.000Z' }];
+  let updateCalled = false;
+  ctx.getSupabaseClient = () => ({
+    from(table){
+      return {
+        update(){ updateCalled = true; return { eq(){ return { select(){ return Promise.resolve({ data: [{}], error: null }); } }; } }; },
+        select(){ return { eq(){ return Promise.resolve({ data: [], error: null }); } }; },
+      };
+    },
+  });
+  const result = await ctx.pushCategoriesPilot();
+  assert.equal(updateCalled, false, 'UPDATE не мав викликатись для незміненого запису');
+  assert.deepEqual(plain(result).success, true);
+});
+
+test('pushCategoriesPilot: запис ЗМІНИВСЯ (updatedAt !== syncedUpdatedAt) → пушиться, syncedUpdatedAt оновлюється після успіху', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.CATEGORIES = [{ name: 'Змінена', type: 'Гнучка', active: true, cloudId: 'c1', updatedAt: '2024-06-01T00:00:00.000Z', syncedUpdatedAt: '2024-01-01T00:00:00.000Z' }];
+  let updateCalled = false;
+  ctx.getSupabaseClient = () => ({
+    from(table){
+      return {
+        update(){ updateCalled = true; return { eq(){ return { select(){ return Promise.resolve({ data: [{ id: 'c1' }], error: null }); } }; } }; },
+        select(){ return { eq(){ return Promise.resolve({ data: [], error: null }); } }; },
+      };
+    },
+  });
+  await ctx.pushCategoriesPilot();
+  assert.equal(updateCalled, true, 'UPDATE мав викликатись для зміненого запису');
+  assert.equal(ctx.CATEGORIES[0].syncedUpdatedAt, '2024-06-01T00:00:00.000Z');
+});
+
+// Rev #30 (6D.50) — головний regression-сценарій: 2 записи, лише ОДИН
+// змінився локально — push НЕ мав би торкатись Cloud-рядка іншого.
+test('pushCategoriesPilot: 2 записи, лише 1 змінився → UPDATE відправляється лише для зміненого, не для обох', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.CATEGORIES = [
+    { name: 'Змінена', type: 'Гнучка', active: true, cloudId: 'c1', updatedAt: '2024-06-01T00:00:00.000Z', syncedUpdatedAt: '2024-01-01T00:00:00.000Z' },
+    { name: 'Незмінена', type: 'Гнучка', active: true, cloudId: 'c2', updatedAt: '2024-01-01T00:00:00.000Z', syncedUpdatedAt: '2024-01-01T00:00:00.000Z' },
+  ];
+  const updatedIds = [];
+  ctx.getSupabaseClient = () => ({
+    from(table){
+      return {
+        update(){ return { eq(id, val){ updatedIds.push(val); return { select(){ return Promise.resolve({ data: [{ id: val }], error: null }); } }; } }; },
+        select(){ return { eq(){ return Promise.resolve({ data: [], error: null }); } }; },
+      };
+    },
+  });
+  await ctx.pushCategoriesPilot();
+  assert.deepEqual(updatedIds, ['c1']); // НЕ ['c1', 'c2'] — 'c2' (незмінена) не мала торкнутись Cloud
+});
+
 test('pushHiddenEntitiesPilot: успішний push (порожній hiddenFrom) → pullHiddenEntitiesCore() викликається (рішення: той самий принцип, хоч і поза "8 доменів")', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
@@ -2068,6 +2135,28 @@ test('pullCategoriesCore: третій pull (є нова Cloud-зміна піс
   const result = await ctx.pullCategoriesCore();
   assert.equal(result.added, 1);
   assert.equal(ctx.getSyncMarker('categories'), '2024-09-01T00:00:00.000Z'); // посунувся на нову зміну
+});
+
+// Rev #30 (6D.50) — критична взаємодія з 6D.49/6D.41: pull-after-push
+// (6D.49) просуває local.updatedAt на РЕАЛЬНЕ серверне значення (тригер
+// 6D.41 завжди перезаписує updated_at), тому push (6D.50) МАЄ виставляти
+// syncedUpdatedAt=updatedAt ДО того, як pull-after-push його посуне —
+// інакше вони одразу розійдуться знову і skip-логіка ніколи не спрацює.
+// Виправлення: pull теж виставляє syncedUpdatedAt=row.updated_at щоразу,
+// коли застосовує поля з Cloud (тепер local у цей момент ТОЧНО відповідає
+// Cloud, byCloudId-LWW-гілка нижче).
+test('pullCategoriesCore: Cloud-переможець (LWW) → syncedUpdatedAt виставляється = row.updated_at (не лишається застарілим після push-after-pull ланцюжка)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => fakeSupabaseSelectClient('categories', [
+    { id: 'c1', name: 'Тест', active: true, type: 'Гнучка', updated_at: '2026-01-05T00:00:00.000Z' },
+  ]);
+  ctx.CATEGORIES = [{ name: 'Тест', type: 'Гнучка', active: true, cloudId: 'c1', updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2020-01-01T00:00:00.000Z' }];
+  await ctx.pullCategoriesCore();
+  assert.equal(ctx.CATEGORIES[0].updatedAt, '2026-01-05T00:00:00.000Z');
+  assert.equal(ctx.CATEGORIES[0].syncedUpdatedAt, '2026-01-05T00:00:00.000Z');
 });
 
 test('pullExpensesCore: skippedFk-рядок НЕ рухає маркер (інакше self-heal назавжди зламався б для цього запису)', async () => {
