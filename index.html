@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.83</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.84</div>
 </div>
   </div>
 </div>
@@ -5207,7 +5207,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.83';
+const APP_VERSION = '2.21.84';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12221,6 +12221,29 @@ document.addEventListener('focusout', function(e){
     if(!isKeyboardField(document.activeElement)) document.body.classList.remove('kb-open');
   }, 100);
 });
+// Rev #30 (6D.52) — Баг 2 (термінове розслідування двох UI-багів): WebKit
+// дозволяє сховати системну клавіатуру (кнопка-шеврон/жест) БЕЗ зміни
+// document.activeElement — саме поле лишається "у фокусі" формально, тому
+// focusout вище НІКОЛИ не спрацьовує, і body.kb-open лишається назавжди
+// (таббар зникає й не з'являється, доки фокус не перейде на ІНШЕ поле
+// по-справжньому — звідси й спостереження "допомагає тап по полю дати").
+// visualViewport.resize — сигнал стану клавіатури, незалежний від фокуса:
+// висота видимого viewport повертається до майже повної, коли клавіатура
+// СПРАВДІ зникла. Використовуємо лише для ЗНЯТТЯ kb-open (безпечний
+// напрямок) — ніколи для додавання: visualViewport стискається й з інших
+// причин (адресний рядок тощо), тому "показати клавіатуру" лишається
+// виключно за focusin, як і раніше.
+function isKeyboardLikelyClosed(windowInnerHeight, visualViewportHeight){
+  return (windowInnerHeight - visualViewportHeight) < 100;
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', function(){
+    if(!document.body.classList.contains('kb-open')) return;
+    if(isKeyboardLikelyClosed(window.innerHeight, window.visualViewport.height)){
+      document.body.classList.remove('kb-open');
+    }
+  });
+}
 
 await loadAll();
 // Rev 2.8.0 — оновлення заголовка вкладки одразу після завантаження: без
