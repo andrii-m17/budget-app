@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.82</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.83</div>
 </div>
   </div>
 </div>
@@ -4001,17 +4001,35 @@ async function ensureExpenseIdentity(){
 // транзитивно через onclick при кожному renderAll(), не персиститься) —
 // тому заміну значення можна робити на місці, не оновлюючи нічого іншого.
 const UUID_FORMAT_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Rev #30 (6D.51) — той самий ідемпотентний принцип, що ensureExpenseIdentity()
+// вище: заповнює ЛИШЕ ВІДСУТНІ createdAt/updatedAt. Виявлено при роботі над
+// детермінованим сортуванням Журналу (compareRecordsForDisplay використовує
+// createdAt як тайбрейк) — на відміну від expenses, incomes/debts НІКОЛИ не
+// мали такого бекфілу, лише виправлення формату id. Старі записи (до
+// впровадження timestamp-полів) могли не мати createdAt взагалі.
 async function ensureIncomeIdentity(){
   let changed = false;
+  const nowISO = new Date().toISOString();
   incomes.forEach(function(inc){
     if(!UUID_FORMAT_RE.test(inc.id)){ inc.id = generateUUID(); changed = true; }
+    if(!inc.createdAt){
+      inc.createdAt = inc.date ? (inc.date + 'T00:00:00.000Z') : nowISO;
+      changed = true;
+    }
+    if(!inc.updatedAt){ inc.updatedAt = inc.createdAt; changed = true; }
   });
   if(changed) reportSaveResult(await saveIncomes());
 }
 async function ensureDebtIdentity(){
   let changed = false;
+  const nowISO = new Date().toISOString();
   debts.forEach(function(d){
     if(!UUID_FORMAT_RE.test(d.id)){ d.id = generateUUID(); changed = true; }
+    if(!d.createdAt){
+      d.createdAt = d.month ? (d.month + '-01T00:00:00.000Z') : nowISO;
+      changed = true;
+    }
+    if(!d.updatedAt){ d.updatedAt = d.createdAt; changed = true; }
   });
   if(changed) reportSaveResult(await saveDebts());
 }
@@ -5189,7 +5207,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.82';
+const APP_VERSION = '2.21.83';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9761,6 +9779,20 @@ function buildRecordGroupsHtml(items){
       </div>`;
   }).join('');
 }
+// Rev #30 (6D.51) — детермінований порядок Журналу: раніше тайбрейк при
+// ОДНАКОВІЙ date був фактично no-op (localeCompare вже дає 0 при рівності),
+// тож порядок визначався стабільністю .sort() = поточним порядком масиву —
+// а він природно розходиться між пристроями (push у кінець при створенні,
+// різна послідовність pull/push). Звідси "стрибки" при однаковій даті.
+// Тепер: date (первинний, як і був) → createdAt (тайбрейк) → id (фінальний
+// резерв, на випадок теоретичного збігу createdAt). Редагування запису
+// оновлює лише updatedAt — жоден з трьох критеріїв не міняється, отже
+// позиція в списку стабільна.
+function compareRecordsForDisplay(a, b){
+  return (b.date||'').localeCompare(a.date||'')
+    || (b.createdAt||'').localeCompare(a.createdAt||'')
+    || (b.id||'').localeCompare(a.id||'');
+}
 function renderRecords(){
   const container = document.getElementById('records-list');
   const showJournalBtn = document.getElementById('show-journal-btn');
@@ -9788,7 +9820,7 @@ function renderRecords(){
   const combined = [
     ...activeExpenses().map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
     ...activeIncomes().map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
-  ].sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
+  ].sort(compareRecordsForDisplay);
 
   if(showJournalBtn) showJournalBtn.classList.toggle('hidden', combined.length <= SHORT_JOURNAL_LIMIT);
 
@@ -10126,7 +10158,7 @@ function renderJournalView(){
   const combined = (searchActive
     ? filterJournalRecords(monthRecords, journalSearchQuery, journalSearchCategory, journalSearchSubcategory)
     : monthRecords
-  ).sort((a,b)=> (b.date||'').localeCompare(a.date||'') || 0);
+  ).sort(compareRecordsForDisplay);
 
   if(searchSummaryEl){
     if(searchActive){

@@ -3278,14 +3278,37 @@ test('ensureIncomeIdentity: старий формат id (Date.now()+random) →
   assert.equal(spy.count(), 1);
 });
 
-test('ensureIncomeIdentity: запис уже з валідним UUID → id не змінюється, save не викликається', async () => {
+test('ensureIncomeIdentity: запис уже з валідним UUID і createdAt/updatedAt → нічого не змінюється, save не викликається', async () => {
   const { ctx } = sandbox();
-  ctx.incomes = [{ id: VALID_UUID_1, date: '2026-09-01', source: 'Інші доходи', amount: 1234 }];
+  ctx.incomes = [{ id: VALID_UUID_1, date: '2026-09-01', source: 'Інші доходи', amount: 1234, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
   const spy = spyOn(ctx, 'saveIncomes');
   await ctx.ensureIncomeIdentity();
   assert.equal(ctx.incomes[0].id, VALID_UUID_1);
   assert.equal(spy.count(), 0);
   assert.equal(ctx.localStorage.getItem('budget_incomes_v1'), null);
+});
+
+// Rev #30 (6D.51) — виявлена прогалина: на відміну від ensureExpenseIdentity(),
+// ensureIncomeIdentity() ніколи не бекфілив createdAt/updatedAt — потрібно
+// для детермінованого тайбрейку в compareRecordsForDisplay().
+test('ensureIncomeIdentity: старий запис без createdAt → бекфіл з date (початок дня), updatedAt = createdAt', async () => {
+  const { ctx } = sandbox();
+  ctx.incomes = [{ id: VALID_UUID_1, date: '2026-09-01', source: 'Інші доходи', amount: 1234 }];
+  const spy = spyOn(ctx, 'saveIncomes');
+  await ctx.ensureIncomeIdentity();
+  assert.equal(ctx.incomes[0].createdAt, '2026-09-01T00:00:00.000Z');
+  assert.equal(ctx.incomes[0].updatedAt, '2026-09-01T00:00:00.000Z');
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureIncomeIdentity: createdAt вже присутній → НЕ перезаписується', async () => {
+  const { ctx } = sandbox();
+  ctx.incomes = [{ id: VALID_UUID_1, date: '2026-09-01', source: 'Інші доходи', amount: 1234, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-05-05T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveIncomes');
+  await ctx.ensureIncomeIdentity();
+  assert.equal(ctx.incomes[0].createdAt, '2026-01-01T00:00:00.000Z');
+  assert.equal(ctx.incomes[0].updatedAt, '2026-05-05T00:00:00.000Z');
+  assert.equal(spy.count(), 0);
 });
 
 test('ensureIncomeIdentity: змішаний масив → лише невалідний id замінено', async () => {
@@ -3333,14 +3356,35 @@ test('ensureDebtIdentity: старий формат id (Date.now()+random) → �
   assert.equal(spy.count(), 1);
 });
 
-test('ensureDebtIdentity: запис уже з валідним UUID → id не змінюється, save не викликається', async () => {
+test('ensureDebtIdentity: запис уже з валідним UUID і createdAt/updatedAt → нічого не змінюється, save не викликається', async () => {
   const { ctx } = sandbox();
-  ctx.debts = [{ id: VALID_UUID_1, name: 'iPhone', kind: 'installment', month: '2026-09', balance: 20000, monthlyPayment: 2000 }];
+  ctx.debts = [{ id: VALID_UUID_1, name: 'iPhone', kind: 'installment', month: '2026-09', balance: 20000, monthlyPayment: 2000, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
   const spy = spyOn(ctx, 'saveDebts');
   await ctx.ensureDebtIdentity();
   assert.equal(ctx.debts[0].id, VALID_UUID_1);
   assert.equal(spy.count(), 0);
   assert.equal(ctx.localStorage.getItem('budget_debts_v1'), null);
+});
+
+// Rev #30 (6D.51) — та сама виявлена прогалина, що ensureIncomeIdentity() вище.
+test('ensureDebtIdentity: старий запис без createdAt → бекфіл з month (перше число), updatedAt = createdAt', async () => {
+  const { ctx } = sandbox();
+  ctx.debts = [{ id: VALID_UUID_1, name: 'iPhone', kind: 'installment', month: '2026-09', balance: 20000, monthlyPayment: 2000 }];
+  const spy = spyOn(ctx, 'saveDebts');
+  await ctx.ensureDebtIdentity();
+  assert.equal(ctx.debts[0].createdAt, '2026-09-01T00:00:00.000Z');
+  assert.equal(ctx.debts[0].updatedAt, '2026-09-01T00:00:00.000Z');
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureDebtIdentity: createdAt вже присутній → НЕ перезаписується', async () => {
+  const { ctx } = sandbox();
+  ctx.debts = [{ id: VALID_UUID_1, name: 'iPhone', kind: 'installment', month: '2026-09', balance: 20000, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-05-05T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveDebts');
+  await ctx.ensureDebtIdentity();
+  assert.equal(ctx.debts[0].createdAt, '2026-01-01T00:00:00.000Z');
+  assert.equal(ctx.debts[0].updatedAt, '2026-05-05T00:00:00.000Z');
+  assert.equal(spy.count(), 0);
 });
 
 test('ensureDebtIdentity: змішаний масив (card+installment) → лише невалідний id замінено', async () => {

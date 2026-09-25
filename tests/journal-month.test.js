@@ -29,7 +29,9 @@ function sandbox({ expenses, incomes } = {}){
     { expenses: expenses || [], incomes: incomes || [] },
     ['shiftMonth', 'monthKey', 'recordsForMonth', 'findRecordIdForDate', 'filterJournalRecords', 'journalCategoryOptions', 'journalSubcategoryOptions',
       // Rev #30 (6D.43) — findRecordIdForDate() тепер сканує activeExpenses()/activeIncomes(), не сирі масиви.
-      'activeExpenses', 'activeIncomes']
+      'activeExpenses', 'activeIncomes',
+      // Rev #30 (6D.51) — compareRecordsForDisplay(): детермінований порядок Журналу.
+      'compareRecordsForDisplay']
   );
 }
 
@@ -306,4 +308,66 @@ test('journalSubcategoryOptions: category без жодної витрати →
   const ctx = sandbox();
   const expenses = [{ name: 'Латте', category: '🍔 Їжа', subcategory: 'Кафе' }];
   assert.deepEqual(Array.from(ctx.journalSubcategoryOptions(expenses, '🚗 Транспорт')), []);
+});
+
+// Rev #30 (6D.51) — compareRecordsForDisplay(): детермінований порядок
+// Журналу. Раніше тайбрейк при ОДНАКОВІЙ date був фактично no-op (при
+// рівності localeCompare вже дає 0) → порядок визначався стабільністю
+// .sort() = поточним порядком масиву, який розходиться між пристроями
+// (push у кінець при створенні, різна послідовність pull/push) — звідси
+// "стрибки" в описі бага.
+test('compareRecordsForDisplay: первинно за date, новіші зверху (спадання)', () => {
+  const ctx = sandbox();
+  const records = [
+    { id: 'a', date: '2026-03-01', createdAt: '2026-03-01T10:00:00.000Z' },
+    { id: 'b', date: '2026-03-05', createdAt: '2026-03-05T10:00:00.000Z' },
+    { id: 'c', date: '2026-03-03', createdAt: '2026-03-03T10:00:00.000Z' },
+  ];
+  const sorted = records.slice().sort(ctx.compareRecordsForDisplay).map(r => r.id);
+  assert.deepEqual(sorted, ['b', 'c', 'a']);
+});
+
+test('compareRecordsForDisplay: однакова date → тайбрейк за createdAt (новіший зверху), НЕ за порядком масиву', () => {
+  const ctx = sandbox();
+  // Записи додані в масив у "неправильному" порядку (старіший createdAt перший) —
+  // раніше нестабільний тайбрейк лишив би їх саме в цьому, вхідному, порядку.
+  const records = [
+    { id: 'old', date: '2026-03-01', createdAt: '2026-03-01T08:00:00.000Z' },
+    { id: 'new', date: '2026-03-01', createdAt: '2026-03-01T20:00:00.000Z' },
+  ];
+  const sorted = records.slice().sort(ctx.compareRecordsForDisplay).map(r => r.id);
+  assert.deepEqual(sorted, ['new', 'old']);
+});
+
+test('compareRecordsForDisplay: однакова date і createdAt → фінальний тайбрейк за id, детермінований', () => {
+  const ctx = sandbox();
+  const records = [
+    { id: 'bbb', date: '2026-03-01', createdAt: '2026-03-01T08:00:00.000Z' },
+    { id: 'aaa', date: '2026-03-01', createdAt: '2026-03-01T08:00:00.000Z' },
+  ];
+  const sorted1 = records.slice().sort(ctx.compareRecordsForDisplay).map(r => r.id);
+  const sorted2 = records.slice().reverse().sort(ctx.compareRecordsForDisplay).map(r => r.id);
+  // Незалежно від вхідного порядку — результат однаковий (не залежить від array order).
+  assert.deepEqual(sorted1, sorted2);
+});
+
+test('compareRecordsForDisplay: редагування (зміна лише updatedAt) не впливає на позицію', () => {
+  const ctx = sandbox();
+  const records = [
+    { id: 'a', date: '2026-03-01', createdAt: '2026-03-01T08:00:00.000Z', updatedAt: '2026-03-01T08:00:00.000Z' },
+    { id: 'b', date: '2026-03-02', createdAt: '2026-03-02T08:00:00.000Z', updatedAt: '2026-03-02T08:00:00.000Z' },
+  ];
+  const before = records.slice().sort(ctx.compareRecordsForDisplay).map(r => r.id);
+  records[0].updatedAt = '2026-03-10T00:00:00.000Z'; // редагування "a" пізніше за "b"
+  const after = records.slice().sort(ctx.compareRecordsForDisplay).map(r => r.id);
+  assert.deepEqual(before, after);
+});
+
+test('compareRecordsForDisplay: відсутній createdAt (старий запис) не ламає сортування', () => {
+  const ctx = sandbox();
+  const records = [
+    { id: 'a', date: '2026-03-01' },
+    { id: 'b', date: '2026-03-01', createdAt: '2026-03-01T08:00:00.000Z' },
+  ];
+  assert.doesNotThrow(() => records.slice().sort(ctx.compareRecordsForDisplay));
 });
