@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.80</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.81</div>
 </div>
   </div>
 </div>
@@ -3106,6 +3106,15 @@ async function pushCategoriesPilot(){
     }
   }
   if(localChanged) await saveCategoriesLocal();
+  // Rev #30 (6D.49) — Pull одразу після успішного push (Варіант А):
+  // підхоплює зміни, які тим часом зробив інший пристрій, без очікування
+  // наступного ручного "Синхронізувати все"/входу. Лише при !anyError —
+  // якщо push сам частково провалився, немає сенсу одразу питати ще раз.
+  // await (не fire-and-forget) — withSyncIndicator() обгортає push і pull
+  // ОКРЕМО (той самий syncActiveOps-лічильник), тому вкладений await тут
+  // природно тримає індикатор в одному безперервному "syncing", без
+  // спецкоду для UX.
+  if(!anyError) await pullCategoriesCore();
   return { success: !anyError };
 }
 // Rev #30 (6D fix) — спершу шукаємо ІСНУЮЧИЙ Cloud-рядок за name+family_id
@@ -3327,6 +3336,8 @@ async function pushSubcategoriesPilot(){
     }
   }
   if(localChanged) await saveSubcategoriesLocal();
+  // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
+  if(!anyError) await pullSubcategoriesCore();
   return { success: !anyError };
 }
 async function reconcileSubcategoryCloudId(client, userId, sub, categoryId){
@@ -3400,6 +3411,8 @@ async function pushDictionaryPilot(){
     }
   }
   if(localChanged) await saveDictionaryLocal();
+  // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
+  if(!anyError) await pullDictionaryCore();
   return { success: !anyError };
 }
 async function reconcileDictionaryCloudId(client, userId, entry, categoryId, subcategoryId){
@@ -4407,6 +4420,9 @@ async function pushExpenseRecordPilot(rec){
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
+    // Rev #30 (6D.49) — pull одразу після успішного push (Варіант А), той
+    // самий принцип, що всюди в цьому Rev.
+    if(!error) await pullExpensesCore();
     return { success: !error };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск, той самий принцип, що решта push-логіки.
@@ -4431,6 +4447,8 @@ async function pushIncomeRecordPilot(rec){
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
+    // Rev #30 (6D.49) — той самий принцип, що pushExpenseRecordPilot().
+    if(!error) await pullIncomesCore();
     return { success: !error };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск.
@@ -4471,6 +4489,8 @@ async function pushDebtRecordPilot(rec){
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
+    // Rev #30 (6D.49) — той самий принцип, що pushExpenseRecordPilot().
+    if(!error) await pullDebtsCore();
     return { success: !error };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск.
@@ -4774,6 +4794,8 @@ async function pushBankAccountsPilot(){
     }
   }
   if(localChanged) await saveBankAccountsLocal();
+  // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
+  if(!anyError) await pullBankAccountsCore();
   return { success: !anyError };
 }
 async function reconcileBankAccountCloudId(client, userId, acc){
@@ -4896,6 +4918,8 @@ async function pushInstallmentAccountsPilot(){
     }
   }
   if(localChanged) await saveInstallmentAccountsLocal();
+  // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
+  if(!anyError) await pullInstallmentAccountsCore();
   return { success: !anyError };
 }
 async function reconcileInstallmentAccountCloudId(client, userId, acc){
@@ -5018,6 +5042,12 @@ async function pushHiddenEntitiesPilot(){
       anyError = true;
     }
   }
+  // Rev #30 (6D.49) — pull одразу після успішного push. Рішення (явне, не
+  // мовчазне): hidden_entities теж отримує цей принцип, хоч і поза
+  // початковим "8 доменів" списком — existence-based merge ідемпотентний
+  // і дешевий, немає LWW/push-retry гілки, тому немає нового ризику
+  // зациклення, а мета ("побачити чужі зміни швидше") стосується й цього домену.
+  if(!anyError) await pullHiddenEntitiesCore();
   return { success: !anyError };
 }
 // Pull: entity_id резолвиться в local-запис за cloudId (не назвою) у
@@ -5124,7 +5154,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.80';
+const APP_VERSION = '2.21.81';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

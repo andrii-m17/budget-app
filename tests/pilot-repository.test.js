@@ -1464,6 +1464,77 @@ test('pushExpenseRecordPilot: без deletedAt → payload несе deleted_at:n
   assert.equal(capturedPayload.deleted_at, null);
 });
 
+// Rev #30 (6D.49) — Pull одразу після успішного push (Варіант А).
+test('pushExpenseRecordPilot: успішний push → pullExpensesCore() викликається одразу після', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: [{}], error: null }); } }; } });
+  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500 });
+  assert.equal(pullSpy.count(), 1);
+});
+
+test('pushExpenseRecordPilot: push ПРОВАЛИВСЯ (реальна Cloud-помилка) → pullExpensesCore() НЕ викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: null, error: new Error('симульована помилка') }); } }; } });
+  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500 });
+  assert.equal(pullSpy.count(), 0);
+});
+
+test('pushExpenseRecordPilot: не залогінений (офлайн-подібний guard) → pullExpensesCore() НЕ викликається (природний успадкований тихий пропуск)', async () => {
+  const { ctx } = sandbox();
+  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500 });
+  assert.equal(pullSpy.count(), 0);
+});
+
+test('pushCategoriesPilot: успішний push (порожній масив, anyError:false) → pullCategoriesCore() викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.CATEGORIES = [];
+  ctx.getSupabaseClient = () => fakeSupabaseSelectClient('categories', []);
+  const pullSpy = spyOn(ctx, 'pullCategoriesCore');
+  await ctx.pushCategoriesPilot();
+  assert.equal(pullSpy.count(), 1);
+});
+
+test('pushCategoriesPilot: реальна Cloud-помилка (anyError:true) → pullCategoriesCore() НЕ викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.CATEGORIES = [{ name: 'Тест', type: 'Гнучка', active: true, cloudId: 'c1', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  ctx.getSupabaseClient = () => ({
+    from(table){
+      assert.equal(table, 'categories');
+      return { update(){ return { eq(){ return { select(){ return Promise.resolve({ data: null, error: new Error('симульована помилка') }); } }; } }; } };
+    },
+  });
+  const pullSpy = spyOn(ctx, 'pullCategoriesCore');
+  await ctx.pushCategoriesPilot();
+  assert.equal(pullSpy.count(), 0);
+});
+
+test('pushHiddenEntitiesPilot: успішний push (порожній hiddenFrom) → pullHiddenEntitiesCore() викликається (рішення: той самий принцип, хоч і поза "8 доменів")', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.hiddenFrom = {};
+  ctx.getSupabaseClient = () => fakeSupabaseSelectClient('hidden_entities', []);
+  const pullSpy = spyOn(ctx, 'pullHiddenEntitiesCore');
+  await ctx.pushHiddenEntitiesPilot();
+  assert.equal(pullSpy.count(), 1);
+});
+
 test('pushDebtRecordPilot: рахунок ще не синхронізований → тихий пропуск, { success:true } (не помилка)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
