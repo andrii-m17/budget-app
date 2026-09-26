@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.88</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.89</div>
 </div>
   </div>
 </div>
@@ -5240,7 +5240,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.88';
+const APP_VERSION = '2.21.89';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6063,15 +6063,102 @@ async function applyCloudSession(session){
       if(debtResult && !debtResult.skipped && (debtResult.updated || debtResult.added)){
         populateMonths(); renderAll();
       }
+      // Rev #30 (6D.56) — Realtime-підписка: той самий "один раз на
+      // sign-in transition" принцип, що весь початковий pull-ланцюжок вище.
+      setupRealtimeSync();
     }
   }else{
     setCloudAuthFormVisible(true);
     setCloudAuthStatus('Не увійшли');
     clearCloudFamilyId();
     cloudDisplayName = null;
+    // Rev #30 (6D.56) — вихід з акаунта: підписка прив'язана до КОНКРЕТНОГО
+    // cloudFamilyId (RLS-фільтр у кожному .on() нижче) — без явного знищення
+    // канал і далі отримував би events по СТАРІЙ сім'ї (чи взагалі не мав би
+    // сенсу без сесії).
+    teardownRealtimeSync();
   }
   renderProfileUI();
 }
+// Rev #30 (6D.56) — Realtime + sync-on-resume (без банерів/зведень — свідомо
+// окремий, наступний крок за продуктовим рішенням користувача).
+//
+// PULL_DOMAINS — той самий порядок доменів/залежностей, що вже в
+// syncAllPilotManual() нижче (categories→subcategories→dictionary через
+// FK category_id/subcategory_id; bankAccounts/installmentAccounts ПЕРЕД
+// hiddenEntities/debts через FK; expenses/incomes незалежні). Єдине джерело
+// "домен → таблиця Cloud → pull-функція" — використовується і для підписки
+// на Realtime (яка таблиця → який pull), і для sync-on-resume (повний
+// прохід по всіх 9). НЕ замінює syncAllPilotManual() (той — ручна кнопка з
+// власним UI-статусом і лічильниками для користувача) — лише спільна
+// довідкова структура для двох НОВИХ, тихих (без UI-статусу) механізмів.
+const PULL_DOMAINS = [
+  { key: 'categories', table: 'categories', fn: function(){ return pullCategoriesCore(); } },
+  { key: 'subcategories', table: 'subcategories', fn: function(){ return pullSubcategoriesCore(); } },
+  { key: 'dictionary', table: 'dictionary', fn: function(){ return pullDictionaryCore(); } },
+  { key: 'bankAccounts', table: 'bank_accounts', fn: function(){ return pullBankAccountsCore(); } },
+  { key: 'installmentAccounts', table: 'installment_accounts', fn: function(){ return pullInstallmentAccountsCore(); } },
+  { key: 'hiddenEntities', table: 'hidden_entities', fn: function(){ return pullHiddenEntitiesCore(); } },
+  { key: 'expenses', table: 'expenses', fn: function(){ return pullExpensesCore(); } },
+  { key: 'incomes', table: 'incomes', fn: function(){ return pullIncomesCore(); } },
+  { key: 'debts', table: 'debts', fn: function(){ return pullDebtsCore(); } },
+];
+// Rev #30 (6D.56, Крок 0 п.3) — dedup-guard між Realtime-подіями і
+// sync-on-resume: якщо для ТОГО САМОГО домену вже є pull "у польоті" (з
+// будь-якого з цих двох джерел), повертаємо той самий in-flight Promise
+// замість паралельного дублю. Той самий принцип, що cloudAuthInitInFlight
+// (6D.54) — ключ per-домен (не один спільний прапорець), бо різні домени
+// мають незалежно й одночасно синхронізуватись.
+const pullInFlightByDomain = {};
+function pullOnce(domainKey){
+  if(pullInFlightByDomain[domainKey]) return pullInFlightByDomain[domainKey];
+  const domain = PULL_DOMAINS.find(function(d){ return d.key === domainKey; });
+  if(!domain) return Promise.resolve({ skipped: true });
+  pullInFlightByDomain[domainKey] = domain.fn().finally(function(){ delete pullInFlightByDomain[domainKey]; });
+  return pullInFlightByDomain[domainKey];
+}
+// Rev #30 (6D.56) — один спільний канал на всі 9 таблиць (не по каналу на
+// таблицю — один WebSocket, дев'ять .on()-підписок, стандартний
+// supabase-js patern). filter:`family_id=eq.${cloudFamilyId}` — RLS і так
+// обмежує потік лише "своєю" сім'єю (Крок 0 п.2, підтверджено), фільтр тут
+// додатково зменшує зайвий трафік/спрацювання для об'ємних Cloud-таблиць
+// (гіпотетично спільних між сім'ями в майбутньому), не заміна RLS.
+let realtimeChannel = null;
+function setupRealtimeSync(){
+  if(realtimeChannel) return; // вже підписані (напр. TOKEN_REFRESHED після sign-in — applyCloudSession викликає це лише у !wasSignedIn гілці, але guard про всяк випадок)
+  const client = getSupabaseClient();
+  let channel = client.channel('family-sync-' + cloudFamilyId);
+  PULL_DOMAINS.forEach(function(domain){
+    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: domain.table, filter: 'family_id=eq.' + cloudFamilyId }, function(){
+      pullOnce(domain.key);
+    });
+  });
+  channel.subscribe();
+  realtimeChannel = channel;
+}
+function teardownRealtimeSync(){
+  if(!realtimeChannel) return;
+  getSupabaseClient().removeChannel(realtimeChannel);
+  realtimeChannel = null;
+}
+// Rev #30 (6D.56) — sync-on-resume: WebSocket-з'єднання Realtime НЕ
+// гарантовано тримається, поки застосунок згорнутий (той самий клас
+// невизначеності iOS Safari PWA background execution, що вже документований
+// у ROADMAP для 'online'-події) — це підстраховка, не дублювання: повний
+// прохід по всіх 9 доменів при поверненні з фону/розблокуванні, незалежно
+// від того, чи Realtime встиг доставити пропущені події. visibilitychange
+// (надійніший на iOS — спрацьовує і при поверненні з фону, і при
+// розблокуванні екрана) І focus (десктоп-кейс, напр. Alt+Tab назад у
+// вкладку) — обидва ведуть в ту саму функцію, pullOnce() (той самий guard,
+// що вище) природно дедублює, якщо обидві події спрацюють майже одночасно.
+function pullAllOnResume(){
+  if(!isCloudSessionReady()) return;
+  PULL_DOMAINS.forEach(function(domain){ pullOnce(domain.key); });
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible') pullAllOnResume();
+});
+window.addEventListener('focus', pullAllOnResume);
 // family_id — той самий клас свідомого винятку з "лише IndexedDB", що вже
 // сесія SDK/theme/draft: сесійний, не фінансовий стан, безпечно тримати в
 // localStorage. Немає запису в family_members (запит не вдався чи порожній)
