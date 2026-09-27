@@ -2587,7 +2587,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.5</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.6</div>
 </div>
   </div>
 </div>
@@ -5669,7 +5669,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.5';
+const APP_VERSION = '2.22.6';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6856,6 +6856,11 @@ function scheduleSyncSettle(){
     syncSettleTimer = setTimeout(function(){
       if(syncActiveOps > 0) return;
       syncVisualState = 'idle';
+      // Rev #30 (6D.74) — за проханням користувача: панель домен-за-
+      // доменом (6D.73) мала ховатись РІВНО тоді, коли зникає анімація
+      // іконки на кнопці "Синхронізувати зараз" (той самий момент
+      // syncing→done→idle), а не за окремим фіксованим таймером.
+      manualSyncPanelVisible = false;
       renderProfileUI();
     }, SYNC_RESULT_MS);
   }, remaining);
@@ -6984,9 +6989,17 @@ function installSyncIndicatorHooks(){
 // цю панель). manualSyncPanelVisible — окремий прапорець саме для цього,
 // НЕ переплутаний з глобальним syncVisualState.
 let manualSyncPanelVisible = false;
-const SYNC_PANEL_HIDE_DELAY_MS = 1200;
+// Rev #30 (6D.74) — за проханням користувача: основне приховування тепер
+// РІВНО в момент syncVisualState→'idle' (див. scheduleSyncSettle() —
+// той самий момент, коли зникає анімація іконки на кнопці), НЕ окремий
+// незалежний таймер. Це лише СТРАХОВОЧНИЙ fallback — на випадок, якщо
+// syncAllPilotManual() завершується РАНО (гість/немає SDK), тобто жоден
+// pull ніколи не викликав syncOpBegin(), і природний idle-перехід
+// ніколи не станеться. Довше за повний цикл SYNC_MIN_SYNCING_MS+
+// SYNC_RESULT_MS (4с), щоб НЕ перебивати природне приховування.
+const SYNC_PANEL_HIDE_FALLBACK_MS = 4500;
 function scheduleSyncPanelHide(){
-  setTimeout(function(){ manualSyncPanelVisible = false; renderSyncDomainsPanel(); }, SYNC_PANEL_HIDE_DELAY_MS);
+  setTimeout(function(){ manualSyncPanelVisible = false; renderSyncDomainsPanel(); }, SYNC_PANEL_HIDE_FALLBACK_MS);
 }
 async function syncAllPilotManual(){
   const statusEl = document.getElementById('sync-all-status');
