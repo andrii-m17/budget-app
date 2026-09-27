@@ -2575,7 +2575,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.10</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.11</div>
 </div>
   </div>
 </div>
@@ -5799,7 +5799,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.10';
+const APP_VERSION = '2.22.11';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6573,6 +6573,22 @@ async function applyCloudSession(session){
   if(session && session.user){
     setCloudAuthFormVisible(false);
     setCloudAuthStatus(`Увійшли як ${session.user.email}`);
+    // Rev #30 (6D.79) BugFix — за проханням користувача: на старті застосунку
+    // іконка профілю на мить показувала ЗЕЛЕНИЙ ("online") стан, а через
+    // секунду перемикалась на СИНІЙ ("syncing"). Причина: cloudSession вище
+    // (6572) присвоюється СИНХРОННО, тоді як syncVisualState лишається
+    // 'idle' (звідси зелений — "онлайн, не синхронізується") аж до першого
+    // РЕАЛЬНОГО pull-виклику нижче (pullCategoriesPilot тощо) — а перед ним
+    // ще 3 мережеві await (loadCloudFamilyId/loadCloudDisplayName/
+    // loadFamilyUsersDirectory). Якщо будь-який renderProfileUI() (напр.
+    // updateOnlineStatusUI() зі стартового IIFE) спрацює саме в цій паузі —
+    // малює застарілий "online", хоча повний pull-ланцюжок нижче ось-ось
+    // почнеться. Тепер syncOpBegin()/syncOpEnd() (та сама лічильникова
+    // логіка, що вже обгортає кожен push/pull — 6D.34) обгортають ЦІЛУ
+    // паузу підготовки+pull ОДРАЗУ, тож жоден рендер під час неї не побачить
+    // проміжний "online" — лише 'syncing' з першої миті.
+    if(!wasSignedIn) syncOpBegin();
+    try{
     await loadCloudFamilyId(getSupabaseClient(), session.user.id);
     await loadCloudDisplayName(getSupabaseClient(), session.user.id);
     // Rev #30 (6D.62) — та сама "щоразу на переоцінку сесії" точка, що
@@ -6645,6 +6661,9 @@ async function applyCloudSession(session){
       // Rev #30 (6D.56) — Realtime-підписка: той самий "один раз на
       // sign-in transition" принцип, що весь початковий pull-ланцюжок вище.
       setupRealtimeSync();
+    }
+    }finally{
+      if(!wasSignedIn) syncOpEnd();
     }
   }else{
     setCloudAuthFormVisible(true);
