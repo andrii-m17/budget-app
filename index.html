@@ -2579,7 +2579,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.3</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.4</div>
 </div>
   </div>
 </div>
@@ -5661,7 +5661,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.3';
+const APP_VERSION = '2.22.4';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7190,6 +7190,24 @@ function renderProfileUI(){
   }
   renderSyncDomainsPanel();
 }
+// Rev #30 (6D.72) — за проханням користувача: 9 рядків одразу займали
+// забагато місця в компактній .sync-card (6D.71). Замінено на ОДИН
+// рядок, що циклічно перемикається між доменами кожні 2с
+// (SYNC_DOMAIN_CYCLE_MS) — той самий набір реальних даних
+// (syncDomainStatus), просто показаний по черзі, а не всі 9 одночасно.
+let syncDomainCycleIndex = 0;
+let syncDomainCycleTimer = null;
+const SYNC_DOMAIN_CYCLE_MS = 2000;
+function ensureSyncDomainCycleTimer(){
+  if(syncDomainCycleTimer) return; // вже запущено — не плодимо другий setInterval
+  syncDomainCycleTimer = setInterval(function(){
+    syncDomainCycleIndex = (syncDomainCycleIndex + 1) % SYNC_DOMAIN_ORDER.length;
+    renderSyncDomainsPanel();
+  }, SYNC_DOMAIN_CYCLE_MS);
+}
+function stopSyncDomainCycleTimer(){
+  if(syncDomainCycleTimer){ clearInterval(syncDomainCycleTimer); syncDomainCycleTimer = null; }
+}
 // Rev #30 (6D.67) — Cloud Sync UI, Крок 2: заповнює #sync-domains-panel
 // (той самий toggle-принцип видимості, що sync-all-btn — лише
 // залогіненому). Викликається з renderProfileUI() (сесія/онлайн-офлайн
@@ -7199,17 +7217,17 @@ function renderSyncDomainsPanel(){
   if(!panel) return;
   const signedIn = !!(cloudSession && cloudSession.user);
   panel.classList.toggle('hidden', !signedIn);
-  if(!signedIn) return;
+  if(!signedIn){ stopSyncDomainCycleTimer(); return; }
   if(!navigator.onLine){
     panel.innerHTML = '<div class="sync-domain-row"><span class="profile-status-dot offline"></span><span class="sync-domain-label">Немає інтернету — синхронізація призупинена</span></div>';
-    return;
+    return; // таймер лишаємо йти — при поверненні онлайн одразу продовжить з того самого місця
   }
-  panel.innerHTML = SYNC_DOMAIN_ORDER.map(function(key){
-    const state = syncDomainStatus[key]; // undefined|'syncing'|'done'|'error'
-    const dotClass = state || '';
-    const stateText = state === 'syncing' ? 'Синхронізація…' : state === 'done' ? 'Синхронізовано' : state === 'error' ? 'Помилка' : 'Очікує';
-    return '<div class="sync-domain-row"><span class="profile-status-dot ' + dotClass + '"></span><span class="sync-domain-label">' + SYNC_DOMAIN_LABELS[key] + '</span><span class="sync-domain-state">' + stateText + '</span></div>';
-  }).join('');
+  ensureSyncDomainCycleTimer();
+  const key = SYNC_DOMAIN_ORDER[syncDomainCycleIndex % SYNC_DOMAIN_ORDER.length];
+  const state = syncDomainStatus[key]; // undefined|'syncing'|'done'|'error'
+  const dotClass = state || '';
+  const stateText = state === 'syncing' ? 'Синхронізація…' : state === 'done' ? 'Синхронізовано' : state === 'error' ? 'Помилка' : 'Очікує';
+  panel.innerHTML = '<div class="sync-domain-row"><span class="profile-status-dot ' + dotClass + '"></span><span class="sync-domain-label">' + SYNC_DOMAIN_LABELS[key] + '</span><span class="sync-domain-state">' + stateText + '</span></div>';
 }
 // Rev #30 (6D.10) — ЗАМІНА підходу з 6D.8/6D.9 (не розширення): раніше
 // openProfileMenu() відкривала #profile-drawer (bottom sheet). Референс
