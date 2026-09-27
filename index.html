@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.95</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.96</div>
 </div>
   </div>
 </div>
@@ -4498,11 +4498,19 @@ async function saveDebts(){
       лише `note` (text, nullable). Це єдине текстове поле, доступне без
       зміни схеми (заборонено), тому `name`/`source` мапляться в `note`.
 
-   6) `created_by` при upsert.ON CONFLICT перезаписується поточним
-      редактором запису (не first-writer-wins) — спрощення, прийнятне для
-      пілоту: точний "хто створив" не використовується жодною наявною
-      фічею; повний upsert без окремого SELECT-перед-UPDATE відповідає
-      вимозі "без reconciliation-логіки" для цього кроку. */
+   6) ВИПРАВЛЕНО (Rev #30, 6D.64) — `created_by` РАНІШЕ при upsert.ON CONFLICT
+      перезаписувався поточним редактором запису (не first-writer-wins), що
+      стало реальною проблемою з появою author-color фічі (6D.62), якій
+      потрібен саме справжній творець. Фікс: `created_by` прибрано з payload
+      усіх трьох upsert-доменів (одиничний push + batch), DB-міграція
+      `ALTER COLUMN created_by SET DEFAULT auth.uid()` сама ставить його
+      ЛИШЕ при INSERT — той самий принцип, що server-authoritative updated_at
+      (6D.41). Той самий фікс симетрично застосовано для incomes/debts —
+      аудит підтвердив: 5 інших доменів (categories/subcategories/
+      dictionary/bank_accounts/installment_accounts) вже безпечні за
+      конструкцією (created_by лише в .insert(), НІКОЛИ в .update()).
+      hidden_entities свідомо НЕ займали — там немає навіть updated_by,
+      created_by нічим не читається, формальна вада без наслідків. */
 // Rev #30 (6D.58) — опційний 2-й параметр opts.suppressPull: термінове
 // розслідування "846 записів, 26 успішних" виявило амплфікацію запитів —
 // послідовний масовий цикл (restoreXFromBackup()/syncAllPilotManual()
@@ -4541,7 +4549,12 @@ async function pushExpenseRecordPilot(rec, opts){
       deleted_at: rec.deletedAt || null,
       created_at: rec.createdAt,
       updated_at: rec.updatedAt,
-      created_by: userId,
+      // Rev #30 (6D.64) — created_by НАВМИСНО відсутнє в payload: DB-default
+      // auth.uid() (міграція 6D.64) сам ставить його лише при INSERT, upsert()
+      // з ON CONFLICT ніколи не чіпає вже наявне значення. Раніше тут завжди
+      // слався поточний userId — перезаписуючи оригінального творця кожним
+      // чужим редагуванням (та сама вада, що docstring вище, п.6, вже
+      // документував). updated_by лишається — це коректно "хто востаннє".
       updated_by: userId,
     }, { onConflict: 'id' });
     if(!error){
@@ -4598,7 +4611,8 @@ async function pushExpensesBatch(records){
         id: rec.id, family_id: cloudFamilyId, amount: rec.amount, expense_date: rec.date,
         category: rec.category || null, subcategory: rec.subcategory || null, note: rec.name || null,
         linked_installment_id: linkedInstallmentId, deleted_at: rec.deletedAt || null,
-        created_at: rec.createdAt, updated_at: rec.updatedAt, created_by: userId, updated_by: userId,
+        // Rev #30 (6D.64) — created_by прибрано, той самий принцип, що pushExpenseRecordPilot() вище.
+        created_at: rec.createdAt, updated_at: rec.updatedAt, updated_by: userId,
       },
     });
   }
@@ -4651,7 +4665,7 @@ async function pushIncomeRecordPilot(rec, opts){
       deleted_at: rec.deletedAt || null,
       created_at: rec.createdAt,
       updated_at: rec.updatedAt,
-      created_by: userId,
+      // Rev #30 (6D.64) — created_by прибрано, той самий принцип, що pushExpenseRecordPilot().
       updated_by: userId,
     }, { onConflict: 'id' });
     // Rev #30 (6D.57) — syncedUpdatedAt, той самий принцип, що pushExpenseRecordPilot().
@@ -4674,8 +4688,9 @@ async function pushIncomesBatch(records){
   const payloads = records.map(function(rec){
     return {
       id: rec.id, family_id: cloudFamilyId, amount: rec.amount, income_date: rec.date, note: rec.source || null,
+      // Rev #30 (6D.64) — created_by прибрано, той самий принцип, що pushExpenseRecordPilot().
       deleted_at: rec.deletedAt || null, created_at: rec.createdAt, updated_at: rec.updatedAt,
-      created_by: userId, updated_by: userId,
+      updated_by: userId,
     };
   });
   try{
@@ -4735,7 +4750,7 @@ async function pushDebtRecordPilot(rec, opts){
       deleted_at: rec.deletedAt || null,
       created_at: rec.createdAt,
       updated_at: rec.updatedAt,
-      created_by: userId,
+      // Rev #30 (6D.64) — created_by прибрано, той самий принцип, що pushExpenseRecordPilot().
       updated_by: userId,
     }, { onConflict: 'id' });
     // Rev #30 (6D.57) — syncedUpdatedAt, той самий принцип, що pushExpenseRecordPilot().
@@ -4776,7 +4791,8 @@ async function pushDebtsBatch(records){
         min_payment_done: rec.minPaymentDone != null ? rec.minPaymentDone : null,
         monthly_payment: rec.monthlyPayment != null ? rec.monthlyPayment : null,
         deleted_at: rec.deletedAt || null, created_at: rec.createdAt, updated_at: rec.updatedAt,
-        created_by: userId, updated_by: userId,
+        // Rev #30 (6D.64) — created_by прибрано, той самий принцип, що pushExpenseRecordPilot().
+        updated_by: userId,
       },
     });
   }
@@ -5516,7 +5532,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.95';
+const APP_VERSION = '2.21.96';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
