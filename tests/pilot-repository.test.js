@@ -3623,3 +3623,92 @@ test('pullDebtsCore: без змін → render НЕ викликається', 
   await ctx.pullDebtsCore();
   assert.equal(renderSpy.count(), 0);
 });
+
+/* ============ Rev #30 (6D.57) — syncedUpdatedAt для expenses/incomes/debts,
+   послідовний await-push при restore, "Синхронізувати все" тепер двосторонній ============
+   Термінове розслідування: реальний користувач відновив 3-4 місяці даних
+   з бекапу — усе застосувалось локально, але expenses/incomes/debts (0 у
+   Cloud) НІКОЛИ не дійшли до Cloud. Крок 0 знайшов дві конкретні причини:
+   (1) restoreBankAccountsFromBackup()/restoreInstallmentAccountsFromBackup()
+   викликали pushXPilot() БЕЗ await — debts/лінковані expenses, що йдуть
+   одразу після в тій самій послідовності, могли побачити ще не встановлений
+   cloudId і мовчки пропустити push; (2) необмежений одночасний потік
+   fire-and-forget push для сотень записів. Тести нижче перевіряють фікс:
+   syncedUpdatedAt-bookkeeping (той самий принцип, що вже 5 bulk-push
+   доменів, 6D.50) і те, що restore/"Синхронізувати все" тепер послідовні
+   й чесно рахують збої, а не мовчать. */
+test('pushExpenseRecordPilot: успішний push → rec.syncedUpdatedAt = rec.updatedAt', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: [{}], error: null }); } }; } });
+  const rec = { id: 'e1', date: '2026-01-01', amount: 500, updatedAt: '2026-05-01T00:00:00.000Z' };
+  await ctx.pushExpenseRecordPilot(rec);
+  assert.equal(rec.syncedUpdatedAt, '2026-05-01T00:00:00.000Z');
+});
+test('pushExpenseRecordPilot: push ПРОВАЛИВСЯ → syncedUpdatedAt НЕ встановлюється', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: null, error: new Error('симульована помилка') }); } }; } });
+  const rec = { id: 'e1', date: '2026-01-01', amount: 500, updatedAt: '2026-05-01T00:00:00.000Z' };
+  await ctx.pushExpenseRecordPilot(rec);
+  assert.equal(rec.syncedUpdatedAt, undefined);
+});
+test('pullExpensesCore: Cloud-переможець (LWW) → syncedUpdatedAt = row.updated_at', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 999, expense_date: '2026-05-06', note: 'Оновлено', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Стара', amount: 500, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  await ctx.pullExpensesCore();
+  assert.equal(ctx.expenses[0].syncedUpdatedAt, '2024-06-01T00:00:00.000Z');
+});
+test('pullExpensesCore: новий запис для цього пристрою → syncedUpdatedAt = row.updated_at одразу', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-01', note: 'Кава', linked_installment_id: null, created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' }]);
+  ctx.expenses = [];
+  await ctx.pullExpensesCore();
+  assert.equal(ctx.expenses[0].syncedUpdatedAt, '2026-05-01T00:00:00.000Z');
+});
+
+// Rev #30 (6D.57) — restoreBankAccountsFromBackup()/restoreInstallmentAccountsFromBackup()
+// тепер await-ують pushXPilot() — критично для debts/лінкованих expenses, що
+// читають cloudId синхронно одразу після в applyBackupData().
+test('restoreBankAccountsFromBackup: await push completes ДО повернення (cloudId вже встановлений одразу після)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.bankAccounts = [];
+  ctx.getSupabaseClient = () => fakeSupabaseStatefulClient('bank_accounts', 'name').client;
+  await ctx.restoreBankAccountsFromBackup(JSON.stringify([{ name: '🟩 Приват', creditLimit: 10000, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }]));
+  // Якщо push дійсно await-ований (а не fire-and-forget), cloudId вже присутній ОДРАЗУ після return.
+  assert.ok(ctx.bankAccounts[0].cloudId, 'cloudId має бути встановлений одразу після restoreBankAccountsFromBackup()');
+});
+
+test('restoreExpensesFromBackup: послідовний await-push — і успіх, і збій рахуються чесно (pushFailed), не мовчки', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.expenses = [];
+  let call = 0;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){
+    call++;
+    // Перший запис — успіх, другий — симульована Cloud-помилка.
+    return Promise.resolve(call === 1 ? { data: [{}], error: null } : { data: null, error: new Error('симульована помилка') });
+  } }; } });
+  const nowISO = '2026-05-01T00:00:00.000Z';
+  const backup = [
+    { id: 'e1', date: '2026-05-01', name: 'Успішний', amount: 100, createdAt: nowISO, updatedAt: nowISO },
+    { id: 'e2', date: '2026-05-01', name: 'Провалиться', amount: 200, createdAt: nowISO, updatedAt: nowISO },
+  ];
+  const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
+  assert.equal(result.added, 2);
+  assert.equal(result.pushFailed, 1);
+  assert.equal(ctx.expenses.find(e => e.id === 'e1').syncedUpdatedAt, nowISO);
+  assert.equal(ctx.expenses.find(e => e.id === 'e2').syncedUpdatedAt, undefined);
+});
+// syncAllPilotManual() сама НЕ юніт-тестується тут (DOM-шар,
+// document.getElementById('sync-all-status') напряму — той самий принцип
+// виключення, що вже initCloudAuthUI()/applyCloudSession()) — новий
+// push-sweep у ній перевірено живо в browser preview.

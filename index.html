@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.89</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.90</div>
 </div>
   </div>
 </div>
@@ -3685,7 +3685,15 @@ async function restoreCategoriesFromBackup(raw){
   const counts = mergeBackupRecordsByCloudIdOrName(CATEGORIES, backupList, 'name');
   stampMissingTimestamps(CATEGORIES);
   const saveResult = await saveCategoriesLocal();
-  if(counts.updated || counts.added) pushCategoriesPilot();
+  // Rev #30 (6D.57) — await (не fire-and-forget): термінове розслідування
+  // "restore не пушиться" виявило, що bankAccounts/installmentAccounts тут
+  // нижче НЕ чекали на завершення свого push — subcategories/dictionary
+  // (FK category_id) і, найголовніше, debts/лінковані expenses (FK
+  // bank_account_id/installment_account_id) могли побачити ще не
+  // встановлений cloudId, якщо restore встигав дійти до них ДО завершення
+  // мережевого push цього домену. Тепер уся послідовність restoreXFromBackup
+  // в applyBackupData() — суцільний await-ланцюжок від початку до кінця.
+  if(counts.updated || counts.added) await pushCategoriesPilot();
   return Object.assign({}, saveResult, counts);
 }
 async function restoreSubcategoriesFromBackup(raw){
@@ -3696,7 +3704,7 @@ async function restoreSubcategoriesFromBackup(raw){
   const counts = mergeBackupRecordsByCloudIdOrName(SUBCATEGORIES, backupList, 'name');
   stampMissingTimestamps(SUBCATEGORIES);
   const saveResult = await saveSubcategoriesLocal();
-  if(counts.updated || counts.added) pushSubcategoriesPilot();
+  if(counts.updated || counts.added) await pushSubcategoriesPilot(); // Rev #30 (6D.57) — await, той самий принцип, що restoreCategoriesFromBackup()
   return Object.assign({}, saveResult, counts);
 }
 async function restoreSubcategoryPriorityFromBackup(raw){
@@ -3712,7 +3720,7 @@ async function restoreDictionaryFromBackup(raw){
   const counts = mergeBackupRecordsByCloudIdOrName(DICTIONARY, backupList, 'kw');
   stampMissingTimestamps(DICTIONARY);
   const saveResult = await saveDictionaryLocal();
-  if(counts.updated || counts.added) pushDictionaryPilot();
+  if(counts.updated || counts.added) await pushDictionaryPilot(); // Rev #30 (6D.57) — await, той самий принцип, що restoreCategoriesFromBackup()
   return Object.assign({}, saveResult, counts);
 }
 // Rev #28.D1 — той самий принцип, що 4 хелпери вище, для hiddenFrom/
@@ -3727,7 +3735,11 @@ async function restoreBankAccountsFromBackup(raw){
   const counts = mergeBackupRecordsByCloudIdOrName(bankAccounts, backupList, 'name');
   stampMissingTimestamps(bankAccounts);
   const saveResult = await saveBankAccountsLocal();
-  if(counts.updated || counts.added) pushBankAccountsPilot();
+  // Rev #30 (6D.57) — await КРИТИЧНО тут: debts (нижче в applyBackupData())
+  // читає bankAccounts[].cloudId синхронно в момент push — без await
+  // pushExpenseRecordPilot()/pushDebtRecordPilot() для карткових боргів
+  // могли мовчки пропустити push (guard "рахунок ще не синхронізований").
+  if(counts.updated || counts.added) await pushBankAccountsPilot();
   return Object.assign({}, saveResult, counts);
 }
 // Rev #30 (6D.48) — P1.3 (переглянуто, фінальний домен): hiddenFrom НЕ
@@ -3775,7 +3787,11 @@ async function restoreInstallmentAccountsFromBackup(raw){
   const counts = mergeBackupRecordsByCloudIdOrName(installmentAccounts, backupList, 'name');
   stampMissingTimestamps(installmentAccounts);
   const saveResult = await saveInstallmentAccountsLocal();
-  if(counts.updated || counts.added) pushInstallmentAccountsPilot();
+  // Rev #30 (6D.57) — await КРИТИЧНО тут: той самий принцип, що
+  // restoreBankAccountsFromBackup() вище — debts/лінковані expenses
+  // читають installmentAccounts[].cloudId синхронно, без await могли
+  // мовчки пропустити push.
+  if(counts.updated || counts.added) await pushInstallmentAccountsPilot();
   return Object.assign({}, saveResult, counts);
 }
 // Rev #30 (6D.46) — P1.3 (переглянуто): відновлення бекапу для 3 id-based
@@ -3799,13 +3815,22 @@ async function restoreExpensesFromBackup(raw){
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
   if(isCloudSessionReady()) await pullExpensesCore();
-  let added = 0, updated = 0, kept = 0;
+  let added = 0, updated = 0, kept = 0, pushFailed = 0;
+  // Rev #30 (6D.57) — термінове розслідування "restore не пушиться" (реальні
+  // 3-4 місяці даних користувача лишились виключно локальними): цикл нижче
+  // РАНІШЕ запускав pushExpenseRecordPilot() як fire-and-forget для КОЖНОГО
+  // запису одразу — для бекапу на сотні записів це необмежений одночасний
+  // потік мережевих запитів (кожен push ще й тягне за собою повний
+  // pullExpensesCore() з перерендером, 6D.49/55). Тепер послідовно, один за
+  // одним, з await — повільніше на великих бекапах, але надійно: жоден
+  // запис не "губиться" мовчки в потоці, і результат КОЖНОГО реально
+  // перевіряється (pushFailed), а не ігнорується.
   for(const rec of backupList){
     const local = expenses.find(function(e){ return e.id === rec.id; });
     if(!local){
       expenses.push(rec);
       added++;
-      pushExpenseRecordPilot(rec);
+      if(!(await pushExpenseRecordPilot(rec)).success) pushFailed++;
       continue;
     }
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
@@ -3824,23 +3849,24 @@ async function restoreExpensesFromBackup(raw){
     local.createdAt = rec.createdAt;
     local.updatedAt = rec.updatedAt;
     updated++;
-    pushExpenseRecordPilot(local);
+    if(!(await pushExpenseRecordPilot(local)).success) pushFailed++;
   }
   const saveResult = await saveExpenses();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept });
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed });
 }
 async function restoreIncomesFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
   if(isCloudSessionReady()) await pullIncomesCore();
-  let added = 0, updated = 0, kept = 0;
+  let added = 0, updated = 0, kept = 0, pushFailed = 0;
+  // Rev #30 (6D.57) — послідовний await, той самий принцип, що restoreExpensesFromBackup().
   for(const rec of backupList){
     const local = incomes.find(function(i){ return i.id === rec.id; });
     if(!local){
       incomes.push(rec);
       added++;
-      pushIncomeRecordPilot(rec);
+      if(!(await pushIncomeRecordPilot(rec)).success) pushFailed++;
       continue;
     }
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
@@ -3854,23 +3880,27 @@ async function restoreIncomesFromBackup(raw){
     local.createdAt = rec.createdAt;
     local.updatedAt = rec.updatedAt;
     updated++;
-    pushIncomeRecordPilot(local);
+    if(!(await pushIncomeRecordPilot(local)).success) pushFailed++;
   }
   const saveResult = await saveIncomes();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept });
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed });
 }
 async function restoreDebtsFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
   if(isCloudSessionReady()) await pullDebtsCore();
-  let added = 0, updated = 0, kept = 0;
+  let added = 0, updated = 0, kept = 0, pushFailed = 0;
+  // Rev #30 (6D.57) — послідовний await, той самий принцип, що
+  // restoreExpensesFromBackup() — тут особливо критично: pushDebtRecordPilot()
+  // залежить від bankAccounts/installmentAccounts[].cloudId, щойно (тепер
+  // теж await-ованого) встановленого вище в applyBackupData().
   for(const rec of backupList){
     const local = debts.find(function(d){ return d.id === rec.id; });
     if(!local){
       debts.push(rec);
       added++;
-      pushDebtRecordPilot(rec);
+      if(!(await pushDebtRecordPilot(rec)).success) pushFailed++;
       continue;
     }
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
@@ -3888,10 +3918,10 @@ async function restoreDebtsFromBackup(raw){
     local.createdAt = rec.createdAt;
     local.updatedAt = rec.updatedAt;
     updated++;
-    pushDebtRecordPilot(local);
+    if(!(await pushDebtRecordPilot(local)).success) pushFailed++;
   }
   const saveResult = await saveDebts();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept });
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed });
 }
 const UA_MONTHS = ['січень','лютий','березень','квітень','травень','червень','липень','серпень','вересень','жовтень','листопад','грудень'];
 
@@ -4477,6 +4507,16 @@ async function pushExpenseRecordPilot(rec){
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
+    if(!error){
+      // Rev #30 (6D.57) — syncedUpdatedAt: той самий bookkeeping-принцип, що
+      // вже 5 bulk-push доменів (6D.50) — раніше expenses/incomes/debts не
+      // мали способу відрізнити "вже надіслано" від "ніколи не пушилось",
+      // що й унеможливило надійний "допушити все, чого бракує" інструмент
+      // (syncAllPilotManual() нижче). Зберігаємо одразу — інакше позначка
+      // живе лише в пам'яті до наступного save.
+      rec.syncedUpdatedAt = rec.updatedAt;
+      await saveExpenses();
+    }
     // Rev #30 (6D.49) — pull одразу після успішного push (Варіант А), той
     // самий принцип, що всюди в цьому Rev.
     if(!error) await pullExpensesCore();
@@ -4504,6 +4544,11 @@ async function pushIncomeRecordPilot(rec){
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
+    // Rev #30 (6D.57) — syncedUpdatedAt, той самий принцип, що pushExpenseRecordPilot().
+    if(!error){
+      rec.syncedUpdatedAt = rec.updatedAt;
+      await saveIncomes();
+    }
     // Rev #30 (6D.49) — той самий принцип, що pushExpenseRecordPilot().
     if(!error) await pullIncomesCore();
     return { success: !error };
@@ -4546,6 +4591,11 @@ async function pushDebtRecordPilot(rec){
       created_by: userId,
       updated_by: userId,
     }, { onConflict: 'id' });
+    // Rev #30 (6D.57) — syncedUpdatedAt, той самий принцип, що pushExpenseRecordPilot().
+    if(!error){
+      rec.syncedUpdatedAt = rec.updatedAt;
+      await saveDebts();
+    }
     // Rev #30 (6D.49) — той самий принцип, що pushExpenseRecordPilot().
     if(!error) await pullDebtsCore();
     return { success: !error };
@@ -4640,11 +4690,13 @@ async function pullExpensesCore(){
           else delete local.deletedAt;
           local.createdAt = row.created_at;
           local.updatedAt = row.updated_at;
+          // Rev #30 (6D.57) — syncedUpdatedAt: local тепер точно відповідає Cloud.
+          local.syncedUpdatedAt = row.updated_at;
           updated++;
         }
         continue;
       }
-      const rec = { id: row.id, date: row.expense_date, name: row.note || '', amount: row.amount, category: row.category || '', subcategory: row.subcategory || '', manual: true, createdAt: row.created_at, updatedAt: row.updated_at };
+      const rec = { id: row.id, date: row.expense_date, name: row.note || '', amount: row.amount, category: row.category || '', subcategory: row.subcategory || '', manual: true, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at };
       if(linkedInstallmentName) rec.linkedInstallment = linkedInstallmentName;
       // Rev #30 (6D.42) — новий для цього пристрою запис, що вже tombstoned
       // у Cloud (напр. видалений на іншому пристрої ДО першого pull тут) —
@@ -4705,12 +4757,13 @@ async function pullIncomesCore(){
           else delete local.deletedAt;
           local.createdAt = row.created_at;
           local.updatedAt = row.updated_at;
+          local.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.57)
           updated++;
         }
         continue;
       }
       // Rev #30 (6D.43) — новий для цього пристрою запис, вже tombstoned у Cloud — "пристрій C" DoD-сценарій.
-      const rec = { id: row.id, date: row.income_date, source: row.note || '', amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at };
+      const rec = { id: row.id, date: row.income_date, source: row.note || '', amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at };
       if(row.deleted_at) rec.deletedAt = row.deleted_at;
       incomes.push(rec);
       added++;
@@ -4775,11 +4828,12 @@ async function pullDebtsCore(){
           if(row.deleted_at) local.deletedAt = row.deleted_at; else delete local.deletedAt;
           local.createdAt = row.created_at;
           local.updatedAt = row.updated_at;
+          local.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.57)
           updated++;
         }
         continue;
       }
-      const rec = { id: row.id, name: resolvedName, kind: row.kind, month, balance: row.balance, createdAt: row.created_at, updatedAt: row.updated_at };
+      const rec = { id: row.id, name: resolvedName, kind: row.kind, month, balance: row.balance, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at };
       if(row.min_payment != null) rec.minPayment = row.min_payment;
       if(row.min_payment_done != null) rec.minPaymentDone = row.min_payment_done;
       if(row.monthly_payment != null) rec.monthlyPayment = row.monthly_payment;
@@ -5240,7 +5294,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.89';
+const APP_VERSION = '2.21.90';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6474,10 +6528,35 @@ async function syncAllPilotManual(){
     populateMonths();
     renderAll();
   }
+  // Rev #30 (6D.57) — "Синхронізувати все" тепер СПРАВДІ двосторонній
+  // (термінове розслідування: bulk-відновлення з бекапу могло мовчки НЕ
+  // допушити expenses/incomes/debts до Cloud, а до цього Rev не існувало
+  // жодного способу це виправити інакше, ніж вручну редагувати кожен
+  // запис). syncedUpdatedAt (6D.57, той самий принцип, що 6D.50 для 5
+  // bulk-push доменів) відрізняє "вже підтверджено синхронізовано" від
+  // "ще ніколи" — послідовно (await, не потік у сотні одночасних
+  // запитів), реальний результат кожного push перевіряється.
+  let pushed = 0, pushFailed = 0;
+  const pushDomains = [
+    { list: expenses, fn: pushExpenseRecordPilot },
+    { list: incomes, fn: pushIncomeRecordPilot },
+    { list: debts, fn: pushDebtRecordPilot },
+  ];
+  for(const domain of pushDomains){
+    for(const rec of domain.list){
+      if(rec.syncedUpdatedAt === rec.updatedAt) continue;
+      const result = await domain.fn(rec);
+      if(result && result.success) pushed++; else pushFailed++;
+    }
+  }
   const parts = [];
   if(added) parts.push(added + ' нових');
   if(linked) parts.push(linked + ' зв\'язано');
   if(updated) parts.push(updated + ' оновлено');
+  if(pushed) parts.push(pushed + ' відправлено в Cloud');
+  // Rev #30 (6D.57) — чесно показуємо збій, а не мовчимо: саме мовчазний
+  // "тихий пропуск" тут і призвів до термінового розслідування вище.
+  if(pushFailed) parts.push(pushFailed + ' НЕ вдалося відправити');
   statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
 }
 function renderProfileUI(){
