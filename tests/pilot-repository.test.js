@@ -1419,14 +1419,14 @@ test('pushIncomeRecordPilot: rec.deletedAt встановлено → payload н
   assert.equal(capturedPayload.deleted_at, '2026-03-01T00:00:00.000Z');
 });
 
-test('pushIncomeRecordPilot: реальна Cloud-помилка від upsert → { success:false }', async () => {
+test('pushIncomeRecordPilot: реальна Cloud-помилка від upsert → { success:false, error:<message> } (6D.58 — реальна причина більше не губиться мовчки)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: null, error: new Error('симульована помилка') }); } }; } });
   const result = await ctx.pushIncomeRecordPilot({ id: 'i1', date: '2026-01-01', amount: 1000, source: 'ЗП' });
-  assert.deepEqual(plain(result), { success: false });
+  assert.deepEqual(plain(result), { success: false, error: 'симульована помилка' });
 });
 
 test('pushExpenseRecordPilot: ОЧ-залежність ще не синхронізована → тихий пропуск, { success:true } (не помилка)', async () => {
@@ -3705,8 +3705,56 @@ test('restoreExpensesFromBackup: послідовний await-push — і усп
   const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
   assert.equal(result.added, 2);
   assert.equal(result.pushFailed, 1);
+  assert.equal(result.firstError, 'симульована помилка');
   assert.equal(ctx.expenses.find(e => e.id === 'e1').syncedUpdatedAt, nowISO);
   assert.equal(ctx.expenses.find(e => e.id === 'e2').syncedUpdatedAt, undefined);
+});
+
+// Rev #30 (6D.58) — термінове розслідування "846 записів, лише 26
+// успішних": pull-after-push (6D.49) усередині pushXRecordPilot() раніше
+// викликався ПІСЛЯ КОЖНОГО запису під час bulk-циклів (restore/
+// syncAllPilotManual) — подвоєння мережевих запитів на весь батч,
+// ймовірний тригер rate-limit на реальному з'єднанні. Тести нижче
+// перевіряють: (1) suppressPull:true дійсно пригнічує pull-after-push;
+// (2) restoreExpensesFromBackup() робить РІВНО ОДИН pullExpensesCore()
+// на весь бекап (не по одному на запис), навіть коли всі записи успішні.
+test('pushExpenseRecordPilot: opts.suppressPull:true → pullExpensesCore() НЕ викликається навіть при успіху', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: [{}], error: null }); } }; } });
+  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500, updatedAt: '2026-01-01T00:00:00.000Z' }, { suppressPull: true });
+  assert.equal(pullSpy.count(), 0);
+});
+test('pushExpenseRecordPilot: без opts (звичайний одиничний виклик, напр. addExpense()) → pullExpensesCore() і далі викликається одразу (поведінка НЕ змінилась)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: [{}], error: null }); } }; } });
+  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500, updatedAt: '2026-01-01T00:00:00.000Z' });
+  assert.equal(pullSpy.count(), 1);
+});
+test('restoreExpensesFromBackup: РІВНО ОДИН pullExpensesCore() на весь бекап із 5 записів (не по одному на запис — фікс амплфікації)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.expenses = [];
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: [{}], error: null }); } }; } });
+  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  const nowISO = '2026-05-01T00:00:00.000Z';
+  const backup = Array.from({ length: 5 }, (_, i) => ({ id: 'e' + i, date: '2026-05-01', name: 'Запис ' + i, amount: 100, createdAt: nowISO, updatedAt: nowISO }));
+  const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
+  assert.equal(result.added, 5);
+  assert.equal(result.pushFailed, 0);
+  // pullSpy рахує ВСІ виклики pullExpensesCore(), включно з тим, що на
+  // початку функції (isCloudSessionReady() → pull перед merge) — тому 2
+  // (1 на початку + 1 фінальний), НЕ 1+5.
+  assert.equal(pullSpy.count(), 2);
 });
 // syncAllPilotManual() сама НЕ юніт-тестується тут (DOM-шар,
 // document.getElementById('sync-all-status') напряму — той самий принцип

@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.90</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.91</div>
 </div>
   </div>
 </div>
@@ -3815,22 +3815,26 @@ async function restoreExpensesFromBackup(raw){
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
   if(isCloudSessionReady()) await pullExpensesCore();
-  let added = 0, updated = 0, kept = 0, pushFailed = 0;
+  let added = 0, updated = 0, kept = 0, pushFailed = 0, pushSucceeded = 0, firstError = null;
   // Rev #30 (6D.57) — термінове розслідування "restore не пушиться" (реальні
   // 3-4 місяці даних користувача лишились виключно локальними): цикл нижче
   // РАНІШЕ запускав pushExpenseRecordPilot() як fire-and-forget для КОЖНОГО
   // запису одразу — для бекапу на сотні записів це необмежений одночасний
-  // потік мережевих запитів (кожен push ще й тягне за собою повний
-  // pullExpensesCore() з перерендером, 6D.49/55). Тепер послідовно, один за
-  // одним, з await — повільніше на великих бекапах, але надійно: жоден
-  // запис не "губиться" мовчки в потоці, і результат КОЖНОГО реально
-  // перевіряється (pushFailed), а не ігнорується.
+  // потік мережевих запитів. Тепер послідовно, один за одним, з await —
+  // повільніше на великих бекапах, але надійно: жоден запис не "губиться"
+  // мовчки в потоці, і результат КОЖНОГО реально перевіряється (pushFailed).
+  // Rev #30 (6D.58) — { suppressPull: true }: подальше розслідування
+  // "846 записів, лише 26 успішних" виявило амплфікацію — pull-after-push
+  // (6D.49) усередині pushExpenseRecordPilot() раніше викликався ПІСЛЯ
+  // КОЖНОГО запису, подвоюючи кількість мережевих запитів на сотнях
+  // записів. Тут — один pullExpensesCore() ПІСЛЯ всього циклу (нижче).
   for(const rec of backupList){
     const local = expenses.find(function(e){ return e.id === rec.id; });
     if(!local){
       expenses.push(rec);
       added++;
-      if(!(await pushExpenseRecordPilot(rec)).success) pushFailed++;
+      const r = await pushExpenseRecordPilot(rec, { suppressPull: true });
+      if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
       continue;
     }
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
@@ -3849,24 +3853,28 @@ async function restoreExpensesFromBackup(raw){
     local.createdAt = rec.createdAt;
     local.updatedAt = rec.updatedAt;
     updated++;
-    if(!(await pushExpenseRecordPilot(local)).success) pushFailed++;
+    const r = await pushExpenseRecordPilot(local, { suppressPull: true });
+    if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
   }
   const saveResult = await saveExpenses();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed });
+  // Rev #30 (6D.58) — один pull ПІСЛЯ всього циклу (не на кожен запис) — підхоплює будь-що від інших пристроїв за час операції.
+  if(pushSucceeded) await pullExpensesCore();
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed, firstError: firstError });
 }
 async function restoreIncomesFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
   if(isCloudSessionReady()) await pullIncomesCore();
-  let added = 0, updated = 0, kept = 0, pushFailed = 0;
-  // Rev #30 (6D.57) — послідовний await, той самий принцип, що restoreExpensesFromBackup().
+  let added = 0, updated = 0, kept = 0, pushFailed = 0, pushSucceeded = 0, firstError = null;
+  // Rev #30 (6D.57/6D.58) — послідовний await + suppressPull, той самий принцип, що restoreExpensesFromBackup().
   for(const rec of backupList){
     const local = incomes.find(function(i){ return i.id === rec.id; });
     if(!local){
       incomes.push(rec);
       added++;
-      if(!(await pushIncomeRecordPilot(rec)).success) pushFailed++;
+      const r = await pushIncomeRecordPilot(rec, { suppressPull: true });
+      if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
       continue;
     }
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
@@ -3880,27 +3888,30 @@ async function restoreIncomesFromBackup(raw){
     local.createdAt = rec.createdAt;
     local.updatedAt = rec.updatedAt;
     updated++;
-    if(!(await pushIncomeRecordPilot(local)).success) pushFailed++;
+    const r = await pushIncomeRecordPilot(local, { suppressPull: true });
+    if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
   }
   const saveResult = await saveIncomes();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed });
+  if(pushSucceeded) await pullIncomesCore();
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed, firstError: firstError });
 }
 async function restoreDebtsFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
   if(isCloudSessionReady()) await pullDebtsCore();
-  let added = 0, updated = 0, kept = 0, pushFailed = 0;
-  // Rev #30 (6D.57) — послідовний await, той самий принцип, що
-  // restoreExpensesFromBackup() — тут особливо критично: pushDebtRecordPilot()
-  // залежить від bankAccounts/installmentAccounts[].cloudId, щойно (тепер
-  // теж await-ованого) встановленого вище в applyBackupData().
+  let added = 0, updated = 0, kept = 0, pushFailed = 0, pushSucceeded = 0, firstError = null;
+  // Rev #30 (6D.57/6D.58) — послідовний await + suppressPull, той самий
+  // принцип, що restoreExpensesFromBackup() — тут особливо критично:
+  // pushDebtRecordPilot() залежить від bankAccounts/installmentAccounts[].cloudId,
+  // щойно (тепер теж await-ованого) встановленого вище в applyBackupData().
   for(const rec of backupList){
     const local = debts.find(function(d){ return d.id === rec.id; });
     if(!local){
       debts.push(rec);
       added++;
-      if(!(await pushDebtRecordPilot(rec)).success) pushFailed++;
+      const r = await pushDebtRecordPilot(rec, { suppressPull: true });
+      if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
       continue;
     }
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
@@ -3918,10 +3929,12 @@ async function restoreDebtsFromBackup(raw){
     local.createdAt = rec.createdAt;
     local.updatedAt = rec.updatedAt;
     updated++;
-    if(!(await pushDebtRecordPilot(local)).success) pushFailed++;
+    const r = await pushDebtRecordPilot(local, { suppressPull: true });
+    if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
   }
   const saveResult = await saveDebts();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed });
+  if(pushSucceeded) await pullDebtsCore();
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed, firstError: firstError });
 }
 const UA_MONTHS = ['січень','лютий','березень','квітень','травень','червень','липень','серпень','вересень','жовтень','листопад','грудень'];
 
@@ -4478,7 +4491,19 @@ async function saveDebts(){
       пілоту: точний "хто створив" не використовується жодною наявною
       фічею; повний upsert без окремого SELECT-перед-UPDATE відповідає
       вимозі "без reconciliation-логіки" для цього кроку. */
-async function pushExpenseRecordPilot(rec){
+// Rev #30 (6D.58) — опційний 2-й параметр opts.suppressPull: термінове
+// розслідування "846 записів, 26 успішних" виявило амплфікацію запитів —
+// послідовний масовий цикл (restoreXFromBackup()/syncAllPilotManual()
+// нижче) раніше тригерив ПОВНИЙ pullXCore() (мережевий запит + перерендер)
+// ПІСЛЯ КОЖНОГО окремого push, тобто до ~2 запитів на запис замість 1 —
+// на сотнях записів це подвоєння навантаження й ймовірний тригер
+// rate-limit/timeout на реальному мобільному з'єднанні. Для одиничних
+// інтерактивних викликів (addExpense()/saveRecordEdit()/…) pull-after-push
+// лишається як був (opts не передається — pull одразу, той самий принцип
+// 6D.49) — цінність "одразу побачити чужу зміну" там виправдовує вартість
+// одного зайвого запиту. Для масових циклів викликач сам робить ОДИН pull
+// після всього батчу (не тут).
+async function pushExpenseRecordPilot(rec, opts){
   if(!isCloudSessionReady()) return { success: true };
   let linkedInstallmentId = null;
   if(rec.linkedInstallment){
@@ -4518,15 +4543,18 @@ async function pushExpenseRecordPilot(rec){
       await saveExpenses();
     }
     // Rev #30 (6D.49) — pull одразу після успішного push (Варіант А), той
-    // самий принцип, що всюди в цьому Rev.
-    if(!error) await pullExpensesCore();
-    return { success: !error };
+    // самий принцип, що всюди в цьому Rev. Rev #30 (6D.58) — пропускається
+    // за explicit opts.suppressPull (масові цикли роблять один pull самі).
+    if(!error && !(opts && opts.suppressPull)) await pullExpensesCore();
+    // Rev #30 (6D.58) — error.message реально зберігається (раніше тихо
+    // губився) — саме відсутність цього ускладнила діагностику "846/26".
+    return { success: !error, error: error ? (error.message || String(error)) : undefined };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск, той самий принцип, що решта push-логіки.
-    return { success: false };
+    return { success: false, error: e && e.message ? e.message : String(e) };
   }
 }
-async function pushIncomeRecordPilot(rec){
+async function pushIncomeRecordPilot(rec, opts){
   if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
@@ -4549,15 +4577,15 @@ async function pushIncomeRecordPilot(rec){
       rec.syncedUpdatedAt = rec.updatedAt;
       await saveIncomes();
     }
-    // Rev #30 (6D.49) — той самий принцип, що pushExpenseRecordPilot().
-    if(!error) await pullIncomesCore();
-    return { success: !error };
+    // Rev #30 (6D.49/6D.58) — той самий принцип, що pushExpenseRecordPilot().
+    if(!error && !(opts && opts.suppressPull)) await pullIncomesCore();
+    return { success: !error, error: error ? (error.message || String(error)) : undefined };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск.
-    return { success: false };
+    return { success: false, error: e && e.message ? e.message : String(e) };
   }
 }
-async function pushDebtRecordPilot(rec){
+async function pushDebtRecordPilot(rec, opts){
   if(!isCloudSessionReady()) return { success: true };
   let bankAccountId = null, installmentAccountId = null;
   if(rec.kind === 'card'){
@@ -4596,12 +4624,12 @@ async function pushDebtRecordPilot(rec){
       rec.syncedUpdatedAt = rec.updatedAt;
       await saveDebts();
     }
-    // Rev #30 (6D.49) — той самий принцип, що pushExpenseRecordPilot().
-    if(!error) await pullDebtsCore();
-    return { success: !error };
+    // Rev #30 (6D.49/6D.58) — той самий принцип, що pushExpenseRecordPilot().
+    if(!error && !(opts && opts.suppressPull)) await pullDebtsCore();
+    return { success: !error, error: error ? (error.message || String(error)) : undefined };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск.
-    return { success: false };
+    return { success: false, error: e && e.message ? e.message : String(e) };
   }
 }
 /* ============ Rev #30 (6D.37) — Sync Engine pull, expenses/incomes/debts ============
@@ -5294,7 +5322,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.90';
+const APP_VERSION = '2.21.91';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6536,27 +6564,51 @@ async function syncAllPilotManual(){
   // bulk-push доменів) відрізняє "вже підтверджено синхронізовано" від
   // "ще ніколи" — послідовно (await, не потік у сотні одночасних
   // запитів), реальний результат кожного push перевіряється.
+  // Rev #30 (6D.58) — { suppressPull: true } + ОДИН pullXCore() ПІСЛЯ
+  // кожного домену (не після кожного запису): термінове розслідування
+  // "846 записів, 26 успішних" виявило, що pull-after-push (6D.49)
+  // усередині кожного pushXRecordPilot() подвоював кількість мережевих
+  // запитів на весь цикл — ймовірний тригер rate-limit/timeout на
+  // реальному мобільному з'єднанні. per-домен лічильники й перше реальне
+  // повідомлення помилки (не просто "щось не вдалося") — точно те, чого
+  // бракувало для діагностики цього збою без здогадок.
   let pushed = 0, pushFailed = 0;
   const pushDomains = [
-    { list: expenses, fn: pushExpenseRecordPilot },
-    { list: incomes, fn: pushIncomeRecordPilot },
-    { list: debts, fn: pushDebtRecordPilot },
+    { label: 'витрат', list: expenses, fn: pushExpenseRecordPilot, pull: pullExpensesCore },
+    { label: 'доходів', list: incomes, fn: pushIncomeRecordPilot, pull: pullIncomesCore },
+    { label: 'боргів', list: debts, fn: pushDebtRecordPilot, pull: pullDebtsCore },
   ];
+  const pushByDomain = [];
   for(const domain of pushDomains){
+    let domainPushed = 0, domainFailed = 0, domainError = null;
     for(const rec of domain.list){
       if(rec.syncedUpdatedAt === rec.updatedAt) continue;
-      const result = await domain.fn(rec);
-      if(result && result.success) pushed++; else pushFailed++;
+      const result = await domain.fn(rec, { suppressPull: true });
+      if(result && result.success) domainPushed++;
+      else { domainFailed++; if(!domainError && result && result.error) domainError = result.error; }
     }
+    if(domainPushed) await domain.pull();
+    pushed += domainPushed;
+    pushFailed += domainFailed;
+    if(domainPushed || domainFailed) pushByDomain.push({ label: domain.label, pushed: domainPushed, failed: domainFailed, error: domainError });
   }
   const parts = [];
   if(added) parts.push(added + ' нових');
   if(linked) parts.push(linked + ' зв\'язано');
   if(updated) parts.push(updated + ' оновлено');
   if(pushed) parts.push(pushed + ' відправлено в Cloud');
-  // Rev #30 (6D.57) — чесно показуємо збій, а не мовчимо: саме мовчазний
-  // "тихий пропуск" тут і призвів до термінового розслідування вище.
-  if(pushFailed) parts.push(pushFailed + ' НЕ вдалося відправити');
+  // Rev #30 (6D.57/6D.58) — чесно показуємо збій, а не мовчимо: саме
+  // мовчазний "тихий пропуск" і призвів до термінового розслідування.
+  // Деталізація по доменах + реальне повідомлення помилки (перше зустрінуте) —
+  // без цього діагностика "846 записів, 26 успішних" вимагала б живого
+  // мережевого інспектування щоразу заново.
+  if(pushFailed){
+    const failDetails = pushByDomain
+      .filter(function(d){ return d.failed; })
+      .map(function(d){ return d.failed + ' ' + d.label + (d.error ? ' (' + d.error + ')' : ''); })
+      .join(', ');
+    parts.push(pushFailed + ' НЕ вдалося відправити: ' + failDetails);
+  }
   statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
 }
 function renderProfileUI(){
