@@ -2542,7 +2542,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.1</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.2</div>
 </div>
   </div>
 </div>
@@ -5624,7 +5624,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.1';
+const APP_VERSION = '2.22.2';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7043,12 +7043,24 @@ function renderProfileUI(){
   // .avatar-badge — невидимий "холст" (без border-radius/overflow),
   // .avatar-face — видима кругла "особа", крапка — сестра .avatar-face
   // всередині .avatar-badge, поза межами обрізання.
+  // Rev #30 (6D.70) — кружечок профілю тепер кольором автора
+  // (authorInfoFor(), той самий довідник/токени, що border-left карток
+  // Журналу — 6D.65/6D.66): Andrii=--color-info (синій), Olga=
+  // --color-accent-pink (рожевий), а не завжди --color-primary (зелений).
+  // Невідомий/ще не завантажений familyUsersById → info:null → inline
+  // style знімається, повертається дефолтний --color-primary з CSS.
+  const myAuthorInfo = signedIn ? authorInfoFor(session.user.id) : null;
   document.querySelectorAll('.avatar-badge[id^="profile-avatar-"]').forEach(function(el){
     const face = el.querySelector('.avatar-face');
     if(!face) return;
     face.classList.toggle('guest', !signedIn);
-    if(signedIn) face.textContent = letter;
-    else face.innerHTML = GUEST_AVATAR_ICON_SVG;
+    if(signedIn){
+      face.textContent = letter;
+      face.style.background = myAuthorInfo ? `var(${myAuthorInfo.colorVar})` : '';
+    }else{
+      face.innerHTML = GUEST_AVATAR_ICON_SVG;
+      face.style.background = '';
+    }
   });
   // Rev #30 (6D, індикатор синхронізації) — syncing/done переважають над
   // звичайним online/offline, лише поки signedIn (гостю/офлайн-без-сесії
