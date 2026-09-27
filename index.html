@@ -597,21 +597,6 @@
   .sync-card-title{ font-size:14.5px; font-weight:600; color:var(--color-text-primary); }
   .sync-card-sub{ font-size:12.5px; color:var(--color-text-secondary); margin-top:2px; }
   .sync-card-btn{ display:flex; align-items:center; justify-content:center; gap:8px; }
-  /* Rev #30 (6D.67) — Cloud Sync UI, Крок 2: домен-за-доменом статус,
-     .profile-status-dot переюзаний як є (той самий принцип syncing/done/
-     error/online/offline, жодної нової крапки-класу). */
-  .sync-domains-panel{ margin-top:14px; padding:8px 12px; background:var(--color-surface-hover); border-radius:var(--radius-sm); }
-  /* Rev #30 (6D.73) — BugFix: цей проєкт НЕ має універсального
-     .hidden{display:none} (кожен компонент — своє правило, напр.
-     .import-status.hidden/.badge.hidden вище) — без цього власного
-     правила клас "hidden" на .sync-domains-panel нічого не робив (батько
-     .sync-card ховав усе однаково РАНІШЕ, тому це було непомітно; тепер,
-     коли панель ховається НЕЗАЛЕЖНО від видимої картки, порожній div з
-     padding усе одно займав місце). */
-  .sync-domains-panel.hidden{ display:none; }
-  .sync-domain-row{ display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; color:var(--color-text-secondary); }
-  .sync-domain-label{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .sync-domain-state{ font-size:11px; color:var(--color-text-tertiary); flex-shrink:0; }
   .profile-menu-item{ display:flex; align-items:center; gap:12px; width:100%; padding:13px 4px; border:none; background:none; border-top:1px solid var(--color-border); font-size:14.5px; color:var(--color-text-primary); cursor:pointer; text-align:left; font-family:inherit; }
   .profile-menu-item svg{ flex-shrink:0; color:var(--color-text-secondary); }
   .profile-menu-item.danger{ color:var(--color-error); }
@@ -2320,15 +2305,15 @@
         <div class="sync-card-sub" id="sync-all-status">Синхронізація активна</div>
       </div>
     </div>
+    <!-- Rev #30 (6D.77) BugFix — за проханням користувача: панель
+         домен-за-доменом (6D.67/6D.72/6D.73) під кнопкою прибрано зовсім —
+         цикл 1.2с/домен не встигав показати навіть половину з 9 доменів за
+         типовий час синхронізації, тому панель просто мигтіла шматками
+         замість давати корисну інформацію. -->
     <button type="button" class="submit-btn pill sync-card-btn" id="sync-all-btn" onclick="syncAllPilotManual()">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
       Синхронізувати зараз
     </button>
-    <!-- Rev #30 (6D.67) — реальний домен-за-доменом статус (idle/syncing/
-         success/error/offline) — той самий "видимий прогрес
-         синхронізації", який мокап показує вигаданими "%"/"сек"; тут це
-         РЕАЛЬНІ дані по кожному з 9 доменів, чесніше за фейкові цифри. -->
-    <div class="sync-domains-panel" id="sync-domains-panel"></div>
   </div>
 
   <div class="section-label">Дані</div>
@@ -2587,7 +2572,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.8</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.9</div>
 </div>
   </div>
 </div>
@@ -5811,7 +5796,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.8';
+const APP_VERSION = '2.22.9';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6944,17 +6929,6 @@ let recentlyPulledExpenseState = new Map();
 const RECORD_SYNC_PULSE_MS = 800;
 const RECORD_SYNC_PULSE_COUNT = 3;
 const RECORD_SYNC_DONE_MS = 600;
-// Rev #30 (6D.67) — Cloud Sync UI, Крок 2: домен-за-доменом статус
-// (докоментар над withSyncIndicator() нижче пояснює, чому лише 9 pull-
-// доменів достатньо). Значення — 'syncing'|'done'|'error', ключ ВІДСУТНІЙ
-// = ще жодного разу не синхронизувався ЦІЄЇ сесії ("Очікує").
-let syncDomainStatus = {};
-const SYNC_DOMAIN_LABELS = {
-  categories: 'Категорії', subcategories: 'Підкатегорії', dictionary: 'Словник',
-  bankAccounts: 'Банківські картки', installmentAccounts: 'Розстрочки (ОЧ)',
-  hiddenEntities: 'Приховані рахунки', expenses: 'Витрати', incomes: 'Доходи', debts: 'Борги',
-};
-const SYNC_DOMAIN_ORDER = ['categories','subcategories','dictionary','bankAccounts','installmentAccounts','hiddenEntities','expenses','incomes','debts'];
 let syncActiveOps = 0;
 let syncVisualState = 'idle'; // 'idle' | 'syncing' | 'done' | 'error'
 let syncVisualStartedAt = 0;
@@ -6998,11 +6972,6 @@ function scheduleSyncSettle(){
     syncSettleTimer = setTimeout(function(){
       if(syncActiveOps > 0) return;
       syncVisualState = 'idle';
-      // Rev #30 (6D.74) — за проханням користувача: панель домен-за-
-      // доменом (6D.73) мала ховатись РІВНО тоді, коли зникає анімація
-      // іконки на кнопці "Синхронізувати зараз" (той самий момент
-      // syncing→done→idle), а не за окремим фіксованим таймером.
-      manualSyncPanelVisible = false;
       renderProfileUI();
     }, SYNC_RESULT_MS);
   }, remaining);
@@ -7038,32 +7007,19 @@ function isSyncResultFailure(result){
 // поведінка НЕ змінена), але БЕЗ syncOpBegin()/syncOpEnd() — індикатор
 // просто не бере участі (це НЕ новий "помилка"-стан — саме той сценарій,
 // що 6D.26 явно вирішив мовчати, а не показувати щось помилкове).
-// Rev #30 (6D.67) — Cloud Sync UI, Крок 2: необов'язковий 2-й параметр
-// domainKey. Трекаємо домен-за-доменом статус ЛИШЕ на pull-Core функціях
-// (9 доменів, SYNC_DOMAIN_BY_FN нижче) — не на push: FK-залежності 6D.49/
-// 6D.58 вже гарантують, що практично КОЖЕН push цього застосунку
-// (одиничний чи bulk-batch у syncAllPilotManual()) завершується пулом ТОГО
-// САМОГО домену одразу після — тому pull є достатнім і єдиним джерелом
-// правди "цей домен синхронізовано", без потреби окремо інструментувати
-// push/pushXBatch (де й так частий шлях — 6D.60 — не через
-// installSyncIndicatorHooks() узагалі).
-function withSyncIndicator(fn, domainKey){
+function withSyncIndicator(fn){
   return function(...args){
     if(!isCloudSessionReady() || !navigator.onLine){
       return fn.apply(this, args);
     }
     syncOpBegin();
-    if(domainKey){ syncDomainStatus[domainKey] = 'syncing'; renderSyncDomainsPanel(); }
     return Promise.resolve(fn.apply(this, args)).then(
       function(result){
-        const failed = isSyncResultFailure(result);
-        syncOpReportResult(failed);
-        if(domainKey){ syncDomainStatus[domainKey] = failed ? 'error' : 'done'; renderSyncDomainsPanel(); }
+        syncOpReportResult(isSyncResultFailure(result));
         return result;
       },
       function(err){
         syncOpReportResult(true);
-        if(domainKey){ syncDomainStatus[domainKey] = 'error'; renderSyncDomainsPanel(); }
         throw err;
       }
     ).finally(syncOpEnd);
@@ -7087,16 +7043,6 @@ function withSyncIndicator(fn, domainKey){
 // тут автоматично підхоплюється УСІМА існуючими call sites по всьому
 // файлу (editCategory/saveCardDebtDrawer/online-listener/
 // applyCloudSession/pullXPilotManual тощо), без правок кожного окремо.
-// Rev #30 (6D.67) — той самий "domain key" довідник, що PULL_DOMAINS нижче
-// (за духом — там масив для sync-on-resume/Realtime, тут мапа ім'я
-// функції→домен для withSyncIndicator вище); умисно окремо, а не імпорт
-// одне з одного — PULL_DOMAINS визначається значно нижче за файлом
-// (Realtime, 6D.56), а ця мапа потрібна вже тут.
-const SYNC_DOMAIN_BY_FN = {
-  pullCategoriesCore: 'categories', pullSubcategoriesCore: 'subcategories', pullDictionaryCore: 'dictionary',
-  pullBankAccountsCore: 'bankAccounts', pullInstallmentAccountsCore: 'installmentAccounts',
-  pullHiddenEntitiesCore: 'hiddenEntities', pullExpensesCore: 'expenses', pullIncomesCore: 'incomes', pullDebtsCore: 'debts',
-};
 function installSyncIndicatorHooks(){
   ['pushCategoriesPilot','pullCategoriesCore','pushSubcategoriesPilot','pushDictionaryPilot',
    'pushExpenseRecordPilot','pushIncomeRecordPilot','pushDebtRecordPilot',
@@ -7106,7 +7052,7 @@ function installSyncIndicatorHooks(){
    'pullExpensesCore','pullIncomesCore','pullDebtsCore'
   ].forEach(function(name){
     const original = window[name];
-    window[name] = withSyncIndicator(original, SYNC_DOMAIN_BY_FN[name]);
+    window[name] = withSyncIndicator(original);
   });
 }
 // Rev #30 (6D.37) — єдина ручна кнопка "Синхронізувати все" замінила 6
@@ -7123,32 +7069,9 @@ function installSyncIndicatorHooks(){
 // (skippedFk) до наступного разу. Кожен виклик — той самий *Core(), що
 // вже викликають *Pilot()-обгортки — жоден статус-текст не пишеться
 // проміжно, лише один сумарний рядок наприкінці.
-// Rev #30 (6D.73) — за проханням користувача: панель домен-за-доменом
-// (6D.67/6D.72) раніше "жила" завжди (циклічно крутилась і в звичайному
-// стані) — тепер видима ЛИШЕ під час/одразу після РУЧНОГО натискання
-// "Синхронізувати зараз" (не автоматичних sign-in/Realtime-синків, які
-// теж крутять syncVisualState/dotClass картки, але НЕ мають показувати
-// цю панель). manualSyncPanelVisible — окремий прапорець саме для цього,
-// НЕ переплутаний з глобальним syncVisualState.
-let manualSyncPanelVisible = false;
-// Rev #30 (6D.74) — за проханням користувача: основне приховування тепер
-// РІВНО в момент syncVisualState→'idle' (див. scheduleSyncSettle() —
-// той самий момент, коли зникає анімація іконки на кнопці), НЕ окремий
-// незалежний таймер. Це лише СТРАХОВОЧНИЙ fallback — на випадок, якщо
-// syncAllPilotManual() завершується РАНО (гість/немає SDK), тобто жоден
-// pull ніколи не викликав syncOpBegin(), і природний idle-перехід
-// ніколи не станеться. Довше за повний цикл SYNC_MIN_SYNCING_MS+
-// SYNC_RESULT_MS (4с), щоб НЕ перебивати природне приховування.
-const SYNC_PANEL_HIDE_FALLBACK_MS = 4500;
-function scheduleSyncPanelHide(){
-  setTimeout(function(){ manualSyncPanelVisible = false; renderSyncDomainsPanel(); }, SYNC_PANEL_HIDE_FALLBACK_MS);
-}
 async function syncAllPilotManual(){
   const statusEl = document.getElementById('sync-all-status');
   statusEl.classList.remove('hidden');
-  manualSyncPanelVisible = true;
-  renderSyncDomainsPanel();
-  try{
   if(!cloudSession || !cloudSession.user){
     statusEl.textContent = 'Спершу увійдіть у Cloud.';
     return;
@@ -7252,9 +7175,6 @@ async function syncAllPilotManual(){
     parts.push(pushFailed + ' НЕ вдалося відправити: ' + failDetails);
   }
   statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
-  }finally{
-    scheduleSyncPanelHide();
-  }
 }
 function renderProfileUI(){
   const session = cloudSession;
@@ -7385,56 +7305,6 @@ function renderProfileUI(){
     if(cardName) cardName.textContent = 'Не увійшли';
     if(cardStatus) cardStatus.textContent = 'Увійдіть, щоб синхронізувати дані на всіх пристроях';
   }
-  renderSyncDomainsPanel();
-}
-// Rev #30 (6D.72) — за проханням користувача: 9 рядків одразу займали
-// забагато місця в компактній .sync-card (6D.71). Замінено на ОДИН
-// рядок, що циклічно перемикається між доменами (SYNC_DOMAIN_CYCLE_MS) —
-// той самий набір реальних даних (syncDomainStatus), просто показаний по
-// черзі, а не всі 9 одночасно.
-// Rev #30 (6D.73) — тривалість паузи між доменами скорочено з 2с до
-// 1.2с (діапазон "1-1.2с", узгоджений з користувачем).
-let syncDomainCycleIndex = 0;
-let syncDomainCycleTimer = null;
-const SYNC_DOMAIN_CYCLE_MS = 1200;
-function ensureSyncDomainCycleTimer(){
-  if(syncDomainCycleTimer) return; // вже запущено — не плодимо другий setInterval
-  syncDomainCycleTimer = setInterval(function(){
-    syncDomainCycleIndex = (syncDomainCycleIndex + 1) % SYNC_DOMAIN_ORDER.length;
-    renderSyncDomainsPanel();
-  }, SYNC_DOMAIN_CYCLE_MS);
-}
-function stopSyncDomainCycleTimer(){
-  if(syncDomainCycleTimer){ clearInterval(syncDomainCycleTimer); syncDomainCycleTimer = null; }
-}
-// Rev #30 (6D.67) — Cloud Sync UI, Крок 2: заповнює #sync-domains-panel
-// (той самий toggle-принцип видимості, що sync-all-btn — лише
-// залогіненому). Викликається з renderProfileUI() (сесія/онлайн-офлайн
-// зміни) і з withSyncIndicator() (кожна зміна syncDomainStatus[domain]).
-// Rev #30 (6D.73) — за проханням користувача: панель видима ЛИШЕ під
-// час/одразу після РУЧНОГО "Синхронізувати зараз" (manualSyncPanelVisible,
-// докоментар над syncAllPilotManual() пояснює), НЕ в звичайному
-// (idle/auto-sync-on-login/Realtime) стані.
-function renderSyncDomainsPanel(){
-  const panel = document.getElementById('sync-domains-panel');
-  if(!panel) return;
-  const signedIn = !!(cloudSession && cloudSession.user);
-  if(!signedIn || !manualSyncPanelVisible){
-    panel.classList.add('hidden');
-    stopSyncDomainCycleTimer();
-    return;
-  }
-  panel.classList.remove('hidden');
-  if(!navigator.onLine){
-    panel.innerHTML = '<div class="sync-domain-row"><span class="profile-status-dot offline"></span><span class="sync-domain-label">Немає інтернету — синхронізація призупинена</span></div>';
-    return; // таймер лишаємо йти — при поверненні онлайн одразу продовжить з того самого місця
-  }
-  ensureSyncDomainCycleTimer();
-  const key = SYNC_DOMAIN_ORDER[syncDomainCycleIndex % SYNC_DOMAIN_ORDER.length];
-  const state = syncDomainStatus[key]; // undefined|'syncing'|'done'|'error'
-  const dotClass = state || '';
-  const stateText = state === 'syncing' ? 'Синхронізація…' : state === 'done' ? 'Синхронізовано' : state === 'error' ? 'Помилка' : 'Очікує';
-  panel.innerHTML = '<div class="sync-domain-row"><span class="profile-status-dot ' + dotClass + '"></span><span class="sync-domain-label">' + SYNC_DOMAIN_LABELS[key] + '</span><span class="sync-domain-state">' + stateText + '</span></div>';
 }
 // Rev #30 (6D.10) — ЗАМІНА підходу з 6D.8/6D.9 (не розширення): раніше
 // openProfileMenu() відкривала #profile-drawer (bottom sheet). Референс

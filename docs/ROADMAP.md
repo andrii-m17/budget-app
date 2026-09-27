@@ -6321,6 +6321,38 @@ self-heal; `pushBankAccountsPilot`/`pushInstallmentAccountsPilot` із
    `installmentAccounts`/`debts` — усі 3 таблиці повністю відповідають
    локальному стану користувача.
 
+### 6D.77 — BugFix: прибрано панель домен-за-доменом під кнопкою синхронізації ✅ Rev 2.22.9
+
+**Проблема (за проханням користувача):** панель зі статусами 9 доменів
+(6D.67/6D.72/6D.73), навіть циклічна (1 рядок, пауза 1.2с/домен), не
+встигала показати навіть половину доменів за типовий час ручної
+синхронізації — просто мигтіла шматками інформації, яку неможливо
+осмислено прочитати, і займала місце під кнопкою.
+
+**Рішення:** панель прибрано повністю з UI `.sync-card` — лишились лише
+іконка+заголовок+підзаголовок стану (syncing/done/error/offline) та сама
+кнопка "Синхронізувати зараз". Прибрано пов'язаний неживий код: HTML
+`#sync-domains-panel`, CSS `.sync-domains-panel`/`.sync-domain-row`/
+`.sync-domain-label`/`.sync-domain-state`, `syncDomainStatus`/
+`SYNC_DOMAIN_LABELS`/`SYNC_DOMAIN_ORDER`/`SYNC_DOMAIN_BY_FN`,
+`manualSyncPanelVisible`/`SYNC_PANEL_HIDE_FALLBACK_MS`/
+`scheduleSyncPanelHide()`, цикл-таймер `syncDomainCycleIndex`/
+`syncDomainCycleTimer`/`ensureSyncDomainCycleTimer()`/
+`stopSyncDomainCycleTimer()`/`renderSyncDomainsPanel()`. `withSyncIndicator()`
+спрощено назад до обгортки без 2-го параметра `domainKey` (він потрібен
+був лише для наповнення прибраної панелі) — сам індикатор
+syncing/done/error на іконці кнопки (`syncVisualState`/`dotClass`,
+6D.34) не зачеплений і працює як раніше.
+
+**Тестування:** `node --test` — 429/429 (жодного тесту не зачепило —
+видалене UI-бухгалтерство напряму не тестувалось окремо, лише через
+публічну поведінку push/pull-функцій, яка не змінилась).
+
+**Живо перевірено:** відкрито вкладку "Сервіс" на реальних даних
+користувача — картка синхронізації компактна, без панелі знизу; клік
+"Синхронізувати зараз" пройшов успішно ("Уже синхронізовано, змін
+немає."), нічого не з'являється під кнопкою під час/після синхронізації.
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.
