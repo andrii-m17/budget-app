@@ -581,6 +581,13 @@
   .profile-status-dot.syncing{ background:var(--color-info); animation:syncPulse 1s ease-in-out infinite; }
   .profile-status-dot.done{ background:var(--color-success); animation:syncPop .35s ease-out; }
   .profile-status-dot.error{ background:var(--color-error); animation:syncPop .35s ease-out; }
+  /* Rev #30 (6D.67) — Cloud Sync UI, Крок 2: домен-за-доменом статус,
+     .profile-status-dot переюзаний як є (той самий принцип syncing/done/
+     error/online/offline, жодної нової крапки-класу). */
+  .sync-domains-panel{ margin-top:10px; padding:8px 12px; background:var(--color-surface-hover); border-radius:var(--radius-sm); }
+  .sync-domain-row{ display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; color:var(--color-text-secondary); }
+  .sync-domain-label{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sync-domain-state{ font-size:11px; color:var(--color-text-tertiary); flex-shrink:0; }
   .profile-menu-item{ display:flex; align-items:center; gap:12px; width:100%; padding:13px 4px; border:none; background:none; border-top:1px solid var(--color-border); font-size:14.5px; color:var(--color-text-primary); cursor:pointer; text-align:left; font-family:inherit; }
   .profile-menu-item svg{ flex-shrink:0; color:var(--color-text-secondary); }
   .profile-menu-item.danger{ color:var(--color-error); }
@@ -752,6 +759,14 @@
      "відредаговано". */
   .exp-edited-badge{ display:inline-flex; color:var(--color-text-tertiary); flex-shrink:0; }
   .exp-edited-badge svg{ display:block; }
+  /* Rev #30 (6D.67) — Cloud Sync UI, Крок 3: транзиентний highlight
+     (4с, той самий "щойно сталось" порядок величини, що індикатор
+     синхронізації) на картках, щойно ОТРИМАНИХ через Cloud Pull —
+     recentlyPulledExpenseIds/hadMarker (докоментар у pullExpensesCore()). */
+  .expense-row.just-synced{ animation:justSyncedFade 4s ease-out; }
+  @keyframes justSyncedFade{ 0%{ background:var(--color-info-bg); } 100%{ background:var(--color-surface); } }
+  .sync-badge-icon{ display:inline-flex; color:var(--color-info); flex-shrink:0; }
+  .sync-badge-icon svg{ display:block; }
   .chip{ font-size:11px; background:var(--color-primary-bg); color:var(--color-primary-hover); padding:2px 8px; border-radius:20px; font-weight:600; white-space:nowrap; }
   .chip.empty{ background:var(--color-warning-bg); color:var(--color-warning); }
   .chip.income{ background:var(--color-success-bg); color:var(--color-success); }
@@ -2250,6 +2265,13 @@
     Синхронізувати все
   </button>
   <div class="import-status hidden" id="sync-all-status"></div>
+  <!-- Rev #30 (6D.67) — Cloud Sync UI, Крок 2: реальний домен-за-доменом
+       статус (idle/syncing/success/error/offline), заповнюється
+       renderSyncDomainsPanel() (той самий toggle-принцип видимості, що
+       sync-all-btn вище — лише залогіненому). Розміщено саме тут, поруч із
+       "Синхронізувати все" — той самий контекст, де користувач уже дивиться
+       на стан синхронізації, не окрема нова секція/сторінка. -->
+  <div class="sync-domains-panel hidden" id="sync-domains-panel"></div>
 
   <div class="section-label">Дані</div>
   <div class="service-grid">
@@ -2507,7 +2529,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.98</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.99</div>
 </div>
   </div>
 </div>
@@ -4880,6 +4902,13 @@ async function pullExpensesCore(){
   const client = getSupabaseClient();
   let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
   let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
+  // Rev #30 (6D.67) — Cloud Sync UI, Крок 3: "щойно отримано з хмари"
+  // highlight МАЄ сенс лише для СПРАВЖНЬОГО інкрементального pull (щось
+  // змінилось деінде, поки застосунок відкритий/після повернення). Перший
+  // pull домену (маркера ще нема — повний історичний бекфіл, напр. одразу
+  // після входу чи "Очистити всі дані") НЕ повинен підсвітити ВСІ 800+
+  // записів одразу — тому фіксуємо ДО виклику applySyncMarker() нижче.
+  const hadMarker = !!getSyncMarker('expenses');
   try{
     // Rev #30 (6D.62) — created_by додано до select(): раніше push відправляв
     // це поле, але pull ніколи не забирав його назад — авторський маркер на
@@ -4935,6 +4964,11 @@ async function pullExpensesCore(){
           // Rev #30 (6D.57) — syncedUpdatedAt: local тепер точно відповідає Cloud.
           local.syncedUpdatedAt = row.updated_at;
           updated++;
+          // Rev #30 (6D.67) — той самий принцип, що коментар над hadMarker
+          // вище: підсвічуємо лише СПРАВЖНІ інкрементальні зміни, отримані
+          // деінде. Set, НЕ поле на самому записі (ніколи не потрапляє в
+          // localStorage/Cloud — суто ефемерна UI-підказка цієї вкладки).
+          if(hadMarker) recentlyPulledExpenseIds.add(local.id);
         }
         continue;
       }
@@ -4948,12 +4982,24 @@ async function pullExpensesCore(){
       if(row.deleted_at) rec.deletedAt = row.deleted_at;
       expenses.push(rec);
       added++;
+      if(hadMarker) recentlyPulledExpenseIds.add(rec.id); // Rev #30 (6D.67)
     }
     if(maxSeen) setSyncMarker('expenses', maxSeen);
   }catch(e){
     return { skipped: true };
   }
   if(updated || added) await saveExpenses();
+  // Rev #30 (6D.67) — highlight транзиентний: 4с (той самий "щойно сталось"
+  // порядок величини, що вже SYNC_MIN_SYNCING_MS+SYNC_RESULT_MS індикатора
+  // синхронізації нижче), потім прибираємо і перемальовуємо. Один спільний
+  // таймер на всю серію (не по таймеру на кожен id) — свідомо просто:
+  // наступний пул у ці ж 4с просто продовжить показ, нешкідливо.
+  if((updated || added) && hadMarker){
+    setTimeout(function(){
+      recentlyPulledExpenseIds.clear();
+      renderAll();
+    }, 4000);
+  }
   // Rev #30 (6D.55) — pull (у т.ч. pull-after-push, 6D.49) міняв масив
   // expenses мовчки, без перерендеру — той самий gap, що й у 5 доменів
   // Категорії B. Дзеркалимо render-виклик, що вже йде після локального
@@ -5555,7 +5601,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.98';
+const APP_VERSION = '2.21.99';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6667,6 +6713,24 @@ const SYNC_ERROR_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="curren
 // усіх push-функцій, Крок 0 підтвердив, що досі це ніде не сигналізувалось
 // явно). "Тихі пропуски" (батько ще не синхронізований і т.п.) НЕ
 // рахуються помилкою — вони повертають { success: true }.
+// Rev #30 (6D.67) — id-и витрат, щойно отриманих через справжній
+// інкрементальний Cloud Pull (докоментар над hadMarker у
+// pullExpensesCore() пояснює, чому саме "справжній" — не перший повний
+// pull домену). Транзиентний Set, НЕ поле на самому записі expenses[] —
+// ніколи не потрапляє в localStorage/Cloud, суто ефемерна UI-підказка на
+// час поточної сесії вкладки.
+let recentlyPulledExpenseIds = new Set();
+// Rev #30 (6D.67) — Cloud Sync UI, Крок 2: домен-за-доменом статус
+// (докоментар над withSyncIndicator() нижче пояснює, чому лише 9 pull-
+// доменів достатньо). Значення — 'syncing'|'done'|'error', ключ ВІДСУТНІЙ
+// = ще жодного разу не синхронизувався ЦІЄЇ сесії ("Очікує").
+let syncDomainStatus = {};
+const SYNC_DOMAIN_LABELS = {
+  categories: 'Категорії', subcategories: 'Підкатегорії', dictionary: 'Словник',
+  bankAccounts: 'Банківські картки', installmentAccounts: 'Розстрочки (ОЧ)',
+  hiddenEntities: 'Приховані рахунки', expenses: 'Витрати', incomes: 'Доходи', debts: 'Борги',
+};
+const SYNC_DOMAIN_ORDER = ['categories','subcategories','dictionary','bankAccounts','installmentAccounts','hiddenEntities','expenses','incomes','debts'];
 let syncActiveOps = 0;
 let syncVisualState = 'idle'; // 'idle' | 'syncing' | 'done' | 'error'
 let syncVisualStartedAt = 0;
@@ -6745,15 +6809,34 @@ function isSyncResultFailure(result){
 // поведінка НЕ змінена), але БЕЗ syncOpBegin()/syncOpEnd() — індикатор
 // просто не бере участі (це НЕ новий "помилка"-стан — саме той сценарій,
 // що 6D.26 явно вирішив мовчати, а не показувати щось помилкове).
-function withSyncIndicator(fn){
+// Rev #30 (6D.67) — Cloud Sync UI, Крок 2: необов'язковий 2-й параметр
+// domainKey. Трекаємо домен-за-доменом статус ЛИШЕ на pull-Core функціях
+// (9 доменів, SYNC_DOMAIN_BY_FN нижче) — не на push: FK-залежності 6D.49/
+// 6D.58 вже гарантують, що практично КОЖЕН push цього застосунку
+// (одиничний чи bulk-batch у syncAllPilotManual()) завершується пулом ТОГО
+// САМОГО домену одразу після — тому pull є достатнім і єдиним джерелом
+// правди "цей домен синхронізовано", без потреби окремо інструментувати
+// push/pushXBatch (де й так частий шлях — 6D.60 — не через
+// installSyncIndicatorHooks() узагалі).
+function withSyncIndicator(fn, domainKey){
   return function(...args){
     if(!isCloudSessionReady() || !navigator.onLine){
       return fn.apply(this, args);
     }
     syncOpBegin();
+    if(domainKey){ syncDomainStatus[domainKey] = 'syncing'; renderSyncDomainsPanel(); }
     return Promise.resolve(fn.apply(this, args)).then(
-      function(result){ syncOpReportResult(isSyncResultFailure(result)); return result; },
-      function(err){ syncOpReportResult(true); throw err; }
+      function(result){
+        const failed = isSyncResultFailure(result);
+        syncOpReportResult(failed);
+        if(domainKey){ syncDomainStatus[domainKey] = failed ? 'error' : 'done'; renderSyncDomainsPanel(); }
+        return result;
+      },
+      function(err){
+        syncOpReportResult(true);
+        if(domainKey){ syncDomainStatus[domainKey] = 'error'; renderSyncDomainsPanel(); }
+        throw err;
+      }
     ).finally(syncOpEnd);
   };
 }
@@ -6775,6 +6858,16 @@ function withSyncIndicator(fn){
 // тут автоматично підхоплюється УСІМА існуючими call sites по всьому
 // файлу (editCategory/saveCardDebtDrawer/online-listener/
 // applyCloudSession/pullXPilotManual тощо), без правок кожного окремо.
+// Rev #30 (6D.67) — той самий "domain key" довідник, що PULL_DOMAINS нижче
+// (за духом — там масив для sync-on-resume/Realtime, тут мапа ім'я
+// функції→домен для withSyncIndicator вище); умисно окремо, а не імпорт
+// одне з одного — PULL_DOMAINS визначається значно нижче за файлом
+// (Realtime, 6D.56), а ця мапа потрібна вже тут.
+const SYNC_DOMAIN_BY_FN = {
+  pullCategoriesCore: 'categories', pullSubcategoriesCore: 'subcategories', pullDictionaryCore: 'dictionary',
+  pullBankAccountsCore: 'bankAccounts', pullInstallmentAccountsCore: 'installmentAccounts',
+  pullHiddenEntitiesCore: 'hiddenEntities', pullExpensesCore: 'expenses', pullIncomesCore: 'incomes', pullDebtsCore: 'debts',
+};
 function installSyncIndicatorHooks(){
   ['pushCategoriesPilot','pullCategoriesCore','pushSubcategoriesPilot','pushDictionaryPilot',
    'pushExpenseRecordPilot','pushIncomeRecordPilot','pushDebtRecordPilot',
@@ -6784,7 +6877,7 @@ function installSyncIndicatorHooks(){
    'pullExpensesCore','pullIncomesCore','pullDebtsCore'
   ].forEach(function(name){
     const original = window[name];
-    window[name] = withSyncIndicator(original);
+    window[name] = withSyncIndicator(original, SYNC_DOMAIN_BY_FN[name]);
   });
 }
 // Rev #30 (6D.37) — єдина ручна кнопка "Синхронізувати все" замінила 6
@@ -6972,6 +7065,28 @@ function renderProfileUI(){
     if(cardName) cardName.textContent = 'Не увійшли';
     if(cardStatus) cardStatus.textContent = 'Увійдіть, щоб синхронізувати дані на всіх пристроях';
   }
+  renderSyncDomainsPanel();
+}
+// Rev #30 (6D.67) — Cloud Sync UI, Крок 2: заповнює #sync-domains-panel
+// (той самий toggle-принцип видимості, що sync-all-btn — лише
+// залогіненому). Викликається з renderProfileUI() (сесія/онлайн-офлайн
+// зміни) і з withSyncIndicator() (кожна зміна syncDomainStatus[domain]).
+function renderSyncDomainsPanel(){
+  const panel = document.getElementById('sync-domains-panel');
+  if(!panel) return;
+  const signedIn = !!(cloudSession && cloudSession.user);
+  panel.classList.toggle('hidden', !signedIn);
+  if(!signedIn) return;
+  if(!navigator.onLine){
+    panel.innerHTML = '<div class="sync-domain-row"><span class="profile-status-dot offline"></span><span class="sync-domain-label">Немає інтернету — синхронізація призупинена</span></div>';
+    return;
+  }
+  panel.innerHTML = SYNC_DOMAIN_ORDER.map(function(key){
+    const state = syncDomainStatus[key]; // undefined|'syncing'|'done'|'error'
+    const dotClass = state || '';
+    const stateText = state === 'syncing' ? 'Синхронізація…' : state === 'done' ? 'Синхронізовано' : state === 'error' ? 'Помилка' : 'Очікує';
+    return '<div class="sync-domain-row"><span class="profile-status-dot ' + dotClass + '"></span><span class="sync-domain-label">' + SYNC_DOMAIN_LABELS[key] + '</span><span class="sync-domain-state">' + stateText + '</span></div>';
+  }).join('');
 }
 // Rev #30 (6D.10) — ЗАМІНА підходу з 6D.8/6D.9 (не розширення): раніше
 // openProfileMenu() відкривала #profile-drawer (bottom sheet). Референс
@@ -10358,13 +10473,22 @@ function buildRecordGroupsHtml(items){
       // застосовано — ТЗ стосувалось саме карток витрат).
       const author = !isIncome ? authorInfoFor(e.createdBy) : null;
       const authorStyle = author ? ` style="border-left-color:var(${author.colorVar})"` : '';
-      const rowClass = (isIncome ? 'income-row' : '') + (isSelected ? ' selected' : '');
+      // Rev #30 (6D.67) — Cloud Sync UI, Крок 3: транзиентний highlight на
+      // записах, щойно ОТРИМАНИХ через Cloud Pull (не створених/
+      // відредагованих на ЦЬОМУ пристрої) — recentlyPulledExpenseIds
+      // заповнюється всередині pullExpensesCore() (докоментар там пояснює,
+      // чому саме id-based Set, не поле на записі).
+      const justPulled = !isIncome && recentlyPulledExpenseIds.has(e.id);
+      const rowClass = (isIncome ? 'income-row' : '') + (isSelected ? ' selected' : '') + (justPulled ? ' just-synced' : '');
       const chipClass = isIncome ? 'chip income' : (e.category ? 'chip' : 'chip empty');
       const chipText = isIncome ? 'дохід' : (e.category ? (e.subcategory || e.category) : 'без категорії');
       const amountClass = isIncome ? 'exp-amount income mono' : 'exp-amount mono';
       const sign = isIncome ? '+' : '−';
       const editedBadgeHtml = (!isIncome && e.edited)
         ? `<span class="exp-edited-badge" title="Відредаговано" aria-label="Відредаговано"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>`
+        : '';
+      const justPulledBadgeHtml = justPulled
+        ? `<span class="sync-badge-icon" title="Щойно отримано з хмари" aria-label="Щойно отримано з хмари"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9Z"/></svg></span>`
         : '';
       const editPencilHtml = (isSelected && !isIncome)
         ? `<button type="button" class="exp-edit-cat" onclick="event.stopPropagation(); startEditRecord('${e.kind}','${e.id}')" aria-label="Редагувати запис"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>`
@@ -10398,7 +10522,7 @@ function buildRecordGroupsHtml(items){
           <div class="exp-row-top">
             <div class="exp-main">
               <div class="exp-name">${escapeHtml(e.name)}</div>
-              <div class="exp-meta"><span class="${chipClass}">${chipText}</span>${editedBadgeHtml}</div>
+              <div class="exp-meta"><span class="${chipClass}">${chipText}</span>${editedBadgeHtml}${justPulledBadgeHtml}</div>
             </div>
             <div class="${amountClass}">${sign}${fmt(e.amount)}</div>
             ${editPencilHtml}
