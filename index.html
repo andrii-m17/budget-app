@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.91</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.92</div>
 </div>
   </div>
 </div>
@@ -4028,11 +4028,25 @@ function ensureSchemaVersion(){
 // одразу після відновлення бекапу (handleRestoreBackupFile викликає loadAll()
 // в кінці) — тож стара резервна копія теж самовідновлює ці поля без
 // додаткового коду в самому відновленні.
+// Rev #30 (6D.59) — КРИТИЧНИЙ фікс, знайдений через реальний збій
+// відновлення бекапу (846/846 push з помилкою Postgres "invalid input
+// syntax for type uuid"): ця перевірка була "чи є id взагалі" (пропускала
+// СТАРИЙ формат Date.now()+random, унікальний лише локально — той самий
+// формат, що 6D.1 нижче явно виправив для incomes/debts, але задокументований
+// урок ніколи не застосували назад сюди, бо ensureExpenseIdentity() написана
+// РАНІШЕ, Rev 2.11.2). Наслідок: РЕАЛЬНІ витрати за кілька місяців обліку
+// (записані до впровадження generateUUID()) НІКОЛИ не могли дійти до Cloud —
+// не через мережу/rate-limit (як спершу здавалось на 846-записовому тесті),
+// а тому, що Postgres типізована UUID-колонка відхиляла кожен такий id.
+// UUID_FORMAT_RE оголошена нижче за текстом файлу (const, ближче до
+// ensureIncomeIdentity()) — той самий non-strict top-level scoping, що вже
+// скрізь у цьому файлі: ensureExpenseIdentity() лише ВИКЛИКАЄТЬСЯ пізніше
+// (з loadAll()), коли весь top-level код, включно з цим const, уже виконаний.
 async function ensureExpenseIdentity(){
   let changed = false;
   const nowISO = new Date().toISOString();
   expenses.forEach(function(e){
-    if(!e.id || typeof e.id !== 'string'){ e.id = generateUUID(); changed = true; }
+    if(!UUID_FORMAT_RE.test(e.id)){ e.id = generateUUID(); changed = true; }
     if(!e.createdAt){
       // Точний момент створення для старих записів невідомий (раніше не
       // зберігався взагалі) — НЕ підставляємо "зараз" (це спотворило б
@@ -4046,7 +4060,9 @@ async function ensureExpenseIdentity(){
   if(changed) reportSaveResult(await saveExpenses());
 }
 // Rev #30 (6D.1) — той самий ідемпотентний принцип, що ensureExpenseIdentity()
-// вище, але інша перевірка: тут `id` в старих записах ВЖЕ є (не відсутній),
+// вище (яка, за 6D.59, тепер теж перевіряє САМЕ ЦЮ регулярку, не лише
+// присутність id — той самий висновок, лише застосований із запізненням).
+// Перевірка тут: `id` в старих записах ВЖЕ є (не відсутній),
 // просто у форматі Date.now()+Math.random().toString(36).slice(2,6) —
 // унікальному лише в межах одного пристрою (Rev 2.11.2 вище пояснює, чому
 // цього недостатньо для Cloud-дедуплікації між пристроями). Перевірено
@@ -5322,7 +5338,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.91';
+const APP_VERSION = '2.21.92';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

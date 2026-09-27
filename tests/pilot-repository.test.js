@@ -3264,6 +3264,27 @@ test('ensureExpenseIdentity: порожній масив → без помило
   assert.equal(spy.count(), 0);
 });
 
+// Rev #30 (6D.59) — КРИТИЧНИЙ фікс, знайдений через реальний збій:
+// ensureExpenseIdentity() раніше перевіряла лише "чи id взагалі є"
+// (typeof === 'string'), пропускаючи СТАРИЙ формат Date.now()+random —
+// на відміну від ensureIncomeIdentity()/ensureDebtIdentity() (6D.1), де
+// той самий формат коректно розпізнавався й замінювався. Наслідок:
+// реальні витрати за кілька місяців обліку (записані до впровадження
+// generateUUID(), Rev 2.11.2) НІКОЛИ не отримували валідний UUID —
+// кожен push у Cloud (uuid-типізована колонка) провалювався з
+// "invalid input syntax for type uuid".
+test('ensureExpenseIdentity: СТАРИЙ формат id (Date.now()+random, той самий формат, що 6D.1 виправив для incomes/debts) → новий UUID', async () => {
+  const { ctx } = sandbox();
+  const oldFormatId = '1789113942728xwch'; // точний формат з реального збою користувача
+  ctx.expenses = [{ id: oldFormatId, date: '2026-09-01', name: 'Кава', amount: 65, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveExpenses');
+  await ctx.ensureExpenseIdentity();
+  assert.match(ctx.expenses[0].id, UUID_FORMAT_RE_JS());
+  assert.notEqual(ctx.expenses[0].id, oldFormatId);
+  assert.equal(ctx.expenses[0].name, 'Кава'); // решта полів незмінна
+  assert.equal(spy.count(), 1);
+});
+
 test('ensureExpenseIdentity: ідемпотентність — другий виклик на вже мігрований масив save не кличе, id той самий', async () => {
   const { ctx } = sandbox();
   ctx.expenses = [{ date: '2026-09-01', name: 'Кава', amount: 65, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
