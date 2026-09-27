@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.96</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.97</div>
 </div>
   </div>
 </div>
@@ -5532,7 +5532,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.96';
+const APP_VERSION = '2.21.97';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10822,7 +10822,10 @@ function setKpiTrend(id, type, curr, prevVal, month, hasCurrentData){
   if(!prevVal || curr===prevVal){ el.textContent = '—'; return; }
   const increased = curr > prevVal;
   const pct = Math.abs((curr-prevVal)/prevVal*100).toFixed(1);
-  const labels = type==='debt'
+  // Rev #30 (6D.65) — "Баланс" (як і "Борг") — іменник в однині, тому
+  // "Збільшився"/"Зменшився", не "Збільшились"/"Зменшились" (правильно
+  // лише для множинних "Доходи"/"Витрати").
+  const labels = (type==='debt' || type==='savings')
     ? (increased ? '▲ Збільшився' : '▼ Зменшився')
     : (increased ? '▲ Збільшились' : '▼ Зменшились');
   const positive = (type==='income' || type==='savings') ? increased : !increased;
