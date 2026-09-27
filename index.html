@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.93</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.94</div>
 </div>
   </div>
 </div>
@@ -5497,7 +5497,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.93';
+const APP_VERSION = '2.21.94';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7014,6 +7014,35 @@ function findInstallmentFieldIssues(){
       };
     });
 }
+// Rev #30 (6D.61) — термінове питання користувача після 6D.57-60: "що робити
+// з даними, які не пройшли push?" — автоматичний retry вже є (запис без
+// syncedUpdatedAt===updatedAt пробується знову при кожному "Синхронізувати
+// все"), але без ЦІЄЇ перевірки не було способу побачити, ЯКІ САМЕ записи
+// застрягли, якщо збій постійний (не тимчасова мережа). syncedUpdatedAt
+// (6D.57/6D.50) — єдине надійне джерело "чи справді дійшло до Cloud", той
+// самий принцип, що вже findExpenseIdIssues()/findTimestampIssues() вище.
+// Лише коли Cloud-сесія взагалі активна — без неї "не синхронізовано" не
+// проблема, а очікуваний стан (синхронізація вимкнена).
+function findUnsyncedRecordsIssues(){
+  if(!isCloudSessionReady()) return [];
+  const issues = [];
+  activeExpenses().forEach(function(e, idx){
+    if(e.syncedUpdatedAt !== e.updatedAt){
+      issues.push({ label: e.name || '(без назви)', date: e.date || '—', reason: 'не синхронізовано з Cloud', target: { type: 'expense', idx: idx } });
+    }
+  });
+  activeIncomes().forEach(function(inc, idx){
+    if(inc.syncedUpdatedAt !== inc.updatedAt){
+      issues.push({ label: inc.source || '(без назви)', date: inc.date || '—', reason: 'не синхронізовано з Cloud', target: { type: 'income', idx: idx } });
+    }
+  });
+  activeDebts().forEach(function(d){
+    if(d.syncedUpdatedAt !== d.updatedAt){
+      issues.push({ label: d.name || '(без назви)', date: d.month || '—', reason: 'не синхронізовано з Cloud', target: { type: 'debt', name: d.name, month: d.month, kind: d.kind } });
+    }
+  });
+  return issues;
+}
 // Rev 2.16.2 — ключ ігнорування розбіжності: та сама пара "назва+місяць", що
 // вже природно ідентифікує конкретний запис боргу (debts[].name+.month).
 function divergenceKey(name, month){ return name + '|' + month; }
@@ -7069,6 +7098,10 @@ function buildDiagnosticsReport(){
     { title: 'ОЧ: обов’язкові поля', issues: findInstallmentFieldIssues() },
     { title: 'ОЧ: розбіжність факт/очікування (>5%)', issues: findInstallmentDivergences() },
   ];
+  // Rev #30 (6D.61) — перевірка додається лише якщо Cloud-сесія активна —
+  // без синхронізації "не запушено" не проблема, а очікуваний стан, не варто
+  // показувати як псевдо-"OK" рядок серед реальних перевірок цілісності.
+  if(isCloudSessionReady()) checks.push({ title: 'Синхронізація: незапушені записи', issues: findUnsyncedRecordsIssues() });
   diagnosticIssueTargets = [];
   const totalIssues = checks.reduce(function(s,c){ return s+c.issues.length; }, 0);
   if(totalIssues === 0){
@@ -7141,6 +7174,34 @@ function goToDiagnosticIssue(i){
     const e = activeExpenses()[target.idx];
     if(e){ selectedRecordKey = recordKey('expense', e.id); editingRecordKey = null; renderRecords(); }
     flashDiagnosticTarget('journal-row-expense-' + target.idx);
+    return;
+  }
+  // Rev #30 (6D.61) — той самий принцип, що 'expense' вище, для findUnsyncedRecordsIssues().
+  if(target.type === 'income'){
+    switchTab('vytraty');
+    const inc = activeIncomes()[target.idx];
+    if(inc){ selectedRecordKey = recordKey('income', inc.id); editingRecordKey = null; renderRecords(); }
+    flashDiagnosticTarget('journal-row-income-' + target.idx);
+    return;
+  }
+  // Rev #30 (6D.61) — debts не мають запису в Журналі (показуються картками
+  // в "Обліку" за місяцем) — kind визначає, яка саме таблиця (банк-картка чи ОЧ).
+  if(target.type === 'debt'){
+    if(!target.name){
+      showAlertModal('У цього запису боргу немає назви — знайти його автоматично неможливо. Перевір «Облік» вручну.');
+      return;
+    }
+    if(target.month && target.month !== selectedMonth) performMonthChange(target.month);
+    switchTab('accounting');
+    if(target.kind === 'card'){
+      const idx = bankAccounts.findIndex(function(b){ return b.name === target.name; });
+      if(idx !== -1) flashDiagnosticTarget('bank-debt-row-' + idx);
+      else showAlertModal('Рахунок «' + target.name + '» не знайдено — перевір «Облік» вручну.');
+    }else{
+      const idx = installmentAccounts.findIndex(function(a){ return a.name === target.name; });
+      if(idx !== -1) flashDiagnosticTarget('installment-row-' + idx);
+      else showAlertModal('ОЧ «' + target.name + '» не знайдено — перевір «Облік» вручну.');
+    }
     return;
   }
   // 'installment' або 'installment-month'

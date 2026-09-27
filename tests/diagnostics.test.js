@@ -9,15 +9,22 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 
-function sandbox({ expenses, debts, installmentAccounts, hiddenFrom, ignoredDivergences }){
+function sandbox({ expenses, incomes, debts, installmentAccounts, hiddenFrom, ignoredDivergences, cloudSession, cloudFamilyId }){
   return buildSandbox(
     {
       expenses: expenses || [],
+      incomes: incomes || [],
       debts: debts || [],
       installmentAccounts: installmentAccounts || [],
+      bankAccounts: [],
       hiddenFrom: hiddenFrom || {},
       ignoredDivergences: ignoredDivergences || {},
       fmt: (n) => String(Math.round(n)) + ' ₴',
+      // Rev #30 (6D.61) — findUnsyncedRecordsIssues() потребує isCloudSessionReady()
+      // (за замовчуванням "не залогінений" — той самий принцип, що pilot-repository.test.js).
+      cloudSession: cloudSession || null,
+      cloudFamilyId: cloudFamilyId || null,
+      isSupabaseSdkReady: () => true,
     },
     [
       'findExpenseIdIssues', 'findTimestampIssues', 'findInstallmentFieldIssues', 'findInstallmentDivergences',
@@ -26,6 +33,9 @@ function sandbox({ expenses, debts, installmentAccounts, hiddenFrom, ignoredDive
       'activeExpenses',
       // Rev #30 (6D.44) — findInstallmentDivergences()/lastKnownBalance()/typicalMonthlyPayment() тепер сканують activeDebts().
       'activeDebts',
+      // Rev #30 (6D.61) — термінове питання користувача "що робити з незапушеними
+      // записами" — видимість конкретних застряглих записів у Діагностиці.
+      'findUnsyncedRecordsIssues', 'activeIncomes', 'isCloudSessionReady',
     ]
   );
 }
@@ -123,4 +133,81 @@ test('findInstallmentDivergences: ігнорована розбіжність (n
 test('divergenceKey: об\'єднує назву і місяць через "|"', () => {
   const ctx = sandbox({});
   assert.equal(ctx.divergenceKey('ОЧ Приватбанк', '2026-02'), 'ОЧ Приватбанк|2026-02');
+});
+
+// Rev #30 (6D.61) — findUnsyncedRecordsIssues(): термінове питання
+// користувача "що робити з даними, які не пройшли push" — видимість
+// конкретних застряглих записів (усі 3 id-based домени) у Діагностиці.
+// syncedUpdatedAt (6D.57/6D.50) — єдине надійне джерело "чи дійшло до Cloud".
+test('findUnsyncedRecordsIssues: без Cloud-сесії → порожньо (не проблема, а очікуваний стан)', () => {
+  const ctx = sandbox({ expenses: [{ id: 'e1', name: 'Кава', date: '2026-03-01', updatedAt: '2026-03-01T00:00:00.000Z' }] });
+  assert.equal(ctx.findUnsyncedRecordsIssues().length, 0);
+});
+
+test('findUnsyncedRecordsIssues: expense без syncedUpdatedAt → одна проблема, правильний target', () => {
+  const ctx = sandbox({
+    cloudSession: { user: { id: 'u1' } }, cloudFamilyId: 'fam-1',
+    expenses: [{ id: 'e1', name: 'Кава', date: '2026-03-01', updatedAt: '2026-03-01T00:00:00.000Z' }],
+  });
+  const issues = ctx.findUnsyncedRecordsIssues();
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].label, 'Кава');
+  // Rev #30 (6D.61) — cross-realm vm.Context: assert.deepEqual на об'єкті,
+  // повернутому з sandbox, ненадійний (та сама пастка, що вже tests/
+  // pilot-repository.test.js документує через plain()) — порівнюємо поля напряму.
+  assert.equal(issues[0].target.type, 'expense');
+  assert.equal(issues[0].target.idx, 0);
+});
+
+test('findUnsyncedRecordsIssues: expense з syncedUpdatedAt === updatedAt → НЕ проблема', () => {
+  const ctx = sandbox({
+    cloudSession: { user: { id: 'u1' } }, cloudFamilyId: 'fam-1',
+    expenses: [{ id: 'e1', name: 'Кава', date: '2026-03-01', updatedAt: '2026-03-01T00:00:00.000Z', syncedUpdatedAt: '2026-03-01T00:00:00.000Z' }],
+  });
+  assert.equal(ctx.findUnsyncedRecordsIssues().length, 0);
+});
+
+test('findUnsyncedRecordsIssues: tombstoned (видалений) запис не рахується — activeExpenses() приховує його', () => {
+  const ctx = sandbox({
+    cloudSession: { user: { id: 'u1' } }, cloudFamilyId: 'fam-1',
+    expenses: [{ id: 'e1', name: 'Кава', date: '2026-03-01', updatedAt: '2026-03-01T00:00:00.000Z', deletedAt: '2026-03-02T00:00:00.000Z' }],
+  });
+  assert.equal(ctx.findUnsyncedRecordsIssues().length, 0);
+});
+
+test('findUnsyncedRecordsIssues: income без syncedUpdatedAt → проблема з правильним target', () => {
+  const ctx = sandbox({
+    cloudSession: { user: { id: 'u1' } }, cloudFamilyId: 'fam-1',
+    incomes: [{ id: 'i1', source: 'ЗП', date: '2026-03-01', updatedAt: '2026-03-01T00:00:00.000Z' }],
+  });
+  const issues = ctx.findUnsyncedRecordsIssues();
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].label, 'ЗП');
+  assert.equal(issues[0].target.type, 'income');
+  assert.equal(issues[0].target.idx, 0);
+});
+
+test('findUnsyncedRecordsIssues: debt (card) без syncedUpdatedAt → проблема з kind у target', () => {
+  const ctx = sandbox({
+    cloudSession: { user: { id: 'u1' } }, cloudFamilyId: 'fam-1',
+    debts: [{ id: 'd1', name: '🟩 Приват', kind: 'card', month: '2026-03', balance: 5000, updatedAt: '2026-03-01T00:00:00.000Z' }],
+  });
+  const issues = ctx.findUnsyncedRecordsIssues();
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].label, '🟩 Приват');
+  assert.equal(issues[0].date, '2026-03');
+  assert.equal(issues[0].target.type, 'debt');
+  assert.equal(issues[0].target.name, '🟩 Приват');
+  assert.equal(issues[0].target.month, '2026-03');
+  assert.equal(issues[0].target.kind, 'card');
+});
+
+test('findUnsyncedRecordsIssues: змішаний сценарій — по одному незапушеному в кожному з 3 доменів → 3 проблеми', () => {
+  const ctx = sandbox({
+    cloudSession: { user: { id: 'u1' } }, cloudFamilyId: 'fam-1',
+    expenses: [{ id: 'e1', name: 'Кава', date: '2026-03-01', updatedAt: '2026-03-01T00:00:00.000Z' }],
+    incomes: [{ id: 'i1', source: 'ЗП', date: '2026-03-01', updatedAt: '2026-03-01T00:00:00.000Z' }],
+    debts: [{ id: 'd1', name: 'iPhone', kind: 'installment', month: '2026-03', balance: 3000, updatedAt: '2026-03-01T00:00:00.000Z' }],
+  });
+  assert.equal(ctx.findUnsyncedRecordsIssues().length, 3);
 });
