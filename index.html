@@ -2587,7 +2587,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.7</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.8</div>
 </div>
   </div>
 </div>
@@ -4708,6 +4708,17 @@ async function pushExpenseRecordPilot(rec, opts){
       rec.syncedUpdatedAt = rec.updatedAt;
       await saveExpenses();
     }
+    // Rev #30 (6D.76) — той самий self-heal, що pushDebtRecordPilot() (той
+    // самий клас вразливості: linked_installment_id — FK БЕЗ ON DELETE,
+    // acc.cloudId може застаріти без жодного локального сигналу).
+    if(error && error.code === '23503' && rec.linkedInstallment){
+      const acc = installmentAccounts.find(function(a){ return a.name === rec.linkedInstallment; });
+      if(acc && acc.cloudId){
+        acc.cloudId = null;
+        delete acc.syncedUpdatedAt;
+        await saveInstallmentAccountsLocal();
+      }
+    }
     // Rev #30 (6D.49) — pull одразу після успішного push (Варіант А), той
     // самий принцип, що всюди в цьому Rev. Rev #30 (6D.58) — пропускається
     // за explicit opts.suppressPull (масові цикли роблять один pull самі).
@@ -4898,6 +4909,37 @@ async function pushDebtRecordPilot(rec, opts){
     if(!error){
       rec.syncedUpdatedAt = rec.updatedAt;
       await saveDebts();
+    }
+    // Rev #30 (6D.76) — КРИТИЧНИЙ фікс: реальний інцидент користувача
+    // ("постійно крутиться синхронізація, періодично помилка" після
+    // "Очистити всі дані" → "Відновити"). Корінь: pushBankAccountsPilot()/
+    // pushInstallmentAccountsPilot() пропускають БУДЬ-яку перевірку проти
+    // Cloud, якщо `acc.syncedUpdatedAt === acc.updatedAt` (докоментар над
+    // тими функціями) — застарілий `cloudId` (рахунок видалений/
+    // перестворений в Cloud, а backup-відновлення могло повернути
+    // ЦЕЙ САМИЙ пара updatedAt/syncedUpdatedAt з файлу, тим самим
+    // "підтвердивши" синхронізованість, якої вже нема) НІКОЛИ не
+    // виявляється й не виправляється сам. Наслідок: push цього боргу
+    // щоразу відправляє мертвий bank_account_id/installment_account_id →
+    // Postgres відхиляє через FK-обмеження (23503, debts_bank_account_id_fkey/
+    // debts_installment_account_id_fkey — БЕЗ ON DELETE, підтверджено
+    // прямим SQL-запитом до budget-app-dev) → та сама помилка щоразу,
+    // нескінченно, без жодного шансу на одужання. Фікс: розпізнаємо саме
+    // ЦЕЙ код помилки й скидаємо cloudId+syncedUpdatedAt акаунту — НАСТУПНИЙ
+    // sync-прохід (pushBankAccountsPilot()/pushInstallmentAccountsPilot(),
+    // вже в тому самому "Синхронізувати все") побачить acc.cloudId===null
+    // і пройде звичайним self-heal-шляхом (reconcileXCloudId — пошук за
+    // іменем чи insert), після чого цей самий борг успішно попуш иться з
+    // ПРАВИЛЬНИМ, живим посиланням.
+    if(error && error.code === '23503'){
+      const acc = rec.kind === 'card'
+        ? bankAccounts.find(function(b){ return b.name === rec.name; })
+        : installmentAccounts.find(function(a){ return a.name === rec.name; });
+      if(acc && acc.cloudId){
+        acc.cloudId = null;
+        delete acc.syncedUpdatedAt;
+        await (rec.kind === 'card' ? saveBankAccountsLocal() : saveInstallmentAccountsLocal());
+      }
     }
     // Rev #30 (6D.49/6D.58) — той самий принцип, що pushExpenseRecordPilot().
     if(!error && !(opts && opts.suppressPull)) await pullDebtsCore();
@@ -5314,9 +5356,24 @@ async function pushBankAccountsPilot(){
   const userId = cloudSession.user.id;
   let localChanged = false;
   let anyError = false;
+  // Rev #30 (6D.76) — рахунки, чий cloudId ЗМІНИВСЯ цим проходом
+  // (self-heal чи вперше створений) — докоментар нижче, після циклу,
+  // пояснює, навіщо.
+  const reconciledNames = [];
   for(const acc of bankAccounts){
-    // Rev #30 (6D.50) — той самий принцип, що pushCategoriesPilot() (BugFix, знайдено 6D.49).
-    if(acc.cloudId && acc.syncedUpdatedAt === acc.updatedAt) continue;
+    // Rev #30 (6D.50) — цей "already synced" шорткат ІСНУВАВ, щоб не
+    // слати зайвий UPDATE, коли справді нічого не змінилось. Rev #30
+    // (6D.76) — ВИДАЛЕНО: реальний інцидент користувача підтвердив, що
+    // цей шорткат НІКОЛИ не давав self-heal-логіці нижче (data.length===0
+    // → reconcile) навіть ШАНСУ спрацювати — якщо cloudId застарів
+    // (Cloud-рядок видалено/перестворено незалежно від цього пристрою), а
+    // acc.updatedAt локально не змінювався, акаунт вважав себе
+    // "синхронізованим" НАЗАВЖДИ, і жоден наступний "Синхронізувати все"
+    // ніколи навіть не звертався до Cloud, щоб це виявити. Кількість
+    // акаунтів мала (одиниці-десятки на сім'ю, не сотні, як expenses) —
+    // вартість зайвого UPDATE щоразу значно менша за ризик "тихо мертвого"
+    // посилання назавжди.
+    const prevCloudId = acc.cloudId;
     try{
       if(acc.cloudId){
         const { data, error } = await client.from('bank_accounts').update({ name: acc.name, credit_limit: acc.creditLimit, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
@@ -5328,6 +5385,7 @@ async function pushBankAccountsPilot(){
       }else{
         await reconcileBankAccountCloudId(client, userId, acc);
       }
+      if(acc.cloudId !== prevCloudId) reconciledNames.push(acc.name);
       acc.syncedUpdatedAt = acc.updatedAt;
       localChanged = true;
     }catch(e){
@@ -5336,6 +5394,23 @@ async function pushBankAccountsPilot(){
     }
   }
   if(localChanged) await saveBankAccountsLocal();
+  // Rev #30 (6D.76) — КРИТИЧНО: якщо cloudId ЗМІНИВСЯ (self-heal вище чи
+  // reconcile для щойно доданого акаунту), усі debts, прив'язані до цього
+  // імені, МУСЯТЬ перепушитись — інакше вони НАЗАВЖДИ лишаться
+  // "синхронізованими" (syncedUpdatedAt===updatedAt, бо сам debt ніхто не
+  // редагував) зі СТАРИМ (мертвим) bank_account_id, і жоден наступний
+  // "Синхронізувати все" ніколи не спробує їх перепушити знову — та сама
+  // "тихо мертве посилання назавжди" пастка, лише на рівень нижче.
+  // Підтверджено реальним інцидентом: без цього після відновлення
+  // акаунтів 55 з 56 боргів користувача лишились POINT to старий
+  // bank_account_id/installment_account_id в Cloud.
+  if(reconciledNames.length){
+    let debtsChanged = false;
+    debts.forEach(function(d){
+      if(d.kind === 'card' && reconciledNames.includes(d.name)){ delete d.syncedUpdatedAt; debtsChanged = true; }
+    });
+    if(debtsChanged) await saveDebts();
+  }
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
   if(!anyError) await pullBankAccountsCore();
   return { success: !anyError };
@@ -5445,9 +5520,12 @@ async function pushInstallmentAccountsPilot(){
   const userId = cloudSession.user.id;
   let localChanged = false;
   let anyError = false;
+  const reconciledNames = []; // Rev #30 (6D.76) — той самий принцип, що pushBankAccountsPilot()
   for(const acc of installmentAccounts){
-    // Rev #30 (6D.50) — той самий принцип, що pushCategoriesPilot() (BugFix, знайдено 6D.49).
-    if(acc.cloudId && acc.syncedUpdatedAt === acc.updatedAt) continue;
+    // Rev #30 (6D.76) — "already synced" шорткат ВИДАЛЕНО, той самий
+    // реальний інцидент і те саме обґрунтування, що pushBankAccountsPilot()
+    // вище (докоментар там).
+    const prevCloudId = acc.cloudId;
     try{
       if(acc.cloudId){
         const { data, error } = await client.from('installment_accounts').update({ name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
@@ -5459,6 +5537,7 @@ async function pushInstallmentAccountsPilot(){
       }else{
         await reconcileInstallmentAccountCloudId(client, userId, acc);
       }
+      if(acc.cloudId !== prevCloudId) reconciledNames.push(acc.name);
       acc.syncedUpdatedAt = acc.updatedAt;
       localChanged = true;
     }catch(e){
@@ -5467,6 +5546,21 @@ async function pushInstallmentAccountsPilot(){
     }
   }
   if(localChanged) await saveInstallmentAccountsLocal();
+  // Rev #30 (6D.76) — той самий принцип, що pushBankAccountsPilot(): і
+  // debts (kind:'installment'), і expenses з linkedInstallment на цю ОЧ
+  // МУСЯТЬ перепушитись, інакше лишаться "синхронізованими" зі старим
+  // installment_account_id/linked_installment_id назавжди.
+  if(reconciledNames.length){
+    let debtsChanged = false, expensesChanged = false;
+    debts.forEach(function(d){
+      if(d.kind === 'installment' && reconciledNames.includes(d.name)){ delete d.syncedUpdatedAt; debtsChanged = true; }
+    });
+    expenses.forEach(function(e){
+      if(e.linkedInstallment && reconciledNames.includes(e.linkedInstallment)){ delete e.syncedUpdatedAt; expensesChanged = true; }
+    });
+    if(debtsChanged) await saveDebts();
+    if(expensesChanged) await saveExpenses();
+  }
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
   if(!anyError) await pullInstallmentAccountsCore();
   return { success: !anyError };
@@ -5717,7 +5811,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.7';
+const APP_VERSION = '2.22.8';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7091,6 +7185,22 @@ async function syncAllPilotManual(){
     populateMonths();
     renderAll();
   }
+  // Rev #30 (6D.76) — КРИТИЧНИЙ фікс: "Синхронізувати все" НІКОЛИ не
+  // пушила bankAccounts/installmentAccounts (лише pull, steps вище) — той
+  // самий клас прогалини, що 6D.57 вже закрила для expenses/incomes/debts.
+  // Push цих 2 доменів раніше стався ЛИШЕ за прямого редагування через UI
+  // (saveBankAccounts()/saveInstallmentAccounts() кличуть pushXPilot()
+  // напряму) — кнопка "Синхронізувати все" не мала способу "розблокувати"
+  // застарілий/зламаний cloudId рахунку. Реальний інцидент користувача:
+  // після ручного видалення рядків bank_accounts/installment_accounts у
+  // Cloud (нарешті докопались до причини "вічної синхронізації" — 6D.76
+  // вище, self-heal при 23503) локальні рахунки й ДАЛІ вважали себе
+  // "синхронізованими" (syncedUpdatedAt===updatedAt) — БЕЗ push'а звідси
+  // єдиним способом форсувати реальне повторне узгодження лишалось би
+  // вручну відредагувати кожен рахунок. МУСИТЬ бути ПЕРЕД push боргів
+  // нижче (той самий FK-порядок, що й pull-послідовність вище).
+  await pushBankAccountsPilot();
+  await pushInstallmentAccountsPilot();
   // Rev #30 (6D.57) — "Синхронізувати все" тепер СПРАВДІ двосторонній
   // (термінове розслідування: bulk-відновлення з бекапу могло мовчки НЕ
   // допушити expenses/incomes/debts до Cloud, а до цього Rev не існувало

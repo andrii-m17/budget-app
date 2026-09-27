@@ -1664,6 +1664,129 @@ test('pushDebtRecordPilot: rec.deletedAt встановлено → payload не
   assert.equal(capturedPayload.deleted_at, '2026-03-01T00:00:00.000Z');
 });
 
+// Rev #30 (6D.76) — КРИТИЧНИЙ регресійний тест: реальний інцидент
+// користувача — "постійно крутиться синхронізація, періодично помилка"
+// після "Очистити всі дані" → "Відновити". Корінь: bankAccounts.cloudId
+// застарів (Cloud-рядок видалено/перестворено), але acc.syncedUpdatedAt
+// === acc.updatedAt (перенесено з бекапу) — pushBankAccountsPilot() НІКОЛИ
+// б не перевірив Cloud і не помітив би застарілості. debts.bank_account_id
+// FK (БЕЗ ON DELETE, підтверджено прямим SQL до budget-app-dev) відхиляє
+// push з кодом 23503 — БЕЗ фіксу це повторювалось би нескінченно, бо
+// ніщо не скидає застарілий cloudId.
+test('pushDebtRecordPilot: push провалюється з кодом 23503 (застарілий cloudId рахунку) → self-heal скидає cloudId+syncedUpdatedAt, НЕ петля назавжди', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  // Rev #30 (6D.76) — саме ЦЕЙ стан (cloudId присутній, syncedUpdatedAt===
+  // updatedAt) — той, що ОБДУРЮЄ pushBankAccountsPilot()'s shortcut
+  // (`if(acc.cloudId && acc.syncedUpdatedAt===acc.updatedAt) continue;`),
+  // хоча cloudId 'stale-deleted-id' насправді вказує в нікуди.
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'stale-deleted-id', updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  const saveSpy = spyOn(ctx, 'saveBankAccountsLocal');
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){
+    const err = new Error('insert or update on table "debts" violates foreign key constraint "debts_bank_account_id_fkey"');
+    err.code = '23503';
+    return Promise.resolve({ data: null, error: err });
+  } }; } });
+  const result = await ctx.pushDebtRecordPilot({ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-01', balance: 1000, updatedAt: '2026-05-01T00:00:00.000Z' });
+  assert.equal(result.success, false);
+  assert.equal(ctx.bankAccounts[0].cloudId, null, 'застарілий cloudId скинуто — наступний pushBankAccountsPilot() пройде self-heal-шляхом');
+  assert.equal(ctx.bankAccounts[0].syncedUpdatedAt, undefined, 'syncedUpdatedAt теж скинуто — інакше shortcut спрацював би знову');
+  assert.equal(saveSpy.count(), 1);
+});
+
+test('pushDebtRecordPilot: push провалюється БЕЗ коду 23503 (напр. мережа) → cloudId рахунку НЕ чіпається (не всяка помилка — застарілий FK)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1', updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){
+    return Promise.resolve({ data: null, error: new Error('якась інша помилка') });
+  } }; } });
+  const result = await ctx.pushDebtRecordPilot({ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-01', balance: 1000, updatedAt: '2026-05-01T00:00:00.000Z' });
+  assert.equal(result.success, false);
+  assert.equal(ctx.bankAccounts[0].cloudId, 'b1');
+  assert.equal(ctx.bankAccounts[0].syncedUpdatedAt, '2026-01-01T00:00:00.000Z');
+});
+
+test('pushExpenseRecordPilot: linked_installment_id push провалюється з кодом 23503 → self-heal скидає cloudId ОЧ (той самий принцип, що pushDebtRecordPilot)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'stale-deleted-id', updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){
+    const err = new Error('violates foreign key constraint "expenses_linked_installment_id_fkey"');
+    err.code = '23503';
+    return Promise.resolve({ data: null, error: err });
+  } }; } });
+  const result = await ctx.pushExpenseRecordPilot({ id: 'e1', name: 'Платіж', amount: 100, date: '2026-05-01', linkedInstallment: 'iPhone', updatedAt: '2026-05-01T00:00:00.000Z' });
+  assert.equal(result.success, false);
+  assert.equal(ctx.installmentAccounts[0].cloudId, null);
+  assert.equal(ctx.installmentAccounts[0].syncedUpdatedAt, undefined);
+});
+
+// Rev #30 (6D.76) — КРИТИЧНИЙ регресійний тест, друга половина реального
+// інциденту: навіть після self-heal у pushDebtRecordPilot() (тести вище),
+// pushBankAccountsPilot() САМ мав "already synced" шорткат
+// (`if(acc.cloudId && acc.syncedUpdatedAt===acc.updatedAt) continue;`),
+// що НІКОЛИ не давав self-heal-логіці нижче (data.length===0 → reconcile)
+// навіть ШАНСУ спрацювати для акаунта, чий Cloud-рядок зник незалежно від
+// цього пристрою (updatedAt локально не змінювався). Підтверджено живо
+// проти budget-app-dev: після видалення bank_accounts/installment_accounts
+// напряму в базі, повторні "Синхронізувати все" НІЧОГО не змінювали, доки
+// шорткат не прибрали.
+test('pushBankAccountsPilot: cloudId застарів (Cloud-рядок зник) → update повертає 0 рядків → self-heal перестворює акаунт (НЕ "already synced" назавжди)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  // acc.updatedAt НЕ змінювався відколи акаунт вважався синхронізованим —
+  // саме той стан, що раніше ОБДУРЮВАВ шорткат.
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'stale-deleted-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  let updateCalls = 0, insertCalls = 0;
+  // chainable() — thenable ланцюжок, що обслуговує І pullBankAccountsCore()'s
+  // `.select(...).eq(...)` (await НАПРЯМУ, без .maybeSingle()) І
+  // reconcileBankAccountCloudId()'s `.select(...).eq().eq().maybeSingle()` —
+  // pushBankAccountsPilot() наприкінці сам кличе pull (той самий
+  // "pull-after-push", 6D.49), тож мок мусить обслужити обидва шляхи.
+  const chainable = function(value){
+    return { eq(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
+  };
+  ctx.getSupabaseClient = () => ({ from(){ return {
+    update(){ updateCalls++; return { eq(){ return { select(){ return Promise.resolve({ data: [], error: null }); } }; } }; }, // 0 рядків — cloudId мертвий
+    insert(){ insertCalls++; return { select(){ return { single(){ return Promise.resolve({ data: { id: 'fresh-new-id' }, error: null }); } }; } }; },
+    select(){ return chainable({ data: null, error: null }); },
+  }; } });
+  await ctx.pushBankAccountsPilot();
+  assert.equal(updateCalls, 1, 'МАЄ спробувати update (не пропустити його шорткатом)');
+  assert.equal(insertCalls, 1, 'self-heal: 0 рядків від update → reconcile створює новий');
+  assert.equal(ctx.bankAccounts[0].cloudId, 'fresh-new-id');
+});
+
+test('pushInstallmentAccountsPilot: той самий self-heal, що pushBankAccountsPilot (cloudId застарів → перестворення)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'stale-deleted-id', initialAmount: 1000, updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  let updateCalls = 0, insertCalls = 0;
+  const chainable = function(value){
+    return { eq(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
+  };
+  ctx.getSupabaseClient = () => ({ from(){ return {
+    update(){ updateCalls++; return { eq(){ return { select(){ return Promise.resolve({ data: [], error: null }); } }; } }; },
+    insert(){ insertCalls++; return { select(){ return { single(){ return Promise.resolve({ data: { id: 'fresh-new-id' }, error: null }); } }; } }; },
+    select(){ return chainable({ data: null, error: null }); },
+  }; } });
+  await ctx.pushInstallmentAccountsPilot();
+  assert.equal(updateCalls, 1);
+  assert.equal(insertCalls, 1);
+  assert.equal(ctx.installmentAccounts[0].cloudId, 'fresh-new-id');
+});
+
 test('isSyncResultFailure: { success:false } → true', () => {
   const { ctx } = sandbox();
   assert.equal(ctx.isSyncResultFailure({ success: false }), true);
