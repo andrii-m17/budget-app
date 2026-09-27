@@ -2494,7 +2494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.92</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.21.93</div>
 </div>
   </div>
 </div>
@@ -3815,26 +3815,22 @@ async function restoreExpensesFromBackup(raw){
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
   if(isCloudSessionReady()) await pullExpensesCore();
-  let added = 0, updated = 0, kept = 0, pushFailed = 0, pushSucceeded = 0, firstError = null;
+  let added = 0, updated = 0, kept = 0;
+  const toPush = [];
   // Rev #30 (6D.57) — термінове розслідування "restore не пушиться" (реальні
   // 3-4 місяці даних користувача лишились виключно локальними): цикл нижче
   // РАНІШЕ запускав pushExpenseRecordPilot() як fire-and-forget для КОЖНОГО
-  // запису одразу — для бекапу на сотні записів це необмежений одночасний
-  // потік мережевих запитів. Тепер послідовно, один за одним, з await —
-  // повільніше на великих бекапах, але надійно: жоден запис не "губиться"
-  // мовчки в потоці, і результат КОЖНОГО реально перевіряється (pushFailed).
-  // Rev #30 (6D.58) — { suppressPull: true }: подальше розслідування
-  // "846 записів, лише 26 успішних" виявило амплфікацію — pull-after-push
-  // (6D.49) усередині pushExpenseRecordPilot() раніше викликався ПІСЛЯ
-  // КОЖНОГО запису, подвоюючи кількість мережевих запитів на сотнях
-  // записів. Тут — один pullExpensesCore() ПІСЛЯ всього циклу (нижче).
+  // запису одразу. Rev #30 (6D.60) — тепер збираємо змінені/нові записи й
+  // пушимо їх ОДНИМ пакетним викликом (pushExpensesBatched(), чанки по 50)
+  // ПІСЛЯ всього циклу мерджу — на порядок швидше за 846 послідовних
+  // запитів, з автоматичним відкатом на перевірений по-одному шлях для
+  // будь-якого пакету, що провалиться (див. докоментар над pushExpensesBatch()).
   for(const rec of backupList){
     const local = expenses.find(function(e){ return e.id === rec.id; });
     if(!local){
       expenses.push(rec);
       added++;
-      const r = await pushExpenseRecordPilot(rec, { suppressPull: true });
-      if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
+      toPush.push(rec);
       continue;
     }
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
@@ -3853,28 +3849,28 @@ async function restoreExpensesFromBackup(raw){
     local.createdAt = rec.createdAt;
     local.updatedAt = rec.updatedAt;
     updated++;
-    const r = await pushExpenseRecordPilot(local, { suppressPull: true });
-    if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
+    toPush.push(local);
   }
   const saveResult = await saveExpenses();
-  // Rev #30 (6D.58) — один pull ПІСЛЯ всього циклу (не на кожен запис) — підхоплює будь-що від інших пристроїв за час операції.
-  if(pushSucceeded) await pullExpensesCore();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed, firstError: firstError });
+  const pushResult = await pushExpensesBatched(toPush);
+  // Rev #30 (6D.58) — один pull ПІСЛЯ всього батчу (не на кожен запис) — підхоплює будь-що від інших пристроїв за час операції.
+  if(pushResult.pushed) await pullExpensesCore();
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushResult.failed, firstError: pushResult.firstError });
 }
 async function restoreIncomesFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
   if(isCloudSessionReady()) await pullIncomesCore();
-  let added = 0, updated = 0, kept = 0, pushFailed = 0, pushSucceeded = 0, firstError = null;
-  // Rev #30 (6D.57/6D.58) — послідовний await + suppressPull, той самий принцип, що restoreExpensesFromBackup().
+  let added = 0, updated = 0, kept = 0;
+  const toPush = [];
+  // Rev #30 (6D.57/6D.60) — той самий принцип, що restoreExpensesFromBackup(): пакетний push після мерджу.
   for(const rec of backupList){
     const local = incomes.find(function(i){ return i.id === rec.id; });
     if(!local){
       incomes.push(rec);
       added++;
-      const r = await pushIncomeRecordPilot(rec, { suppressPull: true });
-      if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
+      toPush.push(rec);
       continue;
     }
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
@@ -3888,30 +3884,30 @@ async function restoreIncomesFromBackup(raw){
     local.createdAt = rec.createdAt;
     local.updatedAt = rec.updatedAt;
     updated++;
-    const r = await pushIncomeRecordPilot(local, { suppressPull: true });
-    if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
+    toPush.push(local);
   }
   const saveResult = await saveIncomes();
-  if(pushSucceeded) await pullIncomesCore();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed, firstError: firstError });
+  const pushResult = await pushIncomesBatched(toPush);
+  if(pushResult.pushed) await pullIncomesCore();
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushResult.failed, firstError: pushResult.firstError });
 }
 async function restoreDebtsFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
   if(isCloudSessionReady()) await pullDebtsCore();
-  let added = 0, updated = 0, kept = 0, pushFailed = 0, pushSucceeded = 0, firstError = null;
-  // Rev #30 (6D.57/6D.58) — послідовний await + suppressPull, той самий
-  // принцип, що restoreExpensesFromBackup() — тут особливо критично:
-  // pushDebtRecordPilot() залежить від bankAccounts/installmentAccounts[].cloudId,
-  // щойно (тепер теж await-ованого) встановленого вище в applyBackupData().
+  let added = 0, updated = 0, kept = 0;
+  const toPush = [];
+  // Rev #30 (6D.57/6D.60) — той самий принцип, що restoreExpensesFromBackup()
+  // — тут особливо критично: pushDebtsBatch() залежить від
+  // bankAccounts/installmentAccounts[].cloudId, щойно (await-ованого, 6D.57)
+  // встановленого вище в applyBackupData().
   for(const rec of backupList){
     const local = debts.find(function(d){ return d.id === rec.id; });
     if(!local){
       debts.push(rec);
       added++;
-      const r = await pushDebtRecordPilot(rec, { suppressPull: true });
-      if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
+      toPush.push(rec);
       continue;
     }
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
@@ -3929,12 +3925,12 @@ async function restoreDebtsFromBackup(raw){
     local.createdAt = rec.createdAt;
     local.updatedAt = rec.updatedAt;
     updated++;
-    const r = await pushDebtRecordPilot(local, { suppressPull: true });
-    if(r.success) pushSucceeded++; else { pushFailed++; if(!firstError) firstError = r.error; }
+    toPush.push(local);
   }
   const saveResult = await saveDebts();
-  if(pushSucceeded) await pullDebtsCore();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushFailed, firstError: firstError });
+  const pushResult = await pushDebtsBatched(toPush);
+  if(pushResult.pushed) await pullDebtsCore();
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushResult.failed, firstError: pushResult.firstError });
 }
 const UA_MONTHS = ['січень','лютий','березень','квітень','травень','червень','липень','серпень','вересень','жовтень','листопад','грудень'];
 
@@ -4570,6 +4566,76 @@ async function pushExpenseRecordPilot(rec, opts){
     return { success: false, error: e && e.message ? e.message : String(e) };
   }
 }
+// Rev #30 (6D.60) — пакетний push, лише для bulk-шляхів (restoreExpensesFromBackup()/
+// syncAllPilotManual() нижче) — НЕ торкається pushExpenseRecordPilot() вище,
+// який лишається як є для одиничних інтерактивних дій (addExpense()/
+// saveRecordEdit()/…). Крок 0 емпірично підтвердив (прямий SQL-тест на
+// budget-app-dev, не з документації): multi-row upsert АТОМАРНИЙ — один
+// некоректний запис відкочує ВЕСЬ пакет, включно з валідними (3 записи, 1
+// некоректний → 0 застосовано, не 2 з 3). Тому: пробуємо пакет одним
+// запитом (швидкий шлях для типового "усі валідні" випадку); якщо
+// провалився — З БУДЬ-ЯКОЇ причини — відкат на вже перевірений по-одному
+// pushExpenseRecordPilot(), ЛИШЕ для цього одного пакету. Не покладається
+// на здогад "чому саме" стався збій — просто безпечно деградує до
+// надійного шляху. Оскільки провалений пакет гарантовано НІЧОГО не
+// застосував (атомарність, підтверджено емпірично), повторне надсилання
+// ВСЬОГО пакету по одному не створює дублів — upsert(onConflict:'id') і
+// так ідемпотентний.
+async function pushExpensesBatch(records){
+  if(!isCloudSessionReady() || !records.length) return { pushed: 0, failed: 0 };
+  const userId = cloudSession.user.id;
+  const resolvable = [];
+  for(const rec of records){
+    let linkedInstallmentId = null;
+    if(rec.linkedInstallment){
+      const acc = installmentAccounts.find(function(a){ return a.name === rec.linkedInstallment; });
+      if(!acc || !acc.cloudId) continue; // той самий тихий пропуск, що pushExpenseRecordPilot()
+      linkedInstallmentId = acc.cloudId;
+    }
+    resolvable.push({
+      rec: rec,
+      payload: {
+        id: rec.id, family_id: cloudFamilyId, amount: rec.amount, expense_date: rec.date,
+        category: rec.category || null, subcategory: rec.subcategory || null, note: rec.name || null,
+        linked_installment_id: linkedInstallmentId, deleted_at: rec.deletedAt || null,
+        created_at: rec.createdAt, updated_at: rec.updatedAt, created_by: userId, updated_by: userId,
+      },
+    });
+  }
+  if(!resolvable.length) return { pushed: 0, failed: 0 };
+  try{
+    const client = getSupabaseClient();
+    const { error } = await client.from('expenses').upsert(resolvable.map(function(r){ return r.payload; }), { onConflict: 'id' });
+    if(!error){
+      resolvable.forEach(function(r){ r.rec.syncedUpdatedAt = r.rec.updatedAt; });
+      await saveExpenses();
+      return { pushed: resolvable.length, failed: 0 };
+    }
+  }catch(e){ /* провал пакету (мережа чи Cloud-помилка) — падаємо у fallback нижче */ }
+  // Пакет провалився — відкат на по-одному, ЛИШЕ для цього пакету.
+  let pushed = 0, failed = 0, firstError = null;
+  for(const r of resolvable){
+    const result = await pushExpenseRecordPilot(r.rec, { suppressPull: true });
+    if(result.success) pushed++; else { failed++; if(!firstError) firstError = result.error; }
+  }
+  return { pushed: pushed, failed: failed, firstError: firstError };
+}
+// Rev #30 (6D.60) — chunking-обгортка: консервативний розмір пакету (50,
+// не "200" — свідомий вибір користувача: почати менше, оцінити стабільність,
+// збільшити пізніше за потреби). Чанки обробляються послідовно (await), не
+// паралельно — той самий принцип обережності, що вже 6D.58.
+async function pushExpensesBatched(records, chunkSize){
+  chunkSize = chunkSize || 50;
+  let pushed = 0, failed = 0, firstError = null;
+  for(let i = 0; i < records.length; i += chunkSize){
+    const chunk = records.slice(i, i + chunkSize);
+    const result = await pushExpensesBatch(chunk);
+    pushed += result.pushed;
+    failed += result.failed;
+    if(!firstError && result.firstError) firstError = result.firstError;
+  }
+  return { pushed: pushed, failed: failed, firstError: firstError };
+}
 async function pushIncomeRecordPilot(rec, opts){
   if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
@@ -4600,6 +4666,43 @@ async function pushIncomeRecordPilot(rec, opts){
     // мережа/CORS/офлайн — тихий пропуск.
     return { success: false, error: e && e.message ? e.message : String(e) };
   }
+}
+// Rev #30 (6D.60) — той самий принцип, що pushExpensesBatch() вище.
+async function pushIncomesBatch(records){
+  if(!isCloudSessionReady() || !records.length) return { pushed: 0, failed: 0 };
+  const userId = cloudSession.user.id;
+  const payloads = records.map(function(rec){
+    return {
+      id: rec.id, family_id: cloudFamilyId, amount: rec.amount, income_date: rec.date, note: rec.source || null,
+      deleted_at: rec.deletedAt || null, created_at: rec.createdAt, updated_at: rec.updatedAt,
+      created_by: userId, updated_by: userId,
+    };
+  });
+  try{
+    const client = getSupabaseClient();
+    const { error } = await client.from('incomes').upsert(payloads, { onConflict: 'id' });
+    if(!error){
+      records.forEach(function(rec){ rec.syncedUpdatedAt = rec.updatedAt; });
+      await saveIncomes();
+      return { pushed: records.length, failed: 0 };
+    }
+  }catch(e){ /* fallback нижче */ }
+  let pushed = 0, failed = 0, firstError = null;
+  for(const rec of records){
+    const result = await pushIncomeRecordPilot(rec, { suppressPull: true });
+    if(result.success) pushed++; else { failed++; if(!firstError) firstError = result.error; }
+  }
+  return { pushed: pushed, failed: failed, firstError: firstError };
+}
+async function pushIncomesBatched(records, chunkSize){
+  chunkSize = chunkSize || 50;
+  let pushed = 0, failed = 0, firstError = null;
+  for(let i = 0; i < records.length; i += chunkSize){
+    const result = await pushIncomesBatch(records.slice(i, i + chunkSize));
+    pushed += result.pushed; failed += result.failed;
+    if(!firstError && result.firstError) firstError = result.firstError;
+  }
+  return { pushed: pushed, failed: failed, firstError: firstError };
 }
 async function pushDebtRecordPilot(rec, opts){
   if(!isCloudSessionReady()) return { success: true };
@@ -4647,6 +4750,62 @@ async function pushDebtRecordPilot(rec, opts){
     // мережа/CORS/офлайн — тихий пропуск.
     return { success: false, error: e && e.message ? e.message : String(e) };
   }
+}
+// Rev #30 (6D.60) — той самий принцип, що pushExpensesBatch() вище.
+async function pushDebtsBatch(records){
+  if(!isCloudSessionReady() || !records.length) return { pushed: 0, failed: 0 };
+  const userId = cloudSession.user.id;
+  const resolvable = [];
+  for(const rec of records){
+    let bankAccountId = null, installmentAccountId = null;
+    if(rec.kind === 'card'){
+      const acc = bankAccounts.find(function(b){ return b.name === rec.name; });
+      if(!acc || !acc.cloudId) continue;
+      bankAccountId = acc.cloudId;
+    }else{
+      const acc = installmentAccounts.find(function(a){ return a.name === rec.name; });
+      if(!acc || !acc.cloudId) continue;
+      installmentAccountId = acc.cloudId;
+    }
+    resolvable.push({
+      rec: rec,
+      payload: {
+        id: rec.id, family_id: cloudFamilyId, bank_account_id: bankAccountId, installment_account_id: installmentAccountId,
+        name: rec.name, kind: rec.kind, month: rec.month + '-01', balance: rec.balance,
+        min_payment: rec.minPayment != null ? rec.minPayment : null,
+        min_payment_done: rec.minPaymentDone != null ? rec.minPaymentDone : null,
+        monthly_payment: rec.monthlyPayment != null ? rec.monthlyPayment : null,
+        deleted_at: rec.deletedAt || null, created_at: rec.createdAt, updated_at: rec.updatedAt,
+        created_by: userId, updated_by: userId,
+      },
+    });
+  }
+  if(!resolvable.length) return { pushed: 0, failed: 0 };
+  try{
+    const client = getSupabaseClient();
+    const { error } = await client.from('debts').upsert(resolvable.map(function(r){ return r.payload; }), { onConflict: 'id' });
+    if(!error){
+      resolvable.forEach(function(r){ r.rec.syncedUpdatedAt = r.rec.updatedAt; });
+      await saveDebts();
+      return { pushed: resolvable.length, failed: 0 };
+    }
+  }catch(e){ /* fallback нижче */ }
+  let pushed = 0, failed = 0, firstError = null;
+  for(const r of resolvable){
+    const result = await pushDebtRecordPilot(r.rec, { suppressPull: true });
+    if(result.success) pushed++; else { failed++; if(!firstError) firstError = result.error; }
+  }
+  return { pushed: pushed, failed: failed, firstError: firstError };
+}
+async function pushDebtsBatched(records, chunkSize){
+  chunkSize = chunkSize || 50;
+  let pushed = 0, failed = 0, firstError = null;
+  for(let i = 0; i < records.length; i += chunkSize){
+    const result = await pushDebtsBatch(records.slice(i, i + chunkSize));
+    pushed += result.pushed; failed += result.failed;
+    if(!firstError && result.firstError) firstError = result.firstError;
+  }
+  return { pushed: pushed, failed: failed, firstError: firstError };
 }
 /* ============ Rev #30 (6D.37) — Sync Engine pull, expenses/incomes/debts ============
    Категорія A: серце фінансових даних, водночас архітектурно найпростіша
@@ -5338,7 +5497,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.92';
+const APP_VERSION = '2.21.93';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6584,29 +6743,26 @@ async function syncAllPilotManual(){
   // кожного домену (не після кожного запису): термінове розслідування
   // "846 записів, 26 успішних" виявило, що pull-after-push (6D.49)
   // усередині кожного pushXRecordPilot() подвоював кількість мережевих
-  // запитів на весь цикл — ймовірний тригер rate-limit/timeout на
-  // реальному мобільному з'єднанні. per-домен лічильники й перше реальне
-  // повідомлення помилки (не просто "щось не вдалося") — точно те, чого
-  // бракувало для діагностики цього збою без здогадок.
+  // запитів на весь цикл. Rev #30 (6D.60) — і сам push тепер пакетний
+  // (pushXBatched(), чанки по 50 — див. докоментар над pushExpensesBatch()),
+  // не послідовний по одному: на порядок швидше для типового "усі валідні"
+  // випадку, з автоматичним відкатом на по-одному для будь-якого пакету,
+  // що провалиться (жоден запис не губиться мовчки).
   let pushed = 0, pushFailed = 0;
   const pushDomains = [
-    { label: 'витрат', list: expenses, fn: pushExpenseRecordPilot, pull: pullExpensesCore },
-    { label: 'доходів', list: incomes, fn: pushIncomeRecordPilot, pull: pullIncomesCore },
-    { label: 'боргів', list: debts, fn: pushDebtRecordPilot, pull: pullDebtsCore },
+    { label: 'витрат', list: expenses, batchFn: pushExpensesBatched, pull: pullExpensesCore },
+    { label: 'доходів', list: incomes, batchFn: pushIncomesBatched, pull: pullIncomesCore },
+    { label: 'боргів', list: debts, batchFn: pushDebtsBatched, pull: pullDebtsCore },
   ];
   const pushByDomain = [];
   for(const domain of pushDomains){
-    let domainPushed = 0, domainFailed = 0, domainError = null;
-    for(const rec of domain.list){
-      if(rec.syncedUpdatedAt === rec.updatedAt) continue;
-      const result = await domain.fn(rec, { suppressPull: true });
-      if(result && result.success) domainPushed++;
-      else { domainFailed++; if(!domainError && result && result.error) domainError = result.error; }
-    }
-    if(domainPushed) await domain.pull();
-    pushed += domainPushed;
-    pushFailed += domainFailed;
-    if(domainPushed || domainFailed) pushByDomain.push({ label: domain.label, pushed: domainPushed, failed: domainFailed, error: domainError });
+    const unsynced = domain.list.filter(function(rec){ return rec.syncedUpdatedAt !== rec.updatedAt; });
+    if(!unsynced.length) continue;
+    const result = await domain.batchFn(unsynced);
+    if(result.pushed) await domain.pull();
+    pushed += result.pushed;
+    pushFailed += result.failed;
+    if(result.pushed || result.failed) pushByDomain.push({ label: domain.label, pushed: result.pushed, failed: result.failed, error: result.firstError });
   }
   const parts = [];
   if(added) parts.push(added + ' нових');

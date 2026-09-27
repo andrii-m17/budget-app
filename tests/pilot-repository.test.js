@@ -183,6 +183,9 @@ const REPOSITORY_NAMES = [
   // функції ще не мали власного extract-покриття (лише array-домени вище);
   // isSyncResultFailure — чистий, DOM-незалежний хелпер з withSyncIndicator().
   'pushExpenseRecordPilot', 'pushIncomeRecordPilot', 'pushDebtRecordPilot', 'isSyncResultFailure',
+  // Rev #30 (6D.60) — пакетний push (лише bulk-шляхи restore/syncAllPilotManual),
+  // з відкатом на pushXRecordPilot() вище за провалу пакету.
+  'pushExpensesBatch', 'pushExpensesBatched', 'pushIncomesBatch', 'pushIncomesBatched', 'pushDebtsBatch', 'pushDebtsBatched',
   'hideKey', 'divergenceKey',
   'ensureInstallmentFirstMonth',
   'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
@@ -3706,17 +3709,25 @@ test('restoreBankAccountsFromBackup: await push completes ДО повернен�
   assert.ok(ctx.bankAccounts[0].cloudId, 'cloudId має бути встановлений одразу після restoreBankAccountsFromBackup()');
 });
 
-test('restoreExpensesFromBackup: послідовний await-push — і успіх, і збій рахуються чесно (pushFailed), не мовчки', async () => {
+// Rev #30 (6D.60) — оновлено під пакетний push: пакетний upsert (масив)
+// СПОЧАТКУ провалюється цілком (емпірично підтверджена атомарність —
+// див. докоментар над pushExpensesBatch()), що тригерить відкат на
+// перевірений по-одному шлях — саме там і виявляється, який запис
+// реально поганий, а який ні.
+test('restoreExpensesFromBackup: пакет провалюється → відкат на по-одному, успіх/збій рахуються чесно (pushFailed), не мовчки', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.expenses = [];
-  let call = 0;
-  ctx.getSupabaseClient = () => ({ from(){ return { upsert(){
-    call++;
-    // Перший запис — успіх, другий — симульована Cloud-помилка.
-    return Promise.resolve(call === 1 ? { data: [{}], error: null } : { data: null, error: new Error('симульована помилка') });
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(payload){
+    if(Array.isArray(payload)){
+      // Пакетний виклик — симулюємо провал ВСЬОГО пакету (атомарність).
+      return Promise.resolve({ data: null, error: new Error('симульований провал пакету') });
+    }
+    // Fallback по-одному: другий запис (за id) — "поганий".
+    const isBad = payload.id === 'e2';
+    return Promise.resolve(isBad ? { data: null, error: new Error('симульована помилка') } : { data: [{}], error: null });
   } }; } });
   const nowISO = '2026-05-01T00:00:00.000Z';
   const backup = [
@@ -3729,6 +3740,51 @@ test('restoreExpensesFromBackup: послідовний await-push — і усп
   assert.equal(result.firstError, 'симульована помилка');
   assert.equal(ctx.expenses.find(e => e.id === 'e1').syncedUpdatedAt, nowISO);
   assert.equal(ctx.expenses.find(e => e.id === 'e2').syncedUpdatedAt, undefined);
+});
+
+test('pushExpensesBatch: пакет успішний → ОДИН upsert-виклик з масивом, усі записи позначені синхронізованими', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  let upsertCallCount = 0, lastPayload = null;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(payload){
+    upsertCallCount++;
+    lastPayload = payload;
+    return Promise.resolve({ data: payload, error: null });
+  } }; } });
+  const nowISO = '2026-05-01T00:00:00.000Z';
+  const records = [
+    { id: 'e1', date: '2026-05-01', amount: 100, createdAt: nowISO, updatedAt: nowISO },
+    { id: 'e2', date: '2026-05-01', amount: 200, createdAt: nowISO, updatedAt: nowISO },
+    { id: 'e3', date: '2026-05-01', amount: 300, createdAt: nowISO, updatedAt: nowISO },
+  ];
+  const result = await ctx.pushExpensesBatch(records);
+  assert.equal(upsertCallCount, 1);
+  assert.equal(lastPayload.length, 3);
+  assert.equal(result.pushed, 3);
+  assert.equal(result.failed, 0);
+  records.forEach(r => assert.equal(r.syncedUpdatedAt, nowISO));
+});
+
+test('pushExpensesBatched: розбиває на чанки за chunkSize (2 записи, chunkSize=1 → 2 окремі пакетні виклики)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  let batchCallCount = 0;
+  ctx.getSupabaseClient = () => ({ from(){ return { upsert(payload){
+    batchCallCount++;
+    return Promise.resolve({ data: payload, error: null });
+  } }; } });
+  const nowISO = '2026-05-01T00:00:00.000Z';
+  const records = [
+    { id: 'e1', date: '2026-05-01', amount: 100, createdAt: nowISO, updatedAt: nowISO },
+    { id: 'e2', date: '2026-05-01', amount: 200, createdAt: nowISO, updatedAt: nowISO },
+  ];
+  const result = await ctx.pushExpensesBatched(records, 1);
+  assert.equal(batchCallCount, 2);
+  assert.equal(result.pushed, 2);
 });
 
 // Rev #30 (6D.58) — термінове розслідування "846 записів, лише 26
