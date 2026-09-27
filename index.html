@@ -601,6 +601,14 @@
      .profile-status-dot переюзаний як є (той самий принцип syncing/done/
      error/online/offline, жодної нової крапки-класу). */
   .sync-domains-panel{ margin-top:14px; padding:8px 12px; background:var(--color-surface-hover); border-radius:var(--radius-sm); }
+  /* Rev #30 (6D.73) — BugFix: цей проєкт НЕ має універсального
+     .hidden{display:none} (кожен компонент — своє правило, напр.
+     .import-status.hidden/.badge.hidden вище) — без цього власного
+     правила клас "hidden" на .sync-domains-panel нічого не робив (батько
+     .sync-card ховав усе однаково РАНІШЕ, тому це було непомітно; тепер,
+     коли панель ховається НЕЗАЛЕЖНО від видимої картки, порожній div з
+     padding усе одно займав місце). */
+  .sync-domains-panel.hidden{ display:none; }
   .sync-domain-row{ display:flex; align-items:center; gap:8px; padding:3px 0; font-size:12px; color:var(--color-text-secondary); }
   .sync-domain-label{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sync-domain-state{ font-size:11px; color:var(--color-text-tertiary); flex-shrink:0; }
@@ -2579,7 +2587,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.4</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.5</div>
 </div>
   </div>
 </div>
@@ -5661,7 +5669,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.4';
+const APP_VERSION = '2.22.5';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6968,9 +6976,24 @@ function installSyncIndicatorHooks(){
 // (skippedFk) до наступного разу. Кожен виклик — той самий *Core(), що
 // вже викликають *Pilot()-обгортки — жоден статус-текст не пишеться
 // проміжно, лише один сумарний рядок наприкінці.
+// Rev #30 (6D.73) — за проханням користувача: панель домен-за-доменом
+// (6D.67/6D.72) раніше "жила" завжди (циклічно крутилась і в звичайному
+// стані) — тепер видима ЛИШЕ під час/одразу після РУЧНОГО натискання
+// "Синхронізувати зараз" (не автоматичних sign-in/Realtime-синків, які
+// теж крутять syncVisualState/dotClass картки, але НЕ мають показувати
+// цю панель). manualSyncPanelVisible — окремий прапорець саме для цього,
+// НЕ переплутаний з глобальним syncVisualState.
+let manualSyncPanelVisible = false;
+const SYNC_PANEL_HIDE_DELAY_MS = 1200;
+function scheduleSyncPanelHide(){
+  setTimeout(function(){ manualSyncPanelVisible = false; renderSyncDomainsPanel(); }, SYNC_PANEL_HIDE_DELAY_MS);
+}
 async function syncAllPilotManual(){
   const statusEl = document.getElementById('sync-all-status');
   statusEl.classList.remove('hidden');
+  manualSyncPanelVisible = true;
+  renderSyncDomainsPanel();
+  try{
   if(!cloudSession || !cloudSession.user){
     statusEl.textContent = 'Спершу увійдіть у Cloud.';
     return;
@@ -7058,6 +7081,9 @@ async function syncAllPilotManual(){
     parts.push(pushFailed + ' НЕ вдалося відправити: ' + failDetails);
   }
   statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
+  }finally{
+    scheduleSyncPanelHide();
+  }
 }
 function renderProfileUI(){
   const session = cloudSession;
@@ -7192,12 +7218,14 @@ function renderProfileUI(){
 }
 // Rev #30 (6D.72) — за проханням користувача: 9 рядків одразу займали
 // забагато місця в компактній .sync-card (6D.71). Замінено на ОДИН
-// рядок, що циклічно перемикається між доменами кожні 2с
-// (SYNC_DOMAIN_CYCLE_MS) — той самий набір реальних даних
-// (syncDomainStatus), просто показаний по черзі, а не всі 9 одночасно.
+// рядок, що циклічно перемикається між доменами (SYNC_DOMAIN_CYCLE_MS) —
+// той самий набір реальних даних (syncDomainStatus), просто показаний по
+// черзі, а не всі 9 одночасно.
+// Rev #30 (6D.73) — тривалість паузи між доменами скорочено з 2с до
+// 1.2с (діапазон "1-1.2с", узгоджений з користувачем).
 let syncDomainCycleIndex = 0;
 let syncDomainCycleTimer = null;
-const SYNC_DOMAIN_CYCLE_MS = 2000;
+const SYNC_DOMAIN_CYCLE_MS = 1200;
 function ensureSyncDomainCycleTimer(){
   if(syncDomainCycleTimer) return; // вже запущено — не плодимо другий setInterval
   syncDomainCycleTimer = setInterval(function(){
@@ -7212,12 +7240,20 @@ function stopSyncDomainCycleTimer(){
 // (той самий toggle-принцип видимості, що sync-all-btn — лише
 // залогіненому). Викликається з renderProfileUI() (сесія/онлайн-офлайн
 // зміни) і з withSyncIndicator() (кожна зміна syncDomainStatus[domain]).
+// Rev #30 (6D.73) — за проханням користувача: панель видима ЛИШЕ під
+// час/одразу після РУЧНОГО "Синхронізувати зараз" (manualSyncPanelVisible,
+// докоментар над syncAllPilotManual() пояснює), НЕ в звичайному
+// (idle/auto-sync-on-login/Realtime) стані.
 function renderSyncDomainsPanel(){
   const panel = document.getElementById('sync-domains-panel');
   if(!panel) return;
   const signedIn = !!(cloudSession && cloudSession.user);
-  panel.classList.toggle('hidden', !signedIn);
-  if(!signedIn){ stopSyncDomainCycleTimer(); return; }
+  if(!signedIn || !manualSyncPanelVisible){
+    panel.classList.add('hidden');
+    stopSyncDomainCycleTimer();
+    return;
+  }
+  panel.classList.remove('hidden');
   if(!navigator.onLine){
     panel.innerHTML = '<div class="sync-domain-row"><span class="profile-status-dot offline"></span><span class="sync-domain-label">Немає інтернету — синхронізація призупинена</span></div>';
     return; // таймер лишаємо йти — при поверненні онлайн одразу продовжить з того самого місця
