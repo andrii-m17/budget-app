@@ -2310,8 +2310,11 @@
          цикл 1.2с/домен не встигав показати навіть половину з 9 доменів за
          типовий час синхронізації, тому панель просто мигтіла шматками
          замість давати корисну інформацію. -->
+    <!-- Rev #30 (6D.78) — за проханням користувача: іконка кнопки замінена
+         на ТУ САМУ іконку, що вже використовується для вкладки "Сервіс"
+         (side-tab data-tab="service" вище) — той самий SVG, не новий. -->
     <button type="button" class="submit-btn pill sync-card-btn" id="sync-all-btn" onclick="syncAllPilotManual()">
-      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
       Синхронізувати зараз
     </button>
   </div>
@@ -2572,7 +2575,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.9</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.10</div>
 </div>
   </div>
 </div>
@@ -5796,7 +5799,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.9';
+const APP_VERSION = '2.22.10';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
