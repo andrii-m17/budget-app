@@ -2575,7 +2575,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.11</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.12</div>
 </div>
   </div>
 </div>
@@ -5799,7 +5799,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.11';
+const APP_VERSION = '2.22.12';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6882,12 +6882,24 @@ async function loadFamilyUsersDirectory(client){
 // довільним "перший/другий член родини". Невідоме ім'я чи 3-й+ учасник —
 // null (жоден маркер, не помилка) — та сама "тихий пропуск" філософія, що
 // решта Cloud UI цього застосунку.
-function authorInfoFor(userId){
+// Rev #30 (6D.80) — необов'язковий 2-й параметр fallbackName: familyUsersById
+// заповнюється лише ПІСЛЯ мережевого loadFamilyUsersDirectory() (applyCloudSession),
+// тому виклик тут ДО завершення цього запиту завжди повертав null → інлайн-
+// колір знімався → аватар на мить показував дефолтний зелений --color-primary,
+// а через частку секунди — правильний колір автора (BugFix, за проханням
+// користувача). Для САМОГО СЕБЕ (renderProfileUI нижче) ім'я/email відомі
+// СИНХРОННО одразу з сесії (session.user.email), без жодного мережевого
+// запиту — тому колір можна порахувати ще ДО того, як довідник завантажиться,
+// і показати ПРАВИЛЬНИЙ колір із першого ж рендеру, без "стрибка". Для карток
+// Журналу (createdBy іншого автора, 10714 нижче) fallbackName не передається —
+// там і раніше не було проблеми (рендер журналу відбувається вже після
+// завантаження довідника).
+function authorInfoFor(userId, fallbackName){
   const user = userId ? familyUsersById[userId] : null;
-  if(!user) return null;
-  const nameLower = user.name.toLowerCase();
-  if(nameLower.startsWith('andrii') || nameLower.startsWith('андрі')) return { name: user.name, colorVar: '--color-info', bgVar: '--color-info-bg' };
-  if(nameLower.startsWith('olga') || nameLower.startsWith('ольг') || nameLower.startsWith('оля')) return { name: user.name, colorVar: '--color-accent-pink', bgVar: '--color-accent-pink-bg' };
+  const nameLower = (user ? user.name : (fallbackName || '')).toLowerCase();
+  if(!nameLower) return null;
+  if(nameLower.startsWith('andrii') || nameLower.startsWith('андрі')) return { name: user ? user.name : fallbackName, colorVar: '--color-info', bgVar: '--color-info-bg' };
+  if(nameLower.startsWith('olga') || nameLower.startsWith('ольг') || nameLower.startsWith('оля')) return { name: user ? user.name : fallbackName, colorVar: '--color-accent-pink', bgVar: '--color-accent-pink-bg' };
   return null;
 }
 // Rev #30 (6D.8) — єдина точка рендеру профіль-UI: аватар (header mobile/
@@ -7224,9 +7236,11 @@ function renderProfileUI(){
   // (authorInfoFor(), той самий довідник/токени, що border-left карток
   // Журналу — 6D.65/6D.66): Andrii=--color-info (синій), Olga=
   // --color-accent-pink (рожевий), а не завжди --color-primary (зелений).
-  // Невідомий/ще не завантажений familyUsersById → info:null → inline
-  // style знімається, повертається дефолтний --color-primary з CSS.
-  const myAuthorInfo = signedIn ? authorInfoFor(session.user.id) : null;
+  // Rev #30 (6D.80) BugFix — session.user.email переданий 2-м параметром
+  // (fallbackName, докоментар над authorInfoFor() пояснює): без нього колір
+  // на мить показував дефолтний --color-primary (зелений), доки не
+  // завантажиться familyUsersById.
+  const myAuthorInfo = signedIn ? authorInfoFor(session.user.id, session.user.email) : null;
   document.querySelectorAll('.avatar-badge[id^="profile-avatar-"]').forEach(function(el){
     const face = el.querySelector('.avatar-face');
     if(!face) return;
