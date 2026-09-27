@@ -1098,6 +1098,22 @@ test('pullInstallmentAccountsCore: LWW — локальний СТРОГО но�
   assert.equal(pushSpy.count(), 1); // Частина 1: push-retry тригериться одразу
 });
 
+// Rev #30 (6D.63) — той самий bugfix і клас багу, що pullDebtsCore()
+// (monthlyPayment/minPayment): dueDay для ОЧ, створеної локально ДО того, як
+// користувач хоч раз відредагував "число платежу" (addInstallmentAccount() і
+// подібні шляхи створення), НІКОЛИ не ініціалізується — local.dueDay
+// ВІДСУТНЄ (undefined), тоді як Cloud завжди повертає явний null для цієї
+// nullable-колонки. undefined!==null було TRUE назавжди → те саме
+// нескінченне "1 оновлено" при кожному повторному pull.
+test('pullInstallmentAccountsCore: повторний pull БЕЗ реальних змін (undefined vs null для dueDay) → updated:0, не 1 щоразу', async () => {
+  const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  // local — саме такий стан, який ЗАЛИШАЄ addInstallmentAccount(): dueDay
+  // ВІДСУТНЄ (не null!), бо поле просто ніколи не було встановлене.
+  ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000, cloudId: 'i1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullInstallmentAccountsCore();
+  assert.equal(result.updated, 0, 'updated МАЄ бути 0 — dueDay реально не змінився (undefined і null тут еквівалентні)');
+});
+
 test('pullInstallmentAccountsCore: push-retry НЕ тригериться, коли Cloud перемагає', async () => {
   const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 5, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
   ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 27000, dueDay: 15, cloudId: 'i1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
@@ -2023,6 +2039,24 @@ test('pullDebtsCore: LWW — локальний СТРОГО новіший → 
   assert.equal(result.keptLocal, 1);
   assert.equal(ctx.debts[0].balance, 1500);
   assert.equal(pushSpy.count(), 1);
+});
+
+// Rev #30 (6D.63) — КРИТИЧНИЙ фікс, знайдений користувачем: "Синхронізувати
+// все" писало "1 оновлено" ПРИ КОЖНОМУ натисканні, навіть коли нічого не
+// змінювалось. Причина: local.monthlyPayment (undefined, картковий борг —
+// поле незастосовне) порівнювалось напряму з row.monthly_payment (null з
+// Cloud) — undefined!==null завжди true в JS, а assign-логіка (`else delete
+// local.X`) повертала назад до undefined замість null, тому наступний pull
+// НІКОЛИ не бачив рівність. Той самий клас багу для minPayment/minPaymentDone.
+test('pullDebtsCore: повторний pull БЕЗ реальних змін (undefined vs null для monthlyPayment/minPayment) → updated:0, не 1 щоразу', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Приват Банк', kind: 'card', month: '2026-05-01', balance: 2000, min_payment: 200, min_payment_done: true, monthly_payment: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  // local — саме такий стан, який ЗАЛИШАЄ pullDebtsCore() після ПЕРШОГО
+  // застосування цього ж рядка: monthlyPayment ВІДСУТНЄ (не null!), бо
+  // асайн-логіка робить `delete local.monthlyPayment`, коли Cloud-значення null.
+  ctx.debts = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-05', balance: 2000, minPayment: 200, minPaymentDone: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const result = await ctx.pullDebtsCore();
+  assert.equal(result.updated, 0, 'updated МАЄ бути 0 — жодне поле реально не змінилось (undefined і null тут еквівалентні)');
 });
 
 // Rev #30 (6D.44) — Sync Safety Patch P0.1, tombstone для debts.
