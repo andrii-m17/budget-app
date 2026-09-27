@@ -3129,9 +3129,20 @@ test('restoreIncomesFromBackup/restoreDebtsFromBackup: локально поро
   const resultDebts = await ctx.restoreDebtsFromBackup(JSON.stringify(fixture.debts));
   assert.equal(resultIncomes.success, true);
   assert.equal(resultDebts.success, true);
-  assert.deepEqual(plain(ctx.incomes), fixture.incomes);
-  assert.deepEqual(plain(ctx.debts), fixture.debts);
-  assert.equal(fakeIdbInstance.store.get('budget_incomes_v1'), JSON.stringify(fixture.incomes));
+  // Rev #30 (6D.75) — id більше НЕ 'i1'/'d1' 1:1: restoreXFromBackup()
+  // тепер нормалізує legacy-формат id ДО push (ensureIncomeIdentity()/
+  // ensureDebtIdentity(), той самий фікс, що restoreExpensesFromBackup() —
+  // докоментар там пояснює реальний інцидент дублювання). Перевіряємо
+  // вміст БЕЗ id окремо + сам id валідний UUID.
+  assert.match(ctx.incomes[0].id, UUID_FORMAT_RE_JS());
+  assert.match(ctx.debts[0].id, UUID_FORMAT_RE_JS());
+  // Rev #30 (6D.51) — ensureIncomeIdentity()/ensureDebtIdentity() ТЕЖ
+  // бекфілять відсутні createdAt/updatedAt (той самий виклик, що й
+  // нормалізує id) — фікстура їх не має, тому теж виключаємо з порівняння.
+  const stripMeta = function(obj){ const { id, createdAt, updatedAt, ...rest } = obj; return rest; };
+  assert.deepEqual(stripMeta(plain(ctx.incomes[0])), stripMeta(fixture.incomes[0]));
+  assert.deepEqual(stripMeta(plain(ctx.debts[0])), stripMeta(fixture.debts[0]));
+  assert.equal(fakeIdbInstance.store.get('budget_incomes_v1'), JSON.stringify(plain(ctx.incomes)));
 });
 
 // Rev #30 (6D.46) — LWW-конфлікт: реальні сценарії, не лише "локально порожньо".
@@ -3182,6 +3193,28 @@ test('restoreExpensesFromBackup: запису немає локально → д
   const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
   assert.equal(result.added, 1);
   assert.equal(ctx.expenses.length, 1);
+});
+
+// Rev #30 (6D.75) — КРИТИЧНИЙ регресійний тест: реальний інцидент
+// користувача — "Очистити всі дані" → "Відновити" зі СТАРИМ бекапом
+// (зробленим ДО 6D.59, legacy-формат id) створював ДРУГИЙ рядок у Cloud
+// для КОЖНОЇ витрати, чий id уже був виправлений (ensureExpenseIdentity(),
+// generateUUID()) на іншому пристрої/сесії раніше. Локальний стан ТУТ
+// відтворює саме той момент: local вже має ПРАВИЛЬНИЙ (UUID) запис
+// (як після свіжого pullExpensesCore() із Cloud), а бекап несе ТУ САМУ
+// витрату під СТАРИМ legacy id — без фолбека за вмістом (date+amount+
+// name) це виглядало б як "новий" запис і створило б дублікат.
+test('restoreExpensesFromBackup: legacy id з бекапу + local вже має ЦЕЙ САМИЙ запис під UUID (за вмістом) → оновлює ІСНУЮЧИЙ, НЕ дублює', async () => {
+  const { ctx } = sandbox();
+  const properUuid = '9be9de11-cea6-40fd-b6af-b22f575b5dd3';
+  ctx.expenses = [{ id: properUuid, date: '2026-09-11', name: 'Картопля (соціальна)', amount: 200, category: '🫂 Соціальні витрати', subcategory: '', createdAt: '2026-09-11T00:00:00.000Z', updatedAt: '2026-09-11T00:00:00.000Z', syncedUpdatedAt: '2026-09-11T00:00:00.000Z' }];
+  const legacyId = '1700000000000abcd'; // старий, ДО-UUID формат (6D.59)
+  const backup = [{ id: legacyId, date: '2026-09-11', name: 'Картопля (соціальна)', amount: 200, category: '🫂 Соціальні витрати', subcategory: '', createdAt: '2026-09-11T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z' }];
+  const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
+  assert.equal(ctx.expenses.length, 1, 'НЕ повинно з\'явитись другого запису — той самий, що вже локально');
+  assert.equal(result.added, 0);
+  assert.equal(result.updated, 1);
+  assert.equal(ctx.expenses[0].id, properUuid, 'id лишається ПРАВИЛЬНИМ, не перезаписується legacy-значенням з бекапу');
 });
 
 test('restoreExpensesFromBackup: запису немає в бекапі → локальний-only запис НЕ видаляється (той самий принцип, що P1.2 Excel)', async () => {
@@ -3235,15 +3268,29 @@ test('acceptance D2: mixed-storage — expenses мігровано, incomes/debt
   assert.equal(results.debts.success, true);
   assert.equal(results.installmentAccounts.success, true);
 
-  assert.deepEqual(plain(freshCtx.expenses), fixture.expenses);
-  assert.deepEqual(plain(freshCtx.incomes), fixture.incomes);
-  assert.deepEqual(plain(freshCtx.debts), fixture.debts);
+  // Rev #30 (6D.75) — id більше НЕ 'e1'/'i1'/'d1' 1:1: applyBackupData()'s
+  // трейлінговий loadAll() (той самий, що завжди був) нормалізує legacy-
+  // формат id — докоментар над restoreExpensesFromBackup() пояснює
+  // реальний інцидент дублювання, що ця нормалізація тепер запобігає ще
+  // РАНІШЕ (усередині самого restoreXFromBackup(), до push). Перевіряємо
+  // вміст БЕЗ id окремо + сам id валідний UUID.
+  assert.match(freshCtx.expenses[0].id, UUID_FORMAT_RE_JS());
+  assert.match(freshCtx.incomes[0].id, UUID_FORMAT_RE_JS());
+  assert.match(freshCtx.debts[0].id, UUID_FORMAT_RE_JS());
+  // Rev #30 (6D.51) — ensureIncomeIdentity()/ensureDebtIdentity() ТЕЖ
+  // бекфілять відсутні createdAt/updatedAt (incomes/debts фікстура їх не
+  // має) — виключаємо разом з id (expenses фікстура вже МАЄ обидва поля,
+  // тому там stripMeta не змінює нічого зайвого).
+  const stripMeta = function(obj){ const { id, createdAt, updatedAt, ...rest } = obj; return rest; };
+  assert.deepEqual(stripMeta(plain(freshCtx.expenses[0])), stripMeta(fixture.expenses[0]));
+  assert.deepEqual(stripMeta(plain(freshCtx.incomes[0])), stripMeta(fixture.incomes[0]));
+  assert.deepEqual(stripMeta(plain(freshCtx.debts[0])), stripMeta(fixture.debts[0]));
   // installmentAccounts реконструйовано з debts (kind:'card', не 'installment' у фікстурі) → порожньо, коректно.
   assert.deepEqual(plain(freshCtx.installmentAccounts), []);
 
-  assert.equal(freshCtx.localStorage.getItem('budget_expenses_v1'), JSON.stringify(fixture.expenses));
-  assert.equal(freshCtx.localStorage.getItem('budget_incomes_v1'), JSON.stringify(fixture.incomes));
-  assert.equal(freshCtx.localStorage.getItem('budget_debts_v1'), JSON.stringify(fixture.debts));
+  assert.equal(freshCtx.localStorage.getItem('budget_expenses_v1'), JSON.stringify(plain(freshCtx.expenses)));
+  assert.equal(freshCtx.localStorage.getItem('budget_incomes_v1'), JSON.stringify(plain(freshCtx.incomes)));
+  assert.equal(freshCtx.localStorage.getItem('budget_debts_v1'), JSON.stringify(plain(freshCtx.debts)));
 });
 
 /* ============ Rev #30 (6D.1): ensureExpenseIdentity/ensureIncomeIdentity/
@@ -3754,26 +3801,30 @@ test('restoreExpensesFromBackup: пакет провалюється → від�
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.expenses = [];
+  // Rev #30 (6D.75) — id тепер ВАЛІДНИЙ UUID з самого початку (не 'e1'/
+  // 'e2'): restoreExpensesFromBackup() нормалізує legacy-формат ДО push
+  // (ensureExpenseIdentity(), докоментар над функцією), інакше тест
+  // симулював би провал за id, який сам фікс уже замінив би на інший.
   ctx.getSupabaseClient = () => ({ from(){ return { upsert(payload){
     if(Array.isArray(payload)){
       // Пакетний виклик — симулюємо провал ВСЬОГО пакету (атомарність).
       return Promise.resolve({ data: null, error: new Error('симульований провал пакету') });
     }
     // Fallback по-одному: другий запис (за id) — "поганий".
-    const isBad = payload.id === 'e2';
+    const isBad = payload.id === VALID_UUID_2;
     return Promise.resolve(isBad ? { data: null, error: new Error('симульована помилка') } : { data: [{}], error: null });
   } }; } });
   const nowISO = '2026-05-01T00:00:00.000Z';
   const backup = [
-    { id: 'e1', date: '2026-05-01', name: 'Успішний', amount: 100, createdAt: nowISO, updatedAt: nowISO },
-    { id: 'e2', date: '2026-05-01', name: 'Провалиться', amount: 200, createdAt: nowISO, updatedAt: nowISO },
+    { id: VALID_UUID_1, date: '2026-05-01', name: 'Успішний', amount: 100, createdAt: nowISO, updatedAt: nowISO },
+    { id: VALID_UUID_2, date: '2026-05-01', name: 'Провалиться', amount: 200, createdAt: nowISO, updatedAt: nowISO },
   ];
   const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
   assert.equal(result.added, 2);
   assert.equal(result.pushFailed, 1);
   assert.equal(result.firstError, 'симульована помилка');
-  assert.equal(ctx.expenses.find(e => e.id === 'e1').syncedUpdatedAt, nowISO);
-  assert.equal(ctx.expenses.find(e => e.id === 'e2').syncedUpdatedAt, undefined);
+  assert.equal(ctx.expenses.find(e => e.id === VALID_UUID_1).syncedUpdatedAt, nowISO);
+  assert.equal(ctx.expenses.find(e => e.id === VALID_UUID_2).syncedUpdatedAt, undefined);
 });
 
 test('pushExpensesBatch: пакет успішний → ОДИН upsert-виклик з масивом, усі записи позначені синхронізованими', async () => {

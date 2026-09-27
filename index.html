@@ -2587,7 +2587,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.6</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.7</div>
 </div>
   </div>
 </div>
@@ -3919,7 +3919,26 @@ async function restoreExpensesFromBackup(raw){
   // запитів, з автоматичним відкатом на перевірений по-одному шлях для
   // будь-якого пакету, що провалиться (див. докоментар над pushExpensesBatch()).
   for(const rec of backupList){
-    const local = expenses.find(function(e){ return e.id === rec.id; });
+    let local = expenses.find(function(e){ return e.id === rec.id; });
+    // Rev #30 (6D.75) — КРИТИЧНИЙ фікс: реальний випадок дублювання ~1700
+    // витрат в Cloud, знайдений користувачем ("вічна синхронізація" +
+    // дублікати після "Очистити всі дані" → "Відновити"). Корінь: СТАРИЙ
+    // бекап-файл (зроблений ДО 6D.59) містить legacy-формат id для
+    // історичних витрат — той самий формат, що 6D.59 вже знайшла й
+    // виправила на цьому пристрої (ensureExpenseIdentity(), викликається
+    // ЛИШЕ з loadAll(), ПІСЛЯ цієї функції). Без фолбека нижче: legacy id
+    // з бекапу НІКОЛИ не збігається з уже-виправленим (UUID) id у Cloud —
+    // запис вважається "новим", отримує ЩЕ ОДИН СВІЖИЙ generateUUID() у
+    // наступному loadAll(), і пушиться як СПРАВЖНІЙ НОВИЙ рядок. Кожне
+    // повторне відновлення ТОГО САМОГО старого файлу (а користувач саме
+    // так і зробив, бачачи помилки) — ще один дублікат (підтверджено:
+    // group-by в Cloud показав дублі рівно кратні 3, 6, 9, 12 — по
+    // кількості спроб). Фолбек за вмістом (дата+сума+назва) ловить це
+    // ДО створення дубліката — знаходить УЖЕ ІСНУЮЧИЙ (правильний) local
+    // запис і оновлює ЙОГО, замість додавання нового.
+    if(!local && !UUID_FORMAT_RE.test(rec.id)){
+      local = expenses.find(function(e){ return e.date === rec.date && e.amount === rec.amount && (e.name||'') === (rec.name||''); });
+    }
     if(!local){
       expenses.push(rec);
       added++;
@@ -3944,6 +3963,18 @@ async function restoreExpensesFromBackup(raw){
     updated++;
     toPush.push(local);
   }
+  // Rev #30 (6D.75) — нормалізація id (той самий ensureExpenseIdentity(),
+  // що вже викликається з loadAll(), просто РАНІШЕ — ДО push, не ПІСЛЯ).
+  // Мутує елементи `expenses` НА МІСЦІ (той самий об'єкт, що вже в
+  // `toPush` для щойно доданих "нових" записів), тож push нижче завжди
+  // відправляє валідний UUID, а не legacy-формат, що Postgres відхилив би
+  // (invalid input syntax for uuid — саме та помилка, що і викликала
+  // видиму "синхронізація не вдалась" петлю). Лише коли є що пушити —
+  // порожній toPush (напр. raw:null чи бекап без записів) означає
+  // СПРАВЖНЄ "нічого не змінилось", і не повинен зачіпати навіть
+  // НЕпов'язані з цим викликом старі legacy-id записи (те саме зробить
+  // наступний звичайний loadAll()).
+  if(toPush.length) await ensureExpenseIdentity();
   const saveResult = await saveExpenses();
   const pushResult = await pushExpensesBatched(toPush);
   // Rev #30 (6D.58) — один pull ПІСЛЯ всього батчу (не на кожен запис) — підхоплює будь-що від інших пристроїв за час операції.
@@ -3959,7 +3990,15 @@ async function restoreIncomesFromBackup(raw){
   const toPush = [];
   // Rev #30 (6D.57/6D.60) — той самий принцип, що restoreExpensesFromBackup(): пакетний push після мерджу.
   for(const rec of backupList){
-    const local = incomes.find(function(i){ return i.id === rec.id; });
+    let local = incomes.find(function(i){ return i.id === rec.id; });
+    // Rev #30 (6D.75) — той самий превентивний фолбек, що
+    // restoreExpensesFromBackup() (докоментар там пояснює реальний
+    // інцидент дублювання витрат) — тут дублікатів наразі НЕ знайдено, але
+    // той самий клас старого-бекапу-з-legacy-id теоретично міг би вплинути
+    // й на incomes, тож той самий захист симетрично.
+    if(!local && !UUID_FORMAT_RE.test(rec.id)){
+      local = incomes.find(function(i){ return i.date === rec.date && i.amount === rec.amount && (i.source||'') === (rec.source||''); });
+    }
     if(!local){
       incomes.push(rec);
       added++;
@@ -3979,6 +4018,7 @@ async function restoreIncomesFromBackup(raw){
     updated++;
     toPush.push(local);
   }
+  if(toPush.length) await ensureIncomeIdentity(); // Rev #30 (6D.75) — нормалізація ДО push, лише коли є що пушити (той самий принцип, що expenses).
   const saveResult = await saveIncomes();
   const pushResult = await pushIncomesBatched(toPush);
   if(pushResult.pushed) await pullIncomesCore();
@@ -3996,7 +4036,14 @@ async function restoreDebtsFromBackup(raw){
   // bankAccounts/installmentAccounts[].cloudId, щойно (await-ованого, 6D.57)
   // встановленого вище в applyBackupData().
   for(const rec of backupList){
-    const local = debts.find(function(d){ return d.id === rec.id; });
+    let local = debts.find(function(d){ return d.id === rec.id; });
+    // Rev #30 (6D.75) — той самий превентивний фолбек, що
+    // restoreExpensesFromBackup() (реальний інцидент дублювання, докоментар
+    // там). name+kind+month — та сама природна унікальність, що вже
+    // використовує diagnostics/hiddenFrom для боргів.
+    if(!local && !UUID_FORMAT_RE.test(rec.id)){
+      local = debts.find(function(d){ return d.name === rec.name && d.kind === rec.kind && d.month === rec.month; });
+    }
     if(!local){
       debts.push(rec);
       added++;
@@ -4020,6 +4067,7 @@ async function restoreDebtsFromBackup(raw){
     updated++;
     toPush.push(local);
   }
+  if(toPush.length) await ensureDebtIdentity(); // Rev #30 (6D.75) — нормалізація ДО push, лише коли є що пушити (той самий принцип, що expenses).
   const saveResult = await saveDebts();
   const pushResult = await pushDebtsBatched(toPush);
   if(pushResult.pushed) await pullDebtsCore();
@@ -5669,7 +5717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.6';
+const APP_VERSION = '2.22.7';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
