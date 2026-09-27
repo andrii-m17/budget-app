@@ -759,14 +759,26 @@
      "відредаговано". */
   .exp-edited-badge{ display:inline-flex; color:var(--color-text-tertiary); flex-shrink:0; }
   .exp-edited-badge svg{ display:block; }
-  /* Rev #30 (6D.67) — Cloud Sync UI, Крок 3: транзиентний highlight
-     (4с, той самий "щойно сталось" порядок величини, що індикатор
-     синхронізації) на картках, щойно ОТРИМАНИХ через Cloud Pull —
-     recentlyPulledExpenseIds/hadMarker (докоментар у pullExpensesCore()). */
-  .expense-row.just-synced{ animation:justSyncedFade 4s ease-out; }
-  @keyframes justSyncedFade{ 0%{ background:var(--color-info-bg); } 100%{ background:var(--color-surface); } }
-  .sync-badge-icon{ display:inline-flex; color:var(--color-info); flex-shrink:0; }
-  .sync-badge-icon svg{ display:block; }
+  /* Rev #30 (6D.68) — Cloud Sync UI, Крок 3 (уточнено за скріном
+     користувача): картки, щойно ОТРИМАНІ через Cloud Pull —
+     recentlyPulledExpenseState/hadMarker (докоментар у pullExpensesCore()).
+     Дві послідовні фази, ЗА JS-таймером (той самий принцип, що
+     syncOpBegin()/scheduleSyncSettle() індикатора синхронізації нижче —
+     НЕ одна суцільна CSS-анімація): "syncing" — ледь помітна синя
+     підсвітка картки + іконка-хмаринка пульсує 3 рази (100%→50%→100%,
+     ~2.4с = RECORD_SYNC_PULSE_MS×RECORD_SYNC_PULSE_COUNT), потім "done" —
+     та сама зелена галочка (SYNC_DONE_ICON_SVG), підсвітка картки
+     перемикається на зелену (~0.6с, RECORD_SYNC_DONE_MS), і плавний
+     перехід назад до звичайного стану картки. Разом ≈3с — той самий
+     порядок величини, що SYNC_MIN_SYNCING_MS індикатора зверху зліва
+     (явна вимога користувача "як анімація синхронізації біля профілю"). */
+  .expense-row.just-synced{ background:var(--color-info-bg); transition:background .4s ease; }
+  .expense-row.just-synced.just-synced-done{ background:var(--color-success-bg); }
+  .sync-badge-icon{ display:inline-flex; flex-shrink:0; }
+  .sync-badge-icon svg{ display:block; width:12px; height:12px; }
+  .sync-badge-icon.syncing{ color:var(--color-info); animation:cloudPulse .8s ease-in-out 3; }
+  .sync-badge-icon.done{ color:var(--color-success); animation:syncPop .35s ease-out; }
+  @keyframes cloudPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.5; } }
   .chip{ font-size:11px; background:var(--color-primary-bg); color:var(--color-primary-hover); padding:2px 8px; border-radius:20px; font-weight:600; white-space:nowrap; }
   .chip.empty{ background:var(--color-warning-bg); color:var(--color-warning); }
   .chip.income{ background:var(--color-success-bg); color:var(--color-success); }
@@ -2529,7 +2541,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.21.99</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.0</div>
 </div>
   </div>
 </div>
@@ -4964,11 +4976,11 @@ async function pullExpensesCore(){
           // Rev #30 (6D.57) — syncedUpdatedAt: local тепер точно відповідає Cloud.
           local.syncedUpdatedAt = row.updated_at;
           updated++;
-          // Rev #30 (6D.67) — той самий принцип, що коментар над hadMarker
+          // Rev #30 (6D.68) — той самий принцип, що коментар над hadMarker
           // вище: підсвічуємо лише СПРАВЖНІ інкрементальні зміни, отримані
-          // деінде. Set, НЕ поле на самому записі (ніколи не потрапляє в
+          // деінде. Map, НЕ поле на самому записі (ніколи не потрапляє в
           // localStorage/Cloud — суто ефемерна UI-підказка цієї вкладки).
-          if(hadMarker) recentlyPulledExpenseIds.add(local.id);
+          if(hadMarker) recentlyPulledExpenseState.set(local.id, 'syncing');
         }
         continue;
       }
@@ -4982,23 +4994,33 @@ async function pullExpensesCore(){
       if(row.deleted_at) rec.deletedAt = row.deleted_at;
       expenses.push(rec);
       added++;
-      if(hadMarker) recentlyPulledExpenseIds.add(rec.id); // Rev #30 (6D.67)
+      if(hadMarker) recentlyPulledExpenseState.set(rec.id, 'syncing'); // Rev #30 (6D.68)
     }
     if(maxSeen) setSyncMarker('expenses', maxSeen);
   }catch(e){
     return { skipped: true };
   }
   if(updated || added) await saveExpenses();
-  // Rev #30 (6D.67) — highlight транзиентний: 4с (той самий "щойно сталось"
-  // порядок величини, що вже SYNC_MIN_SYNCING_MS+SYNC_RESULT_MS індикатора
-  // синхронізації нижче), потім прибираємо і перемальовуємо. Один спільний
-  // таймер на всю серію (не по таймеру на кожен id) — свідомо просто:
-  // наступний пул у ці ж 4с просто продовжить показ, нешкідливо.
+  // Rev #30 (6D.68) — 2 послідовні фази (уточнено користувачем — скрін +
+  // явна специфікація): 'syncing' (пульсуюча хмаринка, ~RECORD_SYNC_PULSE_MS
+  // ×RECORD_SYNC_PULSE_COUNT) → 'done' (зелена галочка, ~RECORD_SYNC_DONE_MS)
+  // → видалення зі стану (звичайний вигляд картки). Один спільний таймер на
+  // всю серію (не по таймеру на кожен id) — свідомо просто, той самий
+  // принцип, що вже 6D.67: наступний пул у цей самий проміжок просто
+  // продовжить/перезапустить показ, нешкідливо.
   if((updated || added) && hadMarker){
     setTimeout(function(){
-      recentlyPulledExpenseIds.clear();
+      recentlyPulledExpenseState.forEach(function(state, id){
+        if(state === 'syncing') recentlyPulledExpenseState.set(id, 'done');
+      });
       renderAll();
-    }, 4000);
+      setTimeout(function(){
+        recentlyPulledExpenseState.forEach(function(state, id){
+          if(state === 'done') recentlyPulledExpenseState.delete(id);
+        });
+        renderAll();
+      }, RECORD_SYNC_DONE_MS);
+    }, RECORD_SYNC_PULSE_MS * RECORD_SYNC_PULSE_COUNT);
   }
   // Rev #30 (6D.55) — pull (у т.ч. pull-after-push, 6D.49) міняв масив
   // expenses мовчки, без перерендеру — той самий gap, що й у 5 доменів
@@ -5601,7 +5623,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.21.99';
+const APP_VERSION = '2.22.0';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6694,6 +6716,12 @@ const GUEST_AVATAR_ICON_SVG = '<svg viewBox="0 0 24 24" width="60%" height="60%"
 const SYNC_SPIN_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
 const SYNC_DONE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 const SYNC_ERROR_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="7" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+// Rev #30 (6D.68) — заміна попереднього (асиметричного, stroke-контурного)
+// глифа хмаринки за явним скріном користувача: суцільна заливка, 3
+// симетричні "горби" — класичний "cloud" силует (Font Awesome solid
+// cloud path, viewBox 576×512 — інший viewBox, ніж решта 24×24-іконок
+// файлу, тому власний, не переюзаний).
+const CLOUD_ICON_SVG = '<svg viewBox="0 0 576 512" width="12" height="12" fill="currentColor"><path d="M537.6 226.6c4.1-10.7 6.4-22.4 6.4-34.6 0-53-43-96-96-96-19.7 0-38.1 6-53.3 16.2C367 64.2 315.3 32 256 32c-88.4 0-160 71.6-160 160 0 2.7.1 5.4.2 8.1C40.2 219.8 0 273.2 0 336c0 79.5 64.5 144 144 144h368c70.7 0 128-57.3 128-128 0-61.9-44-113.6-102.4-125.4z"/></svg>';
 // Rev #30 (6D, індикатор синхронізації; 6D.34 — редизайн станів+помилка) —
 // тонкий UI-хук навколо ВСІХ push/pull-функцій, САМУ логіку синхронізації
 // не чіпає. Лічильник активних операцій (syncActiveOps) стійкий до
@@ -6713,13 +6741,20 @@ const SYNC_ERROR_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="curren
 // усіх push-функцій, Крок 0 підтвердив, що досі це ніде не сигналізувалось
 // явно). "Тихі пропуски" (батько ще не синхронізований і т.п.) НЕ
 // рахуються помилкою — вони повертають { success: true }.
-// Rev #30 (6D.67) — id-и витрат, щойно отриманих через справжній
-// інкрементальний Cloud Pull (докоментар над hadMarker у
+// Rev #30 (6D.68) — id → 'syncing'|'done' для витрат, щойно отриманих
+// через справжній інкрементальний Cloud Pull (докоментар над hadMarker у
 // pullExpensesCore() пояснює, чому саме "справжній" — не перший повний
-// pull домену). Транзиентний Set, НЕ поле на самому записі expenses[] —
+// pull домену). Транзиентна Map, НЕ поле на самому записі expenses[] —
 // ніколи не потрапляє в localStorage/Cloud, суто ефемерна UI-підказка на
-// час поточної сесії вкладки.
-let recentlyPulledExpenseIds = new Set();
+// час поточної сесії вкладки. Уточнено користувачем (скрін + явна
+// специфікація): 2 послідовні фази, не одна суцільна анімація — 'syncing'
+// (пульсуюча хмаринка + ледь помітна синя підсвітка) ~2.4с, потім 'done'
+// (зелена галочка + зелена підсвітка) ~0.6с, разом ≈3с — той самий
+// порядок величини, що індикатор синхронізації профілю (SYNC_MIN_SYNCING_MS).
+let recentlyPulledExpenseState = new Map();
+const RECORD_SYNC_PULSE_MS = 800;
+const RECORD_SYNC_PULSE_COUNT = 3;
+const RECORD_SYNC_DONE_MS = 600;
 // Rev #30 (6D.67) — Cloud Sync UI, Крок 2: домен-за-доменом статус
 // (докоментар над withSyncIndicator() нижче пояснює, чому лише 9 pull-
 // доменів достатньо). Значення — 'syncing'|'done'|'error', ключ ВІДСУТНІЙ
@@ -10473,13 +10508,14 @@ function buildRecordGroupsHtml(items){
       // застосовано — ТЗ стосувалось саме карток витрат).
       const author = !isIncome ? authorInfoFor(e.createdBy) : null;
       const authorStyle = author ? ` style="border-left-color:var(${author.colorVar})"` : '';
-      // Rev #30 (6D.67) — Cloud Sync UI, Крок 3: транзиентний highlight на
-      // записах, щойно ОТРИМАНИХ через Cloud Pull (не створених/
-      // відредагованих на ЦЬОМУ пристрої) — recentlyPulledExpenseIds
-      // заповнюється всередині pullExpensesCore() (докоментар там пояснює,
-      // чому саме id-based Set, не поле на записі).
-      const justPulled = !isIncome && recentlyPulledExpenseIds.has(e.id);
-      const rowClass = (isIncome ? 'income-row' : '') + (isSelected ? ' selected' : '') + (justPulled ? ' just-synced' : '');
+      // Rev #30 (6D.68) — Cloud Sync UI, Крок 3: транзиентний 2-фазний
+      // highlight на записах, щойно ОТРИМАНИХ через Cloud Pull (не
+      // створених/відредагованих на ЦЬОМУ пристрої) —
+      // recentlyPulledExpenseState заповнюється всередині
+      // pullExpensesCore() (докоментар там і над самою Map пояснює фази).
+      const pullState = !isIncome ? recentlyPulledExpenseState.get(e.id) : undefined; // 'syncing'|'done'|undefined
+      const rowClass = (isIncome ? 'income-row' : '') + (isSelected ? ' selected' : '')
+        + (pullState === 'syncing' ? ' just-synced' : pullState === 'done' ? ' just-synced just-synced-done' : '');
       const chipClass = isIncome ? 'chip income' : (e.category ? 'chip' : 'chip empty');
       const chipText = isIncome ? 'дохід' : (e.category ? (e.subcategory || e.category) : 'без категорії');
       const amountClass = isIncome ? 'exp-amount income mono' : 'exp-amount mono';
@@ -10487,8 +10523,14 @@ function buildRecordGroupsHtml(items){
       const editedBadgeHtml = (!isIncome && e.edited)
         ? `<span class="exp-edited-badge" title="Відредаговано" aria-label="Відредаговано"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>`
         : '';
-      const justPulledBadgeHtml = justPulled
-        ? `<span class="sync-badge-icon" title="Щойно отримано з хмари" aria-label="Щойно отримано з хмари"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9Z"/></svg></span>`
+      // Rev #30 (6D.68) — CLOUD_ICON_SVG/SYNC_DONE_ICON_SVG — той самий
+      // "хмаринка" глиф (заміна за скріном користувача, суцільна заливка,
+      // 3 симетричні "горби" — не колишній асиметричний stroke-контур) і
+      // та сама зелена галочка, що вже індикатор синхронізації профілю.
+      const justPulledBadgeHtml = pullState === 'syncing'
+        ? `<span class="sync-badge-icon syncing" title="Синхронізується з хмари" aria-label="Синхронізується з хмари">${CLOUD_ICON_SVG}</span>`
+        : pullState === 'done'
+        ? `<span class="sync-badge-icon done" title="Синхронізовано з хмари" aria-label="Синхронізовано з хмари">${SYNC_DONE_ICON_SVG}</span>`
         : '';
       const editPencilHtml = (isSelected && !isIncome)
         ? `<button type="button" class="exp-edit-cat" onclick="event.stopPropagation(); startEditRecord('${e.kind}','${e.id}')" aria-label="Редагувати запис"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>`
