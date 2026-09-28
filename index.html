@@ -2567,7 +2567,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.24</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.25</div>
 </div>
   </div>
 </div>
@@ -5885,7 +5885,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.24';
+const APP_VERSION = '2.22.25';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6755,6 +6755,11 @@ async function applyCloudSession(session){
       // — інакше перший-ліпший Realtime-toast після цього підхопив би
       // застарілі події цього самого ланцюжка.
       flushOtherActorEventsAsSummary();
+      // Rev #30 (6D.93) — Крок 2 push-інфраструктури: дозвіл на сповіщення
+      // запитується ОДРАЗУ при вході (узгоджене рішення, не "коли завгодно"),
+      // fire-and-forget — не блокує pull-ланцюжок і не критичний для роботи
+      // застосунку, якщо браузер не підтримує Push API чи користувач відмовив.
+      requestPushSubscription();
     }
     }finally{
       if(!wasSignedIn) syncOpEnd();
@@ -6771,6 +6776,52 @@ async function applyCloudSession(session){
     teardownRealtimeSync();
   }
   renderProfileUI();
+}
+// Rev #30 (6D.93) — Крок 2 push-інфраструктури: клієнтська підписка.
+// Публічний VAPID-ключ НЕ секрет (лише приватний ключ підписує сповіщення
+// на сервері) — безпечно тримати в клієнтському коді, той самий принцип, що
+// anon-ключ Supabase вище.
+const VAPID_PUBLIC_KEY = 'BNe7PnQHTKSEzrjSnoAfvhUGB8mRzdK7pT-xxC0KP_dsJ1VMrkoSejcl-l1PitVZ9jxcY384b5BdSMnhYzbBejE';
+function urlBase64ToUint8Array(base64String){
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for(let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+// Rev #30 (6D.93) — реєструє (чи повторно використовує) PushSubscription і
+// зберігає її в push_subscriptions (upsert по endpoint — той самий фізичний
+// підпис при повторному вході НЕ повинен плодити дублікати рядків). Мовчки
+// виходить на будь-якому кроці, що не підтримується/відхилено — Push тут
+// необов'язковий доважок, не критичний шлях застосунку.
+async function requestPushSubscription(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
+  try{
+    let permission = Notification.permission;
+    if(permission === 'default') permission = await Notification.requestPermission();
+    if(permission !== 'granted') return;
+    const registration = await navigator.serviceWorker.ready;
+    let sub = await registration.pushManager.getSubscription();
+    if(!sub){
+      sub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    const keys = sub.toJSON().keys;
+    await getSupabaseClient().from('push_subscriptions').upsert({
+      user_id: cloudSession.user.id,
+      family_id: cloudFamilyId,
+      endpoint: sub.endpoint,
+      p256dh: keys.p256dh,
+      auth: keys.auth
+    }, { onConflict: 'endpoint' });
+  }catch(err){
+    // Мережа/CORS/офлайн чи браузер відмовив у Push API — тихий пропуск,
+    // той самий принцип, що інші push-хелпери Cloud-синхронізації.
+  }
 }
 // Rev #30 (6D.56) — Realtime + sync-on-resume (без банерів/зведень — свідомо
 // окремий, наступний крок за продуктовим рішенням користувача).

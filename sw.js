@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.22.24';
+const CACHE_NAME = 'budget-app-v2.22.25';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -59,6 +59,34 @@ self.addEventListener('message', function(event){
   if(event.data === 'SKIP_WAITING'){
     self.skipWaiting();
   }
+});
+
+// Rev 2.22.25 (6D.93) — Крок 2 push-інфраструктури: показ системного
+// сповіщення при вхідному push-повідомленні (сервер шле {title, body} як
+// JSON — Edge Function send-push-notification, 6D.92). Якщо event.data
+// відсутній чи не JSON — тихий фолбек на дефолтний заголовок, не критично.
+self.addEventListener('push', function(event){
+  let data = {};
+  try{ data = event.data ? event.data.json() : {}; }catch(err){}
+  const title = data.title || 'Бюджет-локально';
+  const options = {
+    body: data.body || '',
+    icon: './icons/icon-192-v2.png',
+    badge: './icons/icon-192-v2.png'
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Rev 2.22.25 (6D.93) — клік по сповіщенню: фокус уже відкритої вкладки,
+// якщо є, інакше відкрити нову — стандартний PWA-паттерн.
+self.addEventListener('notificationclick', function(event){
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then(function(clientsArr){
+      for(const c of clientsArr){ if('focus' in c) return c.focus(); }
+      if(self.clients.openWindow) return self.clients.openWindow('./');
+    })
+  );
 });
 
 self.addEventListener('activate', function(event){
