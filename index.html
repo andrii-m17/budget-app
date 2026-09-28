@@ -664,6 +664,15 @@
   .data-status.open .data-status-popover{ display:block; }
   .dsp-title{ font-size:12px; font-weight:700; color:var(--color-text-primary); margin-bottom:3px; }
   .dsp-text{ font-size:11.5px; color:var(--color-text-secondary); line-height:1.4; }
+  /* Rev #30 (6D.91) — за проханням користувача: попап "Стан даних" тепер
+     дієвий (не лише інформативний) — назви карток у .dsp-text (для
+     'incomplete') стають tappable-посиланнями, .dsp-hint — коротка
+     підказка під списком, .dsp-action — кнопка переходу (для 'last-known'). */
+  .dsp-link{ background:none; border:none; padding:0; margin:0; font:inherit; color:var(--color-primary-hover); text-decoration:underline; cursor:pointer; }
+  .dsp-hint{ font-size:11px; color:var(--color-text-tertiary); margin-top:5px; line-height:1.4; }
+  .dsp-hint.hidden{ display:none; }
+  .dsp-action{ display:block; width:100%; margin-top:8px; font-size:11.5px; font-weight:600; padding:7px 10px; border-radius:var(--radius-sm); border:none; background:var(--color-primary); color:#fff; cursor:pointer; font-family:inherit; text-align:center; }
+  .dsp-action.hidden{ display:none; }
 
   /* Rev 2.1.2 — журнал згруповано по днях замість плаского списку: дата тепер
      показується один раз у заголовку групи (разом з підсумком дня), а не в
@@ -1891,6 +1900,9 @@
             <div class="data-status-popover" role="note">
               <div class="dsp-title"></div>
               <div class="dsp-text"></div>
+              <!-- Rev #30 (6D.91) — hint/action, наповнюються renderDataStatusDot(). -->
+              <div class="dsp-hint hidden"></div>
+              <button type="button" class="dsp-action hidden"></button>
             </div>
           </div>
           <div class="kpi-card-header">
@@ -1907,6 +1919,9 @@
             <div class="data-status-popover" role="note">
               <div class="dsp-title"></div>
               <div class="dsp-text"></div>
+              <!-- Rev #30 (6D.91) — hint/action, наповнюються renderDataStatusDot(). -->
+              <div class="dsp-hint hidden"></div>
+              <button type="button" class="dsp-action hidden"></button>
             </div>
           </div>
           <div class="kpi-label" id="debt-donut-title">Скорочення боргу</div>
@@ -2552,7 +2567,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.23</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.24</div>
 </div>
   </div>
 </div>
@@ -5870,7 +5885,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.23';
+const APP_VERSION = '2.22.24';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9317,6 +9332,26 @@ function debtUiStatus(asOfInfo, month, kind){
   if(kindHasActualForMonth(kind, month)) return { status:'incomplete', asOfMonth: asOfInfo.asOfMonth };
   return { status:'last-known', asOfMonth: asOfInfo.asOfMonth };
 }
+// Rev #30 (6D.91) — за проханням користувача: конкретний список карток без
+// ФАКТИЧНОГО запису (kind:'card') саме за "month" — той самий natural-key
+// принцип, що вже debtAsOfInfo()/kindHasActualForMonth() вище (жодної нової
+// логіки статусу, лише читання bankAccounts проти вже наявних activeDebts()).
+// Крок 0 підтвердив: і "Борг" (kpi-debt-asof), і "Скорочення боргу"
+// (debt-donut-asof) рахують ЛИШЕ kind:'card' (один debtAsOfInfo(month,'card')
+// на обидві картки, докоментар над renderDataStatusDot() нижче) — тому
+// список тут теж лише bankAccounts, без installmentAccounts (ОЧ).
+// isHiddenForMonth() — той самий фільтр, що вже debtTotalsForMonth()/
+// debtAsOfInfo() застосовують до ІСНУЮЧИХ записів: прихована з цього місяця
+// картка не повинна з'являтись як "не внесено", і не з'являється — перевірено
+// живо (Крок 0 п.1).
+function missingCardDebtsForMonth(month){
+  return bankAccounts
+    .map(function(acc, i){ return { name: acc.name, i: i }; })
+    .filter(function(x){ return !isHiddenForMonth(x.name, 'card', month); })
+    .filter(function(x){
+      return !activeDebts().some(function(d){ return d.name===x.name && d.kind==='card' && monthKey2(d.month)===month; });
+    });
+}
 // Rev #21 + #23 — Unified Data Status: рендерить один status dot (+ його
 // popover-текст) за готовим UI-статусом. 'actual'/'none' → dot повністю
 // прихований, картка виглядає так, ніби ніякого data-status немає.
@@ -9333,15 +9368,67 @@ function renderDataStatusDot(elId, uiStatus, month){
   const btn = wrap.querySelector('.data-status-dot');
   const titleEl = wrap.querySelector('.dsp-title');
   const textEl = wrap.querySelector('.dsp-text');
+  const hintEl = wrap.querySelector('.dsp-hint');
+  const actionEl = wrap.querySelector('.dsp-action');
+  // Rev #30 (6D.91) — за проханням користувача: попап тепер дієвий, не лише
+  // інформативний. 'incomplete' — конкретний список карток без запису за
+  // "month" (максимум 5, далі "ще N"), кожна назва — tappable-посилання, що
+  // відкриває вже наявну шторку редагування (openMissingCardDebtFromPopover()
+  // нижче); 'last-known' — джерело значення + кнопка переходу в
+  // Облік→Борги (goToCardDebtsTab() нижче, той самий місяць — selectedMonth
+  // спільний для дашборду й Обліку, перемикати місяць НЕ треба, Крок 0
+  // підтвердив).
   if(uiStatus.status==='incomplete'){
     btn.setAttribute('aria-label', 'Стан даних: неповні дані за цей місяць');
     titleEl.textContent = 'Інформація неповна';
-    textEl.textContent = 'Дані за поточний місяць внесені не повністю. Значення може бути неповним.';
+    const missing = missingCardDebtsForMonth(month);
+    const SHOW_LIMIT = 5;
+    const shown = missing.length <= SHOW_LIMIT ? missing : missing.slice(0, 4);
+    const restCount = missing.length - shown.length;
+    if(shown.length){
+      const names = shown.map(function(x){
+        return `<button type="button" class="dsp-link" onclick="openMissingCardDebtFromPopover(${x.i})">${escapeHtml(stripLeadingEmoji(x.name))}</button>`;
+      }).join(', ');
+      textEl.innerHTML = `Не внесено за ${monthLabel(month)}: ${names}${restCount ? ', ще ' + restCount : ''}.`;
+      hintEl.textContent = 'Якщо боргу немає, внесіть 0.';
+      hintEl.classList.remove('hidden');
+    }else{
+      // Захисна гілка: за побудовою debtUiStatus() 'incomplete' завжди
+      // означає хоч одну картку без запису за "month" (докоментар над
+      // missingCardDebtsForMonth() вище пояснює чому) — сюди не мало б
+      // доходити, але текст без списку кращий за порожній попап.
+      textEl.textContent = 'Дані за поточний місяць внесені не повністю.';
+      hintEl.classList.add('hidden');
+    }
+    actionEl.classList.add('hidden');
   }else{
     btn.setAttribute('aria-label', 'Стан даних: останнє відоме значення');
     titleEl.textContent = 'Останнє відоме значення';
     textEl.textContent = `Дані за ${monthLabel(month)} ще не внесені. Показано останнє відоме значення за ${monthLabel(uiStatus.asOfMonth)}.`;
+    hintEl.classList.add('hidden');
+    actionEl.classList.remove('hidden');
+    actionEl.textContent = `Внести дані за ${monthLabel(month)}`;
+    actionEl.onclick = goToCardDebtsTab;
   }
+}
+// Rev #30 (6D.91) — тап по назві картки в попапі "Інформація неповна":
+// закриває popover (той самий принцип, що решта дій, що ведуть за межі
+// поточного контексту) і одразу відкриває наявну шторку редагування цієї
+// картки — selectedMonth уже правильний (той самий "month", за який
+// рахувався статус, докоментар над renderDataStatusDot() пояснює), тому
+// жодного перемикання місяця не потрібно.
+function openMissingCardDebtFromPopover(i){
+  closeAllDataStatusPopovers();
+  openCardDebtEditor(i);
+}
+// Rev #30 (6D.91) — кнопка "Внести дані за [місяць]" у попапі "Останнє
+// відоме значення": переходить в Облік→Борги на ТОЙ САМИЙ selectedMonth
+// (спільний для дашборду й Обліку — Крок 0 підтвердив, жодного окремого
+// month-параметра не потрібно).
+function goToCardDebtsTab(){
+  closeAllDataStatusPopovers();
+  performSwitchTab('accounting');
+  switchAccountingTab('debts');
 }
 // Rev #21 + #23 — Unified Data Status: клік/тап по крапці відкриває
 // contextual popover (прив'язаний до картки, не повноекранний modal); клік

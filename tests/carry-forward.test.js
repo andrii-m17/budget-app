@@ -7,12 +7,15 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 
-function sandbox(debts, hiddenFrom){
+function sandbox(debts, hiddenFrom, bankAccounts){
   return buildSandbox(
-    { debts, hiddenFrom: hiddenFrom || {} },
+    { debts, hiddenFrom: hiddenFrom || {}, bankAccounts: bankAccounts || [] },
     ['hideKey', 'isHiddenForMonth', 'debtAsOfInfo', 'lastKnownBalance',
       // Rev #30 (6D.44) — debtAsOfInfo()/lastKnownBalance() тепер сканують activeDebts(), не сирий debts.
-      'activeDebts']
+      'activeDebts',
+      // Rev #30 (6D.91) — попап "Стан даних" тепер дієвий: конкретний
+      // список карток (bankAccounts, kind:'card') без запису за місяць.
+      'monthKey2', 'missingCardDebtsForMonth']
   );
 }
 
@@ -89,4 +92,54 @@ test('lastKnownBalance: запис РІВНО за beforeMonth не рахуєт
   const debts = [{ name: 'ПриватБанк', kind: 'card', month: '2026-03', balance: 4200 }];
   const ctx = sandbox(debts);
   assert.equal(ctx.lastKnownBalance('ПриватБанк', 'card', '2026-03'), null);
+});
+
+/* ============ missingCardDebtsForMonth (Rev #30, 6D.91) ============
+   Попап "Стан даних" (Борг/Скорочення боргу) тепер показує КОНКРЕТНИЙ
+   список карток без запису за місяць — natural-key читання bankAccounts
+   проти activeDebts(), жодної нової логіки статусу. */
+test('missingCardDebtsForMonth: картка без жодного запису за місяць → у списку', () => {
+  const bankAccounts = [{ name: 'ПриватБанк' }, { name: 'Mono' }];
+  const debts = [{ name: 'ПриватБанк', kind: 'card', month: '2026-03', balance: 5000 }];
+  const ctx = sandbox(debts, {}, bankAccounts);
+  const missing = ctx.missingCardDebtsForMonth('2026-03');
+  assert.deepEqual(missing.map(x => x.name), ['Mono']);
+  assert.equal(missing[0].i, 1); // індекс у bankAccounts — для openCardDebtEditor(i)
+});
+
+test('missingCardDebtsForMonth: усі картки мають запис за місяць → порожній список', () => {
+  const bankAccounts = [{ name: 'ПриватБанк' }, { name: 'Mono' }];
+  const debts = [
+    { name: 'ПриватБанк', kind: 'card', month: '2026-03', balance: 5000 },
+    { name: 'Mono', kind: 'card', month: '2026-03', balance: 1200 },
+  ];
+  const ctx = sandbox(debts, {}, bankAccounts);
+  assert.deepEqual(ctx.missingCardDebtsForMonth('2026-03'), []);
+});
+
+test('missingCardDebtsForMonth: запис з balance:0 за місяць рахується як ІСНУЮЧИЙ (не "не внесено") — 0 ≠ порожньо', () => {
+  const bankAccounts = [{ name: 'ПриватБанк' }];
+  const debts = [{ name: 'ПриватБанк', kind: 'card', month: '2026-03', balance: 0 }];
+  const ctx = sandbox(debts, {}, bankAccounts);
+  assert.deepEqual(ctx.missingCardDebtsForMonth('2026-03'), []);
+});
+
+test('missingCardDebtsForMonth: запис лише за МИНУЛИЙ місяць (carry-forward) → цей місяць усе одно "не внесено"', () => {
+  const bankAccounts = [{ name: 'ПриватБанк' }];
+  const debts = [{ name: 'ПриватБанк', kind: 'card', month: '2026-01', balance: 5000 }];
+  const ctx = sandbox(debts, {}, bankAccounts);
+  assert.deepEqual(ctx.missingCardDebtsForMonth('2026-03').map(x => x.name), ['ПриватБанк']);
+});
+
+test('missingCardDebtsForMonth: прихована з цього місяця картка (hiddenFrom) НЕ потрапляє у "не внесено", хоча запису й немає', () => {
+  const bankAccounts = [{ name: 'Старий кредит' }, { name: 'ПриватБанк' }];
+  const debts = [{ name: 'ПриватБанк', kind: 'card', month: '2026-03', balance: 5000 }];
+  const ctx = sandbox(debts, { 'card:Старий кредит': '2026-02' }, bankAccounts);
+  assert.deepEqual(ctx.missingCardDebtsForMonth('2026-03'), []);
+});
+
+test('missingCardDebtsForMonth: прихована ЗГОДОМ (hiddenFrom пізніший за перевіряний місяць) — ще враховується як "не внесено"', () => {
+  const bankAccounts = [{ name: 'ПриватБанк' }];
+  const ctx = sandbox([], { 'card:ПриватБанк': '2026-05' }, bankAccounts);
+  assert.deepEqual(ctx.missingCardDebtsForMonth('2026-03').map(x => x.name), ['ПриватБанк']);
 });
