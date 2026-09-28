@@ -2451,40 +2451,6 @@
   <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none;" onchange="handleImportFile(event)">
   <div class="import-status" id="import-status"></div>
 
-  <div class="section-label">Спільні витрати</div>
-  <div class="service-grid">
-    <button type="button" class="service-tile" id="share-expenses-btn" onclick="openShareExpensesModal()">
-      <span class="service-tile-icon c-blue">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>
-          <polyline points="16 6 12 2 8 6"/>
-          <line x1="12" y1="2" x2="12" y2="15"/>
-        </svg>
-      </span>
-      <span class="service-tile-label">
-        <span>Поділитися витратами</span>
-        <span class="service-tile-sub">Надішліть файл витрат</span>
-      </span>
-    </button>
-
-    <button type="button" class="service-tile" id="import-shared-tile" onclick="triggerShareImportInput()">
-      <span class="service-tile-icon c-blue">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M19 8v6"/>
-          <path d="M22 11h-6"/>
-        </svg>
-      </span>
-      <span class="service-tile-label">
-        <span>Додати спільні витрати</span>
-        <span class="service-tile-sub">Внесіть витрати з файлу</span>
-      </span>
-    </button>
-  </div>
-  <input type="file" id="share-import-file" accept=".json" style="display:none;" onchange="handleShareImportFile(event)">
-  <div class="import-status" id="share-status"></div>
-
   <div class="section-label">Резервна копія</div>
   <div class="service-grid">
     <button type="button" class="service-tile" onclick="exportBackup()">
@@ -2607,7 +2573,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.19</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.20</div>
 </div>
   </div>
 </div>
@@ -5921,7 +5887,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.19';
+const APP_VERSION = '2.22.20';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7790,7 +7756,7 @@ async function signOutCloudAccount(){
    (checkInstallmentDivergence) — тепер застосовані до РЕАЛЬНИХ даних
    користувача одразу по всій історії, а не одного рядка форми. */
 // Витрати без валідного UUID або з дубльованим UUID (той самий природний
-// ключ, на якому базується дедуплікація імпорту, computeImportPlan Rev 2.13).
+// ключ, на якому базується дедуплікація/reconciliation по всьому застосунку).
 // Кожна проблема несе "target" — куди перейти по кліку (Rev 2.16.1,
 // goToDiagnosticIssue нижче): для витрат — індекс у масиві expenses (не id,
 // бо саме id часто й є проблемою — відсутній чи задубльований), для ОЧ —
@@ -8640,9 +8606,8 @@ function updateDateCaption(){
 // редагування (pushExpenseRecordPilot викликається так само, як з
 // saveRecordEdit()).
 // Rev #30 (6D.43) — той самий патерн для incomes (домен 2/3). Крок 0
-// підтвердив: Family Bridge — виключно expenses (parsed.expenses,
-// computeImportPlan() параметризована лише під expenses), для incomes
-// такої фічі взагалі не існує — жодного resurrection-фіксу тут не треба.
+// підтвердив: жодного окремого імпорт-механізму для incomes не існує —
+// жодного resurrection-фіксу тут не треба.
 function activeExpenses(){
   return expenses.filter(function(e){ return !e.deletedAt; });
 }
@@ -10148,225 +10113,6 @@ function handleImportFile(event){
   };
   reader.onerror = () => { statusEl.textContent = 'Не вдалося прочитати файл.'; inputEl.disabled = false; };
   reader.readAsArrayBuffer(file);
-}
-
-/* ============ Спільні витрати: Family Bridge (Rev 2.11.3) ============
-   Обмін витратами між двома незалежними локальними копіями застосунку
-   (Андрій ⇄ Оля) через JSON-файл і системне меню "Поділитися" — окремо
-   від Excel (той працює з ГОЛОВНИМ файлом користувача) і від повного
-   бекапу (той про відновлення всього стану одного пристрою, а не про обмін
-   між двома). Дедуплікація спирається на стабільний id витрати (Rev 2.11.2,
-   Data Identity Foundation) — та сама витрата, передана повторно, не
-   створить дубль.
-
-   Rev 2.11.3 — за рішенням: лише два періоди на вибір (поточний місяць /
-   усі витрати), без "сьогодні"/"попередній місяць"/довільного діапазону —
-   свідомо мінімальний набір для першого реального тесту з Олею; розширимо
-   лише якщо реальне використання покаже потребу. */
-function expenseCountWord(n){
-  const mod10=n%10, mod100=n%100;
-  if(mod10===1 && mod100!==11) return 'витрата';
-  if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'витрати';
-  return 'витрат';
-}
-// Лише поля, що дійсно мають сенс для іншого пристрою — жодних внутрішніх
-// технічних артефактів (напр. майбутніх службових полів), щоб формат обміну
-// лишався стабільним і передбачуваним незалежно від внутрішньої еволюції
-// структури expenses[].
-function serializeExpenseForShare(e){
-  const out = {
-    id: e.id, date: e.date, name: e.name, amount: e.amount,
-    category: e.category || '', subcategory: e.subcategory || '',
-    manual: !!e.manual, createdAt: e.createdAt || null, updatedAt: e.updatedAt || null
-  };
-  if(e.linkedInstallment) out.linkedInstallment = e.linkedInstallment;
-  return out;
-}
-function openShareExpensesModal(){
-  if(!selectedMonth) return;
-  document.getElementById('app-modal-text').textContent = 'Який період передати?';
-  document.getElementById('app-modal-input-wrap').style.display = 'none';
-  document.getElementById('app-modal-amount-wrap').style.display = 'none';
-  const selectWrap = document.getElementById('app-modal-select-wrap');
-  selectWrap.style.display = 'block';
-  document.getElementById('app-modal-select2-wrap').style.display = 'none';
-  document.getElementById('app-modal-select-label').textContent = 'Період';
-  const select = document.getElementById('app-modal-select');
-  select.onchange = null; // захист: showDictionaryModal лишає тут live-обробник
-  select.innerHTML = `
-    <option value="month">Поточний місяць (${monthLabel(selectedMonth)})</option>
-    <option value="all">Усі витрати</option>
-  `;
-  const btn = document.getElementById('app-modal-confirm-btn');
-  btn.textContent = 'Поділитися';
-  btn.className = 'submit-btn';
-  btn.onclick = function(){
-    const period = select.value;
-    closeAppModal();
-    shareExpensesFile(period);
-  };
-  openAppModal();
-}
-async function shareExpensesFile(period){
-  const statusEl = document.getElementById('share-status');
-  // Rev #30 (6D.42) — activeExpenses(): видалений запис не мав би "ділитись" далі.
-  const list = (period === 'month' ? activeExpenses().filter(e => monthKey(e.date) === selectedMonth) : activeExpenses())
-    .map(serializeExpenseForShare);
-  if(!list.length){
-    if(statusEl) statusEl.textContent = 'За обраний період немає жодної витрати — нема чого передавати.';
-    return;
-  }
-  const payload = {
-    __budgetShare: true,
-    schemaVersion: SCHEMA_VERSION,
-    exportedAt: new Date().toISOString(),
-    period,
-    periodLabel: period === 'month' ? monthLabel(selectedMonth) : 'усі витрати',
-    expenses: list
-  };
-  const filename = `Бюджет-витрати-${period === 'month' ? selectedMonth : 'усі'}-${localDateISO()}.json`;
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-  // Rev 2.11.3 — на iPhone найзручніший шлях саме через navigator.share() з
-  // файлом: одразу відкриває системне меню "Поділитися" (Telegram, Messages,
-  // AirDrop тощо), без проміжного кроку "спершу збережи файл, потім знайди
-  // його у Files і розшар вручну". Фолбек на звичайне завантаження — для
-  // браузерів/контекстів без підтримки Web Share API з файлами (напр.
-  // desktop Chrome), той самий патерн, що вже використовує exportBackup().
-  let shared = false;
-  try{
-    const file = new File([blob], filename, {type:'application/json'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({ files:[file], title:'Витрати — Бюджет-локально' });
-      shared = true;
-    }
-  }catch(err){
-    if(err && err.name === 'AbortError'){
-      // Користувач сам закрив системне меню "Поділитися" без вибору —
-      // це не помилка, нічого показувати не потрібно.
-      return;
-    }
-    // Будь-яка інша помилка Web Share API — тихо переходимо на фолбек нижче.
-  }
-  if(!shared){
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-  }
-  if(statusEl) statusEl.textContent = `Готово: ${list.length} ${expenseCountWord(list.length)} (${payload.periodLabel}).`;
-}
-function triggerShareImportInput(){
-  document.getElementById('share-import-file').click();
-}
-// Rev 2.13.0 — дедуплікація/оновлення записів з файлу спільних витрат за id
-// й updatedAt (винесено як самостійна функція в Rev 2.14.0, tests/import-
-// dedup.test.js): id новий → newOnes; id вже є і вхідний updatedAt новіший
-// за наявний → updatedOnes (заміщення); id вже є, updatedAt той самий/
-// старіший → мовчазний пропуск (враховано лише у dupCount). Чиста функція:
-// не читає localStorage/DOM, легко тестується без ініціалізації застосунку.
-function computeImportPlan(incoming, existingExpenses){
-  const existingById = new Map(existingExpenses.map(function(e){ return [e.id, e]; }));
-  const newOnes = [];
-  const updatedOnes = [];
-  incoming.forEach(function(e){
-    const existing = existingById.get(e.id);
-    if(!existing){ newOnes.push(e); return; }
-    // Rev #30 (6D.42) — tombstone: локально видалений запис (existing.
-    // deletedAt) безумовно виграє — ні в newOnes, ні в updatedOnes (лічиться
-    // в dupCount). Без порівняння updatedAt: жодного undelete-механізму в
-    // UI немає, тож новіший updatedAt вхідного файлу нічого б не "відновив",
-    // лише тихо переписав би поля під уже встановленим tombstone.
-    if(existing.deletedAt) return;
-    const incomingTs = e.updatedAt ? Date.parse(e.updatedAt) : NaN;
-    const existingTs = existing.updatedAt ? Date.parse(existing.updatedAt) : NaN;
-    if(!isNaN(incomingTs) && (isNaN(existingTs) || incomingTs > existingTs)){
-      updatedOnes.push(e);
-    }
-  });
-  const dupCount = incoming.length - newOnes.length - updatedOnes.length;
-  return { existingById, newOnes, updatedOnes, dupCount };
-}
-function handleShareImportFile(event){
-  const file = event.target.files[0];
-  if(!file) return;
-  const statusEl = document.getElementById('share-status');
-  const inputEl = event.target;
-  statusEl.textContent = 'Читаю файл…';
-  const reader = new FileReader();
-  reader.onload = async function(e){
-    let parsed;
-    try{ parsed = JSON.parse(e.target.result); }
-    catch(err){ statusEl.textContent = 'Помилка: файл пошкоджений або не є JSON.'; inputEl.value=''; return; }
-    if(!parsed || parsed.__budgetShare !== true || !Array.isArray(parsed.expenses)){
-      statusEl.textContent = 'Помилка: це не файл спільних витрат цього застосунку.';
-      inputEl.value = '';
-      return;
-    }
-    // Скидаємо input одразу після успішного зчитування (а не лише в кінці
-    // кожної гілки) — інакше повторний вибір ТОГО САМОГО файлу після
-    // натискання "Скасувати" у модалці підтвердження міг би не спрацювати
-    // (браузер не породжує подію change, якщо значення інпута не змінилось).
-    inputEl.value = '';
-    // Валідні мінімальні поля — id обов'язковий (саме на ньому базується
-    // дедуплікація), решта критичних полів теж мають бути присутні.
-    const incoming = parsed.expenses.filter(function(e){
-      return e && typeof e.id === 'string' && e.id && e.date && e.name && typeof e.amount === 'number';
-    });
-    if(!incoming.length){
-      statusEl.textContent = 'У файлі не знайдено жодної коректної витрати.';
-      return;
-    }
-    // Rev 2.14.0 — сама дедуплікація/оновлення (Rev 2.13.0) винесена в окрему
-    // функцію computeImportPlan() нижче (без localStorage/DOM), щоб її можна
-    // було покрити автотестом (tests/import-dedup.test.js) без ініціалізації
-    // файлового діалогу й усього застосунку. Поведінка не змінена.
-    const plan = computeImportPlan(incoming, expenses);
-    const existingById = plan.existingById, newOnes = plan.newOnes, updatedOnes = plan.updatedOnes, dupCount = plan.dupCount;
-    if(!newOnes.length && !updatedOnes.length){
-      statusEl.textContent = `Усі ${incoming.length} ${expenseCountWord(incoming.length)} з файлу вже є у вашому журналі — нічого не додано.`;
-      return;
-    }
-    const totalSum = newOnes.reduce(function(s,e){ return s+Math.round(e.amount); }, 0);
-    const parts = [`Знайдено ${incoming.length} ${expenseCountWord(incoming.length)} у файлі.`];
-    parts.push(`Нових: ${newOnes.length} (${fmt(totalSum)}).`);
-    if(updatedOnes.length>0) parts.push(`Оновлено: ${updatedOnes.length}.`);
-    if(dupCount>0) parts.push(`Вже є: ${dupCount}.`);
-    parts.push('Застосувати зміни?');
-    const message = parts.join(' ');
-    showConfirmModal(message, async function(){
-      newOnes.forEach(function(e){
-        const fallbackTs = e.date + 'T00:00:00.000Z';
-        const rec = {
-          id: e.id, date: e.date, name: String(e.name), amount: Math.round(e.amount),
-          category: e.category || '', subcategory: e.subcategory || '',
-          manual: !!e.manual,
-          createdAt: e.createdAt || fallbackTs,
-          updatedAt: e.updatedAt || e.createdAt || fallbackTs
-        };
-        if(e.linkedInstallment) rec.linkedInstallment = e.linkedInstallment;
-        expenses.push(rec);
-      });
-      updatedOnes.forEach(function(e){
-        const rec = existingById.get(e.id);
-        rec.date = e.date; rec.name = String(e.name); rec.amount = Math.round(e.amount);
-        rec.category = e.category || ''; rec.subcategory = e.subcategory || '';
-        rec.manual = !!e.manual;
-        rec.updatedAt = e.updatedAt;
-        if(e.linkedInstallment) rec.linkedInstallment = e.linkedInstallment;
-        else delete rec.linkedInstallment;
-      });
-      reportSaveResult(await saveExpenses());
-      populateMonths(); renderAll();
-      const resultParts = [];
-      if(newOnes.length>0) resultParts.push(`додано ${newOnes.length} ${expenseCountWord(newOnes.length)}`);
-      if(updatedOnes.length>0) resultParts.push(`оновлено ${updatedOnes.length}`);
-      if(dupCount>0) resultParts.push(`пропущено ${dupCount} (вже є)`);
-      statusEl.textContent = resultParts.length ? (resultParts[0][0].toUpperCase()+resultParts[0].slice(1)+(resultParts.length>1?', '+resultParts.slice(1).join(', '):'')+'.') : '';
-    }, updatedOnes.length>0 ? `Застосувати (${newOnes.length + updatedOnes.length})` : `Додати ${newOnes.length}`);
-  };
-  reader.onerror = function(){ statusEl.textContent = 'Не вдалося прочитати файл.'; inputEl.value=''; };
-  reader.readAsText(file);
 }
 
 /* ============ Місяці ============ */
@@ -13253,7 +12999,7 @@ if(window.matchMedia){
 let appModalGeneration = 0;
 function openAppModal(){
   // Rev 2.10.2 — фокус переходить у модалку тут, ЦЕНТРАЛІЗОВАНО: усі
-  // show*Modal()/openShareExpensesModal() уже викликають openAppModal()
+  // show*Modal() уже викликають openAppModal()
   // (напряму або через presentAppModal(), Rev #29) останнім рядком, тому
   // одна зміна тут покриває їх усі без окремого патчу кожної функції. Ті з
   // них, що потребують фокусу саме на конкретному текстовому полі,
