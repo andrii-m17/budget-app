@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.22.25';
+const CACHE_NAME = 'budget-app-v2.22.26';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -68,7 +68,7 @@ self.addEventListener('message', function(event){
 self.addEventListener('push', function(event){
   let data = {};
   try{ data = event.data ? event.data.json() : {}; }catch(err){}
-  const title = data.title || 'Бюджет-локально';
+  const title = data.title || 'Money Tree';
   const options = {
     body: data.body || '',
     icon: './icons/icon-192-v2.png',

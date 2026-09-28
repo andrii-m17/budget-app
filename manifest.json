@@ -1,6 +1,6 @@
 {
-  "name": "Бюджет — локально в браузері",
-  "short_name": "Бюджет",
+  "name": "Money Tree",
+  "short_name": "Money Tree",
   "description": "Особистий трекер витрат, доходів, боргів і оплат частинами — локально, без сервера.",
   "start_url": "./index.html",
   "scope": "./",
