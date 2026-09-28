@@ -208,11 +208,16 @@
      .gear-btn.profile-header-btn — вища специфічність, не залежить від
      порядку правил. */
   .gear-btn.profile-header-btn{ border:none; padding:0; background:none; overflow:visible; }
-  .profile-preview-icon-wrap{ display:flex; justify-content:center; margin:6px 0 18px; }
+  .profile-preview-icon-wrap{ display:flex; justify-content:center; margin:6px 0 14px; }
+  /* Rev #30 (6D.89) — за референсом користувача: заголовок "Ви не увійшли"
+     (жирний, по центру) над підписом — той самий двошаровий текст, що вже
+     має залогінований стан (profile-head-name/profile-head-email), лише
+     центрований для гостя. */
+  .profile-preview-title{ text-align:center; font-weight:700; font-size:16px; color:var(--color-text-primary); margin-bottom:4px; }
   /* Rev #30 (6D.13) — margin-bottom додано: підпис впритул торкався
      розділювальної лінії (border-top наступного .profile-menu-item) —
      за словами користувача, "занадто близько". */
-  .profile-preview-hint{ text-align:center; font-size:12.5px; color:var(--color-text-secondary); margin:12px 0 12px; line-height:1.4; }
+  .profile-preview-hint{ text-align:center; font-size:12.5px; color:var(--color-text-secondary); margin:0 0 18px; line-height:1.4; }
   .avatar-status-dot{ position:absolute; bottom:-1px; right:-1px; width:11px; height:11px; border-radius:50%; border:2px solid var(--color-surface); background:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; }
   .avatar-status-dot.online{ background:var(--color-success); }
   .avatar-status-dot.offline{ background:var(--color-error); }
@@ -640,7 +645,10 @@
      правила. */
   .profile-menu-item.hidden{ display:none; }
   @media (hover:hover){ .profile-menu-item:hover{ background:var(--color-hover-overlay); } }
-  .cloud-service-card{ display:flex; align-items:center; gap:12px; width:100%; padding:14px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); cursor:pointer; text-align:left; font-family:inherit; margin-bottom:4px; }
+  /* Rev #30 (6D.89) — за проханням користувача: відступ до картки
+     синхронізації нижче збільшено (4px→20px, той самий проміжок, що вже
+     нижче .sync-card має до "Даних") — раніше картки виглядали злипленими. */
+  .cloud-service-card{ display:flex; align-items:center; gap:12px; width:100%; padding:14px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); cursor:pointer; text-align:left; font-family:inherit; margin-bottom:20px; }
   @media (hover:hover){ .cloud-service-card:hover{ background:var(--color-surface-hover); } }
   .cloud-service-card-text{ min-width:0; flex:1; }
   .cloud-service-card-name{ font-weight:700; font-size:14.5px; }
@@ -2573,7 +2581,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.20</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.21</div>
 </div>
   </div>
 </div>
@@ -2688,8 +2696,12 @@
         </span>
       </span>
     </div>
-    <button type="button" class="submit-btn pill" onclick="showProfileLoginForm()">Увійти</button>
+    <!-- Rev #30 (6D.89) — за референсом користувача: заголовок+підпис ПЕРЕД
+         кнопкою (раніше кнопка йшла першою, підпис — після) — той самий
+         текст, лише переставлений порядок для кращого вигляду. -->
+    <div class="profile-preview-title">Ви не увійшли</div>
     <div class="profile-preview-hint">Увійдіть, щоб синхронізувати дані та налаштування</div>
+    <button type="button" class="submit-btn pill" onclick="showProfileLoginForm()">Увійти</button>
     <button type="button" class="profile-menu-item" onclick="closeProfileMenu(); openSettings();">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       Налаштування
@@ -5887,7 +5899,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.20';
+const APP_VERSION = '2.22.21';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
