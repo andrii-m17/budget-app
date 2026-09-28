@@ -262,14 +262,6 @@
      clientWidth (134px) — 230px дає запас. */
   .profile-popover{ position:fixed; z-index:91; width:230px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:16px; display:none; }
   .profile-popover.open{ display:block; }
-  /* Rev #30 (6D.82) — за проханням користувача: у розтягнутому (6D.81,
-     .wide — лише тригер "Сервісу") варіанті рядок аватар+ім'я по центру
-     (не притиснутий до лівого краю широкої картки) і трохи компактніша
-     висота (менше вертикальних відступів) — header/sidebar-тригер БЕЗ
-     класу .wide, лишається як був. */
-  .profile-popover.wide{ padding-top:14px; padding-bottom:14px; }
-  .profile-popover.wide .profile-head{ justify-content:center; padding:2px 2px 12px; }
-  .profile-popover.wide .profile-menu-item{ padding:11px 4px; }
   .profile-popover-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
   .profile-popover-backdrop.open{ display:block; }
   /* Rev #30 (6D.85) — live-toast сповіщення (Частина 3а): fixed top, БЕЗ
@@ -2581,7 +2573,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.21</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.22</div>
 </div>
   </div>
 </div>
@@ -5899,7 +5891,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.21';
+const APP_VERSION = '2.22.22';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7694,10 +7686,6 @@ function positionProfilePopover(explicitTrigger){
   const isServiceCardTrigger = trigger.id === 'cloud-service-card';
   const popoverWidth = isServiceCardTrigger ? rect.width : 230; // 230 — той самий, що .profile-popover CSS
   popover.style.width = isServiceCardTrigger ? (popoverWidth + 'px') : '';
-  // Rev #30 (6D.82) — за проханням користувача: .wide (CSS вище) центрує
-  // рядок аватар+ім'я і трохи стискає вертикальні відступи — лише для
-  // розтягнутого варіанта (той самий isServiceCardTrigger, що вище).
-  popover.classList.toggle('wide', isServiceCardTrigger);
   let top, left;
   if(trigger.id === 'profile-side-trigger'){
     // Desktop sidebar: розкриття ПРАВОРУЧ від іконки (інша сторона,
