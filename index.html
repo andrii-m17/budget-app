@@ -2567,7 +2567,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.27</div>
+  <div class="version-footer">Money Tree · Rev 2.22.28</div>
 </div>
   </div>
 </div>
@@ -5885,7 +5885,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.27';
+const APP_VERSION = '2.22.28';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6821,6 +6821,27 @@ async function requestPushSubscription(){
   }catch(err){
     // Мережа/CORS/офлайн чи браузер відмовив у Push API — тихий пропуск,
     // той самий принцип, що інші push-хелпери Cloud-синхронізації.
+  }
+}
+// Rev #30 (6D.99, розширено в 6D.100) — єдина точка маршрутизації кліку
+// по push-сповіщенню, спільна для обох шляхів доставки дії (query-
+// параметри нової навігації і postMessage від уже відкритої вкладки —
+// обидва зібрані в стартовому IIFE в кінці файлу). Один список дій тут,
+// не дублювання в кожному з двох шляхів.
+function handlePushAction(action){
+  if(!action || !action.type) return;
+  if(action.type === 'daily-expense-reminder'){
+    switchTab('vytraty');
+  }else if(action.type === 'installment-deadline'){
+    performSwitchTab('accounting');
+    switchAccountingTab('installments');
+    // installmentId відсутній, коли дедлайн того самого дня мали КІЛЬКА
+    // ОЧ одразу (6D.96 шле одне зведення на всі) — тоді лише вкладка,
+    // без відкриття конкретної шторки (яку саме — неоднозначно).
+    if(action.installmentId){
+      const idx = installmentAccounts.findIndex(function(acc){ return acc.cloudId === action.installmentId; });
+      if(idx >= 0) openInstallmentEditor(idx);
+    }
   }
 }
 // Rev #30 (6D.56) — Realtime + sync-on-resume (без банерів/зведень — свідомо
@@ -13499,16 +13520,17 @@ installSyncIndicatorHooks();
 // CATEGORIES/SUBCATEGORIES/installmentAccounts, інакше setCategorySelect()/
 // автозв'язок ОЧ спрацювали б на порожніх довідниках).
 restoreExpenseDraft();
-// Rev #30 (6D.99) — клік по push-сповіщенню "нагадування внести витрати"
-// (notify_daily_expense_reminder, 6D.94) відкриває застосунок одразу на
-// вкладці "Витрати" (форма внесення) через query-параметр, який sw.js
-// додає в URL (лише коли клієнта ще не було відкрито — див.
-// notificationclick у sw.js). Читається РІВНО ОДИН РАЗ і одразу
-// прибирається з URL (щоб перезавантаження сторінки не перемикало
-// вкладку знову).
-const pushOpenTab = new URLSearchParams(location.search).get('openTab');
-if(pushOpenTab === 'vytraty'){
-  switchTab('vytraty');
+// Rev #30 (6D.99, узагальнено в 6D.100) — клік по push-сповіщенню
+// (sw.js notificationclick) веде або через query-параметри нової
+// навігації (клієнта ще не було відкрито), або через postMessage
+// (клієнт уже відкритий — сторінка не може прочитати query свіжої
+// навігації, вона вже завантажена). Обидва шляхи ведуть у ЄДИНУ
+// handlePushAction() (нижче) — один список дій, не дві копії логіки.
+// Query-параметри читаються РІВНО ОДИН РАЗ і одразу прибираються з URL.
+const pushActionParams = new URLSearchParams(location.search);
+const pushActionType = pushActionParams.get('pushAction');
+if(pushActionType){
+  handlePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined });
   history.replaceState(null, '', location.pathname);
 }
 })();
@@ -13520,12 +13542,12 @@ if(pushOpenTab === 'vytraty'){
 // тихо не спрацює, решта застосунку працює як і раніше.
 // Rev #30 (6D.99) — коли застосунок УЖЕ відкритий у вкладці, клік по
 // push-сповіщенню лише фокусує її (notificationclick у sw.js не може
-// сам змінити URL відкритої сторінки) — sw.js натомість шле postMessage,
-// той самий перелік tab-значень, що query-параметр ?openTab= вище.
+// сам змінити URL відкритої сторінки) — sw.js натомість шле postMessage
+// з тим самим action-об'єктом, що передається в handlePushAction() вище.
 if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', function(event){
-    if(event.data && event.data.type === 'push-action' && event.data.tab){
-      switchTab(event.data.tab);
+    if(event.data && event.data.type === 'push-action' && event.data.action){
+      handlePushAction(event.data.action);
     }
   });
 }

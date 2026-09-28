@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.22.27';
+const CACHE_NAME = 'budget-app-v2.22.28';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -83,27 +83,32 @@ self.addEventListener('push', function(event){
 
 // Rev 2.22.25 (6D.93) — клік по сповіщенню: фокус уже відкритої вкладки,
 // якщо є, інакше відкрити нову — стандартний PWA-паттерн.
-// Rev 2.22.27 (6D.99) — тепер ще й маршрутизує за notification.data.type:
-// "daily-expense-reminder" (6D.94) → вкладка "Витрати" (форма внесення).
-// Відкритій вкладці шлемо postMessage (сама сторінка не може прочитати
-// query-параметр нової навігації, вона вже завантажена) — щойно
-// відкритій/новій — query-параметр ?openTab=, який index.html читає при
-// старті. Невідомий/відсутній type — лише фокус/відкриття, як і раніше.
+// Rev 2.22.27 (6D.99), узагальнено в Rev 2.22.28 (6D.100) — маршрутизує
+// за всім notification.data як є (не лише за одним полем "tab"), щоб той
+// самий механізм обслуговував і "вкладка" (daily-expense-reminder), і
+// "вкладка + конкретний запис" (installment-deadline, 6D.96, опційний
+// installmentId). Відкритій вкладці шлемо postMessage (сама сторінка не
+// може прочитати query-параметр нової навігації, вона вже завантажена);
+// щойно відкритій/новій — ті самі поля як query-параметри (?pushAction=
+// type&installmentId=...), які index.html читає при старті через
+// handlePushAction(). Невідомий/відсутній type — лише фокус/відкриття.
 self.addEventListener('notificationclick', function(event){
   event.notification.close();
   const notifData = event.notification.data || {};
-  let targetTab = null;
-  if(notifData.type === 'daily-expense-reminder') targetTab = 'vytraty';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then(function(clientsArr){
       for(const c of clientsArr){
         if('focus' in c){
-          if(targetTab) c.postMessage({ type: 'push-action', tab: targetTab });
+          if(notifData.type) c.postMessage({ type: 'push-action', action: notifData });
           return c.focus();
         }
       }
-      const url = targetTab ? ('./index.html?openTab=' + encodeURIComponent(targetTab)) : './';
+      let url = './';
+      if(notifData.type){
+        url = './index.html?pushAction=' + encodeURIComponent(notifData.type);
+        if(notifData.installmentId) url += '&installmentId=' + encodeURIComponent(notifData.installmentId);
+      }
       if(self.clients.openWindow) return self.clients.openWindow(url);
     })
   );
