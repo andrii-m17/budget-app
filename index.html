@@ -282,6 +282,15 @@
   .live-toast-detail{ font-size:12.5px; color:var(--color-text-primary); font-weight:600; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .live-toast-icon{ flex-shrink:0; width:24px; height:24px; border-radius:50%; background:var(--color-surface-hover); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; }
   .live-toast-icon svg{ width:13px; height:13px; display:block; }
+  /* Rev #30 (6D.86) — зведене сповіщення: той самий .live-toast каркас
+     (swipe/автозникнення — attachToastDismiss()), лише без кольорової
+     смуги автора (не привʼязане до ОДНІЄЇ дії) і з великою хмарною
+     іконкою зліва замість аватара. */
+  .sync-summary-toast{ align-items:center; }
+  .sync-summary-toast .sync-summary-icon{ width:32px; height:32px; background:var(--color-info-bg); color:var(--color-info); }
+  .sync-summary-toast .sync-summary-icon svg{ width:16px; height:16px; }
+  .sync-summary-toast .live-toast-name{ font-size:13.5px; margin-bottom:2px; }
+  .sync-summary-toast .live-toast-text{ color:var(--color-text-primary); }
   .page-header-text h1{ margin:0; font-size:21px; line-height:27px; font-weight:700; letter-spacing:-.01em; }
   .page-header-text .page-subtitle{ margin:3px 0 0; font-size:12.5px; color:var(--color-text-secondary); line-height:1.4; }
   /* Rev 2.11.1 — офлайн-банер: той самий приглушений warning-тон, що вже
@@ -2598,7 +2607,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.17</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.18</div>
 </div>
   </div>
 </div>
@@ -5891,7 +5900,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.17';
+const APP_VERSION = '2.22.18';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6753,15 +6762,14 @@ async function applyCloudSession(session){
       // Rev #30 (6D.56) — Realtime-підписка: той самий "один раз на
       // sign-in transition" принцип, що весь початковий pull-ланцюжок вище.
       setupRealtimeSync();
-      // Rev #30 (6D.85) — цей повний ланцюжок ("наздогнати" після
+      // Rev #30 (6D.86) — цей повний ланцюжок ("наздогнати" після
       // входу/перезавантаження) НЕ веде до live-toast (той — лише для
       // Realtime-події, поки вкладка вже відкрита, докоментар над
-      // flushOtherActorEventsAsToasts() пояснює чому). Черга дренується
-      // ТУТ (а не залишається на потім) — інакше перший-ліпший Realtime-
-      // toast після цього підхопив би застарілі події цього самого
-      // ланцюжка. Наступний Rev підключить сюди зведене сповіщення замість
-      // простого discard.
-      drainOtherActorEvents();
+      // flushOtherActorEventsAsToasts() пояснює чому) — ОДНЕ зведене
+      // сповіщення замість N окремих карток. Викликається ТУТ (не пізніше)
+      // — інакше перший-ліпший Realtime-toast після цього підхопив би
+      // застарілі події цього самого ланцюжка.
+      flushOtherActorEventsAsSummary();
     }
     }finally{
       if(!wasSignedIn) syncOpEnd();
@@ -6853,16 +6861,15 @@ function teardownRealtimeSync(){
 // розблокуванні екрана) І focus (десктоп-кейс, напр. Alt+Tab назад у
 // вкладку) — обидва ведуть в ту саму функцію, pullOnce() (той самий guard,
 // що вище) природно дедублює, якщо обидві події спрацюють майже одночасно.
-// Rev #30 (6D.85) — async: чекаємо на ВСІ 9 pullOnce() перед дренажем
-// черги "чужих подій" (той самий принцип, що catch-up-гілка
-// applyCloudSession() вище) — повернення з фону НЕ веде до live-toast
-// (це "наздогнати", не "живий" сценарій), наступний Rev підключить сюди
-// зведене сповіщення замість простого discard. Виклик-сайти
-// (visibilitychange/focus) не await-ять — не потребують результату.
+// Rev #30 (6D.86) — async: чекаємо на ВСІ 9 pullOnce() перед показом
+// зведеного сповіщення (той самий принцип, що catch-up-гілка
+// applyCloudSession() вище) — повернення з фону НЕ веде до live-toast (це
+// "наздогнати", не "живий" сценарій). Виклик-сайти (visibilitychange/
+// focus) не await-ять — не потребують результату.
 async function pullAllOnResume(){
   if(!isCloudSessionReady()) return;
   await Promise.all(PULL_DOMAINS.map(function(domain){ return pullOnce(domain.key); }));
-  drainOtherActorEvents();
+  flushOtherActorEventsAsSummary();
 }
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState === 'visible') pullAllOnResume();
@@ -7085,26 +7092,12 @@ function notifRelativeTime(atMs){
 // межах "3-5с", погоджених з користувачем) + свайп-вліво для закриття.
 const LIVE_TOAST_AUTO_DISMISS_MS = 4000;
 const LIVE_TOAST_SWIPE_THRESHOLD_PX = 60;
-function showLiveToast(event){
-  const stack = document.getElementById('live-toast-stack');
-  if(!stack) return;
-  const toast = document.createElement('div');
-  toast.className = 'live-toast';
-  toast.style.borderLeftColor = 'var(' + event.colorVar + ')';
-  const letter = (event.actorName || '?').trim().charAt(0).toUpperCase();
-  const detail = event.amount != null ? (event.name || '') + ' • ' + formatThousands(event.amount) + ' ₴' : (event.name || '');
-  toast.innerHTML =
-    '<span class="live-toast-avatar" style="background:var(' + event.colorVar + ')">' + letter + '</span>' +
-    '<div class="live-toast-body">' +
-      '<div class="live-toast-head"><span class="live-toast-name">' + escapeHtml(event.actorName) + '</span><span class="live-toast-time">' + notifRelativeTime(event.at) + '</span></div>' +
-      '<div class="live-toast-text">' + escapeHtml(notifVerbText(event)) + '</div>' +
-      '<div class="live-toast-detail">' + escapeHtml(detail) + '</div>' +
-    '</div>' +
-    '<span class="live-toast-icon">' + notifIconHtml(event.action) + '</span>';
+// Rev #30 (6D.86) — спільна свайп-вліво/автозникнення механіка, витягнута з
+// showLiveToast() (6D.85): і подієва картка, і зведене сповіщення нижче —
+// той самий "iOS-подібний toast", лише різний вміст/тривалість.
+function attachToastDismiss(toast, stack, autoDismissMs){
   stack.insertBefore(toast, stack.firstChild); // новіші зверху
-  let dismissTimer = setTimeout(function(){ dismissLiveToast(toast); }, LIVE_TOAST_AUTO_DISMISS_MS);
-  // Rev #30 (6D.85) — свайп-вліво для закриття (за проханням користувача,
-  // "візуально максимально близький до системного сповіщення iPhone").
+  let dismissTimer = setTimeout(function(){ dismissLiveToast(toast); }, autoDismissMs);
   let startX = null, currentX = 0;
   toast.addEventListener('touchstart', function(e){
     startX = e.touches[0].clientX;
@@ -7126,9 +7119,27 @@ function showLiveToast(event){
     }else{
       toast.style.transform = '';
       toast.style.opacity = '';
-      dismissTimer = setTimeout(function(){ dismissLiveToast(toast); }, LIVE_TOAST_AUTO_DISMISS_MS);
+      dismissTimer = setTimeout(function(){ dismissLiveToast(toast); }, autoDismissMs);
     }
   });
+}
+function showLiveToast(event){
+  const stack = document.getElementById('live-toast-stack');
+  if(!stack) return;
+  const toast = document.createElement('div');
+  toast.className = 'live-toast';
+  toast.style.borderLeftColor = 'var(' + event.colorVar + ')';
+  const letter = (event.actorName || '?').trim().charAt(0).toUpperCase();
+  const detail = event.amount != null ? (event.name || '') + ' • ' + formatThousands(event.amount) + ' ₴' : (event.name || '');
+  toast.innerHTML =
+    '<span class="live-toast-avatar" style="background:var(' + event.colorVar + ')">' + letter + '</span>' +
+    '<div class="live-toast-body">' +
+      '<div class="live-toast-head"><span class="live-toast-name">' + escapeHtml(event.actorName) + '</span><span class="live-toast-time">' + notifRelativeTime(event.at) + '</span></div>' +
+      '<div class="live-toast-text">' + escapeHtml(notifVerbText(event)) + '</div>' +
+      '<div class="live-toast-detail">' + escapeHtml(detail) + '</div>' +
+    '</div>' +
+    '<span class="live-toast-icon">' + notifIconHtml(event.action) + '</span>';
+  attachToastDismiss(toast, stack, LIVE_TOAST_AUTO_DISMISS_MS);
 }
 function dismissLiveToast(toast){
   if(!toast || !toast.parentNode) return;
@@ -7142,6 +7153,63 @@ function dismissLiveToast(toast){
 // після відсутності показало б toast-спам замість одного зведення.
 function flushOtherActorEventsAsToasts(){
   drainOtherActorEvents().forEach(showLiveToast);
+}
+// Rev #30 (6D.86) — Внутрішні сповіщення, Частина 3б: зведене сповіщення
+// при поверненні ("поки ви були не в додатку"). ОДНА картка, підрахунок за
+// доменами (не по кожному запису — DoD явно виключає повну деталізацію).
+// 2-особова сім'я (CLAUDE.md) → "не я" завжди резолвиться в ОДНОГО
+// конкретного автора (Крок 0, підтверджено користувачем) — жодного
+// per-actor groupBy не потрібно, events[0] задає ім'я/стать для всієї
+// групи. Повна українська 3-форма узгодження числівника (1 / 2-4 / 5+,
+// pluralUa() нижче) — не спрощення до "1 проти 2+", застосунок і так
+// послідовно точний у мові (див. решту UI).
+const NOTIF_DOMAIN_LABELS = {
+  expenses: ['витрату', 'витрати', 'витрат'],
+  incomes: ['дохід', 'доходи', 'доходів'],
+  debts: ['борг', 'борги', 'боргів'],
+  hiddenEntities: ['запис по ОЧ', 'записи по ОЧ', 'записів по ОЧ'],
+};
+// Rev #30 (6D.86) — стандартне українське узгодження числівника з
+// іменником: forms = [1, 2-4, 5+] (напр. ['витрату','витрати','витрат']).
+function pluralUa(n, forms){
+  const mod10 = n % 10, mod100 = n % 100;
+  if(mod10 === 1 && mod100 !== 11) return forms[0];
+  if(mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+  return forms[2];
+}
+function buildSyncSummaryText(events){
+  if(!events.length) return null;
+  const gender = events[0].gender;
+  const verb = gender === 'f' ? 'внесла' : 'вніс';
+  const counts = {};
+  events.forEach(function(e){ counts[e.domain] = (counts[e.domain] || 0) + 1; });
+  const parts = Object.keys(counts).map(function(domain){
+    const n = counts[domain];
+    const forms = NOTIF_DOMAIN_LABELS[domain] || [domain, domain, domain];
+    return n + ' ' + pluralUa(n, forms);
+  });
+  return escapeHtml(events[0].actorName) + ' ' + verb + ' зміни: ' + parts.join(', ') + ', поки ви були не в додатку.';
+}
+const SYNC_SUMMARY_AUTO_DISMISS_MS = 6000; // довше за live-toast — важливіша інформація, менш очевидний момент появи
+function showSyncSummaryToast(events){
+  const stack = document.getElementById('live-toast-stack');
+  if(!stack || !events.length) return;
+  const text = buildSyncSummaryText(events);
+  const toast = document.createElement('div');
+  toast.className = 'live-toast sync-summary-toast';
+  toast.innerHTML =
+    '<span class="live-toast-icon sync-summary-icon">' + CLOUD_ICON_SVG + '</span>' +
+    '<div class="live-toast-body">' +
+      '<div class="live-toast-name">Синхронізація даних</div>' +
+      '<div class="live-toast-text">' + text + '</div>' +
+    '</div>';
+  attachToastDismiss(toast, stack, SYNC_SUMMARY_AUTO_DISMISS_MS);
+}
+// Rev #30 (6D.86) — виклик-сайт для "наздогнати" (resume/sign-in) — ОДНЕ
+// зведення замість N окремих live-toast (докоментар над
+// flushOtherActorEventsAsToasts() пояснює чому по-різному).
+function flushOtherActorEventsAsSummary(){
+  showSyncSummaryToast(drainOtherActorEvents());
 }
 // Rev #30 (6D.8) — єдина точка рендеру профіль-UI: аватар (header mobile/
 // desktop/сервіс-картка/drawer), ім'я/email/статус у drawer'і, текст картки

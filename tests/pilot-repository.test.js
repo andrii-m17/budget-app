@@ -233,7 +233,7 @@ const REPOSITORY_NAMES = [
   // function/ALL-CAPS const, тому НЕ тут (extractFunctionSource їх не
   // знайде) — початкові значення передаються через globals у sandbox()
   // нижче, той самий принцип, що cloudSession/hiddenFrom.
-  'authorInfoFor', 'pushOtherActorEvent', 'drainOtherActorEvents',
+  'authorInfoFor', 'pushOtherActorEvent', 'drainOtherActorEvents', 'pluralUa',
   // Rev #30 (6D.68) — таймінги 2-фазного pulse-highlight ("щойно з хмари"),
   // яких pullExpensesCore() потребує ВСЕРЕДИНІ hadMarker-гілки (докоментар
   // над setTimeout-стабом у sandbox() нижче пояснює, чому це раніше не
@@ -2026,6 +2026,18 @@ test('authorInfoFor: gender "m" для Andrii, "f" для Olga', () => {
   ctx.familyUsersById = { u1: { name: 'Andrii' }, u2: { name: 'Olga' } };
   assert.equal(ctx.authorInfoFor('u1').gender, 'm');
   assert.equal(ctx.authorInfoFor('u2').gender, 'f');
+});
+
+test('pluralUa: українська 3-форма узгодження числівника (1 / 2-4 / 5+, включно з винятком 11-14)', () => {
+  const ctx = pullExpensesSandbox([]);
+  const forms = ['витрату', 'витрати', 'витрат'];
+  assert.equal(ctx.pluralUa(1, forms), 'витрату');
+  assert.equal(ctx.pluralUa(21, forms), 'витрату'); // 21 → mod10=1, mod100=21≠11 → форма "1"
+  assert.equal(ctx.pluralUa(2, forms), 'витрати');
+  assert.equal(ctx.pluralUa(4, forms), 'витрати');
+  assert.equal(ctx.pluralUa(5, forms), 'витрат');
+  assert.equal(ctx.pluralUa(11, forms), 'витрат'); // виняток: mod10=1, але mod100=11 → НЕ форма "1"
+  assert.equal(ctx.pluralUa(12, forms), 'витрат'); // виняток: mod10=2, але mod100=12 → НЕ форма "2-4"
 });
 
 test('pullExpensesCore: перший пул (hadMarker=false) → подія НЕ додається в чергу навіть для чужого автора', async () => {
