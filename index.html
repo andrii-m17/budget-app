@@ -2567,7 +2567,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.28</div>
+  <div class="version-footer">Money Tree · Rev 2.22.29</div>
 </div>
   </div>
 </div>
@@ -5885,7 +5885,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.28';
+const APP_VERSION = '2.22.29';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6823,8 +6823,8 @@ async function requestPushSubscription(){
     // той самий принцип, що інші push-хелпери Cloud-синхронізації.
   }
 }
-// Rev #30 (6D.99, розширено в 6D.100) — єдина точка маршрутизації кліку
-// по push-сповіщенню, спільна для обох шляхів доставки дії (query-
+// Rev #30 (6D.99, розширено в 6D.100/6D.101) — єдина точка маршрутизації
+// кліку по push-сповіщенню, спільна для обох шляхів доставки дії (query-
 // параметри нової навігації і postMessage від уже відкритої вкладки —
 // обидва зібрані в стартовому IIFE в кінці файлу). Один список дій тут,
 // не дублювання в кожному з двох шляхів.
@@ -6842,6 +6842,19 @@ function handlePushAction(action){
       const idx = installmentAccounts.findIndex(function(acc){ return acc.cloudId === action.installmentId; });
       if(idx >= 0) openInstallmentEditor(idx);
     }
+  }else if(action.type === 'other-actor-summary'){
+    // Rev #30 (6D.101) — підсвітка "щойно з хмари" (.just-synced,
+    // recentlyPulledExpenseState) — УЖЕ існуючий механізм (6D.68/6D.87),
+    // нічого додатково вмикати не треба: типовий шлях кліку — застосунок
+    // був ЗАКРИТИЙ, initCloudAuthUI() (не await, паралельно з loadAll()
+    // вище) уже запустив pull-ланцюжок при вході — він ще НЕ завершений у
+    // цю саму мить (звідси Журнал може відкритись на секунду РАНІШЕ
+    // підсвітки), але кожен pullXCore() кличе renderAll()→renderRecords()
+    // по завершенню, а та сама renderRecords() оновлює вже відкритий
+    // Журнал (isJournalOpen-гілка), тож підсвітка "доганяє" сама, без
+    // додаткового коду тут.
+    switchTab('vytraty');
+    openJournal();
   }
 }
 // Rev #30 (6D.56) — Realtime + sync-on-resume (без банерів/зведень — свідомо
