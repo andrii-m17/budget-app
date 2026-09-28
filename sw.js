@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.22.26';
+const CACHE_NAME = 'budget-app-v2.22.27';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -65,6 +65,9 @@ self.addEventListener('message', function(event){
 // сповіщення при вхідному push-повідомленні (сервер шле {title, body} як
 // JSON — Edge Function send-push-notification, 6D.92). Якщо event.data
 // відсутній чи не JSON — тихий фолбек на дефолтний заголовок, не критично.
+// Rev 2.22.27 (6D.99) — data.data (напр. {type:'daily-expense-reminder'},
+// сервер) прокидається в options.data — notificationclick нижче читає
+// його, щоб знати, куди саме вести клік.
 self.addEventListener('push', function(event){
   let data = {};
   try{ data = event.data ? event.data.json() : {}; }catch(err){}
@@ -72,19 +75,36 @@ self.addEventListener('push', function(event){
   const options = {
     body: data.body || '',
     icon: './icons/icon-192-v2.png',
-    badge: './icons/icon-192-v2.png'
+    badge: './icons/icon-192-v2.png',
+    data: data.data || {}
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // Rev 2.22.25 (6D.93) — клік по сповіщенню: фокус уже відкритої вкладки,
 // якщо є, інакше відкрити нову — стандартний PWA-паттерн.
+// Rev 2.22.27 (6D.99) — тепер ще й маршрутизує за notification.data.type:
+// "daily-expense-reminder" (6D.94) → вкладка "Витрати" (форма внесення).
+// Відкритій вкладці шлемо postMessage (сама сторінка не може прочитати
+// query-параметр нової навігації, вона вже завантажена) — щойно
+// відкритій/новій — query-параметр ?openTab=, який index.html читає при
+// старті. Невідомий/відсутній type — лише фокус/відкриття, як і раніше.
 self.addEventListener('notificationclick', function(event){
   event.notification.close();
+  const notifData = event.notification.data || {};
+  let targetTab = null;
+  if(notifData.type === 'daily-expense-reminder') targetTab = 'vytraty';
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then(function(clientsArr){
-      for(const c of clientsArr){ if('focus' in c) return c.focus(); }
-      if(self.clients.openWindow) return self.clients.openWindow('./');
+      for(const c of clientsArr){
+        if('focus' in c){
+          if(targetTab) c.postMessage({ type: 'push-action', tab: targetTab });
+          return c.focus();
+        }
+      }
+      const url = targetTab ? ('./index.html?openTab=' + encodeURIComponent(targetTab)) : './';
+      if(self.clients.openWindow) return self.clients.openWindow(url);
     })
   );
 });

@@ -7125,6 +7125,46 @@ Money Tree" — "Money Tree" виявилась назвою, яку корис�
 `node --test` — 441/441 (клієнтський код не змінювався, версію PWA не
 підіймали).
 
+### 6D.99 — Інтерактивні сповіщення, частина 1: клік на нагадування "внести витрати" ✅ Rev 2.22.27
+
+**Реалізовано (наскрізний ланцюжок, усі 4 шари):**
+- SQL (`notify_daily_expense_reminder()`, 6D.94) — додано
+  `'data', jsonb_build_object('type','daily-expense-reminder')` до
+  тіла push-запиту.
+- Edge Function `send-push-notification` (6D.92) — приймає опційне
+  поле `data` (довільний jsonb) і прокидає як є в тіло Web Push
+  повідомлення (раніше форвардилось лише `{title, body}`).
+- `sw.js`: `push` — `data.data` прокидається в `options.data`
+  (`showNotification`); `notificationclick` — читає
+  `event.notification.data.type`, `'daily-expense-reminder'` →
+  `targetTab='vytraty'`. Якщо клієнт (вкладка) уже відкритий —
+  `postMessage({type:'push-action', tab})` і фокус (сама сторінка не
+  може прочитати query свіжої навігації, вона вже завантажена);
+  інакше — `clients.openWindow('./index.html?openTab=vytraty')`.
+- `index.html`: у стартовому IIFE (після `restoreExpenseDraft()`) —
+  читає `?openTab=` РІВНО ОДИН РАЗ, викликає `switchTab('vytraty')`,
+  одразу чистить URL (`history.replaceState`) — щоб перезавантаження
+  сторінки не перемикало вкладку знову. Окремо — `navigator.
+  serviceWorker.addEventListener('message', ...)` для сценарію "вкладка
+  вже відкрита": те саме `switchTab(event.data.tab)`.
+- "Витрати"-вкладка (`vytraty`) — уже готова форма внесення витрати
+  (`#vytraty-default-view` з `.vytraty-form-col`), не нова UI-сутність
+  — клік просто перемикає на неї.
+
+**Перевірено в браузері (обидва сценарії, без реального push —
+маршрутизація клієнта не залежить від того, звідки прийшов клік):**
+- Свіжий запуск `?openTab=vytraty` → `activeTab==='vytraty'`,
+  `#view-vytraty` видима, URL очищено від query-параметра.
+- Симуляція `postMessage({type:'push-action', tab:'vytraty'})` при
+  вже відкритому застосунку (стартова вкладка — "Аналітика") →
+  перемкнувся на "Витрати" без перезавантаження.
+
+**`node --test`** — 441/441.
+
+**Далі (наступні ізольовані кроки, НЕ зроблено):** той самий паттерн
+`data.type` для (2) кліку на ОЧ-сповіщення → конкретна ОЧ, (3) кліку
+на зведення від Олі → журнал із підсвіткою її витрат.
+
 Спільний простір: `Household { id, members: [user A, user B] }`.
 
 ## 32. Access Rights

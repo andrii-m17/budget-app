@@ -2567,7 +2567,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.26</div>
+  <div class="version-footer">Money Tree · Rev 2.22.27</div>
 </div>
   </div>
 </div>
@@ -5885,7 +5885,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.26';
+const APP_VERSION = '2.22.27';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13499,6 +13499,18 @@ installSyncIndicatorHooks();
 // CATEGORIES/SUBCATEGORIES/installmentAccounts, інакше setCategorySelect()/
 // автозв'язок ОЧ спрацювали б на порожніх довідниках).
 restoreExpenseDraft();
+// Rev #30 (6D.99) — клік по push-сповіщенню "нагадування внести витрати"
+// (notify_daily_expense_reminder, 6D.94) відкриває застосунок одразу на
+// вкладці "Витрати" (форма внесення) через query-параметр, який sw.js
+// додає в URL (лише коли клієнта ще не було відкрито — див.
+// notificationclick у sw.js). Читається РІВНО ОДИН РАЗ і одразу
+// прибирається з URL (щоб перезавантаження сторінки не перемикало
+// вкладку знову).
+const pushOpenTab = new URLSearchParams(location.search).get('openTab');
+if(pushOpenTab === 'vytraty'){
+  switchTab('vytraty');
+  history.replaceState(null, '', location.pathname);
+}
 })();
 
 // Rev 2.3.3 — реєстрація Service Worker (PWA: офлайн-доступ + "Додати на
@@ -13506,6 +13518,17 @@ restoreExpenseDraft();
 // (браузерне обмеження безпеки) — тому цю частину видно лише після
 // хостингу на HTTPS/localhost; на file:// registerServiceWorker() просто
 // тихо не спрацює, решта застосунку працює як і раніше.
+// Rev #30 (6D.99) — коли застосунок УЖЕ відкритий у вкладці, клік по
+// push-сповіщенню лише фокусує її (notificationclick у sw.js не може
+// сам змінити URL відкритої сторінки) — sw.js натомість шле postMessage,
+// той самий перелік tab-значень, що query-параметр ?openTab= вище.
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', function(event){
+    if(event.data && event.data.type === 'push-action' && event.data.tab){
+      switchTab(event.data.tab);
+    }
+  });
+}
 if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
   // Rev 2.11.0 — 'controllerchange' спрацьовує РІВНО раз, коли новий SW
   // реально бере контроль над сторінкою (тобто вже ПІСЛЯ того, як сторінка
