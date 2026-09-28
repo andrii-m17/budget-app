@@ -275,6 +275,9 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       // "LWW"-тести вище — без sync-маркера), тому відсутність цього
       // глобалу залишалась непоміченою аж до 6D.84 тестів нижче.
       recentlyPulledExpenseState: new Map(),
+      // Rev #30 (6D.87) — той самий gap, що recentlyPulledExpenseState вище,
+      // тепер і для incomes (pullIncomesCore() під hadMarker).
+      recentlyPulledIncomeState: new Map(),
       // Rev #30 (6D.84) — той самий "раніше непомічений" gap, що коментар
       // над recentlyPulledExpenseState вище: vm.createContext НЕ має
       // browser/Node timer-глобалів узагалі. Виконуємо колбек ОДРАЗУ
@@ -2145,6 +2148,28 @@ test('pullIncomesCore: інкрементальний пул + редагува�
   assert.equal(events.length, 1);
   assert.equal(events[0].domain, 'incomes');
   assert.equal(events[0].action, 'edit');
+});
+
+test('pullIncomesCore: інкрементальний пул + редагування → recentlyPulledIncomeState проходить syncing→done→(видалено) (6D.87, той самий принцип, що expenses/6D.68)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.setSyncMarker('incomes', '2020-01-01T00:00:00.000Z');
+  ctx.incomes = [{ id: 'i1', date: '2026-05-05', source: 'Зарплата', amount: 900, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const fake = fakeSupabaseMarkerAwareClient('incomes', [{ id: 'i1', amount: 1000, income_date: '2026-05-06', note: 'Зарплата+', deleted_at: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z', updated_by: 'user-1' }]);
+  ctx.getSupabaseClient = () => fake.client;
+  // Перехоплюємо ПЕРШИЙ setTimeout (той, що переводить syncing→done) —
+  // знімок Map ДО виклику колбека, поки запис ще 'syncing'.
+  let snapshotBeforeFirstTimer = null;
+  ctx.setTimeout = function(fn){
+    if(snapshotBeforeFirstTimer === null) snapshotBeforeFirstTimer = new Map(ctx.recentlyPulledIncomeState);
+    return fn();
+  };
+  await ctx.pullIncomesCore();
+  assert.equal(snapshotBeforeFirstTimer.get('i1'), 'syncing');
+  // Обидва вкладені setTimeout відпрацювали синхронно (стаб) — Map тепер порожня.
+  assert.equal(ctx.recentlyPulledIncomeState.size, 0);
 });
 
 test('pullDebtsCore: інкрементальний пул + редагування чужим автором → подія action:"edit", domain:"debts"', async () => {

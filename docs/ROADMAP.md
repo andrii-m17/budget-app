@@ -6660,6 +6660,31 @@ sign-in/boot-ланцюжка в `applyCloudSession()`, і `pullAllOnResume()`
 ("Olga внесла зміни: 2 витрати, 1 дохід, 1 борг..." — правильна форма
 "витрати" для 2, не помилкова "витрат").
 
+### 6D.87 — "Щойно з хмари" pulse розширено на incomes (той самий "основний список") ✅ Rev 2.22.19
+
+**Що зроблено:** `recentlyPulledIncomeState` — нова Map, дзеркальна
+`recentlyPulledExpenseState` (6D.67-69): та сама 2-фазна анімація
+(`syncing` → `done` → зникає), той самий `RECORD_SYNC_PULSE_MS`/
+`RECORD_SYNC_PULSE_COUNT`/`RECORD_SYNC_DONE_MS`, підключена всередині
+`pullIncomesCore()` (той самий `hadMarker`-гейт, що вже є для сповіщень
+6D.84). `buildRecordGroupsHtml()` більше не виключає `incomes` з
+`pullState` (раніше: `!isIncome ? recentlyPulledExpenseState.get(e.id) :
+undefined` — тепер обирає правильну Map за `kind`).
+
+**Свідоме звуження скоупу:** DoD згадував "основний список" — це Журнал
+(`.expense-row`, спільний для expense/income). `debts`/`hidden_entities`
+рендеряться ЗОВСІМ інакше (`.card-debt-compact-row`, keyed за ІНДЕКСОМ
+`bankAccounts`/`installmentAccounts`, не за id самого факту-запису) —
+поза "основним списком" і поза розумним обсягом цього Rev; підсвітка для
+них НЕ реалізована.
+
+**Тестування:** `node --test` — 442/442 (1 новий: перехоплення першого
+`setTimeout` для знімку Map у стані `'syncing'` ДО переходу в `'done'`).
+
+**Живо перевірено:** реальний дохід у "Журналі усіх записів" — клас
+`income-row just-synced` коректно застосований до правильного запису за
+id (не до всіх/не до жодного).
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.

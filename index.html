@@ -2607,7 +2607,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.18</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.19</div>
 </div>
   </div>
 </div>
@@ -5267,6 +5267,7 @@ async function pullIncomesCore(){
           local.updatedBy = row.updated_by;
           updated++;
           if(hadMarker){
+            recentlyPulledIncomeState.set(local.id, 'syncing'); // Rev #30 (6D.87) — той самий принцип, що expenses/6D.68
             const isDelete = row.deleted_at && !wasDeleted;
             pushOtherActorEvent('incomes', isDelete ? 'delete' : 'edit', row.updated_by, cloudSource, row.amount);
           }
@@ -5277,7 +5278,10 @@ async function pullIncomesCore(){
       const rec = { id: row.id, date: row.income_date, source: row.note || '', amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, createdBy: row.created_by, updatedBy: row.updated_by };
       if(row.deleted_at) rec.deletedAt = row.deleted_at;
       incomes.push(rec);
-      if(hadMarker && !row.deleted_at) pushOtherActorEvent('incomes', 'add', row.created_by, rec.source, rec.amount); // Rev #30 (6D.84)
+      if(hadMarker){
+        recentlyPulledIncomeState.set(rec.id, 'syncing'); // Rev #30 (6D.87)
+        if(!row.deleted_at) pushOtherActorEvent('incomes', 'add', row.created_by, rec.source, rec.amount); // Rev #30 (6D.84)
+      }
       added++;
     }
     updateSyncMarkerFromAllRows('incomes', data);
@@ -5288,6 +5292,23 @@ async function pullIncomesCore(){
   // Rev #30 (6D.55) — той самий принцип, що pullExpensesCore() вище:
   // дзеркалимо render-виклик локального save (saveIncomeDrawer()).
   if(updated || added) renderAll();
+  // Rev #30 (6D.87) — "щойно з хмари" pulse (6D.67-69) розширено на incomes
+  // (той самий "основний список" Журналу, що expenses — .expense-row
+  // спільний для обох kind'ів) — ідентична 2-фазна анімація/таймінг.
+  if((updated || added) && hadMarker){
+    setTimeout(function(){
+      recentlyPulledIncomeState.forEach(function(state, id){
+        if(state === 'syncing') recentlyPulledIncomeState.set(id, 'done');
+      });
+      renderAll();
+      setTimeout(function(){
+        recentlyPulledIncomeState.forEach(function(state, id){
+          if(state === 'done') recentlyPulledIncomeState.delete(id);
+        });
+        renderAll();
+      }, RECORD_SYNC_DONE_MS);
+    }, RECORD_SYNC_PULSE_MS * RECORD_SYNC_PULSE_COUNT);
+  }
   return { skipped: false, updated: updated, added: added, keptLocal: keptLocal };
 }
 async function pullIncomesPilot(){
@@ -5900,7 +5921,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.18';
+const APP_VERSION = '2.22.19';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7269,6 +7290,10 @@ const CLOUD_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 // (зелена галочка + зелена підсвітка) ~0.6с, разом ≈3с — той самий
 // порядок величини, що індикатор синхронізації профілю (SYNC_MIN_SYNCING_MS).
 let recentlyPulledExpenseState = new Map();
+// Rev #30 (6D.87) — той самий принцип, окрема Map для incomes (спільний
+// RECORD_SYNC_PULSE_MS/RECORD_SYNC_PULSE_COUNT/RECORD_SYNC_DONE_MS нижче,
+// не дублюємо константи — лише сам стан per-домен).
+let recentlyPulledIncomeState = new Map();
 const RECORD_SYNC_PULSE_MS = 800;
 const RECORD_SYNC_PULSE_COUNT = 3;
 const RECORD_SYNC_DONE_MS = 600;
@@ -11059,7 +11084,10 @@ function buildRecordGroupsHtml(items){
       // створених/відредагованих на ЦЬОМУ пристрої) —
       // recentlyPulledExpenseState заповнюється всередині
       // pullExpensesCore() (докоментар там і над самою Map пояснює фази).
-      const pullState = !isIncome ? recentlyPulledExpenseState.get(e.id) : undefined; // 'syncing'|'done'|undefined
+      // Rev #30 (6D.87) — розширено на incomes (recentlyPulledIncomeState,
+      // окрема Map, той самий принцип) — обидва kind живуть у тому самому
+      // "основному списку" Журналу (.expense-row спільний).
+      const pullState = isIncome ? recentlyPulledIncomeState.get(e.id) : recentlyPulledExpenseState.get(e.id); // 'syncing'|'done'|undefined
       const rowClass = (isIncome ? 'income-row' : '') + (isSelected ? ' selected' : '')
         + (pullState === 'syncing' ? ' just-synced' : pullState === 'done' ? ' just-synced just-synced-done' : '');
       const chipClass = isIncome ? 'chip income' : (e.category ? 'chip' : 'chip empty');
