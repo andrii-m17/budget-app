@@ -596,9 +596,9 @@
   /* Rev #30 (6D.8) — редизайн Cloud Auth UI: #profile-drawer (той самий
      .drawer/.drawer-head компонент, що #settings-drawer), список пунктів
      меню (.profile-menu-item, та сама роль, що .side-tab у сайдбарі —
-     рядок-кнопка з іконкою й текстом) і компактна картка в "Сервісі"
-     (.cloud-service-card), що відкриває те саме меню — не новий паралельний
-     UI, а спільний вхід. */
+     рядок-кнопка з іконкою й текстом). Rev #30 (6D.90) — компактна картка
+     в "Сервісі" (.cloud-service-card), що раніше теж відкривала це саме
+     меню, прибрана — дублювала header/sidebar-іконку профілю. */
   .profile-head{ display:flex; align-items:center; gap:12px; padding:4px 2px 18px; }
   .profile-head-text{ min-width:0; }
   .profile-head-name{ font-weight:700; font-size:15px; }
@@ -637,15 +637,6 @@
      правила. */
   .profile-menu-item.hidden{ display:none; }
   @media (hover:hover){ .profile-menu-item:hover{ background:var(--color-hover-overlay); } }
-  /* Rev #30 (6D.89) — за проханням користувача: відступ до картки
-     синхронізації нижче збільшено (4px→20px, той самий проміжок, що вже
-     нижче .sync-card має до "Даних") — раніше картки виглядали злипленими. */
-  .cloud-service-card{ display:flex; align-items:center; gap:12px; width:100%; padding:14px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); cursor:pointer; text-align:left; font-family:inherit; margin-bottom:20px; }
-  @media (hover:hover){ .cloud-service-card:hover{ background:var(--color-surface-hover); } }
-  .cloud-service-card-text{ min-width:0; flex:1; }
-  .cloud-service-card-name{ font-weight:700; font-size:14.5px; }
-  .cloud-service-card-email{ font-size:12px; color:var(--color-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .cloud-service-card-chevron{ flex-shrink:0; color:var(--color-text-secondary); }
 
   .section-label{ font-size:11px; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.6px; margin:26px 2px 10px; display:flex; align-items:center; gap:6px; }
   .section-label:first-child{ margin-top:2px; }
@@ -2289,21 +2280,9 @@
 
     <!-- ================= СЕРВІС (імпорт/експорт/очищення/резерв) ================= -->
     <div class="view hidden" id="view-service">
-  <!-- Rev #30 (6D.8) — редизайн Cloud Auth UI: компактна картка замінює
-       inline-форму Rev 2.21.36 (яка й досі жила прямо в тілі вкладки) —
-       та сама auth-логіка (signInWithPassword/signOut/сесія/офлайн-нотіс),
-       лише відкриває спільне #profile-drawer (той самий вхід, що іконка
-       профілю в header). Форма входу/стан "увійшли" тепер живуть усередині
-       drawer'а нижче (renderProfileUI() наповнює цю картку тим самим
-       текстом, що раніше показував #cloud-auth-status). -->
-  <button type="button" class="cloud-service-card" id="cloud-service-card" onclick="openProfileMenu(this)">
-    <span class="avatar-badge" id="profile-avatar-service" aria-hidden="true"><span class="avatar-face guest"></span></span>
-    <div class="cloud-service-card-text">
-      <div class="cloud-service-card-name" id="cloud-service-card-name">Не увійшли</div>
-      <div class="cloud-service-card-email" id="cloud-service-card-status">Увійдіть, щоб синхронізувати дані на всіх пристроях</div>
-    </div>
-    <svg class="cloud-service-card-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-  </button>
+  <!-- Rev #30 (6D.90) — за проханням користувача: вхід із вкладки "Сервіс"
+       (.cloud-service-card, 6D.8-6D.82) прибрано — дублював UI (та сама
+       дія, що вже іконка профілю в header/sidebar, openProfileMenu()). -->
 
   <!-- Rev #30 (6D.37) — ЗАМІНА 6 окремих "Синхронізувати X"-кнопок
        (categories/subcategories/dictionary/bank_accounts/
@@ -2573,7 +2552,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.22</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.23</div>
 </div>
   </div>
 </div>
@@ -5891,7 +5870,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.22';
+const APP_VERSION = '2.22.23';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7572,10 +7551,11 @@ function renderProfileUI(){
   // online/offline — той самий пріоритет, що вже мали syncing/done).
   const dotClass = !signedIn ? '' : (syncVisualState === 'syncing' ? 'syncing' : syncVisualState === 'done' ? 'done' : syncVisualState === 'error' ? 'error' : (online ? 'online' : 'offline'));
   const dotIconHtml = dotClass === 'syncing' ? SYNC_SPIN_ICON_SVG : dotClass === 'done' ? SYNC_DONE_ICON_SVG : dotClass === 'error' ? SYNC_ERROR_ICON_SVG : '';
-  // Rev #30 (6D.10) — розширено з 2 до 3 місць: 'profile-avatar-side'
+  // Rev #30 (6D.10) — розширено з 1 до 2 місць: 'profile-avatar-side'
   // (desktop sidebar) раніше взагалі не мав крапки — той самий "холст"-
-  // фікс тепер застосований однаково для header/sidebar/картки "Сервісу".
-  ['profile-avatar-top', 'profile-avatar-side', 'profile-avatar-service'].forEach(function(id){
+  // фікс тепер застосований однаково для header/sidebar. Rev #30 (6D.90) —
+  // 'profile-avatar-service' прибрано разом із карткою "Сервісу".
+  ['profile-avatar-top', 'profile-avatar-side'].forEach(function(id){
     const host = document.getElementById(id);
     if(!host) return;
     let dot = host.querySelector('.avatar-status-dot');
@@ -7634,58 +7614,31 @@ function renderProfileUI(){
     if(emailEl) emailEl.textContent = session.user.email;
     if(statusDot) statusDot.className = 'profile-status-dot ' + dotClass;
     // Rev #30 (6D.11) — скорочено спеціально для вузького popover (200px,
-    // Задача 1); картка в "Сервісі" (cardStatus нижче) лишається повним
-    // текстом — там достатньо горизонтального місця, не була частиною запиту.
+    // Задача 1).
     // Rev #30 (6D, індикатор синхронізації) — текст теж відображає
     // syncing/done, той самий dotClass, що вище.
     if(statusText) statusText.textContent = dotClass === 'syncing' ? 'Синхронізується…' : dotClass === 'done' ? '✓ Синхронізовано' : dotClass === 'error' ? '! Помилка синхронізації' : (online ? 'Синхронізовано' : 'Призупинено (немає мережі)');
-
-    const cardName = document.getElementById('cloud-service-card-name');
-    const cardStatus = document.getElementById('cloud-service-card-status');
-    if(cardName) cardName.textContent = name;
-    if(cardStatus) cardStatus.textContent = online ? 'Синхронізація увімкнена' : 'Синхронізація призупинена (немає мережі)';
-  }else{
-    const cardName = document.getElementById('cloud-service-card-name');
-    const cardStatus = document.getElementById('cloud-service-card-status');
-    if(cardName) cardName.textContent = 'Не увійшли';
-    if(cardStatus) cardStatus.textContent = 'Увійдіть, щоб синхронізувати дані на всіх пристроях';
   }
 }
 // Rev #30 (6D.10) — ЗАМІНА підходу з 6D.8/6D.9 (не розширення): раніше
 // openProfileMenu() відкривала #profile-drawer (bottom sheet). Референс
 // вимагає заякорений popover — тому тепер це заякорений #profile-popover,
 // третій UI-примітив у проєкті (не #app-modal, не .drawer). Позиція
-// обчислюється відносно ФАКТИЧНО клікнутого тригера (explicitTrigger,
-// якщо переданий — напр. компактна картка в "Сервісі"), інакше — відносно
-// поточного видимого стандартного тригера (mobile header-кнопка чи
-// desktop sidebar-рядок, лише один видимий одночасно).
+// обчислюється відносно поточного видимого тригера (mobile header-кнопка
+// чи desktop sidebar-рядок, лише один видимий одночасно).
 //
-// BugFix, знайдений живою перевіркою: якщо позиціювання завжди прив'язане
-// ЛИШЕ до header/sidebar-тригера, а картка в "Сервісі" прокручена вниз —
-// header-кнопка опиняється за межами viewport (від'ємний rect.top),
-// popover відкрився б повністю поза екраном. Тепер картка передає себе
-// (`onclick="openProfileMenu(this)"`), і позиція додатково кламписться
-// у межах viewport ПІСЛЯ рендеру (виміряний реальний розмір popover'а —
-// він відрізняється для guest/signed-in станів).
-function positionProfilePopover(explicitTrigger){
+// Rev #30 (6D.90) — за проханням користувача: вхід із вкладки "Сервіс"
+// (.cloud-service-card, 6D.8-6D.82) прибрано повністю — дублював UI
+// (та сама дія, що вже іконка профілю в header/sidebar). explicitTrigger-
+// параметр (6D.10, потрібен був лише для цієї картки) відповідно теж
+// прибрано — лишились 2 фіксовані тригери, як до 6D.10.
+function positionProfilePopover(){
   const popover = document.getElementById('profile-popover');
-  let trigger = explicitTrigger;
-  if(!trigger){
-    const mobileTrigger = document.getElementById('profile-btn-top');
-    const desktopTrigger = document.getElementById('profile-side-trigger');
-    trigger = mobileTrigger.offsetParent !== null ? mobileTrigger : desktopTrigger;
-  }
+  const mobileTrigger = document.getElementById('profile-btn-top');
+  const desktopTrigger = document.getElementById('profile-side-trigger');
+  const trigger = mobileTrigger.offsetParent !== null ? mobileTrigger : desktopTrigger;
   const rect = trigger.getBoundingClientRect();
-  // Rev #30 (6D.81) — за проханням користувача: тригер "Сервісу"
-  // (cloud-service-card, повноширинна картка) розтягує popover на всю
-  // ширину ЦІЄЇ картки (виглядало "трохи більше середини" при фіксованих
-  // 230px) — header/sidebar-тригер лишається БЕЗ ЗМІН, фіксована компактна
-  // ширина, як і раніше. Висота не фіксувалась і раніше (лише padding,
-  // контент сам визначає висоту) — ширший popover означає МЕНШЕ переносів
-  // тексту, тобто природно НИЖЧий, не вищий.
-  const isServiceCardTrigger = trigger.id === 'cloud-service-card';
-  const popoverWidth = isServiceCardTrigger ? rect.width : 230; // 230 — той самий, що .profile-popover CSS
-  popover.style.width = isServiceCardTrigger ? (popoverWidth + 'px') : '';
+  const popoverWidth = 230; // той самий, що .profile-popover CSS
   let top, left;
   if(trigger.id === 'profile-side-trigger'){
     // Desktop sidebar: розкриття ПРАВОРУЧ від іконки (інша сторона,
@@ -7693,8 +7646,7 @@ function positionProfilePopover(explicitTrigger){
     top = rect.top;
     left = rect.right + 10;
   }else{
-    // Mobile header-кнопка або компактна картка "Сервісу": розкриття ПІД
-    // елементом, зліва (там, де сам елемент).
+    // Mobile header-кнопка: розкриття ПІД елементом, зліва (там, де сам елемент).
     top = rect.bottom + 8;
     left = Math.max(16, Math.min(rect.left, window.innerWidth - popoverWidth - 16));
   }
@@ -7711,11 +7663,11 @@ function positionProfilePopover(explicitTrigger){
     popover.style.left = Math.max(16, window.innerWidth - popoverRect.width - 16) + 'px';
   }
 }
-function openProfileMenu(explicitTrigger){
+function openProfileMenu(){
   lastFocusedBeforeDialog = document.activeElement;
   document.getElementById('profile-popover-backdrop').classList.add('open');
   document.getElementById('profile-popover').classList.add('open');
-  positionProfilePopover(explicitTrigger);
+  positionProfilePopover();
   focusFirstIn(document.getElementById('profile-popover'));
   initCloudAuthUI();
 }
