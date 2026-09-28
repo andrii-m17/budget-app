@@ -267,6 +267,21 @@
   .profile-popover.wide .profile-menu-item{ padding:11px 4px; }
   .profile-popover-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
   .profile-popover-backdrop.open{ display:block; }
+  /* Rev #30 (6D.85) — live-toast сповіщення (Частина 3а): fixed top, БЕЗ
+     backdrop (єдиний з 4 UI-примітивів), над усім рештою (навіть модалками
+     — той самий принцип, що системні сповіщення iOS завжди зверху). */
+  .live-toast-stack{ position:fixed; top:max(12px, env(safe-area-inset-top)); left:16px; right:16px; z-index:200; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+  .live-toast{ display:flex; align-items:flex-start; gap:10px; padding:12px 14px; background:var(--color-surface); border-left:3px solid transparent; border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); pointer-events:auto; transition:transform .2s ease, opacity .2s ease; touch-action:pan-y; }
+  .live-toast.live-toast-leaving{ opacity:0; transform:translateX(-100%); }
+  .live-toast-avatar{ width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:700; }
+  .live-toast-body{ flex:1; min-width:0; }
+  .live-toast-head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  .live-toast-name{ font-weight:700; font-size:13.5px; color:var(--color-text-primary); }
+  .live-toast-time{ font-size:11px; color:var(--color-text-secondary); flex-shrink:0; }
+  .live-toast-text{ font-size:12.5px; color:var(--color-text-secondary); margin-top:1px; }
+  .live-toast-detail{ font-size:12.5px; color:var(--color-text-primary); font-weight:600; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .live-toast-icon{ flex-shrink:0; width:24px; height:24px; border-radius:50%; background:var(--color-surface-hover); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; }
+  .live-toast-icon svg{ width:13px; height:13px; display:block; }
   .page-header-text h1{ margin:0; font-size:21px; line-height:27px; font-weight:700; letter-spacing:-.01em; }
   .page-header-text .page-subtitle{ margin:3px 0 0; font-size:12.5px; color:var(--color-text-secondary); line-height:1.4; }
   /* Rev 2.11.1 — офлайн-банер: той самий приглушений warning-тон, що вже
@@ -2583,7 +2598,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.16</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.17</div>
 </div>
   </div>
 </div>
@@ -2675,6 +2690,12 @@
      Позиція обчислюється JS-ом (positionProfilePopover()), бо в нас ДВА
      різних тригери в різних контейнерах, не один спільний
      position:relative-батько, як у .data-status-popover (KPI-картки). -->
+<!-- Rev #30 (6D.85) — 4-й UI-примітив у проєкті (на додачу до #app-modal/
+     .drawer/#profile-popover) — live-toast сповіщення про чужі дії
+     (Частина 3а). БЕЗ backdrop (єдиний з 4 примітивів) — не має блокувати
+     взаємодію з рештою екрана, той самий принцип, що системні сповіщення
+     iOS (за проханням користувача). Наповнюється JS-ом (showLiveToast()). -->
+<div class="live-toast-stack" id="live-toast-stack" aria-live="polite"></div>
 <div class="profile-popover-backdrop" id="profile-popover-backdrop" onclick="closeProfileMenu()"></div>
 <div class="profile-popover" id="profile-popover" role="dialog" aria-label="Профіль">
   <h2 style="margin:0 0 14px; font-size:16px; font-weight:700;">Профіль</h2>
@@ -5870,7 +5891,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.16';
+const APP_VERSION = '2.22.17';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6732,6 +6753,15 @@ async function applyCloudSession(session){
       // Rev #30 (6D.56) — Realtime-підписка: той самий "один раз на
       // sign-in transition" принцип, що весь початковий pull-ланцюжок вище.
       setupRealtimeSync();
+      // Rev #30 (6D.85) — цей повний ланцюжок ("наздогнати" після
+      // входу/перезавантаження) НЕ веде до live-toast (той — лише для
+      // Realtime-події, поки вкладка вже відкрита, докоментар над
+      // flushOtherActorEventsAsToasts() пояснює чому). Черга дренується
+      // ТУТ (а не залишається на потім) — інакше перший-ліпший Realtime-
+      // toast після цього підхопив би застарілі події цього самого
+      // ланцюжка. Наступний Rev підключить сюди зведене сповіщення замість
+      // простого discard.
+      drainOtherActorEvents();
     }
     }finally{
       if(!wasSignedIn) syncOpEnd();
@@ -6799,7 +6829,10 @@ function setupRealtimeSync(){
   let channel = client.channel('family-sync-' + cloudFamilyId);
   PULL_DOMAINS.forEach(function(domain){
     channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: domain.table, filter: 'family_id=eq.' + cloudFamilyId }, function(){
-      pullOnce(domain.key);
+      // Rev #30 (6D.85) — Realtime-подія, поки вкладка вже відкрита, —
+      // САМЕ той "живий" сценарій, для якого live-toast і задуманий
+      // (докоментар над flushOtherActorEventsAsToasts() нижче).
+      pullOnce(domain.key).then(flushOtherActorEventsAsToasts);
     });
   });
   channel.subscribe();
@@ -6820,9 +6853,16 @@ function teardownRealtimeSync(){
 // розблокуванні екрана) І focus (десктоп-кейс, напр. Alt+Tab назад у
 // вкладку) — обидва ведуть в ту саму функцію, pullOnce() (той самий guard,
 // що вище) природно дедублює, якщо обидві події спрацюють майже одночасно.
-function pullAllOnResume(){
+// Rev #30 (6D.85) — async: чекаємо на ВСІ 9 pullOnce() перед дренажем
+// черги "чужих подій" (той самий принцип, що catch-up-гілка
+// applyCloudSession() вище) — повернення з фону НЕ веде до live-toast
+// (це "наздогнати", не "живий" сценарій), наступний Rev підключить сюди
+// зведене сповіщення замість простого discard. Виклик-сайти
+// (visibilitychange/focus) не await-ять — не потребують результату.
+async function pullAllOnResume(){
   if(!isCloudSessionReady()) return;
-  PULL_DOMAINS.forEach(function(domain){ pullOnce(domain.key); });
+  await Promise.all(PULL_DOMAINS.map(function(domain){ return pullOnce(domain.key); }));
+  drainOtherActorEvents();
 }
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState === 'visible') pullAllOnResume();
@@ -6999,6 +7039,109 @@ function drainOtherActorEvents(){
   const events = otherActorEvents;
   otherActorEvents = [];
   return events;
+}
+// Rev #30 (6D.85) — Внутрішні сповіщення, Частина 3а: live-toast, візуально
+// максимально близький до системного сповіщення iOS (за проханням
+// користувача) — новий 4-й UI-примітив (на додачу до #app-modal/.drawer/
+// #profile-popover, жоден з них не підтримує "transient, стек,
+// автозникнення", Крок 0 підтвердив). Іконка праворуч: додавання —
+// узагальнений плюсик (спрощення, підтверджене користувачем — НЕ іконка
+// категорії), редагування — той самий олівець, що вже .exp-edited-badge,
+// видалення — новий кошик (за референсом; застосунок досі використовував
+// лише X-хрестик на кнопках видалення, не кошик).
+const NOTIF_ADD_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+const NOTIF_EDIT_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+const NOTIF_DELETE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+// Rev #30 (6D.85) — дієслова за проханням користувача: гейт "лише
+// профіль/акаунт" (не пристрій) + "лише чужий автор" уже вирішено в
+// pushOtherActorEvent() (6D.84) — тут лише текст, узгоджений з gender
+// (authorInfoFor(), 2-особова сім'я, той самий принцип, що colorVar).
+const NOTIF_VERBS = {
+  expenses: { add: { m: 'додав', f: 'додала' }, edit: { m: 'відредагував', f: 'відредагувала' }, delete: { m: 'видалив', f: 'видалила' }, noun: 'витрату' },
+  incomes: { add: { m: 'додав', f: 'додала' }, edit: { m: 'відредагував', f: 'відредагувала' }, delete: { m: 'видалив', f: 'видалила' }, noun: 'дохід' },
+  debts: { add: { m: 'додав', f: 'додала' }, edit: { m: 'відредагував', f: 'відредагувала' }, delete: { m: 'видалив', f: 'видалила' }, noun: 'борг' },
+  hiddenEntities: { add: { m: 'приховав', f: 'приховала' }, noun: 'рахунок' },
+};
+function notifIconHtml(action){
+  return action === 'add' ? NOTIF_ADD_ICON_SVG : action === 'delete' ? NOTIF_DELETE_ICON_SVG : NOTIF_EDIT_ICON_SVG;
+}
+function notifVerbText(event){
+  const spec = NOTIF_VERBS[event.domain];
+  if(!spec) return '';
+  const verb = spec[event.action] ? spec[event.action][event.gender === 'f' ? 'f' : 'm'] : '';
+  return (verb + ' ' + spec.noun).trim();
+}
+// Rev #30 (6D.85) — за проханням користувача: показуємо лише "щойно"/
+// "N хв тому" (той самий рівень деталізації, що референс) — не секунди,
+// не години (для live-toast, що зникає за 3-5с, точніше не потрібно).
+function notifRelativeTime(atMs){
+  const diffMin = Math.floor((Date.now() - atMs) / 60000);
+  if(diffMin < 1) return 'щойно';
+  return diffMin + ' хв тому';
+}
+// Rev #30 (6D.85) — стек live-toast: fixed top, БЕЗ backdrop (на відміну
+// від решти 3 примітивів) — не має блокувати взаємодію з рештою екрана,
+// той самий принцип, що системні сповіщення iOS. Автозникнення ~4с (у
+// межах "3-5с", погоджених з користувачем) + свайп-вліво для закриття.
+const LIVE_TOAST_AUTO_DISMISS_MS = 4000;
+const LIVE_TOAST_SWIPE_THRESHOLD_PX = 60;
+function showLiveToast(event){
+  const stack = document.getElementById('live-toast-stack');
+  if(!stack) return;
+  const toast = document.createElement('div');
+  toast.className = 'live-toast';
+  toast.style.borderLeftColor = 'var(' + event.colorVar + ')';
+  const letter = (event.actorName || '?').trim().charAt(0).toUpperCase();
+  const detail = event.amount != null ? (event.name || '') + ' • ' + formatThousands(event.amount) + ' ₴' : (event.name || '');
+  toast.innerHTML =
+    '<span class="live-toast-avatar" style="background:var(' + event.colorVar + ')">' + letter + '</span>' +
+    '<div class="live-toast-body">' +
+      '<div class="live-toast-head"><span class="live-toast-name">' + escapeHtml(event.actorName) + '</span><span class="live-toast-time">' + notifRelativeTime(event.at) + '</span></div>' +
+      '<div class="live-toast-text">' + escapeHtml(notifVerbText(event)) + '</div>' +
+      '<div class="live-toast-detail">' + escapeHtml(detail) + '</div>' +
+    '</div>' +
+    '<span class="live-toast-icon">' + notifIconHtml(event.action) + '</span>';
+  stack.insertBefore(toast, stack.firstChild); // новіші зверху
+  let dismissTimer = setTimeout(function(){ dismissLiveToast(toast); }, LIVE_TOAST_AUTO_DISMISS_MS);
+  // Rev #30 (6D.85) — свайп-вліво для закриття (за проханням користувача,
+  // "візуально максимально близький до системного сповіщення iPhone").
+  let startX = null, currentX = 0;
+  toast.addEventListener('touchstart', function(e){
+    startX = e.touches[0].clientX;
+    currentX = 0;
+    if(dismissTimer){ clearTimeout(dismissTimer); dismissTimer = null; } // не зникає САМЕ під час свайпу
+  }, { passive: true });
+  toast.addEventListener('touchmove', function(e){
+    if(startX === null) return;
+    currentX = e.touches[0].clientX - startX;
+    if(currentX > 0) currentX = 0; // лише вліво, той самий напрям, що системні сповіщення
+    toast.style.transform = 'translateX(' + currentX + 'px)';
+    toast.style.opacity = String(Math.max(0.2, 1 - Math.abs(currentX) / 200));
+  }, { passive: true });
+  toast.addEventListener('touchend', function(){
+    if(startX === null) return;
+    startX = null;
+    if(Math.abs(currentX) >= LIVE_TOAST_SWIPE_THRESHOLD_PX){
+      dismissLiveToast(toast);
+    }else{
+      toast.style.transform = '';
+      toast.style.opacity = '';
+      dismissTimer = setTimeout(function(){ dismissLiveToast(toast); }, LIVE_TOAST_AUTO_DISMISS_MS);
+    }
+  });
+}
+function dismissLiveToast(toast){
+  if(!toast || !toast.parentNode) return;
+  toast.classList.add('live-toast-leaving');
+  setTimeout(function(){ if(toast.parentNode) toast.parentNode.removeChild(toast); }, 220);
+}
+// Rev #30 (6D.85) — виклик-сайт для "живого" сценарію (Realtime-подія, поки
+// вкладка відкрита) — ОДИН toast на подію. "Наздогнати" (resume/sign-in)
+// НЕ веде сюди (drainOtherActorEvents() там викликається окремо, поки без
+// показу — наступний Rev підключить зведене сповіщення), інакше повернення
+// після відсутності показало б toast-спам замість одного зведення.
+function flushOtherActorEventsAsToasts(){
+  drainOtherActorEvents().forEach(showLiveToast);
 }
 // Rev #30 (6D.8) — єдина точка рендеру профіль-UI: аватар (header mobile/
 // desktop/сервіс-картка/drawer), ім'я/email/статус у drawer'і, текст картки
@@ -7307,6 +7450,11 @@ async function syncAllPilotManual(){
     parts.push(pushFailed + ' НЕ вдалося відправити: ' + failDetails);
   }
   statusEl.textContent = parts.length ? ('Синхронізовано: ' + parts.join(', ') + '.') : 'Уже синхронізовано, змін немає.';
+  // Rev #30 (6D.85) — ручна кнопка "Синхронізувати зараз" НЕ веде до
+  // live-toast (користувач і так дивиться на екран із власним текстовим
+  // статусом вище) — черга дренується без показу, щоб НЕ протекти в
+  // наступний Realtime-toast/зведене сповіщення як застарілі події.
+  drainOtherActorEvents();
 }
 function renderProfileUI(){
   const session = cloudSession;
