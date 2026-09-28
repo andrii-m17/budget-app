@@ -6829,6 +6829,61 @@ margin-bottom 4px→20px — той самий проміжок, що вже н�
 Облік→Борги→вересень 2026. Дані користувача не постраждали (перевірено
 напряму в Cloud — усі 6 записів на місці).
 
+### 6D.92 — Push-сповіщення, Крок 1: інфраструктура (VAPID + push_subscriptions + Edge Function) ✅
+
+**Контекст:** перший з ізольованих під-кроків push-сповіщень (Варіант Б,
+`pg_cron`+`pg_net`) — лише інфраструктура, без жодного реального
+сповіщення, без cron-завдань, без клієнтської підписки. Клієнтський код
+(`index.html`/`sw.js`) НЕ змінено — тому версію PWA НЕ підіймали (немає
+чого кешувати заново).
+
+**Крок 0 (підтверджено з коду/докскраю Supabase, без вгадування):**
+1. Deno Edge Functions підтримують `npm:`-специфікатори — `npm:web-push`
+   імпортується напряму, ручний VAPID JWT-підпис не потрібен.
+2. `net.http_post(url, headers, body)` — синтаксис підтверджено з
+   офіційної документації Supabase (`pg_net: Async Networking`).
+3. Хто кого сповіщає — `family_members(family_id, user_id)` уже має все
+   потрібне: `WHERE user_id != <автор_зміни>` виключає автора.
+4. iOS push — лише для встановленого на екран PWA (не Safari-вкладка),
+   мін. iOS 16.4+ — підтверджено, без нових даних, що це спростовують.
+5. `pg_cron` 1.6.4 і `pg_net` 0.20.4 вже встановлені в проєкті
+   `budget-app-dev` (`nbykagbcvjryxiaxqwbk`) — підтверджено
+   `list_extensions`.
+
+**Реалізовано (лише інфраструктура Supabase, без коду застосунку):**
+- VAPID-ключі згенеровано (`web-push generate-vapid-keys`).
+- Таблиця `public.push_subscriptions` (`user_id`, `family_id`,
+  `endpoint` unique, `p256dh`, `auth`, `created_at`) + RLS (4 політики:
+  select/insert/update/delete лише `auth.uid() = user_id`) — той самий
+  принцип, що інші Cloud-таблиці.
+- Edge Function `send-push-notification` (`verify_jwt: true` —
+  перша спроба з `verify_jwt: false` відхилена класифікатором
+  безпеки як послаблення авторизації, і правильно: викликається з
+  `pg_net` через `service_role`-ключ у заголовку `Authorization`, який
+  сам є валідним JWT, тож вимкнення перевірки було непотрібним).
+  Приймає `{user_id, title, body}`, читає підписки з
+  `push_subscriptions`, шле кожній через `web-push`; підписки, що
+  повернули 410/404 (браузер відписав), видаляються самі.
+- `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` — Function secrets (додані
+  користувачем вручну через Dashboard, немає інструменту для запису
+  секретів Edge Functions програмно). `SUPABASE_URL`/
+  `SUPABASE_SERVICE_ROLE_KEY` — інжектуються Supabase автоматично.
+
+**Перевірено прямим викликом:** `POST .../functions/v1/send-push-notification`
+з `Authorization: Bearer <anon key>` і `{"user_id":"00000000-0000-0000-0000-000000000000","title":"Тест Кроку 1"}`
+→ `200 {"sent":0,"note":"немає підписок для цього user_id"}` — функція
+піднялась (отже секрети VAPID зчитались коректно, інакше
+`webpush.setVapidDetails()` впав би на старті) і коректно відповіла на
+відсутність підписок.
+
+**`get_advisors` (security)** — жодної нової знахідки щодо
+`push_subscriptions`; усі показані попередження (`hidden_entities_readable`,
+`pg_net` у public-схемі тощо) існували до цієї зміни, не в цьому обсязі.
+
+**Далі (наступний ізольований крок, НЕ зроблено):** клієнтська
+підписка (запит дозволу + запис у `push_subscriptions`), `sw.js`
+push-listener, і лише потім — перше з трьох `pg_cron`-завдань.
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.
