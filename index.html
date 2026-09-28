@@ -2583,7 +2583,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Бюджет-локально · Rev 2.22.15</div>
+  <div class="version-footer">Бюджет-локально · Rev 2.22.16</div>
 </div>
   </div>
 </div>
@@ -5102,6 +5102,9 @@ async function pullExpensesCore(){
         // Rev (createdBy ще не існує), ніколи не отримав би backfill автора,
         // якщо решта полів випадково не зміняться одночасно.
         if(local.amount !== row.amount || local.date !== row.expense_date || local.category !== cloudCat || local.subcategory !== cloudSub || local.name !== cloudName || local.linkedInstallment !== (linkedInstallmentName || undefined) || (local.deletedAt||null) !== (row.deleted_at||null) || local.updatedAt !== row.updated_at || local.createdBy !== row.created_by){
+          // Rev #30 (6D.84) — "видалила" проти "відредагувала": фіксуємо ДО
+          // мутації нижче (той самий принцип, що hadMarker — before/after).
+          const wasDeleted = !!local.deletedAt;
           local.amount = row.amount;
           local.date = row.expense_date;
           local.category = cloudCat;
@@ -5122,7 +5125,11 @@ async function pullExpensesCore(){
           // вище: підсвічуємо лише СПРАВЖНІ інкрементальні зміни, отримані
           // деінде. Map, НЕ поле на самому записі (ніколи не потрапляє в
           // localStorage/Cloud — суто ефемерна UI-підказка цієї вкладки).
-          if(hadMarker) recentlyPulledExpenseState.set(local.id, 'syncing');
+          if(hadMarker){
+            recentlyPulledExpenseState.set(local.id, 'syncing');
+            const isDelete = row.deleted_at && !wasDeleted;
+            pushOtherActorEvent('expenses', isDelete ? 'delete' : 'edit', row.updated_by, cloudName, row.amount);
+          }
         }
         continue;
       }
@@ -5136,7 +5143,14 @@ async function pullExpensesCore(){
       if(row.deleted_at) rec.deletedAt = row.deleted_at;
       expenses.push(rec);
       added++;
-      if(hadMarker) recentlyPulledExpenseState.set(rec.id, 'syncing'); // Rev #30 (6D.68)
+      if(hadMarker){
+        recentlyPulledExpenseState.set(rec.id, 'syncing'); // Rev #30 (6D.68)
+        // Rev #30 (6D.84) — "додав" лише для СПРАВДІ нового активного запису
+        // (не для tombstone-backfілу "пристрій C" одразу вище — той запис
+        // ніколи не був "щойно доданий видимо", користувач і не побачив би
+        // його активним ні миті).
+        if(!row.deleted_at) pushOtherActorEvent('expenses', 'add', row.created_by, rec.name, rec.amount);
+      }
     }
     if(maxSeen) setSyncMarker('expenses', maxSeen);
   }catch(e){
@@ -5183,6 +5197,10 @@ async function pullIncomesCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, added = 0, keptLocal = 0;
+  // Rev #30 (6D.84) — той самий принцип, що hadMarker у pullExpensesCore()
+  // (докоментар там): гейтить сповіщення "чужа дія" від фальшивого спалаху
+  // на першому повному backfill-пулі.
+  const hadMarker = !!getSyncMarker('incomes');
   try{
     // Rev #30 (6D.83) — created_by/updated_by додано до select() (той самий
     // принцип/обмеження, що докоментар над query у pullExpensesCore() вище —
@@ -5206,6 +5224,7 @@ async function pullIncomesCore(){
         const cloudSource = row.note || '';
         // Rev #30 (6D.43) — deletedAt як звичайне синхронізоване поле (LWW), той самий принцип, що pullExpensesCore().
         if(local.amount !== row.amount || local.date !== row.income_date || local.source !== cloudSource || (local.deletedAt||null) !== (row.deleted_at||null) || local.updatedAt !== row.updated_at){
+          const wasDeleted = !!local.deletedAt; // Rev #30 (6D.84) — до мутації, той самий принцип, що pullExpensesCore()
           local.amount = row.amount;
           local.date = row.income_date;
           local.source = cloudSource;
@@ -5217,6 +5236,10 @@ async function pullIncomesCore(){
           local.createdBy = row.created_by;
           local.updatedBy = row.updated_by;
           updated++;
+          if(hadMarker){
+            const isDelete = row.deleted_at && !wasDeleted;
+            pushOtherActorEvent('incomes', isDelete ? 'delete' : 'edit', row.updated_by, cloudSource, row.amount);
+          }
         }
         continue;
       }
@@ -5224,6 +5247,7 @@ async function pullIncomesCore(){
       const rec = { id: row.id, date: row.income_date, source: row.note || '', amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, createdBy: row.created_by, updatedBy: row.updated_by };
       if(row.deleted_at) rec.deletedAt = row.deleted_at;
       incomes.push(rec);
+      if(hadMarker && !row.deleted_at) pushOtherActorEvent('incomes', 'add', row.created_by, rec.source, rec.amount); // Rev #30 (6D.84)
       added++;
     }
     updateSyncMarkerFromAllRows('incomes', data);
@@ -5246,6 +5270,7 @@ async function pullDebtsCore(){
   const client = getSupabaseClient();
   let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
   let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
+  const hadMarker = !!getSyncMarker('debts'); // Rev #30 (6D.84) — той самий принцип, що pullExpensesCore()
   try{
     // Rev #30 (6D.83) — created_by/updated_by додано (той самий принцип/
     // обмеження, що докоментар над query у pullExpensesCore()).
@@ -5291,6 +5316,7 @@ async function pullDebtsCore(){
         // "відсутнє". Той самий принцип, що вже (local.deletedAt||null) —
         // тут просто потрібен nullish, не truthy-fallback.
         if(local.name !== resolvedName || local.month !== month || local.balance !== row.balance || (local.minPayment ?? null) !== (row.min_payment ?? null) || (local.minPaymentDone ?? null) !== (row.min_payment_done ?? null) || (local.monthlyPayment ?? null) !== (row.monthly_payment ?? null) || (local.deletedAt||null) !== (row.deleted_at||null) || local.updatedAt !== row.updated_at){
+          const wasDeleted = !!local.deletedAt; // Rev #30 (6D.84) — до мутації, той самий принцип, що pullExpensesCore()
           local.name = resolvedName;
           local.kind = row.kind;
           local.month = month;
@@ -5305,6 +5331,10 @@ async function pullDebtsCore(){
           local.createdBy = row.created_by;
           local.updatedBy = row.updated_by;
           updated++;
+          if(hadMarker){
+            const isDelete = row.deleted_at && !wasDeleted;
+            pushOtherActorEvent('debts', isDelete ? 'delete' : 'edit', row.updated_by, resolvedName, row.balance);
+          }
         }
         continue;
       }
@@ -5316,6 +5346,7 @@ async function pullDebtsCore(){
       if(row.deleted_at) rec.deletedAt = row.deleted_at;
       debts.push(rec);
       added++;
+      if(hadMarker && !row.deleted_at) pushOtherActorEvent('debts', 'add', row.created_by, resolvedName, row.balance); // Rev #30 (6D.84)
     }
     if(maxSeen) setSyncMarker('debts', maxSeen);
   }catch(e){
@@ -5741,12 +5772,22 @@ async function pushHiddenEntitiesPilot(){
 // pull щоразу. Датасет структурно малий (кількість прихованих карток/ОЧ
 // на сім'ю, не росте з часом використання, як expenses) — вигода від
 // інкременту тут мінімальна, а корективність важливіша.
+// Rev #30 (6D.84) — hidden_entities НЕ має sync-маркера (6D.38 вище
+// пояснює чому — немає updated_at узагалі), тому "чи це перший пул цієї
+// сесії" відстежується окремим простим прапорцем (не timestamp-маркером,
+// як решта доменів) — той самий за духом гейт, що hadMarker, лише
+// найпростіша можлива форма для домену без updated_at.
+let hiddenEntitiesPulledOnce = false;
 async function pullHiddenEntitiesCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let added = 0, skippedFk = 0;
+  const hadMarker = hiddenEntitiesPulledOnce;
   try{
-    const { data, error } = await client.from('hidden_entities').select('entity_type,entity_id,hidden_from_month').eq('family_id', cloudFamilyId);
+    // Rev #30 (6D.84) — created_by додано до select(): потрібен лише для
+    // сповіщень нижче (updated_by свідомо НЕ читаємо — немає концепції
+    // "хто розховав", докоментар 6D.38 explains "Приховати перемагає").
+    const { data, error } = await client.from('hidden_entities').select('entity_type,entity_id,hidden_from_month,created_by').eq('family_id', cloudFamilyId);
     if(error || !data) return { skipped: true };
     for(const row of data){
       const kind = row.entity_type === 'bank' ? 'card' : 'installment';
@@ -5757,11 +5798,13 @@ async function pullHiddenEntitiesCore(){
       if(hiddenFrom[key] === undefined){
         hiddenFrom[key] = dateToMonth(row.hidden_from_month);
         added++;
+        if(hadMarker) pushOtherActorEvent('hiddenEntities', 'add', row.created_by, entity.name, null);
       }
     }
   }catch(e){
     return { skipped: true };
   }
+  hiddenEntitiesPulledOnce = true;
   if(added) await saveHiddenFromLocal();
   // Rev #30 (6D.55) — той самий принцип, що pullCategoriesCore() вище:
   // дзеркалимо render-виклик локального save (removeInstallmentAccount()).
@@ -5827,7 +5870,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.15';
+const APP_VERSION = '2.22.16';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6922,13 +6965,40 @@ async function loadFamilyUsersDirectory(client){
 // Журналу (createdBy іншого автора, 10714 нижче) fallbackName не передається —
 // там і раніше не було проблеми (рендер журналу відбувається вже після
 // завантаження довідника).
+// Rev #30 (6D.84) — `gender` додано ('m'/'f'): потрібен для дієслів
+// сповіщень ("додав" проти "додала", Частина 3а/3б) — той самий
+// name-heuristic принцип, що вже colorVar/bgVar, лише ще одне похідне
+// поле з того самого імені, без нового джерела даних.
 function authorInfoFor(userId, fallbackName){
   const user = userId ? familyUsersById[userId] : null;
   const nameLower = (user ? user.name : (fallbackName || '')).toLowerCase();
   if(!nameLower) return null;
-  if(nameLower.startsWith('andrii') || nameLower.startsWith('андрі')) return { name: user ? user.name : fallbackName, colorVar: '--color-info', bgVar: '--color-info-bg' };
-  if(nameLower.startsWith('olga') || nameLower.startsWith('ольг') || nameLower.startsWith('оля')) return { name: user ? user.name : fallbackName, colorVar: '--color-accent-pink', bgVar: '--color-accent-pink-bg' };
+  if(nameLower.startsWith('andrii') || nameLower.startsWith('андрі')) return { name: user ? user.name : fallbackName, colorVar: '--color-info', bgVar: '--color-info-bg', gender: 'm' };
+  if(nameLower.startsWith('olga') || nameLower.startsWith('ольг') || nameLower.startsWith('оля')) return { name: user ? user.name : fallbackName, colorVar: '--color-accent-pink', bgVar: '--color-accent-pink-bg', gender: 'f' };
   return null;
+}
+// Rev #30 (6D.84) — Внутрішні сповіщення, Частина 3а/3б: черга "чужих дій",
+// наповнюється ВСЕРЕДИНІ pullXCore() (expenses/incomes/debts/hidden_entities
+// нижче) через pushOtherActorEvent(), гейтиться і актором (не я), і "не
+// перший повний backfill" (кожен виклик-сайт передає власний прапорець —
+// той самий принцип, що hadMarker уже вирішує для recentlyPulledExpenseState/
+// 6D.67). Побічний ефект — жоден pullXCore() return-шейп НЕ змінюється
+// (лічильники ті самі, що й завжди). Споживається окремими flush-функціями
+// (наступний Rev підключить реальний UI); drainOtherActorEvents() повертає
+// накопичене й одразу чистить чергу — так різні виклик-сайти (live Realtime
+// проти resume/sign-in catch-up) не подвоюють одна одну, якщо випадково
+// співпадуть у часі.
+let otherActorEvents = [];
+function pushOtherActorEvent(domain, action, actorId, name, amount){
+  if(!actorId || !cloudSession || !cloudSession.user || actorId === cloudSession.user.id) return; // власна дія — не сповіщаємо
+  const info = authorInfoFor(actorId);
+  if(!info) return; // невідомий автор (довідник ще не завантажений чи 3-й+ учасник) — тихий пропуск, не вгадуємо
+  otherActorEvents.push({ domain, action, actorId, actorName: info.name, colorVar: info.colorVar, gender: info.gender, name, amount, at: Date.now() });
+}
+function drainOtherActorEvents(){
+  const events = otherActorEvents;
+  otherActorEvents = [];
+  return events;
 }
 // Rev #30 (6D.8) — єдина точка рендеру профіль-UI: аватар (header mobile/
 // desktop/сервіс-картка/drawer), ім'я/email/статус у drawer'і, текст картки

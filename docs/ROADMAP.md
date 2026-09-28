@@ -6545,6 +6545,52 @@ Rev) це означало б миттєвий масовий фальшивий
 зведене сповіщення → розширення "щойно синхронізовано" pulse на
 incomes/debts/hidden_entities → жива перевірка на 2 пристроях.
 
+### 6D.84 — Класифікація дії + черга "чужих подій" (otherActorEvents) ✅ Rev 2.22.16
+
+**Що зроблено:** `pushOtherActorEvent()`/`drainOtherActorEvents()` —
+нова черга, наповнюється ВСЕРЕДИНІ `pullExpensesCore()`/
+`pullIncomesCore()`/`pullDebtsCore()`/`pullHiddenEntitiesCore()` як
+побічний ефект (жоден return-шейп цих функцій НЕ змінився — лічильники
+ті самі, що завжди, усі 429 попередніх тестів проходять без правок).
+Кожна подія: `{domain, action:'add'|'edit'|'delete', actorId, actorName,
+colorVar, gender, name, amount, at}`.
+
+**Гейти (обидва мають виконатись):**
+1. **Не перший повний backfill** — той самий `hadMarker`-принцип, що вже
+   `recentlyPulledExpenseState`/6D.67 (expenses/incomes/debts, кожен свій
+   маркер). Для `hidden_entities`, де НЕМАЄ `updated_at`/маркера взагалі
+   (6D.38), — новий найпростіший еквівалент: прапорець
+   `hiddenEntitiesPulledOnce` ("чи це перший пул цієї сесії").
+2. **Актор ≠ я** (`cloudSession.user.id`) **і відомий** —
+   `authorInfoFor(actorId)` повертає `null` для невідомого/3-го+ учасника
+   → тихий пропуск, той самий принцип, що решта Cloud UI цього застосунку
+   (не вгадуємо).
+
+**Класифікація add/edit/delete:** `!local` (не існує локально) → `add`
+(actor = `created_by`); `local` існує, є діф, `deleted_at` ЩОЙНО зʼявився
+(`wasDeleted` зафіксовано ДО мутації) → `delete`; інакше → `edit` (обидва
+випадки: actor = `updated_by`). Для `hidden_entities` — лише `add`
+(єдина дія, яку ця Cloud-схема технічно здатна засвідчити — 6D.38).
+
+**`authorInfoFor()` розширено полем `gender` ('m'/'f')** — потрібне для
+дієслів сповіщень ("додав" проти "додала", наступний Rev), той самий
+name-heuristic принцип, що вже `colorVar`/`bgVar`.
+
+**Тестування:** `node --test` — 440/440 (11 нових). Заразом виявлено і
+виправлено ДВІ прогалини test-інфраструктури (не бага застосунку!),
+приховані до цього Rev, бо жоден тест не комбінував `hadMarker:true` з
+реальною зміною для expenses: (1) `recentlyPulledExpenseState` (Map,
+6D.68) і `RECORD_SYNC_PULSE_MS`/`RECORD_SYNC_PULSE_COUNT`/
+`RECORD_SYNC_DONE_MS` не існували в тестовому sandbox() — додано;
+(2) `vm.createContext` не має `setTimeout`/`clearTimeout` взагалі —
+застосунок і не мав жодного тесту, що доходив до цього виклику; додано
+синхронний стаб (виконує колбек одразу, без реальної затримки).
+
+**Живо перевірено:** повне перезавантаження застосунку — синхронізація
+й дані працюють без змін, жодної нової помилки в консолі (окрім
+відомого преіснуючого несумісного 409, який цього разу навіть не
+з'явився).
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.
