@@ -2571,7 +2571,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.32</div>
+  <div class="version-footer">Money Tree · Rev 2.22.33</div>
 </div>
   </div>
 </div>
@@ -5889,7 +5889,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.32';
+const APP_VERSION = '2.22.33';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13528,6 +13528,44 @@ if(window.visualViewport){
     }
   });
 }
+// Rev #30 (6D.53, Баг 1 — термінове розслідування продовжено з РЕАЛЬНОЮ
+// діагностикою на пристрої, чого дві попередні спроби (v1/v2, обидві
+// відкочені, докоментар над 6D.53 у ROADMAP.md) не мали): Safari Web
+// Inspector на реальному iPhone (портрет→ландшафт→портрет) показав, що
+// після повороту `window.visualViewport.offsetTop` "застрягає" ненульовим
+// (0→62 у зафіксованому знімку), хоча innerHeight/visualViewport.height —
+// БЕЗ ЗМІН (не клавіатура, не адрес-рядок). getBoundingClientRect()
+// таббару зсунувся РІВНО на ту саму величину — WebKit розраховує геометрію
+// (і, судячи з усього, hit-test) position:fixed-елементів відносно цього
+// застряглого offset, тоді як compositor і далі малює таббар візуально
+// коректно внизу екрана — звідси "видно тут, тапається там".
+// html,body тут { position:fixed; overflow:hidden } (див. правило вище) —
+// ЖОДНОГО легітимного скролу самого body нема (весь реальний скрол —
+// лише всередині #main-col), тому будь-який ненульовий offsetTop/scrollY
+// на рівні body — це завжди саме застрягла geometry, ніколи не навмисна
+// дія користувача. window.scrollTo(0,0) — стандартний, мінімальний спосіб
+// змусити WebKit пересинхронізувати visualViewport-offset із реальним
+// станом; безпечний тут саме тому, що стирати справді нема чого.
+// Rev 2.21.85/86 (v1/v2) намагались чинити на layout/paint-рівні
+// (forced-repaint таббару, safe-area-inset-left/right) — жодного разу не
+// займались саме цим конкретним значенням; це НЕ повторна спроба вже
+// випробуваного, а інша гіпотеза за новими даними.
+function fixStuckVisualViewportOffset(){
+  if(!window.visualViewport) return;
+  if(window.visualViewport.offsetTop !== 0 || window.scrollY !== 0){
+    window.scrollTo(0, 0);
+  }
+}
+window.visualViewport.addEventListener('resize', fixStuckVisualViewportOffset);
+window.visualViewport.addEventListener('scroll', fixStuckVisualViewportOffset);
+window.addEventListener('orientationchange', function(){
+  // Rev 2.21.85 висновок ROADMAP.md: одразу в orientationchange geometry
+  // ще перехідна — невеликий setTimeout, той самий принцип, що вже v2
+  // застосовував для repaintTabbar() (сам timing там не був причиною
+  // провалу v2 — лишаємо його, паралельно з resize/scroll-слухачами вище).
+  setTimeout(fixStuckVisualViewportOffset, 50);
+  setTimeout(fixStuckVisualViewportOffset, 300);
+});
 
 // Rev #30 (6D.54) — Cloud-сесія тепер ініціалізується безумовно при старті,
 // НЕ await-овано (паралельно з await loadAll() нижче — локальний рендер не
