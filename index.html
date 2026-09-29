@@ -2571,7 +2571,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.34</div>
+  <div class="version-footer">Money Tree · Rev 2.22.35</div>
 </div>
   </div>
 </div>
@@ -5889,7 +5889,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.34';
+const APP_VERSION = '2.22.35';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13553,31 +13553,37 @@ if(window.visualViewport){
 // Rev #30 (6D.106) BugFix — живий тест підтвердив, що фікс ПРАЦЮЄ
 // (таббар знову клікабельний), але з побічним ефектом: до 4 незалежних
 // тригерів (resize, scroll, і 2 setTimeout з orientationchange) могли по
-// черзі викликати scrollTo(0,0) поспіль — кожен виклик, коли offset
-// справді був ненульовим у ту мить (перехідна geometry під час
-// самого повороту), давав власний видимий "стрибок", разом складаючись
-// у помітний "дриг" після повернення в портрет. Дебaunce — усі 4
-// тригери збирають в ОДИН відкладений виклик (скидається кожним новим
-// тригером), тому реальна корекція відбувається РІВНО один раз, уже
-// після того як geometry остаточно усталилась, а не кілька разів
-// поспіль по дорозі.
-function fixStuckVisualViewportOffset(){
+// черзі викликати scrollTo(0,0) поспіль. 6D.106 спробував дебaunce
+// (відкласти на 150мс ПІСЛЯ останньої події) — за живим тестом
+// користувача "дриг" лишився: на той момент рідна анімація повороту iOS
+// вже завершилась, екран виглядає "готовим" — і саме тому запізніла
+// корекція стирчить окремим, помітним стрибком.
+// Rev #30 (6D.107) — протилежна стратегія: коригувати НЕГАЙНО, синхронно
+// в перший-ліпший тригер цього циклу повороту (не чекати), поки на
+// екрані ще триває власна анімація повороту в iOS — маленький scrollTo
+// тоді, найімовірніше, замаскується в цій більшій візуальній зміні,
+// замість стирчати окремо після того, як усе вже виглядає завершеним.
+// cooldown (600мс) — той самий захист від "4 тригери — 4 стрибки", що
+// й дебaunce у 6D.106, лише інакший механізм: перший тригер циклу
+// коригує ОДРАЗУ, всі наступні тригери в тому самому вікні — ігноруються
+// (не відкладаються, а саме пропускаються), тому повторної затримки
+// перед корекцією більше нема взагалі.
+function fixStuckVisualViewportOffsetNow(){
   if(!window.visualViewport) return;
   if(window.visualViewport.offsetTop !== 0 || window.scrollY !== 0){
     window.scrollTo(0, 0);
   }
 }
-let vvOffsetFixTimer = null;
-function scheduleFixStuckVisualViewportOffset(){
-  if(vvOffsetFixTimer) clearTimeout(vvOffsetFixTimer);
-  vvOffsetFixTimer = setTimeout(function(){
-    vvOffsetFixTimer = null;
-    fixStuckVisualViewportOffset();
-  }, 150);
+let vvOffsetFixCooldownUntil = 0;
+function maybeFixStuckVisualViewportOffset(){
+  const now = Date.now();
+  if(now < vvOffsetFixCooldownUntil) return;
+  vvOffsetFixCooldownUntil = now + 600;
+  fixStuckVisualViewportOffsetNow();
 }
-window.visualViewport.addEventListener('resize', scheduleFixStuckVisualViewportOffset);
-window.visualViewport.addEventListener('scroll', scheduleFixStuckVisualViewportOffset);
-window.addEventListener('orientationchange', scheduleFixStuckVisualViewportOffset);
+window.visualViewport.addEventListener('resize', maybeFixStuckVisualViewportOffset);
+window.visualViewport.addEventListener('scroll', maybeFixStuckVisualViewportOffset);
+window.addEventListener('orientationchange', maybeFixStuckVisualViewportOffset);
 
 // Rev #30 (6D.54) — Cloud-сесія тепер ініціалізується безумовно при старті,
 // НЕ await-овано (паралельно з await loadAll() нижче — локальний рендер не
