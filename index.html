@@ -174,18 +174,13 @@
   button:disabled{ cursor:not-allowed; opacity:.7; }
   svg.icon{ width:18px; height:18px; flex-shrink:0; }
 
-  /* Rev 2.4.0 — плаваюча "glass" капсула (nav.tabbar) мала власний відступ
-     від нижнього краю екрана (safe-area + невеликий буфер) як окремий
-     position:fixed-оверлей поза потоком — тому .main-col тримав резервний
-     padding-bottom, інакше контент журналу/карток ховався б під панеллю
-     в кінці скролу. Rev #30 (6D.109) — nav.tabbar більше НЕ fixed-оверлей,
-     а звичайний flex-сиблінг .main-col усередині .app-shell (Баг 1,
-     6D.52/105-108, структурний фікс) — .main-col{flex:1} тепер сам
-     природно "звужується" на реальну висоту таббару, ручний
-     padding-bottom-резерв (був 112px) більше не потрібен і прибраний. */
+  /* Rev 2.4.0 — плаваюча "glass" капсула (nav.tabbar) тепер має власний
+     відступ від нижнього краю екрана (safe-area + невеликий буфер), а не
+     притиснута впритул — тому резервний простір під неї збільшено, інакше
+     контент журналу/карток міг би ховатись під панеллю в самому кінці скролу. */
   .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--color-bg); }
   .side{ display:none; }
-  .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; }
+  .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding-bottom:112px; }
   .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 20px; border-bottom:1px solid var(--color-border); position:relative; text-align:center; }
   .page-header-buttons{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); right:20px; display:flex; gap:8px; z-index:2; }
   /* Rev #30 (6D.8) — дзеркало .page-header-buttons (той самий .gear-btn,
@@ -1218,33 +1213,28 @@
   .summary-card p{ margin:0 0 8px; font-size:13.5px; line-height:1.6; } .summary-card p:last-child{ margin-bottom:0; }
 
   /* Rev 2.4.4 — раніше весь візуальний вигляд (скло/padding/flex) висів
-     безпосередньо на nav.tabbar. Коли додається ще й ефект "легкого
-     збільшення всієї панелі при дотику" — знадобився б transform:scale()
-     САМЕ на nav.tabbar; за часів position:fixed це була небезпечна
-     комбінація (Rev 2.4.1, WebKit-баг, докоментар нижче — вже НЕ
-     актуальний з 6D.109, bere position:fixed прибрано зовсім). Увесь
-     візуальний шар і далі лишається у вкладеному .tabbar-glass div —
-     менша, безпечніша зміна, ніж зливати назад у nav.tabbar. */
-  /* Rev #30 (6D.109) — Баг 1 (6D.52/105-108, "таб-бар не реагує на дотики
-     після повороту") виправлено СТРУКТУРНО: position:fixed прибрано
-     повністю — nav.tabbar тепер звичайний flex-дочірній елемент
-     .app-shell (сиблінг .main-col, перенесено в HTML), яку сам flexbox
-     притискає донизу. Усуває ЦІЛИЙ клас WebKit-геометрії, який ламався
-     при повороті (visualViewport.offsetTop desync, детальний діагноз —
-     6D.105 у ROADMAP.md) — не патч поверх, а прибирання самої причини
-     (немає більше окремого fixed-geometry шару, який міг розійтися з
-     рендером). Скрол-незалежність від .main-col — гарантована
-     структурно (сиблінг ПОЗА власним overflow:auto контейнером
-     .main-col), не позиціюванням.
-     bottom-відступ (той самий розрахунок, що раніше — 6D.4, докоментар
-     був "Відступ від нижнього краю. Виміряно за пікселями...") тепер
-     margin-bottom замість bottom: той самий візуальний результат
-     (~8pt від home indicator), інший механізм (звичайний flow-відступ
-     останнього flex-елемента, а не offset від viewport). */
+     безпосередньо на nav.tabbar (position:fixed). Тепер, коли додається ще й
+     ефект "легкого збільшення всієї панелі при дотику" — знадобився б
+     transform:scale() САМЕ на nav.tabbar, а це знову комбінація
+     position:fixed+transform, яку ми вже виправляли як баг WebKit (Rev 2.4.1,
+     див. коментар нижче). Тому весь візуальний шар переїхав у вкладений
+     .tabbar-glass div: nav.tabbar лишається чистим "якорем" позиціювання
+     (ніколи не отримує transform), а .tabbar-glass — звичайний
+     position:relative дочірній елемент, якому transform:scale() абсолютно
+     безпечний. */
   nav.tabbar{
-    margin:0 auto max(6px, calc(env(safe-area-inset-bottom) - 13px));
+    position:fixed; left:0; right:0; margin:0 auto;
+    /* Відступ від нижнього краю. Виміряно за пікселями двох реальних
+       скріншотів (той самий пристрій, 3x): референс iOS (перемикач у
+       "Телефоні") тримає ~8pt проміжку між капсулою і смужкою home indicator;
+       попередня формула (env()*0.5 ≈ 17pt від низу екрана) давала лише ~4pt
+       такого проміжку — звідси й "занадто низько". Перерахований відступ:
+       env(safe-area-inset-bottom) − 13px ≈ 21pt від НИЗУ ЕКРАНА на сучасних
+       iPhone (safe-area ≈34pt) — саме стільки й дає потрібні ~8pt від
+       індикатора. max(6px, ...) — мінімальний відступ на пристроях БЕЗ
+       домашнього індикатора (старі iPhone з Touch ID, safe-area=0). */
+    bottom:max(6px, calc(env(safe-area-inset-bottom) - 13px));
     width:calc(100% - 28px); max-width:460px;
-    flex-shrink:0;
     z-index:20;
   }
   /* Rev 2.4.1 BugFix — попередня версія центрувала капсулу через
@@ -1349,14 +1339,15 @@
   nav.tabbar.pressed .tabbar-bubble::before{ opacity:1; animation:tabbarBubbleShimmer 1s ease-in-out infinite; }
   @keyframes tabbarBubbleShimmer{ 0%{ background-position:0% 50%; } 100%{ background-position:100% 50%; } }
   /* Rev 2.3.9 — коли клавіатура активна (body.kb-open, див. JS нижче),
-     таббар повністю ховаємо: більше екрана для форми, поки активне поле
-     вводу (той самий принцип, що системні app'и). Rev #30 (6D.109) —
-     колишній супутній рядок "padding-bottom:0 на .main-col" прибрано:
-     він компенсував резервний простір під fixed-оверлей навбару (та сама
-     причина, що прибраний 112px-резерв вище) — тепер, коли nav.tabbar
-     звичайний flex-елемент, display:none сам звільняє його місце,
-     .main-col{flex:1} природно розширюється без жодної ручної компенсації. */
+     таббар повністю ховаємо: на iOS Safari position:fixed елементи під час
+     появи клавіатури можуть "спливати" посеред екрана над клавіатурою
+     замість того, щоб лишатись під нею (баг WebKit при resize видимого
+     viewport) — найнадійніший фікс не намагатись математично підлаштувати
+     позицію, а просто прибрати навбар з екрана, поки активне поле вводу.
+     padding-bottom на main-col теж прибираємо — інакше лишається порожня
+     зона, зарезервована під навбар, якого зараз немає. */
   body.kb-open nav.tabbar{ display:none; }
+  body.kb-open .main-col{ padding-bottom:0; }
   /* Rev 2.21.7 — кнопка "Прокрутити до початку": той самий "ліквід глас"
      стиль (background/backdrop-filter/border/shadow), що .tabbar-glass, але
      власна кругла кнопка ПОЗА системою .tabbar-bubble (не переїжджає між
@@ -2580,43 +2571,36 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.37</div>
+  <div class="version-footer">Money Tree · Rev 2.22.36</div>
 </div>
   </div>
-
-  <!-- Rev #30 (6D.108/6D.109) — nav.tabbar ПЕРЕНЕСЕНО сюди, усередину
-       .app-shell (сиблінг .main-col), і БІЛЬШЕ НЕ position:fixed
-       (докоментар над CSS-правилом nav.tabbar пояснює причину — Баг 1,
-       6D.52/105-108). Незалежність від скролу .main-col гарантована
-       структурно (сиблінг поза власним overflow:auto контейнером
-       .main-col), не позиціюванням — той самий візуальний результат,
-       інший механізм. -->
-  <nav class="tabbar">
-    <div class="tabbar-glass" id="tabbar-glass">
-      <div class="tabbar-bubble" id="tabbar-bubble"></div>
-      <button class="active" data-tab="analytics" onclick="switchTab('analytics')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-        Аналітика
-      </button>
-      <button data-tab="accounting" onclick="switchTab('accounting')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9.5"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-        Облік
-      </button>
-      <button class="tab-vytraty" data-tab="vytraty" onclick="switchTab('vytraty')">
-        <span class="tb-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span class="tb-count-badge hidden" id="tb-count-badge"></span></span>
-        <span class="tb-label">Витрати</span>
-      </button>
-      <button data-tab="structure" onclick="switchTab('structure')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="4.5" r="2.5"/><circle cx="3" cy="19.5" r="2.5"/><circle cx="12" cy="19.5" r="2.5"/><circle cx="21" cy="19.5" r="2.5"/><path d="M12 7v3.5"/><path d="M3 17v-2.5a1.2 1.2 0 0 1 1.2-1.2h15.6a1.2 1.2 0 0 1 1.2 1.2v2.5"/><path d="M12 10.5v6.5"/></svg>
-        Структура
-      </button>
-      <button data-tab="service" onclick="switchTab('service')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-        Сервіс
-      </button>
-    </div>
-  </nav>
 </div>
+
+<nav class="tabbar">
+  <div class="tabbar-glass" id="tabbar-glass">
+    <div class="tabbar-bubble" id="tabbar-bubble"></div>
+    <button class="active" data-tab="analytics" onclick="switchTab('analytics')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+      Аналітика
+    </button>
+    <button data-tab="accounting" onclick="switchTab('accounting')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9.5"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+      Облік
+    </button>
+    <button class="tab-vytraty" data-tab="vytraty" onclick="switchTab('vytraty')">
+      <span class="tb-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span class="tb-count-badge hidden" id="tb-count-badge"></span></span>
+      <span class="tb-label">Витрати</span>
+    </button>
+    <button data-tab="structure" onclick="switchTab('structure')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="4.5" r="2.5"/><circle cx="3" cy="19.5" r="2.5"/><circle cx="12" cy="19.5" r="2.5"/><circle cx="21" cy="19.5" r="2.5"/><path d="M12 7v3.5"/><path d="M3 17v-2.5a1.2 1.2 0 0 1 1.2-1.2h15.6a1.2 1.2 0 0 1 1.2 1.2v2.5"/><path d="M12 10.5v6.5"/></svg>
+      Структура
+    </button>
+    <button data-tab="service" onclick="switchTab('service')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+      Сервіс
+    </button>
+  </div>
+</nav>
 
 <!-- Rev 2.21.7 — "Прокрутити до початку": окрема плаваюча кругла кнопка,
      той самий "ліквід глас" стиль, що .tabbar-glass (backdrop-filter blur +
@@ -5905,7 +5889,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.37';
+const APP_VERSION = '2.22.36';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
