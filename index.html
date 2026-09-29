@@ -2571,7 +2571,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.41</div>
+  <div class="version-footer">Money Tree · Rev 2.22.42</div>
 </div>
   </div>
 </div>
@@ -5889,7 +5889,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.41';
+const APP_VERSION = '2.22.42';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12419,6 +12419,7 @@ let lastActiveTab = 'analytics';
 // Rev 2.16.6 — той самий захист від "незбережених змін" прибрано (див.
 // onMonthChange вище) — редагування Обліку тепер завжди йде через шторку.
 function switchTab(tab){
+  console.log('[TAB DEBUG] switchTab called', arguments); // TAB DEBUG — тимчасово, прибрати після діагностики Бага 1
   performSwitchTab(tab);
 }
 /* ============ Заголовок вкладки (Rev 2.8.0) ============
@@ -13677,6 +13678,49 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
     });
   });
 }
+
+// ==== TAB DEBUG INSTRUMENTATION — тимчасово, для діагностики Бага 1
+// (таб-бар не реагує на дотики після повороту, 6D.52/105-110, усі 6
+// спроб фіксу невдалі) — прибрати після діагностики. Мета: з'ясувати,
+// чи touch/click-подія взагалі доходить до DOM/JS після повороту, а не
+// гадати про CSS/geometry далі наосліп. Викликати tabDebugGeometry()
+// вручну з консолі Web Inspector у потрібні моменти сценарію. ====
+window.addEventListener('pointerdown', function(e){
+  console.log('[TAB DEBUG] window pointerdown', {
+    x: e.clientX, y: e.clientY,
+    target: e.target && e.target.className,
+    elementFromPoint: (document.elementFromPoint(e.clientX, e.clientY) || {}).className
+  });
+}, true);
+window.addEventListener('touchstart', function(e){
+  var t = e.touches[0];
+  console.log('[TAB DEBUG] window touchstart', {
+    x: t && t.clientX, y: t && t.clientY,
+    target: e.target && e.target.className,
+    elementFromPoint: t ? (document.elementFromPoint(t.clientX, t.clientY) || {}).className : null
+  });
+}, true);
+window.addEventListener('click', function(e){
+  console.log('[TAB DEBUG] window click', {
+    x: e.clientX, y: e.clientY,
+    target: e.target && e.target.className,
+    elementFromPoint: (document.elementFromPoint(e.clientX, e.clientY) || {}).className
+  });
+}, true);
+function tabDebugGeometry(label){
+  var tabbar = document.querySelector('.tabbar') || document.querySelector('nav.tabbar');
+  var rect = tabbar ? tabbar.getBoundingClientRect() : null;
+  console.log('[TAB DEBUG] geometry — ' + label, {
+    scrollY: window.scrollY,
+    visualViewportOffsetTop: window.visualViewport && window.visualViewport.offsetTop,
+    visualViewportHeight: window.visualViewport && window.visualViewport.height,
+    innerHeight: window.innerHeight,
+    tabbarRect: rect && { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }
+  });
+}
+// Виклик вручну з консолі Web Inspector:
+// tabDebugGeometry('before rotation') / ('after landscape') / ('after back to portrait') / ('right before tap')
+// ==== /TAB DEBUG INSTRUMENTATION ====
 </script>
 </body>
 </html>
