@@ -1213,30 +1213,16 @@
   .summary-card p{ margin:0 0 8px; font-size:13.5px; line-height:1.6; } .summary-card p:last-child{ margin-bottom:0; }
 
   /* Rev 2.4.4 — раніше весь візуальний вигляд (скло/padding/flex) висів
-     безпосередньо на nav.tabbar. Коли додався ще й ефект "легкого
-     збільшення всієї панелі при дотику" — знадобився б transform:scale()
-     САМЕ на елементі з position:fixed, а це задокументований баг WebKit
-     (Rev 2.4.1, докоментар нижче). Тому весь візуальний шар лишається у
-     вкладеному .tabbar-glass div — nav.tabbar і далі НІКОЛИ не отримує
-     transform, а .tabbar-glass — звичайний дочірній елемент, якому
-     transform:scale() абсолютно безпечний. */
-  /* Rev #30 (6D.113) — Баг 1 (6D.52/105-112, "таб-бар не реагує на
-     дотики після повороту"): підтверджено через живу touch-інструментацію
-     (6D.112) — це розходження compositing-шару й hit-test-шару
-     position:fixed-елемента (дотик на ВИДИМОМУ місці "провалюється"
-     крізь таббар у контент позаду; дотик ВИЩЕ видимого місця
-     спрацьовує — там зараз реальна hit-test зона браузера). Стандартний
-     фікс — примусовий GPU-шар (transform:translateZ(0)) — але СТАВИТИ
-     ЙОГО НА nav.tabbar РАЗОМ із position:fixed означало б повторити ТОЙ
-     САМИЙ клас бага, що Rev 2.4.1 (докоментар вище/нижче) уже
-     задокументував і від якого свідомо втекли. Рішення: НОВИЙ,
-     спеціально для цього створений елемент-обгортка
-     .tabbar-fixed-anchor бере на себе І position:fixed, І transform —
-     він не має тієї історії (щойно створений), тому Rev 2.4.1 клас
-     бага структурно неможливий. nav.tabbar тепер position:static
-     (звичайний потік усередині фіксованого якоря), .tabbar-glass і
-     кнопки — БЕЗ ЖОДНИХ змін. */
-  .tabbar-fixed-anchor{
+     безпосередньо на nav.tabbar (position:fixed). Тепер, коли додається ще й
+     ефект "легкого збільшення всієї панелі при дотику" — знадобився б
+     transform:scale() САМЕ на nav.tabbar, а це знову комбінація
+     position:fixed+transform, яку ми вже виправляли як баг WebKit (Rev 2.4.1,
+     див. коментар нижче). Тому весь візуальний шар переїхав у вкладений
+     .tabbar-glass div: nav.tabbar лишається чистим "якорем" позиціювання
+     (ніколи не отримує transform), а .tabbar-glass — звичайний
+     position:relative дочірній елемент, якому transform:scale() абсолютно
+     безпечний. */
+  nav.tabbar{
     position:fixed; left:0; right:0; margin:0 auto;
     /* Відступ від нижнього краю. Виміряно за пікселями двох реальних
        скріншотів (той самий пристрій, 3x): референс iOS (перемикач у
@@ -1250,11 +1236,6 @@
     bottom:max(6px, calc(env(safe-area-inset-bottom) - 13px));
     width:calc(100% - 28px); max-width:460px;
     z-index:20;
-    transform:translateZ(0);
-  }
-  nav.tabbar{
-    position:static;
-    width:100%;
   }
   /* Rev 2.4.1 BugFix — попередня версія центрувала капсулу через
      left:50%+transform:translateX(-50%). На iOS Safari комбінація
@@ -2590,20 +2571,11 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.43</div>
+  <div class="version-footer">Money Tree · Rev 2.22.44</div>
 </div>
   </div>
 </div>
 
-<!-- Rev #30 (6D.113) — .tabbar-fixed-anchor: НОВИЙ елемент, створений
-     спеціально для поєднання position:fixed + transform (примусовий
-     GPU-шар, Баг 1 6D.52/105-112) — щоб не повторювати задокументований
-     WebKit-баг Rev 2.4.1 (position:fixed+transform на ТОМУ САМОМУ
-     nav.tabbar раніше "відклеював" елемент від viewport під час
-     скролу). nav.tabbar сам більше НЕ position:fixed — уся
-     відповідальність за фіксацію внизу екрана перенесена на цей
-     новий, "чистий" (без історії) wrapper. -->
-<div class="tabbar-fixed-anchor">
 <nav class="tabbar">
   <div class="tabbar-glass" id="tabbar-glass">
     <div class="tabbar-bubble" id="tabbar-bubble"></div>
@@ -2629,7 +2601,6 @@
     </button>
   </div>
 </nav>
-</div>
 
 <!-- Rev 2.21.7 — "Прокрутити до початку": окрема плаваюча кругла кнопка,
      той самий "ліквід глас" стиль, що .tabbar-glass (backdrop-filter blur +
@@ -5918,7 +5889,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.43';
+const APP_VERSION = '2.22.44';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12448,7 +12419,6 @@ let lastActiveTab = 'analytics';
 // Rev 2.16.6 — той самий захист від "незбережених змін" прибрано (див.
 // onMonthChange вище) — редагування Обліку тепер завжди йде через шторку.
 function switchTab(tab){
-  console.log('[TAB DEBUG] switchTab called', arguments); // TAB DEBUG — тимчасово, прибрати після діагностики Бага 1
   performSwitchTab(tab);
 }
 /* ============ Заголовок вкладки (Rev 2.8.0) ============
@@ -13564,22 +13534,45 @@ if(window.visualViewport){
     }
   });
 }
-// Rev #30 (6D.108) — Баг 1 (6D.52): "таб-бар не реагує на дотики після
-// повороту" — 6D.105 знайшов правильну ПРИЧИНУ (visualViewport.offsetTop
-// застрягає ненульовим після orientationchange, розходячись із
-// компоситор-рендером position:fixed-елементів), але єдиний відомий
-// спосіб примусово скинути цей offset (window.scrollTo(0,0)) сам провокує
-// видимий "стрибок вгору-вниз" — підтверджено на реальному iPhone у ДВОХ
-// різних варіантах таймінгу (6D.106 — відкладено на 150мс; 6D.107 —
-// негайно + cooldown), обидва дали той самий візуальний глюк. Користувач
-// свідомо обрав відкат замість продовження патчів поверх: оригінальний
-// баг (таб-бар після повороту) — менше зло, ніж новий видимий "дриг" при
-// КОЖНОМУ поверненні в портрет. Увесь код 6D.105–6D.107 (detection +
-// scrollTo-корекція, resize/scroll/orientationchange-слухачі) прибрано.
-// Правильний діагноз (visualViewport.offsetTop) лишається зафіксованим
-// нижче в ROADMAP.md на майбутнє — наступна спроба потребує ІНШОГО
-// механізму корекції (не scrollTo), напр. структурного відходу від
-// position:fixed для таббару (flex-дитина .app-shell) — не робити знову.
+// Rev #30 (6D.53, Баг 1 — термінове розслідування продовжено з РЕАЛЬНОЮ
+// діагностикою на пристрої, чого дві попередні спроби (v1/v2, обидві
+// відкочені, докоментар над 6D.53 у ROADMAP.md) не мали): Safari Web
+// Inspector на реальному iPhone (портрет→ландшафт→портрет) показав, що
+// після повороту `window.visualViewport.offsetTop` "застрягає" ненульовим
+// (0→62 у зафіксованому знімку), хоча innerHeight/visualViewport.height —
+// БЕЗ ЗМІН (не клавіатура, не адрес-рядок). getBoundingClientRect()
+// таббару зсунувся РІВНО на ту саму величину — WebKit розраховує геометрію
+// (і, судячи з усього, hit-test) position:fixed-елементів відносно цього
+// застряглого offset, тоді як compositor і далі малює таббар візуально
+// коректно внизу екрана — звідси "видно тут, тапається там".
+// html,body тут { position:fixed; overflow:hidden } (див. правило вище) —
+// ЖОДНОГО легітимного скролу самого body нема (весь реальний скрол —
+// лише всередині #main-col), тому будь-який ненульовий offsetTop/scrollY
+// на рівні body — це завжди саме застрягла geometry, ніколи не навмисна
+// дія користувача. window.scrollTo(0,0) — стандартний, мінімальний спосіб
+// змусити WebKit пересинхронізувати visualViewport-offset із реальним
+// станом; безпечний тут саме тому, що стирати справді нема чого.
+// Rev 2.21.85/86 (v1/v2) намагались чинити на layout/paint-рівні
+// (forced-repaint таббару, safe-area-inset-left/right) — жодного разу не
+// займались саме цим конкретним значенням; це НЕ повторна спроба вже
+// випробуваного, а інша гіпотеза за новими даними.
+function fixStuckVisualViewportOffset(){
+  if(!window.visualViewport) return;
+  if(window.visualViewport.offsetTop !== 0 || window.scrollY !== 0){
+    window.scrollTo(0, 0);
+  }
+}
+window.visualViewport.addEventListener('resize', fixStuckVisualViewportOffset);
+window.visualViewport.addEventListener('scroll', fixStuckVisualViewportOffset);
+window.addEventListener('orientationchange', function(){
+  // Rev 2.21.85 висновок ROADMAP.md: одразу в orientationchange geometry
+  // ще перехідна — невеликий setTimeout, той самий принцип, що вже v2
+  // застосовував для repaintTabbar() (сам timing там не був причиною
+  // провалу v2 — лишаємо його, паралельно з resize/scroll-слухачами вище).
+  setTimeout(fixStuckVisualViewportOffset, 50);
+  setTimeout(fixStuckVisualViewportOffset, 300);
+});
+
 // Rev #30 (6D.54) — Cloud-сесія тепер ініціалізується безумовно при старті,
 // НЕ await-овано (паралельно з await loadAll() нижче — локальний рендер не
 // чекає на мережевий запит до Supabase Auth). isCloudSessionReady()/push/
@@ -13707,49 +13700,6 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
     });
   });
 }
-
-// ==== TAB DEBUG INSTRUMENTATION — тимчасово, для діагностики Бага 1
-// (таб-бар не реагує на дотики після повороту, 6D.52/105-110, усі 6
-// спроб фіксу невдалі) — прибрати після діагностики. Мета: з'ясувати,
-// чи touch/click-подія взагалі доходить до DOM/JS після повороту, а не
-// гадати про CSS/geometry далі наосліп. Викликати tabDebugGeometry()
-// вручну з консолі Web Inspector у потрібні моменти сценарію. ====
-window.addEventListener('pointerdown', function(e){
-  console.log('[TAB DEBUG] window pointerdown', {
-    x: e.clientX, y: e.clientY,
-    target: e.target && e.target.className,
-    elementFromPoint: (document.elementFromPoint(e.clientX, e.clientY) || {}).className
-  });
-}, true);
-window.addEventListener('touchstart', function(e){
-  var t = e.touches[0];
-  console.log('[TAB DEBUG] window touchstart', {
-    x: t && t.clientX, y: t && t.clientY,
-    target: e.target && e.target.className,
-    elementFromPoint: t ? (document.elementFromPoint(t.clientX, t.clientY) || {}).className : null
-  });
-}, true);
-window.addEventListener('click', function(e){
-  console.log('[TAB DEBUG] window click', {
-    x: e.clientX, y: e.clientY,
-    target: e.target && e.target.className,
-    elementFromPoint: (document.elementFromPoint(e.clientX, e.clientY) || {}).className
-  });
-}, true);
-function tabDebugGeometry(label){
-  var tabbar = document.querySelector('.tabbar') || document.querySelector('nav.tabbar');
-  var rect = tabbar ? tabbar.getBoundingClientRect() : null;
-  console.log('[TAB DEBUG] geometry — ' + label, {
-    scrollY: window.scrollY,
-    visualViewportOffsetTop: window.visualViewport && window.visualViewport.offsetTop,
-    visualViewportHeight: window.visualViewport && window.visualViewport.height,
-    innerHeight: window.innerHeight,
-    tabbarRect: rect && { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right }
-  });
-}
-// Виклик вручну з консолі Web Inspector:
-// tabDebugGeometry('before rotation') / ('after landscape') / ('after back to portrait') / ('right before tap')
-// ==== /TAB DEBUG INSTRUMENTATION ====
 </script>
 </body>
 </html>
