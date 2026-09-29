@@ -2571,7 +2571,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.40</div>
+  <div class="version-footer">Money Tree · Rev 2.22.41</div>
 </div>
   </div>
 </div>
@@ -5889,7 +5889,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.40';
+const APP_VERSION = '2.22.41';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6859,6 +6859,12 @@ function handlePushAction(action){
     // додаткового коду тут.
     switchTab('vytraty');
     openJournal();
+  }else if(action.type === 'monthly-debt-reminder'){
+    // Rev #30 (6D.111) — раніше (6D.96) ця гілка не мала жодного `data`
+    // взагалі — непослідовно з рештою 3 типів, клік просто фокусував
+    // застосунок без конкретної дії. goToCardDebtsTab() — той самий
+    // готовий helper, що вже використовує popup "Стан даних" (6D.91).
+    goToCardDebtsTab();
   }
 }
 // Rev #30 (6D.56) — Realtime + sync-on-resume (без банерів/зведень — свідомо
