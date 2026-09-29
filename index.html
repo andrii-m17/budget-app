@@ -2571,7 +2571,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.38</div>
+  <div class="version-footer">Money Tree · Rev 2.22.39</div>
 </div>
   </div>
 </div>
@@ -5889,7 +5889,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.38';
+const APP_VERSION = '2.22.39';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13528,22 +13528,45 @@ if(window.visualViewport){
     }
   });
 }
-// Rev #30 (6D.108) — Баг 1 (6D.52): "таб-бар не реагує на дотики після
-// повороту" — 6D.105 знайшов правильну ПРИЧИНУ (visualViewport.offsetTop
-// застрягає ненульовим після orientationchange, розходячись із
-// компоситор-рендером position:fixed-елементів), але єдиний відомий
-// спосіб примусово скинути цей offset (window.scrollTo(0,0)) сам провокує
-// видимий "стрибок вгору-вниз" — підтверджено на реальному iPhone у ДВОХ
-// різних варіантах таймінгу (6D.106 — відкладено на 150мс; 6D.107 —
-// негайно + cooldown), обидва дали той самий візуальний глюк. Користувач
-// свідомо обрав відкат замість продовження патчів поверх: оригінальний
-// баг (таб-бар після повороту) — менше зло, ніж новий видимий "дриг" при
-// КОЖНОМУ поверненні в портрет. Увесь код 6D.105–6D.107 (detection +
-// scrollTo-корекція, resize/scroll/orientationchange-слухачі) прибрано.
-// Правильний діагноз (visualViewport.offsetTop) лишається зафіксованим
-// нижче в ROADMAP.md на майбутнє — наступна спроба потребує ІНШОГО
-// механізму корекції (не scrollTo), напр. структурного відходу від
-// position:fixed для таббару (flex-дитина .app-shell) — не робити знову.
+// Rev #30 (6D.110) — Баг 1 (6D.52): "таб-бар не реагує на дотики після
+// повороту". Історія: 6D.105 (scrollTo, коли обране навмання) —
+// КОРИСТУВАЧ ПІДТВЕРДИВ, що клікабельність відновлюється; єдина
+// лишена проблема — сам scrollTo(0,0) видимо "стрибає". 6D.106/107
+// намагались прибрати стрибок ЧЕРЕЗ ТАЙМІНГ (відкладено/негайно) —
+// обидва дали той самий глюк. 6D.109 спробував ІНШИЙ механізм
+// (structural, без scrollTo взагалі) — виявилось, що БЕЗ scrollTo баг
+// НЕ виправляється: підтверджує, що сам scrollTo — дієвий і потрібний
+// компонент фіксу, а не просто побічна дія.
+// Нова стратегія (не таймінг, не інший механізм корекції — маскування
+// САМОЇ видимості): на час корекції ховаємо .app-shell через
+// visibility:hidden (не display:none — не запускає reflow/втрату
+// scroll-стану сиблінгів), робимо scrollTo(0,0), чекаємо 2 rAF (щоб
+// WebKit встиг застосувати й розрахувати новий layout), повертаємо
+// visibility. html,body мають той самий --color-bg фон, що .app-shell
+// — у гіршому разі користувач бачить ледь помітний кадр суцільного
+// фону замість "стрибка" вмісту вгору-вниз.
+function fixStuckVisualViewportOffsetNow(){
+  if(!window.visualViewport) return;
+  if(window.visualViewport.offsetTop === 0 && window.scrollY === 0) return;
+  const shell = document.querySelector('.app-shell');
+  if(shell) shell.style.visibility = 'hidden';
+  window.scrollTo(0, 0);
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      if(shell) shell.style.visibility = '';
+    });
+  });
+}
+let vvOffsetFixCooldownUntil = 0;
+function maybeFixStuckVisualViewportOffset(){
+  const now = Date.now();
+  if(now < vvOffsetFixCooldownUntil) return;
+  vvOffsetFixCooldownUntil = now + 600;
+  fixStuckVisualViewportOffsetNow();
+}
+window.visualViewport.addEventListener('resize', maybeFixStuckVisualViewportOffset);
+window.visualViewport.addEventListener('scroll', maybeFixStuckVisualViewportOffset);
+window.addEventListener('orientationchange', maybeFixStuckVisualViewportOffset);
 // Rev #30 (6D.54) — Cloud-сесія тепер ініціалізується безумовно при старті,
 // НЕ await-овано (паралельно з await loadAll() нижче — локальний рендер не
 // чекає на мережевий запит до Supabase Auth). isCloudSessionReady()/push/
