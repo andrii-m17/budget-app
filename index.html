@@ -2571,7 +2571,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.33</div>
+  <div class="version-footer">Money Tree · Rev 2.22.34</div>
 </div>
   </div>
 </div>
@@ -5889,7 +5889,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.33';
+const APP_VERSION = '2.22.34';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13550,22 +13550,34 @@ if(window.visualViewport){
 // (forced-repaint таббару, safe-area-inset-left/right) — жодного разу не
 // займались саме цим конкретним значенням; це НЕ повторна спроба вже
 // випробуваного, а інша гіпотеза за новими даними.
+// Rev #30 (6D.106) BugFix — живий тест підтвердив, що фікс ПРАЦЮЄ
+// (таббар знову клікабельний), але з побічним ефектом: до 4 незалежних
+// тригерів (resize, scroll, і 2 setTimeout з orientationchange) могли по
+// черзі викликати scrollTo(0,0) поспіль — кожен виклик, коли offset
+// справді був ненульовим у ту мить (перехідна geometry під час
+// самого повороту), давав власний видимий "стрибок", разом складаючись
+// у помітний "дриг" після повернення в портрет. Дебaunce — усі 4
+// тригери збирають в ОДИН відкладений виклик (скидається кожним новим
+// тригером), тому реальна корекція відбувається РІВНО один раз, уже
+// після того як geometry остаточно усталилась, а не кілька разів
+// поспіль по дорозі.
 function fixStuckVisualViewportOffset(){
   if(!window.visualViewport) return;
   if(window.visualViewport.offsetTop !== 0 || window.scrollY !== 0){
     window.scrollTo(0, 0);
   }
 }
-window.visualViewport.addEventListener('resize', fixStuckVisualViewportOffset);
-window.visualViewport.addEventListener('scroll', fixStuckVisualViewportOffset);
-window.addEventListener('orientationchange', function(){
-  // Rev 2.21.85 висновок ROADMAP.md: одразу в orientationchange geometry
-  // ще перехідна — невеликий setTimeout, той самий принцип, що вже v2
-  // застосовував для repaintTabbar() (сам timing там не був причиною
-  // провалу v2 — лишаємо його, паралельно з resize/scroll-слухачами вище).
-  setTimeout(fixStuckVisualViewportOffset, 50);
-  setTimeout(fixStuckVisualViewportOffset, 300);
-});
+let vvOffsetFixTimer = null;
+function scheduleFixStuckVisualViewportOffset(){
+  if(vvOffsetFixTimer) clearTimeout(vvOffsetFixTimer);
+  vvOffsetFixTimer = setTimeout(function(){
+    vvOffsetFixTimer = null;
+    fixStuckVisualViewportOffset();
+  }, 150);
+}
+window.visualViewport.addEventListener('resize', scheduleFixStuckVisualViewportOffset);
+window.visualViewport.addEventListener('scroll', scheduleFixStuckVisualViewportOffset);
+window.addEventListener('orientationchange', scheduleFixStuckVisualViewportOffset);
 
 // Rev #30 (6D.54) — Cloud-сесія тепер ініціалізується безумовно при старті,
 // НЕ await-овано (паралельно з await loadAll() нижче — локальний рендер не
