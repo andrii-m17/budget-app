@@ -1213,16 +1213,30 @@
   .summary-card p{ margin:0 0 8px; font-size:13.5px; line-height:1.6; } .summary-card p:last-child{ margin-bottom:0; }
 
   /* Rev 2.4.4 — раніше весь візуальний вигляд (скло/padding/flex) висів
-     безпосередньо на nav.tabbar (position:fixed). Тепер, коли додається ще й
-     ефект "легкого збільшення всієї панелі при дотику" — знадобився б
-     transform:scale() САМЕ на nav.tabbar, а це знову комбінація
-     position:fixed+transform, яку ми вже виправляли як баг WebKit (Rev 2.4.1,
-     див. коментар нижче). Тому весь візуальний шар переїхав у вкладений
-     .tabbar-glass div: nav.tabbar лишається чистим "якорем" позиціювання
-     (ніколи не отримує transform), а .tabbar-glass — звичайний
-     position:relative дочірній елемент, якому transform:scale() абсолютно
-     безпечний. */
-  nav.tabbar{
+     безпосередньо на nav.tabbar. Коли додався ще й ефект "легкого
+     збільшення всієї панелі при дотику" — знадобився б transform:scale()
+     САМЕ на елементі з position:fixed, а це задокументований баг WebKit
+     (Rev 2.4.1, докоментар нижче). Тому весь візуальний шар лишається у
+     вкладеному .tabbar-glass div — nav.tabbar і далі НІКОЛИ не отримує
+     transform, а .tabbar-glass — звичайний дочірній елемент, якому
+     transform:scale() абсолютно безпечний. */
+  /* Rev #30 (6D.113) — Баг 1 (6D.52/105-112, "таб-бар не реагує на
+     дотики після повороту"): підтверджено через живу touch-інструментацію
+     (6D.112) — це розходження compositing-шару й hit-test-шару
+     position:fixed-елемента (дотик на ВИДИМОМУ місці "провалюється"
+     крізь таббар у контент позаду; дотик ВИЩЕ видимого місця
+     спрацьовує — там зараз реальна hit-test зона браузера). Стандартний
+     фікс — примусовий GPU-шар (transform:translateZ(0)) — але СТАВИТИ
+     ЙОГО НА nav.tabbar РАЗОМ із position:fixed означало б повторити ТОЙ
+     САМИЙ клас бага, що Rev 2.4.1 (докоментар вище/нижче) уже
+     задокументував і від якого свідомо втекли. Рішення: НОВИЙ,
+     спеціально для цього створений елемент-обгортка
+     .tabbar-fixed-anchor бере на себе І position:fixed, І transform —
+     він не має тієї історії (щойно створений), тому Rev 2.4.1 клас
+     бага структурно неможливий. nav.tabbar тепер position:static
+     (звичайний потік усередині фіксованого якоря), .tabbar-glass і
+     кнопки — БЕЗ ЖОДНИХ змін. */
+  .tabbar-fixed-anchor{
     position:fixed; left:0; right:0; margin:0 auto;
     /* Відступ від нижнього краю. Виміряно за пікселями двох реальних
        скріншотів (той самий пристрій, 3x): референс iOS (перемикач у
@@ -1236,6 +1250,11 @@
     bottom:max(6px, calc(env(safe-area-inset-bottom) - 13px));
     width:calc(100% - 28px); max-width:460px;
     z-index:20;
+    transform:translateZ(0);
+  }
+  nav.tabbar{
+    position:static;
+    width:100%;
   }
   /* Rev 2.4.1 BugFix — попередня версія центрувала капсулу через
      left:50%+transform:translateX(-50%). На iOS Safari комбінація
@@ -2571,11 +2590,20 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.42</div>
+  <div class="version-footer">Money Tree · Rev 2.22.43</div>
 </div>
   </div>
 </div>
 
+<!-- Rev #30 (6D.113) — .tabbar-fixed-anchor: НОВИЙ елемент, створений
+     спеціально для поєднання position:fixed + transform (примусовий
+     GPU-шар, Баг 1 6D.52/105-112) — щоб не повторювати задокументований
+     WebKit-баг Rev 2.4.1 (position:fixed+transform на ТОМУ САМОМУ
+     nav.tabbar раніше "відклеював" елемент від viewport під час
+     скролу). nav.tabbar сам більше НЕ position:fixed — уся
+     відповідальність за фіксацію внизу екрана перенесена на цей
+     новий, "чистий" (без історії) wrapper. -->
+<div class="tabbar-fixed-anchor">
 <nav class="tabbar">
   <div class="tabbar-glass" id="tabbar-glass">
     <div class="tabbar-bubble" id="tabbar-bubble"></div>
@@ -2601,6 +2629,7 @@
     </button>
   </div>
 </nav>
+</div>
 
 <!-- Rev 2.21.7 — "Прокрутити до початку": окрема плаваюча кругла кнопка,
      той самий "ліквід глас" стиль, що .tabbar-glass (backdrop-filter blur +
@@ -5889,7 +5918,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.42';
+const APP_VERSION = '2.22.43';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
