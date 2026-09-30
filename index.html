@@ -800,11 +800,28 @@
      редагування категорії); .expense-row тепер контейнер-картка (може містити
      інлайн-панель редагування знизу), а сам горизонтальний рядок (назва+сума+
      кнопки) переїхав у вкладений .exp-row-top, щоб не ламати існуючий вигляд. */
-  .expense-row{ background:var(--color-surface); border-radius:13px; padding:12px 14px; margin-bottom:8px; box-shadow:var(--shadow-sm); border:1px solid var(--color-border); border-left:3px solid transparent; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard); }
+  .expense-row{ background:var(--color-surface); border-radius:13px; padding:12px 14px; margin-bottom:0; box-shadow:var(--shadow-sm); border:1px solid var(--color-border); border-left:3px solid transparent; cursor:pointer; position:relative; touch-action:pan-y; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), transform var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard); }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover){ .expense-row:hover{ background:var(--color-surface-hover); } }
   .expense-row.income-row{ border-left-color:var(--color-success); }
-  .expense-row.selected{ border-color:var(--color-primary); box-shadow:0 0 0 1px var(--color-primary); }
+  /* Rev #30 (6D.123) — нове виділення при тапі (замінює колишню зелену
+     рамку border-color+box-shadow-кільце): м'яке підсвічування фону + легке
+     збільшення + м'яка тінь, за референсом користувача. Свідомо НЕ чіпаємо
+     border-color/border-left тут — border-left-color лишається inline-
+     стилем кольору автора (authorInfoFor(), вище пріоритет за клас), тож
+     колір смужки автора лишається коректним і при виділенні (Крок 0 п.5). */
+  .expense-row.selected{ background:var(--color-surface-hover); box-shadow:var(--shadow-md); transform:scale(1.025); z-index:1; }
+  /* Rev #30 (6D.123) — обгортка свайп-дій (Журнал+короткий список "Витрати"
+     — buildRecordGroupsHtml спільний для обох, докоментар вище). overflow:
+     hidden кліпає кнопки дій, доки .expense-row (усередині) не зсунутий
+     translateX вліво власним JS-драгом (initExpenseRowSwipeActions нижче).
+     Незалежний механізм від тап-виділення вище — працюють одночасно. */
+  .expense-row-swipe{ position:relative; overflow:hidden; border-radius:13px; margin-bottom:8px; }
+  .expense-row-swipe.dragging .expense-row{ transition:none; }
+  .expense-row-actions{ position:absolute; top:0; right:0; bottom:0; display:flex; z-index:0; }
+  .expense-row-actions button{ width:64px; border:none; display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; }
+  .expense-row-actions .swipe-edit-btn{ background:var(--color-info); }
+  .expense-row-actions .swipe-delete-btn{ background:var(--color-error); }
   .exp-row-top{ display:flex; align-items:center; gap:12px; }
   .expense-row .exp-main{ flex:1; min-width:0; }
   .expense-row .exp-name{ font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -2583,7 +2600,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.52</div>
+  <div class="version-footer">Money Tree · Rev 2.22.53</div>
 </div>
   </div>
 </div>
@@ -5901,7 +5918,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.52';
+const APP_VERSION = '2.22.53';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10699,6 +10716,19 @@ function toggleRecordSelect(kind, id){
   editingRecordKey = null;
   renderRecords();
 }
+// Rev #30 (6D.123) — обробник кліку по самій картці (.expense-row), тепер
+// не напряму toggleRecordSelect: якщо картка в момент тапу відкрита свайпом
+// (кнопки дій видно), перший тап лише закриває свайп, без зміни виділення —
+// стандартний iOS-патерн ("тап по відкритому рядку спершу закриває його"),
+// щоб випадковий тап одразу після свайпу не перемикав виділення несподівано.
+function onExpenseRowTap(evt, kind, id){
+  const wrap = evt.currentTarget.closest('.expense-row-swipe');
+  if(wrap && wrap.classList.contains('swipe-open')){
+    closeSwipeActions();
+    return;
+  }
+  toggleRecordSelect(kind, id);
+}
 function startEditRecord(kind, id){
   if(kind !== 'expense') return; // повне редагування поки лише для витрат —
   // доходи мають інакшу модель даних (місячний запис за джерелом, а не
@@ -11053,18 +11083,34 @@ function buildRecordGroupsHtml(items){
             <button type="button" class="rce-save" onclick="saveRecordEdit('${e.id}')">Зберегти</button>
           </div>
         </div>` : '';
+      // Rev #30 (6D.123) — свайп-дії: .expense-row-actions лежить ПІД рядком
+      // (position:absolute, right:0, z-index:0 в CSS), сам .expense-row —
+      // над нею (z-index:1 при виділенні, інакше природний stacking-порядок
+      // достатній, бо actions завжди overflow:hidden-обрізані поки rowок не
+      // зсунутий вліво власним JS-драгом). Редагування — той самий swipe-
+      // edit-btn лише для витрат (startEditRecord сам ігнорує incomes), як і
+      // пенсил-кнопка isSelected вище (не дублюємо цю умову новою логікою).
+      const swipeEditBtnHtml = !isIncome
+        ? `<button type="button" class="swipe-edit-btn" onclick="event.stopPropagation(); closeSwipeActions(); startEditRecord('${e.kind}','${e.id}')" aria-label="Редагувати"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>`
+        : '';
       return `
-        <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}" onclick="toggleRecordSelect('${e.kind}','${e.id}')"${authorStyle}>
-          <div class="exp-row-top">
-            <div class="exp-main">
-              <div class="exp-name">${escapeHtml(e.name)}</div>
-              <div class="exp-meta"><span class="${chipClass}">${chipText}</span>${editedBadgeHtml}${justPulledBadgeHtml}</div>
-            </div>
-            <div class="${amountClass}">${sign}${fmt(e.amount)}</div>
-            ${editPencilHtml}
-            <button type="button" class="exp-del" onclick="event.stopPropagation(); confirmDeleteRecord('${e.kind}','${e.id}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <div class="expense-row-swipe">
+          <div class="expense-row-actions">
+            ${swipeEditBtnHtml}
+            <button type="button" class="swipe-delete-btn" onclick="event.stopPropagation(); closeSwipeActions(); confirmDeleteRecord('${e.kind}','${e.id}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
           </div>
-          ${editPanelHtml}
+          <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}" onclick="onExpenseRowTap(event,'${e.kind}','${e.id}')"${authorStyle}>
+            <div class="exp-row-top">
+              <div class="exp-main">
+                <div class="exp-name">${escapeHtml(e.name)}</div>
+                <div class="exp-meta"><span class="${chipClass}">${chipText}</span>${editedBadgeHtml}${justPulledBadgeHtml}</div>
+              </div>
+              <div class="${amountClass}">${sign}${fmt(e.amount)}</div>
+              ${editPencilHtml}
+              <button type="button" class="exp-del" onclick="event.stopPropagation(); confirmDeleteRecord('${e.kind}','${e.id}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+            </div>
+            ${editPanelHtml}
+          </div>
         </div>`;
     }).join('');
 
@@ -13065,6 +13111,96 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
     handle.addEventListener('pointerup', onEnd);
     handle.addEventListener('pointercancel', onEnd);
   });
+})();
+
+// Rev #30 (6D.123) — свайп-дії на картках Журналу/короткого списку "Витрати"
+// (.expense-row-swipe, розмітка в buildRecordGroupsHtml вище): свайп рядка
+// вліво відкриває дві кнопки дій праворуч (редагувати/видалити), свайп
+// вправо чи тап поза межами — закриває без дії. Делеговані слухачі на
+// document (не на кожен рядок) — рядки перерендерюються при кожному
+// renderRecords(), делегування уникає повторного прив'язування після
+// кожного рендеру (той самий принцип, що onclick-атрибути в розмітці).
+// Крок 0 п.1 (докоментар над edge-swipe-закриттям Журналу, Rev 2.19.1,
+// EDGE_ZONE=24px від лівого краю, лише ПРАВОРУЧ-свайп) — конфлікту нема:
+// напрямки протилежні (тут — вліво), а сам жест починається з тіла картки
+// (~20px+ від фізичного краю екрана через padding .view), не з edge-zone.
+(function initExpenseRowSwipeActions(){
+  const SWIPE_OPEN_THRESHOLD = 40; // px — мінімальний зсув, щоб не плутати зі звичайним тапом
+  let activeWrap = null, startX = 0, startY = 0, startOffset = 0, currentOffset = 0, actionsWidth = 0, deciding = false, horizontal = false;
+
+  function closeSwipeActions(exceptWrap){
+    document.querySelectorAll('.expense-row-swipe.swipe-open').forEach(function(w){
+      if(w === exceptWrap) return;
+      w.classList.remove('swipe-open');
+      const row = w.querySelector('.expense-row');
+      if(row) row.style.transform = '';
+    });
+  }
+  window.closeSwipeActions = closeSwipeActions; // викликається з onclick атрибутів кнопок дій і onExpenseRowTap()
+
+  function onTouchStart(e){
+    if(e.touches.length !== 1) return;
+    // Кнопки дій і поля інлайн-редагування самі обробляють свій дотик —
+    // не починаємо драг картки з них (той самий принцип, що
+    // event.stopPropagation() на onclick цих елементів).
+    if(e.target.closest('.expense-row-actions') || e.target.closest('.record-edit-panel')) return;
+    const wrap = e.target.closest('.expense-row-swipe');
+    if(!wrap) return;
+    const row = wrap.querySelector('.expense-row');
+    const actions = wrap.querySelector('.expense-row-actions');
+    if(!row || !actions) return;
+    activeWrap = wrap;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    deciding = true;
+    horizontal = false;
+    actionsWidth = actions.offsetWidth;
+    startOffset = wrap.classList.contains('swipe-open') ? -actionsWidth : 0;
+    currentOffset = startOffset;
+    wrap.classList.add('dragging');
+  }
+  function onTouchMove(e){
+    if(!activeWrap || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if(deciding){
+      if(Math.abs(dx) < 6 && Math.abs(dy) < 6) return; // ще замало руху, щоб визначити напрям
+      horizontal = Math.abs(dx) > Math.abs(dy);
+      deciding = false;
+      if(!horizontal){ activeWrap.classList.remove('dragging'); activeWrap = null; return; } // вертикальний рух — віддаємо звичайному скролу списку
+    }
+    if(!horizontal) return;
+    if(e.cancelable) e.preventDefault();
+    currentOffset = Math.min(0, Math.max(-actionsWidth - 24, startOffset + dx)); // -24px — легкий rubber-band за межу
+    const row = activeWrap.querySelector('.expense-row');
+    if(row) row.style.transform = 'translateX(' + currentOffset + 'px)';
+  }
+  function onTouchEnd(){
+    if(!activeWrap) return;
+    const wrap = activeWrap;
+    activeWrap = null;
+    wrap.classList.remove('dragging');
+    const row = wrap.querySelector('.expense-row');
+    const shouldOpen = horizontal && currentOffset <= -Math.max(SWIPE_OPEN_THRESHOLD, actionsWidth / 2);
+    if(shouldOpen){
+      wrap.classList.add('swipe-open');
+      if(row) row.style.transform = 'translateX(-' + actionsWidth + 'px)';
+      closeSwipeActions(wrap); // одночасно відкрита лише одна картка
+    }else{
+      wrap.classList.remove('swipe-open');
+      if(row) row.style.transform = '';
+    }
+  }
+  document.addEventListener('touchstart', onTouchStart, {passive:true});
+  document.addEventListener('touchmove', onTouchMove, {passive:false});
+  document.addEventListener('touchend', onTouchEnd, {passive:true});
+  document.addEventListener('touchcancel', onTouchEnd, {passive:true});
+  // Тап будь-де поза відкритою карткою — закрити без дії (тап ПО самій
+  // відкритій картці обробляє onExpenseRowTap() окремо, тут — решта UI).
+  document.addEventListener('click', function(e){
+    if(e.target.closest('.expense-row-swipe.swipe-open')) return;
+    closeSwipeActions();
+  }, true);
 })();
 
 /* ============ Тема застосунку (Rev 2.6.0) ============
