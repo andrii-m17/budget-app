@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.22.72';
+const CACHE_NAME = 'budget-app-v2.22.73';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -92,24 +92,59 @@ self.addEventListener('push', function(event){
 // щойно відкритій/новій — ті самі поля як query-параметри (?pushAction=
 // type&installmentId=...), які index.html читає при старті через
 // handlePushAction(). Невідомий/відсутній type — лише фокус/відкриття.
+// Rev 2.22.73 (6D.144) — коли iOS вивантажує PWA з памʼяті, релонч по
+// кліку на сповіщення ІГНОРУЄ URL з clients.openWindow() нижче й завжди
+// відкриває голий start_url з manifest.json — підтверджено живим тестом
+// користувача (Журнал не відкрився по кліку на "нові записи Olga") і
+// задокументовано як відома поведінка WebKit (Apple Developer Forums,
+// GitHub firebase-js-sdk#7698). Тому дію ЗАВЖДИ дублюємо в окрему легку
+// IndexedDB-базу (сирий IndexedDB API — доступний і в SW, і на сторінці,
+// на відміну від localStorage) ПЕРЕД спробою focus()/openWindow() —
+// index.html перевіряє цей запис на кожному старті незалежно від того,
+// яку саме URL iOS реально відкрила. Один ключ 'pending' (не чергу) —
+// найновіший клік перемагає.
+const PUSH_ACTION_DB_NAME = 'budget-app-push-actions';
+const PUSH_ACTION_STORE = 'pending';
+function writePendingPushAction(action){
+  return new Promise(function(resolve, reject){
+    const openReq = indexedDB.open(PUSH_ACTION_DB_NAME, 1);
+    openReq.onupgradeneeded = function(){
+      if(!openReq.result.objectStoreNames.contains(PUSH_ACTION_STORE)) openReq.result.createObjectStore(PUSH_ACTION_STORE);
+    };
+    openReq.onsuccess = function(){
+      const db = openReq.result;
+      const tx = db.transaction(PUSH_ACTION_STORE, 'readwrite');
+      tx.objectStore(PUSH_ACTION_STORE).put(action, 'pending');
+      tx.oncomplete = function(){ resolve(); };
+      tx.onerror = function(){ reject(tx.error); };
+    };
+    openReq.onerror = function(){ reject(openReq.error); };
+  });
+}
+
 self.addEventListener('notificationclick', function(event){
   event.notification.close();
   const notifData = event.notification.data || {};
+  // best-effort (приватний режим/квота IndexedDB — не критично, решта
+  // (focus/openWindow) все одно має відпрацювати як і раніше).
+  const persist = notifData.type ? writePendingPushAction(notifData).catch(function(){}) : Promise.resolve();
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then(function(clientsArr){
-      for(const c of clientsArr){
-        if('focus' in c){
-          if(notifData.type) c.postMessage({ type: 'push-action', action: notifData });
-          return c.focus();
+    persist.then(function(){
+      return self.clients.matchAll({ type: 'window' }).then(function(clientsArr){
+        for(const c of clientsArr){
+          if('focus' in c){
+            if(notifData.type) c.postMessage({ type: 'push-action', action: notifData });
+            return c.focus();
+          }
         }
-      }
-      let url = './';
-      if(notifData.type){
-        url = './index.html?pushAction=' + encodeURIComponent(notifData.type);
-        if(notifData.installmentId) url += '&installmentId=' + encodeURIComponent(notifData.installmentId);
-      }
-      if(self.clients.openWindow) return self.clients.openWindow(url);
+        let url = './';
+        if(notifData.type){
+          url = './index.html?pushAction=' + encodeURIComponent(notifData.type);
+          if(notifData.installmentId) url += '&installmentId=' + encodeURIComponent(notifData.installmentId);
+        }
+        if(self.clients.openWindow) return self.clients.openWindow(url);
+      });
     })
   );
 });

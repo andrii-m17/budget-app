@@ -2625,7 +2625,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.72</div>
+  <div class="version-footer">Money Tree · Rev 2.22.73</div>
 </div>
   </div>
 </div>
@@ -6054,7 +6054,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.72';
+const APP_VERSION = '2.22.73';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6995,6 +6995,54 @@ async function requestPushSubscription(){
     // Мережа/CORS/офлайн чи браузер відмовив у Push API — тихий пропуск,
     // той самий принцип, що інші push-хелпери Cloud-синхронізації.
   }
+}
+// Rev 2.22.73 (6D.144) — 3-й (fallback) шлях доставки push-дії, на додаток
+// до query-параметра й postMessage нижче: підтверджено живим тестом
+// користувача (Журнал не відкрився по кліку на "нові записи Olga") — коли
+// iOS вивантажує PWA з памʼяті, релонч ІГНОРУЄ URL з clients.openWindow()
+// (sw.js) і завжди відкриває голий start_url з manifest.json, тобто наш
+// власний `?pushAction=...` у такому разі не доходить узагалі — це не наш
+// регрес, а задокументована поведінка WebKit (Apple Developer Forums,
+// GitHub firebase-js-sdk#7698). sw.js (notificationclick) тепер ЗАВЖДИ
+// дублює дію в окрему легку IndexedDB-базу 'budget-app-push-actions'
+// (сирий IndexedDB API, БЕЗ бібліотеки idb з CDN — на відміну від
+// IDB_DB_NAME/adapter вище: та база зарезервована під окрему заплановану
+// міграцію Stage C, змішувати не варто; SW-контексту й офлайн-стійкості
+// зайва мережева залежність на CDN теж не потрібна) ПЕРЕД спробою
+// focus()/openWindow() — і сторінка перевіряє цю базу на КОЖНОМУ старті,
+// незалежно від того, яку саме URL iOS реально відкрив. Один спільний
+// ключ 'pending' (не черга) — найновіший клік перемагає, той самий
+// принцип, що й решта "останній стан перемагає" логіки застосунку.
+const PUSH_ACTION_DB_NAME = 'budget-app-push-actions';
+const PUSH_ACTION_STORE = 'pending';
+function openPushActionDb(){
+  return new Promise(function(resolve, reject){
+    const req = indexedDB.open(PUSH_ACTION_DB_NAME, 1);
+    req.onupgradeneeded = function(){
+      if(!req.result.objectStoreNames.contains(PUSH_ACTION_STORE)) req.result.createObjectStore(PUSH_ACTION_STORE);
+    };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+// Читає й одразу прибирає запис — best-effort (мережа тут ні до чого, але
+// IndexedDB теоретично може бути недоступна в приватному режимі/через
+// квоту), тому виклик завжди обгорнутий у .catch(()=>{}) на боці викликача.
+function readAndClearPendingPushAction(){
+  return openPushActionDb().then(function(db){
+    return new Promise(function(resolve, reject){
+      const tx = db.transaction(PUSH_ACTION_STORE, 'readwrite');
+      const store = tx.objectStore(PUSH_ACTION_STORE);
+      const getReq = store.get('pending');
+      getReq.onsuccess = function(){
+        const value = getReq.result;
+        if(value !== undefined) store.delete('pending');
+        tx.oncomplete = function(){ resolve(value); };
+        tx.onerror = function(){ reject(tx.error); };
+      };
+      getReq.onerror = function(){ reject(getReq.error); };
+    });
+  });
 }
 // Rev #30 (6D.99, розширено в 6D.100/6D.101) — єдина точка маршрутизації
 // кліку по push-сповіщенню, спільна для обох шляхів доставки дії (query-
@@ -14052,6 +14100,19 @@ const pushActionType = pushActionParams.get('pushAction');
 if(pushActionType){
   handlePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined });
   history.replaceState(null, '', location.pathname);
+  // 6D.144 — цей запуск уже обслужено через query-параметр (URL з
+  // clients.openWindow() цього разу дійшла як є) — прибираємо дубль-запис
+  // з IndexedDB (sw.js завжди пише його паралельно, 6D.144 нижче), щоб
+  // наступний ЗВИЧАЙНИЙ (не з push) запуск застосунку його не підхопив.
+  readAndClearPendingPushAction().catch(function(){});
+}else{
+  // 6D.144 — query-параметра немає: або звичайний запуск (немає й запису
+  // в IndexedDB — нічого не станеться), або iOS проігнорувала URL з
+  // clients.openWindow() при релончі вивантаженого з памʼяті PWA
+  // (задокументована поведінка WebKit) — тоді дію знаходимо тут.
+  readAndClearPendingPushAction().then(function(action){
+    if(action && action.type) handlePushAction(action);
+  }).catch(function(){});
 }
 })();
 
@@ -14068,6 +14129,11 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', function(event){
     if(event.data && event.data.type === 'push-action' && event.data.action){
       handlePushAction(event.data.action);
+      // 6D.144 — цей клік уже оброблено через postMessage (застосунок був
+      // відкритий) — прибираємо той самий дубль-запис з IndexedDB, щоб
+      // наступний перезапуск (напр. після згортання й вивантаження) не
+      // повторив ту саму дію ще раз.
+      readAndClearPendingPushAction().catch(function(){});
     }
   });
 }
