@@ -829,7 +829,16 @@
      тягнуть чи не відкрито свайпом — тоді жодному шву нема що
      "прозирати". visibility (не display:none) — offsetWidth і далі
      вимірюється коректно (actionsWidth в onTouchStart нижче). */
-  .expense-row-actions{ position:absolute; top:0; right:0; bottom:0; display:flex; z-index:0; visibility:hidden; }
+  /* Rev 2.22.59 (6D.130) BugFix — живий тест на iPhone: під час реального
+     свайпу кнопки дій виявились на ~2px ВИЩІ за саму картку (не зсунуті —
+     САМЕ вищі, WebKit рахує висоту цього position:absolute-блока трохи
+     інакше за border-box картки, хоч обидва прив'язані до тієї самої
+     обгортки). Перша спроба (top:2px, той самий зсув вниз) лише
+     перенесла зайве з верху на низ — картка й далі не збігалась, тепер
+     знизу. Правильний фікс — зменшити ВИСОТУ самого блока symmetричним
+     inset (top І bottom по 1px, не лише top) — кнопки стають на 2px
+     нижчими загалом і рівними з карткою з обох країв. */
+  .expense-row-actions{ position:absolute; top:1px; right:0; bottom:1px; display:flex; z-index:0; visibility:hidden; }
   .expense-row-swipe.dragging .expense-row-actions, .expense-row-swipe.swipe-open .expense-row-actions{ visibility:visible; }
   .expense-row-actions button{ width:64px; border:none; display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; }
   .expense-row-actions .swipe-edit-btn{ background:var(--color-info); }
@@ -2608,7 +2617,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.57</div>
+  <div class="version-footer">Money Tree · Rev 2.22.59</div>
 </div>
   </div>
 </div>
@@ -5995,7 +6004,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.57';
+const APP_VERSION = '2.22.59';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
