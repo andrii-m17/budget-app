@@ -483,6 +483,12 @@
   .field label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
   .field input:focus, .field select:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
+  /* Rev 2.22.63 (6D.134) — задокументований прийом для Safari/WebKit: ховає
+     вбудовану кнопку-іконку "автозаповнити контакт/пароль" усередині самого
+     текстового поля (інший, суміжний UI-елемент за панеллю QuickType над
+     клавіатурою — та другу теж намагаємось прибрати, цей CSS не про неї, але
+     безкоштовний і безризиковий заодно, чому не). */
+  #f-name::-webkit-contacts-auto-fill-button, #f-name::-webkit-credentials-auto-fill-button{ visibility:hidden; display:none !important; pointer-events:none; height:0; width:0; margin:0; }
   /* Rev #30 (6D.11) — форма входу: label над полем → іконка+placeholder
      усередині поля (референс). Той самий технічний прийом, що вже
      .journal-search-input-wrap (пошук у Журналі) — не новий патерн,
@@ -2192,23 +2198,30 @@
           <span>Відновлено незбережений запис</span>
           <button type="button" class="auto-hint-edit-btn" onclick="discardExpenseDraft()">Очистити</button>
         </div>
-        <!-- Rev 2.22.62 (6D.133) BugFix — живий тест користувача: спроба 1
-             (нестандартне значення autocomplete, 6D.132) НЕ прибрала
-             панель iOS "Автозаповнити контакт" над клавіатурою — отже
-             тригер не сам атрибут autocomplete, а, ймовірно, сканування
-             WebKit НАВКОЛИШНЬОГО тексту DOM (включно з формальним
-             <label for="..."> зв'язком) на предмет слів на кшталт
-             "назва"/"ім'я". Спроба 2 — прибрано `for="f-name"` (формальний
-             id-зв'язок label↔input, ще один можливий сигнал евристики),
-             видимий текст і стиль лишається тим самим (той самий тег
-             label, той самий CSS-селектор .field label), доступність для
-             читачів екрана збережена через aria-label на самому інпуті
-             замість id-зв'язку. Якщо й це не допоможе — ознака, що
-             причина глибша за DOM (типізація на рівні системного
-             словника), і варто буде прийняти як платформне обмеження. -->
+        <!-- Rev 2.22.62 (6D.133): спроба 1 (нестандартне autocomplete,
+             6D.132) і спроба 2 (прибрано <label for>, той самий Rev) обидві
+             НЕ прибрали панель iOS "Автозаповнити контакт". Rev 2.22.63
+             (6D.134) — дослідження (не здогадка): це не класичне HTML-
+             автозаповнення форми, а системна QuickType-панель передбачення
+             тексту iOS (працює на рівні ОС, вбудована, офіційно "cannot be
+             removed" з боку веб-сторінки — Apple Developer Forums/Apple
+             Community). Спроба 3, за реальним задокументованим фактом:
+             WebKit іноді трактує ДЕФІСИ в значенні autocomplete/name як
+             ознаку поля телефону — попереднє значення
+             "expense-title-no-autofill" мало дефіси, це могло активно
+             ШКОДИТИ, а не допомагати. Замінено на суцільний рядок без
+             дефісів. Додатково — задокументований CSS-прийом (Rev #30,
+             нижче в <style>) ховає сусідню кнопку-іконку "контакт"
+             усередині самого поля (::-webkit-contacts-auto-fill-button) —
+             інший, суміжний UI-елемент Safari, не сама QuickType-панель,
+             але безкоштовний і безризиковий заодно. Якщо й це не
+             прибере панель — гарантовано працює лише вимкнення в
+             Налаштуваннях пристрою (Налаштування → Програми → Safari →
+             Автозаповнення → "Використовувати контактну інформацію":
+             вимкнути) — це вже НЕ виправляється кодом сторінки. -->
         <div class="field"><label>Назва витрати</label>
           <div style="position:relative;">
-            <input type="text" id="f-name" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="expense-title-no-autofill">
+            <input type="text" id="f-name" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="expensetitlenoautofill">
             <div class="name-suggest-list" id="name-suggest-list"></div>
           </div>
           <div class="field auto-hint" id="auto-hint">
@@ -2631,7 +2644,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.62</div>
+  <div class="version-footer">Money Tree · Rev 2.22.63</div>
 </div>
   </div>
 </div>
@@ -6018,7 +6031,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.62';
+const APP_VERSION = '2.22.63';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
