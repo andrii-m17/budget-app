@@ -2192,19 +2192,21 @@
           <span>Відновлено незбережений запис</span>
           <button type="button" class="auto-hint-edit-btn" onclick="discardExpenseDraft()">Очистити</button>
         </div>
-        <!-- Rev 2.22.65 (6D.136) — комбінація 3 прийомів (autocomplete=
-             "one-time-code" + абстрактний id + readonly-до-фокуса)
-             ПІДТВЕРДЖЕНО прибрала панель iOS "Автозаповнити контакт".
-             Ізольоване тестування (6D.137, за запитом користувача) —
-             readonly (Крок 1) підтверджено НЕ потрібен, видалено (6D.138).
-             Rev 2.22.67 (6D.138, Крок 2) — тепер тестуємо id: повернуто
-             назад на оригінальний "f-name" (був "expfielda7"), лишився
-             ЛИШЕ `autocomplete="one-time-code"`. Якщо автозаповнення й
-             далі не з'явиться — id-перейменування теж не було потрібне,
-             мінімальний робочий фікс — один атрибут. -->
+        <!-- Rev 2.22.68 (6D.139) — ізольоване тестування ЗАВЕРШЕНО (3
+             живих тести на iPhone, 6D.136-139): проти iOS-панелі
+             "Автозаповнити контакт" потрібні РІВНО 2 речі одночасно —
+             (1) `autocomplete="one-time-code"` і (2) абстрактний `id`
+             (без підрядка "name"). `readonly`-до-фокуса (6D.136) —
+             ЗАЙВИЙ, підтверджено 6D.137 (Крок 1), видалено. Сам
+             `autocomplete` БЕЗ зміни id — НЕДОСТАТНІЙ, підтверджено
+             6D.138 (Крок 2, id тимчасово був "f-name" — автозаповнення
+             повернулось). Тому id тут — "expfielda7" (абстрактний,
+             навмисно позбавлений слова "name"), а не оригінальний
+             "f-name" — це НЕ косметика, а необхідна частина підтвердженого
+             фіксу. -->
         <div class="field"><label>Назва витрати</label>
           <div style="position:relative;">
-            <input type="text" id="f-name" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="one-time-code">
+            <input type="text" id="expfielda7" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="one-time-code">
             <div class="name-suggest-list" id="name-suggest-list"></div>
           </div>
           <div class="field auto-hint" id="auto-hint">
@@ -2627,7 +2629,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.67 (ТЕСТ 2)</div>
+  <div class="version-footer">Money Tree · Rev 2.22.68</div>
 </div>
   </div>
 </div>
@@ -6014,7 +6016,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.67';
+const APP_VERSION = '2.22.68';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8260,7 +8262,7 @@ function autocategorize(name){
 // авто-збіг, знову згортає поля, навіть якщо перед тим натискали іконку-олівець
 // і нічого не міняли — саме цього і бракувало.
 function onNameInput(){
-  const name = document.getElementById('f-name').value;
+  const name = document.getElementById('expfielda7').value;
   const hint = document.getElementById('auto-hint');
   const hintText = document.getElementById('auto-hint-text');
   const catSel = document.getElementById('f-category');
@@ -8469,12 +8471,12 @@ function onCategoryChange(userTriggered){
 
 /* ============ Додавання записів ============ */
 async function addExpense(){
-  const name = document.getElementById('f-name').value.trim();
+  const name = document.getElementById('expfielda7').value.trim();
   const amount = parseAmount(document.getElementById('f-amount').value);
   const date = document.getElementById('f-date').value || localDateISO();
   const category = document.getElementById('f-category').value;
   const subcategory = document.getElementById('f-subcategory').value;
-  if(!name || !amount || amount<=0){ flashField(!name ? 'f-name' : 'f-amount'); return; }
+  if(!name || !amount || amount<=0){ flashField(!name ? 'expfielda7' : 'f-amount'); return; }
   const auto = autocategorize(name);
   const isManual = !auto || auto.cat !== category;
   // Rev 2.11.2 — стабільний UUID (generateUUID(), не Date.now()+random) і
@@ -8678,7 +8680,7 @@ function flashField(id){ const el=document.getElementById(id); el.style.borderCo
    змінені. */
 const LS_KEY_DRAFT = 'budget_expense_draft_v1';
 function saveExpenseDraft(){
-  const nameEl = document.getElementById('f-name');
+  const nameEl = document.getElementById('expfielda7');
   const amountEl = document.getElementById('f-amount');
   if(!nameEl || !amountEl) return;
   const name = nameEl.value;
@@ -8714,7 +8716,7 @@ function restoreExpenseDraft(){
   let draft;
   try{ draft = JSON.parse(localStorage.getItem(LS_KEY_DRAFT) || 'null'); }catch(e){ draft = null; }
   if(!draft || (!String(draft.name||'').trim() && !String(draft.amount||'').trim())) return;
-  document.getElementById('f-name').value = draft.name || '';
+  document.getElementById('expfielda7').value = draft.name || '';
   document.getElementById('f-amount').value = draft.amount || '';
   if(draft.date) document.getElementById('f-date').value = draft.date;
   updateDateCaption();
@@ -8749,7 +8751,7 @@ function discardExpenseDraft(){
 // Скидання на сьогодні відбувається окремо — лише при вході на вкладку
 // "Витрати" з іншої вкладки, див. switchTab()/resetVytratyDateToToday().
 function resetExpenseForm(){
-  document.getElementById('f-name').value=''; document.getElementById('f-amount').value='';
+  document.getElementById('expfielda7').value=''; document.getElementById('f-amount').value='';
   document.getElementById('f-category').value=''; populateSubcategorySelect(''); markManual(false); markSubManual(false);
   document.getElementById('auto-hint').classList.remove('show');
   // Rev 2.1.6 — після збереження форма повертається у згорнутий стан:
@@ -9048,7 +9050,7 @@ function payInstallmentQuick(){
   }
   closeInstallmentEditor();
   switchTab('vytraty');
-  document.getElementById('f-name').value = stripLeadingEmoji(acc.name);
+  document.getElementById('expfielda7').value = stripLeadingEmoji(acc.name);
   if(amount != null) document.getElementById('f-amount').value = formatThousands(amount);
   // Категорія — намагаємось підставити "Оплати Частинами", якщо вона активна
   // (та сама назва, що в DEFAULT_CATEGORIES); якщо користувач її перейменував
@@ -10759,7 +10761,7 @@ function handleNameKeydown(e){
 function selectNameSuggestion(i){
   const name = nameSuggestions[i];
   if(name == null) return;
-  const nameInput = document.getElementById('f-name');
+  const nameInput = document.getElementById('expfielda7');
   nameInput.value = name;
   onNameInput(); // спершу звичайний шлях: словник автозв'язку/автокатегорії
   hideNameSuggestions();
@@ -12738,7 +12740,7 @@ function performSwitchTab(tab){
   // власний scrollTo(0,0) вище не конфліктував із авто-скролом браузера
   // "підняти поле над клавіатурою".
   if(tab === 'vytraty'){
-    const nameInput = document.getElementById('f-name');
+    const nameInput = document.getElementById('expfielda7');
     const amountInput = document.getElementById('f-amount');
     // Якщо назва вже заповнена (відновлена чернетка з попереднього разу —
     // Rev 2.3.2) — фокус одразу на суму, бо назва вводити вже не треба.
