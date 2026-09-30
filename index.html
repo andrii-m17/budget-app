@@ -2192,19 +2192,23 @@
           <span>Відновлено незбережений запис</span>
           <button type="button" class="auto-hint-edit-btn" onclick="discardExpenseDraft()">Очистити</button>
         </div>
-        <div class="field"><label for="f-name">Назва витрати</label>
+        <!-- Rev 2.22.62 (6D.133) BugFix — живий тест користувача: спроба 1
+             (нестандартне значення autocomplete, 6D.132) НЕ прибрала
+             панель iOS "Автозаповнити контакт" над клавіатурою — отже
+             тригер не сам атрибут autocomplete, а, ймовірно, сканування
+             WebKit НАВКОЛИШНЬОГО тексту DOM (включно з формальним
+             <label for="..."> зв'язком) на предмет слів на кшталт
+             "назва"/"ім'я". Спроба 2 — прибрано `for="f-name"` (формальний
+             id-зв'язок label↔input, ще один можливий сигнал евристики),
+             видимий текст і стиль лишається тим самим (той самий тег
+             label, той самий CSS-селектор .field label), доступність для
+             читачів екрана збережена через aria-label на самому інпуті
+             замість id-зв'язку. Якщо й це не допоможе — ознака, що
+             причина глибша за DOM (типізація на рівні системного
+             словника), і варто буде прийняти як платформне обмеження. -->
+        <div class="field"><label>Назва витрати</label>
           <div style="position:relative;">
-            <!-- Rev #30 (6D.132) BugFix — живий тест користувача: над
-                 клавіатурою з'являлась панель iOS "Автозаповнити контакт"
-                 (QuickType-евристика приймає слово "Назва" в підписі поля
-                 за поле імені), перекриваючи інтерфейс і ризикуючи
-                 випадковим натисканням. autocomplete="off" тут стояв і
-                 РАНІШЕ — задокументований баг WebKit: саме літеральне
-                 значення "off" iOS іноді ігнорує для цієї конкретної
-                 евристики (на відміну від звичайного автозаповнення форм).
-                 Нестандартне значення (не "off", не жоден відомий токен)
-                 обходить цей баг на практиці. -->
-            <input type="text" id="f-name" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="expense-title-no-autofill">
+            <input type="text" id="f-name" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="expense-title-no-autofill">
             <div class="name-suggest-list" id="name-suggest-list"></div>
           </div>
           <div class="field auto-hint" id="auto-hint">
@@ -2627,7 +2631,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.61</div>
+  <div class="version-footer">Money Tree · Rev 2.22.62</div>
 </div>
   </div>
 </div>
@@ -6014,7 +6018,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.61';
+const APP_VERSION = '2.22.62';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11457,9 +11461,24 @@ function closeJournal(){
   // touchmove в межах зони (поки `active`), а не лише коли dx вже домінує
   // — рішення "закривати чи ні" й далі приймається ОКРЕМО, в touchend, за
   // фінальним співвідношенням dx/dy (сам жест закриття не став менш
-  // точним, лише перестав залежати від швидкості). Зона старту — ще трохи
-  // більша, 56px (було 40px).
-  const EDGE_ZONE = 56; // px від лівого краю
+  // точним, лише перестав залежати від швидкості).
+  // Rev 2.22.62 (6D.133) — живий тест користувача після 6D.132 (56px)
+  // виявив МЕРТВУ ЗОНУ ~10-15px від самого фізичного краю екрана, де
+  // скрол і далі працює (наш touchstart/preventDefault там узагалі не
+  // спрацьовує), і лише десь від ~15-20px і далі блокування реально
+  // діє. Це ПЛАТФОРМНЕ ОБМЕЖЕННЯ, не наш баг: WKWebView резервує
+  // приблизно перші ~20pt від лівого/правого краю екрана під власний
+  // системний edge-swipe-жест (interactive pop gesture recognizer) —
+  // дотики, що починаються в цій смузі, спершу проходять через цей
+  // системний розпізнавач і не доходять до touchstart нашого JS ВЗАГАЛІ
+  // (чи доходять із затримкою/спотворенням). Жодного надійного CSS/JS-
+  // способу обійти саме цю системну зону немає (задокументовано в
+  // CLAUDE.md, розділ "Відомі платформні обмеження") — тому зробити, щоб
+  // жест "спрацьовував від самого краю" технічно неможливо. Це НЕ те
+  // саме, що EDGE_ZONE (яка визначає ВЕРХНЮ межу нашої власної зони) —
+  // повернуто на 40px (за проханням користувача), фактична зона, що
+  // спрацьовує — приблизно [~15-20px, 40px] через цей системний резерв.
+  const EDGE_ZONE = 40; // px від лівого краю
   const SWIPE_THRESHOLD = 60; // px — щоб не плутати з випадковим дотиком/тапом
   let active = false, startX = 0, startY = 0;
   overlay.addEventListener('touchstart', function(e){
