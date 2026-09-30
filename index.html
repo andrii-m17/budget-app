@@ -178,7 +178,19 @@
      відступ від нижнього краю екрана (safe-area + невеликий буфер), а не
      притиснута впритул — тому резервний простір під неї збільшено, інакше
      контент журналу/карток міг би ховатись під панеллю в самому кінці скролу. */
-  .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--color-bg); }
+  /* Rev #30 (6D.122) — 1a: в альбомній орієнтації Dynamic Island/чілка
+     опиняється збоку екрана, не зверху — той самий контейнер, що вже має
+     verhній safe-area (.top, padding-top) через env(safe-area-inset-top),
+     тепер отримує і лівий/правий (той самий патерн: env(...,0px), щоб у
+     портреті, де insets завжди 0, нічого візуально не змінилось). Свідомо
+     на .app-shell (кореневий контейнер контенту), а не окремо на .top/.view
+     — одна точка, а не дублювання в кожному з них. width:auto на .app-shell
+     означає, що padding НЕ спричиняє overflow (браузер сам звужує
+     обчислювану ширину) — max-width:980px/margin:0 auto тут не заважають.
+     Таббар (окрема історія — 1b/фікс клікабельності) свідомо НЕ чіпається
+     тут: він поза .app-shell (сам собі position:fixed елемент), і вже має
+     власний відступ через width:calc(100% - 28px); margin:0 auto. */
+  .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--color-bg); padding-left:env(safe-area-inset-left,0px); padding-right:env(safe-area-inset-right,0px); }
   .side{ display:none; }
   .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding-bottom:112px; }
   .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 20px; border-bottom:1px solid var(--color-border); position:relative; text-align:center; }
@@ -2571,7 +2583,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.51</div>
+  <div class="version-footer">Money Tree · Rev 2.22.52</div>
 </div>
   </div>
 </div>
@@ -5889,7 +5901,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.51';
+const APP_VERSION = '2.22.52';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
