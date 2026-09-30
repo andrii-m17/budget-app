@@ -2644,7 +2644,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.63</div>
+  <div class="version-footer">Money Tree · Rev 2.22.64</div>
 </div>
   </div>
 </div>
@@ -6031,7 +6031,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.63';
+const APP_VERSION = '2.22.64';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11452,6 +11452,18 @@ function closeJournal(){
   overlay.setAttribute('inert','');
   if(defaultView){ defaultView.classList.remove('hidden'); defaultView.removeAttribute('inert'); }
   restoreFocus();
+  // Rev 2.22.64 (6D.135) BugFix — живий тест користувача: закриття Журналу
+  // (свайпом чи кнопкою "‹") зі скролу вниз лишало короткий список "Витрати"
+  // на ТІЙ САМІЙ позиції скролу #main-col, у якій був Журнал у момент
+  // закриття, — бо Журнал не має власного скролу, а користується тим самим
+  // спільним #main-col, що й короткий список (openJournal() вище вже має
+  // симетричний скид при ВІДКРИТТІ, саме з тим самим обґрунтуванням, Rev
+  // 2.21.6, — тут той самий принцип застосовано і при закритті, якого
+  // раніше бракувало). Усюди в застосунку повернення на попередній екран
+  // повертає на початок — тут мало бути так само.
+  killMainColMomentumScroll();
+  const mainColEl = document.getElementById('main-col');
+  if(mainColEl) mainColEl.scrollTop = 0;
   renderRecords();
 }
 (function(){
