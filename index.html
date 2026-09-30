@@ -2632,7 +2632,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.75</div>
+  <div class="version-footer">Money Tree · Rev 2.22.76</div>
 </div>
   </div>
 </div>
@@ -6061,7 +6061,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.75';
+const APP_VERSION = '2.22.76';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14111,18 +14111,53 @@ if(window.visualViewport){
 // шторку на висоту клавіатури через CSS custom property --kb-shift (а не
 // прямий inline transform — див. докоментар над .drawer.open у CSS), лише
 // поки фокус справді всередині НЕЇ САМОЇ.
+// Rev 2.22.76 (6D.149) BugFix — живий тест на iPhone виявив ОДРАЗУ 2 нові
+// баги в самому 6D.146/6D.146.1, обидва з тим самим коренем — "візуально
+// клавіатура зникла, а WebKit ще вважає інакше":
+//   1) Шторка піднімалась НАБАГАТО вище, ніж треба (великий порожній
+//      проміжок між кнопкою і клавіатурою). Причина — арифметична: `bottom`
+//      шторки в CSS і так уже `max(100px, env(safe-area-inset-bottom)+80px)`
+//      від низу екрана (6D.16); попередня версія додавала ПОВНУ висоту
+//      клавіатури зверху ЦЬОГО вже існуючого відступу замість того, щоб
+//      компенсувати РІЗНИЦЮ — шторка "перелітала" саме на цей відступ вище,
+//      ніж потрібно. Фікс: віднімаємо фактичний computed `bottom` шторки
+//      (getComputedStyle — сам резолвить max()/env()) від висоти клавіатури.
+//   2) Після ЗАКРИТТЯ клавіатури звичайний тап по шторці (не по полю)
+//      одразу піднімав її знову, БЕЗ повторного виклику клавіатури.
+//      Причина — той САМИЙ задокументований WebKit-баг, що вже 6D.52/53
+//      (Rev 2.3.9): приховати клавіатуру можна БЕЗ зміни
+//      document.activeElement — поле формально лишається "у фокусі", тому
+//      перевірка `isKeyboardField(active)` сама по собі не бачила, що
+//      клавіатури насправді вже нема. 6D.52/53 вирішили це для таббару,
+//      зробивши `body.kb-open` єдиним авторитетним прапорцем стану
+//      клавіатури (сам він знімається через visualViewport.resize,
+//      незалежно від фокуса) — тут той самий прийом: `kb-open`
+//      перевіряється ПЕРШИМ і є вирішальним, а не `isKeyboardField`.
 function adjustOpenDrawerForKeyboard(){
   if(!window.visualViewport) return;
   const openDrawer = document.querySelector('.drawer.open');
   if(!openDrawer) return;
+  // 6D.149 — body.kb-open (не document.activeElement) вирішує, чи
+  // клавіатура ДІЙСНО ще видима — той самий авторитетний прапорець, що
+  // вже ховає таббар (Rev 2.3.9/6D.52/53).
+  if(!document.body.classList.contains('kb-open')){
+    openDrawer.style.removeProperty('--kb-shift');
+    return;
+  }
   const active = document.activeElement;
   if(!isKeyboardField(active) || !openDrawer.contains(active)){
     openDrawer.style.removeProperty('--kb-shift');
     return;
   }
   const kbHeight = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
-  if(kbHeight > 100){
-    openDrawer.style.setProperty('--kb-shift', '-' + Math.round(kbHeight) + 'px');
+  // 6D.149 — шторка вже має власний відступ від низу екрана (CSS `bottom`,
+  // 6D.16) — підіймаємо лише на РІЗНИЦЮ між висотою клавіатури і цим уже
+  // наявним відступом, інакше шторка "перелітає" вище клавіатури саме на
+  // цей відступ.
+  const bottomOffset = parseFloat(getComputedStyle(openDrawer).bottom) || 0;
+  const shift = kbHeight - bottomOffset;
+  if(shift > 20){
+    openDrawer.style.setProperty('--kb-shift', '-' + Math.round(shift) + 'px');
   }else{
     openDrawer.style.removeProperty('--kb-shift');
   }
