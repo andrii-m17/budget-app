@@ -2571,7 +2571,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.46</div>
+  <div class="version-footer">Money Tree · Rev 2.22.47</div>
 </div>
   </div>
 </div>
@@ -5889,7 +5889,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.46';
+const APP_VERSION = '2.22.47';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13579,11 +13579,14 @@ window.visualViewport.addEventListener('scroll', fixStuckVisualViewportOffset);
 // pointer-events:none — оверлей суто візуальний, не повинен перехоплювати
 // дотики. Фон var(--color-bg) підхоплює активну тему автоматично через
 // data-theme на <html> (Rev 2.6.0) — без окремого читання теми в JS.
-// Тривалість показу — 500мс (Rev 2.22.46, підняли з початкових 150мс: живий
-// тест на iPhone показав, що клікабельність не постраждала, але стрибок
-// лишався видимим — тобто компоситорна анімація WebKit, яку ми ховаємо, або
-// стартує пізніше за 150мс, або сама триває довше; 500мс — новий орієнтир,
-// знову підбирається живим тестом, не остаточне число).
+// Тривалість показу — 900мс (Rev 2.22.47, підняли з 500мс: живий тест на
+// iPhone показав прогрес — стрибок став швидким, майже непомітним, але й
+// досі присутній — тобто ще не всю компоситорну анімацію WebKit перекрито;
+// 900мс — черговий орієнтир, знову підбирається живим тестом, не остаточне
+// число. Ризик росте разом з тривалістю: сам оверлей (суцільний фон на весь
+// екран) при зависокому значенні стає власним видимим "гальмуванням" —
+// якщо 900мс теж не приховає стрибок повністю, варто зупинитись на
+// найкращому вже досягнутому компромісі, а не піднімати далі безмежно).
 function maskedFixStuckVisualViewportOffset(){
   if(!window.visualViewport) return;
   const needsFix = window.visualViewport.offsetTop !== 0 || window.scrollY !== 0;
@@ -13592,7 +13595,7 @@ function maskedFixStuckVisualViewportOffset(){
   overlay.style.cssText = 'position:fixed; inset:0; z-index:999; background:var(--color-bg); pointer-events:none;';
   document.body.appendChild(overlay);
   fixStuckVisualViewportOffset();
-  setTimeout(function(){ overlay.remove(); }, 500);
+  setTimeout(function(){ overlay.remove(); }, 900);
 }
 window.addEventListener('orientationchange', function(){
   // Rev 2.21.85 висновок ROADMAP.md: одразу в orientationchange geometry
