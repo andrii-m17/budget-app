@@ -2625,7 +2625,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.70</div>
+  <div class="version-footer">Money Tree · Rev 2.22.71</div>
 </div>
   </div>
 </div>
@@ -6012,7 +6012,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.70';
+const APP_VERSION = '2.22.71';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12481,6 +12481,21 @@ function habitCountWord(n){
   if(mod10===1 && mod100!==11) return 'раз';
   if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'рази';
   return 'разів';
+}
+// BugFix — ця функція існувала з самого початку (задовго до Rev 2.22.20), і
+// той Rev явно стверджував у commit-повідомленні "expenseCountWord()
+// лишено — генерична плюралізація, використовується іншими місцями" — але
+// насправді видалив саме ЦЮ функцію разом із рештою видаленої фічі "Спільні
+// витрати" (Family Bridge), бо вона фізично лежала в тому самому видаленому
+// блоці коду. Обидва залишкові виклики (populateInstallmentTable, вище, і
+// buildDiagnosticsReport(), Rev 2.16.0) з того часу кидали ReferenceError —
+// саме тому не працювала кнопка "Діагностика даних". Відновлено 1:1 з
+// історії (Rev 2.22.19, останній коміт, де вона ще існувала).
+function expenseCountWord(n){
+  const mod10=n%10, mod100=n%100;
+  if(mod10===1 && mod100!==11) return 'витрата';
+  if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'витрати';
+  return 'витрат';
 }
 
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
