@@ -2608,7 +2608,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.56</div>
+  <div class="version-footer">Money Tree · Rev 2.22.57</div>
 </div>
   </div>
 </div>
@@ -5995,7 +5995,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.56';
+const APP_VERSION = '2.22.57';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13239,13 +13239,18 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
 // (~20px+ від фізичного краю екрана через padding .view), не з edge-zone.
 // Rev 2.22.54 (6D.124) BugFix — живий тест на iPhone: після свайпу й
 // повернення в звичайний стан лишався видимий "привид" кольору кнопок дій
-// (синій/червоний) у щілині над карткою. Причина — `row.style.transform =
-// ''` знімає inline transform ПОВНІСТЮ, а не просто скидає його до 0; це
-// прибирає GPU-композитний шар, який WebKit створив на час драгу (через
-// non-'none' transform), і в момент цього "розпромоушену" лишається
-// застарілий растеризований кадр до наступного перемальовування. Явне
-// translateX(0px) (замість '') тримає той самий ненульовий transform і той
-// самий шар постійно — немає перемикання шару, немає привида.
+// (синій/червоний) у щілині над карткою. Тоді причину помилково приписали
+// GPU-шару (`row.style.transform=''` начебто "розпромоушував" шар) і
+// тимчасово тримали explicit `translateX(0px)` замість ''. Rev 2.22.57
+// (6D.128) — СПРАВЖНІЙ фікс сліду (нижче, .expense-row-actions{visibility:
+// hidden} + visible лише під час .dragging/.swipe-open) уже сам по собі
+// повністю усуває привид, НЕЗАЛЕЖНО від того, чи стоїть inline transform —
+// оскільки кнопкам просто нема чим "прозирати" в стані спокою. Тому тут
+// повертаємось до `transform=''` (знімає inline СТИЛЬ повністю) — інакше
+// цей ЛИШНІЙ inline-transform (навіть '0px') перекривав `transform:scale
+// (1.025)` з .selected (inline завжди виграє за ту саму CSS-властивість у
+// класу) — виділена картка після свайпу-скасування лишалась "виділеною"
+// (фон+тінь), але БЕЗ масштабування, що виглядало як зламане виділення.
 (function initExpenseRowSwipeActions(){
   const SWIPE_OPEN_THRESHOLD = 40; // px — мінімальний зсув, щоб не плутати зі звичайним тапом
   let activeWrap = null, startX = 0, startY = 0, startOffset = 0, currentOffset = 0, actionsWidth = 0, deciding = false, horizontal = false;
@@ -13255,7 +13260,7 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
       if(w === exceptWrap) return;
       w.classList.remove('swipe-open');
       const row = w.querySelector('.expense-row');
-      if(row) row.style.transform = 'translateX(0px)';
+      if(row) row.style.transform = '';
     });
   }
   window.closeSwipeActions = closeSwipeActions; // викликається з onclick атрибутів кнопок дій і onExpenseRowTap()
@@ -13279,7 +13284,6 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
     actionsWidth = actions.offsetWidth;
     startOffset = wrap.classList.contains('swipe-open') ? -actionsWidth : 0;
     currentOffset = startOffset;
-    wrap.classList.add('dragging');
   }
   function onTouchMove(e){
     if(!activeWrap || e.touches.length !== 1) return;
@@ -13289,7 +13293,18 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
       if(Math.abs(dx) < 6 && Math.abs(dy) < 6) return; // ще замало руху, щоб визначити напрям
       horizontal = Math.abs(dx) > Math.abs(dy);
       deciding = false;
-      if(!horizontal){ activeWrap.classList.remove('dragging'); activeWrap = null; return; } // вертикальний рух — віддаємо звичайному скролу списку
+      if(!horizontal){ activeWrap = null; return; } // вертикальний рух — віддаємо звичайному скролу списку
+      // Rev 2.22.57 (6D.128) BugFix — .dragging (і тим самим видимість
+      // .expense-row-actions, CSS нижче) додається ЛИШЕ тепер, щойно рух
+      // підтверджено горизонтальним — не одразу на touchstart. Раніше, у
+      // будь-якому дотику до картки (навіть до першого piksela реального
+      // зсуву, чи навіть якщо рух виявився вертикальним скролом), кнопки
+      // ставали visible:visible, поки картка ще стояла на місці
+      // (translateX:0) — той самий шов на заокругленому куті (докоментар
+      // над .expense-row-actions у CSS), що вже виправляли для стану
+      // спокою, знову прозирав саме в цьому короткому вікні "торкнулись,
+      // ще не зсунули".
+      activeWrap.classList.add('dragging');
     }
     if(!horizontal) return;
     if(e.cancelable) e.preventDefault();
@@ -13311,7 +13326,10 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
       closeSwipeActions(wrap); // одночасно відкрита лише одна картка
     }else{
       wrap.classList.remove('swipe-open');
-      if(row) row.style.transform = 'translateX(0px)';
+      // Rev 2.22.57 (6D.128) BugFix — '' (не 'translateX(0px)'), той самий
+      // принцип, що closeSwipeActions() вище: лишній inline transform
+      // перекривав .selected{transform:scale(1.025)}.
+      if(row) row.style.transform = '';
       // Rev 2.22.56 (6D.127) BugFix — саме тут, а НЕ в onExpenseRowTap()
       // (яка викликається пізніше, синтетичним click, коли клас
       // 'swipe-open' уже знятий вище), фіксуємо факт "щойно закрили
