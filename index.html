@@ -302,10 +302,9 @@
   .sync-summary-toast .live-toast-text{ color:var(--color-text-primary); }
   .page-header-text h1{ margin:0; font-size:21px; line-height:27px; font-weight:700; letter-spacing:-.01em; }
   .page-header-text .page-subtitle{ margin:3px 0 0; font-size:12.5px; color:var(--color-text-secondary); line-height:1.4; }
-  /* Rev 2.11.1 — офлайн-банер: той самий приглушений warning-тон, що вже
-     використовує .badge.stale для carry-forward позначок ("станом на") —
-     навмисно НЕ error-колір: офлайн — це очікуваний, безпечний стан
-     (дані й далі зберігаються локально), а не проблема, що вимагає тривоги. */
+  /* Rev 2.11.1 — офлайн-банер: приглушений warning-тон — навмисно НЕ
+     error-колір: офлайн — це очікуваний, безпечний стан (дані й далі
+     зберігаються локально), а не проблема, що вимагає тривоги. */
   .status-banner{ display:flex; align-items:center; gap:8px; padding:9px 20px; font-size:12px; font-weight:600; background:var(--color-warning-bg); color:var(--color-warning); border-bottom:1px solid var(--color-border); }
   .status-banner svg{ flex-shrink:0; }
   .status-banner.hidden{ display:none; }
@@ -416,8 +415,7 @@
   .bdr-init-amount{ display:block; font-size:11.5px; color:var(--color-text-secondary); margin:4px 0 8px; }
   .bdr-init-amount.missing{ color:var(--color-warning); }
   /* Rev 2.2.2 — попередження про розбіжність факт/очікування під полем
-     "Залишок" ОЧ — приглушене, інформаційне (ніколи не блокує), той самий
-     warning-колір, що вже використовує .badge.stale в застосунку. */
+     "Залишок" ОЧ — приглушене, інформаційне (ніколи не блокує). */
   .bdr-diff-warning{ display:none; font-size:10.5px; color:var(--color-warning); margin-top:3px; }
   .bdr-diff-warning.show{ display:block; }
   .bdr-diff-warning .bdr-diff-apply{ background:none; border:none; font:inherit; font-size:10.5px; font-weight:700; color:var(--color-warning); cursor:pointer; padding:0; text-decoration:underline; text-underline-offset:2px; }
@@ -932,7 +930,7 @@
   .kpi-card.v2.savings .kpi-icon-circle{ background:var(--color-info-bg); color:var(--color-info); }
   .kpi-card.v2.debt .kpi-icon-circle{ background:var(--color-warning-bg); color:var(--color-warning); }
   .kpi-card.v2 .kpi-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--color-text-primary); line-height:14px; }
-  .kpi-card.v2 .kpi-value{ font-size:24px; font-weight:700; color:var(--color-text-primary); font-family:'JetBrains Mono',monospace; letter-spacing:-.04em; line-height:28px; white-space:nowrap; }
+  .kpi-card.v2 .kpi-value{ color:var(--color-text-primary); font-family:'JetBrains Mono',monospace; letter-spacing:-.04em; white-space:nowrap; }
   .kpi-card.v2.income .kpi-value, .kpi-card.v2.expense .kpi-value, .kpi-card.v2.savings .kpi-value, .kpi-card.v2.debt .kpi-value{ margin-left:0; text-align:center; }
   .kpi-card.v2.income .kpi-value, .kpi-card.v2.expense .kpi-value, .kpi-card.v2.savings .kpi-value, .kpi-card.v2.debt .kpi-value{ font-size:26px; font-weight:700; line-height:30px; }
   .kpi-card.v2 .kpi-sub{ font-size:10.5px; color:var(--color-muted); margin-top:2px; }
@@ -1081,7 +1079,6 @@
   @media (min-width:1280px){ .insights-row{ grid-template-columns:repeat(5,1fr); } }
 
   /* ---- Верхні KPI-картки: тренд і спарклайн (Rev 1.4, за еталонним макетом) ---- */
-  .badge-pill{ display:inline-block; padding:3px 9px; border-radius:var(--radius-sm); font-size:11px; font-weight:600; white-space:nowrap; }
   .bank-badge{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:7px; font-size:9.5px; font-weight:700; color:#fff; margin-right:2px; flex-shrink:0; }
   /* Rev 2.17.2 — іконка джерела доходу: той самий прийом, що .kpi-icon-circle
      на Аналітиці (кругла підсвічена плашка семантичного кольору + іконка-обрис
@@ -1709,7 +1706,6 @@
     .page-header-text h1{ font-size:28px; line-height:34px; }
     .page-header-text .page-subtitle{ font-size:13.5px; margin-top:5px; }
     .month-pill{ display:none; }
-    .kpi-card.v2 .kpi-value{ font-size:24px; }
     .side{ width:250px; flex-shrink:0; padding:26px 16px; border-right:1px solid var(--color-border); display:flex; flex-direction:column; gap:4px; height:100vh; height:100dvh; overflow-y:auto; }
     .side .brand-side{ padding:4px 10px 18px; }
     .side .brand-side h1{ font-size:19px; margin:0; font-weight:700; }
@@ -1728,8 +1724,6 @@
     nav.tabbar{ display:none; }
     .main-col{ flex:1; min-width:0; padding:26px 28px 40px; }
     .view{ padding:0; }
-    .dash-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0 24px; align-items:start; }
-    .dash-grid .kpi-grid{ grid-column:1 / -1; }
     .drawer{ left:auto; right:0; top:0; bottom:0; width:360px; max-width:90vw; max-height:none; border-radius:var(--radius-xl) 0 0 var(--radius-xl); transform:translateX(100%); }
     .drawer.open{ transform:translateX(0); }
     /* Rev #30 (6D.12) — десктопний варіант .drawer лишається бічною
@@ -2614,7 +2608,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.55</div>
+  <div class="version-footer">Money Tree · Rev 2.22.56</div>
 </div>
   </div>
 </div>
@@ -3211,18 +3205,22 @@ async function pushCategoriesPilot(){
   const userId = cloudSession.user.id;
   let localChanged = false;
   let anyError = false;
+  // Rev #30 (6D.125) — категорії, чий cloudId ЗМІНИВСЯ цим проходом
+  // (self-heal чи reconcile-за-іменем щойно доданої) — докоментар нижче,
+  // після циклу, пояснює каскад у SUBCATEGORIES/DICTIONARY.
+  const reconciledNames = [];
   for(const cat of CATEGORIES){
-    // Rev #30 (6D.50) — BugFix (знайдено 6D.49 живою перевіркою): раніше
-    // КОЖЕН виклик пересилав УСІ категорії, незалежно від того, чи вони
-    // реально змінились локально — застаріле значення могло затерти
-    // одночасну чужу зміну ІНШОГО запису в Cloud (контрольовано
-    // відтворено). syncedUpdatedAt — суто локальне bookkeeping-поле
-    // (ніколи не потрапляє в Cloud-payload нижче), виставляється = updatedAt
-    // одразу після успішного push цього запису. Якщо cloudId уже є і
-    // syncedUpdatedAt === updatedAt — запис не змінювався локально з часу
-    // останньої успішної синхронізації, пропускаємо його повністю, Cloud
-    // не чіпаємо взагалі.
-    if(cat.cloudId && cat.syncedUpdatedAt === cat.updatedAt) continue;
+    // Rev #30 (6D.50) — цей "already synced" шорткат ІСНУВАВ, щоб не
+    // слати зайвий UPDATE, коли справді нічого не змінилось. Rev #30
+    // (6D.125) — ВИДАЛЕНО: той самий клас бага, що вже підтверджений
+    // реальним інцидентом і виправлений для bank_accounts/installment_
+    // accounts (6D.76, докоментар над pushBankAccountsPilot()) — якщо
+    // cloudId застарів (Cloud-рядок видалено/перестворено незалежно від
+    // цього пристрою чи з відновленого бекапу), а cat.updatedAt локально
+    // не змінювався, категорія вважала себе "синхронізованою" НАЗАВЖДИ, і
+    // жоден наступний "Синхронізувати все" ніколи навіть не звертався до
+    // Cloud, щоб це виявити.
+    const prevCloudId = cat.cloudId;
     try{
       if(cat.cloudId){
         const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, type: cat.type, updated_at: cat.updatedAt, updated_by: userId }).eq('id', cat.cloudId).select('id');
@@ -3238,6 +3236,7 @@ async function pushCategoriesPilot(){
       }else{
         await reconcileCategoryCloudId(client, userId, cat);
       }
+      if(cat.cloudId !== prevCloudId) reconciledNames.push(cat.name);
       // Rev #30 (6D.50) — лише після успіху (не в catch): позначає запис
       // синхронізованим на ПОТОЧНЕ значення updatedAt.
       cat.syncedUpdatedAt = cat.updatedAt;
@@ -3249,6 +3248,24 @@ async function pushCategoriesPilot(){
     }
   }
   if(localChanged) await saveCategoriesLocal();
+  // Rev #30 (6D.125) — КРИТИЧНО, той самий принцип, що pushBankAccountsPilot()
+  // (6D.76): якщо cloudId категорії ЗМІНИВСЯ, усі SUBCATEGORIES/DICTIONARY
+  // з посиланням на цю категорію (за іменем) МУСЯТЬ перепушитись — інакше
+  // вони НАЗАВЖДИ лишаться "синхронізованими" зі СТАРИМ (мертвим)
+  // category_id в Cloud, і жоден наступний "Синхронізувати все" ніколи не
+  // спробує це виправити.
+  if(reconciledNames.length){
+    let subsChanged = false;
+    SUBCATEGORIES.forEach(function(s){
+      if(reconciledNames.includes(s.category)){ delete s.syncedUpdatedAt; subsChanged = true; }
+    });
+    if(subsChanged) await saveSubcategoriesLocal();
+    let dictChanged = false;
+    DICTIONARY.forEach(function(d){
+      if(reconciledNames.includes(d.cat)){ delete d.syncedUpdatedAt; dictChanged = true; }
+    });
+    if(dictChanged) await saveDictionaryLocal();
+  }
   // Rev #30 (6D.49) — Pull одразу після успішного push (Варіант А):
   // підхоплює зміни, які тим часом зробив інший пристрій, без очікування
   // наступного ручного "Синхронізувати все"/входу. Лише при !anyError —
@@ -3266,7 +3283,17 @@ async function pushCategoriesPilot(){
 // виявився висячим" (той самий механізм, каузально інакший вхідний стан).
 async function reconcileCategoryCloudId(client, userId, cat){
   const { data: existing } = await client.from('categories').select('id').eq('family_id', cloudFamilyId).eq('name', cat.name).maybeSingle();
-  if(existing){ cat.cloudId = existing.id; return; }
+  if(existing){
+    cat.cloudId = existing.id;
+    // Rev #30 (6D.125) BugFix — раніше зв'язування за іменем лишало
+    // ІСНУЮЧИЙ Cloud-рядок як є, а виклик-caller одразу позначав запис
+    // повністю синхронізованим (syncedUpdatedAt=updatedAt) — якщо локальна
+    // версія мала СВІЖІШУ active/type (напр. обидва члени сім'ї
+    // відредагували ту саму дефолтну категорію до першої синхронізації),
+    // ця зміна тихо губилась і ніколи не пушилась повторно.
+    await client.from('categories').update({ active: cat.active, type: cat.type, updated_at: cat.updatedAt, updated_by: userId }).eq('id', existing.id);
+    return;
+  }
   const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, type: cat.type, created_at: cat.createdAt, updated_at: cat.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) cat.cloudId = data.id;
 }
@@ -3469,11 +3496,13 @@ async function pushSubcategoriesPilot(){
   const userId = cloudSession.user.id;
   let localChanged = false;
   let anyError = false;
+  const reconciledNames = []; // Rev #30 (6D.125) — той самий принцип, що pushCategoriesPilot()
   for(const sub of SUBCATEGORIES){
     const parentCat = CATEGORIES.find(function(c){ return c.name === sub.category; });
     if(!parentCat || !parentCat.cloudId) continue; // батьківська категорія ще не синхронізована — не помилка
-    // Rev #30 (6D.50) — той самий принцип, що pushCategoriesPilot() (BugFix, знайдено 6D.49).
-    if(sub.cloudId && sub.syncedUpdatedAt === sub.updatedAt) continue;
+    // Rev #30 (6D.125) — "already synced" шорткат ВИДАЛЕНО, той самий
+    // реальний клас бага, що pushCategoriesPilot() вище (докоментар там).
+    const prevCloudId = sub.cloudId;
     try{
       if(sub.cloudId){
         const { data, error } = await client.from('subcategories').update({ name: sub.name, category_id: parentCat.cloudId, active: sub.active, updated_at: sub.updatedAt, updated_by: userId }).eq('id', sub.cloudId).select('id');
@@ -3485,6 +3514,7 @@ async function pushSubcategoriesPilot(){
       }else{
         await reconcileSubcategoryCloudId(client, userId, sub, parentCat.cloudId);
       }
+      if(sub.cloudId !== prevCloudId) reconciledNames.push(sub.name);
       sub.syncedUpdatedAt = sub.updatedAt;
       localChanged = true;
     }catch(e){
@@ -3493,13 +3523,29 @@ async function pushSubcategoriesPilot(){
     }
   }
   if(localChanged) await saveSubcategoriesLocal();
+  // Rev #30 (6D.125) — той самий каскад, що pushCategoriesPilot(): якщо
+  // cloudId підкатегорії змінився, DICTIONARY-записи з посиланням на неї
+  // (за іменем) мусять перепушитись, інакше лишаться зі старим
+  // subcategory_id в Cloud назавжди.
+  if(reconciledNames.length){
+    let dictChanged = false;
+    DICTIONARY.forEach(function(d){
+      if(reconciledNames.includes(d.sub)){ delete d.syncedUpdatedAt; dictChanged = true; }
+    });
+    if(dictChanged) await saveDictionaryLocal();
+  }
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
   if(!anyError) await pullSubcategoriesCore();
   return { success: !anyError };
 }
 async function reconcileSubcategoryCloudId(client, userId, sub, categoryId){
   const { data: existing } = await client.from('subcategories').select('id').eq('family_id', cloudFamilyId).eq('name', sub.name).maybeSingle();
-  if(existing){ sub.cloudId = existing.id; return; }
+  if(existing){
+    sub.cloudId = existing.id;
+    // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
+    await client.from('subcategories').update({ category_id: categoryId, active: sub.active, updated_at: sub.updatedAt, updated_by: userId }).eq('id', existing.id);
+    return;
+  }
   const { data, error } = await client.from('subcategories').insert({ family_id: cloudFamilyId, category_id: categoryId, name: sub.name, active: sub.active, created_at: sub.createdAt, updated_at: sub.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) sub.cloudId = data.id;
 }
@@ -3549,8 +3595,10 @@ async function pushDictionaryPilot(){
       if(!parentSub || !parentSub.cloudId) continue; // підкатегорія вказана, але ще не синхронізована — не помилка
       subcategoryId = parentSub.cloudId;
     }
-    // Rev #30 (6D.50) — той самий принцип, що pushCategoriesPilot() (BugFix, знайдено 6D.49).
-    if(entry.cloudId && entry.syncedUpdatedAt === entry.updatedAt) continue;
+    // Rev #30 (6D.125) — "already synced" шорткат ВИДАЛЕНО, той самий
+    // реальний клас бага, що pushCategoriesPilot() вище (докоментар там).
+    // Немає каскаду вниз — жоден інший домен не посилається на
+    // dictionary.cloudId як FK.
     try{
       if(entry.cloudId){
         const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).select('id');
@@ -3576,7 +3624,12 @@ async function pushDictionaryPilot(){
 }
 async function reconcileDictionaryCloudId(client, userId, entry, categoryId, subcategoryId){
   const { data: existing } = await client.from('dictionary').select('id').eq('family_id', cloudFamilyId).eq('keyword', entry.kw).maybeSingle();
-  if(existing){ entry.cloudId = existing.id; return; }
+  if(existing){
+    entry.cloudId = existing.id;
+    // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
+    await client.from('dictionary').update({ category_id: categoryId, subcategory_id: subcategoryId, updated_at: entry.updatedAt, updated_by: userId }).eq('id', existing.id);
+    return;
+  }
   const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, created_at: entry.createdAt, updated_at: entry.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) entry.cloudId = data.id;
 }
@@ -5526,7 +5579,12 @@ async function pushBankAccountsPilot(){
 }
 async function reconcileBankAccountCloudId(client, userId, acc){
   const { data: existing } = await client.from('bank_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).maybeSingle();
-  if(existing){ acc.cloudId = existing.id; return; }
+  if(existing){
+    acc.cloudId = existing.id;
+    // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
+    await client.from('bank_accounts').update({ credit_limit: acc.creditLimit, updated_at: acc.updatedAt, updated_by: userId }).eq('id', existing.id);
+    return;
+  }
   const { data, error } = await client.from('bank_accounts').insert({ family_id: cloudFamilyId, name: acc.name, credit_limit: acc.creditLimit, created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) acc.cloudId = data.id;
 }
@@ -5676,7 +5734,12 @@ async function pushInstallmentAccountsPilot(){
 }
 async function reconcileInstallmentAccountCloudId(client, userId, acc){
   const { data: existing } = await client.from('installment_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).maybeSingle();
-  if(existing){ acc.cloudId = existing.id; return; }
+  if(existing){
+    acc.cloudId = existing.id;
+    // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
+    await client.from('installment_accounts').update({ initial_amount: acc.initialAmount, due_day: acc.dueDay || null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', existing.id);
+    return;
+  }
   const { data, error } = await client.from('installment_accounts').insert({ family_id: cloudFamilyId, name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) acc.cloudId = data.id;
 }
@@ -5932,7 +5995,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.55';
+const APP_VERSION = '2.22.56';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6257,11 +6320,15 @@ async function idbAdapterSet(key, value){
   const db = await openIdbDatabase();
   await db.put(IDB_STORE_NAME, value, key);
 }
+// Rev #30 (6D.125) — ПОВЕРНУТО: помилково видалено раніше цим самим Rev як
+// "мертвий код" (жоден app-домен його не викликає) — але tests/storage-
+// adapter.test.js має власний тест на цю функцію (частина документованого
+// загального API kv-адаптера поруч з idbAdapterGet/idbAdapterSet, 6231-6237
+// вище), тому вона НЕ мертва, лише поки не задіяна жодним save/clear-шляхом.
 async function idbAdapterRemove(key){
   const db = await openIdbDatabase();
   await db.delete(IDB_STORE_NAME, key);
 }
-
 // Rev #28.C — Stage C виправлення архітектури Stage B: прапорець міграції
 // був ОДНИМ глобальним boolean (isMigrationCompleted()) і мігрував УСІ 12
 // BACKUP_LS_KEYS атомарно одним прогоном (MIGRATION_LS_KEYS = BACKUP_LS_KEYS,
@@ -9282,15 +9349,30 @@ function openCardDebtEditor(i){
   lastFocusedBeforeDialog = document.activeElement;
   const name = acc.name;
   // Rev #30 (6D.44) — activeDebts(): tombstoned факт має відкриватись порожнім (0), не своїм старим значенням.
+  // Rev #30 (6D.126) BugFix — "порожнім" тут означає null (поле пусте), НЕ
+  // число 0: явний збережений факт "0 ₴" (погашено цього місяця) і
+  // "запису за цей місяць взагалі нема" — два різні стани, і мають
+  // відрізнятись у полі (0 показує "0", відсутність — порожнє поле).
+  // Раніше обидва зводились до літерального 0, тому їх неможливо було
+  // розрізнити нижче навіть через `!= null`.
   const existing = activeDebts().find(function(d){ return d.name===name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
-  const balance = existing ? existing.balance : 0;
-  const minPayment = (existing && existing.minPayment != null) ? existing.minPayment : 0;
+  const balance = existing ? existing.balance : null;
+  const minPayment = existing ? existing.minPayment : null;
   document.getElementById('cdd-icon').innerHTML = bankIcon(name, 34);
   document.getElementById('cdd-heading').textContent = stripLeadingEmoji(name);
   document.getElementById('cdd-name').value = stripLeadingEmoji(name);
   document.getElementById('cdd-limit').value = acc.creditLimit ? formatThousands(acc.creditLimit) : '';
-  document.getElementById('cdd-balance').value = balance ? formatThousands(balance) : '';
-  document.getElementById('cdd-minpay').value = minPayment ? formatThousands(minPayment) : '';
+  // Rev #30 (6D.126) BugFix — falsy-zero: 0 ₴ ("погашено цього місяця") —
+  // осмислений, збережений факт (докоментар над populateBankDebtTable()
+  // вище: картки НЕ переносять борг з минулого місяця, на відміну від ОЧ),
+  // а не "ще не введено". Truthy-перевірка (`balance ? ... : ''`) ховала
+  // явний 0 як порожнє поле — повторне "Зберегти" без передруку "0" тоді
+  // бачило порожній рядок і tombstone'ило запис (saveCardDebtDrawer()
+  // нижче, гілка `!balRaw`), тихо видаляючи факт "погашено". Той самий
+  // `!= null`-патерн, що вже правильно в openInstallmentEditor() (idd-
+  // balance/idd-pay вище) — тут його просто забули застосувати.
+  document.getElementById('cdd-balance').value = balance != null ? formatThousands(balance) : '';
+  document.getElementById('cdd-minpay').value = minPayment != null ? formatThousands(minPayment) : '';
   document.getElementById('cdd-paid').checked = !!(existing && existing.minPaymentDone);
   document.getElementById('card-debt-backdrop').removeAttribute('inert');
   document.getElementById('card-debt-drawer').removeAttribute('inert');
@@ -10735,10 +10817,20 @@ function toggleRecordSelect(kind, id){
 // (кнопки дій видно), перший тап лише закриває свайп, без зміни виділення —
 // стандартний iOS-патерн ("тап по відкритому рядку спершу закриває його"),
 // щоб випадковий тап одразу після свайпу не перемикав виділення несподівано.
+// Rev 2.22.56 (6D.127) BugFix — перевірка `wrap.classList.contains('swipe-
+// open')` тут НІКОЛИ не спрацьовувала: document-рівневий touchend
+// (initExpenseRowSwipeActions нижче) завжди встигає зняти клас
+// 'swipe-open' ДО того, як браузер згенерує синтетичний click — тобто до
+// того, як цей обробник взагалі викликається. Тому тап по відкритій
+// картці не просто закривав свайп, а Й одразу перемикав виділення — рівно
+// та поведінка, якої 6D.123 мав уникнути. Фікс — сам touchend (нижче)
+// виставляє suppressNextRowTapSelect=true САМЕ в момент, коли закриває
+// картку, що БУЛА відкрита (startOffset!==0) — тут лишається тільки
+// перевірити й скинути цей прапорець, а не вже-знятий клас.
+let suppressNextRowTapSelect = false;
 function onExpenseRowTap(evt, kind, id){
-  const wrap = evt.currentTarget.closest('.expense-row-swipe');
-  if(wrap && wrap.classList.contains('swipe-open')){
-    closeSwipeActions();
+  if(suppressNextRowTapSelect){
+    suppressNextRowTapSelect = false;
     return;
   }
   toggleRecordSelect(kind, id);
@@ -12325,14 +12417,6 @@ function habitCountWord(n){
   if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'рази';
   return 'разів';
 }
-// Rev 2.2.1 — та сама логіка словозмінювання, що habitCountWord(), лише форми
-// "рядок/рядки/рядків" (для підказки про пропущені недоторкані рядки ОЧ/банків).
-function rowCountWord(n){
-  const mod10=n%10, mod100=n%100;
-  if(mod10===1 && mod100!==11) return 'рядок';
-  if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'рядки';
-  return 'рядків';
-}
 
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 // Rev 2.1.16 — escapeHtml() не екранує лапки (не потрібно було для текстового
@@ -13216,6 +13300,7 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
   function onTouchEnd(){
     if(!activeWrap) return;
     const wrap = activeWrap;
+    const wasOpen = startOffset !== 0; // картка БУЛА відкрита ДО цього дотику
     activeWrap = null;
     wrap.classList.remove('dragging');
     const row = wrap.querySelector('.expense-row');
@@ -13227,6 +13312,18 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
     }else{
       wrap.classList.remove('swipe-open');
       if(row) row.style.transform = 'translateX(0px)';
+      // Rev 2.22.56 (6D.127) BugFix — саме тут, а НЕ в onExpenseRowTap()
+      // (яка викликається пізніше, синтетичним click, коли клас
+      // 'swipe-open' уже знятий вище), фіксуємо факт "щойно закрили
+      // ВІДКРИТУ картку цим дотиком" — щоб наступний click на тій самій
+      // картці лише "спожив" цей тап, а не перемкнув виділення. Таймаут —
+      // страховка на випадок, якщо синтетичний click з якоїсь причини
+      // взагалі не станеться (напр. touchcancel) — прапорець сам скидається,
+      // не лишаючись "застряглим" назавжди для наступного, вже не пов'язаного тапу.
+      if(wasOpen){
+        suppressNextRowTapSelect = true;
+        setTimeout(function(){ suppressNextRowTapSelect = false; }, 400);
+      }
     }
   }
   document.addEventListener('touchstart', onTouchStart, {passive:true});

@@ -1589,10 +1589,18 @@ test('pushCategoriesPilot: реальна Cloud-помилка (anyError:true) �
   assert.equal(pullSpy.count(), 0);
 });
 
-// Rev #30 (6D.50) — BugFix: bulk-push більше не пересилає незмінені записи
-// (знайдено 6D.49 живою перевіркою — контрольовано відтворений clobber
-// одночасної чужої зміни).
-test('pushCategoriesPilot: запис із syncedUpdatedAt===updatedAt (не змінювався локально) → Cloud НЕ чіпається взагалі', async () => {
+// Rev #30 (6D.50) — колишній BugFix: bulk-push НЕ мав пересилати незмінені
+// записи (знайдено 6D.49 живою перевіркою — контрольовано відтворений
+// clobber одночасної чужої зміни). Rev #30 (6D.125) — цей "already synced"
+// шорткат сам ВИДАЛЕНО: той самий клас бага, що вже підтверджений реальним
+// інцидентом і виправлений для bank_accounts/installment_accounts (6D.76,
+// див. тест "pushBankAccountsPilot: cloudId застарів..." нижче) — якщо
+// cloudId застарів, а updatedAt локально не змінювався, запис вважав себе
+// "синхронізованим" НАЗАВЖДИ, і self-heal нижче (update повертає 0 рядків
+// → reconcile) не отримував навіть ШАНСУ спрацювати. Тест тепер перевіряє
+// ПРОТИЛЕЖНИЙ, новий інваріант: навіть незмінений запис і далі пушиться
+// (щоб self-heal лишався досяжним), помилка з Cloud не ламає результат.
+test('pushCategoriesPilot: запис із syncedUpdatedAt===updatedAt (не змінювався локально) — і далі пушиться (self-heal лишається досяжним)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -1608,7 +1616,7 @@ test('pushCategoriesPilot: запис із syncedUpdatedAt===updatedAt (не з�
     },
   });
   const result = await ctx.pushCategoriesPilot();
-  assert.equal(updateCalled, false, 'UPDATE не мав викликатись для незміненого запису');
+  assert.equal(updateCalled, true, 'UPDATE мав викликатись навіть для незміненого запису (self-heal лишається досяжним)');
   assert.deepEqual(plain(result).success, true);
 });
 
@@ -1632,9 +1640,15 @@ test('pushCategoriesPilot: запис ЗМІНИВСЯ (updatedAt !== syncedUpda
   assert.equal(ctx.CATEGORIES[0].syncedUpdatedAt, '2024-06-01T00:00:00.000Z');
 });
 
-// Rev #30 (6D.50) — головний regression-сценарій: 2 записи, лише ОДИН
-// змінився локально — push НЕ мав би торкатись Cloud-рядка іншого.
-test('pushCategoriesPilot: 2 записи, лише 1 змінився → UPDATE відправляється лише для зміненого, не для обох', async () => {
+// Rev #30 (6D.50) — колишній regression-сценарій: 2 записи, лише ОДИН
+// змінився локально — push НЕ мав би торкатись Cloud-рядка іншого. Rev #30
+// (6D.125) — після видалення "already synced" шортката (докоментар над
+// тестом "і далі пушиться" вище) ОБИДВА записи тепер пушаться щоразу —
+// свідомо прийнятий компроміс (той самий, що вже обґрунтований для
+// bank_accounts/installment_accounts, 6D.76): кількість категорій мала
+// (одиниці-десятки, не сотні), вартість зайвого UPDATE значно менша за
+// ризик "тихо мертвого" cloudId назавжди.
+test('pushCategoriesPilot: 2 записи, лише 1 локально змінився → ОБИДВА все одно пушаться (self-heal лишається досяжним для кожного)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -1653,7 +1667,7 @@ test('pushCategoriesPilot: 2 записи, лише 1 змінився → UPDAT
     },
   });
   await ctx.pushCategoriesPilot();
-  assert.deepEqual(updatedIds, ['c1']); // НЕ ['c1', 'c2'] — 'c2' (незмінена) не мала торкнутись Cloud
+  assert.deepEqual(updatedIds, ['c1', 'c2']); // ОБИДВА — 'c2' (незмінена) теж пушиться (6D.125)
 });
 
 test('pushHiddenEntitiesPilot: успішний push (порожній hiddenFrom) → pullHiddenEntitiesCore() викликається (рішення: той самий принцип, хоч і поза "8 доменів")', async () => {
