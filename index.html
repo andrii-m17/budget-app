@@ -2571,7 +2571,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.44</div>
+  <div class="version-footer">Money Tree · Rev 2.22.45</div>
 </div>
   </div>
 </div>
@@ -5889,7 +5889,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.44';
+const APP_VERSION = '2.22.45';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13564,13 +13564,40 @@ function fixStuckVisualViewportOffset(){
 }
 window.visualViewport.addEventListener('resize', fixStuckVisualViewportOffset);
 window.visualViewport.addEventListener('scroll', fixStuckVisualViewportOffset);
+// Rev #30 (6D.115) — маскування ВИКЛЮЧНО видимого "стрибка" від scrollTo(0,0)
+// усередині fixStuckVisualViewportOffset() (сам фікс і його логіка — 6D.108-
+// 114, тут НЕ чіпаються ні на рядок). Попередня спроба замаскувати той самий
+// ефект (6D.110, visibility:hidden на .app-shell) провалилась одразу за
+// двома критеріями — не приховала стрибок І зламала клікабельність, бо
+// чіпала властивість елемента, який сам бере участь у resync. Тут інший
+// принцип: НОВИЙ, повністю ізольований елемент поверх усього (жодна
+// властивість .app-shell чи будь-чого залученого в resync не змінюється),
+// з'являється лише навколо виклику фікса саме в orientationchange-гілці
+// (де користувач фіксує проблему; resize/scroll-слухачі вище — той самий
+// фікс для інших тригерів (напр. клавіатура) — свідомо НЕ обгорнуті, щоб не
+// розширювати площу ризику на сценарії, де стрибок не скаржились).
+// pointer-events:none — оверлей суто візуальний, не повинен перехоплювати
+// дотики. Фон var(--color-bg) підхоплює активну тему автоматично через
+// data-theme на <html> (Rev 2.6.0) — без окремого читання теми в JS.
+// Тривалість показу (150мс) — стартова оцінка, потребує підбору живим
+// тестом на реальному iPhone (задокументовано в ROADMAP.md, 6D.115).
+function maskedFixStuckVisualViewportOffset(){
+  if(!window.visualViewport) return;
+  const needsFix = window.visualViewport.offsetTop !== 0 || window.scrollY !== 0;
+  if(!needsFix){ fixStuckVisualViewportOffset(); return; }
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; inset:0; z-index:999; background:var(--color-bg); pointer-events:none;';
+  document.body.appendChild(overlay);
+  fixStuckVisualViewportOffset();
+  setTimeout(function(){ overlay.remove(); }, 150);
+}
 window.addEventListener('orientationchange', function(){
   // Rev 2.21.85 висновок ROADMAP.md: одразу в orientationchange geometry
   // ще перехідна — невеликий setTimeout, той самий принцип, що вже v2
   // застосовував для repaintTabbar() (сам timing там не був причиною
   // провалу v2 — лишаємо його, паралельно з resize/scroll-слухачами вище).
-  setTimeout(fixStuckVisualViewportOffset, 50);
-  setTimeout(fixStuckVisualViewportOffset, 300);
+  setTimeout(maskedFixStuckVisualViewportOffset, 50);
+  setTimeout(maskedFixStuckVisualViewportOffset, 300);
 });
 
 // Rev #30 (6D.54) — Cloud-сесія тепер ініціалізується безумовно при старті,
