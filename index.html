@@ -1210,7 +1210,14 @@
        viewport, що завжди перевищує max-height:74vh + будь-який
        bottom-відступ, тому картка гарантовано повністю за межами екрана. */
     transform:translateY(100vh); transition:transform var(--duration-slow) var(--easing-standard); max-height:74vh; overflow-y:auto; }
-  .drawer.open{ transform:translateY(0); }
+  /* Rev 2.22.74 (6D.146) — --kb-shift: піднімає ВІДКРИТУ шторку над
+     системною клавіатурою (JS нижче, adjustOpenDrawerForKeyboard) — окрема
+     CSS custom property, а не прямий inline transform, свідомо: закритий
+     стан .drawer (translateY(100vh) вище) її не використовує взагалі, тому
+     значення, лишене з моменту закриття, ніяк не може зіпсувати анімацію
+     закриття (на відміну від запису напряму в style.transform, який довелось
+     би вручну скидати з кожної з kількох closeXXXEditor()-функцій). */
+  .drawer.open{ transform:translateY(var(--kb-shift, 0px)); }
   /* Rev #30 (6D.12) — рисочка-хендл для свайпу-донизу (як iOS bottom sheet):
      суто візуальний індикатор, драг-логіка навішується окремо в JS
      (initDrawerSwipeToDismiss) на цей самий елемент за класом. Від'ємний
@@ -2625,7 +2632,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.73</div>
+  <div class="version-footer">Money Tree · Rev 2.22.74</div>
 </div>
   </div>
 </div>
@@ -6054,7 +6061,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.73';
+const APP_VERSION = '2.22.74';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9243,6 +9250,18 @@ async function saveInstallmentDrawer(){
   if(newName !== oldName && installmentAccounts.some(function(a){ return a.name===newName; })){ flashField('idd-name'); return; }
   if(newName !== oldName){
     debts.forEach(function(d){ if(d.name===oldName && d.kind==='installment') d.name = newName; });
+    // Rev 2.22.74 (6D.145) — той самий каскад, якого досі бракувало саме
+    // тут: expenses[].linkedInstallment зберігає НАЗВУ ОЧ (не стабільний
+    // cloudId), той самий принцип, що editCategory() вище робить для
+    // expenses[].category при перейменуванні категорії. Без цього кроку
+    // вже прив'язані витрати лишались посиланням на СТАРУ назву, яка після
+    // перейменування не збігається НІ З ЧИМ — ні для показу в редакторі
+    // Журналу (installmentLinkOptionsHtml нижче), ні для pushExpenseRecordPilot()
+    // (шукає acc за назвою) — підтверджено на реальних даних користувача
+    // (ОЧ "Приват iPhone" → "Приват Банк Оля", 4 витрати травня-серпня
+    // лишились без прив'язки).
+    expenses.forEach(function(e){ if(e.linkedInstallment===oldName) e.linkedInstallment = newName; });
+    reportSaveResult(await saveExpenses());
   }
   acc.name = newName;
   acc.initialAmount = newInitial;
@@ -11059,12 +11078,26 @@ function subcategoryOptionsHtml(forCategory, selectedSub){
 // місяця" — це ручний вибір в редагуванні, не автопідказка форми "Нова
 // витрата", тож навіть архівна ОЧ лишається доступною для виправлення старого
 // запису) + "без прив'язки" першим пунктом.
+// Rev 2.22.74 (6D.145) BugFix — раніше, якщо selectedName не збігався
+// ЖОДНОГО з поточних installmentAccounts (найтиповіше — ОЧ перейменували
+// вже ПІСЛЯ того, як стару назву записали в linkedInstallment, до фіксу
+// каскаду перейменування вище), у списку просто не було відповідного
+// <option> — select мовчки падав на перший пункт "без прив'язки", і
+// НАЙМЕНШЕ пов'язане редагування запису (навіть виправлення дати) на
+// saveRecordEdit() тихо стирало б linkedInstallment, хоча користувач
+// узагалі не торкався цього поля. Той самий принцип, що вже
+// categoryOptionsHtml/subcategoryOptionsHtml вище — зберігаємо застарілу
+// назву окремим видимим пунктом, щоб (а) select ніколи мовчки не губив
+// значення, і (б) користувач бачив, що прив'язку варто переобрати вручну.
 function installmentLinkOptionsHtml(selectedName){
   const opts = installmentAccounts.map(function(acc){
     const label = stripLeadingEmoji(acc.name);
     return `<option value="${escapeAttr(acc.name)}"${acc.name===selectedName?' selected':''}>${escapeHtml(label)}</option>`;
   }).join('');
-  return `<option value="">— без прив'язки —</option>${opts}`;
+  const staleOpt = (selectedName && !installmentAccounts.some(function(acc){ return acc.name===selectedName; }))
+    ? `<option value="${escapeAttr(selectedName)}" selected>${escapeHtml(stripLeadingEmoji(selectedName))} (стара назва)</option>`
+    : '';
+  return `<option value="">— без прив'язки —</option>${opts}${staleOpt}`;
 }
 function openAddCategoryModal(){
   showCategoryModal('Нова категорія:', '', "Гнучка", async function(name, type){
@@ -14005,6 +14038,43 @@ if(window.visualViewport){
     }
   });
 }
+// Rev 2.22.74 (6D.146) — BugFix: клавіатура повністю ховала поле вводу в
+// коротких bottom-anchored шторках (.drawer, напр. "Дохід" → "Інше" — один
+// єдиний рядок з полем "Сума"). Причина: .drawer заякорена до bottom (CSS
+// вище, 6D.16) — короткий вміст лишається у самій нижній частині екрана,
+// саме там, де й розгортається системна клавіатура; на відміну від таббару
+// (просто ховається під час kb-open, Rev 2.3.9) шторку так само сховати не
+// можна — це й є форма, яку користувач зараз заповнює. Піднімаємо ВІДКРИТУ
+// шторку на висоту клавіатури через CSS custom property --kb-shift (а не
+// прямий inline transform — див. докоментар над .drawer.open у CSS), лише
+// поки фокус справді всередині НЕЇ САМОЇ.
+function adjustOpenDrawerForKeyboard(){
+  if(!window.visualViewport) return;
+  const openDrawer = document.querySelector('.drawer.open');
+  if(!openDrawer) return;
+  const active = document.activeElement;
+  if(!isKeyboardField(active) || !openDrawer.contains(active)){
+    openDrawer.style.removeProperty('--kb-shift');
+    return;
+  }
+  const kbHeight = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
+  if(kbHeight > 100){
+    openDrawer.style.setProperty('--kb-shift', '-' + Math.round(kbHeight) + 'px');
+  }else{
+    openDrawer.style.removeProperty('--kb-shift');
+  }
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', adjustOpenDrawerForKeyboard);
+}
+document.addEventListener('focusin', function(e){
+  if(!isKeyboardField(e.target) || !e.target.closest('.drawer.open')) return;
+  adjustOpenDrawerForKeyboard();
+});
+document.addEventListener('focusout', function(e){
+  if(!isKeyboardField(e.target) || !e.target.closest('.drawer')) return;
+  setTimeout(adjustOpenDrawerForKeyboard, 50);
+});
 // Rev #30 (6D.53, Баг 1 — термінове розслідування продовжено з РЕАЛЬНОЮ
 // діагностикою на пристрої, чого дві попередні спроби (v1/v2, обидві
 // відкочені, докоментар над 6D.53 у ROADMAP.md) не мали): Safari Web
