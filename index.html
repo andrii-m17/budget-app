@@ -2617,7 +2617,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.59</div>
+  <div class="version-footer">Money Tree · Rev 2.22.60</div>
 </div>
   </div>
 </div>
@@ -6004,7 +6004,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.59';
+const APP_VERSION = '2.22.60';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11430,8 +11430,18 @@ function closeJournal(){
 (function(){
   const overlay = document.getElementById('journal-overlay');
   if(!overlay) return;
-  const EDGE_ZONE = 24; // px від лівого краю — приблизна зона розпізнавання нативного edge-swipe на iOS
-  const SWIPE_THRESHOLD = 80; // px — щоб не плутати з випадковим дотиком/тапом
+  // Rev 2.22.60 (6D.131) BugFix — живий тест користувача: 24px (майже
+  // фізичний край екрана) робив жест майже нездійсненним, особливо із
+  // захисним склом (яке фізично піднімає/згладжує сам край) — доводилось
+  // цілитись прицільно в самий кут. Збільшено до 40px (все ще значно
+  // менше за типову ширину картки — конфлікту зі свайпом-відкриттям
+  // карток нема, докоментар над initExpenseRowSwipeActions нижче: там
+  // спрацьовує лише ЛІВОРУЧ-рух (від'ємний dx), тут — лише ПРАВОРУЧ
+  // (dx>SWIPE_THRESHOLD, додатний), напрямки взаємовиключні). Поріг
+  // зсуву — 60px (той самий, що вже LIVE_TOAST_SWIPE_THRESHOLD_PX,
+  // перевірена зручна величина в цьому ж застосунку), було 80px.
+  const EDGE_ZONE = 40; // px від лівого краю
+  const SWIPE_THRESHOLD = 60; // px — щоб не плутати з випадковим дотиком/тапом
   let active = false, startX = 0, startY = 0;
   overlay.addEventListener('touchstart', function(e){
     if(!isJournalOpen || e.touches.length !== 1) return;
