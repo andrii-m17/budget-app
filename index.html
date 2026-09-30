@@ -2625,7 +2625,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.71</div>
+  <div class="version-footer">Money Tree · Rev 2.22.72</div>
 </div>
   </div>
 </div>
@@ -5537,8 +5537,11 @@ async function pushBankAccountsPilot(){
   let anyError = false;
   // Rev #30 (6D.76) — рахунки, чий cloudId ЗМІНИВСЯ цим проходом
   // (self-heal чи вперше створений) — докоментар нижче, після циклу,
-  // пояснює, навіщо.
+  // пояснює, навіщо. Rev #30 (6D.143) — reconciledOldCloudIds поруч:
+  // лише ті випадки, де БУВ реальний попередній cloudId (не вперше
+  // створений рахунок) — докоментар над hidden_entities-каскадом нижче.
   const reconciledNames = [];
+  const reconciledOldCloudIds = [];
   for(const acc of bankAccounts){
     // Rev #30 (6D.50) — цей "already synced" шорткат ІСНУВАВ, щоб не
     // слати зайвий UPDATE, коли справді нічого не змінилось. Rev #30
@@ -5564,7 +5567,10 @@ async function pushBankAccountsPilot(){
       }else{
         await reconcileBankAccountCloudId(client, userId, acc);
       }
-      if(acc.cloudId !== prevCloudId) reconciledNames.push(acc.name);
+      if(acc.cloudId !== prevCloudId){
+        reconciledNames.push(acc.name);
+        if(prevCloudId) reconciledOldCloudIds.push(prevCloudId); // guard: вперше створений рахунок не мав старого cloudId — нема чого прибирати
+      }
       acc.syncedUpdatedAt = acc.updatedAt;
       localChanged = true;
     }catch(e){
@@ -5590,6 +5596,15 @@ async function pushBankAccountsPilot(){
     });
     if(debtsChanged) await saveDebts();
   }
+  // Rev #30 (6D.143) — той самий клас проблеми, що debts-каскад вище, лише
+  // для hidden_entities: якщо cloudId рахунку самозцілився, старий рядок
+  // hidden_entities (entity_id=старий cloudId) лишається "осиротілим"
+  // назавжди — pushHiddenEntitiesPilot() ніколи не видаляє рядки, лише
+  // upsert'ить під ПОТОЧНИМ cloudId (інший ключ конфлікту, тому створює
+  // НОВИЙ рядок, а не оновлює старий). Підтверджено реальним інцидентом
+  // користувача: 2 осиротілі записи в hidden_entities з 23 вересня,
+  // виявлені й прибрані вручну — цей каскад запобігає повторенню.
+  if(reconciledOldCloudIds.length) await cleanupOrphanedHiddenEntities(client, 'bank', reconciledOldCloudIds);
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
   if(!anyError) await pullBankAccountsCore();
   return { success: !anyError };
@@ -5705,6 +5720,7 @@ async function pushInstallmentAccountsPilot(){
   let localChanged = false;
   let anyError = false;
   const reconciledNames = []; // Rev #30 (6D.76) — той самий принцип, що pushBankAccountsPilot()
+  const reconciledOldCloudIds = []; // Rev #30 (6D.143) — той самий принцип, що pushBankAccountsPilot()
   for(const acc of installmentAccounts){
     // Rev #30 (6D.76) — "already synced" шорткат ВИДАЛЕНО, той самий
     // реальний інцидент і те саме обґрунтування, що pushBankAccountsPilot()
@@ -5721,7 +5737,10 @@ async function pushInstallmentAccountsPilot(){
       }else{
         await reconcileInstallmentAccountCloudId(client, userId, acc);
       }
-      if(acc.cloudId !== prevCloudId) reconciledNames.push(acc.name);
+      if(acc.cloudId !== prevCloudId){
+        reconciledNames.push(acc.name);
+        if(prevCloudId) reconciledOldCloudIds.push(prevCloudId); // guard: вперше створена ОЧ не мала старого cloudId
+      }
       acc.syncedUpdatedAt = acc.updatedAt;
       localChanged = true;
     }catch(e){
@@ -5745,6 +5764,8 @@ async function pushInstallmentAccountsPilot(){
     if(debtsChanged) await saveDebts();
     if(expensesChanged) await saveExpenses();
   }
+  // Rev #30 (6D.143) — той самий принцип, що pushBankAccountsPilot() (докоментар там).
+  if(reconciledOldCloudIds.length) await cleanupOrphanedHiddenEntities(client, 'installment', reconciledOldCloudIds);
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
   if(!anyError) await pullInstallmentAccountsCore();
   return { success: !anyError };
@@ -5861,6 +5882,27 @@ async function pullInstallmentAccountsPilot(){
 // місяців, а не конкретної дати).
 function monthToDate(month){ return month + '-01'; }
 function dateToMonth(dateStr){ return (dateStr || '').slice(0, 7); }
+// Rev #30 (6D.143) — каскад проти "осиротілих" рядків hidden_entities,
+// викликається з pushBankAccountsPilot()/pushInstallmentAccountsPilot()
+// одразу після self-heal/reconcile: pushHiddenEntitiesPilot() НІКОЛИ не
+// видаляє Cloud-рядки (докоментар вище над цим доменом — немає концепції
+// "показати назад"), а upsert іде за (family_id, entity_type, entity_id) —
+// якщо cloudId рахунку самозцілився (entity_id змінився), НАСТУПНИЙ push
+// hidden_entities створює НОВИЙ рядок під новим entity_id, а старий,
+// з мертвим entity_id, лишається в базі назавжди, нічим не видимий і не
+// прибраний. Підтверджено реальним інцидентом користувача (2 таких рядки
+// з 23 вересня, виявлені вручну через Supabase Table Editor і видалені).
+// Best-effort: помилка тут НЕ впливає на anyError виклику, що його
+// покликав — основні дані акаунту вже синхронізувались успішно, ця
+// чистка — другорядна (той самий принцип, що debts/expenses-каскади
+// вище, які теж не перевіряють власний результат).
+async function cleanupOrphanedHiddenEntities(client, entityType, oldCloudIds){
+  try{
+    await client.from('hidden_entities').delete().eq('family_id', cloudFamilyId).eq('entity_type', entityType).in('entity_id', oldCloudIds);
+  }catch(e){
+    // мережа/CORS/офлайн — тихий пропуск, як і решта cascade-чищень вище.
+  }
+}
 async function pushHiddenEntitiesPilot(){
   if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
@@ -6012,7 +6054,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.71';
+const APP_VERSION = '2.22.72';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

@@ -174,6 +174,10 @@ const REPOSITORY_NAMES = [
   // НЕ включена (DOM-шар).
   'saveHiddenFrom', 'saveHiddenFromLocal', 'monthToDate', 'dateToMonth', 'pushHiddenEntitiesPilot',
   'pullHiddenEntitiesCore', 'pullHiddenEntitiesPilot',
+  // Rev #30 (6D.143) — каскад проти осиротілих hidden_entities-рядків при
+  // self-heal cloudId (bank_accounts/installment_accounts), викликається
+  // з pushBankAccountsPilot()/pushInstallmentAccountsPilot().
+  'cleanupOrphanedHiddenEntities',
   'saveIgnoredDivergences',
   // Rev #30 (6D.31, повне прибирання emoji) — одноразова міграція +
   // чистий rename-хелпер, витягнутий з неї (потрібен тут ЛИШЕ тому, що
@@ -1836,6 +1840,140 @@ test('pushInstallmentAccountsPilot: той самий self-heal, що pushBankAc
   assert.equal(updateCalls, 1);
   assert.equal(insertCalls, 1);
   assert.equal(ctx.installmentAccounts[0].cloudId, 'fresh-new-id');
+});
+
+// Rev #30 (6D.143) — каскад проти осиротілих hidden_entities-рядків.
+// Реальний інцидент: cloudId рахунку самозцілився (self-heal, тести вище),
+// pushHiddenEntitiesPilot() наступного разу upsert'ить під НОВИМ entity_id
+// (інший ключ конфлікту) — старий рядок лишався в базі назавжди. Ці тести
+// перевіряють, що цей каскад (а) спрацьовує рівно коли треба, (б) НЕ
+// спрацьовує, коли нема чого прибирати, і (в) його власний провал не
+// ламає основний результат push (best-effort, той самий принцип, що
+// debts/expenses-каскади поруч).
+function hiddenEntitiesDeleteTrackingClient(otherTableHandlers){
+  const deleteCalls = [];
+  const chainable = function(value){
+    return { eq(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
+  };
+  const client = { from(table){
+    if(table === 'hidden_entities'){
+      const call = { familyId: null, entityType: null, entityIds: null };
+      deleteCalls.push(call);
+      const builder = {
+        eq(field, val){
+          if(field === 'family_id') call.familyId = val;
+          if(field === 'entity_type') call.entityType = val;
+          return builder;
+        },
+        in(field, vals){
+          if(field === 'entity_id') call.entityIds = vals;
+          return Promise.resolve({ data: null, error: null });
+        },
+      };
+      return { delete(){ return builder; } };
+    }
+    return otherTableHandlers(chainable);
+  } };
+  return { client, deleteCalls };
+}
+
+test('pushBankAccountsPilot: cloudId самозцілився → cleanupOrphanedHiddenEntities викликається зі СТАРИМ cloudId (6D.143)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'old-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  const { client, deleteCalls } = hiddenEntitiesDeleteTrackingClient((chainable) => ({
+    update(){ return { eq(){ return { select(){ return Promise.resolve({ data: [], error: null }); } }; } }; }, // 0 рядків — self-heal
+    insert(){ return { select(){ return { single(){ return Promise.resolve({ data: { id: 'new-id' }, error: null }); } }; } }; },
+    select(){ return chainable({ data: null, error: null }); },
+  }));
+  ctx.getSupabaseClient = () => client;
+  await ctx.pushBankAccountsPilot();
+  assert.equal(ctx.bankAccounts[0].cloudId, 'new-id');
+  assert.equal(deleteCalls.length, 1, 'delete() на hidden_entities мав викликатись рівно раз');
+  assert.equal(deleteCalls[0].entityType, 'bank');
+  assert.equal(deleteCalls[0].familyId, 'fam-1');
+  assert.deepEqual(plain(deleteCalls[0].entityIds), ['old-id'], 'мусить прибирати САМЕ старий, а не новий cloudId');
+});
+
+test('pushInstallmentAccountsPilot: той самий каскад, entity_type="installment" (6D.143)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'old-id', initialAmount: 1000, updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  const { client, deleteCalls } = hiddenEntitiesDeleteTrackingClient((chainable) => ({
+    update(){ return { eq(){ return { select(){ return Promise.resolve({ data: [], error: null }); } }; } }; },
+    insert(){ return { select(){ return { single(){ return Promise.resolve({ data: { id: 'new-id' }, error: null }); } }; } }; },
+    select(){ return chainable({ data: null, error: null }); },
+  }));
+  ctx.getSupabaseClient = () => client;
+  await ctx.pushInstallmentAccountsPilot();
+  assert.equal(ctx.installmentAccounts[0].cloudId, 'new-id');
+  assert.equal(deleteCalls.length, 1);
+  assert.equal(deleteCalls[0].entityType, 'installment');
+  assert.deepEqual(plain(deleteCalls[0].entityIds), ['old-id']);
+});
+
+test('pushBankAccountsPilot: рахунок ВПЕРШЕ створюється (немає старого cloudId) → cleanupOrphanedHiddenEntities НЕ викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.bankAccounts = [{ name: 'Новий банк', cloudId: null, creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z' }];
+  const { client, deleteCalls } = hiddenEntitiesDeleteTrackingClient((chainable) => ({
+    insert(){ return { select(){ return { single(){ return Promise.resolve({ data: { id: 'brand-new-id' }, error: null }); } }; } }; },
+    select(){ return chainable({ data: null, error: null }); },
+  }));
+  ctx.getSupabaseClient = () => client;
+  await ctx.pushBankAccountsPilot();
+  assert.equal(ctx.bankAccounts[0].cloudId, 'brand-new-id');
+  assert.equal(deleteCalls.length, 0, 'немає попереднього cloudId — нема що прибирати, delete() не мав викликатись');
+});
+
+test('pushBankAccountsPilot: cloudId СТАБІЛЬНИЙ (update успішний, не self-heal) → cleanupOrphanedHiddenEntities НЕ викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.bankAccounts = [{ name: 'Стабільний банк', cloudId: 'stable-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z' }];
+  const { client, deleteCalls } = hiddenEntitiesDeleteTrackingClient((chainable) => ({
+    update(){ return { eq(){ return { select(){ return Promise.resolve({ data: [{ id: 'stable-id' }], error: null }); } }; } }; }, // рядок існує — НЕ self-heal
+    select(){ return chainable({ data: null, error: null }); },
+  }));
+  ctx.getSupabaseClient = () => client;
+  await ctx.pushBankAccountsPilot();
+  assert.equal(ctx.bankAccounts[0].cloudId, 'stable-id');
+  assert.equal(deleteCalls.length, 0);
+});
+
+test('pushBankAccountsPilot: cleanupOrphanedHiddenEntities падає (мережа) → НЕ ламає результат основного push (best-effort)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'old-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  const chainable = function(value){
+    return { eq(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
+  };
+  ctx.getSupabaseClient = () => ({ from(table){
+    if(table === 'hidden_entities') return { delete(){ throw new Error('network down'); } };
+    return {
+      update(){ return { eq(){ return { select(){ return Promise.resolve({ data: [], error: null }); } }; } }; },
+      insert(){ return { select(){ return { single(){ return Promise.resolve({ data: { id: 'new-id' }, error: null }); } }; } }; },
+      select(){ return chainable({ data: null, error: null }); },
+    };
+  } });
+  const result = await ctx.pushBankAccountsPilot();
+  assert.equal(ctx.bankAccounts[0].cloudId, 'new-id', 'основний self-heal і далі відпрацював');
+  assert.equal(plain(result).success, true, 'провал ЛИШЕ cleanup-чистки не мав позначити весь push як помилку');
+});
+
+test('cleanupOrphanedHiddenEntities: синхронний throw у delete() не пробивається назовні (try/catch)', async () => {
+  const { ctx } = sandbox();
+  const client = { from(){ return { delete(){ throw new Error('boom'); } }; } };
+  await assert.doesNotReject(ctx.cleanupOrphanedHiddenEntities(client, 'bank', ['x']));
 });
 
 test('isSyncResultFailure: { success:false } → true', () => {
