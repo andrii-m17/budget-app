@@ -2198,28 +2198,20 @@
           <span>Відновлено незбережений запис</span>
           <button type="button" class="auto-hint-edit-btn" onclick="discardExpenseDraft()">Очистити</button>
         </div>
-        <!-- Rev 2.22.62-63 (6D.133-134): 4 попередні спроби (autocomplete
-             off/нестандартне/без дефісів, прибраний <label for>, CSS
-             ::-webkit-contacts-auto-fill-button) НЕ прибрали панель iOS
-             "Автозаповнити контакт" — підтверджено живим тестом, дослідження
-             (Apple Developer Forums) визнало це платформним обмеженням
-             QuickType. Rev 2.22.65 (6D.136) — користувач приніс 3 додаткові
-             задокументовані прийоми, спроба 5 (комбінація всіх одразу):
-             (а) `autocomplete="one-time-code"` — розпізнаваний токен, який
-             Safari майже ніколи не чіпає (на відміну від "off" і випадкових
-             рядків, які вже не спрацювали); (б) `id` перейменовано з
-             "f-name" (містив "name") на абстрактний "expfielda7" — прибирає
-             сигнал евристики через сам ідентифікатор поля (усі ~10
-             посилань у коді перейменовано разом, getElementById і
-             flashField теж); (в) `readonly` до фокуса + зняття атрибута в
-             onfocus — Safari сканує автозаповнення на DOMContentLoaded,
-             коли поле ще readonly, і не встигає "прив'язатись" до нього;
-             після зняття readonly (перший фокус) звичайне введення working
-             як і раніше. Якщо й ця комбінація не допоможе — усі розумні
-             HTML/CSS-варіанти вичерпано, платформне обмеження остаточне. -->
+        <!-- Rev 2.22.65 (6D.136) — комбінація 3 прийомів ПІДТВЕРДЖЕНО
+             прибрала панель iOS "Автозаповнити контакт" (живий тест). Rev
+             2.22.66 (6D.137, Крок 1) — ізольоване тестування за запитом
+             користувача, щоб знайти мінімальну робочу комбінацію:
+             `readonly`-до-фокуса (єдиний з трьох прийомів, що вимагає
+             власної JS-логіки, onExpenseNameFocus() нижче — найскладніший
+             для підтримки) ТИМЧАСОВО прибрано. `autocomplete="one-time-
+             code"` і абстрактний `id="expfielda7"` лишаються. Якщо
+             автозаповнення й далі не з'явиться без readonly — цей прийом
+             можна прибрати назавжди. Якщо повернеться — readonly
+             необхідний, і Крок 2 ізолює далі між autocomplete/id. -->
         <div class="field"><label>Назва витрати</label>
           <div style="position:relative;">
-            <input type="text" id="expfielda7" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="onExpenseNameFocus(this)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="one-time-code" readonly>
+            <input type="text" id="expfielda7" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="one-time-code">
             <div class="name-suggest-list" id="name-suggest-list"></div>
           </div>
           <div class="field auto-hint" id="auto-hint">
@@ -2642,7 +2634,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.65</div>
+  <div class="version-footer">Money Tree · Rev 2.22.66 (ТЕСТ 1)</div>
 </div>
   </div>
 </div>
@@ -6029,7 +6021,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.65';
+const APP_VERSION = '2.22.66';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10717,6 +10709,11 @@ function handleSuggestionTouchEnd(e, i){
 // приймається нативно раніше/одночасно з цим самим focus-подією). setTimeout
 // (не синхронний this.blur();this.focus()) — перефокус наступним тіком,
 // коли поле вже точно не readonly, без ризику рекурсії onfocus.
+// Rev 2.22.66 (6D.137, Крок 1) — ТИМЧАСОВО не викликається з розмітки
+// (readonly прибрано з #expfielda7 для ізольованого тесту) — функцію не
+// видаляємо: якщо крок 1 покаже, що readonly таки потрібен, просто
+// повернемо onfocus="onExpenseNameFocus(this)" назад, без повторного
+// написання логіки.
 function onExpenseNameFocus(el){
   if(el.hasAttribute('readonly')){
     el.removeAttribute('readonly');
