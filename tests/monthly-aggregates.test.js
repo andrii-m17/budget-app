@@ -85,10 +85,16 @@ test('mandatoryPaymentsSummary: обов\'язкові платежі та ві�
 
 function debtSandbox(){
   return buildSandbox(
-    { debts: [], hiddenFrom: {} },
+    { debts: [], hiddenFrom: {}, expenses: [] },
     ['debtTotalsForMonth', 'hideKey', 'isHiddenForMonth',
       // Rev #30 (6D.44) — debtTotalsForMonth() тепер сканує activeDebts(), не сирий debts.
-      'activeDebts']
+      'activeDebts',
+      // Rev 2.22.75 (6D.148) — debtTotalsForMonth() тепер для installment-
+      // записів кличе resolveInstallmentFact() (пріоритет прив'язаної
+      // витрати над ручним фактом) — весь ланцюжок залежностей мусить бути
+      // в sandbox, інакше ReferenceError усередині extracted-коду.
+      'resolveInstallmentFact', 'estimateInstallment', 'linkedExpensesSum',
+      'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey']
   );
 }
 
@@ -142,4 +148,61 @@ test('debtTotalsForMonth: isHiddenForMonth і далі враховує kind о�
   assert.equal(result.list[0].kind, 'installment');
   assert.equal(result.total, 0);
   assert.equal(result.totalInstallment, 2000);
+});
+
+/* ============ debtTotalsForMonth × resolveInstallmentFact (Rev 2.22.75, 6D.148) ============
+   Модель C, пріоритет за явним підтвердженням користувача: прив'язана
+   витрата ЦЬОГО місяця — авторитетніше джерело для "Платіж/міс"/"Залишок"
+   ОЧ, ніж уже введений вручну факт (debts-запис) — саме ця (linkedSum-
+   похідна) цифра має бути видна і в дашборді (renderInstallmentsCard читає
+   result.list напряму), і в Обліку. Ручний факт лишається пріоритетом лише
+   КОЛИ прив'язаної витрати немає цього місяця (попередні тести вище це вже
+   покривають — linkedSum=0 за замовчуванням, expenses:[]). */
+test('debtTotalsForMonth: є прив\'язана витрата цього місяця → linkedSum ПЕРЕВАЖАЄ вручну збережений monthlyPayment/balance', () => {
+  const ctx = debtSandbox();
+  ctx.debts = [
+    { name: 'ПУМБ Dyson', kind: 'installment', month: '2026-07', balance: 28119, monthlyPayment: 7000 },
+    // Rev 2.2.2 — вручну збережено 2000 (стара розбіжність, скрін
+    // користувача), хоча прив'язана витрата цього місяця — 2492.
+    { name: 'ПУМБ Dyson', kind: 'installment', month: '2026-08', balance: 25619, monthlyPayment: 2000 },
+  ];
+  ctx.expenses = [
+    { linkedInstallment: 'ПУМБ Dyson', date: '2026-08-02', amount: 2492 },
+  ];
+  const result = ctx.debtTotalsForMonth('2026-08');
+  assert.equal(result.list.length, 1);
+  // est.balance = prevBal(28119, з липня) - linkedSum(2492) = 25627, НЕ
+  // вручну збережені 25619.
+  assert.equal(result.list[0].balance, 28119 - 2492);
+  assert.equal(result.list[0].monthlyPayment, 2492);
+  assert.equal(result.totalInstallment, 28119 - 2492);
+  assert.equal(result.totalMonthlyInstallment, 2492);
+});
+
+test('debtTotalsForMonth: немає прив\'язаної витрати цього місяця → вручну збережений factor і далі пріоритетний (регресія)', () => {
+  const ctx = debtSandbox();
+  ctx.debts = [
+    { name: 'ПУМБ Dyson', kind: 'installment', month: '2026-08', balance: 25619, monthlyPayment: 2000 },
+  ];
+  ctx.expenses = [];
+  const result = ctx.debtTotalsForMonth('2026-08');
+  assert.equal(result.list[0].balance, 25619);
+  assert.equal(result.list[0].monthlyPayment, 2000);
+});
+
+test('debtTotalsForMonth: linkedSum>0, але НЕМАЄ попереднього факту (est.balance=null) → list[].balance лишається старим d.balance, не null/NaN', () => {
+  const ctx = debtSandbox();
+  // Єдиний debts-запис — сам за ЦЕЙ місяць (немає ЖОДНОГО попереднього →
+  // lastKnownBalance()=null всередині estimateInstallment→est.balance=null).
+  ctx.debts = [
+    { name: 'Нова ОЧ', kind: 'installment', month: '2026-08', balance: 999, monthlyPayment: 300 },
+  ];
+  ctx.expenses = [{ linkedInstallment: 'Нова ОЧ', date: '2026-08-05', amount: 500 }];
+  const result = ctx.debtTotalsForMonth('2026-08');
+  // resolveInstallmentFact.balance=null (немає prevBal) → debtTotalsForMonth
+  // явно лишає d.balance замість пробивання null/NaN у суму.
+  assert.equal(result.list[0].balance, 999);
+  // pay натомість завжди відомий (сам linkedSum, не залежить від prevBal).
+  assert.equal(result.list[0].monthlyPayment, 500);
+  assert.equal(result.totalInstallment, 999);
 });

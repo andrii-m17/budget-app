@@ -2632,7 +2632,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.74</div>
+  <div class="version-footer">Money Tree · Rev 2.22.75</div>
 </div>
   </div>
 </div>
@@ -6061,7 +6061,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.74';
+const APP_VERSION = '2.22.75';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8991,11 +8991,14 @@ function populateInstallmentTable(){
   const WARNING = `<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><line x1="12" y1="4" x2="12" y2="14"/><line x1="12" y1="19" x2="12.01" y2="19"/></svg>`;
   el.innerHTML = visible.map(function(x){
     const acc = x.acc, i = x.i, name = acc.name;
-    const est = estimateInstallment(name, selectedMonth);
     // Rev #30 (6D.44) — activeDebts(): tombstoned факт цього місяця має показувати оцінку (est), не свій застарілий баланс.
     const existing = activeDebts().find(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
-    const balance = existing ? existing.balance : (est.balance != null ? est.balance : 0);
-    const payment = (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : (est.pay != null ? est.pay : 0);
+    // Rev 2.22.75 (6D.148) — resolveInstallmentFact(): прив'язана витрата
+    // цього місяця тепер пріоритетна над existing (докоментар над самою
+    // функцією вище).
+    const resolved = resolveInstallmentFact(name, selectedMonth, existing);
+    const balance = resolved.balance != null ? resolved.balance : 0;
+    const payment = resolved.pay != null ? resolved.pay : 0;
     // Rev 2.17.0 — "оплата цього місяця внесена" для ОЧ визначається
     // автоматично (без ручного чекбоксу, як у карток): наявність витрати,
     // прив'язаної до цієї ОЧ саме в обраному місяці (linkedExpensesSum), той
@@ -9048,6 +9051,31 @@ function estimateInstallment(name, month){
   const balance = (prevBal != null) ? (pay != null ? Math.max(0, prevBal - pay) : prevBal) : null;
   return { balance, pay, linkedSum };
 }
+// Rev 2.22.75 (6D.148) — Модель C, пріоритет ДЖЕРЕЛА ІСТИНИ (за явним
+// підтвердженням користувача, оновлює FINANCIAL_RULES_AND_OBLIGATIONS.md
+// §4-5): раніше "факт" (existing debts-запис, введений вручну) завжди
+// переважав "очікуване" (est, на основі прив'язаної витрати) — розбіжність
+// між ними була лише інформаційним попередженням із кнопкою "Застосувати"
+// (checkInstallmentDivergence нижче, Rev 2.2.2). Користувач explicit
+// підтвердив зворотний пріоритет: сума ВЖЕ прив'язаної цього місяця
+// витрати (est.linkedSum>0) — авторитетніше джерело, бо саме вона
+// показується і в Журналі витрат, і в дашборді (Аналітика); ручний факт
+// лишається пріоритетом ЛИШЕ коли прив'язаної витрати немає. Один спільний
+// resolver — використовується всюди, де раніше дублювався патерн
+// `existing ? existing.X : est.X` (компактний рядок ОЧ, 2 підсумки
+// "Разом", шторка редагування, і debtTotalsForMonth() нижче для
+// дашборду) — щоб усі 5 місць показу лишались синхронними одне з одним.
+function resolveInstallmentFact(name, month, existing){
+  const est = estimateInstallment(name, month);
+  if(est.linkedSum > 0){
+    return { balance: est.balance, pay: est.pay, linkedSum: est.linkedSum };
+  }
+  return {
+    balance: existing ? existing.balance : (est.balance != null ? est.balance : null),
+    pay: (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : est.pay,
+    linkedSum: est.linkedSum
+  };
+}
 // Rev 2.0.4: живий підсумок "Разом на місяць" — рахується зі "збереженого чи
 // оціненого" значення кожної ОЧ (та сама логіка, що рядок списку), бо форми
 // per-рядок більше немає (Rev 2.16.6).
@@ -9059,8 +9087,9 @@ function updateInstallmentTotal(){
     if(!isInstallmentVisibleForMonth(acc, selectedMonth)) return;
     // Rev #30 (6D.44) — activeDebts().
     const existing = activeDebts().find(function(d){ return d.name===acc.name && d.kind==='installment' && d.month===selectedMonth; });
-    const est = estimateInstallment(acc.name, selectedMonth);
-    sum += (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : (est.pay || 0);
+    // Rev 2.22.75 (6D.148) — resolveInstallmentFact() замість прямого
+    // "existing переважає est" (докоментар над функцією вище).
+    sum += resolveInstallmentFact(acc.name, selectedMonth, existing).pay || 0;
   });
   totalEl.textContent = fmt(sum);
 }
@@ -9074,8 +9103,7 @@ function updateInstallmentBalanceTotal(){
     if(!isInstallmentVisibleForMonth(acc, selectedMonth)) return;
     // Rev #30 (6D.44) — activeDebts().
     const existing = activeDebts().find(function(d){ return d.name===acc.name && d.kind==='installment' && d.month===selectedMonth; });
-    const est = estimateInstallment(acc.name, selectedMonth);
-    sum += existing ? existing.balance : (est.balance || 0);
+    sum += resolveInstallmentFact(acc.name, selectedMonth, existing).balance || 0;
   });
   totalEl.textContent = fmt(sum);
 }
@@ -9093,8 +9121,12 @@ function openInstallmentEditor(i){
   // Rev #30 (6D.44) — activeDebts(): tombstoned факт має відкриватись ПОРОЖНІМ (як ніколи не введений), не своїм старим значенням.
   const existing = activeDebts().find(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
   const est = estimateInstallment(name, selectedMonth);
-  const balance = existing ? existing.balance : est.balance;
-  const payment = (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : est.pay;
+  // Rev 2.22.75 (6D.148) — resolveInstallmentFact() замість прямого
+  // "existing переважає est" (докоментар над функцією вище); est САМ
+  // лишається — потрібен нижче окремо для dataset.expected/linkedSum-note.
+  const resolved = resolveInstallmentFact(name, selectedMonth, existing);
+  const balance = resolved.balance;
+  const payment = resolved.pay;
   document.getElementById('idd-icon').innerHTML = bankIcon(name, 34);
   document.getElementById('idd-heading').textContent = stripLeadingEmoji(name);
   document.getElementById('idd-name').value = stripLeadingEmoji(name);
@@ -9657,7 +9689,25 @@ function debtTotalsForMonth(month){
       if(!byKindName[key] || d.month > byKindName[key].month) byKindName[key] = d;
     }
   });
-  const list = Object.values(byKindName);
+  // Rev 2.22.75 (6D.148) — installment-записи тут підміняємо резолвленими
+  // balance/monthlyPayment (resolveInstallmentFact — той самий пріоритет
+  // "прив'язана витрата цього місяця переважає ручний факт", докоментар
+  // над самою функцією вище): САМЕ цей `list` дашборд (renderInstallmentsCard,
+  // Аналітика) показує напряму по кожній ОЧ — тож підміна тут єдина, що
+  // синхронізує дашборд з Обліком. Object.assign на КОПІЮ (не мутація `d`
+  // з debts[]) — це похідне значення для показу, не те, що фізично
+  // зберігається в самому записі.
+  const list = Object.values(byKindName).map(function(d){
+    if(d.kind !== 'installment') return d;
+    const resolved = resolveInstallmentFact(d.name, month, d);
+    // resolved.balance теоретично може лишитись null (немає жодного
+    // попереднього ФАКТУ до цього місяця, lastKnownBalance) — тоді
+    // лишаємо d.balance як був, а не пробиваємо NaN у суми нижче.
+    return Object.assign({}, d, {
+      balance: resolved.balance != null ? resolved.balance : d.balance,
+      monthlyPayment: resolved.pay
+    });
+  });
   // "Борг" (як в Excel, колонка H) — сума лише карток/кредитів, БЕЗ оплат частинами.
   // "ОЧ" (колонка Z) рахується окремо і не входить у загальний борг.
   const totalCard = list.filter(d=>d.kind==='card').reduce((s,d)=>s+d.balance,0);
@@ -11074,26 +11124,39 @@ function subcategoryOptionsHtml(forCategory, selectedSub){
   return '<option value="">—</option>' + subs.map(s=>`<option value="${s.name}"${s.name===selectedSub?' selected':''}>${s.name}${!s.active?' (видалено)':''}</option>`).join('');
 }
 // Rev 2.20.3 — той самий принцип, що categoryOptionsHtml/subcategoryOptionsHtml
-// вище: список усіх ОЧ (installmentAccounts, без фільтра "прихована з
-// місяця" — це ручний вибір в редагуванні, не автопідказка форми "Нова
-// витрата", тож навіть архівна ОЧ лишається доступною для виправлення старого
-// запису) + "без прив'язки" першим пунктом.
-// Rev 2.22.74 (6D.145) BugFix — раніше, якщо selectedName не збігався
-// ЖОДНОГО з поточних installmentAccounts (найтиповіше — ОЧ перейменували
-// вже ПІСЛЯ того, як стару назву записали в linkedInstallment, до фіксу
-// каскаду перейменування вище), у списку просто не було відповідного
-// <option> — select мовчки падав на перший пункт "без прив'язки", і
-// НАЙМЕНШЕ пов'язане редагування запису (навіть виправлення дати) на
-// saveRecordEdit() тихо стирало б linkedInstallment, хоча користувач
-// узагалі не торкався цього поля. Той самий принцип, що вже
+// вище: список ОЧ + "без прив'язки" першим пунктом.
+// Rev 2.22.74 (6D.145) BugFix — якщо selectedName не збігався ЖОДНОГО з
+// поточних installmentAccounts (найтиповіше — ОЧ перейменували вже ПІСЛЯ
+// того, як стару назву записали в linkedInstallment, до фіксу каскаду
+// перейменування вище), у списку просто не було відповідного <option> —
+// select мовчки падав на перший пункт "без прив'язки", і НАЙМЕНШЕ пов'язане
+// редагування запису (навіть виправлення дати) на saveRecordEdit() тихо
+// стирало б linkedInstallment. Той самий принцип, що вже
 // categoryOptionsHtml/subcategoryOptionsHtml вище — зберігаємо застарілу
-// назву окремим видимим пунктом, щоб (а) select ніколи мовчки не губив
-// значення, і (б) користувач бачив, що прив'язку варто переобрати вручну.
-function installmentLinkOptionsHtml(selectedName){
-  const opts = installmentAccounts.map(function(acc){
-    const label = stripLeadingEmoji(acc.name);
-    return `<option value="${escapeAttr(acc.name)}"${acc.name===selectedName?' selected':''}>${escapeHtml(label)}</option>`;
-  }).join('');
+// назву окремим видимим пунктом.
+// Rev 2.22.75 (6D.147) BugFix — 6D.145 (і оригінальний коментар 2.20.3,
+// прибраний вище) свідомо показував ВСІ installmentAccounts "без фільтра
+// прихована з місяця", обґрунтовуючи це так: "навіть архівна ОЧ лишається
+// доступною для виправлення старого запису". За фактом користувач очікує
+// протилежне — список для прив'язки МАЄ відповідати тому, які ОЧ реально
+// існували САМЕ в місяці цього запису (isInstallmentVisibleForMonth,
+// 6D.11.9, той самий фільтр, що вже застосовує populateInstallmentTable()
+// для Обліку): ОЧ, прибрана з вересня, не повинна пропонуватись для
+// вересневого запису, але має лишатись доступною для серпневого. Другий
+// параметр `month` — місяць САМОГО запису (monthKey(e.date)), не
+// глобальний selectedMonth (Журнал показує записи з усіх місяців одразу).
+// Якщо ВЖЕ обрана прив'язка (selectedName) сама по собі не проходить цей
+// фільтр (напр. запис відредаговано в місяці, де ОЧ вже прихована) — вона
+// все одно лишається видимою (позначена "(поза періодом)"), той самий
+// принцип "select ніколи мовчки не губить значення", що й 6D.145.
+function installmentLinkOptionsHtml(selectedName, month){
+  const opts = installmentAccounts
+    .filter(function(acc){ return acc.name===selectedName || isInstallmentVisibleForMonth(acc, month); })
+    .map(function(acc){
+      const label = stripLeadingEmoji(acc.name);
+      const outOfRange = acc.name===selectedName && !isInstallmentVisibleForMonth(acc, month) ? ' (поза періодом)' : '';
+      return `<option value="${escapeAttr(acc.name)}"${acc.name===selectedName?' selected':''}>${escapeHtml(label)}${outOfRange}</option>`;
+    }).join('');
   const staleOpt = (selectedName && !installmentAccounts.some(function(acc){ return acc.name===selectedName; }))
     ? `<option value="${escapeAttr(selectedName)}" selected>${escapeHtml(stripLeadingEmoji(selectedName))} (стара назва)</option>`
     : '';
@@ -11342,7 +11405,7 @@ function buildRecordGroupsHtml(items){
                форми "Нова витрата" — тут це свідомий ручний вибір, а не
                автозбіг за текстом). Порожній value = зняти прив'язку. Не
                показуємо select узагалі, якщо жодної ОЧ ще не створено. -->
-          ${installmentAccounts.length ? `<select id="edit-installment-${e.id}" aria-label="Прив'язка до ОЧ">${installmentLinkOptionsHtml(e.linkedInstallment)}</select>` : ''}
+          ${installmentAccounts.length ? `<select id="edit-installment-${e.id}" aria-label="Прив'язка до ОЧ">${installmentLinkOptionsHtml(e.linkedInstallment, monthKey(e.date))}</select>` : ''}
           <div class="record-edit-actions">
             <button type="button" class="rce-cancel" onclick="cancelEditRecord()">Скасувати</button>
             <button type="button" class="rce-save" onclick="saveRecordEdit('${e.id}')">Зберегти</button>
@@ -14065,11 +14128,27 @@ function adjustOpenDrawerForKeyboard(){
   }
 }
 if(window.visualViewport){
+  // Rev 2.22.75 (6D.146.1) — BugFix: живий тест на iPhone показав, що
+  // шторка й далі НЕ піднімалась узагалі. 'resize' сам по собі виявився
+  // недостатнім — той самий урок, що вже задокументований для
+  // fixStuckVisualViewportOffset() нижче (6D.53): iOS для змін
+  // visualViewport під час клавіатури так само шле 'scroll' (не лише
+  // 'resize'), тому підписуємось на обидві події, той самий парний
+  // патерн.
   window.visualViewport.addEventListener('resize', adjustOpenDrawerForKeyboard);
+  window.visualViewport.addEventListener('scroll', adjustOpenDrawerForKeyboard);
 }
 document.addEventListener('focusin', function(e){
   if(!isKeyboardField(e.target) || !e.target.closest('.drawer.open')) return;
+  // Rev 2.22.75 (6D.146.1) — саму клавіатуру анімовано (~250-300ms), а
+  // visualViewport.height у момент focusin ще не встиг стиснутись —
+  // одразовий виклик тут лишається (реагує там, де вже встиг), плюс два
+  // відкладені перерахунки, що "накривають" типову тривалість появи
+  // клавіатури на iOS, навіть якщо жодна з подій resize/scroll не
+  // спрацює точно вчасно.
   adjustOpenDrawerForKeyboard();
+  setTimeout(adjustOpenDrawerForKeyboard, 150);
+  setTimeout(adjustOpenDrawerForKeyboard, 350);
 });
 document.addEventListener('focusout', function(e){
   if(!isKeyboardField(e.target) || !e.target.closest('.drawer')) return;
