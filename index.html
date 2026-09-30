@@ -1210,14 +1210,19 @@
        viewport, що завжди перевищує max-height:74vh + будь-який
        bottom-відступ, тому картка гарантовано повністю за межами екрана. */
     transform:translateY(100vh); transition:transform var(--duration-slow) var(--easing-standard); max-height:74vh; overflow-y:auto; }
-  /* Rev 2.22.74 (6D.146) — --kb-shift: піднімає ВІДКРИТУ шторку над
-     системною клавіатурою (JS нижче, adjustOpenDrawerForKeyboard) — окрема
-     CSS custom property, а не прямий inline transform, свідомо: закритий
-     стан .drawer (translateY(100vh) вище) її не використовує взагалі, тому
-     значення, лишене з моменту закриття, ніяк не може зіпсувати анімацію
-     закриття (на відміну від запису напряму в style.transform, який довелось
-     би вручну скидати з кожної з kількох closeXXXEditor()-функцій). */
-  .drawer.open{ transform:translateY(var(--kb-shift, 0px)); }
+  /* Rev 2.22.77 (6D.150) — --kb-inset: висота системної клавіатури (px),
+     БЕЗУМОВНО й неперервно оновлюється JS-ом нижче (updateKeyboardInset)
+     напряму з visualViewport, незалежно від фокуса/isKeyboardField/kb-open.
+     3 попередні спроби (6D.146/146.1/149) намагались умовно вмикати/
+     вимикати зсув залежно від стану фокуса конкретного поля — живий тест
+     показав нестабільну, залежну від позиції поля в шторці поведінку
+     (ознака гонки з власною поведінкою WebKit, не те, що можна надійно
+     "докрутити" ще одним патчем поверх фокус-based підходу). Додається до
+     ВЖЕ ІСНУЮЧОГО bottom-відступу лише для ВІДКРИТОЇ шторки (закритий стан
+     .drawer вище — той самий, без змін, гарантія 6D.11 "точно за межами
+     екрана" лишається чинною). Коли клавіатури нема — --kb-inset≈0,
+     жодного впливу на звичайний вигляд. */
+  .drawer.open{ transform:translateY(0); bottom:calc(max(100px, calc(env(safe-area-inset-bottom) + 80px)) + var(--kb-inset, 0px)); }
   /* Rev #30 (6D.12) — рисочка-хендл для свайпу-донизу (як iOS bottom sheet):
      суто візуальний індикатор, драг-логіка навішується окремо в JS
      (initDrawerSwipeToDismiss) на цей самий елемент за класом. Від'ємний
@@ -2632,7 +2637,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.76</div>
+  <div class="version-footer">Money Tree · Rev 2.22.77</div>
 </div>
   </div>
 </div>
@@ -6061,7 +6066,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.76';
+const APP_VERSION = '2.22.77';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14101,94 +14106,34 @@ if(window.visualViewport){
     }
   });
 }
-// Rev 2.22.74 (6D.146) — BugFix: клавіатура повністю ховала поле вводу в
-// коротких bottom-anchored шторках (.drawer, напр. "Дохід" → "Інше" — один
-// єдиний рядок з полем "Сума"). Причина: .drawer заякорена до bottom (CSS
-// вище, 6D.16) — короткий вміст лишається у самій нижній частині екрана,
-// саме там, де й розгортається системна клавіатура; на відміну від таббару
-// (просто ховається під час kb-open, Rev 2.3.9) шторку так само сховати не
-// можна — це й є форма, яку користувач зараз заповнює. Піднімаємо ВІДКРИТУ
-// шторку на висоту клавіатури через CSS custom property --kb-shift (а не
-// прямий inline transform — див. докоментар над .drawer.open у CSS), лише
-// поки фокус справді всередині НЕЇ САМОЇ.
-// Rev 2.22.76 (6D.149) BugFix — живий тест на iPhone виявив ОДРАЗУ 2 нові
-// баги в самому 6D.146/6D.146.1, обидва з тим самим коренем — "візуально
-// клавіатура зникла, а WebKit ще вважає інакше":
-//   1) Шторка піднімалась НАБАГАТО вище, ніж треба (великий порожній
-//      проміжок між кнопкою і клавіатурою). Причина — арифметична: `bottom`
-//      шторки в CSS і так уже `max(100px, env(safe-area-inset-bottom)+80px)`
-//      від низу екрана (6D.16); попередня версія додавала ПОВНУ висоту
-//      клавіатури зверху ЦЬОГО вже існуючого відступу замість того, щоб
-//      компенсувати РІЗНИЦЮ — шторка "перелітала" саме на цей відступ вище,
-//      ніж потрібно. Фікс: віднімаємо фактичний computed `bottom` шторки
-//      (getComputedStyle — сам резолвить max()/env()) від висоти клавіатури.
-//   2) Після ЗАКРИТТЯ клавіатури звичайний тап по шторці (не по полю)
-//      одразу піднімав її знову, БЕЗ повторного виклику клавіатури.
-//      Причина — той САМИЙ задокументований WebKit-баг, що вже 6D.52/53
-//      (Rev 2.3.9): приховати клавіатуру можна БЕЗ зміни
-//      document.activeElement — поле формально лишається "у фокусі", тому
-//      перевірка `isKeyboardField(active)` сама по собі не бачила, що
-//      клавіатури насправді вже нема. 6D.52/53 вирішили це для таббару,
-//      зробивши `body.kb-open` єдиним авторитетним прапорцем стану
-//      клавіатури (сам він знімається через visualViewport.resize,
-//      незалежно від фокуса) — тут той самий прийом: `kb-open`
-//      перевіряється ПЕРШИМ і є вирішальним, а не `isKeyboardField`.
-function adjustOpenDrawerForKeyboard(){
+// Rev 2.22.77 (6D.150) — BugFix, ПОВНИЙ редизайн (3 попередні спроби,
+// 6D.146/146.1/149, усі спирались на "чи є зараз клавіатура" за фокусом/
+// isKeyboardField/kb-open — живий тест на iPhone показав нестабільну,
+// ЗАЛЕЖНУ ВІД ПОЗИЦІЇ ПОЛЯ в шторці поведінку: верхні поля піднімали
+// шторку майже завжди, нижні — рідше, і навпаки теж траплялось. Це ознака
+// гонки з власною внутрішньою поведінкою WebKit під час фокусу/скролу
+// конкретного поля (drawer сам має overflow-y:auto — 6D.16), а не щось,
+// що можна надійно "докрутити" ще одним патчем поверх умовної логіки.
+//
+// Новий підхід: БЕЗУМОВНЕ, неперервне відстеження. --kb-inset (CSS custom
+// property на :root, px) завжди дорівнює поточній висоті клавіатури
+// (innerHeight − visualViewport.height − offsetTop, 0 коли клавіатури
+// нема) — оновлюється на КОЖЕН resize/scroll visualViewport, повністю
+// незалежно від того, яке поле в фокусі, чи це поле взагалі всередині
+// шторки, чи встановлено body.kb-open. Жодної умови "застосувати/зняти" —
+// значення завжди свіжо обчислене напряму з живої геометрії viewport, тому
+// "застряглого" стану за визначенням бути не може. CSS (.drawer.open,
+// правило вище) сам додає це значення до вже наявного bottom-відступу.
+function updateKeyboardInset(){
   if(!window.visualViewport) return;
-  const openDrawer = document.querySelector('.drawer.open');
-  if(!openDrawer) return;
-  // 6D.149 — body.kb-open (не document.activeElement) вирішує, чи
-  // клавіатура ДІЙСНО ще видима — той самий авторитетний прапорець, що
-  // вже ховає таббар (Rev 2.3.9/6D.52/53).
-  if(!document.body.classList.contains('kb-open')){
-    openDrawer.style.removeProperty('--kb-shift');
-    return;
-  }
-  const active = document.activeElement;
-  if(!isKeyboardField(active) || !openDrawer.contains(active)){
-    openDrawer.style.removeProperty('--kb-shift');
-    return;
-  }
-  const kbHeight = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
-  // 6D.149 — шторка вже має власний відступ від низу екрана (CSS `bottom`,
-  // 6D.16) — підіймаємо лише на РІЗНИЦЮ між висотою клавіатури і цим уже
-  // наявним відступом, інакше шторка "перелітає" вище клавіатури саме на
-  // цей відступ.
-  const bottomOffset = parseFloat(getComputedStyle(openDrawer).bottom) || 0;
-  const shift = kbHeight - bottomOffset;
-  if(shift > 20){
-    openDrawer.style.setProperty('--kb-shift', '-' + Math.round(shift) + 'px');
-  }else{
-    openDrawer.style.removeProperty('--kb-shift');
-  }
+  const inset = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
+  document.documentElement.style.setProperty('--kb-inset', Math.max(0, Math.round(inset)) + 'px');
 }
 if(window.visualViewport){
-  // Rev 2.22.75 (6D.146.1) — BugFix: живий тест на iPhone показав, що
-  // шторка й далі НЕ піднімалась узагалі. 'resize' сам по собі виявився
-  // недостатнім — той самий урок, що вже задокументований для
-  // fixStuckVisualViewportOffset() нижче (6D.53): iOS для змін
-  // visualViewport під час клавіатури так само шле 'scroll' (не лише
-  // 'resize'), тому підписуємось на обидві події, той самий парний
-  // патерн.
-  window.visualViewport.addEventListener('resize', adjustOpenDrawerForKeyboard);
-  window.visualViewport.addEventListener('scroll', adjustOpenDrawerForKeyboard);
+  window.visualViewport.addEventListener('resize', updateKeyboardInset);
+  window.visualViewport.addEventListener('scroll', updateKeyboardInset);
 }
-document.addEventListener('focusin', function(e){
-  if(!isKeyboardField(e.target) || !e.target.closest('.drawer.open')) return;
-  // Rev 2.22.75 (6D.146.1) — саму клавіатуру анімовано (~250-300ms), а
-  // visualViewport.height у момент focusin ще не встиг стиснутись —
-  // одразовий виклик тут лишається (реагує там, де вже встиг), плюс два
-  // відкладені перерахунки, що "накривають" типову тривалість появи
-  // клавіатури на iOS, навіть якщо жодна з подій resize/scroll не
-  // спрацює точно вчасно.
-  adjustOpenDrawerForKeyboard();
-  setTimeout(adjustOpenDrawerForKeyboard, 150);
-  setTimeout(adjustOpenDrawerForKeyboard, 350);
-});
-document.addEventListener('focusout', function(e){
-  if(!isKeyboardField(e.target) || !e.target.closest('.drawer')) return;
-  setTimeout(adjustOpenDrawerForKeyboard, 50);
-});
+updateKeyboardInset();
 // Rev #30 (6D.53, Баг 1 — термінове розслідування продовжено з РЕАЛЬНОЮ
 // діагностикою на пристрої, чого дві попередні спроби (v1/v2, обидві
 // відкочені, докоментар над 6D.53 у ROADMAP.md) не мали): Safari Web
