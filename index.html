@@ -2194,7 +2194,17 @@
         </div>
         <div class="field"><label for="f-name">Назва витрати</label>
           <div style="position:relative;">
-            <input type="text" id="f-name" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="off">
+            <!-- Rev #30 (6D.132) BugFix — живий тест користувача: над
+                 клавіатурою з'являлась панель iOS "Автозаповнити контакт"
+                 (QuickType-евристика приймає слово "Назва" в підписі поля
+                 за поле імені), перекриваючи інтерфейс і ризикуючи
+                 випадковим натисканням. autocomplete="off" тут стояв і
+                 РАНІШЕ — задокументований баг WebKit: саме літеральне
+                 значення "off" iOS іноді ігнорує для цієї конкретної
+                 евристики (на відміну від звичайного автозаповнення форм).
+                 Нестандартне значення (не "off", не жоден відомий токен)
+                 обходить цей баг на практиці. -->
+            <input type="text" id="f-name" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)" autocomplete="expense-title-no-autofill">
             <div class="name-suggest-list" id="name-suggest-list"></div>
           </div>
           <div class="field auto-hint" id="auto-hint">
@@ -2617,7 +2627,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.60</div>
+  <div class="version-footer">Money Tree · Rev 2.22.61</div>
 </div>
   </div>
 </div>
@@ -6004,7 +6014,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.60';
+const APP_VERSION = '2.22.61';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11430,17 +11440,26 @@ function closeJournal(){
 (function(){
   const overlay = document.getElementById('journal-overlay');
   if(!overlay) return;
-  // Rev 2.22.60 (6D.131) BugFix — живий тест користувача: 24px (майже
-  // фізичний край екрана) робив жест майже нездійсненним, особливо із
-  // захисним склом (яке фізично піднімає/згладжує сам край) — доводилось
-  // цілитись прицільно в самий кут. Збільшено до 40px (все ще значно
-  // менше за типову ширину картки — конфлікту зі свайпом-відкриттям
-  // карток нема, докоментар над initExpenseRowSwipeActions нижче: там
-  // спрацьовує лише ЛІВОРУЧ-рух (від'ємний dx), тут — лише ПРАВОРУЧ
-  // (dx>SWIPE_THRESHOLD, додатний), напрямки взаємовиключні). Поріг
-  // зсуву — 60px (той самий, що вже LIVE_TOAST_SWIPE_THRESHOLD_PX,
-  // перевірена зручна величина в цьому ж застосунку), було 80px.
-  const EDGE_ZONE = 40; // px від лівого краю
+  // Rev 2.22.60 (6D.131): 24px (майже фізичний край екрана) робив жест
+  // майже нездійсненним, особливо із захисним склом — збільшено до 40px.
+  // Rev 2.22.61 (6D.132) BugFix — живий тест користувача: після 6D.131
+  // стало ще гірше, і спрацьовувало лише МИТТЄВЕ проведення, повільне —
+  // ні. Причина — touchmove вище викликав preventDefault() лише коли
+  // |dx|>|dy| В ТОЙ САМИЙ МОМЕНТ; при повільному проведенні перші кадри
+  // руху майже завжди мають dy≈dx чи навіть dy>dx (природне тремтіння
+  // пальця, поки рух ще не "розігнався") — WebKit у ці перші кадри БЕЗ
+  // preventDefault() уже встигає прийняти рішення "це вертикальний скрол"
+  // і далі ІГНОРУЄ preventDefault(), навіть коли рух пізніше стає явно
+  // горизонтальним (відомий iOS Safari нюанс: рішення native-scroll-vs-JS
+  // приймається на найперших кадрах, не переглядається). Швидкий свайп
+  // встигав "прогнутись" явно горизонтальним ще на 1-2 кадрі, повільний —
+  // ні. Фікс — preventDefault() тепер викликається БЕЗУМОВНО з першого ж
+  // touchmove в межах зони (поки `active`), а не лише коли dx вже домінує
+  // — рішення "закривати чи ні" й далі приймається ОКРЕМО, в touchend, за
+  // фінальним співвідношенням dx/dy (сам жест закриття не став менш
+  // точним, лише перестав залежати від швидкості). Зона старту — ще трохи
+  // більша, 56px (було 40px).
+  const EDGE_ZONE = 56; // px від лівого краю
   const SWIPE_THRESHOLD = 60; // px — щоб не плутати з випадковим дотиком/тапом
   let active = false, startX = 0, startY = 0;
   overlay.addEventListener('touchstart', function(e){
@@ -11452,9 +11471,7 @@ function closeJournal(){
   }, {passive:true, capture:true});
   overlay.addEventListener('touchmove', function(e){
     if(!active || e.touches.length !== 1) return;
-    const t = e.touches[0];
-    const dx = t.clientX - startX, dy = t.clientY - startY;
-    if(Math.abs(dx) > Math.abs(dy) && e.cancelable) e.preventDefault();
+    if(e.cancelable) e.preventDefault();
   }, {passive:false, capture:true});
   overlay.addEventListener('touchend', function(e){
     if(!active) return;
