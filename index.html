@@ -818,7 +818,21 @@
      Незалежний механізм від тап-виділення вище — працюють одночасно. */
   .expense-row-swipe{ position:relative; overflow:hidden; border-radius:13px; margin-bottom:8px; }
   .expense-row-swipe.dragging .expense-row{ transition:none; }
-  .expense-row-actions{ position:absolute; top:0; right:0; bottom:0; display:flex; z-index:0; }
+  /* Rev 2.22.54 (6D.124) BugFix — живий тест на iPhone: навіть у стані
+     спокою (без жодного свайпу) крізь заокруглений кут картки прозирав
+     піксель-два кольору кнопок дій. Причина — заокруглення обгортки
+     (overflow:hidden, border-radius:13px) і власне заокруглення самої
+     картки (той самий border-radius:13px, але візуально домальовується
+     окремо, як фон+бордер+тінь) рахуються браузером як ДВІ незалежні
+     растеризовані дуги, які не завжди збігаються день-в-день на
+     субпіксельному рівні — лишає шов на самому куті. Найнадійніший фікс —
+     не покладатись on тільки на overflow:hidden-обрізання: кнопки дій
+     взагалі не намальовані (visibility:hidden), доки картку реально не
+     тягнуть чи не відкрито свайпом — тоді жодному шву нема що
+     "прозирати". visibility (не display:none) — offsetWidth і далі
+     вимірюється коректно (actionsWidth в onTouchStart нижче). */
+  .expense-row-actions{ position:absolute; top:0; right:0; bottom:0; display:flex; z-index:0; visibility:hidden; }
+  .expense-row-swipe.dragging .expense-row-actions, .expense-row-swipe.swipe-open .expense-row-actions{ visibility:visible; }
   .expense-row-actions button{ width:64px; border:none; display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; }
   .expense-row-actions .swipe-edit-btn{ background:var(--color-info); }
   .expense-row-actions .swipe-delete-btn{ background:var(--color-error); }
@@ -2600,7 +2614,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.53</div>
+  <div class="version-footer">Money Tree · Rev 2.22.55</div>
 </div>
   </div>
 </div>
@@ -5918,7 +5932,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.53';
+const APP_VERSION = '2.22.55';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10729,6 +10743,21 @@ function onExpenseRowTap(evt, kind, id){
   }
   toggleRecordSelect(kind, id);
 }
+// Rev 2.22.54 (6D.124) — тап будь-де ПОЗА карткою тепер теж знімає
+// виділення (раніше — лише повторний тап по ТІЙ САМІЙ картці). Слухач на
+// bubble-фазі (не capture): кнопки .exp-del/.exp-edit-cat/.swipe-edit-btn/
+// .swipe-delete-btn самі викликають event.stopPropagation() у своєму
+// onclick — тому їхні кліки взагалі не доходять сюди, і не треба окремо
+// виключати .expense-row-actions (як робить onTouchStart вище) — клік по
+// самій картці (не по цих кнопках) уже встиг відпрацювати
+// onExpenseRowTap() на цільовій фазі ДО того, як дійде сюди.
+document.addEventListener('click', function(e){
+  if(!selectedRecordKey) return;
+  if(e.target.closest('.expense-row')) return;
+  selectedRecordKey = null;
+  editingRecordKey = null;
+  renderRecords();
+});
 function startEditRecord(kind, id){
   if(kind !== 'expense') return; // повне редагування поки лише для витрат —
   // доходи мають інакшу модель даних (місячний запис за джерелом, а не
@@ -13124,6 +13153,15 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
 // EDGE_ZONE=24px від лівого краю, лише ПРАВОРУЧ-свайп) — конфлікту нема:
 // напрямки протилежні (тут — вліво), а сам жест починається з тіла картки
 // (~20px+ від фізичного краю екрана через padding .view), не з edge-zone.
+// Rev 2.22.54 (6D.124) BugFix — живий тест на iPhone: після свайпу й
+// повернення в звичайний стан лишався видимий "привид" кольору кнопок дій
+// (синій/червоний) у щілині над карткою. Причина — `row.style.transform =
+// ''` знімає inline transform ПОВНІСТЮ, а не просто скидає його до 0; це
+// прибирає GPU-композитний шар, який WebKit створив на час драгу (через
+// non-'none' transform), і в момент цього "розпромоушену" лишається
+// застарілий растеризований кадр до наступного перемальовування. Явне
+// translateX(0px) (замість '') тримає той самий ненульовий transform і той
+// самий шар постійно — немає перемикання шару, немає привида.
 (function initExpenseRowSwipeActions(){
   const SWIPE_OPEN_THRESHOLD = 40; // px — мінімальний зсув, щоб не плутати зі звичайним тапом
   let activeWrap = null, startX = 0, startY = 0, startOffset = 0, currentOffset = 0, actionsWidth = 0, deciding = false, horizontal = false;
@@ -13133,7 +13171,7 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
       if(w === exceptWrap) return;
       w.classList.remove('swipe-open');
       const row = w.querySelector('.expense-row');
-      if(row) row.style.transform = '';
+      if(row) row.style.transform = 'translateX(0px)';
     });
   }
   window.closeSwipeActions = closeSwipeActions; // викликається з onclick атрибутів кнопок дій і onExpenseRowTap()
@@ -13188,7 +13226,7 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(
       closeSwipeActions(wrap); // одночасно відкрита лише одна картка
     }else{
       wrap.classList.remove('swipe-open');
-      if(row) row.style.transform = '';
+      if(row) row.style.transform = 'translateX(0px)';
     }
   }
   document.addEventListener('touchstart', onTouchStart, {passive:true});
