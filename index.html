@@ -2726,7 +2726,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.91</div>
+  <div class="version-footer">Money Tree · Rev 2.22.92</div>
 </div>
   </div>
 </div>
@@ -2792,6 +2792,10 @@
       <label for="debug-record-scenario">Сценарій (необов'язково)</label>
       <input type="text" id="debug-record-scenario" maxlength="120" placeholder="напр. income-keyboard" autocomplete="off">
     </div>
+    <!-- Rev 2.22.92 (6D.165) — пояснення, КОЛИ саме тиснути "Мітка": за
+         проханням користувача ("не зрозуміло у який момент її натискати") —
+         одразу В МОМЕНТ симптому, не до й не після. -->
+    <div class="drawer-empty">Під час запису тисніть «Мітка» рівно в момент, коли бачите проблему на екрані (сіпання, неправильний розмір/позицію картки, скрол не там, де очікували тощо) — так буде легко знайти потрібне місце в лозі.</div>
     <button type="button" class="submit-btn pill" onclick="startDebugRecordingFromDrawer()">Почати запис</button>
   </div>
   <div id="debug-record-stop-actions" class="hidden">
@@ -2811,11 +2815,17 @@
 <div class="hidden" id="debug-record-indicator">
   <span class="debug-record-dot" aria-hidden="true"></span>
   <span id="debug-record-timer">00:00</span>
-  <button type="button" onclick="markDebugEvent()">Мітка</button>
+  <button type="button" id="debug-record-mark-btn" onclick="markDebugEvent()">Мітка</button>
   <button type="button" onclick="openDebugRecordDrawer()">Стоп</button>
 </div>
 <style>
-  #debug-record-indicator{ position:fixed; top:max(12px, env(safe-area-inset-top)); right:12px; z-index:97; display:flex; align-items:center; gap:6px; background:var(--color-surface); border:1px solid var(--color-border-strong); border-radius:999px; padding:6px 10px; box-shadow:var(--shadow-md); font-size:12px; font-family:'JetBrains Mono',monospace; }
+  /* Rev 2.22.92 (6D.165) BugFix — + var(--vv-offset-top): без цього
+     доданка індикатор ставав невидимим одразу при появі клавіатури (той
+     самий position:fixed-зсув visual/layout viewport, що 6D.53/158) —
+     живий тест користувача: "не можу додати мітку тоді, коли потрібно на
+     100%" саме тому, що найважливіший момент для мітки — це й є момент із
+     відкритою клавіатурою. */
+  #debug-record-indicator{ position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + var(--vv-offset-top, 0px)); right:12px; z-index:97; display:flex; align-items:center; gap:6px; background:var(--color-surface); border:1px solid var(--color-border-strong); border-radius:999px; padding:6px 10px; box-shadow:var(--shadow-md); font-size:12px; font-family:'JetBrains Mono',monospace; }
   /* Rev 2.22.91 (6D.164) BugFix — живий тест: у цьому файлі НЕМАЄ глобального
      .hidden{display:none} — кожен компонент визначає свій .hidden-варіант
      окремо (.view.hidden, .status-banner.hidden тощо, той самий принцип по
@@ -6502,7 +6512,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.91';
+const APP_VERSION = '2.22.92';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8733,6 +8743,14 @@ const DEBUG_EVENT_ALLOWLIST = [
   'orientation', 'tabbarTop', 'tabbarHeight',
   'safeTop', 'safeRight', 'safeBottom', 'safeLeft',
   'touchX', 'touchY', 'targetTag', 'targetId', 'targetClasses',
+  // Rev 2.22.92 (6D.165) — геометрія відкритої шторки/підложки: живий лог
+  // (kb-full-scenario) знайшов дотик, що влучив у .drawer-backdrop замість
+  // самої картки після повороту в landscape — без прямокутників обох
+  // елементів неможливо встановити, чи підложка виходить за межі картки,
+  // чи сама картка не там, де очікується. drawerId — лише id самого
+  // елемента (напр. "card-debt-drawer"), не дані форми.
+  'drawerId', 'drawerTop', 'drawerBottom', 'drawerLeft', 'drawerRight', 'drawerHeight',
+  'backdropId', 'backdropTop', 'backdropBottom', 'backdropHeight',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -8805,6 +8823,14 @@ function captureDebugGeometry(type, extra){
   const barRect = bar ? bar.getBoundingClientRect() : null;
   const active = document.activeElement;
   const safe = debugSafeAreaInsets();
+  // Rev 2.22.92 (6D.165) — .drawer-backdrop окремо від .drawer: живий лог
+  // (kb-full-scenario) показав дотик, що влучив у backdrop замість картки
+  // в landscape — потрібні ОБИДВА прямокутники, щоб бачити, чи вони взагалі
+  // не збігаються з тим, де користувач очікує побачити саму картку.
+  const openDrawer = document.querySelector('.drawer.open');
+  const openBackdrop = document.querySelector('.drawer-backdrop.open');
+  const drawerRect = openDrawer ? openDrawer.getBoundingClientRect() : null;
+  const backdropRect = openBackdrop ? openBackdrop.getBoundingClientRect() : null;
   pushDebugEvent(Object.assign({
     t: Math.round(performance.now() - debugRecordingStartedAt),
     type: type,
@@ -8821,6 +8847,13 @@ function captureDebugGeometry(type, extra){
     orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait',
     tabbarTop: barRect ? Math.round(barRect.top) : null, tabbarHeight: barRect ? Math.round(barRect.height) : null,
     safeTop: safe.top, safeRight: safe.right, safeBottom: safe.bottom, safeLeft: safe.left,
+    drawerId: openDrawer ? (openDrawer.id || null) : null,
+    drawerTop: drawerRect ? Math.round(drawerRect.top) : null, drawerBottom: drawerRect ? Math.round(drawerRect.bottom) : null,
+    drawerLeft: drawerRect ? Math.round(drawerRect.left) : null, drawerRight: drawerRect ? Math.round(drawerRect.right) : null,
+    drawerHeight: drawerRect ? Math.round(drawerRect.height) : null,
+    backdropId: openBackdrop ? (openBackdrop.id || null) : null,
+    backdropTop: backdropRect ? Math.round(backdropRect.top) : null, backdropBottom: backdropRect ? Math.round(backdropRect.bottom) : null,
+    backdropHeight: backdropRect ? Math.round(backdropRect.height) : null,
   }, extra || {}));
 }
 function onDebugWindowResize(){ captureDebugGeometry('resize'); }
@@ -8938,7 +8971,19 @@ function stopDebugRecording(){
   if(backdrop){ backdrop.removeAttribute('inert'); backdrop.classList.add('open'); }
   if(drawer){ drawer.removeAttribute('inert'); drawer.classList.add('open'); }
 }
-function markDebugEvent(){ captureDebugGeometry('mark'); }
+// Rev 2.22.92 (6D.165) BugFix — живий тест: "не зрозуміло чи натиснулась
+// Мітка, немає жодного сигналу та візуалу" — короткий, суто косметичний
+// відгук на самій кнопці (текст+деактивація на 700мс), жодного впливу на
+// геометрію/фокус/те, що вимірюється (явна вимога ТЗ рекордера).
+function markDebugEvent(){
+  captureDebugGeometry('mark');
+  const btn = document.getElementById('debug-record-mark-btn');
+  if(!btn || btn.disabled) return;
+  const original = btn.textContent;
+  btn.textContent = '✓ Додано';
+  btn.disabled = true;
+  setTimeout(function(){ btn.textContent = original; btn.disabled = false; }, 700);
+}
 function openDebugRecordDrawer(){
   if(debugRecordingActive){ stopDebugRecording(); return; }
   const form = document.getElementById('debug-record-form');
@@ -15138,6 +15183,15 @@ function computeKeyboardInset(baseViewportHeight, visualViewportHeight, visualVi
 // .drawer{max-height} (правило вище, :root{--drawer-max-height}) віднімає
 // від неї safe-area/нижню прив'язку/клавіатуру/запас декларативно, без
 // потреби дублювати цю арифметику тут у JS.
+// Rev 2.22.92 (6D.165) BugFix — живий тест: плаваючий індикатор запису
+// (position:fixed, 6D.164) ставав невидимим, щойно відкривалась клавіатура
+// — той самий корінь, що й уся сьогоднішня серія (6D.53/158): position:
+// fixed на цьому WebKit прив'язаний до LAYOUT viewport, а не до видимої
+// (visual) області, тож коли клавіатура зсуває видиму область вниз
+// (visualViewport.offsetTop росте), елемент із фіксованим top лишається
+// на старому місці й "виїжджає" за межі видимого екрана зверху. --kb-inset
+// вже розв'язує це для .drawer (знизу); --vv-offset-top — те саме для
+// елементів, прив'язаних ЗВЕРХУ (#debug-record-indicator, нижче).
 function updateKeyboardInset(){
   if(!window.visualViewport) return;
   noteViewportHeightIfKeyboardClosed();
@@ -15145,6 +15199,7 @@ function updateKeyboardInset(){
   const inset = computeKeyboardInset(base, window.visualViewport.height, window.visualViewport.offsetTop);
   document.documentElement.style.setProperty('--kb-inset', inset + 'px');
   document.documentElement.style.setProperty('--base-vh', base + 'px');
+  document.documentElement.style.setProperty('--vv-offset-top', Math.round(window.visualViewport.offsetTop) + 'px');
 }
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', updateKeyboardInset);

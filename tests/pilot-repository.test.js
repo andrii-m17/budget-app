@@ -5376,7 +5376,8 @@ test('onDebugScroll: коалесценція — 3 швидкі виклики 
 // attachDebugRecorderListeners()/captureDebugGeometry()/start-stop —
 // не повноцінний DOM (MutationObserver відсутній у Node — typeof-guard у
 // коді сам пропускає цю гілку, тож тут навіть не потрібен).
-function debugRecorderDomSandbox(){
+function debugRecorderDomSandbox(opts){
+  opts = opts || {};
   const added = [];
   const removed = [];
   const fakeComputedStyle = { paddingTop: '0px', paddingRight: '0px', paddingBottom: '0px', paddingLeft: '0px', getPropertyValue: function(){ return '0px'; } };
@@ -5393,12 +5394,20 @@ function debugRecorderDomSandbox(){
     addEventListener: function(type, h, o){ added.push({ target: 'window', type: type, h: h, o: o }); },
     removeEventListener: function(type, h, o){ removed.push({ target: 'window', type: type, h: h, o: o }); },
   };
+  // Rev 2.22.92 (6D.165) — querySelector тепер розрізняє селектор: тест для
+  // .drawer.open/.drawer-backdrop.open (geometry-фікс) передає opts.drawerEl/
+  // opts.backdropEl; за замовчуванням (решта тестів, nav.tabbar) — null,
+  // той самий безпечний фолбек, що раніше.
   const fakeDocument = {
     activeElement: { tagName: 'BODY', id: '', type: undefined },
     body: fakeBody,
     documentElement: fakeDocumentElement,
     createElement: function(){ return { style: {} }; },
-    querySelector: function(){ return null; }, // nav.tabbar — відсутній у фейковому DOM, barRect:null — безпечно
+    querySelector: function(sel){
+      if(sel === '.drawer.open') return opts.drawerEl || null;
+      if(sel === '.drawer-backdrop.open') return opts.backdropEl || null;
+      return null; // nav.tabbar тощо — відсутній у фейковому DOM, безпечно
+    },
     getElementById: function(){ return null; },
     addEventListener: function(type, h){ added.push({ target: 'document', type: type, h: h }); },
     removeEventListener: function(type, h){ removed.push({ target: 'document', type: type, h: h }); },
@@ -5469,4 +5478,52 @@ test('pushDebugEvent: подія НЕ додається в буфер, поки
   }, ['sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent', 'DEBUG_EVENT_ALLOWLIST']);
   ctx.pushDebugEvent({ t: 1, type: 'resize' });
   assert.equal(ctx.debugEventBuffer.length, 0);
+});
+
+// Rev 2.22.92 (6D.165) BugFix — живий лог (kb-full-scenario) знайшов дотик,
+// що влучив у .drawer-backdrop замість самої картки в landscape — без
+// прямокутників ОБОХ елементів неможливо було встановити причину.
+test('captureDebugGeometry: записує прямокутники ВІДКРИТОЇ шторки й підложки, коли вони є', () => {
+  const drawerEl = { id: 'card-debt-drawer', getBoundingClientRect: function(){ return { top: -42, bottom: 391, left: 16, right: 424, height: 433 }; } };
+  const backdropEl = { id: 'card-debt-backdrop', getBoundingClientRect: function(){ return { top: 0, bottom: 757, left: 0, right: 440, height: 757 }; } };
+  const { ctx } = debugRecorderDomSandbox({ drawerEl: drawerEl, backdropEl: backdropEl });
+  ctx.startDebugRecording('');
+  ctx.captureDebugGeometry('manual-check');
+  const evt = ctx.debugEventBuffer[ctx.debugEventBuffer.length - 1];
+  assert.equal(evt.drawerId, 'card-debt-drawer');
+  assert.equal(evt.drawerTop, -42);
+  assert.equal(evt.drawerHeight, 433);
+  assert.equal(evt.backdropId, 'card-debt-backdrop');
+  assert.equal(evt.backdropHeight, 757, 'підложка може бути ВИЩОЮ за саму картку — саме це й шукаємо живим логом');
+});
+test('captureDebugGeometry: без відкритої шторки/підложки — поля null, не падає', () => {
+  const { ctx } = debugRecorderDomSandbox();
+  ctx.startDebugRecording('');
+  const evt = ctx.debugEventBuffer[ctx.debugEventBuffer.length - 1];
+  assert.equal(evt.drawerId, null);
+  assert.equal(evt.drawerTop, null);
+  assert.equal(evt.backdropId, null);
+});
+
+// Rev 2.22.92 (6D.165) BugFix — живий тест: "не зрозуміло чи натиснулась
+// Мітка" — короткий візуальний відгук на самій кнопці.
+test('markDebugEvent: дає короткий візуальний відгук на кнопці (текст міняється й повертається)', () => {
+  const btnState = { textContent: 'Мітка', disabled: false };
+  const ctx = require('./extract').buildSandbox({
+    debugRecordingActive: true, debugEventBuffer: [], debugRecordingStartedAt: 0, debugSafeAreaProbeEl: null,
+    DEBUG_RECORDING_MAX_EVENTS: 2000, DEBUG_EVENT_ALLOWLIST: ['t', 'type'],
+    window: { visualViewport: null, innerWidth: 400, innerHeight: 800, outerHeight: 800, scrollY: 0 },
+    document: {
+      activeElement: null, body: { className: '', appendChild: function(){} }, documentElement: { clientHeight: 800 },
+      createElement: function(){ return { style: {} }; },
+      querySelector: function(){ return null; },
+      getElementById: function(id){ return id === 'debug-record-mark-btn' ? btnState : null; },
+    },
+    performance: { now: function(){ return 0; } },
+    getComputedStyle: function(){ return { getPropertyValue: function(){ return '0px'; } }; },
+    setTimeout: function(fn){ fn(); return 1; }, // виконуємо одразу — сам факт скасування відгуку й є предметом тесту
+  }, ['sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent', 'debugSafeAreaInsets', 'captureDebugGeometry', 'markDebugEvent']);
+  ctx.markDebugEvent();
+  assert.equal(btnState.textContent, 'Мітка', 'після setTimeout текст повернувся до вихідного');
+  assert.equal(btnState.disabled, false);
 });
