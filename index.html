@@ -496,6 +496,23 @@
   #card-debt-drawer .field{ margin-bottom:10px; }
   #card-debt-drawer .bdr-minpay-check{ margin:2px 0 10px; padding:10px 14px; }
   #card-debt-drawer .cdd-delete-link{ margin-top:10px; padding-top:10px; }
+  /* Rev 2.23.6 (6D.175) — живий лог (name-field-check) довів точну причину,
+     чому САМЕ поле "Назва" (на відміну від решти полів цієї картки) усе ще
+     потребує internal-скролу (6D.168 фолбек, не 6D.169 недогляд): "Назва" —
+     звичайний текстовий input (повна QWERTY-клавіатура), а "Кредитний
+     ліміт"/"Борг"/"Мін. платіж" — inputmode="numeric" (компактна цифрова
+     клавіатура, ФІЗИЧНО нижча на цьому пристрої). Виміряно: фокус на
+     "Назва" → kbInset=121px, vvH=479, scrollHeight(478) > clientHeight(471)
+     на 7px (треба скролити); фокус на "Кредитний ліміт" → kbInset=32px,
+     vvH=505, scrollHeight===clientHeight (478), запас 19px. Різниця —
+     фізична висота клавіатури, не щось, що можна "полагодити" в розмітці;
+     єдиний вихід — звільнити ще трохи місця в самій картці, щоб
+     вистачило й під ПОВНУ клавіатуру. Додаткове ущільнення (ЛИШЕ
+     відступи, ЛИШЕ #card-debt-drawer): .drawer-handle (скопований) -6px,
+     власний padding-bottom картки -4px — разом -10px, з запасом покриває
+     7px дефіциту. */
+  #card-debt-drawer{ padding-bottom:16px; }
+  #card-debt-drawer .drawer-handle{ margin:-8px -20px 3px; padding:8px 0 3px; }
   .cdd-amount-input{ text-align:right; }
   /* Rev 2.16.6 BugFix — "Видалити картку" стояла одразу під "Зберегти" (2px
      відступу) — легко натиснути випадково відразу після Save. Відокремлено
@@ -530,6 +547,15 @@
   #installment-drawer .bdr-init-amount{ margin:2px 0 4px; }
   #installment-drawer .installment-pay-btn{ margin-top:6px; margin-bottom:8px; }
   #installment-drawer .cdd-delete-link{ margin-top:10px; padding-top:10px; }
+  /* Rev 2.23.6 (6D.175) — той самий корінь і той самий прийом, що
+     #card-debt-drawer (докоментар там): "Назва" (iddfielda1) — звичайний
+     текстовий input (повна QWERTY-клавіатура), решта полів ОЧ —
+     inputmode="numeric" (компактна клавіатура). Жива перевірка робилась на
+     "Борги", але корінь ідентичний (той самий тип поля, той самий
+     пристрій/клавіатури) — застосовано за аналогією, без окремого логу для
+     ОЧ; підлягає тій самій живій перевірці, перед закриттям як підтверджено. */
+  #installment-drawer{ padding-bottom:16px; }
+  #installment-drawer .drawer-handle{ margin:-8px -20px 3px; padding:8px 0 3px; }
   .field{ margin-bottom:14px; min-width:0; } .field:last-child{ margin-bottom:0; }
   .field label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
@@ -2763,7 +2789,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.5</div>
+  <div class="version-footer">Money Tree · Rev 2.23.6</div>
 </div>
   </div>
 </div>
@@ -6554,7 +6580,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.5';
+const APP_VERSION = '2.23.6';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
