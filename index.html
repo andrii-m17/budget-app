@@ -165,7 +165,21 @@
     --shadow-lg:0 4px 18px rgba(0,0,0,.45);
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html{ background:var(--color-bg); min-height:100%; }
+  /* Rev 2.22.87 (6D.160) BugFix — живий тест (Web Inspector, числове
+     підтвердження): getComputedStyle(.submit-btn).fontSize сам звітував
+     "22px" при задекларованих 15px, одразу після повороту в landscape, і
+     ЗАЛИШАВСЯ 22px навіть після повороту НАЗАД у portrait (той самий
+     клас "застряглої" WebKit-геометрії, що й 6D.53/6D.158, лише цього
+     разу для шрифту, не позиції). Корінь — WebKit-евристика авто-
+     збільшення тексту (-webkit-text-size-adjust:auto, дефолт), яка
+     підважує, що колонка тексту "завузька" для читання, і піднімає
+     COMPUTED font-size понад CSS-декларацію — спостережуване "картка
+     масштабується", "шрифт/кнопки збільшуються", і навіть "картка стала
+     вищою" (вищий текст → вищий рядок → вища кнопка → вища шторка при
+     тій самій bottom-прив'язці) — ОДИН ефект, не три окремі баги.
+     text-size-adjust:100% вимикає цю евристику повністю — застосунок сам
+     керує власною типографікою, адаптивний авто-зум тексту тут зайвий. */
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; background:var(--color-bg); min-height:100%; }
   html,body{ margin:0; padding:0; height:100%; overflow:hidden; position:fixed; inset:0; width:100%; overscroll-behavior:none; background:var(--color-bg); color:var(--color-text-primary); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
   .mono{ font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
   button{ font-family:inherit; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); } input,select{ font-family:inherit; }
@@ -1197,19 +1211,56 @@
      Свайп-риска (grab handle) НЕ додається: перевірено (6D.11 крок 0) —
      її ніколи не було в коді (ні візуально, ні як drag-to-dismiss логіка),
      лише на оригінальному дизайн-референсі. */
+  /* Rev 2.22.87 (6D.160) BugFix — --drawer-bottom-base: той самий вираз,
+     що раніше був буквально продубльований у .drawer{bottom} і
+     .drawer.open{bottom} нижче — винесено в один CSS custom property, щоб
+     нова max-height нижче могла посилатись на ТЕ САМЕ число без ризику
+     розбіжності при майбутній зміні однієї з трьох копій.
+     --base-vh (px) — єдине число, яке реально рахує JS (updateKeyboardInset(),
+     той самий надійний baseViewportHeight, що й --kb-inset, 6D.158) —
+     решта (safe-area зверху, нижня прив'язка, клавіатура, запас) чисто
+     декларативно віднімається тут-таки в CSS, щоб JS не мусив знати про
+     env(safe-area-inset-top) чи дублювати --drawer-bottom-base вдруге.
+     100vh/0px у var(...,) — фолбек ЛИШЕ на вікно ДО першого виклику
+     updateKeyboardInset() (виконується одразу при старті скрипта). */
+  :root{
+    --drawer-bottom-base:max(100px, calc(env(safe-area-inset-bottom) + 80px));
+    --drawer-max-height:calc(var(--base-vh, 100vh) - env(safe-area-inset-top, 0px) - var(--drawer-bottom-base) - var(--kb-inset, 0px) - 20px);
+  }
   .drawer{ position:fixed; z-index:91; background:var(--color-surface); box-shadow:var(--shadow-lg);
     /* Rev #30 (6D.16) — 6D.15 дав виміряні ≈25.5px, попрошено 20px;
        -5px від обох доданків (105→100, 85→80) за тією ж пропорцією зсуву. */
-    left:16px; right:16px; bottom:max(100px, calc(env(safe-area-inset-bottom) + 80px));
+    left:16px; right:16px; bottom:var(--drawer-bottom-base);
     border-radius:var(--radius-xl); padding:20px;
     /* BugFix (6D.11, знайдено живою перевіркою): translateY(100%) рахується
        від ВЛАСНОЇ висоти елемента, не від нового bottom-відступу картки —
        короткий drawer (напр. "Дохід") лишав видимий "хвостик" знизу
        екрана в закритому стані, бо зсув не покривав anchor-gap до
        viewport-bottom. 100vh замість 100% — зсув відносно висоти
-       viewport, що завжди перевищує max-height:74vh + будь-який
-       bottom-відступ, тому картка гарантовано повністю за межами екрана. */
-    transform:translateY(100vh); transition:transform var(--duration-slow) var(--easing-standard); max-height:74vh; overflow-y:auto; }
+       viewport, що завжди перевищує max-height + будь-який bottom-
+       відступ, тому картка гарантовано повністю за межами екрана.
+       Rev 2.22.87 (6D.160) BugFix — max-height була статичним "74vh":
+       живий тест (iPhone, Web Inspector) довів, що це ніяк не враховує,
+       скільки місця РЕАЛЬНО лишається після клавіатури й safe-area —
+       у portrait (де 74vh перевищував контент) це давало шторку БЕЗ
+       внутрішнього скролу, зсунуту --kb-inset'ом так, що верхні поля
+       опинялись за межами екрана й ставали НЕДОСЯЖНИМИ (scrollHeight===
+       clientHeight — нема чого скролити); у landscape (де 74vh менший за
+       контент) скрол технічно вмикався, але видима смужка шторки була
+       лише ~100px — "картку ледь видно". --drawer-max-height (px,
+       рахується в updateKeyboardInset() тим самим надійним
+       baseViewportHeight, що й --kb-inset, 6D.158) — реально вільний
+       простір: базова висота мінус safe-area зверху, мінус нижня
+       прив'язка, мінус висота клавіатури, мінус невеликий запас. Це
+       одночасно (а) дає шторці по-справжньому працюючий internal-скрол,
+       коли контент не вміщається, замість "частини за екраном без
+       способу побачити", і (б) ставить верхню межу відносно
+       env(safe-area-inset-top) — Dynamic Island більше не перекривається.
+       74vh лишається фолбеком на час ДО першого виклику updateKeyboardInset()
+       (рядок коду виконується одразу при старті скрипта, тож вікно дуже
+       коротке, але касатись контракту var(prop, fallback) — стандартна
+       практика цього ж файлу, як --kb-inset вище). */
+    transform:translateY(100vh); transition:transform var(--duration-slow) var(--easing-standard); max-height:var(--drawer-max-height, 74vh); overflow-y:auto; }
   /* Rev 2.22.77 (6D.150) — --kb-inset: висота системної клавіатури (px),
      БЕЗУМОВНО й неперервно оновлюється JS-ом нижче (updateKeyboardInset)
      напряму з visualViewport, незалежно від фокуса/isKeyboardField/kb-open.
@@ -1222,7 +1273,7 @@
      .drawer вище — той самий, без змін, гарантія 6D.11 "точно за межами
      екрана" лишається чинною). Коли клавіатури нема — --kb-inset≈0,
      жодного впливу на звичайний вигляд. */
-  .drawer.open{ transform:translateY(0); bottom:calc(max(100px, calc(env(safe-area-inset-bottom) + 80px)) + var(--kb-inset, 0px)); }
+  .drawer.open{ transform:translateY(0); bottom:calc(var(--drawer-bottom-base) + var(--kb-inset, 0px)); }
   /* Rev #30 (6D.12) — рисочка-хендл для свайпу-донизу (як iOS bottom sheet):
      суто візуальний індикатор, драг-логіка навішується окремо в JS
      (initDrawerSwipeToDismiss) на цей самий елемент за класом. Від'ємний
@@ -2637,7 +2688,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.86</div>
+  <div class="version-footer">Money Tree · Rev 2.22.87</div>
 </div>
   </div>
 </div>
@@ -6313,7 +6364,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.86';
+const APP_VERSION = '2.22.87';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14535,11 +14586,18 @@ if(window.visualViewport){
 function computeKeyboardInset(baseViewportHeight, visualViewportHeight, visualViewportOffsetTop){
   return Math.max(0, Math.round(baseViewportHeight - visualViewportHeight - visualViewportOffsetTop));
 }
+// Rev 2.22.87 (6D.160) BugFix — --base-vh: та сама baseViewportHeight, що
+// вже рахує --kb-inset вище, тепер ЩЕ й доступна в CSS напряму (px) —
+// .drawer{max-height} (правило вище, :root{--drawer-max-height}) віднімає
+// від неї safe-area/нижню прив'язку/клавіатуру/запас декларативно, без
+// потреби дублювати цю арифметику тут у JS.
 function updateKeyboardInset(){
   if(!window.visualViewport) return;
   noteViewportHeightIfKeyboardClosed();
-  const inset = computeKeyboardInset(getBaseViewportHeight(), window.visualViewport.height, window.visualViewport.offsetTop);
+  const base = getBaseViewportHeight();
+  const inset = computeKeyboardInset(base, window.visualViewport.height, window.visualViewport.offsetTop);
   document.documentElement.style.setProperty('--kb-inset', inset + 'px');
+  document.documentElement.style.setProperty('--base-vh', base + 'px');
 }
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', updateKeyboardInset);
