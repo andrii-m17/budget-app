@@ -5206,6 +5206,48 @@ test('syncDrawerTopPosition: приймає kbInsetPx і віднімає йог
   assert.equal(drawerB.style.top, '');
   assert.equal(drawerB.style.bottom, '');
 });
+// Rev 2.22.95 (6D.166.2) BugFix — жива перевірка 6D.166.1 (без повороту,
+// просто відкрита клавіатура на "Борги"): виліт зменшився, але картка й далі
+// "потроху" повзла вгору з КОЖНИМ спрацюванням visualViewport resize/scroll
+// (а таких подій багато — у т.ч. від internal-скролу самої шторки, 6D.161).
+// Корінь: syncDrawerTopPosition() СAMA собі підміняла джерело — в кінці
+// виклику ставила el.style.bottom='auto' (inline), тому НАСТУПНИЙ виклик
+// getComputedStyle(el).bottom читав уже НЕ CSS-правило (.drawer.open{bottom:
+// calc(...)}), а резольвлене "auto" (похідне від top, виставленого нами ж
+// крок тому) — щоразу трохи інше число, похибка накопичувалась. Тест нижче
+// ловить САМЕ цю регресію: мок getComputedStyle повертає ЗАВІДОМО хибне
+// значення (999px), якщо на момент виклику inline bottom НЕ скинутий до ''
+// — тобто якщо функція не встигла відновити CSS-правило як джерело перед
+// виміром. Повторний виклик з тими самими вхідними даними має дати ТОЙ
+// САМИЙ top (238px) щоразу, а не дрейфувати.
+test('syncDrawerTopPosition: повторні виклики НЕ дрейфують — щоразу скидає власний inline bottom ПЕРЕД виміром CSS (6D.166.2)', () => {
+  function makeDrawer(id, bottomCss, height){
+    return {
+      id: id,
+      _style: { top: '', bottom: '' },
+      get style(){ return this._style; },
+      getBoundingClientRect: function(){ return { height: height }; },
+      _bottom: bottomCss,
+    };
+  }
+  const drawerA = makeDrawer('drawer-a', '198px', 520);
+  const ctx = require('./extract').buildSandbox({
+    window: { visualViewport: { height: 505, offsetTop: 261 } },
+    document: { querySelector: function(){ return drawerA; } },
+    // Якщо inline bottom НЕ '' у момент читання — функція читає ВЛАСНЕ
+    // попереднє "auto", а не CSS-правило (саме регресія 6D.166.1).
+    getComputedStyle: function(el){
+      return { bottom: el.style.bottom === '' ? el._bottom : '999px' };
+    },
+    lastPositionedDrawerEl: null,
+  }, ['computeDrawerTopPx', 'syncDrawerTopPosition']);
+  ctx.syncDrawerTopPosition(190);
+  assert.equal(drawerA.style.top, '238px', '1-й виклик');
+  ctx.syncDrawerTopPosition(190);
+  assert.equal(drawerA.style.top, '238px', '2-й виклик поспіль — БЕЗ дрейфу (якби функція не скидала bottom перед читанням, тут був би зовсім інший, зростаючий у хибний бік результат)');
+  ctx.syncDrawerTopPosition(190);
+  assert.equal(drawerA.style.top, '238px', '3-й виклик поспіль — все ще стабільно');
+});
 
 // Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду без FK (deactivated_via/
 // deleted_via, текстові, рішення користувача). Ключова вимога —
