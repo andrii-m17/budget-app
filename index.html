@@ -553,9 +553,27 @@
      inputmode="numeric" (компактна клавіатура). Жива перевірка робилась на
      "Борги", але корінь ідентичний (той самий тип поля, той самий
      пристрій/клавіатури) — застосовано за аналогією, без окремого логу для
-     ОЧ; підлягає тій самій живій перевірці, перед закриттям як підтверджено. */
+     ОЧ. */
   #installment-drawer{ padding-bottom:16px; }
   #installment-drawer .drawer-handle{ margin:-8px -20px 3px; padding:8px 0 3px; }
+  /* Rev 2.23.8 (6D.177) — живий лог "och-modal" ДОВІВ: "за аналогією" з
+     6D.175 не вистачило — ОЧ, на відміну від "Борги", має ЩЕ один рядок
+     контенту (row-2 "Початкова сума"/"Дата платежу" + нотатка прив'язки +
+     кнопка "Оплатити цю ОЧ"), тому дефіцит для "Назва" БІЛЬШИЙ: фокус на
+     iddfielda1 → kbInset=124px, vvH=479 → scrollHeight(481) >
+     clientHeight(471) — бракує 10px (не 7, як у "Борги"). Той самий лог
+     підтвердив: mainColScrollTop лишався 0 на КОЖНІЙ з ~70 scroll-подій під
+     час спроби користувача поскролити фон (6D.176 працює коректно) —
+     відчуття "скрол модалки" це САМЕ ЦЕЙ дефіцит (внутрішній скрол картки
+     плюс конфлікт жесту з перепозиціонуванням), не реальний скрол фону.
+     Додаткове ущільнення (ЛИШЕ відступи, ЛИШЕ #installment-drawer):
+     власний padding-bottom 16→12px (-4), .drawer-handle margin-bottom
+     3→1px + padding-bottom 3→1px (-4), .installment-pay-btn margin-top
+     6→4px + margin-bottom 8→6px (-4) — разом -12px, покриває 10px
+     дефіциту з невеликим запасом. */
+  #installment-drawer{ padding-bottom:12px; }
+  #installment-drawer .drawer-handle{ margin:-8px -20px 1px; padding:8px 0 1px; }
+  #installment-drawer .installment-pay-btn{ margin-top:4px; margin-bottom:6px; }
   .field{ margin-bottom:14px; min-width:0; } .field:last-child{ margin-bottom:0; }
   .field label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
@@ -2789,7 +2807,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.7</div>
+  <div class="version-footer">Money Tree · Rev 2.23.8</div>
 </div>
   </div>
 </div>
@@ -6580,7 +6598,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.7';
+const APP_VERSION = '2.23.8';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
