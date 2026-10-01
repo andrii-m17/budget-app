@@ -1227,10 +1227,28 @@
     --drawer-bottom-base:max(100px, calc(env(safe-area-inset-bottom) + 80px));
     --drawer-max-height:calc(var(--base-vh, 100vh) - env(safe-area-inset-top, 0px) - var(--drawer-bottom-base) - var(--kb-inset, 0px) - 20px);
   }
+  /* Rev 2.22.88 (6D.161) BugFix — живий тест (iPhone, Web Inspector):
+     ~100px --drawer-bottom-base існує, щоб відступити від home-indicator,
+     КОЛИ клавіатури нема — коли клавіатура вже відкрита, вона сама візуально
+     завершує екран знизу, і ці ~100px стають чистою втраченою зоною МІЖ
+     карткою і клавіатурою — особливо відчутно в landscape, де вільного
+     місця й так мало ("закріплена площа під картку... має багато вільного
+     місця від цієї площі картки до самої клавіатури"). body.kb-open тут —
+     той самий авторитетний прапорець, що скрізь у файлі (6D.52/53/150) —
+     перевизначає той самий custom property меншим значенням, успадкованим
+     усіма .drawer нижче по дереву, без потреби дублювати саме правило. */
+  body.kb-open{ --drawer-bottom-base:8px; }
   .drawer{ position:fixed; z-index:91; background:var(--color-surface); box-shadow:var(--shadow-lg);
     /* Rev #30 (6D.16) — 6D.15 дав виміряні ≈25.5px, попрошено 20px;
        -5px від обох доданків (105→100, 85→80) за тією ж пропорцією зсуву. */
     left:16px; right:16px; bottom:var(--drawer-bottom-base);
+    /* Rev 2.22.88 (6D.161) BugFix — живий тест: скрол УСЕРЕДИНІ шторки, що
+       впирається в її власну межу, "протікав" далі й зачіпав нативну
+       поведінку сторінки/клавіатури (--kb-inset сам поступово падав до 0
+       ПІД ЧАС спроби користувача поскролити шторку в landscape — клавіатура
+       мимоволі закривалась) — "скрол обрізає картку". contain — стандартний
+       спосіб зупинити це протікання скрол-жесту за межі самого елемента. */
+    overscroll-behavior:contain;
     border-radius:var(--radius-xl); padding:20px;
     /* BugFix (6D.11, знайдено живою перевіркою): translateY(100%) рахується
        від ВЛАСНОЇ висоти елемента, не від нового bottom-відступу картки —
@@ -2688,7 +2706,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.87</div>
+  <div class="version-footer">Money Tree · Rev 2.22.88</div>
 </div>
   </div>
 </div>
@@ -6364,7 +6382,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.87';
+const APP_VERSION = '2.22.88';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14667,6 +14685,40 @@ function fixStuckVisualViewportOffset(){
 }
 window.visualViewport.addEventListener('resize', fixStuckVisualViewportOffset);
 window.visualViewport.addEventListener('scroll', fixStuckVisualViewportOffset);
+// Rev 2.22.88 (6D.161) BugFix — живий тест (iPhone, Web Inspector) довів:
+// поворот landscape→portrait, коли клавіатура НЕ закривається через увесь
+// поворот (типовий сценарій — користувач не встиг/не захотів закрити
+// клавіатуру), лишає visualViewport.offsetTop застряглим на значенні З
+// ДО-поворотної геометрії (напр. 62 замість правильних 0) — fixStuckVisual
+// ViewportOffset() вище СВІДОМО не чіпає offsetTop, поки kb-open (6D.151,
+// щоб не бити по легітимному зсуву клавіатури) — але зсув, що лишився
+// ВІД ПОПЕРЕДНЬОЇ орієнтації, це вже не "легітимний зсув клавіатури" в
+// НОВІЙ орієнтації, а рівно той самий "застряглий" випадок, що й 6D.53,
+// лише раніше не траплявся одночасно з відкритою клавіатурою. Наслідок
+// застряглого offsetTop: --kb-inset рахується заниженим (бракує тих самих
+// 62px) → --drawer-max-height виходить завищеним → шторка і вища, і ближча
+// до верху екрана, ніж до повороту (симптоми користувача: "картка
+// піднімається вище", "не враховує Dynamic Island").
+//
+// Перший чорновий варіант цього фіксу (окремий виклик через 350мс ПІСЛЯ
+// усталення) живий тест забракував: 300+ мс картка встигала показати
+// НЕПРАВИЛЬНИЙ (завеликий) стан, а потім різко "сіпалась" у двоетапному
+// стрибку (сам scrollTo(0,0) миттєво зсуває РЕНДЕР через ту саму
+// position:fixed-аномалію 6D.53, ДО того як offsetTop встигає
+// перерахуватись — одне "сіпання"; офсет наздоганяє ще за ~100мс — друге).
+// Фікс — прибрати окремий пізній виклик і робити ту саму корекцію РАЗОМ із
+// вже перевіреним таймінгом fixStuckVisualViewportOffset() (50мс/300мс,
+// 6D.53) — поки екран і так ще "в русі" від самого повороту, а не вже
+// усталений. updateKeyboardInset() одразу після scrollTo — синхронний
+// перерахунок --kb-inset/--drawer-max-height, без очікування на окрему
+// асинхронну 'scroll'-подію.
+function forceResyncViewportOffsetAfterRotation(){
+  if(!window.visualViewport) return;
+  if(window.visualViewport.offsetTop !== 0 || window.scrollY !== 0){
+    window.scrollTo(0, 0);
+  }
+  updateKeyboardInset();
+}
 window.addEventListener('orientationchange', function(){
   // Rev 2.21.85 висновок ROADMAP.md: одразу в orientationchange geometry
   // ще перехідна — невеликий setTimeout, той самий принцип, що вже v2
@@ -14674,6 +14726,10 @@ window.addEventListener('orientationchange', function(){
   // провалу v2 — лишаємо його, паралельно з resize/scroll-слухачами вище).
   setTimeout(fixStuckVisualViewportOffset, 50);
   setTimeout(fixStuckVisualViewportOffset, 300);
+  // Rev 2.22.88 (6D.161) — той самий 50мс/300мс запас, що й рядки вище,
+  // для forceResyncViewportOffsetAfterRotation() (докоментар над функцією).
+  setTimeout(forceResyncViewportOffsetAfterRotation, 50);
+  setTimeout(forceResyncViewportOffsetAfterRotation, 300);
   // Rev 2.22.85 (6D.158) — явно "доторкнутись" до updateKeyboardInset()
   // після усталення геометрії повороту (той самий 300мс запас): слот
   // baseViewportHeightByOrientation для НОВОЇ орієнтації мусить набути
