@@ -5479,7 +5479,7 @@ function debugRecorderDomSandbox(opts){
   opts = opts || {};
   const added = [];
   const removed = [];
-  const fakeComputedStyle = { paddingTop: '0px', paddingRight: '0px', paddingBottom: '0px', paddingLeft: '0px', getPropertyValue: function(){ return '0px'; } };
+  const fakeComputedStyle = { paddingTop: '0px', paddingRight: '0px', paddingBottom: '0px', paddingLeft: '0px', maxHeight: '500px', getPropertyValue: function(prop){ return prop === '--base-vh' ? '894px' : '0px'; } };
   const fakeVv = {
     width: 400, height: 800, offsetTop: 0, offsetLeft: 0, scale: 1,
     addEventListener: function(type, h){ added.push({ target: 'vv', type: type, h: h }); },
@@ -5583,7 +5583,7 @@ test('pushDebugEvent: подія НЕ додається в буфер, поки
 // що влучив у .drawer-backdrop замість самої картки в landscape — без
 // прямокутників ОБОХ елементів неможливо було встановити причину.
 test('captureDebugGeometry: записує прямокутники ВІДКРИТОЇ шторки й підложки, коли вони є', () => {
-  const drawerEl = { id: 'card-debt-drawer', getBoundingClientRect: function(){ return { top: -42, bottom: 391, left: 16, right: 424, height: 433 }; } };
+  const drawerEl = { id: 'card-debt-drawer', getBoundingClientRect: function(){ return { top: -42, bottom: 391, left: 16, right: 424, height: 433 }; }, scrollHeight: 433, clientHeight: 400 };
   const backdropEl = { id: 'card-debt-backdrop', getBoundingClientRect: function(){ return { top: 0, bottom: 757, left: 0, right: 440, height: 757 }; } };
   const { ctx } = debugRecorderDomSandbox({ drawerEl: drawerEl, backdropEl: backdropEl });
   ctx.startDebugRecording('');
@@ -5594,6 +5594,13 @@ test('captureDebugGeometry: записує прямокутники ВІДКРИ
   assert.equal(evt.drawerHeight, 433);
   assert.equal(evt.backdropId, 'card-debt-backdrop');
   assert.equal(evt.backdropHeight, 757, 'підложка може бути ВИЩОЮ за саму картку — саме це й шукаємо живим логом');
+  // Rev 2.22.96 (6D.167) — scrollHeight/clientHeight/maxHeight: без них
+  // неможливо відрізнити "контенту справді забагато" від "max-height
+  // занадто обережний" (скарга: картку обрізає клавіатурою, хоча влазить).
+  assert.equal(evt.drawerScrollHeight, 433);
+  assert.equal(evt.drawerClientHeight, 400);
+  assert.equal(evt.drawerMaxHeightPx, 500);
+  assert.equal(evt.baseVh, '894px');
 });
 test('captureDebugGeometry: без відкритої шторки/підложки — поля null, не падає', () => {
   const { ctx } = debugRecorderDomSandbox();

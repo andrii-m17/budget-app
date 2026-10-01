@@ -2726,7 +2726,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.95</div>
+  <div class="version-footer">Money Tree · Rev 2.22.96</div>
 </div>
   </div>
 </div>
@@ -6512,7 +6512,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.95';
+const APP_VERSION = '2.22.96';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8751,6 +8751,12 @@ const DEBUG_EVENT_ALLOWLIST = [
   // елемента (напр. "card-debt-drawer"), не дані форми.
   'drawerId', 'drawerTop', 'drawerBottom', 'drawerLeft', 'drawerRight', 'drawerHeight',
   'backdropId', 'backdropTop', 'backdropBottom', 'backdropHeight',
+  // Rev 2.22.96 (6D.167) — скарга "картку обрізає клавіатурою, хоча вона
+  // влазить без скролу" (портрет, "Борги"): drawerHeight (rect) уже був у
+  // логу, але не було видно, СКІЛЬКИ контенту насправді є (scrollHeight) і
+  // скільки йому ДОЗВОЛЕНО (clientHeight/max-height) — без цього неможливо
+  // відрізнити "max-height занадто малий" від "контент справді не влазить".
+  'drawerScrollHeight', 'drawerClientHeight', 'drawerMaxHeightPx', 'baseVh',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -8854,6 +8860,16 @@ function captureDebugGeometry(type, extra){
     backdropId: openBackdrop ? (openBackdrop.id || null) : null,
     backdropTop: backdropRect ? Math.round(backdropRect.top) : null, backdropBottom: backdropRect ? Math.round(backdropRect.bottom) : null,
     backdropHeight: backdropRect ? Math.round(backdropRect.height) : null,
+    // Rev 2.22.96 (6D.167) — scrollHeight/clientHeight розрізняють "контенту
+    // справді забагато" від "max-height занадто обережний"; maxHeight читаємо
+    // з РЕЗОЛЬВЛЕНОЇ computed style самого елемента (реальна CSS-властивість,
+    // завжди в px), а не з custom property --drawer-max-height напряму (та
+    // лишається нерозв'язаним текстом calc(), той самий нюанс, що й
+    // --drawer-bottom-base, 6D.166 докоментар).
+    drawerScrollHeight: openDrawer ? openDrawer.scrollHeight : null,
+    drawerClientHeight: openDrawer ? openDrawer.clientHeight : null,
+    drawerMaxHeightPx: openDrawer ? parseFloat(getComputedStyle(openDrawer).maxHeight) : null,
+    baseVh: getComputedStyle(document.documentElement).getPropertyValue('--base-vh'),
   }, extra || {}));
 }
 function onDebugWindowResize(){ captureDebugGeometry('resize'); }
