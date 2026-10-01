@@ -2637,7 +2637,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.78</div>
+  <div class="version-footer">Money Tree · Rev 2.22.79</div>
 </div>
   </div>
 </div>
@@ -3809,7 +3809,9 @@ async function pullDictionaryCore(){
         linked++;
         continue;
       }
-      DICTIONARY.push({ kw: row.keyword, cat: parentCat.name, sub: subName, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
+      // Rev 2.22.79 (6D.152) — id одразу при створенні локального запису з
+      // Cloud-рядка — див. докоментар над ensureDictionaryIdentity().
+      DICTIONARY.push({ id: generateUUID(), kw: row.keyword, cat: parentCat.name, sub: subName, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
       added++;
     }
     if(maxSeen) setSyncMarker('dictionary', maxSeen);
@@ -3930,6 +3932,12 @@ async function restoreDictionaryFromBackup(raw){
   catch(e){ backupList = []; }
   if(isCloudSessionReady()) await pullDictionaryCore();
   const counts = mergeBackupRecordsByCloudIdOrName(DICTIONARY, backupList, 'kw');
+  // Rev 2.22.79 (6D.152) — записи зі СТАРОГО бекапу (до цього Rev) не мали
+  // поля id — бекфіл тут, одразу після мержу (ensureDictionaryIdentity()
+  // сама вже не спрацює: loadStructureRefs() виконується ДО відновлення
+  // бекапу, не після). Нові бекапи (створені після цього Rev) уже містять
+  // id у кожному записі — тут це просто no-op для них.
+  ensureDictionaryEntryIds();
   stampMissingTimestamps(DICTIONARY);
   const saveResult = await saveDictionaryLocal();
   if(counts.updated || counts.added) await pushDictionaryPilot(); // Rev #30 (6D.57) — await, той самий принцип, що restoreCategoriesFromBackup()
@@ -4488,7 +4496,31 @@ async function ensureSubcategoryIdentity(){
   if(stampMissingTimestamps(SUBCATEGORIES)) reportSaveResult(await saveSubcategories());
 }
 async function ensureDictionaryIdentity(){
-  if(stampMissingTimestamps(DICTIONARY)) reportSaveResult(await saveDictionary());
+  // Rev 2.22.79 (6D.152, Крок A1) — DICTIONARY ніколи не мав стабільного
+  // ЛОКАЛЬНОГО id (DEFAULT_DICTIONARY/openAddDictionaryModal/pull/restore —
+  // жодне джерело його не видавало, лише cloudId для Cloud-рядка). UI
+  // (editDictionaryEntry/deleteDictionaryEntry) адресував запис позицією
+  // в масиві — ламалось при найменшому зсуві (видалення сусіднього слова).
+  // Обрано НОВИЙ локальний id (не kw): у Cloud немає унікальності за
+  // keyword (лише клієнтська перевірка), і після майбутнього tombstone
+  // словника (A2) в масиві одночасно можуть бути мертве й живе слово з
+  // ОДНАКОВИМ kw — адресація за kw стала б неоднозначною саме в корзині.
+  // Бекфіл тут — ідемпотентний прохід при кожному старті, той самий
+  // принцип, що stampMissingTimestamps() нижче.
+  const idsAdded = ensureDictionaryEntryIds();
+  if(stampMissingTimestamps(DICTIONARY) || idsAdded) reportSaveResult(await saveDictionary());
+}
+// Rev 2.22.79 (6D.152) — див. докоментар над ensureDictionaryIdentity().
+// Окрема функція (не інлайн) — викликається ЩЕ й одразу після мержу
+// бекапу (restoreDictionaryFromBackup нижче), де ensureDictionaryIdentity()
+// сама вже не спрацює вдруге (loadStructureRefs() виконується ДО мержу
+// бекапу, не після).
+function ensureDictionaryEntryIds(){
+  let changed = false;
+  DICTIONARY.forEach(function(entry){
+    if(!entry.id){ entry.id = generateUUID(); changed = true; }
+  });
+  return changed;
 }
 let cardVariants = {};
 
@@ -6066,7 +6098,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.78';
+const APP_VERSION = '2.22.79';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9946,13 +9978,16 @@ function renderStructure(){
   `).join('') : `<div class="empty-hint">Немає активних підкатегорій</div>`;
 
   const dictEl = document.getElementById('struct-dictionary');
-  dictEl.innerHTML = DICTIONARY.length ? DICTIONARY.map((d,i)=>`
+  // Rev 2.22.79 (6D.152) — адресація за d.id, не за позицією в масиві (той
+  // самий патерн, що '${e.kind}','${e.id}' уже для записів Журналу) — див.
+  // докоментар над ensureDictionaryIdentity().
+  dictEl.innerHTML = DICTIONARY.length ? DICTIONARY.map((d)=>`
     <div class="kw-row">
       <span class="kw-tag">${d.kw}</span>
       <span class="kw-target">${d.sub || d.cat}</span>
       <span class="bdr-actions">
-        <button type="button" class="bdr-icon-btn" onclick="editDictionaryEntry(${i})" aria-label="Редагувати слово"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
-        <button type="button" class="bdr-icon-btn danger" onclick="deleteDictionaryEntry(${i})" aria-label="Видалити слово"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button type="button" class="bdr-icon-btn" onclick="editDictionaryEntry('${d.id}')" aria-label="Редагувати слово"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+        <button type="button" class="bdr-icon-btn danger" onclick="deleteDictionaryEntry('${d.id}')" aria-label="Видалити слово"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </span>
     </div>
   `).join('') : `<div class="empty-hint">Словник порожній</div>`;
@@ -13987,13 +14022,20 @@ function openAddDictionaryModal(){
     // Rev #30 (6D.28) — createdAt/updatedAt при створенні, той самий
     // принцип, що addBankAccount()/addInstallmentAccount()/openAddSubcategoryModal().
     const nowISO = new Date().toISOString();
-    DICTIONARY.push({kw, cat, sub, createdAt: nowISO, updatedAt: nowISO});
+    // Rev 2.22.79 (6D.152) — id одразу при створенні (не чекаємо наступний
+    // ensureDictionaryIdentity()) — див. докоментар там.
+    DICTIONARY.push({id: generateUUID(), kw, cat, sub, createdAt: nowISO, updatedAt: nowISO});
     reportSaveResult(await saveDictionary());
     renderStructure();
   });
 }
-function editDictionaryEntry(i){
-  const entry = DICTIONARY[i];
+// Rev 2.22.79 (6D.152) — адресація за id замість позиції в масиві (докоментар
+// над ensureDictionaryIdentity() вище). Запис не знайдено (вже видалений
+// кимось іншим паралельно, напр. другий пристрій) — тихий вихід і
+// перерендер, без помилки.
+function editDictionaryEntry(id){
+  const entry = DICTIONARY.find(function(d){ return d.id === id; });
+  if(!entry){ renderStructure(); return; }
   showDictionaryModal('Редагувати слово:', entry.kw, entry.cat, entry.sub, async function(kw, cat, sub){
     if(kw !== entry.kw && DICTIONARY.some(d=>d.kw===kw)) return false;
     entry.kw = kw; entry.cat = cat; entry.sub = sub;
@@ -14007,10 +14049,12 @@ function editDictionaryEntry(i){
 // ФІЗИЧНО (без active-прапорця): нічого не посилається на словникові записи за
 // ідентичністю (це лише допоміжна таблиця "текст → куди підставити"), тому
 // зберігати історію видалених слів немає сенсу.
-function deleteDictionaryEntry(i){
-  const entry = DICTIONARY[i];
+function deleteDictionaryEntry(id){
+  const entry = DICTIONARY.find(function(d){ return d.id === id; });
+  if(!entry){ renderStructure(); return; }
   showConfirmModal(`Видалити слово «${entry.kw}» зі словника?`, async function(){
-    DICTIONARY.splice(i,1);
+    const idx = DICTIONARY.indexOf(entry);
+    if(idx>=0) DICTIONARY.splice(idx,1);
     reportSaveResult(await saveDictionary());
     renderStructure();
   }, 'Так, видалити');

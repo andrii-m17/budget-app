@@ -154,6 +154,9 @@ const REPOSITORY_NAMES = [
   // pullDictionaryPilotManual НЕ включені (DOM-шар).
   'pullSubcategoriesCore', 'pullSubcategoriesPilot', 'ensureSubcategoryIdentity',
   'pullDictionaryCore', 'pullDictionaryPilot', 'ensureDictionaryIdentity',
+  // Rev 2.22.79 (6D.152) — restoreDictionaryFromBackup() тепер кличе цей
+  // бекфіл-хелпер напряму (не лише через ensureDictionaryIdentity()).
+  'ensureDictionaryEntryIds',
   'restoreCategoriesFromBackup', 'restoreSubcategoriesFromBackup',
   'restoreSubcategoryPriorityFromBackup', 'restoreDictionaryFromBackup',
   // Rev #28.D1
@@ -2997,14 +3000,37 @@ test('ensureDictionaryIdentity: запис без createdAt/updatedAt → зап
   assert.equal(spy.count(), 1);
 });
 
-test('ensureDictionaryIdentity: запис вже МАЄ createdAt/updatedAt → не перезаписується, save не кличе', async () => {
+test('ensureDictionaryIdentity: запис вже МАЄ createdAt/updatedAt/id → не перезаписується, save не кличе', async () => {
+  const { ctx } = sandbox();
+  // Rev 2.22.79 (6D.152) — id тепер теж частина "вже повного" запису.
+  ctx.DICTIONARY = [{ id: 'existing-id', kw: 'кава', cat: '🍔 Їжа', sub: null, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const spy = spyOn(ctx, 'saveDictionary');
+  await ctx.ensureDictionaryIdentity();
+  assert.equal(ctx.DICTIONARY[0].id, 'existing-id');
+  assert.equal(ctx.DICTIONARY[0].createdAt, '2024-01-01T00:00:00.000Z');
+  assert.equal(ctx.DICTIONARY[0].updatedAt, '2024-06-01T00:00:00.000Z');
+  assert.equal(spy.count(), 0);
+});
+
+test('ensureDictionaryIdentity: запис БЕЗ id (легасі) → отримує id, save кличеться один раз', async () => {
   const { ctx } = sandbox();
   ctx.DICTIONARY = [{ kw: 'кава', cat: '🍔 Їжа', sub: null, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const spy = spyOn(ctx, 'saveDictionary');
   await ctx.ensureDictionaryIdentity();
-  assert.equal(ctx.DICTIONARY[0].createdAt, '2024-01-01T00:00:00.000Z');
-  assert.equal(ctx.DICTIONARY[0].updatedAt, '2024-06-01T00:00:00.000Z');
-  assert.equal(spy.count(), 0);
+  assert.equal(typeof ctx.DICTIONARY[0].id, 'string');
+  assert.ok(ctx.DICTIONARY[0].id.length > 0);
+  assert.equal(spy.count(), 1);
+});
+
+test('ensureDictionaryEntryIds: ідемпотентний — другий виклик нічого не змінює', async () => {
+  const { ctx } = sandbox();
+  ctx.DICTIONARY = [{ kw: 'кава', cat: '🍔 Їжа', sub: null }];
+  const changed1 = ctx.ensureDictionaryEntryIds();
+  const idAfterFirst = ctx.DICTIONARY[0].id;
+  const changed2 = ctx.ensureDictionaryEntryIds();
+  assert.equal(changed1, true);
+  assert.equal(changed2, false);
+  assert.equal(ctx.DICTIONARY[0].id, idAfterFirst);
 });
 
 /* ============ Фікс подвійного push при restore (6D, термінове розслідування) ============
@@ -3050,6 +3076,16 @@ test('фікс подвійного push: restoreDictionaryFromBackup() стем
   const spy = spyOn(ctx, 'saveDictionary');
   await ctx.ensureDictionaryIdentity();
   assert.equal(spy.count(), 0);
+});
+
+test('Rev 2.22.79 (6D.152): restoreDictionaryFromBackup() зі СТАРОГО бекапу (без id) → запис отримує id одразу при мержі', async () => {
+  const { ctx } = sandbox();
+  // Старий бекап (до 6D.152) — рівно той формат, що DEFAULT_DICTIONARY/
+  // openAddDictionaryModal видавали до цього Rev: жодного id.
+  const raw = JSON.stringify([{ kw: 'таксі', cat: '🚗 Транспорт', sub: null }]);
+  await ctx.restoreDictionaryFromBackup(raw);
+  assert.equal(typeof ctx.DICTIONARY[0].id, 'string');
+  assert.ok(ctx.DICTIONARY[0].id.length > 0);
 });
 
 test('фікс подвійного push: restoreBankAccountsFromBackup() стемпає одразу → наступний ensureBankAccountIdentity() saveBankAccounts() вдруге НЕ кличе', async () => {
