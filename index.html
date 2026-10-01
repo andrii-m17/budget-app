@@ -478,6 +478,24 @@
   #card-debt-drawer .drawer-head-text{ flex:1 1 auto; min-width:0; }
   #card-debt-drawer .drawer-head-text h2{ font-size:16px; margin:0; }
   #card-debt-drawer .drawer-head-sub{ font-size:11.5px; color:var(--color-text-secondary); margin-top:1px; }
+  /* Rev 2.22.98 (6D.169) — ущільнення ЛИШЕ "Борги" (запит користувача: ця
+     картка найвища з усіх шторок — 2 окремі поля + row-2 + чекбокс + 2
+     кнопки — і на книжковій орієнтації з клавіатурою не вміщалась без
+     скролу, 6D.168 дав робочий скрол, але мета була уникнути його зовсім).
+     Торкаємось ЛИШЕ відступів (margin/padding), не торкаємось розміру самих
+     полів/чекбоксу/кнопки "Зберегти" — тап-зони лишаються незмінними.
+     Скоповано на #card-debt-drawer, щоб не змінити вигляд інших шторок
+     (.field/.bdr-minpay-check/.cdd-delete-link спільні класи). Економія
+     (виміряно на desktop, Rev 2.22.97 baseline 513px): .drawer-head
+     margin-bottom 14→10 (-4), 2×.field margin-bottom 14→10 (-8),
+     .bdr-minpay-check margin 18→10 + padding 12→10 верт. (-12),
+     .cdd-delete-link margin-top 18→10 + padding-top 16→10 (-14) — разом
+     ~38px (513→475 на desktop; на iPhone, де картка була 520px, очікувано
+     ~482px — у межах 497px доступних із клавіатурою, 6D.168). */
+  #card-debt-drawer .drawer-head{ margin-bottom:10px; }
+  #card-debt-drawer .field{ margin-bottom:10px; }
+  #card-debt-drawer .bdr-minpay-check{ margin:2px 0 10px; padding:10px 14px; }
+  #card-debt-drawer .cdd-delete-link{ margin-top:10px; padding-top:10px; }
   .cdd-amount-input{ text-align:right; }
   /* Rev 2.16.6 BugFix — "Видалити картку" стояла одразу під "Зберегти" (2px
      відступу) — легко натиснути випадково відразу після Save. Відокремлено
@@ -2726,7 +2744,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.97</div>
+  <div class="version-footer">Money Tree · Rev 2.22.98</div>
 </div>
   </div>
 </div>
@@ -6512,7 +6530,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.97';
+const APP_VERSION = '2.22.98';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
