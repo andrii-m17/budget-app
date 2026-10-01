@@ -5298,9 +5298,14 @@ function kbDrawerLockSandbox(){
       getElementById: function(id){ return id === 'main-col' ? mainCol : null; },
     }, 'activeElement', { get: function(){ return state.activeElement; } }),
     drawerKeyboardLockActive: false,
+    // Rev 2.23.7 (6D.176) — setDrawerKeyboardBackgroundLock() тепер делегує
+    // до lockBackgroundScroll()/unlockBackgroundScroll() (спільний
+    // лічильник з open*()/close*() шторок) замість прямого inert.
+    openOverlayCount: 0,
   }, [
     'isKeyboardField', 'isFieldInsideDrawer', 'setDrawerKeyboardBackgroundLock',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle',
+    'lockBackgroundScroll', 'unlockBackgroundScroll',
   ]);
   return { ctx: ctx, mainCol: mainCol, body: body, state: state };
 }
@@ -5347,6 +5352,35 @@ test('handleKeyboardFieldFocusSettle: idempotent — повторний викл
   state.activeElement = { tagName: 'BODY' };
   ctx.handleKeyboardFieldFocusSettle();
   ctx.handleKeyboardFieldFocusSettle();
+  assert.equal(mainCol._inert, false);
+});
+// Rev 2.23.7 (6D.176) — користувач запитав: "що робити з тим, що фон ЗА
+// КАРТКОЮ можна проскролити?" — 6D.173-175 блокували фон ЛИШЕ поки активна
+// клавіатура всередині шторки; щойно відкрита шторка БЕЗ сфокусованого поля
+// фон не блокувала. lockBackgroundScroll()/unlockBackgroundScroll() тепер
+// ВИКЛИКАЮТЬСЯ і з open*()/close*() усіх 7 шторок/модалок — композиція із
+// setDrawerKeyboardBackgroundLock() через СПІЛЬНИЙ лічильник openOverlayCount
+// (не прапорець) — тест нижче перевіряє САМЕ цю композицію.
+test('lockBackgroundScroll (відкриття шторки) + setDrawerKeyboardBackgroundLock (фокус у ній) складаються через спільний лічильник — втрата фокусу НЕ розблоковує, поки шторка ще відкрита', () => {
+  const { ctx, mainCol, state } = kbDrawerLockSandbox();
+  ctx.lockBackgroundScroll(); // відкрили "Борги" (open*())
+  assert.equal(mainCol._inert, true);
+  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: true })); // торкнулись поля "Назва"
+  assert.equal(mainCol._inert, true);
+  state.activeElement = { tagName: 'BODY' };
+  ctx.handleKeyboardFieldFocusSettle(); // клавіатура закрилась (втрата фокусу)
+  assert.equal(mainCol._inert, true, 'шторка ще ВІДКРИТА — фон має лишитись заблокованим');
+  ctx.unlockBackgroundScroll(); // закрили "Борги" (close*())
+  assert.equal(mainCol._inert, false);
+});
+test('lockBackgroundScroll/unlockBackgroundScroll: зайвий unlock() без парного lock() НЕ йде у мінус (Escape викликає всі close*() безумовно)', () => {
+  const { ctx, mainCol } = kbDrawerLockSandbox();
+  ctx.unlockBackgroundScroll();
+  ctx.unlockBackgroundScroll();
+  assert.equal(mainCol._inert, false);
+  ctx.lockBackgroundScroll();
+  assert.equal(mainCol._inert, true);
+  ctx.unlockBackgroundScroll();
   assert.equal(mainCol._inert, false);
 });
 
@@ -5629,6 +5663,8 @@ function debugRecorderDomSandbox(opts){
     debugEventBuffer: [], debugRecordingAutoStopTimer: null, debugRecordingTimerInterval: null,
     debugListenerHandles: [], debugRecordingMutationObserver: null, debugScrollCoalesceTimer: null,
     debugSafeAreaProbeEl: null,
+    // Rev 2.23.7 (6D.176) — stopDebugRecording() тепер (не)лочить фон.
+    openOverlayCount: 0,
     DEBUG_RECORDING_MAX_EVENTS: 2000, DEBUG_RECORDING_AUTO_STOP_MS: 30 * 60 * 1000,
   }, [
     'DEBUG_EVENT_ALLOWLIST', 'sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent',
@@ -5638,6 +5674,7 @@ function debugRecorderDomSandbox(opts){
     'onDebugPageShow', 'onDebugPageHide', 'onDebugTouchStart', 'onDebugTouchEnd', 'onDebugBodyClassChange',
     'attachDebugRecorderListeners', 'detachDebugRecorderListeners',
     'updateDebugRecordButtonUI', 'startDebugRecording', 'stopDebugRecording',
+    'lockBackgroundScroll', 'unlockBackgroundScroll',
   ]);
   return { ctx: ctx, added: added, removed: removed, timers: timers };
 }

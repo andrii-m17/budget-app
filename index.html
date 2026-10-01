@@ -2789,7 +2789,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.6</div>
+  <div class="version-footer">Money Tree · Rev 2.23.7</div>
 </div>
   </div>
 </div>
@@ -6580,7 +6580,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.6';
+const APP_VERSION = '2.23.7';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7275,6 +7275,7 @@ function openProfileLoginDrawer(){
   document.getElementById('profile-backdrop').classList.add('open');
   document.getElementById('profile-drawer').classList.add('open');
   focusFirstIn(document.getElementById('profile-drawer'));
+  lockBackgroundScroll();
 }
 function closeProfileLoginDrawer(){
   const drawer = document.getElementById('profile-drawer');
@@ -7283,13 +7284,15 @@ function closeProfileLoginDrawer(){
   // вже залогіненому користувачу) — без цієї перевірки restoreFocus()
   // спрацював би, навіть коли drawer ніколи не відкривався, і "з'їв" би
   // lastFocusedBeforeDialog, щойно встановлений openProfileMenu() для
-  // самого popover'а.
+  // самого popover'а. Той самий guard захищає unlockBackgroundScroll()
+  // (6D.176) — без відповідного lock() виклик був би зайвим.
   if(!drawer.classList.contains('open')) return;
   document.getElementById('profile-backdrop').classList.remove('open');
   drawer.classList.remove('open');
   document.getElementById('profile-backdrop').setAttribute('inert','');
   drawer.setAttribute('inert','');
   restoreFocus();
+  unlockBackgroundScroll();
 }
 
 // Rev #30 (6D.54) — раніше SDK підвантажувався ЛІШЕ при відкритті "Сервісу"/
@@ -8566,11 +8569,17 @@ function openProfileMenu(){
   positionProfilePopover();
   focusFirstIn(document.getElementById('profile-popover'));
   initCloudAuthUI();
+  lockBackgroundScroll();
 }
 function closeProfileMenu(){
+  // Rev 2.23.7 (6D.176) — wasOpen: глобальний keydown(Escape) викликає всі
+  // close*()-функції безумовно (докоментар над тим слухачем) — unlock()
+  // лише коли ЦЯ шторка справді була відкрита.
+  const wasOpen = document.getElementById('profile-popover').classList.contains('open');
   document.getElementById('profile-popover-backdrop').classList.remove('open');
   document.getElementById('profile-popover').classList.remove('open');
   restoreFocus();
+  if(wasOpen) unlockBackgroundScroll();
 }
 
 async function signInCloudAccount(){
@@ -9068,8 +9077,14 @@ function stopDebugRecording(){
   if(summary) summary.textContent = `Зібрано подій: ${debugEventBuffer.length}. Сценарій: ${debugRecordingScenario || '(не вказано)'}.`;
   const backdrop = document.getElementById('debug-record-backdrop');
   const drawer = document.getElementById('debug-record-drawer');
+  // Rev 2.23.7 (6D.176) — stopDebugRecording() може викликатись і коли
+  // шторка вже відкрита (стоп-кнопка ВСЕРЕДИНІ неї), і коли закрита (стоп із
+  // плаваючого індикатора) — лочимо фон лише в ДРУГОМУ випадку, інакше
+  // лічильник openOverlayCount розбалансується.
+  const wasOpen = drawer && drawer.classList.contains('open');
   if(backdrop){ backdrop.removeAttribute('inert'); backdrop.classList.add('open'); }
   if(drawer){ drawer.removeAttribute('inert'); drawer.classList.add('open'); }
+  if(!wasOpen) lockBackgroundScroll();
 }
 // Rev 2.22.92 (6D.165) BugFix — живий тест: "не зрозуміло чи натиснулась
 // Мітка, немає жодного сигналу та візуалу" — короткий, суто косметичний
@@ -9094,16 +9109,20 @@ function openDebugRecordDrawer(){
   if(scenarioInput) scenarioInput.value = '';
   const backdrop = document.getElementById('debug-record-backdrop');
   const drawer = document.getElementById('debug-record-drawer');
+  const wasOpen = drawer && drawer.classList.contains('open');
   lastFocusedBeforeDialog = document.activeElement;
   if(backdrop){ backdrop.removeAttribute('inert'); backdrop.classList.add('open'); }
   if(drawer){ drawer.removeAttribute('inert'); drawer.classList.add('open'); focusFirstIn(drawer); }
+  if(!wasOpen) lockBackgroundScroll();
 }
 function closeDebugRecordDrawer(){
   const backdrop = document.getElementById('debug-record-backdrop');
   const drawer = document.getElementById('debug-record-drawer');
+  const wasOpen = drawer && drawer.classList.contains('open');
   if(backdrop){ backdrop.classList.remove('open'); backdrop.setAttribute('inert', ''); }
   if(drawer){ drawer.classList.remove('open'); drawer.setAttribute('inert', ''); }
   restoreFocus();
+  if(wasOpen) unlockBackgroundScroll();
 }
 function startDebugRecordingFromDrawer(){
   const scenarioInput = document.getElementById('debug-record-scenario');
@@ -9625,13 +9644,18 @@ function openIncomeEditor(i){
   document.getElementById('income-backdrop').classList.add('open');
   document.getElementById('income-drawer').classList.add('open');
   focusFirstIn(document.getElementById('income-drawer'));
+  lockBackgroundScroll();
 }
 function closeIncomeEditor(){
+  // Rev 2.23.7 (6D.176) — wasOpen: Escape закриває все безумовно (докоментар
+  // над тим слухачем) — unlock() лише коли ЦЯ шторка справді була відкрита.
+  const wasOpen = document.getElementById('income-drawer').classList.contains('open');
   document.getElementById('income-backdrop').classList.remove('open');
   document.getElementById('income-drawer').classList.remove('open');
   document.getElementById('income-backdrop').setAttribute('inert','');
   document.getElementById('income-drawer').setAttribute('inert','');
   restoreFocus();
+  if(wasOpen) unlockBackgroundScroll();
 }
 async function saveIncomeDrawer(){
   const s = INCOME_SOURCES[editingIncomeIdx];
@@ -10094,13 +10118,17 @@ function openInstallmentEditor(i){
   document.getElementById('installment-backdrop').classList.add('open');
   document.getElementById('installment-drawer').classList.add('open');
   focusFirstIn(document.getElementById('installment-drawer'));
+  lockBackgroundScroll();
 }
 function closeInstallmentEditor(){
+  // Rev 2.23.7 (6D.176) — wasOpen: той самий захист, що closeIncomeEditor().
+  const wasOpen = document.getElementById('installment-drawer').classList.contains('open');
   document.getElementById('installment-backdrop').classList.remove('open');
   document.getElementById('installment-drawer').classList.remove('open');
   document.getElementById('installment-backdrop').setAttribute('inert','');
   document.getElementById('installment-drawer').setAttribute('inert','');
   restoreFocus();
+  if(wasOpen) unlockBackgroundScroll();
 }
 // Rev 2.2.3 — Автозв'язок, метод B (FINANCIAL_RULES §5): "швидкий екран
 // Оплатити ОЧ" — кнопка в шторці відкриває форму витрати з передзаповненими
@@ -10488,13 +10516,17 @@ function openCardDebtEditor(i){
   document.getElementById('card-debt-backdrop').classList.add('open');
   document.getElementById('card-debt-drawer').classList.add('open');
   focusFirstIn(document.getElementById('card-debt-drawer'));
+  lockBackgroundScroll();
 }
 function closeCardDebtEditor(){
+  // Rev 2.23.7 (6D.176) — wasOpen: той самий захист, що closeIncomeEditor().
+  const wasOpen = document.getElementById('card-debt-drawer').classList.contains('open');
   document.getElementById('card-debt-backdrop').classList.remove('open');
   document.getElementById('card-debt-drawer').classList.remove('open');
   document.getElementById('card-debt-backdrop').setAttribute('inert','');
   document.getElementById('card-debt-drawer').setAttribute('inert','');
   restoreFocus();
+  if(wasOpen) unlockBackgroundScroll();
 }
 // Rev 2.16.5 — єдина точка збереження картки: назва+ліміт (bankAccounts) і
 // борг+мін.платіж+чекбокс (debts, цей місяць) одразу разом, один тап
@@ -14449,6 +14481,37 @@ function restoreFocus(){
     try{ el.focus({preventScroll:true}); }catch(e){ el.focus(); }
   }
 }
+// Rev 2.23.7 (6D.176) — живий лог (name-field-check, 6D.174/175) ДОВІВ, що
+// inert на #main-col справді блокує touch-scroll на цьому WebKit (scrollTop
+// незмінно 0 на кожній scroll-події, поки inert активний) — "не
+// спрацювало" з раніше відкоченого 6D.170 було хибним враженням,
+// сплутаним із реальним багом 6D.172 (main-col-нащадки) в ТОМУ Ж коміті.
+// Користувач запитав: "що робити з тим, що фон ЗА КАРТКОЮ можна
+// проскролити?" — 6D.173-175 блокують фон лише ПОКИ АКТИВНА КЛАВІАТУРА на
+// полі в шторці; відкрита шторка БЕЗ сфокусованого поля (напр. щойно
+// відкрили, ще не торкались жодного поля) фон не блокувала. Повертаємо
+// lockBackgroundScroll()/unlockBackgroundScroll() (той самий код, що
+// 6D.170, лічильник openOverlayCount — не прапорець, щоб коректно
+// складатись із 6D.173: відкрита шторка ДОДАЄ лок, фокус на полі всередині
+// неї ДОДАЄ ще один — перший unlock() (втрата фокусу) не розблокує фон,
+// поки шторка ще відкрита) — цього разу БЕЗПЕЧНО, бо джерела локу — ЛИШЕ
+// (а) відкриття/закриття шторки (вона завжди ПОЗА #main-col) і (б) фокус
+// на полі ВСЕРЕДИНІ шторки (isFieldInsideDrawer(), 6D.173) — та сама умова,
+// що категорично виключає баг 6D.172 (ніколи не чіпає #main-col-нащадків,
+// напр. "Витрати").
+let openOverlayCount = 0;
+function lockBackgroundScroll(){
+  openOverlayCount++;
+  const mainCol = document.getElementById('main-col');
+  if(mainCol) mainCol.setAttribute('inert', '');
+}
+function unlockBackgroundScroll(){
+  openOverlayCount = Math.max(0, openOverlayCount - 1);
+  if(openOverlayCount === 0){
+    const mainCol = document.getElementById('main-col');
+    if(mainCol) mainCol.removeAttribute('inert');
+  }
+}
 // Проста Tab-пастка: поки відкритий рівно один з двох діалогів (drawer або
 // app-modal — вони ніколи не відкриті одночасно в цьому застосунку), Tab/
 // Shift+Tab циклічно лишається всередині нього, не "втікаючи" у фонову
@@ -14503,13 +14566,17 @@ function openSettings(){
   document.getElementById('settings-drawer').classList.add('open');
   syncThemeToggleUI();
   focusFirstIn(document.getElementById('settings-drawer'));
+  lockBackgroundScroll();
 }
 function closeSettings(){
+  // Rev 2.23.7 (6D.176) — wasOpen: той самий захист, що closeIncomeEditor().
+  const wasOpen = document.getElementById('settings-drawer').classList.contains('open');
   document.getElementById('settings-backdrop').classList.remove('open');
   document.getElementById('settings-drawer').classList.remove('open');
   document.getElementById('settings-backdrop').setAttribute('inert','');
   document.getElementById('settings-drawer').setAttribute('inert','');
   restoreFocus();
+  if(wasOpen) unlockBackgroundScroll();
 }
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettings(); closeProfileMenu(); closeProfileLoginDrawer(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
 
@@ -14803,18 +14870,28 @@ function openAppModal(){
   // додатково виставляють його через свій власний setTimeout(...,60) одразу
   // після — це не конфліктує, просто перебиває фокус на 60мс пізніше.
   appModalGeneration++;
+  // Rev 2.23.7 (6D.176) — wasOpen: show*Modal() іноді переоткриває app-modal
+  // одразу ПІСЛЯ closeAppModal() у тому самому тіку (goToDiagnosticIssue,
+  // докоментар нижче) — лочимо лише коли СПРАВДІ переходимо з закритого
+  // стану у відкритий, не вдруге поверх уже відкритого.
+  const wasOpen = document.getElementById('app-modal').classList.contains('open');
   lastFocusedBeforeDialog = document.activeElement;
   document.getElementById('modal-backdrop').removeAttribute('inert');
   document.getElementById('app-modal').removeAttribute('inert');
   document.getElementById('modal-backdrop').classList.add('open');
   document.getElementById('app-modal').classList.add('open');
   focusFirstIn(document.getElementById('app-modal'));
+  if(!wasOpen) lockBackgroundScroll();
 }
 function closeAppModal(){
+  // Rev 2.23.7 (6D.176) — той самий захист, що closeIncomeEditor() — Escape
+  // викликає closeAppModal() безумовно, навіть коли app-modal не відкритий.
+  const wasOpen = document.getElementById('app-modal').classList.contains('open');
   document.getElementById('modal-backdrop').classList.remove('open');
   document.getElementById('app-modal').classList.remove('open');
   document.getElementById('modal-backdrop').setAttribute('inert','');
   document.getElementById('app-modal').setAttribute('inert','');
+  if(wasOpen) unlockBackgroundScroll();
   // Rev 2.16.2 BugFix — це скидання (showDiagnosticsModal ховає кнопку "Так"
   // і перейменовує "Скасувати" на "Закрити") раніше відбувалось СИНХРОННО,
   // тобто ще ДО завершення CSS-переходу opacity (180ms, --duration-base) —
@@ -15165,14 +15242,21 @@ function isKeyboardField(el){
 function isFieldInsideDrawer(el){
   return !!(el && typeof el.closest === 'function' && el.closest('.drawer'));
 }
+// Rev 2.23.7 (6D.176) — делегує до lockBackgroundScroll()/
+// unlockBackgroundScroll() (спільний лічильник openOverlayCount, тепер
+// також дзвонить з open*()/close*() усіх шторок, докоментар там) замість
+// прямого inert на #main-col — щоб коректно складатись, коли шторка вже
+// заблокувала фон своїм ВІДКРИТТЯМ, а тепер ще й поле всередині неї в
+// фокусі: один unlock (втрата фокусу) не повинен передчасно розблокувати
+// фон, поки шторка ще відкрита. Прапорець drawerKeyboardLockActive і
+// ПЕРЕВІРКА перед викликом лишаються — без них Tab між двома полями ОДНІЄЇ
+// шторки викликав би lockBackgroundScroll() вдруге (кожен focusin), без
+// парного unlock, і лічильник "спливав" би.
 let drawerKeyboardLockActive = false;
 function setDrawerKeyboardBackgroundLock(locked){
   if(locked === drawerKeyboardLockActive) return;
   drawerKeyboardLockActive = locked;
-  const mainCol = document.getElementById('main-col');
-  if(!mainCol) return;
-  if(locked) mainCol.setAttribute('inert','');
-  else mainCol.removeAttribute('inert');
+  if(locked) lockBackgroundScroll(); else unlockBackgroundScroll();
 }
 function handleKeyboardFieldFocusIn(target){
   document.body.classList.add('kb-open');
