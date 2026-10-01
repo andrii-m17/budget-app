@@ -5276,6 +5276,53 @@ test('computeDrawerMaxHeightPx: чиста функція — vvHeight міну�
   assert.equal(ctx.computeDrawerMaxHeightPx(5, 8), 0, 'захист від від\'ємного результату');
 });
 
+// Rev 2.23.0 (6D.170) — скарга користувача: поки відкрита "плаваюча" шторка
+// (Борги/Дохід/ОЧ/Налаштування/Вхід/app-modal/Запис діагностики), фоновий
+// #main-col лишався interactive під напівпрозорим backdrop — хибні тапи/
+// скроли на фоновому вмісті. lockBackgroundScroll()/unlockBackgroundScroll()
+// — лічильник (openOverlayCount), а не прапорець, навмисно: Escape-слухач
+// (index.html) викликає ВСІ close*()-функції БЕЗУМОВНО, тож лічильник мусить
+// лишатись коректним, навіть коли "зайві" close-виклики надходять для
+// шторок, які НІКОЛИ не відкривались (кожна close*() сама перевіряє
+// classList.contains('open') ПЕРЕД unlockBackgroundScroll() — тест нижче
+// перевіряє саму функцію лічильника; wasOpen-захист — відповідальність
+// кожної close*()-функції, не цієї пари).
+function backgroundLockSandbox(){
+  const mainCol = { _inert: false, setAttribute: function(name){ if(name==='inert') this._inert = true; }, removeAttribute: function(name){ if(name==='inert') this._inert = false; } };
+  const ctx = require('./extract').buildSandbox({
+    document: { getElementById: function(id){ return id === 'main-col' ? mainCol : null; } },
+    openOverlayCount: 0,
+  }, ['lockBackgroundScroll', 'unlockBackgroundScroll']);
+  return { ctx: ctx, mainCol: mainCol };
+}
+test('lockBackgroundScroll/unlockBackgroundScroll: 1 відкриття+закриття — inert ставиться і знімається', () => {
+  const { ctx, mainCol } = backgroundLockSandbox();
+  ctx.lockBackgroundScroll();
+  assert.equal(mainCol._inert, true);
+  ctx.unlockBackgroundScroll();
+  assert.equal(mainCol._inert, false);
+});
+test('lockBackgroundScroll/unlockBackgroundScroll: лічильник — вкладені lock() не знімаються ПЕРШИМ unlock() (напр. підтвердження поверх уже відкритої шторки)', () => {
+  const { ctx, mainCol } = backgroundLockSandbox();
+  ctx.lockBackgroundScroll(); // шторка відкрита
+  ctx.lockBackgroundScroll(); // app-modal підтвердження поверх неї
+  assert.equal(mainCol._inert, true);
+  ctx.unlockBackgroundScroll(); // підтвердження закрилось
+  assert.equal(mainCol._inert, true, 'фон МАЄ лишитись заблокованим — шторка під підтвердженням ще відкрита');
+  ctx.unlockBackgroundScroll(); // шторка закрилась
+  assert.equal(mainCol._inert, false);
+});
+test('lockBackgroundScroll/unlockBackgroundScroll: зайвий unlock() без парного lock() НЕ йде у мінус (Escape викликає всі close*() безумовно)', () => {
+  const { ctx, mainCol } = backgroundLockSandbox();
+  ctx.unlockBackgroundScroll();
+  ctx.unlockBackgroundScroll();
+  assert.equal(mainCol._inert, false, 'нема що знімати — і не повинно зламатись');
+  ctx.lockBackgroundScroll();
+  assert.equal(mainCol._inert, true, 'після "зайвих" unlock() лічильник не став від\'ємним — наступний lock() коректно блокує');
+  ctx.unlockBackgroundScroll();
+  assert.equal(mainCol._inert, false);
+});
+
 // Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду без FK (deactivated_via/
 // deleted_via, текстові, рішення користувача). Ключова вимога —
 // СЕЛЕКТИВНІСТЬ: слово/підкатегорія, видалені ОКРЕМО (без маркера чи з
@@ -5552,7 +5599,7 @@ function debugRecorderDomSandbox(opts){
     debugRecordingActive: false, debugRecordingStartedAt: 0, debugRecordingScenario: '',
     debugEventBuffer: [], debugRecordingAutoStopTimer: null, debugRecordingTimerInterval: null,
     debugListenerHandles: [], debugRecordingMutationObserver: null, debugScrollCoalesceTimer: null,
-    debugSafeAreaProbeEl: null,
+    debugSafeAreaProbeEl: null, openOverlayCount: 0,
     DEBUG_RECORDING_MAX_EVENTS: 2000, DEBUG_RECORDING_AUTO_STOP_MS: 30 * 60 * 1000,
   }, [
     'DEBUG_EVENT_ALLOWLIST', 'sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent',
@@ -5562,6 +5609,11 @@ function debugRecorderDomSandbox(opts){
     'onDebugPageShow', 'onDebugPageHide', 'onDebugTouchStart', 'onDebugTouchEnd', 'onDebugBodyClassChange',
     'attachDebugRecorderListeners', 'detachDebugRecorderListeners',
     'updateDebugRecordButtonUI', 'startDebugRecording', 'stopDebugRecording',
+    // Rev 2.23.0 (6D.170) — stopDebugRecording()/openDebugRecordDrawer()/
+    // closeDebugRecordDrawer() тепер (не)лочать фоновий скрол — реальні
+    // функції, не стаб, щоб тест теж ловив регресію лічильника.
+    'openDebugRecordDrawer', 'closeDebugRecordDrawer',
+    'lockBackgroundScroll', 'unlockBackgroundScroll',
   ]);
   return { ctx: ctx, added: added, removed: removed, timers: timers };
 }
