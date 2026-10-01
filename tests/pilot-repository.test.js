@@ -5323,6 +5323,57 @@ test('lockBackgroundScroll/unlockBackgroundScroll: зайвий unlock() без 
   assert.equal(mainCol._inert, false);
 });
 
+// Rev 2.23.2 (6D.172) — скарга користувача: скрол фонової сторінки мав
+// блокуватись і просто при відкритій клавіатурі (без жодної шторки зверху,
+// напр. інлайн-поле в "Обліку"). setKbOpen() — єдина точка зміни класу
+// 'kb-open' (раніше було 3 прямі classList.add/remove — focusin/focusout/
+// visualViewport-запобіжник 6D.150) — повторні виклики з ТИМ САМИМ
+// значенням мають НЕ викликати повторний lock/unlock (інакше лічильник
+// openOverlayCount "спливав" би, якщо, напр., visualViewport resize стріляв
+// кілька разів поспіль, поки кліавіатура вже закрита).
+function kbOpenSandbox(){
+  const mainCol = { _inert: false, setAttribute: function(name){ if(name==='inert') this._inert = true; }, removeAttribute: function(name){ if(name==='inert') this._inert = false; } };
+  const classes = new Set();
+  const body = { classList: {
+    contains: function(c){ return classes.has(c); },
+    add: function(c){ classes.add(c); },
+    remove: function(c){ classes.delete(c); },
+  } };
+  const ctx = require('./extract').buildSandbox({
+    document: { body: body, getElementById: function(id){ return id === 'main-col' ? mainCol : null; } },
+    openOverlayCount: 0,
+  }, ['lockBackgroundScroll', 'unlockBackgroundScroll', 'setKbOpen']);
+  return { ctx: ctx, mainCol: mainCol, body: body };
+}
+test('setKbOpen: true→false — ставить/знімає клас і lock/unlock рівно по одному разу', () => {
+  const { ctx, mainCol, body } = kbOpenSandbox();
+  ctx.setKbOpen(true);
+  assert.equal(body.classList.contains('kb-open'), true);
+  assert.equal(mainCol._inert, true);
+  ctx.setKbOpen(false);
+  assert.equal(body.classList.contains('kb-open'), false);
+  assert.equal(mainCol._inert, false);
+});
+test('setKbOpen: повторний виклик з ТИМ САМИМ значенням — no-op, лічильник не дублюється', () => {
+  const { ctx, mainCol } = kbOpenSandbox();
+  ctx.setKbOpen(true);
+  ctx.setKbOpen(true); // напр. фокус перескочив на інше поле — focusin знову
+  ctx.setKbOpen(true);
+  assert.equal(mainCol._inert, true);
+  ctx.setKbOpen(false); // ОДИН unlock має повністю розблокувати
+  assert.equal(mainCol._inert, false, 'якби кожен повторний setKbOpen(true) лочив дублем, тут лишився б inert');
+});
+test('setKbOpen: складається зі шторкою (6D.170) — фокус на полі ВСЕРЕДИНІ відкритої картки не розблоковує фон, поки картка ще відкрита', () => {
+  const { ctx, mainCol } = kbOpenSandbox();
+  ctx.lockBackgroundScroll(); // картка "Борги" відкрита
+  ctx.setKbOpen(true); // фокус на полі всередині — клавіатура з'явилась
+  assert.equal(mainCol._inert, true);
+  ctx.setKbOpen(false); // клавіатура закрилась (поле втратило фокус)
+  assert.equal(mainCol._inert, true, 'картка ще відкрита — фон має лишитись заблокованим');
+  ctx.unlockBackgroundScroll(); // картка закрилась
+  assert.equal(mainCol._inert, false);
+});
+
 // Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду без FK (deactivated_via/
 // deleted_via, текстові, рішення користувача). Ключова вимога —
 // СЕЛЕКТИВНІСТЬ: слово/підкатегорія, видалені ОКРЕМО (без маркера чи з
