@@ -2763,7 +2763,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.0</div>
+  <div class="version-footer">Money Tree · Rev 2.23.1</div>
 </div>
   </div>
 </div>
@@ -3040,8 +3040,12 @@
     <button class="drawer-close" onclick="closeCardDebtEditor()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
   <div class="field">
-    <label for="cdd-name">Назва</label>
-    <input type="text" id="cdd-name">
+    <!-- Rev 2.23.1 (6D.171) — id БЕЗ підрядка "name" (було cdd-name): єдина
+         причина iOS QuickType-підказки "Автозаповнити контакт", доведено й
+         виправлено так само для поля витрати в 6D.136-141 (CLAUDE.md) —
+         той самий, уже перевірений прийом, тепер і тут. -->
+    <label for="cddfielda1">Назва</label>
+    <input type="text" id="cddfielda1">
   </div>
   <div class="field">
     <label for="cdd-limit">Кредитний ліміт</label>
@@ -3084,8 +3088,9 @@
     <button class="drawer-close" onclick="closeInstallmentEditor()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
   <div class="field">
-    <label for="idd-name">Назва</label>
-    <input type="text" id="idd-name">
+    <!-- Rev 2.23.1 (6D.171) — та сама заміна, що cdd-name вище. -->
+    <label for="iddfielda1">Назва</label>
+    <input type="text" id="iddfielda1">
   </div>
   <!-- Rev 2.17.2 — "Початкова сума" і "Дата платежу" в одному рядку, той
        самий .row-2 (рівний поділ 50/50), що Залишок/Платіж нижче — за
@@ -6549,7 +6554,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.0';
+const APP_VERSION = '2.23.1';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10057,7 +10062,7 @@ function openInstallmentEditor(i){
   const payment = resolved.pay;
   document.getElementById('idd-icon').innerHTML = bankIcon(name, 34);
   document.getElementById('idd-heading').textContent = stripLeadingEmoji(name);
-  document.getElementById('idd-name').value = stripLeadingEmoji(name);
+  document.getElementById('iddfielda1').value = stripLeadingEmoji(name);
   document.getElementById('idd-initial').value = acc.initialAmount ? formatThousands(acc.initialAmount) : '';
   document.getElementById('idd-due-day').value = acc.dueDay || '';
   document.getElementById('idd-balance').value = balance != null ? formatThousands(balance) : '';
@@ -10203,16 +10208,16 @@ function applyEstimatedPayment(){
 async function saveInstallmentDrawer(){
   const acc = installmentAccounts[editingInstallmentIdx];
   if(!acc || !selectedMonth) return;
-  const rawName = document.getElementById('idd-name').value.trim();
+  const rawName = document.getElementById('iddfielda1').value.trim();
   const newInitial = parseAmount(document.getElementById('idd-initial').value);
-  if(!rawName){ flashField('idd-name'); return; }
+  if(!rawName){ flashField('iddfielda1'); return; }
   if(!newInitial || isNaN(newInitial) || newInitial<=0){ flashField('idd-initial'); return; }
   const oldName = acc.name;
   // Rev #30 (6D.31) — простий прямий присвоєння: emoji-відновлення (6D.24
   // BugFix) стало зайвим після повного прибирання emoji з name (6D.31) —
-  // #idd-name і так більше ніколи не показує/не отримує emoji-префікс.
+  // #iddfielda1 і так більше ніколи не показує/не отримує emoji-префікс.
   const newName = rawName;
-  if(newName !== oldName && installmentAccounts.some(function(a){ return a.name===newName; })){ flashField('idd-name'); return; }
+  if(newName !== oldName && installmentAccounts.some(function(a){ return a.name===newName; })){ flashField('iddfielda1'); return; }
   if(newName !== oldName){
     debts.forEach(function(d){ if(d.name===oldName && d.kind==='installment') d.name = newName; });
     // Rev 2.22.74 (6D.145) — той самий каскад, якого досі бракувало саме
@@ -10454,7 +10459,7 @@ function openCardDebtEditor(i){
   const minPayment = existing ? existing.minPayment : null;
   document.getElementById('cdd-icon').innerHTML = bankIcon(name, 34);
   document.getElementById('cdd-heading').textContent = stripLeadingEmoji(name);
-  document.getElementById('cdd-name').value = stripLeadingEmoji(name);
+  document.getElementById('cddfielda1').value = stripLeadingEmoji(name);
   document.getElementById('cdd-limit').value = acc.creditLimit ? formatThousands(acc.creditLimit) : '';
   // Rev #30 (6D.126) BugFix — falsy-zero: 0 ₴ ("погашено цього місяця") —
   // осмислений, збережений факт (докоментар над populateBankDebtTable()
@@ -10494,16 +10499,16 @@ function closeCardDebtEditor(){
 async function saveCardDebtDrawer(){
   const acc = bankAccounts[editingBankIdx];
   if(!acc || !selectedMonth) return;
-  const rawName = document.getElementById('cdd-name').value.trim();
+  const rawName = document.getElementById('cddfielda1').value.trim();
   const newLimit = parseAmount(document.getElementById('cdd-limit').value);
-  if(!rawName){ flashField('cdd-name'); return; }
+  if(!rawName){ flashField('cddfielda1'); return; }
   if(!newLimit || isNaN(newLimit) || newLimit<=0){ flashField('cdd-limit'); return; }
   const oldName = acc.name;
   // Rev #30 (6D.31) — простий прямий присвоєння: emoji-відновлення (6D.24
   // BugFix) стало зайвим після повного прибирання emoji з name (6D.31) —
-  // #cdd-name і так більше ніколи не показує/не отримує emoji-префікс.
+  // #cddfielda1 і так більше ніколи не показує/не отримує emoji-префікс.
   const newName = rawName;
-  if(newName !== oldName && bankAccounts.some(function(b){ return b.name===newName; })){ flashField('cdd-name'); return; }
+  if(newName !== oldName && bankAccounts.some(function(b){ return b.name===newName; })){ flashField('cddfielda1'); return; }
   if(newName !== oldName){
     // Перейменування ретроактивне: усі минулі записи з цим банком теж
     // оновлюються, щоб історія й графіки лишались коректними під новою назвою.
