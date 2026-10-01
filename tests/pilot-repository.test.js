@@ -196,6 +196,8 @@ const REPOSITORY_NAMES = [
   // з відкатом на pushXRecordPilot() вище за провалу пакету.
   'pushExpensesBatch', 'pushExpensesBatched', 'pushIncomesBatch', 'pushIncomesBatched', 'pushDebtsBatch', 'pushDebtsBatched',
   'hideKey', 'divergenceKey', 'isHiddenForMonth',
+  // Rev 2.22.83 (6D.156, Ревізія B1) — epoch-штамп для legacy-бекфілу hiddenFrom.
+  'HIDDEN_FROM_LEGACY_EPOCH',
   'ensureInstallmentFirstMonth',
   'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
   'restoreHiddenFromFromBackup', 'restoreIgnoredDivergencesFromBackup',
@@ -1507,15 +1509,66 @@ test('hideEntityFromMonth: запису не було — створює нов�
   assert.ok(ctx.hiddenFrom['card:Нова Картка'].updatedAt);
 });
 
-test('ensureHiddenFromShape: нормалізує старий формат (голий рядок) в об\'єкт, ідемпотентний', () => {
+// Rev 2.22.83 (6D.156, Ревізія B1) — бекфіл ставить СТАЛИЙ epoch, не
+// "зараз": "зараз" робило б щойно-нормалізований legacy-запис "новішим"
+// за будь-який реальний Cloud-tombstone і провалювало б pull-LWW.
+test('ensureHiddenFromShape: нормалізує старий формат (голий рядок) в об\'єкт з epoch-штампом (НЕ "зараз"), ідемпотентний', () => {
   const { ctx } = sandbox();
   ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
   const changed1 = ctx.ensureHiddenFromShape();
   assert.equal(changed1, true);
   assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-06');
-  assert.ok(ctx.hiddenFrom['card:Приват Банк'].updatedAt);
+  // Rev 2.22.83 (6D.156) — літерал, не ctx.HIDDEN_FROM_LEGACY_EPOCH: vm-
+  // контекст НЕ виставляє top-level const/let, виконані ВСЕРЕДИНІ нього,
+  // як властивості самого context-об'єкта (лише функції/значення, задані
+  // ЗОВНІ через globals-аргумент buildSandbox, видно як ctx.X) — зовнішнє
+  // читання ctx.HIDDEN_FROM_LEGACY_EPOCH тому завжди undefined, хоча код,
+  // що виконується ВСЕРЕДИНІ контексту (ensureHiddenFromShape() сама),
+  // бачить і використовує його коректно через лексичний скоуп.
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].updatedAt, '1970-01-01T00:00:00.000Z');
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].syncedUpdatedAt, '1970-01-01T00:00:00.000Z');
   const changed2 = ctx.ensureHiddenFromShape();
   assert.equal(changed2, false, 'повторний виклик на вже нормалізованих даних нічого не змінює');
+});
+
+test('6D.156: нормалізований legacy-запис (epoch) НЕ пушиться сам по собі — syncedUpdatedAt===updatedAt одразу після бекфілу', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const fake = fakeSupabaseHiddenEntitiesUpsertClient();
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.ensureHiddenFromShape();
+  await ctx.pushHiddenEntitiesPilot();
+  assert.equal(fake.calls.length, 0, 'бекфіл сам по собі не мав запускати push');
+});
+
+test('6D.156: нормалізований legacy-запис (epoch) НЕ перемагає свіжіший Cloud-рядок — pull LWW застосовує чужий tombstone', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01', deleted_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' }; // legacy, ще не нормалізовано
+  ctx.ensureHiddenFromShape();
+  const result = await ctx.pullHiddenEntitiesCore();
+  assert.equal(result.updated, 1, 'epoch МАЄ програвати Cloud-рядку, навіть реальному tombstone');
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].deletedAt, '2026-05-01T00:00:00.000Z');
+});
+
+test('6D.156: ніколи не синхронізований legacy-запис (epoch, Cloud про нього не знає) → pull знімає syncedUpdatedAt, наступний push нарешті відправляє', async () => {
+  const ctx = pullHiddenSandbox([]); // Cloud для цієї сім'ї геть порожній
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' }; // приховано офлайн, ДО першої синхронізації
+  ctx.ensureHiddenFromShape();
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].syncedUpdatedAt, '1970-01-01T00:00:00.000Z');
+  await ctx.pullHiddenEntitiesCore();
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].syncedUpdatedAt, undefined, 'pull мав "відліпити" його від epoch — Cloud підтвердив, що рядка нема взагалі');
+  // І тепер push нарешті його відправляє.
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  const fake = fakeSupabaseHiddenEntitiesUpsertClient();
+  ctx.getSupabaseClient = () => fake.client;
+  await ctx.pushHiddenEntitiesPilot();
+  assert.equal(fake.calls.length, 1, 'після виявлення pull-ом цей запис нарешті мав запуштись');
 });
 
 test('isHiddenForMonth: захисна сумісність зі старим форматом (голий рядок), без нормалізації', () => {

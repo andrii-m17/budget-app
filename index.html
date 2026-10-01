@@ -2637,7 +2637,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.82</div>
+  <div class="version-footer">Money Tree · Rev 2.22.83</div>
 </div>
   </div>
 </div>
@@ -6109,7 +6109,7 @@ let hiddenEntitiesPulledOnce = false;
 async function pullHiddenEntitiesCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
-  let added = 0, updated = 0, skippedFk = 0;
+  let added = 0, updated = 0, skippedFk = 0, unstuckLegacy = false;
   const hadMarker = hiddenEntitiesPulledOnce;
   try{
     // Rev 2.22.82 (6D.155, Ревізія B) — deleted_at/updated_at додано до
@@ -6120,12 +6120,18 @@ async function pullHiddenEntitiesCore(){
     // користувача цей Rev жодних нових сповіщень не додає).
     const { data, error } = await client.from('hidden_entities').select('entity_type,entity_id,hidden_from_month,deleted_at,updated_at,created_by').eq('family_id', cloudFamilyId);
     if(error || !data) return { skipped: true };
+    // Rev 2.22.83 (6D.156, Ревізія B1) — які локальні ключі ЦЕЙ повний pull
+    // підтвердив присутніми в Cloud (цей домен завжди читає ВСІ рядки сім'ї,
+    // не інкрементально, 6D.38) — потрібно нижче, щоб відрізнити "epoch-
+    // штампований legacy-запис, якого Cloud просто ще не бачив" від решти.
+    const touchedKeys = {};
     for(const row of data){
       const kind = row.entity_type === 'bank' ? 'card' : 'installment';
       const list = row.entity_type === 'bank' ? bankAccounts : installmentAccounts;
       const entity = list.find(function(x){ return x.cloudId === row.entity_id; });
       if(!entity){ skippedFk++; continue; }
       const key = hideKey(entity.name, kind);
+      touchedKeys[key] = true;
       const local = hiddenFrom[key];
       if(!local){
         // Rev 2.22.82 (6D.155) — Cloud-рядок, якого цей пристрій ще не
@@ -6154,11 +6160,29 @@ async function pullHiddenEntitiesCore(){
         updated++;
       }
     }
+    // Rev 2.22.83 (6D.156, Ревізія B1) — грановий випадок: legacy-запис,
+    // приховано ДО першої синхронізації (ніколи не доходив до Cloud),
+    // отримав epoch-штамп нормалізацією (ensureHiddenFromShape) — і без
+    // цієї перевірки лишився б НАЗАВЖДИ непуштнутим (syncedUpdatedAt===
+    // updatedAt=epoch виглядає "уже синхронізовано"). Цей pull щойно
+    // підтвердив ПОВНИМ (не інкрементальним) списком, що Cloud про нього
+    // не знає взагалі (ключ не зустрівся в жодному рядку) — тож знімаємо
+    // syncedUpdatedAt, щоб наступний push нарешті його відправив. Лише
+    // save (щоб зняте позначення збереглось), НЕ `updated`/`renderAll` —
+    // для користувача візуально нічого не змінилось, це суто внутрішнє
+    // "позначити таким, що потребує push".
+    Object.keys(hiddenFrom).forEach(function(key){
+      const entry = hiddenFrom[key];
+      if(entry.updatedAt === HIDDEN_FROM_LEGACY_EPOCH && entry.syncedUpdatedAt === entry.updatedAt && !touchedKeys[key]){
+        delete entry.syncedUpdatedAt;
+        unstuckLegacy = true;
+      }
+    });
   }catch(e){
     return { skipped: true };
   }
   hiddenEntitiesPulledOnce = true;
-  if(added || updated) await saveHiddenFromLocal();
+  if(added || updated || unstuckLegacy) await saveHiddenFromLocal();
   // Rev #30 (6D.55) — той самий принцип, що pullCategoriesCore() вище:
   // дзеркалимо render-виклик локального save (removeInstallmentAccount()).
   if(added || updated) renderAll();
@@ -6183,12 +6207,24 @@ async function pullHiddenEntitiesPilot(){
 // принцип, що stampMissingTimestamps()/ensureDictionaryEntryIds() для
 // інших доменів — решта коду після нормалізації працює лише з об'єктною
 // формою, без розгалужень "рядок чи об'єкт" у кожному читанні.
+// Rev 2.22.83 (6D.156, Ревізія B1) BugFix — живий тест B виявив дірку:
+// штампувати "зараз" при нормалізації тут було ПОМИЛКОЮ — на відміну від
+// push (де захист від воскресіння вже блокує запис, якого пристрій сам не
+// торкався), цей свіжий timestamp ще й ПЕРЕМАГАЄ у pull: якщо на іншому
+// пристрої цей-таки запис уже tombstone (показано назад) ДО того, як цей
+// пристрій оновився, LWW побачить ЛОКАЛЬНО щойно проставлений "зараз" як
+// новіший за Cloud-tombstone і залишить картку прихованою — пристрої
+// розійдуться. Правильний бекфіл не повинен винаходити жодної дати, яка
+// могла б "перемогти" щось реальне — ні в push, ні в pull. Тому обидва
+// поля отримують СТАЛИЙ мінімум (epoch) — Cloud-рядок, якщо він є,
+// завжди виграє LWW, і сама нормалізація ніколи не пушиться як "зміна".
+const HIDDEN_FROM_LEGACY_EPOCH = '1970-01-01T00:00:00.000Z';
 function ensureHiddenFromShape(){
   let changed = false;
   Object.keys(hiddenFrom).forEach(function(key){
     const raw = hiddenFrom[key];
     if(typeof raw === 'string'){
-      hiddenFrom[key] = { month: raw, updatedAt: new Date().toISOString() };
+      hiddenFrom[key] = { month: raw, updatedAt: HIDDEN_FROM_LEGACY_EPOCH, syncedUpdatedAt: HIDDEN_FROM_LEGACY_EPOCH };
       changed = true;
     }
   });
@@ -6277,7 +6313,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.82';
+const APP_VERSION = '2.22.83';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
