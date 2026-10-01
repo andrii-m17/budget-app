@@ -5081,7 +5081,7 @@ function keyboardInsetSandbox(){
   const { buildSandbox } = require('./extract');
   return buildSandbox({}, [
     'isKeyboardLikelyClosed', 'computeKeyboardInset',
-    'viewportOrientationKey', 'nextBaseViewportHeight',
+    'viewportOrientationKey', 'nextBaseViewportHeight', 'computeDrawerTopPx',
   ]);
 }
 test('isKeyboardLikelyClosed: РЕАЛЬНИЙ живий кейс (6D.158, t=9583) — база 894, vvHeight 505 (клавіатура щойно з\'явилась) → НЕ "закрита", попри те що живий window.innerHeight у ту саму мить сам помилково читав 505', () => {
@@ -5148,6 +5148,53 @@ test('nextBaseViewportHeight: Rev 2.22.85 — одинична хибна про
 test('nextBaseViewportHeight: легітимне зростання (напр. приховання адресного рядка) враховується', () => {
   const ctx = keyboardInsetSandbox();
   assert.equal(ctx.nextBaseViewportHeight(844, 894), 894);
+});
+
+// Rev 2.22.93 (6D.166) BugFix — живий лог (kb-full-scenario 2, mark@129,
+// t=40863) довів: drawerBottom (getBoundingClientRect) ТОЧНО дорівнює
+// (у ту мить зіпсованому) window.innerHeight мінус CSS bottom — сам
+// --kb-inset рахувався вірно (198 = 8 база-під-клавіатуру + 190 inset), але
+// WebKit РЕЗОЛЬВИТЬ fixed-позицію проти свого internal (зіпсованого)
+// innerHeight, не проти нашого коректного значення. Обхід — рахувати top
+// через visualViewport.height/offsetTop, які в ЖОДНОМУ живому замірі цієї
+// сесії не були зіпсовані (на відміну від innerHeight).
+test('computeDrawerTopPx: РЕАЛЬНИЙ живий кейс (6D.166, kb-full-scenario 2, mark@129) — дає сенсовну позицію замість зламаної drawerBottom:435', () => {
+  const ctx = keyboardInsetSandbox();
+  // vvOffsetTop=261, vvH=505 (обидва live-підтверджені надійні), bottom=198px
+  // (8 база-з-клавіатурою + 190 --kb-inset, проста сума пікселів, без height),
+  // drawerHeight=520 (живий замір, актуальна висота картки в ту мить).
+  const topPx = ctx.computeDrawerTopPx(261, 505, 198, 520);
+  assert.equal(topPx, 48);
+  const bottomPx = topPx + 520;
+  assert.equal(bottomPx, 568, 'нова позиція ставить низ картки одразу над клавіатурою (261+505=766 видимих px, мінус 198 запасу) — не 435, як давала зламана bottom-резолюція WebKit');
+});
+test('syncDrawerTopPosition: ставить inline top/bottom:auto на ВІДКРИТУ шторку й ОЧИЩАЄ стилі попередньої, коли та закрилась', () => {
+  function makeDrawer(id, bottomCss, height){
+    return {
+      id: id,
+      _style: { top: '', bottom: '' },
+      get style(){ return this._style; },
+      getBoundingClientRect: function(){ return { height: height }; },
+      _bottom: bottomCss,
+    };
+  }
+  const drawerA = makeDrawer('drawer-a', '198px', 520);
+  let openDrawer = drawerA;
+  const ctx = require('./extract').buildSandbox({
+    window: { visualViewport: { height: 505, offsetTop: 261 } },
+    document: { querySelector: function(){ return openDrawer; } },
+    getComputedStyle: function(el){ return { bottom: el._bottom }; },
+    lastPositionedDrawerEl: null,
+  }, ['computeDrawerTopPx', 'syncDrawerTopPosition']);
+  ctx.syncDrawerTopPosition();
+  assert.equal(drawerA.style.top, '48px');
+  assert.equal(drawerA.style.bottom, 'auto');
+  // Тепер шторка закрилась (querySelector більше нічого не повертає) —
+  // попередні inline-стилі мають ОЧИСТИТИСЬ, а не лишитись "залипнути".
+  openDrawer = null;
+  ctx.syncDrawerTopPosition();
+  assert.equal(drawerA.style.top, '');
+  assert.equal(drawerA.style.bottom, '');
 });
 
 // Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду без FK (deactivated_via/

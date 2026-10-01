@@ -2726,7 +2726,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.92</div>
+  <div class="version-footer">Money Tree · Rev 2.22.93</div>
 </div>
   </div>
 </div>
@@ -6512,7 +6512,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.92';
+const APP_VERSION = '2.22.93';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15192,6 +15192,43 @@ function computeKeyboardInset(baseViewportHeight, visualViewportHeight, visualVi
 // на старому місці й "виїжджає" за межі видимого екрана зверху. --kb-inset
 // вже розв'язує це для .drawer (знизу); --vv-offset-top — те саме для
 // елементів, прив'язаних ЗВЕРХУ (#debug-record-indicator, нижче).
+// Rev 2.22.93 (6D.166) BugFix — живий лог (kb-full-scenario 2) показав
+// картку, застряглу в неправильній позиції ЧЕРЕЗ КІЛЬКА повних циклів
+// відкриття/закриття клавіатури (~15с), хоча body.kb-open (і залежний від
+// нього таббар) перемикався коректно щоразу. Арифметика живих даних
+// довела: drawerBottom (getBoundingClientRect) ТОЧНО дорівнює живому
+// (у цю мить зіпсованому, 6D.158) window.innerHeight мінус CSS bottom —
+// тобто САМЕ ЗНАЧЕННЯ bottom (--kb-inset) рахується вірно, але WebKit
+// застосовує його при РЕНДЕРІ через своє ВНУТРІШНЄ, тимчасово зіпсоване
+// уявлення про висоту viewport для position:fixed. Наш --kb-inset це не
+// виправляє — він лише коректний ВХІД у крок, сама механіка резолюції
+// якого в браузері зламана, і control над нею в нас нема.
+// Обхід: позиціонуємо ВІДКРИТУ шторку через `top` (inline style, JS),
+// рахуючи його ЛИШЕ з visualViewport.height/offsetTop — ці два значення
+// жодного разу НЕ були "зіпсовані" в жодному живому замірі цієї сесії
+// (на відміну від window.innerHeight). Сам `bottom` (CSS) — проста сума
+// двох ПІКСЕЛЬНИХ довжин (--drawer-bottom-base + --kb-inset, без жодного
+// відсотка/висоти) — getComputedStyle(el).bottom повертає його ВІРНО
+// завжди (на відміну від РЕНДЕРУ fixed-позиції, де й ховається баг), тому
+// безпечно читати звідти замість дублювання формули.
+function computeDrawerTopPx(vvOffsetTop, vvHeight, bottomPx, drawerHeightPx){
+  return Math.round(vvOffsetTop + vvHeight - bottomPx - drawerHeightPx);
+}
+let lastPositionedDrawerEl = null;
+function syncDrawerTopPosition(){
+  const el = document.querySelector('.drawer.open');
+  if(lastPositionedDrawerEl && lastPositionedDrawerEl !== el){
+    lastPositionedDrawerEl.style.top = '';
+    lastPositionedDrawerEl.style.bottom = '';
+  }
+  if(!el || !window.visualViewport){ lastPositionedDrawerEl = null; return; }
+  const bottomPx = parseFloat(getComputedStyle(el).bottom) || 0;
+  const heightPx = el.getBoundingClientRect().height;
+  const topPx = computeDrawerTopPx(window.visualViewport.offsetTop, window.visualViewport.height, bottomPx, heightPx);
+  el.style.top = topPx + 'px';
+  el.style.bottom = 'auto';
+  lastPositionedDrawerEl = el;
+}
 function updateKeyboardInset(){
   if(!window.visualViewport) return;
   noteViewportHeightIfKeyboardClosed();
@@ -15200,6 +15237,10 @@ function updateKeyboardInset(){
   document.documentElement.style.setProperty('--kb-inset', inset + 'px');
   document.documentElement.style.setProperty('--base-vh', base + 'px');
   document.documentElement.style.setProperty('--vv-offset-top', Math.round(window.visualViewport.offsetTop) + 'px');
+  // Rev 2.22.93 (6D.166) — ПІСЛЯ setProperty('--kb-inset', ...) вище:
+  // syncDrawerTopPosition() читає computed bottom, який мусить уже
+  // відображати щойно оновлений --kb-inset.
+  syncDrawerTopPosition();
 }
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', updateKeyboardInset);
