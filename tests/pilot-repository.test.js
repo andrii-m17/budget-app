@@ -5158,17 +5158,18 @@ test('nextBaseViewportHeight: легітимне зростання (напр. �
 // innerHeight, не проти нашого коректного значення. Обхід — рахувати top
 // через visualViewport.height/offsetTop, які в ЖОДНОМУ живому замірі цієї
 // сесії не були зіпсовані (на відміну від innerHeight).
-test('computeDrawerTopPx: РЕАЛЬНИЙ живий кейс (6D.166, kb-full-scenario 2, mark@129) — дає сенсовну позицію замість зламаної drawerBottom:435', () => {
+test('computeDrawerTopPx: тепер приймає ЛИШЕ базовий відступ (без --kb-inset) — 6D.166.1 фікс подвійного віднімання клавіатури', () => {
   const ctx = keyboardInsetSandbox();
-  // vvOffsetTop=261, vvH=505 (обидва live-підтверджені надійні), bottom=198px
-  // (8 база-з-клавіатурою + 190 --kb-inset, проста сума пікселів, без height),
-  // drawerHeight=520 (живий замір, актуальна висота картки в ту мить).
-  const topPx = ctx.computeDrawerTopPx(261, 505, 198, 520);
-  assert.equal(topPx, 48);
+  // vvOffsetTop=261, vvH=505 (вже виключають зайняту клавіатурою область —
+  // сама природа visualViewport.height), baseBottomPx=8 (ЛИШЕ
+  // --drawer-bottom-base, БЕЗ --kb-inset=190 — той уже врахований у vvH),
+  // drawerHeight=520.
+  const topPx = ctx.computeDrawerTopPx(261, 505, 8, 520);
+  assert.equal(topPx, 238);
   const bottomPx = topPx + 520;
-  assert.equal(bottomPx, 568, 'нова позиція ставить низ картки одразу над клавіатурою (261+505=766 видимих px, мінус 198 запасу) — не 435, як давала зламана bottom-резолюція WebKit');
+  assert.equal(bottomPx, 758, 'низ картки лишає рівно 8px (--drawer-bottom-base) до видимої межі (261+505=766) — Rev 2.22.93 (6D.166) віднімала тут ПОВНИЙ bottom=198 (8 база+190 --kb-inset), що давало 48 — картку закидало вгору ПОВТОРНО, бо vvH уже й так виключає клавіатуру (жива скарга користувача: "картка летить догори при кожному виклику клавіатури")');
 });
-test('syncDrawerTopPosition: ставить inline top/bottom:auto на ВІДКРИТУ шторку й ОЧИЩАЄ стилі попередньої, коли та закрилась', () => {
+test('syncDrawerTopPosition: приймає kbInsetPx і віднімає його з повного CSS bottom, щоб лишити лише базовий відступ (6D.166.1)', () => {
   function makeDrawer(id, bottomCss, height){
     return {
       id: id,
@@ -5178,6 +5179,8 @@ test('syncDrawerTopPosition: ставить inline top/bottom:auto на ВІДК
       _bottom: bottomCss,
     };
   }
+  // bottom=198px = 8 (--drawer-bottom-base) + 190 (--kb-inset) — живий кейс
+  // mark@129 (6D.166, kb-full-scenario 2).
   const drawerA = makeDrawer('drawer-a', '198px', 520);
   let openDrawer = drawerA;
   const ctx = require('./extract').buildSandbox({
@@ -5186,15 +5189,22 @@ test('syncDrawerTopPosition: ставить inline top/bottom:auto на ВІДК
     getComputedStyle: function(el){ return { bottom: el._bottom }; },
     lastPositionedDrawerEl: null,
   }, ['computeDrawerTopPx', 'syncDrawerTopPosition']);
-  ctx.syncDrawerTopPosition();
-  assert.equal(drawerA.style.top, '48px');
+  ctx.syncDrawerTopPosition(190);
+  assert.equal(drawerA.style.top, '238px', 'НЕ 48px (Rev 2.22.93 без kbInsetPx-поправки) — 238 лишає коректні 8px запасу над клавіатурою, а не закидає картку вгору вдруге');
   assert.equal(drawerA.style.bottom, 'auto');
+  // Клавіатури нема (kbInsetPx=0) — baseBottomPx дорівнює повному bottom,
+  // поведінка збігається зі старою (закритий стан/без клавіатури — без
+  // регресії, підтверджено desktop-перевіркою Rev 2.22.93).
+  const drawerB = makeDrawer('drawer-b', '8px', 520);
+  openDrawer = drawerB;
+  ctx.syncDrawerTopPosition(0);
+  assert.equal(drawerB.style.top, String(261 + 505 - 8 - 520) + 'px');
   // Тепер шторка закрилась (querySelector більше нічого не повертає) —
   // попередні inline-стилі мають ОЧИСТИТИСЬ, а не лишитись "залипнути".
   openDrawer = null;
-  ctx.syncDrawerTopPosition();
-  assert.equal(drawerA.style.top, '');
-  assert.equal(drawerA.style.bottom, '');
+  ctx.syncDrawerTopPosition(0);
+  assert.equal(drawerB.style.top, '');
+  assert.equal(drawerB.style.bottom, '');
 });
 
 // Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду без FK (deactivated_via/

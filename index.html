@@ -2726,7 +2726,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.93</div>
+  <div class="version-footer">Money Tree · Rev 2.22.94</div>
 </div>
   </div>
 </div>
@@ -6512,7 +6512,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.93';
+const APP_VERSION = '2.22.94';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15211,20 +15211,40 @@ function computeKeyboardInset(baseViewportHeight, visualViewportHeight, visualVi
 // відсотка/висоти) — getComputedStyle(el).bottom повертає його ВІРНО
 // завжди (на відміну від РЕНДЕРУ fixed-позиції, де й ховається баг), тому
 // безпечно читати звідти замість дублювання формули.
-function computeDrawerTopPx(vvOffsetTop, vvHeight, bottomPx, drawerHeightPx){
-  return Math.round(vvOffsetTop + vvHeight - bottomPx - drawerHeightPx);
+function computeDrawerTopPx(vvOffsetTop, vvHeight, baseBottomPx, drawerHeightPx){
+  return Math.round(vvOffsetTop + vvHeight - baseBottomPx - drawerHeightPx);
 }
+// Rev 2.22.94 (6D.166.1) BugFix — жива перевірка довела 6D.166 ЛАМАЛА картку
+// (злітала вгору майже за межі екрана при КОЖНІЙ появі клавіатури, без
+// повороту; після закриття лишалась видимою знизу) — найпомітніше на "Борги"
+// (вища картка, тому зсув помітніший), хоча баг однаково зачіпав усі шторки.
+// Корінь: syncDrawerTopPosition() віднімала ПОВНИЙ getComputedStyle(el).bottom
+// (= --drawer-bottom-base + --kb-inset, 198px у живому кейсі mark@129) від
+// vvOffsetTop+vvHeight — а visualViewport.height ВЖЕ не включає зайняту
+// клавіатурою область (сама її природа), тобто --kb-inset віднімався ДВІЧІ:
+// раз неявно (через уже звужений vvHeight), раз явно (через bottomPx). Чим
+// вищий --kb-inset (клавіатура), тим сильніше картку закидало вгору. Тест
+// computeDrawerTopPx(261,505,198,520)===48 (5D.166, pilot-repository.test.js)
+// сам підтверджує баг: 48px від верху екрана — це "виліт угору", не "над
+// клавіатурою". Правильна позиція (766−8−520=238) лишає лише 8px запасу над
+// видимою межею — рівно --drawer-bottom-base, БЕЗ повторного --kb-inset.
+// Виправлено: syncDrawerTopPosition() тепер приймає kbInsetPx (те саме
+// значення, щойно пораховане updateKeyboardInset() нижче) і віднімає його
+// від повного CSS bottom, щоб лишити ЛИШЕ базовий відступ — bottom
+// (CSS, резолюція надійна, 6D.166) лишається єдиним джерелом цього числа,
+// просто без подвійного врахування клавіатури.
 let lastPositionedDrawerEl = null;
-function syncDrawerTopPosition(){
+function syncDrawerTopPosition(kbInsetPx){
   const el = document.querySelector('.drawer.open');
   if(lastPositionedDrawerEl && lastPositionedDrawerEl !== el){
     lastPositionedDrawerEl.style.top = '';
     lastPositionedDrawerEl.style.bottom = '';
   }
   if(!el || !window.visualViewport){ lastPositionedDrawerEl = null; return; }
-  const bottomPx = parseFloat(getComputedStyle(el).bottom) || 0;
+  const fullBottomPx = parseFloat(getComputedStyle(el).bottom) || 0;
+  const baseBottomPx = Math.max(0, fullBottomPx - (kbInsetPx || 0));
   const heightPx = el.getBoundingClientRect().height;
-  const topPx = computeDrawerTopPx(window.visualViewport.offsetTop, window.visualViewport.height, bottomPx, heightPx);
+  const topPx = computeDrawerTopPx(window.visualViewport.offsetTop, window.visualViewport.height, baseBottomPx, heightPx);
   el.style.top = topPx + 'px';
   el.style.bottom = 'auto';
   lastPositionedDrawerEl = el;
@@ -15240,7 +15260,10 @@ function updateKeyboardInset(){
   // Rev 2.22.93 (6D.166) — ПІСЛЯ setProperty('--kb-inset', ...) вище:
   // syncDrawerTopPosition() читає computed bottom, який мусить уже
   // відображати щойно оновлений --kb-inset.
-  syncDrawerTopPosition();
+  // Rev 2.22.94 (6D.166.1) — передаємо inset, щоб syncDrawerTopPosition()
+  // могла відняти його з повного bottom і лишити лише базовий відступ
+  // (див. докоментар над функцією: подвійне віднімання --kb-inset).
+  syncDrawerTopPosition(inset);
 }
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', updateKeyboardInset);
