@@ -2706,7 +2706,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.88</div>
+  <div class="version-footer">Money Tree · Rev 2.22.90</div>
 </div>
   </div>
 </div>
@@ -3603,7 +3603,11 @@ async function pushSubcategoriesPilot(){
     const prevCloudId = sub.cloudId;
     try{
       if(sub.cloudId){
-        const { data, error } = await client.from('subcategories').update({ name: sub.name, category_id: parentCat.cloudId, active: sub.active, updated_at: sub.updatedAt, updated_by: userId }).eq('id', sub.cloudId).select('id');
+        // Rev 2.22.89 (6D.162, Ревізія C) — deactivated_via: текстовий
+        // маркер каскаду (без FK, рішення користувача) — той самий
+        // bulk-push-everything принцип, що й решта полів цього домену, без
+        // спеціальних умов.
+        const { data, error } = await client.from('subcategories').update({ name: sub.name, category_id: parentCat.cloudId, active: sub.active, deactivated_via: sub.deactivatedVia || null, updated_at: sub.updatedAt, updated_by: userId }).eq('id', sub.cloudId).select('id');
         if(error){ anyError = true; continue; }
         if(data && data.length === 0){
           sub.cloudId = null;
@@ -3641,10 +3645,10 @@ async function reconcileSubcategoryCloudId(client, userId, sub, categoryId){
   if(existing){
     sub.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
-    await client.from('subcategories').update({ category_id: categoryId, active: sub.active, updated_at: sub.updatedAt, updated_by: userId }).eq('id', existing.id);
+    await client.from('subcategories').update({ category_id: categoryId, active: sub.active, deactivated_via: sub.deactivatedVia || null, updated_at: sub.updatedAt, updated_by: userId }).eq('id', existing.id);
     return;
   }
-  const { data, error } = await client.from('subcategories').insert({ family_id: cloudFamilyId, category_id: categoryId, name: sub.name, active: sub.active, created_at: sub.createdAt, updated_at: sub.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
+  const { data, error } = await client.from('subcategories').insert({ family_id: cloudFamilyId, category_id: categoryId, name: sub.name, active: sub.active, deactivated_via: sub.deactivatedVia || null, created_at: sub.createdAt, updated_at: sub.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) sub.cloudId = data.id;
 }
 async function saveSubcategoryPriority(){
@@ -3711,7 +3715,35 @@ async function pushDictionaryPilot(){
         // tombstone — приймаємо чужу видаленість як є (не самозцілюємось,
         // не намагаємось реконсилити за keyword — рядок не "битий", просто
         // видалений).
-        const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, deleted_at: entry.deletedAt || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).is('deleted_at', null).select('id');
+        // Rev 2.22.89 (6D.162, Ревізія C) — deleted_via: текстовий маркер
+        // каскаду (без FK, рішення користувача) — той самий bulk-push-
+        // everything принцип, що й решта полів.
+        //
+        // Rev 2.22.90 (6D.163, Ревізія C — фікс знахідки) BugFix — живий тест
+        // restoreCategory() показав: `.is('deleted_at', null)` блокував САМЕ
+        // ВІДНОВЛЕННЯ так само, як і справжнє воскресіння застарілим
+        // пристроєм — guard не розрізняв "пристрій не знає про чуже
+        // видалення" від "користувач щойно навмисно відновив слово". Обидва
+        // виглядають однаково для SQL: UPDATE намагається зняти tombstone, а
+        // Cloud його ще має. Користувач відхилив `.lt('updated_at', ...)` —
+        // `updated_at` у Cloud чіпає КОЖЕН bulk-push (тригер set_updated_at_
+        // now(), Крок 0 підтвердив), включно з безглуздим пушем усього
+        // масиву іншим пристроєм з геть іншої причини — офлайн-правка, що
+        // повернулась онлайн пізніше, програла б цьому шуму й загубилась би.
+        // Натомість порівнюємо з `deleted_at` — це поле ставить ВИКЛЮЧНО
+        // клієнт при самому видаленні (Крок 0 підтвердив: єдиний тригер на
+        // таблиці, set_updated_at_now(), чіпає лише updated_at, ніколи
+        // deleted_at) — тому воно є надійним, "тихим" маркером моменту
+        // видалення, якого НЕ чіпає жоден сторонній bulk-push. Семантика:
+        // Cloud ще не бачив tombstone
+        // (null) АБО наша дія (updatedAt) новіша за сам момент видалення —
+        // тоді проходить: і легітимне відновлення (updatedAt="зараз" > стара
+        // deleted_at), і "правка після чужого видалення" (той самий
+        // принцип — навмисна семантика "останній, хто щось зробив,
+        // перемагає"). Справді застарілий пристрій (updatedAt старіший за
+        // САМ момент видалення) і далі програє — anti-resurrection з A2
+        // лишається чинним рівно для цього випадку.
+        const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).or('deleted_at.is.null,deleted_at.lt.' + entry.updatedAt).select('id');
         if(error){ anyError = true; continue; }
         if(data && data.length === 0){
           const { data: existingRow } = await client.from('dictionary').select('id, deleted_at').eq('id', entry.cloudId).maybeSingle();
@@ -3753,14 +3785,14 @@ async function reconcileDictionaryCloudId(client, userId, entry, categoryId, sub
   if(existing){
     entry.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
-    await client.from('dictionary').update({ category_id: categoryId, subcategory_id: subcategoryId, updated_at: entry.updatedAt, updated_by: userId }).eq('id', existing.id);
+    await client.from('dictionary').update({ category_id: categoryId, subcategory_id: subcategoryId, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', existing.id);
     return;
   }
   // Rev 2.22.80 (6D.153) — deleted_at: якщо сам запис офлайн-створений і
   // вже видалений ДО першого успішного sync (ніколи не мав cloudId), його
   // tombstone-стан має дійти в Cloud одразу при створенні рядка, не лише
   // наступним push-ем (якого вже не буде — немає що пушити, запис мертвий).
-  const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, deleted_at: entry.deletedAt || null, created_at: entry.createdAt, updated_at: entry.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
+  const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, created_at: entry.createdAt, updated_at: entry.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) entry.cloudId = data.id;
 }
 // Rev #30 (6D.28, subcategories+dictionary повний цикл) — Pull pilot,
@@ -3788,7 +3820,8 @@ async function pullSubcategoriesCore(){
   let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
   let maxSeen = null; // Rev #30 (6D.38) — max(updated_at) ЛИШЕ серед рядків, що пройшли FK-резолюцію (нижче)
   try{
-    let query = client.from('subcategories').select('id,name,category_id,active,created_at,updated_at').eq('family_id', cloudFamilyId);
+    // Rev 2.22.89 (6D.162, Ревізія C) — deactivated_via додано до select().
+    let query = client.from('subcategories').select('id,name,category_id,active,deactivated_via,created_at,updated_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'subcategories');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
@@ -3812,10 +3845,12 @@ async function pullSubcategoriesCore(){
           pushSubcategoriesPilot();
           continue;
         }
-        if(byCloudId.name !== row.name || byCloudId.category !== parentCat.name || byCloudId.active !== row.active || byCloudId.updatedAt !== row.updated_at){
+        if(byCloudId.name !== row.name || byCloudId.category !== parentCat.name || byCloudId.active !== row.active || (byCloudId.deactivatedVia||null) !== (row.deactivated_via||null) || byCloudId.updatedAt !== row.updated_at){
           byCloudId.name = row.name;
           byCloudId.category = parentCat.name;
           byCloudId.active = row.active;
+          // Rev 2.22.89 (6D.162, Ревізія C) — той самий tombstone-патерн, що deletedAt деінде.
+          if(row.deactivated_via) byCloudId.deactivatedVia = row.deactivated_via; else delete byCloudId.deactivatedVia;
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
           byCloudId.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
@@ -3828,13 +3863,14 @@ async function pullSubcategoriesCore(){
         byName.cloudId = row.id;
         byName.category = parentCat.name;
         byName.active = row.active;
+        if(row.deactivated_via) byName.deactivatedVia = row.deactivated_via; else delete byName.deactivatedVia;
         byName.createdAt = row.created_at;
         byName.updatedAt = row.updated_at;
         byName.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
         linked++;
         continue;
       }
-      SUBCATEGORIES.push({ name: row.name, category: parentCat.name, active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
+      SUBCATEGORIES.push({ name: row.name, category: parentCat.name, active: row.active, deactivatedVia: row.deactivated_via || undefined, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
       added++;
     }
     if(maxSeen) setSyncMarker('subcategories', maxSeen);
@@ -3865,7 +3901,8 @@ async function pullDictionaryCore(){
   let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
   try{
     // Rev 2.22.80 (6D.153, Крок A2) — deleted_at додано до select.
-    let query = client.from('dictionary').select('id,keyword,category_id,subcategory_id,deleted_at,created_at,updated_at').eq('family_id', cloudFamilyId);
+    // Rev 2.22.89 (6D.162, Ревізія C) — deleted_via додано до select.
+    let query = client.from('dictionary').select('id,keyword,category_id,subcategory_id,deleted_at,deleted_via,created_at,updated_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'dictionary');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
@@ -3889,12 +3926,14 @@ async function pullDictionaryCore(){
           pushDictionaryPilot();
           continue;
         }
-        if(byCloudId.kw !== row.keyword || byCloudId.cat !== parentCat.name || byCloudId.sub !== subName || (byCloudId.deletedAt||null) !== (row.deleted_at||null) || byCloudId.updatedAt !== row.updated_at){
+        if(byCloudId.kw !== row.keyword || byCloudId.cat !== parentCat.name || byCloudId.sub !== subName || (byCloudId.deletedAt||null) !== (row.deleted_at||null) || (byCloudId.deletedVia||null) !== (row.deleted_via||null) || byCloudId.updatedAt !== row.updated_at){
           byCloudId.kw = row.keyword;
           byCloudId.cat = parentCat.name;
           byCloudId.sub = subName;
           // Rev 2.22.80 (6D.153) — той самий tombstone-патерн, що expenses/incomes/debts.
           if(row.deleted_at) byCloudId.deletedAt = row.deleted_at; else delete byCloudId.deletedAt;
+          // Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду, той самий принцип.
+          if(row.deleted_via) byCloudId.deletedVia = row.deleted_via; else delete byCloudId.deletedVia;
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
           byCloudId.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
@@ -3913,6 +3952,7 @@ async function pullDictionaryCore(){
         byKw.cloudId = row.id;
         byKw.cat = parentCat.name;
         byKw.sub = subName;
+        if(row.deleted_via) byKw.deletedVia = row.deleted_via; else delete byKw.deletedVia;
         byKw.createdAt = row.created_at;
         byKw.updatedAt = row.updated_at;
         byKw.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
@@ -3926,7 +3966,7 @@ async function pullDictionaryCore(){
       // ЛОКАЛЬНИЙ tombstone одразу ж, не "живий" запис: потрібно для
       // майбутньої Корзини (Ревізія D) і щоб наступний push цього пристрою
       // не воскресив щойно довізнаний запис.
-      DICTIONARY.push({ id: generateUUID(), kw: row.keyword, cat: parentCat.name, sub: subName, cloudId: row.id, deletedAt: row.deleted_at || undefined, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
+      DICTIONARY.push({ id: generateUUID(), kw: row.keyword, cat: parentCat.name, sub: subName, cloudId: row.id, deletedAt: row.deleted_at || undefined, deletedVia: row.deleted_via || undefined, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
       added++;
     }
     if(maxSeen) setSyncMarker('dictionary', maxSeen);
@@ -6382,7 +6422,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.88';
+const APP_VERSION = '2.22.90';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11610,19 +11650,33 @@ function deleteCategory(i){
     // "новіший" і мовчки повернути cat.active=true, скасовуючи видалення.
     cat.updatedAt = new Date().toISOString();
     const orphanedNames = orphanedSubs.map(s=>s.name);
-    orphanedSubs.forEach(function(s){ s.active = false; });
+    // Rev 2.22.89 (6D.162, Ревізія C) — deactivated_via='category': текстовий
+    // маркер каскаду (рішення користувача — без FK, назва вже стабільний
+    // унікальний ключ, перевіряється навіть серед неактивних записів, а
+    // неактивну категорію/підкатегорію не можна перейменувати через UI).
+    // orphanedSubs — та сама підмножина, що й попередження вище (лише
+    // ЩОЙНО активні, уже незалежно видалені підкатегорії тут не з'являються
+    // — фільтр s.active на початку функції). updatedAt теж бампається тут
+    // навмисно — без цього LWW-порівняння при pull могло б не побачити цю
+    // зміну як "нову" (той самий принцип, що cat.updatedAt вище).
+    const cascadeSubNowISO = new Date().toISOString();
+    orphanedSubs.forEach(function(s){ s.active = false; s.deactivatedVia = 'category'; s.updatedAt = cascadeSubNowISO; });
     reportSaveResult(await saveSubcategories());
     // Записи словника, що вказували на цю категорію або на видалені разом з
     // нею підкатегорії, теж прибираємо — інакше вони "мовчки" пропонували б
     // категорію/підкатегорію, якої вже нема в активному списку.
     // Rev 2.22.80 (6D.153, Крок A2) — tombstone замість splice (той самий
-    // баг відскоку, що deleteDictionaryEntry() мав до цього Rev) — без
-    // маркера каскаду (Ревізія C, окремо). Записи, що вже tombstone,
-    // пропускаємо — нема сенсу повторно бампати updatedAt.
+    // баг відскоку, що deleteDictionaryEntry() мав до цього Rev). Записи,
+    // що вже tombstone, пропускаємо — нема сенсу повторно бампати updatedAt
+    // (і, Rev 2.22.89, не затирати маркер уже незалежно видаленого слова).
+    // Rev 2.22.89 (6D.162, Ревізія C) — deleted_via='category': ОБИДВА
+    // випадки нижче (пряме посилання на категорію й каскад через орфанed-
+    // підкатегорію) викликані САМЕ видаленням категорії, тому маркер
+    // однаковий для обох.
     const cascadeNowISO = new Date().toISOString();
     DICTIONARY.forEach(function(d){
       if(d.deletedAt) return;
-      if(d.cat===cat.name || orphanedNames.includes(d.sub)){ d.deletedAt = cascadeNowISO; d.updatedAt = cascadeNowISO; }
+      if(d.cat===cat.name || orphanedNames.includes(d.sub)){ d.deletedAt = cascadeNowISO; d.deletedVia = 'category'; d.updatedAt = cascadeNowISO; }
     });
     reportSaveResult(await saveDictionary());
     reportSaveResult(await saveCategories());
@@ -11686,15 +11740,85 @@ function deleteSubcategory(i){
     sub.updatedAt = new Date().toISOString();
     // Rev 2.22.80 (6D.153, Крок A2) — tombstone замість splice, той самий
     // принцип, що deleteCategory() вище.
+    // Rev 2.22.89 (6D.162, Ревізія C) — deleted_via='subcategory': пряме
+    // видалення підкатегорії (на відміну від каскаду через deleteCategory()
+    // вище, де маркер 'category').
     const cascadeNowISO2 = new Date().toISOString();
     DICTIONARY.forEach(function(d){
       if(d.deletedAt) return;
-      if(d.sub===sub.name){ d.deletedAt = cascadeNowISO2; d.updatedAt = cascadeNowISO2; }
+      if(d.sub===sub.name){ d.deletedAt = cascadeNowISO2; d.deletedVia = 'subcategory'; d.updatedAt = cascadeNowISO2; }
     });
     reportSaveResult(await saveDictionary());
     reportSaveResult(await saveSubcategories());
     renderStructure();
   }, 'Так, видалити');
+}
+// Rev 2.22.89 (6D.162, Ревізія C) — restoreCategory()/restoreSubcategory():
+// дата-функції без UI (сам екран "Видалені дані" — Ревізія D, окремо).
+// Селективність — ключова вимога: відновлюємо ЛИШЕ те, що позначено
+// ВІДПОВІДНИМ маркером каскаду ('category'/'subcategory') — слово чи
+// підкатегорія, видалені ОКРЕМО (без маркера, чи з іншим маркером), жодним
+// чином не чіпаються. Назва — вже стабільний унікальний ключ в усьому
+// застосунку (перевіряється навіть серед неактивних записів,
+// openAddCategoryModal()/openAddSubcategoryModal() вище), тому адресація за
+// іменем тут безпечна, той самий принцип, що й самі маркери.
+async function restoreCategory(name){
+  const cat = CATEGORIES.find(function(c){ return c.name === name && !c.active; });
+  if(!cat) return { success: false, error: 'Категорію не знайдено серед видалених.' };
+  // Захист від колізії: за звичайної роботи UI неможливий (ім'я заблоковане
+  // назавжди, доки існує неактивний запис з ним-таки) — але дешевий і
+  // коректний запобіжник, явно вимагався ТЗ.
+  if(CATEGORIES.some(function(c){ return c.active && c.name === name; })){
+    return { success: false, error: 'Категорія з такою назвою вже активна.' };
+  }
+  const nowISO = new Date().toISOString();
+  cat.active = true;
+  cat.updatedAt = nowISO;
+  SUBCATEGORIES.forEach(function(s){
+    if(s.deactivatedVia === 'category' && s.category === name){
+      s.active = true;
+      delete s.deactivatedVia;
+      s.updatedAt = nowISO;
+    }
+  });
+  reportSaveResult(await saveSubcategories());
+  DICTIONARY.forEach(function(d){
+    if(d.deletedVia === 'category' && d.cat === name){
+      delete d.deletedAt;
+      delete d.deletedVia;
+      d.updatedAt = nowISO;
+    }
+  });
+  reportSaveResult(await saveDictionary());
+  reportSaveResult(await saveCategories());
+  populateMonths(); renderAll(); renderStructure(); populateCategorySelect();
+  return { success: true };
+}
+async function restoreSubcategory(cat, name){
+  const parentCat = CATEGORIES.find(function(c){ return c.name === cat; });
+  if(!parentCat || !parentCat.active){
+    return { success: false, error: 'Категорію ще не відновлено — спершу відновіть її.' };
+  }
+  const sub = SUBCATEGORIES.find(function(s){ return s.name === name && s.category === cat && !s.active; });
+  if(!sub) return { success: false, error: 'Підкатегорію не знайдено серед видалених.' };
+  if(SUBCATEGORIES.some(function(s){ return s.active && s.name === name; })){
+    return { success: false, error: 'Підкатегорія з такою назвою вже активна.' };
+  }
+  const nowISO = new Date().toISOString();
+  sub.active = true;
+  delete sub.deactivatedVia;
+  sub.updatedAt = nowISO;
+  DICTIONARY.forEach(function(d){
+    if(d.deletedVia === 'subcategory' && d.sub === name){
+      delete d.deletedAt;
+      delete d.deletedVia;
+      d.updatedAt = nowISO;
+    }
+  });
+  reportSaveResult(await saveDictionary());
+  reportSaveResult(await saveSubcategories());
+  populateMonths(); renderAll(); renderStructure();
+  return { success: true };
 }
 // Rev 2.18.0 — короткий список на "Витрати" показував ВСІ записи (лише
 // обрізані до 80) без фільтра — глибша історія просто зникала. Тепер короткий

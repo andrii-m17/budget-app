@@ -161,6 +161,12 @@ const REPOSITORY_NAMES = [
   'compareDictionaryForDisplay',
   'restoreCategoriesFromBackup', 'restoreSubcategoriesFromBackup',
   'restoreSubcategoryPriorityFromBackup', 'restoreDictionaryFromBackup',
+  // Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду без FK. deleteCategory/
+  // deleteSubcategory самі обгорнуті в showConfirmModal() (DOM-діалог
+  // підтвердження) — підмінюється в globals нижче (sandbox()) на негайний
+  // виклик onConfirm(), той самий принцип, що решта DOM-шару тут.
+  // restoreCategory/restoreSubcategory — нові дата-функції без власного UI.
+  'deleteCategory', 'deleteSubcategory', 'restoreCategory', 'restoreSubcategory',
   // Rev #28.D1
   'loadBankAccounts', 'loadInstallmentAccounts', 'loadHiddenFrom', 'loadIgnoredDivergences',
   'saveBankAccounts', 'saveBankAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId',
@@ -258,8 +264,18 @@ const REPOSITORY_NAMES = [
 
 function sandbox({ localStorageInitial, idbImpl } = {}){
   const fakeIdbInstance = idbImpl || fakeIdb();
+  // Rev 2.22.89 (6D.162, Ревізія C) — showConfirmModal() нижче навмисно НЕ
+  // покладається на bare-виклик `this` (спроба через `this.x = ...`
+  // провалилась: функція визначена в реалмі Node, а bare-виклик зсередини
+  // vm.Context підставляє GLOBAL ОБ'ЄКТ РЕАЛМУ САМОЇ ФУНКЦІЇ — тобто
+  // справжній Node-global, не ctx) — замість цього звичайне замикання над
+  // confirmState, той самий об'єкт за посиланням видається тесту як
+  // ctx.__confirmState (примітиви копіюються в vm.createContext, об'єкти —
+  // за посиланням, тому це працює крос-реалмово).
+  const confirmState = {};
   const ctx = buildSandbox(
     {
+      __confirmState: confirmState,
       localStorage: fakeLocalStorage(localStorageInitial),
       idb: fakeIdbInstance.idb,
       idbLoadPromise: null,
@@ -333,6 +349,13 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       populateInstallmentTable: function(){},
       renderAll: function(){},
       populateMonths: function(){},
+      // Rev 2.22.89 (6D.162, Ревізія C) — deleteCategory()/deleteSubcategory()
+      // обгорнуті в showConfirmModal(message, onConfirm) (DOM-діалог) — той
+      // самий принцип, що решта DOM-шару вище: підміняємо на негайний виклик
+      // onConfirm(), Promise зберігаємо в confirmState (замикання, не
+      // bare-виклик `this` — докоментар над confirmState вище пояснює чому),
+      // щоб тест міг його await-нути через ctx.__confirmState.lastPromise.
+      showConfirmModal: function(message, onConfirm){ confirmState.lastPromise = onConfirm(); },
     },
     REPOSITORY_NAMES
   );
@@ -3281,16 +3304,19 @@ test('Rev 2.22.79 (6D.152): restoreDictionaryFromBackup() зі СТАРОГО б
    одному проході ('id' — reconcile за keyword; 'id, deleted_at' — перевірка
    чи рядок уже tombstone), розрізняємо їх за точним рядком колонок, який
    реальний код передає в select(cols) — так само, як сам продакшн-код це
-   робить неявно через різні .select()-виклики. */
+   робить неявно через різні .select()-виклики.
+   Rev 2.22.90 (6D.163, Ревізія C — фікс знахідки) — ланцюжок update() тепер
+   закінчується .or() замість .is() (продакшн-код замінив guard), приймає
+   сам аргумент фільтра — тест нижче звіряє точний рядок. */
 function dictionaryMockClient(opts){
-  const calls = { updates: [], selects: [], inserts: [] };
+  const calls = { updates: [], selects: [], inserts: [], orFilters: [] };
   const client = {
     from(table){
       assert.equal(table, 'dictionary');
       return {
         update(payload){
           calls.updates.push(payload);
-          return { eq(){ return { is(){ return { select(){ return Promise.resolve(opts.updateResult); } }; } }; } };
+          return { eq(){ return { or(filter){ calls.orFilters.push(filter); return { select(){ return Promise.resolve(opts.updateResult); } }; } }; } };
         },
         select(cols){
           calls.selects.push(cols);
@@ -3349,6 +3375,89 @@ test('6D.153: справжній self-heal — cloudId дійсно не існ�
   await ctx.pushDictionaryPilot();
   assert.equal(entry.cloudId, 'new-cloud-id');
   assert.equal(calls.inserts.length, 1);
+});
+
+test('Rev 2.22.89 (6D.162, Ревізія C): pushDictionaryPilot() надсилає deleted_via у payload update', async () => {
+  const entry = { id: 'local-1', kw: 'лате', cat: 'Їжа', sub: null, cloudId: 'cloud-1', deletedAt: '2026-03-01T00:00:00.000Z', deletedVia: 'category', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-03-01T00:00:00.000Z' };
+  const ctx = dictionarySandboxFor(entry);
+  const { client, calls } = dictionaryMockClient({
+    updateResult: { data: [{ id: 'cloud-1' }], error: null },
+  });
+  ctx.getSupabaseClient = () => client;
+  await ctx.pushDictionaryPilot();
+  assert.equal(calls.updates[0].deleted_via, 'category');
+});
+
+/* ============ Rev 2.22.90 (6D.163, Ревізія C — фікс знахідки) =============
+   `.is('deleted_at', null)` замінено на `.or('deleted_at.is.null,deleted_at.
+   lt.'+entry.updatedAt)` — користувач відхилив варіант через updated_at
+   (чіпається КОЖНИМ bulk-push, включно з чужим безглуздим) і вимагав
+   порівняння з deleted_at (ставить ВИКЛЮЧНО клієнт у момент самого
+   видалення, Крок 0 підтвердив — жоден тригер його не чіпає). 4 тести
+   нижче відповідають 4 пунктам DoD-доповнення. */
+test('6D.163: A2 лишається чинним — застарілий пристрій (updatedAt СТАРІШИЙ за сам момент видалення) НЕ воскрешає tombstone', async () => {
+  // Та сама форма .or(), що й продакшн: guard НЕ повинен пропустити update,
+  // якщо deleted_at у Cloud НЕ null і НЕ старіший за наш updatedAt — мок
+  // відповідає data:[] (0 рядків), той самий сценарій, що вже існуючий тест
+  // 6D.153 вище ("старий пристрій зберігає запис як живий"), лише тепер
+  // явно перевіряємо сам рядок OR-фільтра, переданий у .or().
+  const entry = { id: 'local-1', kw: 'кава', cat: 'Їжа', sub: null, cloudId: 'cloud-1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  const ctx = dictionarySandboxFor(entry);
+  const { client, calls } = dictionaryMockClient({
+    updateResult: { data: [], error: null },
+    existingRowResult: { data: { id: 'cloud-1', deleted_at: '2026-02-01T00:00:00.000Z' }, error: null },
+  });
+  ctx.getSupabaseClient = () => client;
+  await ctx.pushDictionaryPilot();
+  assert.equal(calls.orFilters[0], 'deleted_at.is.null,deleted_at.lt.2026-01-01T00:00:00.000Z');
+  assert.equal(entry.deletedAt, '2026-02-01T00:00:00.000Z', 'A2 незмінний: застарілий пристрій приймає чуже видалення, не воскрешає');
+});
+test('6D.163: відновлення слова виграє у старого tombstone — Cloud отримує deleted_at=null, deleted_via=null', async () => {
+  // updatedAt (момент відновлення, "зараз") новіший за deleted_at Cloud —
+  // .or() пропускає update, guard більше НЕ блокує легітимне відновлення.
+  const entry = { id: 'local-1', kw: 'лате', cat: 'Їжа', sub: null, cloudId: 'cloud-1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-05-01T00:00:00.000Z' };
+  const ctx = dictionarySandboxFor(entry);
+  const { client, calls } = dictionaryMockClient({
+    updateResult: { data: [{ id: 'cloud-1' }], error: null }, // Cloud deleted_at (2026-02-01) < entry.updatedAt (2026-05-01) → guard пропускає
+  });
+  ctx.getSupabaseClient = () => client;
+  const result = await ctx.pushDictionaryPilot();
+  assert.equal(result.success, true);
+  assert.equal(calls.updates[0].deleted_at, null);
+  assert.equal(calls.updates[0].deleted_via, null);
+  assert.equal(calls.orFilters[0], 'deleted_at.is.null,deleted_at.lt.2026-05-01T00:00:00.000Z');
+  assert.equal(entry.deletedAt, undefined, 'локальний запис теж лишається живим — push вважається успішним');
+});
+test('6D.163: навмисна семантика — правка слова ПІСЛЯ чужого видалення перемагає ("останній, хто щось зробив")', async () => {
+  // Той самий механізм, що відновлення вище: локальний updatedAt (момент
+  // правки) новіший за deleted_at Cloud → правка "воскрешає" слово разом
+  // із новими полями (keyword/category/subcategory з цієї самої правки).
+  const entry = { id: 'local-1', kw: 'лате оновлене', cat: 'Їжа', sub: null, cloudId: 'cloud-1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-04-01T00:00:00.000Z' };
+  const ctx = dictionarySandboxFor(entry);
+  const { client, calls } = dictionaryMockClient({
+    updateResult: { data: [{ id: 'cloud-1' }], error: null }, // Cloud deleted_at (2026-02-01) < entry.updatedAt (2026-04-01)
+  });
+  ctx.getSupabaseClient = () => client;
+  const result = await ctx.pushDictionaryPilot();
+  assert.equal(result.success, true);
+  assert.equal(calls.updates[0].keyword, 'лате оновлене');
+  assert.equal(calls.updates[0].deleted_at, null);
+});
+test('6D.163: чужий безглуздий bulk-push (рядок у Cloud ЖИВИЙ, не tombstone) не блокує легітимну правку — alive-гілка .or() незалежна від updatedAt', async () => {
+  // deleted_at.is.null у .or() — перша умова, спрацьовує для БУДЬ-ЯКОГО
+  // живого рядка незалежно від того, наскільки "новим" виглядає чужий
+  // updated_at (bulk-push чужого пристрою його й так постійно чіпає,
+  // Крок 0 підтвердив) — друга умова (deleted_at.lt...) тут навіть не
+  // потрібна, перша вже пропускає.
+  const entry = { id: 'local-1', kw: 'кава без молока', cat: 'Їжа', sub: null, cloudId: 'cloud-1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  const ctx = dictionarySandboxFor(entry);
+  const { client, calls } = dictionaryMockClient({
+    updateResult: { data: [{ id: 'cloud-1' }], error: null }, // Cloud рядок живий (deleted_at null) — перша умова .or() завжди проходить
+  });
+  ctx.getSupabaseClient = () => client;
+  const result = await ctx.pushDictionaryPilot();
+  assert.equal(result.success, true);
+  assert.equal(calls.updates[0].keyword, 'кава без молока');
 });
 
 test('6D.153: reconcileDictionaryCloudId фільтрує .is(deleted_at, null) — знаходить ЖИВИЙ рядок навіть якщо є tombstone з тим самим keyword', async () => {
@@ -5039,4 +5148,131 @@ test('nextBaseViewportHeight: Rev 2.22.85 — одинична хибна про
 test('nextBaseViewportHeight: легітимне зростання (напр. приховання адресного рядка) враховується', () => {
   const ctx = keyboardInsetSandbox();
   assert.equal(ctx.nextBaseViewportHeight(844, 894), 894);
+});
+
+// Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду без FK (deactivated_via/
+// deleted_via, текстові, рішення користувача). Ключова вимога —
+// СЕЛЕКТИВНІСТЬ: слово/підкатегорія, видалені ОКРЕМО (без маркера чи з
+// іншим маркером), ніколи не чіпаються ні каскадом, ні відновленням.
+test('deleteCategory: каскад ставить deactivated_via/deleted_via ЛИШЕ на точну підмножину — вже окремо видалені лишаються незайманими', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Їжа', type: 'Гнучка', active: true }];
+  ctx.SUBCATEGORIES = [
+    { name: 'Кафе', category: 'Їжа', active: true },
+    { name: 'Вже видалена окремо', category: 'Їжа', active: false },
+  ];
+  ctx.DICTIONARY = [
+    { id: 'd1', kw: 'лате', cat: 'Їжа', sub: 'Кафе' },
+    { id: 'd2', kw: 'пряме-на-категорію', cat: 'Їжа', sub: null },
+    { id: 'd3', kw: 'окремо видалене', cat: 'Їжа', sub: null, deletedAt: '2020-01-01T00:00:00.000Z' },
+  ];
+  ctx.deleteCategory(0);
+  await ctx.__confirmState.lastPromise;
+  assert.equal(ctx.CATEGORIES[0].active, false);
+  assert.equal(ctx.SUBCATEGORIES[0].active, false);
+  assert.equal(ctx.SUBCATEGORIES[0].deactivatedVia, 'category');
+  assert.equal(ctx.SUBCATEGORIES[1].deactivatedVia, undefined); // не чіпали
+  assert.equal(ctx.DICTIONARY[0].deletedVia, 'category');
+  assert.equal(ctx.DICTIONARY[1].deletedVia, 'category');
+  assert.equal(ctx.DICTIONARY[2].deletedVia, undefined); // вже видалене окремо — не чіпали, deletedAt той самий
+  assert.equal(ctx.DICTIONARY[2].deletedAt, '2020-01-01T00:00:00.000Z');
+});
+test('deleteSubcategory: deleted_via=subcategory лише на ВЛАСНІ слова підкатегорії, не чіпає вже видалені через категорію', async () => {
+  const { ctx } = sandbox();
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: 'Їжа', active: true }];
+  ctx.DICTIONARY = [
+    { id: 'd1', kw: 'лате', cat: 'Їжа', sub: 'Кафе' },
+    { id: 'd2', kw: 'вже видалене каскадом категорії', cat: 'Їжа', sub: 'Кафе', deletedAt: '2020-01-01T00:00:00.000Z', deletedVia: 'category' },
+  ];
+  ctx.deleteSubcategory(0);
+  await ctx.__confirmState.lastPromise;
+  assert.equal(ctx.SUBCATEGORIES[0].active, false);
+  assert.equal(ctx.DICTIONARY[0].deletedVia, 'subcategory');
+  assert.equal(ctx.DICTIONARY[1].deletedVia, 'category'); // не чіпали
+});
+test('restoreCategory: відновлює категорію + ЛИШЕ підкатегорії/слова з маркером category для ЦІЄЇ категорії', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Їжа', type: 'Гнучка', active: false }];
+  ctx.SUBCATEGORIES = [
+    { name: 'Кафе', category: 'Їжа', active: false, deactivatedVia: 'category' },
+    { name: 'Окремо видалена', category: 'Їжа', active: false },
+  ];
+  ctx.DICTIONARY = [
+    { id: 'd1', kw: 'лате', cat: 'Їжа', sub: 'Кафе', deletedAt: '2020-01-01T00:00:00.000Z', deletedVia: 'category' },
+    { id: 'd2', kw: 'окреме слово', cat: 'Їжа', sub: null, deletedAt: '2020-02-01T00:00:00.000Z' },
+  ];
+  const result = await ctx.restoreCategory('Їжа');
+  assert.equal(result.success, true);
+  assert.equal(ctx.CATEGORIES[0].active, true);
+  assert.equal(ctx.SUBCATEGORIES[0].active, true);
+  assert.equal(ctx.SUBCATEGORIES[0].deactivatedVia, undefined);
+  assert.equal(ctx.SUBCATEGORIES[1].active, false); // незалежно видалена — лишилась видаленою
+  assert.equal(ctx.DICTIONARY[0].deletedAt, undefined);
+  assert.equal(ctx.DICTIONARY[0].deletedVia, undefined);
+  assert.equal(ctx.DICTIONARY[1].deletedAt, '2020-02-01T00:00:00.000Z'); // незалежно видалене слово — не відновили
+});
+test('restoreCategory: блокується, якщо вже є АКТИВНА категорія з такою самою назвою (захисна перевірка колізії)', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [
+    { name: 'Їжа', active: false },
+    { name: 'Їжа', active: true },
+  ];
+  const result = await ctx.restoreCategory('Їжа');
+  assert.equal(result.success, false);
+  assert.equal(ctx.CATEGORIES[0].active, false);
+});
+test('restoreCategory: категорію не знайдено серед видалених → чітка помилка, не кидає виняток', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Їжа', active: true }];
+  const result = await ctx.restoreCategory('Немає такої');
+  assert.equal(result.success, false);
+});
+test('restoreSubcategory: провалюється, поки батьківська категорія ще неактивна', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Їжа', active: false }];
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: 'Їжа', active: false, deactivatedVia: 'category' }];
+  const result = await ctx.restoreSubcategory('Їжа', 'Кафе');
+  assert.equal(result.success, false);
+  assert.equal(ctx.SUBCATEGORIES[0].active, false);
+});
+test('restoreSubcategory: відновлює підкатегорію + ЛИШЕ її власні deleted_via=subcategory слова', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Їжа', active: true }];
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: 'Їжа', active: false, deactivatedVia: 'category' }];
+  ctx.DICTIONARY = [
+    { id: 'd1', kw: 'лате', cat: 'Їжа', sub: 'Кафе', deletedAt: '2020-01-01T00:00:00.000Z', deletedVia: 'subcategory' },
+    { id: 'd2', kw: 'видалене разом з категорією', cat: 'Їжа', sub: 'Кафе', deletedAt: '2020-02-01T00:00:00.000Z', deletedVia: 'category' },
+  ];
+  const result = await ctx.restoreSubcategory('Їжа', 'Кафе');
+  assert.equal(result.success, true);
+  assert.equal(ctx.SUBCATEGORIES[0].active, true);
+  assert.equal(ctx.DICTIONARY[0].deletedAt, undefined);
+  assert.equal(ctx.DICTIONARY[1].deletedAt, '2020-02-01T00:00:00.000Z'); // інший маркер — не відновили
+});
+test('restoreSubcategory: блокується, якщо вже є АКТИВНА підкатегорія з такою самою назвою (захисна перевірка колізії)', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Їжа', active: true }];
+  ctx.SUBCATEGORIES = [
+    { name: 'Кафе', category: 'Їжа', active: false, deactivatedVia: 'category' },
+    { name: 'Кафе', category: 'Напої', active: true },
+  ];
+  const result = await ctx.restoreSubcategory('Їжа', 'Кафе');
+  assert.equal(result.success, false);
+  assert.equal(ctx.SUBCATEGORIES[0].active, false);
+});
+test('restoreSubcategoriesFromBackup: старий бекап БЕЗ поля deactivatedVia відновлюється штатно (відсутнє поле — не помилка)', async () => {
+  const { ctx } = sandbox();
+  ctx.SUBCATEGORIES = [];
+  const backup = JSON.stringify([{ name: 'Кафе', category: 'Їжа', active: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }]);
+  const result = await ctx.restoreSubcategoriesFromBackup(backup);
+  assert.equal(result.added, 1);
+  assert.equal(ctx.SUBCATEGORIES[0].deactivatedVia, undefined);
+});
+test('restoreDictionaryFromBackup: старий бекап БЕЗ поля deletedVia відновлюється штатно (відсутнє поле — не помилка)', async () => {
+  const { ctx } = sandbox();
+  ctx.DICTIONARY = [];
+  const backup = JSON.stringify([{ id: 'd1', kw: 'лате', cat: 'Їжа', sub: null, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }]);
+  const result = await ctx.restoreDictionaryFromBackup(backup);
+  assert.equal(result.added, 1);
+  assert.equal(ctx.DICTIONARY[0].deletedVia, undefined);
 });
