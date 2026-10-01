@@ -5608,7 +5608,9 @@ function debugRecorderDomSandbox(opts){
       if(sel === '.drawer-backdrop.open') return opts.backdropEl || null;
       return null; // nav.tabbar тощо — відсутній у фейковому DOM, безпечно
     },
-    getElementById: function(){ return null; },
+    // Rev 2.23.5 (6D.174) — opts.mainColEl: для діагностики
+    // "фон і далі скролиться" (mainColInert/mainColScrollTop).
+    getElementById: function(id){ return id === 'main-col' ? (opts.mainColEl || null) : null; },
     addEventListener: function(type, h){ added.push({ target: 'document', type: type, h: h }); },
     removeEventListener: function(type, h){ removed.push({ target: 'document', type: type, h: h }); },
   };
@@ -5702,6 +5704,29 @@ test('captureDebugGeometry: записує прямокутники ВІДКРИ
   assert.equal(evt.drawerClientHeight, 400);
   assert.equal(evt.drawerMaxHeightPx, 500);
   assert.equal(evt.baseVh, '894px');
+});
+// Rev 2.23.5 (6D.174) — скарга "фон і далі скролиться, попри 6D.173" —
+// mainColInert/mainColScrollTop дадуть пряму відповідь: чи inert взагалі
+// СТАВИТЬСЯ, і чи РЕАЛЬНО міняється scrollTop, поки він активний (можлива
+// причина — inert на iOS Safari/WKWebView не гарантовано блокує
+// touch-scroll, лише клік/фокус). drawerKeyboardLockActive (6D.173,
+// внутрішній прапорець усередині окремої IIFE initApp) НЕ читається тут —
+// captureDebugGeometry глобальна, немає доступу; mainColInert (зовнішньо
+// спостережуваний DOM-стан) дає ту саму відповідь ззовні.
+test('captureDebugGeometry: записує mainColInert/mainColScrollTop (6D.174)', () => {
+  const mainColEl = { hasAttribute: function(n){ return n === 'inert'; }, scrollTop: 123 };
+  const { ctx } = debugRecorderDomSandbox({ mainColEl: mainColEl });
+  ctx.startDebugRecording('');
+  const evt = ctx.debugEventBuffer[ctx.debugEventBuffer.length - 1];
+  assert.equal(evt.mainColInert, true);
+  assert.equal(evt.mainColScrollTop, 123, 'якщо це число РОСТИМЕ в живому логу, поки mainColInert:true — inert НЕ блокує touch-scroll на цьому WebKit');
+});
+test('captureDebugGeometry: без #main-col у DOM — mainColInert/mainColScrollTop null, не падає', () => {
+  const { ctx } = debugRecorderDomSandbox();
+  ctx.startDebugRecording('');
+  const evt = ctx.debugEventBuffer[ctx.debugEventBuffer.length - 1];
+  assert.equal(evt.mainColInert, null);
+  assert.equal(evt.mainColScrollTop, null);
 });
 test('captureDebugGeometry: без відкритої шторки/підложки — поля null, не падає', () => {
   const { ctx } = debugRecorderDomSandbox();

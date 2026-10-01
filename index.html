@@ -2763,7 +2763,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.4</div>
+  <div class="version-footer">Money Tree · Rev 2.23.5</div>
 </div>
   </div>
 </div>
@@ -6554,7 +6554,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.4';
+const APP_VERSION = '2.23.5';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8799,6 +8799,9 @@ const DEBUG_EVENT_ALLOWLIST = [
   // скільки йому ДОЗВОЛЕНО (clientHeight/max-height) — без цього неможливо
   // відрізнити "max-height занадто малий" від "контент справді не влазить".
   'drawerScrollHeight', 'drawerClientHeight', 'drawerMaxHeightPx', 'baseVh',
+  // Rev 2.23.5 (6D.174) — скарга "фон і далі скролиться, попри 6D.173" —
+  // діагностика, чи inert ВЗАГАЛІ ставиться і чи ДІЙСНО блокує scrollTop.
+  'mainColInert', 'mainColScrollTop',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -8912,6 +8915,19 @@ function captureDebugGeometry(type, extra){
     drawerClientHeight: openDrawer ? openDrawer.clientHeight : null,
     drawerMaxHeightPx: openDrawer ? parseFloat(getComputedStyle(openDrawer).maxHeight) : null,
     baseVh: getComputedStyle(document.documentElement).getPropertyValue('--base-vh'),
+    // Rev 2.23.5 (6D.174) — скарга користувача: фон і далі скролиться на
+    // iPhone, попри 6D.173 (inert на #main-col при фокусі поля в шторці).
+    // mainColInert/mainColScrollTop — щоб бачити НАПРЯМУ: чи inert взагалі
+    // СТАВИТЬСЯ (можливий збій у нашій логіці) і чи РЕАЛЬНО змінюється
+    // scrollTop ПОКИ inert встановлено (можлива причина — inert на iOS
+    // Safari/WKWebView не гарантовано блокує touch-scroll, лише клік/фокус
+    // — потребує підтвердження живими даними перед новим фіксом, а не
+    // повторного вгадування). drawerKeyboardLockActive (внутрішній JS-
+    // прапорець, 6D.173) НЕ читаємо тут — він живе всередині окремої IIFE
+    // (initApp), недоступний із цієї, глобальної функції; mainColInert —
+    // те саме, але через зовнішньо спостережуваний DOM-стан, якого досить.
+    mainColInert: (function(){ const mc = document.getElementById('main-col'); return mc ? mc.hasAttribute('inert') : null; })(),
+    mainColScrollTop: (function(){ const mc = document.getElementById('main-col'); return mc ? mc.scrollTop : null; })(),
   }, extra || {}));
 }
 function onDebugWindowResize(){ captureDebugGeometry('resize'); }
