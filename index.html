@@ -2637,7 +2637,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.81</div>
+  <div class="version-footer">Money Tree · Rev 2.22.82</div>
 </div>
   </div>
 </div>
@@ -4008,27 +4008,46 @@ async function restoreBankAccountsFromBackup(raw){
   if(counts.updated || counts.added) await pushBankAccountsPilot();
   return Object.assign({}, saveResult, counts);
 }
-// Rev #30 (6D.48) — P1.3 (переглянуто, фінальний домен): hiddenFrom НЕ
-// отримує LWW (немає per-entry timestamp, той самий факт, що вже
-// встановлений для hidden_entities у 6D.32/6D.38) — замість цього той
-// самий existence-based принцип, що вже в pullHiddenEntitiesCore(): ключ
-// відсутній локально → додати з бекапу; вже є локально → НЕ чіпати
-// (бекап ніколи не перезаписує вже наявний локальний запис). raw===null
-// → порожній merge, локальне не чіпається (той самий принцип, що решта 8 доменів).
+// Rev #30 (6D.48) — P1.3: ІСТОРИЧНО hiddenFrom не мав LWW (не було
+// per-entry timestamp) — existence-based merge (ключ відсутній локально →
+// додати з бекапу; вже є → не чіпати).
+// Rev 2.22.82 (6D.155, Ревізія B) — тепер кожен запис МАЄ updatedAt
+// (tombstone-модель) — merge переведено на той самий LWW-принцип, що
+// решта доменів: локальне лишається, якщо воно не старіше за бекап.
+// Зворотна сумісність: і БЕКАП, і (теоретично вже неможливо, але про
+// всяк випадок) локальний запис можуть лишатись у старому форматі
+// (голий рядок-місяць) — нормалізуємо обидва перед порівнянням.
+function normalizeHiddenFromBackupEntry(raw){
+  if(typeof raw === 'string') return { month: raw, updatedAt: null };
+  return raw;
+}
 async function restoreHiddenFromFromBackup(raw){
   let backupDict;
   try{ backupDict = raw != null ? JSON.parse(raw) : {}; }
   catch(e){ backupDict = {}; }
   if(isCloudSessionReady()) await pullHiddenEntitiesCore();
-  let added = 0;
+  let added = 0, updated = 0;
   Object.keys(backupDict).forEach(function(key){
-    if(hiddenFrom[key] === undefined){
-      hiddenFrom[key] = backupDict[key];
+    const backupEntry = normalizeHiddenFromBackupEntry(backupDict[key]);
+    const local = hiddenFrom[key];
+    if(!local){
+      hiddenFrom[key] = { month: backupEntry.month, updatedAt: backupEntry.updatedAt || new Date().toISOString() };
+      if(backupEntry.deletedAt) hiddenFrom[key].deletedAt = backupEntry.deletedAt;
       added++;
+      return;
     }
+    const backupTime = backupEntry.updatedAt ? Date.parse(backupEntry.updatedAt) : NaN;
+    const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
+    // Бекап без timestamp (старий формат) чи не новіший за локальне — локальне лишається.
+    if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)) return;
+    local.month = backupEntry.month;
+    local.updatedAt = backupEntry.updatedAt;
+    if(backupEntry.deletedAt) local.deletedAt = backupEntry.deletedAt; else delete local.deletedAt;
+    delete local.syncedUpdatedAt; // змінилось з бекапу — наступний push має це побачити
+    updated++;
   });
   const saveResult = await saveHiddenFrom();
-  return Object.assign({}, saveResult, { added: added });
+  return Object.assign({}, saveResult, { added: added, updated: updated });
 }
 async function restoreIgnoredDivergencesFromBackup(raw){
   try{ ignoredDivergences = raw != null ? JSON.parse(raw) : {}; }
@@ -4776,6 +4795,7 @@ async function loadAll(){
   await loadInstallmentAccounts(); // після await loadDebts() вище — явно, не порядком рядків
   await ensureInstallmentAccountIdentity();
   await loadHiddenFrom();
+  await ensureHiddenFromIdentity();
   await loadIgnoredDivergences();
   await ensureBankInstallmentNamesStripped();
   await ensureInstallmentFirstMonth();
@@ -6012,7 +6032,24 @@ async function pushHiddenEntitiesPilot(){
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let anyError = false;
+  let localChanged = false;
   for(const key of Object.keys(hiddenFrom)){
+    const entry = hiddenFrom[key];
+    // Rev 2.22.82 (6D.155, Ревізія B) — захист від воскресіння: пушимо
+    // ЛИШЕ записи, які користувач сам змінив після останньої успішної
+    // синхронізації (syncedUpdatedAt !== updatedAt) — НЕ той самий
+    // компроміс, що 5 name-based доменів (categories/dictionary/...),
+    // де "пуш усього щоразу" свідомо прийнятий заради self-heal-retry
+    // (6D.76/6D.125): тут entity_id ЗАВЖДИ резолвиться заново з
+    // cloudId батьківського рахунку нижче (self-heal для САМОГО
+    // hidden_entities-рядка не потрібен — осиротілі рядки після зміни
+    // cloudId чистить окремий cleanupOrphanedHiddenEntities), тож
+    // пропуск уже-синхронізованого запису НЕ створює ризику "тихо
+    // мертвого" зв'язку — лише прибирає зайвий UPDATE, який інакше міг
+    // би перезаписати tombstone/місяць, поставлений іншим пристроєм
+    // (пристрій зі старим станом просто ніколи не чіпає запис, якого
+    // сам не редагував).
+    if(entry.syncedUpdatedAt === entry.updatedAt) continue;
     const sepIdx = key.indexOf(':');
     const kind = key.slice(0, sepIdx);
     const name = key.slice(sepIdx + 1);
@@ -6022,15 +6059,18 @@ async function pushHiddenEntitiesPilot(){
     if(!entity || !entity.cloudId) continue; // батько ще не синхронізований — тихий пропуск, не помилка
     try{
       const { error } = await client.from('hidden_entities').upsert(
-        { family_id: cloudFamilyId, entity_type: entityType, entity_id: entity.cloudId, hidden_from_month: monthToDate(hiddenFrom[key]), created_by: userId },
+        { family_id: cloudFamilyId, entity_type: entityType, entity_id: entity.cloudId, hidden_from_month: monthToDate(entry.month), deleted_at: entry.deletedAt || null, updated_at: entry.updatedAt, updated_by: userId },
         { onConflict: 'family_id,entity_type,entity_id' }
       );
-      if(error) anyError = true;
+      if(error){ anyError = true; continue; }
+      entry.syncedUpdatedAt = entry.updatedAt;
+      localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
       anyError = true;
     }
   }
+  if(localChanged) await saveHiddenFromLocal();
   // Rev #30 (6D.49) — pull одразу після успішного push. Рішення (явне, не
   // мовчазне): hidden_entities теж отримує цей принцип, хоч і поза
   // початковим "8 доменів" списком — existence-based merge ідемпотентний
@@ -6069,13 +6109,16 @@ let hiddenEntitiesPulledOnce = false;
 async function pullHiddenEntitiesCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
-  let added = 0, skippedFk = 0;
+  let added = 0, updated = 0, skippedFk = 0;
   const hadMarker = hiddenEntitiesPulledOnce;
   try{
-    // Rev #30 (6D.84) — created_by додано до select(): потрібен лише для
-    // сповіщень нижче (updated_by свідомо НЕ читаємо — немає концепції
-    // "хто розховав", докоментар 6D.38 explains "Приховати перемагає").
-    const { data, error } = await client.from('hidden_entities').select('entity_type,entity_id,hidden_from_month,created_by').eq('family_id', cloudFamilyId);
+    // Rev 2.22.82 (6D.155, Ревізія B) — deleted_at/updated_at додано до
+    // select(): "приховати перемагає" (6D.38) більше не єдина доступна
+    // поведінка — тепер є "показати назад" (tombstone), тож потрібен LWW
+    // за updated_at, не лише existence-перевірка. updated_by і далі НЕ
+    // читаємо (немає окремого UI-сповіщення "хто розховав" — за рішенням
+    // користувача цей Rev жодних нових сповіщень не додає).
+    const { data, error } = await client.from('hidden_entities').select('entity_type,entity_id,hidden_from_month,deleted_at,updated_at,created_by').eq('family_id', cloudFamilyId);
     if(error || !data) return { skipped: true };
     for(const row of data){
       const kind = row.entity_type === 'bank' ? 'card' : 'installment';
@@ -6083,21 +6126,43 @@ async function pullHiddenEntitiesCore(){
       const entity = list.find(function(x){ return x.cloudId === row.entity_id; });
       if(!entity){ skippedFk++; continue; }
       const key = hideKey(entity.name, kind);
-      if(hiddenFrom[key] === undefined){
-        hiddenFrom[key] = dateToMonth(row.hidden_from_month);
+      const local = hiddenFrom[key];
+      if(!local){
+        // Rev 2.22.82 (6D.155) — Cloud-рядок, якого цей пристрій ще не
+        // бачив узагалі: створюємо локальний запис одразу з деревом
+        // стану, включно з tombstone, якщо він уже tombstone (той самий
+        // принцип, що pullDictionaryCore() для майбутньої Корзини).
+        const newEntry = { month: dateToMonth(row.hidden_from_month), updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at };
+        if(row.deleted_at) newEntry.deletedAt = row.deleted_at;
+        hiddenFrom[key] = newEntry;
         added++;
-        if(hadMarker) pushOtherActorEvent('hiddenEntities', 'add', row.created_by, entity.name, null);
+        if(hadMarker && !row.deleted_at) pushOtherActorEvent('hiddenEntities', 'add', row.created_by, entity.name, null);
+        continue;
+      }
+      // Rev 2.22.82 (6D.155) — LWW за updated_at, той самий принцип, що
+      // решта tombstone-доменів: локальна зміна новіша за Cloud → наступний
+      // push її підхопить сам (чи вже підхопив), pull цей запис не чіпає.
+      const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
+      const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
+      const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+      if(localIsNewer) continue;
+      if(local.month !== dateToMonth(row.hidden_from_month) || !!local.deletedAt !== !!row.deleted_at || local.updatedAt !== row.updated_at){
+        local.month = dateToMonth(row.hidden_from_month);
+        if(row.deleted_at) local.deletedAt = row.deleted_at; else delete local.deletedAt;
+        local.updatedAt = row.updated_at;
+        local.syncedUpdatedAt = row.updated_at;
+        updated++;
       }
     }
   }catch(e){
     return { skipped: true };
   }
   hiddenEntitiesPulledOnce = true;
-  if(added) await saveHiddenFromLocal();
+  if(added || updated) await saveHiddenFromLocal();
   // Rev #30 (6D.55) — той самий принцип, що pullCategoriesCore() вище:
   // дзеркалимо render-виклик локального save (removeInstallmentAccount()).
-  if(added) renderAll();
-  return { skipped: false, added: added, skippedFk: skippedFk };
+  if(added || updated) renderAll();
+  return { skipped: false, added: added, updated: updated, skippedFk: skippedFk };
 }
 async function pullHiddenEntitiesPilot(){
   return await pullHiddenEntitiesCore();
@@ -6109,6 +6174,60 @@ async function pullHiddenEntitiesPilot(){
 // гарантованою локальною операцією (existing call sites не міняються),
 // push винесений в saveHiddenFromLocal()+pushHiddenEntitiesPilot(), БЕЗ
 // await (fire-and-forget, той самий принцип).
+// Rev 2.22.82 (6D.155, Ревізія B) — hiddenFrom[key] змінює форму: було
+// просто рядок-місяць ('YYYY-MM'). Для tombstone потрібен стан на запис
+// (updatedAt для LWW, deletedAt для "показано назад"), тож значення стає
+// об'єктом { month, updatedAt, syncedUpdatedAt?, deletedAt? }. Зворотна
+// сумісність (старий формат, старі бекапи) — через нормалізацію ПРИ
+// ЗАВАНТАЖЕННІ (ensureHiddenFromIdentity нижче), той самий ідемпотентний
+// принцип, що stampMissingTimestamps()/ensureDictionaryEntryIds() для
+// інших доменів — решта коду після нормалізації працює лише з об'єктною
+// формою, без розгалужень "рядок чи об'єкт" у кожному читанні.
+function ensureHiddenFromShape(){
+  let changed = false;
+  Object.keys(hiddenFrom).forEach(function(key){
+    const raw = hiddenFrom[key];
+    if(typeof raw === 'string'){
+      hiddenFrom[key] = { month: raw, updatedAt: new Date().toISOString() };
+      changed = true;
+    }
+  });
+  return changed;
+}
+async function ensureHiddenFromIdentity(){
+  if(ensureHiddenFromShape()) reportSaveResult(await saveHiddenFromLocal());
+}
+// Rev 2.22.82 (6D.155) — єдина точка запису "приховати" (нова ОЧ/картка, і
+// ПОВТОРНЕ приховання вже раніше показаної назад) — той самий виклик, що
+// removeInstallmentAccount()/removeBankAccount() робили інлайн раніше.
+// Повторне приховання — свідома дія користувача (не фоновий bulk-push),
+// тому tombstone тут знімається БЕЗУМОВНО (delete entry.deletedAt), на
+// відміну від pushHiddenEntitiesPilot() нижче, де захист від воскресіння
+// якраз у тому, щоб НЕ пушити записи, яких користувач сам не торкався.
+function hideEntityFromMonth(key, fromMonth){
+  const nowISO = new Date().toISOString();
+  const entry = hiddenFrom[key];
+  if(entry){
+    entry.month = fromMonth;
+    entry.updatedAt = nowISO;
+    delete entry.deletedAt;
+  }else{
+    hiddenFrom[key] = { month: fromMonth, updatedAt: nowISO };
+  }
+}
+// Rev 2.22.82 (6D.155) — "Показати назад": функція даних, без власного UI
+// (екран Корзини — Ревізія D). Ставить tombstone і пушить як звичайний
+// UPDATE (через saveHiddenFrom() нижче, той самий шлях, що приховання).
+// Немає запису — чи вже tombstone — тихий success, нема що робити вдруге.
+function unhideEntity(kind, name){
+  const key = hideKey(name, kind);
+  const entry = hiddenFrom[key];
+  if(!entry || entry.deletedAt) return Promise.resolve({ success: true });
+  const nowISO = new Date().toISOString();
+  entry.deletedAt = nowISO;
+  entry.updatedAt = nowISO;
+  return saveHiddenFrom();
+}
 async function saveHiddenFrom(){
   const result = await saveHiddenFromLocal();
   if(result.success) pushHiddenEntitiesPilot();
@@ -6158,7 +6277,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.81';
+const APP_VERSION = '2.22.82';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -6617,8 +6736,18 @@ async function ensureDomainsMigrated(domains){
 // місяцем, зазначеним при видаленні — див. showMonthPickerModal/removeBankAccount).
 function hideKey(name, kind){ return kind+':'+name; }
 function isHiddenForMonth(name, kind, month){
-  const from = hiddenFrom[hideKey(name, kind)];
-  return !!from && month >= from;
+  const entry = hiddenFrom[hideKey(name, kind)];
+  if(!entry) return false;
+  // Rev 2.22.82 (6D.155) — захисна сумісність зі старою формою (голий
+  // рядок-місяць): нормалізація відбувається при старті
+  // (ensureHiddenFromIdentity), але цей читач свідомо не покладається
+  // лише на неї — той самий принцип "ніколи не кидай на застарілих
+  // даних", що вже є в інших місцях файлу.
+  if(typeof entry === 'string') return month >= entry;
+  // entry.deletedAt = "показано назад", той самий tombstone-принцип, що
+  // інші домени.
+  if(entry.deletedAt) return false;
+  return month >= entry.month;
 }
 // Rev 2.11.9 (Баги #1 і #5) — спільна перевірка видимості ОЧ для конкретного
 // місяця, об'єднує ДВІ окремі межі:
@@ -9500,7 +9629,10 @@ function removeInstallmentAccount(i){
     `Прибрати «${stripLeadingEmoji(name)}» зі списку? Історичні записи до обраного місяця збережуться, з нього — зникне з Obligations.`,
     allMonths(), selectedMonth,
     async function(fromMonth){
-      hiddenFrom[hideKey(name,'installment')] = fromMonth;
+      // Rev 2.22.82 (6D.155) — hideEntityFromMonth(): той самий виклик для
+      // першого приховання й для ПОВТОРНОГО (знімає tombstone, якщо ОЧ уже
+      // показували назад).
+      hideEntityFromMonth(hideKey(name,'installment'), fromMonth);
       reportSaveResult(await saveHiddenFrom());
       // Rev 2.3.8 BugFix — раніше тут ще й installmentAccounts.splice(i,1)
       // видаляв конфігурацію ОЧ ПОВНІСТЮ з масиву, тому запис зникав з
@@ -9756,7 +9888,8 @@ function removeBankAccount(i){
     `Прибрати «${stripLeadingEmoji(name)}» зі списку? Історичні записи до обраного місяця збережуться, з нього — зникне з "Борги по картках".`,
     allMonths(), selectedMonth,
     async function(fromMonth){
-      hiddenFrom[hideKey(name,'card')] = fromMonth;
+      // Rev 2.22.82 (6D.155) — той самий hideEntityFromMonth(), що для ОЧ вище.
+      hideEntityFromMonth(hideKey(name,'card'), fromMonth);
       reportSaveResult(await saveHiddenFrom());
       // Rev 2.3.8 BugFix — той самий фікс, що для ОЧ вище: масив bankAccounts
       // більше не чіпаємо при видаленні, інакше банк зникав би з Обліку і

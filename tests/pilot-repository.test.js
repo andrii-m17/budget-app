@@ -195,10 +195,13 @@ const REPOSITORY_NAMES = [
   // Rev #30 (6D.60) — пакетний push (лише bulk-шляхи restore/syncAllPilotManual),
   // з відкатом на pushXRecordPilot() вище за провалу пакету.
   'pushExpensesBatch', 'pushExpensesBatched', 'pushIncomesBatch', 'pushIncomesBatched', 'pushDebtsBatch', 'pushDebtsBatched',
-  'hideKey', 'divergenceKey',
+  'hideKey', 'divergenceKey', 'isHiddenForMonth',
   'ensureInstallmentFirstMonth',
   'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
   'restoreHiddenFromFromBackup', 'restoreIgnoredDivergencesFromBackup',
+  // Rev 2.22.82 (6D.155, Ревізія B) — hiddenFrom tombstone-модель.
+  'normalizeHiddenFromBackupEntry', 'ensureHiddenFromShape', 'ensureHiddenFromIdentity',
+  'hideEntityFromMonth', 'unhideEntity',
   // Rev #28.D2
   'loadExpenses', 'loadIncomes', 'loadDebts',
   'saveExpenses', 'saveIncomes', 'saveDebts',
@@ -1347,7 +1350,7 @@ test('ensureBankInstallmentNamesStripped: ідемпотентність — п�
 
 test('pushHiddenEntitiesPilot: не залогінений → жодного виклику Cloud, { success:true } (не помилка, не спробували)', async () => {
   const { ctx } = sandbox();
-  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-06-01T00:00:00.000Z' } };
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
   const result = await ctx.pushHiddenEntitiesPilot(); // guard clause, getSupabaseClient не викликається взагалі
   assert.deepEqual(plain(result), { success: true });
@@ -1360,7 +1363,7 @@ test('pushHiddenEntitiesPilot: батько (bankAccounts) ще не синхр�
   ctx.isSupabaseSdkReady = () => true;
   const fake = fakeSupabaseHiddenEntitiesUpsertClient();
   ctx.getSupabaseClient = () => fake.client;
-  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-06-01T00:00:00.000Z' } };
   ctx.bankAccounts = [{ name: 'Приват Банк' }]; // без cloudId
   const result = await ctx.pushHiddenEntitiesPilot();
   assert.equal(fake.calls.length, 0);
@@ -1374,7 +1377,7 @@ test('pushHiddenEntitiesPilot: kind "card" → entity_type "bank", entity_id = c
   ctx.isSupabaseSdkReady = () => true;
   const fake = fakeSupabaseHiddenEntitiesUpsertClient();
   ctx.getSupabaseClient = () => fake.client;
-  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-06-01T00:00:00.000Z' } };
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
   const result = await ctx.pushHiddenEntitiesPilot();
   assert.equal(fake.calls.length, 1);
@@ -1395,7 +1398,7 @@ test('pushHiddenEntitiesPilot: kind "installment" → entity_type "installment"'
   ctx.isSupabaseSdkReady = () => true;
   const fake = fakeSupabaseHiddenEntitiesUpsertClient();
   ctx.getSupabaseClient = () => fake.client;
-  ctx.hiddenFrom = { 'installment:iPhone': '2026-03' };
+  ctx.hiddenFrom = { 'installment:iPhone': { month: '2026-03', updatedAt: '2026-03-01T00:00:00.000Z' } };
   ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'i1' }];
   await ctx.pushHiddenEntitiesPilot();
   assert.equal(fake.calls.length, 1);
@@ -1410,7 +1413,7 @@ test('pushHiddenEntitiesPilot: мережева помилка одного за
   ctx.isSupabaseSdkReady = () => true;
   const fake = fakeSupabaseHiddenEntitiesUpsertClient({ error: true });
   ctx.getSupabaseClient = () => fake.client;
-  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-06-01T00:00:00.000Z' } };
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
   const result = await ctx.pushHiddenEntitiesPilot(); // не кидає, але тепер сигналізує невдачу явно
   assert.equal(fake.calls.length, 1); // спроба відбулась
@@ -1418,6 +1421,114 @@ test('pushHiddenEntitiesPilot: мережева помилка одного за
   // (не мережевий виняток) тепер теж явно позначається як { success:false },
   // не лише мовчки пропускається — саме це читає withSyncIndicator().
   assert.deepEqual(plain(result), { success: false });
+});
+
+/* ============ Rev 2.22.82 (6D.155, Ревізія B) — tombstone/захист для hidden_entities ============ */
+
+test('pushHiddenEntitiesPilot: запис НЕ змінювався (syncedUpdatedAt===updatedAt) → upsert НЕ викликається взагалі (застарілий пристрій не чіпає чужий tombstone)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const fake = fakeSupabaseHiddenEntitiesUpsertClient();
+  ctx.getSupabaseClient = () => fake.client;
+  // Пристрій НЕ торкався цього запису відтоді, як востаннє синхронізував —
+  // навіть якщо на іншому пристрої його тим часом видалили (tombstone) чи
+  // перейменували місяць, цей push його просто не пушить.
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' } };
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  const result = await ctx.pushHiddenEntitiesPilot();
+  assert.equal(fake.calls.length, 0, 'НЕ мав навіть спробувати — запис не змінювався локально');
+  assert.deepEqual(plain(result), { success: true });
+});
+
+test('pushHiddenEntitiesPilot: запис ЗМІНИВСЯ (updatedAt !== syncedUpdatedAt) → пушиться, несе deleted_at/updated_at', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const fake = fakeSupabaseHiddenEntitiesUpsertClient();
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-02-01T00:00:00.000Z', deletedAt: '2026-02-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' } };
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  await ctx.pushHiddenEntitiesPilot();
+  assert.equal(fake.calls.length, 1);
+  assert.equal(fake.calls[0].payload.deleted_at, '2026-02-01T00:00:00.000Z');
+  assert.equal(fake.calls[0].payload.updated_at, '2026-02-01T00:00:00.000Z');
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].syncedUpdatedAt, '2026-02-01T00:00:00.000Z');
+});
+
+test('unhideEntity: ставить tombstone (deletedAt+updatedAt) і пушить', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const fake = fakeSupabaseHiddenEntitiesUpsertClient();
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' } };
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  await ctx.unhideEntity('card', 'Приват Банк');
+  assert.ok(ctx.hiddenFrom['card:Приват Банк'].deletedAt, 'мав поставити tombstone');
+  assert.equal(fake.calls.length, 1, 'мав запуштись — запис щойно змінився');
+  assert.equal(fake.calls[0].payload.deleted_at, ctx.hiddenFrom['card:Приват Банк'].deletedAt);
+});
+
+test('unhideEntity: запису немає чи вже tombstone → тихий success, upsert НЕ викликається', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  const fake = fakeSupabaseHiddenEntitiesUpsertClient();
+  ctx.getSupabaseClient = () => fake.client;
+  ctx.hiddenFrom = {};
+  const result1 = await ctx.unhideEntity('card', 'Немає такого');
+  assert.deepEqual(plain(result1), { success: true });
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-01-01T00:00:00.000Z', deletedAt: '2026-01-01T00:00:00.000Z' } };
+  const result2 = await ctx.unhideEntity('card', 'Приват Банк');
+  assert.deepEqual(plain(result2), { success: true });
+  assert.equal(fake.calls.length, 0);
+});
+
+test('hideEntityFromMonth: повторне приховання ЗНІМАЄ tombstone і оновлює місяць (новий запис лишається, не створює другого)', () => {
+  const { ctx } = sandbox();
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-01-01T00:00:00.000Z', deletedAt: '2026-01-02T00:00:00.000Z', syncedUpdatedAt: '2026-01-02T00:00:00.000Z' } };
+  ctx.hideEntityFromMonth('card:Приват Банк', '2026-09');
+  const entry = ctx.hiddenFrom['card:Приват Банк'];
+  assert.equal(entry.month, '2026-09');
+  assert.equal(entry.deletedAt, undefined, 'tombstone мав зніматись');
+  assert.equal(Object.keys(ctx.hiddenFrom).length, 1, 'не мав створити другий запис');
+});
+
+test('hideEntityFromMonth: запису не було — створює новий', () => {
+  const { ctx } = sandbox();
+  ctx.hiddenFrom = {};
+  ctx.hideEntityFromMonth('card:Нова Картка', '2026-09');
+  assert.equal(ctx.hiddenFrom['card:Нова Картка'].month, '2026-09');
+  assert.ok(ctx.hiddenFrom['card:Нова Картка'].updatedAt);
+});
+
+test('ensureHiddenFromShape: нормалізує старий формат (голий рядок) в об\'єкт, ідемпотентний', () => {
+  const { ctx } = sandbox();
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  const changed1 = ctx.ensureHiddenFromShape();
+  assert.equal(changed1, true);
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-06');
+  assert.ok(ctx.hiddenFrom['card:Приват Банк'].updatedAt);
+  const changed2 = ctx.ensureHiddenFromShape();
+  assert.equal(changed2, false, 'повторний виклик на вже нормалізованих даних нічого не змінює');
+});
+
+test('isHiddenForMonth: захисна сумісність зі старим форматом (голий рядок), без нормалізації', () => {
+  const { ctx } = sandbox();
+  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  assert.equal(ctx.isHiddenForMonth('Приват Банк', 'card', '2026-08'), true);
+  assert.equal(ctx.isHiddenForMonth('Приват Банк', 'card', '2026-03'), false);
+});
+
+test('isHiddenForMonth: tombstone (показано назад) → завжди false, незалежно від місяця', () => {
+  const { ctx } = sandbox();
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-01-01T00:00:00.000Z', deletedAt: '2026-01-02T00:00:00.000Z' } };
+  assert.equal(ctx.isHiddenForMonth('Приват Банк', 'card', '2026-12'), false);
 });
 
 /* ============ Індикатор синхронізації — стан "помилка" (Rev #30, 6D.34) ============
@@ -2029,51 +2140,72 @@ test('pullHiddenEntitiesCore: батько (за entity_id) не знайден�
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }]; // інший cloudId
   ctx.hiddenFrom = {};
   const result = await ctx.pullHiddenEntitiesCore();
-  assert.deepEqual(plain(result), { skipped: false, added: 0, skippedFk: 1 });
+  assert.deepEqual(plain(result), { skipped: false, added: 0, updated: 0, skippedFk: 1 });
   assert.deepEqual(plain(ctx.hiddenFrom), {});
 });
 
 test('pullHiddenEntitiesCore: entity_type "bank" резолвиться в bankAccounts за cloudId, kind "card" у ключі — додається (локально не було)', async () => {
-  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01' }]);
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01', updated_at: '2026-06-01T00:00:00.000Z' }]);
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
   ctx.hiddenFrom = {};
   const result = await ctx.pullHiddenEntitiesCore();
-  assert.deepEqual(plain(result), { skipped: false, added: 1, skippedFk: 0 });
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-06');
+  assert.deepEqual(plain(result), { skipped: false, added: 1, updated: 0, skippedFk: 0 });
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-06');
 });
 
 test('pullHiddenEntitiesCore: entity_type "installment" резолвиться в installmentAccounts за cloudId, kind "installment" у ключі', async () => {
-  const ctx = pullHiddenSandbox([{ entity_type: 'installment', entity_id: 'i1', hidden_from_month: '2026-03-01' }]);
+  const ctx = pullHiddenSandbox([{ entity_type: 'installment', entity_id: 'i1', hidden_from_month: '2026-03-01', updated_at: '2026-03-01T00:00:00.000Z' }]);
   ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'i1' }];
   ctx.hiddenFrom = {};
   const result = await ctx.pullHiddenEntitiesCore();
-  assert.deepEqual(plain(result), { skipped: false, added: 1, skippedFk: 0 });
-  assert.equal(ctx.hiddenFrom['installment:iPhone'], '2026-03');
+  assert.deepEqual(plain(result), { skipped: false, added: 1, updated: 0, skippedFk: 0 });
+  assert.equal(ctx.hiddenFrom['installment:iPhone'].month, '2026-03');
 });
 
-test('pullHiddenEntitiesCore: "приховати перемагає" — локально ВЖЕ приховано (інший місяць) → Cloud-версію НЕ перезаписує, added:0', async () => {
-  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-08-01' }]);
+// Rev 2.22.82 (6D.155, Ревізія B) — "приховати перемагає" (existence-only)
+// замінено на справжній LWW за updated_at: локальна зміна, новіша за
+// Cloud-рядок, перемагає (той самий принцип, що всі tombstone-домени).
+test('pullHiddenEntitiesCore: LWW — локальна зміна НОВІША за Cloud → Cloud-версію НЕ перезаписує', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-08-01', updated_at: '2026-01-01T00:00:00.000Z' }]);
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
-  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' }; // локальна версія вже є
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-07-01T00:00:00.000Z' } }; // локальна зміна новіша
   const result = await ctx.pullHiddenEntitiesCore();
-  assert.deepEqual(plain(result), { skipped: false, added: 0, skippedFk: 0 });
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-06'); // не перезаписано Cloud-версією
+  assert.deepEqual(plain(result), { skipped: false, added: 0, updated: 0, skippedFk: 0 });
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-06'); // не перезаписано Cloud-версією
+});
+
+test('pullHiddenEntitiesCore: LWW — Cloud НОВІШИЙ за локальну версію (інший пристрій оновив) → застосовується', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-08-01', updated_at: '2026-07-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-01-01T00:00:00.000Z' } }; // локальне старіше
+  const result = await ctx.pullHiddenEntitiesCore();
+  assert.deepEqual(plain(result), { skipped: false, added: 0, updated: 1, skippedFk: 0 });
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-08');
+});
+
+test('pullHiddenEntitiesCore: Cloud-tombstone (deleted_at) → показує назад локально', async () => {
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01', deleted_at: '2026-07-01T00:00:00.000Z', updated_at: '2026-07-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-01-01T00:00:00.000Z' } };
+  const result = await ctx.pullHiddenEntitiesCore();
+  assert.equal(result.updated, 1);
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].deletedAt, '2026-07-01T00:00:00.000Z');
 });
 
 test('pullHiddenEntitiesCore: локально приховане, якого Cloud не має → не чіпається (це відповідальність push, не pull)', async () => {
   const ctx = pullHiddenSandbox([]);
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
-  ctx.hiddenFrom = { 'card:Приват Банк': '2026-06' };
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-01-01T00:00:00.000Z' } };
   await ctx.pullHiddenEntitiesCore();
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-06');
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-06');
 });
 
 test('pullHiddenEntitiesPilot: тонка обгортка над pullHiddenEntitiesCore (той самий результат)', async () => {
-  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01' }]);
+  const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01', updated_at: '2026-06-01T00:00:00.000Z' }]);
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
   ctx.hiddenFrom = {};
   const result = await ctx.pullHiddenEntitiesPilot();
-  assert.deepEqual(plain(result), { skipped: false, added: 1, skippedFk: 0 });
+  assert.deepEqual(plain(result), { skipped: false, added: 1, updated: 0, skippedFk: 0 });
 });
 
 /* ============ pullExpensesCore/pullIncomesCore/pullDebtsCore (Rev #30, 6D.37) ============
@@ -3518,28 +3650,46 @@ test('ensureInstallmentFirstMonth: нічого не змінилось → не
 
 // Rev #30 (6D.48) — restoreHiddenFromFromBackup(): existence-based merge,
 // той самий принцип, що pullHiddenEntitiesCore() (6D.32).
-test('restoreHiddenFromFromBackup: ключ відсутній локально → додається з бекапу', async () => {
+// Rev 2.22.82 (6D.155, Ревізія B) — hiddenFrom[key] тепер об'єкт
+// { month, updatedAt, deletedAt? }, merge — LWW за updatedAt (не "ключ
+// відсутній → додати, є → ніколи не чіпати", як до tombstone-моделі).
+// Бекап у СТАРОМУ форматі (голий рядок-місяць, без updatedAt) теж
+// підтримується — normalizeHiddenFromBackupEntry() повертає updatedAt:null
+// для нього, що для вже існуючого локального запису завжди трактується
+// як "не новіше" (локальне лишається).
+test('restoreHiddenFromFromBackup: ключ відсутній локально → додається з бекапу (старий формат, голий рядок)', async () => {
   const { ctx } = sandbox();
   ctx.hiddenFrom = {};
   const result = await ctx.restoreHiddenFromFromBackup(JSON.stringify({ 'card:Приват Банк': '2026-06' }));
   assert.equal(result.added, 1);
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-06');
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-06');
+  assert.ok(ctx.hiddenFrom['card:Приват Банк'].updatedAt, 'новому запису має призначитись updatedAt, навіть якщо в бекапі його не було');
 });
 
-test('restoreHiddenFromFromBackup: ключ УЖЕ Є локально → НЕ перезаписується значенням з бекапу', async () => {
+test('restoreHiddenFromFromBackup: ключ УЖЕ Є локально, бекап СТАРОГО формату (без updatedAt) → НЕ перезаписується', async () => {
   const { ctx } = sandbox();
-  ctx.hiddenFrom = { 'card:Приват Банк': '2026-09' }; // локальне значення
-  const result = await ctx.restoreHiddenFromFromBackup(JSON.stringify({ 'card:Приват Банк': '2026-01' })); // інше значення в бекапі
-  assert.equal(result.added, 0);
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-09'); // локальне лишається
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-09', updatedAt: '2026-01-01T00:00:00.000Z' } };
+  const result = await ctx.restoreHiddenFromFromBackup(JSON.stringify({ 'card:Приват Банк': '2026-01' })); // старий формат, без updatedAt
+  assert.equal(result.updated, 0);
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-09'); // локальне лишається
+});
+
+test('restoreHiddenFromFromBackup: бекап НОВІШИЙ за локальне (LWW) → застосовується, включно з tombstone', async () => {
+  const { ctx } = sandbox();
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-09', updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' } };
+  const backup = { 'card:Приват Банк': { month: '2026-09', updatedAt: '2026-05-01T00:00:00.000Z', deletedAt: '2026-05-01T00:00:00.000Z' } };
+  const result = await ctx.restoreHiddenFromFromBackup(JSON.stringify(backup));
+  assert.equal(result.updated, 1);
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].deletedAt, '2026-05-01T00:00:00.000Z');
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].syncedUpdatedAt, undefined, 'змінений з бекапу запис має перепушитись — syncedUpdatedAt скидається');
 });
 
 test('restoreHiddenFromFromBackup: raw відсутній → існуючі локальні ключі НЕ видаляються', async () => {
   const { ctx } = sandbox();
-  ctx.hiddenFrom = { 'card:Приват Банк': '2026-09' };
+  ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-09', updatedAt: '2026-01-01T00:00:00.000Z' } };
   const result = await ctx.restoreHiddenFromFromBackup(null);
   assert.equal(result.added, 0);
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'], '2026-09');
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-09');
 });
 
 test('loadHiddenFrom: немає ключа (не мігровано і не мігровано) → {} в обох гілках, без запису в сховище', async () => {
@@ -3779,7 +3929,14 @@ test('acceptance D1: mixed-storage — bankAccounts/hiddenFrom мігрован�
     assert.ok(a.createdAt);
     assert.equal(a.updatedAt, a.createdAt);
   });
-  assert.deepEqual(plain(freshCtx.hiddenFrom), fixture.hiddenFrom);
+  // Rev 2.22.82 (6D.155, Ревізія B) — старий бекап (голий рядок-місяць)
+  // відновлюється в НОВУ об'єктну форму { month, updatedAt } — очікувано,
+  // той самий принцип, що timestamps для bankAccounts/installmentAccounts
+  // вище в цьому ж тесті.
+  Object.keys(fixture.hiddenFrom).forEach(function(key){
+    assert.equal(freshCtx.hiddenFrom[key].month, fixture.hiddenFrom[key]);
+    assert.ok(freshCtx.hiddenFrom[key].updatedAt);
+  });
   assert.deepEqual(plain(freshCtx.ignoredDivergences), fixture.ignoredDivergences);
 
   // installmentAccounts мігровано у freshCtx → IndexedDB, не localStorage.
@@ -3789,7 +3946,8 @@ test('acceptance D1: mixed-storage — bankAccounts/hiddenFrom мігрован�
   assert.equal(freshCtx.localStorage.getItem('budget_installmentaccounts_v1'), null);
   // bankAccounts/hiddenFrom/ignoredDivergences НЕ мігровані у freshCtx → localStorage.
   assert.deepEqual(JSON.parse(freshCtx.localStorage.getItem('budget_bankaccounts_v1')), plain(freshCtx.bankAccounts));
-  assert.equal(freshCtx.localStorage.getItem('budget_debthidden_v1'), JSON.stringify(fixture.hiddenFrom));
+  // Rev 2.22.82 (6D.155) — persisted-значення тепер об'єктна форма, не сирий рядок фікстури.
+  assert.deepEqual(JSON.parse(freshCtx.localStorage.getItem('budget_debthidden_v1')), plain(freshCtx.hiddenFrom));
   assert.equal(freshCtx.localStorage.getItem('budget_ignored_divergences_v1'), JSON.stringify(fixture.ignoredDivergences));
 });
 
