@@ -5276,3 +5276,197 @@ test('restoreDictionaryFromBackup: старий бекап БЕЗ поля delet
   assert.equal(result.added, 1);
   assert.equal(ctx.DICTIONARY[0].deletedVia, undefined);
 });
+
+/* ============ Rev 2.22.91 (6D.164) — "Чорна скринька" діагностики ============
+   Чисті функції (ringBufferPush/sanitizeDebugEvent/trimEventsForSizeLimit/
+   detectIosVersionFromUserAgent/isStandaloneDisplayMode) — без DOM, окремо
+   тестовані тут. Оркестрація (start/stop/attach-detach listeners) — DOM-шар,
+   але явно вимагається DoD ("вимкнений стан не додає слухачів", "автозупинка
+   за таймером") — тестуємо через мінімальне фейкове DOM-середовище нижче
+   (jsFakeDom), достатнє лише для цих конкретних функцій, не повноцінний DOM. */
+function debugRecorderPureSandbox(){
+  return require('./extract').buildSandbox({}, [
+    'DEBUG_EVENT_ALLOWLIST', 'sanitizeDebugEvent', 'ringBufferPush', 'trimEventsForSizeLimit',
+    'detectIosVersionFromUserAgent', 'isStandaloneDisplayMode',
+  ]);
+}
+test('ringBufferPush: додає подію, не перевищуючи maxSize — найстаріша (з початку) відкидається', () => {
+  const ctx = debugRecorderPureSandbox();
+  let buf = [{ t: 1 }, { t: 2 }, { t: 3 }];
+  buf = ctx.ringBufferPush(buf, { t: 4 }, 3);
+  assert.deepEqual(plain(buf), [{ t: 2 }, { t: 3 }, { t: 4 }]);
+});
+test('ringBufferPush: під лімітом — просто додає, нічого не відкидає', () => {
+  const ctx = debugRecorderPureSandbox();
+  const buf = ctx.ringBufferPush([{ t: 1 }], { t: 2 }, 5);
+  assert.deepEqual(plain(buf), [{ t: 1 }, { t: 2 }]);
+});
+test('sanitizeDebugEvent: allowlist — поле "value" чи "text" (вміст поля форми) НІКОЛИ не потрапляє в подію', () => {
+  const ctx = debugRecorderPureSandbox();
+  const out = ctx.sanitizeDebugEvent({ t: 1, type: 'focusin', value: '1234.56', text: 'Назва витрати', innerW: 400 });
+  assert.deepEqual(plain(out), { t: 1, type: 'focusin', innerW: 400 });
+  assert.equal('value' in out, false);
+  assert.equal('text' in out, false);
+});
+test('sanitizeDebugEvent: дозволені поля проходять усі разом', () => {
+  const ctx = debugRecorderPureSandbox();
+  const raw = { t: 5, type: 'resize', innerW: 400, innerH: 800, kbInset: '389px', bodyClasses: 'kb-open', orientation: 'portrait' };
+  assert.deepEqual(plain(ctx.sanitizeDebugEvent(raw)), raw);
+});
+test('trimEventsForSizeLimit: спершу обрізає за кількістю', () => {
+  const ctx = debugRecorderPureSandbox();
+  const events = Array.from({ length: 10 }, (_, i) => ({ t: i }));
+  const result = ctx.trimEventsForSizeLimit(events, 3, 1000000);
+  assert.deepEqual(plain(result), [{ t: 7 }, { t: 8 }, { t: 9 }]);
+});
+test('trimEventsForSizeLimit: далі відкидає найстаріші, доки JSON не влізе в байтовий ліміт', () => {
+  const ctx = debugRecorderPureSandbox();
+  const bigEvent = () => ({ t: 1, bodyClasses: 'x'.repeat(100) });
+  const events = Array.from({ length: 20 }, bigEvent);
+  const approxEventBytes = JSON.stringify(bigEvent()).length;
+  const maxBytes = approxEventBytes * 5 + 20; // влізе приблизно 5 подій
+  const result = ctx.trimEventsForSizeLimit(events, 1000, maxBytes);
+  assert.ok(result.length <= 6 && result.length >= 4, `очікував ~5 подій, отримав ${result.length}`);
+  assert.ok(JSON.stringify(result).length <= maxBytes);
+});
+test('detectIosVersionFromUserAgent: розпізнає "OS 17_2 like Mac OS X" → "17.2"', () => {
+  const ctx = debugRecorderPureSandbox();
+  assert.equal(ctx.detectIosVersionFromUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X)'), '17.2');
+});
+test('detectIosVersionFromUserAgent: з патч-версією "16_7_2" → "16.7.2"', () => {
+  const ctx = debugRecorderPureSandbox();
+  assert.equal(ctx.detectIosVersionFromUserAgent('CPU iPhone OS 16_7_2 like Mac OS X'), '16.7.2');
+});
+test('detectIosVersionFromUserAgent: не iOS User-Agent → null', () => {
+  const ctx = debugRecorderPureSandbox();
+  assert.equal(ctx.detectIosVersionFromUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'), null);
+});
+test('isStandaloneDisplayMode: обидва джерела false → false; будь-яке true → true', () => {
+  const ctx = debugRecorderPureSandbox();
+  assert.equal(ctx.isStandaloneDisplayMode(false, false), false);
+  assert.equal(ctx.isStandaloneDisplayMode(true, false), true);
+  assert.equal(ctx.isStandaloneDisplayMode(false, true), true);
+});
+
+// Rev 2.22.91 — коалесценція ~30мс: фейковий setTimeout/clearTimeout (не
+// виконує одразу, на відміну від sandbox() вище — тут саме ЧАС виконання і є
+// предметом тесту), captureDebugGeometry підмінено на спай.
+test('onDebugScroll: коалесценція — 3 швидкі виклики → лише ОДИН запланований знімок (найновіший таймер, попередні скасовані)', () => {
+  let scheduled = [];
+  let nextId = 1;
+  const cancelled = [];
+  let captureCalls = 0;
+  const ctx = require('./extract').buildSandbox({
+    setTimeout: function(fn, ms){ const id = nextId++; scheduled.push({ id: id, fn: fn, ms: ms }); return id; },
+    clearTimeout: function(id){ cancelled.push(id); scheduled = scheduled.filter(function(s){ return s.id !== id; }); },
+    captureDebugGeometry: function(){ captureCalls++; },
+    debugScrollCoalesceTimer: null,
+  }, ['onDebugScroll']);
+  ctx.onDebugScroll();
+  ctx.onDebugScroll();
+  ctx.onDebugScroll();
+  assert.equal(scheduled.length, 1, 'лише один живий запланований таймер лишився');
+  assert.equal(scheduled[0].ms, 30);
+  assert.equal(captureCalls, 0, 'знімок ще НЕ зроблено — таймер ще не спрацював');
+  scheduled[0].fn(); // симулюємо спрацювання таймера
+  assert.equal(captureCalls, 1, 'рівно один знімок після спрацювання');
+});
+
+// Rev 2.22.91 — мінімальне фейкове DOM-середовище, ДОСТАТНЄ лише для
+// attachDebugRecorderListeners()/captureDebugGeometry()/start-stop —
+// не повноцінний DOM (MutationObserver відсутній у Node — typeof-guard у
+// коді сам пропускає цю гілку, тож тут навіть не потрібен).
+function debugRecorderDomSandbox(){
+  const added = [];
+  const removed = [];
+  const fakeComputedStyle = { paddingTop: '0px', paddingRight: '0px', paddingBottom: '0px', paddingLeft: '0px', getPropertyValue: function(){ return '0px'; } };
+  const fakeVv = {
+    width: 400, height: 800, offsetTop: 0, offsetLeft: 0, scale: 1,
+    addEventListener: function(type, h){ added.push({ target: 'vv', type: type, h: h }); },
+    removeEventListener: function(type, h){ removed.push({ target: 'vv', type: type, h: h }); },
+  };
+  const fakeBody = { className: '', appendChild: function(){} };
+  const fakeDocumentElement = { clientHeight: 800 };
+  const fakeWindow = {
+    innerWidth: 400, innerHeight: 800, outerHeight: 800, scrollY: 0,
+    visualViewport: fakeVv,
+    addEventListener: function(type, h, o){ added.push({ target: 'window', type: type, h: h, o: o }); },
+    removeEventListener: function(type, h, o){ removed.push({ target: 'window', type: type, h: h, o: o }); },
+  };
+  const fakeDocument = {
+    activeElement: { tagName: 'BODY', id: '', type: undefined },
+    body: fakeBody,
+    documentElement: fakeDocumentElement,
+    createElement: function(){ return { style: {} }; },
+    querySelector: function(){ return null; }, // nav.tabbar — відсутній у фейковому DOM, barRect:null — безпечно
+    getElementById: function(){ return null; },
+    addEventListener: function(type, h){ added.push({ target: 'document', type: type, h: h }); },
+    removeEventListener: function(type, h){ removed.push({ target: 'document', type: type, h: h }); },
+  };
+  const timers = { intervals: [], timeouts: [] };
+  const ctx = require('./extract').buildSandbox({
+    window: fakeWindow,
+    document: fakeDocument,
+    navigator: { userAgent: 'test-ua', platform: 'test', standalone: false },
+    performance: { now: function(){ return Date.now(); } },
+    getComputedStyle: function(){ return fakeComputedStyle; },
+    setInterval: function(fn, ms){ const id = timers.intervals.length + 1; timers.intervals.push({ id: id, fn: fn, ms: ms }); return id; },
+    clearInterval: function(id){ timers.intervals = timers.intervals.filter(function(t){ return t.id !== id; }); },
+    setTimeout: function(fn, ms){ const id = timers.timeouts.length + 1; timers.timeouts.push({ id: id, fn: fn, ms: ms }); return id; },
+    clearTimeout: function(id){ timers.timeouts = timers.timeouts.filter(function(t){ return t.id !== id; }); },
+    debugRecordingActive: false, debugRecordingStartedAt: 0, debugRecordingScenario: '',
+    debugEventBuffer: [], debugRecordingAutoStopTimer: null, debugRecordingTimerInterval: null,
+    debugListenerHandles: [], debugRecordingMutationObserver: null, debugScrollCoalesceTimer: null,
+    debugSafeAreaProbeEl: null,
+    DEBUG_RECORDING_MAX_EVENTS: 2000, DEBUG_RECORDING_AUTO_STOP_MS: 30 * 60 * 1000,
+  }, [
+    'DEBUG_EVENT_ALLOWLIST', 'sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent',
+    'debugSafeAreaInsets', 'captureDebugGeometry',
+    'onDebugWindowResize', 'onDebugVvResize', 'onDebugVvScroll', 'onDebugScroll',
+    'onDebugFocusIn', 'onDebugFocusOut', 'onDebugOrientationChange', 'onDebugVisibilityChange',
+    'onDebugPageShow', 'onDebugPageHide', 'onDebugTouchStart', 'onDebugTouchEnd', 'onDebugBodyClassChange',
+    'attachDebugRecorderListeners', 'detachDebugRecorderListeners',
+    'updateDebugRecordButtonUI', 'startDebugRecording', 'stopDebugRecording',
+  ]);
+  return { ctx: ctx, added: added, removed: removed, timers: timers };
+}
+test('startDebugRecording: ВИМКНЕНИЙ стан (до старту) не додає жодного слухача й не чіпає DOM', () => {
+  const { added } = debugRecorderDomSandbox();
+  assert.equal(added.length, 0, 'жодної підписки на подію до виклику startDebugRecording()');
+});
+test('startDebugRecording: додає слухачів лише ПІСЛЯ старту; stopDebugRecording() знімає РІВНО стільки ж', () => {
+  const { ctx, added, removed } = debugRecorderDomSandbox();
+  ctx.startDebugRecording('test-scenario');
+  assert.equal(ctx.debugRecordingActive, true);
+  const addedCount = added.length;
+  assert.ok(addedCount > 0, 'слухачі додані після старту');
+  ctx.stopDebugRecording();
+  assert.equal(ctx.debugRecordingActive, false);
+  assert.equal(removed.length, addedCount, 'знято РІВНО стільки ж слухачів, скільки додано');
+});
+test('startDebugRecording: автозупинка — спрацювання запланованого таймера (30хв) самостійно зупиняє запис', () => {
+  const { ctx, timers } = debugRecorderDomSandbox();
+  ctx.startDebugRecording('');
+  const autoStop = timers.timeouts.find(function(t){ return t.ms === 30 * 60 * 1000; });
+  assert.ok(autoStop, 'заплановано setTimeout саме на 30 хвилин');
+  assert.equal(ctx.debugRecordingActive, true);
+  autoStop.fn(); // симулюємо спрацювання таймера автозупинки
+  assert.equal(ctx.debugRecordingActive, false, 'запис зупинився сам, без ручного stop()');
+});
+test('startDebugRecording → stopDebugRecording: події, зібрані during запису, лишаються в буфері після stop (надсилання — окрема дія)', () => {
+  const { ctx } = debugRecorderDomSandbox();
+  ctx.startDebugRecording('');
+  ctx.onDebugWindowResize();
+  ctx.onDebugOrientationChange();
+  const countDuring = ctx.debugEventBuffer.length;
+  ctx.stopDebugRecording();
+  assert.ok(countDuring >= 2, 'resize + orientationchange зафіксовані (плюс start)');
+  assert.equal(ctx.debugEventBuffer.length, countDuring + 1, 'stop() сам додає ще один фінальний знімок');
+});
+test('pushDebugEvent: подія НЕ додається в буфер, поки запис вимкнений (debugRecordingActive:false)', () => {
+  const ctx = require('./extract').buildSandbox({
+    debugRecordingActive: false, debugEventBuffer: [], DEBUG_RECORDING_MAX_EVENTS: 2000,
+  }, ['sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent', 'DEBUG_EVENT_ALLOWLIST']);
+  ctx.pushDebugEvent({ t: 1, type: 'resize' });
+  assert.equal(ctx.debugEventBuffer.length, 0);
+});

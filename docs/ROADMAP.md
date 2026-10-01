@@ -10161,6 +10161,96 @@ categories/subcategories/bank/installment — не змінювали (guard т�
 даних, створюваних через сам застосунок — підтвердити на реальному
 пристрої й повторити двопристроєвий сценарій з другим фізичним iPhone.
 
+### 6D.164 — "Чорна скринька" діагностики viewport/клавіатури ✅ Rev 2.22.91
+
+**Мета:** діагностувати viewport/клавіатуру/поворот/safe-area БЕЗ Web
+Inspector — користувач вмикає запис у "Сервісі", відтворює баг на
+реальному iPhone (PWA з головного екрана), надсилає лог, Claude Code читає
+події SQL-ом (той самий принцип, що живі заміри 6D.158-163 цієї сесії).
+
+**Крок 0 (прийнято користувачем без змін):** екран "Сервіс" — жодної
+існуючої viewport-діагностики, `grep -c "console\.log" index.html` → 0;
+усі існуючі listeners (focusin/focusout/kb-open, visualViewport resize/
+scroll, orientationchange, Баг 1 — чиста CSS, не функція) — незалежні
+`addEventListener`, нові пасивні слухачі додаються паралельно, нічого не
+чіпаючи; `display-mode`/`navigator.standalone`/iOS-UA — з нуля, нічого
+існуючого; `isCloudSessionReady()`/`push_subscriptions`-insert — готовий
+шаблон; `LS_KEY_THEME` — приклад простого прапорця поза `BACKUP_LS_KEYS`;
+`document.querySelector('nav.tabbar')` — уже є в `updateTabBubble()`;
+`--kb-inset` досі лише пишеться, ніколи не читається назад — рекордер
+перший такий read-патерн, нешкідливо.
+
+**Реалізовано:**
+- Кнопка "Запис діагностики" в "Сервісі" (`.service-wide-card`, той самий
+  патерн, що "Діагностика даних") — відкриває шторку з полем "Сценарій"
+  (до 120 символів) і кнопкою "Почати запис". Вимкнено за замовчуванням,
+  ніде не зберігається (ні прапорець, ні буфер) — ні в `localStorage`, ні,
+  отже, у `BACKUP_LS_KEYS`/Excel/синхронізації.
+- Під час запису — плаваючий індикатор (`position:fixed`, під safe-area-
+  top, z-index вищий за `.drawer`): крапка, таймер MM:SS, "Мітка", "Стоп".
+  Жодних полів вводу, не займає місця в layout, не чіпає
+  `innerHeight`/`visualViewport`/`scrollY`/порядок фокусу (`recorderUi:
+  true` у метаданих — явна позначка для читання логів).
+- Кільцевий буфер у пам'яті (`ringBufferPush`, чиста функція) — до 2000
+  подій, найстаріші відкидаються. Слухачі (`attachDebugRecorderListeners`/
+  `detachDebugRecorderListeners`) підключаються СИМЕТРИЧНО при старті й
+  знімаються при стопі через єдиний список хендлів — жоден не може
+  "забутися". Події: resize (window+visualViewport), vv-scroll, scroll
+  (coalesced ~30мс, trailing-debounce), focusin/focusout, orientationchange,
+  visibilitychange, pageshow/pagehide, touchstart/touchend (лише
+  координати+tag/id/class цілі), зміна класу `body` (kb-open) через
+  `MutationObserver`, ручна мітка.
+- `sanitizeDebugEvent()` — жорсткий allowlist полів (`DEBUG_EVENT_
+  ALLOWLIST`), усе поза списком відкидається СТРУКТУРНО, не питання
+  дисципліни окремого слухача — `value`/`text`/суми/назви не можуть
+  потрапити в подію, навіть якщо хтось їх передасть.
+- Автозупинка через 30 хв (`setTimeout`); буфер лише в пам'яті — втрачається
+  при перезапуску застосунку, нічого спеціально обробляти не треба.
+- "Стоп" відкриває ту саму шторку з 3 діями: "Надіслати лог" (insert у
+  `client_debug_logs`, шаблон `push_subscriptions`/`isCloudSessionReady()`,
+  `trimEventsForSizeLimit()` підрізає за лімітами БД — 3000 подій/600КБ —
+  перед відправкою, не падає на insert), "Скопіювати як JSON" (запасний
+  шлях без Cloud), "Скасувати без надсилання" (з підтвердженням).
+- `device` jsonb: `userAgent`, `platform`, розмір екрана,
+  `devicePixelRatio`, `standalone` (`navigator.standalone` АБО
+  `matchMedia('(display-mode: standalone)')`), орієнтація, `iosVersion`
+  (з User-Agent, `detectIosVersionFromUserAgent()`), `recorderUi:true`.
+
+**Перевірено:** `node --test` — 525/525 (+16 нових: кільцевий буфер,
+allowlist, обрізання за розміром, визначення iOS-версії/standalone,
+коалесценція scroll через фейковий таймер, і — через мінімальне фейкове
+DOM-середовище, оскільки явно вимагалось DoD — "вимкнений стан не додає
+слухачів", "старт/стоп знімають РІВНО стільки ж слухачів, скільки додали",
+"автозупинка за таймером сама зупиняє запис"). Live-перевірка в preview:
+повний цикл (увімкнути → дії (перемикання вкладок, resize, мітка) →
+зупинити → переглянути сирі події в буфері, усі поля — лише allowlist →
+надіслати → рядок у `client_debug_logs` прочитано SQL-ом (`event_count:4`,
+`device.recorderUi:true`) → тестовий рядок видалено, таблиця підтверджено
+порожня.
+
+**BugFix під час живої перевірки:** індикатор запису показувався одразу
+при завантаженні сторінки (мав бути прихований) — у цьому файлі немає
+глобального `.hidden{display:none}`, кожен компонент визначає власний
+`.hidden`-варіант (`.view.hidden`, `.status-banner.hidden` тощо) — bare
+`class="hidden"` без власного CSS-правила нічого не ховає. Додано явні
+правила `#debug-record-indicator.hidden`/`#debug-record-form.hidden`/
+`#debug-record-stop-actions.hidden{display:none}`.
+
+**Готовий SQL для читання логів (розгортає `events` у рядки):**
+```sql
+select t.ordinality, t.evt->>'type' as type, t.evt->>'t' as t_ms,
+       t.evt->>'kbInset' as kb_inset, t.evt->>'bodyClasses' as body_classes
+from public.client_debug_logs l,
+     jsonb_array_elements(l.events) with ordinality as t(evt, ordinality)
+where l.scenario = 'income-keyboard'  -- підставити потрібний сценарій
+order by t.ordinality;
+```
+
+**⚠️ Потребує живої перевірки на реальному iPhone:** запуск із PWA з
+головного екрана, сценарій "Дохід + клавіатура", мітка в момент симптому,
+надсилання — підтвердити, що з логу справді можна відновити таблицю подій
+(той самий формат, що живі заміри цієї сесії через Web Inspector).
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.

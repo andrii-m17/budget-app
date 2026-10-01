@@ -2671,6 +2671,26 @@
     </span>
   </button>
 
+  <!-- Rev 2.22.91 (6D.164) — "чорна скринька" діагностики viewport/
+       клавіатури: окремий рядок, той самий .service-wide-card, що
+       "Діагностика даних" вище. Підзаголовок (#debug-record-btn-sub)
+       перемикається JS-ом між дефолтним текстом і "● Іде запис · MM:SS"
+       (updateDebugRecordButtonUI(), нижче). -->
+  <button type="button" class="service-wide-card" id="debug-record-btn" onclick="openDebugRecordDrawer()">
+    <span class="service-tile-icon c-blue">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="20" height="14" rx="2"/>
+        <path d="M8 21h8"/>
+        <path d="M12 18v3"/>
+        <circle cx="12" cy="11" r="3"/>
+      </svg>
+    </span>
+    <span class="service-wide-text">
+      <span class="service-wide-title">Запис діагностики</span>
+      <span class="service-wide-sub" id="debug-record-btn-sub">Для пошуку проблем з екраном і клавіатурою</span>
+    </span>
+  </button>
+
   <div class="section-label" style="color:var(--color-error);">Небезпечні дії</div>
   <button type="button" class="service-danger-card" onclick="clearAllData()">
     <span
@@ -2706,7 +2726,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.90</div>
+  <div class="version-footer">Money Tree · Rev 2.22.91</div>
 </div>
   </div>
 </div>
@@ -2747,6 +2767,66 @@
 <button type="button" class="scroll-top-btn" id="scroll-top-btn" onclick="scrollTopBtnClick()" aria-label="Прокрутити до початку">
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>
 </button>
+
+<!-- ================= "Чорна скринька" діагностики (Rev 2.22.91, 6D.164) =================
+     Той самий .drawer-компонент, що решта шторок — два стани перемикаються
+     класом .hidden на #debug-record-form/#debug-record-stop-actions
+     (openDebugRecordDrawer()/stopDebugRecording() нижче), не два окремі
+     drawer-елементи. Плаваючий індикатор під час запису — ОКРЕМИЙ елемент
+     (#debug-record-indicator, нижче, поза .drawer), бо має лишатись видимим
+     і клікабельним, поки сама шторка закрита. -->
+<div class="drawer-backdrop" id="debug-record-backdrop" onclick="closeDebugRecordDrawer()" inert></div>
+<div class="drawer" id="debug-record-drawer" role="dialog" aria-label="Запис діагностики" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-head">
+    <div class="drawer-head-main">
+      <div class="drawer-head-text">
+        <h2>Запис діагностики</h2>
+        <div class="drawer-head-sub">Для пошуку проблем з екраном і клавіатурою</div>
+      </div>
+    </div>
+    <button class="drawer-close" onclick="closeDebugRecordDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div id="debug-record-form">
+    <div class="field">
+      <label for="debug-record-scenario">Сценарій (необов'язково)</label>
+      <input type="text" id="debug-record-scenario" maxlength="120" placeholder="напр. income-keyboard" autocomplete="off">
+    </div>
+    <button type="button" class="submit-btn pill" onclick="startDebugRecordingFromDrawer()">Почати запис</button>
+  </div>
+  <div id="debug-record-stop-actions" class="hidden">
+    <div class="drawer-empty" id="debug-record-summary"></div>
+    <button type="button" class="submit-btn pill" onclick="sendDebugLog()">Надіслати лог</button>
+    <button type="button" class="submit-btn pill" style="margin-top:8px;background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="copyDebugLogAsJson()">Скопіювати як JSON</button>
+    <button type="button" class="cdd-delete-link" onclick="discardDebugLog()">Скасувати без надсилання</button>
+  </div>
+</div>
+
+<!-- Rev 2.22.91 (6D.164) — плаваючий індикатор активного запису: position:
+     fixed, під safe-area-top, НЕ бере участі в layout решти сторінки (не
+     займає місця в потоці документа, не додає scrollHeight) і НЕ має
+     фокусованих/вхідних полів — явна вимога ТЗ "індикатор не повинен
+     впливати на те, що вимірює". z-index вищий за .drawer (91), щоб
+     лишався клікабельним, навіть коли якась інша шторка відкрита. -->
+<div class="hidden" id="debug-record-indicator">
+  <span class="debug-record-dot" aria-hidden="true"></span>
+  <span id="debug-record-timer">00:00</span>
+  <button type="button" onclick="markDebugEvent()">Мітка</button>
+  <button type="button" onclick="openDebugRecordDrawer()">Стоп</button>
+</div>
+<style>
+  #debug-record-indicator{ position:fixed; top:max(12px, env(safe-area-inset-top)); right:12px; z-index:97; display:flex; align-items:center; gap:6px; background:var(--color-surface); border:1px solid var(--color-border-strong); border-radius:999px; padding:6px 10px; box-shadow:var(--shadow-md); font-size:12px; font-family:'JetBrains Mono',monospace; }
+  /* Rev 2.22.91 (6D.164) BugFix — живий тест: у цьому файлі НЕМАЄ глобального
+     .hidden{display:none} — кожен компонент визначає свій .hidden-варіант
+     окремо (.view.hidden, .status-banner.hidden тощо, той самий принцип по
+     всьому файлу) — bare "hidden" без власного правила нічого не ховає.
+     Індикатор показувався одразу при завантаженні сторінки, хоча запис ще
+     не починався. */
+  #debug-record-indicator.hidden{ display:none; }
+  #debug-record-form.hidden, #debug-record-stop-actions.hidden{ display:none; }
+  #debug-record-indicator button{ border:none; background:var(--color-surface-hover); color:var(--color-text-primary); border-radius:999px; padding:4px 10px; font-size:11.5px; font-family:inherit; cursor:pointer; }
+  .debug-record-dot{ width:8px; height:8px; border-radius:50%; background:var(--color-error); flex:0 0 auto; }
+</style>
 
 <!-- ================= Налаштування (Drawer, окремо від навігації) ================= -->
 <div class="drawer-backdrop" id="settings-backdrop" onclick="closeSettings()" inert></div>
@@ -6422,7 +6502,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.90';
+const APP_VERSION = '2.22.91';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8620,6 +8700,331 @@ function buildDiagnosticsReport(){
       : '';
     return `<div class="diag-check"><span class="diag-check-label">${c.title}</span>${statusHtml}</div>${listHtml}`;
   }).join('');
+}
+/* ================= Rev 2.22.91 (6D.164) — "Чорна скринька" діагностики =================
+   Мета: діагностувати viewport/клавіатуру/поворот/safe-area БЕЗ Web
+   Inspector — користувач вмикає запис, відтворює баг на реальному iPhone,
+   надсилає лог, Claude Code читає події SQL-ом. Вимкнений за замовчуванням,
+   нічого не слухає, поки не ввімкнений, жодних даних користувача (allowlist
+   полів, ніколи не в backup/localStorage). Крок 0 (підтверджено прямим
+   читанням коду): isCloudSessionReady()/push_subscriptions-insert — готовий
+   шаблон; nav.tabbar — уже є селектор у updateTabBubble(); --kb-inset
+   записується, але ніде досі не читається назад через getComputedStyle —
+   рекордер перший такий read-патерн, нешкідливо (дзеркалить write-бік).
+
+   Чисті функції нижче (ringBufferPush/sanitizeDebugEvent/
+   trimEventsForSizeLimit/detectIosVersionFromUserAgent/
+   isStandaloneDisplayMode) — без DOM, окремо тестовані. Решта
+   (attachDebugRecorderListeners/captureDebugGeometry/start-stop-send) —
+   DOM-шар, перевірено живо в browser preview (той самий принцип
+   виключення, що openJournal()/handlePushAction() тощо). */
+const DEBUG_RECORDING_MAX_EVENTS = 2000;
+const DEBUG_RECORDING_AUTO_STOP_MS = 30 * 60 * 1000;
+const DEBUG_LOG_MAX_EVENTS_FOR_SEND = 3000; // той самий ліміт, що CHECK events_is_array у БД
+const DEBUG_LOG_MAX_BYTES_FOR_SEND = 600000; // той самий ліміт, що CHECK events_size у БД
+// Rev 2.22.91 (6D.164) — allowlist: лише ці поля потрапляють у подію, усе
+// поза списком відкидається СТРУКТУРНО (не питання дисципліни слухачів) —
+// жорстка вимога приватності ТЗ ("value"/"text" з полів форми сюди
+// принципово не можуть пройти, навіть якщо якийсь слухач їх передасть).
+const DEBUG_EVENT_ALLOWLIST = [
+  't', 'type', 'innerW', 'innerH', 'outerH', 'vvW', 'vvH', 'vvOffsetTop', 'vvOffsetLeft', 'vvScale',
+  'scrollY', 'docClientH', 'bodyClasses', 'kbInset',
+  'activeElementTag', 'activeElementId', 'activeElementType',
+  'orientation', 'tabbarTop', 'tabbarHeight',
+  'safeTop', 'safeRight', 'safeBottom', 'safeLeft',
+  'touchX', 'touchY', 'targetTag', 'targetId', 'targetClasses',
+];
+function sanitizeDebugEvent(raw){
+  const out = {};
+  DEBUG_EVENT_ALLOWLIST.forEach(function(key){
+    if(Object.prototype.hasOwnProperty.call(raw, key) && raw[key] !== undefined) out[key] = raw[key];
+  });
+  return out;
+}
+// ringBufferPush(buffer, event, maxSize) — чиста функція: повертає НОВИЙ
+// масив (immutable), найстаріші (з початку) відкидаються понад maxSize.
+function ringBufferPush(buffer, event, maxSize){
+  const next = buffer.concat([event]);
+  if(next.length > maxSize) return next.slice(next.length - maxSize);
+  return next;
+}
+// trimEventsForSizeLimit(events, maxCount, maxBytes) — перед надсиланням:
+// спершу обрізає за кількістю, потім відкидає найстаріші, доки JSON не
+// влізе в maxBytes (той самий бюджет, що CHECK events_size у БД) — рекордер
+// сам підрізає, а не падає на insert з помилкою ліміту.
+function trimEventsForSizeLimit(events, maxCount, maxBytes){
+  let list = events.length > maxCount ? events.slice(events.length - maxCount) : events.slice();
+  while(list.length > 1 && JSON.stringify(list).length > maxBytes) list = list.slice(1);
+  return list;
+}
+// detectIosVersionFromUserAgent(ua) — "OS 17_2 like Mac OS X" → "17.2".
+function detectIosVersionFromUserAgent(ua){
+  const m = /OS (\d+)_(\d+)(?:_(\d+))?/.exec(ua || '');
+  if(!m) return null;
+  return m[3] ? `${m[1]}.${m[2]}.${m[3]}` : `${m[1]}.${m[2]}`;
+}
+// isStandaloneDisplayMode(navigatorStandalone, matchMediaStandalone) —
+// окремий аргумент для кожного джерела (iOS Safari: navigator.standalone;
+// решта: matchMedia) — чиста функція, легко підставити обидва сценарії.
+function isStandaloneDisplayMode(navigatorStandalone, matchMediaStandalone){
+  return !!(navigatorStandalone || matchMediaStandalone);
+}
+
+let debugRecordingActive = false;
+let debugRecordingStartedAt = 0;
+let debugRecordingScenario = '';
+let debugEventBuffer = [];
+let debugRecordingAutoStopTimer = null;
+let debugRecordingTimerInterval = null;
+let debugListenerHandles = [];
+let debugRecordingMutationObserver = null;
+let debugScrollCoalesceTimer = null;
+let debugSafeAreaProbeEl = null;
+
+function debugSafeAreaInsets(){
+  if(!debugSafeAreaProbeEl){
+    debugSafeAreaProbeEl = document.createElement('div');
+    debugSafeAreaProbeEl.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);';
+    document.body.appendChild(debugSafeAreaProbeEl);
+  }
+  const cs = getComputedStyle(debugSafeAreaProbeEl);
+  return {
+    top: parseFloat(cs.paddingTop) || 0, right: parseFloat(cs.paddingRight) || 0,
+    bottom: parseFloat(cs.paddingBottom) || 0, left: parseFloat(cs.paddingLeft) || 0,
+  };
+}
+function pushDebugEvent(raw){
+  if(!debugRecordingActive) return;
+  debugEventBuffer = ringBufferPush(debugEventBuffer, sanitizeDebugEvent(raw), DEBUG_RECORDING_MAX_EVENTS);
+}
+// captureDebugGeometry(type, extra) — єдина точка збору "знімку" геометрії,
+// спільна для resize/scroll/orientationchange/visibilitychange/kb-open.
+function captureDebugGeometry(type, extra){
+  const vv = window.visualViewport;
+  const bar = document.querySelector('nav.tabbar');
+  const barRect = bar ? bar.getBoundingClientRect() : null;
+  const active = document.activeElement;
+  const safe = debugSafeAreaInsets();
+  pushDebugEvent(Object.assign({
+    t: Math.round(performance.now() - debugRecordingStartedAt),
+    type: type,
+    innerW: window.innerWidth, innerH: window.innerHeight, outerH: window.outerHeight,
+    vvW: vv ? Math.round(vv.width) : null, vvH: vv ? Math.round(vv.height) : null,
+    vvOffsetTop: vv ? Math.round(vv.offsetTop) : null, vvOffsetLeft: vv ? Math.round(vv.offsetLeft) : null,
+    vvScale: vv ? vv.scale : null,
+    scrollY: window.scrollY, docClientH: document.documentElement.clientHeight,
+    bodyClasses: document.body.className,
+    kbInset: getComputedStyle(document.documentElement).getPropertyValue('--kb-inset'),
+    activeElementTag: active ? active.tagName : null,
+    activeElementId: active ? (active.id || null) : null,
+    activeElementType: active ? (active.type || null) : null,
+    orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait',
+    tabbarTop: barRect ? Math.round(barRect.top) : null, tabbarHeight: barRect ? Math.round(barRect.height) : null,
+    safeTop: safe.top, safeRight: safe.right, safeBottom: safe.bottom, safeLeft: safe.left,
+  }, extra || {}));
+}
+function onDebugWindowResize(){ captureDebugGeometry('resize'); }
+function onDebugVvResize(){ captureDebugGeometry('vv-resize'); }
+function onDebugVvScroll(){ captureDebugGeometry('vv-scroll'); }
+// Rev 2.22.91 — коалесценція ~30мс: trailing-debounce, той самий принцип,
+// що scroll-throttling деінде в коді; лише ОСТАННЯ подія в межах вікна
+// фіксується як знімок, не кожен проміжний кадр скролу.
+function onDebugScroll(){
+  if(debugScrollCoalesceTimer) clearTimeout(debugScrollCoalesceTimer);
+  debugScrollCoalesceTimer = setTimeout(function(){
+    debugScrollCoalesceTimer = null;
+    captureDebugGeometry('scroll');
+  }, 30);
+}
+function onDebugFocusIn(e){ captureDebugGeometry('focusin', { targetTag: e.target ? e.target.tagName : null, targetId: e.target ? (e.target.id || null) : null }); }
+function onDebugFocusOut(e){ captureDebugGeometry('focusout', { targetTag: e.target ? e.target.tagName : null, targetId: e.target ? (e.target.id || null) : null }); }
+function onDebugOrientationChange(){ captureDebugGeometry('orientationchange'); }
+function onDebugVisibilityChange(){ captureDebugGeometry('visibilitychange'); }
+function onDebugPageShow(){ captureDebugGeometry('pageshow'); }
+function onDebugPageHide(){ captureDebugGeometry('pagehide'); }
+function onDebugTouchStart(e){
+  const t = e.touches && e.touches[0];
+  const target = e.target;
+  captureDebugGeometry('touchstart', {
+    touchX: t ? Math.round(t.clientX) : null, touchY: t ? Math.round(t.clientY) : null,
+    targetTag: target ? target.tagName : null, targetId: target ? (target.id || null) : null,
+    targetClasses: target && target.className ? String(target.className).slice(0, 80) : null,
+  });
+}
+function onDebugTouchEnd(e){
+  const t = e.changedTouches && e.changedTouches[0];
+  captureDebugGeometry('touchend', { touchX: t ? Math.round(t.clientX) : null, touchY: t ? Math.round(t.clientY) : null });
+}
+function onDebugBodyClassChange(){ captureDebugGeometry('kb-open-class-changed'); }
+// Rev 2.22.91 — attach/detach через спільний debugListenerHandles — одна
+// петля прибирання гарантовано знімає РІВНО те, що було додано, без ризику
+// забути якийсь слухач при stop() (symmetric by construction).
+function attachDebugRecorderListeners(){
+  function on(target, type, handler, opts){
+    if(!target) return;
+    target.addEventListener(type, handler, opts);
+    debugListenerHandles.push({ target: target, type: type, handler: handler, opts: opts });
+  }
+  on(window, 'resize', onDebugWindowResize);
+  if(window.visualViewport){
+    on(window.visualViewport, 'resize', onDebugVvResize);
+    on(window.visualViewport, 'scroll', onDebugVvScroll);
+  }
+  on(window, 'scroll', onDebugScroll, true); // capture: ловимо скрол БУДЬ-ЯКого внутрішнього контейнера (#main-col, .drawer), не лише window
+  on(document, 'focusin', onDebugFocusIn);
+  on(document, 'focusout', onDebugFocusOut);
+  on(window, 'orientationchange', onDebugOrientationChange);
+  on(document, 'visibilitychange', onDebugVisibilityChange);
+  on(window, 'pageshow', onDebugPageShow);
+  on(window, 'pagehide', onDebugPageHide);
+  on(window, 'touchstart', onDebugTouchStart, { passive: true });
+  on(window, 'touchend', onDebugTouchEnd, { passive: true });
+  if(typeof MutationObserver !== 'undefined'){
+    debugRecordingMutationObserver = new MutationObserver(onDebugBodyClassChange);
+    debugRecordingMutationObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
+}
+function detachDebugRecorderListeners(){
+  debugListenerHandles.forEach(function(h){ h.target.removeEventListener(h.type, h.handler, h.opts); });
+  debugListenerHandles = [];
+  if(debugRecordingMutationObserver){ debugRecordingMutationObserver.disconnect(); debugRecordingMutationObserver = null; }
+  if(debugScrollCoalesceTimer){ clearTimeout(debugScrollCoalesceTimer); debugScrollCoalesceTimer = null; }
+}
+function updateDebugRecordButtonUI(){
+  const sub = document.getElementById('debug-record-btn-sub');
+  const indicator = document.getElementById('debug-record-indicator');
+  if(!sub) return;
+  if(debugRecordingActive){
+    const elapsedS = Math.floor((performance.now() - debugRecordingStartedAt) / 1000);
+    const mm = String(Math.floor(elapsedS / 60)).padStart(2, '0');
+    const ss = String(elapsedS % 60).padStart(2, '0');
+    sub.textContent = `● Іде запис · ${mm}:${ss}`;
+    const timerEl = document.getElementById('debug-record-timer');
+    if(timerEl) timerEl.textContent = `${mm}:${ss}`;
+    if(indicator) indicator.classList.remove('hidden');
+  }else{
+    sub.textContent = 'Для пошуку проблем з екраном і клавіатурою';
+    if(indicator) indicator.classList.add('hidden');
+  }
+}
+function startDebugRecording(scenario){
+  if(debugRecordingActive) return;
+  debugRecordingActive = true;
+  debugRecordingStartedAt = performance.now();
+  debugRecordingScenario = (scenario || '').slice(0, 120);
+  debugEventBuffer = [];
+  attachDebugRecorderListeners();
+  captureDebugGeometry('start');
+  debugRecordingTimerInterval = setInterval(updateDebugRecordButtonUI, 1000);
+  debugRecordingAutoStopTimer = setTimeout(function(){ stopDebugRecording(); }, DEBUG_RECORDING_AUTO_STOP_MS);
+  updateDebugRecordButtonUI();
+}
+function stopDebugRecording(){
+  if(!debugRecordingActive) return;
+  captureDebugGeometry('stop');
+  debugRecordingActive = false;
+  detachDebugRecorderListeners();
+  if(debugRecordingTimerInterval){ clearInterval(debugRecordingTimerInterval); debugRecordingTimerInterval = null; }
+  if(debugRecordingAutoStopTimer){ clearTimeout(debugRecordingAutoStopTimer); debugRecordingAutoStopTimer = null; }
+  updateDebugRecordButtonUI();
+  const form = document.getElementById('debug-record-form');
+  const stopActions = document.getElementById('debug-record-stop-actions');
+  const summary = document.getElementById('debug-record-summary');
+  if(form) form.classList.add('hidden');
+  if(stopActions) stopActions.classList.remove('hidden');
+  if(summary) summary.textContent = `Зібрано подій: ${debugEventBuffer.length}. Сценарій: ${debugRecordingScenario || '(не вказано)'}.`;
+  const backdrop = document.getElementById('debug-record-backdrop');
+  const drawer = document.getElementById('debug-record-drawer');
+  if(backdrop){ backdrop.removeAttribute('inert'); backdrop.classList.add('open'); }
+  if(drawer){ drawer.removeAttribute('inert'); drawer.classList.add('open'); }
+}
+function markDebugEvent(){ captureDebugGeometry('mark'); }
+function openDebugRecordDrawer(){
+  if(debugRecordingActive){ stopDebugRecording(); return; }
+  const form = document.getElementById('debug-record-form');
+  const stopActions = document.getElementById('debug-record-stop-actions');
+  if(form) form.classList.remove('hidden');
+  if(stopActions) stopActions.classList.add('hidden');
+  const scenarioInput = document.getElementById('debug-record-scenario');
+  if(scenarioInput) scenarioInput.value = '';
+  const backdrop = document.getElementById('debug-record-backdrop');
+  const drawer = document.getElementById('debug-record-drawer');
+  lastFocusedBeforeDialog = document.activeElement;
+  if(backdrop){ backdrop.removeAttribute('inert'); backdrop.classList.add('open'); }
+  if(drawer){ drawer.removeAttribute('inert'); drawer.classList.add('open'); focusFirstIn(drawer); }
+}
+function closeDebugRecordDrawer(){
+  const backdrop = document.getElementById('debug-record-backdrop');
+  const drawer = document.getElementById('debug-record-drawer');
+  if(backdrop){ backdrop.classList.remove('open'); backdrop.setAttribute('inert', ''); }
+  if(drawer){ drawer.classList.remove('open'); drawer.setAttribute('inert', ''); }
+  restoreFocus();
+}
+function startDebugRecordingFromDrawer(){
+  const scenarioInput = document.getElementById('debug-record-scenario');
+  startDebugRecording(scenarioInput ? scenarioInput.value : '');
+  closeDebugRecordDrawer();
+}
+function buildDebugLogDevice(){
+  const ua = navigator.userAgent || '';
+  return {
+    userAgent: ua,
+    platform: navigator.platform || null,
+    screenWidth: window.screen ? window.screen.width : null,
+    screenHeight: window.screen ? window.screen.height : null,
+    devicePixelRatio: window.devicePixelRatio || null,
+    standalone: isStandaloneDisplayMode(
+      navigator.standalone,
+      !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+    ),
+    orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait',
+    iosVersion: detectIosVersionFromUserAgent(ua),
+    recorderUi: true,
+  };
+}
+async function sendDebugLog(){
+  if(!isCloudSessionReady()){
+    reportSaveResult({ success: false, error: 'Немає Cloud-сесії — скористайтесь "Скопіювати як JSON".' });
+    return;
+  }
+  const events = trimEventsForSizeLimit(debugEventBuffer, DEBUG_LOG_MAX_EVENTS_FOR_SEND, DEBUG_LOG_MAX_BYTES_FOR_SEND);
+  try{
+    const { error } = await getSupabaseClient().from('client_debug_logs').insert({
+      family_id: cloudFamilyId,
+      user_id: cloudSession.user.id,
+      app_version: APP_VERSION,
+      scenario: debugRecordingScenario || null,
+      device: buildDebugLogDevice(),
+      events: events,
+    });
+    if(error){
+      reportSaveResult({ success: false, error: 'Не вдалось надіслати — лишаю лог, спробуйте "Скопіювати як JSON".' });
+      return;
+    }
+    debugEventBuffer = [];
+    closeDebugRecordDrawer();
+    reportSaveResult({ success: true, message: 'Лог надіслано' });
+  }catch(e){
+    reportSaveResult({ success: false, error: 'Мережа/офлайн — лишаю лог, спробуйте "Скопіювати як JSON".' });
+  }
+}
+async function copyDebugLogAsJson(){
+  const payload = JSON.stringify({
+    app_version: APP_VERSION, scenario: debugRecordingScenario || null,
+    device: buildDebugLogDevice(), events: debugEventBuffer,
+  }, null, 2);
+  try{
+    await navigator.clipboard.writeText(payload);
+    reportSaveResult({ success: true, message: 'Скопійовано як JSON' });
+  }catch(e){
+    reportSaveResult({ success: false, error: 'Не вдалось скопіювати — буфер обміну недоступний.' });
+  }
+}
+function discardDebugLog(){
+  showConfirmModal('Скасувати запис без надсилання? Зібрані дані буде втрачено.', function(){
+    debugEventBuffer = [];
+    closeDebugRecordDrawer();
+  }, 'Так, скасувати');
 }
 function runDataDiagnostics(){
   showDiagnosticsModal(buildDiagnosticsReport());
