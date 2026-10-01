@@ -5000,6 +5000,34 @@ test('viewportOrientationKey: ширина > висота → landscape, іна�
   assert.equal(ctx.viewportOrientationKey(926, 428), 'landscape');
   assert.equal(ctx.viewportOrientationKey(428, 926), 'portrait');
 });
+// Rev 2.22.86 (6D.158.1) BugFix — живий тест (поворот portrait→landscape
+// З ВІДКРИТОЮ клавіатурою): screen.width/height у standalone-PWA НЕ
+// змінюються при повороті (підтверджено живими даними — constant 440×956
+// в ОБОХ орієнтаціях), тому viewportOrientationKey(screen.width,
+// screen.height) завжди повертала 'portrait' — у landscape код брав
+// портретну базу (894) замість landscape (~440), --kb-inset виходив
+// 684px, картку викидало за межі екрана. Виправлено на innerWidth/
+// innerHeight (порівняння, не абсолютне значення) — тест нижче відтворює
+// РЕАЛЬНУ послідовність значень із цього заміру, включно з найбитішими
+// перехідними кадрами самого повороту (де innerHeight уже спотворений
+// тим самим багом 6D.158) — ширина/висота жодного разу не переплутались
+// місцями.
+test('viewportOrientationKey: РЕАЛЬНА послідовність повороту з відкритою клавіатурою (6D.158.1) — innerWidth/innerHeight коректно розрізняють орієнтацію на кожному кроці, включно з перехідними кадрами де сам innerHeight спотворений багом 6D.158', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.viewportOrientationKey(440, 894), 'portrait');   // t=1, спокій
+  assert.equal(ctx.viewportOrientationKey(440, 505), 'portrait');   // t=16349, клавіатура в portrait
+  assert.equal(ctx.viewportOrientationKey(956, 431), 'landscape');  // t=29099, щойно повернули в landscape
+  assert.equal(ctx.viewportOrientationKey(956, 346), 'landscape');  // t=29393, landscape, innerHeight ще "осідає"
+  assert.equal(ctx.viewportOrientationKey(440, 956), 'portrait');   // t=41542, повертаємось назад — перехідний кадр з ЗАВИЩЕНИМ innerHeight (956 > справжніх 894), але порівняння все одно коректне
+  assert.equal(ctx.viewportOrientationKey(440, 894), 'portrait');   // t=52584, спокій після повороту назад
+});
+test('viewportOrientationKey: screen.width/screen.height БІЛЬШЕ не використовуються (6D.158.1) — на цьому пристрої вони constant в обох орієнтаціях і давали б завжди "portrait"', () => {
+  const ctx = keyboardInsetSandbox();
+  // Ілюстрація самого бага 6D.158.1: якби функцію й далі годували screen.*
+  // (constant 440×956 в ОБОХ орієнтаціях, підтверджено живими даними),
+  // вона НІКОЛИ не повернула б 'landscape' — саме це й сталось у Rev 2.22.85.
+  assert.equal(ctx.viewportOrientationKey(440, 956), 'portrait');
+});
 test('nextBaseViewportHeight: перший запис для орієнтації (prevValue=null) → береться як є, навіть якщо він менший за типовий', () => {
   const ctx = keyboardInsetSandbox();
   assert.equal(ctx.nextBaseViewportHeight(null, 390), 390);

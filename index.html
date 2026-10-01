@@ -2637,7 +2637,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.85</div>
+  <div class="version-footer">Money Tree · Rev 2.22.86</div>
 </div>
   </div>
 </div>
@@ -6313,7 +6313,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.85';
+const APP_VERSION = '2.22.86';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14461,17 +14461,27 @@ document.addEventListener('focusout', function(e){
 // 2. Окрема база на кожну орієнтацію (portrait/landscape) — проста
 //    монотонна база без цього розділення зламала б landscape (менша за
 //    портретну, Math.max назавжди застряг би на більшому портретному
-//    значенні). Визначення орієнтації — `screen.width`/`screen.height`
-//    (не innerWidth/innerHeight): жодного існуючого хелпера для цього в
-//    проєкті не було (Баг 1/1a лише слухають подію orientationchange, не
-//    порівнюють виміри) — обрано `screen.*` свідомо: це ОКРЕМЕ фізичне
-//    вимірювання екрана, повністю незалежне від visualViewport-родини
-//    API, де щойно знайдено баг. Поворот із ВІДКРИТОЮ клавіатурою —
-//    окремий, явно запланований сценарій живої перевірки iPhone (нижче).
+//    значенні).
 // 3. Регресійний тест на РЕАЛЬНІЙ послідовності з живого заміру —
 //    tests/pilot-repository.test.js.
-function viewportOrientationKey(screenWidth, screenHeight){
-  return screenWidth > screenHeight ? 'landscape' : 'portrait';
+//
+// Rev 2.22.86 (6D.158.1) BugFix — живий тест користувача (поворот portrait
+// → landscape З ВІДКРИТОЮ клавіатурою, сценарій 4 з DoD вище) показав
+// картку, викинуту повністю за межі екрана (--kb-inset: 684px, drawerTop:
+// -616). Причина — МОЯ ВЛАСНА помилка у виборі джерела орієнтації вище
+// (п.2): `window.screen.width`/`height` у цьому standalone-PWA ВЗАГАЛІ не
+// змінюються при повороті — живі дані підтвердили constant 440×956 в
+// ОБОХ орієнтаціях одночасно. viewportOrientationKey() тому завжди
+// повертала 'portrait', і в ландшафті код брав портретну базу (894)
+// замість справжньої ландшафтної (~440) — звідси гігантський хибний
+// inset. Виправлено на `window.innerWidth`/`innerHeight` (саме
+// ПОРІВНЯННЯ, не абсолютне значення) — перевірено по ВСІЙ реальній
+// послідовності заміру (tests/): навіть у найбитіших перехідних кадрах
+// повороту, коли сам innerHeight спотворений тим самим багом 6D.158,
+// ширина/висота ЖОДНОГО РАЗУ не переплутались місцями — корупція
+// ніколи не була настільки великою, щоб обдурити "що більше".
+function viewportOrientationKey(width, height){
+  return width > height ? 'landscape' : 'portrait';
 }
 // nextBaseViewportHeight(prevValue, observedHeight): prevValue===null —
 // слот цієї орієнтації ще "непочатий" цього сеансу, береться перше
@@ -14482,11 +14492,11 @@ function nextBaseViewportHeight(prevValue, observedHeight){
 let baseViewportHeightByOrientation = { portrait: null, landscape: null };
 function noteViewportHeightIfKeyboardClosed(){
   if(document.body.classList.contains('kb-open')) return;
-  const key = viewportOrientationKey(window.screen.width, window.screen.height);
+  const key = viewportOrientationKey(window.innerWidth, window.innerHeight);
   baseViewportHeightByOrientation[key] = nextBaseViewportHeight(baseViewportHeightByOrientation[key], window.innerHeight);
 }
 function getBaseViewportHeight(){
-  const key = viewportOrientationKey(window.screen.width, window.screen.height);
+  const key = viewportOrientationKey(window.innerWidth, window.innerHeight);
   return baseViewportHeightByOrientation[key] || window.innerHeight;
 }
 noteViewportHeightIfKeyboardClosed(); // ініціалізація одразу при завантаженні — kb-open ще не існує (false), клавіатури напевно нема.
