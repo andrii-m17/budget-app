@@ -5276,6 +5276,80 @@ test('computeDrawerMaxHeightPx: чиста функція — vvHeight міну�
   assert.equal(ctx.computeDrawerMaxHeightPx(5, 8), 0, 'захист від від\'ємного результату');
 });
 
+// Rev 2.23.4 (6D.173) — запит користувача ПІСЛЯ відкоту 6D.170/172 (Rev
+// 2.23.3, "зламало внесення витрат"): блокувати фоновий #main-col САМЕ коли
+// клавіатура відкрита на полі ВСЕРЕДИНІ шторки (Борги/Дохід/ОЧ), а НЕ для
+// інлайн-полів "Витрати" (той самий #main-col-нащадок, що зламав 6D.172).
+// isFieldInsideDrawer() — межа: шторки структурно ПОЗА #main-col (6D.166
+// аналіз), тому inert на #main-col ніколи не предок поля всередині
+// шторки — не може зняти з нього фокус (на відміну від минулого разу).
+function kbDrawerLockSandbox(){
+  const mainCol = { _inert: false, setAttribute: function(name){ if(name==='inert') this._inert = true; }, removeAttribute: function(name){ if(name==='inert') this._inert = false; } };
+  const classes = new Set();
+  const body = { classList: {
+    contains: function(c){ return classes.has(c); },
+    add: function(c){ classes.add(c); },
+    remove: function(c){ classes.delete(c); },
+  } };
+  const state = { activeElement: null };
+  const ctx = require('./extract').buildSandbox({
+    document: Object.defineProperty({
+      body: body,
+      getElementById: function(id){ return id === 'main-col' ? mainCol : null; },
+    }, 'activeElement', { get: function(){ return state.activeElement; } }),
+    drawerKeyboardLockActive: false,
+  }, [
+    'isKeyboardField', 'isFieldInsideDrawer', 'setDrawerKeyboardBackgroundLock',
+    'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle',
+  ]);
+  return { ctx: ctx, mainCol: mainCol, body: body, state: state };
+}
+function makeField(opts){
+  opts = opts || {};
+  return { tagName: 'INPUT', type: opts.type || 'text', closest: function(sel){ return sel === '.drawer' && opts.inDrawer ? {} : null; } };
+}
+test('isFieldInsideDrawer: true лише коли el.closest(\'.drawer\') щось знаходить', () => {
+  const { ctx } = kbDrawerLockSandbox();
+  assert.equal(ctx.isFieldInsideDrawer(makeField({ inDrawer: true })), true);
+  assert.equal(ctx.isFieldInsideDrawer(makeField({ inDrawer: false })), false);
+  assert.equal(ctx.isFieldInsideDrawer(null), false);
+});
+test('handleKeyboardFieldFocusIn: поле ВСЕРЕДИНІ шторки → kb-open + лок #main-col', () => {
+  const { ctx, mainCol, body } = kbDrawerLockSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: true }));
+  assert.equal(body.classList.contains('kb-open'), true);
+  assert.equal(mainCol._inert, true);
+});
+test('handleKeyboardFieldFocusIn: інлайн-поле "Витрати" (ПОЗА шторкою) → kb-open, але БЕЗ локу #main-col', () => {
+  const { ctx, mainCol, body } = kbDrawerLockSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: false }));
+  assert.equal(body.classList.contains('kb-open'), true, 'таббар і далі ховається для будь-якого поля — не чіпали');
+  assert.equal(mainCol._inert, false, 'головна скарга минулого разу — тут МАЄ лишитись false');
+});
+test('handleKeyboardFieldFocusSettle: фокус повністю зник → знімає і kb-open, і лок', () => {
+  const { ctx, mainCol, body, state } = kbDrawerLockSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: true }));
+  state.activeElement = { tagName: 'BODY' };
+  ctx.handleKeyboardFieldFocusSettle();
+  assert.equal(body.classList.contains('kb-open'), false);
+  assert.equal(mainCol._inert, false);
+});
+test('handleKeyboardFieldFocusSettle: Tab на ІНШЕ поле ВСЕРЕДИНІ тієї ж шторки — лок НЕ знімається (без "миготіння")', () => {
+  const { ctx, mainCol, state } = kbDrawerLockSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: true }));
+  state.activeElement = makeField({ inDrawer: true });
+  ctx.handleKeyboardFieldFocusSettle();
+  assert.equal(mainCol._inert, true, 'та сама шторка — лок мав лишитись активним');
+});
+test('handleKeyboardFieldFocusSettle: idempotent — повторний виклик з тим самим станом не ламається (setDrawerKeyboardBackgroundLock перевіряє поточне значення)', () => {
+  const { ctx, mainCol, state } = kbDrawerLockSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: true }));
+  state.activeElement = { tagName: 'BODY' };
+  ctx.handleKeyboardFieldFocusSettle();
+  ctx.handleKeyboardFieldFocusSettle();
+  assert.equal(mainCol._inert, false);
+});
+
 // Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду без FK (deactivated_via/
 // deleted_via, текстові, рішення користувача). Ключова вимога —
 // СЕЛЕКТИВНІСТЬ: слово/підкатегорія, видалені ОКРЕМО (без маркера чи з

@@ -2763,7 +2763,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.3</div>
+  <div class="version-footer">Money Tree · Rev 2.23.4</div>
 </div>
   </div>
 </div>
@@ -6554,7 +6554,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.3';
+const APP_VERSION = '2.23.4';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15107,11 +15107,57 @@ function isKeyboardField(el){
   // текстову клавіатуру — той баг з "спливанням" фіксбар до них не стосується.
   return !['checkbox','radio','date','file','range','color'].includes(type);
 }
+// Rev 2.23.4 (6D.173) — запит користувача ПІСЛЯ відкоту 6D.170/172 (Rev
+// 2.23.3): блокувати фоновий скрол САМЕ коли клавіатура відкрита на полі
+// ВСЕРЕДИНІ шторки (Борги/Дохід/ОЧ) — НЕ для інлайн-полів форми "Витрати"
+// (той самий #main-col-нащадок, що зламав введення минулого разу, 6D.170/
+// 172 докоментар і ROADMAP). Рішення — не чіпати drawer open/close
+// (6D.170, "не спрацювало" на живому пристрої) і не лочити фон на КОЖНЕ
+// поле з клавіатурою (6D.172, ламало #main-col-нащадків) — а лочити ЛИШЕ
+// коли сфокусоване поле лежить ВСЕРЕДИНІ `.drawer` (`el.closest('.drawer')`
+// — шторки СТРУКТУРНО поза #main-col, 6D.166 аналіз, тому inert на
+// #main-col ніколи не є предком такого поля й не може зняти з нього фокус
+// — саме той механізм, що зламав 6D.172). Інлайн-поля "Витрати" лежать
+// ВСЕРЕДИНІ #main-col, не всередині .drawer — isFieldInsideDrawer() для
+// них false, лок не застосовується, поведінка ідентична до відкоту.
+function isFieldInsideDrawer(el){
+  return !!(el && typeof el.closest === 'function' && el.closest('.drawer'));
+}
+let drawerKeyboardLockActive = false;
+function setDrawerKeyboardBackgroundLock(locked){
+  if(locked === drawerKeyboardLockActive) return;
+  drawerKeyboardLockActive = locked;
+  const mainCol = document.getElementById('main-col');
+  if(!mainCol) return;
+  if(locked) mainCol.setAttribute('inert','');
+  else mainCol.removeAttribute('inert');
+}
+function handleKeyboardFieldFocusIn(target){
+  document.body.classList.add('kb-open');
+  if(isFieldInsideDrawer(target)) setDrawerKeyboardBackgroundLock(true);
+}
+// Викликається з відкладеного (100мс) таймауту focusout — перевіряє
+// ПОТОЧНИЙ activeElement: якщо клавіатурного поля вже нема — знімає і
+// kb-open, і лок; якщо фокус перейшов на ІНШЕ поле, але вже ПОЗА шторкою
+// (малоймовірно, але про всяк випадок) — знімає лише лок, kb-open
+// лишається (клавіатура й далі на екрані). visualViewport-запобіжник
+// (WebKit Баг 2, 6D.52) нижче НЕ використовує цю функцію — там
+// activeElement за визначенням ненадійний (клавіатуру сховали жестом без
+// зміни фокуса), тому зняття там БЕЗУМОВНЕ, не через перевірку фокуса.
+function handleKeyboardFieldFocusSettle(){
+  const active = document.activeElement;
+  if(!isKeyboardField(active)){
+    document.body.classList.remove('kb-open');
+    setDrawerKeyboardBackgroundLock(false);
+  }else if(!isFieldInsideDrawer(active)){
+    setDrawerKeyboardBackgroundLock(false);
+  }
+}
 let kbHideTimeout = null;
 document.addEventListener('focusin', function(e){
   if(!isKeyboardField(e.target)) return;
   if(kbHideTimeout){ clearTimeout(kbHideTimeout); kbHideTimeout = null; }
-  document.body.classList.add('kb-open');
+  handleKeyboardFieldFocusIn(e.target);
 });
 document.addEventListener('focusout', function(e){
   if(!isKeyboardField(e.target)) return;
@@ -15119,9 +15165,7 @@ document.addEventListener('focusout', function(e){
   // (Tab/Enter між полями форми), таббар не повинен блимнути назад і одразу
   // сховатись знову — перевіряємо, куди саме перейшов фокус, з коротким
   // таймаутом (activeElement оновлюється синхронно до цього моменту).
-  kbHideTimeout = setTimeout(function(){
-    if(!isKeyboardField(document.activeElement)) document.body.classList.remove('kb-open');
-  }, 100);
+  kbHideTimeout = setTimeout(handleKeyboardFieldFocusSettle, 100);
 });
 // Rev #30 (6D.52) — Баг 2 (термінове розслідування двох UI-багів): WebKit
 // дозволяє сховати системну клавіатуру (кнопка-шеврон/жест) БЕЗ зміни
@@ -15209,6 +15253,14 @@ if(window.visualViewport){
     if(!document.body.classList.contains('kb-open')) return;
     if(isKeyboardLikelyClosed(getBaseViewportHeight(), window.visualViewport.height)){
       document.body.classList.remove('kb-open');
+      // Rev 2.23.4 (6D.173) — той самий запобіжник, що focusout вище:
+      // якщо focusout НЕ спрацював (WebKit Баг 2, 6D.52 — клавіатуру
+      // сховали жестом без зміни activeElement, тож ВОНО й далі технічно
+      // "у фокусі"), лок на #main-col (якщо був активний через поле
+      // всередині шторки) лишився б "підвішеним" назавжди без примусового
+      // зняття тут — БЕЗУМОВНО, на відміну від handleKeyboardFieldFocusSettle()
+      // (та перевіряє activeElement, тут це саме НЕНАДІЙНО за визначенням).
+      setDrawerKeyboardBackgroundLock(false);
     }
   });
 }
