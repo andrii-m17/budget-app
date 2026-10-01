@@ -2637,7 +2637,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.84</div>
+  <div class="version-footer">Money Tree · Rev 2.22.85</div>
 </div>
   </div>
 </div>
@@ -6313,7 +6313,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.84';
+const APP_VERSION = '2.22.85';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14434,13 +14434,69 @@ document.addEventListener('focusout', function(e){
 // напрямок) — ніколи для додавання: visualViewport стискається й з інших
 // причин (адресний рядок тощо), тому "показати клавіатуру" лишається
 // виключно за focusin, як і раніше.
-function isKeyboardLikelyClosed(windowInnerHeight, visualViewportHeight){
-  return (windowInnerHeight - visualViewportHeight) < 100;
+//
+// Rev 2.22.85 (6D.158) BugFix — живий Web Inspector-тест на реальному
+// iPhone (2 незалежні заміри) довів: `window.innerHeight` у ЦЬОМУ
+// застосунку (html,body{position:fixed}, той самий корінь, що й 6D.53)
+// ТИМЧАСОВО просідає до рівня `visualViewport.height` одразу в момент
+// появи клавіатури (894→505, РІВНО як vvHeight) і повертається до
+// справжнього значення лише після НАСТУПНОЇ scroll-події — реальний
+// таймлайн: kb-open виставлено (focusin, t=9495) → 87мс по тому
+// isKeyboardLikelyClosed(innerHeight=505, vvHeight=505) хибно побачила
+// "клавіатуру нема" (діф=0) і ЗНЯЛА kb-open, хоча клавіатура щойно
+// з'явилась і простояла ще кілька секунд. Це корінь ОБОХ: (а) kb-open
+// передчасно знімається; (б) updateKeyboardInset() нижче тим самим
+// способом рахує --kb-inset=0px, поки "рятівний" дотик не згенерує
+// scroll-подію, що випадково змушує innerHeight самовиправитись — звідси
+// спостереження "шторка 'Дохід' піднімається лише після скролу".
+// `visualViewport.height` у ЖОДНОМУ з двох замірів не "збрехав" — він
+// стабільно 505 весь час, поки клавіатура на екрані. Ненадійний лише
+// innerHeight. Фікс (уточнено користувачем після звіту з реальними
+// даними, 3 правки до першого чорнового плану):
+// 1. baseViewportHeight — кешована база, що бере участь у розрахунку
+//    ЗАМІСТЬ живого innerHeight — оновлюється лише коли kb-open точно
+//    знятий (немає клавіатури), і ЛИШЕ зростає (Math.max) — одинична
+//    хибна просадка innerHeight (чи то ж сама аномалія, чи будь-яка
+//    інша) більше не може "забруднити" базу вниз.
+// 2. Окрема база на кожну орієнтацію (portrait/landscape) — проста
+//    монотонна база без цього розділення зламала б landscape (менша за
+//    портретну, Math.max назавжди застряг би на більшому портретному
+//    значенні). Визначення орієнтації — `screen.width`/`screen.height`
+//    (не innerWidth/innerHeight): жодного існуючого хелпера для цього в
+//    проєкті не було (Баг 1/1a лише слухають подію orientationchange, не
+//    порівнюють виміри) — обрано `screen.*` свідомо: це ОКРЕМЕ фізичне
+//    вимірювання екрана, повністю незалежне від visualViewport-родини
+//    API, де щойно знайдено баг. Поворот із ВІДКРИТОЮ клавіатурою —
+//    окремий, явно запланований сценарій живої перевірки iPhone (нижче).
+// 3. Регресійний тест на РЕАЛЬНІЙ послідовності з живого заміру —
+//    tests/pilot-repository.test.js.
+function viewportOrientationKey(screenWidth, screenHeight){
+  return screenWidth > screenHeight ? 'landscape' : 'portrait';
+}
+// nextBaseViewportHeight(prevValue, observedHeight): prevValue===null —
+// слот цієї орієнтації ще "непочатий" цього сеансу, береться перше
+// спостереження як є; інакше — лише Math.max (ніколи не зменшується).
+function nextBaseViewportHeight(prevValue, observedHeight){
+  return prevValue === null ? observedHeight : Math.max(prevValue, observedHeight);
+}
+let baseViewportHeightByOrientation = { portrait: null, landscape: null };
+function noteViewportHeightIfKeyboardClosed(){
+  if(document.body.classList.contains('kb-open')) return;
+  const key = viewportOrientationKey(window.screen.width, window.screen.height);
+  baseViewportHeightByOrientation[key] = nextBaseViewportHeight(baseViewportHeightByOrientation[key], window.innerHeight);
+}
+function getBaseViewportHeight(){
+  const key = viewportOrientationKey(window.screen.width, window.screen.height);
+  return baseViewportHeightByOrientation[key] || window.innerHeight;
+}
+noteViewportHeightIfKeyboardClosed(); // ініціалізація одразу при завантаженні — kb-open ще не існує (false), клавіатури напевно нема.
+function isKeyboardLikelyClosed(baseViewportHeight, visualViewportHeight){
+  return (baseViewportHeight - visualViewportHeight) < 100;
 }
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', function(){
     if(!document.body.classList.contains('kb-open')) return;
-    if(isKeyboardLikelyClosed(window.innerHeight, window.visualViewport.height)){
+    if(isKeyboardLikelyClosed(getBaseViewportHeight(), window.visualViewport.height)){
       document.body.classList.remove('kb-open');
     }
   });
@@ -14456,17 +14512,24 @@ if(window.visualViewport){
 //
 // Новий підхід: БЕЗУМОВНЕ, неперервне відстеження. --kb-inset (CSS custom
 // property на :root, px) завжди дорівнює поточній висоті клавіатури
-// (innerHeight − visualViewport.height − offsetTop, 0 коли клавіатури
-// нема) — оновлюється на КОЖЕН resize/scroll visualViewport, повністю
-// незалежно від того, яке поле в фокусі, чи це поле взагалі всередині
-// шторки, чи встановлено body.kb-open. Жодної умови "застосувати/зняти" —
-// значення завжди свіжо обчислене напряму з живої геометрії viewport, тому
-// "застряглого" стану за визначенням бути не може. CSS (.drawer.open,
-// правило вище) сам додає це значення до вже наявного bottom-відступу.
+// (baseViewportHeight − visualViewport.height − offsetTop, 0 коли
+// клавіатури нема) — оновлюється на КОЖЕН resize/scroll visualViewport,
+// повністю незалежно від того, яке поле в фокусі, чи це поле взагалі
+// всередині шторки, чи встановлено body.kb-open. Жодної умови
+// "застосувати/зняти" — значення завжди свіжо обчислене напряму з живої
+// геометрії viewport, тому "застряглого" стану за визначенням бути не
+// може. CSS (.drawer.open, правило вище) сам додає це значення до вже
+// наявного bottom-відступу.
+// Rev 2.22.85 (6D.158) — baseViewportHeight замість живого innerHeight
+// (докоментар над isKeyboardLikelyClosed() вище пояснює, чому).
+function computeKeyboardInset(baseViewportHeight, visualViewportHeight, visualViewportOffsetTop){
+  return Math.max(0, Math.round(baseViewportHeight - visualViewportHeight - visualViewportOffsetTop));
+}
 function updateKeyboardInset(){
   if(!window.visualViewport) return;
-  const inset = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
-  document.documentElement.style.setProperty('--kb-inset', Math.max(0, Math.round(inset)) + 'px');
+  noteViewportHeightIfKeyboardClosed();
+  const inset = computeKeyboardInset(getBaseViewportHeight(), window.visualViewport.height, window.visualViewport.offsetTop);
+  document.documentElement.style.setProperty('--kb-inset', inset + 'px');
 }
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', updateKeyboardInset);
@@ -14543,6 +14606,15 @@ window.addEventListener('orientationchange', function(){
   // провалу v2 — лишаємо його, паралельно з resize/scroll-слухачами вище).
   setTimeout(fixStuckVisualViewportOffset, 50);
   setTimeout(fixStuckVisualViewportOffset, 300);
+  // Rev 2.22.85 (6D.158) — явно "доторкнутись" до updateKeyboardInset()
+  // після усталення геометрії повороту (той самий 300мс запас): слот
+  // baseViewportHeightByOrientation для НОВОЇ орієнтації мусить набути
+  // свого першого значення якнайшвидше, а не чекати першої випадкової
+  // visualViewport resize/scroll-події вже деінде в застосунку. Якщо в
+  // цю мить клавіатура відкрита (kb-open) — noteViewportHeightIfKeyboard
+  // Closed() усередині сама нічого не запише (жодного ризику), лише
+  // --kb-inset перерахується під поточну (можливо, ще стару) базу.
+  setTimeout(updateKeyboardInset, 300);
 });
 
 // Rev #30 (6D.54) — Cloud-сесія тепер ініціалізується безумовно при старті,

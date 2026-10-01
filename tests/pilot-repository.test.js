@@ -4956,3 +4956,59 @@ test('latestTouchedRecordMonth: id у Map, але запису вже немає
   ctx.recentlyPulledExpenseState.set('ghost', 'syncing');
   assert.equal(ctx.latestTouchedRecordMonth(), null);
 });
+
+// Rev 2.22.85 (6D.158) BugFix — isKeyboardLikelyClosed()/computeKeyboardInset()/
+// viewportOrientationKey()/nextBaseViewportHeight() — усі 4 чисті (без DOM),
+// на відміну від updateKeyboardInset()/noteViewportHeightIfKeyboardClosed()
+// самих (document.body.classList/documentElement.style.setProperty — той
+// самий принцип виключення DOM-шару, що вже openJournal()/handlePushAction()
+// вище). Регресійний тест нижче відтворює РЕАЛЬНУ послідовність значень із
+// живого Web Inspector-заміру на iPhone (t=9495-9584, докоментар у
+// index.html): у цей момент власне window.innerHeight тимчасово просів до
+// 505 (= visualViewport.height), через що СТАРА isKeyboardLikelyClosed()
+// (яка порівнювала саме innerHeight, не кешовану базу) хибно знімала
+// kb-open за 87мс після появи клавіатури.
+function keyboardInsetSandbox(){
+  const { buildSandbox } = require('./extract');
+  return buildSandbox({}, [
+    'isKeyboardLikelyClosed', 'computeKeyboardInset',
+    'viewportOrientationKey', 'nextBaseViewportHeight',
+  ]);
+}
+test('isKeyboardLikelyClosed: РЕАЛЬНИЙ живий кейс (6D.158, t=9583) — база 894, vvHeight 505 (клавіатура щойно з\'явилась) → НЕ "закрита", попри те що живий window.innerHeight у ту саму мить сам помилково читав 505', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.isKeyboardLikelyClosed(894, 505), false);
+});
+test('isKeyboardLikelyClosed: база 894, vvHeight 894 (справді нема клавіатури) → "закрита"', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.isKeyboardLikelyClosed(894, 894), true);
+});
+test('isKeyboardLikelyClosed: поріг 100px не зламаний фіксом — база 894, vvHeight 820 (легітимне часткове стиснення, не клавіатура) → "закрита"', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.isKeyboardLikelyClosed(894, 820), true);
+});
+test('computeKeyboardInset: РЕАЛЬНИЙ живий кейс (6D.158) — база 894, vvHeight 505, offsetTop 0 → ~389px ОДРАЗУ (без очікування "рятівного" скролу, яким раніше самовиправлявся живий innerHeight)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.computeKeyboardInset(894, 505, 0), 389);
+});
+test('computeKeyboardInset: від\'ємний результат (vvHeight+offsetTop > base, теоретично неможливо, але захист) → затиснуто до 0', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.computeKeyboardInset(500, 600, 0), 0);
+});
+test('viewportOrientationKey: ширина > висота → landscape, інакше portrait', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.viewportOrientationKey(926, 428), 'landscape');
+  assert.equal(ctx.viewportOrientationKey(428, 926), 'portrait');
+});
+test('nextBaseViewportHeight: перший запис для орієнтації (prevValue=null) → береться як є, навіть якщо він менший за типовий', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.nextBaseViewportHeight(null, 390), 390);
+});
+test('nextBaseViewportHeight: Rev 2.22.85 — одинична хибна просадка (6D.158, innerHeight=505 в момент появи клавіатури) НЕ псує вже встановлену базу 894', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.nextBaseViewportHeight(894, 505), 894);
+});
+test('nextBaseViewportHeight: легітимне зростання (напр. приховання адресного рядка) враховується', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.nextBaseViewportHeight(844, 894), 894);
+});
