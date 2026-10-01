@@ -511,6 +511,25 @@
   .installment-pay-btn{ width:100%; margin-top:10px; margin-bottom:14px; padding:10px; border:1.5px solid var(--color-accent-purple); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font-size:13px; font-weight:600; cursor:pointer; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover){ .installment-pay-btn:hover{ filter:brightness(0.97); } }
+  /* Rev 2.22.99 (6D.169.1) — той самий запит і той самий прийом, що
+     #card-debt-drawer (Rev 2.22.98): ОЧ — ще вища шторка (поле + 2×row-2 +
+     нотатка + кнопка "Оплатити" + "Зберегти" + "Видалити", 521px на
+     desktop), теж не вміщалась разом із клавіатурою в книжковій орієнтації
+     без скролу (6D.168 дав робочий скрол як фолбек). Торкаємось ЛИШЕ
+     відступів, НЕ розмірів полів/кнопок (тап-зони незмінні), і ЛИШЕ в межах
+     #installment-drawer (спільні класи .field/.installment-pay-btn/
+     .cdd-delete-link використовуються й іншими шторками). Економія
+     (виміряно, desktop baseline 521px): .drawer-head margin-bottom 14→10
+     (-4), .field margin-bottom 14→10 (-4), .bdr-init-amount margin
+     4px 0 8px → 2px 0 4px (-6), .installment-pay-btn margin-top 10→6 +
+     margin-bottom 14→8 (-10, padding незмінний — тап-зона кнопки та сама),
+     .cdd-delete-link margin-top 18→10 + padding-top 16→10 (-14) — разом
+     ~38px (521→~483, у межах 497px доступних із клавіатурою, 6D.168). */
+  #installment-drawer .drawer-head{ margin-bottom:10px; }
+  #installment-drawer .field{ margin-bottom:10px; }
+  #installment-drawer .bdr-init-amount{ margin:2px 0 4px; }
+  #installment-drawer .installment-pay-btn{ margin-top:6px; margin-bottom:8px; }
+  #installment-drawer .cdd-delete-link{ margin-top:10px; padding-top:10px; }
   .field{ margin-bottom:14px; min-width:0; } .field:last-child{ margin-bottom:0; }
   .field label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
@@ -2744,7 +2763,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.98</div>
+  <div class="version-footer">Money Tree · Rev 2.22.99</div>
 </div>
   </div>
 </div>
@@ -6530,7 +6549,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.98';
+const APP_VERSION = '2.22.99';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
