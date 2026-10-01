@@ -2726,7 +2726,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.96</div>
+  <div class="version-footer">Money Tree · Rev 2.22.97</div>
 </div>
   </div>
 </div>
@@ -6512,7 +6512,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.96';
+const APP_VERSION = '2.22.97';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15261,26 +15261,68 @@ function computeDrawerTopPx(vvOffsetTop, vvHeight, baseBottomPx, drawerHeightPx)
 // повертав уже НЕ CSS-правило, а РЕЗОЛЬВЛЕНЕ "auto" (похідне від
 // поточного top, виставленого нами ж на попередньому кроці) — функція
 // щоразу читала трохи інше число й накопичувала похибку, звідси "потроху
-// вгору". Виправлено: ПЕРЕД виміром скидаємо власні inline top/bottom до
-// ''(порожньо) — це синхронно повертає CSS-правило (.drawer.open{bottom:
-// calc(...)}) як джерело getComputedStyle, і лише ПІСЛЯ виміру знову
-// ставимо top/bottom:auto. Скидання і новий запис відбуваються в одному
-// JS-тіку до будь-якого перемальовування (paint) — візуального "стрибка"
-// немає, лише усунення дрейфу.
+// вгору". Виправлено (на той момент) — скидати inline top/bottom ПЕРЕД
+// виміром.
+//
+// Rev 2.22.97 (6D.168) BugFix — живий лог ("Forma scale", книжкова
+// орієнтація, картка "Борги") виявив ТРЕТІЙ, окремий баг у самому підході
+// 6D.166.1/166.2: getComputedStyle(el).bottom − kbInsetPx іноді давав
+// ЗОВСІМ не те число, що мало б вийти (приклад з живих даних: mark при
+// vvOffsetTop=297, vvH=505, kbInset=92 — мало бути baseBottomPx=8, топ=274;
+// реально вийшло baseBottomPx=305, топ=-23, картку закинуло на 320px ВИЩЕ
+// видимої межі). Арифметика довела: `fullBottomPx`, прочитаний так, УПЕРТО
+// дорівнював 397 = (--base-vh − vvH) + 8, тобто мовби --kb-inset у цій
+// calc()-резолюції самого `bottom` рахувався БЕЗ віднімання offsetTop —
+// інше число, ніж те, що ми щойно встановили в --kb-inset рядком вище.
+// Висновок: читання РЕЗОЛЬВЛЕНОГО `bottom` елемента (залежного від calc()
+// з --kb-inset, щойно зміненого через setProperty) негарантовано синхронне
+// на цьому WebKit — той самий "клас" нестабільності, що й уся серія
+// 6D.53/158/166. Безпечний шлях — перестати залежати від РЕЗОЛЬВЛЕНОГО
+// `bottom` елемента взагалі. `--drawer-bottom-base` під час відкритої
+// клавіатури — ЛІТЕРАЛЬНЕ значення `8px` (body.kb-open{--drawer-bottom-
+// base:8px}, без calc()/max()) — читання custom property з ЛІТЕРАЛОМ (не
+// виразом) не підпадає під "нерозв'язаний calc()" застереження 6D.166, тому
+// читаємо ЙОГО напряму з body замість похідного bottom елемента.
+//
+// Другий знайдений тим самим логом факт: НАВІТЬ із правильним topPx=274,
+// картка (height=520) ФІЗИЧНО не влазить у видиму область (vvH=505, запас
+// 8px → доступно 497) — 23px неминуче йдуть "за кадр". Оскільки
+// scrollHeight===clientHeight (6D.167 нові поля довели — внутрішній скрол
+// УВІМКНЕНО не був, max-height=668 — рахований від --base-vh/--kb-inset,
+// що ІГНОРУЄ offsetTop-зсув, і тому дає завищену, "теоретичну" оцінку
+// вільного місця), картку не можна було домотати — зайва частина просто
+// зникала, недосяжна. Фікс: --drawer-max-height під час відкритої
+// клавіатури тепер РІВНО vvH − baseBottomPx (той самий, щойно доведений
+// надійним, visualViewport.height) — коли контент не вміщається, це реально
+// вмикає internal-скрол (overflow-y:auto, уже є на .drawer) замість тихого
+// обрізання без способу побачити решту.
+function computeDrawerMaxHeightPx(vvHeight, baseBottomPx){
+  return Math.max(0, Math.round(vvHeight - baseBottomPx));
+}
 let lastPositionedDrawerEl = null;
-function syncDrawerTopPosition(kbInsetPx){
+function syncDrawerTopPosition(){
   const el = document.querySelector('.drawer.open');
   if(lastPositionedDrawerEl && lastPositionedDrawerEl !== el){
     lastPositionedDrawerEl.style.top = '';
     lastPositionedDrawerEl.style.bottom = '';
+    lastPositionedDrawerEl.style.maxHeight = '';
   }
-  if(!el || !window.visualViewport){ lastPositionedDrawerEl = null; return; }
-  // Скидаємо ВЛАСНИЙ попередній inline-стан — інакше наступний рядок читає
-  // наше ж "auto", а не CSS-правило (6D.166.2, докоментар вище).
-  el.style.top = '';
-  el.style.bottom = '';
-  const fullBottomPx = parseFloat(getComputedStyle(el).bottom) || 0;
-  const baseBottomPx = Math.max(0, fullBottomPx - (kbInsetPx || 0));
+  // Rev 2.22.97 (6D.168) — обхід потрібен ЛИШЕ поки клавіатура відкрита
+  // (body.kb-open) — без неї WebKit резолюцію bottom/innerHeight ніколи не
+  // ламало в жодному живому замірі цієї сесії; CSS сама справляється.
+  const kbOpen = document.body.classList.contains('kb-open');
+  if(!el || !window.visualViewport || !kbOpen){
+    if(el && lastPositionedDrawerEl === el){
+      el.style.top = ''; el.style.bottom = ''; el.style.maxHeight = '';
+    }
+    lastPositionedDrawerEl = null;
+    return;
+  }
+  // Rev 2.22.97 (6D.168) — ЛІТЕРАЛЬНЕ значення (не calc()), читаємо напряму
+  // з body замість резольвленого el.bottom (докоментар над функцією).
+  const baseBottomPx = parseFloat(getComputedStyle(document.body).getPropertyValue('--drawer-bottom-base')) || 8;
+  const maxHeightPx = computeDrawerMaxHeightPx(window.visualViewport.height, baseBottomPx);
+  el.style.maxHeight = maxHeightPx + 'px';
   const heightPx = el.getBoundingClientRect().height;
   const topPx = computeDrawerTopPx(window.visualViewport.offsetTop, window.visualViewport.height, baseBottomPx, heightPx);
   el.style.top = topPx + 'px';
@@ -15295,13 +15337,7 @@ function updateKeyboardInset(){
   document.documentElement.style.setProperty('--kb-inset', inset + 'px');
   document.documentElement.style.setProperty('--base-vh', base + 'px');
   document.documentElement.style.setProperty('--vv-offset-top', Math.round(window.visualViewport.offsetTop) + 'px');
-  // Rev 2.22.93 (6D.166) — ПІСЛЯ setProperty('--kb-inset', ...) вище:
-  // syncDrawerTopPosition() читає computed bottom, який мусить уже
-  // відображати щойно оновлений --kb-inset.
-  // Rev 2.22.94 (6D.166.1) — передаємо inset, щоб syncDrawerTopPosition()
-  // могла відняти його з повного bottom і лишити лише базовий відступ
-  // (див. докоментар над функцією: подвійне віднімання --kb-inset).
-  syncDrawerTopPosition(inset);
+  syncDrawerTopPosition();
 }
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', updateKeyboardInset);

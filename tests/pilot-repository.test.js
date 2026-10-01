@@ -5082,6 +5082,7 @@ function keyboardInsetSandbox(){
   return buildSandbox({}, [
     'isKeyboardLikelyClosed', 'computeKeyboardInset',
     'viewportOrientationKey', 'nextBaseViewportHeight', 'computeDrawerTopPx',
+    'computeDrawerMaxHeightPx',
   ]);
 }
 test('isKeyboardLikelyClosed: РЕАЛЬНИЙ живий кейс (6D.158, t=9583) — база 894, vvHeight 505 (клавіатура щойно з\'явилась) → НЕ "закрита", попри те що живий window.innerHeight у ту саму мить сам помилково читав 505', () => {
@@ -5169,84 +5170,110 @@ test('computeDrawerTopPx: тепер приймає ЛИШЕ базовий ві
   const bottomPx = topPx + 520;
   assert.equal(bottomPx, 758, 'низ картки лишає рівно 8px (--drawer-bottom-base) до видимої межі (261+505=766) — Rev 2.22.93 (6D.166) віднімала тут ПОВНИЙ bottom=198 (8 база+190 --kb-inset), що давало 48 — картку закидало вгору ПОВТОРНО, бо vvH уже й так виключає клавіатуру (жива скарга користувача: "картка летить догори при кожному виклику клавіатури")');
 });
-test('syncDrawerTopPosition: приймає kbInsetPx і віднімає його з повного CSS bottom, щоб лишити лише базовий відступ (6D.166.1)', () => {
-  function makeDrawer(id, bottomCss, height){
+// Rev 2.22.97 (6D.168) BugFix — живий лог ("Forma scale") довів: читання
+// РЕЗОЛЬВЛЕНОГО el.bottom (залежного від calc() з щойно зміненим --kb-inset)
+// негарантовано синхронне на цьому WebKit — живий кейс (vvOffsetTop=297,
+// vvH=505, kbInset=92, мало бути baseBottomPx=8/top=274) реально дав
+// baseBottomPx=305/top=-23 (картку закинуло на ~320px ВИЩЕ видимої межі).
+// Фікс — syncDrawerTopPosition() більше НЕ читає el.bottom і НЕ приймає
+// kbInsetPx: вона читає ЛІТЕРАЛЬНЕ (без calc()) значення --drawer-bottom-base
+// напряму з body, і працює ЛИШЕ коли body.kb-open активний (без клавіатури
+// обхід не потрібен — CSS сама справляється, жоден живий замір цієї сесії
+// цього не спростував). Також встановлює --drawer-max-height (inline,
+// vvHeight − baseBottomPx) — той самий лог довів, що картка (520px) не
+// влазила в видиму область (497px доступно) БЕЗ internal-скролу (max-height
+// рахувався від --base-vh, що ігнорує offsetTop-зсув і завищував вільне
+// місце) — зайва частина просто зникала, недосяжна.
+function drawerPositionSandbox(opts){
+  function makeDrawer(id, height){
     return {
       id: id,
-      _style: { top: '', bottom: '' },
+      _style: { top: '', bottom: '', maxHeight: '' },
       get style(){ return this._style; },
       getBoundingClientRect: function(){ return { height: height }; },
-      _bottom: bottomCss,
     };
   }
-  // bottom=198px = 8 (--drawer-bottom-base) + 190 (--kb-inset) — живий кейс
-  // mark@129 (6D.166, kb-full-scenario 2).
-  const drawerA = makeDrawer('drawer-a', '198px', 520);
-  let openDrawer = drawerA;
+  return { makeDrawer: makeDrawer };
+}
+test('syncDrawerTopPosition: БЕЗ kb-open на body — не чіпає шторку (CSS сама справляється, обхід не потрібен)', () => {
+  const { makeDrawer } = drawerPositionSandbox();
+  const drawerA = makeDrawer('drawer-a', 520);
   const ctx = require('./extract').buildSandbox({
     window: { visualViewport: { height: 505, offsetTop: 261 } },
-    document: { querySelector: function(){ return openDrawer; } },
-    getComputedStyle: function(el){ return { bottom: el._bottom }; },
+    document: { querySelector: function(){ return drawerA; }, body: { classList: { contains: function(){ return false; } } } },
+    getComputedStyle: function(){ return { getPropertyValue: function(){ return '999px'; } }; },
     lastPositionedDrawerEl: null,
-  }, ['computeDrawerTopPx', 'syncDrawerTopPosition']);
-  ctx.syncDrawerTopPosition(190);
-  assert.equal(drawerA.style.top, '238px', 'НЕ 48px (Rev 2.22.93 без kbInsetPx-поправки) — 238 лишає коректні 8px запасу над клавіатурою, а не закидає картку вгору вдруге');
-  assert.equal(drawerA.style.bottom, 'auto');
-  // Клавіатури нема (kbInsetPx=0) — baseBottomPx дорівнює повному bottom,
-  // поведінка збігається зі старою (закритий стан/без клавіатури — без
-  // регресії, підтверджено desktop-перевіркою Rev 2.22.93).
-  const drawerB = makeDrawer('drawer-b', '8px', 520);
-  openDrawer = drawerB;
-  ctx.syncDrawerTopPosition(0);
-  assert.equal(drawerB.style.top, String(261 + 505 - 8 - 520) + 'px');
-  // Тепер шторка закрилась (querySelector більше нічого не повертає) —
-  // попередні inline-стилі мають ОЧИСТИТИСЬ, а не лишитись "залипнути".
-  openDrawer = null;
-  ctx.syncDrawerTopPosition(0);
-  assert.equal(drawerB.style.top, '');
-  assert.equal(drawerB.style.bottom, '');
+  }, ['computeDrawerTopPx', 'computeDrawerMaxHeightPx', 'syncDrawerTopPosition']);
+  ctx.syncDrawerTopPosition();
+  assert.equal(drawerA.style.top, '', 'без kb-open inline top не ставиться');
+  assert.equal(drawerA.style.maxHeight, '', 'без kb-open inline max-height не ставиться');
 });
-// Rev 2.22.95 (6D.166.2) BugFix — жива перевірка 6D.166.1 (без повороту,
-// просто відкрита клавіатура на "Борги"): виліт зменшився, але картка й далі
-// "потроху" повзла вгору з КОЖНИМ спрацюванням visualViewport resize/scroll
-// (а таких подій багато — у т.ч. від internal-скролу самої шторки, 6D.161).
-// Корінь: syncDrawerTopPosition() СAMA собі підміняла джерело — в кінці
-// виклику ставила el.style.bottom='auto' (inline), тому НАСТУПНИЙ виклик
-// getComputedStyle(el).bottom читав уже НЕ CSS-правило (.drawer.open{bottom:
-// calc(...)}), а резольвлене "auto" (похідне від top, виставленого нами ж
-// крок тому) — щоразу трохи інше число, похибка накопичувалась. Тест нижче
-// ловить САМЕ цю регресію: мок getComputedStyle повертає ЗАВІДОМО хибне
-// значення (999px), якщо на момент виклику inline bottom НЕ скинутий до ''
-// — тобто якщо функція не встигла відновити CSS-правило як джерело перед
-// виміром. Повторний виклик з тими самими вхідними даними має дати ТОЙ
-// САМИЙ top (238px) щоразу, а не дрейфувати.
-test('syncDrawerTopPosition: повторні виклики НЕ дрейфують — щоразу скидає власний inline bottom ПЕРЕД виміром CSS (6D.166.2)', () => {
-  function makeDrawer(id, bottomCss, height){
-    return {
-      id: id,
-      _style: { top: '', bottom: '' },
-      get style(){ return this._style; },
-      getBoundingClientRect: function(){ return { height: height }; },
-      _bottom: bottomCss,
-    };
-  }
-  const drawerA = makeDrawer('drawer-a', '198px', 520);
+test('syncDrawerTopPosition: З kb-open — читає ЛІТЕРАЛЬНЕ --drawer-bottom-base напряму з body, НЕ резольвлений el.bottom (6D.168)', () => {
+  const { makeDrawer } = drawerPositionSandbox();
+  // Живий кейс "Forma scale": vvOffsetTop=297, vvH=505, --drawer-bottom-base
+  // (kb-open)=8px, drawerHeight=520 → top ОЧІКУВАНО 274 (297+505-8-520), а
+  // Rev 2.22.95-механізм (читання el.bottom) реально давав -23.
+  const drawerA = makeDrawer('drawer-a', 520);
   const ctx = require('./extract').buildSandbox({
-    window: { visualViewport: { height: 505, offsetTop: 261 } },
-    document: { querySelector: function(){ return drawerA; } },
-    // Якщо inline bottom НЕ '' у момент читання — функція читає ВЛАСНЕ
-    // попереднє "auto", а не CSS-правило (саме регресія 6D.166.1).
+    window: { visualViewport: { height: 505, offsetTop: 297 } },
+    document: { querySelector: function(){ return drawerA; }, body: { classList: { contains: function(cls){ return cls === 'kb-open'; } } } },
     getComputedStyle: function(el){
-      return { bottom: el.style.bottom === '' ? el._bottom : '999px' };
+      // Якщо функція й далі читає el.bottom (стара, зламана логіка) —
+      // підсунемо explicитно хибне значення, щоб тест це впіймав.
+      if(el === drawerA) return { bottom: '999px', getPropertyValue: function(){ return '999px'; } };
+      return { getPropertyValue: function(prop){ return prop === '--drawer-bottom-base' ? '8px' : '0px'; } };
     },
     lastPositionedDrawerEl: null,
-  }, ['computeDrawerTopPx', 'syncDrawerTopPosition']);
-  ctx.syncDrawerTopPosition(190);
-  assert.equal(drawerA.style.top, '238px', '1-й виклик');
-  ctx.syncDrawerTopPosition(190);
-  assert.equal(drawerA.style.top, '238px', '2-й виклик поспіль — БЕЗ дрейфу (якби функція не скидала bottom перед читанням, тут був би зовсім інший, зростаючий у хибний бік результат)');
-  ctx.syncDrawerTopPosition(190);
-  assert.equal(drawerA.style.top, '238px', '3-й виклик поспіль — все ще стабільно');
+  }, ['computeDrawerTopPx', 'computeDrawerMaxHeightPx', 'syncDrawerTopPosition']);
+  ctx.syncDrawerTopPosition();
+  assert.equal(drawerA.style.top, '274px', 'НЕ -23px (Rev 2.22.95, читання el.bottom) — 274 лишає коректні 8px запасу, картку більше не закидає за межі екрана');
+  assert.equal(drawerA.style.bottom, 'auto');
+  assert.equal(drawerA.style.maxHeight, '497px', 'vvH(505) − baseBottomPx(8) — реальна видима межа, щоб контент, який не влазить, скролився, а не зникав недосяжно (6D.168)');
+});
+test('syncDrawerTopPosition: повторні виклики НЕ дрейфують (нова логіка не залежить від власного попереднього inline-стану)', () => {
+  const { makeDrawer } = drawerPositionSandbox();
+  const drawerA = makeDrawer('drawer-a', 520);
+  const ctx = require('./extract').buildSandbox({
+    window: { visualViewport: { height: 505, offsetTop: 297 } },
+    document: { querySelector: function(){ return drawerA; }, body: { classList: { contains: function(cls){ return cls === 'kb-open'; } } } },
+    getComputedStyle: function(el){
+      if(el === drawerA) return { bottom: '999px' };
+      return { getPropertyValue: function(prop){ return prop === '--drawer-bottom-base' ? '8px' : '0px'; } };
+    },
+    lastPositionedDrawerEl: null,
+  }, ['computeDrawerTopPx', 'computeDrawerMaxHeightPx', 'syncDrawerTopPosition']);
+  ctx.syncDrawerTopPosition();
+  assert.equal(drawerA.style.top, '274px', '1-й виклик');
+  ctx.syncDrawerTopPosition();
+  assert.equal(drawerA.style.top, '274px', '2-й виклик — без дрейфу');
+  ctx.syncDrawerTopPosition();
+  assert.equal(drawerA.style.top, '274px', '3-й виклик — все ще стабільно');
+});
+test('syncDrawerTopPosition: закриття шторки (querySelector більше нічого не повертає) очищає inline-стилі', () => {
+  const { makeDrawer } = drawerPositionSandbox();
+  const drawerA = makeDrawer('drawer-a', 520);
+  let openDrawer = drawerA;
+  const ctx = require('./extract').buildSandbox({
+    window: { visualViewport: { height: 505, offsetTop: 297 } },
+    document: { querySelector: function(){ return openDrawer; }, body: { classList: { contains: function(){ return true; } } } },
+    getComputedStyle: function(el){
+      if(el === drawerA) return { bottom: '999px' };
+      return { getPropertyValue: function(prop){ return prop === '--drawer-bottom-base' ? '8px' : '0px'; } };
+    },
+    lastPositionedDrawerEl: null,
+  }, ['computeDrawerTopPx', 'computeDrawerMaxHeightPx', 'syncDrawerTopPosition']);
+  ctx.syncDrawerTopPosition();
+  assert.equal(drawerA.style.top, '274px');
+  openDrawer = null;
+  ctx.syncDrawerTopPosition();
+  assert.equal(drawerA.style.top, '');
+  assert.equal(drawerA.style.bottom, '');
+  assert.equal(drawerA.style.maxHeight, '');
+});
+test('computeDrawerMaxHeightPx: чиста функція — vvHeight мінус базовий відступ, не менше 0', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.computeDrawerMaxHeightPx(505, 8), 497);
+  assert.equal(ctx.computeDrawerMaxHeightPx(5, 8), 0, 'захист від від\'ємного результату');
 });
 
 // Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду без FK (deactivated_via/
