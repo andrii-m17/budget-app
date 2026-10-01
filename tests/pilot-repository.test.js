@@ -157,6 +157,8 @@ const REPOSITORY_NAMES = [
   // Rev 2.22.79 (6D.152) — restoreDictionaryFromBackup() тепер кличе цей
   // бекфіл-хелпер напряму (не лише через ensureDictionaryIdentity()).
   'ensureDictionaryEntryIds',
+  // Rev 2.22.81 (6D.154, Крок A3) — стабільний порядок показу словника.
+  'compareDictionaryForDisplay',
   'restoreCategoriesFromBackup', 'restoreSubcategoriesFromBackup',
   'restoreSubcategoryPriorityFromBackup', 'restoreDictionaryFromBackup',
   // Rev #28.D1
@@ -3265,6 +3267,51 @@ test('фікс відскоку (6D.153): deleteDictionaryEntry-логіка —
   entry.updatedAt = nowISO;
   assert.equal(ctx.DICTIONARY.length, 1, 'запис МАЄ лишитись у масиві як tombstone, не зникати через splice');
   assert.equal(ctx.DICTIONARY[0].deletedAt, nowISO);
+});
+
+/* ============ Rev 2.22.81 (6D.154, Крок A3) — стабільний порядок словника ============
+   На двох пристроях DICTIONARY опиняється в РІЗНОМУ порядку масиву (автор
+   дописує в кінець; pullDictionaryCore() створює записи в порядку відповіді
+   Cloud, без .order()) — renderStructure() без сортування показувала б
+   різний порядок на кожному пристрої. compareDictionaryForDisplay()
+   винесено окремо саме для цього тесту (сам renderStructure() — DOM,
+   поза тестом, як і решта UI-рендерів). */
+test('compareDictionaryForDisplay: той самий набір слів у РІЗНОМУ порядку масиву → ОДНАКОВИЙ порядок після сортування', () => {
+  const { ctx } = sandbox();
+  const wordA = { id: 'id-a', kw: 'альфа', createdAt: '2026-01-01T00:00:00.000Z' };
+  const wordB = { id: 'id-b', kw: 'бета', createdAt: '2026-01-02T00:00:00.000Z' };
+  const wordC = { id: 'id-c', kw: 'гама', createdAt: '2026-01-03T00:00:00.000Z' };
+  // Пристрій 1: автор дописує нове слово в кінець (порядок створення).
+  const device1Order = [wordA, wordB, wordC];
+  // Пристрій 2: pull повернув їх у зовсім іншому (довільному) порядку.
+  const device2Order = [wordC, wordA, wordB];
+  const sorted1 = device1Order.slice().sort(ctx.compareDictionaryForDisplay).map(d => d.kw);
+  const sorted2 = device2Order.slice().sort(ctx.compareDictionaryForDisplay).map(d => d.kw);
+  assert.deepEqual(sorted1, ['альфа', 'бета', 'гама']);
+  assert.deepEqual(sorted2, sorted1, 'порядок показу МАЄ збігатись незалежно від порядку масиву');
+});
+
+test('compareDictionaryForDisplay: однаковий createdAt (тай-брейк за kw, українська локаль)', () => {
+  const { ctx } = sandbox();
+  const sameTime = '2026-01-01T00:00:00.000Z';
+  const words = [
+    { id: 'id-1', kw: 'яблуко', createdAt: sameTime },
+    { id: 'id-2', kw: 'апельсин', createdAt: sameTime },
+    { id: 'id-3', kw: 'банан', createdAt: sameTime },
+  ];
+  const sorted = words.sort(ctx.compareDictionaryForDisplay).map(d => d.kw);
+  assert.deepEqual(sorted, ['апельсин', 'банан', 'яблуко']);
+});
+
+test('compareDictionaryForDisplay: однаковий createdAt і kw (тай-брейк за id) → стабільний, не кидає', () => {
+  const { ctx } = sandbox();
+  const sameTime = '2026-01-01T00:00:00.000Z';
+  const words = [
+    { id: 'id-z', kw: 'кава', createdAt: sameTime },
+    { id: 'id-a', kw: 'кава', createdAt: sameTime },
+  ];
+  const sorted = words.sort(ctx.compareDictionaryForDisplay).map(d => d.id);
+  assert.deepEqual(sorted, ['id-a', 'id-z']);
 });
 
 test('фікс подвійного push: restoreBankAccountsFromBackup() стемпає одразу → наступний ensureBankAccountIdentity() saveBankAccounts() вдруге НЕ кличе', async () => {
