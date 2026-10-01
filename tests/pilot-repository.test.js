@@ -4911,3 +4911,48 @@ test('restoreExpensesFromBackup: РІВНО ОДИН pullExpensesCore() на в�
 // document.getElementById('sync-all-status') напряму — той самий принцип
 // виключення, що вже initCloudAuthUI()/applyCloudSession()) — новий
 // push-sweep у ній перевірено живо в browser preview.
+
+// Rev 2.22.84 BugFix — latestTouchedRecordMonth() (handlePushAction,
+// 'other-actor-summary'): чиста логіка над двома Map + двома масивами,
+// на відміну від openJournal()/handlePushAction() самих (DOM-шар,
+// switchTab()/document.getElementById — той самий принцип виключення, що
+// й syncAllPilotManual() вище, перевірено живо в browser preview).
+function latestTouchedRecordMonthSandbox(){
+  const context = require('node:vm').createContext({
+    expenses: [],
+    incomes: [],
+    recentlyPulledExpenseState: new Map(),
+    recentlyPulledIncomeState: new Map(),
+  });
+  const { extractFunctionSource } = require('./extract');
+  require('node:vm').runInContext(
+    extractFunctionSource('monthKey') + '\n\n' + extractFunctionSource('latestTouchedRecordMonth'),
+    context
+  );
+  return context;
+}
+test('latestTouchedRecordMonth: один щойно підтягнутий запис витрати → місяць ЦІЄЇ витрати', () => {
+  const ctx = latestTouchedRecordMonthSandbox();
+  ctx.expenses.push({ id: 'e1', date: '2026-09-30' });
+  ctx.recentlyPulledExpenseState.set('e1', 'syncing');
+  assert.equal(ctx.latestTouchedRecordMonth(), '2026-09');
+});
+test('latestTouchedRecordMonth: кілька записів (витрати+доходи) у різних місяцях → НАЙСВІЖІШИЙ місяць, не перший/останній у масиві', () => {
+  const ctx = latestTouchedRecordMonthSandbox();
+  ctx.expenses.push({ id: 'e1', date: '2026-08-15' }, { id: 'e2', date: '2026-09-30' });
+  ctx.incomes.push({ id: 'i1', date: '2026-07-01' });
+  ctx.recentlyPulledExpenseState.set('e1', 'syncing');
+  ctx.recentlyPulledExpenseState.set('e2', 'done');
+  ctx.recentlyPulledIncomeState.set('i1', 'syncing');
+  assert.equal(ctx.latestTouchedRecordMonth(), '2026-09');
+});
+test('latestTouchedRecordMonth: жодного щойно підтягнутого запису (обидві Map порожні) → null (виклик openJournal() без аргументу, фолбек на поточний місяць)', () => {
+  const ctx = latestTouchedRecordMonthSandbox();
+  ctx.expenses.push({ id: 'e1', date: '2026-09-30' });
+  assert.equal(ctx.latestTouchedRecordMonth(), null);
+});
+test('latestTouchedRecordMonth: id у Map, але запису вже немає в expenses/incomes (видалений локально між pull і рендером) → тихо пропускається, не падає', () => {
+  const ctx = latestTouchedRecordMonthSandbox();
+  ctx.recentlyPulledExpenseState.set('ghost', 'syncing');
+  assert.equal(ctx.latestTouchedRecordMonth(), null);
+});

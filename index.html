@@ -2637,7 +2637,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.22.83</div>
+  <div class="version-footer">Money Tree · Rev 2.22.84</div>
 </div>
   </div>
 </div>
@@ -6313,7 +6313,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.22.83';
+const APP_VERSION = '2.22.84';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7318,7 +7318,30 @@ function readAndClearPendingPushAction(){
 // параметри нової навігації і postMessage від уже відкритої вкладки —
 // обидва зібрані в стартовому IIFE в кінці файлу). Один список дій тут,
 // не дублювання в кожному з двох шляхів.
-function handlePushAction(action){
+// Rev 2.22.84 BugFix — живий тест користувача: Оля внесла витрату 30.09,
+// сповіщення прийшло того ж дня, але клік по ньому 01.10 (застосунок уже
+// закритий) відкривав Журнал на ПОТОЧНОМУ календарному місяці (жовтень) —
+// порожньому, замість вересня з реальним записом. Корінь (підтверджено
+// прямим читанням `pg_proc.notify_other_actor_summary` у Cloud): `data`
+// пуша містить лише `{type}`, без дати/id запису — клієнт і не міг знати
+// місяць із самого пуша. Водночас дата ВЖЕ приходить разом із самим
+// записом під час pull (`local.date`/`rec.date` у pullExpensesCore()/
+// pullIncomesCore()) — досить узяти найсвіжішу серед щойно підтягнутих
+// чужих записів (ті самі Map, що вже живлять .just-synced-підсвітку,
+// 6D.68/6D.87), а не вигадувати нове поле.
+function latestTouchedRecordMonth(){
+  let latestDate = null;
+  recentlyPulledExpenseState.forEach(function(state, id){
+    const rec = expenses.find(function(e){ return e.id === id; });
+    if(rec && rec.date && (!latestDate || rec.date > latestDate)) latestDate = rec.date;
+  });
+  recentlyPulledIncomeState.forEach(function(state, id){
+    const rec = incomes.find(function(e){ return e.id === id; });
+    if(rec && rec.date && (!latestDate || rec.date > latestDate)) latestDate = rec.date;
+  });
+  return latestDate ? monthKey(latestDate) : null;
+}
+async function handlePushAction(action){
   if(!action || !action.type) return;
   if(action.type === 'daily-expense-reminder'){
     switchTab('vytraty');
@@ -7334,17 +7357,20 @@ function handlePushAction(action){
     }
   }else if(action.type === 'other-actor-summary'){
     // Rev #30 (6D.101) — підсвітка "щойно з хмари" (.just-synced,
-    // recentlyPulledExpenseState) — УЖЕ існуючий механізм (6D.68/6D.87),
-    // нічого додатково вмикати не треба: типовий шлях кліку — застосунок
-    // був ЗАКРИТИЙ, initCloudAuthUI() (не await, паралельно з loadAll()
-    // вище) уже запустив pull-ланцюжок при вході — він ще НЕ завершений у
-    // цю саму мить (звідси Журнал може відкритись на секунду РАНІШЕ
-    // підсвітки), але кожен pullXCore() кличе renderAll()→renderRecords()
-    // по завершенню, а та сама renderRecords() оновлює вже відкритий
-    // Журнал (isJournalOpen-гілка), тож підсвітка "доганяє" сама, без
-    // додаткового коду тут.
+    // recentlyPulledExpenseState) — УЖЕ існуючий механізм (6D.68/6D.87).
+    // Rev 2.22.84 BugFix — типовий шлях кліку: застосунок був ЗАКРИТИЙ,
+    // initCloudAuthUI() (не await, паралельно з loadAll() вище) уже
+    // запустив pull-ланцюжок при вході — тут ЯВНО чекаємо саме його
+    // завершення (cloudAuthInitInFlight — той самий in-flight Promise,
+    // що й guard від подвійного виклику, 6D.54), перш ніж вирішувати, який
+    // місяць показати: без цього очікування latestTouchedRecordMonth()
+    // нижче міг би спрацювати ДО того, як запис взагалі підтягнувся. Якщо
+    // застосунок УЖЕ був відкритий (postMessage-шлях) — cloudAuthInitInFlight
+    // вже null (давно завершився), чекати нічого, Realtime-підписка вже
+    // мала підтягнути запис незалежно від цього коду.
+    if(cloudAuthInitInFlight) await cloudAuthInitInFlight;
     switchTab('vytraty');
-    openJournal();
+    openJournal(latestTouchedRecordMonth());
   }else if(action.type === 'monthly-debt-reminder'){
     // Rev #30 (6D.111) — раніше (6D.96) ця гілка не мала жодного `data`
     // взагалі — непослідовно з рештою 3 типів, клік просто фокусував
@@ -11874,9 +11900,14 @@ function killMainColMomentumScroll(){
   void el.offsetHeight; // форсований reflow — без цього браузер може "згорнути" дві зміни в одну і трюк не спрацює
   el.style.overflow = prev;
 }
-function openJournal(){
+// Rev 2.22.84 BugFix — targetMonth (опційний): клік по пуш-сповіщенню
+// "чужа дія" (handlePushAction, 'other-actor-summary') мусить відкрити
+// Журнал на місяці ЩОЙНО підтягнутого запису, а не на поточному
+// календарному — ручний виклик кнопкою "Показати весь журнал" (без
+// аргументу) і далі відкриває на "сьогодні", як і раніше.
+function openJournal(targetMonth){
   isJournalOpen = true;
-  journalMonth = monthKey(localDateISO());
+  journalMonth = targetMonth || monthKey(localDateISO());
   // Rev 2.20.0 — скидаємо пошук/фільтр при кожному новому відкритті: стан
   // попереднього пошуку не повинен "виринати" несподівано наступного разу.
   journalSearchQuery = '';
