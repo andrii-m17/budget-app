@@ -3088,6 +3088,185 @@ test('Rev 2.22.79 (6D.152): restoreDictionaryFromBackup() зі СТАРОГО б
   assert.ok(ctx.DICTIONARY[0].id.length > 0);
 });
 
+/* ============ Rev 2.22.80 (6D.153, Крок A2) — tombstone для словника ============
+   Мок-клієнт для pushDictionaryPilot/reconcileDictionaryCloudId: у коді
+   функція робить до 3 РІЗНИХ select-запитів до таблиці 'dictionary' в
+   одному проході ('id' — reconcile за keyword; 'id, deleted_at' — перевірка
+   чи рядок уже tombstone), розрізняємо їх за точним рядком колонок, який
+   реальний код передає в select(cols) — так само, як сам продакшн-код це
+   робить неявно через різні .select()-виклики. */
+function dictionaryMockClient(opts){
+  const calls = { updates: [], selects: [], inserts: [] };
+  const client = {
+    from(table){
+      assert.equal(table, 'dictionary');
+      return {
+        update(payload){
+          calls.updates.push(payload);
+          return { eq(){ return { is(){ return { select(){ return Promise.resolve(opts.updateResult); } }; } }; } };
+        },
+        select(cols){
+          calls.selects.push(cols);
+          const builder = {
+            eq(){ return builder; },
+            is(){ return builder; },
+            maybeSingle(){
+              return Promise.resolve(cols === 'id, deleted_at' ? opts.existingRowResult : opts.reconcileSelectResult);
+            },
+          };
+          return builder;
+        },
+        insert(payload){
+          calls.inserts.push(payload);
+          return { select(){ return { single(){ return Promise.resolve(opts.insertResult || { data: { id: 'new-cloud-id' }, error: null }); } }; } };
+        },
+      };
+    },
+  };
+  return { client, calls };
+}
+
+function dictionarySandboxFor(entry){
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.CATEGORIES = [{ name: entry.cat, active: true, cloudId: 'cat-cloud-1' }];
+  ctx.SUBCATEGORIES = [];
+  ctx.DICTIONARY = [entry];
+  return ctx;
+}
+
+test('6D.153: старий пристрій (не знає про видалення) зберігає запис як живий → Cloud-tombstone НЕ перезаписується, локально приймається чуже видалення', async () => {
+  const entry = { id: 'local-1', kw: 'кава', cat: 'Їжа', sub: null, cloudId: 'cloud-1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  const ctx = dictionarySandboxFor(entry);
+  const { client, calls } = dictionaryMockClient({
+    updateResult: { data: [], error: null }, // .is('deleted_at', null) не пропустив — Cloud уже tombstone
+    existingRowResult: { data: { id: 'cloud-1', deleted_at: '2026-02-01T00:00:00.000Z' }, error: null },
+  });
+  ctx.getSupabaseClient = () => client;
+  await ctx.pushDictionaryPilot();
+  assert.equal(entry.deletedAt, '2026-02-01T00:00:00.000Z', 'локальний запис мав прийняти чуже видалення');
+  assert.equal(calls.inserts.length, 0, 'НЕ мав запускати reconcile/insert — рядок не "битий", просто видалений');
+});
+
+test('6D.153: справжній self-heal — cloudId дійсно не існує (не tombstone) → reconcile за keyword спрацьовує як раніше', async () => {
+  const entry = { id: 'local-1', kw: 'обід', cat: 'Їжа', sub: null, cloudId: 'stale-id', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  const ctx = dictionarySandboxFor(entry);
+  const { client, calls } = dictionaryMockClient({
+    updateResult: { data: [], error: null },
+    existingRowResult: { data: null, error: null }, // рядка взагалі нема — не tombstone, справжній self-heal
+    reconcileSelectResult: { data: null, error: null }, // і за keyword теж нічого — створюємо новий
+  });
+  ctx.getSupabaseClient = () => client;
+  await ctx.pushDictionaryPilot();
+  assert.equal(entry.cloudId, 'new-cloud-id');
+  assert.equal(calls.inserts.length, 1);
+});
+
+test('6D.153: reconcileDictionaryCloudId фільтрує .is(deleted_at, null) — знаходить ЖИВИЙ рядок навіть якщо є tombstone з тим самим keyword', async () => {
+  const entry = { id: 'local-1', kw: 'кава', cat: 'Їжа', sub: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  const ctx = dictionarySandboxFor(entry);
+  const { client, calls } = dictionaryMockClient({
+    reconcileSelectResult: { data: { id: 'live-cloud-id' }, error: null }, // фільтр .is() сам відсікає tombstone-рядок
+  });
+  ctx.getSupabaseClient = () => client;
+  await ctx.reconcileDictionaryCloudId(client, 'user-1', entry, 'cat-cloud-1', null);
+  assert.equal(entry.cloudId, 'live-cloud-id');
+  assert.equal(calls.inserts.length, 0, 'НЕ мав створювати дублікат — живий рядок уже знайдено');
+});
+
+test('6D.153: reconcileDictionaryCloudId — помилка select (напр. "multiple rows") НЕ падає мовчки й НЕ створює дублікат', async () => {
+  const entry = { id: 'local-1', kw: 'кава', cat: 'Їжа', sub: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  const ctx = dictionarySandboxFor(entry);
+  const { client, calls } = dictionaryMockClient({
+    reconcileSelectResult: { data: null, error: { message: 'multiple (or no) rows returned' } },
+  });
+  ctx.getSupabaseClient = () => client;
+  await ctx.reconcileDictionaryCloudId(client, 'user-1', entry, 'cat-cloud-1', null);
+  assert.equal(entry.cloudId, undefined, 'cloudId не мав встановитись на помилці');
+  assert.equal(calls.inserts.length, 0, 'НЕ мав іти в insert-гілку на помилці select — це і був би дублікат');
+});
+
+test('pullDictionaryCore: резерв за keyword ІГНОРУЄ запис з іншим живий/видалений-станом (не лінкує локальне живе слово до Cloud-tombstone)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.CATEGORIES = [{ name: 'Їжа', cloudId: 'cat-cloud-1', active: true }];
+  ctx.SUBCATEGORIES = [];
+  // Локально живе слово "кава" (без cloudId — ще не синхронізоване).
+  ctx.DICTIONARY = [{ id: 'local-live', kw: 'кава', cat: 'Їжа', sub: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }];
+  // Cloud повертає TOMBSTONE-рядок з тим самим keyword.
+  ctx.getSupabaseClient = () => ({
+    from(){
+      return {
+        select(){
+          return { eq(){ return Promise.resolve({ data: [
+            { id: 'cloud-tomb', keyword: 'кава', category_id: 'cat-cloud-1', subcategory_id: null, deleted_at: '2026-02-01T00:00:00.000Z', created_at: '2026-01-15T00:00:00.000Z', updated_at: '2026-02-01T00:00:00.000Z' },
+          ], error: null }); } };
+        },
+      };
+    },
+  });
+  await ctx.pullDictionaryCore();
+  // Не мав зв'язати живий локальний запис з tombstone — натомість створив ОКРЕМИЙ локальний tombstone.
+  const liveEntry = ctx.DICTIONARY.find(d => d.id === 'local-live');
+  assert.equal(liveEntry.cloudId, undefined, 'живий локальний запис НЕ мав отримати cloudId від tombstone-рядка');
+  assert.equal(liveEntry.deletedAt, undefined, 'живий локальний запис НЕ мав стати видаленим');
+  const tombEntry = ctx.DICTIONARY.find(d => d.cloudId === 'cloud-tomb');
+  assert.ok(tombEntry, 'мав створитись ОКРЕМИЙ локальний запис для Cloud-tombstone');
+  assert.equal(tombEntry.deletedAt, '2026-02-01T00:00:00.000Z');
+});
+
+test('pullDictionaryCore: Cloud-tombstone, якого пристрій ЩЕ НЕ бачив узагалі → створює локальний tombstone (для майбутньої Корзини)', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = { user: { id: 'user-1' } };
+  ctx.cloudFamilyId = 'fam-1';
+  ctx.isSupabaseSdkReady = () => true;
+  ctx.CATEGORIES = [{ name: 'Їжа', cloudId: 'cat-cloud-1', active: true }];
+  ctx.SUBCATEGORIES = [];
+  ctx.DICTIONARY = [];
+  const cloudRows = [
+    { id: 'cloud-tomb', keyword: 'перекус', category_id: 'cat-cloud-1', subcategory_id: null, deleted_at: '2026-02-01T00:00:00.000Z', created_at: '2026-01-15T00:00:00.000Z', updated_at: '2026-02-01T00:00:00.000Z' },
+  ];
+  ctx.getSupabaseClient = () => ({
+    from(){
+      return {
+        select(){
+          return {
+            eq(){ return Promise.resolve({ data: cloudRows, error: null }); },
+          };
+        },
+      };
+    },
+  });
+  await ctx.pullDictionaryCore();
+  assert.equal(ctx.DICTIONARY.length, 1);
+  assert.equal(ctx.DICTIONARY[0].deletedAt, '2026-02-01T00:00:00.000Z');
+  assert.equal(typeof ctx.DICTIONARY[0].id, 'string');
+});
+
+test('openAddDictionaryModal-логіка: повторне додавання раніше видаленого слова дозволене (tombstone ігнорується в перевірці унікальності)', () => {
+  const { ctx } = sandbox();
+  ctx.DICTIONARY = [{ id: 'd1', kw: 'кава', cat: 'Їжа', sub: null, deletedAt: '2026-02-01T00:00:00.000Z' }];
+  // Та сама перевірка, що в openAddDictionaryModal()/editDictionaryEntry() після 6D.153.
+  const blocked = ctx.DICTIONARY.some(d => d.kw === 'кава' && !d.deletedAt);
+  assert.equal(blocked, false, 'tombstone не мав блокувати повторне додавання того самого слова');
+});
+
+test('фікс відскоку (6D.153): deleteDictionaryEntry-логіка — видалення НЕ зникає з масиву (tombstone), а не splice', async () => {
+  const { ctx } = sandbox();
+  ctx.cloudSession = null; // не залогінений — перевіряємо лише ЛОКАЛЬНУ частину
+  ctx.DICTIONARY = [{ id: 'd1', kw: 'кава', cat: 'Їжа', sub: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }];
+  const entry = ctx.DICTIONARY.find(d => d.id === 'd1');
+  const nowISO = '2026-02-01T00:00:00.000Z';
+  entry.deletedAt = nowISO;
+  entry.updatedAt = nowISO;
+  assert.equal(ctx.DICTIONARY.length, 1, 'запис МАЄ лишитись у масиві як tombstone, не зникати через splice');
+  assert.equal(ctx.DICTIONARY[0].deletedAt, nowISO);
+});
+
 test('фікс подвійного push: restoreBankAccountsFromBackup() стемпає одразу → наступний ensureBankAccountIdentity() saveBankAccounts() вдруге НЕ кличе', async () => {
   const { ctx } = sandbox();
   const raw = JSON.stringify([{ name: '🟩 Приват Банк', creditLimit: 50000 }]);
