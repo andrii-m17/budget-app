@@ -1395,7 +1395,41 @@
      БЕЗ transition (миттєво, той самий кадр, що й початок переходу
      transform) — промт явно просив не перераховувати розмітку ПОСЕРЕД
      руху. */
-  html.kb-sheet .drawer.open{ max-height:calc(var(--vv-h, 100vh) - 16px - env(safe-area-inset-top, 0px)); transform:translate3d(0, calc(-1px * var(--sheet-lift, 0)), 0); transition:transform 240ms cubic-bezier(0.22, 0.9, 0.3, 1); will-change:transform; }
+  /* Rev 2.23.13 (6D.182) BugFix — промт користувача (SQL 17/17 циклів,
+     2.23.12): drawerBottom стрибав РІВНО на 106px на sheet-open І
+     sheet-close — причина: #income/#card-debt/#installment-drawer успадко-
+     вували var(--drawer-bottom-base), а body.kb-open{--drawer-bottom-base:
+     8px} (вище) перемикав цю базу МИТТЄВО (не transition-овано), ще ДО
+     початку transform-переходу (body.kb-open додається в handleKeyboard-
+     FieldFocusIn() РАНІШЕ за сам виклик enterKbSheet()). Тому ЦІ ТРИ
+     шторки більше НЕ успадковують --drawer-bottom-base ВЗАГАЛІ (їхній
+     bottom — завжди той самий вираз, що root-значення БЕЗ kb-open) — увесь
+     зсув (клавіатура + колишні "106px різниці") тепер ЧАСТИНА --sheet-lift
+     (computeSheetLift(), рахується ОДИН раз, synchronous, у момент
+     перехоплення тапу/фокусу). ID-селектор навмисно (найвища специфічність,
+     без потреби боротись за порядок правил із body.kb-open нижче).
+     Дублювання виразу з :root --drawer-bottom-base (вище) — навмисне: CSS
+     custom properties не мають способу "проігнорувати" конкретного предка
+     в ланцюгу успадкування, лише revert до POTENTIAL кореня, який тут і
+     так дає body.kb-open. */
+  #income-drawer.open, #card-debt-drawer.open, #installment-drawer.open{
+    bottom:max(100px, calc(env(safe-area-inset-bottom) + 80px));
+  }
+  /* Rev 2.23.13 (6D.182) — max-height тепер через --sheet-max-h (JS,
+     computeSheetMaxHeight(vvH, 8, natural) в enterKbSheet()/
+     updateKbSheetGeometry()) — НЕ голий calc(var(--vv-h)-16px): для
+     текстових полів ("Назва") vvH=479 давав max-height=463 < природної
+     висоти картки (468) — 5px зайвого стиснення НА РІВНОМУ місці (числова
+     клавіатура з vvH=505 давала 489 — не зачіпала). computeSheetMaxHeight
+     повертає ТОЧНО natural, коли вона й так влазить (тоді max-height
+     ефективно взагалі нічого не обрізає, 0px зміни замість 5), і лише
+     обмежує, коли справді бракує місця. */
+  html.kb-sheet .drawer.open{ max-height:calc(var(--sheet-max-h, 100vh) - env(safe-area-inset-top, 0px)); transform:translate3d(0, calc(-1px * var(--sheet-lift, 0)), 0); transition:transform 240ms cubic-bezier(0.22, 0.9, 0.3, 1); will-change:transform; }
+  /* Rev 2.23.13 (6D.182) — закриття (exitKbSheet()) навмисно інша крива й
+     тривалість за промтом (250мс, інший cubic-bezier) — html.kb-sheet-closing
+     додається РАЗОМ з --sheet-lift:0, знімається лише ПІСЛЯ завершення
+     (transitionend/320мс), разом з html.kb-sheet. */
+  html.kb-sheet.kb-sheet-closing .drawer.open{ transition:transform 250ms cubic-bezier(0.25, 0.1, 0.25, 1); }
   /* Режим B (запасний, перемикається БЕЗ нового коміту — перемикач у
      "Запис діагностики", localStorage budget_kb_mode_v1): сторінці
      дозволено панорамуватись (JS НЕ викликає scrollTo під час клавіатури),
@@ -1592,6 +1626,21 @@
      зона, зарезервована під навбар, якого зараз немає. */
   body.kb-open nav.tabbar{ display:none; }
   body.kb-open .main-col{ padding-bottom:0; }
+  /* Rev 2.23.13 (6D.182) — промт користувача: у режимі шторки (html.kb-sheet)
+     ні display таббара, ні padding-bottom .main-col НЕ повинні перемикатись
+     — обидва лежать ПОЗА видимою зоною (під шторкою/затемненням), але сама
+     зміна display/padding все одно примушує браузер до релейауту саме у
+     критичному вікні [touchend, +400мс]/[focusout, +400мс], додаючи роботу
+     головному потоку якраз тоді, коли SYSTEM-клавіатура й наш transform-
+     перехід і так борються за кадри (6D.181 sheet-anim показав пропущені
+     кадри саме в цьому вікні). visibility:hidden — той самий візуальний
+     результат (таббар не видно), БЕЗ виключення з потоку/релейауту. Форма
+     "Витрати" (kb-open БЕЗ kb-sheet) — свідомо НЕ чіпали, лишається стара
+     поведінка (display:none/padding:0) якою й була. Та сама специфічність
+     (0,2,2 / 0,2,1), тому порядок ВАЖЛИВИЙ — ці правила мають йти ПІСЛЯ
+     body.kb-open вище. */
+  html.kb-sheet nav.tabbar{ display:block; visibility:hidden; }
+  html.kb-sheet .main-col{ padding-bottom:112px; }
   /* Rev 2.21.7 — кнопка "Прокрутити до початку": той самий "ліквід глас"
      стиль (background/backdrop-filter/border/shadow), що .tabbar-glass, але
      власна кругла кнопка ПОЗА системою .tabbar-bubble (не переїжджає між
@@ -2840,7 +2889,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.12</div>
+  <div class="version-footer">Money Tree · Rev 2.23.13</div>
 </div>
   </div>
 </div>
@@ -6643,7 +6692,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.12';
+const APP_VERSION = '2.23.13';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8908,6 +8957,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'ms', 'proxyActive',
   // Rev 2.23.12 (6D.181) — sheet-anim (плавність підйому шторки, критерій S4).
   'frames', 'maxGapMs', 'durationMs', 'samples',
+  // Rev 2.23.13 (6D.182) — sheet-anim доповнено (open/close), tabbar-restore.
+  'phase', 'jumpMaxPx', 'gapNoLayoutMs', 'drawerHeightRest', 'drawerHeightKb',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -15569,6 +15620,27 @@ function isSheetArrived(opts){
 function shouldForceTransfer(elapsedMs, maxMs){
   return elapsedMs >= maxMs;
 }
+// computeSheetMaxHeight — Rev 2.23.13 (6D.182): якщо природна висота
+// шторки (naturalH) уже влазить у доступне місце (vvH - topGap) — повертає
+// РІВНО naturalH (0px зміни, жодного "зайвого" стиснення, навіть на 1-5px);
+// інакше обмежує доступним місцем (внутрішній скрол, як і раніше).
+function computeSheetMaxHeight(vvH, topGap, naturalH){
+  const available = vvH - topGap;
+  return (typeof naturalH === 'number' && naturalH <= available) ? naturalH : available;
+}
+// planSheetClose — коли саме починати ВІЗУАЛЬНЕ закриття (--sheet-lift:0)
+// відносно моменту focusout: короткий проміжок (40мс замість попередніх
+// 100мс), щоб шторка не чекала невиправдано довго, перш ніж почати
+// опускатись — 17/17 живих циклів (2.23.12) показали, що старт на
+// vv-resize (вже ПІСЛЯ того, як системна клавіатура помітно зрушила)
+// виглядає як "дригання" заднім числом, а не керований рух. Повернутий
+// об'єкт — не лише startAt (для тестів), а й сам refocusWindowMs (caller
+// передає його напряму в setTimeout).
+function planSheetClose(opts){
+  const focusoutAt = (opts && typeof opts.focusoutAt === 'number') ? opts.focusoutAt : 0;
+  const refocusWindowMs = (opts && typeof opts.refocusWindowMs === 'number') ? opts.refocusWindowMs : 40;
+  return { startAt: focusoutAt + refocusWindowMs, refocusWindowMs: refocusWindowMs };
+}
 // detectPreventScrollSupport — стандартний cross-browser прийом (без
 // додавання елемента в DOM): якщо браузер підтримує focus({preventScroll}),
 // він ЧИТАЄ геттер preventScroll у переданому об'єкті під час виклику
@@ -15613,11 +15685,27 @@ function downsampleSheetAnimPairs(samples, maxCount){
 // (inline 'auto' — переважає CSS will-change:transform) одразу по
 // завершенню, щоб не тримати зайвий композитний шар, поки шторка стоїть
 // нерухомо.
-function startSheetAnimSampler(drawerEl){
+// Rev 2.23.13 (6D.182) — доповнено за промтом: phase ('open'/'close' — та
+// сама подія тепер пишеться і на закриття, п.6), jumpMaxPx (найбільша
+// різниця drawerBottom МІЖ сусідніми кадрами — саме це число мало бути
+// ~106 до цієї ревізії, і ≤60 після, критерій J3), gapNoLayoutMs —
+// ОКРЕМИЙ rAF-ланцюг БЕЗ жодних читань розмітки (getBoundingClientRect),
+// щоб відокремити паузу, спричинену САМИМ рекордером (читання розмітки на
+// кожен кадр — коштовна операція), від паузи системної клавіатури
+// (користувач явно про це запитав: "чи лишається дригання без запису
+// діагностики?" — gapNoLayoutMs і є відповідь БЕЗ потреби вимикати запис).
+// drawerHeightRest/drawerHeightKb — природна висота ДО підйому (виміряна
+// ОДИН раз при вході, той самий rect, що й computeSheetLift, 0 зайвих
+// читань) і фактична висота НАПРИКІНЦІ переходу.
+function startSheetAnimSampler(drawerEl, phase, drawerHeightRest){
   const startedAt = performance.now();
   let lastT = startedAt;
+  let lastNoLayoutT = startedAt;
   let frames = 0;
   let maxGapMs = 0;
+  let gapNoLayoutMs = 0;
+  let jumpMaxPx = 0;
+  let prevBottom = null;
   const samples = [];
   let done = false;
   let ceilingTimer = null;
@@ -15628,14 +15716,26 @@ function startSheetAnimSampler(drawerEl){
     if(ceilingTimer){ clearTimeout(ceilingTimer); ceilingTimer = null; }
     drawerEl.style.willChange = 'auto';
     captureDebugGeometry('sheet-anim', {
+      phase: phase || 'open',
       frames: frames,
       maxGapMs: Math.round(maxGapMs),
+      jumpMaxPx: Math.round(jumpMaxPx),
+      gapNoLayoutMs: Math.round(gapNoLayoutMs),
       durationMs: Math.round(performance.now() - startedAt),
       samples: downsampleSheetAnimPairs(samples, 30),
+      drawerHeightRest: typeof drawerHeightRest === 'number' ? Math.round(drawerHeightRest) : null,
+      drawerHeightKb: Math.round(drawerEl.getBoundingClientRect().height),
     });
   }
   function onEnd(e){
     if(e.target === drawerEl && e.propertyName === 'transform') finish();
+  }
+  function tickNoLayout(now){
+    if(done) return;
+    const gap = now - lastNoLayoutT;
+    if(gap > gapNoLayoutMs) gapNoLayoutMs = gap;
+    lastNoLayoutT = now;
+    requestAnimationFrame(tickNoLayout);
   }
   function tick(now){
     if(done) return;
@@ -15643,11 +15743,18 @@ function startSheetAnimSampler(drawerEl){
     const gap = now - lastT;
     if(gap > maxGapMs) maxGapMs = gap;
     lastT = now;
-    samples.push([Math.round(now - startedAt), Math.round(drawerEl.getBoundingClientRect().bottom)]);
+    const bottom = Math.round(drawerEl.getBoundingClientRect().bottom);
+    if(prevBottom !== null){
+      const jump = Math.abs(bottom - prevBottom);
+      if(jump > jumpMaxPx) jumpMaxPx = jump;
+    }
+    prevBottom = bottom;
+    samples.push([Math.round(now - startedAt), bottom]);
     requestAnimationFrame(tick);
   }
   drawerEl.addEventListener('transitionend', onEnd);
   requestAnimationFrame(tick);
+  requestAnimationFrame(tickNoLayout);
   ceilingTimer = setTimeout(finish, 500);
 }
 // beginKbFocusProxy: фокусить проксі (піднімає шторку й клавіатуру ТОГО Ж
@@ -15660,6 +15767,17 @@ function startSheetAnimSampler(drawerEl){
 // focus-transfer-forced. focusWithoutScrollIfSupported — preventScroll,
 // щоб сам виклик focus() не спричинив WebKit-івський "scroll into view".
 function beginKbFocusProxy(target, drawerEl){
+  // Rev 2.23.13 (6D.182) — вимірюємо ДО будь-яких змін класів (тут,
+  // усередині перехопленого touchend-обробника, ще ДО proxy.focus(), а
+  // отже ще ДО того, як focusin додасть body.kb-open) — промт явно вимагав
+  // "restBottomY вимірюється до будь-яких змін класів, у момент
+  // перехоплення touchend". Кладемо на сам drawerEl (а не передаємо як
+  // аргумент крізь focus()/focusin-подію, яка несе лише сам елемент) —
+  // enterKbSheet() (викликана пізніше, з focusin на проксі) читає й одразу
+  // прибирає.
+  const restRect = drawerEl.getBoundingClientRect();
+  drawerEl.__kbRestBottomY = restRect.bottom;
+  drawerEl.__kbNaturalHeight = restRect.height;
   const proxy = getOrCreateKbProxyEl();
   configureKbProxy(proxy, target);
   drawerEl.appendChild(proxy);
@@ -15702,6 +15820,7 @@ let keyboardHeightCache = { portrait: {}, landscape: {} };
 let kbSheetActive = false;
 let kbSheetDrawerEl = null;
 let kbSheetFieldKind = null;
+let kbSheetNaturalHeight = null;
 // enterKbSheet: викликається з focusin (handleKeyboardFieldFocusIn нижче)
 // СИНХРОННО, у тому ж тіку, що й сам фокус — ДО того, як WebKit встигне
 // відреагувати на клавіатуру. Виставляє --kb-h/--sheet-lift одразу (оцінка
@@ -15734,22 +15853,44 @@ function enterKbSheet(drawerEl, fieldEl){
   // фінального розміру; updateKbSheetGeometry() нижче однаково
   // перераховує обидва з ЖИВИХ вимірів, щойно клавіатура стабілізується.
   const vvEstimate = Math.max(0, baseVh - estimate);
-  // Rev 2.23.12 (6D.181) — computeSheetLift(): наскільки підняти шторку ВІД
-  // її звичайного спокійного bottom (restBottom, виміряний ТУТ, ДО
-  // kb-sheet/transform — інакше зчитали б уже підняте значення з
-  // ПОПЕРЕДНЬОГО відкриття). --sheet-lift — ЧИСЛО без одиниць (CSS
-  // calc(-1px * var(--sheet-lift))), а не вже готовий px-рядок, як --kb-h/
-  // --vv-h, саме тому що знак множиться в самому calc().
-  const restBottom = drawerEl.getBoundingClientRect().bottom;
+  // Rev 2.23.13 (6D.182) — restBottom/naturalHeight: якщо beginKbFocusProxy()
+  // (touchend, iOS) уже виміряв їх ДО будь-яких змін класів — читаємо ЦІ
+  // значення (прибираючи тимчасові поля одразу), а не міряємо повторно тут
+  // (де body.kb-open вже встиг додатись, 2 рядки раніше в
+  // handleKeyboardFieldFocusIn). На НЕ-iOS/без проксі (прямий фокус) —
+  // немає передвиміру, тож міряємо як і раніше; оскільки ці 3 шторки
+  // більше НЕ залежать від kb-open для bottom (CSS, 6D.182), результат той
+  // самий незалежно ВІД МОМЕНТУ виміру.
+  const hasPreMeasure = typeof drawerEl.__kbRestBottomY === 'number';
+  let restBottom, naturalHeight;
+  if(hasPreMeasure){
+    restBottom = drawerEl.__kbRestBottomY;
+    naturalHeight = drawerEl.__kbNaturalHeight;
+    delete drawerEl.__kbRestBottomY;
+    delete drawerEl.__kbNaturalHeight;
+  }else{
+    const restRect = drawerEl.getBoundingClientRect();
+    restBottom = restRect.bottom;
+    naturalHeight = restRect.height;
+  }
+  // computeSheetLift(): наскільки підняти шторку ВІД її звичайного спокійного
+  // bottom угору, щоб опинитись на (baseVh - kbH - 8) від верху. --sheet-lift
+  // — ЧИСЛО без одиниць (CSS calc(-1px * var(--sheet-lift))), а не вже
+  // готовий px-рядок, як --kb-h/--vv-h, саме тому що знак множиться в
+  // самому calc().
   const lift = computeSheetLift(restBottom, baseVh, estimate, 8);
+  kbSheetNaturalHeight = naturalHeight;
+  const maxH = computeSheetMaxHeight(vvEstimate, 8, naturalHeight);
   document.documentElement.style.setProperty('--kb-h', estimate + 'px');
   document.documentElement.style.setProperty('--vv-h', vvEstimate + 'px');
   document.documentElement.style.setProperty('--sheet-lift', String(lift));
+  document.documentElement.style.setProperty('--sheet-max-h', maxH + 'px');
   if(drawerEl.style.willChange) drawerEl.style.willChange = '';
+  document.documentElement.classList.remove('kb-sheet-closing');
   document.documentElement.classList.add('kb-sheet');
   if(getKbMode() === 'B') document.documentElement.classList.add('kb-mode-b');
   captureDebugGeometry('sheet-open', { drawerId: drawerEl.id || null });
-  if(getKbMode() === 'A') startSheetAnimSampler(drawerEl);
+  if(getKbMode() === 'A') startSheetAnimSampler(drawerEl, 'open', naturalHeight);
 }
 // computeSheetLift: rest (поточний bottom-край шторки ДО підйому) мінус
 // цільовий bottom-край (baseVh - kbH - gap, той самий gap=8, що раніше був
@@ -15773,6 +15914,7 @@ function updateKbSheetGeometry(){
   const kbH = computeKeyboardHeight(baseVh, vvH);
   document.documentElement.style.setProperty('--kb-h', kbH + 'px');
   document.documentElement.style.setProperty('--vv-h', vvH + 'px');
+  document.documentElement.style.setProperty('--sheet-max-h', computeSheetMaxHeight(vvH, 8, kbSheetNaturalHeight) + 'px');
   if(isKeyboardOpen(baseVh, vvH) && kbSheetFieldKind){
     const orientKey = viewportOrientationKey(window.innerWidth, window.innerHeight);
     if(!keyboardHeightCache[orientKey]) keyboardHeightCache[orientKey] = {};
@@ -15797,34 +15939,68 @@ function correctPanIfNeeded(){
     captureDebugGeometry('pan-corrected');
   }
 }
-// exitKbSheet: знімає html.kb-sheet/kb-mode-b, --kb-h, і (Режим B) власний
-// inline transform шторки — повертає керування позицією звичайному CSS
-// (.drawer.open{bottom:var(--drawer-bottom-base)}), як до фокусу.
-function exitKbSheet(){
+// exitKbSheet(removeKbOpen): знімає html.kb-sheet/kb-mode-b, --kb-h, і
+// (Режим B) власний inline transform шторки — повертає керування позицією
+// звичайному CSS (.drawer.open{bottom:var(--drawer-bottom-base)}, чи для
+// наших 3 шторок — тепер завжди той самий вираз, 6D.182), як до фокусу.
+// removeKbOpen — чи знімати ТАКОЖ body.kb-open (повернення таббара): лише
+// коли справді НІЯКОГО клавіатурного поля більше не сфокусовано (інакше,
+// напр. фокус перейшов на "Витрати", клавіатура лишається на екрані).
+function exitKbSheet(removeKbOpen){
   if(!kbSheetActive) return;
   const drawerId = kbSheetDrawerEl ? (kbSheetDrawerEl.id || null) : null;
   const drawerEl = kbSheetDrawerEl;
   const wasModeB = document.documentElement.classList.contains('kb-mode-b');
   if(drawerEl) drawerEl.style.transform = '';
+  // kbSheetActive=false ОДРАЗУ — updateKbSheetGeometry() гардиться на цьому
+  // ж прапорці (перший рядок), тож ЖОДЕН наступний vv-resize/scroll під час
+  // 320мс-вікна закриття більше не перераховує --sheet-lift/--kb-h/
+  // --vv-h/--sheet-max-h за живим vv.height — промт прямо про це просив
+  // ("інакше vv-resize до 894 скидає позицію"); значення лишаються РІВНО
+  // тими, що виставлені нижче (--sheet-lift:0), аж до фактичного зняття
+  // kb-sheet.
+  const naturalHeightAtClose = kbSheetNaturalHeight;
   kbSheetActive = false;
   kbSheetDrawerEl = null;
   kbSheetFieldKind = null;
+  kbSheetNaturalHeight = null;
   const finishExit = function(){
     document.documentElement.classList.remove('kb-sheet');
+    document.documentElement.classList.remove('kb-sheet-closing');
     document.documentElement.classList.remove('kb-mode-b');
     document.documentElement.style.setProperty('--kb-h', '0px');
+    // Rev 2.23.13 (6D.182) — kb-open (і тим самим повернення таббара)
+    // знімається ЛИШЕ тут, ПІСЛЯ завершення переходу — промт явно попросив
+    // "таббар з'являвся вже після того, як шторка приземлилась", а не
+    // одночасно з focusout.
+    if(removeKbOpen) document.body.classList.remove('kb-open');
+    captureDebugGeometry('tabbar-restore', { drawerId: drawerId });
   };
-  // Rev 2.23.12 (6D.181) — симетричне закриття: --sheet-lift:0 ПОКИ
-  // html.kb-sheet ще активний — той самий CSS transition (240мс), що й
-  // підйом, тепер у зворотний бік. Класи знімаємо ЛИШЕ після завершення
-  // (setTimeout 260мс, той самий підхід, що debounce-таймаути деінде в
-  // цьому контролері) — зняти їх одразу скасувало б саме можливість
-  // анімувати повернення (CSS-правило просто перестало б діяти). Режим B
-  // не анімує через це правило (CSS transition:none для нього) — звичайне
-  // миттєве зняття, як і раніше.
+  // Симетричне закриття: --sheet-lift:0 + html.kb-sheet-closing (CSS, 250мс
+  // інша крива) ПОКИ html.kb-sheet ще активний — класи знімаємо ЛИШЕ після
+  // завершення (transitionend на 'transform' чи 320мс-стеля) — зняти їх
+  // одразу скасувало б саму можливість анімувати повернення. Режим B не
+  // анімує через це правило (CSS transition:none) — звичайне миттєве
+  // зняття, як і раніше.
   document.documentElement.style.setProperty('--sheet-lift', '0');
   if(drawerEl && !wasModeB){
-    setTimeout(finishExit, 260);
+    document.documentElement.classList.add('kb-sheet-closing');
+    startSheetAnimSampler(drawerEl, 'close', naturalHeightAtClose);
+    let done = false;
+    function onEnd(e){
+      if(e.target !== drawerEl || e.propertyName !== 'transform') return;
+      if(done) return;
+      done = true;
+      drawerEl.removeEventListener('transitionend', onEnd);
+      finishExit();
+    }
+    drawerEl.addEventListener('transitionend', onEnd);
+    setTimeout(function(){
+      if(done) return;
+      done = true;
+      drawerEl.removeEventListener('transitionend', onEnd);
+      finishExit();
+    }, 320);
   }else{
     finishExit();
   }
@@ -15864,12 +16040,16 @@ function handleKeyboardFieldFocusSettle(){
   if(kbProxyActive) return;
   const active = document.activeElement;
   if(!isKeyboardField(active)){
-    document.body.classList.remove('kb-open');
+    // Rev 2.23.13 (6D.182) — body.kb-open БІЛЬШЕ не знімається тут одразу
+    // (було: синхронно, до exitKbSheet()) — переїхало ВСЕРЕДИНУ exitKbSheet()
+    // (removeKbOpen=true), де відбувається ЛИШЕ ПІСЛЯ завершення переходу
+    // (transitionend/320мс) — промт явно просив, щоб таббар з'являвся вже
+    // після того, як шторка приземлилась, а не одночасно з focusout.
     setDrawerKeyboardBackgroundLock(false);
-    exitKbSheet();
+    exitKbSheet(true);
   }else if(!isFieldInsideDrawer(active)){
     setDrawerKeyboardBackgroundLock(false);
-    exitKbSheet();
+    exitKbSheet(false);
   }
 }
 let kbHideTimeout = null;
@@ -15884,7 +16064,15 @@ document.addEventListener('focusout', function(e){
   // (Tab/Enter між полями форми), таббар не повинен блимнути назад і одразу
   // сховатись знову — перевіряємо, куди саме перейшов фокус, з коротким
   // таймаутом (activeElement оновлюється синхронно до цього моменту).
-  kbHideTimeout = setTimeout(handleKeyboardFieldFocusSettle, 100);
+  // Rev 2.23.13 (6D.182) — planSheetClose(): було фіксовано 100мс, тепер
+  // 40мс (промт) — довше чекання на vv-resize ПЕРЕД початком видимого
+  // опускання шторки виглядало як "дригання заднім числом", а не керований
+  // рух (17/17 живих циклів). 40мс все одно з запасом покриває синхронний
+  // Tab/Enter між полями (нова real-focus подія приходить у ТОМУ Ж тіку,
+  // що й focusout — скасовує цей таймаут нижче, до того як він встигне
+  // спрацювати).
+  const plan = planSheetClose({ focusoutAt: Date.now(), refocusWindowMs: 40 });
+  kbHideTimeout = setTimeout(handleKeyboardFieldFocusSettle, plan.refocusWindowMs);
 });
 // Rev 2.23.11 (6D.180) — перехоплення тапу на touchend (НЕ touchstart, щоб
 // нічого не зсувалось під пальцем до відпускання): лише iOS, лише текстові

@@ -5082,6 +5082,7 @@ function keyboardInsetSandbox(){
     'computeKeyboardHeight', 'isKeyboardOpen', 'nextBaseVh', 'estimateKeyboardHeight',
     'shouldBlockTouchMove', 'keyboardKindForField', 'computeModeBShiftPx',
     'computeSheetLift', 'isSheetArrived', 'shouldForceTransfer', 'downsampleSheetAnimPairs',
+    'computeSheetMaxHeight', 'planSheetClose',
   ]);
 }
 test('isKeyboardLikelyClosed: РЕАЛЬНИЙ живий кейс (6D.158, t=9583) — база 894, vvHeight 505 (клавіатура щойно з\'явилась) → НЕ "закрита", попри те що живий window.innerHeight у ту саму мить сам помилково читав 505', () => {
@@ -5204,6 +5205,25 @@ test('downsampleSheetAnimPairs: під лімітом — повертає як 
   assert.deepEqual(sampled[0], long[0], 'перший кадр завжди в вибірці');
   assert.deepEqual(sampled[sampled.length - 1], long[long.length - 1], 'останній кадр завжди в вибірці (найважливіший для S4)');
 });
+// Rev 2.23.13 (6D.182) — промт користувача (SQL 17/17 циклів, 2.23.12):
+// стрибок drawerBottom на 106px (body.kb-open{--drawer-bottom-base:8px}
+// перемикався МИТТЄВО до будь-якого transition) і 5px зайвого стиснення
+// текстових полів (max-height=vvH-16 < природної висоти 468).
+test('computeSheetMaxHeight: природна висота влазить (468 ≤ vvH-8) → повертає РІВНО природну, 0px зміни', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.computeSheetMaxHeight(479, 8, 468), 468, 'vvH-8=471 ≥ 468 — жодного стиснення');
+  assert.equal(ctx.computeSheetMaxHeight(505, 8, 468), 468, 'числова клавіатура — тим паче влазить');
+});
+test('computeSheetMaxHeight: природна висота НЕ влазить → обмежує доступним місцем (внутрішній скрол)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.computeSheetMaxHeight(479, 8, 600), 471, '600 > 471 — обмежено до 471');
+});
+test('planSheetClose: закриття стартує на focusout + 40мс (за замовчуванням)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.planSheetClose({ focusoutAt: 1000 }).startAt, 1040);
+  assert.equal(ctx.planSheetClose({ focusoutAt: 1000 }).refocusWindowMs, 40);
+  assert.equal(ctx.planSheetClose({ focusoutAt: 2000, refocusWindowMs: 100 }).startAt, 2100, 'явний refocusWindowMs перекриває дефолт');
+});
 test('keyboardKindForField: inputmode="numeric" → numeric, звичайний text → text', () => {
   const ctx = keyboardInsetSandbox();
   assert.equal(ctx.keyboardKindForField({ type: 'text', getAttribute: function(n){ return n === 'inputmode' ? 'numeric' : null; } }), 'numeric');
@@ -5318,6 +5338,7 @@ function kbSheetSandbox(){
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle',
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'proxyAttrsFor',
     'computeSheetLift', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
+    'computeSheetMaxHeight', 'planSheetClose',
   ]);
   return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents };
 }
@@ -5416,6 +5437,49 @@ test('exitKbSheet: повертає --sheet-lift до 0 (symetричне зак�
   assert.equal(docElStyle['--sheet-lift'], '0');
   assert.equal(docElClasses.has('kb-sheet'), false);
   assert.equal(mainCol._inert, false);
+});
+test('enterKbSheet: виставляє --sheet-max-h за computeSheetMaxHeight(vvH, 8, naturalHeight) — природна висота з fake drawerEl (200) влазить', () => {
+  const { ctx, docElStyle } = kbSheetSandbox();
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780); // getBoundingClientRect().height = 200 (makeFakeDrawerEl дефолт)
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'numeric', inputmode: 'numeric', drawerEl: drawerEl }));
+  // numeric: vvEstimate = 894-389 = 505 → available = 505-8=497 ≥ naturalHeight(200) → повертає 200
+  assert.equal(docElStyle['--sheet-max-h'], '200px');
+});
+// Rev 2.23.13 (6D.182) — restBottomY/naturalHeight вимірюються в touchend
+// (beginKbFocusProxy), ДО будь-яких змін класів — enterKbSheet() має читати
+// ЦІ значення (і прибрати їх), а не міряти drawerEl ПОВТОРНО (де kb-open
+// могло вже вплинути на вимір, якби ці 3 шторки все ще залежали від нього).
+test('enterKbSheet: читає ПЕРЕДВИМІРЯНІ __kbRestBottomY/__kbNaturalHeight (beginKbFocusProxy), а не власний getBoundingClientRect()', () => {
+  const { ctx, docElStyle } = kbSheetSandbox();
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 9999); // "неправильне" живе значення — НЕ має бути використане
+  drawerEl.__kbRestBottomY = 780;
+  drawerEl.__kbNaturalHeight = 300;
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'numeric', inputmode: 'numeric', drawerEl: drawerEl }));
+  // lift з ПЕРЕДВИМІРЯНОГО 780 (не 9999): 780-(894-389-8)=283
+  assert.equal(docElStyle['--sheet-lift'], '283');
+  assert.equal(docElStyle['--sheet-max-h'], '300px', 'природна висота теж з передвиміру (300), не з drawerEl.getBoundingClientRect() (200 за дефолтом fake)');
+  assert.equal(typeof drawerEl.__kbRestBottomY, 'undefined', 'тимчасові поля прибрані після використання');
+  assert.equal(typeof drawerEl.__kbNaturalHeight, 'undefined');
+});
+test('exitKbSheet(false): фокус перейшов на ІНШЕ поле ПОЗА шторкою (клавіатура лишається) — body.kb-open НЕ знімається', () => {
+  const { ctx, body, docElClasses, state } = kbSheetSandbox();
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  assert.equal(body.classList.contains('kb-open'), true);
+  state.activeElement = makeDrawerField({ inDrawer: false }); // "Витрати" — клавіатурне поле, але поза шторкою
+  ctx.handleKeyboardFieldFocusSettle();
+  assert.equal(body.classList.contains('kb-open'), true, 'клавіатура й далі на екрані для іншого поля — таббар НЕ повертаємо');
+  assert.equal(docElClasses.has('kb-sheet'), false, 'проте сама шторка вже не kb-sheet');
+});
+test('sheet-anim: подія несе phase/jumpMaxPx/gapNoLayoutMs/drawerHeightRest/drawerHeightKb', () => {
+  const { ctx, debugEvents } = kbSheetSandbox();
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  const openEvt = debugEvents.find(function(e){ return e.type === 'sheet-anim' && e.phase === 'open'; });
+  assert.ok(openEvt, 'подія sheet-anim(open) зафіксована синхронно (setTimeout-стеля — синхронний стаб)');
+  assert.equal(openEvt.drawerHeightRest, 200);
+  assert.ok('jumpMaxPx' in openEvt);
+  assert.ok('gapNoLayoutMs' in openEvt);
 });
 test('handleKeyboardFieldFocusSettle: Tab на ІНШЕ поле ВСЕРЕДИНІ тієї ж шторки — лок і kb-sheet НЕ знімаються (без "миготіння")', () => {
   const { ctx, mainCol, docElClasses, state } = kbSheetSandbox();
