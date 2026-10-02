@@ -1306,7 +1306,6 @@
      updateKeyboardInset() (виконується одразу при старті скрипта). */
   :root{
     --drawer-bottom-base:max(100px, calc(env(safe-area-inset-bottom) + 80px));
-    --drawer-max-height:calc(var(--base-vh, 100vh) - env(safe-area-inset-top, 0px) - var(--drawer-bottom-base) - var(--kb-inset, 0px) - 20px);
   }
   /* Rev 2.22.88 (6D.161) BugFix — живий тест (iPhone, Web Inspector):
      ~100px --drawer-bottom-base існує, щоб відступити від home-indicator,
@@ -1359,7 +1358,7 @@
        (рядок коду виконується одразу при старті скрипта, тож вікно дуже
        коротке, але касатись контракту var(prop, fallback) — стандартна
        практика цього ж файлу, як --kb-inset вище). */
-    transform:translateY(100vh); transition:transform var(--duration-slow) var(--easing-standard); max-height:var(--drawer-max-height, 74vh); overflow-y:auto; }
+    transform:translateY(100vh); transition:transform var(--duration-slow) var(--easing-standard); max-height:74vh; overflow-y:auto; }
   /* Rev 2.22.77 (6D.150) — --kb-inset: висота системної клавіатури (px),
      БЕЗУМОВНО й неперервно оновлюється JS-ом нижче (updateKeyboardInset)
      напряму з visualViewport, незалежно від фокуса/isKeyboardField/kb-open.
@@ -1372,7 +1371,29 @@
      .drawer вище — той самий, без змін, гарантія 6D.11 "точно за межами
      екрана" лишається чинною). Коли клавіатури нема — --kb-inset≈0,
      жодного впливу на звичайний вигляд. */
-  .drawer.open{ transform:translateY(0); bottom:calc(var(--drawer-bottom-base) + var(--kb-inset, 0px)); }
+  .drawer.open{ transform:translateY(0); bottom:var(--drawer-bottom-base); }
+  /* Rev 2.23.9 (6D.178) — ЄДИНИЙ контролер клавіатури (Режим A, типовий,
+     index.html, enterKbSheet()/updateKbSheetGeometry()/exitKbSheet()):
+     html.kb-sheet додається СИНХРОННО на focusin поля ВСЕРЕДИНІ шторки —
+     ДО появи самої клавіатури (докоментар над enterKbSheet() у index.html
+     пояснює, чому саме "раніше" — щоб WebKit не мав причин панорамувати
+     сторінку). --kb-h/--vv-h — ЄДИНІ CSS-змінні клавіатури, рахуються
+     ЛИШЕ з baseVh/visualViewport.height (innerHeight НЕ використовується —
+     98.6% живих рядків 5 логів довели, що він ненадійний під час
+     зсуву сторінки). Замінює --kb-inset/--drawer-max-height (6D.150-168,
+     видалено повністю) і JS top/bottom inline-гонку (6D.166-166.2,
+     видалено повністю) — тепер суто декларативний CSS calc(). */
+  html.kb-sheet .drawer.open{ bottom:calc(var(--kb-h, 0px) + 8px); max-height:calc(var(--vv-h, 100vh) - 16px - env(safe-area-inset-top, 0px)); transition:bottom 220ms ease-out; }
+  /* Режим B (запасний, перемикається БЕЗ нового коміту — перемикач у
+     "Запис діагностики", localStorage budget_kb_mode_v1): сторінці
+     дозволено панорамуватись (JS НЕ викликає scrollTo під час клавіатури),
+     шторка натомість СЛІДУЄ за зсувом через transform (JS,
+     applyModeBTransform() — ближче до підходу 6D.166, але через transform,
+     не bottom, і без top/bottom inline-гонки 6D.166.1/166.2). bottom тут
+     повертається до базового (ігноруємо --kb-h — transform сам компенсує
+     зсув, щоб не рахувати клавіатуру двічі); transition:none — JS-оновлення
+     мають застосовуватись миттєво, не через 300мс transition .drawer. */
+  html.kb-mode-b.kb-sheet .drawer.open{ bottom:var(--drawer-bottom-base); transition:none; }
   /* Rev #30 (6D.12) — рисочка-хендл для свайпу-донизу (як iOS bottom sheet):
      суто візуальний індикатор, драг-логіка навішується окремо в JS
      (initDrawerSwipeToDismiss) на цей самий елемент за класом. Від'ємний
@@ -2807,7 +2828,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.8</div>
+  <div class="version-footer">Money Tree · Rev 2.23.9</div>
 </div>
   </div>
 </div>
@@ -2877,6 +2898,18 @@
          проханням користувача ("не зрозуміло у який момент її натискати") —
          одразу В МОМЕНТ симптому, не до й не після. -->
     <div class="drawer-empty">Під час запису тисніть «Мітка» рівно в момент, коли бачите проблему на екрані (сіпання, неправильний розмір/позицію картки, скрол не там, де очікували тощо) — так буде легко знайти потрібне місце в лозі.</div>
+    <!-- Rev 2.23.9 (6D.178) — Режим B: запасний варіант позиціонування
+         шторки під клавіатуру (сторінці дозволено панорамуватись, шторка
+         слідує через transform), перемикається БЕЗ нового коміту —
+         localStorage (getKbMode()/setKbMode(), index.html). Режим A —
+         типовий (підняти шторку РАНІШЕ, ніж WebKit вирішить панорамувати). -->
+    <div class="field">
+      <label>Режим клавіатури (діагностика)</label>
+      <div class="row-2">
+        <button type="button" class="submit-btn pill" id="debug-kb-mode-a-btn" onclick="selectKbModeFromDrawer('A')">Режим A</button>
+        <button type="button" class="submit-btn pill" id="debug-kb-mode-b-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbModeFromDrawer('B')">Режим B</button>
+      </div>
+    </div>
     <button type="button" class="submit-btn pill" onclick="startDebugRecordingFromDrawer()">Почати запис</button>
   </div>
   <div id="debug-record-stop-actions" class="hidden">
@@ -6598,7 +6631,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.8';
+const APP_VERSION = '2.23.9';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8855,6 +8888,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.23.5 (6D.174) — скарга "фон і далі скролиться, попри 6D.173" —
   // діагностика, чи inert ВЗАГАЛІ ставиться і чи ДІЙСНО блокує scrollTop.
   'mainColInert', 'mainColScrollTop',
+  // Rev 2.23.9 (6D.178) — єдиний контролер клавіатури (Режим A/B).
+  'activeRectTop', 'activeRectBottom', 'kbH', 'kbMode',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -8944,7 +8979,11 @@ function captureDebugGeometry(type, extra){
     vvScale: vv ? vv.scale : null,
     scrollY: window.scrollY, docClientH: document.documentElement.clientHeight,
     bodyClasses: document.body.className,
-    kbInset: getComputedStyle(document.documentElement).getPropertyValue('--kb-inset'),
+    // Rev 2.23.9 (6D.178) — --kb-inset видалено (замінено --kb-h, єдиний
+    // контролер) — kbInset лишається тим самим ПОЛЕМ (не ламаємо старі SQL-
+    // запити користувача по історичних логах), просто тепер читає нове
+    // джерело з тим самим сенсом (висота клавіатури, px).
+    kbInset: getComputedStyle(document.documentElement).getPropertyValue('--kb-h'),
     activeElementTag: active ? active.tagName : null,
     activeElementId: active ? (active.id || null) : null,
     activeElementType: active ? (active.type || null) : null,
@@ -8981,6 +9020,14 @@ function captureDebugGeometry(type, extra){
     // те саме, але через зовнішньо спостережуваний DOM-стан, якого досить.
     mainColInert: (function(){ const mc = document.getElementById('main-col'); return mc ? mc.hasAttribute('inert') : null; })(),
     mainColScrollTop: (function(){ const mc = document.getElementById('main-col'); return mc ? mc.scrollTop : null; })(),
+    // Rev 2.23.9 (6D.178) — єдиний контролер клавіатури: activeRectTop/
+    // activeRectBottom (критерій C ревізії — чи видиме сфокусоване поле),
+    // kbH (--kb-h, те саме число, що kbInset вище, але під НОВИМ ім'ям для
+    // нових запитів), kbMode (A/B, щоб бачити, у якому режимі знятий лог).
+    activeRectTop: active && typeof active.getBoundingClientRect === 'function' ? Math.round(active.getBoundingClientRect().top) : null,
+    activeRectBottom: active && typeof active.getBoundingClientRect === 'function' ? Math.round(active.getBoundingClientRect().bottom) : null,
+    kbH: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb-h')) || 0,
+    kbMode: getKbMode(),
   }, extra || {}));
 }
 function onDebugWindowResize(){ captureDebugGeometry('resize'); }
@@ -9117,12 +9164,29 @@ function markDebugEvent(){
   btn.disabled = true;
   setTimeout(function(){ btn.textContent = original; btn.disabled = false; }, 700);
 }
+// Rev 2.23.9 (6D.178) — синхронізує вигляд 2 кнопок перемикача з
+// getKbMode() (localStorage) — проста active/inactive стилізація, той самий
+// прийом, що syncThemeToggleUI() для теми.
+function updateDebugKbModeUI(){
+  const mode = getKbMode();
+  const aBtn = document.getElementById('debug-kb-mode-a-btn');
+  const bBtn = document.getElementById('debug-kb-mode-b-btn');
+  if(aBtn) aBtn.style.background = mode === 'A' ? '' : 'var(--color-surface-hover)';
+  if(aBtn) aBtn.style.color = mode === 'A' ? '' : 'var(--color-text-primary)';
+  if(bBtn) bBtn.style.background = mode === 'B' ? '' : 'var(--color-surface-hover)';
+  if(bBtn) bBtn.style.color = mode === 'B' ? '' : 'var(--color-text-primary)';
+}
+function selectKbModeFromDrawer(mode){
+  setKbMode(mode);
+  updateDebugKbModeUI();
+}
 function openDebugRecordDrawer(){
   if(debugRecordingActive){ stopDebugRecording(); return; }
   const form = document.getElementById('debug-record-form');
   const stopActions = document.getElementById('debug-record-stop-actions');
   if(form) form.classList.remove('hidden');
   if(stopActions) stopActions.classList.add('hidden');
+  updateDebugKbModeUI();
   const scenarioInput = document.getElementById('debug-record-scenario');
   if(scenarioInput) scenarioInput.value = '';
   const backdrop = document.getElementById('debug-record-backdrop');
@@ -14530,6 +14594,18 @@ function unlockBackgroundScroll(){
     if(mainCol) mainCol.removeAttribute('inert');
   }
 }
+// Rev 2.23.9 (6D.178) — getKbMode()/setKbMode() ГЛОБАЛЬНІ (не всередині IIFE
+// initApp нижче), бо викликаються і звідти (enterKbSheet/updateKbSheetGeometry/
+// correctPanIfNeeded), і з глобальних функцій поза IIFE (captureDebugGeometry,
+// selectKbModeFromDrawer/openDebugRecordDrawer у "Запис діагностики") —
+// глобальний код не бачить локальних імен усередині IIFE.
+const KB_MODE_LS_KEY = 'budget_kb_mode_v1'; // НАВМИСНО поза BACKUP_LS_KEYS — локальна діагностична преференція, не користувацькі дані.
+function getKbMode(){
+  try{ return localStorage.getItem(KB_MODE_LS_KEY) === 'B' ? 'B' : 'A'; }catch(e){ return 'A'; }
+}
+function setKbMode(mode){
+  try{ localStorage.setItem(KB_MODE_LS_KEY, mode === 'B' ? 'B' : 'A'); }catch(e){}
+}
 // Проста Tab-пастка: поки відкритий рівно один з двох діалогів (drawer або
 // app-modal — вони ніколи не відкриті одночасно в цьому застосунку), Tab/
 // Shift+Tab циклічно лишається всередині нього, не "втікаючи" у фонову
@@ -15276,25 +15352,204 @@ function setDrawerKeyboardBackgroundLock(locked){
   drawerKeyboardLockActive = locked;
   if(locked) lockBackgroundScroll(); else unlockBackgroundScroll();
 }
+// Rev 2.23.9 (6D.178) — єдиний контролер клавіатури для шторок (Дохід/
+// Борг/ОЧ), за аналізом 5 живих логів (1206 рядків із kb-open у портреті):
+// WebKit панорамує кореневий скролер (vvOffsetTop===scrollY у 99.3% рядків,
+// сторінка зсунута у 92%, максимум 389pt — рівно висота клавіатури) ВСУПЕРЕЧ
+// html,body{position:fixed;overflow:hidden}. Усі попередні ревізії
+// (6D.150-177, видалені нижче: computeKeyboardInset/computeDrawerTopPx/
+// computeDrawerMaxHeightPx/syncDrawerTopPosition/updateKeyboardInset)
+// компенсували зсув ПІСЛЯ факту — жодна не прибирала причину. Тут —
+// підняти шторку НАД клавіатурою РАНІШЕ, ніж WebKit вирішить панорамувати
+// сторінку (на focusin, синхронно, ДО появи самої клавіатури): якщо поле
+// вже видиме над майбутньою клавіатурою, панорамувати нема чого.
+//
+// Чесне застереження (для майбутніх ревізій): САМЕ вимкнення панорамування
+// (не лише компенсація) на реальному iPhone ще НЕ підтверджено живим
+// тестом — це нова гіпотеза за даними логів. Тому є Режим B (перемикач у
+// "Запис діагностики", localStorage budget_kb_mode_v1, БЕЗ нового коміту):
+// сторінці дозволено панорамуватись, шторка натомість слідує за
+// visualViewport через transform (applyModeBTransform нижче) — ближче до
+// підходу 6D.166, але через transform (не bottom — саме його резолюцію
+// WebKit ламав) і без top/bottom inline-гонки (6D.166.1/166.2).
+//
+// baseVh/visualViewport.height — ЄДИНІ джерела висоти клавіатури.
+// window.innerHeight НЕ використовується в жодному розрахунку (98.6% живих
+// рядків: innerH+vvOffsetTop===894, тобто innerHeight — це "894 мінус
+// зсув", не висота видимої області, саме так помилявся 6D.158 і вся
+// серія після нього).
+// keyboardKindForField: inputmode="numeric" (усі суми/дати в шторках) дає
+// компактну цифрову клавіатуру — ФІЗИЧНО нижчу за повну текстову QWERTY
+// (звичайний type="text", напр. "Назва") — 6D.175/177 вже виміряли цю
+// різницю (121-124px проти 32-35px у стабільному стані) окремо для картки;
+// тут — щоб ОЦІНКА (estimateKeyboardHeight) для ПЕРШОГО фокусу була
+// ближчою до правди для кожного типу поля окремо.
+function keyboardKindForField(el){
+  if(!el) return 'text';
+  const type = (el.type || '').toLowerCase();
+  const inputmode = (el.getAttribute && el.getAttribute('inputmode') || '').toLowerCase();
+  return (inputmode === 'numeric' || type === 'number') ? 'numeric' : 'text';
+}
+// computeKeyboardHeight(baseVh, vvH): висота клавіатури = baseVh (кешована
+// висота БЕЗ клавіатури, той самий baseViewportHeightByOrientation, що й
+// завжди) мінус поточний visualViewport.height (стабільний у 100% живих
+// замірів). Регресія з реальних рядків логу: (vvH=505)→389,(vvH=479)→415.
+function computeKeyboardHeight(baseVh, vvH){
+  return Math.max(0, Math.round(baseVh - vvH));
+}
+// isKeyboardOpen — те саме порогове значення (100px), що вже перевірений
+// isKeyboardLikelyClosed() нижче (не чіпали — лишається для запобіжника
+// зняття kb-open), лише у прямому, а не інвертованому вигляді — для
+// контролера зручніша "клавіатура ВІДКРИТА", не "ЗАКРИТА".
+function isKeyboardOpen(baseVh, vvH){
+  return (baseVh - vvH) >= 100;
+}
+// nextBaseVh — той самий алгоритм, що вже перевірений nextBaseViewportHeight
+// нижче (не чіпали — належить до логіки повороту/бази, 6D.158); тонка
+// обгортка лише для того, щоб контролер мав очікувану тестами назву,
+// без дублювання чи ризику розсинхрону двох копій однієї формули.
+function nextBaseVh(prevValue, observedHeight){
+  return nextBaseViewportHeight(prevValue, observedHeight);
+}
+// estimateKeyboardHeight: для ПЕРШОГО фокусу цього типу клавіатури в цій
+// орієнтації кешу ще нема — свідомо завищена оцінка 0.47×baseVh (швидше
+// підняти шторку ЗАБАГАТО, ніж замало — забагато виправляється наступним
+// виміром без жодного панорамування сторінки; замало саме й провокує
+// панорамування, якого ми намагаємось уникнути). Наступні фокуси ТОГО Ж
+// типу клавіатури в ТІЙ Ж орієнтації одразу отримують виміряне значення
+// (updateKbSheetGeometry нижче пише в cache).
+function estimateKeyboardHeight(baseVh, kind, cache){
+  if(cache && typeof cache[kind] === 'number') return cache[kind];
+  return Math.round(baseVh * 0.47);
+}
+// shouldBlockTouchMove: чи блокувати touchmove ВСЕРЕДИНІ відкритої шторки
+// (щоб жест не "протікав" на фон, 6D.161 — той самий симптом, інший
+// контекст). deltaY — поточний clientY мінус попередній (додатне — палець
+// рухається ВНИЗ по екрану, тобто користувач тягне контент ВНИЗ, щоб
+// побачити те, що ВИЩЕ — блокуємо, якщо вже на верхній межі; від'ємне —
+// палець угору, блокуємо на нижній межі). Немає що скролити (scrollHeight
+// <= clientHeight) — блокуємо завжди, жесту нема куди йти всередині.
+function shouldBlockTouchMove(scrollTop, scrollHeight, clientHeight, deltaY){
+  const scrollable = scrollHeight > clientHeight;
+  if(!scrollable) return true;
+  if(deltaY > 0 && scrollTop <= 0) return true;
+  if(deltaY < 0 && Math.ceil(scrollTop + clientHeight) >= scrollHeight) return true;
+  return false;
+}
+// computeModeBShiftPx — Режим B: той самий вхід (baseVh/vvH/vvOffsetTop),
+// що колись computeKeyboardInset() (6D.150, видалено), але застосовується
+// через JS transform (applyModeBTransform), а НЕ через CSS bottom — саме
+// РЕЗОЛЮЦІЮ bottom WebKit ламав під час панорамування (6D.166/168), а
+// transform цього багу жодного разу не показав у жодному живому замірі.
+function computeModeBShiftPx(baseVh, vvH, vvOffsetTop){
+  return -Math.max(0, Math.round(baseVh - vvH - vvOffsetTop));
+}
+function applyModeBTransform(drawerEl, baseVh, vvH, vvOffsetTop){
+  drawerEl.style.transform = 'translateY(' + computeModeBShiftPx(baseVh, vvH, vvOffsetTop) + 'px)';
+}
+let keyboardHeightCache = { portrait: {}, landscape: {} };
+let kbSheetActive = false;
+let kbSheetDrawerEl = null;
+let kbSheetFieldKind = null;
+// enterKbSheet: викликається з focusin (handleKeyboardFieldFocusIn нижче)
+// СИНХРОННО, у тому ж тіку, що й сам фокус — ДО того, як WebKit встигне
+// відреагувати на клавіатуру. Виставляє --kb-h одразу (оцінка чи кеш), щоб
+// html.kb-sheet .drawer.open{bottom:calc(var(--kb-h) + 8px)} (CSS, Режим A)
+// підняв шторку НЕГАЙНО — поле опиняється над майбутньою клавіатурою ще
+// до того, як вона з'явиться.
+function enterKbSheet(drawerEl, fieldEl){
+  kbSheetActive = true;
+  kbSheetDrawerEl = drawerEl;
+  kbSheetFieldKind = keyboardKindForField(fieldEl);
+  const baseVh = getBaseViewportHeight();
+  const orientKey = viewportOrientationKey(window.innerWidth, window.innerHeight);
+  const vvH = window.visualViewport ? window.visualViewport.height : baseVh;
+  const estimate = estimateKeyboardHeight(baseVh, kbSheetFieldKind, keyboardHeightCache[orientKey]);
+  document.documentElement.style.setProperty('--kb-h', estimate + 'px');
+  document.documentElement.style.setProperty('--vv-h', vvH + 'px');
+  document.documentElement.classList.add('kb-sheet');
+  if(getKbMode() === 'B') document.documentElement.classList.add('kb-mode-b');
+  captureDebugGeometry('sheet-open', { drawerId: drawerEl.id || null });
+}
+// updateKbSheetGeometry: викликається на КОЖЕН visualViewport resize/scroll,
+// поки kbSheetActive — перераховує --kb-h/--vv-h з живих (baseVh, vv.height)
+// значень (ЖОДНОГО разу innerHeight), оновлює кеш (орієнтація, тип
+// клавіатури) для НАСТУПНОГО першого фокусу цього ж типу, і — лише в
+// Режимі B — оновлює transform шторки. correctPanIfNeeded() — Режим A
+// запобіжник нижче.
+function updateKbSheetGeometry(){
+  if(!kbSheetActive || !window.visualViewport) return;
+  const baseVh = getBaseViewportHeight();
+  const vvH = window.visualViewport.height;
+  const vvOffsetTop = window.visualViewport.offsetTop;
+  const kbH = computeKeyboardHeight(baseVh, vvH);
+  document.documentElement.style.setProperty('--kb-h', kbH + 'px');
+  document.documentElement.style.setProperty('--vv-h', vvH + 'px');
+  if(isKeyboardOpen(baseVh, vvH) && kbSheetFieldKind){
+    const orientKey = viewportOrientationKey(window.innerWidth, window.innerHeight);
+    if(!keyboardHeightCache[orientKey]) keyboardHeightCache[orientKey] = {};
+    keyboardHeightCache[orientKey][kbSheetFieldKind] = kbH;
+  }
+  if(getKbMode() === 'B' && kbSheetDrawerEl){
+    applyModeBTransform(kbSheetDrawerEl, baseVh, vvH, vvOffsetTop);
+  }
+  correctPanIfNeeded();
+}
+// correctPanIfNeeded — Режим A єдиний запобіжник: якщо, НЕЗВАЖАЮЧИ на
+// завчасне підняття шторки, WebKit усе ж запанорамував сторінку
+// (scrollY/vvOffsetTop != 0), одноразово повертаємо її на місце в
+// requestAnimationFrame і фіксуємо подію 'pan-corrected' у рекордер — мета
+// (критерій G ревізії) 0 таких подій у живому логу. Режим B НЕ викликає
+// scrollTo — сторінці свідомо дозволено панорамуватись там.
+function correctPanIfNeeded(){
+  if(getKbMode() !== 'A') return;
+  if(!window.visualViewport) return;
+  if(window.scrollY !== 0 || window.visualViewport.offsetTop !== 0){
+    requestAnimationFrame(function(){ window.scrollTo(0, 0); });
+    captureDebugGeometry('pan-corrected');
+  }
+}
+// exitKbSheet: знімає html.kb-sheet/kb-mode-b, --kb-h, і (Режим B) власний
+// inline transform шторки — повертає керування позицією звичайному CSS
+// (.drawer.open{bottom:var(--drawer-bottom-base)}), як до фокусу.
+function exitKbSheet(){
+  if(!kbSheetActive) return;
+  const drawerId = kbSheetDrawerEl ? (kbSheetDrawerEl.id || null) : null;
+  if(kbSheetDrawerEl) kbSheetDrawerEl.style.transform = '';
+  kbSheetActive = false;
+  kbSheetDrawerEl = null;
+  kbSheetFieldKind = null;
+  document.documentElement.classList.remove('kb-sheet');
+  document.documentElement.classList.remove('kb-mode-b');
+  document.documentElement.style.setProperty('--kb-h', '0px');
+  captureDebugGeometry('sheet-close', { drawerId: drawerId });
+}
 function handleKeyboardFieldFocusIn(target){
   document.body.classList.add('kb-open');
-  if(isFieldInsideDrawer(target)) setDrawerKeyboardBackgroundLock(true);
+  const drawerEl = isFieldInsideDrawer(target) ? target.closest('.drawer') : null;
+  if(drawerEl){
+    setDrawerKeyboardBackgroundLock(true);
+    enterKbSheet(drawerEl, target);
+  }
 }
 // Викликається з відкладеного (100мс) таймауту focusout — перевіряє
 // ПОТОЧНИЙ activeElement: якщо клавіатурного поля вже нема — знімає і
-// kb-open, і лок; якщо фокус перейшов на ІНШЕ поле, але вже ПОЗА шторкою
-// (малоймовірно, але про всяк випадок) — знімає лише лок, kb-open
-// лишається (клавіатура й далі на екрані). visualViewport-запобіжник
-// (WebKit Баг 2, 6D.52) нижче НЕ використовує цю функцію — там
-// activeElement за визначенням ненадійний (клавіатуру сховали жестом без
-// зміни фокуса), тому зняття там БЕЗУМОВНЕ, не через перевірку фокуса.
+// kb-open, і лок, і kb-sheet; якщо фокус перейшов на ІНШЕ поле, але вже
+// ПОЗА шторкою (малоймовірно, але про всяк випадок) — знімає лише лок і
+// kb-sheet, kb-open лишається (клавіатура й далі на екрані).
+// visualViewport-запобіжник (WebKit Баг 2, 6D.52) нижче НЕ використовує цю
+// функцію — там activeElement за визначенням ненадійний (клавіатуру
+// сховали жестом без зміни фокуса), тому зняття там БЕЗУМОВНЕ, не через
+// перевірку фокуса.
 function handleKeyboardFieldFocusSettle(){
   const active = document.activeElement;
   if(!isKeyboardField(active)){
     document.body.classList.remove('kb-open');
     setDrawerKeyboardBackgroundLock(false);
+    exitKbSheet();
   }else if(!isFieldInsideDrawer(active)){
     setDrawerKeyboardBackgroundLock(false);
+    exitKbSheet();
   }
 }
 let kbHideTimeout = null;
@@ -15310,6 +15565,47 @@ document.addEventListener('focusout', function(e){
   // сховатись знову — перевіряємо, куди саме перейшов фокус, з коротким
   // таймаутом (activeElement оновлюється синхронно до цього моменту).
   kbHideTimeout = setTimeout(handleKeyboardFieldFocusSettle, 100);
+});
+// Rev 2.23.9 (6D.178) — блокування скролу ПОКИ ВІДКРИТА шторка (не лише
+// клавіатура): openOverlayCount (>0, коли відкрита будь-яка з 7 шторок/
+// модалок, 6D.176) — та сама умова, що вже лочить #main-col. Два жести
+// нижче — додатково до mainColInert (яка блокує ЛИШЕ #main-col):
+// 1) .drawer-backdrop — перетягування затемнення ніколи нічого не скролить
+//    (воно саме не скролиться), тому preventDefault БЕЗУМОВНИЙ.
+// 2) .drawer.open — внутрішній скрол ДОЗВОЛЕНИЙ, доки є куди скролити
+//    (shouldBlockTouchMove вище); на межі (чи без скролу) — блокуємо, щоб
+//    жест не "протікав" на фон (6D.161 — той самий симптом).
+let kbTouchStartY = null;
+document.addEventListener('touchstart', function(e){
+  if(openOverlayCount <= 0) return;
+  const t = e.touches && e.touches[0];
+  kbTouchStartY = t ? t.clientY : null;
+}, { passive: true });
+document.addEventListener('touchmove', function(e){
+  if(openOverlayCount <= 0) return;
+  const backdrop = e.target.closest ? e.target.closest('.drawer-backdrop') : null;
+  if(backdrop){ e.preventDefault(); return; }
+  const drawerEl = e.target.closest ? e.target.closest('.drawer.open') : null;
+  if(!drawerEl) return;
+  const t = e.touches && e.touches[0];
+  if(!t || kbTouchStartY === null) return;
+  const deltaY = t.clientY - kbTouchStartY;
+  kbTouchStartY = t.clientY;
+  if(shouldBlockTouchMove(drawerEl.scrollTop, drawerEl.scrollHeight, drawerEl.clientHeight, deltaY)){
+    e.preventDefault();
+  }
+}, { passive: false });
+document.addEventListener('touchend', function(){ kbTouchStartY = null; }, { passive: true });
+document.addEventListener('touchcancel', function(){ kbTouchStartY = null; }, { passive: true });
+// Поки відкрита шторка, будь-який ненульовий window.scrollY — завжди
+// небажаний (той самий принцип, що fixStuckVisualViewportOffset нижче, але
+// НЕЗАЛЕЖНО від kb-open — спрацьовує і без фокусу на полі, напр. якщо
+// перетягування затемнення все ж спричинило б зсув ДО того, як preventDefault
+// вище встиг би його зупинити).
+window.addEventListener('scroll', function(){
+  if(openOverlayCount > 0 && window.scrollY !== 0){
+    window.scrollTo(0, 0);
+  }
 });
 // Rev #30 (6D.52) — Баг 2 (термінове розслідування двох UI-багів): WebKit
 // дозволяє сховати системну клавіатуру (кнопка-шеврон/жест) БЕЗ зміни
@@ -15405,183 +15701,34 @@ if(window.visualViewport){
       // зняття тут — БЕЗУМОВНО, на відміну від handleKeyboardFieldFocusSettle()
       // (та перевіряє activeElement, тут це саме НЕНАДІЙНО за визначенням).
       setDrawerKeyboardBackgroundLock(false);
+      exitKbSheet();
     }
   });
 }
-// Rev 2.22.77 (6D.150) — BugFix, ПОВНИЙ редизайн (3 попередні спроби,
-// 6D.146/146.1/149, усі спирались на "чи є зараз клавіатура" за фокусом/
-// isKeyboardField/kb-open — живий тест на iPhone показав нестабільну,
-// ЗАЛЕЖНУ ВІД ПОЗИЦІЇ ПОЛЯ в шторці поведінку: верхні поля піднімали
-// шторку майже завжди, нижні — рідше, і навпаки теж траплялось. Це ознака
-// гонки з власною внутрішньою поведінкою WebKit під час фокусу/скролу
-// конкретного поля (drawer сам має overflow-y:auto — 6D.16), а не щось,
-// що можна надійно "докрутити" ще одним патчем поверх умовної логіки.
-//
-// Новий підхід: БЕЗУМОВНЕ, неперервне відстеження. --kb-inset (CSS custom
-// property на :root, px) завжди дорівнює поточній висоті клавіатури
-// (baseViewportHeight − visualViewport.height − offsetTop, 0 коли
-// клавіатури нема) — оновлюється на КОЖЕН resize/scroll visualViewport,
-// повністю незалежно від того, яке поле в фокусі, чи це поле взагалі
-// всередині шторки, чи встановлено body.kb-open. Жодної умови
-// "застосувати/зняти" — значення завжди свіжо обчислене напряму з живої
-// геометрії viewport, тому "застряглого" стану за визначенням бути не
-// може. CSS (.drawer.open, правило вище) сам додає це значення до вже
-// наявного bottom-відступу.
-// Rev 2.22.85 (6D.158) — baseViewportHeight замість живого innerHeight
-// (докоментар над isKeyboardLikelyClosed() вище пояснює, чому).
-function computeKeyboardInset(baseViewportHeight, visualViewportHeight, visualViewportOffsetTop){
-  return Math.max(0, Math.round(baseViewportHeight - visualViewportHeight - visualViewportOffsetTop));
-}
-// Rev 2.22.87 (6D.160) BugFix — --base-vh: та сама baseViewportHeight, що
-// вже рахує --kb-inset вище, тепер ЩЕ й доступна в CSS напряму (px) —
-// .drawer{max-height} (правило вище, :root{--drawer-max-height}) віднімає
-// від неї safe-area/нижню прив'язку/клавіатуру/запас декларативно, без
-// потреби дублювати цю арифметику тут у JS.
-// Rev 2.22.92 (6D.165) BugFix — живий тест: плаваючий індикатор запису
-// (position:fixed, 6D.164) ставав невидимим, щойно відкривалась клавіатура
-// — той самий корінь, що й уся сьогоднішня серія (6D.53/158): position:
-// fixed на цьому WebKit прив'язаний до LAYOUT viewport, а не до видимої
-// (visual) області, тож коли клавіатура зсуває видиму область вниз
-// (visualViewport.offsetTop росте), елемент із фіксованим top лишається
-// на старому місці й "виїжджає" за межі видимого екрана зверху. --kb-inset
-// вже розв'язує це для .drawer (знизу); --vv-offset-top — те саме для
-// елементів, прив'язаних ЗВЕРХУ (#debug-record-indicator, нижче).
-// Rev 2.22.93 (6D.166) BugFix — живий лог (kb-full-scenario 2) показав
-// картку, застряглу в неправильній позиції ЧЕРЕЗ КІЛЬКА повних циклів
-// відкриття/закриття клавіатури (~15с), хоча body.kb-open (і залежний від
-// нього таббар) перемикався коректно щоразу. Арифметика живих даних
-// довела: drawerBottom (getBoundingClientRect) ТОЧНО дорівнює живому
-// (у цю мить зіпсованому, 6D.158) window.innerHeight мінус CSS bottom —
-// тобто САМЕ ЗНАЧЕННЯ bottom (--kb-inset) рахується вірно, але WebKit
-// застосовує його при РЕНДЕРІ через своє ВНУТРІШНЄ, тимчасово зіпсоване
-// уявлення про висоту viewport для position:fixed. Наш --kb-inset це не
-// виправляє — він лише коректний ВХІД у крок, сама механіка резолюції
-// якого в браузері зламана, і control над нею в нас нема.
-// Обхід: позиціонуємо ВІДКРИТУ шторку через `top` (inline style, JS),
-// рахуючи його ЛИШЕ з visualViewport.height/offsetTop — ці два значення
-// жодного разу НЕ були "зіпсовані" в жодному живому замірі цієї сесії
-// (на відміну від window.innerHeight). Сам `bottom` (CSS) — проста сума
-// двох ПІКСЕЛЬНИХ довжин (--drawer-bottom-base + --kb-inset, без жодного
-// відсотка/висоти) — getComputedStyle(el).bottom повертає його ВІРНО
-// завжди (на відміну від РЕНДЕРУ fixed-позиції, де й ховається баг), тому
-// безпечно читати звідти замість дублювання формули.
-function computeDrawerTopPx(vvOffsetTop, vvHeight, baseBottomPx, drawerHeightPx){
-  return Math.round(vvOffsetTop + vvHeight - baseBottomPx - drawerHeightPx);
-}
-// Rev 2.22.94 (6D.166.1) BugFix — жива перевірка довела 6D.166 ЛАМАЛА картку
-// (злітала вгору майже за межі екрана при КОЖНІЙ появі клавіатури, без
-// повороту; після закриття лишалась видимою знизу) — найпомітніше на "Борги"
-// (вища картка, тому зсув помітніший), хоча баг однаково зачіпав усі шторки.
-// Корінь: syncDrawerTopPosition() віднімала ПОВНИЙ getComputedStyle(el).bottom
-// (= --drawer-bottom-base + --kb-inset, 198px у живому кейсі mark@129) від
-// vvOffsetTop+vvHeight — а visualViewport.height ВЖЕ не включає зайняту
-// клавіатурою область (сама її природа), тобто --kb-inset віднімався ДВІЧІ:
-// раз неявно (через уже звужений vvHeight), раз явно (через bottomPx). Чим
-// вищий --kb-inset (клавіатура), тим сильніше картку закидало вгору. Тест
-// computeDrawerTopPx(261,505,198,520)===48 (5D.166, pilot-repository.test.js)
-// сам підтверджує баг: 48px від верху екрана — це "виліт угору", не "над
-// клавіатурою". Правильна позиція (766−8−520=238) лишає лише 8px запасу над
-// видимою межею — рівно --drawer-bottom-base, БЕЗ повторного --kb-inset.
-// Виправлено: syncDrawerTopPosition() тепер приймає kbInsetPx (те саме
-// значення, щойно пораховане updateKeyboardInset() нижче) і віднімає його
-// від повного CSS bottom, щоб лишити ЛИШЕ базовий відступ — bottom
-// (CSS, резолюція надійна, 6D.166) лишається єдиним джерелом цього числа,
-// просто без подвійного врахування клавіатури.
-//
-// Rev 2.22.95 (6D.166.2) BugFix — жива перевірка 6D.166.1 (без повороту,
-// просто відкрита клавіатура на "Борги"): виліт вгору став менший, але
-// картка й далі "потроху" повзла вгору з кожним спрацюванням. Корінь —
-// ЦЯ Ж функція сама собі підміняла джерело даних: на 1-му виклику
-// getComputedStyle(el).bottom читав CSS-правило (коректно), але в КІНЦІ
-// виклику ми ставили el.style.bottom='auto' (inline) — тому на 2-му й
-// кожному НАСТУПНОМУ виклику (visualViewport стріляє resize/scroll часто,
-// у т.ч. від власного internal-скролу шторки, 6D.161) getComputedStyle
-// повертав уже НЕ CSS-правило, а РЕЗОЛЬВЛЕНЕ "auto" (похідне від
-// поточного top, виставленого нами ж на попередньому кроці) — функція
-// щоразу читала трохи інше число й накопичувала похибку, звідси "потроху
-// вгору". Виправлено (на той момент) — скидати inline top/bottom ПЕРЕД
-// виміром.
-//
-// Rev 2.22.97 (6D.168) BugFix — живий лог ("Forma scale", книжкова
-// орієнтація, картка "Борги") виявив ТРЕТІЙ, окремий баг у самому підході
-// 6D.166.1/166.2: getComputedStyle(el).bottom − kbInsetPx іноді давав
-// ЗОВСІМ не те число, що мало б вийти (приклад з живих даних: mark при
-// vvOffsetTop=297, vvH=505, kbInset=92 — мало бути baseBottomPx=8, топ=274;
-// реально вийшло baseBottomPx=305, топ=-23, картку закинуло на 320px ВИЩЕ
-// видимої межі). Арифметика довела: `fullBottomPx`, прочитаний так, УПЕРТО
-// дорівнював 397 = (--base-vh − vvH) + 8, тобто мовби --kb-inset у цій
-// calc()-резолюції самого `bottom` рахувався БЕЗ віднімання offsetTop —
-// інше число, ніж те, що ми щойно встановили в --kb-inset рядком вище.
-// Висновок: читання РЕЗОЛЬВЛЕНОГО `bottom` елемента (залежного від calc()
-// з --kb-inset, щойно зміненого через setProperty) негарантовано синхронне
-// на цьому WebKit — той самий "клас" нестабільності, що й уся серія
-// 6D.53/158/166. Безпечний шлях — перестати залежати від РЕЗОЛЬВЛЕНОГО
-// `bottom` елемента взагалі. `--drawer-bottom-base` під час відкритої
-// клавіатури — ЛІТЕРАЛЬНЕ значення `8px` (body.kb-open{--drawer-bottom-
-// base:8px}, без calc()/max()) — читання custom property з ЛІТЕРАЛОМ (не
-// виразом) не підпадає під "нерозв'язаний calc()" застереження 6D.166, тому
-// читаємо ЙОГО напряму з body замість похідного bottom елемента.
-//
-// Другий знайдений тим самим логом факт: НАВІТЬ із правильним topPx=274,
-// картка (height=520) ФІЗИЧНО не влазить у видиму область (vvH=505, запас
-// 8px → доступно 497) — 23px неминуче йдуть "за кадр". Оскільки
-// scrollHeight===clientHeight (6D.167 нові поля довели — внутрішній скрол
-// УВІМКНЕНО не був, max-height=668 — рахований від --base-vh/--kb-inset,
-// що ІГНОРУЄ offsetTop-зсув, і тому дає завищену, "теоретичну" оцінку
-// вільного місця), картку не можна було домотати — зайва частина просто
-// зникала, недосяжна. Фікс: --drawer-max-height під час відкритої
-// клавіатури тепер РІВНО vvH − baseBottomPx (той самий, щойно доведений
-// надійним, visualViewport.height) — коли контент не вміщається, це реально
-// вмикає internal-скрол (overflow-y:auto, уже є на .drawer) замість тихого
-// обрізання без способу побачити решту.
-function computeDrawerMaxHeightPx(vvHeight, baseBottomPx){
-  return Math.max(0, Math.round(vvHeight - baseBottomPx));
-}
-let lastPositionedDrawerEl = null;
-function syncDrawerTopPosition(){
-  const el = document.querySelector('.drawer.open');
-  if(lastPositionedDrawerEl && lastPositionedDrawerEl !== el){
-    lastPositionedDrawerEl.style.top = '';
-    lastPositionedDrawerEl.style.bottom = '';
-    lastPositionedDrawerEl.style.maxHeight = '';
-  }
-  // Rev 2.22.97 (6D.168) — обхід потрібен ЛИШЕ поки клавіатура відкрита
-  // (body.kb-open) — без неї WebKit резолюцію bottom/innerHeight ніколи не
-  // ламало в жодному живому замірі цієї сесії; CSS сама справляється.
-  const kbOpen = document.body.classList.contains('kb-open');
-  if(!el || !window.visualViewport || !kbOpen){
-    if(el && lastPositionedDrawerEl === el){
-      el.style.top = ''; el.style.bottom = ''; el.style.maxHeight = '';
-    }
-    lastPositionedDrawerEl = null;
-    return;
-  }
-  // Rev 2.22.97 (6D.168) — ЛІТЕРАЛЬНЕ значення (не calc()), читаємо напряму
-  // з body замість резольвленого el.bottom (докоментар над функцією).
-  const baseBottomPx = parseFloat(getComputedStyle(document.body).getPropertyValue('--drawer-bottom-base')) || 8;
-  const maxHeightPx = computeDrawerMaxHeightPx(window.visualViewport.height, baseBottomPx);
-  el.style.maxHeight = maxHeightPx + 'px';
-  const heightPx = el.getBoundingClientRect().height;
-  const topPx = computeDrawerTopPx(window.visualViewport.offsetTop, window.visualViewport.height, baseBottomPx, heightPx);
-  el.style.top = topPx + 'px';
-  el.style.bottom = 'auto';
-  lastPositionedDrawerEl = el;
-}
-function updateKeyboardInset(){
+// Rev 2.23.9 (6D.178) — updateViewportDiagnosticVars(): єдиний завжди-
+// активний слухач visualViewport (замінює updateKeyboardInset(), 6D.150-168,
+// видалено повністю разом з computeKeyboardInset/computeDrawerTopPx/
+// computeDrawerMaxHeightPx/syncDrawerTopPosition — уся логіка позиціонування
+// шторки тепер у enterKbSheet()/updateKbSheetGeometry()/exitKbSheet() вище,
+// викликається ЛИШЕ поки відкрита шторка з полем у фокусі, а не на кожен
+// resize/scroll незалежно від контексту, як було). Тут лишається
+// ДІАГНОСТИЧНА частина: --vv-offset-top (потрібен #debug-record-indicator,
+// 6D.165 — не чіпали) і --base-vh (діагностичне поле рекордера), плюс виклик
+// noteViewportHeightIfKeyboardClosed() (база оновлюється, лише коли
+// клавіатури нема, 6D.158 — не чіпали) і, коли активна шторка з клавіатурою,
+// делегування в updateKbSheetGeometry().
+function updateViewportDiagnosticVars(){
   if(!window.visualViewport) return;
   noteViewportHeightIfKeyboardClosed();
-  const base = getBaseViewportHeight();
-  const inset = computeKeyboardInset(base, window.visualViewport.height, window.visualViewport.offsetTop);
-  document.documentElement.style.setProperty('--kb-inset', inset + 'px');
-  document.documentElement.style.setProperty('--base-vh', base + 'px');
   document.documentElement.style.setProperty('--vv-offset-top', Math.round(window.visualViewport.offsetTop) + 'px');
-  syncDrawerTopPosition();
+  document.documentElement.style.setProperty('--base-vh', getBaseViewportHeight() + 'px');
+  if(kbSheetActive) updateKbSheetGeometry();
 }
 if(window.visualViewport){
-  window.visualViewport.addEventListener('resize', updateKeyboardInset);
-  window.visualViewport.addEventListener('scroll', updateKeyboardInset);
+  window.visualViewport.addEventListener('resize', updateViewportDiagnosticVars);
+  window.visualViewport.addEventListener('scroll', updateViewportDiagnosticVars);
 }
-updateKeyboardInset();
+updateViewportDiagnosticVars();
 // Rev #30 (6D.53, Баг 1 — термінове розслідування продовжено з РЕАЛЬНОЮ
 // діагностикою на пристрої, чого дві попередні спроби (v1/v2, обидві
 // відкочені, докоментар над 6D.53 у ROADMAP.md) не мали): Safari Web
@@ -15677,7 +15824,12 @@ function forceResyncViewportOffsetAfterRotation(){
   if(window.visualViewport.offsetTop !== 0 || window.scrollY !== 0){
     window.scrollTo(0, 0);
   }
-  updateKeyboardInset();
+  // Rev 2.23.9 (6D.178) — updateKeyboardInset() видалено (замінено єдиним
+  // контролером вище); updateViewportDiagnosticVars() — той самий виклик,
+  // та сама роль (синхронний перерахунок діагностичних --vv-offset-top/
+  // --base-vh і, якщо шторка з клавіатурою активна, --kb-h/--vv-h),
+  // поведінка самого повороту НЕ зачеплена.
+  updateViewportDiagnosticVars();
 }
 window.addEventListener('orientationchange', function(){
   // Rev 2.21.85 висновок ROADMAP.md: одразу в orientationchange geometry
@@ -15698,7 +15850,7 @@ window.addEventListener('orientationchange', function(){
   // цю мить клавіатура відкрита (kb-open) — noteViewportHeightIfKeyboard
   // Closed() усередині сама нічого не запише (жодного ризику), лише
   // --kb-inset перерахується під поточну (можливо, ще стару) базу.
-  setTimeout(updateKeyboardInset, 300);
+  setTimeout(updateViewportDiagnosticVars, 300); // Rev 2.23.9 (6D.178) — перейменовано, та сама роль (докоментар над forceResyncViewportOffsetAfterRotation()).
 });
 
 // Rev #30 (6D.54) — Cloud-сесія тепер ініціалізується безумовно при старті,

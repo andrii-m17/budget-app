@@ -10921,6 +10921,64 @@ preview (desktop): ОЧ 467px→455px (-12px); "Борги" (461px) лишили
 точний новий дефіцит (можливо, запас у 2px замалий для цього конкретного
 пристрою/шрифту) замість додавання "про всяк випадок" без цифр.
 
+## 32.15. 6D.178 — Rev 2.23.9 — Повний редизайн: єдиний контролер клавіатури (Режим A/B) + блокування скролу
+
+**Контекст:** детальний промт користувача за результатами SQL-аналізу 5
+живих логів (1206 рядків із `kb-open` у портреті, `client_debug_logs`).
+Ключові знахідки з логів: `visualViewport.offsetTop === scrollY` у 99.3%
+рядків (сторінка зсунута у 92%, максимум 389pt — рівно висота клавіатури)
+— WebKit ПАНОРАМУЄ кореневий скролер ВСУПЕРЕЧ `html,body{position:fixed;
+overflow:hidden}`; `innerH + vvOffsetTop === 894` у 98.6% рядків —
+`window.innerHeight` під час зсуву це "894 мінус зсув", не висота видимої
+області (так помилявся весь ланцюжок 6D.158→177); `visualViewport.height`
+стабільний у 100% замірів (505 для цифрової клавіатури, 479 для текстової).
+Висновок промту: усі ревізії 6D.150-177 компенсували зсув ПІСЛЯ факту —
+жодна не прибирала причину.
+
+**Крок 0 (перевірка припущень коду для кожної шторки, ПЕРЕД зміною):**
+
+| Шторка | Поточна функція/рядок, що позиціонує | Що видалено |
+|---|---|---|
+| `#income-drawer` (`ind-*`) | `.drawer`/`.drawer.open` (спільний CSS) + `syncDrawerTopPosition()` виклик через `updateKeyboardInset()` resize/scroll — НЕ окрема гілка, той самий генерик-код, що й інші 2 | `computeKeyboardInset`/`computeDrawerTopPx`/`computeDrawerMaxHeightPx`/`syncDrawerTopPosition`/`updateKeyboardInset` (спільні, не per-drawer) |
+| `#card-debt-drawer` (`cdd-*`) | те саме (спільний код) | те саме |
+| `#installment-drawer` (`idd-*`) | те саме (спільний код) | те саме |
+
+Припущення "усі 3 шторки — `.drawer`" підтверджено (`grep id="income-drawer"\|id="card-debt-drawer"\|id="installment-drawer"` → усі три мають клас `drawer`). Припущення "є окремі гілки для `ind-*`/`cdd-*`/`idd-*`" СПРОСТОВАНО: позиціонування вже було уніфікованим (`document.querySelector('.drawer.open')`, без розрізнення конкретної шторки) — пункт "прибрати окремі гілки" промту виявився вже закритим попередніми ревізіями, нічого додатково видаляти не було.
+
+**Чесне застереження (задокументовано, не замовчано):** промт просить викликати `window.scrollTo(0,0)` ПІД ЧАС відкритої клавіатури (Режим A, `correctPanIfNeeded()`) — це СУПЕРЕЧИТЬ прямому висновку 6D.151 (ROADMAP, закрите Rev 2.22.78): безумовний `scrollTo` під час `kb-open` на КОЖЕН resize бив із легітimним підняттям сторінки й сам генерував нові resize-події з щойно скинутим offsetTop, що зациклювалось у "миготіння". Новий механізм ІНШИЙ за конструкцією (не той самий, що вже в таблиці випробуваного): (а) ОДНОРАЗОВА корекція в `requestAnimationFrame`, не на кожен resize; (б) ПРЕВЕНТИВНИЙ підхід — шторка піднімається ДО появи клавіатури (на `focusin`), тому в штатному випадку `scrollTo` НІКОЛИ не викликається (мета — 0 `pan-corrected`-подій); (в) `fixStuckVisualViewportOffset()` (сам 6D.151-фікс) залишений БЕЗ ЗМІН і й далі не чіпає offsetTop, поки `kb-open`. Проте сам ПРИНЦИП (scrollTo під час клавіатури) раніше визнаний ризикованим — якщо живий тест покаже миготіння/цикл, це буде підтвердження, що й НОВА конструкція успадкувала той самий ризик, і Режим B (нижче) — не просто "про всяк випадок", а реально ОЧІКУВАНИЙ шлях.
+
+**Реалізовано (Режим A, типовий):**
+- `enterKbSheet(drawerEl, fieldEl)` — на `focusin` поля ВСЕРЕДИНІ шторки, СИНХРОННО: виставляє `--kb-h` (оцінка `0.47×baseVh` для першого фокусу цього типу клавіатури в цій орієнтації, або точне кешоване значення з попереднього виміру) і клас `html.kb-sheet` — ДО появи самої клавіатури.
+- CSS: `html.kb-sheet .drawer.open{ bottom:calc(var(--kb-h,0px) + 8px); max-height:calc(var(--vv-h,100vh) - 16px - env(safe-area-inset-top,0px)); transition:bottom 220ms ease-out; }` — суто декларативно, жодного inline top/bottom (6D.166-166.2 видалено).
+- `updateKbSheetGeometry()` — на кожен `visualViewport` resize/scroll, поки активна шторка: перераховує `--kb-h`/`--vv-h` з `(baseVh, vv.height)` (НІКОЛИ `innerHeight`), кешує виміряне значення для (орієнтація, тип клавіатури).
+- `correctPanIfNeeded()` — Режим A єдиний запобіжник: якщо `scrollY`/`vvOffsetTop` все ж не 0, одноразовий `requestAnimationFrame(() => scrollTo(0,0))` + подія `pan-corrected` у рекордер.
+- `exitKbSheet()` — на `focusout` (коли клавіатурного поля більше нема): знімає `html.kb-sheet`, `--kb-h`, (Режим B) `transform`.
+- `keyboardKindForField()`/`estimateKeyboardHeight()` — `inputmode="numeric"` (суми/дати) vs звичайний `text` ("Назва") дають РІЗНУ фізичну висоту клавіатури (6D.175/177 вже виміряли: 121-124px проти 32-35px) — оцінка для першого фокусу тепер окрема на кожен тип.
+
+**Реалізовано (блокування скролу, НЕЗАЛЕЖНО від клавіатури):**
+- `.drawer-backdrop` touchmove — `preventDefault()` БЕЗУМОВНИЙ (перетягування затемнення ніколи нічого не скролить).
+- `.drawer.open` touchmove — `shouldBlockTouchMove()` блокує, лише якщо нема куди скролити в цьому напрямку (на межі чи взагалі без скролу) — дозволяє штатний internal-скрол.
+- `window` 'scroll' — поки `openOverlayCount>0` (будь-яка відкрита шторка, 6D.176), будь-який ненульовий `scrollY` негайно повертається до 0.
+
+**Реалізовано (Режим B, запасний, БЕЗ нового коміту):** перемикач у "Запис діагностики" (`selectKbModeFromDrawer('A'|'B')`, `localStorage.budget_kb_mode_v1`, навмисно поза `BACKUP_LS_KEYS`). Сторінці дозволено панорамуватись (жоден `scrollTo` не викликається); шторка натомість СЛІДУЄ за `visualViewport` через `applyModeBTransform()` (`transform:translateY()`, не `bottom` — саме його резолюцію WebKit ламав, 6D.166/168); `computeModeBShiftPx(baseVh,vvH,vvOffsetTop)` — той самий вхід, що колишній `computeKeyboardInset`, але застосований через transform.
+
+**Видалено повністю:** `computeKeyboardInset`, `computeDrawerTopPx`, `computeDrawerMaxHeightPx`, `syncDrawerTopPosition`, `updateKeyboardInset` (і виклики), `lastPositionedDrawerEl`, CSS `--kb-inset`/`--drawer-max-height`/`.drawer.open{bottom:calc(...--kb-inset)}`. **НЕ чіпали** (перевірено — лише механічна заміна виклику `updateKeyboardInset()`→`updateViewportDiagnosticVars()` у 2 місцях, де рядок НЕ міг лишитись без заміни): форму "Витрати", `fixStuckVisualViewportOffset()`/`forceResyncViewportOffsetAfterRotation()` (Баг 1/1a, логіка повороту), `viewportOrientationKey`/`nextBaseViewportHeight`/`baseViewportHeightByOrientation`/`getBaseViewportHeight`/`noteViewportHeightIfKeyboardClosed`/`isKeyboardLikelyClosed` (логіка бази/повороту, 6D.53/158) — усі залишені БУКВАЛЬНО без змін у тілі.
+
+**Рекордер (єдине дозволене доповнення):** нові поля `activeRectTop`/`activeRectBottom`/`kbH`/`kbMode` на КОЖНІЙ події; нові типи подій `pan-corrected`/`sheet-open`/`sheet-close` (з `drawerId`). Поле `kbInset` (існуюче) тепер читає `--kb-h` замість видаленого `--kb-inset` — та сама НАЗВА й СЕНС (висота клавіатури, px), щоб НЕ зламати вже написані SQL-запити користувача по історичних логах; `baseVh` (існуюче) без змін джерела.
+
+**Знайдений і виправлений під час перевірки preview баг (ДО живого пристрою):** `getKbMode()`/`setKbMode()` спершу опинились усередині IIFE `initApp` (там само, де решта контролера клавіатури), а викликаються і звідти, і з ГЛОБАЛЬНИХ функцій (`captureDebugGeometry()`, `selectKbModeFromDrawer()` у "Запис діагностики") — глобальний код не бачить локальних імен усередині IIFE. Перенесено в глобальну область (поруч із `lockBackgroundScroll`/`unlockBackgroundScroll`) — спіймано саме Browser-preview перевіркою (живий `ReferenceError` у консолі), а не вгадано.
+
+**Перевірено:** `node --test` — 550/550 (повністю переписаний тестовий блок: старі тести на видалені функції прибрано; нові — `computeKeyboardHeight`/`isKeyboardOpen`/`nextBaseVh`/`estimateKeyboardHeight`/`shouldBlockTouchMove`/`keyboardKindForField`/`computeModeBShiftPx` як чисті функції, регресія на РЕАЛЬНИХ рядках логу `(894,505)→389, (894,479)→415`; інтеграційні тести `enterKbSheet`/`updateKbSheetGeometry`/`exitKbSheet`/`correctPanIfNeeded` з повною композицією локу+kb-sheet). Browser preview (desktop):
+- Повний цикл focus→blur→close на ВСІХ трьох шторках (Борги/ОЧ/Дохід) — без жодної помилки консолі.
+- "Витрати" (`#expfielda7`) — `kb-sheet` НІКОЛИ не активується, `#main-col` не блокується, ввід працює (регресійна перевірка 6D.172).
+- `html.kb-sheet`/`--kb-h`(оцінка)/`--vv-h` виставляються одразу на focusin, знімаються на focusout; `#main-col` блокується і композиційно узгоджується зі шторкою (6D.176) — підтверджено, що лок знімається лише після ЗАКРИТТЯ шторки, не після втрати фокусу.
+- Перемикач Режим A/B — `getKbMode()`/`setKbMode()`/`localStorage` коректно читають/пишуть/персистять.
+- Рекордер: `sheet-open`/`sheet-close` з'являються в буфері з усіма нвоими полями (`activeRectTop/Bottom`, `kbH`, `kbMode`).
+- touchmove: затемнення — `preventDefault` безумовний; шторка — НЕ блокує, коли є куди скролити, БЛОКУЄ на межі (обидва напрямки перевірено).
+- `window` 'scroll' — `scrollTo(0,0)` коректно викликається, коли `openOverlayCount>0` і `scrollY≠0` (підтверджено через ін'єкцію `<script>`-тега в сторінку — синтетичний `dispatchEvent`/eval з інструменту НЕ ділить `let`-змінні скрипта сторінки напряму, лише функції; та сама методологія, що раніше встановлена для фокусу).
+
+**⚠️ Потребує живої перевірки на реальному iPhone (критерії A-G промту, перевіряються SQL по `client_debug_logs`):** записати 3 логи (`income-after`, `debt-after`, `och-after`, кожен 1-2 хв: відкрити шторку → торкнутись поля → потягнути шторку вгору-вниз пальцем → закрити клавіатуру). Критерії: (A) `scrollY≤1`/`vvOffsetTop≤1` поки `kb-open` і `vvH<baseVh-100`; (B) `drawerBottom` у межах `vvH-8±3`; (C) `activeRectBottom≤vvH-4`; (D) `scrollY`/`mainColScrollTop` незмінні під час перетягування; (E) після закриття клавіатури — `kb-open` знято, `drawerBottom` повернувся (±2), `scrollY=0`; (F) перший і повторні фокуси — однакова геометрія; (G) 0 подій `pan-corrected`. Якщо G не виконується (сторінка й далі панорамується, незважаючи на превентивне підняття) — перемкнути Режим B через "Запис діагностики" й повторити ті самі 3 логи БЕЗ нового коміту.
+
 ## 31. Family Account / Household
 
 Спільний простір: `Household { id, members: [user A, user B] }`.

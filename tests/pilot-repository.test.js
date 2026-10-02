@@ -5066,23 +5066,21 @@ test('latestTouchedRecordMonth: id у Map, але запису вже немає
   assert.equal(ctx.latestTouchedRecordMonth(), null);
 });
 
-// Rev 2.22.85 (6D.158) BugFix — isKeyboardLikelyClosed()/computeKeyboardInset()/
-// viewportOrientationKey()/nextBaseViewportHeight() — усі 4 чисті (без DOM),
-// на відміну від updateKeyboardInset()/noteViewportHeightIfKeyboardClosed()
-// самих (document.body.classList/documentElement.style.setProperty — той
-// самий принцип виключення DOM-шару, що вже openJournal()/handlePushAction()
-// вище). Регресійний тест нижче відтворює РЕАЛЬНУ послідовність значень із
-// живого Web Inspector-заміру на iPhone (t=9495-9584, докоментар у
-// index.html): у цей момент власне window.innerHeight тимчасово просів до
-// 505 (= visualViewport.height), через що СТАРА isKeyboardLikelyClosed()
-// (яка порівнювала саме innerHeight, не кешовану базу) хибно знімала
-// kb-open за 87мс після появи клавіатури.
+// Rev 2.23.9 (6D.178) BugFix — повний редизайн компенсації клавіатури в
+// шторках (аналіз 5 живих логів, 1206 рядків із kb-open у портреті):
+// computeKeyboardInset/computeDrawerTopPx/computeDrawerMaxHeightPx/
+// syncDrawerTopPosition/updateKeyboardInset видалені повністю (замінені
+// єдиним контролером — enterKbSheet/updateKbSheetGeometry/exitKbSheet,
+// суто CSS calc() на --kb-h/--vv-h, без inline top/bottom). isKeyboardLikelyClosed/
+// viewportOrientationKey/nextBaseViewportHeight/getBaseViewportHeight/
+// noteViewportHeightIfKeyboardClosed — НЕ чіпали (логіка повороту/бази,
+// 6D.53/158) — тести на них лишаються без змін.
 function keyboardInsetSandbox(){
   const { buildSandbox } = require('./extract');
   return buildSandbox({}, [
-    'isKeyboardLikelyClosed', 'computeKeyboardInset',
-    'viewportOrientationKey', 'nextBaseViewportHeight', 'computeDrawerTopPx',
-    'computeDrawerMaxHeightPx',
+    'isKeyboardLikelyClosed', 'viewportOrientationKey', 'nextBaseViewportHeight',
+    'computeKeyboardHeight', 'isKeyboardOpen', 'nextBaseVh', 'estimateKeyboardHeight',
+    'shouldBlockTouchMove', 'keyboardKindForField', 'computeModeBShiftPx',
   ]);
 }
 test('isKeyboardLikelyClosed: РЕАЛЬНИЙ живий кейс (6D.158, t=9583) — база 894, vvHeight 505 (клавіатура щойно з\'явилась) → НЕ "закрита", попри те що живий window.innerHeight у ту саму мить сам помилково читав 505', () => {
@@ -5097,46 +5095,19 @@ test('isKeyboardLikelyClosed: поріг 100px не зламаний фіксо�
   const ctx = keyboardInsetSandbox();
   assert.equal(ctx.isKeyboardLikelyClosed(894, 820), true);
 });
-test('computeKeyboardInset: РЕАЛЬНИЙ живий кейс (6D.158) — база 894, vvHeight 505, offsetTop 0 → ~389px ОДРАЗУ (без очікування "рятівного" скролу, яким раніше самовиправлявся живий innerHeight)', () => {
-  const ctx = keyboardInsetSandbox();
-  assert.equal(ctx.computeKeyboardInset(894, 505, 0), 389);
-});
-test('computeKeyboardInset: від\'ємний результат (vvHeight+offsetTop > base, теоретично неможливо, але захист) → затиснуто до 0', () => {
-  const ctx = keyboardInsetSandbox();
-  assert.equal(ctx.computeKeyboardInset(500, 600, 0), 0);
-});
 test('viewportOrientationKey: ширина > висота → landscape, інакше portrait', () => {
   const ctx = keyboardInsetSandbox();
   assert.equal(ctx.viewportOrientationKey(926, 428), 'landscape');
   assert.equal(ctx.viewportOrientationKey(428, 926), 'portrait');
 });
-// Rev 2.22.86 (6D.158.1) BugFix — живий тест (поворот portrait→landscape
-// З ВІДКРИТОЮ клавіатурою): screen.width/height у standalone-PWA НЕ
-// змінюються при повороті (підтверджено живими даними — constant 440×956
-// в ОБОХ орієнтаціях), тому viewportOrientationKey(screen.width,
-// screen.height) завжди повертала 'portrait' — у landscape код брав
-// портретну базу (894) замість landscape (~440), --kb-inset виходив
-// 684px, картку викидало за межі екрана. Виправлено на innerWidth/
-// innerHeight (порівняння, не абсолютне значення) — тест нижче відтворює
-// РЕАЛЬНУ послідовність значень із цього заміру, включно з найбитішими
-// перехідними кадрами самого повороту (де innerHeight уже спотворений
-// тим самим багом 6D.158) — ширина/висота жодного разу не переплутались
-// місцями.
 test('viewportOrientationKey: РЕАЛЬНА послідовність повороту з відкритою клавіатурою (6D.158.1) — innerWidth/innerHeight коректно розрізняють орієнтацію на кожному кроці, включно з перехідними кадрами де сам innerHeight спотворений багом 6D.158', () => {
   const ctx = keyboardInsetSandbox();
-  assert.equal(ctx.viewportOrientationKey(440, 894), 'portrait');   // t=1, спокій
-  assert.equal(ctx.viewportOrientationKey(440, 505), 'portrait');   // t=16349, клавіатура в portrait
-  assert.equal(ctx.viewportOrientationKey(956, 431), 'landscape');  // t=29099, щойно повернули в landscape
-  assert.equal(ctx.viewportOrientationKey(956, 346), 'landscape');  // t=29393, landscape, innerHeight ще "осідає"
-  assert.equal(ctx.viewportOrientationKey(440, 956), 'portrait');   // t=41542, повертаємось назад — перехідний кадр з ЗАВИЩЕНИМ innerHeight (956 > справжніх 894), але порівняння все одно коректне
-  assert.equal(ctx.viewportOrientationKey(440, 894), 'portrait');   // t=52584, спокій після повороту назад
-});
-test('viewportOrientationKey: screen.width/screen.height БІЛЬШЕ не використовуються (6D.158.1) — на цьому пристрої вони constant в обох орієнтаціях і давали б завжди "portrait"', () => {
-  const ctx = keyboardInsetSandbox();
-  // Ілюстрація самого бага 6D.158.1: якби функцію й далі годували screen.*
-  // (constant 440×956 в ОБОХ орієнтаціях, підтверджено живими даними),
-  // вона НІКОЛИ не повернула б 'landscape' — саме це й сталось у Rev 2.22.85.
+  assert.equal(ctx.viewportOrientationKey(440, 894), 'portrait');
+  assert.equal(ctx.viewportOrientationKey(440, 505), 'portrait');
+  assert.equal(ctx.viewportOrientationKey(956, 431), 'landscape');
+  assert.equal(ctx.viewportOrientationKey(956, 346), 'landscape');
   assert.equal(ctx.viewportOrientationKey(440, 956), 'portrait');
+  assert.equal(ctx.viewportOrientationKey(440, 894), 'portrait');
 });
 test('nextBaseViewportHeight: перший запис для орієнтації (prevValue=null) → береться як є, навіть якщо він менший за типовий', () => {
   const ctx = keyboardInsetSandbox();
@@ -5151,221 +5122,191 @@ test('nextBaseViewportHeight: легітимне зростання (напр. �
   assert.equal(ctx.nextBaseViewportHeight(844, 894), 894);
 });
 
-// Rev 2.22.93 (6D.166) BugFix — живий лог (kb-full-scenario 2, mark@129,
-// t=40863) довів: drawerBottom (getBoundingClientRect) ТОЧНО дорівнює
-// (у ту мить зіпсованому) window.innerHeight мінус CSS bottom — сам
-// --kb-inset рахувався вірно (198 = 8 база-під-клавіатуру + 190 inset), але
-// WebKit РЕЗОЛЬВИТЬ fixed-позицію проти свого internal (зіпсованого)
-// innerHeight, не проти нашого коректного значення. Обхід — рахувати top
-// через visualViewport.height/offsetTop, які в ЖОДНОМУ живому замірі цієї
-// сесії не були зіпсовані (на відміну від innerHeight).
-test('computeDrawerTopPx: тепер приймає ЛИШЕ базовий відступ (без --kb-inset) — 6D.166.1 фікс подвійного віднімання клавіатури', () => {
+// Rev 2.23.9 (6D.178) — нові чисті функції контролера. Регресія на РЕАЛЬНИХ
+// рядках з 5 живих логів (client_debug_logs): (vvH=505,vvTop=389) і
+// (vvH=479,vvTop=415) — обидва при base=894.
+test('computeKeyboardHeight: регресія на реальних рядках логу — (894,505)→389, (894,479)→415', () => {
   const ctx = keyboardInsetSandbox();
-  // vvOffsetTop=261, vvH=505 (вже виключають зайняту клавіатурою область —
-  // сама природа visualViewport.height), baseBottomPx=8 (ЛИШЕ
-  // --drawer-bottom-base, БЕЗ --kb-inset=190 — той уже врахований у vvH),
-  // drawerHeight=520.
-  const topPx = ctx.computeDrawerTopPx(261, 505, 8, 520);
-  assert.equal(topPx, 238);
-  const bottomPx = topPx + 520;
-  assert.equal(bottomPx, 758, 'низ картки лишає рівно 8px (--drawer-bottom-base) до видимої межі (261+505=766) — Rev 2.22.93 (6D.166) віднімала тут ПОВНИЙ bottom=198 (8 база+190 --kb-inset), що давало 48 — картку закидало вгору ПОВТОРНО, бо vvH уже й так виключає клавіатуру (жива скарга користувача: "картка летить догори при кожному виклику клавіатури")');
+  assert.equal(ctx.computeKeyboardHeight(894, 505), 389);
+  assert.equal(ctx.computeKeyboardHeight(894, 479), 415);
 });
-// Rev 2.22.97 (6D.168) BugFix — живий лог ("Forma scale") довів: читання
-// РЕЗОЛЬВЛЕНОГО el.bottom (залежного від calc() з щойно зміненим --kb-inset)
-// негарантовано синхронне на цьому WebKit — живий кейс (vvOffsetTop=297,
-// vvH=505, kbInset=92, мало бути baseBottomPx=8/top=274) реально дав
-// baseBottomPx=305/top=-23 (картку закинуло на ~320px ВИЩЕ видимої межі).
-// Фікс — syncDrawerTopPosition() більше НЕ читає el.bottom і НЕ приймає
-// kbInsetPx: вона читає ЛІТЕРАЛЬНЕ (без calc()) значення --drawer-bottom-base
-// напряму з body, і працює ЛИШЕ коли body.kb-open активний (без клавіатури
-// обхід не потрібен — CSS сама справляється, жоден живий замір цієї сесії
-// цього не спростував). Також встановлює --drawer-max-height (inline,
-// vvHeight − baseBottomPx) — той самий лог довів, що картка (520px) не
-// влазила в видиму область (497px доступно) БЕЗ internal-скролу (max-height
-// рахувався від --base-vh, що ігнорує offsetTop-зсув і завищував вільне
-// місце) — зайва частина просто зникала, недосяжна.
-function drawerPositionSandbox(opts){
-  function makeDrawer(id, height){
-    return {
-      id: id,
-      _style: { top: '', bottom: '', maxHeight: '' },
-      get style(){ return this._style; },
-      getBoundingClientRect: function(){ return { height: height }; },
-    };
-  }
-  return { makeDrawer: makeDrawer };
-}
-test('syncDrawerTopPosition: БЕЗ kb-open на body — не чіпає шторку (CSS сама справляється, обхід не потрібен)', () => {
-  const { makeDrawer } = drawerPositionSandbox();
-  const drawerA = makeDrawer('drawer-a', 520);
-  const ctx = require('./extract').buildSandbox({
-    window: { visualViewport: { height: 505, offsetTop: 261 } },
-    document: { querySelector: function(){ return drawerA; }, body: { classList: { contains: function(){ return false; } } } },
-    getComputedStyle: function(){ return { getPropertyValue: function(){ return '999px'; } }; },
-    lastPositionedDrawerEl: null,
-  }, ['computeDrawerTopPx', 'computeDrawerMaxHeightPx', 'syncDrawerTopPosition']);
-  ctx.syncDrawerTopPosition();
-  assert.equal(drawerA.style.top, '', 'без kb-open inline top не ставиться');
-  assert.equal(drawerA.style.maxHeight, '', 'без kb-open inline max-height не ставиться');
-});
-test('syncDrawerTopPosition: З kb-open — читає ЛІТЕРАЛЬНЕ --drawer-bottom-base напряму з body, НЕ резольвлений el.bottom (6D.168)', () => {
-  const { makeDrawer } = drawerPositionSandbox();
-  // Живий кейс "Forma scale": vvOffsetTop=297, vvH=505, --drawer-bottom-base
-  // (kb-open)=8px, drawerHeight=520 → top ОЧІКУВАНО 274 (297+505-8-520), а
-  // Rev 2.22.95-механізм (читання el.bottom) реально давав -23.
-  const drawerA = makeDrawer('drawer-a', 520);
-  const ctx = require('./extract').buildSandbox({
-    window: { visualViewport: { height: 505, offsetTop: 297 } },
-    document: { querySelector: function(){ return drawerA; }, body: { classList: { contains: function(cls){ return cls === 'kb-open'; } } } },
-    getComputedStyle: function(el){
-      // Якщо функція й далі читає el.bottom (стара, зламана логіка) —
-      // підсунемо explicитно хибне значення, щоб тест це впіймав.
-      if(el === drawerA) return { bottom: '999px', getPropertyValue: function(){ return '999px'; } };
-      return { getPropertyValue: function(prop){ return prop === '--drawer-bottom-base' ? '8px' : '0px'; } };
-    },
-    lastPositionedDrawerEl: null,
-  }, ['computeDrawerTopPx', 'computeDrawerMaxHeightPx', 'syncDrawerTopPosition']);
-  ctx.syncDrawerTopPosition();
-  assert.equal(drawerA.style.top, '274px', 'НЕ -23px (Rev 2.22.95, читання el.bottom) — 274 лишає коректні 8px запасу, картку більше не закидає за межі екрана');
-  assert.equal(drawerA.style.bottom, 'auto');
-  assert.equal(drawerA.style.maxHeight, '497px', 'vvH(505) − baseBottomPx(8) — реальна видима межа, щоб контент, який не влазить, скролився, а не зникав недосяжно (6D.168)');
-});
-test('syncDrawerTopPosition: повторні виклики НЕ дрейфують (нова логіка не залежить від власного попереднього inline-стану)', () => {
-  const { makeDrawer } = drawerPositionSandbox();
-  const drawerA = makeDrawer('drawer-a', 520);
-  const ctx = require('./extract').buildSandbox({
-    window: { visualViewport: { height: 505, offsetTop: 297 } },
-    document: { querySelector: function(){ return drawerA; }, body: { classList: { contains: function(cls){ return cls === 'kb-open'; } } } },
-    getComputedStyle: function(el){
-      if(el === drawerA) return { bottom: '999px' };
-      return { getPropertyValue: function(prop){ return prop === '--drawer-bottom-base' ? '8px' : '0px'; } };
-    },
-    lastPositionedDrawerEl: null,
-  }, ['computeDrawerTopPx', 'computeDrawerMaxHeightPx', 'syncDrawerTopPosition']);
-  ctx.syncDrawerTopPosition();
-  assert.equal(drawerA.style.top, '274px', '1-й виклик');
-  ctx.syncDrawerTopPosition();
-  assert.equal(drawerA.style.top, '274px', '2-й виклик — без дрейфу');
-  ctx.syncDrawerTopPosition();
-  assert.equal(drawerA.style.top, '274px', '3-й виклик — все ще стабільно');
-});
-test('syncDrawerTopPosition: закриття шторки (querySelector більше нічого не повертає) очищає inline-стилі', () => {
-  const { makeDrawer } = drawerPositionSandbox();
-  const drawerA = makeDrawer('drawer-a', 520);
-  let openDrawer = drawerA;
-  const ctx = require('./extract').buildSandbox({
-    window: { visualViewport: { height: 505, offsetTop: 297 } },
-    document: { querySelector: function(){ return openDrawer; }, body: { classList: { contains: function(){ return true; } } } },
-    getComputedStyle: function(el){
-      if(el === drawerA) return { bottom: '999px' };
-      return { getPropertyValue: function(prop){ return prop === '--drawer-bottom-base' ? '8px' : '0px'; } };
-    },
-    lastPositionedDrawerEl: null,
-  }, ['computeDrawerTopPx', 'computeDrawerMaxHeightPx', 'syncDrawerTopPosition']);
-  ctx.syncDrawerTopPosition();
-  assert.equal(drawerA.style.top, '274px');
-  openDrawer = null;
-  ctx.syncDrawerTopPosition();
-  assert.equal(drawerA.style.top, '');
-  assert.equal(drawerA.style.bottom, '');
-  assert.equal(drawerA.style.maxHeight, '');
-});
-test('computeDrawerMaxHeightPx: чиста функція — vvHeight мінус базовий відступ, не менше 0', () => {
+test('computeKeyboardHeight: захист від від\'ємного результату', () => {
   const ctx = keyboardInsetSandbox();
-  assert.equal(ctx.computeDrawerMaxHeightPx(505, 8), 497);
-  assert.equal(ctx.computeDrawerMaxHeightPx(5, 8), 0, 'захист від від\'ємного результату');
+  assert.equal(ctx.computeKeyboardHeight(500, 600), 0);
+});
+test('isKeyboardOpen: ті самі реальні рядки — обидва "відкрита" (поріг 100px)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.isKeyboardOpen(894, 505), true);
+  assert.equal(ctx.isKeyboardOpen(894, 479), true);
+  assert.equal(ctx.isKeyboardOpen(894, 894), false, 'нема клавіатури');
+  assert.equal(ctx.isKeyboardOpen(894, 820), false, 'легітимне часткове стиснення, не клавіатура');
+});
+test('nextBaseVh: тонка обгортка над nextBaseViewportHeight — та сама поведінка', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.nextBaseVh(null, 390), 390);
+  assert.equal(ctx.nextBaseVh(894, 505), 894, 'одинична хибна просадка не псує базу');
+  assert.equal(ctx.nextBaseVh(844, 894), 894);
+});
+test('estimateKeyboardHeight: без кешу — завищена оцінка 0.47×baseVh (швидше забагато, ніж замало)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.estimateKeyboardHeight(894, 'text', {}), Math.round(894 * 0.47));
+  assert.equal(ctx.estimateKeyboardHeight(894, 'numeric', null), Math.round(894 * 0.47));
+});
+test('estimateKeyboardHeight: З кешем — ТОЧНЕ виміряне значення для цього типу клавіатури, не оцінка', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.estimateKeyboardHeight(894, 'text', { text: 415, numeric: 124 }), 415);
+  assert.equal(ctx.estimateKeyboardHeight(894, 'numeric', { text: 415, numeric: 124 }), 124);
+});
+test('keyboardKindForField: inputmode="numeric" → numeric, звичайний text → text', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.keyboardKindForField({ type: 'text', getAttribute: function(n){ return n === 'inputmode' ? 'numeric' : null; } }), 'numeric');
+  assert.equal(ctx.keyboardKindForField({ type: 'text', getAttribute: function(){ return null; } }), 'text');
+  assert.equal(ctx.keyboardKindForField({ type: 'number', getAttribute: function(){ return null; } }), 'numeric');
+  assert.equal(ctx.keyboardKindForField(null), 'text');
+});
+test('shouldBlockTouchMove: нема чого скролити (scrollHeight<=clientHeight) → завжди блокує', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.shouldBlockTouchMove(0, 400, 400, 5), true);
+  assert.equal(ctx.shouldBlockTouchMove(0, 400, 400, -5), true);
+});
+test('shouldBlockTouchMove: є що скролити, не на межі → НЕ блокує (дозволяє внутрішній скрол)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.shouldBlockTouchMove(50, 500, 400, 5), false);
+  assert.equal(ctx.shouldBlockTouchMove(50, 500, 400, -5), false);
+});
+test('shouldBlockTouchMove: на верхній межі (scrollTop=0), палець вниз (deltaY>0) → блокує (жест не протікає на фон)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.shouldBlockTouchMove(0, 500, 400, 5), true);
+  assert.equal(ctx.shouldBlockTouchMove(0, 500, 400, -5), false, 'палець угору на верхній межі — ще є куди скролити вниз');
+});
+test('shouldBlockTouchMove: на нижній межі, палець угору (deltaY<0) → блокує', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.shouldBlockTouchMove(100, 500, 400, -5), true);
+  assert.equal(ctx.shouldBlockTouchMove(100, 500, 400, 5), false, 'палець вниз на нижній межі — ще є куди скролити вгору');
+});
+test('computeModeBShiftPx: Режим B — той самий вхід, що колишній computeKeyboardInset, але від\'ємний (transform зсуває ВГОРУ)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.computeModeBShiftPx(894, 505, 0), -389);
+  assert.equal(ctx.computeModeBShiftPx(894, 505, 261), -(894 - 505 - 261));
 });
 
-// Rev 2.23.4 (6D.173) — запит користувача ПІСЛЯ відкоту 6D.170/172 (Rev
-// 2.23.3, "зламало внесення витрат"): блокувати фоновий #main-col САМЕ коли
-// клавіатура відкрита на полі ВСЕРЕДИНІ шторки (Борги/Дохід/ОЧ), а НЕ для
-// інлайн-полів "Витрати" (той самий #main-col-нащадок, що зламав 6D.172).
-// isFieldInsideDrawer() — межа: шторки структурно ПОЗА #main-col (6D.166
-// аналіз), тому inert на #main-col ніколи не предок поля всередині
-// шторки — не може зняти з нього фокус (на відміну від минулого разу).
-function kbDrawerLockSandbox(){
+// Rev 2.23.9 (6D.178) — enterKbSheet()/updateKbSheetGeometry()/exitKbSheet():
+// інтеграційні тести єдиного контролера. Шторки структурно ПОЗА #main-col
+// (6D.166 аналіз) — isFieldInsideDrawer() лишається межею, що категорично
+// виключає баг 6D.172 (inert на предку щойно сфокусованого поля).
+function kbSheetSandbox(){
   const mainCol = { _inert: false, setAttribute: function(name){ if(name==='inert') this._inert = true; }, removeAttribute: function(name){ if(name==='inert') this._inert = false; } };
-  const classes = new Set();
+  const bodyClasses = new Set();
   const body = { classList: {
-    contains: function(c){ return classes.has(c); },
-    add: function(c){ classes.add(c); },
-    remove: function(c){ classes.delete(c); },
+    contains: function(c){ return bodyClasses.has(c); },
+    add: function(c){ bodyClasses.add(c); },
+    remove: function(c){ bodyClasses.delete(c); },
   } };
+  const docElClasses = new Set();
+  const docElStyle = {};
+  const documentElement = {
+    classList: {
+      contains: function(c){ return docElClasses.has(c); },
+      add: function(c){ docElClasses.add(c); },
+      remove: function(c){ docElClasses.delete(c); },
+    },
+    style: { setProperty: function(name, value){ docElStyle[name] = value; } },
+  };
   const state = { activeElement: null };
+  const debugEvents = [];
   const ctx = require('./extract').buildSandbox({
     document: Object.defineProperty({
       body: body,
+      documentElement: documentElement,
       getElementById: function(id){ return id === 'main-col' ? mainCol : null; },
     }, 'activeElement', { get: function(){ return state.activeElement; } }),
-    drawerKeyboardLockActive: false,
-    // Rev 2.23.7 (6D.176) — setDrawerKeyboardBackgroundLock() тепер делегує
-    // до lockBackgroundScroll()/unlockBackgroundScroll() (спільний
-    // лічильник з open*()/close*() шторок) замість прямого inert.
-    openOverlayCount: 0,
+    window: { visualViewport: { height: 894, offsetTop: 0 }, innerWidth: 440, innerHeight: 894, scrollY: 0, scrollTo: function(){} },
+    baseViewportHeightByOrientation: { portrait: 894, landscape: null },
+    keyboardHeightCache: { portrait: {}, landscape: {} },
+    kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
+    drawerKeyboardLockActive: false, openOverlayCount: 0,
+    captureDebugGeometry: function(type, extra){ debugEvents.push(Object.assign({ type: type }, extra || {})); },
+    requestAnimationFrame: function(fn){ fn(); return 1; },
   }, [
-    'isKeyboardField', 'isFieldInsideDrawer', 'setDrawerKeyboardBackgroundLock',
+    'isKeyboardField', 'isFieldInsideDrawer', 'keyboardKindForField',
+    'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
+    'viewportOrientationKey', 'nextBaseViewportHeight', 'getBaseViewportHeight',
+    'getKbMode', 'computeModeBShiftPx', 'applyModeBTransform',
+    'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
+    'enterKbSheet', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle',
-    'lockBackgroundScroll', 'unlockBackgroundScroll',
   ]);
-  return { ctx: ctx, mainCol: mainCol, body: body, state: state };
+  return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents };
 }
-function makeField(opts){
+function makeDrawerField(opts){
   opts = opts || {};
-  return { tagName: 'INPUT', type: opts.type || 'text', closest: function(sel){ return sel === '.drawer' && opts.inDrawer ? {} : null; } };
+  const drawerEl = { id: opts.drawerId || 'card-debt-drawer', style: {} };
+  return {
+    tagName: 'INPUT', type: opts.type || 'text',
+    getAttribute: function(n){ return n === 'inputmode' ? (opts.inputmode || null) : null; },
+    closest: function(sel){ return sel === '.drawer' && opts.inDrawer !== false ? drawerEl : null; },
+  };
 }
 test('isFieldInsideDrawer: true лише коли el.closest(\'.drawer\') щось знаходить', () => {
-  const { ctx } = kbDrawerLockSandbox();
-  assert.equal(ctx.isFieldInsideDrawer(makeField({ inDrawer: true })), true);
-  assert.equal(ctx.isFieldInsideDrawer(makeField({ inDrawer: false })), false);
+  const { ctx } = kbSheetSandbox();
+  assert.equal(ctx.isFieldInsideDrawer(makeDrawerField({ inDrawer: true })), true);
+  assert.equal(ctx.isFieldInsideDrawer(makeDrawerField({ inDrawer: false })), false);
   assert.equal(ctx.isFieldInsideDrawer(null), false);
 });
-test('handleKeyboardFieldFocusIn: поле ВСЕРЕДИНІ шторки → kb-open + лок #main-col', () => {
-  const { ctx, mainCol, body } = kbDrawerLockSandbox();
-  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: true }));
+test('handleKeyboardFieldFocusIn: поле ВСЕРЕДИНІ шторки → kb-open + лок #main-col + html.kb-sheet + --kb-h виставлено', () => {
+  const { ctx, mainCol, body, docElClasses, docElStyle } = kbSheetSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
   assert.equal(body.classList.contains('kb-open'), true);
   assert.equal(mainCol._inert, true);
+  assert.equal(docElClasses.has('kb-sheet'), true);
+  assert.ok(docElStyle['--kb-h'], '--kb-h виставлено одразу (оцінка), ще ДО появи клавіатури');
 });
-test('handleKeyboardFieldFocusIn: інлайн-поле "Витрати" (ПОЗА шторкою) → kb-open, але БЕЗ локу #main-col', () => {
-  const { ctx, mainCol, body } = kbDrawerLockSandbox();
-  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: false }));
+test('handleKeyboardFieldFocusIn: інлайн-поле "Витрати" (ПОЗА шторкою) → kb-open, але БЕЗ локу й БЕЗ kb-sheet', () => {
+  const { ctx, mainCol, body, docElClasses } = kbSheetSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: false }));
   assert.equal(body.classList.contains('kb-open'), true, 'таббар і далі ховається для будь-якого поля — не чіпали');
-  assert.equal(mainCol._inert, false, 'головна скарга минулого разу — тут МАЄ лишитись false');
+  assert.equal(mainCol._inert, false, 'головна скарга 6D.172 — тут МАЄ лишитись false');
+  assert.equal(docElClasses.has('kb-sheet'), false);
 });
-test('handleKeyboardFieldFocusSettle: фокус повністю зник → знімає і kb-open, і лок', () => {
-  const { ctx, mainCol, body, state } = kbDrawerLockSandbox();
-  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: true }));
+test('updateKbSheetGeometry: на visualViewport resize — перераховує --kb-h/--vv-h з (baseVh, vv.height), НЕ з innerHeight', () => {
+  const { ctx, docElStyle } = kbSheetSandbox();
+  const field = makeDrawerField({ inDrawer: true });
+  ctx.handleKeyboardFieldFocusIn(field);
+  ctx.window.visualViewport.height = 505; // клавіатура з'явилась (vvH стабільний)
+  ctx.updateKbSheetGeometry();
+  assert.equal(docElStyle['--kb-h'], '389px', 'baseVh(894) - vvH(505) = 389 — регресія з живого логу');
+  assert.equal(docElStyle['--vv-h'], '505px');
+});
+test('updateKbSheetGeometry: кешує виміряну висоту для (орієнтація, тип клавіатури) — наступний перший фокус того ж типу отримає ТОЧНЕ значення', () => {
+  const { ctx } = kbSheetSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, inputmode: 'numeric' }));
+  ctx.window.visualViewport.height = 505;
+  ctx.updateKbSheetGeometry();
+  assert.equal(ctx.keyboardHeightCache.portrait.numeric, 389);
+});
+test('exitKbSheet: знімає html.kb-sheet, --kb-h, kb-open і лок, коли фокус повністю зникає', () => {
+  const { ctx, mainCol, body, docElClasses, docElStyle, state } = kbSheetSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
   state.activeElement = { tagName: 'BODY' };
   ctx.handleKeyboardFieldFocusSettle();
   assert.equal(body.classList.contains('kb-open'), false);
   assert.equal(mainCol._inert, false);
+  assert.equal(docElClasses.has('kb-sheet'), false);
+  assert.equal(docElStyle['--kb-h'], '0px');
 });
-test('handleKeyboardFieldFocusSettle: Tab на ІНШЕ поле ВСЕРЕДИНІ тієї ж шторки — лок НЕ знімається (без "миготіння")', () => {
-  const { ctx, mainCol, state } = kbDrawerLockSandbox();
-  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: true }));
-  state.activeElement = makeField({ inDrawer: true });
+test('handleKeyboardFieldFocusSettle: Tab на ІНШЕ поле ВСЕРЕДИНІ тієї ж шторки — лок і kb-sheet НЕ знімаються (без "миготіння")', () => {
+  const { ctx, mainCol, docElClasses, state } = kbSheetSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+  state.activeElement = makeDrawerField({ inDrawer: true });
   ctx.handleKeyboardFieldFocusSettle();
   assert.equal(mainCol._inert, true, 'та сама шторка — лок мав лишитись активним');
+  assert.equal(docElClasses.has('kb-sheet'), true);
 });
-test('handleKeyboardFieldFocusSettle: idempotent — повторний виклик з тим самим станом не ламається (setDrawerKeyboardBackgroundLock перевіряє поточне значення)', () => {
-  const { ctx, mainCol, state } = kbDrawerLockSandbox();
-  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: true }));
-  state.activeElement = { tagName: 'BODY' };
-  ctx.handleKeyboardFieldFocusSettle();
-  ctx.handleKeyboardFieldFocusSettle();
-  assert.equal(mainCol._inert, false);
-});
-// Rev 2.23.7 (6D.176) — користувач запитав: "що робити з тим, що фон ЗА
-// КАРТКОЮ можна проскролити?" — 6D.173-175 блокували фон ЛИШЕ поки активна
-// клавіатура всередині шторки; щойно відкрита шторка БЕЗ сфокусованого поля
-// фон не блокувала. lockBackgroundScroll()/unlockBackgroundScroll() тепер
-// ВИКЛИКАЮТЬСЯ і з open*()/close*() усіх 7 шторок/модалок — композиція із
-// setDrawerKeyboardBackgroundLock() через СПІЛЬНИЙ лічильник openOverlayCount
-// (не прапорець) — тест нижче перевіряє САМЕ цю композицію.
-test('lockBackgroundScroll (відкриття шторки) + setDrawerKeyboardBackgroundLock (фокус у ній) складаються через спільний лічильник — втрата фокусу НЕ розблоковує, поки шторка ще відкрита', () => {
-  const { ctx, mainCol, state } = kbDrawerLockSandbox();
+test('composition: lockBackgroundScroll (відкриття шторки) + фокус у ній складаються через спільний лічильник — втрата фокусу НЕ розблоковує, поки шторка ще відкрита', () => {
+  const { ctx, mainCol, state } = kbSheetSandbox();
   ctx.lockBackgroundScroll(); // відкрили "Борги" (open*())
   assert.equal(mainCol._inert, true);
-  ctx.handleKeyboardFieldFocusIn(makeField({ inDrawer: true })); // торкнулись поля "Назва"
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true })); // торкнулись поля "Назва"
   assert.equal(mainCol._inert, true);
   state.activeElement = { tagName: 'BODY' };
   ctx.handleKeyboardFieldFocusSettle(); // клавіатура закрилась (втрата фокусу)
@@ -5374,7 +5315,7 @@ test('lockBackgroundScroll (відкриття шторки) + setDrawerKeyboard
   assert.equal(mainCol._inert, false);
 });
 test('lockBackgroundScroll/unlockBackgroundScroll: зайвий unlock() без парного lock() НЕ йде у мінус (Escape викликає всі close*() безумовно)', () => {
-  const { ctx, mainCol } = kbDrawerLockSandbox();
+  const { ctx, mainCol } = kbSheetSandbox();
   ctx.unlockBackgroundScroll();
   ctx.unlockBackgroundScroll();
   assert.equal(mainCol._inert, false);
@@ -5383,7 +5324,17 @@ test('lockBackgroundScroll/unlockBackgroundScroll: зайвий unlock() без 
   ctx.unlockBackgroundScroll();
   assert.equal(mainCol._inert, false);
 });
-
+test('correctPanIfNeeded: Режим A, сторінка запанорамувалась (scrollY!=0) → фіксує подію pan-corrected (мета ревізії — 0 таких подій у живому логу)', () => {
+  const { ctx, debugEvents } = kbSheetSandbox();
+  ctx.window.scrollY = 62;
+  ctx.correctPanIfNeeded();
+  assert.ok(debugEvents.some(function(e){ return e.type === 'pan-corrected'; }));
+});
+test('correctPanIfNeeded: сторінка НЕ запанорамована (scrollY===0, offsetTop===0) → жодної корекції/події', () => {
+  const { ctx, debugEvents } = kbSheetSandbox();
+  ctx.correctPanIfNeeded();
+  assert.equal(debugEvents.some(function(e){ return e.type === 'pan-corrected'; }), false);
+});
 // Rev 2.22.89 (6D.162, Ревізія C) — маркер каскаду без FK (deactivated_via/
 // deleted_via, текстові, рішення користувача). Ключова вимога —
 // СЕЛЕКТИВНІСТЬ: слово/підкатегорія, видалені ОКРЕМО (без маркера чи з
@@ -5674,7 +5625,7 @@ function debugRecorderDomSandbox(opts){
     'onDebugPageShow', 'onDebugPageHide', 'onDebugTouchStart', 'onDebugTouchEnd', 'onDebugBodyClassChange',
     'attachDebugRecorderListeners', 'detachDebugRecorderListeners',
     'updateDebugRecordButtonUI', 'startDebugRecording', 'stopDebugRecording',
-    'lockBackgroundScroll', 'unlockBackgroundScroll',
+    'lockBackgroundScroll', 'unlockBackgroundScroll', 'getKbMode',
   ]);
   return { ctx: ctx, added: added, removed: removed, timers: timers };
 }
@@ -5791,7 +5742,7 @@ test('markDebugEvent: дає короткий візуальний відгук 
     performance: { now: function(){ return 0; } },
     getComputedStyle: function(){ return { getPropertyValue: function(){ return '0px'; } }; },
     setTimeout: function(fn){ fn(); return 1; }, // виконуємо одразу — сам факт скасування відгуку й є предметом тесту
-  }, ['sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent', 'debugSafeAreaInsets', 'captureDebugGeometry', 'markDebugEvent']);
+  }, ['sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent', 'debugSafeAreaInsets', 'captureDebugGeometry', 'markDebugEvent', 'getKbMode']);
   ctx.markDebugEvent();
   assert.equal(btnState.textContent, 'Мітка', 'після setTimeout текст повернувся до вихідного');
   assert.equal(btnState.disabled, false);
