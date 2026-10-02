@@ -5081,6 +5081,7 @@ function keyboardInsetSandbox(){
     'isKeyboardLikelyClosed', 'viewportOrientationKey', 'nextBaseViewportHeight',
     'computeKeyboardHeight', 'isKeyboardOpen', 'nextBaseVh', 'estimateKeyboardHeight',
     'shouldBlockTouchMove', 'keyboardKindForField', 'computeModeBShiftPx',
+    'computeSheetLift', 'isSheetArrived', 'shouldForceTransfer', 'downsampleSheetAnimPairs',
   ]);
 }
 test('isKeyboardLikelyClosed: РЕАЛЬНИЙ живий кейс (6D.158, t=9583) — база 894, vvHeight 505 (клавіатура щойно з\'явилась) → НЕ "закрита", попри те що живий window.innerHeight у ту саму мить сам помилково читав 505', () => {
@@ -5159,6 +5160,50 @@ test('estimateKeyboardHeight: З кешем — ТОЧНЕ виміряне зн
   assert.equal(ctx.estimateKeyboardHeight(894, 'text', { text: 415, numeric: 124 }), 415);
   assert.equal(ctx.estimateKeyboardHeight(894, 'numeric', { text: 415, numeric: 124 }), 124);
 });
+// Rev 2.23.12 (6D.181) — проксі-фокус (6D.180) прибрав зсув ПІД ЧАС появи
+// клавіатури, але лишив 2 кадри зсуву В МОМЕНТ передачі фокусу справжньому
+// полю (передача зарано + WebKit сам скролить до щойно сфокусованого
+// елемента). computeSheetLift/isSheetArrived/shouldForceTransfer — чисті
+// функції нового контролера передачі (requestAnimationFrame-polling, без
+// setTimeout-вгадувань) і transform-підйому шторки (замість bottom).
+test('computeSheetLift: регресія з промту — rest=780, baseVh=894, kbH=389, gap=8 → 283', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.computeSheetLift(780, 894, 389, 8), 283);
+});
+test('isSheetArrived: fieldBottom 542/559 при vvH=505 (Дохід, живий лог) → false (поле ще під клавіатурою)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.isSheetArrived({ fieldBottom: 542, fieldTop: 10, vvH: 505, animating: false }), false);
+  assert.equal(ctx.isSheetArrived({ fieldBottom: 559, fieldTop: 10, vvH: 505, animating: false }), false);
+});
+test('isSheetArrived: fieldBottom 410 при vvH=505 → true (поле видиме, з запасом ≥4пт)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.isSheetArrived({ fieldBottom: 410, fieldTop: 10, vvH: 505, animating: false }), true);
+});
+test('isSheetArrived: поле видиме, АЛЕ анімація шторки ще триває → false (не передавати фокус посеред руху)', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.isSheetArrived({ fieldBottom: 410, fieldTop: 10, vvH: 505, animating: true }), false);
+});
+test('isSheetArrived: fieldTop від\'ємний (поле частково за верхньою межею) → false', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.isSheetArrived({ fieldBottom: 410, fieldTop: -5, vvH: 505, animating: false }), false);
+});
+test('shouldForceTransfer: примусова передача ЛИШЕ після 420мс', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.shouldForceTransfer(419, 420), false);
+  assert.equal(ctx.shouldForceTransfer(420, 420), true);
+  assert.equal(ctx.shouldForceTransfer(500, 420), true);
+});
+test('downsampleSheetAnimPairs: під лімітом — повертає як є; над лімітом — рівномірна вибірка, включно з ПЕРШИМ і ОСТАННІМ кадром', () => {
+  const ctx = keyboardInsetSandbox();
+  const short = [[0, 780], [16, 760]];
+  assert.deepEqual(ctx.downsampleSheetAnimPairs(short, 30), short);
+  const long = [];
+  for(let i = 0; i < 60; i++) long.push([i * 16, 780 - i]);
+  const sampled = ctx.downsampleSheetAnimPairs(long, 30);
+  assert.equal(sampled.length, 30);
+  assert.deepEqual(sampled[0], long[0], 'перший кадр завжди в вибірці');
+  assert.deepEqual(sampled[sampled.length - 1], long[long.length - 1], 'останній кадр завжди в вибірці (найважливіший для S4)');
+});
 test('keyboardKindForField: inputmode="numeric" → numeric, звичайний text → text', () => {
   const ctx = keyboardInsetSandbox();
   assert.equal(ctx.keyboardKindForField({ type: 'text', getAttribute: function(n){ return n === 'inputmode' ? 'numeric' : null; } }), 'numeric');
@@ -5196,6 +5241,26 @@ test('computeModeBShiftPx: Режим B — той самий вхід, що к�
 // інтеграційні тести єдиного контролера. Шторки структурно ПОЗА #main-col
 // (6D.166 аналіз) — isFieldInsideDrawer() лишається межею, що категорично
 // виключає баг 6D.172 (inert на предку щойно сфокусованого поля).
+// Rev 2.23.12 (6D.181) — fake .drawer: enterKbSheet() тепер читає
+// getBoundingClientRect().bottom (computeSheetLift) і навішує
+// addEventListener('transitionend', ...) (startSheetAnimSampler) — без них
+// ЛЮБИЙ тест, що викликає enterKbSheet()/handleKeyboardFieldFocusIn(), впав
+// би на TypeError ("... is not a function").
+function makeFakeDrawerEl(id, bottom){
+  const listeners = {};
+  return {
+    id: id,
+    style: {},
+    getBoundingClientRect: function(){ return { top: 0, bottom: typeof bottom === 'number' ? bottom : 780, left: 16, right: 424, height: 200 }; },
+    addEventListener: function(type, fn){ (listeners[type] = listeners[type] || []).push(fn); },
+    removeEventListener: function(type, fn){
+      if(!listeners[type]) return;
+      const idx = listeners[type].indexOf(fn);
+      if(idx !== -1) listeners[type].splice(idx, 1);
+    },
+    getAnimations: function(){ return []; },
+  };
+}
 function kbSheetSandbox(){
   const mainCol = { _inert: false, setAttribute: function(name){ if(name==='inert') this._inert = true; }, removeAttribute: function(name){ if(name==='inert') this._inert = false; } };
   const bodyClasses = new Set();
@@ -5228,7 +5293,21 @@ function kbSheetSandbox(){
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
     drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
     captureDebugGeometry: function(type, extra){ debugEvents.push(Object.assign({ type: type }, extra || {})); },
-    requestAnimationFrame: function(fn){ fn(); return 1; },
+    // Rev 2.23.12 (6D.181) — requestAnimationFrame НЕ викликає fn (на
+    // відміну від попереднього синхронного стаба) — startSheetAnimSampler()/
+    // beginKbFocusProxy() рекурсивно перепланують самі себе через rAF,
+    // синхронний виклик спричинив би нескінченну рекурсію в тестах. Жоден
+    // наявний тест не покладається на те, що rAF-колбек РЕАЛЬНО
+    // виконається (correctPanIfNeeded фіксує подію ПОЗА колбеком).
+    requestAnimationFrame: function(){ return 1; },
+    cancelAnimationFrame: function(){},
+    // setTimeout — синхронний (той самий принцип, що раніше був у rAF):
+    // exitKbSheet()/startSheetAnimSampler() використовують його як
+    // debounce/стелю — тести мають бачити результат одразу, без реального
+    // очікування.
+    setTimeout: function(fn){ fn(); return 1; },
+    clearTimeout: function(){},
+    performance: { now: function(){ return Date.now(); } },
   }, [
     'isKeyboardField', 'isFieldInsideDrawer', 'keyboardKindForField',
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
@@ -5238,12 +5317,13 @@ function kbSheetSandbox(){
     'enterKbSheet', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle',
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'proxyAttrsFor',
+    'computeSheetLift', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
   ]);
   return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents };
 }
 function makeDrawerField(opts){
   opts = opts || {};
-  const drawerEl = opts.drawerEl || { id: opts.drawerId || 'card-debt-drawer', style: {} };
+  const drawerEl = opts.drawerEl || makeFakeDrawerEl(opts.drawerId || 'card-debt-drawer');
   const tagName = opts.tagName || 'INPUT';
   const type = opts.type || 'text';
   return {
@@ -5314,6 +5394,28 @@ test('exitKbSheet: знімає html.kb-sheet, --kb-h, kb-open і лок, кол
   assert.equal(mainCol._inert, false);
   assert.equal(docElClasses.has('kb-sheet'), false);
   assert.equal(docElStyle['--kb-h'], '0px');
+});
+// Rev 2.23.12 (6D.181) — enterKbSheet() тепер ОДРАЗУ виставляє --sheet-lift
+// (transform-підйом замість bottom), а exitKbSheet() повертає його до 0
+// ПЕРЕД тим, як (синхронно в тестовому стабі setTimeout) зняти html.kb-sheet
+// — симетричне закриття тим самим CSS-переходом.
+test('enterKbSheet: виставляє --sheet-lift за computeSheetLift(restBottom, baseVh, kbH, 8)', () => {
+  const { ctx, docElStyle } = kbSheetSandbox();
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'numeric', inputmode: 'numeric', drawerEl: drawerEl }));
+  // numeric: estimate = round(894*0.435) = 389 → lift = 780-(894-389-8) = 283
+  assert.equal(docElStyle['--sheet-lift'], '283');
+});
+test('exitKbSheet: повертає --sheet-lift до 0 (symetричне закриття) і все одно знімає kb-sheet/--kb-h/лок', () => {
+  const { ctx, mainCol, docElClasses, docElStyle, state } = kbSheetSandbox();
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  assert.notEqual(docElStyle['--sheet-lift'], '0');
+  state.activeElement = { tagName: 'BODY' };
+  ctx.handleKeyboardFieldFocusSettle();
+  assert.equal(docElStyle['--sheet-lift'], '0');
+  assert.equal(docElClasses.has('kb-sheet'), false);
+  assert.equal(mainCol._inert, false);
 });
 test('handleKeyboardFieldFocusSettle: Tab на ІНШЕ поле ВСЕРЕДИНІ тієї ж шторки — лок і kb-sheet НЕ знімаються (без "миготіння")', () => {
   const { ctx, mainCol, docElClasses, state } = kbSheetSandbox();
@@ -5402,7 +5504,7 @@ test('estimateKeyboardHeight: окремий коефіцієнт на тип к
 });
 test('handleKeyboardFieldFocusIn: ДРУГИЙ фокус у ТІЙ САМІЙ уже активній шторці (проксі→справжнє поле) НЕ викликає enterKbSheet() повторно (рівно ОДНА подія sheet-open на весь перехід)', () => {
   const { ctx, debugEvents } = kbSheetSandbox();
-  const sharedDrawerEl = { id: 'card-debt-drawer', style: {} };
+  const sharedDrawerEl = makeFakeDrawerEl('card-debt-drawer');
   const proxy = makeDrawerField({ inDrawer: true, type: 'text', drawerEl: sharedDrawerEl });
   ctx.handleKeyboardFieldFocusIn(proxy);
   const realField = makeDrawerField({ inDrawer: true, type: 'text', drawerEl: sharedDrawerEl });

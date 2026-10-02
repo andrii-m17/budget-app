@@ -1383,17 +1383,29 @@
      зсуву сторінки). Замінює --kb-inset/--drawer-max-height (6D.150-168,
      видалено повністю) і JS top/bottom inline-гонку (6D.166-166.2,
      видалено повністю) — тепер суто декларативний CSS calc(). */
-  html.kb-sheet .drawer.open{ bottom:calc(var(--kb-h, 0px) + 8px); max-height:calc(var(--vv-h, 100vh) - 16px - env(safe-area-inset-top, 0px)); transition:bottom 220ms ease-out; }
+  /* Rev 2.23.12 (6D.181) BugFix — bottom анімований через transition
+     перераховував розмітку (layout) на КОЖНОМУ кадрі — промт користувача
+     (живі логи 2.23.11) явно назвав це причиною "негладкого" підйому.
+     transform — суто композитна властивість (GPU, без layout/paint) — та
+     сама причина, чому Режим B (нижче) уже використовував transform, а не
+     bottom, ще з 6D.178. --sheet-lift (число, БЕЗ одиниць — рахує JS,
+     enterKbSheet(), computeSheetLift()) — наскільки підняти шторку ВІД її
+     звичайного спокійного bottom (var(--drawer-bottom-base), не чіпали)
+     угору, щоб опинитись на (baseVh - kbH - 8) від верху. max-height —
+     БЕЗ transition (миттєво, той самий кадр, що й початок переходу
+     transform) — промт явно просив не перераховувати розмітку ПОСЕРЕД
+     руху. */
+  html.kb-sheet .drawer.open{ max-height:calc(var(--vv-h, 100vh) - 16px - env(safe-area-inset-top, 0px)); transform:translate3d(0, calc(-1px * var(--sheet-lift, 0)), 0); transition:transform 240ms cubic-bezier(0.22, 0.9, 0.3, 1); will-change:transform; }
   /* Режим B (запасний, перемикається БЕЗ нового коміту — перемикач у
      "Запис діагностики", localStorage budget_kb_mode_v1): сторінці
      дозволено панорамуватись (JS НЕ викликає scrollTo під час клавіатури),
-     шторка натомість СЛІДУЄ за зсувом через transform (JS,
-     applyModeBTransform() — ближче до підходу 6D.166, але через transform,
-     не bottom, і без top/bottom inline-гонки 6D.166.1/166.2). bottom тут
-     повертається до базового (ігноруємо --kb-h — transform сам компенсує
-     зсув, щоб не рахувати клавіатуру двічі); transition:none — JS-оновлення
-     мають застосовуватись миттєво, не через 300мс transition .drawer. */
-  html.kb-mode-b.kb-sheet .drawer.open{ bottom:var(--drawer-bottom-base); transition:none; }
+     шторка натомість СЛІДУЄ за зсувом через СВІЙ ВЛАСНИЙ inline
+     style.transform (JS, applyModeBTransform()) — inline завжди переважає
+     над цим CSS-правилом, тож transform:none/transition:none/will-change:
+     auto тут лише прибирають Режим-A-вигляд на КОРОТКУ мить ДО того, як
+     JS встигне виставити свій inline transform (без цього з'явився б
+     миттєвий "стрибок" підйому Режиму A, що відразу перекривається). */
+  html.kb-mode-b.kb-sheet .drawer.open{ transform:none; transition:none; will-change:auto; }
   /* Rev #30 (6D.12) — рисочка-хендл для свайпу-донизу (як iOS bottom sheet):
      суто візуальний індикатор, драг-логіка навішується окремо в JS
      (initDrawerSwipeToDismiss) на цей самий елемент за класом. Від'ємний
@@ -2828,7 +2840,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.11</div>
+  <div class="version-footer">Money Tree · Rev 2.23.12</div>
 </div>
   </div>
 </div>
@@ -6631,7 +6643,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.11';
+const APP_VERSION = '2.23.12';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8894,6 +8906,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   // focus-proxy-fallback): ms — тривалість проксі-вікна (focus-transfer),
   // proxyActive — чи проксі зараз сфокусовано замість справжнього поля.
   'ms', 'proxyActive',
+  // Rev 2.23.12 (6D.181) — sheet-anim (плавність підйому шторки, критерій S4).
+  'frames', 'maxGapMs', 'durationMs', 'samples',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -15532,13 +15546,119 @@ function configureKbProxy(proxyEl, targetInput){
   if(attrs.autocapitalize) proxyEl.setAttribute('autocapitalize', attrs.autocapitalize); else proxyEl.removeAttribute('autocapitalize');
 }
 let kbProxyActive = false;
+// Rev 2.23.12 (6D.181) BugFix (промт користувача, SQL-аналіз 9 фокусів у
+// живих логах 2.23.11): проміжний input (6D.180) справді прибрав зсув ПІД
+// ЧАС появи клавіатури (vvOffsetTop=0/scrollY=0 в усіх 9 випадках) — але
+// лишились 2 кадри зсуву В МОМЕНТ передачі фокусу справжньому полю. Дві
+// причини: (1) передача відбувалась ЗАРАНО (на vv-resize, ще до завершення
+// підйому шторки — у Доході поле на той момент ще під клавіатурою); (2)
+// WebKit сам скролить до щойно сфокусованого елемента (стандартна
+// "scroll into view" поведінка focus()), НАВІТЬ коли елемент уже видимий —
+// для цього є саме прапорець preventScroll.
+//
+// isSheetArrived — чиста функція (тести): шторка вважається "доїхала"
+// лише коли ВСІ три умови разом: поле видиме (bottom≤vvH-4, top≥0) І
+// немає активної CSS-анімації шторки.
+function isSheetArrived(opts){
+  if(!opts) return false;
+  return opts.fieldBottom <= opts.vvH - 4 && opts.fieldTop >= 0 && opts.animating !== true;
+}
+// shouldForceTransfer — примусова передача, якщо жодна з умов так і не
+// зійшлась за відведений час (420мс) — краще трохи раніше, ніж чекати
+// вічно (напр. якщо visualViewport взагалі не зрушив, рідкісний edge-case).
+function shouldForceTransfer(elapsedMs, maxMs){
+  return elapsedMs >= maxMs;
+}
+// detectPreventScrollSupport — стандартний cross-browser прийом (без
+// додавання елемента в DOM): якщо браузер підтримує focus({preventScroll}),
+// він ЧИТАЄ геттер preventScroll у переданому об'єкті під час виклику
+// focus() — відсутність читання означає, що опція просто ігнорується
+// (старий WebKit). iOS Safari підтримує це вже давно, але перевірка —
+// пряма вимога промту, не вгадування.
+function detectPreventScrollSupport(){
+  let supported = false;
+  try{
+    const probe = document.createElement('input');
+    probe.focus({ get preventScroll(){ supported = true; return true; } });
+  }catch(e){ supported = false; }
+  return supported;
+}
+const SUPPORTS_FOCUS_PREVENT_SCROLL = detectPreventScrollSupport();
+function focusWithoutScrollIfSupported(el, drawerId){
+  if(SUPPORTS_FOCUS_PREVENT_SCROLL){
+    el.focus({ preventScroll: true });
+  }else{
+    el.focus();
+    captureDebugGeometry('focus-no-preventscroll', { drawerId: drawerId || null });
+  }
+}
+// downsampleSheetAnimPairs — рекордер (events_size/events_is_array ліміти
+// БД, 6D.91) не повинен роздуватись довгим точним записом кожного кадру —
+// рівномірна вибірка до maxCount пар, не просте обрізання хвоста (інакше
+// втратили б саме КІНЕЦЬ переходу, найважливішу частину для S4).
+function downsampleSheetAnimPairs(samples, maxCount){
+  if(!Array.isArray(samples) || samples.length <= maxCount) return samples || [];
+  const result = [];
+  const step = (samples.length - 1) / (maxCount - 1);
+  for(let i = 0; i < maxCount; i++) result.push(samples[Math.round(i * step)]);
+  return result;
+}
+// startSheetAnimSampler — вимірює ПЛАВНІСТЬ підйому шторки (rAF на кожен
+// кадр, доки не прийде transitionend на 'transform', чи 500мс-стеля, якщо
+// він так і не прийшов, напр. шторку закрито просередині руху): frames —
+// скільки кадрів встигло відмалюватись, maxGapMs — найбільша пауза МІЖ
+// кадрами (0 пропущених кадрів при 60Гц — це ~16-17мс; промт просить
+// ≤20мс, критерій S4), samples — до 30 пар [t, drawerBottom] для візуальної
+// звірки траєкторії (монотонність, без відскоку). will-change знімається
+// (inline 'auto' — переважає CSS will-change:transform) одразу по
+// завершенню, щоб не тримати зайвий композитний шар, поки шторка стоїть
+// нерухомо.
+function startSheetAnimSampler(drawerEl){
+  const startedAt = performance.now();
+  let lastT = startedAt;
+  let frames = 0;
+  let maxGapMs = 0;
+  const samples = [];
+  let done = false;
+  let ceilingTimer = null;
+  function finish(){
+    if(done) return;
+    done = true;
+    drawerEl.removeEventListener('transitionend', onEnd);
+    if(ceilingTimer){ clearTimeout(ceilingTimer); ceilingTimer = null; }
+    drawerEl.style.willChange = 'auto';
+    captureDebugGeometry('sheet-anim', {
+      frames: frames,
+      maxGapMs: Math.round(maxGapMs),
+      durationMs: Math.round(performance.now() - startedAt),
+      samples: downsampleSheetAnimPairs(samples, 30),
+    });
+  }
+  function onEnd(e){
+    if(e.target === drawerEl && e.propertyName === 'transform') finish();
+  }
+  function tick(now){
+    if(done) return;
+    frames++;
+    const gap = now - lastT;
+    if(gap > maxGapMs) maxGapMs = gap;
+    lastT = now;
+    samples.push([Math.round(now - startedAt), Math.round(drawerEl.getBoundingClientRect().bottom)]);
+    requestAnimationFrame(tick);
+  }
+  drawerEl.addEventListener('transitionend', onEnd);
+  requestAnimationFrame(tick);
+  ceilingTimer = setTimeout(finish, 500);
+}
 // beginKbFocusProxy: фокусить проксі (піднімає шторку й клавіатуру ТОГО Ж
-// типу, не панорамуючи сторінку — проксі завжди у видимій зоні вгорі), а
-// щойно шторка доїхала (transitionend на 'bottom', чи visualViewport уже
-// показує клавіатуру, чи 260мс — що раніше, максимум 450мс) — передає
-// фокус СПРАВЖНЬОМУ полю. 600мс-таймер — лише страховка на випадок, якщо
-// жоден з них не спрацював (напр. фокус загублено) — у звичайному потоці
-// до нього не доходить, 450мс-стеля вже встигає передати фокус раніше.
+// типу, не панорамуючи сторінку — проксі завжди у видимій зоні вгорі).
+// Передача фокусу СПРАВЖНЬОМУ полю (6D.181) — лише коли ВСІ умови зійшлись
+// (опитування через requestAnimationFrame, БЕЗ setTimeout-вгадувань):
+// клавіатура вже показана (isKeyboardOpen) І шторка "доїхала" (isSheetArrived
+// — поле видиме І немає активної CSS-анімації, getAnimations()). 420мс —
+// стеля: якщо умови так і не зійшлись, передаємо все одно й фіксуємо
+// focus-transfer-forced. focusWithoutScrollIfSupported — preventScroll,
+// щоб сам виклик focus() не спричинив WebKit-івський "scroll into view".
 function beginKbFocusProxy(target, drawerEl){
   const proxy = getOrCreateKbProxyEl();
   configureKbProxy(proxy, target);
@@ -15549,45 +15669,34 @@ function beginKbFocusProxy(target, drawerEl){
   proxy.focus({ preventScroll: true });
 
   let settled = false;
-  let softTimer = null, ceilingTimer = null, fallbackTimer = null;
-  function cleanup(){
-    drawerEl.removeEventListener('transitionend', onTransitionEnd);
-    if(window.visualViewport) window.visualViewport.removeEventListener('resize', onVvResize);
-    if(softTimer){ clearTimeout(softTimer); softTimer = null; }
-    if(ceilingTimer){ clearTimeout(ceilingTimer); ceilingTimer = null; }
-    if(fallbackTimer){ clearTimeout(fallbackTimer); fallbackTimer = null; }
-  }
-  function transferNow(){
+  let rafId = null;
+  function finish(forced){
     if(settled) return;
     settled = true;
-    cleanup();
+    if(rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
     kbProxyActive = false;
     const ms = Date.now() - startedAt;
-    target.focus();
-    captureDebugGeometry('focus-transfer', { ms: ms, drawerId: drawerEl.id || null, proxyActive: false });
+    focusWithoutScrollIfSupported(target, drawerEl.id);
+    captureDebugGeometry(forced ? 'focus-transfer-forced' : 'focus-transfer', { ms: ms, drawerId: drawerEl.id || null, proxyActive: false });
   }
-  function fallbackNow(){
+  function poll(){
     if(settled) return;
-    settled = true;
-    cleanup();
-    kbProxyActive = false;
-    target.focus();
-    captureDebugGeometry('focus-proxy-fallback', { drawerId: drawerEl.id || null, proxyActive: false });
+    const elapsed = Date.now() - startedAt;
+    if(shouldForceTransfer(elapsed, 420)){ finish(true); return; }
+    const baseVh = getBaseViewportHeight();
+    const vv = window.visualViewport;
+    const vvH = vv ? vv.height : baseVh;
+    if(isKeyboardOpen(baseVh, vvH)){
+      const rect = target.getBoundingClientRect();
+      const animating = typeof drawerEl.getAnimations === 'function' ? drawerEl.getAnimations().length > 0 : false;
+      if(isSheetArrived({ fieldBottom: rect.bottom, fieldTop: rect.top, vvH: vvH, animating: animating })){
+        finish(false);
+        return;
+      }
+    }
+    rafId = requestAnimationFrame(poll);
   }
-  function onTransitionEnd(e){
-    if(e.target === drawerEl && e.propertyName === 'bottom') transferNow();
-  }
-  function onVvResize(){
-    if(window.visualViewport && isKeyboardOpen(getBaseViewportHeight(), window.visualViewport.height)) transferNow();
-  }
-  drawerEl.addEventListener('transitionend', onTransitionEnd);
-  if(window.visualViewport) window.visualViewport.addEventListener('resize', onVvResize);
-  softTimer = setTimeout(transferNow, 260);
-  ceilingTimer = setTimeout(transferNow, 450);
-  fallbackTimer = setTimeout(function(){
-    if(document.activeElement !== proxy && document.activeElement !== target){ fallbackNow(); return; }
-    if(!window.visualViewport || !isKeyboardOpen(getBaseViewportHeight(), window.visualViewport.height)) fallbackNow();
-  }, 600);
+  rafId = requestAnimationFrame(poll);
 }
 let keyboardHeightCache = { portrait: {}, landscape: {} };
 let kbSheetActive = false;
@@ -15595,10 +15704,12 @@ let kbSheetDrawerEl = null;
 let kbSheetFieldKind = null;
 // enterKbSheet: викликається з focusin (handleKeyboardFieldFocusIn нижче)
 // СИНХРОННО, у тому ж тіку, що й сам фокус — ДО того, як WebKit встигне
-// відреагувати на клавіатуру. Виставляє --kb-h одразу (оцінка чи кеш), щоб
-// html.kb-sheet .drawer.open{bottom:calc(var(--kb-h) + 8px)} (CSS, Режим A)
-// підняв шторку НЕГАЙНО — поле опиняється над майбутньою клавіатурою ще
-// до того, як вона з'явиться.
+// відреагувати на клавіатуру. Виставляє --kb-h/--sheet-lift одразу (оцінка
+// чи кеш), щоб html.kb-sheet .drawer.open{transform:translate3d(0,
+// calc(-1px*var(--sheet-lift)),0)} (CSS, Режим A, 6D.181 — transform, НЕ
+// bottom, щоб анімація не перераховувала розмітку на кожному кадрі) підняв
+// шторку НЕГАЙНО — поле опиняється над майбутньою клавіатурою ще до того,
+// як вона з'явиться.
 function enterKbSheet(drawerEl, fieldEl){
   kbSheetActive = true;
   kbSheetDrawerEl = drawerEl;
@@ -15623,11 +15734,30 @@ function enterKbSheet(drawerEl, fieldEl){
   // фінального розміру; updateKbSheetGeometry() нижче однаково
   // перераховує обидва з ЖИВИХ вимірів, щойно клавіатура стабілізується.
   const vvEstimate = Math.max(0, baseVh - estimate);
+  // Rev 2.23.12 (6D.181) — computeSheetLift(): наскільки підняти шторку ВІД
+  // її звичайного спокійного bottom (restBottom, виміряний ТУТ, ДО
+  // kb-sheet/transform — інакше зчитали б уже підняте значення з
+  // ПОПЕРЕДНЬОГО відкриття). --sheet-lift — ЧИСЛО без одиниць (CSS
+  // calc(-1px * var(--sheet-lift))), а не вже готовий px-рядок, як --kb-h/
+  // --vv-h, саме тому що знак множиться в самому calc().
+  const restBottom = drawerEl.getBoundingClientRect().bottom;
+  const lift = computeSheetLift(restBottom, baseVh, estimate, 8);
   document.documentElement.style.setProperty('--kb-h', estimate + 'px');
   document.documentElement.style.setProperty('--vv-h', vvEstimate + 'px');
+  document.documentElement.style.setProperty('--sheet-lift', String(lift));
+  if(drawerEl.style.willChange) drawerEl.style.willChange = '';
   document.documentElement.classList.add('kb-sheet');
   if(getKbMode() === 'B') document.documentElement.classList.add('kb-mode-b');
   captureDebugGeometry('sheet-open', { drawerId: drawerEl.id || null });
+  if(getKbMode() === 'A') startSheetAnimSampler(drawerEl);
+}
+// computeSheetLift: rest (поточний bottom-край шторки ДО підйому) мінус
+// цільовий bottom-край (baseVh - kbH - gap, той самий gap=8, що раніше був
+// у bottom:calc(var(--kb-h)+8px)) — різниця і є відстань, на яку транслюємо
+// шторку ВГОРУ (від'ємний translateY). Регресія з промту: rest=780,
+// baseVh=894, kbH=389, gap=8 → 283.
+function computeSheetLift(restBottom, baseVh, kbH, gap){
+  return restBottom - (baseVh - kbH - gap);
 }
 // updateKbSheetGeometry: викликається на КОЖЕН visualViewport resize/scroll,
 // поки kbSheetActive — перераховує --kb-h/--vv-h з живих (baseVh, vv.height)
@@ -15673,13 +15803,31 @@ function correctPanIfNeeded(){
 function exitKbSheet(){
   if(!kbSheetActive) return;
   const drawerId = kbSheetDrawerEl ? (kbSheetDrawerEl.id || null) : null;
-  if(kbSheetDrawerEl) kbSheetDrawerEl.style.transform = '';
+  const drawerEl = kbSheetDrawerEl;
+  const wasModeB = document.documentElement.classList.contains('kb-mode-b');
+  if(drawerEl) drawerEl.style.transform = '';
   kbSheetActive = false;
   kbSheetDrawerEl = null;
   kbSheetFieldKind = null;
-  document.documentElement.classList.remove('kb-sheet');
-  document.documentElement.classList.remove('kb-mode-b');
-  document.documentElement.style.setProperty('--kb-h', '0px');
+  const finishExit = function(){
+    document.documentElement.classList.remove('kb-sheet');
+    document.documentElement.classList.remove('kb-mode-b');
+    document.documentElement.style.setProperty('--kb-h', '0px');
+  };
+  // Rev 2.23.12 (6D.181) — симетричне закриття: --sheet-lift:0 ПОКИ
+  // html.kb-sheet ще активний — той самий CSS transition (240мс), що й
+  // підйом, тепер у зворотний бік. Класи знімаємо ЛИШЕ після завершення
+  // (setTimeout 260мс, той самий підхід, що debounce-таймаути деінде в
+  // цьому контролері) — зняти їх одразу скасувало б саме можливість
+  // анімувати повернення (CSS-правило просто перестало б діяти). Режим B
+  // не анімує через це правило (CSS transition:none для нього) — звичайне
+  // миттєве зняття, як і раніше.
+  document.documentElement.style.setProperty('--sheet-lift', '0');
+  if(drawerEl && !wasModeB){
+    setTimeout(finishExit, 260);
+  }else{
+    finishExit();
+  }
   captureDebugGeometry('sheet-close', { drawerId: drawerId });
 }
 function handleKeyboardFieldFocusIn(target){
