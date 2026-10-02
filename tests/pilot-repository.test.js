@@ -5147,10 +5147,12 @@ test('nextBaseVh: тонка обгортка над nextBaseViewportHeight — 
   assert.equal(ctx.nextBaseVh(894, 505), 894, 'одинична хибна просадка не псує базу');
   assert.equal(ctx.nextBaseVh(844, 894), 894);
 });
-test('estimateKeyboardHeight: без кешу — завищена оцінка 0.47×baseVh (швидше забагато, ніж замало)', () => {
+// Rev 2.23.11 (6D.180) — коефіцієнт тепер ОКРЕМИЙ на тип клавіатури (був
+// єдиний 0.47 для обох, завжди ~420 — не відрізняв цифрову від QWERTY).
+test('estimateKeyboardHeight: без кешу — окрема оцінка на тип клавіатури (numeric 0.435, text 0.465)', () => {
   const ctx = keyboardInsetSandbox();
-  assert.equal(ctx.estimateKeyboardHeight(894, 'text', {}), Math.round(894 * 0.47));
-  assert.equal(ctx.estimateKeyboardHeight(894, 'numeric', null), Math.round(894 * 0.47));
+  assert.equal(ctx.estimateKeyboardHeight(894, 'text', {}), Math.round(894 * 0.465));
+  assert.equal(ctx.estimateKeyboardHeight(894, 'numeric', null), Math.round(894 * 0.435));
 });
 test('estimateKeyboardHeight: З кешем — ТОЧНЕ виміряне значення для цього типу клавіатури, не оцінка', () => {
   const ctx = keyboardInsetSandbox();
@@ -5224,7 +5226,7 @@ function kbSheetSandbox(){
     baseViewportHeightByOrientation: { portrait: 894, landscape: null },
     keyboardHeightCache: { portrait: {}, landscape: {} },
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
-    drawerKeyboardLockActive: false, openOverlayCount: 0,
+    drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
     captureDebugGeometry: function(type, extra){ debugEvents.push(Object.assign({ type: type }, extra || {})); },
     requestAnimationFrame: function(fn){ fn(); return 1; },
   }, [
@@ -5235,16 +5237,27 @@ function kbSheetSandbox(){
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
     'enterKbSheet', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle',
+    'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'proxyAttrsFor',
   ]);
   return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents };
 }
 function makeDrawerField(opts){
   opts = opts || {};
-  const drawerEl = { id: opts.drawerId || 'card-debt-drawer', style: {} };
+  const drawerEl = opts.drawerEl || { id: opts.drawerId || 'card-debt-drawer', style: {} };
+  const tagName = opts.tagName || 'INPUT';
+  const type = opts.type || 'text';
   return {
-    tagName: 'INPUT', type: opts.type || 'text',
-    getAttribute: function(n){ return n === 'inputmode' ? (opts.inputmode || null) : null; },
+    tagName: tagName, type: type,
+    getAttribute: function(n){
+      if(n === 'inputmode') return opts.inputmode || null;
+      if(n === 'autocapitalize') return opts.autocapitalize || null;
+      return null;
+    },
     closest: function(sel){ return sel === '.drawer' && opts.inDrawer !== false ? drawerEl : null; },
+    matches: function(sel){
+      if(tagName === 'TEXTAREA') return sel.indexOf('textarea') !== -1;
+      return sel.indexOf('input[type="' + type + '"]') !== -1;
+    },
   };
 }
 test('isFieldInsideDrawer: true лише коли el.closest(\'.drawer\') щось знаходить', () => {
@@ -5272,7 +5285,7 @@ test('enterKbSheet: --vv-h на вході рахується з (baseVh - estim
   const { ctx, docElStyle } = kbSheetSandbox();
   ctx.window.visualViewport.height = 894; // ще докlавіатурне значення (як насправді у момент focusin)
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text' }));
-  const expectedEstimate = Math.round(894 * 0.47);
+  const expectedEstimate = Math.round(894 * 0.465); // type:'text' → коефіцієнт тексту (6D.180)
   assert.equal(docElStyle['--kb-h'], expectedEstimate + 'px');
   assert.equal(docElStyle['--vv-h'], (894 - expectedEstimate) + 'px', '--vv-h МАЄ бути baseVh-estimate, а не стале 894 (інакше max-height Режиму A спершу завищений)');
 });
@@ -5337,6 +5350,76 @@ test('correctPanIfNeeded: Режим A, сторінка запанорамув�
   ctx.window.scrollY = 62;
   ctx.correctPanIfNeeded();
   assert.ok(debugEvents.some(function(e){ return e.type === 'pan-corrected'; }));
+});
+// Rev 2.23.11 (6D.180) — проксі-фокус: прибрати 1-2 кадри "миготіння", що
+// лишились навіть у Режимі A (iOS встигає запанорамувати сторінку в
+// короткому вікні між фокусом і завершенням підйому шторки).
+test('isIosRuntime: navigator.standalone (iOS-only API) АБО userAgent iPad/iPhone/iPod → true; інакше false', () => {
+  const { ctx } = kbSheetSandbox();
+  assert.equal(ctx.isIosRuntime('', true), true, 'navigator.standalone присутній (будь-яке значення) — iOS');
+  assert.equal(ctx.isIosRuntime('Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X)', false), true);
+  assert.equal(ctx.isIosRuntime('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)', false), false);
+  assert.equal(ctx.isIosRuntime('', false), false);
+});
+test('isTapTargetField: звичайні текстові input/textarea → true; checkbox/radio/date/select — не наша турбота тут (matches поверне false)', () => {
+  const { ctx } = kbSheetSandbox();
+  assert.equal(ctx.isTapTargetField(makeDrawerField({ type: 'text' })), true);
+  assert.equal(ctx.isTapTargetField(makeDrawerField({ tagName: 'TEXTAREA', type: '' })), true);
+  assert.equal(ctx.isTapTargetField(makeDrawerField({ type: 'checkbox' })), false);
+  assert.equal(ctx.isTapTargetField(null), false);
+});
+test('shouldInterceptTap: перехоплює ЛИШЕ тап по текстовому полю ВСЕРЕДИНІ шторки, без руху пальця, короткий, і коли клавіатура ще НЕ відкрита', () => {
+  const { ctx } = kbSheetSandbox();
+  assert.equal(ctx.shouldInterceptTap({ targetKind: 'field', inSheet: true, moved: false, durationMs: 80, keyboardOpen: false }), true);
+  assert.equal(ctx.shouldInterceptTap({ targetKind: 'other', inSheet: true, moved: false, durationMs: 80, keyboardOpen: false }), false, 'не текстове поле (напр. чекбокс)');
+  assert.equal(ctx.shouldInterceptTap({ targetKind: 'field', inSheet: false, moved: false, durationMs: 80, keyboardOpen: false }), false, 'поза шторкою — "Витрати" НЕ перехоплюємо');
+  assert.equal(ctx.shouldInterceptTap({ targetKind: 'field', inSheet: true, moved: true, durationMs: 80, keyboardOpen: false }), false, 'палець рухався ≥10пт — не тап');
+  assert.equal(ctx.shouldInterceptTap({ targetKind: 'field', inSheet: true, moved: false, durationMs: 650, keyboardOpen: false }), false, 'довший за 500мс — не тап');
+  assert.equal(ctx.shouldInterceptTap({ targetKind: 'field', inSheet: true, moved: false, durationMs: 80, keyboardOpen: true }), false, 'клавіатура вже відкрита в цій шторці — звичайний Tab, проксі не потрібен');
+});
+test('proxyAttrsFor: копіює inputmode/type/autocapitalize з цільового поля (щоб проксі підняв ТОЙ САМИЙ тип клавіатури)', () => {
+  // Не assert.deepEqual — об'єкт, який повертає proxyAttrsFor, створений
+  // УСЕРЕДИНІ vm-контексту (інший realm, інший Object.prototype), тому
+  // навіть структурно ідентичний plain-об'єкт з ГОЛОВНОГО файлу тестів
+  // провалив би deepStrictEqual (cross-realm, не "прототип неоднаковий" —
+  // факт логіки, не баг). Порівнюємо поля напряму.
+  const { ctx } = kbSheetSandbox();
+  const numericField = makeDrawerField({ type: 'text', inputmode: 'numeric' });
+  const attrs1 = ctx.proxyAttrsFor(numericField);
+  assert.equal(attrs1.inputmode, 'numeric');
+  assert.equal(attrs1.type, 'text');
+  assert.equal(attrs1.autocapitalize, null);
+  const nameField = makeDrawerField({ type: 'text', autocapitalize: 'words' });
+  const attrs2 = ctx.proxyAttrsFor(nameField);
+  assert.equal(attrs2.inputmode, null);
+  assert.equal(attrs2.type, 'text');
+  assert.equal(attrs2.autocapitalize, 'words');
+});
+test('estimateKeyboardHeight: окремий коефіцієнт на тип клавіатури (numeric 0.435, text 0.465) — живі значення для baseVh=894', () => {
+  const { ctx } = kbSheetSandbox();
+  assert.equal(ctx.estimateKeyboardHeight(894, 'numeric', {}), 389);
+  assert.equal(ctx.estimateKeyboardHeight(894, 'text', {}), 416, '894×0.465=415.71 → round 416 (на 1пт від орієнтовних "415" у промті — в межах похибки P5 ≤5пт)');
+});
+test('handleKeyboardFieldFocusIn: ДРУГИЙ фокус у ТІЙ САМІЙ уже активній шторці (проксі→справжнє поле) НЕ викликає enterKbSheet() повторно (рівно ОДНА подія sheet-open на весь перехід)', () => {
+  const { ctx, debugEvents } = kbSheetSandbox();
+  const sharedDrawerEl = { id: 'card-debt-drawer', style: {} };
+  const proxy = makeDrawerField({ inDrawer: true, type: 'text', drawerEl: sharedDrawerEl });
+  ctx.handleKeyboardFieldFocusIn(proxy);
+  const realField = makeDrawerField({ inDrawer: true, type: 'text', drawerEl: sharedDrawerEl });
+  ctx.handleKeyboardFieldFocusIn(realField); // проксі→справжнє поле, ТА САМА шторка (той самий drawerEl, як у production beginKbFocusProxy — проксі додається В реальний drawerEl)
+  const sheetOpenCount = debugEvents.filter(function(e){ return e.type === 'sheet-open'; }).length;
+  assert.equal(sheetOpenCount, 1, 'enterKbSheet() (і його captureDebugGeometry(\'sheet-open\')) викликається РІВНО РАЗ — не вдруге при переході проксі→справжнє поле (інакше --kb-h/--vv-h скинулись би до оцінки, відтворюючи помилку 6D.179)');
+  assert.equal(ctx.kbSheetFieldKind, 'text', 'тип поля все одно оновлюється на справжньому цільовому полі');
+});
+test('handleKeyboardFieldFocusSettle: поки kbProxyActive — НЕ знімає kb-open/лок/kb-sheet (проксі вважається частиною шторки)', () => {
+  const { ctx, mainCol, body, docElClasses, state } = kbSheetSandbox();
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+  ctx.kbProxyActive = true;
+  state.activeElement = { tagName: 'BODY' }; // фокус тимчасово "загублений" під час переходу проксі→поле
+  ctx.handleKeyboardFieldFocusSettle();
+  assert.equal(body.classList.contains('kb-open'), true);
+  assert.equal(mainCol._inert, true);
+  assert.equal(docElClasses.has('kb-sheet'), true);
 });
 test('correctPanIfNeeded: сторінка НЕ запанорамована (scrollY===0, offsetTop===0) → жодної корекції/події', () => {
   const { ctx, debugEvents } = kbSheetSandbox();

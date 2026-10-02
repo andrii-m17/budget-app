@@ -2828,7 +2828,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.10</div>
+  <div class="version-footer">Money Tree · Rev 2.23.11</div>
 </div>
   </div>
 </div>
@@ -6631,7 +6631,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.10';
+const APP_VERSION = '2.23.11';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8890,6 +8890,10 @@ const DEBUG_EVENT_ALLOWLIST = [
   'mainColInert', 'mainColScrollTop',
   // Rev 2.23.9 (6D.178) — єдиний контролер клавіатури (Режим A/B).
   'activeRectTop', 'activeRectBottom', 'kbH', 'kbMode',
+  // Rev 2.23.11 (6D.180) — проксі-фокус (focus-proxy/focus-transfer/
+  // focus-proxy-fallback): ms — тривалість проксі-вікна (focus-transfer),
+  // proxyActive — чи проксі зараз сфокусовано замість справжнього поля.
+  'ms', 'proxyActive',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -15412,15 +15416,18 @@ function nextBaseVh(prevValue, observedHeight){
   return nextBaseViewportHeight(prevValue, observedHeight);
 }
 // estimateKeyboardHeight: для ПЕРШОГО фокусу цього типу клавіатури в цій
-// орієнтації кешу ще нема — свідомо завищена оцінка 0.47×baseVh (швидше
-// підняти шторку ЗАБАГАТО, ніж замало — забагато виправляється наступним
-// виміром без жодного панорамування сторінки; замало саме й провокує
-// панорамування, якого ми намагаємось уникнути). Наступні фокуси ТОГО Ж
-// типу клавіатури в ТІЙ Ж орієнтації одразу отримують виміряне значення
-// (updateKbSheetGeometry нижче пише в cache).
+// орієнтації кешу ще нема — оцінка за коефіцієнтом, окремим для кожного
+// ТИПУ клавіатури (було 0.47 для ОБОХ, тобто завжди ~420 — живі логи
+// довели, що цифрова (numeric) стабільно стискає vv до ~389, а повна QWERTY
+// (text) — до ~415-420; єдиний спільний коефіцієнт систематично або
+// завищував, або занижував, залежно від типу поля). 0.435 (numeric)/0.465
+// (text) — підібрано під ці ж живі значення (baseVh=894 → 389/415).
+// Наступні фокуси ТОГО Ж типу клавіатури в ТІЙ Ж орієнтації одразу
+// отримують виміряне значення (updateKbSheetGeometry нижче пише в cache).
 function estimateKeyboardHeight(baseVh, kind, cache){
   if(cache && typeof cache[kind] === 'number') return cache[kind];
-  return Math.round(baseVh * 0.47);
+  const ratio = kind === 'numeric' ? 0.435 : 0.465;
+  return Math.round(baseVh * ratio);
 }
 // shouldBlockTouchMove: чи блокувати touchmove ВСЕРЕДИНІ відкритої шторки
 // (щоб жест не "протікав" на фон, 6D.161 — той самий симптом, інший
@@ -15446,6 +15453,141 @@ function computeModeBShiftPx(baseVh, vvH, vvOffsetTop){
 }
 function applyModeBTransform(drawerEl, baseVh, vvH, vvOffsetTop){
   drawerEl.style.transform = 'translateY(' + computeModeBShiftPx(baseVh, vvH, vvOffsetTop) + 'px)';
+}
+// Rev 2.23.11 (6D.180) — BugFix (промт користувача, SQL-аналіз 5 нових
+// логів версії 2.23.9): навіть із Режимом A (6D.178/179) iOS встигає
+// запанорамувати сторінку на 1-2 кадри МІЖ самим фокусом і завершенням
+// підйому шторки — тап триває 45-97мс, а від focusin до vv-resize минає ще
+// 79-97мс; у момент самого фокусу поле ще лежить ПІД майбутньою
+// клавіатурою (шторка ще не встигла доїхати), тож iOS панорамує.
+// correctPanIfNeeded() (6D.178) це виправляє, але за 27-32мс у Боргу/ОЧ —
+// звідси видимі 1-2 кадри "миготіння". Підняти шторку РАНІШЕ, на
+// touchstart, НЕ можна — елемент зрушить під пальцем, тап влучить в інше
+// місце (напр. затемнення, і шторка замість підйому закриється). Рішення:
+// на touchend фокусити СПОЧАТКУ невидимий проміжний input угорі екрана
+// (видима зона — там iOS нема чого панорамувати), дати шторці піднятись, і
+// ЛИШЕ тоді передати фокус справжньому полю. Фокус усю дорогу лишається на
+// текстовому полі (клавіатура не ховається) — міняється лише, НА ЯКЕ САМЕ
+// поле він формально вказує.
+//
+// isIosRuntime — лише iOS (явна вимога промту): navigator.standalone —
+// API, що існує ВИКЛЮЧНО в iOS Safari/WKWebView (той самий, що вже working
+// у isStandaloneDisplayMode() нижче) — надійніший за userAgent; регулярка
+// лишається fallback-ом для iPadOS "режиму робочого столу", де
+// navigator.standalone відсутній, а userAgent і далі видає "iPad".
+function isIosRuntime(ua, hasNavigatorStandalone){
+  return !!hasNavigatorStandalone || /iPad|iPhone|iPod/.test(ua || '');
+}
+const IS_IOS_RUNTIME = isIosRuntime(navigator.userAgent, typeof navigator.standalone !== 'undefined');
+// isTapTargetField — лише звичайні текстові input/textarea (саме ті типи,
+// що явно перелічив промт); select/checkbox/date/file відкривають нативний
+// пікер ОС — проксі-фокус їм не потрібен і не повинен застосовуватись.
+function isTapTargetField(el){
+  if(!el || typeof el.matches !== 'function') return false;
+  return el.matches('input[type="text"], input[type="tel"], input[type="number"], input[type="email"], input[type="search"], textarea');
+}
+// shouldInterceptTap — чиста функція (винесена для тестів). targetKind:
+// 'field' лише коли isTapTargetField()===true; inSheet: isFieldInsideDrawer()
+// (та сама межа, що й усюди в цьому контролері — структурно виключає
+// "Витрати"); moved: палець зрушив ≥10пт (тап уже міг влучити в інше місце
+// — не наше діло втручатись); durationMs: touchstart→touchend менше 500мс;
+// keyboardOpen: клавіатура вже відкрита В ЦІЙ ЖЕ шторці — тоді це Tab/дотик
+// між полями, звичайна поведінка, проксі не потрібен (панорамувати вже
+// нема чого, шторка вже піднята).
+function shouldInterceptTap(opts){
+  if(!opts) return false;
+  return opts.targetKind === 'field'
+    && opts.inSheet === true
+    && opts.moved !== true
+    && typeof opts.durationMs === 'number' && opts.durationMs < 500
+    && opts.keyboardOpen !== true;
+}
+// proxyAttrsFor — копіює inputmode/type/autocapitalize з цільового поля,
+// щоб клавіатура, яку підніме проксі-фокус, була ТОГО Ж типу (цифрова для
+// inputmode="numeric", звичайна QWERTY для "Назва") — інакше коротка мить
+// між проксі-фокусом і передачею фокуса показала б НЕПРАВИЛЬНУ клавіатуру.
+function proxyAttrsFor(targetInput){
+  return {
+    inputmode: (targetInput && targetInput.getAttribute && targetInput.getAttribute('inputmode')) || null,
+    type: (targetInput && targetInput.type) || 'text',
+    autocapitalize: (targetInput && targetInput.getAttribute && targetInput.getAttribute('autocapitalize')) || null,
+  };
+}
+let kbProxyEl = null;
+function getOrCreateKbProxyEl(){
+  if(kbProxyEl) return kbProxyEl;
+  const el = document.createElement('input');
+  el.id = 'kb-focus-proxy';
+  el.setAttribute('aria-hidden', 'true');
+  el.setAttribute('tabindex', '-1');
+  el.setAttribute('autocomplete', 'off');
+  el.style.cssText = 'position:fixed; top:calc(env(safe-area-inset-top, 0px) + 8px); left:0; width:1px; height:1px; opacity:0; border:0; padding:0; font-size:16px; pointer-events:none;';
+  kbProxyEl = el;
+  return el;
+}
+function configureKbProxy(proxyEl, targetInput){
+  const attrs = proxyAttrsFor(targetInput);
+  if(attrs.inputmode) proxyEl.setAttribute('inputmode', attrs.inputmode); else proxyEl.removeAttribute('inputmode');
+  proxyEl.type = attrs.type;
+  if(attrs.autocapitalize) proxyEl.setAttribute('autocapitalize', attrs.autocapitalize); else proxyEl.removeAttribute('autocapitalize');
+}
+let kbProxyActive = false;
+// beginKbFocusProxy: фокусить проксі (піднімає шторку й клавіатуру ТОГО Ж
+// типу, не панорамуючи сторінку — проксі завжди у видимій зоні вгорі), а
+// щойно шторка доїхала (transitionend на 'bottom', чи visualViewport уже
+// показує клавіатуру, чи 260мс — що раніше, максимум 450мс) — передає
+// фокус СПРАВЖНЬОМУ полю. 600мс-таймер — лише страховка на випадок, якщо
+// жоден з них не спрацював (напр. фокус загублено) — у звичайному потоці
+// до нього не доходить, 450мс-стеля вже встигає передати фокус раніше.
+function beginKbFocusProxy(target, drawerEl){
+  const proxy = getOrCreateKbProxyEl();
+  configureKbProxy(proxy, target);
+  drawerEl.appendChild(proxy);
+  kbProxyActive = true;
+  const startedAt = Date.now();
+  captureDebugGeometry('focus-proxy', { drawerId: drawerEl.id || null, proxyActive: true });
+  proxy.focus({ preventScroll: true });
+
+  let settled = false;
+  let softTimer = null, ceilingTimer = null, fallbackTimer = null;
+  function cleanup(){
+    drawerEl.removeEventListener('transitionend', onTransitionEnd);
+    if(window.visualViewport) window.visualViewport.removeEventListener('resize', onVvResize);
+    if(softTimer){ clearTimeout(softTimer); softTimer = null; }
+    if(ceilingTimer){ clearTimeout(ceilingTimer); ceilingTimer = null; }
+    if(fallbackTimer){ clearTimeout(fallbackTimer); fallbackTimer = null; }
+  }
+  function transferNow(){
+    if(settled) return;
+    settled = true;
+    cleanup();
+    kbProxyActive = false;
+    const ms = Date.now() - startedAt;
+    target.focus();
+    captureDebugGeometry('focus-transfer', { ms: ms, drawerId: drawerEl.id || null, proxyActive: false });
+  }
+  function fallbackNow(){
+    if(settled) return;
+    settled = true;
+    cleanup();
+    kbProxyActive = false;
+    target.focus();
+    captureDebugGeometry('focus-proxy-fallback', { drawerId: drawerEl.id || null, proxyActive: false });
+  }
+  function onTransitionEnd(e){
+    if(e.target === drawerEl && e.propertyName === 'bottom') transferNow();
+  }
+  function onVvResize(){
+    if(window.visualViewport && isKeyboardOpen(getBaseViewportHeight(), window.visualViewport.height)) transferNow();
+  }
+  drawerEl.addEventListener('transitionend', onTransitionEnd);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', onVvResize);
+  softTimer = setTimeout(transferNow, 260);
+  ceilingTimer = setTimeout(transferNow, 450);
+  fallbackTimer = setTimeout(function(){
+    if(document.activeElement !== proxy && document.activeElement !== target){ fallbackNow(); return; }
+    if(!window.visualViewport || !isKeyboardOpen(getBaseViewportHeight(), window.visualViewport.height)) fallbackNow();
+  }, 600);
 }
 let keyboardHeightCache = { portrait: {}, landscape: {} };
 let kbSheetActive = false;
@@ -15545,7 +15687,16 @@ function handleKeyboardFieldFocusIn(target){
   const drawerEl = isFieldInsideDrawer(target) ? target.closest('.drawer') : null;
   if(drawerEl){
     setDrawerKeyboardBackgroundLock(true);
-    enterKbSheet(drawerEl, target);
+    if(kbSheetActive && kbSheetDrawerEl === drawerEl){
+      // Rev 2.23.11 (6D.180) — перехід проксі→справжнє поле (чи Tab між
+      // полями тієї ж УЖЕ відкритої шторки): НЕ викликаємо enterKbSheet()
+      // повторно — це скинуло б --kb-h/--vv-h до ОЦІНКИ замість уже точних
+      // ЖИВИХ значень (updateKbSheetGeometry під час підйому шторки),
+      // відтворюючи саме ту помилку, яку виправив 6D.179.
+      kbSheetFieldKind = keyboardKindForField(target);
+    }else{
+      enterKbSheet(drawerEl, target);
+    }
   }
 }
 // Викликається з відкладеного (100мс) таймауту focusout — перевіряє
@@ -15558,6 +15709,11 @@ function handleKeyboardFieldFocusIn(target){
 // сховали жестом без зміни фокуса), тому зняття там БЕЗУМОВНЕ, не через
 // перевірку фокуса.
 function handleKeyboardFieldFocusSettle(){
+  // Rev 2.23.11 (6D.180) — перехід проксі→справжнє поле в процесі (до
+  // 450-600мс) — НЕ знімати kb-open/лок/kb-sheet, проксі вважається
+  // частиною шторки весь цей час (beginKbFocusProxy сам викличе
+  // target.focus(), що синхронно відмінить і цей таймаут).
+  if(kbProxyActive) return;
   const active = document.activeElement;
   if(!isKeyboardField(active)){
     document.body.classList.remove('kb-open');
@@ -15582,6 +15738,43 @@ document.addEventListener('focusout', function(e){
   // таймаутом (activeElement оновлюється синхронно до цього моменту).
   kbHideTimeout = setTimeout(handleKeyboardFieldFocusSettle, 100);
 });
+// Rev 2.23.11 (6D.180) — перехоплення тапу на touchend (НЕ touchstart, щоб
+// нічого не зсувалось під пальцем до відпускання): лише iOS, лише текстові
+// поля (isTapTargetField) ВСЕРЕДИНІ шторок Доходу/Боргу/ОЧ (isFieldInsideDrawer
+// — та сама межа, що структурно виключає "Витрати"). shouldInterceptTap()
+// (чиста функція вище) вирішує — preventDefault() скасовує нативний
+// фокус/каретку/клавіатуру, і замість цього починається проксі-фокус
+// (beginKbFocusProxy).
+let kbTapStart = null;
+document.addEventListener('touchstart', function(e){
+  if(!IS_IOS_RUNTIME) return;
+  const t = e.touches && e.touches[0];
+  if(!t) return;
+  kbTapStart = { x: t.clientX, y: t.clientY, time: Date.now(), target: e.target };
+}, { passive: true });
+document.addEventListener('touchend', function(e){
+  if(!IS_IOS_RUNTIME || !kbTapStart) return;
+  const start = kbTapStart;
+  kbTapStart = null;
+  const t = e.changedTouches && e.changedTouches[0];
+  if(!t) return;
+  const dx = t.clientX - start.x;
+  const dy = t.clientY - start.y;
+  const moved = Math.sqrt(dx * dx + dy * dy) >= 10;
+  const durationMs = Date.now() - start.time;
+  const target = start.target;
+  const drawerEl = target && target.closest ? target.closest('.drawer') : null;
+  const intercept = shouldInterceptTap({
+    targetKind: isTapTargetField(target) ? 'field' : 'other',
+    inSheet: !!drawerEl,
+    moved: moved,
+    durationMs: durationMs,
+    keyboardOpen: kbSheetActive,
+  });
+  if(!intercept) return;
+  e.preventDefault();
+  beginKbFocusProxy(target, drawerEl);
+}, { passive: false });
 // Rev 2.23.9 (6D.178) — блокування скролу ПОКИ ВІДКРИТА шторка (не лише
 // клавіатура): openOverlayCount (>0, коли відкрита будь-яка з 7 шторок/
 // модалок, 6D.176) — та сама умова, що вже лочить #main-col. Два жести
