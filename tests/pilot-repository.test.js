@@ -5268,6 +5268,14 @@ test('handleKeyboardFieldFocusIn: інлайн-поле "Витрати" (ПОЗ
   assert.equal(mainCol._inert, false, 'головна скарга 6D.172 — тут МАЄ лишитись false');
   assert.equal(docElClasses.has('kb-sheet'), false);
 });
+test('enterKbSheet: --vv-h на вході рахується з (baseVh - estimate), НЕ з живого window.visualViewport.height (той ще докlавіатурний у момент focusin)', () => {
+  const { ctx, docElStyle } = kbSheetSandbox();
+  ctx.window.visualViewport.height = 894; // ще докlавіатурне значення (як насправді у момент focusin)
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text' }));
+  const expectedEstimate = Math.round(894 * 0.47);
+  assert.equal(docElStyle['--kb-h'], expectedEstimate + 'px');
+  assert.equal(docElStyle['--vv-h'], (894 - expectedEstimate) + 'px', '--vv-h МАЄ бути baseVh-estimate, а не стале 894 (інакше max-height Режиму A спершу завищений)');
+});
 test('updateKbSheetGeometry: на visualViewport resize — перераховує --kb-h/--vv-h з (baseVh, vv.height), НЕ з innerHeight', () => {
   const { ctx, docElStyle } = kbSheetSandbox();
   const field = makeDrawerField({ inDrawer: true });

@@ -2828,7 +2828,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.9</div>
+  <div class="version-footer">Money Tree · Rev 2.23.10</div>
 </div>
   </div>
 </div>
@@ -6631,7 +6631,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.9';
+const APP_VERSION = '2.23.10';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15463,10 +15463,26 @@ function enterKbSheet(drawerEl, fieldEl){
   kbSheetFieldKind = keyboardKindForField(fieldEl);
   const baseVh = getBaseViewportHeight();
   const orientKey = viewportOrientationKey(window.innerWidth, window.innerHeight);
-  const vvH = window.visualViewport ? window.visualViewport.height : baseVh;
   const estimate = estimateKeyboardHeight(baseVh, kbSheetFieldKind, keyboardHeightCache[orientKey]);
+  // Rev 2.23.10 (6D.179) — BugFix: --vv-h РАНІШЕ бралось з живого
+  // window.visualViewport.height у ЦЕЙ САМИЙ тік (синхронно на focusin) —
+  // але саме в цей момент WebKit ЩЕ НЕ почав анімацію клавіатури, тому
+  // vv.height тут завжди дорівнює ПОВНІЙ (докlавіатурній) висоті, а не
+  // майбутній стиснутій. CSS max-height (Режим A) рахується ЯКРАЗ із
+  // --vv-h — отже картка спершу рендерилась із завищеним max-height
+  // (на всю висоту екрана), і лише ПІЗНІШЕ, коли реальний visualViewport
+  // resize нарешті приходить, стискалась до правильного розміру. Для
+  // QWERTY-клавіатури ("Назва", keyboardKindForField==='text') це вікно
+  // неточності найпомітніше — звідси й ефект "картка боргів у назві
+  // потребує скролу", попри те що фінальний розмір коректний. Рішення:
+  // --vv-h на вході рахуємо З ТІЄЇ Ж оцінки клавіатури (estimate), що й
+  // --kb-h (baseVh - estimate), а не з ненадійного vv.height "до" —
+  // обидва CSS calc() одразу узгоджені між собою й одразу близькі до
+  // фінального розміру; updateKbSheetGeometry() нижче однаково
+  // перераховує обидва з ЖИВИХ вимірів, щойно клавіатура стабілізується.
+  const vvEstimate = Math.max(0, baseVh - estimate);
   document.documentElement.style.setProperty('--kb-h', estimate + 'px');
-  document.documentElement.style.setProperty('--vv-h', vvH + 'px');
+  document.documentElement.style.setProperty('--vv-h', vvEstimate + 'px');
   document.documentElement.classList.add('kb-sheet');
   if(getKbMode() === 'B') document.documentElement.classList.add('kb-mode-b');
   captureDebugGeometry('sheet-open', { drawerId: drawerEl.id || null });
