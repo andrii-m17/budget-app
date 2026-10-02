@@ -5083,6 +5083,8 @@ function keyboardInsetSandbox(){
     'shouldBlockTouchMove', 'keyboardKindForField', 'computeModeBShiftPx',
     'computeSheetLift', 'isSheetArrived', 'shouldForceTransfer', 'downsampleSheetAnimPairs',
     'computeSheetMaxHeight', 'planSheetClose',
+    'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor', 'shouldTransfer', 'cubicBezierProgress',
+    'computeFieldBottomAt', 'countKbBlips', 'planTabbarRestore',
   ]);
 }
 test('isKeyboardLikelyClosed: РЕАЛЬНИЙ живий кейс (6D.158, t=9583) — база 894, vvHeight 505 (клавіатура щойно з\'явилась) → НЕ "закрита", попри те що живий window.innerHeight у ту саму мить сам помилково читав 505', () => {
@@ -5224,6 +5226,62 @@ test('planSheetClose: закриття стартує на focusout + 40мс (з
   assert.equal(ctx.planSheetClose({ focusoutAt: 1000 }).refocusWindowMs, 40);
   assert.equal(ctx.planSheetClose({ focusoutAt: 2000, refocusWindowMs: 100 }).startAt, 2100, 'явний refocusWindowMs перекриває дефолт');
 });
+// Rev 2.23.14 (6D.183) — режими фокусу H1/H2/H3, повні атрибути проксі, таббар.
+test('proxyAttrsFor: копіює ВЕСЬ набір атрибутів (enterkeyhint/autocorrect/spellcheck/pattern/maxlength/min/max/step/lang/dir + readonly/disabled), відсутні — null', () => {
+  const ctx = keyboardInsetSandbox();
+  const field = makeDrawerField({ type: 'text', attrs: { inputmode: 'numeric', enterkeyhint: 'done', autocorrect: 'off', autocomplete: 'off', spellcheck: 'false', pattern: '[0-9]*', maxlength: '9', min: '0', max: '99', step: '1', lang: 'uk', dir: 'ltr', autocapitalize: 'none' }, flags: { readonly: true } });
+  const a = ctx.proxyAttrsFor(field);
+  const expected = { inputmode: 'numeric', enterkeyhint: 'done', autocorrect: 'off', autocomplete: 'off', spellcheck: 'false', pattern: '[0-9]*', maxlength: '9', min: '0', max: '99', step: '1', lang: 'uk', dir: 'ltr', autocapitalize: 'none', type: 'text' };
+  Object.keys(expected).forEach(function(k){ assert.equal(a[k], expected[k], k); });
+  assert.equal(a.readonly, true);
+  assert.equal(a.disabled, false);
+  const bare = ctx.proxyAttrsFor(makeDrawerField({ type: 'text' }));
+  ['inputmode', 'enterkeyhint', 'autocapitalize', 'autocorrect', 'autocomplete', 'spellcheck', 'pattern', 'maxlength', 'min', 'max', 'step', 'lang', 'dir'].forEach(function(k){ assert.equal(bare[k], null, 'відсутній атрибут → null: ' + k); });
+  assert.equal(typeof bare.id, 'undefined', 'id НЕ копіюється');
+  assert.equal(typeof bare.name, 'undefined');
+  assert.equal(typeof bare.value, 'undefined');
+});
+test('shouldTransfer: H1 — kbShown І sheetArrived; H2 — лише kbShown; H3 — ніколи (проксі нема); стеля 420мс для H1/H2', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.shouldTransfer('H1', { kbShown: true, sheetArrived: false, elapsedMs: 100 }), false);
+  assert.equal(ctx.shouldTransfer('H1', { kbShown: false, sheetArrived: true, elapsedMs: 100 }), false);
+  assert.equal(ctx.shouldTransfer('H1', { kbShown: true, sheetArrived: true, elapsedMs: 100 }), true);
+  assert.equal(ctx.shouldTransfer('H1', { kbShown: false, sheetArrived: false, elapsedMs: 420 }), true, 'стеля');
+  assert.equal(ctx.shouldTransfer('H2', { kbShown: true, sheetArrived: false, elapsedMs: 90 }), true, 'H2 не чекає шторку');
+  assert.equal(ctx.shouldTransfer('H2', { kbShown: false, sheetArrived: true, elapsedMs: 90 }), false);
+  assert.equal(ctx.shouldTransfer('H2', { kbShown: false, sheetArrived: false, elapsedMs: 450 }), true, 'стеля');
+  assert.equal(ctx.shouldTransfer('H3', { kbShown: true, sheetArrived: true, elapsedMs: 9999 }), false);
+});
+test('computeFieldBottomAt: 0мс → спокій; ≥240мс → спокій-lift; монотонно спадає; рання точка ближче до спокою', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.computeFieldBottomAt(700, 283, 0, 240), 700);
+  assert.ok(Math.abs(ctx.computeFieldBottomAt(700, 283, 240, 240) - 417) < 0.01);
+  assert.ok(Math.abs(ctx.computeFieldBottomAt(700, 283, 500, 240) - 417) < 0.01, 'після кінця — фінал');
+  let prev = 700;
+  for(let t = 20; t <= 240; t += 20){
+    const v = ctx.computeFieldBottomAt(700, 283, t, 240);
+    assert.ok(v <= prev + 1e-9, 'монотонність t=' + t);
+    prev = v;
+  }
+  assert.ok(ctx.computeFieldBottomAt(700, 283, 90, 240) < 560, 'за 90мс крива (0.22,0.9,0.3,1) вже пройшла більшість шляху');
+});
+test('countKbBlips: зсув ПІСЛЯ появи клавіатури рахується; до появи — ні; стабільні кадри → 0', () => {
+  const ctx = keyboardInsetSandbox();
+  const stable = [[0, 894, 0, 894, 0], [16, 894, 0, 894, 0], [90, 505, 0, 894, 0], [106, 505, 0, 894, 0], [122, 505, 0, 894, 0]];
+  const r1 = ctx.countKbBlips(stable, 894);
+  assert.equal(r1.blips, 0);
+  assert.equal(r1.firstKbFrameT, 90);
+  const blippy = [[0, 894, 0, 894, 0], [90, 505, 0, 894, 0], [106, 505, 0, 894, 0], [122, 505, 12, 882, 12], [138, 505, 0, 894, 0]];
+  const r2 = ctx.countKbBlips(blippy, 894);
+  assert.equal(r2.blips, 2, 'кадр зі зсувом і кадр повернення');
+  assert.equal(ctx.countKbBlips([[0, 894, 0, 894, 0]], 894).firstKbFrameT, null);
+});
+test('planTabbarRestore: час повернення ≤100мс від focusout (за замовчуванням 40), явне більше — обрізається до 100', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.planTabbarRestore({ focusoutAt: 1000 }).restoreAt, 1040);
+  assert.equal(ctx.planTabbarRestore({ focusoutAt: 1000 }).msAfterFocusout, 40);
+  assert.equal(ctx.planTabbarRestore({ focusoutAt: 1000, refocusWindowMs: 500 }).msAfterFocusout, 100);
+});
 test('keyboardKindForField: inputmode="numeric" → numeric, звичайний text → text', () => {
   const ctx = keyboardInsetSandbox();
   assert.equal(ctx.keyboardKindForField({ type: 'text', getAttribute: function(n){ return n === 'inputmode' ? 'numeric' : null; } }), 'numeric');
@@ -5281,7 +5339,9 @@ function makeFakeDrawerEl(id, bottom){
     getAnimations: function(){ return []; },
   };
 }
-function kbSheetSandbox(){
+function kbSheetSandbox(opts){
+  opts = opts || {};
+  const timers = [];
   const mainCol = { _inert: false, setAttribute: function(name){ if(name==='inert') this._inert = true; }, removeAttribute: function(name){ if(name==='inert') this._inert = false; } };
   const bodyClasses = new Set();
   const body = { classList: {
@@ -5312,6 +5372,7 @@ function kbSheetSandbox(){
     keyboardHeightCache: { portrait: {}, landscape: {} },
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
     drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
+    kbFocusFlowMode: 'direct', kbSheetGen: 0, kbSheetLastLift: 0, kbSheetLastVvTarget: 0, kbLastFocusoutAt: Date.now() - 50, kbSheetNaturalHeight: null,
     captureDebugGeometry: function(type, extra){ debugEvents.push(Object.assign({ type: type }, extra || {})); },
     // Rev 2.23.12 (6D.181) — requestAnimationFrame НЕ викликає fn (на
     // відміну від попереднього синхронного стаба) — startSheetAnimSampler()/
@@ -5325,7 +5386,7 @@ function kbSheetSandbox(){
     // exitKbSheet()/startSheetAnimSampler() використовують його як
     // debounce/стелю — тести мають бачити результат одразу, без реального
     // очікування.
-    setTimeout: function(fn){ fn(); return 1; },
+    setTimeout: function(fn){ if(opts.deferTimers){ timers.push(fn); return timers.length; } fn(); return 1; },
     clearTimeout: function(){},
     performance: { now: function(){ return Date.now(); } },
   }, [
@@ -5336,11 +5397,11 @@ function kbSheetSandbox(){
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
     'enterKbSheet', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle',
-    'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'proxyAttrsFor',
+    'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
     'computeSheetLift', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
     'computeSheetMaxHeight', 'planSheetClose',
   ]);
-  return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents };
+  return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents, runTimers: function(){ while(timers.length) timers.shift()(); } };
 }
 function makeDrawerField(opts){
   opts = opts || {};
@@ -5350,10 +5411,12 @@ function makeDrawerField(opts){
   return {
     tagName: tagName, type: type,
     getAttribute: function(n){
+      if(opts.attrs && Object.prototype.hasOwnProperty.call(opts.attrs, n)) return opts.attrs[n];
       if(n === 'inputmode') return opts.inputmode || null;
       if(n === 'autocapitalize') return opts.autocapitalize || null;
       return null;
     },
+    hasAttribute: function(n){ return !!(opts.flags && opts.flags[n]); },
     closest: function(sel){ return sel === '.drawer' && opts.inDrawer !== false ? drawerEl : null; },
     matches: function(sel){
       if(tagName === 'TEXTAREA') return sel.indexOf('textarea') !== -1;
@@ -5470,6 +5533,40 @@ test('exitKbSheet(false): фокус перейшов на ІНШЕ поле П�
   ctx.handleKeyboardFieldFocusSettle();
   assert.equal(body.classList.contains('kb-open'), true, 'клавіатура й далі на екрані для іншого поля — таббар НЕ повертаємо');
   assert.equal(docElClasses.has('kb-sheet'), false, 'проте сама шторка вже не kb-sheet');
+});
+test('exitKbSheet(true): body.kb-open (таббар) знімається ОДРАЗУ на початку закриття + tabbar-restore з msAfterFocusout; kb-sheet — лише після таймера', () => {
+  const { ctx, body, docElClasses, debugEvents, state, runTimers } = kbSheetSandbox({ deferTimers: true });
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  state.activeElement = { tagName: 'BODY' };
+  ctx.handleKeyboardFieldFocusSettle();
+  assert.equal(body.classList.contains('kb-open'), false, 'таббар повертається одразу, не чекаючи переходу');
+  assert.equal(docElClasses.has('kb-sheet'), true, 'шторка ще їде — kb-sheet тримається до кінця переходу');
+  assert.equal(docElClasses.has('kb-sheet-closing'), true);
+  const evt = debugEvents.find(function(e){ return e.type === 'tabbar-restore'; });
+  assert.ok(evt, 'tabbar-restore на початку закриття');
+  assert.ok(evt.msAfterFocusout >= 0 && evt.msAfterFocusout <= 100, 'T1: ≤100мс');
+  runTimers();
+  assert.equal(docElClasses.has('kb-sheet'), false);
+});
+test('exitKbSheet: "хвіст" закриття НЕ знімає класи НОВОЇ шторки, відкритої до його спрацювання (швидкий повторний тап)', () => {
+  const { ctx, docElClasses, state, runTimers } = kbSheetSandbox({ deferTimers: true });
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  state.activeElement = { tagName: 'BODY' };
+  ctx.handleKeyboardFieldFocusSettle(); // закриття стартувало
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl })); // новий фокус ДО finishExit
+  runTimers();
+  assert.equal(docElClasses.has('kb-sheet'), true, 'нова шторка лишилась активною');
+  assert.equal(docElClasses.has('kb-sheet-closing'), false);
+});
+test('enterKbSheet: подія focus-mode несе mode із kbFocusFlowMode і скидає його в direct', () => {
+  const { ctx, debugEvents } = kbSheetSandbox();
+  ctx.kbFocusFlowMode = 'H2';
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+  const evt = debugEvents.find(function(e){ return e.type === 'focus-mode'; });
+  assert.equal(evt.mode, 'H2');
+  assert.equal(ctx.kbFocusFlowMode, 'direct');
 });
 test('sheet-anim: подія несе phase/jumpMaxPx/gapNoLayoutMs/drawerHeightRest/drawerHeightKb', () => {
   const { ctx, debugEvents } = kbSheetSandbox();
