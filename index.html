@@ -2903,7 +2903,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.17</div>
+  <div class="version-footer">Money Tree · Rev 2.23.18</div>
 </div>
   </div>
 </div>
@@ -2997,15 +2997,16 @@
         <button type="button" class="submit-btn pill" id="debug-kb-focus-h3-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbFocusModeFromDrawer('H3')">H3</button>
       </div>
     </div>
-    <!-- Rev 2.23.17 (6D.186) — Стрілки клавіатури (iOS ‹ ›), 3 режими: R (типово,
-         ЕКСПЕРИМЕНТ — повторний фокус із preventScroll на нативному перемиканні),
-         Вимкнено (tabindex="-1" на полях шторок), Як було (нічого не змінювати). -->
+    <!-- Rev 2.23.18 (6D.187) — Стрілки клавіатури (iOS ‹ ›): Системні (типово,
+         без втручання), P (перехід поле→проміжне→поле), R (повторний фокус, лише
+         для порівняння — ламає тип клавіатури), Вимкнено (tabindex="-1"). -->
     <div class="field">
       <label>Стрілки клавіатури (діагностика)</label>
       <div class="row-2">
-        <button type="button" class="submit-btn pill" id="debug-kb-arrows-r-btn" onclick="selectKbArrowsFromDrawer('R')">R</button>
+        <button type="button" class="submit-btn pill" id="debug-kb-arrows-sys-btn" onclick="selectKbArrowsFromDrawer('sys')">Системні</button>
+        <button type="button" class="submit-btn pill" id="debug-kb-arrows-p-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbArrowsFromDrawer('P')">P</button>
+        <button type="button" class="submit-btn pill" id="debug-kb-arrows-r-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbArrowsFromDrawer('R')">R</button>
         <button type="button" class="submit-btn pill" id="debug-kb-arrows-off-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbArrowsFromDrawer('off')">Вимкнено</button>
-        <button type="button" class="submit-btn pill" id="debug-kb-arrows-asis-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbArrowsFromDrawer('asis')">Як було</button>
       </div>
     </div>
     <button type="button" class="submit-btn pill" onclick="startDebugRecordingFromDrawer()">Почати запис</button>
@@ -6729,7 +6730,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.17';
+const APP_VERSION = '2.23.18';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9004,6 +9005,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'labelFor', 'arrowsMode',
   // Rev 2.23.17 (6D.186) — refocus-trick (режим R стрілок).
   'outcome', 'kbFlicker', 'kindChanged',
+  // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
+  'dir', 'keyboardTypeOk', 'panMax400',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -9311,7 +9314,7 @@ function selectKbFocusModeFromDrawer(mode){
 // Rev 2.23.16 (6D.185) — перемикач "Стрілки клавіатури" (вимкнено/увімкнено).
 function updateDebugKbArrowsUI(){
   const mode = getKbArrowsMode();
-  [['R', 'debug-kb-arrows-r-btn'], ['off', 'debug-kb-arrows-off-btn'], ['asis', 'debug-kb-arrows-asis-btn']].forEach(function(pair){
+  [['sys', 'debug-kb-arrows-sys-btn'], ['P', 'debug-kb-arrows-p-btn'], ['R', 'debug-kb-arrows-r-btn'], ['off', 'debug-kb-arrows-off-btn']].forEach(function(pair){
     const btn = document.getElementById(pair[1]);
     if(!btn) return;
     btn.style.background = mode === pair[0] ? '' : 'var(--color-surface-hover)';
@@ -14778,22 +14781,24 @@ const IS_IOS_RUNTIME = isIosRuntime(navigator.userAgent, typeof navigator.standa
 // поза BACKUP_LS_KEYS). tabindex ставимо лише коли його не було (маркер
 // data-kb-ti), щоб знімати лише власний. Лише iOS (force — для тестів).
 const KB_ARROWS_LS_KEY = 'budget_kb_arrows_v1';
-// Rev 2.23.17 (6D.186) — ТРИ режими стрілок: 'R' (типовий — повторний фокус:
-// ЕКСПЕРИМЕНТ, нативне перемикання стрілкою → миттєвий blur+focus із
-// preventScroll, щоб скасувати запланований iOS "scroll to center", див.
-// runRefocusTrick), 'off' (tabindex="-1" на полях шторок — стрілки неактивні),
-// 'asis' ("Як було" — нічого не змінювати, для порівняння). Старе значення
-// 'on' (6D.185 "увімкнено") = 'asis'.
+// Rev 2.23.18 (6D.187) — режими стрілок: 'sys' ("Системні", ТИПОВИЙ — жодного
+// втручання: тип клавіатури й обидві стрілки працюють нативно; лишається
+// коротке здригання фону ~36мс при переході на нижні поля), 'P' (основний
+// експеримент — справжній перехід поле→проміжне→поле, runProxySwitchTrick),
+// 'R' (повторний фокус того САМОГО поля — лишається ЛИШЕ для порівняння: iOS
+// бачить "нічого не змінилось" і не оновлює ні тип клавіатури, ні стан
+// стрілок — у логу 2.23.17 vvH лишався 479 на числових полях; більше не
+// лагодимо), 'off' (tabindex="-1" на полях шторок — стрілки неактивні).
+// Старі значення: 'asis' (6D.186 "Як було") і 'on' (6D.185) = 'sys'.
 function getKbArrowsMode(){
   try{
     const v = localStorage.getItem(KB_ARROWS_LS_KEY);
-    if(v === 'off') return 'off';
-    if(v === 'asis' || v === 'on') return 'asis';
-    return 'R';
-  }catch(e){ return 'R'; }
+    if(v === 'R' || v === 'P' || v === 'off') return v;
+    return 'sys';
+  }catch(e){ return 'sys'; }
 }
 function setKbArrowsMode(mode){
-  try{ localStorage.setItem(KB_ARROWS_LS_KEY, (mode === 'off' || mode === 'asis') ? mode : 'R'); }catch(e){}
+  try{ localStorage.setItem(KB_ARROWS_LS_KEY, (mode === 'R' || mode === 'P' || mode === 'off') ? mode : 'sys'); }catch(e){}
 }
 function applyKbArrowsMode(force){
   if(!IS_IOS_RUNTIME && !force) return;
@@ -15885,6 +15890,84 @@ function computeKbFlicker(vvH0, samples){
   }
   return false;
 }
+// Rev 2.23.18 (6D.187) — isNativeSwitch: перемикання, яке зробила СИСТЕМА
+// (стрілки панелі/«Далі»), а не наше перехоплення: iOS, клавіатура відкрита,
+// поле шторки, не під час нашої власної спроби, `via` (tap/flow) порожній і
+// ≥100мс після останнього нашого перехоплення. Спільна умова для
+// спостереження (native-switch) і для режимів R/P.
+function isNativeSwitch(o){
+  if(!o) return false;
+  return o.ios === true && o.kbSheetOpen === true && o.fieldInDrawer === true
+    && o.refocusing !== true && !o.via
+    && (typeof o.msSinceIntercept !== 'number' || o.msSinceIntercept >= 100);
+}
+function shouldProxySwitchTrick(o){
+  return !!o && o.mode === 'P' && isNativeSwitch(o);
+}
+// switchDirection: 'down', якщо нове поле ПІСЛЯ попереднього в порядку DOM
+// (стрілка «вниз»/«Далі»), інакше 'up'; null, якщо порівняти не можна.
+function switchDirection(fromField, toField){
+  if(!fromField || !toField || typeof fromField.compareDocumentPosition !== 'function') return null;
+  return (fromField.compareDocumentPosition(toField) & 4) ? 'down' : 'up';
+}
+// computeKeyboardTypeOk (K1): vvH після переходу ≈ очікуваний для ТИПУ
+// нового поля (baseVh − оцінка без кешу: numeric 505, text ~478-479 при
+// baseVh 894), ±3пт.
+function computeKeyboardTypeOk(vvH, expectedVvH){
+  return typeof vvH === 'number' && Math.abs(vvH - expectedVvH) <= 3;
+}
+// observeNativeSwitch: 400мс спостереження (rAF, без читань розмітки) після
+// нативного перемикання → подія native-switch (from/to/dir/panMax400/
+// keyboardTypeOk/arrowsMode) — однакова для ВСІХ режимів, щоб порівнювати.
+function observeNativeSwitch(fromField, toField){
+  const vv = window.visualViewport;
+  const t0 = performance.now();
+  let maxOff = 0;
+  let lastVvH = null;
+  const dir = switchDirection(fromField, toField);
+  const drawerId = kbSheetDrawerEl ? (kbSheetDrawerEl.id || null) : null;
+  function tick(now){
+    if(vv){
+      if(vv.offsetTop > maxOff) maxOff = vv.offsetTop;
+      lastVvH = vv.height;
+    }
+    if(now - t0 < 400){ requestAnimationFrame(tick); return; }
+    const baseVh = getBaseViewportHeight();
+    const expected = baseVh - estimateKeyboardHeight(baseVh, kbKindOf(toField), null);
+    captureDebugGeometry('native-switch', {
+      from: fromField ? (fromField.id || null) : null,
+      to: toField.id || null,
+      dir: dir,
+      keyboardTypeOk: computeKeyboardTypeOk(lastVvH, expected),
+      panMax400: Math.round(maxOff),
+      arrowsMode: getKbArrowsMode(),
+      drawerId: drawerId,
+    });
+  }
+  requestAnimationFrame(tick);
+}
+// runProxySwitchTrick (режим P): на нативному focusin — СИНХРОННО, у цій
+// самій задачі: риси нового поля → на проміжне (configureKbProxy — повний
+// набір атрибутів), proxy.focus({preventScroll}), одразу field.focus({
+// preventScroll}). На відміну від R це СПРАВЖНІЙ перехід фокусу між двома
+// різними полями (а не blur того самого) — саме такий перехід iOS коректно
+// опрацьовує на першому відкритті (тип клавіатури, стан стрілок). Проксі
+// лежить у шторці, але tabindex="-1" (поза послідовністю полів — на стрілки
+// не впливає). kbRefocusing на час переходу: вкладені focusin/focusout не
+// чіпають kb-open/kb-sheet.
+function runProxySwitchTrick(field, drawerEl){
+  if(kbRefocusing) return;
+  kbRefocusing = true;
+  try{
+    const proxy = getOrCreateKbProxyEl();
+    configureKbProxy(proxy, field);
+    if(proxy.parentNode !== drawerEl) drawerEl.appendChild(proxy);
+    proxy.focus({ preventScroll: true });
+    focusWithoutScrollIfSupported(field, drawerEl.id);
+  }catch(err){}
+  kbRefocusing = false;
+  captureDebugGeometry('proxy-switch', { to: field.id || null, arrowsMode: 'P', drawerId: drawerEl.id || null });
+}
 // runRefocusTrick: blur()+focus({preventScroll:true}) того самого поля, ОДНА
 // спроба (kbRefocusing — на час спроби focusout/focusin не змінюють
 // kb-open/kb-sheet: handleKeyboardFieldFocusIn виходить, focusout-таймаут
@@ -15935,6 +16018,7 @@ let kbSheetRestBottom = 0;
 let kbSheetLiftDirty = false;
 let kbSheetCurrentLift = 0;
 let kbRefocusing = false;
+let kbLastFocusedField = null;
 let kbLastInterceptAt = 0;
 // Rev 2.23.12 (6D.181) BugFix (промт користувача, SQL-аналіз 9 фокусів у
 // живих логах 2.23.11): проміжний input (6D.180) справді прибрав зсув ПІД
@@ -16427,6 +16511,7 @@ function exitKbSheet(removeKbOpen){
   kbSheetFieldKind = null;
   kbSheetNaturalHeight = null;
   kbSheetLiftDirty = false;
+  kbLastFocusedField = null;
   const finishExit = function(){
     // Rev 2.23.14 (6D.183) — гард: якщо за ці ≤320мс уже відкрилась НОВА
     // шторка (швидкий повторний тап), цей "хвіст" закриття не повинен
@@ -16496,6 +16581,7 @@ function handleKeyboardFieldFocusIn(target){
       // відтворюючи саме ту помилку, яку виправив 6D.179.
       const via = kbSwitchKind;
       kbSwitchKind = null;
+      const fromField = kbLastFocusedField;
       if(via !== 'flow'){
         kbLastSwitchKind = classifyFocusChange({ viaIntercept: via === 'tap' });
         kbLastSwitchAt = Date.now();
@@ -16520,11 +16606,19 @@ function handleKeyboardFieldFocusIn(target){
         document.documentElement.style.setProperty('--sheet-max-h', computeSheetMaxHeight(vvEst, 8, kbSheetNaturalHeight) + 'px');
         kbSheetLiftDirty = true;
       }
-      if(shouldRefocusTrick({ ios: IS_IOS_RUNTIME, mode: getKbArrowsMode(), kbSheetOpen: true, fieldInDrawer: true, refocusing: kbRefocusing, via: via, msSinceIntercept: Date.now() - kbLastInterceptAt })){
+      if(target.id !== 'kb-focus-proxy') kbLastFocusedField = target;
+      const nativeCtx = { ios: IS_IOS_RUNTIME, mode: getKbArrowsMode(), kbSheetOpen: true, fieldInDrawer: true, refocusing: kbRefocusing, via: via, msSinceIntercept: Date.now() - kbLastInterceptAt };
+      // Rev 2.23.18 (6D.187): кожне НАТИВНЕ перемикання спостерігаємо (native-switch)
+      // у будь-якому режимі; далі — P (проміжне поле) або R (лише порівняння).
+      if(isNativeSwitch(nativeCtx)) observeNativeSwitch(fromField, target);
+      if(shouldProxySwitchTrick(nativeCtx)){
+        runProxySwitchTrick(target, drawerEl);
+      }else if(shouldRefocusTrick(nativeCtx)){
         const kindChangedNow = !!prevKind && newKind !== prevKind;
         queueMicrotask(function(){ runRefocusTrick(target, kindChangedNow); });
       }
     }else{
+      if(target.id !== 'kb-focus-proxy') kbLastFocusedField = target;
       enterKbSheet(drawerEl, target);
     }
   }

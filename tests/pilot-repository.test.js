@@ -5337,12 +5337,14 @@ function makeFakeDrawerEl(id, bottom){
       if(idx !== -1) listeners[type].splice(idx, 1);
     },
     getAnimations: function(){ return []; },
+    appendChild: function(el){ el.parentNode = this; },
   };
 }
 function kbSheetSandbox(opts){
   opts = opts || {};
   const timers = [];
   const microtasks = [];
+  const lsStore = {};
   const rafQueue = [];
   const mainCol = { _inert: false, setAttribute: function(name){ if(name==='inert') this._inert = true; }, removeAttribute: function(name){ if(name==='inert') this._inert = false; } };
   const bodyClasses = new Set();
@@ -5368,6 +5370,10 @@ function kbSheetSandbox(opts){
       body: body,
       documentElement: documentElement,
       getElementById: function(id){ return id === 'main-col' ? mainCol : null; },
+      createElement: function(){
+        const attrs = {};
+        return { style: {}, parentNode: null, type: 'text', _attrs: attrs, _calls: [], setAttribute: function(k, v){ attrs[k] = v; }, removeAttribute: function(k){ delete attrs[k]; }, focus: function(o){ this._calls.push('focus:' + (o && o.preventScroll)); } };
+      },
     }, 'activeElement', { get: function(){ return state.activeElement; } }),
     window: { visualViewport: { height: 894, offsetTop: 0 }, innerWidth: 440, innerHeight: 894, scrollY: 0, scrollTo: function(){} },
     baseViewportHeightByOrientation: { portrait: 894, landscape: null },
@@ -5385,6 +5391,8 @@ function kbSheetSandbox(opts){
     // виконається (correctPanIfNeeded фіксує подію ПОЗА колбеком).
     requestAnimationFrame: function(fn){ if(opts.captureRaf){ rafQueue.push(fn); } return 1; },
     queueMicrotask: function(fn){ microtasks.push(fn); },
+    localStorage: { getItem: function(k){ return Object.prototype.hasOwnProperty.call(lsStore, k) ? lsStore[k] : null; }, setItem: function(k, v){ lsStore[k] = String(v); } },
+    KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', kbProxyEl: null, kbLastFocusedField: null,
     IS_IOS_RUNTIME: true, SUPPORTS_FOCUS_PREVENT_SCROLL: true, kbRefocusing: false, kbLastInterceptAt: 0,
     cancelAnimationFrame: function(){},
     // setTimeout — синхронний (той самий принцип, що раніше був у rAF):
@@ -5407,8 +5415,10 @@ function kbSheetSandbox(opts){
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf', 'getKbArrowsMode',
     'shouldRefocusTrick', 'classifyRefocusOutcome', 'computeKbFlicker', 'runRefocusTrick', 'focusWithoutScrollIfSupported',
+    'isNativeSwitch', 'shouldProxySwitchTrick', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'runProxySwitchTrick',
+    'getOrCreateKbProxyEl', 'configureKbProxy',
   ]);
-  return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents, runTimers: function(){ while(timers.length) timers.shift()(); }, microtasks: microtasks, runMicrotasks: function(){ while(microtasks.length) microtasks.shift()(); }, rafQueue: rafQueue };
+  return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents, runTimers: function(){ while(timers.length) timers.shift()(); }, lsStore: lsStore, microtasks: microtasks, runMicrotasks: function(){ while(microtasks.length) microtasks.shift()(); }, rafQueue: rafQueue };
 }
 function makeDrawerField(opts){
   opts = opts || {};
@@ -5722,9 +5732,12 @@ test('handleKeyboardFieldFocusIn: перемикання в межах штор�
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
   assert.equal(adds, 0, 'kb-open уже є — classList.add не викликається (інакше атрибут class перезаписується)');
 });
-test('getKbArrowsMode: за замовчуванням R (6D.186; було off у 6D.185)', () => {
-  const { ctx } = kbSheetSandbox();
-  assert.equal(ctx.getKbArrowsMode(), 'R');
+test('getKbArrowsMode: за замовчуванням sys ("Системні", 6D.187); R/P/off зберігаються; старі asis/on → sys', () => {
+  const { ctx, lsStore } = kbSheetSandbox();
+  assert.equal(ctx.getKbArrowsMode(), 'sys');
+  ['R', 'P', 'off'].forEach(function(m){ lsStore['budget_kb_arrows_v1'] = m; assert.equal(ctx.getKbArrowsMode(), m); });
+  lsStore['budget_kb_arrows_v1'] = 'asis'; assert.equal(ctx.getKbArrowsMode(), 'sys');
+  lsStore['budget_kb_arrows_v1'] = 'on'; assert.equal(ctx.getKbArrowsMode(), 'sys');
 });
 // Rev 2.23.17 (6D.186) — режим R стрілок: повторний фокус (blur+focus preventScroll).
 test('shouldRefocusTrick: лише iOS + режим R + відкрита клавіатура + поле шторки + НЕ наше перехоплення (via) + не <100мс після нього + не під час спроби', () => {
@@ -5751,7 +5764,8 @@ test('classifyRefocusOutcome / computeKbFlicker: pan при vvOffsetTop>1; ми�
   assert.equal(ctx.computeKbFlicker(505, [[16, 505], [300, 479]]), false, 'після 200мс — не рахується');
 });
 test('handleKeyboardFieldFocusIn: НАТИВНЕ перемикання (via=null) у режимі R планує повторний фокус у microtask; тап-перехоплення (via=tap) — ні', () => {
-  const { ctx, microtasks } = kbSheetSandbox();
+  const { ctx, microtasks, lsStore } = kbSheetSandbox();
+  lsStore['budget_kb_arrows_v1'] = 'R';
   const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
   assert.equal(microtasks.length, 0, 'перший фокус — це enterKbSheet, не перемикання');
@@ -5760,6 +5774,65 @@ test('handleKeyboardFieldFocusIn: НАТИВНЕ перемикання (via=nul
   ctx.kbSwitchKind = 'tap';
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
   assert.equal(microtasks.length, 1, 'наше перехоплення — без повторного фокусу');
+});
+// Rev 2.23.18 (6D.187) — режим P (перехід поле→проміжне→поле), спостереження native-switch, "Системні".
+test('isNativeSwitch/shouldProxySwitchTrick: P лише для нативного перемикання (не tap/flow, не <100мс після перехоплення, не під час спроби, iOS, поле шторки)', () => {
+  const { ctx } = kbSheetSandbox();
+  const base = { ios: true, mode: 'P', kbSheetOpen: true, fieldInDrawer: true, refocusing: false, via: null, msSinceIntercept: 5000 };
+  assert.equal(ctx.isNativeSwitch(base), true);
+  assert.equal(ctx.shouldProxySwitchTrick(base), true);
+  assert.equal(ctx.shouldProxySwitchTrick(Object.assign({}, base, { mode: 'sys' })), false, 'Системні — жодного втручання');
+  assert.equal(ctx.shouldProxySwitchTrick(Object.assign({}, base, { mode: 'R' })), false);
+  assert.equal(ctx.shouldProxySwitchTrick(Object.assign({}, base, { mode: 'off' })), false);
+  ['ios', 'kbSheetOpen', 'fieldInDrawer'].forEach(function(k){ const o = Object.assign({}, base); o[k] = false; assert.equal(ctx.isNativeSwitch(o), false, k); });
+  assert.equal(ctx.isNativeSwitch(Object.assign({}, base, { refocusing: true })), false);
+  assert.equal(ctx.isNativeSwitch(Object.assign({}, base, { via: 'tap' })), false);
+  assert.equal(ctx.isNativeSwitch(Object.assign({}, base, { via: 'flow' })), false);
+  assert.equal(ctx.isNativeSwitch(Object.assign({}, base, { msSinceIntercept: 50 })), false);
+});
+test('switchDirection / computeKeyboardTypeOk', () => {
+  const { ctx } = kbSheetSandbox();
+  const a = { compareDocumentPosition: function(b){ return b.after ? 4 : 2; } };
+  assert.equal(ctx.switchDirection(a, { after: true }), 'down');
+  assert.equal(ctx.switchDirection(a, { after: false }), 'up');
+  assert.equal(ctx.switchDirection(null, a), null);
+  assert.equal(ctx.computeKeyboardTypeOk(505, 505), true);
+  assert.equal(ctx.computeKeyboardTypeOk(479, 478), true, 'текстова ±3');
+  assert.equal(ctx.computeKeyboardTypeOk(479, 505), false, 'R: текстова лишилась на числовому полі');
+  assert.equal(ctx.computeKeyboardTypeOk(null, 505), false);
+});
+test('handleKeyboardFieldFocusIn: режим P — на нативному перемиканні СИНХРОННО proxy.focus({preventScroll}) → field.focus({preventScroll}); microtask не планується; nested focusin нічого не змінює; Системні — без втручання', () => {
+  const { ctx, lsStore, microtasks, docElClasses, debugEvents } = kbSheetSandbox();
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  const first = makeDrawerField({ inDrawer: true, drawerEl: drawerEl });
+  ctx.handleKeyboardFieldFocusIn(first);
+  const field = makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawerEl });
+  const order = [];
+  field.focus = function(o){ order.push('field:' + (o && o.preventScroll)); ctx.handleKeyboardFieldFocusIn(field); };
+  lsStore['budget_kb_arrows_v1'] = 'P';
+  const sheetOpens = debugEvents.filter(function(e){ return e.type === 'sheet-open'; }).length;
+  ctx.handleKeyboardFieldFocusIn(field);
+  const proxy = ctx.kbProxyEl;
+  assert.ok(proxy, 'проміжне поле створено');
+  assert.deepEqual(proxy._calls.slice(), ['focus:true']);
+  assert.deepEqual(order, ['field:true'], 'справжнє поле сфокусоване одразу після проксі');
+  assert.equal(proxy.parentNode, drawerEl, 'проксі лежить у шторці');
+  assert.equal(proxy._attrs.inputmode, 'numeric', 'атрибути поля скопійовано на проксі');
+  assert.equal(microtasks.length, 0);
+  assert.equal(ctx.kbRefocusing, false);
+  assert.equal(docElClasses.has('kb-sheet'), true);
+  assert.equal(debugEvents.filter(function(e){ return e.type === 'sheet-open'; }).length, sheetOpens);
+  assert.ok(debugEvents.some(function(e){ return e.type === 'proxy-switch'; }));
+  // Системні — жодного втручання
+  lsStore['budget_kb_arrows_v1'] = 'sys';
+  const f2 = makeDrawerField({ inDrawer: true, type: 'text', drawerEl: drawerEl });
+  const calls2 = [];
+  f2.focus = function(){ calls2.push('f2'); };
+  const before = proxy._calls.length;
+  ctx.handleKeyboardFieldFocusIn(f2);
+  assert.equal(proxy._calls.length, before);
+  assert.equal(calls2.length, 0);
+  assert.equal(microtasks.length, 0);
 });
 test('runRefocusTrick: blur() → focus({preventScroll:true}) того самого поля, ОДНА спроба; focusin під час спроби нічого не змінює; потім refocus-trick з outcome', () => {
   const { ctx, debugEvents, rafQueue, docElClasses, state } = kbSheetSandbox({ captureRaf: true });
