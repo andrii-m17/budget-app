@@ -5372,7 +5372,7 @@ function kbSheetSandbox(opts){
     keyboardHeightCache: { portrait: {}, landscape: {} },
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
     drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
-    kbSwitchKind: null, kbLastSwitchAt: 0, kbLastSwitchKind: null, kbSheetRestBottom: 0, kbSheetLiftDirty: false,
+    kbSheetCurrentLift: 0, kbSwitchKind: null, kbLastSwitchAt: 0, kbLastSwitchKind: null, kbSheetRestBottom: 0, kbSheetLiftDirty: false,
     kbFocusFlowMode: 'direct', kbSheetGen: 0, kbSheetLastLift: 0, kbSheetLastVvTarget: 0, kbLastFocusoutAt: Date.now() - 50, kbSheetNaturalHeight: null,
     captureDebugGeometry: function(type, extra){ debugEvents.push(Object.assign({ type: type }, extra || {})); },
     // Rev 2.23.12 (6D.181) — requestAnimationFrame НЕ викликає fn (на
@@ -5401,6 +5401,7 @@ function kbSheetSandbox(opts){
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
     'computeSheetLift', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
+    'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf', 'getKbArrowsMode',
   ]);
   return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents, runTimers: function(){ while(timers.length) timers.shift()(); } };
 }
@@ -5615,15 +5616,18 @@ test('перемикання на поле ІНШОГО типу клавіат�
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawerEl }));
   assert.equal(docElStyle['--sheet-lift'], '283');
 });
-test('updateKbSheetGeometry: після зміни типу клавіатури уточнює --sheet-lift за ЖИВИМ vv (kbH=415 → 780-(894-415-8)=309), без зміни типу — lift не чіпає', () => {
+test('updateKbSheetGeometry: після зміни типу клавіатури уточнює --sheet-lift за ЖИВИМ vv лише при розбіжності >2пт, без зміни типу — lift не чіпає', () => {
   const { ctx, docElStyle } = kbSheetSandbox();
   const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawerEl }));
   ctx.window.visualViewport.height = 505; ctx.updateKbSheetGeometry();
   assert.equal(docElStyle['--sheet-lift'], '283', 'без зміни типу lift не перераховується з живого vv (перший фокус H2 не чіпаємо)');
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', drawerEl: drawerEl }));
-  ctx.window.visualViewport.height = 479; ctx.updateKbSheetGeometry();
-  assert.equal(docElStyle['--sheet-lift'], '309');
+  assert.equal(docElStyle['--sheet-lift'], '310'); // оцінка text: 416
+  ctx.window.visualViewport.height = 479; ctx.updateKbSheetGeometry(); // live kbH=415 → 309: розбіжність 1пт ≤2 → НЕ чіпаємо
+  assert.equal(docElStyle['--sheet-lift'], '310', 'розбіжність ≤2пт — не уточнюємо (6D.185)');
+  ctx.window.visualViewport.height = 470; ctx.updateKbSheetGeometry(); // live kbH=424 → 318: розбіжність 8пт >2 → уточнено
+  assert.equal(docElStyle['--sheet-lift'], '318');
 });
 test('correctPanIfNeeded: pan після НАТИВНОГО перемикання → подія switch-native (не pan-corrected); після нашого tap → pan-corrected зі switchKind:tap; без перемикання → звичайний pan-corrected', () => {
   const a = kbSheetSandbox();
@@ -5656,6 +5660,66 @@ test('handleKeyboardFieldFocusIn: перемикання класифікуєт�
   ctx.kbSwitchKind = 'flow';
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
   assert.equal(ctx.kbLastSwitchKind, null, 'передача проксі→поле — не перемикання');
+});
+// Rev 2.23.16 (6D.185) — тап по ПІДПИСУ поля, стрілки клавіатури, перемикання типу.
+function makeLabelFor(control){
+  const label = { tagName: 'LABEL', control: control, closest: function(sel){ return sel === 'label' ? label : null; } };
+  const span = { tagName: 'SPAN', closest: function(sel){ if(sel === 'label') return label; return null; } };
+  return { label: label, span: span };
+}
+test('resolveTapField: INPUT → сам; елемент усередині LABEL → .control; LABEL без control → null; чужий елемент → null', () => {
+  const { ctx } = kbSheetSandbox();
+  const input = makeDrawerField({ inDrawer: true, type: 'text' });
+  assert.equal(ctx.resolveTapField(input), input);
+  const l = makeLabelFor(input);
+  assert.equal(ctx.resolveTapField(l.label), input, 'тап по самому LABEL');
+  assert.equal(ctx.resolveTapField(l.span), input, 'тап по тексту/span усередині LABEL');
+  const empty = makeLabelFor(null);
+  assert.equal(ctx.resolveTapField(empty.label), null, 'LABEL без control');
+  assert.equal(ctx.resolveTapField(empty.span), null);
+  assert.equal(ctx.resolveTapField({ tagName: 'BUTTON', closest: function(){ return null; } }), null, 'чужий елемент');
+  assert.equal(ctx.resolveTapField(null), null);
+});
+test('shouldInterceptFirstFocus: поле у шторці, клавіатура закрита, без руху, <500мс → true; кожна умова окремо → false; тап по підпису (поле з resolveTapField) теж', () => {
+  const { ctx } = kbSheetSandbox();
+  const f = makeDrawerField({ inDrawer: true, type: 'text' });
+  const base = { field: f, kbSheetOpen: false, moved: false, durationMs: 80 };
+  assert.equal(ctx.shouldInterceptFirstFocus(base), true);
+  assert.equal(ctx.shouldInterceptFirstFocus(Object.assign({}, base, { field: ctx.resolveTapField(makeLabelFor(f).span) })), true, 'тап по тексту підпису');
+  assert.equal(ctx.shouldInterceptFirstFocus(Object.assign({}, base, { field: null })), false, 'LABEL без control');
+  assert.equal(ctx.shouldInterceptFirstFocus(Object.assign({}, base, { field: makeDrawerField({ inDrawer: false, type: 'text' }) })), false, 'поза шторками ("Витрати")');
+  assert.equal(ctx.shouldInterceptFirstFocus(Object.assign({}, base, { kbSheetOpen: true })), false);
+  assert.equal(ctx.shouldInterceptFirstFocus(Object.assign({}, base, { moved: true })), false);
+  assert.equal(ctx.shouldInterceptFirstFocus(Object.assign({}, base, { durationMs: 700 })), false);
+  assert.equal(ctx.shouldInterceptFirstFocus(Object.assign({}, base, { field: makeDrawerField({ inDrawer: true, type: 'checkbox' }) })), false);
+});
+test('shouldInterceptSwitchTap із підписами: тап по тексту підпису ІНШОГО поля перехоплюється; підпис ПОТОЧНОГО (сфокусованого) поля — ні', () => {
+  const { ctx } = kbSheetSandbox();
+  const a = makeDrawerField({ inDrawer: true, type: 'text' });
+  const b = makeDrawerField({ inDrawer: true, type: 'text' });
+  const base = { active: a, kbSheetOpen: true, moved: false, durationMs: 80 };
+  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({ target: makeLabelFor(b).span }, base)), true);
+  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({ target: makeLabelFor(a).span }, base)), false, 'підпис вже сфокусованого поля');
+  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({ target: makeLabelFor(null).label }, base)), false, 'LABEL без control');
+});
+test('kbKindOf: numeric (inputmode) / text', () => {
+  const { ctx } = kbSheetSandbox();
+  assert.equal(ctx.kbKindOf(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric' })), 'numeric');
+  assert.equal(ctx.kbKindOf(makeDrawerField({ inDrawer: true, type: 'text' })), 'text');
+});
+test('handleKeyboardFieldFocusIn: перемикання в межах шторки НЕ чіпає клас body.kb-open взагалі (жодного classList.add → жодного kb-open-class-changed від MutationObserver)', () => {
+  const { ctx, body } = kbSheetSandbox();
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  let adds = 0;
+  const origAdd = body.classList.add;
+  body.classList.add = function(c){ adds++; return origAdd.call(this, c); };
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  assert.equal(adds, 0, 'kb-open уже є — classList.add не викликається (інакше атрибут class перезаписується)');
+});
+test('getKbArrowsMode: за замовчуванням off (стрілки вимкнено)', () => {
+  const { ctx } = kbSheetSandbox();
+  assert.equal(ctx.getKbArrowsMode(), 'off');
 });
 test('sheet-anim: подія несе phase/jumpMaxPx/gapNoLayoutMs/drawerHeightRest/drawerHeightKb', () => {
   const { ctx, debugEvents } = kbSheetSandbox();
