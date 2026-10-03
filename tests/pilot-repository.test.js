@@ -5342,6 +5342,8 @@ function makeFakeDrawerEl(id, bottom){
 function kbSheetSandbox(opts){
   opts = opts || {};
   const timers = [];
+  const microtasks = [];
+  const rafQueue = [];
   const mainCol = { _inert: false, setAttribute: function(name){ if(name==='inert') this._inert = true; }, removeAttribute: function(name){ if(name==='inert') this._inert = false; } };
   const bodyClasses = new Set();
   const body = { classList: {
@@ -5381,7 +5383,9 @@ function kbSheetSandbox(opts){
     // синхронний виклик спричинив би нескінченну рекурсію в тестах. Жоден
     // наявний тест не покладається на те, що rAF-колбек РЕАЛЬНО
     // виконається (correctPanIfNeeded фіксує подію ПОЗА колбеком).
-    requestAnimationFrame: function(){ return 1; },
+    requestAnimationFrame: function(fn){ if(opts.captureRaf){ rafQueue.push(fn); } return 1; },
+    queueMicrotask: function(fn){ microtasks.push(fn); },
+    IS_IOS_RUNTIME: true, SUPPORTS_FOCUS_PREVENT_SCROLL: true, kbRefocusing: false, kbLastInterceptAt: 0,
     cancelAnimationFrame: function(){},
     // setTimeout — синхронний (той самий принцип, що раніше був у rAF):
     // exitKbSheet()/startSheetAnimSampler() використовують його як
@@ -5402,8 +5406,9 @@ function kbSheetSandbox(opts){
     'computeSheetLift', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf', 'getKbArrowsMode',
+    'shouldRefocusTrick', 'classifyRefocusOutcome', 'computeKbFlicker', 'runRefocusTrick', 'focusWithoutScrollIfSupported',
   ]);
-  return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents, runTimers: function(){ while(timers.length) timers.shift()(); } };
+  return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents, runTimers: function(){ while(timers.length) timers.shift()(); }, microtasks: microtasks, runMicrotasks: function(){ while(microtasks.length) microtasks.shift()(); }, rafQueue: rafQueue };
 }
 function makeDrawerField(opts){
   opts = opts || {};
@@ -5717,9 +5722,75 @@ test('handleKeyboardFieldFocusIn: перемикання в межах штор�
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
   assert.equal(adds, 0, 'kb-open уже є — classList.add не викликається (інакше атрибут class перезаписується)');
 });
-test('getKbArrowsMode: за замовчуванням off (стрілки вимкнено)', () => {
+test('getKbArrowsMode: за замовчуванням R (6D.186; було off у 6D.185)', () => {
   const { ctx } = kbSheetSandbox();
-  assert.equal(ctx.getKbArrowsMode(), 'off');
+  assert.equal(ctx.getKbArrowsMode(), 'R');
+});
+// Rev 2.23.17 (6D.186) — режим R стрілок: повторний фокус (blur+focus preventScroll).
+test('shouldRefocusTrick: лише iOS + режим R + відкрита клавіатура + поле шторки + НЕ наше перехоплення (via) + не <100мс після нього + не під час спроби', () => {
+  const { ctx } = kbSheetSandbox();
+  const base = { ios: true, mode: 'R', kbSheetOpen: true, fieldInDrawer: true, refocusing: false, via: null, msSinceIntercept: 5000 };
+  assert.equal(ctx.shouldRefocusTrick(base), true);
+  assert.equal(ctx.shouldRefocusTrick(Object.assign({}, base, { ios: false })), false);
+  assert.equal(ctx.shouldRefocusTrick(Object.assign({}, base, { mode: 'off' })), false);
+  assert.equal(ctx.shouldRefocusTrick(Object.assign({}, base, { mode: 'asis' })), false);
+  assert.equal(ctx.shouldRefocusTrick(Object.assign({}, base, { kbSheetOpen: false })), false);
+  assert.equal(ctx.shouldRefocusTrick(Object.assign({}, base, { fieldInDrawer: false })), false, '"Витрати"/інші поля не чіпаємо');
+  assert.equal(ctx.shouldRefocusTrick(Object.assign({}, base, { refocusing: true })), false, 'не більше однієї спроби');
+  assert.equal(ctx.shouldRefocusTrick(Object.assign({}, base, { via: 'tap' })), false);
+  assert.equal(ctx.shouldRefocusTrick(Object.assign({}, base, { via: 'flow' })), false);
+  assert.equal(ctx.shouldRefocusTrick(Object.assign({}, base, { msSinceIntercept: 60 })), false, '<100мс після нашого перехоплення');
+});
+test('classifyRefocusOutcome / computeKbFlicker: pan при vvOffsetTop>1; мигання при ≥20пт зміні vvH за 200мс', () => {
+  const { ctx } = kbSheetSandbox();
+  assert.equal(ctx.classifyRefocusOutcome(0), 'ok');
+  assert.equal(ctx.classifyRefocusOutcome(1), 'ok');
+  assert.equal(ctx.classifyRefocusOutcome(53), 'pan');
+  assert.equal(ctx.computeKbFlicker(505, [[16, 505], [100, 505], [190, 504]]), false);
+  assert.equal(ctx.computeKbFlicker(505, [[16, 505], [120, 479]]), true);
+  assert.equal(ctx.computeKbFlicker(505, [[16, 505], [300, 479]]), false, 'після 200мс — не рахується');
+});
+test('handleKeyboardFieldFocusIn: НАТИВНЕ перемикання (via=null) у режимі R планує повторний фокус у microtask; тап-перехоплення (via=tap) — ні', () => {
+  const { ctx, microtasks } = kbSheetSandbox();
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  assert.equal(microtasks.length, 0, 'перший фокус — це enterKbSheet, не перемикання');
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  assert.equal(microtasks.length, 1, 'нативне перемикання');
+  ctx.kbSwitchKind = 'tap';
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  assert.equal(microtasks.length, 1, 'наше перехоплення — без повторного фокусу');
+});
+test('runRefocusTrick: blur() → focus({preventScroll:true}) того самого поля, ОДНА спроба; focusin під час спроби нічого не змінює; потім refocus-trick з outcome', () => {
+  const { ctx, debugEvents, rafQueue, docElClasses, state } = kbSheetSandbox({ captureRaf: true });
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  const first = makeDrawerField({ inDrawer: true, drawerEl: drawerEl });
+  ctx.handleKeyboardFieldFocusIn(first);
+  const field = makeDrawerField({ inDrawer: true, drawerEl: drawerEl });
+  field.id = 'idd-pay';
+  const calls = [];
+  field.blur = function(){ calls.push('blur'); };
+  field.focus = function(o){
+    calls.push('focus:' + (o && o.preventScroll));
+    ctx.handleKeyboardFieldFocusIn(field); // focusin, що синхронно прийшов під час спроби
+  };
+  state.activeElement = field; // runRefocusTrick працює лише поки поле й досі в фокусі
+  const sheetOpenBefore = debugEvents.filter(function(e){ return e.type === 'sheet-open'; }).length;
+  ctx.runRefocusTrick(field, false);
+  assert.deepEqual(calls.slice(), ['blur', 'focus:true']);
+  assert.equal(ctx.kbRefocusing, false, 'прапорець знято після спроби');
+  assert.equal(docElClasses.has('kb-sheet'), true);
+  assert.equal(debugEvents.filter(function(e){ return e.type === 'sheet-open'; }).length, sheetOpenBefore);
+  // 400мс спостережень: vvOffsetTop 0 → ok
+  const t0 = Date.now();
+  const tick = rafQueue.shift();
+  tick(t0 + 16);
+  while(rafQueue.length){ rafQueue.shift()(t0 + 500); }
+  const evt = debugEvents.find(function(e){ return e.type === 'refocus-trick'; });
+  assert.ok(evt, 'подія refocus-trick');
+  assert.equal(evt.to, 'idd-pay');
+  assert.equal(evt.outcome, 'ok');
+  assert.equal(evt.kbFlicker, false);
 });
 test('sheet-anim: подія несе phase/jumpMaxPx/gapNoLayoutMs/drawerHeightRest/drawerHeightKb', () => {
   const { ctx, debugEvents } = kbSheetSandbox();
