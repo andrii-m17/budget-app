@@ -1252,6 +1252,35 @@
      рядку Сервісу (без червоного/крапок) і картки тестових варіантів. */
   .test-badge{ margin-left:auto; flex-shrink:0; min-width:22px; padding:2px 8px; border-radius:999px; background:var(--color-surface-hover); color:var(--color-text-secondary); font-size:12px; font-weight:700; text-align:center; font-family:'JetBrains Mono',monospace; }
   .test-badge.hidden{ display:none; }
+  /* Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": права частина рядка
+     Сервісу (сірий бейдж + шеврон), повноекранний екран, чипи, рядки (ті
+     самі .expense-row-swipe/.expense-row, що Журнал), дії свайпу. */
+  .service-wide-right{ margin-left:auto; display:flex; align-items:center; gap:8px; color:var(--color-text-secondary); flex-shrink:0; }
+  .trash-screen{ position:fixed; inset:0; z-index:60; background:var(--color-bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom, 0px) + 32px); }
+  .trash-screen.hidden{ display:none; }
+  .trash-inner{ max-width:640px; margin:0 auto; }
+  .trash-sub{ font-size:12.5px; color:var(--color-text-secondary); margin:-6px 2px 14px; line-height:1.4; }
+  .trash-chips{ display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .trash-chip{ min-height:44px; padding:0 16px; border-radius:999px; border:1.5px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); font-size:13.5px; font-weight:600; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .trash-chip.active{ background:var(--color-text-primary); color:var(--color-bg); border-color:var(--color-text-primary); }
+  .trash-count{ font-size:11.5px; color:var(--color-muted); margin:0 2px 10px; min-height:14px; }
+  .trash-row{ min-height:44px; border-left:3px solid var(--color-border-strong); }
+  .trash-row .trash-ico{ flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--color-surface-hover); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; }
+  .trash-row .trash-ico svg{ width:16px; height:16px; }
+  .trash-row .trash-line2{ font-size:11.5px; color:var(--color-text-secondary); margin-top:3px; }
+  .trash-row .trash-note{ font-size:11.5px; color:var(--color-text-primary); margin-top:3px; }
+  .trash-row .trash-right{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .trash-row .trash-amount{ font-size:14px; font-weight:700; }
+  .trash-row .trash-amount.expense{ color:var(--color-error); }
+  .trash-row .trash-amount.income{ color:var(--color-success); }
+  .trash-restore-btn{ min-height:44px; padding:0 14px; border:none; border-radius:999px; background:var(--color-success-bg); color:var(--color-success); font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .trash-chevron{ flex-shrink:0; color:var(--color-muted); display:flex; }
+  .expense-row-actions .swipe-restore-btn{ background:var(--color-success); width:88px; flex-direction:column; gap:2px; font-size:11px; font-weight:700; font-family:inherit; }
+  .trash-detail-row{ display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--color-border); font-size:13.5px; }
+  .trash-detail-row span:first-child{ color:var(--color-text-secondary); flex-shrink:0; }
+  .trash-detail-row span:last-child{ color:var(--color-text-primary); font-weight:600; text-align:right; min-width:0; overflow-wrap:anywhere; }
+  .live-toast.toast-success{ border-left-color:var(--color-success); }
+  .live-toast.toast-error{ border-left-color:var(--color-error); background:var(--color-error-bg); }
   #testing-drawer .drawer-head-sub{ font-size:12px; color:var(--color-text-secondary); margin-top:2px; }
   .test-section-sub{ font-size:12px; color:var(--color-text-secondary); margin:-4px 2px 12px; }
   .test-card{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:14px; margin-bottom:12px; }
@@ -2864,6 +2893,25 @@
     </span>
   </button>
 
+  <!-- Rev 2.23.23 (6D.192, Ревізія D) — рядок "Видалені дані": нейтральний
+       сірий бейдж із кількістю (updateTrashBadge(), прихований при 0) і
+       шеврон; без червоних крапок і кольорових акцентів. -->
+  <button type="button" class="service-wide-card" id="trash-btn" onclick="openTrashScreen()">
+    <span class="service-tile-icon c-blue">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      </svg>
+    </span>
+    <span class="service-wide-text">
+      <span class="service-wide-title">Видалені дані</span>
+      <span class="service-wide-sub">Відновлення або остаточне видалення</span>
+    </span>
+    <span class="service-wide-right">
+      <span class="test-badge hidden" id="trash-badge" aria-label="Видалених записів"></span>
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </span>
+  </button>
+
   <!-- Rev 2.23.22 (6D.191) — ОДИН рядок "Тестування" (раніше тут стояв
        окремий рядок "Запис діагностики" — тепер він усередині шторки
        "Тестування", поруч із тестовими варіантами функцій). Праворуч —
@@ -2919,7 +2967,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.22</div>
+  <div class="version-footer">Money Tree · Rev 2.23.23</div>
 </div>
   </div>
 </div>
@@ -2960,6 +3008,46 @@
 <button type="button" class="scroll-top-btn" id="scroll-top-btn" onclick="scrollTopBtnClick()" aria-label="Прокрутити до початку">
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>
 </button>
+
+<!-- ================= "Видалені дані" (Rev 2.23.23, 6D.192, Ревізія D) =================
+     Повноекранний екран (fixed, нижче шторок/тостів): стрілка "назад" і
+     заголовок без іконок; підзаголовок; чипи Усі/Витрати/Доходи/Інше;
+     список buildTrashItems() у розмітці рядків Журналу (.expense-row-swipe).
+     Деталі — окрема шторка нижче (лише перегляд + "Відновити"). -->
+<div class="trash-screen hidden" id="trash-screen" role="region" aria-label="Видалені дані" inert>
+  <div class="trash-inner">
+    <div class="journal-overlay-top">
+      <button type="button" class="journal-back-btn" onclick="closeTrashScreen()" aria-label="Назад">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="journal-overlay-title">Видалені дані</div>
+    </div>
+    <div class="trash-sub">Тут зберігаються видалені записи. Їх можна відновити або видалити назавжди</div>
+    <div class="trash-chips" id="trash-chips" role="tablist" aria-label="Фільтр">
+      <button type="button" class="trash-chip active" data-filter="all" role="tab">Усі</button>
+      <button type="button" class="trash-chip" data-filter="expenses" role="tab">Витрати</button>
+      <button type="button" class="trash-chip" data-filter="incomes" role="tab">Доходи</button>
+      <button type="button" class="trash-chip" data-filter="other" role="tab">Інше</button>
+    </div>
+    <div class="trash-count" id="trash-count"></div>
+    <div id="trash-list"></div>
+  </div>
+</div>
+<div class="drawer-backdrop" id="trash-detail-backdrop" onclick="closeTrashDetail()" inert></div>
+<div class="drawer" id="trash-detail-drawer" role="dialog" aria-label="Видалений запис" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-head">
+    <div class="drawer-head-main">
+      <div class="drawer-head-text">
+        <h2 id="trash-detail-title">Видалений запис</h2>
+        <div class="drawer-head-sub" id="trash-detail-sub"></div>
+      </div>
+    </div>
+    <button class="drawer-close" onclick="closeTrashDetail()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div id="trash-detail-body"></div>
+  <button type="button" class="submit-btn pill" id="trash-detail-restore-btn" style="margin-top:14px;" onclick="restoreTrashFromDetail()">Відновити</button>
+</div>
 
 <!-- ================= "Тестування" (Rev 2.23.22, 6D.191) =================
      Один екран, два чітко розділені блоки: тестові варіанти функцій (реєстр
@@ -6748,7 +6836,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.22';
+const APP_VERSION = '2.23.23';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9021,6 +9109,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'switchKind', 'from', 'to',
   // Rev 2.23.16 (6D.185) — тап по підпису (intercept-via-label).
   'labelFor',
+  // Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": trashType (НЕ `type` — воно вже тип самої події), ok, count; без назв і сум.
+  'trashType', 'ok', 'count',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
@@ -11944,6 +12034,8 @@ function renderAll(){
   safeCall(populateBankDebtTable, 'populateBankDebtTable');
   safeCall(populateInstallmentTable, 'populateInstallmentTable');
   safeCall(updateTodayExpenseBadge, 'updateTodayExpenseBadge');
+  safeCall(updateTrashBadge, 'updateTrashBadge'); // Rev 2.23.23 (6D.192): бейдж "Видалені дані" в Сервісі
+  if(isTrashOpen) safeCall(renderTrashScreen, 'renderTrashScreen');
 }
 
 /* ============ Бейдж "витрат сьогодні" на кнопці "Витрати" (Rev 2.3.6) ============
@@ -12624,6 +12716,134 @@ async function restoreSubcategory(cat, name){
   reportSaveResult(await saveSubcategories());
   populateMonths(); renderAll(); renderStructure();
   return { success: true };
+}
+// ===== Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": чисті функції =====
+// buildTrashItems(state) — єдине джерело списку (екран, бейдж, фільтри). state:
+// {expenses, incomes, dictionary, categories, subcategories, hiddenFrom,
+// bankAccounts?, installmentAccounts?}. Що показується: витрати/доходи з
+// deletedAt; слова словника, видалені ОКРЕМО (deletedVia порожнє — каскадні
+// окремо не показуються); неактивні категорії (з лічильниками каскаду за
+// маркерами deactivatedVia/deletedVia); підкатегорії, видалені окремо (без
+// deactivatedVia), лише якщо їхня категорія активна; приховані картки й ОЧ
+// (hiddenFrom-запис БЕЗ deletedAt — у цьому домені tombstone означає "показано
+// назад"). Борги НЕ показуються (технічні tombstone-и). Відсортовано за датою
+// видалення (trashSortKey), найновіші згори.
+const TRASH_HIDDEN_LEGACY_EPOCH = '1970-01-01T00:00:00.000Z';
+function trashSortKey(item){
+  return item && item.deletedAt ? String(item.deletedAt) : '';
+}
+function buildTrashItems(state){
+  const items = [];
+  const st = state || {};
+  (st.expenses || []).forEach(function(e){
+    if(!e.deletedAt) return;
+    items.push({ type: 'expense', group: 'expenses', id: e.id, key: 'expense:' + e.id, title: e.name || '', amount: e.amount, recordDate: e.date || '', category: e.category || '', subcategory: e.subcategory || '', deletedAt: e.deletedAt, deletedBy: e.updatedBy || null, createdBy: e.createdBy || null });
+  });
+  (st.incomes || []).forEach(function(e){
+    if(!e.deletedAt) return;
+    items.push({ type: 'income', group: 'incomes', id: e.id, key: 'income:' + e.id, title: e.source || '', amount: e.amount, recordDate: e.date || '', category: '', subcategory: '', deletedAt: e.deletedAt, deletedBy: e.updatedBy || null, createdBy: e.createdBy || null });
+  });
+  const dictionary = st.dictionary || [];
+  const categories = st.categories || [];
+  const subcategories = st.subcategories || [];
+  dictionary.forEach(function(d){
+    if(!d.deletedAt || d.deletedVia) return;
+    items.push({ type: 'word', group: 'other', id: d.id, key: 'word:' + d.id, title: d.kw || '', category: d.cat || '', subcategory: d.sub || '', deletedAt: d.deletedAt });
+  });
+  categories.forEach(function(c){
+    if(c.active !== false) return;
+    const subs = subcategories.filter(function(x){ return x.deactivatedVia === 'category' && x.category === c.name; }).length;
+    const words = dictionary.filter(function(d){ return d.deletedVia === 'category' && d.cat === c.name; }).length;
+    items.push({ type: 'category', group: 'other', id: c.name, key: 'category:' + c.name, title: c.name, deletedAt: c.updatedAt || null, cascadeSubs: subs, cascadeWords: words });
+  });
+  subcategories.forEach(function(x){
+    if(x.active !== false || x.deactivatedVia) return;
+    const parent = categories.find(function(c){ return c.name === x.category; });
+    if(!parent || parent.active === false) return;
+    const words = dictionary.filter(function(d){ return d.deletedVia === 'subcategory' && d.sub === x.name; }).length;
+    items.push({ type: 'subcategory', group: 'other', id: x.category + '|' + x.name, key: 'subcategory:' + x.category + '|' + x.name, title: x.name, category: x.category, deletedAt: x.updatedAt || null, cascadeSubs: 0, cascadeWords: words });
+  });
+  const hidden = st.hiddenFrom || {};
+  Object.keys(hidden).forEach(function(k){
+    const entry = hidden[k];
+    if(!entry || typeof entry !== 'object' || entry.deletedAt) return;
+    const idx = k.indexOf(':');
+    const kind = idx === -1 ? '' : k.slice(0, idx);
+    const name = idx === -1 ? k : k.slice(idx + 1);
+    if(kind !== 'card' && kind !== 'installment') return;
+    const list = kind === 'card' ? st.bankAccounts : st.installmentAccounts;
+    if(Array.isArray(list) && !list.some(function(a){ return a && a.name === name; })) return;
+    const when = entry.updatedAt && entry.updatedAt !== TRASH_HIDDEN_LEGACY_EPOCH ? entry.updatedAt : null;
+    items.push({ type: kind, group: 'other', id: k, key: kind + ':' + name, title: name, hiddenMonth: entry.month || '', deletedAt: when });
+  });
+  items.sort(function(a, b){
+    return trashSortKey(b).localeCompare(trashSortKey(a)) || String(b.key).localeCompare(String(a.key));
+  });
+  return items;
+}
+function trashCount(state){
+  return buildTrashItems(state).length;
+}
+function filterTrashItems(items, filter){
+  if(!filter || filter === 'all') return items.slice();
+  return items.filter(function(i){ return i.group === filter; });
+}
+// restoreBlockedReason(item, state) — null, якщо відновлення дозволене; інакше
+// фрагмент для червоного тосту "Не вдалося відновити: <reason>". Колізії назв
+// (активний запис із такою ж назвою), а також слово/підкатегорія, чия
+// категорія/підкатегорія ще видалена (спершу відновіть її).
+function restoreBlockedReason(item, state){
+  if(!item) return 'запис не знайдено';
+  const st = state || {};
+  const dictionary = st.dictionary || [];
+  const categories = st.categories || [];
+  const subcategories = st.subcategories || [];
+  if(item.type === 'word'){
+    if(dictionary.some(function(d){ return d.kw === item.title && !d.deletedAt; })) return 'слово «' + item.title + '» вже існує';
+    const cat = categories.find(function(c){ return c.name === item.category; });
+    if(cat && cat.active === false) return 'категорію «' + item.category + '» видалено — спершу відновіть її';
+    if(item.subcategory){
+      const sub = subcategories.find(function(x){ return x.name === item.subcategory; });
+      if(sub && sub.active === false) return 'підкатегорію «' + item.subcategory + '» видалено — спершу відновіть її';
+    }
+    return null;
+  }
+  if(item.type === 'category'){
+    if(categories.some(function(c){ return c.active !== false && c.name === item.title; })) return 'категорія «' + item.title + '» вже існує';
+    return null;
+  }
+  if(item.type === 'subcategory'){
+    const parent = categories.find(function(c){ return c.name === item.category; });
+    if(!parent || parent.active === false) return 'категорію «' + item.category + '» видалено — спершу відновіть її';
+    if(subcategories.some(function(x){ return x.active !== false && x.name === item.title; })) return 'підкатегорія «' + item.title + '» вже існує';
+    return null;
+  }
+  return null;
+}
+// pluralizeRecords(n): "1 запис", "2-4 записи", "5-20 записів", "21 запис",
+// "22-24 записи", "25-30 записів"; виняток 11-14 (і всі n%100 у 11..14) — "записів".
+// pluralUa(n, forms) — ІСНУЮЧА функція (Rev #30, 6D.86, вище; forms=[1, 2-4, 5+]) — не дублюємо.
+function pluralizeRecords(n){
+  return n + ' ' + pluralUa(n, ['запис', 'записи', 'записів']);
+}
+// Примітка до категорії/підкатегорії: "Буде повернено: 2 підкатегорії і 3 слова".
+function trashCascadeNote(item){
+  const parts = [];
+  if(item.cascadeSubs > 0) parts.push(item.cascadeSubs + ' ' + pluralUa(item.cascadeSubs, ['підкатегорія', 'підкатегорії', 'підкатегорій']));
+  if(item.cascadeWords > 0) parts.push(item.cascadeWords + ' ' + pluralUa(item.cascadeWords, ['слово', 'слова', 'слів']));
+  return parts.length ? 'Буде повернено: ' + parts.join(' і ') : '';
+}
+const TRASH_MONTHS_SHORT = ['січ.', 'лют.', 'бер.', 'квіт.', 'трав.', 'черв.', 'лип.', 'серп.', 'вер.', 'жовт.', 'лист.', 'груд.'];
+function formatTrashShortDate(isoDate){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate || '');
+  if(!m) return '';
+  return parseInt(m[3], 10) + ' ' + TRASH_MONTHS_SHORT[parseInt(m[2], 10) - 1];
+}
+function formatTrashDeletedAt(iso){
+  const d = new Date(iso);
+  if(!iso || isNaN(d)) return '';
+  const pad = function(n){ return String(n).padStart(2, '0'); };
+  return d.getDate() + ' ' + TRASH_MONTHS_SHORT[d.getMonth()] + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
 // Rev 2.18.0 — короткий список на "Витрати" показував ВСІ записи (лише
 // обрізані до 80) без фільтра — глибша історія просто зникала. Тепер короткий
@@ -14213,6 +14433,7 @@ function performSwitchTab(tab){
   // користувач завжди повертався на форму внесення нової витрати (типовий
   // стан вкладки), а не "застрягав" на Журналі під іншою вкладкою.
   if(isJournalOpen) closeJournal();
+  if(isTrashOpen) closeTrashScreen(); // Rev 2.23.23 (6D.192): екран "Видалені дані" — підекран Сервісу
   // Rev #21+#23 (bugfix) — data-status popover (крапка "станом на" на
   // KPI "Борг"/"Скорочення боргу") лишався відкритим і після переходу на
   // іншу вкладку, бо закривався лише по кліку поза його межами/Escape —
@@ -14933,6 +15154,274 @@ function resetAllTestVariantsFromUi(){
   renderTestingDrawer();
 }
 updateTestingBadge();
+// ===== Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": екран і відновлення =====
+let isTrashOpen = false;
+let trashFilter = 'all';
+let trashDetailKey = null;
+function trashStateNow(){
+  return { expenses: expenses, incomes: incomes, dictionary: DICTIONARY, categories: CATEGORIES, subcategories: SUBCATEGORIES, hiddenFrom: hiddenFrom, bankAccounts: bankAccounts, installmentAccounts: installmentAccounts };
+}
+function updateTrashBadge(){
+  const badge = document.getElementById('trash-badge');
+  if(!badge) return;
+  const n = trashCount(trashStateNow());
+  badge.textContent = n ? String(n) : '';
+  badge.classList.toggle('hidden', !n);
+}
+const TRASH_TYPE_LABELS = { category: 'Категорія', subcategory: 'Підкатегорія', word: 'Слово', card: 'Картка', installment: 'ОЧ' };
+const TRASH_TYPE_ICONS = {
+  expense: '<path d="M7 7l10 10"/><path d="M17 8v9H8"/>',
+  income: '<path d="M7 17L17 7"/><path d="M8 7h9v9"/>',
+  word: '<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1"/>',
+  category: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  subcategory: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+  installment: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+};
+function trashDisplayTitle(item){
+  return (item.type === 'category' || item.type === 'subcategory') ? stripLeadingEmoji(item.title) : item.title;
+}
+function trashDeletedLine(item){
+  const when = formatTrashDeletedAt(item.deletedAt);
+  const who = item.deletedBy ? authorInfoFor(item.deletedBy) : null;
+  const verb = (item.type === 'card' || item.type === 'installment') ? 'Приховано' : 'Видалено';
+  if(!when) return '';
+  return verb + ' ' + when + (who ? ' · ' + who.name : '');
+}
+function trashRowHtml(item){
+  const isMoney = item.type === 'expense' || item.type === 'income';
+  const author = isMoney ? authorInfoFor(item.createdBy) : null;
+  const strip = author ? ' style="border-left-color:var(' + author.colorVar + ')"' : '';
+  const ico = '<span class="trash-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' + (TRASH_TYPE_ICONS[item.type] || '') + '</svg></span>';
+  const chips = [];
+  if(!isMoney) chips.push('<span class="chip">' + escapeHtml(TRASH_TYPE_LABELS[item.type] || '') + '</span>');
+  if(item.type === 'expense') chips.push('<span class="' + (item.category ? 'chip' : 'chip empty') + '">' + escapeHtml(item.category ? (item.subcategory || item.category) : 'без категорії') + '</span>');
+  if(item.type === 'income') chips.push('<span class="chip income">дохід</span>');
+  if(item.type === 'word' && item.category) chips.push('<span class="chip">' + escapeHtml(stripLeadingEmoji(item.subcategory || item.category)) + '</span>');
+  if(isMoney && item.recordDate) chips.push('<span class="trash-line2" style="margin:0">за ' + escapeHtml(formatTrashShortDate(item.recordDate)) + '</span>');
+  let note = '';
+  if(item.type === 'category' || item.type === 'subcategory') note = trashCascadeNote(item);
+  if(item.type === 'card' || item.type === 'installment'){
+    note = item.hiddenMonth ? 'Приховано з ' + monthGenitive(item.hiddenMonth) + ' ' + item.hiddenMonth.slice(0, 4) : '';
+  }
+  const deleted = (item.type === 'card' || item.type === 'installment') ? '' : trashDeletedLine(item);
+  const amountHtml = isMoney ? '<span class="trash-amount ' + item.type + ' mono">' + (item.type === 'income' ? '+' : '−') + fmt(item.amount) + '</span>' : '';
+  const chevron = '<span class="trash-chevron"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></span>';
+  const restoreIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>';
+  return '<div class="expense-row-swipe" data-trash-key="' + escapeAttr(item.key) + '">' +
+    '<div class="expense-row-actions"><button type="button" class="swipe-restore-btn" data-trash-restore="1" aria-label="Відновити">' + restoreIcon + '<span>Відновити</span></button></div>' +
+    '<div class="expense-row trash-row"' + strip + '>' +
+      '<div class="exp-row-top">' + ico +
+        '<div class="exp-main">' +
+          '<div class="exp-name">' + escapeHtml(trashDisplayTitle(item)) + '</div>' +
+          '<div class="exp-meta">' + chips.join('') + '</div>' +
+          (note ? '<div class="trash-note">' + escapeHtml(note) + '</div>' : '') +
+          (deleted ? '<div class="trash-line2">' + escapeHtml(deleted) + '</div>' : '') +
+        '</div>' +
+        '<div class="trash-right">' + amountHtml + '<button type="button" class="trash-restore-btn" data-trash-restore="1">Відновити</button></div>' +
+        chevron +
+      '</div>' +
+    '</div></div>';
+}
+function renderTrashScreen(){
+  const list = document.getElementById('trash-list');
+  if(!list) return;
+  const all = buildTrashItems(trashStateNow());
+  const items = filterTrashItems(all, trashFilter);
+  document.querySelectorAll('#trash-chips .trash-chip').forEach(function(b){
+    const on = b.getAttribute('data-filter') === trashFilter;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const countEl = document.getElementById('trash-count');
+  if(countEl) countEl.textContent = items.length ? pluralizeRecords(items.length) : '';
+  if(!items.length){
+    list.innerHTML = '<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div><div class="es-title">Тут порожньо</div><div class="es-sub">Видалені записи з\'являтимуться тут</div></div>';
+  }else{
+    list.innerHTML = items.map(trashRowHtml).join('');
+  }
+  updateTrashBadge();
+}
+function setTrashFilter(f){
+  trashFilter = f;
+  renderTrashScreen();
+}
+function openTrashScreen(){
+  isTrashOpen = true;
+  trashFilter = 'all';
+  const screen = document.getElementById('trash-screen');
+  if(!screen) return;
+  lastFocusedBeforeDialog = document.activeElement;
+  renderTrashScreen();
+  screen.classList.remove('hidden');
+  screen.removeAttribute('inert');
+  screen.scrollTop = 0;
+  lockBackgroundScroll();
+  captureDebugGeometry('trash-open', { count: buildTrashItems(trashStateNow()).length });
+}
+function closeTrashScreen(){
+  if(!isTrashOpen) return;
+  isTrashOpen = false;
+  closeTrashDetail();
+  const screen = document.getElementById('trash-screen');
+  if(screen){ screen.classList.add('hidden'); screen.setAttribute('inert', ''); }
+  unlockBackgroundScroll();
+  restoreFocus();
+  updateTrashBadge();
+}
+function showTrashToast(text, kind){
+  const stack = document.getElementById('live-toast-stack');
+  if(!stack) return;
+  const toast = document.createElement('div');
+  toast.className = 'live-toast ' + (kind === 'error' ? 'toast-error' : 'toast-success');
+  const body = document.createElement('div');
+  body.className = 'live-toast-body';
+  const line = document.createElement('div');
+  line.className = 'live-toast-name';
+  line.textContent = text;
+  body.appendChild(line);
+  toast.appendChild(body);
+  attachToastDismiss(toast, stack, kind === 'error' ? 4000 : 3000);
+}
+async function restoreTrashRecord(kind, id){
+  const rec = (kind === 'expense' ? expenses : incomes).find(function(r){ return r.id === id; });
+  if(!rec || !rec.deletedAt) return { success: false, error: 'запис не знайдено серед видалених' };
+  const nowISO = new Date().toISOString();
+  delete rec.deletedAt;
+  rec.updatedAt = nowISO;
+  reportSaveResult(kind === 'expense' ? await saveExpenses() : await saveIncomes());
+  if(kind === 'expense') pushExpenseRecordPilot(rec); else pushIncomeRecordPilot(rec);
+  populateMonths(); renderAll();
+  return { success: true };
+}
+async function restoreTrashWord(id){
+  const d = DICTIONARY.find(function(x){ return x.id === id && x.deletedAt && !x.deletedVia; });
+  if(!d) return { success: false, error: 'слово не знайдено серед видалених' };
+  delete d.deletedAt;
+  delete d.deletedVia;
+  d.updatedAt = new Date().toISOString();
+  reportSaveResult(await saveDictionary());
+  renderStructure();
+  return { success: true };
+}
+// restoreTrashItem(key): блокування колізій → відновлення наявними функціями
+// (restoreCategory/restoreSubcategory/unhideEntity + зняття deletedAt) →
+// зелений тост "Запис відновлено · Назва · 74 ₴" (3 с) чи червоний "Не вдалося
+// відновити: ..." (4 с). Подія trash-restore — лише тип і ok (без назв і сум).
+async function restoreTrashItem(key){
+  const state = trashStateNow();
+  const item = buildTrashItems(state).find(function(i){ return i.key === key; });
+  if(!item){
+    showTrashToast('Не вдалося відновити: запис не знайдено', 'error');
+    captureDebugGeometry('trash-restore', { trashType: null, ok: false });
+    renderTrashScreen();
+    return false;
+  }
+  const blocked = restoreBlockedReason(item, state);
+  if(blocked){
+    showTrashToast('Не вдалося відновити: ' + blocked, 'error');
+    captureDebugGeometry('trash-restore', { trashType: item.type, ok: false });
+    return false;
+  }
+  let result;
+  try{
+    if(item.type === 'expense' || item.type === 'income') result = await restoreTrashRecord(item.type, item.id);
+    else if(item.type === 'word') result = await restoreTrashWord(item.id);
+    else if(item.type === 'category') result = await restoreCategory(item.title);
+    else if(item.type === 'subcategory') result = await restoreSubcategory(item.category, item.title);
+    else { result = await unhideEntity(item.type, item.title); populateMonths(); renderAll(); renderStructure(); }
+  }catch(err){ result = { success: false, error: err && err.message ? err.message : String(err) }; }
+  const ok = !!result && result.success !== false;
+  captureDebugGeometry('trash-restore', { trashType: item.type, ok: ok });
+  if(!ok){
+    showTrashToast('Не вдалося відновити: ' + ((result && result.error) || 'невідома помилка'), 'error');
+    return false;
+  }
+  showTrashToast('Запис відновлено · ' + trashDisplayTitle(item) + (item.amount != null ? ' · ' + fmt(item.amount) : ''), 'success');
+  renderTrashScreen();
+  return true;
+}
+function openTrashDetail(key){
+  const item = buildTrashItems(trashStateNow()).find(function(i){ return i.key === key; });
+  if(!item) return;
+  trashDetailKey = key;
+  const rows = [];
+  const add = function(label, value){ if(value) rows.push([label, value]); };
+  add('Тип', item.type === 'expense' ? 'Витрата' : item.type === 'income' ? 'Дохід' : (TRASH_TYPE_LABELS[item.type] || ''));
+  add('Назва', trashDisplayTitle(item));
+  if(item.amount != null) add('Сума', (item.type === 'income' ? '+' : '−') + fmt(item.amount));
+  add('Категорія', item.type === 'category' || item.type === 'subcategory' ? '' : stripLeadingEmoji(item.category || ''));
+  add('Підкатегорія', item.type === 'subcategory' ? '' : (item.subcategory || ''));
+  if(item.recordDate) add('Дата запису', formatTrashShortDate(item.recordDate) + ' ' + item.recordDate.slice(0, 4));
+  const creator = item.createdBy ? authorInfoFor(item.createdBy) : null;
+  add('Створив', creator ? creator.name : '');
+  const deleter = item.deletedBy ? authorInfoFor(item.deletedBy) : null;
+  add(item.type === 'card' || item.type === 'installment' ? 'Приховав' : 'Видалив', deleter ? deleter.name : '');
+  add(item.type === 'card' || item.type === 'installment' ? 'Приховано' : 'Видалено', formatTrashDeletedAt(item.deletedAt));
+  if(item.hiddenMonth) add('Приховано з', monthGenitive(item.hiddenMonth) + ' ' + item.hiddenMonth.slice(0, 4));
+  const note = (item.type === 'category' || item.type === 'subcategory') ? trashCascadeNote(item) : '';
+  const body = document.getElementById('trash-detail-body');
+  body.textContent = '';
+  rows.forEach(function(r){
+    const row = document.createElement('div');
+    row.className = 'trash-detail-row';
+    const a = document.createElement('span'); a.textContent = r[0];
+    const b = document.createElement('span'); b.textContent = r[1];
+    row.appendChild(a); row.appendChild(b);
+    body.appendChild(row);
+  });
+  if(note){
+    const n = document.createElement('div'); n.className = 'trash-note'; n.style.marginTop = '10px'; n.textContent = note;
+    body.appendChild(n);
+  }
+  document.getElementById('trash-detail-title').textContent = trashDisplayTitle(item);
+  document.getElementById('trash-detail-sub').textContent = 'Тільки перегляд';
+  const backdrop = document.getElementById('trash-detail-backdrop');
+  const drawer = document.getElementById('trash-detail-drawer');
+  const wasOpen = drawer.classList.contains('open');
+  backdrop.removeAttribute('inert'); backdrop.classList.add('open');
+  drawer.removeAttribute('inert'); drawer.classList.add('open');
+  if(!wasOpen) lockBackgroundScroll();
+}
+function closeTrashDetail(){
+  const backdrop = document.getElementById('trash-detail-backdrop');
+  const drawer = document.getElementById('trash-detail-drawer');
+  if(!drawer) return;
+  const wasOpen = drawer.classList.contains('open');
+  backdrop.classList.remove('open'); backdrop.setAttribute('inert', '');
+  drawer.classList.remove('open'); drawer.setAttribute('inert', '');
+  trashDetailKey = null;
+  if(wasOpen) unlockBackgroundScroll();
+}
+async function restoreTrashFromDetail(){
+  const key = trashDetailKey;
+  if(!key) return;
+  const ok = await restoreTrashItem(key);
+  if(ok) closeTrashDetail();
+}
+(function initTrashScreenHandlers(){
+  const list = document.getElementById('trash-list');
+  const chips = document.getElementById('trash-chips');
+  if(chips) chips.addEventListener('click', function(e){
+    const b = e.target.closest('.trash-chip');
+    if(b) setTrashFilter(b.getAttribute('data-filter'));
+  });
+  if(list) list.addEventListener('click', function(e){
+    const wrap = e.target.closest('.expense-row-swipe');
+    if(!wrap) return;
+    const key = wrap.getAttribute('data-trash-key');
+    if(e.target.closest('[data-trash-restore]')){
+      e.stopPropagation();
+      if(typeof closeSwipeActions === 'function') closeSwipeActions();
+      restoreTrashItem(key);
+      return;
+    }
+    if(suppressNextRowTapSelect){ suppressNextRowTapSelect = false; return; }
+    if(wrap.classList.contains('swipe-open')){ if(typeof closeSwipeActions === 'function') closeSwipeActions(); return; }
+    openTrashDetail(key);
+  });
+})();
+updateTrashBadge();
 // Проста Tab-пастка: поки відкритий рівно один з двох діалогів (drawer або
 // app-modal — вони ніколи не відкриті одночасно в цьому застосунку), Tab/
 // Shift+Tab циклічно лишається всередині нього, не "втікаючи" у фонову
@@ -14999,7 +15488,7 @@ function closeSettings(){
   restoreFocus();
   if(wasOpen) unlockBackgroundScroll();
 }
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeTestingDrawer(); closeSettings(); closeProfileMenu(); closeProfileLoginDrawer(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeTrashDetail(); closeTrashScreen(); closeTestingDrawer(); closeSettings(); closeProfileMenu(); closeProfileLoginDrawer(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
 
 // Rev #30 (6D.12) — свайп-донизу для закриття .drawer (як iOS bottom sheet).
 // Один генеричний обробник на всі 5 drawer'ів через спільний .drawer-handle
