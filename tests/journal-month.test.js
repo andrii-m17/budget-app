@@ -102,12 +102,13 @@ test('findRecordIdForDate: витрата пріоритетніша за дох
   assert.equal(ctx.findRecordIdForDate('2026-09-15'), 'journal-row-expense-0');
 });
 
-test('findRecordIdForDate: без витрат на цю дату — шукає серед доходів', () => {
+// Rev 2.23.31 (6D.200): Журнал показує лише витрати — доходи більше не шукаються (journal-row-income-N не існує).
+test('findRecordIdForDate: без витрат на цю дату доходи НЕ шукаються (Журнал лише з витратами)', () => {
   const ctx = sandbox({
     expenses: [{ id: 'e1', name: 'Кава', date: '2026-09-14' }],
     incomes: [{ id: 'i1', source: 'Зарплата Андрій', date: '2026-09-15' }],
   });
-  assert.equal(ctx.findRecordIdForDate('2026-09-15'), 'journal-row-income-0');
+  assert.equal(ctx.findRecordIdForDate('2026-09-15'), null);
 });
 
 test('findRecordIdForDate: жодного запису на цю дату → null (не помилка)', () => {

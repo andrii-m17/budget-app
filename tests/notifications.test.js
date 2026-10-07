@@ -55,6 +55,7 @@ function runHandle(action){
     performSwitchTab: rec('performSwitchTab'), switchAccountingTab: rec('switchAccountingTab'), openJournal: rec('openJournal'), latestTouchedRecordMonth: function(){ return '2026-10'; },
     openTrashScreen: rec('openTrashScreen'), goToCardDebtsTab: rec('goToCardDebtsTab'), captureDebugGeometry: rec('capture'),
     captureFocusAudit: function(){}, highlightInstallmentRow: rec('highlight'),
+    allMonths: function(){ return ['2026-09', '2026-10']; }, selectedMonth: '2026-09', performMonthChange: rec('performMonthChange'),
   }, ['routeForPushType', 'handlePushAction']);
   return ctx.handlePushAction(action).then(function(){ return calls; });
 }
@@ -225,4 +226,33 @@ test('джерело (6D.199): «Сповіщення» немає в Серві
   const st = SRC.slice(SRC.indexOf('id="settings-drawer"'), SRC.indexOf('id="settings-drawer"') + 6000);
   assert.ok(st.includes('settings-notifications-row') && st.includes('id="theme-toggle"') && st.includes('Мова та валюта поки фіксовані'));
   ['auto', 'light', 'dark'].forEach(function(t){ assert.ok(st.includes("setThemeChoice('" + t + "')"), t); });
+});
+
+// ===== Rev 2.23.31 (6D.200): target зведення і Журнал лише з витратами =====
+test('routeForPushType: other-actor-summary за data.target (journal / accounting / debts / відсутній / невідомий)', () => {
+  assert.deepEqual(j(pure.routeForPushType('other-actor-summary', { target: 'accounting' })), { screen: 'accounting' });
+  assert.deepEqual(j(pure.routeForPushType('other-actor-summary', { target: 'debts' })), { screen: 'debts' });
+  assert.deepEqual(j(pure.routeForPushType('other-actor-summary', { target: 'journal' })), { screen: 'journal' });
+  assert.deepEqual(j(pure.routeForPushType('other-actor-summary', {})), { screen: 'journal' });
+  assert.deepEqual(j(pure.routeForPushType('other-actor-summary', { target: 'щось' })), { screen: 'journal' });
+  assert.deepEqual(j(pure.routeForPushType('other-actor-summary')), { screen: 'journal' });
+});
+test('handlePushAction: summary → accounting відкриває «Облік → Доходи» з місяцем найновішого доходу; debts → Борги; journal → Журнал', async () => {
+  let c = await runHandle({ type: 'other-actor-summary', target: 'accounting' });
+  assert.ok(c.some(function(x){ return x[0] === 'performSwitchTab' && x[1] === 'accounting'; }));
+  assert.ok(c.some(function(x){ return x[0] === 'switchAccountingTab' && x[1] === 'data'; }));
+  assert.ok(c.some(function(x){ return x[0] === 'performMonthChange' && x[1] === '2026-10'; }));
+  assert.ok(!c.some(function(x){ return x[0] === 'openJournal'; }), 'доходи не ведуть у Журнал');
+  c = await runHandle({ type: 'other-actor-summary', target: 'debts' });
+  assert.ok(c.some(function(x){ return x[0] === 'goToCardDebtsTab'; }) && !c.some(function(x){ return x[0] === 'openJournal'; }));
+  c = await runHandle({ type: 'other-actor-summary' });
+  assert.ok(c.some(function(x){ return x[0] === 'openJournal'; }));
+});
+test('охоронний (J1): Журнал (короткий список і повний) не містить доходів; latestTouchedRecordMonth розрізняє вид', () => {
+  const rr = SRC.slice(SRC.indexOf('function renderRecords()'), SRC.indexOf('function renderRecords()') + 3500);
+  const rj = SRC.slice(SRC.indexOf('function renderJournalView()'), SRC.indexOf('function renderJournalView()') + 2500);
+  assert.equal(/activeIncomes\(\)\.map/.test(rr), false);
+  assert.equal(/activeIncomes\(\)\.map/.test(rj), false);
+  const lt = SRC.slice(SRC.indexOf('function latestTouchedRecordMonth'), SRC.indexOf('function latestTouchedRecordMonth') + 900);
+  assert.ok(/kind === 'income'/.test(lt));
 });

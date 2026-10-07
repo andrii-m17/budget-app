@@ -9,10 +9,11 @@ const { buildSandbox } = require('./extract');
 
 const ctx = buildSandbox({}, [
   'TRASH_HIDDEN_LEGACY_EPOCH', 'TRASH_MONTHS_SHORT',
-  'trashSortKey', 'buildTrashItems', 'trashCount', 'filterTrashItems', 'restoreBlockedReason',
+  'trashSortKey', 'trashTabOf', 'isMonthRecordType', 'restoreBlockedReasonForMonthRecord', 'buildTrashItems', 'trashCount', 'filterTrashItems', 'restoreBlockedReason',
   'TRASH_PURGEABLE_TYPES', 'canPurge', 'purgeBlockedReason', 'purgeConfirmText', 'trashTombstonesForReconcile', 'reconcilePlan', 'fmt',
   'pluralUa', 'pluralizeRecords', 'trashCascadeNote', 'formatTrashShortDate', 'formatTrashDeletedAt',
 ]);
+const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
 
 function baseState(){
@@ -100,12 +101,16 @@ test('сортування за датою видалення: найновіш�
   assert.equal(ctx.trashSortKey({ deletedAt: '2026-10-01T00:00:00Z' }), '2026-10-01T00:00:00Z');
   assert.equal(ctx.trashSortKey({ deletedAt: null }), '');
 });
-test('filterTrashItems: Усі / Витрати / Доходи / Інше', () => {
+test('filterTrashItems: Усі / Витрати / Борги / ОЧ / Інше (доходи лише в «Інше»)', () => {
   const items = ctx.buildTrashItems(baseState());
-  assert.equal(j(ctx.filterTrashItems(items, 'all')).length, 7);
-  assert.equal(j(ctx.filterTrashItems(items, 'expenses')).length, 1);
-  assert.equal(j(ctx.filterTrashItems(items, 'incomes')).length, 1);
-  assert.equal(j(ctx.filterTrashItems(items, 'other')).length, 5);
+  const n = function(f){ return j(ctx.filterTrashItems(items, f)).length; };
+  assert.equal(n('all'), 7);
+  assert.equal(n('expenses'), 1);
+  assert.equal(n('debts'), 1);          // прихована картка
+  assert.equal(n('installments'), 1);   // прихована ОЧ
+  assert.equal(n('other'), 4);          // дохід, слово, категорія, підкатегорія
+  assert.equal(n('expenses') + n('debts') + n('installments') + n('other'), n('all'), 'лічильник = сума чипів');
+  assert.equal(j(items.filter(function(i){ return i.type === 'income'; }))[0].group, 'other');
 });
 test('restoreBlockedReason: колізії назв і неактивні батьки блокують; витрати/доходи/картки — ні', () => {
   const st = baseState();
@@ -240,4 +245,82 @@ test('джерело (E): DELETE лише для tombstone, порціями п�
   assert.ok(src.indexOf('i += 100') !== -1);
   assert.equal(/\.delete\(\)[^;]*from\('(categories|subcategories|bank_accounts|installment_accounts|debts|hidden_entities)'/.test(src), false);
   assert.equal(/functions\.invoke\(['"]send-push-notification/.test(src), false);
+});
+
+// ===== Rev 2.23.31 (6D.200): «Видалені дані» — Борги / ОЧ, місячні записи =====
+test('trashTabOf: розподіл усіх типів по чипах', () => {
+  const m = { expense: 'expenses', card: 'debts', debtMonth: 'debts', installment: 'installments', installmentMonth: 'installments', income: 'other', word: 'other', category: 'other', subcategory: 'other' };
+  Object.keys(m).forEach(function(t){ assert.equal(ctx.trashTabOf({ type: t }), m[t], t); });
+  assert.equal(ctx.trashTabOf(null), 'other');
+});
+function debtsState(){
+  const st = baseState();
+  st.debts = [
+    { id: 'd1', kind: 'card', name: 'Моно', month: '2026-10', balance: 1200, deletedAt: '2026-10-05T10:00:00Z', updatedBy: 'u1' },
+    { id: 'd2', kind: 'installment', name: 'ПУМБ Dyson', month: '2026-10', balance: 8000, monthlyPayment: 1250, deletedAt: '2026-10-06T10:00:00Z' },
+    { id: 'd3', kind: 'card', name: 'Моно', month: '2026-09', balance: 500 },            // живий — не показується
+    { id: 'd4', kind: 'other', name: 'X', month: '2026-09', deletedAt: '2026-10-01T00:00:00Z' }, // невідомий вид
+  ];
+  return st;
+}
+test('buildTrashItems: видалені місячні борги карток і ОЧ входять у «Борги» / «ОЧ»; живі й невідомі — ні', () => {
+  const items = j(ctx.buildTrashItems(debtsState()));
+  const d1 = items.find(function(i){ return i.key === 'debtMonth:d1'; });
+  const d2 = items.find(function(i){ return i.key === 'installmentMonth:d2'; });
+  assert.equal(d1.group, 'debts'); assert.equal(d1.amount, 1200); assert.equal(d1.month, '2026-10'); assert.equal(d1.deletedBy, 'u1');
+  assert.equal(d2.group, 'installments'); assert.equal(d2.amount, 1250, 'для ОЧ — платіж');
+  assert.equal(items.some(function(i){ return /d3|d4/.test(i.key); }), false);
+  const all = items.length;
+  const parts = ['expenses', 'debts', 'installments', 'other'].map(function(f){ return j(ctx.filterTrashItems(items, f)).length; });
+  assert.equal(parts.reduce(function(a, b){ return a + b; }, 0), all, 'лічильник «Усі» = сума чипів');
+  assert.equal(ctx.trashCount(debtsState()), all);
+});
+test('restoreBlockedReasonForMonthRecord: дубль живого запису того ж рахунку й місяця блокує, інакше ні', () => {
+  const st = debtsState();
+  const item = j(ctx.buildTrashItems(st)).find(function(i){ return i.key === 'debtMonth:d1'; });
+  assert.equal(ctx.restoreBlockedReason(item, st), null);
+  st.debts.push({ id: 'd9', kind: 'card', name: 'Моно', month: '2026-10', balance: 1 });
+  assert.equal(ctx.restoreBlockedReason(item, st), 'Запис за цей місяць уже існує');
+  assert.equal(ctx.restoreBlockedReasonForMonthRecord(item, st), 'Запис за цей місяць уже існує');
+  const inst = j(ctx.buildTrashItems(debtsState())).find(function(i){ return i.key === 'installmentMonth:d2'; });
+  assert.equal(ctx.restoreBlockedReason(inst, st), null, 'інша картка/вид не конфліктує');
+  st.debts.push({ id: 'd8', kind: 'installment', name: 'ПУМБ Dyson', month: '2026-10', balance: 1, deletedAt: '2026-10-07T00:00:00Z' });
+  assert.equal(ctx.restoreBlockedReason(inst, st), null, 'tombstone не конфліктує');
+});
+test('канPurge для місячних боргів/ОЧ немає (незворотного видалення для боргів, ОЧ і прихованих немає)', () => {
+  const ctx2 = require('./extract').buildSandbox({}, ['TRASH_PURGEABLE_TYPES', 'canPurge']);
+  assert.equal(ctx2.canPurge({ type: 'debtMonth', deletedAt: 'x' }), false);
+  assert.equal(ctx2.canPurge({ type: 'installmentMonth', deletedAt: 'x' }), false);
+  assert.equal(ctx2.canPurge({ type: 'card', deletedAt: 'x' }), false);
+});
+test('trashTombstonesForReconcile: місячні борги/ОЧ звіряються з Cloud (привиди), каскадні слова — ні', () => {
+  const ctx3 = require('./extract').buildSandbox({}, ['trashTombstonesForReconcile']);
+  const list = j(ctx3.trashTombstonesForReconcile({ debts: [{ id: 'd1', kind: 'card', deletedAt: 'x', syncedUpdatedAt: 's' }, { id: 'd2', kind: 'installment', deletedAt: 'x' }, { id: 'd3', kind: 'card' }] }));
+  assert.deepEqual(list, [
+    { key: 'debtMonth:d1', type: 'debtMonth', cloudId: 'd1', synced: true },
+    { key: 'installmentMonth:d2', type: 'installmentMonth', cloudId: 'd2', synced: false },
+  ]);
+});
+test('джерело (6D.200): чипи «Борги»/«ОЧ», немає чипа «Доходи»; відновлення 23505 відкочується з точним тостом', () => {
+  assert.ok(/data-filter="debts"[^>]*>Борги/.test(SRC) && /data-filter="installments"[^>]*>ОЧ/.test(SRC));
+  assert.equal(/data-filter="incomes"/.test(SRC), false);
+  assert.ok(/res\.code === '23505'/.test(SRC) && /Запис за цей місяць уже існує/.test(SRC));
+});
+// restoreTrashMonthRecord: успіх знімає deletedAt і пушить; 23505 → відкат до tombstone й точна помилка (без збою синхронізації).
+test('restoreTrashMonthRecord: успіх / 23505 відкочує / не знайдено', async () => {
+  const mk = function(pushResult){
+    const debtsArr = [{ id: 'd1', kind: 'card', name: 'Моно', month: '2026-10', balance: 5, deletedAt: '2026-10-05T10:00:00Z', updatedAt: '2026-10-05T10:00:00Z', syncedUpdatedAt: '2026-10-05T10:00:00Z' }];
+    const c = require('./extract').buildSandbox({ debts: debtsArr, saveDebts: async function(){ return { success: true }; }, reportSaveResult: function(){}, populateMonths: function(){}, renderAll: function(){}, populateBankDebtTable: function(){}, populateInstallmentTable: function(){}, pushDebtRecordPilot: async function(){ return pushResult; } }, ['restoreTrashMonthRecord']);
+    return { c: c, debts: debtsArr };
+  };
+  let m = mk({ success: true });
+  let r = await m.c.restoreTrashMonthRecord('d1');
+  assert.equal(r.success, true); assert.equal(m.debts[0].deletedAt, undefined);
+  m = mk({ success: false, code: '23505', error: 'duplicate key' });
+  r = await m.c.restoreTrashMonthRecord('d1');
+  assert.equal(r.success, false); assert.equal(r.exact, true); assert.equal(r.error, 'Запис за цей місяць уже існує');
+  assert.equal(m.debts[0].deletedAt, '2026-10-05T10:00:00Z', 'tombstone повернуто');
+  assert.equal(m.debts[0].syncedUpdatedAt, '2026-10-05T10:00:00Z', 'не позначено як несинхронізований');
+  r = await m.c.restoreTrashMonthRecord('нема');
+  assert.equal(r.success, false);
 });

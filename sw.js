@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.23.30';
+const CACHE_NAME = 'budget-app-v2.23.31';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -209,6 +209,7 @@ self.addEventListener('notificationclick', function(event){
         if(notifData.type){
           url = './index.html?pushAction=' + encodeURIComponent(notifData.type);
           if(notifData.installmentId) url += '&installmentId=' + encodeURIComponent(notifData.installmentId);
+          if(notifData.target) url += '&target=' + encodeURIComponent(notifData.target); // Rev 2.23.31 (6D.200): куди веде зведення (journal/accounting/debts)
         }
         if(self.clients.openWindow) return self.clients.openWindow(url);
       });

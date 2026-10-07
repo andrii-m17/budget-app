@@ -3018,7 +3018,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.30</div>
+  <div class="version-footer">Money Tree · Rev 2.23.31</div>
 </div>
   </div>
 </div>
@@ -3079,7 +3079,8 @@
     <div class="trash-chips" id="trash-chips" role="tablist" aria-label="Фільтр">
       <button type="button" class="trash-chip active" data-filter="all" role="tab">Усі</button>
       <button type="button" class="trash-chip" data-filter="expenses" role="tab">Витрати</button>
-      <button type="button" class="trash-chip" data-filter="incomes" role="tab">Доходи</button>
+      <button type="button" class="trash-chip" data-filter="debts" role="tab">Борги</button>
+      <button type="button" class="trash-chip" data-filter="installments" role="tab">ОЧ</button>
       <button type="button" class="trash-chip" data-filter="other" role="tab">Інше</button>
     </div>
     <div class="trash-count" id="trash-count"></div>
@@ -6078,7 +6079,7 @@ async function pushDebtRecordPilot(rec, opts){
     }
     // Rev #30 (6D.49/6D.58) — той самий принцип, що pushExpenseRecordPilot().
     if(!error && !(opts && opts.suppressPull)) await pullDebtsCore();
-    return { success: !error, error: error ? (error.message || String(error)) : undefined };
+    return { success: !error, error: error ? (error.message || String(error)) : undefined, code: error ? error.code : undefined }; // Rev 2.23.31 (6D.200): code (напр. 23505) — для відновлення з корзини
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск.
     return { success: false, error: e && e.message ? e.message : String(e) };
@@ -7233,7 +7234,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.30';
+const APP_VERSION = '2.23.31';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8256,16 +8257,21 @@ function readAndClearPendingPushAction(){
 // pullIncomesCore()) — досить узяти найсвіжішу серед щойно підтягнутих
 // чужих записів (ті самі Map, що вже живлять .just-synced-підсвітку,
 // 6D.68/6D.87), а не вигадувати нове поле.
-function latestTouchedRecordMonth(){
+// Rev 2.23.31 (6D.200) — kind: 'expense' (типово; Журнал, лише витрати) або 'income' ("Облік" → Доходи). Раніше місяць
+// рахувався за витратами І доходами разом, тепер кожен екран має власний.
+function latestTouchedRecordMonth(kind){
   let latestDate = null;
-  recentlyPulledExpenseState.forEach(function(state, id){
-    const rec = expenses.find(function(e){ return e.id === id; });
-    if(rec && rec.date && (!latestDate || rec.date > latestDate)) latestDate = rec.date;
-  });
-  recentlyPulledIncomeState.forEach(function(state, id){
-    const rec = incomes.find(function(e){ return e.id === id; });
-    if(rec && rec.date && (!latestDate || rec.date > latestDate)) latestDate = rec.date;
-  });
+  if(kind === 'income'){
+    recentlyPulledIncomeState.forEach(function(state, id){
+      const rec = incomes.find(function(e){ return e.id === id; });
+      if(rec && rec.date && (!latestDate || rec.date > latestDate)) latestDate = rec.date;
+    });
+  }else{
+    recentlyPulledExpenseState.forEach(function(state, id){
+      const rec = expenses.find(function(e){ return e.id === id; });
+      if(rec && rec.date && (!latestDate || rec.date > latestDate)) latestDate = rec.date;
+    });
+  }
   return latestDate ? monthKey(latestDate) : null;
 }
 // Rev 2.23.29 (6D.198) — чиста мапа "тип сповіщення → екран" (контракт data.type). Невідомий/порожній тип →
@@ -8273,7 +8279,11 @@ function latestTouchedRecordMonth(){
 function routeForPushType(type, data){
   const d = data || {};
   switch(type){
+    // Rev 2.23.31 (6D.200): сервер додає data.target — куди веде зведення: journal (є витрати), accounting (лише доходи),
+    // debts (лише борги). Відсутній/невідомий target → Журнал.
     case 'other-actor-summary': case 'other-actor-added': case 'other-actor-changed':
+      if(d.target === 'accounting') return { screen: 'accounting' };
+      if(d.target === 'debts') return { screen: 'debts' };
       return { screen: 'journal' };
     case 'other-actor-deleted': return { screen: 'trash' };
     case 'daily-expense-reminder': return { screen: 'vytraty', noFocus: true };
@@ -8322,6 +8332,13 @@ async function handlePushAction(action){
     if(cloudAuthInitInFlight) await cloudAuthInitInFlight;
     performSwitchTab('vytraty', { noFocus: true });
     openJournal(latestTouchedRecordMonth());
+  }else if(route.screen === 'accounting'){
+    // Rev 2.23.31 (6D.200): зведення лише з доходами → "Облік" → Доходи, місяць найновішого отриманого доходу.
+    if(cloudAuthInitInFlight) await cloudAuthInitInFlight;
+    performSwitchTab('accounting');
+    switchAccountingTab('data');
+    const incMonth = latestTouchedRecordMonth('income');
+    if(incMonth && incMonth !== selectedMonth && allMonths().includes(incMonth)) performMonthChange(incMonth);
   }else if(route.screen === 'trash'){
     // Видалені дані: після входу, щоб реконсиляція з Cloud (Ревізія E) мала сесію.
     if(cloudAuthInitInFlight) await cloudAuthInitInFlight;
@@ -9984,10 +10001,11 @@ function goToDiagnosticIssue(i){
   }
   // Rev #30 (6D.61) — той самий принцип, що 'expense' вище, для findUnsyncedRecordsIssues().
   if(target.type === 'income'){
-    switchTab('vytraty');
+    // Rev 2.23.31 (6D.200): доходи живуть в "Обліку" → Доходи (Журнал їх не показує).
+    performSwitchTab('accounting');
+    switchAccountingTab('data');
     const inc = activeIncomes()[target.idx];
-    if(inc){ selectedRecordKey = recordKey('income', inc.id); editingRecordKey = null; renderRecords(); }
-    flashDiagnosticTarget('journal-row-income-' + target.idx);
+    if(inc && monthKey(inc.date) !== selectedMonth && allMonths().includes(monthKey(inc.date))) performMonthChange(monthKey(inc.date));
     return;
   }
   // Rev #30 (6D.61) — debts не мають запису в Журналі (показуються картками
@@ -13167,6 +13185,16 @@ async function restoreSubcategory(cat, name){
 // назад"). Борги НЕ показуються (технічні tombstone-и). Відсортовано за датою
 // видалення (trashSortKey), найновіші згори.
 const TRASH_HIDDEN_LEGACY_EPOCH = '1970-01-01T00:00:00.000Z';
+// Rev 2.23.31 (6D.200) — чипи "Видалених даних": Усі · Витрати · Борги · ОЧ · Інше. trashTabOf(item): до якого чипа належить тип.
+// Доходи окремої вкладки не мають: видалений дохід (з "Обліку") потрапляє в "Інше" (чип "дохід"). "Борги" — приховані картки й
+// видалені місячні борги карток; "ОЧ" — приховані ОЧ й видалені місячні записи ОЧ.
+function trashTabOf(item){
+  const t = item && item.type;
+  if(t === 'expense') return 'expenses';
+  if(t === 'card' || t === 'debtMonth') return 'debts';
+  if(t === 'installment' || t === 'installmentMonth') return 'installments';
+  return 'other'; // income, word, category, subcategory
+}
 function trashSortKey(item){
   return item && item.deletedAt ? String(item.deletedAt) : '';
 }
@@ -13175,31 +13203,38 @@ function buildTrashItems(state){
   const st = state || {};
   (st.expenses || []).forEach(function(e){
     if(!e.deletedAt) return;
-    items.push({ type: 'expense', group: 'expenses', id: e.id, key: 'expense:' + e.id, title: e.name || '', amount: e.amount, recordDate: e.date || '', category: e.category || '', subcategory: e.subcategory || '', deletedAt: e.deletedAt, deletedBy: e.updatedBy || null, createdBy: e.createdBy || null });
+    items.push({ type: 'expense', group: trashTabOf({ type: 'expense' }), id: e.id, key: 'expense:' + e.id, title: e.name || '', amount: e.amount, recordDate: e.date || '', category: e.category || '', subcategory: e.subcategory || '', deletedAt: e.deletedAt, deletedBy: e.updatedBy || null, createdBy: e.createdBy || null });
   });
   (st.incomes || []).forEach(function(e){
     if(!e.deletedAt) return;
-    items.push({ type: 'income', group: 'incomes', id: e.id, key: 'income:' + e.id, title: e.source || '', amount: e.amount, recordDate: e.date || '', category: '', subcategory: '', deletedAt: e.deletedAt, deletedBy: e.updatedBy || null, createdBy: e.createdBy || null });
+    items.push({ type: 'income', group: trashTabOf({ type: 'income' }), id: e.id, key: 'income:' + e.id, title: e.source || '', amount: e.amount, recordDate: e.date || '', category: '', subcategory: '', deletedAt: e.deletedAt, deletedBy: e.updatedBy || null, createdBy: e.createdBy || null });
+  });
+  // Rev 2.23.31 (6D.200) — видалені МІСЯЧНІ записи боргів карток і ОЧ (tombstone виникає, коли в шторці очищено баланс).
+  (st.debts || []).forEach(function(d){
+    if(!d.deletedAt || (d.kind !== 'card' && d.kind !== 'installment')) return;
+    const type = d.kind === 'installment' ? 'installmentMonth' : 'debtMonth';
+    const amount = d.kind === 'installment' ? (d.monthlyPayment != null ? d.monthlyPayment : d.balance) : d.balance;
+    items.push({ type: type, group: trashTabOf({ type: type }), id: d.id, key: type + ':' + d.id, title: d.name || '', kindLabel: d.kind, month: d.month || '', amount: amount != null ? amount : null, deletedAt: d.deletedAt, deletedBy: d.updatedBy || null });
   });
   const dictionary = st.dictionary || [];
   const categories = st.categories || [];
   const subcategories = st.subcategories || [];
   dictionary.forEach(function(d){
     if(!d.deletedAt || d.deletedVia) return;
-    items.push({ type: 'word', group: 'other', id: d.id, key: 'word:' + d.id, title: d.kw || '', category: d.cat || '', subcategory: d.sub || '', deletedAt: d.deletedAt });
+    items.push({ type: 'word', group: trashTabOf({ type: 'word' }), id: d.id, key: 'word:' + d.id, title: d.kw || '', category: d.cat || '', subcategory: d.sub || '', deletedAt: d.deletedAt });
   });
   categories.forEach(function(c){
     if(c.active !== false) return;
     const subs = subcategories.filter(function(x){ return x.deactivatedVia === 'category' && x.category === c.name; }).length;
     const words = dictionary.filter(function(d){ return d.deletedVia === 'category' && d.cat === c.name; }).length;
-    items.push({ type: 'category', group: 'other', id: c.name, key: 'category:' + c.name, title: c.name, deletedAt: c.updatedAt || null, cascadeSubs: subs, cascadeWords: words });
+    items.push({ type: 'category', group: trashTabOf({ type: 'category' }), id: c.name, key: 'category:' + c.name, title: c.name, deletedAt: c.updatedAt || null, cascadeSubs: subs, cascadeWords: words });
   });
   subcategories.forEach(function(x){
     if(x.active !== false || x.deactivatedVia) return;
     const parent = categories.find(function(c){ return c.name === x.category; });
     if(!parent || parent.active === false) return;
     const words = dictionary.filter(function(d){ return d.deletedVia === 'subcategory' && d.sub === x.name; }).length;
-    items.push({ type: 'subcategory', group: 'other', id: x.category + '|' + x.name, key: 'subcategory:' + x.category + '|' + x.name, title: x.name, category: x.category, deletedAt: x.updatedAt || null, cascadeSubs: 0, cascadeWords: words });
+    items.push({ type: 'subcategory', group: trashTabOf({ type: 'subcategory' }), id: x.category + '|' + x.name, key: 'subcategory:' + x.category + '|' + x.name, title: x.name, category: x.category, deletedAt: x.updatedAt || null, cascadeSubs: 0, cascadeWords: words });
   });
   const hidden = st.hiddenFrom || {};
   Object.keys(hidden).forEach(function(k){
@@ -13212,7 +13247,7 @@ function buildTrashItems(state){
     const list = kind === 'card' ? st.bankAccounts : st.installmentAccounts;
     if(Array.isArray(list) && !list.some(function(a){ return a && a.name === name; })) return;
     const when = entry.updatedAt && entry.updatedAt !== TRASH_HIDDEN_LEGACY_EPOCH ? entry.updatedAt : null;
-    items.push({ type: kind, group: 'other', id: k, key: kind + ':' + name, title: name, hiddenMonth: entry.month || '', deletedAt: when });
+    items.push({ type: kind, group: trashTabOf({ type: kind }), id: k, key: kind + ':' + name, title: name, hiddenMonth: entry.month || '', deletedAt: when });
   });
   items.sort(function(a, b){
     return trashSortKey(b).localeCompare(trashSortKey(a)) || String(b.key).localeCompare(String(a.key));
@@ -13230,8 +13265,18 @@ function filterTrashItems(items, filter){
 // фрагмент для червоного тосту "Не вдалося відновити: <reason>". Колізії назв
 // (активний запис із такою ж назвою), а також слово/підкатегорія, чия
 // категорія/підкатегорія ще видалена (спершу відновіть її).
+// Rev 2.23.31 (6D.200) — відновлення місячного запису боргу/ОЧ: на сервері діють унікальні індекси (родина, рахунок, місяць) для
+// ЖИВИХ боргів, тож за наявності живого запису того ж рахунку й місяця відновлення блокується (без збою синхронізації).
+function restoreBlockedReasonForMonthRecord(item, state){
+  const list = (state && state.debts) || [];
+  const kind = item.type === 'installmentMonth' ? 'installment' : 'card';
+  const clash = list.some(function(d){ return !d.deletedAt && d.kind === kind && d.name === item.title && d.month === item.month && d.id !== item.id; });
+  return clash ? 'Запис за цей місяць уже існує' : null;
+}
+function isMonthRecordType(type){ return type === 'debtMonth' || type === 'installmentMonth'; }
 function restoreBlockedReason(item, state){
   if(!item) return 'запис не знайдено';
+  if(isMonthRecordType(item.type)) return restoreBlockedReasonForMonthRecord(item, state);
   const st = state || {};
   const dictionary = st.dictionary || [];
   const categories = st.categories || [];
@@ -13291,6 +13336,11 @@ function trashTombstonesForReconcile(state){
   });
   (st.incomes || []).forEach(function(e){
     if(e.deletedAt) list.push({ key: 'income:' + e.id, type: 'income', cloudId: e.id, synced: !!e.syncedUpdatedAt });
+  });
+  // Rev 2.23.31 (6D.200): місячні борги/ОЧ-tombstone-и теж звіряються з Cloud (рядок, видалений в БД, = привид; тут лише
+  // прибираємо локальний привид, незворотного видалення для боргів/ОЧ немає).
+  (st.debts || []).forEach(function(d){
+    if(d.deletedAt && (d.kind === 'card' || d.kind === 'installment')) list.push({ key: (d.kind === 'installment' ? 'installmentMonth:' : 'debtMonth:') + d.id, type: d.kind === 'installment' ? 'installmentMonth' : 'debtMonth', cloudId: d.id, synced: !!d.syncedUpdatedAt });
   });
   (st.dictionary || []).forEach(function(d){
     if(d.deletedAt && !d.deletedVia) list.push({ key: 'word:' + d.id, type: 'word', cloudId: d.cloudId || null, synced: !!d.cloudId });
@@ -13529,9 +13579,9 @@ function renderRecords(){
   // Rev #30 (6D.42/6D.43) — activeExpenses()/activeIncomes(): МАЄ бути той
   // самий idx-простір, що findExpenseIdIssues()/goToDiagnosticIssue()/
   // findRecordIdForDate() — інакше __srcIdx і target.idx розійдуться.
+  // Rev 2.23.31 (6D.200) — Журнал (короткий список на "Витрати") показує ЛИШЕ витрати: доходи живуть тільки в "Обліку" (Доходи).
   const combined = [
-    ...activeExpenses().map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
-    ...activeIncomes().map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
+    ...activeExpenses().map((e,i)=>({...e, kind:'expense', __srcIdx:i}))
   ].sort(compareRecordsForDisplay);
 
   if(showJournalBtn) showJournalBtn.classList.toggle('hidden', combined.length <= SHORT_JOURNAL_LIMIT);
@@ -13906,9 +13956,9 @@ function renderJournalView(){
   const searchSummaryEl = document.getElementById('journal-search-summary');
   const labelEl = document.getElementById('journal-month-label');
   // Rev #30 (6D.42/6D.43) — activeExpenses()/activeIncomes(), той самий принцип/idx-простір, що renderRecords() вище.
+  // Rev 2.23.31 (6D.200) — повний Журнал (місяць, пошук, підсумки дня) лише з витратами; доходи — в "Обліку".
   const allCombined = [
-    ...activeExpenses().map((e,i)=>({...e, kind:'expense', __srcIdx:i})),
-    ...activeIncomes().map((e,i)=>({...e, kind:'income', name:e.source, __srcIdx:i}))
+    ...activeExpenses().map((e,i)=>({...e, kind:'expense', __srcIdx:i}))
   ];
   const dateInputEl = document.getElementById('journal-date-input');
   if(dateInputEl) dateInputEl.value = journalMonth + '-01';
@@ -13954,8 +14004,7 @@ function renderJournalView(){
 function findRecordIdForDate(dateStr){
   const expIdx = activeExpenses().findIndex(function(e){ return e.date === dateStr; });
   if(expIdx !== -1) return 'journal-row-expense-' + expIdx;
-  const incIdx = activeIncomes().findIndex(function(e){ return e.date === dateStr; });
-  if(incIdx !== -1) return 'journal-row-income-' + incIdx;
+  // Rev 2.23.31 (6D.200): доходів у Журналі більше немає (journal-row-income-N не існує).
   return null;
 }
 // Rev 2.19.0 — onchange прихованого #journal-date-input: перемикає
@@ -15673,7 +15722,7 @@ let isTrashOpen = false;
 let trashFilter = 'all';
 let trashDetailKey = null;
 function trashStateNow(){
-  return { expenses: expenses, incomes: incomes, dictionary: DICTIONARY, categories: CATEGORIES, subcategories: SUBCATEGORIES, hiddenFrom: hiddenFrom, bankAccounts: bankAccounts, installmentAccounts: installmentAccounts };
+  return { expenses: expenses, incomes: incomes, debts: debts, dictionary: DICTIONARY, categories: CATEGORIES, subcategories: SUBCATEGORIES, hiddenFrom: hiddenFrom, bankAccounts: bankAccounts, installmentAccounts: installmentAccounts };
 }
 function updateTrashBadge(){
   const badge = document.getElementById('trash-badge');
@@ -15682,7 +15731,7 @@ function updateTrashBadge(){
   badge.textContent = n ? String(n) : '';
   badge.classList.toggle('hidden', !n);
 }
-const TRASH_TYPE_LABELS = { category: 'Категорія', subcategory: 'Підкатегорія', word: 'Слово', card: 'Картка', installment: 'ОЧ' };
+const TRASH_TYPE_LABELS = { debtMonth: 'Борг', installmentMonth: 'ОЧ', category: 'Категорія', subcategory: 'Підкатегорія', word: 'Слово', card: 'Картка', installment: 'ОЧ' };
 const TRASH_TYPE_ICONS = {
   expense: '<path d="M7 7l10 10"/><path d="M17 8v9H8"/>',
   income: '<path d="M7 17L17 7"/><path d="M8 7h9v9"/>',
@@ -15690,9 +15739,15 @@ const TRASH_TYPE_ICONS = {
   category: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   subcategory: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
   card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+  debtMonth: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+  installmentMonth: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   installment: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
 };
 function trashDisplayTitle(item){
+  if(isMonthRecordType(item.type)){
+    const prefix = item.type === 'installmentMonth' ? 'ОЧ' : 'Борг';
+    return prefix + ' · ' + stripLeadingEmoji(item.title); // Rev 2.23.31 (6D.200): місяць — у примітці рядка (щоб назва не обрізалась)
+  }
   return (item.type === 'category' || item.type === 'subcategory') ? stripLeadingEmoji(item.title) : item.title;
 }
 function trashDeletedLine(item){
@@ -15719,9 +15774,11 @@ function trashRowHtml(item){
     note = item.hiddenMonth ? 'Приховано з ' + monthGenitive(item.hiddenMonth) + ' ' + item.hiddenMonth.slice(0, 4) : '';
   }
   const deleted = (item.type === 'card' || item.type === 'installment') ? '' : trashDeletedLine(item);
+  if(isMonthRecordType(item.type)) note = (item.type === 'installmentMonth' ? 'Платіж за ' : 'Борг за ') + (item.month ? monthLabel(item.month) : 'місяць');
   const purgeIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
   const purgeSwipeHtml = canPurge(item) ? '<button type="button" class="swipe-purge-btn" data-trash-purge="1" aria-label="Видалити назавжди"' + (isTrashOffline() ? ' disabled' : '') + '>' + purgeIcon + '<span>Видалити назавжди</span></button>' : '';
-  const amountHtml = isMoney ? '<span class="trash-amount ' + item.type + ' mono">' + (item.type === 'income' ? '+' : '−') + fmt(item.amount) + '</span>' : '';
+  const amountHtml = isMoney ? '<span class="trash-amount ' + item.type + ' mono">' + (item.type === 'income' ? '+' : '−') + fmt(item.amount) + '</span>'
+    : (isMonthRecordType(item.type) && item.amount != null ? '<span class="trash-amount mono">' + fmt(item.amount) + '</span>' : '');
   const chevron = '<span class="trash-chevron"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></span>';
   const restoreIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>';
   return '<div class="expense-row-swipe" data-trash-key="' + escapeAttr(item.key) + '">' +
@@ -15813,6 +15870,27 @@ async function restoreTrashRecord(kind, id){
   populateMonths(); renderAll();
   return { success: true };
 }
+// Rev 2.23.31 (6D.200) — відновлення місячного запису боргу/ОЧ: знімає deletedAt, push як зазвичай. Якщо сервер відповів 23505
+// (живий запис того ж рахунку й місяця вже є в Cloud) — локальне відновлення відкочується, тост «Запис за цей місяць уже існує»,
+// запис лишається tombstone-ом (синхронізація НЕ позначається збійною).
+async function restoreTrashMonthRecord(id){
+  const rec = debts.find(function(d){ return d.id === id && d.deletedAt; });
+  if(!rec) return { success: false, error: 'запис не знайдено серед видалених' };
+  const prev = { deletedAt: rec.deletedAt, updatedAt: rec.updatedAt, syncedUpdatedAt: rec.syncedUpdatedAt };
+  delete rec.deletedAt;
+  rec.updatedAt = new Date().toISOString();
+  reportSaveResult(await saveDebts());
+  const res = await pushDebtRecordPilot(rec);
+  if(res && res.code === '23505'){
+    rec.deletedAt = prev.deletedAt; rec.updatedAt = prev.updatedAt;
+    if(prev.syncedUpdatedAt === undefined) delete rec.syncedUpdatedAt; else rec.syncedUpdatedAt = prev.syncedUpdatedAt;
+    reportSaveResult(await saveDebts());
+    populateMonths(); renderAll();
+    return { success: false, error: 'Запис за цей місяць уже існує', exact: true };
+  }
+  populateMonths(); renderAll(); populateBankDebtTable(); populateInstallmentTable();
+  return { success: true };
+}
 async function restoreTrashWord(id){
   const d = DICTIONARY.find(function(x){ return x.id === id && x.deletedAt && !x.deletedVia; });
   if(!d) return { success: false, error: 'слово не знайдено серед видалених' };
@@ -15838,7 +15916,7 @@ async function restoreTrashItem(key){
   }
   // Rev 2.23.24 (6D.193, Ревізія E) — перед "Відновити" перевірити Cloud: запис, видалений
   // назавжди на іншому пристрої, не воскрешаємо. Офлайн/збій запиту — пропускаємо перевірку.
-  if(canPurge(item)){
+  if(canPurge(item) || isMonthRecordType(item.type)){
     const rec = await reconcileTrash(item.key);
     if(rec && rec.removed.indexOf(item.key) !== -1){
       showTrashToast('Запис уже видалено назавжди', 'error');
@@ -15847,13 +15925,15 @@ async function restoreTrashItem(key){
   }
   const blocked = restoreBlockedReason(item, state);
   if(blocked){
-    showTrashToast('Не вдалося відновити: ' + blocked, 'error');
+    // Rev 2.23.31 (6D.200): для місячних записів боргів/ОЧ текст точний («Запис за цей місяць уже існує»), без префікса.
+    showTrashToast(isMonthRecordType(item.type) ? blocked : 'Не вдалося відновити: ' + blocked, 'error');
     captureDebugGeometry('trash-restore', { trashType: item.type, ok: false });
     return false;
   }
   let result;
   try{
     if(item.type === 'expense' || item.type === 'income') result = await restoreTrashRecord(item.type, item.id);
+    else if(isMonthRecordType(item.type)) result = await restoreTrashMonthRecord(item.id);
     else if(item.type === 'word') result = await restoreTrashWord(item.id);
     else if(item.type === 'category') result = await restoreCategory(item.title);
     else if(item.type === 'subcategory') result = await restoreSubcategory(item.category, item.title);
@@ -15862,7 +15942,7 @@ async function restoreTrashItem(key){
   const ok = !!result && result.success !== false;
   captureDebugGeometry('trash-restore', { trashType: item.type, ok: ok });
   if(!ok){
-    showTrashToast('Не вдалося відновити: ' + ((result && result.error) || 'невідома помилка'), 'error');
+    showTrashToast((result && result.exact ? '' : 'Не вдалося відновити: ') + ((result && result.error) || 'невідома помилка'), 'error');
     return false;
   }
   setTimeout(function(){ captureFocusAudit('trash-restore'); }, 400); // Rev 2.23.29 (6D.198): аудит фокусу після "Відновити"
@@ -15878,7 +15958,7 @@ function openTrashDetail(key){
   const add = function(label, value){ if(value) rows.push([label, value]); };
   add('Тип', item.type === 'expense' ? 'Витрата' : item.type === 'income' ? 'Дохід' : (TRASH_TYPE_LABELS[item.type] || ''));
   add('Назва', trashDisplayTitle(item));
-  if(item.amount != null) add('Сума', (item.type === 'income' ? '+' : '−') + fmt(item.amount));
+  if(item.amount != null) add(item.type === 'installmentMonth' ? 'Платіж' : (item.type === 'debtMonth' ? 'Баланс' : 'Сума'), isMonthRecordType(item.type) ? fmt(item.amount) : (item.type === 'income' ? '+' : '−') + fmt(item.amount));
   add('Категорія', item.type === 'category' || item.type === 'subcategory' ? '' : stripLeadingEmoji(item.category || ''));
   add('Підкатегорія', item.type === 'subcategory' ? '' : (item.subcategory || ''));
   if(item.recordDate) add('Дата запису', formatTrashShortDate(item.recordDate) + ' ' + item.recordDate.slice(0, 4));
@@ -15887,6 +15967,7 @@ function openTrashDetail(key){
   const deleter = item.deletedBy ? authorInfoFor(item.deletedBy) : null;
   add(item.type === 'card' || item.type === 'installment' ? 'Приховав' : 'Видалив', deleter ? deleter.name : '');
   add(item.type === 'card' || item.type === 'installment' ? 'Приховано' : 'Видалено', formatTrashDeletedAt(item.deletedAt));
+  if(isMonthRecordType(item.type) && item.month) add('Місяць', monthLabel(item.month));
   if(item.hiddenMonth) add('Приховано з', monthGenitive(item.hiddenMonth) + ' ' + item.hiddenMonth.slice(0, 4));
   const note = (item.type === 'category' || item.type === 'subcategory') ? trashCascadeNote(item) : '';
   const body = document.getElementById('trash-detail-body');
@@ -15955,7 +16036,7 @@ function updateTrashSyncLine(){
 async function fetchTrashCloudRows(tombstones){
   try{
     const client = getSupabaseClient();
-    const groups = { expense: { table: 'expenses', ids: [] }, income: { table: 'incomes', ids: [] }, word: { table: 'dictionary', ids: [] } };
+    const groups = { expense: { table: 'expenses', ids: [] }, income: { table: 'incomes', ids: [] }, word: { table: 'dictionary', ids: [] }, debtMonth: { table: 'debts', ids: [] }, installmentMonth: { table: 'debts', ids: [] } }; // Rev 2.23.31 (6D.200): місячні борги/ОЧ
     tombstones.forEach(function(t){ if(t.synced && t.cloudId && groups[t.type]) groups[t.type].ids.push(t.cloudId); });
     const rows = [];
     for(const type of Object.keys(groups)){
@@ -15973,20 +16054,21 @@ async function fetchTrashCloudRows(tombstones){
 // Прибирає локально записи за ключами 'type:id'; повторно перевіряє, що вони досі tombstone
 // (за час запиту користувач міг відновити запис).
 async function removeTrashLocally(keys){
-  let touchedExp = false, touchedInc = false, touchedDict = false;
+  let touchedExp = false, touchedInc = false, touchedDict = false, touchedDebts = false;
   keys.forEach(function(key){
     const idx = key.indexOf(':');
     const type = key.slice(0, idx), id = key.slice(idx + 1);
-    const arr = type === 'expense' ? expenses : type === 'income' ? incomes : DICTIONARY;
+    const arr = type === 'expense' ? expenses : type === 'income' ? incomes : isMonthRecordType(type) ? debts : DICTIONARY; // Rev 2.23.31 (6D.200): + місячні борги/ОЧ-привиди
     const at = arr.findIndex(function(r){ return r.id === id && r.deletedAt && !(type === 'word' && r.deletedVia); });
     if(at === -1) return;
     arr.splice(at, 1);
-    if(type === 'expense') touchedExp = true; else if(type === 'income') touchedInc = true; else touchedDict = true;
+    if(type === 'expense') touchedExp = true; else if(type === 'income') touchedInc = true; else if(isMonthRecordType(type)) touchedDebts = true; else touchedDict = true;
   });
   if(touchedExp) reportSaveResult(await saveExpenses());
   if(touchedInc) reportSaveResult(await saveIncomes());
   if(touchedDict) reportSaveResult(await saveDictionaryLocal());
-  if(touchedExp || touchedInc) populateMonths();
+  if(touchedDebts) reportSaveResult(await saveDebts());
+  if(touchedExp || touchedInc || touchedDebts) populateMonths();
   renderAll();
   if(touchedDict) renderStructure();
 }
@@ -18707,7 +18789,7 @@ restoreExpenseDraft();
 const pushActionParams = new URLSearchParams(location.search);
 const pushActionType = pushActionParams.get('pushAction');
 if(pushActionType){
-  handlePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined });
+  handlePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, target: pushActionParams.get('target') || undefined });
   history.replaceState(null, '', location.pathname);
   // 6D.144 — цей запуск уже обслужено через query-параметр (URL з
   // clients.openWindow() цього разу дійшла як є) — прибираємо дубль-запис
