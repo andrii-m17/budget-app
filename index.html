@@ -860,7 +860,13 @@
   /* Rev 2.20.2 — пошук/фільтр Журналу: окремий рядок для поля пошуку (на всю
      ширину) і окремий рядок для двох select'ів (категорія/підкатегорія) —
      трьом контролам разом в одному рядку на 375px затісно. */
-  .journal-search-row{ margin-bottom:8px; }
+  /* Rev 2.23.33 (6D.202) — кнопка "Скинути · N" у ряду пошуку (з'являється лише при активних фільтрах; висоту шапки не збільшує). */
+  .journal-search-row{ margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .journal-search-row .journal-search-input-wrap{ flex:1 1 auto; min-width:0; }
+  .journal-reset-btn{ flex:0 0 auto; min-height:44px; padding:0 14px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-text-primary); font:inherit; font-size:13px; font-weight:700; white-space:nowrap; cursor:pointer; touch-action:manipulation; }
+  .journal-reset-btn.hidden{ display:none; }
+  @media (hover:hover) and (pointer:fine){ .journal-reset-btn:hover{ background:var(--color-surface-hover); } }
+  .journal-empty-reset{ margin-top:12px; }
   .journal-search-input-wrap{ position:relative; }
   /* Rev 2.21.13 BugFix — справжня причина зсуву іконки "×": цей селектор
      (задуманий лише для іконки-лупи, ПРЯМОГО нащадка .journal-search-input-wrap)
@@ -2622,6 +2628,7 @@
               <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
           </div>
+          <button type="button" class="journal-reset-btn hidden" id="journal-reset-btn" onclick="resetJournalFilters()" aria-label="Скинути фільтри"></button>
         </div>
         <div class="journal-search-filters-row">
           <select class="journal-search-category" id="journal-search-category" onchange="onJournalCategoryFilterChange()" aria-label="Категорія"></select>
@@ -3018,7 +3025,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.32</div>
+  <div class="version-footer">Money Tree · Rev 2.23.33</div>
 </div>
   </div>
 </div>
@@ -7314,7 +7321,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.32';
+const APP_VERSION = '2.23.33';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13888,6 +13895,46 @@ function recordsForMonth(records, month){
 // стан одночасно вирішує (а) чи рахувати результати по ВСІЙ історії, а не
 // journalMonth, і (б) чи ховати .journal-month-nav (стрілки+календар).
 // Rev 2.20.2 — додано підкатегорію до умови.
+// Rev 2.23.33 (6D.202) — "Скинути фільтри" у повному Журналі. ФІЛЬТРИ Журналу: пошук за назвою (query), категорія, підкатегорія —
+// більше немає (автор, діапазон дат, суми, сортування, тип запису в Журналі відсутні; сортування фіксоване — найновіші згори — і
+// фільтром не вважається). Вибраний МІСЯЦЬ — навігація, а не фільтр: скидання його НЕ чіпає. Стан фільтрів між запусками не
+// зберігається (openJournal() скидає їх при кожному відкритті).
+function activeFilterCount(filters){
+  const f = filters || {};
+  return (String(f.query || '').trim() !== '' ? 1 : 0) + (f.category ? 1 : 0) + (f.subcategory ? 1 : 0);
+}
+function resetFilters(filters){
+  return { query: '', category: '', subcategory: '', month: filters ? filters.month : undefined };
+}
+function journalFilterState(){
+  return { query: journalSearchQuery, category: journalSearchCategory, subcategory: journalSearchSubcategory, month: journalMonth };
+}
+function updateJournalResetButton(){
+  const btn = document.getElementById('journal-reset-btn');
+  if(!btn) return;
+  const n = activeFilterCount(journalFilterState());
+  btn.classList.toggle('hidden', n === 0);
+  btn.textContent = n ? 'Скинути · ' + n : '';
+  btn.setAttribute('aria-label', n ? 'Скинути фільтри, активних: ' + n : 'Скинути фільтри');
+}
+function resetJournalFilters(){
+  const n = activeFilterCount(journalFilterState());
+  const next = resetFilters(journalFilterState());
+  journalSearchQuery = next.query;
+  journalSearchCategory = next.category;
+  journalSearchSubcategory = next.subcategory;
+  const input = document.getElementById('journal-search-input');
+  if(input) input.value = '';
+  const clearBtn = document.getElementById('journal-search-clear');
+  if(clearBtn) clearBtn.classList.add('hidden');
+  renderJournalView(); // перебудовує списки категорій/підкатегорій під скинуті значення й сам оновлює кнопку
+  captureDebugGeometry('journal-filters-reset', { count: n });
+  killMainColMomentumScroll();
+  const mainColEl = document.getElementById('main-col');
+  if(mainColEl) mainColEl.scrollTop = 0;
+  const overlay = document.getElementById('journal-overlay');
+  if(overlay) overlay.scrollTop = 0;
+}
 function isJournalSearchActive(){
   return journalSearchQuery.trim() !== '' || journalSearchCategory !== '' || journalSearchSubcategory !== '';
 }
@@ -14068,10 +14115,12 @@ function renderJournalView(){
     const icon = searchActive
       ? `<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>`
       : `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>`;
-    container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></div><div class="es-title">${title}</div><div class="es-sub">${sub}</div></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></div><div class="es-title">${title}</div><div class="es-sub">${sub}</div>${searchActive ? '<button type="button" class="submit-btn secondary journal-empty-reset" onclick="resetJournalFilters()">Скинути фільтри</button>' : ''}</div>`;
+    updateJournalResetButton(); // Rev 2.23.33 (6D.202)
     return;
   }
   container.innerHTML = buildRecordGroupsHtml(combined);
+  updateJournalResetButton();
 }
 // Rev 2.19.0 — чиста функція: перший запис (витрата чи дохід) на точну дату,
 // з тим самим __srcIdx/id-схемою (journal-row-<kind>-<srcIdx>), яку
