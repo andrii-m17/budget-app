@@ -2977,7 +2977,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.25</div>
+  <div class="version-footer">Money Tree · Rev 2.23.26</div>
 </div>
   </div>
 </div>
@@ -4117,6 +4117,102 @@ async function saveDictionaryLocal(){
 // прийшли під час виконання, зливаються в ОДИН наступний запуск (він стартує
 // вже після того, як перший проставив cloudId). Альтернатива — прапор без черги
 // — відкинута: пропущене збереження залишило б нову правку без push.
+// ===== Rev 2.23.26 (6D.195, G1) — "пуш лише змінених": спільний шар для name-based доменів =====
+// Після G0 (серверний тригер set_updated_at_if_changed) no-op UPDATE вже не піднімає updated_at,
+// але клієнт усе ще надсилав КОЖЕН запис щоразу (шум, вікно затирання застарілим пристроєм).
+// syncedUpdatedAt до цієї ревізії у словнику лише ПИСАВСЯ; тепер за ним вирішується, що пушити.
+// Спільний шар (isDirty/applyCensus/fetchCloudIdCensus) написано так, щоб G2 (категорії/підкатегорії)
+// і G3 (рахунки/ОЧ) використали його без змін.
+// dirty: запис без cloudId (ніколи не синхронізувався) або змінений після останньої синхронізації.
+function isDirty(entry){
+  return !entry.cloudId || entry.syncedUpdatedAt !== entry.updatedAt;
+}
+// applyCensus(entries, cloudIds): "перепис id" замінює видалений ярлик "already synced" (6D.125):
+// UPDATE-за-id раніше був єдиним способом виявити застарілий cloudId (рядок у Cloud видалено/
+// перестворено). Локальний cloudId, якого немає в переписі, скидається, запис стає dirty
+// (reconcile за назвою створить/усиновить рядок). Виняток — tombstone: його рядка в Cloud немає,
+// бо його видалено назавжди (Ревізія E, на іншому пристрої); відтворювати мертвий запис не можна
+// (push створив би tombstone-привида) — такий запис прибирається локально. cloudIds не масив
+// (збій запиту) або порожній при наявних локальних cloudId (підозра на невалідну сесію/RLS —
+// порожня відповідь без помилки) — нічого не змінюємо.
+// Повертає { reset, dropped } і мутує entries (видалення — splice за посиланням).
+function applyCensus(entries, cloudIds){
+  const out = { reset: 0, dropped: 0 };
+  if(!Array.isArray(cloudIds)) return out;
+  const withCloudId = entries.filter(function(e){ return !!e.cloudId; });
+  if(!cloudIds.length && withCloudId.length) return out;
+  const known = new Set(cloudIds);
+  withCloudId.forEach(function(e){
+    if(known.has(e.cloudId)) return;
+    if(e.deletedAt){
+      const at = entries.indexOf(e);
+      if(at !== -1){ entries.splice(at, 1); out.dropped++; }
+      return;
+    }
+    e.cloudId = null;
+    delete e.syncedUpdatedAt;
+    out.reset++;
+  });
+  return out;
+}
+// fetchCloudIdCensus(table): усі id родини порціями по 100 (без корисного навантаження).
+// Будь-яка помилка → null (нічого не змінюємо).
+async function fetchCloudIdCensus(table){
+  try{
+    const client = getSupabaseClient();
+    const ids = [];
+    for(let from = 0; ; from += 100){
+      const res = await client.from(table).select('id').eq('family_id', cloudFamilyId).order('id', { ascending: true }).range(from, from + 99);
+      if(res.error || !Array.isArray(res.data)) return null;
+      res.data.forEach(function(r){ ids.push(r.id); });
+      if(res.data.length < 100) break;
+    }
+    return ids;
+  }catch(err){ return null; }
+}
+// planDictionaryPush(entries, census, resolveParentIds): чисте рішення "що пушити". census (масив id
+// або null) додатково вважає dirty записи, чий cloudId не в переписі (без мутації). resolveParentIds(entry)
+// → { catId, subId }: словник посилається на батьків за id, тож зміна cloudId категорії/підкатегорії
+// (pull зв'язав за назвою з іншим рядком) робить слово dirty, навіть якщо саме слово не змінювалось
+// (раніше це покривав "пуш усього"). syncedCategoryId/syncedSubcategoryId — батьки, з якими слово
+// востаннє синхронізовано (немає поля = синхронізовано до G1 → один раз dirty).
+function planDictionaryPush(entries, census, resolveParentIds){
+  const known = Array.isArray(census) ? new Set(census) : null;
+  const push = [];
+  entries.forEach(function(e){
+    let dirty = isDirty(e);
+    if(!dirty && known && e.cloudId && !known.has(e.cloudId)) dirty = true;
+    if(!dirty && resolveParentIds){
+      const p = resolveParentIds(e) || {};
+      if((e.syncedCategoryId || null) !== (p.catId || null) || (e.syncedSubcategoryId || null) !== (p.subId || null)) dirty = true;
+    }
+    if(dirty) push.push(e);
+  });
+  return { push: push, skipped: entries.length - push.length };
+}
+function dictionaryParentIds(entry){
+  const cat = CATEGORIES.find(function(c){ return c.name === entry.cat; });
+  const sub = entry.sub ? SUBCATEGORIES.find(function(s){ return s.name === entry.sub; }) : null;
+  return { catId: cat ? cat.cloudId || null : null, subId: sub ? sub.cloudId || null : null };
+}
+function markDictionarySynced(entry, updatedAt, catId, subId){
+  entry.syncedUpdatedAt = updatedAt;
+  entry.syncedCategoryId = catId || null;
+  entry.syncedSubcategoryId = subId || null;
+}
+// reconcileDictionaryCensus(): запускається на вході в сесію, події online і "Синхронізувати все"
+// (НЕ на кожному збереженні). Скидає застарілі cloudId (dirty → push їх відтворить).
+async function reconcileDictionaryCensus(){
+  if(!isCloudSessionReady()) return null;
+  const ids = await fetchCloudIdCensus('dictionary');
+  if(!ids) return null;
+  const res = applyCensus(DICTIONARY, ids);
+  if(res.reset || res.dropped){
+    reportSaveResult(await saveDictionaryLocal());
+    if(res.dropped) renderStructure();
+  }
+  return res;
+}
 let dictionaryPushRunning = null;
 let dictionaryPushQueued = null;
 function pushDictionaryPilot(){
@@ -4139,7 +4235,10 @@ async function pushDictionaryPilotRun(){
   const userId = cloudSession.user.id;
   let localChanged = false;
   let anyError = false;
-  for(const entry of DICTIONARY){
+  // Rev 2.23.26 (6D.195, G1) — лише dirty-записи (див. isDirty/planDictionaryPush вище).
+  const plan = planDictionaryPush(DICTIONARY, null, dictionaryParentIds);
+  captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped });
+  for(const entry of plan.push){
     const parentCat = CATEGORIES.find(function(c){ return c.name === entry.cat; });
     if(!parentCat || !parentCat.cloudId) continue; // категорія ще не синхронізована — не помилка
     let subcategoryId = null;
@@ -4211,7 +4310,7 @@ async function pushDictionaryPilotRun(){
       }else{
         await reconcileDictionaryCloudId(client, userId, entry, parentCat.cloudId, subcategoryId);
       }
-      entry.syncedUpdatedAt = entry.updatedAt;
+      markDictionarySynced(entry, entry.updatedAt, parentCat.cloudId, subcategoryId);
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
@@ -4409,7 +4508,7 @@ async function pullDictionaryCore(){
           if(row.deleted_via) byCloudId.deletedVia = row.deleted_via; else delete byCloudId.deletedVia;
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
-          byCloudId.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
+          markDictionarySynced(byCloudId, row.updated_at, row.category_id, row.subcategory_id); // Rev #30 (6D.50); G1: + батьки
           updated++;
         }
         continue;
@@ -4428,7 +4527,7 @@ async function pullDictionaryCore(){
         if(row.deleted_via) byKw.deletedVia = row.deleted_via; else delete byKw.deletedVia;
         byKw.createdAt = row.created_at;
         byKw.updatedAt = row.updated_at;
-        byKw.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
+        markDictionarySynced(byKw, row.updated_at, row.category_id, row.subcategory_id); // Rev #30 (6D.50); G1: + батьки
         linked++;
         continue;
       }
@@ -4439,7 +4538,7 @@ async function pullDictionaryCore(){
       // ЛОКАЛЬНИЙ tombstone одразу ж, не "живий" запис: потрібно для
       // майбутньої Корзини (Ревізія D) і щоб наступний push цього пристрою
       // не воскресив щойно довізнаний запис.
-      DICTIONARY.push({ id: generateUUID(), kw: row.keyword, cat: parentCat.name, sub: subName, cloudId: row.id, deletedAt: row.deleted_at || undefined, deletedVia: row.deleted_via || undefined, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
+      DICTIONARY.push({ id: generateUUID(), kw: row.keyword, cat: parentCat.name, sub: subName, cloudId: row.id, deletedAt: row.deleted_at || undefined, deletedVia: row.deleted_via || undefined, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, syncedCategoryId: row.category_id, syncedSubcategoryId: row.subcategory_id });
       added++;
     }
     if(maxSeen) setSyncMarker('dictionary', maxSeen);
@@ -4504,6 +4603,8 @@ function mergeBackupRecordsByCloudIdOrName(list, backupList, nameField){
     if(!local){
       const toAdd = Object.assign({}, rec);
       delete toAdd.cloudId;
+      delete toAdd.syncedUpdatedAt; // Rev 2.23.26 (6D.195, G1): запис з бекапу ще не синхронізовано
+      delete toAdd.syncedCategoryId; delete toAdd.syncedSubcategoryId;
       list.push(toAdd);
       added++;
       continue;
@@ -4515,6 +4616,9 @@ function mergeBackupRecordsByCloudIdOrName(list, backupList, nameField){
       if(key === 'cloudId') return; // НІКОЛИ не переносимо cloudId з бекапу — див. коментар вище
       local[key] = rec[key];
     });
+    // Rev 2.23.26 (6D.195, G1) — бекап несе СВІЙ syncedUpdatedAt (== його updatedAt): без явного зняття
+    // змінений запис вважався б синхронізованим і "пуш лише змінених" його пропустив би.
+    delete local.syncedUpdatedAt; delete local.syncedCategoryId; delete local.syncedSubcategoryId;
     updated++;
   }
   return { added: added, updated: updated, kept: kept };
@@ -6895,7 +6999,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.25';
+const APP_VERSION = '2.23.26';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7734,6 +7838,9 @@ async function applyCloudSession(session){
       if(dictResult && !dictResult.skipped && (dictResult.updated || dictResult.linked || dictResult.added)){
         renderStructure();
       }
+      // Rev 2.23.26 (6D.195, G1) — перепис id + одноразовий push dirty-слів на вході в сесію.
+      await reconcileDictionaryCensus();
+      pushDictionaryPilot();
       // Rev #30 (6D, bank_accounts повний цикл) — той самий "один раз на
       // sign-in transition" принцип, окремий виклик на власний домен.
       const bankResult = await pullBankAccountsPilot();
@@ -8653,6 +8760,9 @@ async function syncAllPilotManual(){
   // єдиним способом форсувати реальне повторне узгодження лишалось би
   // вручну відредагувати кожен рахунок. МУСИТЬ бути ПЕРЕД push боргів
   // нижче (той самий FK-порядок, що й pull-послідовність вище).
+  // Rev 2.23.26 (6D.195, G1) — перепис id словника + push dirty-слів у "Синхронізувати все".
+  await reconcileDictionaryCensus();
+  await pushDictionaryPilot();
   await pushBankAccountsPilot();
   await pushInstallmentAccountsPilot();
   // Rev #30 (6D.57) — "Синхронізувати все" тепер СПРАВДІ двосторонній
@@ -9168,6 +9278,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'switchKind', 'from', 'to',
   // Rev 2.23.16 (6D.185) — тап по підпису (intercept-via-label).
   'labelFor',
+  // Rev 2.23.26 (6D.195, G1) — push-dirty (entries, skipped, censusReset, censusDropped): лише лічильники.
+  'entries', 'skipped', 'censusReset', 'censusDropped',
   // Rev 2.23.24 (6D.193, Ревізія E) — trash-reconcile (checked, removedLocally, restoredElsewhere, ms) і trash-purge (trashType, ok, dups): лише лічильники й тип, без назв і сум.
   'checked', 'removedLocally', 'restoredElsewhere', 'ms', 'dups',
   // Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": trashType (НЕ `type` — воно вже тип самої події), ok, count; без назв і сум.
@@ -11430,7 +11542,7 @@ function tryLoadExcelLibrary(){
 // ефект з іншого боку: pull підхопить усе, що Cloud накопичив, поки
 // пристрій був офлайн, а вбудований push-retry всередині pull (keptLocal)
 // сам донесе локально-новіші записи назад.
-window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); pushCategoriesPilot(); pushSubcategoriesPilot(); pushDictionaryPilot(); pushBankAccountsPilot(); pushInstallmentAccountsPilot(); pushHiddenEntitiesPilot(); pullExpensesPilot(); pullIncomesPilot(); pullDebtsPilot(); });
+window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); pushCategoriesPilot(); pushSubcategoriesPilot(); reconcileDictionaryCensus().then(function(res){ if(res) captureDebugGeometry('push-dirty', { censusReset: res.reset, censusDropped: res.dropped }); return pushDictionaryPilot(); }); pushBankAccountsPilot(); pushInstallmentAccountsPilot(); pushHiddenEntitiesPilot(); pullExpensesPilot(); pullIncomesPilot(); pullDebtsPilot(); });
 window.addEventListener('offline', updateOnlineStatusUI);
 
 /* ============ Експорт в Excel ============ */
