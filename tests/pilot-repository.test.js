@@ -147,7 +147,7 @@ const REPOSITORY_NAMES = [
   // фізично на них посилаються.
   'saveSubcategories', 'saveSubcategoriesLocal', 'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId',
   'saveSubcategoryPriority',
-  'saveDictionary', 'saveDictionaryLocal', 'pushDictionaryPilot', 'reconcileDictionaryCloudId',
+  'saveDictionary', 'saveDictionaryLocal', 'pushDictionaryPilot', 'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'escapeLikeExact', 'findLiveDictionaryRow', // Rev 2.23.25 (6D.194): серіалізація + пошук без урахування регістру
   // Rev #30 (6D.28, subcategories+dictionary повний цикл) — той самий
   // cross-realm-override прийом, що pullBankAccountsCore/
   // pullInstallmentAccountsCore тести. pullSubcategoriesPilotManual/
@@ -322,6 +322,7 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       // нижче лишаються чистими unit-тестами локального шару.
       cloudSession: null,
       cloudFamilyId: null,
+      dictionaryPushRunning: null, dictionaryPushQueued: null, // Rev 2.23.25 (6D.194): стан серіалізації push словника
       // Rev #30 (6D.1) — generateUUID() перевіряє window.crypto.randomUUID
       // (справжній шлях у браузері) — vm.Context не має глобального `window`,
       // тому підставляємо мінімальну заглушку поверх реального Node
@@ -3323,6 +3324,13 @@ function dictionaryMockClient(opts){
           const builder = {
             eq(){ return builder; },
             is(){ return builder; },
+            // Rev 2.23.25 (6D.194): пошук живого слова тепер ilike(...).order(...).limit(1) → масив.
+            ilike(){ return builder; },
+            order(){ return builder; },
+            limit(){
+              const r = opts.reconcileSelectResult || { data: null, error: null };
+              return Promise.resolve(r.error ? r : { data: r.data ? [r.data] : [], error: null });
+            },
             maybeSingle(){
               return Promise.resolve(cols === 'id, deleted_at' ? opts.existingRowResult : opts.reconcileSelectResult);
             },

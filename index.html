@@ -2977,7 +2977,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.24</div>
+  <div class="version-footer">Money Tree · Rev 2.23.25</div>
 </div>
   </div>
 </div>
@@ -4109,7 +4109,31 @@ async function saveDictionaryLocal(){
 // Reconciliation-ключ — kw+family_id (локальне поле kw → Cloud-колонка
 // keyword, 6D крок 3 pre-check підтвердив: DICTIONARY.some(d=>d.kw===kw)
 // глобально унікальний, безпечно).
-async function pushDictionaryPilot(){
+// Rev 2.23.25 (6D.194, Ревізія F) — серіалізація push словника. Раніше кілька
+// одночасних викликів (швидкі saveDictionary(), подія online, pull, відновлення
+// з бекапу) йшли паралельно: кожен бачив запис без cloudId, обидва робили SELECT
+// "живого рядка з таким keyword" (порожньо) і обидва INSERT → два живі рядки.
+// Тепер у кожен момент виконується не більше одного push; усі виклики, що
+// прийшли під час виконання, зливаються в ОДИН наступний запуск (він стартує
+// вже після того, як перший проставив cloudId). Альтернатива — прапор без черги
+// — відкинута: пропущене збереження залишило б нову правку без push.
+let dictionaryPushRunning = null;
+let dictionaryPushQueued = null;
+function pushDictionaryPilot(){
+  if(!dictionaryPushRunning){
+    const run = pushDictionaryPilotRun().finally(function(){ if(dictionaryPushRunning === run) dictionaryPushRunning = null; });
+    dictionaryPushRunning = run;
+    return run;
+  }
+  if(!dictionaryPushQueued){
+    dictionaryPushQueued = dictionaryPushRunning.catch(function(){}).then(function(){
+      dictionaryPushQueued = null;
+      return pushDictionaryPilot();
+    });
+  }
+  return dictionaryPushQueued;
+}
+async function pushDictionaryPilotRun(){
   if(!isCloudSessionReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
@@ -4199,28 +4223,50 @@ async function pushDictionaryPilot(){
   if(!anyError) await pullDictionaryCore();
   return { success: !anyError };
 }
+// Rev 2.23.25 (6D.194, Ревізія F) — пошук живого рядка словника без урахування
+// регістру (у БД частково-унікальний індекс за (family_id, lower(keyword)) де
+// deleted_at is null). Метасимволи LIKE (\\, %, _) екрануються — шукаємо точний збіг.
+// Tombstone-рядки (deleted_at не null) ніколи не усиновлюються.
+function escapeLikeExact(text){
+  return String(text).replace(/[\\%_]/g, '\\$&');
+}
+async function findLiveDictionaryRow(client, keyword){
+  const res = await client.from('dictionary').select('id').eq('family_id', cloudFamilyId).ilike('keyword', escapeLikeExact(keyword)).is('deleted_at', null).order('created_at', { ascending: true }).limit(1);
+  if(res.error) return { error: true, row: null };
+  return { error: false, row: (res.data && res.data[0]) || null };
+}
 async function reconcileDictionaryCloudId(client, userId, entry, categoryId, subcategoryId){
   // Rev 2.22.80 (6D.153, Крок A2, знахідка п.4 звіту) — `.is('deleted_at',
   // null)` обов'язковий: після A2 в Cloud можуть співіснувати tombstone і
   // живий рядок з ОДНАКОВИМ keyword (видалив слово, додав те саме знову).
   // Без фільтра `.maybeSingle()` при двох збігах повернув би ПОМИЛКУ
-  // (PGRST116, "multiple rows"), яку стара версія мовчки ігнорувала
-  // (`const { data: existing }` без error) — і йшла гілкою "не знайдено",
-  // створюючи ДУБЛІКАТ живого рядка. Тепер error перевіряється явно.
-  const { data: existing, error: selectError } = await client.from('dictionary').select('id').eq('family_id', cloudFamilyId).eq('keyword', entry.kw).is('deleted_at', null).maybeSingle();
-  if(selectError) return; // мережа/конфлікт — тихий пропуск, наступний push-цикл спробує знову
-  if(existing){
-    entry.cloudId = existing.id;
+  // (PGRST116, "multiple rows"), яку стара версія мовчки ігнорувала —
+  // і йшла гілкою "не знайдено", створюючи ДУБЛІКАТ живого рядка.
+  // Rev 2.23.25 (6D.194) — пошук тепер без урахування регістру й через
+  // limit(1) (раніше .maybeSingle() падав би й на кількох ЖИВИХ дублях).
+  const adopt = async function(existingId){
+    entry.cloudId = existingId;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
-    await client.from('dictionary').update({ category_id: categoryId, subcategory_id: subcategoryId, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', existing.id);
-    return;
-  }
+    await client.from('dictionary').update({ category_id: categoryId, subcategory_id: subcategoryId, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', existingId);
+  };
+  const found = await findLiveDictionaryRow(client, entry.kw);
+  if(found.error) return; // мережа/конфлікт — тихий пропуск, наступний push-цикл спробує знову
+  if(found.row){ await adopt(found.row.id); return; }
   // Rev 2.22.80 (6D.153) — deleted_at: якщо сам запис офлайн-створений і
   // вже видалений ДО першого успішного sync (ніколи не мав cloudId), його
-  // tombstone-стан має дійти в Cloud одразу при створенні рядка, не лише
-  // наступним push-ем (якого вже не буде — немає що пушити, запис мертвий).
+  // tombstone-стан має дійти в Cloud одразу при створенні рядка.
   const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, created_at: entry.createdAt, updated_at: entry.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
-  if(!error && data) entry.cloudId = data.id;
+  if(!error && data){ entry.cloudId = data.id; return; }
+  // Rev 2.23.25 (6D.194) — 23505 (унікальний індекс живих слів): інший пристрій/запуск
+  // устиг вставити те саме слово — це "слово вже є", не збій: усиновлюємо живий рядок,
+  // без повторної вставки й без позначки failed (функція повертається нормально).
+  if(error && error.code === '23505'){
+    const again = await findLiveDictionaryRow(client, entry.kw);
+    if(!again.error && again.row){
+      await adopt(again.row.id);
+      captureDebugGeometry('dict-dup-adopt', {});
+    }
+  }
 }
 // Rev #30 (6D.28, subcategories+dictionary повний цикл) — Pull pilot,
 // написаний ОДРАЗУ у фінальному вигляді (четвертий раз той самий шаблон:
@@ -6849,7 +6895,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.24';
+const APP_VERSION = '2.23.25';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
