@@ -5392,7 +5392,7 @@ function kbSheetSandbox(opts){
     requestAnimationFrame: function(fn){ if(opts.captureRaf){ rafQueue.push(fn); } return 1; },
     queueMicrotask: function(fn){ microtasks.push(fn); },
     localStorage: { getItem: function(k){ return Object.prototype.hasOwnProperty.call(lsStore, k) ? lsStore[k] : null; }, setItem: function(k, v){ lsStore[k] = String(v); } },
-    KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', kbProxyEl: null, kbLastFocusedField: null, kbLastTap: null,
+    KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', KB_CARET_LS_KEY: 'budget_exp_kb_caret_v1', kbMovingGen: 0, kbProxyEl: null, kbLastFocusedField: null, kbLastTap: null,
     IS_IOS_RUNTIME: true, SUPPORTS_FOCUS_PREVENT_SCROLL: true, kbRefocusing: false, kbLastInterceptAt: 0,
     cancelAnimationFrame: function(){},
     // setTimeout — синхронний (той самий принцип, що раніше був у rAF):
@@ -5416,6 +5416,7 @@ function kbSheetSandbox(opts){
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf', 'getKbArrowsMode',
     'shouldRefocusTrick', 'classifyRefocusOutcome', 'computeKbFlicker', 'runRefocusTrick', 'focusWithoutScrollIfSupported',
     'isNativeSwitch', 'shouldProxySwitchTrick', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'runProxySwitchTrick',
+    'shouldHideCaret', 'planCaretRestore', 'beginSheetMoving', 'getKbCaretVariant',
     'getOrCreateKbProxyEl', 'configureKbProxy', 'proxyCaretStyle', 'computeProxyOffset', 'computeProxyDist', 'placeKbProxyAtField',
   ]);
   return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents, runTimers: function(){ while(timers.length) timers.shift()(); }, lsStore: lsStore, microtasks: microtasks, runMicrotasks: function(){ while(microtasks.length) microtasks.shift()(); }, rafQueue: rafQueue };
@@ -5896,6 +5897,68 @@ test('enterKbSheet: перше відкриття НАТИВНО (direct) на i
   const c = kbSheetSandbox(); // без тапу взагалі — нічого
   c.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
   assert.ok(!c.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }));
+});
+// Rev 2.23.20 (6D.189) — курсор справжнього поля під час руху шторки.
+test('shouldHideCaret: лише варіант hide + шторка рухається + поле всередині шторок (не "Витрати", не late/current)', () => {
+  const { ctx } = kbSheetSandbox();
+  const base = { variant: 'hide', sheetMoving: true, isSheetField: true };
+  assert.equal(ctx.shouldHideCaret(base), true);
+  assert.equal(ctx.shouldHideCaret(Object.assign({}, base, { variant: 'late' })), false);
+  assert.equal(ctx.shouldHideCaret(Object.assign({}, base, { variant: 'current' })), false);
+  assert.equal(ctx.shouldHideCaret(Object.assign({}, base, { sheetMoving: false })), false);
+  assert.equal(ctx.shouldHideCaret(Object.assign({}, base, { isSheetField: false })), false, '"Витрати"');
+});
+test('planCaretRestore: hide — на transitionend або за запасним таймером 320мс; інші варіанти — одразу', () => {
+  const { ctx } = kbSheetSandbox();
+  assert.equal(ctx.planCaretRestore({ variant: 'hide', transitionEnded: false, elapsedMs: 100 }), false);
+  assert.equal(ctx.planCaretRestore({ variant: 'hide', transitionEnded: true, elapsedMs: 100 }), true);
+  assert.equal(ctx.planCaretRestore({ variant: 'hide', transitionEnded: false, elapsedMs: 320 }), true);
+  assert.equal(ctx.planCaretRestore({ variant: 'late', transitionEnded: false, elapsedMs: 0 }), true);
+  assert.equal(ctx.planCaretRestore({ variant: 'current', transitionEnded: false, elapsedMs: 0 }), true);
+});
+test('shouldTransfer: режим L (варіант курсора late) — лише коли шторка приїхала АБО за 320мс; kbShown не потрібен', () => {
+  const ctx = keyboardInsetSandbox();
+  assert.equal(ctx.shouldTransfer('L', { kbShown: true, sheetArrived: false, elapsedMs: 150 }), false);
+  assert.equal(ctx.shouldTransfer('L', { kbShown: false, sheetArrived: true, elapsedMs: 150 }), true);
+  assert.equal(ctx.shouldTransfer('L', { kbShown: true, sheetArrived: false, elapsedMs: 320 }), true);
+});
+test('hide (типово): відкриття шторки ставить html.kb-sheet-moving, знімає ЛИШЕ після таймера/transitionend + подія caret-hidden; кінцевий клас знято', () => {
+  const { ctx, docElClasses, debugEvents, runTimers } = kbSheetSandbox({ deferTimers: true });
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
+  assert.equal(docElClasses.has('kb-sheet-moving'), true, 'курсор прихований на час руху');
+  assert.ok(!debugEvents.some(function(e){ return e.type === 'caret-hidden'; }));
+  runTimers();
+  assert.equal(docElClasses.has('kb-sheet-moving'), false);
+  const ev = debugEvents.find(function(e){ return e.type === 'caret-hidden'; });
+  assert.ok(ev); assert.equal(ev.phase, 'open'); assert.equal(typeof ev.ms, 'number');
+});
+test('hide: зміна типу клавіатури й закриття теж ховають курсор; новіший рух не обривається старим (один caret-hidden)', () => {
+  const { ctx, docElClasses, debugEvents, state, runTimers } = kbSheetSandbox({ deferTimers: true });
+  const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawerEl }));
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', drawerEl: drawerEl })); // числова→текстова
+  runTimers();
+  const hidden = debugEvents.filter(function(e){ return e.type === 'caret-hidden'; });
+  assert.equal(hidden.length, 1, 'старий рух (open) тихо поступився новому (switch)');
+  assert.equal(hidden[0].phase, 'switch');
+  assert.equal(docElClasses.has('kb-sheet-moving'), false);
+  state.activeElement = { tagName: 'BODY' };
+  ctx.handleKeyboardFieldFocusSettle();
+  assert.equal(docElClasses.has('kb-sheet-moving'), true, 'закриття теж рух');
+  runTimers();
+  assert.equal(docElClasses.has('kb-sheet-moving'), false);
+});
+test('late/current: курсор НЕ ховається (клас kb-sheet-moving не ставиться); caretVariant у focus-mode', () => {
+  ['late', 'current'].forEach(function(v){
+    const { ctx, lsStore, docElClasses, debugEvents } = kbSheetSandbox({ deferTimers: true });
+    lsStore['budget_exp_kb_caret_v1'] = v;
+    ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+    assert.equal(docElClasses.has('kb-sheet-moving'), false, v);
+    assert.equal(debugEvents.find(function(e){ return e.type === 'focus-mode'; }).caretVariant, v);
+  });
+  const d = kbSheetSandbox({ deferTimers: true });
+  assert.equal(d.ctx.getKbCaretVariant(), 'hide', 'типово hide');
 });
 test('runRefocusTrick: blur() → focus({preventScroll:true}) того самого поля, ОДНА спроба; focusin під час спроби нічого не змінює; потім refocus-trick з outcome', () => {
   const { ctx, debugEvents, rafQueue, docElClasses, state } = kbSheetSandbox({ captureRaf: true });

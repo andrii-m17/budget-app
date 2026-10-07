@@ -1434,6 +1434,14 @@
      (html.kb-sheet-switching додає JS у touchend-перехопленні): 220мс,
      cubic-bezier(0.25,0.46,0.45,0.94) — найближча до системної кривої
      клавіатури; рух шторки (--sheet-lift) стартує одразу на тапі. */
+  /* Rev 2.23.20 (6D.189) — варіант hide: на час руху шторки (підйом/зміна
+     висоти клавіатури/закриття) курсор ТЕКСТОВИХ полів усередині шторок
+     Доходу/Боргу/ОЧ прозорий (нативний курсор iOS не слідує за transform-
+     анімацією покадрово: лишається на старому місці, потім перестрибує).
+     Клас html.kb-sheet-moving ставить/знімає JS (beginSheetMoving). "Витрати"
+     не зачіпаємо — селектори лише в межах трьох шторок. */
+  html.kb-sheet-moving #income-drawer input, html.kb-sheet-moving #card-debt-drawer input, html.kb-sheet-moving #installment-drawer input,
+  html.kb-sheet-moving #income-drawer textarea, html.kb-sheet-moving #card-debt-drawer textarea, html.kb-sheet-moving #installment-drawer textarea{ caret-color:transparent !important; }
   html.kb-sheet.kb-sheet-switching .drawer.open{ transition:transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
   /* Режим B (запасний, перемикається БЕЗ нового коміту — перемикач у
      "Запис діагностики", localStorage budget_kb_mode_v1): сторінці
@@ -2903,7 +2911,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.19</div>
+  <div class="version-footer">Money Tree · Rev 2.23.20</div>
 </div>
   </div>
 </div>
@@ -3007,6 +3015,18 @@
         <button type="button" class="submit-btn pill" id="debug-kb-arrows-p-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbArrowsFromDrawer('P')">P</button>
         <button type="button" class="submit-btn pill" id="debug-kb-arrows-r-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbArrowsFromDrawer('R')">R</button>
         <button type="button" class="submit-btn pill" id="debug-kb-arrows-off-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbArrowsFromDrawer('off')">Вимкнено</button>
+      </div>
+    </div>
+    <!-- Rev 2.23.20 (6D.189) — Курсор справжнього поля під час руху шторки:
+         hide (типово — прозорий на час руху), late (передача фокусу після
+         приїзду шторки, без приховування), current (як було). Тимчасовий
+         ключ budget_exp_kb_caret_v1 (шторки «Експерименти» ще нема). -->
+    <div class="field">
+      <label>Курсор під час руху шторки (експеримент)</label>
+      <div class="row-2">
+        <button type="button" class="submit-btn pill" id="debug-kb-caret-hide-btn" onclick="selectKbCaretFromDrawer('hide')">hide</button>
+        <button type="button" class="submit-btn pill" id="debug-kb-caret-late-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbCaretFromDrawer('late')">late</button>
+        <button type="button" class="submit-btn pill" id="debug-kb-caret-current-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbCaretFromDrawer('current')">current</button>
       </div>
     </div>
     <button type="button" class="submit-btn pill" onclick="startDebugRecordingFromDrawer()">Почати запис</button>
@@ -6730,7 +6750,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.19';
+const APP_VERSION = '2.23.20';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9009,6 +9029,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
   'proxyCaretColor', 'proxyDistToField',
+  // Rev 2.23.20 (6D.189) — курсор під час руху шторки.
+  'sheetBottomAtTransfer', 'sheetFinalBottom', 'caretVariant',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -9309,6 +9331,20 @@ function updateDebugKbFocusModeUI(){
     btn.style.color = mode === m ? '' : 'var(--color-text-primary)';
   });
 }
+// Rev 2.23.20 (6D.189) — перемикач варіанта курсора (hide/late/current).
+function updateDebugKbCaretUI(){
+  const v = getKbCaretVariant();
+  ['hide', 'late', 'current'].forEach(function(k){
+    const btn = document.getElementById('debug-kb-caret-' + k + '-btn');
+    if(!btn) return;
+    btn.style.background = v === k ? '' : 'var(--color-surface-hover)';
+    btn.style.color = v === k ? '' : 'var(--color-text-primary)';
+  });
+}
+function selectKbCaretFromDrawer(v){
+  setKbCaretVariant(v);
+  updateDebugKbCaretUI();
+}
 function selectKbFocusModeFromDrawer(mode){
   setKbFocusMode(mode);
   updateDebugKbFocusModeUI();
@@ -9337,6 +9373,7 @@ function openDebugRecordDrawer(){
   updateDebugKbModeUI();
   updateDebugKbFocusModeUI();
   updateDebugKbArrowsUI();
+  updateDebugKbCaretUI();
   const scenarioInput = document.getElementById('debug-record-scenario');
   if(scenarioInput) scenarioInput.value = '';
   const backdrop = document.getElementById('debug-record-backdrop');
@@ -14768,6 +14805,21 @@ function getKbFocusMode(){
     return (v === 'H1' || v === 'H3') ? v : 'H2';
   }catch(e){ return 'H2'; }
 }
+// Rev 2.23.20 (6D.189) — ТИМЧАСОВИЙ експериментальний ключ варіанта курсора
+// (hide/late/current). Шторки «Експерименти» / реєстру «ревізії X» у коді
+// ЩЕ НЕМАЄ — тому окремий ключ budget_exp_kb_caret_v1 (поза BACKUP_LS_KEYS) і
+// перемикач у «Запис діагностики»; ключ записано в ROADMAP (6D.189) як
+// кандидат на міграцію в майбутній реєстр запис `kb-caret`.
+const KB_CARET_LS_KEY = 'budget_exp_kb_caret_v1';
+function getKbCaretVariant(){
+  try{
+    const v = localStorage.getItem(KB_CARET_LS_KEY);
+    return (v === 'late' || v === 'current') ? v : 'hide';
+  }catch(e){ return 'hide'; }
+}
+function setKbCaretVariant(v){
+  try{ localStorage.setItem(KB_CARET_LS_KEY, (v === 'late' || v === 'current') ? v : 'hide'); }catch(e){}
+}
 // Rev 2.23.16 (6D.185) — isIosRuntime/IS_IOS_RUNTIME винесено з IIFE
 // (було 6D.180): applyKbArrowsMode() нижче й UI "Запис діагностики" — поза IIFE.
 function isIosRuntime(ua, hasNavigatorStandalone){
@@ -15794,6 +15846,9 @@ function configureKbProxy(proxyEl, targetInput){
 // передавати нічого. 420мс — стеля (shouldForceTransfer) для H1/H2.
 function shouldTransfer(mode, st){
   if(!st || mode === 'H3') return false;
+  // 'L' (6D.189, варіант курсора "late"): не раніше, ніж шторка приїхала
+  // (isSheetArrived — поле видиме й нема CSS-анімації), стеля 320мс.
+  if(mode === 'L') return st.sheetArrived === true || (st.elapsedMs || 0) >= 320;
   if(shouldForceTransfer(st.elapsedMs || 0, 420)) return true;
   if(mode === 'H2') return st.kbShown === true;
   return st.kbShown === true && st.sheetArrived === true;
@@ -15847,6 +15902,49 @@ function planTabbarRestore(opts){
   const w = (opts && typeof opts.refocusWindowMs === 'number') ? opts.refocusWindowMs : 40;
   const ms = Math.max(0, Math.min(w, 100));
   return { restoreAt: focusoutAt + ms, msAfterFocusout: ms };
+}
+// Rev 2.23.20 (6D.189) — курсор справжнього поля стрибає під час руху
+// шторки: ранню передачу (H2) лишаємо (вона прибирає "підгін" клавіатури), а
+// курсор ховаємо на час руху. shouldHideCaret — лише варіант hide, шторка
+// рухається, поле всередині шторок. planCaretRestore — коли знімати
+// приховування: на transitionend (transform шторки) або за запасним таймером
+// 320мс; для не-hide варіантів приховувати нічого (restore одразу).
+function shouldHideCaret(o){
+  return !!o && o.variant === 'hide' && o.sheetMoving === true && o.isSheetField === true;
+}
+function planCaretRestore(o){
+  if(!o || o.variant !== 'hide') return true;
+  return o.transitionEnded === true || (o.elapsedMs || 0) >= 320;
+}
+let kbMovingGen = 0;
+function beginSheetMoving(drawerEl, phase, fromField, toField){
+  if(!drawerEl || getKbMode() !== 'A') return;
+  const variant = getKbCaretVariant();
+  if(!shouldHideCaret({ variant: variant, sheetMoving: true, isSheetField: true })) return;
+  const gen = ++kbMovingGen;
+  const t0 = performance.now();
+  const fromId = fromField ? (fromField.id || null) : null;
+  const toId = toField ? (toField.id || null) : null;
+  document.documentElement.classList.add('kb-sheet-moving');
+  let done = false;
+  let timer = null;
+  function finish(transitionEnded, elapsedOverride){
+    if(done) return;
+    const elapsed = typeof elapsedOverride === 'number' ? elapsedOverride : performance.now() - t0;
+    if(!planCaretRestore({ variant: variant, transitionEnded: transitionEnded, elapsedMs: elapsed })) return;
+    done = true;
+    drawerEl.removeEventListener('transitionend', onEnd);
+    if(timer){ clearTimeout(timer); timer = null; }
+    // новіший рух сам зніме клас (не обриваємо приховування посеред нього)
+    if(gen !== kbMovingGen) return;
+    document.documentElement.classList.remove('kb-sheet-moving');
+    captureDebugGeometry('caret-hidden', { from: fromId, to: toId, ms: Math.round(performance.now() - t0), phase: phase, drawerId: drawerEl.id || null });
+  }
+  function onEnd(e){
+    if(e.target === drawerEl && e.propertyName === 'transform') finish(true);
+  }
+  drawerEl.addEventListener('transitionend', onEnd);
+  timer = setTimeout(function(){ finish(false, 320); }, 320);
 }
 // Rev 2.23.15 (6D.184) — shouldInterceptSwitchTap: тап по ІНШОМУ текстовому
 // полю ВСЕРЕДИНІ шторки, поки клавіатура вже відкрита (kbSheetOpen), без
@@ -16246,8 +16344,11 @@ function startSheetAnimSampler(drawerEl, phase, drawerHeightRest, onDone){
 // ПЕРШОМУ vv-resize з показаною клавіатурою, одразу, не чекаючи кінця
 // переходу шторки (і без читань розмітки); додатково слухає visualViewport
 // resize, щоб не чекати наступного rAF.
-function beginKbFocusProxy(target, drawerEl, mode){
+function beginKbFocusProxy(target, drawerEl, mode, late){
   mode = mode || 'H1';
+  // Rev 2.23.20 (6D.189): late — варіант курсора "late": передача не раніше,
+  // ніж шторка приїхала (gate 'L'); у подіях mode лишається режимом фокусу.
+  const gate = late === true ? 'L' : mode;
   // Rev 2.23.13 (6D.182) — вимірюємо ДО будь-яких змін класів (тут,
   // усередині перехопленого touchend-обробника, ще ДО proxy.focus(), а
   // отже ще ДО того, як focusin додасть body.kb-open) — промт явно вимагав
@@ -16270,7 +16371,7 @@ function beginKbFocusProxy(target, drawerEl, mode){
 
   let settled = false;
   let rafId = null;
-  function onVvResize(){ if(mode === 'H2') check(); }
+  function onVvResize(){ if(gate === 'H2') check(); }
   function finish(forced){
     if(settled) return;
     settled = true;
@@ -16282,7 +16383,7 @@ function beginKbFocusProxy(target, drawerEl, mode){
     kbLastInterceptAt = Date.now();
     focusWithoutScrollIfSupported(target, drawerEl.id);
     kbSwitchKind = null;
-    captureDebugGeometry(forced ? 'focus-transfer-forced' : 'focus-transfer', { ms: ms, drawerId: drawerEl.id || null, proxyActive: false, mode: mode });
+    captureDebugGeometry(forced ? 'focus-transfer-forced' : 'focus-transfer', { ms: ms, drawerId: drawerEl.id || null, proxyActive: false, mode: mode, sheetBottomAtTransfer: Math.round(drawerEl.getBoundingClientRect().bottom), sheetFinalBottom: Math.round(kbSheetRestBottom - kbSheetCurrentLift) });
   }
   function check(){
     if(settled) return true;
@@ -16292,13 +16393,13 @@ function beginKbFocusProxy(target, drawerEl, mode){
     const vvH = vv ? vv.height : baseVh;
     const kbShown = isKeyboardOpen(baseVh, vvH);
     let sheetArrived = false;
-    if(mode !== 'H2' && kbShown){
+    if(gate === 'L' || (gate !== 'H2' && kbShown)){
       const rect = target.getBoundingClientRect();
       const animating = typeof drawerEl.getAnimations === 'function' ? drawerEl.getAnimations().length > 0 : false;
       sheetArrived = isSheetArrived({ fieldBottom: rect.bottom, fieldTop: rect.top, vvH: vvH, animating: animating });
     }
-    if(shouldTransfer(mode, { kbShown: kbShown, sheetArrived: sheetArrived, elapsedMs: elapsed })){
-      finish(!shouldTransfer(mode, { kbShown: kbShown, sheetArrived: sheetArrived, elapsedMs: 0 }));
+    if(shouldTransfer(gate, { kbShown: kbShown, sheetArrived: sheetArrived, elapsedMs: elapsed })){
+      finish(!shouldTransfer(gate, { kbShown: kbShown, sheetArrived: sheetArrived, elapsedMs: 0 }));
       return true;
     }
     return false;
@@ -16308,7 +16409,7 @@ function beginKbFocusProxy(target, drawerEl, mode){
     if(check()) return;
     rafId = requestAnimationFrame(poll);
   }
-  if(mode === 'H2' && window.visualViewport) window.visualViewport.addEventListener('resize', onVvResize);
+  if(gate === 'H2' && window.visualViewport) window.visualViewport.addEventListener('resize', onVvResize);
   rafId = requestAnimationFrame(poll);
 }
 // Rev 2.23.14 (6D.183) — H3: БЕЗ проміжного поля й БЕЗ передачі. У touchend:
@@ -16466,7 +16567,7 @@ function enterKbSheet(drawerEl, fieldEl){
   captureDebugGeometry('sheet-open', { drawerId: drawerEl.id || null });
   // Rev 2.23.14 (6D.183) — focus-mode: яким шляхом прийшов цей фокус (H1/H2/
   // H3 — iOS-перехоплення; 'direct' — нативний фокус без перехоплення).
-  captureDebugGeometry('focus-mode', { mode: kbFocusFlowMode, arrowsMode: getKbArrowsMode(), drawerId: drawerEl.id || null });
+  captureDebugGeometry('focus-mode', { mode: kbFocusFlowMode, arrowsMode: getKbArrowsMode(), caretVariant: getKbCaretVariant(), drawerId: drawerEl.id || null });
   // Rev 2.23.19 (6D.188) — підстраховка від нових "дірок": перше відкриття
   // пройшло НАТИВНО (direct) на iOS — фіксуємо, ЯКИЙ саме тап це був (тег/
   // id/класи/координати/мс від touchend). Жодних змін поведінки.
@@ -16475,6 +16576,7 @@ function enterKbSheet(drawerEl, fieldEl){
   }
   kbFocusFlowMode = 'direct';
   if(getKbMode() === 'A') startSheetAnimSampler(drawerEl, 'open', naturalHeight);
+  beginSheetMoving(drawerEl, 'open', null, fieldEl);
 }
 // computeSheetLift: rest (поточний bottom-край шторки ДО підйому) мінус
 // цільовий bottom-край (baseVh - kbH - gap, той самий gap=8, що раніше був
@@ -16563,6 +16665,7 @@ function exitKbSheet(removeKbOpen){
   // тими, що виставлені нижче (--sheet-lift:0), аж до фактичного зняття
   // kb-sheet.
   const naturalHeightAtClose = kbSheetNaturalHeight;
+  const lastFieldAtClose = kbLastFocusedField;
   const genAtExit = kbSheetGen;
   kbSheetActive = false;
   kbSheetDrawerEl = null;
@@ -16590,6 +16693,7 @@ function exitKbSheet(removeKbOpen){
   if(drawerEl && !wasModeB){
     document.documentElement.classList.add('kb-sheet-closing');
     startSheetAnimSampler(drawerEl, 'close', naturalHeightAtClose);
+    beginSheetMoving(drawerEl, 'close', lastFieldAtClose, null);
     let done = false;
     function onEnd(e){
       if(e.target !== drawerEl || e.propertyName !== 'transform') return;
@@ -16663,6 +16767,7 @@ function handleKeyboardFieldFocusIn(target){
         document.documentElement.style.setProperty('--sheet-lift', String(kbSheetCurrentLift));
         document.documentElement.style.setProperty('--sheet-max-h', computeSheetMaxHeight(vvEst, 8, kbSheetNaturalHeight) + 'px');
         kbSheetLiftDirty = true;
+        beginSheetMoving(drawerEl, 'switch', fromField, target);
       }
       if(target.id !== 'kb-focus-proxy') kbLastFocusedField = target;
       const nativeCtx = { ios: IS_IOS_RUNTIME, mode: getKbArrowsMode(), kbSheetOpen: true, fieldInDrawer: true, refocusing: kbRefocusing, via: via, msSinceIntercept: Date.now() - kbLastInterceptAt };
@@ -16811,7 +16916,7 @@ document.addEventListener('touchend', function(e){
   const focusMode = getKbFocusMode();
   startKbFramesSampler(focusMode);
   if(focusMode === 'H3') beginKbFocusH3(target, drawerEl);
-  else beginKbFocusProxy(target, drawerEl, focusMode);
+  else beginKbFocusProxy(target, drawerEl, focusMode, focusMode === 'H2' && getKbCaretVariant() === 'late');
 }, { passive: false });
 // Rev 2.23.9 (6D.178) — блокування скролу ПОКИ ВІДКРИТА шторка (не лише
 // клавіатура): openOverlayCount (>0, коли відкрита будь-яка з 7 шторок/
