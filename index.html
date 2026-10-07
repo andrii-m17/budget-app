@@ -1279,6 +1279,16 @@
   .trash-detail-row{ display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--color-border); font-size:13.5px; }
   .trash-detail-row span:first-child{ color:var(--color-text-secondary); flex-shrink:0; }
   .trash-detail-row span:last-child{ color:var(--color-text-primary); font-weight:600; text-align:right; min-width:0; overflow-wrap:anywhere; }
+  /* Rev 2.23.24 (6D.193, Ревізія E) — "Видалити назавжди": червона контурна кнопка (модалка, шторка деталей), свайп-кнопка, смужки "Перевіряю синхронізацію…" і офлайн-банер. Дизайн лише через наявні токени. */
+  .submit-btn.danger-outline{ background:transparent; color:var(--color-error); border:1.5px solid var(--color-error); }
+  .submit-btn.danger-outline.hidden{ display:none; }
+  .submit-btn.danger-outline:disabled{ opacity:.45; cursor:not-allowed; }
+  .expense-row-actions .swipe-purge-btn{ background:var(--color-error); width:96px; flex-direction:column; gap:2px; font-size:11px; font-weight:700; font-family:inherit; padding:0 6px; text-align:center; line-height:1.15; }
+  .expense-row-actions .swipe-purge-btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .trash-sync-line{ height:16px; margin:-2px 2px 6px; font-size:12px; color:var(--color-text-secondary); opacity:0; transition:opacity var(--duration-fast) var(--easing-standard); }
+  .trash-sync-line.on{ opacity:1; }
+  .trash-offline-banner{ margin:0 0 12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-error-bg); color:var(--color-text-primary); border-left:3px solid var(--color-error); font-size:12.5px; line-height:1.4; }
+  .trash-offline-banner.hidden{ display:none; }
   .live-toast.toast-success{ border-left-color:var(--color-success); }
   .live-toast.toast-error{ border-left-color:var(--color-error); background:var(--color-error-bg); }
   #testing-drawer .drawer-head-sub{ font-size:12px; color:var(--color-text-secondary); margin-top:2px; }
@@ -2967,7 +2977,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.23</div>
+  <div class="version-footer">Money Tree · Rev 2.23.24</div>
 </div>
   </div>
 </div>
@@ -3022,6 +3032,8 @@
       </button>
       <div class="journal-overlay-title">Видалені дані</div>
     </div>
+    <div class="trash-offline-banner hidden" id="trash-offline-banner" role="status">Немає зв'язку. Відновлення працює, видалення назавжди недоступне до підключення</div>
+    <div class="trash-sync-line" id="trash-sync-line" role="status" aria-live="polite">Перевіряю синхронізацію…</div>
     <div class="trash-sub">Тут зберігаються видалені записи. Їх можна відновити або видалити назавжди</div>
     <div class="trash-chips" id="trash-chips" role="tablist" aria-label="Фільтр">
       <button type="button" class="trash-chip active" data-filter="all" role="tab">Усі</button>
@@ -3047,6 +3059,7 @@
   </div>
   <div id="trash-detail-body"></div>
   <button type="button" class="submit-btn pill" id="trash-detail-restore-btn" style="margin-top:14px;" onclick="restoreTrashFromDetail()">Відновити</button>
+  <button type="button" class="submit-btn pill danger-outline hidden" id="trash-detail-purge-btn" style="margin-top:10px;" onclick="purgeTrashFromDetail()">Видалити назавжди</button>
 </div>
 
 <!-- ================= "Тестування" (Rev 2.23.22, 6D.191) =================
@@ -6836,7 +6849,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.23';
+const APP_VERSION = '2.23.24';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9109,6 +9122,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'switchKind', 'from', 'to',
   // Rev 2.23.16 (6D.185) — тап по підпису (intercept-via-label).
   'labelFor',
+  // Rev 2.23.24 (6D.193, Ревізія E) — trash-reconcile (checked, removedLocally, restoredElsewhere, ms) і trash-purge (trashType, ok, dups): лише лічильники й тип, без назв і сум.
+  'checked', 'removedLocally', 'restoredElsewhere', 'ms', 'dups',
   // Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": trashType (НЕ `type` — воно вже тип самої події), ok, count; без назв і сум.
   'trashType', 'ok', 'count',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
@@ -12820,6 +12835,69 @@ function restoreBlockedReason(item, state){
   }
   return null;
 }
+// ===== Rev 2.23.24 (6D.193, Ревізія E) — "Видалити назавжди" і реконсиляція: чисті функції =====
+// Незворотно видаляються ЛИШЕ витрати, доходи й слова (окремо видалені), і лише
+// tombstone-и. Категорії/підкатегорії/картки/ОЧ/борги — ніколи: їхній bulk-push
+// за назвою воскресив би запис.
+const TRASH_PURGEABLE_TYPES = ['expense', 'income', 'word'];
+function canPurge(item){
+  return !!item && TRASH_PURGEABLE_TYPES.indexOf(item.type) !== -1 && !!item.deletedAt && !item.deletedVia;
+}
+// purgeBlockedReason({offline, type}) — null, якщо можна; інакше причина для тосту.
+function purgeBlockedReason(opts){
+  const o = opts || {};
+  if(TRASH_PURGEABLE_TYPES.indexOf(o.type) === -1) return 'цей тип записів не видаляється назавжди';
+  if(o.offline) return 'немає зв\'язку з сервером';
+  return null;
+}
+// Текст діалогу: "Кава · 74 ₴ · 30 вер. буде видалено назавжди. Це неможливо скасувати".
+function purgeConfirmText(item){
+  const parts = [item.type === 'word' ? 'Слово «' + item.title + '»' : item.title];
+  if(item.amount != null) parts.push(fmt(item.amount));
+  if(item.recordDate) parts.push(formatTrashShortDate(item.recordDate));
+  return parts.join(' · ') + ' буде видалено назавжди. Це неможливо скасувати';
+}
+// trashTombstonesForReconcile(state) — локальні tombstone-и, які можна звірити з Cloud.
+// synced = колись синхронізовано: витрата/дохід — syncedUpdatedAt; слово — cloudId
+// (саме за cloudId слово видаляється й шукається в Cloud).
+function trashTombstonesForReconcile(state){
+  const st = state || {};
+  const list = [];
+  (st.expenses || []).forEach(function(e){
+    if(e.deletedAt) list.push({ key: 'expense:' + e.id, type: 'expense', cloudId: e.id, synced: !!e.syncedUpdatedAt });
+  });
+  (st.incomes || []).forEach(function(e){
+    if(e.deletedAt) list.push({ key: 'income:' + e.id, type: 'income', cloudId: e.id, synced: !!e.syncedUpdatedAt });
+  });
+  (st.dictionary || []).forEach(function(d){
+    if(d.deletedAt && !d.deletedVia) list.push({ key: 'word:' + d.id, type: 'word', cloudId: d.cloudId || null, synced: !!d.cloudId });
+  });
+  return list;
+}
+// reconcilePlan(localTombstones, cloudRows): cloudRows = [{type, id, deleted_at}] (відповідь
+// Cloud на пошук за id) або null/не-масив, коли запит не вдався.
+//  - removeLocal: колись синхронізований tombstone, якого немає в Cloud → прибрати локально;
+//  - keep: є в Cloud (tombstone чи живий) → нічого не робити; restoredElsewhere ⊂ keep —
+//    живі в Cloud (відновлені на іншому пристрої, pull їх оновить);
+//  - skip: ніколи не синхронізувався/збій запиту → нічого не змінювати.
+function reconcilePlan(localTombstones, cloudRows){
+  const plan = { removeLocal: [], keep: [], skip: [], restoredElsewhere: [] };
+  const list = localTombstones || [];
+  if(!Array.isArray(cloudRows)){
+    list.forEach(function(t){ plan.skip.push(t.key); });
+    return plan;
+  }
+  const byKey = {};
+  cloudRows.forEach(function(r){ byKey[r.type + ':' + r.id] = r; });
+  list.forEach(function(t){
+    if(!t.synced || !t.cloudId){ plan.skip.push(t.key); return; }
+    const row = byKey[t.type + ':' + t.cloudId];
+    if(!row){ plan.removeLocal.push(t.key); return; }
+    plan.keep.push(t.key);
+    if(!row.deleted_at) plan.restoredElsewhere.push(t.key);
+  });
+  return plan;
+}
 // pluralizeRecords(n): "1 запис", "2-4 записи", "5-20 записів", "21 запис",
 // "22-24 записи", "25-30 записів"; виняток 11-14 (і всі n%100 у 11..14) — "записів".
 // pluralUa(n, forms) — ІСНУЮЧА функція (Rev #30, 6D.86, вище; forms=[1, 2-4, 5+]) — не дублюємо.
@@ -15205,11 +15283,13 @@ function trashRowHtml(item){
     note = item.hiddenMonth ? 'Приховано з ' + monthGenitive(item.hiddenMonth) + ' ' + item.hiddenMonth.slice(0, 4) : '';
   }
   const deleted = (item.type === 'card' || item.type === 'installment') ? '' : trashDeletedLine(item);
+  const purgeIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
+  const purgeSwipeHtml = canPurge(item) ? '<button type="button" class="swipe-purge-btn" data-trash-purge="1" aria-label="Видалити назавжди"' + (isTrashOffline() ? ' disabled' : '') + '>' + purgeIcon + '<span>Видалити назавжди</span></button>' : '';
   const amountHtml = isMoney ? '<span class="trash-amount ' + item.type + ' mono">' + (item.type === 'income' ? '+' : '−') + fmt(item.amount) + '</span>' : '';
   const chevron = '<span class="trash-chevron"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></span>';
   const restoreIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>';
   return '<div class="expense-row-swipe" data-trash-key="' + escapeAttr(item.key) + '">' +
-    '<div class="expense-row-actions"><button type="button" class="swipe-restore-btn" data-trash-restore="1" aria-label="Відновити">' + restoreIcon + '<span>Відновити</span></button></div>' +
+    '<div class="expense-row-actions"><button type="button" class="swipe-restore-btn" data-trash-restore="1" aria-label="Відновити">' + restoreIcon + '<span>Відновити</span></button>' + purgeSwipeHtml + '</div>' +
     '<div class="expense-row trash-row"' + strip + '>' +
       '<div class="exp-row-top">' + ico +
         '<div class="exp-main">' +
@@ -15226,6 +15306,7 @@ function trashRowHtml(item){
 function renderTrashScreen(){
   const list = document.getElementById('trash-list');
   if(!list) return;
+  updateTrashOfflineUI();
   const all = buildTrashItems(trashStateNow());
   const items = filterTrashItems(all, trashFilter);
   document.querySelectorAll('#trash-chips .trash-chip').forEach(function(b){
@@ -15258,6 +15339,8 @@ function openTrashScreen(){
   screen.scrollTop = 0;
   lockBackgroundScroll();
   captureDebugGeometry('trash-open', { count: buildTrashItems(trashStateNow()).length });
+  // Rev 2.23.24 (6D.193, Ревізія E): при відкритті — звірити локальні tombstone-и з Cloud.
+  reconcileTrash();
 }
 function closeTrashScreen(){
   if(!isTrashOpen) return;
@@ -15317,6 +15400,15 @@ async function restoreTrashItem(key){
     renderTrashScreen();
     return false;
   }
+  // Rev 2.23.24 (6D.193, Ревізія E) — перед "Відновити" перевірити Cloud: запис, видалений
+  // назавжди на іншому пристрої, не воскрешаємо. Офлайн/збій запиту — пропускаємо перевірку.
+  if(canPurge(item)){
+    const rec = await reconcileTrash(item.key);
+    if(rec && rec.removed.indexOf(item.key) !== -1){
+      showTrashToast('Запис уже видалено назавжди', 'error');
+      return false;
+    }
+  }
   const blocked = restoreBlockedReason(item, state);
   if(blocked){
     showTrashToast('Не вдалося відновити: ' + blocked, 'error');
@@ -15374,6 +15466,11 @@ function openTrashDetail(key){
     const n = document.createElement('div'); n.className = 'trash-note'; n.style.marginTop = '10px'; n.textContent = note;
     body.appendChild(n);
   }
+  const purgeBtn = document.getElementById('trash-detail-purge-btn');
+  if(purgeBtn){
+    purgeBtn.classList.toggle('hidden', !canPurge(item));
+    purgeBtn.disabled = isTrashOffline();
+  }
   document.getElementById('trash-detail-title').textContent = trashDisplayTitle(item);
   document.getElementById('trash-detail-sub').textContent = 'Тільки перегляд';
   const backdrop = document.getElementById('trash-detail-backdrop');
@@ -15399,6 +15496,174 @@ async function restoreTrashFromDetail(){
   const ok = await restoreTrashItem(key);
   if(ok) closeTrashDetail();
 }
+// ===== Rev 2.23.24 (6D.193, Ревізія E) — "Видалити назавжди" і реконсиляція з Cloud =====
+// Без Cloud-сесії або без мережі видалення назавжди недоступне (відновлення — доступне).
+function isTrashOffline(){
+  return !navigator.onLine || !isCloudSessionReady();
+}
+function updateTrashOfflineUI(){
+  const banner = document.getElementById('trash-offline-banner');
+  if(banner) banner.classList.toggle('hidden', !isTrashOffline());
+}
+function refreshTrashDetailPurge(){
+  const btn = document.getElementById('trash-detail-purge-btn');
+  if(btn && trashDetailKey) btn.disabled = isTrashOffline();
+}
+let trashSyncBusy = 0;
+function updateTrashSyncLine(){
+  const el = document.getElementById('trash-sync-line');
+  if(el) el.classList.toggle('on', trashSyncBusy > 0);
+}
+// Пошук рядків у Cloud за id порціями до 100; будь-яка помилка → null (нічого не змінюємо).
+async function fetchTrashCloudRows(tombstones){
+  try{
+    const client = getSupabaseClient();
+    const groups = { expense: { table: 'expenses', ids: [] }, income: { table: 'incomes', ids: [] }, word: { table: 'dictionary', ids: [] } };
+    tombstones.forEach(function(t){ if(t.synced && t.cloudId && groups[t.type]) groups[t.type].ids.push(t.cloudId); });
+    const rows = [];
+    for(const type of Object.keys(groups)){
+      const g = groups[type];
+      for(let i = 0; i < g.ids.length; i += 100){
+        const batch = g.ids.slice(i, i + 100);
+        const res = await client.from(g.table).select('id, deleted_at').eq('family_id', cloudFamilyId).in('id', batch);
+        if(res.error || !Array.isArray(res.data)) return null;
+        res.data.forEach(function(r){ rows.push({ type: type, id: r.id, deleted_at: r.deleted_at }); });
+      }
+    }
+    return rows;
+  }catch(err){ return null; }
+}
+// Прибирає локально записи за ключами 'type:id'; повторно перевіряє, що вони досі tombstone
+// (за час запиту користувач міг відновити запис).
+async function removeTrashLocally(keys){
+  let touchedExp = false, touchedInc = false, touchedDict = false;
+  keys.forEach(function(key){
+    const idx = key.indexOf(':');
+    const type = key.slice(0, idx), id = key.slice(idx + 1);
+    const arr = type === 'expense' ? expenses : type === 'income' ? incomes : DICTIONARY;
+    const at = arr.findIndex(function(r){ return r.id === id && r.deletedAt && !(type === 'word' && r.deletedVia); });
+    if(at === -1) return;
+    arr.splice(at, 1);
+    if(type === 'expense') touchedExp = true; else if(type === 'income') touchedInc = true; else touchedDict = true;
+  });
+  if(touchedExp) reportSaveResult(await saveExpenses());
+  if(touchedInc) reportSaveResult(await saveIncomes());
+  if(touchedDict) reportSaveResult(await saveDictionaryLocal());
+  if(touchedExp || touchedInc) populateMonths();
+  renderAll();
+  if(touchedDict) renderStructure();
+}
+// reconcileTrash(onlyKey?) — звіряє локальні tombstone-и (усі або один) із Cloud. Повертає
+// {checked, removed:[keys], restoredElsewhere:[keys]} або null (офлайн/збій — нічого не змінено).
+async function reconcileTrash(onlyKey){
+  if(isTrashOffline()) return null;
+  let tombstones = trashTombstonesForReconcile(trashStateNow());
+  if(onlyKey) tombstones = tombstones.filter(function(t){ return t.key === onlyKey; });
+  const checkable = tombstones.filter(function(t){ return t.synced && t.cloudId; });
+  if(!checkable.length) return { checked: 0, removed: [], restoredElsewhere: [] };
+  const t0 = Date.now();
+  trashSyncBusy++; updateTrashSyncLine();
+  try{
+    const rows = await fetchTrashCloudRows(tombstones);
+    const plan = reconcilePlan(tombstones, rows);
+    if(!rows) return null;
+    if(plan.removeLocal.length) await removeTrashLocally(plan.removeLocal);
+    captureDebugGeometry('trash-reconcile', { checked: checkable.length, removedLocally: plan.removeLocal.length, restoredElsewhere: plan.restoredElsewhere.length, ms: Date.now() - t0 });
+    return { checked: checkable.length, removed: plan.removeLocal, restoredElsewhere: plan.restoredElsewhere };
+  }finally{
+    trashSyncBusy = Math.max(0, trashSyncBusy - 1); updateTrashSyncLine();
+  }
+}
+// DELETE одного Cloud-рядка лише якщо він tombstone (deleted_at не null): живий рядок
+// (відновлений на іншому пристрої) не зачіпається. 'deleted' | 'gone' | 'alive' | 'error'.
+async function purgeCloudRow(table, id){
+  const client = getSupabaseClient();
+  const del = await client.from(table).delete().eq('id', id).eq('family_id', cloudFamilyId).not('deleted_at', 'is', null).select('id');
+  if(del.error) return 'error';
+  if(del.data && del.data.length) return 'deleted';
+  const chk = await client.from(table).select('id, deleted_at').eq('id', id).maybeSingle();
+  if(chk.error) return 'error';
+  if(!chk.data) return 'gone';
+  return chk.data.deleted_at ? 'error' : 'alive';
+}
+// Діалог: заголовок "Видалити назавжди?", "Скасувати" — основна (заливка), "Видалити назавжди" —
+// червона контурна, без хрестика.
+function showPurgeConfirm(item, onConfirm){
+  const text = document.getElementById('app-modal-text');
+  text.textContent = '';
+  const title = document.createElement('div');
+  title.style.fontWeight = '700'; title.style.marginBottom = '6px';
+  title.textContent = 'Видалити назавжди?';
+  const body = document.createElement('div');
+  body.textContent = purgeConfirmText(item);
+  text.appendChild(title); text.appendChild(body);
+  const cancelBtn = document.getElementById('app-modal-cancel-btn');
+  const confirmBtn = document.getElementById('app-modal-confirm-btn');
+  cancelBtn.classList.remove('secondary');
+  confirmBtn.textContent = 'Видалити назавжди';
+  confirmBtn.className = 'submit-btn danger-outline';
+  confirmBtn.onclick = function(){ closeAppModal(); onConfirm(); };
+  appModalPurgeStyled = true;
+  presentAppModal();
+}
+function purgeTrashItem(key){
+  const item = buildTrashItems(trashStateNow()).find(function(i){ return i.key === key; });
+  if(!item){
+    showTrashToast('Не вдалося видалити: запис не знайдено', 'error');
+    renderTrashScreen();
+    return;
+  }
+  const blocked = canPurge(item) ? purgeBlockedReason({ offline: isTrashOffline(), type: item.type }) : purgeBlockedReason({ type: 'category' });
+  if(blocked){
+    showTrashToast('Не вдалося видалити назавжди: ' + blocked, 'error');
+    captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
+    return;
+  }
+  showPurgeConfirm(item, function(){ runTrashPurge(item); });
+}
+async function runTrashPurge(item){
+  if(isTrashOffline()){
+    showTrashToast('Не вдалося видалити назавжди: ' + purgeBlockedReason({ offline: true, type: item.type }), 'error');
+    captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
+    return;
+  }
+  let outcome = 'error', dups = 0;
+  try{
+    if(item.type === 'word'){
+      const d = DICTIONARY.find(function(x){ return x.id === item.id && x.deletedAt && !x.deletedVia; });
+      if(!d){ showTrashToast('Не вдалося видалити: запис не знайдено', 'error'); renderTrashScreen(); return; }
+      if(d.cloudId){
+        // Дублі слова в Cloud (відомий дефект гонки двох INSERT): видаляємо ЛИШЕ рядок цього запису
+        // за id; інші рядки з тим самим keyword лише рахуємо для діагностики.
+        const dupRes = await getSupabaseClient().from('dictionary').select('id').eq('family_id', cloudFamilyId).eq('keyword', d.kw).neq('id', d.cloudId);
+        dups = (!dupRes.error && Array.isArray(dupRes.data)) ? dupRes.data.length : 0;
+        outcome = await purgeCloudRow('dictionary', d.cloudId);
+      }else{
+        outcome = 'local'; // ніколи не синхронізувалось — лише локально
+      }
+    }else{
+      outcome = await purgeCloudRow(item.type === 'expense' ? 'expenses' : 'incomes', item.id);
+    }
+  }catch(err){ outcome = 'error'; }
+  if(outcome === 'alive'){
+    showTrashToast('Запис відновлено на іншому пристрої — не видалено', 'error');
+    captureDebugGeometry('trash-purge', { trashType: item.type, ok: false, dups: dups });
+    if(item.type === 'expense') pullExpensesPilot(); else if(item.type === 'income') pullIncomesPilot(); else pullDictionaryPilot();
+    return;
+  }
+  if(outcome === 'error'){
+    showTrashToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
+    captureDebugGeometry('trash-purge', { trashType: item.type, ok: false, dups: dups });
+    return;
+  }
+  await removeTrashLocally([item.key]);
+  captureDebugGeometry('trash-purge', { trashType: item.type, ok: true, dups: dups });
+  if(trashDetailKey === item.key) closeTrashDetail();
+  showTrashToast(outcome === 'gone' ? 'Запис уже видалено назавжди' : 'Видалено назавжди', outcome === 'gone' ? 'error' : 'success');
+}
+function purgeTrashFromDetail(){
+  if(trashDetailKey) purgeTrashItem(trashDetailKey);
+}
 (function initTrashScreenHandlers(){
   const list = document.getElementById('trash-list');
   const chips = document.getElementById('trash-chips');
@@ -15416,10 +15681,22 @@ async function restoreTrashFromDetail(){
       restoreTrashItem(key);
       return;
     }
+    const purgeEl = e.target.closest('[data-trash-purge]');
+    if(purgeEl){
+      e.stopPropagation();
+      if(purgeEl.disabled) return;
+      if(typeof closeSwipeActions === 'function') closeSwipeActions();
+      purgeTrashItem(key);
+      return;
+    }
     if(suppressNextRowTapSelect){ suppressNextRowTapSelect = false; return; }
     if(wrap.classList.contains('swipe-open')){ if(typeof closeSwipeActions === 'function') closeSwipeActions(); return; }
     openTrashDetail(key);
   });
+  // Rev 2.23.24 (6D.193, Ревізія E): зв'язок зник/з'явився — оновити банер і вимкнені кнопки;
+  // після відновлення зв'язку екран, що відкритий, одразу звіряється з Cloud.
+  window.addEventListener('offline', function(){ if(isTrashOpen){ renderTrashScreen(); refreshTrashDetailPurge(); } });
+  window.addEventListener('online', function(){ if(isTrashOpen){ renderTrashScreen(); refreshTrashDetailPurge(); reconcileTrash(); } });
 })();
 updateTrashBadge();
 // Проста Tab-пастка: поки відкритий рівно один з двох діалогів (drawer або
@@ -15771,6 +16048,7 @@ if(window.matchMedia){
 // властивостей, тому ця гонка раніше не проявлялась — виявлено живою
 // перевіркою Rev #29).
 let appModalGeneration = 0;
+let appModalPurgeStyled = false;
 function openAppModal(){
   // Rev 2.10.2 — фокус переходить у модалку тут, ЦЕНТРАЛІЗОВАНО: усі
   // show*Modal() уже викликають openAppModal()
@@ -15780,6 +16058,18 @@ function openAppModal(){
   // додатково виставляють його через свій власний setTimeout(...,60) одразу
   // після — це не конфліктує, просто перебиває фокус на 60мс пізніше.
   appModalGeneration++;
+  // Rev 2.23.24 (6D.193, Ревізія E) — showPurgeConfirm() перекладає кнопки модалки у
+  // "Скасувати" заливкою + "Видалити назавжди" червоний контур. Кожна інша модалка
+  // (її show*-функція не знає про цей стиль) при відкритті повертає типові класи;
+  // сама showPurgeConfirm піднімає appModalPurgeStyled безпосередньо перед
+  // presentAppModal(), тож її стиль цей виклик не стирає.
+  if(!appModalPurgeStyled){
+    const cb = document.getElementById('app-modal-cancel-btn');
+    const ob = document.getElementById('app-modal-confirm-btn');
+    if(cb) cb.classList.add('secondary');
+    if(ob) ob.classList.remove('danger-outline');
+  }
+  appModalPurgeStyled = false;
   // Rev 2.23.7 (6D.176) — wasOpen: show*Modal() іноді переоткриває app-modal
   // одразу ПІСЛЯ closeAppModal() у тому самому тіку (goToDiagnosticIssue,
   // докоментар нижче) — лочимо лише коли СПРАВДІ переходимо з закритого

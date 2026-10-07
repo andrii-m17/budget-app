@@ -10,6 +10,7 @@ const { buildSandbox } = require('./extract');
 const ctx = buildSandbox({}, [
   'TRASH_HIDDEN_LEGACY_EPOCH', 'TRASH_MONTHS_SHORT',
   'trashSortKey', 'buildTrashItems', 'trashCount', 'filterTrashItems', 'restoreBlockedReason',
+  'TRASH_PURGEABLE_TYPES', 'canPurge', 'purgeBlockedReason', 'purgeConfirmText', 'trashTombstonesForReconcile', 'reconcilePlan', 'fmt',
   'pluralUa', 'pluralizeRecords', 'trashCascadeNote', 'formatTrashShortDate', 'formatTrashDeletedAt',
 ]);
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
@@ -146,13 +147,12 @@ test('формат дат: "30 вер.", "1 жовт., 06:20"', () => {
   assert.equal(ctx.formatTrashDeletedAt(local), '1 жовт., 06:20');
   assert.equal(ctx.formatTrashDeletedAt(null), '');
 });
-test('джерело: подія trash-restore без назв і сум (лише trashType/ok), не використовується закритий view, "Видалити назавжди" ще немає (це Ревізія E)', () => {
+test('джерело: події trash-* без назв і сум, не використовується закритий view', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.equal(src.indexOf('hidden_entities_readable'), -1, 'view закритий у Фазі 0 — клієнт його не використовує');
-  const evts = src.match(/captureDebugGeometry\('trash-(open|restore)'[^;]*;/g) || [];
-  assert.ok(evts.length >= 3);
+  const evts = src.match(/captureDebugGeometry\('trash-(open|restore|reconcile|purge)'[^;]*;/g) || [];
+  assert.ok(evts.length >= 8);
   evts.forEach(function(e){ assert.equal(/title|name|amount|kw/.test(e.replace(/trashType/, '')), false, e); });
-  assert.equal(src.indexOf('Видалити назавжди'), -1);
 });
 // Рев 2.23.23: перша версія цієї ревізії випадково ПЕРЕВИЗНАЧИЛА наявну
 // pluralUa(n, forms) іншою сигнатурою (function-декларації в одному <script>
@@ -164,4 +164,80 @@ test('index.html: жодна top-level function не оголошена двіч
   const seen = new Set(); const dups = new Set();
   names.forEach(function(n){ if(seen.has(n)) dups.add(n); seen.add(n); });
   assert.deepEqual(Array.from(dups), []);
+});
+
+// ===== Rev 2.23.24 (6D.193, Ревізія E): "Видалити назавжди" і реконсиляція =====
+test('canPurge: лише витрати, доходи й слова-tombstone; категорії/підкатегорії/картки/ОЧ — ні', () => {
+  assert.equal(ctx.canPurge({ type: 'expense', deletedAt: 'x' }), true);
+  assert.equal(ctx.canPurge({ type: 'income', deletedAt: 'x' }), true);
+  assert.equal(ctx.canPurge({ type: 'word', deletedAt: 'x' }), true);
+  ['category', 'subcategory', 'card', 'installment', 'debt'].forEach(function(t){
+    assert.equal(ctx.canPurge({ type: t, deletedAt: 'x' }), false, t);
+  });
+  assert.equal(ctx.canPurge({ type: 'expense' }), false, 'живий запис — не tombstone');
+  assert.equal(ctx.canPurge({ type: 'word', deletedAt: 'x', deletedVia: 'category' }), false, 'каскадне слово — лише разом із категорією');
+  assert.equal(ctx.canPurge(null), false);
+});
+test('purgeBlockedReason: офлайн і непридатні типи заборонені, онлайн для витрати/доходу/слова — ні', () => {
+  assert.equal(ctx.purgeBlockedReason({ offline: false, type: 'expense' }), null);
+  assert.equal(ctx.purgeBlockedReason({ offline: false, type: 'income' }), null);
+  assert.equal(ctx.purgeBlockedReason({ offline: false, type: 'word' }), null);
+  assert.ok(ctx.purgeBlockedReason({ offline: true, type: 'expense' }));
+  assert.ok(ctx.purgeBlockedReason({ offline: false, type: 'category' }));
+  assert.ok(ctx.purgeBlockedReason({ offline: false, type: 'card' }));
+  assert.ok(ctx.purgeBlockedReason());
+});
+test('purgeConfirmText: "Кава · 74 ₴ · 30 вер. буде видалено назавжди. Це неможливо скасувати"', () => {
+  const t = ctx.purgeConfirmText({ type: 'expense', title: 'Кава', amount: 74, recordDate: '2026-09-30' });
+  assert.equal(t.replace(/\u00a0/g, ' '), 'Кава · 74 ₴ · 30 вер. буде видалено назавжди. Це неможливо скасувати');
+  assert.equal(ctx.purgeConfirmText({ type: 'word', title: 'кава' }), 'Слово «кава» буде видалено назавжди. Це неможливо скасувати');
+});
+test('trashTombstonesForReconcile: synced за syncedUpdatedAt / cloudId; каскадні слова не беруться', () => {
+  const list = j(ctx.trashTombstonesForReconcile({
+    expenses: [{ id: 'e1', deletedAt: 'd', syncedUpdatedAt: 's' }, { id: 'e2', deletedAt: 'd' }, { id: 'e3' }],
+    incomes: [{ id: 'i1', deletedAt: 'd', syncedUpdatedAt: 's' }],
+    dictionary: [{ id: 'w1', deletedAt: 'd', cloudId: 'c1' }, { id: 'w2', deletedAt: 'd' }, { id: 'w3', deletedAt: 'd', deletedVia: 'category', cloudId: 'c3' }],
+  }));
+  assert.deepEqual(list, [
+    { key: 'expense:e1', type: 'expense', cloudId: 'e1', synced: true },
+    { key: 'expense:e2', type: 'expense', cloudId: 'e2', synced: false },
+    { key: 'income:i1', type: 'income', cloudId: 'i1', synced: true },
+    { key: 'word:w1', type: 'word', cloudId: 'c1', synced: true },
+    { key: 'word:w2', type: 'word', cloudId: null, synced: false },
+  ]);
+});
+test('reconcilePlan: відсутній у Cloud → прибрати; живий/tombstone у Cloud → лишити; ніколи не синхронізований → пропустити', () => {
+  const local = [
+    { key: 'expense:e1', type: 'expense', cloudId: 'e1', synced: true },   // немає в Cloud
+    { key: 'expense:e2', type: 'expense', cloudId: 'e2', synced: true },   // tombstone у Cloud
+    { key: 'income:i1', type: 'income', cloudId: 'i1', synced: true },     // живий у Cloud
+    { key: 'expense:e3', type: 'expense', cloudId: 'e3', synced: false },  // ніколи не синхронізувався
+    { key: 'word:w1', type: 'word', cloudId: 'c1', synced: true },         // немає в Cloud
+    { key: 'word:w2', type: 'word', cloudId: null, synced: false },
+  ];
+  const cloud = [
+    { type: 'expense', id: 'e2', deleted_at: '2026-10-01' },
+    { type: 'income', id: 'i1', deleted_at: null },
+    { type: 'income', id: 'e1', deleted_at: null }, // той самий id в ІНШІЙ таблиці не рятує витрату e1
+  ];
+  assert.deepEqual(j(ctx.reconcilePlan(local, cloud)), {
+    removeLocal: ['expense:e1', 'word:w1'],
+    keep: ['expense:e2', 'income:i1'],
+    skip: ['expense:e3', 'word:w2'],
+    restoredElsewhere: ['income:i1'],
+  });
+});
+test('reconcilePlan: збій запиту (null) → нічого не прибирати, усе пропущено', () => {
+  const local = [{ key: 'expense:e1', type: 'expense', cloudId: 'e1', synced: true }, { key: 'word:w1', type: 'word', cloudId: 'c1', synced: true }];
+  [null, undefined, 'err'].forEach(function(bad){
+    assert.deepEqual(j(ctx.reconcilePlan(local, bad)), { removeLocal: [], keep: [], skip: ['expense:e1', 'word:w1'], restoredElsewhere: [] });
+  });
+  assert.deepEqual(j(ctx.reconcilePlan([], [])), { removeLocal: [], keep: [], skip: [], restoredElsewhere: [] });
+});
+test('джерело (E): DELETE лише для tombstone, порціями по 100, без нових міграцій і без викликів send-push-notification', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(/\.delete\(\)\.eq\('id', id\)\.eq\('family_id', cloudFamilyId\)\.not\('deleted_at', 'is', null\)/.test(src), 'DELETE лише рядків-tombstone');
+  assert.ok(src.indexOf('i += 100') !== -1);
+  assert.equal(/\.delete\(\)[^;]*from\('(categories|subcategories|bank_accounts|installment_accounts|debts|hidden_entities)'/.test(src), false);
+  assert.equal(/functions\.invoke\(['"]send-push-notification/.test(src), false);
 });
