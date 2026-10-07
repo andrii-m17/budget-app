@@ -2977,7 +2977,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.26</div>
+  <div class="version-footer">Money Tree · Rev 2.23.27</div>
 </div>
   </div>
 </div>
@@ -3734,7 +3734,10 @@ async function pushCategoriesPilot(){
   // (self-heal чи reconcile-за-іменем щойно доданої) — докоментар нижче,
   // після циклу, пояснює каскад у SUBCATEGORIES/DICTIONARY.
   const reconciledNames = [];
-  for(const cat of CATEGORIES){
+  // Rev 2.23.27 (6D.196, G2) — лише dirty-записи (див. planCategoriesPush вище).
+  const plan = planCategoriesPush(CATEGORIES, null);
+  captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped });
+  for(const cat of plan.push){
     // Rev #30 (6D.50) — цей "already synced" шорткат ІСНУВАВ, щоб не
     // слати зайвий UPDATE, коли справді нічого не змінилось. Rev #30
     // (6D.125) — ВИДАЛЕНО: той самий клас бага, що вже підтверджений
@@ -4022,7 +4025,10 @@ async function pushSubcategoriesPilot(){
   let localChanged = false;
   let anyError = false;
   const reconciledNames = []; // Rev #30 (6D.125) — той самий принцип, що pushCategoriesPilot()
-  for(const sub of SUBCATEGORIES){
+  // Rev 2.23.27 (6D.196, G2) — лише dirty-записи (isSubcategoryDirty: власні зміни або новий cloudId батька).
+  const plan = planSubcategoriesPush(SUBCATEGORIES, null, categoriesByNameMap());
+  captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped });
+  for(const sub of plan.push){
     const parentCat = CATEGORIES.find(function(c){ return c.name === sub.category; });
     if(!parentCat || !parentCat.cloudId) continue; // батьківська категорія ще не синхронізована — не помилка
     // Rev #30 (6D.125) — "already synced" шорткат ВИДАЛЕНО, той самий
@@ -4045,6 +4051,7 @@ async function pushSubcategoriesPilot(){
       }
       if(sub.cloudId !== prevCloudId) reconciledNames.push(sub.name);
       sub.syncedUpdatedAt = sub.updatedAt;
+      sub.syncedCategoryId = parentCat.cloudId; // Rev 2.23.27 (6D.196, G2): батько, з яким синхронізовано
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
@@ -4212,6 +4219,67 @@ async function reconcileDictionaryCensus(){
     if(res.dropped) renderStructure();
   }
   return res;
+}
+// ===== Rev 2.23.27 (6D.196, G2) — "пуш лише змінених" для категорій і підкатегорій =====
+// Той самий спільний шар, що словник у G1 (isDirty/applyCensus/fetchCloudIdCensus).
+// planCategoriesPush(entries, census): dirty (isDirty) + записи, чий cloudId не в переписі (без мутації).
+function planCategoriesPush(entries, census){
+  const known = Array.isArray(census) ? new Set(census) : null;
+  const push = entries.filter(function(c){
+    return isDirty(c) || (known && c.cloudId && !known.has(c.cloudId));
+  });
+  return { push: push, skipped: entries.length - push.length };
+}
+// isSubcategoryDirty(sub, categoriesByName): підкатегорія посилається на батька за id (category_id),
+// тож крім isDirty вона dirty, коли cloudId її категорії змінився порівняно з тим, з яким
+// підкатегорію востаннє синхронізовано (syncedCategoryId): самолікування категорії, перепис id,
+// зв'язування за назвою в pull (раніше це покривав "пуш усього"). Немає поля syncedCategoryId
+// (синхронізовано до G2) — один раз dirty. categoriesByName — { [назва категорії]: категорія }.
+function isSubcategoryDirty(sub, categoriesByName){
+  if(isDirty(sub)) return true;
+  const parent = categoriesByName ? categoriesByName[sub.category] : null;
+  return (sub.syncedCategoryId || null) !== ((parent && parent.cloudId) || null);
+}
+function planSubcategoriesPush(entries, census, categoriesByName){
+  const known = Array.isArray(census) ? new Set(census) : null;
+  const push = entries.filter(function(s){
+    return isSubcategoryDirty(s, categoriesByName) || (known && s.cloudId && !known.has(s.cloudId));
+  });
+  return { push: push, skipped: entries.length - push.length };
+}
+function categoriesByNameMap(){
+  const map = {};
+  CATEGORIES.forEach(function(c){ map[c.name] = c; });
+  return map;
+}
+async function reconcileCategoriesCensus(){
+  if(!isCloudSessionReady()) return null;
+  const ids = await fetchCloudIdCensus('categories');
+  if(!ids) return null;
+  const res = applyCensus(CATEGORIES, ids);
+  if(res.reset || res.dropped) reportSaveResult(await saveCategoriesLocal());
+  return res;
+}
+async function reconcileSubcategoriesCensus(){
+  if(!isCloudSessionReady()) return null;
+  const ids = await fetchCloudIdCensus('subcategories');
+  if(!ids) return null;
+  const res = applyCensus(SUBCATEGORIES, ids);
+  if(res.reset || res.dropped) reportSaveResult(await saveSubcategoriesLocal());
+  return res;
+}
+// Один вхід для "вхід у сесію / online / Синхронізувати все": спершу ВСІ переписи (дешеві SELECT id),
+// потім push dirty у порядку залежностей (категорії → підкатегорії → словник). Не викликається з save*.
+async function syncNameDomainsOnConnect(){
+  const catRes = await reconcileCategoriesCensus();
+  const subRes = await reconcileSubcategoriesCensus();
+  const dictRes = await reconcileDictionaryCensus();
+  [['categories', catRes], ['subcategories', subRes], ['dictionary', dictRes]].forEach(function(pair){
+    if(pair[1]) captureDebugGeometry('push-dirty', { censusReset: pair[1].reset, censusDropped: pair[1].dropped });
+  });
+  await pushCategoriesPilot();
+  await pushSubcategoriesPilot();
+  await pushDictionaryPilot();
 }
 let dictionaryPushRunning = null;
 let dictionaryPushQueued = null;
@@ -4425,7 +4493,7 @@ async function pullSubcategoriesCore(){
           if(row.deactivated_via) byCloudId.deactivatedVia = row.deactivated_via; else delete byCloudId.deactivatedVia;
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
-          byCloudId.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
+          byCloudId.syncedUpdatedAt = row.updated_at; byCloudId.syncedCategoryId = row.category_id; // Rev #30 (6D.50); G2: + батько
           updated++;
         }
         continue;
@@ -4438,11 +4506,11 @@ async function pullSubcategoriesCore(){
         if(row.deactivated_via) byName.deactivatedVia = row.deactivated_via; else delete byName.deactivatedVia;
         byName.createdAt = row.created_at;
         byName.updatedAt = row.updated_at;
-        byName.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
+        byName.syncedUpdatedAt = row.updated_at; byName.syncedCategoryId = row.category_id; // Rev #30 (6D.50); G2: + батько
         linked++;
         continue;
       }
-      SUBCATEGORIES.push({ name: row.name, category: parentCat.name, active: row.active, deactivatedVia: row.deactivated_via || undefined, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
+      SUBCATEGORIES.push({ name: row.name, category: parentCat.name, active: row.active, deactivatedVia: row.deactivated_via || undefined, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, syncedCategoryId: row.category_id });
       added++;
     }
     if(maxSeen) setSyncMarker('subcategories', maxSeen);
@@ -4604,7 +4672,7 @@ function mergeBackupRecordsByCloudIdOrName(list, backupList, nameField){
       const toAdd = Object.assign({}, rec);
       delete toAdd.cloudId;
       delete toAdd.syncedUpdatedAt; // Rev 2.23.26 (6D.195, G1): запис з бекапу ще не синхронізовано
-      delete toAdd.syncedCategoryId; delete toAdd.syncedSubcategoryId;
+      delete toAdd.syncedCategoryId; delete toAdd.syncedSubcategoryId; // G2: те саме для підкатегорій (syncedCategoryId)
       list.push(toAdd);
       added++;
       continue;
@@ -6999,7 +7067,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.26';
+const APP_VERSION = '2.23.27';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7838,9 +7906,8 @@ async function applyCloudSession(session){
       if(dictResult && !dictResult.skipped && (dictResult.updated || dictResult.linked || dictResult.added)){
         renderStructure();
       }
-      // Rev 2.23.26 (6D.195, G1) — перепис id + одноразовий push dirty-слів на вході в сесію.
-      await reconcileDictionaryCensus();
-      pushDictionaryPilot();
+      // Rev 2.23.26 (6D.195, G1) / 2.23.27 (G2) — переписи id + одноразовий push dirty (категорії, підкатегорії, слова) на вході в сесію.
+      await syncNameDomainsOnConnect();
       // Rev #30 (6D, bank_accounts повний цикл) — той самий "один раз на
       // sign-in transition" принцип, окремий виклик на власний домен.
       const bankResult = await pullBankAccountsPilot();
@@ -8761,8 +8828,7 @@ async function syncAllPilotManual(){
   // вручну відредагувати кожен рахунок. МУСИТЬ бути ПЕРЕД push боргів
   // нижче (той самий FK-порядок, що й pull-послідовність вище).
   // Rev 2.23.26 (6D.195, G1) — перепис id словника + push dirty-слів у "Синхронізувати все".
-  await reconcileDictionaryCensus();
-  await pushDictionaryPilot();
+  await syncNameDomainsOnConnect(); // Rev 2.23.27 (6D.196, G2): переписи + push dirty категорій, підкатегорій, слів
   await pushBankAccountsPilot();
   await pushInstallmentAccountsPilot();
   // Rev #30 (6D.57) — "Синхронізувати все" тепер СПРАВДІ двосторонній
@@ -11542,7 +11608,7 @@ function tryLoadExcelLibrary(){
 // ефект з іншого боку: pull підхопить усе, що Cloud накопичив, поки
 // пристрій був офлайн, а вбудований push-retry всередині pull (keptLocal)
 // сам донесе локально-новіші записи назад.
-window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); pushCategoriesPilot(); pushSubcategoriesPilot(); reconcileDictionaryCensus().then(function(res){ if(res) captureDebugGeometry('push-dirty', { censusReset: res.reset, censusDropped: res.dropped }); return pushDictionaryPilot(); }); pushBankAccountsPilot(); pushInstallmentAccountsPilot(); pushHiddenEntitiesPilot(); pullExpensesPilot(); pullIncomesPilot(); pullDebtsPilot(); });
+window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); syncNameDomainsOnConnect(); pushBankAccountsPilot(); pushInstallmentAccountsPilot(); pushHiddenEntitiesPilot(); pullExpensesPilot(); pullIncomesPilot(); pullDebtsPilot(); });
 window.addEventListener('offline', updateOnlineStatusUI);
 
 /* ============ Експорт в Excel ============ */

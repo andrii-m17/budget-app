@@ -148,6 +148,7 @@ const REPOSITORY_NAMES = [
   'saveSubcategories', 'saveSubcategoriesLocal', 'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId',
   'saveSubcategoryPriority',
   'saveDictionary', 'saveDictionaryLocal', 'pushDictionaryPilot', 'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'escapeLikeExact', 'findLiveDictionaryRow', 'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus', // Rev 2.23.26 (6D.195, G1)
+  'planCategoriesPush', 'isSubcategoryDirty', 'planSubcategoriesPush', 'categoriesByNameMap', 'reconcileCategoriesCensus', 'reconcileSubcategoriesCensus', 'syncNameDomainsOnConnect', // Rev 2.23.27 (6D.196, G2)
   // Rev 2.23.25 (6D.194): серіалізація + пошук без урахування регістру
   // Rev #30 (6D.28, subcategories+dictionary повний цикл) — той самий
   // cross-realm-override прийом, що pullBankAccountsCore/
@@ -1799,7 +1800,9 @@ test('pushCategoriesPilot: реальна Cloud-помилка (anyError:true) �
 // → reconcile) не отримував навіть ШАНСУ спрацювати. Тест тепер перевіряє
 // ПРОТИЛЕЖНИЙ, новий інваріант: навіть незмінений запис і далі пушиться
 // (щоб self-heal лишався досяжним), помилка з Cloud не ламає результат.
-test('pushCategoriesPilot: запис із syncedUpdatedAt===updatedAt (не змінювався локально) — і далі пушиться (self-heal лишається досяжним)', async () => {
+// Rev 2.23.27 (6D.196, G2) — ІНВАРІАНТ ЗМІНЕНО свідомо: після G0 (серверний тригер) і G1 (перепис id) "пуш усього" більше не потрібен —
+// чистий запис НЕ пушиться; self-heal застарілого cloudId тепер працює через перепис id (applyCensus, тести tests/categories-dirty.test.js).
+test('pushCategoriesPilot: запис із syncedUpdatedAt===updatedAt (не змінювався локально) — НЕ пушиться (G2; self-heal — через перепис id)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -1815,7 +1818,7 @@ test('pushCategoriesPilot: запис із syncedUpdatedAt===updatedAt (не з�
     },
   });
   const result = await ctx.pushCategoriesPilot();
-  assert.equal(updateCalled, true, 'UPDATE мав викликатись навіть для незміненого запису (self-heal лишається досяжним)');
+  assert.equal(updateCalled, false, 'чистий запис не пушиться (G2); застарілий cloudId виявляє перепис id');
   assert.deepEqual(plain(result).success, true);
 });
 
@@ -1847,7 +1850,7 @@ test('pushCategoriesPilot: запис ЗМІНИВСЯ (updatedAt !== syncedUpda
 // bank_accounts/installment_accounts, 6D.76): кількість категорій мала
 // (одиниці-десятки, не сотні), вартість зайвого UPDATE значно менша за
 // ризик "тихо мертвого" cloudId назавжди.
-test('pushCategoriesPilot: 2 записи, лише 1 локально змінився → ОБИДВА все одно пушаться (self-heal лишається досяжним для кожного)', async () => {
+test('pushCategoriesPilot: 2 записи, лише 1 локально змінився → пушиться ЛИШЕ змінений (G2)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -1866,7 +1869,7 @@ test('pushCategoriesPilot: 2 записи, лише 1 локально змін�
     },
   });
   await ctx.pushCategoriesPilot();
-  assert.deepEqual(updatedIds, ['c1', 'c2']); // ОБИДВА — 'c2' (незмінена) теж пушиться (6D.125)
+  assert.deepEqual(updatedIds, ['c1']); // Rev 2.23.27 (G2): 'c2' (незмінена) НЕ пушиться
 });
 
 test('pushHiddenEntitiesPilot: успішний push (порожній hiddenFrom) → pullHiddenEntitiesCore() викликається (рішення: той самий принцип, хоч і поза "8 доменів")', async () => {
