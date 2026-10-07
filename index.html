@@ -2903,7 +2903,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.18</div>
+  <div class="version-footer">Money Tree · Rev 2.23.19</div>
 </div>
   </div>
 </div>
@@ -6730,7 +6730,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.18';
+const APP_VERSION = '2.23.19';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9007,6 +9007,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'outcome', 'kbFlicker', 'kindChanged',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
   'dir', 'keyboardTypeOk', 'panMax400',
+  // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
+  'proxyCaretColor', 'proxyDistToField',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -15728,6 +15730,42 @@ function proxyAttrsFor(targetInput){
   out.disabled = !!(t && (typeof t.hasAttribute === 'function' ? t.hasAttribute('disabled') : t.disabled));
   return out;
 }
+// Rev 2.23.19 (6D.188) — proxyCaretStyle: невидимий КУРСОР проміжного поля.
+// opacity:0 курсор iOS НЕ ховає — користувач бачив курсор угорі шторки (там
+// стояло проксі, 13-41/543→286пт), який через 98-207мс "стрибав" на справжнє
+// поле. caret-color/color/-webkit-text-fill-color/background прозорі,
+// outline/border/box-shadow/text-shadow прибрані (+ min-width/min-height:0 і
+// margin:0 — проксі лежить усередині .field, де діють правила `.field input`).
+// font-size:16px (без авто-зуму iOS), opacity:0, pointer-events:none лишено.
+// position:absolute; left/top виставляє placeKbProxyAtField(). УВАГА: свідомо
+// БЕЗ user-select:none (було в промті): на iOS input із -webkit-user-select:
+// none історично НЕ редагується/не піднімає клавіатуру (відомий баг WebKit) —
+// для приховування курсора воно не потрібне, а ризик зламати саму клавіатуру
+// проксі (H1/H2/P) надто великий. Якщо потрібно додати — один рядок тут.
+function proxyCaretStyle(){
+  return 'position:absolute; left:0; top:0; width:1px; height:1px; min-width:0; min-height:0; margin:0; padding:0; border:0; outline:0; box-shadow:none; opacity:0; pointer-events:none; font-size:16px; caret-color:transparent; color:transparent; -webkit-text-fill-color:transparent; background:transparent; text-shadow:none; -webkit-tap-highlight-color:transparent;';
+}
+// computeProxyOffset/computeProxyDist — проксі стоїть НА МІСЦІ справжнього
+// поля (його лівий верхній кут = лівий верхній кут поля), тож навіть якщо
+// система покаже курсор, він збігається з майбутнім положенням курсора
+// справжнього поля. Вимірюємо rect проксі при left/top=0 (containing block
+// може бути і .field, і шторка) і зсуваємо на різницю.
+function computeProxyOffset(fieldRect, proxyRectAtZero){
+  return { left: fieldRect.left - proxyRectAtZero.left, top: fieldRect.top - proxyRectAtZero.top };
+}
+function computeProxyDist(proxyRect, fieldRect){
+  return Math.round(Math.hypot(proxyRect.left - fieldRect.left, proxyRect.top - fieldRect.top));
+}
+function placeKbProxyAtField(proxy, field){
+  const host = field.parentNode;
+  if(proxy.parentNode !== host) host.appendChild(proxy);
+  proxy.style.cssText = proxyCaretStyle();
+  const fieldRect = field.getBoundingClientRect();
+  const off = computeProxyOffset(fieldRect, proxy.getBoundingClientRect());
+  proxy.style.left = off.left + 'px';
+  proxy.style.top = off.top + 'px';
+  return computeProxyDist(proxy.getBoundingClientRect(), fieldRect);
+}
 let kbProxyEl = null;
 function getOrCreateKbProxyEl(){
   if(kbProxyEl) return kbProxyEl;
@@ -15735,7 +15773,7 @@ function getOrCreateKbProxyEl(){
   el.id = 'kb-focus-proxy';
   el.setAttribute('aria-hidden', 'true');
   el.setAttribute('tabindex', '-1');
-  el.style.cssText = 'position:fixed; top:calc(env(safe-area-inset-top, 0px) + 8px); left:0; width:1px; height:1px; opacity:0; border:0; padding:0; font-size:16px; pointer-events:none;';
+  el.style.cssText = proxyCaretStyle();
   kbProxyEl = el;
   return el;
 }
@@ -15843,7 +15881,20 @@ function resolveTapField(target){
   const direct = typeof target.closest === 'function' ? target.closest('input, textarea') : null;
   if(direct) return direct;
   const label = typeof target.closest === 'function' ? target.closest('label') : null;
-  return (label && label.control) ? label.control : null;
+  if(label) return label.control || null;
+  if(typeof target.closest !== 'function') return null;
+  // Rev 2.23.19 (6D.188) — ОБГОРТКА поля (.field): тап по ній (DIV.field,
+  // поля навколо input) застосунок/браузер перетворює на фокус поля, а наше
+  // перехоплення знало лише INPUT і LABEL (1 з 8 відкриттів Доходу пройшло
+  // як direct: зсув 389пт). Не перехоплюємо інтерактивні елементи (кнопка,
+  // посилання, select, summary, role=button/switch/checkbox) і обгортки без
+  // РІВНО одного текстового поля. Лише `.field` — вище не піднімаємось (інакше
+  // тап по заголовку шторки з одним полем теж фокусував би це поле).
+  if(target.closest('button, a[href], select, summary, [role="button"], [role="switch"], [role="checkbox"]')) return null;
+  const wrapper = target.closest('.field');
+  if(!wrapper || typeof wrapper.querySelectorAll !== 'function') return null;
+  const textFields = Array.prototype.filter.call(wrapper.querySelectorAll('input, textarea'), isTapTargetField);
+  return textFields.length === 1 ? textFields[0] : null;
 }
 // shouldInterceptFirstFocus — перше відкриття клавіатури (проксі/H3): поле
 // (resolveTapField) — текстове всередині шторки, клавіатура ще не відкрита,
@@ -15961,7 +16012,7 @@ function runProxySwitchTrick(field, drawerEl){
   try{
     const proxy = getOrCreateKbProxyEl();
     configureKbProxy(proxy, field);
-    if(proxy.parentNode !== drawerEl) drawerEl.appendChild(proxy);
+    placeKbProxyAtField(proxy, field);
     proxy.focus({ preventScroll: true });
     focusWithoutScrollIfSupported(field, drawerEl.id);
   }catch(err){}
@@ -16018,6 +16069,7 @@ let kbSheetRestBottom = 0;
 let kbSheetLiftDirty = false;
 let kbSheetCurrentLift = 0;
 let kbRefocusing = false;
+let kbLastTap = null; // Rev 2.23.19: дані ОСТАННЬОГО touchend (для intercept-miss)
 let kbLastFocusedField = null;
 let kbLastInterceptAt = 0;
 // Rev 2.23.12 (6D.181) BugFix (промт користувача, SQL-аналіз 9 фокусів у
@@ -16209,11 +16261,11 @@ function beginKbFocusProxy(target, drawerEl, mode){
   drawerEl.__kbNaturalHeight = restRect.height;
   const proxy = getOrCreateKbProxyEl();
   configureKbProxy(proxy, target);
-  drawerEl.appendChild(proxy);
+  const proxyDist = placeKbProxyAtField(proxy, target);
   kbProxyActive = true;
   kbFocusFlowMode = mode;
   const startedAt = Date.now();
-  captureDebugGeometry('focus-proxy', { drawerId: drawerEl.id || null, proxyActive: true, mode: mode });
+  captureDebugGeometry('focus-proxy', { drawerId: drawerEl.id || null, proxyActive: true, mode: mode, proxyCaretColor: getComputedStyle(proxy).caretColor, proxyDistToField: proxyDist });
   proxy.focus({ preventScroll: true });
 
   let settled = false;
@@ -16415,6 +16467,12 @@ function enterKbSheet(drawerEl, fieldEl){
   // Rev 2.23.14 (6D.183) — focus-mode: яким шляхом прийшов цей фокус (H1/H2/
   // H3 — iOS-перехоплення; 'direct' — нативний фокус без перехоплення).
   captureDebugGeometry('focus-mode', { mode: kbFocusFlowMode, arrowsMode: getKbArrowsMode(), drawerId: drawerEl.id || null });
+  // Rev 2.23.19 (6D.188) — підстраховка від нових "дірок": перше відкриття
+  // пройшло НАТИВНО (direct) на iOS — фіксуємо, ЯКИЙ саме тап це був (тег/
+  // id/класи/координати/мс від touchend). Жодних змін поведінки.
+  if(kbFocusFlowMode === 'direct' && IS_IOS_RUNTIME && kbLastTap){
+    captureDebugGeometry('intercept-miss', { targetTag: kbLastTap.tag, targetId: kbLastTap.id, targetClasses: kbLastTap.classes, touchX: kbLastTap.x, touchY: kbLastTap.y, ms: Math.max(0, Date.now() - kbLastTap.endAt), drawerId: drawerEl.id || null });
+  }
   kbFocusFlowMode = 'direct';
   if(getKbMode() === 'A') startSheetAnimSampler(drawerEl, 'open', naturalHeight);
 }
@@ -16699,6 +16757,12 @@ document.addEventListener('touchend', function(e){
   kbTapStart = null;
   const t = e.changedTouches && e.changedTouches[0];
   if(!t) return;
+  kbLastTap = {
+    tag: start.target && start.target.tagName ? start.target.tagName : null,
+    id: start.target && start.target.id ? start.target.id : null,
+    classes: String((start.target && start.target.getAttribute && start.target.getAttribute('class')) || '').slice(0, 60),
+    x: Math.round(t.clientX), y: Math.round(t.clientY), endAt: Date.now(),
+  };
   const dx = t.clientX - start.x;
   const dy = t.clientY - start.y;
   const moved = Math.sqrt(dx * dx + dy * dy) >= 10;
@@ -16708,7 +16772,7 @@ document.addEventListener('touchend', function(e){
   // preventDefault() у touchend блокує й синтетичний click по підпису.
   const rawTarget = start.target;
   const target = resolveTapField(rawTarget);
-  const viaLabel = !!target && rawTarget !== target;
+  const viaLabel = !!target && rawTarget !== target && !!(rawTarget.closest && rawTarget.closest('label'));
   const drawerEl = target && target.closest ? target.closest('.drawer') : null;
   const intercept = shouldInterceptFirstFocus({
     field: target,

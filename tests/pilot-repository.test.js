@@ -5372,7 +5372,7 @@ function kbSheetSandbox(opts){
       getElementById: function(id){ return id === 'main-col' ? mainCol : null; },
       createElement: function(){
         const attrs = {};
-        return { style: {}, parentNode: null, type: 'text', _attrs: attrs, _calls: [], setAttribute: function(k, v){ attrs[k] = v; }, removeAttribute: function(k){ delete attrs[k]; }, focus: function(o){ this._calls.push('focus:' + (o && o.preventScroll)); } };
+        return { style: {}, parentNode: null, type: 'text', _attrs: attrs, getBoundingClientRect: function(){ return { left: parseFloat(this.style.left) || 0, top: parseFloat(this.style.top) || 0 }; }, _calls: [], setAttribute: function(k, v){ attrs[k] = v; }, removeAttribute: function(k){ delete attrs[k]; }, focus: function(o){ this._calls.push('focus:' + (o && o.preventScroll)); } };
       },
     }, 'activeElement', { get: function(){ return state.activeElement; } }),
     window: { visualViewport: { height: 894, offsetTop: 0 }, innerWidth: 440, innerHeight: 894, scrollY: 0, scrollTo: function(){} },
@@ -5392,7 +5392,7 @@ function kbSheetSandbox(opts){
     requestAnimationFrame: function(fn){ if(opts.captureRaf){ rafQueue.push(fn); } return 1; },
     queueMicrotask: function(fn){ microtasks.push(fn); },
     localStorage: { getItem: function(k){ return Object.prototype.hasOwnProperty.call(lsStore, k) ? lsStore[k] : null; }, setItem: function(k, v){ lsStore[k] = String(v); } },
-    KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', kbProxyEl: null, kbLastFocusedField: null,
+    KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', kbProxyEl: null, kbLastFocusedField: null, kbLastTap: null,
     IS_IOS_RUNTIME: true, SUPPORTS_FOCUS_PREVENT_SCROLL: true, kbRefocusing: false, kbLastInterceptAt: 0,
     cancelAnimationFrame: function(){},
     // setTimeout — синхронний (той самий принцип, що раніше був у rAF):
@@ -5416,7 +5416,7 @@ function kbSheetSandbox(opts){
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf', 'getKbArrowsMode',
     'shouldRefocusTrick', 'classifyRefocusOutcome', 'computeKbFlicker', 'runRefocusTrick', 'focusWithoutScrollIfSupported',
     'isNativeSwitch', 'shouldProxySwitchTrick', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'runProxySwitchTrick',
-    'getOrCreateKbProxyEl', 'configureKbProxy',
+    'getOrCreateKbProxyEl', 'configureKbProxy', 'proxyCaretStyle', 'computeProxyOffset', 'computeProxyDist', 'placeKbProxyAtField',
   ]);
   return { ctx: ctx, mainCol: mainCol, body: body, docElClasses: docElClasses, docElStyle: docElStyle, state: state, debugEvents: debugEvents, runTimers: function(){ while(timers.length) timers.shift()(); }, lsStore: lsStore, microtasks: microtasks, runMicrotasks: function(){ while(microtasks.length) microtasks.shift()(); }, rafQueue: rafQueue };
 }
@@ -5427,6 +5427,8 @@ function makeDrawerField(opts){
   const type = opts.type || 'text';
   return {
     tagName: tagName, type: type,
+    parentNode: opts.parentNode || drawerEl,
+    getBoundingClientRect: function(){ return { left: 30, top: 200 }; },
     getAttribute: function(n){
       if(opts.attrs && Object.prototype.hasOwnProperty.call(opts.attrs, n)) return opts.attrs[n];
       if(n === 'inputmode') return opts.inputmode || null;
@@ -5816,7 +5818,9 @@ test('handleKeyboardFieldFocusIn: режим P — на нативному пе�
   assert.ok(proxy, 'проміжне поле створено');
   assert.deepEqual(proxy._calls.slice(), ['focus:true']);
   assert.deepEqual(order, ['field:true'], 'справжнє поле сфокусоване одразу після проксі');
-  assert.equal(proxy.parentNode, drawerEl, 'проксі лежить у шторці');
+  assert.equal(proxy.parentNode, drawerEl, 'проксі лежить у контейнері поля (тут — шторка)');
+  assert.equal(proxy.style.left, '30px', '6D.188: проксі стоїть НА МІСЦІ справжнього поля');
+  assert.equal(proxy.style.top, '200px');
   assert.equal(proxy._attrs.inputmode, 'numeric', 'атрибути поля скопійовано на проксі');
   assert.equal(microtasks.length, 0);
   assert.equal(ctx.kbRefocusing, false);
@@ -5833,6 +5837,65 @@ test('handleKeyboardFieldFocusIn: режим P — на нативному пе�
   assert.equal(proxy._calls.length, before);
   assert.equal(calls2.length, 0);
   assert.equal(microtasks.length, 0);
+});
+// Rev 2.23.19 (6D.188) — невидимий курсор проксі, тап по обгортці поля, intercept-miss.
+test('proxyCaretStyle: прозорий курсор/текст/фон + збережено font-size:16px, opacity:0, pointer-events:none; user-select свідомо відсутній', () => {
+  const { ctx } = kbSheetSandbox();
+  const st = ctx.proxyCaretStyle();
+  ['caret-color:transparent', 'color:transparent', '-webkit-text-fill-color:transparent', 'background:transparent', 'outline:0', 'border:0', 'text-shadow:none', 'font-size:16px', 'opacity:0', 'pointer-events:none', '-webkit-tap-highlight-color:transparent', 'position:absolute', 'width:1px', 'height:1px'].forEach(function(frag){
+    assert.ok(st.replace(/\s+/g, '').indexOf(frag.replace(/\s+/g, '')) !== -1, frag);
+  });
+  assert.equal(st.indexOf('user-select'), -1, 'user-select:none ламає редагованість input на iOS');
+});
+test('computeProxyOffset/computeProxyDist: проксі стає у лівий верхній кут поля, дистанція 0', () => {
+  const { ctx } = kbSheetSandbox();
+  const off = ctx.computeProxyOffset({ left: 56, top: 282 }, { left: 20, top: 100 });
+  assert.equal(off.left, 36);
+  assert.equal(off.top, 182);
+  assert.equal(ctx.computeProxyDist({ left: 56, top: 282 }, { left: 56, top: 282 }), 0);
+  assert.equal(ctx.computeProxyDist({ left: 59, top: 286 }, { left: 56, top: 282 }), 5);
+});
+function makeWrapperTap(opts){
+  const fields = opts.fields;
+  const wrapper = { tagName: 'DIV', querySelectorAll: function(){ return fields; } };
+  const target = { tagName: 'DIV', closest: function(sel){
+    if(sel === 'input, textarea' || sel === 'label') return null;
+    if(sel.indexOf('button') !== -1) return opts.interactive ? {} : null;
+    if(sel === '.field') return opts.noWrapper ? null : wrapper;
+    return null;
+  } };
+  return target;
+}
+test('resolveTapField: DIV.field з РІВНО одним текстовим полем → це поле; з кількома/нуллем → null; кнопка/інтерактивне → null; чекбокс у обгортці не рахується', () => {
+  const { ctx } = kbSheetSandbox();
+  const f1 = makeDrawerField({ inDrawer: true, type: 'text' });
+  const f2 = makeDrawerField({ inDrawer: true, type: 'text' });
+  const cb = makeDrawerField({ inDrawer: true, type: 'checkbox' });
+  assert.equal(ctx.resolveTapField(makeWrapperTap({ fields: [f1] })), f1, 'тап по обгортці з одним полем');
+  assert.equal(ctx.resolveTapField(makeWrapperTap({ fields: [f1, cb] })), f1, 'чекбокс не текстове поле — лишається одне');
+  assert.equal(ctx.resolveTapField(makeWrapperTap({ fields: [f1, f2] })), null, 'обгортка з кількома полями');
+  assert.equal(ctx.resolveTapField(makeWrapperTap({ fields: [] })), null);
+  assert.equal(ctx.resolveTapField(makeWrapperTap({ fields: [f1], interactive: true })), null, 'кнопка/посилання/select усередині');
+  assert.equal(ctx.resolveTapField(makeWrapperTap({ fields: [f1], noWrapper: true })), null, 'поза .field');
+  // і перехоплення першого фокусу/перемикання тепер бачить такий тап
+  assert.equal(ctx.shouldInterceptFirstFocus({ field: ctx.resolveTapField(makeWrapperTap({ fields: [f1] })), kbSheetOpen: false, moved: false, durationMs: 80 }), true);
+});
+test('enterKbSheet: перше відкриття НАТИВНО (direct) на iOS → intercept-miss з даними останнього тапу; після перехоплення (H2) — ні', () => {
+  const a = kbSheetSandbox();
+  a.ctx.kbLastTap = { tag: 'DIV', id: null, classes: 'field', x: 120, y: 300, endAt: Date.now() - 12 };
+  a.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+  const miss = a.debugEvents.find(function(e){ return e.type === 'intercept-miss'; });
+  assert.ok(miss);
+  assert.equal(miss.targetTag, 'DIV'); assert.equal(miss.targetClasses, 'field'); assert.equal(miss.touchX, 120); assert.equal(miss.touchY, 300);
+  assert.ok(miss.ms >= 12);
+  const b = kbSheetSandbox();
+  b.ctx.kbLastTap = { tag: 'INPUT', id: 'x', classes: '', x: 1, y: 2, endAt: Date.now() };
+  b.ctx.kbFocusFlowMode = 'H2';
+  b.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+  assert.ok(!b.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }));
+  const c = kbSheetSandbox(); // без тапу взагалі — нічого
+  c.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+  assert.ok(!c.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }));
 });
 test('runRefocusTrick: blur() → focus({preventScroll:true}) того самого поля, ОДНА спроба; focusin під час спроби нічого не змінює; потім refocus-trick з outcome', () => {
   const { ctx, debugEvents, rafQueue, docElClasses, state } = kbSheetSandbox({ captureRaf: true });
