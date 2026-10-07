@@ -5368,6 +5368,7 @@ function kbSheetSandbox(opts){
     localStorage: { getItem: function(k){ return Object.prototype.hasOwnProperty.call(lsStore, k) ? lsStore[k] : null; }, setItem: function(k, v){ lsStore[k] = String(v); } },
     KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', KB_CARET_LS_KEY: 'budget_exp_kb_caret_v1', kbMovingGen: 0, kbProxyEl: null, kbLastFocusedField: null, kbLastTap: null,
     IS_IOS_RUNTIME: true, SUPPORTS_FOCUS_PREVENT_SCROLL: true, kbRefocusing: false, kbLastInterceptAt: 0,
+    getBaseViewportHeight: function(){ return 894; }, // Rev 2.23.30 (6D.199): база для запобіжника kb-open
     cancelAnimationFrame: function(){},
     // setTimeout — синхронний (той самий принцип, що раніше був у rAF):
     // exitKbSheet()/startSheetAnimSampler() використовують його як
@@ -5382,7 +5383,7 @@ function kbSheetSandbox(opts){
     'viewportOrientationKey', 'nextBaseViewportHeight', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
     'enterKbSheet', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
-    'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle',
+    'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle', 'shouldReleaseKbOpen', // Rev 2.23.30 (6D.199)
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
     'computeSheetLift', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
@@ -5432,7 +5433,7 @@ test('handleKeyboardFieldFocusIn: поле ВСЕРЕДИНІ шторки → k
   assert.ok(docElStyle['--kb-h'], '--kb-h виставлено одразу (оцінка), ще ДО появи клавіатури');
 });
 test('handleKeyboardFieldFocusIn: інлайн-поле "Витрати" (ПОЗА шторкою) → kb-open, але БЕЗ локу й БЕЗ kb-sheet', () => {
-  const { ctx, mainCol, body, docElClasses } = kbSheetSandbox();
+  const { ctx, mainCol, body, docElClasses } = kbSheetSandbox({ deferTimers: true }); // Rev 2.23.30: запобіжник kb-open (700мс) відкладено
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: false }));
   assert.equal(body.classList.contains('kb-open'), true, 'таббар і далі ховається для будь-якого поля — не чіпали');
   assert.equal(mainCol._inert, false, 'головна скарга 6D.172 — тут МАЄ лишитись false');
@@ -6538,4 +6539,29 @@ test('markDebugEvent: дає короткий візуальний відгук 
   ctx.markDebugEvent();
   assert.equal(btnState.textContent, 'Мітка', 'після setTimeout текст повернувся до вихідного');
   assert.equal(btnState.disabled, false);
+});
+
+// Rev 2.23.30 (6D.199) — запобіжник "клавіатури немає, а таббару немає".
+test('запобіжник kb-open: через 700мс без стиснення visualViewport (клавіатури немає) kb-open знімається й таббар повертається', () => {
+  const { ctx, body, runTimers, debugEvents } = kbSheetSandbox({ deferTimers: true });
+  ctx.window.visualViewport.height = 894; // клавіатура не з'явилась
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: false }));
+  assert.equal(body.classList.contains('kb-open'), true);
+  runTimers();
+  assert.equal(body.classList.contains('kb-open'), false);
+  assert.ok(debugEvents.some(function(e){ return e.type === 'kb-open-released'; }));
+});
+test('запобіжник kb-open: справжня клавіатура (visualViewport стиснувся >100) — kb-open лишається', () => {
+  const { ctx, body, runTimers } = kbSheetSandbox({ deferTimers: true });
+  ctx.window.visualViewport.height = 520;
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: false }));
+  runTimers();
+  assert.equal(body.classList.contains('kb-open'), true);
+});
+test('запобіжник kb-open не діє для полів у шторках (їх керує окрема логіка)', () => {
+  const { ctx, body, runTimers } = kbSheetSandbox({ deferTimers: true });
+  ctx.window.visualViewport.height = 894;
+  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text' }));
+  runTimers();
+  assert.equal(body.classList.contains('kb-open'), true);
 });

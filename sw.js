@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.23.29';
+const CACHE_NAME = 'budget-app-v2.23.30';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -68,21 +68,84 @@ self.addEventListener('message', function(event){
 // Rev 2.22.27 (6D.99) — data.data (напр. {type:'daily-expense-reminder'},
 // сервер) прокидається в options.data — notificationclick нижче читає
 // його, щоб знати, куди саме вести клік.
+// Rev 2.23.30 (6D.199) — ЖУРНАЛ ОТРИМАННЯ + "завжди показувати": на КОЖНУ подію push (до showNotification) у IndexedDB
+// 'budget-app-push-log' пишеться {ts, type, title, shown:false}; після успішного showNotification shown:true; будь-яка
+// помилка (парсингу, запису в журнал, самого показу) ловиться й лягає в поле error. iOS вимагає показувати сповіщення
+// для КОЖНОГО push (інакше може відкликати дозвіл), тому НЕМАЄ жодної умови, за якої showNotification не викликається
+// (зокрема коли вікно застосунку видиме — внутрішні картки на Realtime живуть окремо). Журнал — до 30 записів.
+const PUSH_LOG_DB_NAME = 'budget-app-push-log';
+const PUSH_LOG_STORE = 'log';
+const PUSH_LOG_LIMIT = 30;
+function openPushLogDb(){
+  return new Promise(function(resolve, reject){
+    const req = indexedDB.open(PUSH_LOG_DB_NAME, 1);
+    req.onupgradeneeded = function(){
+      if(!req.result.objectStoreNames.contains(PUSH_LOG_STORE)) req.result.createObjectStore(PUSH_LOG_STORE, { keyPath: 'id', autoIncrement: true });
+    };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+function writePushLog(entry){
+  return openPushLogDb().then(function(db){
+    return new Promise(function(resolve, reject){
+      const tx = db.transaction(PUSH_LOG_STORE, 'readwrite');
+      const store = tx.objectStore(PUSH_LOG_STORE);
+      const addReq = store.add(entry);
+      addReq.onsuccess = function(){
+        const id = addReq.result;
+        const keysReq = store.getAllKeys();
+        keysReq.onsuccess = function(){
+          const keys = keysReq.result || [];
+          for(let i = 0; i < keys.length - PUSH_LOG_LIMIT; i++) store.delete(keys[i]); // найстаріші відкидаємо
+          resolve(id);
+        };
+      };
+      tx.onerror = function(){ reject(tx.error); };
+      tx.oncomplete = function(){ db.close(); };
+    });
+  });
+}
+function patchPushLog(id, patch){
+  if(id === null || id === undefined) return Promise.resolve();
+  return openPushLogDb().then(function(db){
+    return new Promise(function(resolve){
+      const tx = db.transaction(PUSH_LOG_STORE, 'readwrite');
+      const store = tx.objectStore(PUSH_LOG_STORE);
+      const getReq = store.get(id);
+      getReq.onsuccess = function(){ if(getReq.result) store.put(Object.assign(getReq.result, patch)); };
+      tx.oncomplete = function(){ db.close(); resolve(); };
+      tx.onerror = function(){ resolve(); };
+    });
+  }).catch(function(){});
+}
 self.addEventListener('push', function(event){
   let data = {};
-  try{ data = event.data ? event.data.json() : {}; }catch(err){}
-  const title = data.title || 'Money Tree';
+  let problem = null;
+  try{ data = event.data ? event.data.json() : {}; }catch(err){ problem = 'parse: ' + (err && err.message ? err.message : String(err)); data = {}; }
+  if(!data || typeof data !== 'object') data = {};
+  const title = (typeof data.title === 'string' && data.title) ? data.title : 'Money Tree';
+  const inner = (data.data && typeof data.data === 'object') ? data.data : {};
   const options = {
-    body: data.body || '',
+    body: typeof data.body === 'string' ? data.body : '',
     icon: './icons/icon-192-v2.png',
     badge: './icons/icon-192-v2.png',
-    data: data.data || {}
+    data: inner
   };
-  // Rev 2.23.29 (6D.198) — tag (якщо сервер його надіслав у data.data.tag або data.tag) замінює попереднє сповіщення
-  // того ж виду; renotify:false — заміна без повторного звуку/вібрації.
-  const notifTag = (data.data && data.data.tag) || data.tag;
+  // Rev 2.23.29 (6D.198) — tag (data.data.tag або data.tag) замінює попереднє сповіщення того ж виду; renotify:false — без
+  // повторного звуку/вібрації при заміні.
+  const notifTag = inner.tag || data.tag;
   if(notifTag){ options.tag = String(notifTag); options.renotify = false; }
-  event.waitUntil(self.registration.showNotification(title, options));
+  const logged = writePushLog({ ts: Date.now(), type: inner.type || null, title: title, shown: false, error: problem }).catch(function(){ return null; });
+  event.waitUntil(
+    logged.then(function(id){
+      return self.registration.showNotification(title, options).then(function(){
+        return patchPushLog(id, { shown: true });
+      }, function(err){
+        return patchPushLog(id, { error: 'show: ' + (err && err.message ? err.message : String(err)) }).then(function(){ throw err; });
+      });
+    })
+  );
 });
 
 // Rev 2.22.25 (6D.93) — клік по сповіщенню: фокус уже відкритої вкладки,
