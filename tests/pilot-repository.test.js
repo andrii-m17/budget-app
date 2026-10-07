@@ -147,7 +147,7 @@ const REPOSITORY_NAMES = [
   // фізично на них посилаються.
   'saveSubcategories', 'saveSubcategoriesLocal', 'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId',
   'saveSubcategoryPriority',
-  'saveDictionary', 'saveDictionaryLocal', 'pushDictionaryPilot', 'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'escapeLikeExact', 'findLiveDictionaryRow', 'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus', // Rev 2.23.26 (6D.195, G1)
+  'saveDictionary', 'saveDictionaryLocal', 'pushDictionaryPilot', 'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'escapeLikeExact', 'findLiveDictionaryRow', 'TEST_IGNORE_LS_KEY', 'isTestRecordName', 'syncNameOf', 'shouldIgnoreForSync', 'isTestHiddenKey', 'testIgnoreFlag', 'isTestSyncIgnored', 'syncableRecords', 'filterTestRows', 'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus', // Rev 2.23.26 (6D.195, G1)
   'planCategoriesPush', 'isSubcategoryDirty', 'planSubcategoriesPush', 'categoriesByNameMap', 'reconcileCategoriesCensus', 'reconcileSubcategoriesCensus', 'syncNameDomainsOnConnect', // Rev 2.23.27 (6D.196, G2)
   'planBankAccountsPush', 'planInstallmentAccountsPush', 'reconcileBankAccountsCensus', 'reconcileInstallmentAccountsCensus', 'reconcileAccountsCensusFor', 'invalidateAccountChildren', // Rev 2.23.28 (6D.197, G3)
   // Rev 2.23.25 (6D.194): серіалізація + пошук без урахування регістру

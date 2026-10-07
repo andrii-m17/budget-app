@@ -3018,7 +3018,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.31</div>
+  <div class="version-footer">Money Tree · Rev 2.23.32</div>
 </div>
   </div>
 </div>
@@ -3155,6 +3155,8 @@
     </span>
   </button>
   <button type="button" class="submit-btn pill" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="resetAllTestVariantsFromUi()">Скинути всі тестові варіанти</button>
+  <!-- Rev 2.23.32 (6D.201): очищення ЛОКАЛЬНИХ тестових записів (назва починається на "TRASH-TEST-"); у Cloud нічого не змінюється. -->
+  <button type="button" class="submit-btn pill danger-outline" style="margin-top:10px;" onclick="cleanupTestRecordsFromUi()">Очистити тестові записи на цьому пристрої</button>
 </div>
 
 <!-- ================= "Чорна скринька" діагностики (Rev 2.22.91, 6D.164) =================
@@ -3806,7 +3808,7 @@ async function pushCategoriesPilot(){
   // після циклу, пояснює каскад у SUBCATEGORIES/DICTIONARY.
   const reconciledNames = [];
   // Rev 2.23.27 (6D.196, G2) — лише dirty-записи (див. planCategoriesPush вище).
-  const plan = planCategoriesPush(CATEGORIES, null);
+  const plan = planCategoriesPush(syncableRecords(CATEGORIES), null); // Rev 2.23.32 (6D.201): без тестових TRASH-TEST-
   captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped });
   for(const cat of plan.push){
     // Rev #30 (6D.50) — цей "already synced" шорткат ІСНУВАВ, щоб не
@@ -3971,7 +3973,7 @@ async function pullCategoriesCore(){
     query = applySyncMarker(query, 'categories');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
-    for(const row of data){
+    for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       const byCloudId = CATEGORIES.find(function(c){ return c.cloudId === row.id; });
       if(byCloudId){
         // Rev #30 (6D, Варіант А) — справжній LWW замість "Cloud завжди
@@ -4097,7 +4099,7 @@ async function pushSubcategoriesPilot(){
   let anyError = false;
   const reconciledNames = []; // Rev #30 (6D.125) — той самий принцип, що pushCategoriesPilot()
   // Rev 2.23.27 (6D.196, G2) — лише dirty-записи (isSubcategoryDirty: власні зміни або новий cloudId батька).
-  const plan = planSubcategoriesPush(SUBCATEGORIES, null, categoriesByNameMap());
+  const plan = planSubcategoriesPush(syncableRecords(SUBCATEGORIES), null, categoriesByNameMap());
   captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped });
   for(const sub of plan.push){
     const parentCat = CATEGORIES.find(function(c){ return c.name === sub.category; });
@@ -4201,6 +4203,76 @@ async function saveDictionaryLocal(){
 // syncedUpdatedAt до цієї ревізії у словнику лише ПИСАВСЯ; тепер за ним вирішується, що пушити.
 // Спільний шар (isDirty/applyCensus/fetchCloudIdCensus) написано так, щоб G2 (категорії/підкатегорії)
 // і G3 (рахунки/ОЧ) використали його без змін.
+// ===== Rev 2.23.32 (6D.201) — ізоляція тестових записів "TRASH-TEST-" від синхронізації =====
+// Запис, чия назва/нотатка/слово ПОЧИНАЄТЬСЯ на "TRASH-TEST-" (регістр неважливий; лише початок, не входження), ігнорується
+// синхронізацією на цьому пристрої: pull його не додає, перепис id не відтворює, push не відправляє. Причина: тестові записи, видалені
+// з Cloud SQL-ом, повертались від імені реального пристрою (самолікування G3 бачить "живий запис, якого немає в Cloud").
+// Вимикач: localStorage budget_ignore_test_prefix_v1 === '0' (для сесій, де синхронізацію тестових записів треба перевіряти);
+// за замовчуванням ізоляція УВІМКНЕНА. Див. docs/TESTING.md.
+const TEST_IGNORE_LS_KEY = 'budget_ignore_test_prefix_v1';
+function isTestRecordName(name){
+  return typeof name === 'string' && name.toUpperCase().indexOf('TRASH-TEST-') === 0;
+}
+// Ім'я запису для перевірки: витрата/борг/рахунок/категорія — name; дохід — source; слово — kw (Cloud: keyword).
+function syncNameOf(rec){
+  if(!rec) return null;
+  if(rec.name != null) return rec.name;
+  if(rec.source != null) return rec.source;
+  if(rec.kw != null) return rec.kw;
+  return rec.keyword != null ? rec.keyword : null;
+}
+function shouldIgnoreForSync(record, flag){
+  if(flag === '0') return false;
+  return isTestRecordName(syncNameOf(record));
+}
+// Ключ hiddenFrom має вигляд "card:Назва" / "installment:Назва".
+function isTestHiddenKey(key){
+  const at = String(key).indexOf(':');
+  return isTestRecordName(at === -1 ? String(key) : String(key).slice(at + 1));
+}
+function testIgnoreFlag(){
+  try{ return localStorage.getItem(TEST_IGNORE_LS_KEY); }catch(e){ return null; }
+}
+function isTestSyncIgnored(rec){ return shouldIgnoreForSync(rec, testIgnoreFlag()); }
+function syncableRecords(list){
+  const flag = testIgnoreFlag();
+  if(flag === '0') return list;
+  return list.filter(function(r){ return !shouldIgnoreForSync(r, flag); });
+}
+// Рядки Cloud за ім'ям (поле name/note/keyword залежно від таблиці) без тестових.
+function filterTestRows(rows, field){
+  if(testIgnoreFlag() === '0' || !field) return rows;
+  return rows.filter(function(r){ return !isTestRecordName(r[field]); });
+}
+// collectTestRecords(state): усі ЛОКАЛЬНІ тестові записи по доменах (незалежно від прапора — для кнопки очищення).
+function collectTestRecords(state){
+  const st = state || {};
+  const pick = function(list){ return (list || []).filter(function(r){ return isTestRecordName(syncNameOf(r)); }); };
+  return {
+    cards: pick(st.bankAccounts), installments: pick(st.installmentAccounts), debts: pick(st.debts),
+    expenses: pick(st.expenses), incomes: pick(st.incomes),
+    categories: pick(st.categories), subcategories: pick(st.subcategories), words: pick(st.dictionary),
+    hidden: Object.keys(st.hiddenFrom || {}).filter(isTestHiddenKey),
+  };
+}
+function countTestRecords(c){
+  return Object.keys(c).reduce(function(n, k){ return n + c[k].length; }, 0);
+}
+// Людський підсумок ("2 картки, 1 ОЧ, 2 борги, 2 приховані"); порожні групи опускаються.
+function describeTestRecords(c){
+  const parts = [];
+  const add = function(list, forms){ if(list.length) parts.push(list.length + ' ' + pluralUa(list.length, forms)); };
+  add(c.cards, ['картка', 'картки', 'карток']);
+  add(c.installments, ['ОЧ', 'ОЧ', 'ОЧ']);
+  add(c.debts, ['борг', 'борги', 'боргів']);
+  add(c.expenses, ['витрата', 'витрати', 'витрат']);
+  add(c.incomes, ['дохід', 'доходи', 'доходів']);
+  add(c.categories, ['категорія', 'категорії', 'категорій']);
+  add(c.subcategories, ['підкатегорія', 'підкатегорії', 'підкатегорій']);
+  add(c.words, ['слово', 'слова', 'слів']);
+  add(c.hidden, ['прихований', 'приховані', 'прихованих']);
+  return parts.length ? parts.join(', ') : '';
+}
 // dirty: запис без cloudId (ніколи не синхронізувався) або змінений після останньої синхронізації.
 function isDirty(entry){
   return !entry.cloudId || entry.syncedUpdatedAt !== entry.updatedAt;
@@ -4214,10 +4286,11 @@ function isDirty(entry){
 // (збій запиту) або порожній при наявних локальних cloudId (підозра на невалідну сесію/RLS —
 // порожня відповідь без помилки) — нічого не змінюємо.
 // Повертає { reset, dropped } і мутує entries (видалення — splice за посиланням).
-function applyCensus(entries, cloudIds){
+function applyCensus(entries, cloudIds, skip){
+  // Rev 2.23.32 (6D.201): skip(e) — записи, що ігноруються синхронізацією (тестові TRASH-TEST-), перепис не чіпає й не відтворює.
   const out = { reset: 0, dropped: 0 };
   if(!Array.isArray(cloudIds)) return out;
-  const withCloudId = entries.filter(function(e){ return !!e.cloudId; });
+  const withCloudId = entries.filter(function(e){ return !!e.cloudId && !(skip && skip(e)); });
   if(!cloudIds.length && withCloudId.length) return out;
   const known = new Set(cloudIds);
   withCloudId.forEach(function(e){
@@ -4284,7 +4357,7 @@ async function reconcileDictionaryCensus(){
   if(!isCloudSessionReady()) return null;
   const ids = await fetchCloudIdCensus('dictionary');
   if(!ids) return null;
-  const res = applyCensus(DICTIONARY, ids);
+  const res = applyCensus(DICTIONARY, ids, isTestSyncIgnored);
   if(res.reset || res.dropped){
     reportSaveResult(await saveDictionaryLocal());
     if(res.dropped) renderStructure();
@@ -4327,7 +4400,7 @@ async function reconcileCategoriesCensus(){
   if(!isCloudSessionReady()) return null;
   const ids = await fetchCloudIdCensus('categories');
   if(!ids) return null;
-  const res = applyCensus(CATEGORIES, ids);
+  const res = applyCensus(CATEGORIES, ids, isTestSyncIgnored);
   if(res.reset || res.dropped) reportSaveResult(await saveCategoriesLocal());
   return res;
 }
@@ -4335,7 +4408,7 @@ async function reconcileSubcategoriesCensus(){
   if(!isCloudSessionReady()) return null;
   const ids = await fetchCloudIdCensus('subcategories');
   if(!ids) return null;
-  const res = applyCensus(SUBCATEGORIES, ids);
+  const res = applyCensus(SUBCATEGORIES, ids, isTestSyncIgnored);
   if(res.reset || res.dropped) reportSaveResult(await saveSubcategoriesLocal());
   return res;
 }
@@ -4358,8 +4431,8 @@ async function reconcileAccountsCensusFor(kind, entityType, table, list, saveLoc
   if(!ids) return null;
   const known = new Set(ids);
   // імена й старі id фіксуємо ДО applyCensus (він скидає cloudId у самих об'єктів)
-  const missing = list.filter(function(a){ return a.cloudId && !known.has(a.cloudId); }).map(function(a){ return { name: a.name, cloudId: a.cloudId }; });
-  const res = applyCensus(list, ids);
+  const missing = list.filter(function(a){ return a.cloudId && !known.has(a.cloudId) && !isTestSyncIgnored(a); }).map(function(a){ return { name: a.name, cloudId: a.cloudId }; });
+  const res = applyCensus(list, ids, isTestSyncIgnored);
   if(res.reset || res.dropped) reportSaveResult(await saveLocal());
   if(res.reset && missing.length){
     await invalidateAccountChildren(kind, missing.map(function(a){ return a.name; }));
@@ -4455,7 +4528,7 @@ async function pushDictionaryPilotRun(){
   let localChanged = false;
   let anyError = false;
   // Rev 2.23.26 (6D.195, G1) — лише dirty-записи (див. isDirty/planDictionaryPush вище).
-  const plan = planDictionaryPush(DICTIONARY, null, dictionaryParentIds);
+  const plan = planDictionaryPush(syncableRecords(DICTIONARY), null, dictionaryParentIds);
   captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped });
   for(const entry of plan.push){
     const parentCat = CATEGORIES.find(function(c){ return c.name === entry.cat; });
@@ -4616,7 +4689,7 @@ async function pullSubcategoriesCore(){
     query = applySyncMarker(query, 'subcategories');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
-    for(const row of data){
+    for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       const parentCat = CATEGORIES.find(function(c){ return c.cloudId === row.category_id; });
       // Rev #30 (6D.38) — skippedFk-рядок НЕ рухає маркер: якщо маркер
       // "перестрибне" його timestamp, цей запис ніколи більше не
@@ -4697,7 +4770,7 @@ async function pullDictionaryCore(){
     query = applySyncMarker(query, 'dictionary');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
-    for(const row of data){
+    for(const row of filterTestRows(data, 'keyword')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       const parentCat = CATEGORIES.find(function(c){ return c.cloudId === row.category_id; });
       if(!parentCat){ skippedFk++; continue; }
       let parentSub = null;
@@ -5802,6 +5875,7 @@ async function saveDebts(){
 // після всього батчу (не тут).
 async function pushExpenseRecordPilot(rec, opts){
   if(!isCloudSessionReady()) return { success: true };
+  if(isTestSyncIgnored(rec)) return { success: true }; // Rev 2.23.32 (6D.201): тестовий запис TRASH-TEST- не синхронізується
   let linkedInstallmentId = null;
   if(rec.linkedInstallment){
     const acc = installmentAccounts.find(function(a){ return a.name === rec.linkedInstallment; });
@@ -5927,6 +6001,7 @@ async function pushExpensesBatch(records){
 // збільшити пізніше за потреби). Чанки обробляються послідовно (await), не
 // паралельно — той самий принцип обережності, що вже 6D.58.
 async function pushExpensesBatched(records, chunkSize){
+  records = syncableRecords(records); // Rev 2.23.32 (6D.201): без тестових TRASH-TEST-
   chunkSize = chunkSize || 50;
   let pushed = 0, failed = 0, firstError = null;
   for(let i = 0; i < records.length; i += chunkSize){
@@ -5940,6 +6015,7 @@ async function pushExpensesBatched(records, chunkSize){
 }
 async function pushIncomeRecordPilot(rec, opts){
   if(!isCloudSessionReady()) return { success: true };
+  if(isTestSyncIgnored(rec)) return { success: true }; // Rev 2.23.32 (6D.201): тестовий запис TRASH-TEST- не синхронізується
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   try{
@@ -5998,6 +6074,7 @@ async function pushIncomesBatch(records){
   return { pushed: pushed, failed: failed, firstError: firstError };
 }
 async function pushIncomesBatched(records, chunkSize){
+  records = syncableRecords(records); // Rev 2.23.32 (6D.201): без тестових TRASH-TEST-
   chunkSize = chunkSize || 50;
   let pushed = 0, failed = 0, firstError = null;
   for(let i = 0; i < records.length; i += chunkSize){
@@ -6009,6 +6086,7 @@ async function pushIncomesBatched(records, chunkSize){
 }
 async function pushDebtRecordPilot(rec, opts){
   if(!isCloudSessionReady()) return { success: true };
+  if(isTestSyncIgnored(rec)) return { success: true }; // Rev 2.23.32 (6D.201): тестовий запис TRASH-TEST- не синхронізується
   let bankAccountId = null, installmentAccountId = null;
   if(rec.kind === 'card'){
     const acc = bankAccounts.find(function(b){ return b.name === rec.name; });
@@ -6133,6 +6211,7 @@ async function pushDebtsBatch(records){
   return { pushed: pushed, failed: failed, firstError: firstError };
 }
 async function pushDebtsBatched(records, chunkSize){
+  records = syncableRecords(records); // Rev 2.23.32 (6D.201): без тестових TRASH-TEST-
   chunkSize = chunkSize || 50;
   let pushed = 0, failed = 0, firstError = null;
   for(let i = 0; i < records.length; i += chunkSize){
@@ -6212,7 +6291,7 @@ async function pullExpensesCore(){
     query = applySyncMarker(query, 'expenses');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
-    for(const row of data){
+    for(const row of filterTestRows(data, 'note')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       let linkedInstallmentName = null;
       if(row.linked_installment_id){
         const acc = installmentAccounts.find(function(a){ return a.cloudId === row.linked_installment_id; });
@@ -6350,7 +6429,7 @@ async function pullIncomesCore(){
     query = applySyncMarker(query, 'incomes');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
-    for(const row of data){
+    for(const row of filterTestRows(data, 'note')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       const local = incomes.find(function(i){ return i.id === row.id; });
       if(local){
         const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
@@ -6439,7 +6518,7 @@ async function pullDebtsCore(){
     query = applySyncMarker(query, 'debts');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
-    for(const row of data){
+    for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       let resolvedName;
       if(row.kind === 'card'){
         const acc = bankAccounts.find(function(b){ return b.cloudId === row.bank_account_id; });
@@ -6572,7 +6651,7 @@ async function pushBankAccountsPilot(){
   const reconciledNames = [];
   const reconciledOldCloudIds = [];
   // Rev 2.23.28 (6D.197, G3) — лише dirty-записи (planBankAccountsPush).
-  const plan = planBankAccountsPush(bankAccounts, null);
+  const plan = planBankAccountsPush(syncableRecords(bankAccounts), null);
   for(const acc of plan.push){
     // Rev #30 (6D.50) — цей "already synced" шорткат ІСНУВАВ, щоб не
     // слати зайвий UPDATE, коли справді нічого не змінилось. Rev #30
@@ -6673,7 +6752,7 @@ async function pullBankAccountsCore(){
     query = applySyncMarker(query, 'bankAccounts');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
-    for(const row of data){
+    for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       const byCloudId = bankAccounts.find(function(a){ return a.cloudId === row.id; });
       if(byCloudId){
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
@@ -6762,7 +6841,7 @@ async function pushInstallmentAccountsPilot(){
   const reconciledNames = []; // Rev #30 (6D.76) — той самий принцип, що pushBankAccountsPilot()
   const reconciledOldCloudIds = []; // Rev #30 (6D.143) — той самий принцип, що pushBankAccountsPilot()
   // Rev 2.23.28 (6D.197, G3) — лише dirty-записи (planInstallmentAccountsPush).
-  const plan = planInstallmentAccountsPush(installmentAccounts, null);
+  const plan = planInstallmentAccountsPush(syncableRecords(installmentAccounts), null);
   for(const acc of plan.push){
     // Rev #30 (6D.76) — "already synced" шорткат ВИДАЛЕНО, той самий
     // реальний інцидент і те саме обґрунтування, що pushBankAccountsPilot()
@@ -6833,7 +6912,7 @@ async function pullInstallmentAccountsCore(){
     query = applySyncMarker(query, 'installmentAccounts');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
-    for(const row of data){
+    for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       const byCloudId = installmentAccounts.find(function(a){ return a.cloudId === row.id; });
       if(byCloudId){
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
@@ -6955,6 +7034,7 @@ async function pushHiddenEntitiesPilot(){
   let anyError = false;
   let localChanged = false;
   for(const key of Object.keys(hiddenFrom)){
+    if(testIgnoreFlag() !== '0' && isTestHiddenKey(key)) continue; // Rev 2.23.32 (6D.201): тестові приховані записи не синхронізуються
     const entry = hiddenFrom[key];
     // Rev 2.22.82 (6D.155, Ревізія B) — захист від воскресіння: пушимо
     // ЛИШЕ записи, які користувач сам змінив після останньої успішної
@@ -7234,7 +7314,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.31';
+const APP_VERSION = '2.23.32';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9559,6 +9639,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.23.26 (6D.195, G1) — push-dirty (entries, skipped, censusReset, censusDropped): лише лічильники.
   // Rev 2.23.29 (6D.198) — focus-audit: тег/id активного елемента й чи є кнопка в :active; push-route: тип маршруту.
   'focusTag', 'focusId', 'anyButtonActive', 'auditPoint', 'route',
+  // Rev 2.23.32 (6D.201) — test-cleanup: лише кількості видалених тестових записів (без назв).
+  'cleanedTotal', 'cleanedAccounts', 'cleanedDebts', 'cleanedRecords', 'cleanedStructure',
   // Rev 2.23.30 (6D.199) — kb-open-released: запобіжник "клавіатури немає, а таббару немає" (vvH, baseVh).
   'kbReleaseVvH', 'kbReleaseBaseVh',
   'entries', 'skipped', 'censusReset', 'censusDropped', 'children', // Rev 2.23.28 (6D.197, G3): children — скільки дітей (борги/витрати/приховані) інвалідовано каскадом
@@ -15712,6 +15794,33 @@ function openDebugRecordFromTest(id){
   closeTestingDrawer();
   openDebugRecordDrawer(id + '-' + getVariant(id));
 }
+// Rev 2.23.32 (6D.201) — очищення тестових записів на ЦЬОМУ пристрої: підсумок → підтвердження → локальне видалення
+// (без push і без tombstone; у Cloud нічого не змінюється — його чистить чат SQL-ом). Звичайних записів не чіпає.
+function cleanupTestRecordsFromUi(){
+  const found = collectTestRecords({ bankAccounts: bankAccounts, installmentAccounts: installmentAccounts, debts: debts, expenses: expenses, incomes: incomes, categories: CATEGORIES, subcategories: SUBCATEGORIES, dictionary: DICTIONARY, hiddenFrom: hiddenFrom });
+  if(!countTestRecords(found)){ showTrashToast('Тестових записів на цьому пристрої немає', 'success'); return; }
+  showConfirmModal('Видалити з цього пристрою тестові записи: ' + describeTestRecords(found) + '? У Cloud нічого не зміниться.', function(){ cleanupTestRecordsNow(); }, 'Так, очистити');
+}
+async function cleanupTestRecordsNow(){
+  const found = collectTestRecords({ bankAccounts: bankAccounts, installmentAccounts: installmentAccounts, debts: debts, expenses: expenses, incomes: incomes, categories: CATEGORIES, subcategories: SUBCATEGORIES, dictionary: DICTIONARY, hiddenFrom: hiddenFrom });
+  const drop = function(arr, items){ items.forEach(function(r){ const at = arr.indexOf(r); if(at !== -1) arr.splice(at, 1); }); };
+  drop(bankAccounts, found.cards); drop(installmentAccounts, found.installments); drop(debts, found.debts);
+  drop(expenses, found.expenses); drop(incomes, found.incomes);
+  drop(CATEGORIES, found.categories); drop(SUBCATEGORIES, found.subcategories); drop(DICTIONARY, found.words);
+  found.hidden.forEach(function(k){ delete hiddenFrom[k]; });
+  if(found.cards.length) await saveBankAccountsLocal();
+  if(found.installments.length) await saveInstallmentAccountsLocal();
+  if(found.debts.length) await saveDebts();
+  if(found.expenses.length) await saveExpenses();
+  if(found.incomes.length) await saveIncomes();
+  if(found.categories.length) await saveCategoriesLocal();
+  if(found.subcategories.length) await saveSubcategoriesLocal();
+  if(found.words.length) await saveDictionaryLocal();
+  if(found.hidden.length) await saveHiddenFromLocal();
+  captureDebugGeometry('test-cleanup', { cleanedTotal: countTestRecords(found), cleanedAccounts: found.cards.length + found.installments.length, cleanedDebts: found.debts.length, cleanedRecords: found.expenses.length + found.incomes.length, cleanedStructure: found.categories.length + found.subcategories.length + found.words.length + found.hidden.length });
+  populateMonths(); renderAll(); renderStructure(); populateBankDebtTable(); populateInstallmentTable(); populateCategorySelect();
+  showTrashToast('Очищено: ' + describeTestRecords(found), 'success');
+}
 function resetAllTestVariantsFromUi(){
   resetVariants();
   renderTestingDrawer();
@@ -16072,6 +16181,12 @@ async function removeTrashLocally(keys){
   renderAll();
   if(touchedDict) renderStructure();
 }
+async function cloudLooksAlive(){
+  try{
+    const res = await getSupabaseClient().from('categories').select('id').eq('family_id', cloudFamilyId).limit(1);
+    return !res.error && Array.isArray(res.data) && res.data.length > 0;
+  }catch(e){ return false; }
+}
 // reconcileTrash(onlyKey?) — звіряє локальні tombstone-и (усі або один) із Cloud. Повертає
 // {checked, removed:[keys], restoredElsewhere:[keys]} або null (офлайн/збій — нічого не змінено).
 async function reconcileTrash(onlyKey){
@@ -16084,6 +16199,10 @@ async function reconcileTrash(onlyKey){
   trashSyncBusy++; updateTrashSyncLine();
   try{
     const rows = await fetchTrashCloudRows(tombstones);
+    // Rev 2.23.32 (6D.201) — порожня відповідь БЕЗ помилки при наявних tombstone-ах схожа на невалідну сесію/RLS (anon бачить 0 рядків):
+    // перед тим як вважати їх "видаленими назавжди", перевіряємо, що Cloud узагалі віддає дані родини (як правило порожнього
+    // переписа в G1). Невдалий запит/мертва сесія — нічого не змінюємо.
+    if(rows && rows.length === 0 && !(await cloudLooksAlive())) return null;
     const plan = reconcilePlan(tombstones, rows);
     if(!rows) return null;
     if(plan.removeLocal.length) await removeTrashLocally(plan.removeLocal);

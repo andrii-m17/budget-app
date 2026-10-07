@@ -324,3 +324,23 @@ test('restoreTrashMonthRecord: успіх / 23505 відкочує / не зна
   r = await m.c.restoreTrashMonthRecord('нема');
   assert.equal(r.success, false);
 });
+// Rev 2.23.32 (6D.201): порожня відповідь Cloud без помилки (мертва сесія/RLS) не стирає локальні tombstone-и.
+test('reconcileTrash: порожня відповідь при "мертвому" Cloud → нічого не прибираємо; при живому Cloud — прибираємо; збій запиту → нічого', async () => {
+  const run = async function(rowsResult, alive){
+    const removed = [];
+    const c = require('./extract').buildSandbox({
+      isTrashOffline: function(){ return false; }, trashStateNow: function(){ return {}; }, trashSyncBusy: 0, updateTrashSyncLine: function(){},
+      trashTombstonesForReconcile: function(){ return [{ key: 'expense:e1', type: 'expense', cloudId: 'e1', synced: true }]; },
+      fetchTrashCloudRows: async function(){ return rowsResult; }, cloudLooksAlive: async function(){ return alive; },
+      removeTrashLocally: async function(keys){ removed.push.apply(removed, keys); }, captureDebugGeometry: function(){},
+    }, ['reconcilePlan', 'reconcileTrash']);
+    const r = await c.reconcileTrash();
+    return { r: r, removed: removed };
+  };
+  let o = await run([], false);
+  assert.equal(o.r, null); assert.deepEqual(o.removed, []);
+  o = await run([], true);
+  assert.deepEqual(o.removed, ['expense:e1']);
+  o = await run(null, true);
+  assert.equal(o.r, null); assert.deepEqual(o.removed, []);
+});

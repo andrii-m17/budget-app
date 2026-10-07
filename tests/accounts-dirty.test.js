@@ -69,7 +69,7 @@ function makeCloud(){
 const NAMES = ['LS_KEY_SYNC_MARKERS', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
   'saveBankAccountsLocal', 'saveInstallmentAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId', 'pullBankAccountsCore',
   'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId', 'pullInstallmentAccountsCore',
-  'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'planBankAccountsPush', 'planInstallmentAccountsPush',
+  'TEST_IGNORE_LS_KEY', 'isTestRecordName', 'syncNameOf', 'shouldIgnoreForSync', 'isTestHiddenKey', 'testIgnoreFlag', 'isTestSyncIgnored', 'syncableRecords', 'filterTestRows', 'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'planBankAccountsPush', 'planInstallmentAccountsPush',
   'reconcileBankAccountsCensus', 'reconcileInstallmentAccountsCensus', 'reconcileAccountsCensusFor', 'invalidateAccountChildren', 'cleanupOrphanedHiddenEntities',
   'pushHiddenEntitiesPilot', 'monthToDate', 'hideKey'];
 function device(cloud, name, o){

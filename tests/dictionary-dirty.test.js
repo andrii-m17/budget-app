@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 
-const pure = buildSandbox({}, ['isDirty', 'applyCensus', 'planDictionaryPush']);
+const pure = buildSandbox({}, ['TEST_IGNORE_LS_KEY', 'isTestRecordName', 'syncNameOf', 'shouldIgnoreForSync', 'isTestHiddenKey', 'testIgnoreFlag', 'isTestSyncIgnored', 'syncableRecords', 'filterTestRows', 'isDirty', 'applyCensus', 'planDictionaryPush']);
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
 const clean = function(id, extra){ return Object.assign({ id: 'l-' + id, kw: 'слово' + id, cat: 'Їжа', sub: null, cloudId: 'c-' + id, updatedAt: 'U', syncedUpdatedAt: 'U', syncedCategoryId: 'cat1', syncedSubcategoryId: null }, extra || {}); };
 
@@ -102,7 +102,7 @@ function sandboxWith(cloud, dict){
     saveDictionaryLocal: async function(){ return { success: true }; }, renderStructure: function(){}, reportSaveResult: function(){},
     pullDictionaryCore: async function(){ return { skipped: true }; },
     captureDebugGeometry: function(t, x){ events.push([t, x]); },
-  }, ['isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus',
+  }, ['TEST_IGNORE_LS_KEY', 'isTestRecordName', 'syncNameOf', 'shouldIgnoreForSync', 'isTestHiddenKey', 'testIgnoreFlag', 'isTestSyncIgnored', 'syncableRecords', 'filterTestRows', 'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus',
       'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'findLiveDictionaryRow', 'escapeLikeExact']);
   ctx.__events = events;
   return ctx;
