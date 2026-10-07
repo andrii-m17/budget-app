@@ -149,6 +149,7 @@ const REPOSITORY_NAMES = [
   'saveSubcategoryPriority',
   'saveDictionary', 'saveDictionaryLocal', 'pushDictionaryPilot', 'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'escapeLikeExact', 'findLiveDictionaryRow', 'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus', // Rev 2.23.26 (6D.195, G1)
   'planCategoriesPush', 'isSubcategoryDirty', 'planSubcategoriesPush', 'categoriesByNameMap', 'reconcileCategoriesCensus', 'reconcileSubcategoriesCensus', 'syncNameDomainsOnConnect', // Rev 2.23.27 (6D.196, G2)
+  'planBankAccountsPush', 'planInstallmentAccountsPush', 'reconcileBankAccountsCensus', 'reconcileInstallmentAccountsCensus', 'reconcileAccountsCensusFor', 'invalidateAccountChildren', // Rev 2.23.28 (6D.197, G3)
   // Rev 2.23.25 (6D.194): серіалізація + пошук без урахування регістру
   // Rev #30 (6D.28, subcategories+dictionary повний цикл) — той самий
   // cross-realm-override прийом, що pullBankAccountsCore/
@@ -324,6 +325,7 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       // нижче лишаються чистими unit-тестами локального шару.
       cloudSession: null,
       cloudFamilyId: null,
+      nameDomainChildren: 0, pushHiddenEntitiesPilot: async function(){ return { success: true }; }, // Rev 2.23.28 (6D.197, G3)
       captureDebugGeometry: function(){}, // Rev 2.23.26 (6D.195, G1): push-dirty
       dictionaryPushRunning: null, dictionaryPushQueued: null, // Rev 2.23.25 (6D.194): стан серіалізації push словника
       // Rev #30 (6D.1) — generateUUID() перевіряє window.crypto.randomUUID
@@ -1991,6 +1993,7 @@ test('pushExpenseRecordPilot: linked_installment_id push провалюєтьс�
 // проти budget-app-dev: після видалення bank_accounts/installment_accounts
 // напряму в базі, повторні "Синхронізувати все" НІЧОГО не змінювали, доки
 // шорткат не прибрали.
+// Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
 test('pushBankAccountsPilot: cloudId застарів (Cloud-рядок зник) → update повертає 0 рядків → self-heal перестворює акаунт (НЕ "already synced" назавжди)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
@@ -1998,7 +2001,7 @@ test('pushBankAccountsPilot: cloudId застарів (Cloud-рядок зник
   ctx.isSupabaseSdkReady = () => true;
   // acc.updatedAt НЕ змінювався відколи акаунт вважався синхронізованим —
   // саме той стан, що раніше ОБДУРЮВАВ шорткат.
-  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'stale-deleted-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'stale-deleted-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z' }];
   let updateCalls = 0, insertCalls = 0;
   // chainable() — thenable ланцюжок, що обслуговує І pullBankAccountsCore()'s
   // `.select(...).eq(...)` (await НАПРЯМУ, без .maybeSingle()) І
@@ -2019,12 +2022,13 @@ test('pushBankAccountsPilot: cloudId застарів (Cloud-рядок зник
   assert.equal(ctx.bankAccounts[0].cloudId, 'fresh-new-id');
 });
 
+// Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
 test('pushInstallmentAccountsPilot: той самий self-heal, що pushBankAccountsPilot (cloudId застарів → перестворення)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'stale-deleted-id', initialAmount: 1000, updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'stale-deleted-id', initialAmount: 1000, updatedAt: '2026-01-01T00:00:00.000Z' }];
   let updateCalls = 0, insertCalls = 0;
   const chainable = function(value){
     return { eq(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
@@ -2075,12 +2079,13 @@ function hiddenEntitiesDeleteTrackingClient(otherTableHandlers){
   return { client, deleteCalls };
 }
 
+// Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
 test('pushBankAccountsPilot: cloudId самозцілився → cleanupOrphanedHiddenEntities викликається зі СТАРИМ cloudId (6D.143)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'old-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'old-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z' }];
   const { client, deleteCalls } = hiddenEntitiesDeleteTrackingClient((chainable) => ({
     update(){ return { eq(){ return { select(){ return Promise.resolve({ data: [], error: null }); } }; } }; }, // 0 рядків — self-heal
     insert(){ return { select(){ return { single(){ return Promise.resolve({ data: { id: 'new-id' }, error: null }); } }; } }; },
@@ -2095,12 +2100,13 @@ test('pushBankAccountsPilot: cloudId самозцілився → cleanupOrphane
   assert.deepEqual(plain(deleteCalls[0].entityIds), ['old-id'], 'мусить прибирати САМЕ старий, а не новий cloudId');
 });
 
+// Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
 test('pushInstallmentAccountsPilot: той самий каскад, entity_type="installment" (6D.143)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'old-id', initialAmount: 1000, updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'old-id', initialAmount: 1000, updatedAt: '2026-01-01T00:00:00.000Z' }];
   const { client, deleteCalls } = hiddenEntitiesDeleteTrackingClient((chainable) => ({
     update(){ return { eq(){ return { select(){ return Promise.resolve({ data: [], error: null }); } }; } }; },
     insert(){ return { select(){ return { single(){ return Promise.resolve({ data: { id: 'new-id' }, error: null }); } }; } }; },
@@ -2146,12 +2152,13 @@ test('pushBankAccountsPilot: cloudId СТАБІЛЬНИЙ (update успішни
   assert.equal(deleteCalls.length, 0);
 });
 
+// Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
 test('pushBankAccountsPilot: cleanupOrphanedHiddenEntities падає (мережа) → НЕ ламає результат основного push (best-effort)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'old-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
+  ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'old-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z' }];
   const chainable = function(value){
     return { eq(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
   };

@@ -2977,7 +2977,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.27</div>
+  <div class="version-footer">Money Tree · Rev 2.23.28</div>
 </div>
   </div>
 </div>
@@ -4268,18 +4268,98 @@ async function reconcileSubcategoriesCensus(){
   if(res.reset || res.dropped) reportSaveResult(await saveSubcategoriesLocal());
   return res;
 }
+// ===== Rev 2.23.28 (6D.197, G3) — "пуш лише змінених" для карток (bank_accounts) і ОЧ (installment_accounts) =====
+// Той самий спільний шар, що G1/G2. Особливість домену: на рахунок за id посилаються борги
+// (debts.bank_account_id/installment_account_id), витрати (expenses.linked_installment_id) —
+// FK NO ACTION — і hidden_entities.entity_id (без FK). Тому зміна cloudId рахунку МУСИТЬ
+// інвалідувати дітей (invalidateAccountChildren), інакше без "пуш усього" вони лишились би
+// "синхронізованими" зі старим id.
+function planBankAccountsPush(entries, census){ return planCategoriesPush(entries, census); }
+function planInstallmentAccountsPush(entries, census){ return planCategoriesPush(entries, census); }
+// Перепис id рахунків (Rev 2.23.28, G3): на відміну від категорій, зникнення cloudId тут має побічні ефекти —
+// applyCensus скидає cloudId (старий id втрачається), тому ЗАЗДАЛЕГІДЬ запам'ятовуємо імена й старі id: діти
+// (борги, витрати, приховані) інвалідуються, осиротілі рядки hidden_entities зі старим entity_id видаляються
+// (рахунку з таким id в Cloud вже немає, тож вони безпечно мертві). Нові приховані рядки створить
+// pushHiddenEntitiesPilot під новим id (останній крок syncNameDomainsOnConnect).
+async function reconcileAccountsCensusFor(kind, entityType, table, list, saveLocal){
+  if(!isCloudSessionReady()) return null;
+  const ids = await fetchCloudIdCensus(table);
+  if(!ids) return null;
+  const known = new Set(ids);
+  // імена й старі id фіксуємо ДО applyCensus (він скидає cloudId у самих об'єктів)
+  const missing = list.filter(function(a){ return a.cloudId && !known.has(a.cloudId); }).map(function(a){ return { name: a.name, cloudId: a.cloudId }; });
+  const res = applyCensus(list, ids);
+  if(res.reset || res.dropped) reportSaveResult(await saveLocal());
+  if(res.reset && missing.length){
+    await invalidateAccountChildren(kind, missing.map(function(a){ return a.name; }));
+    await cleanupOrphanedHiddenEntities(getSupabaseClient(), entityType, missing.map(function(a){ return a.cloudId; }));
+  }
+  return res;
+}
+async function reconcileBankAccountsCensus(){
+  return reconcileAccountsCensusFor('card', 'bank', 'bank_accounts', bankAccounts, saveBankAccountsLocal);
+}
+async function reconcileInstallmentAccountsCensus(){
+  return reconcileAccountsCensusFor('installment', 'installment', 'installment_accounts', installmentAccounts, saveInstallmentAccountsLocal);
+}
+// invalidateAccountChildren(kind, names): kind 'card' | 'installment'. Знімає syncedUpdatedAt у боргів
+// (і витрат з linkedInstallment для ОЧ) та у прихованих записів (hiddenFrom[kind:назва]) цих рахунків —
+// вони перепушаться з НОВИМ id. Раніше hidden-запис після зміни cloudId не інвалідувався: старий рядок
+// hidden_entities видаляла cleanupOrphanedHiddenEntities, а новий не створювався (стан "приховано" лишався
+// лише локально). nameDomainChildren накопичує кількість для події push-dirty і для кроку "діти" в
+// syncNameDomainsOnConnect. Повертає { count, hiddenChanged }.
+let nameDomainChildren = 0;
+async function invalidateAccountChildren(kind, names){
+  let count = 0, debtsChanged = false, expensesChanged = false, hiddenChanged = false;
+  debts.forEach(function(d){
+    if(d.kind === kind && names.includes(d.name)){ delete d.syncedUpdatedAt; debtsChanged = true; count++; }
+  });
+  if(kind === 'installment'){
+    expenses.forEach(function(e){
+      if(e.linkedInstallment && names.includes(e.linkedInstallment)){ delete e.syncedUpdatedAt; expensesChanged = true; count++; }
+    });
+  }
+  names.forEach(function(n){
+    const h = hiddenFrom[kind + ':' + n];
+    if(h && h.syncedUpdatedAt){ delete h.syncedUpdatedAt; hiddenChanged = true; count++; }
+  });
+  if(debtsChanged) await saveDebts();
+  if(expensesChanged) await saveExpenses();
+  if(hiddenChanged) await saveHiddenFromLocal();
+  nameDomainChildren += count;
+  return { count: count, hiddenChanged: hiddenChanged };
+}
 // Один вхід для "вхід у сесію / online / Синхронізувати все": спершу ВСІ переписи (дешеві SELECT id),
 // потім push dirty у порядку залежностей (категорії → підкатегорії → словник). Не викликається з save*.
-async function syncNameDomainsOnConnect(){
-  const catRes = await reconcileCategoriesCensus();
-  const subRes = await reconcileSubcategoriesCensus();
-  const dictRes = await reconcileDictionaryCensus();
-  [['categories', catRes], ['subcategories', subRes], ['dictionary', dictRes]].forEach(function(pair){
+async function syncNameDomainsOnConnect(opts){
+  const o = opts || {};
+  nameDomainChildren = 0;
+  const results = [
+    ['categories', await reconcileCategoriesCensus()],
+    ['subcategories', await reconcileSubcategoriesCensus()],
+    ['dictionary', await reconcileDictionaryCensus()],
+    ['bank_accounts', await reconcileBankAccountsCensus()],
+    ['installment_accounts', await reconcileInstallmentAccountsCensus()],
+  ];
+  results.forEach(function(pair){
     if(pair[1]) captureDebugGeometry('push-dirty', { censusReset: pair[1].reset, censusDropped: pair[1].dropped });
   });
   await pushCategoriesPilot();
   await pushSubcategoriesPilot();
   await pushDictionaryPilot();
+  await pushBankAccountsPilot();
+  await pushInstallmentAccountsPilot();
+  // Rev 2.23.28 (6D.197, G3) — ДІТИ лише після рахунків: якщо cloudId рахунку змінився, борги/витрати з
+  // інвалідованим syncedUpdatedAt пушаться пакетно (ті самі pushDebtsBatched/pushExpensesBatched, що в
+  // "Синхронізувати все"; там вони й так викликаються далі, тож opts.skipChildren), потім hidden_entities.
+  if(nameDomainChildren > 0 && !o.skipChildren){
+    const stale = function(r){ return r.syncedUpdatedAt !== r.updatedAt; };
+    const unsyncedDebts = debts.filter(stale);
+    if(unsyncedDebts.length){ const r = await pushDebtsBatched(unsyncedDebts); if(r.pushed) await pullDebtsCore(); }
+    const unsyncedExpenses = expenses.filter(stale);
+    if(unsyncedExpenses.length){ const r = await pushExpensesBatched(unsyncedExpenses); if(r.pushed) await pullExpensesCore(); }
+  }
+  await pushHiddenEntitiesPilot();
 }
 let dictionaryPushRunning = null;
 let dictionaryPushQueued = null;
@@ -6420,7 +6500,9 @@ async function pushBankAccountsPilot(){
   // створений рахунок) — докоментар над hidden_entities-каскадом нижче.
   const reconciledNames = [];
   const reconciledOldCloudIds = [];
-  for(const acc of bankAccounts){
+  // Rev 2.23.28 (6D.197, G3) — лише dirty-записи (planBankAccountsPush).
+  const plan = planBankAccountsPush(bankAccounts, null);
+  for(const acc of plan.push){
     // Rev #30 (6D.50) — цей "already synced" шорткат ІСНУВАВ, щоб не
     // слати зайвий UPDATE, коли справді нічого не змінилось. Rev #30
     // (6D.76) — ВИДАЛЕНО: реальний інцидент користувача підтвердив, що
@@ -6467,13 +6549,9 @@ async function pushBankAccountsPilot(){
   // Підтверджено реальним інцидентом: без цього після відновлення
   // акаунтів 55 з 56 боргів користувача лишились POINT to старий
   // bank_account_id/installment_account_id в Cloud.
-  if(reconciledNames.length){
-    let debtsChanged = false;
-    debts.forEach(function(d){
-      if(d.kind === 'card' && reconciledNames.includes(d.name)){ delete d.syncedUpdatedAt; debtsChanged = true; }
-    });
-    if(debtsChanged) await saveDebts();
-  }
+  // Rev 2.23.28 (6D.197, G3) — каскад винесено в invalidateAccountChildren (борги + приховані записи).
+  let childInfo = { count: 0, hiddenChanged: false };
+  if(reconciledNames.length) childInfo = await invalidateAccountChildren('card', reconciledNames);
   // Rev #30 (6D.143) — той самий клас проблеми, що debts-каскад вище, лише
   // для hidden_entities: якщо cloudId рахунку самозцілився, старий рядок
   // hidden_entities (entity_id=старий cloudId) лишається "осиротілим"
@@ -6483,6 +6561,10 @@ async function pushBankAccountsPilot(){
   // користувача: 2 осиротілі записи в hidden_entities з 23 вересня,
   // виявлені й прибрані вручну — цей каскад запобігає повторенню.
   if(reconciledOldCloudIds.length) await cleanupOrphanedHiddenEntities(client, 'bank', reconciledOldCloudIds);
+  // Rev 2.23.28 (6D.197, G3) — після видалення осиротілих рядків: приховані записи цього рахунку
+  // (інвалідовані вище) створюються під НОВИМ id.
+  if(childInfo.hiddenChanged) pushHiddenEntitiesPilot();
+  captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped, children: childInfo.count });
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
   if(!anyError) await pullBankAccountsCore();
   return { success: !anyError };
@@ -6514,6 +6596,7 @@ async function pullBankAccountsCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0;
+  const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   try{
     let query = client.from('bank_accounts').select('id,name,credit_limit,created_at,updated_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'bankAccounts');
@@ -6545,6 +6628,7 @@ async function pullBankAccountsCore(){
       }
       const byName = bankAccounts.find(function(a){ return a.name === row.name; });
       if(byName){
+        if(byName.cloudId && byName.cloudId !== row.id){ relinkedNames.push(byName.name); relinkedOldIds.push(byName.cloudId); }
         byName.cloudId = row.id;
         byName.creditLimit = row.credit_limit;
         byName.createdAt = row.created_at;
@@ -6561,6 +6645,13 @@ async function pullBankAccountsCore(){
     return { skipped: true };
   }
   if(updated || linked || added) await saveBankAccountsLocal();
+  // Rev 2.23.28 (6D.197, G3) — аналог знахідки G2 для підкатегорій: рахунок отримав ІНШИЙ cloudId від pull
+  // (зв'язування за назвою) → діти (борги, витрати, приховані) лишились би "синхронізованими" зі старим id.
+  if(relinkedNames.length){
+    const childInfo = await invalidateAccountChildren('card', relinkedNames);
+    await cleanupOrphanedHiddenEntities(client, 'bank', relinkedOldIds);
+    if(childInfo.hiddenChanged) pushHiddenEntitiesPilot();
+  }
   // Rev #30 (6D.55) — той самий принцип, що pullCategoriesCore() вище:
   // дзеркалимо render-виклик локального save (addBankAccount()).
   if(updated || linked || added) populateBankDebtTable();
@@ -6599,7 +6690,9 @@ async function pushInstallmentAccountsPilot(){
   let anyError = false;
   const reconciledNames = []; // Rev #30 (6D.76) — той самий принцип, що pushBankAccountsPilot()
   const reconciledOldCloudIds = []; // Rev #30 (6D.143) — той самий принцип, що pushBankAccountsPilot()
-  for(const acc of installmentAccounts){
+  // Rev 2.23.28 (6D.197, G3) — лише dirty-записи (planInstallmentAccountsPush).
+  const plan = planInstallmentAccountsPush(installmentAccounts, null);
+  for(const acc of plan.push){
     // Rev #30 (6D.76) — "already synced" шорткат ВИДАЛЕНО, той самий
     // реальний інцидент і те саме обґрунтування, що pushBankAccountsPilot()
     // вище (докоментар там).
@@ -6631,19 +6724,13 @@ async function pushInstallmentAccountsPilot(){
   // debts (kind:'installment'), і expenses з linkedInstallment на цю ОЧ
   // МУСЯТЬ перепушитись, інакше лишаться "синхронізованими" зі старим
   // installment_account_id/linked_installment_id назавжди.
-  if(reconciledNames.length){
-    let debtsChanged = false, expensesChanged = false;
-    debts.forEach(function(d){
-      if(d.kind === 'installment' && reconciledNames.includes(d.name)){ delete d.syncedUpdatedAt; debtsChanged = true; }
-    });
-    expenses.forEach(function(e){
-      if(e.linkedInstallment && reconciledNames.includes(e.linkedInstallment)){ delete e.syncedUpdatedAt; expensesChanged = true; }
-    });
-    if(debtsChanged) await saveDebts();
-    if(expensesChanged) await saveExpenses();
-  }
+  // Rev 2.23.28 (6D.197, G3) — каскад винесено в invalidateAccountChildren (борги + витрати + приховані записи).
+  let childInfo = { count: 0, hiddenChanged: false };
+  if(reconciledNames.length) childInfo = await invalidateAccountChildren('installment', reconciledNames);
   // Rev #30 (6D.143) — той самий принцип, що pushBankAccountsPilot() (докоментар там).
   if(reconciledOldCloudIds.length) await cleanupOrphanedHiddenEntities(client, 'installment', reconciledOldCloudIds);
+  if(childInfo.hiddenChanged) pushHiddenEntitiesPilot(); // Rev 2.23.28 (6D.197, G3): див. pushBankAccountsPilot
+  captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped, children: childInfo.count });
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
   if(!anyError) await pullInstallmentAccountsCore();
   return { success: !anyError };
@@ -6669,6 +6756,7 @@ async function pullInstallmentAccountsCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0;
+  const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   try{
     let query = client.from('installment_accounts').select('id,name,initial_amount,due_day,created_at,updated_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'installmentAccounts');
@@ -6704,6 +6792,7 @@ async function pullInstallmentAccountsCore(){
       }
       const byName = installmentAccounts.find(function(a){ return a.name === row.name; });
       if(byName){
+        if(byName.cloudId && byName.cloudId !== row.id){ relinkedNames.push(byName.name); relinkedOldIds.push(byName.cloudId); }
         byName.cloudId = row.id;
         byName.initialAmount = row.initial_amount;
         byName.dueDay = row.due_day;
@@ -6721,6 +6810,13 @@ async function pullInstallmentAccountsCore(){
     return { skipped: true };
   }
   if(updated || linked || added) await saveInstallmentAccountsLocal();
+  // Rev 2.23.28 (6D.197, G3) — аналог знахідки G2 для підкатегорій: рахунок отримав ІНШИЙ cloudId від pull
+  // (зв'язування за назвою) → діти (борги, витрати, приховані) лишились би "синхронізованими" зі старим id.
+  if(relinkedNames.length){
+    const childInfo = await invalidateAccountChildren('installment', relinkedNames);
+    await cleanupOrphanedHiddenEntities(client, 'installment', relinkedOldIds);
+    if(childInfo.hiddenChanged) pushHiddenEntitiesPilot();
+  }
   // Rev #30 (6D.55) — той самий принцип, що pullCategoriesCore() вище:
   // дзеркалимо render-виклик локального save (addInstallmentAccount()).
   if(updated || linked || added) populateInstallmentTable();
@@ -7067,7 +7163,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.27';
+const APP_VERSION = '2.23.28';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7906,8 +8002,6 @@ async function applyCloudSession(session){
       if(dictResult && !dictResult.skipped && (dictResult.updated || dictResult.linked || dictResult.added)){
         renderStructure();
       }
-      // Rev 2.23.26 (6D.195, G1) / 2.23.27 (G2) — переписи id + одноразовий push dirty (категорії, підкатегорії, слова) на вході в сесію.
-      await syncNameDomainsOnConnect();
       // Rev #30 (6D, bank_accounts повний цикл) — той самий "один раз на
       // sign-in transition" принцип, окремий виклик на власний домен.
       const bankResult = await pullBankAccountsPilot();
@@ -7945,6 +8039,10 @@ async function applyCloudSession(session){
       if(debtResult && !debtResult.skipped && (debtResult.updated || debtResult.added)){
         populateMonths(); renderAll();
       }
+      // Rev 2.23.26 (6D.195, G1) / 2.23.27 (G2) / 2.23.28 (G3) — переписи id + одноразовий push dirty (категорії, підкатегорії,
+      // слова, картки, ОЧ, потім діти й приховані) на вході в сесію. Переміщено ПІСЛЯ всіх pull-ів: картки/ОЧ мають бути
+      // підтягнуті, перш ніж їх пушити й звіряти з переписом.
+      await syncNameDomainsOnConnect();
       // Rev #30 (6D.56) — Realtime-підписка: той самий "один раз на
       // sign-in transition" принцип, що весь початковий pull-ланцюжок вище.
       setupRealtimeSync();
@@ -8828,9 +8926,7 @@ async function syncAllPilotManual(){
   // вручну відредагувати кожен рахунок. МУСИТЬ бути ПЕРЕД push боргів
   // нижче (той самий FK-порядок, що й pull-послідовність вище).
   // Rev 2.23.26 (6D.195, G1) — перепис id словника + push dirty-слів у "Синхронізувати все".
-  await syncNameDomainsOnConnect(); // Rev 2.23.27 (6D.196, G2): переписи + push dirty категорій, підкатегорій, слів
-  await pushBankAccountsPilot();
-  await pushInstallmentAccountsPilot();
+  await syncNameDomainsOnConnect({ skipChildren: true }); // Rev 2.23.27 (G2) / 2.23.28 (G3): переписи + push dirty (діти нижче пушить сама "Синхронізувати все")
   // Rev #30 (6D.57) — "Синхронізувати все" тепер СПРАВДІ двосторонній
   // (термінове розслідування: bulk-відновлення з бекапу могло мовчки НЕ
   // допушити expenses/incomes/debts до Cloud, а до цього Rev не існувало
@@ -9345,7 +9441,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.23.16 (6D.185) — тап по підпису (intercept-via-label).
   'labelFor',
   // Rev 2.23.26 (6D.195, G1) — push-dirty (entries, skipped, censusReset, censusDropped): лише лічильники.
-  'entries', 'skipped', 'censusReset', 'censusDropped',
+  'entries', 'skipped', 'censusReset', 'censusDropped', 'children', // Rev 2.23.28 (6D.197, G3): children — скільки дітей (борги/витрати/приховані) інвалідовано каскадом
   // Rev 2.23.24 (6D.193, Ревізія E) — trash-reconcile (checked, removedLocally, restoredElsewhere, ms) і trash-purge (trashType, ok, dups): лише лічильники й тип, без назв і сум.
   'checked', 'removedLocally', 'restoredElsewhere', 'ms', 'dups',
   // Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": trashType (НЕ `type` — воно вже тип самої події), ok, count; без назв і сум.
@@ -11608,7 +11704,7 @@ function tryLoadExcelLibrary(){
 // ефект з іншого боку: pull підхопить усе, що Cloud накопичив, поки
 // пристрій був офлайн, а вбудований push-retry всередині pull (keptLocal)
 // сам донесе локально-новіші записи назад.
-window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); syncNameDomainsOnConnect(); pushBankAccountsPilot(); pushInstallmentAccountsPilot(); pushHiddenEntitiesPilot(); pullExpensesPilot(); pullIncomesPilot(); pullDebtsPilot(); });
+window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); syncNameDomainsOnConnect(); pullExpensesPilot(); pullIncomesPilot(); pullDebtsPilot(); });
 window.addEventListener('offline', updateOnlineStatusUI);
 
 /* ============ Експорт в Excel ============ */
@@ -12066,7 +12162,7 @@ function handleImportFile(event){
           // вклеюється текстом у назву, як було раніше.
           if(!isNaN(e.creditSum)){
             const existingAcc = installmentAccounts.find(a=>a.name===label);
-            if(existingAcc){ existingAcc.initialAmount = e.creditSum; }
+            if(existingAcc){ if(existingAcc.initialAmount !== e.creditSum){ existingAcc.initialAmount = e.creditSum; existingAcc.updatedAt = new Date().toISOString(); /* Rev 2.23.28 (6D.197, G3): реальна правка має зробити запис dirty — раніше її підхоплював "пуш усього" */ } }
             else{ installmentAccounts.push({ name: label, initialAmount: e.creditSum, firstMonth: finMonth }); }
           }
         });

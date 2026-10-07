@@ -196,5 +196,5 @@ test('джерело (G1): перепис id не на кожному збере
   assert.equal(saveFn.indexOf('Census'), -1);
   const n = (src.match(/reconcileDictionaryCensus\(\)/g) || []).length;
   assert.ok(n >= 2, 'визначення + syncNameDomainsOnConnect (вхід/online/"Синхронізувати все" ідуть через нього)');
-  assert.ok((src.match(/syncNameDomainsOnConnect\(\)/g) || []).length >= 4);
+  assert.ok((src.match(/syncNameDomainsOnConnect\(/g) || []).length >= 4);
 });
