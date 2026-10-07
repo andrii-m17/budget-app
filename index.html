@@ -1443,16 +1443,6 @@
   html.kb-sheet-moving #income-drawer input, html.kb-sheet-moving #card-debt-drawer input, html.kb-sheet-moving #installment-drawer input,
   html.kb-sheet-moving #income-drawer textarea, html.kb-sheet-moving #card-debt-drawer textarea, html.kb-sheet-moving #installment-drawer textarea{ caret-color:transparent !important; }
   html.kb-sheet.kb-sheet-switching .drawer.open{ transition:transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
-  /* Режим B (запасний, перемикається БЕЗ нового коміту — перемикач у
-     "Запис діагностики", localStorage budget_kb_mode_v1): сторінці
-     дозволено панорамуватись (JS НЕ викликає scrollTo під час клавіатури),
-     шторка натомість СЛІДУЄ за зсувом через СВІЙ ВЛАСНИЙ inline
-     style.transform (JS, applyModeBTransform()) — inline завжди переважає
-     над цим CSS-правилом, тож transform:none/transition:none/will-change:
-     auto тут лише прибирають Режим-A-вигляд на КОРОТКУ мить ДО того, як
-     JS встигне виставити свій inline transform (без цього з'явився б
-     миттєвий "стрибок" підйому Режиму A, що відразу перекривається). */
-  html.kb-mode-b.kb-sheet .drawer.open{ transform:none; transition:none; will-change:auto; }
   /* Rev #30 (6D.12) — рисочка-хендл для свайпу-донизу (як iOS bottom sheet):
      суто візуальний індикатор, драг-логіка навішується окремо в JS
      (initDrawerSwipeToDismiss) на цей самий елемент за класом. Від'ємний
@@ -2911,7 +2901,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.20</div>
+  <div class="version-footer">Money Tree · Rev 2.23.21</div>
 </div>
   </div>
 </div>
@@ -2974,61 +2964,13 @@
   </div>
   <div id="debug-record-form">
     <div class="field">
-      <label for="debug-record-scenario">Сценарій (необов'язково)</label>
+      <label for="debug-record-scenario">Сценарій (порожній — підставиться поточний екран)</label>
       <input type="text" id="debug-record-scenario" maxlength="120" placeholder="напр. income-keyboard" autocomplete="off">
     </div>
     <!-- Rev 2.22.92 (6D.165) — пояснення, КОЛИ саме тиснути "Мітка": за
          проханням користувача ("не зрозуміло у який момент її натискати") —
          одразу В МОМЕНТ симптому, не до й не після. -->
     <div class="drawer-empty">Під час запису тисніть «Мітка» рівно в момент, коли бачите проблему на екрані (сіпання, неправильний розмір/позицію картки, скрол не там, де очікували тощо) — так буде легко знайти потрібне місце в лозі.</div>
-    <!-- Rev 2.23.9 (6D.178) — Режим B: запасний варіант позиціонування
-         шторки під клавіатуру (сторінці дозволено панорамуватись, шторка
-         слідує через transform), перемикається БЕЗ нового коміту —
-         localStorage (getKbMode()/setKbMode(), index.html). Режим A —
-         типовий (підняти шторку РАНІШЕ, ніж WebKit вирішить панорамувати). -->
-    <div class="field">
-      <label>Режим клавіатури (діагностика)</label>
-      <div class="row-2">
-        <button type="button" class="submit-btn pill" id="debug-kb-mode-a-btn" onclick="selectKbModeFromDrawer('A')">Режим A</button>
-        <button type="button" class="submit-btn pill" id="debug-kb-mode-b-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbModeFromDrawer('B')">Режим B</button>
-      </div>
-    </div>
-    <!-- Rev 2.23.14 (6D.183) — Режим фокусу (проксі iOS): H1 — проксі, передача
-         коли шторка приїхала; H2 — проксі, передача на першому vv-resize; H3 —
-         без проксі (один target.focus() через ~110мс). localStorage
-         (getKbFocusMode()/setKbFocusMode()), БЕЗ нового коміту. -->
-    <div class="field">
-      <label>Режим фокусу (діагностика)</label>
-      <div class="row-2">
-        <button type="button" class="submit-btn pill" id="debug-kb-focus-h1-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbFocusModeFromDrawer('H1')">H1</button>
-        <button type="button" class="submit-btn pill" id="debug-kb-focus-h2-btn" onclick="selectKbFocusModeFromDrawer('H2')">H2</button>
-        <button type="button" class="submit-btn pill" id="debug-kb-focus-h3-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbFocusModeFromDrawer('H3')">H3</button>
-      </div>
-    </div>
-    <!-- Rev 2.23.18 (6D.187) — Стрілки клавіатури (iOS ‹ ›): Системні (типово,
-         без втручання), P (перехід поле→проміжне→поле), R (повторний фокус, лише
-         для порівняння — ламає тип клавіатури), Вимкнено (tabindex="-1"). -->
-    <div class="field">
-      <label>Стрілки клавіатури (діагностика)</label>
-      <div class="row-2">
-        <button type="button" class="submit-btn pill" id="debug-kb-arrows-sys-btn" onclick="selectKbArrowsFromDrawer('sys')">Системні</button>
-        <button type="button" class="submit-btn pill" id="debug-kb-arrows-p-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbArrowsFromDrawer('P')">P</button>
-        <button type="button" class="submit-btn pill" id="debug-kb-arrows-r-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbArrowsFromDrawer('R')">R</button>
-        <button type="button" class="submit-btn pill" id="debug-kb-arrows-off-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbArrowsFromDrawer('off')">Вимкнено</button>
-      </div>
-    </div>
-    <!-- Rev 2.23.20 (6D.189) — Курсор справжнього поля під час руху шторки:
-         hide (типово — прозорий на час руху), late (передача фокусу після
-         приїзду шторки, без приховування), current (як було). Тимчасовий
-         ключ budget_exp_kb_caret_v1 (шторки «Експерименти» ще нема). -->
-    <div class="field">
-      <label>Курсор під час руху шторки (експеримент)</label>
-      <div class="row-2">
-        <button type="button" class="submit-btn pill" id="debug-kb-caret-hide-btn" onclick="selectKbCaretFromDrawer('hide')">hide</button>
-        <button type="button" class="submit-btn pill" id="debug-kb-caret-late-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbCaretFromDrawer('late')">late</button>
-        <button type="button" class="submit-btn pill" id="debug-kb-caret-current-btn" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="selectKbCaretFromDrawer('current')">current</button>
-      </div>
-    </div>
     <button type="button" class="submit-btn pill" onclick="startDebugRecordingFromDrawer()">Почати запис</button>
   </div>
   <div id="debug-record-stop-actions" class="hidden">
@@ -6750,7 +6692,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.20';
+const APP_VERSION = '2.23.21';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9008,7 +8950,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   // діагностика, чи inert ВЗАГАЛІ ставиться і чи ДІЙСНО блокує scrollTop.
   'mainColInert', 'mainColScrollTop',
   // Rev 2.23.9 (6D.178) — єдиний контролер клавіатури (Режим A/B).
-  'activeRectTop', 'activeRectBottom', 'kbH', 'kbMode',
+  'activeRectTop', 'activeRectBottom', 'kbH',
   // Rev 2.23.11 (6D.180) — проксі-фокус (focus-proxy/focus-transfer/
   // focus-proxy-fallback): ms — тривалість проксі-вікна (focus-transfer),
   // proxyActive — чи проксі зараз сфокусовано замість справжнього поля.
@@ -9017,20 +8959,18 @@ const DEBUG_EVENT_ALLOWLIST = [
   'frames', 'maxGapMs', 'durationMs', 'samples',
   // Rev 2.23.13 (6D.182) — sheet-anim доповнено (open/close), tabbar-restore.
   'phase', 'jumpMaxPx', 'gapNoLayoutMs', 'drawerHeightRest', 'drawerHeightKb',
-  // Rev 2.23.14 (6D.183) — режими фокусу (focus-mode/kb-frames), таймінг таббара.
-  'mode', 'blips', 'firstKbFrameT', 'msAfterFocusout',
+  // Rev 2.23.14 (6D.183) — kb-frames, таймінг таббара.
+  'blips', 'firstKbFrameT', 'msAfterFocusout',
   // Rev 2.23.15 (6D.184) — перемикання між полями відкритої шторки.
   'switchKind', 'from', 'to',
-  // Rev 2.23.16 (6D.185) — тап по підпису (intercept-via-label), стрілки.
-  'labelFor', 'arrowsMode',
-  // Rev 2.23.17 (6D.186) — refocus-trick (режим R стрілок).
-  'outcome', 'kbFlicker', 'kindChanged',
+  // Rev 2.23.16 (6D.185) — тап по підпису (intercept-via-label).
+  'labelFor',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
   'proxyCaretColor', 'proxyDistToField',
   // Rev 2.23.20 (6D.189) — курсор під час руху шторки.
-  'sheetBottomAtTransfer', 'sheetFinalBottom', 'caretVariant',
+  'sheetBottomAtTransfer', 'sheetFinalBottom',
 ];
 function sanitizeDebugEvent(raw){
   const out = {};
@@ -9164,11 +9104,10 @@ function captureDebugGeometry(type, extra){
     // Rev 2.23.9 (6D.178) — єдиний контролер клавіатури: activeRectTop/
     // activeRectBottom (критерій C ревізії — чи видиме сфокусоване поле),
     // kbH (--kb-h, те саме число, що kbInset вище, але під НОВИМ ім'ям для
-    // нових запитів), kbMode (A/B, щоб бачити, у якому режимі знятий лог).
+    // нових запитів).
     activeRectTop: active && typeof active.getBoundingClientRect === 'function' ? Math.round(active.getBoundingClientRect().top) : null,
     activeRectBottom: active && typeof active.getBoundingClientRect === 'function' ? Math.round(active.getBoundingClientRect().bottom) : null,
     kbH: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb-h')) || 0,
-    kbMode: getKbMode(),
   }, extra || {}));
 }
 function onDebugWindowResize(){ captureDebugGeometry('resize'); }
@@ -9305,75 +9244,12 @@ function markDebugEvent(){
   btn.disabled = true;
   setTimeout(function(){ btn.textContent = original; btn.disabled = false; }, 700);
 }
-// Rev 2.23.9 (6D.178) — синхронізує вигляд 2 кнопок перемикача з
-// getKbMode() (localStorage) — проста active/inactive стилізація, той самий
-// прийом, що syncThemeToggleUI() для теми.
-function updateDebugKbModeUI(){
-  const mode = getKbMode();
-  const aBtn = document.getElementById('debug-kb-mode-a-btn');
-  const bBtn = document.getElementById('debug-kb-mode-b-btn');
-  if(aBtn) aBtn.style.background = mode === 'A' ? '' : 'var(--color-surface-hover)';
-  if(aBtn) aBtn.style.color = mode === 'A' ? '' : 'var(--color-text-primary)';
-  if(bBtn) bBtn.style.background = mode === 'B' ? '' : 'var(--color-surface-hover)';
-  if(bBtn) bBtn.style.color = mode === 'B' ? '' : 'var(--color-text-primary)';
-}
-function selectKbModeFromDrawer(mode){
-  setKbMode(mode);
-  updateDebugKbModeUI();
-}
-// Rev 2.23.14 (6D.183) — перемикач "Режим фокусу" H1/H2/H3 (той самий прийом).
-function updateDebugKbFocusModeUI(){
-  const mode = getKbFocusMode();
-  ['H1', 'H2', 'H3'].forEach(function(m){
-    const btn = document.getElementById('debug-kb-focus-' + m.toLowerCase() + '-btn');
-    if(!btn) return;
-    btn.style.background = mode === m ? '' : 'var(--color-surface-hover)';
-    btn.style.color = mode === m ? '' : 'var(--color-text-primary)';
-  });
-}
-// Rev 2.23.20 (6D.189) — перемикач варіанта курсора (hide/late/current).
-function updateDebugKbCaretUI(){
-  const v = getKbCaretVariant();
-  ['hide', 'late', 'current'].forEach(function(k){
-    const btn = document.getElementById('debug-kb-caret-' + k + '-btn');
-    if(!btn) return;
-    btn.style.background = v === k ? '' : 'var(--color-surface-hover)';
-    btn.style.color = v === k ? '' : 'var(--color-text-primary)';
-  });
-}
-function selectKbCaretFromDrawer(v){
-  setKbCaretVariant(v);
-  updateDebugKbCaretUI();
-}
-function selectKbFocusModeFromDrawer(mode){
-  setKbFocusMode(mode);
-  updateDebugKbFocusModeUI();
-}
-// Rev 2.23.16 (6D.185) — перемикач "Стрілки клавіатури" (вимкнено/увімкнено).
-function updateDebugKbArrowsUI(){
-  const mode = getKbArrowsMode();
-  [['sys', 'debug-kb-arrows-sys-btn'], ['P', 'debug-kb-arrows-p-btn'], ['R', 'debug-kb-arrows-r-btn'], ['off', 'debug-kb-arrows-off-btn']].forEach(function(pair){
-    const btn = document.getElementById(pair[1]);
-    if(!btn) return;
-    btn.style.background = mode === pair[0] ? '' : 'var(--color-surface-hover)';
-    btn.style.color = mode === pair[0] ? '' : 'var(--color-text-primary)';
-  });
-}
-function selectKbArrowsFromDrawer(mode){
-  setKbArrowsMode(mode);
-  applyKbArrowsMode();
-  updateDebugKbArrowsUI();
-}
 function openDebugRecordDrawer(){
   if(debugRecordingActive){ stopDebugRecording(); return; }
   const form = document.getElementById('debug-record-form');
   const stopActions = document.getElementById('debug-record-stop-actions');
   if(form) form.classList.remove('hidden');
   if(stopActions) stopActions.classList.add('hidden');
-  updateDebugKbModeUI();
-  updateDebugKbFocusModeUI();
-  updateDebugKbArrowsUI();
-  updateDebugKbCaretUI();
   const scenarioInput = document.getElementById('debug-record-scenario');
   if(scenarioInput) scenarioInput.value = '';
   const backdrop = document.getElementById('debug-record-backdrop');
@@ -9393,9 +9269,27 @@ function closeDebugRecordDrawer(){
   restoreFocus();
   if(wasOpen) unlockBackgroundScroll();
 }
+// Rev 2.23.21 (6D.190) — resolveDebugScenario: порожній сценарій більше не
+// надсилається — підставляється назва поточного контексту (відкрита шторка,
+// крім самого запису діагностики, інакше активна вкладка, інакше 'manual').
+function resolveDebugScenario(raw, fallbackName){
+  const trimmed = (raw || '').trim();
+  if(trimmed) return trimmed.slice(0, 120);
+  return (fallbackName || 'manual').slice(0, 120);
+}
+function currentDebugContextName(){
+  const open = document.querySelector('.drawer.open:not(#debug-record-drawer)');
+  if(open && open.id) return open.id;
+  const tab = document.querySelector('nav.tabbar button.active');
+  if(tab){
+    const cls = Array.prototype.find.call(tab.classList, function(c){ return c.indexOf('tab-') === 0; });
+    if(cls) return cls;
+  }
+  return 'manual';
+}
 function startDebugRecordingFromDrawer(){
   const scenarioInput = document.getElementById('debug-record-scenario');
-  startDebugRecording(scenarioInput ? scenarioInput.value : '');
+  startDebugRecording(resolveDebugScenario(scenarioInput ? scenarioInput.value : '', currentDebugContextName()));
   closeDebugRecordDrawer();
 }
 function buildDebugLogDevice(){
@@ -14781,95 +14675,25 @@ function unlockBackgroundScroll(){
     if(mainCol) mainCol.removeAttribute('inert');
   }
 }
-// Rev 2.23.9 (6D.178) — getKbMode()/setKbMode() ГЛОБАЛЬНІ (не всередині IIFE
-// initApp нижче), бо викликаються і звідти (enterKbSheet/updateKbSheetGeometry/
-// correctPanIfNeeded), і з глобальних функцій поза IIFE (captureDebugGeometry,
-// selectKbModeFromDrawer/openDebugRecordDrawer у "Запис діагностики") —
-// глобальний код не бачить локальних імен усередині IIFE.
-const KB_MODE_LS_KEY = 'budget_kb_mode_v1'; // НАВМИСНО поза BACKUP_LS_KEYS — локальна діагностична преференція, не користувацькі дані.
-function getKbMode(){
-  try{ return localStorage.getItem(KB_MODE_LS_KEY) === 'B' ? 'B' : 'A'; }catch(e){ return 'A'; }
-}
-function setKbMode(mode){
-  try{ localStorage.setItem(KB_MODE_LS_KEY, mode === 'B' ? 'B' : 'A'); }catch(e){}
-}
-// Rev 2.23.14 (6D.183) — режим ФОКУСУ (H1/H2/H3) для проксі-фокусу iOS —
-// перемикач у "Запис діагностики", БЕЗ нового коміту. Глобальний (не в IIFE)
-// з тієї ж причини, що getKbMode() вище: UI-функції поза IIFE. НАВМИСНО поза
-// BACKUP_LS_KEYS — локальна діагностична преференція. H2 — типовий (6D.184; H1 — проксі,
-// передача коли шторка приїхала).
-const KB_FOCUS_MODE_LS_KEY = 'budget_kb_focus_mode_v1';
-function getKbFocusMode(){
-  try{
-    const v = localStorage.getItem(KB_FOCUS_MODE_LS_KEY);
-    return (v === 'H1' || v === 'H3') ? v : 'H2';
-  }catch(e){ return 'H2'; }
-}
-// Rev 2.23.20 (6D.189) — ТИМЧАСОВИЙ експериментальний ключ варіанта курсора
-// (hide/late/current). Шторки «Експерименти» / реєстру «ревізії X» у коді
-// ЩЕ НЕМАЄ — тому окремий ключ budget_exp_kb_caret_v1 (поза BACKUP_LS_KEYS) і
-// перемикач у «Запис діагностики»; ключ записано в ROADMAP (6D.189) як
-// кандидат на міграцію в майбутній реєстр запис `kb-caret`.
-const KB_CARET_LS_KEY = 'budget_exp_kb_caret_v1';
-function getKbCaretVariant(){
-  try{
-    const v = localStorage.getItem(KB_CARET_LS_KEY);
-    return (v === 'late' || v === 'current') ? v : 'hide';
-  }catch(e){ return 'hide'; }
-}
-function setKbCaretVariant(v){
-  try{ localStorage.setItem(KB_CARET_LS_KEY, (v === 'late' || v === 'current') ? v : 'hide'); }catch(e){}
-}
-// Rev 2.23.16 (6D.185) — isIosRuntime/IS_IOS_RUNTIME винесено з IIFE
-// (було 6D.180): applyKbArrowsMode() нижче й UI "Запис діагностики" — поза IIFE.
+// Rev 2.23.21 (6D.190) — isIosRuntime/IS_IOS_RUNTIME ГЛОБАЛЬНІ (потрібні й
+// поза IIFE initApp). Лише iOS: navigator.standalone — API, що існує
+// ВИКЛЮЧНО в iOS Safari/WKWebView; регулярка — fallback для iPadOS "режиму
+// робочого столу".
 function isIosRuntime(ua, hasNavigatorStandalone){
   return !!hasNavigatorStandalone || /iPad|iPhone|iPod/.test(ua || '');
 }
 const IS_IOS_RUNTIME = isIosRuntime(navigator.userAgent, typeof navigator.standalone !== 'undefined');
-// Rev 2.23.16 (6D.185) — "Стрілки клавіатури" (iOS-панель ‹ › над
-// клавіатурою): нативне перемикання між полями ЦЕНТРУЄ нове поле (зсув
-// сторінки 48-53пт, ~36мс) і його не перехопити (тапи перехоплюємо, стрілки
-// — ні). Єдине надійне: tabindex="-1" на текстових полях шторок Доходу/
-// Боргу/ОЧ — тоді iOS нема куди перемикати. За замовчуванням стрілки
-// ВИМКНЕНО; перемикач у "Запис діагностики" (localStorage budget_kb_arrows_v1,
-// поза BACKUP_LS_KEYS). tabindex ставимо лише коли його не було (маркер
-// data-kb-ti), щоб знімати лише власний. Лише iOS (force — для тестів).
-const KB_ARROWS_LS_KEY = 'budget_kb_arrows_v1';
-// Rev 2.23.18 (6D.187) — режими стрілок: 'sys' ("Системні", ТИПОВИЙ — жодного
-// втручання: тип клавіатури й обидві стрілки працюють нативно; лишається
-// коротке здригання фону ~36мс при переході на нижні поля), 'P' (основний
-// експеримент — справжній перехід поле→проміжне→поле, runProxySwitchTrick),
-// 'R' (повторний фокус того САМОГО поля — лишається ЛИШЕ для порівняння: iOS
-// бачить "нічого не змінилось" і не оновлює ні тип клавіатури, ні стан
-// стрілок — у логу 2.23.17 vvH лишався 479 на числових полях; більше не
-// лагодимо), 'off' (tabindex="-1" на полях шторок — стрілки неактивні).
-// Старі значення: 'asis' (6D.186 "Як було") і 'on' (6D.185) = 'sys'.
-function getKbArrowsMode(){
-  try{
-    const v = localStorage.getItem(KB_ARROWS_LS_KEY);
-    if(v === 'R' || v === 'P' || v === 'off') return v;
-    return 'sys';
-  }catch(e){ return 'sys'; }
-}
-function setKbArrowsMode(mode){
-  try{ localStorage.setItem(KB_ARROWS_LS_KEY, (mode === 'R' || mode === 'P' || mode === 'off') ? mode : 'sys'); }catch(e){}
-}
-function applyKbArrowsMode(force){
-  if(!IS_IOS_RUNTIME && !force) return;
-  const off = getKbArrowsMode() === 'off';
-  document.querySelectorAll('#income-drawer input, #card-debt-drawer input, #installment-drawer input, #income-drawer textarea, #card-debt-drawer textarea, #installment-drawer textarea').forEach(function(el){
-    if(el.tagName === 'INPUT' && !/^(text|tel|number|email|search)$/.test(el.type)) return;
-    if(off){
-      if(!el.hasAttribute('tabindex')){ el.setAttribute('tabindex', '-1'); el.setAttribute('data-kb-ti', '1'); }
-    }else if(el.getAttribute('data-kb-ti')){
-      el.removeAttribute('tabindex'); el.removeAttribute('data-kb-ti');
-    }
+// Rev 2.23.21 (6D.190) — фінальне прибирання клавіатурних варіантів: лишено
+// ЄДИНУ поведінку (режим A, перший фокус H2, стрілки P, курсор hide) —
+// застарілі діагностичні ключі localStorage (перемикачі варіантів 6D.178-
+// 6D.189) видаляються при старті (removeItem — НЕ читання; idempotent).
+const LEGACY_KEYBOARD_LS_KEYS = ['budget_kb_mode_v1', 'budget_kb_focus_mode_v1', 'budget_kb_arrows_v1', 'budget_exp_kb_caret_v1'];
+function purgeLegacyKeyboardKeys(){
+  LEGACY_KEYBOARD_LS_KEYS.forEach(function(k){
+    try{ localStorage.removeItem(k); }catch(e){}
   });
 }
-applyKbArrowsMode();
-function setKbFocusMode(mode){
-  try{ localStorage.setItem(KB_FOCUS_MODE_LS_KEY, (mode === 'H1' || mode === 'H3') ? mode : 'H2'); }catch(e){}
-}
+purgeLegacyKeyboardKeys();
 // Проста Tab-пастка: поки відкритий рівно один з двох діалогів (drawer або
 // app-modal — вони ніколи не відкриті одночасно в цьому застосунку), Tab/
 // Shift+Tab циклічно лишається всередині нього, не "втікаючи" у фонову
@@ -15628,14 +15452,10 @@ function setDrawerKeyboardBackgroundLock(locked){
 // сторінку (на focusin, синхронно, ДО появи самої клавіатури): якщо поле
 // вже видиме над майбутньою клавіатурою, панорамувати нема чого.
 //
-// Чесне застереження (для майбутніх ревізій): САМЕ вимкнення панорамування
-// (не лише компенсація) на реальному iPhone ще НЕ підтверджено живим
-// тестом — це нова гіпотеза за даними логів. Тому є Режим B (перемикач у
-// "Запис діагностики", localStorage budget_kb_mode_v1, БЕЗ нового коміту):
-// сторінці дозволено панорамуватись, шторка натомість слідує за
-// visualViewport через transform (applyModeBTransform нижче) — ближче до
-// підходу 6D.166, але через transform (не bottom — саме його резолюцію
-// WebKit ламав) і без top/bottom inline-гонки (6D.166.1/166.2).
+// (Підтверджено живими логами 2.23.20: панорамування сторінки при появі
+// клавіатури прибрано — pan-corrected=0, vvOffsetTop=0, scrollY=0. Запасний
+// "Режим B" (шторка слідує за зсувом сторінки через transform) прибрано в
+// 6D.190 як програшний варіант.)
 //
 // baseVh/visualViewport.height — ЄДИНІ джерела висоти клавіатури.
 // window.innerHeight НЕ використовується в жодному розрахунку (98.6% живих
@@ -15703,17 +15523,6 @@ function shouldBlockTouchMove(scrollTop, scrollHeight, clientHeight, deltaY){
   if(deltaY < 0 && Math.ceil(scrollTop + clientHeight) >= scrollHeight) return true;
   return false;
 }
-// computeModeBShiftPx — Режим B: той самий вхід (baseVh/vvH/vvOffsetTop),
-// що колись computeKeyboardInset() (6D.150, видалено), але застосовується
-// через JS transform (applyModeBTransform), а НЕ через CSS bottom — саме
-// РЕЗОЛЮЦІЮ bottom WebKit ламав під час панорамування (6D.166/168), а
-// transform цього багу жодного разу не показав у жодному живому замірі.
-function computeModeBShiftPx(baseVh, vvH, vvOffsetTop){
-  return -Math.max(0, Math.round(baseVh - vvH - vvOffsetTop));
-}
-function applyModeBTransform(drawerEl, baseVh, vvH, vvOffsetTop){
-  drawerEl.style.transform = 'translateY(' + computeModeBShiftPx(baseVh, vvH, vvOffsetTop) + 'px)';
-}
 // Rev 2.23.11 (6D.180) — BugFix (промт користувача, SQL-аналіз 5 нових
 // логів версії 2.23.9): навіть із Режимом A (6D.178/179) iOS встигає
 // запанорамувати сторінку на 1-2 кадри МІЖ самим фокусом і завершенням
@@ -15735,8 +15544,7 @@ function applyModeBTransform(drawerEl, baseVh, vvH, vvOffsetTop){
 // у isStandaloneDisplayMode() нижче) — надійніший за userAgent; регулярка
 // лишається fallback-ом для iPadOS "режиму робочого столу", де
 // navigator.standalone відсутній, а userAgent і далі видає "iPad".
-// (isIosRuntime/IS_IOS_RUNTIME — тепер ГЛОБАЛЬНІ, 6D.185: потрібні й
-// applyKbArrowsMode() поза IIFE; визначені поруч із getKbFocusMode().)
+// (isIosRuntime/IS_IOS_RUNTIME — ГЛОБАЛЬНІ, визначені перед IIFE.)
 // isTapTargetField — лише звичайні текстові input/textarea (саме ті типи,
 // що явно перелічив промт); select/checkbox/date/file відкривають нативний
 // пікер ОС — проксі-фокус їм не потрібен і не повинен застосовуватись.
@@ -15838,43 +15646,13 @@ function configureKbProxy(proxyEl, targetInput){
   if(attrs.readonly) proxyEl.setAttribute('readonly', ''); else proxyEl.removeAttribute('readonly');
   if(attrs.disabled) proxyEl.setAttribute('disabled', ''); else proxyEl.removeAttribute('disabled');
 }
-// Rev 2.23.14 (6D.183) — чисті функції режимів фокусу/діагностики/таббара.
-// shouldTransfer(mode, {kbShown, sheetArrived, elapsedMs}) — чи передавати
-// фокус від проксі справжньому полю ЗАРАЗ: H1 (типовий) — клавіатура
-// показана І шторка доїхала; H2 — лише клавіатура показана (перший
-// vv-resize, не чекаючи кінця переходу шторки); H3 — проксі взагалі нема,
-// передавати нічого. 420мс — стеля (shouldForceTransfer) для H1/H2.
-function shouldTransfer(mode, st){
-  if(!st || mode === 'H3') return false;
-  // 'L' (6D.189, варіант курсора "late"): не раніше, ніж шторка приїхала
-  // (isSheetArrived — поле видиме й нема CSS-анімації), стеля 320мс.
-  if(mode === 'L') return st.sheetArrived === true || (st.elapsedMs || 0) >= 320;
-  if(shouldForceTransfer(st.elapsedMs || 0, 420)) return true;
-  if(mode === 'H2') return st.kbShown === true;
-  return st.kbShown === true && st.sheetArrived === true;
-}
-// cubicBezierProgress — прогрес CSS cubic-bezier(x1,y1,x2,y2) при часовій
-// частці x∈[0,1] (бісекція по x(t); достатньо 30 ітерацій) — для H3, щоб
-// ПЕРЕДБАЧИТИ, де буде поле через ~90мс, не міряючи розмітку.
-function cubicBezierProgress(x, x1, y1, x2, y2){
-  if(x <= 0) return 0;
-  if(x >= 1) return 1;
-  let lo = 0, hi = 1, t = x;
-  for(let i = 0; i < 30; i++){
-    const cx = 3 * (1 - t) * (1 - t) * t * x1 + 3 * (1 - t) * t * t * x2 + t * t * t;
-    if(Math.abs(cx - x) < 1e-5) break;
-    if(cx < x) lo = t; else hi = t;
-    t = (lo + hi) / 2;
-  }
-  return 3 * (1 - t) * (1 - t) * t * y1 + 3 * (1 - t) * t * t * y2 + t * t * t;
-}
-// computeFieldBottomAt — де буде НИЗ поля через elapsedMs від старту
-// transform-підйому шторки (240мс, cubic-bezier(0.22,0.9,0.3,1) — ТА САМА
-// крива, що в CSS html.kb-sheet .drawer.open): restBottom — низ поля у
-// спокої (ДО змін класів), lift — --sheet-lift.
-function computeFieldBottomAt(restBottom, lift, elapsedMs, durationMs){
-  const progress = cubicBezierProgress(elapsedMs / (durationMs || 240), 0.22, 0.9, 0.3, 1);
-  return restBottom - lift * progress;
+// Rev 2.23.21 (6D.190) — shouldTransfer: ЄДИНИЙ режим фокусу (H2): передача
+// фокусу від проміжного поля справжньому — на першому vv-resize з показаною
+// клавіатурою (kbShown), не чекаючи кінця переходу шторки; 420мс — стеля
+// (shouldForceTransfer → подія focus-transfer-forced).
+function shouldTransfer(st){
+  if(!st) return false;
+  return st.kbShown === true || shouldForceTransfer(st.elapsedMs || 0, 420);
 }
 // countKbBlips — "підгонка" клавіатури: скільки кадрів ПІСЛЯ першого
 // vvH<baseVh-100 змінили будь-яку з (vvH, vvOffsetTop, innerH, scrollY) на
@@ -15903,24 +15681,17 @@ function planTabbarRestore(opts){
   const ms = Math.max(0, Math.min(w, 100));
   return { restoreAt: focusoutAt + ms, msAfterFocusout: ms };
 }
-// Rev 2.23.20 (6D.189) — курсор справжнього поля стрибає під час руху
+// Rev 2.23.20 (6D.189), 6D.190 — курсор справжнього поля стрибає під час руху
 // шторки: ранню передачу (H2) лишаємо (вона прибирає "підгін" клавіатури), а
-// курсор ховаємо на час руху. shouldHideCaret — лише варіант hide, шторка
-// рухається, поле всередині шторок. planCaretRestore — коли знімати
-// приховування: на transitionend (transform шторки) або за запасним таймером
-// 320мс; для не-hide варіантів приховувати нічого (restore одразу).
-function shouldHideCaret(o){
-  return !!o && o.variant === 'hide' && o.sheetMoving === true && o.isSheetField === true;
-}
+// курсор ховаємо на час руху (єдиний варіант hide). planCaretRestore — коли
+// знімати приховування: на transitionend (transform шторки) або за запасним
+// таймером 320мс.
 function planCaretRestore(o){
-  if(!o || o.variant !== 'hide') return true;
-  return o.transitionEnded === true || (o.elapsedMs || 0) >= 320;
+  return !!o && (o.transitionEnded === true || (o.elapsedMs || 0) >= 320);
 }
 let kbMovingGen = 0;
 function beginSheetMoving(drawerEl, phase, fromField, toField){
-  if(!drawerEl || getKbMode() !== 'A') return;
-  const variant = getKbCaretVariant();
-  if(!shouldHideCaret({ variant: variant, sheetMoving: true, isSheetField: true })) return;
+  if(!drawerEl) return;
   const gen = ++kbMovingGen;
   const t0 = performance.now();
   const fromId = fromField ? (fromField.id || null) : null;
@@ -15931,7 +15702,7 @@ function beginSheetMoving(drawerEl, phase, fromField, toField){
   function finish(transitionEnded, elapsedOverride){
     if(done) return;
     const elapsed = typeof elapsedOverride === 'number' ? elapsedOverride : performance.now() - t0;
-    if(!planCaretRestore({ variant: variant, transitionEnded: transitionEnded, elapsedMs: elapsed })) return;
+    if(!planCaretRestore({ transitionEnded: transitionEnded, elapsedMs: elapsed })) return;
     done = true;
     drawerEl.removeEventListener('transitionend', onEnd);
     if(timer){ clearTimeout(timer); timer = null; }
@@ -16011,34 +15782,6 @@ function shouldInterceptFirstFocus(o){
 function kbKindOf(field){
   return keyboardKindForField(field);
 }
-// Rev 2.23.17 (6D.186) — режим R стрілок (ЕКСПЕРИМЕНТ, результат наперед не
-// гарантований): після НАТИВНОГО перемикання стрілкою iOS через ~100мс
-// "прокручує до центру" нове поле (48-53пт, 2-3 кадри); для тапів ми це вже
-// скасовуємо focus({preventScroll:true}) (25/25 без зсуву), для стрілки
-// фокус переносить система. Між фокусом і прокруткою є ~100мс — якщо за цей
-// час повторно сфокусувати ТЕ САМЕ поле вже з preventScroll, iOS може
-// скасувати заплановану прокрутку (ризик: клавіатура на мить мигне, або
-// прокрутка все одно станеться — побачимо в логах: outcome/kbFlicker).
-// shouldRefocusTrick: iOS, режим R, клавіатура відкрита, поле всередині
-// шторки, не зараз у нашій спробі, і НЕ щойно наше перехоплення
-// (kbSwitchKind tap/flow або <100мс після нього) — тобто саме нативне.
-function shouldRefocusTrick(o){
-  if(!o) return false;
-  return o.ios === true && o.mode === 'R' && o.kbSheetOpen === true && o.fieldInDrawer === true
-    && o.refocusing !== true && !o.via
-    && (typeof o.msSinceIntercept !== 'number' || o.msSinceIntercept >= 100);
-}
-function classifyRefocusOutcome(maxVvOffsetTop){
-  return maxVvOffsetTop > 1 ? 'pan' : 'ok';
-}
-// computeKbFlicker: "мигання" клавіатури — vvH змінилась на ≥20пт протягом
-// 200мс після повторного фокусу (samples: [[мс від повторного фокусу, vvH]]).
-function computeKbFlicker(vvH0, samples){
-  for(let i = 0; i < samples.length; i++){
-    if(samples[i][0] <= 200 && Math.abs(samples[i][1] - vvH0) >= 20) return true;
-  }
-  return false;
-}
 // Rev 2.23.18 (6D.187) — isNativeSwitch: перемикання, яке зробила СИСТЕМА
 // (стрілки панелі/«Далі»), а не наше перехоплення: iOS, клавіатура відкрита,
 // поле шторки, не під час нашої власної спроби, `via` (tap/flow) порожній і
@@ -16049,9 +15792,6 @@ function isNativeSwitch(o){
   return o.ios === true && o.kbSheetOpen === true && o.fieldInDrawer === true
     && o.refocusing !== true && !o.via
     && (typeof o.msSinceIntercept !== 'number' || o.msSinceIntercept >= 100);
-}
-function shouldProxySwitchTrick(o){
-  return !!o && o.mode === 'P' && isNativeSwitch(o);
 }
 // switchDirection: 'down', якщо нове поле ПІСЛЯ попереднього в порядку DOM
 // (стрілка «вниз»/«Далі»), інакше 'up'; null, якщо порівняти не можна.
@@ -16089,7 +15829,6 @@ function observeNativeSwitch(fromField, toField){
       dir: dir,
       keyboardTypeOk: computeKeyboardTypeOk(lastVvH, expected),
       panMax400: Math.round(maxOff),
-      arrowsMode: getKbArrowsMode(),
       drawerId: drawerId,
     });
   }
@@ -16115,42 +15854,10 @@ function runProxySwitchTrick(field, drawerEl){
     focusWithoutScrollIfSupported(field, drawerEl.id);
   }catch(err){}
   kbRefocusing = false;
-  captureDebugGeometry('proxy-switch', { to: field.id || null, arrowsMode: 'P', drawerId: drawerEl.id || null });
-}
-// runRefocusTrick: blur()+focus({preventScroll:true}) того самого поля, ОДНА
-// спроба (kbRefocusing — на час спроби focusout/focusin не змінюють
-// kb-open/kb-sheet: handleKeyboardFieldFocusIn виходить, focusout-таймаут
-// скасовується тим самим синхронним focusin). Далі 400мс (rAF, без читань
-// розмітки) спостерігаємо vvOffsetTop/vvH → подія refocus-trick
-// (to/outcome/ms/kbFlicker/kindChanged). Страховка scrollTo(0,0) лишається.
-function runRefocusTrick(field, kindChanged){
-  if(kbRefocusing || !kbSheetActive || document.activeElement !== field) return;
-  kbRefocusing = true;
-  const vv = window.visualViewport;
-  const vvH0 = vv ? vv.height : 0;
-  const drawerId = kbSheetDrawerEl ? (kbSheetDrawerEl.id || null) : null;
-  const t0 = performance.now();
-  try{
-    field.blur();
-    focusWithoutScrollIfSupported(field, drawerId);
-  }catch(err){}
-  kbRefocusing = false;
-  const callMs = Math.round(performance.now() - t0);
-  let maxOff = 0;
-  const samples = [];
-  function tick(now){
-    const el = now - t0;
-    if(vv){
-      if(vv.offsetTop > maxOff) maxOff = vv.offsetTop;
-      samples.push([Math.round(el), vv.height]);
-    }
-    if(el < 400){ requestAnimationFrame(tick); return; }
-    captureDebugGeometry('refocus-trick', { to: field.id || null, outcome: classifyRefocusOutcome(maxOff), ms: callMs, kbFlicker: computeKbFlicker(vvH0, samples), kindChanged: !!kindChanged, drawerId: drawerId });
-  }
-  requestAnimationFrame(tick);
+  captureDebugGeometry('proxy-switch', { to: field.id || null, drawerId: drawerEl.id || null });
 }
 let kbProxyActive = false;
-let kbFocusFlowMode = 'direct'; // Rev 2.23.14: 'H1'/'H2'/'H3' (iOS-перехоплення) або 'direct' (нативний фокус) — читає й скидає enterKbSheet() для події focus-mode
+let kbFocusFlowMode = 'direct'; // 'proxy' (iOS-перехоплення, проміжне поле) або 'direct' (нативний фокус) — читає й скидає enterKbSheet() для intercept-miss
 let kbSheetGen = 0;
 let kbSheetLastLift = 0;
 let kbSheetLastVvTarget = 0;
@@ -16170,23 +15877,6 @@ let kbRefocusing = false;
 let kbLastTap = null; // Rev 2.23.19: дані ОСТАННЬОГО touchend (для intercept-miss)
 let kbLastFocusedField = null;
 let kbLastInterceptAt = 0;
-// Rev 2.23.12 (6D.181) BugFix (промт користувача, SQL-аналіз 9 фокусів у
-// живих логах 2.23.11): проміжний input (6D.180) справді прибрав зсув ПІД
-// ЧАС появи клавіатури (vvOffsetTop=0/scrollY=0 в усіх 9 випадках) — але
-// лишились 2 кадри зсуву В МОМЕНТ передачі фокусу справжньому полю. Дві
-// причини: (1) передача відбувалась ЗАРАНО (на vv-resize, ще до завершення
-// підйому шторки — у Доході поле на той момент ще під клавіатурою); (2)
-// WebKit сам скролить до щойно сфокусованого елемента (стандартна
-// "scroll into view" поведінка focus()), НАВІТЬ коли елемент уже видимий —
-// для цього є саме прапорець preventScroll.
-//
-// isSheetArrived — чиста функція (тести): шторка вважається "доїхала"
-// лише коли ВСІ три умови разом: поле видиме (bottom≤vvH-4, top≥0) І
-// немає активної CSS-анімації шторки.
-function isSheetArrived(opts){
-  if(!opts) return false;
-  return opts.fieldBottom <= opts.vvH - 4 && opts.fieldTop >= 0 && opts.animating !== true;
-}
 // shouldForceTransfer — примусова передача, якщо жодна з умов так і не
 // зійшлась за відведений час (420мс) — краще трохи раніше, ніж чекати
 // вічно (напр. якщо visualViewport взагалі не зрушив, рідкісний edge-case).
@@ -16331,24 +16021,14 @@ function startSheetAnimSampler(drawerEl, phase, drawerHeightRest, onDone){
   requestAnimationFrame(tickNoLayout);
   ceilingTimer = setTimeout(finish, 500);
 }
-// beginKbFocusProxy: фокусить проксі (піднімає шторку й клавіатуру ТОГО Ж
-// типу, не панорамуючи сторінку — проксі завжди у видимій зоні вгорі).
-// Передача фокусу СПРАВЖНЬОМУ полю (6D.181) — лише коли ВСІ умови зійшлись
-// (опитування через requestAnimationFrame, БЕЗ setTimeout-вгадувань):
-// клавіатура вже показана (isKeyboardOpen) І шторка "доїхала" (isSheetArrived
-// — поле видиме І немає активної CSS-анімації, getAnimations()). 420мс —
-// стеля: якщо умови так і не зійшлись, передаємо все одно й фіксуємо
-// focus-transfer-forced. focusWithoutScrollIfSupported — preventScroll,
-// щоб сам виклик focus() не спричинив WebKit-івський "scroll into view".
-// Rev 2.23.14 (6D.183) — mode ('H1' типовий / 'H2'): H2 передає фокус на
-// ПЕРШОМУ vv-resize з показаною клавіатурою, одразу, не чекаючи кінця
-// переходу шторки (і без читань розмітки); додатково слухає visualViewport
-// resize, щоб не чекати наступного rAF.
-function beginKbFocusProxy(target, drawerEl, mode, late){
-  mode = mode || 'H1';
-  // Rev 2.23.20 (6D.189): late — варіант курсора "late": передача не раніше,
-  // ніж шторка приїхала (gate 'L'); у подіях mode лишається режимом фокусу.
-  const gate = late === true ? 'L' : mode;
+// beginKbFocusProxy (єдиний режим першого фокусу — "H2", 6D.183-190): фокусить
+// проміжне поле (піднімає шторку й клавіатуру ТОГО Ж типу, не панорамуючи
+// сторінку), а на ПЕРШОМУ vv-resize з показаною клавіатурою (shouldTransfer;
+// слухач visualViewport.resize + rAF-опитування) передає фокус СПРАВЖНЬОМУ
+// полю через focus({preventScroll:true}) — не чекаючи кінця переходу
+// шторки (це й прибирає "підгін" клавіатури); 420мс — стеля
+// (focus-transfer-forced).
+function beginKbFocusProxy(target, drawerEl){
   // Rev 2.23.13 (6D.182) — вимірюємо ДО будь-яких змін класів (тут,
   // усередині перехопленого touchend-обробника, ще ДО proxy.focus(), а
   // отже ще ДО того, як focusin додасть body.kb-open) — промт явно вимагав
@@ -16364,14 +16044,14 @@ function beginKbFocusProxy(target, drawerEl, mode, late){
   configureKbProxy(proxy, target);
   const proxyDist = placeKbProxyAtField(proxy, target);
   kbProxyActive = true;
-  kbFocusFlowMode = mode;
+  kbFocusFlowMode = 'proxy';
   const startedAt = Date.now();
-  captureDebugGeometry('focus-proxy', { drawerId: drawerEl.id || null, proxyActive: true, mode: mode, proxyCaretColor: getComputedStyle(proxy).caretColor, proxyDistToField: proxyDist });
+  captureDebugGeometry('focus-proxy', { drawerId: drawerEl.id || null, proxyActive: true, proxyCaretColor: getComputedStyle(proxy).caretColor, proxyDistToField: proxyDist });
   proxy.focus({ preventScroll: true });
 
   let settled = false;
   let rafId = null;
-  function onVvResize(){ if(gate === 'H2') check(); }
+  function onVvResize(){ check(); }
   function finish(forced){
     if(settled) return;
     settled = true;
@@ -16383,7 +16063,7 @@ function beginKbFocusProxy(target, drawerEl, mode, late){
     kbLastInterceptAt = Date.now();
     focusWithoutScrollIfSupported(target, drawerEl.id);
     kbSwitchKind = null;
-    captureDebugGeometry(forced ? 'focus-transfer-forced' : 'focus-transfer', { ms: ms, drawerId: drawerEl.id || null, proxyActive: false, mode: mode, sheetBottomAtTransfer: Math.round(drawerEl.getBoundingClientRect().bottom), sheetFinalBottom: Math.round(kbSheetRestBottom - kbSheetCurrentLift) });
+    captureDebugGeometry(forced ? 'focus-transfer-forced' : 'focus-transfer', { ms: ms, drawerId: drawerEl.id || null, proxyActive: false, sheetBottomAtTransfer: Math.round(drawerEl.getBoundingClientRect().bottom), sheetFinalBottom: Math.round(kbSheetRestBottom - kbSheetCurrentLift) });
   }
   function check(){
     if(settled) return true;
@@ -16392,14 +16072,8 @@ function beginKbFocusProxy(target, drawerEl, mode, late){
     const vv = window.visualViewport;
     const vvH = vv ? vv.height : baseVh;
     const kbShown = isKeyboardOpen(baseVh, vvH);
-    let sheetArrived = false;
-    if(gate === 'L' || (gate !== 'H2' && kbShown)){
-      const rect = target.getBoundingClientRect();
-      const animating = typeof drawerEl.getAnimations === 'function' ? drawerEl.getAnimations().length > 0 : false;
-      sheetArrived = isSheetArrived({ fieldBottom: rect.bottom, fieldTop: rect.top, vvH: vvH, animating: animating });
-    }
-    if(shouldTransfer(gate, { kbShown: kbShown, sheetArrived: sheetArrived, elapsedMs: elapsed })){
-      finish(!shouldTransfer(gate, { kbShown: kbShown, sheetArrived: sheetArrived, elapsedMs: 0 }));
+    if(shouldTransfer({ kbShown: kbShown, elapsedMs: elapsed })){
+      finish(!shouldTransfer({ kbShown: kbShown, elapsedMs: 0 }));
       return true;
     }
     return false;
@@ -16409,54 +16083,7 @@ function beginKbFocusProxy(target, drawerEl, mode, late){
     if(check()) return;
     rafId = requestAnimationFrame(poll);
   }
-  if(gate === 'H2' && window.visualViewport) window.visualViewport.addEventListener('resize', onVvResize);
-  rafId = requestAnimationFrame(poll);
-}
-// Rev 2.23.14 (6D.183) — H3: БЕЗ проміжного поля й БЕЗ передачі. У touchend:
-// виміряти спокій (поле й шторка), виставити змінні/класи (handleKeyboard-
-// FieldFocusIn → enterKbSheet, шторка їде вгору), і через 110мс (або раніше,
-// якщо computeFieldBottomAt(t+90мс) ≤ vvTarget-4 — тобто до моменту появи
-// клавіатури поле вже буде над нею) викликати ОДИН раз
-// target.focus({preventScroll:true}). Якщо за 500мс клавіатура не з'явилась
-// (vv не стиснувся) — focus-h3-fallback і звичайний focus().
-function beginKbFocusH3(target, drawerEl){
-  const fieldRect = target.getBoundingClientRect();
-  const restRect = drawerEl.getBoundingClientRect();
-  drawerEl.__kbRestBottomY = restRect.bottom;
-  drawerEl.__kbNaturalHeight = restRect.height;
-  kbFocusFlowMode = 'H3';
-  kbProxyActive = true; // той самий гард, що й для проксі: focusout-таймаут не знімає sheet до самого фокусу
-  const startedAt = Date.now();
-  handleKeyboardFieldFocusIn(target);
-  const lift = kbSheetLastLift;
-  const vvTarget = kbSheetLastVvTarget;
-  let focused = false;
-  let rafId = null;
-  function poll(){
-    const elapsed = Date.now() - startedAt;
-    if(!focused){
-      const early = computeFieldBottomAt(fieldRect.bottom, lift, elapsed + 90, 240) <= vvTarget - 4;
-      if(elapsed >= 110 || early){
-        focused = true;
-        kbProxyActive = false;
-        kbSwitchKind = 'flow';
-        kbLastInterceptAt = Date.now();
-        focusWithoutScrollIfSupported(target, drawerEl.id);
-        kbSwitchKind = null;
-        captureDebugGeometry('focus-h3', { ms: elapsed, drawerId: drawerEl.id || null, mode: 'H3', proxyActive: false });
-      }
-    }else{
-      const baseVh = getBaseViewportHeight();
-      const vv = window.visualViewport;
-      if(vv && isKeyboardOpen(baseVh, vv.height)) return;
-      if(elapsed >= 500){
-        captureDebugGeometry('focus-h3-fallback', { ms: elapsed, drawerId: drawerEl.id || null, mode: 'H3' });
-        target.focus();
-        return;
-      }
-    }
-    rafId = requestAnimationFrame(poll);
-  }
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', onVvResize);
   rafId = requestAnimationFrame(poll);
 }
 // Rev 2.23.14 (6D.183) — kb-frames: покадровий (requestAnimationFrame, БЕЗ
@@ -16464,7 +16091,7 @@ function beginKbFocusH3(target, drawerEl){
 // перехопленого touchend до +700мс (до 60 вимірів) + підсумок countKbBlips()
 // — відповідь на питання "чи є ПІСЛЯ появи клавіатури ще якийсь зсув
 // (підгонка) і в якому режимі фокусу його нема".
-function startKbFramesSampler(mode){
+function startKbFramesSampler(){
   const startedAt = performance.now();
   const baseVh = getBaseViewportHeight();
   const frames = [];
@@ -16473,7 +16100,7 @@ function startKbFramesSampler(mode){
     if(done) return;
     done = true;
     const r = countKbBlips(frames, baseVh);
-    captureDebugGeometry('kb-frames', { mode: mode, blips: r.blips, firstKbFrameT: r.firstKbFrameT, samples: frames });
+    captureDebugGeometry('kb-frames', { blips: r.blips, firstKbFrameT: r.firstKbFrameT, samples: frames });
   }
   function tick(now){
     if(done) return;
@@ -16563,11 +16190,7 @@ function enterKbSheet(drawerEl, fieldEl){
   if(drawerEl.style.willChange) drawerEl.style.willChange = '';
   document.documentElement.classList.remove('kb-sheet-closing');
   document.documentElement.classList.add('kb-sheet');
-  if(getKbMode() === 'B') document.documentElement.classList.add('kb-mode-b');
   captureDebugGeometry('sheet-open', { drawerId: drawerEl.id || null });
-  // Rev 2.23.14 (6D.183) — focus-mode: яким шляхом прийшов цей фокус (H1/H2/
-  // H3 — iOS-перехоплення; 'direct' — нативний фокус без перехоплення).
-  captureDebugGeometry('focus-mode', { mode: kbFocusFlowMode, arrowsMode: getKbArrowsMode(), caretVariant: getKbCaretVariant(), drawerId: drawerEl.id || null });
   // Rev 2.23.19 (6D.188) — підстраховка від нових "дірок": перше відкриття
   // пройшло НАТИВНО (direct) на iOS — фіксуємо, ЯКИЙ саме тап це був (тег/
   // id/класи/координати/мс від touchend). Жодних змін поведінки.
@@ -16575,7 +16198,7 @@ function enterKbSheet(drawerEl, fieldEl){
     captureDebugGeometry('intercept-miss', { targetTag: kbLastTap.tag, targetId: kbLastTap.id, targetClasses: kbLastTap.classes, touchX: kbLastTap.x, touchY: kbLastTap.y, ms: Math.max(0, Date.now() - kbLastTap.endAt), drawerId: drawerEl.id || null });
   }
   kbFocusFlowMode = 'direct';
-  if(getKbMode() === 'A') startSheetAnimSampler(drawerEl, 'open', naturalHeight);
+  startSheetAnimSampler(drawerEl, 'open', naturalHeight);
   beginSheetMoving(drawerEl, 'open', null, fieldEl);
 }
 // computeSheetLift: rest (поточний bottom-край шторки ДО підйому) мінус
@@ -16596,7 +16219,6 @@ function updateKbSheetGeometry(){
   if(!kbSheetActive || !window.visualViewport) return;
   const baseVh = getBaseViewportHeight();
   const vvH = window.visualViewport.height;
-  const vvOffsetTop = window.visualViewport.offsetTop;
   const kbH = computeKeyboardHeight(baseVh, vvH);
   document.documentElement.style.setProperty('--kb-h', kbH + 'px');
   document.documentElement.style.setProperty('--vv-h', vvH + 'px');
@@ -16606,7 +16228,7 @@ function updateKbSheetGeometry(){
     if(!keyboardHeightCache[orientKey]) keyboardHeightCache[orientKey] = {};
     keyboardHeightCache[orientKey][kbSheetFieldKind] = kbH;
   }
-  if(kbSheetLiftDirty && getKbMode() === 'A' && isKeyboardOpen(baseVh, vvH)){
+  if(kbSheetLiftDirty && isKeyboardOpen(baseVh, vvH)){
     // Rev 2.23.16 (6D.185): живий vv лише УТОЧНЮЄ, якщо розбіжність >2пт.
     const liveLift = computeSheetLift(kbSheetRestBottom, baseVh, kbH, 8);
     if(Math.abs(liveLift - kbSheetCurrentLift) > 2){
@@ -16614,19 +16236,14 @@ function updateKbSheetGeometry(){
       document.documentElement.style.setProperty('--sheet-lift', String(liveLift));
     }
   }
-  if(getKbMode() === 'B' && kbSheetDrawerEl){
-    applyModeBTransform(kbSheetDrawerEl, baseVh, vvH, vvOffsetTop);
-  }
   correctPanIfNeeded();
 }
 // correctPanIfNeeded — Режим A єдиний запобіжник: якщо, НЕЗВАЖАЮЧИ на
 // завчасне підняття шторки, WebKit усе ж запанорамував сторінку
 // (scrollY/vvOffsetTop != 0), одноразово повертаємо її на місце в
 // requestAnimationFrame і фіксуємо подію 'pan-corrected' у рекордер — мета
-// (критерій G ревізії) 0 таких подій у живому логу. Режим B НЕ викликає
-// scrollTo — сторінці свідомо дозволено панорамуватись там.
+// (критерій G ревізії) 0 таких подій у живому логу.
 function correctPanIfNeeded(){
-  if(getKbMode() !== 'A') return;
   if(!window.visualViewport) return;
   if(window.scrollY !== 0 || window.visualViewport.offsetTop !== 0){
     requestAnimationFrame(function(){ window.scrollTo(0, 0); });
@@ -16644,9 +16261,8 @@ function correctPanIfNeeded(){
     }
   }
 }
-// exitKbSheet(removeKbOpen): знімає html.kb-sheet/kb-mode-b, --kb-h, і
-// (Режим B) власний inline transform шторки — повертає керування позицією
-// звичайному CSS (.drawer.open{bottom:var(--drawer-bottom-base)}, чи для
+// exitKbSheet(removeKbOpen): знімає html.kb-sheet, --kb-h — повертає
+// керування позицією звичайному CSS (.drawer.open{bottom:var(--drawer-bottom-base)}, чи для
 // наших 3 шторок — тепер завжди той самий вираз, 6D.182), як до фокусу.
 // removeKbOpen — чи знімати ТАКОЖ body.kb-open (повернення таббара): лише
 // коли справді НІЯКОГО клавіатурного поля більше не сфокусовано (інакше,
@@ -16655,8 +16271,6 @@ function exitKbSheet(removeKbOpen){
   if(!kbSheetActive) return;
   const drawerId = kbSheetDrawerEl ? (kbSheetDrawerEl.id || null) : null;
   const drawerEl = kbSheetDrawerEl;
-  const wasModeB = document.documentElement.classList.contains('kb-mode-b');
-  if(drawerEl) drawerEl.style.transform = '';
   // kbSheetActive=false ОДРАЗУ — updateKbSheetGeometry() гардиться на цьому
   // ж прапорці (перший рядок), тож ЖОДЕН наступний vv-resize/scroll під час
   // 320мс-вікна закриття більше не перераховує --sheet-lift/--kb-h/
@@ -16680,7 +16294,6 @@ function exitKbSheet(removeKbOpen){
     if(kbSheetActive || kbSheetGen !== genAtExit) return;
     document.documentElement.classList.remove('kb-sheet');
     document.documentElement.classList.remove('kb-sheet-closing');
-    document.documentElement.classList.remove('kb-mode-b');
     document.documentElement.style.setProperty('--kb-h', '0px');
   };
   // Симетричне закриття: --sheet-lift:0 + html.kb-sheet-closing (CSS, 250мс
@@ -16690,7 +16303,7 @@ function exitKbSheet(removeKbOpen){
   // анімує через це правило (CSS transition:none) — звичайне миттєве
   // зняття, як і раніше.
   document.documentElement.style.setProperty('--sheet-lift', '0');
-  if(drawerEl && !wasModeB){
+  if(drawerEl){
     document.documentElement.classList.add('kb-sheet-closing');
     startSheetAnimSampler(drawerEl, 'close', naturalHeightAtClose);
     beginSheetMoving(drawerEl, 'close', lastFieldAtClose, null);
@@ -16733,7 +16346,7 @@ function handleKeyboardFieldFocusIn(target){
   if(drawerEl){
     setDrawerKeyboardBackgroundLock(true);
     if(kbSheetActive && kbSheetDrawerEl === drawerEl){
-      // Rev 2.23.17 (6D.186): наш власний blur+focus (runRefocusTrick) нічого
+      // Rev 2.23.17 (6D.186): наш власний перехід (runProxySwitchTrick) нічого
       // не змінює — ні класів, ні --sheet-lift, ні класифікації перемикання.
       if(kbRefocusing) return;
       // Rev 2.23.11 (6D.180) — перехід проксі→справжнє поле (чи Tab між
@@ -16756,7 +16369,7 @@ function handleKeyboardFieldFocusIn(target){
       // --sheet-lift за оцінкою/кешем нового типу — шторка їде тим самим
       // transform-переходом (240мс); updateKbSheetGeometry() далі уточнює
       // за живим vv (kbSheetLiftDirty).
-      if(prevKind && newKind !== prevKind && getKbMode() === 'A'){
+      if(prevKind && newKind !== prevKind){
         const baseVh = getBaseViewportHeight();
         const orientKey = viewportOrientationKey(window.innerWidth, window.innerHeight);
         const est = estimateKeyboardHeight(baseVh, newKind, keyboardHeightCache[orientKey]);
@@ -16770,15 +16383,12 @@ function handleKeyboardFieldFocusIn(target){
         beginSheetMoving(drawerEl, 'switch', fromField, target);
       }
       if(target.id !== 'kb-focus-proxy') kbLastFocusedField = target;
-      const nativeCtx = { ios: IS_IOS_RUNTIME, mode: getKbArrowsMode(), kbSheetOpen: true, fieldInDrawer: true, refocusing: kbRefocusing, via: via, msSinceIntercept: Date.now() - kbLastInterceptAt };
-      // Rev 2.23.18 (6D.187): кожне НАТИВНЕ перемикання спостерігаємо (native-switch)
-      // у будь-якому режимі; далі — P (проміжне поле) або R (лише порівняння).
-      if(isNativeSwitch(nativeCtx)) observeNativeSwitch(fromField, target);
-      if(shouldProxySwitchTrick(nativeCtx)){
+      const nativeCtx = { ios: IS_IOS_RUNTIME, kbSheetOpen: true, fieldInDrawer: true, refocusing: kbRefocusing, via: via, msSinceIntercept: Date.now() - kbLastInterceptAt };
+      // Кожне НАТИВНЕ перемикання (стрілки/«Далі») спостерігаємо (native-switch)
+      // і виконуємо перехід поле→проміжне→поле (runProxySwitchTrick, "P").
+      if(isNativeSwitch(nativeCtx)){
+        observeNativeSwitch(fromField, target);
         runProxySwitchTrick(target, drawerEl);
-      }else if(shouldRefocusTrick(nativeCtx)){
-        const kindChangedNow = !!prevKind && newKind !== prevKind;
-        queueMicrotask(function(){ runRefocusTrick(target, kindChangedNow); });
       }
     }else{
       if(target.id !== 'kb-focus-proxy') kbLastFocusedField = target;
@@ -16896,7 +16506,7 @@ document.addEventListener('touchend', function(e){
       // Rev 2.23.16 (6D.185) — зміна типу клавіатури: перехід шторки (220мс,
       // системніша крива) стартує ОДРАЗУ на тапі — --sheet-lift перераховує
       // handleKeyboardFieldFocusIn() синхронно з кешу/оцінки нового типу.
-      const kindChanges = !!kbSheetFieldKind && kbKindOf(target) !== kbSheetFieldKind && getKbMode() === 'A';
+      const kindChanges = !!kbSheetFieldKind && kbKindOf(target) !== kbSheetFieldKind;
       if(kindChanges) document.documentElement.classList.add('kb-sheet-switching');
       kbSwitchKind = 'tap';
       kbLastInterceptAt = Date.now();
@@ -16912,11 +16522,9 @@ document.addEventListener('touchend', function(e){
   }
   if(viaLabel) captureDebugGeometry('intercept-via-label', { labelFor: target.id || null, drawerId: drawerEl.id || null });
   e.preventDefault();
-  // Rev 2.23.14 (6D.183) — режим фокусу з "Запису діагностики" (H1 типовий).
-  const focusMode = getKbFocusMode();
-  startKbFramesSampler(focusMode);
-  if(focusMode === 'H3') beginKbFocusH3(target, drawerEl);
-  else beginKbFocusProxy(target, drawerEl, focusMode, focusMode === 'H2' && getKbCaretVariant() === 'late');
+  // Перший фокус (H2): проміжне поле → передача на першому vv-resize.
+  startKbFramesSampler();
+  beginKbFocusProxy(target, drawerEl);
 }, { passive: false });
 // Rev 2.23.9 (6D.178) — блокування скролу ПОКИ ВІДКРИТА шторка (не лише
 // клавіатура): openOverlayCount (>0, коли відкрита будь-яка з 7 шторок/
