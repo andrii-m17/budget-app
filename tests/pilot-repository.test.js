@@ -5859,7 +5859,132 @@ test('у коді НЕМАЄ жодного читання видалених к
   ['getKbMode', 'setKbMode', 'getKbFocusMode', 'getKbArrowsMode', 'getKbCaretVariant', 'kb-mode-b', 'KB_MODE_LS_KEY', 'KB_ARROWS_LS_KEY', 'KB_CARET_LS_KEY', 'KB_FOCUS_MODE_LS_KEY'].forEach(function(id){
     assert.equal(src.indexOf(id), -1, id + ' має бути видалено');
   });
-  assert.equal(/budget_variants|Експеримент/.test(src), false, 'слова "Експерименти" немає');
+  assert.equal(/Експеримент/.test(src), false, 'слова "Експерименти" немає ні в інтерфейсі, ні в коді');
+});
+// Rev 2.23.22 (6D.191) — реєстр тестових варіантів (TEST_VARIANTS, docs/TESTING.md).
+function validateTestRegistry(reg){
+  const errors = [];
+  if(!Array.isArray(reg)) return ['реєстр не масив'];
+  if(reg.length > 3) errors.push('активних тестів більше 3: ' + reg.length);
+  const ids = new Set();
+  reg.forEach(function(t, i){
+    const where = 'запис #' + i + (t && t.id ? ' (' + t.id + ')' : '');
+    if(!t || typeof t.id !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(t.id)) errors.push(where + ': id (kebab-case) відсутній/некоректний');
+    else if(ids.has(t.id)) errors.push(where + ': дубль id');
+    else ids.add(t.id);
+    ['title', 'what', 'addedIn', 'cleanupBy'].forEach(function(f){ if(!t || typeof t[f] !== 'string' || !t[f].trim()) errors.push(where + ': немає ' + f); });
+    if(!t || !Array.isArray(t.variants) || t.variants.length < 2) errors.push(where + ': потрібно ≥2 варіантів');
+    else {
+      const keys = new Set();
+      t.variants.forEach(function(v){
+        if(!v || typeof v.key !== 'string' || !v.key || typeof v.label !== 'string' || !v.label || typeof v.hint !== 'string') errors.push(where + ': варіант без key/label/hint');
+        else if(keys.has(v.key)) errors.push(where + ': дубль key ' + v.key);
+        else keys.add(v.key);
+      });
+      if(!keys.has(t.defaultVariant)) errors.push(where + ': defaultVariant не серед варіантів');
+    }
+    if(!t || !Array.isArray(t.checkSteps) || t.checkSteps.length < 1) errors.push(where + ': потрібен ≥1 checkSteps');
+  });
+  return errors;
+}
+function makeTestRegistry(){
+  return [{
+    id: 'sample-test', title: 'Зразок', what: 'Перевіряємо зразковий варіант.',
+    variants: [{ key: 'a', label: 'A', hint: 'варіант A' }, { key: 'b', label: 'B', hint: 'варіант B' }],
+    defaultVariant: 'a', addedIn: 'Rev 0.0.0', cleanupBy: 'після рішення', checkSteps: ['крок 1', 'крок 2'],
+  }];
+}
+function testVariantsSandbox(registry){
+  const store = {};
+  const ctx = require('./extract').buildSandbox({
+    TEST_VARIANTS: registry, TEST_VARIANTS_LS_KEY: 'budget_variants_v1',
+    localStorage: { getItem: function(k){ return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; }, setItem: function(k, v){ store[k] = String(v); }, removeItem: function(k){ delete store[k]; } },
+  }, ['readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'resetVariants', 'pruneVariants', 'getVariantsSnapshot']);
+  return { ctx: ctx, store: store };
+}
+test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS проходить усі правила (порожній на старті; ≤3; повні записи)', () => {
+  const ex = require('./extract');
+  const ctx = ex.buildSandbox({}, ['TEST_VARIANTS']);
+  const reg = JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(TEST_VARIANTS)'));
+  assert.deepEqual(validateTestRegistry(reg), []);
+  assert.equal(reg.length, 0, 'на старті реєстр порожній (нові тести додаються окремими ревізіями)');
+});
+test('ЗАХИСНИЙ реєстр: валідатор ловить усі порушення (4 активних, відсутні поля, <2 варіантів, дубль key, defaultVariant, checkSteps, не kebab-case)', () => {
+  const ok = makeTestRegistry();
+  assert.deepEqual(validateTestRegistry(ok), []);
+  const four = [1, 2, 3, 4].map(function(n){ const t = makeTestRegistry()[0]; t.id = 'sample-' + n; return t; });
+  assert.ok(validateTestRegistry(four).some(function(e){ return e.indexOf('більше 3') !== -1; }));
+  const bad = function(mut){ const t = makeTestRegistry()[0]; mut(t); return validateTestRegistry([t]); };
+  assert.ok(bad(function(t){ t.id = 'Sample_Test'; }).length, 'id не kebab-case');
+  ['title', 'what', 'addedIn', 'cleanupBy'].forEach(function(f){ assert.ok(bad(function(t){ delete t[f]; }).length, f); });
+  assert.ok(bad(function(t){ t.variants = [t.variants[0]]; }).length, '<2 варіантів');
+  assert.ok(bad(function(t){ t.variants[1].key = 'a'; }).length, 'дубль key');
+  assert.ok(bad(function(t){ t.defaultVariant = 'zzz'; }).length, 'defaultVariant');
+  assert.ok(bad(function(t){ t.checkSteps = []; }).length, 'checkSteps');
+  assert.ok(validateTestRegistry([makeTestRegistry()[0], makeTestRegistry()[0]]).some(function(e){ return e.indexOf('дубль id') !== -1; }));
+});
+test('getVariant: типовий, коли значення відсутнє/невідоме/зіпсований JSON; обраний — коли валідний; null — для id поза реєстром', () => {
+  const { ctx, store } = testVariantsSandbox(makeTestRegistry());
+  assert.equal(ctx.getVariant('sample-test'), 'a', 'відсутнє → типовий');
+  store['budget_variants_v1'] = JSON.stringify({ 'sample-test': 'zzz' });
+  assert.equal(ctx.getVariant('sample-test'), 'a', 'невідоме → типовий');
+  store['budget_variants_v1'] = '{зіпсовано';
+  assert.equal(ctx.getVariant('sample-test'), 'a', 'зіпсований JSON → типовий');
+  store['budget_variants_v1'] = JSON.stringify({ 'sample-test': 'b' });
+  assert.equal(ctx.getVariant('sample-test'), 'b');
+  assert.equal(ctx.getVariant('нема-такого'), null);
+});
+test('setVariant/resetVariant/resetVariants: запис лише валідних ключів, скидання одного/всіх; ключ видаляється, коли порожньо', () => {
+  const { ctx, store } = testVariantsSandbox(makeTestRegistry());
+  assert.equal(ctx.setVariant('sample-test', 'b'), true);
+  assert.equal(ctx.getVariant('sample-test'), 'b');
+  assert.equal(ctx.setVariant('sample-test', 'zzz'), false, 'невідомий варіант не пишеться');
+  assert.equal(ctx.setVariant('нема-такого', 'a'), false);
+  assert.equal(JSON.parse(store['budget_variants_v1'])['sample-test'], 'b');
+  ctx.resetVariant('sample-test');
+  assert.equal(ctx.getVariant('sample-test'), 'a');
+  assert.equal(Object.prototype.hasOwnProperty.call(store, 'budget_variants_v1'), false, 'порожня мапа → ключ видалено');
+  ctx.setVariant('sample-test', 'b');
+  ctx.resetVariants();
+  assert.equal(ctx.getVariant('sample-test'), 'a');
+  assert.equal(Object.prototype.hasOwnProperty.call(store, 'budget_variants_v1'), false);
+});
+test('pruneVariants: прибирає ключі, яких немає в реєстрі (застарілі тести); лишає чинні; порожній реєстр — прибирає все', () => {
+  const { ctx, store } = testVariantsSandbox(makeTestRegistry());
+  store['budget_variants_v1'] = JSON.stringify({ 'sample-test': 'b', 'old-removed-test': 'x' });
+  ctx.pruneVariants();
+  assert.deepEqual(JSON.parse(store['budget_variants_v1']), { 'sample-test': 'b' });
+  const empty = testVariantsSandbox([]);
+  empty.store['budget_variants_v1'] = JSON.stringify({ 'old-removed-test': 'x' });
+  empty.ctx.pruneVariants();
+  assert.equal(Object.prototype.hasOwnProperty.call(empty.store, 'budget_variants_v1'), false, 'порожній реєстр → усе застаріле прибрано');
+  assert.deepEqual(JSON.parse(JSON.stringify(empty.ctx.getVariantsSnapshot())), {}, 'порожній стан: snapshot {}');
+});
+test('getVariantsSnapshot: усі id → обраний варіант (для device.variants у логу)', () => {
+  const { ctx } = testVariantsSandbox(makeTestRegistry());
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.getVariantsSnapshot())), { 'sample-test': 'a' });
+  ctx.setVariant('sample-test', 'b');
+  assert.deepEqual(JSON.parse(JSON.stringify(ctx.getVariantsSnapshot())), { 'sample-test': 'b' });
+});
+test('у коді немає прямого читання budget_variants_v1 поза модулем; ключ не в BACKUP_LS_KEYS; device.variants; слово "Експерименти" відсутнє', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const start = src.indexOf('// <test-variants-module>');
+  const end = src.indexOf('// </test-variants-module>');
+  assert.ok(start !== -1 && end > start, 'модуль позначений маркерами');
+  ['budget_variants_v1', 'TEST_VARIANTS_LS_KEY'].forEach(function(needle){
+    let idx = src.indexOf(needle);
+    while(idx !== -1){
+      const inModule = idx > start && idx < end;
+      const lineStart = src.lastIndexOf('\n', idx) + 1;
+      const isComment = src.slice(lineStart, idx).trim().startsWith('//');
+      assert.ok(inModule || isComment, needle + ' поза модулем у коді (рядок: ' + src.slice(lineStart, src.indexOf('\n', idx)).trim().slice(0, 80) + ')');
+      idx = src.indexOf(needle, idx + needle.length);
+    }
+  });
+  const backup = src.slice(src.indexOf('const BACKUP_LS_KEYS = ['), src.indexOf('];', src.indexOf('const BACKUP_LS_KEYS = [')));
+  assert.equal(backup.indexOf('budget_variants'), -1);
+  assert.ok(/variants:\s*getVariantsSnapshot\(\)/.test(src), 'device.variants заповнюється з реєстру');
+  assert.equal(/Експеримент/.test(src), false);
 });
 test('sheet-anim: подія несе phase/jumpMaxPx/gapNoLayoutMs/drawerHeightRest/drawerHeightKb', () => {
   const { ctx, debugEvents } = kbSheetSandbox();
