@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.23.28';
+const CACHE_NAME = 'budget-app-v2.23.29';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -78,6 +78,10 @@ self.addEventListener('push', function(event){
     badge: './icons/icon-192-v2.png',
     data: data.data || {}
   };
+  // Rev 2.23.29 (6D.198) — tag (якщо сервер його надіслав у data.data.tag або data.tag) замінює попереднє сповіщення
+  // того ж виду; renotify:false — заміна без повторного звуку/вібрації.
+  const notifTag = (data.data && data.data.tag) || data.tag;
+  if(notifTag){ options.tag = String(notifTag); options.renotify = false; }
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
