@@ -30,6 +30,18 @@
     document.documentElement.setAttribute('data-theme', resolved);
   }catch(e){ /* localStorage недоступний (напр. приватний режим) — лишаємось на світлій темі за замовчуванням */ }
 })();
+// Rev 2.26.0 (M3) — стиль кнопок (тестовий варіант "button-style", ключ budget_variants_v1): data-ui на <html> ДО першого малювання, щоб не було спалаху
+// "classic → glass". Дублює читання getVariant() (основний скрипт ще не завантажено). Типовий — glass; будь-що, крім 'classic', = glass.
+// <anti-fouc-data-ui>
+(function(){
+  var ui = 'glass';
+  try{
+    var m = JSON.parse(localStorage.getItem('budget_variants_v1') || '{}');
+    if(m && m['button-style'] === 'classic') ui = 'classic';
+  }catch(e){}
+  document.documentElement.setAttribute('data-ui', ui);
+})();
+// </anti-fouc-data-ui>
 </script>
 <!-- Rev 2.11.23 — відкат Mobile Zoom (Rev 2.11.22): pinch-to-zoom ламав app-like
      відчуття застосунку (продуктове рішення, не баг). Альтернатива для
@@ -2192,6 +2204,84 @@
     .donut-metrics .dm-start-label{ font-size:11px; line-height:14px; }
     .donut-metrics .dm-start-amount{ font-size:16px; line-height:19px; }
   }
+
+  /* ===== Rev 2.26.0 (M3) — токени дизайн-системи --ui-* і "скляні" кнопки у стилі таббару =====
+     --ui-* — ПСЕВДОНІМИ існуючих токенів (нічого не перейменовано); значення поверхні/межі/тіні беруться з таббару для обох тем.
+     Нові стилі — лише під html[data-ui="glass"]; html[data-ui="classic"] = вигляд до M3 (старі правила вище не змінено).
+     backdrop-filter на кнопках НЕ вживаємо (лише таббар, scroll-top і шапки шторок): "скло" = напівпрозорий фон + межа 1px + inset-відблиск + легка тінь. */
+  :root{
+    --ui-r-container:26px; --ui-r-control:18px; --ui-r-small:12px; --ui-r-pill:999px;
+    --ui-h-control:48px; --ui-min-target:44px;
+    --ui-glass:var(--color-glass-bg); --ui-glass-press:var(--color-glass-pressed-bg); --ui-glass-border:var(--color-glass-border);
+    --ui-btn-border:rgba(16,24,40,.10); --ui-btn-highlight:rgba(255,255,255,.9); --ui-btn-shadow:0 2px 8px rgba(16,24,40,.08);
+    --ui-text:var(--color-text-primary); --ui-text-2:var(--color-text-secondary);
+    --ui-accent:var(--color-primary); --ui-accent-bg:rgba(34,197,94,.16); --ui-accent-border:rgba(34,197,94,.32);
+    --ui-accent-strong:#15803D; --ui-accent-text:#166534;
+    --ui-danger:var(--color-error); --ui-danger-strong:#DC2626; --ui-danger-text:#B91C1C; --ui-danger-glass:rgba(239,68,68,.08);
+    --ui-success:var(--color-success); --ui-success-strong:#15803D; --ui-warning-strong:#B45309;
+  }
+  :root[data-theme="dark"]{
+    --ui-btn-border:rgba(255,255,255,.10); --ui-btn-highlight:rgba(255,255,255,.08); --ui-btn-shadow:0 2px 8px rgba(0,0,0,.35);
+    --ui-accent-text:#34D673; --ui-danger-text:#F87171;
+  }
+  /* Зона натискання ≥44: невидиме розширення ::after (--ui-hit) — розмір і розкладка не змінюються. position:relative через :where (0 специфічності): існуючі absolute/fixed лишаються. */
+  html[data-ui="glass"] :where(.cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
+  html[data-ui="glass"] :is(.cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link)::after,
+  html[data-ui="glass"] .data-status-dot::before{ content:''; position:absolute; inset:calc(-1 * var(--ui-hit, 0px)); }
+  html[data-ui="glass"] .gear-btn{ --ui-hit:4px; } html[data-ui="glass"] .drawer-close{ --ui-hit:7px; } html[data-ui="glass"] .journal-back-btn{ --ui-hit:4px; } html[data-ui="glass"] .journal-search-clear{ --ui-hit:11px; } html[data-ui="glass"] .data-status-dot{ --ui-hit:5px; }
+  html[data-ui="glass"] :is(.exp-del, .exp-edit-cat, .diag-issue-ignore){ --ui-hit:8px; } html[data-ui="glass"] .dsp-action{ --ui-hit:7px; } html[data-ui="glass"] .bdr-icon-btn{ --ui-hit:6px; }
+  html[data-ui="glass"] :is(.auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ --ui-hit:14px; } html[data-ui="glass"] .cdd-delete-link{ --ui-hit:9px; } html[data-ui="glass"] .installment-pay-btn{ --ui-hit:3px; }
+
+  /* --- Вторинні (скло), іконкові, чипи, кнопки "n-days": спільна поверхня --- */
+  html[data-ui="glass"] :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .diag-issue-ignore, .installment-pay-btn, .gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close, .trash-chip, .n-days button){
+    background:var(--ui-glass); border:1px solid var(--ui-btn-border); color:var(--ui-text);
+    box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--ui-btn-shadow);
+  }
+  html[data-ui="glass"] :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .installment-pay-btn){ border-radius:var(--ui-r-control); }
+  html[data-ui="glass"] :is(.diag-issue-ignore){ border-radius:var(--ui-r-small); }
+  html[data-ui="glass"] :is(.gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close){ border-radius:min(var(--ui-r-control), 50%); }
+  html[data-ui="glass"] .add-trigger-btn{ border-style:solid; color:var(--ui-text-2); }
+  html[data-ui="glass"] .show-journal-link{ color:var(--ui-accent-text); }
+  html[data-ui="glass"] .installment-pay-btn{ color:var(--color-accent-purple); border-color:var(--color-accent-purple); background:var(--color-accent-purple-bg); box-shadow:inset 0 1px 0 var(--ui-btn-highlight); }
+  html[data-ui="glass"] .gear-btn.update-btn{ border-color:var(--ui-accent-border); color:var(--ui-accent-text); }
+  html[data-ui="glass"] .drawer-close{ background:var(--ui-glass); }
+  @media (hover:hover) and (pointer:fine){
+    html[data-ui="glass"] :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close, .trash-chip:not(.active), .n-days button:not(.active)):hover{ background:var(--ui-glass-press); }
+  }
+  /* --- Основні: зелена/семантична заливка, радіус зі шкали, відблиск; затемнені заливки дають контраст ≥4.5:1 з білим текстом (AA) --- */
+  html[data-ui="glass"] :is(.submit-btn:not(.secondary):not(.danger-outline), .rce-save, .dsp-action){
+    border-radius:var(--ui-r-control); box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 2px 8px rgba(16,24,40,.14); }
+  html[data-ui="glass"] .dsp-action{ border-radius:var(--ui-r-small); }
+  html[data-ui="glass"] :is(.submit-btn:not(.secondary):not(.danger-outline):not(.income):not(.debt):not(.expense):not(.danger), .rce-save, .dsp-action){ background:var(--ui-accent-strong); }
+  html[data-ui="glass"] .submit-btn.income{ background:var(--ui-success-strong); }
+  html[data-ui="glass"] .submit-btn.debt{ background:var(--ui-warning-strong); }
+  html[data-ui="glass"] :is(.submit-btn.expense, .submit-btn.danger){ background:var(--ui-danger-strong); }
+  /* --- Небезпечні: контур + скляна червона підкладка --- */
+  html[data-ui="glass"] .submit-btn.danger-outline{ background:var(--ui-danger-glass); color:var(--ui-danger-text); border:1.5px solid var(--ui-danger); border-radius:var(--ui-r-control); }
+  html[data-ui="glass"] .cdd-delete-link{ color:var(--ui-danger-text); }
+  /* --- Текстові: колір з контрастом AA --- */
+  html[data-ui="glass"] :is(.dsp-link, .bdr-diff-apply){ color:var(--ui-accent-text); }
+  html[data-ui="glass"] .bdr-diff-warning .bdr-diff-apply{ color:var(--ui-warning-strong); }
+  /* --- Чипи (різна ширина): активний стан — плавна зміна заливки через opacity ::before, без анімації ширини --- */
+  html[data-ui="glass"] .trash-chip{ position:relative; isolation:isolate; border-radius:var(--ui-r-pill); }
+  html[data-ui="glass"] .trash-chip::before{ content:''; position:absolute; inset:-1px; border-radius:inherit; z-index:-1; pointer-events:none;
+    background:var(--ui-accent-bg); box-shadow:inset 0 0 0 1px var(--ui-accent-border); opacity:0; transition:opacity var(--motion-s) var(--ease-standard); }
+  html[data-ui="glass"] .trash-chip.active{ background:var(--ui-glass); border-color:transparent; color:var(--ui-accent-text); }
+  html[data-ui="glass"] .trash-chip.active::before{ opacity:1; }
+  html[data-ui="glass"] .trash-restore-btn{ border-radius:var(--ui-r-pill); }
+  /* --- Сегменти однакової ширини: трек-скло + ковзний індикатор (.seg-indicator, лише transform; вимір ширини в JS при показі/повороті) --- */
+  .seg-indicator{ display:none; }
+  html[data-ui="glass"] :is(.struct-tabs, .theme-toggle, .n-days){ position:relative; }
+  html[data-ui="glass"] .seg-indicator{ display:block; position:absolute; left:0; top:0; z-index:0; pointer-events:none; opacity:0;
+    background:var(--ui-accent-bg); border:1px solid var(--ui-accent-border); box-shadow:0 2px 8px rgba(34,197,94,.22); border-radius:var(--ui-r-control);
+    transform:translate(var(--seg-x,0px), var(--seg-y,0px)); transition:transform var(--motion-l) var(--ease-spring), opacity var(--motion-s) var(--ease-standard); }
+  html[data-ui="glass"] .seg-indicator.on{ opacity:1; }
+  html[data-ui="glass"] .seg-indicator.no-anim{ transition:none; }
+  html[data-ui="glass"] :is(.struct-tabs, .theme-toggle){ background:var(--ui-glass); border-radius:var(--ui-r-container); box-shadow:inset 0 0 0 1px var(--ui-btn-border), inset 0 1px 0 var(--ui-btn-highlight); }
+  html[data-ui="glass"] :is(.struct-tab-btn, .theme-toggle-btn){ position:relative; z-index:1; border-radius:var(--ui-r-control); }
+  html[data-ui="glass"] :is(.struct-tab-btn.active, .theme-toggle-btn.active){ background:transparent; box-shadow:none; color:var(--ui-accent-text); }
+  html[data-ui="glass"] .n-days button{ position:relative; z-index:1; border-radius:var(--ui-r-control); }
+  html[data-ui="glass"] .n-days button.active{ background:transparent; border-color:transparent; box-shadow:none; color:var(--ui-accent-text); }
   /* Rev 2.24.0 (M1) — prefers-reduced-motion: лише швидкі затухання (≤80мс), без зсувів/масштабів/нескінченних відблисків.
      Шторки (.drawer, .drawer-backdrop) НЕ чіпаємо: їхня анімація зав'язана на логіку клавіатури (transitionend, sheet-anim). Спінери (syncSpin/spin) лишаються — це індикатор роботи, не декор. */
   @media (prefers-reduced-motion: reduce){
@@ -3068,7 +3158,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.25.0</div>
+  <div class="version-footer">Money Tree · Rev 2.26.0</div>
 </div>
   </div>
 </div>
@@ -3257,8 +3347,8 @@
 <div class="hidden" id="debug-record-indicator">
   <span class="debug-record-dot" aria-hidden="true"></span>
   <span id="debug-record-timer">00:00</span>
-  <button type="button" id="debug-record-mark-btn" onclick="markDebugEvent()">Мітка</button>
-  <button type="button" onclick="openDebugRecordDrawer()">Стоп</button>
+  <button type="button" class="dbg-rec-btn" id="debug-record-mark-btn" onclick="markDebugEvent()">Мітка</button>
+  <button type="button" class="dbg-rec-btn" onclick="openDebugRecordDrawer()">Стоп</button>
 </div>
 <style>
   /* Rev 2.22.92 (6D.165) BugFix — + var(--vv-offset-top): без цього
@@ -7365,7 +7455,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.25.0';
+const APP_VERSION = '2.26.0';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9704,6 +9794,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'kind', 'intensity', 'reduced', 'holdMs', 'pressLeak',
   // Rev 2.25.0 (M2) — dashboard-enter: tab, elements (картки в черзі), counters, charts, repeat (повторний показ у сесії); frames/maxGapMs/durationMs — як вище.
   'tab', 'elements', 'counters', 'charts', 'repeat',
+  // Rev 2.26.0 (M3) — ui-audit: кількості кнопок за варіантами, без варіанта, із зоною <44, з контрастом <AA, і перелік ПЕРШИХ КЛАСІВ (не даних).
+  'uiStyle', 'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnLowContrast', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
   'proxyCaretColor', 'proxyDistToField',
@@ -9940,6 +10032,7 @@ function startDebugRecording(scenario){
   debugEventBuffer = [];
   attachDebugRecorderListeners();
   captureDebugGeometry('start');
+  if(typeof recordUiAudit === 'function') recordUiAudit(); // Rev 2.26.0 (M3): ui-audit — лише кількості
   debugRecordingTimerInterval = setInterval(updateDebugRecordButtonUI, 1000);
   debugRecordingAutoStopTimer = setTimeout(function(){ stopDebugRecording(); }, DEBUG_RECORDING_AUTO_STOP_MS);
   updateDebugRecordButtonUI();
@@ -15569,6 +15662,159 @@ function pressReleaseAll(){ Array.from(pressStates.keys()).forEach(pressRelease)
   window.addEventListener('pagehide', pressReleaseAll);
   window.addEventListener('blur', pressReleaseAll);
 })();
+// ===== Rev 2.26.0 (M3) — дизайн-система: варіанти кнопок, сегменти з ковзним індикатором, ui-audit (docs/DESIGN_SYSTEM.md) =====
+// Відповідність КЛАС кнопки → ВАРІАНТ. primary/secondary/text/danger/icon — п'ять варіантів кнопок; segment/chip — однакова/різна ширина;
+// row (рядки списків і картки) і reference (таббар, scroll-top, desktop-sidebar) — поза M3 (M4 / еталон), але мають явний варіант, щоб жоден клас не лишився без нього.
+const BUTTON_VARIANT_MAP = {
+  primary: ['submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn'],
+  secondary: ['add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
+  text: ['t-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'bdr-diff-apply', 'journal-empty-reset'],
+  danger: ['danger-outline'],
+  icon: ['drawer-close', 'gear-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-edit-cat', 'exp-del'],
+  segment: ['struct-tab-btn', 'theme-toggle-btn'],
+  chip: ['trash-chip'],
+  row: ['card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
+  reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab']
+};
+// Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
+const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x'];
+// className → variant (або null). parentClassName — клас контейнера для безкласових кнопок (.n-days > button = chip; .tabbar-glass > button = reference).
+function buttonVariantOf(className, parentClassName){
+  const cls = String(className || '').split(/\s+/).filter(Boolean);
+  const has = c => cls.indexOf(c) !== -1;
+  if(has('submit-btn')){
+    if(has('danger-outline') || has('danger')) return 'danger';
+    if(has('secondary')) return 'secondary';
+    return 'primary';
+  }
+  for(let i = 0; i < cls.length; i++){
+    const c = cls[i];
+    for(const v in BUTTON_VARIANT_MAP){ if(BUTTON_VARIANT_MAP[v].indexOf(c) !== -1) return v; }
+  }
+  const parent = String(parentClassName || '').split(/\s+/);
+  if(parent.indexOf('n-days') !== -1) return 'chip';
+  if(parent.indexOf('tabbar-glass') !== -1) return 'reference';
+  return null;
+}
+function meetsMinTarget(w, h, min){
+  const m = typeof min === 'number' ? min : 44;
+  return Number(w) >= m && Number(h) >= m;
+}
+// Колір: 'rgb(r,g,b)' / 'rgba(r,g,b,a)' / '#rgb' / '#rrggbb' / [r,g,b(,a)] → [r,g,b,a].
+function parseCssColor(c){
+  if(Array.isArray(c)) return [c[0], c[1], c[2], c.length > 3 ? c[3] : 1];
+  const str = String(c || '').trim();
+  let m = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+%?))?\s*\)$/i.exec(str);
+  if(m){ let a = m[4] === undefined ? 1 : (m[4].slice(-1) === '%' ? parseFloat(m[4]) / 100 : parseFloat(m[4])); return [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]), a]; }
+  m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(str);
+  if(m){ let h = m[1]; if(h.length === 3) h = h.split('').map(x => x + x).join(''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), 1]; }
+  return null;
+}
+function compositeColor(fg, bg){
+  const f = parseCssColor(fg), b = parseCssColor(bg);
+  if(!f || !b) return null;
+  const a = f[3];
+  return [f[0] * a + b[0] * (1 - a), f[1] * a + b[1] * (1 - a), f[2] * a + b[2] * (1 - a), 1];
+}
+function relativeLuminance(rgb){
+  const ch = rgb.slice(0, 3).map(v => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+// WCAG-контраст двох кольорів; прозорий fg композититься поверх bg (bg має бути непрозорим або вже скомпонованим).
+function contrastRatio(fg, bg){
+  const b = parseCssColor(bg);
+  const f = compositeColor(fg, b && b[3] < 1 ? compositeColor(b, [255, 255, 255, 1]) : b);
+  if(!f || !b) return 0;
+  const bb = b[3] < 1 ? compositeColor(b, [255, 255, 255, 1]) : b;
+  const l1 = relativeLuminance(f), l2 = relativeLuminance(bb);
+  const hi = Math.max(l1, l2), lo = Math.min(l1, l2);
+  return (hi + 0.05) / (lo + 0.05);
+}
+const UI_AUDIT_MIN_TARGET = 44;
+const UI_AUDIT_AA = 4.5;
+// Фон елемента: шари фону вгору по предках композитяться, доки не зустрінеться непрозорий.
+function effectiveBackgroundColor(el){
+  const layers = [];
+  let n = el;
+  while(n && n.nodeType === 1){
+    const c = parseCssColor(getComputedStyle(n).backgroundColor);
+    if(c && c[3] > 0){ layers.push(c); if(c[3] >= 1) break; }
+    n = n.parentElement;
+  }
+  let base = parseCssColor(getComputedStyle(document.body).backgroundColor);
+  if(!base || base[3] < 1) base = [255, 255, 255, 1];
+  let acc = layers.length && layers[layers.length - 1][3] >= 1 ? layers.pop() : base;
+  while(layers.length){ acc = compositeColor(layers.pop(), acc); }
+  return acc;
+}
+// ui-audit: лише кількості й перелік КЛАСІВ (без даних користувача).
+function runUiAudit(){
+  const byVariant = {}; let total = 0, noVariant = 0, small = 0, lowContrast = 0;
+  const noVariantCls = {}, smallCls = {}, lowCls = {};
+  document.querySelectorAll('button').forEach(function(b){
+    // Усі кнопки в DOM (також у прихованих вкладках/шторках) — варіант і контраст рахуються зі стилів; розмір зони натискання — лише для відрендерених.
+    const r = b.getBoundingClientRect();
+    const rendered = r.width > 0 && r.height > 0;
+    total++;
+    const cn = typeof b.className === 'string' ? b.className : '';
+    const v = buttonVariantOf(cn, b.parentElement ? b.parentElement.className : '') || (b.closest('nav.tabbar') ? 'reference' : null);
+    const key = (cn.split(/\s+/)[0] || b.tagName.toLowerCase());
+    if(!v){ noVariant++; noVariantCls[key] = 1; }
+    else byVariant[v] = (byVariant[v] || 0) + 1;
+    const hit = parseFloat(getComputedStyle(b).getPropertyValue('--ui-hit')) || 0;
+    if(rendered && v !== 'row' && v !== 'reference' && !meetsMinTarget(r.width + 2 * hit, r.height + 2 * hit, UI_AUDIT_MIN_TARGET)){ small++; smallCls[key] = 1; }
+    if(b.textContent.trim() && v !== 'reference'){
+      const fg = parseCssColor(getComputedStyle(b).color), bg = effectiveBackgroundColor(b);
+      if(fg && bg && contrastRatio(fg, bg) < UI_AUDIT_AA){ lowContrast++; lowCls[key] = 1; }
+    }
+  });
+  return { uiStyle: document.documentElement.getAttribute('data-ui') || 'glass', btnTotal: total, byVariant: byVariant, btnNoVariant: noVariant, btnSmall: small, btnLowContrast: lowContrast,
+    noVariantClasses: Object.keys(noVariantCls).slice(0, 20), smallClasses: Object.keys(smallCls).slice(0, 20), lowContrastClasses: Object.keys(lowCls).slice(0, 20) };
+}
+function recordUiAudit(){
+  if(!debugRecordingActive) return;
+  try{ pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'ui-audit' }, runUiAudit())); }catch(e){}
+}
+function applyButtonStyle(){
+  let key = 'glass';
+  try{ key = getVariant('button-style') === 'classic' ? 'classic' : 'glass'; }catch(e){}
+  document.documentElement.setAttribute('data-ui', key);
+  document.querySelectorAll(SEGMENT_SELECTOR).forEach(function(c){ layoutSegment(c, true); });
+}
+// Усі ефекти тестових варіантів (інтенсивність руху, стиль кнопок) — одним викликом при старті/виборі/скиданні.
+function applyVariantEffects(){ applyMotionIntensity(); applyButtonStyle(); }
+// --- Сегменти однакової ширини: ковзний індикатор (лише transform; ширина/висота ставляться без анімації) ---
+const SEGMENT_SELECTOR = '.struct-tabs, .theme-toggle, .n-days';
+function layoutSegment(c, instant){
+  const ind = c.querySelector(':scope > .seg-indicator');
+  if(!ind) return;
+  const btn = c.querySelector(':scope > button.active');
+  if(!btn || !c.offsetWidth || !btn.offsetWidth){ ind.classList.remove('on'); return; }
+  ind.style.width = btn.offsetWidth + 'px';
+  ind.style.height = btn.offsetHeight + 'px';
+  const first = !ind.classList.contains('on');
+  if(instant || first) ind.classList.add('no-anim');
+  ind.style.setProperty('--seg-x', btn.offsetLeft + 'px');
+  ind.style.setProperty('--seg-y', btn.offsetTop + 'px');
+  ind.classList.add('on');
+  if(instant || first){ void ind.offsetWidth; ind.classList.remove('no-anim'); }
+}
+function initSegments(){
+  document.querySelectorAll(SEGMENT_SELECTOR).forEach(function(c){
+    if(c.querySelector(':scope > .seg-indicator')) return;
+    const ind = document.createElement('span');
+    ind.className = 'seg-indicator';
+    ind.setAttribute('aria-hidden', 'true');
+    c.insertBefore(ind, c.firstChild);
+    // Клас .active міняється іншим кодом (switchAccountingTab, setThemeChoice...) → індикатор їде; показ/поворот/зміна розміру → миттєве перевимірювання.
+    // Реагуємо лише на зміну класу КНОПОК сегмента (не самого індикатора: його класи on/no-anim міняє layoutSegment → інакше цикл).
+    new MutationObserver(function(records){
+      if(records.some(function(r){ return r.target !== ind; })) layoutSegment(c, false);
+    }).observe(c, { attributes: true, attributeFilter: ['class'], subtree: true });
+    if(typeof ResizeObserver === 'function') new ResizeObserver(function(){ layoutSegment(c, true); }).observe(c);
+    layoutSegment(c, true);
+  });
+}
 const TAB_META = {
   analytics: { title:'Аналітика', subtitle: m => `Ваш фінансовий стан на ${m}`, showMonthPill:true },
   accounting: { title:'Облік', subtitle: m => `Дохід, борги та ОЧ за ${m}`, showMonthPill:true },
@@ -16202,6 +16448,24 @@ const TEST_VARIANTS = [
       'Для заміру: «Записати лог із цим варіантом», 10 перемикань вкладок, зупинити запис (подія motion-perf).',
     ],
   },
+  // Rev 2.26.0 (M3) — стиль кнопок: "Скло" (кнопки у стилі таббару) або "Класичний" (вигляд до M3). Реалізація: атрибут data-ui на <html>.
+  {
+    id: 'button-style',
+    title: 'Стиль кнопок',
+    what: 'Єдиний вигляд кнопок у стилі таббару (скло без розмиття, радіуси зі шкали, ковзний індикатор у сегментах) проти попереднього вигляду.',
+    variants: [
+      { key: 'glass', label: 'Скло', hint: 'Нові кнопки у стилі таббару' },
+      { key: 'classic', label: 'Класичний', hint: 'Вигляд до Rev 2.26.0' },
+    ],
+    defaultVariant: 'glass',
+    addedIn: 'Rev 2.26.0 (M3)',
+    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний стиль і видалить інший)',
+    checkSteps: [
+      'Перемикайте «Скло» і «Класичний», пройдіть Сервіс, Налаштування, Структуру, Облік, Журнал, Видалені дані й шторки: чи читабельні кнопки, чи не зʼїхала розкладка.',
+      'Перемкніть вкладки «Доходи/Борги/ОЧ» і тему: індикатор має плавно їхати.',
+      'Для заміру: «Записати лог із цим варіантом» (подія ui-audit у логу).',
+    ],
+  },
 ];
 function readTestVariantsMap(){
   try{
@@ -16260,7 +16524,8 @@ function getVariantsSnapshot(){
 }
 // </test-variants-module>
 pruneVariants();
-applyMotionIntensity(); // Rev 2.24.0 (M1): --motion-k на <html> при старті
+applyVariantEffects(); // Rev 2.24.0 (M1)/2.26.0 (M3): --motion-k і data-ui на <html> при старті
+initSegments(); // Rev 2.26.0 (M3): ковзні індикатори сегментів (.struct-tabs, .theme-toggle, .n-days)
 // Rev 2.23.22 (6D.191) — UI "Тестування" (бейдж, шторка, картки). Значення
 // варіантів — лише через getVariant()/setVariant() модуля вище.
 function updateTestingBadge(){
@@ -16291,7 +16556,7 @@ function renderTestingDrawer(){
     card.setAttribute('data-test-id', t.id);
     card.appendChild(testingEl('div', 'test-card-title', t.title));
     card.appendChild(testingEl('div', 'test-card-what', 'Що перевіряємо: ' + t.what));
-    function choose(key){ setVariant(t.id, key); applyMotionIntensity(); renderTestingDrawer(); }
+    function choose(key){ setVariant(t.id, key); applyVariantEffects(); renderTestingDrawer(); }
     if(t.variants.length <= 4){
       const seg = testingEl('div', 'test-card-segments');
       t.variants.forEach(function(v){
@@ -16330,7 +16595,7 @@ function renderTestingDrawer(){
     const resetBtn = testingEl('button', 'submit-btn pill', 'Скинути до типового');
     resetBtn.type = 'button';
     resetBtn.style.background = 'var(--color-surface-hover)'; resetBtn.style.color = 'var(--color-text-primary)';
-    resetBtn.addEventListener('click', function(){ resetVariant(t.id); applyMotionIntensity(); renderTestingDrawer(); });
+    resetBtn.addEventListener('click', function(){ resetVariant(t.id); applyVariantEffects(); renderTestingDrawer(); });
     actions.appendChild(logBtn); actions.appendChild(resetBtn);
     card.appendChild(actions);
     list.appendChild(card);

@@ -5923,12 +5923,12 @@ function testVariantsSandbox(registry){
   }, ['readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'resetVariants', 'pruneVariants', 'getVariantsSnapshot']);
   return { ctx: ctx, store: store };
 }
-test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS проходить усі правила (≤3; повні записи); Rev 2.24.0: єдиний активний тест — motion-intensity', () => {
+test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS проходить усі правила (≤3; повні записи); Rev 2.24.0: активні motion-intensity і button-style', () => {
   const ex = require('./extract');
   const ctx = ex.buildSandbox({}, ['TEST_VARIANTS']);
   const reg = JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(TEST_VARIANTS)'));
   assert.deepEqual(validateTestRegistry(reg), []);
-  assert.deepEqual(reg.map(function(t){ return t.id; }), ['motion-intensity'], 'Rev 2.24.0 (M1): активний лише motion-intensity (прибирається ревізією finalize після вибору на iPhone)');
+  assert.deepEqual(reg.map(function(t){ return t.id; }), ['motion-intensity', 'button-style'], 'активні: motion-intensity (M1) і button-style (M3); прибираються ревізією finalize після вибору на iPhone');
 });
 test('ЗАХИСНИЙ реєстр: валідатор ловить усі порушення (4 активних, відсутні поля, <2 варіантів, дубль key, defaultVariant, checkSteps, не kebab-case)', () => {
   const ok = makeTestRegistry();
@@ -5992,10 +5992,13 @@ test('у коді немає прямого читання budget_variants_v1 п
   const start = src.indexOf('// <test-variants-module>');
   const end = src.indexOf('// </test-variants-module>');
   assert.ok(start !== -1 && end > start, 'модуль позначений маркерами');
+  // Rev 2.26.0 (M3): єдиний виняток — anti-FOUC скрипт у <head> (data-ui до першого малювання, як для теми), позначений маркерами.
+  const fStart = src.indexOf('// <anti-fouc-data-ui>'), fEnd = src.indexOf('// </anti-fouc-data-ui>');
+  assert.ok(fStart !== -1 && fEnd > fStart, 'anti-FOUC виняток позначений маркерами');
   ['budget_variants_v1', 'TEST_VARIANTS_LS_KEY'].forEach(function(needle){
     let idx = src.indexOf(needle);
     while(idx !== -1){
-      const inModule = idx > start && idx < end;
+      const inModule = (idx > start && idx < end) || (idx > fStart && idx < fEnd);
       const lineStart = src.lastIndexOf('\n', idx) + 1;
       const isComment = src.slice(lineStart, idx).trim().startsWith('//');
       assert.ok(inModule || isComment, needle + ' поза модулем у коді (рядок: ' + src.slice(lineStart, src.indexOf('\n', idx)).trim().slice(0, 80) + ')');
