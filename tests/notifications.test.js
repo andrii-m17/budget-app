@@ -186,7 +186,7 @@ test('екран «Сповіщення» (R): рядок у «Налаштув�
   assert.match(SRC, /id="testing-diag-btn"[^>]*toggleDeliveryDiagFromTesting\(\)/);
   assert.match(SRC, /function toggleDeliveryDiagFromTesting/);
   assert.match(SRC, /Зміни прийдуть одним зведенням після завершення тихих годин\./);
-  assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ #notifications-drawer \.nx-appear\{ animation:none; \} \}/);
+  assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ .nx-screen \.nx-appear\{ animation:none; \} \}/);
   assert.ok(!/nx-appear[^}]*(height|max-height)/.test(SRC.slice(SRC.indexOf('@keyframes nxAppear'), SRC.indexOf('@keyframes nxAppear') + 400)), 'анімація без висоти');
 });
 test('shouldReleaseKbOpen: <700мс — ні; ≥700 і vvH ≥ baseVh-100 — так; клавіатура є — ні', () => {
@@ -348,5 +348,5 @@ test('R (пакет): R-3 і R-5 збережені в редизайні — з
   assert.ok(cr('#F59E0B', '#161B26') >= 4.5, 'темна');
   assert.match(SRC, /--ui-warning-text:#B45309/);
   assert.match(SRC, /--ui-warning-text:#F59E0B/);
-  assert.match(SRC, /#notifications-drawer \.nx-notice\{ font-size:13px; line-height:1\.4; color:var\(--ui-warning-text\)/);
+  assert.match(SRC, /\.nx-screen \.nx-notice\{ font-size:13px; line-height:1\.4; color:var\(--ui-warning-text\)/);
 });

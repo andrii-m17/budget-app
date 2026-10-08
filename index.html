@@ -1365,34 +1365,42 @@
   .n-diag-row .ok{ color:var(--color-success); }
   .n-diag-row .bad{ color:var(--color-error); }
   .n-diag-empty{ padding:10px 14px; font-size:12.5px; color:var(--color-text-secondary); }
-  /* ===== Rev 2.32.12 (R) — «Налаштування → Сповіщення»: inset-grouped список за макетом (рядок 52, групи 18, заголовки 13 пт, тумблер 51×31; значення з токенів --ui-*). Лише всередині #notifications-drawer — решта .n-* (список «Налаштування») без змін. ===== */
-  #notifications-drawer .n-section-label{ font-size:13px; font-weight:600; letter-spacing:.04em; margin:22px 16px 7px; }
-  #notifications-drawer .nx-first{ margin-top:4px; }
-  #notifications-drawer .n-group{ border-radius:var(--ui-r-control); }
-  #notifications-drawer .n-row, #notifications-drawer .n-time-row{ position:relative; min-height:52px; padding:0 16px; border-top:none; gap:10px; }
-  #notifications-drawer .n-switch-input{ flex-shrink:0; }
-  #notifications-drawer .n-row + .n-row::before, #notifications-drawer .n-row + .n-time-row::before, #notifications-drawer .n-time-row + .n-time-row::before, #notifications-drawer .n-days + .n-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--color-border); }
-  #notifications-drawer .n-row-title{ font-size:16px; }
-  #notifications-drawer .nx-value{ font-size:13px; color:var(--color-text-secondary); white-space:nowrap; }
-  #notifications-drawer .n-row .n-row-title{ white-space:nowrap; }
-  #notifications-drawer .n-row{ gap:8px; }
-  #notifications-drawer .nx-seg-row{ position:relative; padding:10px 16px 12px; }
-  #notifications-drawer .nx-seg-row .n-row-title{ display:block; margin-bottom:8px; }
-  #notifications-drawer .nx-seg-row .n-days{ padding:0; }
-  #notifications-drawer .nx-seg-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--color-border); }
-  #notifications-drawer .nx-hint{ font-size:13px; line-height:1.4; color:var(--color-text-secondary); margin:8px 16px 0; }
-  #notifications-drawer .nx-notice{ font-size:13px; line-height:1.4; color:var(--ui-warning-text); margin:8px 16px 0; }
-  #notifications-drawer .n-dimmed{ opacity:.38; pointer-events:none; }
+  /* ===== Rev 2.32.12 (R) / 2.32.17 (S) — екрани «Налаштувань» у стилі iOS (inset-grouped): рядок 52, групи 18, заголовки 13 пт, тумблер 51×31; значення з токенів --ui-*. Область дії — .nx-screen (Налаштування, Сповіщення, Вигляд, Про застосунок). ===== */
+  .nx-screen .drawer-head.nx-head{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:8px; } /* назва по центру решти ширини: на вузькому екрані справжнє центрування неможливе поруч із «‹ Налаштування» */
+  .nx-screen .nx-head h2{ margin:0; font-size:16px; font-weight:700; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .nx-screen .drawer-close.drawer-back{ width:auto; height:36px; padding:0 12px 0 6px; border-radius:var(--ui-r-pill); justify-self:start; display:inline-flex; align-items:center; gap:2px; font:inherit; font-size:15px; font-weight:600; color:var(--ui-accent-text); }
+  .nx-screen .drawer-back svg{ width:18px; height:18px; flex:0 0 auto; }
+  .nx-screen .nx-head-spacer{ justify-self:end; width:4px; }
+  .nx-screen .nx-first-label{ margin-top:2px; }
+  .nx-screen .nx-text-row{ padding:14px 16px; font-size:15px; line-height:1.45; color:var(--color-text-secondary); }
+  .nx-screen .theme-toggle{ margin-bottom:0; }
+  .nx-screen .n-section-label{ font-size:13px; font-weight:600; letter-spacing:.04em; margin:22px 16px 7px; }
+  .nx-screen .nx-first{ margin-top:4px; }
+  .nx-screen .n-group{ border-radius:var(--ui-r-control); }
+  .nx-screen .n-row, .nx-screen .n-time-row{ position:relative; min-height:52px; padding:0 16px; border-top:none; gap:10px; }
+  .nx-screen .n-switch-input{ flex-shrink:0; }
+  .nx-screen .n-row + .n-row::before, .nx-screen .n-row + .n-time-row::before, .nx-screen .n-time-row + .n-time-row::before, .nx-screen .n-days + .n-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--color-border); }
+  .nx-screen .n-row-title{ font-size:16px; }
+  .nx-screen .nx-value{ font-size:13px; color:var(--color-text-secondary); white-space:nowrap; }
+  .nx-screen .n-row .n-row-title{ white-space:nowrap; }
+  .nx-screen .n-row{ gap:8px; }
+  .nx-screen .nx-seg-row{ position:relative; padding:10px 16px 12px; }
+  .nx-screen .nx-seg-row .n-row-title{ display:block; margin-bottom:8px; }
+  .nx-screen .nx-seg-row .n-days{ padding:0; }
+  .nx-screen .nx-seg-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--color-border); }
+  .nx-screen .nx-hint{ font-size:13px; line-height:1.4; color:var(--color-text-secondary); margin:8px 16px 0; }
+  .nx-screen .nx-notice{ font-size:13px; line-height:1.4; color:var(--ui-warning-text); margin:8px 16px 0; }
+  .nx-screen .n-dimmed{ opacity:.38; pointer-events:none; }
   /* Rev 2.32.14: коротка підсвітка жовтого рядка (лише opacity ~600 мс, без зміни розмірів) */
   @keyframes nxFlash{ 0%,100%{ opacity:1; } 30%{ opacity:.25; } 60%{ opacity:1; } }
-  #notifications-drawer .nx-notice.nx-flash{ animation:nxFlash 600ms ease-in-out; }
-  @media (prefers-reduced-motion: reduce){ #notifications-drawer .nx-notice.nx-flash{ animation:none; } }
-  #notifications-drawer button.nx-action{ display:flex; align-items:center; justify-content:center; width:100%; min-height:52px; border:none; background:none; font:inherit; font-size:16px; font-weight:600; color:var(--ui-accent-text); cursor:pointer; }
-  #notifications-drawer button.nx-action:disabled{ opacity:.4; cursor:default; }
+  .nx-screen .nx-notice.nx-flash{ animation:nxFlash 600ms ease-in-out; }
+  @media (prefers-reduced-motion: reduce){ .nx-screen .nx-notice.nx-flash{ animation:none; } }
+  .nx-screen button.nx-action{ display:flex; align-items:center; justify-content:center; width:100%; min-height:52px; border:none; background:none; font:inherit; font-size:16px; font-weight:600; color:var(--ui-accent-text); cursor:pointer; }
+  .nx-screen button.nx-action:disabled{ opacity:.4; cursor:default; }
   /* умовні рядки з'являються через opacity + зсув до 8 пт, БЕЗ анімації висоти */
   @keyframes nxAppear{ from{ opacity:0; transform:translateY(-8px); } to{ opacity:1; transform:none; } }
-  #notifications-drawer .nx-appear{ animation:nxAppear var(--motion-s) var(--ease-out) both; }
-  @media (prefers-reduced-motion: reduce){ #notifications-drawer .nx-appear{ animation:none; } }
+  .nx-screen .nx-appear{ animation:nxAppear var(--motion-s) var(--ease-out) both; }
+  @media (prefers-reduced-motion: reduce){ .nx-screen .nx-appear{ animation:none; } }
   .n-readonly-note{ font-size:12.5px; color:var(--color-text-secondary); padding:8px 4px 0; }
   .service-tile.just-notified{ animation:cardBlink .8s ease-in-out 3; } /* Rev 2.32.15 (Z): підсвітка плитки експорту зі сповіщення (лише opacity) */
   .card-debt-compact-row.just-notified{ background:var(--color-info-bg); animation:cardBlink .8s ease-in-out 3; }
@@ -3251,7 +3259,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.16</div>
+  <div class="version-footer">Money Tree · Rev 2.32.17</div>
 </div>
   </div>
 </div>
@@ -3323,15 +3331,13 @@
 </div>
 <!-- Rev 2.23.29 (6D.198) — екран "Сповіщення" (шторка того самого .drawer-патерну); вміст рендерить renderNotificationsDrawer(). -->
 <div class="drawer-backdrop" id="notifications-backdrop" onclick="closeNotificationsDrawer()" inert></div>
-<div class="drawer" id="notifications-drawer" role="dialog" aria-label="Сповіщення" aria-modal="true" inert>
+<div class="drawer nx-screen" id="notifications-drawer" role="dialog" aria-label="Сповіщення" aria-modal="true" inert>
   <div class="drawer-handle" aria-hidden="true"></div>
-  <div class="drawer-head">
-    <div class="drawer-head-main">
-      <div class="drawer-head-text">
-        <h2>Сповіщення</h2>
-      </div>
-    </div>
-    <button class="drawer-close" onclick="closeNotificationsDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  <!-- Rev 2.32.17 (S): шапка екрана — «назад» з назвою попереднього екрана зліва, назва по центру, без декору (клас drawer-close лишено для свайпу-закриття) -->
+  <div class="drawer-head nx-head">
+    <button class="drawer-close drawer-back" type="button" onclick="backToSettings('notifications')" aria-label="Назад: Налаштування"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Налаштування</button>
+    <h2>Сповіщення</h2>
+    <span class="nx-head-spacer" aria-hidden="true"></span>
   </div>
   <div id="notifications-body"></div>
 </div>
@@ -3449,25 +3455,40 @@
 
 <!-- ================= Налаштування (Drawer, окремо від навігації) ================= -->
 <div class="drawer-backdrop" id="settings-backdrop" onclick="closeSettings()" inert></div>
-<div class="drawer" id="settings-drawer" role="dialog" aria-label="Налаштування" aria-modal="true" inert>
+<div class="drawer nx-screen" id="settings-drawer" role="dialog" aria-label="Налаштування" aria-modal="true" inert>
   <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
     <h2>Налаштування</h2>
-    <button class="drawer-close" onclick="closeSettings()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <button class="drawer-close" onclick="closeSettings()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
-  <!-- Rev 2.23.30 (6D.199) — "Налаштування" за патерном iOS (згруповані списки): Сповіщення / Вигляд / Про застосунок.
-       Функції пунктів НЕ змінено, лише групування й порядок (тема лишилась тими самими кнопками setThemeChoice). -->
-  <div class="n-section-label" style="margin-top:2px;">Сповіщення</div>
-  <div class="n-group">
-    <!-- Rev 2.32.12 (R): рядок «Сповіщення» — лише назва й стрілка (без підпису, стану, бейджів) -->
-    <button type="button" class="n-row n-row-link" id="settings-notifications-row" onclick="openNotificationsFromSettings()" aria-label="Сповіщення">
-      <span class="n-row-text">
-        <span class="n-row-title">Сповіщення</span>
-      </span>
+  <!-- Rev 2.32.17 (S): верхній рівень «Налаштувань» — лише рядки-категорії з назвою й стрілкою (без підписів, станів, бейджів); вміст категорій на окремих екранах із кнопкою «назад».
+       Було: «Сповіщення» (рядок), «Вигляд» (перемикач теми прямо тут), «Про застосунок» (текст). Стало: три рядки → екрани «Сповіщення», «Вигляд» (група «Тема»), «Про застосунок» (текст без змін). -->
+  <div class="n-group nx-first" id="settings-root-group">
+    <button type="button" class="n-row n-row-link" id="settings-notifications-row" data-sr="notifications" onclick="openSettingsScreen('notifications')" aria-label="Сповіщення">
+      <span class="n-row-text"><span class="n-row-title">Сповіщення</span></span>
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <button type="button" class="n-row n-row-link" id="settings-appearance-row" data-sr="appearance" onclick="openSettingsScreen('appearance')" aria-label="Вигляд">
+      <span class="n-row-text"><span class="n-row-title">Вигляд</span></span>
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <button type="button" class="n-row n-row-link" id="settings-about-row" data-sr="about" onclick="openSettingsScreen('about')" aria-label="Про застосунок">
+      <span class="n-row-text"><span class="n-row-title">Про застосунок</span></span>
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
   </div>
-  <div class="n-section-label">Вигляд</div>
+</div>
+
+<!-- Rev 2.32.17 (S) — екрани «Вигляд» і «Про застосунок» (той самий .drawer, що решта; перемикач теми ПЕРЕНЕСЕНО сюди з «Налаштувань» без змін: ті самі id/кнопки/setThemeChoice) -->
+<div class="drawer-backdrop" id="appearance-backdrop" onclick="closeSettingsScreen('appearance')" inert></div>
+<div class="drawer nx-screen" id="appearance-drawer" role="dialog" aria-label="Вигляд" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-head nx-head">
+    <button class="drawer-close drawer-back" type="button" onclick="backToSettings('appearance')" aria-label="Назад: Налаштування"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Налаштування</button>
+    <h2>Вигляд</h2>
+    <span class="nx-head-spacer" aria-hidden="true"></span>
+  </div>
+  <div class="n-section-label nx-first-label">Тема</div>
   <div class="theme-toggle" id="theme-toggle" role="radiogroup" aria-label="Тема застосунку">
     <button type="button" class="theme-toggle-btn" data-theme-choice="auto" onclick="setThemeChoice('auto')" role="radio">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>
@@ -3482,10 +3503,17 @@
       Темна
     </button>
   </div>
-  <div class="n-section-label">Про застосунок</div>
-  <div class="drawer-empty">
-    Мова та валюта поки фіксовані — українська, ₴. З'являться тут, тільки коли
-    будуть реально працювати (без декоративних перемикачів «про людське око»).
+</div>
+<div class="drawer-backdrop" id="about-backdrop" onclick="closeSettingsScreen('about')" inert></div>
+<div class="drawer nx-screen" id="about-drawer" role="dialog" aria-label="Про застосунок" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-head nx-head">
+    <button class="drawer-close drawer-back" type="button" onclick="backToSettings('about')" aria-label="Назад: Налаштування"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>Налаштування</button>
+    <h2>Про застосунок</h2>
+    <span class="nx-head-spacer" aria-hidden="true"></span>
+  </div>
+  <div class="n-group nx-first">
+    <div class="nx-text-row" id="about-note">Мова та валюта поки фіксовані — українська, ₴. З'являться тут, тільки коли будуть реально працювати (без декоративних перемикачів «про людське око»).</div>
   </div>
 </div>
 
@@ -7554,7 +7582,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.16';
+const APP_VERSION = '2.32.17';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -17027,7 +17055,7 @@ const BUTTON_VARIANT_MAP = {
   secondary: ['add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
   text: ['t-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
-  icon: ['drawer-close', 'gear-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-edit-cat', 'exp-del'],
+  icon: ['drawer-close', 'drawer-back', 'gear-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-edit-cat', 'exp-del'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip'],
   row: ['card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
@@ -19100,10 +19128,51 @@ function flashPermissionNotice(){
   n.classList.remove('nx-flash'); void n.offsetWidth; n.classList.add('nx-flash');
   setTimeout(function(){ n.classList.remove('nx-flash'); }, 650);
 }
-function openNotificationsFromSettings(){
-  closeSettings();
-  openNotificationsDrawer();
+// ===== Rev 2.32.17 (S) — навігація «Налаштування» → екран категорії й назад =====
+// settingsScreenModel() — чиста модель екранів (групи й рядки): за нею тест перевіряє, що жодного елемента зі старого вигляду не втрачено; небезпечних дій у «Налаштуваннях» немає (вихід — у «Профілі»).
+function settingsScreenModel(){
+  return {
+    root: { title: 'Налаштування', groups: [{ title: null, rows: [
+      { id: 'notifications', title: 'Сповіщення', type: 'link', target: 'notifications' },
+      { id: 'appearance', title: 'Вигляд', type: 'link', target: 'appearance' },
+      { id: 'about', title: 'Про застосунок', type: 'link', target: 'about' },
+    ] }], danger: [] },
+    notifications: { title: 'Сповіщення', back: 'Налаштування', groups: [], danger: [] }, // рядки екрана — notificationRows()
+    appearance: { title: 'Вигляд', back: 'Налаштування', groups: [{ title: 'Тема', rows: [{ id: 'theme', type: 'segments', options: ['auto', 'light', 'dark'] }] }], danger: [] },
+    about: { title: 'Про застосунок', back: 'Налаштування', groups: [{ title: null, rows: [{ id: 'about-note', type: 'text' }] }], danger: [] },
+  };
 }
+const SETTINGS_SCREEN_IDS = { notifications: ['notifications-drawer', 'notifications-backdrop'], appearance: ['appearance-drawer', 'appearance-backdrop'], about: ['about-drawer', 'about-backdrop'] };
+function openSettingsScreen(name){
+  closeSettings();
+  if(name === 'notifications'){ openNotificationsDrawer(); return; }
+  const ids = SETTINGS_SCREEN_IDS[name];
+  if(!ids) return;
+  const drawer = document.getElementById(ids[0]), backdrop = document.getElementById(ids[1]);
+  const wasOpen = drawer.classList.contains('open');
+  lastFocusedBeforeDialog = document.activeElement;
+  backdrop.removeAttribute('inert'); backdrop.classList.add('open');
+  drawer.removeAttribute('inert'); drawer.classList.add('open');
+  if(name === 'appearance') syncThemeToggleUI();
+  focusFirstIn(drawer);
+  if(!wasOpen) lockBackgroundScroll();
+}
+function closeSettingsScreen(name){
+  if(name === 'notifications'){ closeNotificationsDrawer(); return; }
+  const ids = SETTINGS_SCREEN_IDS[name];
+  if(!ids) return;
+  const drawer = document.getElementById(ids[0]), backdrop = document.getElementById(ids[1]);
+  const wasOpen = drawer.classList.contains('open');
+  backdrop.classList.remove('open'); backdrop.setAttribute('inert', '');
+  drawer.classList.remove('open'); drawer.setAttribute('inert', '');
+  restoreFocus();
+  if(wasOpen) unlockBackgroundScroll();
+}
+function backToSettings(name){
+  closeSettingsScreen(name);
+  openSettings();
+}
+function openNotificationsFromSettings(){ openSettingsScreen('notifications'); }
 async function sendTestNotification(){
   const btn = document.getElementById('notifications-test-btn');
   if(btn) btn.disabled = true;
@@ -19214,7 +19283,7 @@ function closeSettings(){
   restoreFocus();
   if(wasOpen) unlockBackgroundScroll();
 }
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeNotificationsDrawer(); closeTrashDetail(); closeTrashScreen(); closeTestingDrawer(); closeSettings(); closeProfileMenu(); closeProfileLoginDrawer(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeSettingsScreen('appearance'); closeSettingsScreen('about'); closeNotificationsDrawer(); closeTrashDetail(); closeTrashScreen(); closeTestingDrawer(); closeSettings(); closeProfileMenu(); closeProfileLoginDrawer(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
 
 // Rev #30 (6D.12) — свайп-донизу для закриття .drawer (як iOS bottom sheet).
 // Один генеричний обробник на всі 5 drawer'ів через спільний .drawer-handle
