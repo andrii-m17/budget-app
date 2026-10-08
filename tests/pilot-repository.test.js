@@ -5923,12 +5923,12 @@ function testVariantsSandbox(registry){
   }, ['readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'resetVariants', 'pruneVariants', 'getVariantsSnapshot']);
   return { ctx: ctx, store: store };
 }
-test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS проходить усі правила (порожній на старті; ≤3; повні записи)', () => {
+test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS проходить усі правила (≤3; повні записи); Rev 2.24.0: єдиний активний тест — motion-intensity', () => {
   const ex = require('./extract');
   const ctx = ex.buildSandbox({}, ['TEST_VARIANTS']);
   const reg = JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(TEST_VARIANTS)'));
   assert.deepEqual(validateTestRegistry(reg), []);
-  assert.equal(reg.length, 0, 'на старті реєстр порожній (нові тести додаються окремими ревізіями)');
+  assert.deepEqual(reg.map(function(t){ return t.id; }), ['motion-intensity'], 'Rev 2.24.0 (M1): активний лише motion-intensity (прибирається ревізією finalize після вибору на iPhone)');
 });
 test('ЗАХИСНИЙ реєстр: валідатор ловить усі порушення (4 активних, відсутні поля, <2 варіантів, дубль key, defaultVariant, checkSteps, не kebab-case)', () => {
   const ok = makeTestRegistry();

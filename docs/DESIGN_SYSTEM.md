@@ -152,3 +152,8 @@
 | 1882 | `.scroll-top-btn.pressed::before, .scroll-top-btn.scrolling::before` | `tabbarBubbleShimmer 1s ease-in-out infinite` |
 
 `@keyframes`: `syncPulse`, `syncPop`, `syncSpin`, `cardBlink`, `shimmer` (скелетон, `background-position`), `spin`, `diagFlash`, `tabbarBubbleShimmer` (`background-position`).
+
+
+## Статус M1 (Rev 2.24.0)
+
+Реалізовано рух-фундамент: токени `--motion-*`/`--ease-*`/`--motion-k` на `:root`, `prefers-reduced-motion`, реакція на натискання (`.is-pressed`), перехід між вкладками, прибрані дорогі `transition`/`@keyframes`, тест `motion-intensity`, подія `motion-perf`. Деталі й таблиця «було → стало» — `docs/ROADMAP.md` 32.42. Токени вигляду `--ui-*` і каталог компонентів — M3/M4.

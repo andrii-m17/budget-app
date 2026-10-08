@@ -11730,3 +11730,32 @@ Server → Web Push → Phone.
 
 ### Питання до затвердження стилю
 (а) Чи всі кнопки «склом» як таббар, чи скло лише для вторинних/навігаційних (рекомендую друге: основні лишаються зеленою заливкою — інакше втрачається ієрархія й зростає навантаження `backdrop-filter`); (б) чи ковзний індикатор потрібен чипам/сегментам (рекомендую для `struct-tab-btn`, «Доходи/Борги/ОЧ», теми й чипів корзини).
+
+## 32.42. M1 — Rev 2.24.0 — фундамент руху (лише рух, вигляд не змінено)
+
+**Статус: ВИКОНАНО на коді; iPhone-перевірка і заміри `motion-perf` — за користувачем.**
+
+**Що зроблено:**
+- **Токени руху на `:root`:** `--motion-micro/s/m/l/count` = 120/200/320/480/700 мс × `--motion-k`; криві `--ease-standard/--ease-out/--ease-spring`. Існуючі `--duration-*` не чіпались. `@media (prefers-reduced-motion: reduce)`: токени ≤80 мс, `transition-duration:80ms` на всьому, крім `.drawer`/`.drawer-backdrop` (анімація шторок прив'язана до клавіатурної логіки), без масштабу таббару/бульбашки, без шиммерів/пульсу крапок; спінери лишаються.
+- **Реакція на натискання:** один механізм (`pressStart/pressRelease`, `PRESS_SELECTOR`): `.is-pressed` на `pointerdown` (passive, capture), знімається на `pointerup`/`pointercancel`/відхід пальця >10 px/`visibilitychange`/`pagehide`/`blur`, мінімум 80 мс (`shouldReleasePress`), страховий таймер 8 с. Візуально — WAAPI (`scale .97` ×k + `opacity ×.9`, відпускання пружиною `--motion-micro`): не конфліктує з власними `transition`/`transform` елементів (свайп `.expense-row`, `.selected`). Виключено: `nav.tabbar`, `.scroll-top-btn` (власний `.pressed`), `.drawer-handle`, `[data-no-press]`, вимкнені елементи.
+- **Перехід між вкладками:** `element.animate` на `.view`: вихідна 120 мс (зсув 8 px×k у напрямку руху, `opacity`), нова 200 мс (10→0 px×k, `opacity 0→1`); напрямок — `tabDirection` за порядком таббару; вихідна знімається з потоку (`position:absolute`, візуально лишається на місці), на час переходу `#main-col.tab-transitioning` (`position:relative`, `pointer-events:none` на `.view`); після завершення вихідна `hidden`. Прокрутка кожної вкладки зберігається (`tabScrollPositions`; раніше завжди 0; повторний тап по активній — на початок). Прокрутка вихідної і її позиція знімаються ДО змін DOM (шапка з month-pill лежить у `#main-col`, її висота через scroll anchoring зсувала `scrollTop` 500→448 — знайдено в preview). Перехід не анімується до першого жесту користувача, при `kb-open`, відкритій шторці, прихованій сторінці. Новий перехід дозавершує попередній.
+- **Бульбашка таббару:** кнопки однакової ширини (4×80 px у preview) → `width` прибрано з `transition`, лишилось `transform` (`translateX`) і `opacity`; ширина змінюється миттєво лише при resize/повороті (раніше анімувалась 0,6 с).
+- **Дорогі переходи (було → стало):** див. таблицю нижче.
+- **Тест `motion-intensity`** у реєстрі «Тестування»: Стримана ×0,6 / Стандартна ×1 (типова) / Виразна ×1,35; `applyMotionIntensity()` виставляє `--motion-k` на `<html>` при старті й виборі/скиданні.
+- **Рекордер `motion-perf`:** `kind:'tab-switch'` (`from,to,frames,maxGapMs,durationMs,intensity,reduced`) і `kind:'press'` (`holdMs,pressLeak` — скільки елементів лишилось у `.is-pressed` через 300 мс). Лічильник кадрів — `requestAnimationFrame` без читань розмітки. Нові поля — у `DEBUG_EVENT_ALLOWLIST`.
+
+| Було | Стало |
+|---|---|
+| `.tabbar-bubble` `transition: width` | лише `transform`+`opacity`; `width` ставиться миттєво |
+| `.expense-row` `border-color`, `box-shadow` | `border-color` прибрано (ніде не змінюється); тінь виділення — `::after` з `opacity` |
+| `.scroll-top-btn` ×4 стани `box-shadow` | світіння — `::after` з `opacity`; в `.pressed`/`.scrolling` `box-shadow` прибрано |
+| `.ov-row3` `grid-template-columns` | `transition` прибрано; зміну розкладки м'яко «проявляє» `opacity` (WAAPI з `updateRow3GridColumns`) |
+| `@keyframes tabbarBubbleShimmer` (`background-position`) | `translateX` псевдоелемента 240%×240% у клипі (`overflow:hidden` на бульбашці; для `.scroll-top-btn` окремий `span.stb-clip`, щоб не обрізати світіння) |
+| `@keyframes shimmer` скелетона (`background-position`) | `translateX` `::after` 400% ширини |
+| `.add-trigger-btn` `border-color` | **не змінено свідомо:** лише `:hover` на `pointer:fine`, перефарбування без layout; не в забороненому списку охоронного тесту |
+
+**Охоронні тести** (`tests/motion.test.js`): `motionDuration`, `tabDirection` (усі 25 пар), `shouldReleasePress`, `motionIntensityK`; CSS: жоден `transition`/`transition-property` не анімує `width,height,top,left,right,bottom,margin,padding,box-shadow,filter,backdrop-filter,grid-template-columns,background-position`; `transition: all` немає; `@keyframes` без `background-position`; блок `prefers-reduced-motion`, виключення шторок, токени. Перелік винятків `EXCEPTIONS` порожній. Перевірено, що на коді до M1 тест падає на всіх 7 переходах. `node --test`: 714/714 (старий тест «реєстр порожній» оновлено: єдиний активний — `motion-intensity`).
+
+**Preview (Browser pane):** сторінка в preview має `visibilityState = hidden` і `requestAnimationFrame` ~4 кадри/с, тож **плавність у ній виміряти неможливо** — виміри (`frames`, `maxGapMs`) у preview несправжні (звідси й `durationMs` ~1000 мс у моїх пробних подіях). Перевірено механіку з підміною `visibilityState`: напрямок зсуву (±10 px), `tab-transitioning` і `pointer-events:none` під час переходу, чистота після (немає inline-стилів, `hidden` на вихідній, клас знято), відновлення прокрутки (500→500), `is-pressed`: тап 20 мс ще в стані, через 120 мс знято; відхід пальця, `pointercancel`, `hidden` — знято; таббар виключено; жодних position:absolute нащадків `.view` з offsetParent поза `#main-col`. Знімки таббару (натиснутий, бульбашка з шиммером) і `scroll-top` (світіння) візуально збігаються з M0.
+
+**⚠️ iPhone:** (1) «Тестування → Інтенсивність руху»: оберіть варіант, поперемикайте 5 вкладок; (2) записати лог (`motion-perf`: `maxGapMs ≤ 34` у ≥90% подій, `durationMs` 180–360 при ×1 — при «Стриманій» 200×0,6 = 120 мс, нижче вікна, це очікувано); (3) натискання кнопок/рядків — нічого не «залипає»; (4) прокрутка вкладки зберігається; (5) шторки з клавіатурою без змін (`sheet-anim`); (6) Знімки порівняти з M0.

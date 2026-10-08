@@ -115,6 +115,13 @@
     --shadow-lg:0 2px 10px rgba(15,23,42,.05);
     --duration-fast:120ms; --duration-base:180ms; --duration-slow:240ms;
     --easing-standard:cubic-bezier(.4,0,.2,1);
+    /* Rev 2.24.0 (M1) — токени руху. Базові тривалості множаться на --motion-k (інтенсивність, тест "motion-intensity":
+       0.6 / 1 / 1.35; виставляє JS на <html>). JS-дзеркало: MOTION_BASE_MS у motionDuration(). Існуючі --duration-* не чіпаємо
+       (вигляд не змінюється, M1 — лише рух). */
+    --motion-k:1;
+    --motion-micro:calc(120ms * var(--motion-k)); --motion-s:calc(200ms * var(--motion-k)); --motion-m:calc(320ms * var(--motion-k));
+    --motion-l:calc(480ms * var(--motion-k)); --motion-count:calc(700ms * var(--motion-k));
+    --ease-standard:cubic-bezier(.4,0,.2,1); --ease-out:cubic-bezier(.22,1,.36,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
   }
   /* Rev 2.6.0 — темна палітра. Керується атрибутом data-theme на <html>,
      який виставляє JS (applyTheme()) ще ДО першого рендеру (синхронний
@@ -364,6 +371,11 @@
   .month-picker select:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
 
   .view{ padding:20px 20px 0; flex:1; } .view.hidden{ display:none; }
+  /* Rev 2.24.0 (M1) — перехід між вкладками (WAAPI на .view, opacity+transform; усі fixed-шари — прямі діти <body>, тож transform на .view безпечний).
+     На час переходу #main-col тимчасово position:relative (контейнер для вихідної вкладки, яку JS знімає з потоку position:absolute);
+     класи ставляться/знімаються лише в beginTabTransition()/finishTabTransition(). */
+  .main-col.tab-transitioning{ position:relative; }
+  .main-col.tab-transitioning > .view{ pointer-events:none; }
   .card{ background:var(--color-surface); border-radius:var(--radius-lg); padding:24px; box-shadow:var(--shadow-md); border:1px solid var(--color-border); }
   .card + .card{ margin-top:24px; }
   /* Rev 2.11.4 — за референс-скріном користувача: картки "Дохід за місяць",
@@ -904,7 +916,10 @@
      редагування категорії); .expense-row тепер контейнер-картка (може містити
      інлайн-панель редагування знизу), а сам горизонтальний рядок (назва+сума+
      кнопки) переїхав у вкладений .exp-row-top, щоб не ламати існуючий вигляд. */
-  .expense-row{ background:var(--color-surface); border-radius:13px; padding:12px 14px; margin-bottom:0; box-shadow:var(--shadow-sm); border:1px solid var(--color-border); border-left:3px solid transparent; cursor:pointer; position:relative; touch-action:pan-y; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), transform var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard); }
+  .expense-row{ background:var(--color-surface); border-radius:13px; padding:12px 14px; margin-bottom:0; box-shadow:var(--shadow-sm); border:1px solid var(--color-border); border-left:3px solid transparent; cursor:pointer; position:relative; touch-action:pan-y; transition:background var(--duration-fast) var(--easing-standard), transform var(--duration-fast) var(--easing-standard); }
+  /* Rev 2.24.0 (M1) — тінь виділення (колишній transition box-shadow) тепер ::after з opacity: shadow-md малюється один раз, анімується лише прозорість. border-color у transition прибрано: він ніде не змінюється. */
+  .expense-row::after{ content:''; position:absolute; inset:-1px -1px -1px -3px; border-radius:inherit; box-shadow:var(--shadow-md); opacity:0; pointer-events:none; transition:opacity var(--duration-fast) var(--easing-standard); }
+  .expense-row.selected::after{ opacity:1; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .expense-row:hover{ background:var(--color-surface-hover); } }
   .expense-row.income-row{ border-left-color:var(--color-success); }
@@ -914,7 +929,7 @@
      border-color/border-left тут — border-left-color лишається inline-
      стилем кольору автора (authorInfoFor(), вище пріоритет за клас), тож
      колір смужки автора лишається коректним і при виділенні (Крок 0 п.5). */
-  .expense-row.selected{ background:var(--color-surface-hover); box-shadow:var(--shadow-md); transform:scale(1.025); z-index:1; }
+  .expense-row.selected{ background:var(--color-surface-hover); transform:scale(1.025); z-index:1; }
   /* Rev #30 (6D.123) — обгортка свайп-дій (Журнал+короткий список "Витрати"
      — buildRecordGroupsHtml спільний для обох, докоментар вище). overflow:
      hidden кліпає кнопки дій, доки .expense-row (усередині) не зсунутий
@@ -1026,8 +1041,10 @@
   .analytics-empty.hidden{ display:none; }
   .analytics-body.hidden{ display:none; }
 
-  .skeleton{ background:linear-gradient(90deg, var(--color-bg) 25%, var(--color-surface-hover) 37%, var(--color-bg) 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; border-radius:var(--radius-sm); }
-  @keyframes shimmer{ 0%{background-position:100% 50%;} 100%{background-position:0 50%;} }
+  /* Rev 2.24.0 (M1) — скелетон: шиммер через transform псевдоелемента (400% ширини, зсув -75% → 0 = колишнє background-position 100% → 0), а не через background-position. */
+  .skeleton{ position:relative; overflow:hidden; background:var(--color-bg); border-radius:var(--radius-sm); }
+  .skeleton::after{ content:""; position:absolute; left:0; top:0; width:400%; height:100%; background:linear-gradient(90deg, var(--color-bg) 25%, var(--color-surface-hover) 37%, var(--color-bg) 63%); animation:shimmer 1.4s ease infinite; }
+  @keyframes shimmer{ 0%{ transform:translateX(-75%); } 100%{ transform:translateX(0); } }
   .btn-loading{ position:relative; color:transparent !important; pointer-events:none; }
   .btn-loading::after{ content:""; position:absolute; left:50%; top:50%; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; border:2px solid rgba(255,255,255,.5); border-top-color:#fff; animation:spin .7s linear infinite; }
   .submit-btn.secondary.btn-loading::after{ border:2px solid rgba(16,24,40,.2); border-top-color:var(--color-text-primary); }
@@ -1705,7 +1722,9 @@
     transform-origin:center;
     /* Rev 2.4.14 — тривалість переміщення бульбашки скоригована з .9s до
        .6s (за проханням, .9s виявилось задовгим). */
-    transition:transform .6s cubic-bezier(.34,1.56,.64,1), width .6s cubic-bezier(.34,1.56,.64,1), opacity .22s ease;
+    /* Rev 2.24.0 (M1) — width із transition прибрано (дорога властивість: layout щокадру). Кнопки таббару однакової ширини (flex-basis 20%), тож width міняється лише при resize/повороті й там миттєво; рух — лише transform. */
+    transition:transform .6s cubic-bezier(.34,1.56,.64,1), opacity .22s ease;
+    overflow:hidden;
   }
   .tabbar-bubble.no-anim{ transition:none; }
   /* Rev 2.4.3 — стилізований "скляний" відблиск під час утримання дотику
@@ -1713,15 +1732,18 @@
      апаратного рендеру заломлення, недосяжного звичайним CSS — а стилізоване
      наближення: бульбашка трохи збільшується + м'яке світлове "мазання"
      рухається по ній по колу, поки палець утримується). */
+  /* Rev 2.24.0 (M1) — шиммер: замість анімації background-position (перемальовування щокадру) — псевдоелемент 240%×240% зі зсувом top:-70%,
+     що рухається через transform:translateX (еквівалент background-size:240% + position 0%→100%: зсув = 1.4 ширини батька = 58.33% власної ширини).
+     Батько має overflow:hidden (радіус клипує шиммер, як раніше inset:0 + border-radius:inherit). */
   .tabbar-bubble::before{
-    content:""; position:absolute; inset:0; border-radius:inherit;
+    content:""; position:absolute; left:0; top:-70%; width:240%; height:240%;
     background:linear-gradient(120deg, transparent 25%, var(--color-glass-shimmer) 50%, transparent 75%);
-    background-size:240% 240%; background-position:0% 50%;
+    transform:translateX(0);
     opacity:0; transition:opacity .2s ease; pointer-events:none;
   }
   nav.tabbar.pressed .tabbar-bubble{ --bubble-scale:1.2; }
   nav.tabbar.pressed .tabbar-bubble::before{ opacity:1; animation:tabbarBubbleShimmer 1s ease-in-out infinite; }
-  @keyframes tabbarBubbleShimmer{ 0%{ background-position:0% 50%; } 100%{ background-position:100% 50%; } }
+  @keyframes tabbarBubbleShimmer{ 0%{ transform:translateX(0); } 100%{ transform:translateX(-58.333%); } }
   /* Rev 2.3.9 — коли клавіатура активна (body.kb-open, див. JS нижче),
      таббар повністю ховаємо: на iOS Safari position:fixed елементи під час
      появи клавіатури можуть "спливати" посеред екрана над клавіатурою
@@ -1803,12 +1825,12 @@
        liquid-glass справді плавно згасає, а не різко "виїжджає" за межі
        екрана одночасно з тим, як гасне сама зелена підсвітка (.scrolling
        нижче). */
-    transition:opacity .38s ease, transform .42s cubic-bezier(.22,1,.36,1), background .2s ease, border-color .2s ease, box-shadow .2s ease, color .2s ease;
+    transition:opacity .38s ease, transform .42s cubic-bezier(.22,1,.36,1), background .2s ease, border-color .2s ease, color .2s ease;
   }
   .scroll-top-btn.visible{
     opacity:1; pointer-events:auto;
     transform:translateY(0) scale(1);
-    transition:opacity .35s ease, transform .6s cubic-bezier(.34,1.56,.64,1), background .22s cubic-bezier(.22,1,.36,1), border-color .22s ease, box-shadow .22s ease;
+    transition:opacity .35s ease, transform .6s cubic-bezier(.34,1.56,.64,1), background .22s cubic-bezier(.22,1,.36,1), border-color .22s ease;
   }
   /* Rev 2.21.15 — за проханням: натиск мав бути ПОМІТНО довшим, щоб було
      видно, як зелена бульбашка справді виходить ЗА контури самої кнопки
@@ -1823,9 +1845,9 @@
     transform:translateY(0) scale(1.35);
     background:rgba(34,197,94,.16);
     border-color:rgba(34,197,94,.32);
-    box-shadow:var(--shadow-glass), 0 2px 8px rgba(34,197,94,.22);
+    /* Rev 2.24.0 (M1): зелене світіння — ::after (opacity) */
     color:var(--color-primary-hover);
-    transition:transform .32s cubic-bezier(.34,1.56,.64,1), background .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease;
+    transition:transform .32s cubic-bezier(.34,1.56,.64,1), background .18s ease, border-color .18s ease, color .18s ease;
   }
   /* Rev 2.21.20 — за проханням: не лише колір стрілки (Rev 2.21.19), а й уся
      "бульбашка" (масштаб + зелений liquid-glass фон/рамка/тінь + шиммер)
@@ -1869,17 +1891,24 @@
     transform:translateY(0) scale(1);
     background:rgba(34,197,94,.16);
     border-color:rgba(34,197,94,.32);
-    box-shadow:var(--shadow-glass), 0 2px 8px rgba(34,197,94,.22);
+    /* Rev 2.24.0 (M1): зелене світіння — ::after (opacity) */
     color:var(--color-primary-hover);
-    transition:transform .38s cubic-bezier(.22,1,.36,1), background .22s ease, border-color .22s ease, box-shadow .22s ease, color .22s ease;
+    transition:transform .38s cubic-bezier(.22,1,.36,1), background .22s ease, border-color .22s ease, color .22s ease;
   }
-  .scroll-top-btn::before{
-    content:""; position:absolute; inset:0; border-radius:inherit;
+  /* Rev 2.24.0 (M1) — шиммер через transform (див. .tabbar-bubble::before); ::after — зелене світіння (колишній box-shadow у transition) через opacity. */
+  .stb-clip{ position:absolute; inset:0; border-radius:inherit; overflow:hidden; pointer-events:none; } /* окремий клип для шиммера: overflow:hidden на самій кнопці обрізав би ::after-світіння */
+  .stb-clip::before{
+    content:""; position:absolute; left:0; top:-70%; width:240%; height:240%;
     background:linear-gradient(120deg, transparent 25%, var(--color-glass-shimmer) 50%, transparent 75%);
-    background-size:240% 240%; background-position:0% 50%;
+    transform:translateX(0);
     opacity:0; transition:opacity .2s ease; pointer-events:none;
   }
-  .scroll-top-btn.pressed::before, .scroll-top-btn.scrolling::before{ opacity:1; animation:tabbarBubbleShimmer 1s ease-in-out infinite; }
+  .scroll-top-btn::after{
+    content:""; position:absolute; inset:0; border-radius:inherit; box-shadow:0 2px 8px rgba(34,197,94,.22);
+    opacity:0; transition:opacity .22s ease; pointer-events:none;
+  }
+  .scroll-top-btn.pressed::after, .scroll-top-btn.scrolling::after{ opacity:1; }
+  .scroll-top-btn.pressed .stb-clip::before, .scroll-top-btn.scrolling .stb-clip::before{ opacity:1; animation:tabbarBubbleShimmer 1s ease-in-out infinite; }
   body.kb-open .scroll-top-btn{ display:none; }
   @media (min-width:1280px){ .scroll-top-btn{ bottom:24px; } }
   /* Rev 2.4.0 — статичний background прибрано (тепер це робить .tabbar-bubble),
@@ -2100,7 +2129,7 @@
     .drawer-handle{ display:none; }
     .ov-row1{ grid-template-columns:repeat(5,minmax(0,1fr)); gap:16px; }
     .ov-row1 .wide{ grid-column:span 1; }
-    .ov-row3{ grid-template-columns: var(--row3-col-1,1fr) var(--row3-col-2,1fr) var(--row3-col-3,1fr); transition:grid-template-columns .25s var(--easing-standard); }
+    .ov-row3{ grid-template-columns: var(--row3-col-1,1fr) var(--row3-col-2,1fr) var(--row3-col-3,1fr); /* Rev 2.24.0 (M1): transition grid-template-columns прибрано (layout щокадру); розгортання картки м'яко проявляється opacity-ефектом з JS (updateRow3GridColumns). */ }
     .ov-row4{ flex-direction:row; }
     .ov-row4 > .card{ flex:1; min-width:0; }
     .kpi-strip{ grid-template-columns:repeat(6,1fr); }
@@ -2159,6 +2188,17 @@
     .donut-metrics .dm-amount{ font-size:20px; line-height:24px; }
     .donut-metrics .dm-start-label{ font-size:11px; line-height:14px; }
     .donut-metrics .dm-start-amount{ font-size:16px; line-height:19px; }
+  }
+  /* Rev 2.24.0 (M1) — prefers-reduced-motion: лише швидкі затухання (≤80мс), без зсувів/масштабів/нескінченних відблисків.
+     Шторки (.drawer, .drawer-backdrop) НЕ чіпаємо: їхня анімація зав'язана на логіку клавіатури (transitionend, sheet-anim). Спінери (syncSpin/spin) лишаються — це індикатор роботи, не декор. */
+  @media (prefers-reduced-motion: reduce){
+    :root{ --motion-micro:60ms; --motion-s:80ms; --motion-m:80ms; --motion-l:80ms; --motion-count:80ms; }
+    *:not(.drawer):not(.drawer-backdrop), *::before, *::after{ transition-duration:80ms !important; }
+    nav.tabbar.pressed .tabbar-glass{ transform:translateZ(0); }
+    nav.tabbar.pressed .tabbar-bubble{ --bubble-scale:1; }
+    .tabbar-bubble::before, .stb-clip::before, .skeleton::after{ animation:none !important; }
+    .expense-row.selected{ transform:none; }
+    .avatar-status-dot, .profile-status-dot{ animation:none !important; }
   }
 </style>
 </head>
@@ -3025,7 +3065,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.23.33</div>
+  <div class="version-footer">Money Tree · Rev 2.24.0</div>
 </div>
   </div>
 </div>
@@ -3064,6 +3104,7 @@
      нижче), і зникає при поверненні нагору. Особливо корисна після переходу
      на конкретну дату в Журналі чи довгого догортання списку. -->
 <button type="button" class="scroll-top-btn" id="scroll-top-btn" onclick="scrollTopBtnClick()" aria-label="Прокрутити до початку">
+  <span class="stb-clip" aria-hidden="true"></span>
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>
 </button>
 
@@ -7321,7 +7362,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.23.33';
+const APP_VERSION = '2.24.0';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9656,6 +9697,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": trashType (НЕ `type` — воно вже тип самої події), ok, count; без назв і сум.
   'trashType', 'ok', 'count',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
+  // Rev 2.24.0 (M1) — motion-perf: kind (tab-switch/press), intensity (множник), reduced, holdMs, pressLeak (скільки елементів лишилось у .is-pressed через 300 мс).
+  'kind', 'intensity', 'reduced', 'holdMs', 'pressLeak',
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
   'proxyCaretColor', 'proxyDistToField',
@@ -14956,6 +14999,12 @@ function updateRow3GridColumns(){
   row.style.setProperty('--row3-col-1', w('categories'));
   row.style.setProperty('--row3-col-2', w('subcategories'));
   row.style.setProperty('--row3-col-3', w('reducible'));
+  // Rev 2.24.0 (M1) — замість анімації grid-template-columns (layout щокадру): короткий opacity-перехід при зміні розкладки.
+  const sig = [w('categories'), w('subcategories'), w('reducible')].join('|');
+  if(row.dataset.cols && row.dataset.cols !== sig && typeof row.animate === 'function' && !motionReduced()){
+    row.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: motionDuration('s', motionK, false), easing: MOTION_EASE_OUT });
+  }
+  row.dataset.cols = sig;
 }
 function toggleCardExpand(key){
   expandedRow4Key = (expandedRow4Key === key) ? null : key;
@@ -15090,6 +15139,193 @@ function switchTab(tab, opts){
    конкретного місяця (журнал витрат показує всі записи, структура/сервіс
    взагалі про довідники й дані, а не про місяць) — тому їхні підзаголовки
    статичні, без згадки місяця. */
+// ===== Rev 2.24.0 (M1) — фундамент руху (docs/DESIGN_SYSTEM.md, ROADMAP 32.41) =====
+// Чисті функції (витягуються тестами tests/motion.test.js): motionDuration, tabDirection, shouldReleasePress, motionIntensityK.
+// MOTION_BASE_MS — JS-дзеркало CSS-токенів --motion-micro/s/m/l/count (:root). k — множник інтенсивності (тест "motion-intensity").
+const MOTION_BASE_MS = { micro: 120, s: 200, m: 320, l: 480, count: 700 };
+const MOTION_REDUCED_MAX_MS = 80;
+const TAB_ORDER = ['analytics', 'accounting', 'vytraty', 'structure', 'service'];
+const MOTION_INTENSITY_K = { calm: 0.6, standard: 1, bold: 1.35 };
+const PRESS_MIN_MS = 80;
+const PRESS_MOVE_TOLERANCE_PX = 10;
+function motionDuration(token, k, reduced){
+  const base = MOTION_BASE_MS[token];
+  if(typeof base !== 'number') return 0;
+  const kk = (typeof k === 'number' && isFinite(k) && k > 0) ? k : 1;
+  const ms = Math.round(base * kk);
+  return reduced ? Math.min(ms, MOTION_REDUCED_MAX_MS) : ms;
+}
+// +1: рух "вперед" за порядком таббару (вихідна їде вліво, нова приїжджає справа), -1: назад, 0: та сама/невідома вкладка.
+function tabDirection(from, to, order){
+  const o = order || TAB_ORDER;
+  const a = o.indexOf(from), b = o.indexOf(to);
+  if(a < 0 || b < 0 || a === b) return 0;
+  return b > a ? 1 : -1;
+}
+function shouldReleasePress(startMs, nowMs, minMs){
+  return (nowMs - startMs) >= minMs;
+}
+function motionIntensityK(key){
+  return Object.prototype.hasOwnProperty.call(MOTION_INTENSITY_K, key) ? MOTION_INTENSITY_K[key] : 1;
+}
+const MOTION_EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
+const MOTION_EASE_SPRING = 'cubic-bezier(.34,1.56,.64,1)';
+let motionK = 1; // оновлюється applyMotionIntensity() (варіант "motion-intensity" у "Тестуванні")
+function motionReduced(){
+  try{ return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }catch(e){ return false; }
+}
+function applyMotionIntensity(){
+  let key = 'standard';
+  try{ key = getVariant('motion-intensity') || 'standard'; }catch(e){}
+  motionK = motionIntensityK(key);
+  document.documentElement.style.setProperty('--motion-k', String(motionK));
+}
+// Подія рекордера motion-perf (kind: 'tab-switch' | 'press'): лише числа та назви вкладок, без даних користувача.
+function recordMotionPerf(fields){
+  if(!debugRecordingActive) return;
+  pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'motion-perf', intensity: motionK }, fields));
+}
+// --- Перехід між вкладками (M1) ---
+// Вихідний .view лишається видимим і знімається з потоку (position:absolute) на час переходу; новий видимий одразу з початкового стану.
+// Анімація — element.animate (opacity + transform). pointer-events:none на вкладках (CSS .tab-transitioning), прокрутка кожної вкладки зберігається.
+const tabScrollPositions = {};
+let tabTransition = null;
+let tabAnimEnabled = false; // вмикається першим жестом користувача: програмні перемикання на старті (маршрут зі сповіщення) не анімуються
+['pointerdown', 'keydown', 'touchstart'].forEach(function(ev){
+  document.addEventListener(ev, function(){ tabAnimEnabled = true; }, { passive: true, capture: true, once: true });
+});
+function finishTabTransition(){
+  const tr = tabTransition;
+  if(!tr) return;
+  tabTransition = null;
+  tr.done(false);
+}
+function beginTabTransition(prevTab, tab, fromContentTop){
+  const mainCol = document.getElementById('main-col');
+  const fromEl = document.getElementById('view-' + prevTab);
+  const toEl = document.getElementById('view-' + tab);
+  if(!mainCol || !fromEl || !toEl || typeof toEl.animate !== 'function') return false;
+  const cs = getComputedStyle(mainCol);
+  const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
+  mainCol.classList.add('tab-transitioning');
+  fromEl.classList.remove('hidden');
+  fromEl.style.position = 'absolute'; fromEl.style.left = padL + 'px'; fromEl.style.right = padR + 'px'; fromEl.style.top = fromContentTop + 'px';
+  fromEl.style.zIndex = '0';
+  return { mainCol: mainCol, fromEl: fromEl, toEl: toEl, fromContentTop: fromContentTop };
+}
+function playTabTransition(ctx, prevTab, tab, fromScroll){
+  const { mainCol, fromEl, toEl, fromContentTop } = ctx;
+  // Старий .view тримаємо візуально на місці: позиція (у координатах вмісту #main-col) = де він був у вмісті - стара прокрутка + нова.
+  fromEl.style.top = (fromContentTop - fromScroll + mainCol.scrollTop) + 'px';
+  const reduced = motionReduced();
+  const k = motionK;
+  const dir = reduced ? 0 : tabDirection(prevTab, tab);
+  const dOut = motionDuration('micro', k, reduced), dIn = motionDuration('s', k, reduced);
+  const shiftOut = dir ? (-dir * 8 * k) : 0, shiftIn = dir ? (dir * 10 * k) : 0;
+  const kfOut = dir ? [{ opacity: 1, transform: 'translateX(0px)' }, { opacity: 0, transform: 'translateX(' + shiftOut + 'px)' }] : [{ opacity: 1 }, { opacity: 0 }];
+  const kfIn = dir ? [{ opacity: 0, transform: 'translateX(' + shiftIn + 'px)' }, { opacity: 1, transform: 'translateX(0px)' }] : [{ opacity: 0 }, { opacity: 1 }];
+  const startedAt = performance.now();
+  let frames = 0, maxGap = 0, lastT = startedAt, ended = false;
+  let outAnim = null, inAnim = null, safety = null;
+  function tick(now){
+    if(ended) return;
+    frames++;
+    const gap = now - lastT; if(gap > maxGap) maxGap = gap;
+    lastT = now;
+    requestAnimationFrame(tick);
+  }
+  function done(completed){
+    if(ended) return;
+    ended = true;
+    if(safety){ clearTimeout(safety); safety = null; }
+    const duration = performance.now() - startedAt;
+    fromEl.classList.add('hidden');
+    fromEl.style.position = ''; fromEl.style.left = ''; fromEl.style.right = ''; fromEl.style.top = ''; fromEl.style.zIndex = '';
+    try{ outAnim.cancel(); inAnim.cancel(); }catch(e){}
+    mainCol.classList.remove('tab-transitioning');
+    if(completed) recordMotionPerf({ kind: 'tab-switch', from: prevTab, to: tab, frames: frames, maxGapMs: Math.round(maxGap), durationMs: Math.round(duration), reduced: reduced });
+  }
+  outAnim = fromEl.animate(kfOut, { duration: dOut, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+  inAnim = toEl.animate(kfIn, { duration: dIn, easing: MOTION_EASE_OUT, fill: 'backwards' });
+  tabTransition = { done: done };
+  requestAnimationFrame(tick);
+  const onBoth = function(){ if(tabTransition && tabTransition.done === done){ tabTransition = null; done(true); } };
+  Promise.all([outAnim.finished, inAnim.finished]).then(onBoth, function(){ /* cancel під час переривання — done(false) уже викликано */ });
+  safety = setTimeout(onBoth, Math.max(dOut, dIn) + 200);
+}
+// --- Реакція на натискання (M1): один механізм для кнопок, чипів, рядків, карток ---
+// .is-pressed ставиться на pointerdown (passive), знімається на pointerup/pointercancel/відхід пальця/visibilitychange; не раніше PRESS_MIN_MS.
+// Сам ефект (scale + opacity) — WAAPI: не конфліктує з власними transition/transform елементів (свайп .expense-row, .selected).
+const PRESS_SELECTOR = 'button, [role="button"], .expense-row, .card-debt-compact-row, .service-tile, .service-danger-card, .service-wide-card, .n-row, .name-suggest-item, .profile-menu-item, .show-journal-link';
+const PRESS_EXCLUDE = 'nav.tabbar, .scroll-top-btn, .drawer-handle, [data-no-press]';
+const pressStates = new Map();
+function pressCanScale(){ try{ return !!(window.CSS && CSS.supports && CSS.supports('scale', '1')); }catch(e){ return false; } }
+function pressStart(e){
+  if(e.pointerType === 'mouse' && e.button !== 0) return;
+  const t = e.target;
+  const el = (t && t.closest) ? t.closest(PRESS_SELECTOR) : null;
+  if(!el || pressStates.has(el) || el.closest(PRESS_EXCLUDE)) return;
+  if(el.disabled || el.getAttribute('aria-disabled') === 'true') return;
+  const reduced = motionReduced();
+  const dur = motionDuration('micro', motionK, reduced);
+  const baseOp = parseFloat(getComputedStyle(el).opacity);
+  const op = isNaN(baseOp) ? 1 : baseOp;
+  const toScale = 1 - 0.03 * motionK;
+  const useScale = !reduced && pressCanScale();
+  const from = useScale ? { scale: '1', opacity: op } : { opacity: op };
+  const to = useScale ? { scale: String(toScale), opacity: op * 0.9 } : { opacity: op * 0.9 };
+  let anim = null;
+  if(typeof el.animate === 'function'){
+    try{ anim = el.animate([from, to], { duration: dur, easing: MOTION_EASE_OUT, fill: 'forwards' }); }catch(err){ anim = null; }
+  }
+  const st = { id: e.pointerId, x: e.clientX, y: e.clientY, start: performance.now(), anim: anim, from: from, to: to, dur: dur, timer: null, safety: null };
+  st.safety = setTimeout(function(){ pressRelease(el); }, 8000); // страховка від "залипання", якщо подія відпускання загубилась
+  pressStates.set(el, st);
+  el.classList.add('is-pressed');
+}
+function pressRelease(el){
+  const st = pressStates.get(el);
+  if(!st) return;
+  pressStates.delete(el);
+  if(st.timer) clearTimeout(st.timer);
+  if(st.safety) clearTimeout(st.safety);
+  el.classList.remove('is-pressed');
+  if(st.anim && typeof el.animate === 'function'){
+    try{
+      el.animate([st.to, st.from], { duration: st.dur, easing: MOTION_EASE_SPRING });
+      st.anim.cancel();
+    }catch(err){ try{ st.anim.cancel(); }catch(e2){} }
+  }
+  if(debugRecordingActive){
+    const holdMs = Math.round(performance.now() - st.start);
+    setTimeout(function(){ recordMotionPerf({ kind: 'press', holdMs: holdMs, pressLeak: document.querySelectorAll('.is-pressed').length, reduced: motionReduced() }); }, 300);
+  }
+}
+function pressEnd(e){
+  pressStates.forEach(function(st, el){
+    if(st.id !== e.pointerId) return;
+    if(e.type === 'pointercancel' || shouldReleasePress(st.start, performance.now(), PRESS_MIN_MS)) pressRelease(el);
+    else if(!st.timer) st.timer = setTimeout(function(){ pressRelease(el); }, PRESS_MIN_MS - (performance.now() - st.start));
+  });
+}
+function pressMove(e){
+  if(!pressStates.size) return;
+  pressStates.forEach(function(st, el){
+    if(st.id !== e.pointerId) return;
+    if(Math.abs(e.clientX - st.x) > PRESS_MOVE_TOLERANCE_PX || Math.abs(e.clientY - st.y) > PRESS_MOVE_TOLERANCE_PX) pressRelease(el);
+  });
+}
+function pressReleaseAll(){ Array.from(pressStates.keys()).forEach(pressRelease); }
+(function initPressFeedback(){
+  const opt = { passive: true, capture: true };
+  document.addEventListener('pointerdown', pressStart, opt);
+  document.addEventListener('pointerup', pressEnd, opt);
+  document.addEventListener('pointercancel', pressEnd, opt);
+  document.addEventListener('pointermove', pressMove, opt);
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState !== 'visible') pressReleaseAll(); });
+  window.addEventListener('pagehide', pressReleaseAll);
+  window.addEventListener('blur', pressReleaseAll);
+})();
 const TAB_META = {
   analytics: { title:'Аналітика', subtitle: m => `Ваш фінансовий стан на ${m}`, showMonthPill:true },
   accounting: { title:'Облік', subtitle: m => `Дохід, борги та ОЧ за ${m}`, showMonthPill:true },
@@ -15108,6 +15344,21 @@ function updatePageHeader(tab){
   if(monthPillEl) monthPillEl.classList.toggle('hidden', !meta.showMonthPill);
 }
 function performSwitchTab(tab, opts){
+  // Rev 2.24.0 (M1) — попередня вкладка (для переходу й збереження прокрутки); незавершений перехід дозавершуємо одразу.
+  // ВАЖЛИВО: прокрутку й позицію вихідної вкладки знімаємо ДО будь-яких змін DOM: шапка (.top з month-pill) лежить у тому самому #main-col,
+  // і зміна її висоти (updatePageHeader) через scroll anchoring зсуває scrollTop (Аналітика→Сервіс: 500 → 448).
+  const prevTab = lastActiveTab;
+  finishTabTransition();
+  const mainColForTab = document.getElementById('main-col');
+  const fromScroll = mainColForTab ? mainColForTab.scrollTop : 0;
+  const switching = !!prevTab && prevTab !== tab;
+  const animateSwitch = switching && tabAnimEnabled && document.visibilityState === 'visible'
+    && !document.body.classList.contains('kb-open') && !document.querySelector('.drawer.open');
+  let fromContentTop = 0;
+  if(animateSwitch && mainColForTab){
+    const fe = document.getElementById('view-' + prevTab);
+    if(fe) fromContentTop = fe.getBoundingClientRect().top - mainColForTab.getBoundingClientRect().top + fromScroll;
+  }
   // Rev 2.21.0 — Журнал (#journal-overlay) більше не fixed-оверлей поверх
   // усього застосунку, а другий стан вкладки "Витрати" — тому перемикання
   // вкладки (навіть повторний клік на "Витрати") явно закриває Журнал, щоб
@@ -15136,7 +15387,11 @@ function performSwitchTab(tab, opts){
   }
   lastActiveTab = tab;
   updatePageHeader(tab);
+  // Rev 2.24.0 (M1) — прокрутка вихідної вкладки запам'ятовується; перехід анімується лише для реальної зміни вкладки після першого жесту.
+  if(switching) tabScrollPositions[prevTab] = fromScroll;
+  const tabCtx = animateSwitch ? beginTabTransition(prevTab, tab, fromContentTop) : null;
   ['analytics','accounting','vytraty','structure','service'].forEach(t=>{
+    if(tabCtx && t === prevTab) return; // вихідна лишається видимою до кінця переходу (finishTabTransition її ховає)
     document.getElementById('view-'+t).classList.toggle('hidden', t!==tab);
   });
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
@@ -15152,7 +15407,9 @@ function performSwitchTab(tab, opts){
   // його scrollTop, а не позицію вікна.
   killMainColMomentumScroll();
   const mainColEl = document.getElementById('main-col');
-  if(mainColEl) mainColEl.scrollTop = 0;
+  // Rev 2.24.0 (M1) — повернення на вкладку відновлює її збережену прокрутку (раніше завжди 0); повторний тап по активній вкладці, як і раніше, — на початок.
+  if(mainColEl) mainColEl.scrollTop = switching ? (tabScrollPositions[tab] || 0) : 0;
+  if(tabCtx) playTabTransition(tabCtx, prevTab, tab, fromScroll);
   // Rev 2.3.4 — автофокус на "Назва витрати" при вході на вкладку "Витрати":
   // єдина щоденна дія має починатись з можливості одразу друкувати, без
   // зайвого тапу по полю. Виклик СИНХРОННИЙ (без setTimeout) — на iOS Safari
@@ -15334,7 +15591,7 @@ function scrollTopBtnClick(){
       if(!btn || t < SCROLL_TOP_BTN_HIDE_START_T) return;
       if(!hidePhaseStarted){
         hidePhaseStarted = true;
-        btn.style.transitionProperty = 'background, border-color, box-shadow, color';
+        btn.style.transitionProperty = 'background, border-color, color'; // Rev 2.24.0 (M1): box-shadow більше не в transition
       }
       const p = (t - SCROLL_TOP_BTN_HIDE_START_T) / (1 - SCROLL_TOP_BTN_HIDE_START_T);
       const eased = p * p;
@@ -15681,7 +15938,27 @@ purgeLegacyKeyboardKeys();
 // (ревізія), cleanupBy (умова видалення), checkSteps:[2-3 кроки] }.
 // <test-variants-module>
 const TEST_VARIANTS_LS_KEY = 'budget_variants_v1';
-const TEST_VARIANTS = [];
+const TEST_VARIANTS = [
+  // Rev 2.24.0 (M1) — інтенсивність руху (множник --motion-k для переходів між вкладками, реакції на натискання, відблисків).
+  {
+    id: 'motion-intensity',
+    title: 'Інтенсивність руху',
+    what: 'Наскільки помітні перехід між вкладками і реакція на натискання (тривалість і зсув/масштаб множаться на коефіцієнт).',
+    variants: [
+      { key: 'calm', label: 'Стримана', hint: '×0,6: коротші й менші рухи' },
+      { key: 'standard', label: 'Стандартна', hint: '×1: типова' },
+      { key: 'bold', label: 'Виразна', hint: '×1,35: довші й більші рухи' },
+    ],
+    defaultVariant: 'standard',
+    addedIn: 'Rev 2.24.0 (M1)',
+    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обране значення константою і прибере тест)',
+    checkSteps: [
+      'Оберіть варіант, поперемикайте всі п\'ять вкладок таббару: чи плавно, без смикань і подвійних тапів.',
+      'Потапайте кнопки, чипи, рядки списків: реакція має бути помітною, але не нав\'язливою; після відпускання нічого не лишається «втиснутим».',
+      'Для заміру: «Записати лог із цим варіантом», 10 перемикань вкладок, зупинити запис (подія motion-perf).',
+    ],
+  },
+];
 function readTestVariantsMap(){
   try{
     const raw = localStorage.getItem(TEST_VARIANTS_LS_KEY);
@@ -15739,6 +16016,7 @@ function getVariantsSnapshot(){
 }
 // </test-variants-module>
 pruneVariants();
+applyMotionIntensity(); // Rev 2.24.0 (M1): --motion-k на <html> при старті
 // Rev 2.23.22 (6D.191) — UI "Тестування" (бейдж, шторка, картки). Значення
 // варіантів — лише через getVariant()/setVariant() модуля вище.
 function updateTestingBadge(){
@@ -15769,7 +16047,7 @@ function renderTestingDrawer(){
     card.setAttribute('data-test-id', t.id);
     card.appendChild(testingEl('div', 'test-card-title', t.title));
     card.appendChild(testingEl('div', 'test-card-what', 'Що перевіряємо: ' + t.what));
-    function choose(key){ setVariant(t.id, key); renderTestingDrawer(); }
+    function choose(key){ setVariant(t.id, key); applyMotionIntensity(); renderTestingDrawer(); }
     if(t.variants.length <= 4){
       const seg = testingEl('div', 'test-card-segments');
       t.variants.forEach(function(v){
@@ -15808,7 +16086,7 @@ function renderTestingDrawer(){
     const resetBtn = testingEl('button', 'submit-btn pill', 'Скинути до типового');
     resetBtn.type = 'button';
     resetBtn.style.background = 'var(--color-surface-hover)'; resetBtn.style.color = 'var(--color-text-primary)';
-    resetBtn.addEventListener('click', function(){ resetVariant(t.id); renderTestingDrawer(); });
+    resetBtn.addEventListener('click', function(){ resetVariant(t.id); applyMotionIntensity(); renderTestingDrawer(); });
     actions.appendChild(logBtn); actions.appendChild(resetBtn);
     card.appendChild(actions);
     list.appendChild(card);
