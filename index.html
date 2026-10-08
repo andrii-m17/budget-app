@@ -1381,7 +1381,7 @@
   #notifications-drawer .nx-seg-row .n-days{ padding:0; }
   #notifications-drawer .nx-seg-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--color-border); }
   #notifications-drawer .nx-hint{ font-size:13px; line-height:1.4; color:var(--color-text-secondary); margin:8px 16px 0; }
-  #notifications-drawer .nx-notice{ font-size:13px; line-height:1.4; color:var(--color-warning); margin:8px 16px 0; }
+  #notifications-drawer .nx-notice{ font-size:13px; line-height:1.4; color:var(--ui-warning-text); margin:8px 16px 0; }
   #notifications-drawer .n-dimmed{ opacity:.38; pointer-events:none; }
   /* Rev 2.32.14: коротка підсвітка жовтого рядка (лише opacity ~600 мс, без зміни розмірів) */
   @keyframes nxFlash{ 0%,100%{ opacity:1; } 30%{ opacity:.25; } 60%{ opacity:1; } }
@@ -2256,11 +2256,11 @@
     --ui-accent:var(--color-primary); --ui-accent-bg:rgba(34,197,94,.16); --ui-accent-border:rgba(34,197,94,.32);
     --ui-accent-strong:#15803D; --ui-accent-text:#166534;
     --ui-danger:var(--color-error); --ui-danger-strong:#DC2626; --ui-danger-text:#B91C1C; --ui-danger-glass:rgba(239,68,68,.08);
-    --ui-success:var(--color-success); --ui-success-strong:#15803D; --ui-warning-strong:#B45309;
+    --ui-success:var(--color-success); --ui-success-strong:#15803D; --ui-warning-strong:#B45309; --ui-warning-text:#B45309; /* Rev 2.32.16: жовтогарячий ТЕКСТ ≥4,5:1 на світлому тлі */
   }
   :root[data-theme="dark"]{
     --ui-btn-border:rgba(255,255,255,.10); --ui-btn-highlight:rgba(255,255,255,.08); --ui-btn-shadow:0 2px 8px rgba(0,0,0,.35);
-    --ui-accent-text:#34D673; --ui-danger-text:#F87171;
+    --ui-accent-text:#34D673; --ui-danger-text:#F87171; --ui-warning-text:#F59E0B;
   }
   /* Зона натискання ≥44: невидиме розширення ::after (--ui-hit) — розмір і розкладка не змінюються. position:relative через :where (0 специфічності): існуючі absolute/fixed лишаються. */
   html:root :where(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
@@ -3251,7 +3251,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.15</div>
+  <div class="version-footer">Money Tree · Rev 2.32.16</div>
 </div>
   </div>
 </div>
@@ -7554,7 +7554,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.15';
+const APP_VERSION = '2.32.16';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

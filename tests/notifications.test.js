@@ -334,3 +334,19 @@ test('Z: маршрут backup без focus() і клавіатури; невд�
   assert.match(SRC, /sw\('backup', 'reminders', 'backup_reminder', 'Резервна копія', 'кінець місяця'\)/);
   assert.match(SRC, /id="backup-export-tile" onclick="exportBackup\(\)"/);
 });
+
+test('R (пакет): R-3 і R-5 збережені в редизайні — запит дозволу першим кроком, індикатор сегментів (у т.ч. для рядка, що з’являється пізніше); жовтий текст виняток ≥4,5:1', () => {
+  const f = SRC.slice(SRC.indexOf('async function onMasterToggle'), SRC.indexOf('function flashPermissionNotice'));
+  assert.ok(!/await/.test(f.slice(f.indexOf('const perm = currentPermissionState()'), f.indexOf('await Notification.requestPermission()'))));
+  const r = SRC.slice(SRC.indexOf('function renderNotificationsDrawer'), SRC.indexOf('let notificationDiagOpen'));
+  assert.match(r, /body\.appendChild\(gt\);[\s\S]*?initSegments\(\);/);
+  assert.match(SRC, /\{ silent: true \}/);
+  // контраст: світла тема #B45309 на білому ≥ 4,5; темна #F59E0B на темному тлі ≥ 4,5
+  const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  assert.ok(cr('#B45309', '#FFFFFF') >= 4.5, 'світла');
+  assert.ok(cr('#F59E0B', '#161B26') >= 4.5, 'темна');
+  assert.match(SRC, /--ui-warning-text:#B45309/);
+  assert.match(SRC, /--ui-warning-text:#F59E0B/);
+  assert.match(SRC, /#notifications-drawer \.nx-notice\{ font-size:13px; line-height:1\.4; color:var\(--ui-warning-text\)/);
+});
