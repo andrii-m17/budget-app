@@ -1394,6 +1394,7 @@
   #notifications-drawer .nx-appear{ animation:nxAppear var(--motion-s) var(--ease-out) both; }
   @media (prefers-reduced-motion: reduce){ #notifications-drawer .nx-appear{ animation:none; } }
   .n-readonly-note{ font-size:12.5px; color:var(--color-text-secondary); padding:8px 4px 0; }
+  .service-tile.just-notified{ animation:cardBlink .8s ease-in-out 3; } /* Rev 2.32.15 (Z): підсвітка плитки експорту зі сповіщення (лише opacity) */
   .card-debt-compact-row.just-notified{ background:var(--color-info-bg); animation:cardBlink .8s ease-in-out 3; }
   .trash-sync-line{ height:16px; margin:-2px 2px 6px; font-size:12px; color:var(--color-text-secondary); opacity:0; transition:opacity var(--duration-fast) var(--easing-standard); }
   .trash-sync-line.on{ opacity:1; }
@@ -3090,7 +3091,7 @@
 
   <div class="section-label">Резервна копія</div>
   <div class="service-grid">
-    <button type="button" class="service-tile" onclick="exportBackup()">
+    <button type="button" class="service-tile" id="backup-export-tile" onclick="exportBackup()">
       <span
         class="service-tile-icon c-blue"
         style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;"
@@ -3250,7 +3251,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.14</div>
+  <div class="version-footer">Money Tree · Rev 2.32.15</div>
 </div>
   </div>
 </div>
@@ -7553,7 +7554,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.14';
+const APP_VERSION = '2.32.15';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7639,10 +7640,29 @@ function downloadBackupBlob(filename){
   document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 }
+// Rev 2.32.15 (Z): дата останнього ручного експорту (notification_settings.last_backup_at) пишеться лише після УСПІШНОГО експорту, за наявності Cloud-сесії й мережі; інакше мовчки пропускаємо.
+function shouldRecordBackupDate(st){
+  const s = st || {};
+  return !!s.ok && !!s.online && !!s.hasSession;
+}
+async function recordBackupDate(ok){
+  const allow = shouldRecordBackupDate({ ok: ok, online: navigator.onLine, hasSession: isCloudSessionReady() });
+  let recorded = false;
+  if(allow){
+    try{
+      const res = await getSupabaseClient().from('notification_settings').upsert({ user_id: cloudSession.user.id, family_id: cloudFamilyId, last_backup_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      recorded = !res.error;
+    }catch(e){ recorded = false; }
+  }
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'backup-export', ok: !!ok, recorded: recorded });
+  return recorded;
+}
 function exportBackup(){
-  downloadBackupBlob(`MoneyTree-бекап-${localDateISO()}.json`);
+  let ok = true;
+  try{ downloadBackupBlob(`MoneyTree-бекап-${localDateISO()}.json`); }catch(e){ ok = false; }
   const statusEl = document.getElementById('backup-status');
-  if(statusEl) statusEl.textContent = 'Бекап збережено у завантаження браузера.';
+  if(statusEl) statusEl.textContent = ok ? 'Бекап збережено у завантаження браузера.' : 'Не вдалося створити бекап.';
+  recordBackupDate(ok); // не блокує експорт, помилок не кидає
 }
 // Rev #30 (6D.48) — P1.3, друга лінія захисту поверх LWW-merge (6D.46/47):
 // автоматичний, безшумний знімок ПОТОЧНОГО стану — той самий механізм, що
@@ -8609,6 +8629,7 @@ function routeForPushType(type, data){
     case 'monthly-debt-reminder': return { screen: 'debts' };
     case 'installment-deadline': return { screen: 'installments', installmentId: d.installmentId || null };
     case 'weekly-summary': case 'month-end': return { screen: 'analytics' };
+    case 'backup-reminder': return { screen: 'backup' }; // Rev 2.32.15 (Z): нагадування про резервну копію → «Сервіс» (плитка експорту підсвічується)
     default: return { screen: null };
   }
 }
@@ -8667,6 +8688,16 @@ async function handlePushAction(action){
     goToCardDebtsTab();
   }else if(route.screen === 'analytics'){
     performSwitchTab('analytics');
+  }else if(route.screen === 'backup'){
+    // Rev 2.32.15 (Z): екран експорту/резервної копії — вкладка «Сервіс»; таббар видимий, без клавіатури, БЕЗ програмного focus(): плитка лише підсвічується й прокручується в центр.
+    document.body.classList.remove('kb-open');
+    performSwitchTab('service');
+    const tile = document.getElementById('backup-export-tile');
+    if(tile){
+      tile.classList.add('just-notified');
+      try{ tile.scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){}
+      setTimeout(function(){ tile.classList.remove('just-notified'); }, 3000);
+    }
   }
   captureDebugGeometry('push-route', { route: route.screen });
   setTimeout(function(){ captureFocusAudit('push-route'); }, 400);
@@ -9871,6 +9902,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'phase', 'jumpMaxPx', 'gapNoLayoutMs', 'drawerHeightRest', 'drawerHeightKb',
   // Rev 2.32.11 — sheet-anim карток «Структури»: firstOfKind (перша така фаза цієї картки за сесію), settledY (низ картки через 350 мс після завершення), settleDeltaPx (settledY мінус останній семпл).
   'firstOfKind', 'settledY', 'settleDeltaPx',
+  // Rev 2.32.15 (Z) — backup-export: ok (експорт вдався), recorded (дату записано в Cloud); без значень.
+  'recorded',
   // Rev 2.23.14 (6D.183) — kb-frames, таймінг таббара.
   'blips', 'firstKbFrameT', 'msAfterFocusout',
   // Rev 2.23.15 (6D.184) — перемикання між полями відкритої шторки.

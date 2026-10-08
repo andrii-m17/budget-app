@@ -8,7 +8,7 @@ const { buildSandbox } = require('./extract');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const pure = buildSandbox({ pluralUa: undefined }, ['routeForPushType', 'notificationSettingsDefaults', 'validateQuietHours', 'permissionNotice', 'toggleOutcome', 'dimmedState', 'notificationRows', 'describeDeliveryRow', 'shouldReleaseKbOpen', 'pushTypeLabel', 'PUSH_TYPE_LABELS']);
+const pure = buildSandbox({ pluralUa: undefined }, ['routeForPushType', 'notificationSettingsDefaults', 'validateQuietHours', 'permissionNotice', 'toggleOutcome', 'shouldRecordBackupDate', 'dimmedState', 'notificationRows', 'describeDeliveryRow', 'shouldReleaseKbOpen', 'pushTypeLabel', 'PUSH_TYPE_LABELS']);
 
 test('routeForPushType: усі типи контракту й невідомий', () => {
   assert.deepEqual(j(pure.routeForPushType('other-actor-summary')), { screen: 'journal' });
@@ -312,4 +312,25 @@ test('onMasterToggle (A): системний запит — перший await (
   assert.ok(!/Як увімкнути|settings-link|app-settings:/.test(SRC.slice(SRC.indexOf('function renderNotificationsDrawer'), SRC.indexOf('let notificationDiagOpen'))));
   assert.match(SRC, /@keyframes nxFlash\{ 0%,100%\{ opacity:1; \} 30%\{ opacity:\.25; \} 60%\{ opacity:1; \} \}/);
   assert.ok(!/nxFlash[^}]*(height|margin|padding)/.test(SRC.slice(SRC.indexOf('@keyframes nxFlash'), SRC.indexOf('@keyframes nxFlash') + 200)));
+});
+
+test('Z: routeForPushType(backup-reminder) → екран резервної копії; shouldRecordBackupDate лише при успіху, мережі й сесії', () => {
+  assert.deepEqual(j(pure.routeForPushType('backup-reminder')), { screen: 'backup' });
+  assert.equal(pure.shouldRecordBackupDate({ ok: true, online: true, hasSession: true }), true);
+  [{ ok: false, online: true, hasSession: true }, { ok: true, online: false, hasSession: true }, { ok: true, online: true, hasSession: false }, {}, null].forEach(st => assert.equal(pure.shouldRecordBackupDate(st), false, JSON.stringify(st)));
+});
+test('Z: маршрут backup без focus() і клавіатури; невдалий експорт не пише дату; експорт не блокується; перемикач «Резервна копія» у групі «Нагадування» з тим самим збереженням', () => {
+  const h = SRC.slice(SRC.indexOf("}else if(route.screen === 'backup'){"), SRC.indexOf("captureDebugGeometry('push-route'", SRC.indexOf("}else if(route.screen === 'backup'){")));
+  assert.match(h, /performSwitchTab\('service'\)/);
+  assert.match(h, /classList\.remove\('kb-open'\)/);
+  assert.ok(!/\.focus\(/.test(h));
+  const e = SRC.slice(SRC.indexOf('function exportBackup'), SRC.indexOf('function exportBackup') + 500);
+  assert.match(e, /recordBackupDate\(ok\); \/\/ не блокує експорт/);
+  assert.ok(!/await/.test(e));
+  const rec = SRC.slice(SRC.indexOf('async function recordBackupDate'), SRC.indexOf('function exportBackup'));
+  assert.match(rec, /shouldRecordBackupDate\(\{ ok: ok, online: navigator\.onLine, hasSession: isCloudSessionReady\(\) \}\)/);
+  assert.match(rec, /last_backup_at: new Date\(\)\.toISOString\(\)/);
+  assert.match(rec, /type: 'backup-export', ok: !!ok, recorded: recorded/);
+  assert.match(SRC, /sw\('backup', 'reminders', 'backup_reminder', 'Резервна копія', 'кінець місяця'\)/);
+  assert.match(SRC, /id="backup-export-tile" onclick="exportBackup\(\)"/);
 });
