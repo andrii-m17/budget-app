@@ -3217,7 +3217,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.8</div>
+  <div class="version-footer">Money Tree · Rev 2.32.9</div>
 </div>
   </div>
 </div>
@@ -7518,7 +7518,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.8';
+const APP_VERSION = '2.32.9';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9860,6 +9860,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'scrolled',
   // Rev 2.32.7 (T3) — taxonomy-purge: kind (category/subcategory), subcategories, words, blocked, usedBy; account-purge: monthsRemoved (скільки різних місяців боргів видалено). Без назв.
   'subcategories', 'words', 'blocked', 'usedBy', 'monthsRemoved',
+  // Rev 2.32.9 (B) — kb-env: usesKeyboard (чи застосовується підйом/перехоплення), pointer (coarse/fine), hover, maxTouchPoints; reason — спільне поле.
+  'usesKeyboard', 'pointer', 'hover', 'maxTouchPoints',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
   // Rev 2.24.0 (M1) — motion-perf: kind (tab-switch/press), reduced, holdMs, pressLeak (скільки елементів лишилось у .is-pressed через 300 мс).
   'kind', 'reduced', 'holdMs', 'pressLeak',
@@ -10210,6 +10212,7 @@ function startDebugRecording(scenario){
   captureDebugGeometry('start');
   if(typeof recordUiAudit === 'function') recordUiAudit(); // Rev 2.26.0 (M3): ui-audit — лише кількості
   if(typeof recordInputAttrsAudit === 'function') recordInputAttrsAudit(); // Rev 2.28.1 (C): input-attrs-audit
+  if(typeof recordKbEnv === 'function') recordKbEnv(); // Rev 2.32.9 (B): kb-env
   debugRecordingTimerInterval = setInterval(updateDebugRecordButtonUI, 1000);
   debugRecordingAutoStopTimer = setTimeout(function(){ stopDebugRecording(); }, DEBUG_RECORDING_AUTO_STOP_MS);
   updateDebugRecordButtonUI();
@@ -19772,6 +19775,33 @@ document.getElementById('view-vytraty').addEventListener('keydown', function(e){
    екран, таббар для навігації користувачу все одно не потрібен.
    focusin/focusout (а не focus/blur) — бо саме вони спливають (bubbling) і
    дозволяють один обробник на document замість по одному на кожне поле. */
+// ===== Rev 2.32.9 (B) — підйом над клавіатурою лише там, де є екранна клавіатура =====
+// Одне джерело істини. env: { maxTouchPoints, pointerCoarse (основний вказівник), anyPointerFine (є миша/трекпад), hoverHover }.
+// 'always' — сенсорні телефони й планшети без миші: підйом за оцінкою/кешем висоти + перехоплення тапів (як було).
+// 'resize' — гібриди (iPad із трекпадом/апаратною клавіатурою, сенсорні ноутбуки): без передбачення, підйом лише коли visualViewport реально стиснувся (≥100 пт, isKeyboardOpen).
+// 'never' — десктоп без дотику: шторка стоїть на місці, звичайний фокус (до цієї ревізії --sheet-lift ≈ 332 піднімав картку за екран).
+function usesOnScreenKeyboard(env){
+  const e = env || {};
+  const mtp = Number(e.maxTouchPoints) || 0;
+  if(mtp <= 0 && !e.pointerCoarse) return { mode: 'never', reason: 'no-touch' };
+  if(e.pointerCoarse && !e.anyPointerFine) return { mode: 'always', reason: 'touch-only' };
+  return { mode: 'resize', reason: 'hybrid' };
+}
+function kbEnvNow(){
+  const mm = function(q){ try{ return !!(window.matchMedia && window.matchMedia(q).matches); }catch(err){ return false; } };
+  return { maxTouchPoints: navigator.maxTouchPoints || 0, pointerCoarse: mm('(pointer: coarse)'), anyPointerFine: mm('(any-pointer: fine)'), hoverHover: mm('(hover: hover)') };
+}
+function kbMode(){ return usesOnScreenKeyboard(kbEnvNow()); }
+let kbLastEnvMode = null;
+function recordKbEnv(){
+  const env = kbEnvNow(), m = usesOnScreenKeyboard(env);
+  kbLastEnvMode = m.mode;
+  if(!debugRecordingActive) return;
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'kb-env', usesKeyboard: m.mode !== 'never', pointer: env.pointerCoarse ? 'coarse' : 'fine', hover: env.hoverHover, maxTouchPoints: env.maxTouchPoints, reason: m.mode + ':' + m.reason });
+}
+['(pointer: coarse)', '(any-pointer: fine)', '(hover: hover)'].forEach(function(q){
+  try{ const mql = window.matchMedia(q); if(mql && mql.addEventListener) mql.addEventListener('change', function(){ if(kbMode().mode !== kbLastEnvMode) recordKbEnv(); }); }catch(err){}
+});
 function isKeyboardField(el){
   if(!el) return false;
   const tag = el.tagName;
@@ -20815,11 +20845,20 @@ function handleKeyboardFieldFocusSettle(){
 let kbHideTimeout = null;
 document.addEventListener('focusin', function(e){
   if(!isKeyboardField(e.target)) return;
+  if(kbMode().mode !== 'always') return; // Rev 2.32.9 (B): десктоп — без підйому; гібрид — лише за реальним стисненням visualViewport (слухач нижче)
   if(kbHideTimeout){ clearTimeout(kbHideTimeout); kbHideTimeout = null; }
   handleKeyboardFieldFocusIn(e.target);
 });
+// Rev 2.32.9 (B): гібриди ('resize') — підйом лише коли клавіатура ВЖЕ стиснула visualViewport (без передбачення за кешем); закриття — штатним focusout нижче (kbSheetActive).
+if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){
+  if(kbMode().mode !== 'resize' || kbSheetActive) return;
+  const a = document.activeElement;
+  if(!isKeyboardField(a) || !isFieldInsideDrawer(a)) return;
+  if(isKeyboardOpen(getBaseViewportHeight(), window.visualViewport.height)) handleKeyboardFieldFocusIn(a);
+});
 document.addEventListener('focusout', function(e){
   if(!isKeyboardField(e.target)) return;
+  { const km = kbMode().mode; if(km === 'never' || (km === 'resize' && !kbSheetActive)) return; } // Rev 2.32.9 (B)
   // Невелика затримка: якщо фокус одразу перескочив на ІНШЕ поле вводу
   // (Tab/Enter між полями форми), таббар не повинен блимнути назад і одразу
   // сховатись знову — перевіряємо, куди саме перейшов фокус, з коротким
@@ -20848,13 +20887,13 @@ document.addEventListener('focusout', function(e){
 // (beginKbFocusProxy).
 let kbTapStart = null;
 document.addEventListener('touchstart', function(e){
-  if(!IS_IOS_RUNTIME) return;
+  if(!IS_IOS_RUNTIME || kbMode().mode !== 'always') return; // Rev 2.32.9 (B): перехоплення тапів лише на пристроях з екранною клавіатурою
   const t = e.touches && e.touches[0];
   if(!t) return;
   kbTapStart = { x: t.clientX, y: t.clientY, time: Date.now(), target: e.target };
 }, { passive: true });
 document.addEventListener('touchend', function(e){
-  if(!IS_IOS_RUNTIME || !kbTapStart) return;
+  if(!IS_IOS_RUNTIME || !kbTapStart || kbMode().mode !== 'always') return;
   const start = kbTapStart;
   kbTapStart = null;
   const t = e.changedTouches && e.changedTouches[0];

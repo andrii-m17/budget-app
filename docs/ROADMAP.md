@@ -12331,3 +12331,23 @@ App-модалки (`show*Modal`: підтвердження видалення,
 
 ### A — `edit-label` завершено
 Рішення користувача: панель не з'явилась у жодному з трьох варіантів. Лишено `no-for` (span-підпис без зв'язку + `aria-label="Назва витрати"`); прибрано гілки `current`/`reword`, запис реєстру (реєстр порожній; `pruneVariants()` зніме ключ у `localStorage`), поле `labelVariant` з `input-focus-audit` (`fieldLabelFor` лишився). Правило проєкту про автозаповнення й охоронний тест лишаються. Поведінка редагування не змінилась. `node --test` 851/851. Рішення — у «Testing log».
+
+## 32.67. Rev 2.32.9 — B: десктоп — картки не «вилітають» за екран при фокусі
+
+**Статус: ВИКОНАНО на коді; iPhone-перевірка (B2, B3) — за користувачем/логами.**
+
+### Крок 0
+1. **Де рахується підйом:** `enterKbSheet` (оцінка/кеш висоти → `--kb-h`, `--vv-h`, `--sheet-lift`, клас `html.kb-sheet`), що викликається з `handleKeyboardFieldFocusIn` на КОЖНОМУ `focusin` текстового поля (на будь-якій платформі); `body.kb-open`; проміжне поле `beginKbFocusProxy`, `switch-intercept` і перехоплення тапів — лише в `touchstart/touchend` під `IS_IOS_RUNTIME`.
+2. **Підключені шторки:** Дохід, Борг, ОЧ, вхід у хмару (`profile-drawer`) та інші `.drawer` із полями. Десктопна розкладка — ті самі нижні шторки.
+3. **Відтворено у preview (десктоп, `maxTouchPoints=0`, `pointer: fine`):** фокус на `cldfielda1` → `--sheet-lift: 332`, шторка їде з top 282 до 42 (за екран) — оцінка клавіатури діяла без клавіатури.
+
+### Що зроблено
+- Чиста `usesOnScreenKeyboard(env)` → `always` (сенсорні телефони/планшети без миші: `pointer: coarse` і немає `any-pointer: fine`), `resize` (гібриди: iPad із трекпадом, сенсорні ноутбуки), `never` (немає дотику й coarse-вказівника — десктоп). Одне джерело істини `kbMode()`.
+- `always` — усе як було (подвійна перевірка: мобільний шлях `enterKbSheet`/`beginKbFocusProxy` не містить гілок за режимом). `never` — `focusin/focusout/touchstart/touchend` клавіатурної логіки виходять одразу: без `kb-sheet`, `--sheet-lift`, `kb-open`, проміжного поля й перехоплення тапів, фокус звичайний. `resize` — жодного передбачення при фокусі; підйом лише коли `visualViewport` реально стиснувся ≥100 пт (`isKeyboardOpen`), закриття штатним `focusout` (за `kbSheetActive`).
+- Рекордер `kb-env` (`usesKeyboard`, `pointer`, `hover`, `maxTouchPoints`, `reason`) при старті запису й при зміні режиму (`matchMedia change`).
+- Відхилення: для гібриду після реального стиснення `enterKbSheet` усе ж використовує свою оцінку/кеш для початкового значення (ту саму функцію не переписували), далі її уточнює живий vv.
+
+### Перевірено
+`node --test` 855/855 (`tests/kb-env.test.js`: iPhone, Android, десктоп, iPad із трекпадом, сенсорний ноутбук; підключення). Preview десктоп: фокус на полі входу й полях шторок Доходу, Боргу, ОЧ — top картки до/після однаковий (282/282, 373/373, 153.5/153.5, 160/160), класів `kb-sheet` немає. Preview мобільна емуляція (coarse, `maxTouchPoints=5`): `kb-sheet`, `--sheet-lift 378` — як раніше.
+
+**⚠️ iPhone:** поведінка шторок без змін (`sheet-open`, `focus-proxy`, `native-switch`, `sheet-anim`); у логу з'явиться `kb-env` з `usesKeyboard:true`, `reason:"always:touch-only"`. Десктоп: вхід у хмару й шторки — картка не зсувається при фокусі.
