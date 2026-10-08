@@ -3222,7 +3222,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.10</div>
+  <div class="version-footer">Money Tree · Rev 2.32.11</div>
 </div>
   </div>
 </div>
@@ -7523,7 +7523,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.10';
+const APP_VERSION = '2.32.11';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9839,6 +9839,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'frames', 'maxGapMs', 'durationMs', 'samples',
   // Rev 2.23.13 (6D.182) — sheet-anim доповнено (open/close), tabbar-restore.
   'phase', 'jumpMaxPx', 'gapNoLayoutMs', 'drawerHeightRest', 'drawerHeightKb',
+  // Rev 2.32.11 — sheet-anim карток «Структури»: firstOfKind (перша така фаза цієї картки за сесію), settledY (низ картки через 350 мс після завершення), settleDeltaPx (settledY мінус останній семпл).
+  'firstOfKind', 'settledY', 'settleDeltaPx',
   // Rev 2.23.14 (6D.183) — kb-frames, таймінг таббара.
   'blips', 'firstKbFrameT', 'msAfterFocusout',
   // Rev 2.23.15 (6D.184) — перемикання між полями відкритої шторки.
@@ -19441,7 +19443,8 @@ function openAppModal(){
   document.getElementById('app-modal').removeAttribute('inert');
   document.getElementById('modal-backdrop').classList.add('open');
   document.getElementById('app-modal').classList.add('open');
-  focusFirstIn(document.getElementById('app-modal'));
+  // Rev 2.32.11: картки введення «Структури» на iOS (екранна клавіатура) фокусуються через проміжне поле (focusCardField), а не прямим програмним focus() — прямий шлях давав зсув сторінки (pan-corrected 108 пт).
+  if(!(IS_IOS_RUNTIME && kbMode().mode === 'always' && document.getElementById('app-modal').hasAttribute('data-sheet-id'))) focusFirstIn(document.getElementById('app-modal'));
   if(!wasOpen) lockBackgroundScroll();
 }
 function closeAppModal(){
@@ -19560,7 +19563,7 @@ function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountL
     closeAppModal();
   };
   presentAppModal({ input: true, amount: true, sheetId: 'sheet-account' });
-  setTimeout(()=>{ input.focus(); input.select(); }, 60);
+  setTimeout(()=>{ focusCardField(input); }, 60);
 }
 // Rev 2.1.0 — модал видалення картки/ОЧ з вибором місяця "Приховати з...".
 // Дефолт — місяць, який зараз переглядається (selectedMonth); історія до
@@ -19608,7 +19611,7 @@ function showCategoryModal(title, defaultName, defaultType, onSave){
     closeAppModal();
   };
   presentAppModal({ input: true, select: true, sheetId: 'sheet-category' });
-  setTimeout(()=>{ input.focus(); input.select(); }, 60);
+  setTimeout(()=>{ focusCardField(input); }, 60);
 }
 // Rev 2.1.27 — модалка додавання/редагування підкатегорії: назва + категорія
 // (перший select-wrap) + пріоритет економії (другий, окремий select2-wrap) —
@@ -19645,7 +19648,7 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
     closeAppModal();
   };
   presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-subcategory' });
-  setTimeout(()=>{ input.focus(); input.select(); }, 60);
+  setTimeout(()=>{ focusCardField(input); }, 60);
 }
 // Rev 2.1.28 — модалка додавання/редагування слова словника: ключове слово +
 // категорія (перший select) + опціональна підкатегорія (другий select).
@@ -19683,7 +19686,7 @@ function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave){
     closeAppModal();
   };
   presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-dictionary' });
-  setTimeout(()=>{ input.focus(); input.select(); }, 60);
+  setTimeout(()=>{ focusCardField(input); }, 60);
 }
 function openAddDictionaryModal(){
   const activeCats = CATEGORIES.filter(c=>c.active);
@@ -20379,6 +20382,31 @@ function downsampleSheetAnimPairs(samples, maxCount){
 // drawerHeightRest/drawerHeightKb — природна висота ДО підйому (виміряна
 // ОДИН раз при вході, той самий rect, що й computeSheetLift, 0 зайвих
 // читань) і фактична висота НАПРИКІНЦІ переходу.
+// ===== Rev 2.32.11 — «дригання» першого закриття карток «Структури» =====
+// Перше закриття картки (#app-modal) запізнювалось на ~40 мс (створення композитного шару під час руху: inline will-change:'auto' з sampler-а знімав шар одразу після відкриття), і кінцеве
+// положення «докочувалось». Тепер шар готується при відкритті й тримається до ~400 мс ПІСЛЯ закриття (shouldPromoteLayer); положення фіксується діагностикою settledY (settledPosition — очікуване).
+const CARD_LAYER_RELEASE_MS = 400;
+function shouldPromoteLayer(state){
+  const st = state || {};
+  if(!st.isCard) return false;
+  if(st.phase === 'open' || st.phase === 'closing') return true;
+  return st.phase === 'closed' && typeof st.sinceCloseMs === 'number' && st.sinceCloseMs < CARD_LAYER_RELEASE_MS;
+}
+// Очікуване кінцеве положення низу картки: після закриття — спокійне (restBottom), на піднятій — restBottom мінус підйом; однакове при будь-якому закритті.
+function settledPosition(phase, restBottom, lift){
+  const rest = Number(restBottom) || 0, l = Number(lift) || 0;
+  return phase === 'close' ? rest : rest - l;
+}
+// Низ картки в спокої без впливу scale(.96) відкриття (картка центрована): centerY + offsetHeight/2. Лише для .app-modal — для шторок вимір не змінюється.
+function kbRestBottomOf(el){
+  const r = el.getBoundingClientRect();
+  if(el.classList && el.classList.contains('app-modal') && el.offsetHeight){
+    return { bottom: (r.top + r.bottom) / 2 + el.offsetHeight / 2, height: el.offsetHeight };
+  }
+  return { bottom: r.bottom, height: r.height };
+}
+let sheetAnimSeen = {};
+let cardLayerReleaseTimer = null;
 function startSheetAnimSampler(drawerEl, phase, drawerHeightRest, onDone){
   const startedAt = performance.now();
   let lastT = startedAt;
@@ -20396,9 +20424,14 @@ function startSheetAnimSampler(drawerEl, phase, drawerHeightRest, onDone){
     done = true;
     drawerEl.removeEventListener('transitionend', onEnd);
     if(ceilingTimer){ clearTimeout(ceilingTimer); ceilingTimer = null; }
-    drawerEl.style.willChange = 'auto';
-    captureDebugGeometry('sheet-anim', {
+    const isCard = !!(drawerEl.classList && drawerEl.classList.contains('app-modal'));
+    if(!isCard) drawerEl.style.willChange = 'auto'; // Rev 2.32.11: картки «Структури» тримають шар до ~400 мс після закриття (див. exitKbSheet)
+    const seenKey = kbSheetLabel(drawerEl) + ':' + (phase || 'open');
+    const firstOfKind = !sheetAnimSeen[seenKey];
+    sheetAnimSeen[seenKey] = true;
+    const emit = function(extra){ captureDebugGeometry('sheet-anim', Object.assign({
       phase: phase || 'open',
+      firstOfKind: firstOfKind,
       frames: frames,
       maxGapMs: Math.round(maxGapMs),
       jumpMaxPx: Math.round(jumpMaxPx),
@@ -20407,7 +20440,16 @@ function startSheetAnimSampler(drawerEl, phase, drawerHeightRest, onDone){
       samples: downsampleSheetAnimPairs(samples, 30),
       drawerHeightRest: typeof drawerHeightRest === 'number' ? Math.round(drawerHeightRest) : null,
       drawerHeightKb: Math.round(drawerEl.getBoundingClientRect().height),
-    });
+    }, extra || {})); };
+    if(isCard && debugRecordingActive){
+      const lastY = samples.length ? samples[samples.length - 1][1] : null;
+      setTimeout(function(){
+        const y = Math.round(drawerEl.getBoundingClientRect().bottom);
+        emit({ settledY: y, settleDeltaPx: lastY === null ? null : Math.abs(y - lastY) });
+      }, 350);
+    }else{
+      emit();
+    }
     if(typeof onDone === 'function') onDone();
   }
   function onEnd(e){
@@ -20447,7 +20489,17 @@ function startSheetAnimSampler(drawerEl, phase, drawerHeightRest, onDone){
 // полю через focus({preventScroll:true}) — не чекаючи кінця переходу
 // шторки (це й прибирає "підгін" клавіатури); 420мс — стеля
 // (focus-transfer-forced).
-function beginKbFocusProxy(target, drawerEl){
+// Початковий фокус поля картки введення: iOS з екранною клавіатурою — проміжне поле (як для шторок «Обліку»), інакше звичайний focus()+select().
+function focusCardField(input){
+  const modal = document.getElementById('app-modal');
+  const select = function(){ try{ input.select(); }catch(e){} };
+  if(IS_IOS_RUNTIME && kbMode().mode === 'always' && !kbSheetActive && !kbProxyActive && modal && modal.classList.contains('open')){
+    beginKbFocusProxy(input, modal, select);
+  }else{
+    input.focus(); select();
+  }
+}
+function beginKbFocusProxy(target, drawerEl, onTransferred){
   // Rev 2.23.13 (6D.182) — вимірюємо ДО будь-яких змін класів (тут,
   // усередині перехопленого touchend-обробника, ще ДО proxy.focus(), а
   // отже ще ДО того, як focusin додасть body.kb-open) — промт явно вимагав
@@ -20456,7 +20508,7 @@ function beginKbFocusProxy(target, drawerEl){
   // аргумент крізь focus()/focusin-подію, яка несе лише сам елемент) —
   // enterKbSheet() (викликана пізніше, з focusin на проксі) читає й одразу
   // прибирає.
-  const restRect = drawerEl.getBoundingClientRect();
+  const restRect = kbRestBottomOf(drawerEl); // Rev 2.32.11: для карток без впливу scale відкриття
   drawerEl.__kbRestBottomY = restRect.bottom;
   drawerEl.__kbNaturalHeight = restRect.height;
   const proxy = getOrCreateKbProxyEl();
@@ -20482,6 +20534,7 @@ function beginKbFocusProxy(target, drawerEl){
     kbLastInterceptAt = Date.now();
     focusWithoutScrollIfSupported(target, drawerEl.id);
     kbSwitchKind = null;
+    if(typeof onTransferred === 'function') onTransferred(); // Rev 2.32.11: напр. select() для картки після передачі фокусу
     captureDebugGeometry(forced ? 'focus-transfer-forced' : 'focus-transfer', { ms: ms, drawerId: kbSheetLabel(drawerEl), proxyActive: false, sheetBottomAtTransfer: Math.round(drawerEl.getBoundingClientRect().bottom), sheetFinalBottom: Math.round(kbSheetRestBottom - kbSheetCurrentLift) });
   }
   function check(){
@@ -20585,7 +20638,7 @@ function enterKbSheet(drawerEl, fieldEl){
     delete drawerEl.__kbRestBottomY;
     delete drawerEl.__kbNaturalHeight;
   }else{
-    const restRect = drawerEl.getBoundingClientRect();
+    const restRect = kbRestBottomOf(drawerEl);
     restBottom = restRect.bottom;
     naturalHeight = restRect.height;
   }
@@ -20607,6 +20660,10 @@ function enterKbSheet(drawerEl, fieldEl){
   document.documentElement.style.setProperty('--sheet-lift', String(lift));
   document.documentElement.style.setProperty('--sheet-max-h', maxH + 'px');
   if(drawerEl.style.willChange) drawerEl.style.willChange = '';
+  if(shouldPromoteLayer({ isCard: drawerEl.classList && drawerEl.classList.contains('app-modal'), phase: 'open' })){ // Rev 2.32.11: шар готовий ДО першого закриття
+    drawerEl.style.willChange = 'transform';
+    if(cardLayerReleaseTimer){ clearTimeout(cardLayerReleaseTimer); cardLayerReleaseTimer = null; }
+  }
   document.documentElement.classList.remove('kb-sheet-closing');
   document.documentElement.classList.add('kb-sheet');
   captureDebugGeometry('sheet-open', { drawerId: kbSheetLabel(drawerEl) });
@@ -20714,6 +20771,13 @@ function exitKbSheet(removeKbOpen){
     document.documentElement.classList.remove('kb-sheet');
     document.documentElement.classList.remove('kb-sheet-closing');
     document.documentElement.style.setProperty('--kb-h', '0px');
+    if(drawerEl && drawerEl.classList && drawerEl.classList.contains('app-modal')){ // Rev 2.32.11: шар знімається ~400 мс після завершення закриття (не лишається назавжди)
+      if(cardLayerReleaseTimer) clearTimeout(cardLayerReleaseTimer);
+      cardLayerReleaseTimer = setTimeout(function(){
+        cardLayerReleaseTimer = null;
+        if(!kbSheetActive && drawerEl.style) drawerEl.style.willChange = '';
+      }, CARD_LAYER_RELEASE_MS);
+    }
   };
   // Симетричне закриття: --sheet-lift:0 + html.kb-sheet-closing (CSS, 250мс
   // інша крива) ПОКИ html.kb-sheet ще активний — класи знімаємо ЛИШЕ після

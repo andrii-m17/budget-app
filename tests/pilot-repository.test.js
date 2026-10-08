@@ -5360,7 +5360,7 @@ function kbSheetSandbox(opts){
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
     drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
     kbSheetCurrentLift: 0, kbSwitchKind: null, kbLastSwitchAt: 0, kbLastSwitchKind: null, kbSheetRestBottom: 0, kbSheetLiftDirty: false,
-    kbFocusFlowMode: 'direct', kbSheetGen: 0, kbSheetLastLift: 0, kbSheetLastVvTarget: 0, kbLastFocusoutAt: Date.now() - 50, kbSheetNaturalHeight: null,
+    kbFocusFlowMode: 'direct', kbSheetGen: 0, sheetAnimSeen: {}, cardLayerReleaseTimer: null, kbSheetLastLift: 0, kbSheetLastVvTarget: 0, kbLastFocusoutAt: Date.now() - 50, kbSheetNaturalHeight: null,
     captureDebugGeometry: function(type, extra){ debugEvents.push(Object.assign({ type: type }, extra || {})); },
     // Rev 2.23.12 (6D.181) — requestAnimationFrame НЕ викликає fn (на
     // відміну від попереднього синхронного стаба) — startSheetAnimSampler()/
@@ -5383,7 +5383,7 @@ function kbSheetSandbox(opts){
     clearTimeout: function(){},
     performance: { now: function(){ return Date.now(); } },
   }, [
-    'isKeyboardField', 'kbSheetHostOf', 'kbSheetLabel', 'isFieldInsideDrawer', 'keyboardKindForField',
+    'isKeyboardField', 'kbSheetHostOf', 'kbSheetLabel', 'CARD_LAYER_RELEASE_MS', 'shouldPromoteLayer', 'settledPosition', 'kbRestBottomOf', 'isFieldInsideDrawer', 'keyboardKindForField',
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
     'viewportOrientationKey', 'nextBaseViewportHeight', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
