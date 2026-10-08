@@ -17,10 +17,13 @@ test('motionDuration: базові значення, масштабування 
   assert.equal(j(ctx, "motionDuration('s',1,false)"), 200);
   assert.equal(j(ctx, "motionDuration('m',1,false)"), 320);
   assert.equal(j(ctx, "motionDuration('l',1,false)"), 480);
-  assert.equal(j(ctx, "motionDuration('count',1,false)"), 700);
+  assert.equal(j(ctx, "motionDuration('count',1,false)"), 1000); // Rev 2.27.0 (M2.1)
+  assert.equal(j(ctx, "motionDuration('chart',1,false)"), 900);
+  assert.equal(j(ctx, "motionDuration('bars',1,false)"), 700);
+  assert.equal(j(ctx, "motionDuration('card',1,false)"), 420);
   assert.equal(j(ctx, "motionDuration('s',0.6,false)"), 120);
   assert.equal(j(ctx, "motionDuration('s',1.35,false)"), 270);
-  ['micro', 's', 'm', 'l', 'count'].forEach(t => {
+  ['micro', 's', 'm', 'l', 'count', 'chart', 'bars', 'card'].forEach(t => {
     [0.6, 1, 1.35].forEach(k => assert.ok(j(ctx, `motionDuration('${t}',${k},true)`) <= 80, t + ' reduced'));
   });
   assert.equal(j(ctx, "motionDuration('zzz',1,false)"), 0);

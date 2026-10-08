@@ -38,6 +38,7 @@
   try{
     var m = JSON.parse(localStorage.getItem('budget_variants_v1') || '{}');
     if(m && m['button-style'] === 'classic') ui = 'classic';
+    if(m && m['button-style'] === 'glass-vivid') document.documentElement.setAttribute('data-fill', 'vivid'); // Rev 2.27.0 (M3.1)
   }catch(e){}
   document.documentElement.setAttribute('data-ui', ui);
 })();
@@ -132,7 +133,8 @@
        (вигляд не змінюється, M1 — лише рух). */
     --motion-k:1;
     --motion-micro:calc(120ms * var(--motion-k)); --motion-s:calc(200ms * var(--motion-k)); --motion-m:calc(320ms * var(--motion-k));
-    --motion-l:calc(480ms * var(--motion-k)); --motion-count:calc(700ms * var(--motion-k));
+    --motion-l:calc(480ms * var(--motion-k)); --motion-count:calc(1000ms * var(--motion-k));
+    --motion-chart:calc(900ms * var(--motion-k)); --motion-bars:calc(700ms * var(--motion-k)); --motion-card:calc(420ms * var(--motion-k)); /* Rev 2.27.0 (M2.1) */
     --ease-standard:cubic-bezier(.4,0,.2,1); --ease-out:cubic-bezier(.22,1,.36,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
   }
   /* Rev 2.6.0 — темна палітра. Керується атрибутом data-theme на <html>,
@@ -2225,12 +2227,12 @@
     --ui-accent-text:#34D673; --ui-danger-text:#F87171;
   }
   /* Зона натискання ≥44: невидиме розширення ::after (--ui-hit) — розмір і розкладка не змінюються. position:relative через :where (0 специфічності): існуючі absolute/fixed лишаються. */
-  html[data-ui="glass"] :where(.cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
-  html[data-ui="glass"] :is(.cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link)::after,
-  html[data-ui="glass"] .data-status-dot::before{ content:''; position:absolute; inset:calc(-1 * var(--ui-hit, 0px)); }
+  html[data-ui="glass"] :where(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
+  html[data-ui="glass"] :is(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link)::after,
+  html[data-ui="glass"] .data-status-dot::before{ content:''; position:absolute; inset:calc(-1 * var(--ui-hit-y, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit, 0px)); } /* --ui-hit-y — окремо по вертикалі (сегменти: по горизонталі сусіди впритул) */
   html[data-ui="glass"] .gear-btn{ --ui-hit:4px; } html[data-ui="glass"] .drawer-close{ --ui-hit:7px; } html[data-ui="glass"] .journal-back-btn{ --ui-hit:4px; } html[data-ui="glass"] .journal-search-clear{ --ui-hit:11px; } html[data-ui="glass"] .data-status-dot{ --ui-hit:5px; }
-  html[data-ui="glass"] :is(.exp-del, .exp-edit-cat, .diag-issue-ignore){ --ui-hit:8px; } html[data-ui="glass"] .dsp-action{ --ui-hit:7px; } html[data-ui="glass"] .bdr-icon-btn{ --ui-hit:6px; }
-  html[data-ui="glass"] :is(.auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ --ui-hit:14px; } html[data-ui="glass"] .cdd-delete-link{ --ui-hit:9px; } html[data-ui="glass"] .installment-pay-btn{ --ui-hit:3px; }
+  html[data-ui="glass"] :is(.exp-del, .exp-edit-cat, .diag-issue-ignore){ --ui-hit:9px; } html[data-ui="glass"] .dsp-action{ --ui-hit:7px; } html[data-ui="glass"] .bdr-icon-btn{ --ui-hit:6px; }
+  html[data-ui="glass"] :is(.auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ --ui-hit:14px; } html[data-ui="glass"] .cdd-delete-link{ --ui-hit:9px; } html[data-ui="glass"] .t-footer-link{ --ui-hit:7px; } html[data-ui="glass"] .struct-tab-btn{ --ui-hit:0px; --ui-hit-y:6px; } html[data-ui="glass"] :is(.add-trigger-btn, .show-journal-link){ --ui-hit:0px; --ui-hit-y:2px; } /* Rev 2.27.0: знайдено аудитом на «Аналітиці» (31pt) */ html[data-ui="glass"] .installment-pay-btn{ --ui-hit:3px; }
 
   /* --- Вторинні (скло), іконкові, чипи, кнопки "n-days": спільна поверхня --- */
   html[data-ui="glass"] :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .diag-issue-ignore, .installment-pay-btn, .gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close, .trash-chip, .n-days button){
@@ -2256,6 +2258,11 @@
   html[data-ui="glass"] .submit-btn.income{ background:var(--ui-success-strong); }
   html[data-ui="glass"] .submit-btn.debt{ background:var(--ui-warning-strong); }
   html[data-ui="glass"] :is(.submit-btn.expense, .submit-btn.danger){ background:var(--ui-danger-strong); }
+  /* Rev 2.27.0 (M3.1) — "Скло, яскраві заливки": скло як вище, але заливки основних/дохід/борг/витрата — старі яскраві (нижчий контраст білого тексту, свідомий виняток із AA; рахується в ui-audit окремо). */
+  html[data-ui="glass"][data-fill="vivid"] :is(.submit-btn:not(.secondary):not(.danger-outline):not(.income):not(.debt):not(.expense):not(.danger), .rce-save, .dsp-action){ background:var(--color-primary); }
+  html[data-ui="glass"][data-fill="vivid"] .submit-btn.income{ background:var(--color-success); }
+  html[data-ui="glass"][data-fill="vivid"] .submit-btn.debt{ background:var(--color-warning); }
+  html[data-ui="glass"][data-fill="vivid"] :is(.submit-btn.expense, .submit-btn.danger){ background:var(--color-error); }
   /* --- Небезпечні: контур + скляна червона підкладка --- */
   html[data-ui="glass"] .submit-btn.danger-outline{ background:var(--ui-danger-glass); color:var(--ui-danger-text); border:1.5px solid var(--ui-danger); border-radius:var(--ui-r-control); }
   html[data-ui="glass"] .cdd-delete-link{ color:var(--ui-danger-text); }
@@ -2285,7 +2292,7 @@
   /* Rev 2.24.0 (M1) — prefers-reduced-motion: лише швидкі затухання (≤80мс), без зсувів/масштабів/нескінченних відблисків.
      Шторки (.drawer, .drawer-backdrop) НЕ чіпаємо: їхня анімація зав'язана на логіку клавіатури (transitionend, sheet-anim). Спінери (syncSpin/spin) лишаються — це індикатор роботи, не декор. */
   @media (prefers-reduced-motion: reduce){
-    :root{ --motion-micro:60ms; --motion-s:80ms; --motion-m:80ms; --motion-l:80ms; --motion-count:80ms; }
+    :root{ --motion-micro:60ms; --motion-s:80ms; --motion-m:80ms; --motion-l:80ms; --motion-count:80ms; --motion-chart:80ms; --motion-bars:80ms; --motion-card:80ms; }
     *:not(.drawer):not(.drawer-backdrop), *::before, *::after{ transition-duration:80ms !important; }
     nav.tabbar.pressed .tabbar-glass{ transform:translateZ(0); }
     nav.tabbar.pressed .tabbar-bubble{ --bubble-scale:1; }
@@ -3158,7 +3165,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.26.0</div>
+  <div class="version-footer">Money Tree · Rev 2.27.0</div>
 </div>
   </div>
 </div>
@@ -7455,7 +7462,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.26.0';
+const APP_VERSION = '2.27.0';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9792,10 +9799,12 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
   // Rev 2.24.0 (M1) — motion-perf: kind (tab-switch/press), intensity (множник), reduced, holdMs, pressLeak (скільки елементів лишилось у .is-pressed через 300 мс).
   'kind', 'intensity', 'reduced', 'holdMs', 'pressLeak',
+  // Rev 2.27.0 (M2.1) — dashboard-enter: mode (full/replay/update/none), skipped (reduced/hidden/no-change/variant), chartsAnimated/chartsSkipped, pathLenZero (скільки <path> дали getTotalLength()=0), pathLengthAttr (чи підтримується pathLength), cardVariant/replayVariant.
+  'mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr', 'cardVariant', 'replayVariant',
   // Rev 2.25.0 (M2) — dashboard-enter: tab, elements (картки в черзі), counters, charts, repeat (повторний показ у сесії); frames/maxGapMs/durationMs — як вище.
   'tab', 'elements', 'counters', 'charts', 'repeat',
   // Rev 2.26.0 (M3) — ui-audit: кількості кнопок за варіантами, без варіанта, із зоною <44, з контрастом <AA, і перелік ПЕРШИХ КЛАСІВ (не даних).
-  'uiStyle', 'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnLowContrast', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
+  'uiStyle', 'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnSmallExempt', 'btnLowContrast', 'btnLowContrastRow', 'lowContrastRowClasses', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
   'proxyCaretColor', 'proxyDistToField',
@@ -14372,7 +14381,7 @@ function svgSparkline(values, colorVar){
   });
   const path = pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
   const points = pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.25" data-late fill="var(${colorVar})" stroke="var(--color-surface)" stroke-width=".75"/>`).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:100%; display:block;"><path data-draw d="${path}" fill="none" stroke="var(${colorVar})" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>${points}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:100%; display:block;"><path data-draw pathLength="1" d="${path}" fill="none" stroke="var(${colorVar})" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>${points}</svg>`;
 }
 
 // Бейдж банку (Rev 1.6.3) — офіційні SVG-іконки, надані користувачем напряму
@@ -14525,7 +14534,7 @@ function svgLineChart(debtTrend, totalSlots){
   // Rev 2.25.0 (M2) — кожен сегмент між фактичними точками тепер окремий <path data-draw> (раніше — один path з кількома "M"):
   // візуально те саме, але анімація "малювання" ніколи не з'єднує розриви (кожен сегмент малюється окремо).
   let segPaths = '', run = [];
-  const flushRun = function(){ if(run.length>1) segPaths += `<path data-draw d="${run.map((r,j)=>(j===0?'M':'L')+r.x.toFixed(1)+' '+r.y.toFixed(1)).join(' ')}" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`; run = []; };
+  const flushRun = function(){ if(run.length>1) segPaths += `<path data-draw pathLength="1" d="${run.map((r,j)=>(j===0?'M':'L')+r.x.toFixed(1)+' '+r.y.toFixed(1)).join(' ')}" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`; run = []; };
   points.forEach(p=>{
     if(p.actual){ run.push(p); }
     else flushRun();
@@ -14541,19 +14550,26 @@ function svgLineChart(debtTrend, totalSlots){
     ${segPaths}${circles}${labels}</svg>`;
 }
 
-// ===== Rev 2.25.0 (M2) — дашборди «оживають» (docs/DESIGN_SYSTEM.md, ROADMAP 32.43) =====
-// Принцип: renderDashboard() як і раніше малює КІНЦЕВИЙ стан (числа, SVG) синхронно; анімація — окремий шар поверх готового DOM
-// (WAAPI на картках/елементах SVG + rAF-лічильники), який ніколи не змінює дані й не відкладає їх. Чисті функції — для тестів (tests/dashboard-motion.test.js).
+// ===== Rev 2.25.0 (M2) / Rev 2.27.0 (M2.1) — дашборди «оживають» (docs/DESIGN_SYSTEM.md, ROADMAP 32.43, 32.45) =====
+// Принцип: renderDashboard() малює КІНЦЕВИЙ стан (числа, SVG) синхронно; анімація — окремий шар поверх готового DOM, що не змінює дані й не відкладає їх.
+// M2.1: (1) анімація при КОЖНОМУ візиті (режим dashboard-replay), (2) повільніше (токени --motion-chart/-bars/-count/-card), (3) початковий стан виставляється синхронно
+// (ніякого "кадру готового дашборду"), (4) лінії/кільце/стовпчики малює rAF-цикл (inline-стилі), а не WAAPI по SVG-властивостях, (5) вузли SVG не замінюються, якщо data-sig не змінився.
 const DASH_MAX_QUEUE = 8;          // найбільше карток у черзі появи
-const DASH_STAGGER_MS = 40;        // розсинхронізація між елементами (× --motion-k)
+const DASH_STAGGER_MS = 40;        // типова розсинхронізація карток (× --motion-k; варіант card-reveal її задає)
 const DASH_MAX_COUNTERS = 6;
-const DASH_MAX_TOTAL_MS = 900;     // сумарна стеля хореографії; довшу чергу скорочуємо
+const DASH_MAX_TOTAL_MS = 2200;    // стеля хореографії (бюджет піднято під card-reveal «Повільно/Дуже повільно»)
+const DASH_REPLAY_SCALE = 0.7;     // повтор: лічильники/графіки коротші, ніж у першому показі
+const DASH_UPDATE_SCALE = 0.4;     // оновлення змінених даних
 const DASH_COUNTER_IDS = ['kpi-income', 'kpi-expense', 'kpi-savings', 'kpi-debt', 'kpi-mandatory', 'kpi-free'];
-function staggerDelay(i, k, max){
+const DASH_CHART_HOSTS = ['spark-income', 'spark-expense', 'spark-savings', 'spark-debt', 'chart-income-expense', 'chart-debt-line', 'debt-donut'];
+// Варіант card-reveal: тривалість появи однієї картки (d) і розсинхронізація між картками (s), мс при ×1.
+const CARD_REVEAL_TABLE = { fast: { d: 260, s: 25 }, standard: { d: 420, s: 40 }, slow: { d: 650, s: 60 }, veryslow: { d: 900, s: 80 } };
+function staggerDelay(i, k, max, step){
   const n = Math.max(1, Math.floor(max) || 1);
   const idx = Math.min(Math.max(0, Math.floor(i) || 0), n - 1);
   const kk = (typeof k === 'number' && isFinite(k) && k > 0) ? k : 1;
-  return Math.round(idx * DASH_STAGGER_MS * kk);
+  const st = (typeof step === 'number' && isFinite(step) && step >= 0) ? step : DASH_STAGGER_MS;
+  return Math.round(idx * st * kk);
 }
 // Ціле значення лічильника в момент t∈[0,1]: ease-out (cubic), завжди ціле, монотонне від from до to; t>=1 → точно to.
 function countStep(from, to, t){
@@ -14562,188 +14578,298 @@ function countStep(from, to, t){
   const eased = 1 - Math.pow(1 - t, 3);
   return Math.round(from + (to - from) * eased);
 }
-// Стабільний підпис даних графіка (числа округлено до цілих) — повторний рендер із тими самими даними не анімується.
+// Стабільний підпис даних графіка (числа округлено до цілих; рядки — як є, напр. місяці) — повторний рендер із тими самими даними не замінює вузол.
 function chartSignature(data){
   return JSON.stringify(data, function(key, v){ return typeof v === 'number' ? (isFinite(v) ? Math.round(v) : null) : v; });
 }
-// Скільки карток лишити в черзі, щоб остання встигла завершитись у maxTotalMs (див. M2 п.6: скорочуємо чергу, але не відкладаємо дані).
-function dashboardQueueSize(count, k, maxItems, maxTotalMs){
+// Тривалість і розсинхронізація появи картки (× k) за ключем варіанта; невідомий ключ → стандартний.
+function cardRevealTiming(variant, k){
+  const row = Object.prototype.hasOwnProperty.call(CARD_REVEAL_TABLE, variant) ? CARD_REVEAL_TABLE[variant] : CARD_REVEAL_TABLE.standard;
+  const kk = (typeof k === 'number' && isFinite(k) && k > 0) ? k : 1;
+  return { duration: Math.round(row.d * kk), stagger: Math.round(row.s * kk) };
+}
+// Тривалість малювання: 'lines'/'ring' → --motion-chart, 'bars' → --motion-bars (× k); reduced ≤ 80 мс.
+function chartDuration(kind, k, reduced){
+  return motionDuration(kind === 'bars' ? 'bars' : 'chart', k, reduced);
+}
+// cubic-bezier(.22, 1, .36, 1) (крива графіків) — ease(t) для rAF-циклу; ease(0)=0, ease(1)=1, монотонна.
+function bezierEase(t){
+  if(!(t > 0)) return 0;
+  if(!(t < 1)) return 1;
+  const x1 = 0.22, y1 = 1, x2 = 0.36, y2 = 1;
+  const bx = s => 3 * (1 - s) * (1 - s) * s * x1 + 3 * (1 - s) * s * s * x2 + s * s * s;
+  const by = s => 3 * (1 - s) * (1 - s) * s * y1 + 3 * (1 - s) * s * s * y2 + s * s * s;
+  let lo = 0, hi = 1;
+  for(let i = 0; i < 28; i++){ const mid = (lo + hi) / 2; if(bx(mid) < t) lo = mid; else hi = mid; }
+  return by((lo + hi) / 2);
+}
+// Чи треба замінювати вузол графіка: немає попереднього підпису або він змінився. Той самий підпис → вузол лишається (інакше фоновий рендер обриває анімацію).
+function shouldReplaceChart(prevSig, nextSig){
+  return prevSig === undefined || prevSig === null || prevSig !== nextSig;
+}
+// Скільки карток лишити в черзі, щоб остання встигла завершитись у maxTotalMs; timing = cardRevealTiming().
+function dashboardQueueSize(count, timing, maxItems, maxTotalMs){
   let n = Math.max(0, Math.min(count, maxItems));
-  const dur = motionDuration('m', k, false);
-  while(n > 1 && staggerDelay(n - 1, k, n) + dur > maxTotalMs) n--;
+  while(n > 1 && (n - 1) * timing.stagger + timing.duration > maxTotalMs) n--;
   return n;
 }
-// state: { trigger:'first'|'visit'|'month'|'render', hidden, reduced, active (вкладка Аналітика активна), played (вже анімувалась за сесію), sameMonth }
-// → { play, repeat }. Фонові ре-рендери (render), прихована сторінка, неактивна вкладка і reduced-motion не анімуються.
-function shouldAnimateDashboard(state){
-  const no = { play: false, repeat: false };
-  if(!state || state.hidden || state.reduced || !state.active) return no;
-  switch(state.trigger){
-    case 'first': return state.played ? no : { play: true, repeat: false };
-    case 'month': return { play: true, repeat: false };
-    case 'visit': return (state.played && state.sameMonth) ? { play: true, repeat: true } : { play: true, repeat: false };
-    default: return no;
+// Рішення про режим: state = { trigger:'first'|'visit'|'month'|'update'|'render', hidden, reduced, active, played, sameMonth, changed }, variant = dashboard-replay ('always'|'first'|'changes').
+// → { mode:'full'|'replay'|'update'|'none', skipped: null|'reduced'|'hidden'|'no-change'|'variant' }.
+function dashboardReplayMode(state, variant){
+  const s = state || {};
+  const none = reason => ({ mode: 'none', skipped: reason });
+  if(s.trigger === 'render') return none('no-change'); // фоновий рендер (синхронізація/Realtime): статика
+  if(s.reduced) return none('reduced');
+  if(s.hidden || !s.active) return none('hidden');
+  switch(s.trigger){
+    case 'first': return s.played ? none('no-change') : { mode: 'full', skipped: null };
+    case 'month': return { mode: 'full', skipped: null };
+    case 'update': return s.changed ? { mode: 'update', skipped: null } : none('no-change');
+    case 'visit':
+      if(!s.played || !s.sameMonth) return { mode: 'full', skipped: null };
+      if(variant === 'first') return none('variant');
+      if(variant === 'changes') return s.changed ? { mode: 'update', skipped: null } : none('no-change');
+      return { mode: 'replay', skipped: null };
   }
+  return none('no-change');
 }
-const dashState = { played: false, seenMonth: null, seenNums: {}, seenSigs: {}, running: null };
+const dashState = { played: false, seenMonth: null, seenNums: {}, seenSigs: {}, running: null, updatePending: false };
 function setDashFinal(id, n){
   const el = document.getElementById(id);
   if(!el) return;
   if(typeof n === 'number' && isFinite(n)) el.dataset.final = String(Math.round(n)); else delete el.dataset.final;
 }
-function setDashSig(id, data){
+// Замінює вміст графіка ЛИШЕ коли змінився підпис даних (або вузла ще нема). Зміна під час анімації: спершу finish() поточної → оновлення DOM → коротка анімація оновлення.
+function setDashChart(id, data, build){
   const el = document.getElementById(id);
-  if(el) el.dataset.sig = chartSignature(data);
+  if(!el) return;
+  const sig = chartSignature(data);
+  if(!shouldReplaceChart(el.dataset.sig, sig) && el.firstElementChild) return;
+  if(dashState.running){ dashState.updatePending = true; finishDashboard(); }
+  el.innerHTML = build();
+  el.dataset.sig = sig;
+}
+function clearDashChart(id, html){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(dashState.running){ dashState.updatePending = true; finishDashboard(); }
+  el.innerHTML = html;
+  delete el.dataset.sig;
 }
 function dashSnapshotFromDom(){
   const nums = {}, sigs = {};
   DASH_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el && el.dataset.final !== undefined) nums[id] = Number(el.dataset.final); });
-  document.querySelectorAll('#analytics-body [data-sig]').forEach(function(el){ sigs[el.id] = el.dataset.sig; });
+  DASH_CHART_HOSTS.forEach(function(id){ const el = document.getElementById(id); if(el && el.dataset.sig !== undefined) sigs[id] = el.dataset.sig; });
   return { nums: nums, sigs: sigs };
 }
 function dashMarkSeen(month){
   const snap = dashSnapshotFromDom();
   dashState.seenNums = snap.nums; dashState.seenSigs = snap.sigs; dashState.seenMonth = month;
 }
+function dashChanged(){
+  const snap = dashSnapshotFromDom();
+  return JSON.stringify(snap.nums) !== JSON.stringify(dashState.seenNums) || JSON.stringify(snap.sigs) !== JSON.stringify(dashState.seenSigs);
+}
 function dashIsActive(){
   const v = document.getElementById('view-analytics');
   const body = document.getElementById('analytics-body');
   return lastActiveTab === 'analytics' && !!v && !v.classList.contains('hidden') && !!body && !body.classList.contains('hidden');
 }
-// Викликається наприкінці кожного renderDashboard(): визначає, чи це перший показ / зміна місяця (анімуємо), чи фоновий ре-рендер (статика).
+function dashVariant(id, fallback){
+  try{ return getVariant(id) || fallback; }catch(e){ return fallback; }
+}
+function dashStartupReady(){ return document.visibilityState === 'visible' && document.readyState === 'complete'; }
+function recordDashSkip(reason, trigger){
+  recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', mode: 'none', skipped: reason, elements: 0, counters: 0, charts: 0, chartsAnimated: 0, chartsSkipped: 0, frames: 0, maxGapMs: 0, durationMs: 0,
+    reduced: motionReduced(), repeat: dashState.played, cardVariant: dashVariant('card-reveal', 'standard'), replayVariant: dashVariant('dashboard-replay', 'always') });
+}
+// Єдина точка рішення: рахує режим і (синхронно, ДО малювання кадру) стартує анімацію або фіксує причину пропуску. "Перший показ" витрачається ЛИШЕ коли анімація реально стартувала.
+function dashRun(trigger, month, active){
+  const d = dashboardReplayMode({ trigger: trigger, active: active, hidden: !dashStartupReady(), reduced: motionReduced(), played: dashState.played,
+    sameMonth: dashState.seenMonth === month, changed: dashChanged() }, dashVariant('dashboard-replay', 'always'));
+  if(d.mode === 'none'){
+    if(trigger !== 'render') recordDashSkip(d.skipped, trigger);
+    if(active && !dashState.running && d.skipped !== 'hidden') dashMarkSeen(month); // користувач бачить цей стан → наступне порівняння від нього
+    return;
+  }
+  playDashboard(d.mode, trigger, month);
+}
+// Наприкінці кожного renderDashboard(): перший показ / зміна місяця / оновлення змінених даних — анімуємо; решта фонових рендерів — статика.
 function dashAfterRender(month){
   const active = dashIsActive();
   let trigger = 'render';
-  if(active && !dashState.running){
+  if(dashState.updatePending){ trigger = 'update'; dashState.updatePending = false; }
+  else if(active && !dashState.running){
     if(!dashState.played) trigger = 'first';
     else if(dashState.seenMonth !== null && dashState.seenMonth !== month) trigger = 'month';
   }
-  const decision = shouldAnimateDashboard({ trigger: trigger, hidden: document.visibilityState !== 'visible', reduced: motionReduced(), active: active, played: dashState.played, sameMonth: dashState.seenMonth === month });
-  if(!decision.play){
-    if(active && !dashState.running) dashMarkSeen(month); // користувач бачить цей стан → наступна поява рахується від нього
-    return;
-  }
-  requestAnimationFrame(function(){ playDashboard(decision.repeat, trigger, month); });
+  dashRun(trigger, month, active);
 }
-// Перехід на вкладку «Аналітика» (performSwitchTab): перший показ — повна хореографія, повторний — коротка (лише змінені числа/графіки).
+// Перехід на вкладку «Аналітика» (performSwitchTab, синхронно після показу вкладки): повна/коротка анімація залежно від варіанта dashboard-replay.
 function onDashboardVisit(){
-  const month = selectedMonth;
-  const decision = shouldAnimateDashboard({ trigger: 'visit', hidden: document.visibilityState !== 'visible', reduced: motionReduced(), active: dashIsActive(), played: dashState.played, sameMonth: dashState.seenMonth === month });
-  if(!decision.play){ if(dashIsActive()) dashMarkSeen(month); return; }
-  requestAnimationFrame(function(){ playDashboard(decision.repeat, 'visit', month); });
+  dashRun('visit', selectedMonth, dashIsActive());
 }
+// Перший показ при старті не втрачається: якщо сторінка була невидима/ще вантажилась — стартуємо, коли стала видимою й завантаженою.
+function dashKick(){
+  if(!selectedMonth || dashState.played || dashState.running || !dashIsActive()) return;
+  requestAnimationFrame(function(){ if(!dashState.played && !dashState.running && dashIsActive()) dashRun('first', selectedMonth, true); });
+}
+window.addEventListener('load', dashKick);
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') dashKick(); });
 function finishDashboard(){
   const r = dashState.running;
   if(r){ dashState.running = null; r.stop(false); }
 }
-function playDashboard(repeat, trigger, month){
+function pathLengthSupported(){
+  return typeof SVGGeometryElement !== 'undefined' && 'pathLength' in SVGGeometryElement.prototype;
+}
+function playDashboard(mode, trigger, month){
   finishDashboard();
-  if(document.visibilityState !== 'visible' || !dashIsActive()) return;
+  if(!dashStartupReady() || !dashIsActive()) return;
   const body = document.getElementById('analytics-body');
   const k = motionK;
-  const dM = motionDuration('m', k, false), dL = motionDuration('l', k, false), dS = motionDuration('s', k, false), dC = motionDuration('count', k, false);
+  const scale = mode === 'full' ? 1 : (mode === 'replay' ? DASH_REPLAY_SCALE : DASH_UPDATE_SCALE);
+  const cardV = dashVariant('card-reveal', 'standard'), replayV = dashVariant('dashboard-replay', 'always');
+  const timing = cardRevealTiming(cardV, k);
   const seenNums = dashState.seenNums, seenSigs = dashState.seenSigs;
-  const anims = [];
+  const cardAnims = [];
   const counters = [];
-  let endAt = 0, cardsN = 0, chartsN = 0;
-  function track(a, delay, dur){ anims.push(a); if(delay + dur > endAt) endAt = delay + dur; }
+  const items = []; // { kind:'line'|'ring'|'bar'|'late', el, delay, dur, ... } — малює rAF-цикл inline-стилями
+  let endAt = 0, cardsN = 0, chartsAnimated = 0, chartsSkipped = 0, pathLenZero = 0;
+  const diag = debugRecordingActive;
+  const plSupported = pathLengthSupported();
+  function track(delay, dur){ if(delay + dur > endAt) endAt = delay + dur; }
 
-  // 1. Картки (лише повна хореографія): ≤8 елементів, що зараз у видимій області, у порядку DOM.
-  let queue = [];
-  if(!repeat){
-    const vh = window.innerHeight;
-    const all = Array.from(body.querySelectorAll('.kpi-card, .card')).filter(function(el){ return !el.parentElement.closest('.kpi-card, .card'); });
-    queue = all.filter(function(el){ const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < vh; });
-    queue = queue.slice(0, dashboardQueueSize(queue.length, k, DASH_MAX_QUEUE, DASH_MAX_TOTAL_MS));
-  }
+  // 1. Картки (full/replay): ≤8 елементів, що зараз у видимій області, у порядку DOM; тривалість і крок — варіант card-reveal.
   const delayOf = new Map();
-  queue.forEach(function(el, i){
-    const delay = staggerDelay(i, k, queue.length);
-    delayOf.set(el, delay);
-    track(el.animate([
-      { opacity: 0, transform: 'translateY(' + (12 * k) + 'px) scale(.985)' },
-      { opacity: 1, transform: 'translateY(0px) scale(1)' }
-    ], { duration: dM, delay: delay, easing: MOTION_EASE_OUT, fill: 'backwards' }), delay, dM);
-    cardsN++;
-  });
-  function cardDelay(el){
-    if(repeat) return 0;
+  if(mode !== 'update'){
+    const vh = window.innerHeight;
+    let queue = Array.from(body.querySelectorAll('.kpi-card, .card')).filter(function(el){ return !el.parentElement.closest('.kpi-card, .card'); })
+      .filter(function(el){ const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < vh; });
+    queue = queue.slice(0, dashboardQueueSize(queue.length, timing, DASH_MAX_QUEUE, DASH_MAX_TOTAL_MS));
+    queue.forEach(function(el, i){
+      const delay = Math.min(i, queue.length - 1) * timing.stagger;
+      delayOf.set(el, delay);
+      cardAnims.push(el.animate([
+        { opacity: 0, transform: 'translateY(' + (12 * k) + 'px) scale(.985)' },
+        { opacity: 1, transform: 'translateY(0px) scale(1)' }
+      ], { duration: timing.duration, delay: delay, easing: MOTION_EASE_OUT, fill: 'backwards' }));
+      track(delay, timing.duration);
+      cardsN++;
+    });
+  }
+  function hostDelay(el){
+    if(mode === 'update') return 0;
     const host = el.closest('.kpi-card, .card');
-    return host && delayOf.has(host) ? delayOf.get(host) : null; // null → елемент поза чергою: показується статично
+    return host && delayOf.has(host) ? delayOf.get(host) : null; // null → поза чергою: статично
   }
 
-  // 2. Лічильники (≤6): від 0 (перший показ) або від значення, яке користувач бачив раніше; змінені лише при повторі.
+  // 2. Лічильники (≤6): full — від 0 (або від баченого при зміні місяця), replay — від 0, update — лише змінені від баченого.
   DASH_COUNTER_IDS.forEach(function(id){
     if(counters.length >= DASH_MAX_COUNTERS) return;
     const el = document.getElementById(id);
     if(!el || el.dataset.final === undefined) return;
-    const delay = cardDelay(el);
+    const delay = hostDelay(el);
     if(delay === null) return;
     const to = Number(el.dataset.final);
-    const from = repeat ? (typeof seenNums[id] === 'number' ? seenNums[id] : to) : (trigger === 'month' && typeof seenNums[id] === 'number' ? seenNums[id] : 0);
+    let from = 0;
+    if(mode === 'update' || (mode === 'full' && trigger === 'month')) from = typeof seenNums[id] === 'number' ? seenNums[id] : (mode === 'update' ? to : 0);
     if(from === to) return;
-    const dur = repeat ? dS : Math.max(dS, Math.min(dC, DASH_MAX_TOTAL_MS - delay));
+    const dur = Math.max(120, Math.min(Math.round(motionDuration('count', k, false) * scale), DASH_MAX_TOTAL_MS - delay));
     counters.push({ el: el, from: from, delay: delay, dur: dur });
-    if(delay + dur > endAt) endAt = delay + dur;
-    el.textContent = fmt(from); // перший кадр — стартове значення (картка ще прозора), без спалаху кінцевого
+    track(delay, dur);
+    el.textContent = fmt(from); // стартове значення — синхронно, до малювання кадру (без спалаху кінцевого)
   });
 
-  // 3. Графіки: лінії малюються, стовпчики ростуть, кільце розгортається; точки/підписи — наприкінці. Лише змінені (repeat) або всі (повна поява).
-  const chartHosts = ['spark-income', 'spark-expense', 'spark-savings', 'spark-debt', 'chart-income-expense', 'chart-debt-line', 'debt-donut'];
-  chartHosts.forEach(function(id){
+  // 3. Графіки: лінії/кільце — dashoffset, стовпчики — scaleY, точки й підписи — opacity наприкінці. Усе — rAF-цикл з inline-стилями (без WAAPI по SVG-властивостях).
+  DASH_CHART_HOSTS.forEach(function(id){
     const host = document.getElementById(id);
     if(!host || host.dataset.sig === undefined) return;
-    if(repeat && seenSigs[id] === host.dataset.sig) return;
-    const base = cardDelay(host);
-    if(base === null) return;
-    // Повтор: усе вкладається в ~--motion-s (лінії/стовпчики dS, підписи — друга половина). Повна поява: лінія стискається, щоб разом із підписами лишитись у DASH_MAX_TOTAL_MS.
-    const lateDur = repeat ? Math.round(dS * 0.5) : Math.round(dM * 0.6);
-    const lineDur = repeat ? dS : Math.min(dL, Math.max(dS, Math.round((DASH_MAX_TOTAL_MS - base - lateDur) / 0.85)));
-    const lateDelay = base + (repeat ? Math.round(dS * 0.5) : Math.round(lineDur * 0.85));
+    if(mode === 'update' && seenSigs[id] === host.dataset.sig){ chartsSkipped++; return; }
+    const base = hostDelay(host);
+    if(base === null){ chartsSkipped++; return; }
+    const lineDur0 = Math.round(chartDuration('lines', k, false) * scale), barDur0 = Math.round(chartDuration('bars', k, false) * scale);
+    const lineDur = Math.max(160, Math.min(lineDur0, Math.round((DASH_MAX_TOTAL_MS - base) / 1.3)));
+    const barDur = Math.max(160, Math.min(barDur0, DASH_MAX_TOTAL_MS - base - 330));
+    const lateDelay = base + Math.round(lineDur * 0.85), lateDur = Math.max(120, Math.round(lineDur * 0.3));
     let any = false;
     host.querySelectorAll('[data-draw]').forEach(function(path){
-      const L = path.getTotalLength ? path.getTotalLength() : 0; // один раз на сегмент, до старту анімації
-      if(!(L > 0)) return;
-      track(path.animate([
-        { opacity: 0, strokeDasharray: L + ' ' + L, strokeDashoffset: L },
-        { strokeDasharray: L + ' ' + L, strokeDashoffset: 0 }
-      ], { duration: lineDur, delay: base, easing: MOTION_EASE_OUT, fill: 'backwards' }), base, lineDur);
-      any = true;
+      const L = (path.getTotalLength ? path.getTotalLength() : 0);
+      if(diag && !(L > 0)) pathLenZero++;
+      const dash = plSupported ? 1 : L;
+      if(!(dash > 0)){ return; }
+      const op = parseFloat(path.getAttribute('opacity'));
+      items.push({ kind: 'line', el: path, delay: base, dur: lineDur, len: dash, op: isNaN(op) ? 1 : op });
+      track(base, lineDur); any = true;
     });
     host.querySelectorAll('.dash-bar').forEach(function(bar, i){
-      const d = base + Math.round(Math.min(i, 11) * 25 * k * (repeat ? 0 : 1));
-      track(bar.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: repeat ? dS : dM, delay: d, easing: MOTION_EASE_OUT, fill: 'backwards' }), d, repeat ? dS : dM);
-      any = true;
+      const d = base + staggerDelay(i, k, 12, 30) * (mode === 'update' ? 0 : 1);
+      items.push({ kind: 'bar', el: bar, delay: d, dur: barDur });
+      track(d, barDur); any = true;
     });
     host.querySelectorAll('[data-ring]').forEach(function(ring){
       const arc = parseFloat((ring.getAttribute('stroke-dasharray') || '').split(/[ ,]+/)[0]) || 0;
       if(!(arc > 0)) return;
-      track(ring.animate([{ opacity: 0, strokeDashoffset: arc }, { strokeDashoffset: 0 }], { duration: lineDur, delay: base, easing: MOTION_EASE_OUT, fill: 'backwards' }), base, lineDur);
-      any = true;
+      items.push({ kind: 'ring', el: ring, delay: base, dur: lineDur, len: arc, op: 1 });
+      track(base, lineDur); any = true;
     });
     if(any){
       host.querySelectorAll('[data-late]').forEach(function(late){
-        track(late.animate([{ opacity: 0 }, { opacity: 1 }], { duration: lateDur, delay: lateDelay, easing: 'linear', fill: 'backwards' }), lateDelay, lateDur);
+        items.push({ kind: 'late', el: late, delay: lateDelay, dur: lateDur });
+        track(lateDelay, lateDur);
       });
-      chartsN++;
-    }
+      chartsAnimated++;
+    }else chartsSkipped++;
   });
 
-  if(!anims.length && !counters.length){ dashState.played = true; dashMarkSeen(month); return; }
+  if(!cardAnims.length && !counters.length && !items.length){
+    dashState.played = true; dashMarkSeen(month);
+    recordDashSkip('no-change', trigger);
+    return;
+  }
 
-  // 4. Один rAF-цикл: лічильники + лічильник кадрів (без читань розмітки). Завершення — точні кінцеві значення.
+  // 4. Малювання кадру: синхронно (t=0) — початковий стан до першого кадру; далі rAF. Жодних читань розмітки в циклі.
+  function paint(ms){
+    for(let i = 0; i < items.length; i++){
+      const it = items[i];
+      const p = Math.min(1, Math.max(0, (ms - it.delay) / it.dur));
+      const st = it.el.style;
+      if(it.kind === 'line' || it.kind === 'ring'){
+        const e = bezierEase(p);
+        if(it.kind === 'line') st.strokeDasharray = plSupported ? '1' : String(it.len);
+        st.strokeDashoffset = String(it.len * (1 - e));
+        st.opacity = String(it.op * Math.min(1, p * 10));
+      }else if(it.kind === 'bar'){
+        st.transform = 'scaleY(' + bezierEase(p) + ')';
+      }else{
+        st.opacity = String(p);
+      }
+    }
+    for(let i = 0; i < counters.length; i++){
+      const c = counters[i];
+      if(!c.el.isConnected || c.el.dataset.final === undefined) continue;
+      const t = (ms - c.delay) / c.dur;
+      if(t >= 0) c.el.textContent = fmt(countStep(c.from, Number(c.el.dataset.final), t));
+    }
+  }
+  paint(0);
   const startedAt = performance.now();
   let frames = 0, maxGap = 0, lastT = startedAt, ended = false;
-  function setFinal(c){ if(c.el.isConnected && c.el.dataset.final !== undefined) c.el.textContent = fmt(Number(c.el.dataset.final)); }
   function stop(completed){
     if(ended) return;
     ended = true;
-    anims.forEach(function(a){ try{ a.cancel(); }catch(e){} });
-    counters.forEach(setFinal);
+    cardAnims.forEach(function(a){ try{ a.cancel(); }catch(e){} });
+    items.forEach(function(it){
+      const st = it.el.style;
+      st.removeProperty('stroke-dasharray'); st.removeProperty('stroke-dashoffset'); st.removeProperty('opacity'); st.removeProperty('transform');
+    });
+    counters.forEach(function(c){ if(c.el.isConnected && c.el.dataset.final !== undefined) c.el.textContent = fmt(Number(c.el.dataset.final)); });
     dashState.played = true;
     dashMarkSeen(month);
     if(completed){
-      recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', elements: cardsN, counters: counters.length, charts: chartsN, frames: frames, maxGapMs: Math.round(maxGap), durationMs: Math.round(performance.now() - startedAt), reduced: false, repeat: !!repeat });
+      recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', mode: mode, skipped: null, elements: cardsN, counters: counters.length, charts: chartsAnimated, chartsAnimated: chartsAnimated, chartsSkipped: chartsSkipped,
+        pathLenZero: pathLenZero, pathLengthAttr: plSupported, cardVariant: cardV, replayVariant: replayV,
+        frames: frames, maxGapMs: Math.round(maxGap), durationMs: Math.round(performance.now() - startedAt), reduced: false, repeat: mode !== 'full' });
     }
   }
   dashState.running = { stop: stop };
@@ -14754,12 +14880,7 @@ function playDashboard(repeat, trigger, month){
     const gap = now - lastT; if(gap > maxGap) maxGap = gap;
     lastT = now;
     const el = now - startedAt;
-    for(let i = 0; i < counters.length; i++){
-      const c = counters[i];
-      if(!c.el.isConnected || c.el.dataset.final === undefined) continue;
-      const t = (el - c.delay) / c.dur;
-      if(t >= 0) c.el.textContent = fmt(countStep(c.from, Number(c.el.dataset.final), t));
-    }
+    paint(el);
     if(el >= endAt + 20){ if(dashState.running && dashState.running.stop === stop) dashState.running = null; stop(true); return; }
     requestAnimationFrame(tick);
   }
@@ -14802,12 +14923,11 @@ function renderDashboard(){
   document.getElementById('kpi-debt').textContent = hasDebtData ? fmt(debtNow.total) : '—';
   setDashFinal('kpi-debt', hasDebtData ? debtNow.total : null);
 
-  document.getElementById('spark-income').innerHTML = svgSparkline(trendData.map(t=>t.totalIncome), '--color-success');
-  setDashSig('spark-income', trendData.map(t=>t.totalIncome)); setDashSig('spark-expense', trendData.map(t=>t.totalExpense)); setDashSig('spark-savings', trendData.map(t=>t.savings));
-  document.getElementById('spark-expense').innerHTML = svgSparkline(trendData.map(t=>t.totalExpense), '--color-error');
-  document.getElementById('spark-savings').innerHTML = svgSparkline(trendData.map(t=>t.savings), '--color-info');
-  document.getElementById('spark-debt').innerHTML = svgSparkline(months6.map(m=>debtTotalsForMonth(m).total), '--color-warning');
-  setDashSig('spark-debt', months6.map(m=>debtTotalsForMonth(m).total));
+  // Rev 2.27.0 (M2.1) — вузол графіка замінюється лише коли змінився підпис даних (фоновий рендер не обриває анімацію й не мерехтить).
+  setDashChart('spark-income', trendData.map(t=>t.totalIncome), ()=>svgSparkline(trendData.map(t=>t.totalIncome), '--color-success'));
+  setDashChart('spark-expense', trendData.map(t=>t.totalExpense), ()=>svgSparkline(trendData.map(t=>t.totalExpense), '--color-error'));
+  setDashChart('spark-savings', trendData.map(t=>t.savings), ()=>svgSparkline(trendData.map(t=>t.savings), '--color-info'));
+  { const debtSpark = months6.map(m=>debtTotalsForMonth(m).total); setDashChart('spark-debt', debtSpark, ()=>svgSparkline(debtSpark, '--color-warning')); }
   const incHasData = monthInc.length > 0;
   const expHasData = monthExp.length > 0;
   setKpiTrend('trend-income', 'income', totalIncome, prev.totalIncome, month, incHasData);
@@ -14834,22 +14954,19 @@ function renderDashboard(){
   renderDataStatusDot('kpi-debt-asof', debtUiStatusNow, month);
 
   renderDebtDonut(hasDebtData, debtStart.total, debtNow.total, paidSinceStart, debtUiStatusNow, month);
-  setDashSig('debt-donut', [hasDebtData ? 1 : 0, debtStart.total, paidSinceStart]);
 
   /* --- Ряд 2: графіки --- */
   // Дані завжди починаються зліва: беремо тільки ту частину 6-місячного вікна,
   // яка йде від найпершого місяця з реальними записами (а не завжди останні 6).
   const earliestActivity = earliestActivityMonth();
   const availableTrendData = earliestActivity ? trendData.filter(t => t.m >= earliestActivity) : trendData;
-  document.getElementById('chart-income-expense').innerHTML = svgBarChart(availableTrendData, 6);
-  setDashSig('chart-income-expense', availableTrendData.map(t=>[t.totalIncome, t.totalExpense]));
+  setDashChart('chart-income-expense', availableTrendData.map(t=>[t.m, t.totalIncome, t.totalExpense]), ()=>svgBarChart(availableTrendData, 6));
   if(hasDebtData){
     const debtTrend = months6.map(m => ({ m, total: debtTotalsForMonth(m).total, actual: kindHasActualForMonth('card', m) }));
     const availableDebtTrend = startMonth ? debtTrend.filter(t => t.m >= startMonth) : debtTrend;
-    document.getElementById('chart-debt-line').innerHTML = svgLineChart(availableDebtTrend, 6);
-    setDashSig('chart-debt-line', availableDebtTrend.map(t=>[t.total, t.actual ? 1 : 0]));
+    setDashChart('chart-debt-line', availableDebtTrend.map(t=>[t.m, t.total, t.actual ? 1 : 0]), ()=>svgLineChart(availableDebtTrend, 6));
   }else{
-    document.getElementById('chart-debt-line').innerHTML = `<div class="empty-hint">Ще немає даних. Додай борги на вкладці «Облік» або імпортуй з Excel у «Сервіс».</div>`;
+    clearDashChart('chart-debt-line', `<div class="empty-hint">Ще немає даних. Додай борги на вкладці «Облік» або імпортуй з Excel у «Сервіс».</div>`);
   }
 
   /* --- Витрати за категоріями (з рядком "Інші категорії") ---
@@ -15215,9 +15332,16 @@ function renderDebtDonut(hasDebtData, startTotal, currTotal, change, debtStatus,
   const r = 45, cx = 54, cy = 54, circumference = 2 * Math.PI * r;
   const ringWidth = 8; // BugFix/ревізія: було 14 — за проханням зробили кільце тоншим
 
+  // Rev 2.27.0 (M2.1) — вузол кільця замінюється лише при зміні підпису даних (див. setDashChart).
+  function setDonutSvg(sig, html){
+    if(!shouldReplaceChart(svg.dataset.sig, sig) && svg.firstElementChild) return;
+    if(dashState.running){ dashState.updatePending = true; finishDashboard(); }
+    svg.innerHTML = html;
+    svg.dataset.sig = sig;
+  }
   if(!hasDebtData || startTotal <= 0){
-    svg.innerHTML = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--color-border)" stroke-width="${ringWidth}"/>
-      <text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="20" font-weight="700" fill="var(--color-text-primary)" font-family="Inter">—</text>`;
+    setDonutSvg(chartSignature(['none']), `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--color-border)" stroke-width="${ringWidth}"/>
+      <text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="20" font-weight="700" fill="var(--color-text-primary)" font-family="Inter">—</text>`);
     titleEl.textContent = 'Скорочення боргу';
     statusLabelEl.textContent = 'Погашено';
     amountEl.textContent = '—'; amountEl.style.color = '';
@@ -15241,12 +15365,12 @@ function renderDebtDonut(hasDebtData, startTotal, currTotal, change, debtStatus,
   // завжди статичного "Скорочення боргу").
   titleEl.textContent = isPositive ? 'Скорочення боргу' : 'Збільшення боргу';
 
-  svg.innerHTML = `
+  setDonutSvg(chartSignature([startTotal, change, ringColor]), `
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--color-border)" stroke-width="${ringWidth}"/>
     <circle data-ring cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ringColor}" stroke-width="${ringWidth}"
       stroke-dasharray="${arcLen} ${circumference}" stroke-dashoffset="0" stroke-linecap="round"
       transform="rotate(-90 ${cx} ${cy})"/>
-    <text data-late x="${cx}" y="${cy+8}" text-anchor="middle" font-size="24" font-weight="700" fill="var(--color-text-primary)" font-family="Inter">${pctText}</text>`;
+    <text data-late x="${cx}" y="${cy+8}" text-anchor="middle" font-size="24" font-weight="700" fill="var(--color-text-primary)" font-family="Inter">${pctText}</text>`);
 
   statusLabelEl.textContent = isPositive ? 'Погашено' : 'Заборговано';
   amountEl.textContent = (isPositive ? '' : '-') + fmt(Math.abs(change));
@@ -15478,7 +15602,8 @@ function switchTab(tab, opts){
 // ===== Rev 2.24.0 (M1) — фундамент руху (docs/DESIGN_SYSTEM.md, ROADMAP 32.41) =====
 // Чисті функції (витягуються тестами tests/motion.test.js): motionDuration, tabDirection, shouldReleasePress, motionIntensityK.
 // MOTION_BASE_MS — JS-дзеркало CSS-токенів --motion-micro/s/m/l/count (:root). k — множник інтенсивності (тест "motion-intensity").
-const MOTION_BASE_MS = { micro: 120, s: 200, m: 320, l: 480, count: 700 };
+// Rev 2.27.0 (M2.1): count 700→1000; нові chart (лінії/кільце), bars (стовпчики), card (поява картки) — повільніші графіки; токени переходу вкладок і натискань (micro/s/m/l) не змінено.
+const MOTION_BASE_MS = { micro: 120, s: 200, m: 320, l: 480, count: 1000, chart: 900, bars: 700, card: 420 };
 const MOTION_REDUCED_MAX_MS = 80;
 const TAB_ORDER = ['analytics', 'accounting', 'vytraty', 'structure', 'service'];
 const MOTION_INTENSITY_K = { calm: 0.6, standard: 1, bold: 1.35 };
@@ -15732,6 +15857,7 @@ function contrastRatio(fg, bg){
 }
 const UI_AUDIT_MIN_TARGET = 44;
 const UI_AUDIT_AA = 4.5;
+const UI_AUDIT_SMALL_EXEMPT = ['bdr-icon-btn'];
 // Фон елемента: шари фону вгору по предках композитяться, доки не зустрінеться непрозорий.
 function effectiveBackgroundColor(el){
   const layers = [];
@@ -15749,8 +15875,8 @@ function effectiveBackgroundColor(el){
 }
 // ui-audit: лише кількості й перелік КЛАСІВ (без даних користувача).
 function runUiAudit(){
-  const byVariant = {}; let total = 0, noVariant = 0, small = 0, lowContrast = 0;
-  const noVariantCls = {}, smallCls = {}, lowCls = {};
+  const byVariant = {}; let total = 0, noVariant = 0, small = 0, lowContrast = 0, smallExempt = 0, lowRow = 0;
+  const noVariantCls = {}, smallCls = {}, lowCls = {}, lowRowCls = {};
   document.querySelectorAll('button').forEach(function(b){
     // Усі кнопки в DOM (також у прихованих вкладках/шторках) — варіант і контраст рахуються зі стилів; розмір зони натискання — лише для відрендерених.
     const r = b.getBoundingClientRect();
@@ -15761,14 +15887,22 @@ function runUiAudit(){
     const key = (cn.split(/\s+/)[0] || b.tagName.toLowerCase());
     if(!v){ noVariant++; noVariantCls[key] = 1; }
     else byVariant[v] = (byVariant[v] || 0) + 1;
-    const hit = parseFloat(getComputedStyle(b).getPropertyValue('--ui-hit')) || 0;
-    if(rendered && v !== 'row' && v !== 'reference' && !meetsMinTarget(r.width + 2 * hit, r.height + 2 * hit, UI_AUDIT_MIN_TARGET)){ small++; smallCls[key] = 1; }
+    const cs = getComputedStyle(b);
+    const hit = parseFloat(cs.getPropertyValue('--ui-hit')) || 0;
+    const hy = cs.getPropertyValue('--ui-hit-y').trim() === '' ? hit : (parseFloat(cs.getPropertyValue('--ui-hit-y')) || 0);
+    if(rendered && v !== 'row' && v !== 'reference' && !meetsMinTarget(r.width + 2 * hit, r.height + 2 * hy, UI_AUDIT_MIN_TARGET)){
+      // Задокументований виняток: щільні ряди іконок-кнопок (сусіди впритул) — розширення до 44 перекривало б сусідні кнопки.
+      if(UI_AUDIT_SMALL_EXEMPT.indexOf(key) !== -1){ smallExempt++; } else { small++; smallCls[key] = 1; }
+    }
     if(b.textContent.trim() && v !== 'reference'){
-      const fg = parseCssColor(getComputedStyle(b).color), bg = effectiveBackgroundColor(b);
-      if(fg && bg && contrastRatio(fg, bg) < UI_AUDIT_AA){ lowContrast++; lowCls[key] = 1; }
+      const fg = parseCssColor(cs.color), bg = effectiveBackgroundColor(b);
+      if(fg && bg && contrastRatio(fg, bg) < UI_AUDIT_AA){
+        if(v === 'row'){ lowRow++; lowRowCls[key] = 1; } // рядки/дії свайпу — M4
+        else { lowContrast++; lowCls[key] = 1; }
+      }
     }
   });
-  return { uiStyle: document.documentElement.getAttribute('data-ui') || 'glass', btnTotal: total, byVariant: byVariant, btnNoVariant: noVariant, btnSmall: small, btnLowContrast: lowContrast,
+  return { uiStyle: (document.documentElement.getAttribute('data-ui') || 'glass') + (document.documentElement.getAttribute('data-fill') === 'vivid' ? '-vivid' : ''), btnTotal: total, byVariant: byVariant, btnNoVariant: noVariant, btnSmall: small, btnSmallExempt: smallExempt, btnLowContrast: lowContrast, btnLowContrastRow: lowRow, lowContrastRowClasses: Object.keys(lowRowCls).slice(0, 20),
     noVariantClasses: Object.keys(noVariantCls).slice(0, 20), smallClasses: Object.keys(smallCls).slice(0, 20), lowContrastClasses: Object.keys(lowCls).slice(0, 20) };
 }
 function recordUiAudit(){
@@ -15776,9 +15910,11 @@ function recordUiAudit(){
   try{ pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'ui-audit' }, runUiAudit())); }catch(e){}
 }
 function applyButtonStyle(){
-  let key = 'glass';
-  try{ key = getVariant('button-style') === 'classic' ? 'classic' : 'glass'; }catch(e){}
-  document.documentElement.setAttribute('data-ui', key);
+  let v = 'glass';
+  try{ v = getVariant('button-style') || 'glass'; }catch(e){}
+  // Rev 2.27.0 (M3.1): 'glass-vivid' = скло + старі яскраві заливки (data-fill="vivid"), нижчий контраст — свідомий виняток із AA.
+  document.documentElement.setAttribute('data-ui', v === 'classic' ? 'classic' : 'glass');
+  if(v === 'glass-vivid') document.documentElement.setAttribute('data-fill', 'vivid'); else document.documentElement.removeAttribute('data-fill');
   document.querySelectorAll(SEGMENT_SELECTOR).forEach(function(c){ layoutSegment(c, true); });
 }
 // Усі ефекти тестових варіантів (інтенсивність руху, стиль кнопок) — одним викликом при старті/виборі/скиданні.
@@ -16448,6 +16584,45 @@ const TEST_VARIANTS = [
       'Для заміру: «Записати лог із цим варіантом», 10 перемикань вкладок, зупинити запис (подія motion-perf).',
     ],
   },
+  // Rev 2.27.0 (M2.1) — повтор анімації дашборду: щоразу / лише перший раз / лише при змінах (як у M2).
+  {
+    id: 'dashboard-replay',
+    title: 'Повтор анімації дашборду',
+    what: 'Чи перемальовується «Аналітика» (картки, лічильники, графіки) при кожному поверненні на вкладку.',
+    variants: [
+      { key: 'always', label: 'Щоразу', hint: 'Кожен візит на «Аналітику» — легке перемальовування' },
+      { key: 'first', label: 'Лише перший раз', hint: 'Перший показ за сесію і зміна місяця' },
+      { key: 'changes', label: 'Лише при змінах', hint: 'Повторно анімуються тільки змінені числа й графіки (як у Rev 2.25.0)' },
+    ],
+    defaultVariant: 'always',
+    addedIn: 'Rev 2.27.0 (M2.1)',
+    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний режим і видалить тест)',
+    checkSteps: [
+      'Відкрийте «Аналітику», перейдіть на іншу вкладку й поверніться кілька разів: чи бачите перемальовування (у «Щоразу» — так).',
+      'Змініть місяць у шапці: має бути повна поява.',
+      'Для заміру: «Записати лог із цим варіантом», кілька візитів (подія dashboard-enter: mode full/replay/update).',
+    ],
+  },
+  // Rev 2.27.0 (M2.1) — поява карток «Аналітики»: тривалість однієї картки і розсинхронізація між картками (базові значення × --motion-k).
+  {
+    id: 'card-reveal',
+    title: 'Поява карток',
+    what: 'Швидкість і ритм появи карток дашборду «Аналітики» (лічильники й графіки не змінюються).',
+    variants: [
+      { key: 'fast', label: 'Швидко', hint: '260 мс, крок 25 мс' },
+      { key: 'standard', label: 'Стандартно', hint: '420 мс, крок 40 мс' },
+      { key: 'slow', label: 'Повільно', hint: '650 мс, крок 60 мс' },
+      { key: 'veryslow', label: 'Дуже повільно', hint: '900 мс, крок 80 мс' },
+    ],
+    defaultVariant: 'standard',
+    addedIn: 'Rev 2.27.0 (M2.1)',
+    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний ритм і видалить тест)',
+    checkSteps: [
+      'Відкрийте «Аналітику»: оцініть ритм появи карток; перейдіть на іншу вкладку й поверніться.',
+      'Змініть місяць, порівняйте всі чотири варіанти (при «Повільно» і «Дуже повільно» черга довша, ліміт 8 карток).',
+      'Для заміру: «Записати лог із цим варіантом» (поле cardVariant у dashboard-enter).',
+    ],
+  },
   // Rev 2.26.0 (M3) — стиль кнопок: "Скло" (кнопки у стилі таббару) або "Класичний" (вигляд до M3). Реалізація: атрибут data-ui на <html>.
   {
     id: 'button-style',
@@ -16455,6 +16630,7 @@ const TEST_VARIANTS = [
     what: 'Єдиний вигляд кнопок у стилі таббару (скло без розмиття, радіуси зі шкали, ковзний індикатор у сегментах) проти попереднього вигляду.',
     variants: [
       { key: 'glass', label: 'Скло', hint: 'Нові кнопки у стилі таббару' },
+      { key: 'glass-vivid', label: 'Скло, яскраві заливки', hint: 'Яскраві кольори, нижчий контраст' },
       { key: 'classic', label: 'Класичний', hint: 'Вигляд до Rev 2.26.0' },
     ],
     defaultVariant: 'glass',
