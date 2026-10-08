@@ -626,6 +626,8 @@
      там, де це найбільше потрібно. */
   .name-suggest-list{ display:none; position:absolute; left:0; right:0; top:100%; margin-top:4px; background:var(--color-surface); border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:12; max-height:230px; overflow-y:auto; }
   .name-suggest-list.show{ display:block; }
+  /* Rev 2.32.3 (E2): у редагуванні запису список нижчий і прокручується всередині власного max-height, щоб не перекривати «Зберегти»/«Скасувати» */
+  .name-suggest-list.edit-suggest-list{ max-height:150px; overscroll-behavior:contain; }
   .name-suggest-item{ padding:10px 12px; font-size:14px; color:var(--color-text-primary); cursor:pointer; border-bottom:1px solid var(--color-border); display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .name-suggest-item:last-child{ border-bottom:none; }
   /* Rev 2.21.16 — розділено з .name-suggest-item.active: :hover-частину
@@ -3212,7 +3214,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.2</div>
+  <div class="version-footer">Money Tree · Rev 2.32.3</div>
 </div>
   </div>
 </div>
@@ -7490,7 +7492,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.2';
+const APP_VERSION = '2.32.3';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13011,20 +13013,31 @@ function handleSuggestionTouchEnd(e, i){
 // найскладніший (і єдиний з JS-логікою) з 3 прийомів не був потрібен.
 // Поріг у 2 символи — на 1 символі кандидатів зазвичай забагато й підказка
 // стає шумом, а не допомогою.
+// Rev 2.32.3 (E2): правила підказок винесено в ЧИСТУ функцію, спільну для форми «Нова витрата» і редагування запису (без змін логіки):
+// джерело — nameHistoryMap (назви раніше введених витрат), поріг 2 символи, збіг за підрядком без урахування регістру (точний збіг виключено),
+// ранжування: частіші вище, тай-брейк — новіша остання дата, не більше NAME_SUGGEST_MAX.
+const NAME_SUGGEST_MIN = 2;
+const NAME_SUGGEST_MAX = 6;
+function nameSuggestionsFor(historyMap, text){
+  const q = (text||'').trim().toLowerCase();
+  if(q.length < NAME_SUGGEST_MIN) return [];
+  const map = historyMap || {};
+  return Object.keys(map)
+    .filter(function(n){ const low = n.toLowerCase(); return low !== q && low.includes(q); })
+    .sort(function(a,b){
+      const ha = map[a], hb = map[b];
+      if(hb.count !== ha.count) return hb.count - ha.count; // спершу найчастіші
+      return (hb.lastDate||'').localeCompare(ha.lastDate||''); // тай-брейк — новіші
+    })
+    .slice(0, NAME_SUGGEST_MAX);
+}
 function updateNameSuggestions(text){
   const listEl = document.getElementById('name-suggest-list');
   if(!listEl) return;
   const q = (text||'').trim().toLowerCase();
   activeNameSuggestIdx = -1;
   if(q.length < 2){ nameSuggestions = []; listEl.classList.remove('show'); listEl.innerHTML=''; return; }
-  const matches = Object.keys(nameHistoryMap)
-    .filter(function(n){ const low = n.toLowerCase(); return low !== q && low.includes(q); })
-    .sort(function(a,b){
-      const ha = nameHistoryMap[a], hb = nameHistoryMap[b];
-      if(hb.count !== ha.count) return hb.count - ha.count; // спершу найчастіші
-      return (hb.lastDate||'').localeCompare(ha.lastDate||''); // тай-брейк — новіші
-    })
-    .slice(0,6);
+  const matches = nameSuggestionsFor(nameHistoryMap, text);
   nameSuggestions = matches;
   if(!matches.length){ listEl.classList.remove('show'); listEl.innerHTML=''; return; }
   listEl.innerHTML = matches.map(function(n,i){
@@ -13385,6 +13398,90 @@ function onRecordNameInput(id){
     hint.classList.remove('show'); // збігу нема: категорію/підкатегорію НЕ чіпаємо, ховаємо лише застарілу підказку
   }
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'autocat-edit', matched: !!match, applied: decision.apply, skipped: decision.skipped });
+  updateEditNameSuggestions(id); // Rev 2.32.3 (E2): підказки назви (при введенні)
+}
+// ===== Rev 2.32.3 (E2) — підказки назви в редагуванні запису (спільні правила: nameSuggestionsFor / nameHistoryMap / shouldAutoFillOnEdit) =====
+// Список під полем «Назва» з'являється при ВВЕДЕННІ (не на фокусі). Вибір через pointer-події з preventDefault (і mousedown.preventDefault): поле не втрачає фокус, клавіатура лишається;
+// мишею — на pointerdown, дотиком — на pointerup без зсуву (скрол списку дає pointercancel і вибору не робить). Фокус не переходить на «Суму» (на відміну від нової витрати).
+let editNameSuggestions = [];
+let editSuggestShownFor = null;
+let editSuggestSuppress = false;
+let lastEditPickAt = 0;
+let editSuggestPointer = null;
+function editSuggestEvent(event, count){
+  if(!debugRecordingActive) return;
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'suggest-edit', event: event, count: count });
+}
+function updateEditNameSuggestions(id){
+  if(editSuggestSuppress) return;
+  const input = document.getElementById('edtfielda1-'+id);
+  const listEl = document.getElementById('edtlista1-'+id);
+  if(!input || !listEl) return;
+  const matches = nameSuggestionsFor(nameHistoryMap, input.value);
+  editNameSuggestions = matches;
+  if(!matches.length){ hideEditNameSuggestions(id); return; }
+  listEl.innerHTML = matches.map(function(n, i){
+    const h = nameHistoryMap[n];
+    const meta = h && h.lastCategory ? stripLeadingEmoji(h.lastCategory) : '';
+    return `<div class="name-suggest-item" data-idx="${i}" onmousedown="event.preventDefault()" onpointerdown="onEditSuggestPointerDown(event, ${i}, '${id}')" onpointerup="onEditSuggestPointerUp(event, ${i}, '${id}')" onpointercancel="editSuggestPointer = null">
+      <span class="nsi-name">${escapeHtml(n)}</span>
+      ${meta ? `<span class="nsi-meta">${escapeHtml(meta)}</span>` : ''}
+    </div>`;
+  }).join('');
+  listEl.classList.add('show');
+  if(editSuggestShownFor !== id){ editSuggestShownFor = id; editSuggestEvent('shown', matches.length); }
+}
+function hideEditNameSuggestions(id){
+  const listEl = document.getElementById('edtlista1-'+id);
+  if(listEl){ listEl.classList.remove('show'); listEl.innerHTML = ''; }
+  if(editSuggestShownFor === id) editSuggestShownFor = null;
+}
+function onEditNameKeydown(e, id){
+  if(e.key === 'Escape') hideEditNameSuggestions(id);
+}
+function onEditSuggestPointerDown(e, i, id){
+  e.preventDefault();
+  if(e.pointerType === 'mouse'){ pickEditNameSuggestion(id, i); return; }
+  editSuggestPointer = { x: e.clientX, y: e.clientY, i: i };
+}
+function onEditSuggestPointerUp(e, i, id){
+  const st = editSuggestPointer;
+  editSuggestPointer = null;
+  if(!st || st.i !== i || e.pointerType === 'mouse') return;
+  if(Math.abs(e.clientX - st.x) > 10 || Math.abs(e.clientY - st.y) > 10) return; // це скрол/протяжка, а не тап
+  e.preventDefault();
+  pickEditNameSuggestion(id, i);
+}
+// Історія САМЕ цієї назви має пріоритет над словником, але не перезаписує ручний вибір у цій сесії редагування (ті самі правила, що shouldAutoFillOnEdit; категорія має існувати в списку).
+function applyHistoryCategoryOnEdit(id, name){
+  const h = nameHistoryMap[name];
+  const catSel = document.getElementById('edit-cat-'+id);
+  const subSel = document.getElementById('edit-sub-'+id);
+  if(!h || !h.lastCategory || !catSel || !subSel) return;
+  if(!Array.prototype.some.call(catSel.options, function(o){ return o.value === h.lastCategory; })) return;
+  const d = shouldAutoFillOnEdit({ matched: { cat: h.lastCategory, sub: h.lastSubcategory || '' }, currentCat: catSel.value, currentSub: subSel.value, touchedByUser: recordEditSession.touched });
+  if(!d.apply) return;
+  catSel.value = h.lastCategory;
+  subSel.innerHTML = subcategoryOptionsHtml(h.lastCategory, h.lastSubcategory || '');
+  const hint = document.getElementById('edthinta1-'+id);
+  const hintText = document.getElementById('edthintb1-'+id);
+  if(hint && hintText){ hintText.textContent = h.lastCategory + (h.lastSubcategory ? ' → ' + h.lastSubcategory : ''); hint.classList.add('show'); }
+}
+function pickEditNameSuggestion(id, i){
+  const now = Date.now();
+  if(now - lastEditPickAt < 400) return;
+  const name = editNameSuggestions[i];
+  const input = document.getElementById('edtfielda1-'+id);
+  if(name == null || !input) return;
+  lastEditPickAt = now;
+  input.value = name;
+  editSuggestSuppress = true;
+  try{ onRecordNameInput(id); }finally{ editSuggestSuppress = false; } // словник → категорія/підкатегорія (2.31.2)
+  applyHistoryCategoryOnEdit(id, name);
+  hideEditNameSuggestions(id);
+  if(document.activeElement !== input){ try{ input.focus({ preventScroll: true }); }catch(err){ input.focus(); } }
+  try{ input.setSelectionRange(name.length, name.length); }catch(err){}
+  editSuggestEvent('picked', editNameSuggestions.length);
 }
 // «Змінити» під підказкою: прокручує до списку категорії й підсвічує його (поля в редагуванні й так видимі).
 function focusRecordCategory(id){
@@ -14055,7 +14152,12 @@ function buildRecordGroupsHtml(items){
         : '';
       const editPanelHtml = isEditing ? `
         <div class="record-edit-panel" onclick="event.stopPropagation()">
-          <div class="field"><label for="edtfielda1-${e.id}">Назва</label><input type="text" id="edtfielda1-${e.id}" value="${escapeAttr(e.name)}" oninput="onRecordNameInput('${e.id}')"></div>
+          <div class="field"><label for="edtfielda1-${e.id}">Назва</label>
+            <div style="position:relative;">
+              <input type="text" id="edtfielda1-${e.id}" value="${escapeAttr(e.name)}" oninput="onRecordNameInput('${e.id}')" onblur="setTimeout(function(){ hideEditNameSuggestions('${e.id}'); }, 150)" onkeydown="onEditNameKeydown(event, '${e.id}')">
+              <!-- Rev 2.32.3 (E2): підказки назви в редагуванні (ті самі правила, що й у «Новій витраті»); id абстрактний (edtlista1), без заборонених підрядків -->
+              <div class="name-suggest-list edit-suggest-list" id="edtlista1-${e.id}"></div>
+            </div></div>
           <div class="record-edit-row">
             <div class="field"><label for="edit-amount-${e.id}">Сума, ₴</label><input type="text" id="edit-amount-${e.id}" value="${formatThousands(e.amount)}" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
             <div class="field"><label for="edit-date-${e.id}">Дата</label><input type="date" id="edit-date-${e.id}" value="${e.date}"></div>
