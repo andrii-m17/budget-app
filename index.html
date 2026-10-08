@@ -1023,6 +1023,8 @@
      для рядків банків/ОЧ (bank-debt-row), лише в меншому масштабі. */
   /* Rev 2.1.16 — панель редагування розширена: тепер і назва/сума/дата, не
      лише категорія (перейменовано з .record-cat-edit). */
+  /* Rev 2.32.5 (E1b): коротка підсвітка картки при поверненні до редагування — лише контур (без зміни розмірів), ~600 мс */
+  .expense-row-swipe.edit-return-flash{ outline:2px solid var(--color-primary); outline-offset:-2px; transition:outline-color .3s; }
   .record-edit-panel{ margin-top:12px; padding-top:12px; border-top:1px dashed var(--color-border-strong); display:flex; flex-direction:column; gap:10px; cursor:default; }
   .record-edit-panel .field{ margin-bottom:0; }
   .record-edit-panel select{ width:100%; height:40px; padding:8px 10px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
@@ -3214,7 +3216,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.4</div>
+  <div class="version-footer">Money Tree · Rev 2.32.5</div>
 </div>
   </div>
 </div>
@@ -7510,7 +7512,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.4';
+const APP_VERSION = '2.32.5';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9848,6 +9850,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'event', 'reason', 'dirty',
   // Rev 2.32.4 (T2) — account-purge: kind (bank/installment/month-record), debts (скільки місячних записів), unlinkedExpenses (скільки витрат втратили прив’язку); без назв і сум.
   'debts', 'unlinkedExpenses',
+  // Rev 2.32.5 (E1b) — edit-session event=restored: scrolled (чи довелось прокручувати картку редагування у видиму область).
+  'scrolled',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
   // Rev 2.24.0 (M1) — motion-perf: kind (tab-switch/press), reduced, holdMs, pressLeak (скільки елементів лишилось у .is-pressed через 300 мс).
   'kind', 'reduced', 'holdMs', 'pressLeak',
@@ -13270,6 +13274,7 @@ function editFieldsChanged(a, b){
 }
 let editSnapshot = null; // { key, fields }
 let editGuardGen = -1;   // appModalGeneration діалогу підтвердження (поки він відкритий)
+let editLastFieldId = null; // Rev 2.32.5 (E1b)
 let editGuardShield = false; // true лише до кінця поточного click після «Скасувати зміни»: document-click не має закрити щойно відкрите наступне редагування
 function editKeyId(key){ return key ? key.substring(key.indexOf(':') + 1) : ''; }
 function readEditFields(id){
@@ -13344,13 +13349,47 @@ function showEditCancelConfirm(trigger, cont, opts){
   appModalPurgeStyled = true;
   presentAppModal();
   editGuardGen = appModalGeneration;
-  const field = document.getElementById('edtfielda1-' + id);
+  const field = document.getElementById(editLastFieldId || '') || document.getElementById('edtfielda1-' + id);
   if(field) lastFocusedBeforeDialog = field;
   recordEditSessionEvent('blocked', trigger, true);
+}
+// ===== Rev 2.32.5 (E1b) — повернення до картки редагування після «Продовжити редагування» =====
+// Фокус повертає restoreFocus() (lastFocusedBeforeDialog = активне поле редагування, preventScroll), але картка могла лишитись поза екраном.
+// editCardScrollTarget(rect, viewport) → на скільки px прокрутити контейнер: 0, якщо картка вже цілком видима (не зсуваємо); інакше — по центру видимої області (над клавіатурою: viewport = visualViewport);
+// картка вищою за видиму область — вирівнюємо верх із відступом 8px.
+function editCardScrollTarget(rect, viewport){
+  if(!rect || !viewport || !(viewport.height > 0)) return 0;
+  const top = viewport.top || 0, bottom = top + viewport.height;
+  if(rect.top >= top && rect.bottom <= bottom) return 0;
+  const h = rect.bottom - rect.top;
+  if(h > viewport.height) return Math.round(rect.top - top - 8);
+  return Math.round((rect.top + h / 2) - (top + viewport.height / 2));
+}
+function returnToEditCard(){
+  const id = editKeyId(editingRecordKey);
+  const field = document.getElementById(editLastFieldId || '') || (id ? document.getElementById('edtfielda1-' + id) : null);
+  if(!editingRecordKey || !field) return;
+  const card = field.closest('.expense-row-swipe') || field.closest('.record-edit-panel');
+  if(!card) return;
+  if(document.activeElement !== field){ try{ field.focus({ preventScroll: true }); }catch(err){ field.focus(); } }
+  const vv = window.visualViewport;
+  const viewport = vv ? { top: vv.offsetTop, height: vv.height } : { top: 0, height: window.innerHeight };
+  const delta = editCardScrollTarget(card.getBoundingClientRect(), viewport);
+  const mainCol = document.getElementById('main-col');
+  let scrolled = false;
+  if(delta && mainCol){
+    scrolled = true;
+    mainCol.scrollTo({ top: mainCol.scrollTop + delta, behavior: motionReduced() ? 'auto' : 'smooth' });
+  }
+  card.classList.add('edit-return-flash');
+  setTimeout(function(){ card.classList.remove('edit-return-flash'); }, 600);
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'edit-session', event: 'restored', reason: 'continue', dirty: true, scrolled: scrolled });
 }
 // Початок введення нової витрати: фокус у полі форми «Нова витрата» (.vytraty-form-col) закриває редагування запису.
 function onEditGuardFocusIn(e){
   const t = e.target;
+  if(t && t.closest && t.closest('.record-edit-panel') && t.id) editLastFieldId = t.id; // Rev 2.32.5 (E1b): яке поле редагування було активне
+  
   if(!editingRecordKey || !t || !t.closest || !t.closest('.vytraty-form-col')) return;
   if(editGuardPending()) return;
   requestCloseEdit('new-expense-focus', function(){
@@ -19242,7 +19281,9 @@ function closeAppModal(){
     const confirmBtn = document.getElementById('app-modal-confirm-btn');
     if(confirmBtn) confirmBtn.style.display = '';
   }, 200);
+  const editGuardDismissed = wasOpen && editGuardGen === appModalGeneration; // Rev 2.32.5 (E1b): діалог редагування закрито НЕ кнопкою «Скасувати зміни» (та скидає editGuardGen)
   restoreFocus();
+  if(editGuardDismissed){ editGuardGen = -1; editGuardShield = true; setTimeout(function(){ editGuardShield = false; }, 0); setTimeout(returnToEditCard, 60); } // shield: цей самий click (кнопка/фон) не має закрити редагування в document-click
 }
 // Rev #29 — спільний presentation-boilerplate для 8 content-функцій
 // #app-modal (усі show*Modal + showDiagnosticsModal), витягнутий за

@@ -73,3 +73,30 @@ test('document-click «тап поза карткою» не закриває р
   assert.match(code, /closest\('#app-modal, #modal-backdrop'\)/);
   assert.match(SRC, /editGuardShield = true;\s*setTimeout\(function\(\)\{ editGuardShield = false; \}, 0\);/);
 });
+
+// ---------- Rev 2.32.5 (E1b) ----------
+const ctxB = ex.buildSandbox({}, ['editCardScrollTarget']);
+const T = (r, v) => JSON.parse(ex.evalInSandbox(ctxB, `JSON.stringify(editCardScrollTarget(${JSON.stringify(r)},${JSON.stringify(v)}))`));
+test('E1b editCardScrollTarget: видима картка не зсувається; поза екраном — по центру видимої області; висока — верх із відступом', () => {
+  const vp = { top: 0, height: 400 };
+  assert.equal(T({ top: 50, bottom: 300 }, vp), 0);
+  assert.equal(T({ top: 500, bottom: 700 }, vp), 400);   // центр 600 → 200
+  assert.equal(T({ top: -300, bottom: -100 }, vp), -400);
+  assert.equal(T({ top: 380, bottom: 450 }, vp), 215); // частково видима → центрується: 415-200
+  assert.equal(T({ top: 100, bottom: 700 }, vp), 92);    // вища за вікно → верх + 8
+  assert.equal(T({ top: 500, bottom: 600 }, { top: 100, height: 300 }), 300); // visualViewport.offsetTop
+  assert.equal(T(null, vp), 0);
+  assert.equal(T({ top: 1, bottom: 2 }, { top: 0, height: 0 }), 0);
+});
+test('E1b: закриття діалогу не кнопкою «Скасувати зміни» повертає до картки (фокус, прокрутка, підсвітка), reduced-motion — миттєво; подія restored', () => {
+  assert.match(SRC, /editGuardDismissed = wasOpen && editGuardGen === appModalGeneration/);
+  const i = SRC.indexOf('function returnToEditCard'), code = SRC.slice(i, SRC.indexOf('// Початок введення нової витрати', i));
+  assert.match(code, /motionReduced\(\) \? 'auto' : 'smooth'/);
+  assert.match(code, /visualViewport/);
+  assert.match(code, /edit-return-flash/);
+  assert.match(code, /event: 'restored'[\s\S]*scrolled: scrolled/);
+  assert.match(code, /focus\(\{ preventScroll: true \}\)/);
+  assert.match(SRC, /\.expense-row-swipe\.edit-return-flash\{ outline:2px solid/);
+  assert.ok(!/edit-return-flash\{[^}]*(width|height|padding|margin)/.test(SRC));
+  assert.match(SRC, /editLastFieldId = t\.id/);
+});
