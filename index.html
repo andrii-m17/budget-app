@@ -2330,6 +2330,11 @@
   #debug-record-indicator button{ border:none; background:var(--color-surface-hover); color:var(--color-text-primary); border-radius:999px; padding:4px 10px; font-size:11.5px; font-family:inherit; cursor:pointer; }
   .debug-record-dot{ width:8px; height:8px; border-radius:50%; background:var(--color-error); flex:0 0 auto; }
 
+  /* Rev 2.31.3 (B) — крапка «дані неповні» в рядку картки/ОЧ (7px, --color-warning — як .data-status-dot) і лічильник на сегментах «Борги»/«ОЧ» */
+  .cdr-dot{ position:relative; display:inline-flex; width:7px; height:7px; margin-left:7px; border-radius:50%; background:var(--color-warning); vertical-align:middle; flex-shrink:0; }
+  .cdr-dot::before{ content:''; position:absolute; inset:-14px; } /* невидима зона натискання ≈35pt; увесь рядок і так клікабельний */
+  .seg-badge{ display:inline-block; min-width:16px; height:16px; margin-left:6px; padding:0 4px; border-radius:999px; background:var(--ui-warning-strong); color:#fff; font-size:10px; font-weight:700; line-height:16px; text-align:center; vertical-align:middle; box-sizing:border-box; }
+  .seg-badge.hidden{ display:none; }
   /* Rev 2.24.0 (M1) — prefers-reduced-motion: лише швидкі затухання (≤80мс), без зсувів/масштабів/нескінченних відблисків.
      Шторки (.drawer, .drawer-backdrop) НЕ чіпаємо: їхня анімація зав'язана на логіку клавіатури (transitionend, sheet-anim). Спінери (syncSpin/spin) лишаються — це індикатор роботи, не декор. */
   @media (prefers-reduced-motion: reduce){
@@ -2645,8 +2650,8 @@
            save*) НЕ змінені — лише перегруповані під вкладки для навігації. -->
       <div class="struct-tabs" role="tablist">
         <button type="button" class="struct-tab-btn active" id="acct-tab-btn-data" onclick="switchAccountingTab('data', { animate: true })">Доходи</button>
-        <button type="button" class="struct-tab-btn" id="acct-tab-btn-debts" onclick="switchAccountingTab('debts', { animate: true })">Борги</button>
-        <button type="button" class="struct-tab-btn" id="acct-tab-btn-installments" onclick="switchAccountingTab('installments', { animate: true })">ОЧ</button>
+        <button type="button" class="struct-tab-btn" id="acct-tab-btn-debts" onclick="switchAccountingTab('debts', { animate: true })">Борги<span class="seg-badge hidden" id="seg-badge-debts" aria-hidden="true"></span></button>
+        <button type="button" class="struct-tab-btn" id="acct-tab-btn-installments" onclick="switchAccountingTab('installments', { animate: true })">ОЧ<span class="seg-badge hidden" id="seg-badge-installments" aria-hidden="true"></span></button>
       </div>
 
       <!-- Rev 2.17.0 — Доходи в тому ж форматі, що Борги/ОЧ: підсумкова
@@ -3193,7 +3198,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.31.2</div>
+  <div class="version-footer">Money Tree · Rev 2.31.3</div>
 </div>
   </div>
 </div>
@@ -7471,7 +7476,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.31.2';
+const APP_VERSION = '2.31.3';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9827,6 +9832,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'dx',
   // Rev 2.31.2 (A) — autocat-edit: matched, applied (булеві), skipped (no-match/user-changed/same) — без назв і сум.
   'matched', 'applied',
+  // Rev 2.31.3 (B) — incomplete-dots: cards, installments (кількості неповних), reasonCounts ({причина: кількість}); без назв і сум.
+  'cards', 'installments', 'reasonCounts',
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
   'proxyCaretColor', 'proxyDistToField',
@@ -11097,7 +11104,7 @@ function populateInstallmentTable(){
     return `<button type="button" class="card-debt-compact-row" id="installment-row-${i}" onclick="openInstallmentEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати">
       <span class="cdr-avatar">${bankIcon(name, 38, true)}${paidBadge}</span>
       <span class="cdr-main">
-        <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}</span>
+        <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}${incompleteDotHtml('installment', i, installmentIncompleteReasons(acc))}</span>
         <span class="cdr-sub">Оплата частинами${dueSub}</span>
       </span>
       <span class="cdr-amounts">
@@ -11541,7 +11548,7 @@ function populateBankDebtTable(){
     return `<button type="button" class="card-debt-compact-row" id="bank-debt-row-${i}" onclick="openCardDebtEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати">
       <span class="cdr-avatar">${bankIcon(name, 38, true)}${paidBadge}</span>
       <span class="cdr-main">
-        <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}</span>
+        <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}${incompleteDotHtml('card', i, cardIncompleteReasons(acc))}</span>
         <span class="cdr-sub">Кредитна картка</span>
       </span>
       <span class="cdr-amounts">
@@ -12822,6 +12829,7 @@ function renderAll(){
   safeCall(populateIncomeTable, 'populateIncomeTable');
   safeCall(populateBankDebtTable, 'populateBankDebtTable');
   safeCall(populateInstallmentTable, 'populateInstallmentTable');
+  safeCall(updateIncompleteBadges, 'updateIncompleteBadges'); // Rev 2.31.3 (B)
   safeCall(acctAfterRender, 'acctAfterRender'); // Rev 2.29.0 (A): поява «Обліку» (лише перший показ/зміна місяця; фонові рендери статичні)
   safeCall(updateTodayExpenseBadge, 'updateTodayExpenseBadge');
   safeCall(updateTrashBadge, 'updateTrashBadge'); // Rev 2.23.23 (6D.192): бейдж "Видалені дані" в Сервісі
@@ -15301,7 +15309,7 @@ function acctAfterRender(){
   }
   acctRun(trigger, selectedMonth, active);
 }
-function onAccountVisit(){ acctFinishSegFade(); acctInstallGuards(); acctRun('visit', selectedMonth, acctIsActive()); }
+function onAccountVisit(){ acctFinishSegFade(); acctInstallGuards(); acctRun('visit', selectedMonth, acctIsActive()); recordIncompleteDots(); }
 function finishAccount(){ const r = acctState.running; if(r){ acctState.running = null; r.stop(false); } }
 function acctClearDeferred(){
   const d = acctState.deferred;
@@ -16538,6 +16546,87 @@ function runUiAudit(){
 function recordUiAudit(){
   if(!debugRecordingActive) return;
   try{ pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'ui-audit' }, runUiAudit())); }catch(e){}
+}
+// ===== Rev 2.31.3 (B) — крапки «дані заповнені неповністю» для карток боргів і ОЧ в «Обліку» =====
+// Доповнюють наявні крапки-статуси KPI (#21/#23, «немає місячних записів карток» — лише дашборд «Аналітики»): тут причина інша й по-картково (ліміт, мін. платіж, день платежу, початкова сума, платіж).
+// Той самий колір (--color-warning) і той самий розмір крапки (7px), що й .data-status-dot; натискання відкриває діалог із переліком і кнопкою «Заповнити».
+const INCOMPLETE_LABELS = { limit: 'Немає кредитного ліміту', balance: 'Немає даних про борг за цей місяць', minPayment: 'Немає мінімального платежу', dueDay: 'Немає дня платежу', initialAmount: 'Немає початкової суми', payment: 'Немає платежу за цей місяць' };
+const INCOMPLETE_FIELDS = { limit: 'cdd-limit', balance: 'cdd-balance', minPayment: 'cdd-minpay', dueDay: 'idd-due-day', initialAmount: 'idd-initial', payment: 'idd-pay' };
+// entity: картка {creditLimit} або ОЧ {initialAmount, dueDay}; monthRecord: { balance, minPayment, monthlyPayment } (для ОЧ — вже «розв'язаний» факт/оцінка місяця) або null; hidden: прихована для місяця → без крапки.
+// Картка: немає ліміту (>0) / немає балансу за місяць / баланс>0 без мін. платежу (дату платежу не вимагаємо — поля немає). ОЧ: немає дня платежу / початкової суми (>0) / платежу за місяць при ненульовому залишку.
+function incompleteReasons(entity, monthRecord, month, hidden){
+  if(hidden || !entity) return [];
+  const rec = monthRecord || null;
+  const out = [];
+  const isCard = Object.prototype.hasOwnProperty.call(entity, 'creditLimit');
+  if(isCard){
+    if(!(Number(entity.creditLimit) > 0)) out.push('limit');
+    if(!rec || rec.balance == null) out.push('balance');
+    else if(Number(rec.balance) > 0 && rec.minPayment == null) out.push('minPayment');
+  }else{
+    if(!entity.dueDay) out.push('dueDay');
+    if(!(Number(entity.initialAmount) > 0)) out.push('initialAmount');
+    if(rec && Number(rec.balance) > 0 && (rec.monthlyPayment == null || !(Number(rec.monthlyPayment) > 0))) out.push('payment');
+  }
+  return out;
+}
+function cardIncompleteReasons(acc){
+  const hidden = isHiddenForMonth(acc.name, 'card', selectedMonth);
+  const existing = activeDebts().find(function(d){ return d.name === acc.name && d.kind === 'card' && monthKey2(d.month) === selectedMonth; });
+  return incompleteReasons(acc, existing ? { balance: existing.balance, minPayment: existing.minPayment } : null, selectedMonth, hidden);
+}
+function installmentIncompleteReasons(acc){
+  const hidden = !isInstallmentVisibleForMonth(acc, selectedMonth);
+  const existing = activeDebts().find(function(d){ return d.name === acc.name && d.kind === 'installment' && d.month === selectedMonth; });
+  const resolved = resolveInstallmentFact(acc.name, selectedMonth, existing);
+  return incompleteReasons(acc, { balance: resolved.balance, monthlyPayment: resolved.pay }, selectedMonth, hidden);
+}
+function incompleteDotHtml(kind, i, reasons){
+  if(!reasons.length) return '';
+  return `<span class="cdr-dot" role="img" aria-label="Дані заповнені неповністю" onclick="event.stopPropagation(); showIncompleteInfo('${kind}', ${i})"></span>`;
+}
+// Крапка з кількістю на сегментах «Борги» / «ОЧ» (оновлюється лише при зміні числа — фонові рендери не мерехтять).
+function updateIncompleteBadges(){
+  if(!selectedMonth) return;
+  const nCards = bankAccounts.filter(function(a){ return cardIncompleteReasons(a).length > 0; }).length;
+  const nInst = installmentAccounts.filter(function(a){ return installmentIncompleteReasons(a).length > 0; }).length;
+  [['seg-badge-debts', nCards], ['seg-badge-installments', nInst]].forEach(function(p){
+    const el = document.getElementById(p[0]);
+    if(!el) return;
+    const txt = p[1] ? String(p[1]) : '';
+    if(el.textContent !== txt) el.textContent = txt;
+    el.classList.toggle('hidden', !p[1]);
+  });
+}
+function showIncompleteInfo(kind, i){
+  const acc = kind === 'card' ? bankAccounts[i] : installmentAccounts[i];
+  if(!acc) return;
+  const reasons = kind === 'card' ? cardIncompleteReasons(acc) : installmentIncompleteReasons(acc);
+  if(!reasons.length) return;
+  const msg = stripLeadingEmoji(acc.name) + ': дані заповнені неповністю.\n' + reasons.map(function(r){ return '• ' + INCOMPLETE_LABELS[r]; }).join('\n');
+  showConfirmModal(msg, function(){ fillIncomplete(kind, i, reasons[0]); }, 'Заповнити');
+  document.getElementById('app-modal-confirm-btn').className = 'submit-btn'; // основна дія (не червона)
+  const cancelBtn = document.getElementById('app-modal-cancel-btn');
+  if(cancelBtn) cancelBtn.textContent = 'Закрити';
+}
+// «Заповнити»: відкриває шторку цієї картки/ОЧ і підсвічує (та прокручує до) першого порожнього поля — БЕЗ автофокусу (клавіатурна логіка шторок не чіпається).
+function fillIncomplete(kind, i, firstReason){
+  if(kind === 'card') openCardDebtEditor(i); else openInstallmentEditor(i);
+  setTimeout(function(){
+    const el = document.getElementById(INCOMPLETE_FIELDS[firstReason]);
+    if(!el) return;
+    el.scrollIntoView({ block: 'center' });
+    el.style.borderColor = 'var(--color-warning)';
+    setTimeout(function(){ el.style.borderColor = ''; }, 1600);
+  }, 350);
+}
+function recordIncompleteDots(){
+  if(!debugRecordingActive || !selectedMonth) return;
+  const counts = {};
+  let cards = 0, inst = 0;
+  bankAccounts.forEach(function(a){ const r = cardIncompleteReasons(a); if(r.length){ cards++; r.forEach(function(x){ counts[x] = (counts[x] || 0) + 1; }); } });
+  installmentAccounts.forEach(function(a){ const r = installmentIncompleteReasons(a); if(r.length){ inst++; r.forEach(function(x){ counts[x] = (counts[x] || 0) + 1; }); } });
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'incomplete-dots', cards: cards, installments: inst, reasonCounts: counts });
 }
 // ===== Rev 2.28.1 (C) — аудит id/name текстових полів (панель iOS "Автозаповнити контакт", ROADMAP 6D.136–141: причина — підрядок "name" в id) =====
 // Заборонені підрядки (без урахування регістру) в id/name текстових input/textarea. Фікс — абстрактні id за схемою fld+код+число (expfielda7, cddfielda1, iddfielda1, edtfielda1, cldfielda1).
