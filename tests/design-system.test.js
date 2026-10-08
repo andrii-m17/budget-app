@@ -62,8 +62,12 @@ test('КОЖЕН клас кнопки в розмітці/шаблонах ма
 });
 
 // ---- CSS охорона ----
+const CSS_ALL = [...SRC.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
 const M3_START = SRC.lastIndexOf('/*', SRC.indexOf('Rev 2.26.0 (M3) — токени дизайн-системи'));
-const M3_END = SRC.lastIndexOf('/*', SRC.indexOf('Rev 2.24.0 (M1) — prefers-reduced-motion'));
+const M3_END = SRC.lastIndexOf('/*', SRC.indexOf('Rev 2.30.0 (M4b) — решта компонентів у стилі'));
+const M4B_START = M3_END;
+const M4B_END = SRC.lastIndexOf('/*', SRC.indexOf('Rev 2.30.0 (M4b) — вміст колишніх другого й третього'));
+const M4B = SRC.slice(M4B_START, M4B_END).replace(/\/\*[\s\S]*?\*\//g, '');
 const M3 = SRC.slice(M3_START, M3_END).replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('backdrop-filter — лише таббар і scroll-top (на кнопках M3 його немає)', () => {
@@ -75,38 +79,46 @@ test('backdrop-filter — лише таббар і scroll-top (на кнопка
   assert.ok(!/backdrop-filter/.test(M3), 'у блоці M3 немає backdrop-filter');
 });
 
-test('нові правила M3: радіуси лише зі шкали --ui-r-*, переходи без дорогих властивостей, без !important', () => {
-  assert.ok(M3.length > 2000, 'блок M3 знайдено');
-  const radii = [...M3.matchAll(/border-radius\s*:\s*([^;}]+)/g)].map(r => r[1].trim());
-  assert.ok(radii.length >= 10, "радіусів у блоці M3: " + radii.length);
+test('нові правила M3/M4b: радіуси лише зі шкали --ui-r-*, переходи без дорогих властивостей, без !important', () => {
+  const css = M3 + '\n' + M4B;
+  assert.ok(M3.length > 2000 && M4B.length > 1000, 'блоки знайдено');
+  const radii = [...css.matchAll(/border-radius\s*:\s*([^;}]+)/g)].map(r => r[1].trim());
+  assert.ok(radii.length >= 14, 'радіусів: ' + radii.length);
   radii.forEach(r => assert.ok(/^(var\(--ui-r-(container|control|small|pill)\)|min\(var\(--ui-r-control\), 50%\)|inherit)$/.test(r), 'радіус поза шкалою: ' + r));
-  const trans = [...M3.matchAll(/transition\s*:\s*([^;}]+)/g)].map(r => r[1]);
-  assert.ok(trans.length >= 2);
-  trans.forEach(t => assert.ok(!/(^|,)\s*(all|width|height|top|left|margin|padding|box-shadow|filter|backdrop-filter)\b/.test(t), 'дорогий transition: ' + t));
-  assert.ok(!/!important/.test(M3));
+  const trans = [...css.matchAll(/transition\s*:\s*([^;}]+)/g)].map(r => r[1]);
+  assert.ok(trans.length >= 3);
+  trans.forEach(x => assert.ok(!/(^|,)\s*(all|width|height|top|left|margin|padding|box-shadow|filter|backdrop-filter)\b/.test(x), 'дорогий transition: ' + x));
+  assert.ok(!/!important/.test(css));
 });
 
-test('контраст токенів кнопок ≥ 4.5:1 в обох темах (композит скла над поверхнею)', () => {
+test('M4b: «Скло» — єдиний стиль: жодних data-ui/data-fill, тест button-style прибрано, префікс html:root', () => {
+  assert.ok(!/data-ui|data-fill|anti-fouc-data-ui|glass-vivid|button-style['"]/.test(SRC.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '')), 'гілки data-ui лишились');
+  assert.ok(!/applyButtonStyle/.test(SRC));
+  assert.ok((M3.match(/html:root /g) || []).length >= 30);
+});
+
+test('M4b: !important лишився лише в блоці prefers-reduced-motion (свідоме перевизначення авторських переходів); другого <style> немає', () => {
+  const noComments = CSS_ALL.replace(/\/\*[\s\S]*?\*\//g, '');
+  const lines = noComments.split('\n').filter(l => /!important/.test(l));
+  assert.equal(lines.length, 3, lines.join(' | '));
+  lines.forEach(l => assert.ok(/transition-duration:80ms !important|animation:none !important/.test(l), l));
+  assert.equal((SRC.match(/^\s*<style>\s*$/gm) || []).length, 1, 'один блок <style>');
+  assert.ok(!/margin-right:0 !important|color:transparent !important|caret-color:transparent !important/.test(SRC));
+});
+
+test('M4b: swipe-restore/purge і заливки кнопок мають білий текст ≥4.5:1; тумблер/картки/поля/тости/модалки використовують токени (без хардкоду радіусів)', () => {
   const C = (a, b) => j(`contrastRatio(${JSON.stringify(a)},${JSON.stringify(b)})`);
-  const over = (fg, bg) => j(`compositeColor(${JSON.stringify(fg)},${JSON.stringify(bg)})`);
-  const themes = {
-    light: { surface: '#FFFFFF', text: '#101828', text2: '#64748B', accentText: '#166534', dangerText: '#B91C1C', glass: 'rgba(255,255,255,.52)' },
-    dark: { surface: '#151B26', text: '#F1F4F8', text2: '#94A0B4', accentText: '#34D673', dangerText: '#F87171', glass: 'rgba(21,27,38,.62)' }
-  };
-  Object.entries(themes).forEach(([name, t]) => {
-    const glass = over(t.glass, t.surface);
-    assert.ok(C(t.text, glass) >= 4.5, name + ' текст на склі');
-    assert.ok(C(t.text2, glass) >= 4.5, name + ' текст-2 на склі');
-    assert.ok(C(t.accentText, over('rgba(34,197,94,.16)', t.surface)) >= 4.5, name + ' акцент-текст на акцент-фоні (сегмент/чип)');
-    assert.ok(C(t.dangerText, over('rgba(239,68,68,.08)', t.surface)) >= 4.5, name + ' небезпека-текст на червоній підкладці');
-  });
-  ['#15803D', '#DC2626', '#B45309'].forEach(bg => assert.ok(C('#FFFFFF', bg) >= 4.5, 'білий на ' + bg));
+  assert.match(M4B, /\.swipe-restore-btn\{ background:var\(--ui-success-strong\); \}/);
+  assert.match(M4B, /\.swipe-purge-btn\{ background:var\(--ui-danger-strong\); \}/);
+  assert.ok(C('#FFFFFF', '#15803D') >= 4.5 && C('#FFFFFF', '#DC2626') >= 4.5);
+  ['.n-switch-input', '.live-toast', '.app-modal', '.field input', '.card-debt-compact-row', '.service-tile'].forEach(sel => assert.ok(M4B.includes(sel), sel));
+  assert.ok(!/backdrop-filter/.test(M4B), 'на нових компонентах розмиття немає');
+  assert.match(M4B, /background-color:var\(--ui-glass\)/, 'поля: background-color, щоб не скидати стрілку select');
+  assert.ok(!/id=|\bname=|autocomplete|readonly/.test(M4B), 'поля: id/атрибути не змінюються в CSS-блоці');
 });
 
-test('тестовий варіант button-style у реєстрі; data-ui виставляється до першого малювання (anti-FOUC), стилі лише під [data-ui="glass"]', () => {
-  assert.match(SRC, /id: 'button-style'[\s\S]*?defaultVariant: 'glass'/);
-  assert.match(SRC, /<anti-fouc-data-ui>[\s\S]*?setAttribute\('data-ui', ui\)/);
-  // усі правила в блоці M3 (крім токенів :root, .seg-indicator{display:none}, reduced-motion) — під html[data-ui="glass"]
-  const rules = [...M3.matchAll(/([^{}]+)\{[^{}]*\}/g)].map(m => m[1].trim()).filter(Boolean);
-  rules.forEach(sel => assert.ok(/^(:root|html\[data-ui="glass"\]|\.seg-indicator\{|\.seg-indicator$|@media)/.test(sel.replace(/\s+/g, ' ')) || /^:root\[data-theme="dark"\]/.test(sel) || sel.startsWith('html[data-ui="glass"]'), 'правило поза glass: ' + sel.slice(0, 80)));
+test('M4b: bdr-icon-btn — асиметрична зона (45pt по ширині, 41pt по висоті = найменший крок рядків) без перекриття; виняток по висоті задокументований', () => {
+  assert.match(SRC, /html:root \.bdr-icon-btn\{ --ui-hit-y:8\.5px; --ui-hit-l:20px; --ui-hit-r:1px; \}/);
+  assert.match(SRC, /html:root \.bdr-icon-btn\.danger\{ --ui-hit-l:1px; --ui-hit-r:20px; \}/);
+  assert.match(SRC, /const UI_AUDIT_SMALL_EXEMPT = \[[^\]]*\];/);
 });

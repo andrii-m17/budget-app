@@ -5886,7 +5886,7 @@ test('у коді НЕМАЄ жодного читання видалених к
 function validateTestRegistry(reg){
   const errors = [];
   if(!Array.isArray(reg)) return ['реєстр не масив'];
-  if(reg.length > 4) errors.push('активних тестів більше 4: ' + reg.length); // Rev 2.27.0 (M2.1): ліміт тимчасово піднято з 3 до 4
+  if(reg.length > 3) errors.push('активних тестів більше 3: ' + reg.length); // Rev 2.30.0 (M4b): button-style завершено → ліміт повернуто з 4 до 3
   const ids = new Set();
   reg.forEach(function(t, i){
     const where = 'запис #' + i + (t && t.id ? ' (' + t.id + ')' : '');
@@ -5923,18 +5923,18 @@ function testVariantsSandbox(registry){
   }, ['readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'resetVariants', 'pruneVariants', 'getVariantsSnapshot']);
   return { ctx: ctx, store: store };
 }
-test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS проходить усі правила (≤4; повні записи); Rev 2.24.0: активні motion-intensity, dashboard-replay, card-reveal, button-style', () => {
+test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS проходить усі правила (≤3; повні записи); Rev 2.24.0: активні motion-intensity, dashboard-replay, card-reveal', () => {
   const ex = require('./extract');
   const ctx = ex.buildSandbox({}, ['TEST_VARIANTS']);
   const reg = JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(TEST_VARIANTS)'));
   assert.deepEqual(validateTestRegistry(reg), []);
-  assert.deepEqual(reg.map(function(t){ return t.id; }), ['motion-intensity', 'dashboard-replay', 'card-reveal', 'button-style'], 'активні: motion-intensity (M1), dashboard-replay і card-reveal (M2.1), button-style (M3); не більше 4; прибираються ревізією finalize після вибору на iPhone');
+  assert.deepEqual(reg.map(function(t){ return t.id; }), ['motion-intensity', 'dashboard-replay', 'card-reveal'], 'активні: motion-intensity (M1), dashboard-replay і card-reveal (M2.1); button-style завершено в M4b; не більше 3');
 });
 test('ЗАХИСНИЙ реєстр: валідатор ловить усі порушення (4 активних, відсутні поля, <2 варіантів, дубль key, defaultVariant, checkSteps, не kebab-case)', () => {
   const ok = makeTestRegistry();
   assert.deepEqual(validateTestRegistry(ok), []);
-  const four = [1, 2, 3, 4, 5].map(function(n){ const t = makeTestRegistry()[0]; t.id = 'sample-' + n; return t; });
-  assert.ok(validateTestRegistry(four).some(function(e){ return e.indexOf('більше 4') !== -1; }));
+  const four = [1, 2, 3, 4].map(function(n){ const t = makeTestRegistry()[0]; t.id = 'sample-' + n; return t; });
+  assert.ok(validateTestRegistry(four).some(function(e){ return e.indexOf('більше 3') !== -1; }));
   const bad = function(mut){ const t = makeTestRegistry()[0]; mut(t); return validateTestRegistry([t]); };
   assert.ok(bad(function(t){ t.id = 'Sample_Test'; }).length, 'id не kebab-case');
   ['title', 'what', 'addedIn', 'cleanupBy'].forEach(function(f){ assert.ok(bad(function(t){ delete t[f]; }).length, f); });
@@ -5992,13 +5992,10 @@ test('у коді немає прямого читання budget_variants_v1 п
   const start = src.indexOf('// <test-variants-module>');
   const end = src.indexOf('// </test-variants-module>');
   assert.ok(start !== -1 && end > start, 'модуль позначений маркерами');
-  // Rev 2.26.0 (M3): єдиний виняток — anti-FOUC скрипт у <head> (data-ui до першого малювання, як для теми), позначений маркерами.
-  const fStart = src.indexOf('// <anti-fouc-data-ui>'), fEnd = src.indexOf('// </anti-fouc-data-ui>');
-  assert.ok(fStart !== -1 && fEnd > fStart, 'anti-FOUC виняток позначений маркерами');
   ['budget_variants_v1', 'TEST_VARIANTS_LS_KEY'].forEach(function(needle){
     let idx = src.indexOf(needle);
     while(idx !== -1){
-      const inModule = (idx > start && idx < end) || (idx > fStart && idx < fEnd);
+      const inModule = idx > start && idx < end;
       const lineStart = src.lastIndexOf('\n', idx) + 1;
       const isComment = src.slice(lineStart, idx).trim().startsWith('//');
       assert.ok(inModule || isComment, needle + ' поза модулем у коді (рядок: ' + src.slice(lineStart, src.indexOf('\n', idx)).trim().slice(0, 80) + ')');

@@ -201,12 +201,12 @@ test('події: dashboard-enter пише mode/skipped/chartsAnimated/chartsSki
   assert.match(SRC, /\.kpi-value, \.ksi-value\{ font-variant-numeric:tabular-nums; \}/);
 });
 
-test('реєстр: dashboard-replay (типовий always) і card-reveal (типовий standard, 4 варіанти) присутні; button-style має glass-vivid', () => {
+test('реєстр: dashboard-replay (типовий always) і card-reveal (типовий standard, 4 варіанти) присутні; button-style завершено (M4b)', () => {
   assert.match(SRC, /id: 'dashboard-replay'[\s\S]*?defaultVariant: 'always'/);
   assert.match(SRC, /id: 'card-reveal'[\s\S]*?defaultVariant: 'standard'/);
-  const cr = SRC.slice(SRC.indexOf("id: 'card-reveal'"), SRC.indexOf("id: 'button-style'"));
+  const cr = SRC.slice(SRC.indexOf("id: 'card-reveal'"), SRC.indexOf('];', SRC.indexOf("id: 'card-reveal'")));
   ['fast', 'standard', 'slow', 'veryslow'].forEach(k => assert.ok(cr.includes(`key: '${k}'`)));
-  assert.match(SRC, /key: 'glass-vivid', label: 'Скло, яскраві заливки', hint: 'Яскраві кольори, нижчий контраст'/);
+  assert.ok(!/id: 'button-style'|glass-vivid/.test(SRC), 'тест button-style прибрано');
 });
 
 // ---------- M2.2: відкладене малювання нижче першого екрана ----------

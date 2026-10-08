@@ -30,19 +30,6 @@
     document.documentElement.setAttribute('data-theme', resolved);
   }catch(e){ /* localStorage недоступний (напр. приватний режим) — лишаємось на світлій темі за замовчуванням */ }
 })();
-// Rev 2.26.0 (M3) — стиль кнопок (тестовий варіант "button-style", ключ budget_variants_v1): data-ui на <html> ДО першого малювання, щоб не було спалаху
-// "classic → glass". Дублює читання getVariant() (основний скрипт ще не завантажено). Типовий — glass; будь-що, крім 'classic', = glass.
-// <anti-fouc-data-ui>
-(function(){
-  var ui = 'glass';
-  try{
-    var m = JSON.parse(localStorage.getItem('budget_variants_v1') || '{}');
-    if(m && m['button-style'] === 'classic') ui = 'classic';
-    if(m && m['button-style'] === 'glass-vivid') document.documentElement.setAttribute('data-fill', 'vivid'); // Rev 2.27.0 (M3.1)
-  }catch(e){}
-  document.documentElement.setAttribute('data-ui', ui);
-})();
-// </anti-fouc-data-ui>
 </script>
 <!-- Rev 2.11.23 — відкат Mobile Zoom (Rev 2.11.22): pinch-to-zoom ламав app-like
      відчуття застосунку (продуктове рішення, не баг). Альтернатива для
@@ -490,7 +477,7 @@
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .card-debt-compact-row:hover{ background:var(--color-surface-hover); } }
   .cdr-avatar{ position:relative; flex-shrink:0; width:38px; height:38px; }
-  .cdr-avatar svg, .cdr-avatar .bank-badge{ margin-right:0 !important; display:block !important; }
+  .cdr-avatar svg, .cdr-avatar .bank-badge{ margin-right:0; display:block; } /* Rev 2.30.0 (M4b): !important прибрано — inline-стилі bankIcon(…, true) не конфліктують */
   .cdr-paid-badge{ position:absolute; right:-3px; bottom:-3px; width:16px; height:16px; border-radius:50%; background:var(--color-success); border:2px solid var(--color-surface); display:flex; align-items:center; justify-content:center; }
   /* Rev #30 (6D.102) — "внесено частково" (менше за потрібний платіж) — той
      самий бейдж-кружечок, лише жовтий і зі знаком оклику замість галочки. */
@@ -508,7 +495,7 @@
      для Налаштувань — тут просто інший вміст: поля картки замість теми). */
   .drawer-head-main{ display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 auto; }
   #card-debt-drawer .drawer-head-icon{ flex-shrink:0; }
-  #card-debt-drawer .drawer-head-icon svg, #card-debt-drawer .drawer-head-icon .bank-badge{ margin-right:0 !important; display:block !important; width:34px; height:34px; }
+  #card-debt-drawer .drawer-head-icon svg, #card-debt-drawer .drawer-head-icon .bank-badge{ margin-right:0; display:block; width:34px; height:34px; }
   #card-debt-drawer .drawer-head-text{ flex:1 1 auto; min-width:0; }
   #card-debt-drawer .drawer-head-text h2{ font-size:16px; margin:0; }
   #card-debt-drawer .drawer-head-sub{ font-size:11.5px; color:var(--color-text-secondary); margin-top:1px; }
@@ -1062,7 +1049,9 @@
   .skeleton{ position:relative; overflow:hidden; background:var(--color-bg); border-radius:var(--radius-sm); }
   .skeleton::after{ content:""; position:absolute; left:0; top:0; width:400%; height:100%; background:linear-gradient(90deg, var(--color-bg) 25%, var(--color-surface-hover) 37%, var(--color-bg) 63%); animation:shimmer 1.4s ease infinite; }
   @keyframes shimmer{ 0%{ transform:translateX(-75%); } 100%{ transform:translateX(0); } }
-  .btn-loading{ position:relative; color:transparent !important; pointer-events:none; }
+  /* Rev 2.30.0 (M4b): без !important — подвійний клас + html:root дають специфічність (0,3,1), вищу за будь-який колір кнопки (у т.ч. glass-правила (0,2,1)) */
+  .btn-loading{ position:relative; color:transparent; pointer-events:none; }
+  html:root .btn-loading.btn-loading{ color:transparent; }
   .btn-loading::after{ content:""; position:absolute; left:50%; top:50%; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; border:2px solid rgba(255,255,255,.5); border-top-color:#fff; animation:spin .7s linear infinite; }
   .submit-btn.secondary.btn-loading::after{ border:2px solid rgba(16,24,40,.2); border-top-color:var(--color-text-primary); }
   @keyframes spin{ to{ transform:rotate(360deg); } }
@@ -1087,8 +1076,8 @@
   .kpi-trend{ min-height:14px; font-size:10.5px; font-weight:600; line-height:14px; margin-top:6px; padding-top:0; }
   .kpi-card.v2.income .kpi-trend, .kpi-card.v2.expense .kpi-trend, .kpi-card.v2.savings .kpi-trend, .kpi-card.v2.debt .kpi-trend{ min-height:28px; }
   .kpi-card.v2.income .kpi-trend, .kpi-card.v2.expense .kpi-trend, .kpi-card.v2.savings .kpi-trend, .kpi-card.v2.debt .kpi-trend{ margin-top:8px; font-size:11px; line-height:15px; }
-  .kpi-trend.is-positive{ color:var(--color-success) !important; }
-  .kpi-trend.is-negative{ color:var(--color-error) !important; }
+  .kpi-trend.is-positive{ color:var(--color-success); } /* Rev 2.30.0 (M4b): !important прибрано (перевірено: конкуруючих правил кольору немає) */
+  .kpi-trend.is-negative{ color:var(--color-error); }
   .kpi-trend .trend-main, .kpi-trend .trend-context{ display:block; }
   .kpi-card.v2.income .kpi-trend, .kpi-card.v2.expense .kpi-trend, .kpi-card.v2.savings .kpi-trend, .kpi-card.v2.debt .kpi-trend{ text-align:center; }
   .kpi-trend .trend-context{ color:var(--color-text-secondary); font-size:10px; font-weight:500; line-height:14px; }
@@ -1578,7 +1567,7 @@
      Клас html.kb-sheet-moving ставить/знімає JS (beginSheetMoving). "Витрати"
      не зачіпаємо — селектори лише в межах трьох шторок. */
   html.kb-sheet-moving #income-drawer input, html.kb-sheet-moving #card-debt-drawer input, html.kb-sheet-moving #installment-drawer input,
-  html.kb-sheet-moving #income-drawer textarea, html.kb-sheet-moving #card-debt-drawer textarea, html.kb-sheet-moving #installment-drawer textarea{ caret-color:transparent !important; }
+  html.kb-sheet-moving #income-drawer textarea, html.kb-sheet-moving #card-debt-drawer textarea, html.kb-sheet-moving #installment-drawer textarea{ caret-color:transparent; } /* Rev 2.30.0 (M4b): !important прибрано — селектор з #id (1,2,2) вищий за будь-яке правило, inline caret-color на textarea немає */
   html.kb-sheet.kb-sheet-switching .drawer.open{ transition:transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
   /* Rev #30 (6D.12) — рисочка-хендл для свайпу-донизу (як iOS bottom sheet):
      суто візуальний індикатор, драг-логіка навішується окремо в JS
@@ -2209,7 +2198,7 @@
 
   /* ===== Rev 2.26.0 (M3) — токени дизайн-системи --ui-* і "скляні" кнопки у стилі таббару =====
      --ui-* — ПСЕВДОНІМИ існуючих токенів (нічого не перейменовано); значення поверхні/межі/тіні беруться з таббару для обох тем.
-     Нові стилі — лише під html[data-ui="glass"]; html[data-ui="classic"] = вигляд до M3 (старі правила вище не змінено).
+     Rev 2.30.0 (M4b): «Скло» — єдиний стиль (тест button-style завершено, гілки data-ui прибрано). Правила мають префікс `html:root` — він дає ту саму специфічність (0,1,1), що мав `html[data-ui="glass"]`, тож каскад лишився без змін.
      backdrop-filter на кнопках НЕ вживаємо (лише таббар, scroll-top і шапки шторок): "скло" = напівпрозорий фон + межа 1px + inset-відблиск + легка тінь. */
   :root{
     --ui-r-container:26px; --ui-r-control:18px; --ui-r-small:12px; --ui-r-pill:999px;
@@ -2227,68 +2216,116 @@
     --ui-accent-text:#34D673; --ui-danger-text:#F87171;
   }
   /* Зона натискання ≥44: невидиме розширення ::after (--ui-hit) — розмір і розкладка не змінюються. position:relative через :where (0 специфічності): існуючі absolute/fixed лишаються. */
-  html[data-ui="glass"] :where(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
-  html[data-ui="glass"] :is(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link)::after,
-  html[data-ui="glass"] .data-status-dot::before{ content:''; position:absolute; inset:calc(-1 * var(--ui-hit-y, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit, 0px)); } /* --ui-hit-y — окремо по вертикалі (сегменти: по горизонталі сусіди впритул) */
-  html[data-ui="glass"] .gear-btn{ --ui-hit:4px; } html[data-ui="glass"] .drawer-close{ --ui-hit:7px; } html[data-ui="glass"] .journal-back-btn{ --ui-hit:4px; } html[data-ui="glass"] .journal-search-clear{ --ui-hit:11px; } html[data-ui="glass"] .data-status-dot{ --ui-hit:5px; }
-  html[data-ui="glass"] :is(.exp-del, .exp-edit-cat, .diag-issue-ignore){ --ui-hit:9px; } html[data-ui="glass"] .dsp-action{ --ui-hit:7px; } html[data-ui="glass"] .bdr-icon-btn{ --ui-hit:6px; }
-  html[data-ui="glass"] :is(.auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ --ui-hit:14px; } html[data-ui="glass"] .cdd-delete-link{ --ui-hit:9px; } html[data-ui="glass"] .t-footer-link{ --ui-hit:7px; } html[data-ui="glass"] .struct-tab-btn{ --ui-hit:0px; --ui-hit-y:6px; } html[data-ui="glass"] :is(.add-trigger-btn, .show-journal-link){ --ui-hit:0px; --ui-hit-y:2px; } /* Rev 2.27.0: знайдено аудитом на «Аналітиці» (31pt) */ html[data-ui="glass"] .installment-pay-btn{ --ui-hit:3px; }
+  html:root :where(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
+  html:root :is(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link)::after,
+  html:root .data-status-dot::before{ content:''; position:absolute; inset:calc(-1 * var(--ui-hit-y, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-r, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-y, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-l, var(--ui-hit, 0px))); } /* --ui-hit-y — окремо по вертикалі (сегменти: по горизонталі сусіди впритул); --ui-hit-l/-r — по боках (Rev 2.30.0: пара іконок впритул) */
+  html:root .gear-btn{ --ui-hit:4px; } html:root .drawer-close{ --ui-hit:7px; } html:root .journal-back-btn{ --ui-hit:4px; } html:root .journal-search-clear{ --ui-hit:11px; } html:root .data-status-dot{ --ui-hit:5px; }
+  html:root :is(.exp-del, .exp-edit-cat, .diag-issue-ignore){ --ui-hit:9px; } html:root .dsp-action{ --ui-hit:7px; } /* Rev 2.30.0 (M4b): пара іконок «редагувати/видалити» стоїть впритул (проміжок 2pt), крок рядків 43pt. Зона розширюється АСИМЕТРИЧНО в бік вільного краю: «редагувати» — вліво (+20), «видалити» — вправо (+20) → 45pt по ширині без перекриття; по висоті 24+2×8.5 = 41pt = найменший крок рядків (Словник, 41pt; Категорії 43pt; більше перекривало б іконки сусідніх рядків) → по висоті 3pt до 44 лишається задокументований виняток (UI_AUDIT_SMALL_EXEMPT). */
+  html:root .bdr-icon-btn{ --ui-hit-y:8.5px; --ui-hit-l:20px; --ui-hit-r:1px; }
+  html:root .bdr-icon-btn.danger{ --ui-hit-l:1px; --ui-hit-r:20px; }
+  html:root :is(.auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ --ui-hit:14px; } html:root .cdd-delete-link{ --ui-hit:9px; } html:root .t-footer-link{ --ui-hit:7px; } html:root .struct-tab-btn{ --ui-hit:0px; --ui-hit-y:6px; } html:root :is(.add-trigger-btn, .show-journal-link){ --ui-hit:0px; --ui-hit-y:2px; } /* Rev 2.27.0: знайдено аудитом на «Аналітиці» (31pt) */ html:root .installment-pay-btn{ --ui-hit:3px; }
 
   /* --- Вторинні (скло), іконкові, чипи, кнопки "n-days": спільна поверхня --- */
-  html[data-ui="glass"] :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .diag-issue-ignore, .installment-pay-btn, .gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close, .trash-chip, .n-days button){
+  html:root :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .diag-issue-ignore, .installment-pay-btn, .gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close, .trash-chip, .n-days button){
     background:var(--ui-glass); border:1px solid var(--ui-btn-border); color:var(--ui-text);
     box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--ui-btn-shadow);
   }
-  html[data-ui="glass"] :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .installment-pay-btn){ border-radius:var(--ui-r-control); }
-  html[data-ui="glass"] :is(.diag-issue-ignore){ border-radius:var(--ui-r-small); }
-  html[data-ui="glass"] :is(.gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close){ border-radius:min(var(--ui-r-control), 50%); }
-  html[data-ui="glass"] .add-trigger-btn{ border-style:solid; color:var(--ui-text-2); }
-  html[data-ui="glass"] .show-journal-link{ color:var(--ui-accent-text); }
-  html[data-ui="glass"] .installment-pay-btn{ color:var(--color-accent-purple); border-color:var(--color-accent-purple); background:var(--color-accent-purple-bg); box-shadow:inset 0 1px 0 var(--ui-btn-highlight); }
-  html[data-ui="glass"] .gear-btn.update-btn{ border-color:var(--ui-accent-border); color:var(--ui-accent-text); }
-  html[data-ui="glass"] .drawer-close{ background:var(--ui-glass); }
+  html:root :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .installment-pay-btn){ border-radius:var(--ui-r-control); }
+  html:root :is(.diag-issue-ignore){ border-radius:var(--ui-r-small); }
+  html:root :is(.gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close){ border-radius:min(var(--ui-r-control), 50%); }
+  html:root .add-trigger-btn{ border-style:solid; color:var(--ui-text-2); }
+  html:root .show-journal-link{ color:var(--ui-accent-text); }
+  html:root .installment-pay-btn{ color:var(--color-accent-purple); border-color:var(--color-accent-purple); background:var(--color-accent-purple-bg); box-shadow:inset 0 1px 0 var(--ui-btn-highlight); }
+  html:root .gear-btn.update-btn{ border-color:var(--ui-accent-border); color:var(--ui-accent-text); }
+  html:root .drawer-close{ background:var(--ui-glass); }
   @media (hover:hover) and (pointer:fine){
-    html[data-ui="glass"] :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close, .trash-chip:not(.active), .n-days button:not(.active)):hover{ background:var(--ui-glass-press); }
+    html:root :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close, .trash-chip:not(.active), .n-days button:not(.active)):hover{ background:var(--ui-glass-press); }
   }
   /* --- Основні: зелена/семантична заливка, радіус зі шкали, відблиск; затемнені заливки дають контраст ≥4.5:1 з білим текстом (AA) --- */
-  html[data-ui="glass"] :is(.submit-btn:not(.secondary):not(.danger-outline), .rce-save, .dsp-action){
+  html:root :is(.submit-btn:not(.secondary):not(.danger-outline), .rce-save, .dsp-action){
     border-radius:var(--ui-r-control); box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 2px 8px rgba(16,24,40,.14); }
-  html[data-ui="glass"] .dsp-action{ border-radius:var(--ui-r-small); }
-  html[data-ui="glass"] :is(.submit-btn:not(.secondary):not(.danger-outline):not(.income):not(.debt):not(.expense):not(.danger), .rce-save, .dsp-action){ background:var(--ui-accent-strong); }
-  html[data-ui="glass"] .submit-btn.income{ background:var(--ui-success-strong); }
-  html[data-ui="glass"] .submit-btn.debt{ background:var(--ui-warning-strong); }
-  html[data-ui="glass"] :is(.submit-btn.expense, .submit-btn.danger){ background:var(--ui-danger-strong); }
-  /* Rev 2.27.0 (M3.1) — "Скло, яскраві заливки": скло як вище, але заливки основних/дохід/борг/витрата — старі яскраві (нижчий контраст білого тексту, свідомий виняток із AA; рахується в ui-audit окремо). */
-  html[data-ui="glass"][data-fill="vivid"] :is(.submit-btn:not(.secondary):not(.danger-outline):not(.income):not(.debt):not(.expense):not(.danger), .rce-save, .dsp-action){ background:var(--color-primary); }
-  html[data-ui="glass"][data-fill="vivid"] .submit-btn.income{ background:var(--color-success); }
-  html[data-ui="glass"][data-fill="vivid"] .submit-btn.debt{ background:var(--color-warning); }
-  html[data-ui="glass"][data-fill="vivid"] :is(.submit-btn.expense, .submit-btn.danger){ background:var(--color-error); }
+  html:root .dsp-action{ border-radius:var(--ui-r-small); }
+  html:root :is(.submit-btn:not(.secondary):not(.danger-outline):not(.income):not(.debt):not(.expense):not(.danger), .rce-save, .dsp-action){ background:var(--ui-accent-strong); }
+  html:root .submit-btn.income{ background:var(--ui-success-strong); }
+  html:root .submit-btn.debt{ background:var(--ui-warning-strong); }
+  html:root :is(.submit-btn.expense, .submit-btn.danger){ background:var(--ui-danger-strong); }
   /* --- Небезпечні: контур + скляна червона підкладка --- */
-  html[data-ui="glass"] .submit-btn.danger-outline{ background:var(--ui-danger-glass); color:var(--ui-danger-text); border:1.5px solid var(--ui-danger); border-radius:var(--ui-r-control); }
-  html[data-ui="glass"] .cdd-delete-link{ color:var(--ui-danger-text); }
+  html:root .submit-btn.danger-outline{ background:var(--ui-danger-glass); color:var(--ui-danger-text); border:1.5px solid var(--ui-danger); border-radius:var(--ui-r-control); }
+  html:root .cdd-delete-link{ color:var(--ui-danger-text); }
   /* --- Текстові: колір з контрастом AA --- */
-  html[data-ui="glass"] :is(.dsp-link, .bdr-diff-apply){ color:var(--ui-accent-text); }
-  html[data-ui="glass"] .bdr-diff-warning .bdr-diff-apply{ color:var(--ui-warning-strong); }
+  html:root :is(.dsp-link, .bdr-diff-apply){ color:var(--ui-accent-text); }
+  html:root .bdr-diff-warning .bdr-diff-apply{ color:var(--ui-warning-strong); }
   /* --- Чипи (різна ширина): активний стан — плавна зміна заливки через opacity ::before, без анімації ширини --- */
-  html[data-ui="glass"] .trash-chip{ position:relative; isolation:isolate; border-radius:var(--ui-r-pill); }
-  html[data-ui="glass"] .trash-chip::before{ content:''; position:absolute; inset:-1px; border-radius:inherit; z-index:-1; pointer-events:none;
+  html:root .trash-chip{ position:relative; isolation:isolate; border-radius:var(--ui-r-pill); }
+  html:root .trash-chip::before{ content:''; position:absolute; inset:-1px; border-radius:inherit; z-index:-1; pointer-events:none;
     background:var(--ui-accent-bg); box-shadow:inset 0 0 0 1px var(--ui-accent-border); opacity:0; transition:opacity var(--motion-s) var(--ease-standard); }
-  html[data-ui="glass"] .trash-chip.active{ background:var(--ui-glass); border-color:transparent; color:var(--ui-accent-text); }
-  html[data-ui="glass"] .trash-chip.active::before{ opacity:1; }
-  html[data-ui="glass"] .trash-restore-btn{ border-radius:var(--ui-r-pill); }
+  html:root .trash-chip.active{ background:var(--ui-glass); border-color:transparent; color:var(--ui-accent-text); }
+  html:root .trash-chip.active::before{ opacity:1; }
+  html:root .trash-restore-btn{ border-radius:var(--ui-r-pill); }
   /* --- Сегменти однакової ширини: трек-скло + ковзний індикатор (.seg-indicator, лише transform; вимір ширини в JS при показі/повороті) --- */
-  .seg-indicator{ display:none; }
-  html[data-ui="glass"] :is(.struct-tabs, .theme-toggle, .n-days){ position:relative; }
-  html[data-ui="glass"] .seg-indicator{ display:block; position:absolute; left:0; top:0; z-index:0; pointer-events:none; opacity:0;
+  html:root :is(.struct-tabs, .theme-toggle, .n-days){ position:relative; }
+  html:root .seg-indicator{ display:block; position:absolute; left:0; top:0; z-index:0; pointer-events:none; opacity:0;
     background:var(--ui-accent-bg); border:1px solid var(--ui-accent-border); box-shadow:0 2px 8px rgba(34,197,94,.22); border-radius:var(--ui-r-control);
     transform:translate(var(--seg-x,0px), var(--seg-y,0px)); transition:transform var(--motion-l) var(--ease-spring), opacity var(--motion-s) var(--ease-standard); }
-  html[data-ui="glass"] .seg-indicator.on{ opacity:1; }
-  html[data-ui="glass"] .seg-indicator.no-anim{ transition:none; }
-  html[data-ui="glass"] :is(.struct-tabs, .theme-toggle){ background:var(--ui-glass); border-radius:var(--ui-r-container); box-shadow:inset 0 0 0 1px var(--ui-btn-border), inset 0 1px 0 var(--ui-btn-highlight); }
-  html[data-ui="glass"] :is(.struct-tab-btn, .theme-toggle-btn){ position:relative; z-index:1; border-radius:var(--ui-r-control); }
-  html[data-ui="glass"] :is(.struct-tab-btn.active, .theme-toggle-btn.active){ background:transparent; box-shadow:none; color:var(--ui-accent-text); }
-  html[data-ui="glass"] .n-days button{ position:relative; z-index:1; border-radius:var(--ui-r-control); }
-  html[data-ui="glass"] .n-days button.active{ background:transparent; border-color:transparent; box-shadow:none; color:var(--ui-accent-text); }
+  html:root .seg-indicator.on{ opacity:1; }
+  html:root .seg-indicator.no-anim{ transition:none; }
+  html:root :is(.struct-tabs, .theme-toggle){ background:var(--ui-glass); border-radius:var(--ui-r-container); box-shadow:inset 0 0 0 1px var(--ui-btn-border), inset 0 1px 0 var(--ui-btn-highlight); }
+  html:root :is(.struct-tab-btn, .theme-toggle-btn){ position:relative; z-index:1; border-radius:var(--ui-r-control); }
+  html:root :is(.struct-tab-btn.active, .theme-toggle-btn.active){ background:transparent; box-shadow:none; color:var(--ui-accent-text); }
+  html:root .n-days button{ position:relative; z-index:1; border-radius:var(--ui-r-control); }
+  html:root .n-days button.active{ background:transparent; border-color:transparent; box-shadow:none; color:var(--ui-accent-text); }
+  /* ===== Rev 2.30.0 (M4b) — решта компонентів у стилі «Скло» (токени --ui-*) =====
+     Без backdrop-filter (він лише на таббарі й scroll-top; на шапки шторок НЕ додано: ризик для sheet-anim/клавіатурної логіки). Поверхні лишаються непрозорими (колір тексту/контраст не змінюється),
+     «скло» = єдиний радіус зі шкали, межа --ui-btn-border (лише верх/право/низ — ліва межа тостів/рядків несе семантичний колір), inset-відблиск і м'яка тінь. Розкладка не змінюється (радіус/тінь). */
+  html:root :is(.card, .card-summary, .kpi-card.v2, .service-tile, .service-wide-card, .card-debt-compact-row, .expense-row, .live-toast){
+    border-top-color:var(--ui-btn-border); border-right-color:var(--ui-btn-border); border-bottom-color:var(--ui-btn-border);
+    box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--ui-btn-shadow);
+  }
+  html:root :is(.card, .card-summary, .kpi-card.v2, .service-tile, .service-wide-card, .service-danger-card, .card-debt-compact-row, .live-toast){ border-radius:var(--ui-r-control); }
+  html:root :is(.expense-row, .expense-row-swipe){ border-radius:var(--ui-r-control); }
+  html:root :is(.live-toast, .app-modal, .drawer){ box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--shadow-lg); }
+  html:root :is(.app-modal, .drawer){ border-radius:var(--ui-r-container); }
+  /* Поля вводу: лише поверхня/межа/радіус (id, атрибути й поведінка не чіпались). background-color (не shorthand) — щоб не скинути стрілку select; .manual-flag зберігає свій фон. */
+  html:root :is(.field input, .field select:not(.manual-flag), .field textarea){ border-radius:var(--ui-r-control); background-color:var(--ui-glass); box-shadow:inset 0 1px 2px rgba(16,24,40,.05); }
+  html:root :is(.field input, .field select, .field textarea):focus{ border-color:var(--ui-accent); box-shadow:0 0 0 3px var(--ui-accent-bg); }
+  html:root .field select.manual-flag{ border-radius:var(--ui-r-control); }
+  /* Тумблер: трек-скло, бігунок з відблиском і пружиною (--ease-spring — єдине місце, де вона дозволена); увімкнено — --ui-success */
+  html:root .n-switch-input{ box-shadow:inset 0 0 0 1px var(--ui-btn-border); }
+  html:root .n-switch-input:checked{ background:var(--ui-success); }
+  html:root .n-switch-input::after{ box-shadow:0 1px 3px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.7); transition:transform var(--motion-s) var(--ease-spring); }
+  /* Дії свайпу: темніші заливки → білий текст ≥4.5:1 (AA); решта вигляду без змін */
+  html:root .expense-row-actions .swipe-restore-btn{ background:var(--ui-success-strong); }
+  html:root .expense-row-actions .swipe-purge-btn{ background:var(--ui-danger-strong); }
+  /* Rev 2.30.0 (M4b) — вміст колишніх другого й третього <style> перенесено сюди без змін (один блок стилів). */
+    .service-tile-icon--right svg {
+      transform: translateX(8%);
+    }
+
+    .service-tile-sub {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+      line-height: 1.3;
+      color: var(--color-text-secondary);
+    }
+  /* Rev 2.22.92 (6D.165) BugFix — + var(--vv-offset-top): без цього
+     доданка індикатор ставав невидимим одразу при появі клавіатури (той
+     самий position:fixed-зсув visual/layout viewport, що 6D.53/158) —
+     живий тест користувача: "не можу додати мітку тоді, коли потрібно на
+     100%" саме тому, що найважливіший момент для мітки — це й є момент із
+     відкритою клавіатурою. */
+  #debug-record-indicator{ position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + var(--vv-offset-top, 0px)); right:12px; z-index:97; display:flex; align-items:center; gap:6px; background:var(--color-surface); border:1px solid var(--color-border-strong); border-radius:999px; padding:6px 10px; box-shadow:var(--shadow-md); font-size:12px; font-family:'JetBrains Mono',monospace; }
+  /* Rev 2.22.91 (6D.164) BugFix — живий тест: у цьому файлі НЕМАЄ глобального
+     .hidden{display:none} — кожен компонент визначає свій .hidden-варіант
+     окремо (.view.hidden, .status-banner.hidden тощо, той самий принцип по
+     всьому файлу) — bare "hidden" без власного правила нічого не ховає.
+     Індикатор показувався одразу при завантаженні сторінки, хоча запис ще
+     не починався. */
+  #debug-record-indicator.hidden{ display:none; }
+  #debug-record-form.hidden, #debug-record-stop-actions.hidden{ display:none; }
+  #debug-record-indicator button{ border:none; background:var(--color-surface-hover); color:var(--color-text-primary); border-radius:999px; padding:4px 10px; font-size:11.5px; font-family:inherit; cursor:pointer; }
+  .debug-record-dot{ width:8px; height:8px; border-radius:50%; background:var(--color-error); flex:0 0 auto; }
+
   /* Rev 2.24.0 (M1) — prefers-reduced-motion: лише швидкі затухання (≤80мс), без зсувів/масштабів/нескінченних відблисків.
      Шторки (.drawer, .drawer-backdrop) НЕ чіпаємо: їхня анімація зав'язана на логіку клавіатури (transitionend, sheet-anim). Спінери (syncSpin/spin) лишаються — це індикатор роботи, не декор. */
   @media (prefers-reduced-motion: reduce){
@@ -2986,19 +3023,6 @@
     Excel-функції потребують інтернету (бібліотека завантажується з мережі при відкритті) — зараз недоступні. З'явиться підключення — спробуємо підхопити автоматично.
   </div>
 
-  <style>
-    .service-tile-icon--right svg {
-      transform: translateX(8%);
-    }
-
-    .service-tile-sub {
-      display: block;
-      margin-top: 3px;
-      font-size: 12px;
-      line-height: 1.3;
-      color: var(--color-text-secondary);
-    }
-  </style>
 
   <input type="file" id="import-file" accept=".xlsx,.xls" style="display:none;" onchange="handleImportFile(event)">
   <div class="import-status" id="import-status"></div>
@@ -3165,7 +3189,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.29.1</div>
+  <div class="version-footer">Money Tree · Rev 2.30.0</div>
 </div>
   </div>
 </div>
@@ -3357,25 +3381,6 @@
   <button type="button" class="dbg-rec-btn" id="debug-record-mark-btn" onclick="markDebugEvent()">Мітка</button>
   <button type="button" class="dbg-rec-btn" onclick="openDebugRecordDrawer()">Стоп</button>
 </div>
-<style>
-  /* Rev 2.22.92 (6D.165) BugFix — + var(--vv-offset-top): без цього
-     доданка індикатор ставав невидимим одразу при появі клавіатури (той
-     самий position:fixed-зсув visual/layout viewport, що 6D.53/158) —
-     живий тест користувача: "не можу додати мітку тоді, коли потрібно на
-     100%" саме тому, що найважливіший момент для мітки — це й є момент із
-     відкритою клавіатурою. */
-  #debug-record-indicator{ position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + var(--vv-offset-top, 0px)); right:12px; z-index:97; display:flex; align-items:center; gap:6px; background:var(--color-surface); border:1px solid var(--color-border-strong); border-radius:999px; padding:6px 10px; box-shadow:var(--shadow-md); font-size:12px; font-family:'JetBrains Mono',monospace; }
-  /* Rev 2.22.91 (6D.164) BugFix — живий тест: у цьому файлі НЕМАЄ глобального
-     .hidden{display:none} — кожен компонент визначає свій .hidden-варіант
-     окремо (.view.hidden, .status-banner.hidden тощо, той самий принцип по
-     всьому файлу) — bare "hidden" без власного правила нічого не ховає.
-     Індикатор показувався одразу при завантаженні сторінки, хоча запис ще
-     не починався. */
-  #debug-record-indicator.hidden{ display:none; }
-  #debug-record-form.hidden, #debug-record-stop-actions.hidden{ display:none; }
-  #debug-record-indicator button{ border:none; background:var(--color-surface-hover); color:var(--color-text-primary); border-radius:999px; padding:4px 10px; font-size:11.5px; font-family:inherit; cursor:pointer; }
-  .debug-record-dot{ width:8px; height:8px; border-radius:50%; background:var(--color-error); flex:0 0 auto; }
-</style>
 
 <!-- ================= Налаштування (Drawer, окремо від навігації) ================= -->
 <div class="drawer-backdrop" id="settings-backdrop" onclick="closeSettings()" inert></div>
@@ -7462,7 +7467,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.29.1';
+const APP_VERSION = '2.30.0';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9812,7 +9817,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.26.0 (M3) — ui-audit: кількості кнопок за варіантами, без варіанта, із зоною <44, з контрастом <AA, і перелік ПЕРШИХ КЛАСІВ (не даних).
   // Rev 2.28.1 (C) — input-attrs-audit: inputsTotal, inputsBad (порушників), badIds (їхні id — лише ідентифікатори полів, не дані).
   'inputsTotal', 'inputsBad', 'badIds',
-  'uiStyle', 'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnSmallExempt', 'btnLowContrast', 'btnLowContrastRow', 'lowContrastRowClasses', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
+  'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnSmallExempt', 'btnLowContrast', 'btnLowContrastRow', 'lowContrastRowClasses', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
   'proxyCaretColor', 'proxyDistToField',
@@ -11067,7 +11072,7 @@ function populateInstallmentTable(){
       : '';
     const dueSub = acc.dueDay ? ` · до ${acc.dueDay} числа` : '';
     return `<button type="button" class="card-debt-compact-row" id="installment-row-${i}" onclick="openInstallmentEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати">
-      <span class="cdr-avatar">${bankIcon(name, 38)}${paidBadge}</span>
+      <span class="cdr-avatar">${bankIcon(name, 38, true)}${paidBadge}</span>
       <span class="cdr-main">
         <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}</span>
         <span class="cdr-sub">Оплата частинами${dueSub}</span>
@@ -11172,7 +11177,7 @@ function openInstallmentEditor(i){
   const resolved = resolveInstallmentFact(name, selectedMonth, existing);
   const balance = resolved.balance;
   const payment = resolved.pay;
-  document.getElementById('idd-icon').innerHTML = bankIcon(name, 34);
+  document.getElementById('idd-icon').innerHTML = bankIcon(name, 34, true);
   document.getElementById('idd-heading').textContent = stripLeadingEmoji(name);
   document.getElementById('iddfielda1').value = stripLeadingEmoji(name);
   document.getElementById('idd-initial').value = acc.initialAmount ? formatThousands(acc.initialAmount) : '';
@@ -11511,7 +11516,7 @@ function populateBankDebtTable(){
     const paid = !!(existing && existing.minPaymentDone);
     const paidBadge = paid ? `<span class="cdr-paid-badge" aria-hidden="true">${CHECK}</span>` : '';
     return `<button type="button" class="card-debt-compact-row" id="bank-debt-row-${i}" onclick="openCardDebtEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати">
-      <span class="cdr-avatar">${bankIcon(name, 38)}${paidBadge}</span>
+      <span class="cdr-avatar">${bankIcon(name, 38, true)}${paidBadge}</span>
       <span class="cdr-main">
         <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}</span>
         <span class="cdr-sub">Кредитна картка</span>
@@ -11569,7 +11574,7 @@ function openCardDebtEditor(i){
   const existing = activeDebts().find(function(d){ return d.name===name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
   const balance = existing ? existing.balance : null;
   const minPayment = existing ? existing.minPayment : null;
-  document.getElementById('cdd-icon').innerHTML = bankIcon(name, 34);
+  document.getElementById('cdd-icon').innerHTML = bankIcon(name, 34, true);
   document.getElementById('cdd-heading').textContent = stripLeadingEmoji(name);
   document.getElementById('cddfielda1').value = stripLeadingEmoji(name);
   document.getElementById('cdd-limit').value = acc.creditLimit ? formatThousands(acc.creditLimit) : '';
@@ -14457,7 +14462,7 @@ function svgSparkline(values, colorVar){
 // переробки контурів. id-и градієнтів/clipPath отримують унікальний суфікс на
 // виклик, щоб уникнути колізій, якщо той самий банк зустрічається кілька разів.
 let __bankIconSeq = 0;
-function bankIcon(name, size){
+function bankIcon(name, size, block){
   const s = size || 22;
   const lower = (name||'').toLowerCase();
   const uid = 'bi' + (__bankIconSeq++);
@@ -14465,7 +14470,10 @@ function bankIcon(name, size){
   // розривав рядок і зносив назву банку на новий рядок — тепер inline-block +
   // vertical-align:middle тримають іконку й текст в одному рядку, а
   // margin-right:6px дає видимий відступ тексту після іконки.
-  const wrapOpen = `<svg width="${s}" height="${s}" viewBox="0 0 40 40" style="flex-shrink:0; margin-right:6px; display:inline-block; vertical-align:middle;">`;
+  // Rev 2.30.0 (M4b) — block=true (аватар картки/шапка шторки): без margin-right й display:block прямо в style → CSS-правила .cdr-avatar/.drawer-head-icon більше не потребують !important.
+  const wrapOpen = block
+    ? `<svg width="${s}" height="${s}" viewBox="0 0 40 40" style="flex-shrink:0; display:block;">`
+    : `<svg width="${s}" height="${s}" viewBox="0 0 40 40" style="flex-shrink:0; margin-right:6px; display:inline-block; vertical-align:middle;">`;
   const wrapClose = `</svg>`;
 
   if(lower.includes('приват')){
@@ -16362,8 +16370,9 @@ function runUiAudit(){
     else byVariant[v] = (byVariant[v] || 0) + 1;
     const cs = getComputedStyle(b);
     const hit = parseFloat(cs.getPropertyValue('--ui-hit')) || 0;
-    const hy = cs.getPropertyValue('--ui-hit-y').trim() === '' ? hit : (parseFloat(cs.getPropertyValue('--ui-hit-y')) || 0);
-    if(rendered && v !== 'row' && v !== 'reference' && !meetsMinTarget(r.width + 2 * hit, r.height + 2 * hy, UI_AUDIT_MIN_TARGET)){
+    const hv = function(name, dflt){ const raw = cs.getPropertyValue(name).trim(); return raw === '' ? dflt : (parseFloat(raw) || 0); };
+    const hy = hv('--ui-hit-y', hit), hl = hv('--ui-hit-l', hit), hr = hv('--ui-hit-r', hit);
+    if(rendered && v !== 'row' && v !== 'reference' && !meetsMinTarget(r.width + hl + hr, r.height + 2 * hy, UI_AUDIT_MIN_TARGET)){
       // Задокументований виняток: щільні ряди іконок-кнопок (сусіди впритул) — розширення до 44 перекривало б сусідні кнопки.
       if(UI_AUDIT_SMALL_EXEMPT.indexOf(key) !== -1){ smallExempt++; } else { small++; smallCls[key] = 1; }
     }
@@ -16375,7 +16384,7 @@ function runUiAudit(){
       }
     }
   });
-  return { uiStyle: (document.documentElement.getAttribute('data-ui') || 'glass') + (document.documentElement.getAttribute('data-fill') === 'vivid' ? '-vivid' : ''), btnTotal: total, byVariant: byVariant, btnNoVariant: noVariant, btnSmall: small, btnSmallExempt: smallExempt, btnLowContrast: lowContrast, btnLowContrastRow: lowRow, lowContrastRowClasses: Object.keys(lowRowCls).slice(0, 20),
+  return { btnTotal: total, byVariant: byVariant, btnNoVariant: noVariant, btnSmall: small, btnSmallExempt: smallExempt, btnLowContrast: lowContrast, btnLowContrastRow: lowRow, lowContrastRowClasses: Object.keys(lowRowCls).slice(0, 20),
     noVariantClasses: Object.keys(noVariantCls).slice(0, 20), smallClasses: Object.keys(smallCls).slice(0, 20), lowContrastClasses: Object.keys(lowCls).slice(0, 20) };
 }
 function recordUiAudit(){
@@ -16407,16 +16416,8 @@ function recordInputAttrsAudit(){
   if(!debugRecordingActive) return;
   try{ pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'input-attrs-audit' }, runInputAttrsAudit())); }catch(e){}
 }
-function applyButtonStyle(){
-  let v = 'glass';
-  try{ v = getVariant('button-style') || 'glass'; }catch(e){}
-  // Rev 2.27.0 (M3.1): 'glass-vivid' = скло + старі яскраві заливки (data-fill="vivid"), нижчий контраст — свідомий виняток із AA.
-  document.documentElement.setAttribute('data-ui', v === 'classic' ? 'classic' : 'glass');
-  if(v === 'glass-vivid') document.documentElement.setAttribute('data-fill', 'vivid'); else document.documentElement.removeAttribute('data-fill');
-  document.querySelectorAll(SEGMENT_SELECTOR).forEach(function(c){ layoutSegment(c, true); });
-}
 // Усі ефекти тестових варіантів (інтенсивність руху, стиль кнопок) — одним викликом при старті/виборі/скиданні.
-function applyVariantEffects(){ applyMotionIntensity(); applyButtonStyle(); }
+function applyVariantEffects(){ applyMotionIntensity(); } // Rev 2.30.0 (M4b): button-style завершено (лишився лише motion-intensity)
 // --- Сегменти однакової ширини: ковзний індикатор (лише transform; ширина/висота ставляться без анімації) ---
 const SEGMENT_SELECTOR = '.struct-tabs, .theme-toggle, .n-days';
 function layoutSegment(c, instant){
@@ -17124,25 +17125,6 @@ const TEST_VARIANTS = [
       'Для заміру: «Записати лог із цим варіантом» (поле cardVariant у dashboard-enter).',
     ],
   },
-  // Rev 2.26.0 (M3) — стиль кнопок: "Скло" (кнопки у стилі таббару) або "Класичний" (вигляд до M3). Реалізація: атрибут data-ui на <html>.
-  {
-    id: 'button-style',
-    title: 'Стиль кнопок',
-    what: 'Єдиний вигляд кнопок у стилі таббару (скло без розмиття, радіуси зі шкали, ковзний індикатор у сегментах) проти попереднього вигляду.',
-    variants: [
-      { key: 'glass', label: 'Скло', hint: 'Нові кнопки у стилі таббару' },
-      { key: 'glass-vivid', label: 'Скло, яскраві заливки', hint: 'Яскраві кольори, нижчий контраст' },
-      { key: 'classic', label: 'Класичний', hint: 'Вигляд до Rev 2.26.0' },
-    ],
-    defaultVariant: 'glass',
-    addedIn: 'Rev 2.26.0 (M3)',
-    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний стиль і видалить інший)',
-    checkSteps: [
-      'Перемикайте «Скло» і «Класичний», пройдіть Сервіс, Налаштування, Структуру, Облік, Журнал, Видалені дані й шторки: чи читабельні кнопки, чи не зʼїхала розкладка.',
-      'Перемкніть вкладки «Доходи/Борги/ОЧ» і тему: індикатор має плавно їхати.',
-      'Для заміру: «Записати лог із цим варіантом» (подія ui-audit у логу).',
-    ],
-  },
 ];
 function readTestVariantsMap(){
   try{
@@ -17201,7 +17183,7 @@ function getVariantsSnapshot(){
 }
 // </test-variants-module>
 pruneVariants();
-applyVariantEffects(); // Rev 2.24.0 (M1)/2.26.0 (M3): --motion-k і data-ui на <html> при старті
+applyVariantEffects(); // Rev 2.24.0 (M1): --motion-k на <html> при старті
 initSegments(); // Rev 2.26.0 (M3): ковзні індикатори сегментів (.struct-tabs, .theme-toggle, .n-days)
 // Rev 2.23.22 (6D.191) — UI "Тестування" (бейдж, шторка, картки). Значення
 // варіантів — лише через getVariant()/setVariant() модуля вище.
