@@ -1294,6 +1294,8 @@
   .service-wide-right{ margin-left:auto; display:flex; align-items:center; gap:8px; color:var(--color-text-secondary); flex-shrink:0; }
   .trash-screen{ position:fixed; inset:0; z-index:60; background:var(--color-bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom, 0px) + 32px); }
   .trash-screen.hidden{ display:none; }
+  /* Rev 2.31.1 (C) — свайп із краю закриває екран (installEdgeSwipeClose): горизонтальні панування браузер не веде, вертикальна прокрутка лишається; рядки мають свій touch-action:pan-y */
+  .trash-screen{ touch-action:pan-y; }
   .trash-inner{ max-width:640px; margin:0 auto; }
   .trash-sub{ font-size:12.5px; color:var(--color-text-secondary); margin:-6px 2px 14px; line-height:1.4; }
   .trash-chips{ display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
@@ -3191,7 +3193,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.31.0</div>
+  <div class="version-footer">Money Tree · Rev 2.31.1</div>
 </div>
   </div>
 </div>
@@ -7469,7 +7471,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.31.0';
+const APP_VERSION = '2.31.1';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9821,6 +9823,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.28.1 (C) — input-attrs-audit: inputsTotal, inputsBad (порушників), badIds (їхні id — лише ідентифікатори полів, не дані).
   'inputsTotal', 'inputsBad', 'badIds',
   'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnSmallExempt', 'btnLowContrast', 'btnLowContrastRow', 'lowContrastRowClasses', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
+  // Rev 2.31.1 (C) — trash-swipe-close: ms (тривалість жесту), dx (зсув вправо, px).
+  'dx',
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
   'proxyCaretColor', 'proxyDistToField',
@@ -14060,6 +14064,45 @@ function closeJournal(){
   if(mainColEl) mainColEl.scrollTop = 0;
   renderRecords();
 }
+// Rev 2.31.1 (C) — ЄДИНА реалізація жесту «свайп із лівого краю закриває екран» (Журнал усіх записів, Rev 2.19.1, і «Видалені дані»): зона старту EDGE_ZONE, поріг SWIPE_THRESHOLD, рішення —
+// чиста shouldCloseBySwipe. Історія підбору зони/порогів для Журналу (6D.131–133) — нижче без змін.
+const EDGE_SWIPE_ZONE = 40; // px від лівого краю
+const EDGE_SWIPE_THRESHOLD = 60; // px — щоб не плутати з випадковим дотиком/тапом
+// dx > поріг і рух переважно горизонтальний (|dy| < dx) — те саме рішення, що було інлайн у Журналі.
+function shouldCloseBySwipe(dx, dy, threshold){
+  const th = typeof threshold === 'number' ? threshold : EDGE_SWIPE_THRESHOLD;
+  return dx > th && Math.abs(dy) < dx;
+}
+// el — шар екрана; isOpen() — чи відкритий; close() — закрити; opts.blockScroll (Журнал: true) — preventDefault з першого touchmove в зоні (див. 6D.132); для «Видалених даних» false:
+// там вертикальна прокрутка має лишатись у зоні краю, а горизонтальні панування блокує CSS touch-action:pan-y на самому шарі. opts.onClose(ms, dx) — для рекордера.
+function installEdgeSwipeClose(el, isOpen, close, opts){
+  if(!el) return;
+  const o = opts || {};
+  let active = false, startX = 0, startY = 0, startT = 0;
+  el.addEventListener('touchstart', function(e){
+    if(!isOpen() || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    active = t.clientX <= EDGE_SWIPE_ZONE;
+    startX = t.clientX;
+    startY = t.clientY;
+    startT = performance.now();
+  }, {passive:true, capture:true});
+  el.addEventListener('touchmove', function(e){
+    if(!active || e.touches.length !== 1) return;
+    if(o.blockScroll && e.cancelable) e.preventDefault();
+  }, {passive:false, capture:true});
+  el.addEventListener('touchend', function(e){
+    if(!active) return;
+    active = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX, dy = t.clientY - startY;
+    if(shouldCloseBySwipe(dx, dy)){
+      if(typeof o.onClose === 'function') o.onClose(Math.round(performance.now() - startT), Math.round(dx));
+      close();
+    }
+  }, {passive:true, capture:true});
+  el.addEventListener('touchcancel', function(){ active = false; }, {passive:true, capture:true});
+}
 (function(){
   const overlay = document.getElementById('journal-overlay');
   if(!overlay) return;
@@ -14097,28 +14140,14 @@ function closeJournal(){
   // саме, що EDGE_ZONE (яка визначає ВЕРХНЮ межу нашої власної зони) —
   // повернуто на 40px (за проханням користувача), фактична зона, що
   // спрацьовує — приблизно [~15-20px, 40px] через цей системний резерв.
-  const EDGE_ZONE = 40; // px від лівого краю
-  const SWIPE_THRESHOLD = 60; // px — щоб не плутати з випадковим дотиком/тапом
-  let active = false, startX = 0, startY = 0;
-  overlay.addEventListener('touchstart', function(e){
-    if(!isJournalOpen || e.touches.length !== 1) return;
-    const t = e.touches[0];
-    active = t.clientX <= EDGE_ZONE;
-    startX = t.clientX;
-    startY = t.clientY;
-  }, {passive:true, capture:true});
-  overlay.addEventListener('touchmove', function(e){
-    if(!active || e.touches.length !== 1) return;
-    if(e.cancelable) e.preventDefault();
-  }, {passive:false, capture:true});
-  overlay.addEventListener('touchend', function(e){
-    if(!active) return;
-    active = false;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - startX, dy = t.clientY - startY;
-    if(dx > SWIPE_THRESHOLD && Math.abs(dy) < dx) closeJournal();
-  }, {passive:true, capture:true});
-  overlay.addEventListener('touchcancel', function(){ active = false; }, {passive:true, capture:true});
+  installEdgeSwipeClose(overlay, function(){ return isJournalOpen; }, closeJournal, { blockScroll: true });
+})();
+// Rev 2.31.1 (C) — «Видалені дані»: той самий жест. Свайп рядка вліво (дії) і прокрутка не конфліктують: закриття — лише ВПРАВО із зони краю (≤40px).
+(function(){
+  installEdgeSwipeClose(document.getElementById('trash-screen'), function(){ return isTrashOpen; }, closeTrashScreen, {
+    blockScroll: false,
+    onClose: function(ms, dx){ if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'trash-swipe-close', ms: ms, dx: dx }); }
+  });
 })();
 function shiftJournalMonth(delta){
   journalMonth = shiftMonth(journalMonth, delta);
