@@ -11,7 +11,7 @@ const NAMES = ['chartsBelowFold', 'revealDecision', 'shouldDeferChart', 'motionD
 const CONSTS = ['CHART_REVEAL_DWELL_MS', 'CHART_REVEAL_RATIO', 'MOTION_BASE_MS', 'MOTION_REDUCED_MAX_MS', 'DASH_MAX_QUEUE', 'DASH_STAGGER_MS', 'DASH_MAX_COUNTERS', 'DASH_MAX_TOTAL_MS', 'DASH_COUNTER_IDS', 'CARD_REVEAL_TABLE', 'DASH_REPLAY_SCALE', 'DASH_UPDATE_SCALE'];
 const ctx = ex.buildSandbox({}, CONSTS.concat(NAMES));
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
-const MODULE = SRC.slice(SRC.indexOf('// ===== Rev 2.25.0 (M2) / Rev 2.27.0 (M2.1)'), SRC.indexOf('function renderDashboard(){'));
+const MODULE = SRC.slice(SRC.indexOf('// ===== Rev 2.25.0 (M2) / Rev 2.27.0 (M2.1)'), SRC.indexOf('// ===== Rev 2.29.0 (A) — поява «Обліку»')); // лише «Аналітика»; «Облік» — tests/account-motion.test.js
 
 test('staggerDelay: крок × k, обмежено розміром черги; власний крок; хибні вхідні → безпечно', () => {
   assert.equal(j('staggerDelay(0,1,8)'), 0);

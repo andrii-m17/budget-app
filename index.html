@@ -2603,9 +2603,9 @@
            struct-tab-panel. Самі картки Дохід/Борги/ОЧ і їхня логіка (populate*/
            save*) НЕ змінені — лише перегруповані під вкладки для навігації. -->
       <div class="struct-tabs" role="tablist">
-        <button type="button" class="struct-tab-btn active" id="acct-tab-btn-data" onclick="switchAccountingTab('data')">Доходи</button>
-        <button type="button" class="struct-tab-btn" id="acct-tab-btn-debts" onclick="switchAccountingTab('debts')">Борги</button>
-        <button type="button" class="struct-tab-btn" id="acct-tab-btn-installments" onclick="switchAccountingTab('installments')">ОЧ</button>
+        <button type="button" class="struct-tab-btn active" id="acct-tab-btn-data" onclick="switchAccountingTab('data', { animate: true })">Доходи</button>
+        <button type="button" class="struct-tab-btn" id="acct-tab-btn-debts" onclick="switchAccountingTab('debts', { animate: true })">Борги</button>
+        <button type="button" class="struct-tab-btn" id="acct-tab-btn-installments" onclick="switchAccountingTab('installments', { animate: true })">ОЧ</button>
       </div>
 
       <!-- Rev 2.17.0 — Доходи в тому ж форматі, що Борги/ОЧ: підсумкова
@@ -3165,7 +3165,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.28.1</div>
+  <div class="version-footer">Money Tree · Rev 2.29.0</div>
 </div>
   </div>
 </div>
@@ -7462,7 +7462,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.28.1';
+const APP_VERSION = '2.29.0';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9803,6 +9803,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr', 'cardVariant', 'replayVariant',
   // Rev 2.28.0 (M2.2) — deferredCharts (скільки графіків чекали доскролу) і chart-reveal: chart (id графіка), fromEnterMs (мс від початку візиту до малювання).
   'deferredCharts', 'chart', 'fromEnterMs',
+  // Rev 2.29.0 (A/B) — account-enter: rows, deferredRows, variant; press: leakSelector; press-leak-fixed: selector (+ms); tab-switch: firstFrameMs, gapAtFrame (номер кадру з найбільшою паузою).
+  'rows', 'deferredRows', 'variant', 'leakSelector', 'selector', 'firstFrameMs', 'gapAtFrame',
   // Rev 2.25.0 (M2) — dashboard-enter: tab, elements (картки в черзі), counters, charts, repeat (повторний показ у сесії); frames/maxGapMs/durationMs — як вище.
   'tab', 'elements', 'counters', 'charts', 'repeat',
   // Rev 2.26.0 (M3) — ui-audit: кількості кнопок за варіантами, без варіанта, із зоною <44, з контрастом <AA, і перелік ПЕРШИХ КЛАСІВ (не даних).
@@ -10597,11 +10599,13 @@ function incomeIconHtml(source, size){
 // панель за раз замість суцільного списку карток, розмітка/логіка карток
 // (populateIncomeTable/populateBankDebtTable/populateInstallmentTable — усі
 // й далі рендерять свій вміст незалежно від видимості панелі) не змінена.
-function switchAccountingTab(tab){
+function switchAccountingTab(tab, opts){
   ['data','debts','installments'].forEach(function(t){
     document.getElementById(`acct-tab-panel-${t}`).classList.toggle('hidden', t!==tab);
     document.getElementById(`acct-tab-btn-${t}`).classList.toggle('active', t===tab);
   });
+  // Rev 2.29.0 (A) — перемикання сегмента користувачем: вміст короткий fade + зсув 8pt (--motion-s), лише opacity/transform → висота не стрибає (панелі й так різної висоти, як було).
+  if(opts && opts.animate) acctAnimatePanel(document.getElementById(`acct-tab-panel-${tab}`));
 }
 // Rev 2.17.0 — Доходи тепер у тому ж компактному форматі, що Борги/ОЧ:
 // список джерел (фіксований, INCOME_SOURCES) + підсумкова картка, тап
@@ -10640,6 +10644,7 @@ function updateIncomeTotal(){
     if(existing) sum += existing.amount;
   });
   el.textContent = fmt(sum);
+  setDashFinal('income-summary-total', sum); // Rev 2.29.0 (A): data-final для лічильника «Обліку»
 }
 let editingIncomeIdx = -1;
 function openIncomeEditor(i){
@@ -11077,6 +11082,7 @@ function updateInstallmentTotal(){
     sum += resolveInstallmentFact(acc.name, selectedMonth, existing).pay || 0;
   });
   totalEl.textContent = fmt(sum);
+  setDashFinal('installment-total-value', sum);
 }
 // Rev 2.11.4 — та сама ідея, що updateInstallmentTotal() вище, але для
 // "Залишок" (сума боргу ОЧ, що лишилась), а не "Платіж/міс".
@@ -11091,6 +11097,7 @@ function updateInstallmentBalanceTotal(){
     sum += resolveInstallmentFact(acc.name, selectedMonth, existing).balance || 0;
   });
   totalEl.textContent = fmt(sum);
+  setDashFinal('installment-balance-total-value', sum);
 }
 let editingInstallmentIdx = -1;
 // Rev 2.16.6 — тап по компактній ОЧ відкриває шторку з полями, заповненими
@@ -11482,6 +11489,7 @@ function updateBankDebtTotal(){
   });
   balanceEl.textContent = fmt(totalBalance);
   minpayEl.textContent = fmt(totalMinpay);
+  setDashFinal('card-debt-summary-balance', totalBalance); setDashFinal('card-debt-summary-minpay', totalMinpay);
 }
 // д-місяць у боргах зберігався як 'YYYY-MM' (тип input=month), а monthKey()
 // в решті коду рахується з дати 'YYYY-MM-DD' через .slice(0,7) — для d.month
@@ -12733,6 +12741,7 @@ function renderAll(){
   safeCall(populateIncomeTable, 'populateIncomeTable');
   safeCall(populateBankDebtTable, 'populateBankDebtTable');
   safeCall(populateInstallmentTable, 'populateInstallmentTable');
+  safeCall(acctAfterRender, 'acctAfterRender'); // Rev 2.29.0 (A): поява «Обліку» (лише перший показ/зміна місяця; фонові рендери статичні)
   safeCall(updateTodayExpenseBadge, 'updateTodayExpenseBadge');
   safeCall(updateTrashBadge, 'updateTrashBadge'); // Rev 2.23.23 (6D.192): бейдж "Видалені дані" в Сервісі
   if(isTrashOpen) safeCall(renderTrashScreen, 'renderTrashScreen');
@@ -14766,7 +14775,8 @@ function dashClearDeferred(){
   d.runners.clear();
 }
 // Бігунок анімації: картки (WAAPI) + лічильники + елементи графіків (rAF, inline-стилі). Початковий стан — paint(0) синхронно ДО першого кадру. Без читань розмітки в циклі.
-function makeDashRunner(onFinish){
+function makeDashRunner(onFinish, tabName){
+  const runnerTab = tabName || 'analytics';
   const r = { cardAnims: [], counters: [], items: [], endAt: 0, charts: [], cards: 0, ended: false, frames: 0, maxGap: 0, startedAt: 0 };
   r.track = function(delay, dur){ if(delay + dur > r.endAt) r.endAt = delay + dur; };
   r.empty = function(){ return !r.cardAnims.length && !r.counters.length && !r.items.length; };
@@ -14810,7 +14820,7 @@ function makeDashRunner(onFinish){
     let lastT = r.startedAt;
     function tick(now){
       if(r.ended) return;
-      if(lastActiveTab !== 'analytics'){ r.stop(false); return; }
+      if(lastActiveTab !== runnerTab){ r.stop(false); return; }
       r.frames++;
       const gap = now - lastT; if(gap > r.maxGap) r.maxGap = gap;
       lastT = now;
@@ -15039,6 +15049,211 @@ function dashRevealCard(card, attempt){
       runner.charts.push(id);
     }
   });
+  d.runners.add(runner);
+  runner.start();
+}
+// ===== Rev 2.29.0 (A) — поява «Обліку» (підсумки, рядки списків, сегменти); спільні makeDashRunner/IntersectionObserver із «Аналітикою» (M2.x) =====
+const ACCT_COUNTER_IDS = ['income-summary-total', 'card-debt-summary-balance', 'card-debt-summary-minpay', 'installment-balance-total-value', 'installment-total-value'];
+const ACCT_TABLE_IDS = ['income-table', 'bank-debt-table', 'installment-table'];
+const ACCT_MAX_ROWS = 10;          // перші видимі рядки з'являються по черзі
+const ACCT_ROW_STAGGER_MS = 25;    // × --motion-k
+// visible = індекси видимих рядків у порядку DOM → перші max (решта видимих — без анімації, нижче екрана — відкладені IO).
+function rowsToAnimate(visible, max){
+  const v = Array.isArray(visible) ? visible : [];
+  return v.slice(0, Math.max(0, Math.floor(max) || 0));
+}
+// Той самий вибір режиму, що й для «Аналітики» (dashboard-replay керує обома): full/replay/update/none + причина пропуску.
+function accountRevealPlan(state, variant){ return dashboardReplayMode(state, variant); }
+// Підмітальник натискань: .is-pressed лишився на елементі, що НЕ відстежується активним натисканням, і минуло ≥300 мс від відпускання → зняти.
+// info = { pressed, tracked, sinceMs }.
+function shouldSweepPress(info, nowMs){
+  const i = info || {};
+  return !!i.pressed && !i.tracked && (nowMs - Number(i.sinceMs || 0)) >= 300;
+}
+const acctState = { played: false, seenMonth: null, seenNums: {}, seenSigs: {}, running: null, enterAt: 0,
+  deferred: { io: null, rows: new Map(), runners: new Set() } };
+function acctHash(str){ let h = 5381; for(let i = 0; i < str.length; i++){ h = ((h << 5) + h + str.charCodeAt(i)) | 0; } return String(h >>> 0); }
+// Таблиці «Обліку» перемальовуються тільки при зміні вмісту (інакше фоновий рендер замінював би рядки й обривав анімацію); зміна під час анімації → спершу finish().
+const ACCT_NATIVE_INNER_HTML = (typeof Element !== 'undefined') ? Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML') : null;
+function acctGuardedSetHtml(el, value){
+  if(el.__acctHtml === value && el.firstChild) return;
+  if(acctState.running) finishAccount();
+  acctState.deferred.rows.forEach(function(st, row){ if(el.contains(row)){ if(st.timer) clearTimeout(st.timer); if(acctState.deferred.io) acctState.deferred.io.unobserve(row); acctState.deferred.rows.delete(row); } });
+  ACCT_NATIVE_INNER_HTML.set.call(el, value);
+  el.__acctHtml = value;
+}
+function acctInstallGuards(){
+  if(!ACCT_NATIVE_INNER_HTML || !ACCT_NATIVE_INNER_HTML.set) return;
+  ACCT_TABLE_IDS.forEach(function(id){
+    const el = document.getElementById(id);
+    if(!el || el.__acctGuarded) return;
+    el.__acctGuarded = true;
+    Object.defineProperty(el, 'innerHTML', { configurable: true, get: function(){ return ACCT_NATIVE_INNER_HTML.get.call(el); }, set: function(v){ acctGuardedSetHtml(el, v); } });
+  });
+}
+function acctSnapshot(){
+  const nums = {}, sigs = {};
+  ACCT_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el && el.dataset.final !== undefined) nums[id] = Number(el.dataset.final); });
+  ACCT_TABLE_IDS.forEach(function(id){ const el = document.getElementById(id); if(el) sigs[id] = acctHash(el.__acctHtml || ''); });
+  return { nums: nums, sigs: sigs };
+}
+function acctMarkSeen(month){ const sn = acctSnapshot(); acctState.seenNums = sn.nums; acctState.seenSigs = sn.sigs; acctState.seenMonth = month; }
+function acctChanged(){ const sn = acctSnapshot(); return JSON.stringify(sn.nums) !== JSON.stringify(acctState.seenNums) || JSON.stringify(sn.sigs) !== JSON.stringify(acctState.seenSigs); }
+function acctIsActive(){
+  const v = document.getElementById('view-accounting');
+  return lastActiveTab === 'accounting' && !!v && !v.classList.contains('hidden');
+}
+function acctPanel(){ return document.querySelector('#view-accounting .struct-tab-panel:not(.hidden)'); }
+function acctSelector(el){ return el ? (el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.classList && el.classList[0] ? '.' + el.classList[0] : '')) : ''; }
+function recordAcctSkip(reason){
+  recordMotionPerf({ kind: 'account-enter', tab: 'accounting', mode: 'none', skipped: reason, elements: 0, counters: 0, rows: 0, frames: 0, maxGapMs: 0, durationMs: 0, reduced: motionReduced(), variant: dashVariant('dashboard-replay', 'always') });
+}
+function acctRun(trigger, month, active){
+  const d = accountRevealPlan({ trigger: trigger, active: active, hidden: !dashStartupReady(), reduced: motionReduced(), played: acctState.played,
+    sameMonth: acctState.seenMonth === month, changed: acctChanged() }, dashVariant('dashboard-replay', 'always'));
+  if(d.mode === 'none'){
+    if(trigger !== 'render') recordAcctSkip(d.skipped);
+    if(active && !acctState.running && d.skipped !== 'hidden') acctMarkSeen(month);
+    return;
+  }
+  playAccount(d.mode, trigger, month);
+}
+// Наприкінці кожного renderAll(): перший показ (активна вкладка, ще не грали) / зміна місяця — анімуємо; решта фонових рендерів — лише оновлюємо «бачене».
+function acctAfterRender(){
+  acctInstallGuards();
+  const active = acctIsActive();
+  let trigger = 'render';
+  if(active && !acctState.running){
+    if(!acctState.played) trigger = 'first';
+    else if(acctState.seenMonth !== null && acctState.seenMonth !== selectedMonth) trigger = 'month';
+  }
+  acctRun(trigger, selectedMonth, active);
+}
+function onAccountVisit(){ acctInstallGuards(); acctRun('visit', selectedMonth, acctIsActive()); }
+function finishAccount(){ const r = acctState.running; if(r){ acctState.running = null; r.stop(false); } }
+function acctClearDeferred(){
+  const d = acctState.deferred;
+  if(d.io){ try{ d.io.disconnect(); }catch(e){} d.io = null; }
+  d.rows.forEach(function(st, row){ if(st.timer) clearTimeout(st.timer); row.style.removeProperty('opacity'); row.style.removeProperty('transform'); });
+  d.rows.clear();
+  d.runners.forEach(function(r){ r.stop(false); });
+  d.runners.clear();
+}
+// Перемикання сегмента: контент панелі з'являється коротким fade + зсувом 8pt (--motion-s).
+function acctAnimatePanel(panel){
+  if(!panel || typeof panel.animate !== 'function' || motionReduced() || !dashStartupReady()) return;
+  const k = motionK;
+  try{ panel.animate([{ opacity: 0, transform: 'translateY(' + (8 * k) + 'px)' }, { opacity: 1, transform: 'translateY(0px)' }], { duration: motionDuration('s', k, false), easing: MOTION_EASE_OUT }); }catch(e){}
+}
+function playAccount(mode, trigger, month){
+  finishAccount();
+  if(!dashStartupReady() || !acctIsActive()) return;
+  const panel = acctPanel();
+  if(!panel) return;
+  const k = motionK;
+  const scale = mode === 'full' ? 1 : (mode === 'replay' ? DASH_REPLAY_SCALE : DASH_UPDATE_SCALE);
+  const timing = cardRevealTiming(dashVariant('card-reveal', 'standard'), k);
+  const replayV = dashVariant('dashboard-replay', 'always');
+  const seenNums = acctState.seenNums;
+  let rowsN = 0, deferredRows = 0, unitsN = 0;
+  const runner = makeDashRunner(function(completed, r, durationMs){
+    if(acctState.running && acctState.running.stop === r.stop) acctState.running = null;
+    acctState.played = true;
+    acctMarkSeen(month);
+    if(completed){
+      recordMotionPerf({ kind: 'account-enter', tab: 'accounting', mode: mode, skipped: null, elements: unitsN + rowsN, counters: r.counters.length, rows: rowsN, deferredRows: deferredRows,
+        frames: r.frames, maxGapMs: Math.round(r.maxGap), durationMs: Math.round(durationMs), reduced: false, variant: replayV });
+    }
+  }, 'accounting');
+  function addCounter(el, delay){
+    if(runner.counters.length >= DASH_MAX_COUNTERS || el.dataset.final === undefined) return;
+    const to = Number(el.dataset.final);
+    let from = 0;
+    if(mode === 'update' || (mode === 'full' && trigger === 'month')) from = typeof seenNums[el.id] === 'number' ? seenNums[el.id] : (mode === 'update' ? to : 0);
+    if(from === to) return;
+    // суми «Обліку» рахуються коротше за KPI «Аналітики» (щоб увесь візит вкладався в ~600–1000 мс): full ×0.7, replay ×0.5, update ×0.3 від --motion-count
+    const cScale = mode === 'full' ? 0.7 : (mode === 'replay' ? 0.5 : 0.3);
+    const dur = Math.max(120, Math.min(Math.round(motionDuration('count', k, false) * cScale), DASH_MAX_TOTAL_MS - delay));
+    runner.counters.push({ el: el, from: from, delay: delay, dur: dur });
+    runner.track(delay, dur);
+    el.textContent = fmt(from);
+  }
+  function addAppear(el, delay, dur, shift){
+    runner.cardAnims.push(el.animate([
+      { opacity: 0, transform: 'translateY(' + (shift * k) + 'px)' + (shift >= 12 ? ' scale(.985)' : '') },
+      { opacity: 1, transform: 'translateY(0px)' + (shift >= 12 ? ' scale(1)' : '') }
+    ], { duration: dur, delay: delay, easing: MOTION_EASE_OUT, fill: 'backwards' }));
+    runner.track(delay, dur);
+  }
+  if(mode === 'update'){
+    ACCT_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el && panel.contains(el)) addCounter(el, 0); });
+  }else{
+    acctClearDeferred();
+    acctState.enterAt = performance.now();
+    const summary = panel.querySelector('.card-summary'), label = panel.querySelector('.section-label');
+    const units = [summary, label].filter(Boolean);
+    units.forEach(function(u, i){
+      const delay = i * timing.stagger;
+      addAppear(u, delay, timing.duration, 12); unitsN++;
+      ACCT_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el && u.contains(el)) addCounter(el, delay); });
+    });
+    // рядки списку: перші до 10 видимих — по черзі (25·k мс) після підсумків; нижче екрана — IntersectionObserver (раз на візит)
+    const rows = Array.from(panel.querySelectorAll('.card-debt-compact-row'));
+    const vh = window.innerHeight;
+    const rects = rows.map(function(el, i){ const rc = el.getBoundingClientRect(); return { id: i, top: rc.top, bottom: rc.bottom }; }); // одне читання розмітки до старту
+    const visibleIdx = rects.filter(function(rc){ return rc.bottom > 0 && rc.top < vh; }).map(function(rc){ return rc.id; });
+    const baseRows = units.length * timing.stagger;
+    rowsToAnimate(visibleIdx, ACCT_MAX_ROWS).forEach(function(idx, n){
+      addAppear(rows[idx], baseRows + n * Math.round(ACCT_ROW_STAGGER_MS * k), motionDuration('m', k, false), 8); rowsN++;
+    });
+    const below = chartsBelowFold({ viewportH: vh, cards: rects });
+    if(below.length && shouldDeferChart(mode, false, typeof IntersectionObserver === 'function')){
+      const d = acctState.deferred;
+      d.io = new IntersectionObserver(onAcctRowIntersect, { root: document.getElementById('main-col'), rootMargin: '0px 0px -10% 0px', threshold: [0, CHART_REVEAL_RATIO] });
+      below.forEach(function(idx){
+        const row = rows[idx];
+        row.style.opacity = '0'; row.style.transform = 'translateY(' + (8 * k) + 'px)';
+        d.rows.set(row, { timer: null, ok: false });
+        d.io.observe(row); deferredRows++;
+      });
+    }
+  }
+  if(runner.empty()){ acctState.played = true; acctMarkSeen(month); if(!acctState.deferred.rows.size) recordAcctSkip('no-change'); return; }
+  acctState.running = { stop: runner.stop };
+  runner.start();
+}
+function onAcctRowIntersect(entries){
+  const d = acctState.deferred;
+  entries.forEach(function(entry){
+    const st = d.rows.get(entry.target);
+    if(!st) return;
+    st.ok = revealDecision(entry, { revealed: false, reduced: false, hidden: false, dwellMs: CHART_REVEAL_DWELL_MS }) === 'draw';
+    if(st.ok && !st.timer){ st.timer = setTimeout(function(){ st.timer = null; acctRevealRow(entry.target, 0); }, CHART_REVEAL_DWELL_MS); }
+    else if(!st.ok && st.timer){ clearTimeout(st.timer); st.timer = null; }
+  });
+}
+function acctRevealRow(row, attempt){
+  const d = acctState.deferred;
+  const st = d.rows.get(row);
+  if(!st || !st.ok) return;
+  if(!dashStartupReady() || !acctIsActive()){
+    if(attempt < 20) st.timer = setTimeout(function(){ st.timer = null; acctRevealRow(row, attempt + 1); }, 250);
+    return;
+  }
+  const root = document.getElementById('main-col');
+  if(root){
+    const rc = row.getBoundingClientRect(), rr = root.getBoundingClientRect();
+    const visH = Math.min(rc.bottom, rr.bottom - rr.height * 0.1) - Math.max(rc.top, rr.top);
+    if(!(rc.height > 0) || visH / rc.height < CHART_REVEAL_RATIO){ st.ok = false; return; }
+  }
+  d.rows.delete(row);
+  if(d.io) d.io.unobserve(row);
+  row.style.removeProperty('opacity'); row.style.removeProperty('transform');
+  const k = motionK;
+  const runner = makeDashRunner(function(completed, r){ d.runners.delete(r); }, 'accounting');
+  runner.cardAnims.push(row.animate([{ opacity: 0, transform: 'translateY(' + (8 * k) + 'px)' }, { opacity: 1, transform: 'translateY(0px)' }],
+    { duration: motionDuration('m', k, false), easing: MOTION_EASE_OUT, fill: 'backwards' }));
+  runner.track(0, motionDuration('m', k, false));
   d.runners.add(runner);
   runner.start();
 }
@@ -15830,7 +16045,7 @@ function beginTabTransition(prevTab, tab, fromContentTop){
   fromEl.style.zIndex = '0';
   return { mainCol: mainCol, fromEl: fromEl, toEl: toEl, fromContentTop: fromContentTop };
 }
-function playTabTransition(ctx, prevTab, tab, fromScroll){
+function playTabTransition(ctx, prevTab, tab, fromScroll, t0){
   const { mainCol, fromEl, toEl, fromContentTop } = ctx;
   // Старий .view тримаємо візуально на місці: позиція (у координатах вмісту #main-col) = де він був у вмісті - стара прокрутка + нова.
   fromEl.style.top = (fromContentTop - fromScroll + mainCol.scrollTop) + 'px';
@@ -15841,13 +16056,16 @@ function playTabTransition(ctx, prevTab, tab, fromScroll){
   const shiftOut = dir ? (-dir * 8 * k) : 0, shiftIn = dir ? (dir * 10 * k) : 0;
   const kfOut = dir ? [{ opacity: 1, transform: 'translateX(0px)' }, { opacity: 0, transform: 'translateX(' + shiftOut + 'px)' }] : [{ opacity: 1 }, { opacity: 0 }];
   const kfIn = dir ? [{ opacity: 0, transform: 'translateX(' + shiftIn + 'px)' }, { opacity: 1, transform: 'translateX(0px)' }] : [{ opacity: 0 }, { opacity: 1 }];
-  const startedAt = performance.now();
-  let frames = 0, maxGap = 0, lastT = startedAt, ended = false;
-  let outAnim = null, inAnim = null, safety = null;
+  // Rev 2.29.0 (B1) — важка частина (показ нового .view, розмітка, скидання прокрутки) вже виконана СИНХРОННО в performSwitchTab; новий .view тримаємо opacity:0 (inline), і анімацію
+  // стартуємо в НАСТУПНОМУ кадрі: перший (важкий) кадр лишається поза анімацією, тож пауза всередині руху зникає. Запасний старт за 100 мс — якщо rAF не прийшов (сторінка прихована).
+  // will-change лише на час анімації. contain на .view НЕ додано: layout/paint-containment робить .view containing block і обрізає виступи — безпека не доведена (див. ROADMAP 32.48).
+  let frames = 0, maxGap = 0, gapAt = 0, lastT = 0, startedAt = 0, firstFrameMs = 0, started = false, ended = false;
+  let outAnim = null, inAnim = null, safety = null, startSafety = null;
+  toEl.style.opacity = '0';
   function tick(now){
     if(ended) return;
     frames++;
-    const gap = now - lastT; if(gap > maxGap) maxGap = gap;
+    const gap = now - lastT; if(gap > maxGap){ maxGap = gap; gapAt = frames; }
     lastT = now;
     requestAnimationFrame(tick);
   }
@@ -15855,20 +16073,32 @@ function playTabTransition(ctx, prevTab, tab, fromScroll){
     if(ended) return;
     ended = true;
     if(safety){ clearTimeout(safety); safety = null; }
-    const duration = performance.now() - startedAt;
+    if(startSafety){ clearTimeout(startSafety); startSafety = null; }
+    const duration = started ? performance.now() - startedAt : 0;
     fromEl.classList.add('hidden');
     fromEl.style.position = ''; fromEl.style.left = ''; fromEl.style.right = ''; fromEl.style.top = ''; fromEl.style.zIndex = '';
-    try{ outAnim.cancel(); inAnim.cancel(); }catch(e){}
+    try{ if(outAnim) outAnim.cancel(); if(inAnim) inAnim.cancel(); }catch(e){}
+    toEl.style.opacity = ''; toEl.style.willChange = ''; fromEl.style.willChange = '';
     mainCol.classList.remove('tab-transitioning');
-    if(completed) recordMotionPerf({ kind: 'tab-switch', from: prevTab, to: tab, frames: frames, maxGapMs: Math.round(maxGap), durationMs: Math.round(duration), reduced: reduced });
+    if(completed) recordMotionPerf({ kind: 'tab-switch', from: prevTab, to: tab, frames: frames, maxGapMs: Math.round(maxGap), durationMs: Math.round(duration), reduced: reduced, firstFrameMs: Math.round(firstFrameMs), gapAtFrame: gapAt });
   }
-  outAnim = fromEl.animate(kfOut, { duration: dOut, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
-  inAnim = toEl.animate(kfIn, { duration: dIn, easing: MOTION_EASE_OUT, fill: 'backwards' });
-  tabTransition = { done: done };
-  requestAnimationFrame(tick);
   const onBoth = function(){ if(tabTransition && tabTransition.done === done){ tabTransition = null; done(true); } };
-  Promise.all([outAnim.finished, inAnim.finished]).then(onBoth, function(){ /* cancel під час переривання — done(false) уже викликано */ });
-  safety = setTimeout(onBoth, Math.max(dOut, dIn) + 200);
+  function start(){
+    if(started || ended) return;
+    started = true;
+    if(startSafety){ clearTimeout(startSafety); startSafety = null; }
+    firstFrameMs = performance.now() - (t0 || performance.now());
+    toEl.style.opacity = ''; toEl.style.willChange = 'transform, opacity'; fromEl.style.willChange = 'transform, opacity';
+    outAnim = fromEl.animate(kfOut, { duration: dOut, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+    inAnim = toEl.animate(kfIn, { duration: dIn, easing: MOTION_EASE_OUT, fill: 'backwards' });
+    startedAt = performance.now(); lastT = startedAt;
+    requestAnimationFrame(tick);
+    Promise.all([outAnim.finished, inAnim.finished]).then(onBoth, function(){ /* cancel під час переривання — done(false) уже викликано */ });
+    safety = setTimeout(onBoth, Math.max(dOut, dIn) + 200);
+  }
+  tabTransition = { done: done };
+  requestAnimationFrame(start);
+  startSafety = setTimeout(start, 100);
 }
 // --- Реакція на натискання (M1): один механізм для кнопок, чипів, рядків, карток ---
 // .is-pressed ставиться на pointerdown (passive), знімається на pointerup/pointercancel/відхід пальця/visibilitychange; не раніше PRESS_MIN_MS.
@@ -15900,6 +16130,20 @@ function pressStart(e){
   pressStates.set(el, st);
   el.classList.add('is-pressed');
 }
+function pressElSelector(el){ return el ? (el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.classList && el.classList[0] ? '.' + el.classList[0] : '')) : ''; }
+// Rev 2.29.0 (B2) — підмітальник: через 300 мс після відпускання знімає .is-pressed з елементів, що НЕ відстежуються активним натисканням (витік). Активні (другий тап/палець) НЕ витік:
+// у логу 2.27.0 єдиний pressLeak=1 був саме таким — другий тап по #show-journal-btn уже йшов (touchstart за 18 мс до заміру), а не залипання.
+function sweepPress(releasedAt){
+  const now = performance.now();
+  const fixed = []; let remaining = 0; let remSel = '';
+  document.querySelectorAll('.is-pressed').forEach(function(el){
+    if(pressStates.has(el)) return;
+    if(shouldSweepPress({ pressed: true, tracked: false, sinceMs: releasedAt }, now)){ el.classList.remove('is-pressed'); fixed.push(pressElSelector(el)); }
+    else { remaining++; remSel = pressElSelector(el); }
+  });
+  fixed.forEach(function(sel){ recordMotionPerf({ kind: 'press-leak-fixed', selector: sel, ms: Math.round(now - releasedAt) }); });
+  return { fixed: fixed, remaining: remaining, remainingSelector: remSel };
+}
 function pressRelease(el){
   const st = pressStates.get(el);
   if(!st) return;
@@ -15913,10 +16157,12 @@ function pressRelease(el){
       st.anim.cancel();
     }catch(err){ try{ st.anim.cancel(); }catch(e2){} }
   }
-  if(debugRecordingActive){
-    const holdMs = Math.round(performance.now() - st.start);
-    setTimeout(function(){ recordMotionPerf({ kind: 'press', holdMs: holdMs, pressLeak: document.querySelectorAll('.is-pressed').length, reduced: motionReduced() }); }, 300);
-  }
+  const releasedAt = performance.now();
+  const holdMs = Math.round(releasedAt - st.start);
+  setTimeout(function(){
+    const r = sweepPress(releasedAt);
+    if(debugRecordingActive) recordMotionPerf({ kind: 'press', holdMs: holdMs, pressLeak: r.remaining, leakSelector: r.remainingSelector || (r.fixed[0] || ''), reduced: motionReduced() });
+  }, 300);
 }
 function pressEnd(e){
   pressStates.forEach(function(st, el){
@@ -15933,15 +16179,32 @@ function pressMove(e){
   });
 }
 function pressReleaseAll(){ Array.from(pressStates.keys()).forEach(pressRelease); }
+// touchend/touchcancel без пальців — знімаємо всі натискання (страховка, якщо pointerup/pointercancel не дійшли); мінімальна тривалість зберігається.
+function pressEndAllTouch(e){
+  if(e.touches && e.touches.length) return;
+  pressStates.forEach(function(st, el){
+    if(e.type === 'touchcancel' || shouldReleasePress(st.start, performance.now(), PRESS_MIN_MS)) pressRelease(el);
+    else if(!st.timer) st.timer = setTimeout(function(){ pressRelease(el); }, PRESS_MIN_MS - (performance.now() - st.start));
+  });
+}
 (function initPressFeedback(){
   const opt = { passive: true, capture: true };
   document.addEventListener('pointerdown', pressStart, opt);
   document.addEventListener('pointerup', pressEnd, opt);
   document.addEventListener('pointercancel', pressEnd, opt);
   document.addEventListener('pointermove', pressMove, opt);
+  document.addEventListener('touchend', pressEndAllTouch, opt);
+  document.addEventListener('touchcancel', pressEndAllTouch, opt);
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState !== 'visible') pressReleaseAll(); });
   window.addEventListener('pagehide', pressReleaseAll);
   window.addEventListener('blur', pressReleaseAll);
+  // елемент прибрано з DOM під час натискання (перемальовано список тощо) — звільняємо стан одразу
+  if(typeof MutationObserver === 'function' && document.body){
+    new MutationObserver(function(records){
+      if(!pressStates.size) return;
+      records.forEach(function(r){ r.removedNodes.forEach(function(n){ if(n.nodeType !== 1) return; pressStates.forEach(function(st, el){ if(el === n || n.contains(el)) pressRelease(el); }); }); });
+    }).observe(document.body, { childList: true, subtree: true });
+  }
 })();
 // ===== Rev 2.26.0 (M3) — дизайн-система: варіанти кнопок, сегменти з ковзним індикатором, ui-audit (docs/DESIGN_SYSTEM.md) =====
 // Відповідність КЛАС кнопки → ВАРІАНТ. primary/secondary/text/danger/icon — п'ять варіантів кнопок; segment/chip — однакова/різна ширина;
@@ -16153,6 +16416,7 @@ function performSwitchTab(tab, opts){
   // Rev 2.24.0 (M1) — попередня вкладка (для переходу й збереження прокрутки); незавершений перехід дозавершуємо одразу.
   // ВАЖЛИВО: прокрутку й позицію вихідної вкладки знімаємо ДО будь-яких змін DOM: шапка (.top з month-pill) лежить у тому самому #main-col,
   // і зміна її висоти (updatePageHeader) через scroll anchoring зсуває scrollTop (Аналітика→Сервіс: 500 → 448).
+  const tSwitch0 = performance.now(); // Rev 2.29.0 (B): час від початку перемикання до першого кадру → firstFrameMs
   const prevTab = lastActiveTab;
   finishTabTransition();
   const mainColForTab = document.getElementById('main-col');
@@ -16215,8 +16479,9 @@ function performSwitchTab(tab, opts){
   const mainColEl = document.getElementById('main-col');
   // Rev 2.24.0 (M1) — повернення на вкладку відновлює її збережену прокрутку (раніше завжди 0); повторний тап по активній вкладці, як і раніше, — на початок.
   if(mainColEl) mainColEl.scrollTop = switching ? (tabScrollPositions[tab] || 0) : 0;
-  if(tabCtx) playTabTransition(tabCtx, prevTab, tab, fromScroll);
+  if(tabCtx) playTabTransition(tabCtx, prevTab, tab, fromScroll, tSwitch0);
   if(switching && tab === 'analytics') onDashboardVisit(); // Rev 2.25.0 (M2)
+  if(switching && tab === 'accounting') onAccountVisit(); // Rev 2.29.0 (A)
   // Rev 2.3.4 — автофокус на "Назва витрати" при вході на вкладку "Витрати":
   // єдина щоденна дія має починатись з можливості одразу друкувати, без
   // зайвого тапу по полю. Виклик СИНХРОННИЙ (без setTimeout) — на iOS Safari
