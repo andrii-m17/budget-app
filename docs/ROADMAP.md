@@ -11246,6 +11246,8 @@ overflow:hidden}`; `innerH + vvOffsetTop === 894` у 98.6% рядків —
 
 **Застосовані міграції:** `dictionary_add_deleted_at_a2`, `hidden_entities_tombstone_rev_b`, `cascade_markers_rev_c`, `client_debug_logs_blackbox`, `phase0_close_hidden_entities_view`, `phase0_cron_dst_safe`, `phase0_debts_unique_partial`, `phase0_push_secret_step_a`; **Edge Function** `send-push-notification` — версія 5.
 
+**Додано після Ревізії E (нотатка K):** міграції `hardening_revoke_anon_and_function_search_path`, `db_snapshots_7_plus_weekly`, `push_backup_reminder`, `accounts_tombstone_and_purge`, `taxonomy_tombstone_and_purge`, `push_master_toggle_and_delivery_log`; публічна функція `ping()` (повертає поточний час; викликає GitHub Actions `keepalive.yml` раз на 2 дні о 06:00 UTC, щоб Supabase не ставив проєкт на паузу); нічні завдання `db-snapshot`, `purge-deleted-accounts`, `purge-deleted-taxonomy`, `backup-reminder`. **GitHub вимикає заплановані запуски після тривалої відсутності активності в репозиторії — тоді їх вмикають вручну у вкладці Actions** (`workflow_dispatch` теж доступний).
+
 **Що це означає для клієнта:**
 - View `hidden_entities_readable` закритий (права викликача, роль `anon` доступу не має). Клієнт його НЕ використовує — назви рахунків беруться з таблиць (RLS діє).
 - Cron/час: `daily-expense-reminder` і `debt-installment-deadlines` викликають обгортки `run_daily_expense_reminder_kyiv()` (20:00 за Києвом) і `run_debt_deadlines_kyiv()` (08:00 за Києвом) — розклад стартує в обидві можливі UTC-години, обгортка перевіряє київську годину. `other-actor-summary` без змін (кожні 15 хв).

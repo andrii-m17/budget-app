@@ -1,0 +1,24 @@
+# Будильник проти паузи Supabase (безкоштовний план ставить проєкт на паузу після 7 днів без активності):
+# раз на 2 дні викликає публічну функцію ping() (повертає поточний час). URL і anon-ключ — ті самі ПУБЛІЧНІ значення, що вже є в index.html; секретів немає.
+# GitHub вимикає заплановані запуски після тривалої відсутності активності в репозиторії — тоді їх вмикають вручну у вкладці Actions.
+name: keepalive
+on:
+  schedule:
+    - cron: '0 6 */2 * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: https://nbykagbcvjryxiaxqwbk.supabase.co
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ieWthZ2JjdmpyeXhpYXhxd2JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3NjA2NjEsImV4cCI6MjEwNTMzNjY2MX0.JDT57OofJ_m2Xq4Vv9sZODTKx54AoKhURYAbg5Bz8qg
+        run: |
+          code=$(curl -sS -o response.txt -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
+            -H 'Content-Type: application/json' \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -d '{}')
+          echo "HTTP $code: $(cat response.txt)"
+          test "$code" = "200"
