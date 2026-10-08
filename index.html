@@ -3165,7 +3165,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.27.0</div>
+  <div class="version-footer">Money Tree · Rev 2.28.0</div>
 </div>
   </div>
 </div>
@@ -7462,7 +7462,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.27.0';
+const APP_VERSION = '2.28.0';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9801,6 +9801,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'kind', 'intensity', 'reduced', 'holdMs', 'pressLeak',
   // Rev 2.27.0 (M2.1) — dashboard-enter: mode (full/replay/update/none), skipped (reduced/hidden/no-change/variant), chartsAnimated/chartsSkipped, pathLenZero (скільки <path> дали getTotalLength()=0), pathLengthAttr (чи підтримується pathLength), cardVariant/replayVariant.
   'mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr', 'cardVariant', 'replayVariant',
+  // Rev 2.28.0 (M2.2) — deferredCharts (скільки графіків чекали доскролу) і chart-reveal: chart (id графіка), fromEnterMs (мс від початку візиту до малювання).
+  'deferredCharts', 'chart', 'fromEnterMs',
   // Rev 2.25.0 (M2) — dashboard-enter: tab, elements (картки в черзі), counters, charts, repeat (повторний показ у сесії); frames/maxGapMs/durationMs — як вище.
   'tab', 'elements', 'counters', 'charts', 'repeat',
   // Rev 2.26.0 (M3) — ui-audit: кількості кнопок за варіантами, без варіанта, із зоною <44, з контрастом <AA, і перелік ПЕРШИХ КЛАСІВ (не даних).
@@ -14633,7 +14635,31 @@ function dashboardReplayMode(state, variant){
   }
   return none('no-change');
 }
-const dashState = { played: false, seenMonth: null, seenNums: {}, seenSigs: {}, running: null, updatePending: false };
+// ===== Rev 2.28.0 (M2.2) — картки/графіки нижче першого екрана малюються, коли до них доскролили (IntersectionObserver), раз на візит =====
+const CHART_REVEAL_DWELL_MS = 120; // скільки картка має ЗАЛИШАТИСЬ у видимій області (≥25%), перш ніж малюватись: швидке проскакування повз не запускає анімацію
+const CHART_REVEAL_RATIO = 0.25;
+// layout = { viewportH, cards:[{ id, top, bottom }] } → id карток, що цілком нижче першого екрана (top >= viewportH). Видимі (хоч частково) — перший екран, вище — вже проскролені.
+function chartsBelowFold(layout){
+  const l = layout || {};
+  const vh = Number(l.viewportH);
+  if(!(vh > 0) || !Array.isArray(l.cards)) return [];
+  return l.cards.filter(c => c && Number(c.top) >= vh).map(c => c.id);
+}
+// 'draw' — малювати зараз; 'wait' — ще ні (не в області / замало часу в області); 'skip' — не малювати (вже намальовано, reduced, прихована сторінка).
+// entry = { isIntersecting, intersectionRatio }, state = { revealed, reduced, hidden, dwellMs }.
+function revealDecision(entry, state){
+  const e = entry || {}, s = state || {};
+  if(s.revealed || s.reduced || s.hidden) return 'skip';
+  const inView = !!e.isIntersecting && Number(e.intersectionRatio || 0) >= CHART_REVEAL_RATIO;
+  if(!inView) return 'wait';
+  return Number(s.dwellMs || 0) >= CHART_REVEAL_DWELL_MS ? 'draw' : 'wait';
+}
+// Чи відкладати малювання нижче першого екрана: лише повна/повторна поява, не reduced, і лише якщо є IntersectionObserver (інакше — кінцевий стан одразу).
+function shouldDeferChart(mode, reduced, hasObserver){
+  return !!hasObserver && !reduced && (mode === 'full' || mode === 'replay');
+}
+const dashState = { played: false, seenMonth: null, seenNums: {}, seenSigs: {}, running: null, updatePending: false, enterAt: 0,
+  deferred: { io: null, cards: new Map(), runners: new Set(), mode: 'full', scale: 1, trigger: 'first' } };
 function setDashFinal(id, n){
   const el = document.getElementById(id);
   if(!el) return;
@@ -14723,6 +14749,76 @@ function finishDashboard(){
 function pathLengthSupported(){
   return typeof SVGGeometryElement !== 'undefined' && 'pathLength' in SVGGeometryElement.prototype;
 }
+// Прибирає очікування відкладених карток (новий візит/місяць): скасовує спостерігач і таймери, повертає картки в кінцевий стан, дозавершує незавершені малювання.
+function dashClearDeferred(){
+  const d = dashState.deferred;
+  if(d.io){ try{ d.io.disconnect(); }catch(e){} d.io = null; }
+  d.cards.forEach(function(st, card){
+    if(st.timer) clearTimeout(st.timer);
+    card.style.removeProperty('opacity'); card.style.removeProperty('transform');
+  });
+  d.cards.clear();
+  d.runners.forEach(function(r){ r.stop(false); });
+  d.runners.clear();
+}
+// Бігунок анімації: картки (WAAPI) + лічильники + елементи графіків (rAF, inline-стилі). Початковий стан — paint(0) синхронно ДО першого кадру. Без читань розмітки в циклі.
+function makeDashRunner(onFinish){
+  const r = { cardAnims: [], counters: [], items: [], endAt: 0, charts: [], cards: 0, ended: false, frames: 0, maxGap: 0, startedAt: 0 };
+  r.track = function(delay, dur){ if(delay + dur > r.endAt) r.endAt = delay + dur; };
+  r.empty = function(){ return !r.cardAnims.length && !r.counters.length && !r.items.length; };
+  function paint(ms){
+    for(let i = 0; i < r.items.length; i++){
+      const it = r.items[i];
+      const p = Math.min(1, Math.max(0, (ms - it.delay) / it.dur));
+      const st = it.el.style;
+      if(it.kind === 'line' || it.kind === 'ring'){
+        const e = bezierEase(p);
+        if(it.kind === 'line') st.strokeDasharray = it.pl ? '1' : String(it.len);
+        st.strokeDashoffset = String(it.len * (1 - e));
+        st.opacity = String(it.op * Math.min(1, p * 10));
+      }else if(it.kind === 'bar'){
+        st.transform = 'scaleY(' + bezierEase(p) + ')';
+      }else{
+        st.opacity = String(p);
+      }
+    }
+    for(let i = 0; i < r.counters.length; i++){
+      const c = r.counters[i];
+      if(!c.el.isConnected || c.el.dataset.final === undefined) continue;
+      const t = (ms - c.delay) / c.dur;
+      if(t >= 0) c.el.textContent = fmt(countStep(c.from, Number(c.el.dataset.final), t));
+    }
+  }
+  r.stop = function(completed){
+    if(r.ended) return;
+    r.ended = true;
+    r.cardAnims.forEach(function(a){ try{ a.cancel(); }catch(e){} });
+    r.items.forEach(function(it){
+      const st = it.el.style;
+      st.removeProperty('stroke-dasharray'); st.removeProperty('stroke-dashoffset'); st.removeProperty('opacity'); st.removeProperty('transform');
+    });
+    r.counters.forEach(function(c){ if(c.el.isConnected && c.el.dataset.final !== undefined) c.el.textContent = fmt(Number(c.el.dataset.final)); });
+    onFinish(completed, r, performance.now() - r.startedAt);
+  };
+  r.start = function(){
+    paint(0);
+    r.startedAt = performance.now();
+    let lastT = r.startedAt;
+    function tick(now){
+      if(r.ended) return;
+      if(lastActiveTab !== 'analytics'){ r.stop(false); return; }
+      r.frames++;
+      const gap = now - lastT; if(gap > r.maxGap) r.maxGap = gap;
+      lastT = now;
+      const el = now - r.startedAt;
+      paint(el);
+      if(el >= r.endAt + 20){ r.stop(true); return; }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  };
+  return r;
+}
 function playDashboard(mode, trigger, month){
   finishDashboard();
   if(!dashStartupReady() || !dashIsActive()) return;
@@ -14732,62 +14828,25 @@ function playDashboard(mode, trigger, month){
   const cardV = dashVariant('card-reveal', 'standard'), replayV = dashVariant('dashboard-replay', 'always');
   const timing = cardRevealTiming(cardV, k);
   const seenNums = dashState.seenNums, seenSigs = dashState.seenSigs;
-  const cardAnims = [];
-  const counters = [];
-  const items = []; // { kind:'line'|'ring'|'bar'|'late', el, delay, dur, ... } — малює rAF-цикл inline-стилями
-  let endAt = 0, cardsN = 0, chartsAnimated = 0, chartsSkipped = 0, pathLenZero = 0;
   const diag = debugRecordingActive;
   const plSupported = pathLengthSupported();
-  function track(delay, dur){ if(delay + dur > endAt) endAt = delay + dur; }
+  const stats = { pathLenZero: 0, chartsSkipped: 0 };
+  if(mode !== 'update'){ dashClearDeferred(); dashState.enterAt = performance.now(); }
 
-  // 1. Картки (full/replay): ≤8 елементів, що зараз у видимій області, у порядку DOM; тривалість і крок — варіант card-reveal.
-  const delayOf = new Map();
-  if(mode !== 'update'){
-    const vh = window.innerHeight;
-    let queue = Array.from(body.querySelectorAll('.kpi-card, .card')).filter(function(el){ return !el.parentElement.closest('.kpi-card, .card'); })
-      .filter(function(el){ const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < vh; });
-    queue = queue.slice(0, dashboardQueueSize(queue.length, timing, DASH_MAX_QUEUE, DASH_MAX_TOTAL_MS));
-    queue.forEach(function(el, i){
-      const delay = Math.min(i, queue.length - 1) * timing.stagger;
-      delayOf.set(el, delay);
-      cardAnims.push(el.animate([
-        { opacity: 0, transform: 'translateY(' + (12 * k) + 'px) scale(.985)' },
-        { opacity: 1, transform: 'translateY(0px) scale(1)' }
-      ], { duration: timing.duration, delay: delay, easing: MOTION_EASE_OUT, fill: 'backwards' }));
-      track(delay, timing.duration);
-      cardsN++;
-    });
-  }
-  function hostDelay(el){
-    if(mode === 'update') return 0;
-    const host = el.closest('.kpi-card, .card');
-    return host && delayOf.has(host) ? delayOf.get(host) : null; // null → поза чергою: статично
-  }
-
-  // 2. Лічильники (≤6): full — від 0 (або від баченого при зміні місяця), replay — від 0, update — лише змінені від баченого.
-  DASH_COUNTER_IDS.forEach(function(id){
-    if(counters.length >= DASH_MAX_COUNTERS) return;
-    const el = document.getElementById(id);
-    if(!el || el.dataset.final === undefined) return;
-    const delay = hostDelay(el);
-    if(delay === null) return;
+  // Лічильник усередині кадру/одиниці: full — від 0 (або від баченого при зміні місяця), replay — від 0, update — лише змінені від баченого.
+  function addCounter(r, el, delay){
+    if(r.counters.length >= DASH_MAX_COUNTERS || el.dataset.final === undefined) return;
     const to = Number(el.dataset.final);
     let from = 0;
-    if(mode === 'update' || (mode === 'full' && trigger === 'month')) from = typeof seenNums[id] === 'number' ? seenNums[id] : (mode === 'update' ? to : 0);
+    if(mode === 'update' || (mode === 'full' && trigger === 'month')) from = typeof seenNums[el.id] === 'number' ? seenNums[el.id] : (mode === 'update' ? to : 0);
     if(from === to) return;
     const dur = Math.max(120, Math.min(Math.round(motionDuration('count', k, false) * scale), DASH_MAX_TOTAL_MS - delay));
-    counters.push({ el: el, from: from, delay: delay, dur: dur });
-    track(delay, dur);
-    el.textContent = fmt(from); // стартове значення — синхронно, до малювання кадру (без спалаху кінцевого)
-  });
-
-  // 3. Графіки: лінії/кільце — dashoffset, стовпчики — scaleY, точки й підписи — opacity наприкінці. Усе — rAF-цикл з inline-стилями (без WAAPI по SVG-властивостях).
-  DASH_CHART_HOSTS.forEach(function(id){
-    const host = document.getElementById(id);
-    if(!host || host.dataset.sig === undefined) return;
-    if(mode === 'update' && seenSigs[id] === host.dataset.sig){ chartsSkipped++; return; }
-    const base = hostDelay(host);
-    if(base === null){ chartsSkipped++; return; }
+    r.counters.push({ el: el, from: from, delay: delay, dur: dur });
+    r.track(delay, dur);
+    el.textContent = fmt(from);
+  }
+  // Графік-господар: лінії/кільце — dashoffset, стовпчики — scaleY, точки й підписи — opacity наприкінці.
+  function addHost(r, host, base){
     const lineDur0 = Math.round(chartDuration('lines', k, false) * scale), barDur0 = Math.round(chartDuration('bars', k, false) * scale);
     const lineDur = Math.max(160, Math.min(lineDur0, Math.round((DASH_MAX_TOTAL_MS - base) / 1.3)));
     const barDur = Math.max(160, Math.min(barDur0, DASH_MAX_TOTAL_MS - base - 330));
@@ -14795,96 +14854,189 @@ function playDashboard(mode, trigger, month){
     let any = false;
     host.querySelectorAll('[data-draw]').forEach(function(path){
       const L = (path.getTotalLength ? path.getTotalLength() : 0);
-      if(diag && !(L > 0)) pathLenZero++;
+      if(diag && !(L > 0)) stats.pathLenZero++;
       const dash = plSupported ? 1 : L;
-      if(!(dash > 0)){ return; }
+      if(!(dash > 0)) return;
       const op = parseFloat(path.getAttribute('opacity'));
-      items.push({ kind: 'line', el: path, delay: base, dur: lineDur, len: dash, op: isNaN(op) ? 1 : op });
-      track(base, lineDur); any = true;
+      r.items.push({ kind: 'line', el: path, delay: base, dur: lineDur, len: dash, pl: plSupported, op: isNaN(op) ? 1 : op });
+      r.track(base, lineDur); any = true;
     });
     host.querySelectorAll('.dash-bar').forEach(function(bar, i){
       const d = base + staggerDelay(i, k, 12, 30) * (mode === 'update' ? 0 : 1);
-      items.push({ kind: 'bar', el: bar, delay: d, dur: barDur });
-      track(d, barDur); any = true;
+      r.items.push({ kind: 'bar', el: bar, delay: d, dur: barDur });
+      r.track(d, barDur); any = true;
     });
     host.querySelectorAll('[data-ring]').forEach(function(ring){
       const arc = parseFloat((ring.getAttribute('stroke-dasharray') || '').split(/[ ,]+/)[0]) || 0;
       if(!(arc > 0)) return;
-      items.push({ kind: 'ring', el: ring, delay: base, dur: lineDur, len: arc, op: 1 });
-      track(base, lineDur); any = true;
+      r.items.push({ kind: 'ring', el: ring, delay: base, dur: lineDur, len: arc, op: 1 });
+      r.track(base, lineDur); any = true;
     });
     if(any){
       host.querySelectorAll('[data-late]').forEach(function(late){
-        items.push({ kind: 'late', el: late, delay: lateDelay, dur: lateDur });
-        track(lateDelay, lateDur);
+        r.items.push({ kind: 'late', el: late, delay: lateDelay, dur: lateDur });
+        r.track(lateDelay, lateDur);
       });
-      chartsAnimated++;
-    }else chartsSkipped++;
-  });
-
-  if(!cardAnims.length && !counters.length && !items.length){
-    dashState.played = true; dashMarkSeen(month);
-    recordDashSkip('no-change', trigger);
-    return;
-  }
-
-  // 4. Малювання кадру: синхронно (t=0) — початковий стан до першого кадру; далі rAF. Жодних читань розмітки в циклі.
-  function paint(ms){
-    for(let i = 0; i < items.length; i++){
-      const it = items[i];
-      const p = Math.min(1, Math.max(0, (ms - it.delay) / it.dur));
-      const st = it.el.style;
-      if(it.kind === 'line' || it.kind === 'ring'){
-        const e = bezierEase(p);
-        if(it.kind === 'line') st.strokeDasharray = plSupported ? '1' : String(it.len);
-        st.strokeDashoffset = String(it.len * (1 - e));
-        st.opacity = String(it.op * Math.min(1, p * 10));
-      }else if(it.kind === 'bar'){
-        st.transform = 'scaleY(' + bezierEase(p) + ')';
-      }else{
-        st.opacity = String(p);
-      }
+      r.charts.push(host.id);
     }
-    for(let i = 0; i < counters.length; i++){
-      const c = counters[i];
-      if(!c.el.isConnected || c.el.dataset.final === undefined) continue;
-      const t = (ms - c.delay) / c.dur;
-      if(t >= 0) c.el.textContent = fmt(countStep(c.from, Number(c.el.dataset.final), t));
-    }
+    return any;
   }
-  paint(0);
-  const startedAt = performance.now();
-  let frames = 0, maxGap = 0, lastT = startedAt, ended = false;
-  function stop(completed){
-    if(ended) return;
-    ended = true;
-    cardAnims.forEach(function(a){ try{ a.cancel(); }catch(e){} });
-    items.forEach(function(it){
-      const st = it.el.style;
-      st.removeProperty('stroke-dasharray'); st.removeProperty('stroke-dashoffset'); st.removeProperty('opacity'); st.removeProperty('transform');
+  // Одиниця = картка: її поява + лічильники й графіки всередині (однаково для першого екрана й для відкладеної появи).
+  function addUnit(r, card, base){
+    r.cardAnims.push(card.animate([
+      { opacity: 0, transform: 'translateY(' + (12 * k) + 'px) scale(.985)' },
+      { opacity: 1, transform: 'translateY(0px) scale(1)' }
+    ], { duration: timing.duration, delay: base, easing: MOTION_EASE_OUT, fill: 'backwards' }));
+    r.track(base, timing.duration);
+    r.cards++;
+    DASH_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el && card.contains(el)) addCounter(r, el, base); });
+    DASH_CHART_HOSTS.forEach(function(id){
+      const host = document.getElementById(id);
+      if(!host || !card.contains(host) || host.dataset.sig === undefined) return;
+      if(!addHost(r, host, base)) stats.chartsSkipped++;
     });
-    counters.forEach(function(c){ if(c.el.isConnected && c.el.dataset.final !== undefined) c.el.textContent = fmt(Number(c.el.dataset.final)); });
+  }
+
+  // ---- перший екран ----
+  const mainRunner = makeDashRunner(function(completed, r, durationMs){
+    if(dashState.running && dashState.running.stop === r.stop) dashState.running = null;
     dashState.played = true;
     dashMarkSeen(month);
     if(completed){
-      recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', mode: mode, skipped: null, elements: cardsN, counters: counters.length, charts: chartsAnimated, chartsAnimated: chartsAnimated, chartsSkipped: chartsSkipped,
-        pathLenZero: pathLenZero, pathLengthAttr: plSupported, cardVariant: cardV, replayVariant: replayV,
-        frames: frames, maxGapMs: Math.round(maxGap), durationMs: Math.round(performance.now() - startedAt), reduced: false, repeat: mode !== 'full' });
+      recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', mode: mode, skipped: null, elements: r.cards, counters: r.counters.length, charts: r.charts.length, chartsAnimated: r.charts.length, chartsSkipped: stats.chartsSkipped,
+        deferredCharts: deferredCharts, pathLenZero: stats.pathLenZero, pathLengthAttr: plSupported, cardVariant: cardV, replayVariant: replayV,
+        frames: r.frames, maxGapMs: Math.round(r.maxGap), durationMs: Math.round(durationMs), reduced: false, repeat: mode !== 'full' });
+    }
+  });
+  let deferredCharts = 0;
+  if(mode === 'update'){
+    // оновлення змінених даних: лише змінені лічильники й графіки, без карток і без відкладення
+    DASH_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el) addCounter(mainRunner, el, 0); });
+    DASH_CHART_HOSTS.forEach(function(id){
+      const host = document.getElementById(id);
+      if(!host || host.dataset.sig === undefined) return;
+      if(seenSigs[id] === host.dataset.sig){ stats.chartsSkipped++; return; }
+      if(!addHost(mainRunner, host, 0)) stats.chartsSkipped++;
+    });
+  }else{
+    const vh = window.innerHeight;
+    const all = Array.from(body.querySelectorAll('.kpi-card, .card')).filter(function(el){ return !el.parentElement.closest('.kpi-card, .card'); });
+    const rects = all.map(function(el, i){ const rc = el.getBoundingClientRect(); return { id: i, top: rc.top, bottom: rc.bottom }; }); // одне читання розмітки до старту
+    let queue = all.filter(function(el, i){ return rects[i].bottom > 0 && rects[i].top < vh; });
+    queue = queue.slice(0, dashboardQueueSize(queue.length, timing, DASH_MAX_QUEUE, DASH_MAX_TOTAL_MS));
+    queue.forEach(function(el, i){ addUnit(mainRunner, el, Math.min(i, queue.length - 1) * timing.stagger); });
+    // нижче першого екрана: початковий стан (opacity/transform — висота не змінюється) + IntersectionObserver; без нього — кінцевий стан одразу
+    const below = chartsBelowFold({ viewportH: vh, cards: rects });
+    if(below.length && shouldDeferChart(mode, false, typeof IntersectionObserver === 'function')){
+      const d = dashState.deferred;
+      d.mode = mode; d.scale = scale; d.trigger = trigger;
+      d.io = new IntersectionObserver(onDashCardIntersect, { root: document.getElementById('main-col'), rootMargin: '0px 0px -10% 0px', threshold: [0, CHART_REVEAL_RATIO] });
+      below.forEach(function(idx){
+        const card = all[idx];
+        card.style.opacity = '0'; card.style.transform = 'translateY(' + (12 * k) + 'px) scale(.985)';
+        d.cards.set(card, { timer: null, ok: false });
+        DASH_CHART_HOSTS.forEach(function(id){ const h = document.getElementById(id); if(h && card.contains(h) && h.dataset.sig !== undefined) deferredCharts++; });
+        d.io.observe(card);
+      });
     }
   }
-  dashState.running = { stop: stop };
-  function tick(now){
-    if(ended) return;
-    if(lastActiveTab !== 'analytics'){ if(dashState.running && dashState.running.stop === stop) dashState.running = null; stop(false); return; }
-    frames++;
-    const gap = now - lastT; if(gap > maxGap) maxGap = gap;
-    lastT = now;
-    const el = now - startedAt;
-    paint(el);
-    if(el >= endAt + 20){ if(dashState.running && dashState.running.stop === stop) dashState.running = null; stop(true); return; }
-    requestAnimationFrame(tick);
+
+  if(mainRunner.empty()){
+    dashState.played = true; dashMarkSeen(month);
+    if(!dashState.deferred.cards.size) recordDashSkip('no-change', trigger);
+    return;
   }
-  requestAnimationFrame(tick);
+  dashState.running = { stop: mainRunner.stop };
+  mainRunner.start();
+}
+// IntersectionObserver: картка стала видимою ≥25% (rootMargin -10% знизу) → чекаємо CHART_REVEAL_DWELL_MS і, якщо вона досі в області, малюємо (раз на візит).
+function onDashCardIntersect(entries){
+  const d = dashState.deferred;
+  entries.forEach(function(entry){
+    const st = d.cards.get(entry.target);
+    if(!st) return;
+    st.ok = revealDecision(entry, { revealed: false, reduced: false, hidden: false, dwellMs: CHART_REVEAL_DWELL_MS }) === 'draw';
+    if(st.ok && !st.timer){
+      st.timer = setTimeout(function(){ st.timer = null; dashRevealCard(entry.target, 0); }, CHART_REVEAL_DWELL_MS);
+    }else if(!st.ok && st.timer){
+      clearTimeout(st.timer); st.timer = null; // проскочила повз — чекаємо, поки справді зупиниться в області
+    }
+  });
+}
+function dashRevealCard(card, attempt){
+  const d = dashState.deferred;
+  const st = d.cards.get(card);
+  if(!st || !st.ok) return;
+  if(!dashStartupReady() || !dashIsActive()){
+    if(attempt < 20) st.timer = setTimeout(function(){ st.timer = null; dashRevealCard(card, attempt + 1); }, 250);
+    return;
+  }
+  // Перевірка перед малюванням (одне читання розмітки, не в циклі анімації): IO-повідомлення можуть запізнюватись, тож переконуємось, що картка ДОСІ в області ≥25%.
+  const root = document.getElementById('main-col');
+  if(root){
+    const rc = card.getBoundingClientRect(), rr = root.getBoundingClientRect();
+    const visH = Math.min(rc.bottom, rr.bottom - rr.height * 0.1) - Math.max(rc.top, rr.top);
+    if(!(rc.height > 0) || visH / rc.height < CHART_REVEAL_RATIO){ st.ok = false; return; }
+  }
+  d.cards.delete(card);
+  if(d.io) d.io.unobserve(card);
+  card.style.removeProperty('opacity'); card.style.removeProperty('transform');
+  const k = motionK, scale = d.scale, mode = d.mode;
+  const timing = cardRevealTiming(dashVariant('card-reveal', 'standard'), k);
+  const plSupported = pathLengthSupported();
+  const enterMs = Math.round(performance.now() - dashState.enterAt);
+  const diag = debugRecordingActive;
+  let pathLenZero = 0;
+  const runner = makeDashRunner(function(completed, r, durationMs){
+    d.runners.delete(r);
+    if(completed){
+      r.charts.forEach(function(id){
+        recordMotionPerf({ kind: 'chart-reveal', chart: id, fromEnterMs: enterMs, frames: r.frames, maxGapMs: Math.round(r.maxGap), durationMs: Math.round(durationMs), pathLenZero: pathLenZero, pathLengthAttr: plSupported });
+      });
+    }
+  });
+  // та сама побудова, що й на першому екрані (тривалості, крива, лічильники, підписи)
+  runner.cardAnims.push(card.animate([
+    { opacity: 0, transform: 'translateY(' + (12 * k) + 'px) scale(.985)' },
+    { opacity: 1, transform: 'translateY(0px) scale(1)' }
+  ], { duration: timing.duration, delay: 0, easing: MOTION_EASE_OUT, fill: 'backwards' }));
+  runner.track(0, timing.duration); runner.cards++;
+  DASH_COUNTER_IDS.forEach(function(id){
+    const el = document.getElementById(id);
+    if(!el || !card.contains(el) || el.dataset.final === undefined || runner.counters.length >= DASH_MAX_COUNTERS) return;
+    const to = Number(el.dataset.final);
+    if(to === 0) return;
+    const dur = Math.max(120, Math.round(motionDuration('count', k, false) * scale));
+    runner.counters.push({ el: el, from: 0, delay: 0, dur: dur }); runner.track(0, dur); el.textContent = fmt(0);
+  });
+  DASH_CHART_HOSTS.forEach(function(id){
+    const host = document.getElementById(id);
+    if(!host || !card.contains(host) || host.dataset.sig === undefined) return;
+    const lineDur = Math.max(160, Math.round(chartDuration('lines', k, false) * scale)), barDur = Math.max(160, Math.round(chartDuration('bars', k, false) * scale));
+    const lateDelay = Math.round(lineDur * 0.85), lateDur = Math.max(120, Math.round(lineDur * 0.3));
+    let any = false;
+    host.querySelectorAll('[data-draw]').forEach(function(path){
+      const L = path.getTotalLength ? path.getTotalLength() : 0;
+      if(diag && !(L > 0)) pathLenZero++;
+      const dash = plSupported ? 1 : L; if(!(dash > 0)) return;
+      const op = parseFloat(path.getAttribute('opacity'));
+      runner.items.push({ kind: 'line', el: path, delay: 0, dur: lineDur, len: dash, pl: plSupported, op: isNaN(op) ? 1 : op }); runner.track(0, lineDur); any = true;
+    });
+    host.querySelectorAll('.dash-bar').forEach(function(bar, i){
+      const d2 = staggerDelay(i, k, 12, 30);
+      runner.items.push({ kind: 'bar', el: bar, delay: d2, dur: barDur }); runner.track(d2, barDur); any = true;
+    });
+    host.querySelectorAll('[data-ring]').forEach(function(ring){
+      const arc = parseFloat((ring.getAttribute('stroke-dasharray') || '').split(/[ ,]+/)[0]) || 0; if(!(arc > 0)) return;
+      runner.items.push({ kind: 'ring', el: ring, delay: 0, dur: lineDur, len: arc, op: 1 }); runner.track(0, lineDur); any = true;
+    });
+    if(any){
+      host.querySelectorAll('[data-late]').forEach(function(late){ runner.items.push({ kind: 'late', el: late, delay: lateDelay, dur: lateDur }); runner.track(lateDelay, lateDur); });
+      runner.charts.push(id);
+    }
+  });
+  d.runners.add(runner);
+  runner.start();
 }
 function renderDashboard(){
   const month = selectedMonth;

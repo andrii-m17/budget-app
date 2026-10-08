@@ -7,8 +7,8 @@ const path = require('node:path');
 const ex = require('./extract');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const NAMES = ['motionDuration', 'staggerDelay', 'countStep', 'chartSignature', 'cardRevealTiming', 'chartDuration', 'bezierEase', 'shouldReplaceChart', 'dashboardQueueSize', 'dashboardReplayMode'];
-const CONSTS = ['MOTION_BASE_MS', 'MOTION_REDUCED_MAX_MS', 'DASH_MAX_QUEUE', 'DASH_STAGGER_MS', 'DASH_MAX_COUNTERS', 'DASH_MAX_TOTAL_MS', 'DASH_COUNTER_IDS', 'CARD_REVEAL_TABLE', 'DASH_REPLAY_SCALE', 'DASH_UPDATE_SCALE'];
+const NAMES = ['chartsBelowFold', 'revealDecision', 'shouldDeferChart', 'motionDuration', 'staggerDelay', 'countStep', 'chartSignature', 'cardRevealTiming', 'chartDuration', 'bezierEase', 'shouldReplaceChart', 'dashboardQueueSize', 'dashboardReplayMode'];
+const CONSTS = ['CHART_REVEAL_DWELL_MS', 'CHART_REVEAL_RATIO', 'MOTION_BASE_MS', 'MOTION_REDUCED_MAX_MS', 'DASH_MAX_QUEUE', 'DASH_STAGGER_MS', 'DASH_MAX_COUNTERS', 'DASH_MAX_TOTAL_MS', 'DASH_COUNTER_IDS', 'CARD_REVEAL_TABLE', 'DASH_REPLAY_SCALE', 'DASH_UPDATE_SCALE'];
 const ctx = ex.buildSandbox({}, CONSTS.concat(NAMES));
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const MODULE = SRC.slice(SRC.indexOf('// ===== Rev 2.25.0 (M2) / Rev 2.27.0 (M2.1)'), SRC.indexOf('function renderDashboard(){'));
@@ -160,15 +160,18 @@ test('вузли графіків замінюються лише через set
 });
 
 test('анімація не змінює дані: лічильник пише лише fmt(countStep) і фінальне fmt(data-final); без transform на body/html/nav.tabbar; без блокування дотиків і штучних затримок', () => {
-  const i = MODULE.indexOf('function playDashboard');
+  const i = MODULE.indexOf('function makeDashRunner');
   const code = MODULE.slice(i);
   assert.match(code, /fmt\(countStep\(c\.from, Number\(c\.el\.dataset\.final\), t\)\)/);
   assert.match(code, /c\.el\.textContent = fmt\(Number\(c\.el\.dataset\.final\)\)/);
   assert.ok(!/pointer-?[Ee]vents/.test(code));
   assert.ok(!/document\.body\.animate|documentElement\.animate|nav\.tabbar[^\n]*animate|\.tabbar[^\n]*\.animate/.test(code));
-  assert.ok(!/setTimeout/.test(MODULE), 'жодних штучних затримок');
+  // setTimeout — лише в короткому «чекаємо, поки зупиниться в області» (CHART_REVEAL_DWELL_MS) і повторі готовності відкладеної картки; не в рішеннях і не в самій хореографії
+  assert.ok(!/setTimeout/.test(MODULE.slice(MODULE.indexOf('function dashRun'), MODULE.indexOf('function dashAfterRender'))), 'dashRun без затримок');
+  assert.ok(!/setTimeout/.test(MODULE.slice(MODULE.indexOf('function makeDashRunner'), MODULE.indexOf('function onDashCardIntersect'))), 'хореографія без затримок');
+  assert.equal((MODULE.match(/setTimeout\(/g) || []).length, 2, 'лише dwell і повтор готовності');
   // початковий стан до малювання кадру: paint(0) синхронно перед стартом циклу
-  assert.match(code, /paint\(0\);\s*const startedAt/);
+  assert.match(MODULE, /r\.start = function\(\)\{\s*paint\(0\);\s*r\.startedAt/);
 });
 
 test('"перший показ" витрачається лише коли анімація стартувала; прихована/невидима сторінка не витрачає його; reduced → кінцевий стан одразу', () => {
@@ -204,4 +207,68 @@ test('реєстр: dashboard-replay (типовий always) і card-reveal (т�
   const cr = SRC.slice(SRC.indexOf("id: 'card-reveal'"), SRC.indexOf("id: 'button-style'"));
   ['fast', 'standard', 'slow', 'veryslow'].forEach(k => assert.ok(cr.includes(`key: '${k}'`)));
   assert.match(SRC, /key: 'glass-vivid', label: 'Скло, яскраві заливки', hint: 'Яскраві кольори, нижчий контраст'/);
+});
+
+// ---------- M2.2: відкладене малювання нижче першого екрана ----------
+test('chartsBelowFold: лише картки цілком нижче першого екрана (top ≥ висоти вікна); видимі й проскролені — ні', () => {
+  const L = o => j('chartsBelowFold(' + JSON.stringify(o) + ')');
+  assert.deepEqual(L({ viewportH: 844, cards: [{ id: 0, top: 100, bottom: 300 }, { id: 1, top: 700, bottom: 900 }, { id: 2, top: 844, bottom: 1100 }, { id: 3, top: 1500, bottom: 1800 }, { id: 4, top: -400, bottom: -100 }] }), [2, 3]);
+  assert.deepEqual(L({ viewportH: 0, cards: [{ id: 1, top: 5, bottom: 9 }] }), []);
+  assert.deepEqual(L(null), []);
+  assert.deepEqual(L({ viewportH: 844 }), []);
+});
+
+test('revealDecision: draw лише коли ≥25% в області І вистачило часу (dwell); швидке проскакування — wait; вже намальовано/reduced/hidden — skip', () => {
+  const R = (e, st) => j('revealDecision(' + JSON.stringify(e) + ',' + JSON.stringify(st) + ')');
+  const dwell = j('CHART_REVEAL_DWELL_MS');
+  assert.equal(R({ isIntersecting: true, intersectionRatio: 0.5 }, { dwellMs: dwell }), 'draw');
+  assert.equal(R({ isIntersecting: true, intersectionRatio: 0.25 }, { dwellMs: dwell + 500 }), 'draw');
+  assert.equal(R({ isIntersecting: true, intersectionRatio: 0.5 }, { dwellMs: dwell - 1 }), 'wait', 'швидко проскочила — ще ні');
+  assert.equal(R({ isIntersecting: true, intersectionRatio: 0.2 }, { dwellMs: 9999 }), 'wait', 'менше 25%');
+  assert.equal(R({ isIntersecting: false, intersectionRatio: 0 }, { dwellMs: 9999 }), 'wait');
+  assert.equal(R({ isIntersecting: true, intersectionRatio: 1 }, { dwellMs: 9999, revealed: true }), 'skip', 'раз на візит');
+  assert.equal(R({ isIntersecting: true, intersectionRatio: 1 }, { dwellMs: 9999, reduced: true }), 'skip');
+  assert.equal(R({ isIntersecting: true, intersectionRatio: 1 }, { dwellMs: 9999, hidden: true }), 'skip');
+  assert.equal(j('revealDecision(null,null)'), 'wait');
+});
+
+test('shouldDeferChart: лише full/replay, без reduced, і лише з IntersectionObserver (без нього — кінцевий стан одразу)', () => {
+  const D = (m, r, o) => j(`shouldDeferChart(${JSON.stringify(m)},${r},${o})`);
+  assert.equal(D('full', false, true), true);
+  assert.equal(D('replay', false, true), true);
+  assert.equal(D('update', false, true), false);
+  assert.equal(D('none', false, true), false);
+  assert.equal(D('full', true, true), false, 'reduced → кінцевий стан');
+  assert.equal(D('full', false, false), false, 'нема IntersectionObserver → кінцевий стан');
+});
+
+test('відкладена картка: початковий стан лише opacity+transform (висота не змінюється), IO з порогом 25% і rootMargin -10%, раз на візит', () => {
+  const play = MODULE.slice(MODULE.indexOf('function playDashboard'), MODULE.indexOf('function onDashCardIntersect'));
+  assert.match(play, /card\.style\.opacity = '0'; card\.style\.transform = 'translateY\('/);
+  assert.ok(!/card\.style\.(height|display|visibility|margin|padding|position|top)/.test(MODULE), 'жодних змін розкладки');
+  assert.match(play, /rootMargin: '0px 0px -10% 0px', threshold: \[0, CHART_REVEAL_RATIO\]/);
+  assert.match(play, /root: document\.getElementById\('main-col'\)/);
+  assert.match(play, /if\(mode !== 'update'\)\{ dashClearDeferred\(\)/, 'новий візит/місяць скидає очікування і ставить його знову');
+  assert.match(play, /shouldDeferChart\(mode, false, typeof IntersectionObserver === 'function'\)/);
+  const reveal = MODULE.slice(MODULE.indexOf('function dashRevealCard'));
+  assert.match(reveal, /d\.cards\.delete\(card\);\s*if\(d\.io\) d\.io\.unobserve\(card\)/, 'після малювання спостерігач знімається — раз на візит');
+  assert.match(reveal, /card\.style\.removeProperty\('opacity'\)/);
+  const clear = MODULE.slice(MODULE.indexOf('function dashClearDeferred'), MODULE.indexOf('function makeDashRunner'));
+  assert.match(clear, /d\.io\.disconnect\(\)/);
+  assert.match(clear, /card\.style\.removeProperty\('opacity'\); card\.style\.removeProperty\('transform'\)/);
+});
+
+test('швидке проскакування не запускає анімацію: таймер dwell скасовується, коли картка вийшла з області', () => {
+  const ix = MODULE.slice(MODULE.indexOf('function onDashCardIntersect'), MODULE.indexOf('function dashRevealCard'));
+  assert.match(ix, /else if\(!st\.ok && st\.timer\)\{\s*clearTimeout\(st\.timer\); st\.timer = null;/);
+  assert.match(ix, /CHART_REVEAL_DWELL_MS/);
+  assert.match(MODULE, /function dashRevealCard[\s\S]*?if\(!st \|\| !st\.ok\) return;/);
+});
+
+test('події M2.2: chart-reveal пишеться для кожного відкладеного графіка (chart, fromEnterMs, frames, maxGapMs, durationMs); deferredCharts у dashboard-enter; allowlist', () => {
+  assert.match(MODULE, /recordMotionPerf\(\{ kind: 'chart-reveal', chart: id, fromEnterMs: enterMs, frames: r\.frames, maxGapMs: Math\.round\(r\.maxGap\), durationMs: Math\.round\(durationMs\)/);
+  assert.match(MODULE, /deferredCharts: deferredCharts/);
+  ['deferredCharts', 'chart', 'fromEnterMs'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
+  // нижче першого екрана більше не рахується як chartsSkipped
+  assert.ok(!/chartsSkipped\+\+[^\n]*below/.test(MODULE));
 });
