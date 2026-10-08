@@ -3246,7 +3246,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.12</div>
+  <div class="version-footer">Money Tree · Rev 2.32.13</div>
 </div>
   </div>
 </div>
@@ -7549,7 +7549,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.12';
+const APP_VERSION = '2.32.13';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -17213,17 +17213,25 @@ function recordInputAttrsAudit(){
 }
 // --- Сегменти однакової ширини: ковзний індикатор (лише transform; ширина/висота ставляться без анімації) ---
 const SEGMENT_SELECTOR = '.struct-tabs, .theme-toggle, .n-days';
+// Rev 2.32.13 — чиста геометрія індикатора: buttons = [{ left, top, width, height }] (offsetLeft/Top/Width/Height), selectedIndex → { x, y, w, h } або null (немає вибраного сегмента чи він ще не виміряний — ширина 0, напр. рядок щойно з'явився).
+function segmentIndicatorBox(buttons, selectedIndex){
+  const b = buttons && buttons[selectedIndex];
+  if(!b || !(b.width > 0) || !(b.height > 0)) return null;
+  return { x: b.left, y: b.top, w: b.width, h: b.height };
+}
 function layoutSegment(c, instant){
   const ind = c.querySelector(':scope > .seg-indicator');
   if(!ind) return;
+  const btns = Array.prototype.slice.call(c.querySelectorAll(':scope > button'));
   const btn = c.querySelector(':scope > button.active');
-  if(!btn || !c.offsetWidth || !btn.offsetWidth){ ind.classList.remove('on'); return; }
-  ind.style.width = btn.offsetWidth + 'px';
-  ind.style.height = btn.offsetHeight + 'px';
+  const box = c.offsetWidth ? segmentIndicatorBox(btns.map(function(b){ return { left: b.offsetLeft, top: b.offsetTop, width: b.offsetWidth, height: b.offsetHeight }; }), btns.indexOf(btn)) : null;
+  if(!box){ ind.classList.remove('on'); return; }
+  ind.style.width = box.w + 'px';
+  ind.style.height = box.h + 'px';
   const first = !ind.classList.contains('on');
   if(instant || first) ind.classList.add('no-anim');
-  ind.style.setProperty('--seg-x', btn.offsetLeft + 'px');
-  ind.style.setProperty('--seg-y', btn.offsetTop + 'px');
+  ind.style.setProperty('--seg-x', box.x + 'px');
+  ind.style.setProperty('--seg-y', box.y + 'px');
   ind.classList.add('on');
   if(instant || first){ void ind.offsetWidth; ind.classList.remove('no-anim'); }
 }
@@ -18814,11 +18822,11 @@ async function loadNotificationSettings(){
   }
 }
 // Зберігає одне або кілька полів одразу (оптимістично): при помилці — відкат і тост.
-async function saveNotificationSetting(patch){
+async function saveNotificationSetting(patch, opts){
   if(notificationSettingsReadOnly || !notificationSettings) return false;
   const before = Object.assign({}, notificationSettings);
   Object.assign(notificationSettings, patch);
-  renderNotificationsDrawer();
+  if(!(opts && opts.silent)) renderNotificationsDrawer();
   try{
     const res = await getSupabaseClient().from('notification_settings').upsert(Object.assign({ user_id: cloudSession.user.id, family_id: cloudFamilyId }, patch), { onConflict: 'user_id' });
     if(res.error) throw res.error;
@@ -18897,7 +18905,11 @@ function renderNotificationsDrawer(){
         b.type = 'button'; b.textContent = n + ' ' + pluralUa(n, ['день', 'дні', 'днів']);
         b.className = r.value === n ? 'active' : '';
         b.disabled = ro;
-        b.addEventListener('click', function(){ saveNotificationSetting({ installment_days: n }); });
+        b.addEventListener('click', function(){
+          // Rev 2.32.13: вибір змінюємо на місці (індикатор ковзає transform-ом), без перемальовування рядка; відкат при помилці перемальує
+          Array.prototype.forEach.call(days.children, function(x){ if(x.tagName === 'BUTTON') x.classList.toggle('active', x === b); });
+          saveNotificationSetting({ installment_days: n }, { silent: true });
+        });
         days.appendChild(b);
       });
       el.appendChild(days);
@@ -18938,6 +18950,9 @@ function renderNotificationsDrawer(){
   test.addEventListener('click', sendTestNotification);
   gt.appendChild(test);
   body.appendChild(gt);
+  // Rev 2.32.13: сегменти «Нагадувати за» створюються динамічно ПІСЛЯ initSegments() при старті — без цього виклику індикатор (скляний овал) для них не існував,
+  // а активна кнопка за CSS прозора, тож вибраний сегмент «зникав». initSegments пропускає вже ініціалізовані контейнери; вимір — коли рядок видимий (ResizeObserver).
+  initSegments();
 }
 let notificationDiagOpen = false;
 let deliveryDiag = { server: null, device: null, serverError: false };
