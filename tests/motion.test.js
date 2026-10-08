@@ -6,8 +6,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 
-const NAMES = ['motionDuration', 'tabDirection', 'shouldReleasePress', 'motionIntensityK'];
-const CONSTS = ['MOTION_BASE_MS', 'MOTION_REDUCED_MAX_MS', 'TAB_ORDER', 'MOTION_INTENSITY_K'];
+const NAMES = ['motionDuration', 'tabDirection', 'shouldReleasePress'];
+const CONSTS = ['MOTION_BASE_MS', 'MOTION_REDUCED_MAX_MS', 'TAB_ORDER'];
 function sandbox(){ return ex.buildSandbox({}, CONSTS.concat(NAMES)); }
 const j = (ctx, code) => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 
@@ -52,13 +52,11 @@ test('shouldReleasePress: не раніше мінімальної тривал�
   assert.equal(j(ctx, 'shouldReleasePress(1000,1000,0)'), true);
 });
 
-test('motionIntensityK: calm/standard/bold; невідомий ключ і прототипні імена → 1', () => {
-  const ctx = sandbox();
-  assert.equal(j(ctx, "motionIntensityK('calm')"), 0.6);
-  assert.equal(j(ctx, "motionIntensityK('standard')"), 1);
-  assert.equal(j(ctx, "motionIntensityK('bold')"), 1.35);
-  assert.equal(j(ctx, "motionIntensityK('zzz')"), 1);
-  assert.equal(j(ctx, "motionIntensityK('constructor')"), 1);
+test('Rev 2.32.0 (F): інтенсивність руху — стала ×1; у коді немає motionIntensityK, MOTION_INTENSITY_K, getVariant(\'motion-intensity\') і поля intensity', () => {
+  assert.match(SRC, /const motionK = 1;/);
+  assert.match(SRC, /--motion-k:1;/);
+  assert.ok(!/motionIntensityK|MOTION_INTENSITY_K|applyMotionIntensity|applyVariantEffects|getVariant\('motion-intensity'\)|intensity: motionK/.test(SRC));
+  assert.ok(!/DEBUG_EVENT_ALLOWLIST = \[[\s\S]*?'intensity'[\s\S]*?\];/.test(SRC), 'поле intensity прибрано з allowlist');
 });
 
 // ---------- охоронні тести CSS ----------
@@ -120,5 +118,5 @@ test('JS: перехід вкладок не вішає transform на body/html
   const code = SRC.slice(i, k);
   assert.ok(!/document\.body\.animate|documentElement\.animate|tabbar[^\n]*\.animate/.test(code));
   assert.match(code, /getElementById\('view-'/);
-  ['kind', 'intensity', 'reduced', 'holdMs', 'pressLeak', 'frames', 'maxGapMs', 'durationMs', 'from', 'to'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
+  ['kind', 'reduced', 'holdMs', 'pressLeak', 'frames', 'maxGapMs', 'durationMs', 'from', 'to'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
 });

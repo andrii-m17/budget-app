@@ -5923,12 +5923,12 @@ function testVariantsSandbox(registry){
   }, ['readTestVariantsMap', 'writeTestVariantsMap', 'findTestVariant', 'getVariant', 'setVariant', 'resetVariant', 'resetVariants', 'pruneVariants', 'getVariantsSnapshot']);
   return { ctx: ctx, store: store };
 }
-test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS проходить усі правила (≤3; повні записи); Rev 2.24.0: активні motion-intensity, card-reveal', () => {
+test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS проходить усі правила (≤3; повні записи); Rev 2.32.0 (F): реєстр порожній', () => {
   const ex = require('./extract');
   const ctx = ex.buildSandbox({}, ['TEST_VARIANTS']);
   const reg = JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(TEST_VARIANTS)'));
   assert.deepEqual(validateTestRegistry(reg), []);
-  assert.deepEqual(reg.map(function(t){ return t.id; }), ['motion-intensity', 'card-reveal'], 'активні: motion-intensity (M1) і card-reveal (M2.1); button-style завершено в M4b, dashboard-replay — в M4c; не більше 3');
+  assert.deepEqual(reg, [], 'motion-intensity, card-reveal (F), button-style (M4b), dashboard-replay (M4c) завершені — реєстр порожній');
 });
 test('ЗАХИСНИЙ реєстр: валідатор ловить усі порушення (4 активних, відсутні поля, <2 варіантів, дубль key, defaultVariant, checkSteps, не kebab-case)', () => {
   const ok = makeTestRegistry();

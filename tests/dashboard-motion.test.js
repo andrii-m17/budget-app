@@ -8,7 +8,7 @@ const ex = require('./extract');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const NAMES = ['chartsBelowFold', 'revealDecision', 'shouldDeferChart', 'motionDuration', 'staggerDelay', 'countStep', 'chartSignature', 'cardRevealTiming', 'chartDuration', 'bezierEase', 'shouldReplaceChart', 'dashboardQueueSize', 'dashboardReplayMode'];
-const CONSTS = ['CHART_REVEAL_DWELL_MS', 'CHART_REVEAL_RATIO', 'MOTION_BASE_MS', 'MOTION_REDUCED_MAX_MS', 'DASH_MAX_QUEUE', 'DASH_STAGGER_MS', 'DASH_MAX_COUNTERS', 'DASH_MAX_TOTAL_MS', 'DASH_COUNTER_IDS', 'CARD_REVEAL_TABLE', 'DASH_REPLAY_SCALE', 'DASH_UPDATE_SCALE'];
+const CONSTS = ['CHART_REVEAL_DWELL_MS', 'CHART_REVEAL_RATIO', 'MOTION_BASE_MS', 'MOTION_REDUCED_MAX_MS', 'DASH_MAX_QUEUE', 'DASH_STAGGER_MS', 'DASH_MAX_COUNTERS', 'DASH_MAX_TOTAL_MS', 'DASH_COUNTER_IDS', 'CARD_REVEAL', 'DASH_REPLAY_SCALE', 'DASH_UPDATE_SCALE'];
 const ctx = ex.buildSandbox({}, CONSTS.concat(NAMES));
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const MODULE = SRC.slice(SRC.indexOf('// ===== Rev 2.25.0 (M2) / Rev 2.27.0 (M2.1)'), SRC.indexOf('// ===== Rev 2.29.0 (A) — поява «Обліку»')); // лише «Аналітика»; «Облік» — tests/account-motion.test.js
@@ -51,48 +51,27 @@ test('shouldReplaceChart: той самий підпис вузол НЕ зам�
   assert.equal(j('shouldReplaceChart(null,"[1]")'), true);
 });
 
-test('cardRevealTiming: таблиця варіантів × k; невідомий ключ → стандартний; значення в межах', () => {
-  const T = (v, k) => j(`cardRevealTiming(${JSON.stringify(v)},${k})`);
-  assert.deepEqual(T('fast', 1), { duration: 260, stagger: 25 });
-  assert.deepEqual(T('standard', 1), { duration: 420, stagger: 40 });
-  assert.deepEqual(T('slow', 1), { duration: 650, stagger: 60 });
-  assert.deepEqual(T('veryslow', 1), { duration: 900, stagger: 80 });
-  assert.deepEqual(T('zzz', 1), { duration: 420, stagger: 40 });
-  assert.deepEqual(T('constructor', 1), { duration: 420, stagger: 40 });
-  assert.deepEqual(T('slow', 1.35), { duration: 878, stagger: 81 });
-  assert.deepEqual(T('fast', 0.6), { duration: 156, stagger: 15 });
-  ['fast', 'standard', 'slow', 'veryslow'].forEach(v => [0.6, 1, 1.35].forEach(k => {
-    const t = T(v, k); assert.ok(t.duration >= 100 && t.duration <= 1300 && t.stagger >= 10 && t.stagger <= 110, v + k);
-  }));
-});
-
-test('chartDuration: лінії/кільце 900, стовпчики 700 (× k); reduced ≤ 80', () => {
-  assert.equal(j("chartDuration('lines',1,false)"), 900);
-  assert.equal(j("chartDuration('ring',1,false)"), 900);
-  assert.equal(j("chartDuration('bars',1,false)"), 700);
-  assert.equal(j("chartDuration('lines',1.35,false)"), 1215);
-  assert.ok(j("chartDuration('lines',1,true)") <= 80 && j("chartDuration('bars',1,true)") <= 80);
-});
-
-test('bezierEase(.22,1,.36,1): 0→0, 1→1, монотонна, швидкий старт (ease-out)', () => {
-  assert.equal(j('bezierEase(0)'), 0);
-  assert.equal(j('bezierEase(1)'), 1);
-  let prev = 0;
-  for(let i = 1; i <= 100; i++){ const v = j(`bezierEase(${i / 100})`); assert.ok(v >= prev - 1e-9 && v <= 1 + 1e-9); prev = v; }
+test('cardRevealTiming: «Стандартно» 420/40 × k; хибний k → 1; значення в межах', () => {
+  const T = k => j(`cardRevealTiming(${k})`);
+  assert.deepEqual(T(1), { duration: 420, stagger: 40 });
+  assert.deepEqual(T(undefined), { duration: 420, stagger: 40 });
+  assert.deepEqual(T(-2), { duration: 420, stagger: 40 });
+  assert.deepEqual(T(1.35), { duration: 567, stagger: 54 });
+  assert.deepEqual(T(0.6), { duration: 252, stagger: 24 });
+  assert.ok(!/CARD_REVEAL_TABLE|dashVariant|cardV\b/.test(SRC), 'варіантів card-reveal у коді немає');
   assert.ok(j('bezierEase(0.2)') > 0.5, 'ease-out: за 20% часу пройдено більше половини');
 });
 
-test('dashboardQueueSize: ≤8 і сумарно в бюджеті для всіх варіантів card-reveal і k', () => {
-  ['fast', 'standard', 'slow', 'veryslow'].forEach(v => [0.6, 1, 1.35].forEach(k => {
-    const timing = j(`cardRevealTiming('${v}',${k})`);
+test('dashboardQueueSize: ≤8 і сумарно в бюджеті для «Стандартно» і k', () => {
+  [0.6, 1, 1.35].forEach(k => {
+    const timing = j(`cardRevealTiming(${k})`);
     for(let count = 0; count <= 12; count++){
       const n = j(`dashboardQueueSize(${count},${JSON.stringify(timing)},8,2200)`);
       assert.ok(n <= 8 && n <= count);
-      if(n > 1) assert.ok((n - 1) * timing.stagger + timing.duration <= 2200, `${v} k=${k} n=${n}`);
+      if(n > 1) assert.ok((n - 1) * timing.stagger + timing.duration <= 2200, `k=${k} n=${n}`);
     }
-  }));
-  assert.equal(j('dashboardQueueSize(8,cardRevealTiming("standard",1),8,2200)'), 8);
-  assert.equal(j('dashboardQueueSize(8,cardRevealTiming("veryslow",1.35),8,2200)') <= 8, true);
+  });
+  assert.equal(j('dashboardQueueSize(8,cardRevealTiming(1),8,2200)'), 8);
 });
 
 test('dashboardReplayMode (M4c: «Щоразу» — єдина поведінка): візит → replay завжди; перший показ/місяць — full; update лише при зміні; фон — none; reduced/hidden — none з причиною', () => {
@@ -190,19 +169,18 @@ test('фоновий рендер без змін даних не торкаєт
   assert.match(after, /if\(dashState\.updatePending\)\{ trigger = 'update'/);
 });
 
-test('події: dashboard-enter пише mode/skipped/chartsAnimated/chartsSkipped/pathLenZero/pathLengthAttr/cardVariant; пропуск теж фіксується; allowlist', () => {
-  ['mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr', 'cardVariant'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
+test('події: dashboard-enter пише mode/skipped/chartsAnimated/chartsSkipped/pathLenZero/pathLengthAttr; пропуск теж фіксується; allowlist', () => {
+  ['mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
   assert.match(MODULE, /function recordDashSkip\(reason, trigger\)\{\s*recordMotionPerf\(\{ kind: 'dashboard-enter'/);
   assert.match(MODULE, /if\(trigger !== 'render'\) recordDashSkip\(d\.skipped, trigger\)/);
   assert.equal((SRC.match(/dashAfterRender\(month\);/g) || []).length, 1);
   assert.match(SRC, /\.kpi-value, \.ksi-value\{ font-variant-numeric:tabular-nums; \}/);
 });
 
-test('реєстр: card-reveal (типовий standard, 4 варіанти) присутній; button-style (M4b) і dashboard-replay (M4c) завершені', () => {
-  assert.match(SRC, /id: 'card-reveal'[\s\S]*?defaultVariant: 'standard'/);
-  const cr = SRC.slice(SRC.indexOf("id: 'card-reveal'"), SRC.indexOf('];', SRC.indexOf("id: 'card-reveal'")));
-  ['fast', 'standard', 'slow', 'veryslow'].forEach(k => assert.ok(cr.includes(`key: '${k}'`)));
-  assert.ok(!/id: 'button-style'|glass-vivid/.test(SRC), 'тест button-style прибрано');
+test('Rev 2.32.0 (F): реєстр порожній — card-reveal («Стандартно»), button-style (M4b) і dashboard-replay (M4c) завершені; поля cardVariant немає', () => {
+  assert.match(SRC, /const TEST_VARIANTS = \[\];/);
+  assert.ok(!/id: 'card-reveal'|id: 'motion-intensity'|id: 'button-style'|glass-vivid|cardVariant:/.test(SRC));
+  assert.ok(!/DEBUG_EVENT_ALLOWLIST = \[[\s\S]*?'cardVariant'[\s\S]*?\];/.test(SRC));
 });
 
 // ---------- M2.2: відкладене малювання нижче першого екрана ----------

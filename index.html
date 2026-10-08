@@ -115,8 +115,8 @@
     --shadow-lg:0 2px 10px rgba(15,23,42,.05);
     --duration-fast:120ms; --duration-base:180ms; --duration-slow:240ms;
     --easing-standard:cubic-bezier(.4,0,.2,1);
-    /* Rev 2.24.0 (M1) — токени руху. Базові тривалості множаться на --motion-k (інтенсивність, тест "motion-intensity":
-       0.6 / 1 / 1.35; виставляє JS на <html>). JS-дзеркало: MOTION_BASE_MS у motionDuration(). Існуючі --duration-* не чіпаємо
+    /* Rev 2.24.0 (M1) — токени руху. Базові тривалості множаться на --motion-k (Rev 2.32.0 (F): стала 1, «Стандартна»;
+       тест motion-intensity завершено). JS-дзеркало: MOTION_BASE_MS у motionDuration(). Існуючі --duration-* не чіпаємо
        (вигляд не змінюється, M1 — лише рух). */
     --motion-k:1;
     --motion-micro:calc(120ms * var(--motion-k)); --motion-s:calc(200ms * var(--motion-k)); --motion-m:calc(320ms * var(--motion-k));
@@ -3209,7 +3209,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.31.5</div>
+  <div class="version-footer">Money Tree · Rev 2.32.0</div>
 </div>
   </div>
 </div>
@@ -7487,7 +7487,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.31.5';
+const APP_VERSION = '2.32.0';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9822,10 +9822,10 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": trashType (НЕ `type` — воно вже тип самої події), ok, count; без назв і сум.
   'trashType', 'ok', 'count',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
-  // Rev 2.24.0 (M1) — motion-perf: kind (tab-switch/press), intensity (множник), reduced, holdMs, pressLeak (скільки елементів лишилось у .is-pressed через 300 мс).
-  'kind', 'intensity', 'reduced', 'holdMs', 'pressLeak',
-  // Rev 2.27.0 (M2.1) — dashboard-enter: mode (full/replay/update/none), skipped (reduced/hidden/no-change/variant), chartsAnimated/chartsSkipped, pathLenZero (скільки <path> дали getTotalLength()=0), pathLengthAttr (чи підтримується pathLength), cardVariant/replayVariant.
-  'mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr', 'cardVariant',
+  // Rev 2.24.0 (M1) — motion-perf: kind (tab-switch/press), reduced, holdMs, pressLeak (скільки елементів лишилось у .is-pressed через 300 мс).
+  'kind', 'reduced', 'holdMs', 'pressLeak',
+  // Rev 2.27.0 (M2.1) — dashboard-enter: mode (full/replay/update/none), skipped (reduced/hidden/no-change/variant), chartsAnimated/chartsSkipped, pathLenZero (скільки <path> дали getTotalLength()=0), pathLengthAttr (чи підтримується pathLength). Rev 2.32.0 (F): поля intensity і cardVariant прибрано разом з варіантами.
+  'mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr',
   // Rev 2.28.0 (M2.2) — deferredCharts (скільки графіків чекали доскролу) і chart-reveal: chart (id графіка), fromEnterMs (мс від початку візиту до малювання).
   'deferredCharts', 'chart', 'fromEnterMs',
   // Rev 2.29.0 (A/B) — account-enter: rows, deferredRows, variant; press: leakSelector; press-leak-fixed: selector (+ms); tab-switch: firstFrameMs, gapAtFrame (номер кадру з найбільшою паузою).
@@ -14773,15 +14773,15 @@ function svgLineChart(debtTrend, totalSlots){
 // M2.1: (1) анімація при КОЖНОМУ візиті (режим dashboard-replay), (2) повільніше (токени --motion-chart/-bars/-count/-card), (3) початковий стан виставляється синхронно
 // (ніякого "кадру готового дашборду"), (4) лінії/кільце/стовпчики малює rAF-цикл (inline-стилі), а не WAAPI по SVG-властивостях, (5) вузли SVG не замінюються, якщо data-sig не змінився.
 const DASH_MAX_QUEUE = 8;          // найбільше карток у черзі появи
-const DASH_STAGGER_MS = 40;        // типова розсинхронізація карток (× --motion-k; варіант card-reveal її задає)
+const DASH_STAGGER_MS = 40;        // типова розсинхронізація карток (× --motion-k)
 const DASH_MAX_COUNTERS = 6;
-const DASH_MAX_TOTAL_MS = 2200;    // стеля хореографії (бюджет піднято під card-reveal «Повільно/Дуже повільно»)
+const DASH_MAX_TOTAL_MS = 2200;    // стеля хореографії 
 const DASH_REPLAY_SCALE = 0.7;     // повтор: лічильники/графіки коротші, ніж у першому показі
 const DASH_UPDATE_SCALE = 0.4;     // оновлення змінених даних
 const DASH_COUNTER_IDS = ['kpi-income', 'kpi-expense', 'kpi-savings', 'kpi-debt', 'kpi-mandatory', 'kpi-free'];
 const DASH_CHART_HOSTS = ['spark-income', 'spark-expense', 'spark-savings', 'spark-debt', 'chart-income-expense', 'chart-debt-line', 'debt-donut'];
-// Варіант card-reveal: тривалість появи однієї картки (d) і розсинхронізація між картками (s), мс при ×1.
-const CARD_REVEAL_TABLE = { fast: { d: 260, s: 25 }, standard: { d: 420, s: 40 }, slow: { d: 650, s: 60 }, veryslow: { d: 900, s: 80 } };
+// Rev 2.32.0 (F): тест card-reveal завершено — обрано «Стандартно»: тривалість появи однієї картки (d) і розсинхронізація між картками (s), мс при ×1.
+const CARD_REVEAL = { d: 420, s: 40 };
 function staggerDelay(i, k, max, step){
   const n = Math.max(1, Math.floor(max) || 1);
   const idx = Math.min(Math.max(0, Math.floor(i) || 0), n - 1);
@@ -14800,11 +14800,10 @@ function countStep(from, to, t){
 function chartSignature(data){
   return JSON.stringify(data, function(key, v){ return typeof v === 'number' ? (isFinite(v) ? Math.round(v) : null) : v; });
 }
-// Тривалість і розсинхронізація появи картки (× k) за ключем варіанта; невідомий ключ → стандартний.
-function cardRevealTiming(variant, k){
-  const row = Object.prototype.hasOwnProperty.call(CARD_REVEAL_TABLE, variant) ? CARD_REVEAL_TABLE[variant] : CARD_REVEAL_TABLE.standard;
+// Тривалість і розсинхронізація появи картки (× k).
+function cardRevealTiming(k){
   const kk = (typeof k === 'number' && isFinite(k) && k > 0) ? k : 1;
-  return { duration: Math.round(row.d * kk), stagger: Math.round(row.s * kk) };
+  return { duration: Math.round(CARD_REVEAL.d * kk), stagger: Math.round(CARD_REVEAL.s * kk) };
 }
 // Тривалість малювання: 'lines'/'ring' → --motion-chart, 'bars' → --motion-bars (× k); reduced ≤ 80 мс.
 function chartDuration(kind, k, reduced){
@@ -14916,13 +14915,10 @@ function dashIsActive(){
   const body = document.getElementById('analytics-body');
   return lastActiveTab === 'analytics' && !!v && !v.classList.contains('hidden') && !!body && !body.classList.contains('hidden');
 }
-function dashVariant(id, fallback){
-  try{ return getVariant(id) || fallback; }catch(e){ return fallback; }
-}
 function dashStartupReady(){ return document.visibilityState === 'visible' && document.readyState === 'complete'; }
 function recordDashSkip(reason, trigger){
   recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', mode: 'none', skipped: reason, elements: 0, counters: 0, charts: 0, chartsAnimated: 0, chartsSkipped: 0, frames: 0, maxGapMs: 0, durationMs: 0,
-    reduced: motionReduced(), repeat: dashState.played, cardVariant: dashVariant('card-reveal', 'standard') });
+    reduced: motionReduced(), repeat: dashState.played });
 }
 // Єдина точка рішення: рахує режим і (синхронно, ДО малювання кадру) стартує анімацію або фіксує причину пропуску. "Перший показ" витрачається ЛИШЕ коли анімація реально стартувала.
 function dashRun(trigger, month, active){
@@ -15049,8 +15045,7 @@ function playDashboard(mode, trigger, month){
   const body = document.getElementById('analytics-body');
   const k = motionK;
   const scale = mode === 'full' ? 1 : (mode === 'replay' ? DASH_REPLAY_SCALE : DASH_UPDATE_SCALE);
-  const cardV = dashVariant('card-reveal', 'standard');
-  const timing = cardRevealTiming(cardV, k);
+  const timing = cardRevealTiming(k);
   const seenNums = dashState.seenNums, seenSigs = dashState.seenSigs;
   const diag = debugRecordingActive;
   const plSupported = pathLengthSupported();
@@ -15128,7 +15123,7 @@ function playDashboard(mode, trigger, month){
     dashMarkSeen(month);
     if(completed){
       recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', mode: mode, skipped: null, elements: r.cards, counters: r.counters.length, charts: r.charts.length, chartsAnimated: r.charts.length, chartsSkipped: stats.chartsSkipped,
-        deferredCharts: deferredCharts, pathLenZero: stats.pathLenZero, pathLengthAttr: plSupported, cardVariant: cardV,
+        deferredCharts: deferredCharts, pathLenZero: stats.pathLenZero, pathLengthAttr: plSupported,
         frames: r.frames, maxGapMs: Math.round(r.maxGap), durationMs: Math.round(durationMs), reduced: false, repeat: mode !== 'full' });
     }
   });
@@ -15206,7 +15201,7 @@ function dashRevealCard(card, attempt){
   if(d.io) d.io.unobserve(card);
   card.style.removeProperty('opacity'); card.style.removeProperty('transform');
   const k = motionK, scale = d.scale, mode = d.mode;
-  const timing = cardRevealTiming(dashVariant('card-reveal', 'standard'), k);
+  const timing = cardRevealTiming(k);
   const plSupported = pathLengthSupported();
   const enterMs = Math.round(performance.now() - dashState.enterAt);
   const diag = debugRecordingActive;
@@ -15411,7 +15406,7 @@ function playAccount(mode, trigger, month, meta){
   if(!panel) return;
   const k = motionK;
   const scale = mode === 'full' ? 1 : (mode === 'replay' ? DASH_REPLAY_SCALE : DASH_UPDATE_SCALE);
-  const timing = cardRevealTiming(dashVariant('card-reveal', 'standard'), k);
+  const timing = cardRevealTiming(k);
   const seenNums = acctState.seenNums;
   let rowsN = 0, deferredRows = 0, unitsN = 0;
   const runner = makeDashRunner(function(completed, r, durationMs){
@@ -16231,13 +16226,12 @@ function switchTab(tab, opts){
    взагалі про довідники й дані, а не про місяць) — тому їхні підзаголовки
    статичні, без згадки місяця. */
 // ===== Rev 2.24.0 (M1) — фундамент руху (docs/DESIGN_SYSTEM.md, ROADMAP 32.41) =====
-// Чисті функції (витягуються тестами tests/motion.test.js): motionDuration, tabDirection, shouldReleasePress, motionIntensityK.
+// Чисті функції (витягуються тестами tests/motion.test.js): motionDuration, tabDirection, shouldReleasePress.
 // MOTION_BASE_MS — JS-дзеркало CSS-токенів --motion-micro/s/m/l/count (:root). k — множник інтенсивності (тест "motion-intensity").
 // Rev 2.27.0 (M2.1): count 700→1000; нові chart (лінії/кільце), bars (стовпчики), card (поява картки) — повільніші графіки; токени переходу вкладок і натискань (micro/s/m/l) не змінено.
 const MOTION_BASE_MS = { micro: 120, s: 200, m: 320, l: 480, count: 1000, chart: 900, bars: 700, card: 420 };
 const MOTION_REDUCED_MAX_MS = 80;
 const TAB_ORDER = ['analytics', 'accounting', 'vytraty', 'structure', 'service'];
-const MOTION_INTENSITY_K = { calm: 0.6, standard: 1, bold: 1.35 };
 const PRESS_MIN_MS = 80;
 const PRESS_MOVE_TOLERANCE_PX = 10;
 function motionDuration(token, k, reduced){
@@ -16262,25 +16256,17 @@ function shouldSkipTabTransition(route, willAutofocus){
 function shouldReleasePress(startMs, nowMs, minMs){
   return (nowMs - startMs) >= minMs;
 }
-function motionIntensityK(key){
-  return Object.prototype.hasOwnProperty.call(MOTION_INTENSITY_K, key) ? MOTION_INTENSITY_K[key] : 1;
-}
 const MOTION_EASE_OUT = 'cubic-bezier(.22,1,.36,1)';
 const MOTION_EASE_SPRING = 'cubic-bezier(.34,1.56,.64,1)';
-let motionK = 1; // оновлюється applyMotionIntensity() (варіант "motion-intensity" у "Тестуванні")
+// Rev 2.32.0 (F): тест motion-intensity завершено — обрано «Стандартну» (×1) як сталу; CSS-токен --motion-k:1 у :root лишається множником токенів.
+const motionK = 1;
 function motionReduced(){
   try{ return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }catch(e){ return false; }
-}
-function applyMotionIntensity(){
-  let key = 'standard';
-  try{ key = getVariant('motion-intensity') || 'standard'; }catch(e){}
-  motionK = motionIntensityK(key);
-  document.documentElement.style.setProperty('--motion-k', String(motionK));
 }
 // Подія рекордера motion-perf (kind: 'tab-switch' | 'press'): лише числа та назви вкладок, без даних користувача.
 function recordMotionPerf(fields){
   if(!debugRecordingActive) return;
-  pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'motion-perf', intensity: motionK }, fields));
+  pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'motion-perf' }, fields));
 }
 // --- Перехід між вкладками (M1) ---
 // Вихідний .view лишається видимим і знімається з потоку (position:absolute) на час переходу; новий видимий одразу з початкового стану.
@@ -16700,8 +16686,6 @@ function recordInputAttrsAudit(){
   if(!debugRecordingActive) return;
   try{ pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'input-attrs-audit' }, runInputAttrsAudit())); }catch(e){}
 }
-// Усі ефекти тестових варіантів (інтенсивність руху, стиль кнопок) — одним викликом при старті/виборі/скиданні.
-function applyVariantEffects(){ applyMotionIntensity(); } // Rev 2.30.0 (M4b): button-style завершено (лишився лише motion-intensity)
 // --- Сегменти однакової ширини: ковзний індикатор (лише transform; ширина/висота ставляться без анімації) ---
 const SEGMENT_SELECTOR = '.struct-tabs, .theme-toggle, .n-days';
 function layoutSegment(c, instant){
@@ -17355,47 +17339,8 @@ purgeLegacyKeyboardKeys();
 // (ревізія), cleanupBy (умова видалення), checkSteps:[2-3 кроки] }.
 // <test-variants-module>
 const TEST_VARIANTS_LS_KEY = 'budget_variants_v1';
-const TEST_VARIANTS = [
-  // Rev 2.24.0 (M1) — інтенсивність руху (множник --motion-k для переходів між вкладками, реакції на натискання, відблисків).
-  {
-    id: 'motion-intensity',
-    title: 'Інтенсивність руху',
-    what: 'Наскільки помітні перехід між вкладками і реакція на натискання (тривалість і зсув/масштаб множаться на коефіцієнт).',
-    variants: [
-      { key: 'calm', label: 'Стримана', hint: '×0,6: коротші й менші рухи' },
-      { key: 'standard', label: 'Стандартна', hint: '×1: типова' },
-      { key: 'bold', label: 'Виразна', hint: '×1,35: довші й більші рухи' },
-    ],
-    defaultVariant: 'standard',
-    addedIn: 'Rev 2.24.0 (M1)',
-    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обране значення константою і прибере тест)',
-    checkSteps: [
-      'Оберіть варіант, поперемикайте всі п\'ять вкладок таббару: чи плавно, без смикань і подвійних тапів.',
-      'Потапайте кнопки, чипи, рядки списків: реакція має бути помітною, але не нав\'язливою; після відпускання нічого не лишається «втиснутим».',
-      'Для заміру: «Записати лог із цим варіантом», 10 перемикань вкладок, зупинити запис (подія motion-perf).',
-    ],
-  },
-  // Rev 2.27.0 (M2.1) — поява карток «Аналітики»: тривалість однієї картки і розсинхронізація між картками (базові значення × --motion-k).
-  {
-    id: 'card-reveal',
-    title: 'Поява карток',
-    what: 'Швидкість і ритм появи карток дашборду «Аналітики» (лічильники й графіки не змінюються).',
-    variants: [
-      { key: 'fast', label: 'Швидко', hint: '260 мс, крок 25 мс' },
-      { key: 'standard', label: 'Стандартно', hint: '420 мс, крок 40 мс' },
-      { key: 'slow', label: 'Повільно', hint: '650 мс, крок 60 мс' },
-      { key: 'veryslow', label: 'Дуже повільно', hint: '900 мс, крок 80 мс' },
-    ],
-    defaultVariant: 'standard',
-    addedIn: 'Rev 2.27.0 (M2.1)',
-    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний ритм і видалить тест)',
-    checkSteps: [
-      'Відкрийте «Аналітику»: оцініть ритм появи карток; перейдіть на іншу вкладку й поверніться.',
-      'Змініть місяць, порівняйте всі чотири варіанти (при «Повільно» і «Дуже повільно» черга довша, ліміт 8 карток).',
-      'Для заміру: «Записати лог із цим варіантом» (поле cardVariant у dashboard-enter).',
-    ],
-  },
-];
+// Rev 2.32.0 (F): реєстр порожній — motion-intensity («Стандартна», ×1) і card-reveal («Стандартно», 420/40) зафіксовано константами; pruneVariants() прибирає їхні старі ключі з localStorage.
+const TEST_VARIANTS = [];
 function readTestVariantsMap(){
   try{
     const raw = localStorage.getItem(TEST_VARIANTS_LS_KEY);
@@ -17453,7 +17398,6 @@ function getVariantsSnapshot(){
 }
 // </test-variants-module>
 pruneVariants();
-applyVariantEffects(); // Rev 2.24.0 (M1): --motion-k на <html> при старті
 initSegments(); // Rev 2.26.0 (M3): ковзні індикатори сегментів (.struct-tabs, .theme-toggle, .n-days)
 // Rev 2.23.22 (6D.191) — UI "Тестування" (бейдж, шторка, картки). Значення
 // варіантів — лише через getVariant()/setVariant() модуля вище.
@@ -17485,7 +17429,7 @@ function renderTestingDrawer(){
     card.setAttribute('data-test-id', t.id);
     card.appendChild(testingEl('div', 'test-card-title', t.title));
     card.appendChild(testingEl('div', 'test-card-what', 'Що перевіряємо: ' + t.what));
-    function choose(key){ setVariant(t.id, key); applyVariantEffects(); renderTestingDrawer(); }
+    function choose(key){ setVariant(t.id, key); renderTestingDrawer(); }
     if(t.variants.length <= 4){
       const seg = testingEl('div', 'test-card-segments');
       t.variants.forEach(function(v){
@@ -17524,7 +17468,7 @@ function renderTestingDrawer(){
     const resetBtn = testingEl('button', 'submit-btn pill', 'Скинути до типового');
     resetBtn.type = 'button';
     resetBtn.style.background = 'var(--color-surface-hover)'; resetBtn.style.color = 'var(--color-text-primary)';
-    resetBtn.addEventListener('click', function(){ resetVariant(t.id); applyVariantEffects(); renderTestingDrawer(); });
+    resetBtn.addEventListener('click', function(){ resetVariant(t.id); renderTestingDrawer(); });
     actions.appendChild(logBtn); actions.appendChild(resetBtn);
     card.appendChild(actions);
     list.appendChild(card);
