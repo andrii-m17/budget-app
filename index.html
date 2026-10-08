@@ -3165,7 +3165,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.28.0</div>
+  <div class="version-footer">Money Tree · Rev 2.28.1</div>
 </div>
   </div>
 </div>
@@ -3526,7 +3526,7 @@
     </div>
     <div class="field field-icon-wrap">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-      <input type="email" id="cloud-email" placeholder="Email" aria-label="Email" autocomplete="username">
+      <input type="email" id="cldfielda1" placeholder="Email" aria-label="Email" autocomplete="username"><!-- Rev 2.28.1 (C): id було cloud-email (підрядок "mail"); автозаповнення пароля (username/current-password) лишаємо — це справжнє поле входу -->
     </div>
     <div class="field field-icon-wrap">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -7462,7 +7462,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.28.0';
+const APP_VERSION = '2.28.1';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9516,7 +9516,7 @@ function closeProfileMenu(){
 async function signInCloudAccount(){
   const errEl = document.getElementById('cloud-auth-error');
   errEl.textContent = '';
-  const email = document.getElementById('cloud-email').value.trim();
+  const email = document.getElementById('cldfielda1').value.trim();
   const password = document.getElementById('cloud-password').value;
   if(!email || !password){ errEl.textContent = 'Вкажіть email і пароль.'; return; }
   let client;
@@ -9806,6 +9806,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.25.0 (M2) — dashboard-enter: tab, elements (картки в черзі), counters, charts, repeat (повторний показ у сесії); frames/maxGapMs/durationMs — як вище.
   'tab', 'elements', 'counters', 'charts', 'repeat',
   // Rev 2.26.0 (M3) — ui-audit: кількості кнопок за варіантами, без варіанта, із зоною <44, з контрастом <AA, і перелік ПЕРШИХ КЛАСІВ (не даних).
+  // Rev 2.28.1 (C) — input-attrs-audit: inputsTotal, inputsBad (порушників), badIds (їхні id — лише ідентифікатори полів, не дані).
+  'inputsTotal', 'inputsBad', 'badIds',
   'uiStyle', 'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnSmallExempt', 'btnLowContrast', 'btnLowContrastRow', 'lowContrastRowClasses', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
@@ -10044,6 +10046,7 @@ function startDebugRecording(scenario){
   attachDebugRecorderListeners();
   captureDebugGeometry('start');
   if(typeof recordUiAudit === 'function') recordUiAudit(); // Rev 2.26.0 (M3): ui-audit — лише кількості
+  if(typeof recordInputAttrsAudit === 'function') recordInputAttrsAudit(); // Rev 2.28.1 (C): input-attrs-audit
   debugRecordingTimerInterval = setInterval(updateDebugRecordButtonUI, 1000);
   debugRecordingAutoStopTimer = setTimeout(function(){ stopDebugRecording(); }, DEBUG_RECORDING_AUTO_STOP_MS);
   updateDebugRecordButtonUI();
@@ -13064,7 +13067,8 @@ function onRecordCategoryChange(id){
 async function saveRecordEdit(id){
   const rec = expenses.find(e=>e.id===id);
   if(!rec) return;
-  const nameInput = document.getElementById('edit-name-'+id);
+  // Rev 2.28.1 (C) — id поля "Назва" в рядку редагування Журналу: було edit-name-<id> (підрядок "name" → панель iOS "Автозаповнити контакт"; це поле лишилось поза фіксом 6D.136–141, де перейменовано лише #f-name); тепер абстрактне edtfielda1-<id>.
+  const nameInput = document.getElementById('edtfielda1-'+id);
   const amountInput = document.getElementById('edit-amount-'+id);
   const dateInput = document.getElementById('edit-date-'+id);
   const catSel = document.getElementById('edit-cat-'+id);
@@ -13073,7 +13077,7 @@ async function saveRecordEdit(id){
   const name = nameInput.value.trim();
   const amount = parseAmount(amountInput.value);
   const date = dateInput.value;
-  if(!name){ flashField('edit-name-'+id); return; }
+  if(!name){ flashField('edtfielda1-'+id); return; }
   if(!amount || amount<=0){ flashField('edit-amount-'+id); return; }
   if(!date){ flashField('edit-date-'+id); return; }
   rec.name = name;
@@ -13719,7 +13723,7 @@ function buildRecordGroupsHtml(items){
         : '';
       const editPanelHtml = isEditing ? `
         <div class="record-edit-panel" onclick="event.stopPropagation()">
-          <div class="field"><label for="edit-name-${e.id}">Назва</label><input type="text" id="edit-name-${e.id}" value="${escapeAttr(e.name)}"></div>
+          <div class="field"><label for="edtfielda1-${e.id}">Назва</label><input type="text" id="edtfielda1-${e.id}" value="${escapeAttr(e.name)}"></div>
           <div class="record-edit-row">
             <div class="field"><label for="edit-amount-${e.id}">Сума, ₴</label><input type="text" id="edit-amount-${e.id}" value="${formatThousands(e.amount)}" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
             <div class="field"><label for="edit-date-${e.id}">Дата</label><input type="date" id="edit-date-${e.id}" value="${e.date}"></div>
@@ -13801,7 +13805,7 @@ function renderRecords(){
   const showJournalBtn = document.getElementById('show-journal-btn');
   // Rev 2.18.0 — короткий список (#records-list) і повноекранний Журнал
   // (#journal-list) рендерять ОДНІ Й ТІ САМІ рядки через buildRecordGroupsHtml
-  // з ОДНАКОВИМИ id полів редагування (edit-name-<id> і т.д. — саме так їх
+  // з ОДНАКОВИМИ id полів редагування (edtfielda1-<id> (раніше edit-name-<id>, Rev 2.28.1) і т.д. — саме так їх
   // шукають onRecordCategoryChange/saveRecordEdit, без прив'язки до
   // контейнера, і це НЕ чіпаємо). Якщо рендерити обидва подання одночасно —
   // задубльовані id в DOM. Поки Журнал відкритий, короткий список просто не
@@ -16060,6 +16064,31 @@ function runUiAudit(){
 function recordUiAudit(){
   if(!debugRecordingActive) return;
   try{ pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'ui-audit' }, runUiAudit())); }catch(e){}
+}
+// ===== Rev 2.28.1 (C) — аудит id/name текстових полів (панель iOS "Автозаповнити контакт", ROADMAP 6D.136–141: причина — підрядок "name" в id) =====
+// Заборонені підрядки (без урахування регістру) в id/name текстових input/textarea. Фікс — абстрактні id за схемою fld+код+число (expfielda7, cddfielda1, iddfielda1, edtfielda1, cldfielda1).
+const INPUT_ATTR_FORBIDDEN = ['name', 'phone', 'tel', 'mail', 'addr', 'user', 'login', 'first', 'last', 'fio', 'contact'];
+function forbiddenInputAttr(value){
+  const v = String(value || '').toLowerCase();
+  for(let i = 0; i < INPUT_ATTR_FORBIDDEN.length; i++){ if(v.indexOf(INPUT_ATTR_FORBIDDEN[i]) !== -1) return INPUT_ATTR_FORBIDDEN[i]; }
+  return null;
+}
+function runInputAttrsAudit(){
+  const offenders = {}; let total = 0, bad = 0;
+  document.querySelectorAll('input, textarea').forEach(function(el){
+    const t = (el.getAttribute('type') || 'text').toLowerCase();
+    if(el.tagName === 'INPUT' && ['checkbox', 'radio', 'hidden', 'date', 'file', 'range', 'submit', 'button', 'color', 'time', 'month'].indexOf(t) !== -1) return;
+    total++;
+    // динамічні id (edtfielda1-<uuid>) → лише префікс до першого дефісу з даними не перевіряємо цілком: uuid містить hex-символи, але не слова
+    const id = el.id || '', nm = el.getAttribute('name') || '';
+    const hit = forbiddenInputAttr(id) || forbiddenInputAttr(nm);
+    if(hit){ bad++; offenders[(id || nm).slice(0, 40)] = hit; }
+  });
+  return { inputsTotal: total, inputsBad: bad, badIds: Object.keys(offenders).slice(0, 20) };
+}
+function recordInputAttrsAudit(){
+  if(!debugRecordingActive) return;
+  try{ pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'input-attrs-audit' }, runInputAttrsAudit())); }catch(e){}
 }
 function applyButtonStyle(){
   let v = 'glass';

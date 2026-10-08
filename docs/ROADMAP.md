@@ -11864,3 +11864,26 @@ Server → Web Push → Phone.
 - Preview (вкладка на передньому плані, `visibilityState` підмінено, Cloud-сесія жива, нічого не сідив і не писав): новий візит → 9 карток відкладено (в т.ч. 2 графіки); швидке проскакування (вниз і назад за 50 мс) → 0 малювань; повільне доскролювання до графіків → `chart-reveal` для `chart-income-expense` 1057 мс (64 кадри, `maxGapMs` 18) і `chart-debt-line` 1072 мс (65 кадрів, 18); `pathLenZero=0`; після проходу всієї сторінки відкладених 0, inline-стилів 0, числа збігаються з `data-final`; повторний візит знову ставить очікування; розкладка (`offsetTop/Height/Width` усіх карток) до, під час і після однакова. Не перевірялось: reduced-motion (немає емуляції), fallback без IntersectionObserver (покрито тестом `shouldDeferChart`), плавність на iPhone.
 
 **⚠️ iPhone:** запис діагностики → «Аналітика» (перший показ), скрол униз до графіків повільно й швидко, перехід на іншу вкладку й назад, зміна місяця. Критерії: для кожного візиту `chart-reveal` для кожного графіка нижче першого екрана, що доскролили (`deferredCharts` збігається); `durationMs` графіка 700–1100 мс при ×1, `maxGapMs ≤ 34` у ≥90%; розкладка й прокрутка не стрибають.
+
+## 32.47. Rev 2.28.1 — частина C: автозаповнення контакту (аудит `id`/`name` текстових полів)
+
+**Статус: ВИКОНАНО на коді; підтвердження на iPhone — за користувачем.**
+
+### Крок 0 (висновки)
+1. **Аудит усіх текстових `input`/`textarea`** (розмітка + JS-шаблони + `createElement`): 21 поле (3 числові `inputmode`, решта текст), ще один `input[type=email]` у вході. За підрядками `name/phone/tel/mail/addr/user/login/first/last/fio/contact` у `id`/`name` знайдено **2 порушники**:
+   - `edit-name-<id>` — поле «Назва» в рядку редагування запису **Журналу** (`startEditRecord`, шаблон `buildRecordGroupsHtml`, у кожному відкритому редагуванні);
+   - `cloud-email` — поле Email входу в Cloud (`type=email`, `autocomplete=username`).
+   Решта (`expfielda7`, `cddfielda1`, `iddfielda1`, `f-amount`, `cdd-limit/-balance/-minpay`, `idd-*`, `ind-amount`, `app-modal-input`, `app-modal-amount-input`, `journal-search-input`, `debug-record-scenario`, `cloud-password`, `kb-focus-proxy`) чисті. Поле `name` (атрибут) ніде не виставлялось.
+2. **Ревізія-регресія:** строго кажучи, регресії немає — `edit-name-<id>` існує з початкових завантажень (задовго до 6D.136–141); фікс 6D.141 (Rev 2.22.65–70) перейменував лише `#f-name`, а поле редагування в Журналі лишилось поза ним (його видно лише при редагуванні запису в Журналі/«Витрати», що пояснює «знову з'являється»). `cloud-email` — з Rev 2.21.36 (#30), при відкритті «Сервісу» → вхід.
+3. **Проміжне поле** (`kb-focus-proxy`): `id` `kb-focus-proxy` без підрядків; `proxyAttrsFor` копіює лише `inputmode/enterkeyhint/autocapitalize/autocorrect/autocomplete/spellcheck/pattern/maxlength/min/max/step/lang/dir` + `type/readonly/disabled` — **`id`/`name` не копіюються** (тест).
+
+### Що зроблено
+- Перейменовано: `edit-name-<id>` → `edtfielda1-<id>` (поле, `<label for>`, `getElementById` у `saveRecordEdit`, `flashField`); `cloud-email` → `cldfielda1` (поле й `signInCloudAccount`). Без `autocomplete`/`readonly`/`for`-прийомів; атрибути `autocomplete="username"`/`current-password` у формі входу не чіпались (це справжнє поле входу для менеджера паролів). Вигляд і поведінка не змінились.
+- Рекордер: `input-attrs-audit` при старті запису (`inputsTotal`, `inputsBad`, `badIds`).
+- Тести (`tests/input-attrs.test.js`, 751/751 усього): `forbiddenInputAttr`; жоден текстовий input/textarea (розмітка + шаблони) не має `id`/`name` із заборонених підрядків, перелік винятків порожній; `createElement`-поля; проміжне поле не успадковує `id`/`name`; старі id відсутні; `input-attrs-audit` в allowlist.
+- `docs/TESTING.md`: правило тестових даних у preview із живою Cloud-сесією.
+
+### Перевірено
+Preview: `input-attrs-audit` на живому DOM — 18 полів (20 з відкритою панеллю редагування Журналу), порушників 0; панель редагування рендерить `edtfielda1-<uuid>` з `<label for>`, старих `edit-name-*` у DOM немає; редагування скасовано, нічого не збережено.
+
+**⚠️ iPhone (C3):** перевірте відсутність панелі «Автозаповнити контакт» на полях: картка, ОЧ, категорія, підкатегорія, слово, витрата, **редагування запису в Журналі (поле «Назва»)**, дохід, борг, пошук, **вхід (Email)**; і скажіть, на яких вона була.
