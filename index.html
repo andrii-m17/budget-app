@@ -1293,7 +1293,10 @@
      Сервісу (сірий бейдж + шеврон), повноекранний екран, чипи, рядки (ті
      самі .expense-row-swipe/.expense-row, що Журнал), дії свайпу. */
   .service-wide-right{ margin-left:auto; display:flex; align-items:center; gap:8px; color:var(--color-text-secondary); flex-shrink:0; }
-  .trash-screen{ position:fixed; inset:0; z-index:60; background:var(--color-bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) 16px calc(env(safe-area-inset-bottom, 0px) + 32px); }
+  /* Rev 2.32.1 (T1) — таббар видно на «Видалених даних», як у Журналі: екран лежить ПІД таббаром (z-index 19 < 20 у nav.tabbar), а не над ним (було 60).
+     Нижній відступ вмісту = 112px — той самий резерв під таббар + safe-area, що й .main-col. Шторки (.drawer, 91), модалки (96) і тости (200) лишаються над таббаром;
+     при відкритій клавіатурі таббар ховається як і раніше (body.kb-open). Активна вкладка — «Сервіс» (екран відкривається лише звідти). Альтернатива (піднімати таббар над екраном класом на body) відкинута: зайвий стан. */
+  .trash-screen{ position:fixed; inset:0; z-index:19; background:var(--color-bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) 16px 112px; }
   .trash-screen.hidden{ display:none; }
   /* Rev 2.31.1 (C) — свайп із краю закриває екран (installEdgeSwipeClose): горизонтальні панування браузер не веде, вертикальна прокрутка лишається; рядки мають свій touch-action:pan-y */
   .trash-screen{ touch-action:pan-y; }
@@ -3209,7 +3212,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.0</div>
+  <div class="version-footer">Money Tree · Rev 2.32.1</div>
 </div>
   </div>
 </div>
@@ -7487,7 +7490,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.0';
+const APP_VERSION = '2.32.1';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
