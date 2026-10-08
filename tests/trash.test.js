@@ -10,7 +10,7 @@ const { buildSandbox } = require('./extract');
 const ctx = buildSandbox({}, [
   'TRASH_HIDDEN_LEGACY_EPOCH', 'TRASH_MONTHS_SHORT',
   'trashSortKey', 'trashTabOf', 'isMonthRecordType', 'restoreBlockedReasonForMonthRecord', 'buildTrashItems', 'trashCount', 'filterTrashItems', 'restoreBlockedReason',
-  'TRASH_PURGEABLE_TYPES', 'isAccountTrashType', 'isMonthRecordType', 'purgeAccountConfirmText', 'canPurge', 'purgeBlockedReason', 'purgeConfirmText', 'trashTombstonesForReconcile', 'reconcilePlan', 'fmt',
+  'TRASH_PURGEABLE_TYPES', 'isAccountTrashType', 'isTaxonomyTrashType', 'isMonthRecordType', 'purgeAccountConfirmText', 'purgeTaxonomyConfirmText', 'taxonomyPlural', 'canPurge', 'purgeBlockedReason', 'purgeConfirmText', 'trashTombstonesForReconcile', 'reconcilePlan', 'fmt',
   'pluralUa', 'pluralizeRecords', 'trashCascadeNote', 'formatTrashShortDate', 'formatTrashDeletedAt',
 ]);
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -180,9 +180,9 @@ test('canPurge: витрати, доходи, слова, місячні бор�
   assert.equal(ctx.canPurge({ type: 'installmentMonth', deletedAt: 'x' }), true);
   assert.equal(ctx.canPurge({ type: 'card' }), true, 'прихована картка (запису-tombstone немає)');
   assert.equal(ctx.canPurge({ type: 'installment' }), true);
-  ['category', 'subcategory', 'debt'].forEach(function(t){
-    assert.equal(ctx.canPurge({ type: t, deletedAt: 'x' }), false, t);
-  });
+  assert.equal(ctx.canPurge({ type: 'category' }), true, 'Rev 2.32.7 (T3): неактивна категорія');
+  assert.equal(ctx.canPurge({ type: 'subcategory' }), true);
+  assert.equal(ctx.canPurge({ type: 'debt', deletedAt: 'x' }), false, 'debt');
   assert.equal(ctx.canPurge({ type: 'expense' }), false, 'живий запис — не tombstone');
   assert.equal(ctx.canPurge({ type: 'debtMonth' }), false, 'місячний запис без tombstone');
   assert.equal(ctx.canPurge({ type: 'word', deletedAt: 'x', deletedVia: 'category' }), false, 'каскадне слово — лише разом із категорією');
@@ -193,7 +193,8 @@ test('purgeBlockedReason: офлайн і непридатні типи забо
   assert.equal(ctx.purgeBlockedReason({ offline: false, type: 'income' }), null);
   assert.equal(ctx.purgeBlockedReason({ offline: false, type: 'word' }), null);
   assert.ok(ctx.purgeBlockedReason({ offline: true, type: 'expense' }));
-  assert.ok(ctx.purgeBlockedReason({ offline: false, type: 'category' }));
+  assert.equal(ctx.purgeBlockedReason({ offline: false, type: 'category' }), null, 'Rev 2.32.7 (T3)');
+  assert.ok(ctx.purgeBlockedReason({ offline: true, type: 'category' }));
   assert.equal(ctx.purgeBlockedReason({ offline: false, type: 'card' }), null, 'Rev 2.32.4 (T2): картка/ОЧ — можна онлайн');
   assert.ok(ctx.purgeBlockedReason({ offline: true, type: 'card' }));
   assert.ok(ctx.purgeBlockedReason({ offline: false, type: 'debt' }));
@@ -295,7 +296,7 @@ test('restoreBlockedReasonForMonthRecord: дубль живого запису �
   assert.equal(ctx.restoreBlockedReason(inst, st), null, 'tombstone не конфліктує');
 });
 test('Rev 2.32.4 (T2): місячні борги/ОЧ і приховані картка/ОЧ входять у TRASH_PURGEABLE_TYPES; purgeConfirmText для місячного запису', () => {
-  const ctx2 = require('./extract').buildSandbox({ fmt: function(n){ return n + ' ₴'; } }, ['TRASH_PURGEABLE_TYPES', 'canPurge', 'isAccountTrashType', 'isMonthRecordType', 'purgeConfirmText', 'purgeAccountConfirmText']);
+  const ctx2 = require('./extract').buildSandbox({ fmt: function(n){ return n + ' ₴'; } }, ['TRASH_PURGEABLE_TYPES', 'canPurge', 'isAccountTrashType', 'isTaxonomyTrashType', 'isMonthRecordType', 'purgeConfirmText', 'purgeAccountConfirmText', 'purgeTaxonomyConfirmText', 'taxonomyPlural']);
   assert.equal(ctx2.canPurge({ type: 'debtMonth', deletedAt: 'x' }), true);
   assert.equal(ctx2.canPurge({ type: 'card' }), true);
   assert.equal(ctx2.purgeConfirmText({ type: 'debtMonth', title: 'Моно Банк', month: '2026-10', amount: 500 }), 'Моно Банк · борг за 2026-10 · 500 ₴ буде видалено назавжди. Це неможливо скасувати');

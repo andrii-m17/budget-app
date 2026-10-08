@@ -3217,7 +3217,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.6</div>
+  <div class="version-footer">Money Tree · Rev 2.32.7</div>
 </div>
   </div>
 </div>
@@ -4064,7 +4064,7 @@ async function pushCategoriesPilot(){
 // створюємо новий. Викликається і для "немає cloudId", і для "cloudId
 // виявився висячим" (той самий механізм, каузально інакший вхідний стан).
 async function reconcileCategoryCloudId(client, userId, cat){
-  const { data: existing } = await client.from('categories').select('id').eq('family_id', cloudFamilyId).eq('name', cat.name).maybeSingle();
+  const { data: existing } = await client.from('categories').select('id').eq('family_id', cloudFamilyId).eq('name', cat.name).is('deleted_at', null).maybeSingle(); // Rev 2.32.7 (T3): tombstone-рядки ігноруються
   if(existing){
     cat.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — раніше зв'язування за іменем лишало
@@ -4150,11 +4150,12 @@ async function pullCategoriesCore(){
   try{
     // Rev #30 (6D.38) — інкрементальний pull: applySyncMarker() додає
     // .gte('updated_at', marker) лише якщо маркер уже є для цього домену.
-    let query = client.from('categories').select('id,name,active,type,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('categories').select('id,name,active,type,created_at,updated_at,deleted_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'categories');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
+      if(row.deleted_at){ await pullTaxonomyTombstone('category', row); continue; } // Rev 2.32.7 (T3): tombstone — гілка зникає локально, за назвою не зв'язується
       const byCloudId = CATEGORIES.find(function(c){ return c.cloudId === row.id; });
       if(byCloudId){
         // Rev #30 (6D, Варіант А) — справжній LWW замість "Cloud завжди
@@ -4329,7 +4330,7 @@ async function pushSubcategoriesPilot(){
   return { success: !anyError };
 }
 async function reconcileSubcategoryCloudId(client, userId, sub, categoryId){
-  const { data: existing } = await client.from('subcategories').select('id').eq('family_id', cloudFamilyId).eq('name', sub.name).maybeSingle();
+  const { data: existing } = await client.from('subcategories').select('id').eq('family_id', cloudFamilyId).eq('name', sub.name).is('deleted_at', null).maybeSingle(); // Rev 2.32.7 (T3)
   if(existing){
     sub.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
@@ -4866,11 +4867,12 @@ async function pullSubcategoriesCore(){
   let maxSeen = null; // Rev #30 (6D.38) — max(updated_at) ЛИШЕ серед рядків, що пройшли FK-резолюцію (нижче)
   try{
     // Rev 2.22.89 (6D.162, Ревізія C) — deactivated_via додано до select().
-    let query = client.from('subcategories').select('id,name,category_id,active,deactivated_via,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('subcategories').select('id,name,category_id,active,deactivated_via,created_at,updated_at,deleted_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'subcategories');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
+      if(row.deleted_at){ await pullTaxonomyTombstone('subcategory', row); continue; } // Rev 2.32.7 (T3): див. pullCategoriesCore
       const parentCat = CATEGORIES.find(function(c){ return c.cloudId === row.category_id; });
       // Rev #30 (6D.38) — skippedFk-рядок НЕ рухає маркер: якщо маркер
       // "перестрибне" його timestamp, цей запис ніколи більше не
@@ -5100,6 +5102,7 @@ async function restoreCategoriesFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
+  backupList = filterPurgedTaxonomy(backupList, readPurgedTaxonomy(), 'categoryIds'); // Rev 2.32.7 (T3): видалені назавжди категорії з бекапу не повертаються
   if(isCloudSessionReady()) await pullCategoriesCore();
   const counts = mergeBackupRecordsByCloudIdOrName(CATEGORIES, backupList, 'name');
   stampMissingTimestamps(CATEGORIES);
@@ -5119,6 +5122,7 @@ async function restoreSubcategoriesFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
+  backupList = filterPurgedTaxonomy(backupList, readPurgedTaxonomy(), 'subcategoryIds'); // Rev 2.32.7 (T3)
   if(isCloudSessionReady()) await pullSubcategoriesCore();
   const counts = mergeBackupRecordsByCloudIdOrName(SUBCATEGORIES, backupList, 'name');
   stampMissingTimestamps(SUBCATEGORIES);
@@ -5135,6 +5139,7 @@ async function restoreDictionaryFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
+  backupList = filterPurgedTaxonomy(backupList, readPurgedTaxonomy(), 'wordIds'); // Rev 2.32.7 (T3)
   if(isCloudSessionReady()) await pullDictionaryCore();
   const counts = mergeBackupRecordsByCloudIdOrName(DICTIONARY, backupList, 'kw');
   // Rev 2.22.79 (6D.152) — записи зі СТАРОГО бекапу (до цього Rev) не мали
@@ -7513,7 +7518,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.6';
+const APP_VERSION = '2.32.7';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9853,6 +9858,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'debts', 'unlinkedExpenses',
   // Rev 2.32.5 (E1b) — edit-session event=restored: scrolled (чи довелось прокручувати картку редагування у видиму область).
   'scrolled',
+  // Rev 2.32.7 (T3) — taxonomy-purge: kind (category/subcategory), subcategories, words, blocked, usedBy; account-purge: monthsRemoved (скільки різних місяців боргів видалено). Без назв.
+  'subcategories', 'words', 'blocked', 'usedBy', 'monthsRemoved',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
   // Rev 2.24.0 (M1) — motion-perf: kind (tab-switch/press), reduced, holdMs, pressLeak (скільки елементів лишилось у .is-pressed через 300 мс).
   'kind', 'reduced', 'holdMs', 'pressLeak',
@@ -14051,11 +14058,13 @@ function restoreBlockedReason(item, state){
 // Незворотно видаляються витрати, доходи й слова (окремо видалені), і лише tombstone-и.
 // Rev 2.32.4 (T2): + місячні записи боргів/ОЧ (теж лише tombstone-и) і приховані картки/ОЧ (рахунок разом з місячними записами; див. purgeAccountPlan).
 // Категорії/підкатегорії — як і раніше ніколи.
-const TRASH_PURGEABLE_TYPES = ['expense', 'income', 'word', 'debtMonth', 'installmentMonth', 'card', 'installment'];
+const TRASH_PURGEABLE_TYPES = ['expense', 'income', 'word', 'debtMonth', 'installmentMonth', 'card', 'installment', 'category', 'subcategory'];
 function isAccountTrashType(type){ return type === 'card' || type === 'installment'; }
+// Rev 2.32.7 (T3): категорії/підкатегорії у «Видалених даних» — теж без запису-tombstone (неактивний запис), видаляються цілою гілкою.
+function isTaxonomyTrashType(type){ return type === 'category' || type === 'subcategory'; }
 function canPurge(item){
   if(!item) return false;
-  if(isAccountTrashType(item.type)) return true; // приховані картка/ОЧ: запису-tombstone немає, видаляємо рахунок цілком
+  if(isAccountTrashType(item.type) || isTaxonomyTrashType(item.type)) return true; // приховані картка/ОЧ і неактивні категорії/підкатегорії: запису-tombstone немає, видаляємо цілком
   return TRASH_PURGEABLE_TYPES.indexOf(item.type) !== -1 && !!item.deletedAt && !item.deletedVia;
 }
 // purgeBlockedReason({offline, type}) — null, якщо можна; інакше причина для тосту.
@@ -14068,6 +14077,7 @@ function purgeBlockedReason(opts){
 // Текст діалогу: "Кава · 74 ₴ · 30 вер. буде видалено назавжди. Це неможливо скасувати".
 function purgeConfirmText(item){
   if(isAccountTrashType(item.type) && item.purgePlan) return purgeAccountConfirmText(item.purgePlan);
+  if(isTaxonomyTrashType(item.type) && item.purgePlan) return purgeTaxonomyConfirmText(item.purgePlan);
   if(isMonthRecordType(item.type)){
     const monthParts = [item.title, (item.type === 'installmentMonth' ? 'платіж' : 'борг') + (item.month ? ' за ' + (typeof monthLabel === 'function' ? monthLabel(item.month) : item.month) : '')];
     if(item.amount != null) monthParts.push(fmt(item.amount));
@@ -14114,9 +14124,10 @@ function removeAccountFromState(state, plan, stamp){
   const at = list.findIndex(function(a){ return a && a.name === plan.name; });
   if(at !== -1) list.splice(at, 1);
   let debtsRemoved = 0;
+  const months = {};
   for(let i = state.debts.length - 1; i >= 0; i--){
     const d = state.debts[i];
-    if(d && d.kind === plan.kind && d.name === plan.name){ state.debts.splice(i, 1); debtsRemoved++; }
+    if(d && d.kind === plan.kind && d.name === plan.name){ months[d.month] = true; state.debts.splice(i, 1); debtsRemoved++; } // Rev 2.32.7 (T3): ВСІ місяці рахунку, незалежно від місяця приховування
   }
   if(plan.hiddenKey && state.hiddenFrom) delete state.hiddenFrom[plan.hiddenKey];
   let unlinked = 0;
@@ -14125,7 +14136,86 @@ function removeAccountFromState(state, plan, stamp){
       if(e && e.linkedInstallment === plan.name){ delete e.linkedInstallment; if(stamp) e.updatedAt = stamp; unlinked++; }
     });
   }
-  return { debts: debtsRemoved, unlinkedExpenses: unlinked };
+  return { debts: debtsRemoved, unlinkedExpenses: unlinked, monthsRemoved: Object.keys(months).length };
+}
+// ===== Rev 2.32.7 (T3) — безповоротне видалення категорій і підкатегорій (разом зі словами гілки) =====
+// Та сама модель, що T2: tombstone у Cloud (categories/subcategories/dictionary.deleted_at; сервер чистить через 30 днів), локально гілка зникає після успіху Cloud-кроків.
+// item: { kind:'category'|'subcategory', name, category? }; state: { categories, subcategories, dictionary, expenses }.
+// Використання: живі витрати (без tombstone) за назвою категорії/підкатегорії; суми не чіпаємо.
+function taxonomyUsage(item, expenses){
+  const live = (expenses || []).filter(function(e){ return e && !e.deletedAt; });
+  if(item.kind === 'subcategory') return live.filter(function(e){ return e.subcategory === item.name; }).length;
+  return live.filter(function(e){ return e.category === item.name; }).length;
+}
+function purgeTaxonomyPlan(item, state){
+  const st = state || {};
+  const kind = item && item.kind === 'subcategory' ? 'subcategory' : 'category';
+  const name = item ? item.name : '';
+  const cats = st.categories || [], subs = st.subcategories || [], words = st.dictionary || [];
+  let obj = null, subList = [], wordList = [], category = item && item.category || '';
+  if(kind === 'category'){
+    obj = cats.find(function(c){ return c && c.name === name; }) || null;
+    subList = subs.filter(function(x){ return x && x.category === name; });
+    wordList = words.filter(function(d){ return d && d.cat === name; });
+    category = name;
+  }else{
+    obj = subs.find(function(x){ return x && x.name === name && (!category || x.category === category); }) || null;
+    if(obj) category = obj.category;
+    wordList = words.filter(function(d){ return d && d.sub === name && d.cat === category; });
+  }
+  const usedBy = taxonomyUsage({ kind: kind, name: name }, st.expenses);
+  const active = !!obj && obj.active !== false;
+  return { exists: !!obj, kind: kind, name: name, category: category, active: active, cloudId: (obj && obj.cloudId) || null,
+    subCount: subList.length, subNames: subList.map(function(x){ return x.name; }), subCloudIds: subList.map(function(x){ return x.cloudId; }).filter(Boolean),
+    wordCount: wordList.length, wordCloudIds: wordList.map(function(d){ return d.cloudId; }).filter(Boolean),
+    usedBy: usedBy, blocked: usedBy > 0 || active };
+}
+function taxonomyPlural(n, one, many){ return n + ' ' + ((n % 10 === 1 && n % 100 !== 11) ? one : many); }
+function purgeTaxonomyConfirmText(plan){
+  const parts = [];
+  if(plan.kind === 'category' && plan.subCount > 0) parts.push(taxonomyPlural(plan.subCount, 'підкатегорією', 'підкатегоріями'));
+  if(plan.wordCount > 0) parts.push(taxonomyPlural(plan.wordCount, 'словом', 'словами'));
+  return (plan.kind === 'category' ? 'Категорія' : 'Підкатегорія') + ' «' + plan.name + '» буде видалена назавжди' + (parts.length ? ' разом з ' + parts.join(' й ') : '') + '. Це неможливо скасувати.';
+}
+function purgeTaxonomyBlockedText(plan){
+  if(plan.active) return 'Спершу видаліть ' + (plan.kind === 'category' ? 'категорію' : 'підкатегорію') + ' у «Структурі».';
+  const n = plan.usedBy, one = n % 10 === 1 && n % 100 !== 11, few = n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14);
+  return 'Цю ' + (plan.kind === 'category' ? 'категорію' : 'підкатегорію') + (one ? ' використовує ' : ' використовують ') + n + ' ' + (one ? 'витрата' : (few ? 'витрати' : 'витрат')) + '. Змініть їхню категорію або видаліть їх, потім повторіть.';
+}
+function removeTaxonomyFromState(state, plan){
+  let subsRemoved = 0, wordsRemoved = 0;
+  if(plan.kind === 'category'){
+    for(let i = state.subcategories.length - 1; i >= 0; i--){ if(state.subcategories[i].category === plan.name){ state.subcategories.splice(i, 1); subsRemoved++; } }
+    for(let i = state.dictionary.length - 1; i >= 0; i--){ if(state.dictionary[i].cat === plan.name){ state.dictionary.splice(i, 1); wordsRemoved++; } }
+    const at = state.categories.findIndex(function(c){ return c.name === plan.name; });
+    if(at !== -1) state.categories.splice(at, 1);
+  }else{
+    for(let i = state.dictionary.length - 1; i >= 0; i--){ if(state.dictionary[i].sub === plan.name && state.dictionary[i].cat === plan.category){ state.dictionary.splice(i, 1); wordsRemoved++; } }
+    const at = state.subcategories.findIndex(function(x){ return x.name === plan.name && x.category === plan.category; });
+    if(at !== -1){ state.subcategories.splice(at, 1); subsRemoved++; }
+  }
+  return { subcategories: subsRemoved, words: wordsRemoved };
+}
+// Журнал видалених назавжди категорій/підкатегорій/слів (локально, поза BACKUP_LS_KEYS): [{ kind, name, categoryIds, subcategoryIds, wordIds, at }].
+const LS_KEY_PURGED_TAXONOMY = 'budget_purged_taxonomy_v1';
+function filterPurgedTaxonomy(list, purged, field){
+  const ids = {};
+  (purged || []).forEach(function(p){ ((p && p[field]) || []).forEach(function(id){ ids[id] = true; }); });
+  return (list || []).filter(function(x){ return !(x && x.cloudId && ids[x.cloudId]); });
+}
+function readPurgedTaxonomy(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(LS_KEY_PURGED_TAXONOMY) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  }catch(e){ return []; }
+}
+function rememberPurgedTaxonomy(plan){
+  try{
+    const list = readPurgedTaxonomy();
+    list.push({ kind: plan.kind, name: plan.name, categoryIds: plan.kind === 'category' && plan.cloudId ? [plan.cloudId] : [],
+      subcategoryIds: (plan.kind === 'subcategory' && plan.cloudId ? [plan.cloudId] : []).concat(plan.subCloudIds || []), wordIds: plan.wordCloudIds || [], at: new Date().toISOString() });
+    localStorage.setItem(LS_KEY_PURGED_TAXONOMY, JSON.stringify(list.slice(-200)));
+  }catch(e){}
 }
 // Журнал видалених назавжди рахунків (локально, поза BACKUP_LS_KEYS): [{ kind, name, cloudId, debtIds, at }]. Бекап/імпорт не відновлюють такі рахунки й їхні місячні записи.
 const LS_KEY_PURGED_ACCOUNTS = 'budget_purged_accounts_v1';
@@ -18393,6 +18483,11 @@ function purgeTrashItem(key){
     return;
   }
   if(isAccountTrashType(item.type)) item.purgePlan = purgeAccountPlan({ kind: item.type, name: item.title }, trashStateNow());
+  if(isTaxonomyTrashType(item.type)){
+    const tplan = purgeTaxonomyPlan({ kind: item.type, name: item.title, category: item.category }, trashStateNow());
+    if(tplan.blocked){ showTaxonomyBlocked(tplan); return; }
+    item.purgePlan = tplan;
+  }
   showPurgeConfirm(item, function(){ runTrashPurge(item); });
 }
 async function runTrashPurge(item){
@@ -18403,6 +18498,7 @@ async function runTrashPurge(item){
   }
   let outcome = 'error', dups = 0;
   if(isAccountTrashType(item.type)){ await runAccountPurge(item); return; } // Rev 2.32.4 (T2)
+  if(isTaxonomyTrashType(item.type)){ await runTaxonomyPurge(item); return; } // Rev 2.32.7 (T3)
   try{
     if(item.type === 'word'){
       const d = DICTIONARY.find(function(x){ return x.id === item.id && x.deletedAt && !x.deletedVia; });
@@ -18465,7 +18561,7 @@ async function runAccountPurge(item){
   }
   const res = await applyAccountRemovalLocally(plan, true);
   rememberPurgedAccount(plan);
-  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'account-purge', kind: plan.kind === 'card' ? 'bank' : 'installment', debts: res.debts, unlinkedExpenses: res.unlinkedExpenses });
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'account-purge', kind: plan.kind === 'card' ? 'bank' : 'installment', debts: res.debts, monthsRemoved: res.monthsRemoved, unlinkedExpenses: res.unlinkedExpenses });
   captureDebugGeometry('trash-purge', { trashType: item.type, ok: true });
   if(trashDetailKey === item.key) closeTrashDetail();
   showTrashToast('Видалено назавжди', 'success');
@@ -18482,6 +18578,87 @@ async function applyAccountRemovalLocally(plan, pushUnlinked){
   if(pushUnlinked) linked.forEach(function(e){ pushExpenseRecordPilot(e); });
   populateMonths(); renderAll(); populateBankDebtTable(); populateInstallmentTable(); renderStructure();
   return res;
+}
+// Rev 2.32.7 (T3) — блокування: категорію/підкатегорію ще використовують живі витрати. «Показати витрати» відкриває Журнал із фільтром (journalSearchCategory/Subcategory).
+function showTaxonomyBlocked(plan){
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'taxonomy-purge', kind: plan.kind, subcategories: plan.subCount, words: plan.wordCount, blocked: true, usedBy: plan.usedBy });
+  const text = document.getElementById('app-modal-text');
+  text.textContent = '';
+  const title = document.createElement('div');
+  title.style.fontWeight = '700'; title.style.marginBottom = '6px';
+  title.textContent = 'Видалити назавжди не можна';
+  const body = document.createElement('div');
+  body.textContent = purgeTaxonomyBlockedText(plan);
+  text.appendChild(title); text.appendChild(body);
+  const cancelBtn = document.getElementById('app-modal-cancel-btn');
+  const confirmBtn = document.getElementById('app-modal-confirm-btn');
+  cancelBtn.textContent = 'Закрити';
+  if(plan.usedBy > 0 && !plan.active){
+    confirmBtn.textContent = 'Показати витрати';
+    confirmBtn.className = 'submit-btn';
+    confirmBtn.onclick = function(){ closeAppModal(); showTaxonomyExpenses(plan); };
+  }else{
+    confirmBtn.style.display = 'none';
+  }
+  presentAppModal();
+}
+function showTaxonomyExpenses(plan){
+  closeTrashScreen();
+  switchTab('vytraty');
+  openJournal();
+  journalSearchCategory = plan.kind === 'category' ? plan.name : plan.category;
+  journalSearchSubcategory = plan.kind === 'subcategory' ? plan.name : '';
+  if(typeof populateJournalCategoryOptions === 'function') populateJournalCategoryOptions();
+  renderRecords();
+}
+// Видалення назавжди категорії/підкатегорії (лише онлайн, лише неактивна й без живих витрат): Cloud-кроки слова → підкатегорії → сама категорія/підкатегорія; збій зупиняє до локальних змін.
+async function runTaxonomyPurge(item){
+  const plan = purgeTaxonomyPlan({ kind: item.type, name: item.title, category: item.category }, trashStateNow());
+  if(!plan.exists){ showTrashToast('Не вдалося видалити: запис не знайдено', 'error'); renderTrashScreen(); return; }
+  if(plan.blocked){ showTaxonomyBlocked(plan); return; }
+  const obj = plan.kind === 'category' ? CATEGORIES.find(function(c){ return c.name === plan.name; }) : SUBCATEGORIES.find(function(x){ return x.name === plan.name && x.category === plan.category; });
+  if(plan.cloudId && !isTestSyncIgnored(obj)){
+    try{
+      const client = getSupabaseClient();
+      const userId = cloudSession.user.id;
+      const now = new Date().toISOString();
+      const r1 = await client.from('dictionary').update({ deleted_at: now, deleted_via: plan.kind, updated_at: now, updated_by: userId }).eq('family_id', cloudFamilyId).eq(plan.kind === 'category' ? 'category_id' : 'subcategory_id', plan.cloudId).is('deleted_at', null).select('id');
+      if(r1.error) throw r1.error;
+      if(plan.kind === 'category'){
+        const r2 = await client.from('subcategories').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('family_id', cloudFamilyId).eq('category_id', plan.cloudId).is('deleted_at', null).select('id');
+        if(r2.error) throw r2.error;
+      }
+      const r3 = await client.from(plan.kind === 'category' ? 'categories' : 'subcategories').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('id', plan.cloudId).eq('family_id', cloudFamilyId).select('id');
+      if(r3.error) throw r3.error;
+    }catch(err){
+      showTrashToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
+      captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
+      return;
+    }
+  }
+  const res = await applyTaxonomyRemovalLocally(plan);
+  rememberPurgedTaxonomy(plan);
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'taxonomy-purge', kind: plan.kind, subcategories: res.subcategories - (plan.kind === 'subcategory' ? 1 : 0), words: res.words, blocked: false, usedBy: 0 });
+  captureDebugGeometry('trash-purge', { trashType: item.type, ok: true });
+  if(trashDetailKey === item.key) closeTrashDetail();
+  showTrashToast('Видалено назавжди', 'success');
+}
+async function applyTaxonomyRemovalLocally(plan){
+  const res = removeTaxonomyFromState({ categories: CATEGORIES, subcategories: SUBCATEGORIES, dictionary: DICTIONARY }, plan);
+  reportSaveResult(await saveCategoriesLocal());
+  reportSaveResult(await saveSubcategoriesLocal());
+  reportSaveResult(await saveDictionaryLocal());
+  populateMonths(); renderAll(); renderStructure(); populateCategorySelect(); renderTrashScreen();
+  return res;
+}
+// Pull tombstone-рядка категорії/підкатегорії: гілка зникає локально без push (власник уже оновив Cloud).
+async function pullTaxonomyTombstone(kind, row){
+  const obj = kind === 'category' ? CATEGORIES.find(function(c){ return c.cloudId === row.id; }) : SUBCATEGORIES.find(function(x){ return x.cloudId === row.id; });
+  if(!obj) return false;
+  const plan = purgeTaxonomyPlan({ kind: kind, name: obj.name, category: obj.category }, trashStateNow());
+  await applyTaxonomyRemovalLocally(plan);
+  rememberPurgedTaxonomy(plan);
+  return true;
 }
 function purgeTrashFromDetail(){
   if(trashDetailKey) purgeTrashItem(trashDetailKey);

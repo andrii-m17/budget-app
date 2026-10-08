@@ -52,7 +52,7 @@ test('removeAccountFromState: рахунок, його борги, запис п
   const st = fresh();
   const plan = J(ctx.purgeAccountPlan({ kind: 'installment', name: 'iPhone' }, st));
   const res = J(ctx.removeAccountFromState(st, plan, '2026-10-08T00:00:00Z'));
-  assert.deepEqual(res, { debts: 1, unlinkedExpenses: 1 });
+  assert.deepEqual(res, { debts: 1, unlinkedExpenses: 1, monthsRemoved: 1 });
   assert.deepEqual(st.installmentAccounts.map(a => a.name), ['Dyson']);
   assert.deepEqual(st.debts.map(d => d.id), ['d1', 'd2', 'd3', 'd5']);
   assert.equal(st.hiddenFrom['installment:iPhone'], undefined);
@@ -64,7 +64,7 @@ test('removeAccountFromState: рахунок, його борги, запис п
   assert.equal(st.expenses.find(e => e.id === 'e2').linkedInstallment, 'Dyson');
   const st2 = fresh();
   const r2 = J(ctx.removeAccountFromState(st2, J(ctx.purgeAccountPlan({ kind: 'card', name: 'Моно' }, st2)), null));
-  assert.deepEqual(r2, { debts: 2, unlinkedExpenses: 0 });
+  assert.deepEqual(r2, { debts: 2, unlinkedExpenses: 0, monthsRemoved: 2 }); // Rev 2.32.7 (T3): видалено обидва місяці (08 і 09), хоч приховано з 10
   assert.deepEqual(st2.bankAccounts.map(a => a.name), ['Приват']);
   assert.deepEqual(st2.debts.map(d => d.id), ['d3', 'd4', 'd5']);
   assert.equal(st2.expenses.find(e => e.id === 'e1').updatedAt, 'old', 'для картки витрати не чіпаємо');

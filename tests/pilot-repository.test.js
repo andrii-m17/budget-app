@@ -210,6 +210,7 @@ const REPOSITORY_NAMES = [
   'ensureInstallmentFirstMonth',
   // Rev 2.32.4 (T2) — журнал видалених назавжди рахунків: бекап не відновлює їх.
   'LS_KEY_PURGED_ACCOUNTS', 'filterPurgedAccounts', 'filterPurgedDebts', 'readPurgedAccounts',
+  'LS_KEY_PURGED_TAXONOMY', 'filterPurgedTaxonomy', 'readPurgedTaxonomy', // Rev 2.32.7 (T3)
   'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
   'restoreHiddenFromFromBackup', 'restoreIgnoredDivergencesFromBackup',
   // Rev 2.22.82 (6D.155, Ревізія B) — hiddenFrom tombstone-модель.

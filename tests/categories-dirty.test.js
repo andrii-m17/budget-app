@@ -23,6 +23,7 @@ function makeCloud(){
       update(p){ st.op = 'update'; st.p = p; return api; },
       eq(c, v){ st.f.push(function(r){ return r[c] === v; }); return api; },
       gte(c, v){ st.f.push(function(r){ return r[c] >= v; }); return api; },
+      is(c, v){ st.f.push(function(r){ return (r[c] == null ? null : r[c]) === v; }); return api; }, // Rev 2.32.7 (T3)
       order(){ return api; }, range(a, b){ st.range = [a, b]; return api; },
       single(){ st.single = true; return api; }, maybeSingle(){ st.maybe = true; return api; },
       then(res, rej){ return run().then(res, rej); },
