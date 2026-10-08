@@ -788,6 +788,7 @@
      точно в неї на мобільному — сам wrap лишається розміру точки, тому
      layout картки не змінюється. */
   .data-status{ position:absolute; top:12px; right:12px; z-index:3; }
+  .table-card.has-data-status{ position:relative; } /* Rev 2.31.5 (B2-lite): контейнер для .data-status (абсолютна крапка) на картці «Борги по картках» */
   .data-status.hidden{ display:none; }
   .data-status-dot{ width:34px; height:34px; margin:-13.5px; padding:0; border:none; background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; border-radius:50%; }
   .data-status-dot::after{ content:""; width:7px; height:7px; border-radius:50%; background:var(--color-info); flex-shrink:0; }
@@ -2619,7 +2620,17 @@
            прогрес-барами (Block 5). Обидві картки рівноправні, без ефекту
            "стискання сусіда" — просто два окремі table-card в рядку. -->
       <div class="ov-row3-secondary">
-        <div class="card table-card">
+        <div class="card table-card has-data-status">
+          <!-- Rev 2.31.5 (B2-lite) — та сама крапка-статус і попап, що біля KPI «Борг» (#kpi-debt-asof) і кільця (#debt-donut-asof): спільний статус debtUiStatusNow, наповнює renderDataStatusDot() без змін. -->
+          <div class="data-status hidden" id="debts-card-asof">
+            <button type="button" class="data-status-dot" aria-haspopup="true" aria-expanded="false" aria-label="Стан даних"></button>
+            <div class="data-status-popover" role="note">
+              <div class="dsp-title"></div>
+              <div class="dsp-text"></div>
+              <div class="dsp-hint hidden"></div>
+              <button type="button" class="dsp-action hidden"></button>
+            </div>
+          </div>
           <div class="table-card-title">Борги по картках</div>
           <div class="table-header t-row-2col" id="debts-header"><span class="t-name">Картка</span><span class="t-amt">Сума</span></div>
           <div id="debts-body"></div>
@@ -3198,7 +3209,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.31.4</div>
+  <div class="version-footer">Money Tree · Rev 2.31.5</div>
 </div>
   </div>
 </div>
@@ -7476,7 +7487,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.31.4';
+const APP_VERSION = '2.31.5';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9832,6 +9843,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'dx',
   // Rev 2.31.2 (A) — autocat-edit: matched, applied (булеві), skipped (no-match/user-changed/same) — без назв і сум.
   'matched', 'applied',
+  // Rev 2.31.5 (B2-lite) — status-dots: tab, dots (кількість видимих крапок-статусів), reasons ({status, missingCards}).
+  'tab', 'dots', 'reasons',
   // Rev 2.31.4 (C) — input-focus-audit: атрибути поля, на якому з’явився фокус (без значення).
   'fieldName', 'fieldType', 'fieldAutocomplete', 'fieldInputmode', 'fieldAria', 'fieldPlaceholder', 'fieldLabel', 'fieldHasForm', 'fieldForbidden',
   // Rev 2.31.3 (B) — incomplete-dots: cards, installments (кількості неповних), reasonCounts ({причина: кількість}); без назв і сум.
@@ -14936,6 +14949,14 @@ function dashAfterRender(month){
 // Перехід на вкладку «Аналітика» (performSwitchTab, синхронно після показу вкладки): повна/коротка анімація залежно від варіанта dashboard-replay.
 function onDashboardVisit(){
   dashRun('visit', selectedMonth, dashIsActive());
+  recordStatusDots();
+}
+// Rev 2.31.5 (B2-lite) — подія status-dots при відкритті «Аналітики»: скільки крапок-статусів видно (KPI «Борг», кільце, «Борги по картках») і яка причина (той самий debtUiStatus), без назв і сум.
+function recordStatusDots(){
+  if(!debugRecordingActive || !selectedMonth) return;
+  const dots = ['kpi-debt-asof', 'debt-donut-asof', 'debts-card-asof'].filter(function(id){ const el = document.getElementById(id); return el && !el.classList.contains('hidden'); }).length;
+  const st = debtUiStatus(debtAsOfInfo(selectedMonth, 'card'), selectedMonth, 'card');
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'status-dots', tab: 'analytics', dots: dots, reasons: { status: st.status, missingCards: missingCardDebtsForMonth(selectedMonth).length } });
 }
 // Перший показ при старті не втрачається: якщо сторінка була невидима/ще вантажилась — стартуємо, коли стала видимою й завантаженою.
 function dashKick(){
@@ -15560,6 +15581,7 @@ function renderDashboard(){
   // показують однаковий статус — рахуємо його раз і застосовуємо до обох dots.
   const debtUiStatusNow = debtUiStatus(cardAsOf, month, 'card');
   renderDataStatusDot('kpi-debt-asof', debtUiStatusNow, month);
+  renderDataStatusDot('debts-card-asof', debtUiStatusNow, month); // Rev 2.31.5 (B2-lite): той самий статус і попап на картці «Борги по картках»
 
   renderDebtDonut(hasDebtData, debtStart.total, debtNow.total, paidSinceStart, debtUiStatusNow, month);
 
