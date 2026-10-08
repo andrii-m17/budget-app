@@ -71,7 +71,7 @@ test('Журнал: поле "Назва" редагування записів 
   assert.ok(!/edit-name-/.test(SRC.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '')), 'старий id edit-name- лишився в коді');
   assert.ok(!/getElementById\('cloud-email'\)|id="cloud-email"/.test(SRC), 'старий cloud-email лишився');
   assert.match(SRC, /id="edtfielda1-\$\{e\.id\}"/);
-  assert.match(SRC, /<label for="edtfielda1-' \+ id \+ '">/); // Rev 2.32.6 (X): через editNameLabelHtml
+  assert.match(SRC, /fld-label-like">Назва<\/span>/); // Rev 2.32.8 (A): підпис без label for
   assert.match(SRC, /getElementById\('edtfielda1-'\+id\)/);
   assert.match(SRC, /flashField\('edtfielda1-'\+id\)/);
   assert.match(SRC, /id="cldfielda1"/);

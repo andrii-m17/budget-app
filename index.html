@@ -3217,7 +3217,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.7</div>
+  <div class="version-footer">Money Tree · Rev 2.32.8</div>
 </div>
   </div>
 </div>
@@ -7518,7 +7518,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.7';
+const APP_VERSION = '2.32.8';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9885,7 +9885,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.31.5 (B2-lite) — status-dots: tab, dots (кількість видимих крапок-статусів), reasons ({status, missingCards}).
   'tab', 'dots', 'reasons',
   // Rev 2.31.4 (C) — input-focus-audit: атрибути поля, на якому з’явився фокус (без значення).
-  'fieldName', 'fieldType', 'fieldAutocomplete', 'fieldInputmode', 'fieldAria', 'fieldPlaceholder', 'fieldLabel', 'fieldLabelFor', 'labelVariant', 'fieldHasForm', 'fieldForbidden',
+  'fieldName', 'fieldType', 'fieldAutocomplete', 'fieldInputmode', 'fieldAria', 'fieldPlaceholder', 'fieldLabel', 'fieldLabelFor', 'fieldHasForm', 'fieldForbidden',
   // Rev 2.31.3 (B) — incomplete-dots: cards, installments (кількості неповних), reasonCounts ({причина: кількість}); без назв і сум.
   'cards', 'installments', 'reasonCounts',
   'dir', 'keyboardTypeOk', 'panMax400',
@@ -10147,7 +10147,7 @@ function onInputFocusAudit(e){
     fieldId: mask(t.id) || null, fieldName: mask(t.getAttribute('name')), fieldType: t.tagName === 'TEXTAREA' ? 'textarea' : type,
     fieldAutocomplete: t.getAttribute('autocomplete'), fieldInputmode: t.getAttribute('inputmode'), fieldAria: mask(t.getAttribute('aria-label')),
     fieldPlaceholder: mask(t.getAttribute('placeholder')), fieldLabel: inputFieldLabelText(t) || null, fieldHasForm: !!t.closest('form'),
-    fieldLabelFor: !!(t.id && document.querySelector('label[for="' + (window.CSS && CSS.escape ? CSS.escape(t.id) : t.id) + '"]')), labelVariant: getVariant('edit-label'),
+    fieldLabelFor: !!(t.id && document.querySelector('label[for="' + (window.CSS && CSS.escape ? CSS.escape(t.id) : t.id) + '"]')),
     fieldForbidden: forbiddenInputAttr(t.id) || forbiddenInputAttr(t.getAttribute('name')) || null });
 }
 function attachDebugRecorderListeners(){
@@ -13237,15 +13237,9 @@ document.addEventListener('click', function(e){
   editingRecordKey = null;
   renderRecords();
 });
-// ===== Rev 2.32.6 (X) — тест edit-label: підпис поля «Назва» в редагуванні (чи викликає <label for> панель iOS «Автозаповнити контакт»; у новій витраті підпису немає, лише aria-label) =====
-// current — <label for> «Назва»; no-for (типовий) — той самий підпис span-ом без зв'язку з полем + aria-label «Назва витрати» на полі; reword — <label for> «Витрата». Розкладка однакова.
-function editLabelVariant(){ try{ return getVariant('edit-label') || 'no-for'; }catch(e){ return 'no-for'; } }
-function editNameLabelHtml(id){
-  const v = editLabelVariant();
-  if(v === 'no-for') return '<span class="fld-label-like">Назва</span>';
-  return '<label for="edtfielda1-' + id + '">' + (v === 'reword' ? 'Витрата' : 'Назва') + '</label>';
-}
-function editNameAriaAttr(){ return editLabelVariant() === 'no-for' ? ' aria-label="Назва витрати"' : ''; }
+// Rev 2.32.8 (A): тест edit-label завершено — у всіх трьох варіантах панель «Автозаповнити контакт» не з'явилась, тож причина не в підписі <label for>. Лишено no-for: підпис span-ом без зв'язку з полем + aria-label «Назва витрати» (як у новій витраті).
+function editNameLabelHtml(id){ return '<span class="fld-label-like">Назва</span>'; }
+function editNameAriaAttr(){ return ' aria-label="Назва витрати"'; }
 function startEditRecord(kind, id){
   if(kind !== 'expense') return; // повне редагування поки лише для витрат —
   // доходи мають інакшу модель даних (місячний запис за джерелом, а не
@@ -17836,27 +17830,8 @@ purgeLegacyKeyboardKeys();
 // <test-variants-module>
 const TEST_VARIANTS_LS_KEY = 'budget_variants_v1';
 // Rev 2.32.0 (F): реєстр порожній — motion-intensity («Стандартна», ×1) і card-reveal («Стандартно», 420/40) зафіксовано константами; pruneVariants() прибирає їхні старі ключі з localStorage.
-const TEST_VARIANTS = [
-  // Rev 2.32.6 (X) — підпис поля «Назва» в редагуванні запису (діагностика панелі iOS «Автозаповнити контакт»).
-  {
-    id: 'edit-label',
-    title: 'Підпис поля «Назва» в редагуванні',
-    what: 'Чи з\'являється панель «Автозаповнити контакт» через підпис <label for> «Назва» у редагуванні запису (у новій витраті такого підпису немає).',
-    variants: [
-      { key: 'current', label: 'Як зараз', hint: '<label for> «Назва»' },
-      { key: 'no-for', label: 'Без зв\'язку', hint: 'підпис без зв\'язку з полем + aria-label' },
-      { key: 'reword', label: '«Витрата»', hint: '<label for> з текстом «Витрата»' },
-    ],
-    defaultVariant: 'no-for',
-    addedIn: 'Rev 2.32.6 (X)',
-    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний варіант й прибере тест)',
-    checkSteps: [
-      'Оберіть варіант, відкрийте редагування запису й торкніться «Назви»: подивіться на панель над клавіатурою.',
-      'Повторіть для кожного з трьох варіантів; окремо перевірте поле «Назва витрати» в новій витраті.',
-      'Якщо панель з\'явилась — «Записати лог із цим варіантом» і «Мітка» в момент появи (подія input-focus-audit має fieldLabelFor і labelVariant).',
-    ],
-  },
-];
+// Rev 2.32.8 (A): реєстр порожній — edit-label завершено (no-for); pruneVariants() прибирає його ключ із localStorage.
+const TEST_VARIANTS = [];
 function readTestVariantsMap(){
   try{
     const raw = localStorage.getItem(TEST_VARIANTS_LS_KEY);
@@ -17945,7 +17920,7 @@ function renderTestingDrawer(){
     card.setAttribute('data-test-id', t.id);
     card.appendChild(testingEl('div', 'test-card-title', t.title));
     card.appendChild(testingEl('div', 'test-card-what', 'Що перевіряємо: ' + t.what));
-    function choose(key){ setVariant(t.id, key); renderTestingDrawer(); if(typeof renderRecords === 'function') renderRecords(); }
+    function choose(key){ setVariant(t.id, key); renderTestingDrawer(); }
     if(t.variants.length <= 4){
       const seg = testingEl('div', 'test-card-segments');
       t.variants.forEach(function(v){
@@ -17984,7 +17959,7 @@ function renderTestingDrawer(){
     const resetBtn = testingEl('button', 'submit-btn pill', 'Скинути до типового');
     resetBtn.type = 'button';
     resetBtn.style.background = 'var(--color-surface-hover)'; resetBtn.style.color = 'var(--color-text-primary)';
-    resetBtn.addEventListener('click', function(){ resetVariant(t.id); renderTestingDrawer(); if(typeof renderRecords === 'function') renderRecords(); });
+    resetBtn.addEventListener('click', function(){ resetVariant(t.id); renderTestingDrawer(); });
     actions.appendChild(logBtn); actions.appendChild(resetBtn);
     card.appendChild(actions);
     list.appendChild(card);
