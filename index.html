@@ -1365,6 +1365,30 @@
   .n-diag-row .ok{ color:var(--color-success); }
   .n-diag-row .bad{ color:var(--color-error); }
   .n-diag-empty{ padding:10px 14px; font-size:12.5px; color:var(--color-text-secondary); }
+  /* ===== Rev 2.32.12 (R) — «Налаштування → Сповіщення»: inset-grouped список за макетом (рядок 52, групи 18, заголовки 13 пт, тумблер 51×31; значення з токенів --ui-*). Лише всередині #notifications-drawer — решта .n-* (список «Налаштування») без змін. ===== */
+  #notifications-drawer .n-section-label{ font-size:13px; font-weight:600; letter-spacing:.04em; margin:22px 16px 7px; }
+  #notifications-drawer .nx-first{ margin-top:4px; }
+  #notifications-drawer .n-group{ border-radius:var(--ui-r-control); }
+  #notifications-drawer .n-row, #notifications-drawer .n-time-row{ position:relative; min-height:52px; padding:0 16px; border-top:none; gap:10px; }
+  #notifications-drawer .n-switch-input{ flex-shrink:0; }
+  #notifications-drawer .n-row + .n-row::before, #notifications-drawer .n-row + .n-time-row::before, #notifications-drawer .n-time-row + .n-time-row::before, #notifications-drawer .n-days + .n-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--color-border); }
+  #notifications-drawer .n-row-title{ font-size:16px; }
+  #notifications-drawer .nx-value{ font-size:13px; color:var(--color-text-secondary); white-space:nowrap; }
+  #notifications-drawer .n-row .n-row-title{ white-space:nowrap; }
+  #notifications-drawer .n-row{ gap:8px; }
+  #notifications-drawer .nx-seg-row{ position:relative; padding:10px 16px 12px; }
+  #notifications-drawer .nx-seg-row .n-row-title{ display:block; margin-bottom:8px; }
+  #notifications-drawer .nx-seg-row .n-days{ padding:0; }
+  #notifications-drawer .nx-seg-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--color-border); }
+  #notifications-drawer .nx-hint{ font-size:13px; line-height:1.4; color:var(--color-text-secondary); margin:8px 16px 0; }
+  #notifications-drawer .nx-notice{ font-size:13px; line-height:1.4; color:var(--color-warning); margin:8px 16px 0; }
+  #notifications-drawer .n-dimmed{ opacity:.38; pointer-events:none; }
+  #notifications-drawer button.nx-action{ display:flex; align-items:center; justify-content:center; width:100%; min-height:52px; border:none; background:none; font:inherit; font-size:16px; font-weight:600; color:var(--ui-accent-text); cursor:pointer; }
+  #notifications-drawer button.nx-action:disabled{ opacity:.4; cursor:default; }
+  /* умовні рядки з'являються через opacity + зсув до 8 пт, БЕЗ анімації висоти */
+  @keyframes nxAppear{ from{ opacity:0; transform:translateY(-8px); } to{ opacity:1; transform:none; } }
+  #notifications-drawer .nx-appear{ animation:nxAppear var(--motion-s) var(--ease-out) both; }
+  @media (prefers-reduced-motion: reduce){ #notifications-drawer .nx-appear{ animation:none; } }
   .n-readonly-note{ font-size:12.5px; color:var(--color-text-secondary); padding:8px 4px 0; }
   .card-debt-compact-row.just-notified{ background:var(--color-info-bg); animation:cardBlink .8s ease-in-out 3; }
   .trash-sync-line{ height:16px; margin:-2px 2px 6px; font-size:12px; color:var(--color-text-secondary); opacity:0; transition:opacity var(--duration-fast) var(--easing-standard); }
@@ -3222,7 +3246,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.11</div>
+  <div class="version-footer">Money Tree · Rev 2.32.12</div>
 </div>
   </div>
 </div>
@@ -3300,7 +3324,6 @@
     <div class="drawer-head-main">
       <div class="drawer-head-text">
         <h2>Сповіщення</h2>
-        <div class="drawer-head-sub">Налаштування для вашого акаунта</div>
       </div>
     </div>
     <button class="drawer-close" onclick="closeNotificationsDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -3344,6 +3367,10 @@
   <div class="section-label" style="margin-top:4px;">Тестові варіанти</div>
   <div class="test-section-sub">Після вибору варіант видаляється із застосунку</div>
   <div id="testing-variants-list"></div>
+  <!-- Rev 2.32.12 (R): діагностика доставки сповіщень переїхала сюди з екрана «Сповіщення» (функціонал без змін) -->
+  <div class="section-label">Доставка сповіщень</div>
+  <button type="button" class="submit-btn pill secondary" id="testing-diag-btn" style="margin-bottom:10px;" onclick="toggleDeliveryDiagFromTesting()">Показати журнали доставки</button>
+  <div id="testing-diag-box"></div>
   <div class="section-label">Запис діагностики</div>
   <button type="button" class="service-wide-card" id="debug-record-btn" style="margin-bottom:16px;" onclick="openDebugRecordFromTesting()">
     <span class="service-tile-icon c-blue">
@@ -3427,12 +3454,11 @@
        Функції пунктів НЕ змінено, лише групування й порядок (тема лишилась тими самими кнопками setThemeChoice). -->
   <div class="n-section-label" style="margin-top:2px;">Сповіщення</div>
   <div class="n-group">
-    <button type="button" class="n-row n-row-link" id="settings-notifications-row" onclick="openNotificationsFromSettings()">
+    <!-- Rev 2.32.12 (R): рядок «Сповіщення» — лише назва й стрілка (без підпису, стану, бейджів) -->
+    <button type="button" class="n-row n-row-link" id="settings-notifications-row" onclick="openNotificationsFromSettings()" aria-label="Сповіщення">
       <span class="n-row-text">
         <span class="n-row-title">Сповіщення</span>
-        <span class="n-row-sub">Що й коли надсилати на цей пристрій</span>
       </span>
-      <span class="n-row-state" id="settings-notifications-state"></span>
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
   </div>
@@ -7523,7 +7549,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.11';
+const APP_VERSION = '2.32.12';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -18688,9 +18714,9 @@ updateTrashBadge();
 // сім'ї користувача). Тексти й логіку сповіщень формує сервер — клієнт лише зберігає налаштування, показує статус
 // дозволу й шле тестове сповіщення (Edge Function send-test-push; send-push-notification клієнт НЕ викликає).
 const NOTIFICATIONS_STAGE2_ENABLED = false; // weekly_summary / month_end: функцій на сервері ще немає — перемикачі сховано
-const NOTIFICATION_SETTING_FIELDS = ['notifications_enabled', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'weekly_summary', 'month_end', 'quiet_enabled', 'quiet_start', 'quiet_end'];
+const NOTIFICATION_SETTING_FIELDS = ['notifications_enabled', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'weekly_summary', 'month_end', 'quiet_enabled', 'quiet_start', 'quiet_end', 'backup_reminder'];
 function notificationSettingsDefaults(){
-  return { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00' };
+  return { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00', backup_reminder: true };
 }
 // validateQuietHours(start, end): формат HH:MM (24 год), початок ≠ кінець; інтервал через північ (22:00–07:00) дозволений.
 function validateQuietHours(start, end){
@@ -18699,30 +18725,43 @@ function validateQuietHours(start, end){
   if(start === end) return { ok: false, error: 'Початок і кінець тихих годин не можуть збігатись' };
   return { ok: true, error: null };
 }
-// permissionStatusLabel({supported, standalone, permission}) → { key, text, hint, canRequest }
-function permissionStatusLabel(state){
-  const st = state || {};
-  if(!st.supported){
-    return { key: 'unsupported', text: 'Додайте застосунок на головний екран', hint: 'У Safari: «Поділитись» → «На початковий екран», потім відкрийте його звідти — тоді сповіщення стануть доступні.', canRequest: false };
-  }
-  if(st.permission === 'granted') return { key: 'granted', text: 'Сповіщення дозволені', hint: '', canRequest: false };
-  if(st.permission === 'denied') return { key: 'denied', text: 'Сповіщення вимкнені в Параметрах iPhone', hint: 'Параметри → Сповіщення → Money Tree → «Дозволити сповіщення».', canRequest: false };
-  return { key: 'default', text: 'Сповіщення ще не дозволені', hint: 'Натисніть «Дозволити», щоб отримувати нагадування й повідомлення про зміни.', canRequest: true };
+// Rev 2.32.12 (R) — редизайн екрана «Сповіщення»: чисті функції подання (дані й функціональність сповіщень не змінюються).
+// permissionNotice(env) — стан дозволу показується ЛИШЕ як виняток (один рядок під головним тумблером); коли все гаразд (або дозвіл ще не запитувався) — null.
+function permissionNotice(env){
+  const e = env || {};
+  if(!e.supported) return { key: 'not-pwa', text: 'Додайте застосунок на головний екран, щоб отримувати сповіщення.' };
+  if(e.permission === 'denied') return { key: 'denied', text: 'Сповіщення вимкнені на iPhone. Щоб увімкнути: Параметри → Money Tree → Сповіщення.' };
+  return null;
 }
-// Rev 2.23.30 (6D.199) — чисті функції головного вимикача й діагностики доставки.
-// mergeSettingsGroupState(master, groups): вимкнений головний тумблер ПРИГЛУШУЄ групи (недоступні), але значення
-// не змінює й не стирає — після повторного вмикання все як було.
-function mergeSettingsGroupState(master, groups){
-  return { groupsDisabled: master === false, values: Object.assign({}, groups || {}) };
+// dimmedState(master): вимкнений головний тумблер ПРИГЛУШУЄ групи нижче (~38 %) і робить їх недоступними; значення не змінюються й не стираються.
+function dimmedState(master){
+  const off = master === false;
+  return { dimmed: off, interactive: !off, opacity: off ? 0.38 : 1 };
 }
-// notificationsRowState(settings, permissionState): текст стану в рядку "Налаштування → Сповіщення".
-function notificationsRowState(settings, perm){
-  if(!settings) return '';
-  if(settings.notifications_enabled === false) return 'Вимкнено';
-  if(perm && perm.supported && perm.permission === 'denied') return 'Вимкнено в iPhone';
-  if(perm && perm.supported && perm.permission === 'default') return 'Не налаштовано';
-  return 'Увімкнено';
+// notificationRows(settings, env) → рядки екрана за порядком: { id, group, type: switch|segments|time|action, field, title, value, valueText?, visible }.
+// Головний тумблер показує «вимкнено», коли iOS заборонив сповіщення. Умовні: «Нагадувати за» — лише при installment_deadline; «З/До» — лише при quiet_enabled.
+function notificationRows(settings, env){
+  const st = settings || notificationSettingsDefaults();
+  const e = env || {};
+  const denied = !!e.supported && e.permission === 'denied';
+  const sw = function(id, group, field, title, valueText){ return { id: id, group: group, type: 'switch', field: field, title: title, value: !!st[field], valueText: valueText || null, visible: true }; };
+  const master = { id: 'master', group: null, type: 'switch', field: 'notifications_enabled', title: 'Сповіщення', value: st.notifications_enabled !== false && !denied, valueText: null, visible: true };
+  return [
+    master,
+    sw('changes', 'family', 'other_actor_changes', 'Нові й змінені записи'),
+    sw('deletions', 'family', 'other_actor_deletions', 'Видалені записи'),
+    sw('daily', 'reminders', 'daily_reminder', 'Внести витрати', '20:00'),
+    sw('installments', 'reminders', 'installment_deadline', 'Платежі за ОЧ'),
+    { id: 'days', group: 'reminders', type: 'segments', field: 'installment_days', title: 'Нагадувати за', value: st.installment_days, visible: !!st.installment_deadline },
+    sw('month-start', 'reminders', 'month_start', 'Початок місяця'),
+    sw('backup', 'reminders', 'backup_reminder', 'Резервна копія', 'кінець місяця'),
+    sw('quiet', 'quiet', 'quiet_enabled', 'Увімкнено'),
+    { id: 'quiet-start', group: 'quiet', type: 'time', field: 'quiet_start', title: 'З', value: st.quiet_start, visible: !!st.quiet_enabled },
+    { id: 'quiet-end', group: 'quiet', type: 'time', field: 'quiet_end', title: 'До', value: st.quiet_end, visible: !!st.quiet_enabled },
+    { id: 'test', group: null, type: 'action', field: null, title: 'Надіслати тестове сповіщення', value: null, visible: true },
+  ];
 }
+// Rev 2.23.30 (6D.199) — чиста функція діагностики доставки.
 const PUSH_TYPE_LABELS = { 'other-actor-summary': 'Нові записи', 'other-actor-added': 'Нові записи', 'other-actor-changed': 'Зміни записів', 'other-actor-deleted': 'Видалення', 'daily-expense-reminder': 'Нагадування про витрати', 'monthly-debt-reminder': 'Початок місяця', 'installment-deadline': 'Платіж за ОЧ', 'weekly-summary': 'Підсумок тижня', 'month-end': 'Кінець місяця', 'test': 'Тестове' };
 function pushTypeLabel(type){ return PUSH_TYPE_LABELS[type] || type || '—'; }
 // describeDeliveryRow(row): рядок push_delivery_log → { label, ok }. status 201 = службу Apple прийнято.
@@ -18783,7 +18822,6 @@ async function saveNotificationSetting(patch){
   try{
     const res = await getSupabaseClient().from('notification_settings').upsert(Object.assign({ user_id: cloudSession.user.id, family_id: cloudFamilyId }, patch), { onConflict: 'user_id' });
     if(res.error) throw res.error;
-    updateNotificationsRowState();
     return true;
   }catch(err){
     notificationSettings = before;
@@ -18792,129 +18830,114 @@ async function saveNotificationSetting(patch){
     return false;
   }
 }
-function notifRow(titleText, subText, checked, onChange, disabled){
+function notifRow(titleText, valueText, checked, onChange, disabled){
   const row = document.createElement('label');
   row.className = 'n-row' + (disabled ? ' disabled' : '');
   const text = document.createElement('span');
   text.className = 'n-row-text';
   const t = document.createElement('span'); t.className = 'n-row-title'; t.textContent = titleText; text.appendChild(t);
-  if(subText){ const sub = document.createElement('span'); sub.className = 'n-row-sub'; sub.textContent = subText; text.appendChild(sub); }
+  row.appendChild(text);
+  if(valueText){ const v = document.createElement('span'); v.className = 'nx-value'; v.textContent = valueText; row.appendChild(v); }
   const input = document.createElement('input');
   input.type = 'checkbox'; input.className = 'n-switch-input'; input.checked = !!checked; input.disabled = !!disabled;
-  input.setAttribute('role', 'switch');
+  input.setAttribute('role', 'switch'); input.setAttribute('aria-label', titleText);
   input.addEventListener('change', function(){ onChange(input.checked); });
-  row.appendChild(text); row.appendChild(input);
+  row.appendChild(input);
   return row;
 }
 function notifGroup(){ const g = document.createElement('div'); g.className = 'n-group'; return g; }
 function notifLabel(text){ const l = document.createElement('div'); l.className = 'n-section-label'; l.textContent = text; return l; }
+// Rev 2.32.12 (R) — які умовні рядки були видимі в попередньому рендері: нові з'являються через opacity+зсув (nx-appear), без анімації висоти.
+let notifPrevVisible = null;
+const NOTIF_GROUP_TITLES = { family: 'Родина', reminders: 'Нагадування', quiet: 'Тихі години' };
 function renderNotificationsDrawer(){
   const body = document.getElementById('notifications-body');
   if(!body) return;
   const st = notificationSettings || notificationSettingsDefaults();
   const ro = notificationSettingsReadOnly;
+  const env = currentPermissionState();
+  const rows = notificationRows(st, env);
+  const notice = permissionNotice(env);
+  const master = rows[0];
+  const dim = dimmedState(master.value);
+  const visibleNow = {};
   body.textContent = '';
-  // Статус дозволу
-  const perm = permissionStatusLabel(currentPermissionState());
-  const status = document.createElement('div');
-  status.className = 'n-status ' + (perm.key === 'granted' ? 'ok' : 'warn');
-  status.appendChild(document.createTextNode(perm.text));
-  if(perm.hint){ const h = document.createElement('span'); h.className = 'n-status-hint'; h.textContent = perm.hint; status.appendChild(h); }
-  if(perm.canRequest){
-    const btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'submit-btn'; btn.style.marginTop = '10px'; btn.textContent = 'Дозволити сповіщення';
-    btn.addEventListener('click', requestNotificationPermissionFromUi);
-    status.appendChild(btn);
-  }
-  body.appendChild(status);
+  // Головний тумблер — окремо; стан дозволу лише як виняток одним рядком під ним.
+  const gm = notifGroup();
+  gm.classList.add('nx-first');
+  gm.appendChild(notifRow(master.title, null, master.value, onMasterToggle, ro));
+  body.appendChild(gm);
+  if(notice){ const n = document.createElement('div'); n.className = 'nx-notice'; n.setAttribute('role', 'status'); n.textContent = notice.text; body.appendChild(n); }
   if(ro){
-    const note = document.createElement('div'); note.className = 'n-readonly-note';
-    note.textContent = 'Без підключення до хмари налаштування лише для перегляду. Змінити їх можна онлайн, увійшовши в акаунт.';
+    const note = document.createElement('div'); note.className = 'nx-hint';
+    note.textContent = 'Без підключення до хмари налаштування лише для перегляду.';
     body.appendChild(note);
   }
-  // Головний тумблер (notifications_enabled): сервер глушить усі типи, коли false. Нижче групи приглушуються.
-  const gm = notifGroup();
-  gm.style.marginTop = '12px';
-  gm.appendChild(notifRow('Сповіщення', 'Головний вимикач для вашого акаунта', st.notifications_enabled, onMasterToggle, ro));
-  body.appendChild(gm);
-  const dev = document.createElement('div'); dev.className = 'n-readonly-note'; dev.id = 'notifications-device-state'; dev.textContent = 'Перевіряю цей пристрій…';
-  body.appendChild(dev);
-  refreshDeviceSubscriptionState();
-  const merged = mergeSettingsGroupState(st.notifications_enabled, st);
+  // Групи: усі видимі, але при вимкненому головному — приглушені (~38 %) і недоступні (inert); значення не стираються.
   const dimWrap = document.createElement('div');
-  if(merged.groupsDisabled) dimWrap.className = 'n-dimmed';
-  // Записи
-  dimWrap.appendChild(notifLabel('Записи'));
-  const g1 = notifGroup();
-  g1.appendChild(notifRow('Нові й змінені записи', 'Коли хтось додає чи змінює витрати, доходи, борги', st.other_actor_changes, function(v){ saveNotificationSetting({ other_actor_changes: v }); }, ro));
-  g1.appendChild(notifRow('Видалення', 'Коли хтось видаляє запис', st.other_actor_deletions, function(v){ saveNotificationSetting({ other_actor_deletions: v }); }, ro));
-  dimWrap.appendChild(g1);
-  // Нагадування
-  dimWrap.appendChild(notifLabel('Нагадування'));
-  const g2 = notifGroup();
-  g2.appendChild(notifRow('Нагадування про витрати', 'Щодня о 20:00, якщо сьогодні ще немає витрат', st.daily_reminder, function(v){ saveNotificationSetting({ daily_reminder: v }); }, ro));
-  g2.appendChild(notifRow('Платежі за ОЧ', 'Нагадуємо перед днем платежу', st.installment_deadline, function(v){ saveNotificationSetting({ installment_deadline: v }); }, ro));
-  if(st.installment_deadline){
-    const days = document.createElement('div'); days.className = 'n-days';
-    [1, 2, 3].forEach(function(n){
-      const b = document.createElement('button');
-      b.type = 'button'; b.textContent = 'за ' + n + ' ' + pluralUa(n, ['день', 'дні', 'днів']);
-      b.className = st.installment_days === n ? 'active' : '';
-      b.disabled = ro;
-      b.addEventListener('click', function(){ saveNotificationSetting({ installment_days: n }); });
-      days.appendChild(b);
-    });
-    g2.appendChild(days);
-  }
-  g2.appendChild(notifRow('Початок місяця', '1-го числа: оновити баланси карток у «Борги»', st.month_start, function(v){ saveNotificationSetting({ month_start: v }); }, ro));
-  if(NOTIFICATIONS_STAGE2_ENABLED){
-    g2.appendChild(notifRow('Підсумок тижня', 'Щопонеділка о 09:00', st.weekly_summary, function(v){ saveNotificationSetting({ weekly_summary: v }); }, ro));
-    g2.appendChild(notifRow('Кінець місяця', 'За 3 дні до кінця місяця', st.month_end, function(v){ saveNotificationSetting({ month_end: v }); }, ro));
-  }
-  dimWrap.appendChild(g2);
-  // Тихі години
-  dimWrap.appendChild(notifLabel('Тихі години'));
-  const g3 = notifGroup();
-  g3.appendChild(notifRow('Тихі години', 'У цей час сповіщення не надсилаються, зміни прийдуть одним зведенням', st.quiet_enabled, function(v){ saveNotificationSetting({ quiet_enabled: v }); }, ro));
-  if(st.quiet_enabled){
-    const mk = function(label, field){
-      const r = document.createElement('div'); r.className = 'n-time-row';
-      const l = document.createElement('span'); l.className = 'n-row-title'; l.textContent = label;
-      const inp = document.createElement('input'); inp.type = 'time'; inp.value = st[field]; inp.disabled = ro;
+  if(dim.dimmed){ dimWrap.className = 'n-dimmed'; dimWrap.setAttribute('inert', ''); dimWrap.setAttribute('aria-disabled', 'true'); }
+  let group = null, groupName = undefined;
+  rows.slice(1).forEach(function(r){
+    if(r.type === 'action' || !r.visible){ return; }
+    if(r.group !== groupName){
+      groupName = r.group;
+      dimWrap.appendChild(notifLabel(NOTIF_GROUP_TITLES[r.group] || ''));
+      group = notifGroup();
+      dimWrap.appendChild(group);
+    }
+    let el;
+    if(r.type === 'switch'){
+      el = notifRow(r.title, r.valueText, r.value, function(v){ const patch = {}; patch[r.field] = v; saveNotificationSetting(patch); }, ro);
+    }else if(r.type === 'segments'){
+      el = document.createElement('div'); el.className = 'nx-seg-row';
+      const t = document.createElement('span'); t.className = 'n-row-title'; t.textContent = r.title; el.appendChild(t);
+      const days = document.createElement('div'); days.className = 'n-days'; days.setAttribute('role', 'group'); days.setAttribute('aria-label', r.title);
+      [1, 2, 3].forEach(function(n){
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = n + ' ' + pluralUa(n, ['день', 'дні', 'днів']);
+        b.className = r.value === n ? 'active' : '';
+        b.disabled = ro;
+        b.addEventListener('click', function(){ saveNotificationSetting({ installment_days: n }); });
+        days.appendChild(b);
+      });
+      el.appendChild(days);
+    }else{ // time
+      el = document.createElement('div'); el.className = 'n-time-row';
+      const l = document.createElement('span'); l.className = 'n-row-title'; l.textContent = r.title;
+      const inp = document.createElement('input'); inp.type = 'time'; inp.value = r.value; inp.disabled = ro;
+      inp.id = r.id === 'quiet-start' ? 'ntffielda1' : 'ntffielda2'; // Rev 2.32.12 (R): абстрактні id (правило проєкту)
+      inp.setAttribute('aria-label', r.id === 'quiet-start' ? 'Тихі години: початок' : 'Тихі години: кінець');
       inp.addEventListener('change', function(){
         const next = { quiet_start: st.quiet_start, quiet_end: st.quiet_end };
-        next[field] = inp.value;
+        next[r.field] = inp.value;
         const v = validateQuietHours(next.quiet_start, next.quiet_end);
         if(!v.ok){ showTrashToast(v.error, 'error'); renderNotificationsDrawer(); return; }
         saveNotificationSetting(next);
       });
-      r.appendChild(l); r.appendChild(inp);
-      return r;
-    };
-    g3.appendChild(mk('З', 'quiet_start'));
-    g3.appendChild(mk('До', 'quiet_end'));
+      el.appendChild(l); el.appendChild(inp);
+    }
+    // умовні рядки (з'являються лише коли потрібні): нові відносно попереднього рендера — з opacity+зсувом
+    if(r.id === 'days' || r.id === 'quiet-start' || r.id === 'quiet-end'){
+      visibleNow[r.id] = true;
+      if(notifPrevVisible && !notifPrevVisible[r.id]) el.classList.add('nx-appear');
+    }
+    group.appendChild(el);
+    if(r.id === 'quiet-end'){ const h = document.createElement('div'); h.className = 'nx-hint'; h.textContent = 'Зміни прийдуть одним зведенням після завершення тихих годин.'; dimWrap.appendChild(h); }
+  });
+  if(rows.find(function(r){ return r.id === 'quiet'; }) && !visibleNow['quiet-end']){
+    // підказка про зведення показується під групою лише коли тихі години ввімкнені (див. вище)
   }
-  dimWrap.appendChild(g3);
-  const tzNote = document.createElement('div'); tzNote.className = 'n-readonly-note'; tzNote.textContent = 'Час — за Києвом.'; dimWrap.appendChild(tzNote);
+  notifPrevVisible = visibleNow;
   body.appendChild(dimWrap);
-  // Тестове
-  body.appendChild(notifLabel('Перевірка'));
+  // Тестове сповіщення — текстовий рядок акцентом, окрема група
+  const gt = notifGroup();
+  gt.style.marginTop = '22px';
   const test = document.createElement('button');
-  test.type = 'button'; test.className = 'submit-btn secondary'; test.id = 'notifications-test-btn'; test.textContent = 'Надіслати тестове сповіщення';
-  test.disabled = ro || perm.key !== 'granted';
+  test.type = 'button'; test.className = 'nx-action'; test.id = 'notifications-test-btn'; test.textContent = 'Надіслати тестове сповіщення';
+  test.disabled = ro || !(env.supported && env.permission === 'granted');
   test.addEventListener('click', sendTestNotification);
-  body.appendChild(test);
-  // Діагностика доставки (згорнута): що надіслав сервер і що отримав цей пристрій.
-  body.appendChild(notifLabel('Діагностика доставки'));
-  const diagBtn = document.createElement('button');
-  diagBtn.type = 'button'; diagBtn.className = 'n-diag-toggle'; diagBtn.textContent = notificationDiagOpen ? 'Сховати' : 'Показати журнали';
-  diagBtn.addEventListener('click', function(){ notificationDiagOpen = !notificationDiagOpen; renderNotificationsDrawer(); if(notificationDiagOpen) loadDeliveryDiagnostics(); });
-  body.appendChild(diagBtn);
-  if(notificationDiagOpen){
-    const box = document.createElement('div'); box.id = 'notifications-diag';
-    body.appendChild(box);
-    renderDeliveryDiagnostics();
-  }
+  gt.appendChild(test);
+  body.appendChild(gt);
 }
 let notificationDiagOpen = false;
 let deliveryDiag = { server: null, device: null, serverError: false };
@@ -18977,43 +19000,38 @@ async function loadDeliveryDiagnostics(){
   }catch(e){ deliveryDiag.server = []; deliveryDiag.serverError = true; }
   renderDeliveryDiagnostics();
 }
-// Стан підписки цього пристрою (під головним тумблером).
-async function refreshDeviceSubscriptionState(){
-  const el = document.getElementById('notifications-device-state');
-  if(!el) return;
-  let text = 'Цей пристрій не підключено';
-  try{
-    if(('serviceWorker' in navigator) && ('PushManager' in window)){
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if(sub) text = 'Цей пристрій підключено';
-    }else text = 'Цей пристрій не підтримує сповіщення в браузері';
-  }catch(e){}
-  const el2 = document.getElementById('notifications-device-state');
-  if(el2) el2.textContent = text;
+// Rev 2.32.12 (R): діагностика доставки — у «Тестуванні» (службова інформація, не для екрана «Сповіщення»); функціонал без змін.
+function toggleDeliveryDiagFromTesting(){
+  notificationDiagOpen = !notificationDiagOpen;
+  const box = document.getElementById('testing-diag-box');
+  const btn = document.getElementById('testing-diag-btn');
+  if(btn) btn.textContent = notificationDiagOpen ? 'Сховати журнали доставки' : 'Показати журнали доставки';
+  if(!box) return;
+  box.textContent = '';
+  if(notificationDiagOpen){
+    const inner = document.createElement('div'); inner.id = 'notifications-diag';
+    box.appendChild(inner);
+    loadDeliveryDiagnostics();
+  }
 }
 // Головний тумблер: вимкнення лише пише false; вмикання за дотиком користувача запитує дозвіл і створює підписку.
 async function onMasterToggle(on){
+  // Rev 2.32.12 (R): вмикання без можливості підписки (немає дозволу iOS / не PWA) — нічого не зберігаємо, тумблер лишається вимкненим, показується виняток під ним.
+  if(on){
+    const perm0 = currentPermissionState();
+    if(!perm0.supported || perm0.permission === 'denied'){ renderNotificationsDrawer(); return; }
+  }
   const ok = await saveNotificationSetting({ notifications_enabled: on });
   if(ok && on){
-    const perm = currentPermissionState();
-    if(perm.supported && perm.permission !== 'denied') await requestPushSubscription();
+    // запит дозволу (за дотиком) і підписка; відхилено — тумблер повертається у «вимкнено», виняток показується
+    await requestPushSubscription();
+    if(currentPermissionState().permission === 'denied') await saveNotificationSetting({ notifications_enabled: false });
     renderNotificationsDrawer();
   }
-  updateNotificationsRowState();
-}
-function updateNotificationsRowState(){
-  const el = document.getElementById('settings-notifications-state');
-  if(el) el.textContent = notificationsRowState(notificationSettings, currentPermissionState());
 }
 function openNotificationsFromSettings(){
   closeSettings();
   openNotificationsDrawer();
-}
-async function requestNotificationPermissionFromUi(){
-  // Той самий шлях, що при вході (дозвіл + підписка + upsert push_subscriptions).
-  await requestPushSubscription();
-  renderNotificationsDrawer();
 }
 async function sendTestNotification(){
   const btn = document.getElementById('notifications-test-btn');
@@ -19114,9 +19132,6 @@ function openSettings(){
   syncThemeToggleUI();
   focusFirstIn(document.getElementById('settings-drawer'));
   lockBackgroundScroll();
-  // Rev 2.23.30 (6D.199): стан рядка "Сповіщення" (Увімкнено/Вимкнено).
-  updateNotificationsRowState();
-  loadNotificationSettings().then(updateNotificationsRowState);
 }
 function closeSettings(){
   // Rev 2.23.7 (6D.176) — wasOpen: той самий захист, що closeIncomeEditor().

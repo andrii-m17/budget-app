@@ -8,7 +8,7 @@ const { buildSandbox } = require('./extract');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const pure = buildSandbox({ pluralUa: undefined }, ['routeForPushType', 'notificationSettingsDefaults', 'validateQuietHours', 'permissionStatusLabel', 'mergeSettingsGroupState', 'notificationsRowState', 'describeDeliveryRow', 'shouldReleaseKbOpen', 'pushTypeLabel', 'PUSH_TYPE_LABELS']);
+const pure = buildSandbox({ pluralUa: undefined }, ['routeForPushType', 'notificationSettingsDefaults', 'validateQuietHours', 'permissionNotice', 'dimmedState', 'notificationRows', 'describeDeliveryRow', 'shouldReleaseKbOpen', 'pushTypeLabel', 'PUSH_TYPE_LABELS']);
 
 test('routeForPushType: усі типи контракту й невідомий', () => {
   assert.deepEqual(j(pure.routeForPushType('other-actor-summary')), { screen: 'journal' });
@@ -24,7 +24,7 @@ test('routeForPushType: усі типи контракту й невідомий
 });
 
 test('notificationSettingsDefaults збігаються з типовими значеннями таблиці', () => {
-  assert.deepEqual(j(pure.notificationSettingsDefaults()), { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00' });
+  assert.deepEqual(j(pure.notificationSettingsDefaults()), { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00', backup_reminder: true });
 });
 
 test('validateQuietHours: формат, початок≠кінець, через північ дозволено', () => {
@@ -35,15 +35,14 @@ test('validateQuietHours: формат, початок≠кінець, чере�
   assert.ok(pure.validateQuietHours('22:00', '22:00').error);
 });
 
-test('permissionStatusLabel: усі стани', () => {
-  assert.equal(pure.permissionStatusLabel({ supported: false }).key, 'unsupported');
-  assert.equal(pure.permissionStatusLabel({ supported: false }).text, 'Додайте застосунок на головний екран');
-  assert.equal(pure.permissionStatusLabel({ supported: true, permission: 'granted' }).text, 'Сповіщення дозволені');
-  assert.equal(pure.permissionStatusLabel({ supported: true, permission: 'denied' }).text, 'Сповіщення вимкнені в Параметрах iPhone');
-  assert.equal(pure.permissionStatusLabel({ supported: true, permission: 'denied' }).canRequest, false);
-  const d = pure.permissionStatusLabel({ supported: true, permission: 'default' });
-  assert.equal(d.key, 'default'); assert.equal(d.canRequest, true);
-  assert.equal(pure.permissionStatusLabel().key, 'unsupported');
+test('permissionNotice (R): виняток лише коли немає дозволу iOS чи застосунок не на головному екрані; решта — null', () => {
+  assert.equal(pure.permissionNotice({ supported: false }).key, 'not-pwa');
+  assert.equal(pure.permissionNotice({ supported: false }).text, 'Додайте застосунок на головний екран, щоб отримувати сповіщення.');
+  assert.equal(pure.permissionNotice({ supported: true, permission: 'denied' }).key, 'denied');
+  assert.equal(pure.permissionNotice({ supported: true, permission: 'denied' }).text, 'Сповіщення вимкнені на iPhone. Щоб увімкнути: Параметри → Money Tree → Сповіщення.');
+  assert.equal(pure.permissionNotice({ supported: true, permission: 'granted' }), null, 'усе гаразд — жодного повідомлення');
+  assert.equal(pure.permissionNotice({ supported: true, permission: 'default' }), null, 'ще не запитувався — не показуємо');
+  assert.equal(pure.permissionNotice().key, 'not-pwa');
 });
 
 function runHandle(action){
@@ -126,23 +125,42 @@ test('джерело: клієнт не викликає send-push-notification;
 });
 
 // ===== Rev 2.23.30 (6D.199) =====
-test('mergeSettingsGroupState: вимкнений головний тумблер приглушує групи, значення не стираються', () => {
-  const groups = { daily_reminder: true, installment_days: 3, quiet_enabled: true };
-  const off = j(pure.mergeSettingsGroupState(false, groups));
-  assert.equal(off.groupsDisabled, true);
-  assert.deepEqual(off.values, groups);
-  const on = j(pure.mergeSettingsGroupState(true, groups));
-  assert.equal(on.groupsDisabled, false);
-  assert.deepEqual(on.values, groups);
-  assert.equal(pure.mergeSettingsGroupState(undefined, groups).groupsDisabled, false, 'невідомий стан не глушить');
+test('dimmedState (R): вимкнений головний тумблер — ~38 % і недоступно; решта (і невідоме) — як є', () => {
+  assert.deepEqual(j(pure.dimmedState(false)), { dimmed: true, interactive: false, opacity: 0.38 });
+  assert.deepEqual(j(pure.dimmedState(true)), { dimmed: false, interactive: true, opacity: 1 });
+  assert.equal(pure.dimmedState(undefined).dimmed, false);
 });
-test('notificationsRowState: Увімкнено / Вимкнено / Вимкнено в iPhone / Не налаштовано / невідомо', () => {
-  const granted = { supported: true, permission: 'granted' };
-  assert.equal(pure.notificationsRowState({ notifications_enabled: true }, granted), 'Увімкнено');
-  assert.equal(pure.notificationsRowState({ notifications_enabled: false }, granted), 'Вимкнено');
-  assert.equal(pure.notificationsRowState({ notifications_enabled: true }, { supported: true, permission: 'denied' }), 'Вимкнено в iPhone');
-  assert.equal(pure.notificationsRowState({ notifications_enabled: true }, { supported: true, permission: 'default' }), 'Не налаштовано');
-  assert.equal(pure.notificationsRowState(null, granted), '');
+const ENV_OK = { supported: true, permission: 'granted' };
+const rowsOf = (settings, env) => j(pure.notificationRows(settings, env || ENV_OK));
+const idsVisible = rows => rows.filter(r => r.visible).map(r => r.id);
+test('notificationRows (R): порядок, групи й ключі даних за макетом', () => {
+  const rows = rowsOf(pure.notificationSettingsDefaults());
+  assert.deepEqual(rows.map(r => r.id), ['master', 'changes', 'deletions', 'daily', 'installments', 'days', 'month-start', 'backup', 'quiet', 'quiet-start', 'quiet-end', 'test']);
+  assert.deepEqual(rows.map(r => r.field), ['notifications_enabled', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'backup_reminder', 'quiet_enabled', 'quiet_start', 'quiet_end', null]);
+  assert.deepEqual(rows.map(r => r.group), [null, 'family', 'family', 'reminders', 'reminders', 'reminders', 'reminders', 'reminders', 'quiet', 'quiet', 'quiet', null]);
+  assert.equal(rows.find(r => r.id === 'daily').valueText, '20:00');
+  assert.equal(rows.find(r => r.id === 'backup').valueText, 'кінець місяця');
+  assert.equal(rows.find(r => r.id === 'deletions').title, 'Видалені записи');
+});
+test('notificationRows (R): «Нагадувати за» лише при «Платежі за ОЧ»; «З/До» лише при ввімкнених тихих годинах', () => {
+  const d = pure.notificationSettingsDefaults();
+  assert.ok(idsVisible(rowsOf(d)).includes('days'));
+  assert.ok(!idsVisible(rowsOf(Object.assign({}, d, { installment_deadline: false }))).includes('days'));
+  assert.ok(!idsVisible(rowsOf(d)).includes('quiet-start') && !idsVisible(rowsOf(d)).includes('quiet-end'));
+  const q = idsVisible(rowsOf(Object.assign({}, d, { quiet_enabled: true })));
+  assert.ok(q.includes('quiet-start') && q.includes('quiet-end'));
+  // значення зберігаються, коли рядок прихований
+  assert.equal(rowsOf(Object.assign({}, d, { installment_deadline: false, installment_days: 3 })).find(r => r.id === 'days').value, 3);
+});
+test('notificationRows (R): головний тумблер показує «вимкнено», коли iOS заборонив; значення груп не змінюються при вимкненому тумблері', () => {
+  const d = pure.notificationSettingsDefaults();
+  assert.equal(rowsOf(d, { supported: true, permission: 'denied' })[0].value, false);
+  assert.equal(rowsOf(d, ENV_OK)[0].value, true);
+  assert.equal(rowsOf(d, { supported: false })[0].value, true, 'не PWA: показуємо збережене значення, виняток окремо');
+  const off = rowsOf(Object.assign({}, d, { notifications_enabled: false, daily_reminder: true, installment_days: 3 }));
+  assert.equal(off[0].value, false);
+  assert.equal(off.find(r => r.id === 'daily').value, true);
+  assert.equal(off.find(r => r.id === 'days').value, 3);
 });
 test('describeDeliveryRow: Прийнято Apple / Помилка код / без підписок', () => {
   assert.deepEqual(j(pure.describeDeliveryRow({ statuses: [{ ok: true, status: 201 }] })), { label: 'Прийнято Apple', ok: true });
@@ -152,6 +170,24 @@ test('describeDeliveryRow: Прийнято Apple / Помилка код / бе
   assert.deepEqual(j(pure.describeDeliveryRow({ statuses: [{ ok: false, msg: 'x' }] })), { label: 'Помилка', ok: false });
   assert.deepEqual(j(pure.describeDeliveryRow({ statuses: [], subscriptions: 0 })), { label: 'Немає підписок', ok: false });
   assert.deepEqual(j(pure.describeDeliveryRow({})), { label: 'Без відповіді', ok: false });
+});
+test('екран «Сповіщення» (R): рядок у «Налаштуваннях» без підпису/стану; головний тумблер, групи, виняток, діагностика у «Тестуванні», чисті id часу', () => {
+  const row = SRC.slice(SRC.indexOf('id="settings-notifications-row"'), SRC.indexOf('</button>', SRC.indexOf('id="settings-notifications-row"')));
+  assert.ok(!/n-row-sub|n-row-state|settings-notifications-state|badge/.test(row));
+  assert.match(row, /<span class="n-row-title">Сповіщення<\/span>/);
+  const r = SRC.slice(SRC.indexOf('function renderNotificationsDrawer'), SRC.indexOf('let notificationDiagOpen'));
+  assert.match(r, /dimWrap\.setAttribute\('inert', ''\)/);
+  assert.match(r, /n-dimmed/);
+  assert.ok(!/Діагностика доставки|diag/i.test(r), 'діагностика не на екрані «Сповіщення»');
+  assert.ok(!/status\.className|n-status|Сповіщення дозволені/.test(r), 'жодного повідомлення про стан без винятку');
+  assert.match(r, /'ntffielda1'/); assert.match(r, /'ntffielda2'/);
+  ['ntffielda1', 'ntffielda2'].forEach(id => assert.ok(!/name|phone|tel|mail|addr|user|login|first|last|fio|contact/i.test(id), id));
+  assert.match(SRC.slice(SRC.indexOf('function notifRow'), SRC.indexOf('function notifGroup')), /setAttribute\('role', 'switch'\); input\.setAttribute\('aria-label', titleText\)/);
+  assert.match(SRC, /id="testing-diag-btn"[^>]*toggleDeliveryDiagFromTesting\(\)/);
+  assert.match(SRC, /function toggleDeliveryDiagFromTesting/);
+  assert.match(SRC, /Зміни прийдуть одним зведенням після завершення тихих годин\./);
+  assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ #notifications-drawer \.nx-appear\{ animation:none; \} \}/);
+  assert.ok(!/nx-appear[^}]*(height|max-height)/.test(SRC.slice(SRC.indexOf('@keyframes nxAppear'), SRC.indexOf('@keyframes nxAppear') + 400)), 'анімація без висоти');
 });
 test('shouldReleaseKbOpen: <700мс — ні; ≥700 і vvH ≥ baseVh-100 — так; клавіатура є — ні', () => {
   assert.equal(pure.shouldReleaseKbOpen(894, 894, 699), false);
