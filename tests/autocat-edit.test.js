@@ -25,7 +25,7 @@ test('shouldAutoFillOnEdit: збіг + відмінні cat/sub + не чіпа�
 });
 
 test('автовизначення лише на ВВЕДЕННЯ в полі назви: oninput на edtfielda1-<id>; при відкритті/рендері панелі категорія не змінюється', () => {
-  assert.match(SRC, /id="edtfielda1-\$\{e\.id\}" value="\$\{escapeAttr\(e\.name\)\}" oninput="onRecordNameInput\('\$\{e\.id\}'\)"/);
+  assert.match(SRC, /id="edtfielda1-\$\{e\.id\}"\$\{editNameAriaAttr\(\)\} value="\$\{escapeAttr\(e\.name\)\}" oninput="onRecordNameInput\('\$\{e\.id\}'\)"/);
   const render = SRC.slice(SRC.indexOf('const editPanelHtml = isEditing'), SRC.indexOf('// Rev #30 (6D.123) — свайп-дії'));
   assert.ok(!/onRecordNameInput\(|autocategorize\(/.test(render.replace(/oninput="onRecordNameInput\('\$\{e\.id\}'\)"/, '')), 'рендер панелі не викликає автовизначення');
   const start = SRC.slice(SRC.indexOf('function startEditRecord'), SRC.indexOf('function cancelEditRecord'));

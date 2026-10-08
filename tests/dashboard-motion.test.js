@@ -178,7 +178,7 @@ test('події: dashboard-enter пише mode/skipped/chartsAnimated/chartsSki
 });
 
 test('Rev 2.32.0 (F): реєстр порожній — card-reveal («Стандартно»), button-style (M4b) і dashboard-replay (M4c) завершені; поля cardVariant немає', () => {
-  assert.match(SRC, /const TEST_VARIANTS = \[\];/);
+  assert.ok(!/const TEST_VARIANTS = \[\];/.test(SRC) && /id: 'edit-label'/.test(SRC)); // Rev 2.32.6 (X): у реєстрі лише edit-label
   assert.ok(!/id: 'card-reveal'|id: 'motion-intensity'|id: 'button-style'|glass-vivid|cardVariant:/.test(SRC));
   assert.ok(!/DEBUG_EVENT_ALLOWLIST = \[[\s\S]*?'cardVariant'[\s\S]*?\];/.test(SRC));
 });
