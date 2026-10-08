@@ -7,7 +7,7 @@ const path = require('node:path');
 const ex = require('./extract');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ctx = ex.buildSandbox({}, ['focusNeighborsOf']);
+const ctx = ex.buildSandbox({}, ['focusNeighborsOf', 'shouldSkipTabTransition']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const DIAG = SRC.slice(SRC.indexOf('// ===== Rev 2.29.1 — діагностика стрілок'), SRC.indexOf('function attachDebugRecorderListeners'));
 
@@ -47,4 +47,41 @@ test('розмітка форми «Витрати» не змінювалась
   const ids = [...form.matchAll(/<(?:input|select|button)\b[^>]*?(?:id="([^"]+)")?[^>]*>/g)].map(m => m[1] || '·');
   assert.ok(form.indexOf('id="expfielda7"') < form.indexOf('id="f-amount"') && form.indexOf('id="f-amount"') < form.indexOf('id="f-date"') && form.indexOf('id="f-date"') < form.indexOf('id="f-category"'));
   assert.ok(ids.length >= 8);
+});
+
+// ---------- Rev 2.30.1: перехід на «Витрати» з автофокусом без M1-анімації ----------
+const PST = SRC.slice(SRC.indexOf('function performSwitchTab'), SRC.indexOf('/* ============ "Liquid Glass" таббар'));
+
+test('shouldSkipTabTransition: лише «Витрати» з автофокусом; інші вкладки й «Витрати» без автофокусу (noFocus) — анімуються', () => {
+  const K = (r, a) => j(`shouldSkipTabTransition(${JSON.stringify(r)},${a})`);
+  assert.equal(K('vytraty', true), true);
+  assert.equal(K('vytraty', false), false, 'зі сповіщення (noFocus) — анімація як раніше');
+  ['analytics', 'accounting', 'structure', 'service'].forEach(t => { assert.equal(K(t, true), false, t); assert.equal(K(t, false), false, t); });
+  assert.equal(K(undefined, true), false);
+});
+
+test('performSwitchTab: автофокус на «Назві» ⇒ animateSwitch=false (без .tab-transitioning, inline opacity/transform, pointer-events:none); focus() викликається синхронно, як у 2.23.21', () => {
+  assert.match(PST, /const willAutofocus = tab === 'vytraty' && !\(opts && opts\.noFocus\);/);
+  assert.match(PST, /const skipForAutofocus = shouldSkipTabTransition\(tab, willAutofocus\);/);
+  assert.match(PST, /const animateSwitch = switching && tabAnimEnabled && document\.visibilityState === 'visible' && !skipForAutofocus/);
+  assert.match(PST, /try\{ target\.focus\(\{preventScroll:true\}\); \}catch\(e\)\{ target\.focus\(\); \}/);
+  // beginTabTransition (який ставить .tab-transitioning й opacity:0) викликається лише коли animateSwitch
+  assert.match(PST, /const tabCtx = animateSwitch \? beginTabTransition\(/);
+});
+
+test('діагностика: tab-switch з skipped:"autofocus" і expense-arrows-state через 450 мс (prevId/nextId/nextDisabled/transitioning/viewOpacity/viewPe); expense-focus-neighbors лишився', () => {
+  assert.match(PST, /kind: 'tab-switch', from: prevTab, to: tab, skipped: 'autofocus'/);
+  assert.match(PST, /setTimeout\(function\(\)\{ if\(debugRecordingActive\) recordExpenseArrowsState\(target\); \}, 450\)/);
+  const h = SRC.slice(SRC.indexOf('function recordExpenseArrowsState'), SRC.indexOf('function attachDebugRecorderListeners'));
+  ['prevId', 'nextId', 'nextDisabled', 'transitioning', 'viewOpacity', 'viewPe'].forEach(f => assert.match(h, new RegExp(f + ': info\\.' + f)));
+  assert.match(h, /type: 'expense-arrows-state'/);
+  assert.ok(!/\.focus\(|\.blur\(|setAttribute|classList|\.style\./.test(h), 'лише читання');
+  assert.match(SRC, /on\(document, 'focusin', onExpenseFocusNeighbors, true\)/);
+});
+
+test('розмітка/атрибути полів форми «Витрати» не змінювались (без tabindex=-1)', () => {
+  const a = SRC.indexOf('<div class="vytraty-form-col">'), b = SRC.indexOf('<div class="vytraty-recent-col">');
+  const form = SRC.slice(a, b);
+  assert.ok(!/tabindex/.test(form));
+  assert.ok(form.indexOf('id="expfielda7"') < form.indexOf('id="f-amount"'));
 });

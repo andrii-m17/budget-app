@@ -3189,7 +3189,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.30.0</div>
+  <div class="version-footer">Money Tree · Rev 2.30.1</div>
 </div>
   </div>
 </div>
@@ -7467,7 +7467,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.30.0';
+const APP_VERSION = '2.30.1';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10022,12 +10022,10 @@ function expFocusEligibility(el){
   return { eligible: reasons.length === 0, reasons: reasons };
 }
 function expElId(el){ return el ? (el.id || (el.tagName.toLowerCase() + (el.classList && el.classList[0] ? '.' + el.classList[0] : ''))) : null; }
-function onExpenseFocusNeighbors(e){
-  const t = e.target;
-  if(!t || !t.closest || !t.closest('#vytraty-default-view .expense-entry')) return;
+function expenseNeighborInfo(t){
   const all = Array.from(document.querySelectorAll(EXP_FOCUSABLE_SELECTOR));
   const idx = all.indexOf(t);
-  if(idx < 0) return;
+  if(idx < 0) return null;
   const info = all.map(function(el, i){ return (i >= idx - 4 && i <= idx + 8) ? expFocusEligibility(el) : { eligible: false, reasons: ['far'] }; }); // оцінюємо лише околицю (дешево)
   const nb = focusNeighborsOf(info, idx);
   const nextEl = nb.next >= 0 ? all[nb.next] : null, prevEl = nb.prev >= 0 ? all[nb.prev] : null;
@@ -10037,8 +10035,7 @@ function onExpenseFocusNeighbors(e){
   const vcs = view ? getComputedStyle(view) : null;
   const order = [];
   for(let i = Math.max(0, idx - 2); i <= Math.min(all.length - 1, idx + 6); i++) order.push(expElId(all[i]) + (info[i].eligible ? '' : '(' + info[i].reasons.join('+') + ')'));
-  pushDebugEvent({
-    t: Math.round(performance.now() - debugRecordingStartedAt), type: 'expense-focus-neighbors',
+  return {
     fieldId: t.id || null, prevId: expElId(prevEl), nextId: expElId(nextEl), nextRawId: expElId(rawNext),
     nextTag: nextEl ? nextEl.tagName.toLowerCase() : null, nextType: nextEl ? (nextEl.type || null) : null,
     nextDisabled: nextEl ? !!nextEl.disabled : null, nextHidden: nextEl ? false : (rawInfo ? !rawInfo.eligible : null), nextReason: rawInfo && !rawInfo.eligible ? rawInfo.reasons.join('+') : null,
@@ -10046,7 +10043,19 @@ function onExpenseFocusNeighbors(e){
     viewPe: vcs ? vcs.pointerEvents : null, viewOpacity: vcs ? vcs.opacity : null,
     transitioning: !!(document.getElementById('main-col') && document.getElementById('main-col').classList.contains('tab-transitioning')),
     msSinceTab: Math.round(performance.now() - lastTabSwitchAt), orderIds: order.join(' > ')
-  });
+  };
+}
+function onExpenseFocusNeighbors(e){
+  const t = e.target;
+  if(!t || !t.closest || !t.closest('#vytraty-default-view .expense-entry')) return;
+  const info = expenseNeighborInfo(t);
+  if(info) pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'expense-focus-neighbors' }, info));
+}
+// Rev 2.30.1 — стан стрілок через 450 мс після автофокусу (A2): prevId/nextId/nextDisabled/transitioning/viewOpacity/viewPe.
+function recordExpenseArrowsState(t){
+  const info = expenseNeighborInfo(t);
+  if(info) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'expense-arrows-state', fieldId: info.fieldId, prevId: info.prevId, nextId: info.nextId,
+    nextDisabled: info.nextDisabled, transitioning: info.transitioning, viewOpacity: info.viewOpacity, viewPe: info.viewPe, msSinceTab: info.msSinceTab });
 }
 function attachDebugRecorderListeners(){
   function on(target, type, handler, opts){
@@ -16056,6 +16065,11 @@ function tabDirection(from, to, order){
   if(a < 0 || b < 0 || a === b) return 0;
   return b > a ? 1 : -1;
 }
+// Rev 2.30.1 — перехід на «Витрати» З АВТОФОКУСОМ на «Назві» M1-переходом НЕ анімуємо: autofocus спрацьовує на початку переходу (вкладка прозора, pointer-events:none, .tab-transitioning),
+// і iOS не показує активну стрілку «вниз» (лог Test1, 2.29.0). Інші вкладки й вхід у «Витрати» без автофокусу (зі сповіщення, noFocus) анімуються як раніше.
+function shouldSkipTabTransition(route, willAutofocus){
+  return route === 'vytraty' && !!willAutofocus;
+}
 function shouldReleasePress(startMs, nowMs, minMs){
   return (nowMs - startMs) >= minMs;
 }
@@ -16478,7 +16492,9 @@ function performSwitchTab(tab, opts){
   const mainColForTab = document.getElementById('main-col');
   const fromScroll = mainColForTab ? mainColForTab.scrollTop : 0;
   const switching = !!prevTab && prevTab !== tab;
-  const animateSwitch = switching && tabAnimEnabled && document.visibilityState === 'visible'
+  const willAutofocus = tab === 'vytraty' && !(opts && opts.noFocus); // Rev 2.30.1: той самий критерій, що й автофокус нижче в цій функції
+  const skipForAutofocus = shouldSkipTabTransition(tab, willAutofocus);
+  const animateSwitch = switching && tabAnimEnabled && document.visibilityState === 'visible' && !skipForAutofocus
     && !document.body.classList.contains('kb-open') && !document.querySelector('.drawer.open');
   let fromContentTop = 0;
   if(animateSwitch && mainColForTab){
@@ -16557,6 +16573,9 @@ function performSwitchTab(tab, opts){
     if(target){
       try{ target.focus({preventScroll:true}); }catch(e){ target.focus(); }
     }
+    // Rev 2.30.1 — діагностика: перехід навмисно пропущено (без .tab-transitioning/inline opacity/pointer-events:none) і стан стрілок через 450 мс після автофокусу.
+    if(switching && skipForAutofocus && tabAnimEnabled) recordMotionPerf({ kind: 'tab-switch', from: prevTab, to: tab, skipped: 'autofocus', frames: 0, maxGapMs: 0, durationMs: 0, reduced: motionReduced() });
+    if(debugRecordingActive && target) setTimeout(function(){ if(debugRecordingActive) recordExpenseArrowsState(target); }, 450);
   }
 }
 

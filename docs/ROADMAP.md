@@ -11987,3 +11987,20 @@ Preview: `input-attrs-audit` на живому DOM — 18 полів (20 з ві
 - Колір `kpi-trend.is-positive` без `!important` — `rgb(34,197,94)`; `.is-pressed`, рух M1–M4a, клавіатура/шторки — код не чіпався.
 
 **⚠️ iPhone:** пройдіть екрани зі списку S2 в обох темах: чи читабельні картки/рядки/поля, тумблер (пружина), тости, діалоги; поля вводу — що клавіатура й фокус працюють як раніше (радіус 18, id без змін); дії свайпу «Відновити/Видалити назавжди» (темніші); зони натискання іконок у Структурі. Запишіть лог: `ui-audit`, `sheet-anim`, `motion-perf`.
+
+## 32.51. Rev 2.30.1 — частина B: стрілки на формі «Витрати» при вході через таббар (перехід без анімації при автофокусі)
+
+**Статус: ВИКОНАНО на коді; підтвердження A3 на iPhone — за користувачем (лог `arrows-expense`).**
+
+### Крок 0 (послідовність у `performSwitchTab` для «Витрат»)
+Лог `Test1` (2.29.0): тап по іконці вкладки `t=27675` → `focusin expfielda7` `t=27764` (+89 мс) → `tab-switch accounting→vytraty` `t=27981` (перехід ще ~200 мс). Порядок у функції (2.30.0): (1) знімок прокрутки, `animateSwitch`; (2) `beginTabTransition` — старий `.view` знімається з потоку, `#main-col.tab-transitioning` (→ `.view{pointer-events:none}`); (3) перемикання `hidden` (новий `.view` видимий); (4) скидання/відновлення прокрутки; (5) **`playTabTransition`** — новий `.view` отримує inline `opacity:0`, анімація стартує в наступному кадрі; (6) **автофокус `nameInput.focus()` — синхронно, у цьому ж завданні**, тобто у стані `.tab-transitioning` + `opacity:0` + `pointer-events:none`. Rev 2.23.21: кроків (2), (5) не було — `hidden` → прокрутка → `focus()` в «спокійному» стані. Розмітка форми — ідентична (аудит 2.29.1).
+
+### Що зроблено
+- `shouldSkipTabTransition(route, willAutofocus)` (чиста): `true` лише для `vytraty` з автофокусом. У `performSwitchTab` `willAutofocus = tab==='vytraty' && !opts.noFocus` (той самий критерій, що й сам автофокус) → `animateSwitch=false`: **без `.tab-transitioning`, без inline `opacity`/`transform`, без `pointer-events:none`, стара вкладка ховається одразу**, `focus()` — як до M1. Вхід у «Витрати» без автофокусу (`noFocus`: зі сповіщення) і всі інші вкладки анімуються як раніше.
+- Діагностика: `motion-perf` `tab-switch` з `skipped:'autofocus'` (навмисний пропуск видно в логах); `expense-focus-neighbors` без змін по суті (код винесено в `expenseNeighborInfo`); нова `expense-arrows-state` через 450 мс після автофокусу (`prevId`, `nextId`, `nextDisabled`, `transitioning`, `viewOpacity`, `viewPe`, `msSinceTab`).
+- Тести (773/773): `shouldSkipTabTransition`; `animateSwitch` залежить від `!skipForAutofocus`; `beginTabTransition` лише при `animateSwitch`; `focus()` без змін; події; розмітка форми без `tabindex`.
+
+### Перевірено (preview, жива Cloud-сесія, нічого не писав)
+Вхід у «Витрати» з автофокусом: `.tab-transitioning` немає, inline `opacity/transform` порожні, `getAnimations()`=0, `pointer-events:auto`, `opacity:1`, стара вкладка `hidden` одразу; `expense-focus-neighbors` і `expense-arrows-state`: `nextId=f-amount`, `nextDisabled=false`, `transitioning=false`, `viewOpacity=1`, `viewPe=auto`; `tab-switch` з `skipped:'autofocus'`; вхід з `noFocus:true` — `.tab-transitioning` і inline `opacity:0` є, потім знімаються; перехід на «Аналітику» анімується. Не перевірялось: реальна стрілка iOS (потрібен iPhone).
+
+**⚠️ iPhone (A3), лог `arrows-expense`:** (1) з будь-якої вкладки тап «Витрати» в таббарі → чи активна стрілка вниз на «Назві», «Мітка»; (2) тап «Суми» (мітка), знову «Назви» вручну (мітка); (3) закрити клавіатуру. Якщо стрілка все одно неактивна при `transitioning=false`, `nextId=f-amount` — причина глибша (поведінка iOS при програмному фокусі).
