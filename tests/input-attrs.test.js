@@ -20,6 +20,9 @@ function textFields(){
     const get = a => { const r = new RegExp('\\b' + a + '\\s*=\\s*"([^"]*)"').exec(attrs); return r ? r[1] : null; };
     const type = (get('type') || 'text').toLowerCase();
     if(m[1] === 'input' && SKIP_TYPES.includes(type)) continue;
+    // згадки <input> у коментарях (// … або * …) — не поля
+    const lineStart = SRC.lastIndexOf('\n', m.index) + 1;
+    if(/^\s*(\/\/|\*|<!--)/.test(SRC.slice(lineStart, m.index))) continue;
     // статична частина id до шаблонного ${...}
     out.push({ tag: m[1], type, id: get('id'), name: get('name'), line: SRC.slice(0, m.index).split('\n').length });
   }
@@ -78,4 +81,46 @@ test('Журнал: поле "Назва" редагування записів 
 test('input-attrs-audit: пишеться при старті запису; allowlist містить inputsTotal/inputsBad/badIds', () => {
   assert.match(SRC, /if\(typeof recordInputAttrsAudit === 'function'\) recordInputAttrsAudit\(\);/);
   ['inputsTotal', 'inputsBad', 'badIds'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
+});
+
+// ---------- Rev 2.31.4 (C): розширений аудит ----------
+const KNOWN_TEXT_FIELD_IDS = ['expfielda7', 'f-amount', 'journal-search-input', 'debug-record-scenario', 'cldfielda1', 'cloud-password', 'cddfielda1', 'cdd-limit', 'cdd-balance', 'cdd-minpay',
+  'iddfielda1', 'idd-initial', 'idd-due-day', 'idd-balance', 'idd-pay', 'ind-amount', 'app-modal-input', 'app-modal-amount-input', 'edtfielda1-', 'edit-amount-'];
+
+test('інвентар текстових полів зафіксований: нове поле в розмітці/шаблоні змушує свідомо додати його сюди й перевірити id/name (список виявлено відкриттям усіх модалок і шторок у preview)', () => {
+  const ids = textFields().map(f => (f.id || '').split('${')[0]).sort();
+  assert.deepEqual(ids, KNOWN_TEXT_FIELD_IDS.slice().sort(), 'зміна переліку полів: оновіть KNOWN_TEXT_FIELD_IDS після перевірки id/name на заборонені підрядки');
+  KNOWN_TEXT_FIELD_IDS.forEach(id => assert.equal(j(`forbiddenInputAttr(${JSON.stringify(id)})`), null, id));
+});
+
+test('uuid у динамічних id не може містити заборонених підрядків (hex-символи 0-9a-f vs підрядки з не-hex літерами)', () => {
+  const hex = new Set('0123456789abcdef-'.split(''));
+  j('INPUT_ATTR_FORBIDDEN').forEach(w => assert.ok([...w].some(ch => !hex.has(ch)), w + ' не може вийти з uuid'));
+});
+
+test('усі setAttribute("id"|"name", …) і .id =/.name = у JS, а також createElement("input"|"textarea"), не створюють id/name із заборонених підрядків', () => {
+  const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '');
+  for(const m of code.matchAll(/setAttribute\('(?:id|name)',\s*'([^']+)'\)/g)) assert.equal(j(`forbiddenInputAttr(${JSON.stringify(m[1])})`), null, m[1]);
+  for(const m of code.matchAll(/\.(?:id|name)\s*=\s*'([^'$]+)'/g)) assert.equal(j(`forbiddenInputAttr(${JSON.stringify(m[1])})`), null, m[1]);
+  const creators = [...code.matchAll(/createElement\('(input|textarea)'\)/g)].length;
+  assert.ok(creators >= 3, 'знайдено createElement input/textarea: ' + creators);
+});
+
+test('input-focus-audit: на focusin текстового поля під час запису; лише атрибути/статичні підписи, без значення; uuid замасковано; є в allowlist', () => {
+  const h = SRC.slice(SRC.indexOf('function inputFieldLabelText'), SRC.indexOf('function attachDebugRecorderListeners'));
+  assert.match(h, /type: 'input-focus-audit'/);
+  assert.ok(!/\.value\b/.test(h), 'значення поля не читається');
+  assert.ok(!/\.focus\(|\.blur\(|setAttribute|classList|\.style\./.test(h), 'лише читання');
+  assert.match(h, /\[0-9a-f\]\{8\}-\[0-9a-f\]\{4\}/, 'uuid маскується');
+  assert.match(SRC, /on\(document, 'focusin', onInputFocusAudit, true\);/);
+  ['fieldId', 'fieldName', 'fieldType', 'fieldAutocomplete', 'fieldInputmode', 'fieldAria', 'fieldPlaceholder', 'fieldLabel', 'fieldHasForm', 'fieldForbidden'].forEach(f => {
+    assert.match(h, new RegExp('\\b' + f + '\\b'));
+    assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'"));
+  });
+});
+
+test('правило проєкту записано в CLAUDE.md, docs/ROADMAP.md і docs/TESTING.md', () => {
+  const root = path.join(__dirname, '..');
+  const rule = 'Текстові поля вводу не повинні викликати панель iOS «Автозаповнити контакт»';
+  ['CLAUDE.md', 'docs/ROADMAP.md', 'docs/TESTING.md'].forEach(f => assert.ok(fs.readFileSync(path.join(root, f), 'utf8').includes(rule), f));
 });
