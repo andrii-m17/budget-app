@@ -3193,7 +3193,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.31.1</div>
+  <div class="version-footer">Money Tree · Rev 2.31.2</div>
 </div>
   </div>
 </div>
@@ -7471,7 +7471,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.31.1';
+const APP_VERSION = '2.31.2';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9825,6 +9825,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnSmallExempt', 'btnLowContrast', 'btnLowContrastRow', 'lowContrastRowClasses', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
   // Rev 2.31.1 (C) — trash-swipe-close: ms (тривалість жесту), dx (зсув вправо, px).
   'dx',
+  // Rev 2.31.2 (A) — autocat-edit: matched, applied (булеві), skipped (no-match/user-changed/same) — без назв і сум.
+  'matched', 'applied',
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
   'proxyCaretColor', 'proxyDistToField',
@@ -13138,16 +13140,62 @@ function startEditRecord(kind, id){
   // довільна транзакція з датою), редагувати їх тут немає сенсу.
   const key = recordKey(kind, id);
   editingRecordKey = (editingRecordKey === key) ? null : key;
+  recordEditSession = { id: null, touched: false }; // Rev 2.31.2 (A): нова сесія редагування
   renderRecords();
 }
 function cancelEditRecord(){
   editingRecordKey = null;
+  recordEditSession = { id: null, touched: false }; // Rev 2.31.2 (A)
   renderRecords();
 }
 function onRecordCategoryChange(id){
   const catSel = document.getElementById('edit-cat-'+id);
   const subSel = document.getElementById('edit-sub-'+id);
   subSel.innerHTML = subcategoryOptionsHtml(catSel.value, '');
+  markRecordEditTouched(id); // Rev 2.31.2 (A): ручна зміна — автопідстановка в цій сесії редагування більше не перезаписує
+}
+// ===== Rev 2.31.2 (A) — категорія/підкатегорія підтягуються зі словника при редагуванні назви запису Журналу =====
+// Те саме автовизначення, що й у формі нової витрати (autocategorize: DICTIONARY без tombstone, категорія має існувати), без змін правил збігу. Спрацьовує ЛИШЕ на введення в полі назви
+// (не при відкритті шторки). Ручний вибір категорії/підкатегорії в цій сесії редагування блокує перезапис; відсутність збігу нічого не чистить.
+// st = { matched:{cat,sub}|null, currentCat, currentSub, touchedByUser } → { apply, skipped: null|'no-match'|'user-changed'|'same' }.
+function shouldAutoFillOnEdit(st){
+  const s = st || {};
+  if(!s.matched) return { apply: false, skipped: 'no-match' };
+  if(s.touchedByUser) return { apply: false, skipped: 'user-changed' };
+  if(s.matched.cat === s.currentCat && (s.matched.sub || '') === (s.currentSub || '')) return { apply: false, skipped: 'same' };
+  return { apply: true, skipped: null };
+}
+let recordEditSession = { id: null, touched: false };
+function markRecordEditTouched(id){
+  if(recordEditSession.id !== id) recordEditSession = { id: id, touched: false };
+  recordEditSession.touched = true;
+}
+function onRecordSubcategoryChange(id){ markRecordEditTouched(id); }
+function onRecordNameInput(id){
+  if(recordEditSession.id !== id) recordEditSession = { id: id, touched: false }; // нова сесія редагування цього запису
+  const nameInput = document.getElementById('edtfielda1-'+id);
+  const catSel = document.getElementById('edit-cat-'+id);
+  const subSel = document.getElementById('edit-sub-'+id);
+  const hint = document.getElementById('edthinta1-'+id);
+  const hintText = document.getElementById('edthintb1-'+id);
+  if(!nameInput || !catSel || !subSel) return;
+  const match = nameInput.value.trim() ? autocategorize(nameInput.value) : null;
+  const decision = shouldAutoFillOnEdit({ matched: match, currentCat: catSel.value, currentSub: subSel.value, touchedByUser: recordEditSession.touched });
+  if(decision.apply){
+    catSel.value = match.cat;
+    subSel.innerHTML = subcategoryOptionsHtml(match.cat, match.sub);
+    if(hint && hintText){ hintText.textContent = match.cat + (match.sub ? ' → ' + match.sub : ''); hint.classList.add('show'); }
+  }else if(!match && hint){
+    hint.classList.remove('show'); // збігу нема: категорію/підкатегорію НЕ чіпаємо, ховаємо лише застарілу підказку
+  }
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'autocat-edit', matched: !!match, applied: decision.apply, skipped: decision.skipped });
+}
+// «Змінити» під підказкою: прокручує до списку категорії й підсвічує його (поля в редагуванні й так видимі).
+function focusRecordCategory(id){
+  const el = document.getElementById('edit-cat-'+id);
+  if(!el) return;
+  el.scrollIntoView({ block: 'center' });
+  flashField('edit-cat-'+id);
 }
 // Rev 2.1.16 — раніше тут можна було змінити лише категорію/підкатегорію;
 // тепер повноцінне редагування назви/суми/дати теж, з тією самою валідацією,
@@ -13811,13 +13859,15 @@ function buildRecordGroupsHtml(items){
         : '';
       const editPanelHtml = isEditing ? `
         <div class="record-edit-panel" onclick="event.stopPropagation()">
-          <div class="field"><label for="edtfielda1-${e.id}">Назва</label><input type="text" id="edtfielda1-${e.id}" value="${escapeAttr(e.name)}"></div>
+          <div class="field"><label for="edtfielda1-${e.id}">Назва</label><input type="text" id="edtfielda1-${e.id}" value="${escapeAttr(e.name)}" oninput="onRecordNameInput('${e.id}')"></div>
           <div class="record-edit-row">
             <div class="field"><label for="edit-amount-${e.id}">Сума, ₴</label><input type="text" id="edit-amount-${e.id}" value="${formatThousands(e.amount)}" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
             <div class="field"><label for="edit-date-${e.id}">Дата</label><input type="date" id="edit-date-${e.id}" value="${e.date}"></div>
           </div>
           <select id="edit-cat-${e.id}" aria-label="Категорія" onchange="onRecordCategoryChange('${e.id}')">${categoryOptionsHtml(e.category)}</select>
-          <select id="edit-sub-${e.id}" aria-label="Підкатегорія">${subcategoryOptionsHtml(e.category, e.subcategory)}</select>
+          <select id="edit-sub-${e.id}" aria-label="Підкатегорія" onchange="onRecordSubcategoryChange('${e.id}')">${subcategoryOptionsHtml(e.category, e.subcategory)}</select>
+          <!-- Rev 2.31.2 (A) — підказка "Знайдено автоматично" при автопідстановці категорії/підкатегорії зі словника під час редагування назви (той самий вигляд, що в новій витраті); id без підрядка "name". -->
+          <div class="field auto-hint" id="edthinta1-${e.id}"><span id="edthintb1-${e.id}"></span><button type="button" class="auto-hint-edit-btn" onclick="focusRecordCategory('${e.id}')">Змінити</button></div>
           <!-- Rev 2.20.3 — раніше прив'язку витрата↔ОЧ можна було встановити
                ЛИШЕ при СТВОРЕННІ витрати (методи B/C, FINANCIAL_RULES §5) —
                для вже існуючого запису виправити помилкову/відсутню прив'язку
