@@ -1383,6 +1383,10 @@
   #notifications-drawer .nx-hint{ font-size:13px; line-height:1.4; color:var(--color-text-secondary); margin:8px 16px 0; }
   #notifications-drawer .nx-notice{ font-size:13px; line-height:1.4; color:var(--color-warning); margin:8px 16px 0; }
   #notifications-drawer .n-dimmed{ opacity:.38; pointer-events:none; }
+  /* Rev 2.32.14: коротка підсвітка жовтого рядка (лише opacity ~600 мс, без зміни розмірів) */
+  @keyframes nxFlash{ 0%,100%{ opacity:1; } 30%{ opacity:.25; } 60%{ opacity:1; } }
+  #notifications-drawer .nx-notice.nx-flash{ animation:nxFlash 600ms ease-in-out; }
+  @media (prefers-reduced-motion: reduce){ #notifications-drawer .nx-notice.nx-flash{ animation:none; } }
   #notifications-drawer button.nx-action{ display:flex; align-items:center; justify-content:center; width:100%; min-height:52px; border:none; background:none; font:inherit; font-size:16px; font-weight:600; color:var(--ui-accent-text); cursor:pointer; }
   #notifications-drawer button.nx-action:disabled{ opacity:.4; cursor:default; }
   /* умовні рядки з'являються через opacity + зсув до 8 пт, БЕЗ анімації висоти */
@@ -3246,7 +3250,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.13</div>
+  <div class="version-footer">Money Tree · Rev 2.32.14</div>
 </div>
   </div>
 </div>
@@ -7549,7 +7553,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.13';
+const APP_VERSION = '2.32.14';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -18741,6 +18745,14 @@ function permissionNotice(env){
   if(e.permission === 'denied') return { key: 'denied', text: 'Сповіщення вимкнені на iPhone. Щоб увімкнути: Параметри → Money Tree → Сповіщення.' };
   return null;
 }
+// toggleOutcome(permission, action) — що робить головний тумблер залежно від дозволу iOS: request — показати системний запит; subscribe — створити підписку; save — що записати в notifications_enabled (null — нічого, тумблер лишається вимкненим); flash — підсвітити жовтий рядок.
+// default+on → спершу запит (далі той самий вибір за відповіддю); granted+on → зберегти true й підписатись; denied/unsupported+on → iOS запит удруге не показує: лише підсвітка, без діалогів.
+function toggleOutcome(permission, action){
+  if(action !== 'on') return { request: false, subscribe: false, save: false, flash: false };
+  if(permission === 'default') return { request: true, subscribe: false, save: null, flash: false };
+  if(permission === 'granted') return { request: false, subscribe: true, save: true, flash: false };
+  return { request: false, subscribe: false, save: null, flash: true };
+}
 // dimmedState(master): вимкнений головний тумблер ПРИГЛУШУЄ групи нижче (~38 %) і робить їх недоступними; значення не змінюються й не стираються.
 function dimmedState(master){
   const off = master === false;
@@ -19031,18 +19043,29 @@ function toggleDeliveryDiagFromTesting(){
 }
 // Головний тумблер: вимкнення лише пише false; вмикання за дотиком користувача запитує дозвіл і створює підписку.
 async function onMasterToggle(on){
-  // Rev 2.32.12 (R): вмикання без можливості підписки (немає дозволу iOS / не PWA) — нічого не зберігаємо, тумблер лишається вимкненим, показується виняток під ним.
-  if(on){
-    const perm0 = currentPermissionState();
-    if(!perm0.supported || perm0.permission === 'denied'){ renderNotificationsDrawer(); return; }
+  // Rev 2.32.14 (A): дозвіл при натисканні тумблера. Системний запит МУСИТЬ іти першим синхронним кроком обробника (жест користувача; після await по мережі iOS його вже не покаже).
+  const perm = currentPermissionState();
+  const state = perm.supported ? perm.permission : 'unsupported';
+  let out = toggleOutcome(state, on ? 'on' : 'off');
+  if(out.request && typeof Notification !== 'undefined'){
+    let res = 'default';
+    try{ res = await Notification.requestPermission(); }catch(e){ res = Notification.permission; }
+    out = toggleOutcome(res, 'on');
   }
-  const ok = await saveNotificationSetting({ notifications_enabled: on });
-  if(ok && on){
-    // запит дозволу (за дотиком) і підписка; відхилено — тумблер повертається у «вимкнено», виняток показується
-    await requestPushSubscription();
-    if(currentPermissionState().permission === 'denied') await saveNotificationSetting({ notifications_enabled: false });
-    renderNotificationsDrawer();
+  if(out.save !== null){
+    const ok = await saveNotificationSetting({ notifications_enabled: out.save });
+    if(!ok){ renderNotificationsDrawer(); return; }
   }
+  if(out.subscribe) await requestPushSubscription();
+  renderNotificationsDrawer();
+  if(out.flash) flashPermissionNotice();
+}
+// «Підсвічування» жовтого рядка: лише opacity ~600 мс, без зміни висоти; reduced-motion — без анімації (CSS).
+function flashPermissionNotice(){
+  const n = document.querySelector('#notifications-drawer .nx-notice');
+  if(!n) return;
+  n.classList.remove('nx-flash'); void n.offsetWidth; n.classList.add('nx-flash');
+  setTimeout(function(){ n.classList.remove('nx-flash'); }, 650);
 }
 function openNotificationsFromSettings(){
   closeSettings();

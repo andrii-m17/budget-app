@@ -8,7 +8,7 @@ const { buildSandbox } = require('./extract');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const pure = buildSandbox({ pluralUa: undefined }, ['routeForPushType', 'notificationSettingsDefaults', 'validateQuietHours', 'permissionNotice', 'dimmedState', 'notificationRows', 'describeDeliveryRow', 'shouldReleaseKbOpen', 'pushTypeLabel', 'PUSH_TYPE_LABELS']);
+const pure = buildSandbox({ pluralUa: undefined }, ['routeForPushType', 'notificationSettingsDefaults', 'validateQuietHours', 'permissionNotice', 'toggleOutcome', 'dimmedState', 'notificationRows', 'describeDeliveryRow', 'shouldReleaseKbOpen', 'pushTypeLabel', 'PUSH_TYPE_LABELS']);
 
 test('routeForPushType: усі типи контракту й невідомий', () => {
   assert.deepEqual(j(pure.routeForPushType('other-actor-summary')), { screen: 'journal' });
@@ -291,4 +291,25 @@ test('охоронний (J1): Журнал (короткий список і п
   assert.equal(/activeIncomes\(\)\.map/.test(rj), false);
   const lt = SRC.slice(SRC.indexOf('function latestTouchedRecordMonth'), SRC.indexOf('function latestTouchedRecordMonth') + 900);
   assert.ok(/kind === 'income'/.test(lt));
+});
+
+test('toggleOutcome (A): default → системний запит; granted → зберегти true й підписка; denied/unsupported → без запиту, лише підсвітка; вимкнення завжди зберігає false', () => {
+  assert.deepEqual(j(pure.toggleOutcome('default', 'on')), { request: true, subscribe: false, save: null, flash: false });
+  assert.deepEqual(j(pure.toggleOutcome('granted', 'on')), { request: false, subscribe: true, save: true, flash: false });
+  assert.deepEqual(j(pure.toggleOutcome('denied', 'on')), { request: false, subscribe: false, save: null, flash: true });
+  assert.deepEqual(j(pure.toggleOutcome('unsupported', 'on')), { request: false, subscribe: false, save: null, flash: true });
+  ['default', 'granted', 'denied', 'unsupported'].forEach(p => assert.deepEqual(j(pure.toggleOutcome(p, 'off')), { request: false, subscribe: false, save: false, flash: false }, p));
+  // відповідь на запит: «Дозволити» → як granted, «Не дозволяти» → як denied
+  assert.equal(pure.toggleOutcome('granted', 'on').save, true);
+  assert.equal(pure.toggleOutcome('denied', 'on').save, null);
+});
+test('onMasterToggle (A): системний запит — перший await (жест), без шторки «Як увімкнути»; підсвітка лише opacity', () => {
+  const f = SRC.slice(SRC.indexOf('async function onMasterToggle'), SRC.indexOf('function flashPermissionNotice'));
+  assert.ok(f.indexOf('Notification.requestPermission()') < f.indexOf('saveNotificationSetting'), 'запит до будь-якого мережевого await');
+  assert.ok(f.indexOf('const perm = currentPermissionState()') < f.indexOf('await Notification.requestPermission()'));
+  assert.ok(!/await/.test(f.slice(f.indexOf('const perm = currentPermissionState()'), f.indexOf('await Notification.requestPermission()'))), 'перед запитом немає жодного await');
+  assert.match(f, /out\.flash\) flashPermissionNotice\(\)/);
+  assert.ok(!/Як увімкнути|settings-link|app-settings:/.test(SRC.slice(SRC.indexOf('function renderNotificationsDrawer'), SRC.indexOf('let notificationDiagOpen'))));
+  assert.match(SRC, /@keyframes nxFlash\{ 0%,100%\{ opacity:1; \} 30%\{ opacity:\.25; \} 60%\{ opacity:1; \} \}/);
+  assert.ok(!/nxFlash[^}]*(height|margin|padding)/.test(SRC.slice(SRC.indexOf('@keyframes nxFlash'), SRC.indexOf('@keyframes nxFlash') + 200)));
 });
