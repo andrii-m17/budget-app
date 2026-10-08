@@ -3165,7 +3165,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.29.0</div>
+  <div class="version-footer">Money Tree · Rev 2.29.1</div>
 </div>
   </div>
 </div>
@@ -7462,7 +7462,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.29.0';
+const APP_VERSION = '2.29.1';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9805,6 +9805,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'deferredCharts', 'chart', 'fromEnterMs',
   // Rev 2.29.0 (A/B) — account-enter: rows, deferredRows, variant; press: leakSelector; press-leak-fixed: selector (+ms); tab-switch: firstFrameMs, gapAtFrame (номер кадру з найбільшою паузою).
   'rows', 'deferredRows', 'variant', 'leakSelector', 'selector', 'firstFrameMs', 'gapAtFrame',
+  // Rev 2.29.1 — expense-focus-neighbors (стрілки клавіатури на формі «Витрати»): лише id/теги/стани керованих елементів, не дані.
+  'fieldId', 'prevId', 'nextId', 'nextRawId', 'nextTag', 'nextType', 'nextDisabled', 'nextHidden', 'nextReason', 'nextPe', 'nextInert', 'viewPe', 'viewOpacity', 'transitioning', 'msSinceTab', 'orderIds',
   // Rev 2.25.0 (M2) — dashboard-enter: tab, elements (картки в черзі), counters, charts, repeat (повторний показ у сесії); frames/maxGapMs/durationMs — як вище.
   'tab', 'elements', 'counters', 'charts', 'repeat',
   // Rev 2.26.0 (M3) — ui-audit: кількості кнопок за варіантами, без варіанта, із зоною <44, з контрастом <AA, і перелік ПЕРШИХ КЛАСІВ (не даних).
@@ -9991,6 +9993,56 @@ function onDebugBodyClassChange(){ captureDebugGeometry('kb-open-class-changed')
 // Rev 2.22.91 — attach/detach через спільний debugListenerHandles — одна
 // петля прибирання гарантовано знімає РІВНО те, що було додано, без ризику
 // забути якийсь слухач при stop() (symmetric by construction).
+// ===== Rev 2.29.1 — діагностика стрілок клавіатури на формі «Витрати» (лише запис у рекордер; форма й поведінка не змінюються) =====
+// Симптом: з «Назви» (expfielda7) на панелі над клавіатурою немає стрілки вниз, після тапу по «Сумі» (f-amount) стрілки є. iOS визначає «є наступне поле» за порядком і доступністю
+// елементів у розмітці. Подія expense-focus-neighbors пише на кожному focusin у формі: хто попередній/наступний за РЕАЛЬНИМ порядком фокусу, їхній стан, і контекст переходу вкладки.
+const EXP_FOCUSABLE_SELECTOR = 'input:not([type="hidden"]), select, textarea, button, a[href], [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+// items = [{ eligible:boolean }] у DOM-порядку, index — позиція сфокусованого → { prev, next } (індекси найближчих придатних сусідів або -1).
+function focusNeighborsOf(items, index){
+  const list = Array.isArray(items) ? items : [];
+  let prev = -1, next = -1;
+  for(let i = index - 1; i >= 0; i--){ if(list[i] && list[i].eligible){ prev = i; break; } }
+  for(let i = index + 1; i < list.length; i++){ if(list[i] && list[i].eligible){ next = i; break; } }
+  return { prev: prev, next: next };
+}
+function expFocusEligibility(el){
+  const reasons = [];
+  if(el.disabled) reasons.push('disabled');
+  if(el.hasAttribute('hidden')) reasons.push('hidden-attr');
+  if(el.closest('[inert]')) reasons.push('inert');
+  if(el.getAttribute('tabindex') === '-1') reasons.push('tabindex-1');
+  let shown;
+  if(typeof el.checkVisibility === 'function') shown = el.checkVisibility({ visibilityProperty: true }); else shown = el.offsetParent !== null;
+  if(!shown) reasons.push('not-rendered');
+  return { eligible: reasons.length === 0, reasons: reasons };
+}
+function expElId(el){ return el ? (el.id || (el.tagName.toLowerCase() + (el.classList && el.classList[0] ? '.' + el.classList[0] : ''))) : null; }
+function onExpenseFocusNeighbors(e){
+  const t = e.target;
+  if(!t || !t.closest || !t.closest('#vytraty-default-view .expense-entry')) return;
+  const all = Array.from(document.querySelectorAll(EXP_FOCUSABLE_SELECTOR));
+  const idx = all.indexOf(t);
+  if(idx < 0) return;
+  const info = all.map(function(el, i){ return (i >= idx - 4 && i <= idx + 8) ? expFocusEligibility(el) : { eligible: false, reasons: ['far'] }; }); // оцінюємо лише околицю (дешево)
+  const nb = focusNeighborsOf(info, idx);
+  const nextEl = nb.next >= 0 ? all[nb.next] : null, prevEl = nb.prev >= 0 ? all[nb.prev] : null;
+  const rawNext = all[idx + 1] || null; // найближчий за DOM, навіть якщо непридатний (показує, що саме «блокує»)
+  const rawInfo = rawNext ? info[idx + 1] : null;
+  const view = document.getElementById('view-vytraty');
+  const vcs = view ? getComputedStyle(view) : null;
+  const order = [];
+  for(let i = Math.max(0, idx - 2); i <= Math.min(all.length - 1, idx + 6); i++) order.push(expElId(all[i]) + (info[i].eligible ? '' : '(' + info[i].reasons.join('+') + ')'));
+  pushDebugEvent({
+    t: Math.round(performance.now() - debugRecordingStartedAt), type: 'expense-focus-neighbors',
+    fieldId: t.id || null, prevId: expElId(prevEl), nextId: expElId(nextEl), nextRawId: expElId(rawNext),
+    nextTag: nextEl ? nextEl.tagName.toLowerCase() : null, nextType: nextEl ? (nextEl.type || null) : null,
+    nextDisabled: nextEl ? !!nextEl.disabled : null, nextHidden: nextEl ? false : (rawInfo ? !rawInfo.eligible : null), nextReason: rawInfo && !rawInfo.eligible ? rawInfo.reasons.join('+') : null,
+    nextPe: nextEl ? getComputedStyle(nextEl).pointerEvents : null, nextInert: nextEl ? !!nextEl.closest('[inert]') : null,
+    viewPe: vcs ? vcs.pointerEvents : null, viewOpacity: vcs ? vcs.opacity : null,
+    transitioning: !!(document.getElementById('main-col') && document.getElementById('main-col').classList.contains('tab-transitioning')),
+    msSinceTab: Math.round(performance.now() - lastTabSwitchAt), orderIds: order.join(' > ')
+  });
+}
 function attachDebugRecorderListeners(){
   function on(target, type, handler, opts){
     if(!target) return;
@@ -10004,6 +10056,7 @@ function attachDebugRecorderListeners(){
   }
   on(window, 'scroll', onDebugScroll, true); // capture: ловимо скрол БУДЬ-ЯКого внутрішнього контейнера (#main-col, .drawer), не лише window
   on(document, 'focusin', onDebugFocusIn);
+  on(document, 'focusin', onExpenseFocusNeighbors, true); // Rev 2.29.1: діагностика стрілок (capture — до змін фокус-логіки)
   on(document, 'focusout', onDebugFocusOut);
   on(window, 'orientationchange', onDebugOrientationChange);
   on(document, 'visibilitychange', onDebugVisibilityChange);
@@ -15957,6 +16010,7 @@ function toggleInstallmentsCardExpand(){
 // (нічого не робити з датою) і "прийшов на Витрати з іншої вкладки" (скинути
 // дату на сьогодні) — просте порівняння з попередньою активною вкладкою.
 let lastActiveTab = 'analytics';
+let lastTabSwitchAt = 0; // Rev 2.29.1 — performance.now() останнього performSwitchTab (діагностика expense-focus-neighbors)
 // Rev 2.16.6 — той самий захист від "незбережених змін" прибрано (див.
 // onMonthChange вище) — редагування Обліку тепер завжди йде через шторку.
 function switchTab(tab, opts){
@@ -16416,7 +16470,8 @@ function performSwitchTab(tab, opts){
   // Rev 2.24.0 (M1) — попередня вкладка (для переходу й збереження прокрутки); незавершений перехід дозавершуємо одразу.
   // ВАЖЛИВО: прокрутку й позицію вихідної вкладки знімаємо ДО будь-яких змін DOM: шапка (.top з month-pill) лежить у тому самому #main-col,
   // і зміна її висоти (updatePageHeader) через scroll anchoring зсуває scrollTop (Аналітика→Сервіс: 500 → 448).
-  const tSwitch0 = performance.now(); // Rev 2.29.0 (B): час від початку перемикання до першого кадру → firstFrameMs
+  const tSwitch0 = performance.now(); // Rev 2.29.0 (B)
+  lastTabSwitchAt = tSwitch0; // Rev 2.29.1: для діагностики стрілок (msSinceTab): час від початку перемикання до першого кадру → firstFrameMs
   const prevTab = lastActiveTab;
   finishTabTransition();
   const mainColForTab = document.getElementById('main-col');
