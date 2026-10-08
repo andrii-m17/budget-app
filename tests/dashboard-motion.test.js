@@ -95,32 +95,29 @@ test('dashboardQueueSize: ≤8 і сумарно в бюджеті для всі
   assert.equal(j('dashboardQueueSize(8,cardRevealTiming("veryslow",1.35),8,2200)') <= 8, true);
 });
 
-test('dashboardReplayMode: «Щоразу» повторює (replay), не none; first/changes; перший показ; місяць; фон; reduced; hidden', () => {
+test('dashboardReplayMode (M4c: «Щоразу» — єдина поведінка): візит → replay завжди; перший показ/місяць — full; update лише при зміні; фон — none; reduced/hidden — none з причиною', () => {
   const base = { hidden: false, reduced: false, active: true, played: true, sameMonth: true, changed: false };
-  const m = (o, v) => j('dashboardReplayMode(' + JSON.stringify(Object.assign({}, base, o)) + ',' + JSON.stringify(v) + ')');
-  // «Щоразу»: повтор без змін даних → replay
-  assert.deepEqual(m({ trigger: 'visit' }, 'always'), { mode: 'replay', skipped: null });
-  assert.deepEqual(m({ trigger: 'visit', changed: true }, 'always'), { mode: 'replay', skipped: null });
-  assert.deepEqual(m({ trigger: 'visit' }, undefined), { mode: 'replay', skipped: null }, 'без варіанта — як «Щоразу»');
-  // перший показ і місяць
-  assert.deepEqual(m({ trigger: 'first', played: false }, 'always'), { mode: 'full', skipped: null });
-  assert.deepEqual(m({ trigger: 'visit', played: false }, 'first'), { mode: 'full', skipped: null });
-  assert.deepEqual(m({ trigger: 'month', sameMonth: false }, 'first'), { mode: 'full', skipped: null });
-  assert.deepEqual(m({ trigger: 'visit', sameMonth: false }, 'changes'), { mode: 'full', skipped: null });
-  assert.equal(m({ trigger: 'first' }, 'always').mode, 'none', 'повторний "first" не буває');
-  // «Лише перший раз» / «Лише при змінах»
-  assert.deepEqual(m({ trigger: 'visit' }, 'first'), { mode: 'none', skipped: 'variant' });
-  assert.deepEqual(m({ trigger: 'visit' }, 'changes'), { mode: 'none', skipped: 'no-change' });
-  assert.deepEqual(m({ trigger: 'visit', changed: true }, 'changes'), { mode: 'update', skipped: null });
-  // оновлення під час анімації
-  assert.deepEqual(m({ trigger: 'update', changed: true }, 'always'), { mode: 'update', skipped: null });
-  assert.deepEqual(m({ trigger: 'update', changed: false }, 'always'), { mode: 'none', skipped: 'no-change' });
-  // фонові рендери, reduced, hidden, неактивна
-  assert.deepEqual(m({ trigger: 'render', changed: true }, 'always'), { mode: 'none', skipped: 'no-change' });
-  assert.deepEqual(m({ trigger: 'visit', reduced: true }, 'always'), { mode: 'none', skipped: 'reduced' });
-  assert.deepEqual(m({ trigger: 'first', played: false, hidden: true }, 'always'), { mode: 'none', skipped: 'hidden' });
-  assert.deepEqual(m({ trigger: 'visit', active: false }, 'always'), { mode: 'none', skipped: 'hidden' });
-  assert.equal(j('dashboardReplayMode(null,"always")').mode, 'none');
+  const m = o => j('dashboardReplayMode(' + JSON.stringify(Object.assign({}, base, o)) + ')');
+  assert.deepEqual(m({ trigger: 'visit' }), { mode: 'replay', skipped: null });
+  assert.deepEqual(m({ trigger: 'visit', changed: true }), { mode: 'replay', skipped: null });
+  assert.deepEqual(m({ trigger: 'first', played: false }), { mode: 'full', skipped: null });
+  assert.deepEqual(m({ trigger: 'visit', played: false }), { mode: 'full', skipped: null });
+  assert.deepEqual(m({ trigger: 'month', sameMonth: false }), { mode: 'full', skipped: null });
+  assert.deepEqual(m({ trigger: 'visit', sameMonth: false }), { mode: 'full', skipped: null });
+  assert.equal(m({ trigger: 'first' }).mode, 'none', 'повторний "first" не буває');
+  assert.deepEqual(m({ trigger: 'update', changed: true }), { mode: 'update', skipped: null });
+  assert.deepEqual(m({ trigger: 'update', changed: false }), { mode: 'none', skipped: 'no-change' });
+  assert.deepEqual(m({ trigger: 'render', changed: true }), { mode: 'none', skipped: 'no-change' });
+  assert.deepEqual(m({ trigger: 'visit', reduced: true }), { mode: 'none', skipped: 'reduced' });
+  assert.deepEqual(m({ trigger: 'first', played: false, hidden: true }), { mode: 'none', skipped: 'hidden' });
+  assert.deepEqual(m({ trigger: 'visit', active: false }), { mode: 'none', skipped: 'hidden' });
+  assert.equal(j('dashboardReplayMode(null)').mode, 'none');
+});
+
+test('M4c: dashboard-replay завершено — жодних гілок first/changes/variant, запису реєстру і dashVariant(\'dashboard-replay\') у коді', () => {
+  const code = SRC.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/dashboard-replay|replayV|replayVariant|variant === 'first'|variant === 'changes'|none\('variant'\)/.test(code));
+  assert.ok(!/id: 'dashboard-replay'/.test(SRC));
 });
 
 // ---------- охоронні ----------
@@ -194,15 +191,14 @@ test('фоновий рендер без змін даних не торкаєт
 });
 
 test('події: dashboard-enter пише mode/skipped/chartsAnimated/chartsSkipped/pathLenZero/pathLengthAttr/cardVariant; пропуск теж фіксується; allowlist', () => {
-  ['mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr', 'cardVariant', 'replayVariant'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
+  ['mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr', 'cardVariant'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
   assert.match(MODULE, /function recordDashSkip\(reason, trigger\)\{\s*recordMotionPerf\(\{ kind: 'dashboard-enter'/);
   assert.match(MODULE, /if\(trigger !== 'render'\) recordDashSkip\(d\.skipped, trigger\)/);
   assert.equal((SRC.match(/dashAfterRender\(month\);/g) || []).length, 1);
   assert.match(SRC, /\.kpi-value, \.ksi-value\{ font-variant-numeric:tabular-nums; \}/);
 });
 
-test('реєстр: dashboard-replay (типовий always) і card-reveal (типовий standard, 4 варіанти) присутні; button-style завершено (M4b)', () => {
-  assert.match(SRC, /id: 'dashboard-replay'[\s\S]*?defaultVariant: 'always'/);
+test('реєстр: card-reveal (типовий standard, 4 варіанти) присутній; button-style (M4b) і dashboard-replay (M4c) завершені', () => {
   assert.match(SRC, /id: 'card-reveal'[\s\S]*?defaultVariant: 'standard'/);
   const cr = SRC.slice(SRC.indexOf("id: 'card-reveal'"), SRC.indexOf('];', SRC.indexOf("id: 'card-reveal'")));
   ['fast', 'standard', 'slow', 'veryslow'].forEach(k => assert.ok(cr.includes(`key: '${k}'`)));

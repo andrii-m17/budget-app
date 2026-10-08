@@ -380,6 +380,8 @@
      класи ставляться/знімаються лише в beginTabTransition()/finishTabTransition(). */
   .main-col.tab-transitioning{ position:relative; }
   .main-col.tab-transitioning > .view{ pointer-events:none; }
+  /* Rev 2.31.0 (M4c) — на час fade-out старого сегмента «Обліку» його панель — position:absolute у межах цього .view */
+  .view.acct-seg-transition{ position:relative; }
   .card{ background:var(--color-surface); border-radius:var(--radius-lg); padding:24px; box-shadow:var(--shadow-md); border:1px solid var(--color-border); }
   .card + .card{ margin-top:24px; }
   /* Rev 2.11.4 — за референс-скріном користувача: картки "Дохід за місяць",
@@ -3189,7 +3191,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.30.1</div>
+  <div class="version-footer">Money Tree · Rev 2.31.0</div>
 </div>
   </div>
 </div>
@@ -7467,7 +7469,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.30.1';
+const APP_VERSION = '2.31.0';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9805,11 +9807,12 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.24.0 (M1) — motion-perf: kind (tab-switch/press), intensity (множник), reduced, holdMs, pressLeak (скільки елементів лишилось у .is-pressed через 300 мс).
   'kind', 'intensity', 'reduced', 'holdMs', 'pressLeak',
   // Rev 2.27.0 (M2.1) — dashboard-enter: mode (full/replay/update/none), skipped (reduced/hidden/no-change/variant), chartsAnimated/chartsSkipped, pathLenZero (скільки <path> дали getTotalLength()=0), pathLengthAttr (чи підтримується pathLength), cardVariant/replayVariant.
-  'mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr', 'cardVariant', 'replayVariant',
+  'mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr', 'cardVariant',
   // Rev 2.28.0 (M2.2) — deferredCharts (скільки графіків чекали доскролу) і chart-reveal: chart (id графіка), fromEnterMs (мс від початку візиту до малювання).
   'deferredCharts', 'chart', 'fromEnterMs',
   // Rev 2.29.0 (A/B) — account-enter: rows, deferredRows, variant; press: leakSelector; press-leak-fixed: selector (+ms); tab-switch: firstFrameMs, gapAtFrame (номер кадру з найбільшою паузою).
-  'rows', 'deferredRows', 'variant', 'leakSelector', 'selector', 'firstFrameMs', 'gapAtFrame',
+  // Rev 2.31.0 (M4c) — account-enter: trigger ('tab'|'segment'), segment ('income'|'debts'|'installments').
+  'trigger', 'segment', 'rows', 'deferredRows', 'leakSelector', 'selector', 'firstFrameMs', 'gapAtFrame',
   // Rev 2.29.1 — expense-focus-neighbors (стрілки клавіатури на формі «Витрати»): лише id/теги/стани керованих елементів, не дані.
   'fieldId', 'prevId', 'nextId', 'nextRawId', 'nextTag', 'nextType', 'nextDisabled', 'nextHidden', 'nextReason', 'nextPe', 'nextInert', 'viewPe', 'viewOpacity', 'transitioning', 'msSinceTab', 'orderIds',
   // Rev 2.25.0 (M2) — dashboard-enter: tab, elements (картки в черзі), counters, charts, repeat (повторний показ у сесії); frames/maxGapMs/durationMs — як вище.
@@ -10667,12 +10670,17 @@ function incomeIconHtml(source, size){
 // (populateIncomeTable/populateBankDebtTable/populateInstallmentTable — усі
 // й далі рендерять свій вміст незалежно від видимості панелі) не змінена.
 function switchAccountingTab(tab, opts){
+  // Rev 2.31.0 (M4c) — клік по сегменту (opts.animate): попередній сегмент і його положення запам'ятовуємо ДО перемикання (для fade-out без стрибка), потім запускаємо replay нового сегмента.
+  const prev = ['data','debts','installments'].filter(function(t){ return !document.getElementById(`acct-tab-panel-${t}`).classList.contains('hidden'); })[0] || null;
+  const animate = !!(opts && opts.animate) && prev !== tab;
+  const oldPanel = animate && prev ? document.getElementById(`acct-tab-panel-${prev}`) : null;
+  const oldRect = oldPanel ? oldPanel.getBoundingClientRect() : null;
+  acctFinishSegFade();
   ['data','debts','installments'].forEach(function(t){
     document.getElementById(`acct-tab-panel-${t}`).classList.toggle('hidden', t!==tab);
     document.getElementById(`acct-tab-btn-${t}`).classList.toggle('active', t===tab);
   });
-  // Rev 2.29.0 (A) — перемикання сегмента користувачем: вміст короткий fade + зсув 8pt (--motion-s), лише opacity/transform → висота не стрибає (панелі й так різної висоти, як було).
-  if(opts && opts.animate) acctAnimatePanel(document.getElementById(`acct-tab-panel-${tab}`));
+  if(opts && opts.animate) onAccountSegment(prev, tab, oldPanel, oldRect);
 }
 // Rev 2.17.0 — Доходи тепер у тому ж компактному форматі, що Борги/ОЧ:
 // список джерел (фіксований, INCOME_SOURCES) + підсумкова картка, тап
@@ -14698,9 +14706,9 @@ function dashboardQueueSize(count, timing, maxItems, maxTotalMs){
   while(n > 1 && (n - 1) * timing.stagger + timing.duration > maxTotalMs) n--;
   return n;
 }
-// Рішення про режим: state = { trigger:'first'|'visit'|'month'|'update'|'render', hidden, reduced, active, played, sameMonth, changed }, variant = dashboard-replay ('always'|'first'|'changes').
-// → { mode:'full'|'replay'|'update'|'none', skipped: null|'reduced'|'hidden'|'no-change'|'variant' }.
-function dashboardReplayMode(state, variant){
+// Рішення про режим: state = { trigger:'first'|'visit'|'month'|'update'|'render', hidden, reduced, active, played, sameMonth, changed }.
+// → { mode:'full'|'replay'|'update'|'none', skipped: null|'reduced'|'hidden'|'no-change' }.
+function dashboardReplayMode(state){
   const s = state || {};
   const none = reason => ({ mode: 'none', skipped: reason });
   if(s.trigger === 'render') return none('no-change'); // фоновий рендер (синхронізація/Realtime): статика
@@ -14711,9 +14719,8 @@ function dashboardReplayMode(state, variant){
     case 'month': return { mode: 'full', skipped: null };
     case 'update': return s.changed ? { mode: 'update', skipped: null } : none('no-change');
     case 'visit':
+      // Rev 2.31.0 (M4c): тест dashboard-replay завершено — «Щоразу» єдина поведінка: кожен візит перемальовується (replay); перший показ/інший місяць — full.
       if(!s.played || !s.sameMonth) return { mode: 'full', skipped: null };
-      if(variant === 'first') return none('variant');
-      if(variant === 'changes') return s.changed ? { mode: 'update', skipped: null } : none('no-change');
       return { mode: 'replay', skipped: null };
   }
   return none('no-change');
@@ -14790,12 +14797,12 @@ function dashVariant(id, fallback){
 function dashStartupReady(){ return document.visibilityState === 'visible' && document.readyState === 'complete'; }
 function recordDashSkip(reason, trigger){
   recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', mode: 'none', skipped: reason, elements: 0, counters: 0, charts: 0, chartsAnimated: 0, chartsSkipped: 0, frames: 0, maxGapMs: 0, durationMs: 0,
-    reduced: motionReduced(), repeat: dashState.played, cardVariant: dashVariant('card-reveal', 'standard'), replayVariant: dashVariant('dashboard-replay', 'always') });
+    reduced: motionReduced(), repeat: dashState.played, cardVariant: dashVariant('card-reveal', 'standard') });
 }
 // Єдина точка рішення: рахує режим і (синхронно, ДО малювання кадру) стартує анімацію або фіксує причину пропуску. "Перший показ" витрачається ЛИШЕ коли анімація реально стартувала.
 function dashRun(trigger, month, active){
   const d = dashboardReplayMode({ trigger: trigger, active: active, hidden: !dashStartupReady(), reduced: motionReduced(), played: dashState.played,
-    sameMonth: dashState.seenMonth === month, changed: dashChanged() }, dashVariant('dashboard-replay', 'always'));
+    sameMonth: dashState.seenMonth === month, changed: dashChanged() });
   if(d.mode === 'none'){
     if(trigger !== 'render') recordDashSkip(d.skipped, trigger);
     if(active && !dashState.running && d.skipped !== 'hidden') dashMarkSeen(month); // користувач бачить цей стан → наступне порівняння від нього
@@ -14909,7 +14916,7 @@ function playDashboard(mode, trigger, month){
   const body = document.getElementById('analytics-body');
   const k = motionK;
   const scale = mode === 'full' ? 1 : (mode === 'replay' ? DASH_REPLAY_SCALE : DASH_UPDATE_SCALE);
-  const cardV = dashVariant('card-reveal', 'standard'), replayV = dashVariant('dashboard-replay', 'always');
+  const cardV = dashVariant('card-reveal', 'standard');
   const timing = cardRevealTiming(cardV, k);
   const seenNums = dashState.seenNums, seenSigs = dashState.seenSigs;
   const diag = debugRecordingActive;
@@ -14988,7 +14995,7 @@ function playDashboard(mode, trigger, month){
     dashMarkSeen(month);
     if(completed){
       recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', mode: mode, skipped: null, elements: r.cards, counters: r.counters.length, charts: r.charts.length, chartsAnimated: r.charts.length, chartsSkipped: stats.chartsSkipped,
-        deferredCharts: deferredCharts, pathLenZero: stats.pathLenZero, pathLengthAttr: plSupported, cardVariant: cardV, replayVariant: replayV,
+        deferredCharts: deferredCharts, pathLenZero: stats.pathLenZero, pathLengthAttr: plSupported, cardVariant: cardV,
         frames: r.frames, maxGapMs: Math.round(r.maxGap), durationMs: Math.round(durationMs), reduced: false, repeat: mode !== 'full' });
     }
   });
@@ -15132,8 +15139,24 @@ function rowsToAnimate(visible, max){
   const v = Array.isArray(visible) ? visible : [];
   return v.slice(0, Math.max(0, Math.floor(max) || 0));
 }
-// Той самий вибір режиму, що й для «Аналітики» (dashboard-replay керує обома): full/replay/update/none + причина пропуску.
-function accountRevealPlan(state, variant){ return dashboardReplayMode(state, variant); }
+// Той самий вибір режиму, що й для «Аналітики»: full/replay/update/none + причина пропуску.
+function accountRevealPlan(state){ return dashboardReplayMode(state); }
+// Rev 2.31.0 (M4c) — перемикання сегментів «Обліку» (Доходи/Борги/ОЧ) запускає ту саму хореографію replay: підсумок і рядки по черзі, суми від 0; старий сегмент коротко гасне.
+const ACCT_SEGMENTS = ['data', 'debts', 'installments'];
+const ACCT_SEGMENT_NAMES = { data: 'income', debts: 'debts', installments: 'installments' };
+function shouldAnimateSegment(prev, next, reduced){
+  return !reduced && prev !== next && ACCT_SEGMENTS.indexOf(prev) !== -1 && ACCT_SEGMENTS.indexOf(next) !== -1;
+}
+// → { run, mode, skipped, elements } ; повторний клік на активний сегмент ('same') нічого не анімує і не пишеться в рекордер.
+function accountSegmentPlan(prev, next, state){
+  const s = state || {};
+  const no = reason => ({ run: false, mode: 'none', skipped: reason, elements: [] });
+  if(prev === next) return no('same');
+  if(ACCT_SEGMENTS.indexOf(prev) === -1 || ACCT_SEGMENTS.indexOf(next) === -1) return no('no-change');
+  if(s.reduced) return no('reduced');
+  if(s.hidden || !s.active) return no('hidden');
+  return { run: true, mode: 'replay', skipped: null, elements: ['summary', 'label', 'rows', 'counters-from-zero'] };
+}
 // Підмітальник натискань: .is-pressed лишився на елементі, що НЕ відстежується активним натисканням, і минуло ≥300 мс від відпускання → зняти.
 // info = { pressed, tracked, sinceMs }.
 function shouldSweepPress(info, nowMs){
@@ -15173,16 +15196,16 @@ function acctIsActive(){
   const v = document.getElementById('view-accounting');
   return lastActiveTab === 'accounting' && !!v && !v.classList.contains('hidden');
 }
-function acctPanel(){ return document.querySelector('#view-accounting .struct-tab-panel:not(.hidden)'); }
+function acctPanel(){ return document.querySelector('#view-accounting .struct-tab-panel:not(.hidden):not([data-seg-leaving])'); } // Rev 2.31.0: панель, що гасне (fade-out), не вважається активною
 function acctSelector(el){ return el ? (el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.classList && el.classList[0] ? '.' + el.classList[0] : '')) : ''; }
-function recordAcctSkip(reason){
-  recordMotionPerf({ kind: 'account-enter', tab: 'accounting', mode: 'none', skipped: reason, elements: 0, counters: 0, rows: 0, frames: 0, maxGapMs: 0, durationMs: 0, reduced: motionReduced(), variant: dashVariant('dashboard-replay', 'always') });
+function recordAcctSkip(reason, trigger, segment){
+  recordMotionPerf({ kind: 'account-enter', tab: 'accounting', mode: 'none', skipped: reason, elements: 0, counters: 0, rows: 0, frames: 0, maxGapMs: 0, durationMs: 0, reduced: motionReduced(), trigger: trigger || 'tab', segment: segment || acctSegmentName(acctPanel()) });
 }
 function acctRun(trigger, month, active){
   const d = accountRevealPlan({ trigger: trigger, active: active, hidden: !dashStartupReady(), reduced: motionReduced(), played: acctState.played,
-    sameMonth: acctState.seenMonth === month, changed: acctChanged() }, dashVariant('dashboard-replay', 'always'));
+    sameMonth: acctState.seenMonth === month, changed: acctChanged() });
   if(d.mode === 'none'){
-    if(trigger !== 'render') recordAcctSkip(d.skipped);
+    if(trigger !== 'render') recordAcctSkip(d.skipped, 'tab');
     if(active && !acctState.running && d.skipped !== 'hidden') acctMarkSeen(month);
     return;
   }
@@ -15199,7 +15222,7 @@ function acctAfterRender(){
   }
   acctRun(trigger, selectedMonth, active);
 }
-function onAccountVisit(){ acctInstallGuards(); acctRun('visit', selectedMonth, acctIsActive()); }
+function onAccountVisit(){ acctFinishSegFade(); acctInstallGuards(); acctRun('visit', selectedMonth, acctIsActive()); }
 function finishAccount(){ const r = acctState.running; if(r){ acctState.running = null; r.stop(false); } }
 function acctClearDeferred(){
   const d = acctState.deferred;
@@ -15209,13 +15232,46 @@ function acctClearDeferred(){
   d.runners.forEach(function(r){ r.stop(false); });
   d.runners.clear();
 }
-// Перемикання сегмента: контент панелі з'являється коротким fade + зсувом 8pt (--motion-s).
-function acctAnimatePanel(panel){
-  if(!panel || typeof panel.animate !== 'function' || motionReduced() || !dashStartupReady()) return;
-  const k = motionK;
-  try{ panel.animate([{ opacity: 0, transform: 'translateY(' + (8 * k) + 'px)' }, { opacity: 1, transform: 'translateY(0px)' }], { duration: motionDuration('s', k, false), easing: MOTION_EASE_OUT }); }catch(e){}
+function acctSegmentName(panel){ const id = panel && panel.id ? panel.id.replace('acct-tab-panel-', '') : ''; return ACCT_SEGMENT_NAMES[id] || null; }
+// Старий сегмент гасне коротко (--motion-s): його панель на час fade лишається видимою, знята з потоку (position:absolute у тому самому місці), тож нова панель стає на місце без додаткового стрибка висоти.
+let acctSegFade = null;
+function acctFinishSegFade(){ if(acctSegFade){ const f = acctSegFade; acctSegFade = null; f.done(); } }
+function acctSegmentFadeOut(oldPanel, oldRect){
+  acctFinishSegFade();
+  const view = document.getElementById('view-accounting');
+  if(!oldPanel || !oldRect || !view || typeof oldPanel.animate !== 'function' || motionReduced()) return;
+  const vr = view.getBoundingClientRect();
+  const dur = motionDuration('s', motionK, false);
+  view.classList.add('acct-seg-transition');
+  oldPanel.classList.remove('hidden'); oldPanel.setAttribute('data-seg-leaving', '');
+  oldPanel.style.position = 'absolute'; oldPanel.style.left = (oldRect.left - vr.left) + 'px'; oldPanel.style.top = (oldRect.top - vr.top) + 'px';
+  oldPanel.style.width = oldRect.width + 'px'; oldPanel.style.pointerEvents = 'none';
+  const anim = oldPanel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: dur, easing: 'ease-out', fill: 'forwards' });
+  let timer = null;
+  const done = function(){
+    if(timer){ clearTimeout(timer); timer = null; }
+    try{ anim.cancel(); }catch(e){}
+    oldPanel.classList.add('hidden'); oldPanel.removeAttribute('data-seg-leaving');
+    oldPanel.style.position = ''; oldPanel.style.left = ''; oldPanel.style.top = ''; oldPanel.style.width = ''; oldPanel.style.pointerEvents = '';
+    view.classList.remove('acct-seg-transition');
+  };
+  acctSegFade = { done: done };
+  const finish = function(){ if(acctSegFade && acctSegFade.done === done){ acctSegFade = null; done(); } };
+  anim.finished.then(finish, function(){});
+  timer = setTimeout(finish, dur + 200); // запасний кінець, якщо сторінка прихована й анімація не рахується
 }
-function playAccount(mode, trigger, month){
+function onAccountSegment(prev, next, oldPanel, oldRect){
+  const plan = accountSegmentPlan(prev, next, { reduced: motionReduced(), hidden: !dashStartupReady(), active: acctIsActive() });
+  if(!plan.run){
+    if(plan.skipped !== 'same') recordAcctSkip(plan.skipped, 'segment', ACCT_SEGMENT_NAMES[next] || null);
+    if(plan.skipped !== 'same' && acctIsActive() && !acctState.running) acctMarkSeen(selectedMonth);
+    return;
+  }
+  acctSegmentFadeOut(oldPanel, oldRect);
+  playAccount(plan.mode, 'segment', selectedMonth, { trigger: 'segment' });
+}
+function playAccount(mode, trigger, month, meta){
+  meta = meta || {};
   finishAccount();
   if(!dashStartupReady() || !acctIsActive()) return;
   const panel = acctPanel();
@@ -15223,7 +15279,6 @@ function playAccount(mode, trigger, month){
   const k = motionK;
   const scale = mode === 'full' ? 1 : (mode === 'replay' ? DASH_REPLAY_SCALE : DASH_UPDATE_SCALE);
   const timing = cardRevealTiming(dashVariant('card-reveal', 'standard'), k);
-  const replayV = dashVariant('dashboard-replay', 'always');
   const seenNums = acctState.seenNums;
   let rowsN = 0, deferredRows = 0, unitsN = 0;
   const runner = makeDashRunner(function(completed, r, durationMs){
@@ -15232,7 +15287,7 @@ function playAccount(mode, trigger, month){
     acctMarkSeen(month);
     if(completed){
       recordMotionPerf({ kind: 'account-enter', tab: 'accounting', mode: mode, skipped: null, elements: unitsN + rowsN, counters: r.counters.length, rows: rowsN, deferredRows: deferredRows,
-        frames: r.frames, maxGapMs: Math.round(r.maxGap), durationMs: Math.round(durationMs), reduced: false, variant: replayV });
+        frames: r.frames, maxGapMs: Math.round(r.maxGap), durationMs: Math.round(durationMs), reduced: false, trigger: meta.trigger || 'tab', segment: acctSegmentName(panel) });
     }
   }, 'accounting');
   function addCounter(el, delay){
@@ -17103,25 +17158,6 @@ const TEST_VARIANTS = [
       'Оберіть варіант, поперемикайте всі п\'ять вкладок таббару: чи плавно, без смикань і подвійних тапів.',
       'Потапайте кнопки, чипи, рядки списків: реакція має бути помітною, але не нав\'язливою; після відпускання нічого не лишається «втиснутим».',
       'Для заміру: «Записати лог із цим варіантом», 10 перемикань вкладок, зупинити запис (подія motion-perf).',
-    ],
-  },
-  // Rev 2.27.0 (M2.1) — повтор анімації дашборду: щоразу / лише перший раз / лише при змінах (як у M2).
-  {
-    id: 'dashboard-replay',
-    title: 'Повтор анімації дашборду',
-    what: 'Чи перемальовується «Аналітика» (картки, лічильники, графіки) при кожному поверненні на вкладку.',
-    variants: [
-      { key: 'always', label: 'Щоразу', hint: 'Кожен візит на «Аналітику» — легке перемальовування' },
-      { key: 'first', label: 'Лише перший раз', hint: 'Перший показ за сесію і зміна місяця' },
-      { key: 'changes', label: 'Лише при змінах', hint: 'Повторно анімуються тільки змінені числа й графіки (як у Rev 2.25.0)' },
-    ],
-    defaultVariant: 'always',
-    addedIn: 'Rev 2.27.0 (M2.1)',
-    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний режим і видалить тест)',
-    checkSteps: [
-      'Відкрийте «Аналітику», перейдіть на іншу вкладку й поверніться кілька разів: чи бачите перемальовування (у «Щоразу» — так).',
-      'Змініть місяць у шапці: має бути повна поява.',
-      'Для заміру: «Записати лог із цим варіантом», кілька візитів (подія dashboard-enter: mode full/replay/update).',
     ],
   },
   // Rev 2.27.0 (M2.1) — поява карток «Аналітики»: тривалість однієї картки і розсинхронізація між картками (базові значення × --motion-k).

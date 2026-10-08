@@ -7,7 +7,7 @@ const path = require('node:path');
 const ex = require('./extract');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ctx = ex.buildSandbox({}, ['rowsToAnimate', 'accountRevealPlan', 'shouldSweepPress', 'dashboardReplayMode']);
+const ctx = ex.buildSandbox({}, ['rowsToAnimate', 'accountRevealPlan', 'shouldSweepPress', 'dashboardReplayMode', 'ACCT_SEGMENTS', 'ACCT_SEGMENT_NAMES', 'shouldAnimateSegment', 'accountSegmentPlan']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const ACCT = SRC.slice(SRC.indexOf('// ===== Rev 2.29.0 (A) — поява «Обліку»'), SRC.indexOf('function renderDashboard(){'));
 
@@ -19,18 +19,38 @@ test('rowsToAnimate: перші max видимих; порожнє/некоре�
   assert.deepEqual(j('rowsToAnimate([1,2,3],0)'), []);
 });
 
-test('accountRevealPlan: «Щоразу» повторює, перший показ/місяць — full, фон — none, reduced/hidden — none з причиною', () => {
+test('accountRevealPlan: візит — replay завжди (єдина поведінка), перший показ/місяць — full, фон — none, reduced/hidden — none з причиною', () => {
   const base = { hidden: false, reduced: false, active: true, played: true, sameMonth: true, changed: false };
-  const P = (o, v) => j('accountRevealPlan(' + JSON.stringify(Object.assign({}, base, o)) + ',' + JSON.stringify(v) + ')');
-  assert.deepEqual(P({ trigger: 'visit' }, 'always'), { mode: 'replay', skipped: null });
-  assert.deepEqual(P({ trigger: 'first', played: false }, 'always'), { mode: 'full', skipped: null });
-  assert.deepEqual(P({ trigger: 'visit', played: false }, 'first'), { mode: 'full', skipped: null });
-  assert.deepEqual(P({ trigger: 'month', sameMonth: false }, 'first'), { mode: 'full', skipped: null });
-  assert.deepEqual(P({ trigger: 'render', changed: true }, 'always'), { mode: 'none', skipped: 'no-change' }, 'фоновий рендер не анімується');
-  assert.deepEqual(P({ trigger: 'visit' }, 'first'), { mode: 'none', skipped: 'variant' });
-  assert.deepEqual(P({ trigger: 'visit' }, 'changes'), { mode: 'none', skipped: 'no-change' });
-  assert.deepEqual(P({ trigger: 'visit', reduced: true }, 'always'), { mode: 'none', skipped: 'reduced' });
-  assert.deepEqual(P({ trigger: 'first', played: false, hidden: true }, 'always'), { mode: 'none', skipped: 'hidden' });
+  const P = o => j('accountRevealPlan(' + JSON.stringify(Object.assign({}, base, o)) + ')');
+  assert.deepEqual(P({ trigger: 'visit' }), { mode: 'replay', skipped: null });
+  assert.deepEqual(P({ trigger: 'first', played: false }), { mode: 'full', skipped: null });
+  assert.deepEqual(P({ trigger: 'month', sameMonth: false }), { mode: 'full', skipped: null });
+  assert.deepEqual(P({ trigger: 'render', changed: true }), { mode: 'none', skipped: 'no-change' }, 'фоновий рендер не анімується');
+  assert.deepEqual(P({ trigger: 'visit', reduced: true }), { mode: 'none', skipped: 'reduced' });
+  assert.deepEqual(P({ trigger: 'first', played: false, hidden: true }), { mode: 'none', skipped: 'hidden' });
+});
+
+test('shouldAnimateSegment: різні сегменти без reduced — так; той самий / reduced / невідомий — ні', () => {
+  const S = (a, b, r) => j(`shouldAnimateSegment(${JSON.stringify(a)},${JSON.stringify(b)},${r})`);
+  ['data', 'debts', 'installments'].forEach(a => ['data', 'debts', 'installments'].forEach(b => assert.equal(S(a, b, false), a !== b, a + '→' + b)));
+  assert.equal(S('data', 'debts', true), false);
+  assert.equal(S('data', 'zzz', false), false);
+  assert.equal(S(null, 'debts', false), false);
+});
+
+test('accountSegmentPlan: перемикання → replay (підсумок, підпис, рядки, суми від 0); повторний клік (same) — нічого; reduced/hidden — причина', () => {
+  const Pl = (a, b, st) => j(`accountSegmentPlan(${JSON.stringify(a)},${JSON.stringify(b)},${JSON.stringify(st)})`);
+  const ok = { reduced: false, hidden: false, active: true };
+  ['data', 'debts', 'installments'].forEach(a => ['data', 'debts', 'installments'].forEach(b => {
+    const r = Pl(a, b, ok);
+    if(a === b){ assert.deepEqual(r, { run: false, mode: 'none', skipped: 'same', elements: [] }, 'повторний клік на активний'); }
+    else { assert.equal(r.run, true, a + '→' + b); assert.equal(r.mode, 'replay'); assert.deepEqual(r.elements, ['summary', 'label', 'rows', 'counters-from-zero']); }
+  }));
+  assert.equal(Pl('data', 'debts', { reduced: true }).skipped, 'reduced');
+  assert.equal(Pl('data', 'debts', { hidden: true, active: true }).skipped, 'hidden');
+  assert.equal(Pl('data', 'debts', { active: false }).skipped, 'hidden');
+  assert.equal(Pl('data', 'zzz', ok).skipped, 'no-change');
+  assert.deepEqual(j('ACCT_SEGMENT_NAMES'), { data: 'income', debts: 'debts', installments: 'installments' });
 });
 
 test('shouldSweepPress: знімає лише невідстежуваний .is-pressed через ≥300 мс; активне натискання (інший тап) — не витік', () => {
@@ -60,13 +80,34 @@ test('фоновий рендер «Обліку» не запускає ані�
   ['income-table', 'bank-debt-table', 'installment-table'].forEach(id => assert.ok(ACCT.includes("'" + id + "'"), id));
 });
 
-test('сегменти: лише opacity+transform (--motion-s), висота не міняється; reduced → без анімації; лише при кліку користувача', () => {
-  const pan = ACCT.slice(ACCT.indexOf('function acctAnimatePanel'), ACCT.indexOf('function playAccount'));
-  assert.match(pan, /motionReduced\(\)/);
-  assert.match(pan, /opacity: 0, transform: 'translateY\('/);
-  assert.ok(!/height|margin|padding|top|display/.test(pan.replace(/translateY|motionDuration/g, '')), 'жодних змін розкладки');
+test('сегменти (M4c): кожен клік по іншому сегменту → onAccountSegment → playAccount(replay, trigger:segment) з сумами від 0; старий сегмент гасне --motion-s без зміни розкладки; повторний клік не анімує', () => {
   assert.equal((SRC.match(/switchAccountingTab\('[a-z]+', \{ animate: true \}\)/g) || []).length, 3);
-  assert.match(SRC, /if\(opts && opts\.animate\) acctAnimatePanel\(/);
+  const sw = SRC.slice(SRC.indexOf('function switchAccountingTab'), SRC.indexOf('// Rev 2.17.0 — Доходи тепер'));
+  assert.match(sw, /const animate = !!\(opts && opts\.animate\) && prev !== tab;/);
+  assert.match(sw, /if\(opts && opts\.animate\) onAccountSegment\(prev, tab, oldPanel, oldRect\);/);
+  const seg = ACCT.slice(ACCT.indexOf('function acctSegmentName'), ACCT.indexOf('function playAccount'));
+  assert.match(seg, /accountSegmentPlan\(prev, next, \{ reduced: motionReduced\(\), hidden: !dashStartupReady\(\), active: acctIsActive\(\) \}\)/);
+  assert.match(seg, /if\(plan\.skipped !== 'same'\) recordAcctSkip\(/, 'same нічого не пише');
+  assert.match(seg, /playAccount\(plan\.mode, 'segment', selectedMonth, \{ trigger: 'segment' \}\)/);
+  // fade-out: лише opacity, --motion-s, панель знімається з потоку у ТОМУ Ж місці (rect), висота не змінюється іншим кодом
+  const fo = seg.slice(seg.indexOf('function acctSegmentFadeOut'), seg.indexOf('function onAccountSegment'));
+  assert.match(fo, /motionDuration\('s', motionK, false\)/);
+  assert.match(fo, /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/);
+  assert.match(fo, /oldRect\.left - vr\.left/);
+  assert.match(fo, /motionReduced\(\)\) return;/);
+  assert.match(fo, /setAttribute\('data-seg-leaving', ''\)/);
+  assert.match(ACCT, /function acctPanel\(\)\{ return document\.querySelector\('#view-accounting \.struct-tab-panel:not\(\.hidden\):not\(\[data-seg-leaving\]\)'\); \}/, 'панель, що гасне, не вважається активною (інакше анімувався б старий сегмент)');
+  assert.ok(!/height|margin|padding/.test(fo), 'fade-out не чіпає висоту');
+  assert.match(fo, /timer = setTimeout\(finish, dur \+ 200\)/, 'запасний кінець');
+});
+
+test('суми від 0 при кожному перемиканні: replay → лічильники з нуля для всіх сум панелі (Борги: баланс і мін. платіж; ОЧ: залишок і платіж/міс)', () => {
+  const pa = ACCT.slice(ACCT.indexOf('function playAccount'), ACCT.indexOf('function onAcctRowIntersect'));
+  assert.match(pa, /let from = 0;\s*if\(mode === 'update' \|\| \(mode === 'full' && trigger === 'month'\)\)/, 'replay/segment: from=0');
+  assert.match(pa, /ACCT_COUNTER_IDS\.forEach\(function\(id\)\{ const el = document\.getElementById\(id\); if\(el && u\.contains\(el\)\) addCounter\(el, delay\); \}\)/);
+  ['card-debt-summary-balance', 'card-debt-summary-minpay', 'installment-balance-total-value', 'installment-total-value', 'income-summary-total'].forEach(id => assert.ok(ACCT.includes("'" + id + "'"), id));
+  assert.match(pa, /acctClearDeferred\(\);/, 'відкладені рядки скидаються на кожен показ сегмента (раз на показ)');
+  assert.match(pa, /trigger: meta\.trigger \|\| 'tab', segment: acctSegmentName\(panel\)/);
 });
 
 test('рядки: до 10 видимих по черзі (25·k), нижче екрана — IntersectionObserver з dwell/перевіркою розмітки; reduced/без IO → кінцевий стан', () => {
@@ -80,11 +121,11 @@ test('рядки: до 10 видимих по черзі (25·k), нижче е�
   assert.match(ACCT, /if\(!\(rc\.height > 0\) \|\| visH \/ rc\.height < CHART_REVEAL_RATIO\)\{ st\.ok = false; return; \}/);
 });
 
-test('події: account-enter (tab, mode, elements, counters, rows, frames, maxGapMs, durationMs, intensity, reduced, skipped, variant); пропуск теж пишеться', () => {
+test('події: account-enter (tab, mode, elements, counters, rows, frames, maxGapMs, durationMs, intensity, reduced, skipped, trigger, segment); пропуск теж пишеться', () => {
   assert.match(ACCT, /kind: 'account-enter', tab: 'accounting', mode: mode, skipped: null, elements: unitsN \+ rowsN, counters: r\.counters\.length, rows: rowsN/);
-  assert.match(ACCT, /function recordAcctSkip\(reason\)\{\s*recordMotionPerf\(\{ kind: 'account-enter'/);
-  assert.match(ACCT, /if\(trigger !== 'render'\) recordAcctSkip\(d\.skipped\)/);
-  ['rows', 'deferredRows', 'variant', 'leakSelector', 'selector', 'firstFrameMs', 'gapAtFrame'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
+  assert.match(ACCT, /function recordAcctSkip\(reason, trigger, segment\)\{\s*recordMotionPerf\(\{ kind: 'account-enter'/);
+  assert.match(ACCT, /if\(trigger !== 'render'\) recordAcctSkip\(d\.skipped, 'tab'\)/);
+  ['rows', 'deferredRows', 'trigger', 'segment', 'leakSelector', 'selector', 'firstFrameMs', 'gapAtFrame'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
 });
 
 test('перехід вкладок (B1): новий .view прихований opacity:0 до старту, анімація стартує в наступному кадрі (rAF), запасний старт, will-change лише на час анімації, firstFrameMs/gapAtFrame', () => {
@@ -109,8 +150,9 @@ test('натискання (B2): touchend/touchcancel, MutationObserver на в�
   assert.match(sw, /leakSelector:/);
 });
 
-test('жодного transform на body/html/nav.tabbar у модулі «Обліку»; без штучних затримок (лише dwell і повтор готовності)', () => {
+test('жодного transform на body/html/nav.tabbar у модулі «Обліку»; без штучних затримок (лише dwell, повтор готовності і запасний кінець fade-out); pointer-events:none лише на панелі, що гасне', () => {
   assert.ok(!/document\.body\.animate|documentElement\.animate|tabbar[^\n]*\.animate/.test(ACCT));
-  assert.equal((ACCT.match(/setTimeout\(/g) || []).length, 2);
-  assert.ok(!/pointer-?[Ee]vents/.test(ACCT));
+  assert.equal((ACCT.match(/setTimeout\(/g) || []).length, 3);
+  const noFade = ACCT.replace(ACCT.slice(ACCT.indexOf('function acctSegmentFadeOut'), ACCT.indexOf('function onAccountSegment')), '');
+  assert.ok(!/pointer-?[Ee]vents/.test(noFade));
 });
