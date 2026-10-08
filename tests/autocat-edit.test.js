@@ -48,8 +48,8 @@ test('ручна зміна категорії/підкатегорії в се�
   assert.match(SRC, /onchange="onRecordSubcategoryChange\('\$\{e\.id\}'\)"/);
   assert.match(EDIT, /function onRecordSubcategoryChange\(id\)\{ markRecordEditTouched\(id\); \}/);
   assert.match(EDIT, /touchedByUser: recordEditSession\.touched/);
-  assert.match(SRC, /editingRecordKey = \(editingRecordKey === key\) \? null : key;\n  recordEditSession = \{ id: null, touched: false \};/);
-  assert.match(SRC, /function cancelEditRecord\(\)\{\n  editingRecordKey = null;\n  recordEditSession = \{ id: null, touched: false \};/);
+  assert.match(SRC, /editingRecordKey = closing \? null : key;\n  recordEditSession = \{ id: null, touched: false \};/); // Rev 2.32.2 (E1): beginEditRecord
+  assert.match(SRC, /function cancelEditRecord\(\)\{\n  editingRecordKey = null;\n  editSnapshot = null;\n  recordEditSession = \{ id: null, touched: false \};/);
 });
 
 test('відсутність збігу нічого не стирає (лише ховає підказку); apply виставляє тільки категорію й підкатегорію', () => {

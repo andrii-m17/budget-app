@@ -3212,7 +3212,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.1</div>
+  <div class="version-footer">Money Tree · Rev 2.32.2</div>
 </div>
   </div>
 </div>
@@ -7490,7 +7490,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.1';
+const APP_VERSION = '2.32.2';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9824,6 +9824,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'checked', 'removedLocally', 'restoredElsewhere', 'ms', 'dups',
   // Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": trashType (НЕ `type` — воно вже тип самої події), ok, count; без назв і сум.
   'trashType', 'ok', 'count',
+  // Rev 2.32.2 (E1) — edit-session: event (open/close/blocked), reason (тригер), dirty (були незбережені зміни); без значень полів.
+  'event', 'reason', 'dirty',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
   // Rev 2.24.0 (M1) — motion-perf: kind (tab-switch/press), reduced, holdMs, pressLeak (скільки елементів лишилось у .is-pressed через 300 мс).
   'kind', 'reduced', 'holdMs', 'pressLeak',
@@ -13141,6 +13143,11 @@ let editingRecordKey = null;
 function recordKey(kind, id){ return kind+':'+id; }
 function toggleRecordSelect(kind, id){
   const key = recordKey(kind, id);
+  // Rev 2.32.2 (E1): вибір ІНШОГО запису — це «відкриття іншого редагування»: попереднє редагування закривається (із питанням за наявності змін).
+  if(editingRecordKey && editingRecordKey !== key){
+    requestCloseEdit('open-other-edit', function(){ toggleRecordSelect(kind, id); }, { noRender: true });
+    return;
+  }
   selectedRecordKey = (selectedRecordKey === key) ? null : key;
   editingRecordKey = null;
   renderRecords();
@@ -13178,6 +13185,7 @@ function onExpenseRowTap(evt, kind, id){
 // onExpenseRowTap() на цільовій фазі ДО того, як дійде сюди.
 document.addEventListener('click', function(e){
   if(!selectedRecordKey) return;
+  if(editGuardPending() || editGuardShield || (editGuardGen === appModalGeneration && e.target.closest && e.target.closest('#app-modal, #modal-backdrop'))) return; // Rev 2.32.2 (E1): поки відкрито діалог «Скасувати редагування запису?» (і в тому ж тапі після «Скасувати зміни»), цей тап редагування не закриває
   if(e.target.closest('.expense-row')) return;
   selectedRecordKey = null;
   editingRecordKey = null;
@@ -13188,15 +13196,154 @@ function startEditRecord(kind, id){
   // доходи мають інакшу модель даних (місячний запис за джерелом, а не
   // довільна транзакція з датою), редагувати їх тут немає сенсу.
   const key = recordKey(kind, id);
-  editingRecordKey = (editingRecordKey === key) ? null : key;
+  // Rev 2.32.2 (E1): одночасно лише одне редагування — відкриття іншого закриває попереднє (із питанням за наявності змін).
+  if(editingRecordKey && editingRecordKey !== key){
+    requestCloseEdit('open-other-edit', function(){ beginEditRecord(key); }, { noRender: true });
+    return;
+  }
+  beginEditRecord(key);
+}
+function beginEditRecord(key){
+  const closing = editingRecordKey === key;
+  editingRecordKey = closing ? null : key;
   recordEditSession = { id: null, touched: false }; // Rev 2.31.2 (A): нова сесія редагування
+  editSnapshot = null;
   renderRecords();
+  if(!closing) snapshotActiveEdit();
+  recordEditSessionEvent(closing ? 'close' : 'open', closing ? 'toggle' : 'start', false);
 }
 function cancelEditRecord(){
   editingRecordKey = null;
+  editSnapshot = null;
   recordEditSession = { id: null, touched: false }; // Rev 2.31.2 (A)
   renderRecords();
+  recordEditSessionEvent('close', 'cancel-button', false);
 }
+// ===== Rev 2.32.2 (E1) — єдина дія редагування: менеджер сесії редагування запису =====
+// Стан редагування — editingRecordKey (одне значення ⇒ не більше одного редагування); editSnapshot — значення полів ПІСЛЯ відкриття (база для «є незбережені зміни»).
+// Закриття редагування при переході до іншої дії: shouldCloseEdit(trigger, dirty) → 'none' | 'close' (без змін, одразу) | 'confirm' (діалог). Збереження, клавіатуру й стрілки не чіпаємо.
+const EDIT_CLOSE_TRIGGERS = ['new-expense-focus', 'add-expense', 'open-other-edit', 'tab-switch', 'open-journal', 'open-trash', 'open-drawer'];
+function shouldCloseEdit(trigger, dirty){
+  if(EDIT_CLOSE_TRIGGERS.indexOf(trigger) < 0) return 'none';
+  return dirty ? 'confirm' : 'close';
+}
+// a, b: { name, amount, date, cat, sub, inst } (рядки). Сума — без пробілів-розділювачів, назва — обрізана.
+function editFieldsChanged(a, b){
+  if(!a || !b) return false;
+  const n = function(v){ return String(v == null ? '' : v); };
+  return n(a.name).trim() !== n(b.name).trim()
+    || n(a.amount).replace(/\s|\u00a0/g, '') !== n(b.amount).replace(/\s|\u00a0/g, '')
+    || n(a.date) !== n(b.date) || n(a.cat) !== n(b.cat) || n(a.sub) !== n(b.sub) || n(a.inst) !== n(b.inst);
+}
+let editSnapshot = null; // { key, fields }
+let editGuardGen = -1;   // appModalGeneration діалогу підтвердження (поки він відкритий)
+let editGuardShield = false; // true лише до кінця поточного click після «Скасувати зміни»: document-click не має закрити щойно відкрите наступне редагування
+function editKeyId(key){ return key ? key.substring(key.indexOf(':') + 1) : ''; }
+function readEditFields(id){
+  const nameEl = document.getElementById('edtfielda1-' + id);
+  if(!nameEl) return null;
+  const v = function(x){ const el = document.getElementById(x + id); return el ? el.value : ''; };
+  return { name: nameEl.value, amount: v('edit-amount-'), date: v('edit-date-'), cat: v('edit-cat-'), sub: v('edit-sub-'), inst: v('edit-installment-') };
+}
+function snapshotActiveEdit(){
+  editSnapshot = null;
+  if(!editingRecordKey) return;
+  const f = readEditFields(editKeyId(editingRecordKey));
+  if(f) editSnapshot = { key: editingRecordKey, fields: f };
+}
+function activeEditDirty(){
+  if(!editingRecordKey || !editSnapshot || editSnapshot.key !== editingRecordKey) return false;
+  return editFieldsChanged(editSnapshot.fields, readEditFields(editKeyId(editingRecordKey)));
+}
+function editGuardPending(){
+  const m = document.getElementById('app-modal');
+  return editGuardGen === appModalGeneration && !!m && m.classList.contains('open');
+}
+function recordEditSessionEvent(event, reason, dirty){
+  if(!debugRecordingActive) return;
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'edit-session', event: event, reason: reason, dirty: !!dirty });
+}
+function closeActiveEdit(reason, dirty, opts){
+  if(!editingRecordKey) return;
+  editingRecordKey = null;
+  editSnapshot = null;
+  recordEditSession = { id: null, touched: false };
+  recordEditSessionEvent('close', reason, dirty);
+  if(!(opts && opts.noRender)) renderRecords();
+}
+// Єдина точка: закрити редагування перед іншою дією й виконати її (cont). Повертає true, якщо cont виконано одразу.
+function requestCloseEdit(trigger, cont, opts){
+  if(!editingRecordKey){ if(cont) cont(); return true; }
+  const dirty = activeEditDirty();
+  const decision = shouldCloseEdit(trigger, dirty);
+  if(decision === 'none'){ if(cont) cont(); return true; }
+  if(decision === 'close'){ closeActiveEdit(trigger, false, opts); if(cont) cont(); return true; }
+  showEditCancelConfirm(trigger, cont, opts);
+  return false;
+}
+// Діалог (як «Видалити назавжди?»): основна «Продовжити редагування» (заливка), небезпечна «Скасувати зміни» (червоний контур), без хрестика.
+// Будь-яке закриття, крім «Скасувати зміни» (кнопка, фон, Escape), = «Продовжити»: lastFocusedBeforeDialog — поле редагування, тож фокус повертається в нього.
+function showEditCancelConfirm(trigger, cont, opts){
+  const id = editKeyId(editingRecordKey);
+  const text = document.getElementById('app-modal-text');
+  text.textContent = '';
+  const title = document.createElement('div');
+  title.style.fontWeight = '700'; title.style.marginBottom = '6px';
+  title.textContent = 'Скасувати редагування запису?';
+  const body = document.createElement('div');
+  body.textContent = 'Зміни не буде збережено';
+  text.appendChild(title); text.appendChild(body);
+  const cancelBtn = document.getElementById('app-modal-cancel-btn');
+  const confirmBtn = document.getElementById('app-modal-confirm-btn');
+  cancelBtn.classList.remove('secondary');
+  cancelBtn.textContent = 'Продовжити редагування';
+  confirmBtn.textContent = 'Скасувати зміни';
+  confirmBtn.className = 'submit-btn danger-outline';
+  confirmBtn.onclick = function(){
+    lastFocusedBeforeDialog = null; // фокус не повертаємо в закрите редагування — наступна дія сама ставить фокус
+    editGuardGen = -1;
+    editGuardShield = true;
+    setTimeout(function(){ editGuardShield = false; }, 0);
+    closeAppModal();
+    closeActiveEdit(trigger, true, opts);
+    if(cont) cont();
+  };
+  appModalPurgeStyled = true;
+  presentAppModal();
+  editGuardGen = appModalGeneration;
+  const field = document.getElementById('edtfielda1-' + id);
+  if(field) lastFocusedBeforeDialog = field;
+  recordEditSessionEvent('blocked', trigger, true);
+}
+// Початок введення нової витрати: фокус у полі форми «Нова витрата» (.vytraty-form-col) закриває редагування запису.
+function onEditGuardFocusIn(e){
+  const t = e.target;
+  if(!editingRecordKey || !t || !t.closest || !t.closest('.vytraty-form-col')) return;
+  if(editGuardPending()) return;
+  requestCloseEdit('new-expense-focus', function(){
+    if(document.activeElement !== t && document.contains(t)){ try{ t.focus({ preventScroll: true }); }catch(err){ t.focus(); } }
+  });
+}
+document.addEventListener('focusin', onEditGuardFocusIn, true);
+// Відкриття Журналу, «Видалених даних», шторок, перемикання вкладки й «Додати витрату» — через ту саму точку. Обгортка зберігає аргументи й результат (без редагування — прямий виклик).
+// App-модалки (show*Modal) свідомо НЕ охоплені: вони блокують сторінку (main-col inert), а діалог підтвердження ділив би з ними ті самі елементи.
+function guardEditOpener(name, trigger){
+  const orig = window[name];
+  if(typeof orig !== 'function') return;
+  window[name] = function(){
+    const args = arguments, self = this;
+    if(!editingRecordKey) return orig.apply(self, args);
+    let result;
+    requestCloseEdit(trigger, function(){ result = orig.apply(self, args); });
+    return result;
+  };
+}
+['openJournal'].forEach(function(n){ guardEditOpener(n, 'open-journal'); });
+['openTrashScreen'].forEach(function(n){ guardEditOpener(n, 'open-trash'); });
+['switchTab'].forEach(function(n){ guardEditOpener(n, 'tab-switch'); });
+['addExpense'].forEach(function(n){ guardEditOpener(n, 'add-expense'); });
+['openProfileLoginDrawer', 'openDebugRecordDrawer', 'openIncomeEditor', 'openInstallmentEditor', 'openCardDebtEditor', 'openTestingDrawer', 'openNotificationsDrawer', 'openSettings', 'openTrashDetail']
+  .forEach(function(n){ guardEditOpener(n, 'open-drawer'); });
 function onRecordCategoryChange(id){
   const catSel = document.getElementById('edit-cat-'+id);
   const subSel = document.getElementById('edit-sub-'+id);
@@ -16763,6 +16910,7 @@ function performSwitchTab(tab, opts){
   // вкладки (навіть повторний клік на "Витрати") явно закриває Журнал, щоб
   // користувач завжди повертався на форму внесення нової витрати (типовий
   // стан вкладки), а не "застрягав" на Журналі під іншою вкладкою.
+  if(editingRecordKey) closeActiveEdit('tab-switch-forced', activeEditDirty(), { noRender: true }); // Rev 2.32.2 (E1): програмне перемикання (маршрути) — запасне закриття; тап по таббару проходить через switchTab → requestCloseEdit
   if(isJournalOpen) closeJournal();
   if(isTrashOpen) closeTrashScreen(); // Rev 2.23.23 (6D.192): екран "Видалені дані" — підекран Сервісу
   // Rev #21+#23 (bugfix) — data-status popover (крапка "станом на" на
