@@ -208,6 +208,8 @@ const REPOSITORY_NAMES = [
   // Rev 2.22.83 (6D.156, Ревізія B1) — epoch-штамп для legacy-бекфілу hiddenFrom.
   'HIDDEN_FROM_LEGACY_EPOCH',
   'ensureInstallmentFirstMonth',
+  // Rev 2.32.4 (T2) — журнал видалених назавжди рахунків: бекап не відновлює їх.
+  'LS_KEY_PURGED_ACCOUNTS', 'filterPurgedAccounts', 'filterPurgedDebts', 'readPurgedAccounts',
   'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
   'restoreHiddenFromFromBackup', 'restoreIgnoredDivergencesFromBackup',
   // Rev 2.22.82 (6D.155, Ревізія B) — hiddenFrom tombstone-модель.
@@ -388,12 +390,14 @@ function fakeSupabaseStatefulClient(table, nameField){
             eq(col1, val1){
               return {
                 eq(col2, val2){
-                  return {
+                  const leaf = {
                     maybeSingle(){
                       const row = byName.get(val2);
                       return Promise.resolve({ data: row ? { id: row.id } : null, error: null });
                     },
                   };
+                  leaf.is = function(){ return leaf; }; // Rev 2.32.4 (T2): .is('deleted_at', null) у reconcile*CloudId
+                  return leaf;
                 },
               };
             },
@@ -2009,7 +2013,7 @@ test('pushBankAccountsPilot: cloudId застарів (Cloud-рядок зник
   // pushBankAccountsPilot() наприкінці сам кличе pull (той самий
   // "pull-after-push", 6D.49), тож мок мусить обслужити обидва шляхи.
   const chainable = function(value){
-    return { eq(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
+    return { eq(){ return chainable(value); }, is(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
   };
   ctx.getSupabaseClient = () => ({ from(){ return {
     update(){ updateCalls++; return { eq(){ return { select(){ return Promise.resolve({ data: [], error: null }); } }; } }; }, // 0 рядків — cloudId мертвий
@@ -2031,7 +2035,7 @@ test('pushInstallmentAccountsPilot: той самий self-heal, що pushBankAc
   ctx.installmentAccounts = [{ name: 'iPhone', cloudId: 'stale-deleted-id', initialAmount: 1000, updatedAt: '2026-01-01T00:00:00.000Z' }];
   let updateCalls = 0, insertCalls = 0;
   const chainable = function(value){
-    return { eq(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
+    return { eq(){ return chainable(value); }, is(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
   };
   ctx.getSupabaseClient = () => ({ from(){ return {
     update(){ updateCalls++; return { eq(){ return { select(){ return Promise.resolve({ data: [], error: null }); } }; } }; },
@@ -2055,7 +2059,7 @@ test('pushInstallmentAccountsPilot: той самий self-heal, що pushBankAc
 function hiddenEntitiesDeleteTrackingClient(otherTableHandlers){
   const deleteCalls = [];
   const chainable = function(value){
-    return { eq(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
+    return { eq(){ return chainable(value); }, is(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
   };
   const client = { from(table){
     if(table === 'hidden_entities'){
@@ -2160,7 +2164,7 @@ test('pushBankAccountsPilot: cleanupOrphanedHiddenEntities падає (мере�
   ctx.isSupabaseSdkReady = () => true;
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'old-id', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z' }];
   const chainable = function(value){
-    return { eq(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
+    return { eq(){ return chainable(value); }, is(){ return chainable(value); }, maybeSingle(){ return Promise.resolve(value); }, then(res, rej){ return Promise.resolve(value).then(res, rej); } };
   };
   ctx.getSupabaseClient = () => ({ from(table){
     if(table === 'hidden_entities') return { delete(){ throw new Error('network down'); } };

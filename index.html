@@ -3214,7 +3214,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.3</div>
+  <div class="version-footer">Money Tree · Rev 2.32.4</div>
 </div>
   </div>
 </div>
@@ -5153,6 +5153,7 @@ async function restoreBankAccountsFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
+  backupList = filterPurgedAccounts(backupList, readPurgedAccounts(), 'card'); // Rev 2.32.4 (T2): видалені назавжди рахунки з бекапу не відновлюються
   if(isCloudSessionReady()) await pullBankAccountsCore();
   const counts = mergeBackupRecordsByCloudIdOrName(bankAccounts, backupList, 'name');
   stampMissingTimestamps(bankAccounts);
@@ -5224,6 +5225,7 @@ async function restoreInstallmentAccountsFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
+  backupList = filterPurgedAccounts(backupList, readPurgedAccounts(), 'installment'); // Rev 2.32.4 (T2)
   if(isCloudSessionReady()) await pullInstallmentAccountsCore();
   const counts = mergeBackupRecordsByCloudIdOrName(installmentAccounts, backupList, 'name');
   stampMissingTimestamps(installmentAccounts);
@@ -5376,6 +5378,7 @@ async function restoreDebtsFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
+  backupList = filterPurgedDebts(backupList, readPurgedAccounts()); // Rev 2.32.4 (T2): місячні записи видалених назавжди рахунків з бекапу не відновлюються
   if(isCloudSessionReady()) await pullDebtsCore();
   let added = 0, updated = 0, kept = 0;
   const toPush = [];
@@ -6898,7 +6901,7 @@ async function pushBankAccountsPilot(){
   return { success: !anyError };
 }
 async function reconcileBankAccountCloudId(client, userId, acc){
-  const { data: existing } = await client.from('bank_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).maybeSingle();
+  const { data: existing } = await client.from('bank_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).is('deleted_at', null).maybeSingle(); // Rev 2.32.4 (T2): tombstone-рядки ігноруються
   if(existing){
     acc.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
@@ -6923,14 +6926,17 @@ async function reconcileBankAccountCloudId(client, userId, acc){
 async function pullBankAccountsCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
-  let updated = 0, linked = 0, added = 0, keptLocal = 0;
+  let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   try{
-    let query = client.from('bank_accounts').select('id,name,credit_limit,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('bank_accounts').select('id,name,credit_limit,created_at,updated_at,deleted_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'bankAccounts');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
+      // Rev 2.32.4 (T2): tombstone-рядок (рахунок видалено назавжди на іншому пристрої) прибирає рахунок, його місячні записи й запис прихованого локально;
+      // за назвою такий рядок НІКОЛИ не зв'язується й не створює рахунок заново.
+      if(row.deleted_at){ if(await pullAccountTombstone('card', row)) removed++; continue; }
       const byCloudId = bankAccounts.find(function(a){ return a.cloudId === row.id; });
       if(byCloudId){
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
@@ -6973,6 +6979,7 @@ async function pullBankAccountsCore(){
     return { skipped: true };
   }
   if(updated || linked || added) await saveBankAccountsLocal();
+  if(removed) populateBankDebtTable();
   // Rev 2.23.28 (6D.197, G3) — аналог знахідки G2 для підкатегорій: рахунок отримав ІНШИЙ cloudId від pull
   // (зв'язування за назвою) → діти (борги, витрати, приховані) лишились би "синхронізованими" зі старим id.
   if(relinkedNames.length){
@@ -6984,6 +6991,16 @@ async function pullBankAccountsCore(){
   // дзеркалимо render-виклик локального save (addBankAccount()).
   if(updated || linked || added) populateBankDebtTable();
   return { skipped: false, updated: updated, linked: linked, added: added, keptLocal: keptLocal };
+}
+// Rev 2.32.4 (T2): pull tombstone-рядка рахунку — локальне видалення без push (власник видалення вже оновив Cloud).
+async function pullAccountTombstone(kind, row){
+  const list = kind === 'card' ? bankAccounts : installmentAccounts;
+  const acc = list.find(function(a){ return a.cloudId === row.id; });
+  if(!acc) return false;
+  const plan = purgeAccountPlan({ kind: kind, name: acc.name }, trashStateNow());
+  await applyAccountRemovalLocally(plan, false);
+  rememberPurgedAccount(plan);
+  return true;
 }
 async function pullBankAccountsPilot(){
   return await pullBankAccountsCore();
@@ -7064,7 +7081,7 @@ async function pushInstallmentAccountsPilot(){
   return { success: !anyError };
 }
 async function reconcileInstallmentAccountCloudId(client, userId, acc){
-  const { data: existing } = await client.from('installment_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).maybeSingle();
+  const { data: existing } = await client.from('installment_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).is('deleted_at', null).maybeSingle(); // Rev 2.32.4 (T2): tombstone-рядки ігноруються
   if(existing){
     acc.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
@@ -7083,14 +7100,15 @@ async function reconcileInstallmentAccountCloudId(client, userId, acc){
 async function pullInstallmentAccountsCore(){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
-  let updated = 0, linked = 0, added = 0, keptLocal = 0;
+  let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   try{
-    let query = client.from('installment_accounts').select('id,name,initial_amount,due_day,created_at,updated_at').eq('family_id', cloudFamilyId);
+    let query = client.from('installment_accounts').select('id,name,initial_amount,due_day,created_at,updated_at,deleted_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'installmentAccounts');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
+      if(row.deleted_at){ if(await pullAccountTombstone('installment', row)) removed++; continue; } // Rev 2.32.4 (T2): див. pullBankAccountsCore
       const byCloudId = installmentAccounts.find(function(a){ return a.cloudId === row.id; });
       if(byCloudId){
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
@@ -7492,7 +7510,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.3';
+const APP_VERSION = '2.32.4';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9828,6 +9846,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'trashType', 'ok', 'count',
   // Rev 2.32.2 (E1) — edit-session: event (open/close/blocked), reason (тригер), dirty (були незбережені зміни); без значень полів.
   'event', 'reason', 'dirty',
+  // Rev 2.32.4 (T2) — account-purge: kind (bank/installment/month-record), debts (скільки місячних записів), unlinkedExpenses (скільки витрат втратили прив’язку); без назв і сум.
+  'debts', 'unlinkedExpenses',
   // Rev 2.23.18 (6D.187) — native-switch (K1-K3).
   // Rev 2.24.0 (M1) — motion-perf: kind (tab-switch/press), reduced, holdMs, pressLeak (скільки елементів лишилось у .is-pressed через 300 мс).
   'kind', 'reduced', 'holdMs', 'pressLeak',
@@ -13978,12 +13998,15 @@ function restoreBlockedReason(item, state){
   return null;
 }
 // ===== Rev 2.23.24 (6D.193, Ревізія E) — "Видалити назавжди" і реконсиляція: чисті функції =====
-// Незворотно видаляються ЛИШЕ витрати, доходи й слова (окремо видалені), і лише
-// tombstone-и. Категорії/підкатегорії/картки/ОЧ/борги — ніколи: їхній bulk-push
-// за назвою воскресив би запис.
-const TRASH_PURGEABLE_TYPES = ['expense', 'income', 'word'];
+// Незворотно видаляються витрати, доходи й слова (окремо видалені), і лише tombstone-и.
+// Rev 2.32.4 (T2): + місячні записи боргів/ОЧ (теж лише tombstone-и) і приховані картки/ОЧ (рахунок разом з місячними записами; див. purgeAccountPlan).
+// Категорії/підкатегорії — як і раніше ніколи.
+const TRASH_PURGEABLE_TYPES = ['expense', 'income', 'word', 'debtMonth', 'installmentMonth', 'card', 'installment'];
+function isAccountTrashType(type){ return type === 'card' || type === 'installment'; }
 function canPurge(item){
-  return !!item && TRASH_PURGEABLE_TYPES.indexOf(item.type) !== -1 && !!item.deletedAt && !item.deletedVia;
+  if(!item) return false;
+  if(isAccountTrashType(item.type)) return true; // приховані картка/ОЧ: запису-tombstone немає, видаляємо рахунок цілком
+  return TRASH_PURGEABLE_TYPES.indexOf(item.type) !== -1 && !!item.deletedAt && !item.deletedVia;
 }
 // purgeBlockedReason({offline, type}) — null, якщо можна; інакше причина для тосту.
 function purgeBlockedReason(opts){
@@ -13994,10 +14017,90 @@ function purgeBlockedReason(opts){
 }
 // Текст діалогу: "Кава · 74 ₴ · 30 вер. буде видалено назавжди. Це неможливо скасувати".
 function purgeConfirmText(item){
+  if(isAccountTrashType(item.type) && item.purgePlan) return purgeAccountConfirmText(item.purgePlan);
+  if(isMonthRecordType(item.type)){
+    const monthParts = [item.title, (item.type === 'installmentMonth' ? 'платіж' : 'борг') + (item.month ? ' за ' + (typeof monthLabel === 'function' ? monthLabel(item.month) : item.month) : '')];
+    if(item.amount != null) monthParts.push(fmt(item.amount));
+    return monthParts.join(' · ') + ' буде видалено назавжди. Це неможливо скасувати';
+  }
   const parts = [item.type === 'word' ? 'Слово «' + item.title + '»' : item.title];
   if(item.amount != null) parts.push(fmt(item.amount));
   if(item.recordDate) parts.push(formatTrashShortDate(item.recordDate));
   return parts.join(' · ') + ' буде видалено назавжди. Це неможливо скасувати';
+}
+// ===== Rev 2.32.4 (T2) — безповоротне видалення картки/ОЧ разом із місячними записами =====
+// Модель: tombstone рахунку живе в Cloud (bank_accounts/installment_accounts.deleted_at, серверна чистка через 30 днів); ЛОКАЛЬНО рахунок видаляється з масивів одразу
+// після успіху Cloud-кроків. Причина відхилення від «локальний deletedAt»: bankAccounts/installmentAccounts адресуються ІНДЕКСАМИ в ~200 місцях (openCardDebtEditor(i) тощо),
+// а tombstone-елемент у масиві зсував би або показувався б у списках/KPI/виборі. Журнал видалених id (purgedAccounts) не дає бекапу/імпорту відновити рахунок.
+// Порядок Cloud-кроків: борги → приховане → сам рахунок; збій на будь-якому кроці зупиняє видалення (локально нічого не змінено), повторний запуск ідемпотентний.
+// acct: { kind:'card'|'installment', name }; state: { debts, expenses, bankAccounts, installmentAccounts, hiddenFrom }.
+function purgeAccountPlan(acct, state){
+  const st = state || {};
+  const kind = acct && acct.kind === 'installment' ? 'installment' : 'card';
+  const name = acct ? acct.name : '';
+  const list = (kind === 'card' ? st.bankAccounts : st.installmentAccounts) || [];
+  const account = list.find(function(a){ return a && a.name === name; }) || null;
+  const debtIds = (st.debts || []).filter(function(d){ return d && d.kind === kind && d.name === name; }).map(function(d){ return d.id; });
+  const linked = kind === 'installment' ? (st.expenses || []).filter(function(e){ return e && e.linkedInstallment === name; }) : [];
+  const hiddenKey = Object.prototype.hasOwnProperty.call(st.hiddenFrom || {}, kind + ':' + name) ? kind + ':' + name : null;
+  return { exists: !!account, kind: kind, name: name, cloudId: (account && account.cloudId) || null, debtIds: debtIds, debtCount: debtIds.length,
+    linkedExpenseIds: linked.map(function(e){ return e.id; }), linkedCount: linked.length, hiddenKey: hiddenKey };
+}
+function purgeAccountConfirmText(plan){
+  const n = plan.debtCount;
+  const withDebts = n > 0 ? ' разом з ' + n + ' ' + ((n % 10 === 1 && n % 100 !== 11) ? 'місячним записом' : 'місячними записами') + ' боргів' : '';
+  let text = (plan.kind === 'installment' ? 'ОЧ' : 'Картка') + ' «' + plan.name + '»: буде видалено назавжди' + withDebts + '. Це неможливо скасувати.';
+  if(plan.kind === 'installment' && plan.linkedCount > 0){
+    const m = plan.linkedCount;
+    const one = m % 10 === 1 && m % 100 !== 11;
+    text += ' ' + m + ' ' + ((m % 10 >= 2 && m % 10 <= 4 && (m % 100 < 12 || m % 100 > 14)) ? 'витрати' : (one ? 'витрата' : 'витрат')) + ', прив\'язан' + (one ? 'а' : 'их') + ' до цієї ОЧ, ' + (one ? 'лишиться, але втратить' : 'лишаться, але втратять') + ' прив\'язку.';
+  }
+  return text;
+}
+// Локальне видалення рахунку зі стану (спільне для власного видалення й для pull tombstone-рядка): рахунок, його місячні записи, запис прихованого;
+// витрати, прив'язані до ОЧ, лишаються без поля linkedInstallment (суми не чіпаємо; stamp — ISO для updatedAt, щоб звичайний push відправив відв'язування).
+function removeAccountFromState(state, plan, stamp){
+  const list = plan.kind === 'card' ? state.bankAccounts : state.installmentAccounts;
+  const at = list.findIndex(function(a){ return a && a.name === plan.name; });
+  if(at !== -1) list.splice(at, 1);
+  let debtsRemoved = 0;
+  for(let i = state.debts.length - 1; i >= 0; i--){
+    const d = state.debts[i];
+    if(d && d.kind === plan.kind && d.name === plan.name){ state.debts.splice(i, 1); debtsRemoved++; }
+  }
+  if(plan.hiddenKey && state.hiddenFrom) delete state.hiddenFrom[plan.hiddenKey];
+  let unlinked = 0;
+  if(plan.kind === 'installment'){
+    (state.expenses || []).forEach(function(e){
+      if(e && e.linkedInstallment === plan.name){ delete e.linkedInstallment; if(stamp) e.updatedAt = stamp; unlinked++; }
+    });
+  }
+  return { debts: debtsRemoved, unlinkedExpenses: unlinked };
+}
+// Журнал видалених назавжди рахунків (локально, поза BACKUP_LS_KEYS): [{ kind, name, cloudId, debtIds, at }]. Бекап/імпорт не відновлюють такі рахунки й їхні місячні записи.
+const LS_KEY_PURGED_ACCOUNTS = 'budget_purged_accounts_v1';
+function filterPurgedAccounts(list, purged, kind){
+  const ids = {};
+  (purged || []).forEach(function(p){ if(p && p.kind === kind && p.cloudId) ids[p.cloudId] = true; });
+  return (list || []).filter(function(a){ return !(a && a.cloudId && ids[a.cloudId]); });
+}
+function filterPurgedDebts(list, purged){
+  const ids = {};
+  (purged || []).forEach(function(p){ (p && p.debtIds || []).forEach(function(id){ ids[id] = true; }); });
+  return (list || []).filter(function(d){ return !(d && ids[d.id]); });
+}
+function readPurgedAccounts(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(LS_KEY_PURGED_ACCOUNTS) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  }catch(e){ return []; }
+}
+function rememberPurgedAccount(plan){
+  try{
+    const list = readPurgedAccounts();
+    list.push({ kind: plan.kind, name: plan.name, cloudId: plan.cloudId || null, debtIds: plan.debtIds || [], at: new Date().toISOString() });
+    localStorage.setItem(LS_KEY_PURGED_ACCOUNTS, JSON.stringify(list.slice(-200)));
+  }catch(e){}
 }
 // trashTombstonesForReconcile(state) — локальні tombstone-и, які можна звірити з Cloud.
 // synced = колись синхронізовано: витрата/дохід — syncedUpdatedAt; слово — cloudId
@@ -18219,6 +18322,7 @@ function purgeTrashItem(key){
     captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
     return;
   }
+  if(isAccountTrashType(item.type)) item.purgePlan = purgeAccountPlan({ kind: item.type, name: item.title }, trashStateNow());
   showPurgeConfirm(item, function(){ runTrashPurge(item); });
 }
 async function runTrashPurge(item){
@@ -18228,6 +18332,7 @@ async function runTrashPurge(item){
     return;
   }
   let outcome = 'error', dups = 0;
+  if(isAccountTrashType(item.type)){ await runAccountPurge(item); return; } // Rev 2.32.4 (T2)
   try{
     if(item.type === 'word'){
       const d = DICTIONARY.find(function(x){ return x.id === item.id && x.deletedAt && !x.deletedVia; });
@@ -18242,13 +18347,14 @@ async function runTrashPurge(item){
         outcome = 'local'; // ніколи не синхронізувалось — лише локально
       }
     }else{
-      outcome = await purgeCloudRow(item.type === 'expense' ? 'expenses' : 'incomes', item.id);
+      // Rev 2.32.4 (T2): місячні записи боргів/ОЧ — той самий DELETE лише tombstone-рядка в таблиці debts
+      outcome = await purgeCloudRow(isMonthRecordType(item.type) ? 'debts' : item.type === 'expense' ? 'expenses' : 'incomes', item.id);
     }
   }catch(err){ outcome = 'error'; }
   if(outcome === 'alive'){
     showTrashToast('Запис відновлено на іншому пристрої — не видалено', 'error');
     captureDebugGeometry('trash-purge', { trashType: item.type, ok: false, dups: dups });
-    if(item.type === 'expense') pullExpensesPilot(); else if(item.type === 'income') pullIncomesPilot(); else pullDictionaryPilot();
+    if(item.type === 'expense') pullExpensesPilot(); else if(item.type === 'income') pullIncomesPilot(); else if(isMonthRecordType(item.type)) pullDebtsPilot(); else pullDictionaryPilot();
     return;
   }
   if(outcome === 'error'){
@@ -18257,9 +18363,55 @@ async function runTrashPurge(item){
     return;
   }
   await removeTrashLocally([item.key]);
+  if(isMonthRecordType(item.type) && debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'account-purge', kind: 'month-record', debts: 1, unlinkedExpenses: 0 });
   captureDebugGeometry('trash-purge', { trashType: item.type, ok: true, dups: dups });
   if(trashDetailKey === item.key) closeTrashDetail();
   showTrashToast(outcome === 'gone' ? 'Запис уже видалено назавжди' : 'Видалено назавжди', outcome === 'gone' ? 'error' : 'success');
+}
+// Rev 2.32.4 (T2) — видалення назавжди прихованої картки/ОЧ (див. коментар над purgeAccountPlan).
+async function runAccountPurge(item){
+  const plan = purgeAccountPlan({ kind: item.type, name: item.title }, trashStateNow());
+  if(!plan.exists){ showTrashToast('Не вдалося видалити: рахунок не знайдено', 'error'); renderTrashScreen(); return; }
+  const list = plan.kind === 'card' ? bankAccounts : installmentAccounts;
+  const acc = list.find(function(a){ return a.name === plan.name; });
+  const inCloud = !!plan.cloudId && !isTestSyncIgnored(acc);
+  if(inCloud){
+    try{
+      const client = getSupabaseClient();
+      const userId = cloudSession.user.id;
+      const now = new Date().toISOString();
+      const fk = plan.kind === 'card' ? 'bank_account_id' : 'installment_account_id';
+      const r1 = await client.from('debts').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('family_id', cloudFamilyId).eq(fk, plan.cloudId).is('deleted_at', null).select('id');
+      if(r1.error) throw r1.error;
+      const r2 = await client.from('hidden_entities').delete().eq('family_id', cloudFamilyId).eq('entity_type', plan.kind === 'card' ? 'bank' : 'installment').eq('entity_id', plan.cloudId).select('id');
+      if(r2.error) throw r2.error;
+      const r3 = await client.from(plan.kind === 'card' ? 'bank_accounts' : 'installment_accounts').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('id', plan.cloudId).eq('family_id', cloudFamilyId).select('id');
+      if(r3.error) throw r3.error;
+    }catch(err){
+      showTrashToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
+      captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
+      return;
+    }
+  }
+  const res = await applyAccountRemovalLocally(plan, true);
+  rememberPurgedAccount(plan);
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'account-purge', kind: plan.kind === 'card' ? 'bank' : 'installment', debts: res.debts, unlinkedExpenses: res.unlinkedExpenses });
+  captureDebugGeometry('trash-purge', { trashType: item.type, ok: true });
+  if(trashDetailKey === item.key) closeTrashDetail();
+  showTrashToast('Видалено назавжди', 'success');
+}
+// Локальне видалення рахунку (власне й з pull tombstone-рядка): стан → збереження → перемальовування; відв'язані витрати пушаться звичайним оновленням (push лише для власного видалення).
+async function applyAccountRemovalLocally(plan, pushUnlinked){
+  const stamp = pushUnlinked ? new Date().toISOString() : null;
+  const linked = pushUnlinked ? expenses.filter(function(e){ return e.linkedInstallment === plan.name; }) : [];
+  const res = removeAccountFromState({ debts: debts, expenses: expenses, bankAccounts: bankAccounts, installmentAccounts: installmentAccounts, hiddenFrom: hiddenFrom }, plan, stamp);
+  reportSaveResult(plan.kind === 'card' ? await saveBankAccountsLocal() : await saveInstallmentAccountsLocal());
+  reportSaveResult(await saveDebts());
+  reportSaveResult(await saveHiddenFromLocal());
+  if(res.unlinkedExpenses) reportSaveResult(await saveExpenses());
+  if(pushUnlinked) linked.forEach(function(e){ pushExpenseRecordPilot(e); });
+  populateMonths(); renderAll(); populateBankDebtTable(); populateInstallmentTable(); renderStructure();
+  return res;
 }
 function purgeTrashFromDetail(){
   if(trashDetailKey) purgeTrashItem(trashDetailKey);

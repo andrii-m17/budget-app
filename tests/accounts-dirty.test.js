@@ -28,6 +28,7 @@ function makeCloud(){
       eq(c, v){ st.f.push(function(r){ return r[c] === v; }); return api; },
       in(c, arr){ st.f.push(function(r){ return arr.indexOf(r[c]) !== -1; }); return api; },
       gte(c, v){ st.f.push(function(r){ return r[c] >= v; }); return api; },
+      is(c, v){ st.f.push(function(r){ return (r[c] == null ? null : r[c]) === v; }); return api; }, // Rev 2.32.4 (T2)
       order(){ return api; }, range(a, b){ st.range = [a, b]; return api; },
       single(){ return api; }, maybeSingle(){ st.maybe = true; return api; },
       then(res, rej){ return run().then(res, rej); },

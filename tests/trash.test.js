@@ -10,7 +10,7 @@ const { buildSandbox } = require('./extract');
 const ctx = buildSandbox({}, [
   'TRASH_HIDDEN_LEGACY_EPOCH', 'TRASH_MONTHS_SHORT',
   'trashSortKey', 'trashTabOf', 'isMonthRecordType', 'restoreBlockedReasonForMonthRecord', 'buildTrashItems', 'trashCount', 'filterTrashItems', 'restoreBlockedReason',
-  'TRASH_PURGEABLE_TYPES', 'canPurge', 'purgeBlockedReason', 'purgeConfirmText', 'trashTombstonesForReconcile', 'reconcilePlan', 'fmt',
+  'TRASH_PURGEABLE_TYPES', 'isAccountTrashType', 'isMonthRecordType', 'purgeAccountConfirmText', 'canPurge', 'purgeBlockedReason', 'purgeConfirmText', 'trashTombstonesForReconcile', 'reconcilePlan', 'fmt',
   'pluralUa', 'pluralizeRecords', 'trashCascadeNote', 'formatTrashShortDate', 'formatTrashDeletedAt',
 ]);
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -172,14 +172,19 @@ test('index.html: жодна top-level function не оголошена двіч
 });
 
 // ===== Rev 2.23.24 (6D.193, Ревізія E): "Видалити назавжди" і реконсиляція =====
-test('canPurge: лише витрати, доходи й слова-tombstone; категорії/підкатегорії/картки/ОЧ — ні', () => {
+test('canPurge: витрати, доходи, слова, місячні борги/ОЧ — лише tombstone-и; приховані картка/ОЧ — завжди; категорії/підкатегорії — ні', () => {
   assert.equal(ctx.canPurge({ type: 'expense', deletedAt: 'x' }), true);
   assert.equal(ctx.canPurge({ type: 'income', deletedAt: 'x' }), true);
   assert.equal(ctx.canPurge({ type: 'word', deletedAt: 'x' }), true);
-  ['category', 'subcategory', 'card', 'installment', 'debt'].forEach(function(t){
+  assert.equal(ctx.canPurge({ type: 'debtMonth', deletedAt: 'x' }), true);
+  assert.equal(ctx.canPurge({ type: 'installmentMonth', deletedAt: 'x' }), true);
+  assert.equal(ctx.canPurge({ type: 'card' }), true, 'прихована картка (запису-tombstone немає)');
+  assert.equal(ctx.canPurge({ type: 'installment' }), true);
+  ['category', 'subcategory', 'debt'].forEach(function(t){
     assert.equal(ctx.canPurge({ type: t, deletedAt: 'x' }), false, t);
   });
   assert.equal(ctx.canPurge({ type: 'expense' }), false, 'живий запис — не tombstone');
+  assert.equal(ctx.canPurge({ type: 'debtMonth' }), false, 'місячний запис без tombstone');
   assert.equal(ctx.canPurge({ type: 'word', deletedAt: 'x', deletedVia: 'category' }), false, 'каскадне слово — лише разом із категорією');
   assert.equal(ctx.canPurge(null), false);
 });
@@ -189,7 +194,9 @@ test('purgeBlockedReason: офлайн і непридатні типи забо
   assert.equal(ctx.purgeBlockedReason({ offline: false, type: 'word' }), null);
   assert.ok(ctx.purgeBlockedReason({ offline: true, type: 'expense' }));
   assert.ok(ctx.purgeBlockedReason({ offline: false, type: 'category' }));
-  assert.ok(ctx.purgeBlockedReason({ offline: false, type: 'card' }));
+  assert.equal(ctx.purgeBlockedReason({ offline: false, type: 'card' }), null, 'Rev 2.32.4 (T2): картка/ОЧ — можна онлайн');
+  assert.ok(ctx.purgeBlockedReason({ offline: true, type: 'card' }));
+  assert.ok(ctx.purgeBlockedReason({ offline: false, type: 'debt' }));
   assert.ok(ctx.purgeBlockedReason());
 });
 test('purgeConfirmText: "Кава · 74 ₴ · 30 вер. буде видалено назавжди. Це неможливо скасувати"', () => {
@@ -287,11 +294,11 @@ test('restoreBlockedReasonForMonthRecord: дубль живого запису �
   st.debts.push({ id: 'd8', kind: 'installment', name: 'ПУМБ Dyson', month: '2026-10', balance: 1, deletedAt: '2026-10-07T00:00:00Z' });
   assert.equal(ctx.restoreBlockedReason(inst, st), null, 'tombstone не конфліктує');
 });
-test('канPurge для місячних боргів/ОЧ немає (незворотного видалення для боргів, ОЧ і прихованих немає)', () => {
-  const ctx2 = require('./extract').buildSandbox({}, ['TRASH_PURGEABLE_TYPES', 'canPurge']);
-  assert.equal(ctx2.canPurge({ type: 'debtMonth', deletedAt: 'x' }), false);
-  assert.equal(ctx2.canPurge({ type: 'installmentMonth', deletedAt: 'x' }), false);
-  assert.equal(ctx2.canPurge({ type: 'card', deletedAt: 'x' }), false);
+test('Rev 2.32.4 (T2): місячні борги/ОЧ і приховані картка/ОЧ входять у TRASH_PURGEABLE_TYPES; purgeConfirmText для місячного запису', () => {
+  const ctx2 = require('./extract').buildSandbox({ fmt: function(n){ return n + ' ₴'; } }, ['TRASH_PURGEABLE_TYPES', 'canPurge', 'isAccountTrashType', 'isMonthRecordType', 'purgeConfirmText', 'purgeAccountConfirmText']);
+  assert.equal(ctx2.canPurge({ type: 'debtMonth', deletedAt: 'x' }), true);
+  assert.equal(ctx2.canPurge({ type: 'card' }), true);
+  assert.equal(ctx2.purgeConfirmText({ type: 'debtMonth', title: 'Моно Банк', month: '2026-10', amount: 500 }), 'Моно Банк · борг за 2026-10 · 500 ₴ буде видалено назавжди. Це неможливо скасувати');
 });
 test('trashTombstonesForReconcile: місячні борги/ОЧ звіряються з Cloud (привиди), каскадні слова — ні', () => {
   const ctx3 = require('./extract').buildSandbox({}, ['trashTombstonesForReconcile']);
