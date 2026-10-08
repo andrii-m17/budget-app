@@ -12351,3 +12351,22 @@ App-модалки (`show*Modal`: підтвердження видалення,
 `node --test` 855/855 (`tests/kb-env.test.js`: iPhone, Android, десктоп, iPad із трекпадом, сенсорний ноутбук; підключення). Preview десктоп: фокус на полі входу й полях шторок Доходу, Боргу, ОЧ — top картки до/після однаковий (282/282, 373/373, 153.5/153.5, 160/160), класів `kb-sheet` немає. Preview мобільна емуляція (coarse, `maxTouchPoints=5`): `kb-sheet`, `--sheet-lift 378` — як раніше.
 
 **⚠️ iPhone:** поведінка шторок без змін (`sheet-open`, `focus-proxy`, `native-switch`, `sheet-anim`); у логу з'явиться `kb-env` з `usesKeyboard:true`, `reason:"always:touch-only"`. Десктоп: вхід у хмару й шторки — картка не зсувається при фокусі.
+
+## 32.68. Rev 2.32.10 — C: «Структура» — картки введення на клавіатурну логіку шторок
+
+**Статус: ВИКОНАНО на коді; iPhone-перевірка (C1…C4, лог `structure-sheets`) — за користувачем.**
+
+### Крок 0
+1. **Картки:** категорія/підкатегорія/слово словника/банк-ОЧ — це НЕ окремі шторки, а центрована модалка `#app-modal` (`showCategoryModal`, `showSubcategoryModal`, `showDictionaryModal`, `showInstallmentModal`; поля `app-modal-input`, `app-modal-amount-input`, `select`-и), відкривається з «Структури»/«Обліку» через `presentAppModal`. Модалки підтвердження, вибору місяця, діагностики й «Зрозуміло» полів вводу не мають.
+2. **Клавіатурна логіка шторок «Обліку»:** прив'язана до `.drawer` (`closest('.drawer')` у `isFieldInsideDrawer`, `handleKeyboardFieldFocusIn`, `touchend`-перехоплення), CSS `html.kb-sheet .drawer.open` (transform = `--sheet-lift`), кеш/оцінка висоти, проміжне поле, `native-switch`, приховання курсора (`kb-sheet-moving`).
+3. **Порядок і типи полів:** назва (текстова QWERTY) → сума (`inputmode=numeric`, лише банк/ОЧ) → `select`-и; типи клавіатури визначає `keyboardKindForField` (без змін).
+
+### Що зроблено
+- Одна реєстрація хоста: `kbSheetHostOf(el)` = `closest('.drawer, .app-modal')`; `isFieldInsideDrawer` і вибір `drawerEl` користуються нею — без копіювання логіки. Усе, що діє для шторок (H2 проміжне поле, стрілки P, прихований курсор, `focus-proxy`, `native-switch`, `sheet-open/close`, `caret-hidden`), діє й для карток. Ідентифікатор картки для рекордера — `data-sheet-id` (`sheet-category`, `sheet-subcategory`, `sheet-dictionary`, `sheet-account`; ставить `presentAppModal({sheetId})`), у подіях — `drawerId` через `kbSheetLabel`.
+- CSS (лише під `html.kb-sheet`, тож без клавіатури вигляд не змінюється): `.app-modal.open` піднімається через `transform: translate3d(-50%, calc(-50% − --sheet-lift), 0)` з тими ж переходами (240/250/220 мс), `max-height` через `--sheet-max-h`, курсор прозорий під час руху.
+- Нових полів немає, `id` не змінювались (`KNOWN_TEXT_FIELD_IDS` без змін). Десктоп: нічого не застосовується (режим `never` із 2.32.9).
+
+### Перевірено
+`node --test` 860/860 (`tests/structure-sheets.test.js`; існуючі тести шторок зелені — у фейкових `closest` додано новий селектор). Preview, мобільна емуляція (coarse): категорія, підкатегорія, слово — `kb-sheet`, `--sheet-lift` 115/155, низ картки над оціненою клавіатурою, після blur клас знято й картка на місці; десктоп — `top` до/після однаковий, `kb-sheet` немає. Реальної клавіатури/логів `sheet-anim` у preview нема.
+
+**⚠️ iPhone:** «Структура» → додати/редагувати категорію, підкатегорію, слово (і банк/ОЧ): картка піднімається над клавіатурою без стрибка, стрілки між полями працюють, курсор не «їде»; записати діагностику зі сценарієм `structure-sheets` і написати «Надіслав». Перевірте також шторки «Обліку» (регресія) й що модалки підтвердження поводяться як раніше.

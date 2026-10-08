@@ -1582,6 +1582,11 @@
   html.kb-sheet-moving #income-drawer input, html.kb-sheet-moving #card-debt-drawer input, html.kb-sheet-moving #installment-drawer input,
   html.kb-sheet-moving #income-drawer textarea, html.kb-sheet-moving #card-debt-drawer textarea, html.kb-sheet-moving #installment-drawer textarea{ caret-color:transparent; } /* Rev 2.30.0 (M4b): !important прибрано — селектор з #id (1,2,2) вищий за будь-яке правило, inline caret-color на textarea немає */
   html.kb-sheet.kb-sheet-switching .drawer.open{ transition:transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  /* Rev 2.32.10 (C) — картки введення «Структури» (#app-modal з полями) — ті самі правила підйому, що шторки: transform = центрування (-50%,-50%) мінус --sheet-lift; вигляд без клавіатури не змінюється. */
+  html.kb-sheet .app-modal.open{ max-height:calc(var(--sheet-max-h, 80vh) - env(safe-area-inset-top, 0px)); transform:translate3d(-50%, calc(-50% - 1px * var(--sheet-lift, 0)), 0) scale(1); transition:transform 240ms cubic-bezier(0.22, 0.9, 0.3, 1); will-change:transform; }
+  html.kb-sheet.kb-sheet-closing .app-modal.open{ transition:transform 250ms cubic-bezier(0.25, 0.1, 0.25, 1); }
+  html.kb-sheet.kb-sheet-switching .app-modal.open{ transition:transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  html.kb-sheet-moving #app-modal input, html.kb-sheet-moving #app-modal textarea{ caret-color:transparent; }
   /* Rev #30 (6D.12) — рисочка-хендл для свайпу-донизу (як iOS bottom sheet):
      суто візуальний індикатор, драг-логіка навішується окремо в JS
      (initDrawerSwipeToDismiss) на цей самий елемент за класом. Від'ємний
@@ -3217,7 +3222,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.9</div>
+  <div class="version-footer">Money Tree · Rev 2.32.10</div>
 </div>
   </div>
 </div>
@@ -7518,7 +7523,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.9';
+const APP_VERSION = '2.32.10';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -19482,7 +19487,10 @@ function closeAppModal(){
 // за вміст усередині них (текст/опції/onclick — і далі в кожній функції
 // окремо) чи за поведінку кнопок (showAlertModal/showDiagnosticsModal
 // самі ховають/перейменовують кнопки — до цього helper не торкається).
-function presentAppModal({ input = false, amount = false, select = false, select2 = false } = {}){
+function presentAppModal({ input = false, amount = false, select = false, select2 = false, sheetId = null } = {}){
+  // Rev 2.32.10 (C): sheetId — ідентифікатор картки введення для клавіатурної логіки/рекордера (лише для карток з полями).
+  const modalEl = document.getElementById('app-modal');
+  if(sheetId) modalEl.setAttribute('data-sheet-id', sheetId); else modalEl.removeAttribute('data-sheet-id');
   document.getElementById('app-modal-input-wrap').style.display = input ? 'block' : 'none';
   document.getElementById('app-modal-amount-wrap').style.display = amount ? 'block' : 'none';
   document.getElementById('app-modal-select-wrap').style.display = select ? 'block' : 'none';
@@ -19551,7 +19559,7 @@ function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountL
     if(ok === false){ flashField('app-modal-input'); return; } // дублікат — завжди про назву
     closeAppModal();
   };
-  presentAppModal({ input: true, amount: true });
+  presentAppModal({ input: true, amount: true, sheetId: 'sheet-account' });
   setTimeout(()=>{ input.focus(); input.select(); }, 60);
 }
 // Rev 2.1.0 — модал видалення картки/ОЧ з вибором місяця "Приховати з...".
@@ -19599,7 +19607,7 @@ function showCategoryModal(title, defaultName, defaultType, onSave){
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  presentAppModal({ input: true, select: true });
+  presentAppModal({ input: true, select: true, sheetId: 'sheet-category' });
   setTimeout(()=>{ input.focus(); input.select(); }, 60);
 }
 // Rev 2.1.27 — модалка додавання/редагування підкатегорії: назва + категорія
@@ -19636,7 +19644,7 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  presentAppModal({ input: true, select: true, select2: true });
+  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-subcategory' });
   setTimeout(()=>{ input.focus(); input.select(); }, 60);
 }
 // Rev 2.1.28 — модалка додавання/редагування слова словника: ключове слово +
@@ -19674,7 +19682,7 @@ function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave){
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  presentAppModal({ input: true, select: true, select2: true });
+  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-dictionary' });
   setTimeout(()=>{ input.focus(); input.select(); }, 60);
 }
 function openAddDictionaryModal(){
@@ -19824,8 +19832,16 @@ function isKeyboardField(el){
 // — саме той механізм, що зламав 6D.172). Інлайн-поля "Витрати" лежать
 // ВСЕРЕДИНІ #main-col, не всередині .drawer — isFieldInsideDrawer() для
 // них false, лок не застосовується, поведінка ідентична до відкоту.
+// Rev 2.32.10 (C): «хост» клавіатурної логіки — шторка (.drawer) АБО картка введення в «Структурі» (#app-modal: категорія, підкатегорія, слово, банк/ОЧ); одна реєстрація, без копій логіки.
+function kbSheetHostOf(el){
+  return el && typeof el.closest === 'function' ? el.closest('.drawer, .app-modal') : null;
+}
+// Ідентифікатор картки для рекордера: data-sheet-id (картки #app-modal) або id шторки.
+function kbSheetLabel(hostEl){
+  return hostEl ? ((typeof hostEl.getAttribute === 'function' && hostEl.getAttribute('data-sheet-id')) || hostEl.id || null) : null;
+}
 function isFieldInsideDrawer(el){
-  return !!(el && typeof el.closest === 'function' && el.closest('.drawer'));
+  return !!kbSheetHostOf(el);
 }
 // Rev 2.23.7 (6D.176) — делегує до lockBackgroundScroll()/
 // unlockBackgroundScroll() (спільний лічильник openOverlayCount, тепер
@@ -20112,7 +20128,7 @@ function beginSheetMoving(drawerEl, phase, fromField, toField){
     // новіший рух сам зніме клас (не обриваємо приховування посеред нього)
     if(gen !== kbMovingGen) return;
     document.documentElement.classList.remove('kb-sheet-moving');
-    captureDebugGeometry('caret-hidden', { from: fromId, to: toId, ms: Math.round(performance.now() - t0), phase: phase, drawerId: drawerEl.id || null });
+    captureDebugGeometry('caret-hidden', { from: fromId, to: toId, ms: Math.round(performance.now() - t0), phase: phase, drawerId: kbSheetLabel(drawerEl) });
   }
   function onEnd(e){
     if(e.target === drawerEl && e.propertyName === 'transform') finish(true);
@@ -20217,7 +20233,7 @@ function observeNativeSwitch(fromField, toField){
   let maxOff = 0;
   let lastVvH = null;
   const dir = switchDirection(fromField, toField);
-  const drawerId = kbSheetDrawerEl ? (kbSheetDrawerEl.id || null) : null;
+  const drawerId = kbSheetDrawerEl ? kbSheetLabel(kbSheetDrawerEl) : null;
   function tick(now){
     if(vv){
       if(vv.offsetTop > maxOff) maxOff = vv.offsetTop;
@@ -20257,7 +20273,7 @@ function runProxySwitchTrick(field, drawerEl){
     focusWithoutScrollIfSupported(field, drawerEl.id);
   }catch(err){}
   kbRefocusing = false;
-  captureDebugGeometry('proxy-switch', { to: field.id || null, drawerId: drawerEl.id || null });
+  captureDebugGeometry('proxy-switch', { to: field.id || null, drawerId: kbSheetLabel(drawerEl) });
 }
 let kbProxyActive = false;
 let kbFocusFlowMode = 'direct'; // 'proxy' (iOS-перехоплення, проміжне поле) або 'direct' (нативний фокус) — читає й скидає enterKbSheet() для intercept-miss
@@ -20449,7 +20465,7 @@ function beginKbFocusProxy(target, drawerEl){
   kbProxyActive = true;
   kbFocusFlowMode = 'proxy';
   const startedAt = Date.now();
-  captureDebugGeometry('focus-proxy', { drawerId: drawerEl.id || null, proxyActive: true, proxyCaretColor: getComputedStyle(proxy).caretColor, proxyDistToField: proxyDist });
+  captureDebugGeometry('focus-proxy', { drawerId: kbSheetLabel(drawerEl), proxyActive: true, proxyCaretColor: getComputedStyle(proxy).caretColor, proxyDistToField: proxyDist });
   proxy.focus({ preventScroll: true });
 
   let settled = false;
@@ -20466,7 +20482,7 @@ function beginKbFocusProxy(target, drawerEl){
     kbLastInterceptAt = Date.now();
     focusWithoutScrollIfSupported(target, drawerEl.id);
     kbSwitchKind = null;
-    captureDebugGeometry(forced ? 'focus-transfer-forced' : 'focus-transfer', { ms: ms, drawerId: drawerEl.id || null, proxyActive: false, sheetBottomAtTransfer: Math.round(drawerEl.getBoundingClientRect().bottom), sheetFinalBottom: Math.round(kbSheetRestBottom - kbSheetCurrentLift) });
+    captureDebugGeometry(forced ? 'focus-transfer-forced' : 'focus-transfer', { ms: ms, drawerId: kbSheetLabel(drawerEl), proxyActive: false, sheetBottomAtTransfer: Math.round(drawerEl.getBoundingClientRect().bottom), sheetFinalBottom: Math.round(kbSheetRestBottom - kbSheetCurrentLift) });
   }
   function check(){
     if(settled) return true;
@@ -20593,12 +20609,12 @@ function enterKbSheet(drawerEl, fieldEl){
   if(drawerEl.style.willChange) drawerEl.style.willChange = '';
   document.documentElement.classList.remove('kb-sheet-closing');
   document.documentElement.classList.add('kb-sheet');
-  captureDebugGeometry('sheet-open', { drawerId: drawerEl.id || null });
+  captureDebugGeometry('sheet-open', { drawerId: kbSheetLabel(drawerEl) });
   // Rev 2.23.19 (6D.188) — підстраховка від нових "дірок": перше відкриття
   // пройшло НАТИВНО (direct) на iOS — фіксуємо, ЯКИЙ саме тап це був (тег/
   // id/класи/координати/мс від touchend). Жодних змін поведінки.
   if(kbFocusFlowMode === 'direct' && IS_IOS_RUNTIME && kbLastTap){
-    captureDebugGeometry('intercept-miss', { targetTag: kbLastTap.tag, targetId: kbLastTap.id, targetClasses: kbLastTap.classes, touchX: kbLastTap.x, touchY: kbLastTap.y, ms: Math.max(0, Date.now() - kbLastTap.endAt), drawerId: drawerEl.id || null });
+    captureDebugGeometry('intercept-miss', { targetTag: kbLastTap.tag, targetId: kbLastTap.id, targetClasses: kbLastTap.classes, touchX: kbLastTap.x, touchY: kbLastTap.y, ms: Math.max(0, Date.now() - kbLastTap.endAt), drawerId: kbSheetLabel(drawerEl) });
   }
   kbFocusFlowMode = 'direct';
   startSheetAnimSampler(drawerEl, 'open', naturalHeight);
@@ -20672,7 +20688,7 @@ function correctPanIfNeeded(){
 // напр. фокус перейшов на "Витрати", клавіатура лишається на екрані).
 function exitKbSheet(removeKbOpen){
   if(!kbSheetActive) return;
-  const drawerId = kbSheetDrawerEl ? (kbSheetDrawerEl.id || null) : null;
+  const drawerId = kbSheetDrawerEl ? kbSheetLabel(kbSheetDrawerEl) : null;
   const drawerEl = kbSheetDrawerEl;
   // kbSheetActive=false ОДРАЗУ — updateKbSheetGeometry() гардиться на цьому
   // ж прапорці (перший рядок), тож ЖОДЕН наступний vv-resize/scroll під час
@@ -20745,7 +20761,7 @@ function handleKeyboardFieldFocusIn(target){
   // перезаписує атрибут → MutationObserver рекордера пише
   // kb-open-class-changed на КОЖНОМУ перемиканні без зміни класу (L5).
   if(!document.body.classList.contains('kb-open')) document.body.classList.add('kb-open');
-  const drawerEl = isFieldInsideDrawer(target) ? target.closest('.drawer') : null;
+  const drawerEl = isFieldInsideDrawer(target) ? kbSheetHostOf(target) : null;
   // Rev 2.23.30 (6D.199) — запобіжник "поле з фокусом без клавіатури, таббар схований": kb-open ставиться на focusin БЕЗ
   // перевірки справжньої клавіатури (iOS не відкриває її без дотику, напр. програмний focus()). Через 700 мс, якщо
   // visualViewport не стиснувся (>100пт), kb-open знімається й таббар повертається. Поза шторками (їх керує окрема логіка).
@@ -20914,7 +20930,7 @@ document.addEventListener('touchend', function(e){
   const rawTarget = start.target;
   const target = resolveTapField(rawTarget);
   const viaLabel = !!target && rawTarget !== target && !!(rawTarget.closest && rawTarget.closest('label'));
-  const drawerEl = target && target.closest ? target.closest('.drawer') : null;
+  const drawerEl = kbSheetHostOf(target);
   const intercept = shouldInterceptFirstFocus({
     field: target,
     kbSheetOpen: kbSheetActive,
@@ -20941,12 +20957,12 @@ document.addEventListener('touchend', function(e){
       if(kindChanges){
         startSheetAnimSampler(drawerEl, 'switch', null, function(){ document.documentElement.classList.remove('kb-sheet-switching'); });
       }
-      if(viaLabel) captureDebugGeometry('intercept-via-label', { labelFor: target.id || null, switchKind: 'tap', drawerId: drawerEl.id || null });
-      captureDebugGeometry('switch-intercept', { from: active ? (active.id || null) : null, to: target.id || null, ms: Math.round(performance.now() - t0), switchKind: 'tap', drawerId: drawerEl.id || null });
+      if(viaLabel) captureDebugGeometry('intercept-via-label', { labelFor: target.id || null, switchKind: 'tap', drawerId: kbSheetLabel(drawerEl) });
+      captureDebugGeometry('switch-intercept', { from: active ? (active.id || null) : null, to: target.id || null, ms: Math.round(performance.now() - t0), switchKind: 'tap', drawerId: kbSheetLabel(drawerEl) });
     }
     return;
   }
-  if(viaLabel) captureDebugGeometry('intercept-via-label', { labelFor: target.id || null, drawerId: drawerEl.id || null });
+  if(viaLabel) captureDebugGeometry('intercept-via-label', { labelFor: target.id || null, drawerId: kbSheetLabel(drawerEl) });
   e.preventDefault();
   // Перший фокус (H2): проміжне поле → передача на першому vv-resize.
   startKbFramesSampler();

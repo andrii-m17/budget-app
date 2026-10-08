@@ -5383,7 +5383,7 @@ function kbSheetSandbox(opts){
     clearTimeout: function(){},
     performance: { now: function(){ return Date.now(); } },
   }, [
-    'isKeyboardField', 'isFieldInsideDrawer', 'keyboardKindForField',
+    'isKeyboardField', 'kbSheetHostOf', 'kbSheetLabel', 'isFieldInsideDrawer', 'keyboardKindForField',
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
     'viewportOrientationKey', 'nextBaseViewportHeight', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
@@ -5416,7 +5416,7 @@ function makeDrawerField(opts){
       return null;
     },
     hasAttribute: function(n){ return !!(opts.flags && opts.flags[n]); },
-    closest: function(sel){ return sel === '.drawer' && opts.inDrawer !== false ? drawerEl : null; },
+    closest: function(sel){ return (sel === '.drawer' || sel === '.drawer, .app-modal') && opts.inDrawer !== false ? drawerEl : null; },
     matches: function(sel){
       if(tagName === 'TEXTAREA') return sel.indexOf('textarea') !== -1;
       return sel.indexOf('input[type="' + type + '"]') !== -1;
