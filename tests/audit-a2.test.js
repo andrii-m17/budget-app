@@ -90,7 +90,7 @@ const amountCtx = buildSandbox({ noteAmountRejected: function(){} }, ['AMOUNT_MA
 // A2-13 виправлено в 2.32.23 (N): таблиця вводів — tests/amount.test.js
 
 // ---------- A2-12: каскади ----------
-test('A2-12: перейменування категорії оновлює updatedAt змінених витрат, щоб вони дійшли до Cloud', { todo: true }, function(){
+test('A2-12 (виправлено в 2.32.24): перейменування категорії оновлює updatedAt змінених витрат', function(){
   const m = SRC.match(/function editCategory\(i\)\{([\s\S]*?)\n\}/)[1];
-  assert.ok(/e\.updatedAt\s*=/.test(m), 'витрати з новою назвою категорії лишаються «синхронізованими» (syncedUpdatedAt === updatedAt) і не пушаться');
+  assert.ok(/renameRecordsStamp\(expenses, 'category'/.test(m));
 });

@@ -3251,7 +3251,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.23</div>
+  <div class="version-footer">Money Tree · Rev 2.32.24</div>
 </div>
   </div>
 </div>
@@ -7562,7 +7562,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.23';
+const APP_VERSION = '2.32.24';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14007,12 +14007,35 @@ function openAddCategoryModal(){
 // ретроактивного оновлення одна категорія розкололась би на дві різні
 // "стрічки" (стара+нова назва) в ТОП-5 і графіках, ламаючи місячні тренди
 // рівно в момент перейменування.
+// Rev 2.32.24 (R, A2-12) — перейменування категорії/підкатегорії і витрати на ВСІХ пристроях. Витрати зберігають категорію/підкатегорію ТЕКСТОМ; раніше перейменування міняло текст локально без оновлення updatedAt, тож витрати вважались «синхронізованими» і інший пристрій лишався зі старою назвою. Тепер змінені записи (включно з Корзиною) отримують новий updatedAt -> стають «не синхронізованими» -> автосинхронізація (2.32.21) відправляє їх. Перед перейменуванням — підтвердження «Буде оновлено N витрат» усередині того самого вікна (повторне «Зберегти»). Альтернатива (окреме друге вікно) вимагала б другого модального стану поверх клавіатурної логіки шторки.
+function renameRecordsStamp(list, field, oldName, nowISO){
+  let n = 0;
+  (list || []).forEach(function(r){ if(r && r[field] === oldName){ r.updatedAt = nowISO; n++; } });
+  return n;
+}
+function countActiveWithName(list, field, name){
+  return (list || []).filter(function(r){ return r && r[field] === name && !r.deletedAt; }).length;
+}
+function renameConfirmText(n){ return 'Буде оновлено ' + n + ' ' + expenseCountWord(n) + ' на всіх пристроях. Натисніть «Зберегти» ще раз, щоб підтвердити.'; }
+async function afterRenameSync(count){
+  if(!count) return;
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'category-rename', records: count });
+  const r = await autoSyncStale('rename');
+  if(r && r.pushed && !r.failed) showTrashToast('Оновлено ' + count + ' ' + expenseCountWord(count) + ' на всіх пристроях', 'success');
+  else if(!r || r.failed) showTrashToast('Перейменовано. ' + count + ' ' + expenseCountWord(count) + ' надішлемо, щойно з\'явиться зв\'язок', 'success');
+}
 function editCategory(i){
   const cat = CATEGORIES[i];
+  let renameAsked = null; // Rev 2.32.24 (R): підтвердження кількості витрат (повторне «Зберегти»)
+  let renamedCount = 0;
   showCategoryModal('Редагувати категорію:', cat.name, cat.type, async function(newName, newType){
     if(newName !== cat.name && CATEGORIES.some(c=>c.name===newName)) return false;
     const oldName = cat.name;
     if(newName !== oldName){
+      const activeN = countActiveWithName(expenses, 'category', oldName);
+      if(activeN > 0 && renameAsked !== newName){ renameAsked = newName; document.getElementById('app-modal-text').textContent = renameConfirmText(activeN); return false; }
+      const stampNow = new Date().toISOString();
+      renamedCount = renameRecordsStamp(expenses, 'category', oldName, stampNow);
       expenses.forEach(function(e){ if(e.category===oldName) e.category = newName; });
       reportSaveResult(await saveExpenses());
       SUBCATEGORIES.forEach(function(s){ if(s.category===oldName) s.category = newName; });
@@ -14028,6 +14051,7 @@ function editCategory(i){
     cat.updatedAt = new Date().toISOString();
     reportSaveResult(await saveCategories());
     populateMonths(); renderAll(); renderStructure(); populateCategorySelect();
+    afterRenameSync(renamedCount); // Rev 2.32.24 (R)
   });
 }
 // Rev 2.1.26 — видалення категорії: SOFT-delete (active:false), а не фізичне
@@ -14113,10 +14137,15 @@ function openAddSubcategoryModal(){
 function editSubcategory(i){
   const sub = SUBCATEGORIES[i];
   const currentPriority = SUBCATEGORY_PRIORITY[sub.name] ? SUBCATEGORY_PRIORITY[sub.name].label : 'Середній';
+  let renameAsked = null; // Rev 2.32.24 (R)
+  let renamedCount = 0;
   showSubcategoryModal('Редагувати підкатегорію:', sub.name, sub.category, currentPriority, async function(newName, newCategory, priorityLabel){
     if(newName !== sub.name && SUBCATEGORIES.some(s=>s.name===newName)) return false;
     const oldName = sub.name;
     if(newName !== oldName){
+      const activeN = countActiveWithName(expenses, 'subcategory', oldName);
+      if(activeN > 0 && renameAsked !== newName){ renameAsked = newName; document.getElementById('app-modal-text').textContent = renameConfirmText(activeN); return false; }
+      renamedCount = renameRecordsStamp(expenses, 'subcategory', oldName, new Date().toISOString());
       expenses.forEach(function(e){ if(e.subcategory===oldName) e.subcategory = newName; });
       reportSaveResult(await saveExpenses());
       DICTIONARY.forEach(function(d){ if(d.sub===oldName) d.sub = newName; });
@@ -14133,6 +14162,7 @@ function editSubcategory(i){
     reportSaveResult(await saveSubcategories());
     reportSaveResult(await saveSubcategoryPriority());
     populateMonths(); renderAll(); renderStructure();
+    afterRenameSync(renamedCount); // Rev 2.32.24 (R)
   });
 }
 // Rev 2.1.27 — видалення підкатегорії: м'яке (active:false), історичні записи
