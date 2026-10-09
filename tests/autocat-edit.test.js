@@ -25,9 +25,9 @@ test('shouldAutoFillOnEdit: збіг + відмінні cat/sub + не чіпа�
 });
 
 test('автовизначення лише на ВВЕДЕННЯ в полі назви: oninput на edtfielda1-<id>; при відкритті/рендері панелі категорія не змінюється', () => {
-  assert.match(SRC, /id="edtfielda1-\$\{e\.id\}"\$\{editNameAriaAttr\(\)\} value="\$\{escapeAttr\(e\.name\)\}" oninput="onRecordNameInput\('\$\{e\.id\}'\)"/);
+  assert.match(SRC, /id="edtfielda1-\$\{safeId\(e\.id\)\}"\$\{editNameAriaAttr\(\)\} value="\$\{escapeAttr\(e\.name\)\}" oninput="onRecordNameInput\('\$\{safeId\(e\.id\)\}'\)"/);
   const render = SRC.slice(SRC.indexOf('const editPanelHtml = isEditing'), SRC.indexOf('// Rev #30 (6D.123) — свайп-дії'));
-  assert.ok(!/onRecordNameInput\(|autocategorize\(/.test(render.replace(/oninput="onRecordNameInput\('\$\{e\.id\}'\)"/, '')), 'рендер панелі не викликає автовизначення');
+  assert.ok(!/onRecordNameInput\(|autocategorize\(/.test(render.replace(/oninput="onRecordNameInput\('\$\{safeId\(e\.id\)\}'\)"/, '')), 'рендер панелі не викликає автовизначення');
   const start = SRC.slice(SRC.indexOf('function startEditRecord'), SRC.indexOf('function cancelEditRecord'));
   assert.ok(!/autocategorize|onRecordNameInput/.test(start), 'відкриття редагування не чіпає категорію');
 });
@@ -45,7 +45,7 @@ test('те саме autocategorize, що й у новій витраті; пра
 
 test('ручна зміна категорії/підкатегорії в сесії редагування блокує перезапис; нова сесія скидає прапорець', () => {
   assert.match(SRC, /subSel\.innerHTML = subcategoryOptionsHtml\(catSel\.value, ''\);\n  markRecordEditTouched\(id\);/);
-  assert.match(SRC, /onchange="onRecordSubcategoryChange\('\$\{e\.id\}'\)"/);
+  assert.match(SRC, /onchange="onRecordSubcategoryChange\('\$\{safeId\(e\.id\)\}'\)"/);
   assert.match(EDIT, /function onRecordSubcategoryChange\(id\)\{ markRecordEditTouched\(id\); \}/);
   assert.match(EDIT, /touchedByUser: recordEditSession\.touched/);
   assert.match(SRC, /editingRecordKey = closing \? null : key;\n  recordEditSession = \{ id: null, touched: false \};/); // Rev 2.32.2 (E1): beginEditRecord
@@ -61,7 +61,7 @@ test('відсутність збігу нічого не стирає (лише
 });
 
 test('підказка «Знайдено автоматично» + «Змінити»; id без підрядка name; подія autocat-edit (matched, applied, skipped) без назв і сум', () => {
-  assert.match(SRC, /<div class="field auto-hint" id="edthinta1-\$\{e\.id\}"><span id="edthintb1-\$\{e\.id\}"><\/span><button type="button" class="auto-hint-edit-btn" onclick="focusRecordCategory\('\$\{e\.id\}'\)">Змінити<\/button><\/div>/);
+  assert.match(SRC, /<div class="field auto-hint" id="edthinta1-\$\{safeId\(e\.id\)\}"><span id="edthintb1-\$\{safeId\(e\.id\)\}"><\/span><button type="button" class="auto-hint-edit-btn" onclick="focusRecordCategory\('\$\{safeId\(e\.id\)\}'\)">Змінити<\/button><\/div>/);
   assert.match(EDIT, /type: 'autocat-edit', matched: !!match, applied: decision\.apply, skipped: decision\.skipped/);
   ['matched', 'applied'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
   assert.ok(!/edthinta1.*name|edthintb1.*name/.test('edthinta1 edthintb1'));

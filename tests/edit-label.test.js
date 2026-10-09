@@ -19,7 +19,7 @@ test('розкладка однакова: .fld-label-like має ті самі 
 });
 test('id поля чистий; input-focus-audit лишає fieldLabelFor, без labelVariant', () => {
   const i = SRC.indexOf('const editPanelHtml = isEditing'), code = SRC.slice(i, i + 900);
-  assert.match(code, /id="edtfielda1-\$\{e\.id\}"\$\{editNameAriaAttr\(\)\}/);
+  assert.match(code, /id="edtfielda1-\$\{safeId\(e\.id\)\}"\$\{editNameAriaAttr\(\)\}/);
   assert.match(SRC, /fieldLabelFor: !!\(t\.id && document\.querySelector\('label\[for=/);
   assert.match(SRC, /DEBUG_EVENT_ALLOWLIST = \[[\s\S]*'fieldLabelFor'/);
 });

@@ -29,10 +29,10 @@ test('форма «Нова витрата» користується тією �
   assert.match(SRC, /function updateEditNameSuggestions[\s\S]*?nameSuggestionsFor\(nameHistoryMap, input\.value\)/);
 });
 test('підказки в редагуванні: список під полем (на введенні, не на фокусі), абстрактні id, власний max-height', () => {
-  assert.match(SRC, /id="edtlista1-\$\{e\.id\}"/);
+  assert.match(SRC, /id="edtlista1-\$\{safeId\(e\.id\)\}"/);
   assert.match(SRC, /\.name-suggest-list\.edit-suggest-list\{ max-height:150px;/);
   assert.match(SRC, /updateEditNameSuggestions\(id\); \/\/ Rev 2\.32\.3 \(E2\)/);
-  const edt = SRC.slice(SRC.indexOf('id="edtfielda1-${e.id}"'), SRC.indexOf('id="edtfielda1-${e.id}"') + 400);
+  const edt = SRC.slice(SRC.indexOf('id="edtfielda1-${safeId(e.id)}"'), SRC.indexOf('id="edtfielda1-${safeId(e.id)}"') + 400);
   assert.ok(!/onfocus=/.test(edt), 'на фокусі список не відкривається');
   ['edtlista1', 'edtfielda1'].forEach(id => assert.ok(!/name|phone|tel|mail|addr|user|login|first|last|fio|contact/i.test(id), id));
 });

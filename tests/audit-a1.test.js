@@ -59,7 +59,7 @@ const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 }
 
 // ---------- A1-5: екранування тексту (XSS) ----------
-test('A1-5: імена категорій/підкатегорій/слів вставляються в innerHTML без екранування', { todo: true }, function(){
+test('A1-5 (виправлено в 2.32.19): імена категорій/підкатегорій/слів вставляються в innerHTML лише екранованими', function(){
   const unescaped = [
     '<span class="s-name">${c.name}</span>',
     '<span class="kw-tag">${d.kw}</span>',

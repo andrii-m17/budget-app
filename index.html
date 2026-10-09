@@ -3251,7 +3251,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.18</div>
+  <div class="version-footer">Money Tree · Rev 2.32.19</div>
 </div>
   </div>
 </div>
@@ -7554,7 +7554,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.18';
+const APP_VERSION = '2.32.19';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10283,6 +10283,7 @@ function startDebugRecording(scenario){
   if(typeof recordUiAudit === 'function') recordUiAudit(); // Rev 2.26.0 (M3): ui-audit — лише кількості
   if(typeof recordInputAttrsAudit === 'function') recordInputAttrsAudit(); // Rev 2.28.1 (C): input-attrs-audit
   if(typeof recordKbEnv === 'function') recordKbEnv(); // Rev 2.32.9 (B): kb-env
+  if(typeof XSS_AUDITED_SITES === 'number') pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'xss-audit', sites: XSS_AUDITED_SITES }); // Rev 2.32.19 (X): лише кількість місць, значень немає
   debugRecordingTimerInterval = setInterval(updateDebugRecordButtonUI, 1000);
   debugRecordingAutoStopTimer = setTimeout(function(){ stopDebugRecording(); }, DEBUG_RECORDING_AUTO_STOP_MS);
   updateDebugRecordButtonUI();
@@ -10729,12 +10730,12 @@ function revealCategoryFields(){
 }
 function populateCategorySelect(){
   const sel = document.getElementById('f-category');
-  sel.innerHTML = '<option value="">— не визначено —</option>' + CATEGORIES.filter(c=>c.active).map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
+  sel.innerHTML = '<option value="">— не визначено —</option>' + CATEGORIES.filter(c=>c.active).map(c=>`<option value="${escapeAttr(c.name)}">${escapeHtml(c.name)}</option>`).join('');
 }
 function populateSubcategorySelect(forCategory){
   const sel = document.getElementById('f-subcategory');
   const subs = SUBCATEGORIES.filter(s=>s.active && s.category===forCategory).map(s=>s.name);
-  sel.innerHTML = '<option value="">—</option>' + subs.map(s=>`<option value="${s}">${s}</option>`).join('');
+  sel.innerHTML = '<option value="">—</option>' + subs.map(s=>`<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join('');
 }
 function setCategorySelect(cat, manual){
   const sel = document.getElementById('f-category');
@@ -12163,8 +12164,8 @@ function renderStructure(){
   const activeCats = CATEGORIES.map((c,i)=>Object.assign({idx:i}, c)).filter(c=>c.active);
   catEl.innerHTML = activeCats.length ? activeCats.map(c=>`
     <div class="struct-item">
-      <span class="s-name">${c.name}</span>
-      <span class="badge ${roleClass(c.type)}">${c.type}</span>
+      <span class="s-name">${escapeHtml(c.name)}</span>
+      <span class="badge ${roleClass(c.type)}">${escapeHtml(c.type)}</span>
       <span class="bdr-actions">
         <button type="button" class="bdr-icon-btn" onclick="editCategory(${c.idx})" aria-label="Редагувати категорію"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
         <button type="button" class="bdr-icon-btn danger" onclick="deleteCategory(${c.idx})" aria-label="Видалити категорію"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -12176,7 +12177,7 @@ function renderStructure(){
   const activeSubs = SUBCATEGORIES.map((s,i)=>Object.assign({idx:i}, s)).filter(s=>s.active);
   subEl.innerHTML = activeSubs.length ? activeSubs.map(s=>`
     <div class="struct-item">
-      <span class="s-name">${s.name}<span class="s-parent">→ ${s.category}</span></span>
+      <span class="s-name">${escapeHtml(s.name)}<span class="s-parent">→ ${escapeHtml(s.category)}</span></span>
       <span class="bdr-actions">
         <button type="button" class="bdr-icon-btn" onclick="editSubcategory(${s.idx})" aria-label="Редагувати підкатегорію"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
         <button type="button" class="bdr-icon-btn danger" onclick="deleteSubcategory(${s.idx})" aria-label="Видалити підкатегорію"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -12202,11 +12203,11 @@ function renderStructure(){
     .sort(compareDictionaryForDisplay);
   dictEl.innerHTML = visibleDictionary.length ? visibleDictionary.map((d)=>`
     <div class="kw-row">
-      <span class="kw-tag">${d.kw}</span>
-      <span class="kw-target">${d.sub || d.cat}</span>
+      <span class="kw-tag">${escapeHtml(d.kw)}</span>
+      <span class="kw-target">${escapeHtml(d.sub || d.cat)}</span>
       <span class="bdr-actions">
-        <button type="button" class="bdr-icon-btn" onclick="editDictionaryEntry('${d.id}')" aria-label="Редагувати слово"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
-        <button type="button" class="bdr-icon-btn danger" onclick="deleteDictionaryEntry('${d.id}')" aria-label="Видалити слово"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button type="button" class="bdr-icon-btn" onclick="editDictionaryEntry('${safeId(d.id)}')" aria-label="Редагувати слово"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+        <button type="button" class="bdr-icon-btn danger" onclick="deleteDictionaryEntry('${safeId(d.id)}')" aria-label="Видалити слово"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </span>
     </div>
   `).join('') : `<div class="empty-hint">Словник порожній</div>`;
@@ -12881,7 +12882,7 @@ function shiftMonth(key, delta){
 }
 function populateMonths(){
   const months = allMonths();
-  const opts = months.map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join('');
+  const opts = months.map(m=>`<option value="${escapeAttr(m)}">${escapeHtml(monthLabel(m))}</option>`).join('');
   const todayKey = monthKey(localDateISO());
   if(!selectedMonth || !months.includes(selectedMonth)) selectedMonth = months.includes(todayKey) ? todayKey : months[months.length-1];
   ['month-select-side','month-select-top'].forEach(id=>{
@@ -13705,11 +13706,11 @@ async function saveRecordEdit(id){
 // редагування старого запису мовчки обнулило б категорію.
 function categoryOptionsHtml(selectedCat){
   const cats = CATEGORIES.filter(c=>c.active || c.name===selectedCat);
-  return '<option value="">— не визначено —</option>' + cats.map(c=>`<option value="${c.name}"${c.name===selectedCat?' selected':''}>${c.name}${!c.active?' (видалено)':''}</option>`).join('');
+  return '<option value="">— не визначено —</option>' + cats.map(c=>`<option value="${escapeAttr(c.name)}"${c.name===selectedCat?' selected':''}>${escapeHtml(c.name)}${!c.active?' (видалено)':''}</option>`).join('');
 }
 function subcategoryOptionsHtml(forCategory, selectedSub){
   const subs = SUBCATEGORIES.filter(s=>s.category===forCategory && (s.active || s.name===selectedSub));
-  return '<option value="">—</option>' + subs.map(s=>`<option value="${s.name}"${s.name===selectedSub?' selected':''}>${s.name}${!s.active?' (видалено)':''}</option>`).join('');
+  return '<option value="">—</option>' + subs.map(s=>`<option value="${escapeAttr(s.name)}"${s.name===selectedSub?' selected':''}>${escapeHtml(s.name)}${!s.active?' (видалено)':''}</option>`).join('');
 }
 // Rev 2.20.3 — той самий принцип, що categoryOptionsHtml/subcategoryOptionsHtml
 // вище: список ОЧ + "без прив'язки" першим пунктом.
@@ -14458,24 +14459,24 @@ function buildRecordGroupsHtml(items){
         ? `<span class="sync-badge-icon done" title="Синхронізовано з хмари" aria-label="Синхронізовано з хмари">${SYNC_DONE_ICON_SVG}</span>`
         : '';
       const editPencilHtml = (isSelected && !isIncome)
-        ? `<button type="button" class="exp-edit-cat" onclick="event.stopPropagation(); startEditRecord('${e.kind}','${e.id}')" aria-label="Редагувати запис"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>`
+        ? `<button type="button" class="exp-edit-cat" onclick="event.stopPropagation(); startEditRecord('${e.kind}','${safeId(e.id)}')" aria-label="Редагувати запис"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>`
         : '';
       const editPanelHtml = isEditing ? `
         <div class="record-edit-panel" onclick="event.stopPropagation()">
           <div class="field">${editNameLabelHtml(e.id)}
             <div style="position:relative;">
-              <input type="text" id="edtfielda1-${e.id}"${editNameAriaAttr()} value="${escapeAttr(e.name)}" oninput="onRecordNameInput('${e.id}')" onblur="setTimeout(function(){ hideEditNameSuggestions('${e.id}'); }, 150)" onkeydown="onEditNameKeydown(event, '${e.id}')">
+              <input type="text" id="edtfielda1-${safeId(e.id)}"${editNameAriaAttr()} value="${escapeAttr(e.name)}" oninput="onRecordNameInput('${safeId(e.id)}')" onblur="setTimeout(function(){ hideEditNameSuggestions('${safeId(e.id)}'); }, 150)" onkeydown="onEditNameKeydown(event, '${safeId(e.id)}')">
               <!-- Rev 2.32.3 (E2): підказки назви в редагуванні (ті самі правила, що й у «Новій витраті»); id абстрактний (edtlista1), без заборонених підрядків -->
-              <div class="name-suggest-list edit-suggest-list" id="edtlista1-${e.id}"></div>
+              <div class="name-suggest-list edit-suggest-list" id="edtlista1-${safeId(e.id)}"></div>
             </div></div>
           <div class="record-edit-row">
-            <div class="field"><label for="edit-amount-${e.id}">Сума, ₴</label><input type="text" id="edit-amount-${e.id}" value="${formatThousands(e.amount)}" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
-            <div class="field"><label for="edit-date-${e.id}">Дата</label><input type="date" id="edit-date-${e.id}" value="${e.date}"></div>
+            <div class="field"><label for="edit-amount-${safeId(e.id)}">Сума, ₴</label><input type="text" id="edit-amount-${safeId(e.id)}" value="${formatThousands(e.amount)}" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
+            <div class="field"><label for="edit-date-${safeId(e.id)}">Дата</label><input type="date" id="edit-date-${safeId(e.id)}" value="${e.date}"></div>
           </div>
-          <select id="edit-cat-${e.id}" aria-label="Категорія" onchange="onRecordCategoryChange('${e.id}')">${categoryOptionsHtml(e.category)}</select>
-          <select id="edit-sub-${e.id}" aria-label="Підкатегорія" onchange="onRecordSubcategoryChange('${e.id}')">${subcategoryOptionsHtml(e.category, e.subcategory)}</select>
+          <select id="edit-cat-${safeId(e.id)}" aria-label="Категорія" onchange="onRecordCategoryChange('${safeId(e.id)}')">${categoryOptionsHtml(e.category)}</select>
+          <select id="edit-sub-${safeId(e.id)}" aria-label="Підкатегорія" onchange="onRecordSubcategoryChange('${safeId(e.id)}')">${subcategoryOptionsHtml(e.category, e.subcategory)}</select>
           <!-- Rev 2.31.2 (A) — підказка "Знайдено автоматично" при автопідстановці категорії/підкатегорії зі словника під час редагування назви (той самий вигляд, що в новій витраті); id без підрядка "name". -->
-          <div class="field auto-hint" id="edthinta1-${e.id}"><span id="edthintb1-${e.id}"></span><button type="button" class="auto-hint-edit-btn" onclick="focusRecordCategory('${e.id}')">Змінити</button></div>
+          <div class="field auto-hint" id="edthinta1-${safeId(e.id)}"><span id="edthintb1-${safeId(e.id)}"></span><button type="button" class="auto-hint-edit-btn" onclick="focusRecordCategory('${safeId(e.id)}')">Змінити</button></div>
           <!-- Rev 2.20.3 — раніше прив'язку витрата↔ОЧ можна було встановити
                ЛИШЕ при СТВОРЕННІ витрати (методи B/C, FINANCIAL_RULES §5) —
                для вже існуючого запису виправити помилкову/відсутню прив'язку
@@ -14485,10 +14486,10 @@ function buildRecordGroupsHtml(items){
                форми "Нова витрата" — тут це свідомий ручний вибір, а не
                автозбіг за текстом). Порожній value = зняти прив'язку. Не
                показуємо select узагалі, якщо жодної ОЧ ще не створено. -->
-          ${installmentAccounts.length ? `<select id="edit-installment-${e.id}" aria-label="Прив'язка до ОЧ">${installmentLinkOptionsHtml(e.linkedInstallment, monthKey(e.date))}</select>` : ''}
+          ${installmentAccounts.length ? `<select id="edit-installment-${safeId(e.id)}" aria-label="Прив'язка до ОЧ">${installmentLinkOptionsHtml(e.linkedInstallment, monthKey(e.date))}</select>` : ''}
           <div class="record-edit-actions">
             <button type="button" class="rce-cancel" onclick="cancelEditRecord()">Скасувати</button>
-            <button type="button" class="rce-save" onclick="saveRecordEdit('${e.id}')">Зберегти</button>
+            <button type="button" class="rce-save" onclick="saveRecordEdit('${safeId(e.id)}')">Зберегти</button>
           </div>
         </div>` : '';
       // Rev #30 (6D.123) — свайп-дії: .expense-row-actions лежить ПІД рядком
@@ -14499,23 +14500,23 @@ function buildRecordGroupsHtml(items){
       // edit-btn лише для витрат (startEditRecord сам ігнорує incomes), як і
       // пенсил-кнопка isSelected вище (не дублюємо цю умову новою логікою).
       const swipeEditBtnHtml = !isIncome
-        ? `<button type="button" class="swipe-edit-btn" onclick="event.stopPropagation(); closeSwipeActions(); startEditRecord('${e.kind}','${e.id}')" aria-label="Редагувати"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>`
+        ? `<button type="button" class="swipe-edit-btn" onclick="event.stopPropagation(); closeSwipeActions(); startEditRecord('${e.kind}','${safeId(e.id)}')" aria-label="Редагувати"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>`
         : '';
       return `
         <div class="expense-row-swipe">
           <div class="expense-row-actions">
             ${swipeEditBtnHtml}
-            <button type="button" class="swipe-delete-btn" onclick="event.stopPropagation(); closeSwipeActions(); confirmDeleteRecord('${e.kind}','${e.id}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
+            <button type="button" class="swipe-delete-btn" onclick="event.stopPropagation(); closeSwipeActions(); confirmDeleteRecord('${e.kind}','${safeId(e.id)}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
           </div>
-          <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}" onclick="onExpenseRowTap(event,'${e.kind}','${e.id}')"${authorStyle}>
+          <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}" onclick="onExpenseRowTap(event,'${e.kind}','${safeId(e.id)}')"${authorStyle}>
             <div class="exp-row-top">
               <div class="exp-main">
                 <div class="exp-name">${escapeHtml(e.name)}</div>
-                <div class="exp-meta"><span class="${chipClass}">${chipText}</span>${editedBadgeHtml}${justPulledBadgeHtml}</div>
+                <div class="exp-meta"><span class="${chipClass}">${escapeHtml(chipText)}</span>${editedBadgeHtml}${justPulledBadgeHtml}</div>
               </div>
               <div class="${amountClass}">${sign}${fmt(e.amount)}</div>
               ${editPencilHtml}
-              <button type="button" class="exp-del" onclick="event.stopPropagation(); confirmDeleteRecord('${e.kind}','${e.id}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+              <button type="button" class="exp-del" onclick="event.stopPropagation(); confirmDeleteRecord('${e.kind}','${safeId(e.id)}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
             </div>
             ${editPanelHtml}
           </div>
@@ -16177,7 +16178,7 @@ function renderDashboard(){
       ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
       : top5.map(function(pair){ var name=pair[0], sum=pair[1]; return `
         <div class="t-row t-row-2col">
-          <span class="t-name">${name}</span>
+          <span class="t-name">${escapeHtml(name)}</span>
           <span class="t-amt">${fmt(sum)}</span>
         </div>`; }).join('')) +
       (restCat>0 ? `<div class="t-row t-row-2col summary"><span class="t-name">Інші категорії</span><span class="t-amt">${fmt(restCat)}</span></div>` : ''),
@@ -16191,7 +16192,7 @@ function renderDashboard(){
       ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
       : allCatSorted.map(function(pair){ var name=pair[0], sum=pair[1]; return `
         <div class="t-row">
-          <span class="t-name">${name}</span>
+          <span class="t-name">${escapeHtml(name)}</span>
           <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(sum/maxCatAll*100).toFixed(0)}%; background:var(--color-warning);"></div></div></span>
           <span class="t-amt">${fmt(sum)}</span>
           <span class="t-pct">${totalIncome>0 ? ((sum/totalIncome)*100).toFixed(1)+'%' : '—'}</span>
@@ -16218,7 +16219,7 @@ function renderDashboard(){
       ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
       : collapsedSub.map(function(pair){ var name=pair[0], sum=pair[1]; return `
         <div class="t-row t-row-2col">
-          <span class="t-name">${name}</span>
+          <span class="t-name">${escapeHtml(name)}</span>
           <span class="t-amt">${fmt(sum)}</span>
         </div>`; }).join('')) +
       (collapsedRestSub>0 ? `<div class="t-row t-row-2col summary"><span class="t-name">Інші підкатегорії</span><span class="t-amt">${fmt(collapsedRestSub)}</span></div>` : ''),
@@ -16228,7 +16229,7 @@ function renderDashboard(){
       ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
       : top10.map(function(pair){ var name=pair[0], sum=pair[1]; return `
         <div class="t-row">
-          <span class="t-name">${name}</span>
+          <span class="t-name">${escapeHtml(name)}</span>
           <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(sum/max10*100).toFixed(0)}%; background:var(--color-info);"></div></div></span>
           <span class="t-amt">${fmt(sum)}</span>
           <span class="t-pct">${totalIncome>0 ? ((sum/totalIncome)*100).toFixed(1)+'%' : '—'}</span>
@@ -16253,7 +16254,7 @@ function renderDashboard(){
       ? `<div class="empty-hint">Немає підкатегорій для аналізу цього місяця</div>`
       : scored.map(function(r){ return `
         <div class="t-row t-row-3col">
-          <span class="t-name">${r.name}</span>
+          <span class="t-name">${escapeHtml(r.name)}</span>
           <span class="t-priority" style="color:var(--color-${r.priority.color});">${r.priority.label}</span>
         </div>`; }).join('') +
         `<div class="t-row t-row-2col summary"><span class="t-name">Потенціал економії</span><span class="t-amt">${fmt(reducibleTotal)}</span></div>`),
@@ -16263,7 +16264,7 @@ function renderDashboard(){
       ? `<div class="empty-hint">Немає підкатегорій для аналізу цього місяця</div>`
       : scored.map(function(r){ return `
         <div class="t-row t-row-3col">
-          <span class="t-name">${r.name}</span>
+          <span class="t-name">${escapeHtml(r.name)}</span>
           <span class="t-amt">${fmt(r.sum)}</span>
           <span class="t-priority" style="color:var(--color-${r.priority.color});">${r.priority.label}</span>
         </div>`; }).join('') +
@@ -16456,13 +16457,13 @@ function renderDashboard(){
     if(top5.length>0){
       const pct = totalExpense>0 ? (top5[0][1]/totalExpense*100).toFixed(0) : null;
       insights.push({icon:'flag', color:'warning', title:'Найбільша витрата',
-        desc:`Категорія «${top5[0][0]}» займає найбільшу частку ваших витрат${pct?` — ${pct}%`:''}.`});
+        desc:`Категорія «${escapeHtml(top5[0][0])}» займає найбільшу частку ваших витрат${pct?` — ${pct}%`:''}.`});
     }
     // 3. Звичка місяця
     if(habitEntries.length){
       const h = habitEntries[0];
       insights.push({icon:'dot', color:'info', title:'Звичка місяця',
-        desc:`«${h[0]}» — ${h[1].count} ${habitCountWord(h[1].count)} цього місяця.`});
+        desc:`«${escapeHtml(h[0])}» — ${h[1].count} ${habitCountWord(h[1].count)} цього місяця.`});
     }
     // 4. Оплати частинами (лише якщо є активні платежі)
     const activeOchCount = hasDebtData ? debtNow.list.filter(d=>d.kind==='installment').length : 0;
@@ -16605,6 +16606,10 @@ function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; 
 function escapeAttr(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+// Rev 2.32.19 (X, A1-5) — safeId(): id запису, що підставляється всередину JS-рядка в inline-обробнику (onclick="f('${id}')"). Справжні id — UUID/ключі з [0-9A-Za-z_-]; все інше (лапки, дужки, пробіли) відсікається, тож зовнішній текст не може вийти з рядка обробника. Альтернатива (data-* + делегований обробник) змінила б сотню місць розмітки — свідомо відкладено.
+// Rev 2.32.19 (X) — кількість місць розмітки, де значення з даних екрануються (для події xss-audit рекордера; значення не пишуться).
+const XSS_AUDITED_SITES = 25;
+function safeId(id){ return String(id==null?'':id).replace(/[^0-9A-Za-z_-]/g,''); }
 
 /* ============ Розгортання карток Row 4 (Категорії/Підкатегорії/Потенціал) ============ */
 // Rev 2.1.33 — прибрано механізм "стискання сусіда в тонку смужку" (ICONS,
@@ -19659,7 +19664,7 @@ function showMonthPickerModal(message, months, defaultMonth, onConfirm){
   document.getElementById('app-modal-select-label').textContent = 'Приховати з місяця';
   const select = document.getElementById('app-modal-select');
   select.onchange = null; // захист: showDictionaryModal лишає тут live-обробник
-  select.innerHTML = months.map(m=>`<option value="${m}"${m===defaultMonth?' selected':''}>${monthLabel(m)}</option>`).join('');
+  select.innerHTML = months.map(m=>`<option value="${escapeAttr(m)}"${m===defaultMonth?' selected':''}>${escapeHtml(monthLabel(m))}</option>`).join('');
   const btn = document.getElementById('app-modal-confirm-btn');
   btn.textContent = 'Прибрати';
   btn.className = 'submit-btn danger';
@@ -19715,7 +19720,7 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
   const catSelect = document.getElementById('app-modal-select');
   catSelect.onchange = null; // захист: showDictionaryModal лишає тут live-обробник
   const activeCats = CATEGORIES.filter(c=>c.active);
-  catSelect.innerHTML = activeCats.map(c=>`<option value="${c.name}"${c.name===defaultCategory?' selected':''}>${c.name}</option>`).join('');
+  catSelect.innerHTML = activeCats.map(c=>`<option value="${escapeAttr(c.name)}"${c.name===defaultCategory?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
   document.getElementById('app-modal-select2-label').textContent = 'Потенціал економії';
   const prioSelect = document.getElementById('app-modal-select2');
   prioSelect.innerHTML = SUBCATEGORY_PRIORITY_OPTIONS.map(p=>`<option value="${p.label}"${p.label===defaultPriorityLabel?' selected':''}>${p.label}</option>`).join('');
@@ -19748,12 +19753,12 @@ function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave){
   input.value = defaultKw || '';
   const catSelect = document.getElementById('app-modal-select');
   const activeCats = CATEGORIES.filter(c=>c.active);
-  catSelect.innerHTML = activeCats.map(c=>`<option value="${c.name}"${c.name===defaultCat?' selected':''}>${c.name}</option>`).join('');
+  catSelect.innerHTML = activeCats.map(c=>`<option value="${escapeAttr(c.name)}"${c.name===defaultCat?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
   document.getElementById('app-modal-select2-label').textContent = 'Підкатегорія (необов’язково)';
   const subSelect = document.getElementById('app-modal-select2');
   function refreshSubOptions(){
     const subs = SUBCATEGORIES.filter(s=>s.active && s.category===catSelect.value).map(s=>s.name);
-    subSelect.innerHTML = '<option value="">—</option>' + subs.map(s=>`<option value="${s}"${s===defaultSub?' selected':''}>${s}</option>`).join('');
+    subSelect.innerHTML = '<option value="">—</option>' + subs.map(s=>`<option value="${escapeAttr(s)}"${s===defaultSub?' selected':''}>${escapeHtml(s)}</option>`).join('');
   }
   catSelect.onchange = refreshSubOptions;
   refreshSubOptions();
