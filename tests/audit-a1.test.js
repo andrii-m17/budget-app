@@ -92,7 +92,7 @@ test('A1-6: після повернення онлайн застосунок а
 });
 
 // ---------- A1-8: подвійне натискання ----------
-test('A1-8: addExpense має захист від повторного виклику до скидання форми', { todo: true }, function(){
+test('A1-8 (виправлено в 2.32.20): addExpense має захист від повторного виклику', function(){
   const m = SRC.match(/async function addExpense\(\)\{([\s\S]*?)\n\}/);
-  assert.ok(/addExpenseBusy|isSaving|submitting|inFlight/.test(m[1]), 'нема busy-прапорця: другий виклик створює другу витрату з новим UUID');
+  assert.ok(/actionGateEnter/.test(m[1]), 'нема busy-прапорця: другий виклик створює другу витрату з новим UUID');
 });

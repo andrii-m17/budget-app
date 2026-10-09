@@ -3251,7 +3251,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.19</div>
+  <div class="version-footer">Money Tree · Rev 2.32.20</div>
 </div>
   </div>
 </div>
@@ -7554,7 +7554,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.19';
+const APP_VERSION = '2.32.20';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10780,13 +10780,32 @@ function onCategoryChange(userTriggered){
 }
 
 /* ============ Додавання записів ============ */
+// Rev 2.32.20 (D, A1-8) — захист від подвійного виклику (подвійний тап): поки дія виконується і ще ACTION_GATE_HOLD_MS після неї, повторні виклики з тим самим ключем ігноруються. Наживо в аудиті два виклики addExpense() поспіль давали 2 витрати з різними UUID (форма очищується лише після await saveExpenses()). Невдала валідація (ok=false) вікно не відкриває, тож виправлення поля й повторне натискання працюють одразу. Альтернатива — вимикати кнопку: зачіпала б розмітку форми «Витрати», яку чіпати не можна.
+const ACTION_GATE_HOLD_MS = 400;
+const actionGateState = {};
+function actionGateEnter(key, now){
+  const t = now == null ? Date.now() : now;
+  const st = actionGateState[key];
+  if(st && (st.running || t - st.doneAt < ACTION_GATE_HOLD_MS)) return false;
+  actionGateState[key] = { running: true, doneAt: 0 };
+  return true;
+}
+function actionGateLeave(key, hold, now){
+  actionGateState[key] = { running: false, doneAt: hold === false ? 0 : (now == null ? Date.now() : now) };
+}
 async function addExpense(){
+  if(!actionGateEnter('addExpense')) return;
+  let ok = false;
+  try{ ok = await addExpenseCore(); }
+  finally{ actionGateLeave('addExpense', ok); }
+}
+async function addExpenseCore(){
   const name = document.getElementById('expfielda7').value.trim();
   const amount = parseAmount(document.getElementById('f-amount').value);
   const date = document.getElementById('f-date').value || localDateISO();
   const category = document.getElementById('f-category').value;
   const subcategory = document.getElementById('f-subcategory').value;
-  if(!name || !amount || amount<=0){ flashField(!name ? 'expfielda7' : 'f-amount'); return; }
+  if(!name || !amount || amount<=0){ flashField(!name ? 'expfielda7' : 'f-amount'); return false; }
   const auto = autocategorize(name);
   const isManual = !auto || auto.cat !== category;
   // Rev 2.11.2 — стабільний UUID (generateUUID(), не Date.now()+random) і
@@ -10805,6 +10824,7 @@ async function addExpense(){
   reportSaveResult(await saveExpenses());
   pushExpenseRecordPilot(rec); // Rev #30 (6D.5) — не блокуючий, push ОДНОГО щойно доданого запису
   resetExpenseForm(); populateMonths(); renderAll();
+  return true;
 }
 // Rev 2.0.1 — дохід тепер вводиться як таблиця з фіксованими джерелами
 // (той самий список, що вже використовує імпорт з Excel: "Зарплата Андрій" /
@@ -13639,8 +13659,14 @@ function focusRecordCategory(id){
 // тепер повноцінне редагування назви/суми/дати теж, з тією самою валідацією,
 // що й у формі "Нова витрата" (flashField на порожні/некоректні поля).
 async function saveRecordEdit(id){
+  if(!actionGateEnter('saveRecordEdit:' + id)) return; // Rev 2.32.20 (D): подвійний тап «Зберегти» не виконується двічі (друга спроба після перемальовування падала б на зниклих полях)
+  let ok = false;
+  try{ ok = await saveRecordEditCore(id); }
+  finally{ actionGateLeave('saveRecordEdit:' + id, ok); }
+}
+async function saveRecordEditCore(id){
   const rec = expenses.find(e=>e.id===id);
-  if(!rec) return;
+  if(!rec) return false;
   // Rev 2.28.1 (C) — id поля "Назва" в рядку редагування Журналу: було edit-name-<id> (підрядок "name" → панель iOS "Автозаповнити контакт"; це поле лишилось поза фіксом 6D.136–141, де перейменовано лише #f-name); тепер абстрактне edtfielda1-<id>.
   const nameInput = document.getElementById('edtfielda1-'+id);
   const amountInput = document.getElementById('edit-amount-'+id);
@@ -13651,9 +13677,9 @@ async function saveRecordEdit(id){
   const name = nameInput.value.trim();
   const amount = parseAmount(amountInput.value);
   const date = dateInput.value;
-  if(!name){ flashField('edtfielda1-'+id); return; }
-  if(!amount || amount<=0){ flashField('edit-amount-'+id); return; }
-  if(!date){ flashField('edit-date-'+id); return; }
+  if(!name){ flashField('edtfielda1-'+id); return false; }
+  if(!amount || amount<=0){ flashField('edit-amount-'+id); return false; }
+  if(!date){ flashField('edit-date-'+id); return false; }
   rec.name = name;
   rec.amount = amount;
   rec.date = date;
@@ -13696,6 +13722,7 @@ async function saveRecordEdit(id){
   editingRecordKey = null;
   selectedRecordKey = null;
   populateMonths(); renderAll();
+  return true;
 }
 // Ті самі довідники CATEGORIES/SUBCATEGORIES, що й для форми "Нова витрата",
 // але окремі допоміжні функції — головна форма має власні #f-category/
@@ -18552,6 +18579,11 @@ function purgeTrashItem(key){
   showPurgeConfirm(item, function(){ runTrashPurge(item); });
 }
 async function runTrashPurge(item){
+  if(!actionGateEnter('purge:' + item.key)) return; // Rev 2.32.20 (D): подвійний тап «Видалити назавжди» не шле другий запит і не показує хибний тост «вже видалено»
+  try{ await runTrashPurgeCore(item); }
+  finally{ actionGateLeave('purge:' + item.key); }
+}
+async function runTrashPurgeCore(item){
   if(isTrashOffline()){
     showTrashToast('Не вдалося видалити назавжди: ' + purgeBlockedReason({ offline: true, type: item.type }), 'error');
     captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
