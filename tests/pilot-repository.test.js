@@ -159,7 +159,7 @@ const REPOSITORY_NAMES = [
   'pullDictionaryCore', 'pullDictionaryPilot', 'ensureDictionaryIdentity',
   // Rev 2.22.79 (6D.152) — restoreDictionaryFromBackup() тепер кличе цей
   // бекфіл-хелпер напряму (не лише через ensureDictionaryIdentity()).
-  'ensureDictionaryEntryIds', 'AMOUNT_MAX', 'isSyncableAmount', // Rev 2.32.23 (N)
+  'ensureDictionaryEntryIds', 'AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', // Rev 2.32.23 (N), 2.32.28 (MB-4)
   // Rev 2.22.81 (6D.154, Крок A3) — стабільний порядок показу словника.
   'compareDictionaryForDisplay',
   'restoreCategoriesFromBackup', 'restoreSubcategoriesFromBackup',
