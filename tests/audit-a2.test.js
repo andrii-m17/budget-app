@@ -29,12 +29,7 @@ test('A2-9: localDateISO/monthKey на межі місяця — 23:59:30 31 ж�
     assert.equal(c.monthKey(c.localDateISO(new Date(2026, 10, 1, 0, 1, 0))), '2026-11');
   });
 });
-test('A2-9: відкритий через північ застосунок оновлює дату в формі «Витрати» при поверненні з фону', { todo: true }, function(){
-  // Наразі f-date ставиться при старті, у resetExpenseForm та при перемиканні вкладки (resetVytratyDateToToday);
-  // на visibilitychange/focus дата НЕ оновлюється — витрата, додана вранці на тій самій вкладці, піде вчорашньою датою.
-  const handlers = [...SRC.matchAll(/addEventListener\('visibilitychange', function\(\)\{[^\n]*\}\);/g)].map(function(m){ return m[0]; }).join('\n');
-  assert.ok(/resetVytratyDateToToday|refreshTodayDate/.test(handlers));
-});
+// A2-9 виправлено в 2.32.26 (M): tests/day-rollover.test.js
 
 // ---------- A2-10: часові пояси і літній час ----------
 ['2026-10-25', '2027-03-28', '2027-03-14', '2026-11-01'].forEach(function(day){

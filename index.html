@@ -3255,7 +3255,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.25</div>
+  <div class="version-footer">Money Tree · Rev 2.32.26</div>
 </div>
   </div>
 </div>
@@ -7568,7 +7568,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.25';
+const APP_VERSION = '2.32.26';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11135,7 +11135,7 @@ function restoreExpenseDraft(){
   if(!draft || (!String(draft.name||'').trim() && !String(draft.amount||'').trim())) return;
   document.getElementById('expfielda7').value = draft.name || '';
   document.getElementById('f-amount').value = draft.amount || '';
-  if(draft.date) document.getElementById('f-date').value = draft.date;
+  if(draft.date){ document.getElementById('f-date').value = draft.date; rolloverState.dateManual = draft.date !== localDateISO(); } // Rev 2.32.26 (M): збережена чернетка з іншою датою — дата «ручна»
   updateDateCaption();
   onNameInput(); // перебудовує auto-hint / installment-hint і сама пере-збереже чернетку
   if(draft.category){
@@ -11187,6 +11187,7 @@ function resetExpenseForm(){
 // Rev 2.1.3 — стрілочки ±1 день біля поля дати; використовує той самий
 // shiftDate(), що й групування журналу по днях.
 function shiftExpenseDate(delta){
+  rolloverState.dateManual = true; // Rev 2.32.26 (M)
   const input = document.getElementById('f-date');
   const current = input.value || localDateISO();
   input.value = shiftDate(current, delta);
@@ -11196,8 +11197,44 @@ function shiftExpenseDate(delta){
 function resetVytratyDateToToday(){
   const input = document.getElementById('f-date');
   if(input) input.value = localDateISO();
+  rolloverState.dateManual = false; // Rev 2.32.26 (M): дату виставила сама програма
   updateDateCaption();
 }
+// Rev 2.32.26 (M, A2-9) — північ. Раніше дата форми «Витрати» ставилась лише при старті, у resetExpenseForm/перемиканні вкладки; застосунок, що лишився відкритим з вечора, вранці додавав витрату ВЧОРАШНЬОЮ датою, а вибраний місяць не переходив на новий. Тепер при поверненні з фону, фокусі й за таймером опівночі: якщо дату форми не змінювали вручну — вона стає сьогоднішньою; якщо місяць у шапці дорівнював поточному місяцю до півночі й користувач не вибирав місяць вручну — переходимо на новий поточний. Ручно вибране (дата стрілками/пікером, місяць у шапці) не чіпається. Чиста функція rolloverPlan — для тестів. Перенесені значення не зберігаються автоматично (перевірено в аудиті A2).
+const rolloverState = { lastToday: localDateISO(), dateManual: false, monthManual: false };
+function rolloverPlan(st){
+  const today = st.today;
+  if(!st.lastToday || st.lastToday === today) return { changed: false, newFormDate: null, newSelectedMonth: null, today: today };
+  const prevMonth = st.lastToday.slice(0, 7), newMonth = today.slice(0, 7);
+  return {
+    changed: true, today: today,
+    newFormDate: (!st.formDateManual && st.formDate === st.lastToday) ? today : null,
+    newSelectedMonth: (!st.monthManual && prevMonth !== newMonth && st.selectedMonth === prevMonth) ? newMonth : null,
+  };
+}
+function checkDayRollover(reason){
+  const input = document.getElementById('f-date');
+  const plan = rolloverPlan({ today: localDateISO(), lastToday: rolloverState.lastToday, formDate: input ? input.value : null, formDateManual: rolloverState.dateManual, selectedMonth: selectedMonth, monthManual: rolloverState.monthManual });
+  if(!plan.changed) return plan;
+  rolloverState.lastToday = plan.today;
+  if(plan.newFormDate && input){ input.value = plan.newFormDate; updateDateCaption(); }
+  if(plan.newSelectedMonth){ populateMonths(); if(allMonths().includes(plan.newSelectedMonth)) performMonthChange(plan.newSelectedMonth); else renderAll(); }
+  else renderAll();
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'day-rollover', reason: reason, date: !!plan.newFormDate, month: !!plan.newSelectedMonth });
+  return plan;
+}
+let midnightTimer = null;
+function scheduleMidnightCheck(){
+  clearTimeout(midnightTimer);
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+  midnightTimer = setTimeout(function(){ checkDayRollover('midnight'); scheduleMidnightCheck(); }, Math.max(1000, next - now));
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible'){ checkDayRollover('resume'); scheduleMidnightCheck(); } });
+window.addEventListener('focus', function(){ checkDayRollover('focus'); });
+setTimeout(scheduleMidnightCheck, 0);
+// ручна зміна дати в полі (пікер/клавіатура) — подія input від користувача (програмні зміни .value її не породжують)
+document.addEventListener('input', function(e){ if(e.target && e.target.id === 'f-date') rolloverState.dateManual = true; }, true);
 // Rev 2.1.7 — підпис під полем дати з повною українською датою ("14 серпня
 // 2026, пт"). Викликається і при ручному наборі/виборі в нативному пікері
 // (oninput на #f-date), і після будь-якої програмної зміни значення — зміна
@@ -13040,6 +13077,7 @@ function populateMonths(){
 // вже нічого.
 function onMonthChange(val){
   if(val === selectedMonth) return;
+  rolloverState.monthManual = true; // Rev 2.32.26 (M): місяць обрано вручну — опівночі не чіпаємо
   performMonthChange(val);
 }
 function performMonthChange(val){
