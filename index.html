@@ -1305,6 +1305,39 @@
   /* Rev 2.32.1 (T1) — таббар видно на «Видалених даних», як у Журналі: екран лежить ПІД таббаром (z-index 19 < 20 у nav.tabbar), а не над ним (було 60).
      Нижній відступ вмісту = 112px — той самий резерв під таббар + safe-area, що й .main-col. Шторки (.drawer, 91), модалки (96) і тости (200) лишаються над таббаром;
      при відкритій клавіатурі таббар ховається як і раніше (body.kb-open). Активна вкладка — «Сервіс» (екран відкривається лише звідти). Альтернатива (піднімати таббар над екраном класом на body) відкинута: зайвий стан. */
+  /* Rev 2.32.27 (MB-3) — екран «Monobank» (підекран «Сервісу», повноекранний, за зразком «Видалених даних»). Група/рядки/перемикачі за макетом; кольори й радіуси — токени застосунку (обидві теми). */
+  .mono-screen{ position:fixed; inset:0; z-index:19; background:var(--color-bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) 16px 112px; touch-action:pan-y; }
+  .mono-screen.hidden{ display:none; }
+  .mono-inner{ max-width:640px; margin:0 auto; }
+  .mono-top{ position:relative; display:flex; align-items:center; height:48px; margin-bottom:14px; }
+  .mono-back{ display:flex; align-items:center; gap:4px; min-height:44px; padding:0 10px 0 0; background:transparent; border:0; color:var(--color-primary-text, var(--color-primary)); font:inherit; font-size:16px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mono-title{ position:absolute; left:0; right:0; text-align:center; font-size:17px; font-weight:700; color:var(--color-text-primary); pointer-events:none; }
+  .mono-group-label{ font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--color-text-secondary); margin:0 16px 8px; }
+  .mono-group{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); overflow:hidden; }
+  .mono-group + .mono-hint, .mono-hint{ font-size:12.5px; line-height:1.4; color:var(--color-text-secondary); margin:8px 16px 0; }
+  .mono-section{ margin-bottom:22px; }
+  .mono-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:52px; padding:0 16px; box-sizing:border-box; background:transparent; border:0; border-top:1px solid var(--color-border); font:inherit; font-size:16px; color:var(--color-text-primary); text-align:left; }
+  .mono-row:first-child{ border-top:0; }
+  button.mono-row{ cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mono-row.dim{ opacity:.55; }
+  .mono-row.danger{ color:var(--color-error); }
+  .mono-row.link{ color:var(--color-primary-text, var(--color-primary)); }
+  .mono-row-side{ display:flex; align-items:center; gap:10px; color:var(--color-text-secondary); font-size:15px; }
+  .mono-dot{ width:8px; height:8px; border-radius:50%; background:var(--color-success); flex:none; }
+  .mono-dot.err{ background:var(--color-error); }
+  .mono-badge{ min-width:22px; height:22px; padding:0 7px; box-sizing:border-box; border-radius:11px; background:var(--color-surface-hover); color:var(--color-text-primary); font-size:12.5px; font-weight:700; line-height:22px; text-align:center; }
+  .mono-badge.hidden{ display:none; }
+  .mono-token-input{ flex:1; min-width:0; height:44px; background:transparent; border:0; outline:0; color:var(--color-text-primary); font:inherit; font-size:16px; text-align:right; }
+  .mono-token-input::placeholder{ color:var(--color-text-tertiary); }
+  .mono-error{ font-size:13px; line-height:1.35; color:var(--color-error); margin:8px 16px 0; }
+  .mono-primary{ width:100%; height:52px; margin-top:22px; border:0; border-radius:var(--radius-lg); background:var(--ui-success-strong, var(--color-primary)); color:#fff; font:inherit; font-size:16px; font-weight:700; cursor:pointer; }
+  .mono-primary:disabled{ opacity:.55; cursor:not-allowed; }
+  .mono-switch{ position:relative; width:51px; height:31px; border-radius:16px; border:0; padding:0; flex:none; cursor:pointer; background:var(--color-border-strong); transition:background .2s; -webkit-tap-highlight-color:transparent; }
+  .mono-switch::before{ content:''; position:absolute; inset:-7px -4px; }
+  .mono-switch[aria-checked="true"]{ background:var(--ui-success-strong, var(--color-primary)); }
+  .mono-switch > span{ position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,.3); transition:transform .2s; }
+  .mono-switch[aria-checked="true"] > span{ transform:translateX(20px); }
+  .mono-note{ font-size:14px; line-height:1.45; color:var(--color-text-secondary); text-align:center; padding:24px 16px; }
   .trash-screen{ position:fixed; inset:0; z-index:19; background:var(--color-bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) 16px 112px; }
   .trash-screen.hidden{ display:none; }
   /* Rev 2.31.1 (C) — свайп із краю закриває екран (installEdgeSwipeClose): горизонтальні панування браузер не веде, вертикальна прокрутка лишається; рядки мають свій touch-action:pan-y */
@@ -3180,6 +3213,21 @@
     </span>
   </button>
 
+  <!-- Rev 2.32.27 (MB-3): рядок «Monobank» у «Сервісі» (назва й стрілка; лічильник нових операцій — MB-4). Інтеграція, а не налаштування вигляду, тому живе тут. -->
+  <button type="button" class="service-wide-card" id="mono-btn" onclick="openMonoScreen()">
+    <span class="service-tile-icon c-blue">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+    </span>
+    <span class="service-wide-text">
+      <span class="service-wide-title">Monobank</span>
+      <span class="service-wide-sub">Витрати з картки</span>
+    </span>
+    <span class="service-wide-right">
+      <span class="test-badge hidden" id="mono-badge" aria-label="Нових операцій"></span>
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </span>
+  </button>
+
   <!-- Rev 2.23.23 (6D.192, Ревізія D) — рядок "Видалені дані": нейтральний
        сірий бейдж із кількістю (updateTrashBadge(), прихований при 0) і
        шеврон; без червоних крапок і кольорових акцентів. -->
@@ -3255,7 +3303,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.26</div>
+  <div class="version-footer">Money Tree · Rev 2.32.27</div>
 </div>
   </div>
 </div>
@@ -3298,6 +3346,21 @@
   <span class="stb-clip" aria-hidden="true"></span>
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>
 </button>
+
+<!-- ================= «Monobank» (Rev 2.32.27, MB-3) =================
+     Повноекранний підекран «Сервісу» («‹ Сервіс», назва по центру, без ✕); вміст рендерить renderMonoScreen(). -->
+<div class="mono-screen hidden" id="mono-screen" role="region" aria-label="Monobank" inert>
+  <div class="mono-inner">
+    <div class="mono-top">
+      <button type="button" class="mono-back" onclick="closeMonoScreen()" aria-label="Назад до сервісу">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>Сервіс</span>
+      </button>
+      <div class="mono-title">Monobank</div>
+    </div>
+    <div id="mono-body"></div>
+  </div>
+</div>
 
 <!-- ================= "Видалені дані" (Rev 2.23.23, 6D.192, Ревізія D) =================
      Повноекранний екран (fixed, нижче шторок/тостів): стрілка "назад" і
@@ -7568,7 +7631,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.26';
+const APP_VERSION = '2.32.27';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -17414,14 +17477,14 @@ function pressEndAllTouch(e){
 // Відповідність КЛАС кнопки → ВАРІАНТ. primary/secondary/text/danger/icon — п'ять варіантів кнопок; segment/chip — однакова/різна ширина;
 // row (рядки списків і картки) і reference (таббар, scroll-top, desktop-sidebar) — поза M3 (M4 / еталон), але мають явний варіант, щоб жоден клас не лишився без нього.
 const BUTTON_VARIANT_MAP = {
-  primary: ['submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn'],
+  primary: ['submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn', 'mono-primary'],
   secondary: ['add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
-  text: ['t-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'bdr-diff-apply', 'journal-empty-reset'],
+  text: ['mono-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
   icon: ['drawer-close', 'gear-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-edit-cat', 'exp-del'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip'],
-  row: ['card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
+  row: ['mono-row', 'mono-switch', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
@@ -17724,6 +17787,7 @@ function performSwitchTab(tab, opts){
   if(editingRecordKey) closeActiveEdit('tab-switch-forced', activeEditDirty(), { noRender: true }); // Rev 2.32.2 (E1): програмне перемикання (маршрути) — запасне закриття; тап по таббару проходить через switchTab → requestCloseEdit
   if(isJournalOpen) closeJournal();
   if(isTrashOpen) closeTrashScreen(); // Rev 2.23.23 (6D.192): екран "Видалені дані" — підекран Сервісу
+  if(isMonoOpen) closeMonoScreen(); // Rev 2.32.27 (MB-3): екран «Monobank» — підекран Сервісу
   // Rev #21+#23 (bugfix) — data-status popover (крапка "станом на" на
   // KPI "Борг"/"Скорочення боргу") лишався відкритим і після переходу на
   // іншу вкладку, бо закривався лише по кліку поза його межами/Escape —
@@ -18626,6 +18690,241 @@ function closeTrashScreen(){
   restoreFocus();
   updateTrashBadge();
 }
+/* ============ Monobank: екран підключення (Rev 2.32.27, MB-3) ============
+   Клієнт лише викликає серверні функції (mono-connect) і читає власні таблиці mono_connections/mono_accounts; токен ніколи не зберігається
+   (ні localStorage/sessionStorage, ні змінні поза обробником, ні рекордер/тости/логи) і очищується з поля ДО відповіді. */
+const MONO_ERROR_TEXTS = {
+  invalid_token_format: 'Токен недійсний. Перевірте й спробуйте ще раз',
+  invalid_token: 'Токен недійсний. Перевірте й спробуйте ще раз',
+  rate_limited: 'Зачекайте хвилину й повторіть',
+  bank_rate_limited: 'Зачекайте хвилину й повторіть',
+  bank_error: 'Не вдалося з\'єднатися з банком. Спробуйте пізніше',
+  bank_unreachable: 'Не вдалося з\'єднатися з банком. Спробуйте пізніше',
+  webhook_failed: 'Не вдалося з\'єднатися з банком. Спробуйте пізніше',
+  server_key_error: 'Сталася помилка. Спробуйте пізніше',
+  db_error: 'Сталася помилка. Спробуйте пізніше',
+  no_family: 'Сталася помилка. Спробуйте пізніше',
+  unauthorized: 'Сталася помилка. Спробуйте пізніше',
+  network: 'Немає зв\'язку',
+};
+function monoErrorMessage(code){ return MONO_ERROR_TEXTS[code] || 'Сталася помилка. Спробуйте пізніше'; }
+// Стан підключення: 'none' (немає запису чи disconnected) | 'connected' (active/pending) | 'error'
+function monoConnectionState(conn){
+  if(!conn || !conn.status || conn.status === 'disconnected') return 'none';
+  if(conn.status === 'error') return 'error';
+  return 'connected';
+}
+const MONO_MONTHS_GEN = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
+// «сьогодні, 14:32» / «вчора» / «12 жовтня» / «немає»
+function formatLastEvent(date, now){
+  if(!date) return 'немає';
+  const d = new Date(date), n = now ? new Date(now) : new Date();
+  if(isNaN(d)) return 'немає';
+  const day = function(x){ return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); };
+  const diff = Math.round((day(n) - day(d)) / 86400000);
+  const pad = function(v){ return String(v).padStart(2, '0'); };
+  if(diff === 0) return 'сьогодні, ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  if(diff === 1) return 'вчора';
+  return d.getDate() + ' ' + MONO_MONTHS_GEN[d.getMonth()];
+}
+const MONO_CARD_TYPES = { black: 'Чорна', white: 'Біла', platinum: 'Platinum', iron: 'Iron', fop: 'ФОП', yellow: 'Жовта', eAid: 'єПідтримка' };
+function monoAccountLabel(a){
+  const digits = String((a && a.masked_pan) || '').replace(/\D/g, '');
+  return a && a.is_jar ? 'Скарбничка' : (digits ? '•••• ' + digits.slice(-4) : 'Картка');
+}
+function monoAccountDetail(a){
+  if(!a) return '';
+  if(a.is_jar) return 'скарбничка';
+  return MONO_CARD_TYPES[a.account_type] || String(a.account_type || '');
+}
+let monoState = { connection: null, accounts: [], loaded: false, offline: false, error: '', busy: false, showTokenForm: false };
+let isMonoOpen = false;
+function monoReady(){ return isCloudSessionReady() && navigator.onLine; }
+async function loadMonoState(){
+  if(!monoReady()){ monoState.offline = true; monoState.loaded = true; return; }
+  monoState.offline = false;
+  try{
+    const client = getSupabaseClient();
+    const c = await client.from('mono_connections').select('status,connected_at,last_event_at,last_error,backfill_done,auto_add').eq('user_id', cloudSession.user.id).maybeSingle();
+    if(c.error) throw c.error;
+    monoState.connection = c.data || null;
+    const a = await client.from('mono_accounts').select('id,mono_account_id,masked_pan,account_type,currency_code,is_jar,tracked');
+    if(a.error) throw a.error;
+    monoState.accounts = a.data || [];
+    monoState.loaded = true;
+  }catch(err){
+    monoState.offline = true; monoState.loaded = true;
+  }
+}
+function monoRowHtml(o){
+  const cls = 'mono-row' + (o.dim ? ' dim' : '') + (o.danger ? ' danger' : '') + (o.link ? ' link' : '');
+  const side = [];
+  if(o.dot) side.push('<span class="mono-dot' + (o.dot === 'err' ? ' err' : '') + '" aria-hidden="true"></span>');
+  if(o.detail) side.push('<span>' + escapeHtml(o.detail) + '</span>');
+  if(o.badge != null) side.push('<span class="mono-badge' + (o.badge ? '' : ' hidden') + '" id="' + (o.badgeId || '') + '">' + escapeHtml(o.badge) + '</span>');
+  if(o.switchFor != null) side.push('<button type="button" class="mono-switch" role="switch" aria-checked="' + (o.on ? 'true' : 'false') + '" aria-label="' + escapeAttr(o.label) + '" data-mono-acc="' + escapeAttr(safeId(o.switchFor)) + '"><span></span></button>');
+  if(o.chevron) side.push('<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>');
+  if(o.external) side.push('<svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2H2v10h10V9M8 2h4v4M12 2L6 8"/></svg>');
+  const inner = '<span>' + escapeHtml(o.label) + '</span><span class="mono-row-side">' + side.join('') + '</span>';
+  if(o.action) return '<button type="button" class="' + cls + '" data-mono-action="' + escapeAttr(o.action) + '">' + inner + '</button>';
+  return '<div class="' + cls + '">' + inner + '</div>';
+}
+function monoTokenFormHtml(){
+  return '<div class="mono-section"><div class="mono-group-label">Підключення</div><div class="mono-group">' +
+    '<div class="mono-row"><label for="fldmono1" style="flex:none">Токен</label>' +
+    '<input id="fldmono1" class="mono-token-input" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Вставте з буфера" autocomplete="off" enterkeyhint="done"></div></div>' +
+    (monoState.error ? '<div class="mono-error" role="alert">' + escapeHtml(monoState.error) + '</div>' : '') +
+    '<div class="mono-hint">Токен створюється на api.monobank.ua. Він шифрується й нікому не показується.</div></div>' +
+    '<div class="mono-section"><div class="mono-group">' + monoRowHtml({ label: 'Де взяти токен', action: 'help', link: true, external: true }) + '</div></div>' +
+    '<button type="button" class="mono-primary" data-mono-action="connect"' + (monoState.busy ? ' disabled' : '') + '>' + (monoState.busy ? 'Підключаю…' : (monoConnectionState(monoState.connection) === 'error' ? 'Оновити токен' : 'Підключити')) + '</button>';
+}
+function renderMonoScreen(){
+  const body = document.getElementById('mono-body');
+  if(!body) return;
+  if(!monoState.loaded){ body.innerHTML = '<div class="mono-note">Завантаження…</div>'; return; }
+  if(monoState.offline){
+    body.innerHTML = '<div class="mono-note">' + (isCloudSessionReady() ? 'Немає зв\'язку. Підключення Monobank доступне лише онлайн.' : 'Спершу увійдіть у Cloud (іконка профілю), щоб підключити Monobank.') + '</div>';
+    return;
+  }
+  const st = monoConnectionState(monoState.connection);
+  const parts = [];
+  if(st === 'none' || monoState.showTokenForm){
+    parts.push(monoTokenFormHtml());
+  }else{
+    const conn = monoState.connection;
+    const stateRows = [ monoRowHtml(st === 'error' ? { label: 'Помилка підключення', dot: 'err' } : { label: 'Стан', detail: 'Підключено', dot: true }) ];
+    if(st === 'error') stateRows.push(monoRowHtml({ label: 'Оновити токен', action: 'refresh-token', link: true, chevron: true }));
+    else stateRows.push(monoRowHtml({ label: 'Остання операція', detail: formatLastEvent(conn.last_event_at, new Date()) }));
+    parts.push('<div class="mono-section"><div class="mono-group">' + stateRows.join('') + '</div></div>');
+    if(monoState.accounts.length){
+      const accRows = monoState.accounts.map(function(a){
+        return monoRowHtml({ label: monoAccountLabel(a), detail: monoAccountDetail(a), switchFor: a.id, on: !!a.tracked, dim: !!a.is_jar && !a.tracked });
+      }).join('');
+      parts.push('<div class="mono-section"><div class="mono-group-label">Картки</div><div class="mono-group">' + accRows + '</div><div class="mono-hint">Відстежуються лише гривневі картки. Скарбнички вимкнені.</div></div>');
+    }
+    parts.push('<div class="mono-section"><div class="mono-group">' + monoRowHtml({ label: 'Вхідні', badge: '', badgeId: 'mono-inbox-badge', chevron: true, action: 'inbox' }) + '</div></div>');
+    parts.push('<div class="mono-section"><div class="mono-group">' + monoRowHtml({ label: 'Відключити Monobank', action: 'disconnect', danger: true }) + '</div></div>');
+  }
+  body.innerHTML = parts.join('');
+  if(typeof updateMonoBadges === 'function') updateMonoBadges();
+}
+async function openMonoScreen(){
+  const screen = document.getElementById('mono-screen');
+  if(!screen) return;
+  isMonoOpen = true;
+  monoState.error = ''; monoState.showTokenForm = false;
+  lastFocusedBeforeDialog = document.activeElement;
+  renderMonoScreen();
+  screen.classList.remove('hidden');
+  screen.removeAttribute('inert');
+  screen.scrollTop = 0;
+  lockBackgroundScroll();
+  await loadMonoState();
+  renderMonoScreen();
+}
+function closeMonoScreen(){
+  if(!isMonoOpen) return;
+  isMonoOpen = false;
+  const screen = document.getElementById('mono-screen');
+  if(screen){ screen.classList.add('hidden'); screen.setAttribute('inert', ''); }
+  unlockBackgroundScroll();
+  restoreFocus();
+}
+// Витягує код помилки з відповіді functions.invoke (тіло {error: код} при не-2xx лежить у error.context).
+async function monoExtractErrorCode(res){
+  if(res && res.data && typeof res.data === 'object' && res.data.error) return String(res.data.error);
+  const err = res && res.error;
+  if(!err) return null;
+  try{
+    if(err.context && typeof err.context.json === 'function'){
+      const j = await err.context.json();
+      if(j && j.error) return String(j.error);
+    }
+  }catch(e){}
+  return (err.name === 'FunctionsFetchError' || !navigator.onLine) ? 'network' : 'unknown';
+}
+async function onMonoConnectTap(){
+  if(monoState.busy) return;
+  const input = document.getElementById('fldmono1');
+  const raw = input ? input.value.trim() : '';
+  if(input) input.value = ''; // токен прибирається з поля ДО відповіді
+  monoState.error = '';
+  if(!raw){ monoState.error = monoErrorMessage('invalid_token_format'); renderMonoScreen(); return; }
+  if(!monoReady()){ monoState.error = monoErrorMessage('network'); renderMonoScreen(); return; }
+  monoState.busy = true; renderMonoScreen();
+  let res;
+  try{ res = await getSupabaseClient().functions.invoke('mono-connect', { body: { action: 'connect', token: raw } }); }
+  catch(e){ res = { error: e }; }
+  const code = await monoExtractErrorCode(res);
+  monoState.busy = false;
+  if(code){
+    monoState.error = monoErrorMessage(code);
+    if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'mono-connect', ok: false, errorCode: code });
+    renderMonoScreen();
+    return;
+  }
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'mono-connect', ok: true, errorCode: null });
+  monoState.showTokenForm = false;
+  await loadMonoState();
+  renderMonoScreen();
+}
+async function onMonoToggleAccount(btn){
+  const id = btn.getAttribute('data-mono-acc');
+  const acc = monoState.accounts.find(function(a){ return safeId(a.id) === id; });
+  if(!acc) return;
+  const next = !acc.tracked;
+  acc.tracked = next; renderMonoScreen(); // миттєво
+  let failed = false;
+  try{
+    const r = await getSupabaseClient().from('mono_accounts').update({ tracked: next }).eq('id', acc.id);
+    failed = !!(r && r.error);
+  }catch(e){ failed = true; }
+  if(failed){ acc.tracked = !next; renderMonoScreen(); showTrashToast('Не вдалося змінити. Спробуйте ще раз', 'error'); }
+}
+function confirmMonoDisconnect(){
+  const text = document.getElementById('app-modal-text');
+  text.textContent = '';
+  const title = document.createElement('div'); title.style.fontWeight = '700'; title.style.marginBottom = '6px'; title.textContent = 'Відключити Monobank?';
+  const body = document.createElement('div'); body.textContent = 'Нові операції надходити не будуть. Уже отримані «Вхідні» залишаться.';
+  text.appendChild(title); text.appendChild(body);
+  document.getElementById('app-modal-cancel-btn').classList.remove('secondary');
+  const confirmBtn = document.getElementById('app-modal-confirm-btn');
+  confirmBtn.textContent = 'Відключити';
+  confirmBtn.className = 'submit-btn danger-outline';
+  confirmBtn.onclick = function(){ closeAppModal(); runMonoDisconnect(); };
+  appModalPurgeStyled = true;
+  presentAppModal();
+}
+async function runMonoDisconnect(){
+  if(!monoReady()){ showTrashToast(monoErrorMessage('network'), 'error'); return; }
+  let res;
+  try{ res = await getSupabaseClient().functions.invoke('mono-connect', { body: { action: 'disconnect' } }); }
+  catch(e){ res = { error: e }; }
+  const code = await monoExtractErrorCode(res);
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'mono-disconnect', ok: !code });
+  if(code){ showTrashToast(monoErrorMessage(code), 'error'); return; }
+  monoState.connection = null; monoState.accounts = []; monoState.showTokenForm = false; monoState.error = '';
+  await loadMonoState();
+  renderMonoScreen();
+}
+(function initMonoScreen(){
+  const body = document.getElementById('mono-body');
+  if(body) body.addEventListener('click', function(e){
+    const sw = e.target.closest('[data-mono-acc]');
+    if(sw){ onMonoToggleAccount(sw); return; }
+    const act = e.target.closest('[data-mono-action]');
+    if(!act) return;
+    const a = act.getAttribute('data-mono-action');
+    if(a === 'connect') onMonoConnectTap();
+    else if(a === 'help') window.open('https://api.monobank.ua', '_blank', 'noopener');
+    else if(a === 'disconnect') confirmMonoDisconnect();
+    else if(a === 'refresh-token'){ monoState.showTokenForm = true; monoState.error = ''; renderMonoScreen(); }
+    else if(a === 'inbox' && typeof openMonoInbox === 'function') openMonoInbox();
+  });
+  installEdgeSwipeClose(document.getElementById('mono-screen'), function(){ return isMonoOpen; }, closeMonoScreen, { blockScroll: false });
+  window.addEventListener('online', function(){ if(isMonoOpen){ loadMonoState().then(renderMonoScreen); } });
+  window.addEventListener('offline', function(){ if(isMonoOpen){ monoState.offline = true; renderMonoScreen(); } });
+})();
 function showTrashToast(text, kind){
   const stack = document.getElementById('live-toast-stack');
   if(!stack) return;

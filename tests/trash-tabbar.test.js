@@ -29,5 +29,5 @@ test('T1: тап по вкладці закриває екран (performSwitchT
 });
 test('T1: аудит повних екранів — єдиний position:fixed inset:0 екран під таббаром це .trash-screen; решта — бекдропи', () => {
   const fixedFull = (SRC.match(/^\s*\.[\w-]+\{ position:fixed; inset:0;[^}]*\}/gm) || []).map(l => l.trim().split('{')[0]);
-  assert.deepEqual(fixedFull.filter(n => !/backdrop/.test(n)), ['.trash-screen']);
+  assert.deepEqual(fixedFull.filter(n => !/backdrop/.test(n)).sort(), ['.mono-screen', '.trash-screen']); // Rev 2.32.27 (MB-3): ще один підекран Сервісу — «Monobank»
 });
