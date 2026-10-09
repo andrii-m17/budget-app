@@ -85,10 +85,10 @@ test('A1-5: у index.html немає Content-Security-Policy (XSS отримує
 });
 
 // ---------- A1-6: офлайн -> онлайн ----------
-test('A1-6: після повернення онлайн застосунок автоматично пушить витрати, створені офлайн', { todo: true }, function(){
+test('A1-6 (виправлено в 2.32.21): після повернення онлайн застосунок автоматично пушить витрати, створені офлайн', function(){
   const m = SRC.match(/window\.addEventListener\('online', function\(\)\{ updateOnlineStatusUI\(\);([^\n]*)\}\);/);
   assert.ok(m);
-  assert.ok(/pushExpensesBatched|syncAllPilotManual|flushUnsynced/.test(m[1]), 'online-обробник лише тягне (pull), не пушить: ' + m[1]);
+  assert.ok(/autoSyncStale/.test(m[1]), 'online-обробник лише тягне (pull), не пушить: ' + m[1]);
 });
 
 // ---------- A1-8: подвійне натискання ----------

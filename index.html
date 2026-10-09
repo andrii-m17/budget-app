@@ -3251,7 +3251,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.20</div>
+  <div class="version-footer">Money Tree · Rev 2.32.21</div>
 </div>
   </div>
 </div>
@@ -7554,7 +7554,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.20';
+const APP_VERSION = '2.32.21';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8453,6 +8453,7 @@ async function applyCloudSession(session){
       // слова, картки, ОЧ, потім діти й приховані) на вході в сесію. Переміщено ПІСЛЯ всіх pull-ів: картки/ОЧ мають бути
       // підтягнуті, перш ніж їх пушити й звіряти з переписом.
       await syncNameDomainsOnConnect();
+      autoSyncStale('start'); // Rev 2.32.21 (O): офлайн-записи минулої сесії відправляються при вході/старті
       // Rev #30 (6D.56) — Realtime-підписка: той самий "один раз на
       // sign-in transition" принцип, що весь початковий pull-ланцюжок вище.
       setupRealtimeSync();
@@ -8785,6 +8786,7 @@ async function pullAllOnResume(){
   if(!isCloudSessionReady()) return;
   await Promise.all(PULL_DOMAINS.map(function(domain){ return pullOnce(domain.key); }));
   flushOtherActorEventsAsSummary();
+  autoSyncStale('resume'); // Rev 2.32.21 (O): дошити офлайн-зміни після повернення з фону
 }
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState === 'visible') pullAllOnResume();
@@ -12337,7 +12339,54 @@ function tryLoadExcelLibrary(){
 // ефект з іншого боку: pull підхопить усе, що Cloud накопичив, поки
 // пристрій був офлайн, а вбудований push-retry всередині pull (keptLocal)
 // сам донесе локально-новіші записи назад.
-window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); syncNameDomainsOnConnect(); pullExpensesPilot(); pullIncomesPilot(); pullDebtsPilot(); });
+// Rev 2.32.21 (O, A1-6) — автосинхронізація записів, створених/змінених/видалених без мережі. Раніше addExpense() пушив один раз і мовчав при невдачі, а `online`-обробник лише тягнув (pull): офлайн-витрата лишалась лише на пристрої до ручного «Синхронізувати все». Тепер при поверненні мережі (`online`), при вході/старті сесії і при поверненні з фону стале (syncedUpdatedAt !== updatedAt) надсилається автоматично. Безпека: (1) спершу pull домену — записи, де Cloud новіший, оновлюються локально й більше не stale, тож застарілий локальний варіант не перезапише новіший чужий; (2) push — пакетний upsert за `id` (ідемпотентний, дублів немає); (3) single-flight (autoSyncRunning); (4) при помилці — повтор із наростаючою паузою (AUTOSYNC_RETRY_MS), далі чекаємо наступної події. Записи з ОЧ без cloudId пропускаються без помилки (лишаються stale до синхронізації ОЧ). Альтернатива — окрема черга операцій: складніша й дублювала б syncedUpdatedAt, який уже є джерелом істини.
+const AUTOSYNC_RETRY_MS = [15000, 60000, 300000];
+function isStaleRecord(r){ return r.syncedUpdatedAt !== r.updatedAt; }
+function autoSyncPlan(lists){
+  const pick = function(arr){ return syncableRecords(arr || []).filter(isStaleRecord); };
+  const plan = { expenses: pick(lists.expenses), incomes: pick(lists.incomes), debts: pick(lists.debts) };
+  plan.pending = plan.expenses.length + plan.incomes.length + plan.debts.length;
+  return plan;
+}
+let autoSyncRunning = false, autoSyncRetryStep = 0, autoSyncTimer = null;
+async function autoSyncStale(reason){
+  if(autoSyncRunning) return null;
+  if(!navigator.onLine || !isCloudSessionReady()) return null;
+  const plan = autoSyncPlan({ expenses: expenses, incomes: incomes, debts: debts });
+  if(!plan.pending){ autoSyncRetryStep = 0; return { pending: 0, pushed: 0, failed: 0 }; }
+  autoSyncRunning = true;
+  const pending = plan.pending;
+  let pushed = 0, failed = 0;
+  try{
+    const domains = [
+      { key: 'expenses', pull: pullExpensesCore, batch: pushExpensesBatched, list: function(){ return expenses; } },
+      { key: 'incomes', pull: pullIncomesCore, batch: pushIncomesBatched, list: function(){ return incomes; } },
+      { key: 'debts', pull: pullDebtsCore, batch: pushDebtsBatched, list: function(){ return debts; } },
+    ];
+    for(const d of domains){
+      if(!plan[d.key].length) continue;
+      await d.pull();
+      const stale = syncableRecords(d.list()).filter(isStaleRecord);
+      if(!stale.length) continue;
+      const r = await d.batch(stale);
+      pushed += r.pushed; failed += r.failed;
+    }
+  }catch(err){
+    failed += 1;
+  }finally{
+    autoSyncRunning = false;
+  }
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'autosync', reason: reason, pending: pending, pushed: pushed, failed: failed });
+  if(pushed){ populateMonths(); renderAll(); }
+  clearTimeout(autoSyncTimer);
+  if(failed && autoSyncRetryStep < AUTOSYNC_RETRY_MS.length){
+    autoSyncTimer = setTimeout(function(){ autoSyncStale('retry'); }, AUTOSYNC_RETRY_MS[autoSyncRetryStep++]);
+  }else if(!failed){
+    autoSyncRetryStep = 0;
+  }
+  return { pending: pending, pushed: pushed, failed: failed };
+}
+window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); syncNameDomainsOnConnect(); pullExpensesPilot(); pullIncomesPilot(); pullDebtsPilot(); autoSyncStale('online'); }); // Rev 2.32.21 (O)
 window.addEventListener('offline', updateOnlineStatusUI);
 
 /* ============ Експорт в Excel ============ */
