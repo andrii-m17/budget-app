@@ -76,41 +76,18 @@ test('A2-10: Excel-експорт рахує місяць через new Date(\'
 
 // ---------- A2-11: імпорт Excel ----------
 test('A2-11: mapExcelExpenseRow — текстова сума з пробілом/комою читається як 1 (поточна поведінка)', function(){
-  const c = buildSandbox({ excelDateToISO: function(){ return '2026-10-01'; } }, ['mapExcelExpenseRow']);
-  assert.equal(c.mapExcelExpenseRow({ 'Витрата': 'X', 'Сума': '1 250,50', 'Дата': 1 }).amount, 1);
-  assert.equal(c.mapExcelExpenseRow({ 'Витрата': 'X', 'Сума': -100, 'Дата': 1 }).amount, -100);
-  assert.equal(c.mapExcelExpenseRow({ 'Витрата': 'X', 'Сума': 0, 'Дата': 1 }).amount, 0);
+  // (виправлено в 2.32.23, N: див. tests/amount.test.js)
+  assert.ok(true);
 });
-test('A2-11: імпорт відкидає від\'ємні/нульові суми і текстові суми з комою не читає як 1', { todo: true }, function(){
-  const c = buildSandbox({ excelDateToISO: function(){ return '2026-10-01'; } }, ['mapExcelExpenseRow']);
+test('A2-11 (виправлено в 2.32.23): імпорт відкидає від\'ємні/нульові суми і текстові суми з комою не читає як 1', function(){
+  const c = buildSandbox({ excelDateToISO: function(){ return '2026-10-01'; }, noteAmountRejected: function(){} }, ['AMOUNT_MAX', 'AMOUNT_ERRORS', 'normalizeAmount', 'mapExcelExpenseRow']);
   assert.equal(c.mapExcelExpenseRow({ 'Витрата': 'X', 'Сума': -100, 'Дата': 1 }), null);
   assert.equal(c.mapExcelExpenseRow({ 'Витрата': 'X', 'Сума': '1 250,50', 'Дата': 1 }).amount, 1251);
 });
 
 // ---------- A2-13: цілі гривні ----------
-const amountCtx = buildSandbox({}, ['parseAmount']);
-test('A2-13: parseAmount — поточна поведінка на типових вводах', function(){
-  assert.equal(amountCtx.parseAmount('1 250'), 1250);
-  assert.equal(amountCtx.parseAmount('1 250'), 1250);
-  assert.equal(amountCtx.parseAmount('12.4'), 12);
-  assert.equal(amountCtx.parseAmount('12.5'), 13);
-  assert.ok(isNaN(amountCtx.parseAmount('abc')));
-  assert.equal(amountCtx.parseAmount('99,99'), 99);        // кома обрізає дробову частину (за округленням мало б бути 100)
-  assert.equal(amountCtx.parseAmount('0,6'), 0);           // 0,6 ₴ -> 0 (за округленням 1)
-  assert.equal(amountCtx.parseAmount('1e3'), 1000);
-});
-test('A2-13: парсинг коми як десяткового роздільника дає округлення до цілих (99,99 -> 100)', { todo: true }, function(){
-  assert.equal(amountCtx.parseAmount('99,99'), 100);
-});
-test('A2-13: фільтр вводу сум не перетворює вставлене «99.99»/«99,99» на 9999 (×100)', { todo: true }, function(){
-  const m = SRC.match(/const cleaned = el\.value\.replace\(([^)]*)\);/);
-  assert.ok(m);
-  // зараз прибираються ВСІ нецифрові символи, включно з крапкою/комою -> «99,99» стає «9999»
-  assert.ok(!/\[\^\\d\\s\\u00A0\]/.test(m[1]));
-});
-test('A2-13: суми поза діапазоном Cloud (integer, amount >= 0) відхиляються до збереження', { todo: true }, function(){
-  assert.ok(/2147483647|MAX_AMOUNT/.test(SRC));
-});
+const amountCtx = buildSandbox({ noteAmountRejected: function(){} }, ['AMOUNT_MAX', 'AMOUNT_ERRORS', 'normalizeAmount', 'parseAmount']);
+// A2-13 виправлено в 2.32.23 (N): таблиця вводів — tests/amount.test.js
 
 // ---------- A2-12: каскади ----------
 test('A2-12: перейменування категорії оновлює updatedAt змінених витрат, щоб вони дійшли до Cloud', { todo: true }, function(){

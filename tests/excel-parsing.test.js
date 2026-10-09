@@ -36,7 +36,7 @@ function sandbox(){
     return null;
   } } };
   return buildSandbox({ XLSX }, [
-    'excelDateToISO', 'parseUaMonth', 'UA_MONTHS',
+    'excelDateToISO', 'parseUaMonth', 'UA_MONTHS', 'AMOUNT_MAX', 'AMOUNT_ERRORS', 'normalizeAmount', 'noteAmountRejected',
     'mapExcelExpenseRow', 'mapExcelIncomeRow', 'mapExcelDebtColumnsRow', 'mapExcelInstallmentDetailRow'
   ]);
 }

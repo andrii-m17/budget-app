@@ -28,7 +28,7 @@ function addExpenseSandbox(){
   const ctx = buildSandbox({
     actionGateState: {}, document: { getElementById: function(id){ return fields[id]; } },
     expenses: [], installmentAccounts: [], confirmedInstallmentLinkIdx: -1,
-    parseAmount: function(v){ return parseFloat(v); }, autocategorize: function(){ return null; },
+    readPositiveAmount: function(el){ const n = parseFloat(el.value); return isNaN(n) ? NaN : n; }, autocategorize: function(){ return null; },
     generateUUID: (function(){ let n = 0; return function(){ return 'id-' + (++n); }; })(),
     localDateISO: function(){ return '2026-10-10'; },
     reportSaveResult: function(){}, saveExpenses: function(){ return new Promise(function(r){ setTimeout(function(){ r({ success: true }); }, 5); }); },
