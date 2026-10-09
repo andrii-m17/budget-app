@@ -309,6 +309,10 @@
   /* Rev #30 (6D.85) — live-toast сповіщення (Частина 3а): fixed top, БЕЗ
      backdrop (єдиний з 4 UI-примітивів), над усім рештою (навіть модалками
      — той самий принцип, що системні сповіщення iOS завжди зверху). */
+  /* Rev 2.32.25 (U) — ненав'язливе повідомлення про оновлення («Скло», над таббаром). Ховається при відкритій клавіатурі/шторці (див. shouldShowUpdateBanner). */
+  .update-banner{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:190; white-space:nowrap; display:none; align-items:center; gap:12px; padding:9px 10px 9px 16px; max-width:calc(100vw - 32px); background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); font-size:14px; color:var(--color-text); }
+  .update-banner.show{ display:flex; }
+  .update-banner button{ border:0; background:var(--color-primary); color:#fff; font:inherit; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
   .live-toast-stack{ position:fixed; top:max(12px, env(safe-area-inset-top)); left:16px; right:16px; z-index:200; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
   .live-toast{ display:flex; align-items:flex-start; gap:10px; padding:12px 14px; background:var(--color-surface); border-left:3px solid transparent; border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); pointer-events:auto; transition:transform .2s ease, opacity .2s ease; touch-action:pan-y; }
   .live-toast.live-toast-leaving{ opacity:0; transform:translateX(-100%); }
@@ -3251,11 +3255,12 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.24</div>
+  <div class="version-footer">Money Tree · Rev 2.32.25</div>
 </div>
   </div>
 </div>
 
+<div class="update-banner" id="update-banner" role="status"><span>Доступне оновлення</span><button type="button" onclick="applyAppUpdate()">Оновити</button></div>
 <nav class="tabbar">
   <div class="tabbar-glass" id="tabbar-glass">
     <div class="tabbar-bubble" id="tabbar-bubble"></div>
@@ -3487,6 +3492,7 @@
     Мова та валюта поки фіксовані — українська, ₴. З'являться тут, тільки коли
     будуть реально працювати (без декоративних перемикачів «про людське око»).
   </div>
+  <div class="drawer-empty" id="about-version"></div>
 </div>
 
 <!-- ================= Профіль / Cloud Auth (Drawer, Rev #30 6D.8) =================
@@ -7562,7 +7568,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.24';
+const APP_VERSION = '2.32.25';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13254,6 +13260,50 @@ function updateTodayExpenseBadge(){
    потрібне тут, щоб дістатись до registration.waiting. */
 let swRegistration = null;
 let swReloadTriggered = false;
+// Rev 2.32.25 (U, A3-16) — оновлення застосунку без «закрити двічі». Раніше registration.update() не викликався ніде: браузер перевіряє sw.js лише при завантаженні сторінки, а iPhone тримає PWA в пам'яті днями. Тепер перевірка при старті, при поверненні з фону (не частіше ніж раз на хвилину) і раз на 6 годин; коли нова версія встановлена й чекає — банер «Доступне оновлення · Оновити» (лише коли безпечно: без шторки/діалогу/поля вводу/клавіатури). Тап -> SKIP_WAITING, далі єдиний перезапуск по controllerchange. Автоматичного перезавантаження нема. Чисті функції — для тестів.
+const SW_UPDATE_INTERVAL_MS = 6 * 3600 * 1000;
+const SW_UPDATE_MIN_GAP_MS = 60 * 1000;
+function shouldCheckForUpdate(nowMs, lastMs){ return !lastMs || (nowMs - lastMs) >= SW_UPDATE_MIN_GAP_MS; }
+function isSafeToReload(st){ const s = st || {}; return !(s.drawerOpen || s.modalOpen || s.inputFocused || s.kbOpen); }
+function shouldShowUpdateBanner(st){ const s = st || {}; return !!s.waiting && isSafeToReload(s); }
+function swUiState(){
+  const ae = document.activeElement;
+  const tag = ae && ae.tagName;
+  return {
+    waiting: !!(swRegistration && swRegistration.waiting && navigator.serviceWorker && navigator.serviceWorker.controller),
+    drawerOpen: !!document.querySelector('.drawer.open'),
+    modalOpen: !!document.querySelector('#app-modal.open'),
+    inputFocused: !!(ae && (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae.isContentEditable)),
+    kbOpen: document.body.classList.contains('kb-open'),
+  };
+}
+let swUpdateLastCheck = 0, swUpdateFoundReported = false;
+function checkForAppUpdate(){
+  if(!swRegistration || !shouldCheckForUpdate(Date.now(), swUpdateLastCheck)) return;
+  swUpdateLastCheck = Date.now();
+  try{ swRegistration.update().catch(function(){}); }catch(e){}
+}
+function refreshUpdateBanner(){
+  const el = document.getElementById('update-banner');
+  if(!el) return;
+  const st = swUiState();
+  if(st.waiting && !swUpdateFoundReported){
+    swUpdateFoundReported = true;
+    if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'sw-update', found: true, applied: false });
+  }
+  el.classList.toggle('show', shouldShowUpdateBanner(st));
+}
+function applyAppUpdate(){
+  const st = swUiState();
+  if(!isSafeToReload(st) || !swRegistration || !swRegistration.waiting){ return; }
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'sw-update', found: true, applied: true });
+  swRegistration.waiting.postMessage('SKIP_WAITING');
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') checkForAppUpdate(); });
+setInterval(checkForAppUpdate, SW_UPDATE_INTERVAL_MS);
+setInterval(refreshUpdateBanner, 1500);
+document.addEventListener('focusin', refreshUpdateBanner);
+document.addEventListener('focusout', function(){ setTimeout(refreshUpdateBanner, 50); });
 function showUpdateAvailable(){
   const top = document.getElementById('update-btn-top');
   const side = document.getElementById('update-btn-side');
@@ -21816,6 +21866,9 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('./sw.js').then(function(registration){
       swRegistration = registration;
+      const aboutEl = document.getElementById('about-version');
+      if(aboutEl) aboutEl.textContent = 'Версія застосунку: ' + APP_VERSION; // Rev 2.32.25 (U)
+      checkForAppUpdate(); // Rev 2.32.25 (U): перевірка нової версії при старті
       // Rev 2.3.6 — виявлення оновлення: якщо на сервері з'явився новий
       // sw.js, браузер сам качає його у фоні (installing) і генерує
       // "updatefound". navigator.serviceWorker.controller вже існує лише
