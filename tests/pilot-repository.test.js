@@ -211,6 +211,7 @@ const REPOSITORY_NAMES = [
   // Rev 2.32.4 (T2) — журнал видалених назавжди рахунків: бекап не відновлює їх.
   'LS_KEY_PURGED_ACCOUNTS', 'filterPurgedAccounts', 'filterPurgedDebts', 'readPurgedAccounts',
   'LS_KEY_PURGED_TAXONOMY', 'filterPurgedTaxonomy', 'readPurgedTaxonomy', // Rev 2.32.7 (T3)
+  'LS_KEY_PURGED_RECORDS', 'PURGED_RECORDS_LIMIT', 'filterPurgedRecords', 'readPurgedRecords', 'rememberPurgedRecord', 'dropPurgedFromBackup', // Rev 2.32.22 (W)
   'restoreBankAccountsFromBackup', 'restoreInstallmentAccountsFromBackup',
   'restoreHiddenFromFromBackup', 'restoreIgnoredDivergencesFromBackup',
   // Rev 2.22.82 (6D.155, Ревізія B) — hiddenFrom tombstone-модель.
@@ -326,7 +327,7 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       // всередині saveCategories() одразу повертається на guard clause,
       // не звертаючись до Supabase — routing/backup-тести saveCategories()
       // нижче лишаються чистими unit-тестами локального шару.
-      cloudSession: null,
+      cloudSession: null, restoreFilteredCount: 0, debugRecordingActive: false,
       cloudFamilyId: null,
       nameDomainChildren: 0, pushHiddenEntitiesPilot: async function(){ return { success: true }; }, // Rev 2.23.28 (6D.197, G3)
       captureDebugGeometry: function(){}, // Rev 2.23.26 (6D.195, G1): push-dirty

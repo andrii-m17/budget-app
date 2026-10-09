@@ -24,39 +24,21 @@ const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const plan = ctx.planCategoriesPush(catsOfA, null);
     assert.equal(plan.push.length, 2); // обидві підуть у Cloud родини B
   });
-  test('A1-1: signOutCloudAccount очищає локальні дані попереднього акаунта', { todo: true }, function(){
-    const m = SRC.match(/async function signOutCloudAccount\(\)\{([\s\S]*?)\n\}/);
-    assert.ok(m);
-    assert.ok(/clear|reset|purge|removeItem/.test(m[1]), 'вихід лише викликає auth.signOut() і нічого не чистить');
+  test('A1-1 (виправлено в 2.32.22): вихід очищає локальні дані попереднього акаунта', function(){
+    const m = SRC.match(/async function performSignOut\(\)\{([\s\S]*?)\n\}/);
+    assert.ok(m && /clearLocalAccountData\(\)/.test(m[1]));
   });
-  test('A1-1: вихід видаляє push-підписку пристрою (push_subscriptions) або позначає її як відкликану', { todo: true }, function(){
-    const m = SRC.match(/async function signOutCloudAccount\(\)\{([\s\S]*?)\n\}/);
-    assert.ok(/push_subscriptions|unsubscribe/.test(m[1]));
+  test('A1-1 (виправлено в 2.32.22): вихід видаляє push-підписку пристрою', function(){
+    const m = SRC.match(/async function revokeDevicePushSubscription\(\)\{([\s\S]*?)\n\}/);
+    assert.ok(/push_subscriptions/.test(m[1]) && /unsubscribe\(\)/.test(m[1]));
   });
 }
 
-// ---------- A1-4: відновлення з бекапу воскрешає витрати/доходи, видалені назавжди ----------
-{
-  const ctx = buildSandbox({
-    expenses: [], isCloudSessionReady: function(){ return false; },
-    UUID_FORMAT_RE: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    pulled: 0, pushedIds: [],
-    saveExpenses: async function(){ return { success: true }; },
-    ensureExpenseIdentity: async function(){},
-    pushExpensesBatched: async function(list){ list.forEach(function(r){ ctx.pushedIds.push(r.id); }); return { pushed: list.length, failed: 0 }; },
-    pullExpensesCore: async function(){},
-  }, ['restoreExpensesFromBackup']);
-  test('A1-4 (поточна поведінка): витрата, видалена назавжди, повертається і пушиться з бекапу', async function(){
-    const purgedId = '11111111-1111-4111-8111-111111111111';
-    const backup = JSON.stringify([{ id: purgedId, date: '2026-09-01', name: 'Видалена назавжди', amount: 100, createdAt: '2026-09-01T10:00:00Z', updatedAt: '2026-09-01T10:00:00Z' }]);
-    const res = await ctx.restoreExpensesFromBackup(backup);
-    assert.equal(res.added, 1);
-    assert.deepEqual(ctx.pushedIds, [purgedId]); // воскресла в Cloud
-  });
-  test('A1-4: для витрат/доходів/окремих слів є журнал видалених назавжди (як для рахунків і таксономії)', { todo: true }, function(){
-    assert.ok(/budget_purged_(expenses|records|words)_v1/.test(SRC));
-  });
-}
+// ---------- A1-4: відновлення з бекапу не воскрешає видалені назавжди (виправлено в 2.32.22; детально — tests/signout-restore.test.js) ----------
+test('A1-4 (виправлено в 2.32.22): для витрат/доходів/окремих слів є журнал видалених назавжди', function(){
+  assert.ok(/budget_purged_records_v1/.test(SRC));
+  assert.ok(/dropPurgedFromBackup\(backupList, 'expense'\)/.test(SRC));
+});
 
 // ---------- A1-5: екранування тексту (XSS) ----------
 test('A1-5 (виправлено в 2.32.19): імена категорій/підкатегорій/слів вставляються в innerHTML лише екранованими', function(){

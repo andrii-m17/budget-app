@@ -3251,7 +3251,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.21</div>
+  <div class="version-footer">Money Tree · Rev 2.32.22</div>
 </div>
   </div>
 </div>
@@ -5176,6 +5176,7 @@ async function restoreDictionaryFromBackup(raw){
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
   backupList = filterPurgedTaxonomy(backupList, readPurgedTaxonomy(), 'wordIds'); // Rev 2.32.7 (T3)
+  backupList = dropPurgedFromBackup(backupList, 'word'); // Rev 2.32.22 (W): окремо видалені слова
   if(isCloudSessionReady()) await pullDictionaryCore();
   const counts = mergeBackupRecordsByCloudIdOrName(DICTIONARY, backupList, 'kw');
   // Rev 2.22.79 (6D.152) — записи зі СТАРОГО бекапу (до цього Rev) не мали
@@ -5301,6 +5302,7 @@ async function restoreExpensesFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
+  backupList = dropPurgedFromBackup(backupList, 'expense'); // Rev 2.32.22 (W): видалені назавжди не повертаються
   if(isCloudSessionReady()) await pullExpensesCore();
   let added = 0, updated = 0, kept = 0;
   const toPush = [];
@@ -5339,6 +5341,7 @@ async function restoreExpensesFromBackup(raw){
       toPush.push(rec);
       continue;
     }
+    if(local.deletedAt && !rec.deletedAt){ kept++; restoreFilteredCount++; continue; } // Rev 2.32.22 (W): бекап не повертає в живі запис, що лежить у Корзині
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
     const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
     if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)){ kept++; continue; }
@@ -5379,6 +5382,7 @@ async function restoreIncomesFromBackup(raw){
   let backupList;
   try{ backupList = raw != null ? JSON.parse(raw) : []; }
   catch(e){ backupList = []; }
+  backupList = dropPurgedFromBackup(backupList, 'income'); // Rev 2.32.22 (W)
   if(isCloudSessionReady()) await pullIncomesCore();
   let added = 0, updated = 0, kept = 0;
   const toPush = [];
@@ -5399,6 +5403,7 @@ async function restoreIncomesFromBackup(raw){
       toPush.push(rec);
       continue;
     }
+    if(local.deletedAt && !rec.deletedAt){ kept++; restoreFilteredCount++; continue; } // Rev 2.32.22 (W): бекап не повертає в живі запис, що лежить у Корзині
     const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
     const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
     if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)){ kept++; continue; }
@@ -7554,7 +7559,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.21';
+const APP_VERSION = '2.32.22';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7722,6 +7727,7 @@ function debtCountWord(n){
 // вище). Повертає { domain: {success, error?} } — виклик reportSaveResult()
 // на кожен результат лишається на викликачі (UI-шар).
 async function applyBackupData(data){
+  restoreFilteredCount = 0; // Rev 2.32.22 (W): лічильник відсічених записів для події restore-filtered
   const pilotKeys = pilotBackupKeys();
   // Rev #28.D2 — усі 11 доменних ключів BACKUP_LS_KEYS тепер покриті
   // DOMAIN_MIGRATION_KEYS; єдине, що лишається в nonPilotKeys —
@@ -7756,6 +7762,7 @@ async function applyBackupData(data){
   // з того самого сховища, куди щойно писали (routing-aware).
   await loadStructureRefs();
   await loadAll();
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'restore-filtered', skipped: restoreFilteredCount });
   return results;
 }
 function handleRestoreBackupFile(event){
@@ -8521,13 +8528,8 @@ async function requestPushSubscription(){
       });
     }
     const keys = sub.toJSON().keys;
-    await getSupabaseClient().from('push_subscriptions').upsert({
-      user_id: cloudSession.user.id,
-      family_id: cloudFamilyId,
-      endpoint: sub.endpoint,
-      p256dh: keys.p256dh,
-      auth: keys.auth
-    }, { onConflict: 'endpoint' });
+    // Rev 2.32.22 (W, A1-1): підписка пристрою переходить до ПОТОЧНОГО користувача через серверну claim_push_subscription (SECURITY DEFINER). Прямий upsert не міг перезаписати рядок попереднього акаунта (RLS), тож пристрій лишався підписаним на сповіщення A.
+    await getSupabaseClient().rpc('claim_push_subscription', { p_endpoint: sub.endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth });
   }catch(err){
     // Мережа/CORS/офлайн чи браузер відмовив у Push API — тихий пропуск,
     // той самий принцип, що інші push-хелпери Cloud-синхронізації.
@@ -9656,9 +9658,70 @@ async function signInCloudAccount(){
   if(error){ errEl.textContent = 'Не вдалося увійти: '+error.message; return; }
   document.getElementById('cloud-password').value = '';
 }
+// Rev 2.32.22 (W, A1-1) — вихід з акаунта. Раніше лише auth.signOut(): дані, журнали purged, маркери, cloudId і push-підписка лишались, тож при вході в іншу родину дані A потрапляли в родину B, а пристрій і далі отримував сповіщення A. Тепер: діалог (з пропозицією копії, якщо last_backup_at старший за 7 днів чи порожній) -> видалення власної push-підписки (Cloud + браузер) -> signOut -> очищення локальних даних акаунта -> перезапуск (чисте початкове завантаження з дефолтами). У хмарі дані лишаються. Альтернатива «пам'ятати family_id і чистити при вході в іншу» не прибирала б чужі дані з пристрою до наступного входу.
+const BACKUP_STALE_DAYS = 7;
+function shouldOfferBackupBeforeSignOut(lastBackupAt, nowMs){
+  if(!lastBackupAt) return true;
+  const t = Date.parse(lastBackupAt);
+  if(isNaN(t)) return true;
+  return (nowMs - t) > BACKUP_STALE_DAYS * 24 * 3600 * 1000;
+}
+function signOutConfirmText(stale){
+  return 'Вийти? Дані цього пристрою буде очищено; у хмарі вони лишаються.' + (stale ? ' Резервної копії давно не було (чи її ще немає) — спершу буде збережено файл копії.' : '');
+}
+// Ключі локального сховища, що належать акаунту/родині (тема й статус міграції сховища лишаються — не дані акаунта).
+function accountLocalStorageKeys(){
+  return BACKUP_LS_KEYS.concat([LS_KEY_DRAFT, LS_KEY_PURGED_TAXONOMY, LS_KEY_PURGED_ACCOUNTS, LS_KEY_PURGED_RECORDS, LS_KEY_SYNC_MARKERS, LS_KEY_CLOUD_FAMILY_ID]);
+}
+async function clearLocalAccountData(){
+  let cleared = 0;
+  const domainOf = function(key){
+    return Object.keys(DOMAIN_MIGRATION_KEYS).find(function(d){ return DOMAIN_MIGRATION_KEYS[d].indexOf(key) !== -1; }) || null;
+  };
+  for(const key of accountLocalStorageKeys()){
+    try{ localStorage.removeItem(key); cleared++; }catch(e){}
+    const domain = domainOf(key);
+    if(domain && isDomainMigrated(domain)){
+      try{ await idbAdapterRemove(key); }catch(e){ /* IndexedDB недоступна — домен лишиться, але після reload ключ localStorage порожній */ }
+    }
+  }
+  return cleared;
+}
+async function revokeDevicePushSubscription(){
+  let unsubscribed = false;
+  try{
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null;
+    if(!sub) return false;
+    if(cloudSession && cloudSession.user && navigator.onLine){
+      try{ await getSupabaseClient().from('push_subscriptions').delete().eq('endpoint', sub.endpoint).eq('user_id', cloudSession.user.id); }catch(e){}
+    }
+    unsubscribed = await sub.unsubscribe();
+  }catch(e){}
+  return unsubscribed;
+}
+async function performSignOut(){
+  const unsubscribed = await revokeDevicePushSubscription();
+  const client = getSupabaseClient();
+  try{ await client.auth.signOut(navigator.onLine ? undefined : { scope: 'local' }); }catch(e){}
+  let stillIn = false;
+  try{ const r = await client.auth.getSession(); stillIn = !!(r && r.data && r.data.session); }catch(e){}
+  if(stillIn){ showTrashToast('Не вдалося вийти — перевірте з\'єднання', 'error'); return; }
+  const cleared = await clearLocalAccountData();
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'signout', cleared: cleared > 0, unsubscribed: unsubscribed });
+  location.reload();
+}
 async function signOutCloudAccount(){
   if(!isSupabaseSdkReady()) return;
-  await getSupabaseClient().auth.signOut();
+  if(typeof closeProfileMenu === 'function') closeProfileMenu();
+  let last = null;
+  try{ await loadNotificationSettings(); last = notificationSettings && !notificationSettingsReadOnly ? notificationSettings.last_backup_at : null; }catch(e){}
+  const stale = shouldOfferBackupBeforeSignOut(last, Date.now());
+  showConfirmModal(signOutConfirmText(stale), async function(){
+    if(stale){ try{ downloadBackupBlob('MoneyTree-бекап-' + localDateISO() + '.json'); }catch(e){} }
+    await performSignOut();
+  }, stale ? 'Зберегти копію й вийти' : 'Вийти');
 }
 
 /* ============ Діагностика даних (Rev 2.16.0, ROADMAP п.20) ============
@@ -14373,6 +14436,38 @@ function filterPurgedDebts(list, purged){
   (purged || []).forEach(function(p){ (p && p.debtIds || []).forEach(function(id){ ids[id] = true; }); });
   return (list || []).filter(function(d){ return !(d && ids[d.id]); });
 }
+// Rev 2.32.22 (W, A1-4) — журнал видалених назавжди витрат, доходів і окремих слів (локально, поза BACKUP_LS_KEYS): [{ kind: 'expense'|'income'|'word', id, cloudId, at }]. Раніше для них журналу не було: restore бекапу додавав такий запис як «новий» і пушив у Cloud (воскресіння). Тепер restore відсікає їх, а tombstone (ще в Cloud) бекап не може повернути в живі.
+const LS_KEY_PURGED_RECORDS = 'budget_purged_records_v1';
+const PURGED_RECORDS_LIMIT = 3000;
+let restoreFilteredCount = 0;
+function filterPurgedRecords(list, purged, kind){
+  const ids = {}, cloudIds = {};
+  (purged || []).forEach(function(p){
+    if(!p || p.kind !== kind) return;
+    if(p.id) ids[p.id] = true;
+    if(p.cloudId) cloudIds[p.cloudId] = true;
+  });
+  return (list || []).filter(function(r){ return !(r && ((r.id && ids[r.id]) || (r.cloudId && cloudIds[r.cloudId]))); });
+}
+function readPurgedRecords(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(LS_KEY_PURGED_RECORDS) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  }catch(e){ return []; }
+}
+function rememberPurgedRecord(kind, id, cloudId){
+  try{
+    const list = readPurgedRecords();
+    list.push({ kind: kind, id: id || null, cloudId: cloudId || null, at: new Date().toISOString() });
+    localStorage.setItem(LS_KEY_PURGED_RECORDS, JSON.stringify(list.slice(-PURGED_RECORDS_LIMIT)));
+  }catch(e){}
+}
+// Відсікає з бекапу записи з журналу й веде лічильник для події restore-filtered.
+function dropPurgedFromBackup(backupList, kind){
+  const kept = filterPurgedRecords(backupList, readPurgedRecords(), kind);
+  restoreFilteredCount += (backupList || []).length - kept.length;
+  return kept;
+}
 function readPurgedAccounts(){
   try{
     const raw = JSON.parse(localStorage.getItem(LS_KEY_PURGED_ACCOUNTS) || '[]');
@@ -18532,6 +18627,7 @@ async function removeTrashLocally(keys){
     const arr = type === 'expense' ? expenses : type === 'income' ? incomes : isMonthRecordType(type) ? debts : DICTIONARY; // Rev 2.23.31 (6D.200): + місячні борги/ОЧ-привиди
     const at = arr.findIndex(function(r){ return r.id === id && r.deletedAt && !(type === 'word' && r.deletedVia); });
     if(at === -1) return;
+    if(type === 'expense' || type === 'income' || type === 'word') rememberPurgedRecord(type, arr[at].id, arr[at].cloudId); // Rev 2.32.22 (W): і своє, і чуже (reconcile) видалення назавжди
     arr.splice(at, 1);
     if(type === 'expense') touchedExp = true; else if(type === 'income') touchedInc = true; else if(isMonthRecordType(type)) touchedDebts = true; else touchedDict = true;
   });
