@@ -3320,7 +3320,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.28</div>
+  <div class="version-footer">Money Tree · Rev 2.32.29</div>
 </div>
   </div>
 </div>
@@ -7696,7 +7696,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.28';
+const APP_VERSION = '2.32.29';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8770,6 +8770,7 @@ function routeForPushType(type, data){
     case 'monthly-debt-reminder': return { screen: 'debts' };
     case 'installment-deadline': return { screen: 'installments', installmentId: d.installmentId || null };
     case 'weekly-summary': case 'month-end': return { screen: 'analytics' };
+    case 'mono-inbox': return { screen: d.connected === false ? 'mono' : 'mono-inbox' }; // Rev 2.32.29: сповіщення Monobank -> «Вхідні» (не підключено -> екран «Monobank»)
     case 'backup-reminder': return { screen: 'backup' }; // Rev 2.32.15 (Z): нагадування про резервну копію → «Сервіс» (плитка експорту підсвічується)
     default: return { screen: null };
   }
@@ -8792,6 +8793,12 @@ function captureFocusAudit(point){
 }
 async function handlePushAction(action){
   if(!action || !action.type) return;
+  if(action.type === 'mono-inbox'){
+    // Rev 2.32.29: чекаємо вхід у сесію й стан підключення (холодний старт), щоб знати, чи відкривати «Вхідні» чи «Monobank»
+    if(cloudAuthInitInFlight) await cloudAuthInitInFlight;
+    if(!monoState.loaded) await loadMonoState();
+    action = Object.assign({}, action, { connected: monoState.offline ? undefined : monoNotifGroupVisible(monoState.connection) });
+  }
   const route = routeForPushType(action.type, action);
   if(!route.screen) return;
   try{ if(document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); }catch(e){}
@@ -8829,6 +8836,11 @@ async function handlePushAction(action){
     goToCardDebtsTab();
   }else if(route.screen === 'analytics'){
     performSwitchTab('analytics');
+  }else if(route.screen === 'mono-inbox' || route.screen === 'mono'){
+    // Rev 2.32.29: «Вхідні» Monobank — вкладка «Сервіс», таббар видимий, без клавіатури й focus()
+    document.body.classList.remove('kb-open');
+    performSwitchTab('service');
+    if(route.screen === 'mono-inbox') openMonoInbox(); else openMonoScreen();
   }else if(route.screen === 'backup'){
     // Rev 2.32.15 (Z): екран експорту/резервної копії — вкладка «Сервіс»; таббар видимий, без клавіатури, БЕЗ програмного focus(): плитка лише підсвічується й прокручується в центр.
     document.body.classList.remove('kb-open');
@@ -19818,9 +19830,9 @@ updateTrashBadge();
 // сім'ї користувача). Тексти й логіку сповіщень формує сервер — клієнт лише зберігає налаштування, показує статус
 // дозволу й шле тестове сповіщення (Edge Function send-test-push; send-push-notification клієнт НЕ викликає).
 const NOTIFICATIONS_STAGE2_ENABLED = false; // weekly_summary / month_end: функцій на сервері ще немає — перемикачі сховано
-const NOTIFICATION_SETTING_FIELDS = ['notifications_enabled', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'weekly_summary', 'month_end', 'quiet_enabled', 'quiet_start', 'quiet_end', 'backup_reminder'];
+const NOTIFICATION_SETTING_FIELDS = ['notifications_enabled', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'weekly_summary', 'month_end', 'quiet_enabled', 'quiet_start', 'quiet_end', 'backup_reminder', 'mono_inbox'];
 function notificationSettingsDefaults(){
-  return { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00', backup_reminder: true };
+  return { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00', backup_reminder: true, mono_inbox: true };
 }
 // validateQuietHours(start, end): формат HH:MM (24 год), початок ≠ кінець; інтервал через північ (22:00–07:00) дозволений.
 function validateQuietHours(start, end){
@@ -19850,6 +19862,8 @@ function dimmedState(master){
   const off = master === false;
   return { dimmed: off, interactive: !off, opacity: off ? 0.38 : 1 };
 }
+// Rev 2.32.29 — група «Monobank» (тумблер «Нові операції», notification_settings.mono_inbox) видима лише коли банк підключено (status active/pending).
+function monoNotifGroupVisible(connection){ return !!connection && (connection.status === 'active' || connection.status === 'pending'); }
 // notificationRows(settings, env) → рядки екрана за порядком: { id, group, type: switch|segments|time|action, field, title, value, valueText?, visible }.
 // Головний тумблер показує «вимкнено», коли iOS заборонив сповіщення. Умовні: «Нагадувати за» — лише при installment_deadline; «З/До» — лише при quiet_enabled.
 function notificationRows(settings, env){
@@ -19867,6 +19881,7 @@ function notificationRows(settings, env){
     { id: 'days', group: 'reminders', type: 'segments', field: 'installment_days', title: 'Нагадувати за', value: st.installment_days, visible: !!st.installment_deadline },
     sw('month-start', 'reminders', 'month_start', 'Початок місяця'),
     sw('backup', 'reminders', 'backup_reminder', 'Резервна копія', 'кінець місяця'),
+    { id: 'mono', group: 'mono', type: 'switch', field: 'mono_inbox', title: 'Нові операції', value: !!st.mono_inbox, valueText: null, visible: !!e.monoConnected }, // Rev 2.32.29: група видима лише коли Monobank підключено
     sw('quiet', 'quiet', 'quiet_enabled', 'Увімкнено'),
     { id: 'quiet-start', group: 'quiet', type: 'time', field: 'quiet_start', title: 'З', value: st.quiet_start, visible: !!st.quiet_enabled },
     { id: 'quiet-end', group: 'quiet', type: 'time', field: 'quiet_end', title: 'До', value: st.quiet_end, visible: !!st.quiet_enabled },
@@ -19874,7 +19889,7 @@ function notificationRows(settings, env){
   ];
 }
 // Rev 2.23.30 (6D.199) — чиста функція діагностики доставки.
-const PUSH_TYPE_LABELS = { 'other-actor-summary': 'Нові записи', 'other-actor-added': 'Нові записи', 'other-actor-changed': 'Зміни записів', 'other-actor-deleted': 'Видалення', 'daily-expense-reminder': 'Нагадування про витрати', 'monthly-debt-reminder': 'Початок місяця', 'installment-deadline': 'Платіж за ОЧ', 'weekly-summary': 'Підсумок тижня', 'month-end': 'Кінець місяця', 'test': 'Тестове' };
+const PUSH_TYPE_LABELS = { 'mono-inbox': 'Monobank', 'other-actor-summary': 'Нові записи', 'other-actor-added': 'Нові записи', 'other-actor-changed': 'Зміни записів', 'other-actor-deleted': 'Видалення', 'daily-expense-reminder': 'Нагадування про витрати', 'monthly-debt-reminder': 'Початок місяця', 'installment-deadline': 'Платіж за ОЧ', 'weekly-summary': 'Підсумок тижня', 'month-end': 'Кінець місяця', 'test': 'Тестове' };
 function pushTypeLabel(type){ return PUSH_TYPE_LABELS[type] || type || '—'; }
 // describeDeliveryRow(row): рядок push_delivery_log → { label, ok }. status 201 = службу Apple прийнято.
 function describeDeliveryRow(row){
@@ -19961,13 +19976,14 @@ function notifGroup(){ const g = document.createElement('div'); g.className = 'n
 function notifLabel(text){ const l = document.createElement('div'); l.className = 'n-section-label'; l.textContent = text; return l; }
 // Rev 2.32.12 (R) — які умовні рядки були видимі в попередньому рендері: нові з'являються через opacity+зсув (nx-appear), без анімації висоти.
 let notifPrevVisible = null;
-const NOTIF_GROUP_TITLES = { family: 'Родина', reminders: 'Нагадування', quiet: 'Тихі години' };
+const NOTIF_GROUP_TITLES = { family: 'Родина', reminders: 'Нагадування', mono: 'Monobank', quiet: 'Тихі години' };
 function renderNotificationsDrawer(){
   const body = document.getElementById('notifications-body');
   if(!body) return;
   const st = notificationSettings || notificationSettingsDefaults();
   const ro = notificationSettingsReadOnly;
   const env = currentPermissionState();
+  env.monoConnected = monoNotifGroupVisible(monoState.connection); // Rev 2.32.29: група «Monobank» лише при підключеному банку
   const rows = notificationRows(st, env);
   const notice = permissionNotice(env);
   const master = rows[0];
@@ -20189,6 +20205,7 @@ async function openNotificationsDrawer(){
   const drawer = document.getElementById('notifications-drawer');
   const wasOpen = drawer && drawer.classList.contains('open');
   lastFocusedBeforeDialog = document.activeElement;
+  if(!monoState.loaded) loadMonoState().then(function(){ renderNotificationsDrawer(); }); // Rev 2.32.29: стан підключення для групи «Monobank»
   renderNotificationsDrawer();
   if(backdrop){ backdrop.removeAttribute('inert'); backdrop.classList.add('open'); }
   if(drawer){ drawer.removeAttribute('inert'); drawer.classList.add('open'); focusFirstIn(drawer); }

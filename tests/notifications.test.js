@@ -24,7 +24,7 @@ test('routeForPushType: усі типи контракту й невідомий
 });
 
 test('notificationSettingsDefaults збігаються з типовими значеннями таблиці', () => {
-  assert.deepEqual(j(pure.notificationSettingsDefaults()), { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00', backup_reminder: true });
+  assert.deepEqual(j(pure.notificationSettingsDefaults()), { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00', backup_reminder: true, mono_inbox: true });
 });
 
 test('validateQuietHours: формат, початок≠кінець, через північ дозволено', () => {
@@ -135,9 +135,9 @@ const rowsOf = (settings, env) => j(pure.notificationRows(settings, env || ENV_O
 const idsVisible = rows => rows.filter(r => r.visible).map(r => r.id);
 test('notificationRows (R): порядок, групи й ключі даних за макетом', () => {
   const rows = rowsOf(pure.notificationSettingsDefaults());
-  assert.deepEqual(rows.map(r => r.id), ['master', 'changes', 'deletions', 'daily', 'installments', 'days', 'month-start', 'backup', 'quiet', 'quiet-start', 'quiet-end', 'test']);
-  assert.deepEqual(rows.map(r => r.field), ['notifications_enabled', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'backup_reminder', 'quiet_enabled', 'quiet_start', 'quiet_end', null]);
-  assert.deepEqual(rows.map(r => r.group), [null, 'family', 'family', 'reminders', 'reminders', 'reminders', 'reminders', 'reminders', 'quiet', 'quiet', 'quiet', null]);
+  assert.deepEqual(rows.map(r => r.id), ['master', 'changes', 'deletions', 'daily', 'installments', 'days', 'month-start', 'backup', 'mono', 'quiet', 'quiet-start', 'quiet-end', 'test']);
+  assert.deepEqual(rows.map(r => r.field), ['notifications_enabled', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'backup_reminder', 'mono_inbox', 'quiet_enabled', 'quiet_start', 'quiet_end', null]);
+  assert.deepEqual(rows.map(r => r.group), [null, 'family', 'family', 'reminders', 'reminders', 'reminders', 'reminders', 'reminders', 'mono', 'quiet', 'quiet', 'quiet', null]);
   assert.equal(rows.find(r => r.id === 'daily').valueText, '20:00');
   assert.equal(rows.find(r => r.id === 'backup').valueText, 'кінець місяця');
   assert.equal(rows.find(r => r.id === 'deletions').title, 'Видалені записи');
@@ -349,4 +349,42 @@ test('R (пакет): R-3 і R-5 збережені в редизайні — з
   assert.match(SRC, /--ui-warning-text:#B45309/);
   assert.match(SRC, /--ui-warning-text:#F59E0B/);
   assert.match(SRC, /#notifications-drawer \.nx-notice\{ font-size:13px; line-height:1\.4; color:var\(--ui-warning-text\)/);
+});
+
+// ---------- Rev 2.32.29: сповіщення Monobank (mono-inbox) ----------
+const monoPure = buildSandbox({}, ['monoNotifGroupVisible']);
+test('mono-inbox: routeForPushType — «Вхідні», а коли Monobank не підключено — екран «Monobank»; решта типів без змін', () => {
+  assert.deepEqual(j(pure.routeForPushType('mono-inbox', { connected: true })), { screen: 'mono-inbox' });
+  assert.deepEqual(j(pure.routeForPushType('mono-inbox', {})), { screen: 'mono-inbox' });
+  assert.deepEqual(j(pure.routeForPushType('mono-inbox', { connected: false })), { screen: 'mono' });
+  assert.deepEqual(j(pure.routeForPushType('backup-reminder')), { screen: 'backup' });
+  assert.deepEqual(j(pure.routeForPushType('other-actor-summary')), { screen: 'journal' });
+  assert.deepEqual(j(pure.routeForPushType('daily-expense-reminder')), { screen: 'vytraty', noFocus: true });
+  assert.deepEqual(j(pure.routeForPushType('щось-нове')), { screen: null });
+});
+test('mono-inbox: monoNotifGroupVisible — лише active/pending', () => {
+  assert.equal(monoPure.monoNotifGroupVisible(null), false);
+  assert.equal(monoPure.monoNotifGroupVisible({ status: 'disconnected' }), false);
+  assert.equal(monoPure.monoNotifGroupVisible({ status: 'error' }), false);
+  assert.equal(monoPure.monoNotifGroupVisible({ status: 'active' }), true);
+  assert.equal(monoPure.monoNotifGroupVisible({ status: 'pending' }), true);
+});
+test('mono-inbox: рядок «Нові операції» (mono_inbox) видимий лише при підключеному банку; зберігається і приглушується як решта', () => {
+  const d = pure.notificationSettingsDefaults();
+  const rows = function(env){ return j(pure.notificationRows(d, env || { supported: true, permission: 'granted' })); };
+  assert.equal(rows().find(r => r.id === 'mono').visible, false);
+  const on = rows({ supported: true, permission: 'granted', monoConnected: true }).find(r => r.id === 'mono');
+  assert.equal(on.visible, true); assert.equal(on.field, 'mono_inbox'); assert.equal(on.group, 'mono'); assert.equal(on.value, true);
+  assert.equal(j(pure.notificationRows(Object.assign({}, d, { mono_inbox: false }), { monoConnected: true })).find(r => r.id === 'mono').value, false);
+  assert.match(SRC, /mono: 'Monobank'/);
+  assert.match(SRC, /env\.monoConnected = monoNotifGroupVisible\(monoState\.connection\)/);
+});
+test('mono-inbox: pushTypeLabel; маршрут без focus() і з видимим таббаром; sw.js передає tag і renotify лише для mono-inbox', () => {
+  assert.equal(pure.pushTypeLabel('mono-inbox'), 'Monobank');
+  const h = SRC.slice(SRC.indexOf("}else if(route.screen === 'mono-inbox' || route.screen === 'mono'){"), SRC.indexOf("}else if(route.screen === 'backup'){"));
+  assert.ok(h.indexOf("document.body.classList.remove('kb-open')") !== -1 && h.indexOf("performSwitchTab('service')") !== -1);
+  assert.ok(!/\.focus\(/.test(h));
+  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+  assert.match(sw, /if\(inner\.type === 'mono-inbox'\)\{ options\.tag = 'mono-inbox'; options\.renotify = true; \}/);
+  assert.match(sw, /if\(notifTag\)\{ options\.tag = String\(notifTag\); options\.renotify = false; \}/); // решта типів без змін
 });
