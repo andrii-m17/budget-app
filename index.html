@@ -3320,7 +3320,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.29</div>
+  <div class="version-footer">Money Tree · Rev 2.32.30</div>
 </div>
   </div>
 </div>
@@ -7696,7 +7696,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.29';
+const APP_VERSION = '2.32.30';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8791,17 +8791,82 @@ function captureFocusAudit(point){
   try{ anyActive = !!document.querySelector('button:active'); }catch(e){}
   captureDebugGeometry('focus-audit', { auditPoint: point, focusTag: el ? el.tagName : null, focusId: el && el.id ? el.id : null, anyButtonActive: anyActive });
 }
+// Rev 2.32.30 (P) — надійна доставка дії зі сповіщення, коли PWA відкрите у фоні. Скарга: тап відкривав застосунок, але не «Вхідні». Було: message від SW -> handlePushAction() одразу, поки сторінка ще «заморожена»/прокидається (відновлення: pull, перевірки, таймери), а для mono-inbox ще й очікування входу й мережевого loadMonoState(). Тепер дія стає «очікуваною» (пам'ять; SW дублює її в IndexedDB із міткою часу), виконується РІВНО ОДИН РАЗ, коли сторінка видима, і ПІСЛЯ роботи відновлення (два requestAnimationFrame); джерела: message, visibilitychange->visible, pageshow, focus, читання IndexedDB; діє 2 хвилини. Дублі (message + IndexedDB + query) відсікаються за міткою `_at`. Причину поточної скарги докладно не доведено (на iPhone не відтворюється з цього середовища) — тому випущено й діагностику push-click/push-msg/push-apply.
+const PUSH_PENDING_TTL_MS = 120000;
+function createPendingPush(action, now){ return { action: action, at: now, used: false }; }
+function pendingPushState(p, now){
+  if(!p) return 'none';
+  if(p.used) return 'used';
+  if(now - p.at > PUSH_PENDING_TTL_MS) return 'expired';
+  return 'ready';
+}
+function shouldRunPendingPush(p, now, visibility){ return pendingPushState(p, now) === 'ready' && visibility === 'visible'; }
+// Дубль тієї самої події кліку (message + IndexedDB + query) визначається за міткою _at (SW ставить її один раз на клік).
+function isDuplicatePushStamp(stamps, at){ return !!at && stamps.indexOf(String(at)) !== -1; }
+let pendingPush = null;
+const handledPushStamps = [];
+function queuePushAction(action, source){
+  if(!action || !action.type) return false;
+  const stamp = action._at || action.at || null;
+  if(isDuplicatePushStamp(handledPushStamps, stamp)) return false;
+  if(stamp && /^\d+$/.test(String(stamp)) && Date.now() - Number(stamp) > PUSH_PENDING_TTL_MS) return false; // застарілий клік (напр. запис в IndexedDB лишився з минулого разу)
+  if(stamp){ handledPushStamps.push(String(stamp)); if(handledPushStamps.length > 20) handledPushStamps.shift(); }
+  pendingPush = createPendingPush(action, Date.now());
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-msg', source: source, visibility: document.visibilityState, pushType: action.type });
+  runPendingPushAction(source);
+  return true;
+}
+function runPendingPushAction(reason){
+  const p = pendingPush;
+  if(!shouldRunPendingPush(p, Date.now(), document.visibilityState)){
+    if(p && pendingPushState(p, Date.now()) === 'expired'){
+      pendingPush = null;
+      if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-apply', result: 'skipped', reason: 'expired' });
+    }
+    return;
+  }
+  if(p.scheduled) return; // вже заплановано (повторні тригери не дублюють)
+  p.scheduled = true;
+  let fired = false;
+  // «used» ставиться лише коли дію реально виконано; якщо сторінку сховали до rAF (rAF у прихованій сторінці не спрацьовує) — дія лишається очікуваною до наступного тригера. Таймер 600 мс — запасний шлях, якщо rAF затримано.
+  const go = function(){
+    if(fired) return; fired = true;
+    if(document.visibilityState !== 'visible'){ p.scheduled = false; return; }
+    p.used = true; // рівно один раз
+    Promise.resolve(handlePushAction(p.action)).then(function(){
+      if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-apply', result: 'opened', reason: reason, pushType: p.action.type });
+    }, function(){
+      if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-apply', result: 'skipped', reason: 'error' });
+    });
+    readAndClearPendingPushAction().catch(function(){});
+  };
+  requestAnimationFrame(function(){ requestAnimationFrame(go); });
+  setTimeout(go, 600);
+}
+// Резервне джерело: SW завжди пише дію в IndexedDB (6D.144) — на поверненні з фону перечитуємо її, якщо message не дійшло (сторінка була заморожена). Свіжа лише з міткою _at.
+function checkPendingPushFromIdb(reason){
+  readAndClearPendingPushAction().then(function(a){
+    if(a && a.type && a._at && (Date.now() - Number(a._at)) <= PUSH_PENDING_TTL_MS) queuePushAction(a, 'idb-' + reason);
+  }).catch(function(){});
+}
+// Шторки/діалоги, відкриті на момент тапу, закриваємо їхніми ж кнопками (з власними запобіжниками), фокус із полів знімаємо.
+function closeOpenSheetsForPush(){
+  try{ if(document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); }catch(e){}
+  try{ if(document.querySelector('#app-modal.open') && typeof closeAppModal === 'function') closeAppModal(); }catch(e){}
+  try{ document.querySelectorAll('.drawer.open .drawer-close').forEach(function(b){ b.click(); }); }catch(e){}
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible'){ runPendingPushAction('visible'); checkPendingPushFromIdb('visible'); } });
+window.addEventListener('pageshow', function(){ runPendingPushAction('pageshow'); checkPendingPushFromIdb('pageshow'); });
+window.addEventListener('focus', function(){ runPendingPushAction('focus'); });
 async function handlePushAction(action){
   if(!action || !action.type) return;
   if(action.type === 'mono-inbox'){
-    // Rev 2.32.29: чекаємо вхід у сесію й стан підключення (холодний старт), щоб знати, чи відкривати «Вхідні» чи «Monobank»
-    if(cloudAuthInitInFlight) await cloudAuthInitInFlight;
-    if(!monoState.loaded) await loadMonoState();
-    action = Object.assign({}, action, { connected: monoState.offline ? undefined : monoNotifGroupVisible(monoState.connection) });
+    // Rev 2.32.30 (P): НЕ чекаємо вхід і мережу — «Вхідні» відкриваються одразу й дозавантажуються; відомий стан «не підключено» -> екран «Monobank»
+    action = Object.assign({}, action, { connected: (monoState.loaded && !monoState.offline) ? monoNotifGroupVisible(monoState.connection) : undefined });
   }
   const route = routeForPushType(action.type, action);
   if(!route.screen) return;
-  try{ if(document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); }catch(e){}
+  closeOpenSheetsForPush(); // Rev 2.32.30 (P): шторки/діалоги закриваються їхніми кнопками, фокус знімається
   if(route.screen === 'vytraty'){
     // Rev 2.23.29 (6D.198) — нагадування про витрати: вкладка без автофокусу й без клавіатури; жодного focus().
     document.body.classList.remove('kb-open');
@@ -8840,7 +8905,7 @@ async function handlePushAction(action){
     // Rev 2.32.29: «Вхідні» Monobank — вкладка «Сервіс», таббар видимий, без клавіатури й focus()
     document.body.classList.remove('kb-open');
     performSwitchTab('service');
-    if(route.screen === 'mono-inbox') openMonoInbox(); else openMonoScreen();
+    if(route.screen === 'mono-inbox') openMonoInbox({ fromPush: true }); else openMonoScreen();
   }else if(route.screen === 'backup'){
     // Rev 2.32.15 (Z): екран експорту/резервної копії — вкладка «Сервіс»; таббар видимий, без клавіатури, БЕЗ програмного focus(): плитка лише підсвічується й прокручується в центр.
     document.body.classList.remove('kb-open');
@@ -19132,7 +19197,7 @@ function renderMonoInbox(){
   if(monoInbox.tab === 'new') parts.push('<div class="mono-hint">Свайп уліво по рядку: «Додати» або «Ігнорувати». Видалена витрата більше не повертається.</div>');
   body.innerHTML = parts.join('');
 }
-async function openMonoInbox(){
+async function openMonoInbox(opts){
   const screen = document.getElementById('mono-inbox-screen');
   if(!screen) return;
   if(!isMonoInboxOpen){ lastFocusedBeforeDialog = document.activeElement; lockBackgroundScroll(); }
@@ -19143,6 +19208,8 @@ async function openMonoInbox(){
   await loadMonoInbox();
   renderMonoInbox();
   refreshMonoNewCount();
+  // Rev 2.32.30 (P): відкрито зі сповіщення до того, як стан банку був відомий — якщо він виявився «не підключено», показуємо екран «Monobank»
+  if(opts && opts.fromPush && monoState.loaded && !monoState.offline && !monoNotifGroupVisible(monoState.connection)){ closeMonoInbox(); openMonoScreen(); }
 }
 function closeMonoInbox(){
   if(!isMonoInboxOpen) return;
@@ -22527,7 +22594,7 @@ restoreExpenseDraft();
 const pushActionParams = new URLSearchParams(location.search);
 const pushActionType = pushActionParams.get('pushAction');
 if(pushActionType){
-  handlePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, target: pushActionParams.get('target') || undefined });
+  queuePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, target: pushActionParams.get('target') || undefined, _at: pushActionParams.get('at') || undefined }, 'query'); // Rev 2.32.30 (P)
   history.replaceState(null, '', location.pathname);
   // 6D.144 — цей запуск уже обслужено через query-параметр (URL з
   // clients.openWindow() цього разу дійшла як є) — прибираємо дубль-запис
@@ -22540,7 +22607,7 @@ if(pushActionType){
   // clients.openWindow() при релончі вивантаженого з памʼяті PWA
   // (задокументована поведінка WebKit) — тоді дію знаходимо тут.
   readAndClearPendingPushAction().then(function(action){
-    if(action && action.type) handlePushAction(action);
+    if(action && action.type) queuePushAction(action, 'idb-start'); // Rev 2.32.30 (P)
   }).catch(function(){});
 }
 })();
@@ -22556,8 +22623,13 @@ if(pushActionType){
 // з тим самим action-об'єктом, що передається в handlePushAction() вище.
 if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', function(event){
+    if(event.data && event.data.type === 'push-click-info'){
+      // Rev 2.32.30 (P): діагностика кліку з боку SW — без значень
+      if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-click', pushType: event.data.pushType || null, clients: event.data.clients, focus: event.data.focus });
+      return;
+    }
     if(event.data && event.data.type === 'push-action' && event.data.action){
-      handlePushAction(event.data.action);
+      queuePushAction(event.data.action, 'message'); // Rev 2.32.30 (P)
       // 6D.144 — цей клік уже оброблено через postMessage (застосунок був
       // відкритий) — прибираємо той самий дубль-запис з IndexedDB, щоб
       // наступний перезапуск (напр. після згортання й вивантаження) не

@@ -55,7 +55,7 @@ function runHandle(action){
     openTrashScreen: rec('openTrashScreen'), goToCardDebtsTab: rec('goToCardDebtsTab'), captureDebugGeometry: rec('capture'),
     captureFocusAudit: function(){}, highlightInstallmentRow: rec('highlight'),
     allMonths: function(){ return ['2026-09', '2026-10']; }, selectedMonth: '2026-09', performMonthChange: rec('performMonthChange'),
-  }, ['routeForPushType', 'handlePushAction']);
+  }, ['routeForPushType', 'closeOpenSheetsForPush', 'handlePushAction']);
   return ctx.handlePushAction(action).then(function(){ return calls; });
 }
 test('handlePushAction: daily-expense-reminder → вкладка без фокусу, blur, kb-open знято, жодного focus()', async () => {

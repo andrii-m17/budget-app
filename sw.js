@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.29';
+const CACHE_NAME = 'budget-app-v2.32.30';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -193,7 +193,9 @@ function writePendingPushAction(action){
 
 self.addEventListener('notificationclick', function(event){
   event.notification.close();
-  const notifData = event.notification.data || {};
+  // Rev 2.32.30 (P): кожен клік отримує мітку часу _at — сторінка за нею відсікає дублі (message + IndexedDB + query) і відкидає застарілі дії; діагностика кліку (скільки вікон, результат focus) шлеться сторінці push-click-info.
+  const notifData = Object.assign({}, event.notification.data || {});
+  if(notifData.type) notifData._at = Date.now();
   // best-effort (приватний режим/квота IndexedDB — не критично, решта
   // (focus/openWindow) все одно має відпрацювати як і раніше).
   const persist = notifData.type ? writePendingPushAction(notifData).catch(function(){}) : Promise.resolve();
@@ -204,14 +206,17 @@ self.addEventListener('notificationclick', function(event){
         for(const c of clientsArr){
           if('focus' in c){
             if(notifData.type) c.postMessage({ type: 'push-action', action: notifData });
-            return c.focus();
+            return Promise.resolve(c.focus()).then(function(){ return 'ok'; }, function(){ return 'fail'; }).then(function(res){
+              if(notifData.type) try{ c.postMessage({ type: 'push-click-info', pushType: notifData.type, clients: clientsArr.length, focus: res }); }catch(e){}
+            });
           }
         }
         let url = './';
         if(notifData.type){
           url = './index.html?pushAction=' + encodeURIComponent(notifData.type);
           if(notifData.installmentId) url += '&installmentId=' + encodeURIComponent(notifData.installmentId);
-          if(notifData.target) url += '&target=' + encodeURIComponent(notifData.target); // Rev 2.23.31 (6D.200): куди веде зведення (journal/accounting/debts)
+          if(notifData.target) url += '&target=' + encodeURIComponent(notifData.target);
+          if(notifData._at) url += '&at=' + encodeURIComponent(notifData._at); // Rev 2.23.31 (6D.200): куди веде зведення (journal/accounting/debts)
         }
         if(self.clients.openWindow) return self.clients.openWindow(url);
       });
