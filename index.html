@@ -1243,28 +1243,28 @@
   .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
   .struct-tab-panel.hidden{ display:none; }
   /* Rev 2.32.58 (F1) — форми «Структури» у компоненті .drawer: компактні рядки 48 пт (підпис ліворуч, значення праворуч), групи радіус 18, пара кнопок знизу (скасувати — обведена), «Видалити …» червоним текстом під парою; ✕ немає. Нативний select — прозорий поверх рядка, текст значення малюється окремо (обрізання знизу неможливе). */
-  #struct-drawer .sf-title{ margin:2px 0 12px; font-size:18px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
-  #struct-drawer .sf-notice{ margin:0 0 12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-warning-bg); color:var(--color-text-primary); font-size:13.5px; line-height:1.4; }
-  #struct-drawer .sf-group{ background:var(--ui-glass, var(--color-surface-hover)); border:1px solid var(--color-border); border-radius:18px; overflow:hidden; margin-bottom:10px; }
-  #struct-drawer .sf-row{ position:relative; display:flex; align-items:center; gap:10px; min-height:48px; padding:0 14px; box-sizing:border-box; }
-  #struct-drawer .sf-row + .sf-row::before{ content:''; position:absolute; top:0; left:14px; right:0; height:1px; background:var(--color-border); }
-  #struct-drawer .sf-label{ flex:none; font-size:15px; color:var(--color-text-primary); }
-  #struct-drawer .sf-value{ flex:1; min-width:0; text-align:right; font-size:15px; color:var(--color-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #struct-drawer .sf-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
-  #struct-drawer .sf-select{ position:absolute; inset:0; width:100%; height:100%; opacity:0; border:0; font-size:16px; -webkit-appearance:none; appearance:none; cursor:pointer; }
-  #struct-drawer .sf-input{ flex:1; min-width:0; height:48px; padding:0; border:0; background:transparent; box-shadow:none; border-radius:0; text-align:right; font-size:16px; color:var(--color-text-primary); }
-  #struct-drawer .sf-input:focus{ outline:none; box-shadow:none; }
-  #struct-drawer .sf-row .struct-tile{ margin-right:2px; }
-  #struct-drawer .sf-seg{ padding:6px 8px; }
-  #struct-drawer .sf-seg .struct-tabs{ width:100%; margin:0; }
-  #struct-drawer .sf-seg .struct-tab-btn{ padding:7px 4px; }
-  #struct-drawer .struct-caption{ margin:0 4px 12px; }
-  #struct-drawer .sf-actions{ display:flex; gap:10px; margin-top:6px; }
-  #struct-drawer .sf-actions .submit-btn{ flex:1 1 0; min-height:50px; }
-  html:root #struct-drawer .sf-actions .submit-btn.secondary{ background:transparent; border:1.5px solid var(--color-border-strong); color:var(--color-text-primary); box-shadow:none; }
-  #struct-drawer .sf-delete-wrap{ text-align:center; }
-  #struct-drawer .sf-delete-wrap .cdd-delete-link{ margin-top:10px; width:100%; }
-  #struct-drawer .sf-delete-wrap .struct-caption{ margin:2px 4px 0; text-align:center; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-title{ margin:2px 0 12px; font-size:18px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-notice{ margin:0 0 12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-warning-bg); color:var(--color-text-primary); font-size:13.5px; line-height:1.4; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-group{ background:var(--ui-glass, var(--color-surface-hover)); border:1px solid var(--color-border); border-radius:18px; overflow:hidden; margin-bottom:10px; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-row{ position:relative; display:flex; align-items:center; gap:10px; min-height:48px; padding:0 14px; box-sizing:border-box; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-row + .sf-row::before{ content:''; position:absolute; top:0; left:14px; right:0; height:1px; background:var(--color-border); }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-label{ flex:none; font-size:15px; color:var(--color-text-primary); }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-value{ flex:1; min-width:0; text-align:right; font-size:15px; color:var(--color-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-select{ position:absolute; inset:0; width:100%; height:100%; opacity:0; border:0; font-size:16px; -webkit-appearance:none; appearance:none; cursor:pointer; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-input{ flex:1; min-width:0; height:48px; padding:0; border:0; background:transparent; box-shadow:none; border-radius:0; text-align:right; font-size:16px; color:var(--color-text-primary); }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-input:focus{ outline:none; box-shadow:none; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-row .struct-tile{ margin-right:2px; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-seg{ padding:6px 8px; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-seg .struct-tabs{ width:100%; margin:0; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-seg .struct-tab-btn{ padding:7px 4px; }
+  :is(#struct-drawer, #mono-detail-drawer) .struct-caption{ margin:0 4px 12px; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-actions{ display:flex; gap:10px; margin-top:6px; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-actions .submit-btn{ flex:1 1 0; min-height:50px; }
+  html:root #mono-detail-drawer .mono-detail-actions .submit-btn.secondary, html:root :is(#struct-drawer, #mono-detail-drawer) .sf-actions .submit-btn.secondary{ background:transparent; border:1.5px solid var(--color-border-strong); color:var(--color-text-primary); box-shadow:none; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-delete-wrap{ text-align:center; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-delete-wrap .cdd-delete-link{ margin-top:10px; width:100%; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-delete-wrap .struct-caption{ margin:2px 4px 0; text-align:center; }
 
   /* Rev 2.32.48 (S1) — «Структура»: групи в стилі «Налаштувань» (радіус 18, рядок ≥56px, роздільник від відступу плитки, заголовки груп 13px великими вторинним кольором); плитка з емодзі 32px; без олівця й хрестика. */
   .struct-section{ margin-bottom:22px; }
@@ -1457,10 +1457,11 @@
   /* Rev 2.32.36 (L) — значок Monobank замість тексту «з банку» (.exp-source). 18px, тонка рамка: світла на темній темі, ледь помітна на світлій. */
   .mono-bank-icon{ width:18px; height:18px; flex:none; border-radius:5px; vertical-align:middle; box-shadow:0 0 0 1px rgba(16,24,40,.10); }
   :root[data-theme="dark"] .mono-bank-icon{ box-shadow:0 0 0 1px rgba(255,255,255,.22); }
-  .mono-detail-actions{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }
+  .mono-detail-actions{ display:flex; flex-direction:column; gap:10px; margin-top:8px; }
+  #mono-detail-drawer .sf-group{ margin-bottom:8px; }
+  #mono-detail-drawer .mono-detail-fields{ gap:0; margin-top:8px; }
   .mono-detail-fields{ display:flex; flex-direction:column; gap:12px; margin-top:12px; }
-  /* Rev 2.32.34 (S) — поля «Категорія»/«Підкатегорія» (нативний select): знизу обрізались літери з хвостиками («р», «у»). Причина: height:46px + line-height:normal + overflow:clip у select iOS. Тепер висота 56px, line-height 1.35, більший вертикальний padding, ellipsis замість обрізання; appearance:none + власна стрілка (колір нейтральний для обох тем); тап відкриває нативне колесо як і раніше. Специфічність підвищена класом .mono-sel, бо базові правила .field select стоять нижче в файлі. */
-  html:root .mono-detail-fields .field select.mono-sel{ height:56px; min-height:56px; padding:14px 36px 14px 12px; line-height:1.35; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%238a8f98' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; background-size:12px 8px; }
+  /* Rev 2.32.59 (F2): рядки вибору/примітки у деталях Monobank — спільні .sf-* правила (див. «Структура», 2.32.58); колишнє виправлення обрізання з 2.32.34 більше не потрібне — select прозорий, текст значення окремо. */
   .mono-note{ font-size:14px; line-height:1.45; color:var(--color-text-secondary); text-align:center; padding:24px 16px; }
   .trash-screen{ position:fixed; inset:0; z-index:19; background:var(--color-bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) 16px 112px; }
   .trash-screen.hidden{ display:none; }
@@ -3418,7 +3419,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.58</div>
+  <div class="version-footer">Money Tree · Rev 2.32.59</div>
 </div>
   </div>
 </div>
@@ -3524,9 +3525,11 @@
   </div>
   <div id="mono-detail-body"></div>
   <div class="mono-detail-fields" id="mono-detail-fields">
-    <div class="field"><label for="fldmono2">Категорія</label><select id="fldmono2" class="mono-sel" onchange="onMonoDetailCategoryChange()"></select></div>
-    <div class="field"><label for="fldmono3">Підкатегорія</label><select id="fldmono3" class="mono-sel" onchange="onMonoDetailSubChange()"></select></div>
-    <div class="field"><label for="fldmono4">Примітка</label><input type="text" id="fldmono4" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="Примітка"></div>
+    <div class="sf-group" id="mono-pick-group">
+      <div class="sf-row sf-pick"><span class="sf-label">Категорія</span><span class="sf-value" id="mono-val-cat"></span><span class="sf-chev"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></span><select id="fldmono2" class="sf-select" aria-label="Категорія" onchange="onMonoDetailCategoryChange()"></select></div>
+      <div class="sf-row sf-pick"><span class="sf-label">Підкатегорія</span><span class="sf-value" id="mono-val-sub"></span><span class="sf-chev"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></span><select id="fldmono3" class="sf-select" aria-label="Підкатегорія" onchange="onMonoDetailSubChange()"></select></div>
+      <div class="sf-row"><span class="sf-label">Примітка</span><input type="text" id="fldmono4" class="sf-input" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" aria-label="Примітка" placeholder="—"></div>
+    </div>
     <!-- Rev 2.32.35 (K): підказка «Підібрано за словом …» -->
     <div class="mono-kw-hint off" id="mono-kw-hint" aria-live="polite"><span id="mono-kw-text"></span><button type="button" class="mono-kw-undo" onclick="monoKeywordUndo()">Скасувати підбір</button></div>
   </div>
@@ -7904,7 +7907,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.58';
+const APP_VERSION = '2.32.59';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -19681,14 +19684,16 @@ function openMonoDetail(id){
   document.getElementById('mono-detail-title').textContent = m.merchant;
   document.getElementById('mono-detail-sub').textContent = m.amount;
   const body = document.getElementById('mono-detail-body'); body.textContent = '';
-  const add = function(label, value){ if(!value) return; const r = document.createElement('div'); r.className = 'trash-detail-row'; const a = document.createElement('span'); a.textContent = label; const b = document.createElement('span'); b.textContent = value; r.appendChild(a); r.appendChild(b); body.appendChild(r); };
+  const grp = document.createElement('div'); grp.className = 'sf-group'; body.appendChild(grp); // Rev 2.32.59 (F2): інформаційні рядки — підпис ліворуч, значення праворуч (як у формах «Структури»)
+  const add = function(label, value){ if(!value) return; const r = document.createElement('div'); r.className = 'sf-row'; const a = document.createElement('span'); a.className = 'sf-label'; a.textContent = label; const b = document.createElement('span'); b.className = 'sf-value'; b.textContent = value; r.appendChild(a); r.appendChild(b); grp.appendChild(r); };
   const d = new Date(row.tx_time);
-  add('Опис', row.description);
+  if(row.description && row.description !== m.merchant) add('Опис', row.description); // Rev 2.32.59 (F2): збігається із заголовком — не дублюємо
   add('Сума', m.amount);
   add('Дата й час', isNaN(d) ? '' : d.getDate() + ' ' + MONO_MONTHS_GEN[d.getMonth()] + ' ' + d.getFullYear() + ', ' + m.meta.split(' · ')[0]);
   add('Картка', (m.meta.split(' · ')[1]) || '');
   add('Коментар', row.comment);
   add('Статус', m.reason || (row.status === 'added' ? 'Додано' : ''));
+  if(!grp.firstChild) grp.style.display = 'none';
   document.getElementById('mono-detail-fields').style.display = isNew ? '' : 'none';
   document.getElementById('mono-detail-actions').style.display = isNew ? '' : 'none';
   // Rev 2.32.32: повернення у «Пропущених» — «Врахувати повернення» / «Ігнорувати»
@@ -19702,6 +19707,7 @@ function openMonoDetail(id){
     document.getElementById('fldmono3').innerHTML = subcategoryOptionsHtml(cat.value, row.suggested_subcategory || '');
     document.getElementById('fldmono4').value = row.description || '';
     monoKwReset(); // Rev 2.32.35 (K): початкове значення — підказка сервера
+    monoPickRefresh();
   }
   const backdrop = document.getElementById('mono-detail-backdrop'), drawer = document.getElementById('mono-detail-drawer');
   const wasOpen = drawer.classList.contains('open');
@@ -19755,6 +19761,15 @@ function monoKwSetSelects(cat, sub){
   const c = document.getElementById('fldmono2'), s = document.getElementById('fldmono3');
   c.innerHTML = categoryOptionsHtml(cat || ''); c.value = cat || '';
   s.innerHTML = subcategoryOptionsHtml(cat || '', sub || ''); s.value = sub || '';
+  monoPickRefresh();
+}
+// Rev 2.32.59 (F2): текст значення рядків вибору (select прозорий поверх рядка; оновлюється при кожній зміні — вручну, підбором, початковим заповненням)
+function monoPickRefresh(){
+  const c = document.getElementById('fldmono2'), s = document.getElementById('fldmono3');
+  const txt = function(sel, empty){ if(!sel || !sel.value) return empty; const o = sel.options[sel.selectedIndex]; return o ? o.text : empty; };
+  const vc = document.getElementById('mono-val-cat'), vs = document.getElementById('mono-val-sub');
+  if(vc) vc.textContent = txt(c, 'Не обрано');
+  if(vs) vs.textContent = txt(s, 'Без підкатегорії');
 }
 function monoKeywordApply(){
   const note = document.getElementById('fldmono4').value;
@@ -19784,18 +19799,19 @@ function monoKeywordUndo(){
   monoKw.applied = null; monoKw.prev = null; monoKw.dismissed = true;
   monoKwShowHint(null);
 }
-function onMonoDetailSubChange(){ monoKw.manualSub = true; monoKwShowHint(null); }
+function onMonoDetailSubChange(){ monoKw.manualSub = true; monoKwShowHint(null); monoPickRefresh(); }
 function onMonoDetailCategoryChange(){
   monoKw.manualCat = true; monoKwShowHint(null); // Rev 2.32.35 (K): ручний вибір вимикає підбір
   const cat = document.getElementById('fldmono2').value;
   document.getElementById('fldmono3').innerHTML = subcategoryOptionsHtml(cat, '');
+  monoPickRefresh();
 }
 async function monoDetailAdd(){
   const id = monoInbox.detailId;
   const row = monoInbox.rows.filter(function(r){ return safeId(r.id) === id; })[0];
   if(!row || monoInbox.busy) return;
   const category = document.getElementById('fldmono2').value;
-  if(!category){ flashField('fldmono2'); showTextToast('Оберіть категорію', 'error'); return; }
+  if(!category){ flashField('mono-pick-group'); showTextToast('Оберіть категорію', 'error'); return; }
   monoInbox.busy = true;
   const out = await monoAcceptRow(row, category, document.getElementById('fldmono3').value, document.getElementById('fldmono4').value.trim());
   monoInbox.busy = false;

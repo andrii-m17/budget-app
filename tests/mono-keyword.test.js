@@ -31,6 +31,7 @@ function env(){
   const els = { fldmono2: { value: 'Інше' }, fldmono3: { value: '' }, fldmono4: { value: '' }, 'mono-kw-hint': { classList: { off: true, toggle: function(c, on){ this.off = !!on; } } }, 'mono-kw-text': { textContent: '' } };
   const events = [];
   const g = {
+    monoPickRefresh: function(){},
     document: { getElementById: function(id){ return els[id]; } }, DICTIONARY: DICT, getCategoryType: function(){ return 'expense'; },
     categoryOptionsHtml: function(){ return ''; }, subcategoryOptionsHtml: function(){ return ''; },
     debugRecordingActive: true, debugRecordingStartedAt: 0, performance: { now: function(){ return 1; } }, pushDebugEvent: function(e){ events.push(e); },
