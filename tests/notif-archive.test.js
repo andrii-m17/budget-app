@@ -30,9 +30,9 @@ test('V: значок лічильника поза кнопкою, ідеаль
   const wrap = SRC.slice(SRC.indexOf('<span class="notif-bell-wrap">'), SRC.indexOf('<!-- Rev 2.32.38 (B): дзвіночок зліва від шестерні -->'));
   assert.ok(wrap.indexOf('</button>') < wrap.indexOf('id="notif-bell-count"'), 'значок після закриття кнопки');
   const css = SRC.match(/\.notif-bell-count\{([^}]*)\}/)[1];
-  assert.match(css, /min-width:20px; height:20px; padding:0 6px; box-sizing:border-box; border-radius:10px/);
+  assert.match(css, /min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:8px/);
   assert.match(css, /display:inline-flex; align-items:center; justify-content:center/); assert.match(css, /line-height:1;/);
-  assert.match(css, /box-shadow:0 0 0 2px var\(--color-bg\)/); assert.ok(!/border:/.test(css)); assert.match(css, /pointer-events:none/);
+  assert.match(css, /box-shadow:0 0 0 1\.5px var\(--color-bg\)/); assert.ok(!/border:/.test(css)); assert.match(css, /pointer-events:none/);
   assert.match(SRC, /--notif-muted:#7C8699/);
   const lum = function(h){ const v = [1, 3, 5].map(function(i){ const x = parseInt(h.substr(i, 2), 16) / 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); }); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; };
   const ratio = function(a, b){ const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };

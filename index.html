@@ -1364,7 +1364,7 @@
   .gear-btn.notif-bell-btn::after{ content:''; position:absolute; inset:-4px; } /* зона дотику 44×44 при візуальних 36×36, як у шестерні поруч */
   /* Rev 2.32.40 (V) — лічильник дзвіночка. Причина спотворення (Крок 0): значок був нащадком кнопки і мав border:2px при height:18px + line-height:18px у border-box → вміст 14px, рядок 18px: цифра зсунута вниз, а форма залежала від контексту кнопки. Тепер значок — сусід кнопки в обгортці .notif-bell-wrap (не нащадок), inline-flex по центру, line-height:1, обводка кольору шапки через box-shadow, не border. */
   .notif-bell-wrap{ position:relative; display:inline-flex; }
-  .notif-bell-count{ position:absolute; top:-4px; right:-4px; min-width:20px; height:20px; padding:0 6px; box-sizing:border-box; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; background:var(--color-error); color:#fff; font-size:12px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; box-shadow:0 0 0 2px var(--color-bg); pointer-events:none; }
+  .notif-bell-count{ position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background:var(--color-error); color:#fff; font-size:10px; font-weight:700; line-height:1; letter-spacing:0; font-variant-numeric:tabular-nums; box-shadow:0 0 0 1.5px var(--color-bg); /* Rev 2.32.42 (V2): менший значок (16px, шрифт 10px) — «9+» виглядав завеликим */ pointer-events:none; }
   .notif-bell-count.hidden{ display:none; }
   .notif-archive-top-action{ position:absolute; right:0; top:0; height:48px; display:flex; align-items:center; }
   .notif-readall{ background:none; border:0; font:inherit; font-size:15px; font-weight:600; color:var(--color-primary-text, var(--color-primary)); cursor:pointer; min-height:44px; padding:0 4px; }
@@ -3385,7 +3385,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.41</div>
+  <div class="version-footer">Money Tree · Rev 2.32.42</div>
 </div>
   </div>
 </div>
@@ -7786,7 +7786,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.41';
+const APP_VERSION = '2.32.42';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
