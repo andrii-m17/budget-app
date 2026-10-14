@@ -28,3 +28,6 @@ test('відомі звернення зовні — лише за typeof-пер
     assert.equal(calls, 1, n + ': рівно один виклик, і він за перевіркою');
   });
 });
+test('recordKbEnv виставлена у window (інакше kb-env у рекордері не записується; 2.32.55)', function(){
+  assert.match(SRC, /\n\}\n\/\/ Rev 2\.32\.55: recordKbEnv[^\n]*\nwindow\.recordKbEnv = recordKbEnv;/);
+});
