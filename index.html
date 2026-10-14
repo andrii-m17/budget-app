@@ -1242,6 +1242,33 @@
   @media (hover:hover) and (pointer:fine){ .struct-tab-btn:hover{ color:var(--color-text-primary); } }
   .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
   .struct-tab-panel.hidden{ display:none; }
+  /* Rev 2.32.67 (P3) — картка «Найближчі платежі»: токени застосунку (обидві теми), без емодзі (лише SVG), зони ≥44 пт. Нейтральні формулювання: «без позначки», а не «прострочено». */
+  .pay-card{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:22px; padding:16px 16px 4px; margin-bottom:14px; }
+  .pay-card.hidden{ display:none; }
+  .pay-head{ display:flex; align-items:baseline; justify-content:space-between; }
+  .pay-title{ font-size:17px; font-weight:600; color:var(--color-text-primary); }
+  .pay-window{ font-size:13px; color:var(--color-text-secondary); }
+  .pay-big{ font-size:30px; font-weight:700; letter-spacing:-.4px; font-variant-numeric:tabular-nums; margin-top:10px; color:var(--color-text-primary); }
+  .pay-big.calm{ font-size:19px; letter-spacing:0; line-height:1.3; }
+  .pay-sub{ font-size:14px; color:var(--color-text-secondary); margin-top:2px; }
+  .pay-strip{ display:flex; gap:4px; margin:12px 0 4px; }
+  .pay-day{ flex:1; min-width:0; min-height:64px; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 0; border-radius:14px; border:1px solid transparent; background:transparent; font:inherit; color:var(--color-text-primary); cursor:default; }
+  .pay-day.today{ border-color:var(--color-border-strong); }
+  .pay-day.has{ background:var(--color-surface-hover); cursor:pointer; }
+  .pay-dow{ font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--color-text-secondary); }
+  .pay-num{ font-size:17px; font-weight:600; }
+  .pay-sum{ font-size:11px; height:14px; font-variant-numeric:tabular-nums; }
+  .pay-rows{ margin-top:8px; }
+  .pay-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:44px; padding:0; background:transparent; border:0; border-top:1px solid var(--color-border); font:inherit; text-align:left; color:var(--color-text-primary); cursor:pointer; }
+  .pay-row:first-child{ border-top:0; }
+  .pay-row-main{ min-width:0; display:flex; flex-direction:column; }
+  .pay-row-label{ font-size:15px; color:var(--color-text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pay-row-sub{ font-size:12.5px; color:var(--color-text-secondary); }
+  .pay-row-amt{ flex:none; font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .pay-row.amber .pay-row-label{ color:var(--color-warning); font-weight:600; }
+  .pay-note{ font-size:13px; line-height:1.4; color:var(--color-text-secondary); padding:10px 0; border-top:1px solid var(--color-border); }
+  .pay-all{ display:flex; align-items:center; justify-content:space-between; width:100%; min-height:48px; padding:0 2px; background:transparent; border:0; border-top:1px solid var(--color-border); color:var(--color-primary-text, var(--color-primary)); font:inherit; font-size:17px; text-align:left; cursor:pointer; }
+
   /* Rev 2.32.58 (F1) — форми «Структури» у компоненті .drawer: компактні рядки 48 пт (підпис ліворуч, значення праворуч), групи радіус 18, пара кнопок знизу (скасувати — обведена), «Видалити …» червоним текстом під парою; ✕ немає. Нативний select — прозорий поверх рядка, текст значення малюється окремо (обрізання знизу неможливе). */
   :is(#struct-drawer, #mono-detail-drawer) .sf-title{ margin:2px 0 12px; font-size:18px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-notice{ margin:0 0 12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-warning-bg); color:var(--color-text-primary); font-size:13.5px; line-height:1.4; }
@@ -2677,6 +2704,8 @@
 
     <!-- ================= АНАЛІТИКА (було "Огляд") ================= -->
     <div class="view" id="view-analytics">
+      <!-- Rev 2.32.67 (P3): картка «Найближчі платежі» (7 днів) — перша на «Аналітиці»; наповнюється renderPaymentsCard(); прихована, якщо немає жодної ОЧ і жодної картки -->
+      <section class="pay-card hidden" id="payments-card" aria-label="Найближчі платежі"></section>
       <div class="analytics-empty hidden" id="analytics-empty">
         <div class="glyph"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
         <div class="ae-title">За цей місяць ще немає даних для аналітики</div>
@@ -3429,7 +3458,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.66</div>
+  <div class="version-footer">Money Tree · Rev 2.32.67</div>
 </div>
   </div>
 </div>
@@ -7934,7 +7963,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.66';
+const APP_VERSION = '2.32.67';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8557,6 +8586,85 @@ function kyivTodayISO(now){
 // Обгортка над реальними даними застосунку (для картки й екрана «Платежі»).
 function computeUpcomingNow(horizonDays){
   return upcomingPayments({ today: kyivTodayISO(), horizonDays: horizonDays, installments: installmentAccounts, cards: bankAccounts, debtsByMonth: activeDebts().map(function(d){ return Object.assign({}, d, { month: monthKey2(d.month) }); }), expenses: activeExpenses(), hidden: hiddenFrom });
+}
+/* ============ Картка «Найближчі платежі» на «Аналітиці» (Rev 2.32.67, P3) ============ */
+const PAY_MONTHS_SHORT = ['січ', 'лют', 'бер', 'кві', 'тра', 'чер', 'лип', 'сер', 'вер', 'жов', 'лис', 'гру'];
+const PAY_DOW = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+const PAY_MONTHS_GEN = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
+function payDow(iso){ return PAY_DOW[new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10))).getUTCDay()]; }
+function payDateShort(iso){ return +iso.slice(8, 10) + ' ' + PAY_MONTHS_SHORT[+iso.slice(5, 7) - 1]; }
+function payFmt(n){ return new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(n) + ' ₴'; }
+function payAmountText(it){ return it.amount == null ? 'сума невідома' : (it.estimated ? '≈ ' : '') + payFmt(it.amount); }
+function payPlural(n){ return pluralUa(n, ['платіж', 'платежі', 'платежів']); }
+// Модель картки (без DOM): стани А–Ж макета. r — результат upcomingPayments (horizon 7).
+function paymentsCardModel(r, today, hasAccounts){
+  if(!hasAccounts) return { hidden: true };
+  const m = { hidden: false, window: '7 днів', big: '', calm: false, sub: '', days: [], showStrip: true, rows: [], unconfirmed: null, cards: null, noDay: '', next: null };
+  const dayEnd = ppAddDays(today, 6);
+  for(let i = 0; i < 7; i++){
+    const date = ppAddDays(today, i);
+    const its = r.items.filter(function(x){ return x.date === date; });
+    const known = its.filter(function(x){ return x.amount != null; });
+    m.days.push({ date: date, dow: payDow(date), day: +date.slice(8, 10), today: i === 0, has: its.length > 0, sum: known.length ? known.reduce(function(a, x){ return a + x.amount; }, 0) : null, count: its.length });
+  }
+  const nextItem = r.items.length ? null : (r.later[0] || null);
+  if(r.items.length){
+    m.state = 'week';
+    if(r.load.total === 0 && r.load.unknown > 0){ m.big = 'Сума невідома'; m.calm = true; }
+    else m.big = (r.load.estimated ? '≈ ' : '') + payFmt(r.load.total);
+    m.sub = r.load.count + ' ' + payPlural(r.load.count) + ' до ' + (+dayEnd.slice(8, 10)) + ' ' + PAY_MONTHS_GEN[+dayEnd.slice(5, 7) - 1] + (r.load.unknown > 0 && r.load.total > 0 ? ' · ' + r.load.unknown + ' без суми' : '');
+    m.rows = r.items.slice(0, 2).map(function(x){ return { label: payDow(x.date) + ' ' + payDateShort(x.date) + ' · ' + x.name, amount: payAmountText(x), date: x.date }; });
+  }else if(nextItem && nextItem.month === today.slice(0, 7)){
+    m.state = 'empty'; m.big = 'Найближчі 7 днів без платежів'; m.calm = true;
+    m.next = 'Наступний: ' + payDow(nextItem.date) + ' ' + payDateShort(nextItem.date) + ' · ' + nextItem.name + ' · ' + payAmountText(nextItem);
+  }else{
+    m.state = 'allpaid'; m.big = 'Усе сплачено цього місяця'; m.calm = true; m.showStrip = false;
+    if(nextItem) m.next = 'Наступний: ' + payDateShort(nextItem.date) + ' · ' + nextItem.name + ' · ' + payAmountText(nextItem);
+  }
+  if(r.unconfirmed.length){ const u = r.unconfirmed[0]; m.unconfirmed = { title: r.unconfirmed.length + ' ' + payPlural(r.unconfirmed.length) + ' без позначки', sub: u.name + ' · ' + payDateShort(u.date) }; }
+  if(r.undatedCards.count){ m.cards = { title: 'Картки · ' + r.undatedCards.count + ' ' + payPlural(r.undatedCards.count), sub: 'Дату платежу не задано', amount: payFmt(r.undatedCards.total) }; }
+  if(r.noDay.length) m.noDay = r.noDay.length + ' ОЧ без дня платежу: вони не потрапляють у календар. Додайте день у «Обліку».';
+  return m;
+}
+function payEl(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+const PAY_CHEV_SVG = '<svg width="9" height="15" viewBox="0 0 9 15" fill="none" aria-hidden="true"><path d="M1.5 1.5l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function renderPaymentsCard(){
+  const host = document.getElementById('payments-card');
+  if(!host) return;
+  const hasAccounts = installmentAccounts.length > 0 || bankAccounts.length > 0;
+  let m;
+  try{ m = paymentsCardModel(computeUpcomingNow(7), kyivTodayISO(), hasAccounts); }catch(e){ host.classList.add('hidden'); return; }
+  host.classList.toggle('hidden', m.hidden);
+  host.textContent = '';
+  if(m.hidden) return;
+  const head = payEl('div', 'pay-head'); head.appendChild(payEl('div', 'pay-title', 'Найближчі платежі')); head.appendChild(payEl('div', 'pay-window', m.window)); host.appendChild(head);
+  host.appendChild(payEl('div', 'pay-big' + (m.calm ? ' calm' : ''), m.big));
+  if(m.sub) host.appendChild(payEl('div', 'pay-sub', m.sub));
+  const mkRow = function(cls, main, sub, amt, onclick){
+    const b = payEl('button', 'pay-row' + (cls ? ' ' + cls : '')); b.type = 'button';
+    const left = payEl('span', 'pay-row-main'); left.appendChild(payEl('span', 'pay-row-label', main)); if(sub) left.appendChild(payEl('span', 'pay-row-sub', sub));
+    b.appendChild(left); if(amt) b.appendChild(payEl('span', 'pay-row-amt', amt));
+    b.addEventListener('click', onclick); return b;
+  };
+  const openAll = function(date){ if(typeof openPaymentsScreen === 'function') openPaymentsScreen(date); };
+  if(m.unconfirmed){ const rows = payEl('div', 'pay-rows'); rows.appendChild(mkRow('amber', m.unconfirmed.title, m.unconfirmed.sub, '', function(){ openAll(null); })); host.appendChild(rows); }
+  if(m.showStrip){
+    const strip = payEl('div', 'pay-strip');
+    m.days.forEach(function(d){
+      const b = payEl('button', 'pay-day' + (d.today ? ' today' : '') + (d.has ? ' has' : '')); b.type = 'button';
+      b.appendChild(payEl('span', 'pay-dow', d.dow)); b.appendChild(payEl('span', 'pay-num', String(d.day))); b.appendChild(payEl('span', 'pay-sum', d.sum != null ? new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(d.sum) : ''));
+      b.setAttribute('aria-label', d.dow + ' ' + d.day + (d.has ? ', платежів: ' + d.count + (d.sum != null ? ', ' + payFmt(d.sum) : '') : ', без платежів'));
+      if(d.has) b.addEventListener('click', function(){ openAll(d.date); }); else b.tabIndex = -1;
+      strip.appendChild(b);
+    });
+    host.appendChild(strip);
+  }
+  if(m.rows.length){ const rows = payEl('div', 'pay-rows'); m.rows.forEach(function(r){ rows.appendChild(mkRow('', r.label, '', r.amount, function(){ openAll(r.date); })); }); host.appendChild(rows); }
+  if(m.next){ const rows = payEl('div', 'pay-rows'); rows.appendChild(mkRow('', m.next, '', '', function(){ openAll(null); })); host.appendChild(rows); }
+  if(m.cards){ const rows = payEl('div', 'pay-rows'); rows.appendChild(mkRow('', m.cards.title, m.cards.sub, m.cards.amount, function(){ openAll(null); })); host.appendChild(rows); }
+  if(m.noDay) host.appendChild(payEl('div', 'pay-note', m.noDay));
+  const all = payEl('button', 'pay-all'); all.type = 'button'; all.appendChild(payEl('span', '', 'Усі платежі')); const chev = payEl('span', ''); chev.innerHTML = PAY_CHEV_SVG; all.appendChild(chev);
+  all.addEventListener('click', function(){ openAll(null); }); host.appendChild(all);
 }
 function typicalMonthlyPayment(name, kind, beforeMonth){
   // Rev #30 (6D.44) — activeDebts(), той самий принцип, що lastKnownBalance().
@@ -13862,6 +13970,7 @@ function renderAll(){
   safeCall(rebuildNameHistory, 'rebuildNameHistory');
   safeCall(renderRecords, 'renderRecords');
   safeCall(renderDashboard, 'renderDashboard');
+  safeCall(renderPaymentsCard, 'renderPaymentsCard'); // Rev 2.32.67 (P3): після синхронізації, зміни даних, опівночі (checkDayRollover → renderAll)
   safeCall(populateIncomeTable, 'populateIncomeTable');
   safeCall(populateBankDebtTable, 'populateBankDebtTable');
   safeCall(populateInstallmentTable, 'populateInstallmentTable');
@@ -17978,7 +18087,7 @@ const BUTTON_VARIANT_MAP = {
   icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip'],
-  row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
+  row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-row', 'pay-all', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
