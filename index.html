@@ -312,6 +312,21 @@
   /* Rev 2.32.25 (U) — ненав'язливе повідомлення про оновлення («Скло», над таббаром). Ховається при відкритій клавіатурі/шторці (див. shouldShowUpdateBanner). */
   .update-banner{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:190; white-space:nowrap; display:none; align-items:center; gap:12px; padding:9px 10px 9px 16px; max-width:calc(100vw - 32px); background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); font-size:14px; color:var(--color-text); }
   .update-banner.show{ display:flex; }
+  /* Rev 2.32.37 (T) — спливаюче підтвердження успіху («Скло», як «Доступне оновлення»): скляний контейнер, іконка (коло й галочка, що малюються) зліва, дія справа. Те саме місце над таббаром; коли показано «Доступне оновлення», піднімається над ним (стек). Анімуються лише opacity/transform і stroke-dashoffset — не розміри. */
+  .success-toast-host{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:195; width:max-content; max-width:calc(100vw - 32px); pointer-events:none; }
+  .success-toast-host.above-update{ bottom:calc(env(safe-area-inset-bottom, 0px) + 160px); }
+  .success-toast{ pointer-events:auto; display:flex; align-items:center; gap:12px; padding:10px 10px 10px 12px; background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); color:var(--color-text); animation:stPop .32s cubic-bezier(.2,.9,.3,1.2) both; }
+  .success-toast.leaving{ opacity:0; transition:opacity .2s ease; }
+  .success-toast-icon{ width:30px; height:30px; flex:none; color:var(--color-success, #1f9d55); }
+  .success-toast-icon circle{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-dasharray:63; stroke-dashoffset:63; animation:stDraw .38s .05s ease-out forwards; transform:rotate(-90deg); transform-origin:50% 50%; }
+  .success-toast-icon path{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:16; stroke-dashoffset:16; animation:stDraw .26s .36s ease-out forwards; }
+  .success-toast-text{ min-width:0; display:flex; flex-direction:column; gap:1px; }
+  .success-toast-title{ font-size:14px; font-weight:600; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .success-toast-sub{ font-size:12.5px; line-height:1.3; color:var(--color-text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .success-toast-action{ flex:none; border:0; background:var(--color-primary); color:#fff; font:inherit; font-size:14px; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
+  @keyframes stDraw{ to{ stroke-dashoffset:0; } }
+  @keyframes stPop{ from{ opacity:0; transform:scale(.92); } to{ opacity:1; transform:scale(1); } }
+  @media (prefers-reduced-motion: reduce){ .success-toast{ animation:none; } .success-toast-icon circle, .success-toast-icon path{ animation:none; stroke-dashoffset:0; } }
   .update-banner button{ border:0; background:var(--color-primary); color:#fff; font:inherit; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
   .live-toast-stack{ position:fixed; top:max(12px, env(safe-area-inset-top)); left:16px; right:16px; z-index:200; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
   .live-toast{ display:flex; align-items:flex-start; gap:10px; padding:12px 14px; background:var(--color-surface); border-left:3px solid transparent; border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); pointer-events:auto; transition:transform .2s ease, opacity .2s ease; touch-action:pan-y; }
@@ -3329,7 +3344,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.36</div>
+  <div class="version-footer">Money Tree · Rev 2.32.37</div>
 </div>
   </div>
 </div>
@@ -7715,7 +7730,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.36';
+const APP_VERSION = '2.32.37';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -19334,7 +19349,7 @@ async function monoAcceptFromRow(id){
   monoInbox.busy = true;
   const out = await monoAcceptRow(row, row.suggested_category, row.suggested_subcategory, row.description);
   monoInbox.busy = false;
-  if(out.kind === 'ok'){ showTrashToast('Додано', 'success'); await monoAfterChange(); return; }
+  if(out.kind === 'ok'){ showMonoAddedToast(1, row.amount_uah); await monoAfterChange(); return; } // Rev 2.32.37 (T)
   if(out.kind === 'need-category'){ openMonoDetail(id); return; }
   showTrashToast(out.toast, 'error');
   if(out.refresh) await monoAfterChange();
@@ -19356,18 +19371,18 @@ function confirmMonoAddAll(){
 }
 async function runMonoAddAll(){
   const list = addAllCandidates(monoInbox.rows);
-  let done = 0, i = 0;
+  let done = 0, i = 0, sum = 0;
   const worker = async function(){
     while(i < list.length){
       const row = list[i++];
       const out = await monoAcceptRow(row, row.suggested_category, row.suggested_subcategory, row.description);
-      if(out.kind === 'ok') done++;
+      if(out.kind === 'ok'){ done++; sum += Math.abs(row.amount_uah || 0); }
     }
   };
   monoInbox.busy = true;
   await Promise.all([worker(), worker(), worker()]); // не більше 3 паралельних
   monoInbox.busy = false;
-  showTrashToast('Додано ' + done, done ? 'success' : 'error');
+  if(done) showMonoAddedToast(done, sum); else showTrashToast('Додано 0', 'error'); // Rev 2.32.37 (T)
   await monoAfterChange();
 }
 // ----- шторка з деталями -----
@@ -19498,7 +19513,7 @@ async function monoDetailAdd(){
   monoInbox.busy = true;
   const out = await monoAcceptRow(row, category, document.getElementById('fldmono3').value, document.getElementById('fldmono4').value.trim());
   monoInbox.busy = false;
-  if(out.kind === 'ok'){ closeMonoDetail(); showTrashToast('Додано', 'success'); await monoAfterChange(); return; }
+  if(out.kind === 'ok'){ closeMonoDetail(); showMonoAddedToast(1, row.amount_uah); await monoAfterChange(); return; } // Rev 2.32.37 (T)
   showTrashToast(out.toast, 'error');
   if(out.refresh){ closeMonoDetail(); await monoAfterChange(); }
 }
@@ -19548,7 +19563,7 @@ async function monoRefundApply(row, cand){
   const res = Array.isArray(data) ? data[0] : data;
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'mono-refund', applied: true, deleted: !!(res && res.deleted) });
   closeMonoDetail();
-  showTrashToast('Повернення враховано', 'success');
+  { const m = successToastModel('refund', { name: cand.note, oldAmount: res && res.old_amount != null ? res.old_amount : cand.amount, newAmount: res && res.new_amount, deleted: !!(res && res.deleted) }); showSuccessToast({ title: m.title, subtitle: m.subtitle }); } // Rev 2.32.37 (T)
   await monoAfterChange();
 }
 async function monoDetailIgnore(){
@@ -19577,6 +19592,75 @@ async function monoDetailIgnore(){
   window.addEventListener('online', function(){ refreshMonoNewCount(); if(isMonoInboxOpen) loadMonoInbox().then(renderMonoInbox); });
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') refreshMonoNewCount(); });
 })();
+/* ============ Спливаюче підтвердження успіху (Rev 2.32.37, T) ============ */
+// Чисті функції: модель тексту й правило показу.
+function successToastModel(kind, data){
+  const d = data || {};
+  if(kind === 'mono-added'){
+    const n = d.count || 0;
+    return { title: 'Додано ' + n + ' ' + pluralUa(n, ['витрату', 'витрати', 'витрат']), subtitle: 'з Monobank' + (d.amountUah ? ' · ' + monoFmtUah(d.amountUah) : ''), actionLabel: 'Журнал', action: 'journal' };
+  }
+  if(kind === 'refund'){
+    return { title: 'Повернення враховано', subtitle: (d.name || 'Витрата') + ' · ' + (d.deleted ? monoFmtUah(d.oldAmount) + ' → видалено' : monoFmtUah(d.oldAmount) + ' → ' + monoFmtUah(d.newAmount)), actionLabel: '', action: null };
+  }
+  return null;
+}
+// Не показуємо над клавіатурою (сфокусоване поле вводу) і над відкритою шторкою/діалогом — тоді чекаємо.
+function shouldShowToast(state){ return !!state && !state.inputFocused && !state.sheetOpen; }
+const SUCCESS_TOAST_MS = 3500;
+let successToastQueue = [];
+let successToastActive = null;
+let successToastTimer = null;
+function successToastEnv(){
+  const a = document.activeElement;
+  const inputFocused = !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT') || document.body.classList.contains('kb-open');
+  return { inputFocused: inputFocused, sheetOpen: !!document.querySelector('.drawer.open, #app-modal.open') };
+}
+function showSuccessToast(opts){
+  successToastQueue.push(opts || {});
+  pumpSuccessToast();
+}
+function pumpSuccessToast(){
+  if(successToastActive || !successToastQueue.length) return;
+  if(!shouldShowToast(successToastEnv())){ setTimeout(pumpSuccessToast, 400); return; } // чекаємо, поки закриється клавіатура/шторка
+  const o = successToastQueue.shift();
+  let host = document.getElementById('success-toast-host');
+  if(!host){ host = document.createElement('div'); host.id = 'success-toast-host'; host.className = 'success-toast-host'; document.body.appendChild(host); }
+  const ub = document.getElementById('update-banner');
+  host.classList.toggle('above-update', !!(ub && ub.classList.contains('show'))); // стек над «Доступним оновленням»
+  const el = document.createElement('div'); el.className = 'success-toast'; el.setAttribute('role', 'status');
+  el.innerHTML = '<svg class="success-toast-icon" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M10.5 15.5l3.2 3.2 5.8-6.4"/></svg>';
+  const text = document.createElement('div'); text.className = 'success-toast-text';
+  const t = document.createElement('div'); t.className = 'success-toast-title'; t.textContent = o.title || '';
+  text.appendChild(t);
+  if(o.subtitle){ const sb = document.createElement('div'); sb.className = 'success-toast-sub'; sb.textContent = o.subtitle; text.appendChild(sb); }
+  el.appendChild(text);
+  const close = function(){
+    if(successToastActive !== el) return;
+    clearTimeout(successToastTimer);
+    el.classList.add('leaving');
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); successToastActive = null; pumpSuccessToast(); }, 220);
+  };
+  if(o.actionLabel && typeof o.onAction === 'function'){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'success-toast-action'; b.textContent = o.actionLabel;
+    b.addEventListener('click', function(ev){ ev.stopPropagation(); close(); o.onAction(); });
+    el.appendChild(b);
+  }
+  el.addEventListener('click', close); // тап закриває
+  host.appendChild(el);
+  successToastActive = el;
+  successToastTimer = setTimeout(close, SUCCESS_TOAST_MS);
+}
+function openJournalFromToast(){
+  if(typeof closeMonoInbox === 'function') closeMonoInbox();
+  if(typeof closeMonoScreen === 'function') closeMonoScreen();
+  performSwitchTab('vytraty', { noFocus: true });
+  openJournal(latestTouchedRecordMonth());
+}
+function showMonoAddedToast(count, amountUah){
+  const m = successToastModel('mono-added', { count: count, amountUah: amountUah });
+  showSuccessToast({ title: m.title, subtitle: m.subtitle, actionLabel: m.actionLabel, onAction: openJournalFromToast });
+}
 function showTrashToast(text, kind){
   const stack = document.getElementById('live-toast-stack');
   if(!stack) return;

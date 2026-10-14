@@ -121,7 +121,7 @@ test('I2: «Додати всі» — діалог, ≤ 3 паралельних
   const g = {
     monoInbox: { rows: rows, busy: false }, toasts: [],
     showTrashToast: function(t){ g.toasts.push(t); },
-    monoAfterChange: async function(){},
+    monoAfterChange: async function(){}, showMonoAddedToast: function(n, sum){ g.toasts.push('Додано ' + n); }, // Rev 2.32.37 (T)
     monoAcceptRow: async function(row){ active++; maxActive = Math.max(maxActive, active); await new Promise(function(r){ setTimeout(r, 5); }); active--; accepted.push(row.id); return { kind: 'ok' }; },
   };
   const ctx = buildSandbox(g, base.concat(['runMonoAddAll']));
