@@ -3407,7 +3407,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.51</div>
+  <div class="version-footer">Money Tree · Rev 2.32.52</div>
 </div>
   </div>
 </div>
@@ -7816,7 +7816,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.51';
+const APP_VERSION = '2.32.52';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10283,6 +10283,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.28.1 (C) — input-attrs-audit: inputsTotal, inputsBad (порушників), badIds (їхні id — лише ідентифікатори полів, не дані).
   'inputsTotal', 'inputsBad', 'badIds',
   'matched', // Rev 2.32.35 (K): mono-keyword
+  'skipped', // Rev 2.32.52 (G): kb-guard
   'unread', 'opened', 'markedAll', 'cleared', // Rev 2.32.38 (B): notif-archive
   'fieldsCount', 'fields', 'formsCount', 'hasLoginFields', 'autofillGuard', // Rev 2.32.47 (AG)
    // Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень)
@@ -21314,6 +21315,24 @@ if(window.matchMedia){
 // перевіркою Rev #29).
 let appModalGeneration = 0;
 let appModalPurgeStyled = false;
+// Rev 2.32.52 (G) — kbMode/focusCardField оголошені всередині initApp-IIFE (нижче в файлі), тому з глобальних show*Modal/openAppModal вони НЕДОСТУПНІ: на десктопі це ReferenceError у setTimeout після відкриття шторки. (Перевірено: openAppModal із IS_IOS_RUNTIME=true теж кидає «kbMode is not defined» — на iPhone поведінка лишається як була: див. kbSheetUsesProxy/focusCardFieldSafe.) Безпечні обгортки: функція недоступна → на не-iOS звичайний focus()+select(), на iOS — пропуск, як і досі (лише без винятку); кількість пропусків — подія kb-guard.
+let kbGuardSkipped = 0;
+function kbGuardNote(){
+  kbGuardSkipped++;
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'kb-guard', skipped: kbGuardSkipped });
+}
+// Чи фокусується картка введення «Структури» через проміжне поле (iOS, екранна клавіатура) — тоді focusFirstIn пропускається. Режим невідомий (модуль недоступний), але це iOS → як і досі вважаємо, що так.
+function kbSheetUsesProxy(hasSheetId){
+  if(!IS_IOS_RUNTIME || !hasSheetId) return false;
+  if(typeof kbMode !== 'function'){ kbGuardNote(); return true; }
+  return kbMode().mode === 'always';
+}
+function focusCardFieldSafe(input){
+  if(typeof focusCardField === 'function'){ focusCardField(input); return; }
+  kbGuardNote();
+  if(IS_IOS_RUNTIME) return; // iPhone: без змін (як було — фокус не ставився)
+  try{ input.focus(); input.select(); }catch(e){} // десктоп: звичайний фокус без винятків
+}
 function openAppModal(){
   // Rev 2.10.2 — фокус переходить у модалку тут, ЦЕНТРАЛІЗОВАНО: усі
   // show*Modal() уже викликають openAppModal()
@@ -21346,7 +21365,7 @@ function openAppModal(){
   document.getElementById('modal-backdrop').classList.add('open');
   document.getElementById('app-modal').classList.add('open');
   // Rev 2.32.11: картки введення «Структури» на iOS (екранна клавіатура) фокусуються через проміжне поле (focusCardField), а не прямим програмним focus() — прямий шлях давав зсув сторінки (pan-corrected 108 пт).
-  if(!(IS_IOS_RUNTIME && kbMode().mode === 'always' && document.getElementById('app-modal').hasAttribute('data-sheet-id'))) focusFirstIn(document.getElementById('app-modal'));
+  if(!kbSheetUsesProxy(document.getElementById('app-modal').hasAttribute('data-sheet-id'))) focusFirstIn(document.getElementById('app-modal')); // Rev 2.32.52 (G): безпечна перевірка (див. kbSheetUsesProxy)
   if(!wasOpen) lockBackgroundScroll();
 }
 function closeAppModal(){
@@ -21501,7 +21520,7 @@ function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountL
     closeAppModal();
   };
   presentAppModal({ input: true, amount: true, sheetId: 'sheet-account' });
-  setTimeout(()=>{ focusCardField(input); }, 60);
+  setTimeout(()=>{ focusCardFieldSafe(input); }, 60); // Rev 2.32.52 (G)
 }
 // Rev 2.1.0 — модал видалення картки/ОЧ з вибором місяця "Приховати з...".
 // Дефолт — місяць, який зараз переглядається (selectedMonth); історія до
@@ -21550,7 +21569,7 @@ function showCategoryModal(title, defaultName, defaultType, onSave, del){ // Rev
   };
   const segOpts = { items: CATEGORY_TYPES, value: select.value, onPick: function(t){ select.value = t; } };
   presentAppModal({ input: true, select: false, sheetId: 'sheet-category', del: del, sheet: true, inputLabel: 'Назва', seg: segOpts }); // Rev 2.32.51 (S4): тип — сегментами (select лишається джерелом значення)
-  setTimeout(()=>{ focusCardField(input); }, 60);
+  setTimeout(()=>{ focusCardFieldSafe(input); }, 60); // Rev 2.32.52 (G)
 }
 // Rev 2.1.27 — модалка додавання/редагування підкатегорії: назва + категорія
 // (перший select-wrap) + пріоритет економії (другий, окремий select2-wrap) —
@@ -21587,7 +21606,7 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
     closeAppModal();
   };
   presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-subcategory', del: del, sheet: true, inputLabel: 'Назва' }); // Rev 2.32.51 (S4)
-  setTimeout(()=>{ focusCardField(input); }, 60);
+  setTimeout(()=>{ focusCardFieldSafe(input); }, 60); // Rev 2.32.52 (G)
 }
 // Rev 2.1.28 — модалка додавання/редагування слова словника: ключове слово +
 // категорія (перший select) + опціональна підкатегорія (другий select).
@@ -21625,7 +21644,7 @@ function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave, d
     closeAppModal();
   };
   presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-dictionary', del: del, sheet: true, inputLabel: 'Слово' }); // Rev 2.32.51 (S4)
-  setTimeout(()=>{ focusCardField(input); }, 60);
+  setTimeout(()=>{ focusCardFieldSafe(input); }, 60); // Rev 2.32.52 (G)
 }
 function openAddDictionaryModal(prefillKw){
   const activeCats = CATEGORIES.filter(c=>c.active);

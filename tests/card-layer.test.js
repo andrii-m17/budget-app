@@ -46,8 +46,8 @@ test('діагностика sheet-anim: firstOfKind, settledY, settleDeltaPx у
 });
 test('прямий шлях відкриття картки: на iOS з екранною клавіатурою — проміжне поле (focusCardField → beginKbFocusProxy), автофокус openAppModal пропускається; решта платформ як було', () => {
   assert.match(SRC, /function focusCardField\(input\)\{[\s\S]*?beginKbFocusProxy\(input, modal, select\);/);
-  assert.equal((SRC.match(/setTimeout\(\(\)=>\{ focusCardField\(input\); \}, 60\);/g) || []).length, 4);
-  assert.match(SRC, /if\(!\(IS_IOS_RUNTIME && kbMode\(\)\.mode === 'always' && document\.getElementById\('app-modal'\)\.hasAttribute\('data-sheet-id'\)\)\) focusFirstIn/);
+  assert.equal((SRC.match(/setTimeout\(\(\)=>\{ focusCardFieldSafe\(input\); \}, 60\);/g) || []).length, 4); // Rev 2.32.52 (G): безпечна обгортка
+  assert.match(SRC, /if\(!kbSheetUsesProxy\(document\.getElementById\('app-modal'\)\.hasAttribute\('data-sheet-id'\)\)\) focusFirstIn/);
   assert.match(SRC, /function beginKbFocusProxy\(target, drawerEl, onTransferred\)/);
   assert.match(SRC, /if\(typeof onTransferred === 'function'\) onTransferred\(\);/);
 });

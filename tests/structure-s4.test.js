@@ -42,7 +42,7 @@ test('перейменування: повідомлення-підтвердж�
   assert.equal((SRC.match(/title\.replace\(\/:\$\/, ''\)/g) || []).length, 3);
 });
 test('клавіатурна логіка не змінена: data-sheet-id, фокус через focusCardField, ті самі id; зміни лише CSS-розкладка й додаткові необов\'язкові елементи', function(){
-  assert.match(SRC, /setTimeout\(\(\)=>\{ focusCardField\(input\); \}, 60\);/);
+  assert.match(SRC, /setTimeout\(\(\)=>\{ focusCardFieldSafe\(input\); \}, 60\);/);
   assert.match(SRC, /modalEl\.setAttribute\('data-sheet-id', sheetId\)/);
   assert.ok(!/fldstr[34]/.test(SRC), 'нових полів вводу в S4 немає');
 });
