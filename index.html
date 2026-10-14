@@ -3429,7 +3429,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.61</div>
+  <div class="version-footer">Money Tree · Rev 2.32.62</div>
 </div>
   </div>
 </div>
@@ -7917,7 +7917,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.61';
+const APP_VERSION = '2.32.62';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -21758,7 +21758,10 @@ function openStructForm(cfg){
   lastFocusedBeforeDialog = document.activeElement;
   document.getElementById('struct-backdrop').removeAttribute('inert'); drawer.removeAttribute('inert');
   document.getElementById('struct-backdrop').classList.add('open'); drawer.classList.add('open');
-  focusFirstIn(drawer);
+  // Rev 2.32.62: програмний фокус на ПОЛІ при відкритті піднімав клавіатуру без дотику (на iPhone картка опинялась під нею): у інших .drawer першою фокусованою є кнопка ✕ → фокус іде на контейнер; тут ✕ немає, тож фокус на контейнер ставимо явно. Поле на дотик фокусується як завжди (перехоплення тапу в клавіатурному модулі). Автофокус поля — лише на пристроях без дотику (десктоп).
+  if(!drawer.hasAttribute('tabindex')) drawer.setAttribute('tabindex', '-1');
+  try{ drawer.focus({ preventScroll: true }); }catch(e){ drawer.focus(); }
+  if(!IS_IOS_RUNTIME && !(navigator.maxTouchPoints > 0)){ try{ input.focus({ preventScroll: true }); input.select(); }catch(e){} }
   lockBackgroundScroll();
 }
 function closeStructForm(){

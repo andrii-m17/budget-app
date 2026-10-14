@@ -62,7 +62,7 @@ test('кнопки знизу парою в один рядок; «Скасув�
 });
 test('клавіатурна логіка не змінена: фокус через focusFirstIn, data-sheet-id для рекордера, id поля чистий (fldstr3), значення через textContent/Option', function(){
   const fn = SRC.slice(SRC.indexOf('function openStructForm'), SRC.indexOf('function closeStructForm'));
-  assert.match(fn, /focusFirstIn\(drawer\);/); assert.match(fn, /lockBackgroundScroll\(\);/); assert.match(fn, /input\.id = 'fldstr3'/);
+  assert.ok(!/focusFirstIn\(/.test(fn), 'без програмного фокусу на полі при відкритті (2.32.62)'); assert.match(fn, /drawer\.focus\(\{ preventScroll: true \}\)/); assert.match(fn, /!IS_IOS_RUNTIME && !\(navigator\.maxTouchPoints > 0\)/); assert.match(fn, /lockBackgroundScroll\(\);/); assert.match(fn, /input\.id = 'fldstr3'/);
   assert.ok(!/innerHTML\s*=\s*[^;]*(cfg|value|label)/.test(fn.replace(/chev\.innerHTML = SF_CHEV_SVG/, '')), 'дані не йдуть через innerHTML');
   assert.match(SRC, /new Option\(o\.label, o\.value\)/);
   assert.match(SRC, /closeProfileLoginDrawer\(\); closeStructForm\(\);/); // Escape
