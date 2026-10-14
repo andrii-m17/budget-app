@@ -57,7 +57,7 @@ test('A1-5 (охорона): імена карток, ОЧ, доходів, бо
   [
     'escapeHtml(stripLeadingEmoji(name))',
     '<div class="exp-name">${escapeHtml(e.name)}</div>',
-    "escapeHtml(event.actorName)",
+    "t.textContent = o.title || ''", // Rev 2.32.46: тости — через textContent
     '<span class="nsi-name">${escapeHtml(n)}</span>',
     "escapeHtml(trashDisplayTitle(item))",
   ].forEach(function(s){ assert.ok(SRC.indexOf(s) !== -1, 'зник екранований шаблон: ' + s); });

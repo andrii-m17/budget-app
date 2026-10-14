@@ -75,7 +75,7 @@ test('кнопка очищення: прибирає лише тестові з
   const st = state();
   const events = [], saved = [], toasts = [];
   const g = Object.assign({}, st, { CATEGORIES: st.categories, SUBCATEGORIES: st.subcategories, DICTIONARY: st.dictionary, localStorage: ls(null),
-    captureDebugGeometry: function(t, x){ events.push([t, x]); }, showTrashToast: function(t){ toasts.push(t); },
+    captureDebugGeometry: function(t, x){ events.push([t, x]); }, showTextToast: function(t){ toasts.push(t); },
     populateMonths(){}, renderAll(){}, renderStructure(){}, populateBankDebtTable(){}, populateInstallmentTable(){}, populateCategorySelect(){},
     saveBankAccountsLocal: async function(){ saved.push('banks'); }, saveInstallmentAccountsLocal: async function(){ saved.push('insts'); }, saveDebts: async function(){ saved.push('debts'); },
     saveExpenses: async function(){ saved.push('exp'); }, saveIncomes: async function(){ saved.push('inc'); }, saveCategoriesLocal: async function(){ saved.push('cats'); },

@@ -120,7 +120,7 @@ test('I2: «Додати всі» — діалог, ≤ 3 паралельних
   const rows = [R('1'), R('2'), R('3'), R('4'), R('5'), R('6', { hold: true }), R('7', { suggested_category: null })];
   const g = {
     monoInbox: { rows: rows, busy: false }, toasts: [],
-    showTrashToast: function(t){ g.toasts.push(t); },
+    showTextToast: function(t){ g.toasts.push(t); },
     monoAfterChange: async function(){}, showMonoAddedToast: function(n, sum){ g.toasts.push('Додано ' + n); }, // Rev 2.32.37 (T)
     monoAcceptRow: async function(row){ active++; maxActive = Math.max(maxActive, active); await new Promise(function(r){ setTimeout(r, 5); }); active--; accepted.push(row.id); return { kind: 'ok' }; },
   };

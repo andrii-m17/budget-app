@@ -45,14 +45,14 @@ test('monoAccountLabel/Detail: «•••• 1234», тип картки, ск�
 
 // ---------- охорона токена ----------
 function block(name){ const m = SRC.match(new RegExp('async function ' + name + '\\(\\)\\{([\\s\\S]*?)\\n\\}\\n')); assert.ok(m, name); return m[1]; }
-const monoRegionRaw = SRC.slice(SRC.indexOf('/* ============ Monobank: екран підключення'), SRC.indexOf('function showTrashToast(text, kind){'));
+const monoRegionRaw = SRC.slice(SRC.indexOf('/* ============ Monobank: екран підключення'), SRC.indexOf('function showTextToast(text, kind){'));
 const monoRegion = monoRegionRaw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 test('C1: токен ніде не зберігається і не логується: немає localStorage/sessionStorage/console/innerHTML з токеном у блоці MB-3', function(){
   assert.ok(monoRegion.length > 3000);
   assert.ok(!/localStorage|sessionStorage|indexedDB|console\./.test(monoRegion), 'сховища/консоль у блоці Monobank');
   const connect = block('onMonoConnectTap');
   assert.ok(!/pushDebugEvent\([^)]*raw/.test(connect), 'токен не йде в рекордер');
-  assert.ok(!/showTrashToast\([^)]*raw/.test(connect));
+  assert.ok(!/showTextToast\([^)]*raw/.test(connect));
   assert.ok(!/innerHTML[^;]*raw/.test(connect));
   // події рекордера — лише ok/errorCode
   const events = [...monoRegion.matchAll(/type: 'mono-(connect|disconnect)'[^}]*\}/g)].map(function(m){ return m[0]; });
@@ -88,7 +88,7 @@ test('C4: перемикач картки — миттєво, update({tracked}) 
   const g = {
     monoState: state, safeId: function(x){ return String(x); }, renders: 0, toasts: [],
     renderMonoScreen: function(){ g.renders++; },
-    showTrashToast: function(t){ g.toasts.push(t); },
+    showTextToast: function(t){ g.toasts.push(t); },
     getSupabaseClient: function(){ return { from: function(){ return { update: function(v){ calls.push(v); return { eq: async function(){ return { error: failNext ? { message: 'x' } : null }; } }; } }; } }; },
   };
   const ctx = buildSandbox(g, ['onMonoToggleAccount']);

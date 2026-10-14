@@ -57,7 +57,7 @@ function env(rows, unread){
     notifArchive: { rows: rows, loaded: true, offline: false, unread: unread, busy: false }, calls: calls, handled: [], closed: 0,
     safeId: function(x){ return String(x).replace(/[^0-9A-Za-z_-]/g, ''); },
     updateNotifBell: function(){}, renderNotifArchive: function(){ rendered.push(1); }, refreshNotifUnread: function(){},
-    debugRecordingActive: false, showTrashToast: function(){},
+    debugRecordingActive: false, showTextToast: function(){},
     closeNotifArchive: function(){ g.closed++; },
     handlePushAction: async function(a){ g.handled.push(a); },
     getSupabaseClient: function(){ return { rpc: async function(name, args){ calls.push({ name: name, args: args }); return { error: null }; } }; },

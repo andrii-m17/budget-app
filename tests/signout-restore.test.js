@@ -48,7 +48,7 @@ function signOutSandbox(opts){
     navigator: { onLine: true, serviceWorker: undefined },
     cloudSession: { user: { id: 'A' } },
     debugRecordingActive: false, performance: { now: function(){ return 0; } },
-    showTrashToast: function(t){ calls.push('toast'); },
+    showTextToast: function(t){ calls.push('toast'); },
     location: { reload: function(){ calls.push('reload'); } },
     getSupabaseClient: function(){
       return {

@@ -111,7 +111,7 @@ test('M4b: swipe-restore/purge і заливки кнопок мають біл�
   assert.match(M4B, /\.swipe-restore-btn\{ background:var\(--ui-success-strong\); \}/);
   assert.match(M4B, /\.swipe-purge-btn\{ background:var\(--ui-danger-strong\); \}/);
   assert.ok(C('#FFFFFF', '#15803D') >= 4.5 && C('#FFFFFF', '#DC2626') >= 4.5);
-  ['.n-switch-input', '.live-toast', '.app-modal', '.field input', '.card-debt-compact-row', '.service-tile'].forEach(sel => assert.ok(M4B.includes(sel), sel));
+  ['.n-switch-input', '.success-toast', '.app-modal', '.field input', '.card-debt-compact-row', '.service-tile'].forEach(sel => assert.ok(M4B.includes(sel), sel));
   assert.ok(!/backdrop-filter/.test(M4B), 'на нових компонентах розмиття немає');
   assert.match(M4B, /background-color:var\(--ui-glass\)/, 'поля: background-color, щоб не скидати стрілку select');
   assert.ok(!/id=|\bname=|autocomplete|readonly/.test(M4B), 'поля: id/атрибути не змінюються в CSS-блоці');

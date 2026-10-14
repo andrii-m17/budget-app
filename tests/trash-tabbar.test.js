@@ -19,7 +19,7 @@ test('T1: .trash-screen лежить під таббаром (z-index менши
 test('T1: шторки, модалки й тости лишаються над таббаром; клавіатура ховає таббар як і раніше', () => {
   const zOf = sel => Number((SRC.slice(SRC.indexOf(sel + '{')).match(/z-index:(\d+)/) || [])[1]);
   const tb = 20;
-  assert.ok(zOf('.drawer') > tb && zOf('.app-modal') > tb && zOf('.live-toast-stack') > tb && zOf('.drawer-backdrop') > tb);
+  assert.ok(zOf('.drawer') > tb && zOf('.app-modal') > tb && zOf('.success-toast-host') > tb && zOf('.drawer-backdrop') > tb);
   assert.match(SRC, /body\.kb-open nav\.tabbar\{ display:none; \}/);
 });
 test('T1: тап по вкладці закриває екран (performSwitchTab → closeTrashScreen), екран відкривається лише з «Сервісу»; на таббар не вішається transform', () => {

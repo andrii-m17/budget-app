@@ -306,9 +306,6 @@
   .profile-popover.open{ display:block; }
   .profile-popover-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
   .profile-popover-backdrop.open{ display:block; }
-  /* Rev #30 (6D.85) — live-toast сповіщення (Частина 3а): fixed top, БЕЗ
-     backdrop (єдиний з 4 UI-примітивів), над усім рештою (навіть модалками
-     — той самий принцип, що системні сповіщення iOS завжди зверху). */
   /* Rev 2.32.25 (U) — ненав'язливе повідомлення про оновлення («Скло», над таббаром). Ховається при відкритій клавіатурі/шторці (див. shouldShowUpdateBanner). */
   .update-banner{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:190; white-space:nowrap; display:none; align-items:center; gap:12px; padding:9px 10px 9px 16px; max-width:calc(100vw - 32px); background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); font-size:14px; color:var(--color-text); }
   .update-banner.show{ display:flex; }
@@ -318,10 +315,16 @@
   .success-toast{ pointer-events:auto; touch-action:pan-x; max-width:100%; display:flex; align-items:center; gap:12px; padding:10px 10px 10px 12px; background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); color:var(--color-text); animation:stIn var(--motion-m) cubic-bezier(.2,.9,.3,1) both; }
   .success-toast.leaving{ opacity:0; transform:translateY(-16px); transition:opacity var(--motion-s) ease, transform var(--motion-s) ease; animation:none; }
   .success-toast-icon{ width:30px; height:30px; flex:none; color:var(--color-success, #1f9d55); }
+  /* Rev 2.32.46 (TO): види — колір іконки за токенами; статичні іконки (info/warning/error/журнал) без малювання. */
+  .success-toast.t-info .success-toast-icon{ color:var(--color-info); }
+  .success-toast.t-warning .success-toast-icon{ color:var(--color-warning); }
+  .success-toast.t-error .success-toast-icon{ color:var(--color-error); }
+  .success-toast-icon.static circle, .success-toast-icon.static path{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; animation:none; stroke-dasharray:none; stroke-dashoffset:0; }
+  .success-toast-icon.static circle{ transform:none; }
   .success-toast-icon circle{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-dasharray:63; stroke-dashoffset:63; animation:stDraw .38s var(--motion-m) ease-out forwards; transform:rotate(-90deg); transform-origin:50% 50%; }
   .success-toast-icon path{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:16; stroke-dashoffset:16; animation:stDraw .26s calc(var(--motion-m) + .3s) ease-out forwards; }
   .success-toast-text{ min-width:0; display:flex; flex-direction:column; gap:1px; }
-  .success-toast-title{ font-size:14px; font-weight:600; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .success-toast-title{ font-size:14px; font-weight:600; line-height:1.3; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
   .success-toast-sub{ font-size:12.5px; line-height:1.3; color:var(--color-text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .success-toast-action{ flex:none; border:0; background:var(--color-primary); color:#fff; font:inherit; font-size:14px; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
   @keyframes stDraw{ to{ stroke-dashoffset:0; } }
@@ -329,27 +332,6 @@
   @keyframes stFade{ from{ opacity:0; } to{ opacity:1; } }
   @media (prefers-reduced-motion: reduce){ .success-toast{ animation:stFade var(--motion-s) ease both; } .success-toast.leaving{ transform:none; } .success-toast-icon circle, .success-toast-icon path{ animation:none; stroke-dashoffset:0; } }
   .update-banner button{ border:0; background:var(--color-primary); color:#fff; font:inherit; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
-  .live-toast-stack{ position:fixed; top:max(12px, env(safe-area-inset-top)); left:16px; right:16px; z-index:200; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
-  .live-toast{ display:flex; align-items:flex-start; gap:10px; padding:12px 14px; background:var(--color-surface); border-left:3px solid transparent; border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); pointer-events:auto; transition:transform .2s ease, opacity .2s ease; touch-action:pan-y; }
-  .live-toast.live-toast-leaving{ opacity:0; transform:translateX(-100%); }
-  .live-toast-avatar{ width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:700; }
-  .live-toast-body{ flex:1; min-width:0; }
-  .live-toast-head{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
-  .live-toast-name{ font-weight:700; font-size:13.5px; color:var(--color-text-primary); }
-  .live-toast-time{ font-size:11px; color:var(--color-text-secondary); flex-shrink:0; }
-  .live-toast-text{ font-size:12.5px; color:var(--color-text-secondary); margin-top:1px; }
-  .live-toast-detail{ font-size:12.5px; color:var(--color-text-primary); font-weight:600; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .live-toast-icon{ flex-shrink:0; width:24px; height:24px; border-radius:50%; background:var(--color-surface-hover); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; }
-  .live-toast-icon svg{ width:13px; height:13px; display:block; }
-  /* Rev #30 (6D.86) — зведене сповіщення: той самий .live-toast каркас
-     (swipe/автозникнення — attachToastDismiss()), лише без кольорової
-     смуги автора (не привʼязане до ОДНІЄЇ дії) і з великою хмарною
-     іконкою зліва замість аватара. */
-  .sync-summary-toast{ align-items:center; }
-  .sync-summary-toast .sync-summary-icon{ width:32px; height:32px; background:var(--color-info-bg); color:var(--color-info); }
-  .sync-summary-toast .sync-summary-icon svg{ width:16px; height:16px; }
-  .sync-summary-toast .live-toast-name{ font-size:13.5px; margin-bottom:2px; }
-  .sync-summary-toast .live-toast-text{ color:var(--color-text-primary); }
   .page-header-text h1{ margin:0; font-size:21px; line-height:27px; font-weight:700; letter-spacing:-.01em; }
   .page-header-text .page-subtitle{ margin:3px 0 0; font-size:12.5px; color:var(--color-text-secondary); line-height:1.4; }
   /* Rev 2.11.1 — офлайн-банер: приглушений warning-тон — навмисно НЕ
@@ -1503,8 +1485,6 @@
   .trash-sync-line.on{ opacity:1; }
   .trash-offline-banner{ margin:0 0 12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-error-bg); color:var(--color-text-primary); border-left:3px solid var(--color-error); font-size:12.5px; line-height:1.4; }
   .trash-offline-banner.hidden{ display:none; }
-  .live-toast.toast-success{ border-left-color:var(--color-success); }
-  .live-toast.toast-error{ border-left-color:var(--color-error); background:var(--color-error-bg); }
   #testing-drawer .drawer-head-sub{ font-size:12px; color:var(--color-text-secondary); margin-top:2px; }
   .test-section-sub{ font-size:12px; color:var(--color-text-secondary); margin:-4px 2px 12px; }
   .test-card{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:14px; margin-bottom:12px; }
@@ -2427,13 +2407,13 @@
   /* ===== Rev 2.30.0 (M4b) — решта компонентів у стилі «Скло» (токени --ui-*) =====
      Без backdrop-filter (він лише на таббарі й scroll-top; на шапки шторок НЕ додано: ризик для sheet-anim/клавіатурної логіки). Поверхні лишаються непрозорими (колір тексту/контраст не змінюється),
      «скло» = єдиний радіус зі шкали, межа --ui-btn-border (лише верх/право/низ — ліва межа тостів/рядків несе семантичний колір), inset-відблиск і м'яка тінь. Розкладка не змінюється (радіус/тінь). */
-  html:root :is(.card, .card-summary, .kpi-card.v2, .service-tile, .service-wide-card, .card-debt-compact-row, .expense-row, .live-toast){
+  html:root :is(.card, .card-summary, .kpi-card.v2, .service-tile, .service-wide-card, .card-debt-compact-row, .expense-row){
     border-top-color:var(--ui-btn-border); border-right-color:var(--ui-btn-border); border-bottom-color:var(--ui-btn-border);
     box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--ui-btn-shadow);
   }
-  html:root :is(.card, .card-summary, .kpi-card.v2, .service-tile, .service-wide-card, .service-danger-card, .card-debt-compact-row, .live-toast){ border-radius:var(--ui-r-control); }
+  html:root :is(.card, .card-summary, .kpi-card.v2, .service-tile, .service-wide-card, .service-danger-card, .card-debt-compact-row){ border-radius:var(--ui-r-control); }
   html:root :is(.expense-row, .expense-row-swipe){ border-radius:var(--ui-r-control); }
-  html:root :is(.live-toast, .app-modal, .drawer){ box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--shadow-lg); }
+  html:root :is(.success-toast, .app-modal, .drawer){ box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--shadow-lg); }
   html:root :is(.app-modal, .drawer){ border-radius:var(--ui-r-container); }
   /* Поля вводу: лише поверхня/межа/радіус (id, атрибути й поведінка не чіпались). background-color (не shorthand) — щоб не скинути стрілку select; .manual-flag зберігає свій фон. */
   html:root :is(.field input, .field select:not(.manual-flag), .field textarea){ border-radius:var(--ui-r-control); background-color:var(--ui-glass); box-shadow:inset 0 1px 2px rgba(16,24,40,.05); }
@@ -3380,7 +3360,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.45</div>
+  <div class="version-footer">Money Tree · Rev 2.32.46</div>
 </div>
   </div>
 </div>
@@ -3723,12 +3703,6 @@
      Позиція обчислюється JS-ом (positionProfilePopover()), бо в нас ДВА
      різних тригери в різних контейнерах, не один спільний
      position:relative-батько, як у .data-status-popover (KPI-картки). -->
-<!-- Rev #30 (6D.85) — 4-й UI-примітив у проєкті (на додачу до #app-modal/
-     .drawer/#profile-popover) — live-toast сповіщення про чужі дії
-     (Частина 3а). БЕЗ backdrop (єдиний з 4 примітивів) — не має блокувати
-     взаємодію з рештою екрана, той самий принцип, що системні сповіщення
-     iOS (за проханням користувача). Наповнюється JS-ом (showLiveToast()). -->
-<div class="live-toast-stack" id="live-toast-stack" aria-live="polite"></div>
 <div class="profile-popover-backdrop" id="profile-popover-backdrop" onclick="closeProfileMenu()"></div>
 <div class="profile-popover" id="profile-popover" role="dialog" aria-label="Профіль">
   <h2 style="margin:0 0 14px; font-size:16px; font-weight:700;">Профіль</h2>
@@ -7781,7 +7755,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.45';
+const APP_VERSION = '2.32.46';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9283,9 +9257,6 @@ function drainOtherActorEvents(){
 // категорії), редагування — той самий олівець, що вже .exp-edited-badge,
 // видалення — новий кошик (за референсом; застосунок досі використовував
 // лише X-хрестик на кнопках видалення, не кошик).
-const NOTIF_ADD_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-const NOTIF_EDIT_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
-const NOTIF_DELETE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 // Rev #30 (6D.85) — дієслова за проханням користувача: гейт "лише
 // профіль/акаунт" (не пристрій) + "лише чужий автор" уже вирішено в
 // pushOtherActorEvent() (6D.84) — тут лише текст, узгоджений з gender
@@ -9296,82 +9267,16 @@ const NOTIF_VERBS = {
   debts: { add: { m: 'додав', f: 'додала' }, edit: { m: 'відредагував', f: 'відредагувала' }, delete: { m: 'видалив', f: 'видалила' }, noun: 'борг' },
   hiddenEntities: { add: { m: 'приховав', f: 'приховала' }, noun: 'рахунок' },
 };
-function notifIconHtml(action){
-  return action === 'add' ? NOTIF_ADD_ICON_SVG : action === 'delete' ? NOTIF_DELETE_ICON_SVG : NOTIF_EDIT_ICON_SVG;
-}
 function notifVerbText(event){
   const spec = NOTIF_VERBS[event.domain];
   if(!spec) return '';
   const verb = spec[event.action] ? spec[event.action][event.gender === 'f' ? 'f' : 'm'] : '';
   return (verb + ' ' + spec.noun).trim();
 }
-// Rev #30 (6D.85) — за проханням користувача: показуємо лише "щойно"/
-// "N хв тому" (той самий рівень деталізації, що референс) — не секунди,
-// не години (для live-toast, що зникає за 3-5с, точніше не потрібно).
-function notifRelativeTime(atMs){
-  const diffMin = Math.floor((Date.now() - atMs) / 60000);
-  if(diffMin < 1) return 'щойно';
-  return diffMin + ' хв тому';
-}
-// Rev #30 (6D.85) — стек live-toast: fixed top, БЕЗ backdrop (на відміну
-// від решти 3 примітивів) — не має блокувати взаємодію з рештою екрана,
-// той самий принцип, що системні сповіщення iOS. Автозникнення ~4с (у
-// межах "3-5с", погоджених з користувачем) + свайп-вліво для закриття.
-const LIVE_TOAST_AUTO_DISMISS_MS = 4000;
-const LIVE_TOAST_SWIPE_THRESHOLD_PX = 60;
-// Rev #30 (6D.86) — спільна свайп-вліво/автозникнення механіка, витягнута з
-// showLiveToast() (6D.85): і подієва картка, і зведене сповіщення нижче —
-// той самий "iOS-подібний toast", лише різний вміст/тривалість.
-function attachToastDismiss(toast, stack, autoDismissMs){
-  stack.insertBefore(toast, stack.firstChild); // новіші зверху
-  let dismissTimer = setTimeout(function(){ dismissLiveToast(toast); }, autoDismissMs);
-  let startX = null, currentX = 0;
-  toast.addEventListener('touchstart', function(e){
-    startX = e.touches[0].clientX;
-    currentX = 0;
-    if(dismissTimer){ clearTimeout(dismissTimer); dismissTimer = null; } // не зникає САМЕ під час свайпу
-  }, { passive: true });
-  toast.addEventListener('touchmove', function(e){
-    if(startX === null) return;
-    currentX = e.touches[0].clientX - startX;
-    if(currentX > 0) currentX = 0; // лише вліво, той самий напрям, що системні сповіщення
-    toast.style.transform = 'translateX(' + currentX + 'px)';
-    toast.style.opacity = String(Math.max(0.2, 1 - Math.abs(currentX) / 200));
-  }, { passive: true });
-  toast.addEventListener('touchend', function(){
-    if(startX === null) return;
-    startX = null;
-    if(Math.abs(currentX) >= LIVE_TOAST_SWIPE_THRESHOLD_PX){
-      dismissLiveToast(toast);
-    }else{
-      toast.style.transform = '';
-      toast.style.opacity = '';
-      dismissTimer = setTimeout(function(){ dismissLiveToast(toast); }, autoDismissMs);
-    }
-  });
-}
+// Rev 2.32.46 (TO): сповіщення про дії другого учасника — спільний верхній pop-up (showToast): іконка «Журнал» і дія «Журнал». Старі live-toast/attachToastDismiss/dismissLiveToast видалено.
 function showLiveToast(event){
-  const stack = document.getElementById('live-toast-stack');
-  if(!stack) return;
-  const toast = document.createElement('div');
-  toast.className = 'live-toast';
-  toast.style.borderLeftColor = 'var(' + event.colorVar + ')';
-  const letter = (event.actorName || '?').trim().charAt(0).toUpperCase();
-  const detail = event.amount != null ? (event.name || '') + ' • ' + formatThousands(event.amount) + ' ₴' : (event.name || '');
-  toast.innerHTML =
-    '<span class="live-toast-avatar" style="background:var(' + event.colorVar + ')">' + letter + '</span>' +
-    '<div class="live-toast-body">' +
-      '<div class="live-toast-head"><span class="live-toast-name">' + escapeHtml(event.actorName) + '</span><span class="live-toast-time">' + notifRelativeTime(event.at) + '</span></div>' +
-      '<div class="live-toast-text">' + escapeHtml(notifVerbText(event)) + '</div>' +
-      '<div class="live-toast-detail">' + escapeHtml(detail) + '</div>' +
-    '</div>' +
-    '<span class="live-toast-icon">' + notifIconHtml(event.action) + '</span>';
-  attachToastDismiss(toast, stack, LIVE_TOAST_AUTO_DISMISS_MS);
-}
-function dismissLiveToast(toast){
-  if(!toast || !toast.parentNode) return;
-  toast.classList.add('live-toast-leaving');
-  setTimeout(function(){ if(toast.parentNode) toast.parentNode.removeChild(toast); }, 220);
+  const m = toastModel('other-actor', { actorName: event.actorName, verbText: notifVerbText(event), name: event.name, amount: event.amount });
+  showToast({ kind: m.kind, icon: m.icon, title: m.title, subtitle: m.subtitle, actionLabel: m.actionLabel, onAction: openJournalFromToast });
 }
 // Rev #30 (6D.85) — виклик-сайт для "живого" сценарію (Realtime-подія, поки
 // вкладка відкрита) — ОДИН toast на подію. "Наздогнати" (resume/sign-in)
@@ -9404,7 +9309,7 @@ function pluralUa(n, forms){
   if(mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
   return forms[2];
 }
-function buildSyncSummaryText(events){
+function buildSyncSummaryText(events, raw){ // Rev 2.32.46 (TO): raw=true — без екранування (для textContent у тості)
   if(!events.length) return null;
   const gender = events[0].gender;
   const verb = gender === 'f' ? 'внесла' : 'вніс';
@@ -9415,22 +9320,12 @@ function buildSyncSummaryText(events){
     const forms = NOTIF_DOMAIN_LABELS[domain] || [domain, domain, domain];
     return n + ' ' + pluralUa(n, forms);
   });
-  return escapeHtml(events[0].actorName) + ' ' + verb + ' зміни: ' + parts.join(', ') + ', поки ви були не в додатку.';
+  return (raw ? events[0].actorName : escapeHtml(events[0].actorName)) + ' ' + verb + ' зміни: ' + parts.join(', ') + ', поки ви були не в додатку.';
 }
-const SYNC_SUMMARY_AUTO_DISMISS_MS = 6000; // довше за live-toast — важливіша інформація, менш очевидний момент появи
 function showSyncSummaryToast(events){
-  const stack = document.getElementById('live-toast-stack');
-  if(!stack || !events.length) return;
-  const text = buildSyncSummaryText(events);
-  const toast = document.createElement('div');
-  toast.className = 'live-toast sync-summary-toast';
-  toast.innerHTML =
-    '<span class="live-toast-icon sync-summary-icon">' + CLOUD_ICON_SVG + '</span>' +
-    '<div class="live-toast-body">' +
-      '<div class="live-toast-name">Синхронізація даних</div>' +
-      '<div class="live-toast-text">' + text + '</div>' +
-    '</div>';
-  attachToastDismiss(toast, stack, SYNC_SUMMARY_AUTO_DISMISS_MS);
+  if(!events.length) return;
+  const m = toastModel('sync-summary', { text: buildSyncSummaryText(events, true) });
+  showToast({ kind: m.kind, icon: m.icon, title: m.title, subtitle: m.subtitle, actionLabel: m.actionLabel, onAction: openJournalFromToast }); // Rev 2.32.46 (TO)
 }
 // Rev #30 (6D.86) — виклик-сайт для "наздогнати" (resume/sign-in) — ОДНЕ
 // зведення замість N окремих live-toast (докоментар над
@@ -10015,7 +9910,7 @@ async function performSignOut(){
   try{ await client.auth.signOut(navigator.onLine ? undefined : { scope: 'local' }); }catch(e){}
   let stillIn = false;
   try{ const r = await client.auth.getSession(); stillIn = !!(r && r.data && r.data.session); }catch(e){}
-  if(stillIn){ showTrashToast('Не вдалося вийти — перевірте з\'єднання', 'error'); return; }
+  if(stillIn){ showTextToast('Не вдалося вийти — перевірте з\'єднання', 'error'); return; }
   const cleared = await clearLocalAccountData();
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'signout', cleared: cleared > 0, unsubscribed: unsubscribed });
   location.reload();
@@ -13486,7 +13381,7 @@ function readPositiveAmount(el){
   const raw = el ? el.value : '';
   if(String(raw).trim() === '') return NaN;
   const r = normalizeAmount(raw);
-  if(!r.ok){ noteAmountRejected(r.reason); if(typeof showTrashToast === 'function') showTrashToast(r.error, 'error'); return NaN; }
+  if(!r.ok){ noteAmountRejected(r.reason); if(typeof showTextToast === 'function') showTextToast(r.error, 'error'); return NaN; }
   return r.value;
 }
 function formatAmountBlur(el){
@@ -13495,7 +13390,7 @@ function formatAmountBlur(el){
   const n = parseAmount(raw);
   if(isNaN(n)){
     const r = normalizeAmount(raw, { allowZero: true });
-    if(typeof showTrashToast === 'function') showTrashToast(r.error || 'Введіть число', 'error');
+    if(typeof showTextToast === 'function') showTextToast(r.error || 'Введіть число', 'error');
     if(el.id && document.getElementById(el.id)) flashField(el.id);
     return; // значення лишається як є, щоб його можна було виправити
   }
@@ -13542,7 +13437,7 @@ document.addEventListener('paste', function(e){
   if(!text) return;
   e.preventDefault();
   const r = normalizeAmount(text, { allowZero: true });
-  if(!r.ok){ noteAmountRejected(r.reason); if(typeof showTrashToast === 'function') showTrashToast(r.error, 'error'); return; }
+  if(!r.ok){ noteAmountRejected(r.reason); if(typeof showTextToast === 'function') showTextToast(r.error, 'error'); return; }
   el.value = String(r.value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
 }, true);
@@ -14363,8 +14258,8 @@ async function afterRenameSync(count){
   if(!count) return;
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'category-rename', records: count });
   const r = await autoSyncStale('rename');
-  if(r && r.pushed && !r.failed) showTrashToast('Оновлено ' + count + ' ' + expenseCountWord(count) + ' на всіх пристроях', 'success');
-  else if(!r || r.failed) showTrashToast('Перейменовано. ' + count + ' ' + expenseCountWord(count) + ' надішлемо, щойно з\'явиться зв\'язок', 'success');
+  if(r && r.pushed && !r.failed) showTextToast('Оновлено ' + count + ' ' + expenseCountWord(count) + ' на всіх пристроях', 'success');
+  else if(!r || r.failed) showTextToast('Перейменовано. ' + count + ' ' + expenseCountWord(count) + ' надішлемо, щойно з\'явиться зв\'язок', 'success');
 }
 function editCategory(i){
   const cat = CATEGORIES[i];
@@ -17898,9 +17793,9 @@ function recordFieldsCensus(){
   return lines;
 }
 function recordFieldsCensusFromTesting(){
-  if(!debugRecordingActive){ showTrashToast('Спершу почніть запис діагностики', 'error'); return; }
+  if(!debugRecordingActive){ showToast({ kind: 'warning', title: 'Спершу почніть запис діагностики', actionLabel: 'Почати запис', onAction: function(){ startDebugRecording('Перепис полів'); recordFieldsCensusFromTesting(); } }); return; } // Rev 2.32.46 (TO): попередження з дією «Почати запис» (старе червоне повідомлення прибрано)
   const n = recordFieldsCensus().length;
-  showTrashToast('Перепис полів записано: ' + n, 'success');
+  showTextToast('Перепис полів записано: ' + n, 'success');
 }
 function runInputAttrsAudit(){
   const offenders = {}; let total = 0, bad = 0;
@@ -18764,7 +18659,7 @@ function openDebugRecordFromTest(id){
 // (без push і без tombstone; у Cloud нічого не змінюється — його чистить чат SQL-ом). Звичайних записів не чіпає.
 function cleanupTestRecordsFromUi(){
   const found = collectTestRecords({ bankAccounts: bankAccounts, installmentAccounts: installmentAccounts, debts: debts, expenses: expenses, incomes: incomes, categories: CATEGORIES, subcategories: SUBCATEGORIES, dictionary: DICTIONARY, hiddenFrom: hiddenFrom });
-  if(!countTestRecords(found)){ showTrashToast('Тестових записів на цьому пристрої немає', 'success'); return; }
+  if(!countTestRecords(found)){ showTextToast('Тестових записів на цьому пристрої немає', 'success'); return; }
   showConfirmModal('Видалити з цього пристрою тестові записи: ' + describeTestRecords(found) + '? У Cloud нічого не зміниться.', function(){ cleanupTestRecordsNow(); }, 'Так, очистити');
 }
 async function cleanupTestRecordsNow(){
@@ -18785,7 +18680,7 @@ async function cleanupTestRecordsNow(){
   if(found.hidden.length) await saveHiddenFromLocal();
   captureDebugGeometry('test-cleanup', { cleanedTotal: countTestRecords(found), cleanedAccounts: found.cards.length + found.installments.length, cleanedDebts: found.debts.length, cleanedRecords: found.expenses.length + found.incomes.length, cleanedStructure: found.categories.length + found.subcategories.length + found.words.length + found.hidden.length });
   populateMonths(); renderAll(); renderStructure(); populateBankDebtTable(); populateInstallmentTable(); populateCategorySelect();
-  showTrashToast('Очищено: ' + describeTestRecords(found), 'success');
+  showTextToast('Очищено: ' + describeTestRecords(found), 'success');
 }
 function resetAllTestVariantsFromUi(){
   resetVariants();
@@ -19110,7 +19005,7 @@ async function onMonoToggleAccount(btn){
     const r = await getSupabaseClient().from('mono_accounts').update({ tracked: next }).eq('id', acc.id);
     failed = !!(r && r.error);
   }catch(e){ failed = true; }
-  if(failed){ acc.tracked = !next; renderMonoScreen(); showTrashToast('Не вдалося змінити. Спробуйте ще раз', 'error'); }
+  if(failed){ acc.tracked = !next; renderMonoScreen(); showTextToast('Не вдалося змінити. Спробуйте ще раз', 'error'); }
 }
 function confirmMonoDisconnect(){
   const text = document.getElementById('app-modal-text');
@@ -19127,13 +19022,13 @@ function confirmMonoDisconnect(){
   presentAppModal();
 }
 async function runMonoDisconnect(){
-  if(!monoReady()){ showTrashToast(monoErrorMessage('network'), 'error'); return; }
+  if(!monoReady()){ showTextToast(monoErrorMessage('network'), 'error'); return; }
   let res;
   try{ res = await getSupabaseClient().functions.invoke('mono-connect', { body: { action: 'disconnect' } }); }
   catch(e){ res = { error: e }; }
   const code = await monoExtractErrorCode(res);
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'mono-disconnect', ok: !code });
-  if(code){ showTrashToast(monoErrorMessage(code), 'error'); return; }
+  if(code){ showTextToast(monoErrorMessage(code), 'error'); return; }
   monoState.connection = null; monoState.accounts = []; monoState.showTokenForm = false; monoState.error = '';
   await loadMonoState();
   renderMonoScreen();
@@ -19368,7 +19263,7 @@ async function monoAcceptFromRow(id){
   monoInbox.busy = false;
   if(out.kind === 'ok'){ showMonoAddedToast(1, row.amount_uah); await monoAfterChange(); return; } // Rev 2.32.37 (T)
   if(out.kind === 'need-category'){ openMonoDetail(id); return; }
-  showTrashToast(out.toast, 'error');
+  showTextToast(out.toast, 'error');
   if(out.refresh) await monoAfterChange();
 }
 async function monoIgnoreRow(id){
@@ -19378,7 +19273,7 @@ async function monoIgnoreRow(id){
   let error = null;
   try{ const r = await getSupabaseClient().rpc('mono_ignore', { p_inbox_id: row.id }); error = r.error || null; }catch(e){ error = { message: 'network' }; }
   monoInbox.busy = false;
-  if(error){ showTrashToast(error.code === '23505' ? 'Цю операцію вже розглянуто' : 'Немає зв\'язку, спробуйте пізніше', 'error'); if(error.code === '23505') await monoAfterChange(); return; }
+  if(error){ showTextToast(error.code === '23505' ? 'Цю операцію вже розглянуто' : 'Немає зв\'язку, спробуйте пізніше', 'error'); if(error.code === '23505') await monoAfterChange(); return; }
   await monoAfterChange();
 }
 function confirmMonoAddAll(){
@@ -19399,7 +19294,7 @@ async function runMonoAddAll(){
   monoInbox.busy = true;
   await Promise.all([worker(), worker(), worker()]); // не більше 3 паралельних
   monoInbox.busy = false;
-  if(done) showMonoAddedToast(done, sum); else showTrashToast('Додано 0', 'error'); // Rev 2.32.37 (T)
+  if(done) showMonoAddedToast(done, sum); else showTextToast('Додано 0', 'error'); // Rev 2.32.37 (T)
   await monoAfterChange();
 }
 // ----- шторка з деталями -----
@@ -19526,12 +19421,12 @@ async function monoDetailAdd(){
   const row = monoInbox.rows.filter(function(r){ return safeId(r.id) === id; })[0];
   if(!row || monoInbox.busy) return;
   const category = document.getElementById('fldmono2').value;
-  if(!category){ flashField('fldmono2'); showTrashToast('Оберіть категорію', 'error'); return; }
+  if(!category){ flashField('fldmono2'); showTextToast('Оберіть категорію', 'error'); return; }
   monoInbox.busy = true;
   const out = await monoAcceptRow(row, category, document.getElementById('fldmono3').value, document.getElementById('fldmono4').value.trim());
   monoInbox.busy = false;
   if(out.kind === 'ok'){ closeMonoDetail(); showMonoAddedToast(1, row.amount_uah); await monoAfterChange(); return; } // Rev 2.32.37 (T)
-  showTrashToast(out.toast, 'error');
+  showTextToast(out.toast, 'error');
   if(out.refresh){ closeMonoDetail(); await monoAfterChange(); }
 }
 // ----- облік повернення (Rev 2.32.32) -----
@@ -19548,7 +19443,7 @@ async function monoRefundStart(){
   try{ const r = await getSupabaseClient().rpc('mono_refund_candidates', { p_inbox_id: row.id }); data = r.data || []; error = r.error || null; }catch(e){ error = { message: 'network' }; }
   monoInbox.busy = false;
   const out = monoRefundOutcome(error);
-  if(out.kind !== 'ok'){ showTrashToast(out.toast, 'error'); return; }
+  if(out.kind !== 'ok'){ showTextToast(out.toast, 'error'); return; }
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'mono-refund', candidates: data.length });
   const box = document.getElementById('mono-detail-refund'); box.textContent = ''; box.style.display = '';
   if(!data.length){ monoRefundNote('Не знайшли витрату цього торговця. Додайте її вручну або проігноруйте.'); return; }
@@ -19576,11 +19471,11 @@ async function monoRefundApply(row, cand){
   try{ const r = await getSupabaseClient().rpc('mono_apply_refund', { p_inbox_id: row.id, p_expense_id: cand.expense_id }); data = r.data; error = r.error || null; }catch(e){ error = { message: 'network' }; }
   monoInbox.busy = false;
   const out = monoRefundOutcome(error);
-  if(out.kind !== 'ok'){ showTrashToast(out.toast, 'error'); if(out.refresh){ closeMonoDetail(); await monoAfterChange(); } return; }
+  if(out.kind !== 'ok'){ showTextToast(out.toast, 'error'); if(out.refresh){ closeMonoDetail(); await monoAfterChange(); } return; }
   const res = Array.isArray(data) ? data[0] : data;
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'mono-refund', applied: true, deleted: !!(res && res.deleted) });
   closeMonoDetail();
-  { const m = successToastModel('refund', { name: cand.note, oldAmount: res && res.old_amount != null ? res.old_amount : cand.amount, newAmount: res && res.new_amount, deleted: !!(res && res.deleted) }); showSuccessToast({ title: m.title, subtitle: m.subtitle }); } // Rev 2.32.37 (T)
+  { const m = toastModel('refund', { name: cand.note, oldAmount: res && res.old_amount != null ? res.old_amount : cand.amount, newAmount: res && res.new_amount, deleted: !!(res && res.deleted) }); showToast({ kind: m.kind, title: m.title, subtitle: m.subtitle }); } // Rev 2.32.37 (T)
   await monoAfterChange();
 }
 async function monoDetailIgnore(){
@@ -19746,7 +19641,7 @@ async function markAllNotificationsRead(){
     notifArchive.rows.forEach(function(x){ if(!x.read_at) x.read_at = now; });
     notifArchive.unread = 0; updateNotifBell(); renderNotifArchive();
     if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', markedAll: true });
-  }catch(e){ showTrashToast('Немає зв\'язку, спробуйте пізніше', 'error'); }
+  }catch(e){ showTextToast('Немає зв\'язку, спробуйте пізніше', 'error'); }
   notifArchive.busy = false;
 }
 function confirmClearNotifArchive(){ showConfirmModal('Очистити архів сповіщень? Це не можна скасувати.', runClearNotifArchive, 'Очистити'); }
@@ -19756,7 +19651,7 @@ async function runClearNotifArchive(){
     if(r.error) throw r.error;
     notifArchive.rows = []; notifArchive.unread = 0; updateNotifBell(); renderNotifArchive();
     if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', cleared: true });
-  }catch(e){ showTrashToast('Немає зв\'язку, спробуйте пізніше', 'error'); }
+  }catch(e){ showTextToast('Немає зв\'язку, спробуйте пізніше', 'error'); }
 }
 // Realtime: нові рядки власного користувача (INSERT) оновлюють лічильник одразу (і список, якщо архів відкрито).
 let notifRealtimeChannel = null;
@@ -19787,38 +19682,69 @@ function teardownNotifRealtime(){
   window.addEventListener('online', function(){ refreshNotifUnread(); if(isNotifArchiveOpen) loadNotifArchive().then(renderNotifArchive); });
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') refreshNotifUnread(); });
 })();
-/* ============ Спливаюче підтвердження успіху (Rev 2.32.37, T) ============ */
-// Чисті функції: модель тексту й правило показу.
-function successToastModel(kind, data){
+/* ============ Спільний верхній pop-up (Rev 2.32.37 T → 2.32.46 TO) ============
+   Усі повідомлення застосунку: скляний контейнер зверху, іконка зліва, дія справа. Види: success (анімована галочка), info, warning, error (статичні іконки, без анімації малювання), плюс іконка «Журнал» для дій другого учасника. CSS-класи лишились із префіксом success-toast (історично). */
+function pluralToastWord(n){ return pluralUa(n, ['витрату', 'витрати', 'витрат']); }
+// Чисті функції: модель тексту, тривалість, правило показу, розбиття довгого тексту на заголовок і підзаголовок.
+function toastModel(kind, data){
   const d = data || {};
   if(kind === 'mono-added'){
     const n = d.count || 0;
-    return { title: 'Додано ' + n + ' ' + pluralUa(n, ['витрату', 'витрати', 'витрат']), subtitle: 'з Monobank' + (d.amountUah ? ' · ' + monoFmtUah(d.amountUah) : ''), actionLabel: 'Журнал', action: 'journal' };
+    return { kind: 'success', title: 'Додано ' + n + ' ' + pluralToastWord(n), subtitle: 'з Monobank' + (d.amountUah ? ' · ' + monoFmtUah(d.amountUah) : ''), actionLabel: 'Журнал', action: 'journal' };
   }
   if(kind === 'refund'){
-    return { title: 'Повернення враховано', subtitle: (d.name || 'Витрата') + ' · ' + (d.deleted ? monoFmtUah(d.oldAmount) + ' → видалено' : monoFmtUah(d.oldAmount) + ' → ' + monoFmtUah(d.newAmount)), actionLabel: '', action: null };
+    return { kind: 'success', title: 'Повернення враховано', subtitle: (d.name || 'Витрата') + ' · ' + (d.deleted ? monoFmtUah(d.oldAmount) + ' → видалено' : monoFmtUah(d.oldAmount) + ' → ' + monoFmtUah(d.newAmount)), actionLabel: '', action: null };
+  }
+  if(kind === 'other-actor'){
+    return { kind: 'info', icon: 'journal', title: ((d.actorName || '') + ' ' + (d.verbText || '')).trim(), subtitle: d.amount != null ? (d.name || '') + ' · ' + new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(d.amount) + ' ₴' : (d.name || ''), actionLabel: 'Журнал', action: 'journal' };
+  }
+  if(kind === 'sync-summary'){
+    return { kind: 'info', icon: 'journal', title: 'Синхронізація даних', subtitle: d.text || '', actionLabel: 'Журнал', action: 'journal' };
+  }
+  if(kind === 'text'){
+    const parts = splitToastText(d.text);
+    return { kind: d.tone === 'error' ? 'error' : (d.tone === 'warning' ? 'warning' : (d.tone === 'info' ? 'info' : 'success')), title: parts.title, subtitle: parts.subtitle, actionLabel: '', action: null };
   }
   return null;
 }
-// Rev 2.32.39 (T2): підтвердження зверху — клавіатура й шторки йому не заважають, тож чекання прибрано (черга лишається: по одному).
+// Помилки й попередження показуються довше (читаються), решта — стандартно.
+function toastDuration(kind){ return (kind === 'error' || kind === 'warning') ? 5000 : 3500; }
+// Довгий текст «Не вдалося видалити назавжди: помилка зв'язку» → заголовок + підзаголовок (за першим «: » чи « · »).
+function splitToastText(text){
+  const t = String(text == null ? '' : text).trim();
+  const i = [t.indexOf(': '), t.indexOf(' · ')].filter(function(x){ return x > 0; }).sort(function(a, b){ return a - b; })[0];
+  if(i === undefined) return { title: t, subtitle: '' };
+  const sepLen = t.substr(i, 3) === ' · ' ? 3 : 2;
+  return { title: t.slice(0, i), subtitle: t.slice(i + sepLen).trim() };
+}
+// Rev 2.32.39 (T2): зверху клавіатура й шторки не заважають — чекання прибрано (черга лишається: по одному).
 function shouldShowToast(state){ return true; }
 // Положення зверху: відступ від безпечної зони iPhone + 8px, бічні 16px (дзеркалить CSS .success-toast-host).
 function successToastPlacement(){ return { top: 'calc(env(safe-area-inset-top, 0px) + 8px)', side: 16 }; }
-const SUCCESS_TOAST_MS = 3500;
+const TOAST_ICONS = {
+  success: '<svg class="success-toast-icon" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M10.5 15.5l3.2 3.2 5.8-6.4"/></svg>',
+  info: '<svg class="success-toast-icon static" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M15 14v6"/><path d="M15 10.5h.01"/></svg>',
+  warning: '<svg class="success-toast-icon static" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 5.5l10 17.5H5z"/><path d="M15 12.5v5"/><path d="M15 20.5h.01"/></svg>',
+  error: '<svg class="success-toast-icon static" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M11.5 11.5l7 7"/><path d="M18.5 11.5l-7 7"/></svg>',
+  journal: '<svg class="success-toast-icon static" viewBox="0 0 30 30" aria-hidden="true"><path d="M11 9h11"/><path d="M11 15h11"/><path d="M11 21h11"/><path d="M7 9h.01"/><path d="M7 15h.01"/><path d="M7 21h.01"/></svg>'
+};
 let successToastQueue = [];
 let successToastActive = null;
 let successToastTimer = null;
-function showSuccessToast(opts){
+// opts: { kind: 'success'|'info'|'warning'|'error', icon?: 'journal', title, subtitle?, actionLabel?, onAction? }
+function showToast(opts){
   successToastQueue.push(opts || {});
   pumpSuccessToast();
 }
 function pumpSuccessToast(){
   if(successToastActive || !successToastQueue.length) return;
   const o = successToastQueue.shift();
+  const kind = (o.kind === 'info' || o.kind === 'warning' || o.kind === 'error') ? o.kind : 'success';
+  const ms = toastDuration(kind);
   let host = document.getElementById('success-toast-host');
   if(!host){ host = document.createElement('div'); host.id = 'success-toast-host'; host.className = 'success-toast-host'; document.body.appendChild(host); }
-  const el = document.createElement('div'); el.className = 'success-toast'; el.setAttribute('role', 'status');
-  el.innerHTML = '<svg class="success-toast-icon" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M10.5 15.5l3.2 3.2 5.8-6.4"/></svg>';
+  const el = document.createElement('div'); el.className = 'success-toast t-' + kind; el.setAttribute('role', kind === 'error' || kind === 'warning' ? 'alert' : 'status');
+  el.innerHTML = TOAST_ICONS[o.icon && TOAST_ICONS[o.icon] ? o.icon : kind];
   const text = document.createElement('div'); text.className = 'success-toast-text';
   const t = document.createElement('div'); t.className = 'success-toast-title'; t.textContent = o.title || '';
   text.appendChild(t);
@@ -19845,11 +19771,11 @@ function pumpSuccessToast(){
     y0 = null;
     if(dy < -30){ close(); return; }
     el.style.transform = '';
-    successToastTimer = setTimeout(close, SUCCESS_TOAST_MS);
+    successToastTimer = setTimeout(close, ms);
   });
   host.appendChild(el);
   successToastActive = el;
-  successToastTimer = setTimeout(close, SUCCESS_TOAST_MS);
+  successToastTimer = setTimeout(close, ms);
 }
 function openJournalFromToast(){
   if(typeof closeMonoInbox === 'function') closeMonoInbox();
@@ -19858,22 +19784,13 @@ function openJournalFromToast(){
   openJournal(latestTouchedRecordMonth());
 }
 function showMonoAddedToast(count, amountUah){
-  const m = successToastModel('mono-added', { count: count, amountUah: amountUah });
-  showSuccessToast({ title: m.title, subtitle: m.subtitle, actionLabel: m.actionLabel, onAction: openJournalFromToast });
+  const m = toastModel('mono-added', { count: count, amountUah: amountUah });
+  showToast({ kind: m.kind, title: m.title, subtitle: m.subtitle, actionLabel: m.actionLabel, onAction: openJournalFromToast });
 }
-function showTrashToast(text, kind){
-  const stack = document.getElementById('live-toast-stack');
-  if(!stack) return;
-  const toast = document.createElement('div');
-  toast.className = 'live-toast ' + (kind === 'error' ? 'toast-error' : 'toast-success');
-  const body = document.createElement('div');
-  body.className = 'live-toast-body';
-  const line = document.createElement('div');
-  line.className = 'live-toast-name';
-  line.textContent = text;
-  body.appendChild(line);
-  toast.appendChild(body);
-  attachToastDismiss(toast, stack, kind === 'error' ? 4000 : 3000);
+// Текстове повідомлення (колишній showTrashToast): kind 'error' — помилка, інакше успіх; довгий текст ділиться на заголовок і підзаголовок.
+function showTextToast(text, kind){
+  const m = toastModel('text', { text: text, tone: kind === 'error' ? 'error' : (kind === 'info' || kind === 'warning' ? kind : 'success') });
+  showToast({ kind: m.kind, title: m.title, subtitle: m.subtitle });
 }
 async function restoreTrashRecord(kind, id){
   const rec = (kind === 'expense' ? expenses : incomes).find(function(r){ return r.id === id; });
@@ -19925,7 +19842,7 @@ async function restoreTrashItem(key){
   const state = trashStateNow();
   const item = buildTrashItems(state).find(function(i){ return i.key === key; });
   if(!item){
-    showTrashToast('Не вдалося відновити: запис не знайдено', 'error');
+    showTextToast('Не вдалося відновити: запис не знайдено', 'error');
     captureDebugGeometry('trash-restore', { trashType: null, ok: false });
     renderTrashScreen();
     return false;
@@ -19935,14 +19852,14 @@ async function restoreTrashItem(key){
   if(canPurge(item) || isMonthRecordType(item.type)){
     const rec = await reconcileTrash(item.key);
     if(rec && rec.removed.indexOf(item.key) !== -1){
-      showTrashToast('Запис уже видалено назавжди', 'error');
+      showTextToast('Запис уже видалено назавжди', 'error');
       return false;
     }
   }
   const blocked = restoreBlockedReason(item, state);
   if(blocked){
     // Rev 2.23.31 (6D.200): для місячних записів боргів/ОЧ текст точний («Запис за цей місяць уже існує»), без префікса.
-    showTrashToast(isMonthRecordType(item.type) ? blocked : 'Не вдалося відновити: ' + blocked, 'error');
+    showTextToast(isMonthRecordType(item.type) ? blocked : 'Не вдалося відновити: ' + blocked, 'error');
     captureDebugGeometry('trash-restore', { trashType: item.type, ok: false });
     return false;
   }
@@ -19958,11 +19875,11 @@ async function restoreTrashItem(key){
   const ok = !!result && result.success !== false;
   captureDebugGeometry('trash-restore', { trashType: item.type, ok: ok });
   if(!ok){
-    showTrashToast((result && result.exact ? '' : 'Не вдалося відновити: ') + ((result && result.error) || 'невідома помилка'), 'error');
+    showTextToast((result && result.exact ? '' : 'Не вдалося відновити: ') + ((result && result.error) || 'невідома помилка'), 'error');
     return false;
   }
   setTimeout(function(){ captureFocusAudit('trash-restore'); }, 400); // Rev 2.23.29 (6D.198): аудит фокусу після "Відновити"
-  showTrashToast('Запис відновлено · ' + trashDisplayTitle(item) + (item.amount != null ? ' · ' + fmt(item.amount) : ''), 'success');
+  showTextToast('Запис відновлено · ' + trashDisplayTitle(item) + (item.amount != null ? ' · ' + fmt(item.amount) : ''), 'success');
   renderTrashScreen();
   return true;
 }
@@ -20155,13 +20072,13 @@ function showPurgeConfirm(item, onConfirm){
 function purgeTrashItem(key){
   const item = buildTrashItems(trashStateNow()).find(function(i){ return i.key === key; });
   if(!item){
-    showTrashToast('Не вдалося видалити: запис не знайдено', 'error');
+    showTextToast('Не вдалося видалити: запис не знайдено', 'error');
     renderTrashScreen();
     return;
   }
   const blocked = canPurge(item) ? purgeBlockedReason({ offline: isTrashOffline(), type: item.type }) : purgeBlockedReason({ type: 'category' });
   if(blocked){
-    showTrashToast('Не вдалося видалити назавжди: ' + blocked, 'error');
+    showTextToast('Не вдалося видалити назавжди: ' + blocked, 'error');
     captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
     return;
   }
@@ -20180,7 +20097,7 @@ async function runTrashPurge(item){
 }
 async function runTrashPurgeCore(item){
   if(isTrashOffline()){
-    showTrashToast('Не вдалося видалити назавжди: ' + purgeBlockedReason({ offline: true, type: item.type }), 'error');
+    showTextToast('Не вдалося видалити назавжди: ' + purgeBlockedReason({ offline: true, type: item.type }), 'error');
     captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
     return;
   }
@@ -20190,7 +20107,7 @@ async function runTrashPurgeCore(item){
   try{
     if(item.type === 'word'){
       const d = DICTIONARY.find(function(x){ return x.id === item.id && x.deletedAt && !x.deletedVia; });
-      if(!d){ showTrashToast('Не вдалося видалити: запис не знайдено', 'error'); renderTrashScreen(); return; }
+      if(!d){ showTextToast('Не вдалося видалити: запис не знайдено', 'error'); renderTrashScreen(); return; }
       if(d.cloudId){
         // Дублі слова в Cloud (відомий дефект гонки двох INSERT): видаляємо ЛИШЕ рядок цього запису
         // за id; інші рядки з тим самим keyword лише рахуємо для діагностики.
@@ -20206,13 +20123,13 @@ async function runTrashPurgeCore(item){
     }
   }catch(err){ outcome = 'error'; }
   if(outcome === 'alive'){
-    showTrashToast('Запис відновлено на іншому пристрої — не видалено', 'error');
+    showTextToast('Запис відновлено на іншому пристрої — не видалено', 'error');
     captureDebugGeometry('trash-purge', { trashType: item.type, ok: false, dups: dups });
     if(item.type === 'expense') pullExpensesPilot(); else if(item.type === 'income') pullIncomesPilot(); else if(isMonthRecordType(item.type)) pullDebtsPilot(); else pullDictionaryPilot();
     return;
   }
   if(outcome === 'error'){
-    showTrashToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
+    showTextToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
     captureDebugGeometry('trash-purge', { trashType: item.type, ok: false, dups: dups });
     return;
   }
@@ -20220,12 +20137,12 @@ async function runTrashPurgeCore(item){
   if(isMonthRecordType(item.type) && debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'account-purge', kind: 'month-record', debts: 1, unlinkedExpenses: 0 });
   captureDebugGeometry('trash-purge', { trashType: item.type, ok: true, dups: dups });
   if(trashDetailKey === item.key) closeTrashDetail();
-  showTrashToast(outcome === 'gone' ? 'Запис уже видалено назавжди' : 'Видалено назавжди', outcome === 'gone' ? 'error' : 'success');
+  showTextToast(outcome === 'gone' ? 'Запис уже видалено назавжди' : 'Видалено назавжди', outcome === 'gone' ? 'error' : 'success');
 }
 // Rev 2.32.4 (T2) — видалення назавжди прихованої картки/ОЧ (див. коментар над purgeAccountPlan).
 async function runAccountPurge(item){
   const plan = purgeAccountPlan({ kind: item.type, name: item.title }, trashStateNow());
-  if(!plan.exists){ showTrashToast('Не вдалося видалити: рахунок не знайдено', 'error'); renderTrashScreen(); return; }
+  if(!plan.exists){ showTextToast('Не вдалося видалити: рахунок не знайдено', 'error'); renderTrashScreen(); return; }
   const list = plan.kind === 'card' ? bankAccounts : installmentAccounts;
   const acc = list.find(function(a){ return a.name === plan.name; });
   const inCloud = !!plan.cloudId && !isTestSyncIgnored(acc);
@@ -20242,7 +20159,7 @@ async function runAccountPurge(item){
       const r3 = await client.from(plan.kind === 'card' ? 'bank_accounts' : 'installment_accounts').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('id', plan.cloudId).eq('family_id', cloudFamilyId).select('id');
       if(r3.error) throw r3.error;
     }catch(err){
-      showTrashToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
+      showTextToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
       captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
       return;
     }
@@ -20252,7 +20169,7 @@ async function runAccountPurge(item){
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'account-purge', kind: plan.kind === 'card' ? 'bank' : 'installment', debts: res.debts, monthsRemoved: res.monthsRemoved, unlinkedExpenses: res.unlinkedExpenses });
   captureDebugGeometry('trash-purge', { trashType: item.type, ok: true });
   if(trashDetailKey === item.key) closeTrashDetail();
-  showTrashToast('Видалено назавжди', 'success');
+  showTextToast('Видалено назавжди', 'success');
 }
 // Локальне видалення рахунку (власне й з pull tombstone-рядка): стан → збереження → перемальовування; відв'язані витрати пушаться звичайним оновленням (push лише для власного видалення).
 async function applyAccountRemovalLocally(plan, pushUnlinked){
@@ -20302,7 +20219,7 @@ function showTaxonomyExpenses(plan){
 // Видалення назавжди категорії/підкатегорії (лише онлайн, лише неактивна й без живих витрат): Cloud-кроки слова → підкатегорії → сама категорія/підкатегорія; збій зупиняє до локальних змін.
 async function runTaxonomyPurge(item){
   const plan = purgeTaxonomyPlan({ kind: item.type, name: item.title, category: item.category }, trashStateNow());
-  if(!plan.exists){ showTrashToast('Не вдалося видалити: запис не знайдено', 'error'); renderTrashScreen(); return; }
+  if(!plan.exists){ showTextToast('Не вдалося видалити: запис не знайдено', 'error'); renderTrashScreen(); return; }
   if(plan.blocked){ showTaxonomyBlocked(plan); return; }
   const obj = plan.kind === 'category' ? CATEGORIES.find(function(c){ return c.name === plan.name; }) : SUBCATEGORIES.find(function(x){ return x.name === plan.name && x.category === plan.category; });
   if(plan.cloudId && !isTestSyncIgnored(obj)){
@@ -20319,7 +20236,7 @@ async function runTaxonomyPurge(item){
       const r3 = await client.from(plan.kind === 'category' ? 'categories' : 'subcategories').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('id', plan.cloudId).eq('family_id', cloudFamilyId).select('id');
       if(r3.error) throw r3.error;
     }catch(err){
-      showTrashToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
+      showTextToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
       captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
       return;
     }
@@ -20329,7 +20246,7 @@ async function runTaxonomyPurge(item){
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'taxonomy-purge', kind: plan.kind, subcategories: res.subcategories - (plan.kind === 'subcategory' ? 1 : 0), words: res.words, blocked: false, usedBy: 0 });
   captureDebugGeometry('trash-purge', { trashType: item.type, ok: true });
   if(trashDetailKey === item.key) closeTrashDetail();
-  showTrashToast('Видалено назавжди', 'success');
+  showTextToast('Видалено назавжди', 'success');
 }
 async function applyTaxonomyRemovalLocally(plan){
   const res = removeTaxonomyFromState({ categories: CATEGORIES, subcategories: SUBCATEGORIES, dictionary: DICTIONARY }, plan);
@@ -20514,7 +20431,7 @@ async function saveNotificationSetting(patch, opts){
   }catch(err){
     notificationSettings = before;
     renderNotificationsDrawer();
-    showTrashToast('Не вдалося зберегти налаштування', 'error');
+    showTextToast('Не вдалося зберегти налаштування', 'error');
     return false;
   }
 }
@@ -20604,7 +20521,7 @@ function renderNotificationsDrawer(){
         const next = { quiet_start: st.quiet_start, quiet_end: st.quiet_end };
         next[r.field] = inp.value;
         const v = validateQuietHours(next.quiet_start, next.quiet_end);
-        if(!v.ok){ showTrashToast(v.error, 'error'); renderNotificationsDrawer(); return; }
+        if(!v.ok){ showTextToast(v.error, 'error'); renderNotificationsDrawer(); return; }
         saveNotificationSetting(next);
       });
       el.appendChild(l); el.appendChild(inp);
@@ -20749,15 +20666,15 @@ async function sendTestNotification(){
       let status = res.error.context && res.error.context.status;
       let retry = null;
       try{ const body = await res.error.context.json(); retry = body && body.retry_after_s; }catch(e){}
-      if(status === 429) showTrashToast('Зачекайте ' + (retry || 30) + ' с', 'error');
-      else showTrashToast('Не вдалося надіслати тестове сповіщення', 'error');
+      if(status === 429) showTextToast('Зачекайте ' + (retry || 30) + ' с', 'error');
+      else showTextToast('Не вдалося надіслати тестове сповіщення', 'error');
     }else if(res.data && res.data.sent === 0){
-      showTrashToast('На цьому пристрої сповіщення не підключені', 'error');
+      showTextToast('На цьому пристрої сповіщення не підключені', 'error');
     }else{
-      showTrashToast('Надіслано', 'success');
+      showTextToast('Надіслано', 'success');
     }
   }catch(err){
-    showTrashToast("Немає зв'язку із сервером", 'error');
+    showTextToast("Немає зв'язку із сервером", 'error');
   }
   if(btn) setTimeout(function(){ btn.disabled = false; }, 1500);
 }

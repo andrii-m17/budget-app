@@ -45,7 +45,7 @@ test('не конфліктує зі свайпом рядка й прокрут
 });
 
 test('закриття свайпом = закриття «назад»: closeTrashScreen без фокусу кнопок/клавіатури; без transform/анімації на body/html; рекордер trash-swipe-close (ms, dx)', () => {
-  const trash = SRC.slice(SRC.indexOf('function closeTrashScreen'), SRC.indexOf('function showTrashToast'));
+  const trash = SRC.slice(SRC.indexOf('function closeTrashScreen'), SRC.indexOf('function showTextToast'));
   assert.ok(!/\.focus\(/.test(trash), 'без focus()');
   assert.match(trash, /restoreFocus\(\);/);
   assert.match(IMPL, /type: 'trash-swipe-close', ms: ms, dx: dx/);
