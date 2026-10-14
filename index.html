@@ -1314,6 +1314,10 @@
   .mono-title{ position:absolute; left:0; right:0; text-align:center; font-size:17px; font-weight:700; color:var(--color-text-primary); pointer-events:none; }
   .mono-group-label{ font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--color-text-secondary); margin:0 16px 8px; }
   .mono-group{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); overflow:hidden; }
+  /* Rev 2.32.35 (K) — підказка підбору за ключовим словом: місце резервується завжди (min-height), тому шторка не «стрибає» по висоті; видимість — visibility. */
+  .mono-kw-hint{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:28px; font-size:13px; line-height:1.4; color:var(--color-text-secondary); }
+  .mono-kw-hint.off{ visibility:hidden; }
+  .mono-kw-undo{ background:none; border:0; padding:4px 0; font:inherit; font-weight:600; color:var(--ui-accent, var(--color-primary)); cursor:pointer; white-space:nowrap; }
   .mono-group + .mono-hint, .mono-hint{ font-size:12.5px; line-height:1.4; color:var(--color-text-secondary); margin:8px 16px 0; }
   .mono-section{ margin-bottom:22px; }
   .mono-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:52px; padding:0 16px; box-sizing:border-box; background:transparent; border:0; border-top:1px solid var(--color-border); font:inherit; font-size:16px; color:var(--color-text-primary); text-align:left; }
@@ -3321,7 +3325,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.34</div>
+  <div class="version-footer">Money Tree · Rev 2.32.35</div>
 </div>
   </div>
 </div>
@@ -3413,8 +3417,10 @@
   <div id="mono-detail-body"></div>
   <div class="mono-detail-fields" id="mono-detail-fields">
     <div class="field"><label for="fldmono2">Категорія</label><select id="fldmono2" class="mono-sel" onchange="onMonoDetailCategoryChange()"></select></div>
-    <div class="field"><label for="fldmono3">Підкатегорія</label><select id="fldmono3" class="mono-sel"></select></div>
+    <div class="field"><label for="fldmono3">Підкатегорія</label><select id="fldmono3" class="mono-sel" onchange="onMonoDetailSubChange()"></select></div>
     <div class="field"><label for="fldmono4">Примітка</label><input type="text" id="fldmono4" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" placeholder="Примітка"></div>
+    <!-- Rev 2.32.35 (K): підказка «Підібрано за словом …» -->
+    <div class="mono-kw-hint off" id="mono-kw-hint" aria-live="polite"><span id="mono-kw-text"></span><button type="button" class="mono-kw-undo" onclick="monoKeywordUndo()">Скасувати підбір</button></div>
   </div>
   <!-- Rev 2.32.32: облік повернення — кандидати-витрати та пояснення -->
   <div class="mono-detail-fields" id="mono-detail-refund" style="display:none;"></div>
@@ -7705,7 +7711,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.34';
+const APP_VERSION = '2.32.35';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10238,6 +10244,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.26.0 (M3) — ui-audit: кількості кнопок за варіантами, без варіанта, із зоною <44, з контрастом <AA, і перелік ПЕРШИХ КЛАСІВ (не даних).
   // Rev 2.28.1 (C) — input-attrs-audit: inputsTotal, inputsBad (порушників), badIds (їхні id — лише ідентифікатори полів, не дані).
   'inputsTotal', 'inputsBad', 'badIds',
+  'matched', // Rev 2.32.35 (K): mono-keyword
   'fieldsCount', 'fields', // Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень)
   'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnSmallExempt', 'btnLowContrast', 'btnLowContrastRow', 'lowContrastRowClasses', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
   // Rev 2.31.1 (C) — trash-swipe-close: ms (тривалість жесту), dx (зсув вправо, px).
@@ -17633,7 +17640,7 @@ function pressEndAllTouch(e){
 const BUTTON_VARIANT_MAP = {
   primary: ['submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn', 'mono-primary'],
   secondary: ['add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
-  text: ['mono-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'bdr-diff-apply', 'journal-empty-reset'],
+  text: ['mono-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
   icon: ['drawer-close', 'gear-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-edit-cat', 'exp-del'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
@@ -19385,6 +19392,7 @@ function openMonoDetail(id){
     cat.value = row.suggested_category || '';
     document.getElementById('fldmono3').innerHTML = subcategoryOptionsHtml(cat.value, row.suggested_subcategory || '');
     document.getElementById('fldmono4').value = row.description || '';
+    monoKwReset(); // Rev 2.32.35 (K): початкове значення — підказка сервера
   }
   const backdrop = document.getElementById('mono-detail-backdrop'), drawer = document.getElementById('mono-detail-drawer');
   const wasOpen = drawer.classList.contains('open');
@@ -19401,7 +19409,75 @@ function closeMonoDetail(){
   monoInbox.detailId = null;
   if(wasOpen) unlockBackgroundScroll();
 }
+// Rev 2.32.35 (K) — підбір категорії за ключовим словом у примітці шторки «Вхідних». Та сама логіка, що autocategorize (форма «Витрати», не чіпаємо), але повертає ще й слово для підказки. Перший збіг у порядку словника; видалені слова й категорії пропускаються. isActiveCat(cat) — предикат активності категорії.
+function keywordSuggestion(note, dictionary, isActiveCat){
+  const text = String(note || '').toLowerCase().trim();
+  if(!text) return null;
+  const list = dictionary || [];
+  for(let i = 0; i < list.length; i++){
+    const e = list[i];
+    if(!e || e.deletedAt || !e.kw) continue;
+    if(text.indexOf(String(e.kw).toLowerCase()) === -1) continue;
+    if(isActiveCat && !isActiveCat(e.cat)) continue;
+    return { cat: e.cat, sub: e.sub || '', kw: e.kw };
+  }
+  return null;
+}
+// state: { manualCat, manualSub, dismissed, match, current:{cat,sub} } — підбір застосовується, лише якщо користувач нічого не обирав сам, не скасовував підбір і значення справді зміниться.
+function shouldApplyKeywordSuggestion(state){
+  if(!state || !state.match) return false;
+  if(state.manualCat || state.manualSub || state.dismissed) return false;
+  const cur = state.current || {};
+  return cur.cat !== state.match.cat || cur.sub !== state.match.sub;
+}
+let monoKw = { manualCat: false, manualSub: false, dismissed: false, applied: null, prev: null, timer: null };
+function monoKwReset(){
+  clearTimeout(monoKw.timer);
+  monoKw = { manualCat: false, manualSub: false, dismissed: false, applied: null, prev: null, timer: null };
+  monoKwShowHint(null);
+}
+function monoKwShowHint(kw){
+  const box = document.getElementById('mono-kw-hint'), t = document.getElementById('mono-kw-text');
+  if(!box || !t) return;
+  t.textContent = kw ? 'Підібрано за словом «' + kw + '»' : '';
+  box.classList.toggle('off', !kw);
+}
+function monoKwSetSelects(cat, sub){
+  const c = document.getElementById('fldmono2'), s = document.getElementById('fldmono3');
+  c.innerHTML = categoryOptionsHtml(cat || ''); c.value = cat || '';
+  s.innerHTML = subcategoryOptionsHtml(cat || '', sub || ''); s.value = sub || '';
+}
+function monoKeywordApply(){
+  const note = document.getElementById('fldmono4').value;
+  const match = keywordSuggestion(note, DICTIONARY, function(c){ return getCategoryType(c) !== null; });
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'mono-keyword', matched: !!match });
+  const cur = { cat: document.getElementById('fldmono2').value, sub: document.getElementById('fldmono3').value };
+  if(match){
+    if(!shouldApplyKeywordSuggestion({ manualCat: monoKw.manualCat, manualSub: monoKw.manualSub, dismissed: monoKw.dismissed, match: match, current: cur })){
+      if(monoKw.applied && !monoKw.manualCat && !monoKw.manualSub && !monoKw.dismissed) monoKwShowHint(match.kw);
+      return;
+    }
+    if(!monoKw.prev) monoKw.prev = cur; // значення до першого підбору — для «Скасувати підбір»
+    monoKw.applied = match;
+    monoKwSetSelects(match.cat, match.sub);
+    monoKwShowHint(match.kw);
+  }else if(monoKw.applied && !monoKw.manualCat && !monoKw.manualSub && !monoKw.dismissed){
+    // слово зникло з примітки — повертаємо значення, що були до підбору
+    const p = monoKw.prev || { cat: '', sub: '' };
+    monoKwSetSelects(p.cat, p.sub);
+    monoKw.applied = null; monoKw.prev = null;
+    monoKwShowHint(null);
+  }
+}
+function monoKeywordUndo(){
+  const p = monoKw.prev || { cat: '', sub: '' };
+  monoKwSetSelects(p.cat, p.sub);
+  monoKw.applied = null; monoKw.prev = null; monoKw.dismissed = true;
+  monoKwShowHint(null);
+}
+function onMonoDetailSubChange(){ monoKw.manualSub = true; monoKwShowHint(null); }
 function onMonoDetailCategoryChange(){
+  monoKw.manualCat = true; monoKwShowHint(null); // Rev 2.32.35 (K): ручний вибір вимикає підбір
   const cat = document.getElementById('fldmono2').value;
   document.getElementById('fldmono3').innerHTML = subcategoryOptionsHtml(cat, '');
 }
@@ -19473,6 +19549,8 @@ async function monoDetailIgnore(){
   if(id) await monoIgnoreRow(id);
 }
 (function initMonoInbox(){
+  const noteFld = document.getElementById('fldmono4');
+  if(noteFld) noteFld.addEventListener('input', function(){ clearTimeout(monoKw.timer); monoKw.timer = setTimeout(monoKeywordApply, 250); }); // Rev 2.32.35 (K): затримка ~250 мс
   const tabs = document.getElementById('mono-inbox-tabs');
   if(tabs) tabs.addEventListener('click', function(e){ const b = e.target.closest('[data-mono-tab]'); if(b) setMonoInboxTab(b.getAttribute('data-mono-tab')); });
   const body = document.getElementById('mono-inbox-body');
