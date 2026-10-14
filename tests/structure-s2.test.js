@@ -29,6 +29,6 @@ test('охоронні: рядки без олівця/хрестика, пан�
 test('охоронні: без категорій «Додати підкатегорію» показує пояснення; видалення — усередині шторки; пріоритет збережено; значення екрановані', function(){
   assert.match(SRC, /showAlertModal\('Спершу додайте категорію: підкатегорія завжди належить категорії\.'\)/);
   assert.match(SRC, /label: 'Видалити підкатегорію', note: 'Витрати з цією підкатегорією не видаляються\. Видалена підкатегорія потрапляє у «Видалені дані»\.', onDelete: function\(\)\{ deleteSubcategory\(i\); \}/);
-  assert.match(SRC, /'Потенціал економії'/); assert.match(SRC, /sheetId: 'sheet-subcategory', del: del/);
+  assert.match(SRC, /'Потенціал економії'/); assert.match(SRC, /kind: 'subcategory', edit: !!del/);
   assert.ok(!/id="fldstr/.test(SRC.slice(SRC.indexOf('id="struct-tab-panel-subcategories"'), SRC.indexOf('id="struct-tab-panel-dictionary"'))));
 });

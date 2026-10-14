@@ -21,7 +21,8 @@ test('хост клавіатурної логіки: .drawer і .app-modal че
 test('картки з полями зареєстровані з sheetId; модалки без полів (підтвердження, вибір місяця, діагностика) — ні', () => {
   const m = SRC.match(/presentAppModal\(\{[^}]*\}\)/g) || [];
   const withIds = m.filter(x => /sheetId:/.test(x));
-  assert.deepEqual(withIds.map(x => x.match(/sheetId: '([^']+)'/)[1]).sort(), ['sheet-account', 'sheet-category', 'sheet-dictionary', 'sheet-subcategory']);
+  assert.deepEqual(withIds.map(x => x.match(/sheetId: '([^']+)'/)[1]).sort(), ['sheet-account']); // Rev 2.32.58 (F1): форми «Структури» — у #struct-drawer з data-sheet-id (див. openStructForm)
+  assert.match(SRC, /drawer\.setAttribute\('data-sheet-id', 'sheet-' \+ \(cfg\.kind === 'word' \? 'dictionary' : cfg\.kind\)\)/);
   assert.ok(m.every(x => !/input: true/.test(x) || /sheetId:/.test(x)), 'кожна картка з input має sheetId');
   assert.ok(!/presentAppModal\(\);[\s\S]{0,0}sheetId/.test(SRC));
   assert.match(SRC, /function showConfirmModal[\s\S]*?presentAppModal\(\);/);

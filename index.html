@@ -1242,6 +1242,30 @@
   @media (hover:hover) and (pointer:fine){ .struct-tab-btn:hover{ color:var(--color-text-primary); } }
   .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
   .struct-tab-panel.hidden{ display:none; }
+  /* Rev 2.32.58 (F1) — форми «Структури» у компоненті .drawer: компактні рядки 48 пт (підпис ліворуч, значення праворуч), групи радіус 18, пара кнопок знизу (скасувати — обведена), «Видалити …» червоним текстом під парою; ✕ немає. Нативний select — прозорий поверх рядка, текст значення малюється окремо (обрізання знизу неможливе). */
+  #struct-drawer .sf-title{ margin:2px 0 12px; font-size:18px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+  #struct-drawer .sf-notice{ margin:0 0 12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-warning-bg); color:var(--color-text-primary); font-size:13.5px; line-height:1.4; }
+  #struct-drawer .sf-group{ background:var(--ui-glass, var(--color-surface-hover)); border:1px solid var(--color-border); border-radius:18px; overflow:hidden; margin-bottom:10px; }
+  #struct-drawer .sf-row{ position:relative; display:flex; align-items:center; gap:10px; min-height:48px; padding:0 14px; box-sizing:border-box; }
+  #struct-drawer .sf-row + .sf-row::before{ content:''; position:absolute; top:0; left:14px; right:0; height:1px; background:var(--color-border); }
+  #struct-drawer .sf-label{ flex:none; font-size:15px; color:var(--color-text-primary); }
+  #struct-drawer .sf-value{ flex:1; min-width:0; text-align:right; font-size:15px; color:var(--color-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #struct-drawer .sf-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
+  #struct-drawer .sf-select{ position:absolute; inset:0; width:100%; height:100%; opacity:0; border:0; font-size:16px; -webkit-appearance:none; appearance:none; cursor:pointer; }
+  #struct-drawer .sf-input{ flex:1; min-width:0; height:48px; padding:0; border:0; background:transparent; box-shadow:none; border-radius:0; text-align:right; font-size:16px; color:var(--color-text-primary); }
+  #struct-drawer .sf-input:focus{ outline:none; box-shadow:none; }
+  #struct-drawer .sf-row .struct-tile{ margin-right:2px; }
+  #struct-drawer .sf-seg{ padding:6px 8px; }
+  #struct-drawer .sf-seg .struct-tabs{ width:100%; margin:0; }
+  #struct-drawer .sf-seg .struct-tab-btn{ padding:7px 4px; }
+  #struct-drawer .struct-caption{ margin:0 4px 12px; }
+  #struct-drawer .sf-actions{ display:flex; gap:10px; margin-top:6px; }
+  #struct-drawer .sf-actions .submit-btn{ flex:1 1 0; min-height:50px; }
+  html:root #struct-drawer .sf-actions .submit-btn.secondary{ background:transparent; border:1.5px solid var(--color-border-strong); color:var(--color-text-primary); box-shadow:none; }
+  #struct-drawer .sf-delete-wrap{ text-align:center; }
+  #struct-drawer .sf-delete-wrap .cdd-delete-link{ margin-top:10px; width:100%; }
+  #struct-drawer .sf-delete-wrap .struct-caption{ margin:2px 4px 0; text-align:center; }
+
   /* Rev 2.32.48 (S1) — «Структура»: групи в стилі «Налаштувань» (радіус 18, рядок ≥56px, роздільник від відступу плитки, заголовки груп 13px великими вторинним кольором); плитка з емодзі 32px; без олівця й хрестика. */
   .struct-section{ margin-bottom:22px; }
   .struct-group-label{ font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--color-text-secondary); margin:0 16px 8px; }
@@ -1251,7 +1275,7 @@
   .struct-tile{ width:32px; height:32px; flex:none; border-radius:10px; background:var(--color-surface-hover); display:flex; align-items:center; justify-content:center; font-size:18px; line-height:1; }
   .struct-tile.letter{ font-size:14px; font-weight:700; color:var(--color-text-secondary); }
   /* Rev 2.32.57 (P): підсвічування рядків-списків при натисканні. Реакція M1 (scale 0.97 + opacity 0.9) на рядках усередині груп з overflow:hidden майже непомітна (масштаб обрізається) — додано фон на час .is-pressed (клас ставить наявний механізм pressStart, нових обробників немає). */
-  .struct-row.is-pressed, .struct-dict-head.is-pressed, .notif-row.is-pressed, .mono-row.is-pressed, .struct-delete-row.is-pressed{ background:var(--color-surface-hover); }
+  .struct-row.is-pressed, .struct-dict-head.is-pressed, .notif-row.is-pressed, .mono-row.is-pressed{ background:var(--color-surface-hover); }
   .struct-row-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .struct-row-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
   .struct-row-side{ flex:none; color:var(--color-text-secondary); font-size:15px; }
@@ -1262,25 +1286,6 @@
   .struct-empty{ display:flex; flex-direction:column; align-items:stretch; }
   .struct-empty > .submit-btn{ align-self:center; }
   .struct-empty .struct-section{ margin-top:22px; margin-bottom:0; }
-  .struct-delete-row{ width:100%; min-height:52px; margin-top:6px; background:var(--color-surface-hover); border:0; border-radius:var(--radius-md); font:inherit; font-size:15px; font-weight:600; color:var(--color-error); cursor:pointer; }
-  .app-modal-delete-wrap{ margin-top:14px; }
-  /* Rev 2.32.51 (S4) — шторки «Структури» (категорія, підкатегорія, слово) за макетом 4: рядок навігації («Скасувати» ліворуч, назва по центру, «Зберегти» праворуч акцентним), група з полем, сегменти типу, нативні select 56px, «Видалити …» червоним рядком із підписом. ЛИШЕ під модифікатором .app-modal--sheet — Облік, картки й ОЧ не зачеплені; id полів, kb-класи, проміжне поле й логіку клавіатури не чіпали (змінено лише CSS-розкладку всередині шторки). */
-  html:root .app-modal.app-modal--sheet{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"cancel title save" "body body body"; align-items:center; column-gap:8px; padding:12px 16px 20px; }
-  .app-modal--sheet > *{ grid-column:1 / -1; }
-  .app-modal--sheet .app-modal-text{ grid-area:title; margin:0; text-align:center; font-size:16px; font-weight:700; line-height:1.25; white-space:normal; }
-  .app-modal--sheet .app-modal-actions{ display:contents; }
-  html:root #app-modal.app-modal--sheet .app-modal-actions .submit-btn{ background:none; box-shadow:none; border:0; border-radius:0; min-height:44px; padding:0 4px; width:auto; flex:none; font-size:16px; }
-  html:root #app-modal.app-modal--sheet #app-modal-cancel-btn{ grid-area:cancel; justify-self:start; color:var(--color-text-secondary); font-weight:400; }
-  html:root #app-modal.app-modal--sheet #app-modal-confirm-btn{ grid-area:save; justify-self:end; color:var(--color-primary-text, var(--color-primary)); font-weight:700; }
-  .app-modal--sheet .app-modal-notice{ margin:10px 0 0; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-warning-bg); color:var(--color-text-primary); font-size:13.5px; line-height:1.4; }
-  .app-modal--sheet .app-modal-input-wrap{ margin:14px 0 0; }
-  .app-modal--sheet .app-modal-input-wrap::before{ content:attr(data-label); display:block; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--color-text-secondary); margin:0 4px 8px; }
-  html:root .app-modal--sheet .app-modal-input-wrap input{ height:56px; box-sizing:border-box; line-height:1.35; }
-  .app-modal--sheet .app-modal-seg-wrap{ margin:14px 0 0; }
-  .app-modal--sheet .app-modal-seg-wrap .struct-tabs{ margin-bottom:0; }
-  .app-modal--sheet .app-modal-select-wrap{ margin:14px 0 0; }
-  html:root .app-modal--sheet .app-modal-select-wrap select{ height:56px; min-height:56px; padding:14px 36px 14px 12px; line-height:1.35; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%238a8f98' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; background-size:12px 8px; }
-  .app-modal--sheet .app-modal-delete-wrap{ margin-top:18px; }
   /* Rev 2.32.50 (S3) — «Словник»: групи-акордеон за категорією, пошук. Варіанти анімації (тест structure-accordion): b — шеврон 200мс + проявлення рядків 160мс, висота миттєво; c — анімована висота (grid-template-rows 240мс) лише як свідомий виняток тесту. */
   .struct-search-wrap{ margin:0 0 14px; }
   .struct-search{ width:100%; height:44px; box-sizing:border-box; padding:0 14px; border:1.5px solid var(--color-border-strong); border-radius:var(--ui-r-control, 14px); background:var(--ui-glass, var(--color-surface)); color:var(--color-text-primary); font-size:16px; -webkit-appearance:none; appearance:none; }
@@ -1734,7 +1739,7 @@
      custom properties не мають способу "проігнорувати" конкретного предка
      в ланцюгу успадкування, лише revert до POTENTIAL кореня, який тут і
      так дає body.kb-open. */
-  #income-drawer.open, #card-debt-drawer.open, #installment-drawer.open{
+  #income-drawer.open, #card-debt-drawer.open, #installment-drawer.open, #struct-drawer.open{
     bottom:max(100px, calc(env(safe-area-inset-bottom) + 80px));
   }
   /* Rev 2.23.13 (6D.182) — max-height тепер через --sheet-max-h (JS,
@@ -1762,7 +1767,7 @@
      анімацією покадрово: лишається на старому місці, потім перестрибує).
      Клас html.kb-sheet-moving ставить/знімає JS (beginSheetMoving). "Витрати"
      не зачіпаємо — селектори лише в межах трьох шторок. */
-  html.kb-sheet-moving #income-drawer input, html.kb-sheet-moving #card-debt-drawer input, html.kb-sheet-moving #installment-drawer input,
+  html.kb-sheet-moving #income-drawer input, html.kb-sheet-moving #card-debt-drawer input, html.kb-sheet-moving #installment-drawer input, html.kb-sheet-moving #struct-drawer input,
   html.kb-sheet-moving #income-drawer textarea, html.kb-sheet-moving #card-debt-drawer textarea, html.kb-sheet-moving #installment-drawer textarea{ caret-color:transparent; } /* Rev 2.30.0 (M4b): !important прибрано — селектор з #id (1,2,2) вищий за будь-яке правило, inline caret-color на textarea немає */
   html.kb-sheet.kb-sheet-switching .drawer.open{ transition:transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
   /* Rev 2.32.10 (C) — картки введення «Структури» (#app-modal з полями) — ті самі правила підйому, що шторки: transform = центрування (-50%,-50%) мінус --sheet-lift; вигляд без клавіатури не змінюється. */
@@ -3413,7 +3418,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.57</div>
+  <div class="version-footer">Money Tree · Rev 2.32.58</div>
 </div>
   </div>
 </div>
@@ -3852,6 +3857,23 @@
   </div>
 </div>
 
+<!-- ================= Форми «Структури» (Rev 2.32.58, F1): категорія, підкатегорія, слово — той самий компонент .drawer, що Дохід/Борг/ОЧ/картка (плаваюча картка, відступи 16, радіус --ui-r-container); компактні рядки по 48 пт, пара кнопок знизу, ✕ немає, «Видалити …» червоним текстом під парою. Розкладка полів наповнюється JS (openStructForm). -->
+<div class="drawer-backdrop" id="struct-backdrop" onclick="closeStructForm()" inert></div>
+<div class="drawer struct-form" id="struct-drawer" role="dialog" aria-label="Структура" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <h2 class="sf-title" id="sf-title"></h2>
+  <div class="sf-notice" id="sf-notice" role="status" style="display:none;"></div>
+  <div class="sf-body" id="sf-body"></div>
+  <div class="sf-actions">
+    <button type="button" class="submit-btn pill secondary" id="sf-cancel" onclick="closeStructForm()">Скасувати</button>
+    <button type="button" class="submit-btn pill" id="sf-save">Зберегти</button>
+  </div>
+  <div class="sf-delete-wrap" id="sf-delete-wrap" style="display:none;">
+    <button type="button" class="cdd-delete-link" id="sf-delete"></button>
+    <div class="struct-caption" id="sf-delete-note"></div>
+  </div>
+</div>
+
 <!-- ================= Редагування картки боргу (Drawer, Rev 2.16.5) =================
      Той самий .drawer компонент, що Налаштування вище — тап по компактному
      рядку картки в "Борги по картках" відкриває цю шторку з повним набором
@@ -3987,18 +4009,12 @@
 <div class="drawer-backdrop" id="modal-backdrop" onclick="closeAppModal()" inert></div>
 <div class="app-modal" id="app-modal" role="dialog" aria-modal="true" inert>
   <div class="app-modal-text" id="app-modal-text"></div>
-  <!-- Rev 2.32.51 (S4): повідомлення-підтвердження (кількість витрат при перейменуванні) у шторці «Структури» — окремим рядком, бо в заголовку по центру воно б не вмістилось -->
-  <div class="app-modal-notice" id="app-modal-notice" style="display:none;" role="status"></div>
   <div class="app-modal-input-wrap" id="app-modal-input-wrap">
     <input type="text" id="app-modal-input" autocomplete="off" aria-labelledby="app-modal-text">
   </div>
   <div class="app-modal-amount-wrap" id="app-modal-amount-wrap">
     <label for="app-modal-amount-input" id="app-modal-amount-label">Початкова сума</label>
     <input type="text" id="app-modal-amount-input" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
-  </div>
-  <!-- Rev 2.32.51 (S4): тип категорії сегментами «Обов'язкова / Гнучка / Скорочувана» (значення зберігає прихований select нижче) -->
-  <div class="app-modal-seg-wrap" id="app-modal-seg-wrap" style="display:none;">
-    <div class="struct-tabs" id="app-modal-seg" role="tablist" aria-label="Тип категорії"></div>
   </div>
   <div class="app-modal-select-wrap" id="app-modal-select-wrap">
     <label id="app-modal-select-label" for="app-modal-select">Приховати з місяця</label>
@@ -4009,11 +4025,6 @@
   <div class="app-modal-select-wrap" id="app-modal-select2-wrap">
     <label id="app-modal-select2-label" for="app-modal-select2"></label>
     <select id="app-modal-select2"></select>
-  </div>
-  <!-- Rev 2.32.48 (S1): «Видалити …» червоним рядком усередині шторки редагування (категорія, підкатегорія, слово) + підпис; показується лише коли виклик передав del -->
-  <div class="app-modal-delete-wrap" id="app-modal-delete-wrap" style="display:none;">
-    <button type="button" class="struct-delete-row" id="app-modal-delete-btn"></button>
-    <div class="struct-caption" id="app-modal-delete-note"></div>
   </div>
   <div class="app-modal-actions">
     <button type="button" class="submit-btn secondary" id="app-modal-cancel-btn" onclick="closeAppModal()">Скасувати</button>
@@ -7893,7 +7904,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.57';
+const APP_VERSION = '2.32.58';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -21101,7 +21112,9 @@ document.addEventListener('keydown', function(e){
   const cardDebtDrawer = document.getElementById('card-debt-drawer');
   const installmentDrawer = document.getElementById('installment-drawer');
   const incomeDrawer = document.getElementById('income-drawer');
-  if(modal && modal.classList.contains('open')) trapTabKey(e, modal);
+  const structDrawer = document.getElementById('struct-drawer'); // Rev 2.32.58 (F1)
+  if(structDrawer && structDrawer.classList.contains('open')) trapTabKey(e, structDrawer);
+  else if(modal && modal.classList.contains('open')) trapTabKey(e, modal);
   else if(drawer && drawer.classList.contains('open')) trapTabKey(e, drawer);
   else if(profileDrawer && profileDrawer.classList.contains('open')) trapTabKey(e, profileDrawer);
   else if(profilePopover && profilePopover.classList.contains('open')) trapTabKey(e, profilePopover);
@@ -21131,7 +21144,7 @@ function closeSettings(){
   restoreFocus();
   if(wasOpen) unlockBackgroundScroll();
 }
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeNotificationsDrawer(); closeTrashDetail(); closeTrashScreen(); closeTestingDrawer(); closeSettings(); closeProfileMenu(); closeProfileLoginDrawer(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeNotificationsDrawer(); closeTrashDetail(); closeTrashScreen(); closeTestingDrawer(); closeSettings(); closeProfileMenu(); closeProfileLoginDrawer(); closeStructForm(); closeAppModal(); closeCardDebtEditor(); closeInstallmentEditor(); closeIncomeEditor(); closeJournal(); closeAllDataStatusPopovers(); } });
 
 // Rev #30 (6D.12) — свайп-донизу для закриття .drawer (як iOS bottom sheet).
 // Один генеричний обробник на всі 5 drawer'ів через спільний .drawer-handle
@@ -21511,41 +21524,7 @@ function closeAppModal(){
 // за вміст усередині них (текст/опції/onclick — і далі в кожній функції
 // окремо) чи за поведінку кнопок (showAlertModal/showDiagnosticsModal
 // самі ховають/перейменовують кнопки — до цього helper не торкається).
-function setAppModalDelete(del){
-  const wrap = document.getElementById('app-modal-delete-wrap');
-  if(!wrap) return;
-  if(!del){ wrap.style.display = 'none'; return; }
-  document.getElementById('app-modal-delete-btn').textContent = del.label;
-  document.getElementById('app-modal-delete-note').textContent = del.note || '';
-  document.getElementById('app-modal-delete-btn').onclick = function(){ closeAppModal(); del.onDelete(); }; // діалог підтвердження з підрахунком залежних лишається як було
-  wrap.style.display = 'block';
-}
-// Rev 2.32.51 (S4): сегменти типу категорії (синхронізують прихований select) і повідомлення-підтвердження
-function setAppModalSeg(opts){
-  const wrap = document.getElementById('app-modal-seg-wrap'), seg = document.getElementById('app-modal-seg');
-  if(!wrap || !seg) return;
-  if(!opts){ wrap.style.display = 'none'; seg.textContent = ''; return; }
-  seg.textContent = '';
-  opts.items.forEach(function(t){
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'struct-tab-btn' + (t === opts.value ? ' active' : ''); b.textContent = t; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', t === opts.value ? 'true' : 'false');
-    b.addEventListener('click', function(){ opts.onPick(t); seg.querySelectorAll('.struct-tab-btn').forEach(function(x){ const on = x === b; x.classList.toggle('active', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); }); });
-    seg.appendChild(b);
-  });
-  wrap.style.display = 'block';
-}
-function setAppModalNotice(text){
-  const n = document.getElementById('app-modal-notice');
-  const sheet = document.getElementById('app-modal').classList.contains('app-modal--sheet');
-  if(sheet && n){ n.textContent = text; n.style.display = 'block'; } else document.getElementById('app-modal-text').textContent = text;
-}
-function presentAppModal({ input = false, amount = false, select = false, select2 = false, sheetId = null, del = null, sheet = false, seg = null, inputLabel = '' } = {}){
-  // Rev 2.32.51 (S4): sheet — оформлення шторки «Структури» (модифікатор .app-modal--sheet лише для її викликів; Облік, картки й ОЧ не зачеплені)
-  const mEl = document.getElementById('app-modal');
-  mEl.classList.toggle('app-modal--sheet', !!sheet);
-  const notice = document.getElementById('app-modal-notice'); if(notice){ notice.style.display = 'none'; notice.textContent = ''; }
-  setAppModalSeg(seg);
-  document.getElementById('app-modal-input-wrap').setAttribute('data-label', inputLabel);
-  setAppModalDelete(del); // Rev 2.32.48 (S1)
+function presentAppModal({ input = false, amount = false, select = false, select2 = false, sheetId = null } = {}){
   // Rev 2.32.10 (C): sheetId — ідентифікатор картки введення для клавіатурної логіки/рекордера (лише для карток з полями).
   const modalEl = document.getElementById('app-modal');
   if(sheetId) modalEl.setAttribute('data-sheet-id', sheetId); else modalEl.removeAttribute('data-sheet-id');
@@ -21643,33 +21622,129 @@ function showMonthPickerModal(message, months, defaultMonth, onConfirm){
 // тексту лейбла явне в обох функціях (щоб не лишався текст з попереднього
 // відкриття іншого типу модалки).
 const CATEGORY_TYPES = ["Обов'язкова", "Гнучка", "Скорочувана"];
-function showCategoryModal(title, defaultName, defaultType, onSave, del){ // Rev 2.32.48 (S1): del — { label, note, onDelete } для редагування
-  document.getElementById('app-modal-text').textContent = title.replace(/:$/, ''); // Rev 2.32.51 (S4): заголовок шторки по центру — без двокрапки
-  document.getElementById('app-modal-select-label').textContent = 'Тип категорії';
-  const input = document.getElementById('app-modal-input');
-  input.value = defaultName || '';
-  const select = document.getElementById('app-modal-select');
-  select.onchange = null; // захист: showDictionaryModal лишає тут live-обробник
-  select.innerHTML = CATEGORY_TYPES.map(t=>`<option value="${t}"${t===defaultType?' selected':''}>${t}</option>`).join('');
-  const btn = document.getElementById('app-modal-confirm-btn');
-  btn.textContent = 'Зберегти';
-  btn.className = 'submit-btn';
-  // Rev #28.C — onSave (openAddCategoryModal/editCategory) тепер async
-  // (пише через pilot-Repository-функції) — onclick теж async і await'ить
-  // результат ПЕРЕД перевіркою `ok === false`: без цього `ok` був би самим
-  // Promise-об'єктом (завжди truthy), і валідація дубліката назви ніколи
-  // не спрацювала б.
-  btn.onclick = async function(){
-    const name = input.value.trim();
-    const type = select.value;
-    if(!name){ flashField('app-modal-input'); return; }
-    const ok = await onSave(name, type);
-    if(ok === false){ flashField('app-modal-input'); return; }
-    closeAppModal();
+/* ============ Форми «Структури» у компоненті .drawer (Rev 2.32.58, F1) ============
+   Категорія, підкатегорія, слово: той самий .drawer, що Дохід/Борг/ОЧ/картка (клавіатурна логіка працює з будь-яким .drawer узагальнено — kbSheetHostOf; тут лише розмітка й обробники). Компактні рядки 48 пт; нативний select прозорий поверх рядка, текст значення малюється окремо. */
+// Іконка-перегляд назви: емодзі з початку назви, а без емодзі — перша літера (або «?» для порожньої).
+function tileForName(name){
+  const sp = splitLeadingEmoji(name);
+  if(sp.emoji) return { text: sp.emoji, isEmoji: true };
+  return { text: (sp.text.charAt(0) || '?').toUpperCase(), isEmoji: false };
+}
+// Текст значення рядка вибору: підпис вибраного варіанта (або порожньо). selection: { options: [{ value, label }], value }.
+function selectRowValue(selection){
+  const o = ((selection && selection.options) || []).filter(function(x){ return x.value === selection.value; })[0];
+  return o ? o.label : '';
+}
+let structForm = null; // { onSave, kind }
+const STRUCT_FORM_TITLES = { category: ['Нова категорія', 'Категорія'], subcategory: ['Нова підкатегорія', 'Підкатегорія'], word: ['Нове слово', 'Слово'] };
+const STRUCT_NAME_CAPTION = 'Емодзі на початку назви стає іконкою. Без емодзі іконкою буде перша літера.';
+const SF_CHEV_SVG = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>';
+function sfEl(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+// Рядок вибору: підпис ліворуч, значення праворуч (ellipsis), шеврон; <select> прозорий на всю площу рядка.
+function sfPickRow(label, options, value, onChange){
+  const row = sfEl('div', 'sf-row sf-pick');
+  row.appendChild(sfEl('span', 'sf-label', label));
+  const val = sfEl('span', 'sf-value'); row.appendChild(val);
+  const chev = sfEl('span', 'sf-chev'); chev.innerHTML = SF_CHEV_SVG; row.appendChild(chev);
+  const sel = sfEl('select', 'sf-select'); sel.setAttribute('aria-label', label); row.appendChild(sel);
+  const api = { row: row, select: sel,
+    setOptions: function(opts, v){
+      sel.textContent = '';
+      opts.forEach(function(o){ sel.appendChild(new Option(o.label, o.value)); });
+      sel.value = v; if(sel.value !== v) sel.value = opts.length ? opts[0].value : '';
+      val.textContent = selectRowValue({ options: opts, value: sel.value });
+      api.options = opts;
+    },
+    refresh: function(){ val.textContent = selectRowValue({ options: api.options, value: sel.value }); } };
+  api.setOptions(options, value);
+  sel.addEventListener('change', function(){ api.refresh(); if(onChange) onChange(sel.value); });
+  return api;
+}
+// cfg: { kind, edit, field:{ value, label, tile }, type:{ items, value }|null, picks:[{ key, label, options, value, onChange }], onSave(vals) → Promise<false|void>, del:{ label, note, onDelete }|null }
+function openStructForm(cfg){
+  const drawer = document.getElementById('struct-drawer');
+  const titles = STRUCT_FORM_TITLES[cfg.kind];
+  document.getElementById('sf-title').textContent = cfg.edit ? titles[1] : titles[0];
+  const notice = document.getElementById('sf-notice'); notice.style.display = 'none'; notice.textContent = '';
+  drawer.setAttribute('data-sheet-id', 'sheet-' + (cfg.kind === 'word' ? 'dictionary' : cfg.kind)); // ідентифікатор для рекордера/клавіатурної логіки (як було у #app-modal)
+  const body = document.getElementById('sf-body'); body.textContent = '';
+  // назва / слово
+  const gName = sfEl('div', 'sf-group'); gName.id = 'sf-group-main';
+  const rName = sfEl('div', 'sf-row');
+  let tileEl = null;
+  if(cfg.field.tile){ tileEl = sfEl('span', 'struct-tile'); tileEl.setAttribute('aria-hidden', 'true'); rName.appendChild(tileEl); }
+  rName.appendChild(sfEl('span', 'sf-label', cfg.field.label));
+  const input = document.createElement('input');
+  input.type = 'text'; input.id = 'fldstr3'; input.className = 'sf-input'; input.value = cfg.field.value || '';
+  input.setAttribute('autocomplete', 'off'); input.setAttribute('autocorrect', 'off'); input.setAttribute('spellcheck', 'false'); input.setAttribute('aria-label', cfg.field.label);
+  rName.appendChild(input); gName.appendChild(rName); body.appendChild(gName);
+  if(tileEl){
+    const upd = function(){ const t = tileForName(input.value); tileEl.textContent = t.text; tileEl.classList.toggle('letter', !t.isEmoji); };
+    input.addEventListener('input', upd); upd();
+    body.appendChild(sfEl('div', 'struct-caption', STRUCT_NAME_CAPTION));
+  }
+  // тип категорії
+  const state = { type: cfg.type ? cfg.type.value : null };
+  if(cfg.type){
+    const gType = sfEl('div', 'sf-group sf-seg'); const tabs = sfEl('div', 'struct-tabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Тип категорії');
+    cfg.type.items.forEach(function(t){
+      const b = sfEl('button', 'struct-tab-btn' + (t === state.type ? ' active' : ''), t); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', t === state.type ? 'true' : 'false');
+      b.addEventListener('click', function(){ state.type = t; tabs.querySelectorAll('.struct-tab-btn').forEach(function(x){ const on = x === b; x.classList.toggle('active', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); }); });
+      tabs.appendChild(b);
+    });
+    gType.appendChild(tabs); body.appendChild(gType);
+  }
+  // вибір
+  const picks = {};
+  if(cfg.picks && cfg.picks.length){
+    const gPick = sfEl('div', 'sf-group');
+    cfg.picks.forEach(function(pk){
+      picks[pk.key] = sfPickRow(pk.label, pk.options, pk.value, function(v){ if(pk.onChange) pk.onChange(v, picks); });
+      gPick.appendChild(picks[pk.key].row);
+    });
+    body.appendChild(gPick);
+  }
+  structForm = { cfg: cfg };
+  const save = document.getElementById('sf-save');
+  save.textContent = cfg.edit ? 'Зберегти' : 'Додати';
+  save.onclick = async function(){
+    const vals = { name: input.value.trim(), type: state.type };
+    Object.keys(picks).forEach(function(k){ vals[k] = picks[k].select.value; });
+    if(!vals.name){ flashField('sf-group-main'); return; }
+    if(cfg.picks && cfg.picks.some(function(pk){ return pk.required && !vals[pk.key]; })){ flashField('sf-group-main'); return; }
+    const ok = await cfg.onSave(vals);
+    if(ok === false){ flashField('sf-group-main'); return; }
+    closeStructForm();
   };
-  const segOpts = { items: CATEGORY_TYPES, value: select.value, onPick: function(t){ select.value = t; } };
-  presentAppModal({ input: true, select: false, sheetId: 'sheet-category', del: del, sheet: true, inputLabel: 'Назва', seg: segOpts }); // Rev 2.32.51 (S4): тип — сегментами (select лишається джерелом значення)
-  setTimeout(()=>{ focusCardFieldSafe(input); }, 60); // Rev 2.32.52 (G)
+  const dw = document.getElementById('sf-delete-wrap');
+  if(cfg.del){
+    document.getElementById('sf-delete').textContent = cfg.del.label;
+    document.getElementById('sf-delete-note').textContent = cfg.del.note || '';
+    document.getElementById('sf-delete').onclick = function(){ closeStructForm(); cfg.del.onDelete(); }; // діалог підтвердження з підрахунком залежних — як було
+    dw.style.display = 'block';
+  }else dw.style.display = 'none';
+  lastFocusedBeforeDialog = document.activeElement;
+  document.getElementById('struct-backdrop').removeAttribute('inert'); drawer.removeAttribute('inert');
+  document.getElementById('struct-backdrop').classList.add('open'); drawer.classList.add('open');
+  focusFirstIn(drawer);
+  lockBackgroundScroll();
+}
+function closeStructForm(){
+  const drawer = document.getElementById('struct-drawer');
+  if(!drawer || !drawer.classList.contains('open')) return; // Escape викликає безумовно
+  document.getElementById('struct-backdrop').classList.remove('open'); drawer.classList.remove('open');
+  document.getElementById('struct-backdrop').setAttribute('inert', ''); drawer.setAttribute('inert', '');
+  structForm = null;
+  restoreFocus();
+  unlockBackgroundScroll();
+}
+// Повідомлення-підтвердження (кількість витрат при перейменуванні): у відкритій формі «Структури» — окремим рядком; інакше — у тексті модалки (як було).
+function setAppModalNotice(text){
+  const n = document.getElementById('sf-notice');
+  if(structForm && n){ n.textContent = text; n.style.display = 'block'; } else document.getElementById('app-modal-text').textContent = text;
+}
+function showCategoryModal(title, defaultName, defaultType, onSave, del){
+  openStructForm({ kind: 'category', edit: !!del, field: { value: defaultName, label: 'Назва', tile: true }, type: { items: CATEGORY_TYPES, value: defaultType }, picks: [], del: del, onSave: function(v){ return onSave(v.name, v.type); } });
 }
 // Rev 2.1.27 — модалка додавання/редагування підкатегорії: назва + категорія
 // (перший select-wrap) + пріоритет економії (другий, окремий select2-wrap) —
@@ -21679,72 +21754,26 @@ const SUBCATEGORY_PRIORITY_OPTIONS = [
   {label:'Середній', score:0.65, color:'warning'},
   {label:'Низький', score:0.25, color:'success'},
 ];
-function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriorityLabel, onSave, del){ // Rev 2.32.49 (S2): del — { label, note, onDelete } для редагування
-  document.getElementById('app-modal-text').textContent = title.replace(/:$/, ''); // Rev 2.32.51 (S4)
-  document.getElementById('app-modal-select-label').textContent = 'Категорія';
-  const input = document.getElementById('app-modal-input');
-  input.value = defaultName || '';
-  const catSelect = document.getElementById('app-modal-select');
-  catSelect.onchange = null; // захист: showDictionaryModal лишає тут live-обробник
-  const activeCats = CATEGORIES.filter(c=>c.active);
-  catSelect.innerHTML = activeCats.map(c=>`<option value="${escapeAttr(c.name)}"${c.name===defaultCategory?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
-  document.getElementById('app-modal-select2-label').textContent = 'Потенціал економії';
-  const prioSelect = document.getElementById('app-modal-select2');
-  prioSelect.innerHTML = SUBCATEGORY_PRIORITY_OPTIONS.map(p=>`<option value="${p.label}"${p.label===defaultPriorityLabel?' selected':''}>${p.label}</option>`).join('');
-  const btn = document.getElementById('app-modal-confirm-btn');
-  btn.textContent = 'Зберегти';
-  btn.className = 'submit-btn';
-  // Rev #28.C — onSave тепер async (той самий принцип, що showCategoryModal вище).
-  btn.onclick = async function(){
-    const name = input.value.trim();
-    const category = catSelect.value;
-    const priorityLabel = prioSelect.value;
-    if(!name){ flashField('app-modal-input'); return; }
-    if(!category){ flashField('app-modal-select'); return; } // немає жодної активної категорії
-    const ok = await onSave(name, category, priorityLabel);
-    if(ok === false){ flashField('app-modal-input'); return; }
-    closeAppModal();
-  };
-  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-subcategory', del: del, sheet: true, inputLabel: 'Назва' }); // Rev 2.32.51 (S4)
-  setTimeout(()=>{ focusCardFieldSafe(input); }, 60); // Rev 2.32.52 (G)
+function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriorityLabel, onSave, del){
+  const cats = CATEGORIES.filter(function(c){ return c.active; }).map(function(c){ return { value: c.name, label: stripLeadingEmoji(c.name) }; });
+  const prios = SUBCATEGORY_PRIORITY_OPTIONS.map(function(p){ return { value: p.label, label: p.label }; });
+  openStructForm({ kind: 'subcategory', edit: !!del, field: { value: defaultName, label: 'Назва', tile: true }, type: null,
+    picks: [{ key: 'category', label: 'Категорія', options: cats, value: defaultCategory, required: true }, { key: 'priority', label: 'Потенціал економії', options: prios, value: defaultPriorityLabel }],
+    del: del, onSave: function(v){ return onSave(v.name, v.category, v.priority); } });
 }
 // Rev 2.1.28 — модалка додавання/редагування слова словника: ключове слово +
 // категорія (перший select) + опціональна підкатегорія (другий select).
 // На відміну від showSubcategoryModal, другий select тут ЖИВИЙ — залежить
 // від обраної категорії й перебудовується на onchange першого (той самий
 // патерн, що onCategoryChange() у формі "Нова витрата").
-function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave, del){ // Rev 2.32.50 (S3): del — { label, note, onDelete } для редагування
-  document.getElementById('app-modal-text').textContent = title.replace(/:$/, ''); // Rev 2.32.51 (S4)
-  document.getElementById('app-modal-select-label').textContent = 'Категорія';
-  const input = document.getElementById('app-modal-input');
-  input.value = defaultKw || '';
-  const catSelect = document.getElementById('app-modal-select');
-  const activeCats = CATEGORIES.filter(c=>c.active);
-  catSelect.innerHTML = activeCats.map(c=>`<option value="${escapeAttr(c.name)}"${c.name===defaultCat?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
-  document.getElementById('app-modal-select2-label').textContent = 'Підкатегорія (необов’язково)';
-  const subSelect = document.getElementById('app-modal-select2');
-  function refreshSubOptions(){
-    const subs = SUBCATEGORIES.filter(s=>s.active && s.category===catSelect.value).map(s=>s.name);
-    subSelect.innerHTML = '<option value="">—</option>' + subs.map(s=>`<option value="${escapeAttr(s)}"${s===defaultSub?' selected':''}>${escapeHtml(s)}</option>`).join('');
-  }
-  catSelect.onchange = refreshSubOptions;
-  refreshSubOptions();
-  const btn = document.getElementById('app-modal-confirm-btn');
-  btn.textContent = 'Зберегти';
-  btn.className = 'submit-btn';
-  // Rev #28.C — onSave тепер async (той самий принцип, що showCategoryModal вище).
-  btn.onclick = async function(){
-    const kw = input.value.trim().toLowerCase();
-    const cat = catSelect.value;
-    const sub = subSelect.value || null;
-    if(!kw){ flashField('app-modal-input'); return; }
-    if(!cat){ flashField('app-modal-select'); return; }
-    const ok = await onSave(kw, cat, sub);
-    if(ok === false){ flashField('app-modal-input'); return; }
-    closeAppModal();
-  };
-  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-dictionary', del: del, sheet: true, inputLabel: 'Слово' }); // Rev 2.32.51 (S4)
-  setTimeout(()=>{ focusCardFieldSafe(input); }, 60); // Rev 2.32.52 (G)
+function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave, del){
+  const cats = CATEGORIES.filter(function(c){ return c.active; }).map(function(c){ return { value: c.name, label: stripLeadingEmoji(c.name) }; });
+  const subOptions = function(cat){ return [{ value: '', label: 'Без підкатегорії' }].concat(SUBCATEGORIES.filter(function(x){ return x.active && x.category === cat; }).map(function(x){ return { value: x.name, label: stripLeadingEmoji(x.name) }; })); };
+  const firstCat = cats.some(function(c){ return c.value === defaultCat; }) ? defaultCat : (cats[0] ? cats[0].value : '');
+  openStructForm({ kind: 'word', edit: !!del, field: { value: defaultKw, label: 'Слово', tile: false }, type: null,
+    picks: [{ key: 'category', label: 'Категорія', options: cats, value: firstCat, required: true, onChange: function(cat, picks){ picks.sub.setOptions(subOptions(cat), ''); } },
+            { key: 'sub', label: 'Підкатегорія', options: subOptions(firstCat), value: defaultSub || '' }],
+    del: del, onSave: function(v){ return onSave(v.name.toLowerCase(), v.category, v.sub || null); } });
 }
 function openAddDictionaryModal(prefillKw){
   const activeCats = CATEGORIES.filter(c=>c.active);

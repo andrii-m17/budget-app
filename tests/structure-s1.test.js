@@ -37,8 +37,7 @@ test('охоронні: підпис під «Додати категорію» 
   assert.match(SRC, /Витрати можна вносити й без категорії\. Зміни не зачіпають вже додані витрати\./);
   assert.match(SRC, /deletedN \? '<div class="struct-section">/);
   assert.match(SRC, /label: 'Видалити категорію', note: 'Витрати цієї категорії не видаляються\. Видалена категорія потрапляє у «Видалені дані»\.', onDelete: function\(\)\{ deleteCategory\(i\); \}/);
-  const pm = SRC.slice(SRC.indexOf('function presentAppModal('), SRC.indexOf('function presentAppModal(') + 1400);
-  assert.match(pm, /del = null/); assert.match(pm, /setAppModalDelete\(del\);/);
+  assert.match(SRC, /id="sf-delete-wrap"/); assert.match(SRC, /document\.getElementById\('sf-delete'\)\.onclick = function\(\)\{ closeStructForm\(\); cfg\.del\.onDelete\(\); \}/); // Rev 2.32.58 (F1): видалення — у формі .drawer
 });
 test('охоронні: рядки екрановані; видалення останньої категорії не заборонено; нових полів вводу немає', function(){
   const fn = SRC.slice(SRC.indexOf('function structTileHtml'), SRC.indexOf('function structOpenTrash'));
