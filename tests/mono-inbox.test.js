@@ -38,9 +38,10 @@ test('inboxRowModel: мітка категорії/підкатегорії, «�
   assert.equal(n.chip, 'Оберіть категорію'); assert.equal(n.hasCategory, false);
   assert.equal(c.inboxRowModel(R('z', { skip_reason: 'too_small', amount_uah: null, status: 'skipped' }), ACC).amount, 'менше 1 ₴');
 });
-test('I2: addAllCandidates — лише нові зі suggested_category і без hold', function(){
+test('I2: addAllCandidates — нові зі suggested_category і сумою, hold не враховується (Rev 2.32.33)', function(){
   const rows = [R('a'), R('b', { hold: true }), R('c', { suggested_category: null }), R('d', { status: 'added' }), R('e', { suggested_category: '' })];
-  assert.deepEqual(j(c.addAllCandidates(rows).map(function(r){ return r.id; })), ['a']);
+  assert.deepEqual(j(c.addAllCandidates(rows).map(function(r){ return r.id; })), ['a', 'b']);
+  assert.deepEqual(j(c.addAllCandidates([R('f', { amount_uah: null })])), []);
 });
 test('I2: monoAcceptOutcome — 23505 / 22023 / P0002 / мережа / успіх', function(){
   assert.equal(c.monoAcceptOutcome(null).kind, 'ok');
@@ -124,10 +125,10 @@ test('I2: «Додати всі» — діалог, ≤ 3 паралельних
   };
   const ctx = buildSandbox(g, base.concat(['runMonoAddAll']));
   await ctx.runMonoAddAll();
-  assert.equal(accepted.length, 5);
+  assert.equal(accepted.length, 6);
   assert.ok(maxActive <= 3 && maxActive >= 2, 'паралельність ' + maxActive);
-  assert.ok(accepted.indexOf('6') === -1 && accepted.indexOf('7') === -1);
-  assert.deepEqual(j(g.toasts), ['Додано 5']);
+  assert.ok(accepted.indexOf('6') !== -1 && accepted.indexOf('7') === -1); // Rev 2.32.33: hold не виключає, без категорії — виключає
+  assert.deepEqual(j(g.toasts), ['Додано 6']);
   assert.match(SRC, /showConfirmModal\('Додати ' \+ n \+ ' ' \+ monoOpsAcc\(n\)/);
 });
 

@@ -3319,7 +3319,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.32</div>
+  <div class="version-footer">Money Tree · Rev 2.32.33</div>
 </div>
   </div>
 </div>
@@ -7703,7 +7703,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.32';
+const APP_VERSION = '2.32.33';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -19157,8 +19157,8 @@ function inboxRowModel(row, accounts){
   else if(row.status === 'refunded') reason = 'Повернення враховано'; // Rev 2.32.32
   return { id: row.id, merchant: row.description || 'Без назви', hasCategory: hasCat, chip: chip, meta: [time, card].filter(Boolean).join(' · '), amount: amountText, reason: reason, status: row.status };
 }
-// «Додати всі»: лише нові зі suggested_category і без hold.
-function addAllCandidates(rows){ return (rows || []).filter(function(r){ return r.status === 'new' && !!r.suggested_category && !r.hold; }); }
+// «Додати всі»: нові зі suggested_category та сумою. Rev 2.32.33: виключення за hold прибрано — банк ставить hold=true на ВСІ покупки й не надсилає повторної події, тож воно робило кнопку завжди порожньою.
+function addAllCandidates(rows){ return (rows || []).filter(function(r){ return r.status === 'new' && !!r.suggested_category && r.amount_uah != null; }); }
 // Підсумок відповіді mono_accept (помилки Postgres за code).
 function monoAcceptOutcome(error){
   if(!error) return { kind: 'ok' };
