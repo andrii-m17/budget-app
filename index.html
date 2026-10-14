@@ -1247,7 +1247,6 @@
   .pick-val{ flex:1; min-width:0; font-size:16px; color:var(--color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .pick-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
   .pick-select{ position:absolute; inset:0; width:100%; height:100%; opacity:0; border:0; font-size:16px; -webkit-appearance:none; appearance:none; cursor:pointer; }
-  .field-hint{ margin:6px 4px 0; font-size:12px; line-height:1.35; color:var(--color-text-secondary); }
   /* Rev 2.32.58 (F1) — форми «Структури» у компоненті .drawer: компактні рядки 48 пт (підпис ліворуч, значення праворуч), групи радіус 18, пара кнопок знизу (скасувати — обведена), «Видалити …» червоним текстом під парою; ✕ немає. Нативний select — прозорий поверх рядка, текст значення малюється окремо (обрізання знизу неможливе). */
   :is(#struct-drawer, #mono-detail-drawer) .sf-title{ margin:2px 0 12px; font-size:18px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-notice{ margin:0 0 12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-warning-bg); color:var(--color-text-primary); font-size:13.5px; line-height:1.4; }
@@ -3435,7 +3434,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.64</div>
+  <div class="version-footer">Money Tree · Rev 2.32.65</div>
 </div>
   </div>
 </div>
@@ -3919,9 +3918,16 @@
     <label for="cddfielda1">Назва</label>
     <input type="text" id="cddfielda1">
   </div>
-  <div class="field">
-    <label for="cdd-limit">Кредитний ліміт</label>
-    <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-limit" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+  <!-- Rev 2.32.65 (P1): «День платежу» поруч із кредитним лімітом в одному ряду (як два поля в ОЧ) — картка не росте донизу. Необов'язково: день місяця, до якого сплачується мінімальний платіж (для календаря платежів). Нативний select прозорим шаром поверх рядка, значення окремо. -->
+  <div class="row-2">
+    <div class="field">
+      <label for="cdd-limit">Кредитний ліміт</label>
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-limit" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+    </div>
+    <div class="field">
+      <label for="cdd-payday">День платежу</label>
+      <div class="pick-box"><span class="pick-val" id="cdd-payday-val">Не задано</span><span class="pick-chev" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span><select id="cdd-payday" class="pick-select" aria-label="День платежу: день місяця, до якого сплачується мінімальний платіж" onchange="updatePaydayVal()"></select></div>
+    </div>
   </div>
   <div class="row-2">
     <div class="field">
@@ -3932,12 +3938,6 @@
       <label for="cdd-minpay">Мін. платіж</label>
       <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-minpay" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
     </div>
-  </div>
-  <!-- Rev 2.32.63 (P1): «День платежу» — необов'язково; нативний select прозорим шаром поверх рядка, значення малюється окремо (як у формах «Структури») -->
-  <div class="field">
-    <label for="cdd-payday">День платежу</label>
-    <div class="pick-box"><span class="pick-val" id="cdd-payday-val">Не задано</span><span class="pick-chev" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span><select id="cdd-payday" class="pick-select" aria-label="День платежу" onchange="updatePaydayVal()"></select></div>
-    <div class="field-hint">Необов'язково. День місяця, до якого сплачується мінімальний платіж: так картка з'явиться в календарі платежів.</div>
   </div>
   <label class="bdr-minpay-check">
     <input type="checkbox" id="cdd-paid">
@@ -7331,7 +7331,7 @@ function fillPaydaySelect(day){
 }
 function updatePaydayVal(){
   const sel = document.getElementById('cdd-payday'), val = document.getElementById('cdd-payday-val');
-  if(sel && val) val.textContent = sel.value ? sel.value + '-го числа' : 'Не задано';
+  if(sel && val) val.textContent = sel.value ? sel.value + '-го' : 'Не задано';
 }
 function normalizePaymentDay(v){
   if(v === null || v === undefined || v === '') return null;
@@ -7952,7 +7952,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.64';
+const APP_VERSION = '2.32.65';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
