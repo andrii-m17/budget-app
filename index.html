@@ -1352,7 +1352,9 @@
   .mono-banner{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:52px; padding:0 16px; margin-bottom:14px; box-sizing:border-box; border-radius:var(--radius-lg); border:1px solid var(--color-border); background:var(--color-success-bg, var(--color-surface)); color:var(--color-text-primary); font:inherit; font-size:15px; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .mono-banner.hidden{ display:none; }
   .mono-banner small{ color:var(--color-text-secondary); font-size:14px; }
-  .exp-source{ font-size:11.5px; color:var(--color-text-tertiary); }
+  /* Rev 2.32.36 (L) — значок Monobank замість тексту «з банку» (.exp-source). 18px, тонка рамка: світла на темній темі, ледь помітна на світлій. */
+  .mono-bank-icon{ width:18px; height:18px; flex:none; border-radius:5px; vertical-align:middle; box-shadow:0 0 0 1px rgba(16,24,40,.10); }
+  :root[data-theme="dark"] .mono-bank-icon{ box-shadow:0 0 0 1px rgba(255,255,255,.22); }
   .mono-detail-actions{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }
   .mono-detail-fields{ display:flex; flex-direction:column; gap:12px; margin-top:12px; }
   /* Rev 2.32.34 (S) — поля «Категорія»/«Підкатегорія» (нативний select): знизу обрізались літери з хвостиками («р», «у»). Причина: height:46px + line-height:normal + overflow:clip у select iOS. Тепер висота 56px, line-height 1.35, більший вертикальний padding, ellipsis замість обрізання; appearance:none + власна стрілка (колір нейтральний для обох тем); тап відкриває нативне колесо як і раніше. Специфічність підвищена класом .mono-sel, бо базові правила .field select стоять нижче в файлі. */
@@ -2449,6 +2451,8 @@
 </style>
 </head>
 <body>
+<!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="monoicon" viewBox="0 0 40 40"><g clip-path="url(#monoClip)"><path d="M33.219 0.0605469H6.75236C3.07046 0.0605469 0.0856934 3.04532 0.0856934 6.72721V33.2172C0.0856934 36.8991 3.07046 39.8839 6.75236 39.8839H33.219C36.9009 39.8839 39.8857 36.8991 39.8857 33.2172V6.72721C39.8857 3.04532 36.9009 0.0605469 33.219 0.0605469Z" fill="url(#monoGrad)"/><path d="M13.3677 23.1069V18.6166C13.3677 17.3429 12.6857 16.7383 11.541 16.7383C10.5887 16.7383 9.76537 17.3043 9.40504 17.8703C9.17337 17.1626 8.59437 16.7383 7.68104 16.7383C6.7287 16.7383 5.90537 17.3299 5.64804 17.7033V16.8926H4.01404V23.1066H5.64804V18.9256C5.89237 18.5783 6.36871 18.1923 6.93471 18.1923C7.60371 18.1923 7.86104 18.604 7.86104 19.183V23.1066H9.5077V18.9126C9.73937 18.5779 10.2154 18.1919 10.7944 18.1919C11.4634 18.1919 11.721 18.6036 11.721 19.1826V23.1066L13.3677 23.1069ZM17.858 23.2613C15.8124 23.2613 14.5774 21.769 14.5774 19.9933C14.5774 18.2306 15.8124 16.7383 17.858 16.7383C19.9167 16.7383 21.1517 18.2306 21.1517 19.9933C21.1517 21.769 19.9167 23.2613 17.858 23.2613ZM17.858 21.8076C18.8747 21.8076 19.4534 20.971 19.4534 19.9933C19.4534 19.0283 18.8744 18.1923 17.858 18.1923C16.8414 18.1923 16.2754 19.0283 16.2754 19.9933C16.2754 20.9713 16.8417 21.8076 17.858 21.8076ZM28.1894 23.1069V18.7196C28.1894 17.5103 27.5334 16.7383 26.1694 16.7383C25.1527 16.7383 24.394 17.2273 23.995 17.7033V16.8926H22.361V23.1069H23.995V18.9256C24.265 18.5523 24.767 18.1923 25.4104 18.1923C26.105 18.1923 26.5554 18.4883 26.5554 19.3503V23.1069H28.1894ZM32.6924 23.2613C30.6467 23.2613 29.4117 21.769 29.4117 19.9933C29.4117 18.2306 30.6467 16.7383 32.6924 16.7383C34.751 16.7383 35.986 18.2306 35.986 19.9933C35.986 21.769 34.751 23.2613 32.6924 23.2613ZM32.6924 21.8076C33.709 21.8076 34.2877 20.971 34.2877 19.9933C34.2877 19.0283 33.7087 18.1923 32.6924 18.1923C31.6757 18.1923 31.1097 19.0283 31.1097 19.9933C31.1097 20.9713 31.676 21.8076 32.6924 21.8076Z" fill="white"/></g><defs><linearGradient id="monoGrad" x1="20.4474" y1="0.533547" x2="20.4474" y2="39.3295" gradientUnits="userSpaceOnUse"><stop stop-color="#373B45"/><stop offset="1" stop-color="#181A1D"/></linearGradient><clipPath id="monoClip"><rect width="40" height="40" fill="white"/></clipPath></defs></symbol></svg>
 
 <div class="app-shell">
   <aside class="side">
@@ -3325,7 +3329,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.35</div>
+  <div class="version-footer">Money Tree · Rev 2.32.36</div>
 </div>
   </div>
 </div>
@@ -7711,7 +7715,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.35';
+const APP_VERSION = '2.32.36';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15122,7 +15126,7 @@ function buildRecordGroupsHtml(items){
             <div class="exp-row-top">
               <div class="exp-main">
                 <div class="exp-name">${escapeHtml(e.name)}</div>
-                <div class="exp-meta"><span class="${chipClass}">${escapeHtml(chipText)}</span>${e.source === 'mono' ? '<span class="exp-source">з банку</span>' : ''}${editedBadgeHtml}${justPulledBadgeHtml}</div>
+                <div class="exp-meta"><span class="${chipClass}">${escapeHtml(chipText)}</span>${monoBadgeHtml(e.source)}${editedBadgeHtml}${justPulledBadgeHtml}</div>
               </div>
               <div class="${amountClass}">${sign}${fmt(e.amount)}</div>
               ${editPencilHtml}
@@ -19124,6 +19128,10 @@ async function runMonoDisconnect(){
    Вхідні лише читаються (mono_inbox); витрата створюється ВИКЛЮЧНО серверною mono_accept. Усі тексти з банку — зовнішні, тому екрануються. */
 const MONO_SKIP_LABELS = { income_or_refund: 'Поповнення чи повернення', cash: 'Готівка', transfer: 'Переказ', too_small: 'Менше 1 ₴', zero: 'Нульова сума' };
 function skipReasonLabel(reason){ return MONO_SKIP_LABELS[reason] || 'Пропущено'; }
+// Rev 2.32.36 (L) — значок Monobank (спрайт #monoicon): лише для витрат з банку (source = 'mono'); role="img" + aria-label.
+function monoBadgeHtml(source){
+  return source === 'mono' ? '<svg class="mono-bank-icon" role="img" aria-label="Monobank" viewBox="0 0 40 40" focusable="false"><use href="#monoicon"/></svg>' : '';
+}
 function monoFmtUah(n){ return new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(n) + ' ₴'; }
 function monoOpsAcc(n){ const m10 = n % 10, m100 = n % 100; return (m10 === 1 && m100 !== 11) ? 'операцію' : ([2, 3, 4].indexOf(m10) !== -1 && [12, 13, 14].indexOf(m100) === -1) ? 'операції' : 'операцій'; }
 function monoNewOpsLabel(n){
@@ -19249,7 +19257,7 @@ function monoInboxRowHtml(row){
   return '<div class="expense-row-swipe" data-mono-row="' + escapeAttr(safeId(row.id)) + '">' + actions +
     '<div class="expense-row"><div class="exp-row-top"><div class="exp-main">' +
       '<div class="exp-name">' + escapeHtml(m.merchant) + '</div>' +
-      '<div class="exp-meta">' + (isNew ? '<span class="' + chipCls + '">' + escapeHtml(m.chip) + '</span>' : '') +
+      '<div class="exp-meta">' + monoBadgeHtml('mono') + (isNew ? '<span class="' + chipCls + '">' + escapeHtml(m.chip) + '</span>' : '') +
       (m.meta ? '<span class="mono-meta">' + escapeHtml(m.meta) + '</span>' : '') + meta + '</div>' +
     '</div><div class="exp-amount mono">' + escapeHtml(m.amount) + '</div></div></div></div>';
 }

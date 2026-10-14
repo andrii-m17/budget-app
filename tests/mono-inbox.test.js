@@ -67,6 +67,7 @@ test('екранування: опис, коментар і категорія �
   const ctx = buildSandbox({
     escapeHtml: esc, escapeAttr: function(s){ return esc(s).replace(/"/g, '&quot;'); }, safeId: function(x){ return String(x).replace(/[^0-9A-Za-z_-]/g, ''); },
     monoState: { accounts: ACC },
+    monoBadgeHtml: function(){ return ''; }, // Rev 2.32.36: власний значок перевіряється в mono-badge.test.js
   }, base.concat(['monoInboxRowHtml']));
   const evil = '<img src=x onerror=alert(1)>';
   const html = ctx.monoInboxRowHtml(R('abc', { description: evil, suggested_category: evil, suggested_subcategory: '"><svg onload=1>' }));
@@ -94,7 +95,7 @@ test('I4: витрата з банку: source/externalId при pull (нова 
 test('I4: редагування витрати з банку не обнуляє source/externalId; мітка «з банку» в Журналі', function(){
   const edit = SRC.match(/async function saveRecordEditCore\(id\)\{([\s\S]*?)\n\}/)[1];
   assert.ok(!/\.source\s*=|externalId\s*=/.test(edit));
-  assert.match(SRC, /e\.source === 'mono' \? '<span class="exp-source">з банку<\/span>'/);
+  assert.match(SRC, /\$\{monoBadgeHtml\(e\.source\)\}/); // Rev 2.32.36: значок замість тексту
 });
 
 // ---------- I2: ідемпотентність додавання ----------
