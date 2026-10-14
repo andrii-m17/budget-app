@@ -1278,13 +1278,12 @@
   .pay-total{ font-size:17px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .pay-chev{ display:flex; color:var(--color-text-secondary); }
   .pay-strip{ display:flex; gap:3px; margin:10px 0 4px; }
-  .pay-day{ pointer-events:auto; flex:1; min-width:0; min-height:46px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:3px 0; border-radius:12px; border:1px solid transparent; background:transparent; font:inherit; color:var(--color-text-primary); cursor:default; }
+  .pay-day{ pointer-events:auto; flex:1; min-width:0; min-height:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:4px 0; border-radius:12px; border:1px solid transparent; background:transparent; font:inherit; color:var(--color-text-primary); cursor:default; }
   .pay-day.today{ border-color:var(--color-border-strong); }
   .pay-day.has{ background:var(--color-surface-hover); cursor:pointer; }
-  .pay-dn{ display:flex; align-items:baseline; gap:3px; }
-  .pay-dow{ font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--color-text-secondary); }
-  .pay-num{ font-size:15px; font-weight:700; }
-  .pay-sum{ font-size:11px; height:13px; line-height:13px; font-variant-numeric:tabular-nums; }
+  .pay-dow{ font-size:11px; line-height:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--color-text-secondary); }
+  .pay-num{ font-size:15px; line-height:17px; font-weight:700; }
+  .pay-sum{ font-size:11px; height:12px; line-height:12px; font-variant-numeric:tabular-nums; }
   .pay-line1{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:34px; font-size:14px; }
   .pay-line1 .l{ min-width:0; color:var(--color-text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .pay-line1 .r{ flex:none; font-weight:700; font-variant-numeric:tabular-nums; }
@@ -1299,51 +1298,6 @@
   .pay-done-ico{ flex:none; width:28px; height:28px; border-radius:50%; background:var(--color-success-bg); color:var(--color-success); display:flex; align-items:center; justify-content:center; }
   .pay-done b{ font-weight:700; }
   .pay-done span.m{ color:var(--color-text-secondary); }
-  /* Rev 2.32.68 (P4) — екран «Платежі» і шторка дій: групи в стилі «Налаштувань», рядок: плитка дати, назва + підпис, сума. */
-  .pay-line{ display:flex; align-items:center; gap:14px; width:100%; min-height:60px; padding:8px 16px; box-sizing:border-box; background:transparent; border:0; border-top:1px solid var(--color-border); font:inherit; text-align:left; color:var(--color-text-primary); cursor:pointer; -webkit-tap-highlight-color:transparent; }
-  .pay-line:first-child{ border-top:0; }
-  .pay-line.is-pressed{ background:var(--color-surface-hover); }
-  .pay-line.flash{ background:var(--color-surface-hover); }
-  .pay-date{ flex:none; width:44px; text-align:center; }
-  .pay-date b{ display:block; font-size:20px; line-height:1.1; font-weight:700; }
-  .pay-date i{ display:block; font-style:normal; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--color-text-secondary); margin-top:1px; }
-  .pay-line.amber .pay-date b{ color:var(--color-warning); }
-  .pay-line-main{ flex:1; min-width:0; }
-  .pay-line-name{ display:block; font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pay-line-sub{ display:block; font-size:13px; margin-top:2px; color:var(--color-text-secondary); }
-  .pay-line.amber .pay-line-sub{ color:var(--color-warning); }
-  .pay-line-amt{ flex:none; font-size:17px; font-weight:600; font-variant-numeric:tabular-nums; }
-  .pay-line-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
-  .pay-action-btns{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
-  .pay-action-btns .submit-btn{ min-height:50px; }
-  html:root #pay-action-drawer .pay-action-btns .submit-btn.secondary{ background:transparent; border:1.5px solid var(--color-border-strong); color:var(--color-text-primary); box-shadow:none; }
-
-  /* Rev 2.32.67 (P3) — картка «Найближчі платежі»: токени застосунку (обидві теми), без емодзі (лише SVG), зони ≥44 пт. Нейтральні формулювання: «без позначки», а не «прострочено». */
-  .pay-card{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:22px; padding:16px 16px 4px; margin-bottom:14px; }
-  .pay-card.hidden{ display:none; }
-  .pay-head{ display:flex; align-items:baseline; justify-content:space-between; }
-  .pay-title{ font-size:17px; font-weight:600; color:var(--color-text-primary); }
-  .pay-window{ font-size:13px; color:var(--color-text-secondary); }
-  .pay-big{ font-size:30px; font-weight:700; letter-spacing:-.4px; font-variant-numeric:tabular-nums; margin-top:10px; color:var(--color-text-primary); }
-  .pay-big.calm{ font-size:19px; letter-spacing:0; line-height:1.3; }
-  .pay-sub{ font-size:14px; color:var(--color-text-secondary); margin-top:2px; }
-  .pay-strip{ display:flex; gap:4px; margin:12px 0 4px; }
-  .pay-day{ flex:1; min-width:0; min-height:64px; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 0; border-radius:14px; border:1px solid transparent; background:transparent; font:inherit; color:var(--color-text-primary); cursor:default; }
-  .pay-day.today{ border-color:var(--color-border-strong); }
-  .pay-day.has{ background:var(--color-surface-hover); cursor:pointer; }
-  .pay-dow{ font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--color-text-secondary); }
-  .pay-num{ font-size:17px; font-weight:600; }
-  .pay-sum{ font-size:11px; height:14px; font-variant-numeric:tabular-nums; }
-  .pay-rows{ margin-top:8px; }
-  .pay-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:44px; padding:0; background:transparent; border:0; border-top:1px solid var(--color-border); font:inherit; text-align:left; color:var(--color-text-primary); cursor:pointer; }
-  .pay-row:first-child{ border-top:0; }
-  .pay-row-main{ min-width:0; display:flex; flex-direction:column; }
-  .pay-row-label{ font-size:15px; color:var(--color-text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pay-row-sub{ font-size:12.5px; color:var(--color-text-secondary); }
-  .pay-row-amt{ flex:none; font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
-  .pay-row.amber .pay-row-label{ color:var(--color-warning); font-weight:600; }
-  .pay-note{ font-size:13px; line-height:1.4; color:var(--color-text-secondary); padding:10px 0; border-top:1px solid var(--color-border); }
-  .pay-all{ display:flex; align-items:center; justify-content:space-between; width:100%; min-height:48px; padding:0 2px; background:transparent; border:0; border-top:1px solid var(--color-border); color:var(--color-primary-text, var(--color-primary)); font:inherit; font-size:17px; text-align:left; cursor:pointer; }
 
   /* Rev 2.32.58 (F1) — форми «Структури» у компоненті .drawer: компактні рядки 48 пт (підпис ліворуч, значення праворуч), групи радіус 18, пара кнопок знизу (скасувати — обведена), «Видалити …» червоним текстом під парою; ✕ немає. Нативний select — прозорий поверх рядка, текст значення малюється окремо (обрізання знизу неможливе). */
   :is(#struct-drawer, #mono-detail-drawer) .sf-title{ margin:2px 0 12px; font-size:18px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
@@ -3534,7 +3488,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.71</div>
+  <div class="version-footer">Money Tree · Rev 2.32.72</div>
 </div>
   </div>
 </div>
@@ -8066,7 +8020,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.71';
+const APP_VERSION = '2.32.72';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8767,7 +8721,8 @@ function renderPaymentsCard(){
     const strip = payEl('div', 'pay-strip');
     m.days.forEach(function(d){
       const b = payEl('button', 'pay-day' + (d.today ? ' today' : '') + (d.has ? ' has' : '')); b.type = 'button';
-      const dn = payEl('span', 'pay-dn'); dn.appendChild(payEl('span', 'pay-dow', d.dow)); dn.appendChild(payEl('span', 'pay-num', String(d.day))); b.appendChild(dn);
+      // Rev 2.32.72: три окремі рядки по центру (за макетом): день тижня, число, сума (місце під суму зарезервоване — комірки однакової висоти)
+      b.appendChild(payEl('span', 'pay-dow', d.dow)); b.appendChild(payEl('span', 'pay-num', String(d.day)));
       b.appendChild(payEl('span', 'pay-sum', d.sum != null ? new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(d.sum) : ''));
       b.setAttribute('aria-hidden', 'true'); b.tabIndex = -1; // уся картка — одна доступна кнопка; комірка з платежем відкриває «Платежі» на цій даті
       if(d.has) b.addEventListener('click', function(ev){ ev.stopPropagation(); openAll(d.date); });
