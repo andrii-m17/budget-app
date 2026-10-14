@@ -26,19 +26,18 @@ test('синхронізація: payment_day у трьох місцях push і
   assert.match(SRC, /byName\.paymentDay = row\.payment_day \?\? null;/);
   assert.match(SRC, /bankAccounts\.push\(\{ name: row\.name, creditLimit: row\.credit_limit, paymentDay: row\.payment_day \?\? null,/);
 });
-test('форма картки: поле «День платежу» (select 1…31 + «Не задано»), підпис, збереження через normalizePaymentDay; перейменування/ліміт не стирають значення', function(){
+test('форма картки: «День платежу» — числове поле поруч із кредитним лімітом (як у ОЧ); порожнє = null; 0/32 блокують збереження; перейменування/ліміт не стирають значення', function(){
   assert.match(SRC, /<label for="cdd-payday">День платежу<\/label>/);
-  assert.match(SRC, /<select id="cdd-payday" class="pick-select"[^>]*onchange="updatePaydayVal\(\)">/);
-  // Rev 2.32.65: поле поруч із кредитним лімітом в одному ряду (row-2), без окремого блоку й підпису
+  assert.match(SRC, /<input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-payday" placeholder="—" maxlength="2"/);
+  assert.ok(!/<select id="cdd-payday"|pick-box|fillPaydaySelect|updatePaydayVal/.test(SRC), 'випадаючого списку більше немає');
   const rowHtml = SRC.slice(SRC.indexOf('<label for="cdd-limit">') - 80, SRC.indexOf('id="cdd-payday"') + 400);
   assert.match(rowHtml, /<div class="row-2">/); assert.ok(rowHtml.indexOf('cdd-limit') < rowHtml.indexOf('cdd-payday'));
-  assert.ok(!/class="field-hint"/.test(SRC), 'окремого підпису під полем немає');
-  assert.match(SRC, /sel\.appendChild\(new Option\('Не задано', ''\)\);\n\s*for\(let d = 1; d <= 31; d\+\+\)/);
-  assert.match(SRC, /acc\.paymentDay = normalizePaymentDay\(document\.getElementById\('cdd-payday'\)\.value\);/);
-  const save = SRC.slice(SRC.indexOf('async function saveCardDebtDrawer'), SRC.indexOf('async function saveCardDebtDrawer') + 2500);
-  assert.ok(save.indexOf('acc.paymentDay =') < save.indexOf('acc.updatedAt = new Date().toISOString();'), 'день платежу входить у той самий штамп оновлення');
-  assert.match(SRC, /\.pick-select\{ position:absolute; inset:0; width:100%; height:100%; opacity:0;/);
-  assert.match(SRC, /fillPaydaySelect\(acc\.paymentDay\);/);
+  const save = SRC.slice(SRC.indexOf('async function saveCardDebtDrawer'), SRC.indexOf('async function saveCardDebtDrawer') + 3200);
+  assert.match(save, /const paydayFromInput = rawPayday \? normalizePaymentDay\(rawPayday\) : null;/);
+  assert.match(save, /if\(rawPayday && paydayFromInput === null\)\{ flashField\('cdd-payday'\); return; \}/);
+  assert.ok(save.indexOf('paydayFromInput === null') < save.indexOf('acc.name = newName'), 'перевірка до будь-яких змін');
+  assert.ok(save.indexOf('acc.paymentDay = paydayFromInput;') < save.indexOf('acc.updatedAt = new Date().toISOString();'), 'день платежу входить у той самий штамп оновлення');
+  assert.match(SRC, /document\.getElementById\('cdd-payday'\)\.value = acc\.paymentDay \|\| '';/);
 });
 test('резервна копія: поле переноситься (merge копіює всі ключі), клавіатурні файли не чіпались', function(){
   assert.match(SRC, /Object\.keys\(rec\)\.forEach\(function\(key\)\{\n\s*if\(key === 'cloudId'\) return;/);

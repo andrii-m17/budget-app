@@ -1242,11 +1242,6 @@
   @media (hover:hover) and (pointer:fine){ .struct-tab-btn:hover{ color:var(--color-text-primary); } }
   .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
   .struct-tab-panel.hidden{ display:none; }
-  /* Rev 2.32.63 (P1) — рядок вибору в шторках «Обліку» (підпис над полем, висота 46, радіус 18): select прозорий поверх, значення окремо */
-  .pick-box{ position:relative; display:flex; align-items:center; gap:8px; height:46px; padding:0 14px; box-sizing:border-box; border:1.5px solid var(--color-border-strong); border-radius:18px; background:var(--ui-glass, var(--color-surface)); }
-  .pick-val{ flex:1; min-width:0; font-size:16px; color:var(--color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .pick-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
-  .pick-select{ position:absolute; inset:0; width:100%; height:100%; opacity:0; border:0; font-size:16px; -webkit-appearance:none; appearance:none; cursor:pointer; }
   /* Rev 2.32.58 (F1) — форми «Структури» у компоненті .drawer: компактні рядки 48 пт (підпис ліворуч, значення праворуч), групи радіус 18, пара кнопок знизу (скасувати — обведена), «Видалити …» червоним текстом під парою; ✕ немає. Нативний select — прозорий поверх рядка, текст значення малюється окремо (обрізання знизу неможливе). */
   :is(#struct-drawer, #mono-detail-drawer) .sf-title{ margin:2px 0 12px; font-size:18px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-notice{ margin:0 0 12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-warning-bg); color:var(--color-text-primary); font-size:13.5px; line-height:1.4; }
@@ -3434,7 +3429,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.65</div>
+  <div class="version-footer">Money Tree · Rev 2.32.66</div>
 </div>
   </div>
 </div>
@@ -3918,7 +3913,7 @@
     <label for="cddfielda1">Назва</label>
     <input type="text" id="cddfielda1">
   </div>
-  <!-- Rev 2.32.65 (P1): «День платежу» поруч із кредитним лімітом в одному ряду (як два поля в ОЧ) — картка не росте донизу. Необов'язково: день місяця, до якого сплачується мінімальний платіж (для календаря платежів). Нативний select прозорим шаром поверх рядка, значення окремо. -->
+  <!-- Rev 2.32.66 (P1c): «День платежу» — числове поле (як «Дата платежу» в ОЧ) поруч із кредитним лімітом в одному ряду; необов'язково: порожнє = не задано, 1…31. -->
   <div class="row-2">
     <div class="field">
       <label for="cdd-limit">Кредитний ліміт</label>
@@ -3926,7 +3921,7 @@
     </div>
     <div class="field">
       <label for="cdd-payday">День платежу</label>
-      <div class="pick-box"><span class="pick-val" id="cdd-payday-val">Не задано</span><span class="pick-chev" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span><select id="cdd-payday" class="pick-select" aria-label="День платежу: день місяця, до якого сплачується мінімальний платіж" onchange="updatePaydayVal()"></select></div>
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-payday" placeholder="—" maxlength="2" aria-label="День платежу: день місяця, до якого сплачується мінімальний платіж (необов'язково)">
     </div>
   </div>
   <div class="row-2">
@@ -7320,19 +7315,6 @@ async function pushBankAccountsPilot(){
   return { success: !anyError };
 }
 // Rev 2.32.63 (P1) — «День платежу» картки: ціле 1…31 або null («Не задано»). Усе інше (0, 32, нечисло, порожнє) — null. Сервер приймає лише 1–31 або порожньо.
-function fillPaydaySelect(day){
-  const sel = document.getElementById('cdd-payday');
-  sel.textContent = '';
-  sel.appendChild(new Option('Не задано', ''));
-  for(let d = 1; d <= 31; d++) sel.appendChild(new Option(String(d), String(d)));
-  const v = normalizePaymentDay(day);
-  sel.value = v === null ? '' : String(v);
-  updatePaydayVal();
-}
-function updatePaydayVal(){
-  const sel = document.getElementById('cdd-payday'), val = document.getElementById('cdd-payday-val');
-  if(sel && val) val.textContent = sel.value ? sel.value + '-го' : 'Не задано';
-}
 function normalizePaymentDay(v){
   if(v === null || v === undefined || v === '') return null;
   const n = Number(v);
@@ -7952,7 +7934,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.65';
+const APP_VERSION = '2.32.66';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12392,7 +12374,7 @@ function openCardDebtEditor(i){
   document.getElementById('cdd-balance').value = balance != null ? formatThousands(balance) : '';
   document.getElementById('cdd-minpay').value = minPayment != null ? formatThousands(minPayment) : '';
   document.getElementById('cdd-paid').checked = !!(existing && existing.minPaymentDone);
-  fillPaydaySelect(acc.paymentDay); // Rev 2.32.63 (P1)
+  document.getElementById('cdd-payday').value = acc.paymentDay || ''; // Rev 2.32.63 (P1); числове поле (2.32.66)
   document.getElementById('card-debt-backdrop').removeAttribute('inert');
   document.getElementById('card-debt-drawer').removeAttribute('inert');
   document.getElementById('card-debt-backdrop').classList.add('open');
@@ -12422,6 +12404,10 @@ async function saveCardDebtDrawer(){
   const newLimit = parseAmount(document.getElementById('cdd-limit').value);
   if(!rawName){ flashField('cddfielda1'); return; }
   if(!newLimit || isNaN(newLimit) || newLimit<=0){ flashField('cdd-limit'); return; }
+  // Rev 2.32.66 (P1c): день платежу — порожнє (не задано) або 1…31; інше блокує збереження з підсвіткою поля (як «Дата платежу» в ОЧ)
+  const rawPayday = document.getElementById('cdd-payday').value.trim();
+  const paydayFromInput = rawPayday ? normalizePaymentDay(rawPayday) : null;
+  if(rawPayday && paydayFromInput === null){ flashField('cdd-payday'); return; }
   const oldName = acc.name;
   // Rev #30 (6D.31) — простий прямий присвоєння: emoji-відновлення (6D.24
   // BugFix) стало зайвим після повного прибирання emoji з name (6D.31) —
@@ -12435,7 +12421,7 @@ async function saveCardDebtDrawer(){
   }
   acc.name = newName;
   acc.creditLimit = newLimit;
-  acc.paymentDay = normalizePaymentDay(document.getElementById('cdd-payday').value); // Rev 2.32.63 (P1): «Не задано» = null
+  acc.paymentDay = paydayFromInput; // Rev 2.32.63 (P1): порожнє = null
   // Rev #30 (6D, bank_accounts Варіант А) — updatedAt оновлюється й при
   // редагуванні (назва/ліміт), createdAt лишається як був.
   acc.updatedAt = new Date().toISOString();
