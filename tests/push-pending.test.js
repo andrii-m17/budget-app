@@ -9,7 +9,7 @@ const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
 
-const pure = buildSandbox({}, ['PUSH_PENDING_TTL_MS', 'createPendingPush', 'pendingPushState', 'shouldRunPendingPush', 'isDuplicatePushStamp']);
+const pure = buildSandbox({}, ['PUSH_PENDING_TTL_MS', 'pushApplyDiag', 'createPendingPush', 'pendingPushState', 'shouldRunPendingPush', 'isDuplicatePushStamp']);
 test('P2: createPendingPush/pendingPushState — ready → used; через 2 хв — expired; відсутня — none', function(){
   const p = pure.createPendingPush({ type: 'mono-inbox' }, 1000);
   assert.equal(pure.pendingPushState(p, 1000), 'ready');
@@ -43,7 +43,7 @@ function env(opts){
     handlePushAction: async function(a){ handled.push(a.type); },
     readAndClearPendingPushAction: function(){ return Promise.resolve(o.idb || null); },
   };
-  const c = buildSandbox(g, ['PUSH_PENDING_TTL_MS', 'createPendingPush', 'pendingPushState', 'shouldRunPendingPush', 'isDuplicatePushStamp', 'queuePushAction', 'runPendingPushAction', 'checkPendingPushFromIdb']);
+  const c = buildSandbox(g, ['PUSH_PENDING_TTL_MS', 'pushApplyDiag', 'createPendingPush', 'pendingPushState', 'shouldRunPendingPush', 'isDuplicatePushStamp', 'queuePushAction', 'runPendingPushAction', 'checkPendingPushFromIdb']);
   c.flush = async function(){ for(let i = 0; i < 4; i++){ const q = rafQueue.splice(0); q.forEach(function(f){ f(); }); await new Promise(function(r){ setImmediate(r); }); } };
   return c;
 }
@@ -117,7 +117,7 @@ function runHandle(action, ui){
     document: doc, calls, monoState: u.monoState || { loaded: false, offline: false, connection: null },
     performSwitchTab: rec('switchTab'), openMonoInbox: function(o){ calls.push('inbox' + (o && o.fromPush ? ':push' : '')); }, openMonoScreen: rec('monoScreen'),
     captureDebugGeometry: function(){}, captureFocusAudit: function(){}, setTimeout: function(){}, closeAppModal: rec('closeModal'), cloudAuthInitInFlight: null,
-  }, ['routeForPushType', 'monoNotifGroupVisible', 'closeOpenSheetsForPush', 'handlePushAction']);
+  }, ['routeForPushType', 'monoNotifGroupVisible', 'pushApplyDiag', 'closeOpenSheetsForPush', 'handlePushAction']);
   return ctx.handlePushAction(action).then(function(){ return calls; });
 }
 test('P1: mono-inbox із незавантаженим monoState — «Вхідні» відкриваються одразу (без очікування мережі), з відкритою шторкою й діалогом вони спершу закриваються', async function(){

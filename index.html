@@ -3385,7 +3385,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.40</div>
+  <div class="version-footer">Money Tree · Rev 2.32.41</div>
 </div>
   </div>
 </div>
@@ -7786,7 +7786,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.40';
+const APP_VERSION = '2.32.41';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8897,11 +8897,15 @@ function shouldRunPendingPush(p, now, visibility){ return pendingPushState(p, no
 function isDuplicatePushStamp(stamps, at){ return !!at && stamps.indexOf(String(at)) !== -1; }
 let pendingPush = null;
 const handledPushStamps = [];
+// Rev 2.32.41 (F): подія push-apply з видимістю сторінки й результатом/причиною (без значень)
+function pushApplyDiag(result, reason, pushType){
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-apply', result: result, reason: reason, pushType: pushType || null, visibility: document.visibilityState });
+}
 function queuePushAction(action, source){
   if(!action || !action.type) return false;
   const stamp = action._at || action.at || null;
-  if(isDuplicatePushStamp(handledPushStamps, stamp)) return false;
-  if(stamp && /^\d+$/.test(String(stamp)) && Date.now() - Number(stamp) > PUSH_PENDING_TTL_MS) return false; // застарілий клік (напр. запис в IndexedDB лишився з минулого разу)
+  if(isDuplicatePushStamp(handledPushStamps, stamp)){ pushApplyDiag('skipped', 'duplicate', action.type); return false; } // Rev 2.32.41 (F): причина пропуску — у діагностику
+  if(stamp && /^\d+$/.test(String(stamp)) && Date.now() - Number(stamp) > PUSH_PENDING_TTL_MS){ pushApplyDiag('skipped', 'stale', action.type); return false; } // застарілий клік (напр. запис в IndexedDB лишився з минулого разу)
   if(stamp){ handledPushStamps.push(String(stamp)); if(handledPushStamps.length > 20) handledPushStamps.shift(); }
   pendingPush = createPendingPush(action, Date.now());
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-msg', source: source, visibility: document.visibilityState, pushType: action.type });
@@ -8913,7 +8917,7 @@ function runPendingPushAction(reason){
   if(!shouldRunPendingPush(p, Date.now(), document.visibilityState)){
     if(p && pendingPushState(p, Date.now()) === 'expired'){
       pendingPush = null;
-      if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-apply', result: 'skipped', reason: 'expired' });
+      pushApplyDiag('skipped', 'expired', p.action && p.action.type);
     }
     return;
   }
@@ -8926,9 +8930,9 @@ function runPendingPushAction(reason){
     if(document.visibilityState !== 'visible'){ p.scheduled = false; return; }
     p.used = true; // рівно один раз
     Promise.resolve(handlePushAction(p.action)).then(function(){
-      if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-apply', result: 'opened', reason: reason, pushType: p.action.type });
+      pushApplyDiag('opened', reason, p.action.type);
     }, function(){
-      if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-apply', result: 'skipped', reason: 'error' });
+      pushApplyDiag('skipped', 'error', p.action.type);
     });
     readAndClearPendingPushAction().catch(function(){});
   };
@@ -8946,6 +8950,8 @@ function closeOpenSheetsForPush(){
   try{ if(document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur(); }catch(e){}
   try{ if(document.querySelector('#app-modal.open') && typeof closeAppModal === 'function') closeAppModal(); }catch(e){}
   try{ document.querySelectorAll('.drawer.open .drawer-close').forEach(function(b){ b.click(); }); }catch(e){}
+  // Rev 2.32.41 (F): відкритий екран архіву дзвіночка (повноекранний, не шторка) лишався зверху й перекривав ціль переходу (відтворено в preview для backup-reminder/daily-expense-reminder; для mono-inbox лишався відкритим під «Вхідними»)
+  try{ if(typeof closeNotifArchive === 'function') closeNotifArchive(); }catch(e){}
 }
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible'){ runPendingPushAction('visible'); checkPendingPushFromIdb('visible'); } });
 window.addEventListener('pageshow', function(){ runPendingPushAction('pageshow'); checkPendingPushFromIdb('pageshow'); });
@@ -8957,7 +8963,7 @@ async function handlePushAction(action){
     action = Object.assign({}, action, { connected: (monoState.loaded && !monoState.offline) ? monoNotifGroupVisible(monoState.connection) : undefined });
   }
   const route = routeForPushType(action.type, action);
-  if(!route.screen) return;
+  if(!route.screen){ pushApplyDiag('skipped', 'no-route', action.type); return; } // Rev 2.32.41 (F)
   closeOpenSheetsForPush(); // Rev 2.32.30 (P): шторки/діалоги закриваються їхніми кнопками, фокус знімається
   if(route.screen === 'vytraty'){
     // Rev 2.23.29 (6D.198) — нагадування про витрати: вкладка без автофокусу й без клавіатури; жодного focus().

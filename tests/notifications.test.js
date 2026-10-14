@@ -50,12 +50,12 @@ function runHandle(action){
   const rec = function(name){ return function(){ calls.push([name].concat(Array.prototype.slice.call(arguments))); }; };
   const doc = { activeElement: { blur: rec('blur') }, body: { classList: { remove: rec('kb-remove') } }, getElementById: function(){ return null; } };
   const ctx = buildSandbox({
-    document: doc, setTimeout: function(){}, cloudAuthInitInFlight: null, installmentAccounts: [{ cloudId: 'inst-1' }],
+    document: doc, debugRecordingActive: false, setTimeout: function(){}, cloudAuthInitInFlight: null, installmentAccounts: [{ cloudId: 'inst-1' }],
     performSwitchTab: rec('performSwitchTab'), switchAccountingTab: rec('switchAccountingTab'), openJournal: rec('openJournal'), latestTouchedRecordMonth: function(){ return '2026-10'; },
     openTrashScreen: rec('openTrashScreen'), goToCardDebtsTab: rec('goToCardDebtsTab'), captureDebugGeometry: rec('capture'),
     captureFocusAudit: function(){}, highlightInstallmentRow: rec('highlight'),
     allMonths: function(){ return ['2026-09', '2026-10']; }, selectedMonth: '2026-09', performMonthChange: rec('performMonthChange'),
-  }, ['routeForPushType', 'closeOpenSheetsForPush', 'handlePushAction']);
+  }, ['routeForPushType', 'pushApplyDiag', 'closeOpenSheetsForPush', 'handlePushAction']);
   return ctx.handlePushAction(action).then(function(){ return calls; });
 }
 test('handlePushAction: daily-expense-reminder → вкладка без фокусу, blur, kb-open знято, жодного focus()', async () => {
