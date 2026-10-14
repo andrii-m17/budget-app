@@ -1,4 +1,4 @@
-// Rev 2.32.67 (P3) — картка «Найближчі платежі»: модель станів А–Ж і охоронні перевірки.
+// Rev 2.32.67 (P3) / 2.32.71 (компактна картка) — модель станів і охоронні перевірки.
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -15,59 +15,69 @@ function model(o){
   const r = c.upcomingPayments(Object.assign({ today: today, horizonDays: 7, installments: [], cards: [], debtsByMonth: [], expenses: [], hidden: {} }, o));
   return j(c.paymentsCardModel(r, today, (o.installments || []).length + (o.cards || []).length > 0));
 }
+const BASE = { installments: [I('ПУМБ iPhone', 17), I('Моно Ноутбук1', 20)], debtsByMonth: [D('ПУМБ iPhone', '2026-09', { monthlyPayment: 5000, balance: 9 }), D('Моно Ноутбук1', '2026-09', { monthlyPayment: 4940, balance: 9 })] };
 test('приховано, якщо немає жодної ОЧ і картки', function(){ assert.equal(model({}).hidden, true); });
-test('А: очікувані суми (≈), 7 днів, заголовок і рядки', function(){
-  const m = model({ installments: [I('ПУМБ iPhone', 17), I('Моно Ноутбук1', 20)], debtsByMonth: [D('ПУМБ iPhone', '2026-09', { monthlyPayment: 5000, balance: 9 }), D('Моно Ноутбук1', '2026-09', { monthlyPayment: 4940, balance: 9 })] });
-  assert.equal(m.state, 'week'); assert.equal(m.hidden, false); assert.match(m.big, /^≈ 9\s940\s₴$/); assert.equal(m.sub, '2 платежі до 21 жовтня');
-  assert.equal(m.days.length, 7); assert.equal(m.days[0].today, true); assert.equal(m.days[0].dow, 'Чт');
+test('А: очікувані суми — сума в заголовку з «≈», один найближчий платіж одним рядком, друга не показується', function(){
+  const m = model(BASE);
+  assert.equal(m.state, 'week'); assert.match(m.total, /^≈ 9\s940\s₴$/); assert.equal(m.window, '7 днів');
+  assert.equal(m.days.length, 7); assert.equal(m.days[0].today, true);
   assert.deepEqual(m.days.filter(function(d){ return d.has; }).map(function(d){ return d.day + ':' + d.sum; }), ['17:5000', '20:4940']);
-  assert.deepEqual(m.rows.map(function(r){ return r.label; }), ['Сб 17 жов · ПУМБ iPhone', 'Вт 20 жов · Моно Ноутбук1']);
-  assert.match(m.rows[0].amount, /^≈ 5\s000\s₴$/);
+  assert.equal(m.next.label, 'Наступний · Сб 17 · ПУМБ iPhone'); assert.match(m.next.amount, /^≈ 5\s000\s₴$/);
+  assert.ok(!JSON.stringify(m).includes('Моно Ноутбук1'), 'другий платіж у картці не показується');
+  assert.equal(m.sub, undefined, 'підзаголовка «N платежі до дати» немає');
 });
-test('Б: підтверджені суми (є запис місяця) — без «≈»', function(){
+test('Б: підтверджені суми — без «≈»', function(){
   const m = model({ installments: [I('A', 17), I('B', 20)], debtsByMonth: [D('A', '2026-10', { monthlyPayment: 5000, balance: 9 }), D('B', '2026-10', { monthlyPayment: 4940, balance: 9 })] });
-  assert.match(m.big, /^9\s940\s₴$/); assert.ok(!/≈/.test(m.rows[0].amount));
+  assert.match(m.total, /^9\s940\s₴$/); assert.ok(!/≈/.test(m.next.amount));
 });
-test('В: платіж без позначки — окремий рядок із нейтральним формулюванням', function(){
+test('В: без позначки — перше повідомлення, бурштинове, нейтральне («N без позначки · назва, дата»)', function(){
   const m = model({ installments: [I('ПУМБ Dyson', 4), I('A', 17)], debtsByMonth: [D('ПУМБ Dyson', '2026-10', { monthlyPayment: 100, balance: 9 }), D('A', '2026-10', { monthlyPayment: 5, balance: 9 })] });
-  assert.deepEqual(m.unconfirmed, { title: '1 платіж без позначки', sub: 'ПУМБ Dyson · 4 жов' });
+  assert.deepEqual(m.messages[0], { kind: 'unconfirmed', text: '1 без позначки · ПУМБ Dyson, 4 жов' });
   assert.ok(!/прострочен|борг/i.test(JSON.stringify(m)));
 });
-test('Г: картки без дати — окремий рядок із кількістю й сумою', function(){
+test('Г: картки без дати — повідомлення з сумою праворуч', function(){
   const m = model({ installments: [I('A', 17)], cards: [{ name: 'K1' }, { name: 'K2' }, { name: 'K3' }], debtsByMonth: [D('A', '2026-10', { monthlyPayment: 5, balance: 9 }), { kind: 'card', name: 'K1', month: '2026-10', minPayment: 100 }, { kind: 'card', name: 'K2', month: '2026-10', minPayment: 200 }, { kind: 'card', name: 'K3', month: '2026-10', minPayment: 300 }] });
-  assert.equal(m.cards.title, 'Картки · 3 платежі'); assert.equal(m.cards.sub, 'Дату платежу не задано'); assert.match(m.cards.amount, /^600\s₴$/);
+  assert.equal(m.messages[0].kind, 'cards'); assert.equal(m.messages[0].text, 'Картки без дати · 3'); assert.match(m.messages[0].amount, /^600\s₴$/);
 });
-test('Д: ОЧ без дня платежу — підказка', function(){
-  const m = model({ installments: [I('A', 17), I('X', null), I('Y', null)], debtsByMonth: [D('A', '2026-10', { monthlyPayment: 5, balance: 9 }), D('X', '2026-10', { monthlyPayment: 1, balance: 9 }), D('Y', '2026-10', { monthlyPayment: 1, balance: 9 })] });
-  assert.equal(m.noDay, '2 ОЧ без дня платежу: вони не потрапляють у календар. Додайте день у «Обліку».');
+test('Д: «N ОЧ без дня платежу» — лише якщо лишилось місце (не більше двох повідомлень, у порядку)', function(){
+  const only = model({ installments: [I('A', 17), I('X', null), I('Y', null)], debtsByMonth: [D('A', '2026-10', { monthlyPayment: 5, balance: 9 }), D('X', '2026-10', { monthlyPayment: 1, balance: 9 }), D('Y', '2026-10', { monthlyPayment: 1, balance: 9 })] });
+  assert.deepEqual(only.messages.map(function(x){ return x.kind + ':' + x.text; }), ['noday:2 ОЧ без дня платежу']);
+  const all3 = model({ installments: [I('Old', 4), I('X', null), I('A', 17)], cards: [{ name: 'K' }], debtsByMonth: [D('Old', '2026-10', { monthlyPayment: 1, balance: 9 }), D('X', '2026-10', { monthlyPayment: 1, balance: 9 }), D('A', '2026-10', { monthlyPayment: 5, balance: 9 }), { kind: 'card', name: 'K', month: '2026-10', minPayment: 50 }] });
+  assert.deepEqual(all3.messages.map(function(x){ return x.kind; }), ['unconfirmed', 'cards']); // третє (noday) не поміщається
 });
-test('Е: у найближчі 7 днів платежів немає, наступний у цьому місяці', function(){
+test('Е: порожній тиждень — без суми в заголовку, «Тиждень без платежів», рядок «Наступний · дата · назва» із сумою', function(){
   const m = model({ today: '2026-10-05', installments: [I('ПУМБ iPhone', 17)], debtsByMonth: [D('ПУМБ iPhone', '2026-10', { monthlyPayment: 5000, balance: 9 })] });
-  assert.equal(m.state, 'empty'); assert.equal(m.big, 'Найближчі 7 днів без платежів'); assert.equal(m.showStrip, true);
-  assert.match(m.next, /^Наступний: Сб 17 жов · ПУМБ iPhone · 5\s000\s₴$/);
+  assert.equal(m.state, 'empty'); assert.equal(m.total, null); assert.equal(m.calm, 'Тиждень без платежів'); assert.equal(m.showStrip, true);
+  assert.equal(m.next.label, 'Наступний · Сб 17 жов · ПУМБ iPhone'); assert.match(m.next.amount, /^5\s000\s₴$/);
 });
-test('Ж: усе сплачено цього місяця — без смуги; наступний платіж наступного місяця', function(){
+test('Ж: усе сплачено — без смуги й суми; «Усе сплачено.» + «Наступний · 4 лис · назва»', function(){
   const m = model({ today: '2026-10-25', installments: [I('ПУМБ Dyson', 4)], debtsByMonth: [D('ПУМБ Dyson', '2026-09', { monthlyPayment: 2000, balance: 9 }), D('ПУМБ Dyson', '2026-10', { monthlyPayment: 2000, balance: 9 })], expenses: [{ date: '2026-10-04', linkedInstallment: 'ПУМБ Dyson', amount: 2000 }] });
-  assert.equal(m.state, 'allpaid'); assert.equal(m.big, 'Усе сплачено цього місяця'); assert.equal(m.showStrip, false);
-  assert.match(m.next, /^Наступний: 4 лис · ПУМБ Dyson · ≈ 2\s000\s₴$/);
+  assert.equal(m.state, 'allpaid'); assert.equal(m.showStrip, false); assert.equal(m.total, null); assert.deepEqual(m.done, { title: 'Усе сплачено.', next: 'Наступний · 4 лис · ПУМБ Dyson' });
 });
-test('невідома сума: «Сума невідома», рядок із «сума невідома»; частково невідома — «· N без суми»', function(){
+test('невідома сума: «Сума невідома» в заголовку', function(){
   const m = model({ installments: [I('A', 17)], debtsByMonth: [D('A', '2026-10', { balance: 9 })] });
-  assert.equal(m.big, 'Сума невідома'); assert.equal(m.rows[0].amount, 'сума невідома');
-  const m2 = model({ installments: [I('A', 17), I('B', 18)], debtsByMonth: [D('A', '2026-10', { monthlyPayment: 100, balance: 9 }), D('B', '2026-10', { balance: 9 })] });
-  assert.match(m2.sub, /· 1 без суми$/);
+  assert.equal(m.total, 'Сума невідома'); assert.equal(m.next.amount, 'сума невідома');
 });
-test('перехід місяця: смуга 29 жовтня → 4 листопада, лист у «до» і день', function(){
+test('перехід місяця: смуга 29 жовтня → 4 листопада', function(){
   const m = model({ today: '2026-10-29', installments: [I('N', 2)], debtsByMonth: [D('N', '2026-11', { monthlyPayment: 10, balance: 9 })] });
-  assert.equal(m.days[0].date, '2026-10-29'); assert.equal(m.days[6].date, '2026-11-04'); assert.equal(m.sub, '1 платіж до 4 листопада');
+  assert.equal(m.days[0].date, '2026-10-29'); assert.equal(m.days[6].date, '2026-11-04'); assert.equal(m.next.label, 'Наступний · Пн 2 · N');
 });
-test('охоронні: у картці немає емодзі, назви через textContent, нейтральні тексти, картка в renderAll, прихована без даних, елементи — кнопки', function(){
+test('охоронні: немає підзаголовка й рядка «Усі платежі»; уся картка — одна кнопка з підписом для VoiceOver; без емодзі; textContent; шрифти ≥ 11 пт', function(){
   const fn = SRC.slice(SRC.indexOf('function renderPaymentsCard'), SRC.indexOf('/* ============ Екран «Платежі» і дії'));
-  assert.ok(!/innerHTML\s*=/.test(fn.replace(/chev\.innerHTML = PAY_CHEV_SVG/, '')), 'дані не йдуть через innerHTML');
-  assert.ok(!/\p{Extended_Pictographic}/u.test(SRC.slice(SRC.indexOf('/* ============ Картка «Найближчі платежі»'), SRC.indexOf('/* ============ Екран «Платежі» і дії'))), 'без емодзі');
-  assert.match(SRC, /safeCall\(renderPaymentsCard, 'renderPaymentsCard'\);/);
-  assert.match(SRC, /<section class="pay-card hidden" id="payments-card"/);
-  assert.ok(!/прострочено/.test(SRC.slice(SRC.indexOf('function paymentsCardModel'), SRC.indexOf('function renderPaymentsCard'))));
-  assert.match(fn, /payEl\('button', 'pay-row'/); assert.match(fn, /payEl\('button', 'pay-day'/); assert.match(fn, /payEl\('button', 'pay-all'\)/);
-  assert.match(SRC, /\.pay-day\{ flex:1; min-width:0; min-height:64px;/); assert.match(SRC, /\.pay-row\{[^}]*min-height:44px/); assert.match(SRC, /\.pay-all\{[^}]*min-height:48px/);
+  assert.ok(!/Усі платежі|pay-all|pay-sub/.test(fn));
+  assert.match(fn, /hit\.setAttribute\('aria-label', 'Найближчі платежі, відкрити'\)/); assert.match(fn, /payEl\('button', 'pay-card-hit'\)/);
+  assert.ok(!/innerHTML\s*=/.test(fn.replace(/chev\.innerHTML = PAY_CHEV_SVG/, '').replace(/ico\.innerHTML = PAY_CHECK_SVG/, '')), 'дані не йдуть через innerHTML');
+  const region = SRC.slice(SRC.indexOf('/* ============ Картка «Найближчі платежі»'), SRC.indexOf('/* ============ Екран «Платежі» і дії'));
+  assert.ok(!/\p{Extended_Pictographic}/u.test(region), 'без емодзі');
+  const cssStart = SRC.indexOf('.pay-card{ position:relative');
+  const css = SRC.slice(cssStart, SRC.indexOf('/* Rev 2.32.68 (P4)', cssStart));
+  (css.match(/font-size:(\d+(?:\.\d+)?)px/g) || []).forEach(function(x){ assert.ok(parseFloat(x.slice(10)) >= 11, x); });
+  assert.match(css, /\.pay-card\{[^}]*border-radius:20px; padding:12px 14px 6px/);
+  assert.match(css, /\.pay-day\{[^}]*min-height:46px;[^}]*border-radius:12px/); assert.match(css, /\.pay-strip\{ display:flex; gap:3px;/);
+  assert.match(css, /\.pay-line1\{[^}]*min-height:34px; font-size:14px/); assert.match(css, /\.pay-msg\{[^}]*min-height:34px; font-size:13px/);
+});
+test('тап по комірці з платежем відкриває «Платежі» на даті; уся картка — без дати; картка в renderAll; прихована без даних', function(){
+  assert.match(SRC, /if\(d\.has\) b\.addEventListener\('click', function\(ev\)\{ ev\.stopPropagation\(\); openAll\(d\.date\); \}\);/);
+  assert.match(SRC, /hit\.addEventListener\('click', function\(\)\{ openAll\(null\); \}\);/);
+  assert.match(SRC, /safeCall\(renderPaymentsCard, 'renderPaymentsCard'\);/); assert.match(SRC, /<section class="pay-card hidden" id="payments-card"/);
 });
