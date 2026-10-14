@@ -3385,7 +3385,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.42</div>
+  <div class="version-footer">Money Tree · Rev 2.32.43</div>
 </div>
   </div>
 </div>
@@ -7786,7 +7786,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.42';
+const APP_VERSION = '2.32.43';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -18036,6 +18036,11 @@ function updatePageHeader(tab){
   if(subtitleEl) subtitleEl.textContent = meta.subtitle(selectedMonth ? monthLabel(selectedMonth) : '');
   if(monthPillEl) monthPillEl.classList.toggle('hidden', !meta.showMonthPill);
 }
+// Rev 2.32.43 (SC): чиста функція — чи скидати прокрутку у верх при переході на «+Витрата». Тригери: тап по вкладці з іншої ('tab'), повторний тап по активній ('repeat'), перехід зі сповіщення/Журналу ('push'); інші вкладки — ні.
+function shouldScrollExpenseTop(trigger, state){
+  if(!state || state.tab !== 'vytraty') return false;
+  return trigger === 'tab' || trigger === 'repeat' || trigger === 'push';
+}
 function performSwitchTab(tab, opts){
   // Rev 2.24.0 (M1) — попередня вкладка (для переходу й збереження прокрутки); незавершений перехід дозавершуємо одразу.
   // ВАЖЛИВО: прокрутку й позицію вихідної вкладки знімаємо ДО будь-яких змін DOM: шапка (.top з month-pill) лежить у тому самому #main-col,
@@ -18108,7 +18113,14 @@ function performSwitchTab(tab, opts){
   killMainColMomentumScroll();
   const mainColEl = document.getElementById('main-col');
   // Rev 2.24.0 (M1) — повернення на вкладку відновлює її збережену прокрутку (раніше завжди 0); повторний тап по активній вкладці, як і раніше, — на початок.
-  if(mainColEl) mainColEl.scrollTop = switching ? (tabScrollPositions[tab] || 0) : 0;
+  // Rev 2.32.43 (SC): «+Витрата» ЗАВЖДИ відкривається з верху форми (раніше повернення на вкладку відновлювало збережену прокрутку M1 — форма лишалась біля кнопки журналу, хоча фокус переходив у «Назву»). Скидання — до передачі фокуса нижче; збережену позицію вкладки теж обнуляємо.
+  const expenseTopTrigger = tab === 'vytraty' ? (opts && opts.noFocus ? 'push' : (switching ? 'tab' : 'repeat')) : null;
+  const scrollTopForExpense = expenseTopTrigger && shouldScrollExpenseTop(expenseTopTrigger, { tab: tab });
+  if(scrollTopForExpense){
+    if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'expense-scroll-top', from: Math.round(switching ? (tabScrollPositions[tab] || 0) : fromScroll), reason: expenseTopTrigger });
+    tabScrollPositions[tab] = 0;
+  }
+  if(mainColEl) mainColEl.scrollTop = scrollTopForExpense ? 0 : (switching ? (tabScrollPositions[tab] || 0) : 0);
   if(tabCtx) playTabTransition(tabCtx, prevTab, tab, fromScroll, tSwitch0);
   if(switching && tab === 'analytics') onDashboardVisit(); // Rev 2.25.0 (M2)
   if(switching && tab === 'accounting') onAccountVisit(); // Rev 2.29.0 (A)
