@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const base = ['MONO_MONTHS_GEN', 'NOTIF_REMINDER_TYPES', 'notificationIcon', 'unreadBadge', 'groupNotificationsByDay', 'notifTimeLabel'];
+const base = ['MONO_MONTHS_GEN', 'NOTIF_ICON_BY_TYPE', 'notificationIcon', 'notificationRowStyle', 'unreadBadge', 'groupNotificationsByDay', 'notifTimeLabel'];
 const c = buildSandbox({}, base);
 const T = function(d, h, m){ return new Date(2026, 9, d, h, m).toISOString(); };
 const N = function(id, at, extra){ return Object.assign({ id: id, type: 'mono-inbox', title: 'Нова операція', body: 'Uklon', data: { type: 'mono-inbox' }, created_at: at, read_at: null }, extra || {}); };
@@ -16,9 +16,27 @@ test('unreadBadge: «9+» для 10 і більше, порожньо без н�
   assert.equal(c.unreadBadge(0), ''); assert.equal(c.unreadBadge(null), ''); assert.equal(c.unreadBadge(1), '1');
   assert.equal(c.unreadBadge(9), '9'); assert.equal(c.unreadBadge(10), '9+'); assert.equal(c.unreadBadge(120), '9+');
 });
-test('notificationIcon: Monobank, резервна копія, нагадування, інше', function(){
-  assert.equal(c.notificationIcon('mono-inbox'), 'mono'); assert.equal(c.notificationIcon('backup-reminder'), 'backup');
-  assert.equal(c.notificationIcon('daily-expense-reminder'), 'reminder'); assert.equal(c.notificationIcon('other-actor-added'), 'other'); assert.equal(c.notificationIcon(''), 'other');
+test('notificationIcon: усі типи мають іконку, невідомий — дзвіночок', function(){
+  const exp = { 'mono-inbox': 'mono', 'daily-expense-reminder': 'expenses', 'installment-deadline': 'accounting', 'monthly-debt-reminder': 'accounting', 'backup-reminder': 'backup', 'other-actor-summary': 'journal', 'other-actor-deleted': 'journal', 'weekly-summary': 'analytics', 'month-end': 'analytics' };
+  Object.keys(exp).forEach(function(k){ assert.equal(c.notificationIcon(k), exp[k], k); });
+  assert.equal(c.notificationIcon('щось-нове'), 'bell'); assert.equal(c.notificationIcon(''), 'bell'); assert.equal(c.notificationIcon('toString'), 'bell');
+  ['mono', 'expenses', 'accounting', 'analytics', 'backup', 'journal', 'bell'].forEach(function(k){ assert.match(SRC, new RegExp('\\n  ' + k + ': \\[')); });
+});
+test('notificationRowStyle: непрочитані й прочитані різняться вагою, кольором, іконкою й фоном', function(){
+  assert.deepEqual(j(c.notificationRowStyle(true)), { weight: 600, color: 'primary', iconOpacity: 1, background: true });
+  assert.deepEqual(j(c.notificationRowStyle(false)), { weight: 400, color: 'muted', iconOpacity: 0.45, background: false });
+});
+test('V: значок лічильника поза кнопкою, ідеальна пілюля без border; прочитані приглушені з контрастом', function(){
+  const wrap = SRC.slice(SRC.indexOf('<span class="notif-bell-wrap">'), SRC.indexOf('<!-- Rev 2.32.38 (B): дзвіночок зліва від шестерні -->'));
+  assert.ok(wrap.indexOf('</button>') < wrap.indexOf('id="notif-bell-count"'), 'значок після закриття кнопки');
+  const css = SRC.match(/\.notif-bell-count\{([^}]*)\}/)[1];
+  assert.match(css, /min-width:20px; height:20px; padding:0 6px; box-sizing:border-box; border-radius:10px/);
+  assert.match(css, /display:inline-flex; align-items:center; justify-content:center/); assert.match(css, /line-height:1;/);
+  assert.match(css, /box-shadow:0 0 0 2px var\(--color-bg\)/); assert.ok(!/border:/.test(css)); assert.match(css, /pointer-events:none/);
+  assert.match(SRC, /--notif-muted:#7C8699/);
+  const lum = function(h){ const v = [1, 3, 5].map(function(i){ const x = parseInt(h.substr(i, 2), 16) / 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); }); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; };
+  const ratio = function(a, b){ const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+  assert.ok(ratio('#7C8699', '#161B26') >= 4.5, 'темна'); assert.ok(ratio('#5F6B7D', '#FFFFFF') >= 4.5, 'світла');
 });
 test('groupNotificationsByDay: Сьогодні/Вчора/Раніше, від новіших, порожні групи не повертаються', function(){
   const now = new Date(2026, 9, 12, 18, 0);
