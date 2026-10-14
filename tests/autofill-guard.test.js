@@ -12,7 +12,7 @@ const reg = JSON.parse(ex.evalInSandbox(buildSandbox({}, ['TEST_VARIANTS']), 'JS
 const c = buildSandbox({}, ['autofillGuardFlags', 'toSearchField']);
 
 test('реєстр: autofill-guard з чотирма варіантами, типовий control, повний запис', function(){
-  assert.equal(reg.length, 1); const t = reg[0];
+  const t = reg.filter(function(x){ return x.id === 'autofill-guard'; })[0]; assert.ok(t);
   assert.equal(t.id, 'autofill-guard'); assert.equal(t.defaultVariant, 'control');
   assert.deepEqual(t.variants.map(function(v){ return v.key; }), ['control', 'cloud-lazy', 'search-type', 'combined']);
   ['title', 'what', 'addedIn', 'cleanupBy'].forEach(function(f){ assert.ok(t[f] && t[f].trim(), f); });

@@ -54,7 +54,7 @@ test('X: сканер справді ловить навмисно зламан�
   assert.equal(scanUnescaped('el.innerHTML = `<b>${escapeHtml(c.name)}</b>`;').length, 0);
 });
 test('X: рядки-обробники з id проходять safeId', function(){
-  assert.ok(SRC.indexOf("editDictionaryEntry('${safeId(d.id)}')") !== -1);
+  assert.ok(SRC.indexOf("onclick=\"editDictionaryEntry(\\'' + safeId(w.id) + '\\')\"") !== -1); // Rev 2.32.50 (S3): рядок слова словника
   assert.ok(SRC.indexOf("startEditRecord('${e.kind}','${safeId(e.id)}')") !== -1);
   assert.ok(!/onclick="[^"]*'\$\{e\.id\}'/.test(SRC), 'є onclick із сирим e.id');
 });

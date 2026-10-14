@@ -5934,7 +5934,7 @@ test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS пр
   const ctx = ex.buildSandbox({}, ['TEST_VARIANTS']);
   const reg = JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(TEST_VARIANTS)'));
   assert.deepEqual(validateTestRegistry(reg), []);
-  assert.deepEqual(reg.map(function(t){ return t.id; }), ['autofill-guard'], 'motion-intensity, card-reveal (F), button-style (M4b), dashboard-replay (M4c), edit-label (A) завершені; Rev 2.32.47 (AG): активний лише autofill-guard');
+  assert.deepEqual(reg.map(function(t){ return t.id; }), ['structure-accordion', 'autofill-guard'], 'motion-intensity, card-reveal (F), button-style (M4b), dashboard-replay (M4c), edit-label (A) завершені; Rev 2.32.47 (AG): активний лише autofill-guard');
 });
 test('ЗАХИСНИЙ реєстр: валідатор ловить усі порушення (4 активних, відсутні поля, <2 варіантів, дубль key, defaultVariant, checkSteps, не kebab-case)', () => {
   const ok = makeTestRegistry();

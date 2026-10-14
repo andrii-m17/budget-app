@@ -1262,6 +1262,28 @@
   .struct-empty .struct-section{ margin-top:22px; margin-bottom:0; }
   .struct-delete-row{ width:100%; min-height:52px; margin-top:6px; background:var(--color-surface-hover); border:0; border-radius:var(--radius-md); font:inherit; font-size:15px; font-weight:600; color:var(--color-error); cursor:pointer; }
   .app-modal-delete-wrap{ margin-top:14px; }
+  /* Rev 2.32.50 (S3) — «Словник»: групи-акордеон за категорією, пошук. Варіанти анімації (тест structure-accordion): b — шеврон 200мс + проявлення рядків 160мс, висота миттєво; c — анімована висота (grid-template-rows 240мс) лише як свідомий виняток тесту. */
+  .struct-search-wrap{ margin:0 0 14px; }
+  .struct-search{ width:100%; height:44px; box-sizing:border-box; padding:0 14px; border:1.5px solid var(--color-border-strong); border-radius:var(--ui-r-control, 14px); background:var(--ui-glass, var(--color-surface)); color:var(--color-text-primary); font-size:16px; -webkit-appearance:none; appearance:none; }
+  .struct-search:focus{ outline:none; border-color:var(--ui-accent, var(--color-primary)); }
+  .struct-search::-webkit-search-cancel-button, .struct-search::-webkit-search-decoration{ -webkit-appearance:none; display:none; }
+  .struct-dict-group{ margin-bottom:10px; }
+  .struct-dict-head{ display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:0 16px; box-sizing:border-box; background:transparent; border:0; font:inherit; font-size:15px; color:var(--color-text-primary); text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .struct-dict-title{ flex:1; min-width:0; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .struct-dict-chev{ flex:none; display:flex; color:var(--color-text-secondary); transition:transform .2s ease; }
+  .struct-dict-group.open .struct-dict-chev{ transform:rotate(180deg); }
+  .struct-dict-collapse{ display:none; border-top:1px solid var(--color-border); }
+  .struct-dict-group.open .struct-dict-collapse{ display:block; }
+  .struct-dict-inner .struct-row{ min-height:52px; }
+  .struct-dict-inner .struct-row .struct-row-name{ font-size:15px; }
+  .struct-dict-inner .struct-row + .struct-row::before{ left:16px; }
+  .struct-dict-group.just-opened .struct-dict-inner{ animation:stFade .16s ease both; }
+  #struct-dictionary[data-acc="c"] .struct-dict-collapse{ display:grid; grid-template-rows:0fr; border-top-color:transparent; transition:grid-template-rows .24s ease; }
+  #struct-dictionary[data-acc="c"] .struct-dict-group.open .struct-dict-collapse{ grid-template-rows:1fr; border-top-color:var(--color-border); }
+  #struct-dictionary[data-acc="c"] .struct-dict-inner{ overflow:hidden; min-height:0; }
+  #struct-dictionary[data-acc="c"] .struct-dict-group:not(.open) .struct-dict-inner{ visibility:hidden; }
+  #struct-dictionary[data-acc="c"] .struct-dict-group.just-opened .struct-dict-inner{ animation:none; }
+  @media (prefers-reduced-motion: reduce){ .struct-dict-chev{ transition:none; } .struct-dict-group.just-opened .struct-dict-inner{ animation:none; } #struct-dictionary[data-acc="c"] .struct-dict-collapse{ transition:none; } }
 
   .struct-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--color-border); font-size:13px; }
   .struct-item:last-child{ border-bottom:none; }
@@ -3043,16 +3065,12 @@
         <div id="struct-subcategories"></div>
       </div>
 
+      <!-- Rev 2.32.50 (S3): «Словник» за макетом — групи за категорією (акордеон), пошук; інфо-плашку й картку прибрано. Поле пошуку — type=search, абстрактний id (правило автозаповнення) -->
       <div class="struct-tab-panel hidden" id="struct-tab-panel-dictionary">
-        <div class="info-note">
-          <span class="info-note-icon" aria-hidden="true">i</span>
-          <span>Слова тут допомагають автоматично визначати категорію під час додавання витрати.</span>
+        <div class="struct-search-wrap" id="struct-dict-search-wrap">
+          <input type="search" id="fldstr2" class="struct-search" placeholder="Пошук слова" aria-label="Пошук слова" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" oninput="onStructDictSearch(this.value)">
         </div>
-        <div class="card">
-          <div class="table-card-title">Словник автоматизації (ключове слово → категорія)</div>
-          <div id="struct-dictionary"></div>
-          <button type="button" class="add-trigger-btn" onclick="openAddDictionaryModal()">+ Додати слово</button>
-        </div>
+        <div id="struct-dictionary"></div>
       </div>
     </div>
 
@@ -3372,7 +3390,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.49</div>
+  <div class="version-footer">Money Tree · Rev 2.32.50</div>
 </div>
   </div>
 </div>
@@ -7775,7 +7793,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.49';
+const APP_VERSION = '2.32.50';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12502,6 +12520,7 @@ function earliestActivityMonth(){
 // Rev 2.11.24 — перемикач вкладок Категорії/Підкатегорії/Словник: та сама
 // розмітка карток, лише показуємо одну панель за раз замість суцільного списку.
 function switchStructureTab(tab){
+  if(tab === 'dictionary'){ structDictReset(); renderStructureDictionary(); } // Rev 2.32.50 (S3): при відкритті «Словника» усі групи згорнуті, нічого не запам'ятовується
   ['categories','subcategories','dictionary'].forEach(t=>{
     document.getElementById(`struct-tab-panel-${t}`).classList.toggle('hidden', t!==tab);
     document.getElementById(`struct-tab-btn-${t}`).classList.toggle('active', t===tab);
@@ -12579,38 +12598,105 @@ function renderStructureSubcategories(){
   parts.push(structAddGroupHtml('Додати підкатегорію', 'openAddSubcategoryModal()', STRUCT_CAPTION_CAT));
   el.innerHTML = parts.join('');
 }
+/* ============ Структура: «Словник» (Rev 2.32.50, S3) ============ */
+const STRUCT_CAPTION_DICT = 'Слова допомагають автоматично визначати категорію під час додавання витрати. Торкніться рядка, щоб змінити або видалити.';
+const STRUCT_CAPTION_DICT_EMPTY = 'Слова допомагають автоматично визначати категорію під час додавання витрати.';
+// Групи за категорією, до якої веде слово (порядок категорій як у «Категоріях», невідомі в кінці); усередині — порядок відображення словника (compareDictionaryForDisplay).
+function groupWordsByCategory(words, cats){
+  const list = (words || []).slice().sort(compareDictionaryForDisplay);
+  const names = (cats || []).map(function(c){ return c.name; });
+  const extra = [];
+  list.forEach(function(w){ if(names.indexOf(w.cat) === -1 && extra.indexOf(w.cat) === -1) extra.push(w.cat); });
+  return names.concat(extra).map(function(n){ return { category: n, items: list.filter(function(w){ return w.cat === n; }) }; }).filter(function(g){ return g.items.length; });
+}
+// Що видно у «Словнику»: без пошуку — усі групи, розкрита лише openId (акордеон); з пошуком — акордеон вимкнено, групи зі збігом розкриті, решта ховаються. noResults — пошук нічого не знайшов.
+function dictionaryView(words, cats, query, openId){
+  const q = String(query || '').trim().toLowerCase();
+  const groups = groupWordsByCategory(words, cats);
+  if(!q) return { searching: false, noResults: false, groups: groups.map(function(g){ return { category: g.category, count: g.items.length, items: g.items, open: g.category === openId }; }) };
+  const found = groups.map(function(g){ const items = g.items.filter(function(w){ return String(w.kw || '').toLowerCase().indexOf(q) !== -1; }); return { category: g.category, count: items.length, items: items, open: true }; }).filter(function(g){ return g.items.length; });
+  return { searching: true, noResults: found.length === 0, groups: found };
+}
+// Компенсація прокрутки при акордеоні: заголовок, по якому торкнулись, лишається на тому самому місці екрана (повертає, на скільки змістити scrollTop).
+function accordionAnchorDelta(before, after){ return (Number(after) || 0) - (Number(before) || 0); }
+let structDict = { openId: null, query: '' };
+function structAccVariant(){ try{ return getVariant('structure-accordion') || 'b'; }catch(e){ return 'b'; } }
+function structDictReset(){
+  structDict = { openId: null, query: '' };
+  const inp = document.getElementById('fldstr2'); if(inp) inp.value = '';
+}
+const STRUCT_DICT_CHEV_SVG = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+function structDictWordRow(w){
+  return '<button type="button" class="struct-row" onclick="editDictionaryEntry(\'' + safeId(w.id) + '\')" aria-label="' + escapeAttr('Слово ' + w.kw) + '"><span class="struct-row-name">' + escapeHtml(w.kw) + '</span><span class="struct-row-side">' + escapeHtml(w.sub ? splitLeadingEmoji(w.sub).text : 'без підкатегорії') + '</span></button>';
+}
+function renderStructureDictionary(){
+  const el = document.getElementById('struct-dictionary');
+  if(!el) return;
+  const activeCats = CATEGORIES.filter(function(c){ return c.active; });
+  const words = DICTIONARY.filter(function(d){ return !d.deletedAt; });
+  const wrap = document.getElementById('struct-dict-search-wrap');
+  if(wrap) wrap.style.display = words.length ? '' : 'none';
+  el.setAttribute('data-acc', structAccVariant());
+  if(!words.length){
+    el.innerHTML = structEmptyHtml('Словник порожній', 'Додайте перше слово, наприклад «кава»: воно підставлятиме «Харчування · Кава».', 'Додати слово', 'openAddDictionaryModal()', STRUCT_CAPTION_DICT_EMPTY);
+    return;
+  }
+  const view = dictionaryView(words, activeCats, structDict.query, structDict.openId);
+  if(view.noResults){
+    const q = structDict.query.trim();
+    el.innerHTML = structEmptyHtml('Нічого не знайдено', 'Слова «' + q + '» немає у словнику.', 'Додати слово «' + q + '»', 'openAddDictionaryModal(structDict.query.trim())', STRUCT_CAPTION_DICT_EMPTY);
+    return;
+  }
+  const parts = view.groups.map(function(g){
+    const sp = splitLeadingEmoji(g.category);
+    return '<div class="struct-group struct-dict-group' + (g.open ? ' open' : '') + '" data-cat="' + escapeAttr(g.category) + '">' +
+      '<button type="button" class="struct-dict-head" aria-expanded="' + (g.open ? 'true' : 'false') + '">' + structTileHtml(g.category) + '<span class="struct-dict-title">' + escapeHtml(sp.text) + '</span><span class="struct-row-side">' + g.count + '</span><span class="struct-dict-chev">' + STRUCT_DICT_CHEV_SVG + '</span></button>' +
+      '<div class="struct-dict-collapse"><div class="struct-dict-inner">' + g.items.map(structDictWordRow).join('') + '</div></div></div>';
+  });
+  parts.push(structAddGroupHtml('Додати слово', 'openAddDictionaryModal()', STRUCT_CAPTION_DICT));
+  el.innerHTML = parts.join('');
+}
+document.addEventListener('click', function(e){
+  const head = e.target.closest && e.target.closest('#struct-dictionary .struct-dict-head');
+  if(head) toggleDictGroup(head.parentNode.getAttribute('data-cat'));
+});
+function onStructDictSearch(v){ structDict.query = String(v || ''); structDict.openId = null; renderStructureDictionary(); } // очищення пошуку повертає всі групи згорнутими
+function structDictGroupEl(cat){
+  const groups = document.querySelectorAll('#struct-dictionary .struct-dict-group');
+  for(let i = 0; i < groups.length; i++){ if(groups[i].getAttribute('data-cat') === cat) return groups[i]; }
+  return null;
+}
+function structDictApplyOpen(){
+  document.querySelectorAll('#struct-dictionary .struct-dict-group').forEach(function(g){
+    const open = g.getAttribute('data-cat') === structDict.openId;
+    g.classList.toggle('open', open);
+    g.classList.toggle('just-opened', open);
+    g.querySelector('.struct-dict-head').setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+}
+// Відкриття/закриття групи (акордеон: відкриття закриває попередню) з утриманням місця заголовка на екрані.
+function toggleDictGroup(cat, forceOpen){
+  if(structDict.query.trim()) return; // під час пошуку акордеон вимкнено
+  const head = structDictGroupEl(cat);
+  const main = document.getElementById('main-col');
+  const beforeTop = head ? head.getBoundingClientRect().top : 0;
+  structDict.openId = (forceOpen || structDict.openId !== cat) ? cat : null;
+  structDictApplyOpen();
+  if(!head || !main) return;
+  const anchor = function(){ main.scrollTop += accordionAnchorDelta(beforeTop, head.getBoundingClientRect().top); };
+  anchor();
+  if(structAccVariant() === 'c' && !motionReduced()){ // анімована висота: тримаємо місце на кожному кадрі
+    const t0 = performance.now();
+    (function frame(){ anchor(); if(performance.now() - t0 < 280) requestAnimationFrame(frame); })();
+  }
+}
 function structOpenTrash(){ performSwitchTab('service'); openTrashScreen(); }
 function renderStructure(){
   const catEl = document.getElementById('struct-categories');
   if(!catEl) return;
   renderStructureCategories(); // Rev 2.32.48 (S1)
-  renderStructureSubcategories(); // Rev 2.32.49 (S2); словник — нижче без змін до S3
-  const dictEl = document.getElementById('struct-dictionary');
-  // Rev 2.22.79 (6D.152) — адресація за d.id, не за позицією в масиві (той
-  // самий патерн, що '${e.kind}','${e.id}' уже для записів Журналу) — див.
-  // докоментар над ensureDictionaryIdentity().
-  // Rev 2.22.80 (6D.153) — tombstone-слова не показуються в звичайному
-  // списку "Структура" (підуть у майбутню Корзину, Ревізія D).
-  // Rev 2.22.81 (6D.154, Крок A3) — BugFix: без сортування порядок
-  // відображення залежав від порядку МАСИВУ, який на різних пристроях
-  // розходиться — на пристрої-авторі нове слово просто дописується в
-  // кінець, а на другому пристрої порядок визначає pullDictionaryCore()
-  // (запит без `.order()`, PostgREST нічого не гарантує; відредаговане
-  // слово до того ж приходить ОКРЕМИМ пізнішим pull'ом). Сортуємо ЛИШЕ
-  // при відображенні (масив/сховище не чіпаються) — compareDictionaryForDisplay() вище.
-  const visibleDictionary = DICTIONARY
-    .filter(function(d){ return !d.deletedAt; })
-    .sort(compareDictionaryForDisplay);
-  dictEl.innerHTML = visibleDictionary.length ? visibleDictionary.map((d)=>`
-    <div class="kw-row">
-      <span class="kw-tag">${escapeHtml(d.kw)}</span>
-      <span class="kw-target">${escapeHtml(d.sub || d.cat)}</span>
-      <span class="bdr-actions">
-        <button type="button" class="bdr-icon-btn" onclick="editDictionaryEntry('${safeId(d.id)}')" aria-label="Редагувати слово"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
-        <button type="button" class="bdr-icon-btn danger" onclick="deleteDictionaryEntry('${safeId(d.id)}')" aria-label="Видалити слово"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-      </span>
-    </div>
-  `).join('') : `<div class="empty-hint">Словник порожній</div>`;
+  renderStructureSubcategories(); // Rev 2.32.49 (S2)
+  renderStructureDictionary(); // Rev 2.32.50 (S3)
 }
 
 /* ============ Мережевий стан: офлайн-банер + доступність Excel (Rev 2.11.1) ============
@@ -17636,7 +17722,7 @@ const BUTTON_VARIANT_MAP = {
   icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip'],
-  row: ['mono-row', 'notif-row', 'struct-row', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
+  row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
@@ -18564,6 +18650,24 @@ const TEST_VARIANTS_LS_KEY = 'budget_variants_v1';
 // Rev 2.32.0 (F): реєстр порожній — motion-intensity («Стандартна», ×1) і card-reveal («Стандартно», 420/40) зафіксовано константами; pruneVariants() прибирає їхні старі ключі з localStorage.
 // Rev 2.32.8 (A): реєстр порожній — edit-label завершено (no-for); pruneVariants() прибирає його ключ із localStorage.
 const TEST_VARIANTS = [
+  // Rev 2.32.50 (S3) — анімація розкриття груп «Словника»: b (типовий) — шеврон 200мс і проявлення рядків 160мс, висота миттєво; c — справжня анімація висоти 240мс (свідомий виняток із правила «без анімації розмірів», лише в цьому тесті). Утримання місця заголовка діє в обох.
+  {
+    id: 'structure-accordion',
+    title: 'Анімація розкриття у «Словнику»',
+    what: 'Яка анімація розкриття групи слів приємніша: b — шеврон повертається й рядки проявляються, висота змінюється миттєво; c — плавна зміна висоти.',
+    variants: [
+      { key: 'b', label: 'B: шеврон і проявлення', hint: 'висота миттєво, шеврон 200 мс, рядки проявляються 160 мс' },
+      { key: 'c', label: 'C: плавна висота', hint: 'висота змінюється за 240 мс' },
+    ],
+    defaultVariant: 'b',
+    addedIn: 'Rev 2.32.50 (S3)',
+    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний варіант й прибере тест)',
+    checkSteps: [
+      'Структура → «Словник»: відкрийте кілька груп по черзі, подивіться на повертання шеврона й появу рядків.',
+      'Перемкніть варіант (зміна діє одразу, після повернення на вкладку «Словник») і повторіть; зверніть увагу, чи не стрибає екран при закритті групи вище.',
+      'Оберіть кращий варіант і напишіть.',
+    ],
+  },
   // Rev 2.32.47 (AG) — порівняльний експеримент: що прибирає панель iOS «Автозаповнити контакт» (панель виникає попри autocomplete=off, після першої появи — у кожному полі, тобто це схоже на стан сторінки). Змінюється лише розмітка, не вигляд. Варіант застосовується при СТАРТІ — після вибору повністю закрийте застосунок і відкрийте знову.
   {
     id: 'autofill-guard',
@@ -21442,7 +21546,7 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
 // На відміну від showSubcategoryModal, другий select тут ЖИВИЙ — залежить
 // від обраної категорії й перебудовується на onchange першого (той самий
 // патерн, що onCategoryChange() у формі "Нова витрата").
-function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave){
+function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave, del){ // Rev 2.32.50 (S3): del — { label, note, onDelete } для редагування
   document.getElementById('app-modal-text').textContent = title;
   document.getElementById('app-modal-select-label').textContent = 'Категорія';
   const input = document.getElementById('app-modal-input');
@@ -21472,13 +21576,13 @@ function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave){
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-dictionary' });
+  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-dictionary', del: del });
   setTimeout(()=>{ focusCardField(input); }, 60);
 }
-function openAddDictionaryModal(){
+function openAddDictionaryModal(prefillKw){
   const activeCats = CATEGORIES.filter(c=>c.active);
-  if(activeCats.length===0) return; // нема куди прив'язати нове слово
-  showDictionaryModal('Нове слово словника:', '', activeCats[0].name, null, async function(kw, cat, sub){
+  if(activeCats.length===0){ showAlertModal('Спершу додайте категорію: слово словника веде до категорії.'); return; } // Rev 2.32.50 (S3): пояснення замість мовчазного виходу
+  showDictionaryModal('Нове слово словника:', typeof prefillKw === 'string' ? prefillKw : '', activeCats[0].name, null, async function(kw, cat, sub){
     // Rev 2.22.80 (6D.153, Крок A2) — ігноруємо tombstone-записи: інакше
     // раніше видалене слово не можна було б додати знову.
     if(DICTIONARY.some(d=>d.kw===kw && !d.deletedAt)) return false;
@@ -21489,7 +21593,10 @@ function openAddDictionaryModal(){
     // ensureDictionaryIdentity()) — див. докоментар там.
     DICTIONARY.push({id: generateUUID(), kw, cat, sub, createdAt: nowISO, updatedAt: nowISO});
     reportSaveResult(await saveDictionary());
+    structDict.query = ''; const si = document.getElementById('fldstr2'); if(si) si.value = '';
+    structDict.openId = cat; // Rev 2.32.50 (S3): група нового слова розкривається
     renderStructure();
+    const g = structDictGroupEl(cat); if(g){ g.classList.add('open'); const hd = g.querySelector('.struct-dict-head'); hd.setAttribute('aria-expanded', 'true'); try{ hd.scrollIntoView({ block: 'nearest' }); }catch(e){} }
   });
 }
 // Rev 2.22.79 (6D.152) — адресація за id замість позиції в масиві (докоментар
@@ -21507,7 +21614,7 @@ function editDictionaryEntry(id){
     entry.updatedAt = new Date().toISOString();
     reportSaveResult(await saveDictionary());
     renderStructure();
-  });
+  }, { label: 'Видалити слово', note: 'Слово більше не підставлятиме категорію. Видалене слово потрапляє у «Видалені дані».', onDelete: function(){ deleteDictionaryEntry(id); } }); // Rev 2.32.50 (S3): видалення — усередині шторки
 }
 // Rev 2.1.28 — на відміну від категорій/підкатегорій, запис словника раніше
 // видалявся ФІЗИЧНО (без active-прапорця) — обґрунтування "нічого не
