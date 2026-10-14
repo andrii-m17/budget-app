@@ -333,6 +333,8 @@
   @media (prefers-reduced-motion: reduce){ .success-toast{ animation:stFade var(--motion-s) ease both; } .success-toast.leaving{ transform:none; } .success-toast-icon circle, .success-toast-icon path{ animation:none; stroke-dashoffset:0; } }
   .update-banner button{ border:0; background:var(--color-primary); color:#fff; font:inherit; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
   .page-header-text h1{ margin:0; font-size:21px; line-height:27px; font-weight:700; letter-spacing:-.01em; }
+  /* Rev 2.32.48 (S1): підзаголовок в один рядок по центру екрана під рядом кнопок (ширина не обмежена відступами під кнопки шапки) */
+  @media (max-width:1279px){ .page-header-text .page-subtitle{ margin-left:-60px; margin-right:-60px; white-space:nowrap; } }
   .page-header-text .page-subtitle{ margin:3px 0 0; font-size:12.5px; color:var(--color-text-secondary); line-height:1.4; }
   /* Rev 2.11.1 — офлайн-банер: приглушений warning-тон — навмисно НЕ
      error-колір: офлайн — це очікуваний, безпечний стан (дані й далі
@@ -1240,6 +1242,27 @@
   @media (hover:hover) and (pointer:fine){ .struct-tab-btn:hover{ color:var(--color-text-primary); } }
   .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
   .struct-tab-panel.hidden{ display:none; }
+  /* Rev 2.32.48 (S1) — «Структура»: групи в стилі «Налаштувань» (радіус 18, рядок ≥56px, роздільник від відступу плитки, заголовки груп 13px великими вторинним кольором); плитка з емодзі 32px; без олівця й хрестика. */
+  .struct-section{ margin-bottom:22px; }
+  .struct-group-label{ font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--color-text-secondary); margin:0 16px 8px; }
+  .struct-group{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); overflow:hidden; }
+  .struct-row{ position:relative; display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:0 16px; box-sizing:border-box; background:transparent; border:0; font:inherit; font-size:15px; color:var(--color-text-primary); text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .struct-row + .struct-row::before{ content:''; position:absolute; top:0; left:60px; right:0; height:1px; background:var(--color-border); }
+  .struct-tile{ width:32px; height:32px; flex:none; border-radius:10px; background:var(--color-surface-hover); display:flex; align-items:center; justify-content:center; font-size:18px; line-height:1; }
+  .struct-tile.letter{ font-size:14px; font-weight:700; color:var(--color-text-secondary); }
+  .struct-row-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .struct-row-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
+  .struct-row-side{ flex:none; color:var(--color-text-secondary); font-size:15px; }
+  .struct-row.accent{ color:var(--color-primary-text, var(--color-primary)); font-weight:600; }
+  .struct-add-plus{ width:32px; height:32px; flex:none; display:flex; align-items:center; justify-content:center; font-size:22px; line-height:1; }
+  .struct-caption{ font-size:12.5px; line-height:1.4; color:var(--color-text-secondary); margin:8px 16px 0; }
+  .struct-caption.center{ text-align:center; margin-top:10px; }
+  .struct-empty{ display:flex; flex-direction:column; align-items:stretch; }
+  .struct-empty > .submit-btn{ align-self:center; }
+  .struct-empty .struct-section{ margin-top:22px; margin-bottom:0; }
+  .struct-delete-row{ width:100%; min-height:52px; margin-top:6px; background:var(--color-surface-hover); border:0; border-radius:var(--radius-md); font:inherit; font-size:15px; font-weight:600; color:var(--color-error); cursor:pointer; }
+  .app-modal-delete-wrap{ margin-top:14px; }
+
   .struct-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--color-border); font-size:13px; }
   .struct-item:last-child{ border-bottom:none; }
   .struct-item .s-name{ font-weight:600; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -3010,16 +3033,9 @@
         <button type="button" class="struct-tab-btn" id="struct-tab-btn-dictionary" onclick="switchStructureTab('dictionary')">Словник</button>
       </div>
 
+      <!-- Rev 2.32.48 (S1): «Категорії» за макетом — групи за типом у стилі «Налаштувань»; інфо-плашку (i) і заголовок у картці прибрано; редагування/видалення — тап по рядку (видалення всередині шторки) -->
       <div class="struct-tab-panel" id="struct-tab-panel-categories">
-        <div class="info-note">
-          <span class="info-note-icon" aria-hidden="true">i</span>
-          <span>Перейменування чи видалення категорії не зачіпає вже додані витрати.</span>
-        </div>
-        <div class="card">
-          <div class="table-card-title">Категорії</div>
-          <div id="struct-categories"></div>
-          <button type="button" class="add-trigger-btn" onclick="openAddCategoryModal()">+ Додати категорію</button>
-        </div>
+        <div id="struct-categories"></div>
       </div>
 
       <div class="struct-tab-panel hidden" id="struct-tab-panel-subcategories">
@@ -3363,7 +3379,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.47</div>
+  <div class="version-footer">Money Tree · Rev 2.32.48</div>
 </div>
   </div>
 </div>
@@ -3950,6 +3966,11 @@
   <div class="app-modal-select-wrap" id="app-modal-select2-wrap">
     <label id="app-modal-select2-label" for="app-modal-select2"></label>
     <select id="app-modal-select2"></select>
+  </div>
+  <!-- Rev 2.32.48 (S1): «Видалити …» червоним рядком усередині шторки редагування (категорія, підкатегорія, слово) + підпис; показується лише коли виклик передав del -->
+  <div class="app-modal-delete-wrap" id="app-modal-delete-wrap" style="display:none;">
+    <button type="button" class="struct-delete-row" id="app-modal-delete-btn"></button>
+    <div class="struct-caption" id="app-modal-delete-note"></div>
   </div>
   <div class="app-modal-actions">
     <button type="button" class="submit-btn secondary" id="app-modal-cancel-btn" onclick="closeAppModal()">Скасувати</button>
@@ -7761,7 +7782,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.47';
+const APP_VERSION = '2.32.48';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12493,26 +12514,59 @@ function switchStructureTab(tab){
     document.getElementById(`struct-tab-btn-${t}`).classList.toggle('active', t===tab);
   });
 }
+/* ============ Структура: списки в стилі «Налаштувань» (Rev 2.32.48, S1) ============ */
+// Перший емодзі на початку назви → плитка; решта — назва. Без емодзі: emoji = '' (плитка з першою літерою).
+function splitLeadingEmoji(name){
+  const str = String(name == null ? '' : name);
+  const m = str.match(/^(?:\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}])*)/u);
+  if(!m) return { emoji: '', text: str.trim() };
+  return { emoji: m[0], text: str.slice(m[0].length).trim() || str.trim() };
+}
+const STRUCT_TYPE_GROUPS = [{ type: "Обов'язкова", label: "Обов'язкові" }, { type: 'Гнучка', label: 'Гнучкі' }, { type: 'Скорочувана', label: 'Скорочувані' }];
+// Групи за типом: «Обов'язкові», «Гнучкі», «Скорочувані»; порожні типи не повертаються; відносний порядок усередині типу зберігається.
+function groupCategoriesByType(cats){
+  return STRUCT_TYPE_GROUPS.map(function(g){ return { type: g.type, label: g.label, items: (cats || []).filter(function(c){ return c.type === g.type; }) }; }).filter(function(g){ return g.items.length; });
+}
+function structTileHtml(name){
+  const sp = splitLeadingEmoji(name);
+  const inner = sp.emoji ? escapeHtml(sp.emoji) : escapeHtml((sp.text.charAt(0) || '?').toUpperCase());
+  return '<span class="struct-tile' + (sp.emoji ? '' : ' letter') + '" aria-hidden="true">' + inner + '</span>';
+}
+const STRUCT_CHEVRON_SVG = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>';
+function structRowHtml(name, onclick, label){
+  const sp = splitLeadingEmoji(name);
+  return '<button type="button" class="struct-row" onclick="' + onclick + '" aria-label="' + escapeAttr(label + ' ' + sp.text) + '">' + structTileHtml(name) + '<span class="struct-row-name">' + escapeHtml(sp.text) + '</span><span class="struct-row-chev">' + STRUCT_CHEVRON_SVG + '</span></button>';
+}
+// Група «Додати …» із підписом під нею (є в усіх станах: порожньо, один елемент, багато).
+function structAddGroupHtml(label, onclick, caption){
+  return '<div class="struct-section"><div class="struct-group"><button type="button" class="struct-row accent" onclick="' + onclick + '"><span class="struct-add-plus" aria-hidden="true">+</span><span class="struct-row-name">' + escapeHtml(label) + '</span></button></div><div class="struct-caption">' + escapeHtml(caption) + '</div></div>';
+}
+const STRUCT_CAPTION_CAT = 'Торкніться рядка, щоб змінити або видалити. Зміни не зачіпають вже додані витрати.';
+const STRUCT_CAPTION_CAT_EMPTY = 'Витрати можна вносити й без категорії. Зміни не зачіпають вже додані витрати.';
+function structEmptyHtml(title, sub, btnLabel, onclick, caption, extra){
+  return '<div class="struct-empty"><div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="es-title">' + escapeHtml(title) + '</div><div class="es-sub">' + escapeHtml(sub) + '</div></div><button type="button" class="submit-btn pill" onclick="' + onclick + '">' + escapeHtml(btnLabel) + '</button><div class="struct-caption center">' + escapeHtml(caption) + '</div>' + (extra || '') + '</div>';
+}
+function renderStructureCategories(){
+  const catEl = document.getElementById('struct-categories');
+  if(!catEl) return;
+  const activeCats = CATEGORIES.map(function(c, i){ return Object.assign({ idx: i }, c); }).filter(function(c){ return c.active; });
+  const deletedN = CATEGORIES.filter(function(c){ return !c.active; }).length;
+  if(!activeCats.length){
+    const trashRow = deletedN ? '<div class="struct-section"><div class="struct-group"><button type="button" class="struct-row" onclick="structOpenTrash()"><span class="struct-row-name">Видалені дані</span><span class="struct-row-side">' + deletedN + '</span><span class="struct-row-chev">' + STRUCT_CHEVRON_SVG + '</span></button></div></div>' : '';
+    catEl.innerHTML = structEmptyHtml('Категорій ще немає', 'Категорії групують витрати. Додайте першу або поверніть видалені.', 'Додати категорію', 'openAddCategoryModal()', STRUCT_CAPTION_CAT_EMPTY, trashRow);
+    return;
+  }
+  const parts = groupCategoriesByType(activeCats).map(function(g){
+    return '<div class="struct-section"><div class="struct-group-label">' + escapeHtml(g.label) + '</div><div class="struct-group">' + g.items.map(function(c){ return structRowHtml(c.name, 'editCategory(' + c.idx + ')', 'Категорія'); }).join('') + '</div></div>';
+  });
+  parts.push(structAddGroupHtml('Додати категорію', 'openAddCategoryModal()', STRUCT_CAPTION_CAT));
+  catEl.innerHTML = parts.join('');
+}
+function structOpenTrash(){ performSwitchTab('service'); openTrashScreen(); }
 function renderStructure(){
   const catEl = document.getElementById('struct-categories');
   if(!catEl) return;
-  const roleClass = t => t==="Обов'язкова" ? 'role-obligatory' : (t==='Скорочувана' ? 'role-reducible' : 'role-flexible');
-  // Rev 2.1.26 — показуємо лише активні категорії (видалені зникають зі
-  // списку керування — історичні записи витрат це не зачіпає, дивись
-  // deleteCategory()). Індекс у CATEGORIES передаємо як idx, щоб edit/delete
-  // працювали з правильним записом навіть після фільтрації по active.
-  const activeCats = CATEGORIES.map((c,i)=>Object.assign({idx:i}, c)).filter(c=>c.active);
-  catEl.innerHTML = activeCats.length ? activeCats.map(c=>`
-    <div class="struct-item">
-      <span class="s-name">${escapeHtml(c.name)}</span>
-      <span class="badge ${roleClass(c.type)}">${escapeHtml(c.type)}</span>
-      <span class="bdr-actions">
-        <button type="button" class="bdr-icon-btn" onclick="editCategory(${c.idx})" aria-label="Редагувати категорію"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
-        <button type="button" class="bdr-icon-btn danger" onclick="deleteCategory(${c.idx})" aria-label="Видалити категорію"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-      </span>
-    </div>
-  `).join('') : `<div class="empty-hint">Немає активних категорій</div>`;
-
+  renderStructureCategories(); // Rev 2.32.48 (S1): нові «Категорії»; підкатегорії й словник — нижче без змін до S2/S3
   const subEl = document.getElementById('struct-subcategories');
   const activeSubs = SUBCATEGORIES.map((s,i)=>Object.assign({idx:i}, s)).filter(s=>s.active);
   subEl.innerHTML = activeSubs.length ? activeSubs.map(s=>`
@@ -14300,7 +14354,7 @@ function editCategory(i){
     reportSaveResult(await saveCategories());
     populateMonths(); renderAll(); renderStructure(); populateCategorySelect();
     afterRenameSync(renamedCount); // Rev 2.32.24 (R)
-  });
+  }, { label: 'Видалити категорію', note: 'Витрати цієї категорії не видаляються. Видалена категорія потрапляє у «Видалені дані».', onDelete: function(){ deleteCategory(i); } }); // Rev 2.32.48 (S1): видалення — усередині шторки
 }
 // Rev 2.1.26 — видалення категорії: SOFT-delete (active:false), а не фізичне
 // видалення з масиву — старі записи витрат і так зберігають назву як текст
@@ -17571,16 +17625,16 @@ function pressEndAllTouch(e){
 const BUTTON_VARIANT_MAP = {
   primary: ['submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn', 'mono-primary'],
   secondary: ['add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
-  text: ['mono-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
+  text: ['mono-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
   icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip'],
-  row: ['mono-row', 'notif-row', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
+  row: ['mono-row', 'notif-row', 'struct-row', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
-const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x'];
+const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent'];
 // className → variant (або null). parentClassName — клас контейнера для безкласових кнопок (.n-days > button = chip; .tabbar-glass > button = reference).
 function buttonVariantOf(className, parentClassName){
   const cls = String(className || '').split(/\s+/).filter(Boolean);
@@ -17869,7 +17923,7 @@ const TAB_META = {
   analytics: { title:'Аналітика', subtitle: m => `Ваш фінансовий стан на ${m}`, showMonthPill:true },
   accounting: { title:'Облік', subtitle: m => `Дохід, борги та ОЧ за ${m}`, showMonthPill:true },
   vytraty: { title:'Витрати', subtitle: () => 'Додавання витрат і журнал усіх записів', showMonthPill:false },
-  structure: { title:'Структура', subtitle: () => 'Категорії, підкатегорії та словник автоматизації', showMonthPill:false },
+  structure: { title:'Структура', subtitle: () => 'Категорії, підкатегорії, автопідбір', showMonthPill:false }, // Rev 2.32.48 (S1): коротший підзаголовок — в один рядок
   service: { title:'Сервіс', subtitle: () => 'Резервні копії, імпорт та експорт Excel', showMonthPill:false },
 };
 function updatePageHeader(tab){
@@ -21205,7 +21259,17 @@ function closeAppModal(){
 // за вміст усередині них (текст/опції/onclick — і далі в кожній функції
 // окремо) чи за поведінку кнопок (showAlertModal/showDiagnosticsModal
 // самі ховають/перейменовують кнопки — до цього helper не торкається).
-function presentAppModal({ input = false, amount = false, select = false, select2 = false, sheetId = null } = {}){
+function setAppModalDelete(del){
+  const wrap = document.getElementById('app-modal-delete-wrap');
+  if(!wrap) return;
+  if(!del){ wrap.style.display = 'none'; return; }
+  document.getElementById('app-modal-delete-btn').textContent = del.label;
+  document.getElementById('app-modal-delete-note').textContent = del.note || '';
+  document.getElementById('app-modal-delete-btn').onclick = function(){ closeAppModal(); del.onDelete(); }; // діалог підтвердження з підрахунком залежних лишається як було
+  wrap.style.display = 'block';
+}
+function presentAppModal({ input = false, amount = false, select = false, select2 = false, sheetId = null, del = null } = {}){
+  setAppModalDelete(del); // Rev 2.32.48 (S1)
   // Rev 2.32.10 (C): sheetId — ідентифікатор картки введення для клавіатурної логіки/рекордера (лише для карток з полями).
   const modalEl = document.getElementById('app-modal');
   if(sheetId) modalEl.setAttribute('data-sheet-id', sheetId); else modalEl.removeAttribute('data-sheet-id');
@@ -21303,7 +21367,7 @@ function showMonthPickerModal(message, months, defaultMonth, onConfirm){
 // тексту лейбла явне в обох функціях (щоб не лишався текст з попереднього
 // відкриття іншого типу модалки).
 const CATEGORY_TYPES = ["Обов'язкова", "Гнучка", "Скорочувана"];
-function showCategoryModal(title, defaultName, defaultType, onSave){
+function showCategoryModal(title, defaultName, defaultType, onSave, del){ // Rev 2.32.48 (S1): del — { label, note, onDelete } для редагування
   document.getElementById('app-modal-text').textContent = title;
   document.getElementById('app-modal-select-label').textContent = 'Тип категорії';
   const input = document.getElementById('app-modal-input');
@@ -21327,7 +21391,7 @@ function showCategoryModal(title, defaultName, defaultType, onSave){
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  presentAppModal({ input: true, select: true, sheetId: 'sheet-category' });
+  presentAppModal({ input: true, select: true, sheetId: 'sheet-category', del: del });
   setTimeout(()=>{ focusCardField(input); }, 60);
 }
 // Rev 2.1.27 — модалка додавання/редагування підкатегорії: назва + категорія
