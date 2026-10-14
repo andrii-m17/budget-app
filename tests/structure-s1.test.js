@@ -37,7 +37,8 @@ test('охоронні: підпис під «Додати категорію» 
   assert.match(SRC, /Витрати можна вносити й без категорії\. Зміни не зачіпають вже додані витрати\./);
   assert.match(SRC, /deletedN \? '<div class="struct-section">/);
   assert.match(SRC, /label: 'Видалити категорію', note: 'Витрати цієї категорії не видаляються\. Видалена категорія потрапляє у «Видалені дані»\.', onDelete: function\(\)\{ deleteCategory\(i\); \}/);
-  assert.match(SRC, /function presentAppModal\(\{[^}]*del = null \} = \{\}\)\{\n  setAppModalDelete\(del\);/);
+  const pm = SRC.slice(SRC.indexOf('function presentAppModal('), SRC.indexOf('function presentAppModal(') + 1400);
+  assert.match(pm, /del = null/); assert.match(pm, /setAppModalDelete\(del\);/);
 });
 test('охоронні: рядки екрановані; видалення останньої категорії не заборонено; нових полів вводу немає', function(){
   const fn = SRC.slice(SRC.indexOf('function structTileHtml'), SRC.indexOf('function structOpenTrash'));

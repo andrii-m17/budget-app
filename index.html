@@ -1262,6 +1262,23 @@
   .struct-empty .struct-section{ margin-top:22px; margin-bottom:0; }
   .struct-delete-row{ width:100%; min-height:52px; margin-top:6px; background:var(--color-surface-hover); border:0; border-radius:var(--radius-md); font:inherit; font-size:15px; font-weight:600; color:var(--color-error); cursor:pointer; }
   .app-modal-delete-wrap{ margin-top:14px; }
+  /* Rev 2.32.51 (S4) — шторки «Структури» (категорія, підкатегорія, слово) за макетом 4: рядок навігації («Скасувати» ліворуч, назва по центру, «Зберегти» праворуч акцентним), група з полем, сегменти типу, нативні select 56px, «Видалити …» червоним рядком із підписом. ЛИШЕ під модифікатором .app-modal--sheet — Облік, картки й ОЧ не зачеплені; id полів, kb-класи, проміжне поле й логіку клавіатури не чіпали (змінено лише CSS-розкладку всередині шторки). */
+  html:root .app-modal.app-modal--sheet{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"cancel title save" "body body body"; align-items:center; column-gap:8px; padding:12px 16px 20px; }
+  .app-modal--sheet > *{ grid-column:1 / -1; }
+  .app-modal--sheet .app-modal-text{ grid-area:title; margin:0; text-align:center; font-size:16px; font-weight:700; line-height:1.25; white-space:normal; }
+  .app-modal--sheet .app-modal-actions{ display:contents; }
+  html:root #app-modal.app-modal--sheet .app-modal-actions .submit-btn{ background:none; box-shadow:none; border:0; border-radius:0; min-height:44px; padding:0 4px; width:auto; flex:none; font-size:16px; }
+  html:root #app-modal.app-modal--sheet #app-modal-cancel-btn{ grid-area:cancel; justify-self:start; color:var(--color-text-secondary); font-weight:400; }
+  html:root #app-modal.app-modal--sheet #app-modal-confirm-btn{ grid-area:save; justify-self:end; color:var(--color-primary-text, var(--color-primary)); font-weight:700; }
+  .app-modal--sheet .app-modal-notice{ margin:10px 0 0; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-warning-bg); color:var(--color-text-primary); font-size:13.5px; line-height:1.4; }
+  .app-modal--sheet .app-modal-input-wrap{ margin:14px 0 0; }
+  .app-modal--sheet .app-modal-input-wrap::before{ content:attr(data-label); display:block; font-size:13px; letter-spacing:.04em; text-transform:uppercase; color:var(--color-text-secondary); margin:0 4px 8px; }
+  html:root .app-modal--sheet .app-modal-input-wrap input{ height:56px; box-sizing:border-box; line-height:1.35; }
+  .app-modal--sheet .app-modal-seg-wrap{ margin:14px 0 0; }
+  .app-modal--sheet .app-modal-seg-wrap .struct-tabs{ margin-bottom:0; }
+  .app-modal--sheet .app-modal-select-wrap{ margin:14px 0 0; }
+  html:root .app-modal--sheet .app-modal-select-wrap select{ height:56px; min-height:56px; padding:14px 36px 14px 12px; line-height:1.35; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%238a8f98' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; background-size:12px 8px; }
+  .app-modal--sheet .app-modal-delete-wrap{ margin-top:18px; }
   /* Rev 2.32.50 (S3) — «Словник»: групи-акордеон за категорією, пошук. Варіанти анімації (тест structure-accordion): b — шеврон 200мс + проявлення рядків 160мс, висота миттєво; c — анімована висота (grid-template-rows 240мс) лише як свідомий виняток тесту. */
   .struct-search-wrap{ margin:0 0 14px; }
   .struct-search{ width:100%; height:44px; box-sizing:border-box; padding:0 14px; border:1.5px solid var(--color-border-strong); border-radius:var(--ui-r-control, 14px); background:var(--ui-glass, var(--color-surface)); color:var(--color-text-primary); font-size:16px; -webkit-appearance:none; appearance:none; }
@@ -3390,7 +3407,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.50</div>
+  <div class="version-footer">Money Tree · Rev 2.32.51</div>
 </div>
   </div>
 </div>
@@ -3961,12 +3978,18 @@
 <div class="drawer-backdrop" id="modal-backdrop" onclick="closeAppModal()" inert></div>
 <div class="app-modal" id="app-modal" role="dialog" aria-modal="true" inert>
   <div class="app-modal-text" id="app-modal-text"></div>
+  <!-- Rev 2.32.51 (S4): повідомлення-підтвердження (кількість витрат при перейменуванні) у шторці «Структури» — окремим рядком, бо в заголовку по центру воно б не вмістилось -->
+  <div class="app-modal-notice" id="app-modal-notice" style="display:none;" role="status"></div>
   <div class="app-modal-input-wrap" id="app-modal-input-wrap">
     <input type="text" id="app-modal-input" autocomplete="off" aria-labelledby="app-modal-text">
   </div>
   <div class="app-modal-amount-wrap" id="app-modal-amount-wrap">
     <label for="app-modal-amount-input" id="app-modal-amount-label">Початкова сума</label>
     <input type="text" id="app-modal-amount-input" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+  </div>
+  <!-- Rev 2.32.51 (S4): тип категорії сегментами «Обов'язкова / Гнучка / Скорочувана» (значення зберігає прихований select нижче) -->
+  <div class="app-modal-seg-wrap" id="app-modal-seg-wrap" style="display:none;">
+    <div class="struct-tabs" id="app-modal-seg" role="tablist" aria-label="Тип категорії"></div>
   </div>
   <div class="app-modal-select-wrap" id="app-modal-select-wrap">
     <label id="app-modal-select-label" for="app-modal-select">Приховати з місяця</label>
@@ -7793,7 +7816,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.50';
+const APP_VERSION = '2.32.51';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14427,7 +14450,7 @@ function editCategory(i){
     const oldName = cat.name;
     if(newName !== oldName){
       const activeN = countActiveWithName(expenses, 'category', oldName);
-      if(activeN > 0 && renameAsked !== newName){ renameAsked = newName; document.getElementById('app-modal-text').textContent = renameConfirmText(activeN); return false; }
+      if(activeN > 0 && renameAsked !== newName){ renameAsked = newName; setAppModalNotice(renameConfirmText(activeN)); return false; }
       const stampNow = new Date().toISOString();
       renamedCount = renameRecordsStamp(expenses, 'category', oldName, stampNow);
       expenses.forEach(function(e){ if(e.category===oldName) e.category = newName; });
@@ -14538,7 +14561,7 @@ function editSubcategory(i){
     const oldName = sub.name;
     if(newName !== oldName){
       const activeN = countActiveWithName(expenses, 'subcategory', oldName);
-      if(activeN > 0 && renameAsked !== newName){ renameAsked = newName; document.getElementById('app-modal-text').textContent = renameConfirmText(activeN); return false; }
+      if(activeN > 0 && renameAsked !== newName){ renameAsked = newName; setAppModalNotice(renameConfirmText(activeN)); return false; }
       renamedCount = renameRecordsStamp(expenses, 'subcategory', oldName, new Date().toISOString());
       expenses.forEach(function(e){ if(e.subcategory===oldName) e.subcategory = newName; });
       reportSaveResult(await saveExpenses());
@@ -21378,7 +21401,31 @@ function setAppModalDelete(del){
   document.getElementById('app-modal-delete-btn').onclick = function(){ closeAppModal(); del.onDelete(); }; // діалог підтвердження з підрахунком залежних лишається як було
   wrap.style.display = 'block';
 }
-function presentAppModal({ input = false, amount = false, select = false, select2 = false, sheetId = null, del = null } = {}){
+// Rev 2.32.51 (S4): сегменти типу категорії (синхронізують прихований select) і повідомлення-підтвердження
+function setAppModalSeg(opts){
+  const wrap = document.getElementById('app-modal-seg-wrap'), seg = document.getElementById('app-modal-seg');
+  if(!wrap || !seg) return;
+  if(!opts){ wrap.style.display = 'none'; seg.textContent = ''; return; }
+  seg.textContent = '';
+  opts.items.forEach(function(t){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'struct-tab-btn' + (t === opts.value ? ' active' : ''); b.textContent = t; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', t === opts.value ? 'true' : 'false');
+    b.addEventListener('click', function(){ opts.onPick(t); seg.querySelectorAll('.struct-tab-btn').forEach(function(x){ const on = x === b; x.classList.toggle('active', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); }); });
+    seg.appendChild(b);
+  });
+  wrap.style.display = 'block';
+}
+function setAppModalNotice(text){
+  const n = document.getElementById('app-modal-notice');
+  const sheet = document.getElementById('app-modal').classList.contains('app-modal--sheet');
+  if(sheet && n){ n.textContent = text; n.style.display = 'block'; } else document.getElementById('app-modal-text').textContent = text;
+}
+function presentAppModal({ input = false, amount = false, select = false, select2 = false, sheetId = null, del = null, sheet = false, seg = null, inputLabel = '' } = {}){
+  // Rev 2.32.51 (S4): sheet — оформлення шторки «Структури» (модифікатор .app-modal--sheet лише для її викликів; Облік, картки й ОЧ не зачеплені)
+  const mEl = document.getElementById('app-modal');
+  mEl.classList.toggle('app-modal--sheet', !!sheet);
+  const notice = document.getElementById('app-modal-notice'); if(notice){ notice.style.display = 'none'; notice.textContent = ''; }
+  setAppModalSeg(seg);
+  document.getElementById('app-modal-input-wrap').setAttribute('data-label', inputLabel);
   setAppModalDelete(del); // Rev 2.32.48 (S1)
   // Rev 2.32.10 (C): sheetId — ідентифікатор картки введення для клавіатурної логіки/рекордера (лише для карток з полями).
   const modalEl = document.getElementById('app-modal');
@@ -21478,7 +21525,7 @@ function showMonthPickerModal(message, months, defaultMonth, onConfirm){
 // відкриття іншого типу модалки).
 const CATEGORY_TYPES = ["Обов'язкова", "Гнучка", "Скорочувана"];
 function showCategoryModal(title, defaultName, defaultType, onSave, del){ // Rev 2.32.48 (S1): del — { label, note, onDelete } для редагування
-  document.getElementById('app-modal-text').textContent = title;
+  document.getElementById('app-modal-text').textContent = title.replace(/:$/, ''); // Rev 2.32.51 (S4): заголовок шторки по центру — без двокрапки
   document.getElementById('app-modal-select-label').textContent = 'Тип категорії';
   const input = document.getElementById('app-modal-input');
   input.value = defaultName || '';
@@ -21501,7 +21548,8 @@ function showCategoryModal(title, defaultName, defaultType, onSave, del){ // Rev
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  presentAppModal({ input: true, select: true, sheetId: 'sheet-category', del: del });
+  const segOpts = { items: CATEGORY_TYPES, value: select.value, onPick: function(t){ select.value = t; } };
+  presentAppModal({ input: true, select: false, sheetId: 'sheet-category', del: del, sheet: true, inputLabel: 'Назва', seg: segOpts }); // Rev 2.32.51 (S4): тип — сегментами (select лишається джерелом значення)
   setTimeout(()=>{ focusCardField(input); }, 60);
 }
 // Rev 2.1.27 — модалка додавання/редагування підкатегорії: назва + категорія
@@ -21513,7 +21561,7 @@ const SUBCATEGORY_PRIORITY_OPTIONS = [
   {label:'Низький', score:0.25, color:'success'},
 ];
 function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriorityLabel, onSave, del){ // Rev 2.32.49 (S2): del — { label, note, onDelete } для редагування
-  document.getElementById('app-modal-text').textContent = title;
+  document.getElementById('app-modal-text').textContent = title.replace(/:$/, ''); // Rev 2.32.51 (S4)
   document.getElementById('app-modal-select-label').textContent = 'Категорія';
   const input = document.getElementById('app-modal-input');
   input.value = defaultName || '';
@@ -21538,7 +21586,7 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-subcategory', del: del });
+  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-subcategory', del: del, sheet: true, inputLabel: 'Назва' }); // Rev 2.32.51 (S4)
   setTimeout(()=>{ focusCardField(input); }, 60);
 }
 // Rev 2.1.28 — модалка додавання/редагування слова словника: ключове слово +
@@ -21547,7 +21595,7 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
 // від обраної категорії й перебудовується на onchange першого (той самий
 // патерн, що onCategoryChange() у формі "Нова витрата").
 function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave, del){ // Rev 2.32.50 (S3): del — { label, note, onDelete } для редагування
-  document.getElementById('app-modal-text').textContent = title;
+  document.getElementById('app-modal-text').textContent = title.replace(/:$/, ''); // Rev 2.32.51 (S4)
   document.getElementById('app-modal-select-label').textContent = 'Категорія';
   const input = document.getElementById('app-modal-input');
   input.value = defaultKw || '';
@@ -21576,7 +21624,7 @@ function showDictionaryModal(title, defaultKw, defaultCat, defaultSub, onSave, d
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-dictionary', del: del });
+  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-dictionary', del: del, sheet: true, inputLabel: 'Слово' }); // Rev 2.32.51 (S4)
   setTimeout(()=>{ focusCardField(input); }, 60);
 }
 function openAddDictionaryModal(prefillKw){
