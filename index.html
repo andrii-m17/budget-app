@@ -3479,7 +3479,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.69</div>
+  <div class="version-footer">Money Tree · Rev 2.32.70</div>
 </div>
   </div>
 </div>
@@ -8011,7 +8011,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.69';
+const APP_VERSION = '2.32.70';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8567,6 +8567,17 @@ function ppModeAmount(values){
   list.forEach(function(v){ if(counts[v] >= bestCount){ bestCount = counts[v]; best = v; } });
   return best;
 }
+// Rev 2.32.70 — оцінка очікуваного платежу ОЧ для картки «Найближчі платежі»: history — платежі від НОВІШИХ до СТАРІШИХ (null і ≤ 0 ігноруються). Два найновіші однакові → це значення (оцінка не відстає після зміни суми: 5000, 5000, 6000, 6000, 6000 → 5000); інакше мода найновіших до 6 значень, при рівності виграє новіше; немає історії → null. typicalMonthlyPayment і розрахунок залишків не змінюються.
+function expectedPaymentForCard(history){
+  const v = (history || []).filter(function(x){ return x != null && x > 0; });
+  if(!v.length) return null;
+  if(v.length >= 2 && v[0] === v[1]) return v[0];
+  const list = v.slice(0, 6);
+  const counts = {}; list.forEach(function(x){ counts[x] = (counts[x] || 0) + 1; });
+  let best = list[0], bestCount = 0;
+  list.forEach(function(x){ if(counts[x] > bestCount){ bestCount = counts[x]; best = x; } }); // від новіших: суворе «>» — при рівності лишається новіше
+  return best;
+}
 function upcomingPayments(opts){
   const o = opts || {};
   const today = o.today, horizon = o.horizonDays || 7;
@@ -8599,7 +8610,7 @@ function upcomingPayments(opts){
       if(rec){ amount = rec.monthlyPayment; }
       else{
         const prev = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month < month && d.monthlyPayment != null; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).map(function(d){ return d.monthlyPayment; });
-        const mode = ppModeAmount(prev);
+        const mode = expectedPaymentForCard(prev.slice().reverse()); // Rev 2.32.70: prev хронологічно → нові спершу
         if(mode != null){ amount = mode; estimated = true; }
       }
       place({ kind: 'installment', name: inst.name, date: ppClampDate(month, inst.dueDay), month: month, amount: amount, estimated: estimated });
