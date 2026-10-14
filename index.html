@@ -1357,7 +1357,29 @@
   .mono-switch > span{ position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,.3); transition:transform .2s; }
   .mono-switch[aria-checked="true"] > span{ transform:translateX(20px); }
   /* Rev 2.32.28 (MB-4) — «Вхідні» Monobank: другий підекран (над «Monobank»), рядки в розмітці Журналу (.expense-row-swipe), мітка «з банку». */
-  .mono-inbox-screen{ z-index:20; }
+  .mono-inbox-screen{ z-index:19; } /* Rev 2.32.38 (B): було 20 = z-index таббара, а екран іде в DOM після нього й перекривав таббар; 19 + порядок у DOM → над «Monobank», під таббаром */
+  /* Rev 2.32.38 (B) — дзвіночок і архів сповіщень. Рядок: іконка за типом, заголовок, текст, час (без крапок). Непрочитані: заголовок основним кольором, напівжирний (600), текст яскравіший, іконка повної яскравості; прочитані: вторинний сірий, звичайний шрифт (400), іконка приглушена (~0,5). */
+  .gear-btn.notif-bell-btn{ position:relative; overflow:visible; }
+  .gear-btn.notif-bell-btn::after{ content:''; position:absolute; inset:-4px; } /* зона дотику 44×44 при візуальних 36×36, як у шестерні поруч */
+  .notif-bell-count{ position:absolute; top:-5px; right:-5px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:var(--color-error); color:#fff; font-size:11px; font-weight:700; line-height:18px; text-align:center; border:2px solid var(--color-bg); font-variant-numeric:tabular-nums; }
+  .notif-bell-count.hidden{ display:none; }
+  .notif-archive-top-action{ position:absolute; right:0; top:0; height:48px; display:flex; align-items:center; }
+  .notif-readall{ background:none; border:0; font:inherit; font-size:15px; font-weight:600; color:var(--color-primary-text, var(--color-primary)); cursor:pointer; min-height:44px; padding:0 4px; }
+  .notif-readall:disabled{ opacity:.4; cursor:default; }
+  .notif-row{ display:flex; align-items:flex-start; gap:12px; width:100%; box-sizing:border-box; padding:12px 16px; background:transparent; border:0; border-top:1px solid var(--color-border); font:inherit; text-align:left; color:var(--color-text-primary); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .notif-row:first-child{ border-top:0; }
+  .notif-row-icon{ width:36px; height:36px; flex:none; border-radius:10px; background:var(--color-surface-hover); display:flex; align-items:center; justify-content:center; color:var(--color-text-secondary); }
+  .notif-row-icon svg{ width:20px; height:20px; }
+  .notif-row-icon .mono-bank-icon{ width:26px; height:26px; }
+  .notif-row-main{ min-width:0; flex:1; display:flex; flex-direction:column; gap:2px; }
+  .notif-row-title{ font-size:15px; font-weight:400; line-height:1.3; color:var(--color-text-secondary); }
+  .notif-row-text{ font-size:14px; line-height:1.35; color:var(--color-text-secondary); overflow-wrap:anywhere; }
+  .notif-row-time{ flex:none; font-size:12.5px; color:var(--color-text-secondary); padding-top:2px; font-variant-numeric:tabular-nums; }
+  .notif-row .notif-row-icon{ opacity:.5; }
+  .notif-row.unread .notif-row-title{ font-weight:600; color:var(--color-text-primary); }
+  .notif-row.unread .notif-row-text{ color:var(--color-text-primary); }
+  .notif-row.unread .notif-row-icon{ opacity:1; }
+
   .mono-inbox-tabs{ margin-bottom:14px; }
   .mono-day{ margin-bottom:18px; }
   .mono-day .expense-row-swipe{ margin-bottom:8px; }
@@ -2516,6 +2538,10 @@
       <span class="avatar-badge" id="profile-avatar-side" style="width:22px; height:22px;" aria-hidden="true"><span class="avatar-face guest" style="font-size:10.5px;"></span></span>
       Профіль
     </button>
+    <button class="side-tab" onclick="openNotifArchive()" id="notif-side-tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      Сповіщення
+    </button>
     <button class="side-tab" onclick="openSettings()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       Налаштування
@@ -2553,10 +2579,12 @@
         </button>
       </div>
       <div class="page-header-buttons">
-        <button class="gear-btn update-btn" id="update-btn-top" onclick="openUpdateModal()" aria-label="Доступне оновлення" style="display:none;">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m6 11 6 6 6-6"/><path d="M4 21h16"/></svg>
-          <span class="update-dot"></span>
+        <!-- Rev 2.32.38 (B): кругла іконка «Доступне оновлення» (#update-btn-top) прибрана з шапки за рішенням користувача — оновлення пропонує спливаюче повідомлення з кнопкою «Оновити»; на її місці дзвіночок. Бічна кнопка (desktop) лишається. -->
+        <button class="gear-btn notif-bell-btn" id="notif-bell-btn" onclick="openNotifArchive()" aria-label="Сповіщення">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="notif-bell-count hidden" id="notif-bell-count" aria-hidden="true"></span>
         </button>
+        <!-- Rev 2.32.38 (B): дзвіночок зліва від шестерні -->
         <button class="gear-btn" onclick="openSettings()" aria-label="Налаштування">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
@@ -3344,7 +3372,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.37</div>
+  <div class="version-footer">Money Tree · Rev 2.32.38</div>
 </div>
   </div>
 </div>
@@ -3400,6 +3428,21 @@
       <div class="mono-title">Monobank</div>
     </div>
     <div id="mono-body"></div>
+  </div>
+</div>
+
+<!-- ================= Архів сповіщень (Rev 2.32.38, B) ================= -->
+<div class="mono-screen hidden" id="notif-archive-screen" role="region" aria-label="Сповіщення" inert>
+  <div class="mono-inner">
+    <div class="mono-top">
+      <button type="button" class="mono-back" onclick="closeNotifArchive()" aria-label="Назад">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>Назад</span>
+      </button>
+      <div class="mono-title">Сповіщення</div>
+      <div class="notif-archive-top-action"><button type="button" class="notif-readall" id="notif-readall-btn" onclick="markAllNotificationsRead()">Прочитати всі</button></div>
+    </div>
+    <div id="notif-archive-body"></div>
   </div>
 </div>
 
@@ -7730,7 +7773,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.37';
+const APP_VERSION = '2.32.38';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8632,6 +8675,7 @@ async function applyCloudSession(session){
       // підтягнуті, перш ніж їх пушити й звіряти з переписом.
       await syncNameDomainsOnConnect();
       refreshMonoNewCount(); // Rev 2.32.28 (MB-4): лічильник нових операцій Monobank
+      refreshNotifUnread(); setupNotifRealtime(); // Rev 2.32.38 (B): лічильник дзвіночка + Realtime
       autoSyncStale('start'); // Rev 2.32.21 (O): офлайн-записи минулої сесії відправляються при вході/старті
       // Rev #30 (6D.56) — Realtime-підписка: той самий "один раз на
       // sign-in transition" принцип, що весь початковий pull-ланцюжок вище.
@@ -8663,6 +8707,7 @@ async function applyCloudSession(session){
     // канал і далі отримував би events по СТАРІЙ сім'ї (чи взагалі не мав би
     // сенсу без сесії).
     teardownRealtimeSync();
+    teardownNotifRealtime(); // Rev 2.32.38 (B)
   }
   renderProfileUI();
 }
@@ -10264,6 +10309,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.28.1 (C) — input-attrs-audit: inputsTotal, inputsBad (порушників), badIds (їхні id — лише ідентифікатори полів, не дані).
   'inputsTotal', 'inputsBad', 'badIds',
   'matched', // Rev 2.32.35 (K): mono-keyword
+  'unread', 'opened', 'markedAll', 'cleared', // Rev 2.32.38 (B): notif-archive
   'fieldsCount', 'fields', // Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень)
   'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnSmallExempt', 'btnLowContrast', 'btnLowContrastRow', 'lowContrastRowClasses', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
   // Rev 2.31.1 (C) — trash-swipe-close: ms (тривалість жесту), dx (зсув вправо, px).
@@ -17659,12 +17705,12 @@ function pressEndAllTouch(e){
 const BUTTON_VARIANT_MAP = {
   primary: ['submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn', 'mono-primary'],
   secondary: ['add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
-  text: ['mono-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'bdr-diff-apply', 'journal-empty-reset'],
+  text: ['mono-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
-  icon: ['drawer-close', 'gear-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-edit-cat', 'exp-del'],
+  icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-edit-cat', 'exp-del'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip'],
-  row: ['mono-row', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
+  row: ['mono-row', 'notif-row', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
@@ -19591,6 +19637,180 @@ async function monoDetailIgnore(){
   installEdgeSwipeClose(document.getElementById('mono-inbox-screen'), function(){ return isMonoInboxOpen; }, closeMonoInbox, { blockScroll: false });
   window.addEventListener('online', function(){ refreshMonoNewCount(); if(isMonoInboxOpen) loadMonoInbox().then(renderMonoInbox); });
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') refreshMonoNewCount(); });
+})();
+/* ============ Дзвіночок і архів сповіщень (Rev 2.32.38, B) ============
+   Сервер веде архів user_notifications (30 днів, спільний для пристроїв). Клієнт лише ЧИТАЄ власні рядки й викликає RPC mark_notifications_read / clear_notifications; прямо вставляти чи змінювати не можна. Усі тексти — зовнішні, екрануються. */
+const NOTIF_REMINDER_TYPES = ['daily-expense-reminder', 'monthly-debt-reminder', 'installment-deadline', 'weekly-summary', 'month-end'];
+function notificationIcon(type){
+  if(type === 'mono-inbox') return 'mono';
+  if(type === 'backup-reminder') return 'backup';
+  if(NOTIF_REMINDER_TYPES.indexOf(type) !== -1) return 'reminder';
+  return 'other';
+}
+// «9+» для 10 і більше; порожньо, коли непрочитаних немає.
+function unreadBadge(count){ const n = Number(count) || 0; return n <= 0 ? '' : (n >= 10 ? '9+' : String(n)); }
+// Групи «Сьогодні / Вчора / Раніше» (місцевий час); усередині — від новіших; порожні групи не повертаються.
+function groupNotificationsByDay(rows, now){
+  const n = now ? new Date(now) : new Date();
+  const key = function(d){ return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); };
+  const today = key(n), yesterday = key(new Date(n.getFullYear(), n.getMonth(), n.getDate() - 1));
+  const g = { today: [], yesterday: [], earlier: [] };
+  (rows || []).slice().sort(function(a, b){ return String(b.created_at).localeCompare(String(a.created_at)); }).forEach(function(r){
+    const d = new Date(r.created_at), k = isNaN(d) ? '' : key(d);
+    (k === today ? g.today : k === yesterday ? g.yesterday : g.earlier).push(r);
+  });
+  return [{ key: 'today', label: 'Сьогодні', rows: g.today }, { key: 'yesterday', label: 'Вчора', rows: g.yesterday }, { key: 'earlier', label: 'Раніше', rows: g.earlier }].filter(function(x){ return x.rows.length; });
+}
+// Час у рядку: сьогодні/вчора — «14:32»; раніше — «12 жовтня».
+function notifTimeLabel(iso, now){
+  const d = new Date(iso); if(isNaN(d)) return '';
+  const n = now ? new Date(now) : new Date();
+  const days = Math.round((new Date(n.getFullYear(), n.getMonth(), n.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+  if(days <= 1) return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  return d.getDate() + ' ' + MONO_MONTHS_GEN[d.getMonth()];
+}
+const NOTIF_ICON_SVG = {
+  mono: '<svg class="mono-bank-icon" viewBox="0 0 40 40" aria-hidden="true" focusable="false"><use href="#monoicon"/></svg>',
+  backup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m6 11 6 6 6-6"/><path d="M4 21h16"/></svg>',
+  reminder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  other: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>'
+};
+let notifArchive = { rows: [], loaded: false, offline: false, unread: 0, busy: false };
+let isNotifArchiveOpen = false;
+function updateNotifBell(){
+  const el = document.getElementById('notif-bell-count'), btn = document.getElementById('notif-bell-btn');
+  const t = unreadBadge(notifArchive.unread);
+  if(el){ el.textContent = t; el.classList.toggle('hidden', !t); }
+  if(btn) btn.setAttribute('aria-label', notifArchive.unread > 0 ? 'Сповіщення, непрочитаних: ' + notifArchive.unread : 'Сповіщення');
+  const side = document.getElementById('notif-side-tab');
+  if(side) side.setAttribute('aria-label', btn ? btn.getAttribute('aria-label') : 'Сповіщення');
+}
+// Лічильник непрочитаних (read_at is null): select count, head:true. Офлайн/помилка — лишається останній відомий стан.
+async function refreshNotifUnread(){
+  if(!monoReady()) return;
+  try{
+    const r = await getSupabaseClient().from('user_notifications').select('id', { count: 'exact', head: true }).is('read_at', null);
+    if(!r.error && typeof r.count === 'number'){ notifArchive.unread = r.count; updateNotifBell(); }
+  }catch(e){}
+}
+async function loadNotifArchive(){
+  if(!monoReady()){ notifArchive.loaded = true; notifArchive.offline = true; return; }
+  notifArchive.offline = false;
+  try{
+    const r = await getSupabaseClient().from('user_notifications').select('id,type,title,body,data,created_at,read_at').order('created_at', { ascending: false }).limit(200);
+    if(r.error) throw r.error;
+    notifArchive.rows = r.data || [];
+    notifArchive.loaded = true;
+  }catch(e){ notifArchive.offline = true; notifArchive.loaded = true; }
+}
+function notifRowHtml(row){
+  const type = row.type || (row.data && row.data.type) || '';
+  const unread = !row.read_at;
+  return '<button type="button" class="notif-row' + (unread ? ' unread' : '') + '" data-notif-id="' + escapeAttr(safeId(row.id)) + '">' +
+    '<span class="notif-row-icon">' + NOTIF_ICON_SVG[notificationIcon(type)] + '</span>' +
+    '<span class="notif-row-main"><span class="notif-row-title">' + escapeHtml(row.title || '') + '</span>' + (row.body ? '<span class="notif-row-text">' + escapeHtml(row.body) + '</span>' : '') + '</span>' +
+    '<span class="notif-row-time">' + escapeHtml(notifTimeLabel(row.created_at, new Date())) + '</span></button>';
+}
+function renderNotifArchive(){
+  const body = document.getElementById('notif-archive-body');
+  if(!body) return;
+  const ra = document.getElementById('notif-readall-btn'); if(ra) ra.disabled = !notifArchive.unread;
+  if(!notifArchive.loaded){ body.innerHTML = '<div class="mono-note">Завантаження…</div>'; return; }
+  if(notifArchive.offline && !notifArchive.rows.length){ body.innerHTML = '<div class="mono-note">' + (isCloudSessionReady() ? 'Немає зв\'язку. Архів доступний лише онлайн.' : 'Спершу увійдіть у Cloud (іконка профілю).') + '</div>'; return; }
+  const parts = [];
+  if(!notifArchive.rows.length) parts.push('<div class="mono-note">Сповіщень немає</div>');
+  else groupNotificationsByDay(notifArchive.rows, new Date()).forEach(function(g){
+    parts.push('<div class="mono-section"><div class="mono-group-label">' + escapeHtml(g.label) + '</div><div class="mono-group">' + g.rows.map(notifRowHtml).join('') + '</div></div>');
+  });
+  if(notifArchive.rows.length) parts.push('<div class="mono-section"><div class="mono-group"><button type="button" class="mono-row danger" data-notif-clear="1"><span>Очистити архів</span></button></div></div>');
+  body.innerHTML = parts.join('');
+}
+async function openNotifArchive(){
+  const screen = document.getElementById('notif-archive-screen');
+  if(!screen) return;
+  if(!isNotifArchiveOpen){ lastFocusedBeforeDialog = document.activeElement; lockBackgroundScroll(); }
+  isNotifArchiveOpen = true;
+  notifArchive.loaded = false;
+  renderNotifArchive();
+  screen.classList.remove('hidden'); screen.removeAttribute('inert'); screen.scrollTop = 0;
+  await loadNotifArchive();
+  renderNotifArchive();
+  refreshNotifUnread(); // НЕ позначаємо прочитаним автоматично при відкритті
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', unread: notifArchive.unread });
+}
+function closeNotifArchive(){
+  if(!isNotifArchiveOpen) return;
+  isNotifArchiveOpen = false;
+  const screen = document.getElementById('notif-archive-screen');
+  if(screen){ screen.classList.add('hidden'); screen.setAttribute('inert', ''); }
+  unlockBackgroundScroll();
+  restoreFocus();
+}
+// Тап по рядку: позначає прочитаним і веде як по push (routeForPushType через handlePushAction).
+async function openNotificationRow(id){
+  const row = notifArchive.rows.filter(function(r){ return safeId(r.id) === id; })[0];
+  if(!row) return;
+  const type = row.type || (row.data && row.data.type) || '';
+  if(!row.read_at){
+    row.read_at = new Date().toISOString(); // оптимістично
+    notifArchive.unread = Math.max(0, notifArchive.unread - 1); updateNotifBell(); renderNotifArchive();
+    try{ const r = await getSupabaseClient().rpc('mark_notifications_read', { p_ids: [row.id] }); if(r.error) throw r.error; }catch(e){ row.read_at = null; refreshNotifUnread(); renderNotifArchive(); }
+  }
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', opened: true });
+  if(!type) return;
+  closeNotifArchive();
+  await handlePushAction(Object.assign({}, row.data || {}, { type: type }));
+}
+async function markAllNotificationsRead(){
+  if(notifArchive.busy || !notifArchive.unread) return;
+  notifArchive.busy = true;
+  try{
+    const r = await getSupabaseClient().rpc('mark_notifications_read'); // без p_ids — усі
+    if(r.error) throw r.error;
+    const now = new Date().toISOString();
+    notifArchive.rows.forEach(function(x){ if(!x.read_at) x.read_at = now; });
+    notifArchive.unread = 0; updateNotifBell(); renderNotifArchive();
+    if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', markedAll: true });
+  }catch(e){ showTrashToast('Немає зв\'язку, спробуйте пізніше', 'error'); }
+  notifArchive.busy = false;
+}
+function confirmClearNotifArchive(){ showConfirmModal('Очистити архів сповіщень? Це не можна скасувати.', runClearNotifArchive, 'Очистити'); }
+async function runClearNotifArchive(){
+  try{
+    const r = await getSupabaseClient().rpc('clear_notifications');
+    if(r.error) throw r.error;
+    notifArchive.rows = []; notifArchive.unread = 0; updateNotifBell(); renderNotifArchive();
+    if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', cleared: true });
+  }catch(e){ showTrashToast('Немає зв\'язку, спробуйте пізніше', 'error'); }
+}
+// Realtime: нові рядки власного користувача (INSERT) оновлюють лічильник одразу (і список, якщо архів відкрито).
+let notifRealtimeChannel = null;
+function setupNotifRealtime(){
+  if(notifRealtimeChannel || !cloudSession || !cloudSession.user) return;
+  try{
+    const client = getSupabaseClient();
+    notifRealtimeChannel = client.channel('user-notifications-' + cloudSession.user.id)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_notifications', filter: 'user_id=eq.' + cloudSession.user.id }, function(){
+        refreshNotifUnread();
+        if(isNotifArchiveOpen) loadNotifArchive().then(renderNotifArchive);
+      }).subscribe();
+  }catch(e){ notifRealtimeChannel = null; }
+}
+function teardownNotifRealtime(){
+  if(!notifRealtimeChannel) return;
+  try{ getSupabaseClient().removeChannel(notifRealtimeChannel); }catch(e){}
+  notifRealtimeChannel = null;
+}
+(function initNotifArchive(){
+  const body = document.getElementById('notif-archive-body');
+  if(body) body.addEventListener('click', function(e){
+    if(e.target.closest('[data-notif-clear]')){ confirmClearNotifArchive(); return; }
+    const b = e.target.closest('[data-notif-id]');
+    if(b) openNotificationRow(b.getAttribute('data-notif-id'));
+  });
+  installEdgeSwipeClose(document.getElementById('notif-archive-screen'), function(){ return isNotifArchiveOpen; }, closeNotifArchive, { blockScroll: false });
+  window.addEventListener('online', function(){ refreshNotifUnread(); if(isNotifArchiveOpen) loadNotifArchive().then(renderNotifArchive); });
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') refreshNotifUnread(); });
 })();
 /* ============ Спливаюче підтвердження успіху (Rev 2.32.37, T) ============ */
 // Чисті функції: модель тексту й правило показу.
