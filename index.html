@@ -3407,7 +3407,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.52</div>
+  <div class="version-footer">Money Tree · Rev 2.32.53</div>
 </div>
   </div>
 </div>
@@ -3613,6 +3613,9 @@
   <div class="section-label">Доставка сповіщень</div>
   <button type="button" class="submit-btn pill secondary" id="testing-diag-btn" style="margin-bottom:10px;" onclick="toggleDeliveryDiagFromTesting()">Показати журнали доставки</button>
   <div id="testing-diag-box"></div>
+  <!-- Rev 2.32.53 (J): лічильник помилок JavaScript за сеанс (без значень користувача) -->
+  <div class="section-label">Помилки JavaScript</div>
+  <button type="button" class="submit-btn pill secondary" id="js-errors-btn" style="margin-bottom:10px;" onclick="showJsErrors()">Помилок за сеанс: 0</button>
   <div class="section-label">Запис діагностики</div>
   <!-- Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень) — для пошуку поля, що викликає панель «Автозаповнити контакт» -->
   <button type="button" class="submit-btn pill secondary" id="fields-census-btn" style="margin-bottom:10px;" onclick="recordFieldsCensusFromTesting()">Перепис полів екрана</button>
@@ -4013,6 +4016,74 @@
 </div>
 
 <script>
+/* ============ Помилки JavaScript у рекордері (Rev 2.32.53, J) ============
+   Причина: виняток kbMode/focusCardField на iPhone довго лишався непомітним — рекордер не записував винятки. Тепер window.onerror і unhandledrejection фіксуються: повідомлення (≤160 символів, без довгих чисел і email), джерело без параметрів запиту, назви 3 перших кадрів стека, вкладка, лічильник повторів. Значень користувача немає. Однакові помилки (повідомлення + джерело) зливаються в одну з count. До старту запису — буфер до 20 унікальних, при старті виводиться як js-error-backlog. */
+const JS_ERROR_BUFFER_MAX = 20;
+function scrubJsErrorText(text, max){
+  return String(text == null ? '' : text).replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '<email>').replace(/\d[\d\s.,:-]{5,}\d/g, '<num>').replace(/\s+/g, ' ').trim().slice(0, max || 160);
+}
+// Джерело: останній сегмент шляху + рядок (без параметрів запиту й хешу); порожньо, якщо немає.
+function jsErrorSource(filename, lineno){
+  const f = String(filename || '').split('#')[0].split('?')[0].split('/').pop();
+  return f ? (f + (lineno ? ':' + lineno : '')) : '';
+}
+// Назви перших 3 кадрів (V8: «at fn (file:l:c)», Safari: «fn@file:l:c»); лише імена функцій.
+function jsErrorStackTop(stack){
+  const out = [];
+  String(stack || '').split('\n').forEach(function(line){
+    if(out.length >= 3) return;
+    const t = line.trim();
+    let m = t.match(/^at\s+(?:async\s+)?([^\s(]+)\s*\(/) || t.match(/^([^@\s]+)@/);
+    if(m && m[1]) out.push(scrubJsErrorText(m[1], 40));
+  });
+  return out;
+}
+function jsErrorKey(message, source){ return message + '|' + source; }
+let jsErrorList = [];       // унікальні помилки сеансу: { key, message, source, stackTop, tab, count }
+let jsErrorEvents = {};     // key → подія рекордера (щоб при повторі оновлювати count)
+function recordJsError(info){
+  try{
+    const message = scrubJsErrorText(info && info.message, 160) || 'Помилка';
+    const source = jsErrorSource(info && info.filename, info && info.lineno);
+    const key = jsErrorKey(message, source);
+    let tab = null; try{ tab = lastActiveTab || null; }catch(e){}
+    let rec = jsErrorList.filter(function(r){ return r.key === key; })[0];
+    if(rec){ rec.count++; }
+    else{
+      rec = { key: key, message: message, source: source, stackTop: jsErrorStackTop(info && info.stack), tab: tab, count: 1 };
+      jsErrorList.push(rec);
+      if(jsErrorList.length > JS_ERROR_BUFFER_MAX) jsErrorList.shift();
+    }
+    try{
+      if(debugRecordingActive){
+        const ev = jsErrorEvents[key];
+        if(ev){ ev.count = rec.count; }
+        else{
+          pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'js-error', message: rec.message, source: rec.source, stackTop: rec.stackTop, tab: rec.tab, count: rec.count });
+          jsErrorEvents[key] = debugEventBuffer[debugEventBuffer.length - 1];
+        }
+      }
+    }catch(e){}
+    try{ updateJsErrorsRow(); }catch(e){}
+  }catch(e){}
+}
+function updateJsErrorsRow(){
+  const b = document.getElementById('js-errors-btn');
+  if(b) b.textContent = 'Помилок за сеанс: ' + jsErrorList.reduce(function(n, r){ return n + r.count; }, 0);
+}
+function showJsErrors(){
+  const last = jsErrorList.slice(-5).reverse();
+  showAlertModal(last.length ? last.map(function(r){ return '• ' + r.message + (r.source ? ' (' + r.source + ')' : '') + (r.tab ? ' · ' + r.tab : '') + (r.count > 1 ? ' ×' + r.count : ''); }).join('\n') : 'Помилок за цей сеанс не було.');
+}
+function jsErrorBacklogLines(list){ return (list || []).map(function(r){ return r.message + (r.source ? ' @ ' + r.source : '') + ' ×' + r.count; }); }
+window.addEventListener('error', function(e){
+  if(e && e.target && e.target !== window) return; // помилки завантаження ресурсів (img/script) — не JS-винятки
+  recordJsError({ message: e && e.message, filename: e && e.filename, lineno: e && e.lineno, stack: e && e.error && e.error.stack });
+});
+window.addEventListener('unhandledrejection', function(e){
+  const r = e && e.reason;
+  recordJsError({ message: (r && r.message) ? r.message : 'Unhandled rejection: ' + (typeof r === 'string' ? r : 'без повідомлення'), filename: '', lineno: 0, stack: r && r.stack });
+});
 /* ============ Довідники ============ */
 // Rev 2.1.26 — категорії/підкатегорії/словник тепер РЕДАГОВАНІ (Структура),
 // тому переїхали з незмінних const на let-змінні з localStorage-збереженням.
@@ -7816,7 +7887,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.52';
+const APP_VERSION = '2.32.53';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10283,6 +10354,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.28.1 (C) — input-attrs-audit: inputsTotal, inputsBad (порушників), badIds (їхні id — лише ідентифікатори полів, не дані).
   'inputsTotal', 'inputsBad', 'badIds',
   'matched', // Rev 2.32.35 (K): mono-keyword
+  'message', 'source', 'stackTop', 'tab', 'errors', // Rev 2.32.53 (J): js-error, js-error-backlog (без значень користувача)
   'skipped', // Rev 2.32.52 (G): kb-guard
   'unread', 'opened', 'markedAll', 'cleared', // Rev 2.32.38 (B): notif-archive
   'fieldsCount', 'fields', 'formsCount', 'hasLoginFields', 'autofillGuard', // Rev 2.32.47 (AG)
@@ -10616,6 +10688,8 @@ function startDebugRecording(scenario){
   debugRecordingStartedAt = performance.now();
   debugRecordingScenario = (scenario || '').slice(0, 120);
   debugEventBuffer = [];
+  if(typeof jsErrorEvents !== 'undefined') jsErrorEvents = {}; // Rev 2.32.53 (J)
+  if(typeof jsErrorList !== 'undefined' && jsErrorList.length) pushDebugEvent({ t: 0, type: 'js-error-backlog', count: jsErrorList.length, errors: jsErrorBacklogLines(jsErrorList) }); // помилки до старту запису
   attachDebugRecorderListeners();
   captureDebugGeometry('start');
   if(typeof recordUiAudit === 'function') recordUiAudit(); // Rev 2.26.0 (M3): ui-audit — лише кількості
