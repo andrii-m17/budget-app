@@ -1242,6 +1242,25 @@
   @media (hover:hover) and (pointer:fine){ .struct-tab-btn:hover{ color:var(--color-text-primary); } }
   .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
   .struct-tab-panel.hidden{ display:none; }
+  /* Rev 2.32.68 (P4) — екран «Платежі» і шторка дій: групи в стилі «Налаштувань», рядок: плитка дати, назва + підпис, сума. */
+  .pay-line{ display:flex; align-items:center; gap:14px; width:100%; min-height:60px; padding:8px 16px; box-sizing:border-box; background:transparent; border:0; border-top:1px solid var(--color-border); font:inherit; text-align:left; color:var(--color-text-primary); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .pay-line:first-child{ border-top:0; }
+  .pay-line.is-pressed{ background:var(--color-surface-hover); }
+  .pay-line.flash{ background:var(--color-surface-hover); }
+  .pay-date{ flex:none; width:44px; text-align:center; }
+  .pay-date b{ display:block; font-size:20px; line-height:1.1; font-weight:700; }
+  .pay-date i{ display:block; font-style:normal; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--color-text-secondary); margin-top:1px; }
+  .pay-line.amber .pay-date b{ color:var(--color-warning); }
+  .pay-line-main{ flex:1; min-width:0; }
+  .pay-line-name{ display:block; font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pay-line-sub{ display:block; font-size:13px; margin-top:2px; color:var(--color-text-secondary); }
+  .pay-line.amber .pay-line-sub{ color:var(--color-warning); }
+  .pay-line-amt{ flex:none; font-size:17px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .pay-line-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
+  .pay-action-btns{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .pay-action-btns .submit-btn{ min-height:50px; }
+  html:root #pay-action-drawer .pay-action-btns .submit-btn.secondary{ background:transparent; border:1.5px solid var(--color-border-strong); color:var(--color-text-primary); box-shadow:none; }
+
   /* Rev 2.32.67 (P3) — картка «Найближчі платежі»: токени застосунку (обидві теми), без емодзі (лише SVG), зони ≥44 пт. Нейтральні формулювання: «без позначки», а не «прострочено». */
   .pay-card{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:22px; padding:16px 16px 4px; margin-bottom:14px; }
   .pay-card.hidden{ display:none; }
@@ -3458,7 +3477,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.67</div>
+  <div class="version-footer">Money Tree · Rev 2.32.68</div>
 </div>
   </div>
 </div>
@@ -3530,6 +3549,33 @@
     </div>
     <div id="notif-archive-body"></div>
   </div>
+</div>
+
+<!-- ================= Екран «Платежі» (Rev 2.32.68, P4) ================= -->
+<div class="mono-screen hidden" id="payments-screen" role="region" aria-label="Платежі" inert>
+  <div class="mono-inner">
+    <div class="mono-top">
+      <button type="button" class="mono-back" onclick="closePaymentsScreen()" aria-label="Назад">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>Аналітика</span>
+      </button>
+      <div class="mono-title">Платежі</div>
+    </div>
+    <div id="payments-body"></div>
+  </div>
+</div>
+<div class="drawer-backdrop" id="pay-action-backdrop" onclick="closePayAction()" inert></div>
+<div class="drawer" id="pay-action-drawer" role="dialog" aria-label="Платіж" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-head">
+    <div class="drawer-head-main"><div class="drawer-head-text"><h2 id="pay-action-title">Платіж</h2><div class="drawer-head-sub" id="pay-action-sub"></div></div></div>
+    <button class="drawer-close" onclick="closePayAction()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div class="pay-action-btns">
+    <button type="button" class="submit-btn pill" id="pay-action-primary"></button>
+    <button type="button" class="submit-btn pill secondary" id="pay-action-open">Відкрити в «Обліку»</button>
+  </div>
+  <div class="struct-caption center" id="pay-action-note"></div>
 </div>
 
 <!-- ================= «Вхідні» Monobank (Rev 2.32.28, MB-4) ================= -->
@@ -7963,7 +8009,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.67';
+const APP_VERSION = '2.32.68';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8528,7 +8574,7 @@ function upcomingPayments(opts){
   const hiddenFor = function(name, kind, month){ const e = hidden[kind + ':' + name]; if(!e) return false; if(typeof e === 'string') return month >= e; return !e.deletedAt && month >= e.month; };
   const m0 = today.slice(0, 7), m1 = ppNextMonth(m0);
   const windowEnd = ppAddDays(today, horizon - 1), laterEnd = ppClampDate(m1, 31);
-  const result = { items: [], later: [], unconfirmed: [], undatedCards: { count: 0, total: 0 }, noDay: [], load: { total: 0, count: 0, estimated: false, unknown: 0 } };
+  const result = { items: [], later: [], unconfirmed: [], undatedCards: { count: 0, total: 0 }, undatedList: [], noDay: [], load: { total: 0, count: 0, estimated: false, unknown: 0 } };
   const place = function(item){
     if(item.date < today){ if(item.month === m0) result.unconfirmed.push(item); return; }
     if(item.date <= windowEnd) result.items.push(item);
@@ -8565,7 +8611,7 @@ function upcomingPayments(opts){
       if(hiddenFor(card.name, 'card', month)) return;
       const rec = debts.filter(function(d){ return d.kind === 'card' && d.name === card.name && d.month === month; })[0];
       if(!rec || !(rec.minPayment > 0) || rec.minPaymentDone) return;
-      if(!card.paymentDay){ if(month === m0){ result.undatedCards.count++; result.undatedCards.total += rec.minPayment; } return; }
+      if(!card.paymentDay){ if(month === m0){ result.undatedCards.count++; result.undatedCards.total += rec.minPayment; result.undatedList.push({ kind: 'card', name: card.name, month: month, amount: rec.minPayment, date: null }); } return; }
       place({ kind: 'card', name: card.name, date: ppClampDate(month, card.paymentDay), month: month, amount: rec.minPayment, estimated: false });
     });
   });
@@ -8666,6 +8712,152 @@ function renderPaymentsCard(){
   const all = payEl('button', 'pay-all'); all.type = 'button'; all.appendChild(payEl('span', '', 'Усі платежі')); const chev = payEl('span', ''); chev.innerHTML = PAY_CHEV_SVG; all.appendChild(chev);
   all.addEventListener('click', function(){ openAll(null); }); host.appendChild(all);
 }
+/* ============ Екран «Платежі» і дії (Rev 2.32.68, P4) ============ */
+let isPaymentsOpen = false;
+let payActionItem = null;
+function payRelative(date, today){
+  const n = ppDayDiff(today, date);
+  if(n === 0) return 'Сьогодні';
+  if(n === 1) return 'Завтра';
+  return 'Через ' + n + ' ' + pluralUa(n, ['день', 'дні', 'днів']);
+}
+// Модель екрана (без DOM): секції «Потребує уваги», «Найближчі 14 днів», «Пізніше», «Картки без дати». r — результат upcomingPayments (horizon 14).
+function paymentsScreenModel(r, today){
+  const row = function(it, amber){
+    return { kind: it.kind, name: it.name, month: it.month, date: it.date, amount: it.amount, estimated: !!it.estimated, amountText: it.date === null ? payFmt(it.amount) : payAmountText(it), amber: !!amber,
+      day: it.date ? +it.date.slice(8, 10) : null, mon: it.date ? PAY_MONTHS_SHORT[+it.date.slice(5, 7) - 1] : null,
+      sub: amber ? 'Не позначено сплаченим' : (it.date ? payRelative(it.date, today) : 'Мінімальний платіж') };
+  };
+  const sections = [];
+  if(r.unconfirmed.length) sections.push({ key: 'attention', title: 'Потребує уваги', rows: r.unconfirmed.map(function(x){ return row(x, true); }) });
+  if(r.items.length) sections.push({ key: 'window', title: 'Найближчі 14 днів', rows: r.items.map(function(x){ return row(x, false); }) });
+  if(r.later.length) sections.push({ key: 'later', title: 'Пізніше', rows: r.later.map(function(x){ return row(x, false); }) });
+  if(r.undatedList.length) sections.push({ key: 'cards', title: 'Картки без дати', rows: r.undatedList.map(function(x){ return row(x, false); }), caption: 'Це мінімальні платежі з «Обліку». Додайте день платежу в картці, і вона з\'явиться в календарі.' });
+  return { sections: sections, empty: sections.length === 0, caption: 'Суми з «≈» очікувані за попередніми місяцями. Торкніться платежу, щоб внести його й зафіксувати факт.' };
+}
+// Дії для рядка: ОЧ — «Внести платіж»; картка — «Позначити сплаченим» (витрата не створюється).
+function payActionModel(item){
+  if(item.kind === 'installment') return { title: item.name, sub: (item.date ? +item.date.slice(8, 10) + ' ' + PAY_MONTHS_GEN[+item.date.slice(5, 7) - 1] + ' · ' : '') + payAmountText(item), primary: 'Внести платіж', note: 'Відкриється форма витрати з підставленими сумою, датою й ОЧ. Збереження лише вашим дотиком.' };
+  return { title: item.name, sub: 'Мінімальний платіж · ' + payFmt(item.amount), primary: 'Позначити сплаченим', note: 'Це не витрата: змінюється лише позначка в «Обліку».' };
+}
+function renderPaymentsScreen(){
+  const body = document.getElementById('payments-body');
+  if(!body) return;
+  const today = kyivTodayISO();
+  const m = paymentsScreenModel(computeUpcomingNow(14), today);
+  body.textContent = '';
+  if(m.empty){ body.appendChild(payEl('div', 'mono-note', 'Найближчих платежів немає')); body.appendChild(payEl('div', 'struct-caption', m.caption)); return; }
+  m.sections.forEach(function(sec){
+    const wrap = payEl('div', 'struct-section');
+    wrap.appendChild(payEl('div', 'struct-group-label', sec.title + ' · ' + sec.rows.length));
+    const g = payEl('div', 'struct-group');
+    sec.rows.forEach(function(r){
+      const b = payEl('button', 'pay-line' + (r.amber ? ' amber' : '')); b.type = 'button';
+      if(r.date) b.setAttribute('data-date', r.date);
+      if(r.day !== null){ const d = payEl('span', 'pay-date'); d.appendChild(payEl('b', '', String(r.day))); d.appendChild(payEl('i', '', r.mon)); b.appendChild(d); }
+      const main = payEl('span', 'pay-line-main'); main.appendChild(payEl('span', 'pay-line-name', r.name)); main.appendChild(payEl('span', 'pay-line-sub', r.sub)); b.appendChild(main);
+      b.appendChild(payEl('span', 'pay-line-amt', r.amountText));
+      if(r.date === null){ const ch = payEl('span', 'pay-line-chev'); ch.innerHTML = PAY_CHEV_SVG; b.appendChild(ch); }
+      b.addEventListener('click', function(){ openPayAction(r); });
+      g.appendChild(b);
+    });
+    wrap.appendChild(g);
+    if(sec.caption) wrap.appendChild(payEl('div', 'struct-caption', sec.caption));
+    body.appendChild(wrap);
+  });
+  body.appendChild(payEl('div', 'struct-caption', m.caption));
+}
+function openPaymentsScreen(date){
+  const screen = document.getElementById('payments-screen');
+  if(!screen) return;
+  if(!isPaymentsOpen){ lastFocusedBeforeDialog = document.activeElement; lockBackgroundScroll(); }
+  isPaymentsOpen = true;
+  renderPaymentsScreen();
+  screen.classList.remove('hidden'); screen.removeAttribute('inert'); screen.scrollTop = 0;
+  if(date){
+    const line = screen.querySelector('.pay-line[data-date="' + date + '"]');
+    if(line){ try{ line.scrollIntoView({ block: 'center' }); }catch(e){} line.classList.add('flash'); setTimeout(function(){ line.classList.remove('flash'); }, 1600); }
+  }
+}
+function closePaymentsScreen(){
+  if(!isPaymentsOpen) return;
+  closePayAction();
+  isPaymentsOpen = false;
+  const screen = document.getElementById('payments-screen');
+  if(screen){ screen.classList.add('hidden'); screen.setAttribute('inert', ''); }
+  unlockBackgroundScroll();
+  restoreFocus();
+}
+function openPayAction(item){
+  payActionItem = item;
+  const m = payActionModel(item);
+  document.getElementById('pay-action-title').textContent = m.title;
+  document.getElementById('pay-action-sub').textContent = m.sub;
+  document.getElementById('pay-action-note').textContent = m.note;
+  const primary = document.getElementById('pay-action-primary');
+  primary.textContent = m.primary;
+  primary.onclick = function(){ if(item.kind === 'installment') payInstallmentPrefill(item); else markCardMinPaid(item); };
+  document.getElementById('pay-action-open').onclick = function(){ openPaymentInAccounts(item); };
+  const wasOpen = document.getElementById('pay-action-drawer').classList.contains('open');
+  document.getElementById('pay-action-backdrop').removeAttribute('inert'); document.getElementById('pay-action-backdrop').classList.add('open');
+  document.getElementById('pay-action-drawer').removeAttribute('inert'); document.getElementById('pay-action-drawer').classList.add('open');
+  if(!wasOpen){ const d = document.getElementById('pay-action-drawer'); if(!d.hasAttribute('tabindex')) d.setAttribute('tabindex', '-1'); try{ d.focus({ preventScroll: true }); }catch(e){} lockBackgroundScroll(); }
+}
+function closePayAction(){
+  const d = document.getElementById('pay-action-drawer');
+  if(!d || !d.classList.contains('open')) return;
+  document.getElementById('pay-action-backdrop').classList.remove('open'); document.getElementById('pay-action-backdrop').setAttribute('inert', '');
+  d.classList.remove('open'); d.setAttribute('inert', '');
+  payActionItem = null;
+  unlockBackgroundScroll();
+}
+// «Внести платіж»: форма витрати з підставленими сумою (очікуваною), датою платежу, категорією ОЧ і назвою ОЧ (автозв'язок). Збереження — лише дотиком користувача (нічого не створюється автоматично).
+function payInstallmentPrefill(item){
+  const i = installmentAccounts.findIndex(function(a){ return a.name === item.name; });
+  if(i < 0) return;
+  closePaymentsScreen();
+  switchTab('vytraty');
+  document.getElementById('expfielda7').value = stripLeadingEmoji(item.name);
+  if(item.amount != null) document.getElementById('f-amount').value = formatThousands(item.amount);
+  if(item.date){ document.getElementById('f-date').value = item.date; rolloverState.dateManual = true; updateDateCaption(); }
+  const ochCat = CATEGORIES.find(function(c){ return c.active && c.name === '🏦 Оплати Частинами'; });
+  if(ochCat){ setCategorySelect(ochCat.name, true); }
+  confirmedInstallmentLinkIdx = i;
+  pendingInstallmentMatchIndices = [];
+  renderInstallmentLinkHint();
+  document.getElementById('auto-hint').classList.toggle('show', !!ochCat);
+  if(ochCat) document.getElementById('auto-hint-text').textContent = ochCat.name;
+  setTimeout(function(){ const el = document.getElementById('f-amount'); if(el){ el.focus(); el.select(); } }, 80);
+}
+// «Позначити сплаченим» для картки: min_payment_done = true у записі місяця (витрата не створюється).
+async function markCardMinPaid(item){
+  const idx = debts.findIndex(function(d){ return d.kind === 'card' && d.name === item.name && monthKey2(d.month) === item.month && !d.deletedAt; });
+  if(idx < 0){ showTextToast('Запис місяця не знайдено', 'error'); return; }
+  debts[idx].minPaymentDone = true;
+  debts[idx].updatedAt = new Date().toISOString();
+  reportSaveResult(await saveDebts());
+  pushDebtRecordPilot(debts[idx]);
+  closePayAction();
+  renderAll();
+  showToast({ kind: 'success', title: 'Позначено сплаченим', subtitle: item.name });
+}
+function openPaymentInAccounts(item){
+  closePaymentsScreen();
+  if(item.month && item.month !== selectedMonth && allMonths().includes(item.month)) performMonthChange(item.month);
+  performSwitchTab('accounting');
+  if(item.kind === 'installment'){
+    switchAccountingTab('installments');
+    const i = installmentAccounts.findIndex(function(a){ return a.name === item.name; });
+    if(i >= 0) setTimeout(function(){ openInstallmentEditor(i); }, 250);
+  }else{
+    switchAccountingTab('debts');
+    const i = bankAccounts.findIndex(function(a){ return a.name === item.name; });
+    if(i >= 0) setTimeout(function(){ openCardDebtEditor(i); }, 250);
+  }
+}
+(function initPaymentsScreen(){
+  installEdgeSwipeClose(document.getElementById('payments-screen'), function(){ return isPaymentsOpen; }, closePaymentsScreen, { blockScroll: false });
+})();
 function typicalMonthlyPayment(name, kind, beforeMonth){
   // Rev #30 (6D.44) — activeDebts(), той самий принцип, що lastKnownBalance().
   const records = activeDebts()
@@ -13970,7 +14162,8 @@ function renderAll(){
   safeCall(rebuildNameHistory, 'rebuildNameHistory');
   safeCall(renderRecords, 'renderRecords');
   safeCall(renderDashboard, 'renderDashboard');
-  safeCall(renderPaymentsCard, 'renderPaymentsCard'); // Rev 2.32.67 (P3): після синхронізації, зміни даних, опівночі (checkDayRollover → renderAll)
+  safeCall(renderPaymentsCard, 'renderPaymentsCard');
+  if(isPaymentsOpen) safeCall(renderPaymentsScreen, 'renderPaymentsScreen'); // Rev 2.32.68 (P4) // Rev 2.32.67 (P3): після синхронізації, зміни даних, опівночі (checkDayRollover → renderAll)
   safeCall(populateIncomeTable, 'populateIncomeTable');
   safeCall(populateBankDebtTable, 'populateBankDebtTable');
   safeCall(populateInstallmentTable, 'populateInstallmentTable');
@@ -18087,7 +18280,7 @@ const BUTTON_VARIANT_MAP = {
   icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip'],
-  row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-row', 'pay-all', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
+  row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-row', 'pay-all', 'pay-line', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
@@ -18427,6 +18620,7 @@ function performSwitchTab(tab, opts){
   if(isJournalOpen) closeJournal();
   if(isTrashOpen) closeTrashScreen(); // Rev 2.23.23 (6D.192): екран "Видалені дані" — підекран Сервісу
   if(isMonoInboxOpen) closeMonoInbox(); // Rev 2.32.28 (MB-4)
+  if(isPaymentsOpen) closePaymentsScreen(); // Rev 2.32.68 (P4)
   if(isMonoOpen) closeMonoScreen(); // Rev 2.32.27 (MB-3): екран «Monobank» — підекран Сервісу
   // Rev #21+#23 (bugfix) — data-status popover (крапка "станом на" на
   // KPI "Борг"/"Скорочення боргу") лишався відкритим і після переходу на

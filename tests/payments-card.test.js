@@ -62,9 +62,9 @@ test('перехід місяця: смуга 29 жовтня → 4 листоп
   assert.equal(m.days[0].date, '2026-10-29'); assert.equal(m.days[6].date, '2026-11-04'); assert.equal(m.sub, '1 платіж до 4 листопада');
 });
 test('охоронні: у картці немає емодзі, назви через textContent, нейтральні тексти, картка в renderAll, прихована без даних, елементи — кнопки', function(){
-  const fn = SRC.slice(SRC.indexOf('function renderPaymentsCard'), SRC.indexOf('function typicalMonthlyPayment'));
+  const fn = SRC.slice(SRC.indexOf('function renderPaymentsCard'), SRC.indexOf('/* ============ Екран «Платежі» і дії'));
   assert.ok(!/innerHTML\s*=/.test(fn.replace(/chev\.innerHTML = PAY_CHEV_SVG/, '')), 'дані не йдуть через innerHTML');
-  assert.ok(!/\p{Extended_Pictographic}/u.test(SRC.slice(SRC.indexOf('/* ============ Картка «Найближчі платежі»'), SRC.indexOf('function typicalMonthlyPayment'))), 'без емодзі');
+  assert.ok(!/\p{Extended_Pictographic}/u.test(SRC.slice(SRC.indexOf('/* ============ Картка «Найближчі платежі»'), SRC.indexOf('/* ============ Екран «Платежі» і дії'))), 'без емодзі');
   assert.match(SRC, /safeCall\(renderPaymentsCard, 'renderPaymentsCard'\);/);
   assert.match(SRC, /<section class="pay-card hidden" id="payments-card"/);
   assert.ok(!/прострочено/.test(SRC.slice(SRC.indexOf('function paymentsCardModel'), SRC.indexOf('function renderPaymentsCard'))));
