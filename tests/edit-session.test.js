@@ -27,9 +27,8 @@ test('editFieldsChanged: порівнює всі поля; пробіли в с�
   ['name', 'date', 'cat', 'sub', 'inst'].forEach(f => assert.equal(C(base, Object.assign({}, base, { [f]: 'x' })), true, f));
   assert.equal(j('editFieldsChanged(null,{name:"a"})'), false);
 });
-test('менеджер: одне редагування — один editingRecordKey; вибір/відкриття іншого запису йде через requestCloseEdit', () => {
+test('менеджер: одне редагування — один editingRecordKey; відкриття іншого запису йде через requestCloseEdit', () => {
   assert.match(SRC, /function startEditRecord[\s\S]*?requestCloseEdit\('open-other-edit'/);
-  assert.match(SRC, /function toggleRecordSelect[\s\S]*?requestCloseEdit\('open-other-edit'/);
   assert.equal((SRC.match(/^let editingRecordKey/gm) || []).length, 1);
 });
 test('тригери: фокус у «Новій витраті», «Додати витрату», вкладки, Журнал, «Видалені дані», шторки — через guardEditOpener/focusin', () => {
@@ -67,11 +66,11 @@ test('клавіатурна логіка не чіпалась: focus() лиш�
   assert.match(code, /focus\(\{ preventScroll: true \}\)/);
   assert.ok(!/blur\(\)/.test(code));
 });
-test('document-click «тап поза карткою» не закриває редагування під час діалогу, після «Скасувати зміни» в тому ж click і на кнопках самого діалогу', () => {
-  const i = SRC.indexOf("document.addEventListener('click', function(e){\n  if(!selectedRecordKey) return;"), code = SRC.slice(i, i + 700);
-  assert.match(code, /editGuardPending\(\) \|\| editGuardShield/);
-  assert.match(code, /closest\('#app-modal, #modal-backdrop'\)/);
+test('TP (2.32.44): тап по рядку нічого не робить — немає виділення, олівчика, обробників і CSS; діалог редагування не залежить від document-click', () => {
+  assert.ok(!/toggleRecordSelect|onExpenseRowTap\(evt|selectedRecordKey\s*=|exp-edit-cat|editPencilHtml|expense-row\.selected/.test(SRC.replace(/\/\/[^\n]*/g, '')));
+  assert.ok(!/class="expense-row [^"]*"[^>]*onclick=/.test(SRC), 'у рядку витрати немає onclick');
   assert.match(SRC, /editGuardShield = true;\s*setTimeout\(function\(\)\{ editGuardShield = false; \}, 0\);/);
+  assert.match(SRC, /class="swipe-edit-btn"/); // редагування — свайпом
 });
 
 // ---------- Rev 2.32.5 (E1b) ----------

@@ -948,8 +948,6 @@
      кнопки) переїхав у вкладений .exp-row-top, щоб не ламати існуючий вигляд. */
   .expense-row{ background:var(--color-surface); border-radius:13px; padding:12px 14px; margin-bottom:0; box-shadow:var(--shadow-sm); border:1px solid var(--color-border); border-left:3px solid transparent; cursor:pointer; position:relative; touch-action:pan-y; transition:background var(--duration-fast) var(--easing-standard), transform var(--duration-fast) var(--easing-standard); }
   /* Rev 2.24.0 (M1) — тінь виділення (колишній transition box-shadow) тепер ::after з opacity: shadow-md малюється один раз, анімується лише прозорість. border-color у transition прибрано: він ніде не змінюється. */
-  .expense-row::after{ content:''; position:absolute; inset:-1px -1px -1px -3px; border-radius:inherit; box-shadow:var(--shadow-md); opacity:0; pointer-events:none; transition:opacity var(--duration-fast) var(--easing-standard); }
-  .expense-row.selected::after{ opacity:1; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .expense-row:hover{ background:var(--color-surface-hover); } }
   .expense-row.income-row{ border-left-color:var(--color-success); }
@@ -959,7 +957,6 @@
      border-color/border-left тут — border-left-color лишається inline-
      стилем кольору автора (authorInfoFor(), вище пріоритет за клас), тож
      колір смужки автора лишається коректним і при виділенні (Крок 0 п.5). */
-  .expense-row.selected{ background:var(--color-surface-hover); transform:scale(1.025); z-index:1; }
   /* Rev #30 (6D.123) — обгортка свайп-дій (Журнал+короткий список "Витрати"
      — buildRecordGroupsHtml спільний для обох, докоментар вище). overflow:
      hidden кліпає кнопки дій, доки .expense-row (усередині) не зсунутий
@@ -1033,11 +1030,10 @@
   .exp-date{ font-size:11px; color:var(--color-muted); }
   .exp-amount{ font-weight:700; font-size:15px; white-space:nowrap; font-family:'JetBrains Mono',monospace; }
   .exp-amount.income{ color:var(--color-success); }
-  .exp-del, .exp-edit-cat{ background:none; border:none; color:var(--color-muted); cursor:pointer; padding:6px; line-height:1; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm); flex-shrink:0; }
+  .exp-del{ background:none; border:none; color:var(--color-muted); cursor:pointer; padding:6px; line-height:1; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm); flex-shrink:0; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){
     .exp-del:hover{ background:var(--color-error-bg); color:var(--color-error); }
-    .exp-edit-cat:hover{ background:var(--color-hover-overlay); color:var(--color-primary-hover); }
   }
   /* Інлайн-редактор категорії/підкатегорії запису — з'являється під рядком
      після кліку на олівець; той самий компактний патерн, що вже є в застосунку
@@ -2370,11 +2366,11 @@
     --ui-accent-text:#34D673; --ui-danger-text:#F87171; --ui-warning-text:#F59E0B;
   }
   /* Зона натискання ≥44: невидиме розширення ::after (--ui-hit) — розмір і розкладка не змінюються. position:relative через :where (0 специфічності): існуючі absolute/fixed лишаються. */
-  html:root :where(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
-  html:root :is(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .exp-del, .exp-edit-cat, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link)::after,
+  html:root :where(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
+  html:root :is(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .exp-del, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link)::after,
   html:root .data-status-dot::before{ content:''; position:absolute; inset:calc(-1 * var(--ui-hit-y, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-r, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-y, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-l, var(--ui-hit, 0px))); } /* --ui-hit-y — окремо по вертикалі (сегменти: по горизонталі сусіди впритул); --ui-hit-l/-r — по боках (Rev 2.30.0: пара іконок впритул) */
   html:root .gear-btn{ --ui-hit:4px; } html:root .drawer-close{ --ui-hit:7px; } html:root .journal-back-btn{ --ui-hit:4px; } html:root .journal-search-clear{ --ui-hit:11px; } html:root .data-status-dot{ --ui-hit:5px; }
-  html:root :is(.exp-del, .exp-edit-cat, .diag-issue-ignore){ --ui-hit:9px; } html:root .dsp-action{ --ui-hit:7px; } /* Rev 2.30.0 (M4b): пара іконок «редагувати/видалити» стоїть впритул (проміжок 2pt), крок рядків 43pt. Зона розширюється АСИМЕТРИЧНО в бік вільного краю: «редагувати» — вліво (+20), «видалити» — вправо (+20) → 45pt по ширині без перекриття; по висоті 24+2×8.5 = 41pt = найменший крок рядків (Словник, 41pt; Категорії 43pt; більше перекривало б іконки сусідніх рядків) → по висоті 3pt до 44 лишається задокументований виняток (UI_AUDIT_SMALL_EXEMPT). */
+  html:root :is(.exp-del, .diag-issue-ignore){ --ui-hit:9px; } html:root .dsp-action{ --ui-hit:7px; } /* Rev 2.30.0 (M4b): пара іконок «редагувати/видалити» стоїть впритул (проміжок 2pt), крок рядків 43pt. Зона розширюється АСИМЕТРИЧНО в бік вільного краю: «редагувати» — вліво (+20), «видалити» — вправо (+20) → 45pt по ширині без перекриття; по висоті 24+2×8.5 = 41pt = найменший крок рядків (Словник, 41pt; Категорії 43pt; більше перекривало б іконки сусідніх рядків) → по висоті 3pt до 44 лишається задокументований виняток (UI_AUDIT_SMALL_EXEMPT). */
   html:root .bdr-icon-btn{ --ui-hit-y:8.5px; --ui-hit-l:20px; --ui-hit-r:1px; }
   html:root .bdr-icon-btn.danger{ --ui-hit-l:1px; --ui-hit-r:20px; }
   html:root :is(.auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ --ui-hit:14px; } html:root .cdd-delete-link{ --ui-hit:9px; } html:root .t-footer-link{ --ui-hit:7px; } html:root .struct-tab-btn{ --ui-hit:0px; --ui-hit-y:6px; } html:root :is(.add-trigger-btn, .show-journal-link){ --ui-hit:0px; --ui-hit-y:2px; } /* Rev 2.27.0: знайдено аудитом на «Аналітиці» (31pt) */ html:root .installment-pay-btn{ --ui-hit:3px; }
@@ -2493,7 +2489,6 @@
     nav.tabbar.pressed .tabbar-glass{ transform:translateZ(0); }
     nav.tabbar.pressed .tabbar-bubble{ --bubble-scale:1; }
     .tabbar-bubble::before, .stb-clip::before, .skeleton::after{ animation:none !important; }
-    .expense-row.selected{ transform:none; }
     .avatar-status-dot, .profile-status-dot{ animation:none !important; }
   }
 </style>
@@ -3385,7 +3380,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.43</div>
+  <div class="version-footer">Money Tree · Rev 2.32.44</div>
 </div>
   </div>
 </div>
@@ -7786,7 +7781,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.43';
+const APP_VERSION = '2.32.44';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10858,7 +10853,7 @@ function goToDiagnosticIssue(i){
     // Rev #30 (6D.42) — activeExpenses(), узгоджено з findExpenseIdIssues()/
     // findTimestampIssues() (той самий idx-простір) і Журналом (__srcIdx).
     const e = activeExpenses()[target.idx];
-    if(e){ selectedRecordKey = recordKey('expense', e.id); editingRecordKey = null; renderRecords(); }
+    if(e){ editingRecordKey = null; renderRecords(); } // Rev 2.32.44 (TP): виділення рядка (олівчик) прибрано — лише підсвічування flashDiagnosticTarget
     flashDiagnosticTarget('journal-row-expense-' + target.idx);
     return;
   }
@@ -13883,59 +13878,10 @@ function weekdayShort(dateStr){
 // олівець); editingRecordKey — яка картка зараз показує інлайн-форму
 // редагування (підмножина: стосується лише того самого запису, що й
 // selectedRecordKey).
-let selectedRecordKey = null;
 let editingRecordKey = null;
 function recordKey(kind, id){ return kind+':'+id; }
-function toggleRecordSelect(kind, id){
-  const key = recordKey(kind, id);
-  // Rev 2.32.2 (E1): вибір ІНШОГО запису — це «відкриття іншого редагування»: попереднє редагування закривається (із питанням за наявності змін).
-  if(editingRecordKey && editingRecordKey !== key){
-    requestCloseEdit('open-other-edit', function(){ toggleRecordSelect(kind, id); }, { noRender: true });
-    return;
-  }
-  selectedRecordKey = (selectedRecordKey === key) ? null : key;
-  editingRecordKey = null;
-  renderRecords();
-}
-// Rev #30 (6D.123) — обробник кліку по самій картці (.expense-row), тепер
-// не напряму toggleRecordSelect: якщо картка в момент тапу відкрита свайпом
-// (кнопки дій видно), перший тап лише закриває свайп, без зміни виділення —
-// стандартний iOS-патерн ("тап по відкритому рядку спершу закриває його"),
-// щоб випадковий тап одразу після свайпу не перемикав виділення несподівано.
-// Rev 2.22.56 (6D.127) BugFix — перевірка `wrap.classList.contains('swipe-
-// open')` тут НІКОЛИ не спрацьовувала: document-рівневий touchend
-// (initExpenseRowSwipeActions нижче) завжди встигає зняти клас
-// 'swipe-open' ДО того, як браузер згенерує синтетичний click — тобто до
-// того, як цей обробник взагалі викликається. Тому тап по відкритій
-// картці не просто закривав свайп, а Й одразу перемикав виділення — рівно
-// та поведінка, якої 6D.123 мав уникнути. Фікс — сам touchend (нижче)
-// виставляє suppressNextRowTapSelect=true САМЕ в момент, коли закриває
-// картку, що БУЛА відкрита (startOffset!==0) — тут лишається тільки
-// перевірити й скинути цей прапорець, а не вже-знятий клас.
-let suppressNextRowTapSelect = false;
-function onExpenseRowTap(evt, kind, id){
-  if(suppressNextRowTapSelect){
-    suppressNextRowTapSelect = false;
-    return;
-  }
-  toggleRecordSelect(kind, id);
-}
-// Rev 2.22.54 (6D.124) — тап будь-де ПОЗА карткою тепер теж знімає
-// виділення (раніше — лише повторний тап по ТІЙ САМІЙ картці). Слухач на
-// bubble-фазі (не capture): кнопки .exp-del/.exp-edit-cat/.swipe-edit-btn/
-// .swipe-delete-btn самі викликають event.stopPropagation() у своєму
-// onclick — тому їхні кліки взагалі не доходять сюди, і не треба окремо
-// виключати .expense-row-actions (як робить onTouchStart вище) — клік по
-// самій картці (не по цих кнопках) уже встиг відпрацювати
-// onExpenseRowTap() на цільовій фазі ДО того, як дійде сюди.
-document.addEventListener('click', function(e){
-  if(!selectedRecordKey) return;
-  if(editGuardPending() || editGuardShield || (editGuardGen === appModalGeneration && e.target.closest && e.target.closest('#app-modal, #modal-backdrop'))) return; // Rev 2.32.2 (E1): поки відкрито діалог «Скасувати редагування запису?» (і в тому ж тапі після «Скасувати зміни»), цей тап редагування не закриває
-  if(e.target.closest('.expense-row')) return;
-  selectedRecordKey = null;
-  editingRecordKey = null;
-  renderRecords();
-});
+// Rev 2.32.44 (TP): тап по рядку витрати більше нічого не робить (колишнє виділення з олівчиком і scale-анімацією прибрано: надто блимало); редагування — свайпом вправо. toggleRecordSelect, onExpenseRowTap і document-click «тап поза карткою» видалено.
+let suppressNextRowTapSelect = false; // лишається: його виставляє свайп і читають «Вхідні»/«Видалені дані»
 // Rev 2.32.8 (A): тест edit-label завершено — у всіх трьох варіантах панель «Автозаповнити контакт» не з'явилась, тож причина не в підписі <label for>. Лишено no-for: підпис span-ом без зв'язку з полем + aria-label «Назва витрати» (як у новій витраті).
 function editNameLabelHtml(id){ return '<span class="fld-label-like">Назва</span>'; }
 function editNameAriaAttr(){ return ' aria-label="Назва витрати"'; }
@@ -14325,7 +14271,6 @@ async function saveRecordEditCore(id){
   // (updated_at===created_at після локального редагування), не гіпотезу.
   pushExpenseRecordPilot(rec);
   editingRecordKey = null;
-  selectedRecordKey = null;
   populateMonths(); renderAll();
   return true;
 }
@@ -15117,7 +15062,6 @@ function buildRecordGroupsHtml(items){
     const rowsHtml = g.items.map(function(e){
       const isIncome = e.kind==='income';
       const key = recordKey(e.kind, e.id);
-      const isSelected = selectedRecordKey === key;
       const isEditing = editingRecordKey === key;
       // Rev #30 (6D.65) — border-left тепер колір АВТОРА (created_by), не
       // "manual"-статусу (див. докоментар над .exp-edited-badge у CSS).
@@ -15134,7 +15078,7 @@ function buildRecordGroupsHtml(items){
       // окрема Map, той самий принцип) — обидва kind живуть у тому самому
       // "основному списку" Журналу (.expense-row спільний).
       const pullState = isIncome ? recentlyPulledIncomeState.get(e.id) : recentlyPulledExpenseState.get(e.id); // 'syncing'|'done'|undefined
-      const rowClass = (isIncome ? 'income-row' : '') + (isSelected ? ' selected' : '')
+      const rowClass = (isIncome ? 'income-row' : '')
         + (pullState === 'syncing' ? ' just-synced' : pullState === 'done' ? ' just-synced just-synced-done' : '');
       const chipClass = isIncome ? 'chip income' : (e.category ? 'chip' : 'chip empty');
       const chipText = isIncome ? 'дохід' : (e.category ? (e.subcategory || e.category) : 'без категорії');
@@ -15151,9 +15095,6 @@ function buildRecordGroupsHtml(items){
         ? `<span class="sync-badge-icon syncing" title="Синхронізується з хмари" aria-label="Синхронізується з хмари">${CLOUD_ICON_SVG}</span>`
         : pullState === 'done'
         ? `<span class="sync-badge-icon done" title="Синхронізовано з хмари" aria-label="Синхронізовано з хмари">${SYNC_DONE_ICON_SVG}</span>`
-        : '';
-      const editPencilHtml = (isSelected && !isIncome)
-        ? `<button type="button" class="exp-edit-cat" onclick="event.stopPropagation(); startEditRecord('${e.kind}','${safeId(e.id)}')" aria-label="Редагувати запис"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>`
         : '';
       const editPanelHtml = isEditing ? `
         <div class="record-edit-panel" onclick="event.stopPropagation()">
@@ -15202,14 +15143,13 @@ function buildRecordGroupsHtml(items){
             ${swipeEditBtnHtml}
             <button type="button" class="swipe-delete-btn" onclick="event.stopPropagation(); closeSwipeActions(); confirmDeleteRecord('${e.kind}','${safeId(e.id)}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
           </div>
-          <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}" onclick="onExpenseRowTap(event,'${e.kind}','${safeId(e.id)}')"${authorStyle}>
+          <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}"${authorStyle}>
             <div class="exp-row-top">
               <div class="exp-main">
                 <div class="exp-name">${escapeHtml(e.name)}</div>
                 <div class="exp-meta"><span class="${chipClass}">${escapeHtml(chipText)}</span>${monoBadgeHtml(e.source)}${editedBadgeHtml}${justPulledBadgeHtml}</div>
               </div>
               <div class="${amountClass}">${sign}${fmt(e.amount)}</div>
-              ${editPencilHtml}
               <button type="button" class="exp-del" onclick="event.stopPropagation(); confirmDeleteRecord('${e.kind}','${safeId(e.id)}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
             </div>
             ${editPanelHtml}
@@ -17726,7 +17666,7 @@ const BUTTON_VARIANT_MAP = {
   secondary: ['add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
   text: ['mono-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
-  icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-edit-cat', 'exp-del'],
+  icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip'],
   row: ['mono-row', 'notif-row', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
