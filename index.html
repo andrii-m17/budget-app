@@ -3435,7 +3435,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.63</div>
+  <div class="version-footer">Money Tree · Rev 2.32.64</div>
 </div>
   </div>
 </div>
@@ -7952,7 +7952,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.63';
+const APP_VERSION = '2.32.64';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8491,6 +8491,91 @@ function lastKnownBalance(name, kind, beforeMonth){
 // останнє значення "заразило" б prefill усіх наступних місяців на 4000
 // назавжди. Мода стійка до одиничних відхилень: 4 місяці по 3500 + 1 місяць
 // 4000 → типовим лишається 3500. Тай-брейк при рівній частоті — новіше значення.
+/* ============ Найближчі платежі: чиста логіка (Rev 2.32.64, P2) ============
+   upcomingPayments — без доступу до Date.now() і DOM (параметр today = «YYYY-MM-DD» за київським часом). Нічого не зберігає: суми «≈» — очікувані за попередніми місяцями (мода останніх до 6 платежів), як typicalMonthlyPayment. Збіг із серверною build_installment_deadlines: дата = due_day, у коротших місяцях — останній день; приховані (hiddenFrom ≤ місяць) пропускаються; є прив'язана витрата за місяць → сплачено. Відмінності (свідомі, лише клієнт): завершені ОЧ (останній відомий залишок ≤ 0) пропускаються; сума береться з запису місяця, інакше мода історії (сервер — останній monthly_payment). */
+function ppPad(n){ return (n < 10 ? '0' : '') + n; }
+function ppDaysInMonth(y, m){ return new Date(Date.UTC(y, m, 0)).getUTCDate(); } // m: 1…12
+function ppAddDays(iso, n){ const t = Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + n * 86400000; const d = new Date(t); return d.getUTCFullYear() + '-' + ppPad(d.getUTCMonth() + 1) + '-' + ppPad(d.getUTCDate()); }
+function ppDayDiff(a, b){ return Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 86400000); }
+function ppNextMonth(month){ const y = +month.slice(0, 4), m = +month.slice(5, 7); return m === 12 ? (y + 1) + '-01' : y + '-' + ppPad(m + 1); }
+function ppClampDate(month, day){ const last = ppDaysInMonth(+month.slice(0, 4), +month.slice(5, 7)); return month + '-' + ppPad(Math.min(day, last)); }
+// Мода останніх до 6 непустих сум до місяця (тай-брейк — новіша), як typicalMonthlyPayment.
+function ppModeAmount(values){
+  const list = values.slice(-6);
+  if(!list.length) return null;
+  const counts = {}; list.forEach(function(v){ counts[v] = (counts[v] || 0) + 1; });
+  let best = list[list.length - 1], bestCount = 0;
+  list.forEach(function(v){ if(counts[v] >= bestCount){ bestCount = counts[v]; best = v; } });
+  return best;
+}
+function upcomingPayments(opts){
+  const o = opts || {};
+  const today = o.today, horizon = o.horizonDays || 7;
+  const debts = (o.debtsByMonth || []).filter(function(d){ return d && !d.deletedAt; });
+  const expenses = (o.expenses || []).filter(function(e){ return e && !e.deletedAt; });
+  const hidden = o.hidden || {};
+  const hiddenFor = function(name, kind, month){ const e = hidden[kind + ':' + name]; if(!e) return false; if(typeof e === 'string') return month >= e; return !e.deletedAt && month >= e.month; };
+  const m0 = today.slice(0, 7), m1 = ppNextMonth(m0);
+  const windowEnd = ppAddDays(today, horizon - 1), laterEnd = ppClampDate(m1, 31);
+  const result = { items: [], later: [], unconfirmed: [], undatedCards: { count: 0, total: 0 }, noDay: [], load: { total: 0, count: 0, estimated: false, unknown: 0 } };
+  const place = function(item){
+    if(item.date < today){ if(item.month === m0) result.unconfirmed.push(item); return; }
+    if(item.date <= windowEnd) result.items.push(item);
+    else if(item.date <= laterEnd) result.later.push(item);
+  };
+  // ----- ОЧ -----
+  (o.installments || []).forEach(function(inst){
+    if(!inst || inst.deletedAt) return;
+    let firstVisibleMonth = null;
+    [m0, m1].forEach(function(month){
+      if(hiddenFor(inst.name, 'installment', month)) return;
+      const hist = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month <= month; }).sort(function(a, b){ return a.month.localeCompare(b.month); });
+      const withBal = hist.filter(function(d){ return d.balance != null; });
+      if(withBal.length && withBal[withBal.length - 1].balance <= 0) return; // завершена
+      if(firstVisibleMonth === null) firstVisibleMonth = month;
+      if(!inst.dueDay) return;
+      if(expenses.some(function(e){ return e.linkedInstallment === inst.name && String(e.date).slice(0, 7) === month; })) return; // сплачено
+      const rec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month === month && d.monthlyPayment != null; })[0];
+      let amount = null, estimated = false;
+      if(rec){ amount = rec.monthlyPayment; }
+      else{
+        const prev = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month < month && d.monthlyPayment != null; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).map(function(d){ return d.monthlyPayment; });
+        const mode = ppModeAmount(prev);
+        if(mode != null){ amount = mode; estimated = true; }
+      }
+      place({ kind: 'installment', name: inst.name, date: ppClampDate(month, inst.dueDay), month: month, amount: amount, estimated: estimated });
+    });
+    if(!inst.dueDay && firstVisibleMonth === m0) result.noDay.push(inst.name);
+  });
+  // ----- Картки: мінімальний платіж місяця (лише > 0 і не внесений) -----
+  (o.cards || []).forEach(function(card){
+    if(!card || card.deletedAt) return;
+    [m0, m1].forEach(function(month){
+      if(hiddenFor(card.name, 'card', month)) return;
+      const rec = debts.filter(function(d){ return d.kind === 'card' && d.name === card.name && d.month === month; })[0];
+      if(!rec || !(rec.minPayment > 0) || rec.minPaymentDone) return;
+      if(!card.paymentDay){ if(month === m0){ result.undatedCards.count++; result.undatedCards.total += rec.minPayment; } return; }
+      place({ kind: 'card', name: card.name, date: ppClampDate(month, card.paymentDay), month: month, amount: rec.minPayment, estimated: false });
+    });
+  });
+  const byDate = function(a, b){ return a.date.localeCompare(b.date) || a.name.localeCompare(b.name); };
+  result.items.sort(byDate); result.later.sort(byDate); result.unconfirmed.sort(byDate);
+  result.items.forEach(function(it){
+    result.load.count++;
+    if(it.amount != null){ result.load.total += it.amount; if(it.estimated) result.load.estimated = true; } else result.load.unknown++;
+  });
+  return result;
+}
+// Сьогодні за київським часом («YYYY-MM-DD»); now передається ззовні (тести).
+function kyivTodayISO(now){
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now || new Date());
+  const g = function(t){ return parts.filter(function(p){ return p.type === t; })[0].value; };
+  return g('year') + '-' + g('month') + '-' + g('day');
+}
+// Обгортка над реальними даними застосунку (для картки й екрана «Платежі»).
+function computeUpcomingNow(horizonDays){
+  return upcomingPayments({ today: kyivTodayISO(), horizonDays: horizonDays, installments: installmentAccounts, cards: bankAccounts, debtsByMonth: activeDebts().map(function(d){ return Object.assign({}, d, { month: monthKey2(d.month) }); }), expenses: activeExpenses(), hidden: hiddenFrom });
+}
 function typicalMonthlyPayment(name, kind, beforeMonth){
   // Rev #30 (6D.44) — activeDebts(), той самий принцип, що lastKnownBalance().
   const records = activeDebts()
