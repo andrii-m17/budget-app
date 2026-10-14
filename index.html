@@ -3380,7 +3380,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.44</div>
+  <div class="version-footer">Money Tree · Rev 2.32.45</div>
 </div>
   </div>
 </div>
@@ -7781,7 +7781,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.44';
+const APP_VERSION = '2.32.45';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13670,7 +13670,8 @@ function openUpdateModal(){
         window.location.reload();
       }
     },
-    'Оновити зараз'
+    'Оновити зараз',
+    'primary' // Rev 2.32.45 (FB): оновлення — звичайна дія, не руйнівна
   );
 }
 /* ============ Автопідказка назви витрати за історією (Rev 2.3.5) ============
@@ -17838,8 +17839,7 @@ function showIncompleteInfo(kind, i){
   const reasons = kind === 'card' ? cardIncompleteReasons(acc) : installmentIncompleteReasons(acc);
   if(!reasons.length) return;
   const msg = stripLeadingEmoji(acc.name) + ': дані заповнені неповністю.\n' + reasons.map(function(r){ return '• ' + INCOMPLETE_LABELS[r]; }).join('\n');
-  showConfirmModal(msg, function(){ fillIncomplete(kind, i, reasons[0]); }, 'Заповнити');
-  document.getElementById('app-modal-confirm-btn').className = 'submit-btn'; // основна дія (не червона)
+  showConfirmModal(msg, function(){ fillIncomplete(kind, i, reasons[0]); }, 'Заповнити', 'primary'); // Rev 2.32.45 (FB): основна (зелена) дія, не руйнівна
   const cancelBtn = document.getElementById('app-modal-cancel-btn');
   if(cancelBtn) cancelBtn.textContent = 'Закрити';
 }
@@ -19384,7 +19384,7 @@ async function monoIgnoreRow(id){
 function confirmMonoAddAll(){
   const n = addAllCandidates(monoInbox.rows).length;
   if(!n) return;
-  showConfirmModal('Додати ' + n + ' ' + monoOpsAcc(n) + ' як витрати?', runMonoAddAll, 'Додати');
+  showConfirmModal('Додати ' + n + ' ' + monoOpsAcc(n) + ' як витрати?', runMonoAddAll, 'Додати', 'primary'); // Rev 2.32.45 (FB)
 }
 async function runMonoAddAll(){
   const list = addAllCandidates(monoInbox.rows);
@@ -19567,7 +19567,7 @@ async function monoRefundStart(){
 }
 function monoRefundChoose(row, cand){
   const refund = Math.abs(row.amount_uah);
-  showConfirmModal(refundConfirmText({ note: cand.note, amount: cand.amount }, refund), function(){ monoRefundApply(row, cand); }, refundConfirmLabel({ amount: cand.amount }, refund));
+  showConfirmModal(refundConfirmText({ note: cand.note, amount: cand.amount }, refund), function(){ monoRefundApply(row, cand); }, refundConfirmLabel({ amount: cand.amount }, refund), refundConfirmLabel({ amount: cand.amount }, refund) === 'Видалити' ? 'danger' : 'primary'); // Rev 2.32.45 (FB): часткове повернення — звичайна дія, повне (видалення) — руйнівна
 }
 async function monoRefundApply(row, cand){
   if(monoInbox.busy) return;
@@ -21223,11 +21223,13 @@ function presentAppModal({ input = false, amount = false, select = false, select
   document.getElementById('app-modal-select2-wrap').style.display = select2 ? 'block' : 'none';
   openAppModal();
 }
-function showConfirmModal(message, onConfirm, confirmLabel){
+// Rev 2.32.45 (FB): variant — 'primary' (зелена, звичайна дія: «Заповнити», «Додати», «Врахувати») або за замовчуванням 'danger' (червона, руйнівна). Раніше червоний стиль був єдиним, а «Заповнити» перебивало окремим присвоєнням класу після виклику.
+function confirmButtonClass(variant){ return variant === 'primary' ? 'submit-btn' : 'submit-btn danger'; }
+function showConfirmModal(message, onConfirm, confirmLabel, variant){
   document.getElementById('app-modal-text').textContent = message;
   const btn = document.getElementById('app-modal-confirm-btn');
   btn.textContent = confirmLabel || 'Так, прибрати';
-  btn.className = 'submit-btn danger';
+  btn.className = confirmButtonClass(variant);
   btn.onclick = function(){ closeAppModal(); onConfirm(); };
   presentAppModal();
 }

@@ -76,8 +76,7 @@ test('«Заповнити» відкриває шторку цієї картк
   assert.match(fill, /openCardDebtEditor\(i\); else openInstallmentEditor\(i\);/);
   assert.ok(!/\.focus\(/.test(fill), 'без автофокусу');
   assert.match(fill, /el\.scrollIntoView\(\{ block: 'center' \}\);/);
-  assert.match(MOD, /showConfirmModal\(msg, function\(\)\{ fillIncomplete\(kind, i, reasons\[0\]\); \}, 'Заповнити'\);/);
-  assert.match(MOD, /getElementById\('app-modal-confirm-btn'\)\.className = 'submit-btn';/);
+  assert.match(MOD, /showConfirmModal\(msg, function\(\)\{ fillIncomplete\(kind, i, reasons\[0\]\); \}, 'Заповнити', 'primary'\);/); // Rev 2.32.45 (FB): основна дія — явний variant замість пізнього присвоєння класу
   ['limit', 'balance', 'minPayment', 'dueDay', 'initialAmount', 'payment'].forEach(r => { assert.match(MOD, new RegExp(r + ': \'[a-z-]+\'')); });
   ['cdd-limit', 'cdd-balance', 'cdd-minpay', 'idd-due-day', 'idd-initial', 'idd-pay'].forEach(id => assert.ok(SRC.includes('id="' + id + '"'), id + ' існує'));
 });
