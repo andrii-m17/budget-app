@@ -3320,7 +3320,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.30</div>
+  <div class="version-footer">Money Tree · Rev 2.32.31</div>
 </div>
   </div>
 </div>
@@ -3504,6 +3504,8 @@
   <button type="button" class="submit-btn pill secondary" id="testing-diag-btn" style="margin-bottom:10px;" onclick="toggleDeliveryDiagFromTesting()">Показати журнали доставки</button>
   <div id="testing-diag-box"></div>
   <div class="section-label">Запис діагностики</div>
+  <!-- Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень) — для пошуку поля, що викликає панель «Автозаповнити контакт» -->
+  <button type="button" class="submit-btn pill secondary" id="fields-census-btn" style="margin-bottom:10px;" onclick="recordFieldsCensusFromTesting()">Перепис полів екрана</button>
   <button type="button" class="service-wide-card" id="debug-record-btn" style="margin-bottom:16px;" onclick="openDebugRecordFromTesting()">
     <span class="service-tile-icon c-blue">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -7696,7 +7698,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.30';
+const APP_VERSION = '2.32.31';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10229,6 +10231,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.26.0 (M3) — ui-audit: кількості кнопок за варіантами, без варіанта, із зоною <44, з контрастом <AA, і перелік ПЕРШИХ КЛАСІВ (не даних).
   // Rev 2.28.1 (C) — input-attrs-audit: inputsTotal, inputsBad (порушників), badIds (їхні id — лише ідентифікатори полів, не дані).
   'inputsTotal', 'inputsBad', 'badIds',
+  'fieldsCount', 'fields', // Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень)
   'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnSmallExempt', 'btnLowContrast', 'btnLowContrastRow', 'lowContrastRowClasses', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
   // Rev 2.31.1 (C) — trash-swipe-close: ms (тривалість жесту), dx (зсув вправо, px).
   'dx',
@@ -10562,6 +10565,7 @@ function startDebugRecording(scenario){
   captureDebugGeometry('start');
   if(typeof recordUiAudit === 'function') recordUiAudit(); // Rev 2.26.0 (M3): ui-audit — лише кількості
   if(typeof recordInputAttrsAudit === 'function') recordInputAttrsAudit(); // Rev 2.28.1 (C): input-attrs-audit
+  if(typeof recordFieldsCensus === 'function') recordFieldsCensus(); // Rev 2.32.31 (A): fields-census
   if(typeof recordKbEnv === 'function') recordKbEnv(); // Rev 2.32.9 (B): kb-env
   if(typeof XSS_AUDITED_SITES === 'number') pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'xss-audit', sites: XSS_AUDITED_SITES }); // Rev 2.32.19 (X): лише кількість місць, значень немає
   debugRecordingTimerInterval = setInterval(updateDebugRecordButtonUI, 1000);
@@ -17827,6 +17831,38 @@ function forbiddenInputAttr(value){
   const v = String(value || '').toLowerCase();
   for(let i = 0; i < INPUT_ATTR_FORBIDDEN.length; i++){ if(v.indexOf(INPUT_ATTR_FORBIDDEN[i]) !== -1) return INPUT_ATTR_FORBIDDEN[i]; }
   return null;
+}
+// Rev 2.32.31 (A) — перепис текстових полів поточного екрана для діагностики панелі iOS «Автозаповнити контакт»: для кожного поля id, type, name, autocomplete, inputmode, placeholder, aria-label і текст підпису (СТАТИЧНІ тексти інтерфейсу; значень, які ввів користувач, немає). Рядок: «id|type|name|autocomplete|inputmode|ph=…|aria=…|lbl=…|vis».
+const FIELD_CENSUS_SKIP_TYPES = ['checkbox', 'radio', 'hidden', 'date', 'file', 'range', 'submit', 'button', 'color', 'time', 'month'];
+function fieldCensusLine(attrs){
+  const a = attrs || {};
+  const cut = function(v){ return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 40); };
+  return [cut(a.id) || '—', a.type || 'text', cut(a.name), cut(a.autocomplete), cut(a.inputmode), 'ph=' + cut(a.placeholder), 'aria=' + cut(a.aria), 'lbl=' + cut(a.label), a.visible ? 'vis' : 'hid'].join('|');
+}
+function fieldsCensusNow(){
+  const out = [];
+  document.querySelectorAll('input, textarea').forEach(function(el){
+    const type = (el.getAttribute('type') || 'text').toLowerCase();
+    if(el.tagName === 'INPUT' && FIELD_CENSUS_SKIP_TYPES.indexOf(type) !== -1) return;
+    let label = '';
+    try{
+      if(el.labels && el.labels[0]) label = el.labels[0].textContent;
+      else{ const f = el.closest('.field'); const l = f && f.querySelector('label, .fld-label-like'); label = l ? l.textContent : ''; }
+    }catch(e){}
+    const visible = !!(el.offsetParent !== null || (el.closest && el.closest('.drawer.open, .app-modal.open')));
+    out.push(fieldCensusLine({ id: el.id, type: type, name: el.getAttribute('name'), autocomplete: el.getAttribute('autocomplete'), inputmode: el.getAttribute('inputmode'), placeholder: el.getAttribute('placeholder'), aria: el.getAttribute('aria-label'), label: label, visible: visible }));
+  });
+  return out;
+}
+function recordFieldsCensus(){
+  const lines = fieldsCensusNow();
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'fields-census', fieldsCount: lines.length, fields: lines.slice(0, 80) });
+  return lines;
+}
+function recordFieldsCensusFromTesting(){
+  if(!debugRecordingActive){ showTrashToast('Спершу почніть запис діагностики', 'error'); return; }
+  const n = recordFieldsCensus().length;
+  showTrashToast('Перепис полів записано: ' + n, 'success');
 }
 function runInputAttrsAudit(){
   const offenders = {}; let total = 0, bad = 0;
