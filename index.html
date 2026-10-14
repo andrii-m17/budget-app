@@ -313,20 +313,21 @@
   .update-banner{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:190; white-space:nowrap; display:none; align-items:center; gap:12px; padding:9px 10px 9px 16px; max-width:calc(100vw - 32px); background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); font-size:14px; color:var(--color-text); }
   .update-banner.show{ display:flex; }
   /* Rev 2.32.37 (T) — спливаюче підтвердження успіху («Скло», як «Доступне оновлення»): скляний контейнер, іконка (коло й галочка, що малюються) зліва, дія справа. Те саме місце над таббаром; коли показано «Доступне оновлення», піднімається над ним (стек). Анімуються лише opacity/transform і stroke-dashoffset — не розміри. */
-  .success-toast-host{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:195; width:max-content; max-width:calc(100vw - 32px); pointer-events:none; }
-  .success-toast-host.above-update{ bottom:calc(env(safe-area-inset-bottom, 0px) + 160px); }
-  .success-toast{ pointer-events:auto; display:flex; align-items:center; gap:12px; padding:10px 10px 10px 12px; background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); color:var(--color-text); animation:stPop .32s cubic-bezier(.2,.9,.3,1.2) both; }
-  .success-toast.leaving{ opacity:0; transition:opacity .2s ease; }
+  /* Rev 2.32.39 (T2) — підтвердження ЗВЕРХУ (було знизу над таббаром): top = safe-area + 8px, бічні 16px, поверх шапки й шторок; обгортка не перехоплює дотики (клікабельний лише контейнер), тому шапка поза ним працює. «Доступне оновлення» лишається внизу, без змін. */
+  .success-toast-host{ position:fixed; top:calc(env(safe-area-inset-top, 0px) + 8px); left:16px; right:16px; z-index:205; display:flex; justify-content:center; pointer-events:none; }
+  .success-toast{ pointer-events:auto; touch-action:pan-x; max-width:100%; display:flex; align-items:center; gap:12px; padding:10px 10px 10px 12px; background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); color:var(--color-text); animation:stIn var(--motion-m) cubic-bezier(.2,.9,.3,1) both; }
+  .success-toast.leaving{ opacity:0; transform:translateY(-16px); transition:opacity var(--motion-s) ease, transform var(--motion-s) ease; animation:none; }
   .success-toast-icon{ width:30px; height:30px; flex:none; color:var(--color-success, #1f9d55); }
-  .success-toast-icon circle{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-dasharray:63; stroke-dashoffset:63; animation:stDraw .38s .05s ease-out forwards; transform:rotate(-90deg); transform-origin:50% 50%; }
-  .success-toast-icon path{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:16; stroke-dashoffset:16; animation:stDraw .26s .36s ease-out forwards; }
+  .success-toast-icon circle{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-dasharray:63; stroke-dashoffset:63; animation:stDraw .38s var(--motion-m) ease-out forwards; transform:rotate(-90deg); transform-origin:50% 50%; }
+  .success-toast-icon path{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:16; stroke-dashoffset:16; animation:stDraw .26s calc(var(--motion-m) + .3s) ease-out forwards; }
   .success-toast-text{ min-width:0; display:flex; flex-direction:column; gap:1px; }
   .success-toast-title{ font-size:14px; font-weight:600; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .success-toast-sub{ font-size:12.5px; line-height:1.3; color:var(--color-text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .success-toast-action{ flex:none; border:0; background:var(--color-primary); color:#fff; font:inherit; font-size:14px; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
   @keyframes stDraw{ to{ stroke-dashoffset:0; } }
-  @keyframes stPop{ from{ opacity:0; transform:scale(.92); } to{ opacity:1; transform:scale(1); } }
-  @media (prefers-reduced-motion: reduce){ .success-toast{ animation:none; } .success-toast-icon circle, .success-toast-icon path{ animation:none; stroke-dashoffset:0; } }
+  @keyframes stIn{ from{ opacity:0; transform:translateY(-16px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes stFade{ from{ opacity:0; } to{ opacity:1; } }
+  @media (prefers-reduced-motion: reduce){ .success-toast{ animation:stFade var(--motion-s) ease both; } .success-toast.leaving{ transform:none; } .success-toast-icon circle, .success-toast-icon path{ animation:none; stroke-dashoffset:0; } }
   .update-banner button{ border:0; background:var(--color-primary); color:#fff; font:inherit; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
   .live-toast-stack{ position:fixed; top:max(12px, env(safe-area-inset-top)); left:16px; right:16px; z-index:200; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
   .live-toast{ display:flex; align-items:flex-start; gap:10px; padding:12px 14px; background:var(--color-surface); border-left:3px solid transparent; border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); pointer-events:auto; transition:transform .2s ease, opacity .2s ease; touch-action:pan-y; }
@@ -3372,7 +3373,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.38</div>
+  <div class="version-footer">Money Tree · Rev 2.32.39</div>
 </div>
   </div>
 </div>
@@ -7773,7 +7774,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.38';
+const APP_VERSION = '2.32.39';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -19825,29 +19826,23 @@ function successToastModel(kind, data){
   }
   return null;
 }
-// Не показуємо над клавіатурою (сфокусоване поле вводу) і над відкритою шторкою/діалогом — тоді чекаємо.
-function shouldShowToast(state){ return !!state && !state.inputFocused && !state.sheetOpen; }
+// Rev 2.32.39 (T2): підтвердження зверху — клавіатура й шторки йому не заважають, тож чекання прибрано (черга лишається: по одному).
+function shouldShowToast(state){ return true; }
+// Положення зверху: відступ від безпечної зони iPhone + 8px, бічні 16px (дзеркалить CSS .success-toast-host).
+function successToastPlacement(){ return { top: 'calc(env(safe-area-inset-top, 0px) + 8px)', side: 16 }; }
 const SUCCESS_TOAST_MS = 3500;
 let successToastQueue = [];
 let successToastActive = null;
 let successToastTimer = null;
-function successToastEnv(){
-  const a = document.activeElement;
-  const inputFocused = !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT') || document.body.classList.contains('kb-open');
-  return { inputFocused: inputFocused, sheetOpen: !!document.querySelector('.drawer.open, #app-modal.open') };
-}
 function showSuccessToast(opts){
   successToastQueue.push(opts || {});
   pumpSuccessToast();
 }
 function pumpSuccessToast(){
   if(successToastActive || !successToastQueue.length) return;
-  if(!shouldShowToast(successToastEnv())){ setTimeout(pumpSuccessToast, 400); return; } // чекаємо, поки закриється клавіатура/шторка
   const o = successToastQueue.shift();
   let host = document.getElementById('success-toast-host');
   if(!host){ host = document.createElement('div'); host.id = 'success-toast-host'; host.className = 'success-toast-host'; document.body.appendChild(host); }
-  const ub = document.getElementById('update-banner');
-  host.classList.toggle('above-update', !!(ub && ub.classList.contains('show'))); // стек над «Доступним оновленням»
   const el = document.createElement('div'); el.className = 'success-toast'; el.setAttribute('role', 'status');
   el.innerHTML = '<svg class="success-toast-icon" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M10.5 15.5l3.2 3.2 5.8-6.4"/></svg>';
   const text = document.createElement('div'); text.className = 'success-toast-text';
@@ -19859,7 +19854,7 @@ function pumpSuccessToast(){
     if(successToastActive !== el) return;
     clearTimeout(successToastTimer);
     el.classList.add('leaving');
-    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); successToastActive = null; pumpSuccessToast(); }, 220);
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); successToastActive = null; pumpSuccessToast(); }, 220); // ≈ --motion-s
   };
   if(o.actionLabel && typeof o.onAction === 'function'){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'success-toast-action'; b.textContent = o.actionLabel;
@@ -19867,6 +19862,17 @@ function pumpSuccessToast(){
     el.appendChild(b);
   }
   el.addEventListener('click', close); // тап закриває
+  // Свайп угору закриває; поки палець на контейнері — таймер на паузі (поновлюється після відпускання)
+  let y0 = null, dy = 0;
+  el.addEventListener('touchstart', function(e){ y0 = e.touches[0].clientY; dy = 0; clearTimeout(successToastTimer); }, { passive: true });
+  el.addEventListener('touchmove', function(e){ if(y0 === null) return; dy = Math.min(0, e.touches[0].clientY - y0); el.style.transform = 'translateY(' + dy + 'px)'; }, { passive: true });
+  el.addEventListener('touchend', function(){
+    if(y0 === null) return;
+    y0 = null;
+    if(dy < -30){ close(); return; }
+    el.style.transform = '';
+    successToastTimer = setTimeout(close, SUCCESS_TOAST_MS);
+  });
   host.appendChild(el);
   successToastActive = el;
   successToastTimer = setTimeout(close, SUCCESS_TOAST_MS);

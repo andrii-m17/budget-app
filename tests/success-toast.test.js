@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const c = buildSandbox({}, ['MONO_MONTHS_GEN', 'monoFmtUah', 'pluralUa', 'successToastModel', 'shouldShowToast']);
+const c = buildSandbox({}, ['MONO_MONTHS_GEN', 'monoFmtUah', 'pluralUa', 'successToastModel', 'shouldShowToast', 'successToastPlacement']);
 test('successToastModel: додано N витрат · з Monobank · сума; відмінювання', function(){
   assert.deepEqual(JSON.parse(JSON.stringify(c.successToastModel('mono-added', { count: 3, amountUah: 412 }))), { title: 'Додано 3 витрати', subtitle: 'з Monobank · 412 ₴', actionLabel: 'Журнал', action: 'journal' });
   assert.equal(c.successToastModel('mono-added', { count: 1, amountUah: 50 }).title, 'Додано 1 витрату');
@@ -18,20 +18,23 @@ test('successToastModel: повернення — частково й повні
   assert.equal(c.successToastModel('refund', { name: 'Bolt', oldAmount: 25, deleted: true }).subtitle, 'Bolt · 25 ₴ → видалено');
   assert.equal(c.successToastModel('x', {}), null);
 });
-test('shouldShowToast: не над клавіатурою й шторкою', function(){
-  assert.equal(c.shouldShowToast({ inputFocused: false, sheetOpen: false }), true);
-  assert.equal(c.shouldShowToast({ inputFocused: true, sheetOpen: false }), false);
-  assert.equal(c.shouldShowToast({ inputFocused: false, sheetOpen: true }), false);
+test('shouldShowToast: зверху показується незалежно від шторок і клавіатури; successToastPlacement — зверху з safe-area', function(){
+  assert.equal(c.shouldShowToast({ inputFocused: true, sheetOpen: true }), true);
+  const p = JSON.parse(JSON.stringify(c.successToastPlacement()));
+  assert.match(p.top, /env\(safe-area-inset-top/); assert.equal(p.side, 16);
 });
-test('охоронні: reduced-motion вимикає малювання; черга й очікування; стек над оновленням; тексти через textContent', function(){
-  assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.success-toast\{ animation:none; \} \.success-toast-icon circle, \.success-toast-icon path\{ animation:none; stroke-dashoffset:0; \} \}/);
+test('охоронні (T2): позиція від верху, обгортка без дотиків, свайп угору, reduced-motion, черга, оновлення внизу без змін', function(){
+  const host = SRC.match(/\.success-toast-host\{([^}]*)\}/)[1];
+  assert.match(host, /top:calc\(env\(safe-area-inset-top, 0px\) \+ 8px\)/); assert.ok(!/bottom:/.test(host)); assert.match(host, /pointer-events:none/);
+  assert.match(SRC, /\.success-toast\{ pointer-events:auto;/);
+  assert.match(SRC, /@keyframes stIn\{ from\{ opacity:0; transform:translateY\(-16px\);/);
+  assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.success-toast\{ animation:stFade/);
+  assert.match(SRC, /\.success-toast-icon circle, \.success-toast-icon path\{ animation:none; stroke-dashoffset:0; \}/);
+  assert.match(SRC, /if\(dy < -30\)\{ close\(\); return; \}/); assert.match(SRC, /touchstart[^\n]*clearTimeout\(successToastTimer\)/);
   assert.match(SRC, /if\(successToastActive \|\| !successToastQueue\.length\) return;/);
-  assert.match(SRC, /if\(!shouldShowToast\(successToastEnv\(\)\)\)\{ setTimeout\(pumpSuccessToast, 400\)/);
-  assert.match(SRC, /above-update/);
-  const a = SRC.indexOf('function pumpSuccessToast'), b = SRC.indexOf('function openJournalFromToast');
-  const body = SRC.slice(a, b);
-  assert.equal((body.match(/innerHTML/g) || []).length, 1); // лише статичний svg-значок
-  assert.match(body, /t\.textContent = o\.title/); assert.match(body, /sb\.textContent = o\.subtitle/);
-  const keyframes = SRC.match(/@keyframes stDraw[^\n]*\n[^\n]*@keyframes stPop[^\n]*/)[0];
-  assert.ok(!/width|height|top|left|margin/.test(keyframes));
+  assert.ok(!/successToastEnv|above-update|setTimeout\(pumpSuccessToast/.test(SRC));
+  assert.match(SRC, /\.update-banner\{ position:fixed; left:50%; bottom:calc\(env\(safe-area-inset-bottom, 0px\) \+ 104px\)/);
+  const body = SRC.slice(SRC.indexOf('function pumpSuccessToast'), SRC.indexOf('function openJournalFromToast'));
+  assert.equal((body.match(/innerHTML/g) || []).length, 1);
+  assert.match(body, /t\.textContent = o\.title/);
 });
