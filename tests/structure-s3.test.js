@@ -34,7 +34,7 @@ test('охоронні: групи мають aria-expanded; акордеон і
   assert.match(SRC, /<button type="button" class="struct-dict-head" aria-expanded="/);
   assert.match(SRC, /structDict\.openId = \(forceOpen \|\| structDict\.openId !== cat\) \? cat : null;/);
   assert.match(SRC, /if\(structDict\.query\.trim\(\)\) return; \/\/ під час пошуку акордеон вимкнено/);
-  assert.match(SRC, /if\(tab === 'dictionary'\)\{ structDictReset\(\);/);
+  assert.match(SRC, /if\(tab === 'dictionary' \|\| wasDictionary\)\{ structDictReset\(\); renderStructureDictionary\(\);/);
   assert.ok(!/Розкрити всі/.test(SRC));
   assert.match(SRC, /const STRUCT_CAPTION_DICT = 'Слова допомагають автоматично визначати категорію під час додавання витрати\. Торкніться рядка, щоб змінити або видалити\.';/);
   assert.match(SRC, /structEmptyHtml\('Словник порожній', 'Додайте перше слово, наприклад «кава»: воно підставлятиме «Харчування · Кава»\.', 'Додати слово'/);
@@ -49,7 +49,7 @@ test('охоронні: поле пошуку — type=search, абстракт�
   const inp = SRC.match(/<input type="search" id="fldstr2"[^>]*>/)[0];
   ['autocomplete="off"', 'aria-label="Пошук слова"', 'autocorrect="off"', 'spellcheck="false"'].forEach(function(x){ assert.ok(inp.indexOf(x) !== -1, x); });
   const fn = SRC.slice(SRC.indexOf('function structDictWordRow'), SRC.indexOf('function onStructDictSearch'));
-  assert.match(fn, /escapeHtml\(w\.kw\)/); assert.match(fn, /escapeAttr\('Слово ' \+ w\.kw\)/); assert.match(fn, /safeId\(w\.id\)/); assert.match(fn, /escapeAttr\(g\.category\)/);
+  assert.match(fn, /escapeHtml\(m\.text\)/); assert.match(fn, /escapeAttr\('Слово ' \+ w\.kw/); assert.match(fn, /safeId\(w\.id\)/); assert.match(fn, /escapeAttr\(g\.category\)/);
   assert.match(SRC, /label: 'Видалити слово', note: 'Слово більше не підставлятиме категорію\./);
   assert.match(SRC, /showAlertModal\('Спершу додайте категорію: слово словника веде до категорії\.'\)/);
 });

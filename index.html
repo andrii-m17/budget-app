@@ -1291,6 +1291,10 @@
   .struct-dict-group.open .struct-dict-chev{ transform:rotate(180deg); }
   .struct-dict-collapse{ display:none; border-top:1px solid var(--color-border); }
   .struct-dict-group.open .struct-dict-collapse{ display:block; }
+  /* Rev 2.32.56 (W): підпис-значок підкатегорії у рядку слова (28px, радіус 14, фон rgba(255,255,255,.07) / світла тема rgba(0,0,0,.06), ≤50% ширини) */
+  .struct-badge{ flex:none; display:inline-flex; align-items:center; height:28px; max-width:50%; box-sizing:border-box; padding:0 10px; border-radius:14px; background:rgba(255,255,255,.07); color:var(--color-text-primary); font-size:14px; line-height:1; white-space:nowrap; }
+  :root[data-theme="light"] .struct-badge{ background:rgba(0,0,0,.06); }
+  .struct-badge-text{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
   .struct-dict-inner .struct-row{ min-height:52px; }
   .struct-dict-inner .struct-row .struct-row-name{ font-size:15px; }
   .struct-dict-inner .struct-row + .struct-row::before{ left:16px; }
@@ -3407,7 +3411,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.55</div>
+  <div class="version-footer">Money Tree · Rev 2.32.56</div>
 </div>
   </div>
 </div>
@@ -7887,7 +7891,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.55';
+const APP_VERSION = '2.32.56';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12618,7 +12622,10 @@ function earliestActivityMonth(){
 // Rev 2.11.24 — перемикач вкладок Категорії/Підкатегорії/Словник: та сама
 // розмітка карток, лише показуємо одну панель за раз замість суцільного списку.
 function switchStructureTab(tab){
-  if(tab === 'dictionary'){ structDictReset(); renderStructureDictionary(); } // Rev 2.32.50 (S3): при відкритті «Словника» усі групи згорнуті, нічого не запам'ятовується
+  // Rev 2.32.56 (W): кожен вхід у «Словник» і вихід із нього — чистий стан (групи згорнуті, пошук очищено, прокрутка на початку); повернення застосунку з фону стан не скидає (тут немає обробників visibilitychange)
+  const wasDictionary = !document.getElementById('struct-tab-panel-dictionary').classList.contains('hidden');
+  if(tab === 'dictionary' || wasDictionary){ structDictReset(); renderStructureDictionary(); const mc = document.getElementById('main-col'); if(mc) mc.scrollTop = 0; }
+  if(false){ structDictReset(); renderStructureDictionary(); } // Rev 2.32.50 (S3): при відкритті «Словника» усі групи згорнуті, нічого не запам'ятовується
   ['categories','subcategories','dictionary'].forEach(t=>{
     document.getElementById(`struct-tab-panel-${t}`).classList.toggle('hidden', t!==tab);
     document.getElementById(`struct-tab-btn-${t}`).classList.toggle('active', t===tab);
@@ -12719,13 +12726,29 @@ function dictionaryView(words, cats, query, openId){
 function accordionAnchorDelta(before, after){ return (Number(after) || 0) - (Number(before) || 0); }
 let structDict = { openId: null, query: '' };
 function structAccVariant(){ try{ return getVariant('structure-accordion') || 'b'; }catch(e){ return 'b'; } }
+// Вихід із вкладки «Структура» (перехід на іншу вкладку застосунку), коли активний сегмент «Словник»: скидання стану й збереженої прокрутки (щоб при поверненні вона не вказувала «в нікуди»).
+function structDictLeave(){
+  const dictActive = !document.getElementById('struct-tab-panel-dictionary').classList.contains('hidden');
+  if(!dictActive) return;
+  structDictReset(); renderStructureDictionary();
+  tabScrollPositions['structure'] = 0;
+}
 function structDictReset(){
   structDict = { openId: null, query: '' };
   const inp = document.getElementById('fldstr2'); if(inp) inp.value = '';
 }
 const STRUCT_DICT_CHEV_SVG = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+// Rev 2.32.56 (W): рядок слова — слово зліва; підкатегорія (якщо є) — невеликий підпис-значок праворуч (емодзі + назва); без підкатегорії праворуч порожньо. Другого рівня розкриття немає.
+function wordRowModel(word, subcategories){
+  const sub = word && word.sub ? String(word.sub) : '';
+  if(!sub) return { text: word ? word.kw : '', badge: null };
+  const sp = splitLeadingEmoji(sub);
+  return { text: word.kw, badge: { emoji: sp.emoji, name: sp.text } };
+}
 function structDictWordRow(w){
-  return '<button type="button" class="struct-row" onclick="editDictionaryEntry(\'' + safeId(w.id) + '\')" aria-label="' + escapeAttr('Слово ' + w.kw) + '"><span class="struct-row-name">' + escapeHtml(w.kw) + '</span><span class="struct-row-side">' + escapeHtml(w.sub ? splitLeadingEmoji(w.sub).text : 'без підкатегорії') + '</span></button>';
+  const m = wordRowModel(w, SUBCATEGORIES);
+  const badge = m.badge ? '<span class="struct-badge">' + (m.badge.emoji ? escapeHtml(m.badge.emoji) + '\u00a0' : '') + '<span class="struct-badge-text">' + escapeHtml(m.badge.name) + '</span></span>' : '';
+  return '<button type="button" class="struct-row" onclick="editDictionaryEntry(\'' + safeId(w.id) + '\')" aria-label="' + escapeAttr('Слово ' + w.kw + (m.badge ? ', ' + m.badge.name : '')) + '"><span class="struct-row-name">' + escapeHtml(m.text) + '</span>' + badge + '</button>';
 }
 function renderStructureDictionary(){
   const el = document.getElementById('struct-dictionary');
@@ -18184,6 +18207,7 @@ function performSwitchTab(tab, opts){
   updatePageHeader(tab);
   // Rev 2.24.0 (M1) — прокрутка вихідної вкладки запам'ятовується; перехід анімується лише для реальної зміни вкладки після першого жесту.
   if(switching) tabScrollPositions[prevTab] = fromScroll;
+  if(switching && prevTab === 'structure' && typeof structDictLeave === 'function') structDictLeave(fromScroll); // Rev 2.32.56 (W): вихід зі «Структури» зі «Словника» — чистий стан і прокрутка 0
   const tabCtx = animateSwitch ? beginTabTransition(prevTab, tab, fromContentTop) : null;
   ['analytics','accounting','vytraty','structure','service'].forEach(t=>{
     if(tabCtx && t === prevTab) return; // вихідна лишається видимою до кінця переходу (finishTabTransition її ховає)
