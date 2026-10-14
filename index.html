@@ -1242,6 +1242,8 @@
   @media (hover:hover) and (pointer:fine){ .struct-tab-btn:hover{ color:var(--color-text-primary); } }
   .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
   .struct-tab-panel.hidden{ display:none; }
+  /* Rev 2.32.69 — тихий підпис погашеної ОЧ (акцентний колір) */
+  .cdr-paidoff{ color:var(--color-primary-text, var(--color-primary)); font-weight:600; }
   /* Rev 2.32.68 (P4) — екран «Платежі» і шторка дій: групи в стилі «Налаштувань», рядок: плитка дати, назва + підпис, сума. */
   .pay-line{ display:flex; align-items:center; gap:14px; width:100%; min-height:60px; padding:8px 16px; box-sizing:border-box; background:transparent; border:0; border-top:1px solid var(--color-border); font:inherit; text-align:left; color:var(--color-text-primary); cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .pay-line:first-child{ border-top:0; }
@@ -3477,7 +3479,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.68</div>
+  <div class="version-footer">Money Tree · Rev 2.32.69</div>
 </div>
   </div>
 </div>
@@ -8009,7 +8011,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.68';
+const APP_VERSION = '2.32.69';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12155,11 +12157,13 @@ function populateInstallmentTable(){
       : partial ? `<span class="cdr-paid-badge partial" aria-hidden="true" title="Внесено менше за потрібний платіж">${WARNING}</span>`
       : '';
     const dueSub = acc.dueDay ? ` · до ${acc.dueDay} числа` : '';
-    return `<button type="button" class="card-debt-compact-row" id="installment-row-${i}" onclick="openInstallmentEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати">
+    const paidOff = installmentPaidOffOffer(name); // Rev 2.32.69: тихий підпис «Погашено · Приховати з …» (тап відкриває діалог)
+    const subHtml = paidOff ? `<span class="cdr-sub"><span class="cdr-paidoff" role="button" tabindex="0" data-paidoff="${i}" onclick="event.stopPropagation(); offerHidePaidOffInstallment(installmentAccounts[${i}].name)">Погашено · Приховати з ${escapeHtml(paidOff.label)}</span></span>` : `<span class="cdr-sub">Оплата частинами${dueSub}</span>`;
+    return `<button type="button" class="card-debt-compact-row" id="installment-row-${i}" onclick="openInstallmentEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати${paidOff ? ', погашено' : ''}">
       <span class="cdr-avatar">${bankIcon(name, 38, true)}${paidBadge}</span>
       <span class="cdr-main">
         <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}${incompleteDotHtml('installment', i, installmentIncompleteReasons(acc))}</span>
-        <span class="cdr-sub">Оплата частинами${dueSub}</span>
+        ${subHtml}
       </span>
       <span class="cdr-amounts">
         <span class="cdr-balance mono">${fmt(balance)}</span>
@@ -12496,6 +12500,7 @@ async function saveInstallmentDrawer(){
   if(pushedRecord) pushDebtRecordPilot(pushedRecord);
   closeInstallmentEditor();
   renderAll();
+  if(pushedRecord && !pushedRecord.deletedAt && pushedRecord.balance === 0) setTimeout(function(){ offerHidePaidOffInstallment(newName); }, 350); // Rev 2.32.69: пропозиція приховати (нічого не ховається без підтвердження)
   const hint = document.getElementById('installments-saved-hint');
   if(hint){
     hint.textContent = 'Збережено';
@@ -12534,6 +12539,47 @@ function openAddInstallmentModal(){
     await addInstallmentAccount(name, amount);
   });
 }
+/* ============ Погашена ОЧ: пропозиція приховати (Rev 2.32.69) ============
+   Запис місяця ОЧ: balance — залишок ПІСЛЯ платежу місяця (estimateInstallment: попередній залишок − платіж). Нічого не ховається автоматично: лише після явного підтвердження (діалог після збереження або тихий підпис у «Обліку»). Приховування — наявний механізм hideEntityFromMonth (hiddenFrom), серверні нагадування його вже поважають (hidden_from_month). */
+// records: [{ month: 'YYYY-MM', balance, monthlyPayment }] одного рядка ОЧ (без видалених). ОЧ погашена, якщо в останньому відомому записі залишок ≤ 0, або платіж останнього запису ≥ попереднього відомого залишку (> 0).
+function isInstallmentPaidOff(records){
+  const list = (records || []).filter(function(r){ return r && r.month; }).slice().sort(function(a, b){ return a.month.localeCompare(b.month); });
+  if(!list.length) return false;
+  const last = list[list.length - 1];
+  if(last.balance != null && last.balance <= 0) return true;
+  if(last.monthlyPayment != null && list.length > 1){
+    const prev = list.slice(0, -1).filter(function(r){ return r.balance != null; }).pop();
+    if(prev && prev.balance > 0 && last.monthlyPayment >= prev.balance) return true;
+  }
+  return false;
+}
+// Місяць, з якого пропонуємо приховати: наступний після місяця останнього запису (з нульовим залишком / погашаючим платежем). null, якщо ОЧ не погашена.
+function paidOffHideFromMonth(records){
+  if(!isInstallmentPaidOff(records)) return null;
+  const list = records.filter(function(r){ return r && r.month; }).slice().sort(function(a, b){ return a.month.localeCompare(b.month); });
+  return ppNextMonth(list[list.length - 1].month);
+}
+function paidOffHideLabel(fromMonth){ return PAY_MONTHS_GEN[+fromMonth.slice(5, 7) - 1]; }
+// Дані пропозиції для ОЧ за назвою: { from, label } або null (не погашена / вже прихована до цього місяця).
+function installmentPaidOffOffer(name){
+  const recs = activeDebts().filter(function(d){ return d.kind === 'installment' && d.name === name; }).map(function(d){ return { month: monthKey2(d.month), balance: d.balance, monthlyPayment: d.monthlyPayment }; });
+  const from = paidOffHideFromMonth(recs);
+  if(!from || isHiddenForMonth(name, 'installment', from)) return null;
+  return { from: from, label: paidOffHideLabel(from) };
+}
+// Спільне приховування «з місяця» (те саме, що removeInstallmentAccount після вибору місяця).
+async function applyHideInstallmentFrom(name, fromMonth){
+  hideEntityFromMonth(hideKey(name, 'installment'), fromMonth);
+  reportSaveResult(await saveHiddenFrom());
+  renderAll();
+}
+function offerHidePaidOffInstallment(name){
+  const offer = installmentPaidOffOffer(name);
+  if(!offer) return false;
+  showConfirmModal('ОЧ погашено\n\n«' + stripLeadingEmoji(name) + '»: залишок 0 ₴. Приховати з ' + offer.label + '? Платежі й нагадування для неї припиняться, історію буде збережено.', function(){ applyHideInstallmentFrom(name, offer.from); }, 'Приховати з ' + offer.label, 'primary');
+  const cancel = document.getElementById('app-modal-cancel-btn'); if(cancel) cancel.textContent = 'Не зараз'; // «Не зараз» нічого не зберігає
+  return true;
+}
 function removeInstallmentAccount(i){
   const name = installmentAccounts[i].name;
   showMonthPickerModal(
@@ -12544,7 +12590,7 @@ function removeInstallmentAccount(i){
       // першого приховання й для ПОВТОРНОГО (знімає tombstone, якщо ОЧ уже
       // показували назад).
       hideEntityFromMonth(hideKey(name,'installment'), fromMonth);
-      reportSaveResult(await saveHiddenFrom());
+      reportSaveResult(await saveHiddenFrom()); // (Rev 2.32.69: той самий механізм використовує applyHideInstallmentFrom)
       // Rev 2.3.8 BugFix — раніше тут ще й installmentAccounts.splice(i,1)
       // видаляв конфігурацію ОЧ ПОВНІСТЮ з масиву, тому запис зникав з
       // Обліку для УСІХ місяців (включно з тими, що ДО обраного "Приховати
