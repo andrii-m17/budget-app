@@ -3038,16 +3038,9 @@
         <div id="struct-categories"></div>
       </div>
 
+      <!-- Rev 2.32.49 (S2): «Підкатегорії» за макетом — групи за батьківською категорією; інфо-плашку й картку прибрано -->
       <div class="struct-tab-panel hidden" id="struct-tab-panel-subcategories">
-        <div class="info-note">
-          <span class="info-note-icon" aria-hidden="true">i</span>
-          <span>Перейменування чи видалення підкатегорії не зачіпає вже додані витрати.</span>
-        </div>
-        <div class="card">
-          <div class="table-card-title">Підкатегорії</div>
-          <div id="struct-subcategories"></div>
-          <button type="button" class="add-trigger-btn" onclick="openAddSubcategoryModal()">+ Додати підкатегорію</button>
-        </div>
+        <div id="struct-subcategories"></div>
       </div>
 
       <div class="struct-tab-panel hidden" id="struct-tab-panel-dictionary">
@@ -3379,7 +3372,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.48</div>
+  <div class="version-footer">Money Tree · Rev 2.32.49</div>
 </div>
   </div>
 </div>
@@ -7782,7 +7775,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.48';
+const APP_VERSION = '2.32.49';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12562,23 +12555,36 @@ function renderStructureCategories(){
   parts.push(structAddGroupHtml('Додати категорію', 'openAddCategoryModal()', STRUCT_CAPTION_CAT));
   catEl.innerHTML = parts.join('');
 }
+const STRUCT_CAPTION_SUB_EMPTY = 'Підкатегорії необов\'язкові. Зміни не зачіпають вже додані витрати.';
+// Групи за батьківською категорією (порядок категорій як у «Категоріях»); категорія без підкатегорій не повертається; підкатегорії з невідомою/неактивною батьківською — окремими групами в кінці.
+function groupSubcategoriesByParent(subs, cats){
+  const list = subs || [];
+  const names = (cats || []).map(function(c){ return c.name; });
+  const extra = [];
+  list.forEach(function(x){ if(names.indexOf(x.category) === -1 && extra.indexOf(x.category) === -1) extra.push(x.category); });
+  return names.concat(extra).map(function(n){ return { category: n, items: list.filter(function(x){ return x.category === n; }) }; }).filter(function(g){ return g.items.length; });
+}
+function renderStructureSubcategories(){
+  const el = document.getElementById('struct-subcategories');
+  if(!el) return;
+  const activeCats = CATEGORIES.filter(function(c){ return c.active; });
+  const activeSubs = SUBCATEGORIES.map(function(x, i){ return Object.assign({ idx: i }, x); }).filter(function(x){ return x.active; });
+  if(!activeSubs.length){
+    el.innerHTML = structEmptyHtml('Підкатегорій немає', 'Підкатегорії уточнюють категорію, наприклад «Кава» у «Харчуванні». Це необов\'язково.', 'Додати підкатегорію', 'openAddSubcategoryModal()', STRUCT_CAPTION_SUB_EMPTY);
+    return;
+  }
+  const parts = groupSubcategoriesByParent(activeSubs, activeCats).map(function(g){
+    return '<div class="struct-section"><div class="struct-group-label">' + escapeHtml(splitLeadingEmoji(g.category).text) + '</div><div class="struct-group">' + g.items.map(function(x){ return structRowHtml(x.name, 'editSubcategory(' + x.idx + ')', 'Підкатегорія'); }).join('') + '</div></div>';
+  });
+  parts.push(structAddGroupHtml('Додати підкатегорію', 'openAddSubcategoryModal()', STRUCT_CAPTION_CAT));
+  el.innerHTML = parts.join('');
+}
 function structOpenTrash(){ performSwitchTab('service'); openTrashScreen(); }
 function renderStructure(){
   const catEl = document.getElementById('struct-categories');
   if(!catEl) return;
-  renderStructureCategories(); // Rev 2.32.48 (S1): нові «Категорії»; підкатегорії й словник — нижче без змін до S2/S3
-  const subEl = document.getElementById('struct-subcategories');
-  const activeSubs = SUBCATEGORIES.map((s,i)=>Object.assign({idx:i}, s)).filter(s=>s.active);
-  subEl.innerHTML = activeSubs.length ? activeSubs.map(s=>`
-    <div class="struct-item">
-      <span class="s-name">${escapeHtml(s.name)}<span class="s-parent">→ ${escapeHtml(s.category)}</span></span>
-      <span class="bdr-actions">
-        <button type="button" class="bdr-icon-btn" onclick="editSubcategory(${s.idx})" aria-label="Редагувати підкатегорію"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
-        <button type="button" class="bdr-icon-btn danger" onclick="deleteSubcategory(${s.idx})" aria-label="Видалити підкатегорію"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-      </span>
-    </div>
-  `).join('') : `<div class="empty-hint">Немає активних підкатегорій</div>`;
-
+  renderStructureCategories(); // Rev 2.32.48 (S1)
+  renderStructureSubcategories(); // Rev 2.32.49 (S2); словник — нижче без змін до S3
   const dictEl = document.getElementById('struct-dictionary');
   // Rev 2.22.79 (6D.152) — адресація за d.id, не за позицією в масиві (той
   // самий патерн, що '${e.kind}','${e.id}' уже для записів Журналу) — див.
@@ -14419,7 +14425,7 @@ function deleteCategory(i){
 }
 function openAddSubcategoryModal(){
   const activeCats = CATEGORIES.filter(c=>c.active);
-  if(activeCats.length===0) return; // нема куди прив'язати нову підкатегорію
+  if(activeCats.length===0){ showAlertModal('Спершу додайте категорію: підкатегорія завжди належить категорії.'); return; } // Rev 2.32.49 (S2): пояснення замість мовчазного виходу
   showSubcategoryModal('Нова підкатегорія:', '', activeCats[0].name, 'Середній', async function(name, category, priorityLabel){
     if(SUBCATEGORIES.some(s=>s.name===name)) return false;
     // Rev #30 (6D.28) — createdAt/updatedAt при створенні, той самий
@@ -14465,7 +14471,7 @@ function editSubcategory(i){
     reportSaveResult(await saveSubcategoryPriority());
     populateMonths(); renderAll(); renderStructure();
     afterRenameSync(renamedCount); // Rev 2.32.24 (R)
-  });
+  }, { label: 'Видалити підкатегорію', note: 'Витрати з цією підкатегорією не видаляються. Видалена підкатегорія потрапляє у «Видалені дані».', onDelete: function(){ deleteSubcategory(i); } }); // Rev 2.32.49 (S2): видалення — усередині шторки
 }
 // Rev 2.1.27 — видалення підкатегорії: м'яке (active:false), історичні записи
 // витрат зберігають стару назву. Пов'язані записи словника прибираються.
@@ -21402,7 +21408,7 @@ const SUBCATEGORY_PRIORITY_OPTIONS = [
   {label:'Середній', score:0.65, color:'warning'},
   {label:'Низький', score:0.25, color:'success'},
 ];
-function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriorityLabel, onSave){
+function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriorityLabel, onSave, del){ // Rev 2.32.49 (S2): del — { label, note, onDelete } для редагування
   document.getElementById('app-modal-text').textContent = title;
   document.getElementById('app-modal-select-label').textContent = 'Категорія';
   const input = document.getElementById('app-modal-input');
@@ -21428,7 +21434,7 @@ function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriori
     if(ok === false){ flashField('app-modal-input'); return; }
     closeAppModal();
   };
-  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-subcategory' });
+  presentAppModal({ input: true, select: true, select2: true, sheetId: 'sheet-subcategory', del: del });
   setTimeout(()=>{ focusCardField(input); }, 60);
 }
 // Rev 2.1.28 — модалка додавання/редагування слова словника: ключове слово +
