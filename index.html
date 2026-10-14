@@ -1336,6 +1336,9 @@
   .mono-switch > span{ position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,.3); transition:transform .2s; }
   .mono-switch[aria-checked="true"] > span{ transform:translateX(20px); }
   /* Rev 2.32.28 (MB-4) — «Вхідні» Monobank: другий підекран (над «Monobank»), рядки в розмітці Журналу (.expense-row-swipe), мітка «з банку». */
+  /* Rev 2.32.47 (AG) — варіант search-type тесту autofill-guard: type=search без системного вигляду (лупа, хрестик, внутрішні відступи). Діє лише коли html[data-autofill-guard] містить search. */
+  html[data-autofill-guard~="search"] input[type="search"]{ -webkit-appearance:none; appearance:none; }
+  html[data-autofill-guard~="search"] input[type="search"]::-webkit-search-cancel-button, html[data-autofill-guard~="search"] input[type="search"]::-webkit-search-decoration, html[data-autofill-guard~="search"] input[type="search"]::-webkit-search-results-button, html[data-autofill-guard~="search"] input[type="search"]::-webkit-search-results-decoration{ display:none; -webkit-appearance:none; }
   .mono-inbox-screen{ z-index:19; } /* Rev 2.32.38 (B): було 20 = z-index таббара, а екран іде в DOM після нього й перекривав таббар; 19 + порядок у DOM → над «Monobank», під таббаром */
   /* Rev 2.32.38 (B) — дзвіночок і архів сповіщень. Рядок: іконка за типом, заголовок, текст, час (без крапок). Непрочитані: заголовок основним кольором, напівжирний (600), текст яскравіший, іконка повної яскравості; прочитані: вторинний сірий, звичайний шрифт (400), іконка приглушена (~0,5). */
   .gear-btn.notif-bell-btn{ position:relative; overflow:visible; }
@@ -3360,7 +3363,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.46</div>
+  <div class="version-footer">Money Tree · Rev 2.32.47</div>
 </div>
   </div>
 </div>
@@ -3780,6 +3783,8 @@
         <div class="profile-head-email">Увійдіть, щоб синхронізувати дані на всіх пристроях</div>
       </div>
     </div>
+    <!-- Rev 2.32.47 (AG): поля входу в обгортці #cloud-login-fields — у варіантах cloud-lazy/combined тесту autofill-guard їх немає в DOM, доки не відкрито панель входу -->
+    <div id="cloud-login-fields">
     <div class="field field-icon-wrap">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
       <input type="email" id="cldfielda1" placeholder="Email" aria-label="Email" autocomplete="username"><!-- Rev 2.28.1 (C): id було cloud-email (підрядок "mail"); автозаповнення пароля (username/current-password) лишаємо — це справжнє поле входу -->
@@ -3787,6 +3792,7 @@
     <div class="field field-icon-wrap">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       <input type="password" id="cloud-password" placeholder="Пароль" aria-label="Пароль" autocomplete="current-password">
+    </div>
     </div>
     <div class="import-status" id="cloud-auth-error" style="color:var(--color-error);"></div>
     <button type="button" class="submit-btn pill" onclick="signInCloudAccount()">Увійти</button>
@@ -7755,7 +7761,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.46';
+const APP_VERSION = '2.32.47';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8465,6 +8471,7 @@ function showProfileLoginForm(){
   openProfileLoginDrawer();
 }
 function openProfileLoginDrawer(){
+  mountCloudLoginFields(); // Rev 2.32.47 (AG): у cloud-lazy поля входу створюються лише тут
   lastFocusedBeforeDialog = document.activeElement;
   document.getElementById('profile-backdrop').removeAttribute('inert');
   document.getElementById('profile-drawer').removeAttribute('inert');
@@ -8489,6 +8496,7 @@ function closeProfileLoginDrawer(){
   drawer.setAttribute('inert','');
   restoreFocus();
   unlockBackgroundScroll();
+  unmountCloudLoginFields(); // Rev 2.32.47 (AG): …і прибираються при закритті
 }
 
 // Rev #30 (6D.54) — раніше SDK підвантажувався ЛІШЕ при відкритті "Сервісу"/
@@ -9845,8 +9853,10 @@ function closeProfileMenu(){
 async function signInCloudAccount(){
   const errEl = document.getElementById('cloud-auth-error');
   errEl.textContent = '';
-  const email = document.getElementById('cldfielda1').value.trim();
-  const password = document.getElementById('cloud-password').value;
+  const emailEl = document.getElementById('cldfielda1'), pwEl = document.getElementById('cloud-password'); // Rev 2.32.47 (AG): у cloud-lazy полів може не бути в DOM
+  if(!emailEl || !pwEl) return;
+  const email = emailEl.value.trim();
+  const password = pwEl.value;
   if(!email || !password){ errEl.textContent = 'Вкажіть email і пароль.'; return; }
   let client;
   try{
@@ -9859,7 +9869,7 @@ async function signInCloudAccount(){
   }
   const { error } = await client.auth.signInWithPassword({ email, password });
   if(error){ errEl.textContent = 'Не вдалося увійти: '+error.message; return; }
-  document.getElementById('cloud-password').value = '';
+  const pwAfter = document.getElementById('cloud-password'); if(pwAfter) pwAfter.value = '';
 }
 // Rev 2.32.22 (W, A1-1) — вихід з акаунта. Раніше лише auth.signOut(): дані, журнали purged, маркери, cloudId і push-підписка лишались, тож при вході в іншу родину дані A потрапляли в родину B, а пристрій і далі отримував сповіщення A. Тепер: діалог (з пропозицією копії, якщо last_backup_at старший за 7 днів чи порожній) -> видалення власної push-підписки (Cloud + браузер) -> signOut -> очищення локальних даних акаунта -> перезапуск (чисте початкове завантаження з дефолтами). У хмарі дані лишаються. Альтернатива «пам'ятати family_id і чистити при вході в іншу» не прибирала б чужі дані з пристрою до наступного входу.
 const BACKUP_STALE_DAYS = 7;
@@ -10219,7 +10229,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'inputsTotal', 'inputsBad', 'badIds',
   'matched', // Rev 2.32.35 (K): mono-keyword
   'unread', 'opened', 'markedAll', 'cleared', // Rev 2.32.38 (B): notif-archive
-  'fieldsCount', 'fields', // Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень)
+  'fieldsCount', 'fields', 'formsCount', 'hasLoginFields', 'autofillGuard', // Rev 2.32.47 (AG)
+   // Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень)
   'btnTotal', 'byVariant', 'btnNoVariant', 'btnSmall', 'btnSmallExempt', 'btnLowContrast', 'btnLowContrastRow', 'lowContrastRowClasses', 'noVariantClasses', 'smallClasses', 'lowContrastClasses',
   // Rev 2.31.1 (C) — trash-swipe-close: ms (тривалість жесту), dx (зсув вправо, px).
   'dx',
@@ -13415,7 +13426,7 @@ function unformatAmountFocus(el){
 // як власна логіка поля (checkInstallmentDivergence, saveExpenseDraft тощо)
 // прочитає el.value.
 function isAmountField(el){
-  return !!el && el.tagName === 'INPUT' && el.type === 'text' && el.getAttribute('inputmode') === 'numeric';
+  return !!el && el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'search') && el.getAttribute('inputmode') === 'numeric'; // Rev 2.32.47 (AG): search-type варіант тесту autofill-guard
 }
 document.addEventListener('input', function(e){
   const el = e.target;
@@ -17789,7 +17800,7 @@ function fieldsCensusNow(){
 }
 function recordFieldsCensus(){
   const lines = fieldsCensusNow();
-  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'fields-census', fieldsCount: lines.length, fields: lines.slice(0, 80) });
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'fields-census', fieldsCount: lines.length, fields: lines.slice(0, 80), formsCount: document.querySelectorAll('form').length, hasLoginFields: !!document.querySelector('input[type="email"], input[type="password"]'), autofillGuard: autofillGuardVariant() }); // Rev 2.32.47 (AG)
   return lines;
 }
 function recordFieldsCensusFromTesting(){
@@ -18492,7 +18503,28 @@ purgeLegacyKeyboardKeys();
 const TEST_VARIANTS_LS_KEY = 'budget_variants_v1';
 // Rev 2.32.0 (F): реєстр порожній — motion-intensity («Стандартна», ×1) і card-reveal («Стандартно», 420/40) зафіксовано константами; pruneVariants() прибирає їхні старі ключі з localStorage.
 // Rev 2.32.8 (A): реєстр порожній — edit-label завершено (no-for); pruneVariants() прибирає його ключ із localStorage.
-const TEST_VARIANTS = [];
+const TEST_VARIANTS = [
+  // Rev 2.32.47 (AG) — порівняльний експеримент: що прибирає панель iOS «Автозаповнити контакт» (панель виникає попри autocomplete=off, після першої появи — у кожному полі, тобто це схоже на стан сторінки). Змінюється лише розмітка, не вигляд. Варіант застосовується при СТАРТІ — після вибору повністю закрийте застосунок і відкрийте знову.
+  {
+    id: 'autofill-guard',
+    title: 'Автозаповнення контактів: експеримент',
+    what: 'Який варіант прибирає панель «Автозаповнити контакт»: поля входу в хмару не існують у DOM, доки не відкрито «Вхід» (cloud-lazy); усі текстові поля — type="search" без системних значків (search-type); обидва разом (combined).',
+    variants: [
+      { key: 'control', label: 'Як зараз', hint: 'поля входу в DOM від старту, type=text' },
+      { key: 'cloud-lazy', label: 'Вхід на вимогу', hint: 'поля email/пароль створюються лише при відкритті «Входу»' },
+      { key: 'search-type', label: 'type=search', hint: 'усі текстові поля — type=search, без лупи й хрестика' },
+      { key: 'combined', label: 'Обидва', hint: 'вхід на вимогу + type=search' },
+    ],
+    defaultVariant: 'control',
+    addedIn: 'Rev 2.32.47 (AG)',
+    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний варіант й прибере тест)',
+    checkSteps: [
+      'Оберіть варіант і ПОВНІСТЮ закрийте застосунок (змахнути з перемикача), потім відкрийте знову.',
+      'Облік → ОЧ → «Тест треш G3» (поле «Назва» не торкатись); Структура → «Додати категорію»; після цього торкніться цифрового поля — чи видно панель «Автозаповнити контакт»?',
+      'Повторіть для кожного з чотирьох варіантів; запишіть, у якому панелі немає. «Перепис полів екрана» покаже активний варіант (autofillGuard) і кількість форм.',
+    ],
+  },
+];
 function readTestVariantsMap(){
   try{
     const raw = localStorage.getItem(TEST_VARIANTS_LS_KEY);
@@ -18550,6 +18582,49 @@ function getVariantsSnapshot(){
 }
 // </test-variants-module>
 pruneVariants();
+// Rev 2.32.47 (AG) — застосування варіанта autofill-guard при старті (див. запис у реєстрі вище).
+let cloudLoginFieldsTemplate = null;
+function autofillGuardVariant(){ try{ return getVariant('autofill-guard') || 'control'; }catch(e){ return 'control'; } }
+function autofillGuardFlags(variant){ return { cloudLazy: variant === 'cloud-lazy' || variant === 'combined', searchType: variant === 'search-type' || variant === 'combined' }; }
+function mountCloudLoginFields(){
+  const box = document.getElementById('cloud-login-fields');
+  if(box && cloudLoginFieldsTemplate !== null && !box.firstElementChild) box.innerHTML = cloudLoginFieldsTemplate;
+}
+function unmountCloudLoginFields(){
+  const box = document.getElementById('cloud-login-fields');
+  if(box && cloudLoginFieldsTemplate !== null) box.innerHTML = '';
+}
+// Текстове поле → type="search" (без системного значка: див. CSS html[data-autofill-guard~="search"]); inputmode/enterkeyhint зберігаються, autocomplete/autocorrect/spellcheck вимкнені.
+function toSearchField(el){
+  if(!el || el.tagName !== 'INPUT') return;
+  if((el.getAttribute('type') || 'text').toLowerCase() !== 'text') return;
+  el.setAttribute('type', 'search');
+  el.setAttribute('autocomplete', 'off');
+  el.setAttribute('autocorrect', 'off');
+  el.setAttribute('spellcheck', 'false');
+}
+function applyAutofillGuard(){
+  const flags = autofillGuardFlags(autofillGuardVariant());
+  const root = document.documentElement;
+  const parts = [];
+  if(flags.cloudLazy){
+    const box = document.getElementById('cloud-login-fields');
+    if(box && cloudLoginFieldsTemplate === null){ cloudLoginFieldsTemplate = box.innerHTML; box.innerHTML = ''; parts.push('lazy'); }
+  }
+  if(flags.searchType){
+    parts.push('search');
+    document.querySelectorAll('input[type="text"]').forEach(toSearchField);
+    new MutationObserver(function(muts){
+      muts.forEach(function(m){ m.addedNodes.forEach(function(n){
+        if(n.nodeType !== 1) return;
+        if(n.tagName === 'INPUT') toSearchField(n);
+        else if(n.querySelectorAll) n.querySelectorAll('input[type="text"]').forEach(toSearchField);
+      }); });
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+  if(parts.length) root.setAttribute('data-autofill-guard', parts.join(' '));
+}
+applyAutofillGuard(); // Rev 2.32.47 (AG)
 initSegments(); // Rev 2.26.0 (M3): ковзні індикатори сегментів (.struct-tabs, .theme-toggle, .n-days)
 // Rev 2.23.22 (6D.191) — UI "Тестування" (бейдж, шторка, картки). Значення
 // варіантів — лише через getVariant()/setVariant() модуля вище.

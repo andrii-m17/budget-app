@@ -11,7 +11,7 @@ test('підпис поля «Назва» в редагуванні: span бе�
   assert.equal(c.editNameLabelHtml('X'), '<span class="fld-label-like">Назва</span>');
   assert.equal(c.editNameAriaAttr(), ' aria-label="Назва витрати"');
   assert.ok(!/getVariant\('edit-label'\)|editLabelVariant|labelVariant|id: 'edit-label'/.test(SRC.replace(/\/\/[^\n]*/g, '')), 'гілки тесту прибрано');
-  assert.match(SRC, /const TEST_VARIANTS = \[\];/);
+  assert.ok(!/id: 'edit-label'/.test(SRC)); // Rev 2.32.47 (AG): реєстр тепер містить лише autofill-guard
 });
 test('розкладка однакова: .fld-label-like має ті самі стилі, що .field label (в обох правилах)', () => {
   assert.match(SRC, /\.field label, \.field \.fld-label-like\{ display:block; font-size:11px;/);
