@@ -1250,6 +1250,8 @@
   .struct-row + .struct-row::before{ content:''; position:absolute; top:0; left:60px; right:0; height:1px; background:var(--color-border); }
   .struct-tile{ width:32px; height:32px; flex:none; border-radius:10px; background:var(--color-surface-hover); display:flex; align-items:center; justify-content:center; font-size:18px; line-height:1; }
   .struct-tile.letter{ font-size:14px; font-weight:700; color:var(--color-text-secondary); }
+  /* Rev 2.32.57 (P): підсвічування рядків-списків при натисканні. Реакція M1 (scale 0.97 + opacity 0.9) на рядках усередині груп з overflow:hidden майже непомітна (масштаб обрізається) — додано фон на час .is-pressed (клас ставить наявний механізм pressStart, нових обробників немає). */
+  .struct-row.is-pressed, .struct-dict-head.is-pressed, .notif-row.is-pressed, .mono-row.is-pressed, .struct-delete-row.is-pressed{ background:var(--color-surface-hover); }
   .struct-row-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .struct-row-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
   .struct-row-side{ flex:none; color:var(--color-text-secondary); font-size:15px; }
@@ -3411,7 +3413,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.56</div>
+  <div class="version-footer">Money Tree · Rev 2.32.57</div>
 </div>
   </div>
 </div>
@@ -7891,7 +7893,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.56';
+const APP_VERSION = '2.32.57';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
