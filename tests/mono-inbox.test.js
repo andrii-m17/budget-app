@@ -29,9 +29,9 @@ test('I1: skipReasonLabel — усі причини; причини в моде�
   assert.equal(c.inboxRowModel(R('x', { status: 'ignored' }), ACC).reason, 'Ігноровано');
   assert.equal(c.inboxRowModel(R('x'), ACC).reason, '');
 });
-test('inboxRowModel: мітка категорії/підкатегорії, «Оберіть категорію», в обробці, мета з карткою, сума', function(){
+test('inboxRowModel: мітка категорії/підкатегорії, «Оберіть категорію», мета з карткою, сума', function(){
   const m = j(c.inboxRowModel(R('x', { suggested_category: 'Транспорт', suggested_subcategory: 'Таксі', hold: true }), ACC));
-  assert.equal(m.chip, 'Транспорт · Таксі'); assert.equal(m.hasCategory, true); assert.equal(m.pending, true);
+  assert.equal(m.chip, 'Транспорт · Таксі'); assert.equal(m.hasCategory, true); assert.equal(m.pending, undefined);
   assert.match(m.meta, /^\d{2}:\d{2} · •••• 1234$/);
   assert.match(m.amount, /^−353\s₴$/);
   const n = j(c.inboxRowModel(R('y', { suggested_category: null }), ACC));
