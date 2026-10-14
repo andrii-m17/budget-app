@@ -14,14 +14,13 @@ test('wordRowModel: підпис лише при наявній підкатег
   assert.deepEqual(j(c.wordRowModel({ kw: 'x', sub: '' }, [])), { text: 'x', badge: null });
   assert.deepEqual(j(c.wordRowModel({ kw: 'y', sub: 'Без емодзі' }, [])), { text: 'y', badge: { emoji: '', name: 'Без емодзі' } });
 });
-test('охоронні: немає тексту «без підкатегорії»; підпис екранований; другого розкриття немає; стилі значка за макетом', function(){
-  assert.ok(!/без підкатегорії/.test(SRC.slice(SRC.indexOf('function wordRowModel'), SRC.indexOf('function onStructDictSearch'))));
-  const fn = SRC.slice(SRC.indexOf('function structDictWordRow'), SRC.indexOf('function onStructDictSearch'));
-  assert.match(fn, /escapeHtml\(m\.badge\.name\)/); assert.match(fn, /escapeHtml\(m\.badge\.emoji\)/);
-  const css = SRC.match(/\.struct-badge\{([^}]*)\}/)[1];
-  assert.match(css, /height:28px/); assert.match(css, /border-radius:14px/); assert.match(css, /max-width:50%/); assert.match(css, /font-size:14px/); assert.match(css, /rgba\(255,255,255,\.07\)/);
-  assert.match(SRC, /:root\[data-theme="light"\] \.struct-badge\{ background:rgba\(0,0,0,\.06\); \}/);
-  assert.match(SRC, /\.struct-badge-text\{ min-width:0; overflow:hidden; text-overflow:ellipsis; \}/);
+test('рядок слова (варіант A): слово 17 пт, підпис під ним 13 пт, ›; немає «без підкатегорії» й значків праворуч; підпис екранований', function(){
+  const fn = SRC.slice(SRC.indexOf('function structDictWordRow'), SRC.indexOf('function renderStructureDictionary'));
+  assert.ok(!/без підкатегорії/.test(SRC.slice(SRC.indexOf('function wordRowModel'), SRC.indexOf('function renderStructureDictionary'))));
+  assert.match(fn, /escapeHtml\(m\.badge\.name\)/); assert.match(fn, /escapeHtml\(m\.badge\.emoji\)/); assert.match(fn, /struct-word-sub/); assert.match(fn, /struct-row-chev/);
+  assert.ok(!/struct-badge/.test(SRC), 'значків із 2.32.56 немає');
+  assert.match(SRC, /\.struct-word-text\{ font-size:17px;/); assert.match(SRC, /\.struct-word-sub\{ font-size:13px; line-height:1\.25; color:var\(--color-text-secondary\);/);
+  assert.match(SRC, /\.struct-dict-inner \.struct-row\{ min-height:52px; \}/); assert.match(SRC, /\.struct-dict-inner \.struct-row:has\(\.struct-word-sub\)\{ min-height:64px; \}/);
 });
 test('скидання: вхід/вихід із сегмента й вихід із вкладки скидають групи, пошук і прокрутку; повернення з фону — ні', function(){
   assert.match(SRC, /const wasDictionary = !document\.getElementById\('struct-tab-panel-dictionary'\)\.classList\.contains\('hidden'\);/);

@@ -1298,13 +1298,13 @@
   .struct-dict-group.open .struct-dict-chev{ transform:rotate(180deg); }
   .struct-dict-collapse{ display:none; border-top:1px solid var(--color-border); }
   .struct-dict-group.open .struct-dict-collapse{ display:block; }
-  /* Rev 2.32.56 (W): підпис-значок підкатегорії у рядку слова (28px, радіус 14, фон rgba(255,255,255,.07) / світла тема rgba(0,0,0,.06), ≤50% ширини) */
-  .struct-badge{ flex:none; display:inline-flex; align-items:center; height:28px; max-width:50%; box-sizing:border-box; padding:0 10px; border-radius:14px; background:rgba(255,255,255,.07); color:var(--color-text-primary); font-size:14px; line-height:1; white-space:nowrap; }
-  :root[data-theme="light"] .struct-badge{ background:rgba(0,0,0,.06); }
-  .struct-badge-text{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  /* Rev 2.32.60 (W, варіант A): рядок слова — слово 17 пт; підкатегорія дрібним підписом під ним (13 пт, вторинний колір); слово без підкатегорії однорядкове (мін. 52 пт), з підписом — 64 пт; справа ›. Замінює підписи-значки з 2.32.56. */
+  .struct-dict-inner .struct-row:has(.struct-word-sub){ min-height:64px; }
+  .struct-word-main{ flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px; padding:8px 0; }
+  .struct-word-text{ font-size:17px; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .struct-word-sub{ font-size:13px; line-height:1.25; color:var(--color-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .struct-dict-inner .struct-row{ min-height:52px; }
-  .struct-dict-inner .struct-row .struct-row-name{ font-size:15px; }
-  .struct-dict-inner .struct-row + .struct-row::before{ left:16px; }
+    .struct-dict-inner .struct-row + .struct-row::before{ left:16px; }
   .struct-dict-group.just-opened .struct-dict-inner{ animation:stFade .16s ease both; }
   #struct-dictionary[data-acc="c"] .struct-dict-collapse{ display:grid; grid-template-rows:0fr; border-top-color:transparent; transition:grid-template-rows .24s ease; }
   #struct-dictionary[data-acc="c"] .struct-dict-group.open .struct-dict-collapse{ grid-template-rows:1fr; border-top-color:var(--color-border); }
@@ -3419,7 +3419,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.59</div>
+  <div class="version-footer">Money Tree · Rev 2.32.60</div>
 </div>
   </div>
 </div>
@@ -7907,7 +7907,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.59';
+const APP_VERSION = '2.32.60';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12762,9 +12762,10 @@ function wordRowModel(word, subcategories){
   return { text: word.kw, badge: { emoji: sp.emoji, name: sp.text } };
 }
 function structDictWordRow(w){
+  // Rev 2.32.60 (W, варіант A): слово 17 пт зліва; підкатегорія (якщо є) — дрібний вторинний підпис ПІД словом (13 пт, емодзі + назва); праворуч стрілка ›. Без значків праворуч і без підпису-заглушки; другого розкриття немає.
   const m = wordRowModel(w, SUBCATEGORIES);
-  const badge = m.badge ? '<span class="struct-badge">' + (m.badge.emoji ? escapeHtml(m.badge.emoji) + '\u00a0' : '') + '<span class="struct-badge-text">' + escapeHtml(m.badge.name) + '</span></span>' : '';
-  return '<button type="button" class="struct-row" onclick="editDictionaryEntry(\'' + safeId(w.id) + '\')" aria-label="' + escapeAttr('Слово ' + w.kw + (m.badge ? ', ' + m.badge.name : '')) + '"><span class="struct-row-name">' + escapeHtml(m.text) + '</span>' + badge + '</button>';
+  const sub = m.badge ? '<span class="struct-word-sub">' + (m.badge.emoji ? escapeHtml(m.badge.emoji) + '\u00a0' : '') + escapeHtml(m.badge.name) + '</span>' : '';
+  return '<button type="button" class="struct-row" onclick="editDictionaryEntry(\'' + safeId(w.id) + '\')" aria-label="' + escapeAttr('Слово ' + w.kw + (m.badge ? ', ' + m.badge.name : '')) + '"><span class="struct-word-main"><span class="struct-word-text">' + escapeHtml(m.text) + '</span>' + sub + '</span><span class="struct-row-chev">' + STRUCT_CHEVRON_SVG + '</span></button>';
 }
 function renderStructureDictionary(){
   const el = document.getElementById('struct-dictionary');
