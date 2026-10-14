@@ -87,7 +87,7 @@ test('filterPurgedAccounts / filterPurgedDebts: бекап не відновлю
 
 // ---------- охоронні тести коду ----------
 test('pull: tombstone-рядок прибирає рахунок і не зв’язується/не створює за назвою; select містить deleted_at; reconcile за назвою ігнорує tombstone-рядки', () => {
-  assert.match(SRC, /select\('id,name,credit_limit,created_at,updated_at,deleted_at'\)/);
+  assert.match(SRC, /select\('id,name,credit_limit,payment_day,created_at,updated_at,deleted_at'\)/);
   assert.match(SRC, /select\('id,name,initial_amount,due_day,created_at,updated_at,deleted_at'\)/);
   assert.equal((SRC.match(/if\(row\.deleted_at\)\{ if\(await pullAccountTombstone\(/g) || []).length, 2);
   // tombstone-обробка йде ДО зв'язування за назвою

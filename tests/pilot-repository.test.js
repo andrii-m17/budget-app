@@ -172,7 +172,7 @@ const REPOSITORY_NAMES = [
   'deleteCategory', 'deleteSubcategory', 'restoreCategory', 'restoreSubcategory',
   // Rev #28.D1
   'loadBankAccounts', 'loadInstallmentAccounts', 'loadHiddenFrom', 'loadIgnoredDivergences',
-  'saveBankAccounts', 'saveBankAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId',
+  'saveBankAccounts', 'saveBankAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId', 'paymentDayPayload', 'normalizePaymentDay',
   // Rev #30 (6D, bank_accounts повний цикл) — той самий cross-realm-override
   // прийом, що pullCategoriesCore тести нижче: cloudSession/cloudFamilyId/
   // getSupabaseClient/isSupabaseSdkReady підмінюються після buildSandbox().

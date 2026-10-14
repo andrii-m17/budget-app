@@ -1242,6 +1242,12 @@
   @media (hover:hover) and (pointer:fine){ .struct-tab-btn:hover{ color:var(--color-text-primary); } }
   .struct-tab-btn.active{ background:var(--color-primary); color:#fff; }
   .struct-tab-panel.hidden{ display:none; }
+  /* Rev 2.32.63 (P1) — рядок вибору в шторках «Обліку» (підпис над полем, висота 46, радіус 18): select прозорий поверх, значення окремо */
+  .pick-box{ position:relative; display:flex; align-items:center; gap:8px; height:46px; padding:0 14px; box-sizing:border-box; border:1.5px solid var(--color-border-strong); border-radius:18px; background:var(--ui-glass, var(--color-surface)); }
+  .pick-val{ flex:1; min-width:0; font-size:16px; color:var(--color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pick-chev{ flex:none; display:flex; color:var(--color-text-secondary); }
+  .pick-select{ position:absolute; inset:0; width:100%; height:100%; opacity:0; border:0; font-size:16px; -webkit-appearance:none; appearance:none; cursor:pointer; }
+  .field-hint{ margin:6px 4px 0; font-size:12px; line-height:1.35; color:var(--color-text-secondary); }
   /* Rev 2.32.58 (F1) — форми «Структури» у компоненті .drawer: компактні рядки 48 пт (підпис ліворуч, значення праворуч), групи радіус 18, пара кнопок знизу (скасувати — обведена), «Видалити …» червоним текстом під парою; ✕ немає. Нативний select — прозорий поверх рядка, текст значення малюється окремо (обрізання знизу неможливе). */
   :is(#struct-drawer, #mono-detail-drawer) .sf-title{ margin:2px 0 12px; font-size:18px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-notice{ margin:0 0 12px; padding:10px 12px; border-radius:var(--radius-md); background:var(--color-warning-bg); color:var(--color-text-primary); font-size:13.5px; line-height:1.4; }
@@ -3429,7 +3435,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.62</div>
+  <div class="version-footer">Money Tree · Rev 2.32.63</div>
 </div>
   </div>
 </div>
@@ -3926,6 +3932,12 @@
       <label for="cdd-minpay">Мін. платіж</label>
       <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-minpay" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
     </div>
+  </div>
+  <!-- Rev 2.32.63 (P1): «День платежу» — необов'язково; нативний select прозорим шаром поверх рядка, значення малюється окремо (як у формах «Структури») -->
+  <div class="field">
+    <label for="cdd-payday">День платежу</label>
+    <div class="pick-box"><span class="pick-val" id="cdd-payday-val">Не задано</span><span class="pick-chev" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span><select id="cdd-payday" class="pick-select" aria-label="День платежу" onchange="updatePaydayVal()"></select></div>
+    <div class="field-hint">Необов'язково. День місяця, до якого сплачується мінімальний платіж: так картка з'явиться в календарі платежів.</div>
   </div>
   <label class="bdr-minpay-check">
     <input type="checkbox" id="cdd-paid">
@@ -7256,7 +7268,7 @@ async function pushBankAccountsPilot(){
     const prevCloudId = acc.cloudId;
     try{
       if(acc.cloudId){
-        const { data, error } = await client.from('bank_accounts').update({ name: acc.name, credit_limit: acc.creditLimit, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
+        const { data, error } = await client.from('bank_accounts').update({ name: acc.name, credit_limit: acc.creditLimit, ...paymentDayPayload(acc), updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
         if(error){ anyError = true; continue; }
         if(data && data.length === 0){
           acc.cloudId = null;
@@ -7307,15 +7319,36 @@ async function pushBankAccountsPilot(){
   if(!anyError) await pullBankAccountsCore();
   return { success: !anyError };
 }
+// Rev 2.32.63 (P1) — «День платежу» картки: ціле 1…31 або null («Не задано»). Усе інше (0, 32, нечисло, порожнє) — null. Сервер приймає лише 1–31 або порожньо.
+function fillPaydaySelect(day){
+  const sel = document.getElementById('cdd-payday');
+  sel.textContent = '';
+  sel.appendChild(new Option('Не задано', ''));
+  for(let d = 1; d <= 31; d++) sel.appendChild(new Option(String(d), String(d)));
+  const v = normalizePaymentDay(day);
+  sel.value = v === null ? '' : String(v);
+  updatePaydayVal();
+}
+function updatePaydayVal(){
+  const sel = document.getElementById('cdd-payday'), val = document.getElementById('cdd-payday-val');
+  if(sel && val) val.textContent = sel.value ? sel.value + '-го числа' : 'Не задано';
+}
+function normalizePaymentDay(v){
+  if(v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return (Number.isInteger(n) && n >= 1 && n <= 31) ? n : null;
+}
+// Поле payment_day у запиті push додається ЛИШЕ якщо локальне значення відоме (undefined = ще не підтягнуто з Cloud) — інакше пуш зі старого стану затер би значення з іншого пристрою. Старі клієнти поле не надсилають — серверне значення лишається.
+function paymentDayPayload(acc){ return acc && acc.paymentDay !== undefined ? { payment_day: normalizePaymentDay(acc.paymentDay) } : {}; }
 async function reconcileBankAccountCloudId(client, userId, acc){
   const { data: existing } = await client.from('bank_accounts').select('id').eq('family_id', cloudFamilyId).eq('name', acc.name).is('deleted_at', null).maybeSingle(); // Rev 2.32.4 (T2): tombstone-рядки ігноруються
   if(existing){
     acc.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
-    await client.from('bank_accounts').update({ credit_limit: acc.creditLimit, updated_at: acc.updatedAt, updated_by: userId }).eq('id', existing.id);
+    await client.from('bank_accounts').update({ credit_limit: acc.creditLimit, ...paymentDayPayload(acc), updated_at: acc.updatedAt, updated_by: userId }).eq('id', existing.id);
     return;
   }
-  const { data, error } = await client.from('bank_accounts').insert({ family_id: cloudFamilyId, name: acc.name, credit_limit: acc.creditLimit, created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
+  const { data, error } = await client.from('bank_accounts').insert({ family_id: cloudFamilyId, name: acc.name, credit_limit: acc.creditLimit, ...paymentDayPayload(acc), created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) acc.cloudId = data.id;
 }
 // Rev #30 (6D, bank_accounts повний цикл) — Pull pilot: bank_accounts.
@@ -7336,7 +7369,7 @@ async function pullBankAccountsCore(){
   let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   try{
-    let query = client.from('bank_accounts').select('id,name,credit_limit,created_at,updated_at,deleted_at').eq('family_id', cloudFamilyId);
+    let query = client.from('bank_accounts').select('id,name,credit_limit,payment_day,created_at,updated_at,deleted_at').eq('family_id', cloudFamilyId);
     query = applySyncMarker(query, 'bankAccounts');
     const { data, error } = await query;
     if(error || !data) return { skipped: true };
@@ -7357,9 +7390,10 @@ async function pullBankAccountsCore(){
           pushBankAccountsPilot();
           continue;
         }
-        if(byCloudId.name !== row.name || byCloudId.creditLimit !== row.credit_limit || byCloudId.updatedAt !== row.updated_at){
+        if(byCloudId.name !== row.name || byCloudId.creditLimit !== row.credit_limit || (byCloudId.paymentDay ?? null) !== (row.payment_day ?? null) || byCloudId.updatedAt !== row.updated_at){
           byCloudId.name = row.name;
           byCloudId.creditLimit = row.credit_limit;
+          byCloudId.paymentDay = row.payment_day ?? null; // Rev 2.32.63 (P1)
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
           byCloudId.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
@@ -7372,13 +7406,14 @@ async function pullBankAccountsCore(){
         if(byName.cloudId && byName.cloudId !== row.id){ relinkedNames.push(byName.name); relinkedOldIds.push(byName.cloudId); }
         byName.cloudId = row.id;
         byName.creditLimit = row.credit_limit;
+        byName.paymentDay = row.payment_day ?? null; // Rev 2.32.63 (P1)
         byName.createdAt = row.created_at;
         byName.updatedAt = row.updated_at;
         byName.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
         linked++;
         continue;
       }
-      bankAccounts.push({ name: row.name, creditLimit: row.credit_limit, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
+      bankAccounts.push({ name: row.name, creditLimit: row.credit_limit, paymentDay: row.payment_day ?? null, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
       added++;
     }
     updateSyncMarkerFromAllRows('bankAccounts', data);
@@ -7917,7 +7952,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.62';
+const APP_VERSION = '2.32.63';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12272,6 +12307,7 @@ function openCardDebtEditor(i){
   document.getElementById('cdd-balance').value = balance != null ? formatThousands(balance) : '';
   document.getElementById('cdd-minpay').value = minPayment != null ? formatThousands(minPayment) : '';
   document.getElementById('cdd-paid').checked = !!(existing && existing.minPaymentDone);
+  fillPaydaySelect(acc.paymentDay); // Rev 2.32.63 (P1)
   document.getElementById('card-debt-backdrop').removeAttribute('inert');
   document.getElementById('card-debt-drawer').removeAttribute('inert');
   document.getElementById('card-debt-backdrop').classList.add('open');
@@ -12314,6 +12350,7 @@ async function saveCardDebtDrawer(){
   }
   acc.name = newName;
   acc.creditLimit = newLimit;
+  acc.paymentDay = normalizePaymentDay(document.getElementById('cdd-payday').value); // Rev 2.32.63 (P1): «Не задано» = null
   // Rev #30 (6D, bank_accounts Варіант А) — updatedAt оновлюється й при
   // редагуванні (назва/ліміт), createdAt лишається як був.
   acc.updatedAt = new Date().toISOString();

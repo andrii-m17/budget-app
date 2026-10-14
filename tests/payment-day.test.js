@@ -1,0 +1,43 @@
+// Rev 2.32.63 (P1) — «День платежу» картки.
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { buildSandbox } = require('./extract');
+const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const j = function(v){ return JSON.parse(JSON.stringify(v)); };
+const c = buildSandbox({}, ['normalizePaymentDay', 'paymentDayPayload']);
+test('normalizePaymentDay: 1…31 — число; порожнє/0/32/нечисло/дріб — null', function(){
+  [1, 15, 31, '7', '31'].forEach(function(v){ assert.equal(c.normalizePaymentDay(v), Number(v)); });
+  [null, undefined, '', 0, '0', 32, '32', -1, 1.5, 'abc', NaN].forEach(function(v){ assert.equal(c.normalizePaymentDay(v), null, String(v)); });
+});
+test('paymentDayPayload: значення відоме → payment_day (null для «Не задано»); undefined → поля немає (не затирає Cloud)', function(){
+  assert.deepEqual(j(c.paymentDayPayload({ paymentDay: 12 })), { payment_day: 12 });
+  assert.deepEqual(j(c.paymentDayPayload({ paymentDay: null })), { payment_day: null });
+  assert.deepEqual(j(c.paymentDayPayload({ paymentDay: 40 })), { payment_day: null });
+  assert.deepEqual(j(c.paymentDayPayload({})), {}); assert.deepEqual(j(c.paymentDayPayload(null)), {});
+});
+test('синхронізація: payment_day у трьох місцях push і в select/pull (оновлення, зв\'язування за назвою, нові рядки)', function(){
+  assert.equal((SRC.match(/\.\.\.paymentDayPayload\(acc\)/g) || []).length, 3);
+  assert.match(SRC, /select\('id,name,credit_limit,payment_day,created_at,updated_at,deleted_at'\)/);
+  assert.match(SRC, /\(byCloudId\.paymentDay \?\? null\) !== \(row\.payment_day \?\? null\)/);
+  assert.match(SRC, /byCloudId\.paymentDay = row\.payment_day \?\? null;/);
+  assert.match(SRC, /byName\.paymentDay = row\.payment_day \?\? null;/);
+  assert.match(SRC, /bankAccounts\.push\(\{ name: row\.name, creditLimit: row\.credit_limit, paymentDay: row\.payment_day \?\? null,/);
+});
+test('форма картки: поле «День платежу» (select 1…31 + «Не задано»), підпис, збереження через normalizePaymentDay; перейменування/ліміт не стирають значення', function(){
+  assert.match(SRC, /<label for="cdd-payday">День платежу<\/label>/);
+  assert.match(SRC, /<select id="cdd-payday" class="pick-select"[^>]*onchange="updatePaydayVal\(\)">/);
+  assert.match(SRC, /Необов'язково\. День місяця, до якого сплачується мінімальний платіж: так картка з'явиться в календарі платежів\./);
+  assert.match(SRC, /sel\.appendChild\(new Option\('Не задано', ''\)\);\n\s*for\(let d = 1; d <= 31; d\+\+\)/);
+  assert.match(SRC, /acc\.paymentDay = normalizePaymentDay\(document\.getElementById\('cdd-payday'\)\.value\);/);
+  const save = SRC.slice(SRC.indexOf('async function saveCardDebtDrawer'), SRC.indexOf('async function saveCardDebtDrawer') + 2500);
+  assert.ok(save.indexOf('acc.paymentDay =') < save.indexOf('acc.updatedAt = new Date().toISOString();'), 'день платежу входить у той самий штамп оновлення');
+  assert.match(SRC, /\.pick-select\{ position:absolute; inset:0; width:100%; height:100%; opacity:0;/);
+  assert.match(SRC, /fillPaydaySelect\(acc\.paymentDay\);/);
+});
+test('резервна копія: поле переноситься (merge копіює всі ключі), клавіатурні файли не чіпались', function(){
+  assert.match(SRC, /Object\.keys\(rec\)\.forEach\(function\(key\)\{\n\s*if\(key === 'cloudId'\) return;/);
+  assert.ok(!/cdd-payday[^\n]*kb-/.test(SRC));
+});
