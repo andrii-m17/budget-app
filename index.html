@@ -1255,6 +1255,16 @@
   :is(#struct-drawer, #mono-detail-drawer) .sf-input{ flex:1; min-width:0; height:48px; padding:0; border:0; background:transparent; box-shadow:none; border-radius:0; text-align:right; font-size:16px; color:var(--color-text-primary); }
   :is(#struct-drawer, #mono-detail-drawer) .sf-input:focus{ outline:none; box-shadow:none; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-row .struct-tile{ margin-right:2px; }
+  /* Rev 2.32.61 — тип категорії: кожен тип має свій колір (Обов'язкова — бурштин, Гнучка — синій, Скорочувана — зелений); невибрані типи підписані своїм кольором, вибраний — у бульбашці того ж кольору. */
+  #struct-drawer .sf-seg .struct-tab-btn.t-ob{ color:var(--color-warning); }
+  #struct-drawer .sf-seg .struct-tab-btn.t-fl{ color:var(--color-info); }
+  #struct-drawer .sf-seg .struct-tab-btn.t-re{ color:var(--color-success); }
+  #struct-drawer .sf-seg .struct-tab-btn:not(.active){ opacity:.85; }
+  #struct-drawer .sf-seg .struct-tab-btn.active{ font-weight:700; }
+  #struct-drawer .sf-seg[data-t="ob"] .seg-indicator, #struct-drawer .sf-seg .struct-tabs[data-t="ob"] .seg-indicator{ background:var(--color-warning-bg); box-shadow:inset 0 0 0 1.5px var(--color-warning); }
+  #struct-drawer .sf-seg .struct-tabs[data-t="fl"] .seg-indicator{ background:var(--color-info-bg); box-shadow:inset 0 0 0 1.5px var(--color-info); }
+  #struct-drawer .sf-seg .struct-tabs[data-t="re"] .seg-indicator{ background:var(--color-success-bg); box-shadow:inset 0 0 0 1.5px var(--color-success); }
+  #struct-drawer .sf-input.left{ text-align:left; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-seg{ padding:6px 8px; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-seg .struct-tabs{ width:100%; margin:0; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-seg .struct-tab-btn{ padding:7px 4px; }
@@ -3419,7 +3429,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.60</div>
+  <div class="version-footer">Money Tree · Rev 2.32.61</div>
 </div>
   </div>
 </div>
@@ -7907,7 +7917,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.60';
+const APP_VERSION = '2.32.61';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -21642,6 +21652,8 @@ const CATEGORY_TYPES = ["Обов'язкова", "Гнучка", "Скорочу
 /* ============ Форми «Структури» у компоненті .drawer (Rev 2.32.58, F1) ============
    Категорія, підкатегорія, слово: той самий .drawer, що Дохід/Борг/ОЧ/картка (клавіатурна логіка працює з будь-яким .drawer узагальнено — kbSheetHostOf; тут лише розмітка й обробники). Компактні рядки 48 пт; нативний select прозорий поверх рядка, текст значення малюється окремо. */
 // Іконка-перегляд назви: емодзі з початку назви, а без емодзі — перша літера (або «?» для порожньої).
+// Ключ кольору типу категорії: ob — «Обов'язкова» (попередження), fl — «Гнучка» (інформація), re — «Скорочувана» (успіх).
+function structTypeKey(type){ return type === "Обов'язкова" ? 'ob' : (type === 'Скорочувана' ? 're' : 'fl'); }
 function tileForName(name){
   const sp = splitLeadingEmoji(name);
   if(sp.emoji) return { text: sp.emoji, isEmoji: true };
@@ -21690,9 +21702,10 @@ function openStructForm(cfg){
   const rName = sfEl('div', 'sf-row');
   let tileEl = null;
   if(cfg.field.tile){ tileEl = sfEl('span', 'struct-tile'); tileEl.setAttribute('aria-hidden', 'true'); rName.appendChild(tileEl); }
-  rName.appendChild(sfEl('span', 'sf-label', cfg.field.label));
+  if(!cfg.field.tile) rName.appendChild(sfEl('span', 'sf-label', cfg.field.label)); // Rev 2.32.61: біля плитки-перегляду підпису «Назва» немає (підказка — у самому полі)
   const input = document.createElement('input');
-  input.type = 'text'; input.id = 'fldstr3'; input.className = 'sf-input'; input.value = cfg.field.value || '';
+  input.type = 'text'; input.id = 'fldstr3'; input.className = 'sf-input' + (cfg.field.tile ? ' left' : ''); input.value = cfg.field.value || '';
+  if(cfg.field.placeholder) input.setAttribute('placeholder', cfg.field.placeholder);
   input.setAttribute('autocomplete', 'off'); input.setAttribute('autocorrect', 'off'); input.setAttribute('spellcheck', 'false'); input.setAttribute('aria-label', cfg.field.label);
   rName.appendChild(input); gName.appendChild(rName); body.appendChild(gName);
   if(tileEl){
@@ -21704,12 +21717,14 @@ function openStructForm(cfg){
   const state = { type: cfg.type ? cfg.type.value : null };
   if(cfg.type){
     const gType = sfEl('div', 'sf-group sf-seg'); const tabs = sfEl('div', 'struct-tabs'); tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Тип категорії');
+    tabs.setAttribute('data-t', structTypeKey(state.type)); // Rev 2.32.61: колір типу — для бульбашки вибраного й підпису невибраних
     cfg.type.items.forEach(function(t){
-      const b = sfEl('button', 'struct-tab-btn' + (t === state.type ? ' active' : ''), t); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', t === state.type ? 'true' : 'false');
-      b.addEventListener('click', function(){ state.type = t; tabs.querySelectorAll('.struct-tab-btn').forEach(function(x){ const on = x === b; x.classList.toggle('active', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); }); });
+      const b = sfEl('button', 'struct-tab-btn t-' + structTypeKey(t) + (t === state.type ? ' active' : ''), t); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', t === state.type ? 'true' : 'false');
+      b.addEventListener('click', function(){ state.type = t; tabs.setAttribute('data-t', structTypeKey(t)); tabs.querySelectorAll('.struct-tab-btn').forEach(function(x){ const on = x === b; x.classList.toggle('active', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); }); });
       tabs.appendChild(b);
     });
     gType.appendChild(tabs); body.appendChild(gType);
+    if(typeof initSegments === 'function') initSegments(); // ковзна бульбашка вибраного (той самий механізм, що в сегментів «Категорії / Підкатегорії / Словник»)
   }
   // вибір
   const picks = {};
@@ -21761,7 +21776,7 @@ function setAppModalNotice(text){
   if(structForm && n){ n.textContent = text; n.style.display = 'block'; } else document.getElementById('app-modal-text').textContent = text;
 }
 function showCategoryModal(title, defaultName, defaultType, onSave, del){
-  openStructForm({ kind: 'category', edit: !!del, field: { value: defaultName, label: 'Назва', tile: true }, type: { items: CATEGORY_TYPES, value: defaultType }, picks: [], del: del, onSave: function(v){ return onSave(v.name, v.type); } });
+  openStructForm({ kind: 'category', edit: !!del, field: { value: defaultName, label: 'Назва', tile: true, placeholder: 'напр. 🍔 Харчування' }, type: { items: CATEGORY_TYPES, value: defaultType }, picks: [], del: del, onSave: function(v){ return onSave(v.name, v.type); } });
 }
 // Rev 2.1.27 — модалка додавання/редагування підкатегорії: назва + категорія
 // (перший select-wrap) + пріоритет економії (другий, окремий select2-wrap) —
@@ -21774,7 +21789,7 @@ const SUBCATEGORY_PRIORITY_OPTIONS = [
 function showSubcategoryModal(title, defaultName, defaultCategory, defaultPriorityLabel, onSave, del){
   const cats = CATEGORIES.filter(function(c){ return c.active; }).map(function(c){ return { value: c.name, label: stripLeadingEmoji(c.name) }; });
   const prios = SUBCATEGORY_PRIORITY_OPTIONS.map(function(p){ return { value: p.label, label: p.label }; });
-  openStructForm({ kind: 'subcategory', edit: !!del, field: { value: defaultName, label: 'Назва', tile: true }, type: null,
+  openStructForm({ kind: 'subcategory', edit: !!del, field: { value: defaultName, label: 'Назва', tile: true, placeholder: 'напр. ☕ Кава' }, type: null,
     picks: [{ key: 'category', label: 'Категорія', options: cats, value: defaultCategory, required: true }, { key: 'priority', label: 'Потенціал економії', options: prios, value: defaultPriorityLabel }],
     del: del, onSave: function(v){ return onSave(v.name, v.category, v.priority); } });
 }

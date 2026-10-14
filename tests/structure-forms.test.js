@@ -72,3 +72,12 @@ test('перейменування: повідомлення-підтвердж�
   assert.match(SRC, /function setAppModalNotice\(text\)\{\n  const n = document\.getElementById\('sf-notice'\);\n  if\(structForm && n\)/);
   assert.equal((SRC.match(/setAppModalNotice\(renameConfirmText\(activeN\)\)/g) || []).length, 2);
 });
+test('2.32.61: тип категорії — бульбашка вибраного (initSegments) і колір кожного типу; біля плитки немає підпису «Назва», підказка в полі', function(){
+  assert.match(SRC, /function structTypeKey\(type\)\{ return type === "Обов'язкова" \? 'ob' : \(type === 'Скорочувана' \? 're' : 'fl'\); \}/);
+  assert.match(SRC, /initSegments\(\); \/\/ ковзна бульбашка вибраного/);
+  assert.match(SRC, /tabs\.setAttribute\('data-t', structTypeKey\(t\)\);/);
+  ['ob', 'fl', 're'].forEach(function(k){ assert.match(SRC, new RegExp('#struct-drawer \\.sf-seg \\.struct-tab-btn\\.t-' + k + '\\{ color:var\\(--color-(warning|info|success)\\);')); });
+  assert.match(SRC, /\.struct-tab-btn:not\(\.active\)\{ opacity:\.85; \}/);
+  assert.match(SRC, /if\(!cfg\.field\.tile\) rName\.appendChild\(sfEl\('span', 'sf-label', cfg\.field\.label\)\);/);
+  assert.match(SRC, /placeholder: 'напр\. 🍔 Харчування'/); assert.match(SRC, /placeholder: 'напр\. ☕ Кава'/);
+});
