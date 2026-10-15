@@ -3492,7 +3492,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.76</div>
+  <div class="version-footer">Money Tree · Rev 2.32.77</div>
 </div>
   </div>
 </div>
@@ -8030,7 +8030,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.76';
+const APP_VERSION = '2.32.77';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15801,10 +15801,7 @@ function purgeAccountPlan(acct, state){
   return { exists: !!account, kind: kind, name: name, cloudId: (account && account.cloudId) || null, debtIds: debtIds, debtCount: debtIds.length,
     linkedExpenseIds: linked.map(function(e){ return e.id; }), linkedCount: linked.length, hiddenKey: hiddenKey };
 }
-// Rev 2.32.76 (PURGE-1): строк життя надгробків карток/ОЧ/категорій на сервері (нічні cron purge_deleted_accounts/purge_deleted_taxonomy; p_days змінює лише чат). Було 30 → 14 днів:
-// надгробок має прожити довше за найдовшу відсутність пристрою, інакше такий пристрій не побачить видалення й відтворить картку/ОЧ/категорію переписом id. Миттєвий DELETE відхилено з тієї ж причини.
-const TOMBSTONE_RETENTION_DAYS = 14;
-function purgeRetentionNote(){ return 'З сервера запис остаточно зникне через ' + TOMBSTONE_RETENTION_DAYS + ' днів.'; }
+// Rev 2.32.77 (PURGE-1): строк життя надгробків карток/ОЧ/категорій на сервері (14 днів, cron p_days) користувачу НЕ показуємо: лише внутрішня документація (docs/SUPABASE_POLICY.md).
 function purgeAccountConfirmText(plan){
   const n = plan.debtCount;
   const withDebts = n > 0 ? ' разом з ' + n + ' ' + ((n % 10 === 1 && n % 100 !== 11) ? 'місячним записом' : 'місячними записами') + ' боргів' : '';
@@ -15814,7 +15811,7 @@ function purgeAccountConfirmText(plan){
     const one = m % 10 === 1 && m % 100 !== 11;
     text += ' ' + m + ' ' + ((m % 10 >= 2 && m % 10 <= 4 && (m % 100 < 12 || m % 100 > 14)) ? 'витрати' : (one ? 'витрата' : 'витрат')) + ', прив\'язан' + (one ? 'а' : 'их') + ' до цієї ОЧ, ' + (one ? 'лишиться, але втратить' : 'лишаться, але втратять') + ' прив\'язку.';
   }
-  return text + ' ' + purgeRetentionNote(); // Rev 2.32.76 (PURGE-1)
+  return text;
 }
 // Локальне видалення рахунку зі стану (спільне для власного видалення й для pull tombstone-рядка): рахунок, його місячні записи, запис прихованого;
 // витрати, прив'язані до ОЧ, лишаються без поля linkedInstallment (суми не чіпаємо; stamp — ISO для updatedAt, щоб звичайний push відправив відв'язування).
@@ -15874,7 +15871,7 @@ function purgeTaxonomyConfirmText(plan){
   const parts = [];
   if(plan.kind === 'category' && plan.subCount > 0) parts.push(taxonomyPlural(plan.subCount, 'підкатегорією', 'підкатегоріями'));
   if(plan.wordCount > 0) parts.push(taxonomyPlural(plan.wordCount, 'словом', 'словами'));
-  return (plan.kind === 'category' ? 'Категорія' : 'Підкатегорія') + ' «' + plan.name + '» буде видалена назавжди' + (parts.length ? ' разом з ' + parts.join(' й ') : '') + '. Це неможливо скасувати. ' + purgeRetentionNote(); // Rev 2.32.76 (PURGE-1)
+  return (plan.kind === 'category' ? 'Категорія' : 'Підкатегорія') + ' «' + plan.name + '» буде видалена назавжди' + (parts.length ? ' разом з ' + parts.join(' й ') : '') + '. Це неможливо скасувати.';
 }
 function purgeTaxonomyBlockedText(plan){
   if(plan.active) return 'Спершу видаліть ' + (plan.kind === 'category' ? 'категорію' : 'підкатегорію') + ' у «Структурі».';
@@ -21448,7 +21445,7 @@ async function runAccountPurge(item){
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'account-purge', kind: plan.kind === 'card' ? 'bank' : 'installment', debts: res.debts, monthsRemoved: res.monthsRemoved, unlinkedExpenses: res.unlinkedExpenses });
   captureDebugGeometry('trash-purge', { trashType: item.type, ok: true });
   if(trashDetailKey === item.key) closeTrashDetail();
-  showTextToast(cloudId ? 'Видалено назавжди. ' + purgeRetentionNote() : 'Видалено назавжди', 'success');
+  showTextToast('Видалено назавжди', 'success');
 }
 // Локальне видалення рахунку (власне й з pull tombstone-рядка): стан → збереження → перемальовування; відв'язані витрати пушаться звичайним оновленням (push лише для власного видалення).
 async function applyAccountRemovalLocally(plan, pushUnlinked){
@@ -21541,7 +21538,7 @@ async function runTaxonomyPurge(item){
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'taxonomy-purge', kind: plan.kind, subcategories: res.subcategories - (plan.kind === 'subcategory' ? 1 : 0), words: res.words, blocked: false, usedBy: 0 });
   captureDebugGeometry('trash-purge', { trashType: item.type, ok: true });
   if(trashDetailKey === item.key) closeTrashDetail();
-  showTextToast(cloudId ? 'Видалено назавжди. ' + purgeRetentionNote() : 'Видалено назавжди', 'success');
+  showTextToast('Видалено назавжди', 'success');
 }
 async function applyTaxonomyRemovalLocally(plan){
   const res = removeTaxonomyFromState({ categories: CATEGORIES, subcategories: SUBCATEGORIES, dictionary: DICTIONARY }, plan);

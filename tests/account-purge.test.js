@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ctx = ex.buildSandbox({}, ['TOMBSTONE_RETENTION_DAYS', 'purgeRetentionNote', 'purgeAccountPlan', 'purgeAccountConfirmText', 'removeAccountFromState', 'filterPurgedAccounts', 'filterPurgedDebts']);
+const ctx = ex.buildSandbox({}, ['purgeAccountPlan', 'purgeAccountConfirmText', 'removeAccountFromState', 'filterPurgedAccounts', 'filterPurgedDebts']);
 const J = v => JSON.parse(JSON.stringify(v));
 const fresh = () => ({
   bankAccounts: [{ name: 'Моно', cloudId: 'b1' }, { name: 'Приват', cloudId: 'b2' }],
@@ -39,8 +39,8 @@ test('purgeAccountPlan: картка — усі її місячні записи
   assert.equal(J(ctx.purgeAccountPlan({ kind: 'installment', name: 'Dyson' }, st)).hiddenKey, null);
 });
 test('purgeAccountConfirmText: картка і ОЧ; відмінювання; без записів — без «разом з»', () => {
-  const T = p => ctx.purgeAccountConfirmText(p).replace(/ З сервера запис остаточно зникне через 14 днів\.$/, ''); // Rev 2.32.76 (PURGE-1): підпис про строк надгробка перевіряється окремо
-  assert.match(ctx.purgeAccountConfirmText({ kind: 'card', name: 'A', debtCount: 0, linkedCount: 0 }), / З сервера запис остаточно зникне через 14 днів\.$/);
+  const T = p => ctx.purgeAccountConfirmText(p);
+  assert.ok(!/14 днів|З сервера/.test(T({ kind: 'card', name: 'A', debtCount: 0, linkedCount: 0 })), 'Rev 2.32.77: строк надгробка користувачу не показуємо');
   assert.equal(T({ kind: 'card', name: 'Моно', debtCount: 3, linkedCount: 0 }), 'Картка «Моно»: буде видалено назавжди разом з 3 місячними записами боргів. Це неможливо скасувати.');
   assert.equal(T({ kind: 'card', name: 'Моно', debtCount: 1, linkedCount: 0 }), 'Картка «Моно»: буде видалено назавжди разом з 1 місячним записом боргів. Це неможливо скасувати.');
   assert.equal(T({ kind: 'card', name: 'Моно', debtCount: 0, linkedCount: 0 }), 'Картка «Моно»: буде видалено назавжди. Це неможливо скасувати.');

@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const ex = require('./extract');
 
-const NAMES = ['TRASH_PURGEABLE_TYPES', 'TOMBSTONE_RETENTION_DAYS', 'purgeRetentionNote', 'findLiveCloudId', 'isAccountTrashType', 'isTaxonomyTrashType', 'purgeAccountPlan', 'purgeTaxonomyPlan', 'taxonomyUsage', 'purgeBlockedReason',
+const NAMES = ['TRASH_PURGEABLE_TYPES', 'findLiveCloudId', 'isAccountTrashType', 'isTaxonomyTrashType', 'purgeAccountPlan', 'purgeTaxonomyPlan', 'taxonomyUsage', 'purgeBlockedReason',
   'runAccountPurge', 'runTaxonomyPurge', 'runTrashPurgeCore', 'purgeCloudRow'];
 const J = v => JSON.parse(JSON.stringify(v));
 
@@ -49,17 +49,17 @@ function make(opts){
 const accItem = { type: 'card', title: 'TRASH-TEST-X', key: 'card:TRASH-TEST-X' };
 const stateWithCard = (cloudId, name) => ({ bankAccounts: [{ name: name || 'TRASH-TEST-X', cloudId }], installmentAccounts: [], debts: [{ id: 'd1', kind: 'card', name: name || 'TRASH-TEST-X', month: '2026-10' }], expenses: [], hiddenFrom: { ['card:' + (name || 'TRASH-TEST-X')]: {} } });
 
-test('PURGE-1: тестова назва з cloudId — Cloud-кроки йдуть (борги → приховане → рахунок), ізоляція не блокує; тост із строком надгробка', async function(){
+test('PURGE-1: тестова назва з cloudId — Cloud-кроки йдуть (борги → приховане → рахунок), ізоляція не блокує; тост «Видалено назавжди» без строку надгробка', async function(){
   const c = make({ state: stateWithCard('cid-1') });
   await c.runAccountPurge(accItem);
   const ops = c.__client.calls.map(q => q.op + ':' + q.table);
   assert.deepEqual(ops, ['update:debts', 'delete:hidden_entities', 'update:bank_accounts']);
   assert.deepEqual(J(c.__client.calls[2].filters).filter(f => f[1] === 'id'), [['eq', 'id', 'cid-1']]);
   assert.deepEqual(c.__local, ['account:TRASH-TEST-X']);
-  assert.match(c.__toasts[0].t, /Видалено назавжди\. З сервера запис остаточно зникне через 14 днів\./);
+  assert.equal(c.__toasts[0].t, 'Видалено назавжди');
   assert.equal(c.__toasts[0].k, 'success');
 });
-test('PURGE-1: порожній cloudId — пошук за назвою; знайдено → кроки з цим id; не знайдено → лише локально, без тихого «зникне через 14 днів»', async function(){
+test('PURGE-1: порожній cloudId — пошук за назвою; знайдено → кроки з цим id; не знайдено → лише локально', async function(){
   let c = make({ state: stateWithCard(null, 'Нова'), respond: q => q.single ? { data: { id: 'found-1' }, error: null } : { data: [], error: null } });
   await c.runAccountPurge({ type: 'card', title: 'Нова', key: 'card:Нова' });
   const ops = c.__client.calls.map(q => q.op + ':' + q.table);
@@ -92,7 +92,7 @@ test('PURGE-1: категорія з порожнім cloudId — пошук з�
   assert.deepEqual(c.__client.calls.map(q => q.op + ':' + q.table), ['select:categories', 'update:dictionary', 'update:subcategories', 'update:categories']);
   assert.deepEqual(J(c.__client.calls[3].filters).filter(f => f[1] === 'id'), [['eq', 'id', 'cat-9']]);
   assert.deepEqual(c.__local, ['taxonomy:Тест1']);
-  assert.match(c.__toasts[0].t, /через 14 днів/);
+  assert.equal(c.__toasts[0].t, 'Видалено назавжди');
 });
 test('PURGE-1: підкатегорія з порожнім cloudId — спершу відомий cloudId батька, потім пошук за (назва, category_id)', async function(){
   const c = make({ state: taxState(), respond: q => q.single ? { data: { id: 'sub-7' }, error: null } : { data: [], error: null } });
@@ -146,14 +146,14 @@ test('PURGE-1: дохід, слово, місячний борг, ОЧ-міся�
     assert.deepEqual(c.__local, ['trash:' + item.key], item.type);
   }
 });
-test('PURGE-1: ОЧ — кроки по installment_account_id / installment_accounts, тест-назва з cloudId, підпис про 14 днів', async function(){
+test('PURGE-1: ОЧ — кроки по installment_account_id / installment_accounts, тест-назва з cloudId, тост без підпису про строк', async function(){
   const st = { bankAccounts: [], installmentAccounts: [{ name: 'TRASH-TEST-OC', cloudId: 'ic1' }], debts: [], expenses: [], hiddenFrom: {} };
   const c = make({ state: st });
   await c.runAccountPurge({ type: 'installment', title: 'TRASH-TEST-OC', key: 'installment:TRASH-TEST-OC' });
   assert.deepEqual(c.__client.calls.map(q => q.op + ':' + q.table), ['update:debts', 'delete:hidden_entities', 'update:installment_accounts']);
   assert.ok(J(c.__client.calls[0].filters).some(f => f[1] === 'installment_account_id' && f[2] === 'ic1'));
   assert.ok(J(c.__client.calls[1].filters).some(f => f[1] === 'entity_type' && f[2] === 'installment'));
-  assert.match(c.__toasts[0].t, /через 14 днів/);
+  assert.equal(c.__toasts[0].t, 'Видалено назавжди');
 });
 test('PURGE-1: категорія з відомим cloudId — без пошуку за назвою; неоднозначна назва (помилка maybeSingle) — явна помилка; підкатегорія з невідомим батьком — лише локально', async function(){
   const st = { categories: [{ name: 'К', active: false, cloudId: 'k1' }], subcategories: [], dictionary: [], expenses: [] };
