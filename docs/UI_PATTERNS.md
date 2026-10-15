@@ -88,6 +88,18 @@ _Виміряно Claude Code в Chrome (CDP), синтетичні дані, б
 | Кнопка (вторинна) | `#sf-cancel` | 390: 155×50; 440: 180×50; 820: 370×50; 1280: 156×50 | 14px 14px 14px 14px | 18px (--ui-r-control) | 15px/normal 600 | --color-text-primary (+2) | прозорий | --color-border-strong | — | background 0.12s cubic-bezier(0.4, 0, 0.2, 1) |
 | Підкладка | `.drawer-backdrop.open` | 390: 390×844; 440: 440×956; 820: 820×1180; 1280: 1280×800 | — | 0px | 16px/normal 400 | --color-text-primary (+2) | rgb(16, 24, 40, 0.45) | — | — | — |
 
+### Шторка з шапкою і «×» (зразок «Тестування»)
+У шторок із заголовком і кнопкою закриття (`.drawer-head`) інший каркас, ніж у форм «Структури». Скріншоти: `docs/ui/shtorka-z-shapkoyu-390-dark.png`, `docs/ui/shtorka-z-shapkoyu-390-light.png`; `docs/ui/shtorka-z-shapkoyu-440-dark.png`, `docs/ui/shtorka-z-shapkoyu-440-light.png`; `docs/ui/shtorka-z-shapkoyu-820-dark.png`, `docs/ui/shtorka-z-shapkoyu-820-light.png`; `docs/ui/shtorka-z-shapkoyu-1280-dark.png`, `docs/ui/shtorka-z-shapkoyu-1280-light.png`.
+
+| Елемент | Селектор | Розмір, пт (ширина екрана) | Відступи (т п н л) | Радіус | Шрифт (розмір/рядок вага) | Колір тексту (темна → світла) | Тло (темна → світла) | Межа | Тінь | Рух |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Шторка | `#testing-drawer.open` | 390: 358×624.5; 440: 408×707.4; 820: 788×873.2; 1280: 360×700 | 20px 20px 20px 20px | 26px (--ui-r-container) | 16px/normal 400 | --color-text-primary (+2) | --color-surface | — | rgba(255, 255, 255, 0.08) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.45) 0px 4px 18px 0px | transform 0.24s cubic-bezier(0.4, 0, 0.2, 1) |
+| Шапка | `#testing-drawer .drawer-head` | 390: 318×37; 440: 368×37; 820: 748×37; 1280: 320×37 | — | 0px | 16px/normal 400 | --color-text-primary (+2) | прозорий | — | — | — |
+| Заголовок | `#testing-drawer .drawer-head h2` | 217.7×20 | — | 0px | 17px/normal 700 | --color-text-primary (+2) | прозорий | — | — | — |
+| Підзаголовок | `#testing-drawer .drawer-head-sub` | 217.7×15 | — | 0px | 12px/normal 400 | --color-text-secondary (+2) | прозорий | — | — | — |
+| Кнопка «×» | `#testing-drawer .drawer-close` | 32×32 | 1px 6px 1px 6px | min(18px, 50%) | 13.3333px/normal 400 | --color-text-primary (+2) | --color-glass-bg (+1) | --color-active-overlay (+3) | rgba(255, 255, 255, 0.08) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.35) 0px 2px 8px 0px | background, color 0.12s, 0.12s cubic-bezier(0.4, 0, 0.2, 1), cu |
+| Підпис розділу | `#testing-drawer .section-label` | 390: 314×14; 440: 364×14; 820: 744×14; 1280: 316×14 | — | 0px | 11px/normal 700 ls 0.6px | --color-text-secondary (+2) | прозорий | — | — | — |
+
 ## Діалог підтвердження
 `showConfirmModal(текст, onConfirm, підпис, варіант)`; варіант `danger` для руйнівних дій. Скріншоти: `docs/ui/dialog-390-dark.png`, `docs/ui/dialog-390-light.png`; `docs/ui/dialog-440-dark.png`, `docs/ui/dialog-440-light.png`.
 
