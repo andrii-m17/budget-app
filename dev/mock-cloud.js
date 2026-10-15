@@ -115,10 +115,38 @@
       default: return function(){ return true; };
     }
   }
+  // or=(a.gt."X",and(b.eq."X",c.gt."Y")): логічні групи PostgREST (значення можуть бути в лапках); повертає предикат
+  function splitTop(str){
+    const out = []; let depth = 0, inQ = false, cur = '';
+    for(let i = 0; i < str.length; i++){
+      const ch = str[i];
+      if(ch === '"') inQ = !inQ;
+      if(!inQ && ch === '(') depth++;
+      if(!inQ && ch === ')') depth--;
+      if(!inQ && depth === 0 && ch === ','){ out.push(cur); cur = ''; } else cur += ch;
+    }
+    if(cur) out.push(cur);
+    return out;
+  }
+  function logicMatcher(kind, inner){
+    const preds = splitTop(inner).map(function(term){
+      const am = term.match(/^(and|or)\((.*)\)$/);
+      if(am) return logicMatcher(am[1], am[2]);
+      const m = term.match(/^([a-z_0-9]+)\.(.*)$/);
+      const rest = m[2]; const dot = rest.indexOf('.');
+      let val = rest.slice(dot + 1); if(/^".*"$/.test(val)) val = val.slice(1, -1);
+      return matcher(m[1], rest.slice(0, dot) + '.' + val);
+    });
+    return kind === 'and' ? function(r){ return preds.every(function(f){ return f(r); }); } : function(r){ return preds.some(function(f){ return f(r); }); };
+  }
   const RESERVED = ['select', 'order', 'limit', 'offset', 'on_conflict', 'columns'];
   function filtersOf(params){
     const fs = [];
-    params.forEach(function(v, k){ if(RESERVED.indexOf(k) === -1) fs.push(matcher(k, v)); });
+    params.forEach(function(v, k){
+      if(RESERVED.indexOf(k) !== -1) return;
+      if(k === 'or' || k === 'and'){ const m = v.match(/^\((.*)\)$/); fs.push(logicMatcher(k, m ? m[1] : v)); return; }
+      fs.push(matcher(k, v));
+    });
     return fs;
   }
   function project(rows, select){
@@ -200,13 +228,13 @@
       try{ body = raw ? JSON.parse(raw) : null; }catch(e){ body = null; }
     }
     const sel = function(list){ return project(list, params.get('select')); };
-    const respond = function(list, status){
+    const respond = function(list, status, matched, offset){
       if(/pgrst\.object/.test(accept)){
         if(list.length !== 1) return jsonResponse(406, { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned', details: 'The result contains ' + list.length + ' rows' });
         return jsonResponse(status || 200, list[0]);
       }
-      const total = list.length;
-      return jsonResponse(status || 200, list, /count=/.test(prefer) ? { 'Content-Range': (total ? '0-' + (total - 1) : '*') + '/' + total } : {});
+      const total = matched != null ? matched : list.length, o = offset || 0; // count: загальна кількість збігів до limit/max-rows, як у PostgREST
+      return jsonResponse(status || 200, list, /count=/.test(prefer) ? { 'Content-Range': (list.length ? o + '-' + (o + list.length - 1) : '*') + '/' + total } : {});
     };
     if(method === 'GET' || method === 'HEAD'){
       let list = rows.filter(function(r){ return fs.every(function(f){ return f(r); }); });
@@ -215,11 +243,12 @@
         const specs = order.split(',').map(function(x){ const p = x.split('.'); return { k: p[0], d: p[1] === 'desc' ? -1 : 1 }; });
         list = list.slice().sort(function(a, b){ for(const s of specs){ const c = cmp(a[s.k] == null ? '' : a[s.k], b[s.k] == null ? '' : b[s.k]); if(c) return c * s.d; } return 0; });
       }
+      const matchedTotal = list.length;
       const off = +params.get('offset') || 0, lim = params.get('limit');
       list = lim !== null ? list.slice(off, off + (+lim)) : list.slice(off);
       if(state.maxRows > 0 && list.length > state.maxRows) list = list.slice(0, state.maxRows);
       if(method === 'HEAD') return jsonResponse(200, null, { 'Content-Range': '0-' + Math.max(0, list.length - 1) + '/' + list.length });
-      return respond(JSON.parse(JSON.stringify(sel(list))));
+      return respond(JSON.parse(JSON.stringify(sel(list))), 200, matchedTotal, off);
     }
     const ts = nowIso(state);
     if(method === 'POST'){
@@ -286,6 +315,7 @@
     const o = opts || {};
     const fx = generateFixture(o.fixture || 'typical', o);
     current = createState(fx);
+    if(typeof o.maxRows === 'number') current.maxRows = o.maxRows; // обмеження відповіді (як max-rows PostgREST); 0 = без обмеження
     try{
       if(typeof localStorage !== 'undefined' && o.seedSession !== false) localStorage.setItem(SESSION_KEY, JSON.stringify(makeSession(current)));
     }catch(e){}

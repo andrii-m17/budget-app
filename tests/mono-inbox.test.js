@@ -87,7 +87,7 @@ test('I4: витрата з банку: source/externalId при pull (нова 
   assert.deepEqual(j(ctx.monoSourcePayload({ source: 'mono', externalId: 'tx1' })), { source: 'mono', external_id: 'tx1' });
   assert.deepEqual(j(ctx.monoSourcePayload({ source: 'mono' })), { source: 'mono', external_id: null });
   assert.deepEqual(j(ctx.monoSourcePayload({ name: 'Кава' })), {});
-  assert.match(SRC, /select\('id,amount,expense_date,category,subcategory,note,linked_installment_id,deleted_at,created_at,updated_at,created_by,updated_by,source,external_id'\)/);
+  assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,amount,expense_date,category,subcategory,note,linked_installment_id,deleted_at,created_at,updated_at,created_by,updated_by,source,external_id'/);
   assert.match(SRC, /if\(row\.source\)\{ rec\.source = row\.source; rec\.externalId = row\.external_id \|\| null; \}/);
   assert.match(SRC, /if\(row\.source\)\{ local\.source = row\.source; local\.externalId = row\.external_id \|\| null; \}/);
   assert.equal((SRC.match(/\.\.\.monoSourcePayload\(rec\)/g) || []).length, 2); // одиночний і пакетний push

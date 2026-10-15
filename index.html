@@ -3490,7 +3490,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.79</div>
+  <div class="version-footer">Money Tree · Rev 2.32.80</div>
 </div>
   </div>
 </div>
@@ -4636,9 +4636,7 @@ async function pullCategoriesCore(){
   try{
     // Rev #30 (6D.38) — інкрементальний pull: applySyncMarker() додає
     // .gte('updated_at', marker) лише якщо маркер уже є для цього домену.
-    let query = client.from('categories').select('id,name,active,type,created_at,updated_at,deleted_at').eq('family_id', cloudFamilyId);
-    query = applySyncMarker(query, 'categories');
-    const { data, error } = await query;
+    const { data, error } = await fetchDeltaRows(client, 'categories', 'id,name,active,type,created_at,updated_at,deleted_at', 'categories'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       if(row.deleted_at){ await pullTaxonomyTombstone('category', row); continue; } // Rev 2.32.7 (T3): tombstone — гілка зникає локально, за назвою не зв'язується
@@ -5353,9 +5351,7 @@ async function pullSubcategoriesCore(){
   let maxSeen = null; // Rev #30 (6D.38) — max(updated_at) ЛИШЕ серед рядків, що пройшли FK-резолюцію (нижче)
   try{
     // Rev 2.22.89 (6D.162, Ревізія C) — deactivated_via додано до select().
-    let query = client.from('subcategories').select('id,name,category_id,active,deactivated_via,created_at,updated_at,deleted_at').eq('family_id', cloudFamilyId);
-    query = applySyncMarker(query, 'subcategories');
-    const { data, error } = await query;
+    const { data, error } = await fetchDeltaRows(client, 'subcategories', 'id,name,category_id,active,deactivated_via,created_at,updated_at,deleted_at', 'subcategories'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       if(row.deleted_at){ await pullTaxonomyTombstone('subcategory', row); continue; } // Rev 2.32.7 (T3): див. pullCategoriesCore
@@ -5435,9 +5431,7 @@ async function pullDictionaryCore(){
   try{
     // Rev 2.22.80 (6D.153, Крок A2) — deleted_at додано до select.
     // Rev 2.22.89 (6D.162, Ревізія C) — deleted_via додано до select.
-    let query = client.from('dictionary').select('id,keyword,category_id,subcategory_id,deleted_at,deleted_via,created_at,updated_at').eq('family_id', cloudFamilyId);
-    query = applySyncMarker(query, 'dictionary');
-    const { data, error } = await query;
+    const { data, error } = await fetchDeltaRows(client, 'dictionary', 'id,keyword,category_id,subcategory_id,deleted_at,deleted_via,created_at,updated_at', 'dictionary'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'keyword')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       const parentCat = CATEGORIES.find(function(c){ return c.cloudId === row.category_id; });
@@ -6974,9 +6968,7 @@ async function pullExpensesCore(){
     // масовий фальшивий спалах "Х відредагував(ла)" для старих даних.
     // Замість цього updatedBy бекфілиться ОПОРТУНІСТИЧНО — лише коли запис
     // і так торкається діф з ІНШОЇ причини (як updatedBy присвоюється нижче).
-    let query = client.from('expenses').select('id,amount,expense_date,category,subcategory,note,linked_installment_id,deleted_at,created_at,updated_at,created_by,updated_by,source,external_id').eq('family_id', cloudFamilyId); // Rev 2.32.28 (MB-4): source/external_id витрат з банку зберігаються
-    query = applySyncMarker(query, 'expenses');
-    const { data, error } = await query;
+    const { data, error } = await fetchDeltaRows(client, 'expenses', 'id,amount,expense_date,category,subcategory,note,linked_installment_id,deleted_at,created_at,updated_at,created_by,updated_by,source,external_id', 'expenses'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'note')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       let linkedInstallmentName = null;
@@ -7114,9 +7106,7 @@ async function pullIncomesCore(){
     // принцип/обмеження, що докоментар над query у pullExpensesCore() вище —
     // жоден із них НЕ в OR-ланцюжку тригера діфу нижче, лише опортуністичний
     // бекфіл, щоб не спричинити масовий фальшивий спалах сповіщень).
-    let query = client.from('incomes').select('id,amount,income_date,note,deleted_at,created_at,updated_at,created_by,updated_by').eq('family_id', cloudFamilyId);
-    query = applySyncMarker(query, 'incomes');
-    const { data, error } = await query;
+    const { data, error } = await fetchDeltaRows(client, 'incomes', 'id,amount,income_date,note,deleted_at,created_at,updated_at,created_by,updated_by', 'incomes'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'note')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       const local = incomes.find(function(i){ return i.id === row.id; });
@@ -7203,9 +7193,7 @@ async function pullDebtsCore(){
   try{
     // Rev #30 (6D.83) — created_by/updated_by додано (той самий принцип/
     // обмеження, що докоментар над query у pullExpensesCore()).
-    let query = client.from('debts').select('id,bank_account_id,installment_account_id,name,kind,month,balance,min_payment,min_payment_done,monthly_payment,deleted_at,created_at,updated_at,created_by,updated_by').eq('family_id', cloudFamilyId);
-    query = applySyncMarker(query, 'debts');
-    const { data, error } = await query;
+    const { data, error } = await fetchDeltaRows(client, 'debts', 'id,bank_account_id,installment_account_id,name,kind,month,balance,min_payment,min_payment_done,monthly_payment,deleted_at,created_at,updated_at,created_by,updated_by', 'debts'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       let resolvedName;
@@ -7445,9 +7433,7 @@ async function pullBankAccountsCore(){
   let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   try{
-    let query = client.from('bank_accounts').select('id,name,credit_limit,payment_day,created_at,updated_at,deleted_at').eq('family_id', cloudFamilyId);
-    query = applySyncMarker(query, 'bankAccounts');
-    const { data, error } = await query;
+    const { data, error } = await fetchDeltaRows(client, 'bank_accounts', 'id,name,credit_limit,payment_day,created_at,updated_at,deleted_at', 'bankAccounts'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       // Rev 2.32.4 (T2): tombstone-рядок (рахунок видалено назавжди на іншому пристрої) прибирає рахунок, його місячні записи й запис прихованого локально;
@@ -7621,9 +7607,7 @@ async function pullInstallmentAccountsCore(){
   let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   try{
-    let query = client.from('installment_accounts').select('id,name,initial_amount,due_day,created_at,updated_at,deleted_at').eq('family_id', cloudFamilyId);
-    query = applySyncMarker(query, 'installmentAccounts');
-    const { data, error } = await query;
+    const { data, error } = await fetchDeltaRows(client, 'installment_accounts', 'id,name,initial_amount,due_day,created_at,updated_at,deleted_at', 'installmentAccounts'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of filterTestRows(data, 'name')){ // Rev 2.23.32 (6D.201): тестові рядки TRASH-TEST- не підтягуються
       if(row.deleted_at){ if(await pullAccountTombstone('installment', row)) removed++; continue; } // Rev 2.32.4 (T2): див. pullBankAccountsCore
@@ -8028,7 +8012,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.79';
+const APP_VERSION = '2.32.80';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9139,7 +9123,7 @@ function loadMockCloudIfNeeded(){
     const sc = document.createElement('script');
     sc.src = 'dev/mock-cloud.js';
     sc.onload = function(){
-      try{ window.MockCloud.init({ fixture: new URLSearchParams(location.search).get('fixture') || 'typical', projectUrl: SUPABASE_PROJECT_URL }); resolve(); }
+      try{ /* ?maxrows=N: ліміт відповіді моку (за замовчуванням 1000) */ const qs = new URLSearchParams(location.search); const mr = qs.get('maxrows'); window.MockCloud.init({ fixture: qs.get('fixture') || 'typical', projectUrl: SUPABASE_PROJECT_URL, maxRows: mr !== null && !isNaN(+mr) ? +mr : undefined }); resolve(); }
       catch(e){ reject(e); }
     };
     sc.onerror = function(){ supabaseSdkLoadPromise = null; reject(new Error('Не вдалося завантажити мок Cloud (dev/mock-cloud.js)')); };
@@ -10000,6 +9984,34 @@ function clearSyncMarkers(){
 function applySyncMarker(query, domain){
   const marker = getSyncMarker(domain);
   return marker ? query.gte('updated_at', syncDeltaFrom(marker)) : query; // Rev 2.32.73 (S): мітка − 2 с (транзакція з раннім now() може закомітитись пізніше)
+}
+// Rev 2.32.80 (PAGING-1, Rev A) — сторінкування дельта-запитів. Раніше кожен pull*Core читав усе одним `select` без order/range: якщо сервер обмежує відповідь (стандартний max-rows 1000),
+// решта рядків не завантажувалась НАЗАВЖДИ, а мітка й «голова» сервера вважали таблицю завантаженою. Тепер: ключове сторінкування за (updated_at, id) по зростанню, сторінка PULL_PAGE_SIZE;
+// наступна сторінка — за курсором `or(updated_at.gt.X, and(updated_at.eq.X, id.gt.Y))` (рядок, змінений під час пулу, отримує більший updated_at й опиняється наприкінці: пропусків немає,
+// дублі нешкідливі — LWW ідемпотентний). Цикл завершується, коли сторінка порожня або отримано не менше за `count` (count: 'exact' лише в першому запиті; без count — перша неповна сторінка), тож серверний ліміт МЕНШИЙ за розмір
+// сторінки не дає хибного кінця, а таблиця рівно в N·500 рядків не коштує зайвого запиту. Усе зчитується в пам'ять і лише потім обробляється: помилка на будь-якій сторінці = { error } (pull пропускає таблицю, мітка й «голова» не рухаються, наступна
+// спроба починається з тієї ж мітки). Мала дельта — рівно один запит, як раніше. Ризики: екранування міток у or() (значення в лапках); hidden_entities (мала таблиця, без маркера) не сторінкується.
+const PULL_PAGE_SIZE = 500;
+async function fetchDeltaRows(client, table, columns, domain){
+  const marker = getSyncMarker(domain);
+  const from = marker ? syncDeltaFrom(marker) : null;
+  const rows = [];
+  let cursor = null, total = null;
+  for(let page = 0; page < 100000; page++){
+    let q = client.from(table).select(columns, page === 0 ? { count: 'exact' } : undefined).eq('family_id', cloudFamilyId);
+    if(cursor) q = q.or('updated_at.gt."' + cursor.u + '",and(updated_at.eq."' + cursor.u + '",id.gt."' + cursor.id + '")');
+    else if(from) q = q.gte('updated_at', from);
+    const res = await q.order('updated_at', { ascending: true }).order('id', { ascending: true }).limit(PULL_PAGE_SIZE);
+    if(res.error || !Array.isArray(res.data)) return { data: null, error: res.error || { message: 'no data' } };
+    if(page === 0 && typeof res.count === 'number') total = res.count;
+    for(const r of res.data) rows.push(r);
+    if(res.data.length === 0) break;
+    const last = res.data[res.data.length - 1];
+    cursor = { u: last.updated_at, id: last.id };
+    // кінець: отримано не менше за count (рядки, змінені під час пулу, лише додають дублі наприкінці порядку, тож усі початкові рядки вже прочитано); без count — перша неповна сторінка
+    if(total !== null ? rows.length >= total : res.data.length < PULL_PAGE_SIZE) break;
+  }
+  return { data: rows, error: null };
 }
 // Для доменів БЕЗ FK-залежності (categories/bank_accounts/
 // installment_accounts) — кожен рядок відповіді завжди повністю

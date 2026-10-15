@@ -99,6 +99,11 @@ function buildSandbox(globals, names){
     return /^[A-Z][A-Z0-9_]*$/.test(name) ? extractConstSource(name) : extractFunctionSource(name);
   }).join('\n\n');
   vm.runInContext(source, context, { filename: 'index.html (extracted)' });
+  // Rev 2.32.80 (PAGING-1): pull*Core читають через fetchDeltaRows (сторінки по 500). Наявні тести мають власні прості фейк-клієнти (eq/gte без order/limit/or), тому за замовчуванням
+  // у sandbox діє «стара» поведінка (один select + маркер); тести сторінкування (tests/paging.test.js) підставляють справжню fetchDeltaRows.
+  if(!Object.prototype.hasOwnProperty.call(globals || {}, 'fetchDeltaRows') && !/function fetchDeltaRows\(/.test(source)){
+    vm.runInContext("var fetchDeltaRows = async function(client, table, columns, domain){ let query = client.from(table).select(columns).eq('family_id', cloudFamilyId); query = applySyncMarker(query, domain); return await query; };", context);
+  }
   return context;
 }
 

@@ -71,8 +71,8 @@ test('filterPurgedTaxonomy: бекап не повертає видалені к
 });
 // ---------- підключення ----------
 test('pull: tombstone-рядок категорії/підкатегорії обробляється ДО LWW/зв’язування за назвою й до перевірки батька; select має deleted_at; reconcile за назвою — лише живі', () => {
-  assert.match(SRC, /select\('id,name,active,type,created_at,updated_at,deleted_at'\)/);
-  assert.match(SRC, /select\('id,name,category_id,active,deactivated_via,created_at,updated_at,deleted_at'\)/);
+  assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,active,type,created_at,updated_at,deleted_at'/);
+  assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,category_id,active,deactivated_via,created_at,updated_at,deleted_at'/);
   const cat = SRC.slice(SRC.indexOf('async function pullCategoriesCore'), SRC.indexOf('async function pushSubcategoriesPilot'));
   assert.ok(cat.indexOf("pullTaxonomyTombstone('category'") < cat.indexOf('CATEGORIES.find(function(c){ return c.cloudId === row.id; })'));
   const sub = SRC.slice(SRC.indexOf('async function pullSubcategoriesCore'), SRC.indexOf('async function pullSubcategoriesPilot'));

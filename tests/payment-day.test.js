@@ -20,7 +20,7 @@ test('paymentDayPayload: значення відоме → payment_day (null д�
 });
 test('синхронізація: payment_day у трьох місцях push і в select/pull (оновлення, зв\'язування за назвою, нові рядки)', function(){
   assert.equal((SRC.match(/\.\.\.paymentDayPayload\(acc\)/g) || []).length, 3);
-  assert.match(SRC, /select\('id,name,credit_limit,payment_day,created_at,updated_at,deleted_at'\)/);
+  assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,credit_limit,payment_day,created_at,updated_at,deleted_at'/);
   assert.match(SRC, /\(byCloudId\.paymentDay \?\? null\) !== \(row\.payment_day \?\? null\)/);
   assert.match(SRC, /byCloudId\.paymentDay = row\.payment_day \?\? null;/);
   assert.match(SRC, /byName\.paymentDay = row\.payment_day \?\? null;/);
