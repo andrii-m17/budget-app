@@ -342,6 +342,10 @@
   .status-banner{ display:flex; align-items:center; gap:8px; padding:9px 20px; font-size:12px; font-weight:600; background:var(--color-warning-bg); color:var(--color-warning); border-bottom:1px solid var(--color-border); }
   .status-banner svg{ flex-shrink:0; }
   .status-banner.hidden{ display:none; }
+  /* Rev 2.32.75 (K3): позначка тестового середовища («Мок» / «Реальна база · лише читання»); на робочому origin прихована. Фіксована смужка по центру зверху, не зачіпає шапку (iPad/десктоп). */
+  .cloud-env-badge{ position:fixed; top:calc(env(safe-area-inset-top) + 2px); left:50%; transform:translateX(-50%); z-index:9999; padding:1px 8px; border-radius:var(--radius-pill, 999px); font-size:10px; line-height:14px; font-weight:600; letter-spacing:.02em; pointer-events:none; background:var(--color-surface-hover); color:var(--color-text-primary); border:1px solid var(--color-border, rgba(128,128,128,.4)); white-space:nowrap; }
+  .cloud-env-badge.readonly{ background:#b45309; color:#fff; border-color:#b45309; }
+  .cloud-env-badge.hidden{ display:none; }
   /* Rev #28.C — той самий компонент .status-banner, що вже #offline-banner
      вище (не винаходимо новий патерн повідомлень — узгоджено з користувачем
      явним уточненням перед стартом Stage C), лише кольоровий варіант
@@ -3488,7 +3492,8 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.74</div>
+  <div class="cloud-env-badge hidden" id="cloud-env-badge" aria-hidden="true"></div>
+  <div class="version-footer">Money Tree · Rev 2.32.75</div>
 </div>
   </div>
 </div>
@@ -3729,6 +3734,9 @@
   <!-- Rev 2.32.74 (U): лічильник запитів до сервера за сеанс за типами (без значень користувача) -->
   <div class="section-label">Запити до сервера</div>
   <button type="button" class="submit-btn pill secondary" id="net-stats-btn" style="margin-bottom:10px;" onclick="showNetStats()">Запитів за сеанс: 0</button>
+  <!-- Rev 2.32.75 (K3): середовище (лише поза робочим origin): «Мок» ↔ «Реальна база · лише читання» -->
+  <div class="section-label" id="cloud-env-label">Середовище</div>
+  <button type="button" class="submit-btn pill secondary" id="cloud-env-btn" style="margin-bottom:10px;" onclick="toggleCloudEnv()">Середовище</button>
   <div class="section-label">Запис діагностики</div>
   <!-- Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень) — для пошуку поля, що викликає панель «Автозаповнити контакт» -->
   <button type="button" class="submit-btn pill secondary" id="fields-census-btn" style="margin-bottom:10px;" onclick="recordFieldsCensusFromTesting()">Перепис полів екрана</button>
@@ -4460,7 +4468,7 @@ async function saveCategoriesLocal(){
 // синхронізований і т.п. в інших доменах) свідомо НЕ рахуються помилкою —
 // це очікуваний, не аварійний стан.
 async function pushCategoriesPilot(){
-  if(!isCloudSessionReady()) return { success: true };
+  if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
@@ -4755,7 +4763,7 @@ async function saveSubcategoriesLocal(){
 // (FK на id, не на name) — пропущений цикл просто нічого корисного не
 // зробив би, а наступний реальний saveSubcategories() пуштить коректно.
 async function pushSubcategoriesPilot(){
-  if(!isCloudSessionReady()) return { success: true };
+  if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
@@ -5185,7 +5193,7 @@ function pushDictionaryPilot(){
   return dictionaryPushQueued;
 }
 async function pushDictionaryPilotRun(){
-  if(!isCloudSessionReady()) return { success: true };
+  if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
@@ -6552,7 +6560,7 @@ async function saveDebts(){
 function monoSourcePayload(rec){ return rec && rec.source ? { source: rec.source, external_id: rec.externalId || null } : {}; }
 function isSyncableAmount(a){ return typeof a === 'number' && isFinite(a) && a >= 0 && a <= AMOUNT_MAX && Math.floor(a) === a; }
 async function pushExpenseRecordPilot(rec, opts){
-  if(!isCloudSessionReady()) return { success: true };
+  if(!isCloudWriteReady()) return { success: true };
   if(!isSyncableAmount(rec.amount)) return { success: true }; // Rev 2.32.23 (N)
   if(isTestSyncIgnored(rec)) return { success: true }; // Rev 2.23.32 (6D.201): тестовий запис TRASH-TEST- не синхронізується
   let linkedInstallmentId = null;
@@ -6637,7 +6645,7 @@ async function pushExpenseRecordPilot(rec, opts){
 // ВСЬОГО пакету по одному не створює дублів — upsert(onConflict:'id') і
 // так ідемпотентний.
 async function pushExpensesBatch(records){
-  if(!isCloudSessionReady() || !records.length) return { pushed: 0, failed: 0 };
+  if(!isCloudWriteReady() || !records.length) return { pushed: 0, failed: 0 };
   const userId = cloudSession.user.id;
   const resolvable = [];
   for(const rec of records){
@@ -6696,7 +6704,7 @@ async function pushExpensesBatched(records, chunkSize){
   return { pushed: pushed, failed: failed, firstError: firstError };
 }
 async function pushIncomeRecordPilot(rec, opts){
-  if(!isCloudSessionReady()) return { success: true };
+  if(!isCloudWriteReady()) return { success: true };
   if(isTestSyncIgnored(rec)) return { success: true }; // Rev 2.23.32 (6D.201): тестовий запис TRASH-TEST- не синхронізується
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
@@ -6729,7 +6737,7 @@ async function pushIncomeRecordPilot(rec, opts){
 }
 // Rev #30 (6D.60) — той самий принцип, що pushExpensesBatch() вище.
 async function pushIncomesBatch(records){
-  if(!isCloudSessionReady() || !records.length) return { pushed: 0, failed: 0 };
+  if(!isCloudWriteReady() || !records.length) return { pushed: 0, failed: 0 };
   const userId = cloudSession.user.id;
   const payloads = records.map(function(rec){
     return {
@@ -6767,7 +6775,7 @@ async function pushIncomesBatched(records, chunkSize){
   return { pushed: pushed, failed: failed, firstError: firstError };
 }
 async function pushDebtRecordPilot(rec, opts){
-  if(!isCloudSessionReady()) return { success: true };
+  if(!isCloudWriteReady()) return { success: true };
   if(isTestSyncIgnored(rec)) return { success: true }; // Rev 2.23.32 (6D.201): тестовий запис TRASH-TEST- не синхронізується
   let bankAccountId = null, installmentAccountId = null;
   if(rec.kind === 'card'){
@@ -6847,7 +6855,7 @@ async function pushDebtRecordPilot(rec, opts){
 }
 // Rev #30 (6D.60) — той самий принцип, що pushExpensesBatch() вище.
 async function pushDebtsBatch(records){
-  if(!isCloudSessionReady() || !records.length) return { pushed: 0, failed: 0 };
+  if(!isCloudWriteReady() || !records.length) return { pushed: 0, failed: 0 };
   const userId = cloudSession.user.id;
   const resolvable = [];
   for(const rec of records){
@@ -7322,7 +7330,7 @@ async function saveBankAccountsLocal(){
 // push, і pull доведеться переглянути разом. Задокументовано і в
 // docs/ROADMAP.md, розділ "Відомі обмеження синхронізації".
 async function pushBankAccountsPilot(){
-  if(!isCloudSessionReady()) return { success: true };
+  if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
@@ -7541,7 +7549,7 @@ async function saveInstallmentAccountsLocal(){
 // застереження, що вище для bank_accounts, той самий hidden_entities-клас
 // проблеми).
 async function pushInstallmentAccountsPilot(){
-  if(!isCloudSessionReady()) return { success: true };
+  if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let localChanged = false;
@@ -7737,7 +7745,7 @@ async function cleanupOrphanedHiddenEntities(client, entityType, oldCloudIds){
   }
 }
 async function pushHiddenEntitiesPilot(){
-  if(!isCloudSessionReady()) return { success: true };
+  if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   let anyError = false;
@@ -8023,7 +8031,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.74';
+const APP_VERSION = '2.32.75';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9020,16 +9028,100 @@ function loadSupabaseSdk(){
       reject(new Error('Не вдалося завантажити Supabase SDK з CDN'));
     };
     document.head.appendChild(script);
-  });
+  }).then(function(){ return loadMockCloudIfNeeded(); }); // Rev 2.32.75 (K3): у режимі «Мок» клієнт не створюється без емулятора
   return supabaseSdkLoadPromise;
 }
+
+// ============ Середовище, захисник запису, мок Cloud (Rev 2.32.75, K3) ============
+// Робоче середовище — лише GitHub Pages застосунку; БУДЬ-ЯКИЙ інший origin (localhost, інший хост, file://) = тестове (fail-closed).
+// У тестовому за замовчуванням «Мок» (dev/mock-cloud.js: емулятор PostgREST/GoTrue у пам'яті за fixture); реальна база — лише явним
+// перемикачем (sessionStorage: закрив вкладку → знову мок) і лише «тільки читання»: захисник у countingFetch блокує все, що змінює дані,
+// а isWriteBlocked() у логіці (push*, autoSyncStale, «Видалити назавжди») не дає піти в повтори й «червоні» статуси.
+// Ризики: (1) відхилення оновлення auth відповіддю 4xx могло б дати SIGNED_OUT і стерти локальні дані тестового середовища, тому
+// захисник завжди КИДАЄ мережеву помилку, а не повертає відповідь; (2) сесія «лише читання» живе до кінця JWT (≈ 1 год), далі читання
+// дають 401 — показуємо підказку; (3) Realtime (WebSocket) захисник не бачить: він лише читає. Альтернативи (Node-сервер, перехоплення
+// в Service Worker) відхилені в Кроці 0.
+const WORK_ORIGINS = ['https://andrii-m17.github.io'];
+const SS_KEY_PREVIEW_REALDB = 'budget_preview_realdb_readonly_v1';
+const WRITE_BLOCKED_MESSAGE = 'Запис заблоковано (preview)';
+const SESSION_EXPIRED_HINT = 'Сесія для читання закінчилась: увійдіть знову або поверніться на мок';
+function detectCloudEnv(origin, realDbFlag){
+  if(WORK_ORIGINS.indexOf(origin) !== -1) return { env: 'prod', label: '' };
+  if(realDbFlag === '1') return { env: 'readonly', label: 'Реальна база · лише читання' };
+  return { env: 'mock', label: 'Мок' };
+}
+function readPreviewRealDbFlag(){
+  try{ return sessionStorage.getItem(SS_KEY_PREVIEW_REALDB); }catch(e){ return null; }
+}
+const CLOUD_ENV = detectCloudEnv(location.origin, readPreviewRealDbFlag());
+function isWriteBlocked(){ return CLOUD_ENV.env === 'readonly'; }
+// Для push-функцій: «сесія готова» І запис дозволений. У режимі «лише читання» push тихо нічого не робить (як без мережі), без помилок.
+function isCloudWriteReady(){ return isCloudSessionReady() && !isWriteBlocked(); }
+// Що саме захисник блокує в режимі «лише читання»; null = пропустити. Дозволено: читання REST (GET/HEAD), RPC sync_heads, вхід за паролем
+// і вихід (дії користувача, даних не змінюють). Заблоковано: REST POST/PATCH/PUT/DELETE, решта RPC (навіть читальні), Edge Functions,
+// оновлення токена й будь-який інший виклик auth, невідомі не-GET запити.
+function classifyBlockedRequest(url, method){
+  const m = String(method || 'GET').toUpperCase();
+  const full = String(url || '');
+  const path = full.split('?')[0];
+  const query = full.indexOf('?') === -1 ? '' : full.slice(full.indexOf('?') + 1);
+  const rpc = path.match(/\/rest\/v1\/rpc\/([a-z_0-9]+)/i);
+  if(rpc) return rpc[1] === 'sync_heads' ? null : 'rpc';
+  if(/\/rest\/v1\//.test(path)) return (m === 'GET' || m === 'HEAD') ? null : 'rest-' + m.toLowerCase();
+  if(/\/functions\/v1\//.test(path)) return 'function';
+  if(/\/auth\/v1\//.test(path)){
+    if(m === 'GET') return null;
+    if(/\/auth\/v1\/logout$/.test(path)) return null;
+    if(/\/auth\/v1\/token$/.test(path)){
+      if(/(^|&)grant_type=password(&|$)/.test(query)) return null;
+      return /(^|&)grant_type=refresh_token(&|$)/.test(query) ? 'auth-refresh' : 'auth';
+    }
+    return 'auth';
+  }
+  return (m === 'GET' || m === 'HEAD') ? null : 'other';
+}
+let sessionHintAt = 0;
+function noteSessionExpiredHint(){
+  const now = Date.now();
+  if(now - sessionHintAt < 60000) return;
+  sessionHintAt = now;
+  try{ if(typeof showTextToast === 'function') showTextToast(SESSION_EXPIRED_HINT, 'error'); }catch(e){}
+}
+function noteWriteBlocked(kind){
+  try{
+    NET_STATS.blocked = (NET_STATS.blocked || 0) + 1;
+    NET_STATS.byType['blocked ' + kind] = (NET_STATS.byType['blocked ' + kind] || 0) + 1;
+    if(typeof debugRecordingActive !== 'undefined' && debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'write-blocked', kind: kind });
+    window.dispatchEvent(new CustomEvent('write-blocked', { detail: { kind: kind } }));
+    if(kind === 'auth-refresh') noteSessionExpiredHint();
+  }catch(e){}
+}
 let supabaseClient = null;
+// Rev 2.32.75 (K3): режим «Мок» — dev/mock-cloud.js (емулятор у пам'яті). Не завантажився → клієнт не створюється, а countingFetch не пропускає запит у мережу.
+function loadMockCloudIfNeeded(){
+  if(CLOUD_ENV.env !== 'mock' || window.MockCloud) return Promise.resolve();
+  return new Promise(function(resolve, reject){
+    const sc = document.createElement('script');
+    sc.src = 'dev/mock-cloud.js';
+    sc.onload = function(){
+      try{ window.MockCloud.init({ fixture: new URLSearchParams(location.search).get('fixture') || 'typical', projectUrl: SUPABASE_PROJECT_URL }); resolve(); }
+      catch(e){ reject(e); }
+    };
+    sc.onerror = function(){ supabaseSdkLoadPromise = null; reject(new Error('Не вдалося завантажити мок Cloud (dev/mock-cloud.js)')); };
+    document.head.appendChild(sc);
+  });
+}
 // Один спільний клієнт на весь модуль (той самий принцип, що openIdbDatabase()
 // вище для idb.openDB) — SDK сам керує onAuthStateChange-передплатниками,
 // повторне createClient() створило б другий незалежний слухач сесії.
 function getSupabaseClient(){
   if(supabaseClient) return supabaseClient;
-  supabaseClient = supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY, { global: { fetch: countingFetch } }); // Rev 2.32.73 (S): кожен мережевий запит клієнта — у лічильник за сеанс
+  // Rev 2.32.75 (K3): мок — окремий ключ сесії (справжня сесія origin не використовується) і без автооновлення токена; «лише читання» — без автооновлення (воно б заблокувалось)
+  const opts = { global: { fetch: countingFetch } }; // Rev 2.32.73 (S): кожен мережевий запит клієнта — у лічильник за сеанс
+  if(CLOUD_ENV.env === 'mock') opts.auth = { storageKey: 'sb-mock-auth-token', autoRefreshToken: false, persistSession: true };
+  else if(CLOUD_ENV.env === 'readonly') opts.auth = { autoRefreshToken: false };
+  supabaseClient = supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY, opts);
+  if(CLOUD_ENV.env === 'mock' && window.MockCloud) window.MockCloud.attachRealtime(supabaseClient);
   return supabaseClient;
 }
 // Rev 2.32.73 (S) — лічильник запитів до сервера за сеанс (типи без значень користувача). Ключ: «МЕТОД таблиця» / «RPC функція» / «auth».
@@ -9051,8 +9143,22 @@ function countNetRequest(url, method){
   return k;
 }
 function countingFetch(input, init){
-  try{ countNetRequest(typeof input === 'string' ? input : (input && input.url), (init && init.method) || (input && input.method)); }catch(e){}
-  return fetch(input, init);
+  const url = typeof input === 'string' ? input : (input && input.url);
+  const method = (init && init.method) || (input && input.method);
+  // Rev 2.32.75 (K3): остання лінія оборони режиму «лише читання» — кидає мережеву помилку (НЕ відповідь 4xx: SDK міг би вважати токен недійсним і подати SIGNED_OUT)
+  if(CLOUD_ENV.env === 'readonly'){
+    const blocked = classifyBlockedRequest(url, method);
+    if(blocked){ noteWriteBlocked(blocked); return Promise.reject(new TypeError(WRITE_BLOCKED_MESSAGE)); }
+  }
+  try{ countNetRequest(url, method); }catch(e){}
+  // Rev 2.32.75 (K3): fail-closed — у моку запит НІКОЛИ не йде в мережу, навіть якщо емулятор не завантажився
+  if(CLOUD_ENV.env === 'mock'){
+    if(!window.MockCloud) return Promise.reject(new TypeError('Мок Cloud недоступний'));
+    return window.MockCloud.fetch(input, init);
+  }
+  const res = fetch(input, init);
+  if(CLOUD_ENV.env === 'readonly') return res.then(function(r){ if(r && r.status === 401) noteSessionExpiredHint(); return r; });
+  return res;
 }
 window.__netStats = NET_STATS;
 
@@ -9878,7 +9984,8 @@ function updateSyncMarkerFromAllRows(domain, rows){
 // Порядок таблиць — FK-порядок наявних PULL_DOMAINS (категорії → підкатегорії → слова → картки → ОЧ → приховані → витрати → доходи → борги).
 const SYNC_TABLE_ORDER = ['categories', 'subcategories', 'dictionary', 'bank_accounts', 'installment_accounts', 'hidden_entities', 'expenses', 'incomes', 'debts'];
 const SYNC_DEPENDENTS = { categories: ['subcategories', 'dictionary'], subcategories: ['dictionary'], bank_accounts: ['debts', 'hidden_entities'], installment_accounts: ['debts', 'expenses', 'hidden_entities'] }; // Rev 2.32.74 (U)
-const SYNC_FULL_INTERVAL_MS = 6 * 60 * 60 * 1000;   // повна звірка раз на 6 годин (серверні purge_* видаляють рядки без надгробка)
+// Rev 2.32.75 (K3): 6 → 24 год. Рядки без надгробка (серверні purge_*, «Видалити назавжди» з іншого пристрою) тепер ловить маркер purged_at з sync_heads(); запобіжник раз на добу лишився для рідкісних збоїв стану.
+const SYNC_FULL_INTERVAL_MS = 24 * 60 * 60 * 1000;  // повна звірка раз на 24 години
 const SYNC_MIN_CHECK_MS = 30 * 1000;                 // мінімальний інтервал між перевірками «голів» (фон/online)
 const SYNC_REALTIME_DELAY_MS = 1500;                 // згортання серії Realtime-подій в одну перевірку
 const SYNC_DELTA_OVERLAP_MS = 2000;                  // дельта береться від мітки − 2 с
@@ -9887,7 +9994,14 @@ function syncDeltaFrom(marker){
   if(isNaN(t)) return marker;
   return new Date(t - SYNC_DELTA_OVERLAP_MS).toISOString();
 }
-function emptySyncSeen(familyId){ return { familyId: familyId || null, tables: {}, membersHash: null, familyHash: null, lastFullAt: 0, needFull: null }; }
+function emptySyncSeen(familyId){ return { familyId: familyId || null, tables: {}, membersHash: null, familyHash: null, purgedAt: null, lastFullAt: 0, needFull: null }; }
+// Rev 2.32.75 (K3): purged_at приходить рядком timestamptz («+00:00» або «Z») — порівнюємо нормалізовано (мс), а не рядками; не розбирається → порівнюємо як текст.
+function purgedAtValue(v){
+  if(v === null || v === undefined || v === '') return null;
+  const t = Date.parse(v);
+  return isNaN(t) ? 'raw:' + String(v) : t;
+}
+function purgedAtChanged(seenValue, serverValue){ return purgedAtValue(seenValue) !== purgedAtValue(serverValue); }
 // Прочитане зі сховища лишається, лише якщо воно для тієї ж сім'ї й має правильну форму; інакше — порожній стан (= повна звірка).
 function normalizeSyncSeen(raw, familyId){
   if(!raw || typeof raw !== 'object' || !familyId || raw.familyId !== familyId) return emptySyncSeen(familyId);
@@ -9895,6 +10009,7 @@ function normalizeSyncSeen(raw, familyId){
   if(raw.tables && typeof raw.tables === 'object') SYNC_TABLE_ORDER.forEach(function(t){ if(typeof raw.tables[t] === 'string') seen.tables[t] = raw.tables[t]; });
   seen.membersHash = typeof raw.membersHash === 'string' ? raw.membersHash : null;
   seen.familyHash = typeof raw.familyHash === 'string' ? raw.familyHash : null;
+  seen.purgedAt = typeof raw.purgedAt === 'string' ? raw.purgedAt : null;
   seen.lastFullAt = typeof raw.lastFullAt === 'number' && raw.lastFullAt > 0 ? raw.lastFullAt : 0;
   seen.needFull = raw.needFull ? String(raw.needFull) : null;
   return seen;
@@ -9925,6 +10040,7 @@ function planSync(heads, seen, now, opts){
   else if(s.needFull) full = 'error';
   else if(!s.lastFullAt || s.lastFullAt > now) full = 'cold';
   else if(!syncHeadsComplete(heads)) full = 'mismatch';
+  else if(purgedAtChanged(s.purgedAt, heads.purged_at)) full = 'purged'; // Rev 2.32.75 (K3): десь жорстко видалено рядки (без надгробка) → одна повна звірка; null→значення теж
   else if(now - s.lastFullAt >= SYNC_FULL_INTERVAL_MS) full = 'periodic';
   if(full){
     return { ok: true, full: full, tables: SYNC_TABLE_ORDER.slice(), profiles: true, counters: counters };
@@ -9954,7 +10070,7 @@ function applySyncResult(seen, heads, plan, results, now){
     else allOk = false;
   }
   if(plan.full){
-    if(allOk){ next.lastFullAt = now; next.needFull = null; }
+    if(allOk){ next.lastFullAt = now; next.needFull = null; next.purgedAt = (typeof heads.purged_at === 'string' && heads.purged_at) ? heads.purged_at : null; } // purgedAt запам'ятовується лише після УСПІШНОЇ повної (збій → наступна знову повна)
     else next.needFull = 'error';
   }
   return next;
@@ -13665,7 +13781,7 @@ function autoSyncPlan(lists){
 let autoSyncRunning = false, autoSyncRetryStep = 0, autoSyncTimer = null;
 async function autoSyncStale(reason){
   if(autoSyncRunning) return null;
-  if(!navigator.onLine || !isCloudSessionReady()) return null;
+  if(!navigator.onLine || !isCloudSessionReady() || isWriteBlocked()) return null; // Rev 2.32.75 (K3): у режимі «лише читання» офлайн-записи не відправляються й повторів немає
   const plan = autoSyncPlan({ expenses: expenses, incomes: incomes, debts: debts });
   if(!plan.pending){ autoSyncRetryStep = 0; return { pending: 0, pushed: 0, failed: 0 }; }
   autoSyncRunning = true;
@@ -19719,6 +19835,30 @@ function renderTestingDrawer(){
     list.appendChild(card);
   });
 }
+// Rev 2.32.75 (K3): позначка й перемикач середовища. Перемикач зберігається в sessionStorage (закрив вкладку → знову мок) і перезавантажує сторінку.
+function renderCloudEnvUI(){
+  const badge = document.getElementById('cloud-env-badge');
+  const btn = document.getElementById('cloud-env-btn');
+  const label = document.getElementById('cloud-env-label');
+  const prod = CLOUD_ENV.env === 'prod';
+  if(badge){ badge.textContent = CLOUD_ENV.label; badge.classList.toggle('hidden', prod); badge.classList.toggle('readonly', CLOUD_ENV.env === 'readonly'); }
+  if(btn){
+    btn.classList.toggle('hidden', prod); btn.style.display = prod ? 'none' : '';
+    btn.textContent = CLOUD_ENV.env === 'readonly' ? 'Поточне: реальна база, лише читання. Повернутись на мок' : 'Поточне: мок. Підключити реальну базу (лише читання)';
+  }
+  if(label) label.style.display = prod ? 'none' : '';
+}
+function toggleCloudEnv(){
+  if(CLOUD_ENV.env === 'prod') return;
+  const toReal = CLOUD_ENV.env === 'mock';
+  const apply = function(){
+    try{ if(toReal) sessionStorage.setItem(SS_KEY_PREVIEW_REALDB, '1'); else sessionStorage.removeItem(SS_KEY_PREVIEW_REALDB); }catch(e){}
+    location.reload();
+  };
+  if(!toReal){ apply(); return; }
+  showConfirmModal('Підключити РЕАЛЬНУ базу в режимі «лише читання»? Запис на сервер буде заблоковано (preview), сесія для читання діє ≈ 1 год. Закриття вкладки поверне мок.', apply, 'Підключити');
+}
+document.addEventListener('DOMContentLoaded', renderCloudEnvUI);
 function updateNetStatsRow(){
   const b = document.getElementById('net-stats-btn');
   if(b) b.textContent = 'Запитів за сеанс: ' + NET_STATS.total;
@@ -19730,6 +19870,7 @@ function showNetStats(){
 }
 function openTestingDrawer(){
   updateNetStatsRow();
+  renderCloudEnvUI();
   renderTestingDrawer();
   const backdrop = document.getElementById('testing-backdrop');
   const drawer = document.getElementById('testing-drawer');
@@ -21064,7 +21205,7 @@ async function restoreTrashFromDetail(){
 // ===== Rev 2.23.24 (6D.193, Ревізія E) — "Видалити назавжди" і реконсиляція з Cloud =====
 // Без Cloud-сесії або без мережі видалення назавжди недоступне (відновлення — доступне).
 function isTrashOffline(){
-  return !navigator.onLine || !isCloudSessionReady();
+  return !navigator.onLine || !isCloudSessionReady() || isWriteBlocked(); // Rev 2.32.75 (K3): «лише читання» = як офлайн
 }
 function updateTrashOfflineUI(){
   const banner = document.getElementById('trash-offline-banner');

@@ -6,7 +6,7 @@ const { buildSandbox, evalInSandbox } = require('./extract');
 const ev = evalInSandbox;
 
 const NAMES = ['SYNC_TABLE_ORDER', 'SYNC_DEPENDENTS', 'SYNC_FULL_INTERVAL_MS', 'SYNC_MIN_CHECK_MS', 'SYNC_REALTIME_DELAY_MS', 'SYNC_DELTA_OVERLAP_MS', 'LS_KEY_SYNC_HEADS', 'LS_KEY_SYNC_MARKERS',
-  'syncDeltaFrom', 'emptySyncSeen', 'normalizeSyncSeen', 'loadSyncSeen', 'saveSyncSeen', 'syncHeadsComplete', 'planSync', 'applySyncResult', 'shouldCheckHeads',
+  'syncDeltaFrom', 'emptySyncSeen', 'purgedAtValue', 'purgedAtChanged', 'normalizeSyncSeen', 'loadSyncSeen', 'saveSyncSeen', 'syncHeadsComplete', 'planSync', 'applySyncResult', 'shouldCheckHeads',
   'clearSyncMarkers', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker',
   'NET_STATS', 'classifyNetRequest', 'countNetRequest'];
 function mkStorage(){ const m = new Map(); return { getItem: function(k){ return m.has(k) ? m.get(k) : null; }, setItem: function(k, v){ m.set(k, String(v)); }, removeItem: function(k){ m.delete(k); }, _m: m }; }
@@ -68,11 +68,11 @@ test('planSync: профілі — лише при зміні members_hash / fam
   assert.equal(ctx.planSync(heads({ family_hash: 'f2' }), seen, T0 + 1000, {}).profiles, true);
   assert.equal(ctx.planSync(heads(), seen, T0 + 1000, {}).profiles, false);
 });
-test('planSync: повна звірка — раз на 6 годин, ручна, після входу, після помилки, при неповній відповіді', function(){
+test('planSync: повна звірка — раз на 24 години, ручна, після входу, після помилки, при неповній відповіді', function(){
   const ctx = make();
   const seen = synced(ctx, T0);
-  assert.equal(ctx.planSync(heads(), seen, T0 + 6 * 3600 * 1000 - 1, {}).full, null);
-  assert.equal(ctx.planSync(heads(), seen, T0 + 6 * 3600 * 1000, {}).full, 'periodic');
+  assert.equal(ctx.planSync(heads(), seen, T0 + 24 * 3600 * 1000 - 1, {}).full, null);
+  assert.equal(ctx.planSync(heads(), seen, T0 + 24 * 3600 * 1000, {}).full, 'periodic');
   assert.equal(ctx.planSync(heads(), seen, T0 + 1000, { fullReason: 'manual' }).full, 'manual');
   assert.equal(ctx.planSync(heads(), seen, T0 + 1000, { fullReason: 'login' }).full, 'login');
   const bad = JSON.parse(JSON.stringify(seen)); bad.needFull = 'error';
@@ -167,4 +167,35 @@ test('лічильник запитів: класифікація без зна�
   ctx.countNetRequest('https://x.supabase.co/rest/v1/debts?x=1', 'GET'); ctx.countNetRequest('https://x.supabase.co/rest/v1/debts', 'GET');
   assert.equal(ev(ctx, 'NET_STATS.total'), 2);
   assert.equal(ev(ctx, "NET_STATS.byType['GET debts']"), 2);
+});
+
+// ---------- Rev 2.32.75 (K3): маркер purged_at ----------
+test('K3 purged_at: null → значення = одна повна звірка (причина purged), значення запам\'ятовується лише після успіху', function(){
+  const ctx = make();
+  const seen = synced(ctx, T0);
+  const hd = heads({ purged_at: '2026-10-15T10:00:00+00:00' });
+  const plan = ctx.planSync(hd, seen, T0 + 1000, {});
+  assert.equal(plan.full, 'purged');
+  const res = {}; plan.tables.forEach(function(t){ res[t] = true; }); res.profiles = true;
+  const next = ctx.applySyncResult(seen, hd, plan, res, T0 + 1000);
+  assert.equal(next.purgedAt, '2026-10-15T10:00:00+00:00');
+  assert.equal(ctx.planSync(hd, next, T0 + 2000, {}).full, null);   // те саме значення — повної немає
+  const failed = ctx.applySyncResult(seen, hd, plan, Object.assign({}, res, { debts: false }), T0 + 1000);
+  assert.equal(failed.purgedAt, null);                                // збій → наступна знову повна
+  assert.equal(failed.needFull, 'error');
+});
+test('K3 purged_at: порівняння нормалізоване (Z і +00:00 — те саме), зміна значення → повна', function(){
+  const ctx = make();
+  const seen = synced(ctx, T0); seen.purgedAt = '2026-10-15T10:00:00+00:00';
+  assert.equal(ctx.planSync(heads({ purged_at: '2026-10-15T10:00:00Z' }), seen, T0 + 1000, {}).full, null);
+  assert.equal(ctx.planSync(heads({ purged_at: '2026-10-15T10:00:00.000Z' }), seen, T0 + 1000, {}).full, null);
+  assert.equal(ctx.planSync(heads({ purged_at: '2026-10-16T10:00:00Z' }), seen, T0 + 1000, {}).full, 'purged');
+  assert.equal(ctx.planSync(heads({ purged_at: null }), synced(ctx, T0), T0 + 1000, {}).full, null);
+});
+test('K3 purged_at: зберігається в normalizeSyncSeen; вихід (clearSyncMarkers) очищає «голови» разом із маркером', function(){
+  const ctx = make();
+  const seen = ctx.normalizeSyncSeen({ familyId: FAM, tables: {}, purgedAt: '2026-10-15T10:00:00Z' }, FAM);
+  assert.equal(seen.purgedAt, '2026-10-15T10:00:00Z');
+  assert.equal(ctx.normalizeSyncSeen({ familyId: FAM }, FAM).purgedAt, null);
+  assert.equal(ctx.emptySyncSeen(FAM).purgedAt, null);
 });

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { buildSandbox, evalInSandbox } = require('./extract');
 
 const NAMES = ['SYNC_TABLE_ORDER', 'SYNC_DEPENDENTS', 'SYNC_FULL_INTERVAL_MS', 'SYNC_MIN_CHECK_MS', 'SYNC_REALTIME_DELAY_MS', 'SYNC_DELTA_OVERLAP_MS', 'LS_KEY_SYNC_HEADS',
-  'emptySyncSeen', 'normalizeSyncSeen', 'loadSyncSeen', 'saveSyncSeen', 'syncHeadsComplete', 'planSync', 'applySyncResult', 'shouldCheckHeads',
+  'emptySyncSeen', 'purgedAtValue', 'purgedAtChanged', 'normalizeSyncSeen', 'loadSyncSeen', 'saveSyncSeen', 'syncHeadsComplete', 'planSync', 'applySyncResult', 'shouldCheckHeads',
   'syncDiag', 'fetchSyncHeadsShared', 'applyHeadsCounters', 'pullTableForSync', 'runSyncPulls', 'runSyncCheck', 'syncCheck', 'scheduleRealtimeSyncCheck', 'resetSyncCheckState'];
 const FAM = 'fam-1';
 function makeHeads(over){
