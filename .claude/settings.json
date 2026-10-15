@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "cat \"$CLAUDE_PROJECT_DIR/docs/CRITICAL_RULES.md\"" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/pre-push-guard.js\"", "timeout": 300 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/scripts/hooks/stop-tests.js\"", "timeout": 300 }
+        ]
+      }
+    ]
+  }
+}
