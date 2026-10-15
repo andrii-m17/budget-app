@@ -3488,7 +3488,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.72</div>
+  <div class="version-footer">Money Tree · Rev 2.32.73</div>
 </div>
   </div>
 </div>
@@ -8020,7 +8020,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.72';
+const APP_VERSION = '2.32.73';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9026,9 +9026,32 @@ let supabaseClient = null;
 // повторне createClient() створило б другий незалежний слухач сесії.
 function getSupabaseClient(){
   if(supabaseClient) return supabaseClient;
-  supabaseClient = supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
+  supabaseClient = supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY, { global: { fetch: countingFetch } }); // Rev 2.32.73 (S): кожен мережевий запит клієнта — у лічильник за сеанс
   return supabaseClient;
 }
+// Rev 2.32.73 (S) — лічильник запитів до сервера за сеанс (типи без значень користувача). Ключ: «МЕТОД таблиця» / «RPC функція» / «auth».
+const NET_STATS = { total: 0, byType: {} };
+function classifyNetRequest(url, method){
+  const m = String(method || 'GET').toUpperCase();
+  const path = String(url || '').split('?')[0];
+  const rpc = path.match(/\/rest\/v1\/rpc\/([a-z_0-9]+)/i);
+  if(rpc) return 'RPC ' + rpc[1];
+  const tbl = path.match(/\/rest\/v1\/([a-z_0-9]+)/i);
+  if(tbl) return m + ' ' + tbl[1];
+  if(/\/auth\/v1\//.test(path)) return 'auth';
+  if(/\/functions\/v1\//.test(path)) return 'function';
+  return 'other';
+}
+function countNetRequest(url, method){
+  const k = classifyNetRequest(url, method);
+  NET_STATS.total++; NET_STATS.byType[k] = (NET_STATS.byType[k] || 0) + 1;
+  return k;
+}
+function countingFetch(input, init){
+  try{ countNetRequest(typeof input === 'string' ? input : (input && input.url), (init && init.method) || (input && input.method)); }catch(e){}
+  return fetch(input, init);
+}
+window.__netStats = NET_STATS;
 
 function setCloudAuthStatus(text){
   const el = document.getElementById('cloud-auth-status');
@@ -9711,6 +9734,7 @@ function clearCloudFamilyId(){
 // геть усе. Скидання прибирає цей ризик повністю, ціною одного зайвого
 // повного pull при вході в інший акаунт — прийнятна ціна за безпеку.
 const LS_KEY_SYNC_MARKERS = 'budget_sync_markers_v1';
+const LS_KEY_SYNC_HEADS = 'budget_sync_heads_v1'; // Rev 2.32.73 (S): що саме бачили на сервері востаннє (див. блок «Планувальник синхронізації»)
 function loadSyncMarkers(){
   try{ return JSON.parse(localStorage.getItem(LS_KEY_SYNC_MARKERS) || '{}'); }
   catch(e){ return {}; }
@@ -9725,6 +9749,7 @@ function setSyncMarker(domain, isoTimestamp){
 }
 function clearSyncMarkers(){
   localStorage.removeItem(LS_KEY_SYNC_MARKERS);
+  localStorage.removeItem(LS_KEY_SYNC_HEADS); // Rev 2.32.73 (S): «голови» синхронізації прив'язані до тієї ж сесії/сім'ї, що й маркери
 }
 // Додає `.gte('updated_at', marker)` до вже побудованого select()-запиту,
 // ЯКЩО для цього домену вже є маркер — інакше повертає query без змін
@@ -9737,7 +9762,7 @@ function clearSyncMarkers(){
 // не зростає, просто один зайвий (але безпечний) рядок у відповіді.
 function applySyncMarker(query, domain){
   const marker = getSyncMarker(domain);
-  return marker ? query.gte('updated_at', marker) : query;
+  return marker ? query.gte('updated_at', syncDeltaFrom(marker)) : query; // Rev 2.32.73 (S): мітка − 2 с (транзакція з раннім now() може закомітитись пізніше)
 }
 // Для доменів БЕЗ FK-залежності (categories/bank_accounts/
 // installment_accounts) — кожен рядок відповіді завжди повністю
@@ -9748,6 +9773,94 @@ function updateSyncMarkerFromAllRows(domain, rows){
   let max = rows[0].updated_at;
   for(const r of rows){ if(r.updated_at > max) max = r.updated_at; }
   setSyncMarker(domain, max);
+}
+// ============ Планувальник синхронізації (Rev 2.32.73, S) ============
+// Мета: замість 12–13 запитів на кожне повернення з фону — один легкий RPC `sync_heads()` («що змінилося?») і завантаження лише
+// змінених таблиць. Тут лише ЧИСТІ функції (без мережі й DOM): планування, облік результату, інтервали, вікно дельти.
+// Саме завантаження дельти й злиття (за id, LWW, надгробки deleted_at, ідемпотентно) лишається в наявних pull*Core: вони вже
+// беруть рядки від мітки (applySyncMarker) і порівнюють за id/updated_at; окремої другої реалізації злиття не додаємо.
+// Порядок таблиць — FK-порядок наявних PULL_DOMAINS (категорії → підкатегорії → слова → картки → ОЧ → приховані → витрати → доходи → борги).
+const SYNC_TABLE_ORDER = ['categories', 'subcategories', 'dictionary', 'bank_accounts', 'installment_accounts', 'hidden_entities', 'expenses', 'incomes', 'debts'];
+const SYNC_FULL_INTERVAL_MS = 6 * 60 * 60 * 1000;   // повна звірка раз на 6 годин (серверні purge_* видаляють рядки без надгробка)
+const SYNC_MIN_CHECK_MS = 30 * 1000;                 // мінімальний інтервал між перевірками «голів» (фон/online)
+const SYNC_REALTIME_DELAY_MS = 1500;                 // згортання серії Realtime-подій в одну перевірку
+const SYNC_DELTA_OVERLAP_MS = 2000;                  // дельта береться від мітки − 2 с
+function syncDeltaFrom(marker){
+  const t = marker ? Date.parse(marker) : NaN;
+  if(isNaN(t)) return marker;
+  return new Date(t - SYNC_DELTA_OVERLAP_MS).toISOString();
+}
+function emptySyncSeen(familyId){ return { familyId: familyId || null, tables: {}, membersHash: null, familyHash: null, lastFullAt: 0, needFull: null }; }
+// Прочитане зі сховища лишається, лише якщо воно для тієї ж сім'ї й має правильну форму; інакше — порожній стан (= повна звірка).
+function normalizeSyncSeen(raw, familyId){
+  if(!raw || typeof raw !== 'object' || !familyId || raw.familyId !== familyId) return emptySyncSeen(familyId);
+  const seen = emptySyncSeen(familyId);
+  if(raw.tables && typeof raw.tables === 'object') SYNC_TABLE_ORDER.forEach(function(t){ if(typeof raw.tables[t] === 'string') seen.tables[t] = raw.tables[t]; });
+  seen.membersHash = typeof raw.membersHash === 'string' ? raw.membersHash : null;
+  seen.familyHash = typeof raw.familyHash === 'string' ? raw.familyHash : null;
+  seen.lastFullAt = typeof raw.lastFullAt === 'number' && raw.lastFullAt > 0 ? raw.lastFullAt : 0;
+  seen.needFull = raw.needFull ? String(raw.needFull) : null;
+  return seen;
+}
+function loadSyncSeen(familyId){
+  try{ return normalizeSyncSeen(JSON.parse(localStorage.getItem(LS_KEY_SYNC_HEADS) || 'null'), familyId); }
+  catch(e){ return emptySyncSeen(familyId); }
+}
+function saveSyncSeen(seen){
+  try{ localStorage.setItem(LS_KEY_SYNC_HEADS, JSON.stringify(seen)); }catch(e){}
+}
+// Відповідь sync_heads() придатна для планування, лише якщо містить усі 9 таблиць (відсутня таблиця = розбіжність очікуваного й отриманого).
+function syncHeadsComplete(heads){
+  if(!heads || typeof heads !== 'object' || !heads.tables || typeof heads.tables !== 'object') return false;
+  return SYNC_TABLE_ORDER.every(function(t){ return Object.prototype.hasOwnProperty.call(heads.tables, t); });
+}
+// planSync(heads, seen, now, opts): що робити за відповіддю сервера.
+//   opts.fullReason — примусова повна звірка з причиною ('manual' | 'login' | …).
+// Повертає { ok, full: причина|null, tables: [...у FK-порядку], profiles: bool, counters: {unread, monoNew} | null }.
+// Порівняння «голови» — на НЕрівність (не «новіше»): остаточне видалення найновішого рядка зменшує max(updated_at).
+function planSync(heads, seen, now, opts){
+  const o = opts || {};
+  const s = seen || emptySyncSeen(null);
+  if(!heads || typeof heads !== 'object') return { ok: false, full: null, tables: [], profiles: false, counters: null };
+  const counters = { unread: typeof heads.unread_notifications === 'number' ? heads.unread_notifications : null, monoNew: typeof heads.mono_new === 'number' ? heads.mono_new : null };
+  let full = null;
+  if(o.fullReason) full = String(o.fullReason);
+  else if(s.needFull) full = 'error';
+  else if(!s.lastFullAt || s.lastFullAt > now) full = 'cold';
+  else if(!syncHeadsComplete(heads)) full = 'mismatch';
+  else if(now - s.lastFullAt >= SYNC_FULL_INTERVAL_MS) full = 'periodic';
+  if(full){
+    return { ok: true, full: full, tables: SYNC_TABLE_ORDER.slice(), profiles: true, counters: counters };
+  }
+  const tables = SYNC_TABLE_ORDER.filter(function(t){ return (heads.tables[t] || null) !== (s.tables[t] || null); });
+  const profiles = (heads.members_hash || null) !== (s.membersHash || null) || (heads.family_hash || null) !== (s.familyHash || null);
+  return { ok: true, full: null, tables: tables, profiles: profiles, counters: counters };
+}
+// applySyncResult(seen, heads, plan, results, now): новий стан після виконання плану. results = { таблиця: true|false, profiles: true|false }.
+// «Голова» таблиці запам'ятовується лише для успішно завантажених (невдала лишається «зміненою» й піде знову); повна звірка завершується
+// успішно лише коли всі таблиці вдалися; збій повної → needFull (наступна перевірка знову повна).
+function applySyncResult(seen, heads, plan, results, now){
+  const next = JSON.parse(JSON.stringify(seen || emptySyncSeen(null)));
+  const res = results || {};
+  let allOk = true;
+  plan.tables.forEach(function(t){
+    if(res[t]){ next.tables[t] = heads.tables[t] === undefined ? null : heads.tables[t]; if(next.tables[t] === null) delete next.tables[t]; }
+    else allOk = false;
+  });
+  if(plan.profiles){
+    if(res.profiles){ next.membersHash = heads.members_hash || null; next.familyHash = heads.family_hash || null; }
+    else allOk = false;
+  }
+  if(plan.full){
+    if(allOk){ next.lastFullAt = now; next.needFull = null; }
+    else next.needFull = 'error';
+  }
+  return next;
+}
+// Чи пора робити перевірку: силоване (кнопка, push, Realtime) — завжди; інакше не частіше за SYNC_MIN_CHECK_MS.
+function shouldCheckHeads(now, lastCheckAt, force){
+  if(force || !lastCheckAt || now < lastCheckAt) return true;
+  return now - lastCheckAt >= SYNC_MIN_CHECK_MS;
 }
 // Rev #30 (6D, індикатор — фікс дублювання) — ЄДИНЕ джерело правди для
 // "чи сесія готова синхронізувати" (залогінений+family_id+SDK). До цього
@@ -10472,7 +10585,7 @@ function signOutConfirmText(stale){
 }
 // Ключі локального сховища, що належать акаунту/родині (тема й статус міграції сховища лишаються — не дані акаунта).
 function accountLocalStorageKeys(){
-  return BACKUP_LS_KEYS.concat([LS_KEY_DRAFT, LS_KEY_PURGED_TAXONOMY, LS_KEY_PURGED_ACCOUNTS, LS_KEY_PURGED_RECORDS, LS_KEY_SYNC_MARKERS, LS_KEY_CLOUD_FAMILY_ID]);
+  return BACKUP_LS_KEYS.concat([LS_KEY_DRAFT, LS_KEY_PURGED_TAXONOMY, LS_KEY_PURGED_ACCOUNTS, LS_KEY_PURGED_RECORDS, LS_KEY_SYNC_MARKERS, LS_KEY_SYNC_HEADS, LS_KEY_CLOUD_FAMILY_ID]);
 }
 async function clearLocalAccountData(){
   let cleared = 0;

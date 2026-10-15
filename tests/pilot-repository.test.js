@@ -118,7 +118,7 @@ const REPOSITORY_NAMES = [
   // посилаються на ці хелпери (недосяжним для решти тестів кодом,
   // localStorage:{} за замовчуванням → getSyncMarker завжди null →
   // applySyncMarker() — прозорий no-op, повний pull як і раніше).
-  'LS_KEY_SYNC_MARKERS', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker',
+  'LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker',
   'clearSyncMarkers', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
   'saveCategories', 'saveCategoriesLocal', 'pushCategoriesPilot', 'reconcileCategoryCloudId',
   // Rev #30 (6D крок 9) — Pull pilot: categories. На відміну від push-тестів
@@ -2911,7 +2911,7 @@ test('pullCategoriesCore: другий pull (є маркер, нових Cloud-�
   ctx.getSupabaseClient = () => fake.client;
   ctx.CATEGORIES = [{ name: 'Стара', cloudId: 'c1', active: true, type: 'Гнучка', updatedAt: '2024-01-01T00:00:00.000Z' }];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(fake.calls, ['2024-06-01T00:00:00.000Z']); // .gte() викликаний з маркером
+  assert.deepEqual(fake.calls, ['2024-05-31T23:59:58.000Z']); // .gte() викликаний з маркером − 2 с (Rev 2.32.73, S)
   assert.equal(result.added, 0);
   assert.equal(result.updated, 0);
   assert.equal(ctx.getSyncMarker('categories'), '2024-06-01T00:00:00.000Z'); // не зрушив — нічого нового не прийшло

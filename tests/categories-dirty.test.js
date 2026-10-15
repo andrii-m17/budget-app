@@ -57,7 +57,7 @@ function makeCloud(){
 }
 function hash(cloud, table){ return JSON.stringify(cloud.tables[table].map(function(r){ return [r.id, r.updated_at]; })); }
 
-const NAMES = ['LS_KEY_SYNC_MARKERS', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
+const NAMES = ['LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
   'saveCategoriesLocal', 'saveSubcategoriesLocal', 'pushCategoriesPilot', 'reconcileCategoryCloudId', 'pullCategoriesCore',
   'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId', 'pullSubcategoriesCore',
   'TEST_IGNORE_LS_KEY', 'isTestRecordName', 'syncNameOf', 'shouldIgnoreForSync', 'isTestHiddenKey', 'testIgnoreFlag', 'isTestSyncIgnored', 'syncableRecords', 'filterTestRows', 'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'isSubcategoryDirty', 'planSubcategoriesPush', 'categoriesByNameMap',
