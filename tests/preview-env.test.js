@@ -26,7 +26,7 @@ function make(env, over){
   ctx.__calls = calls; ctx.__store = store;
   return ctx;
 }
-const ro = { env: 'readonly', label: 'Реальна база · лише читання' };
+const ro = { env: 'readonly', label: 'Реальні дані · лише перегляд' };
 
 test('K3 середовище: робочий origin = prod; усе інше (localhost, інший хост, file) = мок; перемикач = лише читання', function(){
   const c = make({ env: 'prod' });
@@ -37,7 +37,7 @@ test('K3 середовище: робочий origin = prod; усе інше (lo
   });
   assert.equal(c.detectCloudEnv('http://localhost:8934', '1').env, 'readonly');
   assert.equal(c.detectCloudEnv('http://localhost:8934', '0').env, 'mock');
-  assert.equal(c.detectCloudEnv('http://localhost:8934', null).label, 'Мок');
+  assert.equal(c.detectCloudEnv('http://localhost:8934', null).label, 'Тестові дані');
   assert.equal(c.detectCloudEnv(PROD, null).label, '');
 });
 test('K3 захисник: кожен тип запису блокується, читання й sync_heads проходять', function(){
@@ -123,4 +123,27 @@ test('K3 лише читання: push-функції й autoSyncStale тихо 
   assert.equal(await c.autoSyncStale('resume'), null);
   assert.equal(touched, 0);
   assert.equal(timers.length, 0);
+});
+
+test('KIT-1 (2.32.78): назви позначок і підказка «лише перегляд» для дій користувача', function(){
+  const c = make(ro);
+  assert.equal(c.detectCloudEnv('http://localhost:8934', '1').label, 'Реальні дані · лише перегляд');
+  assert.equal(c.detectCloudEnv('http://localhost:8934', null).label, 'Тестові дані');
+});
+test('KIT-1 (2.32.78): записи поза push* — у «лише перегляд» гілки пропуску стоять до будь-якого запиту (охоронний тест на коді)', function(){
+  const SRC = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const bodyOf = n => { const i = SRC.search(new RegExp('(async )?function ' + n + '\\(')); return SRC.slice(i, i + 900); };
+  const guarded = ['sendTestNotification', 'runMonoDisconnect', 'runClearNotifArchive', 'monoRefundApply', 'markAllNotificationsRead'];
+  guarded.forEach(n => assert.match(bodyOf(n), /blockedByReadOnly\(\)/, n));
+  assert.match(bodyOf('monoAcceptRow'), /isWriteBlocked\(\)\) return \{ kind: 'readonly'/);
+  assert.match(bodyOf('loadNotificationSettings'), /\|\| isWriteBlocked\(\)/);
+  assert.match(bodyOf('recordBackupDate'), /!isWriteBlocked\(\)/);
+  assert.match(bodyOf('sendDebugLog'), /blockedByReadOnly\(\)/);
+  assert.match(SRC, /if\(!isWriteBlocked\(\)\) await getSupabaseClient\(\)\.rpc\('claim_push_subscription'/);
+});
+test('KIT-1 (2.32.78): blockedByReadOnly — підказка (info) лише у режимі «лише перегляд»', function(){
+  const mk = env => { const toasts = []; const c = buildSandbox({ CLOUD_ENV: env, showTextToast: (tx, k) => toasts.push([tx, k]) }, ['READONLY_USER_HINT', 'isWriteBlocked', 'blockedByReadOnly']); c.__t = toasts; return c; };
+  let c = mk(ro); assert.equal(c.blockedByReadOnly(), true); assert.deepEqual(JSON.parse(JSON.stringify(c.__t)), [['Режим «Реальні дані · лише перегляд»: зміни не зберігаються', 'info']]);
+  c = mk({ env: 'mock' }); assert.equal(c.blockedByReadOnly(), false); assert.equal(c.__t.length, 0);
+  c = mk({ env: 'prod' }); assert.equal(c.blockedByReadOnly(), false);
 });

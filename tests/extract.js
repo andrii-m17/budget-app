@@ -92,6 +92,8 @@ function buildSandbox(globals, names){
   // Rev 2.32.75 (K3): push-функції питають isCloudWriteReady()/isWriteBlocked(); у тестах за замовчуванням запис дозволений
   // (тест може передати власні версії в globals).
   vm.runInContext("if(typeof isWriteBlocked === 'undefined') var isWriteBlocked = function(){ return false; };"
+    + "if(typeof blockedByReadOnly === 'undefined') var blockedByReadOnly = function(){ return false; };"
+    + "if(typeof READONLY_USER_HINT === 'undefined') var READONLY_USER_HINT = 'x';"
     + "if(typeof isCloudWriteReady === 'undefined') var isCloudWriteReady = function(){ return !isWriteBlocked() && (typeof isCloudSessionReady === 'function' ? isCloudSessionReady() : false); };", context);
   const source = names.map(name => {
     return /^[A-Z][A-Z0-9_]*$/.test(name) ? extractConstSource(name) : extractFunctionSource(name);

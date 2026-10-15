@@ -328,7 +328,7 @@ test('Z: маршрут backup без focus() і клавіатури; невд�
   assert.match(e, /recordBackupDate\(ok\); \/\/ не блокує експорт/);
   assert.ok(!/await/.test(e));
   const rec = SRC.slice(SRC.indexOf('async function recordBackupDate'), SRC.indexOf('function exportBackup'));
-  assert.match(rec, /shouldRecordBackupDate\(\{ ok: ok, online: navigator\.onLine, hasSession: isCloudSessionReady\(\) \}\)/);
+  assert.match(rec, /shouldRecordBackupDate\(\{ ok: ok, online: navigator\.onLine, hasSession: isCloudSessionReady\(\) && !isWriteBlocked\(\) \}\)/);
   assert.match(rec, /last_backup_at: new Date\(\)\.toISOString\(\)/);
   assert.match(rec, /type: 'backup-export', ok: !!ok, recorded: recorded/);
   assert.match(SRC, /sw\('backup', 'reminders', 'backup_reminder', 'Резервна копія', 'кінець місяця'\)/);

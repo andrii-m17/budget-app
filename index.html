@@ -3492,7 +3492,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.77</div>
+  <div class="version-footer">Money Tree · Rev 2.32.78</div>
 </div>
   </div>
 </div>
@@ -8030,7 +8030,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.77';
+const APP_VERSION = '2.32.78';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8122,7 +8122,7 @@ function shouldRecordBackupDate(st){
   return !!s.ok && !!s.online && !!s.hasSession;
 }
 async function recordBackupDate(ok){
-  const allow = shouldRecordBackupDate({ ok: ok, online: navigator.onLine, hasSession: isCloudSessionReady() });
+  const allow = shouldRecordBackupDate({ ok: ok, online: navigator.onLine, hasSession: isCloudSessionReady() && !isWriteBlocked() }); // Rev 2.32.78 (KIT-1): у «лише перегляд» дата експорту не пишеться
   let recorded = false;
   if(allow){
     try{
@@ -9046,14 +9046,21 @@ const WRITE_BLOCKED_MESSAGE = 'Запис заблоковано (preview)';
 const SESSION_EXPIRED_HINT = 'Сесія для читання закінчилась: увійдіть знову або поверніться на мок';
 function detectCloudEnv(origin, realDbFlag){
   if(WORK_ORIGINS.indexOf(origin) !== -1) return { env: 'prod', label: '' };
-  if(realDbFlag === '1') return { env: 'readonly', label: 'Реальна база · лише читання' };
-  return { env: 'mock', label: 'Мок' };
+  if(realDbFlag === '1') return { env: 'readonly', label: 'Реальні дані · лише перегляд' };
+  return { env: 'mock', label: 'Тестові дані' };
 }
 function readPreviewRealDbFlag(){
   try{ return sessionStorage.getItem(SS_KEY_PREVIEW_REALDB); }catch(e){ return null; }
 }
 const CLOUD_ENV = detectCloudEnv(location.origin, readPreviewRealDbFlag());
 function isWriteBlocked(){ return CLOUD_ENV.env === 'readonly'; }
+// Rev 2.32.78 (KIT-1): записи поза push* (дії користувача) у режимі «лише перегляд» не йдуть на сервер: підказка замість помилки мережі; фонові (debug-логи, дата експорту, push-підписка, позначка «прочитано») — тихий пропуск. Захисник у countingFetch лишається останнім бар'єром.
+const READONLY_USER_HINT = 'Режим «Реальні дані · лише перегляд»: зміни не зберігаються';
+function blockedByReadOnly(){
+  if(!isWriteBlocked()) return false;
+  try{ if(typeof showTextToast === 'function') showTextToast(READONLY_USER_HINT, 'info'); }catch(e){}
+  return true;
+}
 // Для push-функцій: «сесія готова» І запис дозволений. У режимі «лише читання» push тихо нічого не робить (як без мережі), без помилок.
 function isCloudWriteReady(){ return isCloudSessionReady() && !isWriteBlocked(); }
 // Що саме захисник блокує в режимі «лише читання»; null = пропустити. Дозволено: читання REST (GET/HEAD), RPC sync_heads, вхід за паролем
@@ -9406,7 +9413,7 @@ async function requestPushSubscription(){
     }
     const keys = sub.toJSON().keys;
     // Rev 2.32.22 (W, A1-1): підписка пристрою переходить до ПОТОЧНОГО користувача через серверну claim_push_subscription (SECURITY DEFINER). Прямий upsert не міг перезаписати рядок попереднього акаунта (RLS), тож пристрій лишався підписаним на сповіщення A.
-    await getSupabaseClient().rpc('claim_push_subscription', { p_endpoint: sub.endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth });
+    if(!isWriteBlocked()) await getSupabaseClient().rpc('claim_push_subscription', { p_endpoint: sub.endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth });
   }catch(err){
     // Мережа/CORS/офлайн чи браузер відмовив у Push API — тихий пропуск,
     // той самий принцип, що інші push-хелпери Cloud-синхронізації.
@@ -10830,7 +10837,7 @@ async function revokeDevicePushSubscription(){
     const reg = await navigator.serviceWorker.getRegistration();
     const sub = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null;
     if(!sub) return false;
-    if(cloudSession && cloudSession.user && navigator.onLine){
+    if(cloudSession && cloudSession.user && navigator.onLine && !isWriteBlocked()){
       try{ await getSupabaseClient().from('push_subscriptions').delete().eq('endpoint', sub.endpoint).eq('user_id', cloudSession.user.id); }catch(e){}
     }
     unsubscribed = await sub.unsubscribe();
@@ -11610,6 +11617,7 @@ async function sendDebugLog(){
     reportSaveResult({ success: false, error: 'Немає Cloud-сесії — скористайтесь "Скопіювати як JSON".' });
     return;
   }
+  if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   const events = trimEventsForSizeLimit(debugEventBuffer, DEBUG_LOG_MAX_EVENTS_FOR_SEND, DEBUG_LOG_MAX_BYTES_FOR_SEND);
   try{
     const { error } = await getSupabaseClient().from('client_debug_logs').insert({
@@ -19846,7 +19854,7 @@ function renderCloudEnvUI(){
   if(badge){ badge.textContent = CLOUD_ENV.label; badge.classList.toggle('hidden', prod); badge.classList.toggle('readonly', CLOUD_ENV.env === 'readonly'); }
   if(btn){
     btn.classList.toggle('hidden', prod); btn.style.display = prod ? 'none' : '';
-    btn.textContent = CLOUD_ENV.env === 'readonly' ? 'Поточне: реальна база, лише читання. Повернутись на мок' : 'Поточне: мок. Підключити реальну базу (лише читання)';
+    btn.textContent = CLOUD_ENV.env === 'readonly' ? 'Поточне: реальні дані, лише перегляд. Повернутись на тестові дані' : 'Поточне: тестові дані. Підключити реальні дані (лише перегляд)';
   }
   if(label) label.style.display = prod ? 'none' : '';
 }
@@ -19858,7 +19866,7 @@ function toggleCloudEnv(){
     location.reload();
   };
   if(!toReal){ apply(); return; }
-  showConfirmModal('Підключити РЕАЛЬНУ базу в режимі «лише читання»? Запис на сервер буде заблоковано (preview), сесія для читання діє ≈ 1 год. Закриття вкладки поверне мок.', apply, 'Підключити');
+  showConfirmModal('Підключити РЕАЛЬНІ дані в режимі «лише перегляд»? Запис на сервер буде заблоковано (preview), сесія для перегляду діє ≈ 1 год. Закриття вкладки поверне тестові дані.', apply, 'Підключити');
 }
 document.addEventListener('DOMContentLoaded', renderCloudEnvUI);
 function updateNetStatsRow(){
@@ -20222,6 +20230,7 @@ async function onMonoConnectTap(){
   if(input) input.value = ''; // токен прибирається з поля ДО відповіді
   monoState.error = '';
   if(!raw){ monoState.error = monoErrorMessage('invalid_token_format'); renderMonoScreen(); return; }
+  if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   if(!monoReady()){ monoState.error = monoErrorMessage('network'); renderMonoScreen(); return; }
   monoState.busy = true; renderMonoScreen();
   let res;
@@ -20244,6 +20253,7 @@ async function onMonoToggleAccount(btn){
   const id = btn.getAttribute('data-mono-acc');
   const acc = monoState.accounts.find(function(a){ return safeId(a.id) === id; });
   if(!acc) return;
+  if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   const next = !acc.tracked;
   acc.tracked = next; renderMonoScreen(); // миттєво
   let failed = false;
@@ -20268,6 +20278,7 @@ function confirmMonoDisconnect(){
   presentAppModal();
 }
 async function runMonoDisconnect(){
+  if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   if(!monoReady()){ showTextToast(monoErrorMessage('network'), 'error'); return; }
   let res;
   try{ res = await getSupabaseClient().functions.invoke('mono-connect', { body: { action: 'disconnect' } }); }
@@ -20486,6 +20497,7 @@ async function setMonoInboxTab(tab){
 }
 // Приймання однієї операції: mono_accept; повертає outcome (див. monoAcceptOutcome).
 async function monoAcceptRow(row, category, subcategory, note){
+  if(isWriteBlocked()) return { kind: 'readonly', toast: READONLY_USER_HINT }; // Rev 2.32.78 (KIT-1)
   let error = null;
   try{
     const r = await getSupabaseClient().rpc('mono_accept', { p_inbox_id: row.id, p_category: category || null, p_subcategory: subcategory || null, p_note: note != null ? note : (row.description || '') });
@@ -20515,6 +20527,7 @@ async function monoAcceptFromRow(id){
 async function monoIgnoreRow(id){
   const row = monoInbox.rows.filter(function(r){ return safeId(r.id) === id; })[0];
   if(!row || monoInbox.busy) return;
+  if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   monoInbox.busy = true;
   let error = null;
   try{ const r = await getSupabaseClient().rpc('mono_ignore', { p_inbox_id: row.id }); error = r.error || null; }catch(e){ error = { message: 'network' }; }
@@ -20725,6 +20738,7 @@ function monoRefundChoose(row, cand){
 }
 async function monoRefundApply(row, cand){
   if(monoInbox.busy) return;
+  if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   monoInbox.busy = true;
   let data = null, error = null;
   try{ const r = await getSupabaseClient().rpc('mono_apply_refund', { p_inbox_id: row.id, p_expense_id: cand.expense_id }); data = r.data; error = r.error || null; }catch(e){ error = { message: 'network' }; }
@@ -20879,7 +20893,7 @@ async function openNotificationRow(id){
   const row = notifArchive.rows.filter(function(r){ return safeId(r.id) === id; })[0];
   if(!row) return;
   const type = row.type || (row.data && row.data.type) || '';
-  if(!row.read_at){
+  if(!row.read_at && !isWriteBlocked()){ // Rev 2.32.78 (KIT-1): у «лише перегляд» позначка «прочитано» не пишеться (тихий пропуск)
     row.read_at = new Date().toISOString(); // оптимістично
     notifArchive.unread = Math.max(0, notifArchive.unread - 1); updateNotifBell(); renderNotifArchive();
     try{ const r = await getSupabaseClient().rpc('mark_notifications_read', { p_ids: [row.id] }); if(r.error) throw r.error; }catch(e){ row.read_at = null; refreshNotifUnread(); renderNotifArchive(); }
@@ -20891,6 +20905,7 @@ async function openNotificationRow(id){
 }
 async function markAllNotificationsRead(){
   if(notifArchive.busy || !notifArchive.unread) return;
+  if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   notifArchive.busy = true;
   try{
     const r = await getSupabaseClient().rpc('mark_notifications_read'); // без p_ids — усі
@@ -20904,6 +20919,7 @@ async function markAllNotificationsRead(){
 }
 function confirmClearNotifArchive(){ showConfirmModal('Очистити архів сповіщень? Це не можна скасувати.', runClearNotifArchive, 'Очистити'); }
 async function runClearNotifArchive(){
+  if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   try{
     const r = await getSupabaseClient().rpc('clear_notifications');
     if(r.error) throw r.error;
@@ -21684,7 +21700,7 @@ function currentPermissionState(){
   return { supported: supported, standalone: standalone, permission: ('Notification' in window) ? Notification.permission : 'default' };
 }
 async function loadNotificationSettings(){
-  notificationSettingsReadOnly = !(isCloudSessionReady() && navigator.onLine);
+  notificationSettingsReadOnly = !(isCloudSessionReady() && navigator.onLine) || isWriteBlocked(); // Rev 2.32.78 (KIT-1): «лише перегляд» = режим читання налаштувань сповіщень, без upsert
   if(notificationSettingsReadOnly){ notificationSettings = notificationSettings || notificationSettingsDefaults(); return; }
   try{
     const client = getSupabaseClient();
@@ -21950,6 +21966,7 @@ function openNotificationsFromSettings(){
   openNotificationsDrawer();
 }
 async function sendTestNotification(){
+  if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   const btn = document.getElementById('notifications-test-btn');
   if(btn) btn.disabled = true;
   try{
