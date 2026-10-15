@@ -3488,7 +3488,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.73</div>
+  <div class="version-footer">Money Tree · Rev 2.32.74</div>
 </div>
   </div>
 </div>
@@ -3726,6 +3726,9 @@
   <!-- Rev 2.32.53 (J): лічильник помилок JavaScript за сеанс (без значень користувача) -->
   <div class="section-label">Помилки JavaScript</div>
   <button type="button" class="submit-btn pill secondary" id="js-errors-btn" style="margin-bottom:10px;" onclick="showJsErrors()">Помилок за сеанс: 0</button>
+  <!-- Rev 2.32.74 (U): лічильник запитів до сервера за сеанс за типами (без значень користувача) -->
+  <div class="section-label">Запити до сервера</div>
+  <button type="button" class="submit-btn pill secondary" id="net-stats-btn" style="margin-bottom:10px;" onclick="showNetStats()">Запитів за сеанс: 0</button>
   <div class="section-label">Запис діагностики</div>
   <!-- Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень) — для пошуку поля, що викликає панель «Автозаповнити контакт» -->
   <button type="button" class="submit-btn pill secondary" id="fields-census-btn" style="margin-bottom:10px;" onclick="recordFieldsCensusFromTesting()">Перепис полів екрана</button>
@@ -8020,7 +8023,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.73';
+const APP_VERSION = '2.32.74';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9202,12 +9205,17 @@ async function applyCloudSession(session){
     // проміжний "online" — лише 'syncing' з першої миті.
     if(!wasSignedIn) syncOpBegin();
     try{
+    // Rev 2.32.74 (U): users/family_members (3 запити) — лише при вході або коли сім'ю ще не знайдено; повторні події сесії (TOKEN_REFRESHED, відкриття «Сервісу»)
+    // їх не повторюють: зміни профілів і складу сім'ї ловить відбиток (members_hash/family_hash) у перевірці «голів».
+    const profilesNeeded = !wasSignedIn || !cloudFamilyId;
+    if(profilesNeeded){
     await loadCloudFamilyId(getSupabaseClient(), session.user.id);
     await loadCloudDisplayName(getSupabaseClient(), session.user.id);
     // Rev #30 (6D.62) — та сама "щоразу на переоцінку сесії" точка, що
     // loadCloudDisplayName() вище (не лише !wasSignedIn — інший член родини
     // міг оновити своє display_name, TOKEN_REFRESHED теж проходить тут).
     await loadFamilyUsersDirectory(getSupabaseClient());
+    }
     if(!wasSignedIn){
       // Rev #30 (6D.65) — author-color рамка на картках Журналу читає
       // familyUsersById (щойно заповнений вище). Без цього виклику: перший
@@ -9216,67 +9224,13 @@ async function applyCloudSession(session){
       // автора НАЗАВЖДИ, якщо жоден наступний pull нижче нічого реально не
       // змінить (типовий випадок для вже повністю синхронізованих даних).
       renderAll();
-      const result = await pullCategoriesPilot();
-      if(result && !result.skipped && (result.updated || result.linked || result.added)){
-        renderStructure();
-        populateCategorySelect();
-      }
-      // Rev #30 (6D.28) — subcategories/dictionary МУСЯТЬ пулитись ПІСЛЯ
-      // categories (FK-залежність category_id) — і dictionary ПІСЛЯ
-      // subcategories (subcategory_id) — той самий порядок, що вже
-      // await-ланцюжок вище, тут явно дотриманий.
-      const subResult = await pullSubcategoriesPilot();
-      if(subResult && !subResult.skipped && (subResult.updated || subResult.linked || subResult.added)){
-        renderStructure();
-        populateCategorySelect();
-      }
-      const dictResult = await pullDictionaryPilot();
-      if(dictResult && !dictResult.skipped && (dictResult.updated || dictResult.linked || dictResult.added)){
-        renderStructure();
-      }
-      // Rev #30 (6D, bank_accounts повний цикл) — той самий "один раз на
-      // sign-in transition" принцип, окремий виклик на власний домен.
-      const bankResult = await pullBankAccountsPilot();
-      if(bankResult && !bankResult.skipped && (bankResult.updated || bankResult.linked || bankResult.added)){
-        populateBankDebtTable();
-        renderAll();
-      }
-      // Rev #30 (6D.27) — той самий "один раз на sign-in transition"
-      // принцип, окремий виклик на власний домен.
-      const installResult = await pullInstallmentAccountsPilot();
-      if(installResult && !installResult.skipped && (installResult.updated || installResult.linked || installResult.added)){
-        populateInstallmentTable();
-        renderAll();
-      }
-      // Rev #30 (6D.32) — МУСИТЬ пулитись ОСТАННІМ: залежить від cloudId
-      // ОБОХ bank_accounts і installment_accounts, щойно пролінкованих вище.
-      const hiddenResult = await pullHiddenEntitiesPilot();
-      if(hiddenResult && !hiddenResult.skipped && hiddenResult.added){
-        populateBankDebtTable();
-        populateInstallmentTable();
-        renderAll();
-      }
-      // Rev #30 (6D.37) — expenses/incomes незалежні одне від одного, debts
-      // МУСИТЬ пулитись ОСТАННІМ (залежить від cloudId bank_accounts/
-      // installment_accounts, уже пролінкованих вище в тому самому ланцюжку).
-      const expResult = await pullExpensesPilot();
-      if(expResult && !expResult.skipped && (expResult.updated || expResult.added)){
-        populateMonths(); renderAll();
-      }
-      const incResult = await pullIncomesPilot();
-      if(incResult && !incResult.skipped && (incResult.updated || incResult.added)){
-        populateMonths(); renderAll();
-      }
-      const debtResult = await pullDebtsPilot();
-      if(debtResult && !debtResult.skipped && (debtResult.updated || debtResult.added)){
-        populateMonths(); renderAll();
-      }
+      // Rev 2.32.74 (U): замість 9 послідовних pull (по запиту на таблицю, навіть без змін) — перевірка «голів»: холодний старт = повна звірка (усі таблиці
+      // у FK-порядку), інакше лише змінені; перепис id довідників і push «брудних» — усередині (повна звірка або є що відправляти). Профілі вже завантажені вище.
+      await syncCheck('start', { force: true, profilesLoaded: true, refreshAll: true });
       // Rev 2.23.26 (6D.195, G1) / 2.23.27 (G2) / 2.23.28 (G3) — переписи id + одноразовий push dirty (категорії, підкатегорії,
       // слова, картки, ОЧ, потім діти й приховані) на вході в сесію. Переміщено ПІСЛЯ всіх pull-ів: картки/ОЧ мають бути
       // підтягнуті, перш ніж їх пушити й звіряти з переписом.
-      await syncNameDomainsOnConnect();
-      refreshMonoNewCount(); // Rev 2.32.28 (MB-4): лічильник нових операцій Monobank
-      refreshNotifUnread(); setupNotifRealtime(); // Rev 2.32.38 (B): лічильник дзвіночка + Realtime
+      setupNotifRealtime(); // Rev 2.32.38 (B): Realtime дзвіночка; лічильники (дзвіночок, «Вхідні») тепер приходять із перевірки «голів» (Rev 2.32.74)
       autoSyncStale('start'); // Rev 2.32.21 (O): офлайн-записи минулої сесії відправляються при вході/старті
       // Rev #30 (6D.56) — Realtime-підписка: той самий "один раз на
       // sign-in transition" принцип, що весь початковий pull-ланцюжок вище.
@@ -9496,6 +9450,7 @@ function queuePushAction(action, source){
   if(stamp && /^\d+$/.test(String(stamp)) && Date.now() - Number(stamp) > PUSH_PENDING_TTL_MS){ pushApplyDiag('skipped', 'stale', action.type); return false; } // застарілий клік (напр. запис в IndexedDB лишився з минулого разу)
   if(stamp){ handledPushStamps.push(String(stamp)); if(handledPushStamps.length > 20) handledPushStamps.shift(); }
   pendingPush = createPendingPush(action, Date.now());
+  syncCheck('push', { force: true }); // Rev 2.32.74 (U): push-сповіщення = на сервері щось змінилось; перевірка «голів», а не повне завантаження
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-msg', source: source, visibility: document.visibilityState, pushType: action.type });
   runPendingPushAction(source);
   return true;
@@ -9655,11 +9610,10 @@ function setupRealtimeSync(){
   const client = getSupabaseClient();
   let channel = client.channel('family-sync-' + cloudFamilyId);
   PULL_DOMAINS.forEach(function(domain){
+    // Rev 2.32.74 (U): подія Realtime більше не тягне свою таблицю напряму — серія подій згортається (1,5 с) в одну перевірку «голів»,
+    // яка завантажує лише реально змінені таблиці (раніше: по запиту на подію; власний запис давав подію на кожну таблицю).
     channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: domain.table, filter: 'family_id=eq.' + cloudFamilyId }, function(){
-      // Rev #30 (6D.85) — Realtime-подія, поки вкладка вже відкрита, —
-      // САМЕ той "живий" сценарій, для якого live-toast і задуманий
-      // (докоментар над flushOtherActorEventsAsToasts() нижче).
-      pullOnce(domain.key).then(flushOtherActorEventsAsToasts);
+      scheduleRealtimeSyncCheck();
     });
   });
   channel.subscribe();
@@ -9687,14 +9641,155 @@ function teardownRealtimeSync(){
 // focus) не await-ять — не потребують результату.
 async function pullAllOnResume(){
   if(!isCloudSessionReady()) return;
-  await Promise.all(PULL_DOMAINS.map(function(domain){ return pullOnce(domain.key); }));
-  flushOtherActorEventsAsSummary();
+  await syncCheck('resume'); // Rev 2.32.74 (U): один запит «голів» + лише змінені таблиці (мінімум 30 с між перевірками); див. блок «Перевірка змін» нижче
   autoSyncStale('resume'); // Rev 2.32.21 (O): дошити офлайн-зміни після повернення з фону
 }
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState === 'visible') pullAllOnResume();
 });
 window.addEventListener('focus', pullAllOnResume);
+// ============ Перевірка змін (Rev 2.32.74, U) ============
+// Усі тригери (старт, повернення з фону, online, Realtime, push, кнопка) ведуть сюди. Алгоритм: один RPC sync_heads() → planSync (чиста
+// логіка вище) → pullOnce лише змінених таблиць у FK-порядку → запам'ятати «голови» (лише успішно оброблених) → лічильники дзвіночка й
+// «Вхідних» беруться з тієї ж відповіді. Повна звірка: холодний старт, раз на 6 год, «Синхронізувати все», після входу й після помилки.
+let syncSeenState = null, syncLastCheckAt = 0, syncCheckInFlight = null, syncRecheckPending = null, syncRealtimeTimer = null, headsInFlight = null;
+function syncDiag(type, data){
+  if(typeof debugRecordingActive === 'undefined' || !debugRecordingActive) return;
+  pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: type }, data || {}));
+}
+// Один спільний запит «голів»: перевірка змін і лічильники (дзвіночок, «Вхідні») не плодять паралельних RPC.
+function fetchSyncHeadsShared(){
+  if(headsInFlight) return headsInFlight;
+  const run = (async function(){
+    try{
+      const r = await getSupabaseClient().rpc('sync_heads');
+      return (r && !r.error && r.data && typeof r.data === 'object') ? r.data : null;
+    }catch(e){ return null; }
+  })();
+  headsInFlight = run;
+  run.then(function(){ if(headsInFlight === run) headsInFlight = null; });
+  return run;
+}
+function applyHeadsCounters(c){
+  if(!c) return;
+  try{
+    if(typeof c.unread === 'number'){ notifArchive.unread = c.unread; updateNotifBell(); }
+    if(typeof c.monoNew === 'number'){ monoInbox.newCount = c.monoNew; updateMonoBadges(); }
+  }catch(e){}
+}
+async function refreshSyncProfiles(){
+  try{
+    const client = getSupabaseClient();
+    const userId = cloudSession.user.id;
+    // Сім'ю читаємо напряму й змінюємо лише при успіху: loadCloudFamilyId() при збої обнулила б сім'ю й мітки (clearCloudFamilyId).
+    const fm = await client.from('family_members').select('family_id').eq('user_id', userId).maybeSingle();
+    if(fm && !fm.error && fm.data && fm.data.family_id){ cloudFamilyId = fm.data.family_id; localStorage.setItem(LS_KEY_CLOUD_FAMILY_ID, cloudFamilyId); }
+    await loadCloudDisplayName(client, userId);
+    await loadFamilyUsersDirectory(client);
+    renderProfileUI(); renderAll();
+    return true;
+  }catch(e){ return false; }
+}
+async function pullTableForSync(table){
+  const d = PULL_DOMAINS.find(function(x){ return x.table === table; });
+  if(!d) return { ok: false, changed: 0 };
+  const r = await pullOnce(d.key);
+  if(!r || r.skipped) return { ok: false, changed: 0 };
+  return { ok: true, changed: (r.added || 0) + (r.updated || 0) + (r.linked || 0) + (r.removed || 0) };
+}
+async function runSyncPulls(tables, results){
+  const changedTables = [];
+  for(const t of tables){
+    const r = await pullTableForSync(t);
+    results[t] = r.ok;
+    syncDiag('sync-delta', { table: t, rows: r.changed, ok: r.ok });
+    if(r.ok && r.changed) changedTables.push(t);
+  }
+  return changedTables;
+}
+function nameDomainsHaveDirty(){
+  try{
+    const byName = categoriesByNameMap();
+    return CATEGORIES.some(isDirty) || SUBCATEGORIES.some(function(x){ return isSubcategoryDirty(x, byName); }) || DICTIONARY.some(isDirty)
+      || bankAccounts.some(isDirty) || installmentAccounts.some(isDirty)
+      || Object.keys(hiddenFrom).some(function(k){ return hiddenFrom[k].syncedUpdatedAt !== hiddenFrom[k].updatedAt; });
+  }catch(e){ return true; }
+}
+function refreshAfterSyncAtStart(changedTables){
+  const has = function(n){ return changedTables.indexOf(n) !== -1; };
+  if(has('categories') || has('subcategories') || has('dictionary')){ renderStructure(); populateCategorySelect(); }
+  if(has('bank_accounts') || has('installment_accounts') || has('hidden_entities')){ populateBankDebtTable(); populateInstallmentTable(); }
+  populateMonths(); renderAll();
+}
+async function runSyncCheck(reason, o){
+  if(!syncSeenState || syncSeenState.familyId !== cloudFamilyId) syncSeenState = loadSyncSeen(cloudFamilyId);
+  const t0 = Date.now();
+  const heads = await fetchSyncHeadsShared();
+  const now = Date.now();
+  if(!heads){
+    // sync_heads недоступний (збій мережі або старий сервер): працюємо як раніше — усі таблиці; наступна вдала перевірка буде повною
+    syncDiag('sync-heads', { reason: reason, failed: true });
+    syncSeenState.needFull = 'error'; saveSyncSeen(syncSeenState);
+    const res = {};
+    await runSyncPulls(SYNC_TABLE_ORDER, res);
+    return { fallback: true };
+  }
+  const plan = planSync(heads, syncSeenState, now, { fullReason: o.fullReason });
+  applyHeadsCounters(plan.counters);
+  syncDiag('sync-heads', { reason: reason, changedTables: plan.tables.length, profiles: plan.profiles, full: plan.full || null });
+  if(plan.full) syncDiag('sync-full', { reason: plan.full, trigger: reason });
+  const results = {};
+  if(plan.profiles) results.profiles = o.profilesLoaded ? true : await refreshSyncProfiles();
+  const changedTables = await runSyncPulls(plan.tables, results);
+  // Перепис id довідникових доменів і push «брудних» записів: частина повної звірки; поза нею — лише коли є що відправляти (офлайн-правки)
+  if(reason !== 'realtime' && (plan.full || nameDomainsHaveDirty())){
+    try{ await syncNameDomainsOnConnect(); }catch(e){}
+  }
+  syncSeenState = applySyncResult(syncSeenState, heads, plan, results, now);
+  saveSyncSeen(syncSeenState);
+  if(o.refreshAll && changedTables.length) refreshAfterSyncAtStart(changedTables);
+  if(reason === 'realtime') flushOtherActorEventsAsToasts(); else flushOtherActorEventsAsSummary();
+  return { plan: plan, changedTables: changedTables, ms: Date.now() - t0 };
+}
+// syncCheck(reason, opts): opts.force — без обмеження інтервалу; opts.fullReason — примусова повна звірка; opts.profilesLoaded — профілі вже завантажено викликачем.
+function syncCheck(reason, opts){
+  const o = opts || {};
+  if(!isCloudSessionReady() || !navigator.onLine) return Promise.resolve(null);
+  const force = !!(o.force || o.fullReason);
+  if(syncCheckInFlight){ if(force) syncRecheckPending = { reason: reason, opts: o }; return syncCheckInFlight; }
+  if(!shouldCheckHeads(Date.now(), syncLastCheckAt, force)) return Promise.resolve(null);
+  syncLastCheckAt = Date.now();
+  const run = runSyncCheck(reason, o).catch(function(){ return null; });
+  syncCheckInFlight = run;
+  run.then(function(){
+    if(syncCheckInFlight === run) syncCheckInFlight = null;
+    const again = syncRecheckPending; syncRecheckPending = null;
+    if(again) syncCheck(again.reason, again.opts);
+  });
+  return run;
+}
+function scheduleRealtimeSyncCheck(){
+  if(syncRealtimeTimer) return;
+  syncRealtimeTimer = setTimeout(function(){ syncRealtimeTimer = null; syncCheck('realtime', { force: true }); }, SYNC_REALTIME_DELAY_MS);
+}
+function resetSyncCheckState(){
+  syncSeenState = null; syncLastCheckAt = 0; syncRecheckPending = null;
+  if(syncRealtimeTimer){ clearTimeout(syncRealtimeTimer); syncRealtimeTimer = null; }
+}
+// Ручна «Синхронізувати все» виконує повну звірку власним ланцюжком; тут лише фіксуємо її в «головах» (повна = усі 9 таблиць + профілі).
+async function recordManualFullSync(heads, okByTable){
+  if(!heads) return;
+  try{
+    if(!syncSeenState || syncSeenState.familyId !== cloudFamilyId) syncSeenState = loadSyncSeen(cloudFamilyId);
+    const now = Date.now();
+    const plan = planSync(heads, syncSeenState, now, { fullReason: 'manual' });
+    const results = Object.assign({}, okByTable, { profiles: await refreshSyncProfiles() });
+    syncSeenState = applySyncResult(syncSeenState, heads, plan, results, now);
+    saveSyncSeen(syncSeenState);
+    applyHeadsCounters(plan.counters);
+    syncDiag('sync-full', { reason: 'manual' });
+  }catch(e){}
+}
 // family_id — той самий клас свідомого винятку з "лише IndexedDB", що вже
 // сесія SDK/theme/draft: сесійний, не фінансовий стан, безпечно тримати в
 // localStorage. Немає запису в family_members (запит не вдався чи порожній)
@@ -9713,6 +9808,7 @@ async function loadCloudFamilyId(client, userId){
 function clearCloudFamilyId(){
   cloudFamilyId = null;
   localStorage.removeItem(LS_KEY_CLOUD_FAMILY_ID);
+  resetSyncCheckState(); // Rev 2.32.74 (U): пам'ять перевірки «голів» теж прив'язана до сім'ї
   clearSyncMarkers(); // Rev #30 (6D.38) — див. докоментар нижче: маркери прив'язані до сесії/family_id, не переживають зміну акаунта
 }
 // Rev #30 (6D.38, інкрементальний pull) — `lastSyncMarker` для кожного з
@@ -9781,6 +9877,7 @@ function updateSyncMarkerFromAllRows(domain, rows){
 // беруть рядки від мітки (applySyncMarker) і порівнюють за id/updated_at; окремої другої реалізації злиття не додаємо.
 // Порядок таблиць — FK-порядок наявних PULL_DOMAINS (категорії → підкатегорії → слова → картки → ОЧ → приховані → витрати → доходи → борги).
 const SYNC_TABLE_ORDER = ['categories', 'subcategories', 'dictionary', 'bank_accounts', 'installment_accounts', 'hidden_entities', 'expenses', 'incomes', 'debts'];
+const SYNC_DEPENDENTS = { categories: ['subcategories', 'dictionary'], subcategories: ['dictionary'], bank_accounts: ['debts', 'hidden_entities'], installment_accounts: ['debts', 'expenses', 'hidden_entities'] }; // Rev 2.32.74 (U)
 const SYNC_FULL_INTERVAL_MS = 6 * 60 * 60 * 1000;   // повна звірка раз на 6 годин (серверні purge_* видаляють рядки без надгробка)
 const SYNC_MIN_CHECK_MS = 30 * 1000;                 // мінімальний інтервал між перевірками «голів» (фон/online)
 const SYNC_REALTIME_DELAY_MS = 1500;                 // згортання серії Realtime-подій в одну перевірку
@@ -9832,7 +9929,12 @@ function planSync(heads, seen, now, opts){
   if(full){
     return { ok: true, full: full, tables: SYNC_TABLE_ORDER.slice(), profiles: true, counters: counters };
   }
-  const tables = SYNC_TABLE_ORDER.filter(function(t){ return (heads.tables[t] || null) !== (s.tables[t] || null); });
+  const changed = SYNC_TABLE_ORDER.filter(function(t){ return (heads.tables[t] || null) !== (s.tables[t] || null); });
+  // Rev 2.32.74 (U): зміна «батька» тягне «дітей» — pull витрати/боргу тихо пропускає рядок, чий рахунок ще не підтягнуто (skippedFk), і мітка за ним не рухається;
+  // без цього такий рядок чекав би повної звірки (до 6 год), бо голова самих витрат не змінилась.
+  const need = new Set(changed);
+  changed.forEach(function(t){ (SYNC_DEPENDENTS[t] || []).forEach(function(d){ need.add(d); }); });
+  const tables = SYNC_TABLE_ORDER.filter(function(t){ return need.has(t); });
   const profiles = (heads.members_hash || null) !== (s.membersHash || null) || (heads.family_hash || null) !== (s.familyHash || null);
   return { ok: true, full: null, tables: tables, profiles: profiles, counters: counters };
 }
@@ -10273,8 +10375,12 @@ async function syncAllPilotManual(){
   ];
   let added = 0, updated = 0, linked = 0;
   let anySucceeded = false;
-  for(const step of steps){
+  const manualHeads = await fetchSyncHeadsShared(); // Rev 2.32.74 (U): «голови» ДО повної звірки (зміни під час неї піймає наступна перевірка)
+  const manualOk = {};
+  for(let si = 0; si < steps.length; si++){
+    const step = steps[si];
     const result = await step();
+    manualOk[SYNC_TABLE_ORDER[si]] = !!(result && !result.skipped); // порядок кроків = SYNC_TABLE_ORDER
     if(!result || result.skipped) continue;
     anySucceeded = true;
     added += result.added || 0;
@@ -10285,6 +10391,7 @@ async function syncAllPilotManual(){
     statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
     return;
   }
+  await recordManualFullSync(manualHeads, manualOk); // Rev 2.32.74 (U): «Синхронізувати все» = повна звірка; запам'ятовуємо її в «головах»
   if(added || updated || linked){
     renderStructure();
     populateCategorySelect();
@@ -13593,7 +13700,7 @@ async function autoSyncStale(reason){
   }
   return { pending: pending, pushed: pushed, failed: failed };
 }
-window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); syncNameDomainsOnConnect(); pullExpensesPilot(); pullIncomesPilot(); pullDebtsPilot(); autoSyncStale('online'); }); // Rev 2.32.21 (O)
+window.addEventListener('online', function(){ updateOnlineStatusUI(); tryLoadExcelLibrary(); syncCheck('online').then(function(){ autoSyncStale('online'); }); }); // Rev 2.32.21 (O); Rev 2.32.74 (U): перевірка «голів» (перепис id/push «брудних» — усередині, коли є що відправляти) замість трьох pull і переписів
 window.addEventListener('offline', updateOnlineStatusUI);
 
 /* ============ Експорт в Excel ============ */
@@ -19612,7 +19719,17 @@ function renderTestingDrawer(){
     list.appendChild(card);
   });
 }
+function updateNetStatsRow(){
+  const b = document.getElementById('net-stats-btn');
+  if(b) b.textContent = 'Запитів за сеанс: ' + NET_STATS.total;
+}
+function showNetStats(){
+  updateNetStatsRow();
+  const lines = Object.keys(NET_STATS.byType).sort(function(a, b){ return NET_STATS.byType[b] - NET_STATS.byType[a]; }).map(function(k){ return k + ': ' + NET_STATS.byType[k]; });
+  showAlertModal(lines.length ? 'Усього: ' + NET_STATS.total + '\n' + lines.join('\n') : 'Запитів до сервера за цей сеанс ще не було.');
+}
 function openTestingDrawer(){
+  updateNetStatsRow();
   renderTestingDrawer();
   const backdrop = document.getElementById('testing-backdrop');
   const drawer = document.getElementById('testing-drawer');
@@ -20127,8 +20244,8 @@ let isMonoInboxOpen = false;
 async function refreshMonoNewCount(){
   if(!monoReady()) return;
   try{
-    const r = await getSupabaseClient().from('mono_inbox').select('id', { count: 'exact', head: true }).eq('status', 'new');
-    if(!r.error && typeof r.count === 'number'){ monoInbox.newCount = r.count; updateMonoBadges(); }
+    const h = await fetchSyncHeadsShared(); // Rev 2.32.74 (U): лічильник із спільного запиту «голів» (раніше окремий HEAD)
+    if(h && typeof h.mono_new === 'number'){ monoInbox.newCount = h.mono_new; updateMonoBadges(); }
   }catch(e){}
 }
 function updateMonoBadges(){
@@ -20500,8 +20617,7 @@ async function monoDetailIgnore(){
     openMonoDetail(id);
   });
   installEdgeSwipeClose(document.getElementById('mono-inbox-screen'), function(){ return isMonoInboxOpen; }, closeMonoInbox, { blockScroll: false });
-  window.addEventListener('online', function(){ refreshMonoNewCount(); if(isMonoInboxOpen) loadMonoInbox().then(renderMonoInbox); });
-  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') refreshMonoNewCount(); });
+  window.addEventListener('online', function(){ if(isMonoInboxOpen) loadMonoInbox().then(renderMonoInbox); }); // Rev 2.32.74 (U): лічильник оновлює перевірка «голів» (online/фон), окремих слухачів немає
 })();
 /* ============ Дзвіночок і архів сповіщень (Rev 2.32.38, B) ============
    Сервер веде архів user_notifications (30 днів, спільний для пристроїв). Клієнт лише ЧИТАЄ власні рядки й викликає RPC mark_notifications_read / clear_notifications; прямо вставляти чи змінювати не можна. Усі тексти — зовнішні, екрануються. */
@@ -20558,8 +20674,8 @@ function updateNotifBell(){
 async function refreshNotifUnread(){
   if(!monoReady()) return;
   try{
-    const r = await getSupabaseClient().from('user_notifications').select('id', { count: 'exact', head: true }).is('read_at', null);
-    if(!r.error && typeof r.count === 'number'){ notifArchive.unread = r.count; updateNotifBell(); }
+    const h = await fetchSyncHeadsShared(); // Rev 2.32.74 (U): лічильник із спільного запиту «голів» (раніше окремий HEAD)
+    if(h && typeof h.unread_notifications === 'number'){ notifArchive.unread = h.unread_notifications; updateNotifBell(); }
   }catch(e){}
 }
 async function loadNotifArchive(){
@@ -20678,8 +20794,7 @@ function teardownNotifRealtime(){
     if(b) openNotificationRow(b.getAttribute('data-notif-id'));
   });
   installEdgeSwipeClose(document.getElementById('notif-archive-screen'), function(){ return isNotifArchiveOpen; }, closeNotifArchive, { blockScroll: false });
-  window.addEventListener('online', function(){ refreshNotifUnread(); if(isNotifArchiveOpen) loadNotifArchive().then(renderNotifArchive); });
-  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') refreshNotifUnread(); });
+  window.addEventListener('online', function(){ if(isNotifArchiveOpen) loadNotifArchive().then(renderNotifArchive); }); // Rev 2.32.74 (U): лічильник оновлює перевірка «голів»
 })();
 /* ============ Спільний верхній pop-up (Rev 2.32.37 T → 2.32.46 TO) ============
    Усі повідомлення застосунку: скляний контейнер зверху, іконка зліва, дія справа. Види: success (анімована галочка), info, warning, error (статичні іконки, без анімації малювання), плюс іконка «Журнал» для дій другого учасника. CSS-класи лишились із префіксом success-toast (історично). */

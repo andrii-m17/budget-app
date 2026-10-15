@@ -40,7 +40,7 @@ function env(opts){
     document: doc, handled, rafQueue, pendingPush: null, handledPushStamps: [], debugRecordingActive: false,
     performance: { now: function(){ return 0; } },
     requestAnimationFrame: function(fn){ rafQueue.push(fn); }, setTimeout: function(){ return 0; },
-    handlePushAction: async function(a){ handled.push(a.type); },
+    handlePushAction: async function(a){ handled.push(a.type); }, syncCheck: function(){},
     readAndClearPendingPushAction: function(){ return Promise.resolve(o.idb || null); },
   };
   const c = buildSandbox(g, ['PUSH_PENDING_TTL_MS', 'pushApplyDiag', 'createPendingPush', 'pendingPushState', 'shouldRunPendingPush', 'isDuplicatePushStamp', 'queuePushAction', 'runPendingPushAction', 'checkPendingPushFromIdb']);

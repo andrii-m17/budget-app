@@ -92,7 +92,8 @@ test('охоронні: не позначає прочитаним при від
   assert.match(row, /escapeHtml\(row\.title/); assert.match(row, /escapeHtml\(row\.body/); assert.match(row, /escapeAttr\(safeId\(row\.id\)\)/);
   assert.match(SRC, /Сповіщень немає/);
   assert.match(SRC, /event: 'INSERT', schema: 'public', table: 'user_notifications', filter: 'user_id=eq\./);
-  assert.match(SRC, /select\('id', \{ count: 'exact', head: true \}\)\.is\('read_at', null\)/);
+  assert.match(SRC, /h\.unread_notifications[\s\S]{0,80}notifArchive\.unread = h\.unread_notifications/); // Rev 2.32.74: лічильник із sync_heads, окремого HEAD немає
+  assert.doesNotMatch(SRC, /from\('user_notifications'\)\.select\('id', \{ count: 'exact', head: true \}\)/);
   assert.ok(SRC.indexOf('id="notif-bell-btn"') < SRC.indexOf('onclick="openSettings()" aria-label="Налаштування"'));
   assert.ok(!/from\('user_notifications'\)\.(insert|update|upsert|delete)/.test(SRC));
   assert.ok(!/class="notif-row-dot|notif-dot/.test(SRC)); // без крапок

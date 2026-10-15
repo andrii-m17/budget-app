@@ -2973,6 +2973,7 @@ test('clearCloudFamilyId: очищує маркери разом із family_id 
   const { ctx } = sandbox();
   ctx.setSyncMarker('categories', '2024-01-01T00:00:00.000Z');
   ctx.cloudFamilyId = 'fam-1';
+  ctx.resetSyncCheckState = function(){}; // Rev 2.32.74: пам'ять перевірки «голів» перевіряє sync-check.test.js
   ctx.clearCloudFamilyId();
   assert.equal(ctx.cloudFamilyId, null);
   assert.equal(ctx.getSyncMarker('categories'), null);

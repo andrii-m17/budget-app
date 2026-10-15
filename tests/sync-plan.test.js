@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const ev = evalInSandbox;
 
-const NAMES = ['SYNC_TABLE_ORDER', 'SYNC_FULL_INTERVAL_MS', 'SYNC_MIN_CHECK_MS', 'SYNC_REALTIME_DELAY_MS', 'SYNC_DELTA_OVERLAP_MS', 'LS_KEY_SYNC_HEADS', 'LS_KEY_SYNC_MARKERS',
+const NAMES = ['SYNC_TABLE_ORDER', 'SYNC_DEPENDENTS', 'SYNC_FULL_INTERVAL_MS', 'SYNC_MIN_CHECK_MS', 'SYNC_REALTIME_DELAY_MS', 'SYNC_DELTA_OVERLAP_MS', 'LS_KEY_SYNC_HEADS', 'LS_KEY_SYNC_MARKERS',
   'syncDeltaFrom', 'emptySyncSeen', 'normalizeSyncSeen', 'loadSyncSeen', 'saveSyncSeen', 'syncHeadsComplete', 'planSync', 'applySyncResult', 'shouldCheckHeads',
   'clearSyncMarkers', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker',
   'NET_STATS', 'classifyNetRequest', 'countNetRequest'];
@@ -50,7 +50,10 @@ test('planSync: змінилась лише expenses → лише expenses; null
   const ctx = make();
   const seen = synced(ctx, T0);
   assert.deepEqual(Array.from(ctx.planSync(heads({ tables: { expenses: 'e2' } }), seen, T0 + 60000, {}).tables), ['expenses']);
-  assert.deepEqual(Array.from(ctx.planSync(heads({ tables: { bank_accounts: 'b1' } }), seen, T0 + 60000, {}).tables), ['bank_accounts']);
+  // «батько» тягне «дітей» (skippedFk): картка → борги й приховані; ОЧ → борги, витрати, приховані; категорія → підкатегорії, слова
+  assert.deepEqual(Array.from(ctx.planSync(heads({ tables: { bank_accounts: 'b1' } }), seen, T0 + 60000, {}).tables), ['bank_accounts', 'hidden_entities', 'debts']);
+  assert.deepEqual(Array.from(ctx.planSync(heads({ tables: { installment_accounts: 'n1' } }), seen, T0 + 60000, {}).tables), ['installment_accounts', 'hidden_entities', 'expenses', 'debts']);
+  assert.deepEqual(Array.from(ctx.planSync(heads({ tables: { categories: 'c2' } }), seen, T0 + 60000, {}).tables), ['categories', 'subcategories', 'dictionary']);
 });
 test('planSync: голова МЕНШЕ за збережену (остаточно видалено найновіший рядок) теж зміна', function(){
   const ctx = make();
