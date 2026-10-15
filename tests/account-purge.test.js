@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ctx = ex.buildSandbox({}, ['purgeAccountPlan', 'purgeAccountConfirmText', 'removeAccountFromState', 'filterPurgedAccounts', 'filterPurgedDebts']);
+const ctx = ex.buildSandbox({}, ['TOMBSTONE_RETENTION_DAYS', 'purgeRetentionNote', 'purgeAccountPlan', 'purgeAccountConfirmText', 'removeAccountFromState', 'filterPurgedAccounts', 'filterPurgedDebts']);
 const J = v => JSON.parse(JSON.stringify(v));
 const fresh = () => ({
   bankAccounts: [{ name: 'Моно', cloudId: 'b1' }, { name: 'Приват', cloudId: 'b2' }],
@@ -39,7 +39,8 @@ test('purgeAccountPlan: картка — усі її місячні записи
   assert.equal(J(ctx.purgeAccountPlan({ kind: 'installment', name: 'Dyson' }, st)).hiddenKey, null);
 });
 test('purgeAccountConfirmText: картка і ОЧ; відмінювання; без записів — без «разом з»', () => {
-  const T = p => ctx.purgeAccountConfirmText(p);
+  const T = p => ctx.purgeAccountConfirmText(p).replace(/ З сервера запис остаточно зникне через 14 днів\.$/, ''); // Rev 2.32.76 (PURGE-1): підпис про строк надгробка перевіряється окремо
+  assert.match(ctx.purgeAccountConfirmText({ kind: 'card', name: 'A', debtCount: 0, linkedCount: 0 }), / З сервера запис остаточно зникне через 14 днів\.$/);
   assert.equal(T({ kind: 'card', name: 'Моно', debtCount: 3, linkedCount: 0 }), 'Картка «Моно»: буде видалено назавжди разом з 3 місячними записами боргів. Це неможливо скасувати.');
   assert.equal(T({ kind: 'card', name: 'Моно', debtCount: 1, linkedCount: 0 }), 'Картка «Моно»: буде видалено назавжди разом з 1 місячним записом боргів. Це неможливо скасувати.');
   assert.equal(T({ kind: 'card', name: 'Моно', debtCount: 0, linkedCount: 0 }), 'Картка «Моно»: буде видалено назавжди. Це неможливо скасувати.');
@@ -104,12 +105,13 @@ test('перепис id (applyCensus) не відтворює видалений
 test('видалення: порядок Cloud-кроків борги → приховане → рахунок; збій зупиняє до локальних змін; DELETE рахунків клієнтом немає', () => {
   const i = SRC.indexOf('async function runAccountPurge'), code = SRC.slice(i, SRC.indexOf('async function applyAccountRemovalLocally', i));
   assert.ok(code.indexOf("from('debts').update") < code.indexOf("from('hidden_entities').delete()"));
-  assert.ok(code.indexOf("from('hidden_entities').delete()") < code.indexOf("'bank_accounts' : 'installment_accounts'"));
-  assert.ok(code.indexOf("'bank_accounts' : 'installment_accounts'") < code.indexOf('applyAccountRemovalLocally(plan, true)'));
+  const own = code.indexOf("from(plan.kind === 'card' ? 'bank_accounts' : 'installment_accounts').update");
+  assert.ok(code.indexOf("from('hidden_entities').delete()") < own);
+  assert.ok(own < code.indexOf('applyAccountRemovalLocally(plan, true)'));
   assert.match(code, /catch\(err\)\{[\s\S]*?return;\s*\}/);
   assert.ok(!/from\('(bank_accounts|installment_accounts)'\)\.delete/.test(SRC), 'сервер сам видаляє через 30 днів, клієнт — лише tombstone');
   assert.ok(!/from\('expenses'\)\.update/.test(code), 'витрати відв’язуються звичайним оновленням запису, не bulk UPDATE');
-  assert.match(code, /isTestSyncIgnored\(acc\)/);
+  assert.ok(!/isTestSyncIgnored/.test(code), 'Rev 2.32.76 (PURGE-1): ізоляція тестових імен не блокує видалення назавжди');
   assert.match(code, /type: 'account-purge'/);
 });
 test('діалог рахунку: purgeTrashItem додає план; місячні записи йдуть DELETE у debts лише для tombstone; реконсиляція вже охоплює debtMonth/installmentMonth', () => {

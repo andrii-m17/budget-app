@@ -3492,7 +3492,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.75</div>
+  <div class="version-footer">Money Tree · Rev 2.32.76</div>
 </div>
   </div>
 </div>
@@ -8030,7 +8030,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.75';
+const APP_VERSION = '2.32.76';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15801,6 +15801,10 @@ function purgeAccountPlan(acct, state){
   return { exists: !!account, kind: kind, name: name, cloudId: (account && account.cloudId) || null, debtIds: debtIds, debtCount: debtIds.length,
     linkedExpenseIds: linked.map(function(e){ return e.id; }), linkedCount: linked.length, hiddenKey: hiddenKey };
 }
+// Rev 2.32.76 (PURGE-1): строк життя надгробків карток/ОЧ/категорій на сервері (нічні cron purge_deleted_accounts/purge_deleted_taxonomy; p_days змінює лише чат). Було 30 → 14 днів:
+// надгробок має прожити довше за найдовшу відсутність пристрою, інакше такий пристрій не побачить видалення й відтворить картку/ОЧ/категорію переписом id. Миттєвий DELETE відхилено з тієї ж причини.
+const TOMBSTONE_RETENTION_DAYS = 14;
+function purgeRetentionNote(){ return 'З сервера запис остаточно зникне через ' + TOMBSTONE_RETENTION_DAYS + ' днів.'; }
 function purgeAccountConfirmText(plan){
   const n = plan.debtCount;
   const withDebts = n > 0 ? ' разом з ' + n + ' ' + ((n % 10 === 1 && n % 100 !== 11) ? 'місячним записом' : 'місячними записами') + ' боргів' : '';
@@ -15810,7 +15814,7 @@ function purgeAccountConfirmText(plan){
     const one = m % 10 === 1 && m % 100 !== 11;
     text += ' ' + m + ' ' + ((m % 10 >= 2 && m % 10 <= 4 && (m % 100 < 12 || m % 100 > 14)) ? 'витрати' : (one ? 'витрата' : 'витрат')) + ', прив\'язан' + (one ? 'а' : 'их') + ' до цієї ОЧ, ' + (one ? 'лишиться, але втратить' : 'лишаться, але втратять') + ' прив\'язку.';
   }
-  return text;
+  return text + ' ' + purgeRetentionNote(); // Rev 2.32.76 (PURGE-1)
 }
 // Локальне видалення рахунку зі стану (спільне для власного видалення й для pull tombstone-рядка): рахунок, його місячні записи, запис прихованого;
 // витрати, прив'язані до ОЧ, лишаються без поля linkedInstallment (суми не чіпаємо; stamp — ISO для updatedAt, щоб звичайний push відправив відв'язування).
@@ -15870,7 +15874,7 @@ function purgeTaxonomyConfirmText(plan){
   const parts = [];
   if(plan.kind === 'category' && plan.subCount > 0) parts.push(taxonomyPlural(plan.subCount, 'підкатегорією', 'підкатегоріями'));
   if(plan.wordCount > 0) parts.push(taxonomyPlural(plan.wordCount, 'словом', 'словами'));
-  return (plan.kind === 'category' ? 'Категорія' : 'Підкатегорія') + ' «' + plan.name + '» буде видалена назавжди' + (parts.length ? ' разом з ' + parts.join(' й ') : '') + '. Це неможливо скасувати.';
+  return (plan.kind === 'category' ? 'Категорія' : 'Підкатегорія') + ' «' + plan.name + '» буде видалена назавжди' + (parts.length ? ' разом з ' + parts.join(' й ') : '') + '. Це неможливо скасувати. ' + purgeRetentionNote(); // Rev 2.32.76 (PURGE-1)
 }
 function purgeTaxonomyBlockedText(plan){
   if(plan.active) return 'Спершу видаліть ' + (plan.kind === 'category' ? 'категорію' : 'підкатегорію') + ' у «Структурі».';
@@ -21393,26 +21397,45 @@ async function runTrashPurgeCore(item){
   if(isMonthRecordType(item.type) && debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'account-purge', kind: 'month-record', debts: 1, unlinkedExpenses: 0 });
   captureDebugGeometry('trash-purge', { trashType: item.type, ok: true, dups: dups });
   if(trashDetailKey === item.key) closeTrashDetail();
-  showTextToast(outcome === 'gone' ? 'Запис уже видалено назавжди' : 'Видалено назавжди', outcome === 'gone' ? 'error' : 'success');
+  showTextToast(outcome === 'gone' ? 'Запис уже видалено назавжди' : 'Видалено назавжди', outcome === 'gone' ? 'info' : 'success'); // Rev 2.32.76 (PURGE-1): «вже видалено» — не помилка
+}
+// Rev 2.32.76 (PURGE-1): живий Cloud-рядок за назвою (family_id + поля filters, deleted_at is null). { ok:true, id } (id=null — рядка немає) або { ok:false } (помилка/мережа/неоднозначність).
+// Потрібен, коли локальний cloudId порожній (запис не синхронізувався або cloudId скинуто переписом): раніше Cloud-крок тоді МОВЧКИ пропускався, а користувач бачив «Видалено назавжди».
+async function findLiveCloudId(table, filters){
+  try{
+    let q = getSupabaseClient().from(table).select('id').eq('family_id', cloudFamilyId);
+    Object.keys(filters).forEach(function(k){ q = q.eq(k, filters[k]); });
+    const r = await q.is('deleted_at', null).maybeSingle();
+    if(r.error) return { ok: false };
+    return { ok: true, id: (r.data && r.data.id) || null };
+  }catch(e){ return { ok: false }; }
 }
 // Rev 2.32.4 (T2) — видалення назавжди прихованої картки/ОЧ (див. коментар над purgeAccountPlan).
 async function runAccountPurge(item){
   const plan = purgeAccountPlan({ kind: item.type, name: item.title }, trashStateNow());
   if(!plan.exists){ showTextToast('Не вдалося видалити: рахунок не знайдено', 'error'); renderTrashScreen(); return; }
-  const list = plan.kind === 'card' ? bankAccounts : installmentAccounts;
-  const acc = list.find(function(a){ return a.name === plan.name; });
-  const inCloud = !!plan.cloudId && !isTestSyncIgnored(acc);
-  if(inCloud){
+  // Rev 2.32.76 (PURGE-1): Cloud-крок йде для БУДЬ-ЯКОЇ назви (ізоляція тестових імен створення/синхронізації тут не діє); порожній cloudId — пошук за назвою, не тихий пропуск.
+  let cloudId = plan.cloudId;
+  if(!cloudId){
+    const found = await findLiveCloudId(plan.kind === 'card' ? 'bank_accounts' : 'installment_accounts', { name: plan.name });
+    if(!found.ok){
+      showTextToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
+      captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
+      return;
+    }
+    cloudId = found.id;
+  }
+  if(cloudId){
     try{
       const client = getSupabaseClient();
       const userId = cloudSession.user.id;
       const now = new Date().toISOString();
       const fk = plan.kind === 'card' ? 'bank_account_id' : 'installment_account_id';
-      const r1 = await client.from('debts').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('family_id', cloudFamilyId).eq(fk, plan.cloudId).is('deleted_at', null).select('id');
+      const r1 = await client.from('debts').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('family_id', cloudFamilyId).eq(fk, cloudId).is('deleted_at', null).select('id');
       if(r1.error) throw r1.error;
-      const r2 = await client.from('hidden_entities').delete().eq('family_id', cloudFamilyId).eq('entity_type', plan.kind === 'card' ? 'bank' : 'installment').eq('entity_id', plan.cloudId).select('id');
+      const r2 = await client.from('hidden_entities').delete().eq('family_id', cloudFamilyId).eq('entity_type', plan.kind === 'card' ? 'bank' : 'installment').eq('entity_id', cloudId).select('id');
       if(r2.error) throw r2.error;
-      const r3 = await client.from(plan.kind === 'card' ? 'bank_accounts' : 'installment_accounts').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('id', plan.cloudId).eq('family_id', cloudFamilyId).select('id');
+      const r3 = await client.from(plan.kind === 'card' ? 'bank_accounts' : 'installment_accounts').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('id', cloudId).eq('family_id', cloudFamilyId).select('id');
       if(r3.error) throw r3.error;
     }catch(err){
       showTextToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
@@ -21425,7 +21448,7 @@ async function runAccountPurge(item){
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'account-purge', kind: plan.kind === 'card' ? 'bank' : 'installment', debts: res.debts, monthsRemoved: res.monthsRemoved, unlinkedExpenses: res.unlinkedExpenses });
   captureDebugGeometry('trash-purge', { trashType: item.type, ok: true });
   if(trashDetailKey === item.key) closeTrashDetail();
-  showTextToast('Видалено назавжди', 'success');
+  showTextToast(cloudId ? 'Видалено назавжди. ' + purgeRetentionNote() : 'Видалено назавжди', 'success');
 }
 // Локальне видалення рахунку (власне й з pull tombstone-рядка): стан → збереження → перемальовування; відв'язані витрати пушаться звичайним оновленням (push лише для власного видалення).
 async function applyAccountRemovalLocally(plan, pushUnlinked){
@@ -21477,19 +21500,35 @@ async function runTaxonomyPurge(item){
   const plan = purgeTaxonomyPlan({ kind: item.type, name: item.title, category: item.category }, trashStateNow());
   if(!plan.exists){ showTextToast('Не вдалося видалити: запис не знайдено', 'error'); renderTrashScreen(); return; }
   if(plan.blocked){ showTaxonomyBlocked(plan); return; }
-  const obj = plan.kind === 'category' ? CATEGORIES.find(function(c){ return c.name === plan.name; }) : SUBCATEGORIES.find(function(x){ return x.name === plan.name && x.category === plan.category; });
-  if(plan.cloudId && !isTestSyncIgnored(obj)){
+  // Rev 2.32.76 (PURGE-1): Cloud-крок для БУДЬ-ЯКОЇ назви; порожній cloudId — пошук за назвою (для підкатегорії ще й батьківська категорія), не тихий пропуск.
+  let cloudId = plan.cloudId;
+  if(!cloudId){
+    let found;
+    if(plan.kind === 'category') found = await findLiveCloudId('categories', { name: plan.name });
+    else{
+      const parentLocal = CATEGORIES.find(function(c){ return c.name === plan.category; });
+      const parent = parentLocal && parentLocal.cloudId ? { ok: true, id: parentLocal.cloudId } : await findLiveCloudId('categories', { name: plan.category });
+      found = !parent.ok ? { ok: false } : (!parent.id ? { ok: true, id: null } : await findLiveCloudId('subcategories', { name: plan.name, category_id: parent.id }));
+    }
+    if(!found.ok){
+      showTextToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
+      captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
+      return;
+    }
+    cloudId = found.id;
+  }
+  if(cloudId){
     try{
       const client = getSupabaseClient();
       const userId = cloudSession.user.id;
       const now = new Date().toISOString();
-      const r1 = await client.from('dictionary').update({ deleted_at: now, deleted_via: plan.kind, updated_at: now, updated_by: userId }).eq('family_id', cloudFamilyId).eq(plan.kind === 'category' ? 'category_id' : 'subcategory_id', plan.cloudId).is('deleted_at', null).select('id');
+      const r1 = await client.from('dictionary').update({ deleted_at: now, deleted_via: plan.kind, updated_at: now, updated_by: userId }).eq('family_id', cloudFamilyId).eq(plan.kind === 'category' ? 'category_id' : 'subcategory_id', cloudId).is('deleted_at', null).select('id');
       if(r1.error) throw r1.error;
       if(plan.kind === 'category'){
-        const r2 = await client.from('subcategories').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('family_id', cloudFamilyId).eq('category_id', plan.cloudId).is('deleted_at', null).select('id');
+        const r2 = await client.from('subcategories').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('family_id', cloudFamilyId).eq('category_id', cloudId).is('deleted_at', null).select('id');
         if(r2.error) throw r2.error;
       }
-      const r3 = await client.from(plan.kind === 'category' ? 'categories' : 'subcategories').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('id', plan.cloudId).eq('family_id', cloudFamilyId).select('id');
+      const r3 = await client.from(plan.kind === 'category' ? 'categories' : 'subcategories').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('id', cloudId).eq('family_id', cloudFamilyId).select('id');
       if(r3.error) throw r3.error;
     }catch(err){
       showTextToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
@@ -21502,7 +21541,7 @@ async function runTaxonomyPurge(item){
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'taxonomy-purge', kind: plan.kind, subcategories: res.subcategories - (plan.kind === 'subcategory' ? 1 : 0), words: res.words, blocked: false, usedBy: 0 });
   captureDebugGeometry('trash-purge', { trashType: item.type, ok: true });
   if(trashDetailKey === item.key) closeTrashDetail();
-  showTextToast('Видалено назавжди', 'success');
+  showTextToast(cloudId ? 'Видалено назавжди. ' + purgeRetentionNote() : 'Видалено назавжди', 'success');
 }
 async function applyTaxonomyRemovalLocally(plan){
   const res = removeTaxonomyFromState({ categories: CATEGORIES, subcategories: SUBCATEGORIES, dictionary: DICTIONARY }, plan);

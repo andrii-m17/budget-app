@@ -103,6 +103,7 @@
     const i = expr.indexOf('.'); const op = expr.slice(0, i); const val = expr.slice(i + 1);
     switch(op){
       case 'eq': return function(r){ return r[key] !== null && r[key] !== undefined && String(r[key]) === val; };
+      case 'not': { const inner = matcher(key, val); return function(r){ return !inner(r); }; } // not.is.null тощо (PURGE-1: DELETE лише надгробка)
       case 'neq': return function(r){ return String(r[key]) !== val; };
       case 'gt': return function(r){ return r[key] != null && cmp(r[key], val) > 0; };
       case 'gte': return function(r){ return r[key] != null && cmp(r[key], val) >= 0; };
@@ -251,7 +252,7 @@
       state.tables[table] = keep;
       if(gone.length) bump(state, table, true);
       gone.forEach(function(r){ emit(state, table, 'DELETE', r); });
-      return wantRep ? respond(gone) : new Response(null, { status: 204 });
+      return wantRep ? respond(JSON.parse(JSON.stringify(sel(gone)))) : new Response(null, { status: 204 });
     }
     return jsonResponse(405, { message: 'method not allowed' });
   }

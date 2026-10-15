@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ctx = ex.buildSandbox({}, ['taxonomyUsage', 'purgeTaxonomyPlan', 'taxonomyPlural', 'purgeTaxonomyConfirmText', 'purgeTaxonomyBlockedText', 'removeTaxonomyFromState', 'filterPurgedTaxonomy']);
+const ctx = ex.buildSandbox({}, ['TOMBSTONE_RETENTION_DAYS', 'purgeRetentionNote', 'taxonomyUsage', 'purgeTaxonomyPlan', 'taxonomyPlural', 'purgeTaxonomyConfirmText', 'purgeTaxonomyBlockedText', 'removeTaxonomyFromState', 'filterPurgedTaxonomy']);
 const J = v => JSON.parse(JSON.stringify(v));
 const fresh = () => ({
   categories: [{ name: 'Їжа', active: true, cloudId: 'c0' }, { name: 'Тест1', active: false, cloudId: 'c1' }, { name: 'Авто', active: false, cloudId: 'c2' }],
@@ -37,7 +37,8 @@ test('purgeTaxonomyPlan: категорія без використання — 
   assert.equal(J(ctx.purgeTaxonomyPlan({ kind: 'category', name: 'Нема' }, st)).exists, false);
 });
 test('purgeTaxonomyConfirmText і blocked-текст: форми, нулі, відмінювання', () => {
-  const T = p => ctx.purgeTaxonomyConfirmText(p);
+  const T = p => ctx.purgeTaxonomyConfirmText(p).replace(/ З сервера запис остаточно зникне через 14 днів\.$/, ''); // Rev 2.32.76 (PURGE-1)
+  assert.match(ctx.purgeTaxonomyConfirmText({ kind: 'category', name: 'X', subCount: 0, wordCount: 0 }), / З сервера запис остаточно зникне через 14 днів\.$/);
   assert.equal(T({ kind: 'category', name: 'X', subCount: 2, wordCount: 5 }), 'Категорія «X» буде видалена назавжди разом з 2 підкатегоріями й 5 словами. Це неможливо скасувати.');
   assert.equal(T({ kind: 'category', name: 'X', subCount: 1, wordCount: 1 }), 'Категорія «X» буде видалена назавжди разом з 1 підкатегорією й 1 словом. Це неможливо скасувати.');
   assert.equal(T({ kind: 'subcategory', name: 'Y', subCount: 0, wordCount: 3 }), 'Підкатегорія «Y» буде видалена назавжди разом з 3 словами. Це неможливо скасувати.');

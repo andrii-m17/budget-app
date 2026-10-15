@@ -107,3 +107,11 @@ test('K3 мок: відповідь не більша за 1000 рядків (я
   st.maxRows = 0;
   assert.equal((await get(st, '/rest/v1/expenses?select=id')).body.length, 5000);
 });
+test('PURGE-1 мок: DELETE з not.is.null видаляє лише надгробки й оновлює purged_at; живий рядок лишається', async function(){
+  const st = mk('empty');
+  st.tables.expenses = [{ id: 'live', family_id: st.familyId, deleted_at: null, updated_at: 'x' }, { id: 'dead', family_id: st.familyId, deleted_at: '2026-10-01T00:00:00Z', updated_at: 'x' }];
+  const hit = async function(id){ const r = await M.handle(st, BASE + '/rest/v1/expenses?id=eq.' + id + '&family_id=eq.' + st.familyId + '&deleted_at=not.is.null&select=id', { method: 'DELETE', headers: { Prefer: 'return=representation' } }); return r.json(); };
+  assert.deepEqual(await hit('live'), []); assert.equal(st.purgedAt, null);
+  assert.deepEqual(await hit('dead'), [{ id: 'dead' }]); assert.ok(st.purgedAt);
+  assert.deepEqual(st.tables.expenses.map(function(x){ return x.id; }), ['live']);
+});
