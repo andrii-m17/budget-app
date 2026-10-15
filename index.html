@@ -3492,7 +3492,6 @@
     </span>
   </button>
 
-  <div class="cloud-env-badge hidden" id="cloud-env-badge" aria-hidden="true"></div>
   <div class="version-footer">Money Tree · Rev 2.32.75</div>
 </div>
   </div>
@@ -19837,7 +19836,9 @@ function renderTestingDrawer(){
 }
 // Rev 2.32.75 (K3): позначка й перемикач середовища. Перемикач зберігається в sessionStorage (закрив вкладку → знову мок) і перезавантажує сторінку.
 function renderCloudEnvUI(){
-  const badge = document.getElementById('cloud-env-badge');
+  let badge = document.getElementById('cloud-env-badge');
+  // Позначка живе прямо в body (не всередині вкладки-view, що може бути прихованою); на робочому origin не створюється взагалі.
+  if(!badge && CLOUD_ENV.env !== 'prod'){ badge = document.createElement('div'); badge.id = 'cloud-env-badge'; badge.className = 'cloud-env-badge'; badge.setAttribute('aria-hidden', 'true'); document.body.appendChild(badge); }
   const btn = document.getElementById('cloud-env-btn');
   const label = document.getElementById('cloud-env-label');
   const prod = CLOUD_ENV.env === 'prod';

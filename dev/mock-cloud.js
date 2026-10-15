@@ -83,7 +83,7 @@
   function createState(fixture){
     const tables = {};
     Object.keys(fixture.tables).forEach(function(t){ tables[t] = JSON.parse(JSON.stringify(fixture.tables[t])); });
-    const state = { fixture: fixture.name, familyId: fixture.familyId, users: fixture.users, tables: tables, purgedAt: null, log: [], seq: 0, realtime: new Set(), clock: null, idN: 0 };
+    const state = { fixture: fixture.name, familyId: fixture.familyId, users: fixture.users, tables: tables, purgedAt: null, log: [], seq: 0, realtime: new Set(), clock: null, idN: 0, maxRows: 1000 }; // maxRows — як стандартний max-rows PostgREST: одна відповідь не більша за 1000 рядків (0 = без обмеження)
     tables.family_members = fixture.users.map(function(u){ return { family_id: fixture.familyId, user_id: u.id }; });
     tables.users = fixture.users.map(function(u){ return Object.assign({}, u); });
     tables.user_notifications = (fixture.notifications || []).slice();
@@ -216,6 +216,7 @@
       }
       const off = +params.get('offset') || 0, lim = params.get('limit');
       list = lim !== null ? list.slice(off, off + (+lim)) : list.slice(off);
+      if(state.maxRows > 0 && list.length > state.maxRows) list = list.slice(0, state.maxRows);
       if(method === 'HEAD') return jsonResponse(200, null, { 'Content-Range': '0-' + Math.max(0, list.length - 1) + '/' + list.length });
       return respond(JSON.parse(JSON.stringify(sel(list))));
     }

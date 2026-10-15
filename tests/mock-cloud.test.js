@@ -98,3 +98,12 @@ test('K3 мок: auth — вхід/оновлення/користувач/ви�
   assert.equal((await M.handle(st, BASE + '/auth/v1/logout', { method: 'POST' })).status, 204);
   assert.equal((await M.handle(st, BASE + '/functions/v1/mono-connect', { method: 'POST' })).status, 200);
 });
+test('K3 мок: відповідь не більша за 1000 рядків (як max-rows PostgREST); 0 = без обмеження; range сторінкує', async function(){
+  const st = mk('large');
+  let r = await get(st, '/rest/v1/expenses?select=id');
+  assert.equal(r.body.length, 1000);
+  r = await get(st, '/rest/v1/expenses?select=id&order=id.asc&offset=4900&limit=100');
+  assert.equal(r.body.length, 100);
+  st.maxRows = 0;
+  assert.equal((await get(st, '/rest/v1/expenses?select=id')).body.length, 5000);
+});
