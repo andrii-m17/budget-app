@@ -2676,17 +2676,17 @@ test('pullIncomesCore: мережева помилка → { skipped:true }', as
 });
 
 test('pullIncomesCore: новий Cloud-запис → додається (note → source)', async () => {
-  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'Зарплата Андрій', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'Зарплата А', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.incomes = [];
   const result = await ctx.pullIncomesCore();
   assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 1, keptLocal: 0 });
-  assert.equal(ctx.incomes[0].source, 'Зарплата Андрій');
+  assert.equal(ctx.incomes[0].source, 'Зарплата А');
   assert.equal(ctx.incomes[0].amount, 20000);
 });
 
 test('pullIncomesCore: LWW — Cloud новіший → оновлює', async () => {
-  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 25000, income_date: '2026-05-01', note: 'Зарплата Андрій', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
-  ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: 'Зарплата Андрій', amount: 20000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 25000, income_date: '2026-05-01', note: 'Зарплата А', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: 'Зарплата А', amount: 20000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
   const result = await ctx.pullIncomesCore();
   assert.deepEqual(plain(result), { skipped: false, updated: 1, added: 0, keptLocal: 0 });
   assert.equal(ctx.incomes[0].amount, 25000);
@@ -4331,7 +4331,7 @@ test('restoreExpensesFromBackup: запису немає локально → д
 // name) це виглядало б як "новий" запис і створило б дублікат.
 test('restoreExpensesFromBackup: legacy id з бекапу + local вже має ЦЕЙ САМИЙ запис під UUID (за вмістом) → оновлює ІСНУЮЧИЙ, НЕ дублює', async () => {
   const { ctx } = sandbox();
-  const properUuid = '9be9de11-cea6-40fd-b6af-b22f575b5dd3';
+  const properUuid = '33333333-3333-4333-8333-333333333333';
   ctx.expenses = [{ id: properUuid, date: '2026-09-11', name: 'Картопля (соціальна)', amount: 200, category: '🫂 Соціальні витрати', subcategory: '', createdAt: '2026-09-11T00:00:00.000Z', updatedAt: '2026-09-11T00:00:00.000Z', syncedUpdatedAt: '2026-09-11T00:00:00.000Z' }];
   const legacyId = '1700000000000abcd'; // старий, ДО-UUID формат (6D.59)
   const backup = [{ id: legacyId, date: '2026-09-11', name: 'Картопля (соціальна)', amount: 200, category: '🫂 Соціальні витрати', subcategory: '', createdAt: '2026-09-11T00:00:00.000Z', updatedAt: '2026-09-20T00:00:00.000Z' }];
@@ -4554,8 +4554,8 @@ test('ensureIncomeIdentity: createdAt вже присутній → НЕ пер�
 test('ensureIncomeIdentity: змішаний масив → лише невалідний id замінено', async () => {
   const { ctx } = sandbox();
   ctx.incomes = [
-    { id: VALID_UUID_1, date: '2026-09-01', source: 'Зарплата Андрій', amount: 20000 },
-    { id: OLD_FORMAT_ID, date: '2026-09-01', source: 'Зарплата Оля', amount: 18000 },
+    { id: VALID_UUID_1, date: '2026-09-01', source: 'Зарплата А', amount: 20000 },
+    { id: OLD_FORMAT_ID, date: '2026-09-01', source: 'Зарплата Б', amount: 18000 },
   ];
   await ctx.ensureIncomeIdentity();
   assert.equal(ctx.incomes[0].id, VALID_UUID_1);
@@ -4826,7 +4826,7 @@ test('pullExpensesCore: без змін → render НЕ викликається
 });
 
 test('pullIncomesCore: є зміна (added) → renderAll() викликаний', async () => {
-  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'Зарплата Андрій', created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' }]);
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 20000, income_date: '2026-05-01', note: 'Зарплата А', created_at: '2026-05-01T00:00:00.000Z', updated_at: '2026-05-01T00:00:00.000Z' }]);
   ctx.incomes = [];
   const renderSpy = spyOn(ctx, 'renderAll');
   await ctx.pullIncomesCore();

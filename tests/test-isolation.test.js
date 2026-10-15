@@ -58,7 +58,7 @@ function state(){
     bankAccounts: [{ name: 'TRASH-TEST-G3-card' }, { name: 'trash-test-card2' }, { name: 'Моно' }, { name: 'Тестова картка' }],
     installmentAccounts: [{ name: 'TRASH-TEST-G3-inst2' }, { name: 'Мій TRASH-TEST-1' }],
     debts: [{ kind: 'card', name: 'TRASH-TEST-G3-card' }, { kind: 'installment', name: 'TRASH-TEST-G3-inst2' }, { kind: 'card', name: 'Моно' }],
-    expenses: [{ name: 'TRASH-TEST-E' }, { name: 'Кава' }], incomes: [{ source: 'ЗП Андрій' }],
+    expenses: [{ name: 'TRASH-TEST-E' }, { name: 'Кава' }], incomes: [{ source: 'ЗП А' }],
     categories: [{ name: 'TRASH-TEST-cat' }, { name: 'Їжа' }], subcategories: [{ name: 'trash-test-sub' }], dictionary: [{ kw: 'trash-test-w' }, { kw: 'кава' }],
     hiddenFrom: { 'card:TRASH-TEST-G3-card2': {}, 'installment:TRASH-TEST-G3-inst2': {}, 'card:Моно': {} },
   };
@@ -85,7 +85,7 @@ test('кнопка очищення: прибирає лише тестові з
   assert.deepEqual(j(st.bankAccounts), [{ name: 'Моно' }, { name: 'Тестова картка' }]);
   assert.deepEqual(j(st.installmentAccounts), [{ name: 'Мій TRASH-TEST-1' }]);
   assert.deepEqual(j(st.debts), [{ kind: 'card', name: 'Моно' }]);
-  assert.deepEqual(j(st.expenses), [{ name: 'Кава' }]); assert.deepEqual(j(st.incomes), [{ source: 'ЗП Андрій' }]);
+  assert.deepEqual(j(st.expenses), [{ name: 'Кава' }]); assert.deepEqual(j(st.incomes), [{ source: 'ЗП А' }]);
   assert.deepEqual(j(st.categories), [{ name: 'Їжа' }]); assert.deepEqual(j(st.subcategories), []); assert.deepEqual(j(st.dictionary), [{ kw: 'кава' }]);
   assert.deepEqual(Object.keys(st.hiddenFrom), ['card:Моно']);
   assert.equal(events.length, 1); assert.equal(events[0][0], 'test-cleanup'); assert.equal(events[0][1].cleanedTotal, 11);

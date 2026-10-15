@@ -20,9 +20,9 @@ test('toastModel: повернення — частково й повністю;
   assert.equal(c.toastModel('x', {}), null);
 });
 test('toastModel: дії другого учасника й зведення — іконка «Журнал» і дія «Журнал»', function(){
-  const a = j(c.toastModel('other-actor', { actorName: 'Оля', verbText: 'додала витрату', name: 'Кава', amount: 120 }));
-  assert.deepEqual(a, { kind: 'info', icon: 'journal', title: 'Оля додала витрату', subtitle: 'Кава · 120 ₴', actionLabel: 'Журнал', action: 'journal' });
-  const s = j(c.toastModel('sync-summary', { text: 'Оля внесла зміни: 3 витрати, поки ви були не в додатку.' }));
+  const a = j(c.toastModel('other-actor', { actorName: 'Користувач Б', verbText: 'додала витрату', name: 'Кава', amount: 120 }));
+  assert.deepEqual(a, { kind: 'info', icon: 'journal', title: 'Користувач Б додала витрату', subtitle: 'Кава · 120 ₴', actionLabel: 'Журнал', action: 'journal' });
+  const s = j(c.toastModel('sync-summary', { text: 'Користувач Б внесла зміни: 3 витрати, поки ви були не в додатку.' }));
   assert.equal(s.icon, 'journal'); assert.equal(s.actionLabel, 'Журнал'); assert.equal(s.title, 'Синхронізація даних');
 });
 test('toastModel text + splitToastText: короткі тексти — заголовок; довгі діляться на заголовок і підзаголовок; види за тоном', function(){

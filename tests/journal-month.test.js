@@ -97,7 +97,7 @@ test('findRecordIdForDate: знаходить витрату на точну д�
 test('findRecordIdForDate: витрата пріоритетніша за дохід на ту саму дату', () => {
   const ctx = sandbox({
     expenses: [{ id: 'e1', name: 'Кава', date: '2026-09-15' }],
-    incomes: [{ id: 'i1', source: 'Зарплата Андрій', date: '2026-09-15' }],
+    incomes: [{ id: 'i1', source: 'Зарплата А', date: '2026-09-15' }],
   });
   assert.equal(ctx.findRecordIdForDate('2026-09-15'), 'journal-row-expense-0');
 });
@@ -106,7 +106,7 @@ test('findRecordIdForDate: витрата пріоритетніша за дох
 test('findRecordIdForDate: без витрат на цю дату доходи НЕ шукаються (Журнал лише з витратами)', () => {
   const ctx = sandbox({
     expenses: [{ id: 'e1', name: 'Кава', date: '2026-09-14' }],
-    incomes: [{ id: 'i1', source: 'Зарплата Андрій', date: '2026-09-15' }],
+    incomes: [{ id: 'i1', source: 'Зарплата А', date: '2026-09-15' }],
   });
   assert.equal(ctx.findRecordIdForDate('2026-09-15'), null);
 });
@@ -162,10 +162,10 @@ test('filterJournalRecords: категорія фільтрує лише вит�
   const ctx = sandbox();
   const records = [
     { kind: 'expense', name: 'Кава', category: '🍔 Їжа' },
-    { kind: 'income', name: 'Зарплата Андрій' },
+    { kind: 'income', name: 'Зарплата А' },
   ];
   const result = ctx.filterJournalRecords(records, '', '🚗 Транспорт');
-  assert.deepEqual(result.map(r => r.name), ['Зарплата Андрій']);
+  assert.deepEqual(result.map(r => r.name), ['Зарплата А']);
 });
 
 test('filterJournalRecords: текст і категорія разом — обидві умови', () => {
@@ -201,7 +201,7 @@ test('filterJournalRecords: текстовий пошук шукає лише з
 
 test('filterJournalRecords: запис без підкатегорії не падає (undefined subcategory)', () => {
   const ctx = sandbox();
-  const records = [{ kind: 'income', name: 'Зарплата Андрій' }];
+  const records = [{ kind: 'income', name: 'Зарплата А' }];
   assert.deepEqual(ctx.filterJournalRecords(records, 'зарплата', ''), records);
 });
 
@@ -260,10 +260,10 @@ test('filterJournalRecords: підкатегорія фільтрує лише �
   const ctx = sandbox();
   const records = [
     { kind: 'expense', name: 'Латте', category: '🍔 Їжа', subcategory: 'Кафе' },
-    { kind: 'income', name: 'Зарплата Андрій' },
+    { kind: 'income', name: 'Зарплата А' },
   ];
   const result = ctx.filterJournalRecords(records, '', '', 'Продукти');
-  assert.deepEqual(result.map(r => r.name), ['Зарплата Андрій']);
+  assert.deepEqual(result.map(r => r.name), ['Зарплата А']);
 });
 
 test('filterJournalRecords: категорія і підкатегорія разом — обидві незалежні AND-умови', () => {

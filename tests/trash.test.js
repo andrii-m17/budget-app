@@ -23,7 +23,7 @@ function baseState(){
       { id: 'e2', name: 'Живий', amount: 5, date: '2026-09-30' },
     ],
     incomes: [
-      { id: 'i1', source: 'Зарплата Оля', amount: 1000, date: '2026-09-25', createdBy: 'u2', updatedBy: 'u2', deletedAt: '2026-10-02T08:00:00Z' },
+      { id: 'i1', source: 'Зарплата Б', amount: 1000, date: '2026-09-25', createdBy: 'u2', updatedBy: 'u2', deletedAt: '2026-10-02T08:00:00Z' },
     ],
     dictionary: [
       { id: 'w1', kw: 'кава', cat: 'Їжа', sub: 'Кафе', deletedAt: '2026-10-01T07:00:00Z' },                       // видалене окремо

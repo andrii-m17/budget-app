@@ -2,7 +2,7 @@
 
 **Навички:** notion-bridge, task-report · Деталі: `docs/NOTION_BRIDGE.md`
 
-## Передумови (дії Андрія)
+## Передумови (дії Користувач А)
 1. Сторінка «Money Tree · Пульт» з базою «Задачі» (властивості й шаблон за `docs/NOTION_BRIDGE.md`).
 2. Конектор Notion у claude.ai з доступом до «Пульта».
 

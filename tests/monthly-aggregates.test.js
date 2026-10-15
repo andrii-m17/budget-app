@@ -73,8 +73,8 @@ test('mandatoryPaymentsSummary: обов\'язкові платежі та ві�
 });
 
 /* ============ debtTotalsForMonth: BugFix — колізія назв card/installment ============
-   Термінове розслідування (вересень 2026): ОЧ "Приват Банк Оля" (та сама
-   назва, що картка "Приват Банк Оля") зникала з Дашборду, хоч і лишалась
+   Термінове розслідування (вересень 2026): ОЧ "Банк-3 Б" (та сама
+   назва, що картка "Банк-3 Б") зникала з Дашборду, хоч і лишалась
    видимою в "Обліку". Причина — byName-мапа в debtTotalsForMonth()
    ключувалась ЛИШЕ за `name`, без `kind`: два debts-записи з однаковою
    назвою, різний kind, той самий/пізніший місяць → один тихо перезаписував
@@ -101,8 +101,8 @@ function debtSandbox(){
 test('debtTotalsForMonth: BugFix — картка й ОЧ з ОДНАКОВОЮ назвою, той самий місяць → ОБИДВА присутні в result.list', () => {
   const ctx = debtSandbox();
   ctx.debts = [
-    { id: 'd1', name: 'Приват Банк Оля', kind: 'card', month: '2026-05', balance: 1000 },
-    { id: 'd2', name: 'Приват Банк Оля', kind: 'installment', month: '2026-05', balance: 2000 },
+    { id: 'd1', name: 'Банк-3 Б', kind: 'card', month: '2026-05', balance: 1000 },
+    { id: 'd2', name: 'Банк-3 Б', kind: 'installment', month: '2026-05', balance: 2000 },
   ];
   const result = ctx.debtTotalsForMonth('2026-05');
   assert.equal(result.list.length, 2);
@@ -115,8 +115,8 @@ test('debtTotalsForMonth: BugFix — картка й ОЧ з ОДНАКОВОЮ 
 test('debtTotalsForMonth: колізія назв, РІЗНІ місяці (installment пізніший) → обидва присутні, кожен свій найсвіжіший запис', () => {
   const ctx = debtSandbox();
   ctx.debts = [
-    { id: 'd1', name: 'Приват Банк Оля', kind: 'card', month: '2026-04', balance: 500 },
-    { id: 'd2', name: 'Приват Банк Оля', kind: 'installment', month: '2026-05', balance: 2000 },
+    { id: 'd1', name: 'Банк-3 Б', kind: 'card', month: '2026-04', balance: 500 },
+    { id: 'd2', name: 'Банк-3 Б', kind: 'installment', month: '2026-05', balance: 2000 },
   ];
   const result = ctx.debtTotalsForMonth('2026-05');
   assert.equal(result.list.length, 2);
@@ -138,10 +138,10 @@ test('debtTotalsForMonth: без колізії (різні назви) — по
 
 test('debtTotalsForMonth: isHiddenForMonth і далі враховує kind окремо для колізії назв (приховано лише card, installment лишається видимим)', () => {
   const ctx = debtSandbox();
-  ctx.hiddenFrom = { 'card:Приват Банк Оля': '2026-05' };
+  ctx.hiddenFrom = { 'card:Банк-3 Б': '2026-05' };
   ctx.debts = [
-    { id: 'd1', name: 'Приват Банк Оля', kind: 'card', month: '2026-04', balance: 1000 },
-    { id: 'd2', name: 'Приват Банк Оля', kind: 'installment', month: '2026-05', balance: 2000 },
+    { id: 'd1', name: 'Банк-3 Б', kind: 'card', month: '2026-04', balance: 1000 },
+    { id: 'd2', name: 'Банк-3 Б', kind: 'installment', month: '2026-05', balance: 2000 },
   ];
   const result = ctx.debtTotalsForMonth('2026-05');
   assert.equal(result.list.length, 1);
@@ -161,28 +161,28 @@ test('debtTotalsForMonth: isHiddenForMonth і далі враховує kind о�
 test('debtTotalsForMonth: є прив\'язана витрата цього місяця → linkedSum ПЕРЕВАЖАЄ вручну збережений monthlyPayment/balance', () => {
   const ctx = debtSandbox();
   ctx.debts = [
-    { name: 'ПУМБ Dyson', kind: 'installment', month: '2026-07', balance: 28119, monthlyPayment: 7000 },
+    { name: 'Банк-1 Прилад', kind: 'installment', month: '2026-07', balance: 30000, monthlyPayment: 7000 },
     // Rev 2.2.2 — вручну збережено 2000 (стара розбіжність, скрін
-    // користувача), хоча прив'язана витрата цього місяця — 2492.
-    { name: 'ПУМБ Dyson', kind: 'installment', month: '2026-08', balance: 25619, monthlyPayment: 2000 },
+    // користувача), хоча прив'язана витрата цього місяця — 1500.
+    { name: 'Банк-1 Прилад', kind: 'installment', month: '2026-08', balance: 25619, monthlyPayment: 2000 },
   ];
   ctx.expenses = [
-    { linkedInstallment: 'ПУМБ Dyson', date: '2026-08-02', amount: 2492 },
+    { linkedInstallment: 'Банк-1 Прилад', date: '2026-08-02', amount: 1500 },
   ];
   const result = ctx.debtTotalsForMonth('2026-08');
   assert.equal(result.list.length, 1);
-  // est.balance = prevBal(28119, з липня) - linkedSum(2492) = 25627, НЕ
+  // est.balance = prevBal(30000, з липня) - linkedSum(1500) = 28500, НЕ
   // вручну збережені 25619.
-  assert.equal(result.list[0].balance, 28119 - 2492);
-  assert.equal(result.list[0].monthlyPayment, 2492);
-  assert.equal(result.totalInstallment, 28119 - 2492);
-  assert.equal(result.totalMonthlyInstallment, 2492);
+  assert.equal(result.list[0].balance, 30000 - 1500);
+  assert.equal(result.list[0].monthlyPayment, 1500);
+  assert.equal(result.totalInstallment, 30000 - 1500);
+  assert.equal(result.totalMonthlyInstallment, 1500);
 });
 
 test('debtTotalsForMonth: немає прив\'язаної витрати цього місяця → вручну збережений factor і далі пріоритетний (регресія)', () => {
   const ctx = debtSandbox();
   ctx.debts = [
-    { name: 'ПУМБ Dyson', kind: 'installment', month: '2026-08', balance: 25619, monthlyPayment: 2000 },
+    { name: 'Банк-1 Прилад', kind: 'installment', month: '2026-08', balance: 25619, monthlyPayment: 2000 },
   ];
   ctx.expenses = [];
   const result = ctx.debtTotalsForMonth('2026-08');
