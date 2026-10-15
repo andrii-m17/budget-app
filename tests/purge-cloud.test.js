@@ -33,7 +33,6 @@ function make(opts){
     getSupabaseClient: function(){ return client; }, cloudFamilyId: 'fam', cloudSession: { user: { id: 'u1' } },
     showTextToast: function(t, k){ toasts.push({ t, k }); }, captureDebugGeometry: function(){}, debugRecordingActive: false, trashDetailKey: null, closeTrashDetail: function(){},
     renderTrashScreen: function(){}, showTaxonomyBlocked: function(){ local.push('blocked'); },
-    isTestSyncIgnored: function(){ return true; }, // ізоляція тестових імен УВІМКНЕНА: на видалення назавжди вона не діє
     isTrashOffline: function(){ return !!o.offline; }, isMonthRecordType: function(t){ return t === 'debtMonth' || t === 'installmentMonth'; },
     trashStateNow: function(){ return o.state; },
     CATEGORIES: (o.state && o.state.categories) || [], SUBCATEGORIES: (o.state && o.state.subcategories) || [],

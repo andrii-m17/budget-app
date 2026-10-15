@@ -15,7 +15,7 @@ function deviceA(){
     navigator: { onLine: true }, cloud, timers: [], autoSyncRunning: false, autoSyncRetryStep: 0, autoSyncTimer: null,
     expenses: [], incomes: [], debts: [], debugRecordingActive: false, pushDebugEvent: function(){}, debugRecordingStartedAt: 0,
     performance: { now: function(){ return 0; } }, setTimeout: function(){ return 1; }, clearTimeout: function(){},
-    isCloudSessionReady: function(){ return true; }, syncableRecords: function(l){ return l; }, populateMonths: function(){}, renderAll: function(){},
+    isCloudSessionReady: function(){ return true; }, populateMonths: function(){}, renderAll: function(){},
     pullExpensesCore: async function(){}, pullIncomesCore: async function(){}, pullDebtsCore: async function(){},
     pushExpensesBatched: async function(list){ list.forEach(function(r){ cloud.set(r.id, { id: r.id, category: r.category, subcategory: r.subcategory, updatedAt: r.updatedAt }); r.syncedUpdatedAt = r.updatedAt; }); return { pushed: list.length, failed: 0 }; },
     pushIncomesBatched: async function(){ return { pushed: 0, failed: 0 }; }, pushDebtsBatched: async function(){ return { pushed: 0, failed: 0 }; },

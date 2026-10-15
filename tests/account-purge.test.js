@@ -99,7 +99,7 @@ test('pull: tombstone-рядок прибирає рахунок і не зв’
 });
 test('перепис id (applyCensus) не відтворює видалений рахунок: рахунку немає локально, push за назвою ігнорує tombstone-рядок', () => {
   const src = SRC.slice(SRC.indexOf('async function reconcileAccountsCensusFor'), SRC.indexOf('async function reconcileBankAccountsCensus'));
-  assert.match(src, /applyCensus\(list, ids, isTestSyncIgnored\)/);
+  assert.match(src, /applyCensus\(list, ids\)/);
   assert.ok(!/deleted_at/.test(src));
 });
 test('видалення: порядок Cloud-кроків борги → приховане → рахунок; збій зупиняє до локальних змін; DELETE рахунків клієнтом немає', () => {

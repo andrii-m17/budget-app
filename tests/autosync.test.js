@@ -15,7 +15,6 @@ function make(opts){
     expenses: [], incomes: [], debts: [],
     debugRecordingActive: false, pushDebugEvent: function(){}, debugRecordingStartedAt: 0,
     isCloudSessionReady: function(){ return true; },
-    syncableRecords: function(l){ return l; },
     populateMonths: function(){}, renderAll: function(){},
     setTimeout: function(fn){ timers.push(fn); return timers.length; }, clearTimeout: function(){},
     performance: { now: function(){ return 0; } },

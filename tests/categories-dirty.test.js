@@ -60,7 +60,7 @@ function hash(cloud, table){ return JSON.stringify(cloud.tables[table].map(funct
 const NAMES = ['LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
   'saveCategoriesLocal', 'saveSubcategoriesLocal', 'pushCategoriesPilot', 'reconcileCategoryCloudId', 'pullCategoriesCore',
   'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId', 'pullSubcategoriesCore',
-  'TEST_IGNORE_LS_KEY', 'isTestRecordName', 'syncNameOf', 'shouldIgnoreForSync', 'isTestHiddenKey', 'testIgnoreFlag', 'isTestSyncIgnored', 'syncableRecords', 'filterTestRows', 'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'isSubcategoryDirty', 'planSubcategoriesPush', 'categoriesByNameMap',
+  'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'isSubcategoryDirty', 'planSubcategoriesPush', 'categoriesByNameMap',
   'reconcileCategoriesCensus', 'reconcileSubcategoriesCensus'];
 function device(cloud, name, cats, subs){
   const store = {}; const events = [];
@@ -199,26 +199,19 @@ test('перепис: порожня відповідь при наявних cl
   assert.equal(await ctx2.reconcileCategoriesCensus(), null);
 });
 
-// Rev 2.23.32 (6D.201): ізоляція тестових записів TRASH-TEST- на справжньому push/pull категорій.
-test('TRASH-TEST-: pull не додає тестові рядки Cloud, push не відправляє тестові записи; прапор 0 вмикає обидва', async () => {
+// Rev 2.32.81 (ISOL-1): ізоляції тестових імен більше немає — запис з назвою на TRASH-TEST- синхронізується як звичайний (push, pull, перепис id).
+test('ISOL-1: TRASH-TEST-… як звичайний: pull додає рядок Cloud, push відправляє локальний запис, перепис id скидає мертвий cloudId', async () => {
   const cloud = makeCloud();
   cloud.tables.categories.push({ id: 'ct1', family_id: 'fam', name: 'TRASH-TEST-cloud', type: 'Гнучка', active: true, created_at: 'c', updated_at: tick(), __ua: 0 });
   cloud.tables.categories.push({ id: 'cr1', family_id: 'fam', name: 'Реальна', type: 'Гнучка', active: true, created_at: 'c', updated_at: tick(), __ua: 0 });
   const A = device(cloud, 'A', [{ name: 'TRASH-TEST-local', type: 'Гнучка', active: true, createdAt: tick(), updatedAt: tick() }], []);
   await A.pullCategoriesCore();
-  assert.deepEqual(j(A.CATEGORIES.map(function(c){ return c.name; })).sort(), ['Реальна', 'TRASH-TEST-local'].sort(), 'тестовий рядок Cloud не підтягнувся');
+  assert.deepEqual(j(A.CATEGORIES.map(function(c){ return c.name; })).sort(), ['Реальна', 'TRASH-TEST-cloud', 'TRASH-TEST-local'].sort(), 'тестовий рядок Cloud підтягнувся');
   const ins0 = cloud.stats.inserts.categories;
   await A.pushCategoriesPilot();
-  assert.equal(cloud.stats.inserts.categories, ins0, 'тестовий локальний запис не відправлено');
-  assert.equal(cloud.tables.categories.some(function(r){ return r.name === 'TRASH-TEST-local'; }), false);
+  assert.equal(cloud.stats.inserts.categories, ins0 + 1, 'тестовий локальний запис відправлено');
+  assert.equal(cloud.tables.categories.some(function(r){ return r.name === 'TRASH-TEST-local'; }), true);
   A.CATEGORIES.find(function(c){ return c.name === 'TRASH-TEST-local'; }).cloudId = 'dead-id';
   await A.reconcileCategoriesCensus();
-  assert.equal(A.CATEGORIES.find(function(c){ return c.name === 'TRASH-TEST-local'; }).cloudId, 'dead-id', 'перепис не відтворює тестовий запис');
-  A.localStorage.setItem('budget_ignore_test_prefix_v1', '0');
-  A.localStorage.removeItem('budget_sync_markers_v1'); // pull інкрементальний: скидаємо маркер, щоб рядок Cloud знову потрапив у вибірку
-  A.CATEGORIES.find(function(c){ return c.name === 'TRASH-TEST-local'; }).cloudId = null;
-  await A.pullCategoriesCore();
-  assert.ok(A.CATEGORIES.some(function(c){ return c.name === 'TRASH-TEST-cloud'; }), 'при прапорі 0 тестовий рядок Cloud підтягується');
-  await A.pushCategoriesPilot();
-  assert.ok(cloud.tables.categories.some(function(r){ return r.name === 'TRASH-TEST-local'; }), 'при прапорі 0 тестовий запис відправляється');
+  assert.notEqual(A.CATEGORIES.find(function(c){ return c.name === 'TRASH-TEST-local'; }).cloudId, 'dead-id', 'перепис скидає мертвий cloudId і тестового запису');
 });
