@@ -199,3 +199,13 @@ test('K3 purged_at: зберігається в normalizeSyncSeen; вихід (c
   assert.equal(ctx.normalizeSyncSeen({ familyId: FAM }, FAM).purgedAt, null);
   assert.equal(ctx.emptySyncSeen(FAM).purgedAt, null);
 });
+test('K3 №10: холодний старт зі збереженого стану — менше 24 год лише змінені таблиці, понад 24 год повна', function(){
+  const ctx = make();
+  const seen = synced(ctx, T0);
+  ctx.saveSyncSeen(seen);
+  const reloaded = ctx.loadSyncSeen(FAM);                                  // «перезапуск» застосунку
+  const p1 = ctx.planSync(heads({ tables: { expenses: 'e2' } }), reloaded, T0 + 23 * 3600 * 1000, {});
+  assert.equal(p1.full, null); assert.deepEqual(Array.from(p1.tables), ['expenses']);
+  const p2 = ctx.planSync(heads({ tables: { expenses: 'e2' } }), reloaded, T0 + 25 * 3600 * 1000, {});
+  assert.equal(p2.full, 'periodic'); assert.equal(p2.tables.length, 9);
+});
