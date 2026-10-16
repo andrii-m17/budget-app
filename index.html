@@ -2497,6 +2497,8 @@
   html:root :where(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
   html:root :is(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .exp-del, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link)::after,
   html:root .data-status-dot::before{ content:''; position:absolute; inset:calc(-1 * var(--ui-hit-y, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-r, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-y, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-l, var(--ui-hit, 0px))); } /* --ui-hit-y — окремо по вертикалі (сегменти: по горизонталі сусіди впритул); --ui-hit-l/-r — по боках (Rev 2.30.0: пара іконок впритул) */
+  /* Rev 2.32.88 (FIX-UI-1c): «✕» у пошуку журналу мусить лишатись absolute. Правило з html:root вище має специфічність 0,1,1 (не 0, попри :where) і перебивало `.journal-search-clear{position:absolute}` (0,1,0): кнопка ставала елементом потоку, обгортка росла 44 → 66 пт, «✕» опинявся внизу ліворуч, лупа й «Скинути · N» з'їжджали (центрування по 66). Тут специфічність 0,2,1 повертає absolute; решту розмірів і ::after не чіпаю. Ризик: інші елементи списку не мають власного absolute (перевірено в preview), тож зачеплено лише цю кнопку. */
+  html:root .journal-search-clear{ position:absolute; }
   html:root .gear-btn{ --ui-hit:4px; } html:root .drawer-close{ --ui-hit:7px; } html:root .journal-back-btn{ --ui-hit:4px; } html:root .journal-search-clear{ --ui-hit:11px; } html:root .data-status-dot{ --ui-hit:5px; }
   html:root :is(.exp-del, .diag-issue-ignore){ --ui-hit:9px; } html:root .dsp-action{ --ui-hit:7px; } /* Rev 2.30.0 (M4b): пара іконок «редагувати/видалити» стоїть впритул (проміжок 2pt), крок рядків 43pt. Зона розширюється АСИМЕТРИЧНО в бік вільного краю: «редагувати» — вліво (+20), «видалити» — вправо (+20) → 45pt по ширині без перекриття; по висоті 24+2×8.5 = 41pt = найменший крок рядків (Словник, 41pt; Категорії 43pt; більше перекривало б іконки сусідніх рядків) → по висоті 3pt до 44 лишається задокументований виняток (UI_AUDIT_SMALL_EXEMPT). */
   html:root .bdr-icon-btn{ --ui-hit-y:8.5px; --ui-hit-l:20px; --ui-hit-r:1px; }
@@ -3492,7 +3494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.87</div>
+  <div class="version-footer">Money Tree · Rev 2.32.88</div>
 </div>
   </div>
 </div>
@@ -7936,7 +7938,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.87';
+const APP_VERSION = '2.32.88';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
