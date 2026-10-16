@@ -3494,7 +3494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.88</div>
+  <div class="version-footer">Money Tree · Rev 2.32.89</div>
 </div>
   </div>
 </div>
@@ -7938,7 +7938,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.88';
+const APP_VERSION = '2.32.89';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9241,10 +9241,12 @@ async function initCloudAuthUI(){
   // тож ЛЕГІТИМНИЙ повторний виклик пізніше (напр. після виходу з акаунта)
   // і далі повністю переоцінює стан, як і раніше.
   if(cloudAuthInitInFlight) return cloudAuthInitInFlight;
-  cloudAuthInitInFlight = initCloudAuthUIImpl().finally(function(){ cloudAuthInitInFlight = null; });
+  cloudAuthInitInFlight = initCloudAuthUIImpl().finally(function(){ cloudAuthInitInFlight = null; cloudAuthSettled = true; }); // Rev 2.32.89 (SYNCUI-1): перше відновлення сесії завершено (успіхом чи ні)
   return cloudAuthInitInFlight;
 }
 let cloudAuthInitInFlight = null;
+let cloudAuthSettled = false; // Rev 2.32.89 (SYNCUI-1)
+let cloudAuthSdkFailed = false; // Rev 2.32.89 (SYNCUI-1): SDK не завантажився (мережа) — це «немає зв'язку», а не «сесії немає»
 // Rev #30 — ініціалізація стану входу: SDK підвантажується лише при
 // першому реальному зверненні (той самий "лінивий SDK", не лінива
 // ІНІЦІАЛІЗАЦІЯ — сесія тепер перевіряється безумовно при старті, 6D.54
@@ -9256,6 +9258,7 @@ async function initCloudAuthUIImpl(){
   try{
     await loadSupabaseSdk();
   }catch(e){
+    cloudAuthSdkFailed = true; // Rev 2.32.89 (SYNCUI-1)
     setCloudAuthOffline(true);
     setCloudAuthStatus('Не вдалося перевірити стан входу.');
     renderProfileUI();
@@ -9368,6 +9371,7 @@ async function applyCloudSession(session){
     teardownNotifRealtime(); // Rev 2.32.38 (B)
   }
   renderProfileUI();
+  if(isCloudSessionReady() && typeof reloadOpenCloudScreens === 'function') reloadOpenCloudScreens(false); // Rev 2.32.89 (SYNCUI-1): сесію відновлено — відкриті екрани перезавантажуються
 }
 // Rev #30 (6D.93) — Крок 2 push-інфраструктури: клієнтська підписка.
 // Публічний VAPID-ключ НЕ секрет (лише приватний ключ підписує сповіщення
@@ -20109,11 +20113,46 @@ function monoAccountDetail(a){
   if(a.is_jar) return 'скарбничка';
   return MONO_CARD_TYPES[a.account_type] || String(a.account_type || '');
 }
-let monoState = { connection: null, accounts: [], loaded: false, offline: false, error: '', busy: false, showTokenForm: false };
+let monoState = { gate: 'ready', connection: null, accounts: [], loaded: false, offline: false, error: '', busy: false, showTokenForm: false };
 let isMonoOpen = false;
+// Rev 2.32.89 (SYNCUI-1): екрани «Вхідні», «Monobank» і архів сповіщень на холодному старті з сповіщення відкриваються ДО відновлення сесії (рішення Rev 2.32.30 лишається), раніше одразу показували «Спершу увійдіть у Cloud» і ніколи не перезавантажувались. Тепер: стан «відновлення» («Завантаження…», до 8 с) відрізняється від «сесії немає» (лише після підтвердження), «офлайн» і «тайм-аут» (з кнопкою «Повторити»); екран перезавантажується сам, щойно сесію відновлено або з'явилась мережа. Ризик: опитування 100 мс лише поки триває відновлення (≤ 8 с); сервер, handlePushAction для інших екранів і синхронізацію не змінено.
+const CLOUD_GATE_TIMEOUT_MS = 8000;
+// Чиста: ctx = { sessionReady, restoring, timedOut, online, sdkFailed } → 'ready' | 'restoring' | 'timeout' | 'offline' | 'no-session'.
+function cloudGateState(ctx){
+  const c = ctx || {};
+  if(c.sessionReady) return c.online ? 'ready' : 'offline';
+  if(c.restoring) return c.timedOut ? 'timeout' : 'restoring';
+  if(c.sdkFailed || !c.online) return 'offline';
+  return 'no-session';
+}
+// Чиста: HTML повідомлення екрана за станом шлюзу; offlineText — що доступне лише онлайн, noSessionText — повний текст «увійдіть».
+function cloudGateNote(state, offlineText, noSessionText){
+  if(state === 'restoring') return '<div class="mono-note">Завантаження…</div>';
+  if(state === 'no-session') return '<div class="mono-note">' + escapeHtml(noSessionText) + '</div>';
+  return '<div class="mono-note">' + escapeHtml('Немає зв\'язку. ' + offlineText) + '</div>' +
+    '<div class="mono-section"><div class="mono-group"><button type="button" class="mono-row link" data-cloud-retry="1"><span>Повторити</span></button></div></div>';
+}
+// Чекає відновлення сесії (опитування 100 мс, до CLOUD_GATE_TIMEOUT_MS) і повертає стан шлюзу; коли сесія вже є — одразу.
+async function awaitCloudGate(){
+  const ctx = function(timedOut){ return { sessionReady: isCloudSessionReady(), restoring: !!cloudAuthInitInFlight || !cloudAuthSettled, timedOut: !!timedOut, online: navigator.onLine, sdkFailed: cloudAuthSdkFailed }; };
+  const t0 = Date.now();
+  while(!isCloudSessionReady() && (cloudAuthInitInFlight || !cloudAuthSettled) && Date.now() - t0 < CLOUD_GATE_TIMEOUT_MS){
+    await new Promise(function(r){ setTimeout(r, 100); });
+  }
+  return cloudGateState(ctx(Date.now() - t0 >= CLOUD_GATE_TIMEOUT_MS));
+}
+// Перезавантаження відкритих екранів, що застрягли в «немає зв'язку/увійдіть» (відновлення сесії, мережа, кнопка «Повторити»). force — з кнопки.
+function reloadOpenCloudScreens(force){
+  if(isMonoInboxOpen && monoInbox.offline && (monoInbox.loaded || force)){ monoInbox.loaded = false; renderMonoInbox(); loadMonoInbox().then(renderMonoInbox); }
+  if(isMonoOpen && monoState.offline && (monoState.loaded || force)){ monoState.loaded = false; renderMonoScreen(); loadMonoState().then(renderMonoScreen); }
+  if(isNotifArchiveOpen && notifArchive.offline && !notifArchive.rows.length && (notifArchive.loaded || force)){ notifArchive.loaded = false; renderNotifArchive(); loadNotifArchive().then(renderNotifArchive); }
+}
+document.addEventListener('click', function(e){ if(e.target.closest && e.target.closest('[data-cloud-retry]')) reloadOpenCloudScreens(true); });
+window.addEventListener('online', function(){ reloadOpenCloudScreens(false); });
 function monoReady(){ return isCloudSessionReady() && navigator.onLine; }
 async function loadMonoState(){
-  if(!monoReady()){ monoState.offline = true; monoState.loaded = true; return; }
+  monoState.gate = await awaitCloudGate(); // Rev 2.32.89 (SYNCUI-1)
+  if(monoState.gate !== 'ready'){ monoState.offline = true; monoState.loaded = true; return; }
   monoState.offline = false;
   try{
     const client = getSupabaseClient();
@@ -20155,7 +20194,7 @@ function renderMonoScreen(){
   if(!body) return;
   if(!monoState.loaded){ body.innerHTML = '<div class="mono-note">Завантаження…</div>'; return; }
   if(monoState.offline){
-    body.innerHTML = '<div class="mono-note">' + (isCloudSessionReady() ? 'Немає зв\'язку. Підключення Monobank доступне лише онлайн.' : 'Спершу увійдіть у Cloud (іконка профілю), щоб підключити Monobank.') + '</div>';
+    body.innerHTML = cloudGateNote(monoState.gate, 'Підключення Monobank доступне лише онлайн.', 'Спершу увійдіть у Cloud (іконка профілю), щоб підключити Monobank.'); // Rev 2.32.89 (SYNCUI-1)
     return;
   }
   const st = monoConnectionState(monoState.connection);
@@ -20393,7 +20432,7 @@ function monoRefundOutcome(error){
   if(error.code === 'P0002') return { kind: 'notfound', toast: 'Не знайдено', refresh: true };
   return { kind: 'network', toast: 'Немає зв\'язку, спробуйте пізніше' };
 }
-let monoInbox = { tab: 'new', rows: [], loaded: false, newCount: 0, detailId: null, busy: false };
+let monoInbox = { gate: 'ready', tab: 'new', rows: [], loaded: false, newCount: 0, detailId: null, busy: false };
 let isMonoInboxOpen = false;
 async function refreshMonoNewCount(){
   if(!monoReady()) return;
@@ -20415,7 +20454,8 @@ function updateMonoBadges(){
   if(segNew) segNew.textContent = n ? 'Нові ' + n : 'Нові';
 }
 async function loadMonoInbox(){
-  if(!monoReady()){ monoInbox.loaded = true; monoInbox.rows = []; monoInbox.offline = true; return; }
+  monoInbox.gate = await awaitCloudGate(); // Rev 2.32.89 (SYNCUI-1)
+  if(monoInbox.gate !== 'ready'){ monoInbox.loaded = true; monoInbox.rows = []; monoInbox.offline = true; return; }
   monoInbox.offline = false;
   if(!monoState.loaded || !monoState.accounts.length) await loadMonoState();
   try{
@@ -20451,7 +20491,7 @@ function renderMonoInbox(){
   document.querySelectorAll('#mono-inbox-tabs .struct-tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-mono-tab') === monoInbox.tab); });
   updateMonoBadges();
   if(!monoInbox.loaded){ body.innerHTML = '<div class="mono-note">Завантаження…</div>'; return; }
-  if(monoInbox.offline){ body.innerHTML = '<div class="mono-note">' + (isCloudSessionReady() ? 'Немає зв\'язку. «Вхідні» доступні лише онлайн.' : 'Спершу увійдіть у Cloud (іконка профілю).') + '</div>'; return; }
+  if(monoInbox.offline){ body.innerHTML = cloudGateNote(monoInbox.gate, '«Вхідні» доступні лише онлайн.', 'Спершу увійдіть у Cloud (іконка профілю).'); return; } // Rev 2.32.89 (SYNCUI-1)
   const parts = [];
   if(monoInbox.tab === 'new'){
     const cands = addAllCandidates(monoInbox.rows).length;
@@ -20817,7 +20857,7 @@ const NOTIF_ICON_SVG = {
   journal: ['ic-blue', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>'],
   bell: ['', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>']
 };
-let notifArchive = { rows: [], loaded: false, offline: false, unread: 0, busy: false };
+let notifArchive = { gate: 'ready', rows: [], loaded: false, offline: false, unread: 0, busy: false };
 let isNotifArchiveOpen = false;
 function updateNotifBell(){
   const el = document.getElementById('notif-bell-count'), btn = document.getElementById('notif-bell-btn');
@@ -20836,7 +20876,8 @@ async function refreshNotifUnread(){
   }catch(e){}
 }
 async function loadNotifArchive(){
-  if(!monoReady()){ notifArchive.loaded = true; notifArchive.offline = true; return; }
+  notifArchive.gate = await awaitCloudGate(); // Rev 2.32.89 (SYNCUI-1)
+  if(notifArchive.gate !== 'ready'){ notifArchive.loaded = true; notifArchive.offline = true; return; }
   notifArchive.offline = false;
   try{
     const r = await getSupabaseClient().from('user_notifications').select('id,type,title,body,data,created_at,read_at').order('created_at', { ascending: false }).limit(200);
@@ -20858,7 +20899,7 @@ function renderNotifArchive(){
   if(!body) return;
   const ra = document.getElementById('notif-readall-btn'); if(ra) ra.disabled = !notifArchive.unread;
   if(!notifArchive.loaded){ body.innerHTML = '<div class="mono-note">Завантаження…</div>'; return; }
-  if(notifArchive.offline && !notifArchive.rows.length){ body.innerHTML = '<div class="mono-note">' + (isCloudSessionReady() ? 'Немає зв\'язку. Архів доступний лише онлайн.' : 'Спершу увійдіть у Cloud (іконка профілю).') + '</div>'; return; }
+  if(notifArchive.offline && !notifArchive.rows.length){ body.innerHTML = cloudGateNote(notifArchive.gate, 'Архів доступний лише онлайн.', 'Спершу увійдіть у Cloud (іконка профілю).'); return; } // Rev 2.32.89 (SYNCUI-1)
   const parts = [];
   if(!notifArchive.rows.length) parts.push('<div class="mono-note">Сповіщень немає</div>');
   else groupNotificationsByDay(notifArchive.rows, new Date()).forEach(function(g){
