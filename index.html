@@ -3494,7 +3494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.90</div>
+  <div class="version-footer">Money Tree · Rev 2.32.91</div>
 </div>
   </div>
 </div>
@@ -7952,7 +7952,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.90';
+const APP_VERSION = '2.32.91';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9255,7 +9255,7 @@ async function initCloudAuthUI(){
   // тож ЛЕГІТИМНИЙ повторний виклик пізніше (напр. після виходу з акаунта)
   // і далі повністю переоцінює стан, як і раніше.
   if(cloudAuthInitInFlight) return cloudAuthInitInFlight;
-  cloudAuthInitInFlight = initCloudAuthUIImpl().finally(function(){ cloudAuthInitInFlight = null; cloudAuthSettled = true; }); // Rev 2.32.89 (SYNCUI-1): перше відновлення сесії завершено (успіхом чи ні)
+  cloudAuthInitInFlight = initCloudAuthUIImpl().finally(function(){ cloudAuthInitInFlight = null; cloudAuthSettled = true; reloadOpenCloudScreensNow(false); }); // Rev 2.32.91 (SYNCUI-1 fix): після тайм-ауту екран оновлюється, коли відновлення завершилось (і без сесії); без повторної спроби, щоб не було циклу // Rev 2.32.89 (SYNCUI-1): перше відновлення сесії завершено (успіхом чи ні)
   return cloudAuthInitInFlight;
 }
 let cloudAuthInitInFlight = null;
@@ -9271,6 +9271,7 @@ async function initCloudAuthUIImpl(){
   document.getElementById('cloud-auth-error').textContent = '';
   try{
     await loadSupabaseSdk();
+    cloudAuthSdkFailed = false; // Rev 2.32.91 (SYNCUI-1 fix): SDK завантажено — «немає зв'язку» через SDK знято
   }catch(e){
     cloudAuthSdkFailed = true; // Rev 2.32.89 (SYNCUI-1)
     setCloudAuthOffline(true);
@@ -9385,7 +9386,7 @@ async function applyCloudSession(session){
     teardownNotifRealtime(); // Rev 2.32.38 (B)
   }
   renderProfileUI();
-  if(isCloudSessionReady() && typeof reloadOpenCloudScreens === 'function') reloadOpenCloudScreens(false); // Rev 2.32.89 (SYNCUI-1): сесію відновлено — відкриті екрани перезавантажуються
+  if(isCloudSessionReady()) reloadOpenCloudScreensNow(false); // Rev 2.32.89 (SYNCUI-1): сесію відновлено — відкриті екрани перезавантажуються
 }
 // Rev #30 (6D.93) — Крок 2 push-інфраструктури: клієнтська підписка.
 // Публічний VAPID-ключ НЕ секрет (лише приватний ключ підписує сповіщення
@@ -20159,7 +20160,16 @@ async function awaitCloudGate(){
   return cloudGateState(ctx(Date.now() - t0 >= CLOUD_GATE_TIMEOUT_MS));
 }
 // Перезавантаження відкритих екранів, що застрягли в «немає зв'язку/увійдіть» (відновлення сесії, мережа, кнопка «Повторити»). force — з кнопки.
+// Rev 2.32.91 (SYNCUI-1 fix, зауваження spec-reviewer): холодний старт офлайн — SDK не завантажився, cloudAuthSdkFailed лишався true і екран назавжди показував «Немає зв'язку». Тепер «Повторити» і подія online спершу повторюють відновлення сесії (initCloudAuthUI), потім перезавантажують екрани. Лише за подією/кнопкою, не в циклі.
 function reloadOpenCloudScreens(force){
+  if(cloudAuthSdkFailed && cloudAuthSettled && !cloudAuthInitInFlight && navigator.onLine && !isCloudSessionReady()){
+    const again = function(){ reloadOpenCloudScreensNow(force); };
+    initCloudAuthUI().then(again, again);
+    return;
+  }
+  reloadOpenCloudScreensNow(force);
+}
+function reloadOpenCloudScreensNow(force){
   if(isMonoInboxOpen && monoInbox.offline && (monoInbox.loaded || force)){ monoInbox.loaded = false; renderMonoInbox(); loadMonoInbox().then(renderMonoInbox); }
   if(isMonoOpen && monoState.offline && (monoState.loaded || force)){ monoState.loaded = false; renderMonoScreen(); loadMonoState().then(renderMonoScreen); }
   if(isNotifArchiveOpen && notifArchive.offline && !notifArchive.rows.length && (notifArchive.loaded || force)){ notifArchive.loaded = false; renderNotifArchive(); loadNotifArchive().then(renderNotifArchive); }

@@ -37,10 +37,11 @@ test('awaitCloudGate: чекає відновлення, потім ready (го�
   setTimeout(function(){ ready = true; }, 250);
   assert.equal(await c.awaitCloudGate(), 'ready');
 });
-test('awaitCloudGate: тайм-аут → timeout', async function(){
-  const c = make({ cloudAuthInitInFlight: {} });
-  const r = await Promise.race([c.awaitCloudGate(), new Promise(function(res){ setTimeout(function(){ res('too-slow'); }, 9500); })]);
-  assert.equal(r, 'timeout');
+test('awaitCloudGate: тайм-аут → timeout (підроблений годинник, без реального очікування)', async function(){
+  let now = 1000;
+  const FakeDate = { now: function(){ return now; } };
+  const c = make({ cloudAuthInitInFlight: {}, Date: FakeDate, setTimeout: function(fn, ms){ now += ms; fn(); } });
+  assert.equal(await c.awaitCloudGate(), 'timeout');
 });
 test('екрани підключені до шлюзу, «увійдіть» не показується напряму', function(){
   const SRC = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
@@ -48,6 +49,46 @@ test('екрани підключені до шлюзу, «увійдіть» н
   assert.match(SRC, /monoState\.gate = await awaitCloudGate\(\)/);
   assert.match(SRC, /notifArchive\.gate = await awaitCloudGate\(\)/);
   assert.match(SRC, /cloudAuthSettled = true/);
-  assert.match(SRC, /reloadOpenCloudScreens\(false\); \/\/ Rev 2.32.89/);
+  assert.match(SRC, /reloadOpenCloudScreensNow\(false\)/);
   assert.ok(!/isCloudSessionReady\(\) \? 'Немає зв\\'язку\. «Вхідні»/.test(SRC));
+});
+
+// Rev 2.32.91 (SYNCUI-1 fix): повтор відновлення сесії, коли SDK не завантажився (холодний старт офлайн).
+function makeReload(over){
+  const calls = [];
+  const g = Object.assign({ cloudAuthSdkFailed: false, cloudAuthSettled: true, cloudAuthInitInFlight: null, navigator: { onLine: true },
+    isCloudSessionReady: function(){ return false; },
+    isMonoInboxOpen: true, isMonoOpen: false, isNotifArchiveOpen: false,
+    monoInbox: { offline: true, loaded: true }, monoState: { offline: false, loaded: true }, notifArchive: { offline: false, loaded: true, rows: [] },
+    renderMonoInbox: function(){}, renderMonoScreen: function(){}, renderNotifArchive: function(){},
+    loadMonoInbox: function(){ calls.push('loadInbox'); return Promise.resolve(); }, loadMonoState: function(){ calls.push('loadMono'); return Promise.resolve(); }, loadNotifArchive: function(){ calls.push('loadArchive'); return Promise.resolve(); },
+    initCloudAuthUI: function(){ calls.push('init'); return Promise.resolve(); } }, over || {});
+  const c = buildSandbox(g, ['reloadOpenCloudScreens', 'reloadOpenCloudScreensNow']);
+  return { c: c, calls: calls, g: g };
+}
+test('reloadOpenCloudScreens: SDK не завантажився → спершу initCloudAuthUI, потім перезавантаження', async function(){
+  const m = makeReload({ cloudAuthSdkFailed: true });
+  m.c.reloadOpenCloudScreens(true);
+  await new Promise(function(r){ setTimeout(r, 20); });
+  assert.deepEqual(m.calls, ['init', 'loadInbox']);
+});
+test('reloadOpenCloudScreens: без збою SDK — одразу перезавантаження; не-offline екрани не чіпає; loaded=false без force пропускається', async function(){
+  const m = makeReload();
+  m.c.reloadOpenCloudScreens(false);
+  assert.deepEqual(m.calls, ['loadInbox']);
+  const m2 = makeReload({ monoInbox: { offline: true, loaded: false } });
+  m2.c.reloadOpenCloudScreens(false);
+  assert.deepEqual(m2.calls, []);
+  m2.c.reloadOpenCloudScreens(true);
+  assert.deepEqual(m2.calls, ['loadInbox']);
+  const m3 = makeReload({ monoInbox: { offline: false, loaded: true } });
+  m3.c.reloadOpenCloudScreens(true);
+  assert.deepEqual(m3.calls, []);
+});
+test('reloadOpenCloudScreens: повтор відновлення не запускається під час відновлення, офлайн чи коли сесія готова (немає циклу)', function(){
+  [{ cloudAuthInitInFlight: {} }, { navigator: { onLine: false } }, { isCloudSessionReady: function(){ return true; } }].forEach(function(o){
+    const m = makeReload(Object.assign({ cloudAuthSdkFailed: true }, o));
+    m.c.reloadOpenCloudScreens(false);
+    assert.ok(m.calls.indexOf('init') === -1);
+  });
 });
