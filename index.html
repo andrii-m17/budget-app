@@ -3494,7 +3494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.91</div>
+  <div class="version-footer">Money Tree · Rev 2.32.92</div>
 </div>
   </div>
 </div>
@@ -7952,7 +7952,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.91';
+const APP_VERSION = '2.32.92';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -20577,6 +20577,7 @@ async function monoAfterChange(){
   await loadMonoInbox();
   renderMonoInbox();
   refreshMonoNewCount();
+  refreshNotifAfterAction().catch(function(){}); // Rev 2.32.92 (NOTIF-1 Rev 1): сервер (тригер trg_mono_inbox_autoread) прочитує сповіщення, коли оброблено всю пачку; дзвіночок і архів оновлюються одразу
 }
 async function monoAcceptFromRow(id){
   const row = monoInbox.rows.filter(function(r){ return safeId(r.id) === id; })[0];
@@ -20902,6 +20903,18 @@ async function refreshNotifUnread(){
     if(h && typeof h.unread_notifications === 'number'){ notifArchive.unread = h.unread_notifications; updateNotifBell(); }
   }catch(e){}
 }
+// Rev 2.32.92 (NOTIF-1 Rev 1): після дії по події («додати», «ігнорувати», «додати всі», повернення) сервер сам ставить read_at сповіщенню, коли оброблено ВСЮ пачку (trg_mono_inbox_autoread, 16.10). Клієнт лише оновлює лічильник дзвіночка (спершу дочекавшись «голів», що вже летять: вони могли початись до дії) і, якщо архів відкрито, його список. Офлайн/без сесії нічого не робить (лічильник лишається останнім відомим). Ризик: тригер спрацьовує на сервері; пачка з кількох операцій не прочитується, доки не оброблено всі.
+async function refreshNotifAfterAction(){
+  if(!monoReady()) return;
+  if(headsInFlight){ try{ await headsInFlight; }catch(e){} }
+  await refreshNotifUnread();
+  if(isNotifArchiveOpen){ await loadNotifArchive(); renderNotifArchive(); }
+}
+// Rev 2.32.92 (NOTIF-1 Rev 1): спільний обробник подій user_notifications (INSERT — нове, UPDATE — прочитано тригером/іншим пристроєм).
+function onNotifRealtimeChange(){
+  refreshNotifUnread();
+  if(isNotifArchiveOpen) loadNotifArchive().then(renderNotifArchive);
+}
 async function loadNotifArchive(){
   notifArchive.gate = await awaitCloudGate(); // Rev 2.32.89 (SYNCUI-1)
   if(notifArchive.gate !== 'ready'){ notifArchive.loaded = true; notifArchive.offline = true; return; }
@@ -21002,10 +21015,9 @@ function setupNotifRealtime(){
   try{
     const client = getSupabaseClient();
     notifRealtimeChannel = client.channel('user-notifications-' + cloudSession.user.id)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_notifications', filter: 'user_id=eq.' + cloudSession.user.id }, function(){
-        refreshNotifUnread();
-        if(isNotifArchiveOpen) loadNotifArchive().then(renderNotifArchive);
-      }).subscribe();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_notifications', filter: 'user_id=eq.' + cloudSession.user.id }, onNotifRealtimeChange)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'user_notifications', filter: 'user_id=eq.' + cloudSession.user.id }, onNotifRealtimeChange) // Rev 2.32.92 (NOTIF-1 Rev 1): read_at, що ставить сервер
+      .subscribe();
   }catch(e){ notifRealtimeChannel = null; }
 }
 function teardownNotifRealtime(){
