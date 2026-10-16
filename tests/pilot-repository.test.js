@@ -6572,3 +6572,35 @@ test('запобіжник kb-open не діє для полів у шторка
   runTimers();
   assert.equal(body.classList.contains('kb-open'), true);
 });
+
+// Rev 2.32.93 (EDITED-1, доробка за spec-reviewer): поведінкові тести pull для edited_at.
+const E_ROW = { id: 'e1', amount: 500, expense_date: '2026-05-05', category: '🍔 Їжа', subcategory: 'Кафе', note: 'Кава', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-02T00:00:00.000Z', edited_at: '2024-01-02T00:00:00+00:00' };
+test('pullExpensesCore + edited_at: новий запис із сервера отримує editedAt', async () => {
+  const ctx = pullExpensesSandbox([Object.assign({}, E_ROW)]);
+  ctx.expenses = [];
+  await ctx.pullExpensesCore();
+  assert.equal(ctx.expenses[0].editedAt, '2024-01-02T00:00:00+00:00');
+});
+test('pullExpensesCore + edited_at: існуючий запис з тими самими значеннями (редагували й повернули назад) підтягує позначку; повторний pull без змін', async () => {
+  const ctx = pullExpensesSandbox([Object.assign({}, E_ROW)]);
+  ctx.expenses = [{ id: 'e1', name: 'Кава', amount: 500, date: '2026-05-05', category: '🍔 Їжа', subcategory: 'Кафе', manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z', createdBy: undefined, updatedBy: undefined }];
+  const r1 = await ctx.pullExpensesCore();
+  assert.equal(plain(r1).updated, 1);
+  assert.equal(ctx.expenses[0].editedAt, '2024-01-02T00:00:00+00:00');
+  // повторний pull тих самих даних: умова diff за edited_at хибна (момент часу, а не рядок) — циклу оновлень немає
+  assert.equal(ctx.editedAtDiffers(ctx.expenses[0].editedAt, '2024-01-02T00:00:00.000Z'), false);
+});
+test('pullExpensesCore + edited_at: null із сервера не знімає локальну позначку', async () => {
+  const row = Object.assign({}, E_ROW, { edited_at: null, updated_at: '2024-01-03T00:00:00.000Z', amount: 600 });
+  const ctx = pullExpensesSandbox([row]);
+  ctx.expenses = [{ id: 'e1', name: 'Кава', amount: 500, date: '2026-05-05', category: '🍔 Їжа', subcategory: 'Кафе', manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z', editedAt: '2024-01-01T12:00:00.000Z' }];
+  await ctx.pullExpensesCore();
+  assert.equal(ctx.expenses[0].amount, 600);
+  assert.equal(ctx.expenses[0].editedAt, '2024-01-01T12:00:00.000Z');
+});
+test('pullExpensesCore + edited_at: запис без edited_at на сервері лишається без позначки (старі записи)', async () => {
+  const ctx = pullExpensesSandbox([Object.assign({}, E_ROW, { edited_at: null })]);
+  ctx.expenses = [];
+  await ctx.pullExpensesCore();
+  assert.equal(ctx.expenses[0].editedAt, undefined);
+});
