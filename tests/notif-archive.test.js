@@ -54,7 +54,7 @@ test('notifTimeLabel: час для сьогодні/вчора, дата для
 function env(rows, unread){
   const calls = [], rendered = [];
   const g = {
-    notifArchive: { rows: rows, loaded: true, offline: false, unread: unread, busy: false }, calls: calls, handled: [], closed: 0,
+    notifArchive: { rows: rows, loaded: true, offline: false, unread: unread, busy: false, batches: {}, batchesOk: false }, calls: calls, handled: [], closed: 0,
     safeId: function(x){ return String(x).replace(/[^0-9A-Za-z_-]/g, ''); },
     updateNotifBell: function(){}, renderNotifArchive: function(){ rendered.push(1); }, refreshNotifUnread: function(){},
     debugRecordingActive: false, showTextToast: function(){},
@@ -62,7 +62,7 @@ function env(rows, unread){
     handlePushAction: async function(a){ g.handled.push(a); },
     getSupabaseClient: function(){ return { rpc: async function(name, args){ calls.push({ name: name, args: args }); return { error: null }; } }; },
   };
-  const ctx = buildSandbox(g, ['openNotificationRow', 'markAllNotificationsRead', 'runClearNotifArchive']);
+  const ctx = buildSandbox(g, ['openNotificationRow', 'markAllNotificationsRead', 'runClearNotifArchive', 'notifRowState', 'notifBatchKey']);
   return { ctx, g, calls };
 }
 test('тап по сповіщенню: mark_notifications_read([id]), лічильник −1, перехід за типом', async function(){
