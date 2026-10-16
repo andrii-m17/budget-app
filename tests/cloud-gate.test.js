@@ -47,7 +47,7 @@ test('екрани підключені до шлюзу, «увійдіть» н
   const SRC = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
   assert.match(SRC, /monoInbox\.gate = await awaitCloudGate\(\)/);
   assert.match(SRC, /monoState\.gate = await awaitCloudGate\(\)/);
-  assert.match(SRC, /notifArchive\.gate = await awaitCloudGate\(\)/);
+  assert.match(SRC, /const gate = await awaitCloudGate\(\); \/\/ Rev 2\.32\.89[\s\S]{0,120}notifArchive\.gate = gate/);
   assert.match(SRC, /cloudAuthSettled = true/);
   assert.match(SRC, /reloadOpenCloudScreensNow\(false\)/);
   assert.ok(!/isCloudSessionReady\(\) \? 'Немає зв\\'язку\. «Вхідні»/.test(SRC));

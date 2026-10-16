@@ -1503,7 +1503,6 @@
   .notif-row-main{ min-width:0; flex:1; display:flex; flex-direction:column; gap:2px; }
   .notif-row-title{ font-size:15px; font-weight:400; line-height:1.3; color:var(--notif-muted); }
   .notif-row-text{ font-size:14px; line-height:1.35; color:var(--notif-muted); overflow-wrap:anywhere; }
-  .notif-row-time{ flex:none; font-size:12.5px; color:var(--notif-muted); padding-top:2px; font-variant-numeric:tabular-nums; }
   .notif-row .notif-row-icon{ opacity:.45; }
   .notif-row.unread .notif-row-title{ font-weight:600; color:var(--color-text-primary); }
   .notif-row.unread .notif-row-text{ color:var(--color-text-primary); }
@@ -1512,7 +1511,6 @@
   .mono-screen{ --notif-muted:#7C8699; --notif-unread-bg:rgba(255,255,255,.04); }
   :root[data-theme="light"] .mono-screen{ --notif-muted:#5F6B7D; --notif-unread-bg:rgba(0,0,0,.035); }
   .notif-row.unread{ background:var(--notif-unread-bg); }
-  .notif-row.unread .notif-row-time{ color:var(--color-text-primary); }
   /* Rev 2.32.96 (NOTIF-1 Rev 3): журнал сповіщень як історія. Рядок = .expense-row-swipe (спільний свайп Журналу: свайп уліво → кнопка «Видалити» 84 pt) + .expense-row.notif-row; стани: Нове (крапка info, жирний заголовок, фон), Оброблено (порожня крапка, приглушено), Прочитано (без крапки, приглушено). Рядки лишаються в групі .mono-group (розділювачі, без відступів), тому обгортка свайпу без радіуса й відступу, а рядок непрозорий (кнопка дій під ним). */
   .notif-swipe{ border-radius:0; margin-bottom:0; }
   html:root .notif-swipe.expense-row-swipe, html:root .expense-row.notif-row.notif-row{ border-radius:0; } /* Rev 2.32.96: специфічність 0,4,1 > html:root :is(.expense-row, .expense-row-swipe) (0,2,1, нижче в файлі): рядки лишаються в групі без закруглень */
@@ -1521,6 +1519,7 @@
   .notif-swipe .expense-row-actions button{ width:84px; }
   .expense-row.notif-row{ display:flex; align-items:flex-start; gap:12px; border:0; border-left:0; border-radius:0; box-shadow:none; margin:0; padding:12px 16px; background:var(--color-surface); width:100%; box-sizing:border-box; }
   .expense-row.notif-row.unread{ background-image:linear-gradient(var(--notif-unread-bg), var(--notif-unread-bg)); }
+  .expense-row.notif-row.is-pressed{ background-color:var(--color-surface-hover); background-image:none; } /* Rev 2.32.97: реакція на натискання (специфічність вища за .expense-row.notif-row) */
   .notif-row-state{ display:flex; align-items:center; gap:6px; margin-top:2px; font-size:12.5px; line-height:1.3; color:var(--notif-muted); font-variant-numeric:tabular-nums; }
   .notif-row.unread .notif-row-state{ color:var(--color-text-primary); }
   .notif-state-dot{ flex:none; width:8px; height:8px; box-sizing:border-box; border-radius:50%; }
@@ -3511,7 +3510,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.96</div>
+  <div class="version-footer">Money Tree · Rev 2.32.97</div>
 </div>
   </div>
 </div>
@@ -7969,7 +7968,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.96';
+const APP_VERSION = '2.32.97';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -20994,29 +20993,36 @@ function onNotifRealtimeChange(){
     refreshNotifAfterAction().catch(function(){});
   }, 250);
 }
+// Rev 2.32.97 (NOTIF-1 Rev 3 fix, зауваження spec-reviewer D1–D4): (1) відповідь застосовується лише від НАЙНОВІШОГО запиту (notifLoadSeq): паралельні завантаження (Realtime, online, відкриття) не перемішуються; (2) rows, batches і batchesOk присвоюються РАЗОМ після всіх await (раніше між ними вікно, де всі Monobank-рядки здавались «Обробленими»); (3) id видалених сповіщень (notifDeletedIds) відсікаються з відповіді, тож запит, що пішов до коміту видалення, не воскрешає рядок.
+let notifLoadSeq = 0;
+const notifDeletedIds = new Set();
 async function loadNotifArchive(){
-  notifArchive.gate = await awaitCloudGate(); // Rev 2.32.89 (SYNCUI-1)
-  if(notifArchive.gate !== 'ready'){ notifArchive.loaded = true; notifArchive.offline = true; return; }
+  const seq = ++notifLoadSeq;
+  const gate = await awaitCloudGate(); // Rev 2.32.89 (SYNCUI-1)
+  if(seq !== notifLoadSeq) return;
+  notifArchive.gate = gate;
+  if(gate !== 'ready'){ notifArchive.loaded = true; notifArchive.offline = true; return; }
   notifArchive.offline = false;
   try{
     const r = await getSupabaseClient().from('user_notifications').select('id,type,title,body,data,created_at,read_at').order('created_at', { ascending: false }).limit(200);
     if(r.error) throw r.error;
-    notifArchive.rows = r.data || [];
-    await loadNotifBatches(notifArchive.rows); // Rev 2.32.96 (NOTIF-1 Rev 3): один запит стану пачок
+    const rows = (r.data || []).filter(function(x){ return !notifDeletedIds.has(safeId(x.id)); });
+    const b = await fetchNotifBatches(rows); // Rev 2.32.96 (NOTIF-1 Rev 3): один запит стану пачок
+    if(seq !== notifLoadSeq) return;
+    notifArchive.rows = rows; notifArchive.batches = b.batches; notifArchive.batchesOk = b.ok;
     notifArchive.loaded = true;
-  }catch(e){ notifArchive.offline = true; notifArchive.loaded = true; }
+  }catch(e){ if(seq !== notifLoadSeq) return; notifArchive.offline = true; notifArchive.loaded = true; }
 }
-// Rev 2.32.96 (NOTIF-1 Rev 3): один запит до mono_inbox за діапазоном created_at сповіщень Monobank у списку (без запиту на кожен рядок); помилка чи неповна відповідь → batchesOk = false (стан за read_at).
-async function loadNotifBatches(rows){
-  notifArchive.batches = {}; notifArchive.batchesOk = true;
+// Rev 2.32.96 (NOTIF-1 Rev 3): один запит до mono_inbox за діапазоном created_at сповіщень Monobank у списку (без запиту на кожен рядок); помилка чи неповна відповідь (ліміт 1000) → ok:false (стан за read_at, «Оброблено» не вигадується). Повертає { batches, ok }, нічого не присвоює (див. loadNotifArchive).
+async function fetchNotifBatches(rows){
   const times = (rows || []).filter(function(r){ return (r.type || (r.data && r.data.type)) === 'mono-inbox' && notifBatchKey(r.created_at) !== null; })
     .map(function(r){ return r.created_at; }).sort(function(a, b){ return Date.parse(a) - Date.parse(b); });
-  if(!times.length) return;
+  if(!times.length) return { batches: {}, ok: true };
   try{
     const r = await getSupabaseClient().from('mono_inbox').select('notified_at,status,expense_id').gte('notified_at', times[0]).lte('notified_at', times[times.length - 1]).limit(1000);
     if(r.error || !r.data || r.data.length >= 1000) throw new Error('batches');
-    notifArchive.batches = groupInboxBatches(r.data);
-  }catch(e){ notifArchive.batches = {}; notifArchive.batchesOk = false; }
+    return { batches: groupInboxBatches(r.data), ok: true };
+  }catch(e){ return { batches: {}, ok: false }; }
 }
 function notifRowHtml(row){
   const type = row.type || (row.data && row.data.type) || '';
@@ -21088,7 +21094,7 @@ async function openProcessedNotification(row){
   const target = notifProcessedTarget(notifArchive.batches[notifBatchKey(row.created_at)], expenses);
   if(target.kind === 'gone'){ showTextToast('Запис уже недоступний', 'info'); return; }
   closeNotifArchive();
-  document.body.classList.remove('kb-open');
+  document.body.classList.remove('kb-open'); // Rev 2.32.97: те саме скидання, що в handlePushAction (прецедент); логіки клавіатури не змінює
   if(target.kind === 'journal'){ openExpenseInJournal(target.expenseId, target.date); return; }
   performSwitchTab('service');
   await openMonoInbox({ tab: target.tab });
@@ -21112,6 +21118,7 @@ async function deleteNotificationRow(id){
   if(blockedByReadOnly()) return;
   if(!monoReady()){ showTextToast('Немає зв\'язку, спробуйте пізніше', 'error'); return; }
   const row = notifArchive.rows[idx];
+  notifDeletedIds.add(id); // Rev 2.32.97: відповідь запиту, що пішов до коміту видалення, цей рядок не воскресить
   notifArchive.rows.splice(idx, 1);
   if(!row.read_at){ notifArchive.unread = Math.max(0, notifArchive.unread - 1); updateNotifBell(); }
   renderNotifArchive();
@@ -21120,8 +21127,11 @@ async function deleteNotificationRow(id){
     if(r.error) throw r.error;
     refreshNotifUnread();
   }catch(e){
-    notifArchive.rows.splice(Math.min(idx, notifArchive.rows.length), 0, row);
-    if(!row.read_at){ notifArchive.unread += 1; updateNotifBell(); }
+    notifDeletedIds.delete(id);
+    if(!notifArchive.rows.some(function(x){ return safeId(x.id) === id; })){ // без дубля, якщо список за цей час уже перезавантажено
+      notifArchive.rows.splice(Math.min(idx, notifArchive.rows.length), 0, row);
+      if(!row.read_at){ notifArchive.unread += 1; updateNotifBell(); }
+    }
     renderNotifArchive();
     showTextToast('Не вдалося видалити сповіщення: помилка зв\'язку', 'error');
   }
@@ -21146,7 +21156,7 @@ async function runClearNotifArchive(){
   try{
     const r = await getSupabaseClient().rpc('clear_notifications');
     if(r.error) throw r.error;
-    notifArchive.rows = []; notifArchive.unread = 0; updateNotifBell(); renderNotifArchive();
+    notifArchive.rows = []; notifArchive.unread = 0; notifDeletedIds.clear(); updateNotifBell(); renderNotifArchive();
     if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', cleared: true });
   }catch(e){ showTextToast('Немає зв\'язку, спробуйте пізніше', 'error'); }
 }

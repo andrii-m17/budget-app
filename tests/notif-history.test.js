@@ -55,6 +55,7 @@ function envDelete(over){
     showTextToast: (t, k) => log.push('toast:' + k + ':' + t),
     getSupabaseClient: () => ({ rpc: async (name, args) => { log.push(name + ':' + args.p_id); return { error: null }; } }),
   }, over || {});
+  g.notifDeletedIds = g.notifDeletedIds || new Set();
   const c = buildSandbox(g, ['deleteNotificationRow']);
   return { c, log, g };
 }
@@ -121,18 +122,60 @@ test('тап по обробленому: одна додана → Журнал
   await skip.c.openProcessedNotification(N('a', B2));
   assert.deepEqual(skip.log, ['close', 'tab:service', 'inbox:skipped', 'hl:' + B2]);
 });
-test('loadNotifBatches: один запит на 100+ сповіщень, діапазон за created_at; помилка або неповна відповідь → batchesOk=false', async function(){
+test('fetchNotifBatches: один запит на 100+ сповіщень, діапазон за created_at; помилка або неповна відповідь → ok=false; нічого не присвоює', async function(){
   const calls = [];
   const rows = []; for(let i = 0; i < 120; i++) rows.push(N('n' + i, new Date(Date.UTC(2026, 9, 16, 5, 0, i)).toISOString()));
-  const mk = reply => buildSandbox({ notifArchive: { batches: { x: 1 }, batchesOk: true }, getSupabaseClient: () => ({ from: t => ({ select: cols => ({ gte: (c, v) => ({ lte: (c2, v2) => ({ limit: n => { calls.push({ t, cols, v, v2, n }); return reply(); } }) }) }) }) }) }, ['notifBatchKey', 'groupInboxBatches', 'loadNotifBatches']);
+  const mk = reply => buildSandbox({ notifArchive: { batches: { x: 1 }, batchesOk: true }, getSupabaseClient: () => ({ from: t => ({ select: cols => ({ gte: (c, v) => ({ lte: (c2, v2) => ({ limit: n => { calls.push({ t, cols, v, v2, n }); return reply(); } }) }) }) }) }) }, ['notifBatchKey', 'groupInboxBatches', 'fetchNotifBatches']);
   const ok = mk(async () => ({ data: [{ notified_at: rows[0].created_at, status: 'added', expense_id: 'x' }], error: null }));
-  await ok.loadNotifBatches(rows);
+  const res = await ok.fetchNotifBatches(rows);
   assert.equal(calls.length, 1); assert.equal(calls[0].t, 'mono_inbox'); assert.equal(calls[0].cols, 'notified_at,status,expense_id');
   assert.equal(calls[0].v, rows[0].created_at); assert.equal(calls[0].v2, rows[119].created_at);
-  assert.equal(ok.notifArchive.batchesOk, true);
-  const bad = mk(async () => ({ data: null, error: { message: 'x' } })); await bad.loadNotifBatches(rows); assert.equal(bad.notifArchive.batchesOk, false);
-  const full = mk(async () => ({ data: new Array(1000).fill({ notified_at: rows[0].created_at, status: 'added' }), error: null })); await full.loadNotifBatches(rows); assert.equal(full.notifArchive.batchesOk, false);
-  const none = mk(async () => { throw new Error('не мав викликатись'); }); await none.loadNotifBatches([{ id: 'o', type: 'backup-reminder', created_at: B1 }]); assert.equal(none.notifArchive.batchesOk, true);
+  assert.equal(res.ok, true); assert.deepEqual(Object.keys(j(res.batches)).length, 1);
+  assert.deepEqual(j(ok.notifArchive), { batches: { x: 1 }, batchesOk: true }, 'стан екрана не чіпається (атомарне присвоєння в loadNotifArchive)');
+  assert.equal((await mk(async () => ({ data: null, error: { message: 'x' } })).fetchNotifBatches(rows)).ok, false);
+  assert.equal((await mk(async () => ({ data: new Array(1000).fill({ notified_at: rows[0].created_at, status: 'added' }), error: null })).fetchNotifBatches(rows)).ok, false);
+  const none = await mk(async () => { throw new Error('не мав викликатись'); }).fetchNotifBatches([{ id: 'o', type: 'backup-reminder', created_at: B1 }]);
+  assert.equal(none.ok, true);
+});
+
+// ---- Rev 2.32.97: гонки (зауваження spec-reviewer D1–D4) ----
+function envLoad(over){
+  const g = Object.assign({
+    notifArchive: { rows: [], batches: {}, batchesOk: true, loaded: false, offline: false, gate: 'ready' }, notifLoadSeq: 0, notifDeletedIds: new Set(),
+    safeId: x => String(x).replace(/[^0-9A-Za-z_-]/g, ''), awaitCloudGate: async () => 'ready',
+    getSupabaseClient: () => ({ from: () => ({ select: () => ({ order: () => ({ limit: async () => ({ data: [N('n1', B1), N('n2', B2)], error: null }) }) }) }) }),
+    fetchNotifBatches: async () => ({ batches: { b: 1 }, ok: true }),
+  }, over || {});
+  return { c: buildSandbox(g, ['loadNotifArchive']), g };
+}
+test('гонка: рядок, видалений до відповіді запиту, не воскресає; rows/batches/batchesOk присвоюються разом', async function(){
+  const snaps = [];
+  const arch = { rows: [], batches: {}, batchesOk: true, loaded: false, offline: false, gate: 'ready' };
+  const e = envLoad({ notifArchive: arch, notifDeletedIds: new Set(['n1']), fetchNotifBatches: async function(){ snaps.push(j(arch)); return { batches: { b: 1 }, ok: false }; } });
+  await e.c.loadNotifArchive();
+  assert.deepEqual(arch.rows.map(r => r.id), ['n2']);
+  assert.equal(arch.batchesOk, false); assert.deepEqual(j(arch.batches), { b: 1 });
+  assert.deepEqual(snaps[0].rows, [], 'до відповіді стан екрана не змінювався (немає вікна «усе Оброблено»)');
+  assert.equal(snaps[0].batchesOk, true);
+});
+test('гонка: відповідь застосовується лише від найновішого запиту (старіший, що закінчився пізніше, ігнорується)', async function(){
+  let n = 0; const resolvers = [];
+  const e = envLoad({ getSupabaseClient: () => ({ from: () => ({ select: () => ({ order: () => ({ limit: () => new Promise(res => { resolvers.push(res); n++; }) }) }) }) }) });
+  const p1 = e.c.loadNotifArchive(); await new Promise(r => setTimeout(r, 5));
+  const p2 = e.c.loadNotifArchive(); await new Promise(r => setTimeout(r, 5));
+  assert.equal(n, 2);
+  resolvers[1]({ data: [N('new', B2)], error: null }); await p2;
+  resolvers[0]({ data: [N('old', B1)], error: null }); await p1;
+  assert.deepEqual(e.g.notifArchive.rows.map(r => r.id), ['new']);
+});
+test('відкат видалення не створює дубль, якщо список за цей час уже перезавантажено; успішне видалення лишає id в notifDeletedIds', async function(){
+  const e = envDelete({ getSupabaseClient: () => ({ rpc: async function(){ e.g.notifArchive.rows.splice(0, 0, N('n1', B1)); return { error: { message: 'x' } }; } }) });
+  await e.c.deleteNotificationRow('n1');
+  assert.equal(e.g.notifArchive.rows.filter(r => r.id === 'n1').length, 1, 'без дубля');
+  assert.ok(!e.g.notifDeletedIds.has('n1'), 'після відкату id знову дозволений');
+  const ok = envDelete();
+  await ok.c.deleteNotificationRow('n1');
+  assert.ok(ok.g.notifDeletedIds.has('n1'));
 });
 test('охоронні: розмітка рядка (свайп-обгортка, кнопка 84 pt, role=button, кошик з aria-label), підтвердження «Очистити», вкладка у openMonoInbox, data-rec-id у Журналі', function(){
   assert.match(SRC, /class="expense-row-swipe notif-swipe"/);
