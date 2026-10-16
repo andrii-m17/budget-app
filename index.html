@@ -3525,7 +3525,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.99</div>
+  <div class="version-footer">Money Tree · Rev 2.32.100</div>
 </div>
   </div>
 </div>
@@ -4664,7 +4664,7 @@ async function reconcileCategoryCloudId(client, userId, cat){
 // чекаючи ручного редагування — це не "pull → push" для отриманих даних,
 // а "pull виявив, що ЛОКАЛЬНІ дані ще не дійшли до Cloud → допомагає їм
 // дійти".
-async function pullCategoriesCore(){
+async function pullCategoriesCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0;
@@ -4672,7 +4672,7 @@ async function pullCategoriesCore(){
   try{
     // Rev #30 (6D.38) — інкрементальний pull: applySyncMarker() додає
     // .gte('updated_at', marker) лише якщо маркер уже є для цього домену.
-    const { data, error } = await fetchDeltaRows(client, 'categories', 'id,name,active,type,created_at,updated_at,deleted_at', 'categories'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
+    const { data, error } = await fetchDeltaRows(client, 'categories', 'id,name,active,type,created_at,updated_at,deleted_at', 'categories', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
       if(row.deleted_at){ await pullTaxonomyTombstone('category', row); continue; } // Rev 2.32.7 (T3): tombstone — гілка зникає локально, за назвою не зв'язується
@@ -5311,14 +5311,14 @@ async function reconcileDictionaryCloudId(client, userId, entry, categoryId, sub
 // "справжнього" видаленого family_id-власника FK не буває; єдиний
 // реальний шлях сюди — порядок pull (subcategories/dictionary мусять
 // пулитись ПІСЛЯ categories, applyCloudSession() дотримується цього).
-async function pullSubcategoriesCore(){
+async function pullSubcategoriesCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
   let maxSeen = null; // Rev #30 (6D.38) — max(updated_at) ЛИШЕ серед рядків, що пройшли FK-резолюцію (нижче)
   try{
     // Rev 2.22.89 (6D.162, Ревізія C) — deactivated_via додано до select().
-    const { data, error } = await fetchDeltaRows(client, 'subcategories', 'id,name,category_id,active,deactivated_via,created_at,updated_at,deleted_at', 'subcategories'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
+    const { data, error } = await fetchDeltaRows(client, 'subcategories', 'id,name,category_id,active,deactivated_via,created_at,updated_at,deleted_at', 'subcategories', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
       if(row.deleted_at){ await pullTaxonomyTombstone('subcategory', row); continue; } // Rev 2.32.7 (T3): див. pullCategoriesCore
@@ -5390,7 +5390,7 @@ async function pullSubcategoriesPilot(){
 // null — легітимний стан, НЕ помилка й НЕ причина для skippedFk). Мусить
 // пулитись ПІСЛЯ subcategories (той самий порядок, що вже діє в push,
 // застосований симетрично тут — applyCloudSession() дотримується).
-async function pullDictionaryCore(){
+async function pullDictionaryCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
@@ -5398,7 +5398,7 @@ async function pullDictionaryCore(){
   try{
     // Rev 2.22.80 (6D.153, Крок A2) — deleted_at додано до select.
     // Rev 2.22.89 (6D.162, Ревізія C) — deleted_via додано до select.
-    const { data, error } = await fetchDeltaRows(client, 'dictionary', 'id,keyword,category_id,subcategory_id,deleted_at,deleted_via,created_at,updated_at', 'dictionary'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
+    const { data, error } = await fetchDeltaRows(client, 'dictionary', 'id,keyword,category_id,subcategory_id,deleted_at,deleted_via,created_at,updated_at', 'dictionary', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
       const parentCat = CATEGORIES.find(function(c){ return c.cloudId === row.category_id; });
@@ -6914,7 +6914,7 @@ async function pushDebtsBatched(records, chunkSize){
    уже задокументований принцип, що в решти 6 доменів): локальний запис
    без Cloud-відповідника НЕ чіпається. Жодна фінансова формула не
    змінена — pull лише записує сирі поля, розрахунки й далі локальні. */
-async function pullExpensesCore(){
+async function pullExpensesCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
@@ -6941,7 +6941,7 @@ async function pullExpensesCore(){
     // масовий фальшивий спалах "Х відредагував(ла)" для старих даних.
     // Замість цього updatedBy бекфілиться ОПОРТУНІСТИЧНО — лише коли запис
     // і так торкається діф з ІНШОЇ причини (як updatedBy присвоюється нижче).
-    const { data, error } = await fetchDeltaRows(client, 'expenses', 'id,amount,expense_date,category,subcategory,note,linked_installment_id,deleted_at,created_at,updated_at,created_by,updated_by,source,external_id,edited_at', 'expenses'); // Rev 2.32.90 (EDITED-1): + edited_at; Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
+    const { data, error } = await fetchDeltaRows(client, 'expenses', 'id,amount,expense_date,category,subcategory,note,linked_installment_id,deleted_at,created_at,updated_at,created_by,updated_by,source,external_id,edited_at', 'expenses', opts); // Rev 2.32.90 (EDITED-1): + edited_at; Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
       let linkedInstallmentName = null;
@@ -7068,7 +7068,7 @@ async function pullExpensesPilot(){
 // узагалі — з самого початку об'єднано в syncAllPilotManual() нижче за
 // файлом (продуктове рішення користувача, той самий принцип, що вже
 // застосований ретроактивно до попередніх 5 доменів вище).
-async function pullIncomesCore(){
+async function pullIncomesCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, added = 0, keptLocal = 0;
@@ -7081,7 +7081,7 @@ async function pullIncomesCore(){
     // принцип/обмеження, що докоментар над query у pullExpensesCore() вище —
     // жоден із них НЕ в OR-ланцюжку тригера діфу нижче, лише опортуністичний
     // бекфіл, щоб не спричинити масовий фальшивий спалах сповіщень).
-    const { data, error } = await fetchDeltaRows(client, 'incomes', 'id,amount,income_date,note,deleted_at,created_at,updated_at,created_by,updated_by', 'incomes'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
+    const { data, error } = await fetchDeltaRows(client, 'incomes', 'id,amount,income_date,note,deleted_at,created_at,updated_at,created_by,updated_by', 'incomes', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
       const local = incomes.find(function(i){ return i.id === row.id; });
@@ -7159,7 +7159,7 @@ async function pullIncomesPilot(){
 }
 // Rev #30 (6D.37) — pullIncomesPilotManual() (окрема кнопка) не додана —
 // той самий принцип, що pullExpensesPilotManual() вище.
-async function pullDebtsCore(){
+async function pullDebtsCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
@@ -7168,7 +7168,7 @@ async function pullDebtsCore(){
   try{
     // Rev #30 (6D.83) — created_by/updated_by додано (той самий принцип/
     // обмеження, що докоментар над query у pullExpensesCore()).
-    const { data, error } = await fetchDeltaRows(client, 'debts', 'id,bank_account_id,installment_account_id,name,kind,month,balance,min_payment,min_payment_done,monthly_payment,deleted_at,created_at,updated_at,created_by,updated_by', 'debts'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
+    const { data, error } = await fetchDeltaRows(client, 'debts', 'id,bank_account_id,installment_account_id,name,kind,month,balance,min_payment,min_payment_done,monthly_payment,deleted_at,created_at,updated_at,created_by,updated_by', 'debts', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
       let resolvedName;
@@ -7402,13 +7402,13 @@ async function reconcileBankAccountCloudId(client, userId, acc){
 // Видалення НЕ синхронізується — bankAccounts взагалі не має локального
 // "active"-поля (картки ховаються через hiddenFrom, не через масив), тому
 // це питання тут ще й структурно неактуальне.
-async function pullBankAccountsCore(){
+async function pullBankAccountsCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   try{
-    const { data, error } = await fetchDeltaRows(client, 'bank_accounts', 'id,name,credit_limit,payment_day,created_at,updated_at,deleted_at', 'bankAccounts'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
+    const { data, error } = await fetchDeltaRows(client, 'bank_accounts', 'id,name,credit_limit,payment_day,created_at,updated_at,deleted_at', 'bankAccounts', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
       // Rev 2.32.4 (T2): tombstone-рядок (рахунок видалено назавжди на іншому пристрої) прибирає рахунок, його місячні записи й запис прихованого локально;
@@ -7576,13 +7576,13 @@ async function reconcileInstallmentAccountCloudId(client, userId, acc){
 // TODO-застереження щодо "звільнення назви" (byName reconciliation), той
 // самий свідомий пропуск синхронізації видалення (installmentAccounts, як
 // і bankAccounts, не має локального "active"-поля).
-async function pullInstallmentAccountsCore(){
+async function pullInstallmentAccountsCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   try{
-    const { data, error } = await fetchDeltaRows(client, 'installment_accounts', 'id,name,initial_amount,due_day,created_at,updated_at,deleted_at', 'installmentAccounts'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
+    const { data, error } = await fetchDeltaRows(client, 'installment_accounts', 'id,name,initial_amount,due_day,created_at,updated_at,deleted_at', 'installmentAccounts', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
       if(row.deleted_at){ if(await pullAccountTombstone('installment', row)) removed++; continue; } // Rev 2.32.4 (T2): див. pullBankAccountsCore
@@ -7986,7 +7986,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.99';
+const APP_VERSION = '2.32.100';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9749,15 +9749,15 @@ async function handlePushAction(action){
 // власним UI-статусом і лічильниками для користувача) — лише спільна
 // довідкова структура для двох НОВИХ, тихих (без UI-статусу) механізмів.
 const PULL_DOMAINS = [
-  { key: 'categories', table: 'categories', fn: function(){ return pullCategoriesCore(); } },
-  { key: 'subcategories', table: 'subcategories', fn: function(){ return pullSubcategoriesCore(); } },
-  { key: 'dictionary', table: 'dictionary', fn: function(){ return pullDictionaryCore(); } },
-  { key: 'bankAccounts', table: 'bank_accounts', fn: function(){ return pullBankAccountsCore(); } },
-  { key: 'installmentAccounts', table: 'installment_accounts', fn: function(){ return pullInstallmentAccountsCore(); } },
-  { key: 'hiddenEntities', table: 'hidden_entities', fn: function(){ return pullHiddenEntitiesCore(); } },
-  { key: 'expenses', table: 'expenses', fn: function(){ return pullExpensesCore(); } },
-  { key: 'incomes', table: 'incomes', fn: function(){ return pullIncomesCore(); } },
-  { key: 'debts', table: 'debts', fn: function(){ return pullDebtsCore(); } },
+  { key: 'categories', table: 'categories', fn: function(o){ return pullCategoriesCore(o); } },
+  { key: 'subcategories', table: 'subcategories', fn: function(o){ return pullSubcategoriesCore(o); } },
+  { key: 'dictionary', table: 'dictionary', fn: function(o){ return pullDictionaryCore(o); } },
+  { key: 'bankAccounts', table: 'bank_accounts', fn: function(o){ return pullBankAccountsCore(o); } },
+  { key: 'installmentAccounts', table: 'installment_accounts', fn: function(o){ return pullInstallmentAccountsCore(o); } },
+  { key: 'hiddenEntities', table: 'hidden_entities', fn: function(o){ return pullHiddenEntitiesCore(o); } },
+  { key: 'expenses', table: 'expenses', fn: function(o){ return pullExpensesCore(o); } },
+  { key: 'incomes', table: 'incomes', fn: function(o){ return pullIncomesCore(o); } },
+  { key: 'debts', table: 'debts', fn: function(o){ return pullDebtsCore(o); } },
 ];
 // Rev #30 (6D.56, Крок 0 п.3) — dedup-guard між Realtime-подіями і
 // sync-on-resume: якщо для ТОГО САМОГО домену вже є pull "у польоті" (з
@@ -9766,12 +9766,16 @@ const PULL_DOMAINS = [
 // (6D.54) — ключ per-домен (не один спільний прапорець), бо різні домени
 // мають незалежно й одночасно синхронізуватись.
 const pullInFlightByDomain = {};
-function pullOnce(domainKey){
-  if(pullInFlightByDomain[domainKey]) return pullInFlightByDomain[domainKey];
+// Rev 2.32.100: opts.full — повна звірка (F1); якщо для домену вже летить звичайний pull, повна звірка ЧЕКАЄ на нього й виконується окремо (а не підміняється ним).
+function pullOnce(domainKey, opts){
   const domain = PULL_DOMAINS.find(function(d){ return d.key === domainKey; });
   if(!domain) return Promise.resolve({ skipped: true });
-  pullInFlightByDomain[domainKey] = domain.fn().finally(function(){ delete pullInFlightByDomain[domainKey]; });
-  return pullInFlightByDomain[domainKey];
+  const prev = pullInFlightByDomain[domainKey];
+  if(prev && !(opts && opts.full)) return prev;
+  const start = prev ? prev.catch(function(){}).then(function(){ return domain.fn(opts); }) : domain.fn(opts);
+  const tracked = start.finally(function(){ if(pullInFlightByDomain[domainKey] === tracked) delete pullInFlightByDomain[domainKey]; });
+  pullInFlightByDomain[domainKey] = tracked;
+  return tracked;
 }
 // Rev #30 (6D.56) — один спільний канал на всі 9 таблиць (не по каналу на
 // таблицю — один WebSocket, дев'ять .on()-підписок, стандартний
@@ -9865,17 +9869,17 @@ async function refreshSyncProfiles(){
     return true;
   }catch(e){ return false; }
 }
-async function pullTableForSync(table){
+async function pullTableForSync(table, opts){
   const d = PULL_DOMAINS.find(function(x){ return x.table === table; });
   if(!d) return { ok: false, changed: 0 };
-  const r = await pullOnce(d.key);
+  const r = await pullOnce(d.key, opts);
   if(!r || r.skipped) return { ok: false, changed: 0 };
   return { ok: true, changed: (r.added || 0) + (r.updated || 0) + (r.linked || 0) + (r.removed || 0) };
 }
-async function runSyncPulls(tables, results){
+async function runSyncPulls(tables, results, opts){
   const changedTables = [];
   for(const t of tables){
-    const r = await pullTableForSync(t);
+    const r = await pullTableForSync(t, opts);
     results[t] = r.ok;
     syncDiag('sync-delta', { table: t, rows: r.changed, ok: r.ok });
     if(r.ok && r.changed) changedTables.push(t);
@@ -9915,9 +9919,8 @@ async function runSyncCheck(reason, o){
   if(plan.full) syncDiag('sync-full', { reason: plan.full, trigger: reason });
   const results = {};
   if(plan.profiles) results.profiles = o.profilesLoaded ? true : await refreshSyncProfiles();
-  syncFullMode = !!plan.full; syncFullDirty = false; // Rev 2.32.99 (PAGING-1 Rev B): повна звірка = F1 для таблиць із маркером
-  let changedTables;
-  try{ changedTables = await runSyncPulls(plan.tables, results); }finally{ syncFullMode = false; }
+  syncFullDirty = false;
+  const changedTables = await runSyncPulls(plan.tables, results, plan.full ? { full: true } : undefined); // Rev 2.32.99/100 (PAGING-1 Rev B): повна звірка (F1) для таблиць із маркером; режим передається параметром, а не глобальним прапорцем
   // Перепис id довідникових доменів і push «брудних» записів: частина повної звірки; поза нею — лише коли є що відправляти (офлайн-правки)
   if(reason !== 'realtime' && (plan.full || nameDomainsHaveDirty())){
     try{ await syncNameDomainsOnConnect(); }catch(e){}
@@ -10018,6 +10021,9 @@ function getSyncMarker(domain){
 }
 function setSyncMarker(domain, isoTimestamp){
   const markers = loadSyncMarkers();
+  // Rev 2.32.100 (PAGING-1 Rev B fix, зауваження spec-reviewer): мітка лише просувається вперед. У повній звірці до pull*Core потрапляють лише ВІДМІННІ рядки (часто зі старим updated_at), тож maxSeen міг бути меншим за мітку й відсунути її назад (наступні дельти читали б зайве). Скидання робить лише clearSyncMarkers.
+  const cur = markers[domain];
+  if(cur && isoTimestamp){ const a = Date.parse(cur), b = Date.parse(isoTimestamp); if(!isNaN(a) && !isNaN(b) && b < a) return; }
   markers[domain] = isoTimestamp;
   localStorage.setItem(LS_KEY_SYNC_MARKERS, JSON.stringify(markers));
 }
@@ -10047,8 +10053,7 @@ function applySyncMarker(query, domain){
 const PULL_PAGE_SIZE = 500;
 // Rev 2.32.99 (PAGING-1 Rev B): запобіжники циклів сторінкування: не більше PULL_MAX_PAGES сторінок (2000 × 500 = 1 млн рядків; далі помилка, а не «успіх» із неповними даними) і курсор мусить просуватись (інакше помилка, а не нескінченний цикл).
 const PULL_MAX_PAGES = 2000;
-// Rev 2.32.99 (PAGING-1 Rev B, F1): справжня повна звірка. Дельта за маркером (updated_at ≥ мітка − 2 с) не бачить (а) рядків зі старим updated_at («заднім числом»), (б) рядків, жорстко видалених на сервері. У режимі повної звірки (syncFullMode: planSync.full, «Синхронізувати все») для таблиці з маркером fetchDeltaRows замість дельти: 1) читає ЛЕГКИЙ індекс сервера id, updated_at, deleted_at ключовими сторінками за id; 2) порівнює з локальним (diffServerIndex); 3) дозавантажує повні рядки лише тих id, яких немає локально або в яких інший updated_at (по 100 в in(...)), і віддає їх звичайному pull*Core (злиття, LWW, надгробки, skippedFk без змін); 4) локальні надгробки, яких немає на сервері, прибирає (reconcilePlan + removeTrashLocally); 5) локальний ЖИВИЙ синхронізований запис витрат/доходів/боргів без рядка на сервері НЕ видаляє, а знімає syncedUpdatedAt (повторний push: рішення чату; пристрій, не відкритий довше за строк надгробків 14 днів, може відтворити видалений запис). Довідникові домени (категорії, підкатегорії, слова, картки, ОЧ): живі без рядка на сервері лишає переписові id (syncNameDomainsOnConnect). Захист: порожній індекс сервера при непорожніх локальних записах = помилка (схоже на мертву сесію/RLS), нічого не змінюється. Без маркера (перший pull) читання й так повне. Ризик: +1 запит на 500 рядків індексу на таблицю раз на 24 год (витрати ≈ 929 → +2).
-let syncFullMode = false;
+// Rev 2.32.99 (PAGING-1 Rev B, F1): справжня повна звірка. Дельта за маркером (updated_at ≥ мітка − 2 с) не бачить (а) рядків зі старим updated_at («заднім числом»), (б) рядків, жорстко видалених на сервері. У режимі повної звірки (opts.full: planSync.full, «Синхронізувати все») для таблиці з маркером fetchDeltaRows замість дельти: 1) читає ЛЕГКИЙ індекс сервера id, updated_at, deleted_at ключовими сторінками за id; 2) порівнює з локальним (diffServerIndex); 3) дозавантажує повні рядки лише тих id, яких немає локально або в яких інший updated_at (по 100 в in(...)), і віддає їх звичайному pull*Core (злиття, LWW, надгробки, skippedFk без змін); 4) локальні надгробки, яких немає на сервері, прибирає (reconcilePlan + removeTrashLocally); 5) локальний ЖИВИЙ синхронізований запис витрат/доходів/боргів без рядка на сервері НЕ видаляє, а знімає syncedUpdatedAt (повторний push: рішення чату; пристрій, не відкритий довше за строк надгробків 14 днів, може відтворити видалений запис). Довідникові домени (категорії, підкатегорії, слова, картки, ОЧ): живі без рядка на сервері лишає переписові id (syncNameDomainsOnConnect). Захист: порожній індекс сервера при непорожніх локальних записах = помилка (схоже на мертву сесію/RLS), нічого не змінюється. Без маркера (перший pull) читання й так повне. Ризик: +1 запит на 500 рядків індексу на таблицю раз на 24 год (витрати ≈ 929: 2 запити індексу замість 1 дельти, тобто +1).
 let syncFullDirty = false;
 function sameInstantStr(a, b){
   if(!a || !b) return false;
@@ -10115,18 +10120,25 @@ function localSyncEntries(table){
   }
 }
 const FULL_RECON_TOMB_TYPES = { expenses: ['expense'], incomes: ['income'], dictionary: ['word'], debts: ['debtMonth', 'installmentMonth'] };
-async function applyFullReconcileEffects(table, serverRows, diff){
+// Rev 2.32.100: записи, змінені ПІСЛЯ початку читання індексу (updatedAt ≥ indexStartedAt), не вважаються «зниклими з сервера» (могли щойно запушитись): їх не чіпаємо, їх підхопить наступна звірка. Локальний стан береться заново на момент ефектів.
+async function applyFullReconcileEffects(table, serverRows, indexStartedAt){
   let removed = 0, dirty = 0;
+  const serverIds = new Set(serverRows.map(function(r){ return r.id; }));
+  const fresh = localSyncEntries(table);
+  const isRecent = function(e){ const t = Date.parse(e.updatedAt); return !isNaN(t) && t >= indexStartedAt; };
+  const recentIds = new Set(fresh.filter(isRecent).map(function(e){ return e.id; }));
+  const missing = fresh.filter(function(e){ return !serverIds.has(e.id) && !recentIds.has(e.id); });
   const types = FULL_RECON_TOMB_TYPES[table];
   if(types){
     const cloudRows = [];
     serverRows.forEach(function(r){ types.forEach(function(t){ cloudRows.push({ type: t, id: r.id, deleted_at: r.deleted_at }); }); });
     const tombs = trashTombstonesForReconcile(trashStateNow()).filter(function(t){ return types.indexOf(t.type) !== -1; });
     const plan = reconcilePlan(tombs, cloudRows);
-    if(plan.removeLocal.length){ await removeTrashLocally(plan.removeLocal); removed = plan.removeLocal.length; }
+    const keys = plan.removeLocal.filter(function(k){ return !recentIds.has(k.slice(k.indexOf(':') + 1)); });
+    if(keys.length){ await removeTrashLocally(keys); removed = keys.length; }
   }
   if(table === 'expenses' || table === 'incomes' || table === 'debts'){
-    diff.missing.forEach(function(e){ if(!e.deletedAt && e.synced){ delete e.rec.syncedUpdatedAt; dirty++; } });
+    missing.forEach(function(e){ if(!e.deletedAt && e.synced){ delete e.rec.syncedUpdatedAt; dirty++; } });
     if(dirty){
       if(table === 'expenses') reportSaveResult(await saveExpenses());
       else if(table === 'incomes') reportSaveResult(await saveIncomes());
@@ -10136,6 +10148,7 @@ async function applyFullReconcileEffects(table, serverRows, diff){
   return { removed: removed, dirty: dirty };
 }
 async function fetchFullReconcileRows(client, table, columns){
+  const indexStartedAt = Date.now();
   const idx = await fetchServerIndex(client, table);
   if(!idx.rows) return { data: null, error: idx.error };
   const entries = localSyncEntries(table);
@@ -10143,14 +10156,14 @@ async function fetchFullReconcileRows(client, table, columns){
   const diff = diffServerIndex(idx.rows, entries);
   const rows = diff.fetchIds.length ? await fetchRowsByIds(client, table, columns, diff.fetchIds) : [];
   if(rows === null) return { data: null, error: { message: 'by-ids' } };
-  const fx = await applyFullReconcileEffects(table, idx.rows, diff);
+  const fx = await applyFullReconcileEffects(table, idx.rows, indexStartedAt);
   if(fx.dirty) syncFullDirty = true;
   if(typeof syncDiag === 'function') syncDiag('sync-full-recon', { table: table, server: idx.rows.length, fetched: rows.length, removed: fx.removed, dirty: fx.dirty });
   return { data: rows, error: null };
 }
-async function fetchDeltaRows(client, table, columns, domain){
+async function fetchDeltaRows(client, table, columns, domain, opts){
   const marker = getSyncMarker(domain);
-  if(syncFullMode && marker) return fetchFullReconcileRows(client, table, columns); // Rev 2.32.99 (PAGING-1 Rev B)
+  if(opts && opts.full && marker) return fetchFullReconcileRows(client, table, columns); // Rev 2.32.99/100 (PAGING-1 Rev B)
   const from = marker ? syncDeltaFrom(marker) : null;
   const rows = [];
   let cursor = null, total = null;
@@ -10698,11 +10711,9 @@ async function syncAllPilotManual(){
   let anySucceeded = false;
   const manualHeads = await fetchSyncHeadsShared(); // Rev 2.32.74 (U): «голови» ДО повної звірки (зміни під час неї піймає наступна перевірка)
   const manualOk = {};
-  syncFullMode = true; // Rev 2.32.99 (PAGING-1 Rev B): «Синхронізувати все» = справжня повна звірка (F1); живі записи без рядка на сервері знімаються з syncedUpdatedAt і відправляються нижче цією ж кнопкою
-  try{
   for(let si = 0; si < steps.length; si++){
     const step = steps[si];
-    const result = await step();
+    const result = await step({ full: true }); // Rev 2.32.99/100 (PAGING-1 Rev B): «Синхронізувати все» = справжня повна звірка (F1); живі записи без рядка на сервері знімаються з syncedUpdatedAt і відправляються нижче цією ж кнопкою
     manualOk[SYNC_TABLE_ORDER[si]] = !!(result && !result.skipped); // порядок кроків = SYNC_TABLE_ORDER
     if(!result || result.skipped) continue;
     anySucceeded = true;
@@ -10710,7 +10721,6 @@ async function syncAllPilotManual(){
     updated += result.updated || 0;
     linked += result.linked || 0;
   }
-  }finally{ syncFullMode = false; }
   if(!anySucceeded){
     statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
     return;

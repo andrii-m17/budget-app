@@ -28,7 +28,7 @@ test('expenseEditChanged: змінилось лише справжнє знач�
   assert.equal(c.expenseEditChanged(a, Object.assign({}, a, { linkedInstallment: 'ОЧ' })), true);
 });
 test('охоронні: edited_at у select, payload (запис і пакет), pull; ставить лише saveRecordEdit; доходи без позначки', function(){
-  assert.match(SRC, /updated_by,source,external_id,edited_at', 'expenses'\)/);
+  assert.match(SRC, /updated_by,source,external_id,edited_at', 'expenses', opts\)/);
   assert.equal((SRC.match(/\.\.\.editedAtPayload\(rec\)/g) || []).length, 2);
   assert.match(SRC, /if\(row\.edited_at\) local\.editedAt = row\.edited_at/);
   assert.match(SRC, /if\(row\.edited_at\) rec\.editedAt = row\.edited_at/);

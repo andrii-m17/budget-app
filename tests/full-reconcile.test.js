@@ -43,7 +43,7 @@ const loc = (n, extra) => Object.assign({ id: ID(n), updatedAt: U(n), syncedUpda
 
 function env(over){
   const g = Object.assign({
-    cloudFamilyId: 'fam', syncFullMode: true, syncFullDirty: false, getSyncMarker: () => 'marker',
+    cloudFamilyId: 'fam', syncFullDirty: false, getSyncMarker: () => 'marker',
     expenses: [], incomes: [], debts: [], CATEGORIES: [], SUBCATEGORIES: [], DICTIONARY: [], bankAccounts: [], installmentAccounts: [],
     removed: [], saved: [], diag: [],
     trashStateNow: function(){ return { expenses: g.expenses, incomes: g.incomes, debts: g.debts, dictionary: g.DICTIONARY }; },
@@ -84,10 +84,10 @@ test('№8 рядок зі старим updated_at, якого немає лок
   const server = [srv(1), srv(2), srv(3, { updated_at: U(0) })]; // №3 «заднім числом»
   const e = env({ expenses: [loc(1), loc(2)] });
   const cl = fakeClient({ expenses: server });
-  const r = await e.c.fetchDeltaRows(cl, 'expenses', 'id,updated_at,deleted_at,amount', 'expenses');
+  const r = await e.c.fetchDeltaRows(cl, 'expenses', 'id,updated_at,deleted_at,amount', 'expenses', { full: true });
   assert.deepEqual(j(r.data.map(x => x.id)), [ID(3)]);
   // той самий сценарій у дельта-режимі: нічого (мітка пізніше за updated_at)
-  const e2 = env({ expenses: [loc(1), loc(2)], syncFullMode: false, getSyncMarker: () => U(2) });
+  const e2 = env({ expenses: [loc(1), loc(2)], getSyncMarker: () => U(2) });
   const r2 = await e2.c.fetchDeltaRows(fakeClient({ expenses: server }), 'expenses', 'id,updated_at,deleted_at,amount', 'expenses');
   assert.ok(!r2.data.some(x => x.id === ID(3)), 'дельта не бачить рядок заднім числом');
 });
@@ -144,12 +144,12 @@ test('без маркера (перший pull) режим повної звір
   const rows = []; for(let i = 0; i < 1200; i++) rows.push(srv(i));
   const e = env({ getSyncMarker: () => null });
   const cl = fakeClient({ expenses: rows });
-  const r = await e.c.fetchDeltaRows(cl, 'expenses', 'id,updated_at,deleted_at,amount', 'expenses');
+  const r = await e.c.fetchDeltaRows(cl, 'expenses', 'id,updated_at,deleted_at,amount', 'expenses', { full: true });
   assert.equal(r.error, null); assert.equal(r.data.length, 1200);
   assert.ok(cl.calls.every(c => c.cols !== 'id,updated_at,deleted_at'), 'повні колонки, не індекс');
 });
 test('запобіжники: курсор, що не просувається, і перевищення PULL_MAX_PAGES дають помилку, а не «успіх» з неповними даними', async function(){
-  const e = env({ syncFullMode: false });
+  const e = env();
   const stuck = { from: () => ({ select: () => { const q = { eq: () => q, gt: () => q, gte: () => q, or: () => q, order: () => q, limit: () => q, then: (res) => Promise.resolve({ data: [{ id: 'z', updated_at: 'u' }], count: 99999, error: null }).then(res) }; return q; } }) };
   const r = await e.c.fetchDeltaRows(stuck, 'expenses', 'id', 'expenses');
   assert.equal(r.data, null); assert.equal(r.error.message, 'cursor-stuck');
@@ -157,9 +157,23 @@ test('запобіжники: курсор, що не просувається, 
   assert.equal(idxStuck.rows, null); assert.equal(idxStuck.error.message, 'cursor-stuck');
   assert.match(SRC, /const PULL_MAX_PAGES = 2000;/);
 });
-test('охоронні: режим повної звірки вмикається лише за planSync.full і в «Синхронізувати все» і завжди скидається; відправка живих без рядка через autoSyncStale', function(){
-  assert.match(SRC, /syncFullMode = !!plan\.full; syncFullDirty = false;[\s\S]{0,200}finally\{ syncFullMode = false; \}/);
-  assert.match(SRC, /syncFullMode = true;[^\n]*\n  try\{\n  for\(let si = 0; si < steps\.length; si\+\+\)[\s\S]{0,700}\}finally\{ syncFullMode = false; \}/);
+test('охоронні: режим повної звірки передається параметром opts.full (а не глобальним прапорцем): runSyncCheck за plan.full, «Синхронізувати все», 8 pull-ядер; autoSyncStale після повної', function(){
+  assert.ok(!/syncFullMode/.test(SRC.replace(/\/\/[^\n]*/g, '')), 'глобального прапорця syncFullMode немає (поза коментарями)');
+  assert.match(SRC, /runSyncPulls\(plan\.tables, results, plan\.full \? \{ full: true \} : undefined\)/);
+  assert.match(SRC, /const result = await step\(\{ full: true \}\);/);
+  assert.equal((SRC.match(/await fetchDeltaRows\(client, '[a-z_]+', '[^']*', '[A-Za-z]+', opts\)/g) || []).length, 8);
+  assert.match(SRC, /if\(opts && opts\.full && marker\) return fetchFullReconcileRows\(client, table, columns\);/);
   assert.match(SRC, /if\(syncFullDirty\)\{ syncFullDirty = false; try\{ await autoSyncStale\('full-reconcile'\); \}catch\(e\)\{\} \}/);
-  assert.match(SRC, /if\(syncFullMode && marker\) return fetchFullReconcileRows\(client, table, columns\);/);
+});
+
+test('вікно між індексом і ефектами: записи, змінені після початку читання індексу, не вважаються зниклими з сервера (ні надгробок прибрати, ні живий перепушити)', async function(){
+  const future = new Date(Date.now() + 60000).toISOString();
+  const liveRecent = loc(1, { updatedAt: future, syncedUpdatedAt: future });
+  const tombRecent = loc(2, { updatedAt: future, syncedUpdatedAt: future, deletedAt: future });
+  const liveOld = loc(3), tombOld = loc(4, { deletedAt: U(9) });
+  const e = env({ expenses: [liveRecent, tombRecent, liveOld, tombOld, loc(5)] });
+  await e.c.fetchFullReconcileRows(fakeClient({ expenses: [srv(5)] }), 'expenses', 'id,updated_at,deleted_at,amount');
+  assert.ok(liveRecent.syncedUpdatedAt, 'щойно змінений живий не чіпається');
+  assert.equal(liveOld.syncedUpdatedAt, undefined, 'давній живий без рядка на сервері — на повторний push');
+  assert.deepEqual(j(e.g.removed), ['expense:' + ID(4)], 'давній надгробок прибрано, щойно змінений лишився');
 });
