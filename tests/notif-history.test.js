@@ -183,7 +183,23 @@ test('охоронні: розмітка рядка (свайп-обгортка
   assert.match(SRC, /role="button" tabindex="0" data-notif-id=/);
   assert.equal((SRC.match(/aria-label="Видалити сповіщення"/g) || []).length, 2);
   assert.match(SRC, /showConfirmModal\('Видалити всі сповіщення\? Це не можна скасувати\.', runClearNotifArchive, 'Видалити'\)/);
+  // Rev 2.32.98: макет: «Очистити» в шапці поруч із «Прочитати всі», пілюля стану поруч із заголовком, підпис «джерело · час»
+  assert.match(SRC, /id="notif-clear-btn" onclick="confirmClearNotifArchive\(\)">Очистити</);
+  assert.ok(!/data-notif-clear="1"><span>Очистити/.test(SRC), 'рядка «Очистити» в кінці списку більше немає');
+  assert.match(SRC, /<span class="notif-pill">' \+ escapeHtml\(NOTIF_STATE_LABEL\[st\]\)/);
+  assert.match(SRC, /<span class="notif-row-source">' \+ escapeHtml\(notifSourceLabel\(type\)/);
+  assert.match(SRC, /@media \(max-width:359px\)\{\s*\.notif-top\{ flex-wrap:wrap;/);
+  assert.match(SRC, /\.notif-row:not\(\.unread\) \.notif-row-main, \.notif-row:not\(\.unread\) \.notif-row-icon, \.notif-row:not\(\.unread\) \.notif-dot\{ opacity:\.75; \}/);
   assert.match(SRC, /monoInbox\.tab = \(opts && opts\.tab\) \|\| 'new'/);
   assert.match(SRC, /data-rec-id="\$\{safeId\(e\.id\)\}"/);
   assert.match(SRC, /rpc\('delete_notification', \{ p_id: row\.id \}\)/);
+});
+
+test('notifSourceLabel: підпис джерела за типом; невідомий тип — Money Tree', function(){
+  const c = buildSandbox({ PUSH_TYPE_LABELS: { 'mono-inbox': 'Monobank', 'installment-deadline': 'Платіж за ОЧ' } }, ['notifSourceLabel']);
+  assert.equal(c.notifSourceLabel('mono-inbox'), 'Monobank');
+  assert.equal(c.notifSourceLabel('installment-deadline'), 'Платіж за ОЧ');
+  assert.equal(c.notifSourceLabel('щось-нове'), 'Money Tree');
+  assert.equal(c.notifSourceLabel(''), 'Money Tree');
+  assert.equal(c.notifSourceLabel('toString'), 'Money Tree');
 });

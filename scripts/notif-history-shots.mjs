@@ -1,4 +1,4 @@
-// NOTIF-1 Rev 3 (Rev 2.32.96): журнал сповіщень як історія: виміри й скріншоти на синтетичних даних.
+// NOTIF-1 Rev 3 (Rev 2.32.96–2.32.98): журнал сповіщень як історія: виміри й скріншоти на синтетичних даних.
 // Запуск: preview «після» на http://localhost:8934 (npx http-server -p 8934 -c-1); за бажанням «до» (інша копія) на :8935.
 //   node scripts/notif-history-shots.mjs after [ширини через кому]   → docs/ui/notif3-after-<тема>-<ширина>.png
 //   node scripts/notif-history-shots.mjs before [ширини]              → docs/ui/notif3-before-<тема>-<ширина>.png (порт 8935)
@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { writeFileSync, mkdirSync } from 'node:fs';
 const MODE = process.argv[2] === 'before' ? 'before' : 'after';
 const BASE = MODE === 'before' ? 'http://localhost:8935' : 'http://localhost:8934';
-const WIDTHS = (process.argv[3] || '320,390,440').split(',').map(Number);
+const WIDTHS = (process.argv[3] || '290,320,360,390,440').split(',').map(Number);
 const chrome = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', ['--headless=new', '--remote-debugging-port=9336', '--user-data-dir=' + (process.env.TMPDIR || '/tmp') + '/notif-shots-profile', '--no-first-run', 'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let ws;
@@ -42,13 +42,25 @@ const SEED = `(()=>{
   notifArchive.batchesOk = true; notifArchive.unread = 3; notifArchive.loaded = true; notifArchive.offline = false;
   renderNotifArchive(); return 1; })()`;
 const SEED_BEFORE = SEED.replace("notifArchive.batches = groupInboxBatches([].concat(", "void ([].concat(").replace("notifArchive.batchesOk = true;", "");
+// < 360: дії другим рядком (рамки торкаються через margin-top:-6px, текст не перекривається), тому ov(title, дії) там не рахується
 const MEASURE = `(()=>{
   const body = document.getElementById('notif-archive-body');
   const rows = [...body.querySelectorAll('.notif-row')];
   const over = rows.filter(r => r.scrollWidth > r.clientWidth + 1).length;
   const main = [...body.querySelectorAll('.notif-row-main')].filter(m => m.scrollWidth > m.clientWidth + 1).length;
   const hscroll = document.documentElement.scrollWidth > document.documentElement.clientWidth + 1;
-  return JSON.stringify({ rows: rows.length, over, main, hscroll, heights: rows.map(r => Math.round(r.getBoundingClientRect().height)), states: rows.map(r => (r.className.match(/notif-state-(\\w+)/)||[])[1]||'-') });
+  const r = el => el.getBoundingClientRect();
+  const top = document.querySelector('.notif-top');
+  let hdr = null;
+  if(top){
+    const rg = document.createRange(); rg.selectNodeContents(top.querySelector('.notif-title')); const ti = rg.getBoundingClientRect();
+    const bk = r(top.querySelector('.notif-back svg')), ac = r(top.querySelector('.notif-archive-top-action'));
+    const btns = [...top.querySelectorAll('.notif-archive-top-action button')].map(b => { const g = document.createRange(); g.selectNodeContents(b); return g.getBoundingClientRect(); });
+    const ov = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+    hdr = { overlap: btns.some(b => ov(ti, b) || ov(bk, b)) || ov(bk, ti), actionsBelow: btns.every(b => b.top >= ti.bottom - 1), actionsRight: Math.round(r(top).right - ac.right), outside: ac.right > window.innerWidth + 0.5 || ac.left < -0.5, h: Math.round(r(top).height) };
+  }
+  const pills = [...body.querySelectorAll('.notif-pill')].map(p => p.textContent);
+  return JSON.stringify({ hdr, pills, rows: rows.length, over, main, hscroll, heights: rows.map(r => Math.round(r.getBoundingClientRect().height)), states: rows.map(r => (r.className.match(/notif-state-(\\w+)/)||[])[1]||'-') });
 })()`;
 let bad = 0;
 for(const w of WIDTHS) for(const theme of ['dark', 'light']){
@@ -61,7 +73,7 @@ for(const w of WIDTHS) for(const theme of ['dark', 'light']){
   await ev(MODE === 'before' ? SEED_BEFORE : SEED); await sleep(300);
   const m = JSON.parse(await ev(MEASURE));
   console.log(MODE, w, theme, JSON.stringify(m));
-  if(MODE === 'after' && (m.over || m.main || m.hscroll)){ bad++; console.log('ПРОБЛЕМА', w, theme); }
+  if(MODE === 'after' && (m.over || m.main || m.hscroll || (m.hdr && (m.hdr.overlap || m.hdr.outside || (w < 360 && !m.hdr.actionsBelow) || (w >= 360 && m.hdr.actionsBelow))))){ bad++; console.log('ПРОБЛЕМА', w, theme); }
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   writeFileSync(`docs/ui/notif3-${MODE}-${theme}-${w}.png`, Buffer.from(shot.result.data, 'base64'));
   if(MODE === 'after'){

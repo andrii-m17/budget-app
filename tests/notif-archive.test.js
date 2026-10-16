@@ -97,7 +97,8 @@ test('охоронні: не позначає прочитаним при від
   assert.doesNotMatch(SRC, /from\('user_notifications'\)\.select\('id', \{ count: 'exact', head: true \}\)/);
   assert.ok(SRC.indexOf('id="notif-bell-btn"') < SRC.indexOf('onclick="openSettings()" aria-label="Налаштування"'));
   assert.ok(!/from\('user_notifications'\)\.(insert|update|upsert|delete)/.test(SRC));
-  assert.ok(!/class="notif-row-dot|notif-dot/.test(SRC)); // без крапок
+  // Rev 2.32.98 (NOTIF-1 Rev 3): крапка стану (заповнена «Нове», порожня решта) повернена за макетом; раніше (Rev 2.32.40) була заборона крапок
+  assert.match(SRC, /<span class="notif-dot" aria-hidden="true"><\/span>/);
 });
 test('шапка без круглої іконки оновлення; екрани «Вхідні» й «Сповіщення» під таббаром (z-index < таббара)', function(){
   assert.ok(!/<button[^>]*id="update-btn-top"/.test(SRC));
