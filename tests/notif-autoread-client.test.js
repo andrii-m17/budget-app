@@ -14,7 +14,7 @@ function make(over){
     monoReady: function(){ return true; },
     refreshNotifUnread: function(){ log.push('unread'); return Promise.resolve(); },
     loadNotifArchive: function(){ log.push('loadArchive'); return Promise.resolve(); },
-    renderNotifArchive: function(){ log.push('render'); },
+    renderNotifArchive: function(){ log.push('render'); }, notifRealtimeTimer: null, setTimeout: setTimeout,
   }, over || {});
   const c = buildSandbox(g, ['refreshNotifAfterAction', 'onNotifRealtimeChange']);
   return { c: c, log: log, g: g };
@@ -42,11 +42,23 @@ test('«голови» вже летять (почались до дії): сп�
   await m.c.refreshNotifAfterAction();
   assert.deepEqual(m.log, ['unread-after-inflight']);
 });
-test('Realtime-обробник: лічильник завжди; список лише коли архів відкрито', async function(){
-  const a = make(); a.c.onNotifRealtimeChange(); await Promise.resolve();
-  assert.deepEqual(a.log, ['unread']);
-  const b = make({ isNotifArchiveOpen: true }); b.c.onNotifRealtimeChange(); await new Promise(function(r){ setTimeout(r, 5); });
-  assert.deepEqual(b.log, ['unread', 'loadArchive', 'render']);
+test('Realtime-обробник: серія з 10 подій (напр. «Прочитати всі») зливається в одне оновлення; після нього наступна подія знову обробляється', async function(){
+  const timers = [];
+  const m = make({ notifRealtimeTimer: null, setTimeout: function(fn){ timers.push(fn); return timers.length; }, isNotifArchiveOpen: true });
+  for(let i = 0; i < 10; i++) m.c.onNotifRealtimeChange();
+  assert.equal(timers.length, 1, 'один таймер на серію');
+  timers[0](); await new Promise(function(r){ setTimeout(r, 5); });
+  assert.deepEqual(m.log, ['unread', 'loadArchive', 'render'], 'один раз: лічильник + список');
+  m.c.onNotifRealtimeChange();
+  assert.equal(timers.length, 2, 'нова подія після оновлення планує нове');
+});
+test('Realtime-обробник: чекає «голови», що вже летять (застарілий лічильник не лишається)', async function(){
+  let done = false;
+  const inflight = new Promise(function(r){ setTimeout(function(){ done = true; r(); }, 20); });
+  const timers = [];
+  const m = make({ notifRealtimeTimer: null, setTimeout: function(fn){ timers.push(fn); return 1; }, headsInFlight: inflight, refreshNotifUnread: function(){ m.log.push(done ? 'fresh' : 'stale'); return Promise.resolve(); } });
+  m.c.onNotifRealtimeChange(); timers[0](); await new Promise(function(r){ setTimeout(r, 60); });
+  assert.deepEqual(m.log, ['fresh']);
 });
 test('підписка Realtime: INSERT і UPDATE з фільтром власного user_id, обидва на onNotifRealtimeChange; monoAfterChange викликає оновлення', function(){
   assert.match(SRC, /event: 'INSERT', schema: 'public', table: 'user_notifications', filter: 'user_id=eq\.' \+ cloudSession\.user\.id \}, onNotifRealtimeChange\)/);

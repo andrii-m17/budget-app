@@ -3494,7 +3494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.93</div>
+  <div class="version-footer">Money Tree · Rev 2.32.94</div>
 </div>
   </div>
 </div>
@@ -7952,7 +7952,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.93';
+const APP_VERSION = '2.32.94';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -20911,9 +20911,14 @@ async function refreshNotifAfterAction(){
   if(isNotifArchiveOpen){ await loadNotifArchive(); renderNotifArchive(); }
 }
 // Rev 2.32.92 (NOTIF-1 Rev 1): спільний обробник подій user_notifications (INSERT — нове, UPDATE — прочитано тригером/іншим пристроєм).
+// Rev 2.32.94 (NOTIF-1 fix, зауваження spec-reviewer): «Прочитати всі» дає N подій UPDATE поспіль — вони зливаються в одне оновлення (затримка 250 мс), а оновлення спершу чекає «голови», що вже летять (могли початись до зміни на сервері), і лише потім питає свіжі. Ризик: лічильник оновлюється з затримкою до ≈ 0,3 с.
+let notifRealtimeTimer = null;
 function onNotifRealtimeChange(){
-  refreshNotifUnread();
-  if(isNotifArchiveOpen) loadNotifArchive().then(renderNotifArchive);
+  if(notifRealtimeTimer) return;
+  notifRealtimeTimer = setTimeout(function(){
+    notifRealtimeTimer = null;
+    refreshNotifAfterAction().catch(function(){});
+  }, 250);
 }
 async function loadNotifArchive(){
   notifArchive.gate = await awaitCloudGate(); // Rev 2.32.89 (SYNCUI-1)
