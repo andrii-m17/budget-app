@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const c = buildSandbox({}, ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'inboxRowModel', 'refundWholeUah', 'refundConfirmText', 'refundConfirmLabel', 'refundRowActions', 'monoRefundOutcome']);
+const c = buildSandbox({}, ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'inboxRowModel', 'refundWholeUah', 'refundAmountUah', 'refundConfirmText', 'refundConfirmLabel', 'refundRowActions', 'monoRefundOutcome']);
 
 test('refundConfirmText: часткове повернення (40 − 25 → 15)', function(){
   assert.equal(c.refundConfirmText({ note: 'Bolt самокат', amount: 40 }, 25), 'Зменшити «Bolt самокат» з 40 ₴ до 15 ₴?');
@@ -48,4 +48,12 @@ test('охоронні: без мітки «в обробці», без p_amount
   assert.ok(!/innerHTML/.test(SRC.slice(start, end)));
   assert.match(SRC, /Не знайшли витрату цього торговця\. Додайте її вручну або проігноруйте\./);
   assert.match(SRC, /type: 'mono-refund'/);
+});
+
+test('refundAmountUah (FIX-REFUND-1): amount_uah, запас amount_minor, знак ігнорується', function(){
+  assert.equal(c.refundAmountUah({ amount_uah: -25, amount_minor: -2500 }), 25);
+  assert.equal(c.refundAmountUah({ amount_uah: null, amount_minor: 2500 }), 25);
+  assert.equal(c.refundAmountUah({ amount_uah: 0, amount_minor: -2500 }), 25);
+  assert.equal(c.refundAmountUah({}), 0);
+  assert.equal(c.refundConfirmText({ note: 'Bolt', amount: 50 }, c.refundAmountUah({ amount_uah: null, amount_minor: 2500 })), 'Зменшити «Bolt» з 50 ₴ до 25 ₴?');
 });

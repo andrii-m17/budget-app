@@ -3492,7 +3492,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.84</div>
+  <div class="version-footer">Money Tree · Rev 2.32.85</div>
 </div>
   </div>
 </div>
@@ -7936,7 +7936,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.84';
+const APP_VERSION = '2.32.85';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -20358,6 +20358,13 @@ function monoAcceptOutcome(error){
 }
 // Rev 2.32.32 — облік повернень. Сума повернення округлюється до гривні (як на сервері).
 function refundWholeUah(refundUah){ return Math.round(Math.abs(Number(refundUah) || 0)); }
+// Rev 2.32.85 (FIX-REFUND-1): єдине джерело суми повернення для діалогу. Раніше діалог брав лише row.amount_uah; коли воно порожнє (null/0), Math.abs давало 0 і діалог писав «з 50 до 50», хоча сервер застосовував справжню суму («з 50 до 25»). Тепер запасне джерело amount_minor (копійки, ті самі дані рядка). Лише показ: формулу й виклик mono_apply_refund не змінено. Ризик: якщо порожні обидва поля, повертається 0, і діалог мусить не обіцяти «до 50»: див. refundConfirmText.
+function refundAmountUah(row){
+  const u = row && row.amount_uah != null ? Math.abs(Number(row.amount_uah)) : NaN;
+  if(isFinite(u) && u > 0) return u;
+  const m = row && row.amount_minor != null ? Math.abs(Number(row.amount_minor)) : NaN;
+  return isFinite(m) ? m / 100 : 0;
+}
 // Текст підтвердження з конкретикою: часткове — «Зменшити «X» з 40 ₴ до 15 ₴?», повне — «Повернення покриває всю суму. Видалити «X»?».
 function refundConfirmText(expense, refundUah){
   const name = (expense && expense.note) || 'витрату';
@@ -20721,7 +20728,7 @@ async function monoRefundStart(){
   box.appendChild(group);
 }
 function monoRefundChoose(row, cand){
-  const refund = Math.abs(row.amount_uah);
+  const refund = refundAmountUah(row); // Rev 2.32.85 (FIX-REFUND-1)
   showConfirmModal(refundConfirmText({ note: cand.note, amount: cand.amount }, refund), function(){ monoRefundApply(row, cand); }, refundConfirmLabel({ amount: cand.amount }, refund), refundConfirmLabel({ amount: cand.amount }, refund) === 'Видалити' ? 'danger' : 'primary'); // Rev 2.32.45 (FB): часткове повернення — звичайна дія, повне (видалення) — руйнівна
 }
 async function monoRefundApply(row, cand){
