@@ -36,8 +36,8 @@ test('охоронні: підпис під «Додати категорію» 
   assert.match(SRC, /structEmptyHtml\('Категорій ще немає', 'Категорії групують витрати\. Додайте першу або поверніть видалені\.', 'Додати категорію', 'openAddCategoryModal\(\)', STRUCT_CAPTION_CAT_EMPTY, trashRow\)/);
   assert.match(SRC, /Витрати можна вносити й без категорії\. Зміни не зачіпають вже додані витрати\./);
   assert.match(SRC, /deletedN \? '<div class="struct-section">/);
-  assert.match(SRC, /label: 'Видалити категорію', note: 'Витрати цієї категорії не видаляються\. Видалена категорія потрапляє у «Видалені дані»\.', onDelete: function\(\)\{ deleteCategory\(i\); \}/);
-  assert.match(SRC, /id="sf-delete-wrap"/); assert.match(SRC, /document\.getElementById\('sf-delete'\)\.onclick = function\(\)\{ closeStructForm\(\); cfg\.del\.onDelete\(\); \}/); // Rev 2.32.58 (F1): видалення — у формі .drawer
+  assert.match(SRC, /label: 'Видалити категорію', note: 'Витрати цієї категорії не видаляються\. Видалена категорія потрапляє у «Видалені дані»\.', onDelete: function\(done\)\{ deleteCategory\(i, done\); \}/);
+  assert.match(SRC, /id="sf-delete-wrap"/); assert.match(SRC, /document\.getElementById\('sf-delete'\)\.onclick = function\(\)\{ cfg\.del\.onDelete\(closeStructForm\); \}/); // Rev 2.32.58 (F1): видалення — у формі .drawer
 });
 test('охоронні: рядки екрановані; видалення останньої категорії не заборонено; нових полів вводу немає', function(){
   const fn = SRC.slice(SRC.indexOf('function structTileHtml'), SRC.indexOf('function structOpenTrash'));

@@ -3492,7 +3492,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.86</div>
+  <div class="version-footer">Money Tree · Rev 2.32.87</div>
 </div>
   </div>
 </div>
@@ -7936,7 +7936,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.86';
+const APP_VERSION = '2.32.87';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12895,9 +12895,8 @@ async function saveInstallmentDrawer(){
   }
 }
 function deleteInstallmentFromDrawer(){
-  const i = editingInstallmentIdx;
-  closeInstallmentEditor();
-  removeInstallmentAccount(i);
+// Rev 2.32.87 (FIX-UI-1b): «Скасувати» у підтвердженні видалення лишає відкритою шторку деталей; вона закривається лише після успішного видалення (onDone). Ризик: підтвердження тепер поверх шторки (app-modal z-index 96 > шторка 91; лічильник прокрутки вкладений), фокус після «Скасувати» повертається на кнопку «Видалити».
+  removeInstallmentAccount(editingInstallmentIdx, closeInstallmentEditor);
 }
 // Rev 2.1.17 — початкова сума тепер обов'язкова при створенні нового ОЧ:
 // без неї неможливо порахувати прогрес-бар на Аналітиці (Block 5).
@@ -12966,7 +12965,7 @@ function offerHidePaidOffInstallment(name){
   const cancel = document.getElementById('app-modal-cancel-btn'); if(cancel) cancel.textContent = 'Не зараз'; // «Не зараз» нічого не зберігає
   return true;
 }
-function removeInstallmentAccount(i){
+function removeInstallmentAccount(i, onDone){
   const name = installmentAccounts[i].name;
   showMonthPickerModal(
     `Прибрати «${stripLeadingEmoji(name)}» зі списку? Історичні записи до обраного місяця збережуться, з нього — зникне з Obligations.`,
@@ -12986,6 +12985,7 @@ function removeInstallmentAccount(i){
       // діяв в Аналітиці, яка бере дані напряму з debts[], а не з цього
       // масиву, тому там цього бага не було).
       renderAll();
+      if(onDone) onDone(); // Rev 2.32.87 (FIX-UI-1b)
     }
   );
 }
@@ -13212,9 +13212,8 @@ async function saveCardDebtDrawer(){
 // компактному рядку) — закриваємо шторку й одразу відкриваємо той самий
 // showMonthPickerModal, що й раніше (removeBankAccount без змін логіки).
 function deleteCardDebtFromDrawer(){
-  const i = editingBankIdx;
-  closeCardDebtEditor();
-  removeBankAccount(i);
+// Rev 2.32.87 (FIX-UI-1b): «Скасувати» у підтвердженні видалення лишає відкритою шторку деталей; вона закривається лише після успішного видалення (onDone). Ризик: підтвердження тепер поверх шторки (app-modal z-index 96 > шторка 91; лічильник прокрутки вкладений), фокус після «Скасувати» повертається на кнопку «Видалити».
+  removeBankAccount(editingBankIdx, closeCardDebtEditor);
 }
 // Rev 2.16.4 — "+ Додати банк" тепер збирає одразу й кредитний ліміт (той
 // самий showInstallmentModal, що для ОЧ, з іншим підписом суми) — користувач
@@ -13236,7 +13235,7 @@ function openAddBankModal(){
     await addBankAccount(name, creditLimit);
   }, 'Кредитний ліміт');
 }
-function removeBankAccount(i){
+function removeBankAccount(i, onDone){
   const name = bankAccounts[i].name;
   showMonthPickerModal(
     `Прибрати «${stripLeadingEmoji(name)}» зі списку? Історичні записи до обраного місяця збережуться, з нього — зникне з "Борги по картках".`,
@@ -13249,6 +13248,7 @@ function removeBankAccount(i){
       // більше не чіпаємо при видаленні, інакше банк зникав би з Обліку і
       // для минулих місяців теж.
       renderAll();
+      if(onDone) onDone(); // Rev 2.32.87 (FIX-UI-1b)
     }
   );
 }
@@ -15436,7 +15436,7 @@ function editCategory(i){
     reportSaveResult(await saveCategories());
     populateMonths(); renderAll(); renderStructure(); populateCategorySelect();
     afterRenameSync(renamedCount); // Rev 2.32.24 (R)
-  }, { label: 'Видалити категорію', note: 'Витрати цієї категорії не видаляються. Видалена категорія потрапляє у «Видалені дані».', onDelete: function(){ deleteCategory(i); } }); // Rev 2.32.48 (S1): видалення — усередині шторки
+  }, { label: 'Видалити категорію', note: 'Витрати цієї категорії не видаляються. Видалена категорія потрапляє у «Видалені дані».', onDelete: function(done){ deleteCategory(i, done); } }); // Rev 2.32.48 (S1): видалення — усередині шторки
 }
 // Rev 2.1.26 — видалення категорії: SOFT-delete (active:false), а не фізичне
 // видалення з масиву — старі записи витрат і так зберігають назву як текст
@@ -15450,7 +15450,8 @@ function editCategory(i){
 // категорії), каскад теж робить М'ЯКЕ деактивування (active:false), а не
 // фізичне видалення з масиву — так журнал-редактор і надалі коректно покаже
 // назву видаленої підкатегорії в старих записах.
-function deleteCategory(i){
+function deleteCategory(i, onDone){
+// Rev 2.32.87 (FIX-UI-1b): «Скасувати» у підтвердженні видалення лишає відкритою шторку деталей; вона закривається лише після успішного видалення (onDone). Ризик: підтвердження тепер поверх шторки (app-modal z-index 96 > шторка 91; лічильник прокрутки вкладений), фокус після «Скасувати» повертається на кнопку «Видалити».
   const cat = CATEGORIES[i];
   const orphanedSubs = SUBCATEGORIES.filter(s=>s.active && s.category===cat.name);
   const label = stripLeadingEmoji(cat.name);
@@ -15497,6 +15498,7 @@ function deleteCategory(i){
     reportSaveResult(await saveDictionary());
     reportSaveResult(await saveCategories());
     renderStructure(); populateCategorySelect();
+    if(onDone) onDone(); // Rev 2.32.87 (FIX-UI-1b)
   }, 'Так, видалити');
 }
 function openAddSubcategoryModal(){
@@ -15547,11 +15549,11 @@ function editSubcategory(i){
     reportSaveResult(await saveSubcategoryPriority());
     populateMonths(); renderAll(); renderStructure();
     afterRenameSync(renamedCount); // Rev 2.32.24 (R)
-  }, { label: 'Видалити підкатегорію', note: 'Витрати з цією підкатегорією не видаляються. Видалена підкатегорія потрапляє у «Видалені дані».', onDelete: function(){ deleteSubcategory(i); } }); // Rev 2.32.49 (S2): видалення — усередині шторки
+  }, { label: 'Видалити підкатегорію', note: 'Витрати з цією підкатегорією не видаляються. Видалена підкатегорія потрапляє у «Видалені дані».', onDelete: function(done){ deleteSubcategory(i, done); } }); // Rev 2.32.49 (S2): видалення — усередині шторки
 }
 // Rev 2.1.27 — видалення підкатегорії: м'яке (active:false), історичні записи
 // витрат зберігають стару назву. Пов'язані записи словника прибираються.
-function deleteSubcategory(i){
+function deleteSubcategory(i, onDone){
   const sub = SUBCATEGORIES[i];
   const label = stripLeadingEmoji(sub.name);
   showConfirmModal(`Видалити підкатегорію «${label}» зі списку вибору? Історичні записи витрат не постраждають.`, async function(){
@@ -15573,6 +15575,7 @@ function deleteSubcategory(i){
     reportSaveResult(await saveDictionary());
     reportSaveResult(await saveSubcategories());
     renderStructure();
+    if(onDone) onDone(); // Rev 2.32.87 (FIX-UI-1b)
   }, 'Так, видалити');
 }
 // Rev 2.22.89 (6D.162, Ревізія C) — restoreCategory()/restoreSubcategory():
@@ -22656,7 +22659,7 @@ function openStructForm(cfg){
   if(cfg.del){
     document.getElementById('sf-delete').textContent = cfg.del.label;
     document.getElementById('sf-delete-note').textContent = cfg.del.note || '';
-    document.getElementById('sf-delete').onclick = function(){ closeStructForm(); cfg.del.onDelete(); }; // діалог підтвердження з підрахунком залежних — як було
+    document.getElementById('sf-delete').onclick = function(){ cfg.del.onDelete(closeStructForm); }; // Rev 2.32.87 (FIX-UI-1b): форма лишається, закриється після видалення; // діалог підтвердження з підрахунком залежних — як було
     dw.style.display = 'block';
   }else dw.style.display = 'none';
   lastFocusedBeforeDialog = document.activeElement;
@@ -22749,7 +22752,7 @@ function editDictionaryEntry(id){
     entry.updatedAt = new Date().toISOString();
     reportSaveResult(await saveDictionary());
     renderStructure();
-  }, { label: 'Видалити слово', note: 'Слово більше не підставлятиме категорію. Видалене слово потрапляє у «Видалені дані».', onDelete: function(){ deleteDictionaryEntry(id); } }); // Rev 2.32.50 (S3): видалення — усередині шторки
+  }, { label: 'Видалити слово', note: 'Слово більше не підставлятиме категорію. Видалене слово потрапляє у «Видалені дані».', onDelete: function(done){ deleteDictionaryEntry(id, done); } }); // Rev 2.32.50 (S3): видалення — усередині шторки
 }
 // Rev 2.1.28 — на відміну від категорій/підкатегорій, запис словника раніше
 // видалявся ФІЗИЧНО (без active-прапорця) — обґрунтування "нічого не
@@ -22761,7 +22764,7 @@ function editDictionaryEntry(id){
 // принцип, що expenses/incomes/debts, замість splice — дає можливість і
 // коректно поширити видалення на Cloud/інші пристрої, і показати слово в
 // майбутній Корзині (Ревізія D) з можливістю відновити.
-function deleteDictionaryEntry(id){
+function deleteDictionaryEntry(id, onDone){
   const entry = DICTIONARY.find(function(d){ return d.id === id; });
   if(!entry){ renderStructure(); return; }
   showConfirmModal(`Видалити слово «${entry.kw}» зі словника?`, async function(){
@@ -22770,6 +22773,7 @@ function deleteDictionaryEntry(id){
     entry.updatedAt = nowISO;
     reportSaveResult(await saveDictionary());
     renderStructure();
+    if(onDone) onDone(); // Rev 2.32.87 (FIX-UI-1b)
   }, 'Так, видалити');
 }
 
