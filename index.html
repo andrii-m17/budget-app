@@ -3525,7 +3525,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.98</div>
+  <div class="version-footer">Money Tree · Rev 2.32.99</div>
 </div>
   </div>
 </div>
@@ -7986,7 +7986,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.98';
+const APP_VERSION = '2.32.99';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9915,11 +9915,14 @@ async function runSyncCheck(reason, o){
   if(plan.full) syncDiag('sync-full', { reason: plan.full, trigger: reason });
   const results = {};
   if(plan.profiles) results.profiles = o.profilesLoaded ? true : await refreshSyncProfiles();
-  const changedTables = await runSyncPulls(plan.tables, results);
+  syncFullMode = !!plan.full; syncFullDirty = false; // Rev 2.32.99 (PAGING-1 Rev B): повна звірка = F1 для таблиць із маркером
+  let changedTables;
+  try{ changedTables = await runSyncPulls(plan.tables, results); }finally{ syncFullMode = false; }
   // Перепис id довідникових доменів і push «брудних» записів: частина повної звірки; поза нею — лише коли є що відправляти (офлайн-правки)
   if(reason !== 'realtime' && (plan.full || nameDomainsHaveDirty())){
     try{ await syncNameDomainsOnConnect(); }catch(e){}
   }
+  if(syncFullDirty){ syncFullDirty = false; try{ await autoSyncStale('full-reconcile'); }catch(e){} } // Rev 2.32.99: живі записи без рядка на сервері відправляються повторно
   syncSeenState = applySyncResult(syncSeenState, heads, plan, results, now);
   saveSyncSeen(syncSeenState);
   if(o.refreshAll && changedTables.length) refreshAfterSyncAtStart(changedTables);
@@ -10042,12 +10045,116 @@ function applySyncMarker(query, domain){
 // сторінки не дає хибного кінця, а таблиця рівно в N·500 рядків не коштує зайвого запиту. Усе зчитується в пам'ять і лише потім обробляється: помилка на будь-якій сторінці = { error } (pull пропускає таблицю, мітка й «голова» не рухаються, наступна
 // спроба починається з тієї ж мітки). Мала дельта — рівно один запит, як раніше. Ризики: екранування міток у or() (значення в лапках); hidden_entities (мала таблиця, без маркера) не сторінкується.
 const PULL_PAGE_SIZE = 500;
+// Rev 2.32.99 (PAGING-1 Rev B): запобіжники циклів сторінкування: не більше PULL_MAX_PAGES сторінок (2000 × 500 = 1 млн рядків; далі помилка, а не «успіх» із неповними даними) і курсор мусить просуватись (інакше помилка, а не нескінченний цикл).
+const PULL_MAX_PAGES = 2000;
+// Rev 2.32.99 (PAGING-1 Rev B, F1): справжня повна звірка. Дельта за маркером (updated_at ≥ мітка − 2 с) не бачить (а) рядків зі старим updated_at («заднім числом»), (б) рядків, жорстко видалених на сервері. У режимі повної звірки (syncFullMode: planSync.full, «Синхронізувати все») для таблиці з маркером fetchDeltaRows замість дельти: 1) читає ЛЕГКИЙ індекс сервера id, updated_at, deleted_at ключовими сторінками за id; 2) порівнює з локальним (diffServerIndex); 3) дозавантажує повні рядки лише тих id, яких немає локально або в яких інший updated_at (по 100 в in(...)), і віддає їх звичайному pull*Core (злиття, LWW, надгробки, skippedFk без змін); 4) локальні надгробки, яких немає на сервері, прибирає (reconcilePlan + removeTrashLocally); 5) локальний ЖИВИЙ синхронізований запис витрат/доходів/боргів без рядка на сервері НЕ видаляє, а знімає syncedUpdatedAt (повторний push: рішення чату; пристрій, не відкритий довше за строк надгробків 14 днів, може відтворити видалений запис). Довідникові домени (категорії, підкатегорії, слова, картки, ОЧ): живі без рядка на сервері лишає переписові id (syncNameDomainsOnConnect). Захист: порожній індекс сервера при непорожніх локальних записах = помилка (схоже на мертву сесію/RLS), нічого не змінюється. Без маркера (перший pull) читання й так повне. Ризик: +1 запит на 500 рядків індексу на таблицю раз на 24 год (витрати ≈ 929 → +2).
+let syncFullMode = false;
+let syncFullDirty = false;
+function sameInstantStr(a, b){
+  if(!a || !b) return false;
+  if(a === b) return true;
+  const x = Date.parse(a), y = Date.parse(b);
+  return !isNaN(x) && !isNaN(y) && x === y;
+}
+// Чиста: serverRows = [{id, updated_at, deleted_at}], localEntries = [{id, updatedAt, ...}] → { fetchIds, missing }.
+function diffServerIndex(serverRows, localEntries){
+  const local = new Map();
+  (localEntries || []).forEach(function(e){ local.set(e.id, e); });
+  const serverIds = new Set();
+  const fetchIds = [];
+  (serverRows || []).forEach(function(r){
+    serverIds.add(r.id);
+    const l = local.get(r.id);
+    if(!l || !sameInstantStr(l.updatedAt, r.updated_at)) fetchIds.push(r.id);
+  });
+  return { fetchIds: fetchIds, missing: (localEntries || []).filter(function(e){ return !serverIds.has(e.id); }) };
+}
+async function fetchServerIndex(client, table){
+  const rows = [];
+  let cursor = null, total = null;
+  for(let page = 0; page < PULL_MAX_PAGES; page++){
+    let q = client.from(table).select('id,updated_at,deleted_at', page === 0 ? { count: 'exact' } : undefined).eq('family_id', cloudFamilyId);
+    if(cursor !== null) q = q.gt('id', cursor);
+    const res = await q.order('id', { ascending: true }).limit(PULL_PAGE_SIZE);
+    if(res.error || !Array.isArray(res.data)) return { rows: null, error: res.error || { message: 'no data' } };
+    if(page === 0 && typeof res.count === 'number') total = res.count;
+    for(const r of res.data) rows.push(r);
+    if(res.data.length === 0) return { rows: rows, error: null };
+    const last = res.data[res.data.length - 1].id;
+    if(cursor !== null && !(last > cursor)) return { rows: null, error: { message: 'cursor-stuck' } };
+    cursor = last;
+    if(total !== null ? rows.length >= total : res.data.length < PULL_PAGE_SIZE) return { rows: rows, error: null };
+  }
+  return { rows: null, error: { message: 'too-many-pages' } };
+}
+async function fetchRowsByIds(client, table, columns, ids){
+  const out = [];
+  for(let i = 0; i < ids.length; i += 100){
+    const res = await client.from(table).select(columns).eq('family_id', cloudFamilyId).in('id', ids.slice(i, i + 100));
+    if(res.error || !Array.isArray(res.data)) return null;
+    for(const r of res.data) out.push(r);
+  }
+  out.sort(function(a, b){ return a.updated_at < b.updated_at ? -1 : a.updated_at > b.updated_at ? 1 : 0; });
+  return out;
+}
+function localSyncEntries(table){
+  const mk = function(list, idOf){
+    return (list || []).map(function(r){ return { id: idOf(r), updatedAt: r.updatedAt, deletedAt: r.deletedAt || null, synced: !!r.syncedUpdatedAt, rec: r }; })
+      .filter(function(e){ return !!e.id; });
+  };
+  switch(table){
+    case 'expenses': return mk(expenses, function(r){ return r.id; });
+    case 'incomes': return mk(incomes, function(r){ return r.id; });
+    case 'debts': return mk(debts, function(r){ return r.id; });
+    case 'categories': return mk(CATEGORIES, function(r){ return r.cloudId; });
+    case 'subcategories': return mk(SUBCATEGORIES, function(r){ return r.cloudId; });
+    case 'dictionary': return mk(DICTIONARY, function(r){ return r.cloudId; });
+    case 'bank_accounts': return mk(bankAccounts, function(r){ return r.cloudId; });
+    case 'installment_accounts': return mk(installmentAccounts, function(r){ return r.cloudId; });
+    default: return [];
+  }
+}
+const FULL_RECON_TOMB_TYPES = { expenses: ['expense'], incomes: ['income'], dictionary: ['word'], debts: ['debtMonth', 'installmentMonth'] };
+async function applyFullReconcileEffects(table, serverRows, diff){
+  let removed = 0, dirty = 0;
+  const types = FULL_RECON_TOMB_TYPES[table];
+  if(types){
+    const cloudRows = [];
+    serverRows.forEach(function(r){ types.forEach(function(t){ cloudRows.push({ type: t, id: r.id, deleted_at: r.deleted_at }); }); });
+    const tombs = trashTombstonesForReconcile(trashStateNow()).filter(function(t){ return types.indexOf(t.type) !== -1; });
+    const plan = reconcilePlan(tombs, cloudRows);
+    if(plan.removeLocal.length){ await removeTrashLocally(plan.removeLocal); removed = plan.removeLocal.length; }
+  }
+  if(table === 'expenses' || table === 'incomes' || table === 'debts'){
+    diff.missing.forEach(function(e){ if(!e.deletedAt && e.synced){ delete e.rec.syncedUpdatedAt; dirty++; } });
+    if(dirty){
+      if(table === 'expenses') reportSaveResult(await saveExpenses());
+      else if(table === 'incomes') reportSaveResult(await saveIncomes());
+      else reportSaveResult(await saveDebts());
+    }
+  }
+  return { removed: removed, dirty: dirty };
+}
+async function fetchFullReconcileRows(client, table, columns){
+  const idx = await fetchServerIndex(client, table);
+  if(!idx.rows) return { data: null, error: idx.error };
+  const entries = localSyncEntries(table);
+  if(!idx.rows.length && entries.length) return { data: null, error: { message: 'empty-index' } };
+  const diff = diffServerIndex(idx.rows, entries);
+  const rows = diff.fetchIds.length ? await fetchRowsByIds(client, table, columns, diff.fetchIds) : [];
+  if(rows === null) return { data: null, error: { message: 'by-ids' } };
+  const fx = await applyFullReconcileEffects(table, idx.rows, diff);
+  if(fx.dirty) syncFullDirty = true;
+  if(typeof syncDiag === 'function') syncDiag('sync-full-recon', { table: table, server: idx.rows.length, fetched: rows.length, removed: fx.removed, dirty: fx.dirty });
+  return { data: rows, error: null };
+}
 async function fetchDeltaRows(client, table, columns, domain){
   const marker = getSyncMarker(domain);
+  if(syncFullMode && marker) return fetchFullReconcileRows(client, table, columns); // Rev 2.32.99 (PAGING-1 Rev B)
   const from = marker ? syncDeltaFrom(marker) : null;
   const rows = [];
   let cursor = null, total = null;
-  for(let page = 0; page < 100000; page++){
+  for(let page = 0; page < PULL_MAX_PAGES; page++){
     let q = client.from(table).select(columns, page === 0 ? { count: 'exact' } : undefined).eq('family_id', cloudFamilyId);
     if(cursor) q = q.or('updated_at.gt."' + cursor.u + '",and(updated_at.eq."' + cursor.u + '",id.gt."' + cursor.id + '")');
     else if(from) q = q.gte('updated_at', from);
@@ -10055,13 +10162,14 @@ async function fetchDeltaRows(client, table, columns, domain){
     if(res.error || !Array.isArray(res.data)) return { data: null, error: res.error || { message: 'no data' } };
     if(page === 0 && typeof res.count === 'number') total = res.count;
     for(const r of res.data) rows.push(r);
-    if(res.data.length === 0) break;
+    if(res.data.length === 0) return { data: rows, error: null };
     const last = res.data[res.data.length - 1];
+    if(cursor && last.updated_at === cursor.u && last.id === cursor.id) return { data: null, error: { message: 'cursor-stuck' } }; // Rev 2.32.99: курсор мусить просуватись
     cursor = { u: last.updated_at, id: last.id };
-    // кінець: отримано не менше за count (рядки, змінені під час пулу, лише додають дублі наприкінці порядку, тож усі початкові рядки вже прочитано); без count — перша неповна сторінка
-    if(total !== null ? rows.length >= total : res.data.length < PULL_PAGE_SIZE) break;
+    // кінець: отримано не менше за count (рядки, змінені під час пулу, лише додають дублі наприкінці порядку, тож усі ≤ мітки вже отримано) або, без count, перша неповна сторінка
+    if(total !== null ? rows.length >= total : res.data.length < PULL_PAGE_SIZE) return { data: rows, error: null };
   }
-  return { data: rows, error: null };
+  return { data: null, error: { message: 'too-many-pages' } }; // Rev 2.32.99: запобіжник: не видаємо неповні дані за повні
 }
 // Для доменів БЕЗ FK-залежності (categories/bank_accounts/
 // installment_accounts) — кожен рядок відповіді завжди повністю
@@ -10590,6 +10698,8 @@ async function syncAllPilotManual(){
   let anySucceeded = false;
   const manualHeads = await fetchSyncHeadsShared(); // Rev 2.32.74 (U): «голови» ДО повної звірки (зміни під час неї піймає наступна перевірка)
   const manualOk = {};
+  syncFullMode = true; // Rev 2.32.99 (PAGING-1 Rev B): «Синхронізувати все» = справжня повна звірка (F1); живі записи без рядка на сервері знімаються з syncedUpdatedAt і відправляються нижче цією ж кнопкою
+  try{
   for(let si = 0; si < steps.length; si++){
     const step = steps[si];
     const result = await step();
@@ -10600,6 +10710,7 @@ async function syncAllPilotManual(){
     updated += result.updated || 0;
     linked += result.linked || 0;
   }
+  }finally{ syncFullMode = false; }
   if(!anySucceeded){
     statusEl.textContent = "Не вдалося синхронізувати — перевірте з'єднання.";
     return;

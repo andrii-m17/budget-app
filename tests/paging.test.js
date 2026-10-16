@@ -38,7 +38,7 @@ function client(state, hooks){
   };
 }
 function sandbox(marker, fam){
-  return buildSandbox({ cloudFamilyId: fam || 'fam', getSyncMarker: function(){ return marker || null; } }, ['PULL_PAGE_SIZE', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'fetchDeltaRows']);
+  return buildSandbox({ cloudFamilyId: fam || 'fam', syncFullMode: false, getSyncMarker: function(){ return marker || null; } }, ['PULL_PAGE_SIZE', 'PULL_MAX_PAGES', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'fetchDeltaRows']);
 }
 function serverWith(n, opts){
   const o = opts || {};
