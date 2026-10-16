@@ -3494,7 +3494,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.89</div>
+  <div class="version-footer">Money Tree · Rev 2.32.90</div>
 </div>
   </div>
 </div>
@@ -5728,6 +5728,7 @@ async function restoreExpensesFromBackup(raw){
     local.category = rec.category;
     local.subcategory = rec.subcategory;
     local.manual = rec.manual;
+    if(rec.editedAt) local.editedAt = rec.editedAt; // Rev 2.32.90 (EDITED-1)
     if(rec.linkedInstallment) local.linkedInstallment = rec.linkedInstallment;
     else delete local.linkedInstallment;
     if(rec.deletedAt) local.deletedAt = rec.deletedAt;
@@ -6481,6 +6482,14 @@ async function saveDebts(){
 // одного зайвого запиту. Для масових циклів викликач сам робить ОДИН pull
 // після всього батчу (не тут).
 // Rev 2.32.28 (MB-4): колонки source/external_id шлемо лише для витрат з банку; для решти їх немає в payload (upsert їх не чіпає).
+// Rev 2.32.90 (EDITED-1): «відредаговано» — синхронізоване поле edited_at (expenses; міграція зроблена чатом 16.10). Ставить його ЛИШЕ saveRecordEdit, і лише коли значення справді змінились; видалення/відновлення, Monobank (mono_apply_refund), перейменування категорії, перепис id й синхронізація його не ставлять; повернення значень назад позначку не знімає. Для старих записів з локальним edited:true одноразово edited_at = updatedAt при наступному push. Непереданий edited_at upsert не затирає (тому в payload лише коли значення відоме). Ризик: колонка має бути на сервері до цього клієнта (інакше pull з named-select падає в skipped).
+function expenseEditedAtValue(rec){ return (rec && (rec.editedAt || (rec.edited ? rec.updatedAt : null))) || null; }
+function editedAtPayload(rec){ const v = expenseEditedAtValue(rec); return v ? { edited_at: v } : {}; }
+function editedAtDiffers(localVal, rowVal){ return !!rowVal && !(localVal && Date.parse(localVal) === Date.parse(rowVal)); }
+function expenseEditChanged(a, b){
+  const k = ['name', 'amount', 'date', 'category', 'subcategory', 'linkedInstallment'];
+  return k.some(function(f){ return (a[f] || '') !== (b[f] || ''); });
+}
 function monoSourcePayload(rec){ return rec && rec.source ? { source: rec.source, external_id: rec.externalId || null } : {}; }
 function isSyncableAmount(a){ return typeof a === 'number' && isFinite(a) && a >= 0 && a <= AMOUNT_MAX && Math.floor(a) === a; }
 async function pushExpenseRecordPilot(rec, opts){
@@ -6518,6 +6527,7 @@ async function pushExpenseRecordPilot(rec, opts){
       // документував). updated_by лишається — це коректно "хто востаннє".
       updated_by: userId,
       ...monoSourcePayload(rec), // Rev 2.32.28 (MB-4): source/external_id витрат з банку не затираються в null
+      ...editedAtPayload(rec), // Rev 2.32.90 (EDITED-1)
     }, { onConflict: 'id' });
     if(!error){
       // Rev #30 (6D.57) — syncedUpdatedAt: той самий bookkeeping-принцип, що
@@ -6527,6 +6537,7 @@ async function pushExpenseRecordPilot(rec, opts){
       // (syncAllPilotManual() нижче). Зберігаємо одразу — інакше позначка
       // живе лише в пам'яті до наступного save.
       rec.syncedUpdatedAt = rec.updatedAt;
+      if(!rec.editedAt && rec.edited && rec.updatedAt) rec.editedAt = rec.updatedAt; // Rev 2.32.90 (EDITED-1): одноразове перенесення локального edited
       await saveExpenses();
     }
     // Rev #30 (6D.76) — той самий self-heal, що pushDebtRecordPilot() (той
@@ -6588,6 +6599,7 @@ async function pushExpensesBatch(records){
         // Rev #30 (6D.64) — created_by прибрано, той самий принцип, що pushExpenseRecordPilot() вище.
         created_at: rec.createdAt, updated_at: rec.updatedAt, updated_by: userId,
         ...monoSourcePayload(rec), // Rev 2.32.28 (MB-4)
+        ...editedAtPayload(rec), // Rev 2.32.90 (EDITED-1)
       },
     });
   }
@@ -6596,7 +6608,7 @@ async function pushExpensesBatch(records){
     const client = getSupabaseClient();
     const { error } = await client.from('expenses').upsert(resolvable.map(function(r){ return r.payload; }), { onConflict: 'id' });
     if(!error){
-      resolvable.forEach(function(r){ r.rec.syncedUpdatedAt = r.rec.updatedAt; });
+      resolvable.forEach(function(r){ r.rec.syncedUpdatedAt = r.rec.updatedAt; if(!r.rec.editedAt && r.rec.edited && r.rec.updatedAt) r.rec.editedAt = r.rec.updatedAt; }); // Rev 2.32.90 (EDITED-1)
       await saveExpenses();
       return { pushed: resolvable.length, failed: 0 };
     }
@@ -6895,7 +6907,7 @@ async function pullExpensesCore(){
     // масовий фальшивий спалах "Х відредагував(ла)" для старих даних.
     // Замість цього updatedBy бекфілиться ОПОРТУНІСТИЧНО — лише коли запис
     // і так торкається діф з ІНШОЇ причини (як updatedBy присвоюється нижче).
-    const { data, error } = await fetchDeltaRows(client, 'expenses', 'id,amount,expense_date,category,subcategory,note,linked_installment_id,deleted_at,created_at,updated_at,created_by,updated_by,source,external_id', 'expenses'); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
+    const { data, error } = await fetchDeltaRows(client, 'expenses', 'id,amount,expense_date,category,subcategory,note,linked_installment_id,deleted_at,created_at,updated_at,created_by,updated_by,source,external_id,edited_at', 'expenses'); // Rev 2.3; Rev 2.32.90 (EDITED-1): edited_at2.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
       let linkedInstallmentName = null;
@@ -6926,7 +6938,7 @@ async function pullExpensesCore(){
         // OR-ланцюжку: без цього запис, локально створений/змінений ДО цього
         // Rev (createdBy ще не існує), ніколи не отримав би backfill автора,
         // якщо решта полів випадково не зміняться одночасно.
-        if(local.amount !== row.amount || local.date !== row.expense_date || local.category !== cloudCat || local.subcategory !== cloudSub || local.name !== cloudName || local.linkedInstallment !== (linkedInstallmentName || undefined) || (local.deletedAt||null) !== (row.deleted_at||null) || local.updatedAt !== row.updated_at || local.createdBy !== row.created_by){
+        if(editedAtDiffers(local.editedAt, row.edited_at) || local.amount !== row.amount || local.date !== row.expense_date || local.category !== cloudCat || local.subcategory !== cloudSub || local.name !== cloudName || local.linkedInstallment !== (linkedInstallmentName || undefined) || (local.deletedAt||null) !== (row.deleted_at||null) || local.updatedAt !== row.updated_at || local.createdBy !== row.created_by){
           // Rev #30 (6D.84) — "видалила" проти "відредагувала": фіксуємо ДО
           // мутації нижче (той самий принцип, що hadMarker — before/after).
           const wasDeleted = !!local.deletedAt;
@@ -6943,6 +6955,7 @@ async function pullExpensesCore(){
           local.updatedAt = row.updated_at;
           local.createdBy = row.created_by;
           local.updatedBy = row.updated_by;
+          if(row.edited_at) local.editedAt = row.edited_at; // Rev 2.32.90 (EDITED-1): монотонно, null із сервера локальну позначку не знімає
           if(row.source){ local.source = row.source; local.externalId = row.external_id || null; } // Rev 2.32.28 (MB-4): ніколи не затираємо source/externalId
           // Rev #30 (6D.57) — syncedUpdatedAt: local тепер точно відповідає Cloud.
           local.syncedUpdatedAt = row.updated_at;
@@ -6960,6 +6973,7 @@ async function pullExpensesCore(){
         continue;
       }
       const rec = { id: row.id, date: row.expense_date, name: row.note || '', amount: row.amount, category: row.category || '', subcategory: row.subcategory || '', manual: true, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, createdBy: row.created_by, updatedBy: row.updated_by };
+      if(row.edited_at) rec.editedAt = row.edited_at; // Rev 2.32.90 (EDITED-1)
       if(row.source){ rec.source = row.source; rec.externalId = row.external_id || null; } // Rev 2.32.28 (MB-4)
       if(linkedInstallmentName) rec.linkedInstallment = linkedInstallmentName;
       // Rev #30 (6D.42) — новий для цього пристрою запис, що вже tombstoned
@@ -7938,7 +7952,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.89';
+const APP_VERSION = '2.32.90';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15280,6 +15294,7 @@ async function saveRecordEditCore(id){
   if(!name){ flashField('edtfielda1-'+id); return false; }
   if(!amount || amount<=0){ flashField('edit-amount-'+id); return false; }
   if(!date){ flashField('edit-date-'+id); return false; }
+  const editBefore = { name: rec.name, amount: rec.amount, date: rec.date, category: rec.category, subcategory: rec.subcategory, linkedInstallment: rec.linkedInstallment }; // Rev 2.32.90 (EDITED-1)
   rec.name = name;
   rec.amount = amount;
   rec.date = date;
@@ -15304,11 +15319,13 @@ async function saveRecordEditCore(id){
   // true й без жодного пізнішого редагування) — навмисно НЕ перевикористаний
   // для UI, щоб не плутати два різні стани однією ознакою. Local-only поле
   // (як і manual) — не пушиться в Cloud, схема не чіпалась.
-  rec.edited = true;
+  // Rev 2.32.90 (EDITED-1): замість локального rec.edited = true — синхронізоване editedAt, лише коли значення справді змінились.
+  const editNowISO = new Date().toISOString();
+  if(expenseEditChanged(editBefore, rec)) rec.editedAt = editNowISO;
   // Rev 2.11.2 — id і createdAt НІКОЛИ не змінюються редагуванням (запис
   // лишається "тим самим" записом для майбутньої дедуплікації при обміні),
   // оновлюється лише updatedAt.
-  rec.updatedAt = new Date().toISOString();
+  rec.updatedAt = editNowISO;
   reportSaveResult(await saveExpenses());
   // Rev #30 (6D.45) — ТЕРМІНОВИЙ фікс: saveRecordEdit() (редагування
   // витрати прямо в Журналі) ніколи не пушила зміну в Cloud — пропуск ще з
@@ -16137,7 +16154,7 @@ function buildRecordGroupsHtml(items){
       const chipText = isIncome ? 'дохід' : (e.category ? (e.subcategory || e.category) : 'без категорії');
       const amountClass = isIncome ? 'exp-amount income mono' : 'exp-amount mono';
       const sign = isIncome ? '+' : '−';
-      const editedBadgeHtml = (!isIncome && e.edited)
+      const editedBadgeHtml = (!isIncome && (e.editedAt || e.edited))
         ? `<span class="exp-edited-badge" title="Відредаговано" aria-label="Відредаговано"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>`
         : '';
       // Rev #30 (6D.68) — CLOUD_ICON_SVG/SYNC_DONE_ICON_SVG — той самий

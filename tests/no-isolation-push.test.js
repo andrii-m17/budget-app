@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 
-const NAMES = ['AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', 'isCloudWriteReady', 'isWriteBlocked',
+const NAMES = ['AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', 'editedAtPayload', 'expenseEditedAtValue', 'isCloudWriteReady', 'isWriteBlocked',
   'pushExpenseRecordPilot', 'pushExpensesBatch', 'pushIncomeRecordPilot', 'pushIncomesBatch', 'pushDebtRecordPilot', 'pushDebtsBatch'];
 function make(){
   const upserts = [];

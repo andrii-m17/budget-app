@@ -159,7 +159,7 @@ const REPOSITORY_NAMES = [
   'pullDictionaryCore', 'pullDictionaryPilot', 'ensureDictionaryIdentity',
   // Rev 2.22.79 (6D.152) — restoreDictionaryFromBackup() тепер кличе цей
   // бекфіл-хелпер напряму (не лише через ensureDictionaryIdentity()).
-  'ensureDictionaryEntryIds', 'AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', // Rev 2.32.23 (N), 2.32.28 (MB-4)
+  'ensureDictionaryEntryIds', 'AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', 'editedAtPayload', 'expenseEditedAtValue', // Rev 2.32.23 (N), 2.32.28 (MB-4)
   // Rev 2.22.81 (6D.154, Крок A3) — стабільний порядок показу словника.
   'compareDictionaryForDisplay',
   'restoreCategoriesFromBackup', 'restoreSubcategoriesFromBackup',
@@ -224,7 +224,7 @@ const REPOSITORY_NAMES = [
   // той самий cross-realm-override прийом, що pullBankAccountsCore тощо.
   // syncAllPilotManual() (DOM-шар) НЕ включена, той самий принцип, що всі
   // *PilotManual().
-  'pullExpensesCore', 'pullExpensesPilot',
+  'pullExpensesCore', 'editedAtDiffers', 'pullExpensesPilot',
   'pullIncomesCore', 'pullIncomesPilot',
   'pullDebtsCore', 'pullDebtsPilot',
   'restoreExpensesFromBackup', 'restoreIncomesFromBackup', 'restoreDebtsFromBackup',
@@ -1745,7 +1745,7 @@ test('pushExpenseRecordPilot: успішний push → pullExpensesCore() ви�
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: [{}], error: null }); } }; } });
-  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  const pullSpy = spyOn(ctx, 'pullExpensesCore', 'editedAtDiffers');
   await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500 });
   assert.equal(pullSpy.count(), 1);
 });
@@ -1756,14 +1756,14 @@ test('pushExpenseRecordPilot: push ПРОВАЛИВСЯ (реальна Cloud-п
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: null, error: new Error('симульована помилка') }); } }; } });
-  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  const pullSpy = spyOn(ctx, 'pullExpensesCore', 'editedAtDiffers');
   await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500 });
   assert.equal(pullSpy.count(), 0);
 });
 
 test('pushExpenseRecordPilot: не залогінений (офлайн-подібний guard) → pullExpensesCore() НЕ викликається (природний успадкований тихий пропуск)', async () => {
   const { ctx } = sandbox();
-  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  const pullSpy = spyOn(ctx, 'pullExpensesCore', 'editedAtDiffers');
   await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500 });
   assert.equal(pullSpy.count(), 0);
 });
@@ -5011,7 +5011,7 @@ test('pushExpenseRecordPilot: opts.suppressPull:true → pullExpensesCore() НЕ
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: [{}], error: null }); } }; } });
-  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  const pullSpy = spyOn(ctx, 'pullExpensesCore', 'editedAtDiffers');
   await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500, updatedAt: '2026-01-01T00:00:00.000Z' }, { suppressPull: true });
   assert.equal(pullSpy.count(), 0);
 });
@@ -5021,7 +5021,7 @@ test('pushExpenseRecordPilot: без opts (звичайний одиничний
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: [{}], error: null }); } }; } });
-  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  const pullSpy = spyOn(ctx, 'pullExpensesCore', 'editedAtDiffers');
   await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500, updatedAt: '2026-01-01T00:00:00.000Z' });
   assert.equal(pullSpy.count(), 1);
 });
@@ -5032,7 +5032,7 @@ test('restoreExpensesFromBackup: РІВНО ОДИН pullExpensesCore() на в�
   ctx.isSupabaseSdkReady = () => true;
   ctx.expenses = [];
   ctx.getSupabaseClient = () => ({ from(){ return { upsert(){ return Promise.resolve({ data: [{}], error: null }); } }; } });
-  const pullSpy = spyOn(ctx, 'pullExpensesCore');
+  const pullSpy = spyOn(ctx, 'pullExpensesCore', 'editedAtDiffers');
   const nowISO = '2026-05-01T00:00:00.000Z';
   const backup = Array.from({ length: 5 }, (_, i) => ({ id: 'e' + i, date: '2026-05-01', name: 'Запис ' + i, amount: 100, createdAt: nowISO, updatedAt: nowISO }));
   const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
