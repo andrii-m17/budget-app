@@ -9,7 +9,7 @@ const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
 const c = buildSandbox({}, ['MONO_MONTHS_GEN', 'monoFmtUah', 'pluralUa', 'pluralToastWord', 'toastModel', 'toastDuration', 'splitToastText', 'shouldShowToast', 'successToastPlacement']);
 test('toastModel: додано N витрат · з Monobank · сума; відмінювання', function(){
-  assert.deepEqual(j(c.toastModel('mono-added', { count: 3, amountUah: 412 })), { kind: 'success', title: 'Додано 3 витрати', subtitle: 'з Monobank · 412 ₴', actionLabel: 'Журнал', action: 'journal' });
+  assert.deepEqual(j(c.toastModel('mono-added', { count: 3, amountUah: 412 })), { kind: 'success', title: 'Додано 3 витрати', subtitle: 'з Monobank · 412 ₴', actionLabel: '', action: null });
   assert.equal(c.toastModel('mono-added', { count: 1, amountUah: 50 }).title, 'Додано 1 витрату');
   assert.equal(c.toastModel('mono-added', { count: 5, amountUah: 50 }).title, 'Додано 5 витрат');
 });

@@ -3492,7 +3492,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.85</div>
+  <div class="version-footer">Money Tree · Rev 2.32.86</div>
 </div>
   </div>
 </div>
@@ -7936,7 +7936,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.85';
+const APP_VERSION = '2.32.86';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -20958,7 +20958,8 @@ function toastModel(kind, data){
   const d = data || {};
   if(kind === 'mono-added'){
     const n = d.count || 0;
-    return { kind: 'success', title: 'Додано ' + n + ' ' + pluralToastWord(n), subtitle: 'з Monobank' + (d.amountUah ? ' · ' + monoFmtUah(d.amountUah) : ''), actionLabel: 'Журнал', action: 'journal' };
+    // Rev 2.32.86 (FIX-UI-1a): кнопку «Журнал» прибрано, поп-ап лише інформаційний (стиль, позиція й час без змін: як у «Повернення враховано»). Ризик: перехід у журнал із цього поп-апа більше недоступний, лишається вкладка «Витрати».
+    return { kind: 'success', title: 'Додано ' + n + ' ' + pluralToastWord(n), subtitle: 'з Monobank' + (d.amountUah ? ' · ' + monoFmtUah(d.amountUah) : ''), actionLabel: '', action: null };
   }
   if(kind === 'refund'){
     return { kind: 'success', title: 'Повернення враховано', subtitle: (d.name || 'Витрата') + ' · ' + (d.deleted ? monoFmtUah(d.oldAmount) + ' → видалено' : monoFmtUah(d.oldAmount) + ' → ' + monoFmtUah(d.newAmount)), actionLabel: '', action: null };
@@ -21053,7 +21054,7 @@ function openJournalFromToast(){
 }
 function showMonoAddedToast(count, amountUah){
   const m = toastModel('mono-added', { count: count, amountUah: amountUah });
-  showToast({ kind: m.kind, title: m.title, subtitle: m.subtitle, actionLabel: m.actionLabel, onAction: openJournalFromToast });
+  showToast({ kind: m.kind, title: m.title, subtitle: m.subtitle }); // Rev 2.32.86 (FIX-UI-1a): без кнопки
 }
 // Текстове повідомлення (колишній showTrashToast): kind 'error' — помилка, інакше успіх; довгий текст ділиться на заголовок і підзаголовок.
 function showTextToast(text, kind){
