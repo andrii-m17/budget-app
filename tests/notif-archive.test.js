@@ -70,7 +70,8 @@ test('тап по сповіщенню: mark_notifications_read([id]), лічи�
   await e.ctx.openNotificationRow('n1');
   assert.deepEqual(j(e.calls), [{ name: 'mark_notifications_read', args: { p_ids: ['n1'] } }]);
   assert.equal(e.g.notifArchive.unread, 0); assert.ok(e.g.notifArchive.rows[0].read_at);
-  assert.deepEqual(j(e.g.handled), [{ type: 'mono-inbox', target: 'x' }]); assert.equal(e.g.closed, 1);
+  assert.deepEqual(j(e.g.handled), [{ type: 'mono-inbox', target: 'x', batch_ts: T(12, 8, 0) }]); // Rev 2.32.95: пачка за created_at, якщо batch_ts немає
+   assert.equal(e.g.closed, 1);
 });
 test('тап по вже прочитаному не викликає RPC, але веде за типом', async function(){
   const e = env([N('n1', T(12, 8, 0), { read_at: T(12, 9, 0) })], 0);

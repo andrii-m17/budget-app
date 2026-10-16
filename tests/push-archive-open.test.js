@@ -12,7 +12,7 @@ function run(type, archiveOpen){
   const g = {
     document: { activeElement: { blur: rec('blur') }, body: { classList: { remove: rec('kb') } }, visibilityState: 'visible', querySelector: function(){ return null; }, querySelectorAll: function(){ return []; }, getElementById: function(){ return null; } },
     debugRecordingActive: true, debugRecordingStartedAt: 0, performance: { now: function(){ return 5; } }, pushDebugEvent: function(e){ events.push(e); },
-    closeNotifArchive: function(){ calls.push('closeArchive'); }, performSwitchTab: rec('tab'), openMonoInbox: rec('inbox'), openJournal: rec('journal'), latestTouchedRecordMonth: function(){ return '2026-10'; },
+    closeNotifArchive: function(){ calls.push('closeArchive'); }, performSwitchTab: rec('tab'), openMonoInbox: rec('inbox'), highlightMonoBatch: function(){}, openJournal: rec('journal'), latestTouchedRecordMonth: function(){ return '2026-10'; },
     switchAccountingTab: rec('acc'), setTimeout: function(){}, captureDebugGeometry: function(){}, captureFocusAudit: function(){},
     monoState: { loaded: false }, installmentAccounts: [], cloudAuthInitInFlight: null,
   };

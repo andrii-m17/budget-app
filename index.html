@@ -1005,6 +1005,7 @@
      звичайного стану картки. Разом ≈3с — той самий порядок величини, що
      SYNC_MIN_SYNCING_MS індикатора зверху зліва. */
   .expense-row.just-synced{ background:var(--color-info-bg); animation:cardBlink .8s ease-in-out 3; }
+  .expense-row.just-notified{ background:var(--color-info-bg); animation:cardBlink .8s ease-in-out 3; } /* Rev 2.32.95 (NOTIF-1 Rev 2): підсвітка рядків пачки Monobank у «Вхідних» зі сповіщення (як для ОЧ) */
   .expense-row.just-synced.just-synced-done{ background:var(--color-success-bg); transition:background .3s ease; }
   @keyframes cardBlink{ 0%,100%{ opacity:1; } 50%{ opacity:.5; } }
   .sync-badge-icon{ display:inline-flex; flex-shrink:0; }
@@ -3494,7 +3495,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.94</div>
+  <div class="version-footer">Money Tree · Rev 2.32.95</div>
 </div>
   </div>
 </div>
@@ -7952,7 +7953,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.94';
+const APP_VERSION = '2.32.95';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9621,6 +9622,25 @@ function closeOpenSheetsForPush(){
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible'){ runPendingPushAction('visible'); checkPendingPushFromIdb('visible'); } });
 window.addEventListener('pageshow', function(){ runPendingPushAction('pageshow'); checkPendingPushFromIdb('pageshow'); });
 window.addEventListener('focus', function(){ runPendingPushAction('focus'); });
+// Rev 2.32.95 (NOTIF-1 Rev 2): підсвітка рядків пачки Monobank у «Вхідних». Пачка = рядки mono_inbox з однаковим notified_at; сповіщення знає її за data.batch_ts (пуш; формат YYYY-MM-DDTHH24:MI:SS.US+00:00, чат додав 16.10) або за created_at (рядок архіву: збігається з notified_at). Мітки порівнюються за моментом часу (мс), а не рядком (мікросекунди/формат). Без мітки (старе сповіщення) підсвічуються всі нові. Пачка вже оброблена — нічого. Ризик: рядки одного мс не розрізняються (на практиці одна пачка = одна транзакція).
+function monoSameBatch(notifiedAt, batchTs){
+  if(!notifiedAt || !batchTs) return false;
+  if(notifiedAt === batchTs) return true;
+  const a = Date.parse(notifiedAt), b = Date.parse(batchTs);
+  return !isNaN(a) && !isNaN(b) && a === b;
+}
+function monoBatchRowIds(rows, batchTs){
+  return (rows || []).filter(function(r){ return batchTs ? monoSameBatch(r.notified_at, batchTs) : r.status === 'new'; }).map(function(r){ return safeId(r.id); });
+}
+function highlightMonoBatch(batchTs){
+  const ids = monoBatchRowIds(monoInbox.rows, batchTs);
+  if(!ids.length) return 0;
+  const els = Array.prototype.filter.call(document.querySelectorAll('#mono-inbox-body [data-mono-row]'), function(w){ return ids.indexOf(w.getAttribute('data-mono-row')) !== -1; })
+    .map(function(w){ return w.querySelector('.expense-row'); }).filter(Boolean);
+  els.forEach(function(el){ el.classList.add('just-notified'); setTimeout(function(){ el.classList.remove('just-notified'); }, 3000); });
+  if(els[0]) try{ els[0].scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){}
+  return els.length;
+}
 async function handlePushAction(action){
   if(!action || !action.type) return;
   if(action.type === 'mono-inbox'){
@@ -9668,7 +9688,7 @@ async function handlePushAction(action){
     // Rev 2.32.29: «Вхідні» Monobank — вкладка «Сервіс», таббар видимий, без клавіатури й focus()
     document.body.classList.remove('kb-open');
     performSwitchTab('service');
-    if(route.screen === 'mono-inbox') openMonoInbox({ fromPush: true }); else openMonoScreen();
+    if(route.screen === 'mono-inbox'){ await openMonoInbox({ fromPush: true }); highlightMonoBatch(action.batch_ts || action.batchTs || null); } else openMonoScreen(); // Rev 2.32.95 (NOTIF-1 Rev 2)
   }else if(route.screen === 'backup'){
     // Rev 2.32.15 (Z): екран експорту/резервної копії — вкладка «Сервіс»; таббар видимий, без клавіатури, БЕЗ програмного focus(): плитка лише підсвічується й прокручується в центр.
     document.body.classList.remove('kb-open');
@@ -20486,7 +20506,7 @@ async function loadMonoInbox(){
   monoInbox.offline = false;
   if(!monoState.loaded || !monoState.accounts.length) await loadMonoState();
   try{
-    let q = getSupabaseClient().from('mono_inbox').select('id,mono_tx_id,mono_account_id,tx_time,description,comment,mcc,hold,amount_minor,amount_uah,status,skip_reason,suggested_category,suggested_subcategory,expense_id').order('tx_time', { ascending: false }).limit(200);
+    let q = getSupabaseClient().from('mono_inbox').select('id,mono_tx_id,mono_account_id,tx_time,description,comment,mcc,hold,amount_minor,amount_uah,status,skip_reason,suggested_category,suggested_subcategory,expense_id,notified_at').order('tx_time', { ascending: false }).limit(200);
     q = monoInbox.tab === 'skipped' ? q.in('status', ['skipped', 'ignored', 'refunded']) : q.eq('status', monoInbox.tab);
     const r = await q;
     if(r.error) throw r.error;
@@ -20987,7 +21007,7 @@ async function openNotificationRow(id){
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', opened: true });
   if(!type) return;
   closeNotifArchive();
-  await handlePushAction(Object.assign({}, row.data || {}, { type: type }));
+  await handlePushAction(Object.assign({}, row.data || {}, { type: type, batch_ts: (row.data && row.data.batch_ts) || row.created_at })); // Rev 2.32.95 (NOTIF-1 Rev 2): пачка за created_at, якщо batch_ts немає
 }
 async function markAllNotificationsRead(){
   if(notifArchive.busy || !notifArchive.unread) return;
@@ -24487,7 +24507,7 @@ restoreExpenseDraft();
 const pushActionParams = new URLSearchParams(location.search);
 const pushActionType = pushActionParams.get('pushAction');
 if(pushActionType){
-  queuePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, target: pushActionParams.get('target') || undefined, _at: pushActionParams.get('at') || undefined }, 'query'); // Rev 2.32.30 (P)
+  queuePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, target: pushActionParams.get('target') || undefined, batchTs: pushActionParams.get('batchTs') || undefined, _at: pushActionParams.get('at') || undefined }, 'query'); // Rev 2.32.30 (P)
   history.replaceState(null, '', location.pathname);
   // 6D.144 — цей запуск уже обслужено через query-параметр (URL з
   // clients.openWindow() цього разу дійшла як є) — прибираємо дубль-запис
