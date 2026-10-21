@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const pure = buildSandbox({}, ['notifBatchKey', 'groupInboxBatches', 'notifRowState', 'notifProcessedTarget', 'isDailyReminderRow', 'kyivDateKey']);
+const pure = buildSandbox({}, ['notifBatchKey', 'groupInboxBatches', 'notifRowState', 'notifProcessedTarget', 'isDailyReminderRow', 'kyivDateKey', 'reminderPending']);
 const B1 = '2026-10-16T05:00:00.123456+00:00', B2 = '2026-10-16T05:10:00.000000+00:00';
 const N = (id, at, extra) => Object.assign({ id, type: 'mono-inbox', title: 'Monobank', body: 'x', data: { type: 'mono-inbox' }, created_at: at, read_at: null }, extra || {});
 
@@ -219,14 +219,16 @@ test('kyivDateKey: доба по Києву (21:30 UTC влітку вже на�
   assert.equal(pure.kyivDateKey('2026-07-16T21:30:00+00:00'), '2026-07-17');
   assert.equal(pure.kyivDateKey('не-дата'), '');
 });
-test('notifRowState (нагадування): «Нове», поки є нові операції тієї київської доби; потім «Оброблено»; пачковий «рядків немає → оброблено» його не стосується', function(){
+test('notifRowState (нагадування, Rev 2.32.106): вигляд лише за read_at (як у решти); reminderPending лише для переходу при тапі', function(){
   const days = new Set(['2026-10-16']);
   assert.equal(pure.notifRowState(REM(), {}, true, days, true), 'new');
-  assert.equal(pure.notifRowState(REM({ read_at: '2026-10-16T18:00:00Z' }), {}, true, days, true), 'new', 'нове, поки є нові операції, навіть якщо відкрите');
-  assert.equal(pure.notifRowState(REM(), {}, true, new Set(['2026-10-15']), true), 'processed');
-  assert.equal(pure.notifRowState(REM(), {}, true, new Set(), true), 'processed');
-  assert.equal(pure.notifRowState(REM(), {}, true, undefined, false), 'new', 'стан нових невідомий: за read_at');
-  assert.equal(pure.notifRowState(REM({ read_at: 'x' }), {}, true, undefined, false), 'read');
+  assert.equal(pure.notifRowState(REM({ read_at: '2026-10-16T18:00:00Z' }), {}, true, days, true), 'read', 'прочитане (тап чи «Прочитати всі») більше не жирне, хоч нові операції є');
+  assert.equal(pure.notifRowState(REM(), {}, true, new Set(), true), 'new', 'непрочитане лишається «новим» і без нових операцій');
+  assert.equal(pure.reminderPending(REM(), days, true), true);
+  assert.equal(pure.reminderPending(REM(), new Set(['2026-10-15']), true), false);
+  assert.equal(pure.reminderPending(REM(), new Set(), true), false);
+  assert.equal(pure.reminderPending(REM(), undefined, false), null, 'невідомо');
+  assert.equal(pure.reminderPending(REM({ created_at: 'не-дата' }), days, true), null);
   // пачка без рядків у mono_inbox і далі «оброблено»
   assert.equal(pure.notifRowState(N('a', B1), {}, true, new Set(['2026-10-16']), true), 'processed');
 });

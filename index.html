@@ -2640,6 +2640,7 @@
     nav.tabbar.pressed .tabbar-bubble{ --bubble-scale:1; }
     .tabbar-bubble::before, .stb-clip::before, .skeleton::after{ animation:none !important; }
     .avatar-status-dot, .profile-status-dot{ animation:none !important; }
+    .app-modal:not(.open){ transform:translate(-50%,-50%) scale(1); } /* Rev 2.32.106: діалог з'являється затуханням (opacity), без масштабу .96 → 1; відкритий стан і клавіатурні правила html.kb-sheet не чіпаємо */
   }
 </style>
 </head>
@@ -3514,7 +3515,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.105</div>
+  <div class="version-footer">Money Tree · Rev 2.32.106</div>
 </div>
   </div>
 </div>
@@ -7976,7 +7977,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.105';
+const APP_VERSION = '2.32.106';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -21048,7 +21049,7 @@ function groupInboxBatches(rows){
   (rows || []).forEach(function(r){ const k = notifBatchKey(r.notified_at); if(k === null) return; (m[k] = m[k] || []).push({ status: r.status, expense_id: r.expense_id || null }); });
   return m;
 }
-// Rev 2.32.102 (NOTIF-2): щоденне нагадування (type 'mono-inbox' з data.tag 'daily-expense-reminder', без пачки) відрізняється від пачки. Нагадування «нове», поки є mono_inbox зі status 'new' за київську добу його created_at (за tx_time, як тригер trg_mono_inbox_autoread на сервері); інакше «оброблено». Правило «рядків пачки немає → оброблено» діє лише для пачок. Якщо стан нових не завантажено — за read_at.
+// Rev 2.32.102 (NOTIF-2), уточнено в Rev 2.32.106: щоденне нагадування (type 'mono-inbox' з data.tag 'daily-expense-reminder', без пачки) відрізняється від пачки. ВИГЛЯД нагадування за read_at, як у решти (жирне й з фоном лише непрочитане; тап і «Прочитати всі» прочитують його, лічильник дзвіночка узгоджений). Стан «є нові операції тієї київської доби» (reminderPending: за tx_time, як тригер mono_inbox_autoread) потрібен лише для переходу при тапі: є нові → «Вхідні», немає → тост «Вже оброблено». Правило «рядків пачки немає → оброблено» діє лише для пачок.
 function isDailyReminderRow(row){
   const type = row.type || (row.data && row.data.type) || '';
   return type === 'mono-inbox' && !!row.data && row.data.tag === 'daily-expense-reminder';
@@ -21058,16 +21059,15 @@ function kyivDateKey(iso){
   const fmt = function(zone){ return new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t)); };
   try{ return fmt('Europe/Kyiv'); }catch(e){ try{ return fmt('Europe/Kiev'); }catch(e2){ return ''; } } // запасна назва зони для старих ICU
 }
+// true/false: чи є нові операції в добі нагадування; null: невідомо (запит не вдався) → вважаємо, що є (веде у «Вхідні»).
+function reminderPending(row, pendingDays, pendingOk){
+  if(!pendingOk || !pendingDays) return null;
+  const k = kyivDateKey(row.created_at);
+  return k ? pendingDays.has(k) : null;
+}
 function notifRowState(row, batches, batchesOk, pendingDays, pendingOk){
   const type = row.type || (row.data && row.data.type) || '';
-  if(isDailyReminderRow(row)){
-    if(pendingOk && pendingDays){
-      const k = kyivDateKey(row.created_at);
-      if(k) return pendingDays.has(k) ? 'new' : 'processed';
-    }
-    return row.read_at ? 'read' : 'new';
-  }
-  if(type === 'mono-inbox' && batchesOk){
+  if(type === 'mono-inbox' && !isDailyReminderRow(row) && batchesOk){
     const b = (batches || {})[notifBatchKey(row.created_at)];
     if(!b || b.every(function(x){ return x.status !== 'new'; })) return 'processed';
   }
@@ -21237,6 +21237,7 @@ async function openNotificationRow(id){
   }
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', opened: true });
   if(!type) return;
+  if(isDailyReminderRow(row) && reminderPending(row, notifArchive.pendingDays, notifArchive.pendingOk) === false){ showTextToast('Вже оброблено', 'info'); return; } // Rev 2.32.106 (NOTIF-2): нових операцій за добу нагадування немає: без навігації
   if(type === 'mono-inbox' && !isDailyReminderRow(row) && notifRowState(row, notifArchive.batches, notifArchive.batchesOk, notifArchive.pendingDays, notifArchive.pendingOk) === 'processed'){ await openProcessedNotification(row); return; } // Rev 2.32.96 (NOTIF-1 Rev 3)
   closeNotifArchive();
   await handlePushAction(Object.assign({}, row.data || {}, { type: type, batch_ts: isDailyReminderRow(row) ? undefined : ((row.data && row.data.batch_ts) || row.created_at) })); // Rev 2.32.95 (NOTIF-1 Rev 2): пачка за created_at, якщо batch_ts немає; Rev 2.32.102 (NOTIF-2): нагадування веде у «Вхідні» без підсвітки пачки

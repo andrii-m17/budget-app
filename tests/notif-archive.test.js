@@ -54,15 +54,15 @@ test('notifTimeLabel: час для сьогодні/вчора, дата для
 function env(rows, unread){
   const calls = [], rendered = [];
   const g = {
-    notifArchive: { rows: rows, loaded: true, offline: false, unread: unread, busy: false, batches: {}, batchesOk: false }, calls: calls, handled: [], closed: 0,
+    notifArchive: { rows: rows, loaded: true, offline: false, unread: unread, busy: false, batches: {}, batchesOk: false }, calls: calls, handled: [], closed: 0, toasts: [],
     safeId: function(x){ return String(x).replace(/[^0-9A-Za-z_-]/g, ''); },
     updateNotifBell: function(){}, renderNotifArchive: function(){ rendered.push(1); }, refreshNotifUnread: function(){},
-    debugRecordingActive: false, showTextToast: function(){},
+    debugRecordingActive: false, showTextToast: function(t){ g.toasts.push(t); },
     closeNotifArchive: function(){ g.closed++; },
     handlePushAction: async function(a){ g.handled.push(a); },
     getSupabaseClient: function(){ return { rpc: async function(name, args){ calls.push({ name: name, args: args }); return { error: null }; } }; },
   };
-  const ctx = buildSandbox(g, ['openNotificationRow', 'markAllNotificationsRead', 'runClearNotifArchive', 'notifRowState', 'notifBatchKey', 'isDailyReminderRow', 'kyivDateKey']);
+  const ctx = buildSandbox(g, ['openNotificationRow', 'markAllNotificationsRead', 'runClearNotifArchive', 'notifRowState', 'notifBatchKey', 'isDailyReminderRow', 'kyivDateKey', 'reminderPending']);
   return { ctx, g, calls };
 }
 test('тап по сповіщенню: mark_notifications_read([id]), лічильник −1, перехід за типом', async function(){
@@ -78,6 +78,18 @@ test('тап по щоденному нагадуванню (NOTIF-2): веде 
   await e.ctx.openNotificationRow('r1');
   assert.equal(e.g.handled.length, 1); assert.equal(e.g.handled[0].type, 'mono-inbox'); assert.equal(e.g.handled[0].batch_ts, undefined);
   assert.equal(e.g.handled[0].tag, 'daily-expense-reminder'); assert.equal(e.g.closed, 1);
+});
+test('тап по нагадуванню без нових операцій за добу (Rev 2.32.106): позначає прочитаним, тост «Вже оброблено», без навігації; з новими або невідомо: у «Вхідні»', async function(){
+  const mkr = (pending, ok) => { const e = env([N('r1', T(12, 8, 0), { data: { type: 'mono-inbox', tag: 'daily-expense-reminder' } })], 1);
+    e.g.notifArchive.pendingDays = pending; e.g.notifArchive.pendingOk = ok; return e; };
+  let e = mkr(new Set(), true); await e.ctx.openNotificationRow('r1');
+  assert.deepEqual(e.g.toasts, ['Вже оброблено']); assert.equal(e.g.handled.length, 0); assert.equal(e.g.closed, 0);
+  assert.equal(e.calls[0].name, 'mark_notifications_read'); assert.equal(e.g.notifArchive.unread, 0);
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(T(12, 8, 0)));
+  e = mkr(new Set([day]), true); await e.ctx.openNotificationRow('r1');
+  assert.equal(e.g.handled.length, 1); assert.deepEqual(e.g.toasts, []);
+  e = mkr(undefined, false); await e.ctx.openNotificationRow('r1');
+  assert.equal(e.g.handled.length, 1);
 });
 test('тап по вже прочитаному не викликає RPC, але веде за типом', async function(){
   const e = env([N('n1', T(12, 8, 0), { read_at: T(12, 9, 0) })], 0);
