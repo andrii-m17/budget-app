@@ -1618,7 +1618,7 @@
   .n-diag-row .ok{ color:var(--color-success); }
   .n-diag-row .bad{ color:var(--color-error); }
   .n-diag-empty{ padding:10px 14px; font-size:12.5px; color:var(--color-text-secondary); }
-  #push-series-form{ border:1px solid var(--color-border); border-radius:var(--radius-sm); } #push-series-form .n-diag-row{ align-items:center; font-size:14px; } #push-series-form select{ font-size:16px; min-height:36px; padding:4px 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); } /* Rev 2.32.104: форма серії без текстових полів; select ≥ 16 px (без масштабування iOS) */
+  #push-series-form{ border:1px solid var(--color-border); border-radius:var(--radius-sm); } #push-series-form .n-diag-row{ align-items:center; font-size:14px; } #push-series-form select{ font-size:16px; min-height:44px; padding:4px 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); } /* Rev 2.32.104: форма серії без текстових полів; select ≥ 16 px (без масштабування iOS) */
   /* ===== Rev 2.32.12 (R) — «Налаштування → Сповіщення»: inset-grouped список за макетом (рядок 52, групи 18, заголовки 13 пт, тумблер 51×31; значення з токенів --ui-*). Лише всередині #notifications-drawer — решта .n-* (список «Налаштування») без змін. ===== */
   #notifications-drawer .n-section-label{ font-size:13px; font-weight:600; letter-spacing:.04em; margin:22px 16px 7px; }
   #notifications-drawer .nx-first{ margin-top:4px; }
@@ -1661,7 +1661,7 @@
   .test-card-title{ font-size:14px; font-weight:700; color:var(--color-text-primary); }
   .test-card-what{ font-size:12.5px; color:var(--color-text-secondary); margin:4px 0 10px; }
   .test-card-segments{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
-  .test-card select{ width:100%; margin-bottom:8px; }
+  .test-card select{ width:100%; margin-bottom:8px; font-size:16px; min-height:44px; } /* Rev 2.32.110 (INPUT-16 доробка за spec-reviewer): select у «Тестуванні» ≥ 16 px і ≥ 44 pt */
   .test-card-hint{ font-size:12.5px; color:var(--color-text-primary); margin-bottom:6px; }
   .test-card-default{ display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; background:var(--color-surface-hover); color:var(--color-text-secondary); font-size:11px; font-weight:600; }
   .test-card-meta{ font-size:11px; color:var(--color-muted); margin-bottom:8px; }
@@ -3523,7 +3523,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.109</div>
+  <div class="version-footer">Money Tree · Rev 2.32.110</div>
 </div>
   </div>
 </div>
@@ -7985,7 +7985,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.109';
+const APP_VERSION = '2.32.110';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

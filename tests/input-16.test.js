@@ -28,6 +28,20 @@ test('охоронний: правила input/select/textarea з font-size < 16
   const bad = found.filter(sel => !EXEMPT.some(e => sel === e || sel.endsWith(e)));
   assert.deepEqual(bad, [], 'нові поля з шрифтом < 16 px: підніміть до 16 px або додайте виняток з причиною');
 });
+test('охоронний: правила полів з явною висотою < 44 pt лише з переліку винятків (настільні медіа-запити, чекбокс); select «Тестування» і форма серії: 16 px і ≥ 44', () => {
+  const css = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+  const isField = part => /(?:^|[\s>+~])(?:input|select|textarea)(?:[.:#\[][^\s]*)*$/.test(part.trim());
+  const EXEMPT_H = ['#view-vytraty .field input, #view-vytraty .field select', '#view-vytraty .cat-fields-wrap select', '.bdr-minpay-check input[type="checkbox"]'];
+  const bad = []; const re = /([^{}]+)\{([^{}]*)\}/g; let m;
+  while((m = re.exec(css))){
+    const sel = m[1].trim(); const h = m[2].match(/(?:^|[;\s])(?:min-)?height:\s*([\d.]+)px/);
+    if(h && parseFloat(h[1]) < 44 && sel.split(',').some(isField) && !EXEMPT_H.includes(sel)) bad.push(sel + ' ' + h[0].trim());
+  }
+  assert.deepEqual(bad, []);
+  assert.match(rule('.test-card select'), /font-size:16px/); assert.match(rule('.test-card select'), /min-height:44px/);
+  const f = CSS.slice(CSS.indexOf('#push-series-form select{'), CSS.indexOf('}', CSS.indexOf('#push-series-form select{')));
+  assert.match(f, /font-size:16px/); assert.match(f, /min-height:44px/);
+});
 test('user-scalable=no лишається (рішення: масштабування не змінюємо)', () => {
   assert.match(SRC, /<meta name="viewport" content="[^"]*maximum-scale=1, user-scalable=no[^"]*">/);
 });
