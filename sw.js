@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.100';
+const CACHE_NAME = 'budget-app-v2.32.101';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -68,9 +68,9 @@ self.addEventListener('message', function(event){
 // Rev 2.22.27 (6D.99) — data.data (напр. {type:'daily-expense-reminder'},
 // сервер) прокидається в options.data — notificationclick нижче читає
 // його, щоб знати, куди саме вести клік.
-// Rev 2.23.30 (6D.199) — ЖУРНАЛ ОТРИМАННЯ + "завжди показувати": на КОЖНУ подію push (до showNotification) у IndexedDB
-// 'budget-app-push-log' пишеться {ts, type, title, shown:false}; після успішного showNotification shown:true; будь-яка
-// помилка (парсингу, запису в журнал, самого показу) ловиться й лягає в поле error. iOS вимагає показувати сповіщення
+// Rev 2.23.30 (6D.199) — ЖУРНАЛ ОТРИМАННЯ + "завжди показувати" (з Rev 2.32.101 запис робиться ПІСЛЯ показу, без title, див. нижче):
+// у IndexedDB 'budget-app-push-log' пишеться {ts, type, shown, error}; будь-яка
+// помилка (парсингу, самого показу) ловиться й лягає в поле error. iOS вимагає показувати сповіщення
 // для КОЖНОГО push (інакше може відкликати дозвіл), тому НЕМАЄ жодної умови, за якої showNotification не викликається
 // (зокрема коли вікно застосунку видиме — внутрішні картки на Realtime живуть окремо). Журнал — до 30 записів.
 const PUSH_LOG_DB_NAME = 'budget-app-push-log';
@@ -106,45 +106,58 @@ function writePushLog(entry){
     });
   });
 }
-function patchPushLog(id, patch){
-  if(id === null || id === undefined) return Promise.resolve();
-  return openPushLogDb().then(function(db){
-    return new Promise(function(resolve){
-      const tx = db.transaction(PUSH_LOG_STORE, 'readwrite');
-      const store = tx.objectStore(PUSH_LOG_STORE);
-      const getReq = store.get(id);
-      getReq.onsuccess = function(){ if(getReq.result) store.put(Object.assign(getReq.result, patch)); };
-      tx.oncomplete = function(){ db.close(); resolve(); };
-      tx.onerror = function(){ resolve(); };
-    });
-  }).catch(function(){});
+// Rev 2.32.101 (NOTIF-3 Rev 1): showNotification ПЕРШИМ і синхронно (до жодного await), журнал — ПІСЛЯ показу й із тайм-аутом
+// PUSH_LOG_TIMEOUT_MS. Раніше показ ішов у logged.then(...) після відкриття IndexedDB без тайм-ауту: якщо indexedDB.open у воркері
+// iOS після сну не відповідав, сповіщення не показувалось (гіпотеза H1: push 11:52 і 20:00 мали 201 від Apple, але не показані й без
+// запису). Один запис на push {ts, type, shown, error} вже з результатом (без попереднього shown:false і без patch); title у журнал
+// більше не пишеться (приватність). Увесь обробник в try/catch: на виняток показується мінімальне «Money Tree» (iOS вимагає показ
+// кожного push), помилка лягає в error. Умови «не показувати» як і раніше немає. Ризик: якщо воркер вбито під час показу, запису
+// не буде (раніше був би «Не показано»); альтернатива «писати до показу» і є причиною H1.
+const PUSH_LOG_TIMEOUT_MS = 1000;
+function withTimeout(promise, ms){
+  return new Promise(function(resolve){
+    const timer = setTimeout(function(){ resolve(null); }, ms);
+    promise.then(function(v){ clearTimeout(timer); resolve(v); }, function(){ clearTimeout(timer); resolve(null); });
+  });
 }
+function errText(prefix, err){ return prefix + (err && err.message ? err.message : String(err)); }
 self.addEventListener('push', function(event){
-  let data = {};
+  let type = null;
   let problem = null;
-  try{ data = event.data ? event.data.json() : {}; }catch(err){ problem = 'parse: ' + (err && err.message ? err.message : String(err)); data = {}; }
-  if(!data || typeof data !== 'object') data = {};
-  const title = (typeof data.title === 'string' && data.title) ? data.title : 'Money Tree';
-  const inner = (data.data && typeof data.data === 'object') ? data.data : {};
-  const options = {
-    body: typeof data.body === 'string' ? data.body : '',
-    icon: './icons/icon-192-v2.png',
-    badge: './icons/icon-192-v2.png',
-    data: inner
-  };
-  // Rev 2.23.29 (6D.198) — tag (data.data.tag або data.tag) замінює попереднє сповіщення того ж виду; renotify:false — без
-  // повторного звуку/вібрації при заміні.
-  const notifTag = inner.tag || data.tag;
-  if(notifTag){ options.tag = String(notifTag); options.renotify = false; }
-  // Rev 2.32.29 — сповіщення Monobank: той самий tag замінює попереднє, але renotify:true — кожне нове привертає увагу (звук/вібрація), а не губиться в центрі сповіщень.
-  if(inner.type === 'mono-inbox'){ options.tag = 'mono-inbox'; options.renotify = true; }
-  const logged = writePushLog({ ts: Date.now(), type: inner.type || null, title: title, shown: false, error: problem }).catch(function(){ return null; });
+  let shownPromise;
+  try{
+    let data = {};
+    try{ data = event.data ? event.data.json() : {}; }catch(err){ problem = errText('parse: ', err); data = {}; }
+    if(!data || typeof data !== 'object') data = {};
+    const title = (typeof data.title === 'string' && data.title) ? data.title : 'Money Tree';
+    const inner = (data.data && typeof data.data === 'object') ? data.data : {};
+    type = inner.type || null;
+    const options = {
+      body: typeof data.body === 'string' ? data.body : '',
+      icon: './icons/icon-192-v2.png',
+      badge: './icons/icon-192-v2.png',
+      data: inner
+    };
+    // Rev 2.23.29 (6D.198) — tag (data.data.tag або data.tag) замінює попереднє сповіщення того ж виду; renotify:false — без
+    // повторного звуку/вібрації при заміні.
+    const notifTag = inner.tag || data.tag;
+    if(notifTag){ options.tag = String(notifTag); options.renotify = false; }
+    // Rev 2.32.29 — сповіщення Monobank: той самий tag замінює попереднє, але renotify:true — кожне нове привертає увагу (звук/вібрація), а не губиться в центрі сповіщень.
+    if(inner.type === 'mono-inbox'){ options.tag = 'mono-inbox'; options.renotify = true; }
+    shownPromise = self.registration.showNotification(title, options);
+  }catch(err){
+    problem = errText('handler: ', err);
+    try{ shownPromise = self.registration.showNotification('Money Tree'); }catch(err2){ shownPromise = Promise.reject(err2); }
+  }
   event.waitUntil(
-    logged.then(function(id){
-      return self.registration.showNotification(title, options).then(function(){
-        return patchPushLog(id, { shown: true });
-      }, function(err){
-        return patchPushLog(id, { error: 'show: ' + (err && err.message ? err.message : String(err)) }).then(function(){ throw err; });
+    shownPromise.then(function(){
+      return withTimeout(writePushLog({ ts: Date.now(), type: type, shown: true, error: problem }), PUSH_LOG_TIMEOUT_MS);
+    }, function(err){
+      // Перший показ відхилено (напр. невалідні options): одна спроба мінімального сповіщення, інакше iOS отримає push без показу.
+      let retry;
+      try{ retry = self.registration.showNotification('Money Tree'); }catch(err2){ retry = Promise.reject(err2); }
+      return retry.then(function(){ return true; }, function(){ return false; }).then(function(ok){
+        return withTimeout(writePushLog({ ts: Date.now(), type: type, shown: ok, error: errText('show: ', err) }), PUSH_LOG_TIMEOUT_MS).then(function(){ if(!ok) throw err; });
       });
     })
   );

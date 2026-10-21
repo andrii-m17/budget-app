@@ -204,7 +204,7 @@ function runPush(opts){
   const handlers = {}; const shown = [];
   const sandbox = {
     self: null, caches: {}, console: { log(){}, warn(){}, error(){} }, Promise: Promise,
-    indexedDB: opts.idb === 'fail' ? { open(){ throw new Error('idb недоступна'); } } : (function(){
+    indexedDB: opts.idb === 'fail' ? { open(){ throw new Error('idb недоступна'); } } : opts.idb === 'hang' ? { open(){ return {}; } } : (function(){
       const store = [];
       return { open(){ const req = {}; setTimeout(function(){
         const db = { objectStoreNames: { contains(){ return true; } }, transaction(){ const tx = { objectStore(){ return {
@@ -214,9 +214,9 @@ function runPush(opts){
         }; } }; return tx; }, close(){} };
         req.result = db; req.onsuccess && req.onsuccess(); }, 0); return req; }, _store: store };
     })(),
-    setTimeout: setTimeout,
+    setTimeout: setTimeout, clearTimeout: clearTimeout,
   };
-  sandbox.self = { addEventListener(name, fn){ handlers[name] = fn; }, registration: { showNotification(title, options){ if(opts.showFails) return Promise.reject(new Error('iOS відмовив')); shown.push([title, options]); return Promise.resolve(); } }, clients: {}, skipWaiting(){} };
+  sandbox.self = { addEventListener(name, fn){ handlers[name] = fn; }, registration: { showNotification(title, options){ if(opts.rejectFirst && !opts.rejected){ opts.rejected = true; return Promise.reject(new Error('bad options')); } if(opts.showThrows && !shown.length && !opts.thrown){ opts.thrown = true; throw new Error('sync boom'); } if(opts.showFails) return Promise.reject(new Error('iOS відмовив')); shown.push([title, options]); return Promise.resolve(); } }, clients: {}, skipWaiting(){} };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8'), sandbox);
   let waited = null;
@@ -245,16 +245,39 @@ test('sw.js push (S4): showNotification викликається для КОЖН
   assert.equal(ok.shown[0][1].tag, 'abc'); assert.equal(ok.shown[0][1].renotify, false);
   assert.equal((await runPush({ data: mkData({}) })).shown[0][0], 'Money Tree');
 });
-test('sw.js push: журнал отримання пишеться до showNotification і позначається shown; без умов "вікно видиме"', async () => {
+test('sw.js push: журнал пишеться ПІСЛЯ showNotification одним записом (shown), без title; без умов "вікно видиме"', async () => {
   const r = await runPush({ data: mkData({ title: 'Лог', data: { type: 'test' } }) });
   const log = r.idb._store;
   assert.equal(log.length, 1); assert.equal(log[0].type, 'test'); assert.equal(log[0].shown, true);
+  assert.equal('title' in log[0], false, 'текст сповіщення в журнал не пишемо');
   const failed = await runPush({ data: mkData({ title: 'Лог' }), showFails: true });
   assert.equal(failed.idb._store[0].shown, false); assert.ok(/show:/.test(failed.idb._store[0].error));
   const src = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
   const handler = src.slice(src.indexOf("self.addEventListener('push'"), src.indexOf("// Rev 2.22.25 (6D.93) — клік по сповіщенню"));
   assert.equal(/matchAll|visibilityState|\.visible|focused/.test(handler), false, 'жодних перевірок видимості вікна');
-  assert.equal((handler.match(/showNotification\(/g) || []).length, 1);
+  assert.equal((handler.match(/showNotification\(/g) || []).length, 3, 'основний показ, мінімальний у catch і повтор при відхиленні');
+});
+test('sw.js push (NOTIF-3 Rev 1): showNotification викликається синхронно, ДО будь-якого запису в IndexedDB', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+  const handler = src.slice(src.indexOf("self.addEventListener('push'"), src.indexOf("// Rev 2.22.25 (6D.93) — клік по сповіщенню"));
+  assert.ok(handler.indexOf('showNotification(title, options)') < handler.indexOf('writePushLog('), 'показ раніше за журнал');
+  assert.equal(/await /.test(handler.slice(0, handler.indexOf('showNotification(title, options)'))), false);
+});
+test('sw.js push (NOTIF-3 Rev 1): IndexedDB журналу ніколи не відповідає: показ відбувся, waitUntil завершується за тайм-аутом', async () => {
+  const t0 = Date.now();
+  const r = await runPush({ data: mkData({ title: 'Z', data: { type: 'mono-inbox' } }), idb: 'hang' });
+  assert.equal(r.shown.length, 1); assert.equal(r.shown[0][1].tag, 'mono-inbox'); assert.equal(r.shown[0][1].renotify, true);
+  assert.ok(Date.now() - t0 < 3000, 'завершилось за тайм-аутом, не зависло');
+});
+test('sw.js push (NOTIF-3 Rev 1): виняток у тілі обробника: мінімальне «Money Tree» все одно показується, помилка в журналі', async () => {
+  const r = await runPush({ data: mkData({ title: 'Лог' }), showThrows: true });
+  assert.equal(r.shown.length, 1); assert.equal(r.shown[0][0], 'Money Tree');
+  assert.ok(/handler:/.test(r.idb._store[0].error)); assert.equal(r.idb._store[0].shown, true);
+});
+test('sw.js push (NOTIF-3 Rev 1): перший показ відхилено: один повторний мінімальний показ, не два сповіщення', async () => {
+  const r = await runPush({ data: mkData({ title: 'Лог' }), rejectFirst: true });
+  assert.equal(r.shown.length, 1); assert.equal(r.shown[0][0], 'Money Tree');
+  assert.equal(r.idb._store[0].shown, true); assert.ok(/show:/.test(r.idb._store[0].error));
 });
 test('джерело (6D.199): «Сповіщення» немає в Сервісі, є в Налаштуваннях; тема й опис мови лишились', () => {
   const svc = SRC.slice(SRC.indexOf('id="view-service"'), SRC.indexOf('id="view-service"') + 40000);
