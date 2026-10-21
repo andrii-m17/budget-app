@@ -1629,7 +1629,7 @@
   #notifications-drawer .n-row-title{ font-size:16px; }
   #notifications-drawer .nx-value{ font-size:13px; color:var(--color-text-secondary); white-space:nowrap; }
   #notifications-drawer .n-row .n-row-title{ white-space:nowrap; }
-  #notifications-drawer .n-row.n-row-wrap .n-row-title{ white-space:normal; } /* Rev 2.32.109 (HIDE-1): довгий підпис «Приховувати суми й назви на екрані блокування» переноситься на два рядки, а не ховається під перемикачем */
+  #notifications-drawer .n-row.n-row-wrap{ padding-top:8px; padding-bottom:8px; } #notifications-drawer .n-row.n-row-wrap .n-row-title{ white-space:normal; } /* Rev 2.32.109 (HIDE-1): довгий підпис «Приховувати суми й назви на екрані блокування» переноситься на два рядки, а не ховається під перемикачем */
   #notifications-drawer .n-row{ gap:8px; }
   #notifications-drawer .nx-seg-row{ position:relative; padding:10px 16px 12px; }
   #notifications-drawer .nx-seg-row .n-row-title{ display:block; margin-bottom:8px; }
@@ -3523,7 +3523,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.110</div>
+  <div class="version-footer">Money Tree · Rev 2.32.111</div>
 </div>
   </div>
 </div>
@@ -7985,7 +7985,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.110';
+const APP_VERSION = '2.32.111';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -22189,9 +22189,10 @@ function renderNotificationsDrawer(){
   const hide = rows[1]; // Rev 2.32.109 (HIDE-1): той самий вигляд і збереження, що в інших перемикачів; при вимкненому головному недоступний
   const hideRow = notifRow(hide.title, null, hide.value, function(v){ saveNotificationSetting({ hide_details: v }); }, ro || master.value === false);
   hideRow.classList.add('n-row-wrap');
+  hideRow.querySelector('input').setAttribute('aria-describedby', 'nx-hide-hint'); // Rev 2.32.111: VoiceOver зачитує підказку разом із перемикачем
   gm.appendChild(hideRow);
   body.appendChild(gm);
-  const hideHint = document.createElement('div'); hideHint.className = 'nx-hint'; hideHint.textContent = 'На екрані блокування сповіщення показують загальний текст. Деталі видно в застосунку.';
+  const hideHint = document.createElement('div'); hideHint.className = 'nx-hint'; hideHint.id = 'nx-hide-hint'; if(master.value === false) hideHint.style.opacity = '0.5'; /* головний вимкнено: підказка приглушена, як рядок вище */ hideHint.textContent = 'На екрані блокування сповіщення показують загальний текст. Деталі видно в застосунку.';
   body.appendChild(hideHint);
   if(notice){ const n = document.createElement('div'); n.className = 'nx-notice'; n.setAttribute('role', 'status'); n.textContent = notice.text; body.appendChild(n); }
   if(ro){

@@ -49,4 +49,7 @@ test('джерело: поле в NOTIFICATION_SETTING_FIELDS; перемика�
   assert.ok(SRC.includes('#notifications-drawer .n-row.n-row-wrap .n-row-title{ white-space:normal; }'));
   assert.match(r, /На екрані блокування сповіщення показують загальний текст\. Деталі видно в застосунку\./);
   assert.match(r, /rows\.slice\(2\)\.forEach/);
+  assert.ok(r.includes("setAttribute('aria-describedby', 'nx-hide-hint')") && r.includes("hideHint.id = 'nx-hide-hint'"), 'підказка зв\'язана з перемикачем (VoiceOver)');
+  assert.ok(r.includes("if(master.value === false) hideHint.style.opacity = '0.5'"), 'підказка приглушена при вимкненому головному');
+  assert.ok(SRC.includes('#notifications-drawer .n-row.n-row-wrap{ padding-top:8px; padding-bottom:8px; }'), 'вертикальний відступ для багаторядкового підпису');
 });
