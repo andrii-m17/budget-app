@@ -2521,6 +2521,12 @@
   html:root .journal-search-clear{ position:absolute; }
   html:root .gear-btn{ --ui-hit:4px; } html:root .drawer-close{ --ui-hit:7px; } html:root .journal-back-btn{ --ui-hit:4px; } html:root .journal-search-clear{ --ui-hit:11px; } html:root .data-status-dot{ --ui-hit:5px; }
   html:root :is(.exp-del, .diag-issue-ignore){ --ui-hit:9px; } html:root .dsp-action{ --ui-hit:7px; } /* Rev 2.30.0 (M4b): пара іконок «редагувати/видалити» стоїть впритул (проміжок 2pt), крок рядків 43pt. Зона розширюється АСИМЕТРИЧНО в бік вільного краю: «редагувати» — вліво (+20), «видалити» — вправо (+20) → 45pt по ширині без перекриття; по висоті 24+2×8.5 = 41pt = найменший крок рядків (Словник, 41pt; Категорії 43pt; більше перекривало б іконки сусідніх рядків) → по висоті 3pt до 44 лишається задокументований виняток (UI_AUDIT_SMALL_EXEMPT). */
+  /* Rev 2.32.107 (TAP-1): решта цілей < 44 pt за hit-тестом (scripts/tap-targets.mjs scan): (1) вибір місяця в шапці (пілюля-<label> 38 pt) ЛИШЕНО без змін: будь-яке розширення (position:relative або transform на label, паддінг select із від'ємним відступом) змінює шарування й дає 48 відмінних пікселів на іконці календаря (темна тема), тобто суперечить вимозі «вигляд без змін»; 6 pt до 44 задокументовано як виняток; (2) «Скасувати підбір» (Monobank): --ui-hit-y 9px; (3) «Як перевірити» у «Тестуванні» (розробницький екран): зона лише вгору (знизу кнопка дій). */
+  html:root .update-banner button{ position:relative; } html:root .update-banner button::after{ content:''; position:absolute; inset:-6.5px -6px; } /* «Оновити» 88×31 → 100×44 (зона в межах плашки) */
+  html:root .mono-kw-undo{ position:relative; --ui-hit:0px; --ui-hit-y:9px; }
+  html:root .mono-kw-undo::after{ content:''; position:absolute; inset:-9px 0; }
+  html:root .test-card details summary{ position:relative; }
+  html:root .test-card details summary::after{ content:''; position:absolute; left:0; right:0; top:-29px; bottom:0; }
   html:root .bdr-icon-btn{ --ui-hit-y:8.5px; --ui-hit-l:20px; --ui-hit-r:1px; }
   html:root .bdr-icon-btn.danger{ --ui-hit-l:1px; --ui-hit-r:20px; }
   html:root :is(.auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ --ui-hit:14px; } html:root .cdd-delete-link{ --ui-hit:9px; } html:root .t-footer-link{ --ui-hit:7px; } html:root .struct-tab-btn{ --ui-hit:0px; --ui-hit-y:6px; } html:root :is(.add-trigger-btn, .show-journal-link){ --ui-hit:0px; --ui-hit-y:2px; } /* Rev 2.27.0: знайдено аудитом на «Аналітиці» (31pt) */ html:root .installment-pay-btn{ --ui-hit:3px; }
@@ -3515,7 +3521,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.106</div>
+  <div class="version-footer">Money Tree · Rev 2.32.107</div>
 </div>
   </div>
 </div>
@@ -7977,7 +7983,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.106';
+const APP_VERSION = '2.32.107';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
