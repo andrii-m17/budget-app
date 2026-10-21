@@ -76,6 +76,34 @@ if(MODE === 'shots'){
   }
   c.close(); process.exit(0);
 }
+if(MODE === 'fields'){ // поля вводу з шрифтом < 16 px або висотою < 44 pt у видимих станах
+  const c = await open(); const seen = new Map();
+  const runs = TABS.map(t => [t, null]).concat(STATES).concat([['vytraty', "openJournal(monthKey(localDateISO(new Date()))); setTimeout(()=>{const b=document.querySelector('#journal-overlay [data-rec-id]'); if(b) b.click();},400)"]]);
+  for(const [tab, expr] of runs){
+    await loadTab(c, tab, 'dark');
+    if(expr){ await c.ev(`try{ ${expr}; }catch(e){} 1`); await sleep(1500); }
+    const list = JSON.parse(await c.ev(`(()=>{const out=[];document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=file]), select, textarea').forEach(el=>{const cs=getComputedStyle(el);if(cs.display==='none'||cs.visibility==='hidden')return;const r=el.getBoundingClientRect();if(!r.width||!r.height)return;if(el.closest('[inert], .hidden'))return;const fs=parseFloat(cs.fontSize);if(fs<16||r.height<43.5)out.push({tag:el.tagName.toLowerCase(),id:(el.id||'').replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/g,'…'),cls:String(el.className||'').slice(0,40),type:el.type||'',fs:fs,w:Math.round(r.width),h:Math.round(r.height*10)/10});});return JSON.stringify(out);})()`));
+    for(const x of list){ const k = x.tag + '|' + x.id + '|' + x.cls + '|' + x.fs + '|' + x.h; if(!seen.has(k)) seen.set(k, Object.assign({ tabs: [] }, x)); seen.get(k).tabs.push(tab); }
+  }
+  for(const x of seen.values()) console.log(`${x.tag}[${x.type}]#${x.id}.${x.cls}\tfont ${x.fs}\t${x.w}x${x.h}\t${[...new Set(x.tabs)].join(',')}`);
+  c.close(); process.exit(0);
+}
+if(MODE === 'fshots'){ // скріншоти полів (Журнал: пошук/фільтри, редагування запису) на 320/390/440, обидві теми + перевірка переповнення
+  const dir = process.argv[3]; mkdirSync(dir, { recursive: true });
+  const c = await open(); let bad = 0;
+  for(const w of [320, 390, 440]) for(const theme of ['dark', 'light']) for(const st of ['journal', 'edit']){
+    await c.send('Emulation.setDeviceMetricsOverride', { width: w, height: 844, deviceScaleFactor: 2, mobile: true });
+    await loadTab(c, 'vytraty', theme);
+    await c.ev(`openJournal(monthKey(localDateISO(new Date()))); 1`); await sleep(1200);
+    if(st === 'edit'){ await c.ev(`(()=>{const b=document.querySelector('#journal-overlay .swipe-edit-btn'); if(b) b.click(); return 1;})()`); await sleep(1000); await c.ev(`(()=>{const p=document.querySelector('.record-edit-panel'); if(p) p.scrollIntoView({block:'center'}); return 1;})()`); await sleep(500); }
+    const m = JSON.parse(await c.ev(`(()=>{const root=document.getElementById('journal-overlay')||document.body;const over=[...root.querySelectorAll('input,select,textarea,button,.field,.journal-search-row,.record-edit-panel')].filter(e=>e.getBoundingClientRect().width&&e.scrollWidth>e.clientWidth+1&&e.tagName!=='SELECT'&&e.tagName!=='INPUT').map(e=>e.className||e.tagName).slice(0,5);const f=[...root.querySelectorAll('input:not([type=hidden]),select')].filter(e=>e.getBoundingClientRect().width).map(e=>({id:(e.id||'').slice(0,18),fs:parseFloat(getComputedStyle(e).fontSize),h:Math.round(e.getBoundingClientRect().height),r:Math.round(e.getBoundingClientRect().right)}));return JSON.stringify({hscroll:document.documentElement.scrollWidth>document.documentElement.clientWidth+1,over,edit:!!document.querySelector('.record-edit-panel'),f,vw:innerWidth});})()`));
+    console.log(w, theme, st, 'hscroll', m.hscroll, 'overflow', m.over.join('|') || '-', 'поля(font/h):', m.f.map(x => x.id + ':' + x.fs + '/' + x.h + (x.r > m.vw ? '!' : '')).join(' '));
+    if(m.hscroll || m.over.length || m.f.some(x => x.r > m.vw)) bad++;
+    const shot = await c.send('Page.captureScreenshot', { format: 'png' });
+    writeFileSync(`${dir}/${st}-${theme}-${w}.png`, Buffer.from(shot.result.data, 'base64'));
+  }
+  console.log(bad ? 'ПРОБЛЕМ: ' + bad : 'ок'); c.close(); process.exit(bad ? 1 : 0);
+}
 if(MODE === 'dump'){ // computed-стилі пілюлі місяця (темна тема) → файл JSON: для пошуку причини піксельних відмінностей
   const c = await open(); await loadTab(c, 'analytics', 'dark');
   const out = await c.ev(`(()=>{const dump=e=>{const c=getComputedStyle(e);const o={};for(const k of c)o[k]=c.getPropertyValue(k);return o};const p=document.querySelector('.month-pill');const r=e=>{const b=e.getBoundingClientRect();return [b.left,b.top,b.width,b.height]};return JSON.stringify({pill:dump(p),svg:dump(p.querySelector('svg')),sel:dump(p.querySelector('select')),rects:{pill:r(p),svg:r(p.querySelector('svg')),sel:r(p.querySelector('select'))}});})()`);

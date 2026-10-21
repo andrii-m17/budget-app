@@ -443,7 +443,7 @@
     .bdr-icon-btn.danger:hover{ background:var(--color-error-bg); color:var(--color-error); }
   }
   .add-bank-row{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
-  .add-bank-row input{ flex:1 1 auto; min-width:0; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--color-surface); color:var(--color-text-primary); }
+  .add-bank-row input{ flex:1 1 auto; min-width:0; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); }
   .add-bank-row input.amount-input{ flex:0 1 140px; }
   .add-bank-row input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
   .add-bank-row .submit-btn{ flex:0 0 auto; width:auto; margin-top:0; padding:11px 16px; white-space:nowrap; }
@@ -908,7 +908,7 @@
      ">" (лише прямий нащадок) — іконку "×" більше НЕ зачіпає, вона й далі
      центрується власним flex-правилом .journal-search-clear. */
   .journal-search-input-wrap > svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--color-muted); pointer-events:none; }
-  .journal-search-input-wrap input{ width:100%; height:44px; padding:0 34px 0 36px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:14px; box-sizing:border-box; }
+  .journal-search-input-wrap input{ width:100%; height:44px; padding:0 34px 0 36px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:16px; box-sizing:border-box; } /* Rev 2.32.108 (INPUT-16): поля й select ≥ 16 px, висота ≥ 44 (без масштабування iOS при фокусі) */
   .journal-search-input-wrap input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
   /* Rev 2.21.13 BugFix — кнопка "×" вилазила за межі свого кола: базове
      button{...} правило (вище в файлі) не скидає padding, тому браузерний
@@ -921,8 +921,9 @@
   .journal-search-clear{ position:absolute; right:7px; top:50%; transform:translateY(-50%); width:22px; height:22px; padding:0; border:none; background:var(--color-surface-hover); border-radius:50%; color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .journal-search-clear.hidden{ display:none; }
   .journal-search-filters-row{ display:flex; gap:8px; margin-bottom:14px; }
-  .journal-search-category{ flex:1 1 0; min-width:0; height:44px; padding:0 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:12.5px; }
+  .journal-search-category{ flex:1 1 0; min-width:0; height:44px; padding:0 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:16px; }
   .journal-search-category:focus{ outline:none; border-color:var(--color-primary); }
+  @media (max-width:359px){ .journal-search-category{ padding:0 4px; } } /* Rev 2.32.108: на 320 pt «Усі підкатегорії» при 16 px вміщується (було обрізано) */
   /* Rev 2.20.0 — "Результати пошуку (N)": замінює .journal-month-label, поки
      активний пошук/фільтр (той самий момент, коли .journal-month-nav
      ховається нижче) — сигналізує, що список тепер по ВСІЙ історії, а не
@@ -1033,7 +1034,7 @@
   .expense-row-swipe.edit-return-flash{ outline:2px solid var(--color-primary); outline-offset:-2px; transition:outline-color .3s; }
   .record-edit-panel{ margin-top:12px; padding-top:12px; border-top:1px dashed var(--color-border-strong); display:flex; flex-direction:column; gap:10px; cursor:default; }
   .record-edit-panel .field{ margin-bottom:0; }
-  .record-edit-panel select{ width:100%; height:40px; padding:8px 10px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
+  .record-edit-panel select{ width:100%; height:44px; padding:8px 10px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
   .record-edit-panel select:focus{ outline:none; border-color:var(--color-primary); }
   .record-edit-row{ display:flex; gap:10px; }
   .record-edit-row .field{ flex:1; min-width:0; }
@@ -1902,7 +1903,7 @@
   /* Rev 2.1.0 — вибір місяця в модалі видалення картки/ОЧ ("Приховати з...") */
   .app-modal-select-wrap{ display:none; margin-bottom:16px; }
   .app-modal-select-wrap label{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
-  .app-modal-select-wrap select{ width:100%; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:15px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
+  .app-modal-select-wrap select{ width:100%; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
   /* Rev 2.1.17 — поле початкової суми ОЧ у спільній модалці (той самий стиль,
      що select-wrap вище) — приховане за замовчуванням, показується лише
      через showInstallmentModal(). */
@@ -3521,7 +3522,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.107</div>
+  <div class="version-footer">Money Tree · Rev 2.32.108</div>
 </div>
   </div>
 </div>
@@ -7983,7 +7984,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.107';
+const APP_VERSION = '2.32.108';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
