@@ -24,7 +24,7 @@ test('routeForPushType: усі типи контракту й невідомий
 });
 
 test('notificationSettingsDefaults збігаються з типовими значеннями таблиці', () => {
-  assert.deepEqual(j(pure.notificationSettingsDefaults()), { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00', backup_reminder: true, mono_inbox: true });
+  assert.deepEqual(j(pure.notificationSettingsDefaults()), { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00', backup_reminder: true, mono_inbox: true, hide_details: false });
 });
 
 test('validateQuietHours: формат, початок≠кінець, через північ дозволено', () => {
@@ -135,9 +135,9 @@ const rowsOf = (settings, env) => j(pure.notificationRows(settings, env || ENV_O
 const idsVisible = rows => rows.filter(r => r.visible).map(r => r.id);
 test('notificationRows (R): порядок, групи й ключі даних за макетом', () => {
   const rows = rowsOf(pure.notificationSettingsDefaults());
-  assert.deepEqual(rows.map(r => r.id), ['master', 'changes', 'deletions', 'daily', 'installments', 'days', 'month-start', 'backup', 'mono', 'quiet', 'quiet-start', 'quiet-end', 'test']);
-  assert.deepEqual(rows.map(r => r.field), ['notifications_enabled', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'backup_reminder', 'mono_inbox', 'quiet_enabled', 'quiet_start', 'quiet_end', null]);
-  assert.deepEqual(rows.map(r => r.group), [null, 'family', 'family', 'reminders', 'reminders', 'reminders', 'reminders', 'reminders', 'mono', 'quiet', 'quiet', 'quiet', null]);
+  assert.deepEqual(rows.map(r => r.id), ['master', 'hide-details', 'changes', 'deletions', 'daily', 'installments', 'days', 'month-start', 'backup', 'mono', 'quiet', 'quiet-start', 'quiet-end', 'test']);
+  assert.deepEqual(rows.map(r => r.field), ['notifications_enabled', 'hide_details', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'backup_reminder', 'mono_inbox', 'quiet_enabled', 'quiet_start', 'quiet_end', null]);
+  assert.deepEqual(rows.map(r => r.group), [null, null, 'family', 'family', 'reminders', 'reminders', 'reminders', 'reminders', 'reminders', 'mono', 'quiet', 'quiet', 'quiet', null]);
   assert.equal(rows.find(r => r.id === 'daily').valueText, '20:00');
   assert.equal(rows.find(r => r.id === 'backup').valueText, 'кінець місяця');
   assert.equal(rows.find(r => r.id === 'deletions').title, 'Видалені записи');

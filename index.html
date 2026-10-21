@@ -1629,6 +1629,7 @@
   #notifications-drawer .n-row-title{ font-size:16px; }
   #notifications-drawer .nx-value{ font-size:13px; color:var(--color-text-secondary); white-space:nowrap; }
   #notifications-drawer .n-row .n-row-title{ white-space:nowrap; }
+  #notifications-drawer .n-row.n-row-wrap .n-row-title{ white-space:normal; } /* Rev 2.32.109 (HIDE-1): довгий підпис «Приховувати суми й назви на екрані блокування» переноситься на два рядки, а не ховається під перемикачем */
   #notifications-drawer .n-row{ gap:8px; }
   #notifications-drawer .nx-seg-row{ position:relative; padding:10px 16px 12px; }
   #notifications-drawer .nx-seg-row .n-row-title{ display:block; margin-bottom:8px; }
@@ -3522,7 +3523,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.108</div>
+  <div class="version-footer">Money Tree · Rev 2.32.109</div>
 </div>
   </div>
 </div>
@@ -7984,7 +7985,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.108';
+const APP_VERSION = '2.32.109';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -22019,9 +22020,9 @@ updateTrashBadge();
 // сім'ї користувача). Тексти й логіку сповіщень формує сервер — клієнт лише зберігає налаштування, показує статус
 // дозволу й шле тестове сповіщення (Edge Function send-test-push; send-push-notification клієнт НЕ викликає).
 const NOTIFICATIONS_STAGE2_ENABLED = false; // weekly_summary / month_end: функцій на сервері ще немає — перемикачі сховано
-const NOTIFICATION_SETTING_FIELDS = ['notifications_enabled', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'weekly_summary', 'month_end', 'quiet_enabled', 'quiet_start', 'quiet_end', 'backup_reminder', 'mono_inbox'];
+const NOTIFICATION_SETTING_FIELDS = ['notifications_enabled', 'other_actor_changes', 'other_actor_deletions', 'daily_reminder', 'installment_deadline', 'installment_days', 'month_start', 'weekly_summary', 'month_end', 'quiet_enabled', 'quiet_start', 'quiet_end', 'backup_reminder', 'mono_inbox', 'hide_details'];
 function notificationSettingsDefaults(){
-  return { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00', backup_reminder: true, mono_inbox: true };
+  return { notifications_enabled: true, other_actor_changes: true, other_actor_deletions: true, daily_reminder: true, installment_deadline: true, installment_days: 2, month_start: true, weekly_summary: false, month_end: false, quiet_enabled: false, quiet_start: '22:00', quiet_end: '07:00', backup_reminder: true, mono_inbox: true, hide_details: false };
 }
 // validateQuietHours(start, end): формат HH:MM (24 год), початок ≠ кінець; інтервал через північ (22:00–07:00) дозволений.
 function validateQuietHours(start, end){
@@ -22063,6 +22064,8 @@ function notificationRows(settings, env){
   const master = { id: 'master', group: null, type: 'switch', field: 'notifications_enabled', title: 'Сповіщення', value: st.notifications_enabled !== false && !denied, valueText: null, visible: true };
   return [
     master,
+    // Rev 2.32.109 (HIDE-1): «Приховувати суми й назви на екрані блокування» (notification_settings.hide_details, типово вимкнено): push_send на сервері сам підміняє текст на нейтральний. Рядок під головним тумблером у тій самій картці.
+    { id: 'hide-details', group: null, type: 'switch', field: 'hide_details', title: 'Приховувати суми й назви на екрані блокування', value: !!st.hide_details, valueText: null, visible: true },
     sw('changes', 'family', 'other_actor_changes', 'Нові й змінені записи'),
     sw('deletions', 'family', 'other_actor_deletions', 'Видалені записи'),
     sw('daily', 'reminders', 'daily_reminder', 'Внести витрати', '20:00'),
@@ -22183,7 +22186,13 @@ function renderNotificationsDrawer(){
   const gm = notifGroup();
   gm.classList.add('nx-first');
   gm.appendChild(notifRow(master.title, null, master.value, onMasterToggle, ro));
+  const hide = rows[1]; // Rev 2.32.109 (HIDE-1): той самий вигляд і збереження, що в інших перемикачів; при вимкненому головному недоступний
+  const hideRow = notifRow(hide.title, null, hide.value, function(v){ saveNotificationSetting({ hide_details: v }); }, ro || master.value === false);
+  hideRow.classList.add('n-row-wrap');
+  gm.appendChild(hideRow);
   body.appendChild(gm);
+  const hideHint = document.createElement('div'); hideHint.className = 'nx-hint'; hideHint.textContent = 'На екрані блокування сповіщення показують загальний текст. Деталі видно в застосунку.';
+  body.appendChild(hideHint);
   if(notice){ const n = document.createElement('div'); n.className = 'nx-notice'; n.setAttribute('role', 'status'); n.textContent = notice.text; body.appendChild(n); }
   if(ro){
     const note = document.createElement('div'); note.className = 'nx-hint';
@@ -22194,7 +22203,7 @@ function renderNotificationsDrawer(){
   const dimWrap = document.createElement('div');
   if(dim.dimmed){ dimWrap.className = 'n-dimmed'; dimWrap.setAttribute('inert', ''); dimWrap.setAttribute('aria-disabled', 'true'); }
   let group = null, groupName = undefined;
-  rows.slice(1).forEach(function(r){
+  rows.slice(2).forEach(function(r){ // [0] головний тумблер, [1] «Приховувати…» (див. вище)
     if(r.type === 'action' || !r.visible){ return; }
     if(r.group !== groupName){
       groupName = r.group;
