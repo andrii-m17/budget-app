@@ -134,3 +134,13 @@ test('click, closed, subscription-change, activate пишуться лише в 
   assert.deepEqual(events(on).map(e => e.ev).sort(), ['activate', 'click', 'closed', 'subscription-change']);
   assert.ok(events(on).every(e => !('title' in e) && !('body' in e)));
 });
+
+test('NOTIF-3 Rev 3: тестовий push (type test) з tag mono-inbox будується з tag і renotify як реальний; з іншим tag renotify false; seq/series_id у журналі', async () => {
+  const env = runSw({}); setFlag(env, true);
+  await push(env, { title: 'Тест', data: { type: 'test', tag: 'mono-inbox', series_id: 's9', seq: 3, push_id: 'p9' } });
+  assert.equal(env.shown[0][1].tag, 'mono-inbox'); assert.equal(env.shown[0][1].renotify, true);
+  assert.ok(events(env).some(e => e.ev === 'push-received' && e.series_id === 's9' && e.seq === '3' && e.type === 'test'));
+  const env2 = runSw({});
+  await push(env2, { title: 'Тест', data: { type: 'test', tag: 'abc' } });
+  assert.equal(env2.shown[0][1].tag, 'abc'); assert.equal(env2.shown[0][1].renotify, false);
+});

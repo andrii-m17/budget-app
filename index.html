@@ -1617,6 +1617,7 @@
   .n-diag-row .ok{ color:var(--color-success); }
   .n-diag-row .bad{ color:var(--color-error); }
   .n-diag-empty{ padding:10px 14px; font-size:12.5px; color:var(--color-text-secondary); }
+  #push-series-form{ border:1px solid var(--color-border); border-radius:var(--radius-sm); } #push-series-form .n-diag-row{ align-items:center; font-size:14px; } #push-series-form select{ font-size:16px; min-height:36px; padding:4px 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); } /* Rev 2.32.104: форма серії без текстових полів; select ≥ 16 px (без масштабування iOS) */
   /* ===== Rev 2.32.12 (R) — «Налаштування → Сповіщення»: inset-grouped список за макетом (рядок 52, групи 18, заголовки 13 пт, тумблер 51×31; значення з токенів --ui-*). Лише всередині #notifications-drawer — решта .n-* (список «Налаштування») без змін. ===== */
   #notifications-drawer .n-section-label{ font-size:13px; font-weight:600; letter-spacing:.04em; margin:22px 16px 7px; }
   #notifications-drawer .nx-first{ margin-top:4px; }
@@ -3513,7 +3514,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.103</div>
+  <div class="version-footer">Money Tree · Rev 2.32.104</div>
 </div>
   </div>
 </div>
@@ -7975,7 +7976,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.103';
+const APP_VERSION = '2.32.104';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -22471,6 +22472,52 @@ async function refreshPushSubscription(){
   }
   if(btn) btn.disabled = false;
 }
+// ===== Rev 2.32.104 (NOTIF-3 Rev 3): серія тестових push (лише режим розробника) =====
+// Серверна частина зроблена чатом: RPC start_test_push_series(p_count, p_intervals_s, p_tag) (1..10 push, перший через 60 с, кожен інтервал ≥ 60 с, одна активна серія на користувача, інакше помилка 'series already running'); розклад виконує cron на сервері, тож клієнтських таймерів немає (у фоні iOS їх зупиняє). Тестові push не пишуться в user_notifications. Форма без текстових полів (лише select), щоб не чіпати клавіатурну логіку шторок: кількість 1–10, схема інтервалів, tag. Відхилення від ТЗ: довільні інтервали замінено готовими схемами (1, 2, 5, 10 хв рівно або 1·1·5·10·10 хв) з тієї ж причини; ≥ 1 хв дотримано.
+const PUSH_SERIES_PATTERNS = { 'p1': [1], 'p2': [2], 'p5': [5], 'p10': [10], 'mix': [1, 1, 5, 10, 10] };
+const PUSH_SERIES_TAGS = ['mono-inbox', 'test'];
+function buildPushSeriesPlan(count, pattern, tag){
+  const n = Number(count);
+  if(!Number.isInteger(n) || n < 1 || n > 10) return { ok: false, error: 'Кількість від 1 до 10' };
+  const pat = PUSH_SERIES_PATTERNS.hasOwnProperty(pattern) ? PUSH_SERIES_PATTERNS[pattern] : null;
+  if(!pat) return { ok: false, error: 'Невідома схема інтервалів' };
+  if(PUSH_SERIES_TAGS.indexOf(tag) === -1) return { ok: false, error: 'Невідомий tag' };
+  const intervals = [];
+  for(let i = 0; i < n - 1; i++) intervals.push((pat[Math.min(i, pat.length - 1)]) * 60); // секунди; кожен ≥ 60
+  return { ok: true, count: n, intervals_s: intervals, tag: tag };
+}
+async function startPushTestSeries(){
+  const val = function(id){ const el = document.getElementById(id); return el ? el.value : ''; };
+  const plan = buildPushSeriesPlan(val('fldpush1'), val('fldpush2'), val('fldpush3'));
+  const out = document.getElementById('push-diag-result');
+  if(!plan.ok){ showTextToast(plan.error, 'error'); return; }
+  if(!isCloudSessionReady()){ showTextToast('Немає Cloud-сесії', 'error'); return; }
+  if(blockedByReadOnly()) return;
+  const btn = document.getElementById('push-series-start-btn'); if(btn) btn.disabled = true;
+  try{
+    const args = { p_count: plan.count, p_tag: plan.tag };
+    if(plan.intervals_s.length) args.p_intervals_s = plan.intervals_s;
+    const r = await getSupabaseClient().rpc('start_test_push_series', args);
+    if(r.error){
+      const msg = String(r.error.message || '');
+      if(/series already running/i.test(msg)) showTextToast('Серія вже запущена', 'error');
+      else showTextToast('Не вдалося запустити серію', 'error');
+      if(out) out.textContent = /series already running/i.test(msg) ? 'Серія вже запущена: дочекайтесь завершення' : 'Не вдалося запустити серію';
+    }else{
+      if(out) out.textContent = 'Серію запущено: ' + plan.count + ' push, перший приблизно через 1 хв. Закрийте застосунок і заблокуйте телефон.';
+      showTextToast('Серію запущено', 'success');
+    }
+  }catch(e){ showTextToast("Немає зв'язку із сервером", 'error'); }
+  if(btn) btn.disabled = false;
+}
+function pushSeriesSelect(id, label, options){
+  const row = document.createElement('div'); row.className = 'n-diag-row';
+  const lab = document.createElement('span'); lab.textContent = label;
+  const sel = document.createElement('select'); sel.id = id;
+  options.forEach(function(o){ const op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op); });
+  row.appendChild(lab); row.appendChild(sel);
+  return row;
+}
 async function renderPushDiag(){
   const on = await readPushDiagFlag();
   const btn = document.getElementById('push-diag-btn');
@@ -22490,6 +22537,14 @@ async function renderPushDiag(){
   mk('push-diag-send-btn', 'Надіслати лог сповіщень', sendPushDiagLog);
   mk('push-diag-refresh-btn', 'Оновити підписку', refreshPushSubscription);
   mk('push-diag-clear-btn', 'Очистити журнал подій', async function(){ await clearPushDiagEvents(); list.textContent = ''; showTextToast('Журнал подій очищено', 'info'); });
+  const series = document.createElement('div'); series.id = 'push-series-form'; series.style.marginBottom = '10px';
+  const counts = []; for(let i = 1; i <= 10; i++) counts.push([String(i), String(i)]);
+  series.appendChild(pushSeriesSelect('fldpush1', 'Кількість push', counts));
+  series.appendChild(pushSeriesSelect('fldpush2', 'Інтервали', [['mix', '1·1·5·10·10 хв'], ['p1', '1 хв'], ['p2', '2 хв'], ['p5', '5 хв'], ['p10', '10 хв']]));
+  series.appendChild(pushSeriesSelect('fldpush3', 'Tag', [['mono-inbox', 'mono-inbox'], ['test', 'test']]));
+  box.appendChild(series);
+  series.querySelector('#fldpush1').value = '6';
+  mk('push-series-start-btn', 'Запустити серію тестових push', startPushTestSeries);
   const result = document.createElement('div'); result.id = 'push-diag-result'; result.className = 'n-diag-empty';
   box.appendChild(result); box.appendChild(list);
 }

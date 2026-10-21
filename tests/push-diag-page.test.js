@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const NAMES = ['pushDiagLineText', 'pushEndpointHash', 'readPushDiagFlag', 'pushDiagOpen', 'sendPushDiagLog', 'refreshPushSubscription', 'PUSH_DIAG_DB'];
+const NAMES = ['pushDiagLineText', 'pushEndpointHash', 'readPushDiagFlag', 'pushDiagOpen', 'sendPushDiagLog', 'refreshPushSubscription', 'PUSH_DIAG_DB', 'buildPushSeriesPlan', 'startPushTestSeries', 'PUSH_SERIES_PATTERNS', 'PUSH_SERIES_TAGS'];
 
 test('pushDiagLineText: рядок події без тексту сповіщення; поля type/№/мс/вікон/помилка', () => {
   const c = buildSandbox({}, NAMES);
@@ -68,4 +68,41 @@ test('джерело: режим розробника не вмикається 
   const meta = sw.slice(sw.indexOf('function diagMeta'), sw.indexOf('function diagVisible'));
   assert.ok(!/title|body/.test(meta), 'у метаданих подій немає тексту');
   assert.ok(!/fetch\(/.test(sw.slice(sw.indexOf('const DIAG_DB_NAME'), sw.indexOf('// Rev 2.32.101 (NOTIF-3 Rev 1)'))), 'діагностика воркера не робить мережевих запитів');
+});
+
+// ===== Rev 2.32.104 (NOTIF-3 Rev 3): серія тестових push =====
+test('buildPushSeriesPlan: кількість 1–10, інтервали ≥ 60 с, схема mix добивається останнім, tag лише відомий', () => {
+  const c = buildSandbox({}, NAMES);
+  const j = v => JSON.parse(JSON.stringify(v));
+  assert.deepEqual(j(c.buildPushSeriesPlan('6', 'mix', 'mono-inbox')), { ok: true, count: 6, intervals_s: [60, 60, 300, 600, 600], tag: 'mono-inbox' });
+  assert.deepEqual(j(c.buildPushSeriesPlan(3, 'p5', 'test')), { ok: true, count: 3, intervals_s: [300, 300], tag: 'test' });
+  assert.deepEqual(j(c.buildPushSeriesPlan(1, 'p1', 'mono-inbox')).intervals_s, []);
+  assert.deepEqual(j(c.buildPushSeriesPlan(10, 'mix', 'mono-inbox')).intervals_s, [60, 60, 300, 600, 600, 600, 600, 600, 600]);
+  ['0', '11', '2.5', 'x', ''].forEach(n => assert.equal(c.buildPushSeriesPlan(n, 'p1', 'mono-inbox').ok, false, String(n)));
+  assert.equal(c.buildPushSeriesPlan(3, 'toString', 'mono-inbox').ok, false);
+  assert.equal(c.buildPushSeriesPlan(3, 'p1', 'evil').ok, false);
+  ['p1', 'p2', 'p5', 'p10', 'mix'].forEach(k => assert.ok(c.buildPushSeriesPlan(10, k, 'test').intervals_s.every(x => x >= 60), 'інтервал ≥ 1 хв: ' + k));
+});
+test('startPushTestSeries: RPC з p_count/p_intervals_s/p_tag; помилка series already running → повідомлення; без сесії й у «лише перегляд» не викликає; без клієнтських таймерів', async () => {
+  const toasts = [], calls = [];
+  const els = { fldpush1: { value: '4' }, fldpush2: { value: 'mix' }, fldpush3: { value: 'mono-inbox' }, 'push-diag-result': { textContent: '' }, 'push-series-start-btn': { disabled: false } };
+  const mk = (over, reply) => buildSandbox(Object.assign({ document: { getElementById: id => els[id] || null }, showTextToast: t => toasts.push(t), isCloudSessionReady: () => true, blockedByReadOnly: () => false,
+    getSupabaseClient: () => ({ rpc: async (n, a) => { calls.push({ n, a }); return reply(); } }) }, over), NAMES);
+  await mk({}, () => ({ data: 'sid', error: null })).startPushTestSeries();
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)), [{ n: 'start_test_push_series', a: { p_count: 4, p_tag: 'mono-inbox', p_intervals_s: [60, 60, 300] } }]);
+  assert.match(els['push-diag-result'].textContent, /Серію запущено.*заблокуйте телефон/);
+  await mk({}, () => ({ error: { message: 'series already running' } })).startPushTestSeries();
+  assert.ok(toasts.indexOf('Серія вже запущена') !== -1);
+  calls.length = 0;
+  await mk({ isCloudSessionReady: () => false }, () => ({})).startPushTestSeries();
+  await mk({ blockedByReadOnly: () => true }, () => ({})).startPushTestSeries();
+  assert.equal(calls.length, 0);
+  els.fldpush1.value = '99';
+  await mk({}, () => ({})).startPushTestSeries();
+  assert.equal(calls.length, 0, 'невалідна форма не викликає RPC');
+  const body = SRC.slice(SRC.indexOf('async function startPushTestSeries'), SRC.indexOf('function pushSeriesSelect'));
+  assert.ok(!/setTimeout|setInterval/.test(body), 'без клієнтських таймерів');
+  const form = SRC.slice(SRC.indexOf('function pushSeriesSelect'), SRC.indexOf('async function renderPushDiag'));
+  assert.ok(!/createElement\('input'\)|<input/.test(form), 'форма без текстових полів');
+  assert.ok(SRC.indexOf("mk('push-diag-send-btn'") < SRC.indexOf("mk('push-series-start-btn'"), 'форма серії лише в увімкненому режимі (після if(!on) return)');
 });

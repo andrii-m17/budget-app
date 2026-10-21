@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.103';
+const CACHE_NAME = 'budget-app-v2.32.104';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -198,7 +198,7 @@ self.addEventListener('push', function(event){
     const notifTag = inner.tag || data.tag;
     if(notifTag){ options.tag = String(notifTag); options.renotify = false; }
     // Rev 2.32.29 — сповіщення Monobank: той самий tag замінює попереднє, але renotify:true — кожне нове привертає увагу (звук/вібрація), а не губиться в центрі сповіщень.
-    if(inner.type === 'mono-inbox'){ options.tag = 'mono-inbox'; options.renotify = true; }
+    if(inner.type === 'mono-inbox' || notifTag === 'mono-inbox'){ options.tag = 'mono-inbox'; options.renotify = true; } // Rev 2.32.104 (NOTIF-3 Rev 3): тестовий push з tag 'mono-inbox' будується так само, як реальний (tag й renotify), щоб відтворити реальні умови
     meta = diagMeta(inner, options.tag);
     shownPromise = self.registration.showNotification(title, options);
   }catch(err){
