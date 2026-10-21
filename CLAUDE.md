@@ -51,7 +51,7 @@
 | `docs/STATUS_LOG_2.1-2.3.md` | архів колишнього STATUS (Rev 2.1.0–2.3.5) |
 
 ## Навички й субагент (`.claude/`)
-`rev-release` · `task-report` · `step0-audit` · `scenario-matrix` · `ui-from-mockup` · `new-input-field` · `ios-keyboard-safety` · `supabase-safety` · `notion-bridge`; субагент `spec-reviewer` (обов'язковий для класів B і C).
+`rev-release` · `task-report` · `step0-audit` · `scenario-matrix` · `ui-from-mockup` · `new-input-field` · `ios-keyboard-safety` · `supabase-safety` · `apple-pwa-design` (довідник HIG/iOS PWA); `notion-bridge` застаріла; субагенти `spec-reviewer` (обов'язковий для B і C) і `apple-review` (перевірка вигляду, ≤ 15 рядків).
 Гачки (`.claude/settings.json`): SessionStart показує правила; перед `git push` — тести, версії, ROADMAP; Stop — тести, якщо є незакомічені зміни коду.
 
 ## Платформні обмеження (не «лагодити» без нових фактів; дослівно в `docs/PLATFORM_LIMITS.md`)
