@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.102';
+const CACHE_NAME = 'budget-app-v2.32.103';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -106,6 +106,59 @@ function writePushLog(entry){
     });
   });
 }
+// Rev 2.32.103 (NOTIF-3 Rev 2): розширена діагностика сповіщень (режим розробника). Прапорець 'enabled' і кільцевий журнал подій (≤ DIAG_LIMIT) лежать в IndexedDB 'budget-app-push-diag' (сторінка пише прапорець і читає події; воркер читає прапорець і пише події). За замовчуванням ВИМКНЕНО: тоді воркер лише ОДИН раз читає прапорець ПІСЛЯ showNotification (без запитів до мережі) і нічого не пише. Усе best-effort з тайм-аутом, винятки ковтаються: діагностика ніколи не блокує показ. У подіях НЕМАЄ тексту сповіщення, сум і назв: лише час, тип, tag, batch_ts/seq/series_id/push_id, тривалість, кількість видимих вікон, версія воркера, коротка помилка.
+const DIAG_DB_NAME = 'budget-app-push-diag';
+const DIAG_LIMIT = 200;
+function diagOpen(){
+  return new Promise(function(resolve, reject){
+    const req = indexedDB.open(DIAG_DB_NAME, 1);
+    req.onupgradeneeded = function(){
+      if(!req.result.objectStoreNames.contains('flag')) req.result.createObjectStore('flag');
+      if(!req.result.objectStoreNames.contains('events')) req.result.createObjectStore('events', { keyPath: 'id', autoIncrement: true });
+    };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+function diagIsOn(){
+  return diagOpen().then(function(db){
+    return new Promise(function(resolve){
+      const g = db.transaction('flag', 'readonly').objectStore('flag').get('enabled');
+      g.onsuccess = function(){ db.close(); resolve(g.result === true); };
+      g.onerror = function(){ db.close(); resolve(false); };
+    });
+  });
+}
+function diagWrite(entries){
+  return diagOpen().then(function(db){
+    return new Promise(function(resolve){
+      const tx = db.transaction('events', 'readwrite');
+      const store = tx.objectStore('events');
+      entries.forEach(function(e){ store.add(e); });
+      const keys = store.getAllKeys();
+      keys.onsuccess = function(){ const ks = keys.result || []; for(let i = 0; i < ks.length - DIAG_LIMIT; i++) store.delete(ks[i]); };
+      tx.oncomplete = function(){ db.close(); resolve(); };
+      tx.onerror = function(){ db.close(); resolve(); };
+    });
+  });
+}
+function diagStr(v){ return (v === null || v === undefined) ? null : String(v).slice(0, 64); }
+function diagMeta(inner, tag){
+  return { type: diagStr(inner.type), tag: diagStr(tag), batch_ts: diagStr(inner.batch_ts), seq: diagStr(inner.seq), series_id: diagStr(inner.series_id), push_id: diagStr(inner.push_id) };
+}
+function diagVisible(){
+  try{ return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(arr){ return arr.filter(function(c){ return c.visibilityState === 'visible'; }).length; }, function(){ return null; }); }catch(e){ return Promise.resolve(null); }
+}
+// Запис подій лише коли режим увімкнено. Повертає проміс, що ніколи не відхиляється.
+function diagRecord(entries, withWindows){
+  return withTimeout(diagIsOn().then(function(on){
+    if(!on) return null;
+    return (withWindows ? diagVisible() : Promise.resolve(undefined)).then(function(vis){
+      const list = typeof entries === 'function' ? entries(vis) : entries;
+      return diagWrite(list.map(function(e){ return Object.assign({ sw: CACHE_NAME }, e); }));
+    });
+  }), PUSH_LOG_TIMEOUT_MS * 2).catch(function(){ return null; });
+}
 // Rev 2.32.101 (NOTIF-3 Rev 1): showNotification ПЕРШИМ і синхронно (до жодного await), журнал — ПІСЛЯ показу й із тайм-аутом
 // PUSH_LOG_TIMEOUT_MS. Раніше показ ішов у logged.then(...) після відкриття IndexedDB без тайм-ауту: якщо indexedDB.open у воркері
 // iOS після сну не відповідав, сповіщення не показувалось (гіпотеза H1: push 11:52 і 20:00 мали 201 від Apple, але не показані й без
@@ -125,6 +178,8 @@ self.addEventListener('push', function(event){
   let type = null;
   let problem = null;
   let shownPromise;
+  const t0 = Date.now();
+  let meta = diagMeta({}, null);
   try{
     let data = {};
     try{ data = event.data ? event.data.json() : {}; }catch(err){ problem = errText('parse: ', err); data = {}; }
@@ -144,6 +199,7 @@ self.addEventListener('push', function(event){
     if(notifTag){ options.tag = String(notifTag); options.renotify = false; }
     // Rev 2.32.29 — сповіщення Monobank: той самий tag замінює попереднє, але renotify:true — кожне нове привертає увагу (звук/вібрація), а не губиться в центрі сповіщень.
     if(inner.type === 'mono-inbox'){ options.tag = 'mono-inbox'; options.renotify = true; }
+    meta = diagMeta(inner, options.tag);
     shownPromise = self.registration.showNotification(title, options);
   }catch(err){
     problem = errText('handler: ', err);
@@ -151,13 +207,19 @@ self.addEventListener('push', function(event){
   }
   event.waitUntil(
     shownPromise.then(function(){
-      return withTimeout(writePushLog({ ts: Date.now(), type: type, shown: true, error: problem }), PUSH_LOG_TIMEOUT_MS);
+      return Promise.all([
+        withTimeout(writePushLog({ ts: Date.now(), type: type, shown: true, error: problem }), PUSH_LOG_TIMEOUT_MS),
+        diagRecord(function(vis){ const now = Date.now(); return [Object.assign({ ts: t0, ev: 'push-received', vis: vis }, meta)].concat(problem && /^handler:/.test(problem) ? [Object.assign({ ts: now, ev: 'handler-error', err: diagStr(problem) }, meta)] : []).concat([Object.assign({ ts: now, ev: 'show-ok', dur: now - t0 }, meta)]); }, true)
+      ]);
     }, function(err){
       // Перший показ відхилено (напр. невалідні options): одна спроба мінімального сповіщення, інакше iOS отримає push без показу.
       let retry;
       try{ retry = self.registration.showNotification('Money Tree'); }catch(err2){ retry = Promise.reject(err2); }
       return retry.then(function(){ return true; }, function(){ return false; }).then(function(ok){
-        return withTimeout(writePushLog({ ts: Date.now(), type: type, shown: ok, error: errText('show: ', err) }), PUSH_LOG_TIMEOUT_MS).then(function(){ if(!ok) throw err; });
+        return Promise.all([
+          withTimeout(writePushLog({ ts: Date.now(), type: type, shown: ok, error: errText('show: ', err) }), PUSH_LOG_TIMEOUT_MS),
+          diagRecord(function(vis){ const now = Date.now(); return [Object.assign({ ts: t0, ev: 'push-received', vis: vis }, meta), Object.assign({ ts: now, ev: ok ? 'show-retry-ok' : 'show-error', dur: now - t0, err: diagStr(errText('show: ', err)) }, meta)]; }, true)
+        ]).then(function(){ if(!ok) throw err; });
       });
     })
   );
@@ -206,6 +268,7 @@ function writePendingPushAction(action){
 
 self.addEventListener('notificationclick', function(event){
   event.notification.close();
+  try{ const nd = event.notification.data || {}; diagRecord([{ ts: Date.now(), ev: 'click', type: diagStr(nd.type), tag: diagStr(event.notification.tag), push_id: diagStr(nd.push_id) }], false); }catch(e){} // Rev 2.32.103: лише режим розробника; best-effort
   // Rev 2.32.30 (P): кожен клік отримує мітку часу _at — сторінка за нею відсікає дублі (message + IndexedDB + query) і відкидає застарілі дії; діагностика кліку (скільки вікон, результат focus) шлеться сторінці push-click-info.
   const notifData = Object.assign({}, event.notification.data || {});
   if(notifData.type) notifData._at = Date.now();
@@ -245,7 +308,15 @@ self.addEventListener('activate', function(event){
         return Promise.all(keys.filter(function(k){ return k !== CACHE_NAME; }).map(function(k){ return caches.delete(k); }));
       })
       .then(function(){ return self.clients.claim(); })
+      .then(function(){ return diagRecord([{ ts: Date.now(), ev: 'activate' }], false); })
   );
+});
+// Rev 2.32.103 (NOTIF-3 Rev 2): події закриття сповіщення і зміни підписки: лише запис у журнал розробника (вимкнено: нічого не робить).
+self.addEventListener('notificationclose', function(event){
+  try{ const nd = event.notification.data || {}; event.waitUntil(diagRecord([{ ts: Date.now(), ev: 'closed', type: diagStr(nd.type), tag: diagStr(event.notification.tag), push_id: diagStr(nd.push_id) }], false)); }catch(e){}
+});
+self.addEventListener('pushsubscriptionchange', function(event){
+  try{ event.waitUntil(diagRecord([{ ts: Date.now(), ev: 'subscription-change' }], false)); }catch(e){}
 });
 
 self.addEventListener('fetch', function(event){

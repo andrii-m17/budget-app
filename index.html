@@ -3513,7 +3513,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.102</div>
+  <div class="version-footer">Money Tree · Rev 2.32.103</div>
 </div>
   </div>
 </div>
@@ -3748,6 +3748,10 @@
   <div class="section-label">Доставка сповіщень</div>
   <button type="button" class="submit-btn pill secondary" id="testing-diag-btn" style="margin-bottom:10px;" onclick="toggleDeliveryDiagFromTesting()">Показати журнали доставки</button>
   <div id="testing-diag-box"></div>
+  <!-- Rev 2.32.103 (NOTIF-3 Rev 2): режим розробника для діагностики сповіщень; за замовчуванням вимкнено -->
+  <div class="section-label">Розширена діагностика сповіщень</div>
+  <button type="button" class="submit-btn pill secondary" id="push-diag-btn" style="margin-bottom:10px;" onclick="togglePushDiag()">Розширена діагностика: вимкнено</button>
+  <div id="push-diag-box"></div>
   <!-- Rev 2.32.53 (J): лічильник помилок JavaScript за сеанс (без значень користувача) -->
   <div class="section-label">Помилки JavaScript</div>
   <button type="button" class="submit-btn pill secondary" id="js-errors-btn" style="margin-bottom:10px;" onclick="showJsErrors()">Помилок за сеанс: 0</button>
@@ -7971,7 +7975,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.102';
+const APP_VERSION = '2.32.103';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -20081,6 +20085,7 @@ function showNetStats(){
 }
 function openTestingDrawer(){
   updateNetStatsRow();
+  renderPushDiag(); // Rev 2.32.103 (NOTIF-3 Rev 2)
   renderCloudEnvUI();
   renderTestingDrawer();
   const backdrop = document.getElementById('testing-backdrop');
@@ -22323,6 +22328,175 @@ function toggleDeliveryDiagFromTesting(){
     box.appendChild(inner);
     loadDeliveryDiagnostics();
   }
+}
+// ===== Rev 2.32.103 (NOTIF-3 Rev 2): розширена діагностика сповіщень (режим розробника) =====
+// Прапорець 'enabled' і кільцевий журнал подій воркера (≤ 200) лежать в IndexedDB 'budget-app-push-diag' (ту ж базу читає/пише sw.js). За замовчуванням ВИМКНЕНО: основний режим нічого не пише й не робить додаткових запитів. Увімкнено: журнал без тексту сповіщень і сум; «Надіслати лог сповіщень» і «Оновити підписку» лише за дотиком користувача.
+const PUSH_DIAG_DB = 'budget-app-push-diag';
+function pushDiagOpen(){
+  return new Promise(function(resolve, reject){
+    try{
+      const req = indexedDB.open(PUSH_DIAG_DB, 1);
+      req.onupgradeneeded = function(){
+        if(!req.result.objectStoreNames.contains('flag')) req.result.createObjectStore('flag');
+        if(!req.result.objectStoreNames.contains('events')) req.result.createObjectStore('events', { keyPath: 'id', autoIncrement: true });
+      };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    }catch(e){ reject(e); }
+  });
+}
+function readPushDiagFlag(){
+  return pushDiagOpen().then(function(db){
+    return new Promise(function(resolve){
+      const g = db.transaction('flag', 'readonly').objectStore('flag').get('enabled');
+      g.onsuccess = function(){ db.close(); resolve(g.result === true); };
+      g.onerror = function(){ db.close(); resolve(false); };
+    });
+  }).catch(function(){ return false; });
+}
+function writePushDiagFlag(on){
+  return pushDiagOpen().then(function(db){
+    return new Promise(function(resolve){
+      const tx = db.transaction('flag', 'readwrite');
+      tx.objectStore('flag').put(!!on, 'enabled');
+      tx.oncomplete = function(){ db.close(); resolve(true); };
+      tx.onerror = function(){ db.close(); resolve(false); };
+    });
+  }).catch(function(){ return false; });
+}
+function readPushDiagEvents(){
+  return pushDiagOpen().then(function(db){
+    return new Promise(function(resolve){
+      const all = db.transaction('events', 'readonly').objectStore('events').getAll();
+      all.onsuccess = function(){ db.close(); resolve((all.result || []).sort(function(a, b){ return (a.ts || 0) - (b.ts || 0) || (a.id || 0) - (b.id || 0); })); };
+      all.onerror = function(){ db.close(); resolve([]); };
+    });
+  }).catch(function(){ return []; });
+}
+function clearPushDiagEvents(){
+  return pushDiagOpen().then(function(db){
+    return new Promise(function(resolve){
+      const tx = db.transaction('events', 'readwrite');
+      tx.objectStore('events').clear();
+      tx.oncomplete = function(){ db.close(); resolve(true); };
+      tx.onerror = function(){ db.close(); resolve(false); };
+    });
+  }).catch(function(){ return false; });
+}
+// Рядок події для показу (лише textContent): «16.10 11:52:08 · push-received · mono-inbox · вікон 0».
+function pushDiagLineText(ev){
+  const d = new Date(ev.ts || 0);
+  const two = function(n){ return String(n).padStart(2, '0'); };
+  const t = two(d.getDate()) + '.' + two(d.getMonth() + 1) + ' ' + two(d.getHours()) + ':' + two(d.getMinutes()) + ':' + two(d.getSeconds());
+  const parts = [t, ev.ev || '?'];
+  if(ev.type) parts.push(ev.type);
+  if(ev.seq !== null && ev.seq !== undefined) parts.push('№' + ev.seq);
+  if(typeof ev.dur === 'number') parts.push(ev.dur + ' мс');
+  if(ev.vis !== null && ev.vis !== undefined) parts.push('вікон ' + ev.vis);
+  if(ev.err) parts.push(ev.err);
+  return parts.join(' · ');
+}
+// Короткий хеш endpoint (перші 8 hex SHA-256): порівняти підписку до/після без показу самого endpoint.
+async function pushEndpointHash(endpoint){
+  try{
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(endpoint)));
+    return Array.prototype.map.call(new Uint8Array(buf), function(b){ return b.toString(16).padStart(2, '0'); }).join('').slice(0, 8);
+  }catch(e){ return 'unavailable'; }
+}
+// Знімок стану пристрою для логу сповіщень. Без ендпоінта, імен і сум. Недоступне на iOS (режим низького заряду, connection.effectiveType): 'unavailable'.
+async function buildPushDiagSnapshot(){
+  const snap = {
+    appVersion: APP_VERSION,
+    standalone: !!(window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)),
+    iosVersionByUA: detectIosVersionFromUserAgent(navigator.userAgent || ''),
+    permission: (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported',
+    online: navigator.onLine,
+    effectiveType: (navigator.connection && navigator.connection.effectiveType) || 'unavailable',
+    lowPowerMode: 'unavailable',
+    hasSubscription: null, endpointHash: null, swActive: null, swWaiting: null, serverSubscriptions: 'unavailable',
+  };
+  try{
+    const reg = await navigator.serviceWorker.getRegistration();
+    if(reg){
+      snap.swActive = !!reg.active; snap.swWaiting = !!reg.waiting;
+      const sub = await reg.pushManager.getSubscription();
+      snap.hasSubscription = !!sub;
+      snap.endpointHash = sub ? await pushEndpointHash(sub.endpoint) : null;
+    }
+  }catch(e){}
+  try{
+    if(isCloudSessionReady()){
+      const r = await getSupabaseClient().from('push_subscriptions').select('created_at').order('created_at', { ascending: false }).limit(5);
+      if(!r.error && r.data) snap.serverSubscriptions = { count: r.data.length, newestCreatedAt: r.data.length ? r.data[0].created_at : null };
+    }
+  }catch(e){}
+  return snap;
+}
+async function sendPushDiagLog(){
+  if(!isCloudSessionReady()){ showTextToast('Немає Cloud-сесії', 'error'); return; }
+  if(blockedByReadOnly()) return;
+  const btn = document.getElementById('push-diag-send-btn'); if(btn) btn.disabled = true;
+  try{
+    const events = trimEventsForSizeLimit((await readPushDiagEvents()).map(function(e){ const c = Object.assign({}, e); delete c.id; return c; }), DEBUG_LOG_MAX_EVENTS_FOR_SEND, DEBUG_LOG_MAX_BYTES_FOR_SEND);
+    const { error } = await getSupabaseClient().from('client_debug_logs').insert({
+      family_id: cloudFamilyId, user_id: cloudSession.user.id, app_version: APP_VERSION, scenario: 'push-diag',
+      device: await buildPushDiagSnapshot(), events: events,
+    });
+    if(error) showTextToast('Не вдалось надіслати лог сповіщень', 'error');
+    else showTextToast('Лог сповіщень надіслано', 'success');
+  }catch(e){ showTextToast('Мережа/офлайн: лог не надіслано', 'error'); }
+  if(btn) btn.disabled = false;
+}
+async function refreshPushSubscription(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)){ showTextToast('Push не підтримується', 'error'); return; }
+  if(typeof Notification === 'undefined' || Notification.permission !== 'granted'){ showTextToast('Спершу дозвольте сповіщення', 'error'); return; }
+  if(!isCloudSessionReady()){ showTextToast('Немає Cloud-сесії', 'error'); return; }
+  if(isWriteBlocked()){ blockedByReadOnly(); return; } // без claim нова підписка нікому б не належала
+  const btn = document.getElementById('push-diag-refresh-btn'); if(btn) btn.disabled = true;
+  const out = document.getElementById('push-diag-result');
+  try{
+    const reg = await navigator.serviceWorker.ready;
+    const old = await reg.pushManager.getSubscription();
+    const before = old ? await pushEndpointHash(old.endpoint) : 'немає';
+    if(old) await old.unsubscribe();
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+    const keys = sub.toJSON().keys;
+    await getSupabaseClient().rpc('claim_push_subscription', { p_endpoint: sub.endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth });
+    const after = await pushEndpointHash(sub.endpoint);
+    if(out) out.textContent = 'Підписку оновлено: ' + before + ' → ' + after;
+    showTextToast('Підписку оновлено', 'success');
+  }catch(e){
+    if(out) out.textContent = 'Не вдалося оновити підписку';
+    showTextToast('Не вдалося оновити підписку', 'error');
+  }
+  if(btn) btn.disabled = false;
+}
+async function renderPushDiag(){
+  const on = await readPushDiagFlag();
+  const btn = document.getElementById('push-diag-btn');
+  if(btn) btn.textContent = 'Розширена діагностика: ' + (on ? 'увімкнено' : 'вимкнено');
+  const box = document.getElementById('push-diag-box');
+  if(!box) return;
+  box.textContent = '';
+  if(!on) return;
+  const mk = function(id, text, handler){ const b = document.createElement('button'); b.type = 'button'; b.className = 'submit-btn pill secondary'; b.id = id; b.style.marginBottom = '10px'; b.textContent = text; b.addEventListener('click', handler); box.appendChild(b); return b; };
+  const list = document.createElement('div'); list.id = 'push-diag-list'; list.className = 'n-diag-empty';
+  mk('push-diag-show-btn', 'Показати події воркера', async function(){
+    const ev = (await readPushDiagEvents()).slice(-40).reverse();
+    list.textContent = '';
+    if(!ev.length){ list.textContent = 'Подій поки немає'; return; }
+    ev.forEach(function(e){ const row = document.createElement('div'); row.className = 'n-diag-row'; const sp = document.createElement('span'); sp.textContent = pushDiagLineText(e); row.appendChild(sp); list.appendChild(row); });
+  });
+  mk('push-diag-send-btn', 'Надіслати лог сповіщень', sendPushDiagLog);
+  mk('push-diag-refresh-btn', 'Оновити підписку', refreshPushSubscription);
+  mk('push-diag-clear-btn', 'Очистити журнал подій', async function(){ await clearPushDiagEvents(); list.textContent = ''; showTextToast('Журнал подій очищено', 'info'); });
+  const result = document.createElement('div'); result.id = 'push-diag-result'; result.className = 'n-diag-empty';
+  box.appendChild(result); box.appendChild(list);
+}
+async function togglePushDiag(){
+  const on = await readPushDiagFlag();
+  await writePushDiagFlag(!on);
+  await renderPushDiag();
 }
 // Головний тумблер: вимкнення лише пише false; вмикання за дотиком користувача запитує дозвіл і створює підписку.
 async function onMasterToggle(on){
