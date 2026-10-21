@@ -73,6 +73,12 @@ test('тап по сповіщенню: mark_notifications_read([id]), лічи�
   assert.deepEqual(j(e.g.handled), [{ type: 'mono-inbox', target: 'x', batch_ts: T(12, 8, 0) }]); // Rev 2.32.95: пачка за created_at, якщо batch_ts немає
    assert.equal(e.g.closed, 1);
 });
+test('тап по щоденному нагадуванню (NOTIF-2): веде у «Вхідні» без batch_ts і без маршруту «оброблено»', async function(){
+  const e = env([N('r1', T(12, 8, 0), { data: { type: 'mono-inbox', tag: 'daily-expense-reminder' } })], 1);
+  await e.ctx.openNotificationRow('r1');
+  assert.equal(e.g.handled.length, 1); assert.equal(e.g.handled[0].type, 'mono-inbox'); assert.equal(e.g.handled[0].batch_ts, undefined);
+  assert.equal(e.g.handled[0].tag, 'daily-expense-reminder'); assert.equal(e.g.closed, 1);
+});
 test('тап по вже прочитаному не викликає RPC, але веде за типом', async function(){
   const e = env([N('n1', T(12, 8, 0), { read_at: T(12, 9, 0) })], 0);
   await e.ctx.openNotificationRow('n1');

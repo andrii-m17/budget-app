@@ -21049,7 +21049,8 @@ function isDailyReminderRow(row){
 }
 function kyivDateKey(iso){
   const t = Date.parse(iso); if(isNaN(t)) return '';
-  try{ return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t)); }catch(e){ return ''; }
+  const fmt = function(zone){ return new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t)); };
+  try{ return fmt('Europe/Kyiv'); }catch(e){ try{ return fmt('Europe/Kiev'); }catch(e2){ return ''; } } // запасна назва зони для старих ICU
 }
 function notifRowState(row, batches, batchesOk, pendingDays, pendingOk){
   const type = row.type || (row.data && row.data.type) || '';
