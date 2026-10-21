@@ -62,7 +62,7 @@ function env(rows, unread){
     handlePushAction: async function(a){ g.handled.push(a); },
     getSupabaseClient: function(){ return { rpc: async function(name, args){ calls.push({ name: name, args: args }); return { error: null }; } }; },
   };
-  const ctx = buildSandbox(g, ['openNotificationRow', 'markAllNotificationsRead', 'runClearNotifArchive', 'notifRowState', 'notifBatchKey']);
+  const ctx = buildSandbox(g, ['openNotificationRow', 'markAllNotificationsRead', 'runClearNotifArchive', 'notifRowState', 'notifBatchKey', 'isDailyReminderRow', 'kyivDateKey']);
   return { ctx, g, calls };
 }
 test('тап по сповіщенню: mark_notifications_read([id]), лічильник −1, перехід за типом', async function(){
@@ -97,8 +97,8 @@ test('охоронні: не позначає прочитаним при від
   assert.doesNotMatch(SRC, /from\('user_notifications'\)\.select\('id', \{ count: 'exact', head: true \}\)/);
   assert.ok(SRC.indexOf('id="notif-bell-btn"') < SRC.indexOf('onclick="openSettings()" aria-label="Налаштування"'));
   assert.ok(!/from\('user_notifications'\)\.(insert|update|upsert|delete)/.test(SRC));
-  // Rev 2.32.98 (NOTIF-1 Rev 3): крапка стану (заповнена «Нове», порожня решта) повернена за макетом; раніше (Rev 2.32.40) була заборона крапок
-  assert.match(SRC, /<span class="notif-dot" aria-hidden="true"><\/span>/);
+  // Rev 2.32.102 (NOTIF-2): вигляд як у 2.32.95: без крапок стану (заборона з Rev 2.32.40 знову діє)
+  assert.ok(!/class="notif-dot"/.test(SRC) && !/class="notif-pill"/.test(SRC));
 });
 test('шапка без круглої іконки оновлення; екрани «Вхідні» й «Сповіщення» під таббаром (z-index < таббара)', function(){
   assert.ok(!/<button[^>]*id="update-btn-top"/.test(SRC));

@@ -1,10 +1,11 @@
-// NOTIF-1 Rev 3 (Rev 2.32.96–2.32.98): журнал сповіщень як історія: виміри й скріншоти на синтетичних даних.
+// NOTIF-1 Rev 3 (Rev 2.32.96–2.32.98) і NOTIF-2 (Rev 2.32.102): журнал сповіщень: виміри й скріншоти на синтетичних даних.
+// NOTIF-2: режим after дає docs/ui/notif2-after-*.png і порівнює пікселі з docs/ui/notif3-before-* (ширина 390) на зафіксованому «сьогодні» 16.10.2026 12:00.
 // Запуск: preview «після» на http://localhost:8934 (npx http-server -p 8934 -c-1); за бажанням «до» (інша копія) на :8935.
 //   node scripts/notif-history-shots.mjs after [ширини через кому]   → docs/ui/notif3-after-<тема>-<ширина>.png
 //   node scripts/notif-history-shots.mjs before [ширини]              → docs/ui/notif3-before-<тема>-<ширина>.png (порт 8935)
 // Дані лише синтетичні. Перевіряє: жоден рядок не виходить за межі й не переноситься поза очікуване, горизонтальної прокрутки немає, свайп уліво відкриває кнопку «Видалити» 84 pt.
 import { spawn } from 'node:child_process';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 const MODE = process.argv[2] === 'before' ? 'before' : 'after';
 const BASE = MODE === 'before' ? 'http://localhost:8935' : 'http://localhost:8934';
 const WIDTHS = (process.argv[3] || '290,320,360,390,440').split(',').map(Number);
@@ -16,7 +17,9 @@ let id = 0; const pend = new Map();
 ws.onmessage = m => { const d = JSON.parse(m.data); if(d.id && pend.has(d.id)){ pend.get(d.id)(d); pend.delete(d.id); } };
 const send = (method, params = {}) => new Promise(res => { const i = ++id; pend.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
 const ev = async expr => { const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }); return r.result && r.result.result ? r.result.result.value : undefined; };
-await send('Page.enable'); await send('Network.enable'); await send('Network.setCacheDisabled', { cacheDisabled: true });
+const FIXED_NOW = Date.UTC(2026, 9, 16, 9, 0, 0); // 16.10.2026 12:00 за Києвом: така ж «сьогодні», як у знімках notif3-before
+await send('Page.enable');
+await send('Page.addScriptToEvaluateOnNewDocument', { source: `(()=>{const R=Date,off=${FIXED_NOW}-R.now();class D extends R{constructor(...a){if(a.length===0)super(R.now()+off);else super(...a);}static now(){return R.now()+off;}}window.Date=D;})();` }); await send('Network.enable'); await send('Network.setCacheDisabled', { cacheDisabled: true });
 mkdirSync('docs/ui', { recursive: true });
 
 // Синтетичні сповіщення: Нове (Monobank, пачка не оброблена), Оброблено (одна додана), Оброблено (кілька доданих), Прочитано (Monobank, пачка ще не оброблена), нове нагадування, прочитане нагадування.
@@ -37,7 +40,7 @@ const SEED = `(()=>{
   notifArchive.batches = groupInboxBatches([].concat(
     B(t1, [{ status: 'added', expense_id: 'x1' }, { status: 'new' }, { status: 'new' }]),
     B(t2, [{ status: 'added', expense_id: 'x2' }]),
-    B(t3, [{ status: 'added', expense_id: 'x3' }, { status: 'ignored' }]),
+    B(t3, [{ status: 'added', expense_id: 'x3' }, { status: 'new' }]),
     B(t4, [{ status: 'new' }]) ));
   notifArchive.batchesOk = true; notifArchive.unread = 3; notifArchive.loaded = true; notifArchive.offline = false;
   renderNotifArchive(); return 1; })()`;
@@ -50,15 +53,7 @@ const MEASURE = `(()=>{
   const main = [...body.querySelectorAll('.notif-row-main')].filter(m => m.scrollWidth > m.clientWidth + 1).length;
   const hscroll = document.documentElement.scrollWidth > document.documentElement.clientWidth + 1;
   const r = el => el.getBoundingClientRect();
-  const top = document.querySelector('.notif-top');
   let hdr = null;
-  if(top){
-    const rg = document.createRange(); rg.selectNodeContents(top.querySelector('.notif-title')); const ti = rg.getBoundingClientRect();
-    const bk = r(top.querySelector('.notif-back svg')), ac = r(top.querySelector('.notif-archive-top-action'));
-    const btns = [...top.querySelectorAll('.notif-archive-top-action button')].map(b => { const g = document.createRange(); g.selectNodeContents(b); return g.getBoundingClientRect(); });
-    const ov = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
-    hdr = { overlap: btns.some(b => ov(ti, b) || ov(bk, b)) || ov(bk, ti), actionsBelow: btns.every(b => b.top >= ti.bottom - 1), actionsRight: Math.round(r(top).right - ac.right), outside: ac.right > window.innerWidth + 0.5 || ac.left < -0.5, h: Math.round(r(top).height) };
-  }
   const pills = [...body.querySelectorAll('.notif-pill')].map(p => p.textContent);
   return JSON.stringify({ hdr, pills, rows: rows.length, over, main, hscroll, heights: rows.map(r => Math.round(r.getBoundingClientRect().height)), states: rows.map(r => (r.className.match(/notif-state-(\\w+)/)||[])[1]||'-') });
 })()`;
@@ -73,9 +68,14 @@ for(const w of WIDTHS) for(const theme of ['dark', 'light']){
   await ev(MODE === 'before' ? SEED_BEFORE : SEED); await sleep(300);
   const m = JSON.parse(await ev(MEASURE));
   console.log(MODE, w, theme, JSON.stringify(m));
-  if(MODE === 'after' && (m.over || m.main || m.hscroll || (m.hdr && (m.hdr.overlap || m.hdr.outside || (w < 360 && !m.hdr.actionsBelow) || (w >= 360 && m.hdr.actionsBelow))))){ bad++; console.log('ПРОБЛЕМА', w, theme); }
+  if(MODE === 'after' && (m.over || m.main || m.hscroll || m.pills.length)){ bad++; console.log('ПРОБЛЕМА', w, theme); }
   const shot = await send('Page.captureScreenshot', { format: 'png' });
-  writeFileSync(`docs/ui/notif3-${MODE}-${theme}-${w}.png`, Buffer.from(shot.result.data, 'base64'));
+  writeFileSync(`docs/ui/notif${MODE === 'after' ? '2' : '3'}-${MODE}-${theme}-${w}.png`, Buffer.from(shot.result.data, 'base64'));
+  if(MODE === 'after' && w === 390){
+    const before = readFileSync(`docs/ui/notif3-before-${theme}-390.png`).toString('base64');
+    const d = await ev(`(async()=>{const load=u=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=u;});const a=await load('data:image/png;base64,${before}'),b=await load('data:image/png;base64,${shot.result.data}');const w=Math.min(a.width,b.width),h=Math.min(a.height,b.height);const g=i=>{const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(i,0,0);return x.getImageData(0,0,w,h).data;};const pa=g(a),pb=g(b);let diff=0,maxd=0,rows=new Set();for(let k=0;k<pa.length;k+=4){const dd=Math.abs(pa[k]-pb[k])+Math.abs(pa[k+1]-pb[k+1])+Math.abs(pa[k+2]-pb[k+2]);if(dd>24){diff++;rows.add(Math.floor(k/4/w));}if(dd>maxd)maxd=dd;}return JSON.stringify({size:[a.width,a.height,b.width,b.height],diffPx:diff,total:w*h,maxd,rowMin:rows.size?Math.min(...rows):null,rowMax:rows.size?Math.max(...rows):null});})()`);
+    console.log('  піксельне порівняння з notif3-before', d);
+  }
   if(MODE === 'after'){
     // реальний жест: свайп уліво по першому рядку
     const box = JSON.parse(await ev(`(()=>{const r=document.querySelector('.notif-swipe .notif-row').getBoundingClientRect();return JSON.stringify({x:r.left+r.width*0.8,y:r.top+r.height/2});})()`));
@@ -85,7 +85,7 @@ for(const w of WIDTHS) for(const theme of ['dark', 'light']){
     console.log('  свайп', JSON.stringify(sw));
     if(!sw.open || sw.btnW !== 84){ bad++; console.log('ПРОБЛЕМА свайп', w, theme); }
     const shot2 = await send('Page.captureScreenshot', { format: 'png' });
-    writeFileSync(`docs/ui/notif3-after-swipe-${theme}-${w}.png`, Buffer.from(shot2.result.data, 'base64'));
+    writeFileSync(`docs/ui/notif2-after-swipe-${theme}-${w}.png`, Buffer.from(shot2.result.data, 'base64'));
   }
 }
 console.log(bad ? 'ПРОБЛЕМ: ' + bad : 'ок');

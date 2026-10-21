@@ -7,18 +7,10 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const pure = buildSandbox({}, ['PAY_MONTHS_SHORT', 'NOTIF_STATE_LABEL', 'notifWhenLabel', 'notifBatchKey', 'groupInboxBatches', 'notifRowState', 'notifProcessedTarget']);
+const pure = buildSandbox({}, ['notifBatchKey', 'groupInboxBatches', 'notifRowState', 'notifProcessedTarget', 'isDailyReminderRow', 'kyivDateKey']);
 const B1 = '2026-10-16T05:00:00.123456+00:00', B2 = '2026-10-16T05:10:00.000000+00:00';
 const N = (id, at, extra) => Object.assign({ id, type: 'mono-inbox', title: 'Monobank', body: 'x', data: { type: 'mono-inbox' }, created_at: at, read_at: null }, extra || {});
 
-test('notifWhenLabel: «сьогодні, 10:42», «вчора, 18:39», «14 жов, 09:00»', function(){
-  const now = new Date(2026, 9, 16, 12, 0);
-  const at = (d, h, m) => new Date(2026, 9, d, h, m).toISOString();
-  assert.equal(pure.notifWhenLabel(at(16, 10, 42), now), 'сьогодні, 10:42');
-  assert.equal(pure.notifWhenLabel(at(15, 18, 39), now), 'вчора, 18:39');
-  assert.equal(pure.notifWhenLabel(at(14, 9, 0), now), '14 жов, 09:00');
-  assert.equal(pure.notifWhenLabel('не-дата', now), '');
-});
 test('notifRowState: три стани разом; пачка з кількох — «Нове», доки не оброблена вся; пачки без рядків — «Оброблено»', function(){
   const batches = pure.groupInboxBatches([
     { notified_at: B1, status: 'added', expense_id: 'x1' }, { notified_at: B1, status: 'new', expense_id: null },   // пачка 1: оброблено 1 з 2
@@ -125,7 +117,7 @@ test('тап по обробленому: одна додана → Журнал
 test('fetchNotifBatches: один запит на 100+ сповіщень, діапазон за created_at; помилка або неповна відповідь → ok=false; нічого не присвоює', async function(){
   const calls = [];
   const rows = []; for(let i = 0; i < 120; i++) rows.push(N('n' + i, new Date(Date.UTC(2026, 9, 16, 5, 0, i)).toISOString()));
-  const mk = reply => buildSandbox({ notifArchive: { batches: { x: 1 }, batchesOk: true }, getSupabaseClient: () => ({ from: t => ({ select: cols => ({ gte: (c, v) => ({ lte: (c2, v2) => ({ limit: n => { calls.push({ t, cols, v, v2, n }); return reply(); } }) }) }) }) }) }, ['notifBatchKey', 'groupInboxBatches', 'fetchNotifBatches']);
+  const mk = reply => buildSandbox({ notifArchive: { batches: { x: 1 }, batchesOk: true }, getSupabaseClient: () => ({ from: t => ({ select: cols => ({ gte: (c, v) => ({ lte: (c2, v2) => ({ limit: n => { calls.push({ t, cols, v, v2, n }); return reply(); } }) }) }) }) }) }, ['notifBatchKey', 'groupInboxBatches', 'fetchNotifBatches', 'isDailyReminderRow', 'kyivDateKey']);
   const ok = mk(async () => ({ data: [{ notified_at: rows[0].created_at, status: 'added', expense_id: 'x' }], error: null }));
   const res = await ok.fetchNotifBatches(rows);
   assert.equal(calls.length, 1); assert.equal(calls[0].t, 'mono_inbox'); assert.equal(calls[0].cols, 'notified_at,status,expense_id');
@@ -136,6 +128,27 @@ test('fetchNotifBatches: один запит на 100+ сповіщень, ді�
   assert.equal((await mk(async () => ({ data: new Array(1000).fill({ notified_at: rows[0].created_at, status: 'added' }), error: null })).fetchNotifBatches(rows)).ok, false);
   const none = await mk(async () => { throw new Error('не мав викликатись'); }).fetchNotifBatches([{ id: 'o', type: 'backup-reminder', created_at: B1 }]);
   assert.equal(none.ok, true);
+});
+
+test('fetchNotifBatches (NOTIF-2): для нагадування окремий запит нових операцій за tx_time; доби по Києву; помилка → pendingOk=false, пачки не страждають', async function(){
+  const calls = [];
+  const client = { from: t => ({ select: cols => { const q = { _f: [], eq(c, v){ this._f.push(['eq', c, v]); return this; }, gte(c, v){ this._f.push(['gte', c, v]); return this; }, lte(c, v){ this._f.push(['lte', c, v]); return this; },
+    limit(n){ calls.push({ t, cols, f: this._f }); return Promise.resolve(globalThis.__reply ? globalThis.__reply(cols) : { data: [], error: null }); } }; return q; } }) };
+  const c = buildSandbox({ getSupabaseClient: () => client }, ['notifBatchKey', 'groupInboxBatches', 'fetchNotifBatches', 'isDailyReminderRow', 'kyivDateKey']);
+  globalThis.__reply = cols => cols === 'tx_time' ? { data: [{ tx_time: '2026-10-16T20:30:00+00:00' }, { tx_time: '2026-10-16T21:30:00+00:00' }], error: null } : { data: [], error: null };
+  const res = await c.fetchNotifBatches([REM(), N('p', B1)]);
+  assert.equal(calls.length, 2);
+  const q = calls.find(x => x.cols === 'tx_time');
+  assert.equal(q.t, 'mono_inbox'); assert.ok(q.f.some(f => f[0] === 'eq' && f[1] === 'status' && f[2] === 'new'));
+  assert.deepEqual([...res.pendingDays].sort(), ['2026-10-16', '2026-10-17'], '21:30 UTC влітку — вже наступна київська доба');
+  assert.equal(res.pendingOk, true); assert.equal(res.ok, true);
+  globalThis.__reply = cols => cols === 'tx_time' ? { data: null, error: { message: 'x' } } : { data: [], error: null };
+  const bad = await c.fetchNotifBatches([REM(), N('p', B1)]);
+  assert.equal(bad.pendingOk, false); assert.equal(bad.ok, true);
+  globalThis.__reply = null;
+  calls.length = 0;
+  await c.fetchNotifBatches([N('p', B1)]);
+  assert.equal(calls.length, 1, 'без нагадувань другого запиту немає');
 });
 
 // ---- Rev 2.32.97: гонки (зауваження spec-reviewer D1–D4) ----
@@ -183,23 +196,37 @@ test('охоронні: розмітка рядка (свайп-обгортка
   assert.match(SRC, /role="button" tabindex="0" data-notif-id=/);
   assert.equal((SRC.match(/aria-label="Видалити сповіщення"/g) || []).length, 2);
   assert.match(SRC, /showConfirmModal\('Видалити всі сповіщення\? Це не можна скасувати\.', runClearNotifArchive, 'Видалити'\)/);
-  // Rev 2.32.98: макет: «Очистити» в шапці поруч із «Прочитати всі», пілюля стану поруч із заголовком, підпис «джерело · час»
-  assert.match(SRC, /id="notif-clear-btn" onclick="confirmClearNotifArchive\(\)">Очистити</);
-  assert.ok(!/data-notif-clear="1"><span>Очистити/.test(SRC), 'рядка «Очистити» в кінці списку більше немає');
-  assert.match(SRC, /<span class="notif-pill">' \+ escapeHtml\(NOTIF_STATE_LABEL\[st\]\)/);
-  assert.match(SRC, /<span class="notif-row-source">' \+ escapeHtml\(notifSourceLabel\(type\)/);
-  assert.match(SRC, /@media \(max-width:359px\)\{\s*\.notif-top\{ flex-wrap:wrap;/);
-  assert.match(SRC, /\.notif-row:not\(\.unread\) \.notif-row-main, \.notif-row:not\(\.unread\) \.notif-row-icon, \.notif-row:not\(\.unread\) \.notif-dot\{ opacity:\.75; \}/);
+  // Rev 2.32.102 (NOTIF-2): вигляд 2.32.95: «Очистити архів» знизу списку, «Прочитати всі» у шапці, без пілюль, крапок і підпису «джерело · час»
+  assert.match(SRC, /data-notif-clear="1"><span>Очистити архів/);
+  assert.match(SRC, /id="notif-readall-btn" onclick="markAllNotificationsRead\(\)">Прочитати всі</);
+  assert.ok(!/notif-clear-btn|notif-pill|notif-row-source|notif-dot|NOTIF_STATE_LABEL/.test(SRC));
+  assert.match(SRC, /<span class="notif-row-time">' \+ escapeHtml\(notifTimeLabel\(row\.created_at/);
   assert.match(SRC, /monoInbox\.tab = \(opts && opts\.tab\) \|\| 'new'/);
   assert.match(SRC, /data-rec-id="\$\{safeId\(e\.id\)\}"/);
   assert.match(SRC, /rpc\('delete_notification', \{ p_id: row\.id \}\)/);
 });
 
-test('notifSourceLabel: підпис джерела за типом; невідомий тип — Money Tree', function(){
-  const c = buildSandbox({ PUSH_TYPE_LABELS: { 'mono-inbox': 'Monobank', 'installment-deadline': 'Платіж за ОЧ' } }, ['notifSourceLabel']);
-  assert.equal(c.notifSourceLabel('mono-inbox'), 'Monobank');
-  assert.equal(c.notifSourceLabel('installment-deadline'), 'Платіж за ОЧ');
-  assert.equal(c.notifSourceLabel('щось-нове'), 'Money Tree');
-  assert.equal(c.notifSourceLabel(''), 'Money Tree');
-  assert.equal(c.notifSourceLabel('toString'), 'Money Tree');
+// ===== NOTIF-2: щоденне нагадування відрізняється від пачки =====
+const REM = (extra) => N('r1', '2026-10-16T17:00:03.000000+00:00', Object.assign({ data: { type: 'mono-inbox', tag: 'daily-expense-reminder' } }, extra || {}));
+test('isDailyReminderRow: лише mono-inbox з data.tag daily-expense-reminder; пачка (batch_ts) — ні', function(){
+  assert.equal(pure.isDailyReminderRow(REM()), true);
+  assert.equal(pure.isDailyReminderRow(N('a', B1, { data: { type: 'mono-inbox', batch_ts: B1 } })), false);
+  assert.equal(pure.isDailyReminderRow({ type: 'backup-reminder', data: { tag: 'daily-expense-reminder' } }), false);
+  assert.equal(pure.isDailyReminderRow({ type: 'mono-inbox' }), false);
+});
+test('kyivDateKey: доба по Києву (21:30 UTC влітку вже наступний день)', function(){
+  assert.equal(pure.kyivDateKey('2026-10-16T17:00:03+00:00'), '2026-10-16');
+  assert.equal(pure.kyivDateKey('2026-07-16T21:30:00+00:00'), '2026-07-17');
+  assert.equal(pure.kyivDateKey('не-дата'), '');
+});
+test('notifRowState (нагадування): «Нове», поки є нові операції тієї київської доби; потім «Оброблено»; пачковий «рядків немає → оброблено» його не стосується', function(){
+  const days = new Set(['2026-10-16']);
+  assert.equal(pure.notifRowState(REM(), {}, true, days, true), 'new');
+  assert.equal(pure.notifRowState(REM({ read_at: '2026-10-16T18:00:00Z' }), {}, true, days, true), 'new', 'нове, поки є нові операції, навіть якщо відкрите');
+  assert.equal(pure.notifRowState(REM(), {}, true, new Set(['2026-10-15']), true), 'processed');
+  assert.equal(pure.notifRowState(REM(), {}, true, new Set(), true), 'processed');
+  assert.equal(pure.notifRowState(REM(), {}, true, undefined, false), 'new', 'стан нових невідомий: за read_at');
+  assert.equal(pure.notifRowState(REM({ read_at: 'x' }), {}, true, undefined, false), 'read');
+  // пачка без рядків у mono_inbox і далі «оброблено»
+  assert.equal(pure.notifRowState(N('a', B1), {}, true, new Set(['2026-10-16']), true), 'processed');
 });
