@@ -3514,7 +3514,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.104</div>
+  <div class="version-footer">Money Tree · Rev 2.32.105</div>
 </div>
   </div>
 </div>
@@ -7976,7 +7976,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.104';
+const APP_VERSION = '2.32.105';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -22459,13 +22459,23 @@ async function refreshPushSubscription(){
     const reg = await navigator.serviceWorker.ready;
     const old = await reg.pushManager.getSubscription();
     const before = old ? await pushEndpointHash(old.endpoint) : 'немає';
+    // Браузер повертає наявну підписку, поки вона є, тож для нового endpoint стару треба зняти першою. Будь-який збій після зняття (subscribe, claim) = спроба відновити підписку й чесне повідомлення: мовчки втратити підписку не можна.
     if(old) await old.unsubscribe();
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
-    const keys = sub.toJSON().keys;
-    await getSupabaseClient().rpc('claim_push_subscription', { p_endpoint: sub.endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth });
-    const after = await pushEndpointHash(sub.endpoint);
-    if(out) out.textContent = 'Підписку оновлено: ' + before + ' → ' + after;
-    showTextToast('Підписку оновлено', 'success');
+    let ok = false, after = null;
+    try{
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
+      const keys = sub.toJSON().keys;
+      const r = await getSupabaseClient().rpc('claim_push_subscription', { p_endpoint: sub.endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth });
+      if(r && r.error) throw r.error;
+      after = await pushEndpointHash(sub.endpoint); ok = true;
+    }catch(e){ try{ await requestPushSubscription(); }catch(e2){} }
+    if(ok){
+      if(out) out.textContent = 'Підписку оновлено: ' + before + ' → ' + after;
+      showTextToast('Підписку оновлено', 'success');
+    }else{
+      if(out) out.textContent = 'Не вдалося оновити підписку на сервері; спробовано відновити попередній стан. Перевірте знімок і повторіть.';
+      showTextToast('Не вдалося оновити підписку', 'error');
+    }
   }catch(e){
     if(out) out.textContent = 'Не вдалося оновити підписку';
     showTextToast('Не вдалося оновити підписку', 'error');

@@ -144,3 +144,16 @@ test('NOTIF-3 Rev 3: тестовий push (type test) з tag mono-inbox буд�
   await push(env2, { title: 'Тест', data: { type: 'test', tag: 'abc' } });
   assert.equal(env2.shown[0][1].tag, 'abc'); assert.equal(env2.shown[0][1].renotify, false);
 });
+
+test('activate не чекає діагностику: IndexedDB діагностики не відповідає, а активація завершується одразу', async () => {
+  const env = runSw({ idb: makeIdb({ hang: 'budget-app-push-diag' }) });
+  let w = null; const t0 = Date.now();
+  env.handlers.activate({ waitUntil(p){ w = p; } });
+  await w;
+  assert.ok(Date.now() - t0 < 500);
+});
+test('type реального push з tag mono-inbox, але не test/mono-inbox, змінюється лише як раніше (renotify false)', async () => {
+  const env = runSw({});
+  await push(env, { title: 'x', data: { type: 'installment-deadline', tag: 'mono-inbox' } });
+  assert.equal(env.shown[0][1].renotify, false);
+});

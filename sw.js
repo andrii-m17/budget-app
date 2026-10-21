@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.104';
+const CACHE_NAME = 'budget-app-v2.32.105';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -198,7 +198,7 @@ self.addEventListener('push', function(event){
     const notifTag = inner.tag || data.tag;
     if(notifTag){ options.tag = String(notifTag); options.renotify = false; }
     // Rev 2.32.29 — сповіщення Monobank: той самий tag замінює попереднє, але renotify:true — кожне нове привертає увагу (звук/вібрація), а не губиться в центрі сповіщень.
-    if(inner.type === 'mono-inbox' || notifTag === 'mono-inbox'){ options.tag = 'mono-inbox'; options.renotify = true; } // Rev 2.32.104 (NOTIF-3 Rev 3): тестовий push з tag 'mono-inbox' будується так само, як реальний (tag й renotify), щоб відтворити реальні умови
+    if(inner.type === 'mono-inbox' || (inner.type === 'test' && notifTag === 'mono-inbox')){ options.tag = 'mono-inbox'; options.renotify = true; } // Rev 2.32.104 (NOTIF-3 Rev 3): тестовий push з tag 'mono-inbox' будується так само, як реальний (tag й renotify), щоб відтворити реальні умови
     meta = diagMeta(inner, options.tag);
     shownPromise = self.registration.showNotification(title, options);
   }catch(err){
@@ -268,7 +268,7 @@ function writePendingPushAction(action){
 
 self.addEventListener('notificationclick', function(event){
   event.notification.close();
-  try{ const nd = event.notification.data || {}; diagRecord([{ ts: Date.now(), ev: 'click', type: diagStr(nd.type), tag: diagStr(event.notification.tag), push_id: diagStr(nd.push_id) }], false); }catch(e){} // Rev 2.32.103: лише режим розробника; best-effort
+  try{ const nd = event.notification.data || {}; event.waitUntil(diagRecord([{ ts: Date.now(), ev: 'click', type: diagStr(nd.type), tag: diagStr(event.notification.tag), push_id: diagStr(nd.push_id) }], false)); }catch(e){} // Rev 2.32.103: лише режим розробника; best-effort
   // Rev 2.32.30 (P): кожен клік отримує мітку часу _at — сторінка за нею відсікає дублі (message + IndexedDB + query) і відкидає застарілі дії; діагностика кліку (скільки вікон, результат focus) шлеться сторінці push-click-info.
   const notifData = Object.assign({}, event.notification.data || {});
   if(notifData.type) notifData._at = Date.now();
@@ -308,7 +308,7 @@ self.addEventListener('activate', function(event){
         return Promise.all(keys.filter(function(k){ return k !== CACHE_NAME; }).map(function(k){ return caches.delete(k); }));
       })
       .then(function(){ return self.clients.claim(); })
-      .then(function(){ return diagRecord([{ ts: Date.now(), ev: 'activate' }], false); })
+      .then(function(r){ diagRecord([{ ts: Date.now(), ev: 'activate' }], false); return r; }) // не чекаємо: активація не залежить від діагностики
   );
 });
 // Rev 2.32.103 (NOTIF-3 Rev 2): події закриття сповіщення і зміни підписки: лише запис у журнал розробника (вимкнено: нічого не робить).

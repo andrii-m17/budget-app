@@ -408,6 +408,6 @@ test('mono-inbox: pushTypeLabel; маршрут без focus() і з видим�
   assert.ok(h.indexOf("document.body.classList.remove('kb-open')") !== -1 && h.indexOf("performSwitchTab('service')") !== -1);
   assert.ok(!/\.focus\(/.test(h));
   const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.match(sw, /if\(inner\.type === 'mono-inbox' \|\| notifTag === 'mono-inbox'\)\{ options\.tag = 'mono-inbox'; options\.renotify = true; \}/); // Rev 2.32.104: і тестовий push з tag mono-inbox
+  assert.match(sw, /if\(inner\.type === 'mono-inbox' \|\| \(inner\.type === 'test' && notifTag === 'mono-inbox'\)\)\{ options\.tag = 'mono-inbox'; options\.renotify = true; \}/); // Rev 2.32.104: і тестовий push з tag mono-inbox
   assert.match(sw, /if\(notifTag\)\{ options\.tag = String\(notifTag\); options\.renotify = false; \}/); // решта типів без змін
 });

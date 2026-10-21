@@ -106,3 +106,25 @@ test('startPushTestSeries: RPC з p_count/p_intervals_s/p_tag; помилка se
   assert.ok(!/createElement\('input'\)|<input/.test(form), 'форма без текстових полів');
   assert.ok(SRC.indexOf("mk('push-diag-send-btn'") < SRC.indexOf("mk('push-series-start-btn'"), 'форма серії лише в увімкненому режимі (після if(!on) return)');
 });
+
+test('refreshPushSubscription: помилка claim (supabase повертає {error}) не маскується під успіх; після зняття підписки робиться спроба відновити', async () => {
+  const toasts = [], steps = [];
+  const out = { textContent: '' };
+  const sub = { endpoint: 'https://example.invalid/x', toJSON: () => ({ keys: { p256dh: 'a', auth: 'b' } }), unsubscribe: async () => { steps.push('unsubscribe'); } };
+  const mk = (claimReply) => buildSandbox({
+    showTextToast: t => toasts.push(t), isCloudSessionReady: () => true, isWriteBlocked: () => false, blockedByReadOnly: () => false,
+    Notification: { permission: 'granted' }, window: { PushManager: function(){} }, PushManager: function(){}, VAPID_PUBLIC_KEY: 'AAAA', urlBase64ToUint8Array: () => new Uint8Array(1),
+    crypto: require('node:crypto').webcrypto, TextEncoder, document: { getElementById: id => id === 'push-diag-result' ? out : null },
+    requestPushSubscription: async () => { steps.push('recover'); },
+    navigator: { serviceWorker: { ready: Promise.resolve({ pushManager: { getSubscription: async () => sub, subscribe: async () => { steps.push('subscribe'); return sub; } } }) } },
+    getSupabaseClient: () => ({ rpc: async () => claimReply }),
+  }, NAMES);
+  await mk({ error: { message: 'rls' } }).refreshPushSubscription();
+  assert.deepEqual(steps, ['unsubscribe', 'subscribe', 'recover']);
+  assert.ok(toasts.indexOf('Підписку оновлено') === -1); assert.ok(toasts.indexOf('Не вдалося оновити підписку') !== -1);
+  assert.match(out.textContent, /Не вдалося оновити підписку на сервері/);
+  steps.length = 0; toasts.length = 0;
+  await mk({ error: null }).refreshPushSubscription();
+  assert.deepEqual(steps, ['unsubscribe', 'subscribe']); assert.deepEqual(toasts, ['Підписку оновлено']);
+  assert.match(out.textContent, /^Підписку оновлено: [0-9a-f]{8} → [0-9a-f]{8}$/);
+});
