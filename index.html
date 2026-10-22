@@ -3545,7 +3545,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.130</div>
+  <div class="version-footer">Money Tree · Rev 2.32.131</div>
 </div>
   </div>
 </div>
@@ -4328,6 +4328,12 @@ function jsErrReadAll(){
       all.onerror = function(){ db.close(); resolve([]); };
     });
   }).catch(function(){ return []; });
+}
+// Rev 2.32.131: що показати за кнопкою «Показати журнал помилок JS»: вимкнена діагностика → підказка; увімкнена без записів → «Помилок немає»; інакше до 30 останніх (новіші вгорі).
+function jsErrLogView(diagOn, rows){
+  if(!diagOn) return { message: 'Увімкніть розширену діагностику, щоб вести журнал помилок JS', rows: [] };
+  const list = (Array.isArray(rows) ? rows : []).slice(-30).reverse();
+  return list.length ? { message: '', rows: list } : { message: 'Помилок немає', rows: [] };
 }
 function jsErrClear(){
   return jsErrOpen().then(function(db){
@@ -8103,7 +8109,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.130';
+const APP_VERSION = '2.32.131';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -22908,8 +22914,17 @@ async function renderPushDiag(){
   const box = document.getElementById('push-diag-box');
   if(!box) return;
   box.textContent = '';
-  if(!on) return;
   const mk = function(id, text, handler){ const b = document.createElement('button'); b.type = 'button'; b.className = 'submit-btn pill secondary'; b.id = id; b.style.marginBottom = '10px'; b.textContent = text; b.addEventListener('click', handler); box.appendChild(b); return b; };
+  // Rev 2.32.131 (JSERR-1): «Показати журнал помилок JS» видима завжди й завжди щось показує (список, «Помилок немає» або підказку увімкнути діагностику); раніше кнопка з'являлась лише при ввімкненій діагностиці, тож вимкнений режим виглядав як «нічого не відбувається». Ризик: лише розробницька зона.
+  const errList = document.createElement('div'); errList.id = 'js-errors-list'; errList.className = 'n-diag-empty';
+  mk('push-diag-errors-btn', 'Показати журнал помилок JS', async function(){
+    const view = jsErrLogView(await readPushDiagFlag(), await jsErrReadAll());
+    errList.textContent = '';
+    if(view.message){ errList.textContent = view.message; return; }
+    view.rows.forEach(function(e){ const row = document.createElement('div'); row.className = 'n-diag-row'; const sp = document.createElement('span'); sp.textContent = jsErrEntryLine(e); row.appendChild(sp); errList.appendChild(row); });
+  });
+  box.appendChild(errList);
+  if(!on) return;
   const list = document.createElement('div'); list.id = 'push-diag-list'; list.className = 'n-diag-empty';
   mk('push-diag-show-btn', 'Показати події воркера', async function(){
     const ev = (await readPushDiagEvents()).slice(-40).reverse();
@@ -22920,12 +22935,6 @@ async function renderPushDiag(){
   mk('push-diag-send-btn', 'Надіслати лог сповіщень', sendPushDiagLog);
   mk('push-diag-refresh-btn', 'Оновити підписку', refreshPushSubscription);
   mk('push-diag-clear-btn', 'Очистити журнал подій', async function(){ await clearPushDiagEvents(); list.textContent = ''; showTextToast('Журнал подій очищено', 'info'); });
-  mk('push-diag-errors-btn', 'Показати журнал помилок JS', async function(){
-    const rows = (await jsErrReadAll()).slice(-30).reverse();
-    list.textContent = '';
-    if(!rows.length){ list.textContent = 'Помилок у журналі немає'; return; }
-    rows.forEach(function(e){ const row = document.createElement('div'); row.className = 'n-diag-row'; const sp = document.createElement('span'); sp.textContent = jsErrEntryLine(e); row.appendChild(sp); list.appendChild(row); });
-  });
   mk('push-diag-errors-clear-btn', 'Очистити журнал помилок JS', async function(){ await jsErrClear(); list.textContent = ''; showTextToast('Журнал помилок очищено', 'info'); });
   const series = document.createElement('div'); series.id = 'push-series-form'; series.style.marginBottom = '10px';
   const counts = []; for(let i = 1; i <= 10; i++) counts.push([String(i), String(i)]);

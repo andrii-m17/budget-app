@@ -78,6 +78,20 @@ test('джерело: основний облік помилок не зміне
   assert.ok(SRC.includes('jsErrPersistOn = !on;'));
   assert.ok(SRC.includes('workerEvents.concat(jsErrToLogEvents(await jsErrReadAll()))'));
   const render = SRC.slice(SRC.indexOf('async function renderPushDiag'), SRC.indexOf('async function togglePushDiag'));
-  assert.ok(render.indexOf('if(!on) return;') < render.indexOf("'push-diag-errors-btn'"), 'кнопки журналу помилок лише при увімкненому режимі');
+  assert.ok(render.indexOf('if(!on) return;') < render.indexOf("'push-diag-errors-clear-btn'"), '«Очистити журнал помилок» лише при увімкненому режимі');
+  assert.ok(render.indexOf("'push-diag-errors-btn'") < render.indexOf('if(!on) return;'), 'Rev 2.32.131: «Показати журнал помилок JS» видима завжди');
   assert.ok(!/\.from\(|\.insert\(|\.rpc\(/.test(SRC.slice(SRC.indexOf('const JSERR_DB_NAME'), SRC.indexOf('function jsErrorBacklogLines'))), 'журнал без мережі');
+});
+
+test('Rev 2.32.131: «Показати журнал помилок JS» завжди щось показує: підказка / «Помилок немає» / список (до 30, новіші вгорі)', function(){
+  const { buildSandbox } = require('./extract');
+  const c = buildSandbox({}, ['jsErrLogView']);
+  const j = v => JSON.parse(JSON.stringify(v));
+  assert.equal(c.jsErrLogView(false, []).message, 'Увімкніть розширену діагностику, щоб вести журнал помилок JS');
+  assert.equal(c.jsErrLogView(false, [{ ts: 1 }]).message.length > 0, true); // вимкнено — підказка навіть коли записи лишились
+  assert.deepEqual(j(c.jsErrLogView(true, [])), { message: 'Помилок немає', rows: [] });
+  assert.deepEqual(j(c.jsErrLogView(true, null)), { message: 'Помилок немає', rows: [] });
+  const rows = []; for(let i = 1; i <= 40; i++) rows.push({ ts: i });
+  const v = j(c.jsErrLogView(true, rows));
+  assert.equal(v.message, ''); assert.equal(v.rows.length, 30); assert.equal(v.rows[0].ts, 40); assert.equal(v.rows[29].ts, 11);
 });
