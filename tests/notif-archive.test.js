@@ -120,7 +120,7 @@ test('охоронні: не позначає прочитаним при від
 });
 test('шапка без круглої іконки оновлення; екрани «Вхідні» й «Сповіщення» під таббаром (z-index < таббара)', function(){
   assert.ok(!/<button[^>]*id="update-btn-top"/.test(SRC));
-  assert.match(SRC, /id="update-btn-side"/);
+  assert.ok(!/id="update-btn-side"/.test(SRC.replace(/<!--[\s\S]*?-->/g, '')), 'Rev 2.32.145: бічного пункту оновлення немає'); // Rev 2.32.145 (DESK-UPDATE)
   const tabZ = Number(SRC.match(/nav\.tabbar\{[\s\S]*?z-index:(\d+)/)[1]);
   assert.ok(Number(SRC.match(/\.mono-screen\{[^}]*z-index:(\d+)/)[1]) < tabZ);
   assert.ok(Number(SRC.match(/\.mono-inbox-screen\{ z-index:(\d+)/)[1]) < tabZ);

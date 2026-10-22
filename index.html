@@ -2737,10 +2737,7 @@
     </button>
 
     <div class="side-spacer"></div>
-    <button class="side-tab" id="update-btn-side" onclick="openUpdateModal()" style="display:none; color:var(--color-primary-hover);">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m6 11 6 6 6-6"/><path d="M4 21h16"/></svg>
-      Доступне оновлення
-    </button>
+    <!-- Rev 2.32.145 (DESK-UPDATE): зелений пункт «Доступне оновлення» (#update-btn-side) прибрано: на десктопі він дублював плашку #update-banner з кнопкою «Оновити» (та сама, що на мобільній; однакова логіка показу/повернення refreshUpdateBanner, окремої логіки для десктопа немає). -->
     <div class="side-divider"></div>
     <!-- Rev #30 (6D.8) — той самий дуальний патерн, що вже .gear-btn/
          "Налаштування" вище: mobile — кнопка в .page-header-buttons-left,
@@ -3572,7 +3569,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.144</div>
+  <div class="version-footer">Money Tree · Rev 2.32.145</div>
 </div>
   </div>
 </div>
@@ -8151,7 +8148,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.144';
+const APP_VERSION = '2.32.145';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15233,9 +15230,7 @@ document.addEventListener('focusin', refreshUpdateBanner);
 document.addEventListener('focusout', function(){ setTimeout(refreshUpdateBanner, 50); });
 function showUpdateAvailable(){
   const top = document.getElementById('update-btn-top');
-  const side = document.getElementById('update-btn-side');
-  if(top) top.style.display = 'flex';
-  if(side) side.style.display = 'flex';
+  if(top) top.style.display = 'flex'; // Rev 2.32.145 (DESK-UPDATE): бічного пункту більше немає, оновлення пропонує лише плашка #update-banner (її показує refreshUpdateBanner)
 }
 function openUpdateModal(){
   showConfirmModal(
