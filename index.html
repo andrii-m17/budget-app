@@ -2428,6 +2428,9 @@
     .side button.side-tab{ text-align:left; background:none; border:none; padding:11px 12px; border-radius:var(--radius-md); font-size:14px; font-weight:600; color:var(--color-text-secondary); cursor:pointer; display:flex; align-items:center; gap:10px; min-height:44px; }
     .side button.side-tab.active{ background:var(--color-primary-bg); color:var(--color-primary-hover); }
     .side button.side-tab svg{ width:18px; height:18px; flex-shrink:0; }
+    /* Rev 2.32.126: значок синхронізації на аватарі в боковій панелі — як маленький у куті аватара на мобільній. Причина: правило вище (0,2,2) перебивало .avatar-status-dot svg (0,1,1), тож гліф 18px вилазив з крапки 11px; крапка була пів-аватара (11 з 22 px, на мобільній 11 з 36) і мала світле кільце --color-surface на темнішому тлі панелі. Тепер: крапка 8px (пропорція мобільної ≈ 0,3), кільце 1.5px кольору тла панелі, гліф 70% крапки. Ризик: гліф у 8px крапці дрібний (≈3.5px), як і задумано «маленький значок». */
+    .side button.side-tab .avatar-status-dot{ width:8px; height:8px; border-width:1.5px; border-color:var(--color-bg); bottom:-1px; right:-1px; }
+    .side button.side-tab .avatar-status-dot svg{ width:70%; height:70%; }
     /* "Витрати" — та сама ідея на desktop: колірне виділення пункту в sidebar,
        щоб сигналізувати "це головна дія", а не рівноправний розділ меню. */
     .side button.side-tab.tab-vytraty{ background:var(--color-primary); color:#fff; margin:2px 0; }
@@ -3528,7 +3531,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.125</div>
+  <div class="version-footer">Money Tree · Rev 2.32.126</div>
 </div>
   </div>
 </div>
@@ -8085,7 +8088,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.125';
+const APP_VERSION = '2.32.126';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
