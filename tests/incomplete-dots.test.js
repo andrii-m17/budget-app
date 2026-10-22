@@ -66,7 +66,7 @@ test('крапки не дублюють наявні місячні стату�
 });
 
 test('прихована картка й прихована ОЧ не мають крапки: використовуються isHiddenForMonth / isInstallmentVisibleForMonth для вибраного місяця', () => {
-  assert.match(MOD, /const hidden = isHiddenForMonth\(acc\.name, 'card', selectedMonth\);/);
+  assert.match(MOD, /const hidden = !isCardVisibleForMonth\(acc, selectedMonth\);/);
   assert.match(MOD, /const hidden = !isInstallmentVisibleForMonth\(acc, selectedMonth\);/);
 });
 

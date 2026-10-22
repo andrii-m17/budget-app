@@ -28,7 +28,7 @@ function sandbox({ expenses, incomes, debts, installmentAccounts, hiddenFrom, ig
     },
     [
       'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeSourceDisplay', 'findExpenseIdIssues', 'findTimestampIssues', 'findInstallmentFieldIssues', 'findInstallmentDivergences',
-      'divergenceKey', 'hideKey', 'isHiddenForMonth', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum',
+      'divergenceKey', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum',
       // Rev #30 (6D.42) — findExpenseIdIssues()/findTimestampIssues() тепер сканують activeExpenses(), не сирий expenses.
       'activeExpenses',
       // Rev #30 (6D.44) — findInstallmentDivergences()/lastKnownBalance()/typicalMonthlyPayment() тепер сканують activeDebts().

@@ -28,7 +28,7 @@ test('логіка статусу не змінювалась: debtUiStatus/miss
   assert.match(st, /if\(!asOfInfo\.hasData\) return \{ status:'none' \};/);
   assert.match(st, /if\(asOfInfo\.isCurrent\) return \{ status:'actual' \};/);
   assert.match(st, /if\(kindHasActualForMonth\(kind, month\)\) return \{ status:'incomplete', asOfMonth: asOfInfo\.asOfMonth \};/);
-  assert.match(SRC, /\.filter\(function\(x\)\{ return !isHiddenForMonth\(x\.name, 'card', month\); \}\)/);
+  assert.match(SRC, /\.filter\(function\(x\)\{ return !isAccountHiddenForMonth\(x\.name, 'card', month\); \}\)/);
   const r = SRC.slice(SRC.indexOf('function renderDataStatusDot'), SRC.indexOf('function renderDataStatusDot') + 400);
   assert.match(r, /if\(!uiStatus \|\| uiStatus\.status==='actual' \|\| uiStatus\.status==='none'\)\{\s*wrap\.classList\.add\('hidden'\);/, 'повні дані → крапка прихована');
 });

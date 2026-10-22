@@ -3545,7 +3545,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.136</div>
+  <div class="version-footer">Money Tree · Rev 2.32.137</div>
 </div>
   </div>
 </div>
@@ -5729,7 +5729,7 @@ async function restoreBankAccountsFromBackup(raw){
   backupList = filterPurgedAccounts(backupList, readPurgedAccounts(), 'card'); // Rev 2.32.4 (T2): видалені назавжди рахунки з бекапу не відновлюються
   if(isCloudSessionReady()) await pullBankAccountsCore();
   const counts = mergeBackupRecordsByCloudIdOrName(bankAccounts, backupList, 'name');
-  stampMissingTimestamps(bankAccounts);
+  stampBankAccountTimestamps(bankAccounts, debts); // Rev 2.32.137
   const saveResult = await saveBankAccountsLocal();
   // Rev #30 (6D.57) — await КРИТИЧНО тут: debts (нижче в applyBackupData())
   // читає bankAccounts[].cloudId синхронно в момент push — без await
@@ -6222,8 +6222,27 @@ async function ensureCategoryIdentity(){
 // Rev #30 (6D, bank_accounts Варіант А) — той самий ідемпотентний принцип
 // і той самий компроміс, що ensureCategoryIdentity() (немає власного
 // "date"-подібного поля для чесного наближення — фолбек на "зараз").
+// Rev 2.32.137: картка без createdAt (лише локальна, ніколи не синхронізована; з Cloud createdAt приходить завжди) дістає його за початком найранішого місяця її боргів, інакше «зараз»: мітка «зараз» приховала б історію картки правилом початку обліку. Наявні createdAt не змінюються; updatedAt для нових міток — зараз.
+function stampBankAccountTimestamps(accounts, debtList){
+  const nowISO = new Date().toISOString();
+  let changed = false;
+  (accounts || []).forEach(function(a){
+    if(!a.createdAt){
+      const months = (debtList || []).filter(function(d){ return d && d.kind === 'card' && d.name === a.name && d.month; }).map(function(d){ return String(d.month).slice(0, 7); }).sort();
+      a.createdAt = months.length ? monthStartISO(months[0]) : nowISO;
+      changed = true;
+    }
+    if(!a.updatedAt){ a.updatedAt = nowISO; changed = true; }
+  });
+  return changed;
+}
+// Початок місяця 'YYYY-MM' у локальному часі (полудень першого числа: однаковий місяць у будь-якому поясі), у ISO.
+function monthStartISO(month){
+  const y = +String(month).slice(0, 4), m = +String(month).slice(5, 7);
+  return new Date(y, m - 1, 1, 12, 0, 0).toISOString();
+}
 async function ensureBankAccountIdentity(){
-  if(stampMissingTimestamps(bankAccounts)) reportSaveResult(await saveBankAccounts());
+  if(stampBankAccountTimestamps(bankAccounts, debts)) reportSaveResult(await saveBankAccounts());
 }
 // Rev #30 (6D.27, installment_accounts повний цикл) — той самий ідемпотентний
 // принцип, що ensureCategoryIdentity()/ensureBankAccountIdentity(): на
@@ -8105,7 +8124,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.136';
+const APP_VERSION = '2.32.137';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8615,6 +8634,27 @@ function isInstallmentVisibleForMonth(acc, month){
   if(isHiddenForMonth(acc.name, 'installment', month)) return false;
   if(acc.firstMonth && month < acc.firstMonth) return false;
   return true;
+}
+// Rev 2.32.137 (CARD-START, рішення чату): картка показується (список «Борги», крапки, підсумки, дашборд) лише з місяця createdAt і далі; жодних запасних правил на кшталт «найраніший запис боргу». Місяць створення — за локальною датою пристрою. Картка без createdAt не обмежується (мігрована без мітки дістає її при старті, див. stampBankAccountTimestamps). Для ОЧ без змін (firstMonth).
+function cardCreatedMonth(acc){
+  if(!acc || !acc.createdAt) return null;
+  const d = new Date(acc.createdAt);
+  if(isNaN(d.getTime())) return null;
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function isCardVisibleForMonth(acc, month){
+  if(!acc) return false;
+  if(isHiddenForMonth(acc.name, 'card', month)) return false;
+  const cm = cardCreatedMonth(acc);
+  return !(cm && month < cm);
+}
+// Чи прихований обліковий запис (картка/ОЧ) для місяця: приховання (hiddenFrom) або, для картки, місяць до її createdAt. Для ОЧ — лише hiddenFrom, як раніше.
+function isAccountHiddenForMonth(name, kind, month){
+  if(isHiddenForMonth(name, kind, month)) return true;
+  if(kind !== 'card') return false;
+  const acc = bankAccounts.find(function(b){ return b.name === name; });
+  const cm = acc ? cardCreatedMonth(acc) : null;
+  return !!(cm && month < cm);
 }
 // Rev 2.1.0 — останній ФАКТИЧНИЙ баланс до (не включно) заданого місяця,
 // для pre-fill у формі щомісячного оновлення боргу карток.
@@ -13444,7 +13484,7 @@ function populateBankDebtTable(){
   // масив фізично — теоретично можливий місяць, де всі банки приховані.
   const visible = bankAccounts
     .map(function(acc, i){ return { acc, i }; })
-    .filter(function(x){ return !isHiddenForMonth(x.acc.name, 'card', selectedMonth); });
+    .filter(function(x){ return isCardVisibleForMonth(x.acc, selectedMonth); }); // Rev 2.32.137
   if(visible.length===0){
     el.innerHTML = `<div class="empty-hint">Немає активних карток цього місяця.</div>`;
     updateBankDebtTotal();
@@ -13490,7 +13530,7 @@ function updateBankDebtTotal(){
   if(!balanceEl || !minpayEl || !selectedMonth) return;
   let totalBalance = 0, totalMinpay = 0;
   bankAccounts.forEach(function(acc){
-    if(isHiddenForMonth(acc.name, 'card', selectedMonth)) return;
+    if(!isCardVisibleForMonth(acc, selectedMonth)) return; // Rev 2.32.137
     // Rev #30 (6D.44) — activeDebts().
     const existing = activeDebts().find(function(d){ return d.name===acc.name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
     totalBalance += existing ? existing.balance : 0;
@@ -13704,7 +13744,7 @@ function debtTotalsForMonth(month){
   // Rev #30 (6D.44) — activeDebts() вставлено ПЕРЕД hideKey-дедуп циклом
   // (6D.33 BugFix) — сам дедуп-цикл і його ключ незмінні, лише вхідний набір записів.
   activeDebts().forEach(d=>{
-    if(d.month <= month && !isHiddenForMonth(d.name, d.kind, month)){
+    if(d.month <= month && !isAccountHiddenForMonth(d.name, d.kind, month)){ // Rev 2.32.137: картка до createdAt поза підсумками
       const key = hideKey(d.name, d.kind);
       if(!byKindName[key] || d.month > byKindName[key].month) byKindName[key] = d;
     }
@@ -13742,7 +13782,7 @@ function debtTotalsForMonth(month){
 // "Динаміка боргу" (треба знати і поточний, і попередній місяць як факт).
 function kindHasActualForMonth(kind, month){
   // Rev #30 (6D.44) — activeDebts(): tombstoned запис не "факт", не має рахуватись як актуальний.
-  return activeDebts().some(d=> d.kind===kind && d.month===month && !isHiddenForMonth(d.name, d.kind, month));
+  return activeDebts().some(d=> d.kind===kind && d.month===month && !isAccountHiddenForMonth(d.name, d.kind, month)); // Rev 2.32.137
 }
 // Rev 2.1.0 — для KPI "Борг" (знімок) і донату "Скорочення боргу": чи всі
 // включені записи "kind" актуальні саме на обраний місяць, і якщо ні —
@@ -13751,7 +13791,7 @@ function debtAsOfInfo(month, kind){
   const byName = {};
   // Rev #30 (6D.44) — activeDebts().
   activeDebts().forEach(d=>{
-    if(d.kind===kind && d.month<=month && !isHiddenForMonth(d.name, d.kind, month)){
+    if(d.kind===kind && d.month<=month && !isAccountHiddenForMonth(d.name, d.kind, month)){ // Rev 2.32.137
       if(!byName[d.name] || d.month > byName[d.name].month) byName[d.name] = d;
     }
   });
@@ -13791,7 +13831,7 @@ function debtUiStatus(asOfInfo, month, kind){
 function missingCardDebtsForMonth(month){
   return bankAccounts
     .map(function(acc, i){ return { name: acc.name, i: i }; })
-    .filter(function(x){ return !isHiddenForMonth(x.name, 'card', month); })
+    .filter(function(x){ return !isAccountHiddenForMonth(x.name, 'card', month); }) // Rev 2.32.137
     .filter(function(x){
       return !activeDebts().some(function(d){ return d.name===x.name && d.kind==='card' && monthKey2(d.month)===month; });
     });
@@ -14452,7 +14492,11 @@ const EXCEL_DEBT_COLUMNS = [
 function importEnsureAccounts(debtList, banks, installments, nowISO){
   let addedCards = 0, addedInstallments = 0;
   (debtList || []).forEach(function(d){
-    if(d.kind === 'card' && !banks.some(function(b){ return b.name === d.name; })){ banks.push({ name: d.name, creditLimit: null, createdAt: nowISO, updatedAt: nowISO }); addedCards++; }
+    if(d.kind === 'card' && !banks.some(function(b){ return b.name === d.name; })){
+      // Rev 2.32.137: createdAt нової картки = початок найранішого імпортованого місяця її боргів (щоб борги були видимі за правилом початку обліку); updatedAt — момент імпорту.
+      const months = debtList.filter(function(x){ return x.kind === 'card' && x.name === d.name && x.month; }).map(function(x){ return String(x.month).slice(0, 7); }).sort();
+      banks.push({ name: d.name, creditLimit: null, createdAt: months.length ? monthStartISO(months[0]) : nowISO, updatedAt: nowISO }); addedCards++;
+    }
     if(d.kind === 'installment' && !installments.some(function(a){ return a.name === d.name; })){ installments.push({ name: d.name, initialAmount: null }); addedInstallments++; }
   });
   return { addedCards: addedCards, addedInstallments: addedInstallments };
@@ -19371,7 +19415,7 @@ function incompleteReasons(entity, monthRecord, month, hidden){
   return incompleteDetails(entity, monthRecord, month, hidden).map(function(d){ return d.code; });
 }
 function cardIncompleteDetails(acc){
-  const hidden = isHiddenForMonth(acc.name, 'card', selectedMonth);
+  const hidden = !isCardVisibleForMonth(acc, selectedMonth); // Rev 2.32.137
   const existing = activeDebts().find(function(d){ return d.name === acc.name && d.kind === 'card' && monthKey2(d.month) === selectedMonth; });
   return incompleteDetails(acc, existing ? { balance: existing.balance, minPayment: existing.minPayment } : null, selectedMonth, hidden);
 }

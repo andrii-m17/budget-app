@@ -138,7 +138,7 @@ const REPOSITORY_NAMES = [
   // Rev #30 (6D, термінове розслідування — фікс подвійного push) — чистий
   // stamp-хелпер, витягнутий з усіх 5 ensureXIdentity(); restoreXFromBackup()
   // нижче теж на нього посилається (недосяжним для routing-тестів кодом).
-  'stampMissingTimestamps',
+  'stampMissingTimestamps', 'stampBankAccountTimestamps', 'monthStartISO',
   // Rev #30 (6D.4) — той самий принцип, що categories вище: cloudSession
   // null за замовчуванням → усі 4 нові pushXPilot() одразу повертаються на
   // guard clause, без реального Supabase-клієнта. reconcileXCloudId — не
@@ -203,7 +203,7 @@ const REPOSITORY_NAMES = [
   // Rev #30 (6D.60) — пакетний push (лише bulk-шляхи restore/syncAllPilotManual),
   // з відкатом на pushXRecordPilot() вище за провалу пакету.
   'pushExpensesBatch', 'pushExpensesBatched', 'pushIncomesBatch', 'pushIncomesBatched', 'pushDebtsBatch', 'pushDebtsBatched',
-  'hideKey', 'divergenceKey', 'isHiddenForMonth',
+  'hideKey', 'divergenceKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth',
   // Rev 2.22.83 (6D.156, Ревізія B1) — epoch-штамп для legacy-бекфілу hiddenFrom.
   'HIDDEN_FROM_LEGACY_EPOCH',
   'ensureInstallmentFirstMonth',
