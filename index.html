@@ -993,6 +993,12 @@
   .expense-row .exp-main{ flex:1; min-width:0; }
   .expense-row .exp-name{ font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .expense-row .exp-meta{ display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap; }
+  /* Rev 2.32.140 (JOURNAL-INST): позначка прив'язки витрати до ОЧ у Журналі: значок ланцюжка (ti-link, 13 px) + коротка назва ОЧ, приглушений фіолетовий акцент ОЧ (ті самі токени, що .mono-inst-label). Рядок лишається в одну лінію (nowrap, висота не змінюється): коли місця мало, назва обрізається (clip, без «…») аж до зникнення, значок лишається. */
+  .expense-row .exp-meta.has-inst{ flex-wrap:nowrap; }
+  .expense-row .exp-meta.has-inst > .chip, .expense-row .exp-meta.has-inst > svg{ flex:0 0 auto; }
+  .exp-inst-link{ display:inline-flex; align-items:center; gap:3px; flex:0 1 auto; min-width:13px; color:var(--color-accent-purple); font-size:11px; font-weight:600; white-space:nowrap; overflow:hidden; }
+  .exp-inst-link svg{ flex:0 0 13px; width:13px; height:13px; }
+  .exp-inst-link > span{ min-width:0; overflow:hidden; text-overflow:clip; }
   /* Rev #30 (6D.65) — заміна колишньої жовтої рамки "manual" (border-left)
      на іконку-олівець: border-left тепер зайнятий кольором АВТОРА
      (created_by, inline style — колір бере authorInfoFor() напряму з
@@ -3554,7 +3560,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.139</div>
+  <div class="version-footer">Money Tree · Rev 2.32.140</div>
 </div>
   </div>
 </div>
@@ -8133,7 +8139,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.139';
+const APP_VERSION = '2.32.140';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -16711,6 +16717,7 @@ function buildRecordGroupsHtml(items){
       const chipText = isIncome ? 'дохід' : (e.category ? (e.subcategory || e.category) : 'без категорії');
       const amountClass = isIncome ? 'exp-amount income mono' : 'exp-amount mono';
       const sign = isIncome ? '+' : '−';
+      const instLinkHtml = installmentLinkBadgeHtml(e); // Rev 2.32.140 (JOURNAL-INST)
       const editedBadgeHtml = (!isIncome && (e.editedAt || e.edited))
         ? `<span class="exp-edited-badge" title="Відредаговано" aria-label="Відредаговано"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>`
         : '';
@@ -16774,7 +16781,7 @@ function buildRecordGroupsHtml(items){
             <div class="exp-row-top">
               <div class="exp-main">
                 <div class="exp-name">${escapeHtml(e.name)}</div>
-                <div class="exp-meta"><span class="${chipClass}">${escapeHtml(chipText)}</span>${monoBadgeHtml(e.source)}${editedBadgeHtml}${justPulledBadgeHtml}</div>
+                <div class="exp-meta${instLinkHtml ? ' has-inst' : ''}"><span class="${chipClass}">${escapeHtml(chipText)}</span>${monoBadgeHtml(e.source)}${editedBadgeHtml}${justPulledBadgeHtml}${instLinkHtml}</div>
               </div>
               <div class="${amountClass}">${sign}${fmt(e.amount)}</div>
               <button type="button" class="exp-del" onclick="event.stopPropagation(); confirmDeleteRecord('${e.kind}','${safeId(e.id)}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -16793,6 +16800,15 @@ function buildRecordGroupsHtml(items){
         ${rowsHtml}
       </div>`;
   }).join('');
+}
+// Rev 2.32.140 (JOURNAL-INST): позначка «🔗 назва ОЧ» для витрати з linkedInstallment. Локально прив'язка зберігається за назвою ОЧ (cloud: linked_installment_id резолвиться в назву при pull); якщо ОЧ локально не знайдена (ще не підтягнута/видалена), показуємо лише значок.
+const INST_LINK_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 15l6 -6"/><path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464"/><path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463"/></svg>';
+function installmentLinkBadgeHtml(rec){
+  if(!rec || rec.kind === 'income' || !rec.linkedInstallment) return '';
+  const acc = (typeof installmentAccounts !== 'undefined' ? installmentAccounts : []).find(function(a){ return a && a.name === rec.linkedInstallment; });
+  const name = acc ? String(acc.name) : '';
+  const aria = name ? 'Прив\'язано до ОЧ: ' + name : 'Прив\'язано до ОЧ';
+  return '<span class="exp-inst-link" role="img" aria-label="' + escapeAttr(aria) + '">' + INST_LINK_ICON_SVG + (name ? '<span>' + escapeHtml(name) + '</span>' : '') + '</span>';
 }
 // Rev #30 (6D.51) — детермінований порядок Журналу: раніше тайбрейк при
 // ОДНАКОВІЙ date був фактично no-op (localeCompare вже дає 0 при рівності),
