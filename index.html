@@ -453,6 +453,15 @@
      яка відкриває вже наявну кастомну модалку. Пунктирна рамка (той самий
      прийом, що import-card) сигналізує "додати нове", а не "зберегти". */
   .add-trigger-btn{ width:100%; padding:12px; margin-bottom:14px; border:1.5px dashed var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); font-size:14px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
+  /* Rev 2.32.139 (EMPTY-1): порожній стан «Облік» → «Борги» / «ОЧ» за затвердженим макетом: іконка в колі, заголовок 16px/700, пояснення 13px приглушене (≈230px), кнопка на всю ширину; підсумкова картка, підпис розділу й нижня кнопка «Додати» у порожньому стані сховані. */
+  .acct-panel.is-empty > .card-summary, .acct-panel.is-empty > .section-label, .acct-panel.is-empty > .add-trigger-btn{ display:none; }
+  .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:36px 0 8px; }
+  .empty-state-icon{ width:64px; height:64px; border-radius:50%; background:var(--color-surface-hover); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
+  .empty-state-icon svg{ width:30px; height:30px; display:block; }
+  .empty-state-title{ font-size:16px; font-weight:700; line-height:1.3; color:var(--color-text-primary); }
+  .empty-state-text{ max-width:230px; margin:6px 0 20px; font-size:13px; line-height:1.4; color:var(--color-text-secondary); }
+  .empty-state .add-trigger-btn{ margin-bottom:0; }
+  .empty-state-actions{ align-self:stretch; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .add-trigger-btn:hover{ background:var(--color-surface-hover); border-color:var(--color-primary); color:var(--color-primary-hover); } }
   #banks-saved-hint{ color:var(--color-primary-hover); font-weight:600; }
@@ -3018,7 +3027,7 @@
         <div class="field auto-hint" id="income-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
       </div>
 
-      <div class="struct-tab-panel hidden" id="acct-tab-panel-debts">
+      <div class="struct-tab-panel acct-panel hidden" id="acct-tab-panel-debts">
         <!-- Rev 2.16.5 — компактний список карток (Варіант A, штора) замість
              розгорнутих інлайн-форм: підсумкова картка (загальний борг + разом
              мін. платіж) над списком, тап по картці відкриває #card-debt-drawer
@@ -3041,7 +3050,7 @@
         <div class="field auto-hint" id="banks-saved-hint" style="text-align:center; margin-top:8px;">Збережено</div>
       </div>
 
-      <div class="struct-tab-panel hidden" id="acct-tab-panel-installments">
+      <div class="struct-tab-panel acct-panel hidden" id="acct-tab-panel-installments">
         <!-- Rev 2.16.6 — той самий компактний список + шторка, що Борги по
              картках (Rev 2.16.5): підсумкова картка (Разом ОЧ + Разом на
              місяць) над списком, тап відкриває #installment-drawer. -->
@@ -3545,7 +3554,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.138</div>
+  <div class="version-footer">Money Tree · Rev 2.32.139</div>
 </div>
   </div>
 </div>
@@ -8124,7 +8133,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.138';
+const APP_VERSION = '2.32.139';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12964,8 +12973,9 @@ function populateInstallmentTable(){
   const visible = installmentAccounts
     .map(function(acc, i){ return { acc, i }; })
     .filter(function(x){ return isInstallmentVisibleForMonth(x.acc, selectedMonth); });
+  setAcctPanelEmpty('acct-tab-panel-installments', visible.length===0); // Rev 2.32.139
   if(visible.length===0){
-    el.innerHTML = `<div class="empty-hint">Ще немає жодної ОЧ. Додай першу нижче.</div>`;
+    el.innerHTML = emptyStateHtml('installment'); // Rev 2.32.139 (EMPTY-1): замість «Ще немає жодної ОЧ…»
     updateInstallmentTotal();
     updateInstallmentBalanceTotal();
     return;
@@ -13476,6 +13486,22 @@ function removeInstallmentAccount(i, onDone){
 // більше інлайн-полів/dirty-стану в самому списку — рендер завжди вільний
 // (renderAll() більше не ризикує затерти щось "напівзаповнене", бо
 // редагування живе ізольовано в шторці, а не в цьому списку).
+// Rev 2.32.139 (EMPTY-1): порожній стан списку (іконка в колі, заголовок, пояснення, кнопка на всю ширину). Тексти — константи; перемикає клас .is-empty на панелі (ховає підсумкову картку, підпис розділу й нижню кнопку).
+const EMPTY_STATE_ICONS = {
+  card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19"/><path d="M6 15h4"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18"/><path d="M8 2.5v4"/><path d="M16 2.5v4"/><text x="12" y="18" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor" stroke="none">₴</text></svg>',
+};
+function emptyStateHtml(kind){
+  const card = kind === 'card';
+  return '<div class="empty-state"><div class="empty-state-icon">' + EMPTY_STATE_ICONS[card ? 'card' : 'calendar'] + '</div>'
+    + '<div class="empty-state-title">' + (card ? 'Ще немає карток' : 'Ще немає ОЧ') + '</div>'
+    + '<div class="empty-state-text">' + (card ? 'Додайте першу картку, щоб вести борг по місяцях.' : 'Додайте першу ОЧ, щоб бачити платежі й залишок.') + '</div>'
+    + '<div class="empty-state-actions"><button type="button" class="add-trigger-btn" onclick="' + (card ? 'openAddBankModal()' : 'openAddInstallmentModal()') + '">' + (card ? '+ Додати картку' : '+ Додати ОЧ') + '</button></div></div>';
+}
+function setAcctPanelEmpty(panelId, empty){
+  const p = document.getElementById(panelId);
+  if(p) p.classList.toggle('is-empty', !!empty);
+}
 function populateBankDebtTable(){
   const el = document.getElementById('bank-debt-table');
   if(!el || !selectedMonth) return;
@@ -13485,8 +13511,9 @@ function populateBankDebtTable(){
   const visible = bankAccounts
     .map(function(acc, i){ return { acc, i }; })
     .filter(function(x){ return isCardVisibleForMonth(x.acc, selectedMonth); }); // Rev 2.32.137
+  setAcctPanelEmpty('acct-tab-panel-debts', visible.length===0); // Rev 2.32.139
   if(visible.length===0){
-    el.innerHTML = `<div class="empty-hint">Немає активних карток цього місяця.</div>`;
+    el.innerHTML = emptyStateHtml('card'); // Rev 2.32.139 (EMPTY-1): замість «Немає активних карток цього місяця.»
     updateBankDebtTotal();
     return;
   }
