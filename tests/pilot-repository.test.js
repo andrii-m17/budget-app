@@ -6423,7 +6423,7 @@ function debugRecorderDomSandbox(opts){
     'debugSafeAreaInsets', 'captureDebugGeometry',
     'onDebugWindowResize', 'onDebugVvResize', 'onDebugVvScroll', 'onDebugScroll',
     'onDebugFocusIn', 'onDebugFocusOut', 'onDebugOrientationChange', 'onDebugVisibilityChange',
-    'onDebugPageShow', 'onDebugPageHide', 'onDebugTouchStart', 'onDebugTouchEnd', 'onDebugAddButtonPointer', 'debugRectOf', 'debugTargetInfo', 'debugTextHash', 'onDebugBodyClassChange', 'onExpenseFocusNeighbors', 'onInputFocusAudit',
+    'onDebugPageShow', 'onDebugPageHide', 'onDebugTouchStart', 'onDebugTouchEnd', 'onDebugAddButtonPointer', 'debugPressFacts', 'debugRectOf', 'debugTargetInfo', 'debugTextHash', 'onDebugBodyClassChange', 'onExpenseFocusNeighbors', 'onInputFocusAudit',
     'attachDebugRecorderListeners', 'detachDebugRecorderListeners',
     'updateDebugRecordButtonUI', 'startDebugRecording', 'stopDebugRecording',
     'lockBackgroundScroll', 'unlockBackgroundScroll',

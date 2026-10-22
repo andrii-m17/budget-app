@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const NAMES = ['DEBUG_EVENT_ALLOWLIST', 'sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent', 'debugRectOf', 'debugTextHash', 'debugTargetInfo', 'debugSuggestRender', 'debugSuggestPick', 'debugAddResult', 'onDebugAddButtonPointer'];
+const NAMES = ['DEBUG_EVENT_ALLOWLIST', 'sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent', 'debugRectOf', 'debugTextHash', 'debugTargetInfo', 'debugSuggestRender', 'debugSuggestPick', 'debugAddResult', 'debugPressFacts', 'onDebugAddButtonPointer'];
 function mk(active){
   const timers = [];
   const ctx = buildSandbox({ debugRecordingActive: active !== false, debugRecordingStartedAt: 0, debugEventBuffer: [], DEBUG_RECORDING_MAX_EVENTS: 2000, performance: { now: () => 100 },
@@ -76,11 +76,33 @@ test('allowlist пропускає нові поля, але не текст/з�
   assert.match(SRC, /debugSuggestRender\('edit', matches, -1\)/);
   assert.match(SRC, /debugSuggestPick\('new', i, name, lenBefore, name\.length\)/);
   assert.match(SRC, /debugSuggestPick\('edit', i, name, editLenBefore, name\.length\)/);
-  assert.match(SRC, /\['pointerdown', 'pointerup', 'click'\]\.forEach\(function\(ev\)\{ on\(document, ev, onDebugAddButtonPointer, true\); \}\)/);
+  assert.match(SRC, /\['pointerdown', 'pointerup', 'pointercancel', 'click'\]\.forEach\(function\(ev\)\{ on\(document, ev, onDebugAddButtonPointer, true\); \}\)/);
   assert.match(SRC, /targetRect: debugRectOf\(target\)/);
   assert.match(SRC, /targetRect: ti\.targetRect/);
   assert.match(SRC, /debugAddResult\('rejected', 'gate'\)/);
   assert.match(SRC, /debugAddResult\('rejected', !name \? 'name-empty' : 'amount-invalid'\)/);
   assert.match(SRC, /if\(ok\) debugAddResult\('added'\)/);
   assert.match(SRC, /if\(name === 'addExpense'\) debugAddResult\('deferred', 'edit-guard'\)/);
+});
+
+test('Rev 2.32.133: add-button несе defaultPrevented, is-pressed на кнопці та activeElement; pointercancel — окрема фаза', function(){
+  const { ctx, ev } = mk();
+  const cls = new Set(['is-pressed']);
+  const btn = Object.assign(rectEl([20, 700, 300, 50]), { classList: { contains: c => cls.has(c) } });
+  const A = { id: 'x-123e4567-e89b-12d3-a456-426614174000', tagName: 'INPUT' };
+  ctx.document = { activeElement: A };
+  const E = (type, extra) => Object.assign({ type, pointerType: 'touch', defaultPrevented: false, target: { closest: sel => (sel === 'button.submit-btn.expense' ? btn : null) } }, extra || {});
+  ctx.onDebugAddButtonPointer(E('pointerdown')); cls.delete('is-pressed'); ctx.onDebugAddButtonPointer(E('pointerup', { defaultPrevented: true })); ctx.onDebugAddButtonPointer(E('pointercancel'));
+  const list = ev();
+  assert.deepEqual(list.map(e => e.phase), ['pointerdown', 'pointerup', 'pointercancel']);
+  assert.equal(list[0].pressed, true); assert.equal(list[1].pressed, false); assert.equal(list[1].defaultPrevented, true); assert.equal(list[0].defaultPrevented, false);
+  assert.equal(list[0].activeId, 'x-<uuid>'); assert.equal(list[0].activeTag, 'INPUT');
+});
+test('Rev 2.32.133: debugPressFacts без activeElement і без елемента; охоронні: touchend і allowlist', function(){
+  const { ctx } = mk();
+  ctx.document = { activeElement: null };
+  assert.deepEqual(j(ctx.debugPressFacts({}, null)), { defaultPrevented: false, pressed: false, activeId: null, activeTag: null });
+  assert.ok(SRC.includes("const pf = debugPressFacts(e, e.target && e.target.closest ? e.target.closest('.is-pressed') : null);"));
+  assert.ok(SRC.includes("'defaultPrevented', 'pressed', 'activeId', 'activeTag',\n];"));
+  assert.deepEqual(j(ctx.sanitizeDebugEvent({ defaultPrevented: true, pressed: false, activeId: 'a', activeTag: 'B', value: 'x', text: 'y' })), { defaultPrevented: true, pressed: false, activeId: 'a', activeTag: 'B' });
 });

@@ -3545,7 +3545,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.132</div>
+  <div class="version-footer">Money Tree · Rev 2.32.133</div>
 </div>
   </div>
 </div>
@@ -8109,7 +8109,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.132';
+const APP_VERSION = '2.32.133';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11540,6 +11540,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   // add-button (phase, rect, pointerType, gotClick, result, reason) і прямокутник/ціль touchstart/touchend (targetRect; для touchend також targetTag/targetId/targetClasses). Раніше 'event'/'count' подій suggest-edit відкидались allowlist-ом — додано.
   'ctx', 'event', 'count', 'lens', 'activeIdx', 'pickIdx', 'pickLen', 'pickHash', 'textLenBefore', 'textLenAfter',
   'phase', 'rect', 'pointerType', 'gotClick', 'result', 'reason', 'targetRect',
+  // Rev 2.32.133 (BUG-INPUT, лише запис): факти про натиск — defaultPrevented події, чи був .is-pressed на елементі в момент події, document.activeElement (id із замаскованим uuid і тег); без тексту й значень.
+  'defaultPrevented', 'pressed', 'activeId', 'activeTag',
 ];
 // Rev 2.32.129: чисті допоміжні функції діагностики — прямокутник, ціль дотику, короткий хеш тексту (текст у лог не потрапляє).
 function debugRectOf(el){
@@ -11573,6 +11575,16 @@ function debugAddResult(result, reason){
   if(!debugRecordingActive) return;
   pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'add-button', phase: 'result', result: result, reason: reason || null });
 }
+// Rev 2.32.133: спільні факти натиску для add-button і touchend. pressedEl — елемент, на якому перевіряємо .is-pressed (для touchend — найближчий предок із класом).
+function debugPressFacts(e, pressedEl){
+  const a = typeof document !== 'undefined' ? document.activeElement : null;
+  return {
+    defaultPrevented: !!(e && e.defaultPrevented),
+    pressed: !!(pressedEl && pressedEl.classList && pressedEl.classList.contains('is-pressed')),
+    activeId: a && a.id ? String(a.id).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>') : null,
+    activeTag: a && a.tagName ? a.tagName : null,
+  };
+}
 let debugAddBtnState = { down: false, gotClick: false, timer: null };
 function onDebugAddButtonPointer(e){
   if(!debugRecordingActive) return;
@@ -11581,12 +11593,12 @@ function onDebugAddButtonPointer(e){
   const phase = e.type;
   if(phase === 'pointerdown'){ debugAddBtnState.down = true; debugAddBtnState.gotClick = false; clearTimeout(debugAddBtnState.timer); }
   if(phase === 'click') debugAddBtnState.gotClick = true;
-  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'add-button', phase: phase, rect: debugRectOf(btn), pointerType: e.pointerType || null, gotClick: phase === 'click' ? true : undefined });
+  pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'add-button', phase: phase, rect: debugRectOf(btn), pointerType: e.pointerType || null, gotClick: phase === 'click' ? true : undefined }, debugPressFacts(e, btn)));
   if(phase === 'pointerup'){
     // click після pointerup приходить одразу; якщо за 400 мс його нема — фіксуємо «pointerup без click» і де тоді була кнопка (зсув розкладки).
     debugAddBtnState.timer = setTimeout(function(){
       if(!debugRecordingActive || debugAddBtnState.gotClick) return;
-      pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'add-button', phase: 'no-click', rect: debugRectOf(btn), gotClick: false });
+      pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'add-button', phase: 'no-click', rect: debugRectOf(btn), gotClick: false }, debugPressFacts(e, btn))); // Rev 2.32.133: факти на момент «без click» (e — pointerup)
     }, 400);
   }
 }
@@ -11760,8 +11772,9 @@ function onDebugTouchStart(e){
 function onDebugTouchEnd(e){
   const t = e.changedTouches && e.changedTouches[0];
   const ti = debugTargetInfo(e.target); // Rev 2.32.129: ціль touchend (id, тег, клас, прямокутник)
-  captureDebugGeometry('touchend', { touchX: t ? Math.round(t.clientX) : null, touchY: t ? Math.round(t.clientY) : null,
-    targetTag: ti.targetTag, targetId: ti.targetId, targetClasses: ti.targetClasses, targetRect: ti.targetRect });
+  const pf = debugPressFacts(e, e.target && e.target.closest ? e.target.closest('.is-pressed') : null); // Rev 2.32.133
+  captureDebugGeometry('touchend', Object.assign({ touchX: t ? Math.round(t.clientX) : null, touchY: t ? Math.round(t.clientY) : null,
+    targetTag: ti.targetTag, targetId: ti.targetId, targetClasses: ti.targetClasses, targetRect: ti.targetRect }, pf));
 }
 function onDebugBodyClassChange(){ captureDebugGeometry('kb-open-class-changed'); }
 // Rev 2.22.91 — attach/detach через спільний debugListenerHandles — одна
@@ -11871,7 +11884,7 @@ function attachDebugRecorderListeners(){
   on(window, 'pagehide', onDebugPageHide);
   on(window, 'touchstart', onDebugTouchStart, { passive: true });
   on(window, 'touchend', onDebugTouchEnd, { passive: true });
-  ['pointerdown', 'pointerup', 'click'].forEach(function(ev){ on(document, ev, onDebugAddButtonPointer, true); }); // Rev 2.32.129: add-button (capture — до обробників кнопки)
+  ['pointerdown', 'pointerup', 'pointercancel', 'click'].forEach(function(ev){ on(document, ev, onDebugAddButtonPointer, true); }); // Rev 2.32.129: add-button (capture — до обробників кнопки)
   if(typeof MutationObserver !== 'undefined'){
     debugRecordingMutationObserver = new MutationObserver(onDebugBodyClassChange);
     debugRecordingMutationObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });

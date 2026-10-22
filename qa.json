@@ -1,5 +1,13 @@
 [
   {
+    "id": "2.32.133-1",
+    "rev": "2.32.133",
+    "title": "Запис діагностики, невдалий тап по «Додати витрату»",
+    "steps": [],
+    "expected": "у подіях `add-button` і `touchend` є `pressed`, `defaultPrevented`, `activeId`/`activeTag`, за скасування жесту фаза `pointercancel`",
+    "h": "d2997e"
+  },
+  {
     "id": "2.32.132-1",
     "rev": "2.32.132",
     "title": "«Витрати»",
