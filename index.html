@@ -3545,7 +3545,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.137</div>
+  <div class="version-footer">Money Tree · Rev 2.32.138</div>
 </div>
   </div>
 </div>
@@ -8124,7 +8124,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.137';
+const APP_VERSION = '2.32.138';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13700,9 +13700,16 @@ async function addBankAccount(name, creditLimit){
   // Rev #30 (6D, bank_accounts Варіант А) — createdAt/updatedAt при
   // створенні, той самий принцип, що categories/incomes/debts.
   const nowISO = new Date().toISOString();
-  bankAccounts.push({ name, creditLimit: creditLimit || null, createdAt: nowISO, updatedAt: nowISO });
+  bankAccounts.push({ name, creditLimit: creditLimit || null, createdAt: newCardCreatedAt(selectedMonth, nowISO), updatedAt: nowISO });
   reportSaveResult(await saveBankAccounts());
   populateBankDebtTable();
+}
+// Rev 2.32.138 (CARD-START, рішення чату): картка, додана під час перегляду місяця РАНІШЕ за поточний календарний, дістає createdAt = початок вибраного місяця (інакше введений за цей місяць борг «зникав» би, бо картки до createdAt немає в списку); для поточного й майбутнього місяців — момент створення. Поточний місяць — за локальною датою пристрою. updatedAt лишається «зараз».
+function newCardCreatedAt(viewMonth, nowISO){
+  const now = new Date(nowISO);
+  const cur = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  if(viewMonth && /^\d{4}-\d{2}$/.test(viewMonth) && viewMonth < cur) return monthStartISO(viewMonth);
+  return nowISO;
 }
 function openAddBankModal(){
   showInstallmentModal('Новий банк/картка:', '', '', async function(name, creditLimit){

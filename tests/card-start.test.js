@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const NAMES = ['hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'monthStartISO', 'stampBankAccountTimestamps', 'importEnsureAccounts', 'isInstallmentVisibleForMonth'];
+const NAMES = ['hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'monthStartISO', 'stampBankAccountTimestamps', 'importEnsureAccounts', 'isInstallmentVisibleForMonth', 'newCardCreatedAt'];
 const mk = g => buildSandbox(Object.assign({ hiddenFrom: {}, bankAccounts: [] }, g || {}), NAMES);
 const CREATED = '2026-05-02T10:00:00.000Z'; // як у наявних картках на сервері
 
@@ -75,9 +75,21 @@ test('stampBankAccountTimestamps: наявні createdAt не змінюютьс
   assert.equal(c.stampBankAccountTimestamps(accs, []), false, 'ідемпотентно');
 });
 test('нова картка: createdAt = момент створення (addBankAccount); споживачі правила: список, підсумки, крапки', function(){
-  assert.match(SRC, /bankAccounts\.push\(\{ name, creditLimit: creditLimit \|\| null, createdAt: nowISO, updatedAt: nowISO \}\);/);
+  assert.match(SRC, /bankAccounts\.push\(\{ name, creditLimit: creditLimit \|\| null, createdAt: newCardCreatedAt\(selectedMonth, nowISO\), updatedAt: nowISO \}\);/);
   assert.match(SRC, /\.filter\(function\(x\)\{ return isCardVisibleForMonth\(x\.acc, selectedMonth\); \}\)/);
   assert.match(SRC, /if\(!isCardVisibleForMonth\(acc, selectedMonth\)\) return;/);
   assert.match(SRC, /const hidden = !isCardVisibleForMonth\(acc, selectedMonth\);/);
   assert.match(SRC, /\.filter\(function\(x\)\{ return !isAccountHiddenForMonth\(x\.name, 'card', month\); \}\)/);
+});
+
+test('Rev 2.32.138: нова картка в ранньому місяці — createdAt = початок вибраного місяця; поточний і майбутній — момент створення; борг за той місяць видимий', function(){
+  const c = mk();
+  const now = '2026-10-22T09:30:00.000Z';
+  const early = c.newCardCreatedAt('2026-03', now);
+  assert.equal(c.cardCreatedMonth({ createdAt: early }), '2026-03');
+  assert.equal(c.isCardVisibleForMonth({ name: 'N', createdAt: early }, '2026-03'), true, 'введений за березень борг видимий');
+  assert.equal(c.isCardVisibleForMonth({ name: 'N', createdAt: early }, '2026-02'), false);
+  assert.equal(c.newCardCreatedAt('2026-10', now), now, 'поточний місяць');
+  assert.equal(c.newCardCreatedAt('2027-02', now), now, 'майбутній місяць');
+  assert.equal(c.newCardCreatedAt(null, now), now); assert.equal(c.newCardCreatedAt('сміття', now), now);
 });
