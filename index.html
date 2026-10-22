@@ -3569,7 +3569,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.147</div>
+  <div class="version-footer">Money Tree · Rev 2.32.148</div>
 </div>
   </div>
 </div>
@@ -8148,7 +8148,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.147';
+const APP_VERSION = '2.32.148';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15630,7 +15630,7 @@ function cancelEditRecord(){
 // ===== Rev 2.32.2 (E1) — єдина дія редагування: менеджер сесії редагування запису =====
 // Стан редагування — editingRecordKey (одне значення ⇒ не більше одного редагування); editSnapshot — значення полів ПІСЛЯ відкриття (база для «є незбережені зміни»).
 // Закриття редагування при переході до іншої дії: shouldCloseEdit(trigger, dirty) → 'none' | 'close' (без змін, одразу) | 'confirm' (діалог). Збереження, клавіатуру й стрілки не чіпаємо.
-const EDIT_CLOSE_TRIGGERS = ['new-expense-focus', 'add-expense', 'open-other-edit', 'tab-switch', 'open-journal', 'open-trash', 'open-drawer'];
+const EDIT_CLOSE_TRIGGERS = ['collapse-click', 'new-expense-focus', 'add-expense', 'open-other-edit', 'tab-switch', 'open-journal', 'open-trash', 'open-drawer'];
 function shouldCloseEdit(trigger, dirty){
   if(EDIT_CLOSE_TRIGGERS.indexOf(trigger) < 0) return 'none';
   return dirty ? 'confirm' : 'close';
@@ -23717,12 +23717,42 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeNotificat
   }
   document.addEventListener('click', function(e){
     const c = ctxFor(e, false);
-    if(c && shouldOpenRowEdit(c)) startEditRecord(c.kind, c.id);
+    if(c && shouldOpenRowEdit(c)){ e.__rowEditOpened = true; startEditRecord(c.kind, c.id); }
   });
   document.addEventListener('keydown', function(e){
     if(e.key !== 'Enter' && e.key !== ' ') return;
     const c = ctxFor(e, true);
     if(c && shouldOpenRowEdit(c)){ e.preventDefault(); startEditRecord(c.kind, c.id); }
+  });
+})();
+
+// Rev 2.32.148 (DESK-COLLAPSE): згортання відкритого редагування кліком мишею (лише hover:hover + pointer:fine). Клік по «заголовку» рядка (поза панеллю полів, кнопками, виділеним текстом) або по порожньому місцю поза рядком згортає редагування через ту саму точку requestCloseEdit: без змін (activeEditDirty, SAVE-DIRTY) — одразу, зі змінами — діалог «Скасувати редагування запису?». Не втручається, коли: відкрита модалка/шторка (їхні кліки мають власну логіку й свої guard-и), клік по іншому рядку витрати (його відкриває DESK-EDIT через open-other-edit), по інтерактивному елементу (кнопка/посилання/поле/підпис: вкладки, «Додати» тощо вже йдуть через guardEditOpener, подвійного діалогу бути не повинно), є виділений текст, або минуло менше 800 мс від touchstart (синтетичний click після тапу). Дотик не змінено. Ризик: клік по «порожньому» місцю поза рядком згортає редагування (за рішенням чату).
+function editCollapseDecision(c){
+  if(!c || !c.mouse || !c.editing) return null;
+  if(c.sinceTouchMs < ROW_EDIT_TOUCH_GUARD_MS || c.hasSelection || c.modalOpen || c.interactiveTarget) return null;
+  if(c.region === 'header') return 'header';
+  if(c.region === 'outside') return 'outside';
+  return null; // 'panel' | 'otherRow' | 'overlay'
+}
+(function initEditCollapsePointer(){
+  let downInPanel = false; // виділення тексту в полі мишею з відпусканням поза панеллю дає click на спільному предку: такий клік не згортає
+  document.addEventListener('mousedown', function(e){ downInPanel = !!(e.target && e.target.closest && e.target.closest('.record-edit-panel')); }, true);
+  document.addEventListener('click', function(e){
+    if(!editingRecordKey || !isMouseDevice() || e.__rowEditOpened || downInPanel) return; // __rowEditOpened: цей самий клік щойно відкрив редагування (DESK-EDIT)
+    const t = e.target;
+    if(!t || !t.closest || !document.contains(t)) return;
+    const panel = document.querySelector('.record-edit-panel');
+    const wrap = panel ? panel.closest('.expense-row-swipe') : null;
+    const m = document.getElementById('app-modal');
+    const overlay = !!t.closest('.drawer, .app-modal, .toast, .profile-popover, [class*="backdrop"], [id$="-backdrop"]');
+    const inWrap = !!(wrap && wrap.contains(t));
+    const otherRow = !inWrap && !!t.closest('.expense-row[data-rec-kind], .expense-row-swipe');
+    const sel = window.getSelection ? String(window.getSelection()) : '';
+    const dec = editCollapseDecision({ mouse: true, editing: true, sinceTouchMs: Date.now() - rowEditLastTouchAt, hasSelection: sel.length > 0,
+      modalOpen: !!(m && m.classList.contains('open')) || !!document.querySelector('.drawer.open'),
+      interactiveTarget: !!t.closest('button, a, input, select, textarea, label'),
+      region: (wrap && wrap.contains(t) && t.closest('.record-edit-panel')) ? 'panel' : overlay ? 'overlay' : otherRow ? 'otherRow' : inWrap ? 'header' : 'outside' });
+    if(dec) requestCloseEdit('collapse-click', null);
   });
 })();
 
