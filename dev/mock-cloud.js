@@ -36,7 +36,7 @@
     const ay = +anchor.slice(0, 4), am = +anchor.slice(5, 7);
     const stamp = function(daysAgo){ return new Date(Date.parse(anchor + 'T09:00:00Z') - daysAgo * 86400000).toISOString(); };
     const familyId = uuid();
-    const users = [{ id: uuid(), display_name: 'Користувач А', email: 'user-a@example.test', push_name: null, gender: null }, { id: uuid(), display_name: 'Користувач Б', email: 'user-b@example.test', push_name: null, gender: null }];
+    const users = [{ id: uuid(), display_name: 'Користувач А', email: 'user-a@example.test', push_name: null, gender: 'm', created_at: '2026-09-02T00:00:00.000Z' }, { id: uuid(), display_name: 'Користувач Б', email: 'user-b@example.test', push_name: null, gender: 'f', created_at: '2026-09-01T00:00:00.000Z' }]; // Rev 2.32.118: created_at і gender, як у справжній базі (слот 0 = Б, слот 1 = А)
     const T = {}; SYNC_TABLES.forEach(function(t){ T[t] = []; });
     const fx = { name: name, familyId: familyId, users: users, tables: T, anchor: anchor, notifications: [], meta: { twoDevices: name === 'two-devices' } };
     if(name === 'empty') return fx;

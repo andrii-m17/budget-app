@@ -109,22 +109,6 @@ if(MODE === 'fshots'){ // скріншоти полів (Журнал: пошу�
   }
   console.log(bad ? 'ПРОБЛЕМ: ' + bad : 'ок'); c.close(); process.exit(bad ? 1 : 0);
 }
-if(MODE === 'authors'){ // PRIV-1: автор-колір у Журналі: старий білд (імена-префікси) проти нового (слоти) на тих самих даних
-  const dir = process.argv[3]; mkdirSync(dir, { recursive: true }); const OLD = process.env.OLD === '1';
-  const c = await open();
-  for(const theme of ['dark', 'light']){
-    await loadTab(c, 'vytraty', theme);
-    const setup = OLD
-      ? `(()=>{const k=Object.keys(familyUsersById);familyUsersById[k[0]]={name:'Olga'};familyUsersById[k[1]]={name:'Andrii'};expenses.forEach((e,i)=>{e.createdBy=k[i%2];});return k.length;})()`
-      : `(()=>{const k=Object.keys(familyUsersById);familyUsersById[k[0]]={name:'Olga',slot:0};familyUsersById[k[1]]={name:'Andrii',slot:1};expenses.forEach((e,i)=>{e.createdBy=k[i%2];});return k.length;})()`;
-    const n = await c.ev(setup); await c.ev(`openJournal(monthKey(localDateISO(new Date()))); 1`); await sleep(1500);
-    const marks = await c.ev(`JSON.stringify([...document.querySelectorAll('#journal-overlay [style*="--color-"]')].slice(0, 400).map(e => (e.getAttribute('style').match(/--color-[a-z-]+/) || [''])[0]).reduce((a, k) => (a[k] = (a[k] || 0) + 1, a), {}))`);
-    console.log(OLD ? 'old' : 'new', theme, 'користувачів', n, 'маркери', marks);
-    const shot = await c.send('Page.captureScreenshot', { format: 'png' });
-    writeFileSync(`${dir}/journal-${theme}.png`, Buffer.from(shot.result.data, 'base64'));
-  }
-  c.close(); process.exit(0);
-}
 if(MODE === 'dump'){ // computed-стилі пілюлі місяця (темна тема) → файл JSON: для пошуку причини піксельних відмінностей
   const c = await open(); await loadTab(c, 'analytics', 'dark');
   const out = await c.ev(`(()=>{const dump=e=>{const c=getComputedStyle(e);const o={};for(const k of c)o[k]=c.getPropertyValue(k);return o};const p=document.querySelector('.month-pill');const r=e=>{const b=e.getBoundingClientRect();return [b.left,b.top,b.width,b.height]};return JSON.stringify({pill:dump(p),svg:dump(p.querySelector('svg')),sel:dump(p.querySelector('select')),rects:{pill:r(p),svg:r(p.querySelector('svg')),sel:r(p.querySelector('select'))}});})()`);

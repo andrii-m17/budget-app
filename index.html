@@ -3516,7 +3516,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.117</div>
+  <div class="version-footer">Money Tree · Rev 2.32.118</div>
 </div>
   </div>
 </div>
@@ -7990,7 +7990,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.117';
+const APP_VERSION = '2.32.118';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10352,13 +10352,13 @@ async function loadCloudDisplayName(client, userId){
 // SELECT без .eq('id',...) сам повертає лише дозволені рядки — жодного
 // окремого family_members-join з клієнта не треба.
 let familyUsersById = {};
-// Rev 2.32.116 (PRIV-1): автор-колір за ПОРЯДКОМ учасників, а не за префіксом імені (імена членів родини не живуть у коді). Учасники сортуються за (users.created_at, id): слот 0 → рожевий (--color-accent-pink, gender 'f'), слот 1 → синій (--color-info, gender 'm'): рівно ті самі кольори й дієслова, що давало зіставлення за іменем для цієї родини (перевірено за порядком у базі). 3-й і далі учасник, а також учасник без відомого слота → НЕЙТРАЛЬНИЙ колір (--color-text-secondary, без gender). Слоти кешуються в localStorage (AUTHOR_SLOTS_LS_KEY): для себе колір відомий синхронно з першого рендера, до завантаження довідника (раніше це давало ім'я з email сесії; BugFix 6D.80). Ризик: порядок створення користувачів визначає слот; зміна складу сім'ї потребує явного поля кольору/статі на сервері (запропоновано в docs/reports/PRIV-1.md).
+// Rev 2.32.116 (PRIV-1): автор-колір за ПОРЯДКОМ учасників, а не за префіксом імені (імена членів родини не живуть у коді). Учасники сортуються за (users.created_at, id): слот 0 → рожевий (--color-accent-pink), слот 1 → синій (--color-info): рівно ті самі кольори, що давало зіставлення за іменем для цієї родини (перевірено за порядком у базі). Рід дієслів сповіщень (gender 'm'/'f') береться з users.gender (колонка на сервері, заповнена), а не зі слота (Rev 2.32.118). 3-й і далі учасник, а також учасник без відомого слота → НЕЙТРАЛЬНИЙ колір (--color-text-secondary, без gender). Слоти кешуються в localStorage (AUTHOR_SLOTS_LS_KEY): для себе колір відомий синхронно з першого рендера, до завантаження довідника (раніше це давало ім'я з email сесії; BugFix 6D.80). Ризик: порядок створення користувачів визначає слот; зміна складу сім'ї потребує явного поля кольору/статі на сервері (запропоновано в docs/reports/PRIV-1.md).
 const AUTHOR_SLOTS_LS_KEY = 'budget-author-slots-v1';
 const AUTHOR_SLOTS = [
-  { colorVar: '--color-accent-pink', bgVar: '--color-accent-pink-bg', gender: 'f' },
-  { colorVar: '--color-info', bgVar: '--color-info-bg', gender: 'm' },
+  { colorVar: '--color-accent-pink', bgVar: '--color-accent-pink-bg' },
+  { colorVar: '--color-info', bgVar: '--color-info-bg' },
 ];
-const AUTHOR_NEUTRAL = { colorVar: '--color-text-secondary', bgVar: '--color-surface-hover', gender: null };
+const AUTHOR_NEUTRAL = { colorVar: '--color-text-secondary', bgVar: '--color-surface-hover' };
 function authorSlotsFromUsers(rows){
   const sorted = (rows || []).slice().sort(function(a, b){
     const ca = String(a.created_at || ''), cb = String(b.created_at || '');
@@ -10373,11 +10373,11 @@ function cachedAuthorSlot(userId){
 }
 async function loadFamilyUsersDirectory(client){
   try{
-    const { data, error } = await client.from('users').select('id, display_name, email, created_at');
+    const { data, error } = await client.from('users').select('id, display_name, email, created_at, gender');
     if(error || !data) return;
     const slots = authorSlotsFromUsers(data);
     const next = {};
-    data.forEach(function(u){ next[u.id] = { name: (u.display_name || u.email || '?').trim(), slot: slots[u.id] }; });
+    data.forEach(function(u){ next[u.id] = { name: (u.display_name || u.email || '?').trim(), slot: slots[u.id], gender: (u.gender === 'm' || u.gender === 'f') ? u.gender : null }; });
     familyUsersById = next;
     try{ localStorage.setItem(AUTHOR_SLOTS_LS_KEY, JSON.stringify(slots)); }catch(e){}
   }catch(e){ /* тихий пропуск, той самий принцип, що loadCloudDisplayName() */ }
@@ -10387,14 +10387,14 @@ async function loadFamilyUsersDirectory(client){
 // решта Cloud UI цього застосунку. Rev #30 (6D.80) — необов'язковий 2-й параметр fallbackName: довідник заповнюється лише ПІСЛЯ
 // мережевого loadFamilyUsersDirectory(), тож для САМОГО СЕБЕ (renderProfileUI) ім'я відоме синхронно з сесії, а слот — з кешу
 // (cachedAuthorSlot): колір правильний із першого рендера, без «стрибка». Rev #30 (6D.84) — `gender` ('m'/'f') для дієслів сповіщень
-// береться зі слота; нейтральний слот gender не має (дієслово за замовчуванням чоловічого роду).
+// береться з users.gender; без нього (невідомо) gender = null, дієслово за замовчуванням чоловічого роду. Rev 2.32.118: невідомий за слотом учасник (3-й і далі) тепер показується з нейтральним кольором і сповіщення про його дії виводяться (раніше було null і тихий пропуск).
 function authorInfoFor(userId, fallbackName){
   const user = userId ? familyUsersById[userId] : null;
   const name = user ? user.name : fallbackName;
   if(!name) return null;
   const slot = user && typeof user.slot === 'number' ? user.slot : (userId ? cachedAuthorSlot(userId) : null);
   const base = (slot === 0 || slot === 1) ? AUTHOR_SLOTS[slot] : AUTHOR_NEUTRAL;
-  return { name: name, colorVar: base.colorVar, bgVar: base.bgVar, gender: base.gender };
+  return { name: name, colorVar: base.colorVar, bgVar: base.bgVar, gender: (user && (user.gender === 'm' || user.gender === 'f')) ? user.gender : null };
 }
 // Rev #30 (6D.84) — Внутрішні сповіщення, Частина 3а/3б: черга "чужих дій",
 // наповнюється ВСЕРЕДИНІ pullXCore() (expenses/incomes/debts/hidden_entities
