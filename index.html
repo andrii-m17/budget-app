@@ -3531,7 +3531,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.126</div>
+  <div class="version-footer">Money Tree · Rev 2.32.127</div>
 </div>
   </div>
 </div>
@@ -8088,7 +8088,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.126';
+const APP_VERSION = '2.32.127';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10542,8 +10542,8 @@ function notifVerbText(event){
 }
 // Rev 2.32.46 (TO): сповіщення про дії другого учасника — спільний верхній pop-up (showToast): іконка «Журнал» і дія «Журнал». Старі live-toast/attachToastDismiss/dismissLiveToast видалено.
 function showLiveToast(event){
-  const m = toastModel('other-actor', { actorName: event.actorName, verbText: notifVerbText(event), name: event.name, amount: event.amount });
-  showToast({ kind: m.kind, icon: m.icon, title: m.title, subtitle: m.subtitle, actionLabel: m.actionLabel, onAction: openJournalFromToast });
+  const m = toastModel('other-actor', { actorName: event.actorName, verbText: notifVerbText(event), name: event.name, amount: event.amount, domain: event.domain, action: event.action });
+  showToast({ kind: m.kind, icon: m.icon, title: m.title, subtitle: m.subtitle, actionLabel: m.actionLabel, onAction: function(){ openToastTarget(m.action); } });
 }
 // Rev #30 (6D.85) — виклик-сайт для "живого" сценарію (Realtime-подія, поки
 // вкладка відкрита) — ОДИН toast на подію. "Наздогнати" (resume/sign-in)
@@ -10591,8 +10591,8 @@ function buildSyncSummaryText(events, raw){ // Rev 2.32.46 (TO): raw=true — б
 }
 function showSyncSummaryToast(events){
   if(!events.length) return;
-  const m = toastModel('sync-summary', { text: buildSyncSummaryText(events, true) });
-  showToast({ kind: m.kind, icon: m.icon, title: m.title, subtitle: m.subtitle, actionLabel: m.actionLabel, onAction: openJournalFromToast }); // Rev 2.32.46 (TO)
+  const m = toastModel('sync-summary', { text: buildSyncSummaryText(events, true), events: events });
+  showToast({ kind: m.kind, icon: m.icon, title: m.title, subtitle: m.subtitle, actionLabel: m.actionLabel, onAction: function(){ openToastTarget(m.action); } }); // Rev 2.32.46 (TO); Rev 2.32.127: ціль за змістом
 }
 // Rev #30 (6D.86) — виклик-сайт для "наздогнати" (resume/sign-in) — ОДНЕ
 // зведення замість N окремих live-toast (докоментар над
@@ -10970,7 +10970,7 @@ function renderProfileUI(){
     face.classList.toggle('slot-pending', slotPending);
     if(signedIn){
       face.textContent = letter;
-      face.style.background = myAuthorInfo ? `var(${myAuthorInfo.colorVar})` : '';
+      face.style.background = `var(${(myAuthorInfo || AUTHOR_NEUTRAL).colorVar})`; // Rev 2.32.127: без даних про автора — нейтральний, а не типовий зелений
     }else{
       face.innerHTML = GUEST_AVATAR_ICON_SVG;
       face.style.background = '';
@@ -21517,6 +21517,19 @@ function teardownNotifRealtime(){
    Усі повідомлення застосунку: скляний контейнер зверху, іконка зліва, дія справа. Види: success (анімована галочка), info, warning, error (статичні іконки, без анімації малювання), плюс іконка «Журнал» для дій другого учасника. CSS-класи лишились із префіксом success-toast (історично). */
 function pluralToastWord(n){ return pluralUa(n, ['витрату', 'витрати', 'витрат']); }
 // Чисті функції: модель тексту, тривалість, правило показу, розбиття довгого тексту на заголовок і підзаголовок.
+// Rev 2.32.127: куди веде кнопка поп-апа про дію іншого учасника. Видалення (будь-який домен) → «Видалені дані»; борги (не видалення) → «Борги» в «Обліку»; решта — «Журнал». Без домену (старі виклики) — «Журнал». Для зведення (кілька подій): лише коли ВСІ події ведуть в одне місце, інакше «Журнал». Ризик: видалений борг веде у «Видалені дані», а не в «Борги» (видалення має перевагу).
+function toastActionTarget(domain, action){
+  if(action === 'delete') return { label: 'Видалені', action: 'trash' };
+  if(domain === 'debts') return { label: 'Борги', action: 'debts' };
+  return { label: 'Журнал', action: 'journal' };
+}
+function toastActionForEvents(events){
+  const list = Array.isArray(events) ? events : [];
+  if(!list.length) return { label: 'Журнал', action: 'journal' };
+  const first = toastActionTarget(list[0].domain, list[0].action);
+  const same = list.every(function(e){ return toastActionTarget(e.domain, e.action).action === first.action; });
+  return same ? first : { label: 'Журнал', action: 'journal' };
+}
 function toastModel(kind, data){
   const d = data || {};
   if(kind === 'mono-added'){
@@ -21528,10 +21541,12 @@ function toastModel(kind, data){
     return { kind: 'success', title: 'Повернення враховано', subtitle: (d.name || 'Витрата') + ' · ' + (d.deleted ? monoFmtUah(d.oldAmount) + ' → видалено' : monoFmtUah(d.oldAmount) + ' → ' + monoFmtUah(d.newAmount)), actionLabel: '', action: null };
   }
   if(kind === 'other-actor'){
-    return { kind: 'info', icon: 'journal', title: ((d.actorName || '') + ' ' + (d.verbText || '')).trim(), subtitle: d.amount != null ? (d.name || '') + ' · ' + new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(d.amount) + ' ₴' : (d.name || ''), actionLabel: 'Журнал', action: 'journal' };
+    const t = toastActionTarget(d.domain, d.action); // Rev 2.32.127: кнопка веде за змістом події
+    return { kind: 'info', icon: 'journal', title: ((d.actorName || '') + ' ' + (d.verbText || '')).trim(), subtitle: d.amount != null ? (d.name || '') + ' · ' + new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(d.amount) + ' ₴' : (d.name || ''), actionLabel: t.label, action: t.action };
   }
   if(kind === 'sync-summary'){
-    return { kind: 'info', icon: 'journal', title: 'Синхронізація даних', subtitle: d.text || '', actionLabel: 'Журнал', action: 'journal' };
+    const t = toastActionForEvents(d.events);
+    return { kind: 'info', icon: 'journal', title: 'Синхронізація даних', subtitle: d.text || '', actionLabel: t.label, action: t.action };
   }
   if(kind === 'text'){
     const parts = splitToastText(d.text);
@@ -21608,6 +21623,14 @@ function pumpSuccessToast(){
   host.appendChild(el);
   successToastActive = el;
   successToastTimer = setTimeout(close, ms);
+}
+// Rev 2.32.127: відкриття цілі кнопки поп-апа (той самий перехід, що маршрути сповіщень 'trash' / 'debts').
+function openToastTarget(action){
+  if(typeof closeMonoInbox === 'function') closeMonoInbox();
+  if(typeof closeMonoScreen === 'function') closeMonoScreen();
+  if(action === 'trash'){ performSwitchTab('service'); openTrashScreen(); }
+  else if(action === 'debts'){ goToCardDebtsTab(); }
+  else openJournalFromToast();
 }
 function openJournalFromToast(){
   if(typeof closeMonoInbox === 'function') closeMonoInbox();
