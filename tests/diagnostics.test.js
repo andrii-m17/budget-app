@@ -27,7 +27,7 @@ function sandbox({ expenses, incomes, debts, installmentAccounts, hiddenFrom, ig
       isSupabaseSdkReady: () => true,
     },
     [
-      'findExpenseIdIssues', 'findTimestampIssues', 'findInstallmentFieldIssues', 'findInstallmentDivergences',
+      'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeSourceDisplay', 'findExpenseIdIssues', 'findTimestampIssues', 'findInstallmentFieldIssues', 'findInstallmentDivergences',
       'divergenceKey', 'hideKey', 'isHiddenForMonth', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum',
       // Rev #30 (6D.42) — findExpenseIdIssues()/findTimestampIssues() тепер сканують activeExpenses(), не сирий expenses.
       'activeExpenses',

@@ -227,6 +227,7 @@ const REPOSITORY_NAMES = [
   'pullExpensesCore', 'editedAtDiffers', 'pullExpensesPilot',
   'pullIncomesCore', 'pullIncomesPilot',
   'pullDebtsCore', 'pullDebtsPilot',
+  'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'sameIncomeSource', 'incomeSourceDisplay',
   'restoreExpensesFromBackup', 'restoreIncomesFromBackup', 'restoreDebtsFromBackup',
   'pilotBackupKeys', 'pilotBackupValue', 'buildBackupPayloadData', 'applyBackupData',
   // Rev #30 (6D.1) — генерація/нормалізація id (UUID_FORMAT_RE — const,
@@ -6603,4 +6604,27 @@ test('pullExpensesCore + edited_at: запис без edited_at на серве�
   ctx.expenses = [];
   await ctx.pullExpensesCore();
   assert.equal(ctx.expenses[0].editedAt, undefined);
+});
+
+// ===== Rev 2.32.121 (PRIV-1 п. 2, INCOME_SOURCES, фаза 1): відновлення з копії приймає й старі ключі, і нейтральні id =====
+test('restoreIncomesFromBackup (фаза 1): копія зі СТАРИМ ключем джерела (legacy-id запису) зливається з локальним записом, що має НЕЙТРАЛЬНИЙ id, а не дублюється; навпаки теж', async () => {
+  const { evalInSandbox } = require('./extract');
+  for(const direction of ['legacyBackup-neutralLocal', 'neutralBackup-legacyLocal']){
+    const { ctx } = sandbox();
+    ctx.markDomainMigrated('incomes');
+    const keys = JSON.parse(evalInSandbox(ctx, 'JSON.stringify(INCOME_SOURCES.map(s => ({ id: s.id, key: s.key })))'));
+    const [legacy, neutral] = [keys[0].key, keys[0].id];
+    const localSource = direction === 'legacyBackup-neutralLocal' ? neutral : legacy;
+    const backupSource = direction === 'legacyBackup-neutralLocal' ? legacy : neutral;
+    ctx.incomes = [{ id: 'a0b1c2d3-0000-4000-8000-000000000001', date: '2026-09-01', source: localSource, amount: 20000, createdAt: '2026-09-02T00:00:00.000Z', updatedAt: '2026-09-02T00:00:00.000Z' }];
+    const backup = [{ id: 'legacy-1', date: '2026-09-01', source: backupSource, amount: 20000 }]; // id не UUID: пошук за датою, сумою й джерелом
+    const r = await ctx.restoreIncomesFromBackup(JSON.stringify(backup));
+    assert.equal(r.success, true, direction);
+    assert.equal(ctx.incomes.length, 1, direction + ': без дубліката');
+  }
+  const { ctx } = sandbox(); ctx.markDomainMigrated('incomes');
+  const keys = JSON.parse(require('./extract').evalInSandbox(ctx, 'JSON.stringify(INCOME_SOURCES.map(s => ({ id: s.id, key: s.key })))'));
+  ctx.incomes = [{ id: 'a0b1c2d3-0000-4000-8000-000000000002', date: '2026-09-01', source: keys[0].key, amount: 20000, createdAt: '2026-09-02T00:00:00.000Z', updatedAt: '2026-09-02T00:00:00.000Z' }];
+  await ctx.restoreIncomesFromBackup(JSON.stringify([{ id: 'legacy-2', date: '2026-09-01', source: keys[1].key, amount: 20000 }, { id: 'legacy-3', date: '2026-09-01', source: keys[2].key, amount: 500 }]));
+  assert.equal(ctx.incomes.length, 3, 'інше джерело (друге ключ і «Інші доходи») лишаються окремими записами');
 });
