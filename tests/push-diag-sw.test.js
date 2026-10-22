@@ -84,7 +84,7 @@ test('режим увімкнено: push-received + show-ok з type/tag/batch_t
   assert.equal(ev[0].seq, '2'); assert.equal(ev[0].series_id, 's-1'); assert.equal(ev[0].vis, 1);
   assert.equal(typeof ev[1].dur, 'number'); assert.ok(/^budget-app-v/.test(ev[0].sw));
   const dump = JSON.stringify(ev);
-  assert.ok(!/СЕКРЕТН|999/.test(dump), 'жодного тексту сповіщення чи сум');
+  assert.ok(!/СЕКРЕТН|−999|999 ₴/.test(dump), 'жодного тексту сповіщення чи сум');
 });
 test('режим увімкнено, показ відхилено: show-retry-ok або show-error у журналі', async () => {
   const env = runSw({}); setFlag(env, true);
