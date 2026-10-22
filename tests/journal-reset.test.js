@@ -39,18 +39,18 @@ function ui(initial){
     document: { getElementById(id){ return els[id] || null; } },
     journalSearchQuery: initial.query, journalSearchCategory: initial.category, journalSearchSubcategory: initial.subcategory, journalMonth: '2026-09',
     renderJournalView(){ ctx.updateJournalResetButton(); }, killMainColMomentumScroll(){}, captureDebugGeometry(t, e){ events.push([t, e]); },
-  }, ['activeFilterCount', 'resetFilters', 'journalFilterState', 'updateJournalResetButton', 'resetJournalFilters']);
+  }, ['activeFilterCount', 'categoryFilterCount', 'resetFilters', 'journalFilterState', 'updateJournalResetButton', 'resetJournalFilters', 'resetJournalCategoryFilters']);
   return { ctx, els, events };
 }
 test('кнопка: при 0 фільтрів прихована, при активних з лічильником і aria-label (F1)', () => {
   let u = ui({ query: '', category: '', subcategory: '' });
   u.ctx.updateJournalResetButton();
   assert.equal(u.els['journal-reset-btn'].hidden, true); assert.equal(u.els['journal-reset-btn'].text, '');
-  u = ui({ query: 'кава', category: 'Їжа', subcategory: '' });
+  u = ui({ query: 'кава', category: 'Їжа', subcategory: 'Кафе' }); // Rev 2.32.146: лічильник лише категорія+підкатегорія
   u.ctx.updateJournalResetButton();
   assert.equal(u.els['journal-reset-btn'].hidden, false);
   assert.equal(u.els['journal-reset-btn'].text, 'Скинути · 2');
-  assert.equal(u.els['journal-reset-btn'].attrs['aria-label'], 'Скинути фільтри, активних: 2');
+  assert.equal(u.els['journal-reset-btn'].attrs['aria-label'], 'Скинути категорію й підкатегорію, активних: 2');
 });
 test('натискання (F2): скидає всі фільтри, місяць лишається, список угору, подія лише з кількістю', () => {
   const u = ui({ query: 'кава', category: 'Їжа', subcategory: 'Кафе' });

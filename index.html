@@ -3188,7 +3188,7 @@
               <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
           </div>
-          <button type="button" class="journal-reset-btn hidden" id="journal-reset-btn" onclick="resetJournalFilters()" aria-label="Скинути фільтри"></button>
+          <button type="button" class="journal-reset-btn hidden" id="journal-reset-btn" onclick="resetJournalCategoryFilters()" aria-label="Скинути фільтри"></button>
         </div>
         <div class="journal-search-filters-row">
           <select class="journal-search-category" id="journal-search-category" onchange="onJournalCategoryFilterChange()" aria-label="Категорія"></select>
@@ -3569,7 +3569,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.145</div>
+  <div class="version-footer">Money Tree · Rev 2.32.146</div>
 </div>
   </div>
 </div>
@@ -8148,7 +8148,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.145';
+const APP_VERSION = '2.32.146';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -17208,13 +17208,31 @@ function resetFilters(filters){
 function journalFilterState(){
   return { query: journalSearchQuery, category: journalSearchCategory, subcategory: journalSearchSubcategory, month: journalMonth };
 }
+// Rev 2.32.146 (JOURNAL-RESET): кнопка «Скинути · N» поруч із пошуком стосується лише категорії й підкатегорії (текст пошуку в лічильник не входить, його стирає ✕ у полі). Без фільтрів кнопки немає (display:none), поле пошуку займає весь рядок (flex:1 на обгортці, інших елементів рядка це не зсуває). Кнопка «Скинути фільтри» у порожній видачі (resetJournalFilters) лишається й скидає все, включно з текстом.
+function categoryFilterCount(filters){
+  const f = filters || {};
+  return (f.category ? 1 : 0) + (f.subcategory ? 1 : 0);
+}
 function updateJournalResetButton(){
   const btn = document.getElementById('journal-reset-btn');
   if(!btn) return;
-  const n = activeFilterCount(journalFilterState());
+  const n = categoryFilterCount(journalFilterState());
   btn.classList.toggle('hidden', n === 0);
   btn.textContent = n ? 'Скинути · ' + n : '';
-  btn.setAttribute('aria-label', n ? 'Скинути фільтри, активних: ' + n : 'Скинути фільтри');
+  btn.setAttribute('aria-label', n ? 'Скинути категорію й підкатегорію, активних: ' + n : 'Скинути фільтри');
+}
+// Rev 2.32.146 (JOURNAL-RESET): скидає лише категорію й підкатегорію; текст пошуку, поле й його ✕ не чіпає (клавіатурну логіку теж).
+function resetJournalCategoryFilters(){
+  const n = categoryFilterCount(journalFilterState());
+  journalSearchCategory = '';
+  journalSearchSubcategory = '';
+  renderJournalView(); // перебудовує списки категорій/підкатегорій під скинуті значення й сам оновлює кнопку
+  captureDebugGeometry('journal-filters-reset', { count: n, scope: 'category' });
+  killMainColMomentumScroll();
+  const mainColEl = document.getElementById('main-col');
+  if(mainColEl) mainColEl.scrollTop = 0;
+  const overlay = document.getElementById('journal-overlay');
+  if(overlay) overlay.scrollTop = 0;
 }
 function resetJournalFilters(){
   const n = activeFilterCount(journalFilterState());
