@@ -1058,6 +1058,8 @@
   .record-edit-actions{ display:flex; gap:8px; }
   .record-edit-actions button{ flex:1; padding:9px; font-size:13px; font-weight:600; border-radius:var(--radius-sm); cursor:pointer; }
   .rce-save{ background:var(--color-primary); color:#fff; border:none; }
+  /* Rev 2.32.144 (SAVE-DIRTY): «Зберегти» у формах редагування наявного запису неактивна, доки значення не змінено: приглушена (38%), без реакції на натискання, aria-disabled, поза Tab-порядком (tabindex=-1). Активний вигляд не змінюється. */
+  html:root .save-gated[aria-disabled="true"]{ opacity:.38; pointer-events:none; transform:none; transition:none; box-shadow:none; cursor:default; }
   .rce-cancel{ background:var(--color-surface); color:var(--color-text-secondary); border:1.5px solid var(--color-border-strong); }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){
@@ -3570,7 +3572,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.143</div>
+  <div class="version-footer">Money Tree · Rev 2.32.144</div>
 </div>
   </div>
 </div>
@@ -8149,7 +8151,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.143';
+const APP_VERSION = '2.32.144';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12642,6 +12644,7 @@ function openIncomeEditor(i){
   document.getElementById('ind-icon').innerHTML = incomeIconHtml(s, 34);
   document.getElementById('ind-heading').textContent = s.label;
   document.getElementById('ind-amount').value = existing ? formatThousands(existing.amount) : '';
+  beginSaveGate('income', false); // Rev 2.32.144 (SAVE-DIRTY): початкове значення для «Зберегти»
   document.getElementById('income-backdrop').removeAttribute('inert');
   document.getElementById('income-drawer').removeAttribute('inert');
   document.getElementById('income-backdrop').classList.add('open');
@@ -13162,6 +13165,7 @@ function openInstallmentEditor(i){
     : '';
   checkInstallmentDivergence();
   checkInstallmentPaymentDivergence();
+  beginSaveGate('inst', !existing); // Rev 2.32.144 (SAVE-DIRTY): відсутній запис за місяць = зміна (очікуване значення з «Залишку» не зберігається саме)
   document.getElementById('installment-backdrop').removeAttribute('inert');
   document.getElementById('installment-drawer').removeAttribute('inert');
   document.getElementById('installment-backdrop').classList.add('open');
@@ -13625,6 +13629,7 @@ function openCardDebtEditor(i){
   document.getElementById('cdd-minpay').value = minPayment != null ? formatThousands(minPayment) : '';
   document.getElementById('cdd-paid').checked = !!(existing && existing.minPaymentDone);
   document.getElementById('cdd-payday').value = acc.paymentDay || ''; // Rev 2.32.63 (P1); числове поле (2.32.66)
+  beginSaveGate('card', !existing); // Rev 2.32.144 (SAVE-DIRTY): відсутній запис за місяць = зміна (явний «0» можна зберегти)
   document.getElementById('card-debt-backdrop').removeAttribute('inert');
   document.getElementById('card-debt-drawer').removeAttribute('inert');
   document.getElementById('card-debt-backdrop').classList.add('open');
@@ -15532,6 +15537,71 @@ function shouldOpenRowEdit(c){
   }
   return true;
 }
+// Rev 2.32.144 (SAVE-DIRTY): «Зберегти» у формах редагування наявного запису неактивна, доки значення не відрізняється від початкового (порівняння за значенням, не за фактом введення; повернення до початкового знову вимикає). Охоплено: витрата (рядок у Журналі), дохід, картка, ОЧ (шторки), категорія/підкатегорія/слово («Структура»). Форми створення не чіпаємо. Борги й ОЧ: відсутній запис за місяць = зміна (forceChange), тож явний «0» можна зберегти й зняти крапку неповних даних. Неактивна кнопка: клас save-gated + aria-disabled + tabindex=-1; клік по ній гасить глобальний capture-слухач (захист від Enter/Space і програмного click). Альтернативу з нативним disabled відкинуто: кнопка втрачала б фокус і не мала б aria-disabled за ТЗ.
+const SAVE_GATE_FIELDS = {
+  income: [['amount', 'ind-amount', 'amt']],
+  card: [['name', 'cddfielda1', 'txt'], ['limit', 'cdd-limit', 'amt'], ['payday', 'cdd-payday', 'txt'], ['balance', 'cdd-balance', 'amt'], ['minpay', 'cdd-minpay', 'amt'], ['paid', 'cdd-paid', 'chk']],
+  inst: [['name', 'iddfielda1', 'txt'], ['initial', 'idd-initial', 'amt'], ['due', 'idd-due-day', 'txt'], ['balance', 'idd-balance', 'amt'], ['pay', 'idd-pay', 'amt']]
+};
+const SAVE_GATE_BTN = { income: '#income-drawer .submit-btn.income', card: '#card-debt-drawer .submit-btn.debt', inst: '#installment-drawer .submit-btn.debt' };
+const saveGateSnaps = {};
+function saveGateNorm(v, type){
+  if(type === 'chk') return !!v;
+  const t = String(v == null ? '' : v);
+  return type === 'amt' ? t.replace(/[\s ]/g, '') : t.trim();
+}
+function readSaveGateFields(kind){
+  const out = {};
+  (SAVE_GATE_FIELDS[kind] || []).forEach(function(f){
+    const el = document.getElementById(f[1]);
+    out[f[0]] = saveGateNorm(el ? (f[2] === 'chk' ? el.checked : el.value) : '', f[2]);
+  });
+  return out;
+}
+// Чисте порівняння: forceChange (відсутній запис за місяць) = завжди зміна.
+function saveFormChanged(initial, current, forceChange){
+  if(forceChange) return true;
+  if(!initial || !current) return false;
+  return Object.keys(current).some(function(k){ return initial[k] !== current[k]; });
+}
+function setSaveGate(btn, active){
+  if(!btn) return;
+  btn.classList.add('save-gated');
+  if(active){ btn.removeAttribute('aria-disabled'); btn.removeAttribute('tabindex'); }
+  else{ btn.setAttribute('aria-disabled', 'true'); btn.setAttribute('tabindex', '-1'); }
+}
+function beginSaveGate(kind, forceChange){
+  saveGateSnaps[kind] = { fields: readSaveGateFields(kind), force: !!forceChange };
+  refreshSaveGates();
+}
+function refreshSaveGates(){
+  ['income', 'card', 'inst'].forEach(function(kind){
+    const snap = saveGateSnaps[kind];
+    const btn = document.querySelector(SAVE_GATE_BTN[kind]);
+    if(!btn || !snap) return;
+    setSaveGate(btn, saveFormChanged(snap.fields, readSaveGateFields(kind), snap.force));
+  });
+  const eb = document.querySelector('.record-edit-panel .rce-save');
+  if(eb) setSaveGate(eb, activeEditDirty());
+  const sf = document.getElementById('sf-save');
+  if(sf && typeof structForm !== 'undefined' && structForm && structForm.cfg && structForm.cfg.edit && structForm.read){
+    setSaveGate(sf, saveFormChanged(structForm.snap, structForm.read(), false));
+  }else if(sf){ setSaveGate(sf, true); }
+}
+(function initSaveGates(){
+  const defer = function(){ setTimeout(refreshSaveGates, 0); };
+  ['input', 'change', 'click', 'keyup'].forEach(function(t){ document.addEventListener(t, defer, true); });
+  // Неактивна «Зберегти»: гасимо клік (Enter/Space на кнопці, програмний click) до inline-обробника.
+  document.addEventListener('click', function(e){
+    const b = e.target.closest && e.target.closest('.save-gated[aria-disabled="true"]');
+    if(b){ e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
+  }, true);
+  // Перемальовування списків (renderRecords/Журнал) перестворює панель редагування: оновлюємо стан кнопки.
+  ['records-list', 'journal-list'].forEach(function(id){
+    const el = document.getElementById(id);
+    if(el && window.MutationObserver) new MutationObserver(refreshSaveGates).observe(el, { childList: true, subtree: true });
+  });
+})();
 function startEditRecord(kind, id){
   if(kind !== 'expense') return; // повне редагування поки лише для витрат —
   // доходи мають інакшу модель даних (місячний запис за джерелом, а не
@@ -15551,6 +15621,7 @@ function beginEditRecord(key){
   editSnapshot = null;
   renderRecords();
   if(!closing) snapshotActiveEdit();
+  refreshSaveGates(); // Rev 2.32.144 (SAVE-DIRTY)
   recordEditSessionEvent(closing ? 'close' : 'open', closing ? 'toggle' : 'start', false);
 }
 function cancelEditRecord(){
@@ -16786,7 +16857,7 @@ function buildRecordGroupsHtml(items){
           ${installmentAccounts.length ? `<select id="edit-installment-${safeId(e.id)}" aria-label="Прив'язка до ОЧ">${installmentLinkOptionsHtml(e.linkedInstallment, monthKey(e.date))}</select>` : ''}
           <div class="record-edit-actions">
             <button type="button" class="rce-cancel" onclick="cancelEditRecord()">Скасувати</button>
-            <button type="button" class="rce-save" onclick="saveRecordEdit('${safeId(e.id)}')">Зберегти</button>
+            <button type="button" class="rce-save save-gated" aria-disabled="true" tabindex="-1" onclick="saveRecordEdit('${safeId(e.id)}')">Зберегти</button>
           </div>
         </div>` : '';
       // Rev #30 (6D.123) — свайп-дії: .expense-row-actions лежить ПІД рядком
@@ -19344,7 +19415,7 @@ const BUTTON_VARIANT_MAP = {
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
-const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent'];
+const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated'];
 // className → variant (або null). parentClassName — клас контейнера для безкласових кнопок (.n-days > button = chip; .tabbar-glass > button = reference).
 function buttonVariantOf(className, parentClassName){
   const cls = String(className || '').split(/\s+/).filter(Boolean);
@@ -24040,8 +24111,12 @@ function openStructForm(cfg){
     body.appendChild(gPick);
   }
   structForm = { cfg: cfg };
+  // Rev 2.32.144 (SAVE-DIRTY): у редагуванні «Зберегти» активна лише за зміни назви/типу/вибору (read() — поточні значення, snap — початкові).
+  structForm.read = function(){ const v = { name: input.value.trim(), type: state.type }; Object.keys(picks).forEach(function(k){ v[k] = picks[k].select.value; }); return v; };
+  structForm.snap = structForm.read();
   const save = document.getElementById('sf-save');
   save.textContent = cfg.edit ? 'Зберегти' : 'Додати';
+  if(cfg.edit) setSaveGate(save, false); else{ save.classList.remove('save-gated'); save.removeAttribute('aria-disabled'); save.removeAttribute('tabindex'); } // Rev 2.32.144 (SAVE-DIRTY): у створенні кнопка завжди активна
   save.onclick = async function(){
     const vals = { name: input.value.trim(), type: state.type };
     Object.keys(picks).forEach(function(k){ vals[k] = picks[k].select.value; });
