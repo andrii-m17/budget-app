@@ -169,7 +169,7 @@ const REPOSITORY_NAMES = [
   // підтвердження) — підмінюється в globals нижче (sandbox()) на негайний
   // виклик onConfirm(), той самий принцип, що решта DOM-шару тут.
   // restoreCategory/restoreSubcategory — нові дата-функції без власного UI.
-  'deleteCategory', 'deleteSubcategory', 'restoreCategory', 'restoreSubcategory',
+  'deleteCategory', 'deleteSubcategory', 'restoreCascadedWords', 'restoreCategory', 'restoreSubcategory',
   // Rev #28.D1
   'loadBankAccounts', 'loadInstallmentAccounts', 'loadHiddenFrom', 'loadIgnoredDivergences',
   'saveBankAccounts', 'saveBankAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId', 'paymentDayPayload', 'normalizePaymentDay',
@@ -6196,6 +6196,63 @@ test('restoreCategory: відновлює категорію + ЛИШЕ підк
   assert.equal(ctx.DICTIONARY[0].deletedAt, undefined);
   assert.equal(ctx.DICTIONARY[0].deletedVia, undefined);
   assert.equal(ctx.DICTIONARY[1].deletedAt, '2020-02-01T00:00:00.000Z'); // незалежно видалене слово — не відновили
+});
+// Rev 2.32.134: дублі слів при відновленні каскаду.
+test('restoreCategory: слово-дубль (такий самий текст уже є серед живих) не відновлюється, маркер знімається; решта слів повертається; skippedWords', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Їжа', type: 'Гнучка', active: false }, { name: 'Транспорт', type: 'Гнучка', active: true }];
+  ctx.SUBCATEGORIES = [];
+  ctx.DICTIONARY = [
+    { id: 'd1', kw: 'лате', cat: 'Їжа', sub: null, deletedAt: '2020-01-01T00:00:00.000Z', deletedVia: 'category' },
+    { id: 'd2', kw: 'такси', cat: 'Їжа', sub: null, deletedAt: '2020-01-01T00:00:00.000Z', deletedVia: 'category' },
+    { id: 'd3', kw: 'лате', cat: 'Транспорт', sub: null }, // з'явилось за час видалення
+  ];
+  const r = await ctx.restoreCategory('Їжа');
+  assert.equal(r.success, true); assert.equal(r.skippedWords, 1);
+  assert.equal(ctx.DICTIONARY[1].deletedAt, undefined); // не дубль — повернуто
+  assert.equal(ctx.DICTIONARY[0].deletedAt, '2020-01-01T00:00:00.000Z'); // дубль — лишилось видаленим
+  assert.equal(ctx.DICTIONARY[0].deletedVia, undefined); // але стало окремим видаленим словом (видиме в «Видалених даних»)
+  assert.equal(ctx.DICTIONARY.filter(d => d.kw === 'лате' && !d.deletedAt).length, 1);
+});
+test('restoreSubcategory: дубль слова пропускається, без дубля — повертається; skippedWords', async () => {
+  const { ctx } = sandbox();
+  ctx.CATEGORIES = [{ name: 'Їжа', type: 'Гнучка', active: true }];
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: 'Їжа', active: false }];
+  ctx.DICTIONARY = [
+    { id: 'd1', kw: 'лате', cat: 'Їжа', sub: 'Кафе', deletedAt: '2020-01-01T00:00:00.000Z', deletedVia: 'subcategory' },
+    { id: 'd2', kw: 'еспресо', cat: 'Їжа', sub: 'Кафе', deletedAt: '2020-01-01T00:00:00.000Z', deletedVia: 'subcategory' },
+    { id: 'd3', kw: 'лате', cat: 'Їжа', sub: null },
+  ];
+  const r = await ctx.restoreSubcategory('Їжа', 'Кафе');
+  assert.equal(r.success, true); assert.equal(r.skippedWords, 1);
+  assert.equal(ctx.SUBCATEGORIES[0].active, true);
+  assert.equal(ctx.DICTIONARY[1].deletedAt, undefined);
+  assert.equal(ctx.DICTIONARY[0].deletedAt, '2020-01-01T00:00:00.000Z'); assert.equal(ctx.DICTIONARY[0].deletedVia, undefined);
+});
+test('restoreCategory/restoreSubcategory без дублів: повне відновлення, skippedWords = 0; два каскадні слова з однаковим текстом повертаються як одне', async () => {
+  let t = sandbox();
+  t.ctx.CATEGORIES = [{ name: 'Їжа', type: 'Гнучка', active: false }];
+  t.ctx.SUBCATEGORIES = [{ name: 'Кафе', category: 'Їжа', active: false, deactivatedVia: 'category' }];
+  t.ctx.DICTIONARY = [
+    { id: 'd1', kw: 'лате', cat: 'Їжа', sub: 'Кафе', deletedAt: '2020-01-01T00:00:00.000Z', deletedVia: 'category' },
+    { id: 'd2', kw: 'еспресо', cat: 'Їжа', sub: null, deletedAt: '2020-01-01T00:00:00.000Z', deletedVia: 'category' },
+  ];
+  let r = await t.ctx.restoreCategory('Їжа');
+  assert.equal(r.success, true); assert.equal(r.skippedWords, 0);
+  assert.ok(t.ctx.DICTIONARY.every(d => !d.deletedAt && !d.deletedVia));
+  assert.equal(t.ctx.SUBCATEGORIES[0].active, true);
+  t = sandbox();
+  t.ctx.CATEGORIES = [{ name: 'Їжа', type: 'Гнучка', active: false }];
+  t.ctx.SUBCATEGORIES = [];
+  t.ctx.DICTIONARY = [
+    { id: 'd1', kw: 'лате', cat: 'Їжа', sub: null, deletedAt: 't', deletedVia: 'category' },
+    { id: 'd2', kw: 'лате', cat: 'Їжа', sub: null, deletedAt: 't', deletedVia: 'category' },
+  ];
+  r = await t.ctx.restoreCategory('Їжа');
+  assert.equal(r.skippedWords, 1); assert.equal(t.ctx.DICTIONARY.filter(d => !d.deletedAt).length, 1);
+});
+test('restoreTrashItem: тост «N слів не відновлено: вони вже існують» підключено', () => {
+  assert.ok(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8').includes("' не відновлено: ' + (pluralUa(result.skippedWords, ['воно', 'вони', 'вони']) )"));
 });
 test('restoreCategory: блокується, якщо вже є АКТИВНА категорія з такою самою назвою (захисна перевірка колізії)', async () => {
   const { ctx } = sandbox();

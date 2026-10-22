@@ -3545,7 +3545,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.133</div>
+  <div class="version-footer">Money Tree · Rev 2.32.134</div>
 </div>
   </div>
 </div>
@@ -8109,7 +8109,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.133';
+const APP_VERSION = '2.32.134';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -16080,6 +16080,21 @@ function deleteSubcategory(i, onDone){
 // застосунку (перевіряється навіть серед неактивних записів,
 // openAddCategoryModal()/openAddSubcategoryModal() вище), тому адресація за
 // іменем тут безпечна, той самий принцип, що й самі маркери.
+// Rev 2.32.134 (дублі при відновленні): слова, видалені каскадом (marker 'category'|'subcategory'), повертаються лише якщо їхнього тексту ще нема серед ЖИВИХ слів (додавання нового слова перевіряє дубль лише серед живих, тож за час видалення такий самий текст міг з'явитись деінде). Слово-дубль не воскрешається; щоб воно не лишилось «невидимим» (маркер каскаду ховає його зі списку, а батько вже активний), маркер знімається: воно стає окремим видаленим словом у «Видалених даних» (там відновлення заблоковане, доки дубль існує, або його можна видалити назавжди). Живі слова враховуються по ходу: два каскадні слова з однаковим текстом повернуться як одне. Повертає кількість пропущених.
+function restoreCascadedWords(marker, belongs, nowISO){
+  const live = {};
+  DICTIONARY.forEach(function(d){ if(!d.deletedAt) live[d.kw] = true; });
+  let skipped = 0;
+  DICTIONARY.forEach(function(d){
+    if(d.deletedVia !== marker || !belongs(d)) return;
+    if(live[d.kw]){ delete d.deletedVia; d.updatedAt = nowISO; skipped++; return; }
+    delete d.deletedAt;
+    delete d.deletedVia;
+    d.updatedAt = nowISO;
+    live[d.kw] = true;
+  });
+  return skipped;
+}
 async function restoreCategory(name){
   const cat = CATEGORIES.find(function(c){ return c.name === name && !c.active; });
   if(!cat) return { success: false, error: 'Категорію не знайдено серед видалених.' };
@@ -16100,17 +16115,11 @@ async function restoreCategory(name){
     }
   });
   reportSaveResult(await saveSubcategories());
-  DICTIONARY.forEach(function(d){
-    if(d.deletedVia === 'category' && d.cat === name){
-      delete d.deletedAt;
-      delete d.deletedVia;
-      d.updatedAt = nowISO;
-    }
-  });
+  const skippedWords = restoreCascadedWords('category', function(d){ return d.cat === name; }, nowISO); // Rev 2.32.134
   reportSaveResult(await saveDictionary());
   reportSaveResult(await saveCategories());
   populateMonths(); renderAll(); renderStructure(); populateCategorySelect();
-  return { success: true };
+  return { success: true, skippedWords: skippedWords };
 }
 async function restoreSubcategory(cat, name){
   const parentCat = CATEGORIES.find(function(c){ return c.name === cat; });
@@ -16126,17 +16135,11 @@ async function restoreSubcategory(cat, name){
   sub.active = true;
   delete sub.deactivatedVia;
   sub.updatedAt = nowISO;
-  DICTIONARY.forEach(function(d){
-    if(d.deletedVia === 'subcategory' && d.sub === name){
-      delete d.deletedAt;
-      delete d.deletedVia;
-      d.updatedAt = nowISO;
-    }
-  });
+  const skippedWords = restoreCascadedWords('subcategory', function(d){ return d.sub === name; }, nowISO); // Rev 2.32.134
   reportSaveResult(await saveDictionary());
   reportSaveResult(await saveSubcategories());
   populateMonths(); renderAll(); renderStructure();
-  return { success: true };
+  return { success: true, skippedWords: skippedWords };
 }
 // ===== Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": чисті функції =====
 // buildTrashItems(state) — єдине джерело списку (екран, бейдж, фільтри). state:
@@ -21975,6 +21978,7 @@ async function restoreTrashItem(key){
   }
   setTimeout(function(){ captureFocusAudit('trash-restore'); }, 400); // Rev 2.23.29 (6D.198): аудит фокусу після "Відновити"
   showTextToast('Запис відновлено · ' + trashDisplayTitle(item) + (item.amount != null ? ' · ' + fmt(item.amount) : ''), 'success');
+  if(result && result.skippedWords > 0) showTextToast(result.skippedWords + ' ' + pluralUa(result.skippedWords, ['слово', 'слова', 'слів']) + ' не відновлено: ' + (pluralUa(result.skippedWords, ['воно', 'вони', 'вони']) ) + ' вже ' + (result.skippedWords % 10 === 1 && result.skippedWords % 100 !== 11 ? 'існує' : 'існують'), 'warning'); // Rev 2.32.134: «N слів не відновлено: вони вже існують» (узгоджено за числом)
   renderTrashScreen();
   return true;
 }

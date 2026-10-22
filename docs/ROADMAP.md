@@ -13216,3 +13216,7 @@ App-модалки (`show*Modal`: підтвердження видалення,
 ## 32.193. Rev 2.32.133 — INPUT-REC 2: факти про натиск у рекордері (клас B; лише запис діагностики; не запушено)
 - Для `add-button` (`pointerdown`/`pointerup`/`pointercancel`/`click`/`no-click`) і `touchend`: `defaultPrevented`, `pressed` (`.is-pressed`), `activeId`/`activeTag` (`document.activeElement`). Нова фаза `pointercancel`. Без тексту й значень; поза записом нічого не змінюється.
 - Тести: +2 (`tests/recorder-suggest.test.js`). Нових полів вводу немає.
+
+## 32.194. Rev 2.32.134 — RESTORE-DUP: відновлення категорії/підкатегорії не створює дублів слів (клас C; не запушено)
+- `restoreCascadedWords`: слово, чий текст уже є серед живих, не відновлюється (маркер каскаду знімається, воно стає окремим видаленим словом у «Видалених даних»); `skippedWords` у результаті, тост «N слів не відновлено: вони вже існують». Решта відновлення без змін.
+- Тести: +4 у `tests/pilot-repository.test.js`. Нових полів вводу немає. Звіт: `docs/reports/RESTORE-DUP.md` (матриця сценаріїв).
