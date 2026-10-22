@@ -57,6 +57,8 @@ function env(rows, unread){
     notifArchive: { rows: rows, loaded: true, offline: false, unread: unread, busy: false, batches: {}, batchesOk: false }, calls: calls, handled: [], closed: 0, toasts: [],
     safeId: function(x){ return String(x).replace(/[^0-9A-Za-z_-]/g, ''); },
     updateNotifBell: function(){}, renderNotifArchive: function(){ rendered.push(1); }, refreshNotifUnread: function(){},
+    monoReady: function(){ return true; }, notifQueueUid: function(){ return 'u1'; }, notifQueueWrite: function(){}, queued: [], flushes: [], // Rev 2.32.147 (NOTIF-READ-QUEUE): тап ставить id в чергу й запускає відправку
+    notifQueueAdd: function(ids){ g.queued.push.apply(g.queued, ids); }, notifFlush: async function(t){ g.flushes.push(t); return true; },
     debugRecordingActive: false, showTextToast: function(t){ g.toasts.push(t); },
     closeNotifArchive: function(){ g.closed++; },
     handlePushAction: async function(a){ g.handled.push(a); },
@@ -65,10 +67,10 @@ function env(rows, unread){
   const ctx = buildSandbox(g, ['openNotificationRow', 'markAllNotificationsRead', 'runClearNotifArchive', 'notifRowState', 'notifBatchKey', 'isDailyReminderRow', 'kyivDateKey', 'reminderPending']);
   return { ctx, g, calls };
 }
-test('тап по сповіщенню: mark_notifications_read([id]), лічильник −1, перехід за типом', async function(){
+test('тап по сповіщенню: id у черзі й відправка (Rev 2.32.147), лічильник −1, перехід за типом', async function(){
   const e = env([N('n1', T(12, 8, 0), { data: { type: 'mono-inbox', target: 'x' } })], 1);
   await e.ctx.openNotificationRow('n1');
-  assert.deepEqual(j(e.calls), [{ name: 'mark_notifications_read', args: { p_ids: ['n1'] } }]);
+  assert.deepEqual(j(e.g.queued), ['n1']); assert.deepEqual(j(e.g.flushes), ['tap']); assert.equal(e.calls.length, 0);
   assert.equal(e.g.notifArchive.unread, 0); assert.ok(e.g.notifArchive.rows[0].read_at);
   assert.deepEqual(j(e.g.handled), [{ type: 'mono-inbox', target: 'x', batch_ts: T(12, 8, 0) }]); // Rev 2.32.95: пачка за created_at, якщо batch_ts немає
    assert.equal(e.g.closed, 1);
@@ -84,7 +86,7 @@ test('тап по нагадуванню без нових операцій за
     e.g.notifArchive.pendingDays = pending; e.g.notifArchive.pendingOk = ok; return e; };
   let e = mkr(new Set(), true); await e.ctx.openNotificationRow('r1');
   assert.deepEqual(e.g.toasts, ['Вже оброблено']); assert.equal(e.g.handled.length, 0); assert.equal(e.g.closed, 0);
-  assert.equal(e.calls[0].name, 'mark_notifications_read'); assert.equal(e.g.notifArchive.unread, 0);
+  assert.deepEqual(j(e.g.queued), ['r1']); assert.equal(e.g.notifArchive.unread, 0); // Rev 2.32.147: id у черзі замість прямого RPC
   const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(T(12, 8, 0)));
   e = mkr(new Set([day]), true); await e.ctx.openNotificationRow('r1');
   assert.equal(e.g.handled.length, 1); assert.deepEqual(e.g.toasts, []);
@@ -94,7 +96,7 @@ test('тап по нагадуванню без нових операцій за
 test('тап по вже прочитаному не викликає RPC, але веде за типом', async function(){
   const e = env([N('n1', T(12, 8, 0), { read_at: T(12, 9, 0) })], 0);
   await e.ctx.openNotificationRow('n1');
-  assert.equal(e.calls.length, 0); assert.equal(e.g.handled.length, 1);
+  assert.equal(e.calls.length, 0); assert.equal(e.g.queued.length, 0); assert.equal(e.g.handled.length, 1);
 });
 test('«Прочитати всі» викликає RPC без p_ids; «Очистити» — clear_notifications', async function(){
   const e = env([N('a', T(12, 8, 0)), N('b', T(12, 9, 0))], 2);
@@ -111,7 +113,7 @@ test('охоронні: не позначає прочитаним при від
   assert.match(row, /escapeHtml\(row\.title/); assert.match(row, /escapeHtml\(row\.body/); assert.match(row, /escapeAttr\(safeId\(row\.id\)\)/);
   assert.match(SRC, /Сповіщень немає/);
   assert.match(SRC, /event: 'INSERT', schema: 'public', table: 'user_notifications', filter: 'user_id=eq\./);
-  assert.match(SRC, /h\.unread_notifications[\s\S]{0,80}notifArchive\.unread = h\.unread_notifications/); // Rev 2.32.74: лічильник із sync_heads, окремого HEAD немає
+  assert.match(SRC, /h\.unread_notifications[\s\S]{0,80}notifArchive\.unread = notifEffectiveUnread\(h\.unread_notifications/); // Rev 2.32.74: лічильник із sync_heads, окремого HEAD немає
   assert.doesNotMatch(SRC, /from\('user_notifications'\)\.select\('id', \{ count: 'exact', head: true \}\)/);
   assert.ok(SRC.indexOf('id="notif-bell-btn"') < SRC.indexOf('onclick="openSettings()" aria-label="Налаштування"'));
   assert.ok(!/from\('user_notifications'\)\.(insert|update|upsert|delete)/.test(SRC));

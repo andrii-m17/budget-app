@@ -6,7 +6,7 @@ const { buildSandbox, evalInSandbox } = require('./extract');
 
 const NAMES = ['SYNC_TABLE_ORDER', 'SYNC_DEPENDENTS', 'SYNC_FULL_INTERVAL_MS', 'SYNC_MIN_CHECK_MS', 'SYNC_REALTIME_DELAY_MS', 'SYNC_DELTA_OVERLAP_MS', 'LS_KEY_SYNC_HEADS',
   'emptySyncSeen', 'purgedAtValue', 'purgedAtChanged', 'normalizeSyncSeen', 'loadSyncSeen', 'saveSyncSeen', 'syncHeadsComplete', 'planSync', 'applySyncResult', 'shouldCheckHeads',
-  'syncDiag', 'fetchSyncHeadsShared', 'applyHeadsCounters', 'pullTableForSync', 'runSyncPulls', 'runSyncCheck', 'syncCheck', 'scheduleRealtimeSyncCheck', 'resetSyncCheckState'];
+  'syncDiag', 'fetchSyncHeadsShared', 'applyHeadsCounters', 'pullTableForSync', 'runSyncPulls', 'runSyncCheck', 'syncCheck', 'scheduleRealtimeSyncCheck', 'resetSyncCheckState', 'notifEffectiveUnread'];
 const FAM = 'fam-1';
 function makeHeads(over){
   const h = { tables: { bank_accounts: null, categories: 'c1', debts: 'd1', dictionary: 'w1', expenses: 'e1', hidden_entities: null, incomes: 'i1', installment_accounts: null, subcategories: 's1' },
@@ -34,7 +34,7 @@ function make(){
     syncNameDomainsOnConnect: async function(){ rec.nameDomain++; },
     flushOtherActorEventsAsToasts: function(){ rec.toasts++; }, flushOtherActorEventsAsSummary: function(){ rec.summary++; },
     refreshAfterSyncAtStart: function(){ rec.refresh++; },
-    notifArchive: { unread: 0 }, monoInbox: { newCount: 0 }, updateNotifBell: function(){}, updateMonoBadges: function(){},
+    notifArchive: { unread: 0 }, notifQueueLen: function(){ return 0; }, monoInbox: { newCount: 0 }, updateNotifBell: function(){}, updateMonoBadges: function(){},
     debugRecordingActive: false, pushDebugEvent: function(){}, performance: { now: function(){ return 0; } },
     syncSeenState: null, syncLastCheckAt: 0, syncCheckInFlight: null, syncRecheckPending: null, syncRealtimeTimer: null, headsInFlight: null,
     setTimeout: function(fn, ms){ timers.push({ fn: fn, ms: ms }); return timers.length; }, clearTimeout: function(){},

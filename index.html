@@ -3569,7 +3569,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.146</div>
+  <div class="version-footer">Money Tree · Rev 2.32.147</div>
 </div>
   </div>
 </div>
@@ -8148,7 +8148,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.146';
+const APP_VERSION = '2.32.147';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10052,7 +10052,7 @@ function fetchSyncHeadsShared(){
 function applyHeadsCounters(c){
   if(!c) return;
   try{
-    if(typeof c.unread === 'number'){ notifArchive.unread = c.unread; updateNotifBell(); }
+    if(typeof c.unread === 'number'){ notifArchive.unread = notifEffectiveUnread(c.unread, notifQueueLen()); updateNotifBell(); } // Rev 2.32.147 (NOTIF-READ-QUEUE): мінус черга «до прочитання»
     if(typeof c.monoNew === 'number'){ monoInbox.newCount = c.monoNew; updateMonoBadges(); }
   }catch(e){}
 }
@@ -10229,6 +10229,7 @@ function setSyncMarker(domain, isoTimestamp){
 }
 function clearSyncMarkers(){
   localStorage.removeItem(LS_KEY_SYNC_MARKERS);
+  try{ localStorage.removeItem(LS_KEY_NOTIF_READ_QUEUE); }catch(e){} // Rev 2.32.147 (NOTIF-READ-QUEUE): черга «до прочитання» прив'язана до тієї ж сесії (id сповіщень акаунта)
   localStorage.removeItem(LS_KEY_SYNC_HEADS); // Rev 2.32.73 (S): «голови» синхронізації прив'язані до тієї ж сесії/сім'ї, що й маркери
 }
 // Додає `.gte('updated_at', marker)` до вже побудованого select()-запиту,
@@ -11233,7 +11234,7 @@ function signOutConfirmText(stale){
 }
 // Ключі локального сховища, що належать акаунту/родині (тема й статус міграції сховища лишаються — не дані акаунта).
 function accountLocalStorageKeys(){
-  return BACKUP_LS_KEYS.concat([LS_KEY_DRAFT, LS_KEY_PURGED_TAXONOMY, LS_KEY_PURGED_ACCOUNTS, LS_KEY_PURGED_RECORDS, LS_KEY_SYNC_MARKERS, LS_KEY_SYNC_HEADS, LS_KEY_CLOUD_FAMILY_ID]);
+  return BACKUP_LS_KEYS.concat([LS_KEY_DRAFT, LS_KEY_PURGED_TAXONOMY, LS_KEY_PURGED_ACCOUNTS, LS_KEY_PURGED_RECORDS, LS_KEY_SYNC_MARKERS, LS_KEY_SYNC_HEADS, LS_KEY_CLOUD_FAMILY_ID, LS_KEY_NOTIF_READ_QUEUE]); // Rev 2.32.147 (NOTIF-READ-QUEUE): черга id акаунта чиститься при виході
 }
 async function clearLocalAccountData(){
   let cleared = 0;
@@ -20833,6 +20834,107 @@ function closeTrashScreen(){
   restoreFocus();
   updateTrashBadge();
 }
+/* ============ Черга прочитаних сповіщень (Rev 2.32.147, NOTIF-READ-QUEUE) ============
+   Живе перед блоком Monobank: працює з localStorage, а охоронний тест MB-3 забороняє сховища всередині блоку Monobank/сповіщень. */
+// Rev 2.32.147 (NOTIF-READ-QUEUE): офлайн-тап по сповіщенню лишається прочитаним. Раніше помилка RPC відкочувала read_at і лічильник (симптом: «прочитав офлайн, а воно знову непрочитане»). Тепер id кладуться в локальну чергу «до прочитання» (localStorage, ключ із user.id; лише id, жодного тексту сповіщень), рядок і лічильник прочитуються локально одразу, а відправка одним mark_notifications_read({p_ids}) іде при online / старті / поверненні в застосунок / після тапу, коли мережа є. Сервер ідемпотентний (власні непрочитані зі списку оновлює, відсутні й прочитані ігнорує), тож успіх знімає відправлені id з черги. Захист від циклу (урок bank_accounts): пауза 30/60/120 с між невдалими спробами, 4 невдачі підряд зупиняють відправку; далі лише явні тригери online/повернення в застосунок і не частіше раз на хвилину; офлайн спроб не робимо й невдачами не рахуємо; порожня черга запитів не створює. Не робимо: кеш списку й лічильника для холодного старту офлайн (рішення чату), зміни сервера. Лічильник = max(0, серверне − черга); у «лише перегляд» у чергу не ставимо.
+const LS_KEY_NOTIF_READ_QUEUE = 'budget_notif_read_queue_v1';
+const NOTIF_READ_QUEUE_MAX = 500; // понад ліміт найстаріші id відкидаються (воскреснуть як «нові»); список обмежений 200 рядками, тож практично недосяжно
+const NOTIF_FLUSH_DELAYS_MS = [30000, 60000, 120000];
+const NOTIF_FLUSH_MAX_FAILURES = 4;
+const NOTIF_FLUSH_STOPPED_MIN_GAP_MS = 60000;
+const NOTIF_FLUSH_STATE = { failures: 0, lastAttemptAt: 0, nextAllowedAt: 0, inFlight: false, timer: null };
+function notifQueueUid(){ return (typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && cloudSession.user.id) ? String(cloudSession.user.id) : null; }
+// Чисті: стан черги ↔ рядок сховища. Чужий акаунт (інший uid) → порожньо, id не відправляються.
+function notifQueueParse(raw, uid){
+  if(!raw || !uid) return [];
+  try{
+    const q = JSON.parse(raw);
+    if(!q || q.uid !== uid || !Array.isArray(q.ids)) return [];
+    return q.ids.filter(function(x){ return typeof x === 'string' && x; });
+  }catch(e){ return []; }
+}
+function notifQueueMerge(ids, add, max){
+  const out = (ids || []).slice();
+  (add || []).forEach(function(x){ if(typeof x === 'string' && x && out.indexOf(x) === -1) out.push(x); });
+  return out.slice(Math.max(0, out.length - (max || NOTIF_READ_QUEUE_MAX)));
+}
+function notifEffectiveUnread(serverCount, queueLen){ return Math.max(0, (Number(serverCount) || 0) - (Number(queueLen) || 0)); }
+// Накладка черги на щойно завантажені рядки: поставлені в чергу вважаються прочитаними (сервер ще не знає).
+function notifApplyQueueOverlay(rows, ids, stamp){
+  if(!ids || !ids.length) return 0;
+  let n = 0;
+  (rows || []).forEach(function(r){ if(r && !r.read_at && ids.indexOf(r.id) !== -1){ r.read_at = stamp; n++; } });
+  return n;
+}
+// Чисте правило пауз: чи можна зараз відправляти (state: failures, lastAttemptAt, nextAllowedAt).
+function notifFlushAllowed(st, nowMs, trigger){
+  if(!st.failures) return true;
+  if(st.failures >= NOTIF_FLUSH_MAX_FAILURES){
+    return (trigger === 'online' || trigger === 'visible') && (nowMs - st.lastAttemptAt) >= NOTIF_FLUSH_STOPPED_MIN_GAP_MS;
+  }
+  return nowMs >= st.nextAllowedAt;
+}
+function notifFlushDelayMs(failures){ return NOTIF_FLUSH_DELAYS_MS[Math.min(Math.max(failures, 1), NOTIF_FLUSH_DELAYS_MS.length) - 1]; }
+function notifQueueIds(){
+  const uid = notifQueueUid();
+  let raw = null;
+  try{ raw = localStorage.getItem(LS_KEY_NOTIF_READ_QUEUE); }catch(e){}
+  if(!uid) return [];
+  const ids = notifQueueParse(raw, uid);
+  if(raw && !ids.length){ try{ const q = JSON.parse(raw); if(q && q.uid && q.uid !== uid) localStorage.removeItem(LS_KEY_NOTIF_READ_QUEUE); }catch(e){} } // інший акаунт у цьому браузері: чужу чергу прибираємо
+  return ids;
+}
+function notifQueueWrite(ids){
+  const uid = notifQueueUid();
+  try{
+    if(!ids.length || !uid) localStorage.removeItem(LS_KEY_NOTIF_READ_QUEUE);
+    else localStorage.setItem(LS_KEY_NOTIF_READ_QUEUE, JSON.stringify({ uid: uid, ids: ids }));
+  }catch(e){}
+}
+function notifQueueAdd(ids){ if(!notifQueueUid()) return; notifQueueWrite(notifQueueMerge(notifQueueIds(), ids, NOTIF_READ_QUEUE_MAX)); }
+function notifQueueRemove(ids){ notifQueueWrite(notifQueueIds().filter(function(x){ return ids.indexOf(x) === -1; })); }
+function notifQueueLen(){ return notifQueueIds().length; }
+// Відправка черги одним RPC. trigger: 'tap' | 'refresh' | 'start' | 'online' | 'visible' | 'timer'. Повертає true, якщо щось відправлено успішно.
+async function notifFlush(trigger){
+  const st = NOTIF_FLUSH_STATE;
+  if(st.inFlight) return false;
+  if(!monoReady() || isWriteBlocked()) return false; // офлайн і «лише перегляд»: спроб немає (невдачею не рахується)
+  const ids = notifQueueIds();
+  if(!ids.length) return false;
+  const now = Date.now();
+  if(!notifFlushAllowed(st, now, trigger)) return false;
+  st.inFlight = true; st.lastAttemptAt = now;
+  if(st.timer){ clearTimeout(st.timer); st.timer = null; }
+  let ok = false;
+  try{
+    const r = await getSupabaseClient().rpc('mark_notifications_read', { p_ids: ids });
+    if(r.error) throw r.error;
+    ok = true;
+  }catch(e){ ok = false; }
+  st.inFlight = false;
+  if(ok){
+    notifQueueRemove(ids); // лише відправлені: нові тапи за час запиту лишаються
+    if(notifQueueIds().some(function(x){ return ids.indexOf(x) !== -1; })) ok = false; // сховище не прийняло запис (квота/помилка): це невдача з паузами, а не негайний повтор тих самих id
+  }
+  if(ok){
+    st.failures = 0; st.nextAllowedAt = 0;
+    if(notifQueueLen()) notifFlush('refresh').catch(function(){});
+    else refreshNotifUnread().catch(function(){}); // лічильник збігається із сервером
+    return true;
+  }
+  st.failures++;
+  if(st.failures < NOTIF_FLUSH_MAX_FAILURES){
+    st.nextAllowedAt = Date.now() + notifFlushDelayMs(st.failures);
+    st.timer = setTimeout(function(){ st.timer = null; notifFlush('timer').catch(function(){}); }, notifFlushDelayMs(st.failures));
+  }
+  return false;
+}
+(function initNotifReadQueue(){
+  window.addEventListener('online', function(){ notifFlush('online').catch(function(){}); });
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') notifFlush('visible').catch(function(){}); });
+  awaitCloudGate().then(function(){ return notifFlush('start'); }).catch(function(){});
+})();
+
 /* ============ Monobank: екран підключення (Rev 2.32.27, MB-3) ============
    Клієнт лише викликає серверні функції (mono-connect) і читає власні таблиці mono_connections/mono_accounts; токен ніколи не зберігається
    (ні localStorage/sessionStorage, ні змінні поза обробником, ні рекордер/тости/логи) і очищується з поля ДО відповіді. */
@@ -21759,8 +21861,9 @@ function updateNotifBell(){
 async function refreshNotifUnread(){
   if(!monoReady()) return;
   try{
+    if(notifQueueLen()) await notifFlush('refresh'); // Rev 2.32.147 (NOTIF-READ-QUEUE): спершу відправка черги (за паузами), потім «голови»
     const h = await fetchSyncHeadsShared(); // Rev 2.32.74 (U): лічильник із спільного запиту «голів» (раніше окремий HEAD)
-    if(h && typeof h.unread_notifications === 'number'){ notifArchive.unread = h.unread_notifications; updateNotifBell(); }
+    if(h && typeof h.unread_notifications === 'number'){ notifArchive.unread = notifEffectiveUnread(h.unread_notifications, notifQueueLen()); updateNotifBell(); }
   }catch(e){}
 }
 // Rev 2.32.92 (NOTIF-1 Rev 1): після дії по події («додати», «ігнорувати», «додати всі», повернення) сервер сам ставить read_at сповіщенню, коли оброблено ВСЮ пачку (trg_mono_inbox_autoread, 16.10). Клієнт лише оновлює лічильник дзвіночка (спершу дочекавшись «голів», що вже летять: вони могли початись до дії) і, якщо архів відкрито, його список. Офлайн/без сесії нічого не робить (лічильник лишається останнім відомим). Ризик: тригер спрацьовує на сервері; пачка з кількох операцій не прочитується, доки не оброблено всі.
@@ -21785,6 +21888,7 @@ let notifLoadSeq = 0;
 const notifDeletedIds = new Set();
 async function loadNotifArchive(){
   const seq = ++notifLoadSeq;
+  const queueAtStart = notifQueueIds(); // Rev 2.32.147: id, що були в черзі до запиту, лишаються прочитаними, навіть якщо flush встиг їх зняти до відповіді (сервер міг віддати старий read_at)
   const gate = await awaitCloudGate(); // Rev 2.32.89 (SYNCUI-1)
   if(seq !== notifLoadSeq) return;
   notifArchive.gate = gate;
@@ -21796,6 +21900,7 @@ async function loadNotifArchive(){
     const rows = (r.data || []).filter(function(x){ return !notifDeletedIds.has(safeId(x.id)); });
     const b = await fetchNotifBatches(rows); // Rev 2.32.96 (NOTIF-1 Rev 3): один запит стану пачок
     if(seq !== notifLoadSeq) return;
+    notifApplyQueueOverlay(rows, queueAtStart.concat(notifQueueIds()), new Date().toISOString()); // Rev 2.32.147 (NOTIF-READ-QUEUE): поставлені в чергу лишаються прочитаними
     notifArchive.rows = rows; notifArchive.batches = b.batches; notifArchive.batchesOk = b.ok; notifArchive.pendingDays = b.pendingDays; notifArchive.pendingOk = b.pendingOk;
     notifArchive.loaded = true;
   }catch(e){ if(seq !== notifLoadSeq) return; notifArchive.offline = true; notifArchive.loaded = true; }
@@ -21881,10 +21986,11 @@ async function openNotificationRow(id){
   const row = notifArchive.rows.filter(function(r){ return safeId(r.id) === id; })[0];
   if(!row) return;
   const type = row.type || (row.data && row.data.type) || '';
-  if(!row.read_at && !isWriteBlocked()){ // Rev 2.32.78 (KIT-1): у «лише перегляд» позначка «прочитано» не пишеться (тихий пропуск)
-    row.read_at = new Date().toISOString(); // оптимістично
+  if(!row.read_at && !isWriteBlocked() && notifQueueUid()){ // Rev 2.32.78 (KIT-1): у «лише перегляд» позначка «прочитано» не пишеться (тихий пропуск)
+    row.read_at = new Date().toISOString(); // локально прочитано
     notifArchive.unread = Math.max(0, notifArchive.unread - 1); updateNotifBell(); renderNotifArchive();
-    try{ const r = await getSupabaseClient().rpc('mark_notifications_read', { p_ids: [row.id] }); if(r.error) throw r.error; }catch(e){ row.read_at = null; refreshNotifUnread(); renderNotifArchive(); }
+    notifQueueAdd([row.id]); // Rev 2.32.147 (NOTIF-READ-QUEUE): замість відкату при помилці — у чергу; відправка не блокує перехід
+    notifFlush('tap').catch(function(){});
   }
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', opened: true });
   if(!type) return;
@@ -21929,6 +22035,7 @@ async function deleteNotificationRow(id){
   try{
     const r = await getSupabaseClient().rpc('delete_notification', { p_id: row.id });
     if(r.error) throw r.error;
+    notifQueueRemove([row.id]); // Rev 2.32.147: видалене не лишається в черзі й не занижує лічильник
     refreshNotifUnread();
   }catch(e){
     notifDeletedIds.delete(id);
@@ -21944,6 +22051,18 @@ async function markAllNotificationsRead(){
   if(notifArchive.busy || !notifArchive.unread) return;
   if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   notifArchive.busy = true;
+  // Rev 2.32.147 (NOTIF-READ-QUEUE): лише ОФЛАЙН ставить у чергу явні id завантажених непрочитаних (сповіщення, що прийдуть пізніше, не зачіпаються), рядки й лічильник прочитуються локально. Онлайн-помилка сервера лишається як була: тост без черги.
+  if(!monoReady()){
+    const ids = !notifQueueUid() ? [] : notifArchive.rows.filter(function(x){ return !x.read_at; }).map(function(x){ return x.id; });
+    if(ids.length){
+      const now = new Date().toISOString();
+      notifArchive.rows.forEach(function(x){ if(!x.read_at) x.read_at = now; });
+      notifQueueAdd(ids);
+      notifArchive.unread = Math.max(0, notifArchive.unread - ids.length); updateNotifBell(); renderNotifArchive();
+    }else showTextToast('Немає зв\'язку, спробуйте пізніше', 'error');
+    notifArchive.busy = false;
+    return;
+  }
   try{
     const r = await getSupabaseClient().rpc('mark_notifications_read'); // без p_ids — усі
     if(r.error) throw r.error;
@@ -21960,7 +22079,7 @@ async function runClearNotifArchive(){
   try{
     const r = await getSupabaseClient().rpc('clear_notifications');
     if(r.error) throw r.error;
-    notifArchive.rows = []; notifArchive.unread = 0; notifDeletedIds.clear(); updateNotifBell(); renderNotifArchive();
+    notifQueueWrite([]); notifArchive.rows = []; notifArchive.unread = 0; notifDeletedIds.clear(); updateNotifBell(); renderNotifArchive();
     if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', cleared: true });
   }catch(e){ showTextToast('Немає зв\'язку, спробуйте пізніше', 'error'); }
 }

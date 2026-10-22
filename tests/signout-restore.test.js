@@ -31,7 +31,7 @@ const LS = {
   LS_KEY_SUBCATEGORIES: 'budget_subcategories_v1', LS_KEY_SUBCATEGORY_PRIORITY: 'budget_subcategory_priority_v1', LS_KEY_DICTIONARY: 'budget_dictionary_v1',
   LS_KEY_SCHEMA_VERSION: 'budget_schema_version_v1', LS_KEY_IGNORED_DIVERGENCES: 'budget_ignored_divergences_v1',
   LS_KEY_DRAFT: 'budget_expense_draft_v1', LS_KEY_PURGED_TAXONOMY: 'budget_purged_taxonomy_v1', LS_KEY_PURGED_ACCOUNTS: 'budget_purged_accounts_v1',
-  LS_KEY_PURGED_RECORDS: 'budget_purged_records_v1', LS_KEY_SYNC_MARKERS: 'budget_sync_markers_v1', LS_KEY_SYNC_HEADS: 'budget_sync_heads_v1', LS_KEY_CLOUD_FAMILY_ID: 'budget_cloud_family_id_v1',
+  LS_KEY_PURGED_RECORDS: 'budget_purged_records_v1', LS_KEY_SYNC_MARKERS: 'budget_sync_markers_v1', LS_KEY_SYNC_HEADS: 'budget_sync_heads_v1', LS_KEY_CLOUD_FAMILY_ID: 'budget_cloud_family_id_v1', LS_KEY_NOTIF_READ_QUEUE: 'budget_notif_read_queue_v1',
 };
 function signOutSandbox(opts){
   const o = opts || {};

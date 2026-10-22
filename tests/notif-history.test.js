@@ -42,7 +42,7 @@ function envDelete(over){
   const log = [];
   const g = Object.assign({
     notifArchive: { rows: [N('n1', B1), N('n2', B2, { read_at: 'x' }), N('n3', B2)], unread: 2, busy: false },
-    safeId: x => String(x).replace(/[^0-9A-Za-z_-]/g, ''), blockedByReadOnly: () => false, monoReady: () => true,
+    safeId: x => String(x).replace(/[^0-9A-Za-z_-]/g, ''), blockedByReadOnly: () => false, monoReady: () => true, notifQueueRemove: () => {},
     updateNotifBell: () => log.push('bell'), renderNotifArchive: () => log.push('render'), refreshNotifUnread: () => log.push('refresh'),
     showTextToast: (t, k) => log.push('toast:' + k + ':' + t),
     getSupabaseClient: () => ({ rpc: async (name, args) => { log.push(name + ':' + args.p_id); return { error: null }; } }),
@@ -157,9 +157,9 @@ function envLoad(over){
     notifArchive: { rows: [], batches: {}, batchesOk: true, loaded: false, offline: false, gate: 'ready' }, notifLoadSeq: 0, notifDeletedIds: new Set(),
     safeId: x => String(x).replace(/[^0-9A-Za-z_-]/g, ''), awaitCloudGate: async () => 'ready',
     getSupabaseClient: () => ({ from: () => ({ select: () => ({ order: () => ({ limit: async () => ({ data: [N('n1', B1), N('n2', B2)], error: null }) }) }) }) }),
-    fetchNotifBatches: async () => ({ batches: { b: 1 }, ok: true }),
+    fetchNotifBatches: async () => ({ batches: { b: 1 }, ok: true }), notifQueueIds: () => (over && over.queue) || [],
   }, over || {});
-  return { c: buildSandbox(g, ['loadNotifArchive']), g };
+  return { c: buildSandbox(g, ['loadNotifArchive', 'notifApplyQueueOverlay']), g };
 }
 test('гонка: рядок, видалений до відповіді запиту, не воскресає; rows/batches/batchesOk присвоюються разом', async function(){
   const snaps = [];
