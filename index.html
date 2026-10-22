@@ -1537,9 +1537,13 @@
   .expense-row.notif-row{ display:flex; align-items:flex-start; gap:12px; border:0; border-left:0; border-radius:0; box-shadow:none; margin:0; padding:12px 16px; background:var(--color-surface); width:100%; box-sizing:border-box; }
   .expense-row.notif-row.unread{ background-image:linear-gradient(var(--notif-unread-bg), var(--notif-unread-bg)); }
   .expense-row.notif-row.is-pressed{ background-color:var(--color-surface-hover); background-image:none; } /* Rev 2.32.97: реакція на натискання (специфічність вища за .expense-row.notif-row) */
-  .notif-row-trash{ position:absolute; top:8px; right:8px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:0; border-radius:8px; background:var(--color-surface); color:var(--color-error); cursor:pointer; opacity:0; pointer-events:none; }
+  /* Rev 2.32.143 (DESK-TRASH): кошик стоїть на місці часу (праворуч, у тій самій зоні), а не поверх нього: при наведенні/фокусі час плавно зникає (opacity), кошик плавно з'являється; обидва лишаються в потоці/абсолютно без зміни розмірів, тож рядок і текст не зсуваються і накладання немає. Фокус клавіатури на кнопці дає той самий стан (:has). */
+  .notif-row-trash{ position:absolute; top:5px; right:18px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:0; border-radius:8px; background:transparent; color:var(--color-error); cursor:pointer; opacity:0; pointer-events:none; transition:opacity .15s ease; }
   .notif-row-trash:focus-visible{ opacity:1; pointer-events:auto; outline:2px solid var(--color-primary); }
-  @media (hover:hover) and (pointer:fine){ .notif-row:hover .notif-row-trash{ opacity:1; pointer-events:auto; } }
+  .notif-row:has(.notif-row-trash:focus-visible) .notif-row-time{ opacity:0; }
+  .notif-row-time{ transition:opacity .15s ease; }
+  @media (hover:hover) and (pointer:fine){ .notif-row:hover .notif-row-trash{ opacity:1; pointer-events:auto; } .notif-row:hover .notif-row-time{ opacity:0; } }
+  @media (prefers-reduced-motion:reduce){ .notif-row-trash, .notif-row-time{ transition:none; } }
   /* Rev 2.32.102 (NOTIF-2): вигляд журналу як у Rev 2.32.95 (без крапки, пілюль стану й підпису «джерело · час»; час праворуч; «Прочитати всі» у шапці, «Очистити архів» знизу); лишились свайп-видалення й кошик. Непрочитане: жирний заголовок і фон; оброблене й прочитане лише приглушені (повна іконка .45, сірі заголовок і текст). */
   .notif-row-time{ flex:none; font-size:12.5px; color:var(--notif-muted); padding-top:2px; font-variant-numeric:tabular-nums; }
   .expense-row.notif-row .notif-row-icon{ opacity:.45; }
@@ -3566,7 +3570,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.142</div>
+  <div class="version-footer">Money Tree · Rev 2.32.143</div>
 </div>
   </div>
 </div>
@@ -8145,7 +8149,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.142';
+const APP_VERSION = '2.32.143';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
