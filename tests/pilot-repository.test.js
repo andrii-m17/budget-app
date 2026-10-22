@@ -260,7 +260,7 @@ const REPOSITORY_NAMES = [
   // function/ALL-CAPS const, тому НЕ тут (extractFunctionSource їх не
   // знайде) — початкові значення передаються через globals у sandbox()
   // нижче, той самий принцип, що cloudSession/hiddenFrom.
-  'authorInfoFor', 'pushOtherActorEvent', 'drainOtherActorEvents', 'pluralUa',
+  'authorInfoFor', 'AUTHOR_SLOTS', 'AUTHOR_NEUTRAL', 'AUTHOR_SLOTS_LS_KEY', 'cachedAuthorSlot', 'pushOtherActorEvent', 'drainOtherActorEvents', 'pluralUa',
   // Rev #30 (6D.68) — таймінги 2-фазного pulse-highlight ("щойно з хмари"),
   // яких pullExpensesCore() потребує ВСЕРЕДИНІ hadMarker-гілки (докоментар
   // над setTimeout-стабом у sandbox() нижче пояснює, чому це раніше не
@@ -2408,9 +2408,9 @@ test('pullExpensesCore: LWW — Cloud новіший → оновлює лока
    pushOtherActorEvent() гейтиться (а) hadMarker (не перший повний backfill,
    той самий принцип, що recentlyPulledExpenseState/6D.67) і (б) актор !== я
    (cloudSession.user.id) і відомий (familyUsersById). */
-test('authorInfoFor: gender "m" для Andrii, "f" для Olga', () => {
+test('authorInfoFor: gender "m" для слота 1, "f" для слота 0', () => {
   const ctx = pullExpensesSandbox([]);
-  ctx.familyUsersById = { u1: { name: 'Andrii' }, u2: { name: 'Olga' } };
+  ctx.familyUsersById = { u1: { name: 'Користувач А', slot: 1 }, u2: { name: 'Користувач Б', slot: 0 } };
   assert.equal(ctx.authorInfoFor('u1').gender, 'm');
   assert.equal(ctx.authorInfoFor('u2').gender, 'f');
 });
@@ -2430,7 +2430,7 @@ test('pluralUa: українська 3-форма узгодження числ�
 test('pullExpensesCore: перший пул (hadMarker=false) → подія НЕ додається в чергу навіть для чужого автора', async () => {
   const ctx = pullExpensesSandbox([{ id: 'e1', amount: 999, expense_date: '2026-05-06', note: 'Оновлено', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z', updated_by: 'user-2' }]);
   ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Стара назва', amount: 500, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
-  ctx.familyUsersById = { 'user-2': { name: 'Olga' } };
+  ctx.familyUsersById = { 'user-2': { name: 'Користувач Б', slot: 0 } };
   await ctx.pullExpensesCore();
   assert.deepEqual(ctx.drainOtherActorEvents(), []);
 });
@@ -2440,7 +2440,7 @@ test('pullExpensesCore: інкрементальний пул (є маркер) 
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.familyUsersById = { 'user-2': { name: 'Olga' } };
+  ctx.familyUsersById = { 'user-2': { name: 'Користувач Б', slot: 0 } };
   ctx.setSyncMarker('expenses', '2020-01-01T00:00:00.000Z');
   ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Стара назва', amount: 500, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
   const fake = fakeSupabaseMarkerAwareClient('expenses', [{ id: 'e1', amount: 999, expense_date: '2026-05-06', note: 'Оновлено', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z', updated_by: 'user-2' }]);
@@ -2450,7 +2450,7 @@ test('pullExpensesCore: інкрементальний пул (є маркер) 
   assert.equal(events.length, 1);
   assert.equal(events[0].domain, 'expenses');
   assert.equal(events[0].action, 'edit');
-  assert.equal(events[0].actorName, 'Olga');
+  assert.equal(events[0].actorName, 'Користувач Б');
   assert.equal(events[0].name, 'Оновлено');
   assert.equal(events[0].amount, 999);
 });
@@ -2460,7 +2460,7 @@ test('pullExpensesCore: редагування ВЛАСНИМ автором (м
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.familyUsersById = { 'user-1': { name: 'Andrii' } };
+  ctx.familyUsersById = { 'user-1': { name: 'Користувач А', slot: 1 } };
   ctx.setSyncMarker('expenses', '2020-01-01T00:00:00.000Z');
   ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Стара назва', amount: 500, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
   const fake = fakeSupabaseMarkerAwareClient('expenses', [{ id: 'e1', amount: 999, expense_date: '2026-05-06', note: 'Оновлено', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z', updated_by: 'user-1' }]);
@@ -2488,7 +2488,7 @@ test('pullExpensesCore: інкрементальний пул + НОВИЙ за�
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.familyUsersById = { 'user-2': { name: 'Olga' } };
+  ctx.familyUsersById = { 'user-2': { name: 'Користувач Б', slot: 0 } };
   ctx.setSyncMarker('expenses', '2020-01-01T00:00:00.000Z');
   ctx.expenses = [];
   const fake = fakeSupabaseMarkerAwareClient('expenses', [{ id: 'e1', amount: 85, expense_date: '2026-05-05', note: 'Кава', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z', created_by: 'user-2' }]);
@@ -2506,7 +2506,7 @@ test('pullExpensesCore: інкрементальний пул + запис що�
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.familyUsersById = { 'user-2': { name: 'Olga' } };
+  ctx.familyUsersById = { 'user-2': { name: 'Користувач Б', slot: 0 } };
   ctx.setSyncMarker('expenses', '2020-01-01T00:00:00.000Z');
   ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Кава', amount: 500, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
   const fake = fakeSupabaseMarkerAwareClient('expenses', [{ id: 'e1', amount: 500, expense_date: '2026-05-05', note: 'Кава', linked_installment_id: null, deleted_at: '2026-05-07T00:00:00.000Z', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2026-05-07T00:00:00.000Z', updated_by: 'user-2' }]);
@@ -2522,7 +2522,7 @@ test('pullIncomesCore: інкрементальний пул + редагува�
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.familyUsersById = { 'user-2': { name: 'Olga' } };
+  ctx.familyUsersById = { 'user-2': { name: 'Користувач Б', slot: 0 } };
   ctx.setSyncMarker('incomes', '2020-01-01T00:00:00.000Z');
   ctx.incomes = [{ id: 'i1', date: '2026-05-05', source: 'Зарплата', amount: 900, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
   const fake = fakeSupabaseMarkerAwareClient('incomes', [{ id: 'i1', amount: 1000, income_date: '2026-05-06', note: 'Зарплата+', deleted_at: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z', updated_by: 'user-2' }]);
@@ -2561,7 +2561,7 @@ test('pullDebtsCore: інкрементальний пул + редагуван�
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.familyUsersById = { 'user-2': { name: 'Olga' } };
+  ctx.familyUsersById = { 'user-2': { name: 'Користувач Б', slot: 0 } };
   ctx.setSyncMarker('debts', '2020-01-01T00:00:00.000Z');
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
   ctx.debts = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-05', balance: 1000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
@@ -2580,7 +2580,7 @@ test('pullHiddenEntitiesCore: ПЕРШИЙ пул цієї сесії → жод
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
-  ctx.familyUsersById = { 'user-2': { name: 'Olga' } };
+  ctx.familyUsersById = { 'user-2': { name: 'Користувач Б', slot: 0 } };
   ctx.getSupabaseClient = () => fakeSupabaseSelectClient('hidden_entities', [{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01', created_by: 'user-2' }]);
   await ctx.pullHiddenEntitiesCore();
   assert.deepEqual(ctx.drainOtherActorEvents(), []);
@@ -2592,7 +2592,7 @@ test('pullHiddenEntitiesCore: ДРУГИЙ пул (уже hiddenEntitiesPulledOn
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }, { name: 'Monobank', cloudId: 'b2' }];
-  ctx.familyUsersById = { 'user-2': { name: 'Olga' } };
+  ctx.familyUsersById = { 'user-2': { name: 'Користувач Б', slot: 0 } };
   ctx.getSupabaseClient = () => fakeSupabaseSelectClient('hidden_entities', [{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-06-01', created_by: 'user-2' }]);
   await ctx.pullHiddenEntitiesCore(); // перший пул — суто "прогрів", без подій
   ctx.drainOtherActorEvents();
