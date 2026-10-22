@@ -1625,7 +1625,7 @@
   .qa-steps{ margin:6px 0 0 18px; padding:0; font-size:13px; color:var(--color-text-secondary); }
   .qa-expected{ margin-top:6px; font-size:13px; color:var(--color-text-primary); }
   .qa-actions{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  .qa-btn{ min-height:36px; padding:0 12px; border-radius:999px; border:1.5px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-primary); font:inherit; font-size:14px; cursor:pointer; }
+  .qa-btn{ min-height:44px; padding:0 12px; border-radius:999px; border:1.5px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-primary); font:inherit; font-size:14px; cursor:pointer; }
   .qa-btn.on-ok{ background:var(--color-primary-bg); border-color:var(--color-primary); }
   .qa-btn.on-bad{ background:var(--color-error-bg); border-color:var(--color-error); }
   .qa-head{ font-size:12.5px; color:var(--color-text-secondary); margin:4px 0 8px; }
@@ -3528,7 +3528,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.123</div>
+  <div class="version-footer">Money Tree · Rev 2.32.124</div>
 </div>
   </div>
 </div>
@@ -4281,7 +4281,7 @@ function jsErrPersist(rec){
   if(!jsErrPersistOn || !rec) return Promise.resolve(false);
   const now = Date.now();
   if(!jsErrRateAllow(now)) return Promise.resolve(false);
-  const entry = { key: String(rec.key || '').slice(0, 220), ts: now, message: String(rec.message || '').slice(0, 160), source: String(rec.source || '').slice(0, 60), stackTop: (rec.stackTop || []).slice(0, 3).map(function(x){ return String(x).slice(0, 40); }), tab: rec.tab ? String(rec.tab).slice(0, 30) : null, count: rec.count || 1 };
+  const entry = { key: String(rec.key || '').slice(0, 220), ts: now, message: String(rec.message || '').slice(0, 80), source: String(rec.source || '').slice(0, 60), stackTop: (rec.stackTop || []).slice(0, 3).map(function(x){ return String(x).slice(0, 40); }), tab: rec.tab ? String(rec.tab).slice(0, 30) : null, count: rec.count || 1 };
   return jsErrOpen().then(function(db){
     return new Promise(function(resolve){
       const tx = db.transaction(JSERR_STORE, 'readwrite');
@@ -8085,7 +8085,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.123';
+const APP_VERSION = '2.32.124';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -22735,15 +22735,16 @@ async function togglePushDiag(){
   if(jsErrPersistOn){ try{ jsErrList_flush(); }catch(e){} }
   await renderPushDiag();
 }
-function jsErrList_flush(){ jsErrorList.forEach(function(r){ jsErrPersist(r); }); }
+function jsErrList_flush(){ jsErrorList.slice(-JSERR_RATE_MAX).forEach(function(r){ jsErrPersist(r); }); } // Rev 2.32.124: не більше ліміту частоти (решта відкинулась би мовчки); текст у журналі ≤ 80 символів (приватність)
 // Rev 2.32.123 (JSERR-1): прапорець розробника читаємо один раз на старті (помилки до відповіді не журналяться: допустимо).
 try{ readPushDiagFlag().then(function(v){ jsErrPersistOn = !!v; }); }catch(e){}
 // ===== Rev 2.32.122 (QA-1): «Чекліст перевірки» на iPhone («Тестування») =====
-// Пункти беруться з qa.json (його генерує scripts/gen-qa.mjs зі звітів docs/reports/*.md: розділ «Для iPhone»; публікується разом із застосунком, запит з ?v=<версія> і cache:'no-store', у сервіс-воркері живе не довше за версію застосунку); відповіді «ок» / «не ок» (+ причина кнопкою) зберігаються ЛИШЕ локально (localStorage), у мережу нічого не пишеться. «Скопіювати результат» формує текст для чату за номерами пунктів. Без текстових полів (причини готовими кнопками), тож клавіатурна логіка шторок не зачіпається.
+// Пункти беруться з qa.json (його генерує scripts/gen-qa.mjs зі звітів docs/reports/*.md: розділ «Для iPhone»; публікується разом із застосунком, запит ./qa.json?v=<версія>: сервіс-воркер віддає його з кешу ПОТОЧНОЇ версії (cache-first), а з новою версією застосунку кеш замінюється, тож файл живе не довше за версію); відповіді «ок» / «не ок» (+ причина кнопкою) зберігаються ЛИШЕ локально (localStorage), у мережу нічого не пишеться. «Скопіювати результат» формує текст для чату за номерами пунктів. Без текстових полів (причини готовими кнопками), тож клавіатурна логіка шторок не зачіпається.
 const QA_STATE_KEY = 'budget-qa-state-v1';
 const QA_REASONS = ['обрізано', 'не працює', 'повільно', 'інше'];
 const QA_RESULT_LABELS = { ok: 'ок', bad: 'не ок' };
 let qaItems = null;
+let qaLoadFailed = false;
 function qaValidItems(list){
   const seen = {};
   return (Array.isArray(list) ? list : []).filter(function(it){
@@ -22752,7 +22753,7 @@ function qaValidItems(list){
     if(seen[it.id]) return false; seen[it.id] = true;
     return true;
   }).map(function(it){
-    return { id: it.id, rev: it.rev, title: it.title, steps: Array.isArray(it.steps) ? it.steps.filter(function(x){ return typeof x === 'string'; }) : [], expected: typeof it.expected === 'string' ? it.expected : '' };
+    return { id: it.id, rev: it.rev, title: it.title, steps: Array.isArray(it.steps) ? it.steps.filter(function(x){ return typeof x === 'string'; }) : [], expected: typeof it.expected === 'string' ? it.expected : '', h: typeof it.h === 'string' ? it.h : '' };
   });
 }
 function qaGroupByRev(items){
@@ -22764,11 +22765,21 @@ function qaReadState(){
   try{ const o = JSON.parse(localStorage.getItem(QA_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
 }
 function qaWriteState(st){ try{ localStorage.setItem(QA_STATE_KEY, JSON.stringify(st)); return true; }catch(e){ return false; } }
-function qaSetResult(state, id, result, reason){
+function qaSetResult(state, id, result, reason, hash){
+  if(id === '__proto__') return Object.assign({}, state || {}); // службовий ключ не приймаємо
   const next = Object.assign({}, state || {});
   if(result !== 'ok' && result !== 'bad'){ delete next[id]; return next; }
-  next[id] = result === 'bad' && QA_REASONS.indexOf(reason) !== -1 ? { s: 'bad', r: reason } : { s: result };
+  const r = result === 'bad' && QA_REASONS.indexOf(reason) !== -1 ? { s: 'bad', r: reason } : { s: result };
+  if(hash) r.h = hash;
+  next[id] = r;
   return next;
+}
+// Відповідь чинна, лише якщо хеш тексту пункту збігається (id міг змінитись, коли у звіті з'явились інші пункти).
+function qaAnswerFor(state, item){
+  const r = state && Object.prototype.hasOwnProperty.call(state, item.id) ? state[item.id] : null;
+  if(!r) return null;
+  if(r.h && item.h && r.h !== item.h) return null;
+  return r;
 }
 function qaPruneDone(state){
   const next = {};
@@ -22778,7 +22789,7 @@ function qaPruneDone(state){
 function qaSummaryText(items, state, build, dateText){
   const parts = [];
   (items || []).forEach(function(it){
-    const r = state && state[it.id];
+    const r = qaAnswerFor(state, it);
     if(!r) return;
     parts.push(it.id + (r.s === 'ok' ? ' ок' : ' не ок' + (r.r ? ': ' + r.r : '')));
   });
@@ -22789,13 +22800,16 @@ async function loadQaItems(){
     const res = await fetch('./qa.json?v=' + encodeURIComponent(APP_VERSION), { cache: 'no-store' });
     if(!res.ok) throw new Error('http ' + res.status);
     qaItems = qaValidItems(await res.json());
-  }catch(e){ qaItems = qaItems || []; }
+  }catch(e){ qaItems = null; qaLoadFailed = true; } // невдача (офлайн, 404): наступне відкриття спробує ще раз
   return qaItems;
 }
 let qaOpen = false;
-function qaSetAndRender(id, result, reason){
-  qaWriteState(qaSetResult(qaReadState(), id, result, reason));
+function qaSetAndRender(item, result, reason){
+  qaWriteState(qaSetResult(qaReadState(), item.id, result, reason, item.h));
+  const box = document.getElementById('qa-box'); const drawer = document.getElementById('testing-drawer');
+  const top = drawer ? drawer.scrollTop : 0;
   renderQa();
+  if(drawer) drawer.scrollTop = top; // перебудова блока не збиває позицію прокрутки шторки
 }
 function renderQa(){
   const box = document.getElementById('qa-box');
@@ -22806,28 +22820,28 @@ function renderQa(){
   if(!qaOpen) return;
   const state = qaReadState();
   const head = document.createElement('div'); head.className = 'qa-head'; head.textContent = 'Збірка ' + APP_VERSION + ' · ' + new Date().toLocaleDateString('uk-UA'); box.appendChild(head);
-  if(!qaItems || !qaItems.length){ const e = document.createElement('div'); e.className = 'n-diag-empty'; e.textContent = qaItems ? 'Пунктів перевірки немає (або qa.json недоступний офлайн)' : 'Завантаження…'; box.appendChild(e); return; }
+  if(!qaItems || !qaItems.length){ const e = document.createElement('div'); e.className = 'n-diag-empty'; e.textContent = qaLoadFailed ? 'qa.json недоступний (офлайн?): закрийте й відкрийте чекліст ще раз' : (qaItems ? 'Пунктів перевірки немає' : 'Завантаження…'); box.appendChild(e); return; }
   qaGroupByRev(qaItems).forEach(function(g){
-    const rev = document.createElement('div'); rev.className = 'qa-rev'; rev.textContent = 'Rev ' + g.rev; box.appendChild(rev);
+    const rev = document.createElement('div'); rev.className = 'qa-rev'; rev.textContent = 'Rev ' + g.rev; rev.setAttribute('role', 'heading'); rev.setAttribute('aria-level', '3'); box.appendChild(rev);
     g.items.forEach(function(it){
-      const cur = state[it.id] || null;
+      const cur = qaAnswerFor(state, it);
       const row = document.createElement('div'); row.className = 'qa-item';
       const t = document.createElement('div'); t.className = 'qa-title'; t.textContent = it.id + ' · ' + it.title; row.appendChild(t);
       if(it.steps.length){ const ol = document.createElement('ol'); ol.className = 'qa-steps'; it.steps.forEach(function(x){ const li = document.createElement('li'); li.textContent = x; ol.appendChild(li); }); row.appendChild(ol); }
       if(it.expected){ const ex = document.createElement('div'); ex.className = 'qa-expected'; ex.textContent = 'Очікується: ' + it.expected; row.appendChild(ex); }
-      const act = document.createElement('div'); act.className = 'qa-actions';
+      const act = document.createElement('div'); act.className = 'qa-actions'; act.setAttribute('role', 'group'); act.setAttribute('aria-label', 'Результат: ' + it.id);
       ['ok', 'bad'].forEach(function(k){
         const b = document.createElement('button'); b.type = 'button'; b.className = 'qa-btn' + (cur && cur.s === k ? ' on-' + k : '');
         b.textContent = QA_RESULT_LABELS[k]; b.setAttribute('aria-pressed', cur && cur.s === k ? 'true' : 'false');
-        b.addEventListener('click', function(){ qaSetAndRender(it.id, cur && cur.s === k ? null : k); });
+        b.addEventListener('click', function(){ qaSetAndRender(it, cur && cur.s === k ? null : k); });
         act.appendChild(b);
       });
       row.appendChild(act);
       if(cur && cur.s === 'bad'){
-        const why = document.createElement('div'); why.className = 'qa-actions';
+        const why = document.createElement('div'); why.className = 'qa-actions'; why.setAttribute('role', 'group'); why.setAttribute('aria-label', 'Причина: ' + it.id);
         QA_REASONS.forEach(function(r){
           const b = document.createElement('button'); b.type = 'button'; b.className = 'qa-btn' + (cur.r === r ? ' on-bad' : ''); b.textContent = r;
-          b.addEventListener('click', function(){ qaSetAndRender(it.id, 'bad', cur.r === r ? null : r); });
+          b.addEventListener('click', function(){ qaSetAndRender(it, 'bad', cur.r === r ? null : r); });
           why.appendChild(b);
         });
         row.appendChild(why);

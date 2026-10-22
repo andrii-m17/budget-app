@@ -9,11 +9,14 @@ const dir = join(root, 'docs', 'reports');
 const REV = /Rev\s+(\d+\.\d+\.\d+)/;
 const cmp = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for(let i = 0; i < 3; i++){ if(x[i] !== y[i]) return x[i] - y[i]; } return 0; };
 
+export function itemHash(text){ let h = 2166136261; for(const ch of String(text)){ h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; } return h.toString(16).padStart(8, '0').slice(0, 6); }
 export function parseReport(text){
-  const lines = text.split('\n');
-  const firstRev = (text.match(REV) || [])[1] || null;
-  let rev = firstRev, inBlock = false; const found = [];
+  const lines = String(text).replace(/\r/g, '').split('\n');
+  const firstRev = (String(text).match(REV) || [])[1] || null;
+  let rev = firstRev, inBlock = false, fence = false; const found = [];
   for(const line of lines){
+    if(/^\s*```/.test(line)){ fence = !fence; continue; }
+    if(fence) continue;
     const h = line.match(/^(#{1,4})\s+(.*)$/);
     if(h){
       const m = h[2].match(REV); if(m) rev = m[1];
@@ -21,23 +24,30 @@ export function parseReport(text){
       continue;
     }
     if(!inBlock) continue;
-    const b = line.match(/^\s*(?:[-*]|\d+\.)\s+(.*\S)\s*$/);
-    if(b && rev) found.push({ rev, text: b[1].replace(/\*\*/g, '').trim() });
+    const b = line.match(/^(\s*)(?:[-*]|(\d+)\.)\s+(.*\S)\s*$/);
+    if(b && rev && b[1].length < 2){ found.push({ rev, num: b[2] ? Number(b[2]) : null, text: b[3].replace(/\*\*/g, '').trim() }); continue; }
+    if(found.length && rev && /^\s{2,}\S/.test(line)) found[found.length - 1].text += ' ' + line.trim().replace(/\*\*/g, ''); // продовження пункту (відступ) або вкладений рядок
   }
   return found;
 }
 export function buildItems(files){
-  const counter = {}; const items = [];
+  const items = [];
   for(const f of files){
+    const perRev = {};
     for(const it of parseReport(f.text)){
-      counter[it.rev] = (counter[it.rev] || 0) + 1;
+      perRev[it.rev] = (perRev[it.rev] || 0) + 1;
+      const n = it.num !== null ? it.num : perRev[it.rev]; // явний номер зі звіту (1., 2.) або порядковий у межах ревізії цього звіту
       const i = it.text.indexOf(':');
-      const title = (i > 0 && i <= 90 ? it.text.slice(0, i) : it.text.slice(0, 90)).trim();
+      let title = (i > 0 && i <= 90 ? it.text.slice(0, i) : it.text).trim();
+      if(title.length > 90){ title = title.slice(0, 90); const sp = title.lastIndexOf(' '); if(sp > 40) title = title.slice(0, sp); title += '…'; }
       const expected = (i > 0 && i <= 90 ? it.text.slice(i + 1) : '').trim();
-      items.push({ id: it.rev + '-' + counter[it.rev], rev: it.rev, title, steps: [], expected });
+      items.push({ id: it.rev + '-' + n, rev: it.rev, title, steps: [], expected, h: itemHash(it.text) });
     }
   }
-  return items.sort((a, b) => cmp(b.rev, a.rev) || (a.id < b.id ? -1 : 1));
+  // однакова ревізія в кількох звітах: id не повинні збігатися
+  const seen = {}; items.forEach(x => { if(seen[x.id]){ let k = Number(x.id.split('-').pop()); while(seen[x.rev + '-' + k]) k++; x.id = x.rev + '-' + k; } seen[x.id] = true; });
+  const num = x => Number(x.id.split('-').pop());
+  return items.sort((a, b) => cmp(b.rev, a.rev) || num(a) - num(b));
 }
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if(isMain){
