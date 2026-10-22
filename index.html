@@ -3097,7 +3097,7 @@
              JS чи CSS. Повний хід ізоляції — docs/ROADMAP.md, 6D.136-141. -->
         <div class="field"><label>Назва витрати</label>
           <div style="position:relative;">
-            <input type="text" id="expfielda7" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput()" onfocus="updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)">
+            <input type="text" id="expfielda7" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput(event)" onfocus="if(!suggestSuppressed) updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)">
             <div class="name-suggest-list" id="name-suggest-list"></div>
           </div>
           <div class="field auto-hint" id="auto-hint">
@@ -3545,7 +3545,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.131</div>
+  <div class="version-footer">Money Tree · Rev 2.32.132</div>
 </div>
   </div>
 </div>
@@ -8109,7 +8109,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.131';
+const APP_VERSION = '2.32.132';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12203,7 +12203,8 @@ function autocategorize(name){
 // випадків — згорнуто. Тому повторний ввід того самого тексту, який має
 // авто-збіг, знову згортає поля, навіть якщо перед тим натискали іконку-олівець
 // і нічого не міняли — саме цього і бракувало.
-function onNameInput(){
+function onNameInput(ev){
+  if(ev && ev.type === 'input') suggestSuppressed = false; // Rev 2.32.132: справжній ввід користувача знову дозволяє підказки (програмний виклик із selectNameSuggestion не дозволяє)
   const name = document.getElementById('expfielda7').value;
   const hint = document.getElementById('auto-hint');
   const hintText = document.getElementById('auto-hint-text');
@@ -12229,7 +12230,7 @@ function onNameInput(){
   wrap.classList.toggle('open', shouldBeOpen);
   updateInstallmentLinkDetection(name);
   saveExpenseDraft();
-  updateNameSuggestions(name);
+  if(suggestSuppressed) hideNameSuggestions(); else updateNameSuggestions(name); // Rev 2.32.132: після вибору підказки список не відкривається знову сам
 }
 // Rev 2.2.2 — Автозв'язок витрата↔ОЧ, метод C (FINANCIAL_RULES §5): якщо текст
 // назви витрати збігається з назвою якоїсь ОЧ — пропонуємо прив'язати, АЛЕ
@@ -15184,24 +15185,66 @@ let activeNameSuggestIdx = -1;
 // touchend все ж супроводжується пізнішим синтетичним mousedown/click для
 // того самого жесту): повторний виклик у межах короткого вікна ігнорується.
 let lastSuggestionPickAt = 0;
-let suggestTouchStartY = null;
+let suggestTouchStart = null; // { x, y, gen }
+// Rev 2.32.132 (BUG-INPUT, рішення чату: це одне місце — не kb-*): підказка приймається ЛИШЕ явним дотиком по ній самій (або Enter). Раніше:
+//   - touchend брав індекс i зі старої розмітки: якщо список перемалювався між touchstart і touchend (iOS-автокорекція, повторний фокус), той самий i вказував на ІНШУ (довшу) назву → підміна;
+//   - синтезований iOS mousedown міг прилетіти після touchend і вибрати підказку, що опинилась під пальцем;
+//   - дотик поза списком лише закривався через blur із затримкою 150 мс, а не одразу.
+// Тепер: покоління розмітки (suggestGen) — вибір лише з того самого рендеру, що й touchstart; кінець дотику має лежати в межах самого елемента; mousedown ігнорується, поки триває «вікно дотику» (синтетичні події); дотик поза списком одразу закриває його й нічого не приймає, подію не гасимо (клік по «Додати» доходить до кнопки);
+// після вибору список не відкривається знову, поки користувач сам не змінить текст (suggestSuppressed).
+let suggestGen = 0;
+let suggestSuppressed = false;
+let suggestLastTouchAt = 0;
+const SUGGEST_TOUCH_WINDOW_MS = 800;
+// t: { connected, startGen, currentGen, dx, dy, point:{x,y}|null, rect:{left,top,right,bottom}|null } → true лише для справжнього тапу по тому самому елементу того самого рендеру.
+function suggestTapAccepted(t){
+  if(!t || !t.connected) return false;
+  if(t.startGen == null || t.startGen !== t.currentGen) return false;
+  if(Math.abs(t.dx || 0) > 10 || Math.abs(t.dy || 0) > 10) return false;
+  if(t.point && t.rect && (t.point.x < t.rect.left || t.point.x > t.rect.right || t.point.y < t.rect.top || t.point.y > t.rect.bottom)) return false;
+  return true;
+}
+function suggestMouseAllowed(now, lastTouchAt){ return !(lastTouchAt && now - lastTouchAt < SUGGEST_TOUCH_WINDOW_MS); }
+// Дотик/клік поза списком і поза полем назви: список лише закривається (true), нічого не приймається.
+function suggestShouldClose(listShown, insideList, insideField){ return !!listShown && !insideList && !insideField; }
 function handleSuggestionPick(e, i){
   e.preventDefault();
+  if(!suggestMouseAllowed(Date.now(), suggestLastTouchAt)) return; // синтетичний mousedown після дотику: вибір уже відбувся (або мав відбутись) на touchend
+  pickSuggestionNow(i);
+}
+function pickSuggestionNow(i){
   const now = Date.now();
   if(now - lastSuggestionPickAt < 400) return;
   lastSuggestionPickAt = now;
   selectNameSuggestion(i);
 }
 function handleSuggestionTouchStart(e){
-  suggestTouchStartY = e.touches && e.touches[0] ? e.touches[0].clientY : null;
+  const t = e.touches && e.touches[0];
+  suggestTouchStart = t ? { x: t.clientX, y: t.clientY, gen: suggestGen } : null;
 }
 function handleSuggestionTouchEnd(e, i){
-  const endY = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : null;
-  const moved = suggestTouchStartY != null && endY != null && Math.abs(endY - suggestTouchStartY) > 10;
-  suggestTouchStartY = null;
-  if(moved) return; // це був скрол/протяжка, а не тап по варіанту
-  handleSuggestionPick(e, i);
+  const st = suggestTouchStart;
+  suggestTouchStart = null;
+  const t = e.changedTouches && e.changedTouches[0];
+  const el = e.currentTarget || (e.target && e.target.closest ? e.target.closest('.name-suggest-item') : null);
+  const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+  const ok = suggestTapAccepted({
+    connected: !!(el && el.isConnected !== false), startGen: st ? st.gen : null, currentGen: suggestGen,
+    dx: st && t ? t.clientX - st.x : 0, dy: st && t ? t.clientY - st.y : 0,
+    point: t ? { x: t.clientX, y: t.clientY } : null, rect: r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null,
+  });
+  if(!ok) return; // скрол/протяжка, перемальований список чи палець зійшов з елемента — не вибір
+  e.preventDefault();
+  pickSuggestionNow(i);
 }
+// Вікно дотику (для suggestMouseAllowed) і закриття списку дотиком поза ним. Слухачі пасивні/capture і НЕ гасять подію: клік по «Додати» доходить до кнопки.
+document.addEventListener('touchstart', function(){ suggestLastTouchAt = Date.now(); }, { passive: true, capture: true });
+document.addEventListener('pointerdown', function(e){
+  const listEl = document.getElementById('name-suggest-list');
+  if(!listEl) return;
+  const tg = e.target && e.target.closest ? e.target : null;
+  if(suggestShouldClose(listEl.classList.contains('show'), !!(tg && tg.closest('#name-suggest-list')), !!(tg && tg.closest('#expfielda7')))) hideNameSuggestions();
+}, true);
 // Rev 2.22.67 (6D.138) BugFix — onExpenseNameFocus()/readonly-до-фокуса
 // (6D.136) ВИДАЛЕНО: живий тест на iPhone (6D.137, Крок 1) підтвердив, що
 // автозаповнення контакту лишається відсутнім і БЕЗ readonly — цей
@@ -15234,6 +15277,7 @@ function updateNameSuggestions(text){
   if(q.length < 2){ nameSuggestions = []; listEl.classList.remove('show'); listEl.innerHTML=''; return; }
   const matches = nameSuggestionsFor(nameHistoryMap, text);
   nameSuggestions = matches;
+  suggestGen++; // Rev 2.32.132: нове покоління розмітки — старі дотики (touchstart до перемалювання) більше не вибирають
   debugSuggestRender('new', matches, activeNameSuggestIdx); // Rev 2.32.129
   if(!matches.length){ listEl.classList.remove('show'); listEl.innerHTML=''; return; }
   listEl.innerHTML = matches.map(function(n,i){
@@ -15284,6 +15328,7 @@ function selectNameSuggestion(i){
   const lenBefore = nameInput.value.length; // Rev 2.32.129: лише довжини для діагностики
   nameInput.value = name;
   debugSuggestPick('new', i, name, lenBefore, name.length);
+  suggestSuppressed = true; // Rev 2.32.132: до наступного вводу користувача список не відкривається знову (довші збіги після вибору короткої)
   onNameInput(); // спершу звичайний шлях: словник автозв'язку/автокатегорії
   hideNameSuggestions();
   // Пріоритет над словником — реальна історія САМЕ цієї назви (точніше за

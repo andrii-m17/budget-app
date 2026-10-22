@@ -34,7 +34,7 @@ test('автовизначення лише на ВВЕДЕННЯ в полі н
 
 test('те саме autocategorize, що й у новій витраті; правила збігу й форма нової витрати без змін', () => {
   assert.match(EDIT, /autocategorize\(nameInput\.value\)/);
-  const form = SRC.slice(SRC.indexOf('function onNameInput(){'), SRC.indexOf('// Rev 2.2.2 — Автозв\'язок витрата↔ОЧ'));
+  const form = SRC.slice(SRC.indexOf('function onNameInput(ev){'), SRC.indexOf('// Rev 2.2.2 — Автозв\'язок витрата↔ОЧ'));
   assert.match(form, /const match = name\.trim\(\) \? autocategorize\(name\) : null;/);
   assert.match(form, /if\(!catSel\.classList\.contains\('manual-flag'\)\)\{ setCategorySelect\(match\.cat, false\); \}/);
   const ac = SRC.slice(SRC.indexOf('function autocategorize(name){'), SRC.indexOf('// Rev 2.1.5 — BugFix: якщо текст спершу збігався'));
