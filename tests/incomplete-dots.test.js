@@ -7,37 +7,47 @@ const path = require('node:path');
 const ex = require('./extract');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ctx = ex.buildSandbox({}, ['incompleteReasons']);
+const ctx = ex.buildSandbox({}, ['incompleteDetails', 'incompleteReasons']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const R = (e, r, h) => j(`incompleteReasons(${JSON.stringify(e)},${JSON.stringify(r)},"2026-10",${!!h})`);
 const MOD = SRC.slice(SRC.indexOf('// ===== Rev 2.31.3 (B)'), SRC.indexOf('// ===== Rev 2.28.1 (C) — аудит id/name'));
 
-test('картка: повна → []; кожна причина окремо; баланс>0 без мін. платежу; нульовий баланс не вимагає мін. платежу', () => {
-  const full = { name: 'A', creditLimit: 50000 };
-  assert.deepEqual(R(full, { balance: 1000, minPayment: 100 }), []);
-  assert.deepEqual(R({ name: 'A', creditLimit: null }, { balance: 1000, minPayment: 100 }), ['limit']);
-  assert.deepEqual(R({ name: 'A', creditLimit: 0 }, { balance: 1000, minPayment: 100 }), ['limit'], 'ліміт має бути > 0');
-  assert.deepEqual(R(full, null), ['balance'], 'немає запису за місяць');
-  assert.deepEqual(R(full, { balance: null, minPayment: null }), ['balance']);
-  assert.deepEqual(R(full, { balance: 1000, minPayment: null }), ['minPayment']);
-  assert.deepEqual(R(full, { balance: 1000 }), ['minPayment']);
-  assert.deepEqual(R(full, { balance: 0, minPayment: null }), [], 'нульовий баланс — мін. платіж не потрібен');
-  assert.deepEqual(R(full, { balance: 1000, minPayment: 0 }), [], 'явно внесений 0 — не відсутній');
-  assert.deepEqual(R({ name: 'A', creditLimit: null }, null), ['limit', 'balance'], 'кілька причин одразу');
-  assert.deepEqual(R({ name: 'A', creditLimit: null }, { balance: 5, minPayment: null }), ['limit', 'minPayment']);
+// Rev 2.32.135 (INCOMPLETE-2): причини незалежні; умовні (мін. платіж / платіж ОЧ) показуються й при невідомому борзі/залишку з dependent: true.
+const D = (e, r, h) => j(`incompleteDetails(${JSON.stringify(e)},${JSON.stringify(r)},"2026-10",${!!h})`);
+const CARD = { name: 'A', creditLimit: 50000, paymentDay: 15 };
+const INST = { name: 'iPhone', initialAmount: 30000, dueDay: 15 };
+test('картка: повна → []; картка без усього → ліміт, борг, мін. платіж («залежить від боргу»), день платежу', () => {
+  assert.deepEqual(R(CARD, { balance: 1000, minPayment: 100 }), []);
+  assert.deepEqual(D({ name: 'A', creditLimit: null, paymentDay: null }, null), [
+    { code: 'limit', dependent: false }, { code: 'balance', dependent: false }, { code: 'minPayment', dependent: true }, { code: 'dueDay', dependent: false }]);
 });
-
-test('ОЧ: повна → []; день платежу / початкова сума / платіж окремо; нульовий залишок не вимагає платежу', () => {
-  const full = { name: 'iPhone', initialAmount: 30000, dueDay: 15 };
-  assert.deepEqual(R(full, { balance: 20000, monthlyPayment: 2500 }), []);
+test('картка з боргом без мін. платежу: лише minPayment (не залежне); борг 0 мін. платіж не вимагає; явний 0 — не відсутній', () => {
+  assert.deepEqual(D(CARD, { balance: 1000, minPayment: null }), [{ code: 'minPayment', dependent: false }]);
+  assert.deepEqual(D(CARD, { balance: 1000 }), [{ code: 'minPayment', dependent: false }]);
+  assert.deepEqual(R(CARD, { balance: 0, minPayment: null }), []);
+  assert.deepEqual(R(CARD, { balance: 1000, minPayment: 0 }), []);
+  assert.deepEqual(D(CARD, { balance: null, minPayment: null }), [{ code: 'balance', dependent: false }, { code: 'minPayment', dependent: true }]);
+  assert.deepEqual(R(CARD, { balance: null, minPayment: 100 }), ['balance'], 'мін. платіж внесено — залежної причини нема');
+});
+test('картка: нульовий ліміт і порожній ліміт; день платежу обов\'язковий; незалежні причини разом (без «заглушення»)', () => {
+  assert.deepEqual(R({ name: 'A', creditLimit: 0, paymentDay: 5 }, { balance: 1000, minPayment: 100 }), ['limit'], 'ліміт має бути > 0');
+  assert.deepEqual(R({ name: 'A', creditLimit: null, paymentDay: 5 }, { balance: 1000, minPayment: 100 }), ['limit']);
+  assert.deepEqual(R({ name: 'A', creditLimit: 5, paymentDay: null }, { balance: 1000, minPayment: 100 }), ['dueDay']);
+  assert.deepEqual(R({ name: 'A', creditLimit: null, paymentDay: 5 }, { balance: 5, minPayment: null }), ['limit', 'minPayment']);
+});
+test('ОЧ: повна → []; ОЧ без залишку → дата, початкова сума, залишок, платіж («залежить від залишку»)', () => {
+  assert.deepEqual(R(INST, { balance: 20000, monthlyPayment: 2500 }), []);
+  assert.deepEqual(D({ name: 'x', initialAmount: null, dueDay: null }, { balance: null, monthlyPayment: null }), [
+    { code: 'dueDay', dependent: false }, { code: 'initialAmount', dependent: false }, { code: 'balance', dependent: false }, { code: 'payment', dependent: true }]);
+  assert.deepEqual(D(INST, { balance: null, monthlyPayment: 2500 }), [{ code: 'balance', dependent: false }], 'платіж відомий — залежної причини нема');
+  assert.deepEqual(D(INST, null), [{ code: 'balance', dependent: false }, { code: 'payment', dependent: true }]);
+});
+test('ОЧ із залишком без платежу: payment (не залежне); нульовий залишок платіж не вимагає; початкова сума > 0; дата платежу', () => {
+  assert.deepEqual(D(INST, { balance: 20000, monthlyPayment: null }), [{ code: 'payment', dependent: false }]);
+  assert.deepEqual(R(INST, { balance: 20000, monthlyPayment: 0 }), ['payment']);
+  assert.deepEqual(R(INST, { balance: 0, monthlyPayment: null }), []);
+  assert.deepEqual(R({ name: 'x', initialAmount: 0, dueDay: 5 }, { balance: 20000, monthlyPayment: 2500 }), ['initialAmount']);
   assert.deepEqual(R({ name: 'x', initialAmount: 30000, dueDay: null }, { balance: 20000, monthlyPayment: 2500 }), ['dueDay']);
-  assert.deepEqual(R({ name: 'x', initialAmount: null, dueDay: 5 }, { balance: 20000, monthlyPayment: 2500 }), ['initialAmount']);
-  assert.deepEqual(R({ name: 'x', initialAmount: 0, dueDay: 5 }, { balance: 20000, monthlyPayment: 2500 }), ['initialAmount'], 'початкова сума > 0');
-  assert.deepEqual(R(full, { balance: 20000, monthlyPayment: null }), ['payment']);
-  assert.deepEqual(R(full, { balance: 20000, monthlyPayment: 0 }), ['payment']);
-  assert.deepEqual(R(full, { balance: 0, monthlyPayment: null }), [], 'нульовий залишок — платіж не потрібен');
-  assert.deepEqual(R(full, null), [], 'без розв\'язаного факту причину payment не вигадуємо');
-  assert.deepEqual(R({ name: 'x', initialAmount: null, dueDay: null }, { balance: 5, monthlyPayment: null }), ['dueDay', 'initialAmount', 'payment']);
 });
 
 test('прихована картка/ОЧ — без крапки; порожня сутність — []', () => {
@@ -71,12 +81,14 @@ test('крапки у рядках карток і ОЧ; лічильники н
   assert.match(SRC, /if\(el\.__acctHtml === value && el\.firstChild\) return;/);
 });
 
-test('«Заповнити» відкриває шторку цієї картки/ОЧ і лише підсвічує перше порожнє поле (без focus() — клавіатурна логіка шторок не чіпається); кнопка основна, не червона', () => {
+test('«Заповнити» відкриває шторку цієї картки/ОЧ і підсвічує ВСІ порожні поля одразу (без focus() — клавіатурна логіка шторок не чіпається); кнопка основна, не червона', () => {
   const fill = MOD.slice(MOD.indexOf('function fillIncomplete'), MOD.indexOf('function recordIncompleteDots'));
   assert.match(fill, /openCardDebtEditor\(i\); else openInstallmentEditor\(i\);/);
   assert.ok(!/\.focus\(/.test(fill), 'без автофокусу');
-  assert.match(fill, /el\.scrollIntoView\(\{ block: 'center' \}\);/);
-  assert.match(MOD, /showConfirmModal\(msg, function\(\)\{ fillIncomplete\(kind, i, reasons\[0\]\); \}, 'Заповнити', 'primary'\);/); // Rev 2.32.45 (FB): основна дія — явний variant замість пізнього присвоєння класу
+  assert.match(fill, /first\.scrollIntoView\(\{ block: 'center' \}\);/);
+  assert.match(fill, /list\.forEach\(function\(code\)\{/); // усі коди, не лише перший
+  assert.match(fill, /if\(raw !== '' && !\(code === 'payment' && !\(parseAmount\(raw\) > 0\)\)\) return;/); // лише порожні (для платежу ОЧ «0» теж порожній)
+  assert.match(MOD, /showConfirmModal\(msg, function\(\)\{ fillIncomplete\(kind, i, details\.map\(function\(d\)\{ return d\.code; \}\)\); \}, 'Заповнити', 'primary'\);/); // Rev 2.32.45 (FB): основна дія — явний variant замість пізнього присвоєння класу
   ['limit', 'balance', 'minPayment', 'dueDay', 'initialAmount', 'payment'].forEach(r => { assert.match(MOD, new RegExp(r + ': \'[a-z-]+\'')); });
   ['cdd-limit', 'cdd-balance', 'cdd-minpay', 'idd-due-day', 'idd-initial', 'idd-pay'].forEach(id => assert.ok(SRC.includes('id="' + id + '"'), id + ' існує'));
 });
