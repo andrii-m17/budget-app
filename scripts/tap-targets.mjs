@@ -6,7 +6,13 @@
 // Дані лише синтетичні (мок typical).
 import { spawn } from 'node:child_process';
 import { writeFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
-const MODE = process.argv[2];
+// Необов'язковий інструмент (рішення власника 22.10.2026): запуск лише з прапорцем --run (інакше довідка й вихід 0). Знімки: одна теку-мітка часу на запуск, код завершення 0/1, сторожовий таймер 180 с (код 2).
+const RUN = process.argv.includes('--run');
+const ARGS = process.argv.filter(a => a !== '--run');
+const MODE = ARGS[2];
+if(!RUN){ console.log('Необов\'язковий інструмент знімків/вимірів. Запуск: node scripts/tap-targets.mjs <режим> [тека] --run (режими: scan | shots | fshots | fields | diff | dump). Тека за замовчуванням: /tmp/tt-<мітка часу>.'); process.exit(0); }
+const STAMP = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+if(['shots', 'fshots', 'scan', 'fields', 'diff'].includes(MODE)) setTimeout(() => { console.error('таймаут 180 с: крок знімків перервано (знімок не отримано, причина: перевищено ліміт)'); process.exit(2); }, 180000).unref();
 const BASE = process.env.BASE || 'http://localhost:8934'; // BASE=http://localhost:8935 для «до» (копія попередньої ревізії)
 const TABS = ['analytics', 'vytraty', 'accounting', 'structure', 'service'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -65,7 +71,7 @@ if(MODE === 'scan'){
   c.close(); process.exit(0);
 }
 if(MODE === 'shots'){
-  const dir = process.argv[3]; mkdirSync(dir, { recursive: true });
+  const dir = ARGS[3] || ('/tmp/tt-' + STAMP); mkdirSync(dir, { recursive: true }); console.log('тека:', dir);
   const c = await open();
   for(const theme of ['dark', 'light']) for(const tab of TABS){
     if(process.env.ONLY && process.env.ONLY !== tab + ':' + theme) continue; // ONLY=analytics:dark
@@ -94,7 +100,7 @@ if(MODE === 'fields'){ // поля вводу з шрифтом < 16 px або �
   c.close(); process.exit(0);
 }
 if(MODE === 'fshots'){ // скріншоти полів (Журнал: пошук/фільтри, редагування запису) на 320/390/440, обидві теми + перевірка переповнення
-  const dir = process.argv[3]; mkdirSync(dir, { recursive: true });
+  const dir = ARGS[3] || ('/tmp/tt-' + STAMP); mkdirSync(dir, { recursive: true }); console.log('тека:', dir);
   const c = await open(); let bad = 0;
   for(const w of [320, 390, 440]) for(const theme of ['dark', 'light']) for(const st of ['journal', 'edit']){
     await c.send('Emulation.setDeviceMetricsOverride', { width: w, height: 844, deviceScaleFactor: 2, mobile: true });
@@ -112,10 +118,10 @@ if(MODE === 'fshots'){ // скріншоти полів (Журнал: пошу�
 if(MODE === 'dump'){ // computed-стилі пілюлі місяця (темна тема) → файл JSON: для пошуку причини піксельних відмінностей
   const c = await open(); await loadTab(c, 'analytics', 'dark');
   const out = await c.ev(`(()=>{const dump=e=>{const c=getComputedStyle(e);const o={};for(const k of c)o[k]=c.getPropertyValue(k);return o};const p=document.querySelector('.month-pill');const r=e=>{const b=e.getBoundingClientRect();return [b.left,b.top,b.width,b.height]};return JSON.stringify({pill:dump(p),svg:dump(p.querySelector('svg')),sel:dump(p.querySelector('select')),rects:{pill:r(p),svg:r(p.querySelector('svg')),sel:r(p.querySelector('select'))}});})()`);
-  writeFileSync(process.argv[3], out); c.close(); process.exit(0);
+  writeFileSync(ARGS[3], out); c.close(); process.exit(0);
 }
 if(MODE === 'diff'){
-  const [a, b] = [process.argv[3], process.argv[4]];
+  const [a, b] = [ARGS[3], ARGS[4]];
   const c = await open(); await c.send('Page.navigate', { url: BASE + '/?fixture=empty' }); await sleep(1500);
   let bad = 0;
   for(const f of readdirSync(a).filter(x => x.endsWith('.png'))){

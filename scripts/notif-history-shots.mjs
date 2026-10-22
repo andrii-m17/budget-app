@@ -4,6 +4,9 @@
 //   node scripts/notif-history-shots.mjs after [ширини через кому]   → docs/ui/notif3-after-<тема>-<ширина>.png
 //   node scripts/notif-history-shots.mjs before [ширини]              → docs/ui/notif3-before-<тема>-<ширина>.png (порт 8935)
 // Дані лише синтетичні. Перевіряє: жоден рядок не виходить за межі й не переноситься поза очікуване, горизонтальної прокрутки немає, свайп уліво відкриває кнопку «Видалити» 84 pt.
+// Необов'язковий інструмент (рішення власника 22.10.2026): запуск лише з прапорцем --run.
+if(!process.argv.includes('--run')){ console.log('Необов\'язковий інструмент знімків. Запуск: node scripts/notif-history-shots.mjs after|before [ширини] --run'); process.exit(0); }
+process.argv = process.argv.filter(a => a !== '--run');
 import { spawn } from 'node:child_process';
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 const MODE = process.argv[2] === 'before' ? 'before' : 'after';
