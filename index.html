@@ -3528,7 +3528,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.124</div>
+  <div class="version-footer">Money Tree · Rev 2.32.125</div>
 </div>
   </div>
 </div>
@@ -8085,7 +8085,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.124';
+const APP_VERSION = '2.32.125';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12852,7 +12852,7 @@ function populateInstallmentTable(){
     // цього місяця тепер пріоритетна над existing (докоментар над самою
     // функцією вище).
     const resolved = resolveInstallmentFact(name, selectedMonth, existing);
-    const balance = resolved.balance != null ? resolved.balance : 0;
+    const balance = resolved.balance; // Rev 2.32.125 (BUG-OCH): null = залишок невідомий → «—», не «0 ₴»
     const payment = resolved.pay != null ? resolved.pay : 0;
     // Rev 2.17.0 — "оплата цього місяця внесена" для ОЧ визначається
     // автоматично (без ручного чекбоксу, як у карток): наявність витрати,
@@ -12887,7 +12887,7 @@ function populateInstallmentTable(){
         ${subHtml}
       </span>
       <span class="cdr-amounts">
-        <span class="cdr-balance mono">${fmt(balance)}</span>
+        <span class="cdr-balance mono">${balance != null ? fmt(balance) : '—'}</span>
         <span class="cdr-minpay mono${paid ? ' paid' : partial ? ' partial' : ''}">Платіж ${fmt(payment)}</span>
       </span>
       <span class="cdr-chevron" aria-hidden="true">${CHEVRON}</span>
@@ -12925,7 +12925,8 @@ function estimateInstallment(name, month){
 function resolveInstallmentFact(name, month, existing){
   const est = estimateInstallment(name, month);
   if(est.linkedSum > 0){
-    return { balance: est.balance, pay: est.pay, linkedSum: est.linkedSum };
+    // Rev 2.32.125 (BUG-OCH): пріоритет прив'язаної витрати (6D.148) незмінний; лише коли оцінку залишку нема (немає попереднього факту — перший місяць ОЧ), показуємо збережений факт місяця, а не «0». Ризик: у перший місяць залишок береться з факту, а не з оцінки (оцінки там і не було).
+    return { balance: est.balance != null ? est.balance : (existing ? existing.balance : null), pay: est.pay, linkedSum: est.linkedSum };
   }
   return {
     balance: existing ? existing.balance : (est.balance != null ? est.balance : null),
@@ -12956,13 +12957,16 @@ function updateInstallmentTotal(){
 function updateInstallmentBalanceTotal(){
   const totalEl = document.getElementById('installment-balance-total-value');
   if(!totalEl || !selectedMonth) return;
-  let sum = 0;
+  let sum = 0, known = 0;
   installmentAccounts.forEach(function(acc){
     if(!isInstallmentVisibleForMonth(acc, selectedMonth)) return;
     // Rev #30 (6D.44) — activeDebts().
     const existing = activeDebts().find(function(d){ return d.name===acc.name && d.kind==='installment' && d.month===selectedMonth; });
-    sum += resolveInstallmentFact(acc.name, selectedMonth, existing).balance || 0;
+    const b = resolveInstallmentFact(acc.name, selectedMonth, existing).balance;
+    if(b != null){ sum += b; known++; } // Rev 2.32.125 (BUG-OCH): невідомий залишок не рахується як 0
   });
+  const anyVisible = installmentAccounts.some(function(acc){ return isInstallmentVisibleForMonth(acc, selectedMonth); });
+  if(anyVisible && !known){ totalEl.textContent = '—'; setDashFinal('installment-balance-total-value', null); return; } // усі залишки невідомі
   totalEl.textContent = fmt(sum);
   setDashFinal('installment-balance-total-value', sum);
 }
@@ -13136,7 +13140,11 @@ async function saveInstallmentDrawer(){
   const rawName = document.getElementById('iddfielda1').value.trim();
   const newInitial = parseAmount(document.getElementById('idd-initial').value);
   if(!rawName){ flashField('iddfielda1'); return; }
-  if(!newInitial || isNaN(newInitial) || newInitial<=0){ flashField('idd-initial'); return; }
+  if(!newInitial || isNaN(newInitial) || newInitial<=0){
+    flashField('idd-initial');
+    showTextToast('Вкажіть початкову суму ОЧ: без неї запис не зберігається', 'warning'); // Rev 2.32.125 (BUG-OCH): раніше відмова була тиха (лише мигало поле)
+    return;
+  }
   const oldName = acc.name;
   // Rev #30 (6D.31) — простий прямий присвоєння: emoji-відновлення (6D.24
   // BugFix) стало зайвим після повного прибирання emoji з name (6D.31) —
