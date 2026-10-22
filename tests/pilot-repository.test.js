@@ -89,7 +89,6 @@ const REPOSITORY_NAMES = [
   'LS_KEY_HIDDEN', 'LS_KEY_SCHEMA_VERSION', 'LS_KEY_IGNORED_DIVERGENCES',
   'BACKUP_LS_KEYS',
   'DEFAULT_CATEGORIES', 'DEFAULT_SUBCATEGORIES', 'DEFAULT_SUBCATEGORY_PRIORITY', 'DEFAULT_DICTIONARY',
-  'DEFAULT_BANKS',
   'IDB_CDN_URL', 'IDB_DB_NAME', 'IDB_STORE_NAME', 'IDB_DB_VERSION',
   'DOMAIN_MIGRATION_KEYS', 'LS_KEY_MIGRATION_STATUS',
   // functions (порядок не критичний — function-декларації хойстяться в
@@ -3745,18 +3744,29 @@ test('регресія (стейтфул Cloud-mock): одне відновле�
 
 /* ============ D1: loadBankAccounts/saveBankAccounts — routing ============ */
 
-test('loadBankAccounts: домен не мігровано, немає ключа → DEFAULT_BANKS, зберігається в localStorage', async () => {
+test('loadBankAccounts (Rev 2.32.136): домен не мігровано, немає ключа → порожній список без засіву, зберігається «[]» у localStorage', async () => {
   const { ctx } = sandbox({ localStorageInitial: {} });
   await ctx.loadBankAccounts();
-  const expected = plain(readConst(ctx, 'DEFAULT_BANKS')).map(name => ({ name, creditLimit: null }));
-  assert.deepEqual(plain(ctx.bankAccounts), expected);
-  assert.equal(ctx.localStorage.getItem('budget_bankaccounts_v1'), JSON.stringify(ctx.bankAccounts));
+  assert.deepEqual(plain(ctx.bankAccounts), []);
+  assert.equal(ctx.localStorage.getItem('budget_bankaccounts_v1'), '[]');
+});
+test('loadBankAccounts: порожній список не засівається повторно; видалена картка не воскресає на «новому пристрої» (порожнє сховище → без жодної картки)', async () => {
+  const { ctx } = sandbox({ localStorageInitial: { 'budget_bankaccounts_v1': '[]' } });
+  await ctx.loadBankAccounts();
+  assert.deepEqual(plain(ctx.bankAccounts), []);
+  await ctx.loadBankAccounts(); // повторне завантаження
+  assert.deepEqual(plain(ctx.bankAccounts), []);
+  const fresh = sandbox({ localStorageInitial: {} }); // «новий пристрій»: жодної картки зі «стандартного набору»
+  await fresh.ctx.loadBankAccounts();
+  assert.equal(fresh.ctx.bankAccounts.length, 0);
 });
 
-test('loadBankAccounts: BugFix — домен мігровано, IndexedDB порожня → DEFAULT_BANKS одразу зберігається В IndexedDB', async () => {
+test('loadBankAccounts: домен мігровано, IndexedDB порожня → порожній список (без засіву) зберігається В IndexedDB як «[]»', async () => {
   const { ctx, fakeIdbInstance } = sandbox({ localStorageInitial: {} });
   ctx.markDomainMigrated('bankAccounts');
   await ctx.loadBankAccounts();
+  assert.deepEqual(plain(ctx.bankAccounts), []);
+  assert.equal(fakeIdbInstance.store.get('budget_bankaccounts_v1'), '[]');
   assert.equal(fakeIdbInstance.store.get('budget_bankaccounts_v1'), JSON.stringify(ctx.bankAccounts));
   assert.equal(ctx.localStorage.getItem('budget_bankaccounts_v1'), null);
 });

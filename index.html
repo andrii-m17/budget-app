@@ -3545,7 +3545,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.135</div>
+  <div class="version-footer">Money Tree · Rev 2.32.136</div>
 </div>
   </div>
 </div>
@@ -6026,7 +6026,7 @@ const LS_KEY_IGNORED_DIVERGENCES = 'budget_ignored_divergences_v1';
 // Rev #30 (6D.31) — без emoji-префіксів: bankIcon() і так матчить за
 // текстом банку, emoji в name більше не мали б сенсу навіть для щойно
 // засіяного (першого запуску) списку.
-const DEFAULT_BANKS = ['Приват Банк','Моно Банк','Raifaizen','ПУМБ Банк','Sense Банк','Приват Банк Оля','Моно Банк Оля'];
+// Rev 2.32.136: стандартного набору карток більше немає (новий користувач починає з порожнього списку; DEFAULT_BANKS видалено разом із засівом у loadBankAccounts/clearAllData). Імпорт Excel сам створює відсутні картки зі стовпців (importEnsureAccounts).
 let expenses = [];
 let incomes = [];
 let debts = []; // {id, name, kind:'card'|'installment', month:'YYYY-MM', balance, minPayment?, minPaymentDone?} — minPayment/minPaymentDone лише для kind==='card' (Rev 2.16.4)
@@ -6368,14 +6368,10 @@ async function loadBankAccounts(){
         });
         if(migrated) reportSaveResult(await saveBankAccounts());
       }else{
-        bankAccounts = DEFAULT_BANKS.map(function(name){ return { name, creditLimit: null }; });
-        // Rev #28.D1 — той самий seed-на-першому-читанні фікс, що Stage C
-        // (BugFix, знайдений живою перевіркою): без цього щойно мігрований
-        // порожній домен тихо скидався б до DEFAULT_BANKS щоразу, ніколи не
-        // зберігаючись у IndexedDB.
+        bankAccounts = []; // Rev 2.32.136: без засіву; порожній список зберігається як «[]» (ключ є — повторного початкового стану нема)
         reportSaveResult(await saveBankAccounts());
       }
-    }catch(e){ bankAccounts = DEFAULT_BANKS.map(function(name){ return { name, creditLimit: null }; }); }
+    }catch(e){ bankAccounts = []; }
     return;
   }
   // Гілка нижче — точна копія поведінки ДО Stage D1: доки домен не
@@ -6396,10 +6392,10 @@ async function loadBankAccounts(){
       });
       if(migrated) await saveBankAccounts();
     }else{
-      bankAccounts = DEFAULT_BANKS.map(function(name){ return { name, creditLimit: null }; });
-      await saveBankAccounts(); // перший запуск — одразу зберігаємо дефолт
+      bankAccounts = []; // Rev 2.32.136: без засіву
+      await saveBankAccounts(); // перший запуск — зберігаємо порожній список
     }
-  }catch(e){ bankAccounts = DEFAULT_BANKS.map(function(name){ return { name, creditLimit: null }; }); }
+  }catch(e){ bankAccounts = []; }
 }
 async function loadInstallmentAccounts(){
   if(isDomainMigrated('installmentAccounts')){
@@ -8109,7 +8105,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.135';
+const APP_VERSION = '2.32.136';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9117,7 +9113,7 @@ function clearAllData(){
     // "як після першого запуску" (bankAccounts — дефолтний набір, той самий,
     // що на чистій інсталяції; installmentAccounts — порожній, бо дефолтного
     // набору ОЧ немає).
-    bankAccounts = DEFAULT_BANKS.map(function(name){ return { name, creditLimit: null }; });
+    bankAccounts = []; // Rev 2.32.136: «як після першого запуску» = порожньо (стандартних карток нема)
     installmentAccounts = [];
     hiddenFrom = {};
     ignoredDivergences = {}; // Rev 2.16.2 — той самий принцип: без боргів ігноровані розбіжності теж втрачають сенс
@@ -13257,7 +13253,7 @@ async function saveInstallmentDrawer(){
     // перейменування не збігається НІ З ЧИМ — ні для показу в редакторі
     // Журналу (installmentLinkOptionsHtml нижче), ні для pushExpenseRecordPilot()
     // (шукає acc за назвою) — підтверджено на реальних даних користувача
-    // (ОЧ "Приват iPhone" → "Приват Банк Оля", 4 витрати травня-серпня
+    // (ОЧ «Приват iPhone» → інша назва, 4 витрати травня-серпня
     // лишились без прив'язки).
     expenses.forEach(function(e){ if(e.linkedInstallment===oldName) e.linkedInstallment = newName; });
     reportSaveResult(await saveExpenses());
@@ -14441,6 +14437,26 @@ function mapExcelIncomeRow(row, monthKeyVal){
 // balance, idx} — idx історично використовувався caller'ом для побудови
 // id-рядка (imp-debt-i-idx-...), з Rev #30 (6D.7) той id — generateUUID(),
 // idx у самому збереженому запису боргу й далі не з'являється.
+// Rev 2.32.136: стовпці банків аркуша «Історія» (P:V). Назви нейтральні (раніше з емодзі й іменами членів родини): такі самі картки з'являються після імпорту, якщо їх ще немає (importEnsureAccounts).
+// Ризик: повторний імпорт СТАРОГО файлу створить картки «Приват Банк 2»/«Моно Банк 2» замість раніше імпортованих під іншими назвами (дублікат за назвою не збігається).
+const EXCEL_DEBT_COLUMNS = [
+  { idx: 15, name: 'Приват Банк', kind: 'card' },
+  { idx: 16, name: 'Моно Банк', kind: 'card' },
+  { idx: 17, name: 'Raifaizen', kind: 'card' },
+  { idx: 18, name: 'ПУМБ Банк', kind: 'card' },
+  { idx: 19, name: 'Sense Банк', kind: 'card' },
+  { idx: 20, name: 'Приват Банк 2', kind: 'card' },
+  { idx: 21, name: 'Моно Банк 2', kind: 'card' },
+];
+// Чиста: створює в списках відсутні картки/ОЧ за імпортованими боргами; нові картки з createdAt/updatedAt (щоб синхронізація їх підхопила й відправила). Повертає кількість нових.
+function importEnsureAccounts(debtList, banks, installments, nowISO){
+  let addedCards = 0, addedInstallments = 0;
+  (debtList || []).forEach(function(d){
+    if(d.kind === 'card' && !banks.some(function(b){ return b.name === d.name; })){ banks.push({ name: d.name, creditLimit: null, createdAt: nowISO, updatedAt: nowISO }); addedCards++; }
+    if(d.kind === 'installment' && !installments.some(function(a){ return a.name === d.name; })){ installments.push({ name: d.name, initialAmount: null }); addedInstallments++; }
+  });
+  return { addedCards: addedCards, addedInstallments: addedInstallments };
+}
 function mapExcelDebtColumnsRow(row, monthKeyVal, debtCols){
   const out = [];
   for(const dc of debtCols){
@@ -14602,15 +14618,7 @@ function handleImportFile(event){
       let skippedDuplicateDebts = 0;
       if(wsHist){
         const rows = XLSX.utils.sheet_to_json(wsHist, {header:1, defval:null});
-        const debtCols = [
-          {idx:15, name:'🟩 Приват Банк', kind:'card'},
-          {idx:16, name:'⬛️ Моно Банк', kind:'card'},
-          {idx:17, name:'🟨 Raifaizen', kind:'card'},
-          {idx:18, name:'🟥 ПУМБ Банк', kind:'card'},
-          {idx:19, name:'🟪 Sense Банк', kind:'card'},
-          {idx:20, name:'🟩 Приват Банк Оля', kind:'card'},
-          {idx:21, name:'⬛️ Моно Банк Оля', kind:'card'},
-        ];
+        const debtCols = EXCEL_DEBT_COLUMNS; // Rev 2.32.136: константа (імена без емодзі й без імен членів родини)
         // Rev 2.0.4: якщо є аркуш "Фінанси" — детальний знімок ОЧ береться звідти
         // (нижче), тому лумп-сум колонку Z з "Історії" НЕ додаємо в цей прохід,
         // інакше ОЧ порахується двічі. Без аркуша "Фінанси" (старіший файл) —
@@ -14753,16 +14761,14 @@ function handleImportFile(event){
       // у таблиці (немає рядка форми для нього). Для ОЧ без "Фінанси" (старіший
       // фолбек-шлях через "Історія") initialAmount лишається невідомою (null) —
       // її можна буде дописати вручну через ✎.
-      debts.forEach(function(d){
-        if(d.kind==='card' && !bankAccounts.some(function(b){ return b.name===d.name; })) bankAccounts.push({ name: d.name, creditLimit: null });
-        if(d.kind==='installment' && !installmentAccounts.some(a=>a.name===d.name)) installmentAccounts.push({ name: d.name, initialAmount: null });
-      });
+      const ensured = importEnsureAccounts(debts, bankAccounts, installmentAccounts, new Date().toISOString()); // Rev 2.32.136
       // Rev 2.11.9 (Баг #5) — щойно авто-створені вище записи (initialAmount:
       // null) ще не мають firstMonth; довизначаємо його одразу тут-таки за
       // найранішим імпортованим фактом, а не чекаємо наступного loadAll().
       await ensureInstallmentFirstMonth();
       reportSaveResult(await saveBankAccounts());
       reportSaveResult(await saveInstallmentAccounts());
+      if(ensured.addedCards > 0){ try{ await pushBankAccountsPilot(); }catch(e){} } // Rev 2.32.136: нові картки з імпорту одразу йдуть у Cloud (дані місячних боргів пушаться окремо, як раніше)
       populateMonths();
 
       let renderWarning = '';
