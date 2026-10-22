@@ -80,8 +80,8 @@
     --color-info:#3B82F6; --color-info-bg:#EAF1FE;
     --color-expense:#101828; --color-expense-bg:#F1F3F5;
     --color-accent-purple:#9333EA; --color-accent-purple-bg:#F5E9FE;
-    /* Rev #30 (6D.62) — Cloud Sync UI: автор-маркер (Andrii=--color-info,
-       уже використаний для іконки "ЗП Андрій"; Olga потребує ОКРЕМОГО
+    /* Rev #30 (6D.62) — Cloud Sync UI: автор-маркер (Користувач А=--color-info,
+       уже використаний для іконки "ЗП <ім'я 1>"; Користувач Б потребує ОКРЕМОГО
        рожевого — --color-accent-purple вже зайнятий іконкою "ЗП Оля" в
        іншому, непов'язаному контексті, свідомо новий токен, не перевикористання). */
     --color-accent-pink:#EC4899; --color-accent-pink-bg:#FCE7F3;
@@ -299,7 +299,7 @@
      "Увійдіть, щоб синхронізувати дані та налаштування" ламався на 3 рядки
      замість 2 — трохи ширше вирішує без повернення до попередньої 270px. */
   /* Rev #30 (6D.14) — 220px обрізало email залогіненого стану
-     ("andrii.m17a@gmail.c...") через `.profile-head-email` ellipsis;
+     ("user@example.test") через `.profile-head-email` ellipsis;
      виміряно scrollWidth реального рядка (139px) проти доступного
      clientWidth (134px) — 230px дає запас. */
   .profile-popover{ position:fixed; z-index:91; width:230px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:16px; display:none; }
@@ -3516,7 +3516,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.113</div>
+  <div class="version-footer">Money Tree · Rev 2.32.114</div>
 </div>
   </div>
 </div>
@@ -5916,7 +5916,7 @@ let selectedMonth = null;
 // expandedRow4Key (див. нижче, біля toggleCardExpand) — одна на всі три картки.
 
 /* ============ Data Identity Foundation: UUID + schemaVersion (Rev 2.11.2) ============
-   Підготовка до Family Bridge (обмін витратами між телефонами Андрія й Олі
+   Підготовка до Family Bridge (обмін витратами між телефонами двох користувачів
    через JSON) і майбутнього Cloud: дедуплікація записів між двома незалежно
    працюючими копіями застосунку можлива лише якщо кожен запис має стабільний,
    гарантовано унікальний і НІКОЛИ не перевикористовуваний ідентифікатор.
@@ -7978,7 +7978,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.113';
+const APP_VERSION = '2.32.114';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9457,7 +9457,7 @@ async function requestPushSubscription(){
 }
 // Rev 2.22.73 (6D.144) — 3-й (fallback) шлях доставки push-дії, на додаток
 // до query-параметра й postMessage нижче: підтверджено живим тестом
-// користувача (Журнал не відкрився по кліку на "нові записи Olga") — коли
+// користувача (Журнал не відкрився по кліку на "нові записи другого користувача") — коли
 // iOS вивантажує PWA з памʼяті, релонч ІГНОРУЄ URL з clients.openWindow()
 // (sw.js) і завжди відкриває голий start_url з manifest.json, тобто наш
 // власний `?pushAction=...` у такому разі не доходить узагалі — це не наш
@@ -10332,9 +10332,9 @@ async function loadFamilyUsersDirectory(client){
     familyUsersById = next;
   }catch(e){ /* тихий пропуск, той самий принцип, що loadCloudDisplayName() */ }
 }
-// Rev #30 (6D.62) — Andrii/Olga кольорове розрізнення авторства (ТЗ
+// Rev #30 (6D.62) — кольорове розрізнення авторства (ТЗ
 // користувача) — навмисно за ІМ'ЯМ (найпростіше рішення для конкретної
-// 2-особової родини цього застосунку, CLAUDE.md: "Андрій + Оля"), не за
+// 2-особової родини цього застосунку, CLAUDE.md: двоє користувачів), не за
 // довільним "перший/другий член родини". Невідоме ім'я чи 3-й+ учасник —
 // null (жоден маркер, не помилка) — та сама "тихий пропуск" філософія, що
 // решта Cloud UI цього застосунку.
@@ -10823,7 +10823,7 @@ function renderProfileUI(){
   // всередині .avatar-badge, поза межами обрізання.
   // Rev #30 (6D.70) — кружечок профілю тепер кольором автора
   // (authorInfoFor(), той самий довідник/токени, що border-left карток
-  // Журналу — 6D.65/6D.66): Andrii=--color-info (синій), Olga=
+  // Журналу — 6D.65/6D.66): Користувач А=--color-info (синій), Користувач Б=
   // --color-accent-pink (рожевий), а не завжди --color-primary (зелений).
   // Rev #30 (6D.80) BugFix — session.user.email переданий 2-м параметром
   // (fallbackName, докоментар над authorInfoFor() пояснює): без нього колір
@@ -12247,7 +12247,7 @@ async function addExpenseCore(){
   return true;
 }
 // Rev 2.0.1 — дохід тепер вводиться як таблиця з фіксованими джерелами
-// (той самий список, що вже використовує імпорт з Excel: "Зарплата Андрій" /
+// (той самий список, що вже використовує імпорт з Excel: «Зарплата <ім'я 1>» /
 // "Зарплата Оля" / "Інші доходи" — тому старі імпортовані записи одразу
 // підхоплюються цією таблицею без жодної міграції даних).
 // Rev 2.17.2 BugFix — bankIcon() малює логотип банку або ініціали з НАЗВИ
@@ -14167,7 +14167,7 @@ function mapExcelExpenseRow(r){
     manual: r['Статус автоматизації'] ? String(r['Статус автоматизації']).toLowerCase() !== 'авто' : false
   };
 }
-// Rev #26.4 — те саме, для аркуша "Історія" (колонки B/C/D = Андрій/Оля/
+// Rev #26.4 — те саме, для аркуша "Історія" (колонки B/C/D = перший/другий/
 // Інше): рядок уже задає monthKeyVal (parseUaMonth(row[0]) лишається в
 // handleImportFile() — той самий виклик, що вже й так там був). Повертає
 // масив кандидатів {source, amount, date} — лише для колонок зі значенням
