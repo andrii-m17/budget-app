@@ -990,6 +990,8 @@
   .expense-row-actions .swipe-edit-btn{ background:var(--color-info); }
   .expense-row-actions .swipe-delete-btn{ background:var(--color-error); }
   .exp-row-top{ display:flex; align-items:center; gap:12px; }
+  .expense-row[data-rec-kind]:focus-visible{ outline:2px solid var(--color-primary); outline-offset:-2px; } /* Rev 2.32.142 (DESK-EDIT): видимий фокус рядка при навігації з клавіатури */
+  @media (hover:hover) and (pointer:fine){ .expense-row[data-rec-kind]{ cursor:pointer; } }
   .expense-row .exp-main{ flex:1; min-width:0; }
   .expense-row .exp-name{ font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .expense-row .exp-meta{ display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap; }
@@ -3564,7 +3566,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.141</div>
+  <div class="version-footer">Money Tree · Rev 2.32.142</div>
 </div>
   </div>
 </div>
@@ -8143,7 +8145,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.141';
+const APP_VERSION = '2.32.142';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15508,6 +15510,24 @@ let suppressNextRowTapSelect = false; // лишається: його виста
 // Rev 2.32.8 (A): тест edit-label завершено — у всіх трьох варіантах панель «Автозаповнити контакт» не з'явилась, тож причина не в підписі <label for>. Лишено no-for: підпис span-ом без зв'язку з полем + aria-label «Назва витрати» (як у новій витраті).
 function editNameLabelHtml(id){ return '<span class="fld-label-like">Назва</span>'; }
 function editNameAriaAttr(){ return ' aria-label="Назва витрати"'; }
+// Rev 2.32.142 (DESK-EDIT): редагування витрати мишею/клавіатурою. Причина «клік не відкриває»: з Rev 2.32.44 тап по рядку навмисно нічого не робить, а єдиний шлях до редагування — свайп (touchstart/touchmove/touchend), якого миша не дає. Тому для пристроїв із мишею (hover:hover + pointer:fine) рядок витрати відкриває редагування по кліку, а з клавіатури — по Enter/Space (tabindex=0 лише на таких пристроях). На дотику нічого не змінюється: клік протягом 800 мс після touchstart ігнорується (синтетичний click після тапу), тож подвійного відкриття немає; рядок, що вже редагується, не перемикається (beginEditRecord закрив би його).
+const ROW_EDIT_TOUCH_GUARD_MS = 800;
+let rowEditLastTouchAt = 0;
+function isMouseDevice(){ try{ return !!(window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches); }catch(e){ return false; } }
+function rowEditAttrs(rec){
+  if(!rec || rec.kind !== 'expense' || !isMouseDevice()) return '';
+  return ' data-rec-kind="expense" tabindex="0" role="button" aria-label="' + escapeAttr('Редагувати: ' + (rec.name || 'витрата')) + '"';
+}
+// Чисте рішення: чи відкривати редагування за цією подією. c: { kind, mouse, sinceTouchMs, interactiveTarget, hasSelection, swipeOpen, alreadyEditing, viaKeyboard }
+function shouldOpenRowEdit(c){
+  if(!c || c.kind !== 'expense' || !c.mouse) return false;
+  if(c.alreadyEditing || c.swipeOpen || c.interactiveTarget) return false;
+  if(!c.viaKeyboard){
+    if(c.hasSelection) return false;
+    if(c.sinceTouchMs < ROW_EDIT_TOUCH_GUARD_MS) return false;
+  }
+  return true;
+}
 function startEditRecord(kind, id){
   if(kind !== 'expense') return; // повне редагування поки лише для витрат —
   // доходи мають інакшу модель даних (місячний запис за джерелом, а не
@@ -16781,7 +16801,7 @@ function buildRecordGroupsHtml(items){
             ${swipeEditBtnHtml}
             <button type="button" class="swipe-delete-btn" onclick="event.stopPropagation(); closeSwipeActions(); confirmDeleteRecord('${e.kind}','${safeId(e.id)}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
           </div>
-          <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}" data-rec-id="${safeId(e.id)}"${authorStyle}>
+          <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}" data-rec-id="${safeId(e.id)}"${authorStyle}${rowEditAttrs(e)}>
             <div class="exp-row-top">
               <div class="exp-main">
                 <div class="exp-name">${escapeHtml(e.name)}</div>
@@ -23472,6 +23492,30 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeNotificat
     handle.addEventListener('pointermove', onMove);
     handle.addEventListener('pointerup', onEnd);
     handle.addEventListener('pointercancel', onEnd);
+  });
+})();
+
+// Rev 2.32.142 (DESK-EDIT): делегований клік/Enter/Space по рядку витрати (див. rowEditAttrs/shouldOpenRowEdit).
+(function initRowEditPointer(){
+  document.addEventListener('touchstart', function(){ rowEditLastTouchAt = Date.now(); }, { passive: true, capture: true });
+  function ctxFor(e, viaKeyboard){
+    const row = e.target.closest && e.target.closest('.expense-row[data-rec-kind]');
+    if(!row) return null;
+    const id = row.getAttribute('data-rec-id'), kind = row.getAttribute('data-rec-kind');
+    const wrap = row.closest('.expense-row-swipe');
+    const sel = window.getSelection ? String(window.getSelection()) : '';
+    return { row: row, id: id, kind: kind, mouse: isMouseDevice(), sinceTouchMs: Date.now() - rowEditLastTouchAt,
+      interactiveTarget: viaKeyboard ? (e.target !== row) : !!e.target.closest('button, a, input, select, textarea, label, .record-edit-panel'),
+      hasSelection: sel.length > 0, swipeOpen: !!(wrap && wrap.classList.contains('swipe-open')), alreadyEditing: editingRecordKey === recordKey(kind, id), viaKeyboard: viaKeyboard };
+  }
+  document.addEventListener('click', function(e){
+    const c = ctxFor(e, false);
+    if(c && shouldOpenRowEdit(c)) startEditRecord(c.kind, c.id);
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    const c = ctxFor(e, true);
+    if(c && shouldOpenRowEdit(c)){ e.preventDefault(); startEditRecord(c.kind, c.id); }
   });
 })();
 
