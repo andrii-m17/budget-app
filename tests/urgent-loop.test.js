@@ -42,21 +42,21 @@ const NAMES = ['LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_M
   'saveBankAccountsLocal', 'saveInstallmentAccountsLocal', 'saveCategoriesLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId', 'paymentDayPayload', 'normalizePaymentDay', 'pullBankAccountsCore',
   'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId', 'pullInstallmentAccountsCore', 'pushCategoriesPilot', 'reconcileCategoryCloudId', 'pullCategoriesCore',
   'isDirty', 'applyCensus', 'planCategoriesPush', 'planBankAccountsPush', 'planInstallmentAccountsPush', 'invalidateAccountChildren', 'cleanupOrphanedHiddenEntities',
-  'monthToDate', 'hideKey', 'isCloudWriteReady', 'noteSyncCycle', 'syncCycleCounts', 'SYNC_CYCLE_LOG'];
+  'monthToDate', 'hideKey', 'isCloudWriteReady', 'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId', 'pullSubcategoriesCore', 'planSubcategoriesPush', 'isSubcategoryDirty', 'categoriesByNameMap', 'pushDictionaryPilot', 'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'pullDictionaryCore', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'noteSyncCycle', 'syncCycleCounts', 'SYNC_CYCLE_LOG'];
 function device(state, o){
   const store = {}; const log = []; const calls = { pull: 0, push: 0 }; const x = o || {};
   const ctx = buildSandbox({
     cloudSession: { user: { id: 'dev' } }, cloudFamilyId: state.familyId, isCloudSessionReady: () => true, isCloudWriteReady: () => true, isWriteBlocked: () => false, getSupabaseClient: () => client(state, log),
-    bankAccounts: x.banks || [], installmentAccounts: x.insts || [], CATEGORIES: x.cats || [], SUBCATEGORIES: [], DICTIONARY: [], debts: [], expenses: [], hiddenFrom: {}, syncFullMode: false,
-    nameDomainChildren: 0, isDomainMigrated: () => false, LS_KEY_BANKS: 'b', LS_KEY_INSTALLMENTS: 'i', LS_KEY_CATEGORIES: 'c',
+    bankAccounts: x.banks || [], installmentAccounts: x.insts || [], CATEGORIES: x.cats || [], SUBCATEGORIES: x.subs || [], DICTIONARY: x.dict || [], debts: [], expenses: [], hiddenFrom: {}, syncFullMode: false, dictionaryPushRunning: null, dictionaryPushQueued: null,
+    nameDomainChildren: 0, isDomainMigrated: () => false, LS_KEY_BANKS: 'b', LS_KEY_INSTALLMENTS: 'i', LS_KEY_CATEGORIES: 'c', LS_KEY_SUBCATEGORIES: 's', LS_KEY_DICTIONARY: 'd',
     localStorage: { getItem: k => store[k] === undefined ? null : store[k], setItem: (k, v) => { store[k] = v; }, removeItem: k => { delete store[k]; } },
     populateBankDebtTable(){}, populateInstallmentTable(){}, renderStructure(){}, populateCategorySelect(){}, reportSaveResult(){}, captureDebugGeometry(){}, saveDebts: async () => ({ success: true }), saveExpenses: async () => ({ success: true }),
     saveHiddenFromLocal: async () => ({ success: true }), saveSubcategoriesLocal: async () => ({ success: true }), saveDictionaryLocal: async () => ({ success: true }), pullHiddenEntitiesCore: async () => ({ skipped: true }), pushHiddenEntitiesPilot: async () => ({ success: true }),
     pushOtherActorEvent(){}, rememberPurgedAccount(){}, Date,
   }, NAMES);
   // лічильники викликів (глобальні імена, на які посилаються самі функції)
-  ['pull', 'push'].forEach(kind => ['BankAccounts', 'InstallmentAccounts', 'Categories'].forEach(t => {
-    const name = kind === 'pull' ? 'pull' + t + 'Core' : 'push' + t + 'Pilot'; const orig = ctx[name]; if(!orig) return;
+  ['pull', 'push'].forEach(kind => ['BankAccounts', 'InstallmentAccounts', 'Categories', 'Subcategories', 'Dictionary'].forEach(t => {
+    const name = kind === 'pull' ? 'pull' + t + 'Core' : (t === 'Dictionary' ? 'pushDictionaryPilotRun' : 'push' + t + 'Pilot'); const orig = ctx[name]; if(!orig) return;
     ctx[name] = function(){ calls[kind]++; if(calls[kind] > 200) throw new Error('цикл: понад 200 викликів ' + kind); return orig.apply(this, arguments); };
   }));
   ctx.__log = log; ctx.__calls = calls; ctx.__state = state;
@@ -132,7 +132,7 @@ test('URGENT-LOOP: джерело — у всіх 6 таблицях завер�
     assert.ok(!SRC.includes('if(!anyError) await pull' + n + 'Core();'), 'безумовного pull немає: ' + n);
     assert.match(SRC, new RegExp("noteSyncCycle\\('[a-z_]+', 'pull'\\);[\\s\\S]{0,3000}?"), 'лічильник pull: ' + n);
   });
-  assert.equal((SRC.match(/localTime > cloudTime && isDirty\(byCloudId\)/g) || []).length, 5);
+  assert.equal((SRC.match(/localTime > cloudTime && (isDirty\(byCloudId\)|isSubcategoryDirty\(byCloudId, categoriesByNameMap\(\)\)|planDictionaryPush\(\[byCloudId\], null, dictionaryParentIds\)\.push\.length > 0)/g) || []).length, 5);
   assert.equal((SRC.match(/noteSyncCycle\('[a-z_]+', 'push'\)/g) || []).length, 6);
   assert.equal((SRC.match(/noteSyncCycle\('[a-z_]+', 'pull'\)/g) || []).length, 6);
 });
@@ -148,4 +148,72 @@ test('джерело: лічильник показується в «Запит�
   assert.match(SRC, /Цикли синхронізації за хвилину/);
   const f = SRC.slice(SRC.indexOf('function noteSyncCycle'), SRC.indexOf('function syncCycleCounts'));
   assert.ok(!/return false|throw|setTimeout/.test(f), 'лише облік');
+});
+
+// ---- підкатегорії й словник: клас «брудний через батька» зберігається; «чистий і новіший» без циклу ----
+const S0 = '2026-10-19T13:53:14.555Z';
+function treeServer(){
+  const st = server();
+  st.tables.categories.push({ id: 'c1', family_id: 'fam', name: 'Кат1', active: true, type: 'flexible', created_at: S0, updated_at: S0, deleted_at: null });
+  st.tables.subcategories.push({ id: 's1', family_id: 'fam', category_id: 'c1', name: 'Під1', active: true, deactivated_via: null, created_at: S0, updated_at: S0, deleted_at: null });
+  st.tables.dictionary.push({ id: 'd1', family_id: 'fam', category_id: 'c1', subcategory_id: 's1', keyword: 'слово', created_at: S0, updated_at: S0, deleted_at: null, deleted_via: null });
+  return st;
+}
+function treeDevice(st, future, over){
+  const cat = { name: 'Кат1', active: true, type: 'flexible', cloudId: 'c1', createdAt: S0, updatedAt: S0, syncedUpdatedAt: S0 };
+  const sub = Object.assign({ name: 'Під1', category: 'Кат1', active: true, cloudId: 's1', createdAt: S0, updatedAt: future, syncedUpdatedAt: future, syncedCategoryId: 'c1' }, (over && over.sub) || {});
+  const dict = Object.assign({ kw: 'слово', cat: 'Кат1', sub: 'Під1', cloudId: 'd1', createdAt: S0, updatedAt: future, syncedUpdatedAt: future, syncedCategoryId: 'c1', syncedSubcategoryId: 's1' }, (over && over.dict) || {});
+  return device(st, { cats: [cat], subs: [sub], dict: [dict] });
+}
+test('URGENT-LOOP subcategories: «локальний новіший, але чистий» без циклу, приймається серверний час', async () => {
+  const st = treeServer(); const future = new Date(Date.now() + 3600e3).toISOString();
+  const d = treeDevice(st, future);
+  await d.pullSubcategoriesCore(); await quiet(60);
+  assert.equal(d.__calls.push, 0); assert.ok(d.__calls.pull <= 1);
+  assert.equal(d.SUBCATEGORIES[0].updatedAt, S0); assert.equal(d.SUBCATEGORIES[0].syncedUpdatedAt, S0);
+  assert.equal(d.__log.filter(l => l.method === 'PATCH').length, 0);
+});
+test('URGENT-LOOP subcategories: чистий за часом, але батьківський cloudId змінився (syncedCategoryId ≠) → як раніше push (клас «брудний через батька» збережено), без циклу', async () => {
+  const st = treeServer(); const future = new Date(Date.now() + 3600e3).toISOString();
+  const d = treeDevice(st, future, { sub: { syncedCategoryId: 'старий-id' } });
+  await d.pullSubcategoriesCore(); await quiet(120);
+  assert.ok(d.__calls.push >= 1, 'push викликано');
+  assert.ok(d.__calls.push <= 3 && d.__calls.pull <= 4, `без циклу: push ${d.__calls.push}, pull ${d.__calls.pull}`);
+});
+test('URGENT-LOOP dictionary: «локальний новіший, але чистий» без циклу; зміна батьківських id → push зберігається', async () => {
+  const st = treeServer(); const future = new Date(Date.now() + 3600e3).toISOString();
+  const d = treeDevice(st, future);
+  await d.pullDictionaryCore(); await quiet(60);
+  assert.equal(d.__calls.push, 0); assert.ok(d.__calls.pull <= 1);
+  assert.equal(d.DICTIONARY[0].updatedAt, S0); assert.equal(d.DICTIONARY[0].syncedUpdatedAt, S0);
+  const st2 = treeServer();
+  const d2 = treeDevice(st2, future, { dict: { syncedSubcategoryId: 'інший' } });
+  await d2.pullDictionaryCore(); await quiet(120);
+  assert.ok(d2.__calls.push >= 1 && d2.__calls.push <= 3 && d2.__calls.pull <= 4, `push ${d2.__calls.push}, pull ${d2.__calls.pull}`);
+});
+test('два пристрої (bank_accounts): A змінює й пушить, B підтягує; B змінює, A підтягує; обидва сходяться на серверному updated_at, без зайвих запитів', async () => {
+  const st = server();
+  const A = device(st, { banks: [{ name: 'К1', creditLimit: 1000, paymentDay: null, createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z' }] });
+  await A.pushBankAccountsPilot(); await quiet(60);
+  const srv = () => st.tables.bank_accounts[0];
+  assert.equal(A.bankAccounts[0].updatedAt, srv().updated_at, 'A після створення: серверний час');
+  const B = device(st, {}); await B.pullBankAccountsCore(); await quiet(40);
+  assert.equal(B.bankAccounts.length, 1); assert.equal(B.bankAccounts[0].updatedAt, srv().updated_at);
+  B.bankAccounts[0].creditLimit = 5000; B.bankAccounts[0].updatedAt = new Date(Date.now() + 5000).toISOString(); // годинник B попереду
+  await B.pushBankAccountsPilot(); await quiet(80);
+  assert.equal(srv().credit_limit, 5000); assert.equal(B.bankAccounts[0].updatedAt, srv().updated_at, 'B: серверний час, не власний');
+  const getsBefore = A.__log.length;
+  await A.pullBankAccountsCore(); await quiet(60);
+  assert.equal(A.bankAccounts[0].creditLimit, 5000); assert.equal(A.bankAccounts[0].updatedAt, srv().updated_at);
+  assert.ok(A.__calls.push === 1 && A.__calls.pull <= 3, `A: push ${A.__calls.push}, pull ${A.__calls.pull}`);
+  assert.ok(A.__log.length - getsBefore <= 2, 'один pull, без push');
+  assert.ok(B.__calls.pull <= 3 && B.__calls.push <= 1, `B: push ${B.__calls.push}, pull ${B.__calls.pull}`);
+});
+test('видалення (tombstone) картки з іншого пристрою: pull без циклу', async () => {
+  const st = server();
+  st.tables.bank_accounts.push({ id: 'r1', family_id: 'fam', name: 'К1', credit_limit: 1, payment_day: null, created_at: S0, updated_at: S0, deleted_at: S0 });
+  const d = device(st, { banks: [{ name: 'К1', creditLimit: 1, paymentDay: null, cloudId: 'r1', createdAt: S0, updatedAt: S0, syncedUpdatedAt: S0 }] });
+  let removed = 0; d.pullAccountTombstone = async () => { removed++; return true; };
+  const r = await d.pullBankAccountsCore(); await quiet(40);
+  assert.equal(r.skipped, false); assert.equal(removed, 1); assert.equal(d.__calls.push, 0); assert.ok(d.__calls.pull <= 1);
 });
