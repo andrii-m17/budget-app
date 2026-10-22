@@ -1912,6 +1912,16 @@
   /* Rev 2.15.0 — white-space:pre-line: прев'ю відновлення бекапу тепер
      багаторядкове (кількість записів + Schema/App), а textContent за
      замовчуванням схлопує "\n" в один рядок без цього правила. */
+  /* Rev 2.32.130: модалка «Дані заповнені неповністю» — заголовок, підзаголовок, рядки «що бракує» (іконка попередження, підпис, значення справа). Розміри з токенів модалок (22px 20px, --color-border, --color-warning); рядки однакової висоти 44px, переноси лише по пробілах. */
+  .inc-title{ font-size:16px; font-weight:700; line-height:1.3; overflow-wrap:break-word; }
+  .inc-sub{ margin-top:2px; font-size:13px; line-height:1.4; color:var(--color-text-secondary); }
+  .inc-list{ margin-top:12px; border-top:1px solid var(--color-border); } /* як у макеті: розділювач і над першим рядком */
+  .inc-row{ display:flex; align-items:center; gap:10px; min-height:44px; box-sizing:border-box; }
+  .inc-row + .inc-row{ border-top:1px solid var(--color-border); }
+  .inc-icon{ flex:none; display:flex; color:var(--color-warning); }
+  .inc-icon svg{ width:18px; height:18px; display:block; }
+  .inc-label{ flex:1 1 auto; min-width:0; font-size:14.5px; line-height:1.3; word-break:normal; overflow-wrap:normal; }
+  .inc-value{ flex:none; font-size:13px; color:var(--color-text-secondary); white-space:nowrap; }
   .app-modal-text{ font-size:14.5px; line-height:1.5; color:var(--color-text-primary); margin-bottom:16px; white-space:pre-line; }
   .app-modal-input-wrap{ display:none; margin-bottom:16px; }
   .app-modal-input-wrap input{ width:100%; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
@@ -3535,7 +3545,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.129</div>
+  <div class="version-footer">Money Tree · Rev 2.32.130</div>
 </div>
   </div>
 </div>
@@ -8093,7 +8103,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.129';
+const APP_VERSION = '2.32.130';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -19298,13 +19308,43 @@ function updateIncompleteBadges(){
     el.classList.toggle('hidden', !p[1]);
   });
 }
+// Rev 2.32.130: рядок «що бракує» (підпис ліворуч, приглушене значення праворуч) за видом причини; kind: 'card' | 'installment'. «День платежу» — картка, «Дата платежу» — ОЧ.
+function incompleteRowModel(kind, reason){
+  const isCard = kind === 'card';
+  const map = {
+    limit: { label: 'Кредитний ліміт', value: 'не вказано' },
+    dueDay: { label: isCard ? 'День платежу' : 'Дата платежу', value: 'не вказано' },
+    minPayment: { label: 'Мінімальний платіж', value: 'не вказано' },
+    balance: { label: isCard ? 'Борг за цей місяць' : 'Залишок за цей місяць', value: 'немає даних' },
+    initialAmount: { label: 'Початкова сума', value: 'не вказано' },
+    payment: { label: 'Платіж на місяць', value: 'не вказано' },
+  };
+  return map[reason] || { label: String(INCOMPLETE_LABELS[reason] || reason), value: '' };
+}
+// Rev 2.32.130: іконка — коло зі знаком оклику (за уточненим макетом).
+const INCOMPLETE_WARN_SVG = '<svg viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M15 9.5v7"/><path d="M15 20.5h.01"/></svg>';
 function showIncompleteInfo(kind, i){
   const acc = kind === 'card' ? bankAccounts[i] : installmentAccounts[i];
   if(!acc) return;
   const reasons = kind === 'card' ? cardIncompleteReasons(acc) : installmentIncompleteReasons(acc);
   if(!reasons.length) return;
-  const msg = stripLeadingEmoji(acc.name) + ': дані заповнені неповністю.\n' + reasons.map(function(r){ return '• ' + INCOMPLETE_LABELS[r]; }).join('\n');
+  const msg = stripLeadingEmoji(acc.name) + ': дані заповнені неповністю.';
   showConfirmModal(msg, function(){ fillIncomplete(kind, i, reasons[0]); }, 'Заповнити', 'primary'); // Rev 2.32.45 (FB): основна (зелена) дія, не руйнівна
+  // Rev 2.32.130: структура за макетом (заголовок, підзаголовок, рядки «що бракує»); усі тексти через textContent. Читач екрана бачить цю структуру (заголовок, підзаголовок, рядки).
+  const text = document.getElementById('app-modal-text');
+  text.textContent = '';
+  const title = document.createElement('div'); title.className = 'inc-title'; title.textContent = stripLeadingEmoji(acc.name);
+  const sub = document.createElement('div'); sub.className = 'inc-sub'; sub.textContent = 'Дані заповнені неповністю';
+  const list = document.createElement('div'); list.className = 'inc-list';
+  reasons.forEach(function(r){
+    const m = incompleteRowModel(kind, r);
+    const row = document.createElement('div'); row.className = 'inc-row';
+    const ic = document.createElement('span'); ic.className = 'inc-icon'; ic.innerHTML = INCOMPLETE_WARN_SVG;
+    const lb = document.createElement('span'); lb.className = 'inc-label'; lb.textContent = m.label;
+    const vl = document.createElement('span'); vl.className = 'inc-value'; vl.textContent = m.value;
+    row.appendChild(ic); row.appendChild(lb); row.appendChild(vl); list.appendChild(row);
+  });
+  text.appendChild(title); text.appendChild(sub); text.appendChild(list);
   const cancelBtn = document.getElementById('app-modal-cancel-btn');
   if(cancelBtn) cancelBtn.textContent = 'Закрити';
 }

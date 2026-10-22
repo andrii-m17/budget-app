@@ -13200,3 +13200,7 @@ App-модалки (`show*Modal`: підтвердження видалення,
 ## 32.189. Rev 2.32.129 — INPUT-REC: розширення рекордера для BUG-INPUT (клас B; лише запис діагностики; не запушено)
 - Події `suggest-render`, `suggest-pick`, `add-button` (pointerdown/pointerup/click, `rect`, `no-click`, результат `addExpense`), ціль і прямокутник `touchstart`/`touchend`; лише довжини й хеші, без тексту назв. Поза записом нічого не змінюється. Виправлення самого BUG-INPUT не робилось: чекаємо запис з iPhone.
 - Тести: +7 (`tests/recorder-suggest.test.js`), усього 1486. Нових полів вводу немає. Звіт: `docs/reports/INPUT-REC.md`.
+
+## 32.190. Rev 2.32.130 — INCOMPLETE-MODAL: модалка неповних даних за макетом (клас B; не запушено)
+- Заголовок (назва), підзаголовок, рядки «що бракує» з іконкою попередження й значенням справа; кнопки без змін. Лише розмітка модалки; логіка `incompleteReasons` і «Заповнити» не змінені.
+- Тести: +3 (`tests/incomplete-modal.test.js`), усього 1489. Нових полів вводу немає. Звіт: `docs/reports/INCOMPLETE-MODAL.md`.
