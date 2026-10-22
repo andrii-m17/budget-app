@@ -2457,6 +2457,9 @@
     .side button.side-tab{ text-align:left; background:none; border:none; padding:11px 12px; border-radius:var(--radius-md); font-size:14px; font-weight:600; color:var(--color-text-secondary); cursor:pointer; display:flex; align-items:center; gap:10px; min-height:44px; }
     .side button.side-tab.active{ background:var(--color-primary-bg); color:var(--color-primary-hover); }
     .side button.side-tab svg{ width:18px; height:18px; flex-shrink:0; }
+    /* Rev 2.32.141 (DESK-BADGE): обгортка іконки для бейджа непрочитаних; бейдж — той самий клас, що на мобільному дзвіночку (колір --color-error, 16 px / 10 px), зсунутий до кута 18-px іконки. */
+    .side button.side-tab .side-ico{ position:relative; display:inline-flex; flex-shrink:0; }
+    .side-ico .notif-bell-count{ top:-7px; right:-9px; }
     /* Rev 2.32.126: значок синхронізації на аватарі в боковій панелі — як маленький у куті аватара на мобільній. Причина: правило вище (0,2,2) перебивало .avatar-status-dot svg (0,1,1), тож гліф 18px вилазив з крапки 11px; крапка була пів-аватара (11 з 22 px, на мобільній 11 з 36) і мала світле кільце --color-surface на темнішому тлі панелі. Тепер: крапка 8px (пропорція мобільної ≈ 0,3), кільце 1.5px кольору тла панелі, гліф 70% крапки. Ризик: гліф у 8px крапці дрібний (≈3.5px), як і задумано «маленький значок». */
     .side button.side-tab .avatar-status-dot{ width:8px; height:8px; border-width:1.5px; border-color:var(--color-bg); bottom:-1px; right:-1px; }
     .side button.side-tab .avatar-status-dot svg{ width:70%; height:70%; }
@@ -2741,7 +2744,8 @@
       Профіль
     </button>
     <button class="side-tab" onclick="openNotifArchive()" id="notif-side-tab">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <!-- Rev 2.32.141 (DESK-BADGE): той самий бейдж непрочитаних, що на дзвіночку мобільної версії (клас .notif-bell-count), на іконці пункту; оновлює updateNotifBell() -->
+      <span class="side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="notif-bell-count hidden" id="notif-side-count" aria-hidden="true"></span></span>
       Сповіщення
     </button>
     <button class="side-tab" onclick="openSettings()">
@@ -3560,7 +3564,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.140</div>
+  <div class="version-footer">Money Tree · Rev 2.32.141</div>
 </div>
   </div>
 </div>
@@ -8139,7 +8143,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.140';
+const APP_VERSION = '2.32.141';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -21638,6 +21642,8 @@ function updateNotifBell(){
   const t = unreadBadge(notifArchive.unread);
   if(el){ el.textContent = t; el.classList.toggle('hidden', !t); }
   if(btn) btn.setAttribute('aria-label', notifArchive.unread > 0 ? 'Сповіщення, непрочитаних: ' + notifArchive.unread : 'Сповіщення');
+  const sideCount = document.getElementById('notif-side-count'); // Rev 2.32.141 (DESK-BADGE)
+  if(sideCount){ sideCount.textContent = t; sideCount.classList.toggle('hidden', !t); }
   const side = document.getElementById('notif-side-tab');
   if(side) side.setAttribute('aria-label', btn ? btn.getAttribute('aria-label') : 'Сповіщення');
 }
