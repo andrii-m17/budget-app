@@ -43,7 +43,7 @@ test('охоронні: без мітки «в обробці», без p_amount
   assert.ok(!/>в обробці</.test(SRC) && !/mono-pending/.test(SRC));
   const accept = SRC.match(/rpc\('mono_accept'[^\n]*/)[0];
   assert.ok(!/p_amount/.test(accept));
-  assert.ok(!/id="fldmono5"/.test(SRC));
+  assert.ok(!/id="fldmono6"/.test(SRC)); // Rev 2.32.128: fldmono5 — select «ОЧ»
   const start = SRC.indexOf('async function monoRefundStart'), end = SRC.indexOf('async function monoDetailIgnore');
   assert.ok(!/innerHTML/.test(SRC.slice(start, end)));
   assert.match(SRC, /Не знайшли витрату цього торговця\. Додайте її вручну або проігноруйте\./);

@@ -64,7 +64,7 @@ test('handlePushAction(mono-inbox): після відкриття «Вхідни
   assert.deepEqual(calls, ['open:push', 'hl:' + B1, 'open:push', 'hl:' + B2, 'open:push', 'hl:null']);
 });
 test('охоронні: notified_at у запиті «Вхідних»; з архіву передається created_at; холодний старт: batchTs у URL (sw.js) і query; клас у CSS', function(){
-  assert.match(SRC, /suggested_subcategory,expense_id,notified_at'\)/);
+  assert.match(SRC, /suggested_subcategory,suggested_installment_id,expense_id,notified_at'\)/);
   assert.match(SRC, /batch_ts: isDailyReminderRow\(row\) \? undefined : \(\(row\.data && row\.data\.batch_ts\) \|\| row\.created_at\)/);
   assert.match(SW, /notifData\.batch_ts\) url \+= '&batchTs=' \+ encodeURIComponent\(notifData\.batch_ts\)/);
   assert.match(SRC, /batchTs: pushActionParams\.get\('batchTs'\) \|\| undefined/);

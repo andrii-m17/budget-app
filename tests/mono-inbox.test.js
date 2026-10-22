@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const base = ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'monoNewOpsLabel', 'monoOpsAcc', 'groupInboxByDay', 'inboxRowModel', 'addAllCandidates', 'monoAcceptOutcome'];
+const base = ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'monoNewOpsLabel', 'monoOpsAcc', 'groupInboxByDay', 'inboxRowModel', 'addAllCandidates', 'monoAcceptOutcome', 'monoShowsInstRow', 'monoInstById', 'monoEffectiveInstId', 'monoInstLabelModel', 'monoInstToggleNext', 'stripLeadingEmoji'];
 const c = buildSandbox({}, base);
 const T = function(d, h, m){ return new Date(2026, 9, d, h, m).toISOString(); };
 const ACC = [{ mono_account_id: 'm1', masked_pan: '537541******1234', account_type: 'black' }];
@@ -66,7 +66,7 @@ test('екранування: опис, коментар і категорія �
   const esc = function(s){ return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
   const ctx = buildSandbox({
     escapeHtml: esc, escapeAttr: function(s){ return esc(s).replace(/"/g, '&quot;'); }, safeId: function(x){ return String(x).replace(/[^0-9A-Za-z_-]/g, ''); },
-    monoState: { accounts: ACC },
+    monoState: { accounts: ACC }, monoInbox: { instPick: {} }, installmentAccounts: [],
     monoBadgeHtml: function(){ return ''; }, // Rev 2.32.36: власний значок перевіряється в mono-badge.test.js
   }, base.concat(['monoInboxRowHtml']));
   const evil = '<img src=x onerror=alert(1)>';
@@ -119,7 +119,7 @@ test('I2: «Додати всі» — діалог, ≤ 3 паралельних
   let active = 0, maxActive = 0; const accepted = [];
   const rows = [R('1'), R('2'), R('3'), R('4'), R('5'), R('6', { hold: true }), R('7', { suggested_category: null })];
   const g = {
-    monoInbox: { rows: rows, busy: false }, toasts: [],
+    monoInbox: { rows: rows, busy: false, instPick: {} }, installmentAccounts: [], toasts: [],
     showTextToast: function(t){ g.toasts.push(t); },
     monoAfterChange: async function(){}, showMonoAddedToast: function(n, sum){ g.toasts.push('Додано ' + n); }, // Rev 2.32.37 (T)
     monoAcceptRow: async function(row){ active++; maxActive = Math.max(maxActive, active); await new Promise(function(r){ setTimeout(r, 5); }); active--; accepted.push(row.id); return { kind: 'ok' }; },

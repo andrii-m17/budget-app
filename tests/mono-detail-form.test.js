@@ -27,7 +27,7 @@ test('розмітка: category/subcategory — рядки .sf-row з проз�
   assert.match(drawer, /class="drawer-close"/); // ✕ у Monobank лишається
 });
 test('значення оновлюється всюди: початкове заповнення, ручна зміна, підбір за словом, скидання підбору', function(){
-  assert.match(SRC, /monoKwReset\(\); \/\/ Rev 2\.32\.35 \(K\)[^\n]*\n\s*monoPickRefresh\(\);/);
+  assert.match(SRC, /monoKwReset\(\); \/\/ Rev 2\.32\.35 \(K\)[^\n]*\n\s*monoInstFill\(row, showInst\);\n\s*monoPickRefresh\(\);/); // Rev 2.32.128: між ними заповнення рядка «ОЧ»
   assert.match(SRC, /function onMonoDetailSubChange\(\)\{[^}]*monoPickRefresh\(\); \}/);
   assert.match(SRC, /subcategoryOptionsHtml\(cat, ''\);\n\s*monoPickRefresh\(\);\n\}/);
   assert.match(SRC, /s\.value = sub \|\| '';\n\s*monoPickRefresh\(\);\n\}/);
@@ -42,5 +42,5 @@ test('інформаційні рядки (сума, дата й час, кар�
 test('підказка підбору за словом і «Скасувати підбір» збережено; стилі спільні зі «Структурою»; нових полів вводу немає', function(){
   assert.match(SRC, /id="mono-kw-hint"[\s\S]*?Скасувати підбір/);
   assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-row\{[^}]*min-height:48px/);
-  assert.ok(!/fldmono[5-9]/.test(SRC));
+  assert.ok(!/fldmono[6-9]/.test(SRC)); // Rev 2.32.128: єдиний новий елемент — select fldmono5 («ОЧ»; не текстове поле)
 });
