@@ -26,14 +26,14 @@ test('actionGateLeave(hold=false): невдала валідація не від
 function addExpenseSandbox(){
   const fields = { expfielda7: { value: 'Кава' }, 'f-amount': { value: '50' }, 'f-date': { value: '2026-10-10' }, 'f-category': { value: '' }, 'f-subcategory': { value: '' } };
   const ctx = buildSandbox({
-    actionGateState: {}, document: { getElementById: function(id){ return fields[id]; } },
+    actionGateState: {}, debugRecordingActive: false, document: { getElementById: function(id){ return fields[id]; } },
     expenses: [], installmentAccounts: [], confirmedInstallmentLinkIdx: -1,
     readPositiveAmount: function(el){ const n = parseFloat(el.value); return isNaN(n) ? NaN : n; }, autocategorize: function(){ return null; },
     generateUUID: (function(){ let n = 0; return function(){ return 'id-' + (++n); }; })(),
     localDateISO: function(){ return '2026-10-10'; },
     reportSaveResult: function(){}, saveExpenses: function(){ return new Promise(function(r){ setTimeout(function(){ r({ success: true }); }, 5); }); },
     pushExpenseRecordPilot: function(){}, resetExpenseForm: function(){}, populateMonths: function(){}, renderAll: function(){}, flashField: function(){},
-  }, ['ACTION_GATE_HOLD_MS', 'actionGateEnter', 'actionGateLeave', 'addExpense', 'addExpenseCore']);
+  }, ['ACTION_GATE_HOLD_MS', 'actionGateEnter', 'actionGateLeave', 'addExpense', 'addExpenseCore', 'debugAddResult']);
   return { ctx, fields };
 }
 test('addExpense: два виклики поспіль дають одну витрату', async function(){

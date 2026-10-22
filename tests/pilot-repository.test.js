@@ -6414,7 +6414,7 @@ function debugRecorderDomSandbox(opts){
     debugRecordingActive: false, debugRecordingStartedAt: 0, debugRecordingScenario: '',
     debugEventBuffer: [], debugRecordingAutoStopTimer: null, debugRecordingTimerInterval: null,
     debugListenerHandles: [], debugRecordingMutationObserver: null, debugScrollCoalesceTimer: null,
-    debugSafeAreaProbeEl: null,
+    debugSafeAreaProbeEl: null, debugAddBtnState: { down: false, gotClick: false, timer: null },
     // Rev 2.23.7 (6D.176) — stopDebugRecording() тепер (не)лочить фон.
     openOverlayCount: 0,
     DEBUG_RECORDING_MAX_EVENTS: 2000, DEBUG_RECORDING_AUTO_STOP_MS: 30 * 60 * 1000,
@@ -6423,7 +6423,7 @@ function debugRecorderDomSandbox(opts){
     'debugSafeAreaInsets', 'captureDebugGeometry',
     'onDebugWindowResize', 'onDebugVvResize', 'onDebugVvScroll', 'onDebugScroll',
     'onDebugFocusIn', 'onDebugFocusOut', 'onDebugOrientationChange', 'onDebugVisibilityChange',
-    'onDebugPageShow', 'onDebugPageHide', 'onDebugTouchStart', 'onDebugTouchEnd', 'onDebugBodyClassChange', 'onExpenseFocusNeighbors', 'onInputFocusAudit',
+    'onDebugPageShow', 'onDebugPageHide', 'onDebugTouchStart', 'onDebugTouchEnd', 'onDebugAddButtonPointer', 'debugRectOf', 'debugTargetInfo', 'debugTextHash', 'onDebugBodyClassChange', 'onExpenseFocusNeighbors', 'onInputFocusAudit',
     'attachDebugRecorderListeners', 'detachDebugRecorderListeners',
     'updateDebugRecordButtonUI', 'startDebugRecording', 'stopDebugRecording',
     'lockBackgroundScroll', 'unlockBackgroundScroll',

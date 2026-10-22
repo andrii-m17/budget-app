@@ -13196,3 +13196,7 @@ App-модалки (`show*Modal`: підтвердження видалення,
 - За схемою чату: `suggested_installment_id` у запиті «Вхідних», мітка «🔗 Платіж за ОЧ «назва»» у «Нових» (тап: «Без ОЧ» і назад), рядок «ОЧ» у шторці лише для «Щомісячний платіж …», переказу чи пропозиції; `p_installment_id` у `mono_accept` лише коли прив'язку показано (свайп, «Додати всі», шторка). Нічого автоматично.
 - Нове поле: select `fldmono5` («ОЧ», не текстове; id без заборонених підрядків). Політика сервера — `docs/SUPABASE_POLICY.md`.
 - Тести: +7 (`tests/mono-installment.test.js`), оновлено 6 охоронних. Звіт: `docs/reports/MONO-INST.md`.
+
+## 32.189. Rev 2.32.129 — INPUT-REC: розширення рекордера для BUG-INPUT (клас B; лише запис діагностики; не запушено)
+- Події `suggest-render`, `suggest-pick`, `add-button` (pointerdown/pointerup/click, `rect`, `no-click`, результат `addExpense`), ціль і прямокутник `touchstart`/`touchend`; лише довжини й хеші, без тексту назв. Поза записом нічого не змінюється. Виправлення самого BUG-INPUT не робилось: чекаємо запис з iPhone.
+- Тести: +7 (`tests/recorder-suggest.test.js`), усього 1486. Нових полів вводу немає. Звіт: `docs/reports/INPUT-REC.md`.

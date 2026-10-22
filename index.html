@@ -3535,7 +3535,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.128</div>
+  <div class="version-footer">Money Tree · Rev 2.32.129</div>
 </div>
   </div>
 </div>
@@ -8093,7 +8093,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.128';
+const APP_VERSION = '2.32.129';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11520,7 +11520,60 @@ const DEBUG_EVENT_ALLOWLIST = [
   'proxyCaretColor', 'proxyDistToField',
   // Rev 2.23.20 (6D.189) — курсор під час руху шторки.
   'sheetBottomAtTransfer', 'sheetFinalBottom',
+  // Rev 2.32.129 (BUG-INPUT, лише запис діагностики): suggest-render/suggest-pick (ctx, count, lens, activeIdx, pickIdx, pickLen, pickHash, textLenBefore/After; без тексту назв, лише довжини й 6-символьні хеші),
+  // add-button (phase, rect, pointerType, gotClick, result, reason) і прямокутник/ціль touchstart/touchend (targetRect; для touchend також targetTag/targetId/targetClasses). Раніше 'event'/'count' подій suggest-edit відкидались allowlist-ом — додано.
+  'ctx', 'event', 'count', 'lens', 'activeIdx', 'pickIdx', 'pickLen', 'pickHash', 'textLenBefore', 'textLenAfter',
+  'phase', 'rect', 'pointerType', 'gotClick', 'result', 'reason', 'targetRect',
 ];
+// Rev 2.32.129: чисті допоміжні функції діагностики — прямокутник, ціль дотику, короткий хеш тексту (текст у лог не потрапляє).
+function debugRectOf(el){
+  if(!el || !el.getBoundingClientRect) return null;
+  const r = el.getBoundingClientRect();
+  return { left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) };
+}
+function debugTextHash(text){
+  let h = 2166136261;
+  const str = String(text == null ? '' : text);
+  for(let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h.toString(16).padStart(8, '0').slice(0, 6);
+}
+function debugTargetInfo(el){
+  if(!el) return { targetTag: null, targetId: null, targetClasses: null, targetRect: null };
+  const id = el.id ? String(el.id).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>') : null;
+  return { targetTag: el.tagName || null, targetId: id, targetClasses: el.className && typeof el.className === 'string' ? el.className.slice(0, 80) : null, targetRect: debugRectOf(el) };
+}
+// Подія suggest-render/suggest-pick: лише довжини й хеші. ctx: 'new' (форма «Нова витрата») | 'edit' (редагування запису).
+function debugSuggestRender(ctx, matches, activeIdx){
+  if(!debugRecordingActive) return;
+  const list = Array.isArray(matches) ? matches : [];
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'suggest-render', ctx: ctx, count: list.length, lens: list.map(function(n){ return String(n).length; }), activeIdx: activeIdx == null ? -1 : activeIdx });
+}
+function debugSuggestPick(ctx, idx, picked, lenBefore, lenAfter){
+  if(!debugRecordingActive) return;
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'suggest-pick', ctx: ctx, pickIdx: idx, pickLen: String(picked == null ? '' : picked).length, pickHash: debugTextHash(picked), textLenBefore: lenBefore, textLenAfter: lenAfter });
+}
+// Результат обробника addExpense: added | rejected (reason: gate | name-empty | amount-invalid) | deferred (reason: edit-guard). Пишеться лише під час запису.
+function debugAddResult(result, reason){
+  if(!debugRecordingActive) return;
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'add-button', phase: 'result', result: result, reason: reason || null });
+}
+let debugAddBtnState = { down: false, gotClick: false, timer: null };
+function onDebugAddButtonPointer(e){
+  if(!debugRecordingActive) return;
+  const btn = e.target && e.target.closest ? e.target.closest('button.submit-btn.expense') : null;
+  if(!btn) return;
+  const phase = e.type;
+  if(phase === 'pointerdown'){ debugAddBtnState.down = true; debugAddBtnState.gotClick = false; clearTimeout(debugAddBtnState.timer); }
+  if(phase === 'click') debugAddBtnState.gotClick = true;
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'add-button', phase: phase, rect: debugRectOf(btn), pointerType: e.pointerType || null, gotClick: phase === 'click' ? true : undefined });
+  if(phase === 'pointerup'){
+    // click після pointerup приходить одразу; якщо за 400 мс його нема — фіксуємо «pointerup без click» і де тоді була кнопка (зсув розкладки).
+    debugAddBtnState.timer = setTimeout(function(){
+      if(!debugRecordingActive || debugAddBtnState.gotClick) return;
+      pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'add-button', phase: 'no-click', rect: debugRectOf(btn), gotClick: false });
+    }, 400);
+  }
+}
 function sanitizeDebugEvent(raw){
   const out = {};
   DEBUG_EVENT_ALLOWLIST.forEach(function(key){
@@ -11685,11 +11738,14 @@ function onDebugTouchStart(e){
     touchX: t ? Math.round(t.clientX) : null, touchY: t ? Math.round(t.clientY) : null,
     targetTag: target ? target.tagName : null, targetId: target ? (target.id || null) : null,
     targetClasses: target && target.className ? String(target.className).slice(0, 80) : null,
+    targetRect: debugRectOf(target), // Rev 2.32.129: прямокутник цілі
   });
 }
 function onDebugTouchEnd(e){
   const t = e.changedTouches && e.changedTouches[0];
-  captureDebugGeometry('touchend', { touchX: t ? Math.round(t.clientX) : null, touchY: t ? Math.round(t.clientY) : null });
+  const ti = debugTargetInfo(e.target); // Rev 2.32.129: ціль touchend (id, тег, клас, прямокутник)
+  captureDebugGeometry('touchend', { touchX: t ? Math.round(t.clientX) : null, touchY: t ? Math.round(t.clientY) : null,
+    targetTag: ti.targetTag, targetId: ti.targetId, targetClasses: ti.targetClasses, targetRect: ti.targetRect });
 }
 function onDebugBodyClassChange(){ captureDebugGeometry('kb-open-class-changed'); }
 // Rev 2.22.91 — attach/detach через спільний debugListenerHandles — одна
@@ -11799,6 +11855,7 @@ function attachDebugRecorderListeners(){
   on(window, 'pagehide', onDebugPageHide);
   on(window, 'touchstart', onDebugTouchStart, { passive: true });
   on(window, 'touchend', onDebugTouchEnd, { passive: true });
+  ['pointerdown', 'pointerup', 'click'].forEach(function(ev){ on(document, ev, onDebugAddButtonPointer, true); }); // Rev 2.32.129: add-button (capture — до обробників кнопки)
   if(typeof MutationObserver !== 'undefined'){
     debugRecordingMutationObserver = new MutationObserver(onDebugBodyClassChange);
     debugRecordingMutationObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -12353,10 +12410,11 @@ function actionGateLeave(key, hold, now){
   actionGateState[key] = { running: false, doneAt: hold === false ? 0 : (now == null ? Date.now() : now) };
 }
 async function addExpense(){
-  if(!actionGateEnter('addExpense')) return;
+  if(!actionGateEnter('addExpense')){ debugAddResult('rejected', 'gate'); return; } // Rev 2.32.129: результат у рекордер (лише під час запису)
   let ok = false;
   try{ ok = await addExpenseCore(); }
   finally{ actionGateLeave('addExpense', ok); }
+  if(ok) debugAddResult('added');
 }
 async function addExpenseCore(){
   const name = document.getElementById('expfielda7').value.trim();
@@ -12364,7 +12422,7 @@ async function addExpenseCore(){
   const date = document.getElementById('f-date').value || localDateISO();
   const category = document.getElementById('f-category').value;
   const subcategory = document.getElementById('f-subcategory').value;
-  if(!name || !amount || amount<=0){ flashField(!name ? 'expfielda7' : 'f-amount'); return false; }
+  if(!name || !amount || amount<=0){ flashField(!name ? 'expfielda7' : 'f-amount'); debugAddResult('rejected', !name ? 'name-empty' : 'amount-invalid'); return false; }
   const auto = autocategorize(name);
   const isManual = !auto || auto.cat !== category;
   // Rev 2.11.2 — стабільний UUID (generateUUID(), не Date.now()+random) і
@@ -15160,6 +15218,7 @@ function updateNameSuggestions(text){
   if(q.length < 2){ nameSuggestions = []; listEl.classList.remove('show'); listEl.innerHTML=''; return; }
   const matches = nameSuggestionsFor(nameHistoryMap, text);
   nameSuggestions = matches;
+  debugSuggestRender('new', matches, activeNameSuggestIdx); // Rev 2.32.129
   if(!matches.length){ listEl.classList.remove('show'); listEl.innerHTML=''; return; }
   listEl.innerHTML = matches.map(function(n,i){
     const h = nameHistoryMap[n];
@@ -15206,7 +15265,9 @@ function selectNameSuggestion(i){
   const name = nameSuggestions[i];
   if(name == null) return;
   const nameInput = document.getElementById('expfielda7');
+  const lenBefore = nameInput.value.length; // Rev 2.32.129: лише довжини для діагностики
   nameInput.value = name;
+  debugSuggestPick('new', i, name, lenBefore, name.length);
   onNameInput(); // спершу звичайний шлях: словник автозв'язку/автокатегорії
   hideNameSuggestions();
   // Пріоритет над словником — реальна історія САМЕ цієї назви (точніше за
@@ -15456,6 +15517,7 @@ function guardEditOpener(name, trigger){
   window[name] = function(){
     const args = arguments, self = this;
     if(!editingRecordKey) return orig.apply(self, args);
+    if(name === 'addExpense') debugAddResult('deferred', 'edit-guard'); // Rev 2.32.129: відкрите редагування — «Додати» спершу йде через підтвердження/закриття редагування
     let result;
     requestCloseEdit(trigger, function(){ result = orig.apply(self, args); });
     return result;
@@ -15529,6 +15591,7 @@ function updateEditNameSuggestions(id){
   if(!input || !listEl) return;
   const matches = nameSuggestionsFor(nameHistoryMap, input.value);
   editNameSuggestions = matches;
+  debugSuggestRender('edit', matches, -1); // Rev 2.32.129
   if(!matches.length){ hideEditNameSuggestions(id); return; }
   listEl.innerHTML = matches.map(function(n, i){
     const h = nameHistoryMap[n];
@@ -15584,7 +15647,9 @@ function pickEditNameSuggestion(id, i){
   const input = document.getElementById('edtfielda1-'+id);
   if(name == null || !input) return;
   lastEditPickAt = now;
+  const editLenBefore = input.value.length; // Rev 2.32.129: лише довжини для діагностики
   input.value = name;
+  debugSuggestPick('edit', i, name, editLenBefore, name.length);
   editSuggestSuppress = true;
   try{ onRecordNameInput(id); }finally{ editSuggestSuppress = false; } // словник → категорія/підкатегорія (2.31.2)
   applyHistoryCategoryOnEdit(id, name);
