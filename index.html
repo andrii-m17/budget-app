@@ -3516,7 +3516,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.114</div>
+  <div class="version-footer">Money Tree · Rev 2.32.115</div>
 </div>
   </div>
 </div>
@@ -4493,6 +4493,7 @@ async function saveCategoriesLocal(){
 // синхронізований і т.п. в інших доменах) свідомо НЕ рахуються помилкою —
 // це очікуваний, не аварійний стан.
 async function pushCategoriesPilot(){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('categories', 'push'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
@@ -4570,7 +4571,7 @@ async function pushCategoriesPilot(){
   // ОКРЕМО (той самий syncActiveOps-лічильник), тому вкладений await тут
   // природно тримає індикатор в одному безперервному "syncing", без
   // спецкоду для UX.
-  if(!anyError) await pullCategoriesCore();
+  if(!anyError && localChanged) await pullCategoriesCore(); // Rev 2.32.115 (URGENT-LOOP): завершальний pull лише якщо щось справді надсилалось (інакше push↔pull ходили б по колу без жодного запису)
   return { success: !anyError };
 }
 // Rev #30 (6D fix) — спершу шукаємо ІСНУЮЧИЙ Cloud-рядок за name+family_id
@@ -4657,6 +4658,7 @@ async function reconcileCategoryCloudId(client, userId, cat){
 // а "pull виявив, що ЛОКАЛЬНІ дані ще не дійшли до Cloud → допомагає їм
 // дійти".
 async function pullCategoriesCore(opts){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('categories', 'pull'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0;
@@ -4680,7 +4682,7 @@ async function pullCategoriesCore(opts){
         // самий fallback, що діяв ДО цього Rev для всіх випадків).
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
-        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime && isDirty(byCloudId); // Rev 2.32.115 (URGENT-LOOP): «чистий» запис з новішим локальним часом — не привід для push (сервер ставить updated_at сам: set_updated_at_if_changed), приймаємо серверний час нижче
         if(localIsNewer){
           keptLocal++;
           // Rev #30 (6D, push-retry) — не чекаємо наступного ручного
@@ -4786,6 +4788,7 @@ async function saveSubcategoriesLocal(){
 // (FK на id, не на name) — пропущений цикл просто нічого корисного не
 // зробив би, а наступний реальний saveSubcategories() пуштить коректно.
 async function pushSubcategoriesPilot(){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('subcategories', 'push'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
@@ -4838,7 +4841,7 @@ async function pushSubcategoriesPilot(){
     if(dictChanged) await saveDictionaryLocal();
   }
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
-  if(!anyError) await pullSubcategoriesCore();
+  if(!anyError && localChanged) await pullSubcategoriesCore(); // Rev 2.32.115 (URGENT-LOOP): завершальний pull лише якщо щось справді надсилалось (інакше push↔pull ходили б по колу без жодного запису)
   return { success: !anyError };
 }
 async function reconcileSubcategoryCloudId(client, userId, sub, categoryId){
@@ -5147,6 +5150,7 @@ function pushDictionaryPilot(){
   return dictionaryPushQueued;
 }
 async function pushDictionaryPilotRun(){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('dictionary', 'push'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
@@ -5236,7 +5240,7 @@ async function pushDictionaryPilotRun(){
   }
   if(localChanged) await saveDictionaryLocal();
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
-  if(!anyError) await pullDictionaryCore();
+  if(!anyError && localChanged) await pullDictionaryCore(); // Rev 2.32.115 (URGENT-LOOP): завершальний pull лише якщо щось справді надсилалось (інакше push↔pull ходили б по колу без жодного запису)
   return { success: !anyError };
 }
 // Rev 2.23.25 (6D.194, Ревізія F) — пошук живого рядка словника без урахування
@@ -5304,6 +5308,7 @@ async function reconcileDictionaryCloudId(client, userId, entry, categoryId, sub
 // реальний шлях сюди — порядок pull (subcategories/dictionary мусять
 // пулитись ПІСЛЯ categories, applyCloudSession() дотримується цього).
 async function pullSubcategoriesCore(opts){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('subcategories', 'pull'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
@@ -5327,7 +5332,7 @@ async function pullSubcategoriesCore(opts){
       if(byCloudId){
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
-        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime && isDirty(byCloudId); // Rev 2.32.115 (URGENT-LOOP): «чистий» запис з новішим локальним часом — не привід для push (сервер ставить updated_at сам: set_updated_at_if_changed), приймаємо серверний час нижче
         if(localIsNewer){
           keptLocal++;
           pushSubcategoriesPilot();
@@ -5383,6 +5388,7 @@ async function pullSubcategoriesPilot(){
 // пулитись ПІСЛЯ subcategories (той самий порядок, що вже діє в push,
 // застосований симетрично тут — applyCloudSession() дотримується).
 async function pullDictionaryCore(opts){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('dictionary', 'pull'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, skippedFk = 0;
@@ -5406,7 +5412,7 @@ async function pullDictionaryCore(opts){
       if(byCloudId){
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
-        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime && isDirty(byCloudId); // Rev 2.32.115 (URGENT-LOOP): «чистий» запис з новішим локальним часом — не привід для push (сервер ставить updated_at сам: set_updated_at_if_changed), приймаємо серверний час нижче
         if(localIsNewer){
           keptLocal++;
           pushDictionaryPilot();
@@ -7282,6 +7288,7 @@ async function saveBankAccountsLocal(){
 // push, і pull доведеться переглянути разом. Задокументовано і в
 // docs/ROADMAP.md, розділ "Відомі обмеження синхронізації".
 async function pushBankAccountsPilot(){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('bank_accounts', 'push'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
@@ -7360,7 +7367,7 @@ async function pushBankAccountsPilot(){
   if(childInfo.hiddenChanged) pushHiddenEntitiesPilot();
   captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped, children: childInfo.count });
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
-  if(!anyError) await pullBankAccountsCore();
+  if(!anyError && localChanged) await pullBankAccountsCore(); // Rev 2.32.115 (URGENT-LOOP): завершальний pull лише якщо щось справді надсилалось (інакше push↔pull ходили б по колу без жодного запису)
   return { success: !anyError };
 }
 // Rev 2.32.63 (P1) — «День платежу» картки: ціле 1…31 або null («Не задано»). Усе інше (0, 32, нечисло, порожнє) — null. Сервер приймає лише 1–31 або порожньо.
@@ -7395,6 +7402,7 @@ async function reconcileBankAccountCloudId(client, userId, acc){
 // "active"-поля (картки ховаються через hiddenFrom, не через масив), тому
 // це питання тут ще й структурно неактуальне.
 async function pullBankAccountsCore(opts){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('bank_accounts', 'pull'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
@@ -7410,7 +7418,7 @@ async function pullBankAccountsCore(opts){
       if(byCloudId){
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
-        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime && isDirty(byCloudId); // Rev 2.32.115 (URGENT-LOOP): «чистий» запис з новішим локальним часом — не привід для push (сервер ставить updated_at сам: set_updated_at_if_changed), приймаємо серверний час нижче
         if(localIsNewer){
           keptLocal++;
           // Rev #30 (6D, push-retry) — той самий принцип, що
@@ -7499,6 +7507,7 @@ async function saveInstallmentAccountsLocal(){
 // застереження, що вище для bank_accounts, той самий hidden_entities-клас
 // проблеми).
 async function pushInstallmentAccountsPilot(){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('installment_accounts', 'push'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
@@ -7548,7 +7557,7 @@ async function pushInstallmentAccountsPilot(){
   if(childInfo.hiddenChanged) pushHiddenEntitiesPilot(); // Rev 2.23.28 (6D.197, G3): див. pushBankAccountsPilot
   captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped, children: childInfo.count });
   // Rev #30 (6D.49) — той самий принцип, що pushCategoriesPilot().
-  if(!anyError) await pullInstallmentAccountsCore();
+  if(!anyError && localChanged) await pullInstallmentAccountsCore(); // Rev 2.32.115 (URGENT-LOOP): завершальний pull лише якщо щось справді надсилалось (інакше push↔pull ходили б по колу без жодного запису)
   return { success: !anyError };
 }
 async function reconcileInstallmentAccountCloudId(client, userId, acc){
@@ -7569,6 +7578,7 @@ async function reconcileInstallmentAccountCloudId(client, userId, acc){
 // самий свідомий пропуск синхронізації видалення (installmentAccounts, як
 // і bankAccounts, не має локального "active"-поля).
 async function pullInstallmentAccountsCore(opts){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('installment_accounts', 'pull'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
@@ -7582,7 +7592,7 @@ async function pullInstallmentAccountsCore(opts){
       if(byCloudId){
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
-        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
+        const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime && isDirty(byCloudId); // Rev 2.32.115 (URGENT-LOOP): «чистий» запис з новішим локальним часом — не привід для push (сервер ставить updated_at сам: set_updated_at_if_changed), приймаємо серверний час нижче
         if(localIsNewer){
           keptLocal++;
           pushInstallmentAccountsPilot();
@@ -7693,6 +7703,7 @@ async function cleanupOrphanedHiddenEntities(client, entityType, oldCloudIds){
   }
 }
 async function pushHiddenEntitiesPilot(){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('hidden_entities', 'push'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
@@ -7741,7 +7752,7 @@ async function pushHiddenEntitiesPilot(){
   // початковим "8 доменів" списком — existence-based merge ідемпотентний
   // і дешевий, немає LWW/push-retry гілки, тому немає нового ризику
   // зациклення, а мета ("побачити чужі зміни швидше") стосується й цього домену.
-  if(!anyError) await pullHiddenEntitiesCore();
+  if(!anyError && localChanged) await pullHiddenEntitiesCore(); // Rev 2.32.115 (URGENT-LOOP): завершальний pull лише якщо щось справді надсилалось (інакше push↔pull ходили б по колу без жодного запису)
   return { success: !anyError };
 }
 // Pull: entity_id резолвиться в local-запис за cloudId (не назвою) у
@@ -7772,6 +7783,7 @@ async function pushHiddenEntitiesPilot(){
 // найпростіша можлива форма для домену без updated_at.
 let hiddenEntitiesPulledOnce = false;
 async function pullHiddenEntitiesCore(){
+  if(typeof noteSyncCycle === 'function') noteSyncCycle('hidden_entities', 'pull'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let added = 0, updated = 0, skippedFk = 0, unstuckLegacy = false;
@@ -7978,7 +7990,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.114';
+const APP_VERSION = '2.32.115';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9163,6 +9175,23 @@ function getSupabaseClient(){
 }
 // Rev 2.32.73 (S) — лічильник запитів до сервера за сеанс (типи без значень користувача). Ключ: «МЕТОД таблиця» / «RPC функція» / «auth».
 const NET_STATS = { total: 0, byType: {} };
+// Rev 2.32.115 (URGENT-LOOP): лічильник циклів синхронізації за таблицею (виклики pull*Core / push*Pilot за останню хвилину). Лише діагностика розробника («Тестування» → «Запити до сервера»): нічого не обмежує й не блокує. Масив обрізається за часом (60 с) і за розміром (1000), тож пам'ять обмежена навіть у петлі.
+const SYNC_CYCLE_LOG = {};
+function noteSyncCycle(table, kind){
+  const e = SYNC_CYCLE_LOG[table] || (SYNC_CYCLE_LOG[table] = { pull: [], push: [] });
+  const a = e[kind]; if(!a) return;
+  const now = Date.now(); a.push(now);
+  while(a.length && now - a[0] > 60000) a.shift();
+  if(a.length > 1000) a.splice(0, a.length - 1000);
+}
+function syncCycleCounts(){
+  const now = Date.now(); const out = {};
+  Object.keys(SYNC_CYCLE_LOG).forEach(function(t){
+    const e = SYNC_CYCLE_LOG[t];
+    out[t] = { pull: e.pull.filter(function(x){ return now - x <= 60000; }).length, push: e.push.filter(function(x){ return now - x <= 60000; }).length };
+  });
+  return out;
+}
 function classifyNetRequest(url, method){
   const m = String(method || 'GET').toUpperCase();
   const path = String(url || '').split('?')[0];
@@ -20084,7 +20113,10 @@ function updateNetStatsRow(){
 function showNetStats(){
   updateNetStatsRow();
   const lines = Object.keys(NET_STATS.byType).sort(function(a, b){ return NET_STATS.byType[b] - NET_STATS.byType[a]; }).map(function(k){ return k + ': ' + NET_STATS.byType[k]; });
-  showAlertModal(lines.length ? 'Усього: ' + NET_STATS.total + '\n' + lines.join('\n') : 'Запитів до сервера за цей сеанс ще не було.');
+  const cyc = syncCycleCounts(); // Rev 2.32.115 (URGENT-LOOP): pull/push за хвилину по таблицях
+  const cycLines = Object.keys(cyc).filter(function(t){ return cyc[t].pull || cyc[t].push; }).map(function(t){ return t + ': pull ' + cyc[t].pull + ' / push ' + cyc[t].push; });
+  const tail = cycLines.length ? '\n\nЦикли синхронізації за хвилину:\n' + cycLines.join('\n') : '';
+  showAlertModal((lines.length ? 'Усього: ' + NET_STATS.total + '\n' + lines.join('\n') : 'Запитів до сервера за цей сеанс ще не було.') + tail);
 }
 function openTestingDrawer(){
   updateNetStatsRow();

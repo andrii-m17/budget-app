@@ -1768,7 +1768,7 @@ test('pushExpenseRecordPilot: не залогінений (офлайн-поді
   assert.equal(pullSpy.count(), 0);
 });
 
-test('pushCategoriesPilot: успішний push (порожній масив, anyError:false) → pullCategoriesCore() викликається', async () => {
+test('pushCategoriesPilot: нічого не відправлялось (порожній масив) → pullCategoriesCore() НЕ викликається (Rev 2.32.115, URGENT-LOOP: інакше push↔pull ходили б по колу)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -1777,7 +1777,7 @@ test('pushCategoriesPilot: успішний push (порожній масив, a
   ctx.getSupabaseClient = () => fakeSupabaseSelectClient('categories', []);
   const pullSpy = spyOn(ctx, 'pullCategoriesCore');
   await ctx.pushCategoriesPilot();
-  assert.equal(pullSpy.count(), 1);
+  assert.equal(pullSpy.count(), 0);
 });
 
 test('pushCategoriesPilot: реальна Cloud-помилка (anyError:true) → pullCategoriesCore() НЕ викликається', async () => {
@@ -1880,7 +1880,7 @@ test('pushCategoriesPilot: 2 записи, лише 1 локально змін�
   assert.deepEqual(updatedIds, ['c1']); // Rev 2.23.27 (G2): 'c2' (незмінена) НЕ пушиться
 });
 
-test('pushHiddenEntitiesPilot: успішний push (порожній hiddenFrom) → pullHiddenEntitiesCore() викликається (рішення: той самий принцип, хоч і поза "8 доменів")', async () => {
+test('pushHiddenEntitiesPilot: нічого не відправлялось (порожній hiddenFrom) → pullHiddenEntitiesCore() НЕ викликається (Rev 2.32.115, URGENT-LOOP)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -1889,7 +1889,7 @@ test('pushHiddenEntitiesPilot: успішний push (порожній hiddenFro
   ctx.getSupabaseClient = () => fakeSupabaseSelectClient('hidden_entities', []);
   const pullSpy = spyOn(ctx, 'pullHiddenEntitiesCore');
   await ctx.pushHiddenEntitiesPilot();
-  assert.equal(pullSpy.count(), 1);
+  assert.equal(pullSpy.count(), 0);
 });
 
 test('pushDebtRecordPilot: рахунок ще не синхронізований → тихий пропуск, { success:true } (не помилка)', async () => {

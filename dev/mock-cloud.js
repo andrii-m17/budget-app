@@ -251,6 +251,15 @@
       return respond(JSON.parse(JSON.stringify(sel(list))), 200, matchedTotal, off);
     }
     const ts = nowIso(state);
+    // Rev 2.32.115 (URGENT-LOOP): серверний тригер set_updated_at_if_changed (усі 9 таблиць синхронізації): updated_at клієнта ІГНОРУЄТЬСЯ. Якщо дані (без updated_at/updated_by) не змінились — лишається старий updated_at (і updated_by); якщо змінились — now() сервера.
+    const serverUpdate = function(row, patch){
+      if(SYNC_TABLES.indexOf(table) === -1){ Object.assign(row, patch || {}); return; }
+      const strip = function(o){ const c = Object.assign({}, o); delete c.updated_at; delete c.updated_by; return JSON.stringify(Object.keys(c).sort().map(function(k){ return [k, c[k] === undefined ? null : c[k]]; })); };
+      const old = Object.assign({}, row);
+      Object.assign(row, patch || {});
+      if(strip(row) === strip(old)){ row.updated_at = old.updated_at; if('updated_by' in old) row.updated_by = old.updated_by; else delete row.updated_by; }
+      else row.updated_at = ts;
+    };
     if(method === 'POST'){
       const items = Array.isArray(body) ? body : (body ? [body] : []);
       const upsert = /merge-duplicates|ignore-duplicates/.test(prefer);
@@ -262,7 +271,7 @@
         const conflict = (params.get('on_conflict') || '').split(',').filter(Boolean);
         const keys = conflict.length ? conflict : (KEYS[table] || ['id']);
         const ex = rows.find(function(r){ return keys.every(function(k){ return String(r[k]) === String(row[k]); }); });
-        if(ex && upsert){ if(!/ignore-duplicates/.test(prefer)){ Object.assign(ex, row); out.push(ex); } }
+        if(ex && upsert){ if(!/ignore-duplicates/.test(prefer)){ serverUpdate(ex, row); out.push(ex); } }
         else if(ex){ out.push(null); }
         else { rows.push(row); out.push(row); }
         emit(state, table, ex ? 'UPDATE' : 'INSERT', row);
@@ -272,7 +281,7 @@
     }
     if(method === 'PATCH' || method === 'PUT'){
       const hit = rows.filter(function(r){ return fs.every(function(f){ return f(r); }); });
-      hit.forEach(function(r){ Object.assign(r, body || {}); emit(state, table, 'UPDATE', r); });
+      hit.forEach(function(r){ serverUpdate(r, body || {}); emit(state, table, 'UPDATE', r); });
       return wantRep ? respond(JSON.parse(JSON.stringify(sel(hit)))) : new Response(null, { status: 204 });
     }
     if(method === 'DELETE'){
