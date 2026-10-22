@@ -46,7 +46,7 @@ const SCAN = `(()=>{
 })()`;
 async function loadTab(c, tab, theme){
   await c.send('Page.navigate', { url: BASE + '/?fixture=typical' }); await sleep(4200);
-  await c.ev(`document.documentElement.setAttribute('data-theme','${theme}'); performSwitchTab('${tab}'); 1`); await sleep(900);
+  await c.ev(`document.documentElement.setAttribute('data-theme','${theme}'); performSwitchTab('${tab}'); (function(){ var s = document.createElement('style'); s.textContent = '#update-banner{display:none !important}'; document.head.appendChild(s); })(); 1`); await sleep(900); // плашка «Доступне оновлення» з'являється нестабільно (залежить від SW): ховаємо для порівняння
 }
 // Додаткові стани (оверлеї й шторки), які теж скануються у режимі scan: [вкладка, вираз]
 const STATES = [['vytraty', 'openJournal(monthKey(localDateISO(new Date())))'], ['service', 'openSettings()'], ['service', 'openNotifArchive()'], ['service', 'openTestingDrawer()'], ['service', 'openPaymentsScreen()'], ['service', 'openTrashScreen()'], ['service', 'openProfileMenu()'], ['service', 'openDebugRecordDrawer()'], ['structure', 'openAddCategoryModal()'], ['structure', 'openAddDictionaryModal()'], ['accounting', 'openAddBankModal()'], ['accounting', 'openAddInstallmentModal()'], ['analytics', "document.querySelector('.data-status-dot') && document.querySelector('.data-status-dot').click()"], ['structure', "document.querySelector('.struct-row') && document.querySelector('.struct-row').click()"]];
@@ -73,6 +73,11 @@ if(MODE === 'shots'){
     await c.ev(`document.querySelectorAll('.toast, .success-toast').forEach(e => e.remove()); 1`); await sleep(300);
     const shot = await c.send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(`${dir}/${tab}-${theme}.png`, Buffer.from(shot.result.data, 'base64'));
+  }
+  if(!process.env.ONLY) for(const theme of ['dark', 'light']){ // шторка «Сповіщення»
+    await loadTab(c, 'service', theme); await c.ev(`openNotificationsDrawer(); 1`); await sleep(1500);
+    const shot = await c.send('Page.captureScreenshot', { format: 'png' });
+    writeFileSync(`${dir}/notifications-${theme}.png`, Buffer.from(shot.result.data, 'base64'));
   }
   c.close(); process.exit(0);
 }
