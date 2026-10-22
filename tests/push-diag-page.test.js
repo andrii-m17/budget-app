@@ -37,7 +37,7 @@ test('sendPushDiagLog: без Cloud-сесії нічого не шле; у «л
   const ok = buildSandbox({
     isCloudSessionReady: () => true, blockedByReadOnly: () => false, showTextToast: (t) => toasts.push(t), APP_VERSION: '2.32.103', cloudFamilyId: 'fam', cloudSession: { user: { id: 'u' } },
     DEBUG_LOG_MAX_EVENTS_FOR_SEND: 3000, DEBUG_LOG_MAX_BYTES_FOR_SEND: 600000, trimEventsForSizeLimit: (e) => e,
-    readPushDiagEvents: async () => evs, buildPushDiagSnapshot: async () => ({ permission: 'granted' }), document: { getElementById: () => null },
+    readPushDiagEvents: async () => evs, jsErrReadAll: async () => [], jsErrToLogEvents: () => [], buildPushDiagSnapshot: async () => ({ permission: 'granted' }), document: { getElementById: () => null },
     getSupabaseClient: () => ({ from: (t) => ({ insert: async (row) => { inserted = { t, row }; return { error: null }; } }) }),
   }, NAMES);
   await ok.sendPushDiagLog();

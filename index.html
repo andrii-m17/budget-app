@@ -3528,7 +3528,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.122</div>
+  <div class="version-footer">Money Tree · Rev 2.32.123</div>
 </div>
   </div>
 </div>
@@ -4240,6 +4240,7 @@ function recordJsError(info){
       }
     }catch(e){}
     try{ updateJsErrorsRow(); }catch(e){}
+    try{ jsErrPersist(rec); }catch(e){} // Rev 2.32.123 (JSERR-1): лише режим розробника (див. нижче); основний облік вище не змінено
   }catch(e){}
 }
 function updateJsErrorsRow(){
@@ -4249,6 +4250,84 @@ function updateJsErrorsRow(){
 function showJsErrors(){
   const last = jsErrorList.slice(-5).reverse();
   showAlertModal(last.length ? last.map(function(r){ return '• ' + r.message + (r.source ? ' (' + r.source + ')' : '') + (r.tab ? ' · ' + r.tab : '') + (r.count > 1 ? ' ×' + r.count : ''); }).join('\n') : 'Помилок за цей сеанс не було.');
+}
+// ===== Rev 2.32.123 (JSERR-1): кільцевий журнал помилок JavaScript в IndexedDB (лише режим розробника) =====
+// Вмикається тим самим перемикачем розробника, що «Розширена діагностика сповіщень» (прапорець у IndexedDB 'budget-app-push-diag'); ВИМКНЕНО за замовчуванням: тоді нічого не пишеться. Окрема база 'budget-app-js-errors' (щоб не міняти схему бази діагностики push, яку читає sw.js). Записи ті самі, що вже обробляє recordJsError (повідомлення очищене scrubJsErrorText: до 160 символів, без email і довгих чисел; файл:рядок; імена 3 кадрів; вкладка): жодних значень користувача. Кільце ≤ 50 унікальних (дублікат = count й час останньої появи), ліміт частоти ≤ 10 записів за хвилину (шторм помилок не навантажує сховище), усе best-effort без винятків. Журнал переживає закриття PWA й потрапляє в «Надіслати лог сповіщень» разом з іншим.
+const JSERR_DB_NAME = 'budget-app-js-errors';
+const JSERR_STORE = 'errors';
+const JSERR_RING_MAX = 50;
+const JSERR_RATE_MAX = 10;
+const JSERR_RATE_WINDOW_MS = 60000;
+let jsErrPersistOn = false;
+let jsErrRateLog = [];
+function jsErrOpen(){
+  return new Promise(function(resolve, reject){
+    try{
+      const req = indexedDB.open(JSERR_DB_NAME, 1);
+      req.onupgradeneeded = function(){ if(!req.result.objectStoreNames.contains(JSERR_STORE)) req.result.createObjectStore(JSERR_STORE, { keyPath: 'id', autoIncrement: true }); };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    }catch(e){ reject(e); }
+  });
+}
+function jsErrRateAllow(now){
+  jsErrRateLog = jsErrRateLog.filter(function(t){ return now - t < JSERR_RATE_WINDOW_MS; });
+  if(jsErrRateLog.length >= JSERR_RATE_MAX) return false;
+  jsErrRateLog.push(now);
+  return true;
+}
+// rec — запис recordJsError { key, message, source, stackTop, tab, count }; повертає проміс (ніколи не відхиляється).
+function jsErrPersist(rec){
+  if(!jsErrPersistOn || !rec) return Promise.resolve(false);
+  const now = Date.now();
+  if(!jsErrRateAllow(now)) return Promise.resolve(false);
+  const entry = { key: String(rec.key || '').slice(0, 220), ts: now, message: String(rec.message || '').slice(0, 160), source: String(rec.source || '').slice(0, 60), stackTop: (rec.stackTop || []).slice(0, 3).map(function(x){ return String(x).slice(0, 40); }), tab: rec.tab ? String(rec.tab).slice(0, 30) : null, count: rec.count || 1 };
+  return jsErrOpen().then(function(db){
+    return new Promise(function(resolve){
+      const tx = db.transaction(JSERR_STORE, 'readwrite');
+      const store = tx.objectStore(JSERR_STORE);
+      const all = store.getAll();
+      all.onsuccess = function(){
+        const rows = all.result || [];
+        const same = rows.filter(function(r){ return r.key === entry.key; })[0];
+        if(same){ same.ts = now; same.count = Math.max(entry.count, (same.count || 1) + 1); store.put(same); }
+        else{
+          store.add(entry);
+          const extra = rows.length + 1 - JSERR_RING_MAX;
+          if(extra > 0) rows.sort(function(a, b){ return (a.ts || 0) - (b.ts || 0); }).slice(0, extra).forEach(function(r){ store.delete(r.id); });
+        }
+      };
+      tx.oncomplete = function(){ db.close(); resolve(true); };
+      tx.onerror = tx.onabort = function(){ try{ db.close(); }catch(e){} resolve(false); };
+    });
+  }).catch(function(){ return false; });
+}
+function jsErrReadAll(){
+  return jsErrOpen().then(function(db){
+    return new Promise(function(resolve){
+      const all = db.transaction(JSERR_STORE, 'readonly').objectStore(JSERR_STORE).getAll();
+      all.onsuccess = function(){ db.close(); resolve((all.result || []).sort(function(a, b){ return (a.ts || 0) - (b.ts || 0); })); };
+      all.onerror = function(){ db.close(); resolve([]); };
+    });
+  }).catch(function(){ return []; });
+}
+function jsErrClear(){
+  return jsErrOpen().then(function(db){
+    return new Promise(function(resolve){
+      const tx = db.transaction(JSERR_STORE, 'readwrite');
+      tx.objectStore(JSERR_STORE).clear();
+      tx.oncomplete = function(){ db.close(); resolve(true); };
+      tx.onerror = function(){ db.close(); resolve(false); };
+    });
+  }).catch(function(){ return false; });
+}
+function jsErrEntryLine(e){
+  const d = new Date(e.ts || 0); const two = function(n){ return String(n).padStart(2, '0'); };
+  return two(d.getDate()) + '.' + two(d.getMonth() + 1) + ' ' + two(d.getHours()) + ':' + two(d.getMinutes()) + ' · ' + (e.message || 'Помилка') + (e.source ? ' (' + e.source + ')' : '') + (e.tab ? ' · ' + e.tab : '') + (e.count > 1 ? ' ×' + e.count : '');
+}
+// Події для логу: ті самі поля, що й js-error у рекордері (без значень користувача).
+function jsErrToLogEvents(rows){
+  return (rows || []).map(function(e){ return { ev: 'js-error', ts: e.ts, message: e.message, source: e.source, stackTop: e.stackTop, tab: e.tab, count: e.count }; });
 }
 function jsErrorBacklogLines(list){ return (list || []).map(function(r){ return r.message + (r.source ? ' @ ' + r.source : '') + ' ×' + r.count; }); }
 window.addEventListener('error', function(e){
@@ -8006,7 +8085,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.122';
+const APP_VERSION = '2.32.123';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -22521,7 +22600,8 @@ async function sendPushDiagLog(){
   if(blockedByReadOnly()) return;
   const btn = document.getElementById('push-diag-send-btn'); if(btn) btn.disabled = true;
   try{
-    const events = trimEventsForSizeLimit((await readPushDiagEvents()).map(function(e){ const c = Object.assign({}, e); delete c.id; return c; }), DEBUG_LOG_MAX_EVENTS_FOR_SEND, DEBUG_LOG_MAX_BYTES_FOR_SEND);
+    const workerEvents = (await readPushDiagEvents()).map(function(e){ const c = Object.assign({}, e); delete c.id; return c; });
+    const events = trimEventsForSizeLimit(workerEvents.concat(jsErrToLogEvents(await jsErrReadAll())), DEBUG_LOG_MAX_EVENTS_FOR_SEND, DEBUG_LOG_MAX_BYTES_FOR_SEND); // Rev 2.32.123 (JSERR-1): + кільцевий журнал помилок JS
     const { error } = await getSupabaseClient().from('client_debug_logs').insert({
       family_id: cloudFamilyId, user_id: cloudSession.user.id, app_version: APP_VERSION, scenario: 'push-diag',
       device: await buildPushDiagSnapshot(), events: events,
@@ -22630,6 +22710,13 @@ async function renderPushDiag(){
   mk('push-diag-send-btn', 'Надіслати лог сповіщень', sendPushDiagLog);
   mk('push-diag-refresh-btn', 'Оновити підписку', refreshPushSubscription);
   mk('push-diag-clear-btn', 'Очистити журнал подій', async function(){ await clearPushDiagEvents(); list.textContent = ''; showTextToast('Журнал подій очищено', 'info'); });
+  mk('push-diag-errors-btn', 'Показати журнал помилок JS', async function(){
+    const rows = (await jsErrReadAll()).slice(-30).reverse();
+    list.textContent = '';
+    if(!rows.length){ list.textContent = 'Помилок у журналі немає'; return; }
+    rows.forEach(function(e){ const row = document.createElement('div'); row.className = 'n-diag-row'; const sp = document.createElement('span'); sp.textContent = jsErrEntryLine(e); row.appendChild(sp); list.appendChild(row); });
+  });
+  mk('push-diag-errors-clear-btn', 'Очистити журнал помилок JS', async function(){ await jsErrClear(); list.textContent = ''; showTextToast('Журнал помилок очищено', 'info'); });
   const series = document.createElement('div'); series.id = 'push-series-form'; series.style.marginBottom = '10px';
   const counts = []; for(let i = 1; i <= 10; i++) counts.push([String(i), String(i)]);
   series.appendChild(pushSeriesSelect('fldpush1', 'Кількість push', counts));
@@ -22644,8 +22731,13 @@ async function renderPushDiag(){
 async function togglePushDiag(){
   const on = await readPushDiagFlag();
   await writePushDiagFlag(!on);
+  jsErrPersistOn = !on; // Rev 2.32.123 (JSERR-1): той самий перемикач розробника вмикає кільцевий журнал помилок
+  if(jsErrPersistOn){ try{ jsErrList_flush(); }catch(e){} }
   await renderPushDiag();
 }
+function jsErrList_flush(){ jsErrorList.forEach(function(r){ jsErrPersist(r); }); }
+// Rev 2.32.123 (JSERR-1): прапорець розробника читаємо один раз на старті (помилки до відповіді не журналяться: допустимо).
+try{ readPushDiagFlag().then(function(v){ jsErrPersistOn = !!v; }); }catch(e){}
 // ===== Rev 2.32.122 (QA-1): «Чекліст перевірки» на iPhone («Тестування») =====
 // Пункти беруться з qa.json (його генерує scripts/gen-qa.mjs зі звітів docs/reports/*.md: розділ «Для iPhone»; публікується разом із застосунком, запит з ?v=<версія> і cache:'no-store', у сервіс-воркері живе не довше за версію застосунку); відповіді «ок» / «не ок» (+ причина кнопкою) зберігаються ЛИШЕ локально (localStorage), у мережу нічого не пишеться. «Скопіювати результат» формує текст для чату за номерами пунктів. Без текстових полів (причини готовими кнопками), тож клавіатурна логіка шторок не зачіпається.
 const QA_STATE_KEY = 'budget-qa-state-v1';
