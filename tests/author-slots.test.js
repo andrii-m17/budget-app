@@ -70,3 +70,15 @@ test('один учасник → слот 0; видалення першого 
   await boom.loadFamilyUsersDirectory({ from: () => ({ select: async () => ({ data: [{ id: 'u', display_name: 'U', created_at: '2026-09-01', gender: 'f' }], error: null }) }) }); // setItem кидає: без винятку
   assert.equal(boom.authorInfoFor('u').gender, 'f');
 });
+
+test('перший запуск після оновлення: аватар власника прихований (slot-pending), доки невідомий слот, і знімається після довідника; запобіжник 3 с; довідник позначається завантаженим навіть при помилці', async () => {
+  assert.match(SRC, /const slotPending = !!\(signedIn && !familyUsersLoaded && cachedAuthorSlot\(session\.user\.id\) === null\);/);
+  assert.match(SRC, /face\.classList\.toggle\('slot-pending', slotPending\);/);
+  assert.match(SRC, /\.avatar-face\.slot-pending\{ opacity:0; \}/);
+  assert.ok(SRC.includes('renderProfileUI.__pendingTimer = null; familyUsersLoaded = true; try{ renderProfileUI(); }catch(e){} }, 3000); }'), 'запобіжник 3 с');
+  const f = SRC.slice(SRC.indexOf('async function loadFamilyUsersDirectory'), SRC.indexOf('// Rev #30 (6D.62) — кольорове розрізнення авторства (ТЗ користувача); з Rev 2.32.116'));
+  assert.match(f, /finally\{ familyUsersLoaded = true; \}/);
+  const c = buildSandbox({ familyUsersById: {}, familyUsersLoaded: false, localStorage: { getItem: () => null, setItem(){} } }, NAMES);
+  await c.loadFamilyUsersDirectory({ from: () => ({ select: async () => { throw new Error('мережа'); } }) });
+  assert.equal(require('./extract').evalInSandbox(c, 'familyUsersLoaded'), true, 'помилка запиту теж знімає очікування');
+});

@@ -241,7 +241,8 @@
      overflow:hidden, крапка — сестринський елемент .avatar-face всередині
      .avatar-badge, поза межами обрізання. */
   .avatar-badge{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; flex-shrink:0; position:relative; }
-  .avatar-face{ display:flex; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; border-radius:50%; overflow:hidden; background:var(--color-primary); color:#fff; font-size:14px; font-weight:700; }
+  .avatar-face.slot-pending{ opacity:0; } /* Rev 2.32.119 (PRIV-1): аватар прихований, доки невідомий колір автора (перший запуск після оновлення) */
+  .avatar-face{ transition:opacity .25s ease; display:flex; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; border-radius:50%; overflow:hidden; background:var(--color-primary); color:#fff; font-size:14px; font-weight:700; }
   .avatar-face.guest{ background:var(--color-surface); color:var(--color-text-secondary); border:1.5px solid var(--color-border-strong); }
   /* Rev #30 (6D.9→6D.10) — BugFix: #profile-btn-top обгортає .avatar-badge
      у .gear-btn (прямокутне border-radius:var(--radius-md)) — inline-стиль
@@ -3516,7 +3517,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.118</div>
+  <div class="version-footer">Money Tree · Rev 2.32.119</div>
 </div>
   </div>
 </div>
@@ -7990,7 +7991,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.118';
+const APP_VERSION = '2.32.119';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10352,6 +10353,8 @@ async function loadCloudDisplayName(client, userId){
 // SELECT без .eq('id',...) сам повертає лише дозволені рядки — жодного
 // окремого family_members-join з клієнта не треба.
 let familyUsersById = {};
+// Rev 2.32.119 (PRIV-1): довідник учасників уже завантажено (успішно чи ні) у цьому сеансі; поки ні й слота власного користувача немає в кеші (перший запуск після оновлення), аватар приховано (слот-pending), щоб він не миготів нейтральним кольором.
+let familyUsersLoaded = false;
 // Rev 2.32.116 (PRIV-1): автор-колір за ПОРЯДКОМ учасників, а не за префіксом імені (імена членів родини не живуть у коді). Учасники сортуються за (users.created_at, id): слот 0 → рожевий (--color-accent-pink), слот 1 → синій (--color-info): рівно ті самі кольори, що давало зіставлення за іменем для цієї родини (перевірено за порядком у базі). Рід дієслів сповіщень (gender 'm'/'f') береться з users.gender (колонка на сервері, заповнена), а не зі слота (Rev 2.32.118). 3-й і далі учасник, а також учасник без відомого слота → НЕЙТРАЛЬНИЙ колір (--color-text-secondary, без gender). Слоти кешуються в localStorage (AUTHOR_SLOTS_LS_KEY): для себе колір відомий синхронно з першого рендера, до завантаження довідника (раніше це давало ім'я з email сесії; BugFix 6D.80). Ризик: порядок створення користувачів визначає слот; зміна складу сім'ї потребує явного поля кольору/статі на сервері (запропоновано в docs/reports/PRIV-1.md).
 const AUTHOR_SLOTS_LS_KEY = 'budget-author-slots-v1';
 const AUTHOR_SLOTS = [
@@ -10381,6 +10384,7 @@ async function loadFamilyUsersDirectory(client){
     familyUsersById = next;
     try{ localStorage.setItem(AUTHOR_SLOTS_LS_KEY, JSON.stringify(slots)); }catch(e){}
   }catch(e){ /* тихий пропуск, той самий принцип, що loadCloudDisplayName() */ }
+  finally{ familyUsersLoaded = true; }
 }
 // Rev #30 (6D.62) — кольорове розрізнення авторства (ТЗ користувача); з Rev 2.32.116 (PRIV-1) за слотом учасника (див. вище), не за іменем.
 // Невідомий автор (немає в довіднику й без fallbackName) — null (жоден маркер, не помилка): та сама «тихий пропуск» філософія, що
@@ -10864,10 +10868,14 @@ function renderProfileUI(){
   // на мить показував дефолтний --color-primary (зелений), доки не
   // завантажиться familyUsersById.
   const myAuthorInfo = signedIn ? authorInfoFor(session.user.id, session.user.email) : null;
+  // Rev 2.32.119 (PRIV-1): перший запуск після оновлення: кеш слотів порожній і довідник ще не прийшов, тож колір власного аватара невідомий; замість нейтрального «миготіння» аватар прихований (opacity), доки довідник не завантажиться (після цього renderProfileUI викликається знову); запобіжник 3 с, якщо запит завис.
+  const slotPending = !!(signedIn && !familyUsersLoaded && cachedAuthorSlot(session.user.id) === null);
+  if(slotPending && !renderProfileUI.__pendingTimer){ renderProfileUI.__pendingTimer = setTimeout(function(){ renderProfileUI.__pendingTimer = null; familyUsersLoaded = true; try{ renderProfileUI(); }catch(e){} }, 3000); }
   document.querySelectorAll('.avatar-badge[id^="profile-avatar-"]').forEach(function(el){
     const face = el.querySelector('.avatar-face');
     if(!face) return;
     face.classList.toggle('guest', !signedIn);
+    face.classList.toggle('slot-pending', slotPending);
     if(signedIn){
       face.textContent = letter;
       face.style.background = myAuthorInfo ? `var(${myAuthorInfo.colorVar})` : '';
