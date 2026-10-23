@@ -34,8 +34,9 @@ test('овали: 3, 10, 14, 24, 36 місяців; порожнє term_months; 
   assert.deepEqual(m(10, 7000, 1000), { mode: 'ovals', total: 10, done: 3 });
   assert.deepEqual(m(14, 14000, 1000), { mode: 'ovals', total: 14, done: 0 }, 'перший місяць: платежів не було');
   assert.deepEqual(m(24, 12000, 1000), { mode: 'ovals', total: 24, done: 12 });
-  assert.deepEqual(m(36, 18000, 1000), { mode: 'solid', total: 36, done: 18 }, '> 24 — суцільна смуга');
-  assert.equal(m(25, 5000, 1000).mode, 'solid'); assert.equal(m(24, 5000, 1000).mode, 'ovals');
+  const big = m(36, 18000, 1000); assert.equal(big.mode, 'ovals'); assert.equal(big.total, 24); assert.equal(big.done, 12, '> 24 місяців — 24 овали, кожен = term/24 місяців (без суцільної смуги)');
+  assert.equal(m(25, 5000, 1000).mode, 'ovals'); assert.equal(m(25, 5000, 1000).total, 24); assert.equal(m(24, 5000, 1000).total, 24);
+  assert.equal(m(36, 36000, 1000).done, 0, 'жодного платежу — жоден овал'); assert.equal(m(36, 35000, 1000).done, 1, 'перший платіж фарбує перший овал'); assert.equal(m(36, 0, 1000).done, 24, 'усе сплачено — усі');
   assert.deepEqual(m(null, 5000, 1000), { mode: 'none', total: 0, done: 0 }); assert.equal(m('', 5000, 1000).mode, 'none'); assert.equal(m(0, 5000, 1000).mode, 'none');
   assert.deepEqual(m(5, 400, 1000), { mode: 'ovals', total: 5, done: 4 }, 'платіж більший за залишок: лишився один платіж');
   assert.deepEqual(m(5, 0, 1000), { mode: 'ovals', total: 5, done: 5 }, 'залишок 0 — усі зафарбовані');
@@ -46,7 +47,7 @@ test('овали: HTML — кількість = term_months, зафарбова�
   const h = g.ochOvalsHtml(g.ochOvalsModel(10, 7000, 1000));
   assert.equal((h.match(/class="och-oval(?: on)?"/g) || []).length, 10); assert.equal((h.match(/och-oval on/g) || []).length, 3);
   assert.ok(/aria-hidden="true"/.test(h) && !/<span[^>]*>[^<]+<\/span>/.test(h.replace(/<span class="och-ovals" aria-hidden="true">/, '').replace(/<\/span>$/, '')), 'без текстового підпису');
-  const s = g.ochOvalsHtml(g.ochOvalsModel(36, 18000, 1000)); assert.match(s, /^<span class="och-solid" aria-hidden="true"><i style="width:50%"><\/i><\/span>$/);
+  const s = g.ochOvalsHtml(g.ochOvalsModel(36, 18000, 1000)); assert.equal((s.match(/class="och-oval(?: on)?"/g) || []).length, 24, '36 місяців — поділки, не суцільна смуга'); assert.equal((s.match(/och-oval on/g) || []).length, 12); assert.ok(!/och-solid/.test(s));
   assert.equal(g.ochOvalsHtml(g.ochOvalsModel(null, 1, 1)), ''); assert.equal(g.ochOvalsHtml(null), '');
 });
 test('овали: CSS — висота 5 px, проміжок 2 px, flex:1 1 0; min-width:0; overflow:hidden; смуга однакової ширини ≈ 76 px (24% рядка, 48–90 px); унікальні класи och-*', function(){
@@ -93,13 +94,13 @@ test('форма: розмітка — поля й сегменти за опи�
   ['У день оформлення', 'Наступного місяця', 'Автоматично', 'Вношу вручну', 'Оплатити', 'Зберегти', 'Видалити ОЧ'].forEach(l => assert.ok(form.includes(l), l));
   assert.ok(!/idd-due-day|Дата платежу|progress|t-bar|Разом/.test(form));
   assert.match(form, /<input type="date" id="idd-start"/);
+  assert.match(form, /<div class="struct-tabs och-seg" id="idd-first"[^>]*>\s*<button type="button" class="struct-tab-btn active"/, 'сегменти — наявний компонент .struct-tabs');
+  assert.match(form, /<div class="struct-tabs och-seg" id="idd-mode"[^>]*>\s*<button type="button" class="struct-tab-btn"[^>]*>Автоматично[\s\S]*?class="struct-tab-btn active"[^>]*>Вношу вручну/);
   assert.match(form, /<div class="och-actions">\s*<button type="button" class="installment-pay-btn"[^>]*>Оплатити<\/button>\s*<button type="button" class="submit-btn debt pill"[^>]*>Зберегти<\/button>\s*<\/div>/);
   for(const id of ['iddfielda1', 'idd-initial', 'idd-term', 'idd-pay', 'idd-balance']) assert.match(form, new RegExp('id="' + id + '"[^>]*autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"'));
   assert.match(CSS, /#installment-drawer \.och-form \.field input\{ height:34px; padding:0 12px; \}/);
   assert.match(CSS, /#installment-drawer \.och-form \.field label\{ font-size:10px;/);
   assert.match(CSS, /#installment-drawer \.och-actions\{ position:sticky; bottom:0;/);
-  assert.match(CSS, /\.och-seg button\[aria-checked="true"\]\{ background:rgba\(34,197,94,\.16\); border-color:rgba\(34,197,94,\.32\); box-shadow:0 2px 8px rgba\(34,197,94,\.22\), inset 0 1px 0 rgba\(255,255,255,\.22\);/, 'ліквід глас виділення сегментів');
-  assert.ok(!/\.och-seg[^{]*\{[^}]*backdrop-filter/.test(CSS));
 });
 test('«Зберегти» неактивна без змін (SAVE-DIRTY): у перелік полів додано нову модель (місяці, дата, платіж, сегменти); явний запис значень за замовчуванням лише після «Зберегти»', function(){
   assert.match(SRC, /inst: \[\['name', 'iddfielda1', 'txt'\], \['initial', 'idd-initial', 'amt'\], \['term', 'idd-term', 'txt'\], \['start', 'idd-start', 'txt'\], \['pay', 'idd-pay', 'amt'\], \['first', 'idd-first', 'seg'\], \['mode', 'idd-mode', 'seg'\], \['balance', 'idd-balance', 'amt'\]\]/);
@@ -180,7 +181,7 @@ test('підказка про відхилення: лише коли введе
 });
 
 // ---- Rev 2.32.173 (OCH-FORM-3): фінальний макет — розміри, скло, стани ----
-const FINAL = (function(){ const i = CSS.indexOf('Rev 2.32.173 (OCH-FORM-3)'); const k = CSS.indexOf('*/', i) + 2; return CSS.slice(k, k + 5200); })();
+const FINAL = (function(){ const i = CSS.indexOf('Rev 2.32.173/174 (OCH-FORM-3'); const k = CSS.indexOf('*/', i) + 2; return CSS.slice(k, k + 5200); })();
 test('фінальний макет: шторка r 28 зверху з відступом 14, ручка 36×4, заголовок (логотип 32 r 8, назва 15/500, підзаголовок 11, закриття коло 30)', function(){
   assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:28px 28px var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
   assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:4px;/);
@@ -189,21 +190,34 @@ test('фінальний макет: шторка r 28 зверху з відс�
   assert.match(FINAL, /#installment-drawer \.drawer-close\{ width:30px; height:30px; border-radius:50%; \}/);
   assert.match(SRC, /idd-icon'\)\.innerHTML = bankIcon\(name, 32, true, 'installment'\)/);
 });
-test('фінальний макет: поле 34 / r 12 / текст 14 / підпис 10 px, підпис→поле 3, рядки 8, колонки 8; «Умови» 36 / r 12; сегмент 32 / r 12 / padding 2 / повзунок r 10; кнопки 40 / r 14 / проміжок 8; «Видалити ОЧ» 12 px', function(){
+test('фінальний макет без скла: поле 34 / r 12 / текст 14 / підпис 10 px; «Умови» — звичайне поле (34 / r 12, токени поля); сегмент 32 / r 12, повзунок r 10 --color-success; кнопки 40 / r 14; футер із лінією; «Видалити ОЧ» 12 px', function(){
   assert.match(FINAL, /\.och-form \.field input\{ height:34px; padding:0 12px; border-radius:12px; font-size:14px; \}/);
   assert.match(FINAL, /\.och-form \.field label\{ font-size:10px; letter-spacing:\.5px; margin-bottom:3px; \}/);
   assert.match(FINAL, /\.och-form \.field\{ margin-bottom:8px; \}/); assert.match(FINAL, /\.och-form \.row-2\{ gap:8px; \}/);
-  assert.match(FINAL, /\.och-cond-row\{ height:36px; border:1px solid var\(--och-glass-line\); border-radius:12px;/);
-  assert.match(FINAL, /\.och-seg\{ height:32px; box-sizing:border-box; padding:2px; gap:2px;[^}]*border-radius:12px;/);
-  assert.match(FINAL, /\.och-seg button\{ height:100%; border-radius:10px;/);
+  assert.match(FINAL, /html:root \.och-cond-row\{ height:34px; border:1\.5px solid var\(--color-border-strong\); border-radius:12px; padding:0 12px; background-color:var\(--ui-glass, var\(--color-surface\)\); box-shadow:inset 0 1px 2px rgba\(16,24,40,\.05\);/);
+  assert.match(FINAL, /\.och-seg\.struct-tabs\{ height:32px; box-sizing:border-box; padding:2px; gap:2px; margin:0; border-radius:12px; border:1\.5px solid var\(--color-border-strong\); \}/);
+  assert.match(FINAL, /\.och-seg \.struct-tab-btn\{ height:100%; padding:0 4px; border-radius:10px;/);
+  assert.match(FINAL, /\.och-seg \.struct-tab-btn\.active\{ color:var\(--color-success\);/);
+  assert.match(FINAL, /\.och-seg \.seg-indicator\{ border-radius:10px; background:var\(--color-success-bg\); border:1px solid var\(--color-success\); box-shadow:none; \}/);
   assert.match(FINAL, /\.och-actions\{ gap:8px;[^}]*border-top:1px solid var\(--color-border\);/); assert.match(FINAL, /\.och-actions > button\{ height:40px; border-radius:14px; \}/);
+  assert.match(FINAL, /\.och-actions \.submit-btn\.debt\{ background:var\(--color-primary\); border:0; color:#fff; box-shadow:none; \}/);
   assert.match(FINAL, /\.och-form \.cdd-delete-link\{ font-size:12px;/);
 });
-test('фінальний макет: скло — градієнт білого 9% → 3,5%, обводка 16%, верхній блик (inset); повзунок — зелений градієнт з обводкою й блиском; без backdrop-filter', function(){
-  assert.match(FINAL, /:root\[data-theme="dark"\]\{ --och-glass-a:rgba\(255,255,255,\.09\); --och-glass-b:rgba\(255,255,255,\.035\); --och-glass-line:rgba\(255,255,255,\.16\);/);
-  assert.match(FINAL, /\.och-cond-row\{[^}]*background:linear-gradient\(180deg, var\(--och-glass-a\) 0%, var\(--och-glass-b\) 100%\); box-shadow:inset 0 1px 0 var\(--och-glass-hi\);/);
-  assert.match(FINAL, /\.och-seg button\[aria-checked="true"\]\{ background:linear-gradient\(180deg, rgba\(34,197,94,\.55\) 0%, rgba\(34,197,94,\.30\) 100%\); border-color:rgba\(34,197,94,\.55\); box-shadow:[^}]*inset 0 1px 0 rgba\(255,255,255,\.35\);/);
-  assert.ok(!/backdrop-filter/.test(FINAL.slice(0, FINAL.indexOf('#installment-drawer .och-form .cdd-delete-link{ font-size:12px') + 200)));
+test('без скла: жодних --och-glass-*, градієнтів, блиску й backdrop-filter у блоці форми ОЧ; сегменти — наявний компонент (initSegments: .struct-tabs у SEGMENT_SELECTOR), без власного .och-seg button', function(){
+  const block = FINAL.slice(0, FINAL.indexOf('#installment-drawer .och-form .cdd-delete-link{ font-size:12px') + 200);
+  assert.ok(!/och-glass|gradient|backdrop-filter/.test(block), 'без скла');
+  assert.ok(!/--och-glass/.test(SRC), 'токени --och-glass-* прибрано');
+  assert.ok(!/\.och-seg button/.test(CSS), 'власного компонента сегментів нема');
+  assert.match(SRC, /const SEGMENT_SELECTOR = '\.struct-tabs, \.theme-toggle, \.n-days';/);
+  assert.match(SRC, /b\.classList\.toggle\('active', on\);/);
+});
+test('фінальний макет: шторка r 28 зверху з відступом 14, ручка 36×4, заголовок (логотип 32 r 8, назва 15/500, підзаголовок 11, закриття коло 30)', function(){
+  assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:28px 28px var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
+  assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:4px;/);
+  assert.match(FINAL, /#installment-drawer \.drawer-head-icon\{ width:32px; height:32px; border-radius:8px;/);
+  assert.match(FINAL, /#installment-drawer \.drawer-head h2\{ font-size:15px; font-weight:500; \}/); assert.match(FINAL, /\.drawer-head-sub\{ font-size:11px; \}/);
+  assert.match(FINAL, /#installment-drawer \.drawer-close\{ width:30px; height:30px; border-radius:50%; \}/);
+  assert.match(SRC, /idd-icon'\)\.innerHTML = bankIcon\(name, 32, true, 'installment'\)/);
 });
 test('стани: «Умови» згорнуті — значення (напр. «Наступного місяця · Вручну»), розгорнуті — «Згорнути»; за замовчуванням за банком (ПУМБ: Наступного місяця · Вручну)', function(){
   const mk = hidden => { const els = { 'idd-cond': { hidden }, 'idd-cond-val': { textContent: '' }, 'idd-first': { getAttribute: () => 'next_month' }, 'idd-mode': { getAttribute: () => 'manual' } }; const c = buildSandbox({ document: { getElementById: id => els[id] || null } }, ['ochCondSummary', 'ochUpdateCondSummary']); c.ochUpdateCondSummary(); return els['idd-cond-val'].textContent; };

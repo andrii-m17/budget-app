@@ -648,10 +648,6 @@
   html:root input.field-hint, html:root .field input.field-hint, html:root .field-hint{ border-color:var(--color-warning); box-shadow:0 0 0 2px color-mix(in srgb, var(--color-warning) 55%, transparent); }
   .och-seg-block{ margin-bottom:8px; }
   .och-seg-label{ display:block; font-size:10px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
-  /* сегменти: вибраний пункт — «ліквід глас»-пілюля (ті самі значення, що активний пункт таб-бара: прозора зелена заливка, тонка рамка, м'яке сяйво, верхній блик); без backdrop-filter (охоронний тест дозволяє його лише обраним елементам) */
-  .och-seg{ display:flex; gap:2px; padding:2px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); }
-  .och-seg button{ flex:1 1 0; min-width:0; height:30px; border:1px solid transparent; border-radius:calc(var(--radius-sm) - 3px); background:transparent; color:var(--color-text-primary); font:inherit; font-size:13px; padding:0 6px; cursor:pointer; }
-  .och-seg button[aria-checked="true"]{ background:rgba(34,197,94,.16); border-color:rgba(34,197,94,.32); box-shadow:0 2px 8px rgba(34,197,94,.22), inset 0 1px 0 rgba(255,255,255,.22); color:var(--color-primary-hover); font-weight:600; }
   #installment-drawer .och-actions{ position:sticky; bottom:0; z-index:2; display:flex; gap:8px; padding:8px 0 4px; background:var(--color-surface); }
   #installment-drawer .och-actions > button{ flex:1 1 0; min-width:0; margin:0; height:42px; padding:0 8px; }
   #installment-drawer .och-form .cdd-delete-link{ margin-top:6px; padding-top:8px; }
@@ -663,9 +659,7 @@
   .och-oval.on{ background:var(--color-success); }
   .och-solid{ display:block; width:100%; height:5px; border-radius:3px; background:var(--color-track-bg); overflow:hidden; }
   .och-solid > i{ display:block; height:100%; border-radius:3px; background:var(--color-success); }
-  /* Rev 2.32.173 (OCH-FORM-3): фінальний макет форми ОЧ. Шторка: радіус 28 зверху, відступ 14, ручка 36×4; заголовок: логотип 32 (r 8), назва 15/500, підзаголовок 11, закриття — коло 30; поле: висота 34, r 12, текст 14, підпис 10 px caps (підпис→поле 3), між рядками 8, між колонками 8; «Умови» — скляний рядок 36 (r 12), сегменти 32 (контейнер r 12, padding 2, повзунок r 10 із зеленим градієнтом, обводкою й верхнім блиском); кнопки 40 (r 14, проміжок 8), закріплений футер із тонкою лінією; «Видалити ОЧ» 12 px. Скло — градієнти без backdrop-filter (блиск градієнтом); значення залежать від теми (--och-glass-*). */
-  :root{ --och-glass-a:rgba(16,24,40,.05); --och-glass-b:rgba(16,24,40,.02); --och-glass-line:rgba(16,24,40,.12); --och-glass-hi:rgba(255,255,255,.7); }
-  :root[data-theme="dark"]{ --och-glass-a:rgba(255,255,255,.09); --och-glass-b:rgba(255,255,255,.035); --och-glass-line:rgba(255,255,255,.16); --och-glass-hi:rgba(255,255,255,.18); }
+  /* Rev 2.32.173/174 (OCH-FORM-3, без скла): шторка r 28 зверху з відступом 14, ручка 36×4; заголовок: логотип 32 (r 8), назва 15/500, підзаголовок 11, закриття — коло 30; поле 34 / r 12 / текст 14 / підпис 10 px caps (підпис→поле 3, між рядками 8, між колонками 8). «Умови» — звичайне поле (токени поля, висота 34, r 12), сегменти — НАЯВНИЙ компонент (.struct-tabs + .seg-indicator + initSegments): контейнер 32 / r 12, повзунок r 10 (--color-success-bg / --color-success), решта приглушені; кнопки 40 / r 14: звичайна «Оплатити» й зелена «Зберегти»; закріплений футер із тонкою лінією; «Видалити ОЧ» 12 px. Без градієнтів, блиску й backdrop-filter. */
   @media (max-width:1279px){
     #installment-drawer{ border-radius:28px 28px var(--radius-xl) var(--radius-xl); padding:14px 14px 12px; }
     #installment-drawer .drawer-handle{ margin:-6px -14px 2px; padding:6px 0 2px; }
@@ -679,14 +673,15 @@
   #installment-drawer .och-form .field label{ font-size:10px; letter-spacing:.5px; margin-bottom:3px; }
   #installment-drawer .och-form .field input{ height:34px; padding:0 12px; border-radius:12px; font-size:14px; }
   #installment-drawer .och-form .row-2{ gap:8px; }
-  .och-cond-row{ height:36px; border:1px solid var(--och-glass-line); border-radius:12px; padding:0 12px; background:linear-gradient(180deg, var(--och-glass-a) 0%, var(--och-glass-b) 100%); box-shadow:inset 0 1px 0 var(--och-glass-hi); font-size:13px; }
+  html:root .och-cond-row{ height:34px; border:1.5px solid var(--color-border-strong); border-radius:12px; padding:0 12px; background-color:var(--ui-glass, var(--color-surface)); box-shadow:inset 0 1px 2px rgba(16,24,40,.05); font-size:13px; }
   .och-cond-val{ font-size:13px; font-weight:600; }
-  .och-seg{ height:32px; box-sizing:border-box; padding:2px; gap:2px; border:1px solid var(--och-glass-line); border-radius:12px; background:linear-gradient(180deg, var(--och-glass-a) 0%, var(--och-glass-b) 100%); box-shadow:inset 0 1px 0 var(--och-glass-hi); }
-  .och-seg button{ height:100%; border-radius:10px; font-size:12.5px; }
-  .och-seg button[aria-checked="true"]{ background:linear-gradient(180deg, rgba(34,197,94,.55) 0%, rgba(34,197,94,.30) 100%); border-color:rgba(34,197,94,.55); box-shadow:0 1px 6px rgba(34,197,94,.25), inset 0 1px 0 rgba(255,255,255,.35); color:#fff; font-weight:600; }
+  #installment-drawer .och-seg.struct-tabs{ height:32px; box-sizing:border-box; padding:2px; gap:2px; margin:0; border-radius:12px; border:1.5px solid var(--color-border-strong); }
+  #installment-drawer .och-seg .struct-tab-btn{ height:100%; padding:0 4px; border-radius:10px; font-size:12.5px; font-weight:500; }
+  #installment-drawer .och-seg .struct-tab-btn.active{ color:var(--color-success); font-weight:600; }
+  #installment-drawer .och-seg .seg-indicator{ border-radius:10px; background:var(--color-success-bg); border:1px solid var(--color-success); box-shadow:none; }
   #installment-drawer .och-actions{ gap:8px; padding:8px 0 6px; margin-top:4px; border-top:1px solid var(--color-border); }
   #installment-drawer .och-actions > button{ height:40px; border-radius:14px; }
-  #installment-drawer .och-actions .submit-btn.debt{ background:linear-gradient(180deg, rgba(34,197,94,.60) 0%, rgba(34,197,94,.34) 100%); border:1px solid rgba(34,197,94,.55); color:#fff; box-shadow:0 1px 6px rgba(34,197,94,.25), inset 0 1px 0 rgba(255,255,255,.35); }
+  #installment-drawer .och-actions .submit-btn.debt{ background:var(--color-primary); border:0; color:#fff; box-shadow:none; }
   #installment-drawer .och-form .cdd-delete-link{ font-size:12px; margin-top:2px; padding-top:6px; border-top:0; }
   /* Rev 2.32.6 (X): .fld-label-like — той самий вигляд підпису БЕЗ <label for> (варіант no-for тесту edit-label) */
   .field label, .field .fld-label-like{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
@@ -3732,7 +3727,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.173</div>
+  <div class="version-footer">Money Tree · Rev 2.32.174</div>
 </div>
   </div>
 </div>
@@ -4338,16 +4333,16 @@
     <div class="och-cond" id="idd-cond" hidden>
       <div class="och-seg-block">
         <span class="och-seg-label" id="idd-first-l">Перший платіж</span>
-        <div class="och-seg" id="idd-first" role="radiogroup" aria-labelledby="idd-first-l" data-value="same_day">
-          <button type="button" role="radio" aria-checked="true" data-v="same_day" onclick="ochSegPick('idd-first', 'same_day')">У день оформлення</button>
-          <button type="button" role="radio" aria-checked="false" data-v="next_month" onclick="ochSegPick('idd-first', 'next_month')">Наступного місяця</button>
+        <div class="struct-tabs och-seg" id="idd-first" role="radiogroup" aria-labelledby="idd-first-l" data-value="same_day">
+          <button type="button" class="struct-tab-btn active" role="radio" aria-checked="true" data-v="same_day" onclick="ochSegPick('idd-first', 'same_day')">У день оформлення</button>
+          <button type="button" class="struct-tab-btn" role="radio" aria-checked="false" data-v="next_month" onclick="ochSegPick('idd-first', 'next_month')">Наступного місяця</button>
         </div>
       </div>
       <div class="och-seg-block">
         <span class="och-seg-label" id="idd-mode-l">Списання</span>
-        <div class="och-seg" id="idd-mode" role="radiogroup" aria-labelledby="idd-mode-l" data-value="manual">
-          <button type="button" role="radio" aria-checked="false" data-v="auto" onclick="ochSegPick('idd-mode', 'auto')">Автоматично</button>
-          <button type="button" role="radio" aria-checked="true" data-v="manual" onclick="ochSegPick('idd-mode', 'manual')">Вношу вручну</button>
+        <div class="struct-tabs och-seg" id="idd-mode" role="radiogroup" aria-labelledby="idd-mode-l" data-value="manual">
+          <button type="button" class="struct-tab-btn" role="radio" aria-checked="false" data-v="auto" onclick="ochSegPick('idd-mode', 'auto')">Автоматично</button>
+          <button type="button" class="struct-tab-btn active" role="radio" aria-checked="true" data-v="manual" onclick="ochSegPick('idd-mode', 'manual')">Вношу вручну</button>
         </div>
       </div>
       <div class="field">
@@ -8340,7 +8335,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.173';
+const APP_VERSION = '2.32.174';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9039,14 +9034,18 @@ function installmentPayAmount(standard, balanceBefore){
   return balanceBefore != null && !isNaN(b) && b > 0 && b < standard ? b : standard;
 }
 // Овали таблиці «Оплати частинами»: { mode: 'none' | 'ovals' | 'solid', total, done }; none — немає term_months (або платежу, щоб порахувати); solid — term_months > 24 (суцільна смуга); done = term − лишилось платежів у межах 0..term.
-const OCH_OVALS_MAX = 24;
+const OCH_OVALS_MAX = 24; // Rev 2.32.174: понад 24 місяці овалів усе одно 24 (кожен = кілька місяців), без суцільної смуги
 function ochOvalsModel(termMonths, balance, payment){
   const term = Math.round(Number(termMonths));
   if(!(term >= 1)) return { mode: 'none', total: 0, done: 0 };
   const left = installmentPaymentsLeft(balance, payment);
   if(left === null) return { mode: 'none', total: term, done: 0 };
   const done = Math.max(0, Math.min(term, term - left));
-  return { mode: term > OCH_OVALS_MAX ? 'solid' : 'ovals', total: term, done: done };
+  if(term <= OCH_OVALS_MAX) return { mode: 'ovals', total: term, done: done };
+  // Rev 2.32.174: term > 24 — масштабування до 24 овалів (кожен = term/24 місяців); зафарбований, коли сплачено не менше половини його діапазону; перший платіж фарбує перший овал, останній — усі
+  const shown = OCH_OVALS_MAX;
+  const fill = done >= term ? shown : (done > 0 ? Math.max(1, Math.round(done / term * shown)) : 0);
+  return { mode: 'ovals', total: shown, done: fill, term: term, paid: done };
 }
 function ochOvalsHtml(model){
   if(!model || model.mode === 'none') return '';
@@ -13808,7 +13807,7 @@ let ochPayManual = false;
 function ochSetSeg(id, value){
   const seg = document.getElementById(id); if(!seg) return;
   seg.setAttribute('data-value', value);
-  seg.querySelectorAll('button').forEach(function(b){ b.setAttribute('aria-checked', b.getAttribute('data-v') === value ? 'true' : 'false'); });
+  seg.querySelectorAll('button').forEach(function(b){ const on = b.getAttribute('data-v') === value; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.classList.toggle('active', on); }); // клас .active — наявний компонент сегментів (повзунок їде за ним)
   if(document.getElementById('idd-first') && document.getElementById('idd-mode') && document.getElementById('idd-cond-val')) ochUpdateCondSummary();
 }
 function ochSegPick(id, value){ ochSetSeg(id, value); if(typeof refreshSaveGates === 'function') refreshSaveGates(); }
