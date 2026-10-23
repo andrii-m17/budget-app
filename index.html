@@ -3672,7 +3672,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.163</div>
+  <div class="version-footer">Money Tree · Rev 2.32.164</div>
 </div>
   </div>
 </div>
@@ -8251,7 +8251,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.163';
+const APP_VERSION = '2.32.164';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8908,6 +8908,49 @@ function installmentRemindDays(){
   const n = typeof notificationSettings !== 'undefined' && notificationSettings ? Number(notificationSettings.installment_days) : NaN;
   return Number.isInteger(n) && n >= 0 && n <= 30 ? n : 2;
 }
+// Rev 2.32.164 (OCH-CHAIN, правило власника, підтверджене збігом з банком): залишок ОЧ за місяць — ЛАНЦЮЖОК від першого місяця ОЧ, а не «останній збережений запис».
+// Пріоритет у кожному місяці: (1) є прив'язана витрата: залишок = попередній обчислений залишок − сума прив'язаних (перший місяць: initialAmount − сума), не нижче 0, і вона ПЕРЕМАГАЄ внесений факт (6D.148); (2) прив'язаних немає, але є внесений факт місяця: факт; (3) нічого немає: очікуваний = попередній обчислений залишок − типовий платіж (мода історії), без типового — попередній залишок, не нижче 0. Попереднього залишку нема (перший місяць без initialAmount, далі нічого не відомо): (1) → факт місяця, (3) → null.
+// Пропущений місяць посередині просто проходить правилом (3) і передає залишок далі. Чисті функції без глобального стану (тести й upcomingPayments): spec = { initial, firstMonth, recs:[{month,balance,monthlyPayment}], linked:{ 'YYYY-MM': сума } }.
+// Ризик: очікуваний (3) теж іде в ланцюжок — без внесених платежів залишок «тане» на типовий платіж щомісяця; вносити факт/прив'язану витрату — і ланцюжок виправляється з цього місяця.
+function installmentTypicalPay(recs, beforeMonth){
+  const rs = (recs || []).filter(function(d){ return d.monthlyPayment != null && String(d.month).slice(0, 7) < beforeMonth; }).sort(function(a, b){ return String(a.month).localeCompare(String(b.month)); });
+  if(!rs.length) return null;
+  const counts = {};
+  rs.forEach(function(r){ counts[r.monthlyPayment] = (counts[r.monthlyPayment] || 0) + 1; });
+  let best = rs[rs.length - 1].monthlyPayment, bestCount = 0;
+  rs.forEach(function(r){ const c = counts[r.monthlyPayment]; if(c >= bestCount){ bestCount = c; best = r.monthlyPayment; } }); // >= і хронологічний порядок: при рівності виграє новіший
+  return best;
+}
+// Повертає { start, before, balance, pay, linkedSum }: before — обчислений залишок НА ПОЧАТОК місяця (попередній місяць ланцюжка; для першого місяця initialAmount; null — невідомо), balance — залишок місяця за правилом (1)–(3), pay — платіж місяця (прив'язаний, інакше типовий). Місяць раніше за початок ланцюжка: усе null.
+function installmentChainCalc(spec, month){
+  const sp = spec || {};
+  const recs = (sp.recs || []).filter(function(d){ return d && d.month; });
+  const linked = sp.linked || {};
+  const cands = [];
+  if(sp.firstMonth) cands.push(String(sp.firstMonth).slice(0, 7));
+  recs.forEach(function(d){ cands.push(String(d.month).slice(0, 7)); });
+  Object.keys(linked).forEach(function(m){ if(linked[m] > 0) cands.push(m); });
+  const start = cands.length ? cands.slice().sort()[0] : null;
+  const empty = { start: start, before: null, balance: null, pay: null, linkedSum: Number(linked[month]) > 0 ? Number(linked[month]) : 0 };
+  if(!start || month < start) return empty;
+  const init = Number(sp.initial);
+  let prev = init > 0 ? init : null;
+  let m = start, guard = 0, out = empty;
+  while(guard++ < 1200){
+    const lk = Number(linked[m]) > 0 ? Number(linked[m]) : 0;
+    const factRec = recs.filter(function(d){ return String(d.month).slice(0, 7) === m && d.balance != null; })[0];
+    const typical = installmentTypicalPay(recs, m);
+    const pay = lk > 0 ? lk : typical;
+    let bal;
+    if(lk > 0) bal = prev != null ? Math.max(0, prev - lk) : (factRec ? factRec.balance : null);
+    else if(factRec) bal = factRec.balance;
+    else bal = prev == null ? null : (pay != null ? Math.max(0, prev - pay) : prev);
+    out = { start: start, before: prev, balance: bal, pay: pay, linkedSum: lk };
+    if(m === month) return out;
+    prev = bal; m = ppNextMonth(m);
+  }
+  return empty;
+}
 function upcomingPayments(opts){
   const o = opts || {};
   const today = o.today, horizon = o.horizonDays || 7;
@@ -8941,8 +8984,10 @@ function upcomingPayments(opts){
       const linkedSum = expenses.filter(function(e){ return e.linkedInstallment === inst.name && String(e.date).slice(0, 7) === month; }).reduce(function(a, e){ return a + (Number(e.amount) || 0); }, 0);
       if(linkedSum > 0){
         const lastRec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month <= month && d.monthlyPayment > 0; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).pop();
-        const balRec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month < month && d.balance != null; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).pop();
-        const expected = installmentExpectedPayment({ monthPay: rec ? rec.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: balRec ? balRec.balance : null });
+        // Rev 2.32.164 (OCH-CHAIN): попередній залишок — з обчисленого ланцюжка (а не останній збережений запис): той самий розрахунок, що в «Обліку», таблиці й кільці
+        const chainSpec = { initial: inst.initialAmount, firstMonth: inst.firstMonth || null, recs: debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name; }), linked: expenses.reduce(function(a, e){ if(e.linkedInstallment === inst.name){ const k = String(e.date).slice(0, 7); a[k] = (a[k] || 0) + (Number(e.amount) || 0); } return a; }, {}) };
+        const chainBefore = installmentChainCalc(chainSpec, month).before;
+        const expected = installmentExpectedPayment({ monthPay: rec ? rec.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: chainBefore });
         if(installmentPaidFull(linkedSum, expected).paid) return; // сплачено
       }
       let amount = null, estimated = false;
@@ -11772,8 +11817,8 @@ function findInstallmentDivergences(){
   names.forEach(function(name){
     activeDebts().filter(function(d){ return d.kind==='installment' && d.name===name; }).forEach(function(rec){
       if(ignoredDivergences[divergenceKey(name, rec.month)]) return;
-      const prevBal = lastKnownBalance(name, 'installment', rec.month);
-      if(prevBal == null) return; // немає попереднього факту — нема з чим порівнювати
+      const prevBal = installmentBalanceBefore(name, rec.month); // Rev 2.32.164 (OCH-CHAIN)
+      if(prevBal == null) return; // немає попереднього залишку — нема з чим порівнювати
       const typicalPay = typicalMonthlyPayment(name, 'installment', rec.month);
       const linkedSum = linkedExpensesSum(name, rec.month);
       const estimatedPay = linkedSum > 0 ? linkedSum : typicalPay;
@@ -13394,7 +13439,7 @@ function populateInstallmentTable(){
     // Rev 2.32.149 (OCH-WARN): «!» (жовтий бейдж + помаранчевий «Платіж …») при внесеному платежі, меншому за типовий, прибрано: введений платіж реальний, відхилення від звичного не проблема. Тепер будь-яка прив'язана витрата за місяць = внесено (галочка). typicalMonthlyPayment тут більше не потрібен; його формули (оцінка залишку, «Найближчі платежі») не змінено. Справжнє попередження «не внесено після дати» у цьому рядку ніколи не існувало (немає бейджа), нового не додаємо.
     // Rev 2.32.151 (OCH-STATE): ✓ / ½ / «скоро» / «!» за сумою прив'язаних витрат і ОЧІКУВАНИМ платежем (див. installmentPaymentState); замість «будь-яка витрата = ✓» (Rev 2.32.149).
     const lastRec = activeDebts().filter(function(d){ return d.kind === 'installment' && d.name === name && monthKey2(d.month) <= selectedMonth && d.monthlyPayment > 0; }).sort(function(a, b){ return monthKey2(a.month).localeCompare(monthKey2(b.month)); }).pop();
-    const expected = installmentExpectedPayment({ monthPay: existing ? existing.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: lastKnownBalance(name, 'installment', selectedMonth) });
+    const expected = installmentExpectedPayment({ monthPay: existing ? existing.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: installmentBalanceBefore(name, selectedMonth) }); // Rev 2.32.164 (OCH-CHAIN): обчислений ланцюжок, а не останній запис
     const pst = installmentPaymentState({ linked: linkedSum, expected: expected, dueDay: acc.dueDay, month: selectedMonth, firstMonth: acc.firstMonth || null, today: kyivTodayISO(), days: installmentRemindDays() });
     const pview = installmentStateView(pst);
     const paid = pview.badge === 'check';
@@ -13425,8 +13470,19 @@ function populateInstallmentTable(){
 // та сама "очікувана" пара залишок/платіж (Модель C, FINANCIAL_RULES §4-5),
 // тепер обчислюється в одному місці — і для компактного рядка (pre-fill без
 // факту), і для шторки (data-expected для перевірки розбіжності).
+// Rev 2.32.164 (OCH-CHAIN): дані ланцюжка з глобального стану (activeDebts/activeExpenses/installmentAccounts) і обчислений залишок на початок місяця (попередній місяць ланцюжка).
+function installmentChainSpec(name){
+  const acc = installmentAccounts.find(function(a){ return a.name === name; });
+  const linked = {};
+  activeExpenses().forEach(function(e){ if(e.linkedInstallment === name){ const k = monthKey(e.date); linked[k] = (linked[k] || 0) + e.amount; } });
+  return { initial: acc ? acc.initialAmount : null, firstMonth: acc ? (acc.firstMonth || null) : null, recs: activeDebts().filter(function(d){ return d.kind === 'installment' && d.name === name; }), linked: linked };
+}
+function installmentBalanceBefore(name, month){
+  if(isHiddenForMonth(name, 'installment', month)) return null;
+  return installmentChainCalc(installmentChainSpec(name), month).before;
+}
 function estimateInstallment(name, month){
-  const prevBal = lastKnownBalance(name, 'installment', month);
+  const prevBal = installmentBalanceBefore(name, month); // Rev 2.32.164 (OCH-CHAIN): було lastKnownBalance — останній збережений запис
   const linkedSum = linkedExpensesSum(name, month);
   const typicalPay = typicalMonthlyPayment(name, 'installment', month);
   const pay = linkedSum > 0 ? linkedSum : typicalPay;
@@ -13449,12 +13505,14 @@ function estimateInstallment(name, month){
 // дашборду) — щоб усі 5 місць показу лишались синхронними одне з одним.
 function resolveInstallmentFact(name, month, existing){
   const est = estimateInstallment(name, month);
+  // Rev 2.32.164 (OCH-CHAIN): «факт» — лише запис САМОГО місяця (debtTotalsForMonth передає перенесений запис попередніх місяців — він факт свого місяця, а не цього; його залишок уже в ланцюжку). Місяць без поля month (старі виклики) вважається поточним.
+  const factHere = existing && existing.balance != null && (existing.month == null || String(existing.month).slice(0, 7) === month) ? existing : null;
   if(est.linkedSum > 0){
-    // Rev 2.32.125 (BUG-OCH): пріоритет прив'язаної витрати (6D.148) незмінний; лише коли оцінку залишку нема (немає попереднього факту — перший місяць ОЧ), показуємо збережений факт місяця, а не «0». Ризик: у перший місяць залишок береться з факту, а не з оцінки (оцінки там і не було).
-    return { balance: est.balance != null ? est.balance : (existing ? existing.balance : null), pay: est.pay, linkedSum: est.linkedSum };
+    // Rev 2.32.125 (BUG-OCH): пріоритет прив'язаної витрати (6D.148) незмінний; лише коли оцінку залишку нема (перший місяць без initialAmount) — збережений факт місяця, а не «0». Ризик: у такому місяці залишок береться з факту
+    return { balance: est.balance != null ? est.balance : (factHere ? factHere.balance : null), pay: est.pay, linkedSum: est.linkedSum };
   }
   return {
-    balance: existing ? existing.balance : (est.balance != null ? est.balance : null),
+    balance: factHere ? factHere.balance : (est.balance != null ? est.balance : null),
     pay: (existing && existing.monthlyPayment != null) ? existing.monthlyPayment : est.pay,
     linkedSum: est.linkedSum
   };

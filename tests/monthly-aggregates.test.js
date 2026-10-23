@@ -85,7 +85,7 @@ test('mandatoryPaymentsSummary: обов\'язкові платежі та ві�
 
 function debtSandbox(){
   return buildSandbox(
-    { debts: [], hiddenFrom: {}, expenses: [], bankAccounts: [] },
+    { debts: [], hiddenFrom: {}, expenses: [], bankAccounts: [], installmentAccounts: [] },
     ['debtTotalsForMonth', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth',
       // Rev #30 (6D.44) — debtTotalsForMonth() тепер сканує activeDebts(), не сирий debts.
       'activeDebts',
@@ -93,7 +93,7 @@ function debtSandbox(){
       // записів кличе resolveInstallmentFact() (пріоритет прив'язаної
       // витрати над ручним фактом) — весь ланцюжок залежностей мусить бути
       // в sandbox, інакше ReferenceError усередині extracted-коду.
-      'resolveInstallmentFact', 'estimateInstallment', 'linkedExpensesSum',
+      'resolveInstallmentFact', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum',
       'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey']
   );
 }

@@ -10,8 +10,8 @@ const NAME = 'ОЧ А';
 const D = function(m, b, p){ return { name: NAME, kind: 'installment', month: m, balance: b, monthlyPayment: p }; };
 const E = function(date, amount){ return { id: date, date: date, amount: amount, linkedInstallment: NAME }; };
 function resolve(debts, expenses, month){
-  const ctx = buildSandbox({ debts: debts, expenses: expenses, hiddenFrom: {} },
-    ['hideKey', 'isHiddenForMonth', 'typicalMonthlyPayment', 'lastKnownBalance', 'monthKey', 'linkedExpensesSum', 'estimateInstallment', 'resolveInstallmentFact', 'activeDebts', 'activeExpenses']);
+  const ctx = buildSandbox({ debts: debts, expenses: expenses, hiddenFrom: {}, installmentAccounts: [] },
+    ['hideKey', 'isHiddenForMonth', 'typicalMonthlyPayment', 'lastKnownBalance', 'monthKey', 'linkedExpensesSum', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'resolveInstallmentFact', 'activeDebts', 'activeExpenses']);
   const ex = debts.filter(function(d){ return d.month === month && !d.deletedAt; })[0] || null;
   return JSON.parse(evalInSandbox(ctx, 'JSON.stringify(resolveInstallmentFact(' + JSON.stringify(NAME) + ',' + JSON.stringify(month) + ',' + JSON.stringify(ex) + '))'));
 }
