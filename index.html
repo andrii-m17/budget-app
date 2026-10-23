@@ -3675,7 +3675,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.168</div>
+  <div class="version-footer">Money Tree · Rev 2.32.169</div>
 </div>
   </div>
 </div>
@@ -8254,7 +8254,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.168';
+const APP_VERSION = '2.32.169';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11976,6 +11976,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'orientation', 'tabbarTop', 'tabbarHeight',
   'safeTop', 'safeRight', 'safeBottom', 'safeLeft',
   'touchX', 'touchY', 'targetTag', 'targetId', 'targetClasses',
+  // Rev 2.32.169 (FIELD-GUARD): подія field-attrs — атрибути сфокусованого поля у «Структурі» (без значень)
+  'fieldId', 'fieldType', 'fieldAttrs', 'fieldParent', 'fieldProxy', 'fieldLinked', 'fieldScreen',
   // Rev 2.22.92 (6D.165) — геометрія відкритої шторки/підложки: живий лог
   // (kb-full-scenario) знайшов дотик, що влучив у .drawer-backdrop замість
   // самої картки після повороту в landscape — без прямокутників обох
@@ -20182,6 +20184,38 @@ function forbiddenInputAttr(value){
   for(let i = 0; i < INPUT_ATTR_FORBIDDEN.length; i++){ if(v.indexOf(INPUT_ATTR_FORBIDDEN[i]) !== -1) return INPUT_ATTR_FORBIDDEN[i]; }
   return null;
 }
+// Rev 2.32.169 (FIELD-GUARD, клас C): захисні атрибути текстових полів, створених у JS, — в ОДНОМУ місці (раніше кожне поле виставляло свій набір: у «слова» не було autocapitalize, name, enterkeyhint). Набір: autocomplete=off, autocorrect=off, autocapitalize=off, spellcheck=false, aria-label, enterkeyhint і нейтральний name «x-<id>» (id за схемою fld+код+число; name не додається, якщо id порожній або містить заборонений підрядок — forbiddenInputAttr). Платформа: вирішальні лише id і name (6D.132–141), решта атрибутів автозаповнення не вимикає, але прибирає автовеликі літери/виправлення; жодна з них не змінює клавіатурну логіку (проміжне поле копіює їх із цільового поля як раніше). Ризик: autocapitalize=off — назви категорій/підкатегорій у «Структурі» більше не починаються з великої автоматично.
+function applyFieldGuardAttrs(input, opts){
+  const o = opts || {};
+  if(!input || typeof input.setAttribute !== 'function') return input;
+  input.setAttribute('autocomplete', 'off'); input.setAttribute('autocorrect', 'off'); input.setAttribute('autocapitalize', 'off'); input.setAttribute('spellcheck', 'false');
+  if(o.label) input.setAttribute('aria-label', o.label);
+  input.setAttribute('enterkeyhint', o.enterkeyhint || 'done');
+  const id = String(input.id || '');
+  const nm = 'x-' + id;
+  if(id && forbiddenInputAttr(nm) === null) input.setAttribute('name', nm);
+  return input;
+}
+// Rev 2.32.169 (FIELD-GUARD): рекордер (лише режим розробника) — атрибути поля, що отримало фокус у формі «Структури» (#struct-drawer) і на вкладці «Словник»: без значень, з ознакою проміжного поля й id пов'язаного поля. Допомагає відрізнити «поле» від «проміжного поля» при появі панелі «Автозаповнити контакт».
+const FIELD_ATTRS_WATCHED = ['autocomplete', 'autocorrect', 'autocapitalize', 'spellcheck', 'name', 'inputmode', 'enterkeyhint', 'aria-label', 'placeholder', 'maxlength', 'readonly'];
+function fieldAttrsSnapshot(el){
+  if(!el || !el.tagName || !/^(INPUT|TEXTAREA)$/.test(el.tagName) || typeof el.closest !== 'function') return null;
+  const scope = el.closest('#struct-drawer, #struct-tab-panel-dictionary');
+  if(!scope) return null;
+  const cut = function(v){ return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, 40); };
+  const attrs = FIELD_ATTRS_WATCHED.filter(function(k){ return el.hasAttribute(k); }).map(function(k){ return k + '=' + cut(el.getAttribute(k)); }).join('|');
+  const proxy = el.id === 'kb-focus-proxy';
+  let linked = null;
+  if(proxy && el.parentNode && typeof el.parentNode.querySelector === 'function'){ const f = el.parentNode.querySelector('input:not(#kb-focus-proxy), textarea'); linked = f ? (f.id || null) : null; }
+  return { fieldId: cut(el.id), fieldType: cut(el.getAttribute('type') || el.type || 'text'), fieldAttrs: attrs, fieldParent: cut(el.parentNode && el.parentNode.className), fieldProxy: proxy, fieldLinked: linked, fieldScreen: scope.id === 'struct-drawer' ? 'struct-form' : 'dictionary' };
+}
+function onFieldAttrsFocusIn(e){
+  if(!debugRecordingActive) return;
+  const snap = fieldAttrsSnapshot(e.target);
+  if(!snap) return;
+  pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'field-attrs' }, snap));
+}
+document.addEventListener('focusin', onFieldAttrsFocusIn, true);
 // Rev 2.32.31 (A) — перепис текстових полів поточного екрана для діагностики панелі iOS «Автозаповнити контакт»: для кожного поля id, type, name, autocomplete, inputmode, placeholder, aria-label і текст підпису (СТАТИЧНІ тексти інтерфейсу; значень, які ввів користувач, немає). Рядок: «id|type|name|autocomplete|inputmode|ph=…|aria=…|lbl=…|vis».
 const FIELD_CENSUS_SKIP_TYPES = ['checkbox', 'radio', 'hidden', 'date', 'file', 'range', 'submit', 'button', 'color', 'time', 'month'];
 function fieldCensusLine(attrs){
@@ -24799,7 +24833,7 @@ function openStructForm(cfg){
   const input = document.createElement('input');
   input.type = 'text'; input.id = 'fldstr3'; input.className = 'sf-input' + (cfg.field.tile ? ' left' : ''); input.value = cfg.field.value || '';
   if(cfg.field.placeholder) input.setAttribute('placeholder', cfg.field.placeholder);
-  input.setAttribute('autocomplete', 'off'); input.setAttribute('autocorrect', 'off'); input.setAttribute('spellcheck', 'false'); input.setAttribute('aria-label', cfg.field.label);
+  applyFieldGuardAttrs(input, { label: cfg.field.label, enterkeyhint: 'done' }); // Rev 2.32.169: єдине місце захисних атрибутів (було лише autocomplete/autocorrect/spellcheck/aria-label)
   rName.appendChild(input); gName.appendChild(rName); body.appendChild(gName);
   if(tileEl){
     const upd = function(){ const t = tileForName(input.value); tileEl.textContent = t.text; tileEl.classList.toggle('letter', !t.isEmoji); };
