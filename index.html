@@ -3727,7 +3727,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.174</div>
+  <div class="version-footer">Money Tree · Rev 2.32.175</div>
 </div>
   </div>
 </div>
@@ -8335,7 +8335,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.174';
+const APP_VERSION = '2.32.175';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8814,6 +8814,14 @@ async function ensureDomainsMigrated(domains){
 // Rev 2.1.0 — чи прихований запис "name"(kind) для конкретного місяця (включно з
 // місяцем, зазначеним при видаленні — див. showMonthPickerModal/removeBankAccount).
 function hideKey(name, kind){ return kind+':'+name; }
+// Rev 2.32.175 (DUP-NAME): попередження про однакову назву картки/ОЧ. Збіг — без урахування регістру й пробілів по краях, лише з живими записами того ж типу (видалені з масиву/з deletedAt не рахуються); exceptIdx — сам запис при перейменуванні. Діалог нічого не змінює, доки не підтверджено «Створити». Увага: дані ОЧ/карток досі прив'язані до назви (борги, прихованість, видалення назавжди), тому два записи з однаковою назвою ділять ці дані — див. Крок 0 «Дубль назви».
+function accountNameKey(n){ return String(n == null ? '' : n).trim().toLowerCase(); }
+function accountNameTaken(list, name, exceptIdx){
+  const k = accountNameKey(name);
+  if(!k) return false;
+  return (list || []).some(function(a, i){ return i !== exceptIdx && a && !a.deletedAt && accountNameKey(a.name) === k; });
+}
+function accountDuplicateMessage(kind){ return kind === 'card' ? 'Картка з такою назвою вже є. Створити ще одну?' : 'ОЧ з такою назвою вже є. Створити ще одну?'; }
 function isHiddenForMonth(name, kind, month){
   const entry = hiddenFrom[hideKey(name, kind)];
   if(!entry) return false;
@@ -13995,7 +14003,7 @@ function applyEstimatedInstallmentValues(){
 // Rev 2.16.6 — єдина точка збереження ОЧ: назва+початкова сума
 // (installmentAccounts) і залишок+платіж (debts, цей місяць) разом, один тап
 // "Зберегти" в шторці — той самий принцип, що saveCardDebtDrawer() для карток.
-async function saveInstallmentDrawer(){
+async function saveInstallmentDrawer(confirmedDup){
   const acc = installmentAccounts[editingInstallmentIdx];
   if(!acc || !selectedMonth) return;
   const rawName = document.getElementById('iddfielda1').value.trim();
@@ -14011,7 +14019,8 @@ async function saveInstallmentDrawer(){
   // BugFix) стало зайвим після повного прибирання emoji з name (6D.31) —
   // #iddfielda1 і так більше ніколи не показує/не отримує emoji-префікс.
   const newName = rawName;
-  if(newName !== oldName && installmentAccounts.some(function(a){ return a.name===newName; })){ flashField('iddfielda1'); return; }
+  if(newName !== oldName && !confirmedDup && accountNameTaken(installmentAccounts, newName, editingInstallmentIdx)){ showConfirmModal(accountDuplicateMessage('installment'), function(){ saveInstallmentDrawer(true); }, 'Створити', 'primary'); return; } // Rev 2.32.175: було мовчазна відмова
+  if(newName !== oldName && installmentAccounts.some(function(a, k){ return k !== editingInstallmentIdx && a.name===newName; }) && !confirmedDup){ flashField('iddfielda1'); return; }
   if(newName !== oldName){
     debts.forEach(function(d){ if(d.name===oldName && d.kind==='installment') d.name = newName; });
     // Rev 2.22.74 (6D.145) — той самий каскад, якого досі бракувало саме
@@ -14109,10 +14118,10 @@ function deleteInstallmentFromDrawer(){
 // Rev 2.1.24 — форма "+ Додати ОЧ" замінена на кнопку, що відкриває вже
 // наявну кастомну модалку (той самий showInstallmentModal, що й редагування
 // вже існуючої — тепер через #installment-drawer, Rev 2.16.6).
-async function addInstallmentAccount(name, amount){
+async function addInstallmentAccount(name, amount, allowDuplicate){
   if(!name) return;
   if(!amount || amount<=0) return;
-  if(installmentAccounts.some(a=>a.name===name)) return;
+  if(!allowDuplicate && installmentAccounts.some(a=>a.name===name)) return; // Rev 2.32.175: підтверджений дубль (allowDuplicate) проходить
   // Rev 2.11.9 (Баг #5) — firstMonth: обраний місяць у момент створення ОЧ —
   // саме той, у якому вона "вперше згадується". Без цього щойно створена ОЧ
   // показувалась би рядком-запрошенням заповнити її в УСІХ місяцях (включно
@@ -14125,10 +14134,10 @@ async function addInstallmentAccount(name, amount){
   populateInstallmentTable();
 }
 function openAddInstallmentModal(){
-  showInstallmentModal('Нова ОЧ:', '', '', async function(name, amount){
-    if(installmentAccounts.some(a=>a.name===name)) return false;
-    await addInstallmentAccount(name, amount);
-  });
+  showInstallmentModal('Нова ОЧ:', '', '', async function(name, amount, confirmedDup){
+    if(!confirmedDup && installmentAccounts.some(a=>a.name===name)) return false;
+    await addInstallmentAccount(name, amount, !!confirmedDup);
+  }, undefined, { exists: function(n){ return accountNameTaken(installmentAccounts, n); }, message: accountDuplicateMessage('installment') });
 }
 /* ============ Погашена ОЧ: пропозиція приховати (Rev 2.32.69) ============
    Запис місяця ОЧ: balance — залишок ПІСЛЯ платежу місяця (estimateInstallment: попередній залишок − платіж). Нічого не ховається автоматично: лише після явного підтвердження (діалог після збереження або тихий підпис у «Обліку»). Приховування — наявний механізм hideEntityFromMonth (hiddenFrom), серверні нагадування його вже поважають (hidden_from_month). */
@@ -14353,7 +14362,7 @@ function closeCardDebtEditor(){
 // "Зберегти" в шторці. Назва й ліміт лишаються обов'язковими (те саме
 // рішення, що addBankAccount) — решта полів можуть бути порожні (картка без
 // боргу цього місяця).
-async function saveCardDebtDrawer(){
+async function saveCardDebtDrawer(confirmedDup){
   const acc = bankAccounts[editingBankIdx];
   if(!acc || !selectedMonth) return;
   const rawName = document.getElementById('cddfielda1').value.trim();
@@ -14369,7 +14378,8 @@ async function saveCardDebtDrawer(){
   // BugFix) стало зайвим після повного прибирання emoji з name (6D.31) —
   // #cddfielda1 і так більше ніколи не показує/не отримує emoji-префікс.
   const newName = rawName;
-  if(newName !== oldName && bankAccounts.some(function(b){ return b.name===newName; })){ flashField('cddfielda1'); return; }
+  if(newName !== oldName && !confirmedDup && accountNameTaken(bankAccounts, newName, editingBankIdx)){ showConfirmModal(accountDuplicateMessage('card'), function(){ saveCardDebtDrawer(true); }, 'Створити', 'primary'); return; } // Rev 2.32.175: було мовчазна відмова
+  if(newName !== oldName && bankAccounts.some(function(b, k){ return k !== editingBankIdx && b.name===newName; }) && !confirmedDup){ flashField('cddfielda1'); return; }
   if(newName !== oldName){
     // Перейменування ретроактивне: усі минулі записи з цим банком теж
     // оновлюються, щоб історія й графіки лишались коректними під новою назвою.
@@ -14443,9 +14453,9 @@ function deleteCardDebtFromDrawer(){
 // самий showInstallmentModal, що для ОЧ, з іншим підписом суми) — користувач
 // явно попросив вводити ліміт одразу при створенні картки, а не окремим
 // кроком. addBankAccount() приймає обидва значення параметрами.
-async function addBankAccount(name, creditLimit){
+async function addBankAccount(name, creditLimit, allowDuplicate){
   if(!name) return;
-  if(bankAccounts.some(function(b){ return b.name===name; })) return;
+  if(!allowDuplicate && bankAccounts.some(function(b){ return b.name===name; })) return; // Rev 2.32.175: підтверджений дубль проходить
   // Rev #30 (6D, bank_accounts Варіант А) — createdAt/updatedAt при
   // створенні, той самий принцип, що categories/incomes/debts.
   const nowISO = new Date().toISOString();
@@ -14461,10 +14471,10 @@ function newCardCreatedAt(viewMonth, nowISO){
   return nowISO;
 }
 function openAddBankModal(){
-  showInstallmentModal('Новий банк/картка:', '', '', async function(name, creditLimit){
-    if(bankAccounts.some(function(b){ return b.name===name; })) return false;
-    await addBankAccount(name, creditLimit);
-  }, 'Кредитний ліміт');
+  showInstallmentModal('Новий банк/картка:', '', '', async function(name, creditLimit, confirmedDup){
+    if(!confirmedDup && bankAccounts.some(function(b){ return b.name===name; })) return false;
+    await addBankAccount(name, creditLimit, !!confirmedDup);
+  }, 'Кредитний ліміт', { exists: function(n){ return accountNameTaken(bankAccounts, n); }, message: accountDuplicateMessage('card') });
 }
 function removeBankAccount(i, onDone){
   const name = bankAccounts[i].name;
@@ -24947,7 +24957,7 @@ function showAlertModal(message){
 // "Початкова сума" для ОЧ) — той самий модал тепер перевикористовується й
 // для нової картки (addBankAccount, підпис "Кредитний ліміт"); редагування
 // вже існуючої картки — через #card-debt-drawer (Rev 2.16.5).
-function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountLabel){
+function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountLabel, dup){ // dup: { exists(name) → bool, message } — попередження про однакову назву (Rev 2.32.175)
   document.getElementById('app-modal-text').textContent = title;
   document.getElementById('app-modal-amount-label').textContent = amountLabel || 'Початкова сума';
   const input = document.getElementById('app-modal-input');
@@ -24969,6 +24979,11 @@ function showInstallmentModal(title, defaultName, defaultAmount, onSave, amountL
     if(!name){ flashField('app-modal-input'); valid = false; }
     if(!amount || isNaN(amount) || amount<=0){ flashField('app-modal-amount-input'); valid = false; }
     if(!valid) return;
+    if(dup && dup.exists(name)){
+      // Rev 2.32.175: замість мовчазної відмови — підтвердження; «Скасувати» закриває діалог без змін, «Створити» створює ще одну
+      showConfirmModal(dup.message, async function(){ await onSave(name, amount, true); }, 'Створити', 'primary');
+      return;
+    }
     const ok = await onSave(name, amount);
     if(ok === false){ flashField('app-modal-input'); return; } // дублікат — завжди про назву
     closeAppModal();
