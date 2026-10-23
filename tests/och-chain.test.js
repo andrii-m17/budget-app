@@ -39,11 +39,12 @@ test('прив\'язана перемагає внесений факт (6D.148)
   const spec = { initial: 10000, firstMonth: '2026-06', recs: [R('2026-06', 5000, 1000)], linked: L({ '2026-06': 1000 }) };
   assert.equal(bal(spec, '2026-06'), 9000);
 });
-test('без прив\'язаної й без факту: очікуваний = попередній обчислений − типовий платіж (мода); без типового — попередній', function(){
+test('без прив\'язаної й без факту (Rev 2.32.168): залишок = попередній, типовий платіж не віднімається; нічого не змінюється, доки платіж не внесено', function(){
   const spec = { initial: 10000, firstMonth: '2026-06', recs: [R('2026-06', 9000, 1000), R('2026-07', 8000, 1000)], linked: {} };
-  assert.equal(bal(spec, '2026-08'), 7000, 'мода платежів 1000');
-  assert.equal(bal(spec, '2026-09'), 6000, 'очікуваний іде далі ланцюжком');
-  assert.equal(bal({ initial: 10000, firstMonth: '2026-06', recs: [], linked: {} }, '2026-07'), 10000, 'типового платежу нема — залишок не змінюється');
+  assert.equal(bal(spec, '2026-08'), 8000, 'є мода платежів 1000, але прогнозів немає');
+  assert.equal(bal(spec, '2026-09'), 8000, 'і далі лишається');
+  assert.equal(bal({ initial: 10000, firstMonth: '2026-06', recs: [], linked: {} }, '2026-07'), 10000);
+  assert.equal(bal({ initial: 10000, firstMonth: '2026-06', recs: [], linked: { '2026-08': 1000 } }, '2026-08'), 9000, 'прив\'язана — віднімається з попереднього');
   assert.equal(installmentTypicalPayChecked(), true);
 });
 function installmentTypicalPayChecked(){
@@ -55,16 +56,16 @@ test('initialAmount порожня: перший місяць — факт, ін
   assert.equal(bal(none, '2026-06'), null); assert.equal(bal(none, '2026-07'), null);
   const fact = { initial: null, firstMonth: '2026-06', recs: [R('2026-06', 5000, 1000)], linked: L({ '2026-06': 1000 }) };
   assert.equal(bal(fact, '2026-06'), 5000, 'є прив\'язана, нема initial: запасний варіант — факт');
-  assert.equal(bal(fact, '2026-07'), 4000, 'далі очікуваний від факту (типовий 1000)');
+  assert.equal(bal(fact, '2026-07'), 5000, 'далі залишок факту без віднімання (Rev 2.32.168)');
   const zero = { initial: 0, firstMonth: '2026-06', recs: [], linked: L({ '2026-06': 1000 }) };
   assert.equal(bal(zero, '2026-06'), null, 'нульова початкова = порожня');
   const later = { initial: null, firstMonth: '2026-06', recs: [R('2026-08', 3000, 1000)], linked: {} };
-  assert.deepEqual([bal(later, '2026-06'), bal(later, '2026-07'), bal(later, '2026-08'), bal(later, '2026-09')], [null, null, 3000, 2000]);
+  assert.deepEqual([bal(later, '2026-06'), bal(later, '2026-07'), bal(later, '2026-08'), bal(later, '2026-09')], [null, null, 3000, 3000]);
 });
-test('пропущений місяць посередині: проходить правилом «очікуваний» і передає залишок далі', function(){
+test('пропущений місяць посередині: залишок лишається попереднім і передається далі (Rev 2.32.168)', function(){
   const spec = { initial: 10000, firstMonth: '2026-06', recs: [R('2026-06', 9000, 1000)], linked: L({ '2026-06': 1000, '2026-08': 1000 }) };
-  assert.equal(bal(spec, '2026-07'), 8000, 'липня нема: очікуваний 9000 − 1000');
-  assert.equal(bal(spec, '2026-08'), 7000, 'серпень: від обчисленого липня');
+  assert.equal(bal(spec, '2026-07'), 9000, 'липня нема: залишок червня');
+  assert.equal(bal(spec, '2026-08'), 8000, 'серпень: від липня мінус прив\'язана');
   const noTypical = { initial: 10000, firstMonth: '2026-06', recs: [], linked: L({ '2026-06': 1000, '2026-08': 1000 }) };
   assert.equal(bal(noTypical, '2026-07'), 9000); assert.equal(bal(noTypical, '2026-08'), 8000);
 });
@@ -72,7 +73,8 @@ test('залишок не нижче 0: прив\'язана сума більш
   assert.equal(bal({ initial: 1000, firstMonth: '2026-06', recs: [], linked: L({ '2026-06': 1500 }) }, '2026-06'), 0);
   const spec = { initial: 3000, firstMonth: '2026-06', recs: [R('2026-06', 2000, 2500)], linked: L({ '2026-07': 5000 }) };
   assert.equal(bal(spec, '2026-07'), 0); assert.equal(bal(spec, '2026-08'), 0, 'закрита ОЧ лишається 0');
-  assert.equal(bal({ initial: 1000, firstMonth: '2026-06', recs: [R('2026-06', 800, 900)], linked: {} }, '2026-07'), 0, 'очікуваний не йде в мінус');
+  assert.equal(bal({ initial: 1000, firstMonth: '2026-06', recs: [R('2026-06', 800, 900)], linked: {} }, '2026-07'), 800, 'без прив\'язаної залишок не змінюється');
+  assert.equal(bal({ initial: 1000, firstMonth: '2026-06', recs: [R('2026-06', 800, 900)], linked: { '2026-07': 900 } }, '2026-07'), 0, 'прив\'язана більша за залишок — 0');
 });
 test('місяць раніше за початок ланцюжка: усе null; початок — найраніший з firstMonth, запису й прив\'язаної витрати', function(){
   const spec = { initial: 5000, firstMonth: '2026-08', recs: [R('2026-07', 4500, 500)], linked: L({ '2026-06': 500 }) };
@@ -86,7 +88,7 @@ function app(debts, expenses, accounts){
   return buildSandbox({ debts, expenses, hiddenFrom: {}, bankAccounts: [], installmentAccounts: accounts || [] },
     ['debtTotalsForMonth', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'resolveInstallmentFact', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum', 'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey']);
 }
-test('таблиця Аналітики (debtTotalsForMonth): «Предмет А» у жовтні без запису, з прив\'язаною витратою → залишок 2 000 і смуга 33%; без прив\'язаної → останній запис як факт місяця попередньо, але очікуваний ланцюжок', function(){
+test('таблиця Аналітики (debtTotalsForMonth): «Предмет А» у жовтні без запису, з прив\'язаною витратою → залишок 2 000 і смуга 33%; без прив\'язаної → залишок попереднього (3 000, смуга 0%)', function(){
   const acc = [{ name: NAME, initialAmount: 3000, firstMonth: '2026-09' }];
   const debts = [{ name: NAME, kind: 'installment', month: '2026-09', balance: 3000, monthlyPayment: 1000 }];
   let c = app(debts, [{ id: 'e1', date: '2026-10-05', amount: 1000, linkedInstallment: NAME }], acc);
@@ -94,7 +96,7 @@ test('таблиця Аналітики (debtTotalsForMonth): «Предмет �
   assert.equal(row.balance, 2000); assert.equal(((3000 - row.balance) / 3000 * 100).toFixed(0), '33');
   c = app(debts, [], acc);
   row = j(evalInSandbox(c, "debtTotalsForMonth('2026-10')")).list.filter(d => d.kind === 'installment')[0];
-  assert.equal(row.balance, 2000, 'нічого не внесено: очікуваний = 3 000 − типовий 1 000 (так само, як в «Обліку»)');
+  assert.equal(row.balance, 3000, 'нічого не внесено: залишок попереднього місяця (Rev 2.32.168), так само, як в «Обліку»');
   assert.equal(row.monthlyPayment, 1000, 'платіж як і раніше з перенесеного запису');
 });
 test('«Облік» і таблиця збігаються: той самий resolveInstallmentFact; «Разом ОЧ» — сума тих самих залишків', function(){
@@ -112,7 +114,7 @@ test('перенесений запис старого місяця не вва�
   const debts = [{ name: NAME, kind: 'installment', month: '2026-06', balance: 9000, monthlyPayment: 1000 }];
   const c = app(debts, [{ id: 'e', date: '2026-08-05', amount: 1000, linkedInstallment: NAME }], acc);
   const row = j(evalInSandbox(c, "debtTotalsForMonth('2026-08')")).list[0];
-  assert.equal(row.balance, 7000, 'червень 9 000 → липень (очікуваний) 8 000 → серпень 8 000 − 1 000');
+  assert.equal(row.balance, 8000, 'червень 9 000 → липень 9 000 (без прив\'язаної не змінюється) → серпень 9 000 − 1 000');
 });
 
 // ---- «Найближчі платежі» і кільце: очікуваний платіж обмежується ланцюжком ----

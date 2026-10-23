@@ -80,13 +80,14 @@ test('estimateInstallment: прив\'язана сума перекриває м
   assert.equal(est.linkedSum, 3500);
 });
 
-test('estimateInstallment: без прив\'язаних витрат використовує моду, не йде в мінус', () => {
+test('estimateInstallment (Rev 2.32.168): без прив\'язаних — balance = попередній (без віднімання), expected = попередній − мода, не йде в мінус', () => {
   const debts = [
     { name: 'ОЧ Mono', kind: 'installment', month: '2026-01', balance: 2000, monthlyPayment: 3000 },
   ];
   const ctx = sandbox({ debts, expenses: [] });
   const est = ctx.estimateInstallment('ОЧ Mono', '2026-02');
   assert.equal(est.pay, 3000);
-  assert.equal(est.balance, 0); // 2000-3000 обрізано до 0, а не -1000
+  assert.equal(est.balance, 2000); // прогнозів немає: залишок як попередній
+  assert.equal(est.expected, 0); // 2000-3000 обрізано до 0, а не -1000 (лише для порівняння з фактом у шторці)
   assert.equal(est.linkedSum, 0);
 });

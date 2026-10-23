@@ -3675,7 +3675,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.167</div>
+  <div class="version-footer">Money Tree · Rev 2.32.168</div>
 </div>
   </div>
 </div>
@@ -8254,7 +8254,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.167';
+const APP_VERSION = '2.32.168';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8912,9 +8912,9 @@ function installmentRemindDays(){
   return Number.isInteger(n) && n >= 0 && n <= 30 ? n : 2;
 }
 // Rev 2.32.164 (OCH-CHAIN, правило власника, підтверджене збігом з банком): залишок ОЧ за місяць — ЛАНЦЮЖОК від першого місяця ОЧ, а не «останній збережений запис».
-// Пріоритет у кожному місяці: (1) є прив'язана витрата: залишок = попередній обчислений залишок − сума прив'язаних (перший місяць: initialAmount − сума), не нижче 0, і вона ПЕРЕМАГАЄ внесений факт (6D.148); (2) прив'язаних немає, але є внесений факт місяця: факт; (3) нічого немає: очікуваний = попередній обчислений залишок − типовий платіж (мода історії), без типового — попередній залишок, не нижче 0. Попереднього залишку нема (перший місяць без initialAmount, далі нічого не відомо): (1) → факт місяця, (3) → null.
+// Пріоритет у кожному місяці: (1) є прив'язана витрата: залишок = попередній обчислений залишок − сума прив'язаних (перший місяць: initialAmount − сума), не нижче 0, і вона ПЕРЕМАГАЄ внесений факт (6D.148); (2) прив'язаних немає, але є внесений факт місяця: факт; (3) нічого немає: залишок попереднього місяця БЕЗ віднімання типового платежу (Rev 2.32.168: прогнозів немає, ОЧ без платежів у місяці лишає залишок; було «− типовий платіж»). Попереднього залишку нема (перший місяць без initialAmount, далі нічого не відомо): (1) → факт місяця, (3) → null.
 // Пропущений місяць посередині просто проходить правилом (3) і передає залишок далі. Чисті функції без глобального стану (тести й upcomingPayments): spec = { initial, firstMonth, recs:[{month,balance,monthlyPayment}], linked:{ 'YYYY-MM': сума } }.
-// Ризик: очікуваний (3) теж іде в ланцюжок — без внесених платежів залишок «тане» на типовий платіж щомісяця; вносити факт/прив'язану витрату — і ланцюжок виправляється з цього місяця.
+// Ризик: місяць без прив'язаного платежу й без факту не зменшує залишок — доки платіж не внесено (прив'язана витрата чи факт), залишок лишається попереднім.
 function installmentTypicalPay(recs, beforeMonth){
   const rs = (recs || []).filter(function(d){ return d.monthlyPayment != null && String(d.month).slice(0, 7) < beforeMonth; }).sort(function(a, b){ return String(a.month).localeCompare(String(b.month)); });
   if(!rs.length) return null;
@@ -8947,7 +8947,7 @@ function installmentChainCalc(spec, month){
     let bal;
     if(lk > 0) bal = prev != null ? Math.max(0, prev - lk) : (factRec ? factRec.balance : null);
     else if(factRec) bal = factRec.balance;
-    else bal = prev == null ? null : (pay != null ? Math.max(0, prev - pay) : prev);
+    else bal = prev; // Rev 2.32.168: (3) нічого немає — залишок попереднього місяця без віднімання типового платежу (прогнозів немає); попереднього нема — null
     out = { start: start, before: prev, balance: bal, pay: pay, linkedSum: lk };
     if(m === month) return out;
     prev = bal; m = ppNextMonth(m);
@@ -13540,8 +13540,10 @@ function estimateInstallment(name, month){
   const linkedSum = linkedExpensesSum(name, month);
   const typicalPay = typicalMonthlyPayment(name, 'installment', month);
   const pay = linkedSum > 0 ? linkedSum : typicalPay;
-  const balance = (prevBal != null) ? (pay != null ? Math.max(0, prevBal - pay) : prevBal) : null;
-  return { balance, pay, linkedSum };
+  // Rev 2.32.168 (OCH-CHAIN-2): balance — залишок місяця за правилом ланцюжка: прив'язана витрата → попередній − сума (≥ 0); інакше попередній БЕЗ віднімання типового платежу. expected — «очікуваний після платежу» (попередній − прив'язана/типовий) лише для порівняння з внесеним фактом (шторка, діагностика розбіжностей); на екранах не показується.
+  const balance = (prevBal != null) ? (linkedSum > 0 ? Math.max(0, prevBal - linkedSum) : prevBal) : null;
+  const expected = (prevBal != null) ? (pay != null ? Math.max(0, prevBal - pay) : prevBal) : null;
+  return { balance, expected, pay, linkedSum };
 }
 // Rev 2.22.75 (6D.148) — Модель C, пріоритет ДЖЕРЕЛА ІСТИНИ (за явним
 // підтвердженням користувача, оновлює FINANCIAL_RULES_AND_OBLIGATIONS.md
@@ -13634,7 +13636,7 @@ function openInstallmentEditor(i){
   document.getElementById('idd-due-day').value = acc.dueDay || '';
   document.getElementById('idd-balance').value = balance != null ? formatThousands(balance) : '';
   document.getElementById('idd-pay').value = payment != null ? formatThousands(payment) : '';
-  document.getElementById('idd-balance').dataset.expected = est.balance != null ? est.balance : '';
+  document.getElementById('idd-balance').dataset.expected = est.expected != null ? est.expected : ''; // Rev 2.32.168: порівняння з очікуваним після платежу, не з показаним залишком
   document.getElementById('idd-pay').dataset.expected = est.pay != null ? est.pay : '';
   document.getElementById('idd-linked-note').innerHTML = est.linkedSum > 0
     ? `Прив'язана витрата цього місяця: ${fmt(est.linkedSum)}`
