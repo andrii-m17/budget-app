@@ -111,7 +111,7 @@ test('охоронні: не позначає прочитаним при від
   assert.match(SRC, /event: 'INSERT', schema: 'public', table: 'user_notifications', filter: 'user_id=eq\./);
   assert.match(SRC, /h\.unread_notifications[\s\S]{0,80}notifArchive\.unread = notifEffectiveUnread\(h\.unread_notifications/); // Rev 2.32.74: лічильник із sync_heads, окремого HEAD немає
   assert.doesNotMatch(SRC, /from\('user_notifications'\)\.select\('id', \{ count: 'exact', head: true \}\)/);
-  assert.ok(SRC.indexOf('id="notif-bell-btn"') < SRC.indexOf('onclick="openSettings()" aria-label="Налаштування"'));
+  assert.ok(SRC.indexOf('id="notif-bell-btn"') < SRC.indexOf('class="gear-btn" onclick="openSettings()" aria-label="Налаштування"'));
   assert.ok(!/from\('user_notifications'\)\.(insert|update|upsert|delete)/.test(SRC));
   // Rev 2.32.102 (NOTIF-2): вигляд як у 2.32.95: без крапок стану (заборона з Rev 2.32.40 знову діє)
   assert.ok(!/class="notif-dot"/.test(SRC) && !/class="notif-pill"/.test(SRC));

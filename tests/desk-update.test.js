@@ -9,7 +9,7 @@ const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const NOCOMMENT = SRC.replace(/<!--[\s\S]*?-->/g, '');
 test('пункт у боковій панелі відсутній, плашка з кнопкою «Оновити» є', function(){
   assert.ok(!/id="update-btn-side"/.test(NOCOMMENT));
-  const side = NOCOMMENT.match(/<aside[\s\S]*?<\/aside>/)[0];
+  const side = NOCOMMENT.match(/<nav class="side-panel"[\s\S]*?<\/nav>/)[0];
   assert.ok(!/Доступне оновлення/.test(side));
   assert.match(NOCOMMENT, /<div class="update-banner" id="update-banner" role="status"><span>Доступне оновлення<\/span><button type="button" onclick="applyAppUpdate\(\)">Оновити<\/button><\/div>/);
 });

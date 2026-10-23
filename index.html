@@ -30,6 +30,14 @@
     document.documentElement.setAttribute('data-theme', resolved);
   }catch(e){ /* localStorage недоступний (напр. приватний режим) — лишаємось на світлій темі за замовчуванням */ }
 })();
+// Rev 2.32.162 (DESK-NAV): початковий стан бічної панелі (згорнута/розгорнута) ставиться ДО першого малювання, щоб ширина вмісту не стрибала. Те саме правило, що sideCollapseResolve() у основному скрипті: збережений вибір ('1'/'0') важить більше за ширину вікна (< 1100 px → вузька). Лише клас на <html>; на мобільній розкладці CSS панелі немає.
+(function(){
+  try{
+    var v = localStorage.getItem('mt-side-collapsed');
+    var c = v === '1' ? true : v === '0' ? false : window.innerWidth < 1100;
+    if(c) document.documentElement.classList.add('side-collapsed');
+  }catch(e){}
+})();
 </script>
 <!-- Rev 2.11.23 — відкат Mobile Zoom (Rev 2.11.22): pinch-to-zoom ламав app-like
      відчуття застосунку (продуктове рішення, не баг). Альтернатива для
@@ -2492,40 +2500,81 @@
     .kpi-strip-item:nth-child(n+4){ border-top:1px solid var(--color-border); margin-top:12px; padding-top:12px; }
   }
 
-  /* ---- Desktop (≥1280px): Sidebar + повна сітка ---- */
-  @media (min-width:1280px){
-    .app-shell{ flex-direction:row; max-width:1440px; }
+  /* ---- Rev 2.32.162 (DESK-NAV): плаваюча навігаційна панель десктопа ----
+     Умова: вікно ≥ 1280 px (як було) АБО ≥ 768 px із мишею (hover:hover + pointer:fine); дотиковий планшет 768–1279 px лишається з нижнім таб-баром.
+     Панель — nav.side-panel: position:fixed, відступ 12 px від краю вікна, радіус 22 px, єдиний (разом із таб-баром, банером, тостом) елемент із backdrop-filter; тонка внутрішня обводка й м'яка тінь — з --shadow-glass (inset 1px + дві тіні), кольори — ті самі токени скла, що в мобільного таб-бара.
+     .side — місце в потоці (ширина панелі + 24 px), щоб вміст не заходив під панель; ширина через --side-w (240 / 62 px), плавна зміна без стрибків. Ризик: fixed-панель не прокручується разом із вмістом (так і задумано); на дуже низьких вікнах (< 560 px) панель прокручується всередині. Місяць повертається в шапку сторінки (.month-pill, як на мобільній); окремого вибору місяця в панелі немає. */
+  @media (min-width:1280px), (min-width:768px) and (hover:hover) and (pointer:fine){
+    html{ --side-w:240px; }
+    html.side-collapsed{ --side-w:62px; }
+    .app-shell{ flex-direction:row; max-width:1440px; margin-left:0; }
     .top{ display:block; text-align:left; padding:0 0 20px; border-bottom:none; }
     .page-header-buttons{ display:none; }
     .page-header-buttons-left{ display:none; }
     .page-header-text{ padding:0; }
     .page-header-text h1{ font-size:28px; line-height:34px; }
     .page-header-text .page-subtitle{ font-size:13.5px; margin-top:5px; }
-    .month-pill{ display:none; }
-    .side{ width:250px; flex-shrink:0; padding:26px 16px; border-right:1px solid var(--color-border); display:flex; flex-direction:column; gap:4px; height:100vh; height:100dvh; overflow-y:auto; }
-    .side .brand-side{ padding:4px 10px 18px; }
-    .side .brand-side h1{ font-size:19px; margin:0; font-weight:700; }
-    .side .month-picker{ padding:0 10px 18px; margin-top:0; }
-    .side .month-picker select{ width:100%; }
-    .side button.side-tab{ text-align:left; background:none; border:none; padding:11px 12px; border-radius:var(--radius-md); font-size:14px; font-weight:600; color:var(--color-text-secondary); cursor:pointer; display:flex; align-items:center; gap:10px; min-height:44px; }
-    .side button.side-tab.active{ background:var(--color-primary-bg); color:var(--color-primary-hover); }
-    .side button.side-tab svg{ width:18px; height:18px; flex-shrink:0; }
-    /* Rev 2.32.141 (DESK-BADGE): обгортка іконки для бейджа непрочитаних; бейдж — той самий клас, що на мобільному дзвіночку (колір --color-error, 16 px / 10 px), зсунутий до кута 18-px іконки. */
-    .side button.side-tab .side-ico{ position:relative; display:inline-flex; flex-shrink:0; }
-    .side-ico .notif-bell-count{ top:-7px; right:-9px; }
-    /* Rev 2.32.126: значок синхронізації на аватарі в боковій панелі — як маленький у куті аватара на мобільній. Причина: правило вище (0,2,2) перебивало .avatar-status-dot svg (0,1,1), тож гліф 18px вилазив з крапки 11px; крапка була пів-аватара (11 з 22 px, на мобільній 11 з 36) і мала світле кільце --color-surface на темнішому тлі панелі. Тепер: крапка 8px (пропорція мобільної ≈ 0,3), кільце 1.5px кольору тла панелі, гліф 70% крапки. Ризик: гліф у 8px крапці дрібний (≈3.5px), як і задумано «маленький значок». */
-    .side button.side-tab .avatar-status-dot{ width:8px; height:8px; border-width:1.5px; border-color:var(--color-bg); bottom:-1px; right:-1px; }
-    .side button.side-tab .avatar-status-dot svg{ width:70%; height:70%; }
-    /* "Витрати" — та сама ідея на desktop: колірне виділення пункту в sidebar,
-       щоб сигналізувати "це головна дія", а не рівноправний розділ меню. */
-    .side button.side-tab.tab-vytraty{ background:var(--color-primary); color:#fff; margin:2px 0; }
-    @media (hover:hover) and (pointer:fine){ .side button.side-tab.tab-vytraty:hover{ background:var(--color-primary-hover); } }
-    .side button.side-tab.tab-vytraty.active{ background:var(--color-primary-hover); color:#fff; }
+    .side{ display:block; flex:none; position:relative; width:calc(var(--side-w) + 24px); transition:width .22s ease; }
+    .side-panel{ position:fixed; z-index:20; top:12px; bottom:12px; left:12px; width:var(--side-w); box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:12px 8px; border-radius:22px; background:var(--color-glass-bg); -webkit-backdrop-filter:blur(14px) saturate(160%); backdrop-filter:blur(14px) saturate(160%); border:1px solid var(--color-glass-border); box-shadow:var(--shadow-glass); transition:width .22s ease; }
+    @media (max-height:559px){ .side-panel{ overflow-y:auto; } }
+    .side-head{ display:flex; align-items:center; gap:6px; padding:2px 4px 12px; min-height:40px; }
+    .side .brand-side{ flex:1; min-width:0; }
+    .side .brand-side h1{ font-size:17px; margin:0; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .side-collapse-btn{ flex:none; width:32px; height:32px; border-radius:11px; border:1px solid var(--color-border); background:transparent; color:var(--color-text-secondary); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+    .side-collapse-btn svg{ width:16px; height:16px; transition:transform .22s ease; }
+    .side-collapse-btn:focus-visible, .side button.side-tab:focus-visible{ outline:2px solid var(--color-primary); outline-offset:2px; }
+    @media (hover:hover) and (pointer:fine){ .side-collapse-btn:hover{ background:var(--color-surface-hover); color:var(--color-text-primary); } }
+    .side button.side-tab{ position:relative; text-align:left; background:none; border:1px solid transparent; padding:10px 12px; border-radius:16px; font-size:14px; font-weight:600; color:var(--color-text-secondary); cursor:pointer; display:flex; align-items:center; gap:10px; min-height:44px; box-sizing:border-box; width:100%; }
+    @media (hover:hover) and (pointer:fine){ .side button.side-tab:hover{ background:var(--color-surface-hover); color:var(--color-text-primary); } }
+    /* активний пункт — скляна пілюля з рамкою акценту (ті самі значення, що .tabbar-bubble на мобільній) */
+    .side button.side-tab.active{ background:rgba(34,197,94,.16); border-color:rgba(34,197,94,.32); box-shadow:0 2px 8px rgba(34,197,94,.22); color:var(--color-primary-hover); }
+  .side button.side-tab svg{ width:18px; height:18px; flex-shrink:0; }
+  /* Rev 2.32.141 (DESK-BADGE): обгортка іконки для бейджа непрочитаних; бейдж — той самий клас, що на мобільному дзвіночку (колір --color-error, 16 px / 10 px), зсунутий до кута 18-px іконки. */
+  .side button.side-tab .side-ico{ position:relative; display:inline-flex; flex-shrink:0; }
+  .side-ico .notif-bell-count{ top:-7px; right:-9px; }
+  /* Rev 2.32.126: значок синхронізації на аватарі в боковій панелі — як маленький у куті аватара на мобільній. Причина: правило вище (0,2,2) перебивало .avatar-status-dot svg (0,1,1), тож гліф 18px вилазив з крапки 11px; крапка була пів-аватара (11 з 22 px, на мобільній 11 з 36) і мала світле кільце --color-surface на темнішому тлі панелі. Тепер: крапка 8px (пропорція мобільної ≈ 0,3), кільце 1.5px кольору тла панелі, гліф 70% крапки. Ризик: гліф у 8px крапці дрібний (≈3.5px), як і задумано «маленький значок». */
+  .side button.side-tab .avatar-status-dot{ width:8px; height:8px; border-width:1.5px; border-color:var(--color-bg); bottom:-1px; right:-1px; }
+  .side button.side-tab .avatar-status-dot svg{ width:70%; height:70%; }
+    .side-label{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+    /* «Витрати» — зелене коло з плюсом (як центральна кнопка мобільного таб-бара); пілюлі в нього немає, активний стан — темніше коло й колір підпису */
+    .side button.side-tab.tab-vytraty{ background:none; border-color:transparent; box-shadow:none; color:var(--color-text-secondary); margin:2px 0; }
+    .side-plus{ flex:none; width:30px; height:30px; margin:-3px 0 -3px -4px; border-radius:50%; background:var(--color-primary); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(34,197,94,.35); transition:background var(--duration-fast) var(--easing-standard); }
+    .side button.side-tab .side-plus svg{ width:16px; height:16px; }
+    @media (hover:hover) and (pointer:fine){ .side button.side-tab.tab-vytraty:hover{ background:var(--color-surface-hover); } .side button.side-tab.tab-vytraty:hover .side-plus{ background:var(--color-primary-hover); } }
+    .side button.side-tab.tab-vytraty.active{ background:none; border-color:transparent; box-shadow:none; color:var(--color-primary-hover); }
+    .side button.side-tab.tab-vytraty.active .side-plus{ background:var(--color-primary-hover); }
     .side-spacer{ flex:1; }
-    .side-divider{ border-top:1px solid var(--color-border); margin:10px 4px; }
+    .side-divider{ border-top:1px solid var(--color-border); margin:8px 4px; }
+    /* нижній ряд: профіль, сповіщення, налаштування — три кнопки-іконки в рядок (у вузькій панелі стовпчиком) */
+    .side-bottom{ display:flex; gap:4px; }
+    .side-bottom button.side-tab{ flex:1; justify-content:center; padding:0; min-height:40px; }
+    .side-bottom .side-label{ display:none; }
+    /* підказки: у вузькій панелі для всіх пунктів, у нижньому ряду — завжди; при наведенні й фокусі клавіатурою */
+    .side button.side-tab[data-tip]::after{ content:attr(data-tip); position:absolute; left:calc(100% + 12px); top:50%; transform:translateY(-50%); padding:6px 10px; border-radius:10px; background:var(--color-surface); color:var(--color-text-primary); border:1px solid var(--color-border); box-shadow:var(--shadow-md, 0 6px 18px rgba(16,24,40,.18)); font-size:12.5px; font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .12s ease; z-index:30; }
+    .side-bottom button.side-tab[data-tip]::after{ left:50%; top:auto; bottom:calc(100% + 8px); transform:translateX(-50%); }
+    html.side-collapsed .side button.side-tab[data-tip]:hover::after, html.side-collapsed .side button.side-tab[data-tip]:focus-visible::after,
+    .side-bottom button.side-tab[data-tip]:hover::after, .side-bottom button.side-tab[data-tip]:focus-visible::after{ opacity:1; visibility:visible; }
+    html.side-collapsed .side-bottom button.side-tab[data-tip]::after{ left:calc(100% + 12px); top:50%; bottom:auto; transform:translateY(-50%); }
+    /* вузька панель (62 px): лише іконки; назви й бейдж-лічильник «Витрати» ховаються (лічильник лишається доступним у розгорнутому вигляді) */
+    html.side-collapsed .side-panel{ padding:12px 6px; }
+    html.side-collapsed .side-head{ flex-direction:column; padding-bottom:8px; }
+    html.side-collapsed .side .brand-side h1, html.side-collapsed .side-label, html.side-collapsed .side-count-badge{ display:none; }
+    html.side-collapsed .side .brand-row{ justify-content:center; }
+    html.side-collapsed .side-collapse-btn svg{ transform:rotate(180deg); }
+    html.side-collapsed .side button.side-tab{ justify-content:center; padding:0; }
+    html.side-collapsed .side-plus{ margin:0; }
+    html.side-collapsed .side-bottom{ flex-direction:column; }
     nav.tabbar{ display:none; }
+    .scroll-top-btn{ bottom:24px; }
     .main-col{ flex:1; min-width:0; padding:26px 28px 40px; }
     .view{ padding:0; }
+  }
+  @media ((min-width:1280px), (min-width:768px) and (hover:hover) and (pointer:fine)) and (prefers-reduced-motion:reduce){
+    .side, .side-panel, .side-collapse-btn svg{ transition:none; } /* Rev 2.32.162: без анімації згортання (глобальне правило 80 мс для .side/.side-panel вимкнено через :not) */
+  }
+
+  /* ---- Desktop (≥1280px): Sidebar + повна сітка ---- */
+  @media (min-width:1280px){
     .drawer{ left:auto; right:0; top:0; bottom:0; width:360px; max-width:90vw; max-height:none; border-radius:var(--radius-xl) 0 0 var(--radius-xl); transform:translateX(100%); }
     .drawer.open{ transform:translateX(0); }
     /* Rev #30 (6D.12) — десктопний варіант .drawer лишається бічною
@@ -2736,7 +2785,7 @@
      Шторки (.drawer, .drawer-backdrop) НЕ чіпаємо: їхня анімація зав'язана на логіку клавіатури (transitionend, sheet-anim). Спінери (syncSpin/spin) лишаються — це індикатор роботи, не декор. */
   @media (prefers-reduced-motion: reduce){
     :root{ --motion-micro:60ms; --motion-s:80ms; --motion-m:80ms; --motion-l:80ms; --motion-count:80ms; --motion-chart:80ms; --motion-bars:80ms; --motion-card:80ms; }
-    *:not(.drawer):not(.drawer-backdrop), *::before, *::after{ transition-duration:80ms !important; }
+    *:not(.drawer):not(.drawer-backdrop):not(.side):not(.side-panel), *::before, *::after{ transition-duration:80ms !important; }
     nav.tabbar.pressed .tabbar-glass{ transform:translateZ(0); }
     nav.tabbar.pressed .tabbar-bubble{ --bubble-scale:1; }
     .tabbar-bubble::before, .stb-clip::before, .skeleton::after{ animation:none !important; }
@@ -2752,59 +2801,66 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="monoicon" viewBox="0 0 40 40"><g clip-path="url(#monoClip)"><path d="M33.219 0.0605469H6.75236C3.07046 0.0605469 0.0856934 3.04532 0.0856934 6.72721V33.2172C0.0856934 36.8991 3.07046 39.8839 6.75236 39.8839H33.219C36.9009 39.8839 39.8857 36.8991 39.8857 33.2172V6.72721C39.8857 3.04532 36.9009 0.0605469 33.219 0.0605469Z" fill="url(#monoGrad)"/><path d="M13.3677 23.1069V18.6166C13.3677 17.3429 12.6857 16.7383 11.541 16.7383C10.5887 16.7383 9.76537 17.3043 9.40504 17.8703C9.17337 17.1626 8.59437 16.7383 7.68104 16.7383C6.7287 16.7383 5.90537 17.3299 5.64804 17.7033V16.8926H4.01404V23.1066H5.64804V18.9256C5.89237 18.5783 6.36871 18.1923 6.93471 18.1923C7.60371 18.1923 7.86104 18.604 7.86104 19.183V23.1066H9.5077V18.9126C9.73937 18.5779 10.2154 18.1919 10.7944 18.1919C11.4634 18.1919 11.721 18.6036 11.721 19.1826V23.1066L13.3677 23.1069ZM17.858 23.2613C15.8124 23.2613 14.5774 21.769 14.5774 19.9933C14.5774 18.2306 15.8124 16.7383 17.858 16.7383C19.9167 16.7383 21.1517 18.2306 21.1517 19.9933C21.1517 21.769 19.9167 23.2613 17.858 23.2613ZM17.858 21.8076C18.8747 21.8076 19.4534 20.971 19.4534 19.9933C19.4534 19.0283 18.8744 18.1923 17.858 18.1923C16.8414 18.1923 16.2754 19.0283 16.2754 19.9933C16.2754 20.9713 16.8417 21.8076 17.858 21.8076ZM28.1894 23.1069V18.7196C28.1894 17.5103 27.5334 16.7383 26.1694 16.7383C25.1527 16.7383 24.394 17.2273 23.995 17.7033V16.8926H22.361V23.1069H23.995V18.9256C24.265 18.5523 24.767 18.1923 25.4104 18.1923C26.105 18.1923 26.5554 18.4883 26.5554 19.3503V23.1069H28.1894ZM32.6924 23.2613C30.6467 23.2613 29.4117 21.769 29.4117 19.9933C29.4117 18.2306 30.6467 16.7383 32.6924 16.7383C34.751 16.7383 35.986 18.2306 35.986 19.9933C35.986 21.769 34.751 23.2613 32.6924 23.2613ZM32.6924 21.8076C33.709 21.8076 34.2877 20.971 34.2877 19.9933C34.2877 19.0283 33.7087 18.1923 32.6924 18.1923C31.6757 18.1923 31.1097 19.0283 31.1097 19.9933C31.1097 20.9713 31.676 21.8076 32.6924 21.8076Z" fill="white"/></g><defs><linearGradient id="monoGrad" x1="20.4474" y1="0.533547" x2="20.4474" y2="39.3295" gradientUnits="userSpaceOnUse"><stop stop-color="#373B45"/><stop offset="1" stop-color="#181A1D"/></linearGradient><clipPath id="monoClip"><rect width="40" height="40" fill="white"/></clipPath></defs></symbol></svg>
 
 <div class="app-shell">
-  <aside class="side">
+  <div class="side" id="side-host">
+  <nav class="side-panel" id="side-panel" aria-label="Основна навігація">
+    <div class="side-head">
     <div class="brand-side">
       <div class="brand-row">
         <div class="brand-logo"><img src="data:image/png;base64,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" alt="" width="28" height="28"></div>
         <h1>Money Tree</h1>
       </div>
     </div>
-    <div class="month-picker"><label>Місяць</label><select id="month-select-side" onchange="onMonthChange(this.value)"></select></div>
+      <!-- Rev 2.32.162 (DESK-NAV): згортання панелі; стан у localStorage (ключ mt-side-collapsed), без нього — вузька панель лише під ~1100 px -->
+      <button type="button" class="side-collapse-btn" id="side-collapse-btn" aria-expanded="true" aria-controls="side-panel" aria-label="Згорнути панель" title="Згорнути панель"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+    </div>
 
-    <button class="side-tab active" data-tab="analytics" onclick="switchTab('analytics')">
+    <button class="side-tab active" data-tab="analytics" onclick="switchTab('analytics')" aria-current="page" aria-label="Аналітика" data-tip="Аналітика">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-      Аналітика
+      <span class="side-label">Аналітика</span>
     </button>
-    <button class="side-tab" data-tab="accounting" onclick="switchTab('accounting')">
+    <button class="side-tab" data-tab="accounting" onclick="switchTab('accounting')" aria-label="Облік" data-tip="Облік">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9.5"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-      Облік
+      <span class="side-label">Облік</span>
     </button>
-    <button class="side-tab tab-vytraty" data-tab="vytraty" onclick="switchTab('vytraty')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      Витрати
+    <button class="side-tab tab-vytraty" data-tab="vytraty" onclick="switchTab('vytraty')" aria-label="Витрати" data-tip="Витрати">
+      <span class="side-plus" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+      <span class="side-label">Витрати</span>
       <span class="side-count-badge hidden" id="side-count-badge"></span>
     </button>
-    <button class="side-tab" data-tab="structure" onclick="switchTab('structure')">
+    <button class="side-tab" data-tab="structure" onclick="switchTab('structure')" aria-label="Структура" data-tip="Структура">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="4.5" r="2.5"/><circle cx="3" cy="19.5" r="2.5"/><circle cx="12" cy="19.5" r="2.5"/><circle cx="21" cy="19.5" r="2.5"/><path d="M12 7v3.5"/><path d="M3 17v-2.5a1.2 1.2 0 0 1 1.2-1.2h15.6a1.2 1.2 0 0 1 1.2 1.2v2.5"/><path d="M12 10.5v6.5"/></svg>
-      Структура
+      <span class="side-label">Структура</span>
     </button>
-    <button class="side-tab" data-tab="service" onclick="switchTab('service')">
+    <button class="side-tab" data-tab="service" onclick="switchTab('service')" aria-label="Сервіс" data-tip="Сервіс">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-      Сервіс
+      <span class="side-label">Сервіс</span>
     </button>
 
     <div class="side-spacer"></div>
     <!-- Rev 2.32.145 (DESK-UPDATE): зелений пункт «Доступне оновлення» (#update-btn-side) прибрано: на десктопі він дублював плашку #update-banner з кнопкою «Оновити» (та сама, що на мобільній; однакова логіка показу/повернення refreshUpdateBanner, окремої логіки для десктопа немає). -->
     <div class="side-divider"></div>
+    <div class="side-bottom">
     <!-- Rev #30 (6D.8) — той самий дуальний патерн, що вже .gear-btn/
          "Налаштування" вище: mobile — кнопка в .page-header-buttons-left,
          desktop — .side-tab тут. id="profile-avatar-side" оновлюється
          renderProfileUI() (буква/колір/aria-label), сам вміст іконки —
          placeholder, замінюється JS. -->
-    <button class="side-tab" id="profile-side-trigger" onclick="openProfileMenu()">
+    <button class="side-tab" id="profile-side-trigger" onclick="openProfileMenu()" aria-label="Профіль" data-tip="Профіль">
       <span class="avatar-badge" id="profile-avatar-side" style="width:22px; height:22px;" aria-hidden="true"><span class="avatar-face guest" style="font-size:10.5px;"></span></span>
-      Профіль
+      <span class="side-label">Профіль</span>
     </button>
-    <button class="side-tab" onclick="openNotifArchive()" id="notif-side-tab">
+    <button class="side-tab" onclick="openNotifArchive()" id="notif-side-tab" aria-label="Сповіщення" data-tip="Сповіщення">
       <!-- Rev 2.32.141 (DESK-BADGE): той самий бейдж непрочитаних, що на дзвіночку мобільної версії (клас .notif-bell-count), на іконці пункту; оновлює updateNotifBell() -->
       <span class="side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="notif-bell-count hidden" id="notif-side-count" aria-hidden="true"></span></span>
-      Сповіщення
+      <span class="side-label">Сповіщення</span>
     </button>
-    <button class="side-tab" onclick="openSettings()">
+    <button class="side-tab" onclick="openSettings()" aria-label="Налаштування" data-tip="Налаштування">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-      Налаштування
+      <span class="side-label">Налаштування</span>
     </button>
-  </aside>
+    </div>
+  </nav>
+  </div>
 
   <div class="main-col" id="main-col">
     <!-- Rev 2.11.1 — індикатор офлайн/онлайн стану: за замовчуванням прихований
@@ -3616,7 +3672,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.161</div>
+  <div class="version-footer">Money Tree · Rev 2.32.162</div>
 </div>
   </div>
 </div>
@@ -8195,7 +8251,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.161';
+const APP_VERSION = '2.32.162';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15162,7 +15218,8 @@ function populateMonths(){
   const todayKey = monthKey(localDateISO());
   if(!selectedMonth || !months.includes(selectedMonth)) selectedMonth = months.includes(todayKey) ? todayKey : months[months.length-1];
   ['month-select-side','month-select-top'].forEach(id=>{
-    const el = document.getElementById(id); el.innerHTML = opts; el.value = selectedMonth;
+    const el = document.getElementById(id); if(!el) return; // Rev 2.32.162 (DESK-NAV): окремого вибору місяця в бічній панелі більше немає — місяць у шапці сторінки
+    el.innerHTML = opts; el.value = selectedMonth;
   });
 }
 // Rev 2.16.6 — захист від "незбережених змін" прибрано: і картки (Rev
@@ -15177,7 +15234,7 @@ function onMonthChange(val){
 }
 function performMonthChange(val){
   selectedMonth = val;
-  document.getElementById('month-select-side').value = val;
+  const sideMonth = document.getElementById('month-select-side'); if(sideMonth) sideMonth.value = val; // Rev 2.32.162: елемента в панелі вже немає
   document.getElementById('month-select-top').value = val;
   updatePageHeader(lastActiveTab);
   renderAll();
@@ -19636,7 +19693,7 @@ const BUTTON_VARIANT_MAP = {
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip', 'mono-inst-label'],
   row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
-  reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab']
+  reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
 const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated'];
@@ -20006,6 +20063,36 @@ const TAB_META = {
   structure: { title:'Структура', subtitle: () => 'Категорії, підкатегорії, автопідбір', showMonthPill:false }, // Rev 2.32.48 (S1): коротший підзаголовок — в один рядок
   service: { title:'Сервіс', subtitle: () => 'Резервні копії, імпорт та експорт Excel', showMonthPill:false },
 };
+// Rev 2.32.162 (DESK-NAV): згортання бічної панелі. Збережений вибір (localStorage 'mt-side-collapsed': '1'/'0') важить більше за ширину; без нього панель вузька, коли вікно < 1100 px (і слідує за зміною ширини). Стан лише клас html.side-collapsed + aria на кнопці; навігацію (switchTab) не чіпає.
+const SIDE_COLLAPSE_KEY = 'mt-side-collapsed';
+const SIDE_NARROW_PX = 1100;
+function sideCollapseResolve(stored, width){
+  if(stored === '1') return true;
+  if(stored === '0') return false;
+  return Number(width) < SIDE_NARROW_PX;
+}
+function sideCollapseStored(){ try{ return localStorage.getItem(SIDE_COLLAPSE_KEY); }catch(e){ return null; } }
+function applySideCollapsed(collapsed){
+  document.documentElement.classList.toggle('side-collapsed', !!collapsed);
+  const btn = document.getElementById('side-collapse-btn');
+  if(btn){
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    const t = collapsed ? 'Розгорнути панель' : 'Згорнути панель';
+    btn.setAttribute('aria-label', t); btn.setAttribute('title', t);
+  }
+}
+function toggleSideNav(){
+  const next = !document.documentElement.classList.contains('side-collapsed');
+  try{ localStorage.setItem(SIDE_COLLAPSE_KEY, next ? '1' : '0'); }catch(e){}
+  applySideCollapsed(next);
+}
+function initSideNav(){
+  applySideCollapsed(sideCollapseResolve(sideCollapseStored(), window.innerWidth));
+  const btn = document.getElementById('side-collapse-btn');
+  if(btn) btn.addEventListener('click', toggleSideNav);
+  window.addEventListener('resize', function(){ if(sideCollapseStored() === null) applySideCollapsed(sideCollapseResolve(null, window.innerWidth)); });
+}
+initSideNav();
 function updatePageHeader(tab){
   const meta = TAB_META[tab];
   if(!meta) return;
@@ -20083,7 +20170,7 @@ function performSwitchTab(tab, opts){
     document.getElementById('view-'+t).classList.toggle('hidden', t!==tab);
   });
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
-  document.querySelectorAll('.side-tab[data-tab]').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('.side-tab[data-tab]').forEach(b=>{ const on = b.dataset.tab===tab; b.classList.toggle('active', on); if(on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); // Rev 2.32.162 (DESK-NAV): aria-current для активного пункту панелі
   updateTabBubble();
   // BugFix Rev 2.0.8, переписано в Rev 2.7.0: вкладки — це просто
   // display:none/block перемикання div-ів всередині ОДНОГО спільного

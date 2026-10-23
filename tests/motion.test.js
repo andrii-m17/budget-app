@@ -64,7 +64,8 @@ const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const CSS = [...SRC.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
 const BANNED = ['width', 'height', 'top', 'left', 'right', 'bottom', 'margin', 'padding', 'box-shadow', 'filter', 'backdrop-filter', 'grid-template-columns', 'background-position'];
 // ЯВНИЙ перелік винятків: селектор → властивості, що дозволені в transition попри список вище. Порожній — виняткових випадків немає.
-const EXCEPTIONS = {};
+// Rev 2.32.162 (DESK-NAV): згортання десктопної панелі плавно змінює ширину панелі й місця під неї (лише десктоп, ≤ 0,22 с; у prefers-reduced-motion вимкнено). Інших винятків немає.
+const EXCEPTIONS = { '.side': ['width'], '.side-panel': ['width'] };
 function transitionRules(){
   const out = [];
   const re = /([^{}]+)\{([^{}]*)\}/g;

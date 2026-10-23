@@ -19,7 +19,7 @@ test('0 — бейдж сховано; N — показано, 10+ → 9+', func
   e = run(25); assert.equal(e['notif-side-count'].textContent, '9+');
 });
 test('розмітка: бейдж усередині пункту бокової панелі, тим самим класом, aria-hidden; aria-label пункту несе кількість', function(){
-  const tab = SRC.match(/<button class="side-tab" onclick="openNotifArchive\(\)" id="notif-side-tab">[\s\S]*?<\/button>/)[0];
+  const tab = SRC.match(/<button class="side-tab" onclick="openNotifArchive\(\)" id="notif-side-tab"[^>]*>[\s\S]*?<\/button>/)[0];
   assert.match(tab, /class="notif-bell-count hidden" id="notif-side-count" aria-hidden="true"/);
   assert.equal(run(2)['notif-side-tab'].attrs['aria-label'], 'Сповіщення, непрочитаних: 2');
 });
