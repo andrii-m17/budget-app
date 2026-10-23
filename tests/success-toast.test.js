@@ -62,18 +62,16 @@ test('охоронні (TO): помилки показуються як alert, �
   assert.ok(!/showTextToast\('Спершу почніть запис діагностики'/.test(SRC));
 });
 
-test('Rev 2.32.166 (TOAST-LAYOUT): однакові поля 18 px, проміжок іконка-текст 12 px, симетричний внутрішній відступ; верх нижче заголовка; кольори й тривалості без змін', function(){
+test('Rev 2.32.176 (TOAST-FIT): пілюля за розміром вмісту, по центру; симетричний відступ 18 px; іконка–текст 12 px; без розтягування на всю ширину; нижче заголовка лишається', function(){
   const toast = SRC.match(/\n  \.success-toast\{([^}]*)\}/)[1];
-  assert.match(toast, /gap:12px/); assert.match(toast, /padding:10px 12px;/); assert.ok(!/padding:10px 10px 10px 12px/.test(toast), 'асиметричного відступу немає');
-  assert.match(SRC, /@media \(max-width:767px\)\{ \.success-toast\{ width:100%; box-sizing:border-box; \} \.success-toast-text\{ flex:1; \} \}/);
-  // нижче заголовка: rect → px; невидимий/прокручений → null
-  assert.equal(c.toastTopBelowHeader({ top: 18, bottom: 66, height: 48 }), 74);
-  assert.equal(c.toastTopBelowHeader({ top: -60, bottom: -10, height: 50 }), null, 'заголовок прокручено за екран');
-  assert.equal(c.toastTopBelowHeader({ top: 0, bottom: 0, height: 0 }), null); assert.equal(c.toastTopBelowHeader(null), null);
+  assert.match(toast, /width:fit-content; max-width:100%; box-sizing:border-box;/); assert.match(toast, /gap:12px/); assert.match(toast, /padding:11px 18px;/);
+  assert.ok(!/@media \(max-width:767px\)\{ \.success-toast\{ width:100%/.test(SRC), 'розтягування на всю ширину скасовано');
+  const host = SRC.match(/\.success-toast-host\{([^}]*)\}/)[1];
+  assert.match(host, /left:18px; right:18px/); assert.match(host, /display:flex; justify-content:center/); assert.match(host, /top:max\(calc\(env\(safe-area-inset-top, 0px\) \+ 8px\), var\(--toast-top, 0px\)\)/);
+  assert.match(SRC, /\.success-toast-sub\{[^}]*white-space:normal; overflow-wrap:anywhere;/, 'довгий текст переноситься');
+  assert.equal(c.toastTopBelowHeader({ top: 18, bottom: 66, height: 48 }), 74); assert.equal(c.toastTopBelowHeader(null), null);
   const body = SRC.slice(SRC.indexOf('function pumpSuccessToast'), SRC.indexOf('function openJournalFromToast'));
-  assert.match(body, /document\.querySelector\('\.page-header-text'\)/); assert.match(body, /host\.style\.setProperty\('--toast-top', topPx \+ 'px'\)/);
-  // не змінено: кольори, тривалості, акційна кнопка
+  assert.match(body, /host\.style\.setProperty\('--toast-top', topPx \+ 'px'\)/);
   assert.equal(c.toastDuration('error'), 5000); assert.equal(c.toastDuration('info'), 3500);
-  assert.match(SRC, /\.success-toast\.t-info \.success-toast-icon\{ color:var\(--color-info\); \}/);
-  assert.match(SRC, /\.success-toast-action\{ flex:none; border:0; background:var\(--color-primary\);/);
+  assert.match(SRC, /\.success-toast\.t-info \.success-toast-icon\{ color:var\(--color-info\); \}/); assert.match(SRC, /\.success-toast-action\{ flex:none; border:0; background:var\(--color-primary\);/);
 });
