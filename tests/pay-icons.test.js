@@ -67,17 +67,16 @@ test('aria-label підсвіченого дня: «Наступний плат�
   assert.match(m.days.find(d => d.next).label, /^Наступний платіж: 17 жовтня, 5\s000\s₴$/);
   assert.match(SRC, /if\(d\.next && d\.label\)\{ b\.setAttribute\('aria-label', d\.label\); \} else b\.setAttribute\('aria-hidden', 'true'\)/);
 });
-test('CSS смуги (Rev 2.32.167): найближчий — синє скло (градієнт, верхній блик, рамка info, сяйво); сьогодні — лише крапка; день із платежем — сіра заливка', function(){
+test('CSS смуги (Rev 2.32.170, відкат скла): сьогодні — тонка нейтральна рамка; день із платежем — сіра заливка; найближчий — тонка синя рамка info ≈ 55% без скла, градієнта, блика, сяйва, «скоро»', function(){
   const nx = SRC.match(/\.pay-day\.next\{([^}]*)\}/)[1];
-  assert.match(nx, /linear-gradient\(180deg, color-mix\(in srgb, var\(--color-info\) 36%/); assert.match(nx, /backdrop-filter:blur\(10px\)/);
-  assert.match(nx, /border:1px solid var\(--color-info\)/); assert.match(nx, /box-shadow:0 0 12px color-mix\(in srgb, var\(--color-info\) 42%, transparent\), inset 0 1px 0 rgba\(255,255,255,\.4\)/);
-  assert.match(SRC, /\.pay-day\.next::before\{[^}]*linear-gradient\(180deg, rgba\(255,255,255,\.30\), rgba\(255,255,255,0\)\)/);
-  assert.ok(!/--color-warning/.test(nx), 'без warning');
-  assert.match(SRC, /\.pay-day\.today::after\{ content:''; position:absolute; left:50%; bottom:2px; width:4px; height:4px;/);
-  assert.ok(!/\.pay-day\.today\{/.test(SRC), 'рамки в сьогодні нема');
+  assert.match(nx, /^ border:1px solid color-mix\(in srgb, var\(--color-info\) 55%, transparent\); $/);
+  assert.ok(!/backdrop-filter|gradient|box-shadow|warning/.test(nx));
+  assert.ok(!/\.pay-day\.next::(before|after)|\.pay-day\.today::after|\.pay-day\.next\.soon/.test(SRC), 'блика, крапки й «скоро» нема');
+  assert.match(SRC, /\.pay-day\.today\{ border-color:var\(--color-border-strong\); \}/);
   assert.match(SRC, /\.pay-day\.has\{ background:var\(--color-surface-hover\); cursor:pointer; \}/);
-  assert.ok(SRC.indexOf('.pay-day.has{') < SRC.indexOf('.pay-day.next{'), 'найближчий перекриває сіру заливку');
+  assert.ok(SRC.indexOf('.pay-day.has{') < SRC.indexOf('.pay-day.next{'));
 });
+
 test('адаптивні рядки 320/390/440: спершу падає хвіст переліку з «+K», потім перелік, заголовок лишається; без «…»', function(){
   const names = ['Телефон Один', 'Ноутбук Два', 'Пилосос Три', 'Холодильник Чотири'];
   const ladder = c.payUnconfirmedLadder(names);
@@ -107,5 +106,46 @@ test('екран «Платежі» (розгорнутий вигляд): се�
   const only = run({ installments: [I('Без1', null)], debtsByMonth: [D('Без1', '2026-10')] });
   assert.equal(only.empty, true, 'без самих платежів порожній стан лишається'); assert.equal(only.sections.length, 1);
   assert.equal(run({ installments: [I('Ок', 20)], debtsByMonth: [D('Ок', '2026-10')] }).sections.find(s => s.key === 'noday'), undefined, 'без ОЧ без дати секції нема');
-  assert.match(SRC, /if\(r\.go === 'installments'\)\{ performSwitchTab\('accounting'\); switchAccountingTab\('installments'\); \} else openPayAction\(r\);/);
+  assert.match(SRC, /if\(r\.go === 'installments'\) openInstallmentFromPayments\(r\.name\); else openPayAction\(r\);/);
+});
+
+// ---- Rev 2.32.170 (PAY-NODAY-TAP): тап по «ОЧ без дати» ----
+function nodayEnv(opts){
+  const o = opts || {}; const log = []; const classes = new Set(); const ref = {};
+  const wrap = { classList: { add: c => { classes.add('wrap'); log.push('hl-field'); }, remove: () => classes.delete('wrap') }, scrollIntoView: () => log.push('scroll-field') };
+  const field = { closest: () => wrap };
+  const mk = open => { let on = open; return { classList: { contains: () => on, add: () => { on = true; }, remove: () => { on = false; } }, setAttribute(){}, removeAttribute(){} }; };
+  const drawer = mk(o.drawerOpens !== false);
+  const g = {
+    installmentAccounts: o.accounts || [{ name: 'А' }, { name: 'Предмет Б' }], isPaymentsOpen: true, isPaymentsOpenRef: ref, motionReduced: () => true, setTimeout: () => 0,
+    performSwitchTab: t => { log.push('tab:' + t); ref.paymentsClosed = true; }, switchAccountingTab: t => log.push('acc:' + t),
+    openInstallmentEditor: i => { log.push('editor:' + i); if(o.editorThrows) throw new Error('x'); },
+    document: { getElementById: id => id === 'idd-due-day' ? field : id === 'installment-drawer' ? drawer : mk(true) },
+    highlightInstallmentRow: i => log.push('row-hl:' + i), restoreFocus: () => log.push('restore'), unlockBackgroundScroll: () => log.push('unlock'), openPaymentsScreen: () => log.push('payments-open'),
+    installmentReturnToPayments: false,
+  };
+  const c = buildSandbox(g, ['openInstallmentFromPayments', 'closeInstallmentEditor']);
+  return { c, log };
+}
+test('тап по «ОЧ без дати»: «Облік» → ОЧ → шторка саме цієї ОЧ, «Дата платежу» підсвічується, без автофокусу на поле', function(){
+  const e = nodayEnv();
+  assert.equal(e.c.openInstallmentFromPayments('Предмет Б'), 'drawer');
+  assert.deepEqual(e.log, ['tab:accounting', 'acc:installments', 'editor:1', 'hl-field', 'scroll-field']);
+  assert.match(SRC, /function openInstallmentEditor\(i\)\{[\s\S]*?focusFirstIn\(document\.getElementById\('installment-drawer'\)\);/, 'відкриття шторки лишається з focusFirstIn (контейнер, не поле)');
+  assert.ok(!/idd-due-day'\)\.focus\(/.test(SRC), 'жодного програмного focus() на полі');
+  assert.match(SRC, /\.drawer \.field\.just-notified\{ background:var\(--color-info-bg\); border-radius:var\(--radius-sm\); animation:cardBlink \.8s ease-in-out 3; \}/);
+});
+test('закриття шторки повертає на екран «Платежі», один раз; звичайне відкриття шторки (не з «Платежів») не повертає', function(){
+  const e = nodayEnv(); e.c.openInstallmentFromPayments('А');
+  e.log.length = 0; e.c.closeInstallmentEditor();
+  assert.deepEqual(e.log.filter(x => x === 'payments-open'), ['payments-open']);
+  e.log.length = 0; e.c.closeInstallmentEditor(); assert.ok(!e.log.includes('payments-open'), 'повторне закриття не відкриває знову');
+  const plain = nodayEnv(); plain.c.closeInstallmentEditor(); assert.ok(!plain.log.includes('payments-open'));
+  assert.match(SRC, /function closeOpenSheetsForPush\(\)\{\n  installmentReturnToPayments = false;/, 'перехід за сповіщенням скасовує повернення');
+});
+test('шторку відкрити неможливо (немає ОЧ у списку, виняток, шторка не відкрилась): прокрутка до рядка й підсвітка, або нічого', function(){
+  const a = nodayEnv({ drawerOpens: false }); assert.equal(a.c.openInstallmentFromPayments('А'), 'row'); assert.ok(a.log.includes('row-hl:0'));
+  const b = nodayEnv({ editorThrows: true }); assert.equal(b.c.openInstallmentFromPayments('Предмет Б'), 'row'); assert.ok(b.log.includes('row-hl:1'));
+  const c = nodayEnv(); assert.equal(c.c.openInstallmentFromPayments('Невідома'), 'none'); assert.ok(!c.log.includes('payments-open'));
+  a.log.length = 0; a.c.closeInstallmentEditor(); assert.ok(!a.log.includes('payments-open'), 'без відкритої шторки повернення не вмикається');
 });
