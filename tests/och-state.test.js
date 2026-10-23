@@ -7,8 +7,8 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const NAMES = ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'installmentPaymentState',
-  'installmentStateView', 'installmentRemindDays', 'PAY_MONTHS_SHORT', 'payDateShort', 'payFmt', 'upcomingPayments', 'expectedPaymentForCard', 'INSTALLMENT_BANG_SVG'];
-const c = buildSandbox({}, NAMES);
+  'installmentStateView', 'installmentProgressFraction', 'installmentProgressRingHtml', 'installmentRemindDays', 'PAY_MONTHS_SHORT', 'payDateShort', 'payFmt', 'upcomingPayments', 'expectedPaymentForCard', 'INSTALLMENT_BANG_SVG'];
+const c = buildSandbox({ escapeAttr: function(v){ return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); } }, NAMES);
 const j = v => JSON.parse(JSON.stringify(v));
 // сьогодні 2026-10-10, дата платежу 15 жов (диф 5); expected 5000
 const base = { linked: 0, expected: 5000, dueDay: 15, month: '2026-10', today: '2026-10-10', days: 2 };
@@ -170,4 +170,36 @@ test('без очікуваного платежу в старому місяц�
   assert.equal(c.installmentExpectedPayment({ monthPay: null, lastPay: 2500, prevBalance: 10000 }), 2500);   // останній відомий до цього місяця
   const row = SRC.slice(SRC.indexOf('const lastRec = activeDebts().filter(function(d){ return d.kind === \'installment\''), SRC.indexOf('const pview = installmentStateView(pst)'));
   assert.match(row, /monthKey2\(d\.month\) <= selectedMonth/); assert.match(row, /firstMonth: acc\.firstMonth \|\| null/);
+});
+
+// ---- Rev 2.32.155 (OCH-RING): кільце прогресу замість «½» ----
+test('частка: 0..100%, межі, перевищення обрізається, очікуване невідоме → null', function(){
+  const F = c.installmentProgressFraction;
+  assert.equal(F(0, 5000), 0); assert.equal(F(1250, 5000), 0.25); assert.equal(F(2500, 5000), 0.5); assert.equal(F(5000, 5000), 1);
+  assert.equal(F(9000, 5000), 1); assert.equal(F(null, 5000), 0); assert.equal(F(-5, 5000), 0);
+  assert.equal(F(100, null), null); assert.equal(F(100, 0), null); assert.equal(F(100, undefined), null);
+});
+test('стан partial повертає frac; ✓ і «скоро»/«!» без кільця; підпис «Частково: X з Y ₴» без змін', function(){
+  const v = c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, { linked: 2000 })));
+  assert.equal(v.badge, 'half'); assert.equal(v.frac, 0.4); assert.match(v.text, /^Частково: 2\D*000 ₴ з 5\D*000 ₴$/);
+  assert.equal(c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, { linked: 5000 }))).badge, 'check');
+  assert.equal(c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, { linked: 2000, today: '2026-10-14' }))).badge, null);
+  assert.equal(c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, { linked: 2000, today: '2026-10-20' }))).badge, 'bang');
+});
+test('кільце: 18 px, доріжка нейтральна, заповнення warning, довжина дуги за часткою, aria-label екранується', function(){
+  const circ = 2 * Math.PI * 7;
+  const h = c.installmentProgressRingHtml(0.25, 'Частково: 1 ₴ з 4 ₴');
+  assert.match(h, /width="18" height="18"/); assert.match(h, /stroke="var\(--color-border-strong\)"/); assert.match(h, /stroke="var\(--color-warning\)"/);
+  assert.match(h, /role="img" aria-label="Частково: 1 ₴ з 4 ₴"/);
+  const m = h.match(/stroke-dasharray="([\d.]+) ([\d.]+)"/);
+  assert.ok(Math.abs(+m[1] - circ * 0.25) < 0.02 && Math.abs(+m[2] - circ) < 0.02);
+  assert.match(c.installmentProgressRingHtml(0, 'x'), /stroke-dasharray="0 /);
+  assert.match(c.installmentProgressRingHtml(1.7, 'x'), new RegExp('stroke-dasharray="' + (Math.round(circ * 100) / 100)));
+  assert.match(c.installmentProgressRingHtml(null, 'x'), /stroke-dasharray="0 /); // очікуване невідоме: лише доріжка
+  assert.ok(!/<script|"onerror/.test(c.installmentProgressRingHtml(0.5, '"><script>')), 'підпис екранується');
+});
+test('рядок ОЧ: для «½» використовується кільце (aria-label із підписом стану), «½» як текст прибрано', function(){
+  const row = SRC.slice(SRC.indexOf('const paidBadge = pview.badge === \'check\''), SRC.indexOf('const dueSub'));
+  assert.match(row, /installmentProgressRingHtml\(pview\.frac, pview\.text/); assert.ok(!/>½</.test(row));
+  assert.ok(!/cdr-paid-badge\.half/.test(SRC));
 });
