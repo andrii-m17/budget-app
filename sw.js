@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.162';
+const CACHE_NAME = 'budget-app-v2.32.163';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -292,7 +292,14 @@ self.addEventListener('notificationclick', function(event){
           url = './index.html?pushAction=' + encodeURIComponent(notifData.type);
           if(notifData.installmentId) url += '&installmentId=' + encodeURIComponent(notifData.installmentId);
           if(notifData.target) url += '&target=' + encodeURIComponent(notifData.target);
-          if(notifData.tag) url += '&tag=' + encodeURIComponent(notifData.tag); // Rev 2.32.162 (NOTIF-ROUTE): щоденне нагадування відрізняється від пачки й при холодному старті
+          // Rev 2.32.163 (ACTOR-HL): записи зі сповіщення про дії іншого учасника для холодного старту. URL не розростається: коротка форма «e:id,id;i:id;d:id» лише коли вміщається (≤ 330 символів), інакше тільки pushId (клієнт читає ids із user_notifications). Повний notifData у IndexedDB і postMessage і так несе ids.
+          if(notifData.ids && typeof notifData.ids === 'object'){
+            const parts = [['e', 'expenses'], ['i', 'incomes'], ['d', 'debts']].filter(function(p){ return Array.isArray(notifData.ids[p[1]]) && notifData.ids[p[1]].length; }).map(function(p){ return p[0] + ':' + notifData.ids[p[1]].filter(function(x){ return typeof x === 'string'; }).join(','); });
+            const compact = parts.join(';');
+            if(compact && compact.length <= 330) url += '&ids=' + encodeURIComponent(compact);
+          }
+          if(notifData.push_id) url += '&pushId=' + encodeURIComponent(notifData.push_id);
+          if(notifData.tag) url += '&tag=' + encodeURIComponent(notifData.tag); // Rev 2.32.163 (NOTIF-ROUTE): щоденне нагадування відрізняється від пачки й при холодному старті
           if(notifData.batch_ts) url += '&batchTs=' + encodeURIComponent(notifData.batch_ts); // Rev 2.32.95 (NOTIF-1 Rev 2): пачка Monobank для підсвітки при холодному старті
           if(notifData._at) url += '&at=' + encodeURIComponent(notifData._at); // Rev 2.23.31 (6D.200): куди веде зведення (journal/accounting/debts)
         }

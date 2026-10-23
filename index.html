@@ -3672,7 +3672,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.162</div>
+  <div class="version-footer">Money Tree · Rev 2.32.163</div>
 </div>
   </div>
 </div>
@@ -8251,7 +8251,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.162';
+const APP_VERSION = '2.32.163';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10150,6 +10150,118 @@ async function routeMonoNotification(o){
   highlightMonoRows(t.ids);
   return t;
 }
+// Rev 2.32.163 (ACTOR-HL): підсвітка записів зі сповіщень про дії іншого учасника. Сервер (міграція other_actor_summary_ids_20261023) кладе в data.ids = { expenses:[…], incomes:[…], debts:[…] } (до 10 на вид) і data.target (journal/accounting/debts). Один шлях для системного push (закритий/згорнутий/відкритий застосунок) і рядка журналу сповіщень: handlePushAction → routeOtherActorNotification. Мітки підсвітки — той самий клас just-notified, що для Monobank і ОЧ (вигляд не змінюється).
+const ACTOR_IDS_CAP = 200;
+function actorIdsNormalize(raw){
+  if(!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out = { expenses: [], incomes: [], debts: [] };
+  let any = false;
+  ['expenses', 'incomes', 'debts'].forEach(function(k){
+    const a = Array.isArray(raw[k]) ? raw[k] : [];
+    const seen = {};
+    a.forEach(function(x){ if(typeof x === 'string' && x && !seen[x] && out[k].length < ACTOR_IDS_CAP){ seen[x] = true; out[k].push(x); } });
+    if(out[k].length) any = true;
+  });
+  return any ? out : null;
+}
+// Холодний старт: sw.js кладе в URL коротку форму ids (лише якщо вміщається) — «e:id,id;i:id;d:id»; інакше лише pushId (ids читаємо з user_notifications).
+function actorIdsFromParam(str){
+  if(!str || typeof str !== 'string') return null;
+  const raw = { expenses: [], incomes: [], debts: [] }, key = { e: 'expenses', i: 'incomes', d: 'debts' };
+  str.split(';').forEach(function(part){
+    const k = key[part.slice(0, 1)];
+    if(k && part.charAt(1) === ':') raw[k] = part.slice(2).split(',').filter(Boolean);
+  });
+  return actorIdsNormalize(raw);
+}
+// Чисте: що відкривати й підсвічувати. screen — journal | accounting | debts (route.screen); ids — нормалізовані; d — локальні масиви. Повертає null без ids (старе сповіщення: екран без підсвітки, без тосту).
+// Записи, яких локально немає (видалено/ще не завантажено), пропускаються; month — місяць ПЕРШОГО наявного запису зі списку (null, якщо жодного); підсвічуються наявні записи ЦЬОГО місяця (рядки Обліку відображають вибраний місяць).
+function otherActorPlan(screen, ids, d){
+  if(!ids) return null;
+  const mk = function(m){ return m ? String(m).slice(0, 7) : null; };
+  if(screen === 'journal'){
+    const found = (ids.expenses || []).map(function(id){ return (d.expenses || []).filter(function(e){ return e.id === id && !e.deletedAt; })[0]; }).filter(Boolean);
+    return { kind: 'journal', month: found.length ? mk(found[0].date) : null, recIds: found.map(function(e){ return e.id; }), rowIds: [] };
+  }
+  if(screen === 'accounting'){
+    const found = (ids.incomes || []).map(function(id){ return (d.incomes || []).filter(function(e){ return e.id === id && !e.deletedAt; })[0]; }).filter(Boolean);
+    const month = found.length ? mk(found[0].date) : null;
+    const rows = [];
+    found.filter(function(e){ return mk(e.date) === month; }).forEach(function(e){
+      const i = INCOME_SOURCES.findIndex(function(s){ return sameIncomeSource(e.source, s.key); });
+      if(i >= 0 && rows.indexOf('income-row-' + i) === -1) rows.push('income-row-' + i);
+    });
+    return { kind: 'accounting', tab: 'data', month: month, recIds: [], rowIds: rows };
+  }
+  if(screen === 'debts'){
+    const found = (ids.debts || []).map(function(id){ return (d.debts || []).filter(function(e){ return e.id === id && !e.deletedAt; })[0]; }).filter(Boolean);
+    const month = found.length ? mk(found[0].month) : null;
+    const tab = found.length && found[0].kind === 'installment' ? 'installments' : 'debts';
+    const rows = [];
+    found.filter(function(e){ return mk(e.month) === month && (e.kind === 'installment') === (tab === 'installments'); }).forEach(function(e){
+      const list = tab === 'installments' ? (d.installmentAccounts || []) : (d.bankAccounts || []);
+      const i = list.findIndex(function(a){ return a.name === e.name; });
+      const id = (tab === 'installments' ? 'installment-row-' : 'bank-debt-row-') + i;
+      if(i >= 0 && rows.indexOf(id) === -1) rows.push(id);
+    });
+    return { kind: 'debts', tab: tab, month: month, recIds: [], rowIds: rows };
+  }
+  return null;
+}
+// ids із даних сповіщення; якщо їх нема, але є push_id (холодний старт із довгим списком) — один запит до user_notifications за data->>push_id. Офлайн/помилка/не знайдено → null (екран без підсвітки).
+async function actorIdsForAction(action){
+  const direct = actorIdsNormalize(action.ids);
+  if(direct) return direct;
+  const fromParam = actorIdsFromParam(action.idsParam);
+  if(fromParam) return fromParam;
+  const pid = action.pushId || action.push_id;
+  if(!pid || action.idsLookedUp) return null;
+  try{
+    if(await awaitCloudGate() !== 'ready') return null;
+    const r = await getSupabaseClient().from('user_notifications').select('data').eq('data->>push_id', String(pid)).limit(1);
+    if(r.error || !r.data || !r.data.length) return null;
+    return actorIdsNormalize(r.data[0] && r.data[0].data && r.data[0].data.ids);
+  }catch(e){ return null; }
+}
+function highlightRecIds(recIds){
+  if(!recIds || !recIds.length) return 0;
+  const want = recIds.map(safeId);
+  const els = Array.prototype.filter.call(document.querySelectorAll('#journal-overlay [data-rec-id]'), function(x){ return want.indexOf(x.getAttribute('data-rec-id')) !== -1; });
+  els.forEach(function(el){ el.classList.add('just-notified'); setTimeout(function(){ el.classList.remove('just-notified'); }, 3000); });
+  if(els[0]) try{ els[0].scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){}
+  return els.length;
+}
+function highlightRowIds(rowIds){
+  if(!rowIds || !rowIds.length) return 0;
+  const els = rowIds.map(function(id){ return document.getElementById(id); }).filter(Boolean);
+  els.forEach(function(el){ el.classList.add('just-notified'); setTimeout(function(){ el.classList.remove('just-notified'); }, 3000); });
+  if(els[0]) try{ els[0].scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){}
+  return els.length;
+}
+function afterPaint(fn){ requestAnimationFrame(function(){ requestAnimationFrame(fn); }); }
+// Єдиний вхід для сповіщень про дії іншого учасника (journal | accounting | debts): навігація як раніше + підсвітка за ids.
+async function routeOtherActorNotification(action, screen){
+  if(cloudAuthInitInFlight) await cloudAuthInitInFlight; // записи мають бути завантажені (холодний старт); раніше так було лише для журналу й доходів
+  const ids = await actorIdsForAction(action);
+  const plan = otherActorPlan(screen, ids, { expenses: expenses, incomes: incomes, debts: activeDebts(), bankAccounts: bankAccounts, installmentAccounts: installmentAccounts });
+  if(screen === 'journal'){
+    performSwitchTab('vytraty', { noFocus: true });
+    openJournal((plan && plan.month) || latestTouchedRecordMonth());
+    if(plan && plan.recIds.length) afterPaint(function(){ highlightRecIds(plan.recIds); });
+  }else if(screen === 'accounting'){
+    performSwitchTab('accounting');
+    switchAccountingTab('data');
+    const m = (plan && plan.month) || latestTouchedRecordMonth('income');
+    if(m && m !== selectedMonth && allMonths().includes(m)) performMonthChange(m);
+    if(plan && plan.rowIds.length) afterPaint(function(){ highlightRowIds(plan.rowIds); });
+  }else if(screen === 'debts'){
+    goToCardDebtsTab(); // вкладка «Борги» (як раніше); ОЧ-записи — вкладка «ОЧ»
+    if(plan && plan.tab === 'installments') switchAccountingTab('installments');
+    if(plan && plan.month && plan.month !== selectedMonth && allMonths().includes(plan.month)) performMonthChange(plan.month);
+    if(plan && plan.rowIds.length) afterPaint(function(){ highlightRowIds(plan.rowIds); });
+  }
+  return plan;
+}
 async function handlePushAction(action){
   if(!action || !action.type) return;
   if(action.type === 'mono-inbox'){
@@ -10172,25 +10284,14 @@ async function handlePushAction(action){
       const idx = installmentAccounts.findIndex(function(acc){ return acc.cloudId === route.installmentId; });
       if(idx >= 0) highlightInstallmentRow(idx);
     }
-  }else if(route.screen === 'journal'){
-    // Rev #30 (6D.101) / Rev 2.22.84 — чекаємо pull-ланцюжок входу, перш ніж вирішувати, який місяць показати.
-    if(cloudAuthInitInFlight) await cloudAuthInitInFlight;
-    performSwitchTab('vytraty', { noFocus: true });
-    openJournal(latestTouchedRecordMonth());
-  }else if(route.screen === 'accounting'){
-    // Rev 2.23.31 (6D.200): зведення лише з доходами → "Облік" → Доходи, місяць найновішого отриманого доходу.
-    if(cloudAuthInitInFlight) await cloudAuthInitInFlight;
-    performSwitchTab('accounting');
-    switchAccountingTab('data');
-    const incMonth = latestTouchedRecordMonth('income');
-    if(incMonth && incMonth !== selectedMonth && allMonths().includes(incMonth)) performMonthChange(incMonth);
+  }else if(route.screen === 'journal' || route.screen === 'accounting' || route.screen === 'debts'){
+    // Rev 2.32.163 (ACTOR-HL): journal (Rev #30 6D.101), accounting (Rev 2.23.31, 6D.200: «Облік» → Доходи, місяць найновішого отриманого доходу) і debts — одна функція з підсвіткою записів за data.ids; без ids поведінка як була.
+    await routeOtherActorNotification(action, route.screen);
   }else if(route.screen === 'trash'){
     // Видалені дані: після входу, щоб реконсиляція з Cloud (Ревізія E) мала сесію.
     if(cloudAuthInitInFlight) await cloudAuthInitInFlight;
     performSwitchTab('service');
     openTrashScreen();
-  }else if(route.screen === 'debts'){
-    goToCardDebtsTab();
   }else if(route.screen === 'analytics'){
     performSwitchTab('analytics');
   }else if(route.screen === 'mono-inbox' || route.screen === 'mono'){
@@ -26371,7 +26472,7 @@ restoreExpenseDraft();
 const pushActionParams = new URLSearchParams(location.search);
 const pushActionType = pushActionParams.get('pushAction');
 if(pushActionType){
-  queuePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, target: pushActionParams.get('target') || undefined, batchTs: pushActionParams.get('batchTs') || undefined, tag: pushActionParams.get('tag') || undefined, _at: pushActionParams.get('at') || undefined }, 'query'); // Rev 2.32.30 (P)
+  queuePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, target: pushActionParams.get('target') || undefined, batchTs: pushActionParams.get('batchTs') || undefined, tag: pushActionParams.get('tag') || undefined, idsParam: pushActionParams.get('ids') || undefined, pushId: pushActionParams.get('pushId') || undefined, _at: pushActionParams.get('at') || undefined }, 'query'); // Rev 2.32.30 (P)
   history.replaceState(null, '', location.pathname);
   // 6D.144 — цей запуск уже обслужено через query-параметр (URL з
   // clients.openWindow() цього разу дійшла як є) — прибираємо дубль-запис

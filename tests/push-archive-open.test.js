@@ -14,9 +14,9 @@ function run(type, archiveOpen){
     debugRecordingActive: true, debugRecordingStartedAt: 0, performance: { now: function(){ return 5; } }, pushDebugEvent: function(e){ events.push(e); },
     closeNotifArchive: function(){ calls.push('closeArchive'); }, performSwitchTab: rec('tab'), openMonoInbox: rec('inbox'), highlightMonoBatch: function(){}, openJournal: rec('journal'), latestTouchedRecordMonth: function(){ return '2026-10'; },
     switchAccountingTab: rec('acc'), setTimeout: function(){}, captureDebugGeometry: function(){}, captureFocusAudit: function(){},
-    monoState: { loaded: false }, installmentAccounts: [], cloudAuthInitInFlight: null,
+    monoState: { loaded: false }, installmentAccounts: [], cloudAuthInitInFlight: null, expenses: [], incomes: [], activeDebts: function(){ return []; }, bankAccounts: [], safeId: String, awaitCloudGate: async function(){ return 'offline'; }, motionReduced: function(){ return true; }, requestAnimationFrame: function(f){ f(); }, closeAllDataStatusPopovers: function(){}, INCOME_SOURCES: [], sameIncomeSource: function(){ return false; }, monthKey: function(d){ return d ? d.slice(0, 7) : ''; }, 
   };
-  const ctx = buildSandbox(g, ['routeForPushType', 'monoNotifGroupVisible', 'pushApplyDiag', 'closeOpenSheetsForPush', 'routeMonoNotification', 'handlePushAction']);
+  const ctx = buildSandbox(g, ['routeForPushType', 'monoNotifGroupVisible', 'pushApplyDiag', 'closeOpenSheetsForPush', 'routeMonoNotification', 'ACTOR_IDS_CAP', 'actorIdsNormalize', 'actorIdsFromParam', 'otherActorPlan', 'actorIdsForAction', 'highlightRecIds', 'highlightRowIds', 'afterPaint', 'routeOtherActorNotification', 'handlePushAction']);
   return ctx.handlePushAction({ type: type }).then(function(){ return { calls: calls, events: events }; });
 }
 test('F: екран архіву закривається ПЕРЕД переходом (усі маршрути), потім відкривається ціль', async function(){

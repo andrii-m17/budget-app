@@ -50,12 +50,12 @@ function runHandle(action){
   const rec = function(name){ return function(){ calls.push([name].concat(Array.prototype.slice.call(arguments))); }; };
   const doc = { activeElement: { blur: rec('blur') }, body: { classList: { remove: rec('kb-remove') } }, getElementById: function(){ return null; } };
   const ctx = buildSandbox({
-    document: doc, debugRecordingActive: false, setTimeout: function(){}, cloudAuthInitInFlight: null, installmentAccounts: [{ cloudId: 'inst-1' }],
+    document: doc, debugRecordingActive: false, setTimeout: function(){}, cloudAuthInitInFlight: null, installmentAccounts: [{ cloudId: 'inst-1' }], expenses: [], incomes: [], activeDebts: function(){ return []; }, bankAccounts: [], safeId: String, awaitCloudGate: async function(){ return 'offline'; }, motionReduced: function(){ return true; }, requestAnimationFrame: function(f){ f(); }, closeAllDataStatusPopovers: function(){}, INCOME_SOURCES: [], sameIncomeSource: function(){ return false; }, monthKey: function(d){ return d ? d.slice(0, 7) : ''; }, 
     performSwitchTab: rec('performSwitchTab'), switchAccountingTab: rec('switchAccountingTab'), openJournal: rec('openJournal'), latestTouchedRecordMonth: function(){ return '2026-10'; },
     openTrashScreen: rec('openTrashScreen'), goToCardDebtsTab: rec('goToCardDebtsTab'), captureDebugGeometry: rec('capture'),
     captureFocusAudit: function(){}, highlightInstallmentRow: rec('highlight'),
     allMonths: function(){ return ['2026-09', '2026-10']; }, selectedMonth: '2026-09', performMonthChange: rec('performMonthChange'),
-  }, ['routeForPushType', 'pushApplyDiag', 'closeOpenSheetsForPush', 'handlePushAction']);
+  }, ['routeForPushType', 'pushApplyDiag', 'closeOpenSheetsForPush', 'ACTOR_IDS_CAP', 'actorIdsNormalize', 'actorIdsFromParam', 'otherActorPlan', 'actorIdsForAction', 'highlightRecIds', 'highlightRowIds', 'afterPaint', 'routeOtherActorNotification', 'handlePushAction']);
   return ctx.handlePushAction(action).then(function(){ return calls; });
 }
 test('handlePushAction: daily-expense-reminder → вкладка без фокусу, blur, kb-open знято, жодного focus()', async () => {
