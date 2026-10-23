@@ -189,7 +189,7 @@ test('стан partial повертає frac; ✓ і «скоро»/«!» без
 test('кільце: 18 px, доріжка нейтральна, заповнення warning, довжина дуги за часткою, aria-label екранується', function(){
   const circ = 2 * Math.PI * 7;
   const h = c.installmentProgressRingHtml(0.25, 'Частково: 1 ₴ з 4 ₴');
-  assert.match(h, /width="18" height="18"/); assert.match(h, /stroke="var\(--color-border-strong\)"/); assert.match(h, /stroke="var\(--color-warning\)"/);
+  assert.match(h, /width="18" height="18"/); assert.match(h, /class="ring-track"/); assert.match(h, /stroke="var\(--color-warning\)"/);
   assert.match(h, /role="img" aria-label="Частково: 1 ₴ з 4 ₴"/);
   const m = h.match(/stroke-dasharray="([\d.]+) ([\d.]+)"/);
   assert.ok(Math.abs(+m[1] - circ * 0.25) < 0.02 && Math.abs(+m[2] - circ) < 0.02);
@@ -202,4 +202,10 @@ test('рядок ОЧ: для «½» використовується кільц
   const row = SRC.slice(SRC.indexOf('const paidBadge = pview.badge === \'check\''), SRC.indexOf('const dueSub'));
   assert.match(row, /installmentProgressRingHtml\(pview\.frac, pview\.text/); assert.ok(!/>½</.test(row));
   assert.ok(!/cdr-paid-badge\.half/.test(SRC));
+});
+
+test('контраст доріжки (Rev 2.32.156): світла тема — вторинний текст з низькою непрозорістю, темна тема — як було (--color-border-strong)', function(){
+  assert.match(SRC, /\.ring-track\{ stroke:rgba\(100,116,139,\.4\); \}/);
+  assert.match(SRC, /:root\[data-theme="dark"\] \.ring-track\{ stroke:var\(--color-border-strong\); \}/);
+  assert.ok(!/class="ring-track"[^>]*stroke="/.test(c.installmentProgressRingHtml(0.5, 'x')), 'колір доріжки лише з CSS (інакше атрибут конфліктував би з темою)');
 });
