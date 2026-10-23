@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payPlural', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payUnconfirmedLadder', 'paymentsCardModel']);
+const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payPlural', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payNamesParts', 'payPartsText', 'payUnconfirmedParts', 'payUnconfirmedLadder', 'payNoDayParts', 'payDaySoon', 'paymentsCardModel']);
 const I = function(name, dueDay){ return { name: name, dueDay: dueDay }; };
 const D = function(name, month, extra){ return Object.assign({ kind: 'installment', name: name, month: month }, extra || {}); };
 function model(o){
@@ -32,18 +32,18 @@ test('Б: підтверджені суми — без «≈»', function(){
 });
 test('В: без позначки — перше повідомлення, бурштинове, нейтральне («N без позначки · назва, дата»)', function(){
   const m = model({ installments: [I('ПУМБ Dyson', 4), I('A', 17)], debtsByMonth: [D('ПУМБ Dyson', '2026-10', { monthlyPayment: 100, balance: 9 }), D('A', '2026-10', { monthlyPayment: 5, balance: 9 })] });
-  assert.equal(m.messages[0].kind, 'unconfirmed'); assert.equal(m.messages[0].text, '1 без позначки · ПУМБ Dyson, 4 жов');
+  assert.equal(m.messages[0].kind, 'unconfirmed'); assert.equal(m.messages[0].text, '1 без позначки · ПУМБ Dyson');
   assert.ok(!/прострочен|борг/i.test(JSON.stringify(m)));
 });
 test('Г: картки без дати — повідомлення з сумою праворуч', function(){
   const m = model({ installments: [I('A', 17)], cards: [{ name: 'K1' }, { name: 'K2' }, { name: 'K3' }], debtsByMonth: [D('A', '2026-10', { monthlyPayment: 5, balance: 9 }), { kind: 'card', name: 'K1', month: '2026-10', minPayment: 100 }, { kind: 'card', name: 'K2', month: '2026-10', minPayment: 200 }, { kind: 'card', name: 'K3', month: '2026-10', minPayment: 300 }] });
   assert.equal(m.messages[0].kind, 'cards'); assert.equal(m.messages[0].text, 'Картки без дати · 3'); assert.match(m.messages[0].amount, /^600\s₴$/);
 });
-test('Д: «N ОЧ без дня платежу» — лише якщо лишилось місце (не більше двох повідомлень, у порядку)', function(){
+test('Д: «ОЧ без дати · N · назви» (Rev 2.32.160: до трьох повідомлень, у порядку)', function(){
   const only = model({ installments: [I('A', 17), I('X', null), I('Y', null)], debtsByMonth: [D('A', '2026-10', { monthlyPayment: 5, balance: 9 }), D('X', '2026-10', { monthlyPayment: 1, balance: 9 }), D('Y', '2026-10', { monthlyPayment: 1, balance: 9 })] });
-  assert.deepEqual(only.messages.map(function(x){ return x.kind + ':' + x.text; }), ['noday:2 ОЧ без дня платежу']);
+  assert.deepEqual(only.messages.map(function(x){ return x.kind + ':' + x.text; }), ['noday:ОЧ без дати · 2 · X, Y']);
   const all3 = model({ installments: [I('Old', 4), I('X', null), I('A', 17)], cards: [{ name: 'K' }], debtsByMonth: [D('Old', '2026-10', { monthlyPayment: 1, balance: 9 }), D('X', '2026-10', { monthlyPayment: 1, balance: 9 }), D('A', '2026-10', { monthlyPayment: 5, balance: 9 }), { kind: 'card', name: 'K', month: '2026-10', minPayment: 50 }] });
-  assert.deepEqual(all3.messages.map(function(x){ return x.kind; }), ['unconfirmed', 'cards']); // третє (noday) не поміщається
+  assert.deepEqual(all3.messages.map(function(x){ return x.kind; }), ['unconfirmed', 'cards', 'noday']); // Rev 2.32.160: ліміт 3
 });
 test('Е: порожній тиждень — без суми в заголовку, «Тиждень без платежів», рядок «Наступний · дата · назва» із сумою', function(){
   const m = model({ today: '2026-10-05', installments: [I('ПУМБ iPhone', 17)], debtsByMonth: [D('ПУМБ iPhone', '2026-10', { monthlyPayment: 5000, balance: 9 })] });
@@ -109,17 +109,17 @@ test('CARD-1 R2: драбина «Наступний» — повна, «Дал�
   assert.ok(m.next.ladder.every(function(x){ return !/…/.test(x); }));
 });
 test('CARD-1 R3: драбина «без позначки» для N = 1 і N > 1 (назва, «Назва +K», «з дати», лише кількість)', function(){
-  assert.deepEqual(Array.from(c.payUnconfirmedLadder(['Розстрочка А'], '4 жов')), ['1 без позначки · Розстрочка А, 4 жов', '1 без позначки · з 4 жов', '1 без позначки']);
-  assert.deepEqual(Array.from(c.payUnconfirmedLadder(['А', 'Б', 'В'], '4 жов')), ['3 без позначки · А, Б, В, 4 жов', '3 без позначки · А +2 · 4 жов', '3 без позначки · з 4 жов', '3 без позначки']);
+  assert.deepEqual(Array.from(c.payUnconfirmedLadder(['Розстрочка А'])), ['1 без позначки · Розстрочка А', '1 без позначки']);
+  assert.deepEqual(Array.from(c.payUnconfirmedLadder(['А', 'Б', 'В'])), ['3 без позначки · А, Б, В', '3 без позначки · А, Б +1', '3 без позначки · А +2', '3 без позначки']);
   const m = model({ installments: [I('Стара А', 4), I('Стара Б', 5), I('Ок', 17)], debtsByMonth: [D('Стара А', '2026-10', { monthlyPayment: 1, balance: 9 }), D('Стара Б', '2026-10', { monthlyPayment: 1, balance: 9 }), D('Ок', '2026-10', { monthlyPayment: 5, balance: 9 })] });
-  assert.deepEqual(m.messages[0].ladder, ['2 без позначки · Стара А, Стара Б, 4 жов', '2 без позначки · Стара А +1 · 4 жов', '2 без позначки · з 4 жов', '2 без позначки']);
+  assert.deepEqual(m.messages[0].ladder, ['2 без позначки · Стара А, Стара Б', '2 без позначки · Стара А +1', '2 без позначки']);
 });
 test('CARD-1 R4: драбини «Картки без дати» і «ОЧ без дня»; R0: шапка (7 днів → без «7 днів» → «Платежі»)', function(){
   const m = model({ installments: [I('A', 17)], cards: [{ name: 'K1' }, { name: 'K2' }], debtsByMonth: [D('A', '2026-10', { monthlyPayment: 5, balance: 9 }), { kind: 'card', name: 'K1', month: '2026-10', minPayment: 100 }, { kind: 'card', name: 'K2', month: '2026-10', minPayment: 200 }] });
   const cards = m.messages.find(function(x){ return x.kind === 'cards'; });
   assert.deepEqual(cards.ladder, ['Картки без дати · 2', 'Без дати · 2']); assert.match(cards.amount, /^300\s₴$/); assert.equal(cards.amountShort, '300 ₴');
   const noday = model({ installments: [I('A', 17), I('X', null)], debtsByMonth: [D('A', '2026-10', { monthlyPayment: 5, balance: 9 }), D('X', '2026-10', { monthlyPayment: 1, balance: 9 })] }).messages.find(function(x){ return x.kind === 'noday'; });
-  assert.deepEqual(noday.ladder, ['1 ОЧ без дня платежу', '1 ОЧ без дня']);
+  assert.deepEqual(noday.ladder, ['ОЧ без дати · 1 · X', 'ОЧ без дати · 1']);
   assert.deepEqual(m.headLadder, [{ title: 'Найближчі платежі', window: '7 днів' }, { title: 'Найближчі платежі', window: '' }, { title: 'Платежі', window: '' }]);
 });
 test('CARD-1: payCompactAmount (останній крок): 5к, 4,9к, 12к, 1,2М; сума праворуч повна, коротка лише як запас', function(){

@@ -1327,6 +1327,22 @@
   .pay-msg.amber{ color:var(--color-warning); }
   .pay-msg .l{ min-width:0; white-space:nowrap; }
   .pay-msg .r{ flex:none; font-weight:700; color:var(--color-text-primary); font-variant-numeric:tabular-nums; }
+  /* Rev 2.32.160 (PAY-ICONS): значки рядків (20 px; кола — як bankIcon без логотипа: нейтральне коло surface-hover, SVG 58%); «!» — жовте коло; перелік назв у приглушеному кольорі (--color-text-tertiary: токена --color-text-muted у проєкті немає); день найближчого платежу — скляна пілюля з рамкою info і сяйвом, «скоро» (≤ installment_days) — рамка й сяйво warning. */
+  .pay-ico{ flex:none; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; }
+  .pay-ico svg{ width:58%; height:58%; display:block; }
+  .pay-ico.neutral{ background:var(--color-surface-hover); color:var(--color-text-secondary); }
+  .pay-ico.warn{ background:var(--color-warning); }
+  .pay-ico.warn svg{ width:55%; height:55%; }
+  .pay-ico.plain{ width:16px; height:16px; color:var(--color-text-secondary); }
+  .pay-ico.plain svg{ width:100%; height:100%; }
+  .pay-line1 .lw{ flex:1; min-width:0; display:flex; align-items:center; gap:8px; }
+  .pay-line1 .lw .l{ flex:1; }
+  .pay-msg{ gap:8px; }
+  .pay-msg .l{ flex:1; }
+  .pay-msg .l .tail{ color:var(--color-text-tertiary); }
+  .pay-msg.amber .l .head{ color:var(--color-warning); }
+  .pay-day.next{ background:var(--color-glass-bg, var(--color-surface-hover)); -webkit-backdrop-filter:blur(10px) saturate(150%); backdrop-filter:blur(10px) saturate(150%); border:1px solid var(--color-info); box-shadow:0 0 10px color-mix(in srgb, var(--color-info) 35%, transparent); }
+  .pay-day.next.soon{ border-color:var(--color-warning); box-shadow:0 0 10px color-mix(in srgb, var(--color-warning) 38%, transparent); }
   .pay-done{ display:flex; align-items:center; gap:10px; min-height:40px; padding-top:6px; font-size:14px; }
   .pay-done-ico{ flex:none; width:28px; height:28px; border-radius:50%; background:var(--color-success-bg); color:var(--color-success); display:flex; align-items:center; justify-content:center; }
   .pay-done b{ font-weight:700; white-space:nowrap; }
@@ -3600,7 +3616,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.159</div>
+  <div class="version-footer">Money Tree · Rev 2.32.160</div>
 </div>
   </div>
 </div>
@@ -8179,7 +8195,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.159';
+const APP_VERSION = '2.32.160';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8942,14 +8958,23 @@ function payCompactAmount(n){
 function payAmountShortText(it){ return it.amount == null ? 'сума невідома' : (it.estimated ? '≈ ' : '') + payCompactAmount(it.amount) + ' ₴'; }
 // Драбина «Найближчого»: dp — день («Сб 17» чи «17 жов»), name — назва (випадає цілою, ніколи не обрізається).
 function payNextLadder(dp, name){ return ['Наступний · ' + dp + ' · ' + name, 'Далі · ' + dp + ' · ' + name, dp + ' · ' + name, 'Далі · ' + dp]; }
-// Драбина «без позначки»: names — назви (за зростанням дати), dateText — найстаріша дата («4 жов»).
-function payUnconfirmedLadder(names, dateText){
-  const n = names.length;
-  if(n <= 1) return [n + ' без позначки · ' + (names[0] || '') + ', ' + dateText, n + ' без позначки · з ' + dateText, n + ' без позначки'];
-  return [n + ' без позначки · ' + names.join(', ') + ', ' + dateText, n + ' без позначки · ' + names[0] + ' +' + (n - 1) + ' · ' + dateText, n + ' без позначки · з ' + dateText, n + ' без позначки'];
+// Rev 2.32.160 (PAY-ICONS): драбина переліку назв без дат. Спершу прибирається хвіст переліку з «+K» («А, Б, В» → «А, Б +1» → «А +2»), потім лише заголовок; «…» немає. Повертає пари { h: заголовок, t: перелік } — заголовок і перелік фарбуються окремо.
+function payNamesParts(head, names){
+  const n = names.length, out = [];
+  for(let k = n; k >= 1; k--) out.push({ h: head, t: names.slice(0, k).join(', ') + (k < n ? ' +' + (n - k) : '') });
+  out.push({ h: head, t: '' });
+  return out;
 }
+function payPartsText(p){ return p.h + (p.t ? ' · ' + p.t : ''); }
+// Драбина «без позначки» (Rev 2.32.160: без дати): names — назви (за зростанням дати).
+function payUnconfirmedParts(names){ return payNamesParts(names.length + ' без позначки', names); }
+function payUnconfirmedLadder(names){ return payUnconfirmedParts(names).map(payPartsText); }
+// Rev 2.32.160: «ОЧ без дати · N · назви» (лише видимі ОЧ без dueDay; суми немає)
+function payNoDayParts(names){ return payNamesParts('ОЧ без дати · ' + names.length, names); }
+// Підсвічений день смуги: «скоро», якщо до платежу ≤ N днів (installment_days); платіж у смузі завжди не сплачений повністю (upcomingPayments відсіває сплачені через installmentPaidFull).
+function payDaySoon(daysLeft, remindDays){ return daysLeft >= 0 && daysLeft <= remindDays; }
 // Модель компактної картки (без DOM; Rev 2.32.71). r — результат upcomingPayments (horizon 7). Стани: week / empty / allpaid.
-function paymentsCardModel(r, today, hasAccounts){
+function paymentsCardModel(r, today, hasAccounts, remindDays){
   if(!hasAccounts) return { hidden: true };
   const m = { hidden: false, window: '7 днів', total: null, totalShort: null, headLadder: [{ title: 'Найближчі платежі', window: '7 днів' }, { title: 'Найближчі платежі', window: '' }, { title: 'Платежі', window: '' }],
     state: '', days: [], showStrip: true, calm: null, next: null, done: null, messages: [] };
@@ -8957,7 +8982,15 @@ function paymentsCardModel(r, today, hasAccounts){
     const date = ppAddDays(today, i);
     const its = r.items.filter(function(x){ return x.date === date; });
     const known = its.filter(function(x){ return x.amount != null; });
-    m.days.push({ date: date, dow: payDow(date), day: +date.slice(8, 10), today: i === 0, has: its.length > 0, sum: known.length ? known.reduce(function(a, x){ return a + x.amount; }, 0) : null, count: its.length });
+    m.days.push({ date: date, dow: payDow(date), day: +date.slice(8, 10), today: i === 0, has: its.length > 0, sum: known.length ? known.reduce(function(a, x){ return a + x.amount; }, 0) : null, count: its.length, next: false, soon: false, label: '' });
+  }
+  if(r.items.length){ // Rev 2.32.160: підсвічується лише день найближчого платежу
+    const fd = r.items[0], di = m.days.filter(function(d){ return d.date === fd.date; })[0];
+    if(di){
+      di.next = true; di.soon = payDaySoon(ppDayDiff(today, fd.date), remindDays == null ? 2 : remindDays);
+      const dayTxt = +fd.date.slice(8, 10) + ' ' + PAY_MONTHS_GEN[+fd.date.slice(5, 7) - 1];
+      di.label = 'Наступний платіж: ' + dayTxt + ', ' + (di.count > 1 && di.sum != null ? payFmt(di.sum) : payAmountText(fd));
+    }
   }
   const nextItem = r.items.length ? null : (r.later[0] || null);
   if(r.items.length){
@@ -8976,15 +9009,30 @@ function paymentsCardModel(r, today, hasAccounts){
     const dp = nextItem ? payDateShort(nextItem.date) : '';
     m.done = { title: 'Усе сплачено.', next: nextItem ? 'Наступний · ' + dp + ' · ' + nextItem.name : '', nextLadder: nextItem ? payNextLadder(dp, nextItem.name).concat([dp]) : null }; // + остання сходинка лише дата: в рядку «Усе сплачено.» (значок + заголовок) на 290 пт не влізає й «Далі · дата»
   }
-  // повідомлення: не більше двох, у порядку: без позначки, картки без дати, ОЧ без дня (лише якщо лишилось місце)
+  // повідомлення (Rev 2.32.160: до трьох), у порядку: без позначки, картки без дати, ОЧ без дати
   if(r.unconfirmed.length){
-    const ladder = payUnconfirmedLadder(r.unconfirmed.map(function(u){ return u.name; }), payDateShort(r.unconfirmed[0].date)); // список відсортовано за датою: [0] — найстаріший
-    m.messages.push({ kind: 'unconfirmed', text: ladder[0], ladder: ladder });
+    const parts = payUnconfirmedParts(r.unconfirmed.map(function(u){ return u.name; })); // список відсортовано за датою; Rev 2.32.160: без дати
+    m.messages.push({ kind: 'unconfirmed', text: payPartsText(parts[0]), ladder: parts.map(payPartsText), parts: parts });
   }
   if(r.undatedCards.count){ const c = r.undatedCards.count; m.messages.push({ kind: 'cards', text: 'Картки без дати · ' + c, ladder: ['Картки без дати · ' + c, 'Без дати · ' + c], amount: payFmt(r.undatedCards.total), amountShort: payCompactAmount(r.undatedCards.total) + ' ₴' }); }
-  if(r.noDay.length){ const n = r.noDay.length; m.messages.push({ kind: 'noday', text: n + ' ОЧ без дня платежу', ladder: [n + ' ОЧ без дня платежу', n + ' ОЧ без дня'] }); }
-  m.messages = m.messages.slice(0, 2);
+  if(r.noDay.length){ const parts = payNoDayParts(r.noDay); m.messages.push({ kind: 'noday', text: payPartsText(parts[0]), ladder: parts.map(payPartsText), parts: parts }); } // Rev 2.32.160: «ОЧ без дати · N · назви», сума не показується
+  m.messages = m.messages.slice(0, 3); // Rev 2.32.160: було 2; третій рядок потрібен, щоб «ОЧ без дати» не пропадав, коли є й «без позначки», і картки без дати
   return m;
+}
+// Rev 2.32.160 (PAY-ICONS): іконки рядків картки. Форми й кола ті самі, що в bankIcon без логотипа (Rev 2.32.157: EMPTY_STATE_ICONS — картка й календар із ₴ у нейтральному колі); «!» — жовте коло зі знаком оклику як у рядку ОЧ; «Наступний» — звичайний календар без кола.
+const PAY_CAL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18"/><path d="M8 2.5v4"/><path d="M16 2.5v4"/></svg>';
+const PAY_BANG_SVG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="4" x2="12" y2="14"/><line x1="12" y1="19" x2="12.01" y2="19"/></svg>';
+function payIconFor(kind){
+  const e = payEl('span', 'pay-ico ' + (kind === 'unconfirmed' ? 'warn' : kind === 'next' ? 'plain' : 'neutral'));
+  e.setAttribute('aria-hidden', 'true');
+  e.innerHTML = kind === 'unconfirmed' ? PAY_BANG_SVG : kind === 'next' ? PAY_CAL_SVG : kind === 'cards' ? EMPTY_STATE_ICONS.card : EMPTY_STATE_ICONS.calendar;
+  return e;
+}
+// Ставить сходинку драбини: рядок або пара { h, t } (заголовок і перелік окремими span для різних кольорів)
+function payRenderParts(el, p){
+  el.textContent = '';
+  el.appendChild(payEl('span', 'head', p.h));
+  if(p.t){ el.appendChild(payEl('span', 'sep', ' · ')); el.appendChild(payEl('span', 'tail', p.t)); }
 }
 function payEl(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
 const PAY_CHEV_SVG = '<svg width="9" height="15" viewBox="0 0 9 15" fill="none" aria-hidden="true"><path d="M1.5 1.5l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -8994,7 +9042,7 @@ function renderPaymentsCard(){
   if(!host) return;
   const hasAccounts = installmentAccounts.length > 0 || bankAccounts.length > 0;
   let m;
-  try{ m = paymentsCardModel(computeUpcomingNow(7), kyivTodayISO(), hasAccounts); }catch(e){ host.classList.add('hidden'); return; }
+  try{ m = paymentsCardModel(computeUpcomingNow(7), kyivTodayISO(), hasAccounts, installmentRemindDays()); }catch(e){ host.classList.add('hidden'); return; }
   host.classList.toggle('hidden', m.hidden);
   host.textContent = '';
   if(m.hidden) return;
@@ -9013,11 +9061,12 @@ function renderPaymentsCard(){
   if(m.showStrip){
     const strip = payEl('div', 'pay-strip');
     m.days.forEach(function(d){
-      const b = payEl('button', 'pay-day' + (d.today ? ' today' : '') + (d.has ? ' has' : '')); b.type = 'button';
+      const b = payEl('button', 'pay-day' + (d.today ? ' today' : '') + (d.has ? ' has' : '') + (d.next ? ' next' : '') + (d.soon ? ' soon' : '')); b.type = 'button';
       // Rev 2.32.72: три окремі рядки по центру (за макетом): день тижня, число, сума (місце під суму зарезервоване — комірки однакової висоти)
       b.appendChild(payEl('span', 'pay-dow', d.dow)); b.appendChild(payEl('span', 'pay-num', String(d.day)));
       const sumEl = payEl('span', 'pay-sum', d.sum != null ? new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 0 }).format(d.sum) : ''); sumEl._paySum = d.sum; b.appendChild(sumEl);
-      b.setAttribute('aria-hidden', 'true'); b.tabIndex = -1; // уся картка — одна доступна кнопка; комірка з платежем відкриває «Платежі» на цій даті
+      if(d.next && d.label){ b.setAttribute('aria-label', d.label); } else b.setAttribute('aria-hidden', 'true'); // Rev 2.32.160: підсвічений день доступний для VoiceOver з підписом «Наступний платіж: …»
+      b.tabIndex = -1; // уся картка — одна доступна кнопка; комірка з платежем відкриває «Платежі» на цій даті
       if(d.has) b.addEventListener('click', function(ev){ ev.stopPropagation(); openAll(d.date); });
       strip.appendChild(b);
     });
@@ -9026,7 +9075,8 @@ function renderPaymentsCard(){
   if(m.next){
     const l = payEl('div', 'pay-line1'); const lt = payEl('span', 'l', m.next.label); const rt = payEl('span', 'r', m.next.amount);
     lt._payLadder = m.next.ladder; lt._payAmt = { el: rt, full: m.next.amount, short: m.next.amountShort };
-    l.appendChild(lt); l.appendChild(rt); host.appendChild(l);
+    const lw = payEl('span', 'lw'); lw.appendChild(payIconFor('next')); lw.appendChild(lt); // Rev 2.32.160: календар перед текстом
+    l.appendChild(lw); l.appendChild(rt); host.appendChild(l);
   }
   if(m.done){
     const d = payEl('div', 'pay-done'); const ico = payEl('span', 'pay-done-ico'); ico.innerHTML = PAY_CHECK_SVG; d.appendChild(ico);
@@ -9037,7 +9087,8 @@ function renderPaymentsCard(){
   if(m.messages.length){
     const box = payEl('div', 'pay-msgs');
     m.messages.forEach(function(x){
-      const row = payEl('div', 'pay-msg' + (x.kind === 'unconfirmed' ? ' amber' : '')); const lt = payEl('span', 'l', x.text); lt._payLadder = x.ladder; row.appendChild(lt);
+      const row = payEl('div', 'pay-msg' + (x.kind === 'unconfirmed' ? ' amber' : '')); const lt = payEl('span', 'l', x.text); lt._payLadder = x.ladder; if(x.parts) lt._payParts = x.parts;
+      row.appendChild(payIconFor(x.kind)); row.appendChild(lt); // Rev 2.32.160: значок за видом рядка
       if(x.amount){ const rt = payEl('span', 'r', x.amount); lt._payAmt = { el: rt, full: x.amount, short: x.amountShort }; row.appendChild(rt); }
       box.appendChild(row);
     });
@@ -9072,8 +9123,9 @@ function fitPaymentsCard(host){
   host.querySelectorAll('.pay-line1 .l, .pay-msg .l, .pay-done span.m').forEach(function(el){
     const ladder = el._payLadder; if(!ladder) return;
     const amt = el._payAmt; if(amt) amt.el.textContent = amt.full;
-    const idx = pickCardVariant(function(i){ el.textContent = ladder[i]; return !over(el); }, ladder.length);
-    el.textContent = ladder[idx];
+    const put = function(i){ if(el._payParts) payRenderParts(el, el._payParts[i]); else el.textContent = ladder[i]; };
+    const idx = pickCardVariant(function(i){ put(i); return !over(el); }, ladder.length);
+    put(idx);
     if(amt && amt.short && over(el)) amt.el.textContent = amt.short; // суми праворуч повні; скорочення лише останнім кроком
   });
   const sums = host.querySelectorAll('.pay-sum');
