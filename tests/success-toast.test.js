@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const c = buildSandbox({}, ['MONO_MONTHS_GEN', 'monoFmtUah', 'pluralUa', 'pluralToastWord', 'toastActionTarget', 'toastActionForEvents', 'toastModel', 'toastDuration', 'splitToastText', 'shouldShowToast', 'successToastPlacement']);
+const c = buildSandbox({}, ['toastTopBelowHeader', 'MONO_MONTHS_GEN', 'monoFmtUah', 'pluralUa', 'pluralToastWord', 'toastActionTarget', 'toastActionForEvents', 'toastModel', 'toastDuration', 'splitToastText', 'shouldShowToast', 'successToastPlacement']);
 test('toastModel: додано N витрат · з Monobank · сума; відмінювання', function(){
   assert.deepEqual(j(c.toastModel('mono-added', { count: 3, amountUah: 412 })), { kind: 'success', title: 'Додано 3 витрати', subtitle: 'з Monobank · 412 ₴', actionLabel: '', action: null });
   assert.equal(c.toastModel('mono-added', { count: 1, amountUah: 50 }).title, 'Додано 1 витрату');
@@ -40,7 +40,7 @@ test('toastDuration: помилки й попередження довше (5 с
 test('shouldShowToast: зверху показується незалежно від шторок і клавіатури; successToastPlacement — зверху з safe-area', function(){
   assert.equal(c.shouldShowToast({ inputFocused: true, sheetOpen: true }), true);
   const p = j(c.successToastPlacement());
-  assert.match(p.top, /env\(safe-area-inset-top/); assert.equal(p.side, 16);
+  assert.match(p.top, /env\(safe-area-inset-top/); assert.equal(p.side, 18);
 });
 test('охоронні (TO): жодного старого тосту; усі види мають іконку; reduced-motion; черга; позиція зверху', function(){
   assert.ok(!/live-toast|attachToastDismiss|dismissLiveToast|showTrashToast|showSuccessToast|successToastModel/.test(SRC.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')), 'старих тостів немає');
@@ -48,7 +48,7 @@ test('охоронні (TO): жодного старого тосту; усі в
   assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.success-toast\{ animation:stFade/);
   assert.match(SRC, /if\(successToastActive \|\| !successToastQueue\.length\) return;/);
   const host = SRC.match(/\.success-toast-host\{([^}]*)\}/)[1];
-  assert.match(host, /top:calc\(env\(safe-area-inset-top, 0px\) \+ 8px\)/); assert.ok(!/bottom:/.test(host)); assert.match(host, /pointer-events:none/);
+  assert.match(host, /top:max\(calc\(env\(safe-area-inset-top, 0px\) \+ 8px\), var\(--toast-top, 0px\)\)/); assert.match(host, /left:18px; right:18px/); assert.ok(!/bottom:/.test(host)); assert.match(host, /pointer-events:none/);
   assert.match(SRC, /if\(dy < -30\)\{ close\(\); return; \}/);
   assert.match(SRC, /\.update-banner\{ position:fixed; left:50%; bottom:calc\(env\(safe-area-inset-bottom, 0px\) \+ 104px\)/);
   const body = SRC.slice(SRC.indexOf('function pumpSuccessToast'), SRC.indexOf('function openJournalFromToast'));
@@ -60,4 +60,20 @@ test('охоронні (TO): помилки показуються як alert, �
   assert.match(SRC, /\.success-toast-icon\.static circle, \.success-toast-icon\.static path\{[^}]*animation:none/);
   assert.match(SRC, /showToast\(\{ kind: 'warning', title: 'Спершу почніть запис діагностики', actionLabel: 'Почати запис'/);
   assert.ok(!/showTextToast\('Спершу почніть запис діагностики'/.test(SRC));
+});
+
+test('Rev 2.32.166 (TOAST-LAYOUT): однакові поля 18 px, проміжок іконка-текст 12 px, симетричний внутрішній відступ; верх нижче заголовка; кольори й тривалості без змін', function(){
+  const toast = SRC.match(/\n  \.success-toast\{([^}]*)\}/)[1];
+  assert.match(toast, /gap:12px/); assert.match(toast, /padding:10px 12px;/); assert.ok(!/padding:10px 10px 10px 12px/.test(toast), 'асиметричного відступу немає');
+  assert.match(SRC, /@media \(max-width:767px\)\{ \.success-toast\{ width:100%; box-sizing:border-box; \} \.success-toast-text\{ flex:1; \} \}/);
+  // нижче заголовка: rect → px; невидимий/прокручений → null
+  assert.equal(c.toastTopBelowHeader({ top: 18, bottom: 66, height: 48 }), 74);
+  assert.equal(c.toastTopBelowHeader({ top: -60, bottom: -10, height: 50 }), null, 'заголовок прокручено за екран');
+  assert.equal(c.toastTopBelowHeader({ top: 0, bottom: 0, height: 0 }), null); assert.equal(c.toastTopBelowHeader(null), null);
+  const body = SRC.slice(SRC.indexOf('function pumpSuccessToast'), SRC.indexOf('function openJournalFromToast'));
+  assert.match(body, /document\.querySelector\('\.page-header-text'\)/); assert.match(body, /host\.style\.setProperty\('--toast-top', topPx \+ 'px'\)/);
+  // не змінено: кольори, тривалості, акційна кнопка
+  assert.equal(c.toastDuration('error'), 5000); assert.equal(c.toastDuration('info'), 3500);
+  assert.match(SRC, /\.success-toast\.t-info \.success-toast-icon\{ color:var\(--color-info\); \}/);
+  assert.match(SRC, /\.success-toast-action\{ flex:none; border:0; background:var\(--color-primary\);/);
 });

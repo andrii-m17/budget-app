@@ -320,8 +320,10 @@
   .update-banner.show{ display:flex; }
   /* Rev 2.32.37 (T) — спливаюче підтвердження успіху («Скло», як «Доступне оновлення»): скляний контейнер, іконка (коло й галочка, що малюються) зліва, дія справа. Те саме місце над таббаром; коли показано «Доступне оновлення», піднімається над ним (стек). Анімуються лише opacity/transform і stroke-dashoffset — не розміри. */
   /* Rev 2.32.39 (T2) — підтвердження ЗВЕРХУ (було знизу над таббаром): top = safe-area + 8px, бічні 16px, поверх шапки й шторок; обгортка не перехоплює дотики (клікабельний лише контейнер), тому шапка поза ним працює. «Доступне оновлення» лишається внизу, без змін. */
-  .success-toast-host{ position:fixed; top:calc(env(safe-area-inset-top, 0px) + 8px); left:16px; right:16px; z-index:205; display:flex; justify-content:center; pointer-events:none; }
-  .success-toast{ pointer-events:auto; touch-action:pan-x; max-width:100%; display:flex; align-items:center; gap:12px; padding:10px 10px 10px 12px; background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); color:var(--color-text); animation:stIn var(--motion-m) cubic-bezier(.2,.9,.3,1) both; }
+  /* Rev 2.32.166 (TOAST-LAYOUT): поля 18 px з обох боків, однаково для всіх варіантів; верх — нижче заголовка сторінки (--toast-top ставить pumpSuccessToast за позицією .page-header-text), але не вище safe-area + 8; кольори, тривалості, логіку не змінено. */
+  .success-toast-host{ position:fixed; top:max(calc(env(safe-area-inset-top, 0px) + 8px), var(--toast-top, 0px)); left:18px; right:18px; z-index:205; display:flex; justify-content:center; pointer-events:none; }
+  .success-toast{ pointer-events:auto; touch-action:pan-x; max-width:100%; display:flex; align-items:center; gap:12px; padding:10px 12px; background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); color:var(--color-text); animation:stIn var(--motion-m) cubic-bezier(.2,.9,.3,1) both; }
+  @media (max-width:767px){ .success-toast{ width:100%; box-sizing:border-box; } .success-toast-text{ flex:1; } } /* Rev 2.32.166: на телефоні поп-ап на всю ширину між полями 18 px (з кнопкою й без однаковий вигляд); на десктопі — за вмістом по центру */
   .success-toast.leaving{ opacity:0; transform:translateY(-16px); transition:opacity var(--motion-s) ease, transform var(--motion-s) ease; animation:none; }
   .success-toast-icon{ width:30px; height:30px; flex:none; color:var(--color-success, #1f9d55); }
   /* Rev 2.32.46 (TO): види — колір іконки за токенами; статичні іконки (info/warning/error/журнал) без малювання. */
@@ -3672,7 +3674,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.165</div>
+  <div class="version-footer">Money Tree · Rev 2.32.166</div>
 </div>
   </div>
 </div>
@@ -8251,7 +8253,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.165';
+const APP_VERSION = '2.32.166';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -22670,7 +22672,9 @@ function splitToastText(text){
 // Rev 2.32.39 (T2): зверху клавіатура й шторки не заважають — чекання прибрано (черга лишається: по одному).
 function shouldShowToast(state){ return true; }
 // Положення зверху: відступ від безпечної зони iPhone + 8px, бічні 16px (дзеркалить CSS .success-toast-host).
-function successToastPlacement(){ return { top: 'calc(env(safe-area-inset-top, 0px) + 8px)', side: 16 }; }
+function successToastPlacement(){ return { top: 'calc(env(safe-area-inset-top, 0px) + 8px)', side: 18 }; } // Rev 2.32.166: поля 18 px
+// Rev 2.32.166: верх поп-апа — на 8 px нижче заголовка сторінки (rect = getBoundingClientRect() блоку .page-header-text); невидимий/прокручений за екран заголовок → null (лишається safe-area + 8).
+function toastTopBelowHeader(rect){ if(!rect || !(rect.height > 0) || !(rect.bottom > 0)) return null; return Math.round(rect.bottom + 8); }
 const TOAST_ICONS = {
   success: '<svg class="success-toast-icon" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M10.5 15.5l3.2 3.2 5.8-6.4"/></svg>',
   info: '<svg class="success-toast-icon static" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M15 14v6"/><path d="M15 10.5h.01"/></svg>',
@@ -22693,6 +22697,8 @@ function pumpSuccessToast(){
   const ms = toastDuration(kind);
   let host = document.getElementById('success-toast-host');
   if(!host){ host = document.createElement('div'); host.id = 'success-toast-host'; host.className = 'success-toast-host'; document.body.appendChild(host); }
+  const hdrEl = document.querySelector('.page-header-text'); const topPx = hdrEl ? toastTopBelowHeader(hdrEl.getBoundingClientRect()) : null; // Rev 2.32.166: не накриває заголовок сторінки
+  if(topPx !== null) host.style.setProperty('--toast-top', topPx + 'px'); else host.style.removeProperty('--toast-top');
   const el = document.createElement('div'); el.className = 'success-toast t-' + kind; el.setAttribute('role', kind === 'error' || kind === 'warning' ? 'alert' : 'status');
   el.innerHTML = TOAST_ICONS[o.icon && TOAST_ICONS[o.icon] ? o.icon : kind];
   const text = document.createElement('div'); text.className = 'success-toast-text';
