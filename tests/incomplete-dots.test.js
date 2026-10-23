@@ -7,7 +7,7 @@ const path = require('node:path');
 const ex = require('./extract');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ctx = ex.buildSandbox({}, ['incompleteDetails', 'incompleteReasons']);
+const ctx = ex.buildSandbox({}, ['incompleteMonthWindow', 'incompleteDetails', 'incompleteReasons']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const R = (e, r, h) => j(`incompleteReasons(${JSON.stringify(e)},${JSON.stringify(r)},"2026-10",${!!h})`);
 const MOD = SRC.slice(SRC.indexOf('// ===== Rev 2.31.3 (B)'), SRC.indexOf('// ===== Rev 2.28.1 (C) — аудит id/name'));
@@ -44,7 +44,7 @@ test('ОЧ: повна → []; ОЧ без залишку → дата, поча
 });
 test('ОЧ із залишком без платежу: payment (не залежне); нульовий залишок платіж не вимагає; початкова сума > 0; дата платежу', () => {
   assert.deepEqual(D(INST, { balance: 20000, monthlyPayment: null }), [{ code: 'payment', dependent: false }]);
-  assert.deepEqual(R(INST, { balance: 20000, monthlyPayment: 0 }), ['payment']);
+  assert.deepEqual(R(INST, { balance: 20000, monthlyPayment: 0 }), [], 'Rev 2.32.150: явний 0 знімає крапку');
   assert.deepEqual(R(INST, { balance: 0, monthlyPayment: null }), []);
   assert.deepEqual(R({ name: 'x', initialAmount: 0, dueDay: 5 }, { balance: 20000, monthlyPayment: 2500 }), ['initialAmount']);
   assert.deepEqual(R({ name: 'x', initialAmount: 30000, dueDay: null }, { balance: 20000, monthlyPayment: 2500 }), ['dueDay']);
@@ -87,7 +87,7 @@ test('«Заповнити» відкриває шторку цієї картк
   assert.ok(!/\.focus\(/.test(fill), 'без автофокусу');
   assert.match(fill, /first\.scrollIntoView\(\{ block: 'center' \}\);/);
   assert.match(fill, /list\.forEach\(function\(code\)\{/); // усі коди, не лише перший
-  assert.match(fill, /if\(raw !== '' && !\(code === 'payment' && !\(parseAmount\(raw\) > 0\)\)\) return;/); // лише порожні (для платежу ОЧ «0» теж порожній)
+  assert.match(fill, /if\(raw !== ''\) return;/); // лише порожні; Rev 2.32.150: «0» (і платіж ОЧ) уже введено
   assert.match(MOD, /showConfirmModal\(msg, function\(\)\{ fillIncomplete\(kind, i, details\.map\(function\(d\)\{ return d\.code; \}\)\); \}, 'Заповнити', 'primary'\);/); // Rev 2.32.45 (FB): основна дія — явний variant замість пізнього присвоєння класу
   ['limit', 'balance', 'minPayment', 'dueDay', 'initialAmount', 'payment'].forEach(r => { assert.match(MOD, new RegExp(r + ': \'[a-z-]+\'')); });
   ['cdd-limit', 'cdd-balance', 'cdd-minpay', 'idd-due-day', 'idd-initial', 'idd-pay'].forEach(id => assert.ok(SRC.includes('id="' + id + '"'), id + ' існує'));

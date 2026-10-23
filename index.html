@@ -3565,7 +3565,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.149</div>
+  <div class="version-footer">Money Tree · Rev 2.32.150</div>
 </div>
   </div>
 </div>
@@ -8144,7 +8144,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.149';
+const APP_VERSION = '2.32.150';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -19532,25 +19532,39 @@ function incompleteFieldId(kind, code){
 // Rev 2.32.135 (INCOMPLETE-2, рішення чату): причини НЕЗАЛЕЖНІ, без «заглушення»; умовні (мін. платіж картки / платіж ОЧ) показуються й тоді, коли борг/залишок за місяць ще невідомий (dependent: true, значення «залежить від боргу/залишку»), і зникають, коли борг/залишок відомий і дорівнює 0.
 // Картка (порядок): limit (ліміт > 0), balance (є запис за місяць), minPayment (при боргу > 0 або невідомому), dueDay (день платежу картки, paymentDay 1…31). ОЧ: dueDay, initialAmount (> 0), balance (залишок за місяць, факт чи оцінка), payment (платіж > 0 при залишку > 0 або невідомому).
 // Повертає [{ code, dependent }]; приховані → [].
-function incompleteDetails(entity, monthRecord, month, hidden){
+// Rev 2.32.150 (INCOMPLETE-3, рішення чату): (1) МІСЯЧНІ причини (balance, minPayment, payment, день платежу картки) лише для поточного й попереднього місяця (nowMonth = київський «YYYY-MM»); майбутній і старіші місяці без них; постійні (ліміт картки, дата платежу й початкова сума ОЧ) лишаються. Без nowMonth вікно не застосовується (сумісність викликів). (2) Картка з ВІДОМИМ нульовим боргом: без «Мінімальний платіж» і «День платежу» (вимагаються, коли борг > 0 або ще невідомий); ліміт обов'язковий завжди. (3) Закрита ОЧ (залишок відомий і ≤ 0): жодних причин. (4) Явний «0» знімає крапку: мін. платіж картки (було й раніше) і платіж ОЧ при залишку > 0; порожнє (null) лишає. До початку обліку (createdAt картки, firstMonth ОЧ) і приховані: hidden → [] (картка там узагалі не показується). Ризик: поточний місяць береться з годинника пристрою (Київ); невідомий nowMonth = старий режим.
+function incompleteMonthWindow(month, nowMonth){
+  if(!nowMonth) return true;
+  const y = +nowMonth.slice(0, 4), m = +nowMonth.slice(5, 7);
+  const prev = m === 1 ? (y - 1) + '-12' : y + '-' + String(m - 1).padStart(2, '0');
+  return month === nowMonth || month === prev;
+}
+function incompleteDetails(entity, monthRecord, month, hidden, nowMonth){
   if(hidden || !entity) return [];
   const rec = monthRecord || null;
   const out = [];
   const isCard = Object.prototype.hasOwnProperty.call(entity, 'creditLimit');
   const balKnown = !!rec && rec.balance != null;
   const bal = balKnown ? Number(rec.balance) : null;
+  const monthly = incompleteMonthWindow(month, nowMonth);
+  const needDebtFields = !balKnown || bal > 0; // борг відомий і нульовий → поля боргу не вимагаються
   if(isCard){
     if(!(Number(entity.creditLimit) > 0)) out.push({ code: 'limit', dependent: false });
-    if(!balKnown) out.push({ code: 'balance', dependent: false });
-    const minMissing = !rec || rec.minPayment == null;
-    if(minMissing && (!balKnown || bal > 0)) out.push({ code: 'minPayment', dependent: !balKnown });
-    if(!entity.paymentDay) out.push({ code: 'dueDay', dependent: false });
+    if(monthly){
+      if(!balKnown) out.push({ code: 'balance', dependent: false });
+      const minMissing = !rec || rec.minPayment == null;
+      if(minMissing && needDebtFields) out.push({ code: 'minPayment', dependent: !balKnown });
+      if(!entity.paymentDay && needDebtFields) out.push({ code: 'dueDay', dependent: false });
+    }
   }else{
+    if(balKnown && bal <= 0) return []; // закрита ОЧ
     if(!entity.dueDay) out.push({ code: 'dueDay', dependent: false });
     if(!(Number(entity.initialAmount) > 0)) out.push({ code: 'initialAmount', dependent: false });
-    if(!balKnown) out.push({ code: 'balance', dependent: false });
-    const payMissing = !rec || rec.monthlyPayment == null || !(Number(rec.monthlyPayment) > 0);
-    if(payMissing && (!balKnown || bal > 0)) out.push({ code: 'payment', dependent: !balKnown });
+    if(monthly){
+      if(!balKnown) out.push({ code: 'balance', dependent: false });
+      const payMissing = !rec || rec.monthlyPayment == null; // явний «0» = введено
+      if(payMissing && needDebtFields) out.push({ code: 'payment', dependent: !balKnown });
+    }
   }
   return out;
 }
@@ -19560,14 +19574,14 @@ function incompleteReasons(entity, monthRecord, month, hidden){
 function cardIncompleteDetails(acc){
   const hidden = !isCardVisibleForMonth(acc, selectedMonth); // Rev 2.32.137
   const existing = activeDebts().find(function(d){ return d.name === acc.name && d.kind === 'card' && monthKey2(d.month) === selectedMonth; });
-  return incompleteDetails(acc, existing ? { balance: existing.balance, minPayment: existing.minPayment } : null, selectedMonth, hidden);
+  return incompleteDetails(acc, existing ? { balance: existing.balance, minPayment: existing.minPayment } : null, selectedMonth, hidden, kyivTodayISO().slice(0, 7));
 }
 function cardIncompleteReasons(acc){ return cardIncompleteDetails(acc).map(function(d){ return d.code; }); }
 function installmentIncompleteDetails(acc){
   const hidden = !isInstallmentVisibleForMonth(acc, selectedMonth);
   const existing = activeDebts().find(function(d){ return d.name === acc.name && d.kind === 'installment' && d.month === selectedMonth; });
   const resolved = resolveInstallmentFact(acc.name, selectedMonth, existing);
-  return incompleteDetails(acc, { balance: resolved.balance, monthlyPayment: resolved.pay }, selectedMonth, hidden);
+  return incompleteDetails(acc, { balance: resolved.balance, monthlyPayment: resolved.pay }, selectedMonth, hidden, kyivTodayISO().slice(0, 7));
 }
 function installmentIncompleteReasons(acc){ return installmentIncompleteDetails(acc).map(function(d){ return d.code; }); }
 function incompleteDotHtml(kind, i, reasons){
@@ -19640,7 +19654,7 @@ function fillIncomplete(kind, i, codes){
       const el = document.getElementById(incompleteFieldId(kind, code));
       if(!el) return;
       const raw = String(el.value == null ? '' : el.value).trim();
-      if(raw !== '' && !(code === 'payment' && !(parseAmount(raw) > 0))) return; // платіж ОЧ «0» теж порожній (причина payment вимагає > 0)
+      if(raw !== '') return; // Rev 2.32.150: явний «0» (і платіж ОЧ) — введено, не порожнє
       if(!first) first = el;
       el.style.borderColor = 'var(--color-warning)';
       const clear = function(){ el.style.borderColor = ''; el.removeEventListener('input', clear); };
