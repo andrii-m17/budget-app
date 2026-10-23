@@ -1411,7 +1411,18 @@
   #struct-dictionary[data-acc="c"] .struct-dict-inner{ overflow:hidden; min-height:0; }
   #struct-dictionary[data-acc="c"] .struct-dict-group:not(.open) .struct-dict-inner{ visibility:hidden; }
   #struct-dictionary[data-acc="c"] .struct-dict-group.just-opened .struct-dict-inner{ animation:none; }
+  /* Rev 2.32.159 (DIALOG-MOTION): словник на десктопі (миша): розгортання категорії — висота (grid-template-rows) і прозорість 0,22 с ease, стрілка обертається в такт, фон рядка/заголовка змінюється плавно 0,16 с. На дотикових пристроях нічого не змінюється (вибір варіанта акордеона як був). Ризик: grid-rows-анімація потребує iOS 16+/сучасних десктопних браузерів — там, де не анімується, група просто розгортається миттєво. */
+  @media (hover:hover) and (pointer:fine){
+    #struct-dictionary .struct-dict-collapse{ display:grid; grid-template-rows:0fr; opacity:0; border-top-color:transparent; transition:grid-template-rows .22s ease, opacity .22s ease, border-color .22s ease; }
+    #struct-dictionary .struct-dict-group.open .struct-dict-collapse{ grid-template-rows:1fr; opacity:1; border-top-color:var(--color-border); }
+    #struct-dictionary .struct-dict-inner{ overflow:hidden; min-height:0; }
+    #struct-dictionary .struct-dict-group:not(.open) .struct-dict-inner{ visibility:hidden; transition:visibility 0s linear .22s; }
+    #struct-dictionary .struct-dict-group.just-opened .struct-dict-inner{ animation:none; }
+    #struct-dictionary .struct-dict-chev{ transition:transform .22s ease; }
+    #struct-dictionary .struct-row, #struct-dictionary .struct-dict-head{ transition:background-color .16s ease; }
+  }
   @media (prefers-reduced-motion: reduce){ .struct-dict-chev{ transition:none; } .struct-dict-group.just-opened .struct-dict-inner{ animation:none; } #struct-dictionary[data-acc="c"] .struct-dict-collapse{ transition:none; } }
+  @media (hover:hover) and (pointer:fine) and (prefers-reduced-motion: reduce){ #struct-dictionary .struct-dict-collapse{ transition:opacity 80ms linear; } #struct-dictionary .struct-dict-chev{ transition:none; } }
 
   .struct-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--color-border); font-size:13px; }
   .struct-item:last-child{ border-bottom:none; }
@@ -1939,6 +1950,14 @@
      модалок це нічого не змінює, бо контент завжди був нижчий за 80vh. */
   .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); max-height:80vh; overflow-y:auto; background:var(--color-surface); border-radius:var(--radius-xl); padding:22px 20px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
   .app-modal.open{ opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
+  /* Rev 2.32.159 (DIALOG-MOTION): поява 0,24 с (opacity 0→1, translateY 14px→0, scale .98→1, cubic-bezier(.2,.8,.2,1)), зникнення 0,2 с (ease-in, opacity→0, translateY 16px, scale .98) у фазі .leaving (її знімає closeAppModal після animationend / запасних 300 мс). Зсув і масштаб через окремі властивості translate/scale, а не transform: transform належить центруванню й підйому клавіатурних карток (--sheet-lift), анімація їх не зачіпає. Ризик: iOS < 14.5 не знає translate/scale — там лише затухання. */
+  @keyframes appModalIn{ from{ opacity:0; translate:0 14px; scale:.98; } to{ opacity:1; translate:0 0; scale:1; } }
+  @keyframes appModalOut{ from{ opacity:1; translate:0 0; scale:1; } to{ opacity:0; translate:0 16px; scale:.98; } }
+  @keyframes appModalFadeIn{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes appModalFadeOut{ from{ opacity:1; } to{ opacity:0; } }
+  .app-modal.open{ animation:appModalIn .24s cubic-bezier(.2,.8,.2,1) both; }
+  .app-modal.leaving{ opacity:0; pointer-events:none; transform:translate(-50%,-50%) scale(1); transition:none; animation:appModalOut .2s ease-in both; }
+  html.kb-sheet .app-modal.leaving{ transform:translate3d(-50%, calc(-50% - 1px * var(--sheet-lift, 0)), 0) scale(1); }
   #modal-backdrop{ z-index:95; }
   /* Rev 2.15.0 — white-space:pre-line: прев'ю відновлення бекапу тепер
      багаторядкове (кількість записів + Schema/App), а textContent за
@@ -2706,6 +2725,8 @@
     nav.tabbar.pressed .tabbar-bubble{ --bubble-scale:1; }
     .tabbar-bubble::before, .stb-clip::before, .skeleton::after{ animation:none !important; }
     .avatar-status-dot, .profile-status-dot{ animation:none !important; }
+    .app-modal.open{ animation:appModalFadeIn 80ms linear both; }
+    .app-modal.leaving{ animation:appModalFadeOut 80ms linear both; } /* Rev 2.32.159: reduced-motion — лише затухання 0,08 с, без зсуву й масштабу */
     .app-modal:not(.open){ transform:translate(-50%,-50%) scale(1); } /* Rev 2.32.106: діалог з'являється затуханням (opacity), без масштабу .96 → 1; відкритий стан і клавіатурні правила html.kb-sheet не чіпаємо */
   }
 </style>
@@ -3579,7 +3600,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.158</div>
+  <div class="version-footer">Money Tree · Rev 2.32.159</div>
 </div>
   </div>
 </div>
@@ -8158,7 +8179,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.158';
+const APP_VERSION = '2.32.159';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14279,11 +14300,12 @@ function toggleDictGroup(cat, forceOpen){
   if(!head || !main) return;
   const anchor = function(){ main.scrollTop += accordionAnchorDelta(beforeTop, head.getBoundingClientRect().top); };
   anchor();
-  if(structAccVariant() === 'c' && !motionReduced()){ // анімована висота: тримаємо місце на кожному кадрі
+  if((structAccVariant() === 'c' || structDictDesktopAnim()) && !motionReduced()){ // анімована висота: тримаємо місце на кожному кадрі
     const t0 = performance.now();
     (function frame(){ anchor(); if(performance.now() - t0 < 280) requestAnimationFrame(frame); })();
   }
 }
+function structDictDesktopAnim(){ try{ return !!(window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches); }catch(e){ return false; } } // Rev 2.32.159: на десктопі словник анімує висоту незалежно від варіанта акордеона
 function structOpenTrash(){ performSwitchTab('service'); openTrashScreen(); }
 function renderStructure(){
   const catEl = document.getElementById('struct-categories');
@@ -15744,7 +15766,7 @@ function activeEditDirty(){
 }
 function editGuardPending(){
   const m = document.getElementById('app-modal');
-  return editGuardGen === appModalGeneration && !!m && m.classList.contains('open');
+  return editGuardGen === appModalGeneration && !!m && (m.classList.contains('open') || appModalPending); // Rev 2.32.159: очікуваний показ теж «діалог відкритий» (без подвійного відкриття)
 }
 function recordEditSessionEvent(event, reason, dirty){
   if(!debugRecordingActive) return;
@@ -24102,7 +24124,35 @@ function focusCardFieldSafe(input){
   if(IS_IOS_RUNTIME) return; // iPhone: без змін (як було — фокус не ставився)
   try{ input.focus(); input.select(); }catch(e){} // десктоп: звичайний фокус без винятків
 }
+// Rev 2.32.159 (DIALOG-MOTION): діалог поверх шторки, яка ще опускається (html.kb-sheet-closing — закриття клавіатури), показується після завершення її опускання (transitionend по transform чи ≈0,3 с; стеля 0,4 с). Лічильник і фокус-ціль фіксуються одразу (editGuardGen = appModalGeneration у викликачів), сам показ відкладається; повторний виклик у очікуванні лише оновлює вміст (таймер один — без накопичення подвійних відкриттів). Клавіатурну логіку не чіпаємо: лише читаємо клас.
+const APP_MODAL_DEFER_MS = 300, APP_MODAL_DEFER_MAX_MS = 400;
+let appModalPending = false, appModalPendingTimer = null, appModalPendingOnEnd = null;
+function appModalShouldDefer(){ return !!document.documentElement.classList.contains('kb-sheet-closing'); }
+function cancelPendingAppModal(){
+  if(appModalPendingTimer){ clearTimeout(appModalPendingTimer); appModalPendingTimer = null; }
+  if(appModalPendingOnEnd){ document.removeEventListener('transitionend', appModalPendingOnEnd, true); appModalPendingOnEnd = null; }
+  appModalPending = false;
+}
 function openAppModal(){
+  appModalGeneration++;
+  if(appModalPending){ lastFocusedBeforeDialog = lastFocusedBeforeDialog || document.activeElement; return; } // вже чекаємо: показ один
+  if(!document.getElementById('app-modal').classList.contains('open') && appModalShouldDefer()){
+    lastFocusedBeforeDialog = document.activeElement;
+    appModalPending = true;
+    const go = function(){
+      if(!appModalPending) return;
+      cancelPendingAppModal();
+      openAppModalNow();
+    };
+    appModalPendingOnEnd = function(e){ if(e.propertyName === 'transform' && e.target && e.target.classList && (e.target.classList.contains('drawer') || e.target.classList.contains('app-modal'))) go(); };
+    document.addEventListener('transitionend', appModalPendingOnEnd, true);
+    appModalPendingTimer = setTimeout(go, APP_MODAL_DEFER_MS);
+    return;
+  }
+  lastFocusedBeforeDialog = document.activeElement;
+  openAppModalNow();
+}
+function openAppModalNow(){
   // Rev 2.10.2 — фокус переходить у модалку тут, ЦЕНТРАЛІЗОВАНО: усі
   // show*Modal() уже викликають openAppModal()
   // (напряму або через presentAppModal(), Rev #29) останнім рядком, тому
@@ -24110,7 +24160,6 @@ function openAppModal(){
   // них, що потребують фокусу саме на конкретному текстовому полі,
   // додатково виставляють його через свій власний setTimeout(...,60) одразу
   // після — це не конфліктує, просто перебиває фокус на 60мс пізніше.
-  appModalGeneration++;
   // Rev 2.23.24 (6D.193, Ревізія E) — showPurgeConfirm() перекладає кнопки модалки у
   // "Скасувати" заливкою + "Видалити назавжди" червоний контур. Кожна інша модалка
   // (її show*-функція не знає про цей стиль) при відкритті повертає типові класи;
@@ -24128,7 +24177,7 @@ function openAppModal(){
   // докоментар нижче) — лочимо лише коли СПРАВДІ переходимо з закритого
   // стану у відкритий, не вдруге поверх уже відкритого.
   const wasOpen = document.getElementById('app-modal').classList.contains('open');
-  lastFocusedBeforeDialog = document.activeElement;
+  clearAppModalLeaving(); // Rev 2.32.159: повторне відкриття під час зникання скасовує фазу .leaving
   document.getElementById('modal-backdrop').removeAttribute('inert');
   document.getElementById('app-modal').removeAttribute('inert');
   document.getElementById('modal-backdrop').classList.add('open');
@@ -24137,12 +24186,33 @@ function openAppModal(){
   if(!kbSheetUsesProxy(document.getElementById('app-modal').hasAttribute('data-sheet-id'))) focusFirstIn(document.getElementById('app-modal')); // Rev 2.32.52 (G): безпечна перевірка (див. kbSheetUsesProxy)
   if(!wasOpen) lockBackgroundScroll();
 }
+// Rev 2.32.159: фаза .leaving. Завершується animationend або запасним таймером 300 мс; тоді знімається клас і виконується відкладене скидання кнопок. inert і фокус виставляються/повертаються одразу (iOS: фокус поза жестом клавіатуру не відкриє) — анімація лише візуальна.
+let appModalAfterLeave = null, appModalLeaveTimer = null, appModalLeaveOnEnd = null;
+const APP_MODAL_LEAVE_FALLBACK_MS = 300;
+function runAppModalAfterLeave(){ const f = appModalAfterLeave; appModalAfterLeave = null; if(f) f(); }
+function clearAppModalLeaving(){
+  const m = document.getElementById('app-modal');
+  if(appModalLeaveTimer){ clearTimeout(appModalLeaveTimer); appModalLeaveTimer = null; }
+  if(appModalLeaveOnEnd){ m.removeEventListener('animationend', appModalLeaveOnEnd); appModalLeaveOnEnd = null; }
+  m.classList.remove('leaving');
+}
+function startAppModalLeaving(){
+  const m = document.getElementById('app-modal');
+  clearAppModalLeaving();
+  m.classList.add('leaving');
+  const fin = function(){ clearAppModalLeaving(); runAppModalAfterLeave(); };
+  appModalLeaveOnEnd = function(e){ if(e.target === m) fin(); };
+  m.addEventListener('animationend', appModalLeaveOnEnd);
+  appModalLeaveTimer = setTimeout(fin, APP_MODAL_LEAVE_FALLBACK_MS);
+}
 function closeAppModal(){
   // Rev 2.23.7 (6D.176) — той самий захист, що closeIncomeEditor() — Escape
   // викликає closeAppModal() безумовно, навіть коли app-modal не відкритий.
+  cancelPendingAppModal(); // Rev 2.32.159: закриття до відкладеного показу — діалог так і не з'являється
   const wasOpen = document.getElementById('app-modal').classList.contains('open');
   document.getElementById('modal-backdrop').classList.remove('open');
   document.getElementById('app-modal').classList.remove('open');
+
   document.getElementById('modal-backdrop').setAttribute('inert','');
   document.getElementById('app-modal').setAttribute('inert','');
   if(wasOpen) unlockBackgroundScroll();
@@ -24158,13 +24228,15 @@ function closeAppModal(){
   // пропускається — інакше воно клобберило б кнопки вже НОВОЇ модалки
   // (дивись коментар над appModalGeneration вище).
   const generationAtClose = appModalGeneration;
-  setTimeout(function(){
+  // Rev 2.32.159: скидання кнопок тепер після завершення анімації зникання (раніше фіксовані 200 мс), див. startAppModalLeaving
+  appModalAfterLeave = function(){
     if(appModalGeneration !== generationAtClose) return;
     const cancelBtn = document.getElementById('app-modal-cancel-btn');
     if(cancelBtn){ cancelBtn.textContent = 'Скасувати'; cancelBtn.style.display = ''; }
     const confirmBtn = document.getElementById('app-modal-confirm-btn');
     if(confirmBtn) confirmBtn.style.display = '';
-  }, 200);
+  };
+  if(wasOpen) startAppModalLeaving(); else runAppModalAfterLeave(); // Rev 2.32.159: фаза зникання 0,2 с; не відкрита (або очікувала) — скидання одразу
   const editGuardDismissed = wasOpen && editGuardGen === appModalGeneration; // Rev 2.32.5 (E1b): діалог редагування закрито НЕ кнопкою «Скасувати зміни» (та скидає editGuardGen)
   restoreFocus();
   if(editGuardDismissed){ editGuardGen = -1; editGuardShield = true; setTimeout(function(){ editGuardShield = false; }, 0); setTimeout(returnToEditCard, 60); } // shield: цей самий click (кнопка/фон) не має закрити редагування в document-click
