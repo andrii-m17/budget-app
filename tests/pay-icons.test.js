@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payNamesParts', 'payPartsText', 'payUnconfirmedParts', 'payUnconfirmedLadder', 'payNoDayParts', 'payDaySoon', 'paymentsCardModel']);
+const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payNamesParts', 'payPartsText', 'payUnconfirmedParts', 'payUnconfirmedLadder', 'payNoDayParts', 'paymentsCardModel']);
 const I = (name, dueDay) => ({ name, dueDay });
 const D = (name, month, extra) => Object.assign({ kind: 'installment', name, month, monthlyPayment: 100, balance: 9 }, extra || {});
 function model(o, remind){
@@ -48,14 +48,12 @@ test('рядок «ОЧ без дати · N · назви»: є лише для
   const hid = model(Object.assign({}, base, { hidden: { 'installment:Без1': '2026-01', 'installment:Без2': '2026-01' } }));
   assert.equal(hid.messages.find(x => x.kind === 'noday'), undefined, 'приховані не враховуються');
 });
-test('день найближчого платежу: лише один день виділено; звичайний — info, «скоро» (≤ N днів) — warning', function(){
+test('день найближчого платежу: виділено лише один день, без варіанта «скоро» (Rev 2.32.167)', function(){
   const o = { today: '2026-10-15', installments: [I('А', 17), I('Б', 20)], debtsByMonth: [D('А', '2026-10'), D('Б', '2026-10')] };
-  const m = model(o, 2); const nx = m.days.filter(d => d.next);
-  assert.equal(nx.length, 1); assert.equal(nx[0].day, 17); assert.equal(nx[0].soon, true); // 2 дні ≤ 2
-  assert.equal(model(o, 1).days.filter(d => d.next)[0].soon, false);
-  assert.equal(model(o, 1).days.filter(d => d.next).length, 1);
-  assert.equal(c.payDaySoon(0, 2), true); assert.equal(c.payDaySoon(3, 2), false); assert.equal(c.payDaySoon(-1, 2), false);
-  assert.equal(model({ today: '2026-10-05', installments: [I('А', 17)], debtsByMonth: [D('А', '2026-10')] }, 2).days.filter(d => d.next).length, 0, 'платежу у смузі немає');
+  const nx = model(o).days.filter(d => d.next);
+  assert.equal(nx.length, 1); assert.equal(nx[0].day, 17); assert.ok(!('soon' in nx[0]), 'ознаки «скоро» в моделі нема');
+  assert.equal(model({ today: '2026-10-05', installments: [I('А', 17)], debtsByMonth: [D('А', '2026-10')] }).days.filter(d => d.next).length, 0, 'платежу у смузі немає');
+  assert.ok(!/\.pay-day\.next\.soon|' soon'\)\); b\.type|payDaySoon/.test(SRC), 'жодного помаранчевого варіанта');
 });
 test('сплачений повністю платіж не підсвічується; частковий — так', function(){
   const o = { today: '2026-10-15', installments: [I('А', 17), I('Б', 20)], debtsByMonth: [D('А', '2026-10', { monthlyPayment: 1000 }), D('Б', '2026-10', { monthlyPayment: 500 })] };
@@ -69,9 +67,16 @@ test('aria-label підсвіченого дня: «Наступний плат�
   assert.match(m.days.find(d => d.next).label, /^Наступний платіж: 17 жовтня, 5\s000\s₴$/);
   assert.match(SRC, /if\(d\.next && d\.label\)\{ b\.setAttribute\('aria-label', d\.label\); \} else b\.setAttribute\('aria-hidden', 'true'\)/);
 });
-test('CSS пілюлі: backdrop-filter помірний, рамка info, сяйво; «скоро» — warning', function(){
-  assert.match(SRC, /\.pay-day\.next\{[^}]*backdrop-filter:blur\(10px\)[^}]*border:1px solid var\(--color-info\)[^}]*box-shadow:0 0 10px color-mix\(in srgb, var\(--color-info\)/);
-  assert.match(SRC, /\.pay-day\.next\.soon\{ border-color:var\(--color-warning\); box-shadow:0 0 10px color-mix\(in srgb, var\(--color-warning\)/);
+test('CSS смуги (Rev 2.32.167): найближчий — синє скло (градієнт, верхній блик, рамка info, сяйво); сьогодні — лише крапка; день із платежем — сіра заливка', function(){
+  const nx = SRC.match(/\.pay-day\.next\{([^}]*)\}/)[1];
+  assert.match(nx, /linear-gradient\(180deg, color-mix\(in srgb, var\(--color-info\) 36%/); assert.match(nx, /backdrop-filter:blur\(10px\)/);
+  assert.match(nx, /border:1px solid var\(--color-info\)/); assert.match(nx, /box-shadow:0 0 12px color-mix\(in srgb, var\(--color-info\) 42%, transparent\), inset 0 1px 0 rgba\(255,255,255,\.4\)/);
+  assert.match(SRC, /\.pay-day\.next::before\{[^}]*linear-gradient\(180deg, rgba\(255,255,255,\.30\), rgba\(255,255,255,0\)\)/);
+  assert.ok(!/--color-warning/.test(nx), 'без warning');
+  assert.match(SRC, /\.pay-day\.today::after\{ content:''; position:absolute; left:50%; bottom:2px; width:4px; height:4px;/);
+  assert.ok(!/\.pay-day\.today\{/.test(SRC), 'рамки в сьогодні нема');
+  assert.match(SRC, /\.pay-day\.has\{ background:var\(--color-surface-hover\); cursor:pointer; \}/);
+  assert.ok(SRC.indexOf('.pay-day.has{') < SRC.indexOf('.pay-day.next{'), 'найближчий перекриває сіру заливку');
 });
 test('адаптивні рядки 320/390/440: спершу падає хвіст переліку з «+K», потім перелік, заголовок лишається; без «…»', function(){
   const names = ['Телефон Один', 'Ноутбук Два', 'Пилосос Три', 'Холодильник Чотири'];
@@ -90,4 +95,17 @@ test('адаптивні рядки 320/390/440: спершу падає хві�
 });
 test('вимірювальна логіка fitPaymentsCard підтримує пари { h, t } (payRenderParts) без зміни вибору сходинок', function(){
   assert.match(SRC, /const put = function\(i\)\{ if\(el\._payParts\) payRenderParts\(el, el\._payParts\[i\]\); else el\.textContent = ladder\[i\]; \};/);
+});
+test('екран «Платежі» (розгорнутий вигляд): секція «ОЧ без дати» з назвами — як «Картки без дати»; без суми; порожній стан не змінюється', function(){
+  const c2 = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'installmentTypicalPay', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'ppModeAmount', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payRelative', 'paymentsScreenModel']);
+  const run = (o) => { const today = '2026-10-15'; return j(c2.paymentsScreenModel(c2.upcomingPayments(Object.assign({ today, horizonDays: 14, installments: [], cards: [], debtsByMonth: [], expenses: [], hidden: {} }, o)), today)); };
+  const m = run({ installments: [I('Без1', null), I('Без2', null), I('Ок', 20)], debtsByMonth: [D('Без1', '2026-10'), D('Без2', '2026-10'), D('Ок', '2026-10')] });
+  const sec = m.sections.find(s => s.key === 'noday');
+  assert.ok(sec); assert.equal(sec.title, 'ОЧ без дати'); assert.deepEqual(sec.rows.map(r => r.name), ['Без1', 'Без2']);
+  assert.ok(sec.rows.every(r => r.amountText === '' && r.date === null && r.go === 'installments'));
+  assert.equal(m.sections[m.sections.length - 1].key, 'noday'); assert.equal(m.empty, false);
+  const only = run({ installments: [I('Без1', null)], debtsByMonth: [D('Без1', '2026-10')] });
+  assert.equal(only.empty, true, 'без самих платежів порожній стан лишається'); assert.equal(only.sections.length, 1);
+  assert.equal(run({ installments: [I('Ок', 20)], debtsByMonth: [D('Ок', '2026-10')] }).sections.find(s => s.key === 'noday'), undefined, 'без ОЧ без дати секції нема');
+  assert.match(SRC, /if\(r\.go === 'installments'\)\{ performSwitchTab\('accounting'\); switchAccountingTab\('installments'\); \} else openPayAction\(r\);/);
 });
