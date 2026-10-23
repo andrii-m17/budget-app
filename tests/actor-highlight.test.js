@@ -10,30 +10,30 @@ const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const SW = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
 
-const NAMES = ['routeForPushType', 'pushApplyDiag', 'closeOpenSheetsForPush', 'ACTOR_IDS_CAP', 'actorIdsNormalize', 'actorIdsFromParam', 'otherActorPlan', 'actorIdsForAction', 'highlightRecIds', 'highlightRowIds', 'afterPaint', 'routeOtherActorNotification', 'handlePushAction'];
+const NAMES = ['routeForPushType', 'pushApplyDiag', 'closeOpenSheetsForPush', 'ACTOR_IDS_CAP', 'actorIdsNormalize', 'actorIdsFromParam', 'otherActorPlan', 'actorIdsForAction', 'ACTOR_WATCH_TICK_MS', 'ACTOR_WATCH_MAX_MS', 'ACTOR_FLASH_MS', 'actorNow', 'actorStopWatch', 'actorIdsCount', 'actorWatchTick', 'startActorWatch', 'routeOtherActorNotification', 'handlePushAction'];
 const SRCS = [{ key: 'salary', label: 'Зарплата' }, { key: 'other', label: 'Інше' }];
 function env(data, opts){
   const o = opts || {}; const log = []; const classed = new Set();
-  const mkEl = id => ({ id, classList: { add: c => { classed.add(id); log.push('hl:' + id); }, remove: c => classed.delete(id) }, scrollIntoView: () => log.push('scroll:' + id), getAttribute: () => id });
+  const mkEl = id => ({ id, classList: { add: c => { if(!classed.has(id)) log.push('hl:' + id); classed.add(id); }, remove: c => classed.delete(id), contains: c => classed.has(id) }, scrollIntoView: () => log.push('scroll:' + id), getAttribute: () => id });
   const rowEls = {};
   const doc = {
     activeElement: { blur(){} }, body: { classList: { remove(){} } }, querySelector: () => null,
     querySelectorAll: sel => /journal-overlay/.test(sel) ? (o.journalRows || []).map(id => { const e = mkEl(id); e.getAttribute = () => id; return e; }) : [],
     getElementById: id => (o.rows || []).includes(id) ? (rowEls[id] = rowEls[id] || mkEl(id)) : null,
   };
-  const lookups = [];
+  const lookups = []; const ref = {}; const clock = { t: 1000 }; const timers = [];
   const g = {
-    document: doc, debugRecordingActive: false, setTimeout: () => 0, cloudAuthInitInFlight: null, safeId: String, motionReduced: () => true, requestAnimationFrame: f => f(),
+    actorWatch: null, document: doc, debugRecordingActive: false, setTimeout: (f, ms) => { timers.push(f); return timers.length; }, clearTimeout: () => {}, cloudAuthInitInFlight: null, safeId: String, motionReduced: () => true, requestAnimationFrame: f => f(),
     expenses: data.expenses || [], incomes: data.incomes || [], activeDebts: () => data.debts || [], bankAccounts: data.bankAccounts || [], installmentAccounts: data.installmentAccounts || [],
     INCOME_SOURCES: SRCS, sameIncomeSource: (a, b) => a === b, monthKey: d => d ? d.slice(0, 7) : '', allMonths: () => ['2026-08', '2026-09', '2026-10'], selectedMonth: o.selected || '2026-10',
-    performSwitchTab: (t, x) => log.push('tab:' + t), switchAccountingTab: t => log.push('acc:' + t), openJournal: m => log.push('journal:' + m), performMonthChange: m => log.push('month:' + m),
+    performSwitchTab: (t, x) => log.push('tab:' + t), switchAccountingTab: t => log.push('acc:' + t), openJournal: m => { log.push('journal:' + m); if(ref.c) ref.c.journalMonth = m; }, performMonthChange: m => { log.push('month:' + m); if(ref.c) ref.c.selectedMonth = m; }, journalMonth: null, Date: { now: () => clock.t },
     goToCardDebtsTab: () => { log.push('tab:accounting'); log.push('acc:debts'); }, latestTouchedRecordMonth: k => k === 'income' ? '2026-10' : '2026-10', openTrashScreen: () => log.push('trash'),
     captureDebugGeometry(){}, captureFocusAudit(){}, highlightInstallmentRow(){}, closeAllDataStatusPopovers(){}, showTextToast: t => log.push('toast:' + t),
     awaitCloudGate: async () => o.offline ? 'offline' : 'ready',
     getSupabaseClient: () => ({ from: t => ({ select: () => ({ eq: (c, v) => ({ limit: async () => { lookups.push(t + ':' + c + ':' + v); return { data: o.lookup ? [{ data: o.lookup }] : [], error: null }; } }) }) }) }),
   };
-  const c = buildSandbox(g, NAMES);
-  return { c, log, lookups };
+  const c = buildSandbox(g, NAMES); ref.c = c;
+  return { c, log, lookups, clock, timers, classed, doc: g.document, rows: o.journalRows };
 }
 const E = (id, date, extra) => Object.assign({ id, date }, extra || {});
 const sum = (ids, target) => ({ type: 'other-actor-summary', target, ids });
@@ -168,4 +168,60 @@ test('охоронні: query читає ids і pushId; підсвітка Monob
   assert.match(SRC, /idsParam: pushActionParams\.get\('ids'\) \|\| undefined, pushId: pushActionParams\.get\('pushId'\) \|\| undefined/);
   assert.match(SRC, /\.expense-row\.just-notified\{ background:var\(--color-info-bg\); animation:cardBlink \.8s ease-in-out 3; \}/);
   assert.match(SRC, /\.card-debt-compact-row\.just-notified\{ background:var\(--color-info-bg\); animation:cardBlink \.8s ease-in-out 3; \}/);
+});
+
+// ---- Rev 2.32.165 (ACTOR-HL2): наглядач — новий запис доходить після тапу, перемальовування, таймаут, заміна ----
+function tickAll(e, ms){ e.clock.t += ms; const fs = e.timers.splice(0); fs.forEach(f => f()); }
+test('новий запис ще не завантажений у момент тапу (push → тап → pull): журнал на поточному місяці, потім після pull — перемикання на місяць запису й підсвітка', async function(){
+  const data = { expenses: [E('old', '2026-10-01')] }; const rows = ['old'];
+  const e = env(data, { journalRows: rows });
+  await e.c.handlePushAction(sum({ expenses: ['new1'] }, 'journal'));
+  assert.deepEqual(e.log, ['tab:vytraty', 'journal:2026-10'], 'на момент тапу плану нема: екран як раніше, без підсвітки');
+  data.expenses.push(E('new1', '2026-09-12')); // pull доніс запис
+  tickAll(e, 300);
+  assert.ok(e.log.includes('journal:2026-09'), 'місяць перемкнуто на місяць запису');
+  rows.push('new1'); // перемальований журнал містить рядок
+  tickAll(e, 300);
+  assert.ok(e.log.includes('hl:new1') && e.log.includes('scroll:new1'));
+});
+test('перемальовування журналу зняло клас — наглядач повертає його всередині вікна 3 с, без повторної прокрутки; після вікна клас знімається, наглядач зупиняється', async function(){
+  const data = { expenses: [E('a', '2026-10-02')] }; const rows = ['a'];
+  const e = env(data, { journalRows: rows });
+  await e.c.handlePushAction(sum({ expenses: ['a'] }, 'journal'));
+  assert.deepEqual(e.log.filter(x => x.startsWith('hl:') || x.startsWith('scroll:')), ['hl:a', 'scroll:a']);
+  e.classed.clear(); tickAll(e, 400); // перемальовування
+  assert.ok(e.classed.has('a'), 'клас повернуто'); assert.equal(e.log.filter(x => x.startsWith('scroll:')).length, 1);
+  tickAll(e, 3000); assert.ok(!e.classed.has('a'), 'вікно згасло — клас знято');
+  tickAll(e, 300); assert.equal(e.timers.length, 0, 'наглядач зупинений');
+});
+test('запис так і не прийшов: наглядач зупиняється за 12 с, нічого не підсвічує, без тосту', async function(){
+  const e = env({ expenses: [] }, { journalRows: [] });
+  await e.c.handlePushAction(sum({ expenses: ['ghost'] }, 'journal'));
+  for(let i = 0; i < 60 && e.timers.length; i++) tickAll(e, 250);
+  assert.equal(e.timers.length, 0); assert.ok(!e.log.some(x => x.startsWith('hl:') || x.startsWith('toast:')));
+  assert.ok(e.clock.t - 1000 <= 12500, 'не довше ≈ 12 с');
+});
+test('місяць перемикається лише до першої підсвітки: ручна зміна місяця користувачем потім не перебивається', async function(){
+  const data = { expenses: [E('a', '2026-09-02')] };
+  const e = env(data, { journalRows: ['a'] });
+  await e.c.handlePushAction(sum({ expenses: ['a'] }, 'journal'));
+  e.c.journalMonth = '2026-08'; // користувач гортає
+  tickAll(e, 400); assert.equal(e.log.filter(x => x.startsWith('journal:')).length, 1);
+});
+test('нове сповіщення замінює наглядача попереднього: старі підсвітки знімаються', async function(){
+  const data = { expenses: [E('a', '2026-10-02'), E('b', '2026-10-03')] };
+  const e = env(data, { journalRows: ['a', 'b'] });
+  await e.c.handlePushAction(sum({ expenses: ['a'] }, 'journal'));
+  assert.ok(e.classed.has('a'));
+  await e.c.handlePushAction(sum({ expenses: ['b'] }, 'journal'));
+  assert.ok(!e.classed.has('a') && e.classed.has('b'));
+});
+test('Облік/Борги: запис доходить після тапу — підсвічується рядок джерела; без rAF (наглядач сам, у фоновій вкладці теж)', async function(){
+  const data = { incomes: [] };
+  const e = env(data, { rows: ['income-row-0'] });
+  await e.c.handlePushAction(sum({ incomes: ['i9'] }, 'accounting'));
+  assert.ok(!e.log.some(x => x.startsWith('hl:')));
+  data.incomes.push(E('i9', '2026-10-06', { source: 'salary' }));
+  tickAll(e, 300); assert.ok(e.log.includes('hl:income-row-0'));
+  assert.ok(!/requestAnimationFrame/.test(SRC.slice(SRC.indexOf('function actorWatchTick('), SRC.indexOf('function startActorWatch('))), 'наглядач не залежить від rAF');
 });

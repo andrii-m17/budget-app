@@ -3672,7 +3672,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.164</div>
+  <div class="version-footer">Money Tree · Rev 2.32.165</div>
 </div>
   </div>
 </div>
@@ -8251,7 +8251,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.164';
+const APP_VERSION = '2.32.165';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10226,7 +10226,7 @@ function otherActorPlan(screen, ids, d){
   const mk = function(m){ return m ? String(m).slice(0, 7) : null; };
   if(screen === 'journal'){
     const found = (ids.expenses || []).map(function(id){ return (d.expenses || []).filter(function(e){ return e.id === id && !e.deletedAt; })[0]; }).filter(Boolean);
-    return { kind: 'journal', month: found.length ? mk(found[0].date) : null, recIds: found.map(function(e){ return e.id; }), rowIds: [] };
+    return { kind: 'journal', month: found.length ? mk(found[0].date) : null, recIds: found.map(function(e){ return e.id; }), rowIds: [], found: found.length };
   }
   if(screen === 'accounting'){
     const found = (ids.incomes || []).map(function(id){ return (d.incomes || []).filter(function(e){ return e.id === id && !e.deletedAt; })[0]; }).filter(Boolean);
@@ -10236,7 +10236,7 @@ function otherActorPlan(screen, ids, d){
       const i = INCOME_SOURCES.findIndex(function(s){ return sameIncomeSource(e.source, s.key); });
       if(i >= 0 && rows.indexOf('income-row-' + i) === -1) rows.push('income-row-' + i);
     });
-    return { kind: 'accounting', tab: 'data', month: month, recIds: [], rowIds: rows };
+    return { kind: 'accounting', tab: 'data', month: month, recIds: [], rowIds: rows, found: found.length };
   }
   if(screen === 'debts'){
     const found = (ids.debts || []).map(function(id){ return (d.debts || []).filter(function(e){ return e.id === id && !e.deletedAt; })[0]; }).filter(Boolean);
@@ -10249,7 +10249,7 @@ function otherActorPlan(screen, ids, d){
       const id = (tab === 'installments' ? 'installment-row-' : 'bank-debt-row-') + i;
       if(i >= 0 && rows.indexOf(id) === -1) rows.push(id);
     });
-    return { kind: 'debts', tab: tab, month: month, recIds: [], rowIds: rows };
+    return { kind: 'debts', tab: tab, month: month, recIds: [], rowIds: rows, found: found.length };
   }
   return null;
 }
@@ -10268,22 +10268,71 @@ async function actorIdsForAction(action){
     return actorIdsNormalize(r.data[0] && r.data[0].data && r.data[0].data.ids);
   }catch(e){ return null; }
 }
-function highlightRecIds(recIds){
-  if(!recIds || !recIds.length) return 0;
-  const want = recIds.map(safeId);
-  const els = Array.prototype.filter.call(document.querySelectorAll('#journal-overlay [data-rec-id]'), function(x){ return want.indexOf(x.getAttribute('data-rec-id')) !== -1; });
-  els.forEach(function(el){ el.classList.add('just-notified'); setTimeout(function(){ el.classList.remove('just-notified'); }, 3000); });
-  if(els[0]) try{ els[0].scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){}
-  return els.length;
+// Rev 2.32.165 (ACTOR-HL2): підсвітка тримається, поки записи доходять. Причина провалу в Rev 2.32.163 (відтворено на моку): новий запис у момент тапу ще не завантажений (push → тап → pull), тож плану (місяць, рядки) не було, а перемальовування журналу після pull знімало клас. Тепер наглядач (крок 250 мс, ≤ 12 с) щоразу будує план із поточних даних: перемикає місяць на місяць першого наявного запису (лише поки нічого не підсвічено), підсвічує знайдені рядки (just-notified ≈ 3 с, прокрутка лише до першого), повертає клас, якщо перемальовування його зняло, і зупиняється, коли всі записи показані й вікна згасли. Наглядач один: нове сповіщення замінює попередній. Підсвітка не залежить від requestAnimationFrame (у фоновій вкладці він зупинений).
+const ACTOR_WATCH_TICK_MS = 250;
+const ACTOR_WATCH_MAX_MS = 12000;
+const ACTOR_FLASH_MS = 3000;
+let actorWatch = null;
+function actorNow(){ return Date.now(); }
+function actorStopWatch(){
+  const w = actorWatch; actorWatch = null;
+  if(!w) return;
+  if(w.timer){ clearTimeout(w.timer); w.timer = null; }
+  Object.keys(w.els).forEach(function(k){ try{ w.els[k].classList.remove('just-notified'); }catch(e){} });
 }
-function highlightRowIds(rowIds){
-  if(!rowIds || !rowIds.length) return 0;
-  const els = rowIds.map(function(id){ return document.getElementById(id); }).filter(Boolean);
-  els.forEach(function(el){ el.classList.add('just-notified'); setTimeout(function(){ el.classList.remove('just-notified'); }, 3000); });
-  if(els[0]) try{ els[0].scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){}
-  return els.length;
+function actorIdsCount(screen, ids){ return ids ? ((screen === 'journal' ? ids.expenses : screen === 'accounting' ? ids.incomes : ids.debts) || []).length : 0; }
+// Один крок: повертає true, коли можна зупинитись.
+function actorWatchTick(w){
+  const now = actorNow();
+  const plan = otherActorPlan(w.screen, w.ids, { expenses: expenses, incomes: incomes, debts: activeDebts(), bankAccounts: bankAccounts, installmentAccounts: installmentAccounts });
+  if(plan && plan.month && !w.anyShown && w.switchedTo !== plan.month){
+    w.switchedTo = plan.month;
+    if(w.screen === 'journal'){ if(journalMonth !== plan.month) openJournal(plan.month); }
+    else{
+      if(w.screen === 'debts' && plan.tab === 'installments') switchAccountingTab('installments');
+      if(plan.month !== selectedMonth && allMonths().includes(plan.month)) performMonthChange(plan.month);
+    }
+  }
+  const found = [];
+  if(plan){
+    if(w.screen === 'journal'){
+      const want = plan.recIds.map(safeId);
+      Array.prototype.forEach.call(document.querySelectorAll('#journal-overlay [data-rec-id]'), function(x){ const k = x.getAttribute('data-rec-id'); if(want.indexOf(k) !== -1) found.push({ key: 'r:' + k, el: x }); });
+    }else{
+      plan.rowIds.forEach(function(id){ const x = document.getElementById(id); if(x) found.push({ key: 'e:' + id, el: x }); });
+    }
+  }
+  found.forEach(function(it){
+    w.els[it.key] = it.el;
+    const until = w.shown[it.key];
+    if(until === undefined){
+      w.shown[it.key] = now + ACTOR_FLASH_MS; it.el.classList.add('just-notified');
+      if(!w.anyShown){ try{ it.el.scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){} }
+      w.anyShown = true;
+    }else if(now < until){ if(!it.el.classList.contains('just-notified')) it.el.classList.add('just-notified'); } // перемальовування зняло клас
+    else it.el.classList.remove('just-notified');
+  });
+  const windowsOpen = Object.keys(w.shown).some(function(k){ return now < w.shown[k]; });
+  if(windowsOpen) return false;
+  if(now - w.startedAt >= ACTOR_WATCH_MAX_MS) return true;
+  return !!(plan && w.anyShown && plan.found >= w.idCount); // усі id завантажені й показані, вікна згасли
 }
-function afterPaint(fn){ requestAnimationFrame(function(){ requestAnimationFrame(fn); }); }
+function startActorWatch(screen, ids){
+  actorStopWatch();
+  const idCount = actorIdsCount(screen, ids);
+  if(!ids || !idCount) return null;
+  const w = { screen: screen, ids: ids, idCount: idCount, startedAt: actorNow(), shown: {}, els: {}, anyShown: false, switchedTo: null, timer: null };
+  actorWatch = w;
+  const step = function(){
+    w.timer = null;
+    if(actorWatch !== w) return;
+    let done = false;
+    try{ done = actorWatchTick(w); }catch(e){ done = true; }
+    if(done) actorStopWatch(); else w.timer = setTimeout(step, ACTOR_WATCH_TICK_MS);
+  };
+  step();
+  return w;
+}
 // Єдиний вхід для сповіщень про дії іншого учасника (journal | accounting | debts): навігація як раніше + підсвітка за ids.
 async function routeOtherActorNotification(action, screen){
   if(cloudAuthInitInFlight) await cloudAuthInitInFlight; // записи мають бути завантажені (холодний старт); раніше так було лише для журналу й доходів
@@ -10292,18 +10341,18 @@ async function routeOtherActorNotification(action, screen){
   if(screen === 'journal'){
     performSwitchTab('vytraty', { noFocus: true });
     openJournal((plan && plan.month) || latestTouchedRecordMonth());
-    if(plan && plan.recIds.length) afterPaint(function(){ highlightRecIds(plan.recIds); });
+    startActorWatch('journal', ids);
   }else if(screen === 'accounting'){
     performSwitchTab('accounting');
     switchAccountingTab('data');
     const m = (plan && plan.month) || latestTouchedRecordMonth('income');
     if(m && m !== selectedMonth && allMonths().includes(m)) performMonthChange(m);
-    if(plan && plan.rowIds.length) afterPaint(function(){ highlightRowIds(plan.rowIds); });
+    startActorWatch('accounting', ids);
   }else if(screen === 'debts'){
     goToCardDebtsTab(); // вкладка «Борги» (як раніше); ОЧ-записи — вкладка «ОЧ»
     if(plan && plan.tab === 'installments') switchAccountingTab('installments');
     if(plan && plan.month && plan.month !== selectedMonth && allMonths().includes(plan.month)) performMonthChange(plan.month);
-    if(plan && plan.rowIds.length) afterPaint(function(){ highlightRowIds(plan.rowIds); });
+    startActorWatch('debts', ids);
   }
   return plan;
 }
