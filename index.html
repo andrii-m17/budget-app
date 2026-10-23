@@ -663,6 +663,31 @@
   .och-oval.on{ background:var(--color-success); }
   .och-solid{ display:block; width:100%; height:5px; border-radius:3px; background:var(--color-track-bg); overflow:hidden; }
   .och-solid > i{ display:block; height:100%; border-radius:3px; background:var(--color-success); }
+  /* Rev 2.32.173 (OCH-FORM-3): фінальний макет форми ОЧ. Шторка: радіус 28 зверху, відступ 14, ручка 36×4; заголовок: логотип 32 (r 8), назва 15/500, підзаголовок 11, закриття — коло 30; поле: висота 34, r 12, текст 14, підпис 10 px caps (підпис→поле 3), між рядками 8, між колонками 8; «Умови» — скляний рядок 36 (r 12), сегменти 32 (контейнер r 12, padding 2, повзунок r 10 із зеленим градієнтом, обводкою й верхнім блиском); кнопки 40 (r 14, проміжок 8), закріплений футер із тонкою лінією; «Видалити ОЧ» 12 px. Скло — градієнти без backdrop-filter (блиск градієнтом); значення залежать від теми (--och-glass-*). */
+  :root{ --och-glass-a:rgba(16,24,40,.05); --och-glass-b:rgba(16,24,40,.02); --och-glass-line:rgba(16,24,40,.12); --och-glass-hi:rgba(255,255,255,.7); }
+  :root[data-theme="dark"]{ --och-glass-a:rgba(255,255,255,.09); --och-glass-b:rgba(255,255,255,.035); --och-glass-line:rgba(255,255,255,.16); --och-glass-hi:rgba(255,255,255,.18); }
+  @media (max-width:1279px){
+    #installment-drawer{ border-radius:28px 28px var(--radius-xl) var(--radius-xl); padding:14px 14px 12px; }
+    #installment-drawer .drawer-handle{ margin:-6px -14px 2px; padding:6px 0 2px; }
+  }
+  #installment-drawer .drawer-head{ margin-bottom:8px; }
+  #installment-drawer .drawer-head-icon{ width:32px; height:32px; border-radius:8px; overflow:hidden; }
+  #installment-drawer .drawer-head h2{ font-size:15px; font-weight:500; }
+  #installment-drawer .drawer-head-sub{ font-size:11px; }
+  #installment-drawer .drawer-close{ width:30px; height:30px; border-radius:50%; }
+  #installment-drawer .och-form .field{ margin-bottom:8px; }
+  #installment-drawer .och-form .field label{ font-size:10px; letter-spacing:.5px; margin-bottom:3px; }
+  #installment-drawer .och-form .field input{ height:34px; padding:0 12px; border-radius:12px; font-size:14px; }
+  #installment-drawer .och-form .row-2{ gap:8px; }
+  .och-cond-row{ height:36px; border:1px solid var(--och-glass-line); border-radius:12px; padding:0 12px; background:linear-gradient(180deg, var(--och-glass-a) 0%, var(--och-glass-b) 100%); box-shadow:inset 0 1px 0 var(--och-glass-hi); font-size:13px; }
+  .och-cond-val{ font-size:13px; font-weight:600; }
+  .och-seg{ height:32px; box-sizing:border-box; padding:2px; gap:2px; border:1px solid var(--och-glass-line); border-radius:12px; background:linear-gradient(180deg, var(--och-glass-a) 0%, var(--och-glass-b) 100%); box-shadow:inset 0 1px 0 var(--och-glass-hi); }
+  .och-seg button{ height:100%; border-radius:10px; font-size:12.5px; }
+  .och-seg button[aria-checked="true"]{ background:linear-gradient(180deg, rgba(34,197,94,.55) 0%, rgba(34,197,94,.30) 100%); border-color:rgba(34,197,94,.55); box-shadow:0 1px 6px rgba(34,197,94,.25), inset 0 1px 0 rgba(255,255,255,.35); color:#fff; font-weight:600; }
+  #installment-drawer .och-actions{ gap:8px; padding:8px 0 6px; margin-top:4px; border-top:1px solid var(--color-border); }
+  #installment-drawer .och-actions > button{ height:40px; border-radius:14px; }
+  #installment-drawer .och-actions .submit-btn.debt{ background:linear-gradient(180deg, rgba(34,197,94,.60) 0%, rgba(34,197,94,.34) 100%); border:1px solid rgba(34,197,94,.55); color:#fff; box-shadow:0 1px 6px rgba(34,197,94,.25), inset 0 1px 0 rgba(255,255,255,.35); }
+  #installment-drawer .och-form .cdd-delete-link{ font-size:12px; margin-top:2px; padding-top:6px; border-top:0; }
   /* Rev 2.32.6 (X): .fld-label-like — той самий вигляд підпису БЕЗ <label for> (варіант no-for тесту edit-label) */
   .field label, .field .fld-label-like{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
@@ -3707,7 +3732,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.172</div>
+  <div class="version-footer">Money Tree · Rev 2.32.173</div>
 </div>
   </div>
 </div>
@@ -8315,7 +8340,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.172';
+const APP_VERSION = '2.32.173';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13758,17 +13783,19 @@ function clearAllFieldHints(){ try{ Array.prototype.forEach.call(document.queryS
 // «Умови» (Rev 2.32.172): згорнуті за замовчуванням, стан не зберігається; рядок показує поточні значення сегментів.
 function ochCondSummary(first, mode){
   const f = first === 'next_month' ? 'Наступного місяця' : 'У день оформлення';
-  const m = mode === 'auto' ? 'Автоматично' : 'Вношу вручну';
+  const m = mode === 'auto' ? 'Автоматично' : 'Вручну'; // у рядку «Умови» — коротко
   return f + ' · ' + m;
 }
 function ochUpdateCondSummary(){
   const el = document.getElementById('idd-cond-val'); if(!el) return;
-  el.textContent = ochCondSummary(document.getElementById('idd-first').getAttribute('data-value'), document.getElementById('idd-mode').getAttribute('data-value'));
+  const body = document.getElementById('idd-cond');
+  el.textContent = body && !body.hidden ? 'Згорнути' : ochCondSummary(document.getElementById('idd-first').getAttribute('data-value'), document.getElementById('idd-mode').getAttribute('data-value')); // розгорнуто — «Згорнути», згорнуто — поточні значення
 }
 function ochSetCond(open){
   const body = document.getElementById('idd-cond'), btn = document.getElementById('idd-cond-btn');
   if(!body || !btn) return;
   body.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  ochUpdateCondSummary();
 }
 function ochToggleCond(){
   const body = document.getElementById('idd-cond'); if(!body) return;
@@ -13832,7 +13859,7 @@ function openInstallmentEditor(i){
   const resolved = resolveInstallmentFact(name, selectedMonth, existing);
   const balance = resolved.balance;
   const payment = resolved.pay;
-  document.getElementById('idd-icon').innerHTML = bankIcon(name, 34, true, 'installment');
+  document.getElementById('idd-icon').innerHTML = bankIcon(name, 32, true, 'installment');
   document.getElementById('idd-heading').textContent = stripLeadingEmoji(name);
   document.getElementById('iddfielda1').value = stripLeadingEmoji(name);
   document.getElementById('idd-initial').value = acc.initialAmount ? formatThousands(acc.initialAmount) : '';

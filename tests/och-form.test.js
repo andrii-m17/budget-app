@@ -132,8 +132,8 @@ test('таблиця Аналітики: «Платіж/міс» = станда�
 
 // ---- Rev 2.32.172: «Умови», єдина підказка поля, підказка про відхилення ----
 test('«Умови»: рядок із поточними значеннями, згорнуті за замовчуванням, у розгорнутих — сегменти й «Залишок за банком»; стан не зберігається', function(){
-  assert.equal(g.ochCondSummary('next_month', 'manual'), 'Наступного місяця · Вношу вручну');
-  assert.equal(g.ochCondSummary('same_day', 'auto'), 'У день оформлення · Автоматично'); assert.equal(g.ochCondSummary(undefined, undefined), 'У день оформлення · Вношу вручну');
+  assert.equal(g.ochCondSummary('next_month', 'manual'), 'Наступного місяця · Вручну');
+  assert.equal(g.ochCondSummary('same_day', 'auto'), 'У день оформлення · Автоматично'); assert.equal(g.ochCondSummary(undefined, undefined), 'У день оформлення · Вручну');
   const form = SRC.slice(SRC.indexOf('<div class="och-form">'), SRC.indexOf('Видалити ОЧ</button>'));
   assert.match(form, /<button type="button" class="och-cond-row" id="idd-cond-btn" aria-expanded="false" aria-controls="idd-cond" onclick="ochToggleCond\(\)">/);
   assert.match(form, /<div class="och-cond" id="idd-cond" hidden>/);
@@ -177,4 +177,37 @@ test('підказка про відхилення: лише коли введе
   assert.ok(!/очікуван|на \$\{|більше|менше/.test(fn), 'слова «очікуване» й «на N% більше» прибрано');
   assert.match(SRC, /idd-balance'\)\.dataset\.expected = est\.balance != null \? est\.balance : ''/, 'порівняння з розрахованим ланцюжком залишком');
   assert.match(CSS, /\.bdr-diff-warning\{ display:none; font-size:10\.5px; color:var\(--color-warning\);/, 'тепле оформлення');
+});
+
+// ---- Rev 2.32.173 (OCH-FORM-3): фінальний макет — розміри, скло, стани ----
+const FINAL = (function(){ const i = CSS.indexOf('Rev 2.32.173 (OCH-FORM-3)'); const k = CSS.indexOf('*/', i) + 2; return CSS.slice(k, k + 5200); })();
+test('фінальний макет: шторка r 28 зверху з відступом 14, ручка 36×4, заголовок (логотип 32 r 8, назва 15/500, підзаголовок 11, закриття коло 30)', function(){
+  assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:28px 28px var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
+  assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:4px;/);
+  assert.match(FINAL, /#installment-drawer \.drawer-head-icon\{ width:32px; height:32px; border-radius:8px;/);
+  assert.match(FINAL, /#installment-drawer \.drawer-head h2\{ font-size:15px; font-weight:500; \}/); assert.match(FINAL, /\.drawer-head-sub\{ font-size:11px; \}/);
+  assert.match(FINAL, /#installment-drawer \.drawer-close\{ width:30px; height:30px; border-radius:50%; \}/);
+  assert.match(SRC, /idd-icon'\)\.innerHTML = bankIcon\(name, 32, true, 'installment'\)/);
+});
+test('фінальний макет: поле 34 / r 12 / текст 14 / підпис 10 px, підпис→поле 3, рядки 8, колонки 8; «Умови» 36 / r 12; сегмент 32 / r 12 / padding 2 / повзунок r 10; кнопки 40 / r 14 / проміжок 8; «Видалити ОЧ» 12 px', function(){
+  assert.match(FINAL, /\.och-form \.field input\{ height:34px; padding:0 12px; border-radius:12px; font-size:14px; \}/);
+  assert.match(FINAL, /\.och-form \.field label\{ font-size:10px; letter-spacing:\.5px; margin-bottom:3px; \}/);
+  assert.match(FINAL, /\.och-form \.field\{ margin-bottom:8px; \}/); assert.match(FINAL, /\.och-form \.row-2\{ gap:8px; \}/);
+  assert.match(FINAL, /\.och-cond-row\{ height:36px; border:1px solid var\(--och-glass-line\); border-radius:12px;/);
+  assert.match(FINAL, /\.och-seg\{ height:32px; box-sizing:border-box; padding:2px; gap:2px;[^}]*border-radius:12px;/);
+  assert.match(FINAL, /\.och-seg button\{ height:100%; border-radius:10px;/);
+  assert.match(FINAL, /\.och-actions\{ gap:8px;[^}]*border-top:1px solid var\(--color-border\);/); assert.match(FINAL, /\.och-actions > button\{ height:40px; border-radius:14px; \}/);
+  assert.match(FINAL, /\.och-form \.cdd-delete-link\{ font-size:12px;/);
+});
+test('фінальний макет: скло — градієнт білого 9% → 3,5%, обводка 16%, верхній блик (inset); повзунок — зелений градієнт з обводкою й блиском; без backdrop-filter', function(){
+  assert.match(FINAL, /:root\[data-theme="dark"\]\{ --och-glass-a:rgba\(255,255,255,\.09\); --och-glass-b:rgba\(255,255,255,\.035\); --och-glass-line:rgba\(255,255,255,\.16\);/);
+  assert.match(FINAL, /\.och-cond-row\{[^}]*background:linear-gradient\(180deg, var\(--och-glass-a\) 0%, var\(--och-glass-b\) 100%\); box-shadow:inset 0 1px 0 var\(--och-glass-hi\);/);
+  assert.match(FINAL, /\.och-seg button\[aria-checked="true"\]\{ background:linear-gradient\(180deg, rgba\(34,197,94,\.55\) 0%, rgba\(34,197,94,\.30\) 100%\); border-color:rgba\(34,197,94,\.55\); box-shadow:[^}]*inset 0 1px 0 rgba\(255,255,255,\.35\);/);
+  assert.ok(!/backdrop-filter/.test(FINAL.slice(0, FINAL.indexOf('#installment-drawer .och-form .cdd-delete-link{ font-size:12px') + 200)));
+});
+test('стани: «Умови» згорнуті — значення (напр. «Наступного місяця · Вручну»), розгорнуті — «Згорнути»; за замовчуванням за банком (ПУМБ: Наступного місяця · Вручну)', function(){
+  const mk = hidden => { const els = { 'idd-cond': { hidden }, 'idd-cond-val': { textContent: '' }, 'idd-first': { getAttribute: () => 'next_month' }, 'idd-mode': { getAttribute: () => 'manual' } }; const c = buildSandbox({ document: { getElementById: id => els[id] || null } }, ['ochCondSummary', 'ochUpdateCondSummary']); c.ochUpdateCondSummary(); return els['idd-cond-val'].textContent; };
+  assert.equal(mk(true), 'Наступного місяця · Вручну'); assert.equal(mk(false), 'Згорнути');
+  const d = g.ochDefaultSegments('ПУМБ Dyson'); assert.equal(g.ochCondSummary(d.firstPayment, d.payMode), 'Наступного місяця · Вручну');
+  const m = g.ochDefaultSegments('Моно Ноутбук'); assert.equal(g.ochCondSummary(m.firstPayment, m.payMode), 'У день оформлення · Автоматично');
 });
