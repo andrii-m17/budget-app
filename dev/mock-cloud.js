@@ -49,7 +49,7 @@
     cats.forEach(function(c, i){ for(let k = 1; k <= 2; k++) subs.push(base({ id: uuid(), name: (hostile ? '<b>' + k + '</b>' : 'Підкатегорія ' + (i + 1) + '.' + k), category_id: c.id, active: true, deactivated_via: null })); });
     const dict = cats.slice(0, 4).map(function(c, i){ return base({ id: uuid(), keyword: 'слово' + (i + 1), category_id: c.id, subcategory_id: null, deleted_via: null }); });
     const banks = [base({ id: uuid(), name: 'Картка 1', credit_limit: 20000, payment_day: name === 'edge-dates' ? 31 : 15 }), base({ id: uuid(), name: 'Картка 2', credit_limit: 10000, payment_day: null })];
-    const insts = [base({ id: uuid(), name: 'Розстрочка 1', initial_amount: 12000, due_day: name === 'edge-dates' ? 31 : 10 })];
+    const insts = [base({ id: uuid(), name: 'Розстрочка 1', initial_amount: 12000, due_day: name === 'edge-dates' ? 31 : 10, term_months: 12, start_date: '2026-08-10', first_payment: 'same_day', pay_mode: 'manual', payment: null })];
     T.categories = cats; T.subcategories = subs; T.dictionary = dict; T.bank_accounts = banks; T.installment_accounts = insts;
     const nExp = { one: 1, typical: 120, large: 5000, invalid: 12, hostile: 30, 'edge-dates': 14, 'two-devices': 120 }[name];
     const months = name === 'large' ? 36 : 3;

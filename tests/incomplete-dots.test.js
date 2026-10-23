@@ -90,7 +90,7 @@ test('«Заповнити» відкриває шторку цієї картк
   assert.match(fill, /if\(raw !== ''\) return;/); // лише порожні; Rev 2.32.150: «0» (і платіж ОЧ) уже введено
   assert.match(MOD, /showConfirmModal\(msg, function\(\)\{ fillIncomplete\(kind, i, details\.map\(function\(d\)\{ return d\.code; \}\)\); \}, 'Заповнити', 'primary'\);/); // Rev 2.32.45 (FB): основна дія — явний variant замість пізнього присвоєння класу
   ['limit', 'balance', 'minPayment', 'dueDay', 'initialAmount', 'payment'].forEach(r => { assert.match(MOD, new RegExp(r + ': \'[a-z-]+\'')); });
-  ['cdd-limit', 'cdd-balance', 'cdd-minpay', 'idd-due-day', 'idd-initial', 'idd-pay'].forEach(id => assert.ok(SRC.includes('id="' + id + '"'), id + ' існує'));
+  ['cdd-limit', 'cdd-balance', 'cdd-minpay', 'idd-start', 'idd-initial', 'idd-pay'].forEach(id => assert.ok(SRC.includes('id="' + id + '"'), id + ' існує'));
 });
 
 test('рекордер: incomplete-dots (cards, installments, reasonCounts) при відкритті «Обліку», без назв і сум', () => {

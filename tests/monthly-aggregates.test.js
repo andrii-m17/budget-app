@@ -93,7 +93,7 @@ function debtSandbox(){
       // записів кличе resolveInstallmentFact() (пріоритет прив'язаної
       // витрати над ручним фактом) — весь ланцюжок залежностей мусить бути
       // в sandbox, інакше ReferenceError усередині extracted-коду.
-      'resolveInstallmentFact', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum',
+      'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum',
       'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey']
   );
 }

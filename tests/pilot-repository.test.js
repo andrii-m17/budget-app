@@ -181,7 +181,7 @@ const REPOSITORY_NAMES = [
   // Rev #30 (6D.27, installment_accounts повний цикл) — той самий
   // cross-realm-override прийом, що pullBankAccountsCore тести.
   // pullInstallmentAccountsPilotManual НЕ включена (DOM-шар).
-  'pullInstallmentAccountsCore', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
+  'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
   // Rev #30 (6D.32, hidden_entities перша реалізація) — той самий
   // local/push розподіл, що решта 5 доменів. pullHiddenEntitiesPilotManual
   // НЕ включена (DOM-шар).

@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payNamesParts', 'payPartsText', 'payUnconfirmedParts', 'payUnconfirmedLadder', 'payNoDayParts', 'paymentsCardModel']);
+const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payNamesParts', 'payPartsText', 'payUnconfirmedParts', 'payUnconfirmedLadder', 'payNoDayParts', 'paymentsCardModel']);
 const I = (name, dueDay) => ({ name, dueDay });
 const D = (name, month, extra) => Object.assign({ kind: 'installment', name, month, monthlyPayment: 100, balance: 9 }, extra || {});
 function model(o, remind){
@@ -96,7 +96,7 @@ test('вимірювальна логіка fitPaymentsCard підтримує �
   assert.match(SRC, /const put = function\(i\)\{ if\(el\._payParts\) payRenderParts\(el, el\._payParts\[i\]\); else el\.textContent = ladder\[i\]; \};/);
 });
 test('екран «Платежі» (розгорнутий вигляд): секція «ОЧ без дати» з назвами — як «Картки без дати»; без суми; порожній стан не змінюється', function(){
-  const c2 = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'installmentTypicalPay', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'ppModeAmount', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payRelative', 'paymentsScreenModel']);
+  const c2 = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'ppModeAmount', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payRelative', 'paymentsScreenModel']);
   const run = (o) => { const today = '2026-10-15'; return j(c2.paymentsScreenModel(c2.upcomingPayments(Object.assign({ today, horizonDays: 14, installments: [], cards: [], debtsByMonth: [], expenses: [], hidden: {} }, o)), today)); };
   const m = run({ installments: [I('Без1', null), I('Без2', null), I('Ок', 20)], debtsByMonth: [D('Без1', '2026-10'), D('Без2', '2026-10'), D('Ок', '2026-10')] });
   const sec = m.sections.find(s => s.key === 'noday');
@@ -120,19 +120,19 @@ function nodayEnv(opts){
     installmentAccounts: o.accounts || [{ name: 'А' }, { name: 'Предмет Б' }], isPaymentsOpen: true, isPaymentsOpenRef: ref, motionReduced: () => true, setTimeout: () => 0,
     performSwitchTab: t => { log.push('tab:' + t); ref.paymentsClosed = true; }, switchAccountingTab: t => log.push('acc:' + t),
     openInstallmentEditor: i => { log.push('editor:' + i); if(o.editorThrows) throw new Error('x'); },
-    document: { getElementById: id => id === 'idd-due-day' ? field : id === 'installment-drawer' ? drawer : mk(true) },
+    document: { getElementById: id => id === 'idd-start' ? field : id === 'installment-drawer' ? drawer : mk(true) },
     highlightInstallmentRow: i => log.push('row-hl:' + i), restoreFocus: () => log.push('restore'), unlockBackgroundScroll: () => log.push('unlock'), openPaymentsScreen: () => log.push('payments-open'),
     installmentReturnToPayments: false,
   };
   const c = buildSandbox(g, ['openInstallmentFromPayments', 'closeInstallmentEditor']);
   return { c, log };
 }
-test('тап по «ОЧ без дати»: «Облік» → ОЧ → шторка саме цієї ОЧ, «Дата платежу» підсвічується, без автофокусу на поле', function(){
+test('тап по «ОЧ без дати»: «Облік» → ОЧ → шторка саме цієї ОЧ, «Дата створення» підсвічується, без автофокусу на поле', function(){
   const e = nodayEnv();
   assert.equal(e.c.openInstallmentFromPayments('Предмет Б'), 'drawer');
   assert.deepEqual(e.log, ['tab:accounting', 'acc:installments', 'editor:1', 'hl-field', 'scroll-field']);
   assert.match(SRC, /function openInstallmentEditor\(i\)\{[\s\S]*?focusFirstIn\(document\.getElementById\('installment-drawer'\)\);/, 'відкриття шторки лишається з focusFirstIn (контейнер, не поле)');
-  assert.ok(!/idd-due-day'\)\.focus\(/.test(SRC), 'жодного програмного focus() на полі');
+  assert.ok(!/idd-start'\)\.focus\(/.test(SRC), 'жодного програмного focus() на полі');
   assert.match(SRC, /\.drawer \.field\.just-notified\{ background:var\(--color-info-bg\); border-radius:var\(--radius-sm\); animation:cardBlink \.8s ease-in-out 3; \}/);
 });
 test('закриття шторки повертає на екран «Платежі», один раз; звичайне відкриття шторки (не з «Платежів») не повертає', function(){

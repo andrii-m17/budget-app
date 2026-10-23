@@ -89,7 +89,7 @@ test('filterPurgedAccounts / filterPurgedDebts: бекап не відновлю
 // ---------- охоронні тести коду ----------
 test('pull: tombstone-рядок прибирає рахунок і не зв’язується/не створює за назвою; select містить deleted_at; reconcile за назвою ігнорує tombstone-рядки', () => {
   assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,credit_limit,payment_day,created_at,updated_at,deleted_at'/);
-  assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,initial_amount,due_day,created_at,updated_at,deleted_at'/);
+  assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,initial_amount,due_day(?:,term_months,start_date,first_payment,pay_mode,payment)?,created_at,updated_at,deleted_at'/);
   assert.equal((SRC.match(/if\(row\.deleted_at\)\{ if\(await pullAccountTombstone\(/g) || []).length, 2);
   // tombstone-обробка йде ДО зв'язування за назвою
   const bank = SRC.slice(SRC.indexOf('async function pullBankAccountsCore'), SRC.indexOf('async function pullBankAccountsPilot'));

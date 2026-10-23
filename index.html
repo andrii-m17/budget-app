@@ -630,6 +630,31 @@
   #installment-drawer .drawer-handle{ margin:-8px -20px 1px; padding:8px 0 1px; }
   #installment-drawer .installment-pay-btn{ margin-top:4px; margin-bottom:6px; }
   .field{ margin-bottom:14px; min-width:0; } .field:last-child{ margin-bottom:0; }
+  /* Rev 2.32.171 (OCH-MODEL): компактна форма ОЧ — поля 34 px, підписи 10 px, текст поля як був (16 px); сегменти; закріплені кнопки; унікальні класи och-* (без конфліктів із класами форм). */
+  #installment-drawer .och-form .field{ margin-bottom:8px; }
+  #installment-drawer .och-form .field label{ font-size:10px; letter-spacing:.4px; margin-bottom:3px; }
+  #installment-drawer .och-form .field input{ height:34px; padding:0 12px; }
+  #installment-drawer .och-form .row-2{ gap:10px; flex-wrap:nowrap; }
+  #installment-drawer .och-form .row-2 > .field{ flex:1 1 0; }
+  .och-hint{ font-size:11px; color:var(--color-text-secondary); margin:-4px 0 6px; min-height:0; }
+  .och-hint:empty{ display:none; }
+  .och-seg-block{ margin-bottom:8px; }
+  .och-seg-label{ display:block; font-size:10px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
+  /* сегменти: вибраний пункт — «ліквід глас»-пілюля (ті самі значення, що активний пункт таб-бара: прозора зелена заливка, тонка рамка, м'яке сяйво, верхній блик); без backdrop-filter (охоронний тест дозволяє його лише обраним елементам) */
+  .och-seg{ display:flex; gap:2px; padding:2px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); }
+  .och-seg button{ flex:1 1 0; min-width:0; height:30px; border:1px solid transparent; border-radius:calc(var(--radius-sm) - 3px); background:transparent; color:var(--color-text-primary); font:inherit; font-size:13px; padding:0 6px; cursor:pointer; }
+  .och-seg button[aria-checked="true"]{ background:rgba(34,197,94,.16); border-color:rgba(34,197,94,.32); box-shadow:0 2px 8px rgba(34,197,94,.22), inset 0 1px 0 rgba(255,255,255,.22); color:var(--color-primary-hover); font-weight:600; }
+  #installment-drawer .och-actions{ position:sticky; bottom:0; z-index:2; display:flex; gap:8px; padding:8px 0 4px; background:var(--color-surface); }
+  #installment-drawer .och-actions > button{ flex:1 1 0; min-width:0; margin:0; height:42px; padding:0 8px; }
+  #installment-drawer .och-form .cdd-delete-link{ margin-top:6px; padding-top:8px; }
+  /* овали таблиці «Оплати частинами» (Аналітика): однакова ширина ≈ 76 px на картці 360 px, висота 5 px, проміжок 2 px; овали розтягуються порівну (flex:1 1 0; min-width:0); > 24 місяців — суцільна смуга */
+  .t-row .t-bar-h.och-bar-h, .table-header .t-bar-h.och-bar-h{ flex:0 0 24%; min-width:48px; max-width:90px; overflow:hidden; } /* частка ширини рядка (однакова в усіх рядках): ≈ 76 px на картці 360 px */
+  .t-row .t-amt.narrow.och-pay, .table-header .t-amt.narrow.och-pay{ flex:0 0 46px; } /* колонка «Платіж/міс» без знака валюти — місце під назви */
+  .och-ovals{ display:flex; gap:2px; width:100%; overflow:hidden; align-items:center; }
+  .och-oval{ display:block; flex:1 1 0; min-width:0; height:5px; border-radius:3px; background:var(--color-track-bg); }
+  .och-oval.on{ background:var(--color-success); }
+  .och-solid{ display:block; width:100%; height:5px; border-radius:3px; background:var(--color-track-bg); overflow:hidden; }
+  .och-solid > i{ display:block; height:100%; border-radius:3px; background:var(--color-success); }
   /* Rev 2.32.6 (X): .fld-label-like — той самий вигляд підпису БЕЗ <label for> (варіант no-for тесту edit-label) */
   .field label, .field .fld-label-like{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
@@ -3675,7 +3700,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.170</div>
+  <div class="version-footer">Money Tree · Rev 2.32.171</div>
 </div>
   </div>
 </div>
@@ -4246,40 +4271,59 @@
     </div>
     <button class="drawer-close" onclick="closeInstallmentEditor()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
-  <div class="field">
-    <!-- Rev 2.23.1 (6D.171) — та сама заміна, що cdd-name вище. -->
-    <label for="iddfielda1">Назва</label>
-    <input type="text" id="iddfielda1">
-  </div>
-  <!-- Rev 2.17.2 — "Початкова сума" і "Дата платежу" в одному рядку, той
-       самий .row-2 (рівний поділ 50/50), що Залишок/Платіж нижче — за
-       проханням користувача, однаковий вигляд полів в межах шторки. -->
-  <div class="row-2">
+  <!-- Rev 2.32.171 (OCH-MODEL): компактна форма ОЧ (поля 34 px, підписи 10 px): назва; «Загальна сума» і «Місяців»; «Дата створення» і «Платіж/міс»; два сегменти; необов'язковий «Залишок за банком»; «Оплатити» і «Зберегти» закріплені внизу; «Видалити ОЧ». Поле «Дата платежу» прибрано: день платежу = число дати створення (для ОЧ без дати створення dueDay лишається). -->
+  <div class="och-form">
     <div class="field">
-      <label for="idd-initial">Початкова сума</label>
-      <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-initial" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+      <label for="iddfielda1">Назва</label>
+      <input type="text" id="iddfielda1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="next" onkeydown="ochEnterNext(event, 'idd-initial')">
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label for="idd-initial">Загальна сума</label>
+        <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-initial" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="next" oninput="ochAutoPay()" onkeydown="ochEnterNext(event, 'idd-term')" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+      </div>
+      <div class="field">
+        <label for="idd-term">Місяців</label>
+        <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-term" maxlength="3" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="next" oninput="ochAutoPay()" onkeydown="ochEnterNext(event, 'idd-pay')">
+      </div>
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label for="idd-start">Дата створення</label>
+        <input type="date" id="idd-start" onchange="ochStartChanged()">
+      </div>
+      <div class="field">
+        <label for="idd-pay">Платіж/міс</label>
+        <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-pay" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" oninput="ochPayTouched()" onkeydown="ochEnterNext(event, null)" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+      </div>
+    </div>
+    <div class="och-hint" id="idd-due-hint"></div>
+    <div class="och-seg-block">
+      <span class="och-seg-label" id="idd-first-l">Перший платіж</span>
+      <div class="och-seg" id="idd-first" role="radiogroup" aria-labelledby="idd-first-l" data-value="same_day">
+        <button type="button" role="radio" aria-checked="true" data-v="same_day" onclick="ochSegPick('idd-first', 'same_day')">У день оформлення</button>
+        <button type="button" role="radio" aria-checked="false" data-v="next_month" onclick="ochSegPick('idd-first', 'next_month')">Наступного місяця</button>
+      </div>
+    </div>
+    <div class="och-seg-block">
+      <span class="och-seg-label" id="idd-mode-l">Списання</span>
+      <div class="och-seg" id="idd-mode" role="radiogroup" aria-labelledby="idd-mode-l" data-value="manual">
+        <button type="button" role="radio" aria-checked="false" data-v="auto" onclick="ochSegPick('idd-mode', 'auto')">Автоматично</button>
+        <button type="button" role="radio" aria-checked="true" data-v="manual" onclick="ochSegPick('idd-mode', 'manual')">Вношу вручну</button>
+      </div>
     </div>
     <div class="field">
-      <label for="idd-due-day">Дата платежу</label>
-      <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-due-day" placeholder="15">
-    </div>
-  </div>
-  <div class="bdr-init-amount" id="idd-linked-note"></div>
-  <div class="row-2">
-    <div class="field">
-      <label for="idd-balance">Залишок</label>
-      <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-balance" oninput="checkInstallmentDivergence()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+      <label for="idd-balance">Залишок за банком (необов'язково)</label>
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-balance" placeholder="—" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" oninput="checkInstallmentDivergence()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
       <span class="bdr-diff-warning" id="idd-balance-diff"></span>
     </div>
-    <div class="field">
-      <label for="idd-pay">Платіж/міс</label>
-      <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-pay" oninput="checkInstallmentPaymentDivergence()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
-      <span class="bdr-diff-warning" id="idd-pay-diff"></span>
+    <div class="bdr-init-amount" id="idd-linked-note"></div>
+    <div class="och-actions">
+      <button type="button" class="installment-pay-btn" onclick="payInstallmentQuick()">Оплатити</button>
+      <button type="button" class="submit-btn debt pill" onclick="saveInstallmentDrawer()">Зберегти</button>
     </div>
+    <button type="button" class="cdd-delete-link" onclick="deleteInstallmentFromDrawer()">Видалити ОЧ</button>
   </div>
-  <button type="button" class="installment-pay-btn" onclick="payInstallmentQuick()">💳 Оплатити цю ОЧ</button>
-  <button type="button" class="submit-btn debt pill" onclick="saveInstallmentDrawer()">Зберегти</button>
-  <button type="button" class="cdd-delete-link" onclick="deleteInstallmentFromDrawer()">Видалити ОЧ</button>
 </div>
 
 <!-- ================= Редагування доходу (Drawer, Rev 2.17.0) =================
@@ -7788,7 +7832,7 @@ async function pushInstallmentAccountsPilot(){
     const prevCloudId = acc.cloudId;
     try{
       if(acc.cloudId){
-        const { data, error } = await client.from('installment_accounts').update({ name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
+        const { data, error } = await client.from('installment_accounts').update({ name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, term_months: acc.termMonths ?? null, start_date: acc.startDate || null, first_payment: acc.firstPayment || null, pay_mode: acc.payMode || null, payment: acc.payment ?? null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
         if(error){ anyError = true; continue; }
         if(data && data.length === 0){
           acc.cloudId = null;
@@ -7829,10 +7873,10 @@ async function reconcileInstallmentAccountCloudId(client, userId, acc){
   if(existing){
     acc.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
-    await client.from('installment_accounts').update({ initial_amount: acc.initialAmount, due_day: acc.dueDay || null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', existing.id);
+    await client.from('installment_accounts').update({ initial_amount: acc.initialAmount, due_day: acc.dueDay || null, term_months: acc.termMonths ?? null, start_date: acc.startDate || null, first_payment: acc.firstPayment || null, pay_mode: acc.payMode || null, payment: acc.payment ?? null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', existing.id);
     return;
   }
-  const { data, error } = await client.from('installment_accounts').insert({ family_id: cloudFamilyId, name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
+  const { data, error } = await client.from('installment_accounts').insert({ family_id: cloudFamilyId, name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, term_months: acc.termMonths ?? null, start_date: acc.startDate || null, first_payment: acc.firstPayment || null, pay_mode: acc.payMode || null, payment: acc.payment ?? null, created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
   if(!error && data) acc.cloudId = data.id;
 }
 // Rev #30 (6D.27, installment_accounts повний цикл) — Pull pilot, написаний
@@ -7848,7 +7892,7 @@ async function pullInstallmentAccountsCore(opts){
   let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
   try{
-    const { data, error } = await fetchDeltaRows(client, 'installment_accounts', 'id,name,initial_amount,due_day,created_at,updated_at,deleted_at', 'installmentAccounts', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
+    const { data, error } = await fetchDeltaRows(client, 'installment_accounts', 'id,name,initial_amount,due_day,term_months,start_date,first_payment,pay_mode,payment,created_at,updated_at,deleted_at', 'installmentAccounts', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
     for(const row of data){
       if(row.deleted_at){ if(await pullAccountTombstone('installment', row)) removed++; continue; } // Rev 2.32.4 (T2): див. pullBankAccountsCore
@@ -7868,10 +7912,12 @@ async function pullInstallmentAccountsCore(opts){
         // ініціалізується (undefined), тоді як Cloud завжди повертає явний
         // null для цієї nullable-колонки — undefined!==null було TRUE
         // назавжди → те саме нескінченне "1 оновлено" при кожному pull.
-        if(byCloudId.name !== row.name || byCloudId.initialAmount !== row.initial_amount || (byCloudId.dueDay ?? null) !== (row.due_day ?? null) || byCloudId.updatedAt !== row.updated_at){
+        // Rev 2.32.171 (OCH-MODEL): п'ять нових nullable-полів моделі ОЧ (term_months, start_date, first_payment, pay_mode, payment) порівнюються й застосовуються так само, як due_day (null із сервера ≡ undefined локально).
+        if(byCloudId.name !== row.name || byCloudId.initialAmount !== row.initial_amount || (byCloudId.dueDay ?? null) !== (row.due_day ?? null) || ochModelDiffers(byCloudId, row) || byCloudId.updatedAt !== row.updated_at){
           byCloudId.name = row.name;
           byCloudId.initialAmount = row.initial_amount;
           byCloudId.dueDay = row.due_day;
+          applyOchModelFromRow(byCloudId, row);
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
           byCloudId.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
@@ -7885,13 +7931,14 @@ async function pullInstallmentAccountsCore(opts){
         byName.cloudId = row.id;
         byName.initialAmount = row.initial_amount;
         byName.dueDay = row.due_day;
+        applyOchModelFromRow(byName, row);
         byName.createdAt = row.created_at;
         byName.updatedAt = row.updated_at;
         byName.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
         linked++;
         continue;
       }
-      installmentAccounts.push({ name: row.name, initialAmount: row.initial_amount, dueDay: row.due_day, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
+      installmentAccounts.push({ name: row.name, initialAmount: row.initial_amount, dueDay: row.due_day, termMonths: row.term_months ?? null, startDate: row.start_date ?? null, firstPayment: row.first_payment ?? null, payMode: row.pay_mode ?? null, payment: row.payment ?? null, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
       added++;
     }
     updateSyncMarkerFromAllRows('installmentAccounts', data);
@@ -8254,7 +8301,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.170';
+const APP_VERSION = '2.32.171';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8915,6 +8962,60 @@ function installmentRemindDays(){
 // Пріоритет у кожному місяці: (1) є прив'язана витрата: залишок = попередній обчислений залишок − сума прив'язаних (перший місяць: initialAmount − сума), не нижче 0, і вона ПЕРЕМАГАЄ внесений факт (6D.148); (2) прив'язаних немає, але є внесений факт місяця: факт; (3) нічого немає: залишок попереднього місяця БЕЗ віднімання типового платежу (Rev 2.32.168: прогнозів немає, ОЧ без платежів у місяці лишає залишок; було «− типовий платіж»). Попереднього залишку нема (перший місяць без initialAmount, далі нічого не відомо): (1) → факт місяця, (3) → null.
 // Пропущений місяць посередині просто проходить правилом (3) і передає залишок далі. Чисті функції без глобального стану (тести й upcomingPayments): spec = { initial, firstMonth, recs:[{month,balance,monthlyPayment}], linked:{ 'YYYY-MM': сума } }.
 // Ризик: місяць без прив'язаного платежу й без факту не зменшує залишок — доки платіж не внесено (прив'язана витрата чи факт), залишок лишається попереднім.
+// ===== Rev 2.32.171 (OCH-MODEL, клас C): модель ОЧ — загальна сума, місяці, дата створення, стандартний платіж, сегменти =====
+// Серверні поля installment_accounts: term_months, start_date, first_payment ('same_day' | 'next_month'), pay_mode ('auto' | 'manual'), payment (цілий), усі nullable. Стандартний платіж = payment, інакше round(initialAmount ÷ term_months); однаковий для всіх банків, переплати його не зменшують. first_payment і pay_mode поки лише зберігаються й синхронізуються (резерв для графіка), у розрахунках не беруть участі.
+const OCH_FIRST_PAYMENTS = ['same_day', 'next_month'];
+const OCH_PAY_MODES = ['auto', 'manual'];
+function ochModelDiffers(acc, row){
+  return (acc.termMonths ?? null) !== (row.term_months ?? null) || (acc.startDate ?? null) !== (row.start_date ?? null) || (acc.firstPayment ?? null) !== (row.first_payment ?? null) || (acc.payMode ?? null) !== (row.pay_mode ?? null) || (acc.payment ?? null) !== (row.payment ?? null);
+}
+function applyOchModelFromRow(acc, row){
+  acc.termMonths = row.term_months ?? null; acc.startDate = row.start_date ?? null; acc.firstPayment = row.first_payment ?? null; acc.payMode = row.pay_mode ?? null; acc.payment = row.payment ?? null;
+}
+// Типові сегменти за назвою банку: перший платіж «У день оформлення» для всіх, крім ПУМБ («Наступного місяця»); списання «Автоматично» для Моно й Приват, «Вношу вручну» для ПУМБ і решти.
+function ochDefaultSegments(name){
+  const n = String(name || '').toLowerCase();
+  const pumb = n.indexOf('пумб') !== -1 || n.indexOf('pumb') !== -1;
+  const auto = n.indexOf('моно') !== -1 || n.indexOf('mono') !== -1 || n.indexOf('приват') !== -1 || n.indexOf('privat') !== -1;
+  return { firstPayment: pumb ? 'next_month' : 'same_day', payMode: auto && !pumb ? 'auto' : 'manual' };
+}
+function installmentStandardPayment(acc){
+  if(!acc) return null;
+  const p = Number(acc.payment);
+  if(acc.payment != null && acc.payment !== '' && p > 0) return Math.round(p);
+  const init = Number(acc.initialAmount), term = Number(acc.termMonths);
+  if(init > 0 && term > 0) return Math.round(init / term);
+  return null;
+}
+// Скільки платежів лишилось: ceil(залишок ÷ платіж); залишок ≤ 0 → 0; платежу нема → null.
+function installmentPaymentsLeft(balance, payment){
+  const b = Number(balance), p = Number(payment);
+  if(balance == null || isNaN(b) || !(p > 0)) return null;
+  return b <= 0 ? 0 : Math.ceil(b / p);
+}
+// Платіж місяця за ланцюжком: стандартний, але останній платіж = залишок (не більше за залишок).
+function installmentPayAmount(standard, balanceBefore){
+  if(!(standard > 0)) return null;
+  const b = Number(balanceBefore);
+  return balanceBefore != null && !isNaN(b) && b > 0 && b < standard ? b : standard;
+}
+// Овали таблиці «Оплати частинами»: { mode: 'none' | 'ovals' | 'solid', total, done }; none — немає term_months (або платежу, щоб порахувати); solid — term_months > 24 (суцільна смуга); done = term − лишилось платежів у межах 0..term.
+const OCH_OVALS_MAX = 24;
+function ochOvalsModel(termMonths, balance, payment){
+  const term = Math.round(Number(termMonths));
+  if(!(term >= 1)) return { mode: 'none', total: 0, done: 0 };
+  const left = installmentPaymentsLeft(balance, payment);
+  if(left === null) return { mode: 'none', total: term, done: 0 };
+  const done = Math.max(0, Math.min(term, term - left));
+  return { mode: term > OCH_OVALS_MAX ? 'solid' : 'ovals', total: term, done: done };
+}
+function ochOvalsHtml(model){
+  if(!model || model.mode === 'none') return '';
+  if(model.mode === 'solid'){ const pct = Math.round(model.done / model.total * 100); return '<span class="och-solid" aria-hidden="true"><i style="width:' + pct + '%"></i></span>'; }
+  let h = '<span class="och-ovals" aria-hidden="true">';
+  for(let i = 0; i < model.total; i++) h += '<i class="och-oval' + (i < model.done ? ' on' : '') + '"></i>';
+  return h + '</span>';
+}
 function installmentTypicalPay(recs, beforeMonth){
   const rs = (recs || []).filter(function(d){ return d.monthlyPayment != null && String(d.month).slice(0, 7) < beforeMonth; }).sort(function(a, b){ return String(a.month).localeCompare(String(b.month)); });
   if(!rs.length) return null;
@@ -8994,7 +9095,9 @@ function upcomingPayments(opts){
         if(installmentPaidFull(linkedSum, expected).paid) return; // сплачено
       }
       let amount = null, estimated = false;
+      const stdPay = installmentStandardPayment(inst); // Rev 2.32.171 (OCH-MODEL): стандартний платіж моделі ОЧ (payment ?? сума ÷ місяці); останній платіж = залишок
       if(rec){ amount = rec.monthlyPayment; }
+      else if(stdPay != null){ amount = installmentPayAmount(stdPay, chainBefore); }
       else{
         const prev = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month < month && d.monthlyPayment != null; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).map(function(d){ return d.monthlyPayment; });
         const mode = expectedPaymentForCard(prev.slice().reverse()); // Rev 2.32.70: prev хронологічно → нові спершу
@@ -13541,7 +13644,8 @@ function installmentBalanceBefore(name, month){
 function estimateInstallment(name, month){
   const prevBal = installmentBalanceBefore(name, month); // Rev 2.32.164 (OCH-CHAIN): було lastKnownBalance — останній збережений запис
   const linkedSum = linkedExpensesSum(name, month);
-  const typicalPay = typicalMonthlyPayment(name, 'installment', month);
+  const accStd = installmentStandardPayment(installmentAccounts.find(function(a){ return a.name === name; }));
+  const typicalPay = accStd != null ? accStd : typicalMonthlyPayment(name, 'installment', month); // Rev 2.32.171 (OCH-MODEL): стандартний платіж моделі, а без нього — типовий за історією
   const pay = linkedSum > 0 ? linkedSum : typicalPay;
   // Rev 2.32.168 (OCH-CHAIN-2): balance — залишок місяця за правилом ланцюжка: прив'язана витрата → попередній − сума (≥ 0); інакше попередній БЕЗ віднімання типового платежу. expected — «очікуваний після платежу» (попередній − прив'язана/типовий) лише для порівняння з внесеним фактом (шторка, діагностика розбіжностей); на екранах не показується.
   const balance = (prevBal != null) ? (linkedSum > 0 ? Math.max(0, prevBal - linkedSum) : prevBal) : null;
@@ -13617,6 +13721,46 @@ let editingInstallmentIdx = -1;
 // збереженим фактом або "очікуваним" значенням (той самий carry-forward, що
 // раніше в інлайн-полях) — і з тією самою живою перевіркою розбіжності
 // (checkInstallmentDivergence нижче), яку користувач попросив зберегти.
+// Rev 2.32.171 (OCH-MODEL): допоміжні функції форми ОЧ. ochPayManual — користувач сам змінив «Платіж/міс» (інакше він підставляється як сума ÷ місяці й у модель не записується, payment = null).
+let ochPayManual = false;
+function ochSetSeg(id, value){
+  const seg = document.getElementById(id); if(!seg) return;
+  seg.setAttribute('data-value', value);
+  seg.querySelectorAll('button').forEach(function(b){ b.setAttribute('aria-checked', b.getAttribute('data-v') === value ? 'true' : 'false'); });
+}
+function ochSegPick(id, value){ ochSetSeg(id, value); if(typeof refreshSaveGates === 'function') refreshSaveGates(); }
+// «Далі»: назва → сума → місяців → платіж/міс; nextId = null — кінець (прибрати фокус). Enter не відправляє форму.
+function ochEnterNext(e, nextId){
+  if(!e || e.key !== 'Enter') return;
+  e.preventDefault();
+  const next = nextId ? document.getElementById(nextId) : null;
+  if(next){ try{ next.focus(); }catch(err){} }
+  else if(e.target && typeof e.target.blur === 'function') e.target.blur();
+}
+function ochCalcAutoPay(totalRaw, termRaw){
+  const total = parseAmount(totalRaw), term = parseInt(termRaw, 10);
+  return total > 0 && term > 0 ? Math.round(total / term) : null;
+}
+function ochAutoPay(){
+  if(ochPayManual) { if(typeof refreshSaveGates === 'function') refreshSaveGates(); return; }
+  const v = ochCalcAutoPay(document.getElementById('idd-initial').value, document.getElementById('idd-term').value);
+  document.getElementById('idd-pay').value = v != null ? formatThousands(v) : '';
+  if(typeof refreshSaveGates === 'function') refreshSaveGates();
+}
+function ochPayTouched(){ ochPayManual = true; if(typeof refreshSaveGates === 'function') refreshSaveGates(); }
+function ochStartChanged(){ ochUpdateDueHint(installmentAccounts[editingInstallmentIdx]); if(typeof refreshSaveGates === 'function') refreshSaveGates(); }
+// День платежу: число дати створення; для старої ОЧ без дати створення — збережений dueDay.
+function ochDueDayFor(startDate, savedDueDay){
+  const m = /^\d{4}-\d{2}-(\d{2})$/.exec(String(startDate || ''));
+  const d = m ? parseInt(m[1], 10) : NaN;
+  if(d >= 1 && d <= 31) return d;
+  return savedDueDay || null;
+}
+function ochUpdateDueHint(acc){
+  const el = document.getElementById('idd-due-hint'); if(!el) return;
+  const d = ochDueDayFor(document.getElementById('idd-start').value, acc && acc.dueDay);
+  el.textContent = d ? 'День платежу: ' + d : '';
+}
 function openInstallmentEditor(i){
   const acc = installmentAccounts[i];
   if(!acc) return;
@@ -13636,17 +13780,23 @@ function openInstallmentEditor(i){
   document.getElementById('idd-heading').textContent = stripLeadingEmoji(name);
   document.getElementById('iddfielda1').value = stripLeadingEmoji(name);
   document.getElementById('idd-initial').value = acc.initialAmount ? formatThousands(acc.initialAmount) : '';
-  document.getElementById('idd-due-day').value = acc.dueDay || '';
-  document.getElementById('idd-balance').value = balance != null ? formatThousands(balance) : '';
-  document.getElementById('idd-pay').value = payment != null ? formatThousands(payment) : '';
+  // Rev 2.32.171 (OCH-MODEL): нові поля; значення за замовчуванням лише показуються (запис у модель — після «Зберегти»). «Залишок за банком» — лише внесений факт місяця (розрахунковий не підставляється й не зберігається сам).
+  document.getElementById('idd-term').value = acc.termMonths != null ? String(acc.termMonths) : '';
+  document.getElementById('idd-start').value = acc.startDate || '';
+  const stdPay = installmentStandardPayment(acc);
+  document.getElementById('idd-pay').value = stdPay != null ? formatThousands(stdPay) : '';
+  ochPayManual = acc.payment != null && Number(acc.payment) > 0;
+  const segDefs = ochDefaultSegments(name);
+  ochSetSeg('idd-first', OCH_FIRST_PAYMENTS.indexOf(acc.firstPayment) !== -1 ? acc.firstPayment : segDefs.firstPayment);
+  ochSetSeg('idd-mode', OCH_PAY_MODES.indexOf(acc.payMode) !== -1 ? acc.payMode : segDefs.payMode);
+  document.getElementById('idd-balance').value = existing && existing.balance != null ? formatThousands(existing.balance) : '';
   document.getElementById('idd-balance').dataset.expected = est.expected != null ? est.expected : ''; // Rev 2.32.168: порівняння з очікуваним після платежу, не з показаним залишком
-  document.getElementById('idd-pay').dataset.expected = est.pay != null ? est.pay : '';
   document.getElementById('idd-linked-note').innerHTML = est.linkedSum > 0
     ? `Прив'язана витрата цього місяця: ${fmt(est.linkedSum)}`
     : '';
+  ochUpdateDueHint(acc);
   checkInstallmentDivergence();
-  checkInstallmentPaymentDivergence();
-  beginSaveGate('inst', !existing); // Rev 2.32.144 (SAVE-DIRTY): відсутній запис за місяць = зміна (очікуване значення з «Залишку» не зберігається саме)
+  beginSaveGate('inst', false); // Rev 2.32.171: форма не тримає розрахункових значень як «зміну»; «Зберегти» активна лише після реальної зміни (SAVE-DIRTY)
   document.getElementById('installment-backdrop').removeAttribute('inert');
   document.getElementById('installment-drawer').removeAttribute('inert');
   document.getElementById('installment-backdrop').classList.add('open');
@@ -13663,7 +13813,7 @@ function openInstallmentFromPayments(name){
   if(idx >= 0){
     try{
       openInstallmentEditor(idx);
-      const fieldEl = document.getElementById('idd-due-day');
+      const fieldEl = document.getElementById('idd-start'); // Rev 2.32.171: «Дата створення» (день платежу тепер береться з неї)
       if(document.getElementById('installment-drawer').classList.contains('open') && fieldEl){
         installmentReturnToPayments = true;
         const wrap = fieldEl.closest('.field') || fieldEl;
@@ -13834,18 +13984,21 @@ async function saveInstallmentDrawer(){
   }
   acc.name = newName;
   acc.initialAmount = newInitial;
-  // Rev 2.17.0 — "Дата платежу": необов'язкове число 1-31, як і кредитний
-  // ліміт картки — властивість самої ОЧ (installmentAccounts), а не
-  // щомісячного запису debts[]. Порожнє поле — просто немає дати (null).
-  const rawDueDay = document.getElementById('idd-due-day').value.trim();
-  const dueDay = parseInt(rawDueDay, 10);
-  if(!rawDueDay){
-    acc.dueDay = null;
-  }else if(!isNaN(dueDay) && dueDay>=1 && dueDay<=31){
-    acc.dueDay = dueDay;
-  }else{
-    flashField('idd-due-day'); return;
-  }
+  // Rev 2.32.171 (OCH-MODEL): модель ОЧ. «Місяців» — необов'язкове ціле 1–360; «Дата створення» — YYYY-MM-DD (день платежу = її число; без дати створення dueDay лишається як був); «Платіж/міс» пишеться в payment лише якщо користувач сам його змінив (інакше null: стандартний платіж = сума ÷ місяці); сегменти пишуться явно. Для старих ОЧ нові поля null до першого «Зберегти».
+  const rawTerm = document.getElementById('idd-term').value.trim();
+  const termVal = rawTerm ? parseInt(rawTerm, 10) : null;
+  if(rawTerm && (isNaN(termVal) || termVal < 1 || termVal > 360 || String(termVal) !== rawTerm)){ flashField('idd-term'); return; }
+  const rawStart = document.getElementById('idd-start').value.trim();
+  if(rawStart && !/^\d{4}-\d{2}-\d{2}$/.test(rawStart)){ flashField('idd-start'); return; }
+  const rawStdPay = document.getElementById('idd-pay').value.trim();
+  const stdPayVal = rawStdPay ? Math.round(parseAmount(rawStdPay)) : null;
+  if(ochPayManual && rawStdPay && (isNaN(stdPayVal) || stdPayVal <= 0)){ flashField('idd-pay'); return; }
+  acc.termMonths = termVal;
+  acc.startDate = rawStart || null;
+  acc.payment = ochPayManual && stdPayVal > 0 ? stdPayVal : null;
+  acc.firstPayment = document.getElementById('idd-first').getAttribute('data-value');
+  acc.payMode = document.getElementById('idd-mode').getAttribute('data-value');
+  if(rawStart) acc.dueDay = ochDueDayFor(rawStart, acc.dueDay);
   // Rev #30 (6D.27) — updatedAt оновлюється при редагуванні (назва/сума/
   // дата платежу разом, той самий принцип, що saveCardDebtDrawer()) —
   // Крок 0 явно перевіряв, що due_day теж мусить тригерити цей штамп, а не
@@ -13871,8 +14024,7 @@ async function saveInstallmentDrawer(){
       pushedRecord = debts[existingIdx];
     }
   }else{
-    const rawPay = document.getElementById('idd-pay').value.trim();
-    const monthlyPayment = rawPay ? parseAmount(rawPay) : undefined;
+    const monthlyPayment = existingIdx>=0 ? debts[existingIdx].monthlyPayment : undefined; // Rev 2.32.171: платіж місяця форма більше не пише (стандартний платіж — у моделі ОЧ)
     if(existingIdx>=0){
       debts[existingIdx].balance = balance;
       debts[existingIdx].monthlyPayment = monthlyPayment;
@@ -16045,7 +16197,7 @@ function shouldOpenRowEdit(c){
 const SAVE_GATE_FIELDS = {
   income: [['amount', 'ind-amount', 'amt']],
   card: [['name', 'cddfielda1', 'txt'], ['limit', 'cdd-limit', 'amt'], ['payday', 'cdd-payday', 'txt'], ['balance', 'cdd-balance', 'amt'], ['minpay', 'cdd-minpay', 'amt'], ['paid', 'cdd-paid', 'chk']],
-  inst: [['name', 'iddfielda1', 'txt'], ['initial', 'idd-initial', 'amt'], ['due', 'idd-due-day', 'txt'], ['balance', 'idd-balance', 'amt'], ['pay', 'idd-pay', 'amt']]
+  inst: [['name', 'iddfielda1', 'txt'], ['initial', 'idd-initial', 'amt'], ['term', 'idd-term', 'txt'], ['start', 'idd-start', 'txt'], ['pay', 'idd-pay', 'amt'], ['first', 'idd-first', 'seg'], ['mode', 'idd-mode', 'seg'], ['balance', 'idd-balance', 'amt']] // Rev 2.32.171: нова модель ОЧ
 };
 const SAVE_GATE_BTN = { income: '#income-drawer .submit-btn.income', card: '#card-debt-drawer .submit-btn.debt', inst: '#installment-drawer .submit-btn.debt' };
 const saveGateSnaps = {};
@@ -16058,7 +16210,7 @@ function readSaveGateFields(kind){
   const out = {};
   (SAVE_GATE_FIELDS[kind] || []).forEach(function(f){
     const el = document.getElementById(f[1]);
-    out[f[0]] = saveGateNorm(el ? (f[2] === 'chk' ? el.checked : el.value) : '', f[2]);
+    out[f[0]] = saveGateNorm(el ? (f[2] === 'chk' ? el.checked : f[2] === 'seg' ? el.getAttribute('data-value') : el.value) : '', f[2]);
   });
   return out;
 }
@@ -19617,26 +19769,28 @@ function renderInstallmentsCard(debtNow, hasDebtData){
     return;
   }
   const sorted = instList.slice().sort((a,b)=>b.balance-a.balance);
+  // Rev 2.32.171 (OCH-MODEL): «Платіж/міс» = стандартний платіж ОЧ (payment ?? сума ÷ місяці), для ОЧ без моделі — платіж місяця, як було; смуга овалів: кількість = term_months, зафарбовані = term_months − ceil(залишок ÷ стандартний платіж), без підпису; > 24 — суцільна смуга; без term_months смуги нема.
+  const payOf = function(d){ const acc = installmentAccounts.find(function(a){ return a.name === d.name; }); const std = installmentStandardPayment(acc); return std != null ? std : d.monthlyPayment; };
+  const fmtPlain = function(n){ return fmt(n).replace(/\s*₴$/, ''); }; // колонка «Платіж/міс» без знака валюти (місце під назви)
+  const totalPay = sorted.reduce(function(sum, d){ const v = payOf(d); return sum + (v != null ? v : 0); }, 0);
   const compactBody = sorted.map(function(d){
+    const pv = payOf(d);
     return `<div class="t-row t-row-2col">
       <span class="t-name">${bankIcon(d.name, 22, false, 'installment')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
-      <span class="t-amt">${d.monthlyPayment!=null ? fmt(d.monthlyPayment) : '—'}</span>
+      <span class="t-amt">${pv!=null ? fmt(pv) : '—'}</span>
     </div>`;
-  }).join('') + `<div class="t-row t-row-2col summary"><span class="t-name">Разом на місяць</span><span class="t-amt">${fmt(debtNow.totalMonthlyInstallment)}</span></div>`;
+  }).join('') + `<div class="t-row t-row-2col summary"><span class="t-name">Разом на місяць</span><span class="t-amt">${fmt(totalPay)}</span></div>`;
   const detailBody = sorted.map(function(d){
     const acc = installmentAccounts.find(a=>a.name===d.name);
-    const initial = acc ? acc.initialAmount : null;
-    const paidPct = (initial && initial>0) ? Math.max(0, Math.min(100, (initial-d.balance)/initial*100)) : null;
-    const barHtml = paidPct!=null
-      ? `<div class="t-bar-track"><div class="t-bar-fill" style="width:${paidPct.toFixed(0)}%; background:var(--color-success);"></div></div>`
-      : '';
+    const pv = payOf(d);
+    const barHtml = ochOvalsHtml(ochOvalsModel(acc ? acc.termMonths : null, d.balance, acc ? installmentStandardPayment(acc) : null));
     return `<div class="t-row">
       <span class="t-name">${bankIcon(d.name, 22, false, 'installment')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
-      <span class="t-bar-h">${barHtml}</span>
+      <span class="t-bar-h och-bar-h">${barHtml}</span>
       <span class="t-amt narrow">${fmt(d.balance)}</span>
-      <span class="t-amt narrow">${d.monthlyPayment!=null ? fmt(d.monthlyPayment) : '—'}</span>
+      <span class="t-amt narrow och-pay">${pv!=null ? fmtPlain(pv) : '—'}</span>
     </div>`;
-  }).join('') + `<div class="t-row summary"><span class="t-name">Разом</span><span class="t-bar-h"></span><span class="t-amt narrow">${fmt(debtNow.totalInstallment)}</span><span class="t-amt narrow">${fmt(debtNow.totalMonthlyInstallment)}</span></div>`;
+  }).join('') + `<div class="t-row summary"><span class="t-name">Разом</span><span class="t-bar-h och-bar-h"></span><span class="t-amt narrow">${fmt(debtNow.totalInstallment)}</span><span class="t-amt narrow och-pay">${fmtPlain(totalPay)}</span></div>`;
   installmentsCardData = { hasAny: true, compactBody, detailBody };
   applyInstallmentsCardState();
 }
@@ -19655,7 +19809,7 @@ function applyInstallmentsCardState(){
   triggerEl.style.display = '';
   if(secondaryExpandedKey === 'installments'){
     headerEl.className = 'table-header';
-    headerEl.innerHTML = '<span class="t-name">Назва</span><span class="t-bar-h"></span><span class="t-amt narrow">Залишок</span><span class="t-amt narrow">Платіж/міс</span>';
+    headerEl.innerHTML = '<span class="t-name">Назва</span><span class="t-bar-h och-bar-h"></span><span class="t-amt narrow">Залишок</span><span class="t-amt narrow och-pay">Платіж/ міс</span>';
     bodyEl.innerHTML = installmentsCardData.detailBody;
     triggerEl.innerHTML = 'Згорнути <span class="arrow">↑</span>';
   }else{
@@ -20049,7 +20203,7 @@ function recordUiAudit(){
 // Доповнюють наявні крапки-статуси KPI (#21/#23, «немає місячних записів карток» — лише дашборд «Аналітики»): тут причина інша й по-картково (ліміт, мін. платіж, день платежу, початкова сума, платіж).
 // Той самий колір (--color-warning) і той самий розмір крапки (7px), що й .data-status-dot; натискання відкриває діалог із переліком і кнопкою «Заповнити».
 const INCOMPLETE_LABELS = { limit: 'Немає кредитного ліміту', balance: 'Немає даних про борг за цей місяць', minPayment: 'Немає мінімального платежу', dueDay: 'Немає дня платежу', initialAmount: 'Немає початкової суми', payment: 'Немає платежу за цей місяць' };
-const INCOMPLETE_FIELDS = { limit: 'cdd-limit', balance: 'cdd-balance', minPayment: 'cdd-minpay', dueDay: 'idd-due-day', initialAmount: 'idd-initial', payment: 'idd-pay' };
+const INCOMPLETE_FIELDS = { limit: 'cdd-limit', balance: 'cdd-balance', minPayment: 'cdd-minpay', dueDay: 'idd-start', initialAmount: 'idd-initial', payment: 'idd-pay' };
 // Rev 2.32.135: поле шторки за видом і причиною (день платежу картки — cdd-payday; залишок ОЧ — idd-balance).
 function incompleteFieldId(kind, code){
   if(kind === 'card') return code === 'dueDay' ? 'cdd-payday' : INCOMPLETE_FIELDS[code];

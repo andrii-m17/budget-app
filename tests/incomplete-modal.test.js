@@ -40,7 +40,7 @@ test('Rev 2.32.135: умовні поля (мін. платіж / платіж �
   assert.deepEqual(j(c.incompleteRowModel('card', 'minPayment', false)), { label: 'Мінімальний платіж', value: 'не вказано' });
 });
 test('Rev 2.32.135: поля шторки для «Заповнити»: день платежу картки — cdd-payday, залишок ОЧ — idd-balance, решта як раніше', function(){
-  assert.equal(c.incompleteFieldId('card', 'dueDay'), 'cdd-payday'); assert.equal(c.incompleteFieldId('installment', 'dueDay'), 'idd-due-day');
+  assert.equal(c.incompleteFieldId('card', 'dueDay'), 'cdd-payday'); assert.equal(c.incompleteFieldId('installment', 'dueDay'), 'idd-start');
   assert.equal(c.incompleteFieldId('installment', 'balance'), 'idd-balance'); assert.equal(c.incompleteFieldId('card', 'balance'), 'cdd-balance');
   assert.equal(c.incompleteFieldId('card', 'limit'), 'cdd-limit'); assert.equal(c.incompleteFieldId('installment', 'payment'), 'idd-pay');
   ['cdd-payday', 'idd-balance'].forEach(id => assert.ok(SRC.includes('id="' + id + '"'), id + ' існує'));

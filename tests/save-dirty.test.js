@@ -31,8 +31,8 @@ test('картка: кожне поле окремо дає зміну; назв
   const v = Object.assign({}, base); const c = mk(v); const init = c.readSaveGateFields('card');
   v.cddfielda1 = '  Банк '; assert.equal(c.saveFormChanged(init, c.readSaveGateFields('card'), false), false);
 });
-test('ОЧ: назва, початкова сума, дата платежу, залишок, платіж', function(){
-  const base = { iddfielda1: 'ОЧ', 'idd-initial': '10 000', 'idd-due-day': '5', 'idd-balance': '8 000', 'idd-pay': '1 000' };
+test('ОЧ (Rev 2.32.171): назва, загальна сума, місяців, дата створення, платіж, залишок за банком', function(){
+  const base = { iddfielda1: 'ОЧ', 'idd-initial': '10 000', 'idd-term': '10', 'idd-start': '2026-05-05', 'idd-balance': '8 000', 'idd-pay': '1 000' };
   Object.keys(base).forEach(function(k){
     const v = Object.assign({}, base); const c = mk(v); const init = c.readSaveGateFields('inst');
     v[k] = base[k] + '0'; assert.equal(c.saveFormChanged(init, c.readSaveGateFields('inst'), false), true, k);
@@ -40,7 +40,7 @@ test('ОЧ: назва, початкова сума, дата платежу, з
   });
 });
 test('відсутній запис за місяць (forceChange) — зміна навіть із «0» і без редагування; «0» проти порожнього — зміна', function(){
-  const v = { 'idd-balance': '0', 'idd-pay': '0', iddfielda1: 'ОЧ', 'idd-initial': '1000', 'idd-due-day': '' };
+  const v = { 'idd-balance': '0', 'idd-pay': '0', iddfielda1: 'ОЧ', 'idd-initial': '1000', 'idd-start': '' };
   const c = mk(v); const init = c.readSaveGateFields('inst');
   assert.equal(c.saveFormChanged(init, c.readSaveGateFields('inst'), true), true);
   assert.equal(c.saveFormChanged(init, c.readSaveGateFields('inst'), false), false);
@@ -60,7 +60,7 @@ test('розмітка і CSS: витрата за замовчуванням н
   assert.match(blk, /\.save-gated\[aria-disabled="true"\]/); assert.match(blk, /stopImmediatePropagation/);
 });
 test('підключення: шторки дохід/картка/ОЧ і «Структура» (лише edit) фіксують початок; saveRecordEdit не змінено', function(){
-  assert.match(SRC, /beginSaveGate\('income', false\)/); assert.match(SRC, /beginSaveGate\('card', !existing\)/); assert.match(SRC, /beginSaveGate\('inst', !existing\)/);
+  assert.match(SRC, /beginSaveGate\('income', false\)/); assert.match(SRC, /beginSaveGate\('card', !existing\)/); assert.match(SRC, /beginSaveGate\('inst', false\)/);
   assert.match(SRC, /if\(cfg\.edit\) setSaveGate\(save, false\)/);
   assert.match(SRC, /refreshSaveGates\(\); \/\/ Rev 2\.32\.144 \(SAVE-DIRTY\)/);
   const f = SRC.match(/async function saveRecordEdit\(id\)\{[\s\S]*?\n\}/)[0];

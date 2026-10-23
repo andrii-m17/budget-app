@@ -46,7 +46,7 @@ test('isAccountHiddenForMonth: картка до createdAt прихована, �
 test('підсумки: борг картки до createdAt не потрапляє в debtTotalsForMonth', function(){
   const ex = require('./extract');
   const c = ex.buildSandbox({ debts: [{ name: 'K', kind: 'card', month: '2026-03', balance: 500 }, { name: 'K', kind: 'card', month: '2026-06', balance: 700 }], hiddenFrom: {}, expenses: [], bankAccounts: [{ name: 'K', createdAt: CREATED }] },
-    ['debtTotalsForMonth', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'activeExpenses', 'monthKey', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'resolveInstallmentFact']);
+    ['debtTotalsForMonth', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'activeExpenses', 'monthKey', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'resolveInstallmentFact']);
   assert.equal(ex.evalInSandbox(c, "debtTotalsForMonth('2026-04').total"), 0, 'квітень: картки ще нема');
   assert.equal(ex.evalInSandbox(c, "debtTotalsForMonth('2026-06').total"), 700);
 });

@@ -85,7 +85,7 @@ test('input-attrs-audit: пишеться при старті запису; allo
 
 // ---------- Rev 2.31.4 (C): розширений аудит ----------
 const KNOWN_TEXT_FIELD_IDS = ['cdd-payday', 'fldstr2', 'fldmono1', 'fldmono4', 'expfielda7', 'f-amount', 'journal-search-input', 'debug-record-scenario', 'cldfielda1', 'cloud-password', 'cddfielda1', 'cdd-limit', 'cdd-balance', 'cdd-minpay',
-  'iddfielda1', 'idd-initial', 'idd-due-day', 'idd-balance', 'idd-pay', 'ind-amount', 'app-modal-input', 'app-modal-amount-input', 'edtfielda1-', 'edit-amount-'];
+  'iddfielda1', 'idd-initial', 'idd-term', 'idd-balance', 'idd-pay', 'ind-amount', 'app-modal-input', 'app-modal-amount-input', 'edtfielda1-', 'edit-amount-'];
 
 test('інвентар текстових полів зафіксований: нове поле в розмітці/шаблоні змушує свідомо додати його сюди й перевірити id/name (список виявлено відкриттям усіх модалок і шторок у preview)', () => {
   const ids = textFields().map(f => (f.id || '').split('${')[0]).sort();
