@@ -3579,7 +3579,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.157</div>
+  <div class="version-footer">Money Tree · Rev 2.32.158</div>
 </div>
   </div>
 </div>
@@ -8158,7 +8158,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.157';
+const APP_VERSION = '2.32.158';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -19920,6 +19920,7 @@ function performSwitchTab(tab, opts){
   if(isMonoInboxOpen) closeMonoInbox(); // Rev 2.32.28 (MB-4)
   if(isPaymentsOpen) closePaymentsScreen(); // Rev 2.32.68 (P4)
   if(isMonoOpen) closeMonoScreen(); // Rev 2.32.27 (MB-3): екран «Monobank» — підекран Сервісу
+  if(isNotifArchiveOpen) closeNotifArchive(); // Rev 2.32.158 (TABBAR-CLOSE): журнал сповіщень — накладка поверх будь-якої вкладки; тап по вкладці таб-бару/бокової панелі (і повторний по активній) спершу закриває його (раніше лишався під новою вкладкою, закривався лише стрілкою чи свайпом). Незбережені зміни/редагування: наявна логіка guardEditOpener('switchTab') з діалогом «Скасувати редагування запису?» виконується ДО цього рядка; анімацію закриття, свайп і стрілку не чіпали.
   // Rev #21+#23 (bugfix) — data-status popover (крапка "станом на" на
   // KPI "Борг"/"Скорочення боргу") лишався відкритим і після переходу на
   // іншу вкладку, бо закривався лише по кліку поза його межами/Escape —
