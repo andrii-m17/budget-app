@@ -499,6 +499,11 @@
   .cdr-avatar{ position:relative; flex-shrink:0; width:38px; height:38px; }
   .cdr-avatar svg, .cdr-avatar .bank-badge{ margin-right:0; display:block; } /* Rev 2.30.0 (M4b): !important прибрано — inline-стилі bankIcon(…, true) не конфліктують */
   .cdr-paid-badge{ position:absolute; right:-3px; bottom:-3px; width:16px; height:16px; border-radius:50%; background:var(--color-success); border:2px solid var(--color-surface); display:flex; align-items:center; justify-content:center; }
+  /* Rev 2.32.151 (OCH-STATE): ½ — спокійний жовтий (частково, до дати далеко), «!» — токен warning (прострочено), «скоро» — теплий акцент підпису й суми. */
+  .cdr-paid-badge.half{ background:var(--color-warning-bg); color:var(--color-warning); font-size:9px; font-weight:800; line-height:1; border-color:var(--color-warning); }
+  .cdr-paid-badge.bang{ background:var(--color-warning); }
+  .cdr-sub.warn{ color:var(--color-warning); }
+  .cdr-minpay.soon{ color:var(--color-warning); font-weight:700; }
   .cdr-main{ flex:1 1 auto; min-width:0; }
   .cdr-name{ display:block; font-size:14px; font-weight:700; color:var(--color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .cdr-sub{ display:block; font-size:11px; color:var(--color-text-secondary); margin-top:1px; }
@@ -3565,7 +3570,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.150</div>
+  <div class="version-footer">Money Tree · Rev 2.32.151</div>
 </div>
   </div>
 </div>
@@ -8144,7 +8149,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.150';
+const APP_VERSION = '2.32.151';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8732,6 +8737,52 @@ function expectedPaymentForCard(history){
   list.forEach(function(x){ if(counts[x] > bestCount){ bestCount = counts[x]; best = x; } }); // від новіших: суворе «>» — при рівності лишається новіше
   return best;
 }
+// Rev 2.32.151 (OCH-STATE, рішення чату): стан платежу ОЧ у місяці — ✓, ½, «скоро», «!». Єдина чиста логіка для рядка ОЧ в «Обліку» і для «Найближчі платежі» (внесено/не внесено). Порівнюється сума прив'язаних витрат за місяць (linkedExpensesSum) з ОЧІКУВАНИМ платежем: «Платіж на місяць» цього місяця; якщо його немає, останній відомий платіж ОЧ; для останнього платежу очікуване = залишок, якщо він менший. НЕ typicalMonthlyPayment; формули оцінки залишку не змінено. Допуск max(2 ₴, 1%). «!» = лише прострочений платіж (дата минула, платіж неповний), не незвична сума. N днів для «скоро» = налаштування сповіщень installment_days (за замовчуванням 2). Ризик: поки екран «Сповіщення» не відкривали в цій сесії, notificationSettings порожні й N = 2 (як у значенні за замовчуванням), додатковий запит заради N не робимо.
+const INSTALLMENT_BANG_SVG = '<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="4" x2="12" y2="14"/><line x1="12" y1="19" x2="12.01" y2="19"/></svg>'; // знак оклику лише для простроченого платежу
+function installmentExpectedPayment(x){
+  const base = x && x.monthPay > 0 ? x.monthPay : (x && x.lastPay > 0 ? x.lastPay : null);
+  if(base == null) return null;
+  return (x.prevBalance != null && x.prevBalance > 0 && x.prevBalance < base) ? x.prevBalance : base;
+}
+// Чисте: чи платіж повний. Очікуване невідоме → будь-яка внесена сума = повний (як раніше без історії). Повертає { paid, more }.
+function installmentPaidFull(linked, expected){
+  const l = Number(linked) > 0 ? Number(linked) : 0;
+  if(!(l > 0)) return { paid: false, more: false };
+  if(!(expected > 0)) return { paid: true, more: false };
+  const tol = Math.max(2, expected * 0.01);
+  return { paid: l >= expected - tol, more: l > expected + tol };
+}
+function ppPrevMonth(month){ const y = +month.slice(0, 4), m = +month.slice(5, 7); return m === 1 ? (y - 1) + '-12' : y + '-' + ppPad(m - 1); }
+// p: { linked, expected, dueDay, month, today, days }. kind: 'paid' | 'partial' | 'soon' | 'overdue' | 'none'. Місяць поза [попередній, поточний] → 'none' (без значків).
+function installmentPaymentState(p){
+  const linked = Number(p.linked) > 0 ? Number(p.linked) : 0;
+  const exp = p.expected > 0 ? p.expected : null;
+  const dueDate = p.dueDay ? ppClampDate(p.month, p.dueDay) : null;
+  const days = (p.days == null || isNaN(p.days)) ? 2 : Number(p.days);
+  const mk = function(kind, more){ return { kind: kind, linked: linked, expected: exp, dueDate: dueDate, more: !!more }; };
+  const cur = p.today.slice(0, 7);
+  if(p.month !== cur && p.month !== ppPrevMonth(cur)) return mk('none');
+  const full = installmentPaidFull(linked, exp);
+  if(full.paid) return mk('paid', full.more);
+  if(!dueDate) return mk(linked > 0 ? 'partial' : 'none'); // без dueDay «скоро»/«!» немає (це ловить крапка неповних даних)
+  if(p.month !== cur || p.today > ppAddDays(dueDate, 1)) return mk('overdue');
+  if(ppDayDiff(p.today, dueDate) <= days) return mk('soon');
+  return mk(linked > 0 ? 'partial' : 'none');
+}
+// Тексти й значок за станом (без HTML): { badge: 'check'|'half'|'bang'|null, text: string|null, accent: boolean }.
+function installmentStateView(st){
+  const part = st.linked > 0 && st.expected > 0 ? 'Частково: ' + payFmt(st.linked) + ' з ' + payFmt(st.expected) : null;
+  const due = st.dueDate ? 'до ' + payDateShort(st.dueDate) : null;
+  if(st.kind === 'paid') return { badge: 'check', text: st.more ? 'внесено більше' : null, accent: false };
+  if(st.kind === 'partial') return { badge: 'half', text: part, accent: false };
+  if(st.kind === 'soon') return { badge: null, text: part ? part + ' · ' + due : 'Платіж ' + due, accent: true };
+  if(st.kind === 'overdue') return { badge: 'bang', text: part ? part + ' · ' + due : 'Платіж ' + due, accent: true };
+  return { badge: null, text: null, accent: false };
+}
+function installmentRemindDays(){
+  const n = typeof notificationSettings !== 'undefined' && notificationSettings ? Number(notificationSettings.installment_days) : NaN;
+  return Number.isInteger(n) && n >= 0 && n <= 30 ? n : 2;
+}
 function upcomingPayments(opts){
   const o = opts || {};
   const today = o.today, horizon = o.horizonDays || 7;
@@ -8758,8 +8809,15 @@ function upcomingPayments(opts){
       if(withBal.length && withBal[withBal.length - 1].balance <= 0) return; // завершена
       if(firstVisibleMonth === null) firstVisibleMonth = month;
       if(!inst.dueDay) return;
-      if(expenses.some(function(e){ return e.linkedInstallment === inst.name && String(e.date).slice(0, 7) === month; })) return; // сплачено
       const rec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month === month && d.monthlyPayment != null; })[0];
+      // Rev 2.32.151 (OCH-STATE): «сплачено» = сума прив'язаних витрат ≥ очікуваного (допуск max(2 ₴, 1%)), а не будь-яка витрата; часткові лишаються в списку (сума й оцінка без змін)
+      const linkedSum = expenses.filter(function(e){ return e.linkedInstallment === inst.name && String(e.date).slice(0, 7) === month; }).reduce(function(a, e){ return a + (Number(e.amount) || 0); }, 0);
+      if(linkedSum > 0){
+        const lastRec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month <= month && d.monthlyPayment > 0; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).pop();
+        const balRec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month < month && d.balance != null; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).pop();
+        const expected = installmentExpectedPayment({ monthPay: rec ? rec.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: balRec ? balRec.balance : null });
+        if(installmentPaidFull(linkedSum, expected).paid) return; // сплачено
+      }
       let amount = null, estimated = false;
       if(rec){ amount = rec.monthlyPayment; }
       else{
@@ -13012,11 +13070,19 @@ function populateInstallmentTable(){
     // Rev 2.32.149: історія 6D.102 («частково внесено» за порівнянням із типовим платежем) скасована, див. нижче.
     const linkedSum = linkedExpensesSum(name, selectedMonth);
     // Rev 2.32.149 (OCH-WARN): «!» (жовтий бейдж + помаранчевий «Платіж …») при внесеному платежі, меншому за типовий, прибрано: введений платіж реальний, відхилення від звичного не проблема. Тепер будь-яка прив'язана витрата за місяць = внесено (галочка). typicalMonthlyPayment тут більше не потрібен; його формули (оцінка залишку, «Найближчі платежі») не змінено. Справжнє попередження «не внесено після дати» у цьому рядку ніколи не існувало (немає бейджа), нового не додаємо.
-    const paid = installmentRowPaid(linkedSum);
-    const paidBadge = paid ? `<span class="cdr-paid-badge" aria-hidden="true">${CHECK}</span>` : '';
+    // Rev 2.32.151 (OCH-STATE): ✓ / ½ / «скоро» / «!» за сумою прив'язаних витрат і ОЧІКУВАНИМ платежем (див. installmentPaymentState); замість «будь-яка витрата = ✓» (Rev 2.32.149).
+    const lastRec = activeDebts().filter(function(d){ return d.kind === 'installment' && d.name === name && monthKey2(d.month) <= selectedMonth && d.monthlyPayment > 0; }).sort(function(a, b){ return monthKey2(a.month).localeCompare(monthKey2(b.month)); }).pop();
+    const expected = installmentExpectedPayment({ monthPay: existing ? existing.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: lastKnownBalance(name, 'installment', selectedMonth) });
+    const pst = installmentPaymentState({ linked: linkedSum, expected: expected, dueDay: acc.dueDay, month: selectedMonth, today: kyivTodayISO(), days: installmentRemindDays() });
+    const pview = installmentStateView(pst);
+    const paid = pview.badge === 'check';
+    const BADGE_TITLES = { half: 'Частково внесено', bang: 'Платіж прострочено' };
+    const paidBadge = pview.badge === 'check' ? `<span class="cdr-paid-badge" aria-hidden="true">${CHECK}</span>`
+      : pview.badge === 'half' ? `<span class="cdr-paid-badge half" role="img" aria-label="${BADGE_TITLES.half}">½</span>`
+      : pview.badge === 'bang' ? `<span class="cdr-paid-badge bang" role="img" aria-label="${BADGE_TITLES.bang}">${INSTALLMENT_BANG_SVG}</span>` : '';
     const dueSub = acc.dueDay ? ` · до ${acc.dueDay} числа` : '';
     const paidOff = installmentPaidOffOffer(name); // Rev 2.32.69: тихий підпис «Погашено · Приховати з …» (тап відкриває діалог)
-    const subHtml = paidOff ? `<span class="cdr-sub"><span class="cdr-paidoff" role="button" tabindex="0" data-paidoff="${i}" onclick="event.stopPropagation(); offerHidePaidOffInstallment(installmentAccounts[${i}].name)">Погашено · Приховати з ${escapeHtml(paidOff.label)}</span></span>` : `<span class="cdr-sub">Оплата частинами${dueSub}</span>`;
+    const subHtml = paidOff ? `<span class="cdr-sub"><span class="cdr-paidoff" role="button" tabindex="0" data-paidoff="${i}" onclick="event.stopPropagation(); offerHidePaidOffInstallment(installmentAccounts[${i}].name)">Погашено · Приховати з ${escapeHtml(paidOff.label)}</span></span>` : `<span class="cdr-sub${pview.accent ? ' warn' : ''}">${pview.text ? escapeHtml(pview.text) : 'Оплата частинами' + dueSub}</span>`; // Rev 2.32.151: підпис стану замінює «Оплата частинами · до N числа» (один рядок)
     return `<button type="button" class="card-debt-compact-row" id="installment-row-${i}" onclick="openInstallmentEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати${paidOff ? ', погашено' : ''}">
       <span class="cdr-avatar">${bankIcon(name, 38, true)}${paidBadge}</span>
       <span class="cdr-main">
@@ -13025,7 +13091,7 @@ function populateInstallmentTable(){
       </span>
       <span class="cdr-amounts">
         <span class="cdr-balance mono">${balance != null ? fmt(balance) : '—'}</span>
-        <span class="cdr-minpay mono${paid ? ' paid' : ''}">Платіж ${fmt(payment)}</span>
+        <span class="cdr-minpay mono${paid ? ' paid' : pview.accent ? ' soon' : ''}">Платіж ${fmt(payment)}</span>
       </span>
       <span class="cdr-chevron" aria-hidden="true">${CHEVRON}</span>
     </button>`;
@@ -13037,8 +13103,6 @@ function populateInstallmentTable(){
 // та сама "очікувана" пара залишок/платіж (Модель C, FINANCIAL_RULES §4-5),
 // тепер обчислюється в одному місці — і для компактного рядка (pre-fill без
 // факту), і для шторки (data-expected для перевірки розбіжності).
-// Rev 2.32.149 (OCH-WARN): чисте правило «ОЧ внесено за місяць» для галочки в «Обліку»: є прив'язана витрата (сума > 0). Не залежить від типового платежу.
-function installmentRowPaid(linkedSum){ return Number(linkedSum) > 0; }
 function estimateInstallment(name, month){
   const prevBal = lastKnownBalance(name, 'installment', month);
   const linkedSum = linkedExpensesSum(name, month);

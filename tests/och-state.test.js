@@ -1,0 +1,104 @@
+// Rev 2.32.151 (OCH-STATE): стан платежу ОЧ у місяці — ✓, ½, «скоро», «!» (installmentPaymentState / installmentExpectedPayment / installmentPaidFull).
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { buildSandbox } = require('./extract');
+const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const NAMES = ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentPaymentState',
+  'installmentStateView', 'installmentRemindDays', 'PAY_MONTHS_SHORT', 'payDateShort', 'payFmt', 'upcomingPayments', 'expectedPaymentForCard', 'INSTALLMENT_BANG_SVG'];
+const c = buildSandbox({}, NAMES);
+const j = v => JSON.parse(JSON.stringify(v));
+// сьогодні 2026-10-10, дата платежу 15 жов (диф 5); expected 5000
+const base = { linked: 0, expected: 5000, dueDay: 15, month: '2026-10', today: '2026-10-10', days: 2 };
+const K = (o) => c.installmentPaymentState(Object.assign({}, base, o)).kind;
+
+test('✓: сума ≥ очікуваного (допуск max(2 ₴, 1%)); «внесено більше» лише коли більше за допуск', function(){
+  assert.equal(K({ linked: 5000 }), 'paid'); assert.equal(K({ linked: 4950 }), 'paid'); // 1% = 50
+  assert.equal(K({ linked: 4949 }), 'partial');
+  assert.equal(c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, { linked: 5000 }))).text, null);
+  assert.equal(c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, { linked: 5050 }))).text, null); // у межах допуску
+  const more = c.installmentPaymentState(Object.assign({}, base, { linked: 6000 }));
+  assert.equal(more.kind, 'paid'); assert.equal(c.installmentStateView(more).text, 'внесено більше');
+  assert.equal(K({ linked: 98, expected: 100 }), 'paid'); // мінімальний допуск 2 ₴
+  assert.equal(K({ linked: 97, expected: 100 }), 'partial');
+});
+test('½ далеко від дати: «Частково: X з Y ₴», спокійний значок; нічого не внесено — без значка', function(){
+  const st = c.installmentPaymentState(Object.assign({}, base, { linked: 2000 }));
+  assert.equal(st.kind, 'partial');
+  const v = c.installmentStateView(st);
+  assert.equal(v.badge, 'half'); assert.equal(v.accent, false); assert.match(v.text, /^Частково: 2\D*000 ₴ з 5\D*000 ₴$/);
+  assert.equal(K({ linked: 0 }), 'none'); assert.equal(c.installmentStateView(c.installmentPaymentState(Object.assign({}, base))).badge, null);
+});
+test('«скоро»: межа N (диф = N) і N−1; на N+1 ще ні', function(){
+  // N=2: платіж 15-го → сьогодні 13 (диф 2) і 14 (диф 1) — «скоро»; 12 (диф 3) — ні
+  assert.equal(K({ today: '2026-10-13' }), 'soon'); assert.equal(K({ today: '2026-10-14' }), 'soon'); assert.equal(K({ today: '2026-10-12' }), 'none');
+  assert.equal(K({ today: '2026-10-12', linked: 1000 }), 'partial');
+  assert.equal(K({ today: '2026-10-15' }), 'soon'); // у день платежу
+  assert.equal(K({ today: '2026-10-16' }), 'soon'); // дата+1 ще не «!»
+  const v0 = c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, { today: '2026-10-13' })));
+  assert.equal(v0.text, 'Платіж до 15 жов'); assert.equal(v0.accent, true); assert.equal(v0.badge, null);
+  const v1 = c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, { today: '2026-10-13', linked: 1000 })));
+  assert.match(v1.text, /^Частково: 1\D*000 ₴ з 5\D*000 ₴ · до 15 жов$/);
+});
+test('«!»: дата+1 — ще «скоро», дата+2 — «!» (прострочено); не повністю включно з нулем; повний не «!»', function(){
+  assert.equal(K({ today: '2026-10-16' }), 'soon'); assert.equal(K({ today: '2026-10-17' }), 'overdue');
+  assert.equal(K({ today: '2026-10-17', linked: 2000 }), 'overdue');
+  assert.equal(K({ today: '2026-10-17', linked: 5000 }), 'paid');
+  const v = c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, { today: '2026-10-20' })));
+  assert.equal(v.badge, 'bang'); assert.equal(v.text, 'Платіж до 15 жов');
+});
+test('попередній місяць: завжди «!» якщо не повністю; старіший і майбутній — без значків', function(){
+  assert.equal(K({ month: '2026-09', today: '2026-10-01' }), 'overdue'); assert.equal(K({ month: '2026-09', linked: 5000 }), 'paid');
+  assert.equal(K({ month: '2026-08' }), 'none'); assert.equal(K({ month: '2026-08', linked: 5000 }), 'none');
+  assert.equal(K({ month: '2026-11' }), 'none');
+  assert.equal(K({ month: '2025-12', today: '2026-01-05' }), 'overdue'); // січень↔грудень
+});
+test('без dueDay: ні «скоро», ні «!» (лише ½ при частковому); невідомий очікуваний: будь-яка сума = ✓', function(){
+  assert.equal(K({ dueDay: null, today: '2026-10-30' }), 'none'); assert.equal(K({ dueDay: null, linked: 100 }), 'partial');
+  assert.equal(K({ dueDay: null, month: '2026-09' }), 'none');
+  assert.equal(K({ expected: null, linked: 10 }), 'paid'); assert.equal(K({ expected: null, linked: 0, today: '2026-10-14' }), 'soon');
+  assert.equal(K({ expected: null, linked: 0, today: '2026-10-20' }), 'overdue');
+});
+test('N=0 і N=7 із налаштування сповіщень', function(){
+  assert.equal(K({ days: 0, today: '2026-10-14' }), 'none'); assert.equal(K({ days: 0, today: '2026-10-15' }), 'soon');
+  assert.equal(K({ days: 7, today: '2026-10-08' }), 'soon'); assert.equal(K({ days: 7, today: '2026-10-07' }), 'none');
+  const g = buildSandbox({ notificationSettings: { installment_days: 7 } }, ['installmentRemindDays']);
+  assert.equal(g.installmentRemindDays(), 7);
+  assert.equal(buildSandbox({ notificationSettings: null }, ['installmentRemindDays']).installmentRemindDays(), 2);
+  assert.equal(buildSandbox({ notificationSettings: { installment_days: 0 } }, ['installmentRemindDays']).installmentRemindDays(), 0);
+  assert.equal(buildSandbox({ notificationSettings: { installment_days: 'x' } }, ['installmentRemindDays']).installmentRemindDays(), 2);
+});
+test('очікуваний платіж: «Платіж на місяць» → останній відомий; останній платіж = залишок, якщо менший; не typicalMonthlyPayment', function(){
+  assert.equal(c.installmentExpectedPayment({ monthPay: 3000, lastPay: 2500, prevBalance: 10000 }), 3000);
+  assert.equal(c.installmentExpectedPayment({ monthPay: null, lastPay: 2500, prevBalance: 10000 }), 2500);
+  assert.equal(c.installmentExpectedPayment({ monthPay: 0, lastPay: 2500, prevBalance: null }), 2500);
+  assert.equal(c.installmentExpectedPayment({ monthPay: 3000, lastPay: null, prevBalance: 1200 }), 1200); // останній платіж
+  assert.equal(c.installmentExpectedPayment({ monthPay: 3000, lastPay: null, prevBalance: 0 }), 3000);
+  assert.equal(c.installmentExpectedPayment({ monthPay: null, lastPay: null, prevBalance: 500 }), null);
+  assert.equal(K({ expected: c.installmentExpectedPayment({ monthPay: 3000, prevBalance: 1200 }), linked: 1200 }), 'paid');
+});
+test('кілька внесків: сума прив\'язаних витрат (у рядку це linkedExpensesSum); «Найближчі платежі» зараховує повні й лишає часткові', function(){
+  assert.equal(K({ linked: 2000 + 3000 }), 'paid');
+  const mk = (amounts) => c.upcomingPayments({ today: '2026-10-10', horizonDays: 7, installments: [{ name: 'X', dueDay: 12 }],
+    debtsByMonth: [{ kind: 'installment', name: 'X', month: '2026-10', monthlyPayment: 5000, balance: 20000 }],
+    expenses: amounts.map(a => ({ linkedInstallment: 'X', date: '2026-10-05', amount: a })) });
+  assert.equal(mk([2000, 3000]).items.length, 0);   // повністю
+  assert.equal(mk([5000]).items.length, 0);
+  assert.equal(mk([2000]).items.length, 1);         // частково — лишається
+  assert.equal(mk([]).items.length, 1);
+  assert.equal(mk([4960]).items.length, 0);         // у межах допуску
+});
+test('приховані ОЧ не потрапляють у «Найближчі платежі» навіть при частковому платежі', function(){
+  const r = c.upcomingPayments({ today: '2026-10-10', horizonDays: 7, installments: [{ name: 'X', dueDay: 12 }], hidden: { 'installment:X': '2026-10' },
+    debtsByMonth: [{ kind: 'installment', name: 'X', month: '2026-10', monthlyPayment: 5000 }], expenses: [{ linkedInstallment: 'X', date: '2026-10-05', amount: 100 }] });
+  assert.equal(r.items.length + r.later.length + r.unconfirmed.length, 0);
+});
+test('розмітка рядка ОЧ: значки ✓/½/«!» за станом, «!» лише для overdue, typicalMonthlyPayment у рядку не використовується для статусу; формули оцінки не змінені', function(){
+  const row = SRC.slice(SRC.indexOf('const pst = installmentPaymentState('), SRC.indexOf('const paidOff = installmentPaidOffOffer(name)'));
+  assert.match(row, /days: installmentRemindDays\(\)/); assert.ok(!/typicalMonthlyPayment/.test(row));
+  assert.match(row, /pview\.badge === 'bang'/); assert.match(row, /pview\.badge === 'half'/);
+  assert.match(SRC, /const pay = linkedSum > 0 \? linkedSum : typicalPay;/);
+  assert.ok(!/cdr-paid-badge\.partial|cdr-minpay\.partial/.test(SRC));
+});
