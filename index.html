@@ -1254,6 +1254,10 @@
   @media (min-width:1280px){ .insights-row{ grid-template-columns:repeat(5,1fr); } }
 
   /* ---- Верхні KPI-картки: тренд і спарклайн (Rev 1.4, за еталонним макетом) ---- */
+  /* Rev 2.32.157 (ICON-NEUTRAL): нейтральне коло без логотипа банку: фон як у порожніх станів, приглушена іконка 58% розміру. */
+  .bank-badge.bank-badge-generic{ background:var(--color-surface-hover); color:var(--color-text-secondary); border-radius:50%; margin-right:6px; } /* .bank-badge.…: специфічність вища за пізніше правило .bank-badge (border-radius:7px) */
+  .bank-badge-generic svg, .cdr-avatar .bank-badge-generic svg, #card-debt-drawer .drawer-head-icon .bank-badge-generic svg{ width:58%; height:58%; display:block; margin:0; }
+  .cdr-avatar .bank-badge-generic, .drawer-head-icon .bank-badge-generic, #card-debt-drawer .drawer-head-icon .bank-badge-generic{ margin-right:0; display:inline-flex; align-items:center; justify-content:center; } /* перебиває display:block правил .cdr-avatar/.drawer-head-icon .bank-badge (центрування іконки в колі) */
   .bank-badge{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:7px; font-size:9.5px; font-weight:700; color:#fff; margin-right:2px; flex-shrink:0; }
   /* Rev 2.17.2 — іконка джерела доходу: той самий прийом, що .kpi-icon-circle
      на Аналітиці (кругла підсвічена плашка семантичного кольору + іконка-обрис
@@ -3575,7 +3579,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.156</div>
+  <div class="version-footer">Money Tree · Rev 2.32.157</div>
 </div>
   </div>
 </div>
@@ -8154,7 +8158,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.156';
+const APP_VERSION = '2.32.157';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13114,7 +13118,7 @@ function populateInstallmentTable(){
     const paidOff = installmentPaidOffOffer(name); // Rev 2.32.69: тихий підпис «Погашено · Приховати з …» (тап відкриває діалог)
     const subHtml = paidOff ? `<span class="cdr-sub"><span class="cdr-paidoff" role="button" tabindex="0" data-paidoff="${i}" onclick="event.stopPropagation(); offerHidePaidOffInstallment(installmentAccounts[${i}].name)">Погашено · Приховати з ${escapeHtml(paidOff.label)}</span></span>` : `<span class="cdr-sub${pview.accent ? ' warn' : ''}">${pview.text ? escapeHtml(pview.text) : 'Оплата частинами' + dueSub}</span>`; // Rev 2.32.151: підпис стану замінює «Оплата частинами · до N числа» (один рядок)
     return `<button type="button" class="card-debt-compact-row" id="installment-row-${i}" onclick="openInstallmentEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати${paidOff ? ', погашено' : ''}">
-      <span class="cdr-avatar">${bankIcon(name, 38, true)}${paidBadge}</span>
+      <span class="cdr-avatar">${bankIcon(name, 38, true, 'installment')}${paidBadge}</span>
       <span class="cdr-main">
         <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}${incompleteDotHtml('installment', i, installmentIncompleteReasons(acc))}</span>
         ${subHtml}
@@ -13223,7 +13227,7 @@ function openInstallmentEditor(i){
   const resolved = resolveInstallmentFact(name, selectedMonth, existing);
   const balance = resolved.balance;
   const payment = resolved.pay;
-  document.getElementById('idd-icon').innerHTML = bankIcon(name, 34, true);
+  document.getElementById('idd-icon').innerHTML = bankIcon(name, 34, true, 'installment');
   document.getElementById('idd-heading').textContent = stripLeadingEmoji(name);
   document.getElementById('iddfielda1').value = stripLeadingEmoji(name);
   document.getElementById('idd-initial').value = acc.initialAmount ? formatThousands(acc.initialAmount) : '';
@@ -13626,7 +13630,7 @@ function populateBankDebtTable(){
     const paid = !!(existing && existing.minPaymentDone);
     const paidBadge = paid ? `<span class="cdr-paid-badge" aria-hidden="true">${CHECK}</span>` : '';
     return `<button type="button" class="card-debt-compact-row" id="bank-debt-row-${i}" onclick="openCardDebtEditor(${i})" aria-label="${escapeAttr(stripLeadingEmoji(name))}, редагувати">
-      <span class="cdr-avatar">${bankIcon(name, 38, true)}${paidBadge}</span>
+      <span class="cdr-avatar">${bankIcon(name, 38, true, 'card')}${paidBadge}</span>
       <span class="cdr-main">
         <span class="cdr-name">${escapeHtml(stripLeadingEmoji(name))}${incompleteDotHtml('card', i, cardIncompleteReasons(acc))}</span>
         <span class="cdr-sub">Кредитна картка</span>
@@ -13684,7 +13688,7 @@ function openCardDebtEditor(i){
   const existing = activeDebts().find(function(d){ return d.name===name && d.kind==='card' && monthKey2(d.month)===selectedMonth; });
   const balance = existing ? existing.balance : null;
   const minPayment = existing ? existing.minPayment : null;
-  document.getElementById('cdd-icon').innerHTML = bankIcon(name, 34, true);
+  document.getElementById('cdd-icon').innerHTML = bankIcon(name, 34, true, 'card');
   document.getElementById('cdd-heading').textContent = stripLeadingEmoji(name);
   document.getElementById('cddfielda1').value = stripLeadingEmoji(name);
   document.getElementById('cdd-limit').value = acc.creditLimit ? formatThousands(acc.creditLimit) : '';
@@ -17631,7 +17635,8 @@ function svgSparkline(values, colorVar){
 // переробки контурів. id-и градієнтів/clipPath отримують унікальний суфікс на
 // виклик, щоб уникнути колізій, якщо той самий банк зустрічається кілька разів.
 let __bankIconSeq = 0;
-function bankIcon(name, size, block){
+// Rev 2.32.157 (ICON-NEUTRAL, рішення чату): логотип лише для відомих банків (Приват, Моно, ПУМБ, Sense, Райффайзен); інакше (невідома чи порожня назва) нейтральне коло з приглушеною іконкою: картка для боргів, календар з гривнею для ОЧ (ті самі форми, що в порожніх станах, EMPTY_STATE_ICONS). kind: 'card' (за замовчуванням) | 'installment'. Було: сірий квадрат з двома літерами назви. Ризик: назва «Моно…» чи «Приват…» і далі дає логотип за збігом підрядка (правило не змінювалось).
+function bankIcon(name, size, block, kind){
   const s = size || 22;
   const lower = (name||'').toLowerCase();
   const uid = 'bi' + (__bankIconSeq++);
@@ -17697,8 +17702,7 @@ function bankIcon(name, size, block){
     ${wrapClose}`;
   }
 
-  const initials = stripLeadingEmoji(name).replace(/[^\p{L}]/gu,'').slice(0,2).toUpperCase() || '₴';
-  return `<span class="bank-badge" style="background:#64748B; color:#fff; border-radius:${(s*0.27).toFixed(1)}px; width:${s}px; height:${s}px;">${initials}</span>`;
+  return `<span class="bank-badge bank-badge-generic" aria-hidden="true" style="width:${s}px; height:${s}px;">${EMPTY_STATE_ICONS[kind === 'installment' ? 'calendar' : 'card']}</span>`;
 }
 function stripLeadingEmoji(name){
   return (name||'').replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F\s]+/gu, '').trim() || name;
@@ -18755,14 +18759,14 @@ function renderDashboard(){
     const restDebtsSum = sortedCardDebts.slice(5).reduce((s,d)=>s+d.balance,0);
     debtsCompactBody = compactDebts.map(function(d){ return `
       <div class="t-row t-row-2col">
-        <span class="t-name">${bankIcon(d.name)}${escapeHtml(stripLeadingEmoji(d.name))}</span>
+        <span class="t-name">${bankIcon(d.name, 22, false, 'card')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
         <span class="t-amt">${fmt(d.balance)}</span>
       </div>`; }).join('') +
       (restDebtsSum>0 ? `<div class="t-row t-row-2col summary"><span class="t-name">Інші картки</span><span class="t-amt">${fmt(restDebtsSum)}</span></div>` : '') +
       `<div class="t-row t-row-2col summary"><span class="t-name">Загальний борг</span><span class="t-amt">${fmt(debtNow.total)}</span></div>`;
     debtsDetailBody = sortedCardDebts.map(function(d){ return `
       <div class="t-row">
-        <span class="t-name">${bankIcon(d.name)}${escapeHtml(stripLeadingEmoji(d.name))}</span>
+        <span class="t-name">${bankIcon(d.name, 22, false, 'card')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
         <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(d.balance/maxDebt*100).toFixed(0)}%; background:var(--color-success);"></div></div></span>
         <span class="t-amt">${fmt(d.balance)}</span>
       </div>`; }).join('') +
@@ -19185,7 +19189,7 @@ function renderInstallmentsCard(debtNow, hasDebtData){
   const sorted = instList.slice().sort((a,b)=>b.balance-a.balance);
   const compactBody = sorted.map(function(d){
     return `<div class="t-row t-row-2col">
-      <span class="t-name">${bankIcon(d.name)}${escapeHtml(stripLeadingEmoji(d.name))}</span>
+      <span class="t-name">${bankIcon(d.name, 22, false, 'installment')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
       <span class="t-amt">${d.monthlyPayment!=null ? fmt(d.monthlyPayment) : '—'}</span>
     </div>`;
   }).join('') + `<div class="t-row t-row-2col summary"><span class="t-name">Разом на місяць</span><span class="t-amt">${fmt(debtNow.totalMonthlyInstallment)}</span></div>`;
@@ -19197,7 +19201,7 @@ function renderInstallmentsCard(debtNow, hasDebtData){
       ? `<div class="t-bar-track"><div class="t-bar-fill" style="width:${paidPct.toFixed(0)}%; background:var(--color-success);"></div></div>`
       : '';
     return `<div class="t-row">
-      <span class="t-name">${bankIcon(d.name)}${escapeHtml(stripLeadingEmoji(d.name))}</span>
+      <span class="t-name">${bankIcon(d.name, 22, false, 'installment')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
       <span class="t-bar-h">${barHtml}</span>
       <span class="t-amt narrow">${fmt(d.balance)}</span>
       <span class="t-amt narrow">${d.monthlyPayment!=null ? fmt(d.monthlyPayment) : '—'}</span>
