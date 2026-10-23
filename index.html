@@ -3570,7 +3570,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.151</div>
+  <div class="version-footer">Money Tree · Rev 2.32.152</div>
 </div>
   </div>
 </div>
@@ -8149,7 +8149,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.151';
+const APP_VERSION = '2.32.152';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8753,6 +8753,14 @@ function installmentPaidFull(linked, expected){
   return { paid: l >= expected - tol, more: l > expected + tol };
 }
 function ppPrevMonth(month){ const y = +month.slice(0, 4), m = +month.slice(5, 7); return m === 1 ? (y - 1) + '-12' : y + '-' + ppPad(m - 1); }
+// Rev 2.32.152 (OCH-DUE, рішення чату): ЄДИНЕ визначення «дата платежу минула» для рядка ОЧ («!») і для «Найближчі платежі» («N без позначки»): попередній (чи старший) місяць — завжди; поточний — сьогодні пізніше за дату платежу + 1 день (пільговий день: у dueDate+1 ще «скоро»). Раніше «Найближчі» вважали минулою вже дату < сьогодні (на день раніше за «!»).
+function installmentDuePassed(month, dueDate, today){
+  if(!month || !dueDate || !today) return false;
+  const cur = today.slice(0, 7);
+  if(month < cur) return true;
+  if(month > cur) return false;
+  return today > ppAddDays(dueDate, 1);
+}
 // p: { linked, expected, dueDay, month, today, days }. kind: 'paid' | 'partial' | 'soon' | 'overdue' | 'none'. Місяць поза [попередній, поточний] → 'none' (без значків).
 function installmentPaymentState(p){
   const linked = Number(p.linked) > 0 ? Number(p.linked) : 0;
@@ -8765,7 +8773,7 @@ function installmentPaymentState(p){
   const full = installmentPaidFull(linked, exp);
   if(full.paid) return mk('paid', full.more);
   if(!dueDate) return mk(linked > 0 ? 'partial' : 'none'); // без dueDay «скоро»/«!» немає (це ловить крапка неповних даних)
-  if(p.month !== cur || p.today > ppAddDays(dueDate, 1)) return mk('overdue');
+  if(installmentDuePassed(p.month, dueDate, p.today)) return mk('overdue');
   if(ppDayDiff(p.today, dueDate) <= days) return mk('soon');
   return mk(linked > 0 ? 'partial' : 'none');
 }
@@ -8794,7 +8802,9 @@ function upcomingPayments(opts){
   const windowEnd = ppAddDays(today, horizon - 1), laterEnd = ppClampDate(m1, 31);
   const result = { items: [], later: [], unconfirmed: [], undatedCards: { count: 0, total: 0 }, undatedList: [], noDay: [], load: { total: 0, count: 0, estimated: false, unknown: 0 } };
   const place = function(item){
-    if(item.date < today){ if(item.month === m0) result.unconfirmed.push(item); return; }
+    const past = item.kind === 'installment' ? installmentDuePassed(item.month, item.date, today) : item.date < today; // Rev 2.32.152: для ОЧ спільне з рядком визначення (пільга +1 день); картки без змін
+    if(past){ if(item.month === m0) result.unconfirmed.push(item); return; }
+    if(item.kind === 'installment' && item.date < today) item = Object.assign({}, item, { date: today }); // пільговий день (dueDate+1): показуємо як «сьогодні», щоб екран «Платежі» й картка не бачили минулу дату (payRelative, смуга днів, «Наступний»)
     if(item.date <= windowEnd) result.items.push(item);
     else if(item.date <= laterEnd) result.later.push(item);
   };

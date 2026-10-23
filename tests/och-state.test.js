@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const NAMES = ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentPaymentState',
+const NAMES = ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'installmentPaymentState',
   'installmentStateView', 'installmentRemindDays', 'PAY_MONTHS_SHORT', 'payDateShort', 'payFmt', 'upcomingPayments', 'expectedPaymentForCard', 'INSTALLMENT_BANG_SVG'];
 const c = buildSandbox({}, NAMES);
 const j = v => JSON.parse(JSON.stringify(v));
@@ -101,4 +101,43 @@ test('розмітка рядка ОЧ: значки ✓/½/«!» за стан�
   assert.match(row, /pview\.badge === 'bang'/); assert.match(row, /pview\.badge === 'half'/);
   assert.match(SRC, /const pay = linkedSum > 0 \? linkedSum : typicalPay;/);
   assert.ok(!/cdr-paid-badge\.partial|cdr-minpay\.partial/.test(SRC));
+});
+
+// ---- Rev 2.32.152 (OCH-DUE): єдине визначення «дата минула» для «!» у рядку й «N без позначки» ----
+test('installmentDuePassed: дата, дата+1 — ні; дата+2 — так; попередній місяць завжди; майбутній ніколи; кінець місяця й року', function(){
+  const P = (month, due, today) => c.installmentDuePassed(month, due, today);
+  assert.equal(P('2026-10', '2026-10-15', '2026-10-15'), false);
+  assert.equal(P('2026-10', '2026-10-15', '2026-10-16'), false);
+  assert.equal(P('2026-10', '2026-10-15', '2026-10-17'), true);
+  assert.equal(P('2026-09', '2026-09-30', '2026-10-01'), true);
+  assert.equal(P('2026-11', '2026-11-05', '2026-10-31'), false);
+  assert.equal(P('2026-11', '2026-11-30', '2026-12-01'), true);  // дата+1 через кордон місяця: сьогодні вже грудень → листопад «попередній», завжди минулий
+  assert.equal(P('2026-12', '2026-12-31', '2027-01-01'), true);   // інший місяць (попередній) — завжди
+  assert.equal(P('2026-10', null, '2026-10-17'), false);
+});
+test('«!» у рядку і «без позначки» в «Найближчих» збігаються в КОЖЕН день місяця (дата 15-го, не сплачено, N=2)', function(){
+  for(let d = 1; d <= 31; d++){
+    const today = '2026-10-' + String(d).padStart(2, '0');
+    const row = c.installmentPaymentState({ linked: 0, expected: 5000, dueDay: 15, month: '2026-10', today: today, days: 2 }).kind === 'overdue';
+    const r = c.upcomingPayments({ today: today, horizonDays: 7, installments: [{ name: 'X', dueDay: 15 }],
+      debtsByMonth: [{ kind: 'installment', name: 'X', month: '2026-10', monthlyPayment: 5000, balance: 20000 }], expenses: [] });
+    const unconf = r.unconfirmed.some(function(x){ return x.name === 'X' && x.month === '2026-10'; });
+    assert.equal(unconf, row, today);
+  }
+});
+test('межі в «Найближчих»: дата — у списку, дата+1 (пільга) — ще не «без позначки» і лишається в списку, дата+2 — «без позначки»', function(){
+  const at = (today) => c.upcomingPayments({ today: today, horizonDays: 7, installments: [{ name: 'X', dueDay: 15 }],
+    debtsByMonth: [{ kind: 'installment', name: 'X', month: '2026-10', monthlyPayment: 5000 }], expenses: [] });
+  ['2026-10-15', '2026-10-16'].forEach(function(t){ const r = at(t); assert.equal(r.unconfirmed.length, 0, t); assert.equal(r.items.length, 1, t); });
+  const r = at('2026-10-17'); assert.equal(r.unconfirmed.length, 1); assert.equal(r.items.length, 0);
+});
+test('часткова сума: те саме правило (дата+1 — не «без позначки», дата+2 — так); повна сума — ніде; картки без змін (дата < сьогодні)', function(){
+  const at = (today, amt) => c.upcomingPayments({ today: today, horizonDays: 7, installments: [{ name: 'X', dueDay: 15 }],
+    cards: [{ name: 'C', paymentDay: 15 }],
+    debtsByMonth: [{ kind: 'installment', name: 'X', month: '2026-10', monthlyPayment: 5000 }, { kind: 'card', name: 'C', month: '2026-10', minPayment: 300 }],
+    expenses: amt ? [{ linkedInstallment: 'X', date: '2026-10-05', amount: amt }] : [] });
+  assert.equal(at('2026-10-16', 1000).unconfirmed.filter(x => x.kind === 'installment').length, 0);
+  assert.equal(at('2026-10-17', 1000).unconfirmed.filter(x => x.kind === 'installment').length, 1);
+  assert.equal(at('2026-10-17', 5000).unconfirmed.filter(x => x.kind === 'installment').length, 0);
+  assert.equal(at('2026-10-16', 0).unconfirmed.filter(x => x.kind === 'card').length, 1); // картка: дата < сьогодні, як і було
 });

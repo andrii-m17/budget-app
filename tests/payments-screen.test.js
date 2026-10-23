@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const names = ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payPlural', 'payRelative', 'paymentsScreenModel', 'payActionModel'];
+const names = ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payPlural', 'payRelative', 'paymentsScreenModel', 'payActionModel'];
 const c = buildSandbox({}, names);
 const I = function(name, dueDay){ return { name: name, dueDay: dueDay }; };
 const D = function(name, month, extra){ return Object.assign({ kind: 'installment', name: name, month: month }, extra || {}); };
@@ -79,4 +79,16 @@ test('охоронні: «Внести платіж» не зберігає ви
 test('картка «Найближчі платежі» відкриває екран: openPaymentsScreen(date) викликається з тапу по дню і «Усі платежі»', function(){
   assert.match(SRC, /const openAll = function\(date\)\{ if\(typeof openPaymentsScreen === 'function'\) openPaymentsScreen\(date\); \};/);
   assert.match(SRC, /function openPaymentsScreen\(date\)/);
+});
+
+// Rev 2.32.152 (OCH-DUE): пільговий день (dueDate+1) — ОЧ показується як «Сьогодні», без «Через -1 дні», у load; «без позначки» лише з дати+2
+test('пільговий день dueDate+1: ОЧ у «Найближчих» з датою «сьогодні», payRelative «Сьогодні», у навантаженні; не в «Потребує уваги»', function(){
+  const mk = (today) => c.upcomingPayments({ today: today, horizonDays: 14, installments: [I('X', 15)], debtsByMonth: [D('X', '2026-10', { monthlyPayment: 5000 })], expenses: [] });
+  const g = mk('2026-10-16');
+  assert.equal(g.unconfirmed.length, 0); assert.equal(g.items.length, 1);
+  assert.equal(g.items[0].date, '2026-10-16'); assert.equal(c.payRelative(g.items[0].date, '2026-10-16'), 'Сьогодні');
+  assert.equal(g.load.total, 5000); assert.equal(g.load.count, 1);
+  const m = c.paymentsScreenModel(g, '2026-10-16');
+  assert.ok(!/Через -\d/.test(JSON.stringify(m)), 'жодного від\'ємного «Через -1 дні»');
+  const d2 = mk('2026-10-17'); assert.equal(d2.unconfirmed.length, 1); assert.equal(d2.items.length, 0);
 });

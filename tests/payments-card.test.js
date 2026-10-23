@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payPlural', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payUnconfirmedLadder', 'paymentsCardModel']);
+const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payPlural', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payUnconfirmedLadder', 'paymentsCardModel']);
 const I = function(name, dueDay){ return { name: name, dueDay: dueDay }; };
 const D = function(name, month, extra){ return Object.assign({ kind: 'installment', name: name, month: month }, extra || {}); };
 function model(o){
