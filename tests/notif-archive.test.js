@@ -73,25 +73,21 @@ test('тап по сповіщенню: id у черзі й відправка (
   assert.deepEqual(j(e.g.queued), ['n1']); assert.deepEqual(j(e.g.flushes), ['tap']); assert.equal(e.calls.length, 0);
   assert.equal(e.g.notifArchive.unread, 0); assert.ok(e.g.notifArchive.rows[0].read_at);
   assert.deepEqual(j(e.g.handled), [{ type: 'mono-inbox', target: 'x', batch_ts: T(12, 8, 0) }]); // Rev 2.32.95: пачка за created_at, якщо batch_ts немає
-   assert.equal(e.g.closed, 1);
+   assert.equal(e.g.closed, 0); // Rev 2.32.161: архів для Monobank закриває routeMonoNotification лише при навігації
 });
 test('тап по щоденному нагадуванню (NOTIF-2): веде у «Вхідні» без batch_ts і без маршруту «оброблено»', async function(){
   const e = env([N('r1', T(12, 8, 0), { data: { type: 'mono-inbox', tag: 'daily-expense-reminder' } })], 1);
   await e.ctx.openNotificationRow('r1');
   assert.equal(e.g.handled.length, 1); assert.equal(e.g.handled[0].type, 'mono-inbox'); assert.equal(e.g.handled[0].batch_ts, undefined);
-  assert.equal(e.g.handled[0].tag, 'daily-expense-reminder'); assert.equal(e.g.closed, 1);
+  assert.equal(e.g.handled[0].tag, 'daily-expense-reminder'); assert.equal(e.g.closed, 0);
 });
-test('тап по нагадуванню без нових операцій за добу (Rev 2.32.106): позначає прочитаним, тост «Вже оброблено», без навігації; з новими або невідомо: у «Вхідні»', async function(){
-  const mkr = (pending, ok) => { const e = env([N('r1', T(12, 8, 0), { data: { type: 'mono-inbox', tag: 'daily-expense-reminder' } })], 1);
-    e.g.notifArchive.pendingDays = pending; e.g.notifArchive.pendingOk = ok; return e; };
-  let e = mkr(new Set(), true); await e.ctx.openNotificationRow('r1');
-  assert.deepEqual(e.g.toasts, ['Вже оброблено']); assert.equal(e.g.handled.length, 0); assert.equal(e.g.closed, 0);
-  assert.deepEqual(j(e.g.queued), ['r1']); assert.equal(e.g.notifArchive.unread, 0); // Rev 2.32.147: id у черзі замість прямого RPC
-  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(T(12, 8, 0)));
-  e = mkr(new Set([day]), true); await e.ctx.openNotificationRow('r1');
-  assert.equal(e.g.handled.length, 1); assert.deepEqual(e.g.toasts, []);
-  e = mkr(undefined, false); await e.ctx.openNotificationRow('r1');
-  assert.equal(e.g.handled.length, 1);
+test('тап по нагадуванню (Rev 2.32.161): позначає прочитаним і віддає єдиному маршрутизатору з тегом нагадування; «Вже оброблено» вирішує routeMonoNotification, а не рядок', async function(){
+  const e = env([N('r1', T(12, 8, 0), { data: { type: 'mono-inbox', tag: 'daily-expense-reminder' } })], 1);
+  e.g.notifArchive.pendingDays = new Set(); e.g.notifArchive.pendingOk = true; // старе джерело рішення більше не читається
+  await e.ctx.openNotificationRow('r1');
+  assert.deepEqual(j(e.g.queued), ['r1']); assert.equal(e.g.notifArchive.unread, 0);
+  assert.equal(e.g.handled.length, 1); assert.equal(e.g.handled[0].tag, 'daily-expense-reminder'); assert.equal(e.g.handled[0].batch_ts, undefined);
+  assert.deepEqual(e.g.toasts, []); assert.equal(e.g.closed, 0);
 });
 test('тап по вже прочитаному не викликає RPC, але веде за типом', async function(){
   const e = env([N('n1', T(12, 8, 0), { read_at: T(12, 9, 0) })], 0);

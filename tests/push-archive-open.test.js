@@ -16,7 +16,7 @@ function run(type, archiveOpen){
     switchAccountingTab: rec('acc'), setTimeout: function(){}, captureDebugGeometry: function(){}, captureFocusAudit: function(){},
     monoState: { loaded: false }, installmentAccounts: [], cloudAuthInitInFlight: null,
   };
-  const ctx = buildSandbox(g, ['routeForPushType', 'monoNotifGroupVisible', 'pushApplyDiag', 'closeOpenSheetsForPush', 'handlePushAction']);
+  const ctx = buildSandbox(g, ['routeForPushType', 'monoNotifGroupVisible', 'pushApplyDiag', 'closeOpenSheetsForPush', 'routeMonoNotification', 'handlePushAction']);
   return ctx.handlePushAction({ type: type }).then(function(){ return { calls: calls, events: events }; });
 }
 test('F: екран архіву закривається ПЕРЕД переходом (усі маршрути), потім відкривається ціль', async function(){

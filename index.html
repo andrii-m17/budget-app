@@ -3616,7 +3616,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.160</div>
+  <div class="version-footer">Money Tree · Rev 2.32.161</div>
 </div>
   </div>
 </div>
@@ -8195,7 +8195,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.160';
+const APP_VERSION = '2.32.161';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10023,17 +10023,76 @@ function monoSameBatch(notifiedAt, batchTs){
   const a = Date.parse(notifiedAt), b = Date.parse(batchTs);
   return !isNaN(a) && !isNaN(b) && a === b;
 }
-function monoBatchRowIds(rows, batchTs){
-  return (rows || []).filter(function(r){ return batchTs ? monoSameBatch(r.notified_at, batchTs) : r.status === 'new'; }).map(function(r){ return safeId(r.id); });
+// Rev 2.32.161 (NOTIF-ROUTE): запасний варіант «пачки немає → підсвітити всі нові» ПРИБРАНО (тап по старому сповіщенню підсвічував усі «нові»). Пачка = рядки mono_inbox з notified_at = batch_ts сповіщення (немає batch_ts — created_at сповіщення; для наявних сповіщень збігається). Мітки порівнюються за моментом часу (monoSameBatch).
+function monoBatchRows(rows, batchTs){
+  if(!batchTs) return [];
+  return (rows || []).filter(function(r){ return monoSameBatch(r.notified_at, batchTs); });
 }
-function highlightMonoBatch(batchTs){
-  const ids = monoBatchRowIds(monoInbox.rows, batchTs);
-  if(!ids.length) return 0;
+// Куди веде тап по сповіщенню Monobank (ОДНЕ правило для системного сповіщення й рядка журналу). batch — рядки пачки { id, status, expense_id }.
+// є «нові» → «Вхідні» «Нові», підсвічені лише ці; оброблено: одна додана → Журнал; кілька доданих → «Додані» (рядки пачки); усе пропущено → «Пропущені»; рядків немає або витрату видалено → «gone» (тост, без навігації).
+function monoNotifTarget(batch, expenseList){
+  if(!batch || !batch.length) return { kind: 'gone' };
+  const fresh = batch.filter(function(x){ return x.status === 'new'; });
+  if(fresh.length) return { kind: 'inbox', tab: 'new', ids: fresh.map(function(x){ return safeId(x.id); }) };
+  const added = batch.filter(function(x){ return x.status === 'added'; });
+  if(added.length === 1){
+    const id = added[0].expense_id;
+    const ex = id ? (expenseList || []).filter(function(e){ return e.id === id && !e.deletedAt; })[0] : null;
+    return ex ? { kind: 'journal', expenseId: id, date: ex.date } : { kind: 'gone' };
+  }
+  const ids = batch.map(function(x){ return safeId(x.id); });
+  return { kind: 'inbox', tab: added.length > 1 ? 'added' : 'skipped', ids: ids };
+}
+// Рядки пачки з бази: { ok, rows }. ok:false — немає зв'язку/помилка (стан невідомий: «Вхідні» «Нові» без підсвітки й без тостів).
+async function monoFetchBatch(batchTs){
+  const t = Date.parse(batchTs);
+  if(isNaN(t)) return { ok: true, rows: [] };
+  try{
+    if(await awaitCloudGate() !== 'ready') return { ok: false, rows: [] };
+    const r = await getSupabaseClient().from('mono_inbox').select('id,status,expense_id,notified_at').gte('notified_at', new Date(t - 1000).toISOString()).lte('notified_at', new Date(t + 1000).toISOString()).limit(1000);
+    if(r.error) throw r.error;
+    return { ok: true, rows: monoBatchRows(r.data, batchTs) };
+  }catch(e){ return { ok: false, rows: [] }; }
+}
+// Чи є нові операції (для щоденного нагадування): true/false; null — невідомо (тоді відкриваємо «Вхідні»).
+async function monoHasNew(){
+  try{
+    if(await awaitCloudGate() !== 'ready') return null;
+    const r = await getSupabaseClient().from('mono_inbox').select('id').eq('status', 'new').limit(1);
+    if(r.error) throw r.error;
+    return (r.data || []).length > 0;
+  }catch(e){ return null; }
+}
+function highlightMonoRows(ids){
+  if(!ids || !ids.length) return 0;
   const els = Array.prototype.filter.call(document.querySelectorAll('#mono-inbox-body [data-mono-row]'), function(w){ return ids.indexOf(w.getAttribute('data-mono-row')) !== -1; })
     .map(function(w){ return w.querySelector('.expense-row'); }).filter(Boolean);
   els.forEach(function(el){ el.classList.add('just-notified'); setTimeout(function(){ el.classList.remove('just-notified'); }, 3000); });
   if(els[0]) try{ els[0].scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){}
   return els.length;
+}
+// Єдиний вхід для тапу по сповіщенню Monobank: системне (закрите, згорнуте, відкрите) і рядок журналу йдуть сюди. o: { batchTs, daily }.
+async function routeMonoNotification(o){
+  const opts = o || {};
+  const goInbox = async function(tab){
+    closeOpenSheetsForPush(); // фокус, діалоги, шторки, журнал сповіщень
+    document.body.classList.remove('kb-open');
+    performSwitchTab('service');
+    await openMonoInbox({ tab: tab, fromPush: true });
+  };
+  if(opts.daily){ // щоденне нагадування: «Вхідні» → «Нові» без підсвітки; нових немає → «Вже оброблено»
+    if(await monoHasNew() === false){ showTextToast('Вже оброблено', 'info'); return { kind: 'toast' }; }
+    await goInbox('new'); return { kind: 'inbox', tab: 'new', ids: [] };
+  }
+  if(!opts.batchTs){ await goInbox('new'); return { kind: 'inbox', tab: 'new', ids: [] }; } // пачку не визначити: без підсвітки (не «усі нові»)
+  const b = await monoFetchBatch(opts.batchTs);
+  if(!b.ok){ await goInbox('new'); return { kind: 'inbox', tab: 'new', ids: [] }; } // офлайн: «Вхідні» покажуть своє повідомлення
+  const t = monoNotifTarget(b.rows, expenses);
+  if(t.kind === 'gone'){ showTextToast('Запис уже недоступний', 'info'); return t; }
+  if(t.kind === 'journal'){ closeOpenSheetsForPush(); document.body.classList.remove('kb-open'); openExpenseInJournal(t.expenseId, t.date); return t; }
+  await goInbox(t.tab);
+  highlightMonoRows(t.ids);
+  return t;
 }
 async function handlePushAction(action){
   if(!action || !action.type) return;
@@ -10043,7 +10102,7 @@ async function handlePushAction(action){
   }
   const route = routeForPushType(action.type, action);
   if(!route.screen){ pushApplyDiag('skipped', 'no-route', action.type); return; } // Rev 2.32.41 (F)
-  closeOpenSheetsForPush(); // Rev 2.32.30 (P): шторки/діалоги закриваються їхніми кнопками, фокус знімається
+  if(route.screen !== 'mono-inbox') closeOpenSheetsForPush(); // Rev 2.32.30 (P): шторки/діалоги закриваються їхніми кнопками, фокус знімається; Rev 2.32.161: для «Вхідних» — лише коли є навігація (routeMonoNotification; тост «Запис уже недоступний» нічого не закриває)
   if(route.screen === 'vytraty'){
     // Rev 2.23.29 (6D.198) — нагадування про витрати: вкладка без автофокусу й без клавіатури; жодного focus().
     document.body.classList.remove('kb-open');
@@ -10080,9 +10139,8 @@ async function handlePushAction(action){
     performSwitchTab('analytics');
   }else if(route.screen === 'mono-inbox' || route.screen === 'mono'){
     // Rev 2.32.29: «Вхідні» Monobank — вкладка «Сервіс», таббар видимий, без клавіатури й focus()
-    document.body.classList.remove('kb-open');
-    performSwitchTab('service');
-    if(route.screen === 'mono-inbox'){ await openMonoInbox({ fromPush: true }); highlightMonoBatch(action.batch_ts || action.batchTs || null); } else openMonoScreen(); // Rev 2.32.95 (NOTIF-1 Rev 2)
+    if(route.screen === 'mono-inbox'){ await routeMonoNotification({ batchTs: action.batch_ts || action.batchTs || null, daily: action.tag === 'daily-expense-reminder' }); } // Rev 2.32.161 (NOTIF-ROUTE): єдине правило з рядком журналу
+    else{ document.body.classList.remove('kb-open'); performSwitchTab('service'); openMonoScreen(); }
   }else if(route.screen === 'backup'){
     // Rev 2.32.15 (Z): екран експорту/резервної копії — вкладка «Сервіс»; таббар видимий, без клавіатури, БЕЗ програмного focus(): плитка лише підсвічується й прокручується в центр.
     document.body.classList.remove('kb-open');
@@ -21991,18 +22049,6 @@ function notifRowState(row, batches, batchesOk, pendingDays, pendingOk){
   }
   return row.read_at ? 'read' : 'new';
 }
-// Куди веде тап по обробленому сповіщенню Monobank: одна додана витрата → Журнал; кілька доданих → «Вхідні» → «Додані»; лише пропущені → «Пропущені»; нічого/витрату видалено → «Запис уже недоступний» (без пошуку й навігації).
-function notifProcessedTarget(batch, expenseList){
-  if(!batch || !batch.length) return { kind: 'gone' };
-  const added = batch.filter(function(x){ return x.status === 'added'; });
-  if(added.length === 1){
-    const id = added[0].expense_id;
-    const ex = id ? (expenseList || []).filter(function(e){ return e.id === id && !e.deletedAt; })[0] : null;
-    return ex ? { kind: 'journal', expenseId: id, date: ex.date } : { kind: 'gone' };
-  }
-  if(added.length > 1) return { kind: 'inbox', tab: 'added' };
-  return { kind: 'inbox', tab: 'skipped' };
-}
 const NOTIF_ICON_SVG = {
   mono: ['', '<svg class="mono-bank-icon" viewBox="0 0 40 40" aria-hidden="true" focusable="false"><use href="#monoicon"/></svg>'],
   expenses: ['ic-green', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'],
@@ -22161,21 +22207,9 @@ async function openNotificationRow(id){
   }
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', opened: true });
   if(!type) return;
-  if(isDailyReminderRow(row) && reminderPending(row, notifArchive.pendingDays, notifArchive.pendingOk) === false){ showTextToast('Вже оброблено', 'info'); return; } // Rev 2.32.106 (NOTIF-2): нових операцій за добу нагадування немає: без навігації
-  if(type === 'mono-inbox' && !isDailyReminderRow(row) && notifRowState(row, notifArchive.batches, notifArchive.batchesOk, notifArchive.pendingDays, notifArchive.pendingOk) === 'processed'){ await openProcessedNotification(row); return; } // Rev 2.32.96 (NOTIF-1 Rev 3)
-  closeNotifArchive();
+  // Rev 2.32.161 (NOTIF-ROUTE): «Вже оброблено» / «Запис уже недоступний» / оброблена пачка вирішує єдиний routeMonoNotification (як і для системного сповіщення)
+  if(type !== 'mono-inbox') closeNotifArchive(); // для Monobank архів закриває routeMonoNotification лише при навігації
   await handlePushAction(Object.assign({}, row.data || {}, { type: type, batch_ts: isDailyReminderRow(row) ? undefined : ((row.data && row.data.batch_ts) || row.created_at) })); // Rev 2.32.95 (NOTIF-1 Rev 2): пачка за created_at, якщо batch_ts немає; Rev 2.32.102 (NOTIF-2): нагадування веде у «Вхідні» без підсвітки пачки
-}
-// Rev 2.32.96 (NOTIF-1 Rev 3): тап по обробленому сповіщенню Monobank веде до результату дії (див. notifProcessedTarget); «Запис уже недоступний» — без навігації й без пошуку.
-async function openProcessedNotification(row){
-  const target = notifProcessedTarget(notifArchive.batches[notifBatchKey(row.created_at)], expenses);
-  if(target.kind === 'gone'){ showTextToast('Запис уже недоступний', 'info'); return; }
-  closeNotifArchive();
-  document.body.classList.remove('kb-open'); // Rev 2.32.97: те саме скидання, що в handlePushAction (прецедент); логіки клавіатури не змінює
-  if(target.kind === 'journal'){ openExpenseInJournal(target.expenseId, target.date); return; }
-  performSwitchTab('service');
-  await openMonoInbox({ tab: target.tab });
-  highlightMonoBatch((row.data && row.data.batch_ts) || row.created_at);
 }
 // Відкриває Журнал на місяці витрати й підсвічує її рядок (клас just-notified, 3 с).
 function openExpenseInJournal(id, date){
@@ -26250,7 +26284,7 @@ restoreExpenseDraft();
 const pushActionParams = new URLSearchParams(location.search);
 const pushActionType = pushActionParams.get('pushAction');
 if(pushActionType){
-  queuePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, target: pushActionParams.get('target') || undefined, batchTs: pushActionParams.get('batchTs') || undefined, _at: pushActionParams.get('at') || undefined }, 'query'); // Rev 2.32.30 (P)
+  queuePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, target: pushActionParams.get('target') || undefined, batchTs: pushActionParams.get('batchTs') || undefined, tag: pushActionParams.get('tag') || undefined, _at: pushActionParams.get('at') || undefined }, 'query'); // Rev 2.32.30 (P)
   history.replaceState(null, '', location.pathname);
   // 6D.144 — цей запуск уже обслужено через query-параметр (URL з
   // clients.openWindow() цього разу дійшла як є) — прибираємо дубль-запис

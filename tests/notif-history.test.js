@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const pure = buildSandbox({}, ['notifBatchKey', 'groupInboxBatches', 'notifRowState', 'notifProcessedTarget', 'isDailyReminderRow', 'kyivDateKey', 'reminderPending']);
+const pure = buildSandbox({}, ['notifBatchKey', 'groupInboxBatches', 'notifRowState', 'isDailyReminderRow', 'kyivDateKey', 'reminderPending']);
 const B1 = '2026-10-16T05:00:00.123456+00:00', B2 = '2026-10-16T05:10:00.000000+00:00';
 const N = (id, at, extra) => Object.assign({ id, type: 'mono-inbox', title: 'Monobank', body: 'x', data: { type: 'mono-inbox' }, created_at: at, read_at: null }, extra || {});
 
@@ -26,18 +26,6 @@ test('notifRowState: три стани разом; пачка з кількох 
   assert.equal(pure.notifRowState(N('b', B2), {}, false), 'new', 'запит стану не вдався — «Оброблено» не вигадується');
   assert.equal(pure.notifRowState(N('z', B1, { read_at: 'x', data: undefined, type: undefined }), batches, true), 'read');
 });
-test('notifProcessedTarget: одна додана → Журнал; кілька → «Додані»; лише пропущені → «Пропущені»; видалена/немає → gone', function(){
-  const ex = [{ id: 'x1', date: '2026-10-10' }, { id: 'x3', date: '2026-10-11', deletedAt: '2026-10-12' }];
-  assert.deepEqual(j(pure.notifProcessedTarget([{ status: 'added', expense_id: 'x1' }], ex)), { kind: 'journal', expenseId: 'x1', date: '2026-10-10' });
-  assert.deepEqual(j(pure.notifProcessedTarget([{ status: 'added', expense_id: 'x3' }], ex)), { kind: 'gone' });
-  assert.deepEqual(j(pure.notifProcessedTarget([{ status: 'added', expense_id: 'nope' }], ex)), { kind: 'gone' });
-  assert.deepEqual(j(pure.notifProcessedTarget([{ status: 'added', expense_id: 'x1' }, { status: 'added', expense_id: 'x2' }], ex)), { kind: 'inbox', tab: 'added' });
-  assert.deepEqual(j(pure.notifProcessedTarget([{ status: 'ignored' }, { status: 'skipped' }], ex)), { kind: 'inbox', tab: 'skipped' });
-  assert.deepEqual(j(pure.notifProcessedTarget([{ status: 'added', expense_id: 'x1' }, { status: 'ignored' }], ex)), { kind: 'journal', expenseId: 'x1', date: '2026-10-10' });
-  assert.deepEqual(j(pure.notifProcessedTarget(undefined, ex)), { kind: 'gone' });
-  assert.deepEqual(j(pure.notifProcessedTarget([], ex)), { kind: 'gone' });
-});
-
 function envDelete(over){
   const log = [];
   const g = Object.assign({
@@ -84,36 +72,6 @@ test('видалення: офлайн — повідомлення, списо�
   await e3.c.deleteNotificationRow('немає'); assert.equal(e3.g.notifArchive.rows.length, 3);
 });
 
-function envOpen(batches, expenses){
-  const log = [];
-  const g = {
-    notifArchive: { batches: batches, batchesOk: true }, expenses: expenses || [], document: { body: { classList: { remove(){} } } },
-    showTextToast: (t, k) => log.push('toast:' + k + ':' + t), closeNotifArchive: () => log.push('close'), performSwitchTab: t => log.push('tab:' + t),
-    openMonoInbox: async o => log.push('inbox:' + o.tab), highlightMonoBatch: b => log.push('hl:' + b), openExpenseInJournal: (id, d) => log.push('journal:' + id + ':' + d),
-  };
-  const c = buildSandbox(g, ['notifBatchKey', 'notifProcessedTarget', 'openProcessedNotification']);
-  return { c, log };
-}
-test('тап по обробленому: «Запис уже недоступний» без навігації, коли пачки/витрати немає', async function(){
-  const e = envOpen({}, []);
-  await e.c.openProcessedNotification(N('a', B1));
-  assert.deepEqual(e.log, ["toast:info:Запис уже недоступний"]);
-  const b = pure.groupInboxBatches([{ notified_at: B1, status: 'added', expense_id: 'x1' }]);
-  const e2 = envOpen(b, [{ id: 'x1', date: '2026-10-10', deletedAt: '2026-10-12' }]);
-  await e2.c.openProcessedNotification(N('a', B1));
-  assert.deepEqual(e2.log, ["toast:info:Запис уже недоступний"]);
-});
-test('тап по обробленому: одна додана → Журнал; кілька → «Додані»; пропущені → «Пропущені» з підсвіткою пачки', async function(){
-  const one = envOpen(pure.groupInboxBatches([{ notified_at: B1, status: 'added', expense_id: 'x1' }]), [{ id: 'x1', date: '2026-10-10' }]);
-  await one.c.openProcessedNotification(N('a', B1));
-  assert.deepEqual(one.log, ['close', 'journal:x1:2026-10-10']);
-  const many = envOpen(pure.groupInboxBatches([{ notified_at: B1, status: 'added', expense_id: 'x1' }, { notified_at: B1, status: 'added', expense_id: 'x2' }]), []);
-  await many.c.openProcessedNotification(N('a', B1, { data: { type: 'mono-inbox', batch_ts: B1 } }));
-  assert.deepEqual(many.log, ['close', 'tab:service', 'inbox:added', 'hl:' + B1]);
-  const skip = envOpen(pure.groupInboxBatches([{ notified_at: B2, status: 'ignored' }]), []);
-  await skip.c.openProcessedNotification(N('a', B2));
-  assert.deepEqual(skip.log, ['close', 'tab:service', 'inbox:skipped', 'hl:' + B2]);
-});
 test('fetchNotifBatches: один запит на 100+ сповіщень, діапазон за created_at; помилка або неповна відповідь → ok=false; нічого не присвоює', async function(){
   const calls = [];
   const rows = []; for(let i = 0; i < 120; i++) rows.push(N('n' + i, new Date(Date.UTC(2026, 9, 16, 5, 0, i)).toISOString()));

@@ -117,7 +117,7 @@ function runHandle(action, ui){
     document: doc, calls, monoState: u.monoState || { loaded: false, offline: false, connection: null },
     performSwitchTab: rec('switchTab'), openMonoInbox: function(o){ calls.push('inbox' + (o && o.fromPush ? ':push' : '')); }, openMonoScreen: rec('monoScreen'), highlightMonoBatch: function(){},
     captureDebugGeometry: function(){}, captureFocusAudit: function(){}, setTimeout: function(){}, closeAppModal: rec('closeModal'), cloudAuthInitInFlight: null,
-  }, ['routeForPushType', 'monoNotifGroupVisible', 'pushApplyDiag', 'closeOpenSheetsForPush', 'handlePushAction']);
+  }, ['routeForPushType', 'monoNotifGroupVisible', 'pushApplyDiag', 'closeOpenSheetsForPush', 'routeMonoNotification', 'handlePushAction']);
   return ctx.handlePushAction(action).then(function(){ return calls; });
 }
 test('P1: mono-inbox із незавантаженим monoState — «Вхідні» відкриваються одразу (без очікування мережі), з відкритою шторкою й діалогом вони спершу закриваються', async function(){
