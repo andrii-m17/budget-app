@@ -49,10 +49,10 @@ test('«!»: дата+1 — ще «скоро», дата+2 — «!» (прос�
   const v = c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, { today: '2026-10-20' })));
   assert.equal(v.badge, 'bang'); assert.equal(v.text, 'Платіж до 15 жов');
 });
-test('попередній місяць: завжди «!» якщо не повністю; старіший і майбутній — без значків', function(){
+test('попередній місяць: завжди «!» якщо не повністю; старіший — лише ✓/½; майбутній — без значків', function(){
   assert.equal(K({ month: '2026-09', today: '2026-10-01' }), 'overdue'); assert.equal(K({ month: '2026-09', linked: 5000 }), 'paid');
-  assert.equal(K({ month: '2026-08' }), 'none'); assert.equal(K({ month: '2026-08', linked: 5000 }), 'none');
-  assert.equal(K({ month: '2026-11' }), 'none');
+  assert.equal(K({ month: '2026-08' }), 'none'); assert.equal(K({ month: '2026-08', linked: 5000 }), 'paid'); // Rev 2.32.154: ✓ і ½ для старих місяців
+  assert.equal(K({ month: '2026-11' }), 'none'); assert.equal(K({ month: '2026-11', linked: 5000 }), 'none');
   assert.equal(K({ month: '2025-12', today: '2026-01-05' }), 'overdue'); // січень↔грудень
 });
 test('без dueDay: ні «скоро», ні «!» (лише ½ при частковому); невідомий очікуваний: будь-яка сума = ✓', function(){
@@ -140,4 +140,34 @@ test('часткова сума: те саме правило (дата+1 — н
   assert.equal(at('2026-10-17', 1000).unconfirmed.filter(x => x.kind === 'installment').length, 1);
   assert.equal(at('2026-10-17', 5000).unconfirmed.filter(x => x.kind === 'installment').length, 0);
   assert.equal(at('2026-10-16', 0).unconfirmed.filter(x => x.kind === 'card').length, 1); // картка: дата < сьогодні, як і було
+});
+
+// ---- Rev 2.32.154 (OCH-STATE-ALL): ✓ і ½ для будь-якого місяця від firstMonth до поточного; «скоро»/«!» лише поточний і попередній ----
+test('старий місяць: ✓ (повний і «внесено більше»), ½ (частково, з «Частково: X з Y ₴» без дати); нічого — без значка', function(){
+  const old = { month: '2026-07', today: '2026-10-23' };
+  assert.equal(K(Object.assign({ linked: 5000 }, old)), 'paid');
+  const more = c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, old, { linked: 7000 })));
+  assert.equal(more.badge, 'check'); assert.equal(more.text, 'внесено більше');
+  const half = c.installmentStateView(c.installmentPaymentState(Object.assign({}, base, old, { linked: 2000 })));
+  assert.equal(half.badge, 'half'); assert.match(half.text, /^Частково: 2\D*000 ₴ з 5\D*000 ₴$/); assert.equal(half.accent, false);
+  assert.equal(K(Object.assign({ linked: 0 }, old)), 'none');
+});
+test('«!» і «скоро» не в старому місяці (навіть якщо дата давно минула чи «скоро»)', function(){
+  ['2026-06', '2026-07', '2026-08'].forEach(function(m){
+    [0, 2000].forEach(function(l){ const k = K({ month: m, linked: l, today: '2026-10-15' }); assert.ok(k !== 'overdue' && k !== 'soon', m + ' ' + l + ' ' + k); });
+  });
+  assert.equal(K({ month: '2026-08', linked: 0, dueDay: 31, today: '2026-10-23' }), 'none');
+});
+test('майбутній місяць і місяць до початку ОЧ (firstMonth): без значків навіть із внесками', function(){
+  assert.equal(K({ month: '2026-11', linked: 5000 }), 'none'); assert.equal(K({ month: '2027-01', linked: 100 }), 'none');
+  assert.equal(K({ month: '2026-05', firstMonth: '2026-06', linked: 5000 }), 'none');
+  assert.equal(K({ month: '2026-06', firstMonth: '2026-06', linked: 5000 }), 'paid'); // перший місяць уже з значком
+  assert.equal(K({ month: '2026-06', firstMonth: '2026-06', linked: 100 }), 'partial');
+});
+test('без очікуваного платежу в старому місяці: будь-яка внесена сума = ✓, нічого — без значка; очікуване береться з того місяця (останній відомий до нього)', function(){
+  assert.equal(K({ month: '2026-07', expected: null, linked: 10 }), 'paid'); assert.equal(K({ month: '2026-07', expected: null, linked: 0 }), 'none');
+  assert.equal(c.installmentExpectedPayment({ monthPay: 3000, lastPay: 2500, prevBalance: 10000 }), 3000);   // «Платіж на місяць» того місяця
+  assert.equal(c.installmentExpectedPayment({ monthPay: null, lastPay: 2500, prevBalance: 10000 }), 2500);   // останній відомий до цього місяця
+  const row = SRC.slice(SRC.indexOf('const lastRec = activeDebts().filter(function(d){ return d.kind === \'installment\''), SRC.indexOf('const pview = installmentStateView(pst)'));
+  assert.match(row, /monthKey2\(d\.month\) <= selectedMonth/); assert.match(row, /firstMonth: acc\.firstMonth \|\| null/);
 });

@@ -3572,7 +3572,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.153</div>
+  <div class="version-footer">Money Tree · Rev 2.32.154</div>
 </div>
   </div>
 </div>
@@ -8151,7 +8151,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.153';
+const APP_VERSION = '2.32.154';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8763,7 +8763,7 @@ function installmentDuePassed(month, dueDate, today){
   if(month > cur) return false;
   return today > ppAddDays(dueDate, 1);
 }
-// p: { linked, expected, dueDay, month, today, days }. kind: 'paid' | 'partial' | 'soon' | 'overdue' | 'none'. Місяць поза [попередній, поточний] → 'none' (без значків).
+// p: { linked, expected, dueDay, month, firstMonth?, today, days }. kind: 'paid' | 'partial' | 'soon' | 'overdue' | 'none'. Майбутній місяць і місяць до firstMonth → 'none'; старіший за попередній — лише 'paid'/'partial' (Rev 2.32.154).
 function installmentPaymentState(p){
   const linked = Number(p.linked) > 0 ? Number(p.linked) : 0;
   const exp = p.expected > 0 ? p.expected : null;
@@ -8771,9 +8771,11 @@ function installmentPaymentState(p){
   const days = (p.days == null || isNaN(p.days)) ? 2 : Number(p.days);
   const mk = function(kind, more){ return { kind: kind, linked: linked, expected: exp, dueDate: dueDate, more: !!more }; };
   const cur = p.today.slice(0, 7);
-  if(p.month !== cur && p.month !== ppPrevMonth(cur)) return mk('none');
+  // Rev 2.32.154 (OCH-STATE-ALL, рішення чату): ✓ і ½ — для будь-якого місяця від firstMonth ОЧ до поточного (за сумою прив'язаних витрат і очікуваним платежем ТОГО місяця); «скоро» і «!» лише для поточного й попереднього; майбутні місяці й місяці до початку ОЧ без значків.
+  if(p.month > cur || (p.firstMonth && p.month < p.firstMonth)) return mk('none');
   const full = installmentPaidFull(linked, exp);
   if(full.paid) return mk('paid', full.more);
+  if(p.month !== cur && p.month !== ppPrevMonth(cur)) return mk(linked > 0 ? 'partial' : 'none'); // старіший місяць: без «скоро»/«!»
   if(!dueDate) return mk(linked > 0 ? 'partial' : 'none'); // без dueDay «скоро»/«!» немає (це ловить крапка неповних даних)
   if(installmentDuePassed(p.month, dueDate, p.today)) return mk('overdue');
   if(ppDayDiff(p.today, dueDate) <= days) return mk('soon');
@@ -13085,7 +13087,7 @@ function populateInstallmentTable(){
     // Rev 2.32.151 (OCH-STATE): ✓ / ½ / «скоро» / «!» за сумою прив'язаних витрат і ОЧІКУВАНИМ платежем (див. installmentPaymentState); замість «будь-яка витрата = ✓» (Rev 2.32.149).
     const lastRec = activeDebts().filter(function(d){ return d.kind === 'installment' && d.name === name && monthKey2(d.month) <= selectedMonth && d.monthlyPayment > 0; }).sort(function(a, b){ return monthKey2(a.month).localeCompare(monthKey2(b.month)); }).pop();
     const expected = installmentExpectedPayment({ monthPay: existing ? existing.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: lastKnownBalance(name, 'installment', selectedMonth) });
-    const pst = installmentPaymentState({ linked: linkedSum, expected: expected, dueDay: acc.dueDay, month: selectedMonth, today: kyivTodayISO(), days: installmentRemindDays() });
+    const pst = installmentPaymentState({ linked: linkedSum, expected: expected, dueDay: acc.dueDay, month: selectedMonth, firstMonth: acc.firstMonth || null, today: kyivTodayISO(), days: installmentRemindDays() });
     const pview = installmentStateView(pst);
     const paid = pview.badge === 'check';
     const BADGE_TITLES = { half: 'Частково внесено', bang: 'Платіж прострочено' };
