@@ -4,11 +4,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { buildSandbox } = require('./extract');
+const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const CSS = [...SRC.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
 const j = v => JSON.parse(JSON.stringify(v));
-const g = buildSandbox({ parseAmount: v => Number(String(v).replace(/[\s ]/g, '')), ppPad: undefined }, ['ppPad', 'ppDaysInMonth', 'ppClampDate', 'OCH_FIRST_PAYMENTS', 'OCH_PAY_MODES', 'ochModelDiffers', 'applyOchModelFromRow', 'ochDefaultSegments', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'OCH_OVALS_MAX', 'ochOvalsModel', 'ochOvalsHtml', 'ochDueDayFor', 'ochCalcAutoPay', 'ochEnterNext']);
+const g = buildSandbox({ parseAmount: v => Number(String(v).replace(/[\s ]/g, '')), ppPad: undefined }, ['ppPad', 'ppDaysInMonth', 'ppClampDate', 'OCH_FIRST_PAYMENTS', 'OCH_PAY_MODES', 'ochModelDiffers', 'applyOchModelFromRow', 'ochDefaultSegments', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'OCH_OVALS_MAX', 'ochOvalsModel', 'ochOvalsHtml', 'ochDueDayFor', 'ochCalcAutoPay', 'ochEnterNext', 'FIELD_HINT_MS', 'clearFieldHint', 'hintField', 'ochCondSummary', 'ochBalanceDiffers']);
 
 test('стандартний платіж: payment, інакше round(сума ÷ місяці); без даних — null; однаковий для всіх банків', function(){
   assert.equal(g.installmentStandardPayment({ initialAmount: 3000, termMonths: 3 }), 1000);
@@ -128,4 +128,53 @@ test('таблиця Аналітики: «Платіж/міс» = станда�
   assert.match(card, /ochOvalsHtml\(ochOvalsModel\(acc \? acc\.termMonths : null, d\.balance, acc \? installmentStandardPayment\(acc\) : null\)\)/);
   assert.match(card, /och-bar-h/); assert.ok(!/t-bar-track/.test(card), 'старого прогрес-бару нема');
   assert.match(SRC, /const balance = \(prevBal != null\) \? \(linkedSum > 0 \? Math\.max\(0, prevBal - linkedSum\) : prevBal\) : null;/, 'ланцюжок (2.32.168) без змін');
+});
+
+// ---- Rev 2.32.172: «Умови», єдина підказка поля, підказка про відхилення ----
+test('«Умови»: рядок із поточними значеннями, згорнуті за замовчуванням, у розгорнутих — сегменти й «Залишок за банком»; стан не зберігається', function(){
+  assert.equal(g.ochCondSummary('next_month', 'manual'), 'Наступного місяця · Вношу вручну');
+  assert.equal(g.ochCondSummary('same_day', 'auto'), 'У день оформлення · Автоматично'); assert.equal(g.ochCondSummary(undefined, undefined), 'У день оформлення · Вношу вручну');
+  const form = SRC.slice(SRC.indexOf('<div class="och-form">'), SRC.indexOf('Видалити ОЧ</button>'));
+  assert.match(form, /<button type="button" class="och-cond-row" id="idd-cond-btn" aria-expanded="false" aria-controls="idd-cond" onclick="ochToggleCond\(\)">/);
+  assert.match(form, /<div class="och-cond" id="idd-cond" hidden>/);
+  const body = form.slice(form.indexOf('<div class="och-cond" id="idd-cond" hidden>'), form.indexOf('<div class="och-actions">'));
+  ['id="idd-first"', 'id="idd-mode"', 'id="idd-balance"'].forEach(x => assert.ok(body.includes(x), x + ' у «Умовах»'));
+  assert.ok(form.indexOf('id="idd-pay"') < form.indexOf('id="idd-cond"'), 'платіж/міс лишається над «Умовами»');
+  const open = SRC.slice(SRC.indexOf('function openInstallmentEditor'), SRC.indexOf('function openInstallmentEditor') + 5200);
+  assert.match(open, /clearAllFieldHints\(\); ochSetCond\(false\); ochUpdateCondSummary\(\);/, 'при кожному відкритті згорнуті');
+  assert.ok(!/localStorage[^;]*(cond|och)/i.test(SRC.slice(SRC.indexOf('function ochSetCond'), SRC.indexOf('function ochSetCond') + 400)), 'стан не зберігається');
+  // розкриття з клавіатурою: лише scrollIntoView «nearest» для поля в фокусі, без чіпання клавіатурної логіки
+  const tog = SRC.slice(SRC.indexOf('function ochToggleCond'), SRC.indexOf('let ochPayManual'));
+  assert.match(tog, /a\.scrollIntoView\(\{ block: 'nearest' \}\)/); assert.ok(!/kb-|focusCardField|visualViewport/.test(tog));
+  assert.match(SRC, /if\(typeof ochSetCond === 'function' && el\.closest && el\.closest\('#idd-cond'\)\) ochSetCond\(true\);/, '«Заповнити» розгортає «Умови» для «Залишку»');
+});
+test('підсвітка «заповніть поле»: єдиний клас field-hint лише на самому полі; знімається першим введенням (input/change) або через 6 с', function(){
+  const timers = []; const listeners = {};
+  const el = { classList: new (class { constructor(){ this.s = new Set(); } add(c){ this.s.add(c); } remove(c){ this.s.delete(c); } contains(c){ return this.s.has(c); } })(), addEventListener(t, f){ (listeners[t] = listeners[t] || []).push(f); }, removeEventListener(t, f){ listeners[t] = (listeners[t] || []).filter(x => x !== f); } };
+  const c = buildSandbox({ setTimeout: (f, ms) => { timers.push([f, ms]); return timers.length; }, clearTimeout: () => {} }, ['FIELD_HINT_MS', 'clearFieldHint', 'hintField']);
+  assert.equal(evalInSandbox(c, 'FIELD_HINT_MS'), 6000);
+  c.hintField(el); assert.ok(el.classList.contains('field-hint')); assert.equal(timers[0][1], 6000);
+  (listeners.input || []).slice().forEach(f => f()); assert.ok(!el.classList.contains('field-hint'), 'знято першим введенням'); assert.equal((listeners.input || []).length, 0);
+  c.hintField(el); (listeners.change || []).slice().forEach(f => f()); assert.ok(!el.classList.contains('field-hint'), 'знято change (дата)');
+  c.hintField(el); timers[timers.length - 1][0](); assert.ok(!el.classList.contains('field-hint'), 'знято через 6 с');
+  assert.equal(c.hintField(null), null);
+  const rule = CSS.match(/html:root input\.field-hint[^{]*\{([^}]*)\}/)[1];
+  assert.match(rule, /border-color:var\(--color-warning\); box-shadow:0 0 0 2px color-mix\(in srgb, var\(--color-warning\) 55%, transparent\);/);
+  assert.ok(!/background/.test(rule), 'лише кільце: без заливки');
+  // джерела: тап по «ОЧ без дати» і «Заповнити» — один компонент; синя .just-notified лише для рядків списків
+  assert.match(SRC, /hintField\(fieldEl\); \/\/ Rev 2\.32\.172/); assert.match(SRC, /hintField\(el\); \/\/ Rev 2\.32\.172: той самий компонент/);
+  assert.ok(!/\.field\.just-notified|\.field-hint\.just-notified/.test(CSS));
+  assert.equal([...CSS.matchAll(/\.just-notified\{/g)].length, 3, 'expense-row, service-tile, card-debt-compact-row (списки/плитки)');
+});
+test('підказка про відхилення: лише коли введено «Залишок за банком» і він відрізняється від розрахунку більше ніж на допуск; текст «Відрізняється від розрахунку (X ₴) · Застосувати»', function(){
+  const d = (v, calc) => g.ochBalanceDiffers(v, calc);
+  assert.equal(d('', 9000), null); assert.equal(d('   ', 9000), null, 'порожнє — без підказки');
+  assert.equal(d('9 000', 9000), null); assert.equal(d('9 050', 9000), null, 'в межах 1%'); assert.equal(d('9 100', 9000), 9000, 'понад допуск');
+  assert.equal(d('1 010', 1000), null, 'допуск 1% (10 ₴)'); assert.equal(d('1 011', 1000), 1000); assert.equal(d('102', 100), null, 'допуск не менше 2 ₴'); assert.equal(d('103', 100), 100);
+  assert.equal(d('8 000', ''), null); assert.equal(d('8 000', null), null); assert.equal(d('сміття', 9000), null);
+  const fn = SRC.slice(SRC.indexOf('function checkInstallmentDivergence'), SRC.indexOf('// Rev 2.2.2 BugFix — підставляє очікуване'));
+  assert.match(fn, /Відрізняється від розрахунку \(\$\{fmt\(diff\)\}\) · <button type="button" class="bdr-diff-apply"/);
+  assert.ok(!/очікуван|на \$\{|більше|менше/.test(fn), 'слова «очікуване» й «на N% більше» прибрано');
+  assert.match(SRC, /idd-balance'\)\.dataset\.expected = est\.balance != null \? est\.balance : ''/, 'порівняння з розрахованим ланцюжком залишком');
+  assert.match(CSS, /\.bdr-diff-warning\{ display:none; font-size:10\.5px; color:var\(--color-warning\);/, 'тепле оформлення');
 });

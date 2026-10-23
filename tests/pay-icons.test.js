@@ -111,29 +111,28 @@ test('екран «Платежі» (розгорнутий вигляд): се�
 
 // ---- Rev 2.32.170 (PAY-NODAY-TAP): тап по «ОЧ без дати» ----
 function nodayEnv(opts){
-  const o = opts || {}; const log = []; const classes = new Set(); const ref = {};
-  const wrap = { classList: { add: c => { classes.add('wrap'); log.push('hl-field'); }, remove: () => classes.delete('wrap') }, scrollIntoView: () => log.push('scroll-field') };
-  const field = { closest: () => wrap };
+  const o = opts || {}; const log = []; const classes = new Set(); const ref = {}; const timers = [];
+  const field = { classList: { add: c => { classes.add(c); log.push('hint-field'); }, remove: c => classes.delete(c) }, addEventListener(){}, removeEventListener(){}, scrollIntoView: () => log.push('scroll-field') };
   const mk = open => { let on = open; return { classList: { contains: () => on, add: () => { on = true; }, remove: () => { on = false; } }, setAttribute(){}, removeAttribute(){} }; };
   const drawer = mk(o.drawerOpens !== false);
   const g = {
-    installmentAccounts: o.accounts || [{ name: 'А' }, { name: 'Предмет Б' }], isPaymentsOpen: true, isPaymentsOpenRef: ref, motionReduced: () => true, setTimeout: () => 0,
+    installmentAccounts: o.accounts || [{ name: 'А' }, { name: 'Предмет Б' }], isPaymentsOpen: true, motionReduced: () => true, setTimeout: (f, ms) => { timers.push([f, ms]); return timers.length; }, clearTimeout: () => {},
     performSwitchTab: t => { log.push('tab:' + t); ref.paymentsClosed = true; }, switchAccountingTab: t => log.push('acc:' + t),
     openInstallmentEditor: i => { log.push('editor:' + i); if(o.editorThrows) throw new Error('x'); },
-    document: { getElementById: id => id === 'idd-start' ? field : id === 'installment-drawer' ? drawer : mk(true) },
+    document: { getElementById: id => id === 'idd-start' ? field : id === 'installment-drawer' ? drawer : mk(true), querySelectorAll: () => [] },
     highlightInstallmentRow: i => log.push('row-hl:' + i), restoreFocus: () => log.push('restore'), unlockBackgroundScroll: () => log.push('unlock'), openPaymentsScreen: () => log.push('payments-open'),
     installmentReturnToPayments: false,
   };
-  const c = buildSandbox(g, ['openInstallmentFromPayments', 'closeInstallmentEditor']);
-  return { c, log };
+  const c = buildSandbox(g, ['FIELD_HINT_MS', 'clearFieldHint', 'hintField', 'clearAllFieldHints', 'openInstallmentFromPayments', 'closeInstallmentEditor']);
+  return { c, log, classes, timers };
 }
 test('тап по «ОЧ без дати»: «Облік» → ОЧ → шторка саме цієї ОЧ, «Дата створення» підсвічується, без автофокусу на поле', function(){
   const e = nodayEnv();
   assert.equal(e.c.openInstallmentFromPayments('Предмет Б'), 'drawer');
-  assert.deepEqual(e.log, ['tab:accounting', 'acc:installments', 'editor:1', 'hl-field', 'scroll-field']);
+  assert.deepEqual(e.log, ['tab:accounting', 'acc:installments', 'editor:1', 'hint-field', 'scroll-field']);
   assert.match(SRC, /function openInstallmentEditor\(i\)\{[\s\S]*?focusFirstIn\(document\.getElementById\('installment-drawer'\)\);/, 'відкриття шторки лишається з focusFirstIn (контейнер, не поле)');
   assert.ok(!/idd-start'\)\.focus\(/.test(SRC), 'жодного програмного focus() на полі');
-  assert.match(SRC, /\.drawer \.field\.just-notified\{ background:var\(--color-info-bg\); border-radius:var\(--radius-sm\); animation:cardBlink \.8s ease-in-out 3; \}/);
+  assert.ok(!/\.drawer \.field\.just-notified/.test(SRC), 'синя підсвітка поля прибрана (єдиний компонент field-hint)');
 });
 test('закриття шторки повертає на екран «Платежі», один раз; звичайне відкриття шторки (не з «Платежів») не повертає', function(){
   const e = nodayEnv(); e.c.openInstallmentFromPayments('А');

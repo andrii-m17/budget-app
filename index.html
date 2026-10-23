@@ -638,6 +638,14 @@
   #installment-drawer .och-form .row-2 > .field{ flex:1 1 0; }
   .och-hint{ font-size:11px; color:var(--color-text-secondary); margin:-4px 0 6px; min-height:0; }
   .och-hint:empty{ display:none; }
+  .och-cond-row{ display:flex; align-items:center; gap:8px; width:100%; height:34px; padding:0 10px; margin-bottom:8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:transparent; color:var(--color-text-primary); font:inherit; font-size:12px; cursor:pointer; text-align:left; }
+  .och-cond-title{ flex:none; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--color-text-secondary); }
+  .och-cond-val{ flex:1; min-width:0; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--color-text-primary); font-size:12px; }
+  .och-cond-chev{ flex:none; color:var(--color-text-secondary); transition:transform .18s ease; }
+  .och-cond-row[aria-expanded="true"] .och-cond-chev{ transform:rotate(90deg); }
+  .och-cond[hidden]{ display:none; }
+  /* Rev 2.32.172 (FIELD-HINT): єдина підказка «заповніть це поле» — тонке тепле кільце (--color-warning ≈ 55%) лише на самому полі; знімається першим введенням або через 6 с. Синя .just-notified лишається для рядків списків після сповіщень. */
+  html:root input.field-hint, html:root .field input.field-hint, html:root .field-hint{ border-color:var(--color-warning); box-shadow:0 0 0 2px color-mix(in srgb, var(--color-warning) 55%, transparent); }
   .och-seg-block{ margin-bottom:8px; }
   .och-seg-label{ display:block; font-size:10px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
   /* сегменти: вибраний пункт — «ліквід глас»-пілюля (ті самі значення, що активний пункт таб-бара: прозора зелена заливка, тонка рамка, м'яке сяйво, верхній блик); без backdrop-filter (охоронний тест дозволяє його лише обраним елементам) */
@@ -1758,7 +1766,6 @@
   @media (prefers-reduced-motion: reduce){ #notifications-drawer .nx-appear{ animation:none; } }
   .n-readonly-note{ font-size:12.5px; color:var(--color-text-secondary); padding:8px 4px 0; }
   .service-tile.just-notified{ animation:cardBlink .8s ease-in-out 3; } /* Rev 2.32.15 (Z): підсвітка плитки експорту зі сповіщення (лише opacity) */
-  .drawer .field.just-notified{ background:var(--color-info-bg); border-radius:var(--radius-sm); animation:cardBlink .8s ease-in-out 3; } /* Rev 2.32.170: той самий вигляд підсвітки, що в рядків (поле «Дата платежу» у шторці ОЧ) */
   .card-debt-compact-row.just-notified{ background:var(--color-info-bg); animation:cardBlink .8s ease-in-out 3; }
   .trash-sync-line{ height:16px; margin:-2px 2px 6px; font-size:12px; color:var(--color-text-secondary); opacity:0; transition:opacity var(--duration-fast) var(--easing-standard); }
   .trash-sync-line.on{ opacity:1; }
@@ -3700,7 +3707,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.171</div>
+  <div class="version-footer">Money Tree · Rev 2.32.172</div>
 </div>
   </div>
 </div>
@@ -4298,24 +4305,31 @@
       </div>
     </div>
     <div class="och-hint" id="idd-due-hint"></div>
-    <div class="och-seg-block">
-      <span class="och-seg-label" id="idd-first-l">Перший платіж</span>
-      <div class="och-seg" id="idd-first" role="radiogroup" aria-labelledby="idd-first-l" data-value="same_day">
-        <button type="button" role="radio" aria-checked="true" data-v="same_day" onclick="ochSegPick('idd-first', 'same_day')">У день оформлення</button>
-        <button type="button" role="radio" aria-checked="false" data-v="next_month" onclick="ochSegPick('idd-first', 'next_month')">Наступного місяця</button>
+    <!-- Rev 2.32.172: «Умови» згорнуті за замовчуванням (стан не зберігається між відкриттями): один рядок із поточними значеннями; розгортання показує сегменти й необов'язковий «Залишок за банком». -->
+    <button type="button" class="och-cond-row" id="idd-cond-btn" aria-expanded="false" aria-controls="idd-cond" onclick="ochToggleCond()">
+      <span class="och-cond-title">Умови</span><span class="och-cond-val" id="idd-cond-val"></span>
+      <svg class="och-cond-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <div class="och-cond" id="idd-cond" hidden>
+      <div class="och-seg-block">
+        <span class="och-seg-label" id="idd-first-l">Перший платіж</span>
+        <div class="och-seg" id="idd-first" role="radiogroup" aria-labelledby="idd-first-l" data-value="same_day">
+          <button type="button" role="radio" aria-checked="true" data-v="same_day" onclick="ochSegPick('idd-first', 'same_day')">У день оформлення</button>
+          <button type="button" role="radio" aria-checked="false" data-v="next_month" onclick="ochSegPick('idd-first', 'next_month')">Наступного місяця</button>
+        </div>
       </div>
-    </div>
-    <div class="och-seg-block">
-      <span class="och-seg-label" id="idd-mode-l">Списання</span>
-      <div class="och-seg" id="idd-mode" role="radiogroup" aria-labelledby="idd-mode-l" data-value="manual">
-        <button type="button" role="radio" aria-checked="false" data-v="auto" onclick="ochSegPick('idd-mode', 'auto')">Автоматично</button>
-        <button type="button" role="radio" aria-checked="true" data-v="manual" onclick="ochSegPick('idd-mode', 'manual')">Вношу вручну</button>
+      <div class="och-seg-block">
+        <span class="och-seg-label" id="idd-mode-l">Списання</span>
+        <div class="och-seg" id="idd-mode" role="radiogroup" aria-labelledby="idd-mode-l" data-value="manual">
+          <button type="button" role="radio" aria-checked="false" data-v="auto" onclick="ochSegPick('idd-mode', 'auto')">Автоматично</button>
+          <button type="button" role="radio" aria-checked="true" data-v="manual" onclick="ochSegPick('idd-mode', 'manual')">Вношу вручну</button>
+        </div>
       </div>
-    </div>
-    <div class="field">
-      <label for="idd-balance">Залишок за банком (необов'язково)</label>
-      <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-balance" placeholder="—" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" oninput="checkInstallmentDivergence()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
-      <span class="bdr-diff-warning" id="idd-balance-diff"></span>
+      <div class="field">
+        <label for="idd-balance">Залишок за банком (необов'язково)</label>
+        <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-balance" placeholder="—" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" oninput="checkInstallmentDivergence()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+        <span class="bdr-diff-warning" id="idd-balance-diff"></span>
+      </div>
     </div>
     <div class="bdr-init-amount" id="idd-linked-note"></div>
     <div class="och-actions">
@@ -8301,7 +8315,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.171';
+const APP_VERSION = '2.32.172';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13722,11 +13736,53 @@ let editingInstallmentIdx = -1;
 // раніше в інлайн-полях) — і з тією самою живою перевіркою розбіжності
 // (checkInstallmentDivergence нижче), яку користувач попросив зберегти.
 // Rev 2.32.171 (OCH-MODEL): допоміжні функції форми ОЧ. ochPayManual — користувач сам змінив «Платіж/міс» (інакше він підставляється як сума ÷ місяці й у модель не записується, payment = null).
+const FIELD_HINT_MS = 6000;
+function clearFieldHint(el){
+  if(!el) return;
+  el.classList.remove('field-hint');
+  if(el._hintTimer){ clearTimeout(el._hintTimer); el._hintTimer = null; }
+  if(el._hintClear){ el.removeEventListener('input', el._hintClear); el.removeEventListener('change', el._hintClear); el._hintClear = null; }
+}
+// Rev 2.32.172 (FIELD-HINT): єдиний компонент підказки «заповніть це поле» (тап по «ОЧ без дати», «Заповнити» в модалці неповних даних): тонке тепле кільце лише на самому полі (клас field-hint, без підпису й контейнера), знімається першим введенням (input/change) або через 6 с.
+function hintField(el){
+  if(!el) return null;
+  clearFieldHint(el);
+  el.classList.add('field-hint');
+  const clear = function(){ clearFieldHint(el); };
+  el._hintClear = clear;
+  el.addEventListener('input', clear); el.addEventListener('change', clear);
+  el._hintTimer = setTimeout(clear, FIELD_HINT_MS);
+  return el;
+}
+function clearAllFieldHints(){ try{ Array.prototype.forEach.call(document.querySelectorAll('.field-hint'), clearFieldHint); }catch(e){} }
+// «Умови» (Rev 2.32.172): згорнуті за замовчуванням, стан не зберігається; рядок показує поточні значення сегментів.
+function ochCondSummary(first, mode){
+  const f = first === 'next_month' ? 'Наступного місяця' : 'У день оформлення';
+  const m = mode === 'auto' ? 'Автоматично' : 'Вношу вручну';
+  return f + ' · ' + m;
+}
+function ochUpdateCondSummary(){
+  const el = document.getElementById('idd-cond-val'); if(!el) return;
+  el.textContent = ochCondSummary(document.getElementById('idd-first').getAttribute('data-value'), document.getElementById('idd-mode').getAttribute('data-value'));
+}
+function ochSetCond(open){
+  const body = document.getElementById('idd-cond'), btn = document.getElementById('idd-cond-btn');
+  if(!body || !btn) return;
+  body.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function ochToggleCond(){
+  const body = document.getElementById('idd-cond'); if(!body) return;
+  ochSetCond(body.hidden);
+  // з відкритою клавіатурою розкриття не губить поле в фокусі: прокрутка лише «найближче», без зміни логіки шторки/клавіатури
+  const a = document.activeElement, drawer = document.getElementById('installment-drawer');
+  if(a && a !== document.body && drawer && drawer.contains(a) && typeof a.scrollIntoView === 'function'){ try{ a.scrollIntoView({ block: 'nearest' }); }catch(e){} }
+}
 let ochPayManual = false;
 function ochSetSeg(id, value){
   const seg = document.getElementById(id); if(!seg) return;
   seg.setAttribute('data-value', value);
   seg.querySelectorAll('button').forEach(function(b){ b.setAttribute('aria-checked', b.getAttribute('data-v') === value ? 'true' : 'false'); });
+  if(document.getElementById('idd-first') && document.getElementById('idd-mode') && document.getElementById('idd-cond-val')) ochUpdateCondSummary();
 }
 function ochSegPick(id, value){ ochSetSeg(id, value); if(typeof refreshSaveGates === 'function') refreshSaveGates(); }
 // «Далі»: назва → сума → місяців → платіж/міс; nextId = null — кінець (прибрати фокус). Enter не відправляє форму.
@@ -13790,11 +13846,12 @@ function openInstallmentEditor(i){
   ochSetSeg('idd-first', OCH_FIRST_PAYMENTS.indexOf(acc.firstPayment) !== -1 ? acc.firstPayment : segDefs.firstPayment);
   ochSetSeg('idd-mode', OCH_PAY_MODES.indexOf(acc.payMode) !== -1 ? acc.payMode : segDefs.payMode);
   document.getElementById('idd-balance').value = existing && existing.balance != null ? formatThousands(existing.balance) : '';
-  document.getElementById('idd-balance').dataset.expected = est.expected != null ? est.expected : ''; // Rev 2.32.168: порівняння з очікуваним після платежу, не з показаним залишком
+  document.getElementById('idd-balance').dataset.expected = est.balance != null ? est.balance : ''; // Rev 2.32.172: порівняння з розрахованим ланцюжком залишком
   document.getElementById('idd-linked-note').innerHTML = est.linkedSum > 0
     ? `Прив'язана витрата цього місяця: ${fmt(est.linkedSum)}`
     : '';
   ochUpdateDueHint(acc);
+  clearAllFieldHints(); ochSetCond(false); ochUpdateCondSummary(); // Rev 2.32.172: «Умови» згорнуті при кожному відкритті
   checkInstallmentDivergence();
   beginSaveGate('inst', false); // Rev 2.32.171: форма не тримає розрахункових значень як «зміну»; «Зберегти» активна лише після реальної зміни (SAVE-DIRTY)
   document.getElementById('installment-backdrop').removeAttribute('inert');
@@ -13816,9 +13873,8 @@ function openInstallmentFromPayments(name){
       const fieldEl = document.getElementById('idd-start'); // Rev 2.32.171: «Дата створення» (день платежу тепер береться з неї)
       if(document.getElementById('installment-drawer').classList.contains('open') && fieldEl){
         installmentReturnToPayments = true;
-        const wrap = fieldEl.closest('.field') || fieldEl;
-        wrap.classList.add('just-notified'); setTimeout(function(){ wrap.classList.remove('just-notified'); }, 3000);
-        try{ wrap.scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){}
+        hintField(fieldEl); // Rev 2.32.172: єдина підказка «заповніть поле» (тепле кільце лише на полі)
+        try{ fieldEl.scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){}
         return 'drawer';
       }
     }catch(e){}
@@ -13833,6 +13889,7 @@ function closeInstallmentEditor(){
   document.getElementById('installment-drawer').classList.remove('open');
   document.getElementById('installment-backdrop').setAttribute('inert','');
   document.getElementById('installment-drawer').setAttribute('inert','');
+  clearAllFieldHints();
   restoreFocus();
   if(wasOpen) unlockBackgroundScroll();
   if(wasOpen && installmentReturnToPayments){ installmentReturnToPayments = false; openPaymentsScreen(); } // Rev 2.32.170: назад на екран «Платежі», звідки відкрито
@@ -13881,71 +13938,33 @@ function payInstallmentQuick(){
 // не блокує збереження, користувач може ввести будь-яке число.
 // Rev 2.16.6 — читає/пише поля ЄДИНОЇ відкритої шторки (без параметра i — у
 // списку більше немає N одночасно видимих рядків із власними полями).
+// Rev 2.32.172 (OCH-DIFF): підказка «Відрізняється від розрахунку (X ₴) · Застосувати» — лише коли користувач ввів «Залишок за банком» і він відрізняється від розрахованого ланцюжком (2.32.168) більше ніж на допуск max(2 ₴, 1%). Порожнє поле — без підказки. Слова «очікуване» й «на N% більше» прибрано; тепле оформлення (.bdr-diff-warning, --color-warning).
+function ochBalanceDiffers(actualRaw, calc){
+  const raw = String(actualRaw == null ? '' : actualRaw).trim();
+  if(!raw) return null;
+  const a = parseAmount(raw), c = Number(calc);
+  if(isNaN(a) || calc == null || calc === '' || isNaN(c)) return null;
+  return Math.abs(a - c) > Math.max(2, Math.abs(c) * 0.01) ? c : null;
+}
 function checkInstallmentDivergence(){
   const input = document.getElementById('idd-balance');
   const warnEl = document.getElementById('idd-balance-diff');
   if(!input || !warnEl) return;
-  const expected = parseFloat(input.dataset.expected);
-  const actual = parseAmount(input.value);
-  if(isNaN(expected) || expected<=0 || isNaN(actual)){ warnEl.innerHTML = ''; warnEl.classList.remove('show'); return; }
-  const diffPct = Math.abs(actual-expected) / expected * 100;
-  if(diffPct > 5){
-    const direction = actual > expected ? 'більше' : 'менше';
-    // Rev 2.2.2 BugFix — кнопка "Застосувати" поруч з попередженням: дозволяє
-    // одним тапом підставити очікуване значення в поле замість того, щоб
-    // вручну перебивати число (актуально саме для випадку "факт вже збережено
-    // раніше, а тепер з'явилась прив'язана витрата" — розбіжність інакше була б
-    // помітна, але виправити її можна було лише вручну).
-    warnEl.innerHTML = `Відхилення від очікуваного (${fmt(expected)}) на ${diffPct.toFixed(0)}% ${direction} · <button type="button" class="bdr-diff-apply" onclick="applyEstimatedInstallmentValues()">Застосувати</button>`;
-    warnEl.classList.add('show');
-  }else{
-    warnEl.innerHTML = '';
-    warnEl.classList.remove('show');
-  }
+  const diff = ochBalanceDiffers(input.value, input.dataset.expected);
+  if(diff === null){ warnEl.innerHTML = ''; warnEl.classList.remove('show'); return; }
+  warnEl.innerHTML = `Відрізняється від розрахунку (${fmt(diff)}) · <button type="button" class="bdr-diff-apply" onclick="applyEstimatedInstallmentValues()">Застосувати</button>`;
+  warnEl.classList.add('show');
 }
 // Rev 2.2.2 BugFix — підставляє очікуване значення "Залишок" одним тапом;
 // заодно синхронізує "Платіж/міс" (якщо для нього теж є очікуване значення) —
 // разом вони одна узгоджена пропозиція.
 function applyEstimatedInstallmentValues(){
   const balInput = document.getElementById('idd-balance');
-  const payInput = document.getElementById('idd-pay');
   if(!balInput) return;
   const expected = parseFloat(balInput.dataset.expected);
   if(!isNaN(expected)) balInput.value = formatThousands(expected);
-  if(payInput){
-    const expectedPay = parseFloat(payInput.dataset.expected);
-    if(!isNaN(expectedPay)) payInput.value = formatThousands(expectedPay);
-  }
   checkInstallmentDivergence();
-  checkInstallmentPaymentDivergence();
-}
-// Rev 2.2.2 BugFix — та сама перевірка розбіжності, але для поля "Платіж/міс"
-// ОКРЕМО від "Залишок". Критично: estimatedPay (прив'язана витрата або типовий
-// платіж) НЕ залежить від prevBal — тому це попередження мусить працювати
-// незалежно, навіть коли для ОЧ ще немає попереднього місяця з фактом.
-function checkInstallmentPaymentDivergence(){
-  const input = document.getElementById('idd-pay');
-  const warnEl = document.getElementById('idd-pay-diff');
-  if(!input || !warnEl) return;
-  const expected = parseFloat(input.dataset.expected);
-  const actual = parseAmount(input.value);
-  if(isNaN(expected) || expected<=0 || isNaN(actual)){ warnEl.innerHTML = ''; warnEl.classList.remove('show'); return; }
-  const diffPct = Math.abs(actual-expected) / expected * 100;
-  if(diffPct > 5){
-    const direction = actual > expected ? 'більше' : 'менше';
-    warnEl.innerHTML = `Відхилення від очікуваного (${fmt(expected)}) на ${diffPct.toFixed(0)}% ${direction} · <button type="button" class="bdr-diff-apply" onclick="applyEstimatedPayment()">Застосувати</button>`;
-    warnEl.classList.add('show');
-  }else{
-    warnEl.innerHTML = '';
-    warnEl.classList.remove('show');
-  }
-}
-function applyEstimatedPayment(){
-  const input = document.getElementById('idd-pay');
-  if(!input) return;
-  const expected = parseFloat(input.dataset.expected);
-  if(!isNaN(expected)) input.value = formatThousands(expected);
-  checkInstallmentPaymentDivergence();
+  if(typeof refreshSaveGates === 'function') refreshSaveGates();
 }
 // Rev 2.16.6 — єдина точка збереження ОЧ: назва+початкова сума
 // (installmentAccounts) і залишок+платіж (debts, цей місяць) разом, один тап
@@ -20088,7 +20107,7 @@ const BUTTON_VARIANT_MAP = {
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip', 'mono-inst-label'],
   row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
-  reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn']
+  reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn', 'och-cond-row']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
 const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated'];
@@ -20338,10 +20357,8 @@ function fillIncomplete(kind, i, codes){
       const raw = String(el.value == null ? '' : el.value).trim();
       if(raw !== '') return; // Rev 2.32.150: явний «0» (і платіж ОЧ) — введено, не порожнє
       if(!first) first = el;
-      el.style.borderColor = 'var(--color-warning)';
-      const clear = function(){ el.style.borderColor = ''; el.removeEventListener('input', clear); };
-      el.addEventListener('input', clear);
-      setTimeout(clear, 6000);
+      if(typeof ochSetCond === 'function' && el.closest && el.closest('#idd-cond')) ochSetCond(true); // «Залишок за банком» лежить у згорнутих «Умовах»
+      hintField(el); // Rev 2.32.172: той самий компонент, що в тапі по «ОЧ без дати»
     });
     if(first) first.scrollIntoView({ block: 'center' });
   }, 350);

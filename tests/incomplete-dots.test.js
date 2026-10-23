@@ -87,6 +87,7 @@ test('«Заповнити» відкриває шторку цієї картк
   assert.ok(!/\.focus\(/.test(fill), 'без автофокусу');
   assert.match(fill, /first\.scrollIntoView\(\{ block: 'center' \}\);/);
   assert.match(fill, /list\.forEach\(function\(code\)\{/); // усі коди, не лише перший
+  assert.match(fill, /hintField\(el\);/); assert.ok(!/style\.borderColor/.test(fill), 'єдиний компонент підказки (field-hint), без ручного borderColor');
   assert.match(fill, /if\(raw !== ''\) return;/); // лише порожні; Rev 2.32.150: «0» (і платіж ОЧ) уже введено
   assert.match(MOD, /showConfirmModal\(msg, function\(\)\{ fillIncomplete\(kind, i, details\.map\(function\(d\)\{ return d\.code; \}\)\); \}, 'Заповнити', 'primary'\);/); // Rev 2.32.45 (FB): основна дія — явний variant замість пізнього присвоєння класу
   ['limit', 'balance', 'minPayment', 'dueDay', 'initialAmount', 'payment'].forEach(r => { assert.match(MOD, new RegExp(r + ': \'[a-z-]+\'')); });
