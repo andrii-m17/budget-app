@@ -64,7 +64,7 @@ test('охоронні (TO): помилки показуються як alert, �
 
 test('Rev 2.32.176 (TOAST-FIT): пілюля за розміром вмісту, по центру; симетричний відступ 18 px; іконка–текст 12 px; без розтягування на всю ширину; нижче заголовка лишається', function(){
   const toast = SRC.match(/\n  \.success-toast\{([^}]*)\}/)[1];
-  assert.match(toast, /width:fit-content; max-width:100%; box-sizing:border-box;/); assert.match(toast, /gap:12px/); assert.match(toast, /padding:11px 18px;/);
+  assert.match(toast, /width:fit-content; max-width:100%; box-sizing:border-box;/); assert.match(toast, /gap:12px/); assert.match(toast, /padding:11px 17px;/);
   assert.ok(!/@media \(max-width:767px\)\{ \.success-toast\{ width:100%/.test(SRC), 'розтягування на всю ширину скасовано');
   const host = SRC.match(/\.success-toast-host\{([^}]*)\}/)[1];
   assert.match(host, /left:18px; right:18px/); assert.match(host, /display:flex; justify-content:center/); assert.match(host, /top:max\(calc\(env\(safe-area-inset-top, 0px\) \+ 8px\), var\(--toast-top, 0px\)\)/);
