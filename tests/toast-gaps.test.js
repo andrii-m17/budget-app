@@ -32,3 +32,8 @@ test('підгонка тексту викликається після дода
   assert.match(SRC, /host\.appendChild\(el\);\s*\n\s*toastFitText\(el\);/);
   assert.ok(!/margin/.test(rule('.success-toast-action')));
 });
+test('Rev 2.32.181: коло галочки обертається навколо власного центру (transform-box: fill-box), інакше зі зсунутим viewBox воно «зривається» вгору й обрізається', function(){
+  const r = rule('.success-toast-icon circle');
+  assert.match(r, /transform:rotate\(-90deg\); transform-box:fill-box; transform-origin:center;/);
+  assert.ok(!/transform-origin:50% 50%/.test(r));
+});

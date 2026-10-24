@@ -332,7 +332,7 @@
   .success-toast.t-error .success-toast-icon{ color:var(--color-error); }
   .success-toast-icon.static circle, .success-toast-icon.static path{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; animation:none; stroke-dasharray:none; stroke-dashoffset:0; }
   .success-toast-icon.static circle{ transform:none; }
-  .success-toast-icon circle{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-dasharray:63; stroke-dashoffset:63; animation:stDraw .38s var(--motion-m) ease-out forwards; transform:rotate(-90deg); transform-origin:50% 50%; }
+  .success-toast-icon circle{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-dasharray:63; stroke-dashoffset:63; animation:stDraw .38s var(--motion-m) ease-out forwards; transform:rotate(-90deg); transform-box:fill-box; transform-origin:center; }
   .success-toast-icon path{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:16; stroke-dashoffset:16; animation:stDraw .26s calc(var(--motion-m) + .3s) ease-out forwards; }
   /* Rev 2.32.180 (TOAST-GAPS): іконка 22×22 без внутрішніх полів (viewBox обрізано до малюнка: раніше 4 px прозорого поля збільшували лівий відступ до ≈22); текстовий блок після показу підганяється під найдовший рядок (toastFitText), тож відступ праворуч до кінця тексту = лівому 18 px; проміжок іконка–текст і текст–кнопка 12 px (gap), зайвих зазорів нема. */
   .success-toast-text{ min-width:0; display:flex; flex-direction:column; gap:1px; }
@@ -3728,7 +3728,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.180</div>
+  <div class="version-footer">Money Tree · Rev 2.32.181</div>
 </div>
   </div>
 </div>
@@ -8345,7 +8345,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.180';
+const APP_VERSION = '2.32.181';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
