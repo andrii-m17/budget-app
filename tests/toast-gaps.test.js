@@ -37,3 +37,8 @@ test('Rev 2.32.181: коло галочки обертається навкол�
   assert.match(r, /transform:rotate\(-90deg\); transform-box:fill-box; transform-origin:center;/);
   assert.ok(!/transform-origin:50% 50%/.test(r));
 });
+test('Rev 2.32.182: плашка «Доступне оновлення» — відступ 17 px + рамка 1 px = 18 px з обох боків, проміжок 12 px', function(){
+  const r = rule('.update-banner');
+  assert.match(r, /gap:12px/); assert.match(r, /padding:9px 17px;/); assert.match(r, /border:1px solid/);
+  assert.ok(!/padding:9px 10px/.test(r));
+});

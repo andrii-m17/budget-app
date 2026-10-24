@@ -316,7 +316,8 @@
   .profile-popover-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
   .profile-popover-backdrop.open{ display:block; }
   /* Rev 2.32.25 (U) — ненав'язливе повідомлення про оновлення («Скло», над таббаром). Ховається при відкритій клавіатурі/шторці (див. shouldShowUpdateBanner). */
-  .update-banner{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:190; white-space:nowrap; display:none; align-items:center; gap:12px; padding:9px 10px 9px 16px; max-width:calc(100vw - 32px); background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); font-size:14px; color:var(--color-text); }
+  .update-banner{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:190; white-space:nowrap; display:none; align-items:center; gap:12px; padding:9px 17px; max-width:calc(100vw - 32px); background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); font-size:14px; color:var(--color-text); }
+  /* Rev 2.32.182 (UPDATE-GAPS): відступ 17 px + рамка 1 px = 18 px від краю плашки до тексту зліва й до кнопки справа (як у поп-апів), проміжок текст–кнопка 12 px. */
   .update-banner.show{ display:flex; }
   /* Rev 2.32.37 (T) — спливаюче підтвердження успіху («Скло», як «Доступне оновлення»): скляний контейнер, іконка (коло й галочка, що малюються) зліва, дія справа. Те саме місце над таббаром; коли показано «Доступне оновлення», піднімається над ним (стек). Анімуються лише opacity/transform і stroke-dashoffset — не розміри. */
   /* Rev 2.32.39 (T2) — підтвердження ЗВЕРХУ (було знизу над таббаром): top = safe-area + 8px, бічні 16px, поверх шапки й шторок; обгортка не перехоплює дотики (клікабельний лише контейнер), тому шапка поза ним працює. «Доступне оновлення» лишається внизу, без змін. */
@@ -3728,7 +3729,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.181</div>
+  <div class="version-footer">Money Tree · Rev 2.32.182</div>
 </div>
   </div>
 </div>
@@ -8345,7 +8346,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.181';
+const APP_VERSION = '2.32.182';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
