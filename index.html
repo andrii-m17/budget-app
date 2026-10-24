@@ -3727,7 +3727,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.177</div>
+  <div class="version-footer">Money Tree · Rev 2.32.178</div>
 </div>
   </div>
 </div>
@@ -6874,6 +6874,7 @@ async function pushExpenseRecordPilot(rec, opts){
     const acc = installmentAccounts.find(function(a){ return a.name === rec.linkedInstallment; });
     if(!acc || !acc.cloudId) return { success: true }; // ОЧ-залежність ще не синхронізована — тихий пропуск, не помилка
     linkedInstallmentId = acc.cloudId;
+    rec.linkedInstallmentId = acc.cloudId; // Rev 2.32.178 (ID-BIND-1): лише для читання
   }
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
@@ -6963,6 +6964,7 @@ async function pushExpensesBatch(records){
       const acc = installmentAccounts.find(function(a){ return a.name === rec.linkedInstallment; });
       if(!acc || !acc.cloudId) continue; // той самий тихий пропуск, що pushExpenseRecordPilot()
       linkedInstallmentId = acc.cloudId;
+      rec.linkedInstallmentId = acc.cloudId; // Rev 2.32.178 (ID-BIND-1): лише для читання
     }
     resolvable.push({
       rec: rec,
@@ -7092,6 +7094,7 @@ async function pushDebtRecordPilot(rec, opts){
     if(!acc || !acc.cloudId) return { success: true }; // ОЧ ще не синхронізована — тихий пропуск, не помилка
     installmentAccountId = acc.cloudId;
   }
+  rec.accountId = bankAccountId || installmentAccountId; // Rev 2.32.178 (ID-BIND-1): лише для читання, до push не потрапляє (рядок будується явно)
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   try{
@@ -7293,6 +7296,9 @@ async function pullExpensesCore(opts){
       if(!maxSeen || row.updated_at > maxSeen) maxSeen = row.updated_at;
       const local = expenses.find(function(e){ return e.id === row.id; });
       if(local){
+        // Rev 2.32.178 (ID-BIND-1): лише для читання — id прив'язаної ОЧ із сервера (пошуку й push не стосується)
+        if(row.linked_installment_id && local.linkedInstallmentId !== row.linked_installment_id) local.linkedInstallmentId = row.linked_installment_id;
+        else if(!row.linked_installment_id && local.linkedInstallmentId) delete local.linkedInstallmentId;
         const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
         const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
@@ -7349,7 +7355,7 @@ async function pullExpensesCore(opts){
       const rec = { id: row.id, date: row.expense_date, name: row.note || '', amount: row.amount, category: row.category || '', subcategory: row.subcategory || '', manual: true, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, createdBy: row.created_by, updatedBy: row.updated_by };
       if(row.edited_at) rec.editedAt = row.edited_at; // Rev 2.32.90 (EDITED-1)
       if(row.source){ rec.source = row.source; rec.externalId = row.external_id || null; } // Rev 2.32.28 (MB-4)
-      if(linkedInstallmentName) rec.linkedInstallment = linkedInstallmentName;
+      if(linkedInstallmentName){ rec.linkedInstallment = linkedInstallmentName; rec.linkedInstallmentId = row.linked_installment_id; } // Rev 2.32.178 (ID-BIND-1)
       // Rev #30 (6D.42) — новий для цього пристрою запис, що вже tombstoned
       // у Cloud (напр. видалений на іншому пристрої ДО першого pull тут) —
       // одразу створюється зі своїм deletedAt, activeExpenses() приховає
@@ -7512,6 +7518,8 @@ async function pullDebtsCore(opts){
     if(error || !data) return { skipped: true };
     for(const row of data){
       let resolvedName;
+      // Rev 2.32.178 (ID-BIND-1): лише для читання — id рахунку/ОЧ із сервера (не використовується в пошуку й не пушиться; етапи 2–3 — окремо)
+      const resolvedAccountId = row.kind === 'card' ? row.bank_account_id : row.installment_account_id;
       if(row.kind === 'card'){
         const acc = bankAccounts.find(function(b){ return b.cloudId === row.bank_account_id; });
         if(!acc){ skippedFk++; continue; } // рахунок ще не синхронізований локально — тихий пропуск ЦЬОГО боргу
@@ -7525,6 +7533,7 @@ async function pullDebtsCore(opts){
       const month = dateToMonth(row.month); // Cloud-колонка типу date, локально 'YYYY-MM'
       const local = debts.find(function(d){ return d.id === row.id; });
       if(local){
+        if(resolvedAccountId && local.accountId !== resolvedAccountId) local.accountId = resolvedAccountId; // Rev 2.32.178 (ID-BIND-1): допис без позначки «змінено» (синхронізоване поле не змінюється)
         const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
         const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
@@ -7570,7 +7579,7 @@ async function pullDebtsCore(opts){
         }
         continue;
       }
-      const rec = { id: row.id, name: resolvedName, kind: row.kind, month, balance: row.balance, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, createdBy: row.created_by, updatedBy: row.updated_by };
+      const rec = { id: row.id, accountId: resolvedAccountId || undefined, name: resolvedName, kind: row.kind, month, balance: row.balance, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, createdBy: row.created_by, updatedBy: row.updated_by };
       if(row.min_payment != null) rec.minPayment = row.min_payment;
       if(row.min_payment_done != null) rec.minPaymentDone = row.min_payment_done;
       if(row.monthly_payment != null) rec.monthlyPayment = row.monthly_payment;
@@ -8335,7 +8344,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.177';
+const APP_VERSION = '2.32.178';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11994,6 +12003,25 @@ function findInstallmentFieldIssues(){
       };
     });
 }
+// Rev 2.32.178 (ID-BIND-1): однакові назви живих карток/ОЧ — записи, пов'язані за назвою, неоднозначні (етапи 2–3 прив'язки за id — окремо).
+function findDuplicateAccountNames(){
+  const out = [];
+  [['card', bankAccounts, 'Картка'], ['installment', installmentAccounts, 'ОЧ']].forEach(function(g){
+    const seen = {};
+    (g[1] || []).forEach(function(a){
+      if(!a || a.deletedAt) return;
+      const k = accountNameKey(a.name);
+      if(!k) return;
+      (seen[k] = seen[k] || []).push(a);
+    });
+    Object.keys(seen).forEach(function(k){
+      const list = seen[k];
+      if(list.length < 2) return;
+      out.push({ label: list[0].name, date: g[2], reason: 'живих записів з такою назвою: ' + list.length + ' — пов\'язані за назвою записи (борги, платежі) неоднозначні', target: g[0] === 'card' ? { type:'debt', kind:'card', name: list[0].name } : { type:'installment', name: list[0].name } });
+    });
+  });
+  return out;
+}
 // Rev #30 (6D.61) — термінове питання користувача після 6D.57-60: "що робити
 // з даними, які не пройшли push?" — автоматичний retry вже є (запис без
 // syncedUpdatedAt===updatedAt пробується знову при кожному "Синхронізувати
@@ -12073,6 +12101,7 @@ function buildDiagnosticsReport(){
     { title: 'Витрати: updatedAt/createdAt', issues: findTimestampIssues() },
     { title: 'ОЧ: обов’язкові поля', issues: findInstallmentFieldIssues() },
     { title: 'ОЧ: розбіжність факт/очікування (>5%)', issues: findInstallmentDivergences() },
+    { title: 'Картки й ОЧ: однакові назви', issues: findDuplicateAccountNames() },
   ];
   // Rev #30 (6D.61) — перевірка додається лише якщо Cloud-сесія активна —
   // без синхронізації "не запушено" не проблема, а очікуваний стан, не варто
