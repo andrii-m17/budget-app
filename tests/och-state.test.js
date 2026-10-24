@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const NAMES = ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'installmentPaymentState',
-  'installmentStateView', 'installmentProgressFraction', 'installmentProgressRingHtml', 'installmentRemindDays', 'PAY_MONTHS_SHORT', 'payDateShort', 'payFmt', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'INSTALLMENT_BANG_SVG'];
+  'installmentStateView', 'installmentProgressFraction', 'installmentProgressRingHtml', 'installmentRemindDays', 'PAY_MONTHS_SHORT', 'payDateShort', 'payFmt', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'INSTALLMENT_BANG_SVG'];
 const c = buildSandbox({ escapeAttr: function(v){ return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); } }, NAMES);
 const j = v => JSON.parse(JSON.stringify(v));
 // сьогодні 2026-10-10, дата платежу 15 жов (диф 5); expected 5000

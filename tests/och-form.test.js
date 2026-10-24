@@ -90,7 +90,7 @@ test('«Далі» на клавіатурі: назва → сума → міс
 });
 test('форма: розмітка — поля й сегменти за описом; без «Дати платежу», прогресу й підсумків; кнопки в одному ряду, закріплені; захисні атрибути; поля 34 px, підписи 10 px', function(){
   const form = SRC.slice(SRC.indexOf('<div class="och-form">'), SRC.indexOf('Видалити ОЧ</button>') + 30);
-  ['Назва', 'Загальна сума', 'Місяців', 'Дата створення', 'Платіж/міс', 'Перший платіж', 'Списання', "Залишок за банком (необов'язково)"].forEach(l => assert.ok(form.includes(l), l));
+  ['Назва', 'Загальна сума', 'Місяців', 'Дата створення', 'Платіж/міс', 'Перший платіж', 'Списання', "Залишок за банком до платежу цього місяця (необов'язково)"].forEach(l => assert.ok(form.includes(l), l));
   ['У день оформлення', 'Наступного місяця', 'Автоматично', 'Вношу вручну', 'Оплатити', 'Зберегти', 'Видалити ОЧ'].forEach(l => assert.ok(form.includes(l), l));
   assert.ok(!/idd-due-day|Дата платежу|progress|t-bar|Разом/.test(form));
   assert.match(form, /<input type="date" id="idd-start"/);
@@ -128,7 +128,7 @@ test('таблиця Аналітики: «Платіж/міс» = станда�
   assert.match(card, /const payOf = function\(d\)\{.*installmentStandardPayment\(acc\); return std != null \? std : d\.monthlyPayment; \};/);
   assert.match(card, /ochOvalsHtml\(ochOvalsModel\(acc \? acc\.termMonths : null, d\.balance, acc \? installmentStandardPayment\(acc\) : null\)\)/);
   assert.match(card, /och-bar-h/); assert.ok(!/t-bar-track/.test(card), 'старого прогрес-бару нема');
-  assert.match(SRC, /const balance = \(prevBal != null\) \? \(linkedSum > 0 \? Math\.max\(0, prevBal - linkedSum\) : prevBal\) : null;/, 'ланцюжок (2.32.168) без змін');
+  assert.match(SRC, /Math\.max\(0, startBal - lk\)/, 'Rev 2.32.177: ланцюжок з опорними точками');
 });
 
 // ---- Rev 2.32.172: «Умови», єдина підказка поля, підказка про відхилення ----
@@ -176,7 +176,7 @@ test('підказка про відхилення: лише коли введе
   const fn = SRC.slice(SRC.indexOf('function checkInstallmentDivergence'), SRC.indexOf('// Rev 2.2.2 BugFix — підставляє очікуване'));
   assert.match(fn, /Відрізняється від розрахунку \(\$\{fmt\(diff\)\}\) · <button type="button" class="bdr-diff-apply"/);
   assert.ok(!/очікуван|на \$\{|більше|менше/.test(fn), 'слова «очікуване» й «на N% більше» прибрано');
-  assert.match(SRC, /idd-balance'\)\.dataset\.expected = est\.balance != null \? est\.balance : ''/, 'порівняння з розрахованим ланцюжком залишком');
+  assert.match(SRC, /idd-balance'\)\.dataset\.expected = est\.calcBefore != null \? est\.calcBefore : ''/, 'порівняння з розрахунком без цієї опори');
   assert.match(CSS, /\.bdr-diff-warning\{ display:none; font-size:10\.5px; color:var\(--color-warning\);/, 'тепле оформлення');
 });
 

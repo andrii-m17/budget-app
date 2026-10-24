@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'upcomingPayments']);
+const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'upcomingPayments']);
 test('[5000, 5000, 6000, 6000, 6000] → 5000 (два найновіші однакові)', function(){ assert.equal(c.expectedPaymentForCard([5000, 5000, 6000, 6000, 6000]), 5000); });
 test('[2000, 2000, 2000, 2508, 2000] → 2000', function(){ assert.equal(c.expectedPaymentForCard([2000, 2000, 2000, 2508, 2000]), 2000); });
 test('[3350, 3200, 3200] → 3200 (одноразове відхилення не перемагає)', function(){ assert.equal(c.expectedPaymentForCard([3350, 3200, 3200]), 3200); });
@@ -32,7 +32,7 @@ test('upcomingPayments: оцінка ОЧ без запису місяця ви�
 test('охоронні: typicalMonthlyPayment і розрахунок залишку не змінено; нова функція використовується лише в upcomingPayments', function(){
   const typical = SRC.slice(SRC.indexOf('function typicalMonthlyPayment'), SRC.indexOf('function typicalMonthlyPayment') + 700);
   assert.ok(!/expectedPaymentForCard/.test(typical));
-  const est = SRC.slice(SRC.indexOf('function estimateInstallment'), SRC.indexOf('function estimateInstallment') + 500);
+  const est = SRC.slice(SRC.indexOf('function estimateInstallment'), SRC.indexOf('function estimateInstallment') + 1500);
   assert.match(est, /typicalMonthlyPayment\(name, 'installment', month\)/); assert.ok(!/expectedPaymentForCard/.test(est));
   assert.equal((SRC.match(/expectedPaymentForCard\(/g) || []).length, 2, 'оголошення й один виклик у upcomingPayments');
   assert.match(SRC, /const mode = expectedPaymentForCard\(prev\.slice\(\)\.reverse\(\)\);/);

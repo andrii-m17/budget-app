@@ -93,7 +93,7 @@ function debtSandbox(){
       // записів кличе resolveInstallmentFact() (пріоритет прив'язаної
       // витрати над ручним фактом) — весь ланцюжок залежностей мусить бути
       // в sandbox, інакше ReferenceError усередині extracted-коду.
-      'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum',
+      'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum',
       'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey']
   );
 }
@@ -171,11 +171,11 @@ test('debtTotalsForMonth: є прив\'язана витрата цього мі
   ];
   const result = ctx.debtTotalsForMonth('2026-08');
   assert.equal(result.list.length, 1);
-  // est.balance = prevBal(30000, з липня) - linkedSum(1500) = 28500, НЕ
-  // вручну збережені 25619.
-  assert.equal(result.list[0].balance, 30000 - 1500);
+  // Rev 2.32.177: внесений серпневий залишок 25619 — опора (до платежу місяця),
+  // прив'язана 1500 віднімається; липневий факт 30000 ланцюжок не визначає.
+  assert.equal(result.list[0].balance, 25619 - 1500);
   assert.equal(result.list[0].monthlyPayment, 1500);
-  assert.equal(result.totalInstallment, 30000 - 1500);
+  assert.equal(result.totalInstallment, 25619 - 1500);
   assert.equal(result.totalMonthlyInstallment, 1500);
 });
 
@@ -201,8 +201,8 @@ test('debtTotalsForMonth: linkedSum>0, але НЕМАЄ попередньог�
   const result = ctx.debtTotalsForMonth('2026-08');
   // resolveInstallmentFact.balance=null (немає prevBal) → debtTotalsForMonth
   // явно лишає d.balance замість пробивання null/NaN у суму.
-  assert.equal(result.list[0].balance, 999);
+  assert.equal(result.list[0].balance, 999 - 500, 'Rev 2.32.177: факт — опора, прив\'язана віднімається');
   // pay натомість завжди відомий (сам linkedSum, не залежить від prevBal).
   assert.equal(result.list[0].monthlyPayment, 500);
-  assert.equal(result.totalInstallment, 999);
+  assert.equal(result.totalInstallment, 999 - 500);
 });

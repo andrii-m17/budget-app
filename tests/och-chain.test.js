@@ -8,7 +8,7 @@ const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
 
-const pure = buildSandbox({}, ['ppPad', 'ppNextMonth', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'installmentChainCalc']);
+const pure = buildSandbox({}, ['ppPad', 'ppNextMonth', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc']);
 const bal = (spec, m) => pure.installmentChainCalc(spec, m).balance;
 const NAME = 'ОЧ Тест';
 const L = (obj) => obj; // { 'YYYY-MM': сума прив'язаних }
@@ -35,9 +35,9 @@ test('місяць без прив\'язаної, але з фактом: фак
   assert.equal(bal(spec, '2026-07'), 6000, 'факт місяця без прив\'язаних');
   assert.equal(bal(spec, '2026-08'), 5500, 'далі від факту');
 });
-test('прив\'язана перемагає внесений факт (6D.148), навіть коли факт інший', function(){
+test('Rev 2.32.177: внесений факт — опора (залишок до платежу місяця), прив\'язана віднімається від нього', function(){
   const spec = { initial: 10000, firstMonth: '2026-06', recs: [R('2026-06', 5000, 1000)], linked: L({ '2026-06': 1000 }) };
-  assert.equal(bal(spec, '2026-06'), 9000);
+  assert.equal(bal(spec, '2026-06'), 4000);
 });
 test('без прив\'язаної й без факту (Rev 2.32.168): залишок = попередній, типовий платіж не віднімається; нічого не змінюється, доки платіж не внесено', function(){
   const spec = { initial: 10000, firstMonth: '2026-06', recs: [R('2026-06', 9000, 1000), R('2026-07', 8000, 1000)], linked: {} };
@@ -55,8 +55,8 @@ test('initialAmount порожня: перший місяць — факт, ін
   const none = { initial: null, firstMonth: '2026-06', recs: [], linked: L({ '2026-06': 1000 }) };
   assert.equal(bal(none, '2026-06'), null); assert.equal(bal(none, '2026-07'), null);
   const fact = { initial: null, firstMonth: '2026-06', recs: [R('2026-06', 5000, 1000)], linked: L({ '2026-06': 1000 }) };
-  assert.equal(bal(fact, '2026-06'), 5000, 'є прив\'язана, нема initial: запасний варіант — факт');
-  assert.equal(bal(fact, '2026-07'), 5000, 'далі залишок факту без віднімання (Rev 2.32.168)');
+  assert.equal(bal(fact, '2026-06'), 4000, 'нема initial: опора — факт, прив\'язана віднімається');
+  assert.equal(bal(fact, '2026-07'), 4000, 'далі без віднімання (Rev 2.32.168)');
   const zero = { initial: 0, firstMonth: '2026-06', recs: [], linked: L({ '2026-06': 1000 }) };
   assert.equal(bal(zero, '2026-06'), null, 'нульова початкова = порожня');
   const later = { initial: null, firstMonth: '2026-06', recs: [R('2026-08', 3000, 1000)], linked: {} };
@@ -64,8 +64,8 @@ test('initialAmount порожня: перший місяць — факт, ін
 });
 test('пропущений місяць посередині: залишок лишається попереднім і передається далі (Rev 2.32.168)', function(){
   const spec = { initial: 10000, firstMonth: '2026-06', recs: [R('2026-06', 9000, 1000)], linked: L({ '2026-06': 1000, '2026-08': 1000 }) };
-  assert.equal(bal(spec, '2026-07'), 9000, 'липня нема: залишок червня');
-  assert.equal(bal(spec, '2026-08'), 8000, 'серпень: від липня мінус прив\'язана');
+  assert.equal(bal(spec, '2026-07'), 8000, 'липня нема: залишок червня (опора 9 000 − 1 000)');
+  assert.equal(bal(spec, '2026-08'), 7000, 'серпень: від липня мінус прив\'язана');
   const noTypical = { initial: 10000, firstMonth: '2026-06', recs: [], linked: L({ '2026-06': 1000, '2026-08': 1000 }) };
   assert.equal(bal(noTypical, '2026-07'), 9000); assert.equal(bal(noTypical, '2026-08'), 8000);
 });
@@ -86,7 +86,7 @@ test('місяць раніше за початок ланцюжка: усе nul
 // ---- інтеграція: усе, що читає залишок, бачить один ланцюжок ----
 function app(debts, expenses, accounts){
   return buildSandbox({ debts, expenses, hiddenFrom: {}, bankAccounts: [], installmentAccounts: accounts || [] },
-    ['debtTotalsForMonth', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum', 'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey']);
+    ['debtTotalsForMonth', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum', 'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey']);
 }
 test('таблиця Аналітики (debtTotalsForMonth): «Предмет А» у жовтні без запису, з прив\'язаною витратою → залишок 2 000 і смуга 33%; без прив\'язаної → залишок попереднього (3 000, смуга 0%)', function(){
   const acc = [{ name: NAME, initialAmount: 3000, firstMonth: '2026-09' }];
@@ -102,7 +102,7 @@ test('таблиця Аналітики (debtTotalsForMonth): «Предмет �
 test('«Облік» і таблиця збігаються: той самий resolveInstallmentFact; «Разом ОЧ» — сума тих самих залишків', function(){
   const acc = [{ name: NAME, initialAmount: 40000, firstMonth: '2026-06' }];
   const exp = [['2026-06-05', 3000], ['2026-07-05', 3100], ['2026-08-05', 3600], ['2026-09-05', 3700]].map(([date, amount], i) => ({ id: 'e' + i, date, amount, linkedInstallment: NAME }));
-  const debts = [{ name: NAME, kind: 'installment', month: '2026-06', balance: 37000, monthlyPayment: 3000 }];
+  const debts = [{ name: NAME, kind: 'installment', month: '2026-06', balance: 40000, monthlyPayment: 3000 }];
   const c = app(debts, exp, acc);
   const r = m => j(evalInSandbox(c, "resolveInstallmentFact(" + JSON.stringify(NAME) + ", '" + m + "', undefined)"));
   assert.deepEqual(['2026-06', '2026-07', '2026-08', '2026-09'].map(m => r(m).balance), [37000, 33900, 30300, 26600]);
@@ -119,7 +119,7 @@ test('перенесений запис старого місяця не вва�
 
 // ---- «Найближчі платежі» і кільце: очікуваний платіж обмежується ланцюжком ----
 test('«Найближчі платежі»: очікуваний платіж обмежений обчисленим залишком (а не останнім записом)', function(){
-  const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'ppModeAmount']);
+  const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'ppModeAmount']);
   const run = (expenses) => j(c.upcomingPayments({ today: '2026-10-10', horizonDays: 7, installments: [{ name: NAME, dueDay: 12, initialAmount: 3000, firstMonth: '2026-09' }], cards: [], debtsByMonth: [{ kind: 'installment', name: NAME, month: '2026-09', balance: 500, monthlyPayment: 1000 }], expenses, hidden: {} }));
   // жовтень: очікуваний платіж 1 000, але залишок після вересня 500 → очікуване = 500; прив'язаних 500 → сплачено повністю
   assert.equal(run([{ date: '2026-10-05', amount: 500, linkedInstallment: NAME }]).items.length, 0);
@@ -127,7 +127,6 @@ test('«Найближчі платежі»: очікуваний платіж �
 });
 test('охоронні: усі читачі залишку ОЧ — через ланцюжок (lastKnownBalance більше не викликається)', function(){
   assert.ok(!/lastKnownBalance\(/.test(SRC.replace(/function lastKnownBalance\(/, '').replace(/\/\/[^\n]*/g, '')), 'lastKnownBalance ніде не викликається');
-  assert.match(SRC, /const prevBal = installmentBalanceBefore\(name, 'installment'|const prevBal = installmentBalanceBefore\(name, month\)/);
   assert.match(SRC, /prevBalance: installmentBalanceBefore\(name, selectedMonth\)/);
   assert.match(SRC, /const chainBefore = installmentChainCalc\(chainSpec, month\)\.before;/);
 });

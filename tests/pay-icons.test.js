@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payNamesParts', 'payPartsText', 'payUnconfirmedParts', 'payUnconfirmedLadder', 'payNoDayParts', 'paymentsCardModel']);
+const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppModeAmount', 'expectedPaymentForCard', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'upcomingPayments', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'pickCardVariant', 'payCompactAmount', 'payAmountShortText', 'payNextLadder', 'payNamesParts', 'payPartsText', 'payUnconfirmedParts', 'payUnconfirmedLadder', 'payNoDayParts', 'paymentsCardModel']);
 const I = (name, dueDay) => ({ name, dueDay });
 const D = (name, month, extra) => Object.assign({ kind: 'installment', name, month, monthlyPayment: 100, balance: 9 }, extra || {});
 function model(o, remind){
@@ -56,7 +56,7 @@ test('день найближчого платежу: виділено лише 
   assert.ok(!/\.pay-day\.next\.soon|' soon'\)\); b\.type|payDaySoon/.test(SRC), 'жодного помаранчевого варіанта');
 });
 test('сплачений повністю платіж не підсвічується; частковий — так', function(){
-  const o = { today: '2026-10-15', installments: [I('А', 17), I('Б', 20)], debtsByMonth: [D('А', '2026-10', { monthlyPayment: 1000 }), D('Б', '2026-10', { monthlyPayment: 500 })] };
+  const o = { today: '2026-10-15', installments: [I('А', 17), I('Б', 20)], debtsByMonth: [D('А', '2026-10', { monthlyPayment: 1000, balance: 5000 }), D('Б', '2026-10', { monthlyPayment: 500 })] };
   const paid = model(Object.assign({ expenses: [{ date: '2026-10-10', amount: 1000, linkedInstallment: 'А' }] }, o), 2);
   assert.equal(paid.days.find(d => d.next).day, 20, 'А сплачено — підсвічується наступний Б');
   const part = model(Object.assign({ expenses: [{ date: '2026-10-10', amount: 300, linkedInstallment: 'А' }] }, o), 2);
@@ -96,7 +96,7 @@ test('вимірювальна логіка fitPaymentsCard підтримує �
   assert.match(SRC, /const put = function\(i\)\{ if\(el\._payParts\) payRenderParts\(el, el\._payParts\[i\]\); else el\.textContent = ladder\[i\]; \};/);
 });
 test('екран «Платежі» (розгорнутий вигляд): секція «ОЧ без дати» з назвами — як «Картки без дати»; без суми; порожній стан не змінюється', function(){
-  const c2 = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'ppModeAmount', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payRelative', 'paymentsScreenModel']);
+  const c2 = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'ppModeAmount', 'pluralUa', 'PAY_MONTHS_SHORT', 'PAY_DOW', 'PAY_MONTHS_GEN', 'payDow', 'payDateShort', 'payFmt', 'payAmountText', 'payRelative', 'paymentsScreenModel']);
   const run = (o) => { const today = '2026-10-15'; return j(c2.paymentsScreenModel(c2.upcomingPayments(Object.assign({ today, horizonDays: 14, installments: [], cards: [], debtsByMonth: [], expenses: [], hidden: {} }, o)), today)); };
   const m = run({ installments: [I('Без1', null), I('Без2', null), I('Ок', 20)], debtsByMonth: [D('Без1', '2026-10'), D('Без2', '2026-10'), D('Ок', '2026-10')] });
   const sec = m.sections.find(s => s.key === 'noday');

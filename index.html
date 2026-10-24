@@ -3727,7 +3727,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.176</div>
+  <div class="version-footer">Money Tree · Rev 2.32.177</div>
 </div>
   </div>
 </div>
@@ -4346,7 +4346,7 @@
         </div>
       </div>
       <div class="field">
-        <label for="idd-balance">Залишок за банком (необов'язково)</label>
+        <label for="idd-balance">Залишок за банком до платежу цього місяця (необов'язково)</label>
         <input type="text" inputmode="numeric" class="cdd-amount-input" id="idd-balance" placeholder="—" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" oninput="checkInstallmentDivergence()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
         <span class="bdr-diff-warning" id="idd-balance-diff"></span>
       </div>
@@ -8335,7 +8335,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.176';
+const APP_VERSION = '2.32.177';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9072,6 +9072,29 @@ function installmentTypicalPay(recs, beforeMonth){
   return best;
 }
 // Повертає { start, before, balance, pay, linkedSum }: before — обчислений залишок НА ПОЧАТОК місяця (попередній місяць ланцюжка; для першого місяця initialAmount; null — невідомо), balance — залишок місяця за правилом (1)–(3), pay — платіж місяця (прив'язаний, інакше типовий). Місяць раніше за початок ланцюжка: усе null.
+// Rev 2.32.177 (OCH-ANCHOR, правило власника): ОПОРНІ ТОЧКИ. Внесений «Залишок за банком» за місяць M (до платежу цього місяця) — опорна точка: залишок на початок M = цей факт, залишок M = max(0, опора − прив'язані за M), наступні місяці від нього (до наступної опорної точки); прив'язані платежі в межах місяця завжди зменшують (вони не «перемагають» факт, а віднімаються від нього). Без опорної точки в першому місяці: якщо pay_mode = 'auto' і є start_date, стандартний платіж і term_months — за графіком total − min(N, term) × платіж, N = кількість запланованих платежів до початку цього місяця; інакше total і причина неповних даних «Залишок за банком на початок обліку» (openingMissing: для ОЧ, у яких start_date раніше за перший місяць обліку). Без прогнозів: місяць без прив'язаної й без факту лишає залишок.
+// Графік: same_day — перший платіж у день start_date, next_month — через місяць, далі щомісяця (день не більший за довжину місяця, на кількість не впливає); N = платежі, чий місяць раніше за місяць M.
+function ochMonthIndex(ym){ return +String(ym).slice(0, 4) * 12 + (+String(ym).slice(5, 7) - 1); }
+function ochPlannedPaymentsBefore(startDate, firstPayment, term, month){
+  const sd = /^(\d{4})-(\d{2})-\d{2}$/.exec(String(startDate || ''));
+  const t = Math.round(Number(term));
+  if(!sd || !(t >= 1) || !month) return null;
+  const startIdx = +sd[1] * 12 + (+sd[2] - 1);
+  const n = ochMonthIndex(month) - startIdx - (firstPayment === 'next_month' ? 1 : 0);
+  return Math.max(0, Math.min(t, n));
+}
+// Вихідний залишок першого місяця без опорної точки: { balance, scheduled } (scheduled — за графіком); balance null — total невідомий.
+function ochOpeningBalance(sp, firstMonth){
+  const total = Number(sp.initial);
+  if(!(total > 0)) return { balance: null, scheduled: false };
+  const pay = Number(sp.std);
+  if(sp.payMode === 'auto' && sp.startDate && pay > 0 && Number(sp.termMonths) > 0){
+    const n = ochPlannedPaymentsBefore(sp.startDate, sp.firstPayment, sp.termMonths, firstMonth);
+    if(n !== null) return { balance: Math.max(0, total - n * pay), scheduled: true };
+  }
+  return { balance: total, scheduled: false };
+}
+// Повертає { start, before, calcBefore, balance, pay, linkedSum, anchored, openingMissing }: before — залишок НА ПОЧАТОК місяця (опорна точка, якщо є; інакше розрахунковий), calcBefore — той самий без опорної точки цього місяця (для підказки «Відрізняється від розрахунку»), balance — залишок місяця = max(0, before − прив'язані). Місяць раніше за початок ланцюжка: усе null.
 function installmentChainCalc(spec, month){
   const sp = spec || {};
   const recs = (sp.recs || []).filter(function(d){ return d && d.month; });
@@ -9081,23 +9104,21 @@ function installmentChainCalc(spec, month){
   recs.forEach(function(d){ cands.push(String(d.month).slice(0, 7)); });
   Object.keys(linked).forEach(function(m){ if(linked[m] > 0) cands.push(m); });
   const start = cands.length ? cands.slice().sort()[0] : null;
-  const empty = { start: start, before: null, balance: null, pay: null, linkedSum: Number(linked[month]) > 0 ? Number(linked[month]) : 0 };
+  const empty = { start: start, before: null, calcBefore: null, balance: null, pay: null, linkedSum: Number(linked[month]) > 0 ? Number(linked[month]) : 0, anchored: false, openingMissing: false };
   if(!start || month < start) return empty;
-  const init = Number(sp.initial);
-  let prev = init > 0 ? init : null;
-  let m = start, guard = 0, out = empty;
+  let prevEnd = null, m = start, guard = 0, out = empty;
   while(guard++ < 1200){
     const lk = Number(linked[m]) > 0 ? Number(linked[m]) : 0;
     const factRec = recs.filter(function(d){ return String(d.month).slice(0, 7) === m && d.balance != null; })[0];
-    const typical = installmentTypicalPay(recs, m);
-    const pay = lk > 0 ? lk : typical;
-    let bal;
-    if(lk > 0) bal = prev != null ? Math.max(0, prev - lk) : (factRec ? factRec.balance : null);
-    else if(factRec) bal = factRec.balance;
-    else bal = prev; // Rev 2.32.168: (3) нічого немає — залишок попереднього місяця без віднімання типового платежу (прогнозів немає); попереднього нема — null
-    out = { start: start, before: prev, balance: bal, pay: pay, linkedSum: lk };
+    let calcBefore = prevEnd, scheduled = false;
+    if(m === start){ const op = ochOpeningBalance(sp, start); calcBefore = op.balance; scheduled = op.scheduled; }
+    const startBal = factRec ? Number(factRec.balance) : calcBefore;
+    const bal = startBal == null || isNaN(startBal) ? null : Math.max(0, startBal - lk);
+    const sd = /^(\d{4})-(\d{2})/.exec(String(sp.startDate || ''));
+    const openingMissing = m === start && !factRec && !scheduled && !!sd && (sd[1] + '-' + sd[2]) < start;
+    out = { start: start, before: startBal == null || isNaN(startBal) ? null : startBal, calcBefore: calcBefore, balance: bal, pay: lk > 0 ? lk : installmentTypicalPay(recs, m), linkedSum: lk, anchored: !!factRec, openingMissing: openingMissing };
     if(m === month) return out;
-    prev = bal; m = ppNextMonth(m);
+    prevEnd = bal; m = ppNextMonth(m);
   }
   return empty;
 }
@@ -9135,7 +9156,7 @@ function upcomingPayments(opts){
       if(linkedSum > 0){
         const lastRec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month <= month && d.monthlyPayment > 0; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).pop();
         // Rev 2.32.164 (OCH-CHAIN): попередній залишок — з обчисленого ланцюжка (а не останній збережений запис): той самий розрахунок, що в «Обліку», таблиці й кільці
-        const chainSpec = { initial: inst.initialAmount, firstMonth: inst.firstMonth || null, recs: debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name; }), linked: expenses.reduce(function(a, e){ if(e.linkedInstallment === inst.name){ const k = String(e.date).slice(0, 7); a[k] = (a[k] || 0) + (Number(e.amount) || 0); } return a; }, {}) };
+        const chainSpec = { initial: inst.initialAmount, firstMonth: inst.firstMonth || null, std: installmentStandardPayment(inst), termMonths: inst.termMonths, startDate: inst.startDate, firstPayment: inst.firstPayment, payMode: inst.payMode, recs: debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name; }), linked: expenses.reduce(function(a, e){ if(e.linkedInstallment === inst.name){ const k = String(e.date).slice(0, 7); a[k] = (a[k] || 0) + (Number(e.amount) || 0); } return a; }, {}) };
         const chainBefore = installmentChainCalc(chainSpec, month).before;
         const expected = installmentExpectedPayment({ monthPay: rec ? rec.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: chainBefore });
         if(installmentPaidFull(linkedSum, expected).paid) return; // сплачено
@@ -12021,20 +12042,16 @@ function findInstallmentDivergences(){
   names.forEach(function(name){
     activeDebts().filter(function(d){ return d.kind==='installment' && d.name===name; }).forEach(function(rec){
       if(ignoredDivergences[divergenceKey(name, rec.month)]) return;
-      const prevBal = installmentBalanceBefore(name, rec.month); // Rev 2.32.164 (OCH-CHAIN)
-      if(prevBal == null) return; // немає попереднього залишку — нема з чим порівнювати
-      const typicalPay = typicalMonthlyPayment(name, 'installment', rec.month);
-      const linkedSum = linkedExpensesSum(name, rec.month);
-      const estimatedPay = linkedSum > 0 ? linkedSum : typicalPay;
-      if(estimatedPay == null) return;
-      const expectedBalance = Math.max(0, prevBal - estimatedPay);
-      if(expectedBalance <= 0) return; // той самий guard, що в checkInstallmentDivergence (ділення на 0)
+      // Rev 2.32.177 (OCH-ANCHOR): внесений залишок — опорна точка (до платежу місяця), порівнюємо з розрахунком БЕЗ цієї опори (calcBefore)
+      const calc = installmentChainCalc(installmentChainSpec(name), rec.month);
+      const expectedBalance = calc.calcBefore;
+      if(expectedBalance == null || !(expectedBalance > 0)) return; // немає розрахунку (або 0) — нема з чим порівнювати (guard ділення на 0)
       const diffPct = Math.abs(rec.balance - expectedBalance) / expectedBalance * 100;
       if(diffPct > 5){
         issues.push({
           label: name,
           date: rec.month,
-          reason: `факт ${fmt(rec.balance)} відхиляється від очікуваного ${fmt(expectedBalance)} на ${diffPct.toFixed(0)}%`,
+          reason: `внесений залишок ${fmt(rec.balance)} відрізняється від розрахунку (${fmt(expectedBalance)}) на ${diffPct.toFixed(0)}%`,
           target: { type:'installment-month', name: name, month: rec.month }
         });
       }
@@ -13681,22 +13698,21 @@ function installmentChainSpec(name){
   const acc = installmentAccounts.find(function(a){ return a.name === name; });
   const linked = {};
   activeExpenses().forEach(function(e){ if(e.linkedInstallment === name){ const k = monthKey(e.date); linked[k] = (linked[k] || 0) + e.amount; } });
-  return { initial: acc ? acc.initialAmount : null, firstMonth: acc ? (acc.firstMonth || null) : null, recs: activeDebts().filter(function(d){ return d.kind === 'installment' && d.name === name; }), linked: linked };
+  return { initial: acc ? acc.initialAmount : null, firstMonth: acc ? (acc.firstMonth || null) : null, std: installmentStandardPayment(acc), termMonths: acc ? acc.termMonths : null, startDate: acc ? acc.startDate : null, firstPayment: acc ? acc.firstPayment : null, payMode: acc ? acc.payMode : null, recs: activeDebts().filter(function(d){ return d.kind === 'installment' && d.name === name; }), linked: linked };
 }
 function installmentBalanceBefore(name, month){
   if(isHiddenForMonth(name, 'installment', month)) return null;
   return installmentChainCalc(installmentChainSpec(name), month).before;
 }
 function estimateInstallment(name, month){
-  const prevBal = installmentBalanceBefore(name, month); // Rev 2.32.164 (OCH-CHAIN): було lastKnownBalance — останній збережений запис
+  // Rev 2.32.177 (OCH-ANCHOR): залишок — з ланцюжка з опорними точками (installmentChainCalc): before — на початок місяця (опора або розрахунок), calcBefore — розрахунок без опорної точки цього місяця (для підказки «Відрізняється від розрахунку»), balance = max(0, before − прив'язані).
+  const calc = isHiddenForMonth(name, 'installment', month) ? { before: null, calcBefore: null, balance: null, openingMissing: false } : installmentChainCalc(installmentChainSpec(name), month);
   const linkedSum = linkedExpensesSum(name, month);
   const accStd = installmentStandardPayment(installmentAccounts.find(function(a){ return a.name === name; }));
   const typicalPay = accStd != null ? accStd : typicalMonthlyPayment(name, 'installment', month); // Rev 2.32.171 (OCH-MODEL): стандартний платіж моделі, а без нього — типовий за історією
   const pay = linkedSum > 0 ? linkedSum : typicalPay;
-  // Rev 2.32.168 (OCH-CHAIN-2): balance — залишок місяця за правилом ланцюжка: прив'язана витрата → попередній − сума (≥ 0); інакше попередній БЕЗ віднімання типового платежу. expected — «очікуваний після платежу» (попередній − прив'язана/типовий) лише для порівняння з внесеним фактом (шторка, діагностика розбіжностей); на екранах не показується.
-  const balance = (prevBal != null) ? (linkedSum > 0 ? Math.max(0, prevBal - linkedSum) : prevBal) : null;
-  const expected = (prevBal != null) ? (pay != null ? Math.max(0, prevBal - pay) : prevBal) : null;
-  return { balance, expected, pay, linkedSum };
+  const balance = calc.balance != null && linkedSum !== calc.linkedSum ? (calc.before != null ? Math.max(0, calc.before - linkedSum) : null) : calc.balance;
+  return { balance, before: calc.before, calcBefore: calc.calcBefore, expected: calc.calcBefore, openingMissing: !!calc.openingMissing, pay, linkedSum };
 }
 // Rev 2.22.75 (6D.148) — Модель C, пріоритет ДЖЕРЕЛА ІСТИНИ (за явним
 // підтвердженням користувача, оновлює FINANCIAL_RULES_AND_OBLIGATIONS.md
@@ -13880,7 +13896,7 @@ function openInstallmentEditor(i){
   ochSetSeg('idd-first', OCH_FIRST_PAYMENTS.indexOf(acc.firstPayment) !== -1 ? acc.firstPayment : segDefs.firstPayment);
   ochSetSeg('idd-mode', OCH_PAY_MODES.indexOf(acc.payMode) !== -1 ? acc.payMode : segDefs.payMode);
   document.getElementById('idd-balance').value = existing && existing.balance != null ? formatThousands(existing.balance) : '';
-  document.getElementById('idd-balance').dataset.expected = est.balance != null ? est.balance : ''; // Rev 2.32.172: порівняння з розрахованим ланцюжком залишком
+  document.getElementById('idd-balance').dataset.expected = est.calcBefore != null ? est.calcBefore : ''; // Rev 2.32.177: порівняння внесеного залишку (до платежу місяця) з розрахунком без цієї опорної точки
   document.getElementById('idd-linked-note').innerHTML = est.linkedSum > 0
     ? `Прив'язана витрата цього місяця: ${fmt(est.linkedSum)}`
     : '';
@@ -13992,13 +14008,11 @@ function checkInstallmentDivergence(){
 // Rev 2.2.2 BugFix — підставляє очікуване значення "Залишок" одним тапом;
 // заодно синхронізує "Платіж/міс" (якщо для нього теж є очікуване значення) —
 // разом вони одна узгоджена пропозиція.
+// Rev 2.32.177 (OCH-ANCHOR): «Застосувати» робить внесений «Залишок за банком» опорною точкою — явне збереження факту (як «Зберегти»: запис місяця й решта змін форми).
 function applyEstimatedInstallmentValues(){
   const balInput = document.getElementById('idd-balance');
-  if(!balInput) return;
-  const expected = parseFloat(balInput.dataset.expected);
-  if(!isNaN(expected)) balInput.value = formatThousands(expected);
-  checkInstallmentDivergence();
-  if(typeof refreshSaveGates === 'function') refreshSaveGates();
+  if(!balInput || !String(balInput.value || '').trim()) return;
+  saveInstallmentDrawer();
 }
 // Rev 2.16.6 — єдина точка збереження ОЧ: назва+початкова сума
 // (installmentAccounts) і залишок+платіж (debts, цей місяць) разом, один тап
@@ -20257,8 +20271,8 @@ function recordUiAudit(){
 // ===== Rev 2.31.3 (B) — крапки «дані заповнені неповністю» для карток боргів і ОЧ в «Обліку» =====
 // Доповнюють наявні крапки-статуси KPI (#21/#23, «немає місячних записів карток» — лише дашборд «Аналітики»): тут причина інша й по-картково (ліміт, мін. платіж, день платежу, початкова сума, платіж).
 // Той самий колір (--color-warning) і той самий розмір крапки (7px), що й .data-status-dot; натискання відкриває діалог із переліком і кнопкою «Заповнити».
-const INCOMPLETE_LABELS = { limit: 'Немає кредитного ліміту', balance: 'Немає даних про борг за цей місяць', minPayment: 'Немає мінімального платежу', dueDay: 'Немає дня платежу', initialAmount: 'Немає початкової суми', payment: 'Немає платежу за цей місяць' };
-const INCOMPLETE_FIELDS = { limit: 'cdd-limit', balance: 'cdd-balance', minPayment: 'cdd-minpay', dueDay: 'idd-start', initialAmount: 'idd-initial', payment: 'idd-pay' };
+const INCOMPLETE_LABELS = { openingBalance: 'Залишок за банком на початок обліку', limit: 'Немає кредитного ліміту', balance: 'Немає даних про борг за цей місяць', minPayment: 'Немає мінімального платежу', dueDay: 'Немає дня платежу', initialAmount: 'Немає початкової суми', payment: 'Немає платежу за цей місяць' };
+const INCOMPLETE_FIELDS = { openingBalance: 'idd-balance', limit: 'cdd-limit', balance: 'cdd-balance', minPayment: 'cdd-minpay', dueDay: 'idd-start', initialAmount: 'idd-initial', payment: 'idd-pay' };
 // Rev 2.32.135: поле шторки за видом і причиною (день платежу картки — cdd-payday; залишок ОЧ — idd-balance).
 function incompleteFieldId(kind, code){
   if(kind === 'card') return code === 'dueDay' ? 'cdd-payday' : INCOMPLETE_FIELDS[code];
@@ -20297,6 +20311,7 @@ function incompleteDetails(entity, monthRecord, month, hidden, nowMonth){
     if(balKnown && bal <= 0) return []; // закрита ОЧ
     if(!entity.dueDay) out.push({ code: 'dueDay', dependent: false });
     if(!(Number(entity.initialAmount) > 0)) out.push({ code: 'initialAmount', dependent: false });
+    if(entity.openingMissing) out.push({ code: 'openingBalance', dependent: false }); // Rev 2.32.177: ОЧ із start_date раніше за початок обліку без опорної точки й без графіка
     if(monthly){
       if(!balKnown) out.push({ code: 'balance', dependent: false });
       const payMissing = !rec || rec.monthlyPayment == null; // явний «0» = введено
@@ -20318,7 +20333,8 @@ function installmentIncompleteDetails(acc){
   const hidden = !isInstallmentVisibleForMonth(acc, selectedMonth);
   const existing = activeDebts().find(function(d){ return d.name === acc.name && d.kind === 'installment' && d.month === selectedMonth; });
   const resolved = resolveInstallmentFact(acc.name, selectedMonth, existing);
-  return incompleteDetails(acc, { balance: resolved.balance, monthlyPayment: resolved.pay }, selectedMonth, hidden, kyivTodayISO().slice(0, 7));
+  const calc = hidden ? null : installmentChainCalc(installmentChainSpec(acc.name), selectedMonth);
+  return incompleteDetails(Object.assign({}, acc, { openingMissing: !!(calc && calc.openingMissing) }), { balance: resolved.balance, monthlyPayment: resolved.pay }, selectedMonth, hidden, kyivTodayISO().slice(0, 7)); // Rev 2.32.177: openingMissing — «Залишок за банком на початок обліку»
 }
 function installmentIncompleteReasons(acc){ return installmentIncompleteDetails(acc).map(function(d){ return d.code; }); }
 function incompleteDotHtml(kind, i, reasons){

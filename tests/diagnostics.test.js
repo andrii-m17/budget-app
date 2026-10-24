@@ -27,10 +27,10 @@ function sandbox({ expenses, incomes, debts, installmentAccounts, hiddenFrom, ig
       isSupabaseSdkReady: () => true,
     },
     [
-      'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeSourceDisplay', 'findExpenseIdIssues', 'findTimestampIssues', 'findInstallmentFieldIssues', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'findInstallmentDivergences',
+      'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeSourceDisplay', 'findExpenseIdIssues', 'findTimestampIssues', 'findInstallmentFieldIssues', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'findInstallmentDivergences',
       'divergenceKey', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum',
       // Rev #30 (6D.42) — findExpenseIdIssues()/findTimestampIssues() тепер сканують activeExpenses(), не сирий expenses.
-      'activeExpenses',
+      'activeExpenses', 'monthKey',
       // Rev #30 (6D.44) — findInstallmentDivergences()/lastKnownBalance()/typicalMonthlyPayment() тепер сканують activeDebts().
       'activeDebts',
       // Rev #30 (6D.61) — термінове питання користувача "що робити з незапушеними
@@ -94,9 +94,10 @@ test('findInstallmentFieldIssues: без initialAmount або без назви 
 test('findInstallmentDivergences: факт близький до очікуваного (<5%) → без проблем', () => {
   const debts = [
     { name: 'ОЧ Приватбанк', kind: 'installment', month: '2026-01', balance: 10000, monthlyPayment: 3000 },
-    { name: 'ОЧ Приватбанк', kind: 'installment', month: '2026-02', balance: 7050, monthlyPayment: 3000 }, // очікувано 7000, відхилення ~0.7%
+    { name: 'ОЧ Приватбанк', kind: 'installment', month: '2026-02', balance: 7050, monthlyPayment: 3000 }, // Rev 2.32.177: розрахунок на початок лютого 7000 (10 000 − прив'язана 3 000), відхилення ~0.7%
   ];
-  const ctx = sandbox({ debts });
+  const expenses = [{ id: 'e1', date: '2026-01-05', amount: 3000, linkedInstallment: 'ОЧ Приватбанк' }];
+  const ctx = sandbox({ debts, expenses });
   assert.equal(ctx.findInstallmentDivergences().length, 0);
 });
 

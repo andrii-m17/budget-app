@@ -23,7 +23,7 @@ const { buildSandbox } = require('./extract');
 function sandbox({ debts, expenses, hiddenFrom }){
   return buildSandbox(
     { debts: debts || [], expenses: expenses || [], hiddenFrom: hiddenFrom || {}, installmentAccounts: [] },
-    ['hideKey', 'isHiddenForMonth', 'typicalMonthlyPayment', 'lastKnownBalance', 'monthKey', 'linkedExpensesSum', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment',
+    ['hideKey', 'isHiddenForMonth', 'typicalMonthlyPayment', 'lastKnownBalance', 'monthKey', 'linkedExpensesSum', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment',
       // Rev #30 (6D.44) — typicalMonthlyPayment()/lastKnownBalance() сканують activeDebts(); linkedExpensesSum() (6D.42) — activeExpenses().
       'activeDebts', 'activeExpenses']
   );
@@ -88,6 +88,6 @@ test('estimateInstallment (Rev 2.32.168): без прив\'язаних — bala
   const est = ctx.estimateInstallment('ОЧ Mono', '2026-02');
   assert.equal(est.pay, 3000);
   assert.equal(est.balance, 2000); // прогнозів немає: залишок як попередній
-  assert.equal(est.expected, 0); // 2000-3000 обрізано до 0, а не -1000 (лише для порівняння з фактом у шторці)
+  assert.equal(est.expected, 2000); // Rev 2.32.177: розрахунок на початок місяця = залишок попереднього (прогнозів немає)
   assert.equal(est.linkedSum, 0);
 });
