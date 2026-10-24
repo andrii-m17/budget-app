@@ -10,7 +10,7 @@ const { buildSandbox } = require('./extract');
 function sandbox(debts, hiddenFrom, bankAccounts){
   return buildSandbox(
     { debts, hiddenFrom: hiddenFrom || {}, bankAccounts: bankAccounts || [] },
-    ['hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'debtAsOfInfo', 'lastKnownBalance',
+    ['hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth', 'debtAsOfInfo', 'lastKnownBalance',
       // Rev #30 (6D.44) — debtAsOfInfo()/lastKnownBalance() тепер сканують activeDebts(), не сирий debts.
       'activeDebts',
       // Rev #30 (6D.91) — попап "Стан даних" тепер дієвий: конкретний

@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 
-const pure = buildSandbox({}, ['ppPad', 'ppNextMonth', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc']);
+const pure = buildSandbox({}, ['ppPad', 'ppNextMonth', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth']);
 const calc = (spec, m) => pure.installmentChainCalc(spec, m);
 const bal = (spec, m) => calc(spec, m).balance;
 const R = (month, balance, monthlyPayment) => ({ month, balance, monthlyPayment: monthlyPayment == null ? null : monthlyPayment });

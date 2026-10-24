@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const NAMES = ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'installmentPaymentState',
-  'installmentStateView', 'installmentProgressFraction', 'installmentProgressRingHtml', 'installmentRemindDays', 'PAY_MONTHS_SHORT', 'payDateShort', 'payFmt', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'INSTALLMENT_BANG_SVG'];
+  'installmentStateView', 'installmentProgressFraction', 'installmentProgressRingHtml', 'installmentRemindDays', 'PAY_MONTHS_SHORT', 'payDateShort', 'payFmt', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'upcomingPayments', 'expectedPaymentForCard', 'INSTALLMENT_BANG_SVG'];
 const c = buildSandbox({ escapeAttr: function(v){ return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); } }, NAMES);
 const j = v => JSON.parse(JSON.stringify(v));
 // сьогодні 2026-10-10, дата платежу 15 жов (диф 5); expected 5000
@@ -169,7 +169,7 @@ test('без очікуваного платежу в старому місяц�
   assert.equal(c.installmentExpectedPayment({ monthPay: 3000, lastPay: 2500, prevBalance: 10000 }), 3000);   // «Платіж на місяць» того місяця
   assert.equal(c.installmentExpectedPayment({ monthPay: null, lastPay: 2500, prevBalance: 10000 }), 2500);   // останній відомий до цього місяця
   const row = SRC.slice(SRC.indexOf('const lastRec = activeDebts().filter(function(d){ return d.kind === \'installment\''), SRC.indexOf('const pview = installmentStateView(pst)'));
-  assert.match(row, /monthKey2\(d\.month\) <= selectedMonth/); assert.match(row, /firstMonth: acc\.firstMonth \|\| null/);
+  assert.match(row, /monthKey2\(d\.month\) <= selectedMonth/); assert.match(row, /firstMonth: installmentStartMonthFor\(acc\) \|\| null/);
 });
 
 // ---- Rev 2.32.155 (OCH-RING): кільце прогресу замість «½» ----

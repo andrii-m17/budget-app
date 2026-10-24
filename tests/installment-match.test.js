@@ -13,8 +13,8 @@ const { buildSandbox } = require('./extract');
 
 function sandbox({ installmentAccounts, hiddenFrom }){
   return buildSandbox(
-    { installmentAccounts: installmentAccounts || [], hiddenFrom: hiddenFrom || {} },
-    ['hideKey', 'isHiddenForMonth', 'isInstallmentVisibleForMonth', 'stripLeadingEmoji', 'detectInstallmentMatches']
+    { installmentAccounts: installmentAccounts || [], hiddenFrom: hiddenFrom || {}, debts: [], expenses: [] },
+    ['hideKey', 'isHiddenForMonth', 'isInstallmentVisibleForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'stripLeadingEmoji', 'detectInstallmentMatches']
   );
 }
 // Rev #26.1 — масив, який повертає функція з vm.Context, живе в ІНШОМУ

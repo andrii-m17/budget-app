@@ -3727,7 +3727,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.178</div>
+  <div class="version-footer">Money Tree · Rev 2.32.179</div>
 </div>
   </div>
 </div>
@@ -8344,7 +8344,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.178';
+const APP_VERSION = '2.32.179';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8860,9 +8860,29 @@ function isHiddenForMonth(name, kind, month){
 //      ensureInstallmentFirstMonth), щоб нічого не зникло з наявних даних.
 function isInstallmentVisibleForMonth(acc, month){
   if(isHiddenForMonth(acc.name, 'installment', month)) return false;
-  if(acc.firstMonth && month < acc.firstMonth) return false;
+  const start = installmentStartMonthFor(acc); // Rev 2.32.179 (OCH-START): початок видимості з даних, а не лише з локального firstMonth
+  if(start && month < start) return false;
   return true;
 }
+// Rev 2.32.179 (OCH-START, рішення чату): початок видимості ОЧ — місяць start_date; інакше найраніший місяць серед її записів боргу й прив'язаних витрат;
+// інакше локальний firstMonth (запасний, якщо вже є); інакше місяць створення запису. firstMonth не синхронізується з сервером, тому на новому пристрої
+// (або після повторного завантаження) покладатися лише на нього не можна. Чиста функція: списки передаються параметрами. Розрахунок залишку й дані не чіпає.
+function installmentStartMonth(acc, debtList, expenseList){
+  if(!acc) return null;
+  const sd = /^(\d{4}-\d{2})/.exec(String(acc.startDate || ''));
+  if(sd) return sd[1];
+  let best = null;
+  (debtList || []).forEach(function(d){
+    if(d && !d.deletedAt && d.kind === 'installment' && d.name === acc.name && d.month && (best === null || d.month < best)) best = d.month;
+  });
+  (expenseList || []).forEach(function(e){
+    if(e && !e.deletedAt && e.linkedInstallment === acc.name && e.date){ const m = String(e.date).slice(0, 7); if(best === null || m < best) best = m; }
+  });
+  if(best) return best;
+  if(acc.firstMonth) return acc.firstMonth;
+  return cardCreatedMonth(acc);
+}
+function installmentStartMonthFor(acc){ return installmentStartMonth(acc, debts, expenses); }
 // Rev 2.32.137 (CARD-START, рішення чату): картка показується (список «Борги», крапки, підсумки, дашборд) лише з місяця createdAt і далі; жодних запасних правил на кшталт «найраніший запис боргу». Місяць створення — за локальною датою пристрою. Картка без createdAt не обмежується (мігрована без мітки дістає її при старті, див. stampBankAccountTimestamps). Для ОЧ без змін (firstMonth).
 function cardCreatedMonth(acc){
   if(!acc || !acc.createdAt) return null;
@@ -8879,6 +8899,11 @@ function isCardVisibleForMonth(acc, month){
 // Чи прихований обліковий запис (картка/ОЧ) для місяця: приховання (hiddenFrom) або, для картки, місяць до її createdAt. Для ОЧ — лише hiddenFrom, як раніше.
 function isAccountHiddenForMonth(name, kind, month){
   if(isHiddenForMonth(name, kind, month)) return true;
+  if(kind === 'installment'){ // Rev 2.32.179 (OCH-START): ОЧ до початку видимості поза підсумками («Разом ОЧ», аналітика, таблиця)
+    const inst = installmentAccounts.find(function(a){ return a.name === name; });
+    const st = inst ? installmentStartMonthFor(inst) : null;
+    return !!(st && month < st);
+  }
   if(kind !== 'card') return false;
   const acc = bankAccounts.find(function(b){ return b.name === name; });
   const cm = acc ? cardCreatedMonth(acc) : null;
@@ -9154,6 +9179,8 @@ function upcomingPayments(opts){
     let firstVisibleMonth = null;
     [m0, m1].forEach(function(month){
       if(hiddenFor(inst.name, 'installment', month)) return;
+      const startM = installmentStartMonth(inst, debts, expenses); // Rev 2.32.179 (OCH-START)
+      if(startM && month < startM) return;
       const hist = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month <= month; }).sort(function(a, b){ return a.month.localeCompare(b.month); });
       const withBal = hist.filter(function(d){ return d.balance != null; });
       if(withBal.length && withBal[withBal.length - 1].balance <= 0) return; // завершена
@@ -13692,7 +13719,7 @@ function populateInstallmentTable(){
     // Rev 2.32.151 (OCH-STATE): ✓ / ½ / «скоро» / «!» за сумою прив'язаних витрат і ОЧІКУВАНИМ платежем (див. installmentPaymentState); замість «будь-яка витрата = ✓» (Rev 2.32.149).
     const lastRec = activeDebts().filter(function(d){ return d.kind === 'installment' && d.name === name && monthKey2(d.month) <= selectedMonth && d.monthlyPayment > 0; }).sort(function(a, b){ return monthKey2(a.month).localeCompare(monthKey2(b.month)); }).pop();
     const expected = installmentExpectedPayment({ monthPay: existing ? existing.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: installmentBalanceBefore(name, selectedMonth) }); // Rev 2.32.164 (OCH-CHAIN): обчислений ланцюжок, а не останній запис
-    const pst = installmentPaymentState({ linked: linkedSum, expected: expected, dueDay: acc.dueDay, month: selectedMonth, firstMonth: acc.firstMonth || null, today: kyivTodayISO(), days: installmentRemindDays() });
+    const pst = installmentPaymentState({ linked: linkedSum, expected: expected, dueDay: acc.dueDay, month: selectedMonth, firstMonth: installmentStartMonthFor(acc) || null, today: kyivTodayISO(), days: installmentRemindDays() });
     const pview = installmentStateView(pst);
     const paid = pview.badge === 'check';
     const BADGE_TITLES = { half: 'Частково внесено', bang: 'Платіж прострочено' };
@@ -13731,11 +13758,12 @@ function installmentChainSpec(name){
 }
 function installmentBalanceBefore(name, month){
   if(isHiddenForMonth(name, 'installment', month)) return null;
+  if(isAccountHiddenForMonth(name, 'installment', month)) return null; // Rev 2.32.179 (OCH-START)
   return installmentChainCalc(installmentChainSpec(name), month).before;
 }
 function estimateInstallment(name, month){
   // Rev 2.32.177 (OCH-ANCHOR): залишок — з ланцюжка з опорними точками (installmentChainCalc): before — на початок місяця (опора або розрахунок), calcBefore — розрахунок без опорної точки цього місяця (для підказки «Відрізняється від розрахунку»), balance = max(0, before − прив'язані).
-  const calc = isHiddenForMonth(name, 'installment', month) ? { before: null, calcBefore: null, balance: null, openingMissing: false } : installmentChainCalc(installmentChainSpec(name), month);
+  const calc = isAccountHiddenForMonth(name, 'installment', month) ? { before: null, calcBefore: null, balance: null, openingMissing: false } : installmentChainCalc(installmentChainSpec(name), month);
   const linkedSum = linkedExpensesSum(name, month);
   const accStd = installmentStandardPayment(installmentAccounts.find(function(a){ return a.name === name; }));
   const typicalPay = accStd != null ? accStd : typicalMonthlyPayment(name, 'installment', month); // Rev 2.32.171 (OCH-MODEL): стандартний платіж моделі, а без нього — типовий за історією

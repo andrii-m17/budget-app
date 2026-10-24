@@ -8,7 +8,7 @@ const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
 
-const pure = buildSandbox({}, ['ppPad', 'ppNextMonth', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc']);
+const pure = buildSandbox({}, ['ppPad', 'ppNextMonth', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth']);
 const bal = (spec, m) => pure.installmentChainCalc(spec, m).balance;
 const NAME = 'ОЧ Тест';
 const L = (obj) => obj; // { 'YYYY-MM': сума прив'язаних }
@@ -86,7 +86,7 @@ test('місяць раніше за початок ланцюжка: усе nul
 // ---- інтеграція: усе, що читає залишок, бачить один ланцюжок ----
 function app(debts, expenses, accounts){
   return buildSandbox({ debts, expenses, hiddenFrom: {}, bankAccounts: [], installmentAccounts: accounts || [] },
-    ['debtTotalsForMonth', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum', 'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey']);
+    ['debtTotalsForMonth', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum', 'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey']);
 }
 test('таблиця Аналітики (debtTotalsForMonth): «Предмет А» у жовтні без запису, з прив\'язаною витратою → залишок 2 000 і смуга 33%; без прив\'язаної → залишок попереднього (3 000, смуга 0%)', function(){
   const acc = [{ name: NAME, initialAmount: 3000, firstMonth: '2026-09' }];
@@ -119,7 +119,7 @@ test('перенесений запис старого місяця не вва�
 
 // ---- «Найближчі платежі» і кільце: очікуваний платіж обмежується ланцюжком ----
 test('«Найближчі платежі»: очікуваний платіж обмежений обчисленим залишком (а не останнім записом)', function(){
-  const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'upcomingPayments', 'expectedPaymentForCard', 'ppModeAmount']);
+  const c = buildSandbox({}, ['ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'ppPrevMonth', 'installmentExpectedPayment', 'installmentPaidFull', 'installmentDuePassed', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'upcomingPayments', 'expectedPaymentForCard', 'ppModeAmount']);
   const run = (expenses) => j(c.upcomingPayments({ today: '2026-10-10', horizonDays: 7, installments: [{ name: NAME, dueDay: 12, initialAmount: 3000, firstMonth: '2026-09' }], cards: [], debtsByMonth: [{ kind: 'installment', name: NAME, month: '2026-09', balance: 500, monthlyPayment: 1000 }], expenses, hidden: {} }));
   // жовтень: очікуваний платіж 1 000, але залишок після вересня 500 → очікуване = 500; прив'язаних 500 → сплачено повністю
   assert.equal(run([{ date: '2026-10-05', amount: 500, linkedInstallment: NAME }]).items.length, 0);

@@ -203,7 +203,7 @@ const REPOSITORY_NAMES = [
   // Rev #30 (6D.60) — пакетний push (лише bulk-шляхи restore/syncAllPilotManual),
   // з відкатом на pushXRecordPilot() вище за провалу пакету.
   'pushExpensesBatch', 'pushExpensesBatched', 'pushIncomesBatch', 'pushIncomesBatched', 'pushDebtsBatch', 'pushDebtsBatched',
-  'hideKey', 'divergenceKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth',
+  'hideKey', 'divergenceKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
   // Rev 2.22.83 (6D.156, Ревізія B1) — epoch-штамп для legacy-бекфілу hiddenFrom.
   'HIDDEN_FROM_LEGACY_EPOCH',
   'ensureInstallmentFirstMonth',

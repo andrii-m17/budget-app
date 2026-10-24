@@ -11,7 +11,7 @@ const D = function(m, b, p){ return { name: NAME, kind: 'installment', month: m,
 const E = function(date, amount){ return { id: date, date: date, amount: amount, linkedInstallment: NAME }; };
 function resolve(debts, expenses, month){
   const ctx = buildSandbox({ debts: debts, expenses: expenses, hiddenFrom: {}, installmentAccounts: [] },
-    ['hideKey', 'isHiddenForMonth', 'typicalMonthlyPayment', 'lastKnownBalance', 'monthKey', 'linkedExpensesSum', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'resolveInstallmentFact', 'activeDebts', 'activeExpenses']);
+    ['hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'cardCreatedMonth', 'typicalMonthlyPayment', 'lastKnownBalance', 'monthKey', 'linkedExpensesSum', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'resolveInstallmentFact', 'activeDebts', 'activeExpenses']);
   const ex = debts.filter(function(d){ return d.month === month && !d.deletedAt; })[0] || null;
   return JSON.parse(evalInSandbox(ctx, 'JSON.stringify(resolveInstallmentFact(' + JSON.stringify(NAME) + ',' + JSON.stringify(month) + ',' + JSON.stringify(ex) + '))'));
 }
