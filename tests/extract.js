@@ -100,7 +100,7 @@ function buildSandbox(globals, names){
     // Rev 2.32.193 (MERGE-EXP): злиття витрат і журнал конфліктів; push/pull витрат викликають їх завжди
     'recordKey', 'EXP_MERGE_FIELDS', 'EXP_ROW_COLS', 'CONFLICT_TTL_MS', 'LS_KEY_CONFLICTS', 'CONFLICT_FIELD_ACC',
     'expFieldVal', 'expSnap', 'expSnapFromRow', 'expFieldEq', 'expMerge', 'expSetFromSnap', 'expMergeServerRow', 'expLinkedNameForRow', 'expMigrateBase', 'pushExpenseCas', 'expRecordConflicts',
-    'conflictLoad', 'conflictPrune', 'conflictSave', 'conflictOpenCount', 'conflictValueText', 'conflictActor', 'conflictVerb', 'conflictModel', 'conflictDoneModel', 'conflictRowsHtml', 'conflictRowsNode', 'CONFLICT_BTN_STYLE', 'conflictStillValid', 'conflictResolve', 'conflictUiBusy', 'conflictFlushCards', 'conflictSectionHtml'];
+    'conflictLoad', 'conflictPrune', 'conflictSave', 'conflictOpenCount', 'conflictValueText', 'conflictActor', 'conflictVerb', 'conflictModel', 'conflictDoneModel', 'SYNC_SLOT_SYNCING_MS', 'SYNC_SLOT_PENDING_MS', 'SYNC_SLOT_HOLD_MS', 'SYNC_SLOT_FADE_MS', 'SYNC_SLOT_SWAP_MS', 'SYNC_SLOT_CLOUD_D', 'SYNC_SLOT_SVG', 'SYNC_SLOT_LABEL', 'expSyncEntry', 'expSyncClear', 'expSyncSlots', 'expSyncPaint', 'expSyncSet', 'expSyncDone', 'expSyncBegin', 'expSyncEnd', 'expSyncStateFor', 'expSyncSlotHtml', 'expPulledMark', 'expPulledPhase', 'pushExpenseRecordPilotCore', 'conflictRowsHtml', 'conflictRowsNode', 'CONFLICT_BTN_STYLE', 'conflictStillValid', 'conflictResolve', 'conflictUiBusy', 'conflictFlushCards', 'conflictSectionHtml'];
   vm.runInContext("if(typeof conflictLog === 'undefined') var conflictLog = [];"
     + "if(typeof conflictAnnounce === 'undefined') var conflictAnnounce = [];"
     + "if(typeof conflictFlushTimer === 'undefined') var conflictFlushTimer = null;"
@@ -108,6 +108,10 @@ function buildSandbox(globals, names){
     + "if(typeof updateNotifBell === 'undefined') var updateNotifBell = function(){};"
     + "if(typeof authorInfoFor === 'undefined') var authorInfoFor = function(){ return null; };"
     + "if(typeof showToast === 'undefined') var showToast = function(){};"
+    + "if(typeof expSyncEntries === 'undefined') var expSyncEntries = new Map();"
+    + "if(typeof recentlyPulledExpenseState === 'undefined') var recentlyPulledExpenseState = new Map();"
+    + "if(typeof safeId === 'undefined') var safeId = function(x){ return String(x); };"
+    + "if(typeof escapeAttr === 'undefined') var escapeAttr = function(x){ return String(x); };"
     + "if(typeof setTimeout === 'undefined') var setTimeout = function(){ return 0; };"
     + "if(typeof clearTimeout === 'undefined') var clearTimeout = function(){};", context);
   names = names.concat(SHADOW.filter(n => !names.includes(n)));

@@ -104,7 +104,7 @@ test('push: рахунок боргу/витрати — за accountId/linkedIn
 });
 test('push: у payload борг іде з назвою рахунку, не застарілою; push-функції шукають через debtOwnerAccount/linkedOwnerAccount', function(){
   ['pushDebtRecordPilot', 'pushDebtsBatch'].forEach(n => { const f = fn(n); assert.match(f, /debtOwnerAccount\(rec\)/); assert.ok(!/(bankAccounts|installmentAccounts)\.find\(function\(\w\)\{ return \w\.name === rec\.name; \}\)/.test(f.replace(/\/\/[^\n]*/g, '')), n + ': пошук за назвою прибрано'); });
-  ['pushExpenseRecordPilot', 'pushExpensesBatch'].forEach(n => { const f = fn(n); assert.match(f, /linkedOwnerAccount\(rec\)/); });
+  ['pushExpenseRecordPilotCore', 'pushExpensesBatch'].forEach(n => { const f = fn(n); assert.match(f, /linkedOwnerAccount\(rec\)/); });
   assert.match(fn('pushDebtRecordPilot'), /name: \(debtOwnerAccount\(rec\) \|\| rec\)\.name/);
   assert.match(fn('pushDebtRecordPilot'), /unresolved: true/);
 });

@@ -38,7 +38,7 @@ function makeServer(){
   srv.stamp = stamp; return srv;
 }
 const NAMES = ['recordKey', 'AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', 'editedAtPayload', 'expenseEditedAtValue', 'editedAtDiffers', 'isCloudWriteReady', 'isWriteBlocked', 'pushExpenseRecordPilot', 'linkedOwnerAccount', 'pushExpensesBatch', 'pullExpensesCore'];
-function device(server, userId, skewMs){
+function device(server, userId, skewMs, extra){
   const SkewDate = class extends Date { constructor(...a){ if(a.length) super(...a); else super(Date.now() + skewMs); } static now(){ return Date.now() + skewMs; } };
   const toasts = [];
   const g = { CLOUD_ENV: { env: 'mock' }, Date: SkewDate, isCloudSessionReady: () => true, getSupabaseClient: () => server.client, cloudSession: { user: { id: userId } }, cloudFamilyId: 'fam',
@@ -47,6 +47,7 @@ function device(server, userId, skewMs){
     authorInfoFor: id => id === 'u2' ? { name: 'Оля', gender: 'f' } : (id === 'u1' ? { name: 'Андрій', gender: 'm' } : null), showToast: o => toasts.push(o), updateNotifBell: function(){}, openNotifArchive: function(){}, isNotifArchiveOpen: false,
     renderNotifArchive: function(){}, pluralUa: (n, f) => (n % 10 === 1 && n % 100 !== 11) ? f[0] : ((n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? f[1] : f[2]), fmt: n => n + ' ₴', isoToUaDateText: s => s.split('-').reverse().join('.'),
     document: { activeElement: null, querySelector: () => null }, localStorage: { getItem: () => null, setItem: function(){} }, authorFilled: false, NOTIF_ICON_SVG: { journal: ['ic-blue', '<svg></svg>'] }, escapeHtml: s => String(s), escapeAttr: s => String(s), safeId: s => String(s) };
+  Object.assign(g, extra || {});
   const c = buildSandbox(g, NAMES.concat(['conflictResolve']));
   c.__toasts = toasts; return c;
 }
@@ -87,8 +88,8 @@ for(const skew of [86400000, -86400000]){
     const e = A.conflictLog[0];
     assert.deepEqual([e.kind, e.field, e.mine, e.theirs, e.status, e.actor], ['field', 'amount', 120, 150, 'open', 'Оля']);
     const m = A.conflictModel(e);
-    assert.equal(m.title, 'Оля вже змінила суму');
-    assert.deepEqual(j(m.rows), [['Зараз у записі', '150 ₴', ''], ['Ваше значення', '120 ₴', 'не збережено']]); assert.equal(m.body, '');
+    assert.equal(m.title, 'Футбол: Оля вже змінила суму');
+    assert.deepEqual(j(m.rows), [['Зараз у записі', '150 ₴'], ['Ваше значення', '120 ₴']]); assert.equal(m.body, '');
     assert.deepEqual([m.primary, m.secondary], ['Повернути моє', 'Лишити 150 ₴']);
     await A.conflictResolve(e.id, 'mine');
     assert.equal(e.status, 'mine'); assert.equal(A.expenses[0].amount, 120); assert.equal(A.conflictDoneModel(e).title, 'Футбол: ви повернули 120 ₴');
@@ -219,4 +220,73 @@ test('запис, відкритий для редагування, не змі�
   await A.pullExpensesCore();
   assert.equal(A.expenses[0].amount, 100, 'не змінено'); assert.equal(marker, 'none', 'маркер не просунуто');
   A.editingRecordKey = null; await A.pullExpensesCore(); assert.equal(A.expenses[0].amount, 150);
+});
+
+// ---- Rev 2.32.195 (SYNC-SLOT): індикатор у слоті, відлуння, фази pull без повторного рендера ----
+function fakeSlot(id){
+  const attrs = { 'data-sync-id': id, 'data-s': '' }; const cls = new Set();
+  return { innerHTML: '', attrs, cls, getAttribute: k => (k in attrs ? attrs[k] : null), setAttribute(k, v){ attrs[k] = String(v); }, removeAttribute(k){ delete attrs[k]; }, classList: { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c) } };
+}
+function timers(){
+  let now = 0; const q = []; let n = 0;
+  return { now: () => now, setTimeout(f, ms){ q.push({ at: now + ms, f, id: ++n }); return n; }, clearTimeout(id){ const i = q.findIndex(x => x.id === id); if(i >= 0) q.splice(i, 1); },
+    advance(ms){ const to = now + ms; for(;;){ q.sort((a, b) => a.at - b.at); if(!q.length || q[0].at > to) break; const x = q.shift(); now = x.at; x.f(); } now = to; } };
+}
+function slotEnv(rows){
+  const tm = timers(); const slot = fakeSlot('e1'); const rowsEls = rows || {};
+  const document = { querySelectorAll: sel => (sel.indexOf('e1') >= 0 ? [slot] : []), querySelector: sel => { const m = sel.match(/data-rec-id="([^"]+)"/); return m ? rowsEls[m[1]] || null : null; } };
+  const c = buildSandbox({ document, setTimeout: tm.setTimeout, clearTimeout: tm.clearTimeout, recentlyPulledExpenseState: new Map(), expSyncEntries: new Map() }, []);
+  return { c, tm, slot };
+}
+test('індикатор: syncing не раніше 400 мс, pending не раніше 3 с; слот той самий вузол; після відповіді done → тримається 1,2 с → зникає 0,3 с', () => {
+  const { c, tm, slot } = slotEnv();
+  c.expSyncBegin('e1'); tm.advance(399); assert.equal(slot.getAttribute('data-s'), '', 'до 400 мс нічого');
+  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'syncing'); assert.ok(/sync-ring/.test(slot.innerHTML));
+  tm.advance(2599); assert.equal(slot.getAttribute('data-s'), 'syncing', 'pending не раніше 3 с');
+  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'pending'); assert.equal(slot.getAttribute('aria-label'), 'Не синхронізовано'); assert.ok(/M12 9\.6v3\.4/.test(slot.innerHTML), 'знак оклику');
+  c.expSyncEnd('e1', true); assert.equal(slot.getAttribute('data-s'), 'done'); assert.ok(/sync-tick/.test(slot.innerHTML));
+  tm.advance(1199); assert.equal(slot.getAttribute('data-fade'), null); tm.advance(1); assert.equal(slot.getAttribute('data-fade'), '1');
+  tm.advance(300); assert.equal(slot.getAttribute('data-s'), '');
+});
+test('індикатор: швидкий запит (до 400 мс) не блимає; syncing → done: кільце зникає 0,2 с, потім галочка (той самий вузол); невдача → pending', () => {
+  const a = slotEnv(); a.c.expSyncBegin('e1'); a.tm.advance(200); a.c.expSyncEnd('e1', true); a.tm.advance(5000);
+  assert.equal(a.slot.getAttribute('data-s'), '', 'без станів'); assert.equal(a.slot.innerHTML, '');
+  const b = slotEnv(); b.c.expSyncBegin('e1'); b.tm.advance(500); assert.equal(b.slot.getAttribute('data-s'), 'syncing'); b.c.expSyncEnd('e1', true);
+  assert.ok(b.slot.cls.has('to-done')); assert.ok(/sync-ring/.test(b.slot.innerHTML)); b.tm.advance(200); assert.ok(!b.slot.cls.has('to-done')); assert.ok(/sync-tick/.test(b.slot.innerHTML));
+  const f = slotEnv(); f.c.expSyncBegin('e1'); f.c.expSyncEnd('e1', false); assert.equal(f.slot.getAttribute('data-s'), 'pending');
+});
+test('похідний стан при рендері: «брудний» запис без запиту → pending лише після 3 с або офлайн; чистий — порожньо; слот завжди в розмітці', () => {
+  const { c } = slotEnv(); const old = new Date(Date.now() - 10000).toISOString(), fresh = new Date().toISOString();
+  c.cloudSession = { user: { id: 'u' } };
+  assert.equal(c.expSyncStateFor({ id: 'e1', localRev: 2, syncedRev: 1, updatedAt: old }), 'pending');
+  assert.equal(c.expSyncStateFor({ id: 'e1', localRev: 2, syncedRev: 1, updatedAt: fresh }), '', 'менше 3 с');
+  assert.equal(c.expSyncStateFor({ id: 'e1', localRev: 1, syncedRev: 1, updatedAt: old }), '');
+  const html = c.expSyncSlotHtml({ id: 'e1', localRev: 2, syncedRev: 1, updatedAt: old });
+  assert.match(html, /class="sync-slot" data-sync-id="e1" data-s="pending" role="img" aria-label="Не синхронізовано"/);
+  assert.match(c.expSyncSlotHtml({ id: 'e1', localRev: 1, syncedRev: 1, updatedAt: old }), /class="sync-slot" data-sync-id="e1" data-s=""><\/span>/);
+});
+test('«відлуння» власного запису: pull із тим самим updated_at не рендерить рядок, не підсвічує й не стартує індикатор; чужа зміна — один рендер, фази без renderAll', async () => {
+  const s = makeServer(); let renders = 0; const tm = timers();
+  const mk = (id, skew) => device(s, id, skew, { getSyncMarker: () => 'm', renderAll: () => { renders++; }, setTimeout: tm.setTimeout, clearTimeout: tm.clearTimeout });
+  const A = mk('u1', 0), B = mk('u2', 0);
+  const first = { id: 'e1', name: 'Футбол', amount: 100, date: '2026-10-10', category: 'Спорт', subcategory: '', createdAt: T0, updatedAt: T0 };
+  A.expenses.push(first); await A.pushExpenseRecordPilot(first, { suppressPull: true });
+  renders = 0; await A.pullExpensesCore(); // відлуння
+  assert.equal(renders, 0, 'рядок не рендериться'); assert.equal(A.recentlyPulledExpenseState.size, 0, 'підсвітки нема'); assert.equal(A.shadowDirtyNew(first), false);
+  await B.pullExpensesCore(); // новий запис на другому пристрої: один рендер, підсвітка
+  assert.equal(B.recentlyPulledExpenseState.get('e1'), 'syncing');
+  const r0 = renders; tm.advance(800 * 3 + 600 + 2000);
+  assert.equal(renders, r0, 'фази підсвітки не рендерять список повторно');
+  assert.equal(B.recentlyPulledExpenseState.size, 0);
+});
+test('джерело: слот лише для витрат, reduced-motion, токени, кільце SVG-атрибутом, картка без «не збережено»', () => {
+  assert.match(SRC, /\$\{isIncome \? justPulledBadgeHtml : expSyncSlotHtml\(e\)\}/);
+  assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.sync-slot \.sync-ring\{ animation:none; \}/);
+  const css = SRC.slice(SRC.indexOf('.sync-slot{ display:inline-flex'), SRC.indexOf('/* ===== Rev 2.32.189 (CHECKS-1)'));
+  assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(css), 'лише токени'); assert.match(css, /width:20px; height:20px/); assert.match(css, /animation:syncRing 1\.1s linear infinite/);
+  assert.match(SRC, /stroke-dasharray="11\.5 7\.35"/); assert.ok(Math.abs(3 * (11.5 + 7.35) - 2 * Math.PI * 9) < 0.1, 'три дуги по колу r=9');
+  assert.ok(!/не збережено/.test(SRC.slice(SRC.indexOf('function conflictModel'), SRC.indexOf('function conflictDoneModel'))));
+  assert.ok(!/Запис «' \+ nm \+ '»', rows/.test(SRC));
+  const b = SRC.slice(SRC.indexOf('function conflictRowsHtml'), SRC.indexOf('function conflictRowsNode')); assert.match(b, /min-height:44px/);
+  assert.match(SRC, /kind: 'error', icon: 'cloud', sticky: true, compact: true/); assert.match(SRC, /el\.style\.padding = '14px 16px'/);
 });
