@@ -9,8 +9,8 @@ const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ui', 'mockups', 'checks-mockup.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const NAMES = ['CHECKS_SEEN_KEY', 'checksReadSeen', 'checksWriteSeen', 'checksIsSeenDate', 'checksRecordSeen', 'CHECKS_STATE_KEY', 'CHECKS_OUTBOX_KEY', 'CHECKS_OTHER', 'CHECKS_DEFER_REASONS', 'CHECKS_NOTE_MAX', 'CHECKS_EXPIRE_DAYS', 'CHECKS', 'checksReadState', 'checksWriteState', 'checksReadOutbox', 'checksWriteOutbox',
-  'checksOwn', 'checksIsFinal', 'checksIsExpired', 'checksPending', 'checksAnswered', 'checksReasonsFor', 'checksNormalize', 'checksAnswer', 'checksCommit', 'checksExpireStale', 'flushChecksQueue', 'checksResetItem'];
+const NAMES = ['CHECKS_SHARED_KEY', 'CHECKS_SHARED_MIN_MS', 'checksReadShared', 'checksWriteShared', 'checksSharedMap', 'checksRefreshShared', 'checksClosedBy', 'CHECKS_STATE_KEY', 'CHECKS_OUTBOX_KEY', 'CHECKS_OTHER', 'CHECKS_DEFER_REASONS', 'CHECKS_NOTE_MAX', 'CHECKS_EXPIRE_DAYS', 'CHECKS', 'checksReadState', 'checksWriteState', 'checksReadOutbox', 'checksWriteOutbox',
+  'checksOwn', 'checksIsFinal', 'checksIsExpired', 'checksPending', 'checksAnswered', 'checksReasonsFor', 'checksNormalize', 'checksAnswer', 'checksCommit', 'flushChecksQueue', 'checksResetItem'];
 function device(store, over, version){
   const ls = store || {}; const inserts = []; const state = { fail: false, writable: true };
   const g = Object.assign({
@@ -30,8 +30,8 @@ const FRESH = '2.32.189'; // версія, за якої жоден крок щ�
 test('кроки дослівно з макета v2 (checks-data) без «Інше» + 2.32.189-1; «Інше» додається завжди останнім', () => {
   const data = JSON.parse(MOCK.match(/<script type="application\/json" id="checks-data">([\s\S]*?)<\/script>/)[1]);
   const { ctx } = device();
-  const mine = CH(ctx).filter(c => c.id !== '2.32.189-1' && !c.id.startsWith('2.32.193-') && !c.id.startsWith('2.32.196-') && !c.id.startsWith('2.32.200-'));
-  assert.deepEqual(mine, data.map(c => ({ id: c.id, rev: c.rev, title: c.title, steps: c.steps, expect: c.expect, reasons: c.reasons })));
+  const mine = CH(ctx).filter(c => c.id !== '2.32.189-1' && !c.id.startsWith('2.32.193-') && !c.id.startsWith('2.32.196-') && !c.id.startsWith('2.32.200-') && !c.id.startsWith('2.32.202-'));
+  assert.deepEqual(mine.map(({ addedOn, ...c }) => c), data.map(c => ({ id: c.id, rev: c.rev, title: c.title, steps: c.steps, expect: c.expect, reasons: c.reasons })));
   CH(ctx).forEach(c => assert.ok(!c.reasons.includes('Інше')));
   const last = CH(ctx).find(c => c.id === '2.32.189-1');
   assert.deepEqual(CH(ctx).filter(c => c.id.startsWith('2.32.193-')).map(c => c.title), ['Різні поля зливаються', 'Те саме поле', 'Повернути моє', 'Відкрита шторка']);
@@ -83,37 +83,55 @@ test('«Не можу перевірити зараз» + причина: кро
   assert.equal(d.ctx.checksCommit(a, 'no', 'Зникла'), false, 'остаточну не перезаписує');
 });
 function clockDate(ref){ return class extends Date { constructor(...a){ if(a.length) super(...a); else super(ref.now); } static now(){ return ref.now; } }; }
-test('термін: крок живе 7 календарних днів від першого показу (firstSeenAt) незалежно від кількості збірок, потім «Пройдено» як «не перевірено» із записом expired', async () => {
-  const DAY = 86400000, t0 = Date.parse('2026-10-28T10:00:00.000Z'); const ref = { now: t0 };
-  const mk = (store, v) => device(store, { Date: clockDate(ref) }, v);
-  const d = mk(null, '2.32.196');
-  assert.deepEqual(j(d.ctx.checksReadSeen()), {}); assert.equal(d.ctx.checksIsExpired(CH(d.ctx)[0]), false, 'ще не бачили: не прострочений');
-  assert.equal(d.ctx.checksExpireStale(), 0);
-  const seen = j(d.ctx.checksReadSeen()); CH(d.ctx).forEach(c => assert.equal(seen[c.id], new Date(t0).toISOString(), 'firstSeenAt = момент першого показу'));
-  assert.deepEqual(pend(d), ids(d.ctx), 'усі кроки показано');
-  // багато збірок за 6 днів: не зникає
-  ref.now = t0 + 6 * DAY + 23 * 3600000;
-  const b250 = mk(d.ls, '2.32.250'); assert.equal(b250.ctx.checksExpireStale(), 0); assert.deepEqual(pend(b250), ids(b250.ctx)); assert.equal(j(b250.ctx.checksReadSeen())['2.32.193-1'], new Date(t0).toISOString(), 'firstSeenAt не змінюється');
-  // 7 днів: іде в «Пройдено» як expired
-  ref.now = t0 + 7 * DAY;
-  const w = mk(d.ls, '2.32.196'); assert.equal(w.ctx.checksIsExpired(CH(w.ctx)[0]), true);
-  assert.equal(w.ctx.checksExpireStale(), CH(w.ctx).length); assert.equal(w.ctx.checksReadState()['2.32.193-1'].r, 'expired');
-  assert.ok(j(w.ctx.checksAnswered(w.ctx.checksReadState())).some(c => c.id === '2.32.193-1'), 'у «Пройдено»'); assert.equal(w.ctx.checksExpireStale(), 0, 'повторно не пише');
-  await w.ctx.flushChecksQueue();
-  assert.ok(w.inserts.length > 0 && w.inserts.every(x => { const e = j(x.row).events[0]; return e.result === 'expired' && e.note === null; }));
-  // пройдений крок не прострочується; новий крок (ще не бачений) отримує власний момент
-  ref.now = t0; const fresh = mk({}, '2.32.196'); fresh.ctx.checksCommit('2.32.189-1', 'ok'); ref.now = t0 + 8 * DAY; assert.equal(fresh.ctx.checksIsExpired(CH(fresh.ctx)[3]), false, 'ще не бачений на цьому пристрої');
-  assert.deepEqual(j(device({ 'budget-checks-seen-v1': '[1]' }).ctx.checksReadSeen()), {}); assert.deepEqual(j(device({ 'budget-checks-seen-v1': '{x' }).ctx.checksReadSeen()), {});
+const DAY = 86400000;
+test('термін детермінований: addedOn + 7 днів, не залежить від телефону, збірок і першого показу; expired не пишеться', () => {
+  const ref = { now: Date.parse('2026-10-29T10:00:00Z') };
+  const d = device(null, { Date: clockDate(ref) }, '2.32.202'); const c = CH(d.ctx).find(x => x.id === '2.32.193-1');
+  assert.equal(c.addedOn, '2026-10-28');
+  assert.equal(d.ctx.checksIsExpired(c, Date.parse('2026-11-03T23:59:59Z')), false, 'до 4 листопада 00:00 живий');
+  assert.equal(d.ctx.checksIsExpired(c, Date.parse('2026-11-04T00:00:00Z')), true, '28.10 + 7 днів');
+  ref.now = Date.parse('2026-11-04T10:00:00Z'); const late = device(null, { Date: clockDate(ref) }, '2.32.300'); // «новий» телефон і далека збірка — той самий термін
+  assert.deepEqual(j(late.ctx.checksPending({}).map(x => x.id)), ['2.32.202-1'], 'усі кроки 28.10 закінчились (4.11 00:00); 202-1 (29.10) ще ні');
+  assert.ok(late.ctx.checksAnswered({}).length >= 8, 'закінчені — в «Пройдено»');
+  assert.deepEqual(j(late.ctx.checksClosedBy({}, c)), { r: 'expired', why: null }, 'показується як «Не перевірено»');
+  assert.equal(late.ctx.checksReadOutbox().length, 0, 'події expired більше не пишуться');
+  assert.ok(!/checksExpireStale|firstSeen|CHECKS_SEEN_KEY/.test(SRC.slice(SRC.indexOf('const CHECKS_EXPIRE_DAYS'), SRC.indexOf('function openChecksDrawer'))), 'правило firstSeenAt прибрано');
 });
-test('міграція: запис firstSeenBuild (рядок збірки) без дати отримує момент першого запуску цієї версії; кроки 2.32.196-1/2 дослівно, «Екран Перевірки» не повертається', () => {
-  const ref = { now: Date.parse('2026-11-05T09:00:00.000Z') };
-  const old = { 'budget-checks-seen-v1': JSON.stringify({ '2.32.193-1': '2.32.190', '2.32.193-2': '2026-10-30T08:00:00.000Z' }) };
-  const d = device(old, { Date: clockDate(ref) }, '2.32.196'); d.ctx.checksRecordSeen();
-  const seen = j(d.ctx.checksReadSeen()); assert.equal(seen['2.32.193-1'], '2026-11-05T09:00:00.000Z', 'без дати → момент першого запуску'); assert.equal(seen['2.32.193-2'], '2026-10-30T08:00:00.000Z', 'наявна дата не змінюється');
-  const c = CH(d.ctx); const a = c.find(x => x.id === '2.32.196-1'), b = c.find(x => x.id === '2.32.196-2');
-  assert.deepEqual([a.title, a.steps, a.expect, a.reasons], ['Рамка після перезапуску', ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], 'рамка на витраті лишилась.', ['Зникла', 'Не той колір']]);
-  assert.deepEqual([b.title, b.steps, b.expect, b.reasons], ['Старт і повернення з фону', ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], 'витрати й баланс не змінились.', ['Дані зникли', 'Не оновились']]);
-  assert.ok(!c.some(x => x.id === '2.32.196-3' || (x.rev === '2.32.196' && /Екран/.test(x.title))));
+test('записи expired від старого правила ховають крок; кроки 186-2, 188-1, 189-1 не відновлюються (закриті expired у журналі)', () => {
+  const ref = { now: Date.parse('2026-10-29T10:00:00Z') }; const d = device(null, { Date: clockDate(ref) });
+  const shared = { at: 1, rows: [{ id: '2.32.186-2', result: 'expired' }, { id: '2.32.188-1', result: 'expired' }, { id: '2.32.189-1', result: 'expired' }] };
+  const ids = d.ctx.checksPending({}, undefined, shared).map(x => x.id);
+  ['2.32.186-2', '2.32.188-1', '2.32.189-1'].forEach(i => assert.ok(!ids.includes(i), i + ' не повертається'));
+  assert.ok(ids.includes('2.32.193-1'));
+  const own = { '2.32.193-1': { r: 'expired', why: null, note: null, at: '2026-10-28T15:07:00.000Z' } }; assert.ok(!d.ctx.checksPending(own, undefined, { at: 0, rows: [] }).some(x => x.id === '2.32.193-1'), 'власний локальний expired ховає');
+});
+test('спільний список: відповідь будь-кого з сім\'ї (ok, no, expired) ховає крок; defer особистий; однакові числа в двох членів сім\'ї', () => {
+  const ref = { now: Date.parse('2026-10-29T10:00:00Z') };
+  const A = device(null, { Date: clockDate(ref) }), B = device(null, { Date: clockDate(ref) });
+  const before = A.ctx.checksPending({}).length;
+  assert.equal(B.ctx.checksPending({}).length, before, 'до відповідей числа однакові');
+  const shared = { at: 1, rows: [{ id: '2.32.193-1', result: 'ok' }, { id: '2.32.193-2', result: 'no' }, { id: '2.32.193-3', result: 'defer' }, { id: '2.32.196-1', result: 'expired' }] };
+  const pa = A.ctx.checksPending({}, undefined, shared).map(x => x.id), pb = B.ctx.checksPending({ '2.32.200-1': { r: 'ok', why: null, note: null, at: 'x' } }, undefined, shared).map(x => x.id);
+  ['2.32.193-1', '2.32.193-2', '2.32.196-1'].forEach(i => assert.ok(!pa.includes(i), i + ' закрито іншим'));
+  assert.ok(pa.includes('2.32.193-3'), 'defer іншого не ховає крок');
+  assert.equal(pa.length, before - 3); assert.equal(pb.length, before - 4, 'власна відповідь додається до спільних: числа збігаються після оновлення журналу');
+  assert.equal(A.ctx.checksAnswered({}, undefined, shared).length, 3);
+  // «Не можу перевірити» особисте: у власному стані крок іде в кінець і лишається відкритим
+  const own = { '2.32.193-1': { r: 'defer', why: 'Немає часу', note: null, at: '2026-10-29T09:00:00.000Z' } };
+  const po = A.ctx.checksPending(own, undefined, { at: 1, rows: [] }).map(x => x.id); assert.equal(po[po.length - 1], '2.32.193-1');
+});
+test('оновлення журналу сім\'ї: один GET (events, created_at) за 7 днів зі scenario = check; кеш; не частіше раз на 60 с; без запиту офлайн', async () => {
+  const ref = { now: Date.parse('2026-10-29T10:00:00Z') }; const calls = [];
+  const client = { from(table){ const q = { table, filters: [], select(cols){ q.cols = cols; return q; }, eq(c, v){ q.filters.push(['eq', c, v]); return q; }, gte(c, v){ q.filters.push(['gte', c, v]); return q; }, then(f, r){ calls.push({ table: q.table, cols: q.cols, filters: q.filters }); return Promise.resolve({ data: [{ events: [{ id: '2.32.193-1', result: 'ok' }], created_at: '2026-10-29T08:00:00Z' }, { events: [{ id: '2.32.193-2', result: 'defer' }], created_at: '2026-10-29T08:01:00Z' }], error: null }).then(f, r); } }; return q; } };
+  const d = device(null, { Date: clockDate(ref), getSupabaseClient: () => client, isCloudSessionReady: () => true, checksSharedAt: 0, checksSharedBusy: false, navigator: { onLine: true } });
+  const nowSpy = ref.now; assert.equal(await d.ctx.checksRefreshShared(false), true);
+  assert.deepEqual(j(calls), [{ table: 'client_debug_logs', cols: 'events,created_at', filters: [['eq', 'scenario', 'check'], ['gte', 'created_at', new Date(nowSpy - 7 * DAY).toISOString()]] }]);
+  assert.deepEqual(j(d.ctx.checksSharedMap()), { '2.32.193-1': 'ok' }, 'defer у спільний список не потрапляє');
+  assert.equal(await d.ctx.checksRefreshShared(false), false, 'не частіше раз на 60 с'); assert.equal(calls.length, 1);
+  assert.equal(await d.ctx.checksRefreshShared(true), true, 'при відкритті «Перевірок» — примусово'); assert.equal(calls.length, 2);
+  const off = device(null, { Date: clockDate(ref), getSupabaseClient: () => client, isCloudSessionReady: () => true, checksSharedAt: 0, checksSharedBusy: false, navigator: { onLine: false } });
+  assert.equal(await off.ctx.checksRefreshShared(true), false); assert.equal(calls.length, 2);
+  assert.match(SRC, /\[2000, 9000, 25000\]\.forEach/); assert.match(SRC, /visibilitychange', function\(\)\{ if\(document\.visibilityState === 'visible'\) checksRefreshShared\(false\)/); assert.ok(!/checksRefreshShared[\s\S]{0,900}realtime/.test(SRC.slice(SRC.indexOf('async function checksRefreshShared'), SRC.indexOf('async function checksRefreshShared') + 1200)));
 });
 test('скасування: невиручений вибір скидається без запису (таймер, виділення, списки, поле); повторний дотик/дотик поза кроком/згортання ведуть у скидання (код)', () => {
   const cleared = []; let removed = 0, fieldValue = 'текст', errShown = 'block'; const mk = () => ({ classList: { remove(){ removed++; } } });

@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.200</div>
+  <div class="version-footer">Money Tree · Rev 2.32.202</div>
 </div>
   </div>
 </div>
@@ -8996,7 +8996,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.200';
+const APP_VERSION = '2.32.202';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -25107,21 +25107,23 @@ const CHECKS_STATE_KEY = 'budget-checks-v1';
 const CHECKS_OUTBOX_KEY = 'budget-checks-outbox-v1';
 const CHECKS_OTHER = 'Інше';
 const CHECKS_DEFER_REASONS = ['Не зрозумів крок', 'Немає змоги зараз', 'Немає часу'];
-const CHECKS_EXPIRE_DAYS = 7; // Rev 2.32.196: термін кроку — 7 календарних днів від першого показу на пристрої (firstSeenAt), а не збірки
+const CHECKS_EXPIRE_DAYS = 7; // Rev 2.32.202: термін кроку — 7 днів від дати Rev (addedOn), однаковий у всіх членів сім'ї
 const CHECKS_NOTE_MAX = 300;
-const CHECKS_SEEN_KEY = 'budget-checks-seen-v1'; // firstSeenAt: ISO-момент, коли крок уперше показано на цьому пристрої (локально); термін 7 днів рахується від нього. Старі записи (раніше тут була збірка) отримують момент першого запуску цієї версії
+const CHECKS_SHARED_KEY = 'budget-checks-shared-v1'; // кеш спільного журналу: відповіді сім'ї за 7 днів (client_debug_logs, scenario = 'check')
+const CHECKS_SHARED_MIN_MS = 60000;
 const CHECKS = [
-  { id: '2.32.186-1', rev: '2.32.186', title: 'Рамка автора без мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.'], expect: 'ліва рамка витрати одразу синя.', reasons: ["Не з'явилась", 'Не той колір'] },
-  { id: '2.32.186-2', rev: '2.32.186', title: 'Рамка після перезапуску', steps: ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], expect: 'рамка на витраті лишилась.', reasons: ['Зникла', 'Не той колір'] },
-  { id: '2.32.188-1', rev: '2.32.188', title: 'Старт і повернення з фону', steps: ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], expect: 'витрати й баланс не змінились.', reasons: ['Дані зникли', 'Не оновились'] },
-  { id: '2.32.189-1', rev: '2.32.189', title: 'Екран «Перевірки»', steps: ['Відкрийте «Сервіс» → «Перевірки».', 'Натисніть «Працює» на першому кроці.'], expect: 'крок закреслюється й зникає, наступний розгортається.', reasons: ['Не закреслився', 'Не зник'] },
-  { id: '2.32.193-1', rev: '2.32.193', title: 'Різні поля зливаються', steps: ['Вимкніть мережу на своєму телефоні.', 'Змініть нотатку будь-якої витрати.', 'Нехай Оля змінить суму тієї самої витрати.', 'Увімкніть мережу.'], expect: 'у витраті і ваша нотатка, і сума Олі, без сповіщень.', reasons: ['Моя нотатка зникла', 'Сума Олі зникла'] },
-  { id: '2.32.193-2', rev: '2.32.193', title: 'Те саме поле', steps: ['Вимкніть мережу.', 'Змініть суму витрати.', 'Нехай Оля змінить суму тієї самої витрати.', 'Увімкніть мережу.'], expect: 'з\u2019являється сповіщення «Оля вже змінила суму» з кнопкою «Повернути моє».', reasons: ['Сповіщення немає', 'У записі моя сума замість Олиної'] },
-  { id: '2.32.193-3', rev: '2.32.193', title: 'Повернути моє', steps: ['Після попереднього кроку натисніть «Повернути моє».'], expect: 'у записі ваша сума, а в Олі після синхронізації теж.', reasons: ['У мене не змінилось', 'В Олі не змінилось'] },
-  { id: '2.32.193-4', rev: '2.32.193', title: 'Відкрита шторка', steps: ['Відкрийте шторку нової витрати й почніть вводити суму.', 'Нехай Оля змінить будь-яку вашу витрату.'], expect: 'сповіщення з\u2019являється лише після закриття шторки.', reasons: ['Сповіщення перебило введення', 'Сповіщення немає'] },
-  { id: '2.32.196-1', rev: '2.32.196', title: 'Рамка після перезапуску', steps: ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], expect: 'рамка на витраті лишилась.', reasons: ['Зникла', 'Не той колір'] },
-  { id: '2.32.196-2', rev: '2.32.196', title: 'Старт і повернення з фону', steps: ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], expect: 'витрати й баланс не змінились.', reasons: ['Дані зникли', 'Не оновились'] },
-  { id: '2.32.200-1', rev: '2.32.200', title: 'Індикатор синхронізації після мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.', 'Вимкніть режим у літаку.'], expect: 'червона хмаринка стає синьою в обертовому кільці, потім зеленою галочкою; рядок блимає тричі без четвертого.', reasons: ['Кільця немає', 'Блимає не три рази'] },
+  { id: '2.32.186-1', rev: '2.32.186', addedOn: '2026-10-28', title: 'Рамка автора без мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.'], expect: 'ліва рамка витрати одразу синя.', reasons: ["Не з'явилась", 'Не той колір'] },
+  { id: '2.32.186-2', rev: '2.32.186', addedOn: '2026-10-28', title: 'Рамка після перезапуску', steps: ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], expect: 'рамка на витраті лишилась.', reasons: ['Зникла', 'Не той колір'] },
+  { id: '2.32.188-1', rev: '2.32.188', addedOn: '2026-10-28', title: 'Старт і повернення з фону', steps: ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], expect: 'витрати й баланс не змінились.', reasons: ['Дані зникли', 'Не оновились'] },
+  { id: '2.32.189-1', rev: '2.32.189', addedOn: '2026-10-28', title: 'Екран «Перевірки»', steps: ['Відкрийте «Сервіс» → «Перевірки».', 'Натисніть «Працює» на першому кроці.'], expect: 'крок закреслюється й зникає, наступний розгортається.', reasons: ['Не закреслився', 'Не зник'] },
+  { id: '2.32.193-1', rev: '2.32.193', addedOn: '2026-10-28', title: 'Різні поля зливаються', steps: ['Вимкніть мережу на своєму телефоні.', 'Змініть нотатку будь-якої витрати.', 'Нехай Оля змінить суму тієї самої витрати.', 'Увімкніть мережу.'], expect: 'у витраті і ваша нотатка, і сума Олі, без сповіщень.', reasons: ['Моя нотатка зникла', 'Сума Олі зникла'] },
+  { id: '2.32.193-2', rev: '2.32.193', addedOn: '2026-10-28', title: 'Те саме поле', steps: ['Вимкніть мережу.', 'Змініть суму витрати.', 'Нехай Оля змінить суму тієї самої витрати.', 'Увімкніть мережу.'], expect: 'з\u2019являється сповіщення «Оля вже змінила суму» з кнопкою «Повернути моє».', reasons: ['Сповіщення немає', 'У записі моя сума замість Олиної'] },
+  { id: '2.32.193-3', rev: '2.32.193', addedOn: '2026-10-28', title: 'Повернути моє', steps: ['Після попереднього кроку натисніть «Повернути моє».'], expect: 'у записі ваша сума, а в Олі після синхронізації теж.', reasons: ['У мене не змінилось', 'В Олі не змінилось'] },
+  { id: '2.32.193-4', rev: '2.32.193', addedOn: '2026-10-28', title: 'Відкрита шторка', steps: ['Відкрийте шторку нової витрати й почніть вводити суму.', 'Нехай Оля змінить будь-яку вашу витрату.'], expect: 'сповіщення з\u2019являється лише після закриття шторки.', reasons: ['Сповіщення перебило введення', 'Сповіщення немає'] },
+  { id: '2.32.196-1', rev: '2.32.196', addedOn: '2026-10-28', title: 'Рамка після перезапуску', steps: ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], expect: 'рамка на витраті лишилась.', reasons: ['Зникла', 'Не той колір'] },
+  { id: '2.32.196-2', rev: '2.32.196', addedOn: '2026-10-28', title: 'Старт і повернення з фону', steps: ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], expect: 'витрати й баланс не змінились.', reasons: ['Дані зникли', 'Не оновились'] },
+  { id: '2.32.200-1', rev: '2.32.200', addedOn: '2026-10-28', title: 'Індикатор синхронізації після мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.', 'Вимкніть режим у літаку.'], expect: 'червона хмаринка стає синьою в обертовому кільці, потім зеленою галочкою; рядок блимає тричі без четвертого.', reasons: ['Кільця немає', 'Блимає не три рази'] },
+  { id: '2.32.202-1', rev: '2.32.202', addedOn: '2026-10-29', title: 'Спільний список кроків', steps: ['Закрийте будь-який крок кнопкою «Працює» або «Не працює».', 'Нехай Оля відкриє застосунок і «Перевірки».'], expect: 'у Олі цей крок зник, а число «залишилось» збігається з вашим.', reasons: ['У Олі крок лишився', 'Числа різні'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
@@ -25131,35 +25133,64 @@ function checksReadOutbox(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_OUTBOX_KEY) || '[]'); return Array.isArray(o) ? o.filter(function(e){ return e && typeof e.id === 'string' && typeof e.result === 'string'; }) : []; }catch(e){ return []; }
 }
 function checksWriteOutbox(list){ try{ localStorage.setItem(CHECKS_OUTBOX_KEY, JSON.stringify(list)); return true; }catch(e){ return false; } }
-function checksReadSeen(){
-  try{ const o = JSON.parse(localStorage.getItem(CHECKS_SEEN_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
+// Спільний список кроків (Rev 2.32.202): відповіді всієї сім'ї з журналу client_debug_logs (політика читання по сім'ї вже є). Один GET (events, created_at) при старті, при поверненні в застосунок (не частіше раз на 60 с) і при відкритті «Перевірок»; кеш локально; без realtime і без sync_heads.
+function checksReadShared(){
+  try{ const o = JSON.parse(localStorage.getItem(CHECKS_SHARED_KEY) || '{}'); return (o && typeof o === 'object' && Array.isArray(o.rows)) ? o : { at: 0, rows: [] }; }catch(e){ return { at: 0, rows: [] }; }
 }
-function checksWriteSeen(m){ try{ localStorage.setItem(CHECKS_SEEN_KEY, JSON.stringify(m)); return true; }catch(e){ return false; } }
-// Запам'ятовує момент першого показу (firstSeenAt) для кроків, яких на цьому пристрої ще не бачили; запис без дати (старий формат: збірка) отримує момент першого запуску цієї версії.
-function checksIsSeenDate(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v) && !isNaN(Date.parse(v)); }
-function checksRecordSeen(){
-  const m = checksReadSeen(); let changed = false; const now = new Date().toISOString();
-  CHECKS.forEach(function(c){ if(!checksIsSeenDate(m[c.id])){ m[c.id] = now; changed = true; } });
-  if(changed) checksWriteSeen(m);
+function checksWriteShared(o){ try{ localStorage.setItem(CHECKS_SHARED_KEY, JSON.stringify(o)); return true; }catch(e){ return false; } }
+// id кроку → результат остаточної відповіді будь-кого з сім'ї (ok, no, expired); defer особистий і сюди не потрапляє.
+function checksSharedMap(shared){
+  const m = {};
+  ((shared || checksReadShared()).rows || []).forEach(function(r){ if(r && r.id && (r.result === 'ok' || r.result === 'no' || r.result === 'expired') && !m[r.id]) m[r.id] = r.result; });
   return m;
+}
+let checksSharedAt = 0, checksSharedBusy = false;
+async function checksRefreshShared(force){
+  if(!isCloudSessionReady() || (typeof navigator !== 'undefined' && navigator.onLine === false)) return false;
+  const now = Date.now();
+  if(checksSharedBusy || (!force && now - checksSharedAt < CHECKS_SHARED_MIN_MS)) return false;
+  checksSharedBusy = true;
+  try{
+    const since = new Date(now - CHECKS_EXPIRE_DAYS * 86400000).toISOString();
+    const res = await getSupabaseClient().from('client_debug_logs').select('events,created_at').eq('scenario', 'check').gte('created_at', since);
+    if(res.error || !res.data) return false;
+    const rows = res.data.map(function(r){ const e = (Array.isArray(r.events) && r.events[0]) || {}; return { id: e.id, result: e.result, at: r.created_at }; }).filter(function(x){ return x.id && x.result; });
+    checksWriteShared({ at: now, rows: rows }); checksSharedAt = now;
+    if(typeof updateChecksBadge === 'function') updateChecksBadge();
+    if(typeof checksRenderMeta === 'function' && document.getElementById('checks-done-list')) checksRenderMeta();
+    return true;
+  }catch(e){ return false; }
+  finally{ checksSharedBusy = false; }
 }
 function checksOwn(st, id){ return st && Object.prototype.hasOwnProperty.call(st, id) && st[id] && typeof st[id] === 'object' ? st[id] : null; }
 function checksIsFinal(a){ return !!a && a.r !== 'defer'; }
-// Вік кроку — від першого показу на пристрої (firstSeenAt): 7 календарних днів незалежно від кількості збірок. Крок, якого ще не бачили, не прострочений.
-function checksIsExpired(c, now, seen){
-  const m = seen || checksReadSeen();
-  const base = checksIsSeenDate(m[c.id]) ? Date.parse(m[c.id]) : null;
+// Термін кроку детермінований: addedOn + 7 днів (UTC, початок доби). Подію «expired» більше не пишемо; записані за старим правилом хоч і ховають крок так само.
+function checksIsExpired(c, now){
+  const base = c && /^\d{4}-\d{2}-\d{2}$/.test(c.addedOn || '') ? Date.parse(c.addedOn + 'T00:00:00Z') : null;
   const t = now === undefined ? Date.now() : (typeof now === 'number' ? now : Date.parse(now));
   return base !== null ? t - base >= CHECKS_EXPIRE_DAYS * 86400000 : false;
 }
+// Крок закрито: власна остаточна відповідь, або остаточна відповідь будь-кого з сім'ї, або термін. Повертає { r, why } чи null.
+function checksClosedBy(st, c, now, sharedMap){
+  const own = checksOwn(st, c.id);
+  if(checksIsFinal(own)) return { r: own.r, why: own.why || null };
+  const sh = (sharedMap || checksSharedMap())[c.id];
+  if(sh) return { r: sh, why: null };
+  if(checksIsExpired(c, now)) return { r: 'expired', why: null };
+  return null;
+}
 // Кроки без остаточної відповіді й не прострочені: спершу непочаті за порядком CHECKS, потім відкладені в порядку відкладення.
-function checksPending(st, now){
-  const open = CHECKS.filter(function(c){ return !checksIsFinal(checksOwn(st, c.id)) && !checksIsExpired(c, now); });
+function checksPending(st, now, shared){
+  const sm = shared ? checksSharedMap(shared) : checksSharedMap();
+  const open = CHECKS.filter(function(c){ return !checksClosedBy(st, c, now, sm); });
   const fresh = open.filter(function(c){ return !checksOwn(st, c.id); });
   const later = open.filter(function(c){ return !!checksOwn(st, c.id); }).sort(function(x, y){ return String(checksOwn(st, x.id).at || '').localeCompare(String(checksOwn(st, y.id).at || '')); });
   return fresh.concat(later);
 }
-function checksAnswered(st){ return CHECKS.filter(function(c){ return checksIsFinal(checksOwn(st, c.id)); }); }
+function checksAnswered(st, now, shared){
+  const sm = shared ? checksSharedMap(shared) : checksSharedMap();
+  return CHECKS.filter(function(c){ return !!checksClosedBy(st, c, now, sm); });
+}
 function checksReasonsFor(c){ return c.reasons.concat([CHECKS_OTHER]); }
 // Перевірка відповіді: повертає { result, reason, note } або null. «Не працює» без причини і «Інше» без тексту не приймаються.
 function checksNormalize(c, result, reason, note){
@@ -25193,13 +25224,6 @@ function checksCommit(id, result, reason, note){
   checksWriteState(checksAnswer(st, id, result, reason, note));
   const q = checksReadOutbox(); q.push({ id: id, result: v.result, reason: v.reason, note: v.note }); checksWriteOutbox(q);
   return true;
-}
-// Прострочені кроки (старші за 7 днів від першого показу, без остаточної відповіді) переходять у «Пройдено» як «не перевірено» із записом expired.
-function checksExpireStale(){
-  checksRecordSeen();
-  let n = 0;
-  CHECKS.forEach(function(c){ if(checksIsExpired(c) && !checksIsFinal(checksOwn(checksReadState(), c.id)) && checksCommit(c.id, 'expired')) n++; });
-  return n;
 }
 let checksSending = false;
 async function flushChecksQueue(){
@@ -25246,7 +25270,7 @@ function checksRenderMeta(){
   if(dl){
     dl.textContent = '';
     done.forEach(function(c){
-      const a = checksOwn(st, c.id);
+      const a = checksClosedBy(st, c, undefined, checksSharedMap()) || { r: 'expired', why: null };
       const row = document.createElement('div'); row.className = 'chk-done-it';
       const t = document.createElement('span'); t.textContent = c.title; row.appendChild(t);
       const r = document.createElement('span'); r.textContent = (CHECK_RESULT_LABELS[a.r] || '') + (a.why ? ': ' + a.why : ''); row.appendChild(r);
@@ -25345,7 +25369,6 @@ function checksFlatButton(cls, label, icon, act){ // Rev 2.32.190: кнопки 
 function renderChecks(){
   const list = document.getElementById('checks-list');
   if(!list) return;
-  checksExpireStale();
   const st = checksReadState();
   list.textContent = '';
   checksPending(st).forEach(function(c, idx){
@@ -25408,6 +25431,11 @@ function openChecksDrawer(){
   if(drawer){ drawer.removeAttribute('inert'); drawer.classList.add('open'); focusFirstIn(drawer); }
   if(!wasOpen) lockBackgroundScroll();
   flushChecksQueue();
+  const before = checksPending(checksReadState()).map(function(c){ return c.id; }).join();
+  checksRefreshShared(true).then(function(ok){ // Rev 2.32.202: актуальний спільний список при відкритті; якщо він змінився й вибору ще нема — перемальовуємо
+    if(!ok || !drawer || !drawer.classList.contains('open')) return;
+    if(checksPending(checksReadState()).map(function(c){ return c.id; }).join() !== before && !document.querySelector('#checks-list .sel')) renderChecks();
+  });
 }
 function closeChecksDrawer(){
   const backdrop = document.getElementById('checks-backdrop');
@@ -25420,8 +25448,11 @@ function closeChecksDrawer(){
   if(wasOpen) unlockBackgroundScroll();
   updateChecksBadge();
 }
-checksExpireStale();
 updateChecksBadge();
+// Rev 2.32.202: спільний список кроків: при старті (з повторами, поки сесія не готова), при поверненні в застосунок і при появі мережі (не частіше раз на 60 с).
+[2000, 9000, 25000].forEach(function(ms){ setTimeout(function(){ if(!checksSharedAt) checksRefreshShared(false); }, ms); });
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') checksRefreshShared(false); });
+window.addEventListener('online', function(){ checksRefreshShared(false); });
 // Головний тумблер: вимкнення лише пише false; вмикання за дотиком користувача запитує дозвіл і створює підписку.
 async function onMasterToggle(on){
   // Rev 2.32.14 (A): дозвіл при натисканні тумблера. Системний запит МУСИТЬ іти першим синхронним кроком обробника (жест користувача; після await по мережі iOS його вже не покаже).

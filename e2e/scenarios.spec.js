@@ -1,6 +1,6 @@
 // E2E-1: вісім основних сценаріїв у WebKit (iPhone 390×844) на моку Cloud. Світла тема — лише сценарії з @both. Без перевірки пікселів; знімки лише при падінні.
 // «Другий пристрій» — MockCloud.otherDevice (зміна стану сервера, як справжній Realtime); мережа емулюється прапорцем window.__offline у MockCloud.fetch (у моку запити не йдуть у мережу).
-const { test, expect } = require('@playwright/test');
+const { test, expect, devices } = require('@playwright/test');
 
 async function boot(page, fixture){
   const errors = [];
@@ -171,3 +171,36 @@ test('8. закрита й прихована ОЧ не показуються �
   await expect(screen).not.toContainText('ОЧ-закрита');
   await expect(screen).not.toContainText('ОЧ-прихована');
 });
+
+test('11. «Перевірки»: спільний список сім\'ї: відповідь одного ховає крок у другого, «Не можу перевірити» не ховає, числа однакові', async ({ page, browser, baseURL }) => {
+  // два контексти = два телефони; мок кожного живе в пам'яті сторінки, тож рядки журналу client_debug_logs переносяться між ними через MockCloud.otherDevice
+  const ctxB = await browser.newContext({ ...devices['iPhone 14'], baseURL, colorScheme: 'dark', serviceWorkers: 'block' });
+  const pageB = await ctxB.newPage();
+  try{
+    await boot(page, 'empty'); await boot(pageB, 'empty');
+    const ids = await page.evaluate(() => checksPending(checksReadState()).map(c => c.id));
+    expect(ids.length).toBeGreaterThan(2);
+    const [first, second] = ids;
+    const answerA = async (id, result, reason) => {
+      await page.evaluate(([i, r, why]) => { checksCommit(i, r, why); }, [id, result, reason]);
+      await page.evaluate(() => flushChecksQueue());
+      const rows = await page.evaluate(() => window.MockCloud.state.tables.client_debug_logs.map(r => ({ scenario: r.scenario, events: r.events, user_id: r.user_id })));
+      await pageB.evaluate(rs => { rs.forEach(r => window.MockCloud.otherDevice({ table: 'client_debug_logs', op: 'insert', row: Object.assign({ app_version: 'x' }, r) })); }, rows.slice(-1));
+    };
+    await answerA(first, 'ok');
+    expect(await page.evaluate(() => checksPending(checksReadState()).length)).toBe(ids.length - 1); // миттєво в того, хто відповів
+    expect(await pageB.evaluate(() => checksPending(checksReadState()).length)).toBe(ids.length); // другий ще не знає
+    expect(await pageB.evaluate(() => checksRefreshShared(true))).toBe(true); // його наступне оновлення
+    expect(await pageB.evaluate(i => checksPending(checksReadState()).some(c => c.id === i), first)).toBe(false);
+    // «Не можу перевірити зараз» особисте
+    await answerA(second, 'defer', 'Немає часу');
+    await pageB.evaluate(() => checksRefreshShared(true));
+    expect(await pageB.evaluate(i => checksPending(checksReadState()).some(c => c.id === i), second)).toBe(true);
+    // числа однакові: у другого лишилось на один менше, ніж було; значок і «Пройдено» беруть той самий список
+    const countsB = await pageB.evaluate(() => ({ left: checksPending(checksReadState()).length, done: checksAnswered(checksReadState()).length }));
+    expect(countsB).toEqual({ left: ids.length - 1, done: 1 });
+    await pageB.evaluate(() => { switchTab('service'); openChecksDrawer(); });
+    await expect(pageB.locator('#checks-sub')).toContainText('залишилось ' + (ids.length - 1));
+  }finally{ await ctxB.close(); }
+});
+
