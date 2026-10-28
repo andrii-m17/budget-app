@@ -1,1 +1,4 @@
 .DS_Store
+node_modules/
+e2e-results/
+test-results/

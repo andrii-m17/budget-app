@@ -2,8 +2,12 @@
   "name": "budget-app",
   "private": true,
   "version": "2.14.0",
-  "description": "Тести фінансової логіки (Rev 2.14.0) — без production-залежностей, лише вбудований node:test.",
+  "description": "Тести фінансової логіки (node:test, без залежностей) і E2E у WebKit (Playwright, devDependency): npm test, npm run e2e.",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
   }
 }
