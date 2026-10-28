@@ -30,10 +30,11 @@ const FRESH = '2.32.189'; // версія, за якої жоден крок щ�
 test('кроки дослівно з макета v2 (checks-data) без «Інше» + 2.32.189-1; «Інше» додається завжди останнім', () => {
   const data = JSON.parse(MOCK.match(/<script type="application\/json" id="checks-data">([\s\S]*?)<\/script>/)[1]);
   const { ctx } = device();
-  const mine = CH(ctx).filter(c => c.id !== '2.32.189-1');
+  const mine = CH(ctx).filter(c => c.id !== '2.32.189-1' && !c.id.startsWith('2.32.193-'));
   assert.deepEqual(mine, data.map(c => ({ id: c.id, rev: c.rev, title: c.title, steps: c.steps, expect: c.expect, reasons: c.reasons })));
   CH(ctx).forEach(c => assert.ok(!c.reasons.includes('Інше')));
-  const last = CH(ctx).pop();
+  const last = CH(ctx).find(c => c.id === '2.32.189-1');
+  assert.deepEqual(CH(ctx).filter(c => c.id.startsWith('2.32.193-')).map(c => c.title), ['Різні поля зливаються', 'Те саме поле', 'Повернути моє', 'Відкрита шторка']);
   assert.equal(last.id, '2.32.189-1'); assert.equal(last.title, 'Екран «Перевірки»'); assert.deepEqual(last.reasons, ['Не закреслився', 'Не зник']);
   assert.deepEqual(j(ctx.checksReasonsFor(CH(ctx)[0])), ["Не з'явилась", 'Не той колір', 'Інше']);
   assert.deepEqual(j(evalInSandbox(ctx, 'CHECKS_DEFER_REASONS')), ['Не зрозумів крок', 'Немає змоги зараз', 'Немає часу']);
