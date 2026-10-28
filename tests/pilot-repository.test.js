@@ -181,12 +181,12 @@ const REPOSITORY_NAMES = [
   // Rev #30 (6D.27, installment_accounts повний цикл) — той самий
   // cross-realm-override прийом, що pullBankAccountsCore тести.
   // pullInstallmentAccountsPilotManual НЕ включена (DOM-шар).
-  'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'cascadeInstallmentRename', 'debtAccount', 'debtAccountKey', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
+  'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom', 'cascadeInstallmentRename', 'debtAccount', 'debtAccountKey', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
   // Rev #30 (6D.32, hidden_entities перша реалізація) — той самий
   // local/push розподіл, що решта 5 доменів. pullHiddenEntitiesPilotManual
   // НЕ включена (DOM-шар).
   'saveHiddenFrom', 'saveHiddenFromLocal', 'monthToDate', 'dateToMonth', 'pushHiddenEntitiesPilot',
-  'pullHiddenEntitiesCore', 'pullHiddenEntitiesPilot',
+  'pullHiddenEntitiesCore', 'hideKeyLegacy', 'hideKeyForAccount', 'pullHiddenEntitiesPilot',
   // Rev #30 (6D.143) — каскад проти осиротілих hidden_entities-рядків при
   // self-heal cloudId (bank_accounts/installment_accounts), викликається
   // з pushBankAccountsPilot()/pushInstallmentAccountsPilot().
@@ -199,11 +199,11 @@ const REPOSITORY_NAMES = [
   // Rev #30 (6D.34, індикатор — стан "помилка") — 3 single-record push
   // функції ще не мали власного extract-покриття (лише array-домени вище);
   // isSyncResultFailure — чистий, DOM-незалежний хелпер з withSyncIndicator().
-  'pushExpenseRecordPilot', 'pushIncomeRecordPilot', 'pushDebtRecordPilot', 'isSyncResultFailure',
+  'pushExpenseRecordPilot', 'linkedOwnerAccount', 'pushIncomeRecordPilot', 'pushDebtRecordPilot', 'debtOwnerAccount', 'isSyncResultFailure',
   // Rev #30 (6D.60) — пакетний push (лише bulk-шляхи restore/syncAllPilotManual),
   // з відкатом на pushXRecordPilot() вище за провалу пакету.
-  'pushExpensesBatch', 'pushExpensesBatched', 'pushIncomesBatch', 'pushIncomesBatched', 'pushDebtsBatch', 'pushDebtsBatched',
-  'hideKey', 'divergenceKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
+  'pushExpensesBatch', 'linkedOwnerAccount', 'pushExpensesBatched', 'pushIncomesBatch', 'pushIncomesBatched', 'pushDebtsBatch', 'debtOwnerAccount', 'pushDebtsBatched',
+  'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hiddenEntryKey', 'hiddenEntryFor', 'divergenceKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
   // Rev 2.22.83 (6D.156, Ревізія B1) — epoch-штамп для legacy-бекфілу hiddenFrom.
   'HIDDEN_FROM_LEGACY_EPOCH',
   'ensureInstallmentFirstMonth',
@@ -215,7 +215,7 @@ const REPOSITORY_NAMES = [
   'restoreHiddenFromFromBackup', 'restoreIgnoredDivergencesFromBackup',
   // Rev 2.22.82 (6D.155, Ревізія B) — hiddenFrom tombstone-модель.
   'normalizeHiddenFromBackupEntry', 'ensureHiddenFromShape', 'ensureHiddenFromIdentity',
-  'hideEntityFromMonth', 'unhideEntity',
+  'hideEntityFromMonth', 'hideKeyLegacy', 'hiddenEntryKey', 'hiddenEntryFor', 'unhideEntity',
   // Rev #28.D2
   'loadExpenses', 'loadIncomes', 'loadDebts',
   'saveExpenses', 'saveIncomes', 'saveDebts',
@@ -1700,7 +1700,7 @@ test('pushExpenseRecordPilot: ОЧ-залежність ще не синхрон
   ctx.isSupabaseSdkReady = () => true;
   ctx.installmentAccounts = [{ name: 'iPhone' }]; // без cloudId
   const result = await ctx.pushExpenseRecordPilot({ id: 'e1', date: '2026-01-01', amount: 500, linkedInstallment: 'iPhone' });
-  assert.deepEqual(plain(result), { success: true });
+  assert.deepEqual(plain(result), { success: true, unresolved: true }); // Rev 2.32.185: запис лишається непушнутим (видно в діагностиці)
 });
 
 // Rev #30 (6D.42) — Sync Safety Patch P0.1, tombstone для expenses.
@@ -1887,7 +1887,7 @@ test('pushHiddenEntitiesPilot: нічого не відправлялось (п�
   ctx.isSupabaseSdkReady = () => true;
   ctx.hiddenFrom = {};
   ctx.getSupabaseClient = () => fakeSupabaseSelectClient('hidden_entities', []);
-  const pullSpy = spyOn(ctx, 'pullHiddenEntitiesCore');
+  const pullSpy = spyOn(ctx, 'pullHiddenEntitiesCore', 'hideKeyLegacy', 'hideKeyForAccount');
   await ctx.pushHiddenEntitiesPilot();
   assert.equal(pullSpy.count(), 0);
 });
@@ -1899,7 +1899,7 @@ test('pushDebtRecordPilot: рахунок ще не синхронізовани
   ctx.isSupabaseSdkReady = () => true;
   ctx.bankAccounts = [{ name: 'Приват Банк' }]; // без cloudId
   const result = await ctx.pushDebtRecordPilot({ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-01', balance: 1000 });
-  assert.deepEqual(plain(result), { success: true });
+  assert.deepEqual(plain(result), { success: true, unresolved: true }); // Rev 2.32.185: запис лишається непушнутим (видно в діагностиці)
 });
 
 // Rev #30 (6D.44) — Sync Safety Patch P0.1, tombstone для debts.
@@ -2254,7 +2254,8 @@ test('pullHiddenEntitiesCore: entity_type "installment" резолвиться �
   ctx.hiddenFrom = {};
   const result = await ctx.pullHiddenEntitiesCore();
   assert.deepEqual(plain(result), { skipped: false, added: 1, updated: 0, skippedFk: 0 });
-  assert.equal(ctx.hiddenFrom['installment:iPhone'].month, '2026-03');
+  assert.equal(ctx.hiddenFrom['installment:#i1'].month, '2026-03'); // Rev 2.32.185: ключ за cloudId
+  assert.equal(ctx.hiddenFrom['installment:#i1'].accountName, 'iPhone');
 });
 
 // Rev 2.22.82 (6D.155, Ревізія B) — "приховати перемагає" (existence-only)
@@ -2611,7 +2612,7 @@ test('pullHiddenEntitiesCore: ДРУГИЙ пул (уже hiddenEntitiesPulledOn
 test('pullExpensesCore: LWW — локальний СТРОГО новіший → keptLocal + push-retry, Cloud НЕ перезаписує', async () => {
   const ctx = pullExpensesSandbox([{ id: 'e1', amount: 999, expense_date: '2026-05-06', note: 'Cloud-версія', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Локальна версія', amount: 500, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
-  const pushSpy = spyOn(ctx, 'pushExpenseRecordPilot');
+  const pushSpy = spyOn(ctx, 'pushExpenseRecordPilot', 'linkedOwnerAccount');
   const result = await ctx.pullExpensesCore();
   assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 0, keptLocal: 1, skippedFk: 0 });
   assert.equal(ctx.expenses[0].name, 'Локальна версія');
@@ -2648,7 +2649,7 @@ test('pullExpensesCore: Cloud-рядок з deleted_at, локальний за�
 test('pullExpensesCore: локальний СТРОГО новіший за Cloud-tombstone → keptLocal + push-retry, deletedAt НЕ застосовується', async () => {
   const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-05', note: 'Кава', linked_installment_id: null, deleted_at: '2026-05-06T00:00:00.000Z', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2026-05-06T00:00:00.000Z' }]);
   ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Кава (відредаговано ПІСЛЯ видалення на іншому пристрої)', amount: 600, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2026-05-08T00:00:00.000Z' }];
-  const pushSpy = spyOn(ctx, 'pushExpenseRecordPilot');
+  const pushSpy = spyOn(ctx, 'pushExpenseRecordPilot', 'linkedOwnerAccount');
   const result = await ctx.pullExpensesCore();
   assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 0, keptLocal: 1, skippedFk: 0 });
   assert.equal(ctx.expenses[0].deletedAt, undefined);
@@ -2782,7 +2783,7 @@ test('pullDebtsCore: LWW — локальний СТРОГО новіший → 
   const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Приват Банк', kind: 'card', month: '2026-05-01', balance: 2000, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
   ctx.debts = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-05', balance: 1500, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
-  const pushSpy = spyOn(ctx, 'pushDebtRecordPilot');
+  const pushSpy = spyOn(ctx, 'pushDebtRecordPilot', 'debtOwnerAccount');
   const result = await ctx.pullDebtsCore();
   assert.equal(result.keptLocal, 1);
   assert.equal(ctx.debts[0].balance, 1500);

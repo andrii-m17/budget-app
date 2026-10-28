@@ -45,7 +45,7 @@ test('діалог: тексти, основна кнопка — наявний
   const calls = [], shown = {};
   const ctx = buildSandbox({ installmentPaidOffOffer: function(){ return { from: '2026-10', label: 'жовтня' }; }, stripLeadingEmoji: function(x){ return x; },
     showConfirmModal: function(msg, onConfirm, label, variant){ shown.msg = msg; shown.label = label; shown.variant = variant; shown.confirm = onConfirm; },
-    document: { getElementById: function(){ return { textContent: '' }; } }, hideEntityFromMonth: function(k, m){ calls.push('hide:' + k + ':' + m); }, hideKey: function(n, k){ return k + ':' + n; },
+    document: { getElementById: function(){ return { textContent: '' }; } }, hideEntityFromMonth: function(k, m){ calls.push('hide:' + k + ':' + m); }, hideKey: function(n, k){ return k + ':' + n; }, hideKeyLegacy: function(n, k){ return k + ':' + n; },
     saveHiddenFrom: async function(){ calls.push('save'); return {}; }, reportSaveResult: function(){}, renderAll: function(){ calls.push('render'); } }, ['applyHideInstallmentFrom', 'offerHidePaidOffInstallment']);
   assert.equal(ctx.offerHidePaidOffInstallment('Телефон'), true);
   assert.equal(shown.msg, 'ОЧ погашено\n\n«Телефон»: залишок 0 ₴. Приховати з жовтня? Платежі й нагадування для неї припиняться, історію буде збережено.');
@@ -61,8 +61,8 @@ test('охоронні: діалог після збереження лише п
   assert.match(SRC, /if\(pushedRecord && !pushedRecord\.deletedAt && pushedRecord\.balance === 0\) setTimeout\(function\(\)\{ offerHidePaidOffInstallment\(newName\); \}, 350\);/);
   assert.match(SRC, /cancel\.textContent = 'Не зараз'/);
   assert.match(SRC, /Погашено · Приховати з \$\{escapeHtml\(paidOff\.label\)\}/);
-  assert.match(SRC, /hideEntityFromMonth\(hideKey\(name,'installment'\), fromMonth\);/);
-  assert.match(SRC, /function applyHideInstallmentFrom\(name, fromMonth\)\{\n  hideEntityFromMonth\(hideKey\(name, 'installment'\), fromMonth\);/);
+  assert.match(SRC, /hideEntityFromMonth\(hideKey\(name,'installment'\), fromMonth, hideKeyLegacy\(name,'installment'\), name\);/);
+  assert.match(SRC, /function applyHideInstallmentFrom\(name, fromMonth\)\{\n  hideEntityFromMonth\(hideKey\(name, 'installment'\), fromMonth, hideKeyLegacy\(name, 'installment'\), name\);/);
   assert.ok(!/hideEntityFromMonth\([^)]*\);\s*\/\/ авто/.test(SRC), 'автоматичного приховування немає');
   const offer = SRC.slice(SRC.indexOf('function offerHidePaidOffInstallment'), SRC.indexOf('function removeInstallmentAccount'));
   assert.ok(offer.indexOf('hideEntityFromMonth') === -1, 'діалог сам нічого не ховає — лише в onConfirm через applyHideInstallmentFrom');

@@ -78,7 +78,7 @@ test('картка: те саме з текстом «Картка з такою
 test('перейменування: збіг із іншим записом → той самий діалог (ОЧ і картка), «Створити» повторює збереження з підтвердженням; нічого не змінюється до підтвердження', function(){
   const inst = SRC.slice(SRC.indexOf('async function saveInstallmentDrawer(confirmedDup){'), SRC.indexOf('async function saveInstallmentDrawer(confirmedDup){') + 3200);
   assert.match(inst, /newName !== oldName && !confirmedDup && accountNameTaken\(installmentAccounts, newName, editingInstallmentIdx\)\)\{ showConfirmModal\(accountDuplicateMessage\('installment'\), function\(\)\{ saveInstallmentDrawer\(true\); \}, 'Створити', 'primary'\); return; \}/);
-  assert.ok(inst.indexOf('accountNameTaken(installmentAccounts') < inst.indexOf('debts.forEach(function(d){ if(d.name===oldName'), 'діалог до будь-яких змін даних');
+  assert.ok(inst.indexOf('accountNameTaken(installmentAccounts') < inst.indexOf('cascadeInstallmentRename(acc, oldName, newName)'), 'діалог до будь-яких змін даних');
   const card = SRC.slice(SRC.indexOf('async function saveCardDebtDrawer(confirmedDup){'), SRC.indexOf('async function saveCardDebtDrawer(confirmedDup){') + 2600);
   assert.match(card, /newName !== oldName && !confirmedDup && accountNameTaken\(bankAccounts, newName, editingBankIdx\)\)\{ showConfirmModal\(accountDuplicateMessage\('card'\), function\(\)\{ saveCardDebtDrawer\(true\); \}, 'Створити', 'primary'\); return; \}/);
   assert.match(SRC, /showConfirmModal\(dup\.message, async function\(\)\{ await onSave\(name, amount, true\); \}, 'Створити', 'primary'\)/, 'діалог у стилі інших підтверджень (showConfirmModal, основна кнопка)');

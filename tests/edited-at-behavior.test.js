@@ -12,7 +12,7 @@ function makePush(){
   const client = { from(table){ return { upsert(payload){ upserts.push(JSON.parse(JSON.stringify(payload))); return Promise.resolve({ error: null }); } }; } };
   const g = { CLOUD_ENV: { env: 'mock' }, isCloudSessionReady: () => true, getSupabaseClient: () => client, cloudSession: { user: { id: 'u1' } }, cloudFamilyId: 'fam',
     saveExpenses: async function(){}, pullExpensesCore: async function(){}, installmentAccounts: [] };
-  const c = buildSandbox(g, ['AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', 'editedAtPayload', 'expenseEditedAtValue', 'isCloudWriteReady', 'isWriteBlocked', 'pushExpenseRecordPilot', 'pushExpensesBatch']);
+  const c = buildSandbox(g, ['AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', 'editedAtPayload', 'expenseEditedAtValue', 'isCloudWriteReady', 'isWriteBlocked', 'pushExpenseRecordPilot', 'linkedOwnerAccount', 'pushExpensesBatch']);
   c.__upserts = upserts; return c;
 }
 test('push (запис і пакет): editedAt потрапляє в payload, без нього поля немає (upsert не затре серверне)', async function(){

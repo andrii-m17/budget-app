@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 
 const NAMES = ['AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', 'editedAtPayload', 'expenseEditedAtValue', 'isCloudWriteReady', 'isWriteBlocked',
-  'pushExpenseRecordPilot', 'pushExpensesBatch', 'pushIncomeRecordPilot', 'pushIncomesBatch', 'pushDebtRecordPilot', 'pushDebtsBatch'];
+  'pushExpenseRecordPilot', 'linkedOwnerAccount', 'pushExpensesBatch', 'pushIncomeRecordPilot', 'pushIncomesBatch', 'pushDebtRecordPilot', 'debtOwnerAccount', 'pushDebtsBatch'];
 function make(){
   const upserts = [];
   const client = { from(table){ return { upsert(payload, opts){ upserts.push({ table, payload: JSON.parse(JSON.stringify(payload)), opts }); return Promise.resolve({ error: null }); } }; } };

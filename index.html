@@ -3729,7 +3729,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.184</div>
+  <div class="version-footer">Money Tree · Rev 2.32.185</div>
 </div>
   </div>
 </div>
@@ -5421,7 +5421,7 @@ async function invalidateAccountChildren(kind, names){
     });
   }
   names.forEach(function(n){
-    const h = hiddenFrom[kind + ':' + n];
+    const h = hiddenEntryFor(n, kind);
     if(h && h.syncedUpdatedAt){ delete h.syncedUpdatedAt; hiddenChanged = true; count++; }
   });
   if(debtsChanged) await saveDebts();
@@ -6500,11 +6500,12 @@ function renameStrippingEmoji(list, kind){
         }
       });
     }
-    const oldHideKey = hideKey(oldName, kind);
+    const oldHideKey = hideKeyLegacy(oldName, kind); // Rev 2.32.185: лише ключі за назвою; ключі за id від назви не залежать
     if(hiddenFrom[oldHideKey] !== undefined){
-      hiddenFrom[hideKey(stripped, kind)] = hiddenFrom[oldHideKey];
+      hiddenFrom[hideKeyLegacy(stripped, kind)] = hiddenFrom[oldHideKey];
       delete hiddenFrom[oldHideKey];
     }
+    Object.keys(hiddenFrom).forEach(function(k){ if(k.indexOf(kind + ':#') === 0 && hiddenFrom[k] && hiddenFrom[k].accountName === oldName) hiddenFrom[k].accountName = stripped; });
   });
   return changed;
 }
@@ -6873,8 +6874,8 @@ async function pushExpenseRecordPilot(rec, opts){
   if(!isSyncableAmount(rec.amount)) return { success: true }; // Rev 2.32.23 (N)
   let linkedInstallmentId = null;
   if(rec.linkedInstallment){
-    const acc = installmentAccounts.find(function(a){ return a.name === rec.linkedInstallment; });
-    if(!acc || !acc.cloudId) return { success: true }; // ОЧ-залежність ще не синхронізована — тихий пропуск, не помилка
+    const acc = linkedOwnerAccount(rec); // Rev 2.32.185 (ID-BIND-3): за linkedInstallmentId, запасний варіант — назва
+    if(!acc || !acc.cloudId) return { success: true, unresolved: true }; // ОЧ-залежність ще не синхронізована — запис лишається непушнутим, не втрачається
     linkedInstallmentId = acc.cloudId;
     rec.linkedInstallmentId = acc.cloudId; // Rev 2.32.178 (ID-BIND-1): лише для читання
   }
@@ -6963,7 +6964,7 @@ async function pushExpensesBatch(records){
     if(!isSyncableAmount(rec.amount)) continue; // Rev 2.32.23 (N): сума поза межами Cloud (integer, >= 0) зламала б увесь пакет — запис лишається локальним і видно в діагностиці «не синхронізовано»
     let linkedInstallmentId = null;
     if(rec.linkedInstallment){
-      const acc = installmentAccounts.find(function(a){ return a.name === rec.linkedInstallment; });
+      const acc = linkedOwnerAccount(rec); // Rev 2.32.185
       if(!acc || !acc.cloudId) continue; // той самий тихий пропуск, що pushExpenseRecordPilot()
       linkedInstallmentId = acc.cloudId;
       rec.linkedInstallmentId = acc.cloudId; // Rev 2.32.178 (ID-BIND-1): лише для читання
@@ -7088,12 +7089,12 @@ async function pushDebtRecordPilot(rec, opts){
   if(!isCloudWriteReady()) return { success: true };
   let bankAccountId = null, installmentAccountId = null;
   if(rec.kind === 'card'){
-    const acc = bankAccounts.find(function(b){ return b.name === rec.name; });
-    if(!acc || !acc.cloudId) return { success: true }; // рахунок ще не синхронізований — тихий пропуск, не помилка
+    const acc = debtOwnerAccount(rec); // Rev 2.32.185
+    if(!acc || !acc.cloudId) return { success: true, unresolved: true }; // рахунок ще не синхронізований — запис лишається непушнутим, не втрачається
     bankAccountId = acc.cloudId;
   }else{
-    const acc = installmentAccounts.find(function(a){ return a.name === rec.name; });
-    if(!acc || !acc.cloudId) return { success: true }; // ОЧ ще не синхронізована — тихий пропуск, не помилка
+    const acc = debtOwnerAccount(rec); // Rev 2.32.185 (ID-BIND-3): за accountId, запасний варіант — назва
+    if(!acc || !acc.cloudId) return { success: true, unresolved: true }; // ОЧ ще не синхронізована — запис лишається непушнутим (видно в діагностиці «незапушені записи»), не втрачається
     installmentAccountId = acc.cloudId;
   }
   rec.accountId = bankAccountId || installmentAccountId; // Rev 2.32.178 (ID-BIND-1): лише для читання, до push не потрапляє (рядок будується явно)
@@ -7105,7 +7106,7 @@ async function pushDebtRecordPilot(rec, opts){
       family_id: cloudFamilyId,
       bank_account_id: bankAccountId,
       installment_account_id: installmentAccountId,
-      name: rec.name,
+      name: (debtOwnerAccount(rec) || rec).name, // Rev 2.32.185: назва рахунку (запис боргу може мати застарілу назву — сервер тримає актуальну)
       kind: rec.kind,
       month: rec.month + '-01', // локально 'YYYY-MM', Cloud-колонка типу date
       balance: rec.balance,
@@ -7146,9 +7147,7 @@ async function pushDebtRecordPilot(rec, opts){
     // іменем чи insert), після чого цей самий борг успішно попуш иться з
     // ПРАВИЛЬНИМ, живим посиланням.
     if(error && error.code === '23503'){
-      const acc = rec.kind === 'card'
-        ? bankAccounts.find(function(b){ return b.name === rec.name; })
-        : installmentAccounts.find(function(a){ return a.name === rec.name; });
+      const acc = debtOwnerAccount(rec); // Rev 2.32.185
       if(acc && acc.cloudId){
         acc.cloudId = null;
         delete acc.syncedUpdatedAt;
@@ -7171,11 +7170,11 @@ async function pushDebtsBatch(records){
   for(const rec of records){
     let bankAccountId = null, installmentAccountId = null;
     if(rec.kind === 'card'){
-      const acc = bankAccounts.find(function(b){ return b.name === rec.name; });
+      const acc = debtOwnerAccount(rec); // Rev 2.32.185 (ID-BIND-3)
       if(!acc || !acc.cloudId) continue;
       bankAccountId = acc.cloudId;
     }else{
-      const acc = installmentAccounts.find(function(a){ return a.name === rec.name; });
+      const acc = debtOwnerAccount(rec);
       if(!acc || !acc.cloudId) continue;
       installmentAccountId = acc.cloudId;
     }
@@ -7183,7 +7182,7 @@ async function pushDebtsBatch(records){
       rec: rec,
       payload: {
         id: rec.id, family_id: cloudFamilyId, bank_account_id: bankAccountId, installment_account_id: installmentAccountId,
-        name: rec.name, kind: rec.kind, month: rec.month + '-01', balance: rec.balance,
+        name: (debtOwnerAccount(rec) || rec).name, kind: rec.kind, month: rec.month + '-01', balance: rec.balance,
         min_payment: rec.minPayment != null ? rec.minPayment : null,
         min_payment_done: rec.minPaymentDone != null ? rec.minPaymentDone : null,
         monthly_payment: rec.monthlyPayment != null ? rec.monthlyPayment : null,
@@ -8003,6 +8002,7 @@ async function pullInstallmentAccountsCore(opts){
   if(renameCascade.expenses) await saveExpenses();
   if(renameCascade.hidden) await saveHiddenFromLocal();
   if(renameCascade.ignored) await saveIgnoredDivergences();
+  if(rekeyHiddenFrom()) await saveHiddenFromLocal(); // Rev 2.32.185: ключі приховування ОЧ → за поточним cloudId
   if(renameCollisions.length) lastRenameCollisions = renameCollisions.slice(); // два активні борги однієї ОЧ за місяць після каскаду: не зливаються, лише фіксуються
   // Rev 2.23.28 (6D.197, G3) — аналог знахідки G2 для підкатегорій: рахунок отримав ІНШИЙ cloudId від pull
   // (зв'язування за назвою) → діти (борги, витрати, приховані) лишились би "синхронізованими" зі старим id.
@@ -8100,7 +8100,7 @@ async function pushHiddenEntitiesPilot(){
     const name = key.slice(sepIdx + 1);
     const entityType = kind === 'card' ? 'bank' : 'installment';
     const list = kind === 'card' ? bankAccounts : installmentAccounts;
-    const entity = list.find(function(x){ return x.name === name; });
+    const entity = name.charAt(0) === '#' ? list.find(function(x){ return x.cloudId === name.slice(1); }) : list.find(function(x){ return x.name === name; }); // Rev 2.32.185: ключ за id
     if(!entity || !entity.cloudId) continue; // батько ще не синхронізований — тихий пропуск, не помилка
     try{
       const { error } = await client.from('hidden_entities').upsert(
@@ -8176,9 +8176,12 @@ async function pullHiddenEntitiesCore(){
       const list = row.entity_type === 'bank' ? bankAccounts : installmentAccounts;
       const entity = list.find(function(x){ return x.cloudId === row.entity_id; });
       if(!entity){ skippedFk++; continue; }
-      const key = hideKey(entity.name, kind);
+      const key = hideKeyForAccount(entity, kind); // Rev 2.32.185: ключ за cloudId (ОЧ)
+      const legacyK = hideKeyLegacy(entity.name, kind);
+      if(kind === 'installment' && key !== legacyK && !hiddenFrom[key] && hiddenFrom[legacyK]){ hiddenFrom[key] = hiddenFrom[legacyK]; delete hiddenFrom[legacyK]; unstuckLegacy = true; } // міграція старого ключа за назвою (збереження через unstuckLegacy)
       touchedKeys[key] = true;
       const local = hiddenFrom[key];
+      if(local && kind === 'installment' && local.accountName !== entity.name){ local.accountName = entity.name; unstuckLegacy = true; }
       if(!local){
         // Rev 2.22.82 (6D.155) — Cloud-рядок, якого цей пристрій ще не
         // бачив узагалі: створюємо локальний запис одразу з деревом
@@ -8186,6 +8189,7 @@ async function pullHiddenEntitiesCore(){
         // принцип, що pullDictionaryCore() для майбутньої Корзини).
         const newEntry = { month: dateToMonth(row.hidden_from_month), updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at };
         if(row.deleted_at) newEntry.deletedAt = row.deleted_at;
+        if(kind === 'installment') newEntry.accountName = entity.name;
         hiddenFrom[key] = newEntry;
         added++;
         if(hadMarker && !row.deleted_at) pushOtherActorEvent('hiddenEntities', 'add', row.created_by, entity.name, null);
@@ -8286,8 +8290,9 @@ async function ensureHiddenFromIdentity(){
 // тому tombstone тут знімається БЕЗУМОВНО (delete entry.deletedAt), на
 // відміну від pushHiddenEntitiesPilot() нижче, де захист від воскресіння
 // якраз у тому, щоб НЕ пушити записи, яких користувач сам не торкався.
-function hideEntityFromMonth(key, fromMonth){
+function hideEntityFromMonth(key, fromMonth, legacyKey, accountName){
   const nowISO = new Date().toISOString();
+  if(!hiddenFrom[key] && legacyKey && key !== legacyKey && hiddenFrom[legacyKey]){ hiddenFrom[key] = hiddenFrom[legacyKey]; delete hiddenFrom[legacyKey]; } // Rev 2.32.185: старий ключ за назвою → ключ за id
   const entry = hiddenFrom[key];
   if(entry){
     entry.month = fromMonth;
@@ -8296,14 +8301,14 @@ function hideEntityFromMonth(key, fromMonth){
   }else{
     hiddenFrom[key] = { month: fromMonth, updatedAt: nowISO };
   }
+  if(accountName && key.indexOf(':#') !== -1) hiddenFrom[key].accountName = accountName;
 }
 // Rev 2.22.82 (6D.155) — "Показати назад": функція даних, без власного UI
 // (екран Корзини — Ревізія D). Ставить tombstone і пушить як звичайний
 // UPDATE (через saveHiddenFrom() нижче, той самий шлях, що приховання).
 // Немає запису — чи вже tombstone — тихий success, нема що робити вдруге.
 function unhideEntity(kind, name){
-  const key = hideKey(name, kind);
-  const entry = hiddenFrom[key];
+  const entry = hiddenEntryFor(name, kind);
   if(!entry || entry.deletedAt) return Promise.resolve({ success: true });
   const nowISO = new Date().toISOString();
   entry.deletedAt = nowISO;
@@ -8359,7 +8364,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.184';
+const APP_VERSION = '2.32.185';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8837,7 +8842,70 @@ async function ensureDomainsMigrated(domains){
 
 // Rev 2.1.0 — чи прихований запис "name"(kind) для конкретного місяця (включно з
 // місяцем, зазначеним при видаленні — див. showMonthPickerModal/removeBankAccount).
-function hideKey(name, kind){ return kind+':'+name; }
+// Rev 2.32.185 (ID-BIND-3, Етап 3): ключ приховування ОЧ — за cloudId запису (`installment:#id`), старий ключ за назвою (`installment:назва`) лишається читабельним і мігрує при синхронізації; ключі карток без змін. Запис за id зберігає `accountName` (для відновлення ключа, якщо cloudId зміниться при self-heal). Сервер (hidden_entities) уже зберігає entity_id = cloudId, змін не потребує.
+function hideKeyLegacy(name, kind){ return kind + ':' + name; }
+function hideKeyForAccount(acc, kind){
+  if(kind === 'installment' && acc && acc.cloudId) return 'installment:#' + acc.cloudId;
+  return hideKeyLegacy(acc ? acc.name : '', kind);
+}
+function hideKey(name, kind){
+  if(kind !== 'installment') return hideKeyLegacy(name, kind);
+  const list = (typeof installmentAccounts !== 'undefined' && installmentAccounts) || [];
+  return hideKeyForAccount(list.find(function(a){ return a.name === name; }) || { name: name }, kind);
+}
+// Існуючий ключ запису приховування: за id, інакше за назвою, інакше (ОЧ) за збереженою accountName під старим/іншим id.
+function hiddenEntryKey(name, kind){
+  const k1 = hideKey(name, kind);
+  if(Object.prototype.hasOwnProperty.call(hiddenFrom, k1)) return k1;
+  const k2 = hideKeyLegacy(name, kind);
+  if(Object.prototype.hasOwnProperty.call(hiddenFrom, k2)) return k2;
+  if(kind === 'installment'){
+    const found = Object.keys(hiddenFrom).find(function(k){ return k.indexOf('installment:#') === 0 && hiddenFrom[k] && hiddenFrom[k].accountName === name; });
+    if(found) return found;
+  }
+  return null;
+}
+function hiddenEntryFor(name, kind){ const k = hiddenEntryKey(name, kind); return k ? hiddenFrom[k] : undefined; }
+// Переносить записи приховування ОЧ на ключі за поточним cloudId (старі ключі за назвою; ключі зі старим id після self-heal — за accountName). Лише локально; true, якщо щось змінилось.
+function rekeyHiddenFrom(){
+  let changed = false;
+  const accs = (typeof installmentAccounts !== 'undefined' && installmentAccounts) || [];
+  Object.keys(hiddenFrom).forEach(function(k){
+    if(k.indexOf('installment:') !== 0) return;
+    const entry = hiddenFrom[k];
+    if(!entry || typeof entry !== 'object') return;
+    let acc = null;
+    if(k.indexOf('installment:#') === 0){
+      const id = k.slice(13);
+      if(accs.some(function(a){ return a.cloudId === id; })) return;
+      acc = accs.find(function(a){ return a.cloudId && a.name === entry.accountName; }) || null;
+    }else{
+      acc = accs.find(function(a){ return a.cloudId && a.name === k.slice(12); }) || null;
+    }
+    if(!acc) return;
+    const nk = hideKeyForAccount(acc, 'installment');
+    if(nk === k || Object.prototype.hasOwnProperty.call(hiddenFrom, nk)) return;
+    entry.accountName = acc.name;
+    hiddenFrom[nk] = entry; delete hiddenFrom[k]; changed = true;
+  });
+  return changed;
+}
+// Рахунок-власник запису боргу для push: за accountId (id головніший), інакше за назвою (картка чи ОЧ).
+function debtOwnerAccount(rec){
+  const list = rec.kind === 'card' ? bankAccounts : installmentAccounts;
+  if(rec.accountId){ const byId = list.find(function(a){ return a.cloudId === rec.accountId; }); if(byId) return byId; }
+  return list.find(function(a){ return a.name === rec.name; }) || null;
+}
+function linkedOwnerAccount(rec){
+  if(rec.linkedInstallmentId){ const byId = installmentAccounts.find(function(a){ return a.cloudId === rec.linkedInstallmentId; }); if(byId) return byId; }
+  return installmentAccounts.find(function(a){ return a.name === rec.linkedInstallment; }) || null;
+}
+// Борг ОЧ/картки за місяць: спершу за accountId, потім за назвою (щоб не створювати другий борг місяця зі застарілою назвою).
+function findAccountMonthDebt(list, acc, month, kind){
+  const id = acc && acc.cloudId;
+  const byId = id ? list.find(function(d){ return d.kind === kind && d.accountId === id && d.month === month; }) : undefined;
+  return byId || list.find(function(d){ return d.kind === kind && d.name === acc.name && d.month === month && (!id || !d.accountId || d.accountId === id); });
+}
 // Rev 2.32.175 (DUP-NAME): попередження про однакову назву картки/ОЧ. Збіг — без урахування регістру й пробілів по краях, лише з живими записами того ж типу (видалені з масиву/з deletedAt не рахуються); exceptIdx — сам запис при перейменуванні. Діалог нічого не змінює, доки не підтверджено «Створити». Увага: дані ОЧ/карток досі прив'язані до назви (борги, прихованість, видалення назавжди), тому два записи з однаковою назвою ділять ці дані — див. Крок 0 «Дубль назви».
 function accountNameKey(n){ return String(n == null ? '' : n).trim().toLowerCase(); }
 function accountNameTaken(list, name, exceptIdx){
@@ -8858,7 +8926,7 @@ function debtAccount(d){
 }
 // Ключ групи боргу: ОЧ з cloudId — за id (дві ОЧ з однаковою назвою дають два ключі), ОЧ без cloudId — за назвою; осиротілий борг (ОЧ не знайдено) — за власною назвою окремою групою, без автозлиття. Картки — як раніше (hideKey).
 function debtAccountKey(d){
-  if(!d || d.kind !== 'installment') return hideKey(d ? d.name : '', d ? d.kind : '');
+  if(!d || d.kind !== 'installment') return hideKeyLegacy(d ? d.name : '', d ? d.kind : '');
   const a = debtAccount(d);
   if(a) return a.cloudId ? 'installment:#' + a.cloudId : 'installment:' + a.name;
   return 'installment:' + d.name;
@@ -8878,9 +8946,11 @@ function cascadeInstallmentRename(acc, oldName, newName){
     if(e.linkedInstallment === newName) return;
     if((id && e.linkedInstallmentId === id) || (!e.linkedInstallmentId && e.linkedInstallment === oldName && !dupOld)){ e.linkedInstallment = newName; info.expenses++; }
   });
+  const idKey = hideKeyForAccount(acc, 'installment');
+  if(id && hiddenFrom[idKey] && hiddenFrom[idKey].accountName !== newName){ hiddenFrom[idKey].accountName = newName; info.hidden = true; } // ключ за id не змінюється, лише підказка назви
   if(!dupOld){
-    const ok = hideKey(oldName, 'installment'), nk = hideKey(newName, 'installment');
-    if(Object.prototype.hasOwnProperty.call(hiddenFrom, ok) && !Object.prototype.hasOwnProperty.call(hiddenFrom, nk)){ hiddenFrom[nk] = hiddenFrom[ok]; delete hiddenFrom[ok]; info.hidden = true; }
+    const ok = hideKeyLegacy(oldName, 'installment'), nk = hideKeyForAccount({ name: newName, cloudId: id }, 'installment');
+    if(Object.prototype.hasOwnProperty.call(hiddenFrom, ok) && !Object.prototype.hasOwnProperty.call(hiddenFrom, nk)){ hiddenFrom[nk] = hiddenFrom[ok]; if(id) hiddenFrom[nk].accountName = newName; delete hiddenFrom[ok]; info.hidden = true; }
     Object.keys(ignoredDivergences).forEach(function(k){
       if(k.indexOf(oldName + '|') !== 0) return;
       const nk2 = newName + k.slice(oldName.length);
@@ -8894,7 +8964,7 @@ function cascadeInstallmentRename(acc, oldName, newName){
   return info;
 }
 function isHiddenForMonth(name, kind, month){
-  const entry = hiddenFrom[hideKey(name, kind)];
+  const entry = hiddenEntryFor(name, kind); // Rev 2.32.185: за id, запасний варіант — старий ключ за назвою
   if(!entry) return false;
   // Rev 2.22.82 (6D.155) — захисна сумісність зі старою формою (голий
   // рядок-місяць): нормалізація відбувається при старті
@@ -13996,7 +14066,7 @@ function openInstallmentEditor(i){
   lastFocusedBeforeDialog = document.activeElement;
   const name = acc.name;
   // Rev #30 (6D.44) — activeDebts(): tombstoned факт має відкриватись ПОРОЖНІМ (як ніколи не введений), не своїм старим значенням.
-  const existing = activeDebts().find(function(d){ return d.name===name && d.kind==='installment' && d.month===selectedMonth; });
+  const existing = findAccountMonthDebt(activeDebts(), acc, selectedMonth, 'installment'); // Rev 2.32.185: за accountId, потім за назвою
   const est = estimateInstallment(name, selectedMonth);
   // Rev 2.22.75 (6D.148) — resolveInstallmentFact() замість прямого
   // "existing переважає est" (докоментар над функцією вище); est САМ
@@ -14158,7 +14228,13 @@ async function saveInstallmentDrawer(confirmedDup){
   if(newName !== oldName && !confirmedDup && accountNameTaken(installmentAccounts, newName, editingInstallmentIdx)){ showConfirmModal(accountDuplicateMessage('installment'), function(){ saveInstallmentDrawer(true); }, 'Створити', 'primary'); return; } // Rev 2.32.175: було мовчазна відмова
   if(newName !== oldName && installmentAccounts.some(function(a, k){ return k !== editingInstallmentIdx && a.name===newName; }) && !confirmedDup){ flashField('iddfielda1'); return; }
   if(newName !== oldName){
-    debts.forEach(function(d){ if(d.name===oldName && d.kind==='installment') d.name = newName; });
+    // Rev 2.32.185 (ID-BIND-3): перейменування за id — усі борги (усі місяці), витрати, ключі приховування й ignoredDivergences цієї ОЧ; борги НЕ пушаться (updatedAt не змінюється): сервер перейменовує їх тригером trg_sync_debt_names, інші пристрої отримають звичайним pull.
+    const renameInfo = cascadeInstallmentRename(acc, oldName, newName);
+    if(renameInfo.collisions.length) lastRenameCollisions = renameInfo.collisions.map(function(m){ return newName + '|' + m; });
+    if(renameInfo.debts) reportSaveResult(await saveDebts());
+    if(renameInfo.hidden) await saveHiddenFromLocal();
+    if(renameInfo.ignored) await saveIgnoredDivergences();
+    /* Rev 2.22.74 (6D.145): до цього каскаду (нижче, тепер у cascadeInstallmentRename) debts.forEach(d.name===oldName)
     // Rev 2.22.74 (6D.145) — той самий каскад, якого досі бракувало саме
     // тут: expenses[].linkedInstallment зберігає НАЗВУ ОЧ (не стабільний
     // cloudId), той самий принцип, що editCategory() вище робить для
@@ -14168,9 +14244,8 @@ async function saveInstallmentDrawer(confirmedDup){
     // Журналу (installmentLinkOptionsHtml нижче), ні для pushExpenseRecordPilot()
     // (шукає acc за назвою) — підтверджено на реальних даних користувача
     // (ОЧ «Приват iPhone» → інша назва, 4 витрати травня-серпня
-    // лишились без прив'язки).
-    expenses.forEach(function(e){ if(e.linkedInstallment===oldName) e.linkedInstallment = newName; });
-    reportSaveResult(await saveExpenses());
+    // лишились без прив'язки). */
+    if(renameInfo.expenses) reportSaveResult(await saveExpenses());
   }
   acc.name = newName;
   acc.initialAmount = newInitial;
@@ -14202,7 +14277,8 @@ async function saveInstallmentDrawer(confirmedDup){
   // самий принцип, що saveIncomeDrawer(): має знайти tombstoned запис і для
   // повторного "видалення" (guard нижче), і для "воскресіння" (той самий id,
   // природний ключ назва+kind+місяць не змінився).
-  const existingIdx = debts.findIndex(function(d){ return d.name===newName && d.kind==='installment' && d.month===selectedMonth; });
+  const monthDebt = findAccountMonthDebt(debts, acc, selectedMonth, 'installment'); // Rev 2.32.185 (ID-BIND-3): спершу за accountId, потім за назвою — без другого боргу місяця зі застарілою назвою
+  const existingIdx = monthDebt ? debts.indexOf(monthDebt) : -1;
   let pushedRecord = null;
   if(!rawBal || isNaN(balance) || balance<0){
     // Rev #30 (6D.44) — порожнє поле: tombstone замість фізичного splice()
@@ -14229,6 +14305,7 @@ async function saveInstallmentDrawer(confirmedDup){
     }else{
       const nowISO = new Date().toISOString();
       const rec = { id: generateUUID(), name:newName, kind:'installment', month:selectedMonth, balance, monthlyPayment, createdAt: nowISO, updatedAt: nowISO };
+      if(acc.cloudId) rec.accountId = acc.cloudId; // Rev 2.32.185: id рахунку для зіставлення (лише читання, до push не додається)
       debts.push(rec);
       pushedRecord = rec;
     }
@@ -14305,7 +14382,7 @@ function installmentPaidOffOffer(name){
 }
 // Спільне приховування «з місяця» (те саме, що removeInstallmentAccount після вибору місяця).
 async function applyHideInstallmentFrom(name, fromMonth){
-  hideEntityFromMonth(hideKey(name, 'installment'), fromMonth);
+  hideEntityFromMonth(hideKey(name, 'installment'), fromMonth, hideKeyLegacy(name, 'installment'), name);
   reportSaveResult(await saveHiddenFrom());
   renderAll();
 }
@@ -14325,7 +14402,7 @@ function removeInstallmentAccount(i, onDone){
       // Rev 2.22.82 (6D.155) — hideEntityFromMonth(): той самий виклик для
       // першого приховання й для ПОВТОРНОГО (знімає tombstone, якщо ОЧ уже
       // показували назад).
-      hideEntityFromMonth(hideKey(name,'installment'), fromMonth);
+      hideEntityFromMonth(hideKey(name,'installment'), fromMonth, hideKeyLegacy(name,'installment'), name);
       reportSaveResult(await saveHiddenFrom()); // (Rev 2.32.69: той самий механізм використовує applyHideInstallmentFrom)
       // Rev 2.3.8 BugFix — раніше тут ще й installmentAccounts.splice(i,1)
       // видаляв конфігурацію ОЧ ПОВНІСТЮ з масиву, тому запис зникав з
@@ -17355,12 +17432,18 @@ function purgeAccountPlan(acct, state){
   const kind = acct && acct.kind === 'installment' ? 'installment' : 'card';
   const name = acct ? acct.name : '';
   const list = (kind === 'card' ? st.bankAccounts : st.installmentAccounts) || [];
-  const account = list.find(function(a){ return a && a.name === name; }) || null;
-  const debtIds = (st.debts || []).filter(function(d){ return d && d.kind === kind && d.name === name; }).map(function(d){ return d.id; });
-  const linked = kind === 'installment' ? (st.expenses || []).filter(function(e){ return e && e.linkedInstallment === name; }) : [];
-  const hiddenKey = Object.prototype.hasOwnProperty.call(st.hiddenFrom || {}, kind + ':' + name) ? kind + ':' + name : null;
+  // Rev 2.32.185 (ID-BIND-3): видалення за записом, а не за назвою: рахунок — за cloudId (якщо відомий), борги й прив'язані витрати — за id рахунку, запасний варіант — назва.
+  const account = (acct && acct.cloudId ? list.find(function(a){ return a && a.cloudId === acct.cloudId; }) : null) || list.find(function(a){ return a && a.name === name; }) || null;
+  const accId = account && account.cloudId ? account.cloudId : null;
+  const ambiguousName = list.some(function(a){ return a && a !== account && a.name === name; }); // інша ОЧ з тією ж назвою: запис без id однозначно не належить жодній — не чіпаємо
+  const debtIds = (st.debts || []).filter(function(d){ return d && d.kind === kind && (accId && d.accountId ? d.accountId === accId : (d.name === name && !(accId && ambiguousName))); }).map(function(d){ return d.id; });
+  const linked = kind === 'installment' ? (st.expenses || []).filter(function(e){ return e && (accId && e.linkedInstallmentId ? e.linkedInstallmentId === accId : (e.linkedInstallment === name && !(accId && ambiguousName))); }) : [];
+  const hf = st.hiddenFrom || {};
+  const hiddenKeys = [];
+  if(kind === 'installment' && accId && Object.prototype.hasOwnProperty.call(hf, 'installment:#' + accId)) hiddenKeys.push('installment:#' + accId);
+  if(Object.prototype.hasOwnProperty.call(hf, kind + ':' + name)) hiddenKeys.push(kind + ':' + name);
   return { exists: !!account, kind: kind, name: name, cloudId: (account && account.cloudId) || null, debtIds: debtIds, debtCount: debtIds.length,
-    linkedExpenseIds: linked.map(function(e){ return e.id; }), linkedCount: linked.length, hiddenKey: hiddenKey };
+    linkedExpenseIds: linked.map(function(e){ return e.id; }), linkedCount: linked.length, hiddenKey: hiddenKeys[0] || null, hiddenKeys: hiddenKeys };
 }
 // Rev 2.32.77 (PURGE-1): строк життя надгробків карток/ОЧ/категорій на сервері (14 днів, cron p_days) користувачу НЕ показуємо: лише внутрішня документація (docs/SUPABASE_POLICY.md).
 function purgeAccountConfirmText(plan){
@@ -17378,19 +17461,21 @@ function purgeAccountConfirmText(plan){
 // витрати, прив'язані до ОЧ, лишаються без поля linkedInstallment (суми не чіпаємо; stamp — ISO для updatedAt, щоб звичайний push відправив відв'язування).
 function removeAccountFromState(state, plan, stamp){
   const list = plan.kind === 'card' ? state.bankAccounts : state.installmentAccounts;
-  const at = list.findIndex(function(a){ return a && a.name === plan.name; });
+  const at = (plan.cloudId ? list.findIndex(function(a){ return a && a.cloudId === plan.cloudId; }) : -1) !== -1 ? list.findIndex(function(a){ return a && a.cloudId === plan.cloudId; }) : list.findIndex(function(a){ return a && a.name === plan.name; }); // Rev 2.32.185: за записом (cloudId), запасний варіант — назва
   if(at !== -1) list.splice(at, 1);
+  const planDebtIds = Array.isArray(plan.debtIds) ? plan.debtIds.reduce(function(o, id){ o[id] = true; return o; }, {}) : null;
+  const planExpIds = Array.isArray(plan.linkedExpenseIds) ? plan.linkedExpenseIds.reduce(function(o, id){ o[id] = true; return o; }, {}) : null;
   let debtsRemoved = 0;
   const months = {};
   for(let i = state.debts.length - 1; i >= 0; i--){
     const d = state.debts[i];
-    if(d && d.kind === plan.kind && d.name === plan.name){ months[d.month] = true; state.debts.splice(i, 1); debtsRemoved++; } // Rev 2.32.7 (T3): ВСІ місяці рахунку, незалежно від місяця приховування
+    if(d && d.kind === plan.kind && (planDebtIds ? planDebtIds[d.id] : d.name === plan.name)){ months[d.month] = true; state.debts.splice(i, 1); debtsRemoved++; } // Rev 2.32.7 (T3): ВСІ місяці рахунку, незалежно від місяця приховування
   }
-  if(plan.hiddenKey && state.hiddenFrom) delete state.hiddenFrom[plan.hiddenKey];
+  if(state.hiddenFrom){ (plan.hiddenKeys || (plan.hiddenKey ? [plan.hiddenKey] : [])).forEach(function(k){ delete state.hiddenFrom[k]; }); }
   let unlinked = 0;
   if(plan.kind === 'installment'){
     (state.expenses || []).forEach(function(e){
-      if(e && e.linkedInstallment === plan.name){ delete e.linkedInstallment; if(stamp) e.updatedAt = stamp; unlinked++; }
+      if(e && (planExpIds ? planExpIds[e.id] : e.linkedInstallment === plan.name)){ delete e.linkedInstallment; delete e.linkedInstallmentId; if(stamp) e.updatedAt = stamp; unlinked++; }
     });
   }
   return { debts: debtsRemoved, unlinkedExpenses: unlinked, monthsRemoved: Object.keys(months).length };

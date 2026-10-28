@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const NAMES = ['hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'monthStartISO', 'stampBankAccountTimestamps', 'importEnsureAccounts', 'isInstallmentVisibleForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'newCardCreatedAt'];
+const NAMES = ['hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hiddenEntryKey', 'hiddenEntryFor', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'monthStartISO', 'stampBankAccountTimestamps', 'importEnsureAccounts', 'isInstallmentVisibleForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'newCardCreatedAt'];
 const mk = g => buildSandbox(Object.assign({ hiddenFrom: {}, bankAccounts: [], installmentAccounts: [] }, g || {}), NAMES);
 const CREATED = '2026-05-02T10:00:00.000Z'; // як у наявних картках на сервері
 
@@ -46,7 +46,7 @@ test('isAccountHiddenForMonth: картка до createdAt прихована, �
 test('підсумки: борг картки до createdAt не потрапляє в debtTotalsForMonth', function(){
   const ex = require('./extract');
   const c = ex.buildSandbox({ debts: [{ name: 'K', kind: 'card', month: '2026-03', balance: 500 }, { name: 'K', kind: 'card', month: '2026-06', balance: 700 }], hiddenFrom: {}, expenses: [], bankAccounts: [{ name: 'K', createdAt: CREATED }] },
-    ['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'activeExpenses', 'monthKey', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'resolveInstallmentFact']);
+    ['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hiddenEntryKey', 'hiddenEntryFor', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'activeExpenses', 'monthKey', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'resolveInstallmentFact']);
   assert.equal(ex.evalInSandbox(c, "debtTotalsForMonth('2026-04').total"), 0, 'квітень: картки ще нема');
   assert.equal(ex.evalInSandbox(c, "debtTotalsForMonth('2026-06').total"), 700);
 });

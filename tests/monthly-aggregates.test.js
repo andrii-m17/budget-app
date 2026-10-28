@@ -86,7 +86,7 @@ test('mandatoryPaymentsSummary: обов\'язкові платежі та ві�
 function debtSandbox(){
   return buildSandbox(
     { debts: [], hiddenFrom: {}, expenses: [], bankAccounts: [], installmentAccounts: [] },
-    ['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
+    ['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hiddenEntryKey', 'hiddenEntryFor', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
       // Rev #30 (6D.44) — debtTotalsForMonth() тепер сканує activeDebts(), не сирий debts.
       'activeDebts',
       // Rev 2.22.75 (6D.148) — debtTotalsForMonth() тепер для installment-

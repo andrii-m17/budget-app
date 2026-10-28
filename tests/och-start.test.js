@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 
-const NAMES = ['hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isInstallmentVisibleForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'activeDebts', 'activeExpenses', 'debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName'];
+const NAMES = ['hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hiddenEntryKey', 'hiddenEntryFor', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isInstallmentVisibleForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'activeDebts', 'activeExpenses', 'debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName'];
 function sb(g){ return buildSandbox(Object.assign({ debts: [], expenses: [], installmentAccounts: [], bankAccounts: [], hiddenFrom: {} }, g), NAMES.filter(n => !['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'activeDebts', 'activeExpenses'].includes(n))); }
 const D = (name, month, extra) => Object.assign({ name, kind: 'installment', month, balance: 1000, monthlyPayment: 100 }, extra || {});
 

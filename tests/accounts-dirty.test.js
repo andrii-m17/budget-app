@@ -69,10 +69,10 @@ function makeCloud(){
 }
 const NAMES = ['LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
   'saveBankAccountsLocal', 'saveInstallmentAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId', 'paymentDayPayload', 'normalizePaymentDay', 'pullBankAccountsCore',
-  'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore',
+  'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom',
   'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'planBankAccountsPush', 'planInstallmentAccountsPush',
   'reconcileBankAccountsCensus', 'reconcileInstallmentAccountsCensus', 'reconcileAccountsCensusFor', 'invalidateAccountChildren', 'cleanupOrphanedHiddenEntities',
-  'pushHiddenEntitiesPilot', 'monthToDate', 'hideKey'];
+  'pushHiddenEntitiesPilot', 'monthToDate', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hiddenEntryKey', 'hiddenEntryFor'];
 function device(cloud, name, o){
   const store = {}; const events = []; const x = o || {};
   const ctx = buildSandbox({

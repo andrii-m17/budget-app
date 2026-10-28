@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const NAMES = ['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'cascadeInstallmentRename', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum', 'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey'];
+const NAMES = ['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'cascadeInstallmentRename', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hiddenEntryKey', 'hiddenEntryFor', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum', 'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey'];
 const app = (debts, expenses, accounts, extra) => buildSandbox(Object.assign({ debts, expenses, hiddenFrom: {}, ignoredDivergences: {}, bankAccounts: [], installmentAccounts: accounts }, extra || {}), NAMES);
 const A = (name, id, extra) => Object.assign({ name, cloudId: id, initialAmount: 12000 }, extra || {});
 const D = (name, month, balance, extra) => Object.assign({ id: 'd-' + name + month, name, kind: 'installment', month, balance, monthlyPayment: 1000 }, extra || {});
@@ -100,7 +100,7 @@ test('каскад: борги за id та за старою назвою, ви
   assert.equal(byId.m9.name, 'Предмет А старий', 'борг чужої ОЧ не чіпаємо');
   assert.equal(byId.m6.updatedAt, '2026-06-30T00:00:00Z'); assert.equal(byId.m8.updatedAt, '2026-08-01T00:00:00Z');
   assert.deepEqual(c.expenses.map(e => e.linkedInstallment), ['Предмет А', 'Предмет А', 'Предмет А старий']);
-  assert.equal(c.hiddenFrom['installment:Предмет А'], '2026-12'); assert.ok(!('installment:Предмет А старий' in c.hiddenFrom)); assert.equal(c.hiddenFrom['card:Предмет А старий'], '2026-01');
+  assert.equal(c.hiddenFrom['installment:#id-a'].month === undefined ? c.hiddenFrom['installment:#id-a'] : c.hiddenFrom['installment:#id-a'].month, '2026-12'); assert.ok(!('installment:Предмет А старий' in c.hiddenFrom)); // Rev 2.32.185: старий ключ за назвою → ключ за cloudId assert.equal(c.hiddenFrom['card:Предмет А старий'], '2026-01');
   assert.ok('Предмет А|2026-07' in c.ignoredDivergences); assert.ok(!('Предмет А старий|2026-07' in c.ignoredDivergences)); assert.ok('Інше|2026-07' in c.ignoredDivergences);
 });
 test('перейменування в місяці 1 при боргах у місяцях 2–3 і межа років: усі місяці отримують нову назву', function(){

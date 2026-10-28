@@ -117,7 +117,7 @@ test('K3 лише читання: push-функції й autoSyncStale тихо 
   const timers = [];
   const g = { CLOUD_ENV: ro, navigator: { onLine: true }, isCloudSessionReady: function(){ return true; }, getSupabaseClient: function(){ touched++; throw new Error('не мав викликатись'); },
     setTimeout: function(){ timers.push(1); }, clearTimeout: function(){}, autoSyncRunning: false };
-  const c = bs(g, ['isWriteBlocked', 'isCloudWriteReady', 'pushExpensesBatch', 'pushHiddenEntitiesPilot', 'autoSyncStale']);
+  const c = bs(g, ['isWriteBlocked', 'isCloudWriteReady', 'pushExpensesBatch', 'linkedOwnerAccount', 'pushHiddenEntitiesPilot', 'autoSyncStale']);
   assert.deepEqual(JSON.parse(JSON.stringify(await c.pushExpensesBatch([{ id: 'x' }]))), { pushed: 0, failed: 0 });
   assert.deepEqual(JSON.parse(JSON.stringify(await c.pushHiddenEntitiesPilot())), { success: true });
   assert.equal(await c.autoSyncStale('resume'), null);

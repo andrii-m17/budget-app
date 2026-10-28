@@ -40,9 +40,9 @@ function client(state, log){
 }
 const NAMES = ['LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'PULL_PAGE_SIZE', 'PULL_MAX_PAGES', 'syncDeltaFrom', 'fetchDeltaRows', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows', 'clearSyncMarkers',
   'saveBankAccountsLocal', 'saveInstallmentAccountsLocal', 'saveCategoriesLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId', 'paymentDayPayload', 'normalizePaymentDay', 'pullBankAccountsCore',
-  'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'pushCategoriesPilot', 'reconcileCategoryCloudId', 'pullCategoriesCore',
+  'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom', 'pushCategoriesPilot', 'reconcileCategoryCloudId', 'pullCategoriesCore',
   'isDirty', 'applyCensus', 'planCategoriesPush', 'planBankAccountsPush', 'planInstallmentAccountsPush', 'invalidateAccountChildren', 'cleanupOrphanedHiddenEntities',
-  'monthToDate', 'hideKey', 'isCloudWriteReady', 'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId', 'pullSubcategoriesCore', 'planSubcategoriesPush', 'isSubcategoryDirty', 'categoriesByNameMap', 'pushDictionaryPilot', 'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'pullDictionaryCore', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'noteSyncCycle', 'syncCycleCounts', 'SYNC_CYCLE_LOG'];
+  'monthToDate', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hiddenEntryKey', 'hiddenEntryFor', 'isCloudWriteReady', 'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId', 'pullSubcategoriesCore', 'planSubcategoriesPush', 'isSubcategoryDirty', 'categoriesByNameMap', 'pushDictionaryPilot', 'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'pullDictionaryCore', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'noteSyncCycle', 'syncCycleCounts', 'SYNC_CYCLE_LOG'];
 function device(state, o){
   const store = {}; const log = []; const calls = { pull: 0, push: 0 }; const x = o || {};
   const ctx = buildSandbox({
