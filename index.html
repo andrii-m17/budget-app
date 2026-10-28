@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.198</div>
+  <div class="version-footer">Money Tree · Rev 2.32.199</div>
 </div>
   </div>
 </div>
@@ -8995,7 +8995,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.198';
+const APP_VERSION = '2.32.199';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9925,7 +9925,9 @@ function upcomingPayments(opts){
   const debts = (o.debtsByMonth || []).filter(function(d){ return d && !d.deletedAt; });
   const expenses = (o.expenses || []).filter(function(e){ return e && !e.deletedAt; });
   const hidden = o.hidden || {};
-  const hiddenFor = function(name, kind, month){ const e = hidden[kind + ':' + name]; if(!e) return false; if(typeof e === 'string') return month >= e; return !e.deletedAt && month >= e.month; };
+  // Rev 2.32.199 (PAY-CLOSED): спільний читач приховування (isHiddenForMonth: за id, назвою, accountName) передається через opts.isHidden; без нього (тести) — старий пошук за ключем-назвою. Чиста функція лишається чистою.
+  const hiddenReader = typeof o.isHidden === 'function' ? o.isHidden : null;
+  const hiddenFor = function(name, kind, month){ if(hiddenReader) return !!hiddenReader(name, kind, month); const e = hidden[kind + ':' + name]; if(!e) return false; if(typeof e === 'string') return month >= e; return !e.deletedAt && month >= e.month; };
   const m0 = today.slice(0, 7), m1 = ppNextMonth(m0);
   const windowEnd = ppAddDays(today, horizon - 1), laterEnd = ppClampDate(m1, 31);
   const result = { items: [], later: [], unconfirmed: [], undatedCards: { count: 0, total: 0 }, undatedList: [], noDay: [], load: { total: 0, count: 0, estimated: false, unknown: 0 } };
@@ -9945,8 +9947,10 @@ function upcomingPayments(opts){
       const startM = installmentStartMonth(inst, debts, expenses); // Rev 2.32.179 (OCH-START)
       if(startM && month < startM) return;
       const hist = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month <= month; }).sort(function(a, b){ return a.month.localeCompare(b.month); });
-      const withBal = hist.filter(function(d){ return d.balance != null; });
-      if(withBal.length && withBal[withBal.length - 1].balance <= 0) return; // завершена
+      // Rev 2.32.199 (PAY-CLOSED): завершеність — з обчисленого ланцюжка (залишок на початок місяця 0), а не з поля balance останнього запису (воно показує залишок НА ПОЧАТОК місяця, тож в останньому платежі дорівнює платежу). Ланцюжок без записів і витрат дає before з початкової суми, нуль не вигадується.
+      const chainSpec = { initial: inst.initialAmount, firstMonth: inst.firstMonth || null, std: installmentStandardPayment(inst), termMonths: inst.termMonths, startDate: inst.startDate, firstPayment: inst.firstPayment, payMode: inst.payMode, recs: debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name; }), linked: expenses.reduce(function(a, e){ if(e.linkedInstallment === inst.name){ const k = String(e.date).slice(0, 7); a[k] = (a[k] || 0) + (Number(e.amount) || 0); } return a; }, {}) };
+      const chainBefore = installmentChainCalc(chainSpec, month).before;
+      if(chainBefore === 0) return; // завершена: ні в «Потребує уваги», ні в «Найближчі», ні в «Пізніше»
       if(firstVisibleMonth === null) firstVisibleMonth = month;
       if(!inst.dueDay) return;
       const rec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month === month && d.monthlyPayment != null; })[0];
@@ -9954,8 +9958,6 @@ function upcomingPayments(opts){
       const linkedSum = expenses.filter(function(e){ return e.linkedInstallment === inst.name && String(e.date).slice(0, 7) === month; }).reduce(function(a, e){ return a + (Number(e.amount) || 0); }, 0);
       // Rev 2.32.183 (PAY-CARD-FIX): залишок на початок місяця потрібен і поза гілкою «є прив'язана витрата» (сума платежу ОЧ зі стандартним платежем) — раніше змінна була оголошена лише всередині гілки, тож без прив'язаних витрат кидалось ReferenceError і картка «Найближчі платежі» зникала.
         // Rev 2.32.164 (OCH-CHAIN): попередній залишок — з обчисленого ланцюжка (а не останній збережений запис): той самий розрахунок, що в «Обліку», таблиці й кільці
-        const chainSpec = { initial: inst.initialAmount, firstMonth: inst.firstMonth || null, std: installmentStandardPayment(inst), termMonths: inst.termMonths, startDate: inst.startDate, firstPayment: inst.firstPayment, payMode: inst.payMode, recs: debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name; }), linked: expenses.reduce(function(a, e){ if(e.linkedInstallment === inst.name){ const k = String(e.date).slice(0, 7); a[k] = (a[k] || 0) + (Number(e.amount) || 0); } return a; }, {}) };
-        const chainBefore = installmentChainCalc(chainSpec, month).before;
       if(linkedSum > 0){
         const lastRec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month <= month && d.monthlyPayment > 0; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).pop();
         const expected = installmentExpectedPayment({ monthPay: rec ? rec.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: chainBefore });
@@ -10001,7 +10003,7 @@ function kyivTodayISO(now){
 }
 // Обгортка над реальними даними застосунку (для картки й екрана «Платежі»).
 function computeUpcomingNow(horizonDays){
-  return upcomingPayments({ today: kyivTodayISO(), horizonDays: horizonDays, installments: installmentAccounts, cards: bankAccounts, debtsByMonth: activeDebts().map(function(d){ return Object.assign({}, d, { month: monthKey2(d.month) }); }), expenses: activeExpenses(), hidden: hiddenFrom });
+  return upcomingPayments({ today: kyivTodayISO(), horizonDays: horizonDays, installments: installmentAccounts, cards: bankAccounts, debtsByMonth: activeDebts().map(function(d){ return Object.assign({}, d, { month: monthKey2(d.month) }); }), expenses: activeExpenses(), hidden: hiddenFrom, isHidden: isHiddenForMonth });
 }
 /* ============ Картка «Найближчі платежі» на «Аналітиці» (Rev 2.32.67, P3) ============ */
 const PAY_MONTHS_SHORT = ['січ', 'лют', 'бер', 'кві', 'тра', 'чер', 'лип', 'сер', 'вер', 'жов', 'лис', 'гру'];

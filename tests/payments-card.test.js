@@ -51,7 +51,7 @@ test('Е: порожній тиждень — без суми в заголов�
   assert.equal(m.next.label, 'Наступний · Сб 17 жов · ПУМБ iPhone'); assert.match(m.next.amount, /^5\s000\s₴$/);
 });
 test('Ж: усе сплачено — без смуги й суми; «Усе сплачено.» + «Наступний · 4 лис · назва»', function(){
-  const m = model({ today: '2026-10-25', installments: [I('ПУМБ Dyson', 4)], debtsByMonth: [D('ПУМБ Dyson', '2026-09', { monthlyPayment: 2000, balance: 9 }), D('ПУМБ Dyson', '2026-10', { monthlyPayment: 2000, balance: 9 })], expenses: [{ date: '2026-10-04', linkedInstallment: 'ПУМБ Dyson', amount: 2000 }] });
+  const m = model({ today: '2026-10-25', installments: [I('ПУМБ Dyson', 4)], debtsByMonth: [D('ПУМБ Dyson', '2026-09', { monthlyPayment: 2000, balance: 20000 }), D('ПУМБ Dyson', '2026-10', { monthlyPayment: 2000, balance: 20000 })], expenses: [{ date: '2026-10-04', linkedInstallment: 'ПУМБ Dyson', amount: 2000 }] });
   assert.equal(m.state, 'allpaid'); assert.equal(m.showStrip, false); assert.equal(m.total, null); assert.equal(m.done.title, 'Усе сплачено.'); assert.equal(m.done.next, 'Наступний · 4 лис · ПУМБ Dyson'); assert.deepEqual(Array.from(m.done.nextLadder), ['Наступний · 4 лис · ПУМБ Dyson', 'Далі · 4 лис · ПУМБ Dyson', '4 лис · ПУМБ Dyson', 'Далі · 4 лис', '4 лис']);
 });
 test('невідома сума: «Сума невідома» в заголовку', function(){
