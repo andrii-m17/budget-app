@@ -86,14 +86,14 @@ test('mandatoryPaymentsSummary: обов\'язкові платежі та ві�
 function debtSandbox(){
   return buildSandbox(
     { debts: [], hiddenFrom: {}, expenses: [], bankAccounts: [], installmentAccounts: [] },
-    ['debtTotalsForMonth', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
+    ['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
       // Rev #30 (6D.44) — debtTotalsForMonth() тепер сканує activeDebts(), не сирий debts.
       'activeDebts',
       // Rev 2.22.75 (6D.148) — debtTotalsForMonth() тепер для installment-
       // записів кличе resolveInstallmentFact() (пріоритет прив'язаної
       // витрати над ручним фактом) — весь ланцюжок залежностей мусить бути
       // в sandbox, інакше ReferenceError усередині extracted-коду.
-      'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum',
+      'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'installmentChainSpec', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum',
       'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey']
   );
 }

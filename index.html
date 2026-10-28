@@ -3729,7 +3729,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.183</div>
+  <div class="version-footer">Money Tree · Rev 2.32.184</div>
 </div>
   </div>
 </div>
@@ -7930,12 +7930,14 @@ async function reconcileInstallmentAccountCloudId(client, userId, acc){
 // TODO-застереження щодо "звільнення назви" (byName reconciliation), той
 // самий свідомий пропуск синхронізації видалення (installmentAccounts, як
 // і bankAccounts, не має локального "active"-поля).
+let lastRenameCollisions = []; // Rev 2.32.184: «Предмет-місяць» із двома активними боргами однієї ОЧ після каскаду перейменування (діагностика, не зливаються)
 async function pullInstallmentAccountsCore(opts){
   if(typeof noteSyncCycle === 'function') noteSyncCycle('installment_accounts', 'pull'); // Rev 2.32.115 (URGENT-LOOP): лічильник для діагностики розробника
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
   let updated = 0, linked = 0, added = 0, keptLocal = 0, removed = 0;
   const relinkedNames = [], relinkedOldIds = []; // Rev 2.23.28 (6D.197, G3): cloudId змінено зв'язуванням за назвою
+  const renameCascade = { debts: 0, expenses: 0, hidden: false, ignored: false }, renameCollisions = []; // Rev 2.32.184 (ID-BIND-2)
   try{
     const { data, error } = await fetchDeltaRows(client, 'installment_accounts', 'id,name,initial_amount,due_day,term_months,start_date,first_payment,pay_mode,payment,created_at,updated_at,deleted_at', 'installmentAccounts', opts); // Rev 2.32.80 (PAGING-1): сторінками по 500 за (updated_at, id), див. fetchDeltaRows
     if(error || !data) return { skipped: true };
@@ -7959,7 +7961,13 @@ async function pullInstallmentAccountsCore(opts){
         // назавжди → те саме нескінченне "1 оновлено" при кожному pull.
         // Rev 2.32.171 (OCH-MODEL): п'ять нових nullable-полів моделі ОЧ (term_months, start_date, first_payment, pay_mode, payment) порівнюються й застосовуються так само, як due_day (null із сервера ≡ undefined локально).
         if(byCloudId.name !== row.name || byCloudId.initialAmount !== row.initial_amount || (byCloudId.dueDay ?? null) !== (row.due_day ?? null) || ochModelDiffers(byCloudId, row) || byCloudId.updatedAt !== row.updated_at){
+          const oldAccName = byCloudId.name;
           byCloudId.name = row.name;
+          if(oldAccName && oldAccName !== row.name){ // Rev 2.32.184 (ID-BIND-2): перейменування з іншого пристрою → локальні борги, витрати, hiddenFrom, ignoredDivergences
+            const ci = cascadeInstallmentRename(byCloudId, oldAccName, row.name);
+            renameCascade.debts += ci.debts; renameCascade.expenses += ci.expenses; renameCascade.hidden = renameCascade.hidden || ci.hidden; renameCascade.ignored = renameCascade.ignored || ci.ignored;
+            ci.collisions.forEach(function(m){ renameCollisions.push(row.name + '|' + m); });
+          }
           byCloudId.initialAmount = row.initial_amount;
           byCloudId.dueDay = row.due_day;
           applyOchModelFromRow(byCloudId, row);
@@ -7991,6 +7999,11 @@ async function pullInstallmentAccountsCore(opts){
     return { skipped: true };
   }
   if(updated || linked || added) await saveInstallmentAccountsLocal();
+  if(renameCascade.debts) await saveDebts(); // Rev 2.32.184: лише локально, без нового updatedAt і без push
+  if(renameCascade.expenses) await saveExpenses();
+  if(renameCascade.hidden) await saveHiddenFromLocal();
+  if(renameCascade.ignored) await saveIgnoredDivergences();
+  if(renameCollisions.length) lastRenameCollisions = renameCollisions.slice(); // два активні борги однієї ОЧ за місяць після каскаду: не зливаються, лише фіксуються
   // Rev 2.23.28 (6D.197, G3) — аналог знахідки G2 для підкатегорій: рахунок отримав ІНШИЙ cloudId від pull
   // (зв'язування за назвою) → діти (борги, витрати, приховані) лишились би "синхронізованими" зі старим id.
   if(relinkedNames.length){
@@ -8346,7 +8359,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.183';
+const APP_VERSION = '2.32.184';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -8833,6 +8846,53 @@ function accountNameTaken(list, name, exceptIdx){
   return (list || []).some(function(a, i){ return i !== exceptIdx && a && !a.deletedAt && accountNameKey(a.name) === k; });
 }
 function accountDuplicateMessage(kind){ return kind === 'card' ? 'Картка з такою назвою вже є. Створити ще одну?' : 'ОЧ з такою назвою вже є. Створити ще одну?'; }
+// Rev 2.32.184 (ID-BIND-2, Етап 2): ОЧ боргу — за accountId (збіг із cloudId запису ОЧ), інакше за назвою (запасний варіант для боргів без id чи з id без знайденої ОЧ). Назва боргу може бути застарілою після перейменування ОЧ на іншому пристрої. Лише читання, дані не змінює.
+function debtAccount(d){
+  if(!d || d.kind !== 'installment') return null;
+  const list = (typeof installmentAccounts !== 'undefined' && installmentAccounts) || [];
+  if(d.accountId){
+    const byId = list.find(function(a){ return a.cloudId === d.accountId; });
+    if(byId) return byId;
+  }
+  return list.find(function(a){ return a.name === d.name; }) || null;
+}
+// Ключ групи боргу: ОЧ з cloudId — за id (дві ОЧ з однаковою назвою дають два ключі), ОЧ без cloudId — за назвою; осиротілий борг (ОЧ не знайдено) — за власною назвою окремою групою, без автозлиття. Картки — як раніше (hideKey).
+function debtAccountKey(d){
+  if(!d || d.kind !== 'installment') return hideKey(d ? d.name : '', d ? d.kind : '');
+  const a = debtAccount(d);
+  if(a) return a.cloudId ? 'installment:#' + a.cloudId : 'installment:' + a.name;
+  return 'installment:' + d.name;
+}
+function debtDisplayName(d){ const a = debtAccount(d); return a ? a.name : d.name; }
+// Rev 2.32.184 (ID-BIND-2): каскад перейменування ОЧ, отриманого з сервера (pull), у локальні борги, прив'язані витрати, hiddenFrom і ignoredDivergences. Борг/витрата зі своїм id іншої ОЧ не чіпається; без id — за старою назвою. Нового updatedAt нема, push не викликається. Повертає лічильники й місяці, де у ОЧ вийшло два активні борги (не зливаються).
+function cascadeInstallmentRename(acc, oldName, newName){
+  const info = { debts: 0, expenses: 0, hidden: false, ignored: false, collisions: [] };
+  if(!acc || !oldName || !newName || oldName === newName) return info;
+  const id = acc.cloudId || null;
+  const dupOld = installmentAccounts.some(function(a){ return a !== acc && a.name === oldName; });
+  debts.forEach(function(d){
+    if(d.kind !== 'installment' || d.name === newName) return;
+    if((id && d.accountId === id) || (!d.accountId && d.name === oldName && !dupOld)){ d.name = newName; info.debts++; }
+  });
+  expenses.forEach(function(e){
+    if(e.linkedInstallment === newName) return;
+    if((id && e.linkedInstallmentId === id) || (!e.linkedInstallmentId && e.linkedInstallment === oldName && !dupOld)){ e.linkedInstallment = newName; info.expenses++; }
+  });
+  if(!dupOld){
+    const ok = hideKey(oldName, 'installment'), nk = hideKey(newName, 'installment');
+    if(Object.prototype.hasOwnProperty.call(hiddenFrom, ok) && !Object.prototype.hasOwnProperty.call(hiddenFrom, nk)){ hiddenFrom[nk] = hiddenFrom[ok]; delete hiddenFrom[ok]; info.hidden = true; }
+    Object.keys(ignoredDivergences).forEach(function(k){
+      if(k.indexOf(oldName + '|') !== 0) return;
+      const nk2 = newName + k.slice(oldName.length);
+      if(!Object.prototype.hasOwnProperty.call(ignoredDivergences, nk2)){ ignoredDivergences[nk2] = ignoredDivergences[k]; delete ignoredDivergences[k]; info.ignored = true; }
+    });
+  }
+  const key = debtAccountKey({ kind: 'installment', name: newName, accountId: id });
+  const seen = {};
+  debts.forEach(function(d){ if(d.kind === 'installment' && !d.deletedAt && d.month && debtAccountKey(d) === key){ seen[d.month] = (seen[d.month] || 0) + 1; } });
+  Object.keys(seen).forEach(function(m){ if(seen[m] > 1) info.collisions.push(m); });
+  return info;
+}
 function isHiddenForMonth(name, kind, month){
   const entry = hiddenFrom[hideKey(name, kind)];
   if(!entry) return false;
@@ -8875,10 +8935,10 @@ function installmentStartMonth(acc, debtList, expenseList){
   if(sd) return sd[1];
   let best = null;
   (debtList || []).forEach(function(d){
-    if(d && !d.deletedAt && d.kind === 'installment' && d.name === acc.name && d.month && (best === null || d.month < best)) best = d.month;
+    if(d && !d.deletedAt && d.kind === 'installment' && (acc.cloudId && d.accountId ? d.accountId === acc.cloudId : d.name === acc.name) && d.month && (best === null || d.month < best)) best = d.month; // Rev 2.32.184: за id, якщо він є в обох
   });
   (expenseList || []).forEach(function(e){
-    if(e && !e.deletedAt && e.linkedInstallment === acc.name && e.date){ const m = String(e.date).slice(0, 7); if(best === null || m < best) best = m; }
+    if(e && !e.deletedAt && (acc.cloudId && e.linkedInstallmentId ? e.linkedInstallmentId === acc.cloudId : e.linkedInstallment === acc.name) && e.date){ const m = String(e.date).slice(0, 7); if(best === null || m < best) best = m; }
   });
   if(best) return best;
   if(acc.firstMonth) return acc.firstMonth;
@@ -13756,8 +13816,10 @@ function populateInstallmentTable(){
 function installmentChainSpec(name){
   const acc = installmentAccounts.find(function(a){ return a.name === name; });
   const linked = {};
-  activeExpenses().forEach(function(e){ if(e.linkedInstallment === name){ const k = monthKey(e.date); linked[k] = (linked[k] || 0) + e.amount; } });
-  return { initial: acc ? acc.initialAmount : null, firstMonth: acc ? (acc.firstMonth || null) : null, std: installmentStandardPayment(acc), termMonths: acc ? acc.termMonths : null, startDate: acc ? acc.startDate : null, firstPayment: acc ? acc.firstPayment : null, payMode: acc ? acc.payMode : null, recs: activeDebts().filter(function(d){ return d.kind === 'installment' && d.name === name; }), linked: linked };
+  const accId = acc && acc.cloudId ? acc.cloudId : null;
+  const groupKey = debtAccountKey({ kind: 'installment', name: name, accountId: accId }); // Rev 2.32.184 (ID-BIND-2): борги ОЧ за id, запасний варіант — назва
+  activeExpenses().forEach(function(e){ if(accId && e.linkedInstallmentId ? e.linkedInstallmentId === accId : e.linkedInstallment === name){ const k = monthKey(e.date); linked[k] = (linked[k] || 0) + e.amount; } });
+  return { initial: acc ? acc.initialAmount : null, firstMonth: acc ? (acc.firstMonth || null) : null, std: installmentStandardPayment(acc), termMonths: acc ? acc.termMonths : null, startDate: acc ? acc.startDate : null, firstPayment: acc ? acc.firstPayment : null, payMode: acc ? acc.payMode : null, recs: activeDebts().filter(function(d){ return d.kind === 'installment' && debtAccountKey(d) === groupKey; }), linked: linked };
 }
 function installmentBalanceBefore(name, month){
   if(isHiddenForMonth(name, 'installment', month)) return null;
@@ -14584,8 +14646,8 @@ function debtTotalsForMonth(month){
   // Rev #30 (6D.44) — activeDebts() вставлено ПЕРЕД hideKey-дедуп циклом
   // (6D.33 BugFix) — сам дедуп-цикл і його ключ незмінні, лише вхідний набір записів.
   activeDebts().forEach(d=>{
-    if(d.month <= month && !isAccountHiddenForMonth(d.name, d.kind, month)){ // Rev 2.32.137: картка до createdAt поза підсумками
-      const key = hideKey(d.name, d.kind);
+    if(d.month <= month && !isAccountHiddenForMonth(debtDisplayName(d), d.kind, month)){ // Rev 2.32.137: картка до createdAt поза підсумками; Rev 2.32.184: назва — з ОЧ за id
+      const key = debtAccountKey(d); // Rev 2.32.184 (ID-BIND-2): група за id ОЧ (запасний варіант — назва)
       if(!byKindName[key] || d.month > byKindName[key].month) byKindName[key] = d;
     }
   });
@@ -14599,11 +14661,13 @@ function debtTotalsForMonth(month){
   // зберігається в самому записі.
   const list = Object.values(byKindName).map(function(d){
     if(d.kind !== 'installment') return d;
-    const resolved = resolveInstallmentFact(d.name, month, d);
+    const dispName = debtDisplayName(d); // Rev 2.32.184: назва рядка — з ОЧ (борг може мати застарілу назву)
+    const resolved = resolveInstallmentFact(dispName, month, d);
     // resolved.balance теоретично може лишитись null (немає жодного
     // попереднього ФАКТУ до цього місяця, lastKnownBalance) — тоді
     // лишаємо d.balance як був, а не пробиваємо NaN у суми нижче.
     return Object.assign({}, d, {
+      name: dispName,
       balance: resolved.balance != null ? resolved.balance : d.balance,
       monthlyPayment: resolved.pay
     });
@@ -14631,8 +14695,9 @@ function debtAsOfInfo(month, kind){
   const byName = {};
   // Rev #30 (6D.44) — activeDebts().
   activeDebts().forEach(d=>{
-    if(d.kind===kind && d.month<=month && !isAccountHiddenForMonth(d.name, d.kind, month)){ // Rev 2.32.137
-      if(!byName[d.name] || d.month > byName[d.name].month) byName[d.name] = d;
+    if(d.kind===kind && d.month<=month && !isAccountHiddenForMonth(debtDisplayName(d), d.kind, month)){ // Rev 2.32.137; Rev 2.32.184: назва з ОЧ за id
+      const gk = debtAccountKey(d);
+      if(!byName[gk] || d.month > byName[gk].month) byName[gk] = d;
     }
   });
   const months = Object.values(byName).map(d=>d.month);

@@ -37,13 +37,12 @@ test('pull витрат: linkedInstallmentId = linked_installment_id; зніма
   assert.match(src, /delete local\.linkedInstallmentId/);
   assert.match(src, /rec\.linkedInstallmentId = row\.linked_installment_id/);
 });
-test('поведінка не змінена: пошук рахунку/ОЧ далі за cloudId (pull) і назвою (push); нові поля ніде не читаються як ключ', function(){
-  const withoutComments = SRC.replace(/\/\/[^\n]*/g, '');
-  assert.ok(!/\.find\(function\(\w+\)\{ return \w+\.(id|cloudId) === \w+\.accountId/.test(withoutComments));
-  const uses = (withoutComments.match(/\.accountId\b/g) || []).length;
-  assert.equal(uses, 3, 'лише 3 записи: pull (наявний), push борг, і порівняння у pull; жодного читання для пошуку');
-  const lu = (withoutComments.match(/\.linkedInstallmentId\b/g) || []).length;
-  assert.ok(lu >= 5 && lu <= 10, 'linkedInstallmentId лише записується в pull/push (' + lu + ')');
+test('Rev 2.32.184: поля id читаються лише в групуванні/каскаді (debtAccount, cascadeInstallmentRename, pull); push-функції їх лише записують', function(){
+  const withoutComments = (t) => t.replace(/\/\/[^\n]*/g, '');
+  ['pushDebtRecordPilot', 'pushExpenseRecordPilot'].forEach(function(n){
+    const src = withoutComments(fn(n));
+    assert.ok(!/[=!]==?\s*\w+\.(accountId|linkedInstallmentId)|\w+\.(accountId|linkedInstallmentId)\s*[=!]==/.test(src), n + ': id не читається для пошуку');
+  });
 });
 test('рядки для сервера будуються явно: accountId/linkedInstallmentId у upsert не потрапляють', function(){
   const withoutComments = SRC.replace(/\/\/[^\n]*/g, '');

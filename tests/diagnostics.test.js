@@ -27,7 +27,7 @@ function sandbox({ expenses, incomes, debts, installmentAccounts, hiddenFrom, ig
       isSupabaseSdkReady: () => true,
     },
     [
-      'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeSourceDisplay', 'findExpenseIdIssues', 'findTimestampIssues', 'findInstallmentFieldIssues', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'installmentChainSpec', 'installmentBalanceBefore', 'findInstallmentDivergences',
+      'SALARY_ICON', 'COINS_ICON', 'INCOME_SOURCES', 'incomeSourceId', 'incomeSourceDisplay', 'findExpenseIdIssues', 'findTimestampIssues', 'findInstallmentFieldIssues', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'installmentChainSpec', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'installmentBalanceBefore', 'findInstallmentDivergences',
       'divergenceKey', 'hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth', 'lastKnownBalance', 'typicalMonthlyPayment', 'linkedExpensesSum',
       // Rev #30 (6D.42) — findExpenseIdIssues()/findTimestampIssues() тепер сканують activeExpenses(), не сирий expenses.
       'activeExpenses', 'monthKey',

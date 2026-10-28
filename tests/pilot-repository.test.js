@@ -181,7 +181,7 @@ const REPOSITORY_NAMES = [
   // Rev #30 (6D.27, installment_accounts повний цикл) — той самий
   // cross-realm-override прийом, що pullBankAccountsCore тести.
   // pullInstallmentAccountsPilotManual НЕ включена (DOM-шар).
-  'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
+  'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'cascadeInstallmentRename', 'debtAccount', 'debtAccountKey', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
   // Rev #30 (6D.32, hidden_entities перша реалізація) — той самий
   // local/push розподіл, що решта 5 доменів. pullHiddenEntitiesPilotManual
   // НЕ включена (DOM-шар).
@@ -292,7 +292,7 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       SUBCATEGORY_PRIORITY: {},
       DICTIONARY: [],
       bankAccounts: [],
-      installmentAccounts: [],
+      installmentAccounts: [], lastRenameCollisions: [],
       hiddenFrom: {},
       ignoredDivergences: {},
       expenses: [],

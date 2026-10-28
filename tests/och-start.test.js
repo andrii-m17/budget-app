@@ -4,8 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 
-const NAMES = ['hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isInstallmentVisibleForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'activeDebts', 'activeExpenses', 'debtTotalsForMonth'];
-function sb(g){ return buildSandbox(Object.assign({ debts: [], expenses: [], installmentAccounts: [], bankAccounts: [], hiddenFrom: {} }, g), NAMES.filter(n => !['debtTotalsForMonth', 'activeDebts', 'activeExpenses'].includes(n))); }
+const NAMES = ['hideKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isInstallmentVisibleForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'cardCreatedMonth', 'activeDebts', 'activeExpenses', 'debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName'];
+function sb(g){ return buildSandbox(Object.assign({ debts: [], expenses: [], installmentAccounts: [], bankAccounts: [], hiddenFrom: {} }, g), NAMES.filter(n => !['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'activeDebts', 'activeExpenses'].includes(n))); }
 const D = (name, month, extra) => Object.assign({ name, kind: 'installment', month, balance: 1000, monthlyPayment: 100 }, extra || {});
 
 test('без start_date: перший борг у вересні → ОЧ невидима в квітні, навіть коли локальний firstMonth = квітень', function(){
