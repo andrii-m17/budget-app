@@ -31,7 +31,7 @@ function make(){
     pullOnce: async function(key){ const t = key.slice(0, -1); rec.pulls.push(t); if(server.failTables.has(t)) return { skipped: true }; return { added: server.changed[t] || 0, updated: 0, linked: 0 }; },
     refreshSyncProfiles: async function(){ rec.profiles = (rec.profiles || 0) + 1; return true; },
     nameDomainsHaveDirty: function(){ return !!rec.dirty; },
-    syncNameDomainsOnConnect: async function(){ rec.nameDomain++; },
+    syncNameDomainsOnConnect: async function(o){ rec.nameDomain++; (rec.nameOpts = rec.nameOpts || []).push(o); }, nameDomainDirtyBreakdown: function(){ return {}; },
     flushOtherActorEventsAsToasts: function(){ rec.toasts++; }, flushOtherActorEventsAsSummary: function(){ rec.summary++; },
     refreshAfterSyncAtStart: function(){ rec.refresh++; },
     notifArchive: { unread: 0 }, notifQueueLen: function(){ return 0; }, monoInbox: { newCount: 0 }, updateNotifBell: function(){}, updateMonoBadges: function(){},
@@ -152,6 +152,15 @@ test('перепис id/push довідників: у повній звірці 
   assert.equal(c.rec.nameDomain, 2);
   c.advance(40000); await c.syncCheck('realtime', { force: true });
   assert.equal(c.rec.nameDomain, 2);
+});
+test('Rev 2.32.188: перепис id лише у повній звірці; «брудні» без повної → push без переписів', async function(){
+  const c = make();
+  await c.syncCheck('start', { force: true, profilesLoaded: true });
+  assert.equal(c.rec.nameOpts[0].census, true);
+  c.rec.dirty = true; c.advance(40000); await c.syncCheck('resume');
+  assert.equal(c.rec.nameOpts[1].census, false);
+  c.advance(40000); await c.syncCheck('online');
+  assert.equal(c.rec.nameOpts[2].census, false);
 });
 test('вихід/зміна сім\'ї: resetSyncCheckState скидає пам\'ять; чужа сім\'я не використовує чужі «голови»', async function(){
   const c = make();

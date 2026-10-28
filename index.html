@@ -3729,7 +3729,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.187</div>
+  <div class="version-footer">Money Tree · Rev 2.32.188</div>
 </div>
   </div>
 </div>
@@ -5435,7 +5435,8 @@ async function invalidateAccountChildren(kind, names){
 async function syncNameDomainsOnConnect(opts){
   const o = opts || {};
   nameDomainChildren = 0;
-  const results = [
+  // Rev 2.32.188 (CENSUS-GATE): o.census === false — без переписів id (див. runSyncCheck); за замовчуванням (вхід, «Синхронізувати все») перепис є.
+  const results = o.census === false ? [] : [
     ['categories', await reconcileCategoriesCensus()],
     ['subcategories', await reconcileSubcategoriesCensus()],
     ['dictionary', await reconcileDictionaryCensus()],
@@ -8373,7 +8374,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.187';
+const APP_VERSION = '2.32.188';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10919,6 +10920,29 @@ function nameDomainsHaveDirty(){
       || Object.keys(hiddenFrom).some(function(k){ return hiddenFrom[k].syncedUpdatedAt !== hiddenFrom[k].updatedAt; });
   }catch(e){ return true; }
 }
+// Rev 2.32.188 (CENSUS-GATE): лише лічильники за класами причин «брудності» довідників (без назв і id) — для журналу діагностики.
+// orphanParent — батька немає локально або він без cloudId: push такий запис пропускає (continue), тож він «брудний» стійко.
+function nameDomainDirtyBreakdown(){
+  const out = { noCloudId: 0, unsynced: 0, orphanParent: 0, parentChanged: 0, hidden: 0 };
+  try{
+    const byName = categoriesByNameMap();
+    [CATEGORIES, SUBCATEGORIES, DICTIONARY, bankAccounts, installmentAccounts].forEach(function(list){
+      list.forEach(function(e){ if(!e.cloudId) out.noCloudId++; else if(e.syncedUpdatedAt !== e.updatedAt) out.unsynced++; });
+    });
+    SUBCATEGORIES.forEach(function(s){
+      const parent = byName[s.category];
+      if(!parent || !parent.cloudId) out.orphanParent++;
+      else if(!isDirty(s) && isSubcategoryDirty(s, byName)) out.parentChanged++;
+    });
+    DICTIONARY.forEach(function(e){
+      const p = dictionaryParentIds(e);
+      if((e.cat && !p.catId) || (e.sub && !p.subId)) out.orphanParent++;
+      else if(!isDirty(e) && ((e.syncedCategoryId || null) !== (p.catId || null) || (e.syncedSubcategoryId || null) !== (p.subId || null))) out.parentChanged++;
+    });
+    Object.keys(hiddenFrom).forEach(function(k){ if(hiddenFrom[k].syncedUpdatedAt !== hiddenFrom[k].updatedAt) out.hidden++; });
+  }catch(e){ out.error = 1; }
+  return out;
+}
 function refreshAfterSyncAtStart(changedTables){
   const has = function(n){ return changedTables.indexOf(n) !== -1; };
   if(has('categories') || has('subcategories') || has('dictionary')){ renderStructure(); populateCategorySelect(); }
@@ -10948,7 +10972,9 @@ async function runSyncCheck(reason, o){
   const changedTables = await runSyncPulls(plan.tables, results, plan.full ? { full: true } : undefined); // Rev 2.32.99/100 (PAGING-1 Rev B): повна звірка (F1) для таблиць із маркером; режим передається параметром, а не глобальним прапорцем
   // Перепис id довідникових доменів і push «брудних» записів: частина повної звірки; поза нею — лише коли є що відправляти (офлайн-правки)
   if(reason !== 'realtime' && (plan.full || nameDomainsHaveDirty())){
-    try{ await syncNameDomainsOnConnect(); }catch(e){}
+    // Rev 2.32.188 (CENSUS-GATE): перепис id (5 таблиць, SELECT id постранично) лише у повній звірці; поза нею «брудні» записи просто надсилаються, а застарілий cloudId ловить сам push (UPDATE → 0 рядків → самозцілення). Раніше перепис ішов на кожну перевірку, поки хоч один запис «брудний» (стійко через осиротілих), хоча голови не змінились. Ризик: застарілий id «чистого» запису дочекається повної звірки (≤ 24 год або purged_at).
+    if(!plan.full) syncDiag('name-dirty', nameDomainDirtyBreakdown());
+    try{ await syncNameDomainsOnConnect({ census: !!plan.full }); }catch(e){}
   }
   if(syncFullDirty){ syncFullDirty = false; try{ await autoSyncStale('full-reconcile'); }catch(e){} } // Rev 2.32.99: живі записи без рядка на сервері відправляються повторно
   syncSeenState = applySyncResult(syncSeenState, heads, plan, results, now);

@@ -19,7 +19,7 @@ function make(over){
     pullCategoriesCore: stub('categories'), pullSubcategoriesCore: stub('subcategories'), pullDictionaryCore: stub('dictionary'), pullBankAccountsCore: stub('bank_accounts'),
     pullInstallmentAccountsCore: stub('installment_accounts'), pullHiddenEntitiesCore: stub('hidden_entities'), pullExpensesCore: stub('expenses'), pullIncomesCore: stub('incomes'), pullDebtsCore: stub('debts'),
     fetchSyncHeadsShared: async () => JSON.parse(JSON.stringify(heads)), loadSyncSeen: () => g.emptySeen(), saveSyncSeen: s => g.saved.push(JSON.parse(JSON.stringify(s))),
-    applyHeadsCounters: () => {}, syncDiag: () => {}, refreshSyncProfiles: async () => true, syncNameDomainsOnConnect: async () => {}, refreshAfterSyncAtStart: () => {},
+    applyHeadsCounters: () => {}, syncDiag: () => {}, refreshSyncProfiles: async () => true, syncNameDomainsOnConnect: async () => {}, nameDomainDirtyBreakdown: () => ({}), refreshAfterSyncAtStart: () => {},
     flushOtherActorEventsAsToasts: () => {}, flushOtherActorEventsAsSummary: () => {}, autoSyncStale: async r => { g.autoSyncCalls.push(r); },
     CATEGORIES: [], SUBCATEGORIES: [], DICTIONARY: [], bankAccounts: [], installmentAccounts: [], hiddenFrom: {}, categoriesByNameMap: () => ({}), isDirty: () => false, isSubcategoryDirty: () => false,
     Date: Date,
