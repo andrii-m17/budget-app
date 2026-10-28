@@ -233,27 +233,47 @@ function timers(){
     advance(ms){ const to = now + ms; for(;;){ q.sort((a, b) => a.at - b.at); if(!q.length || q[0].at > to) break; const x = q.shift(); now = x.at; x.f(); } now = to; } };
 }
 function slotEnv(rows){
-  const tm = timers(); const slot = fakeSlot('e1'); const rowsEls = rows || {};
-  const document = { querySelectorAll: sel => (sel.indexOf('e1') >= 0 ? [slot] : []), querySelector: sel => { const m = sel.match(/data-rec-id="([^"]+)"/); return m ? rowsEls[m[1]] || null : null; } };
+  const tm = timers(); const slot = fakeSlot('e1'); const cls = new Set(); const log = [];
+  const row = { classList: { add: c => { cls.add(c); log.push('+' + c); }, remove: c => { cls.delete(c); log.push('-' + c); }, contains: c => cls.has(c) } };
+  const document = { querySelectorAll: sel => (sel.indexOf('e1') >= 0 ? [slot] : []), querySelector: sel => (sel.indexOf('data-rec-id="e1"') >= 0 ? row : null) };
   const c = buildSandbox({ document, setTimeout: tm.setTimeout, clearTimeout: tm.clearTimeout, recentlyPulledExpenseState: new Map(), expSyncEntries: new Map() }, []);
-  return { c, tm, slot };
+  return { c, tm, slot, row, cls, log };
 }
-test('індикатор: syncing не раніше 400 мс, pending не раніше 3 с; слот той самий вузол; після відповіді done → тримається 1,2 с → зникає 0,3 с', () => {
-  const { c, tm, slot } = slotEnv();
-  c.expSyncBegin('e1'); tm.advance(399); assert.equal(slot.getAttribute('data-s'), '', 'до 400 мс нічого');
-  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'syncing');
+test('індикатор: syncing не раніше 400 мс (рядок блимає класом), pending не раніше 3 с; слот і вузол рядка ті самі; done = SYNC_RESULT_MS (1 с) з фінальним зникненням 0,3 с; блимання у done нема', () => {
+  const { c, tm, slot, cls, log } = slotEnv();
+  c.expSyncBegin('e1'); tm.advance(399); assert.equal(slot.getAttribute('data-s'), ''); assert.ok(!cls.has('just-synced'), 'до 400 мс без блимання');
+  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'syncing'); assert.ok(cls.has('just-synced'), 'блимання лише класом на вузлі рядка');
   tm.advance(2599); assert.equal(slot.getAttribute('data-s'), 'syncing', 'pending не раніше 3 с');
-  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'pending'); assert.equal(slot.getAttribute('aria-label'), 'Не синхронізовано');
+  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'pending'); assert.equal(slot.getAttribute('aria-label'), 'Не синхронізовано'); assert.ok(!cls.has('just-synced'));
   c.expSyncEnd('e1', true); assert.equal(slot.getAttribute('data-s'), 'done'); assert.equal(slot.getAttribute('aria-label'), 'Синхронізовано');
-  tm.advance(1199); assert.equal(slot.getAttribute('data-fade'), null); tm.advance(1); assert.equal(slot.getAttribute('data-fade'), '1');
+  tm.advance(699); assert.equal(slot.getAttribute('data-fade'), null); tm.advance(1); assert.equal(slot.getAttribute('data-fade'), '1');
   tm.advance(300); assert.equal(slot.getAttribute('data-s'), ''); assert.equal(slot.innerHTML, '', 'вузол не перебудовується: SVG у слоті статичний');
+  assert.equal(log.filter(x => x === '+just-synced').length, 1, 'клас додається один раз: четвертого блимання нема');
 });
-test('індикатор: швидкий запит (до 400 мс) не блимає; syncing показується щонайменше 600 мс; невдача → pending', () => {
+test('індикатор: швидкий запит (до 400 мс) не блимає; syncing показується щонайменше SYNC_MIN_SYNCING_MS (3 с); у done блимання нема; невдача → pending без блимання', () => {
   const a = slotEnv(); a.c.expSyncBegin('e1'); a.tm.advance(200); a.c.expSyncEnd('e1', true); a.tm.advance(5000);
-  assert.equal(a.slot.getAttribute('data-s'), '', 'без станів');
-  const b = slotEnv(); b.c.expSyncBegin('e1'); b.tm.advance(400); assert.equal(b.slot.getAttribute('data-s'), 'syncing'); b.c.expSyncEnd('e1', true);
-  assert.equal(b.slot.getAttribute('data-s'), 'syncing', 'ще не 600 мс'); b.tm.advance(599); assert.equal(b.slot.getAttribute('data-s'), 'syncing'); b.tm.advance(1); assert.equal(b.slot.getAttribute('data-s'), 'done');
-  const f = slotEnv(); f.c.expSyncBegin('e1'); f.tm.advance(500); f.c.expSyncEnd('e1', false); assert.equal(f.slot.getAttribute('data-s'), 'pending', 'невдача: кільце зникає, pending');
+  assert.equal(a.slot.getAttribute('data-s'), ''); assert.deepEqual(a.log, [], 'жодного блимання');
+  const b = slotEnv(); b.c.expSyncBegin('e1'); b.tm.advance(400); b.c.expSyncEnd('e1', true);
+  assert.equal(b.slot.getAttribute('data-s'), 'syncing', 'ще не 3 с показу'); b.tm.advance(2999); assert.equal(b.slot.getAttribute('data-s'), 'syncing'); assert.ok(b.cls.has('just-synced'));
+  b.tm.advance(1); assert.equal(b.slot.getAttribute('data-s'), 'done'); assert.ok(!b.cls.has('just-synced'), 'у done блимання знято');
+  b.tm.advance(1000); assert.equal(b.slot.getAttribute('data-s'), '', 'done триває SYNC_RESULT_MS');
+  assert.equal(b.log.filter(x => x === '+just-synced').length, 1);
+  const f = slotEnv(); f.c.expSyncBegin('e1'); f.tm.advance(500); f.c.expSyncEnd('e1', false); assert.equal(f.slot.getAttribute('data-s'), 'pending'); assert.ok(!f.cls.has('just-synced'));
+});
+test('спільні константи з індикатором біля аватара; блимання як cardBlink ×3; колір syncing = колір старої іконки (--color-info); reduced-motion без блимання й обертання', () => {
+  const lines = SRC.split('\n');
+  assert.ok(lines.includes('const SYNC_MIN_SYNCING_MS = 3000;') && lines.includes('const SYNC_RESULT_MS = 1000;'));
+  const slotJs = SRC.slice(SRC.indexOf('const expSyncEntries'), SRC.indexOf('// Похідний стан для рендера рядка.'));
+  assert.ok(/SYNC_MIN_SYNCING_MS/.test(slotJs) && /SYNC_RESULT_MS/.test(slotJs), 'індикатор рядка бере спільні константи');
+  assert.ok(!/SYNC_SLOT_(HOLD|MIN)_/.test(SRC), 'власних дубльованих значень нема');
+  const avatar = SRC.slice(SRC.indexOf('function scheduleSyncSettle'), SRC.indexOf('function scheduleSyncSettle') + 700);
+  assert.ok(/SYNC_MIN_SYNCING_MS/.test(avatar) && /SYNC_RESULT_MS/.test(avatar), 'індикатор біля аватара — ті самі константи');
+  assert.match(SRC, /\.expense-row\.just-synced\{ background:var\(--color-info-bg\); animation:cardBlink \.8s ease-in-out 3; \}/, '3 блимання по 0,8 с');
+  const old = SRC.match(/\.sync-badge-icon\.syncing\{ color:(var\(--[a-z-]+\)); \}/)[1]; assert.equal(old, 'var(--color-info)');
+  const css = SRC.slice(SRC.indexOf('.sync-slot{ display:inline-flex'), SRC.indexOf('/* ===== Rev 2.32.189 (CHECKS-1)'));
+  assert.ok(css.includes('.sl-ring{ stroke:' + old) && css.includes('[data-s="syncing"] .sl-cloud{ stroke:' + old), 'хмаринка й кільце в syncing — колір старої іконки');
+  assert.ok(css.includes('.sync-slot[data-s="pending"]') === false || /sl-cloud\{ stroke:var\(--color-error\)/.test(css), 'pending червоний');
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)\{ \.sync-slot \.sl-ring\{ animation:none; \} \.expense-row\.just-synced\{ animation:none; \} \}/);
 });
 test('похідний стан при рендері: «брудний» запис без запиту → pending лише після 3 с або офлайн; чистий — порожньо; слот завжди в розмітці', () => {
   const { c } = slotEnv(); const old = new Date(Date.now() - 10000).toISOString(), fresh = new Date().toISOString();
