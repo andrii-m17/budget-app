@@ -3729,7 +3729,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.182</div>
+  <div class="version-footer">Money Tree · Rev 2.32.183</div>
 </div>
   </div>
 </div>
@@ -8346,7 +8346,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.182';
+const APP_VERSION = '2.32.183';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9191,11 +9191,12 @@ function upcomingPayments(opts){
       const rec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month === month && d.monthlyPayment != null; })[0];
       // Rev 2.32.151 (OCH-STATE): «сплачено» = сума прив'язаних витрат ≥ очікуваного (допуск max(2 ₴, 1%)), а не будь-яка витрата; часткові лишаються в списку (сума й оцінка без змін)
       const linkedSum = expenses.filter(function(e){ return e.linkedInstallment === inst.name && String(e.date).slice(0, 7) === month; }).reduce(function(a, e){ return a + (Number(e.amount) || 0); }, 0);
-      if(linkedSum > 0){
-        const lastRec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month <= month && d.monthlyPayment > 0; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).pop();
+      // Rev 2.32.183 (PAY-CARD-FIX): залишок на початок місяця потрібен і поза гілкою «є прив'язана витрата» (сума платежу ОЧ зі стандартним платежем) — раніше змінна була оголошена лише всередині гілки, тож без прив'язаних витрат кидалось ReferenceError і картка «Найближчі платежі» зникала.
         // Rev 2.32.164 (OCH-CHAIN): попередній залишок — з обчисленого ланцюжка (а не останній збережений запис): той самий розрахунок, що в «Обліку», таблиці й кільці
         const chainSpec = { initial: inst.initialAmount, firstMonth: inst.firstMonth || null, std: installmentStandardPayment(inst), termMonths: inst.termMonths, startDate: inst.startDate, firstPayment: inst.firstPayment, payMode: inst.payMode, recs: debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name; }), linked: expenses.reduce(function(a, e){ if(e.linkedInstallment === inst.name){ const k = String(e.date).slice(0, 7); a[k] = (a[k] || 0) + (Number(e.amount) || 0); } return a; }, {}) };
         const chainBefore = installmentChainCalc(chainSpec, month).before;
+      if(linkedSum > 0){
+        const lastRec = debts.filter(function(d){ return d.kind === 'installment' && d.name === inst.name && d.month <= month && d.monthlyPayment > 0; }).sort(function(a, b){ return a.month.localeCompare(b.month); }).pop();
         const expected = installmentExpectedPayment({ monthPay: rec ? rec.monthlyPayment : null, lastPay: lastRec ? lastRec.monthlyPayment : null, prevBalance: chainBefore });
         if(installmentPaidFull(linkedSum, expected).paid) return; // сплачено
       }

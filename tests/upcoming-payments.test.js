@@ -140,3 +140,9 @@ test('збіг із серверними нагадуваннями: прив\'�
 test('hidden у старому форматі (рядок-місяць) підтримується', function(){
   assert.equal(U({ installments: [I('O', 17)], debtsByMonth: [D('installment', 'O', '2026-10', { monthlyPayment: 1, balance: 5 })], hidden: { 'installment:O': '2026-10' } }).items.length, 0);
 });
+test('Rev 2.32.183: ОЧ зі стандартним платежем моделі й без прив\'язаних витрат і запису місяця — не кидає помилку, сума = стандартний платіж (регресія: картка зникала)', function(){
+  const r = U({ installments: [I('Окуляри', 18, { initialAmount: 6000, termMonths: 6, startDate: '2026-08-10', firstPayment: 'same_day', payMode: 'auto' })], debtsByMonth: [] });
+  assert.equal(r.items.length, 1);
+  assert.equal(r.items[0].amount, 1000);
+  assert.equal(r.items[0].date, '2026-10-18');
+});
