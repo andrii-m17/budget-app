@@ -9,8 +9,8 @@ const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const MOCK = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ui', 'mockups', 'checks-mockup.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const NAMES = ['CHECKS_SEEN_KEY', 'checksReadSeen', 'checksWriteSeen', 'checksRecordSeen', 'CHECKS_STATE_KEY', 'CHECKS_OUTBOX_KEY', 'CHECKS_OTHER', 'CHECKS_DEFER_REASONS', 'CHECKS_EXPIRE_BUILDS', 'CHECKS_NOTE_MAX', 'CHECKS', 'checksReadState', 'checksWriteState', 'checksReadOutbox', 'checksWriteOutbox',
-  'checksOwn', 'checksIsFinal', 'checksBuildsBehind', 'checksIsExpired', 'checksPending', 'checksAnswered', 'checksReasonsFor', 'checksNormalize', 'checksAnswer', 'checksCommit', 'checksExpireStale', 'flushChecksQueue', 'checksResetItem'];
+const NAMES = ['CHECKS_SEEN_KEY', 'checksReadSeen', 'checksWriteSeen', 'checksIsSeenDate', 'checksRecordSeen', 'CHECKS_STATE_KEY', 'CHECKS_OUTBOX_KEY', 'CHECKS_OTHER', 'CHECKS_DEFER_REASONS', 'CHECKS_NOTE_MAX', 'CHECKS_EXPIRE_DAYS', 'CHECKS', 'checksReadState', 'checksWriteState', 'checksReadOutbox', 'checksWriteOutbox',
+  'checksOwn', 'checksIsFinal', 'checksIsExpired', 'checksPending', 'checksAnswered', 'checksReasonsFor', 'checksNormalize', 'checksAnswer', 'checksCommit', 'checksExpireStale', 'flushChecksQueue', 'checksResetItem'];
 function device(store, over, version){
   const ls = store || {}; const inserts = []; const state = { fail: false, writable: true };
   const g = Object.assign({
@@ -30,7 +30,7 @@ const FRESH = '2.32.189'; // версія, за якої жоден крок щ�
 test('кроки дослівно з макета v2 (checks-data) без «Інше» + 2.32.189-1; «Інше» додається завжди останнім', () => {
   const data = JSON.parse(MOCK.match(/<script type="application\/json" id="checks-data">([\s\S]*?)<\/script>/)[1]);
   const { ctx } = device();
-  const mine = CH(ctx).filter(c => c.id !== '2.32.189-1' && !c.id.startsWith('2.32.193-'));
+  const mine = CH(ctx).filter(c => c.id !== '2.32.189-1' && !c.id.startsWith('2.32.193-') && !c.id.startsWith('2.32.196-'));
   assert.deepEqual(mine, data.map(c => ({ id: c.id, rev: c.rev, title: c.title, steps: c.steps, expect: c.expect, reasons: c.reasons })));
   CH(ctx).forEach(c => assert.ok(!c.reasons.includes('Інше')));
   const last = CH(ctx).find(c => c.id === '2.32.189-1');
@@ -82,33 +82,38 @@ test('«Не можу перевірити зараз» + причина: кро
   assert.ok(!pend(d, FRESH).includes(a)); assert.equal(j(d.ctx.checksAnswered(d.ctx.checksReadState())).length, 1);
   assert.equal(d.ctx.checksCommit(a, 'no', 'Зникла'), false, 'остаточну не перезаписує');
 });
-test('термін: вік кроку від збірки першого показу на пристрої (firstSeenBuild), а не від rev; через 3 збірки зникає як «не перевірено» із записом expired', async () => {
-  const d = device(null, null, '2.32.190');
-  assert.equal(d.ctx.checksBuildsBehind('2.32.186', '2.32.190'), 4);
-  assert.equal(d.ctx.checksBuildsBehind('2.32.187', '2.32.190'), 3); assert.equal(d.ctx.checksBuildsBehind('2.32.190', '2.32.190'), 0);
-  assert.equal(d.ctx.checksBuildsBehind('2.31.250', '2.32.1'), Infinity); assert.equal(d.ctx.checksBuildsBehind('x', '2.32.190'), 0);
-  // перший показ на збірці 190: старі за rev кроки (186-1, 186-2, 188-1) одразу не зникають
-  assert.deepEqual(j(d.ctx.checksReadSeen()), {});
-  assert.equal(d.ctx.checksIsExpired(CH(d.ctx)[0]), false, 'ще не бачили: не прострочений');
+function clockDate(ref){ return class extends Date { constructor(...a){ if(a.length) super(...a); else super(ref.now); } static now(){ return ref.now; } }; }
+test('термін: крок живе 7 календарних днів від першого показу (firstSeenAt) незалежно від кількості збірок, потім «Пройдено» як «не перевірено» із записом expired', async () => {
+  const DAY = 86400000, t0 = Date.parse('2026-10-28T10:00:00.000Z'); const ref = { now: t0 };
+  const mk = (store, v) => device(store, { Date: clockDate(ref) }, v);
+  const d = mk(null, '2.32.196');
+  assert.deepEqual(j(d.ctx.checksReadSeen()), {}); assert.equal(d.ctx.checksIsExpired(CH(d.ctx)[0]), false, 'ще не бачили: не прострочений');
   assert.equal(d.ctx.checksExpireStale(), 0);
-  const seen = j(d.ctx.checksReadSeen());
-  CH(d.ctx).forEach(c => assert.equal(seen[c.id], '2.32.190', 'firstSeenBuild = збірка першого показу'));
-  assert.deepEqual(pend(d), ids(d.ctx), 'усі кроки показано, у т. ч. 186-1, 186-2, 188-1');
-  // наступні збірки: firstSeenBuild не змінюється; 193 (3 збірки) ще ні, 194 (4) — так
-  const at = v => device(d.ls, null, v);
-  const b193 = at('2.32.193'); assert.equal(b193.ctx.checksExpireStale(), 0); assert.deepEqual(pend(b193), ids(b193.ctx));
-  assert.equal(j(b193.ctx.checksReadSeen())['2.32.186-1'], '2.32.190', 'зберігається від першого показу');
-  const b194 = at('2.32.194');
-  assert.equal(b194.ctx.checksIsExpired(CH(b194.ctx)[0]), true);
-  assert.equal(b194.ctx.checksExpireStale(), CH(b194.ctx).length);
-  assert.equal(b194.ctx.checksReadState()['2.32.186-1'].r, 'expired');
-  assert.ok(j(b194.ctx.checksAnswered(b194.ctx.checksReadState())).some(c => c.id === '2.32.186-1'), 'у «Пройдено»');
-  assert.equal(b194.ctx.checksExpireStale(), 0, 'повторно не пише');
-  await b194.ctx.flushChecksQueue();
-  assert.ok(b194.inserts.length > 0 && b194.inserts.every(x => { const e = j(x.row).events[0]; return e.result === 'expired' && e.note === null; }));
-  // пройдений крок не прострочується; новий крок (ще не бачений) отримує власну базу
-  const answered = at('2.32.194'); answered.ctx.checksCommit('2.32.189-1', 'ok'); assert.equal(answered.ctx.checksIsExpired(CH(answered.ctx)[3]), true); assert.ok(!j(answered.ctx.checksAnswered({})).length);
+  const seen = j(d.ctx.checksReadSeen()); CH(d.ctx).forEach(c => assert.equal(seen[c.id], new Date(t0).toISOString(), 'firstSeenAt = момент першого показу'));
+  assert.deepEqual(pend(d), ids(d.ctx), 'усі кроки показано');
+  // багато збірок за 6 днів: не зникає
+  ref.now = t0 + 6 * DAY + 23 * 3600000;
+  const b250 = mk(d.ls, '2.32.250'); assert.equal(b250.ctx.checksExpireStale(), 0); assert.deepEqual(pend(b250), ids(b250.ctx)); assert.equal(j(b250.ctx.checksReadSeen())['2.32.193-1'], new Date(t0).toISOString(), 'firstSeenAt не змінюється');
+  // 7 днів: іде в «Пройдено» як expired
+  ref.now = t0 + 7 * DAY;
+  const w = mk(d.ls, '2.32.196'); assert.equal(w.ctx.checksIsExpired(CH(w.ctx)[0]), true);
+  assert.equal(w.ctx.checksExpireStale(), CH(w.ctx).length); assert.equal(w.ctx.checksReadState()['2.32.193-1'].r, 'expired');
+  assert.ok(j(w.ctx.checksAnswered(w.ctx.checksReadState())).some(c => c.id === '2.32.193-1'), 'у «Пройдено»'); assert.equal(w.ctx.checksExpireStale(), 0, 'повторно не пише');
+  await w.ctx.flushChecksQueue();
+  assert.ok(w.inserts.length > 0 && w.inserts.every(x => { const e = j(x.row).events[0]; return e.result === 'expired' && e.note === null; }));
+  // пройдений крок не прострочується; новий крок (ще не бачений) отримує власний момент
+  ref.now = t0; const fresh = mk({}, '2.32.196'); fresh.ctx.checksCommit('2.32.189-1', 'ok'); ref.now = t0 + 8 * DAY; assert.equal(fresh.ctx.checksIsExpired(CH(fresh.ctx)[3]), false, 'ще не бачений на цьому пристрої');
   assert.deepEqual(j(device({ 'budget-checks-seen-v1': '[1]' }).ctx.checksReadSeen()), {}); assert.deepEqual(j(device({ 'budget-checks-seen-v1': '{x' }).ctx.checksReadSeen()), {});
+});
+test('міграція: запис firstSeenBuild (рядок збірки) без дати отримує момент першого запуску цієї версії; кроки 2.32.196-1/2 дослівно, «Екран Перевірки» не повертається', () => {
+  const ref = { now: Date.parse('2026-11-05T09:00:00.000Z') };
+  const old = { 'budget-checks-seen-v1': JSON.stringify({ '2.32.193-1': '2.32.190', '2.32.193-2': '2026-10-30T08:00:00.000Z' }) };
+  const d = device(old, { Date: clockDate(ref) }, '2.32.196'); d.ctx.checksRecordSeen();
+  const seen = j(d.ctx.checksReadSeen()); assert.equal(seen['2.32.193-1'], '2026-11-05T09:00:00.000Z', 'без дати → момент першого запуску'); assert.equal(seen['2.32.193-2'], '2026-10-30T08:00:00.000Z', 'наявна дата не змінюється');
+  const c = CH(d.ctx); const a = c.find(x => x.id === '2.32.196-1'), b = c.find(x => x.id === '2.32.196-2');
+  assert.deepEqual([a.title, a.steps, a.expect, a.reasons], ['Рамка після перезапуску', ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], 'рамка на витраті лишилась.', ['Зникла', 'Не той колір']]);
+  assert.deepEqual([b.title, b.steps, b.expect, b.reasons], ['Старт і повернення з фону', ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], 'витрати й баланс не змінились.', ['Дані зникли', 'Не оновились']]);
+  assert.ok(!c.some(x => x.id === '2.32.196-3' || (x.rev === '2.32.196' && /Екран/.test(x.title))));
 });
 test('скасування: невиручений вибір скидається без запису (таймер, виділення, списки, поле); повторний дотик/дотик поза кроком/згортання ведуть у скидання (код)', () => {
   const cleared = []; let removed = 0, fieldValue = 'текст', errShown = 'block'; const mk = () => ({ classList: { remove(){ removed++; } } });

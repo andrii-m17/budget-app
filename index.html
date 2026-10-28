@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.195</div>
+  <div class="version-footer">Money Tree · Rev 2.32.196</div>
 </div>
   </div>
 </div>
@@ -8987,7 +8987,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.195';
+const APP_VERSION = '2.32.196';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -25096,9 +25096,9 @@ const CHECKS_STATE_KEY = 'budget-checks-v1';
 const CHECKS_OUTBOX_KEY = 'budget-checks-outbox-v1';
 const CHECKS_OTHER = 'Інше';
 const CHECKS_DEFER_REASONS = ['Не зрозумів крок', 'Немає змоги зараз', 'Немає часу'];
-const CHECKS_EXPIRE_BUILDS = 3;
+const CHECKS_EXPIRE_DAYS = 7; // Rev 2.32.196: термін кроку — 7 календарних днів від першого показу на пристрої (firstSeenAt), а не збірки
 const CHECKS_NOTE_MAX = 300;
-const CHECKS_SEEN_KEY = 'budget-checks-seen-v1'; // firstSeenBuild: збірка, у якій крок уперше показано на цьому пристрої (локально); термін 3 збірок рахується від неї, а не від rev кроку
+const CHECKS_SEEN_KEY = 'budget-checks-seen-v1'; // firstSeenAt: ISO-момент, коли крок уперше показано на цьому пристрої (локально); термін 7 днів рахується від нього. Старі записи (раніше тут була збірка) отримують момент першого запуску цієї версії
 const CHECKS = [
   { id: '2.32.186-1', rev: '2.32.186', title: 'Рамка автора без мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.'], expect: 'ліва рамка витрати одразу синя.', reasons: ["Не з'явилась", 'Не той колір'] },
   { id: '2.32.186-2', rev: '2.32.186', title: 'Рамка після перезапуску', steps: ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], expect: 'рамка на витраті лишилась.', reasons: ['Зникла', 'Не той колір'] },
@@ -25108,6 +25108,8 @@ const CHECKS = [
   { id: '2.32.193-2', rev: '2.32.193', title: 'Те саме поле', steps: ['Вимкніть мережу.', 'Змініть суму витрати.', 'Нехай Оля змінить суму тієї самої витрати.', 'Увімкніть мережу.'], expect: 'з\u2019являється сповіщення «Оля вже змінила суму» з кнопкою «Повернути моє».', reasons: ['Сповіщення немає', 'У записі моя сума замість Олиної'] },
   { id: '2.32.193-3', rev: '2.32.193', title: 'Повернути моє', steps: ['Після попереднього кроку натисніть «Повернути моє».'], expect: 'у записі ваша сума, а в Олі після синхронізації теж.', reasons: ['У мене не змінилось', 'В Олі не змінилось'] },
   { id: '2.32.193-4', rev: '2.32.193', title: 'Відкрита шторка', steps: ['Відкрийте шторку нової витрати й почніть вводити суму.', 'Нехай Оля змінить будь-яку вашу витрату.'], expect: 'сповіщення з\u2019являється лише після закриття шторки.', reasons: ['Сповіщення перебило введення', 'Сповіщення немає'] },
+  { id: '2.32.196-1', rev: '2.32.196', title: 'Рамка після перезапуску', steps: ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], expect: 'рамка на витраті лишилась.', reasons: ['Зникла', 'Не той колір'] },
+  { id: '2.32.196-2', rev: '2.32.196', title: 'Старт і повернення з фону', steps: ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], expect: 'витрати й баланс не змінились.', reasons: ['Дані зникли', 'Не оновились'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
@@ -25121,32 +25123,26 @@ function checksReadSeen(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_SEEN_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
 }
 function checksWriteSeen(m){ try{ localStorage.setItem(CHECKS_SEEN_KEY, JSON.stringify(m)); return true; }catch(e){ return false; } }
-// Запам'ятовує поточну збірку як firstSeenBuild для кроків, яких на цьому пристрої ще не бачили (наявні не змінює).
+// Запам'ятовує момент першого показу (firstSeenAt) для кроків, яких на цьому пристрої ще не бачили; запис без дати (старий формат: збірка) отримує момент першого запуску цієї версії.
+function checksIsSeenDate(v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v) && !isNaN(Date.parse(v)); }
 function checksRecordSeen(){
-  const m = checksReadSeen(); let changed = false;
-  CHECKS.forEach(function(c){ if(!Object.prototype.hasOwnProperty.call(m, c.id)){ m[c.id] = APP_VERSION; changed = true; } });
+  const m = checksReadSeen(); let changed = false; const now = new Date().toISOString();
+  CHECKS.forEach(function(c){ if(!checksIsSeenDate(m[c.id])){ m[c.id] = now; changed = true; } });
   if(changed) checksWriteSeen(m);
   return m;
 }
 function checksOwn(st, id){ return st && Object.prototype.hasOwnProperty.call(st, id) && st[id] && typeof st[id] === 'object' ? st[id] : null; }
 function checksIsFinal(a){ return !!a && a.r !== 'defer'; }
-// На скільки збірок база (збірка першого показу) старша за поточну: однакові major.minor — різниця останніх чисел; інший (старіший) major.minor — нескінченно; нерозібране — 0.
-function checksBuildsBehind(rev, current){
-  const p = function(v){ const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(v || '')); return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null; };
-  const a = p(rev), b = p(current);
-  if(!a || !b) return 0;
-  if(a[0] === b[0] && a[1] === b[1]) return Math.max(0, b[2] - a[2]);
-  return (a[0] < b[0] || (a[0] === b[0] && a[1] < b[1])) ? Infinity : 0;
-}
-// Вік кроку — від збірки першого показу (firstSeenBuild), а не від rev кроку: непройдені старі кроки не зникають одразу після оновлення. Крок, якого ще не бачили, не прострочений.
-function checksIsExpired(c, current, seen){
+// Вік кроку — від першого показу на пристрої (firstSeenAt): 7 календарних днів незалежно від кількості збірок. Крок, якого ще не бачили, не прострочений.
+function checksIsExpired(c, now, seen){
   const m = seen || checksReadSeen();
-  const base = Object.prototype.hasOwnProperty.call(m, c.id) ? m[c.id] : null;
-  return base ? checksBuildsBehind(base, current === undefined ? APP_VERSION : current) > CHECKS_EXPIRE_BUILDS : false;
+  const base = checksIsSeenDate(m[c.id]) ? Date.parse(m[c.id]) : null;
+  const t = now === undefined ? Date.now() : (typeof now === 'number' ? now : Date.parse(now));
+  return base !== null ? t - base >= CHECKS_EXPIRE_DAYS * 86400000 : false;
 }
 // Кроки без остаточної відповіді й не прострочені: спершу непочаті за порядком CHECKS, потім відкладені в порядку відкладення.
-function checksPending(st, current){
-  const open = CHECKS.filter(function(c){ return !checksIsFinal(checksOwn(st, c.id)) && !checksIsExpired(c, current); });
+function checksPending(st, now){
+  const open = CHECKS.filter(function(c){ return !checksIsFinal(checksOwn(st, c.id)) && !checksIsExpired(c, now); });
   const fresh = open.filter(function(c){ return !checksOwn(st, c.id); });
   const later = open.filter(function(c){ return !!checksOwn(st, c.id); }).sort(function(x, y){ return String(checksOwn(st, x.id).at || '').localeCompare(String(checksOwn(st, y.id).at || '')); });
   return fresh.concat(later);
@@ -25186,7 +25182,7 @@ function checksCommit(id, result, reason, note){
   const q = checksReadOutbox(); q.push({ id: id, result: v.result, reason: v.reason, note: v.note }); checksWriteOutbox(q);
   return true;
 }
-// Прострочені кроки (старші за 3 збірки, без остаточної відповіді) переходять у «Пройдено» як «не перевірено» із записом expired.
+// Прострочені кроки (старші за 7 днів від першого показу, без остаточної відповіді) переходять у «Пройдено» як «не перевірено» із записом expired.
 function checksExpireStale(){
   checksRecordSeen();
   let n = 0;
