@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Money Tree: макет «Перевірки» і «Діагностика» (еталон)</title>
+<title>Money Tree: макет «Перевірки» і «Діагностика» (еталон v2)</title>
 <style>
-/* Еталон для Claude Code. Усі розміри в px = pt iPhone (ширина 390). Кольори орієнтовні за знімками:
-   під час реалізації замініть на наявні токени застосунку, нових кольорів не вводити.
-   Відхилення від макета запишіть у звіт. */
-:root{--page:#0b111b;--bg:#111827;--ln:#2a3447;--tx:#f1f5f9;--t2:#8b97ab;--gr:#16823f;--okb:#153d2b;--okl:#22c55e;--okt:#bbf7d0;--nob:#3d1f2a;--nol:#f87171;--not:#fecaca;--ch:#1c2434}
-:root[data-theme=light]{--page:#eef1f6;--bg:#ffffff;--ln:#dfe3ea;--tx:#0f172a;--t2:#64748b;--okb:#e3f4ea;--okl:#16a34a;--okt:#14532d;--nob:#fdecec;--nol:#dc2626;--not:#7f1d1d;--ch:#f1f5f9}
+/* Еталон для Claude Code (v2, замінює попередній). Усі розміри в px = pt iPhone (ширина 390).
+   Кольори орієнтовні за знімками: під час реалізації беріть наявні токени застосунку, нових кольорів не вводити.
+   Скла, тіней і ефектів немає. Відхилення від макета запишіть у звіт. */
+:root{--page:#0b111b;--bg:#111827;--ln:#2a3447;--dash:rgba(139,151,171,.45);--tx:#f1f5f9;--t2:#8b97ab;--nol:#f87171;--tn:rgba(248,113,113,.16);--fk:#16823f;--fn:#dc2626;--grp:rgba(255,255,255,.05);--okl:#22c55e;--ch:#1c2434}
+:root[data-theme=light]{--page:#eef1f6;--bg:#ffffff;--ln:#dfe3ea;--dash:rgba(100,116,139,.5);--tx:#0f172a;--t2:#64748b;--nol:#dc2626;--tn:rgba(220,38,38,.10);--grp:#f3f5f9;--okl:#16a34a;--ch:#f1f5f9}
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--tx);font:14px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;padding:16px 0 40px}
 .wrap{width:390px;margin:0 auto}
@@ -23,36 +23,51 @@ body{margin:0;background:var(--page);color:var(--tx);font:14px/1.35 -apple-syste
 .rw{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 14px;font-size:15px}
 .rw+.rw{border-top:1px solid var(--ln)}
 .mut{color:var(--t2)}
-.badge{min-width:24px;height:24px;border-radius:12px;background:var(--gr);color:#fff;font-size:13px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+.badge{min-width:24px;height:24px;border-radius:12px;background:var(--fk);color:#fff;font-size:13px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
 .lb{font-size:12px;color:var(--t2);margin:18px 4px 6px}
-.it{max-height:420px;overflow:hidden;border-top:1px solid var(--ln);transition:max-height .35s ease,opacity .35s ease}
+.it{max-height:760px;overflow:hidden;border-top:1px solid var(--ln);transition:max-height .35s ease,opacity .35s ease}
 .it:first-child{border-top:none}
 .it.gone{max-height:0;opacity:0;border-top-width:0}
-.it .hd{display:flex;justify-content:space-between;align-items:center;min-height:50px;padding:0 14px;cursor:pointer;font-size:15px;font-weight:500}
-.it .bd{display:none;padding:0 14px 14px}
+.it .hd{display:flex;justify-content:space-between;align-items:center;min-height:50px;padding:0 16px;cursor:pointer;font-size:15px;font-weight:500;gap:8px}
+.it .hd .tag{font-size:13px;font-weight:400;color:var(--t2);margin-left:auto}
+.it .bd{display:none;padding:0 16px 16px}
 .it.open .bd{display:block}
-.it .ch{transition:transform .2s}
+.it .ch{transition:transform .2s;flex:none}
 .it.open .ch{transform:rotate(180deg)}
 .it .tt{transition:color .2s}
 .it.done .tt{text-decoration:line-through;color:var(--t2)}
 .steps{font-size:14px;line-height:1.55}
-.exp{font-size:13px;color:var(--t2);margin:8px 0 12px}
-.act{display:flex;gap:8px;align-items:center}
-.act a{margin-left:auto;font-size:13px;color:var(--t2);text-decoration:none}
+.exp{font-size:13px;color:var(--t2);margin:8px 0 14px}
 button{font:inherit;color:var(--tx)}
-.ab{height:38px;padding:0 18px;border-radius:19px;border:1px solid var(--ln);background:transparent;font-size:14px}
-.ab.sm{height:32px;font-size:13px;padding:0 12px}
-.ab.ok{background:var(--okb);border-color:var(--okl);color:var(--okt)}
-.ab.no{background:var(--nob);border-color:var(--nol);color:var(--not)}
-.rs{display:none;flex-wrap:wrap;gap:6px;margin-top:10px}
-.empty{display:none;text-align:center;padding:26px 14px}
-.empty b{display:block;font-size:16px;font-weight:500;margin-top:6px}
-.empty span{display:block;font-size:13px;color:var(--t2);margin-top:4px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fl{height:40px;border-radius:14px;border:none;font-size:15px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 12px;transition:background .2s ease,color .2s ease}
+.fl.k{background:var(--fk);color:#fff}
+.fl.n{background:var(--tn);color:var(--nol)}
+.fl.n.sel{background:var(--fn);color:#fff}
+.fl.k.sel{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--fk)}
+.fl:active,.sk:active,.send:active{opacity:.7}
+.sk{display:flex;align-items:center;justify-content:center;width:100%;height:40px;margin-top:10px;border-radius:14px;border:1px dashed var(--dash);background:transparent;color:var(--t2);font-size:14px}
+.sk.sel{color:var(--tx);border-color:var(--t2)}
+.rz{overflow:hidden;max-height:0;opacity:0;transition:max-height .28s ease,opacity .2s ease}
+.rz.open{max-height:340px;opacity:1}
+.grp{background:var(--grp);border-radius:14px;overflow:hidden;margin-top:10px}
+.grp button{display:flex;width:100%;align-items:center;justify-content:space-between;height:48px;padding:0 14px;border:none;background:transparent;font-size:15px;text-align:left;border-radius:0}
+.grp button+button{border-top:1px solid var(--ln)}
+.grp button:active{background:var(--ln)}
+.grp svg{opacity:0;color:var(--nol)}
+.grp.g2 svg{color:var(--t2)}
+.grp button.sel svg{opacity:1}
+.oth{display:none;margin-top:10px}
+.oth.open{display:block}
+.fld{width:100%;height:34px;border-radius:12px;border:1px solid var(--ln);background:var(--grp);color:var(--tx);font-size:14px;padding:0 12px;outline:none}
+.fld:focus{border-color:var(--fk)}
+.err{display:none;font-size:13px;color:var(--nol);margin-top:6px}
+.send{width:100%;height:40px;border-radius:14px;border:none;background:var(--fk);color:#fff;font-size:15px;margin-top:10px}
 .tg{width:44px;height:26px;border-radius:13px;background:var(--ch);border:1px solid var(--ln);position:relative;display:inline-block}
 .tg i{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:10px;background:var(--t2)}
 .tools{display:flex;gap:6px;margin:0 14px 8px}
 .tools button{height:30px;padding:0 10px;font-size:13px;border-radius:15px;border:1px solid var(--ln);background:transparent}
-@media (prefers-reduced-motion:reduce){.it,.it .ch,.it .tt{transition:none}}
+@media (prefers-reduced-motion:reduce){.it,.it .ch,.it .tt,.rz,.fl{transition:none}}
 </style>
 </head>
 <body>
@@ -67,15 +82,15 @@ button{font:inherit;color:var(--tx)}
 </div>
 </div>
 
-<div class="cap">2. Екран «Перевірки» (інтерактивний: Ок, Не ок з причиною, Пропустити)</div>
+<div class="cap">2. Екран «Перевірки» (інтерактивний). Працює: основна дія. Не працює: причини списком, «Інше» з полем. Не можу перевірити зараз: причини, крок іде в кінець списку. Скасування: повторний дотик по обраній кнопці або дотик поза кроком.</div>
 <div class="sheet">
 <div class="head"><div><h1>Перевірки</h1><div class="sub" id="sub">Збірка 2.32.188 · залишилось 3</div></div><div class="x"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div></div>
 <div class="card" id="list"></div>
 <div class="card" style="margin-top:10px"><div class="rw"><span>Пройдено</span><span class="mut"><span id="dn">18</span> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px"><path d="M9 6l6 6-6 6"/></svg></span></div></div>
-<div id="sent" style="text-align:center;font-size:13px;color:var(--okt);margin-top:10px;opacity:0;transition:opacity .3s">Результат надіслано</div>
+<div id="sent" style="text-align:center;font-size:13px;color:var(--okl);margin-top:10px;opacity:0;transition:opacity .3s">Результат надіслано</div>
 </div>
 
-<div class="cap">3. Порожній стан (показується, коли кроків не лишилось)</div>
+<div class="cap">3. Порожній стан (коли кроків не лишилось)</div>
 <div class="sheet">
 <div class="head"><div><h1>Перевірки</h1><div class="sub">Збірка 2.32.188 · залишилось 0</div></div><div class="x"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div></div>
 <div class="card"><div style="text-align:center;padding:26px 14px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--okl)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg><div style="font-size:16px;font-weight:500;margin-top:6px">Усе перевірено</div><div style="font-size:13px;color:var(--t2);margin-top:4px">Нові кроки з'являться з наступною збіркою.</div></div></div>
@@ -99,9 +114,9 @@ button{font:inherit;color:var(--tx)}
 
 <script type="application/json" id="checks-data">
 [
-{"id":"2.32.186-1","rev":"2.32.186","title":"Рамка автора без мережі","steps":["Увімкніть режим у літаку.","Додайте витрату."],"expect":"ліва рамка витрати одразу синя.","reasons":["не з'явилась","не той колір","інше"]},
-{"id":"2.32.186-2","rev":"2.32.186","title":"Рамка після перезапуску","steps":["Вимкніть режим у літаку.","Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.","Відкрийте знову."],"expect":"рамка на витраті лишилась.","reasons":["зникла","не той колір","інше"]},
-{"id":"2.32.188-1","rev":"2.32.188","title":"Старт і повернення з фону","steps":["Згорніть застосунок кнопкою «Додому», не закриваючи.","Поверніться через хвилину."],"expect":"витрати й баланс не змінились.","reasons":["дані зникли","не оновились","інше"]}
+{"id":"2.32.186-1","rev":"2.32.186","title":"Рамка автора без мережі","steps":["Увімкніть режим у літаку.","Додайте витрату."],"expect":"ліва рамка витрати одразу синя.","reasons":["Не з'явилась","Не той колір"]},
+{"id":"2.32.186-2","rev":"2.32.186","title":"Рамка після перезапуску","steps":["Вимкніть режим у літаку.","Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.","Відкрийте знову."],"expect":"рамка на витраті лишилась.","reasons":["Зникла","Не той колір"]},
+{"id":"2.32.188-1","rev":"2.32.188","title":"Старт і повернення з фону","steps":["Згорніть застосунок кнопкою «Додому», не закриваючи.","Поверніться через хвилину."],"expect":"витрати й баланс не змінились.","reasons":["Дані зникли","Не оновились"]}
 ]
 </script>
 <script>
@@ -110,35 +125,67 @@ function th(t){root.setAttribute('data-theme',t)}
 document.getElementById('tD').onclick=function(){th('dark')};
 document.getElementById('tL').onclick=function(){th('light')};
 var data=JSON.parse(document.getElementById('checks-data').textContent);
+var DEFER=['Не зрозумів крок','Немає змоги зараз','Немає часу'];
 var list=document.getElementById('list');var base=18,finished=0;
-var empty=document.createElement('div');empty.className='empty';
-empty.innerHTML='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--okl)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg><b>Усе перевірено</b><span>Нові кроки з\u2019являться з наступною збіркою.</span>';
+var CHK='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+var X='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+var empty=document.createElement('div');empty.className='empty';empty.style.cssText='display:none;text-align:center;padding:26px 14px';
+empty.innerHTML='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--okl)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg><div style="font-size:16px;font-weight:500;margin-top:6px">Усе перевірено</div><div style="font-size:13px;color:var(--t2);margin-top:4px">Нові кроки з\u2019являться з наступною збіркою.</div>';
+function rowsHtml(arr){return arr.map(function(r){return '<button><span>'+r+'</span>'+CHK+'</button>'}).join('')}
 function build(){
 list.innerHTML='';
 data.forEach(function(c,idx){
 var it=document.createElement('div');it.className='it'+(idx===0?' open':'');
-it.innerHTML='<div class="hd"><span class="tt"></span><svg class="ch" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--t2)"><path d="M6 9l6 6 6-6"/></svg></div><div class="bd"><div class="steps"></div><div class="exp"></div><div class="act"><button class="ab" data-v="ok">Ок</button><button class="ab" data-v="no">Не ок</button><a href="#" data-v="skip">Пропустити</a></div><div class="rs"></div></div>';
+var fid='fldchk'+(idx+1);
+it.innerHTML='<div class="hd"><span class="tt"></span><span class="tag"></span><svg class="ch" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--t2)"><path d="M6 9l6 6 6-6"/></svg></div>'+
+'<div class="bd"><div class="steps"></div><div class="exp"></div>'+
+'<div class="pair"><button class="fl k" data-a="ok">'+CHK+'Працює</button><button class="fl n" data-a="no">'+X+'Не працює</button></div>'+
+'<div class="rz rzn"><div class="grp gn">'+rowsHtml(c.reasons.concat(['Інше']))+'</div><div class="oth"><input class="fld" id="'+fid+'" name="'+fid+'" type="text" autocomplete="off" autocapitalize="sentences" placeholder="Опишіть недолік"><div class="err">Опишіть недолік коротко.</div><button class="send">Надіслати</button></div></div>'+
+'<button class="sk">Не можу перевірити зараз</button>'+
+'<div class="rz rzs"><div class="grp g2 gs">'+rowsHtml(DEFER)+'</div></div></div>';
 it.querySelector('.tt').textContent=c.title;
 it.querySelector('.steps').innerHTML=c.steps.map(function(s,i){return (i+1)+'. '+s}).join('<br>');
 it.querySelector('.exp').textContent='Очікується: '+c.expect;
-var rs=it.querySelector('.rs');
-c.reasons.forEach(function(r){var b=document.createElement('button');b.className='ab sm';b.textContent=r;rs.appendChild(b);b.onclick=function(){b.className='ab sm no';finish(it,'no')}});
-var bs=it.querySelectorAll('button[data-v]');
-bs[0].onclick=function(){bs[0].className='ab ok';finish(it,'ok')};
-bs[1].onclick=function(){bs[1].className='ab no';rs.style.display='flex'};
-it.querySelector('a[data-v]').onclick=function(e){e.preventDefault();finish(it,'skip')};
-it.querySelector('.hd').onclick=function(){if(!it.getAttribute('data-f'))it.classList.toggle('open')};
+wire(it);
 list.appendChild(it);
 });
 list.appendChild(empty);
 }
+function reset(it){
+if(it._t){clearTimeout(it._t);it._t=null}
+it.querySelectorAll('.sel').forEach(function(e){e.classList.remove('sel')});
+it.querySelectorAll('.rz').forEach(function(e){e.classList.remove('open')});
+it.querySelector('.oth').classList.remove('open');
+it.querySelector('.err').style.display='none';
+it.querySelector('.fld').value='';
+}
+function wire(it){
+var ok=it.querySelector('[data-a=ok]'),no=it.querySelector('[data-a=no]'),sk=it.querySelector('.sk');
+var rzn=it.querySelector('.rzn'),rzs=it.querySelector('.rzs'),oth=it.querySelector('.oth'),fld=it.querySelector('.fld'),err=it.querySelector('.err');
+ok.onclick=function(e){e.stopPropagation();if(ok.classList.contains('sel')){reset(it);return}reset(it);ok.classList.add('sel');it._t=setTimeout(function(){finish(it,'ok')},600)};
+no.onclick=function(e){e.stopPropagation();if(no.classList.contains('sel')){reset(it);return}reset(it);no.classList.add('sel');rzn.classList.add('open')};
+sk.onclick=function(e){e.stopPropagation();if(sk.classList.contains('sel')){reset(it);return}reset(it);sk.classList.add('sel');rzs.classList.add('open')};
+var rows=it.querySelectorAll('.gn button');
+rows.forEach(function(r,i){r.onclick=function(e){e.stopPropagation();if(it._t){clearTimeout(it._t);it._t=null}rows.forEach(function(x){x.classList.remove('sel')});r.classList.add('sel');
+if(i===rows.length-1){oth.classList.add('open');fld.focus()}else{oth.classList.remove('open');err.style.display='none';it._t=setTimeout(function(){finish(it,'no')},450)}}});
+it.querySelector('.send').onclick=function(e){e.stopPropagation();if(!fld.value.trim()){err.style.display='block';fld.focus();return}finish(it,'no')};
+fld.addEventListener('input',function(){err.style.display='none'});
+it.querySelectorAll('.gs button').forEach(function(r){r.onclick=function(e){e.stopPropagation();r.classList.add('sel');setTimeout(function(){defer(it)},350)}});
+it.querySelector('.hd').onclick=function(){if(it.getAttribute('data-f'))return;if(it.classList.contains('open')){reset(it)}it.classList.toggle('open')};
+it.addEventListener('click',function(e){e.stopPropagation()});
+}
 function left(){return list.querySelectorAll('.it:not([data-f])').length}
 function refresh(){var n=left();document.getElementById('sub').textContent='Збірка 2.32.188 · залишилось '+n;var b=document.getElementById('bdg');b.textContent=n;b.style.display=n?'inline-flex':'none';document.getElementById('dn').textContent=base+finished;empty.style.display=n?'none':'block'}
+function openNext(){var nx=list.querySelector('.it:not([data-f])');if(nx)nx.classList.add('open')}
 function finish(it,mode){
 if(it.getAttribute('data-f'))return;it.setAttribute('data-f',mode);finished++;
-if(mode!=='skip'){it.classList.add('done');var s=document.getElementById('sent');s.style.opacity=1;setTimeout(function(){s.style.opacity=0},1400)}
-setTimeout(function(){it.classList.remove('open');it.classList.add('gone');var nx=list.querySelector('.it:not([data-f])');if(nx)nx.classList.add('open');refresh()},mode==='skip'?50:600);
+it.classList.add('done');var s=document.getElementById('sent');s.style.opacity=1;setTimeout(function(){s.style.opacity=0},1400);
+setTimeout(function(){it.classList.remove('open');it.classList.add('gone');openNext();refresh()},600);
 }
+function defer(it){
+reset(it);it.classList.remove('open');it.querySelector('.tag').textContent='відкладено';list.insertBefore(it,empty);openNext();refresh();
+}
+document.addEventListener('click',function(){list.querySelectorAll('.it').forEach(function(it){reset(it)})});
 document.getElementById('rs').onclick=function(){finished=0;build();refresh()};
 build();refresh();
 </script>

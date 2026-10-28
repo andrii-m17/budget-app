@@ -1756,34 +1756,58 @@
   .chk-box.hidden{ display:none; }
   .chk-chev{ transition:transform .2s; }
   .chk-row[aria-expanded="true"] .chk-chev, .chk-it.open .chk-chev{ transform:rotate(180deg); }
-  .chk-it{ max-height:420px; overflow:hidden; border-top:1px solid var(--color-border); transition:max-height .35s ease, opacity .35s ease, visibility 0s; }
+  .chk-it{ max-height:760px; overflow:hidden; border-top:1px solid var(--color-border); transition:max-height .35s ease, opacity .35s ease, visibility 0s; }
   .chk-it:first-child{ border-top:none; }
   .chk-it.gone{ max-height:0; opacity:0; border-top-width:0; visibility:hidden; transition:max-height .35s ease, opacity .35s ease, visibility 0s linear .35s; }
-  .chk-it .chk-hd{ display:flex; justify-content:space-between; align-items:center; width:100%; min-height:50px; padding:0 14px; border:0; background:none; font:inherit; font-size:15px; font-weight:500; color:var(--color-text-primary); text-align:left; cursor:pointer; box-sizing:border-box; }
-  .chk-it .chk-bd{ display:none; padding:0 14px 14px; }
+  .chk-it .chk-hd{ display:flex; align-items:center; gap:8px; min-height:50px; padding:0 16px; font-size:15px; font-weight:500; color:var(--color-text-primary); cursor:pointer; }
+  .chk-tag{ margin-left:auto; font-size:13px; font-weight:400; color:var(--color-text-secondary); }
+  .chk-it .chk-chev{ flex:none; }
+  .chk-it .chk-bd{ display:none; padding:0 16px 16px; }
   .chk-it.open .chk-bd{ display:block; }
   .chk-tt{ transition:color .2s; }
   .chk-it.done .chk-tt{ text-decoration:line-through; color:var(--color-text-secondary); }
   .chk-steps{ font-size:14px; line-height:1.55; color:var(--color-text-primary); }
-  .chk-exp{ font-size:13px; color:var(--color-text-secondary); margin:8px 0 12px; }
-  .chk-act{ display:flex; gap:8px; align-items:center; }
-  .chk-skip{ margin-left:auto; border:0; background:none; font:inherit; font-size:13px; color:var(--color-text-secondary); padding:0; min-height:44px; cursor:pointer; }
-  .chk-ab{ position:relative; height:38px; padding:0 18px; border-radius:19px; border:1px solid var(--color-border-strong); background:transparent; font:inherit; font-size:14px; color:var(--color-text-primary); cursor:pointer; }
-  .chk-ab::after{ content:''; position:absolute; left:0; right:0; top:-3px; bottom:-3px; }
-  .chk-ab.sm{ height:32px; font-size:13px; padding:0 12px; }
-  .chk-ab.sm::after{ top:-6px; bottom:-6px; }
-  .chk-ab.ok{ background:var(--color-success-bg); border-color:var(--color-success); }
-  .chk-ab.no{ background:var(--color-error-bg); border-color:var(--color-error); }
-  .chk-rs{ display:none; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chk-exp{ font-size:13px; color:var(--color-text-secondary); margin:8px 0 14px; }
+  /* Rev 2.32.190 (CHECKS-2, макет v2): «Працює» / «Не працює» — дві плоскі кнопки 40/14 на всю ширину (без скла й тіней); «Не можу перевірити зараз» — пунктирна; причини — згрупований список (рядок 48, радіус 14); «Інше» — поле 34/12 і «Надіслати» 40/14. Зона дотику 44 — невидимим псевдоелементом. */
+  .chk-pair{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .chk-fl, .chk-sk, .chk-send{ position:relative; height:40px; border-radius:14px; border:none; font:inherit; font-size:15px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 12px; box-sizing:border-box; }
+  .chk-fl::after, .chk-sk::after, .chk-send::after{ content:''; position:absolute; left:0; right:0; top:-2px; bottom:-2px; }
+  .chk-fl{ transition:background .2s ease, color .2s ease; }
+  .chk-fl.k, .chk-send{ background:var(--ui-accent-strong, var(--ui-success-strong, var(--color-primary))); color:#fff; }
+  .chk-fl.n{ background:var(--color-error-bg); background:color-mix(in srgb, var(--color-error) 16%, transparent); color:var(--ui-danger-text, var(--color-error)); }
+  :root[data-theme="light"] .chk-fl.n{ background:color-mix(in srgb, var(--color-error) 10%, transparent); }
+  .chk-fl.n.sel{ background:var(--ui-danger-strong, var(--color-error)); color:#fff; }
+  .chk-it.st-no .chk-fl.k, .chk-it.st-sk .chk-fl.k{ background:color-mix(in srgb, var(--ui-accent-strong, var(--color-primary)) 16%, transparent); color:var(--ui-accent-text, var(--color-primary)); }
+  :root[data-theme="light"] .chk-it.st-no .chk-fl.k, :root[data-theme="light"] .chk-it.st-sk .chk-fl.k{ background:color-mix(in srgb, var(--ui-accent-strong, var(--color-primary)) 10%, transparent); }
+  .chk-fl.k.sel{ outline:2px solid var(--ui-accent-strong, var(--color-primary)); outline-offset:2px; }
+  .chk-fl:active, .chk-sk:active, .chk-send:active{ opacity:.7; }
+  .chk-sk{ width:100%; margin-top:10px; background:transparent; border:1px dashed var(--color-border-strong); color:var(--color-text-secondary); font-size:14px; }
+  .chk-sk.sel{ color:var(--color-text-primary); border-color:var(--color-text-secondary); }
+  .chk-rz{ overflow:hidden; max-height:0; opacity:0; visibility:hidden; transition:max-height .28s ease, opacity .2s ease, visibility 0s linear .28s; }
+  .chk-rz.open{ max-height:340px; opacity:1; visibility:visible; transition:max-height .28s ease, opacity .2s ease, visibility 0s; }
+  .chk-grp{ background:var(--color-surface-hover); border-radius:14px; overflow:hidden; margin-top:10px; }
+  .chk-grp button{ display:flex; width:100%; align-items:center; justify-content:space-between; height:48px; padding:0 14px; border:none; background:transparent; font:inherit; font-size:15px; color:var(--color-text-primary); text-align:left; cursor:pointer; border-radius:0; }
+  .chk-grp button + button{ border-top:1px solid var(--color-border); }
+  .chk-grp button:active{ background:var(--color-border); }
+  .chk-grp svg{ opacity:0; color:var(--ui-danger-text, var(--color-error)); }
+  .chk-grp.chk-g2 svg{ color:var(--color-text-secondary); }
+  .chk-grp button.sel svg{ opacity:1; }
+  .chk-oth{ display:none; margin-top:10px; }
+  .chk-oth.open{ display:block; }
+  .chk-fld{ width:100%; height:34px; box-sizing:border-box; border-radius:12px; border:1px solid var(--color-border); background:var(--color-surface-hover); color:var(--color-text-primary); font:inherit; font-size:14px; padding:0 12px; outline:none; }
+  .chk-fld:focus{ border-color:var(--ui-accent-strong, var(--color-primary)); }
+  .chk-err{ display:none; font-size:13px; color:var(--ui-danger-text, var(--color-error)); margin-top:6px; }
+  .chk-send{ width:100%; margin-top:10px; }
   .chk-empty{ display:none; text-align:center; padding:26px 14px; }
   .chk-empty b{ display:block; font-size:16px; font-weight:500; margin-top:6px; color:var(--color-text-primary); }
   .chk-empty span{ display:block; font-size:13px; color:var(--color-text-secondary); margin-top:4px; }
   .chk-empty svg{ color:var(--color-success); }
+  #checks-done-list.hidden{ display:none; } /* Rev 2.32.190: список «Пройдено» мав бути згорнутим за замовчуванням (глобального .hidden нема) */
   .chk-done-it{ display:flex; justify-content:space-between; gap:10px; min-height:44px; align-items:center; padding:0 14px; border-top:1px solid var(--color-border); font-size:14px; }
   .chk-done-it span:last-child{ font-size:13px; color:var(--color-text-secondary); text-align:right; }
   .chk-sent{ text-align:center; font-size:13px; color:var(--color-success); margin-top:10px; opacity:0; transition:opacity .3s; height:16px; }
   .chk-sent.on{ opacity:1; }
-  @media (prefers-reduced-motion: reduce){ .chk-it, .chk-it.gone, .chk-chev, .chk-tt, .chk-sent{ transition:none; } }
+  @media (prefers-reduced-motion: reduce){ .chk-it, .chk-it.gone, .chk-chev, .chk-tt, .chk-sent, .chk-fl, .chk-rz, .chk-rz.open{ transition:none; } }
   .n-diag-empty{ padding:10px 14px; font-size:12.5px; color:var(--color-text-secondary); }
   #push-series-form{ border:1px solid var(--color-border); border-radius:var(--radius-sm); } #push-series-form .n-diag-row{ align-items:center; font-size:14px; } #push-series-form select{ font-size:16px; min-height:36px; padding:4px 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); } /* Rev 2.32.104: форма серії без текстових полів; select ≥ 16 px (без масштабування iOS) */
   /* ===== Rev 2.32.12 (R) — «Налаштування → Сповіщення»: inset-grouped список за макетом (рядок 52, групи 18, заголовки 13 пт, тумблер 51×31; значення з токенів --ui-*). Лише всередині #notifications-drawer — решта .n-* (список «Налаштування») без змін. ===== */
@@ -3750,7 +3774,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.189</div>
+  <div class="version-footer">Money Tree · Rev 2.32.190</div>
 </div>
   </div>
 </div>
@@ -8431,7 +8455,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.189';
+const APP_VERSION = '2.32.190';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -20488,16 +20512,16 @@ function pressEndAllTouch(e){
 const BUTTON_VARIANT_MAP = {
   primary: ['submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn', 'mono-primary'],
   secondary: ['add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
-  text: ['chk-skip', 'mono-back', 'notif-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
+  text: ['mono-back', 'notif-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
   icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
-  chip: ['trash-chip', 'mono-inst-label', 'chk-ab'],
+  chip: ['trash-chip', 'mono-inst-label'],
   row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn', 'och-cond-row']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
-const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated', 'chk-mut', 'sm'];
+const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated', 'chk-mut'];
 // className → variant (або null). parentClassName — клас контейнера для безкласових кнопок (.n-days > button = chip; .tabbar-glass > button = reference).
 function buttonVariantOf(className, parentClassName){
   const cls = String(className || '').split(/\s+/).filter(Boolean);
@@ -24511,62 +24535,135 @@ async function togglePushDiag(){
 function jsErrList_flush(){ jsErrorList.slice(-JSERR_RATE_MAX).forEach(function(r){ jsErrPersist(r); }); } // Rev 2.32.124: не більше ліміту частоти (решта відкинулась би мовчки); текст у журналі ≤ 80 символів (приватність)
 // Rev 2.32.123 (JSERR-1): прапорець розробника читаємо один раз на старті (помилки до відповіді не журналяться: допустимо).
 try{ readPushDiagFlag().then(function(v){ jsErrPersistOn = !!v; }); }catch(e){}
-// ===== Rev 2.32.189 (CHECKS-1): «Перевірки» (замість чекліста QA-1 з qa.json) =====
-// Кроки лежать у коді (дослівно з блоку checks-data макета docs/ui/mockups/checks-mockup.html; чат додає нові з кожною збіркою). Показуються лише кроки без відповіді.
-// Відповідь: локально (localStorage; лише службовий стан пристрою, не дані користувача) і одним insert у client_debug_logs (scenario 'check', events [{id, result, reason}]; дозвіл на вставку вже є).
-// Черги для журналу немає: що не вдалось надіслати (офлайн, лише читання, помилка) лишається з sent:false і йде повторно при наступному старті (flushChecksQueue) та після наступної відповіді.
-// «Пропустити» теж відповідь (result 'skip'): крок зникає й потрапляє в «Пройдено». «Не ок» підтверджується лише дотиком по причині.
+// ===== Rev 2.32.189/190 (CHECKS-1/2): «Перевірки» (замість чекліста QA-1 з qa.json) =====
+// Кроки лежать у коді (дослівно з блоку checks-data макета docs/ui/mockups/checks-mockup.html v2; «Інше» у reasons не входить, його додає код завжди; чат додає нові кроки з кожною збіркою). Показуються лише кроки без остаточної відповіді.
+// Результати: ok («Працює»), no («Не працює» + причина; «Інше» — з текстом у note), defer («Не можу перевірити зараз» + причина: крок іде в кінець списку), expired (від збірки першого показу на пристрої минуло понад 3 збірки: зникає як «не перевірено»).
+// Журнал: кожна подія — один insert у client_debug_logs (scenario 'check', events [{id, result, reason, note}]; дозвіл на вставку вже є). Подія спершу потрапляє в локальну чергу (budget-checks-outbox-v1) і йде одразу; що не вдалось (офлайн, лише читання, помилка) повторюється при наступному старті й після наступної відповіді.
+// Стан відповідей (budget-checks-v1) — лише службовий стан пристрою. Остаточна відповідь не перезаписується; defer можна перезаписати (крок ще в перевірках). Стара відповідь 'skip' (Rev 2.32.189) лишається остаточною.
 const CHECKS_STATE_KEY = 'budget-checks-v1';
+const CHECKS_OUTBOX_KEY = 'budget-checks-outbox-v1';
+const CHECKS_OTHER = 'Інше';
+const CHECKS_DEFER_REASONS = ['Не зрозумів крок', 'Немає змоги зараз', 'Немає часу'];
+const CHECKS_EXPIRE_BUILDS = 3;
+const CHECKS_NOTE_MAX = 300;
+const CHECKS_SEEN_KEY = 'budget-checks-seen-v1'; // firstSeenBuild: збірка, у якій крок уперше показано на цьому пристрої (локально); термін 3 збірок рахується від неї, а не від rev кроку
 const CHECKS = [
-  { id: '2.32.186-1', rev: '2.32.186', title: 'Рамка автора без мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.'], expect: 'ліва рамка витрати одразу синя.', reasons: ["не з'явилась", 'не той колір', 'інше'] },
-  { id: '2.32.186-2', rev: '2.32.186', title: 'Рамка після перезапуску', steps: ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], expect: 'рамка на витраті лишилась.', reasons: ['зникла', 'не той колір', 'інше'] },
-  { id: '2.32.188-1', rev: '2.32.188', title: 'Старт і повернення з фону', steps: ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], expect: 'витрати й баланс не змінились.', reasons: ['дані зникли', 'не оновились', 'інше'] },
-  { id: '2.32.189-1', rev: '2.32.189', title: 'Екран «Перевірки»', steps: ['Відкрийте «Сервіс» → «Перевірки».', 'Натисніть «Ок» на першому кроці.'], expect: 'крок закреслюється й зникає, наступний розгортається.', reasons: ['не закреслився', 'не зник', 'інше'] },
+  { id: '2.32.186-1', rev: '2.32.186', title: 'Рамка автора без мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.'], expect: 'ліва рамка витрати одразу синя.', reasons: ["Не з'явилась", 'Не той колір'] },
+  { id: '2.32.186-2', rev: '2.32.186', title: 'Рамка після перезапуску', steps: ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], expect: 'рамка на витраті лишилась.', reasons: ['Зникла', 'Не той колір'] },
+  { id: '2.32.188-1', rev: '2.32.188', title: 'Старт і повернення з фону', steps: ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], expect: 'витрати й баланс не змінились.', reasons: ['Дані зникли', 'Не оновились'] },
+  { id: '2.32.189-1', rev: '2.32.189', title: 'Екран «Перевірки»', steps: ['Відкрийте «Сервіс» → «Перевірки».', 'Натисніть «Працює» на першому кроці.'], expect: 'крок закреслюється й зникає, наступний розгортається.', reasons: ['Не закреслився', 'Не зник'] },
 ];
-const CHECK_RESULTS = ['ok', 'no', 'skip'];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
 }
 function checksWriteState(st){ try{ localStorage.setItem(CHECKS_STATE_KEY, JSON.stringify(st)); return true; }catch(e){ return false; } }
+function checksReadOutbox(){
+  try{ const o = JSON.parse(localStorage.getItem(CHECKS_OUTBOX_KEY) || '[]'); return Array.isArray(o) ? o.filter(function(e){ return e && typeof e.id === 'string' && typeof e.result === 'string'; }) : []; }catch(e){ return []; }
+}
+function checksWriteOutbox(list){ try{ localStorage.setItem(CHECKS_OUTBOX_KEY, JSON.stringify(list)); return true; }catch(e){ return false; } }
+function checksReadSeen(){
+  try{ const o = JSON.parse(localStorage.getItem(CHECKS_SEEN_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
+}
+function checksWriteSeen(m){ try{ localStorage.setItem(CHECKS_SEEN_KEY, JSON.stringify(m)); return true; }catch(e){ return false; } }
+// Запам'ятовує поточну збірку як firstSeenBuild для кроків, яких на цьому пристрої ще не бачили (наявні не змінює).
+function checksRecordSeen(){
+  const m = checksReadSeen(); let changed = false;
+  CHECKS.forEach(function(c){ if(!Object.prototype.hasOwnProperty.call(m, c.id)){ m[c.id] = APP_VERSION; changed = true; } });
+  if(changed) checksWriteSeen(m);
+  return m;
+}
 function checksOwn(st, id){ return st && Object.prototype.hasOwnProperty.call(st, id) && st[id] && typeof st[id] === 'object' ? st[id] : null; }
-function checksPending(st){ return CHECKS.filter(function(c){ return !checksOwn(st, c.id); }); }
-function checksAnswered(st){ return CHECKS.filter(function(c){ return !!checksOwn(st, c.id); }); }
-// Нова відповідь: 'ok' і 'skip' — одразу; 'no' — лише з причиною зі списку кроку (без неї стан не змінюється). Невідомий крок чи результат — без змін. Уже даної відповіді не перезаписує.
-function checksAnswer(st, id, result, reason){
+function checksIsFinal(a){ return !!a && a.r !== 'defer'; }
+// На скільки збірок база (збірка першого показу) старша за поточну: однакові major.minor — різниця останніх чисел; інший (старіший) major.minor — нескінченно; нерозібране — 0.
+function checksBuildsBehind(rev, current){
+  const p = function(v){ const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(v || '')); return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null; };
+  const a = p(rev), b = p(current);
+  if(!a || !b) return 0;
+  if(a[0] === b[0] && a[1] === b[1]) return Math.max(0, b[2] - a[2]);
+  return (a[0] < b[0] || (a[0] === b[0] && a[1] < b[1])) ? Infinity : 0;
+}
+// Вік кроку — від збірки першого показу (firstSeenBuild), а не від rev кроку: непройдені старі кроки не зникають одразу після оновлення. Крок, якого ще не бачили, не прострочений.
+function checksIsExpired(c, current, seen){
+  const m = seen || checksReadSeen();
+  const base = Object.prototype.hasOwnProperty.call(m, c.id) ? m[c.id] : null;
+  return base ? checksBuildsBehind(base, current === undefined ? APP_VERSION : current) > CHECKS_EXPIRE_BUILDS : false;
+}
+// Кроки без остаточної відповіді й не прострочені: спершу непочаті за порядком CHECKS, потім відкладені в порядку відкладення.
+function checksPending(st, current){
+  const open = CHECKS.filter(function(c){ return !checksIsFinal(checksOwn(st, c.id)) && !checksIsExpired(c, current); });
+  const fresh = open.filter(function(c){ return !checksOwn(st, c.id); });
+  const later = open.filter(function(c){ return !!checksOwn(st, c.id); }).sort(function(x, y){ return String(checksOwn(st, x.id).at || '').localeCompare(String(checksOwn(st, y.id).at || '')); });
+  return fresh.concat(later);
+}
+function checksAnswered(st){ return CHECKS.filter(function(c){ return checksIsFinal(checksOwn(st, c.id)); }); }
+function checksReasonsFor(c){ return c.reasons.concat([CHECKS_OTHER]); }
+// Перевірка відповіді: повертає { result, reason, note } або null. «Не працює» без причини і «Інше» без тексту не приймаються.
+function checksNormalize(c, result, reason, note){
+  if(!c) return null;
+  if(result === 'ok') return { result: 'ok', reason: null, note: null };
+  if(result === 'no'){
+    if(checksReasonsFor(c).indexOf(reason) === -1) return null;
+    if(reason !== CHECKS_OTHER) return { result: 'no', reason: reason, note: null };
+    const text = String(note === undefined || note === null ? '' : note).trim().slice(0, CHECKS_NOTE_MAX);
+    return text ? { result: 'no', reason: reason, note: text } : null;
+  }
+  if(result === 'defer') return CHECKS_DEFER_REASONS.indexOf(reason) === -1 ? null : { result: 'defer', reason: reason, note: null };
+  if(result === 'expired') return { result: 'expired', reason: null, note: null };
+  return null;
+}
+// Нова відповідь: остаточну не перезаписує; невалідну не приймає (стан без змін).
+function checksAnswer(st, id, result, reason, note){
   const next = Object.assign({}, st || {});
   const c = CHECKS.filter(function(x){ return x.id === id; })[0];
-  if(!c || CHECK_RESULTS.indexOf(result) === -1 || checksOwn(next, id)) return next;
-  if(result === 'no' && c.reasons.indexOf(reason) === -1) return next;
-  next[id] = { r: result, why: result === 'no' ? reason : null, sent: false, at: new Date().toISOString() };
+  const v = checksNormalize(c, result, reason, note);
+  if(!v || checksIsFinal(checksOwn(next, id))) return next;
+  next[id] = { r: v.result, why: v.reason, note: v.note, at: new Date().toISOString() };
   return next;
 }
-let checksSending = false;
-async function checksSendAnswer(id){
-  const a = checksOwn(checksReadState(), id);
-  if(!a || a.sent || !isCloudWriteReady()) return false;
-  try{
-    const { error } = await getSupabaseClient().from('client_debug_logs').insert({
-      family_id: cloudFamilyId, user_id: cloudSession.user.id, app_version: APP_VERSION, scenario: 'check',
-      device: buildDebugLogDevice(), events: [{ id: id, result: a.r, reason: a.why || null }],
-    });
-    if(error) return false;
-    const st = checksReadState();
-    if(checksOwn(st, id)){ st[id].sent = true; checksWriteState(st); }
-    return true;
-  }catch(e){ return false; }
+// Записує відповідь у стан і ставить подію в чергу журналу; true, якщо прийнято.
+function checksCommit(id, result, reason, note){
+  const c = CHECKS.filter(function(x){ return x.id === id; })[0];
+  const v = checksNormalize(c, result, reason, note);
+  const st = checksReadState();
+  if(!v || checksIsFinal(checksOwn(st, id))) return false;
+  checksWriteState(checksAnswer(st, id, result, reason, note));
+  const q = checksReadOutbox(); q.push({ id: id, result: v.result, reason: v.reason, note: v.note }); checksWriteOutbox(q);
+  return true;
 }
+// Прострочені кроки (старші за 3 збірки, без остаточної відповіді) переходять у «Пройдено» як «не перевірено» із записом expired.
+function checksExpireStale(){
+  checksRecordSeen();
+  let n = 0;
+  CHECKS.forEach(function(c){ if(checksIsExpired(c) && !checksIsFinal(checksOwn(checksReadState(), c.id)) && checksCommit(c.id, 'expired')) n++; });
+  return n;
+}
+let checksSending = false;
 async function flushChecksQueue(){
-  if(checksSending) return;
+  if(checksSending) return false;
   checksSending = true;
+  let sent = 0;
   try{
-    const st = checksReadState();
-    for(const c of checksAnswered(st)){ if(!checksOwn(st, c.id).sent && !(await checksSendAnswer(c.id))) break; }
+    for(;;){
+      const q = checksReadOutbox();
+      if(!q.length || !isCloudWriteReady()) break;
+      const ev = q[0];
+      const { error } = await getSupabaseClient().from('client_debug_logs').insert({
+        family_id: cloudFamilyId, user_id: cloudSession.user.id, app_version: APP_VERSION, scenario: 'check',
+        device: buildDebugLogDevice(), events: [{ id: ev.id, result: ev.result, reason: ev.reason || null, note: ev.note || null }],
+      });
+      if(error) break;
+      checksWriteOutbox(checksReadOutbox().slice(1));
+      sent++;
+    }
   }catch(e){}
   checksSending = false;
+  return sent > 0;
 }
 function checksSvg(html){ const w = document.createElement('span'); w.innerHTML = html; return w.firstChild; } // лише власні сталі SVG
-const CHECKS_CHEV = '<svg class="chk-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-const CHECKS_OK_ICON = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>';
+const CHECKS_SVG_CHEV = '<svg class="chk-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+const CHECKS_SVG_TICK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const CHECKS_SVG_CROSS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const CHECKS_SVG_DONE = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>';
 function updateChecksBadge(){
   const b = document.getElementById('checks-badge');
   if(!b) return;
@@ -24574,7 +24671,7 @@ function updateChecksBadge(){
   b.textContent = n ? String(n) : '';
   b.classList.toggle('hidden', !n);
 }
-const CHECK_RESULT_LABELS = { ok: 'Ок', no: 'Не ок', skip: 'Пропущено' };
+const CHECK_RESULT_LABELS = { ok: 'Працює', no: 'Не працює', skip: 'Пропущено', expired: 'Не перевірено' };
 function checksRenderMeta(){
   const st = checksReadState();
   const left = checksPending(st).length, done = checksAnswered(st);
@@ -24588,69 +24685,138 @@ function checksRenderMeta(){
       const a = checksOwn(st, c.id);
       const row = document.createElement('div'); row.className = 'chk-done-it';
       const t = document.createElement('span'); t.textContent = c.title; row.appendChild(t);
-      const r = document.createElement('span'); r.textContent = CHECK_RESULT_LABELS[a.r] + (a.why ? ': ' + a.why : ''); row.appendChild(r);
+      const r = document.createElement('span'); r.textContent = (CHECK_RESULT_LABELS[a.r] || '') + (a.why ? ': ' + a.why : ''); row.appendChild(r);
       dl.appendChild(row);
     });
   }
   updateChecksBadge();
 }
-function checksFinish(it, c, result, reason){
+// Скидає невиручений вибір кроку: таймер підтвердження, виділення, списки, поле «Інше». Нічого не пише.
+function checksResetItem(it){
+  if(it._t){ clearTimeout(it._t); it._t = null; }
+  it.querySelectorAll('.sel').forEach(function(e){ e.classList.remove('sel'); });
+  if(it.classList){ it.classList.remove('st-no'); it.classList.remove('st-sk'); } // «Працює» знову насичена
+  it.querySelectorAll('.chk-rz').forEach(function(e){ e.classList.remove('open'); });
+  const oth = it.querySelector('.chk-oth'); if(oth) oth.classList.remove('open');
+  const err = it.querySelector('.chk-err'); if(err) err.style.display = 'none';
+  const fld = it.querySelector('.chk-fld'); if(fld) fld.value = '';
+}
+function checksOpenNext(skip){
+  const list = document.getElementById('checks-list'); if(!list) return;
+  const all = Array.prototype.slice.call(list.querySelectorAll('.chk-it:not([data-f])'));
+  const nx = all.filter(function(x){ return x !== skip; })[0] || all[0];
+  if(nx) nx.classList.add('open');
+}
+function checksFinish(it, c, result, reason, note){
   if(it.getAttribute('data-f')) return;
-  const before = checksReadState();
-  const after = checksAnswer(before, c.id, result, reason);
-  if(!checksOwn(after, c.id) || checksOwn(before, c.id)) return; // «Не ок» без причини не підтверджується
+  if(!checksCommit(c.id, result, reason, note)) return; // «Не працює» без причини і «Інше» без тексту не підтверджуються
   it.setAttribute('data-f', result);
-  checksWriteState(after);
   checksRenderMeta();
   const reduce = motionReduced();
-  if(result !== 'skip' && !reduce) it.classList.add('done'); // закреслення .2 с + пауза до зникнення 0,6 с (макет); при reduced-motion лише зникнення
-  setTimeout(function(){
-    it.classList.remove('open'); it.classList.add('gone');
-    const list = document.getElementById('checks-list');
-    const nx = list ? list.querySelector('.chk-it:not([data-f])') : null;
-    if(nx) nx.classList.add('open');
-  }, (result === 'skip' || reduce) ? 50 : 600);
-  checksSendAnswer(c.id).then(function(ok){
-    if(!ok || result === 'skip') return;
+  if(!reduce) it.classList.add('done'); // закреслення .2 с + пауза до зникнення 0,6 с (макет); при reduced-motion лише зникнення
+  setTimeout(function(){ it.classList.remove('open'); it.classList.add('gone'); checksOpenNext(null); }, reduce ? 50 : 600);
+  flushChecksQueue().then(function(ok){
+    if(!ok) return;
     const n = document.getElementById('checks-sent'); if(!n) return;
     n.classList.add('on'); setTimeout(function(){ n.classList.remove('on'); }, 1400);
   });
 }
+function checksDefer(it, c, reason){
+  if(it.getAttribute('data-f')) return;
+  if(!checksCommit(c.id, 'defer', reason)) return;
+  checksResetItem(it); it.classList.remove('open');
+  const tag = it.querySelector('.chk-tag'); if(tag) tag.textContent = 'відкладено';
+  const list = document.getElementById('checks-list'); const empty = document.getElementById('checks-empty');
+  if(list) list.insertBefore(it, empty);
+  checksOpenNext(it); checksRenderMeta(); flushChecksQueue();
+}
+function checksWireItem(it, c, fid){
+  const ok = it.querySelector('[data-a="ok"]'), no = it.querySelector('[data-a="no"]'), sk = it.querySelector('.chk-sk');
+  const rzn = it.querySelector('.chk-rzn'), rzs = it.querySelector('.chk-rzs'), oth = it.querySelector('.chk-oth'), fld = it.querySelector('.chk-fld'), err = it.querySelector('.chk-err');
+  const toggle = function(btn, after){ return function(){ if(btn.classList.contains('sel')){ checksResetItem(it); return; } checksResetItem(it); btn.classList.add('sel'); after(); }; };
+  ok.addEventListener('click', toggle(ok, function(){ it._t = setTimeout(function(){ it._t = null; checksFinish(it, c, 'ok'); }, 600); })); // «Працює» підтверджується через 0,6 с; у цей проміжок вибір можна скасувати
+  no.addEventListener('click', toggle(no, function(){ rzn.classList.add('open'); it.classList.add('st-no'); })); // «Працює» блідне до рівня «Не працює» за замовчуванням
+  sk.addEventListener('click', toggle(sk, function(){ rzs.classList.add('open'); it.classList.add('st-sk'); })); // обидві кнопки на однаковому блідому рівні (вже бліда «Не працює» не блідне ще)
+  const rows = it.querySelectorAll('.chk-gn button');
+  rows.forEach(function(r, i){
+    r.addEventListener('click', function(){
+      if(it._t){ clearTimeout(it._t); it._t = null; }
+      rows.forEach(function(x){ x.classList.remove('sel'); }); r.classList.add('sel');
+      if(i === rows.length - 1){ oth.classList.add('open'); fld.focus(); return; } // «Інше»: поле й «Надіслати»
+      oth.classList.remove('open'); err.style.display = 'none';
+      const reason = c.reasons[i];
+      it._t = setTimeout(function(){ it._t = null; checksFinish(it, c, 'no', reason); }, 450);
+    });
+  });
+  it.querySelector('.chk-send').addEventListener('click', function(){
+    if(!fld.value.trim()){ err.style.display = 'block'; fld.focus(); return; }
+    checksFinish(it, c, 'no', CHECKS_OTHER, fld.value);
+  });
+  fld.addEventListener('input', function(){ err.style.display = 'none'; });
+  it.querySelectorAll('.chk-gs button').forEach(function(r, i){
+    r.addEventListener('click', function(){
+      if(it._t){ clearTimeout(it._t); it._t = null; }
+      r.classList.add('sel');
+      it._t = setTimeout(function(){ it._t = null; checksDefer(it, c, CHECKS_DEFER_REASONS[i]); }, 350);
+    });
+  });
+  it.querySelector('.chk-hd').addEventListener('click', function(){
+    if(it.getAttribute('data-f')) return;
+    if(it.classList.contains('open')) checksResetItem(it); // згортання кроку знімає вибір
+    it.classList.toggle('open');
+  });
+}
+function checksRowsFragment(labels, withTick){
+  const frag = document.createDocumentFragment();
+  labels.forEach(function(text){
+    const b = document.createElement('button'); b.type = 'button';
+    const s = document.createElement('span'); s.textContent = text; b.appendChild(s); b.appendChild(checksSvg(CHECKS_SVG_TICK)); frag.appendChild(b);
+  });
+  return frag;
+}
+function checksFlatButton(cls, label, icon, act){ // Rev 2.32.190: кнопки «Працює» (галочка) і «Не працює» (хрестик)
+  const b = document.createElement('button'); b.type = 'button'; b.className = cls; if(act) b.setAttribute('data-a', act);
+  b.appendChild(checksSvg(icon)); b.appendChild(document.createTextNode(label)); return b;
+}
 function renderChecks(){
   const list = document.getElementById('checks-list');
   if(!list) return;
+  checksExpireStale();
+  const st = checksReadState();
   list.textContent = '';
-  checksPending(checksReadState()).forEach(function(c, idx){
+  checksPending(st).forEach(function(c, idx){
     const it = document.createElement('div'); it.className = 'chk-it' + (idx === 0 ? ' open' : '');
-    const hd = document.createElement('button'); hd.type = 'button'; hd.className = 'chk-hd';
+    const hd = document.createElement('div'); hd.className = 'chk-hd'; hd.setAttribute('role', 'button'); hd.tabIndex = 0;
     const tt = document.createElement('span'); tt.className = 'chk-tt'; tt.textContent = c.title; hd.appendChild(tt);
-    const chev = checksSvg(CHECKS_CHEV); chev.style.color = 'var(--color-text-secondary)'; hd.appendChild(chev);
-    hd.addEventListener('click', function(){ if(!it.getAttribute('data-f')) it.classList.toggle('open'); });
+    const tag = document.createElement('span'); tag.className = 'chk-tag'; tag.textContent = (checksOwn(st, c.id) && checksOwn(st, c.id).r === 'defer') ? 'відкладено' : ''; hd.appendChild(tag);
+    const chev = checksSvg(CHECKS_SVG_CHEV); chev.style.color = 'var(--color-text-secondary)'; hd.appendChild(chev);
+    hd.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); hd.click(); } });
     it.appendChild(hd);
     const bd = document.createElement('div'); bd.className = 'chk-bd';
     const steps = document.createElement('div'); steps.className = 'chk-steps';
     c.steps.forEach(function(s, i){ if(i) steps.appendChild(document.createElement('br')); steps.appendChild(document.createTextNode((i + 1) + '. ' + s)); });
     bd.appendChild(steps);
     const exp = document.createElement('div'); exp.className = 'chk-exp'; exp.textContent = 'Очікується: ' + c.expect; bd.appendChild(exp);
-    const rs = document.createElement('div'); rs.className = 'chk-rs'; rs.setAttribute('role', 'group'); rs.setAttribute('aria-label', 'Причина: ' + c.title);
-    c.reasons.forEach(function(r){
-      const b = document.createElement('button'); b.type = 'button'; b.className = 'chk-ab sm'; b.textContent = r;
-      b.addEventListener('click', function(){ b.classList.add('no'); checksFinish(it, c, 'no', r); });
-      rs.appendChild(b);
-    });
-    const act = document.createElement('div'); act.className = 'chk-act';
-    const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'chk-ab'; ok.textContent = 'Ок';
-    ok.addEventListener('click', function(){ ok.classList.add('ok'); checksFinish(it, c, 'ok', null); });
-    const no = document.createElement('button'); no.type = 'button'; no.className = 'chk-ab'; no.textContent = 'Не ок';
-    no.addEventListener('click', function(){ no.classList.add('no'); rs.style.display = 'flex'; });
-    const skip = document.createElement('button'); skip.type = 'button'; skip.className = 'chk-skip'; skip.textContent = 'Пропустити';
-    skip.addEventListener('click', function(){ checksFinish(it, c, 'skip', null); });
-    act.appendChild(ok); act.appendChild(no); act.appendChild(skip);
-    bd.appendChild(act); bd.appendChild(rs);
+    const pair = document.createElement('div'); pair.className = 'chk-pair';
+    pair.appendChild(checksFlatButton('chk-fl k', 'Працює', CHECKS_SVG_TICK, 'ok')); pair.appendChild(checksFlatButton('chk-fl n', 'Не працює', CHECKS_SVG_CROSS, 'no'));
+    bd.appendChild(pair);
+    const fid = 'fldchk' + (CHECKS.indexOf(c) + 1);
+    const rzn = document.createElement('div'); rzn.className = 'chk-rz chk-rzn';
+    const gn = document.createElement('div'); gn.className = 'chk-grp chk-gn'; gn.appendChild(checksRowsFragment(checksReasonsFor(c))); rzn.appendChild(gn);
+    const oth = document.createElement('div'); oth.className = 'chk-oth';
+    const fld = document.createElement('input'); fld.type = 'text'; fld.className = 'chk-fld'; fld.id = fid; applyFieldGuardAttrs(fld, { label: 'Опишіть недолік' }); fld.maxLength = CHECKS_NOTE_MAX; fld.placeholder = 'Опишіть недолік'; // захисні атрибути (autocomplete off тощо) і абстрактний name — спільна функція FIELD-GUARD
+    oth.appendChild(fld);
+    const err = document.createElement('div'); err.className = 'chk-err'; err.setAttribute('role', 'alert'); err.textContent = 'Опишіть недолік коротко.'; oth.appendChild(err);
+    const send = document.createElement('button'); send.type = 'button'; send.className = 'chk-send'; send.textContent = 'Надіслати'; oth.appendChild(send);
+    rzn.appendChild(oth); bd.appendChild(rzn);
+    const sk = document.createElement('button'); sk.type = 'button'; sk.className = 'chk-sk'; sk.textContent = 'Не можу перевірити зараз'; bd.appendChild(sk);
+    const rzs = document.createElement('div'); rzs.className = 'chk-rz chk-rzs';
+    const gs = document.createElement('div'); gs.className = 'chk-grp chk-g2 chk-gs'; gs.appendChild(checksRowsFragment(CHECKS_DEFER_REASONS)); rzs.appendChild(gs); bd.appendChild(rzs);
     it.appendChild(bd); list.appendChild(it);
+    checksWireItem(it, c, fid);
   });
   const empty = document.createElement('div'); empty.className = 'chk-empty'; empty.id = 'checks-empty';
-  empty.appendChild(checksSvg(CHECKS_OK_ICON));
+  empty.appendChild(checksSvg(CHECKS_SVG_DONE));
   const b = document.createElement('b'); b.textContent = 'Усе перевірено'; empty.appendChild(b);
   const sp = document.createElement('span'); sp.textContent = 'Нові кроки з’являться з наступною збіркою.'; empty.appendChild(sp);
   list.appendChild(empty);
@@ -24662,6 +24828,12 @@ function toggleChecksDone(){
   const open = box.classList.toggle('hidden') === false;
   btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
+// Дотик поза кроком скасовує його невиручений вибір (лише поки шторка «Перевірки» відкрита).
+document.addEventListener('click', function(e){
+  const drawer = document.getElementById('checks-drawer');
+  if(!drawer || !drawer.classList.contains('open')) return;
+  drawer.querySelectorAll('.chk-it').forEach(function(it){ if(!it.contains(e.target)) checksResetItem(it); });
+});
 function openChecksDrawer(){
   renderChecks();
   const backdrop = document.getElementById('checks-backdrop');
@@ -24677,12 +24849,14 @@ function closeChecksDrawer(){
   const backdrop = document.getElementById('checks-backdrop');
   const drawer = document.getElementById('checks-drawer');
   const wasOpen = drawer && drawer.classList.contains('open');
+  document.querySelectorAll('#checks-list .chk-it').forEach(checksResetItem);
   if(backdrop){ backdrop.classList.remove('open'); backdrop.setAttribute('inert', ''); }
   if(drawer){ drawer.classList.remove('open'); drawer.setAttribute('inert', ''); }
   restoreFocus();
   if(wasOpen) unlockBackgroundScroll();
   updateChecksBadge();
 }
+checksExpireStale();
 updateChecksBadge();
 // Головний тумблер: вимкнення лише пише false; вмикання за дотиком користувача запитує дозвіл і створює підписку.
 async function onMasterToggle(on){

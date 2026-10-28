@@ -33,7 +33,7 @@ test('openStructForm: усі поля (слово, назва категорії
   assert.match(body, /applyFieldGuardAttrs\(input, \{ label: cfg\.field\.label, enterkeyhint: 'done' \}\)/);
   assert.ok(!/input\.setAttribute\('autocomplete'/.test(body));
   assert.match(body, /input\.id = 'fldstr3'/);
-  assert.equal((SRC.match(/createElement\('input'\)/g) || []).length, 5, 'JS-фабрики input: перемикач (checkbox), час, поле форми, проміжне поле (не чіпали), службовий зонд');
+  assert.equal((SRC.match(/createElement\('input'\)/g) || []).length, 6, 'JS-фабрики input: перемикач (checkbox), час, поле форми, проміжне поле (не чіпали), службовий зонд, поле «Інше» у «Перевірках» (Rev 2.32.190; через applyFieldGuardAttrs)');
 });
 test('клавіатурна логіка не чіпана: проміжне поле копіює ті самі атрибути, id/стиль/кількість атрибутів без змін', function(){
   assert.match(SRC, /const KB_PROXY_COPIED_ATTRS = \['inputmode', 'enterkeyhint', 'autocapitalize', 'autocorrect', 'autocomplete', 'spellcheck', 'pattern', 'maxlength', 'min', 'max', 'step', 'lang', 'dir'\];/);
