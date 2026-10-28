@@ -12,8 +12,16 @@ async function boot(page, fixture){
   await page.goto('/index.html?fixture=' + (fixture || 'empty'));
   await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && typeof cloudFamilyId !== 'undefined' && !!cloudFamilyId && document.querySelector('.tabbar-glass'));
   await page.evaluate(() => { // мережа моку: офлайн-прапорець і штучна затримка (щоб був видимий стан syncing)
-    const orig = window.MockCloud.fetch;
-    window.MockCloud.fetch = function(){ const a = arguments; if(window.__offline) return Promise.reject(new TypeError('offline')); const d = window.__delay | 0; const run = () => orig.apply(window.MockCloud, a); return d ? new Promise(r => setTimeout(r, d)).then(run) : run(); };
+    const orig = window.MockCloud.fetch; // затримка лише для записів (POST/PATCH): стан syncing видно, читання не гальмують
+    // Затримка лише для записів витрат (довідники при першій синхронізації йдуть десятками запитів). Запити авторизації не рвемо в офлайні: ретраї SDK без мережі вішають syncCheck на невизначений час (артефакт емуляції).
+    window.MockCloud.fetch = function(){
+      const a = arguments; const url = String(typeof a[0] === 'string' ? a[0] : (a[0] && a[0].url) || '');
+      if(window.__offline && !/\/auth\/v1\//.test(url)) return Promise.reject(new TypeError('offline'));
+      const m = String((a[1] && a[1].method) || (a[0] && a[0].method) || 'GET').toUpperCase();
+      const d = (m === 'GET' || m === 'HEAD' || !/\/rest\/v1\/expenses/.test(url)) ? 0 : (window.__delay | 0); // лише записи витрат: решта початкових записів (довідники) не гальмується
+      const run = () => orig.apply(window.MockCloud, a);
+      return d ? new Promise(r => setTimeout(r, d)).then(run) : run();
+    };
   });
   return errors;
 }
@@ -101,12 +109,13 @@ test('5. без мережі: pending → повернення мережі: syn
   await openJournalFor(page, id);
   await expect(slotOf(page, id)).toHaveAttribute('data-s', 'pending');
   expect(await serverRow(page, id)).toBeNull();
-  await page.evaluate(() => { window.__delay = 1500; window.__seen = []; const s = document.querySelector('.sync-slot[data-sync-id="' + expenses[0].id + '"]'); new MutationObserver(() => window.__seen.push(s.getAttribute('data-s'))).observe(s, { attributes: true, attributeFilter: ['data-s'] }); });
+  await page.evaluate(i => { window.__delay = 1500; window.__seen = []; new MutationObserver(list => list.forEach(m => { if(m.target.getAttribute('data-sync-id') === i) window.__seen.push(m.target.getAttribute('data-s')); })).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-s'] }); }, id);
   await goOnline(page);
-  await expect(slotOf(page, id)).toHaveAttribute('data-s', 'done', { timeout: 15000 });
+  await page.waitForFunction(() => window.__seen.includes('done'), null, { timeout: 20000 }).catch(async err => { throw new Error('done не настав; стани: ' + JSON.stringify(await page.evaluate(() => window.__seen)) + '; записи: ' + JSON.stringify(await page.evaluate(() => [...expSyncEntries.entries()].map(([k, v]) => [v.s, v.n]))) + '; без запису на сервері: ' + JSON.stringify(await page.evaluate(() => expenses.map(e => [e.syncedUpdatedAt === e.updatedAt, !!e.serverUpdatedAt])))); });
+  // «done» триває ≈ 1 с: ловимо спостерігачем мутацій, а не опитуванням
   const seen = await page.evaluate(() => window.__seen);
-  // Знахідка E2E-1: після повтору з pending стан «syncing» не показується (pending лишається до done, expSyncBegin пропускає syncing, коли стан pending). Очікувалось pending → syncing → done; тест фіксує поточну поведінку й лишає анотацію.
-  if(!seen.includes('syncing')) test.info().annotations.push({ type: 'finding', description: 'syncing не показано після повтору з pending; послідовність: ' + seen.join(' → ') });
+  const order = seen.filter((v, i) => v && v !== seen[i - 1]); // послідовність станів без повторів
+  expect(order.slice(0, 2), 'послідовність станів: ' + seen.join(' → ')).toEqual(['syncing', 'done']);
   expect(await serverRow(page, id)).toMatchObject({ amount: 70 });
   await expect(slotOf(page, id)).toHaveAttribute('data-s', '', { timeout: 8000 });
 });

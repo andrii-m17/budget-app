@@ -371,3 +371,12 @@ test('знак оклику: візуальний центр = центр bbox (
   const css = SRC.slice(SRC.indexOf('.sync-slot{ display:inline-flex'), SRC.indexOf('/* ===== Rev 2.32.189 (CHECKS-1)'));
   assert.ok(css.includes('transform:translateY(.5px) scale(.55)') && css.includes('transform:translateY(.5px) scale(.3)'), 'центр хмаринки на центр кільця (12; 12) після масштабу');
 });
+
+test('Rev 2.32.200: з pending (повтор після мережі) індикатор проходить syncing (не раніше 400 мс) → done; syncing показується щонайменше SYNC_MIN_SYNCING_MS', () => {
+  const { c, tm, slot, cls } = slotEnv();
+  c.expSyncBegin('e1'); c.expSyncEnd('e1', false); assert.equal(slot.getAttribute('data-s'), 'pending', 'офлайн: pending');
+  c.expSyncBegin('e1'); tm.advance(399); assert.equal(slot.getAttribute('data-s'), 'pending', 'до 400 мс лишається pending');
+  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'syncing', 'pending → syncing'); assert.ok(cls.has('just-synced'));
+  c.expSyncEnd('e1', true); tm.advance(2999); assert.equal(slot.getAttribute('data-s'), 'syncing', 'мінімальний показ збережено');
+  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'done', 'syncing → done');
+});
