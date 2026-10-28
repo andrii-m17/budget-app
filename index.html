@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.203</div>
+  <div class="version-footer">Money Tree · Rev 2.32.204</div>
 </div>
   </div>
 </div>
@@ -7062,117 +7062,230 @@ function isSyncableAmount(a){ return typeof a === 'number' && isFinite(a) && a >
 // Push існуючого запису: update лише змінених відносно зліпка полів з умовою .eq('updated_at', serverUpdatedAt). 0 рядків — сервер змінився: один GET рядка, потрійне злиття (зліпок, моє, серверне) і повторний push решти.
 // Різні поля зливаються мовчки; те саме поле лишає серверне значення, а моє зберігається на 14 днів у локальному журналі конфліктів (conflictLog) із кнопкою «Повернути моє». Видалення іншою людиною проти моєї правки — окремий вид запису.
 // Запис без serverBase/serverUpdatedAt (ніколи не синхронізований або старий формат) іде попереднім шляхом upsert: нових запитів немає. Ризик: серверний рядок, видалений фізично (purge), → повторний upsert.
+// ===== Rev 2.32.201 (MERGE-DOMAINS, клас C): спільне злиття поле за полем для витрат, доходів і боргів =====
+// Той самий механізм, що Rev 2.32.193 для витрат (зліпок serverBase, умовний update за serverUpdatedAt, один GET при конфлікті, потрійне злиття, журнал конфліктів 14 днів), параметризований описом домену (MERGE_DOMAINS).
+// Порядок визначає сервер (updated_at ставить лише він), годинник пристрою не використовується. Різні поля зливаються мовчки; те саме поле лишає серверне значення, моє іде в журнал із кнопкою «Повернути моє»; видалення проти правки — окремий вид запису.
+// Борги: назву запису боргу веде сервер (тригер trg_sync_debt_names переймен��вує борги за назвою ОЧ), тому `name` не входить у поля злиття й не надсилається в умовному update; лишається серверна. Запис без serverBase/serverUpdatedAt іде попереднім upsert.
 const EXP_MERGE_FIELDS = ['amount', 'date', 'name', 'category', 'subcategory', 'linkedInstallment', 'deletedAt'];
 const EXP_ROW_COLS = 'id,amount,expense_date,category,subcategory,note,linked_installment_id,deleted_at,created_at,updated_at,created_by,updated_by,source,external_id,edited_at';
-function expFieldVal(rec, f){ const v = rec ? rec[f] : undefined; return v == null ? '' : v; }
-function expSnap(rec){ const o = {}; EXP_MERGE_FIELDS.forEach(function(f){ o[f] = expFieldVal(rec, f); }); return o; }
-function expSnapFromRow(row, linkedName){ return { amount: row.amount, date: row.expense_date, name: row.note || '', category: row.category || '', subcategory: row.subcategory || '', linkedInstallment: linkedName || '', deletedAt: row.deleted_at || '' }; }
-function expFieldEq(f, a, b){ return f === 'deletedAt' ? (!!a) === (!!b) : a === b; }
+const INC_MERGE_FIELDS = ['amount', 'date', 'source', 'deletedAt'];
+const INC_ROW_COLS = 'id,amount,income_date,note,deleted_at,created_at,updated_at,created_by,updated_by';
+const DEBT_MERGE_FIELDS = ['balance', 'monthlyPayment', 'minPayment', 'minPaymentDone', 'month', 'deletedAt'];
+const DEBT_ROW_COLS = 'id,bank_account_id,installment_account_id,name,kind,month,balance,min_payment,min_payment_done,monthly_payment,deleted_at,created_at,updated_at,created_by,updated_by';
+function mdFieldVal(rec, f){ const v = rec ? rec[f] : undefined; return v == null ? '' : v; }
+function mdSnap(dom, rec){ const o = {}; dom.fields.forEach(function(f){ o[f] = mdFieldVal(rec, f); }); return o; }
+function mdFieldEq(f, a, b){ return f === 'deletedAt' ? (!!a) === (!!b) : a === b; }
 // Чиста функція: base/local/server — знімки полів. Без base усі розбіжності вважаються конфліктами (виграє сервер).
-function expMerge(base, local, server){
+function mdMerge(dom, base, local, server){
   const values = {}, conflicts = [], localOnly = [];
-  EXP_MERGE_FIELDS.forEach(function(f){
+  dom.fields.forEach(function(f){
     const l = local[f], s = server[f], b = base ? base[f] : undefined;
-    if(expFieldEq(f, l, s)){ values[f] = s; return; }
-    if(base && expFieldEq(f, l, b)){ values[f] = s; return; }
-    if(base && expFieldEq(f, s, b)){ values[f] = l; localOnly.push(f); return; }
+    if(mdFieldEq(f, l, s)){ values[f] = s; return; }
+    if(base && mdFieldEq(f, l, b)){ values[f] = s; return; }
+    if(base && mdFieldEq(f, s, b)){ values[f] = l; localOnly.push(f); return; }
     values[f] = s; conflicts.push({ field: f, mine: l, theirs: s });
   });
   return { values: values, conflicts: conflicts, localOnly: localOnly };
 }
-function expSetFromSnap(rec, vals){
-  ['amount', 'date', 'name', 'category', 'subcategory'].forEach(function(f){ if(f in vals) rec[f] = vals[f]; });
-  if('linkedInstallment' in vals){ if(vals.linkedInstallment) rec.linkedInstallment = vals.linkedInstallment; else delete rec.linkedInstallment; }
-  if('deletedAt' in vals){ if(vals.deletedAt) rec.deletedAt = vals.deletedAt; else delete rec.deletedAt; }
+function mdSetFromSnap(dom, rec, vals){
+  dom.fields.forEach(function(f){
+    if(!(f in vals)) return;
+    const v = vals[f];
+    if(dom.optional.indexOf(f) !== -1 && v === '') delete rec[f]; else rec[f] = v;
+  });
 }
-// Зливає серверний рядок у локальний запис (пул або відповідь на 0 рядків умовного push). Повертає { localOnly, conflicts, deletedConflict }.
-function expMergeServerRow(rec, row, linkedName){
-  const srv = expSnapFromRow(row, linkedName), loc = expSnap(rec);
+// Зливає серверний рядок у локальний запис (pull або відповідь на 0 рядків умовного push). Повертає { localOnly, conflicts, deletedConflict }.
+function mdMergeServerRow(dom, rec, row, ctx){
+  const srv = dom.snapFromRow(row, ctx), loc = mdSnap(dom, rec);
   const base = rec.serverBase || (rec.serverUpdatedAt && rec.serverUpdatedAt === row.updated_at ? srv : null);
   const out = { localOnly: [], conflicts: [], deletedConflict: null };
   let values = null;
   if(base && srv.deletedAt && !base.deletedAt && !loc.deletedAt){
     const mine = {}; let any = false;
-    EXP_MERGE_FIELDS.forEach(function(f){ if(f !== 'deletedAt' && !expFieldEq(f, loc[f], base[f])){ mine[f] = loc[f]; any = true; } });
+    dom.fields.forEach(function(f){ if(f !== 'deletedAt' && !mdFieldEq(f, loc[f], base[f])){ mine[f] = loc[f]; any = true; } });
     if(any){ out.deletedConflict = { mine: mine }; values = srv; }
   }
   if(!values){
-    const m = expMerge(base, loc, srv);
+    const m = mdMerge(dom, base, loc, srv);
     values = m.values; out.localOnly = m.localOnly; out.conflicts = m.conflicts;
     if(m.localOnly.indexOf('deletedAt') !== -1) values.deletedAt = loc.deletedAt;
   }
-  expSetFromSnap(rec, values);
+  mdSetFromSnap(dom, rec, values);
   rec.createdAt = row.created_at;
   if(row.created_by) rec.createdBy = row.created_by;
   rec.updatedBy = row.updated_by;
-  if(row.edited_at && (!rec.editedAt || !out.localOnly.length)) rec.editedAt = row.edited_at;
-  if(row.source){ rec.source = row.source; rec.externalId = row.external_id || null; }
+  if(dom.applyExtras) dom.applyExtras(rec, row, out, ctx);
   rec.serverBase = srv; rec.serverUpdatedAt = row.updated_at; rec.syncedUpdatedAt = row.updated_at;
   rec.updatedAt = out.localOnly.length ? new Date().toISOString() : row.updated_at;
   shadowNormalize(rec);
   return out;
 }
-// Для «чистих» витрат без зліпка (старий формат): зліпок = поточні поля, серверний час = syncedUpdatedAt (для записів, надісланих до 2.32.192, це не серверний час: перша умова дасть 0 рядків і один GET, далі все точно).
-function expMigrateBase(){
-  try{ expenses.forEach(function(r){ shadowNormalizeLazy(r); if(!r.serverBase && r.syncedUpdatedAt && r.syncedUpdatedAt === r.updatedAt && !shadowDirtyNew(r)){ r.serverBase = expSnap(r); if(!r.serverUpdatedAt) r.serverUpdatedAt = r.syncedUpdatedAt; } }); }catch(e){}
+// Для «чистих» записів без зліпка (старий формат): зліпок = поточні поля, серверний час = syncedUpdatedAt (для записів, надісланих до 2.32.192, це не серверний час: перша умова дасть 0 рядків і один GET, далі все точно).
+function mdMigrateBase(dom){
+  try{ dom.list().forEach(function(r){ shadowNormalizeLazy(r); if(!r.serverBase && r.syncedUpdatedAt && r.syncedUpdatedAt === r.updatedAt && !shadowDirtyNew(r)){ r.serverBase = mdSnap(dom, r); if(!r.serverUpdatedAt) r.serverUpdatedAt = r.syncedUpdatedAt; } }); }catch(e){}
 }
-function expLinkedNameForRow(row){
-  if(!row.linked_installment_id) return '';
-  const acc = installmentAccounts.find(function(a){ return a.cloudId === row.linked_installment_id; });
-  return acc ? acc.name : null;
-}
+function expMigrateBase(){ Object.keys(MERGE_DOMAINS).forEach(function(k){ mdMigrateBase(MERGE_DOMAINS[k]); }); }
 // Умовний push існуючого запису: лише змінені поля, умова на серверний updated_at.
-async function pushExpenseCas(rec, linkedInstallmentId, opts, depth){
+async function mdPushCas(dom, rec, ctx, opts, depth){
   depth = depth || 0;
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   const shSnap = shadowSnap(rec);
-  const sent = expSnap(rec), base = rec.serverBase, sentAt = rec.updatedAt; // sentAt: правка, зроблена під час запиту, не вважається надісланою
+  const sent = mdSnap(dom, rec), base = rec.serverBase, sentAt = rec.updatedAt; // sentAt: правка, зроблена під час запиту, не вважається надісланою
   const payload = {};
-  if(sent.amount !== base.amount) payload.amount = rec.amount;
-  if(sent.date !== base.date) payload.expense_date = rec.date;
-  if(sent.name !== base.name) payload.note = rec.name || null;
-  if(sent.category !== base.category) payload.category = rec.category || null;
-  if(sent.subcategory !== base.subcategory) payload.subcategory = rec.subcategory || null;
-  if(sent.linkedInstallment !== base.linkedInstallment) payload.linked_installment_id = linkedInstallmentId;
-  if(!expFieldEq('deletedAt', sent.deletedAt, base.deletedAt)) payload.deleted_at = rec.deletedAt || null;
+  dom.fields.forEach(function(f){ if(!mdFieldEq(f, sent[f], base[f])) Object.assign(payload, dom.payloadField(rec, f, ctx)); });
   if(!Object.keys(payload).length){ // нічого слати: зліпок уже збігається
-    rec.syncedUpdatedAt = sentAt; shadowAfterPush(rec, shSnap); await saveExpenses();
+    rec.syncedUpdatedAt = sentAt; shadowAfterPush(rec, shSnap); await dom.save();
     return { success: true };
   }
-  payload.updated_by = userId;
-  Object.assign(payload, editedAtPayload(rec));
-  const res = await client.from('expenses').update(payload).eq('id', rec.id).eq('updated_at', rec.serverUpdatedAt).select('id,updated_at');
+  Object.assign(payload, dom.extraPayload(rec, userId));
+  const res = await client.from(dom.table).update(payload).eq('id', rec.id).eq('updated_at', rec.serverUpdatedAt).select('id,updated_at');
   if(res.error) return { success: false, error: res.error.message || String(res.error) };
   if(res.data && res.data.length){
     rec.syncedUpdatedAt = sentAt;
     shadowSetServer(rec, res.data[0].updated_at); shadowAfterPush(rec, shSnap);
     rec.serverBase = sent;
-    if(!rec.editedAt && rec.edited && rec.updatedAt) rec.editedAt = rec.updatedAt;
-    await saveExpenses();
-    if(!(opts && opts.suppressPull)) await pullExpensesCore();
+    if(dom.afterPushOk) dom.afterPushOk(rec);
+    await dom.save();
+    if(!(opts && opts.suppressPull)) await dom.pull();
     return { success: true };
   }
   // 0 рядків: сервер змінився після нашого зліпка. Один GET цього рядка й злиття.
   if(depth >= 2) return { success: false, error: 'conflict-retry' };
-  const g = await client.from('expenses').select(EXP_ROW_COLS).eq('id', rec.id).limit(1);
+  const g = await client.from(dom.table).select(dom.cols).eq('id', rec.id).limit(1);
   if(g.error) return { success: false, error: g.error.message || String(g.error) };
   if(!g.data || !g.data.length){ // рядка на сервері вже нема: звичайний upsert
     delete rec.serverBase; delete rec.serverUpdatedAt;
-    return await pushExpenseRecordPilot(rec, opts);
+    return await dom.push(rec, opts);
   }
   const row = g.data[0];
-  const linkedName = expLinkedNameForRow(row);
-  const merged = expMergeServerRow(rec, row, linkedName === null ? (rec.linkedInstallment || '') : linkedName);
-  expRecordConflicts(rec, row, merged);
-  await saveExpenses();
-  if(merged.localOnly.length){
-    const again = rec.linkedInstallment ? (linkedOwnerAccount(rec) || {}).cloudId || null : null;
-    return await pushExpenseCas(rec, again, opts, depth + 1);
-  }
+  const merged = mdMergeServerRow(dom, rec, row, dom.rowCtx(row, rec));
+  mdRecordConflicts(dom, rec, row, merged);
+  await dom.save();
+  if(merged.localOnly.length) return await mdPushCas(dom, rec, dom.pushCtx(rec), opts, depth + 1);
   renderAll();
   return { success: true };
 }
+// Спільна частина pull для запису, що має серверний зліпок: «брудний» за лічильниками й відомий serverUpdatedAt → або чекає на відправку (сервер не змінювався), або потрійне злиття. Повертає null (не мій випадок, далі старий шлях) або { kind: 'kept'|'merged', authorFilled }.
+function mdPullDirty(dom, local, row, ctx, hadMarker){
+  shadowNormalize(local);
+  if(!(shadowDirtyNew(local) && local.serverUpdatedAt)) return null;
+  if(local.serverUpdatedAt === row.updated_at){ // сервер не змінювався: мій запис чекає на відправку
+    let authorFilled = false;
+    if(!local.serverBase) local.serverBase = dom.snapFromRow(row, ctx);
+    if(!local.createdBy && row.created_by){ local.createdBy = row.created_by; authorFilled = true; }
+    dom.push(local);
+    return { kind: 'kept', authorFilled: authorFilled };
+  }
+  const wasDel = !!local.deletedAt;
+  const merged = mdMergeServerRow(dom, local, row, ctx);
+  mdRecordConflicts(dom, local, row, merged);
+  if(merged.localOnly.length) dom.push(local);
+  if(hadMarker){
+    if(dom.pulledMark) dom.pulledMark(local.id);
+    if(!merged.conflicts.length && !merged.deletedConflict) pushOtherActorEvent(dom.key, row.deleted_at && !wasDel ? 'delete' : 'edit', row.updated_by, dom.eventName(row, ctx, local), dom.eventAmount(row));
+  }
+  return { kind: 'merged', authorFilled: false };
+}
+// «Відлуння» власного запису: pull із тим самим updated_at, що вже в serverUpdatedAt, коли запис не «брудний».
+function mdIsEcho(local, row){ return !!local.serverUpdatedAt && local.serverUpdatedAt === row.updated_at && !shadowDirtyNew(local); }
+// Записи зі серверним зліпком (вже були на сервері) йдуть умовним update по одному, щоб не затерти чужі поля; решту обробляє виклик далі пакетним upsert.
+async function mdBatchCas(records, pushOne){
+  const casRecs = records.filter(function(r){ return r.serverUpdatedAt && r.serverBase; });
+  if(!casRecs.length) return null;
+  let pushed = 0, failed = 0, firstError = null;
+  for(const r of casRecs){
+    const res = await pushOne(r, { suppressPull: true });
+    if(res.success) pushed++; else { failed++; if(!firstError) firstError = res.error; }
+  }
+  return { rest: records.filter(function(r){ return casRecs.indexOf(r) === -1; }), pushed: pushed, failed: failed, firstError: firstError };
+}
+function expSnap(rec){ return mdSnap(MERGE_DOMAINS.expenses, rec); }
+function expFieldVal(rec, f){ return mdFieldVal(rec, f); }
+function expFieldEq(f, a, b){ return mdFieldEq(f, a, b); }
+function expMerge(base, local, server){ return mdMerge(MERGE_DOMAINS.expenses, base, local, server); }
+function expSetFromSnap(rec, vals){ mdSetFromSnap(MERGE_DOMAINS.expenses, rec, vals); }
+function expSnapFromRow(row, linkedName){ return { amount: row.amount, date: row.expense_date, name: row.note || '', category: row.category || '', subcategory: row.subcategory || '', linkedInstallment: linkedName || '', deletedAt: row.deleted_at || '' }; }
+function expMergeServerRow(rec, row, linkedName){ return mdMergeServerRow(MERGE_DOMAINS.expenses, rec, row, { linkedName: linkedName }); }
+function expLinkedNameForRow(row){
+  if(!row.linked_installment_id) return '';
+  const acc = installmentAccounts.find(function(a){ return a.cloudId === row.linked_installment_id; });
+  return acc ? acc.name : null;
+}
+async function pushExpenseCas(rec, linkedInstallmentId, opts, depth){ return await mdPushCas(MERGE_DOMAINS.expenses, rec, { linkedInstallmentId: linkedInstallmentId }, opts, depth); }
+// Опис доменів: поля, зв'язок «рядок сервера ↔ запис», поля запиту, побічні дії.
+const MERGE_DOMAINS = {
+  expenses: {
+    key: 'expenses', table: 'expenses', rowKind: 'expense', fields: EXP_MERGE_FIELDS, optional: ['linkedInstallment', 'deletedAt'], cols: EXP_ROW_COLS,
+    list: function(){ return expenses; }, save: function(){ return saveExpenses(); }, push: function(rec, opts){ return pushExpenseRecordPilot(rec, opts); }, pull: function(){ return pullExpensesCore(); },
+    snapFromRow: function(row, ctx){ return expSnapFromRow(row, ctx && ctx.linkedName); },
+    rowCtx: function(row, rec){ const n = expLinkedNameForRow(row); return { linkedName: n === null ? (rec.linkedInstallment || '') : n }; },
+    pushCtx: function(rec){ return { linkedInstallmentId: rec.linkedInstallment ? (linkedOwnerAccount(rec) || {}).cloudId || null : null }; },
+    payloadField: function(rec, f, ctx){
+      switch(f){
+        case 'amount': return { amount: rec.amount };
+        case 'date': return { expense_date: rec.date };
+        case 'name': return { note: rec.name || null };
+        case 'category': return { category: rec.category || null };
+        case 'subcategory': return { subcategory: rec.subcategory || null };
+        case 'linkedInstallment': return { linked_installment_id: ctx.linkedInstallmentId };
+        case 'deletedAt': return { deleted_at: rec.deletedAt || null };
+      }
+      return {};
+    },
+    extraPayload: function(rec, userId){ return Object.assign({ updated_by: userId }, editedAtPayload(rec)); },
+    applyExtras: function(rec, row, out){
+      if(row.edited_at && (!rec.editedAt || !out.localOnly.length)) rec.editedAt = row.edited_at;
+      if(row.source){ rec.source = row.source; rec.externalId = row.external_id || null; }
+    },
+    afterPushOk: function(rec){ if(!rec.editedAt && rec.edited && rec.updatedAt) rec.editedAt = rec.updatedAt; },
+    nameOf: function(rec){ return rec.name || ''; }, eventName: function(row){ return row.note || ''; }, eventAmount: function(row){ return row.amount; },
+    pulledMark: function(id){ expPulledMark(id); },
+  },
+  incomes: {
+    key: 'incomes', table: 'incomes', rowKind: 'income', fields: INC_MERGE_FIELDS, optional: ['deletedAt'], cols: INC_ROW_COLS,
+    list: function(){ return incomes; }, save: function(){ return saveIncomes(); }, push: function(rec, opts){ return pushIncomeRecordPilot(rec, opts); }, pull: function(){ return pullIncomesCore(); },
+    snapFromRow: function(row){ return { amount: row.amount, date: row.income_date, source: row.note || '', deletedAt: row.deleted_at || '' }; },
+    rowCtx: function(){ return {}; }, pushCtx: function(){ return {}; },
+    payloadField: function(rec, f){
+      switch(f){
+        case 'amount': return { amount: rec.amount };
+        case 'date': return { income_date: rec.date };
+        case 'source': return { note: rec.source || null };
+        case 'deletedAt': return { deleted_at: rec.deletedAt || null };
+      }
+      return {};
+    },
+    extraPayload: function(rec, userId){ return { updated_by: userId }; },
+    nameOf: function(rec){ return rec.source || ''; }, eventName: function(row){ return row.note || ''; }, eventAmount: function(row){ return row.amount; },
+    pulledMark: function(id){ expPulledMark(id, recentlyPulledIncomeState); },
+  },
+  debts: {
+    key: 'debts', table: 'debts', rowKind: 'debt', fields: DEBT_MERGE_FIELDS, optional: ['monthlyPayment', 'minPayment', 'minPaymentDone', 'deletedAt'], cols: DEBT_ROW_COLS,
+    list: function(){ return debts; }, save: function(){ return saveDebts(); }, push: function(rec, opts){ return pushDebtRecordPilot(rec, opts); }, pull: function(){ return pullDebtsCore(); },
+    snapFromRow: function(row){ return { balance: row.balance, monthlyPayment: row.monthly_payment == null ? '' : row.monthly_payment, minPayment: row.min_payment == null ? '' : row.min_payment, minPaymentDone: row.min_payment_done == null ? '' : row.min_payment_done, month: dateToMonth(row.month), deletedAt: row.deleted_at || '' }; },
+    rowCtx: function(row){
+      const acc = row.kind === 'card' ? bankAccounts.find(function(b){ return b.cloudId === row.bank_account_id; }) : installmentAccounts.find(function(a){ return a.cloudId === row.installment_account_id; });
+      return { resolvedName: acc ? acc.name : null, resolvedAccountId: row.kind === 'card' ? row.bank_account_id : row.installment_account_id };
+    },
+    pushCtx: function(){ return {}; },
+    payloadField: function(rec, f){
+      switch(f){
+        case 'balance': return { balance: rec.balance };
+        case 'monthlyPayment': return { monthly_payment: rec.monthlyPayment != null ? rec.monthlyPayment : null };
+        case 'minPayment': return { min_payment: rec.minPayment != null ? rec.minPayment : null };
+        case 'minPaymentDone': return { min_payment_done: rec.minPaymentDone != null ? rec.minPaymentDone : null };
+        case 'month': return { month: rec.month + '-01' };
+        case 'deletedAt': return { deleted_at: rec.deletedAt || null };
+      }
+      return {};
+    },
+    extraPayload: function(rec, userId){ return { updated_by: userId }; },
+    // Назву й kind веде сервер/рахунок: після злиття беремо назву з рахунку (trg_sync_debt_names), а не з локального запису.
+    applyExtras: function(rec, row, out, ctx){ if(ctx && ctx.resolvedName) rec.name = ctx.resolvedName; rec.kind = row.kind; if(ctx && ctx.resolvedAccountId) rec.accountId = ctx.resolvedAccountId; },
+    nameOf: function(rec){ return rec.name || ''; }, eventName: function(row, ctx){ return (ctx && ctx.resolvedName) || ''; }, eventAmount: function(row){ return row.balance; },
+  },
+};
 // ===== Rev 2.32.195 (SYNC-SLOT): індикатор синхронізації витрати в слоті 20×20 (лише витрати) =====
 // Три стани змінюються НА МІСЦІ (оновлюється лише вузол слота, рядок не рендериться вдруге): pending (правка не відправлена понад 3 с або нема мережі: червона контурна хмаринка зі знаком оклику),
 // syncing (запит триває понад 400 мс: хмаринка в кільці з дуг, що обертається), done (кільце й хмаринка зникають 0,2 с, галочка малюється як у «доданій витраті з Monobank» (stDraw .26s ease-out), тримається 1,2 с, зникає 0,3 с).
@@ -7268,7 +7381,7 @@ function expSyncSlotHtml(rec){
   return '<span class="sync-slot" data-sync-id="' + escapeAttr(safeId(rec.id)) + '" data-s="' + s + '"' + (s ? ' role="img" aria-label="' + SYNC_SLOT_LABEL[s] + '"' : '') + '>' + SYNC_SLOT_SVG.slot + '</span>';
 }
 // Чужа зміна (pull): слот «syncing» одразу (рядок малюється вже з ним); фази «done» → порожньо — на місці, без renderAll.
-function expPulledMark(id){ recentlyPulledExpenseState.set(id, 'syncing'); expSyncSet(id, 'syncing'); }
+function expPulledMark(id, map){ (map || recentlyPulledExpenseState).set(id, 'syncing'); expSyncSet(id, 'syncing'); }
 function expPulledPhase(ids, phase){
   ids.forEach(function(id){
     if(phase === 'done') expSyncDone(id);
@@ -7293,20 +7406,22 @@ function conflictLoad(){
 function conflictPrune(now){ conflictLog = conflictLog.filter(function(e){ return e && typeof e.at === 'number' && now - e.at < CONFLICT_TTL_MS; }); }
 function conflictSave(){ try{ localStorage.setItem(LS_KEY_CONFLICTS, JSON.stringify(conflictLog)); }catch(e){} }
 function conflictOpenCount(){ return conflictLog.filter(function(e){ return e.status === 'open'; }).length; }
-function expRecordConflicts(rec, row, merged){
+function mdRecordConflicts(dom, rec, row, merged){
   const info = row.updated_by ? authorInfoFor(row.updated_by) : null;
   const mk = function(kind, extra){
-    const e = Object.assign({ id: 'cf' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), rid: rec.id, kind: kind, name: rec.name || '', actor: info ? info.name : '', gender: info && info.gender === 'f' ? 'f' : 'm', at: Date.now(), status: 'open' }, extra);
+    const e = Object.assign({ id: 'cf' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), rid: rec.id, dom: dom.key, kind: kind, name: dom.nameOf(rec), actor: info ? info.name : '', gender: info && info.gender === 'f' ? 'f' : 'm', at: Date.now(), status: 'open' }, extra);
     conflictLog.push(e); conflictAnnounce.push(e.id);
   };
   merged.conflicts.forEach(function(c){ mk('field', { field: c.field, mine: c.mine, theirs: c.theirs }); });
   if(merged.deletedConflict) mk('deleted', { mine: merged.deletedConflict.mine });
   if(merged.conflicts.length || merged.deletedConflict){ conflictSave(); updateNotifBell(); setTimeout(conflictFlushCards, 0); }
 }
-const CONFLICT_FIELD_ACC = { amount: 'суму', date: 'дату', name: 'назву', category: 'категорію', subcategory: 'підкатегорію', linkedInstallment: 'прив’язку до ОЧ' };
+function expRecordConflicts(rec, row, merged){ mdRecordConflicts(MERGE_DOMAINS.expenses, rec, row, merged); }
+const CONFLICT_FIELD_ACC = { amount: 'суму', date: 'дату', name: 'назву', category: 'категорію', subcategory: 'підкатегорію', linkedInstallment: 'прив’язку до ОЧ', source: 'джерело', balance: 'залишок', monthlyPayment: 'платіж', minPayment: 'мінімальний платіж', minPaymentDone: 'статус мінімального платежу', month: 'місяць' };
 function conflictValueText(field, v){
-  if(field === 'amount') return fmt(v);
+  if(field === 'amount' || field === 'balance' || field === 'monthlyPayment' || field === 'minPayment') return v === '' ? '—' : fmt(v);
   if(field === 'date') return isoToUaDateText(v);
+  if(field === 'minPaymentDone') return v === true ? 'виконано' : (v === false ? 'не виконано' : '—');
   return v ? String(v) : '—';
 }
 function conflictActor(e){ return e.actor || 'Інший пристрій'; }
@@ -7358,17 +7473,20 @@ async function conflictResolve(id, choice){
   if(!e || e.status !== 'open') return;
   if(choice === 'kept'){ e.status = 'kept'; }
   else{
-    const rec = expenses.find(function(x){ return x.id === e.rid; });
+    const dom = MERGE_DOMAINS[e.dom || 'expenses'];
+    const rec = dom.list().find(function(x){ return x.id === e.rid; });
     if(!conflictStillValid(e, rec)) e.status = 'changed';
     else{
-      if(e.kind === 'deleted'){ delete rec.deletedAt; Object.keys(e.mine || {}).forEach(function(f){ const o = {}; o[f] = e.mine[f]; expSetFromSnap(rec, o); }); }
-      else{ const o = {}; o[e.field] = e.mine; expSetFromSnap(rec, o); }
+      if(e.kind === 'deleted'){ delete rec.deletedAt; Object.keys(e.mine || {}).forEach(function(f){ const o = {}; o[f] = e.mine[f]; mdSetFromSnap(dom, rec, o); }); }
+      else{ const o = {}; o[e.field] = e.mine; mdSetFromSnap(dom, rec, o); }
       const now = new Date().toISOString();
-      rec.editedAt = now; rec.updatedAt = now;
+      if(dom.key === 'expenses') rec.editedAt = now;
+      rec.updatedAt = now;
       e.status = 'mine';
-      await saveExpenses();
-      pushExpenseRecordPilot(rec);
-      populateMonths(); renderAll();
+      await dom.save();
+      dom.push(rec);
+      if(dom.key === 'expenses') populateMonths();
+      renderAll();
     }
   }
   conflictSave(); updateNotifBell();
@@ -7519,17 +7637,8 @@ async function pushExpenseRecordPilotCore(rec, opts){
 async function pushExpensesBatch(records){
   if(!isCloudWriteReady() || !records.length) return { pushed: 0, failed: 0 };
   // Rev 2.32.193 (MERGE-EXP): записи з серверним зліпком (вже були на сервері) йдуть умовним update по одному, щоб не затерти чужі поля; нові — пакетним upsert як і раніше.
-  const casRecs = records.filter(function(r){ return r.serverUpdatedAt && r.serverBase; });
-  if(casRecs.length){
-    let cp = 0, cf = 0, ce = null;
-    for(const r of casRecs){
-      const res = await pushExpenseRecordPilot(r, { suppressPull: true });
-      if(res.success) cp++; else { cf++; if(!ce) ce = res.error; }
-    }
-    const rest = records.filter(function(r){ return casRecs.indexOf(r) === -1; });
-    const tail = rest.length ? await pushExpensesBatch(rest) : { pushed: 0, failed: 0 };
-    return { pushed: cp + tail.pushed, failed: cf + tail.failed, firstError: ce || tail.firstError };
-  }
+  const casRes = await mdBatchCas(records, pushExpenseRecordPilot);
+  if(casRes){ const tail = casRes.rest.length ? await pushExpensesBatch(casRes.rest) : { pushed: 0, failed: 0 }; return { pushed: casRes.pushed + tail.pushed, failed: casRes.failed + tail.failed, firstError: casRes.firstError || tail.firstError }; }
   const userId = cloudSession.user.id;
   const resolvable = [];
   for(const rec of records){
@@ -7593,12 +7702,27 @@ async function pushExpensesBatched(records, chunkSize){
   }
   return { pushed: pushed, failed: failed, firstError: firstError };
 }
+// Rev 2.32.201 (MERGE-DOMAINS): обгортка — індикатор слота стежить за запитом; логіка push у pushIncomeRecordPilotCore.
 async function pushIncomeRecordPilot(rec, opts){
+  const id = rec && rec.id;
+  expSyncBegin(id);
+  let res;
+  try{ res = await pushIncomeRecordPilotCore(rec, opts); }
+  catch(e){ expSyncEnd(id, false); throw e; }
+  expSyncEnd(id, !!(res && res.success && !res.unresolved));
+  return res;
+}
+async function pushIncomeRecordPilotCore(rec, opts){
   if(!isCloudWriteReady()) return { success: true };
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
+  if(rec.serverUpdatedAt && rec.serverBase){ // Rev 2.32.201 (MERGE-DOMAINS): існуючий запис — умовний update лише змінених полів
+    try{ return await mdPushCas(MERGE_DOMAINS.incomes, rec, {}, opts); }
+    catch(e){ return { success: false, error: e && e.message ? e.message : String(e) }; }
+  }
   try{
     const shSnap = shadowSnap(rec); // Rev 2.32.192 (SHADOW-REV)
+    const sentSnap = mdSnap(MERGE_DOMAINS.incomes, rec), sentAt = rec.updatedAt; // Rev 2.32.201
     const { data, error } = await shadowRet(client.from('incomes').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
@@ -7614,8 +7738,9 @@ async function pushIncomeRecordPilot(rec, opts){
     }, { onConflict: 'id' }));
     // Rev #30 (6D.57) — syncedUpdatedAt, той самий принцип, що pushExpenseRecordPilot().
     if(!error){
-      rec.syncedUpdatedAt = rec.updatedAt;
+      rec.syncedUpdatedAt = sentAt;
       shadowSetServer(rec, data && data[0] && data[0].updated_at); shadowAfterPush(rec, shSnap); // Rev 2.32.192 (SHADOW-REV)
+      rec.serverBase = sentSnap; // Rev 2.32.201
       await saveIncomes();
     }
     // Rev #30 (6D.49/6D.58) — той самий принцип, що pushExpenseRecordPilot().
@@ -7629,6 +7754,8 @@ async function pushIncomeRecordPilot(rec, opts){
 // Rev #30 (6D.60) — той самий принцип, що pushExpensesBatch() вище.
 async function pushIncomesBatch(records){
   if(!isCloudWriteReady() || !records.length) return { pushed: 0, failed: 0 };
+  const casRes = await mdBatchCas(records, pushIncomeRecordPilot); // Rev 2.32.201: записи зі зліпком — умовним update по одному
+  if(casRes){ const tail = casRes.rest.length ? await pushIncomesBatch(casRes.rest) : { pushed: 0, failed: 0 }; return { pushed: casRes.pushed + tail.pushed, failed: casRes.failed + tail.failed, firstError: casRes.firstError || tail.firstError }; }
   const userId = cloudSession.user.id;
   const payloads = records.map(function(rec){
     return {
@@ -7641,13 +7768,17 @@ async function pushIncomesBatch(records){
   try{
     const client = getSupabaseClient();
     const shSnaps = records.map(function(rec){ return shadowSnap(rec); }); // Rev 2.32.192 (SHADOW-REV)
+    const sentSnaps = records.map(function(rec){ return mdSnap(MERGE_DOMAINS.incomes, rec); }); // Rev 2.32.201
+    records.forEach(function(rec){ expSyncBegin(rec.id); });
     const { data, error } = await shadowRet(client.from('incomes').upsert(payloads, { onConflict: 'id' }));
     if(!error){
-      records.forEach(function(rec, i){ rec.syncedUpdatedAt = rec.updatedAt; shadowSetServer(rec, shadowServerAt(data, rec.id)); shadowAfterPush(rec, shSnaps[i]); });
+      records.forEach(function(rec, i){ rec.syncedUpdatedAt = rec.updatedAt; shadowSetServer(rec, shadowServerAt(data, rec.id)); shadowAfterPush(rec, shSnaps[i]); rec.serverBase = sentSnaps[i]; });
       await saveIncomes();
+      records.forEach(function(rec){ expSyncEnd(rec.id, true); });
       return { pushed: records.length, failed: 0 };
     }
   }catch(e){ /* fallback нижче */ }
+  records.forEach(function(rec){ expSyncEnd(rec.id, false); }); // далі кожен запис пушиться окремо (свій begin/end)
   let pushed = 0, failed = 0, firstError = null;
   for(const rec of records){
     const result = await pushIncomeRecordPilot(rec, { suppressPull: true });
@@ -7665,7 +7796,17 @@ async function pushIncomesBatched(records, chunkSize){
   }
   return { pushed: pushed, failed: failed, firstError: firstError };
 }
+// Rev 2.32.201 (MERGE-DOMAINS): обгортка — індикатор стежить за запитом; логіка push у pushDebtRecordPilotCore.
 async function pushDebtRecordPilot(rec, opts){
+  const id = rec && rec.id;
+  expSyncBegin(id);
+  let res;
+  try{ res = await pushDebtRecordPilotCore(rec, opts); }
+  catch(e){ expSyncEnd(id, false); throw e; }
+  expSyncEnd(id, !!(res && res.success && !res.unresolved));
+  return res;
+}
+async function pushDebtRecordPilotCore(rec, opts){
   if(!isCloudWriteReady()) return { success: true };
   let bankAccountId = null, installmentAccountId = null;
   if(rec.kind === 'card'){
@@ -7680,8 +7821,13 @@ async function pushDebtRecordPilot(rec, opts){
   rec.accountId = bankAccountId || installmentAccountId; // Rev 2.32.178 (ID-BIND-1): лише для читання, до push не потрапляє (рядок будується явно)
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
+  if(rec.serverUpdatedAt && rec.serverBase){ // Rev 2.32.201 (MERGE-DOMAINS): існуючий запис — умовний update лише змінених полів (назву веде сервер)
+    try{ return await mdPushCas(MERGE_DOMAINS.debts, rec, {}, opts); }
+    catch(e){ return { success: false, error: e && e.message ? e.message : String(e) }; }
+  }
   try{
     const shSnap = shadowSnap(rec); // Rev 2.32.192 (SHADOW-REV)
+    const sentSnap = mdSnap(MERGE_DOMAINS.debts, rec), sentAt = rec.updatedAt; // Rev 2.32.201
     const { data, error } = await shadowRet(client.from('debts').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
@@ -7703,8 +7849,9 @@ async function pushDebtRecordPilot(rec, opts){
     }, { onConflict: 'id' }));
     // Rev #30 (6D.57) — syncedUpdatedAt, той самий принцип, що pushExpenseRecordPilot().
     if(!error){
-      rec.syncedUpdatedAt = rec.updatedAt;
+      rec.syncedUpdatedAt = sentAt;
       shadowSetServer(rec, data && data[0] && data[0].updated_at); shadowAfterPush(rec, shSnap); // Rev 2.32.192 (SHADOW-REV)
+      rec.serverBase = sentSnap; // Rev 2.32.201
       await saveDebts();
     }
     // Rev #30 (6D.76) — КРИТИЧНИЙ фікс: реальний інцидент користувача
@@ -7747,6 +7894,8 @@ async function pushDebtRecordPilot(rec, opts){
 // Rev #30 (6D.60) — той самий принцип, що pushExpensesBatch() вище.
 async function pushDebtsBatch(records){
   if(!isCloudWriteReady() || !records.length) return { pushed: 0, failed: 0 };
+  const casRes = await mdBatchCas(records, pushDebtRecordPilot); // Rev 2.32.201: записи зі зліпком — умовним update по одному
+  if(casRes){ const tail = casRes.rest.length ? await pushDebtsBatch(casRes.rest) : { pushed: 0, failed: 0 }; return { pushed: casRes.pushed + tail.pushed, failed: casRes.failed + tail.failed, firstError: casRes.firstError || tail.firstError }; }
   const userId = cloudSession.user.id;
   const resolvable = [];
   for(const rec of records){
@@ -7778,13 +7927,17 @@ async function pushDebtsBatch(records){
   try{
     const client = getSupabaseClient();
     const shSnaps = resolvable.map(function(r){ return shadowSnap(r.rec); }); // Rev 2.32.192 (SHADOW-REV)
+    const sentSnaps = resolvable.map(function(r){ return mdSnap(MERGE_DOMAINS.debts, r.rec); }); // Rev 2.32.201
+    resolvable.forEach(function(r){ expSyncBegin(r.rec.id); });
     const { data, error } = await shadowRet(client.from('debts').upsert(resolvable.map(function(r){ return r.payload; }), { onConflict: 'id' }));
     if(!error){
-      resolvable.forEach(function(r, i){ r.rec.syncedUpdatedAt = r.rec.updatedAt; shadowSetServer(r.rec, shadowServerAt(data, r.rec.id)); shadowAfterPush(r.rec, shSnaps[i]); });
+      resolvable.forEach(function(r, i){ r.rec.syncedUpdatedAt = r.rec.updatedAt; shadowSetServer(r.rec, shadowServerAt(data, r.rec.id)); shadowAfterPush(r.rec, shSnaps[i]); r.rec.serverBase = sentSnaps[i]; });
       await saveDebts();
+      resolvable.forEach(function(r){ expSyncEnd(r.rec.id, true); });
       return { pushed: resolvable.length, failed: 0 };
     }
   }catch(e){ /* fallback нижче */ }
+  resolvable.forEach(function(r){ expSyncEnd(r.rec.id, false); }); // далі кожен запис пушиться окремо
   let pushed = 0, failed = 0, firstError = null;
   for(const r of resolvable){
     const result = await pushDebtRecordPilot(r.rec, { suppressPull: true });
@@ -7884,26 +8037,9 @@ async function pullExpensesCore(opts){
       if(local && editingRecordKey === recordKey('expense', local.id) && local.updatedAt !== row.updated_at){ holdMarker = true; continue; }
       if(!maxSeen || row.updated_at > maxSeen) maxSeen = row.updated_at;
       if(local){
-        shadowNormalize(local); // Rev 2.32.193 (MERGE-EXP): «брудність» витрат за лічильниками, а не за годинником пристрою
-        if(shadowDirtyNew(local) && local.serverUpdatedAt){
-          if(local.serverUpdatedAt === row.updated_at){ // сервер не змінювався: мій запис чекає на відправку
-            keptLocal++;
-            if(!local.serverBase) local.serverBase = expSnapFromRow(row, linkedInstallmentName);
-            if(!local.createdBy && row.created_by){ local.createdBy = row.created_by; authorFilled = true; }
-            pushExpenseRecordPilot(local);
-          }else{ // сервер змінився: потрійне злиття (зліпок, моє, серверне)
-            const wasDel = !!local.deletedAt;
-            const merged = expMergeServerRow(local, row, linkedInstallmentName);
-            expRecordConflicts(local, row, merged);
-            updated++;
-            if(merged.localOnly.length) pushExpenseRecordPilot(local);
-            if(hadMarker){
-              expPulledMark(local.id);
-              if(!merged.conflicts.length && !merged.deletedConflict) pushOtherActorEvent('expenses', row.deleted_at && !wasDel ? 'delete' : 'edit', row.updated_by, row.note || '', row.amount);
-            }
-          }
-          continue;
-        }
+        // Rev 2.32.193 (MERGE-EXP) / 2.32.201: «брудність» за лічильниками, злиття — спільний код mdPullDirty
+        const dirtyRes = mdPullDirty(MERGE_DOMAINS.expenses, local, row, { linkedName: linkedInstallmentName }, hadMarker);
+        if(dirtyRes){ if(dirtyRes.kind === 'kept') keptLocal++; else updated++; if(dirtyRes.authorFilled) authorFilled = true; continue; }
         // Rev 2.32.178 (ID-BIND-1): лише для читання — id прив'язаної ОЧ із сервера (пошуку й push не стосується)
         if(row.linked_installment_id && local.linkedInstallmentId !== row.linked_installment_id) local.linkedInstallmentId = row.linked_installment_id;
         else if(!row.linked_installment_id && local.linkedInstallmentId) delete local.linkedInstallmentId;
@@ -7922,7 +8058,7 @@ async function pullExpensesCore(opts){
         const cloudCat = row.category || '';
         const cloudSub = row.subcategory || '';
         // Rev 2.32.195 (SYNC-SLOT): «відлуння» власного запису — pull із тим самим updated_at, що вже в serverUpdatedAt, коли запис не «брудний»: тихо вирівнюємо службові поля, без перерендеру й підсвітки
-        const echo = !!local.serverUpdatedAt && local.serverUpdatedAt === row.updated_at && !shadowDirtyNew(local);
+        const echo = mdIsEcho(local, row);
         // Rev #30 (6D.42) — deletedAt тепер таке саме синхронізоване поле,
         // як решта: (local.deletedAt||null) !== (row.deleted_at||null) у
         // тому самому OR-ланцюжку, delete/assign нижче — той самий принцип,
@@ -8033,7 +8169,8 @@ async function pullExpensesPilot(){
 async function pullIncomesCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
-  let updated = 0, added = 0, keptLocal = 0, authorFilled = false; // Rev 2.32.187
+  let updated = 0, added = 0, keptLocal = 0, authorFilled = false, echoed = 0; // Rev 2.32.187
+  let holdMarker = false; // Rev 2.32.201 (MERGE-DOMAINS)
   // Rev #30 (6D.84) — той самий принцип, що hadMarker у pullExpensesCore()
   // (докоментар там): гейтить сповіщення "чужа дія" від фальшивого спалаху
   // на першому повному backfill-пулі.
@@ -8048,6 +8185,12 @@ async function pullIncomesCore(opts){
     for(const row of data){
       const local = incomes.find(function(i){ return i.id === row.id; });
       if(local){
+        // Rev 2.32.201 (MERGE-DOMAINS): відкритий для редагування запис не змінюється «під руками»; «брудність» за лічильниками, злиття — спільний код
+        if(editingRecordKey === recordKey('income', local.id) && local.updatedAt !== row.updated_at){ holdMarker = true; continue; }
+        const dirtyRes = mdPullDirty(MERGE_DOMAINS.incomes, local, row, {}, hadMarker);
+        if(dirtyRes){ if(dirtyRes.kind === 'kept') keptLocal++; else updated++; if(dirtyRes.authorFilled) authorFilled = true; continue; }
+        const echo = mdIsEcho(local, row);
+        const echoAuthor = echo && local.createdBy !== row.created_by;
         const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
         const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
@@ -8073,9 +8216,10 @@ async function pullIncomesCore(opts){
           local.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.57)
           local.createdBy = row.created_by;
           local.updatedBy = row.updated_by;
-          updated++;
-          if(hadMarker){
-            recentlyPulledIncomeState.set(local.id, 'syncing'); // Rev #30 (6D.87) — той самий принцип, що expenses/6D.68
+          local.serverBase = MERGE_DOMAINS.incomes.snapFromRow(row); local.serverUpdatedAt = row.updated_at; // Rev 2.32.201 (MERGE-DOMAINS)
+          if(echo && !echoAuthor){ echoed++; } else updated++;
+          if(hadMarker && !echo){ // «відлуння» власного запису не підсвічується
+            expPulledMark(local.id, recentlyPulledIncomeState); // Rev #30 (6D.87) — той самий принцип, що expenses/6D.68
             const isDelete = row.deleted_at && !wasDeleted;
             pushOtherActorEvent('incomes', isDelete ? 'delete' : 'edit', row.updated_by, cloudSource, row.amount);
           }
@@ -8085,35 +8229,36 @@ async function pullIncomesCore(opts){
       // Rev #30 (6D.43) — новий для цього пристрою запис, вже tombstoned у Cloud — "пристрій C" DoD-сценарій.
       const rec = { id: row.id, date: row.income_date, source: row.note || '', amount: row.amount, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, createdBy: row.created_by, updatedBy: row.updated_by };
       if(row.deleted_at) rec.deletedAt = row.deleted_at;
+      rec.serverBase = MERGE_DOMAINS.incomes.snapFromRow(row); rec.serverUpdatedAt = row.updated_at; // Rev 2.32.201
       incomes.push(rec);
       if(hadMarker){
-        recentlyPulledIncomeState.set(rec.id, 'syncing'); // Rev #30 (6D.87)
+        expPulledMark(rec.id, recentlyPulledIncomeState); // Rev #30 (6D.87)
         if(!row.deleted_at) pushOtherActorEvent('incomes', 'add', row.created_by, incomeSourceDisplay(rec.source), rec.amount); // Rev #30 (6D.84)
       }
       added++;
     }
-    updateSyncMarkerFromAllRows('incomes', data);
+    if(!holdMarker) updateSyncMarkerFromAllRows('incomes', data); // Rev 2.32.201: рядок відкритого запису прийде знову
   }catch(e){
     return { skipped: true };
   }
-  if(updated || added || authorFilled) await saveIncomes();
+  if(updated || added || authorFilled || echoed) await saveIncomes();
   // Rev #30 (6D.55) — той самий принцип, що pullExpensesCore() вище:
   // дзеркалимо render-виклик локального save (saveIncomeDrawer()).
   if(updated || added) renderAll();
   // Rev #30 (6D.87) — "щойно з хмари" pulse (6D.67-69) розширено на incomes
   // (той самий "основний список" Журналу, що expenses — .expense-row
   // спільний для обох kind'ів) — ідентична 2-фазна анімація/таймінг.
+  // Rev 2.32.201 (SYNC-SLOT): фази змінюють лише слот і класи наявного рядка, без renderAll (повторний рендер перезапускав cardBlink).
   if((updated || added) && hadMarker){
     setTimeout(function(){
+      const doneIds = [];
       recentlyPulledIncomeState.forEach(function(state, id){
-        if(state === 'syncing') recentlyPulledIncomeState.set(id, 'done');
+        if(state === 'syncing'){ recentlyPulledIncomeState.set(id, 'done'); doneIds.push(id); }
       });
-      renderAll();
+      expPulledPhase(doneIds, 'done');
       setTimeout(function(){
-        recentlyPulledIncomeState.forEach(function(state, id){
-          if(state === 'done') recentlyPulledIncomeState.delete(id);
-        });
-        renderAll();
+        doneIds.forEach(function(id){ if(recentlyPulledIncomeState.get(id) === 'done') recentlyPulledIncomeState.delete(id); });
+        expPulledPhase(doneIds, 'idle');
       }, RECORD_SYNC_DONE_MS);
     }, RECORD_SYNC_PULSE_MS * RECORD_SYNC_PULSE_COUNT);
   }
@@ -8127,7 +8272,7 @@ async function pullIncomesPilot(){
 async function pullDebtsCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
-  let updated = 0, added = 0, keptLocal = 0, skippedFk = 0, authorFilled = false; // Rev 2.32.187
+  let updated = 0, added = 0, keptLocal = 0, skippedFk = 0, authorFilled = false, echoed = 0; // Rev 2.32.187
   let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
   const hadMarker = !!getSyncMarker('debts'); // Rev #30 (6D.84) — той самий принцип, що pullExpensesCore()
   try{
@@ -8152,6 +8297,10 @@ async function pullDebtsCore(opts){
       const month = dateToMonth(row.month); // Cloud-колонка типу date, локально 'YYYY-MM'
       const local = debts.find(function(d){ return d.id === row.id; });
       if(local){
+        // Rev 2.32.201 (MERGE-DOMAINS): «брудність» за лічильниками, злиття — спільний код; назва боргу береться з рахунку/ОЧ (сервер), не з локального запису
+        const dirtyRes = mdPullDirty(MERGE_DOMAINS.debts, local, row, { resolvedName: resolvedName, resolvedAccountId: resolvedAccountId }, hadMarker);
+        if(dirtyRes){ if(dirtyRes.kind === 'kept') keptLocal++; else updated++; if(dirtyRes.authorFilled) authorFilled = true; continue; }
+        const echo = mdIsEcho(local, row);
         if(resolvedAccountId && local.accountId !== resolvedAccountId) local.accountId = resolvedAccountId; // Rev 2.32.178 (ID-BIND-1): допис без позначки «змінено» (синхронізоване поле не змінюється)
         const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
@@ -8193,8 +8342,9 @@ async function pullDebtsCore(opts){
           local.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.57)
           local.createdBy = row.created_by;
           local.updatedBy = row.updated_by;
-          updated++;
-          if(hadMarker){
+          local.serverBase = MERGE_DOMAINS.debts.snapFromRow(row); local.serverUpdatedAt = row.updated_at; // Rev 2.32.201
+          if(echo){ echoed++; } else updated++; // «відлуння» власного запису: без перерендеру й події
+          if(hadMarker && !echo){
             const isDelete = row.deleted_at && !wasDeleted;
             pushOtherActorEvent('debts', isDelete ? 'delete' : 'edit', row.updated_by, resolvedName, row.balance);
           }
@@ -8207,6 +8357,7 @@ async function pullDebtsCore(opts){
       if(row.monthly_payment != null) rec.monthlyPayment = row.monthly_payment;
       // Rev #30 (6D.44) — новий для цього пристрою запис, вже tombstoned у Cloud — "пристрій C" DoD-сценарій.
       if(row.deleted_at) rec.deletedAt = row.deleted_at;
+      rec.serverBase = MERGE_DOMAINS.debts.snapFromRow(row); rec.serverUpdatedAt = row.updated_at; // Rev 2.32.201
       debts.push(rec);
       added++;
       if(hadMarker && !row.deleted_at) pushOtherActorEvent('debts', 'add', row.created_by, resolvedName, row.balance); // Rev #30 (6D.84)
@@ -8215,7 +8366,7 @@ async function pullDebtsCore(opts){
   }catch(e){
     return { skipped: true };
   }
-  if(updated || added || authorFilled) await saveDebts();
+  if(updated || added || authorFilled || echoed) await saveDebts();
   // Rev #30 (6D.55) — той самий принцип, що pullExpensesCore() вище:
   // дзеркалимо render-виклик локального save (saveCardDebtDrawer()/saveInstallmentDrawer()).
   if(updated || added) renderAll();
@@ -8996,7 +9147,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.203';
+const APP_VERSION = '2.32.204';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -18547,7 +18698,7 @@ function buildRecordGroupsHtml(items){
             <div class="exp-row-top">
               <div class="exp-main">
                 <div class="exp-name">${escapeHtml(e.name)}</div>
-                <div class="exp-meta${instLinkHtml ? ' has-inst' : ''}"><span class="${chipClass}">${escapeHtml(chipText)}</span>${monoBadgeHtml(e.source)}${editedBadgeHtml}${isIncome ? justPulledBadgeHtml : expSyncSlotHtml(e)}${instLinkHtml}</div>
+                <div class="exp-meta${instLinkHtml ? ' has-inst' : ''}"><span class="${chipClass}">${escapeHtml(chipText)}</span>${monoBadgeHtml(e.source)}${editedBadgeHtml}${expSyncSlotHtml(e)}${instLinkHtml}</div>
               </div>
               <div class="${amountClass}">${sign}${fmt(e.amount)}</div>
               <button type="button" class="exp-del" onclick="event.stopPropagation(); confirmDeleteRecord('${e.kind}','${safeId(e.id)}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -25160,6 +25311,9 @@ const CHECKS = [
   { id: '2.32.202-1', rev: '2.32.202', addedOn: '2026-10-29', title: 'Спільний список кроків', steps: ['Закрийте будь-який крок кнопкою «Працює» або «Не працює».', 'Нехай Оля відкриє застосунок і «Перевірки».'], expect: 'у Олі цей крок зник, а число «залишилось» збігається з вашим.', reasons: ['У Олі крок лишився', 'Числа різні'] },
   { id: '2.32.203-1', rev: '2.32.203', addedOn: '2026-10-29', title: 'Push Monobank при повністю закритому застосунку', steps: ['Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Дочекайтесь push про нові операції Monobank.', 'Натисніть на push.'], expect: 'відкриваються «Вхідні» з підсвіченою пачкою, а не «Аналітика».', reasons: ['Відкрилась «Аналітика»', 'Пачка не підсвічена'] },
   { id: '2.32.203-2', rev: '2.32.203', addedOn: '2026-10-29', title: 'Push про ОЧ при повністю закритому застосунку', steps: ['Закрийте застосунок повністю.', 'Дочекайтесь push «Платіж за ОЧ».', 'Натисніть на push.'], expect: 'відкривається «Облік → ОЧ»; якщо в нагадуванні одна ОЧ, вона мигає.', reasons: ['Відкрилась інша вкладка', 'ОЧ не мигає'] },
+  { id: '2.32.201-1', rev: '2.32.201', addedOn: '2026-10-29', title: 'Дохід: різні поля зливаються', steps: ['Вимкніть мережу на своєму телефоні.', 'Змініть суму будь-якого доходу.', 'Нехай Оля змінить джерело того самого доходу.', 'Увімкніть мережу.'], expect: 'у доході і ваша сума, і джерело Олі, без сповіщень.', reasons: ['Моя сума зникла', 'Джерело Олі зникло'] },
+  { id: '2.32.201-2', rev: '2.32.201', addedOn: '2026-10-29', title: 'Борг: те саме поле', steps: ['Вимкніть мережу.', 'Змініть залишок будь-якого боргу картки.', 'Нехай Оля змінить залишок того самого боргу.', 'Увімкніть мережу.'], expect: 'з\u2019являється сповіщення «Назва: Оля вже змінила залишок» з кнопкою «Повернути моє».', reasons: ['Сповіщення немає', 'У боргу мій залишок замість Олиного'] },
+  { id: '2.32.201-3', rev: '2.32.201', addedOn: '2026-10-29', title: 'Індикатор у рядку доходу', steps: ['Увімкніть режим у літаку.', 'Додайте дохід.', 'Вимкніть режим у літаку.'], expect: 'біля доходу червона хмаринка стає синьою в обертовому кільці, потім зеленою галочкою.', reasons: ['Хмаринки немає', 'Хмаринка не змінюється'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

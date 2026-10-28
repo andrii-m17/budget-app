@@ -172,6 +172,44 @@ test('8. закрита й прихована ОЧ не показуються �
   await expect(screen).not.toContainText('ОЧ-прихована');
 });
 
+test('9. доходи: різні поля зливаються мовчки (моя сума офлайн, чуже джерело), без сповіщень', async ({ page }) => {
+  await boot(page, 'empty');
+  const id = await page.evaluate(async () => {
+    const now = new Date().toISOString(); const rec = { id: generateUUID(), date: localDateISO(), source: 'Тест-джерело', amount: 1000, createdAt: now, updatedAt: now };
+    incomes.unshift(rec); await saveIncomes(); await pushIncomeRecordPilot(rec, { suppressPull: true }); return rec.id;
+  });
+  await page.waitForFunction(i => { const r = incomes.find(x => x.id === i); return r && r.serverUpdatedAt && r.serverBase; }, id);
+  await page.evaluate(() => { window.__offline = true; });
+  await page.evaluate(async i => { const r = incomes.find(x => x.id === i); r.amount = 1200; r.updatedAt = new Date(Date.now() + 5).toISOString(); await saveIncomes(); await pushIncomeRecordPilot(r, { suppressPull: true }); }, id);
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'incomes', id: i, op: 'update', patch: { note: 'Інше джерело' } }); }, id);
+  await goOnline(page);
+  await expect.poll(() => page.evaluate(i => { const r = incomes.find(x => x.id === i); return [r.amount, r.source]; }, id), { timeout: 20000 }).toEqual([1200, 'Інше джерело']);
+  await expect.poll(() => page.evaluate(i => { const r = window.MockCloud.state.tables.incomes.find(x => x.id === i); return [r.amount, r.note]; }, id), { timeout: 20000 }).toEqual([1200, 'Інше джерело']);
+  expect(await page.evaluate(() => conflictLog.length)).toBe(0);
+  await expect(page.locator('.success-toast')).toHaveCount(0);
+});
+
+test('10. борги: те саме поле дає картку конфлікту з назвою запису й «Повернути моє»', async ({ page }) => {
+  await boot(page, 'empty');
+  await page.evaluate(async () => { const now = new Date().toISOString(); bankAccounts.push({ name: 'Тест-картка', createdAt: now, updatedAt: now }); await saveBankAccounts(); });
+  await page.waitForFunction(() => { const a = bankAccounts.find(x => x.name === 'Тест-картка'); return a && a.cloudId; }, null, { timeout: 20000 });
+  const id = await page.evaluate(async () => {
+    const now = new Date().toISOString(); const acc = bankAccounts.find(x => x.name === 'Тест-картка'); const rec = { id: generateUUID(), accountId: acc.cloudId, name: acc.name, kind: 'card', month: localDateISO().slice(0, 7), balance: 5000, createdAt: now, updatedAt: now };
+    debts.push(rec); await saveDebts(); await pushDebtRecordPilot(rec, { suppressPull: true }); return rec.id;
+  });
+  await page.waitForFunction(i => { const r = debts.find(x => x.id === i); return r && r.serverUpdatedAt && r.serverBase; }, id);
+  await page.evaluate(() => { window.__offline = true; });
+  await page.evaluate(async i => { const r = debts.find(x => x.id === i); r.balance = 4000; r.updatedAt = new Date(Date.now() + 5).toISOString(); await saveDebts(); await pushDebtRecordPilot(r, { suppressPull: true }); }, id);
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'debts', id: i, op: 'update', patch: { balance: 4500 } }); }, id);
+  await goOnline(page);
+  const card = page.locator('.success-toast');
+  await expect(card).toContainText(/вже змін(ив|ила) залишок/, { timeout: 20000 });
+  await expect(card).toContainText('4');
+  expect(await page.evaluate(i => debts.find(x => x.id === i).balance, id)).toBe(4500);
+  await card.getByRole('button', { name: 'Повернути моє' }).click();
+  await expect.poll(() => page.evaluate(i => debts.find(x => x.id === i).balance, id)).toBe(4000);
+  await expect.poll(() => page.evaluate(i => window.MockCloud.state.tables.debts.find(x => x.id === i).balance, id), { timeout: 20000 }).toBe(4000);
+
 test('11. «Перевірки»: спільний список сім\'ї: відповідь одного ховає крок у другого, «Не можу перевірити» не ховає, числа однакові', async ({ page, browser, baseURL }) => {
   // два контексти = два телефони; мок кожного живе в пам'яті сторінки, тож рядки журналу client_debug_logs переносяться між ними через MockCloud.otherDevice
   const ctxB = await browser.newContext({ ...devices['iPhone 14'], baseURL, colorScheme: 'dark', serviceWorkers: 'block' });

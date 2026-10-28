@@ -204,7 +204,7 @@ test('журнал конфліктів: 14 днів, чиста міграці�
   A.conflictLog.forEach(x => { x.status = 'kept'; }); assert.ok(!/data-conflict-act/.test(A.conflictSectionHtml()));
 });
 test('джерело: умовний update лише змінених полів з умовою на серверний updated_at, без нових запитів поза конфліктом; журнал очищається при виході; значок рахує відкриті конфлікти', () => {
-  assert.match(SRC, /client\.from\('expenses'\)\.update\(payload\)\.eq\('id', rec\.id\)\.eq\('updated_at', rec\.serverUpdatedAt\)\.select\('id,updated_at'\)/);
+  assert.match(SRC, /client\.from\(dom\.table\)\.update\(payload\)\.eq\('id', rec\.id\)\.eq\('updated_at', rec\.serverUpdatedAt\)\.select\('id,updated_at'\)/);
   assert.match(SRC, /accountLocalStorageKeys[\s\S]{0,400}LS_KEY_CONFLICTS/);
   assert.match(SRC, /unreadBadge\(unreadAll\)/);
   assert.ok(!/localTime\s*[<>]=?\s*cloudTime[^\n]*(localRev|syncedRev)/.test(SRC));
@@ -312,7 +312,7 @@ test('«відлуння» власного запису: pull із тим са�
   assert.equal(B.recentlyPulledExpenseState.size, 0);
 });
 test('джерело: слот лише для витрат, reduced-motion, токени, переходи за макетом, картка без «не збережено»', () => {
-  assert.match(SRC, /\$\{isIncome \? justPulledBadgeHtml : expSyncSlotHtml\(e\)\}/);
+  assert.match(SRC, /\$\{expSyncSlotHtml\(e\)\}/); // Rev 2.32.201: слот і в рядках доходів
   assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.sync-slot \.sl-ring\{ animation:none; \}/);
   const css = SRC.slice(SRC.indexOf('.sync-slot{ display:inline-flex'), SRC.indexOf('/* ===== Rev 2.32.189 (CHECKS-1)'));
   assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(css), 'лише токени'); assert.match(css, /width:20px; height:20px/);

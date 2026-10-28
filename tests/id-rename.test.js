@@ -103,10 +103,10 @@ test('push: рахунок боргу/витрати — за accountId/linkedIn
   assert.equal(c.linkedOwnerAccount({ linkedInstallment: 'Предмет А' }).cloudId, 'id-a');
 });
 test('push: у payload борг іде з назвою рахунку, не застарілою; push-функції шукають через debtOwnerAccount/linkedOwnerAccount', function(){
-  ['pushDebtRecordPilot', 'pushDebtsBatch'].forEach(n => { const f = fn(n); assert.match(f, /debtOwnerAccount\(rec\)/); assert.ok(!/(bankAccounts|installmentAccounts)\.find\(function\(\w\)\{ return \w\.name === rec\.name; \}\)/.test(f.replace(/\/\/[^\n]*/g, '')), n + ': пошук за назвою прибрано'); });
+  ['pushDebtRecordPilotCore', 'pushDebtsBatch'].forEach(n => { const f = fn(n); assert.match(f, /debtOwnerAccount\(rec\)/); assert.ok(!/(bankAccounts|installmentAccounts)\.find\(function\(\w\)\{ return \w\.name === rec\.name; \}\)/.test(f.replace(/\/\/[^\n]*/g, '')), n + ': пошук за назвою прибрано'); });
   ['pushExpenseRecordPilotCore', 'pushExpensesBatch'].forEach(n => { const f = fn(n); assert.match(f, /linkedOwnerAccount\(rec\)/); });
-  assert.match(fn('pushDebtRecordPilot'), /name: \(debtOwnerAccount\(rec\) \|\| rec\)\.name/);
-  assert.match(fn('pushDebtRecordPilot'), /unresolved: true/);
+  assert.match(fn('pushDebtRecordPilotCore'), /name: \(debtOwnerAccount\(rec\) \|\| rec\)\.name/);
+  assert.match(fn('pushDebtRecordPilotCore'), /unresolved: true/);
 });
 
 // ---- (4) видалення й purge за записом ----
