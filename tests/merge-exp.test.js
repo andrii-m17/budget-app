@@ -323,16 +323,16 @@ function pathBBox(d){
   const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
   return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
 }
-test('знак оклику: x = x-центр хмаринки (±0,1), висота ≈45 % висоти хмаринки, оптично по центру з підйомом, зазор крапка–нижній край ≥ 2,5; контур у pending і syncing той самий', () => {
+test('знак оклику (варіант Б): візуальний центр фігури = центр bbox контуру (x ±0,1, y ±0,15), висота ≈0,58·H, зазор до низу контуру ≥ 1,3; контур у pending і syncing той самий', () => {
   const { c } = slotEnv();
   const d = evalInSandbox(c, 'SYNC_SLOT_CLOUD_D'), bang = evalInSandbox(c, 'SYNC_SLOT_BANG');
-  const bb = pathBBox(d); const cx = (bb.x0 + bb.x1) / 2, h = bb.y1 - bb.y0;
+  const bb = pathBBox(d); const cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2, H = bb.y1 - bb.y0, r = 1.9 / 2;
   const bar = bang.match(/M([\d.]+) ([\d.]+)v([\d.]+)/), dot = bang.match(/M([\d.]+) ([\d.]+)h\.01/);
-  assert.ok(Math.abs(Number(bar[1]) - cx) <= 0.1, 'x рисочки = ' + cx); assert.ok(Math.abs(Number(dot[1]) - cx) <= 0.1, 'x крапки');
-  const top = Number(bar[2]), dotY = Number(dot[2]); const total = dotY - top; // довжина по осі штриху
-  assert.ok(Math.abs(total / h - 0.45) < 0.03, 'висота знака ≈ 45 %: ' + (total / h));
-  const mid = (top + dotY) / 2, bodyMid = (bb.y0 + bb.y1) / 2; assert.ok(Math.abs((bodyMid - mid) - 0.5) < 0.1, 'підйом ≈ 0,5');
-  const gap = (bb.y1 - 1.9 / 2) - (dotY + 1.9 / 2); assert.ok(gap >= 2.5, 'зазор ' + gap);
+  assert.ok(Math.abs(Number(bar[1]) - cx) <= 0.1, 'x рисочки'); assert.ok(Math.abs(Number(dot[1]) - cx) <= 0.1, 'x крапки');
+  const top = Number(bar[2]) - r, bottom = Number(dot[2]) + r; // візуальні межі з округленням штриху
+  assert.ok(Math.abs((top + bottom) / 2 - cy) <= 0.15, 'візуальний центр ' + (top + bottom) / 2 + ' vs ' + cy);
+  assert.ok(Math.abs((bottom - top) / H - 0.58) < 0.02, 'візуальна висота ' + (bottom - top) / H); assert.ok(Math.abs(Number(bar[3]) / H - 0.22) < 0.01, 'рисочка 0,22·H');
+  assert.ok(bb.y1 - bottom >= 1.3, 'зазор ' + (bb.y1 - bottom));
   const slot = evalInSandbox(c, 'SYNC_SLOT_SVG.slot'), pending = evalInSandbox(c, 'SYNC_SLOT_SVG.pending');
   assert.ok(slot.includes('d="' + d + '"') && pending.includes('d="' + d + '"'), 'один контур');
   assert.ok(slot.includes(bang) && pending.includes(bang), 'одне джерело розмітки знака (слот і картка конфлікту)');
