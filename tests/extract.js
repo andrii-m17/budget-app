@@ -96,7 +96,20 @@ function buildSandbox(globals, names){
     + "if(typeof READONLY_USER_HINT === 'undefined') var READONLY_USER_HINT = 'x';"
     + "if(typeof isCloudWriteReady === 'undefined') var isCloudWriteReady = function(){ return !isWriteBlocked() && (typeof isCloudSessionReady === 'function' ? isCloudSessionReady() : false); };", context);
   // Rev 2.32.192 (SHADOW-REV): тіньові помічники обліку версій викликаються з push/save-функцій; додаємо їх у кожен sandbox автоматично (тести не мусять перелічувати їх у NAMES).
-  const SHADOW = ['shadowNormalize', 'shadowNormalizeLazy', 'shadowNormalizeList', 'shadowNormalizeMap', 'shadowNormalizeAll', 'shadowSnap', 'shadowSetServer', 'shadowAfterPush', 'shadowRet', 'shadowServerAt', 'shadowDirtyNew', 'shadowDirtyOld', 'shadowDiffCounts', 'shadowDiffReport'];
+  const SHADOW = ['shadowNormalize', 'shadowNormalizeLazy', 'shadowNormalizeList', 'shadowNormalizeMap', 'shadowNormalizeAll', 'shadowSnap', 'shadowSetServer', 'shadowAfterPush', 'shadowRet', 'shadowServerAt', 'shadowDirtyNew', 'shadowDirtyOld', 'shadowDiffCounts', 'shadowDiffReport',
+    // Rev 2.32.193 (MERGE-EXP): злиття витрат і журнал конфліктів; push/pull витрат викликають їх завжди
+    'EXP_MERGE_FIELDS', 'EXP_ROW_COLS', 'CONFLICT_TTL_MS', 'LS_KEY_CONFLICTS', 'CONFLICT_FIELD_ACC',
+    'expFieldVal', 'expSnap', 'expSnapFromRow', 'expFieldEq', 'expMerge', 'expSetFromSnap', 'expMergeServerRow', 'expLinkedNameForRow', 'expMigrateBase', 'pushExpenseCas', 'expRecordConflicts',
+    'conflictLoad', 'conflictPrune', 'conflictSave', 'conflictOpenCount', 'conflictValueText', 'conflictActor', 'conflictVerb', 'conflictModel', 'conflictDoneModel', 'conflictStillValid', 'conflictResolve', 'conflictUiBusy', 'conflictFlushCards', 'conflictSectionHtml'];
+  vm.runInContext("if(typeof conflictLog === 'undefined') var conflictLog = [];"
+    + "if(typeof conflictAnnounce === 'undefined') var conflictAnnounce = [];"
+    + "if(typeof conflictFlushTimer === 'undefined') var conflictFlushTimer = null;"
+    + "if(typeof editingRecordKey === 'undefined') var editingRecordKey = null;"
+    + "if(typeof updateNotifBell === 'undefined') var updateNotifBell = function(){};"
+    + "if(typeof authorInfoFor === 'undefined') var authorInfoFor = function(){ return null; };"
+    + "if(typeof showToast === 'undefined') var showToast = function(){};"
+    + "if(typeof setTimeout === 'undefined') var setTimeout = function(){ return 0; };"
+    + "if(typeof clearTimeout === 'undefined') var clearTimeout = function(){};", context);
   names = names.concat(SHADOW.filter(n => !names.includes(n)));
   const source = names.map(name => {
     return /^[A-Z][A-Z0-9_]*$/.test(name) ? extractConstSource(name) : extractFunctionSource(name);
