@@ -1740,17 +1740,27 @@
   .n-diag-row .ok{ color:var(--color-success); }
   .n-diag-row .bad{ color:var(--color-error); }
   /* Rev 2.32.195 (SYNC-SLOT): слот індикатора синхронізації витрати 20×20 (стани на місці); кільце — SVG stroke-dasharray, єдиний дозволений пунктир */
-  .sync-slot{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; transition:opacity .3s ease; }
-  .sync-slot[data-s=""]{ opacity:0; }
-  .sync-slot[data-s="pending"]{ color:var(--color-error); }
-  .sync-slot[data-s="syncing"]{ color:var(--color-text-secondary); }
-  .sync-slot[data-s="done"]{ color:var(--color-success); }
+  .sync-slot{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; opacity:0; transition:opacity .3s ease; }
+  .sync-slot[data-s]:not([data-s=""]){ opacity:1; }
   .sync-slot[data-fade]{ opacity:0; }
-  .sync-slot.to-done svg{ opacity:0; transition:opacity .2s ease; }
-  .sync-slot .sync-ring{ transform-origin:10px 10px; animation:syncRing 1.1s linear infinite; }
-  .sync-slot .sync-tick{ stroke-dasharray:16; stroke-dashoffset:16; animation:stDraw .26s ease-out forwards; }
-  @keyframes syncRing{ to{ transform:rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce){ .sync-slot .sync-ring{ animation:none; } .sync-slot .sync-tick{ animation:none; stroke-dashoffset:0; } }
+  .sync-slot svg{ display:block; overflow:visible; }
+  .sync-slot .sl-ring, .sync-slot .sl-close, .sync-slot .sl-fill, .sync-slot .sl-cloud{ transform-box:fill-box; transform-origin:center; }
+  .sync-slot .sl-cloud{ stroke:var(--color-error); transform:scale(1); opacity:1; transition:transform .3s ease, stroke .3s ease, opacity .3s ease; }
+  .sync-slot .sl-bang{ opacity:1; transition:opacity .2s ease; }
+  .sync-slot .sl-ring{ stroke:var(--color-text-secondary); opacity:0; transition:opacity .25s ease; }
+  .sync-slot .sl-close{ stroke:var(--color-success); stroke-dashoffset:69.1; transform:rotate(-90deg); transition:stroke-dashoffset .35s ease; }
+  .sync-slot .sl-fill{ fill:var(--color-success); transform:scale(0); transition:transform .28s cubic-bezier(.3,1.4,.5,1) .2s; }
+  .sync-slot .sl-tick{ stroke-dashoffset:16; transition:stroke-dashoffset .26s ease .38s; }
+  .sync-slot[data-s="syncing"] .sl-cloud{ stroke:var(--color-text-secondary); transform:scale(.55); }
+  .sync-slot[data-s="syncing"] .sl-bang{ opacity:0; }
+  .sync-slot[data-s="syncing"] .sl-ring{ opacity:1; animation:syncRing 1.1s linear infinite; }
+  .sync-slot[data-s="done"] .sl-cloud{ stroke:var(--color-text-secondary); transform:scale(.3); opacity:0; }
+  .sync-slot[data-s="done"] .sl-bang{ opacity:0; }
+  .sync-slot[data-s="done"] .sl-close{ stroke-dashoffset:0; }
+  .sync-slot[data-s="done"] .sl-fill{ transform:scale(1); }
+  .sync-slot[data-s="done"] .sl-tick{ stroke-dashoffset:0; }
+  @keyframes syncRing{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce){ .sync-slot .sl-ring{ animation:none; } }
   /* ===== Rev 2.32.189 (CHECKS-1): «Перевірки» і «Діагностика» за макетом docs/ui/mockups/checks-mockup.html (кольори лише з токенів застосунку) ===== */
   .chk-card{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:22px; overflow:hidden; }
   .chk-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:48px; padding:0 14px; border:0; background:none; font:inherit; font-size:15px; color:var(--color-text-primary); text-align:left; cursor:pointer; box-sizing:border-box; }
@@ -7171,37 +7181,36 @@ const SYNC_SLOT_SYNCING_MS = 400;
 const SYNC_SLOT_PENDING_MS = 3000;
 const SYNC_SLOT_HOLD_MS = 1200;
 const SYNC_SLOT_FADE_MS = 300;
-const SYNC_SLOT_SWAP_MS = 200;
-const SYNC_SLOT_CLOUD_D = 'M5.24 18A5.3 5.3 0 0 1 5.81 7.84A6.3 6.3 0 0 1 18.19 7.84A5.3 5.3 0 0 1 18.76 18L5.24 18Z';
+const SYNC_SLOT_MIN_SYNCING_MS = 600;
+const SYNC_SLOT_CLOUD_D = 'M5.24 18A5.3 5.3 0 0 1 5.81 7.84A6.3 6.3 0 0 1 18.19 7.84A5.3 5.3 0 0 1 18.76 18L5.24 18Z'; // той самий контур, що CLOUD_ICON_SVG (індикатор профілю), без змін форми
+const SYNC_SLOT_BANG = '<path d="M12 9.8v3.3"/><path d="M12 15.5h.01"/>'; // знак оклику: x = 12, по центру тіла хмаринки, штрих як у контура
 const SYNC_SLOT_SVG = {
-  pending: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + SYNC_SLOT_CLOUD_D + '"/><path d="M12 9.6v3.4"/><path d="M12 15.6h.01"/></svg>',
-  syncing: '<svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle class="sync-ring" cx="10" cy="10" r="9" stroke-width="1.6" stroke-dasharray="11.5 7.35"/><g transform="translate(4 4.2) scale(.5)"><path d="' + SYNC_SLOT_CLOUD_D + '" stroke-width="3.4"/></g></svg>',
-  done: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="sync-tick" d="M5.5 12.5l4.2 4.2 8.8-9.4"/></svg>',
+  // статична pending-хмаринка (картка конфлікту, рядок журналу сповіщень)
+  pending: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + SYNC_SLOT_CLOUD_D + '"/>' + SYNC_SLOT_BANG + '</svg>',
+  // один SVG на всі стани слота: шари змінюються CSS-переходами за data-s (вузол той самий). Кільце, коло, що замикається, і заливка концентричні: (12,12) r 11
+  slot: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<circle class="sl-fill" cx="12" cy="12" r="11" stroke="none"/>'
+    + '<circle class="sl-close" cx="12" cy="12" r="11" stroke-width="1.6" stroke-dasharray="69.1"/>'
+    + '<circle class="sl-ring" cx="12" cy="12" r="11" stroke-width="1.6" stroke-dasharray="14 9.03"/>'
+    + '<g class="sl-cloud" stroke-width="1.9"><path d="' + SYNC_SLOT_CLOUD_D + '"/><g class="sl-bang">' + SYNC_SLOT_BANG + '</g></g>'
+    + '<path class="sl-tick" d="M7.2 12.6l3.2 3.2 6.2-6.8" stroke="#fff" stroke-width="2.2" stroke-dasharray="16"/></svg>',
 };
 const SYNC_SLOT_LABEL = { pending: 'Не синхронізовано', syncing: 'Синхронізується', done: 'Синхронізовано' };
 const expSyncEntries = new Map(); // id → { s: '' | 'pending' | 'syncing' | 'done', n: запитів у польоті, t: таймери }
-function expSyncEntry(id){ let e = expSyncEntries.get(id); if(!e){ e = { s: '', n: 0, t: [] }; expSyncEntries.set(id, e); } return e; }
+function expSyncEntry(id){ let e = expSyncEntries.get(id); if(!e){ e = { s: '', n: 0, t: [], at: 0 }; expSyncEntries.set(id, e); } return e; }
 function expSyncClear(e){ e.t.forEach(function(h){ clearTimeout(h); }); e.t = []; }
 function expSyncSlots(id){
   if(typeof document === 'undefined' || !document.querySelectorAll) return [];
   return Array.prototype.slice.call(document.querySelectorAll('.sync-slot[data-sync-id="' + safeId(id) + '"]'));
 }
 function expSyncPaint(slot, s){
-  const prev = slot.getAttribute('data-s') || '';
-  if(prev === s) return;
+  if((slot.getAttribute('data-s') || '') === s) return;
   slot.removeAttribute('data-fade');
   slot.setAttribute('data-s', s);
   if(s){ slot.setAttribute('role', 'img'); slot.setAttribute('aria-label', SYNC_SLOT_LABEL[s]); }
   else{ slot.removeAttribute('role'); slot.removeAttribute('aria-label'); }
-  if(prev === 'syncing' && s === 'done'){ // кільце й хмаринка зникають 0,2 с, потім галочка
-    slot.classList.add('to-done');
-    setTimeout(function(){ if(slot.getAttribute('data-s') === 'done'){ slot.classList.remove('to-done'); slot.innerHTML = SYNC_SLOT_SVG.done; } }, SYNC_SLOT_SWAP_MS);
-    return;
-  }
-  slot.classList.remove('to-done');
-  slot.innerHTML = SYNC_SLOT_SVG[s] || '';
 }
-function expSyncSet(id, s){ const e = expSyncEntry(id); e.s = s; expSyncSlots(id).forEach(function(slot){ expSyncPaint(slot, s); }); }
+function expSyncSet(id, s){ const e = expSyncEntry(id); e.s = s; if(s === 'syncing') e.at = Date.now(); expSyncSlots(id).forEach(function(slot){ expSyncPaint(slot, s); }); }
 // «done»: тримається 1,2 с, зникає 0,3 с, потім стан порожній.
 function expSyncDone(id){
   const e = expSyncEntry(id); expSyncClear(e);
@@ -7224,7 +7233,12 @@ function expSyncEnd(id, ok){
   if(e.n > 0) return;
   expSyncClear(e);
   if(!ok){ expSyncSet(id, 'pending'); return; }
-  if(e.s === 'syncing' || e.s === 'pending') expSyncDone(id); else { e.s = ''; expSyncEntries.delete(id); }
+  if(e.s === 'syncing'){ // «syncing» показується щонайменше 600 мс, щоб не блимало
+    const left = SYNC_SLOT_MIN_SYNCING_MS - (Date.now() - e.at);
+    if(left > 0){ e.t.push(setTimeout(function(){ if(e.n === 0) expSyncDone(id); }, left)); return; }
+    expSyncDone(id);
+  }else if(e.s === 'pending') expSyncDone(id);
+  else{ e.s = ''; expSyncEntries.delete(id); }
 }
 // Похідний стан для рендера рядка.
 function expSyncStateFor(rec){
@@ -7241,7 +7255,7 @@ function expSyncStateFor(rec){
 }
 function expSyncSlotHtml(rec){
   const s = expSyncStateFor(rec);
-  return '<span class="sync-slot" data-sync-id="' + escapeAttr(safeId(rec.id)) + '" data-s="' + s + '"' + (s ? ' role="img" aria-label="' + SYNC_SLOT_LABEL[s] + '"' : '') + '>' + (SYNC_SLOT_SVG[s] || '') + '</span>';
+  return '<span class="sync-slot" data-sync-id="' + escapeAttr(safeId(rec.id)) + '" data-s="' + s + '"' + (s ? ' role="img" aria-label="' + SYNC_SLOT_LABEL[s] + '"' : '') + '>' + SYNC_SLOT_SVG.slot + '</span>';
 }
 // Чужа зміна (pull): слот «syncing» одразу (рядок малюється вже з ним); фази «done» → порожньо — на місці, без renderAll.
 function expPulledMark(id){ recentlyPulledExpenseState.set(id, 'syncing'); expSyncSet(id, 'syncing'); }
@@ -23841,7 +23855,7 @@ const TOAST_ICONS = {
   info: '<svg class="success-toast-icon static" viewBox="4 4 22 22" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M15 14v6"/><path d="M15 10.5h.01"/></svg>',
   warning: '<svg class="success-toast-icon static" viewBox="4 4 22 22" aria-hidden="true"><path d="M15 5.5l10 17.5H5z"/><path d="M15 12.5v5"/><path d="M15 20.5h.01"/></svg>',
   error: '<svg class="success-toast-icon static" viewBox="4 4 22 22" aria-hidden="true"><circle cx="15" cy="15" r="10"/><path d="M11.5 11.5l7 7"/><path d="M18.5 11.5l-7 7"/></svg>',
-  cloud: '<svg class="success-toast-icon static" viewBox="1 1 22 22" aria-hidden="true"><path d="' + SYNC_SLOT_CLOUD_D + '"/><path d="M12 9.6v3.4"/><path d="M12 15.6h.01"/></svg>',
+  cloud: '<svg class="success-toast-icon static" viewBox="1 1 22 22" aria-hidden="true"><path d="' + SYNC_SLOT_CLOUD_D + '"/>' + SYNC_SLOT_BANG + '</svg>',
   journal: '<svg class="success-toast-icon static" viewBox="4 4 22 22" aria-hidden="true"><path d="M11 9h11"/><path d="M11 15h11"/><path d="M11 21h11"/><path d="M7 9h.01"/><path d="M7 15h.01"/><path d="M7 21h.01"/></svg>'
 };
 let successToastQueue = [];

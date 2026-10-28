@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { buildSandbox } = require('./extract');
+const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
 const T0 = '2026-10-15T10:00:00.000Z';
@@ -241,19 +241,19 @@ function slotEnv(rows){
 test('індикатор: syncing не раніше 400 мс, pending не раніше 3 с; слот той самий вузол; після відповіді done → тримається 1,2 с → зникає 0,3 с', () => {
   const { c, tm, slot } = slotEnv();
   c.expSyncBegin('e1'); tm.advance(399); assert.equal(slot.getAttribute('data-s'), '', 'до 400 мс нічого');
-  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'syncing'); assert.ok(/sync-ring/.test(slot.innerHTML));
+  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'syncing');
   tm.advance(2599); assert.equal(slot.getAttribute('data-s'), 'syncing', 'pending не раніше 3 с');
-  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'pending'); assert.equal(slot.getAttribute('aria-label'), 'Не синхронізовано'); assert.ok(/M12 9\.6v3\.4/.test(slot.innerHTML), 'знак оклику');
-  c.expSyncEnd('e1', true); assert.equal(slot.getAttribute('data-s'), 'done'); assert.ok(/sync-tick/.test(slot.innerHTML));
+  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'pending'); assert.equal(slot.getAttribute('aria-label'), 'Не синхронізовано');
+  c.expSyncEnd('e1', true); assert.equal(slot.getAttribute('data-s'), 'done'); assert.equal(slot.getAttribute('aria-label'), 'Синхронізовано');
   tm.advance(1199); assert.equal(slot.getAttribute('data-fade'), null); tm.advance(1); assert.equal(slot.getAttribute('data-fade'), '1');
-  tm.advance(300); assert.equal(slot.getAttribute('data-s'), '');
+  tm.advance(300); assert.equal(slot.getAttribute('data-s'), ''); assert.equal(slot.innerHTML, '', 'вузол не перебудовується: SVG у слоті статичний');
 });
-test('індикатор: швидкий запит (до 400 мс) не блимає; syncing → done: кільце зникає 0,2 с, потім галочка (той самий вузол); невдача → pending', () => {
+test('індикатор: швидкий запит (до 400 мс) не блимає; syncing показується щонайменше 600 мс; невдача → pending', () => {
   const a = slotEnv(); a.c.expSyncBegin('e1'); a.tm.advance(200); a.c.expSyncEnd('e1', true); a.tm.advance(5000);
-  assert.equal(a.slot.getAttribute('data-s'), '', 'без станів'); assert.equal(a.slot.innerHTML, '');
-  const b = slotEnv(); b.c.expSyncBegin('e1'); b.tm.advance(500); assert.equal(b.slot.getAttribute('data-s'), 'syncing'); b.c.expSyncEnd('e1', true);
-  assert.ok(b.slot.cls.has('to-done')); assert.ok(/sync-ring/.test(b.slot.innerHTML)); b.tm.advance(200); assert.ok(!b.slot.cls.has('to-done')); assert.ok(/sync-tick/.test(b.slot.innerHTML));
-  const f = slotEnv(); f.c.expSyncBegin('e1'); f.c.expSyncEnd('e1', false); assert.equal(f.slot.getAttribute('data-s'), 'pending');
+  assert.equal(a.slot.getAttribute('data-s'), '', 'без станів');
+  const b = slotEnv(); b.c.expSyncBegin('e1'); b.tm.advance(400); assert.equal(b.slot.getAttribute('data-s'), 'syncing'); b.c.expSyncEnd('e1', true);
+  assert.equal(b.slot.getAttribute('data-s'), 'syncing', 'ще не 600 мс'); b.tm.advance(599); assert.equal(b.slot.getAttribute('data-s'), 'syncing'); b.tm.advance(1); assert.equal(b.slot.getAttribute('data-s'), 'done');
+  const f = slotEnv(); f.c.expSyncBegin('e1'); f.tm.advance(500); f.c.expSyncEnd('e1', false); assert.equal(f.slot.getAttribute('data-s'), 'pending', 'невдача: кільце зникає, pending');
 });
 test('похідний стан при рендері: «брудний» запис без запиту → pending лише після 3 с або офлайн; чистий — порожньо; слот завжди в розмітці', () => {
   const { c } = slotEnv(); const old = new Date(Date.now() - 10000).toISOString(), fresh = new Date().toISOString();
@@ -263,7 +263,18 @@ test('похідний стан при рендері: «брудний» зап
   assert.equal(c.expSyncStateFor({ id: 'e1', localRev: 1, syncedRev: 1, updatedAt: old }), '');
   const html = c.expSyncSlotHtml({ id: 'e1', localRev: 2, syncedRev: 1, updatedAt: old });
   assert.match(html, /class="sync-slot" data-sync-id="e1" data-s="pending" role="img" aria-label="Не синхронізовано"/);
-  assert.match(c.expSyncSlotHtml({ id: 'e1', localRev: 1, syncedRev: 1, updatedAt: old }), /class="sync-slot" data-sync-id="e1" data-s=""><\/span>/);
+  assert.match(c.expSyncSlotHtml({ id: 'e1', localRev: 1, syncedRev: 1, updatedAt: old }), /class="sync-slot" data-sync-id="e1" data-s=""><svg/);
+});
+test('геометрія індикатора: одна хмаринка з контура CLOUD_ICON_SVG для pending і syncing; кільце, коло й заливка концентричні (12,12 r 11); без transform-атрибутів; три дуги', () => {
+  const { c } = slotEnv(); const svg = evalInSandbox(c, 'SYNC_SLOT_SVG.slot');
+  const cloudD = SRC.match(/const CLOUD_ICON_SVG = '[^']*<path d="([^"]+)"/)[1];
+  assert.equal(evalInSandbox(c, 'SYNC_SLOT_CLOUD_D'), cloudD, 'той самий контур, що в індикаторі профілю');
+  assert.equal((svg.match(new RegExp('d="' + cloudD.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"', 'g')) || []).length, 1, 'одна хмаринка на всі стани (масштаб і колір — CSS)');
+  ['sl-fill', 'sl-close', 'sl-ring'].forEach(k => assert.match(svg, new RegExp('<circle class="' + k + '" cx="12" cy="12" r="11"')));
+  assert.ok(!/ transform=/.test(svg), 'без атрибута transform');
+  assert.match(svg, /stroke-dasharray="14 9\.03"/); assert.ok(Math.abs(3 * (14 + 9.03) - 2 * Math.PI * 11) < 0.05);
+  assert.match(svg, /stroke-dasharray="69\.1"/); assert.match(svg, /d="M7\.2 12\.6l3\.2 3\.2 6\.2-6\.8" stroke="#fff" stroke-width="2\.2" stroke-dasharray="16"/);
+  assert.match(svg, /M12 9\.8v3\.3/); assert.match(svg, /viewBox="0 0 24 24"/);
 });
 test('«відлуння» власного запису: pull із тим самим updated_at не рендерить рядок, не підсвічує й не стартує індикатор; чужа зміна — один рендер, фази без renderAll', async () => {
   const s = makeServer(); let renders = 0; const tm = timers();
@@ -279,14 +290,16 @@ test('«відлуння» власного запису: pull із тим са�
   assert.equal(renders, r0, 'фази підсвітки не рендерять список повторно');
   assert.equal(B.recentlyPulledExpenseState.size, 0);
 });
-test('джерело: слот лише для витрат, reduced-motion, токени, кільце SVG-атрибутом, картка без «не збережено»', () => {
+test('джерело: слот лише для витрат, reduced-motion, токени, переходи за макетом, картка без «не збережено»', () => {
   assert.match(SRC, /\$\{isIncome \? justPulledBadgeHtml : expSyncSlotHtml\(e\)\}/);
-  assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.sync-slot \.sync-ring\{ animation:none; \}/);
+  assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.sync-slot \.sl-ring\{ animation:none; \}/);
   const css = SRC.slice(SRC.indexOf('.sync-slot{ display:inline-flex'), SRC.indexOf('/* ===== Rev 2.32.189 (CHECKS-1)'));
-  assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(css), 'лише токени'); assert.match(css, /width:20px; height:20px/); assert.match(css, /animation:syncRing 1\.1s linear infinite/);
-  assert.match(SRC, /stroke-dasharray="11\.5 7\.35"/); assert.ok(Math.abs(3 * (11.5 + 7.35) - 2 * Math.PI * 9) < 0.1, 'три дуги по колу r=9');
+  assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(css), 'лише токени'); assert.match(css, /width:20px; height:20px/);
+  assert.match(css, /animation:syncRing 1\.1s linear infinite/); assert.match(css, /transform:scale\(\.55\)/); assert.match(css, /stroke:var\(--color-error\)/); assert.match(css, /fill:var\(--color-success\)/); assert.match(css, /stroke:var\(--color-text-secondary\)/);
+  assert.match(css, /transition:transform \.28s cubic-bezier\(\.3,1\.4,\.5,1\) \.2s/); assert.match(css, /transition:stroke-dashoffset \.35s ease/); assert.match(css, /transition:stroke-dashoffset \.26s ease \.38s/);
+  assert.match(css, /\.sl-close\{[^}]*transform:rotate\(-90deg\)/); assert.match(css, /transform-box:fill-box; transform-origin:center/);
+  assert.ok(!/dashed|dotted/.test(css));
   assert.ok(!/не збережено/.test(SRC.slice(SRC.indexOf('function conflictModel'), SRC.indexOf('function conflictDoneModel'))));
-  assert.ok(!/Запис «' \+ nm \+ '»', rows/.test(SRC));
   const b = SRC.slice(SRC.indexOf('function conflictRowsHtml'), SRC.indexOf('function conflictRowsNode')); assert.match(b, /min-height:44px/);
   assert.match(SRC, /kind: 'error', icon: 'cloud', sticky: true, compact: true/); assert.match(SRC, /el\.style\.padding = '14px 16px'/);
 });
