@@ -464,7 +464,7 @@
      картки (завжди видимі інпути захаращували форму) — тепер лише кнопка,
      яка відкриває вже наявну кастомну модалку. Пунктирна рамка (той самий
      прийом, що import-card) сигналізує "додати нове", а не "зберегти". */
-  .add-trigger-btn{ width:100%; padding:12px; margin-bottom:14px; border:1.5px dashed var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); font-size:14px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
+  .add-trigger-btn{ width:100%; padding:12px; margin-bottom:14px; border:1.5px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); font-size:14px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
   /* Rev 2.32.139 (EMPTY-1): порожній стан «Облік» → «Борги» / «ОЧ» за затвердженим макетом: іконка в колі, заголовок 16px/700, пояснення 13px приглушене (≈230px), кнопка на всю ширину; підсумкова картка, підпис розділу й нижня кнопка «Додати» у порожньому стані сховані. */
   .acct-panel.is-empty > .card-summary, .acct-panel.is-empty > .section-label, .acct-panel.is-empty > .add-trigger-btn{ display:none; }
   .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:36px 0 8px; }
@@ -805,7 +805,7 @@
   .submit-btn.danger{ background:var(--color-error); color:#fff; }
   .submit-btn.disabled-soon{ background:var(--color-disabled-bg); color:var(--color-disabled-text); cursor:not-allowed; }
 
-  .import-card{ border:1.5px dashed var(--color-border-strong); background:var(--color-surface-hover); }
+  .import-card{ border:1.5px solid var(--color-border-strong); background:var(--color-surface-hover); }
   .import-card .import-title{ font-weight:700; font-size:14.5px; margin-bottom:4px; }
   .import-card .import-desc{ font-size:12.5px; color:var(--color-text-secondary); line-height:1.5; margin-bottom:12px; }
   .import-status{ font-size:12.5px; margin-top:10px; color:var(--color-text-primary); white-space:pre-line; }
@@ -1118,7 +1118,7 @@
      лише категорія (перейменовано з .record-cat-edit). */
   /* Rev 2.32.5 (E1b): коротка підсвітка картки при поверненні до редагування — лише контур (без зміни розмірів), ~600 мс */
   .expense-row-swipe.edit-return-flash{ outline:2px solid var(--color-primary); outline-offset:-2px; transition:outline-color .3s; }
-  .record-edit-panel{ margin-top:12px; padding-top:12px; border-top:1px dashed var(--color-border-strong); display:flex; flex-direction:column; gap:10px; cursor:default; }
+  .record-edit-panel{ margin-top:12px; padding-top:12px; border-top:1px solid var(--color-border-strong); display:flex; flex-direction:column; gap:10px; cursor:default; }
   .record-edit-panel .field{ margin-bottom:0; }
   .record-edit-panel select{ width:100%; height:40px; padding:8px 10px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
   .record-edit-panel select:focus{ outline:none; border-color:var(--color-primary); }
@@ -1781,8 +1781,8 @@
   :root[data-theme="light"] .chk-it.st-no .chk-fl.k, :root[data-theme="light"] .chk-it.st-sk .chk-fl.k{ background:color-mix(in srgb, var(--ui-accent-strong, var(--color-primary)) 10%, transparent); }
   .chk-fl.k.sel{ outline:2px solid var(--ui-accent-strong, var(--color-primary)); outline-offset:2px; }
   .chk-fl:active, .chk-sk:active, .chk-send:active{ opacity:.7; }
-  .chk-sk{ width:100%; margin-top:10px; background:transparent; border:1px dashed var(--color-border-strong); color:var(--color-text-secondary); font-size:14px; }
-  .chk-sk.sel{ color:var(--color-text-primary); border-color:var(--color-text-secondary); }
+  .chk-sk{ width:100%; margin-top:10px; background:var(--color-surface-hover); border:none; color:var(--color-text-secondary); font-size:14px; }
+  .chk-sk.sel{ color:var(--color-text-primary); outline:2px solid var(--color-text-secondary); outline-offset:2px; }
   .chk-rz{ overflow:hidden; max-height:0; opacity:0; visibility:hidden; transition:max-height .28s ease, opacity .2s ease, visibility 0s linear .28s; }
   .chk-rz.open{ max-height:340px; opacity:1; visibility:visible; transition:max-height .28s ease, opacity .2s ease, visibility 0s; }
   .chk-grp{ background:var(--color-surface-hover); border-radius:14px; overflow:hidden; margin-top:10px; }
@@ -3774,7 +3774,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.193</div>
+  <div class="version-footer">Money Tree · Rev 2.32.194</div>
 </div>
   </div>
 </div>
@@ -7188,8 +7188,35 @@ function conflictModel(e){
   const nm = e.name || 'без назви';
   if(e.kind === 'deleted') return { title: conflictActor(e) + ' ' + conflictVerb(e, 'видалив', 'видалила') + ' запис «' + nm + '»', body: 'Ви змінювали його без мережі. Можна відновити запис із вашою правкою.', primary: 'Відновити', secondary: 'Лишити видаленим' };
   const t = conflictValueText(e.field, e.theirs), m = conflictValueText(e.field, e.mine);
-  return { title: conflictActor(e) + ' вже ' + conflictVerb(e, 'змінив', 'змінила') + ' ' + (CONFLICT_FIELD_ACC[e.field] || 'поле'), body: 'У записі «' + nm + '» уже стоїть ' + t + '. Ваше значення ' + m + ' не збережено, але його можна повернути.', primary: 'Повернути моє', secondary: 'Лишити ' + t };
+  return { title: conflictActor(e) + ' вже ' + conflictVerb(e, 'змінив', 'змінила') + ' ' + (CONFLICT_FIELD_ACC[e.field] || 'поле'), body: '', subtitle: 'Запис «' + nm + '»', rows: [['Зараз у записі', t, ''], ['Ваше значення', m, 'не збережено']], primary: 'Повернути моє', secondary: 'Лишити ' + t }; // Rev 2.32.194 (CONFLICT-UI): замість абзацу — два рядки списку
 }
+// Рядки списку (.chk-grp > .chk-row, 48 пт, радіус 14): підпис, значення, позначка «не збережено» (12 пт, токен попередження, крапка 6 пт).
+function conflictRowsHtml(rows){
+  if(!rows || !rows.length) return '';
+  return '<div class="chk-grp" style="flex:1 0 100%;width:100%;margin-top:0">' + rows.map(function(r){
+    const note = r[2] ? '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--color-warning)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-warning)"></span>' + escapeHtml(r[2]) + '</span>' : '';
+    return '<div class="chk-row"><span class="chk-mut">' + escapeHtml(r[0]) + '</span><span class="chk-end"><span>' + escapeHtml(r[1]) + '</span>' + note + '</span></div>';
+  }).join('') + '</div>';
+}
+// Те саме для тосту без innerHTML (лише textContent).
+function conflictRowsNode(rows){
+  const grp = document.createElement('div'); grp.className = 'chk-grp'; grp.style.cssText = 'flex:1 0 100%;width:100%;margin-top:0';
+  rows.forEach(function(r){
+    const row = document.createElement('div'); row.className = 'chk-row';
+    const l = document.createElement('span'); l.className = 'chk-mut'; l.textContent = r[0];
+    const end = document.createElement('span'); end.className = 'chk-end';
+    const v = document.createElement('span'); v.textContent = r[1]; end.appendChild(v);
+    if(r[2]){
+      const n = document.createElement('span'); n.style.cssText = 'display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--color-warning)';
+      const d = document.createElement('span'); d.style.cssText = 'width:6px;height:6px;border-radius:50%;background:var(--color-warning)';
+      n.appendChild(d); n.appendChild(document.createTextNode(r[2])); end.appendChild(n);
+    }
+    row.appendChild(l); row.appendChild(end); grp.appendChild(row);
+  });
+  return grp;
+}
+// Нейтральна кнопка картки (вторинний стиль застосунку: сіра заливка --color-surface-hover, як «Скинути до типового»): жодна не акцентована.
+const CONFLICT_BTN_STYLE = 'background:var(--color-surface-hover);color:var(--color-text-primary)';
 function conflictDoneModel(e){
   const nm = e.name || 'без назви';
   if(e.status === 'changed'){
@@ -7242,12 +7269,12 @@ function conflictFlushCards(){
   conflictAnnounce = [];
   if(pending.length > 1){
     const n = pending.length, e0 = pending[0];
-    showToast({ kind: 'warning', icon: 'journal', sticky: true, title: conflictActor(e0) + ' ' + conflictVerb(e0, 'змінив', 'змінила') + ' ' + n + ' ' + pluralUa(n, ['запис', 'записи', 'записів']) + ', які ви теж правили', subtitle: 'Ваші значення не збережено, їх можна повернути в сповіщеннях.', actions: [{ label: 'Переглянути', primary: true, onClick: function(){ openNotifArchive(); } }] });
+    showToast({ kind: 'warning', icon: 'journal', sticky: true, title: conflictActor(e0) + ' ' + conflictVerb(e0, 'змінив', 'змінила') + ' ' + n + ' ' + pluralUa(n, ['запис', 'записи', 'записів']) + ', які ви теж правили', subtitle: 'Ваші значення не збережено, їх можна повернути в сповіщеннях.', actions: [{ label: 'Переглянути', onClick: function(){ openNotifArchive(); } }] });
     return;
   }
   const e = pending[0], m = conflictModel(e);
-  showToast({ kind: 'warning', icon: 'journal', sticky: true, title: m.title, subtitle: m.body, actions: [
-    { label: m.primary, primary: true, onClick: function(){ conflictResolve(e.id, 'mine'); } },
+  showToast({ kind: 'warning', icon: 'journal', sticky: true, title: m.title, subtitle: m.body || m.subtitle, rows: m.rows, actions: [
+    { label: m.primary, onClick: function(){ conflictResolve(e.id, 'mine'); } },
     { label: m.secondary, onClick: function(){ conflictResolve(e.id, 'kept'); } },
   ] });
 }
@@ -7259,8 +7286,8 @@ function conflictSectionHtml(){
     const open = e.status === 'open';
     const m = open ? conflictModel(e) : conflictDoneModel(e);
     const id = escapeAttr(safeId(e.id));
-    const acts = open ? '<div class="chk-pair" style="flex:1 0 100%"><button type="button" class="chk-fl k" data-conflict-act="mine" data-conflict-id="' + id + '">' + escapeHtml(m.primary) + '</button><button type="button" class="chk-sk" data-conflict-act="kept" data-conflict-id="' + id + '">' + escapeHtml(m.secondary) + '</button></div>' : '';
-    return '<div class="expense-row notif-row' + (open ? ' unread' : '') + '" style="flex-wrap:wrap"><span class="notif-row-icon ' + icon[0] + '">' + icon[1] + '</span><span class="notif-row-main"><span class="notif-row-title">' + escapeHtml(m.title) + '</span>' + (m.body ? '<span class="notif-row-text">' + escapeHtml(m.body) + '</span>' : '') + '</span>' + acts + '</div>';
+    const acts = open ? conflictRowsHtml(m.rows) + '<div class="chk-pair" style="flex:1 0 100%"><button type="button" class="chk-fl" style="' + CONFLICT_BTN_STYLE + '" data-conflict-act="mine" data-conflict-id="' + id + '">' + escapeHtml(m.primary) + '</button><button type="button" class="chk-fl" style="' + CONFLICT_BTN_STYLE + '" data-conflict-act="kept" data-conflict-id="' + id + '">' + escapeHtml(m.secondary) + '</button></div>' : '';
+    return '<div class="expense-row notif-row' + (open ? ' unread' : '') + '" style="flex-wrap:wrap"><span class="notif-row-icon ' + icon[0] + '">' + icon[1] + '</span><span class="notif-row-main"><span class="notif-row-title">' + escapeHtml(m.title) + '</span>' + (((open && m.subtitle) || m.body) ? '<span class="notif-row-text">' + escapeHtml(m.body || m.subtitle) + '</span>' : '') + '</span>' + acts + '</div>';
   }).join('');
   return '<div class="mono-section"><div class="mono-group-label">Конфлікти</div><div class="mono-group">' + items + '</div></div>';
 }
@@ -8832,7 +8859,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.193';
+const APP_VERSION = '2.32.194';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -23748,7 +23775,7 @@ function pumpSuccessToast(){
   text.appendChild(t);
   if(o.subtitle){ const sb = document.createElement('div'); sb.className = 'success-toast-sub'; sb.textContent = o.subtitle; text.appendChild(sb); }
   el.appendChild(text);
-  if(Array.isArray(o.actions) && o.actions.length){ el.style.flexWrap = 'wrap'; } // Rev 2.32.193 (MERGE-EXP): картка конфлікту — тост із двома кнопками (.chk-fl.k / .chk-sk), без нових стилів
+  if((Array.isArray(o.actions) && o.actions.length) || (o.rows && o.rows.length)){ el.style.flexWrap = 'wrap'; } // Rev 2.32.193 (MERGE-EXP): картка конфлікту — тост із двома кнопками (.chk-fl.k / .chk-sk), без нових стилів
   const close = function(){
     if(successToastActive !== el) return;
     clearTimeout(successToastTimer);
@@ -23760,10 +23787,11 @@ function pumpSuccessToast(){
     b.addEventListener('click', function(ev){ ev.stopPropagation(); close(); o.onAction(); });
     el.appendChild(b);
   }
+  if(Array.isArray(o.rows) && o.rows.length) el.appendChild(conflictRowsNode(o.rows));
   if(Array.isArray(o.actions) && o.actions.length){
     const pair = document.createElement('div'); pair.className = 'chk-pair'; pair.style.flex = '1 0 100%';
     o.actions.forEach(function(a){
-      const b = document.createElement('button'); b.type = 'button'; b.className = a.primary ? 'chk-fl k' : 'chk-sk'; b.textContent = a.label;
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'chk-fl'; b.style.cssText = CONFLICT_BTN_STYLE; b.textContent = a.label; // Rev 2.32.194: усі кнопки картки нейтральні
       b.addEventListener('click', function(ev){ ev.stopPropagation(); close(); a.onClick(); });
       pair.appendChild(b);
     });

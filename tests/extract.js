@@ -100,7 +100,7 @@ function buildSandbox(globals, names){
     // Rev 2.32.193 (MERGE-EXP): злиття витрат і журнал конфліктів; push/pull витрат викликають їх завжди
     'recordKey', 'EXP_MERGE_FIELDS', 'EXP_ROW_COLS', 'CONFLICT_TTL_MS', 'LS_KEY_CONFLICTS', 'CONFLICT_FIELD_ACC',
     'expFieldVal', 'expSnap', 'expSnapFromRow', 'expFieldEq', 'expMerge', 'expSetFromSnap', 'expMergeServerRow', 'expLinkedNameForRow', 'expMigrateBase', 'pushExpenseCas', 'expRecordConflicts',
-    'conflictLoad', 'conflictPrune', 'conflictSave', 'conflictOpenCount', 'conflictValueText', 'conflictActor', 'conflictVerb', 'conflictModel', 'conflictDoneModel', 'conflictStillValid', 'conflictResolve', 'conflictUiBusy', 'conflictFlushCards', 'conflictSectionHtml'];
+    'conflictLoad', 'conflictPrune', 'conflictSave', 'conflictOpenCount', 'conflictValueText', 'conflictActor', 'conflictVerb', 'conflictModel', 'conflictDoneModel', 'conflictRowsHtml', 'conflictRowsNode', 'CONFLICT_BTN_STYLE', 'conflictStillValid', 'conflictResolve', 'conflictUiBusy', 'conflictFlushCards', 'conflictSectionHtml'];
   vm.runInContext("if(typeof conflictLog === 'undefined') var conflictLog = [];"
     + "if(typeof conflictAnnounce === 'undefined') var conflictAnnounce = [];"
     + "if(typeof conflictFlushTimer === 'undefined') var conflictFlushTimer = null;"

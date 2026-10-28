@@ -88,7 +88,7 @@ for(const skew of [86400000, -86400000]){
     assert.deepEqual([e.kind, e.field, e.mine, e.theirs, e.status, e.actor], ['field', 'amount', 120, 150, 'open', 'Оля']);
     const m = A.conflictModel(e);
     assert.equal(m.title, 'Оля вже змінила суму');
-    assert.equal(m.body, 'У записі «Футбол» уже стоїть 150 ₴. Ваше значення 120 ₴ не збережено, але його можна повернути.');
+    assert.deepEqual(j(m.rows), [['Зараз у записі', '150 ₴', ''], ['Ваше значення', '120 ₴', 'не збережено']]); assert.equal(m.body, '');
     assert.deepEqual([m.primary, m.secondary], ['Повернути моє', 'Лишити 150 ₴']);
     await A.conflictResolve(e.id, 'mine');
     assert.equal(e.status, 'mine'); assert.equal(A.expenses[0].amount, 120); assert.equal(A.conflictDoneModel(e).title, 'Футбол: ви повернули 120 ₴');

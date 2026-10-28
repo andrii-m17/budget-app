@@ -170,7 +170,7 @@ test('джерело: два рядки в «Сервісі», чекліста 
   assert.ok(!/backdrop-filter|box-shadow/.test(checksCss), 'жодного скла й тіней у «Перевірках»');
   [['.chk-it{ max-height:760px', 'max-height 760'], ['.chk-fl, .chk-sk, .chk-send{ position:relative; height:40px; border-radius:14px', 'кнопки 40/14'], ['.chk-pair{ display:grid; grid-template-columns:1fr 1fr; gap:10px', 'пара, проміжок 10'],
     ['.chk-grp button{ display:flex; width:100%; align-items:center; justify-content:space-between; height:48px', 'рядок причин 48'], ['.chk-grp{ background:var(--color-surface-hover); border-radius:14px', 'група, радіус 14'],
-    ['.chk-fld{ width:100%; height:34px', 'поле 34'], ['border-radius:12px; border:1px solid var(--color-border)', 'поле радіус 12'], ['font:inherit; font-size:14px; padding:0 12px', 'поле 14'], ['border:1px dashed', 'пунктирна'],
+    ['.chk-fld{ width:100%; height:34px', 'поле 34'], ['border-radius:12px; border:1px solid var(--color-border)', 'поле радіус 12'], ['font:inherit; font-size:14px; padding:0 12px', 'поле 14'], ['background:var(--color-surface-hover); border:none; color:var(--color-text-secondary); font-size:14px', 'суцільна сіра вторинна кнопка'],
     ['.chk-rz{ overflow:hidden; max-height:0; opacity:0', 'списки'], ['transition:max-height .28s ease, opacity .2s ease', 'анімація списків .28/.2'], ['.chk-it.done .chk-tt{ text-decoration:line-through', 'закреслення']]
     .forEach(([n, w]) => assert.ok(checksCss.indexOf(n) !== -1, w));
   assert.match(SRC, /\.chk-it \.chk-bd\{ display:none; padding:0 16px 16px; \}/);
@@ -179,4 +179,8 @@ test('джерело: два рядки в «Сервісі», чекліста 
   assert.match(SRC, /flushChecksQueue\(\); \/\/ Rev 2\.32\.189 \(CHECKS-1\)/, 'повторна спроба при старті');
   const fn = SRC.slice(SRC.indexOf('function renderChecks()'), SRC.indexOf('function toggleChecksDone'));
   assert.ok(!/innerHTML/.test(fn), 'без innerHTML у відображенні кроків'); assert.match(fn, /'Не можу перевірити зараз'/); assert.match(fn, /'Працює'/); assert.match(fn, /'Не працює'/);
+});
+test('Rev 2.32.194: у стилях немає dashed і dotted', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').split('<script')[0];
+  assert.ok(!/dashed|dotted/.test(css), 'пунктир прибрано повністю');
 });
