@@ -6696,3 +6696,24 @@ test('restoreIncomesFromBackup (фаза 1): копія зі СТАРИМ клю
   await ctx.restoreIncomesFromBackup(JSON.stringify([{ id: 'legacy-2', date: '2026-09-01', source: keys[1].key, amount: 20000 }, { id: 'legacy-3', date: '2026-09-01', source: keys[2].key, amount: 500 }]));
   assert.equal(ctx.incomes.length, 3, 'інше джерело (друге ключ і «Інші доходи») лишаються окремими записами');
 });
+
+// Rev 2.32.186 (AUTHOR-FRAME) — автор витрати не залежить від годинника пристрою й порядку LWW.
+test('pullExpensesCore (2.32.186): локальна версія «новіша» за годинником, але вже надіслана (clean) → приймається серверний рядок: автор і updated_at з сервера', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-05', note: 'Кава', linked_installment_id: null, created_by: 'user-2', created_at: '2024-06-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:05.000Z' }]);
+  ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Кава', amount: 500, manual: true, createdAt: '2024-06-01T00:00:10.000Z', updatedAt: '2024-06-01T00:00:10.000Z', syncedUpdatedAt: '2024-06-01T00:00:10.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushExpenseRecordPilot', 'linkedOwnerAccount');
+  const result = await ctx.pullExpensesCore();
+  assert.equal(result.updated, 1); assert.equal(result.keptLocal, 0);
+  assert.equal(ctx.expenses[0].createdBy, 'user-2');
+  assert.equal(ctx.expenses[0].updatedAt, '2024-06-01T00:00:05.000Z');
+  assert.equal(pushSpy.count(), 0, 'повторного push нема');
+});
+test('pullExpensesCore (2.32.186): локальна зміна новіша й ще не надіслана → вміст не перезаписується, але автор донаповнюється', async () => {
+  const ctx = pullExpensesSandbox([{ id: 'e1', amount: 999, expense_date: '2026-05-06', note: 'Cloud', linked_installment_id: null, created_by: 'user-2', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Локальна', amount: 500, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  spyOn(ctx, 'pushExpenseRecordPilot', 'linkedOwnerAccount');
+  const result = await ctx.pullExpensesCore();
+  assert.equal(result.keptLocal, 1);
+  assert.equal(ctx.expenses[0].name, 'Локальна'); assert.equal(ctx.expenses[0].amount, 500);
+  assert.equal(ctx.expenses[0].createdBy, 'user-2');
+});

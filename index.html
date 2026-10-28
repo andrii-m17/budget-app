@@ -3729,7 +3729,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.185</div>
+  <div class="version-footer">Money Tree · Rev 2.32.186</div>
 </div>
   </div>
 </div>
@@ -7261,7 +7261,7 @@ async function pushDebtsBatched(records, chunkSize){
 async function pullExpensesCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
-  let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
+  let updated = 0, added = 0, keptLocal = 0, skippedFk = 0, authorFilled = false; // Rev 2.32.186
   let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
   // Rev #30 (6D.67) — Cloud Sync UI, Крок 3: "щойно отримано з хмари"
   // highlight МАЄ сенс лише для СПРАВЖНЬОГО інкрементального pull (щось
@@ -7303,8 +7303,11 @@ async function pullExpensesCore(opts){
         const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
         const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
-        if(localIsNewer){
+        // Rev 2.32.186 (AUTHOR-FRAME): локальна версія «новіша» лише за годинником пристрою, але вже надіслана (syncedUpdatedAt === updatedAt) — це наш власний запис; сервер авторитетний (updated_at ставить лише він), тож його рядок приймається й автор донаповнюється. Раніше такий запис вважався «новішим» і назавжди лишався без created_by (рамка автора не з'являлась до ручної синхронізації).
+        const localClean = !!local.syncedUpdatedAt && local.syncedUpdatedAt === local.updatedAt;
+        if(localIsNewer && !localClean){
           keptLocal++;
+          if(!local.createdBy && row.created_by){ local.createdBy = row.created_by; authorFilled = true; } // автор не залежить від LWW вмісту
           pushExpenseRecordPilot(local); // push-retry, той самий принцип, що решта доменів
           continue;
         }
@@ -7378,7 +7381,7 @@ async function pullExpensesCore(opts){
   }catch(e){
     return { skipped: true };
   }
-  if(updated || added) await saveExpenses();
+  if(updated || added || authorFilled) await saveExpenses();
   // Rev #30 (6D.68) — 2 послідовні фази (уточнено користувачем — скрін +
   // явна специфікація): 'syncing' (пульсуюча хмаринка, ~RECORD_SYNC_PULSE_MS
   // ×RECORD_SYNC_PULSE_COUNT) → 'done' (зелена галочка, ~RECORD_SYNC_DONE_MS)
@@ -8364,7 +8367,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.185';
+const APP_VERSION = '2.32.186';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10176,6 +10179,7 @@ async function applyCloudSession(session){
     // loadCloudDisplayName() вище (не лише !wasSignedIn — інший член родини
     // міг оновити своє display_name, TOKEN_REFRESHED теж проходить тут).
     await loadFamilyUsersDirectory(getSupabaseClient());
+    backfillExpenseAuthors(); // Rev 2.32.186 (AUTHOR-FRAME): одноразове донаповнення авторів без очікування (помилки не блокують вхід)
     }
     if(!wasSignedIn){
       // Rev #30 (6D.65) — author-color рамка на картках Журналу читає
@@ -11389,6 +11393,38 @@ function authorInfoFor(userId, fallbackName){
   const base = gender ? AUTHOR_GENDER_COLORS[gender] : AUTHOR_NEUTRAL;
   return { name: name, colorVar: base.colorVar, bgVar: base.bgVar, gender: gender };
 }
+// Rev 2.32.186 (AUTHOR-FRAME): колір рамки автора не залежить від мережі: довідник користувачів (familyUsersById) на слабкому зв'язку може бути порожнім, але стать автора лишається в кеші (cachedAuthorGender) — рамка береться з нього. Ім'я/мітки як і раніше з довідника.
+function authorFrameColorVar(userId){
+  if(!userId) return null;
+  const info = authorInfoFor(userId);
+  if(info) return info.colorVar;
+  const g = cachedAuthorGender(userId);
+  return g && AUTHOR_GENDER_COLORS[g] ? AUTHOR_GENDER_COLORS[g].colorVar : null;
+}
+// Автор нового локального запису — поточний користувач сесії (без запиту до сервера); null, якщо сесії нема.
+function localAuthorId(){
+  return (typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && cloudSession.user.id) || null;
+}
+const LS_KEY_AUTHOR_BACKFILL = 'budget_author_backfill_v1';
+// Одноразове донаповнення created_by у локальних витрат без автора (створені до цього Rev на слабкому зв'язку): лише потрібні id (пакетами по 100), без повного перезавантаження таблиць. Прапорець ставиться лише після повного успіху.
+async function backfillExpenseAuthors(){
+  try{
+    if(localStorage.getItem(LS_KEY_AUTHOR_BACKFILL) === '1') return { skipped: true };
+    if(!isCloudSessionReady()) return { skipped: true };
+    const ids = expenses.filter(function(e){ return e && !e.createdBy && e.id; }).map(function(e){ return e.id; });
+    let filled = 0;
+    if(ids.length){
+      const rows = await fetchRowsByIds(getSupabaseClient(), 'expenses', 'id,created_by', ids);
+      if(rows === null) return { skipped: true };
+      const by = {};
+      rows.forEach(function(r){ if(r && r.created_by) by[r.id] = r.created_by; });
+      expenses.forEach(function(e){ if(e && !e.createdBy && by[e.id]){ e.createdBy = by[e.id]; filled++; } });
+      if(filled){ await saveExpenses(); renderAll(); }
+    }
+    localStorage.setItem(LS_KEY_AUTHOR_BACKFILL, '1');
+    return { skipped: false, filled: filled, checked: ids.length };
+  }catch(e){ return { skipped: true }; }
+}
 // Rev #30 (6D.84) — Внутрішні сповіщення, Частина 3а/3б: черга "чужих дій",
 // наповнюється ВСЕРЕДИНІ pullXCore() (expenses/incomes/debts/hidden_entities
 // нижче) через pushOtherActorEvent(), гейтиться і актором (не я), і "не
@@ -12049,7 +12085,7 @@ function signOutConfirmText(stale){
 }
 // Ключі локального сховища, що належать акаунту/родині (тема й статус міграції сховища лишаються — не дані акаунта).
 function accountLocalStorageKeys(){
-  return BACKUP_LS_KEYS.concat([LS_KEY_DRAFT, LS_KEY_PURGED_TAXONOMY, LS_KEY_PURGED_ACCOUNTS, LS_KEY_PURGED_RECORDS, LS_KEY_SYNC_MARKERS, LS_KEY_SYNC_HEADS, LS_KEY_CLOUD_FAMILY_ID, LS_KEY_NOTIF_READ_QUEUE]); // Rev 2.32.147 (NOTIF-READ-QUEUE): черга id акаунта чиститься при виході
+  return BACKUP_LS_KEYS.concat([LS_KEY_DRAFT, LS_KEY_PURGED_TAXONOMY, LS_KEY_PURGED_ACCOUNTS, LS_KEY_PURGED_RECORDS, LS_KEY_SYNC_MARKERS, LS_KEY_SYNC_HEADS, LS_KEY_CLOUD_FAMILY_ID, LS_KEY_AUTHOR_BACKFILL, LS_KEY_NOTIF_READ_QUEUE]); // Rev 2.32.147 (NOTIF-READ-QUEUE): черга id акаунта чиститься при виході
 }
 async function clearLocalAccountData(){
   let cleared = 0;
@@ -13354,6 +13390,8 @@ async function addExpenseCore(){
   // обміну витратами між пристроями (Family Bridge) та Cloud-синхронізації.
   const nowISO = new Date().toISOString();
   const rec = { id: generateUUID(), date, name, amount, category, subcategory, manual:isManual, createdAt: nowISO, updatedAt: nowISO };
+  const authorId = localAuthorId(); // Rev 2.32.186 (AUTHOR-FRAME): автор виставляється локально в момент створення, незалежно від мережі (сервер лишається джерелом істини: pull перезапише, якщо відрізняється)
+  if(authorId) rec.createdBy = authorId;
   // Rev 2.2.2 — автозв'язок витрата↔ОЧ (метод C): лише якщо користувач явно
   // підтвердив підказку (confirmedInstallmentLinkIdx !== -1), інакше поле
   // взагалі не додається до запису (а не залишається порожнім/null) — так
@@ -17735,7 +17773,8 @@ function buildRecordGroupsHtml(items){
       // Дохід і далі лишає власний .income-row (авторський колір там не
       // застосовано — ТЗ стосувалось саме карток витрат).
       const author = !isIncome ? authorInfoFor(e.createdBy) : null;
-      const authorStyle = author ? ` style="border-left-color:var(${author.colorVar})"` : '';
+      const frameVar = !isIncome ? authorFrameColorVar(e.createdBy) : null; // Rev 2.32.186: колір із кешу статі, якщо довідник ще не завантажено
+      const authorStyle = frameVar ? ` style="border-left-color:var(${frameVar})"` : '';
       // Rev #30 (6D.68) — Cloud Sync UI, Крок 3: транзиентний 2-фазний
       // highlight на записах, щойно ОТРИМАНИХ через Cloud Pull (не
       // створених/відредагованих на ЦЬОМУ пристрої) —

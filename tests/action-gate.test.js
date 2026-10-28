@@ -33,7 +33,7 @@ function addExpenseSandbox(){
     localDateISO: function(){ return '2026-10-10'; },
     reportSaveResult: function(){}, saveExpenses: function(){ return new Promise(function(r){ setTimeout(function(){ r({ success: true }); }, 5); }); },
     pushExpenseRecordPilot: function(){}, resetExpenseForm: function(){}, populateMonths: function(){}, renderAll: function(){}, flashField: function(){},
-  }, ['ACTION_GATE_HOLD_MS', 'actionGateEnter', 'actionGateLeave', 'addExpense', 'addExpenseCore', 'debugAddResult']);
+  }, ['ACTION_GATE_HOLD_MS', 'actionGateEnter', 'actionGateLeave', 'addExpense', 'addExpenseCore', 'localAuthorId', 'debugAddResult']);
   return { ctx, fields };
 }
 test('addExpense: два виклики поспіль дають одну витрату', async function(){
