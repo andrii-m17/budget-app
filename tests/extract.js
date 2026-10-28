@@ -110,6 +110,7 @@ function buildSandbox(globals, names){
     + "if(typeof showToast === 'undefined') var showToast = function(){};"
     + "if(typeof expSyncEntries === 'undefined') var expSyncEntries = new Map();"
     + "if(typeof recentlyPulledExpenseState === 'undefined') var recentlyPulledExpenseState = new Map();"
+    + "if(typeof recentlyPulledIncomeState === 'undefined') var recentlyPulledIncomeState = new Map();"
     + "if(typeof safeId === 'undefined') var safeId = function(x){ return String(x); };"
     + "if(typeof escapeAttr === 'undefined') var escapeAttr = function(x){ return String(x); };"
     + "if(typeof MutationObserver === 'undefined') var MutationObserver = function(){ this.observe = function(){}; this.disconnect = function(){}; };"

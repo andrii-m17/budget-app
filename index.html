@@ -7327,7 +7327,7 @@ function expSyncSet(id, s){ const e = expSyncEntry(id); e.s = s; if(s === 'synci
 // «done»: тримається 1,2 с, зникає 0,3 с, потім стан порожній.
 function expSyncDone(id){
   const e = expSyncEntry(id); expSyncClear(e);
-  if(!recentlyPulledExpenseState.has(id)) expRowBlink(id, false); // власна відправка: блимання закінчено, нового не буде (чужа зміна керується expPulledPhase)
+  if(!recentlyPulledExpenseState.has(id) && !recentlyPulledIncomeState.has(id)) expRowBlink(id, false); // власна відправка: блимання закінчено, нового не буде (чужа зміна керується expPulledPhase)
   expSyncSet(id, 'done');
   e.t.push(setTimeout(function(){
     expSyncSlots(id).forEach(function(slot){ slot.setAttribute('data-fade', '1'); });
