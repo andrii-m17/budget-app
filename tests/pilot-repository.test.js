@@ -6717,3 +6717,55 @@ test('pullExpensesCore (2.32.186): локальна зміна новіша й �
   assert.equal(ctx.expenses[0].name, 'Локальна'); assert.equal(ctx.expenses[0].amount, 500);
   assert.equal(ctx.expenses[0].createdBy, 'user-2');
 });
+
+// Rev 2.32.187 (PULL-CLEAN) — доходи й борги: надіслана «новіша» версія приймає серверну (правка з іншого пристрою не втрачається), ненадіслана лишає свій вміст.
+test('pullIncomesCore (2.32.187): надісланий «новіший» запис (годинник пристрою попереду) отримує серверну правку з іншого пристрою; повторного push нема', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 25000, income_date: '2026-05-01', note: 'ЗП', created_by: 'user-2', created_at: '2024-06-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:20.000Z' }]);
+  ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: 'ЗП', amount: 20000, createdAt: '2024-06-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:10.000Z', syncedUpdatedAt: '2024-06-01T00:00:10.000Z' }];
+  // локальний updatedAt (час пристрою) вважався б «новішим» за серверний лише при зсуві годинника: ставимо його попереду
+  ctx.incomes[0].updatedAt = ctx.incomes[0].syncedUpdatedAt = '2024-06-01T00:00:30.000Z';
+  const pushSpy = spyOn(ctx, 'pushIncomeRecordPilot');
+  const result = await ctx.pullIncomesCore();
+  assert.equal(result.updated, 1); assert.equal(result.keptLocal, 0);
+  assert.equal(ctx.incomes[0].amount, 25000, 'правка з іншого пристрою не втрачена');
+  assert.equal(ctx.incomes[0].createdBy, 'user-2');
+  assert.equal(pushSpy.count(), 0);
+});
+test('pullIncomesCore (2.32.187): ненадісланий «новіший» запис лишає свій вміст (push-retry), автор донаповнюється', async () => {
+  const ctx = pullIncomesSandbox([{ id: 'i1', amount: 25000, income_date: '2026-05-01', note: 'ЗП', created_by: 'user-2', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: 'ЗП', amount: 20000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushIncomeRecordPilot');
+  const result = await ctx.pullIncomesCore();
+  assert.equal(result.keptLocal, 1); assert.equal(ctx.incomes[0].amount, 20000); assert.equal(ctx.incomes[0].createdBy, 'user-2');
+  assert.equal(pushSpy.count(), 1);
+});
+test('pullDebtsCore (2.32.187): надісланий «новіший» борг приймає серверну версію без повторного push', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Картка Б', kind: 'card', month: '2026-05-01', balance: 2000, created_by: 'user-2', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:20.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Картка Б', cloudId: 'b1' }];
+  ctx.debts = [{ id: 'd1', name: 'Картка Б', kind: 'card', month: '2026-05', balance: 1000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:30.000Z', syncedUpdatedAt: '2024-06-01T00:00:30.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushDebtRecordPilot', 'debtOwnerAccount');
+  const result = await ctx.pullDebtsCore();
+  assert.equal(result.updated, 1); assert.equal(result.keptLocal, 0);
+  assert.equal(ctx.debts[0].balance, 2000); assert.equal(ctx.debts[0].createdBy, 'user-2');
+  assert.equal(pushSpy.count(), 0);
+});
+test('pullDebtsCore (2.32.187): ненадісланий «новіший» борг лишає свій баланс, автор донаповнюється', async () => {
+  const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Картка Б', kind: 'card', month: '2026-05-01', balance: 2000, created_by: 'user-2', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
+  ctx.bankAccounts = [{ name: 'Картка Б', cloudId: 'b1' }];
+  ctx.debts = [{ id: 'd1', name: 'Картка Б', kind: 'card', month: '2026-05', balance: 1000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushDebtRecordPilot', 'debtOwnerAccount');
+  const result = await ctx.pullDebtsCore();
+  assert.equal(result.keptLocal, 1); assert.equal(ctx.debts[0].balance, 1000); assert.equal(ctx.debts[0].createdBy, 'user-2');
+  assert.equal(pushSpy.count(), 1);
+});
+test('охоронні 2.32.187: усі pull із LWW-гілкою «локальна новіша» мають умову clean/dirty; fieldless-формули й push не чіпались', function(){
+  const SRC = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  ['pullExpensesCore', 'pullIncomesCore', 'pullDebtsCore'].forEach(function(n){
+    const i = SRC.indexOf('async function ' + n), body = SRC.slice(i, SRC.indexOf('\nasync function ', i + 10));
+    assert.match(body, /localIsNewer && !localClean/, n);
+  });
+  ['pullCategoriesCore', 'pullSubcategoriesCore', 'pullDictionaryCore', 'pullBankAccountsCore', 'pullInstallmentAccountsCore'].forEach(function(n){
+    const i = SRC.indexOf('async function ' + n), body = SRC.slice(i, SRC.indexOf('\nasync function ', i + 10));
+    assert.match(body, /localIsNewer = [^\n]*(isDirty|isSubcategoryDirty|planDictionaryPush)/, n + ': вже з перевіркою «брудний» (URGENT-LOOP)');
+  });
+});

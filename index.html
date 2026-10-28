@@ -3729,7 +3729,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.186</div>
+  <div class="version-footer">Money Tree · Rev 2.32.187</div>
 </div>
   </div>
 </div>
@@ -7421,7 +7421,7 @@ async function pullExpensesPilot(){
 async function pullIncomesCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
-  let updated = 0, added = 0, keptLocal = 0;
+  let updated = 0, added = 0, keptLocal = 0, authorFilled = false; // Rev 2.32.187
   // Rev #30 (6D.84) — той самий принцип, що hadMarker у pullExpensesCore()
   // (докоментар там): гейтить сповіщення "чужа дія" від фальшивого спалаху
   // на першому повному backfill-пулі.
@@ -7439,8 +7439,11 @@ async function pullIncomesCore(opts){
         const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
         const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
-        if(localIsNewer){
+        // Rev 2.32.187 (PULL-CLEAN): та сама логіка, що Rev 2.32.186 для витрат. Надіслана (syncedUpdatedAt === updatedAt) версія, «новіша» лише за годинником пристрою, не може вважатись правкою, що перемагає: інакше push-retry перезаписав би старим вмістом правку, зроблену на іншому пристрої (сервер авторитетний, updated_at ставить лише він). Ненадіслана — вміст лишається, автор донаповнюється.
+        const localClean = !!local.syncedUpdatedAt && local.syncedUpdatedAt === local.updatedAt;
+        if(localIsNewer && !localClean){
           keptLocal++;
+          if(!local.createdBy && row.created_by){ local.createdBy = row.created_by; authorFilled = true; }
           pushIncomeRecordPilot(local);
           continue;
         }
@@ -7481,7 +7484,7 @@ async function pullIncomesCore(opts){
   }catch(e){
     return { skipped: true };
   }
-  if(updated || added) await saveIncomes();
+  if(updated || added || authorFilled) await saveIncomes();
   // Rev #30 (6D.55) — той самий принцип, що pullExpensesCore() вище:
   // дзеркалимо render-виклик локального save (saveIncomeDrawer()).
   if(updated || added) renderAll();
@@ -7512,7 +7515,7 @@ async function pullIncomesPilot(){
 async function pullDebtsCore(opts){
   if(!isCloudSessionReady()) return { skipped: true };
   const client = getSupabaseClient();
-  let updated = 0, added = 0, keptLocal = 0, skippedFk = 0;
+  let updated = 0, added = 0, keptLocal = 0, skippedFk = 0, authorFilled = false; // Rev 2.32.187
   let maxSeen = null; // Rev #30 (6D.38) — той самий принцип, що pullSubcategoriesCore()
   const hadMarker = !!getSyncMarker('debts'); // Rev #30 (6D.84) — той самий принцип, що pullExpensesCore()
   try{
@@ -7541,8 +7544,11 @@ async function pullDebtsCore(opts){
         const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
         const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime;
-        if(localIsNewer){
+        // Rev 2.32.187 (PULL-CLEAN): див. pullIncomesCore — надіслана «новіша» версія приймає серверний рядок, ненадіслана зберігає вміст.
+        const localClean = !!local.syncedUpdatedAt && local.syncedUpdatedAt === local.updatedAt;
+        if(localIsNewer && !localClean){
           keptLocal++;
+          if(!local.createdBy && row.created_by){ local.createdBy = row.created_by; authorFilled = true; }
           pushDebtRecordPilot(local);
           continue;
         }
@@ -7597,7 +7603,7 @@ async function pullDebtsCore(opts){
   }catch(e){
     return { skipped: true };
   }
-  if(updated || added) await saveDebts();
+  if(updated || added || authorFilled) await saveDebts();
   // Rev #30 (6D.55) — той самий принцип, що pullExpensesCore() вище:
   // дзеркалимо render-виклик локального save (saveCardDebtDrawer()/saveInstallmentDrawer()).
   if(updated || added) renderAll();
@@ -8367,7 +8373,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.186';
+const APP_VERSION = '2.32.187';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
