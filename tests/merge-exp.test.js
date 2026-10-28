@@ -235,7 +235,8 @@ function timers(){
 function slotEnv(rows){
   const tm = timers(); const slot = fakeSlot('e1'); const cls = new Set(); const log = [];
   const row = { classList: { add: c => { cls.add(c); log.push('+' + c); }, remove: c => { cls.delete(c); log.push('-' + c); }, contains: c => cls.has(c) } };
-  const document = { querySelectorAll: sel => (sel.indexOf('e1') >= 0 ? [slot] : []), querySelector: sel => (sel.indexOf('data-rec-id="e1"') >= 0 ? row : null) };
+  const hidden = { classList: { add: () => {}, remove: () => {}, contains: () => false } };
+  const document = { querySelectorAll: sel => (sel.indexOf('.sync-slot') >= 0 && sel.indexOf('e1') >= 0 ? [slot] : (sel.indexOf('data-rec-id="e1"') >= 0 ? [hidden, row] : [])) }; // два рядки запису в DOM: прихований і видимий
   const c = buildSandbox({ document, setTimeout: tm.setTimeout, clearTimeout: tm.clearTimeout, recentlyPulledExpenseState: new Map(), expSyncEntries: new Map() }, []);
   return { c, tm, slot, row, cls, log };
 }

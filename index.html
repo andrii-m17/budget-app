@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.197</div>
+  <div class="version-footer">Money Tree · Rev 2.32.198</div>
 </div>
   </div>
 </div>
@@ -7223,10 +7223,12 @@ function expSyncDone(id){
 }
 // Блимання рядка під час відправки: клас .just-synced (cardBlink .8s ×3, як було до Rev 195) на наявному вузлі рядка; знімається при done/pending. Четвертого блимання нема: рядок не перемальовується.
 function expRowBlink(id, on){
-  if(typeof document === 'undefined' || !document.querySelector) return;
-  const row = document.querySelector('.expense-row[data-rec-id="' + safeId(id) + '"]');
-  if(!row) return;
-  if(on) row.classList.add('just-synced'); else row.classList.remove('just-synced');
+  expRowsFor(id).forEach(function(row){ if(on) row.classList.add('just-synced'); else row.classList.remove('just-synced'); });
+}
+// Усі рядки запису в DOM: той самий запис може бути в кількох списках (один зі списків прихований), тож клас ставиться на всі збіги, а не на перший.
+function expRowsFor(id){
+  if(typeof document === 'undefined' || !document.querySelectorAll) return [];
+  return Array.prototype.slice.call(document.querySelectorAll('.expense-row[data-rec-id="' + safeId(id) + '"]'));
 }
 function expSyncBegin(id){
   if(!id) return;
@@ -7269,11 +7271,10 @@ function expPulledMark(id){ recentlyPulledExpenseState.set(id, 'syncing'); expSy
 function expPulledPhase(ids, phase){
   ids.forEach(function(id){
     if(phase === 'done') expSyncDone(id);
-    if(typeof document === 'undefined' || !document.querySelector) return;
-    const row = document.querySelector('.expense-row[data-rec-id="' + safeId(id) + '"]');
-    if(!row) return;
-    if(phase === 'done') row.classList.add('just-synced-done');
-    else{ row.classList.remove('just-synced'); row.classList.remove('just-synced-done'); }
+    expRowsFor(id).forEach(function(row){
+      if(phase === 'done') row.classList.add('just-synced-done');
+      else{ row.classList.remove('just-synced'); row.classList.remove('just-synced-done'); }
+    });
   });
 }
 // ----- Журнал конфліктів (локальний, 14 днів) -----
@@ -8994,7 +8995,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.197';
+const APP_VERSION = '2.32.198';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
