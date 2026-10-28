@@ -267,7 +267,7 @@ test('похідний стан при рендері: «брудний» зап
 });
 test('геометрія індикатора: одна хмаринка з контура CLOUD_ICON_SVG для pending і syncing; кільце, коло й заливка концентричні (12,12 r 11); без transform-атрибутів; три дуги', () => {
   const { c } = slotEnv(); const svg = evalInSandbox(c, 'SYNC_SLOT_SVG.slot');
-  const cloudD = SRC.match(/const CLOUD_ICON_SVG = '[^']*<path d="([^"]+)"/)[1];
+  const cloudD = evalInSandbox(c, 'CLOUD_ICON_D'); assert.ok(/<path d="' \+ CLOUD_ICON_D \+ '"\/>/.test(SRC.slice(SRC.indexOf('const CLOUD_ICON_SVG'), SRC.indexOf('const CLOUD_ICON_SVG') + 400)), 'CLOUD_ICON_SVG бере контур із CLOUD_ICON_D');
   assert.equal(evalInSandbox(c, 'SYNC_SLOT_CLOUD_D'), cloudD, 'той самий контур, що в індикаторі профілю');
   assert.equal((svg.match(new RegExp('d="' + cloudD.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"', 'g')) || []).length, 1, 'одна хмаринка на всі стани (масштаб і колір — CSS)');
   ['sl-fill', 'sl-close', 'sl-ring'].forEach(k => assert.match(svg, new RegExp('<circle class="' + k + '" cx="12" cy="12" r="11"')));
@@ -295,7 +295,7 @@ test('джерело: слот лише для витрат, reduced-motion, т�
   assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.sync-slot \.sl-ring\{ animation:none; \}/);
   const css = SRC.slice(SRC.indexOf('.sync-slot{ display:inline-flex'), SRC.indexOf('/* ===== Rev 2.32.189 (CHECKS-1)'));
   assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(css), 'лише токени'); assert.match(css, /width:20px; height:20px/);
-  assert.match(css, /animation:syncRing 1\.1s linear infinite/); assert.match(css, /transform:scale\(\.55\)/); assert.match(css, /stroke:var\(--color-error\)/); assert.match(css, /fill:var\(--color-success\)/); assert.match(css, /stroke:var\(--color-text-secondary\)/);
+  assert.match(css, /animation:syncRing 1\.1s linear infinite/); assert.match(css, /transform:translateY\(\.5px\) scale\(\.55\)/); assert.match(css, /stroke:var\(--color-error\)/); assert.match(css, /fill:var\(--color-success\)/); assert.match(css, /stroke:var\(--color-text-secondary\)/);
   assert.match(css, /transition:transform \.28s cubic-bezier\(\.3,1\.4,\.5,1\) \.2s/); assert.match(css, /transition:stroke-dashoffset \.35s ease/); assert.match(css, /transition:stroke-dashoffset \.26s ease \.38s/);
   assert.match(css, /\.sl-close\{[^}]*transform:rotate\(-90deg\)/); assert.match(css, /transform-box:fill-box; transform-origin:center/);
   assert.ok(!/dashed|dotted/.test(css));
@@ -306,35 +306,47 @@ test('джерело: слот лише для витрат, reduced-motion, т�
 
 // bbox контура хмаринки: семплінг дуг SVG (endpoint → center параметризація)
 function pathBBox(d){
-  const tok = d.match(/[A-Za-z]|-?\d*\.?\d+/g); let i = 0, x = 0, y = 0, cmd = ''; const pts = [];
+  const tok = d.match(/[A-Za-z]|-?\d*\.?\d+/g); let i = 0, x = 0, y = 0, cmd = ''; const pts = []; const arcs = [];
   const num = () => parseFloat(tok[i++]);
   while(i < tok.length){
     if(/[A-Za-z]/.test(tok[i])) cmd = tok[i++];
     if(cmd === 'M' || cmd === 'L'){ x = num(); y = num(); pts.push([x, y]); }
+    else if(cmd === 'H'){ x = num(); pts.push([x, y]); }
     else if(cmd === 'A'){
       const rx = num(), ry = num(), rot = num(), fa = num(), fs = num(), ex = num(), ey = num(); const r = rx;
       const mx = (x - ex) / 2, my = (y - ey) / 2, d2 = mx * mx + my * my; let co = Math.sqrt(Math.max(0, r * r / d2 - 1)); if(fa === fs) co = -co;
-      const cx = (x + ex) / 2 + co * my, cy = (y + ey) / 2 - co * mx;
+      const cx = (x + ex) / 2 + co * my, cy = (y + ey) / 2 - co * mx; arcs.push({ cx, cy, r });
       let a0 = Math.atan2(y - cy, x - cx), a1 = Math.atan2(ey - cy, ex - cx); if(fs && a1 < a0) a1 += 2 * Math.PI; if(!fs && a1 > a0) a1 -= 2 * Math.PI;
       for(let k = 0; k <= 200; k++){ const a = a0 + (a1 - a0) * k / 200; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
       x = ex; y = ey;
     }else if(cmd === 'Z') break;
   }
   const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
-  return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+  return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), arcs };
 }
-test('знак оклику (варіант Б): візуальний центр фігури = центр bbox контуру (x ±0,1, y ±0,15), висота ≈0,58·H, зазор до низу контуру ≥ 1,3; контур у pending і syncing той самий', () => {
+test('форма хмаринки: bbox x 2,8–21,2 / y 5–18, центр x = 12; бічні кола однакового r, симетричні відносно x = 12, центри на 18 − r (дотичні до нижньої лінії, без гострих кутів знизу)', () => {
+  const { c } = slotEnv(); const bb = pathBBox(evalInSandbox(c, 'CLOUD_ICON_D'));
+  assert.ok(Math.abs((bb.x0 + bb.x1) / 2 - 12) <= 0.1, 'центр x'); assert.ok(Math.abs(bb.x0 - 2.8) < 0.05 && Math.abs(bb.x1 - 21.2) < 0.05 && Math.abs(bb.y0 - 5) < 0.05 && Math.abs(bb.y1 - 18) < 0.05, JSON.stringify(bb));
+  const side = bb.arcs.filter(a => Math.abs(a.r - 4.6) < 1e-9); assert.equal(side.length, 2, 'два бічні кола');
+  side.forEach(a => assert.ok(Math.abs(a.cy - (18 - a.r)) < 0.01, 'дотичне до y=18'));
+  assert.ok(Math.abs((side[0].cx + side[1].cx) / 2 - 12) < 0.01, 'симетрія'); assert.ok(Math.abs(side[0].cy - side[1].cy) < 0.01);
+  const top = bb.arcs.find(a => Math.abs(a.r - 5.2) < 1e-9); assert.ok(top && Math.abs(top.cx - 12) < 0.01 && Math.abs(top.cy - 10.2) < 0.01, 'верхнє коло');
+});
+test('знак оклику: візуальний центр = центр bbox (x ±0,1, y ±0,15), висота ≈0,58·H, рисочка ≈0,22·H, зазор до низу контуру ≥ 1,3; контур у pending і syncing той самий; у syncing/done хмаринка центрована на (12; 12)', () => {
   const { c } = slotEnv();
   const d = evalInSandbox(c, 'SYNC_SLOT_CLOUD_D'), bang = evalInSandbox(c, 'SYNC_SLOT_BANG');
   const bb = pathBBox(d); const cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2, H = bb.y1 - bb.y0, r = 1.9 / 2;
-  const bar = bang.match(/M([\d.]+) ([\d.]+)v([\d.]+)/), dot = bang.match(/M([\d.]+) ([\d.]+)h\.01/);
+  const bar = bang.match(/M([\d.]+) ([\d.]+)v([\d.]+)/), dot = bang.match(/M([\d.]+) ([\d.]+)v\.01/);
   assert.ok(Math.abs(Number(bar[1]) - cx) <= 0.1, 'x рисочки'); assert.ok(Math.abs(Number(dot[1]) - cx) <= 0.1, 'x крапки');
-  const top = Number(bar[2]) - r, bottom = Number(dot[2]) + r; // візуальні межі з округленням штриху
+  const top = Number(bar[2]) - r, bottom = Number(dot[2]) + 0.01 + r;
   assert.ok(Math.abs((top + bottom) / 2 - cy) <= 0.15, 'візуальний центр ' + (top + bottom) / 2 + ' vs ' + cy);
-  assert.ok(Math.abs((bottom - top) / H - 0.58) < 0.02, 'візуальна висота ' + (bottom - top) / H); assert.ok(Math.abs(Number(bar[3]) / H - 0.22) < 0.01, 'рисочка 0,22·H');
-  assert.ok(bb.y1 - bottom >= 1.3, 'зазор ' + (bb.y1 - bottom));
+  assert.ok(Math.abs((bottom - top) / H - 0.58) < 0.02, 'висота ' + (bottom - top) / H); assert.ok(Math.abs(Number(bar[3]) / H - 0.22) < 0.01);
+  assert.ok((bb.y1 - r) - bottom >= 1.3, 'зазор до внутрішнього краю нижньої лінії ' + ((bb.y1 - r) - bottom));
   const slot = evalInSandbox(c, 'SYNC_SLOT_SVG.slot'), pending = evalInSandbox(c, 'SYNC_SLOT_SVG.pending');
   assert.ok(slot.includes('d="' + d + '"') && pending.includes('d="' + d + '"'), 'один контур');
   assert.ok(slot.includes(bang) && pending.includes(bang), 'одне джерело розмітки знака (слот і картка конфлікту)');
-  assert.match(SRC, /<path d="' \+ SYNC_SLOT_CLOUD_D \+ '"\/>' \+ SYNC_SLOT_BANG \+ '<\/svg>',\n  journal/, 'тост конфлікту бере той самий SYNC_SLOT_BANG');
+  assert.match(SRC, /<path d="' \+ SYNC_SLOT_CLOUD_D \+ '"\/>' \+ SYNC_SLOT_BANG \+ '<\/svg>',\n  journal/);
+  const shift = 12 - cy; assert.ok(Math.abs(shift - 0.5) < 0.02);
+  const css = SRC.slice(SRC.indexOf('.sync-slot{ display:inline-flex'), SRC.indexOf('/* ===== Rev 2.32.189 (CHECKS-1)'));
+  assert.ok(css.includes('transform:translateY(.5px) scale(.55)') && css.includes('transform:translateY(.5px) scale(.3)'), 'центр хмаринки на центр кільця (12; 12) після масштабу');
 });
