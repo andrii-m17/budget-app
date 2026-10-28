@@ -7183,7 +7183,7 @@ const SYNC_SLOT_HOLD_MS = 1200;
 const SYNC_SLOT_FADE_MS = 300;
 const SYNC_SLOT_MIN_SYNCING_MS = 600;
 const SYNC_SLOT_CLOUD_D = 'M5.24 18A5.3 5.3 0 0 1 5.81 7.84A6.3 6.3 0 0 1 18.19 7.84A5.3 5.3 0 0 1 18.76 18L5.24 18Z'; // той самий контур, що CLOUD_ICON_SVG (індикатор профілю), без змін форми
-const SYNC_SLOT_BANG = '<path d="M12 9.8v3.3"/><path d="M12 15.5h.01"/>'; // знак оклику: x = 12, по центру тіла хмаринки, штрих як у контура
+const SYNC_SLOT_BANG = '<path d="M12 6.4v4"/><path d="M12 13.3h.01"/>'; // знак оклику: x = x-центр bbox хмаринки (12,0), висота ≈45 % висоти хмаринки (6,9 з 15,3), оптично по центру з підйомом на 0,5; зазор крапка–нижній внутрішній край ≥ 2,5 (viewBox 24); штрих 1,9
 const SYNC_SLOT_SVG = {
   // статична pending-хмаринка (картка конфлікту, рядок журналу сповіщень)
   pending: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + SYNC_SLOT_CLOUD_D + '"/>' + SYNC_SLOT_BANG + '</svg>',

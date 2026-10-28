@@ -274,7 +274,7 @@ test('геометрія індикатора: одна хмаринка з ко
   assert.ok(!/ transform=/.test(svg), 'без атрибута transform');
   assert.match(svg, /stroke-dasharray="14 9\.03"/); assert.ok(Math.abs(3 * (14 + 9.03) - 2 * Math.PI * 11) < 0.05);
   assert.match(svg, /stroke-dasharray="69\.1"/); assert.match(svg, /d="M7\.2 12\.6l3\.2 3\.2 6\.2-6\.8" stroke="#fff" stroke-width="2\.2" stroke-dasharray="16"/);
-  assert.match(svg, /M12 9\.8v3\.3/); assert.match(svg, /viewBox="0 0 24 24"/);
+  assert.match(svg, /viewBox="0 0 24 24"/);
 });
 test('«відлуння» власного запису: pull із тим самим updated_at не рендерить рядок, не підсвічує й не стартує індикатор; чужа зміна — один рендер, фази без renderAll', async () => {
   const s = makeServer(); let renders = 0; const tm = timers();
@@ -302,4 +302,39 @@ test('джерело: слот лише для витрат, reduced-motion, т�
   assert.ok(!/не збережено/.test(SRC.slice(SRC.indexOf('function conflictModel'), SRC.indexOf('function conflictDoneModel'))));
   const b = SRC.slice(SRC.indexOf('function conflictRowsHtml'), SRC.indexOf('function conflictRowsNode')); assert.match(b, /min-height:44px/);
   assert.match(SRC, /kind: 'error', icon: 'cloud', sticky: true, compact: true/); assert.match(SRC, /el\.style\.padding = '14px 16px'/);
+});
+
+// bbox контура хмаринки: семплінг дуг SVG (endpoint → center параметризація)
+function pathBBox(d){
+  const tok = d.match(/[A-Za-z]|-?\d*\.?\d+/g); let i = 0, x = 0, y = 0, cmd = ''; const pts = [];
+  const num = () => parseFloat(tok[i++]);
+  while(i < tok.length){
+    if(/[A-Za-z]/.test(tok[i])) cmd = tok[i++];
+    if(cmd === 'M' || cmd === 'L'){ x = num(); y = num(); pts.push([x, y]); }
+    else if(cmd === 'A'){
+      const rx = num(), ry = num(), rot = num(), fa = num(), fs = num(), ex = num(), ey = num(); const r = rx;
+      const mx = (x - ex) / 2, my = (y - ey) / 2, d2 = mx * mx + my * my; let co = Math.sqrt(Math.max(0, r * r / d2 - 1)); if(fa === fs) co = -co;
+      const cx = (x + ex) / 2 + co * my, cy = (y + ey) / 2 - co * mx;
+      let a0 = Math.atan2(y - cy, x - cx), a1 = Math.atan2(ey - cy, ex - cx); if(fs && a1 < a0) a1 += 2 * Math.PI; if(!fs && a1 > a0) a1 -= 2 * Math.PI;
+      for(let k = 0; k <= 200; k++){ const a = a0 + (a1 - a0) * k / 200; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+      x = ex; y = ey;
+    }else if(cmd === 'Z') break;
+  }
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+}
+test('знак оклику: x = x-центр хмаринки (±0,1), висота ≈45 % висоти хмаринки, оптично по центру з підйомом, зазор крапка–нижній край ≥ 2,5; контур у pending і syncing той самий', () => {
+  const { c } = slotEnv();
+  const d = evalInSandbox(c, 'SYNC_SLOT_CLOUD_D'), bang = evalInSandbox(c, 'SYNC_SLOT_BANG');
+  const bb = pathBBox(d); const cx = (bb.x0 + bb.x1) / 2, h = bb.y1 - bb.y0;
+  const bar = bang.match(/M([\d.]+) ([\d.]+)v([\d.]+)/), dot = bang.match(/M([\d.]+) ([\d.]+)h\.01/);
+  assert.ok(Math.abs(Number(bar[1]) - cx) <= 0.1, 'x рисочки = ' + cx); assert.ok(Math.abs(Number(dot[1]) - cx) <= 0.1, 'x крапки');
+  const top = Number(bar[2]), dotY = Number(dot[2]); const total = dotY - top; // довжина по осі штриху
+  assert.ok(Math.abs(total / h - 0.45) < 0.03, 'висота знака ≈ 45 %: ' + (total / h));
+  const mid = (top + dotY) / 2, bodyMid = (bb.y0 + bb.y1) / 2; assert.ok(Math.abs((bodyMid - mid) - 0.5) < 0.1, 'підйом ≈ 0,5');
+  const gap = (bb.y1 - 1.9 / 2) - (dotY + 1.9 / 2); assert.ok(gap >= 2.5, 'зазор ' + gap);
+  const slot = evalInSandbox(c, 'SYNC_SLOT_SVG.slot'), pending = evalInSandbox(c, 'SYNC_SLOT_SVG.pending');
+  assert.ok(slot.includes('d="' + d + '"') && pending.includes('d="' + d + '"'), 'один контур');
+  assert.ok(slot.includes(bang) && pending.includes(bang), 'одне джерело розмітки знака (слот і картка конфлікту)');
+  assert.match(SRC, /<path d="' \+ SYNC_SLOT_CLOUD_D \+ '"\/>' \+ SYNC_SLOT_BANG \+ '<\/svg>',\n  journal/, 'тост конфлікту бере той самий SYNC_SLOT_BANG');
 });
