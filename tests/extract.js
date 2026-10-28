@@ -95,6 +95,9 @@ function buildSandbox(globals, names){
     + "if(typeof blockedByReadOnly === 'undefined') var blockedByReadOnly = function(){ return false; };"
     + "if(typeof READONLY_USER_HINT === 'undefined') var READONLY_USER_HINT = 'x';"
     + "if(typeof isCloudWriteReady === 'undefined') var isCloudWriteReady = function(){ return !isWriteBlocked() && (typeof isCloudSessionReady === 'function' ? isCloudSessionReady() : false); };", context);
+  // Rev 2.32.192 (SHADOW-REV): тіньові помічники обліку версій викликаються з push/save-функцій; додаємо їх у кожен sandbox автоматично (тести не мусять перелічувати їх у NAMES).
+  const SHADOW = ['shadowNormalize', 'shadowNormalizeLazy', 'shadowNormalizeList', 'shadowNormalizeMap', 'shadowNormalizeAll', 'shadowSnap', 'shadowSetServer', 'shadowAfterPush', 'shadowRet', 'shadowServerAt', 'shadowDirtyNew', 'shadowDirtyOld', 'shadowDiffCounts', 'shadowDiffReport'];
+  names = names.concat(SHADOW.filter(n => !names.includes(n)));
   const source = names.map(name => {
     return /^[A-Z][A-Z0-9_]*$/.test(name) ? extractConstSource(name) : extractFunctionSource(name);
   }).join('\n\n');

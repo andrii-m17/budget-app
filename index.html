@@ -3774,7 +3774,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.190</div>
+  <div class="version-footer">Money Tree · Rev 2.32.192</div>
 </div>
   </div>
 </div>
@@ -4866,6 +4866,7 @@ async function saveCategories(){
   return result;
 }
 async function saveCategoriesLocal(){
+  shadowNormalizeList(CATEGORIES); // Rev 2.32.192 (SHADOW-REV)
   if(isDomainMigrated('categories')){
     try{ await idbAdapterSet(LS_KEY_CATEGORIES, JSON.stringify(CATEGORIES)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
@@ -4917,6 +4918,7 @@ async function pushCategoriesPilot(){
   const plan = planCategoriesPush(CATEGORIES, null);
   captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped });
   for(const cat of plan.push){
+    const shSnap = shadowSnap(cat); // Rev 2.32.192 (SHADOW-REV)
     // Rev #30 (6D.50) — цей "already synced" шорткат ІСНУВАВ, щоб не
     // слати зайвий UPDATE, коли справді нічого не змінилось. Rev #30
     // (6D.125) — ВИДАЛЕНО: той самий клас бага, що вже підтверджений
@@ -4930,8 +4932,9 @@ async function pushCategoriesPilot(){
     const prevCloudId = cat.cloudId;
     try{
       if(cat.cloudId){
-        const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, type: cat.type, updated_at: cat.updatedAt, updated_by: userId }).eq('id', cat.cloudId).select('id');
+        const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, type: cat.type, updated_at: cat.updatedAt, updated_by: userId }).eq('id', cat.cloudId).select('id,updated_at');
         if(error){ anyError = true; continue; }
+        if(data && data[0]) shadowSetServer(cat, data[0].updated_at); // Rev 2.32.192 (SHADOW-REV)
         if(data && data.length === 0){
           // "Висячий" cloudId — не мережева помилка, а сигнал, що рядок з
           // таким id більше не існує (напр. видалений вручну дублікат).
@@ -4947,6 +4950,7 @@ async function pushCategoriesPilot(){
       // Rev #30 (6D.50) — лише після успіху (не в catch): позначає запис
       // синхронізованим на ПОТОЧНЕ значення updatedAt.
       cat.syncedUpdatedAt = cat.updatedAt;
+      shadowAfterPush(cat, shSnap); // Rev 2.32.192 (SHADOW-REV)
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск,
@@ -4998,11 +5002,11 @@ async function reconcileCategoryCloudId(client, userId, cat){
     // версія мала СВІЖІШУ active/type (напр. обидва члени сім'ї
     // відредагували ту саму дефолтну категорію до першої синхронізації),
     // ця зміна тихо губилась і ніколи не пушилась повторно.
-    await client.from('categories').update({ active: cat.active, type: cat.type, updated_at: cat.updatedAt, updated_by: userId }).eq('id', existing.id);
+    { const shUp = await shadowRet(client.from('categories').update({ active: cat.active, type: cat.type, updated_at: cat.updatedAt, updated_by: userId }).eq('id', existing.id)); if(shUp && shUp.data && shUp.data[0]) shadowSetServer(cat, shUp.data[0].updated_at); } // Rev 2.32.192 (SHADOW-REV)
     return;
   }
-  const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, type: cat.type, created_at: cat.createdAt, updated_at: cat.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
-  if(!error && data) cat.cloudId = data.id;
+  const { data, error } = await client.from('categories').insert({ family_id: cloudFamilyId, name: cat.name, active: cat.active, type: cat.type, created_at: cat.createdAt, updated_at: cat.updatedAt, created_by: userId, updated_by: userId }).select('id,updated_at').single();
+  if(!error && data){ cat.cloudId = data.id; shadowSetServer(cat, data.updated_at); } // Rev 2.32.192 (SHADOW-REV)
 }
 // Rev #30 (6D крок 9) — Pull pilot: categories. Дзеркальне до push (6D fix
 // вище) reconciliation, у зворотному напрямку. 6D крок 0 pre-check:
@@ -5173,6 +5177,7 @@ async function saveSubcategories(){
   return result;
 }
 async function saveSubcategoriesLocal(){
+  shadowNormalizeList(SUBCATEGORIES); // Rev 2.32.192 (SHADOW-REV)
   if(isDomainMigrated('subcategories')){
     try{ await idbAdapterSet(LS_KEY_SUBCATEGORIES, JSON.stringify(SUBCATEGORIES)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
@@ -5209,6 +5214,7 @@ async function pushSubcategoriesPilot(){
   const plan = planSubcategoriesPush(SUBCATEGORIES, null, categoriesByNameMap());
   captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped });
   for(const sub of plan.push){
+    const shSnap = shadowSnap(sub); // Rev 2.32.192 (SHADOW-REV)
     const parentCat = CATEGORIES.find(function(c){ return c.name === sub.category; });
     if(!parentCat || !parentCat.cloudId) continue; // батьківська категорія ще не синхронізована — не помилка
     // Rev #30 (6D.125) — "already synced" шорткат ВИДАЛЕНО, той самий
@@ -5220,8 +5226,9 @@ async function pushSubcategoriesPilot(){
         // маркер каскаду (без FK, рішення користувача) — той самий
         // bulk-push-everything принцип, що й решта полів цього домену, без
         // спеціальних умов.
-        const { data, error } = await client.from('subcategories').update({ name: sub.name, category_id: parentCat.cloudId, active: sub.active, deactivated_via: sub.deactivatedVia || null, updated_at: sub.updatedAt, updated_by: userId }).eq('id', sub.cloudId).select('id');
+        const { data, error } = await client.from('subcategories').update({ name: sub.name, category_id: parentCat.cloudId, active: sub.active, deactivated_via: sub.deactivatedVia || null, updated_at: sub.updatedAt, updated_by: userId }).eq('id', sub.cloudId).select('id,updated_at');
         if(error){ anyError = true; continue; }
+        if(data && data[0]) shadowSetServer(sub, data[0].updated_at); // Rev 2.32.192 (SHADOW-REV)
         if(data && data.length === 0){
           sub.cloudId = null;
           await reconcileSubcategoryCloudId(client, userId, sub, parentCat.cloudId);
@@ -5231,6 +5238,7 @@ async function pushSubcategoriesPilot(){
       }
       if(sub.cloudId !== prevCloudId) reconciledNames.push(sub.name);
       sub.syncedUpdatedAt = sub.updatedAt;
+      shadowAfterPush(sub, shSnap); // Rev 2.32.192 (SHADOW-REV)
       sub.syncedCategoryId = parentCat.cloudId; // Rev 2.23.27 (6D.196, G2): батько, з яким синхронізовано
       localChanged = true;
     }catch(e){
@@ -5259,11 +5267,11 @@ async function reconcileSubcategoryCloudId(client, userId, sub, categoryId){
   if(existing){
     sub.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
-    await client.from('subcategories').update({ category_id: categoryId, active: sub.active, deactivated_via: sub.deactivatedVia || null, updated_at: sub.updatedAt, updated_by: userId }).eq('id', existing.id);
+    { const shUp = await shadowRet(client.from('subcategories').update({ category_id: categoryId, active: sub.active, deactivated_via: sub.deactivatedVia || null, updated_at: sub.updatedAt, updated_by: userId }).eq('id', existing.id)); if(shUp && shUp.data && shUp.data[0]) shadowSetServer(sub, shUp.data[0].updated_at); } // Rev 2.32.192 (SHADOW-REV)
     return;
   }
-  const { data, error } = await client.from('subcategories').insert({ family_id: cloudFamilyId, category_id: categoryId, name: sub.name, active: sub.active, deactivated_via: sub.deactivatedVia || null, created_at: sub.createdAt, updated_at: sub.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
-  if(!error && data) sub.cloudId = data.id;
+  const { data, error } = await client.from('subcategories').insert({ family_id: cloudFamilyId, category_id: categoryId, name: sub.name, active: sub.active, deactivated_via: sub.deactivatedVia || null, created_at: sub.createdAt, updated_at: sub.updatedAt, created_by: userId, updated_by: userId }).select('id,updated_at').single();
+  if(!error && data){ sub.cloudId = data.id; shadowSetServer(sub, data.updated_at); } // Rev 2.32.192 (SHADOW-REV)
 }
 async function saveSubcategoryPriority(){
   if(isDomainMigrated('subcategoryPriority')){
@@ -5279,6 +5287,7 @@ async function saveDictionary(){
   return result;
 }
 async function saveDictionaryLocal(){
+  shadowNormalizeList(DICTIONARY); // Rev 2.32.192 (SHADOW-REV)
   if(isDomainMigrated('dictionary')){
     try{ await idbAdapterSet(LS_KEY_DICTIONARY, JSON.stringify(DICTIONARY)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
@@ -5313,6 +5322,73 @@ async function saveDictionaryLocal(){
 // Rev 2.32.81 (ISOL-1): ізоляцію тестових імен (TRASH-TEST-*, isTestSyncIgnored, filterTestRows, прапорець budget_ignore_test_prefix_v1, Rev 2.23.32) прибрано повністю: записи з будь-якою назвою синхронізуються й видаляються однаково.
 // Правило «автоматичні тести не пишуть у робочу базу» від цього не залежить: його гарантують мок за замовчуванням і захисник «лише перегляд» (Rev 2.32.75).
 // dirty: запис без cloudId (ніколи не синхронізувався) або змінений після останньої синхронізації.
+// ===== Rev 2.32.192 (SHADOW-REV, клас C): тіньовий облік серверної версії =====
+// Рішення синхронізації НЕ змінюються (за часом, як і раніше). Паралельно кожен запис отримує: localRev (лічильник локальних правок), syncedRev (до якої правки дійшов сервер), serverUpdatedAt (серверний
+// updated_at з відповіді push або pull — РЯДОК без перетворення через Date: мікросекунди), revAt (якого updatedAt доти дійшла нормалізація). Нову «брудність» (localRev !== syncedRev) звіряємо зі старою (syncedUpdatedAt !== updatedAt) у
+// діагностиці розробника (подія rev-diff). Окреме поле serverUpdatedAt замість перезапису syncedUpdatedAt: інакше старе правило (час) вважало б усі записи «брудними». Перехід на нове правило — окремий Rev.
+// Лічильник збільшується в shadowNormalize() за зміною updatedAt (її ставить кожна правка), тож 65 місць правок не чіпаємо; нормалізація викликається в save*, на старті й перед/після push.
+function shadowNormalize(rec){
+  if(!rec || typeof rec !== 'object') return rec;
+  if(typeof rec.localRev !== 'number' || typeof rec.syncedRev !== 'number'){ // міграція: «чисті» за старим правилом — 0/0, решта — 1/0
+    const clean = rec.syncedUpdatedAt === rec.updatedAt;
+    rec.localRev = clean ? 0 : 1; rec.syncedRev = 0; rec.revAt = rec.updatedAt;
+    return rec;
+  }
+  if(rec.revAt !== rec.updatedAt){
+    if(rec.syncedUpdatedAt === rec.updatedAt){ rec.syncedRev = rec.localRev; if(typeof rec.updatedAt === 'string') rec.serverUpdatedAt = rec.updatedAt; } // updatedAt прийшов із сервера (pull)
+    else rec.localRev++; // локальна правка
+    rec.revAt = rec.updatedAt;
+  }
+  return rec;
+}
+// У save*/на старті нормалізуються лише записи, що вже мали справу із сервером (syncedUpdatedAt або лічильники є): ніколи не синхронізований запис отримує лічильники при першому push (shadowSnap), тож сховище не змінюється, поки sync не задіяно.
+function shadowNormalizeLazy(rec){ if(rec && typeof rec === 'object' && (rec.localRev !== undefined || rec.syncedUpdatedAt !== undefined)) shadowNormalize(rec); }
+function shadowNormalizeList(list){ if(Array.isArray(list)) list.forEach(shadowNormalizeLazy); }
+function shadowNormalizeMap(map){ if(map && typeof map === 'object') Object.keys(map).forEach(function(k){ shadowNormalizeLazy(map[k]); }); }
+function shadowNormalizeAll(){
+  try{ [expenses, incomes, debts, CATEGORIES, SUBCATEGORIES, DICTIONARY, bankAccounts, installmentAccounts].forEach(shadowNormalizeList); shadowNormalizeMap(hiddenFrom); }catch(e){}
+}
+// Знімок перед push: повертає localRev запису (після нормалізації).
+function shadowSnap(rec){ shadowNormalize(rec); return rec && typeof rec.localRev === 'number' ? rec.localRev : 0; }
+// Серверна версія з відповіді push: лише непорожній рядок, як є.
+function shadowSetServer(rec, v){ if(rec && typeof v === 'string' && v) rec.serverUpdatedAt = v; }
+// Після успішного push: сервер дійшов до знімка, лише якщо за час запиту localRev не змінився (правка під час push не губиться).
+function shadowAfterPush(rec, snap){
+  if(!rec) return;
+  shadowNormalize(rec);
+  if(rec.localRev === snap) rec.syncedRev = rec.localRev;
+}
+// .select('id,updated_at') для відповіді push; фейк-клієнти без select лишаються як є.
+function shadowRet(q){ return (q && typeof q.select === 'function') ? q.select('id,updated_at') : q; }
+// Серверний updated_at рядка за id з відповіді batch-upsert.
+function shadowServerAt(data, id){
+  const row = Array.isArray(data) ? data.filter(function(r){ return r && r.id === id; })[0] : null;
+  return row ? row.updated_at : null;
+}
+function shadowDirtyNew(rec){ return rec.localRev !== rec.syncedRev; }
+function shadowDirtyOld(rec){ return rec.syncedUpdatedAt !== rec.updatedAt; }
+// Розбіжності нового й старого правила за доменами (лише лічильники, без id, назв і сум).
+function shadowDiffCounts(){
+  const out = {};
+  const scan = function(name, list){
+    let n = 0;
+    (Array.isArray(list) ? list : []).forEach(function(r){ shadowNormalize(r); if(shadowDirtyNew(r) !== shadowDirtyOld(r)) n++; });
+    if(n) out[name] = n;
+  };
+  try{
+    scan('expenses', expenses); scan('incomes', incomes); scan('debts', debts); scan('categories', CATEGORIES); scan('subcategories', SUBCATEGORIES); scan('dictionary', DICTIONARY);
+    scan('bank_accounts', bankAccounts); scan('installment_accounts', installmentAccounts); scan('hidden_entities', Object.keys(hiddenFrom || {}).map(function(k){ return hiddenFrom[k]; }));
+  }catch(e){}
+  return out;
+}
+// Подія rev-diff (лише в записі діагностики й лише при увімкненій «Розширеній діагностиці»; за замовчуванням вимкнено).
+function shadowDiffReport(reason){
+  try{
+    if(typeof jsErrPersistOn === 'undefined' || !jsErrPersistOn || typeof debugRecordingActive === 'undefined' || !debugRecordingActive) return;
+    const c = shadowDiffCounts();
+    Object.keys(c).forEach(function(t){ syncDiag('rev-diff', { diffTable: t, diffCount: c[t], diffReason: reason || '' }); });
+  }catch(e){}
+}
 function isDirty(entry){
   return !entry.cloudId || entry.syncedUpdatedAt !== entry.updatedAt;
 }
@@ -5571,6 +5647,7 @@ async function pushDictionaryPilotRun(){
   const plan = planDictionaryPush(DICTIONARY, null, dictionaryParentIds);
   captureDebugGeometry('push-dirty', { entries: plan.push.length, skipped: plan.skipped });
   for(const entry of plan.push){
+    const shSnap = shadowSnap(entry); // Rev 2.32.192 (SHADOW-REV)
     const parentCat = CATEGORIES.find(function(c){ return c.name === entry.cat; });
     if(!parentCat || !parentCat.cloudId) continue; // категорія ще не синхронізована — не помилка
     let subcategoryId = null;
@@ -5625,8 +5702,9 @@ async function pushDictionaryPilotRun(){
         // перемагає"). Справді застарілий пристрій (updatedAt старіший за
         // САМ момент видалення) і далі програє — anti-resurrection з A2
         // лишається чинним рівно для цього випадку.
-        const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).or('deleted_at.is.null,deleted_at.lt.' + entry.updatedAt).select('id');
+        const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).or('deleted_at.is.null,deleted_at.lt.' + entry.updatedAt).select('id,updated_at');
         if(error){ anyError = true; continue; }
+        if(data && data[0]) shadowSetServer(entry, data[0].updated_at); // Rev 2.32.192 (SHADOW-REV)
         if(data && data.length === 0){
           const { data: existingRow } = await client.from('dictionary').select('id, deleted_at').eq('id', entry.cloudId).maybeSingle();
           if(existingRow && existingRow.deleted_at){
@@ -5643,6 +5721,7 @@ async function pushDictionaryPilotRun(){
         await reconcileDictionaryCloudId(client, userId, entry, parentCat.cloudId, subcategoryId);
       }
       markDictionarySynced(entry, entry.updatedAt, parentCat.cloudId, subcategoryId);
+      shadowAfterPush(entry, shSnap); // Rev 2.32.192 (SHADOW-REV)
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
@@ -5678,7 +5757,7 @@ async function reconcileDictionaryCloudId(client, userId, entry, categoryId, sub
   const adopt = async function(existingId){
     entry.cloudId = existingId;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
-    await client.from('dictionary').update({ category_id: categoryId, subcategory_id: subcategoryId, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', existingId);
+    { const shUp = await shadowRet(client.from('dictionary').update({ category_id: categoryId, subcategory_id: subcategoryId, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', existingId)); if(shUp && shUp.data && shUp.data[0]) shadowSetServer(entry, shUp.data[0].updated_at); } // Rev 2.32.192 (SHADOW-REV)
   };
   const found = await findLiveDictionaryRow(client, entry.kw);
   if(found.error) return; // мережа/конфлікт — тихий пропуск, наступний push-цикл спробує знову
@@ -5686,8 +5765,8 @@ async function reconcileDictionaryCloudId(client, userId, entry, categoryId, sub
   // Rev 2.22.80 (6D.153) — deleted_at: якщо сам запис офлайн-створений і
   // вже видалений ДО першого успішного sync (ніколи не мав cloudId), його
   // tombstone-стан має дійти в Cloud одразу при створенні рядка.
-  const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, created_at: entry.createdAt, updated_at: entry.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
-  if(!error && data){ entry.cloudId = data.id; return; }
+  const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, created_at: entry.createdAt, updated_at: entry.updatedAt, created_by: userId, updated_by: userId }).select('id,updated_at').single();
+  if(!error && data){ entry.cloudId = data.id; shadowSetServer(entry, data.updated_at); return; } // Rev 2.32.192 (SHADOW-REV)
   // Rev 2.23.25 (6D.194) — 23505 (унікальний індекс живих слів): інший пристрій/запуск
   // устиг вставити те саме слово — це "слово вже є", не збій: усиновлюємо живий рядок,
   // без повторної вставки й без позначки failed (функція повертається нормально).
@@ -6844,6 +6923,7 @@ async function loadAll(){
   await loadIgnoredDivergences();
   await ensureBankInstallmentNamesStripped();
   await ensureInstallmentFirstMonth();
+  shadowNormalizeAll(); // Rev 2.32.192 (SHADOW-REV): міграція лічильників для наявних записів
   populateMonths(); renderAll(); renderStructure();
 }
 // Rev #28.D2 — той самий {success, error?} контракт, що решта Repository-
@@ -6852,6 +6932,7 @@ async function loadAll(){
 // (bankAccounts/debts vs expenses, saveCardDebtDrawer() vs форма "Нова
 // витрата") — не runtime-перевіркою, тому async-межа тут ні на що не впливає.
 async function saveExpenses(){
+  shadowNormalizeList(expenses); // Rev 2.32.192 (SHADOW-REV)
   if(isDomainMigrated('expenses')){
     try{ await idbAdapterSet(LS_KEY_EXP, JSON.stringify(expenses)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
@@ -6860,6 +6941,7 @@ async function saveExpenses(){
   return { success: true };
 }
 async function saveIncomes(){
+  shadowNormalizeList(incomes); // Rev 2.32.192 (SHADOW-REV)
   if(isDomainMigrated('incomes')){
     try{ await idbAdapterSet(LS_KEY_INC, JSON.stringify(incomes)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
@@ -6868,6 +6950,7 @@ async function saveIncomes(){
   return { success: true };
 }
 async function saveDebts(){
+  shadowNormalizeList(debts); // Rev 2.32.192 (SHADOW-REV)
   if(isDomainMigrated('debts')){
     try{ await idbAdapterSet(LS_KEY_DEBT, JSON.stringify(debts)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
@@ -6964,7 +7047,8 @@ async function pushExpenseRecordPilot(rec, opts){
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   try{
-    const { error } = await client.from('expenses').upsert({
+    const shSnap = shadowSnap(rec); // Rev 2.32.192 (SHADOW-REV)
+    const { data, error } = await shadowRet(client.from('expenses').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
       amount: rec.amount,
@@ -6988,7 +7072,7 @@ async function pushExpenseRecordPilot(rec, opts){
       updated_by: userId,
       ...monoSourcePayload(rec), // Rev 2.32.28 (MB-4): source/external_id витрат з банку не затираються в null
       ...editedAtPayload(rec), // Rev 2.32.90 (EDITED-1)
-    }, { onConflict: 'id' });
+    }, { onConflict: 'id' }));
     if(!error){
       // Rev #30 (6D.57) — syncedUpdatedAt: той самий bookkeeping-принцип, що
       // вже 5 bulk-push доменів (6D.50) — раніше expenses/incomes/debts не
@@ -6997,6 +7081,7 @@ async function pushExpenseRecordPilot(rec, opts){
       // (syncAllPilotManual() нижче). Зберігаємо одразу — інакше позначка
       // живе лише в пам'яті до наступного save.
       rec.syncedUpdatedAt = rec.updatedAt;
+      shadowSetServer(rec, data && data[0] && data[0].updated_at); shadowAfterPush(rec, shSnap); // Rev 2.32.192 (SHADOW-REV)
       if(!rec.editedAt && rec.edited && rec.updatedAt) rec.editedAt = rec.updatedAt; // Rev 2.32.90 (EDITED-1): одноразове перенесення локального edited
       await saveExpenses();
     }
@@ -7067,9 +7152,10 @@ async function pushExpensesBatch(records){
   if(!resolvable.length) return { pushed: 0, failed: 0 };
   try{
     const client = getSupabaseClient();
-    const { error } = await client.from('expenses').upsert(resolvable.map(function(r){ return r.payload; }), { onConflict: 'id' });
+    const shSnaps = resolvable.map(function(r){ return shadowSnap(r.rec); }); // Rev 2.32.192 (SHADOW-REV)
+    const { data, error } = await shadowRet(client.from('expenses').upsert(resolvable.map(function(r){ return r.payload; }), { onConflict: 'id' }));
     if(!error){
-      resolvable.forEach(function(r){ r.rec.syncedUpdatedAt = r.rec.updatedAt; if(!r.rec.editedAt && r.rec.edited && r.rec.updatedAt) r.rec.editedAt = r.rec.updatedAt; }); // Rev 2.32.90 (EDITED-1)
+      resolvable.forEach(function(r, i){ r.rec.syncedUpdatedAt = r.rec.updatedAt; shadowSetServer(r.rec, shadowServerAt(data, r.rec.id)); shadowAfterPush(r.rec, shSnaps[i]); if(!r.rec.editedAt && r.rec.edited && r.rec.updatedAt) r.rec.editedAt = r.rec.updatedAt; }); // Rev 2.32.90 (EDITED-1)
       await saveExpenses();
       return { pushed: resolvable.length, failed: 0 };
     }
@@ -7103,7 +7189,8 @@ async function pushIncomeRecordPilot(rec, opts){
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   try{
-    const { error } = await client.from('incomes').upsert({
+    const shSnap = shadowSnap(rec); // Rev 2.32.192 (SHADOW-REV)
+    const { data, error } = await shadowRet(client.from('incomes').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
       amount: rec.amount,
@@ -7115,10 +7202,11 @@ async function pushIncomeRecordPilot(rec, opts){
       updated_at: rec.updatedAt,
       // Rev #30 (6D.64) — created_by прибрано, той самий принцип, що pushExpenseRecordPilot().
       updated_by: userId,
-    }, { onConflict: 'id' });
+    }, { onConflict: 'id' }));
     // Rev #30 (6D.57) — syncedUpdatedAt, той самий принцип, що pushExpenseRecordPilot().
     if(!error){
       rec.syncedUpdatedAt = rec.updatedAt;
+      shadowSetServer(rec, data && data[0] && data[0].updated_at); shadowAfterPush(rec, shSnap); // Rev 2.32.192 (SHADOW-REV)
       await saveIncomes();
     }
     // Rev #30 (6D.49/6D.58) — той самий принцип, що pushExpenseRecordPilot().
@@ -7143,9 +7231,10 @@ async function pushIncomesBatch(records){
   });
   try{
     const client = getSupabaseClient();
-    const { error } = await client.from('incomes').upsert(payloads, { onConflict: 'id' });
+    const shSnaps = records.map(function(rec){ return shadowSnap(rec); }); // Rev 2.32.192 (SHADOW-REV)
+    const { data, error } = await shadowRet(client.from('incomes').upsert(payloads, { onConflict: 'id' }));
     if(!error){
-      records.forEach(function(rec){ rec.syncedUpdatedAt = rec.updatedAt; });
+      records.forEach(function(rec, i){ rec.syncedUpdatedAt = rec.updatedAt; shadowSetServer(rec, shadowServerAt(data, rec.id)); shadowAfterPush(rec, shSnaps[i]); });
       await saveIncomes();
       return { pushed: records.length, failed: 0 };
     }
@@ -7183,7 +7272,8 @@ async function pushDebtRecordPilot(rec, opts){
   const client = getSupabaseClient();
   const userId = cloudSession.user.id;
   try{
-    const { error } = await client.from('debts').upsert({
+    const shSnap = shadowSnap(rec); // Rev 2.32.192 (SHADOW-REV)
+    const { data, error } = await shadowRet(client.from('debts').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
       bank_account_id: bankAccountId,
@@ -7201,10 +7291,11 @@ async function pushDebtRecordPilot(rec, opts){
       updated_at: rec.updatedAt,
       // Rev #30 (6D.64) — created_by прибрано, той самий принцип, що pushExpenseRecordPilot().
       updated_by: userId,
-    }, { onConflict: 'id' });
+    }, { onConflict: 'id' }));
     // Rev #30 (6D.57) — syncedUpdatedAt, той самий принцип, що pushExpenseRecordPilot().
     if(!error){
       rec.syncedUpdatedAt = rec.updatedAt;
+      shadowSetServer(rec, data && data[0] && data[0].updated_at); shadowAfterPush(rec, shSnap); // Rev 2.32.192 (SHADOW-REV)
       await saveDebts();
     }
     // Rev #30 (6D.76) — КРИТИЧНИЙ фікс: реальний інцидент користувача
@@ -7277,9 +7368,10 @@ async function pushDebtsBatch(records){
   if(!resolvable.length) return { pushed: 0, failed: 0 };
   try{
     const client = getSupabaseClient();
-    const { error } = await client.from('debts').upsert(resolvable.map(function(r){ return r.payload; }), { onConflict: 'id' });
+    const shSnaps = resolvable.map(function(r){ return shadowSnap(r.rec); }); // Rev 2.32.192 (SHADOW-REV)
+    const { data, error } = await shadowRet(client.from('debts').upsert(resolvable.map(function(r){ return r.payload; }), { onConflict: 'id' }));
     if(!error){
-      resolvable.forEach(function(r){ r.rec.syncedUpdatedAt = r.rec.updatedAt; });
+      resolvable.forEach(function(r, i){ r.rec.syncedUpdatedAt = r.rec.updatedAt; shadowSetServer(r.rec, shadowServerAt(data, r.rec.id)); shadowAfterPush(r.rec, shSnaps[i]); });
       await saveDebts();
       return { pushed: resolvable.length, failed: 0 };
     }
@@ -7706,6 +7798,7 @@ async function saveBankAccounts(){
   return result;
 }
 async function saveBankAccountsLocal(){
+  shadowNormalizeList(bankAccounts); // Rev 2.32.192 (SHADOW-REV)
   if(isDomainMigrated('bankAccounts')){
     try{ await idbAdapterSet(LS_KEY_BANKS, JSON.stringify(bankAccounts)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
@@ -7747,6 +7840,7 @@ async function pushBankAccountsPilot(){
   // Rev 2.23.28 (6D.197, G3) — лише dirty-записи (planBankAccountsPush).
   const plan = planBankAccountsPush(bankAccounts, null);
   for(const acc of plan.push){
+    const shSnap = shadowSnap(acc); // Rev 2.32.192 (SHADOW-REV)
     // Rev #30 (6D.50) — цей "already synced" шорткат ІСНУВАВ, щоб не
     // слати зайвий UPDATE, коли справді нічого не змінилось. Rev #30
     // (6D.76) — ВИДАЛЕНО: реальний інцидент користувача підтвердив, що
@@ -7762,8 +7856,9 @@ async function pushBankAccountsPilot(){
     const prevCloudId = acc.cloudId;
     try{
       if(acc.cloudId){
-        const { data, error } = await client.from('bank_accounts').update({ name: acc.name, credit_limit: acc.creditLimit, ...paymentDayPayload(acc), updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
+        const { data, error } = await client.from('bank_accounts').update({ name: acc.name, credit_limit: acc.creditLimit, ...paymentDayPayload(acc), updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id,updated_at');
         if(error){ anyError = true; continue; }
+        if(data && data[0]) shadowSetServer(acc, data[0].updated_at); // Rev 2.32.192 (SHADOW-REV)
         if(data && data.length === 0){
           acc.cloudId = null;
           await reconcileBankAccountCloudId(client, userId, acc);
@@ -7776,6 +7871,7 @@ async function pushBankAccountsPilot(){
         if(prevCloudId) reconciledOldCloudIds.push(prevCloudId); // guard: вперше створений рахунок не мав старого cloudId — нема чого прибирати
       }
       acc.syncedUpdatedAt = acc.updatedAt;
+      shadowAfterPush(acc, shSnap); // Rev 2.32.192 (SHADOW-REV)
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
@@ -7826,11 +7922,11 @@ async function reconcileBankAccountCloudId(client, userId, acc){
   if(existing){
     acc.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
-    await client.from('bank_accounts').update({ credit_limit: acc.creditLimit, ...paymentDayPayload(acc), updated_at: acc.updatedAt, updated_by: userId }).eq('id', existing.id);
+    { const shUp = await shadowRet(client.from('bank_accounts').update({ credit_limit: acc.creditLimit, ...paymentDayPayload(acc), updated_at: acc.updatedAt, updated_by: userId }).eq('id', existing.id)); if(shUp && shUp.data && shUp.data[0]) shadowSetServer(acc, shUp.data[0].updated_at); } // Rev 2.32.192 (SHADOW-REV)
     return;
   }
-  const { data, error } = await client.from('bank_accounts').insert({ family_id: cloudFamilyId, name: acc.name, credit_limit: acc.creditLimit, ...paymentDayPayload(acc), created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
-  if(!error && data) acc.cloudId = data.id;
+  const { data, error } = await client.from('bank_accounts').insert({ family_id: cloudFamilyId, name: acc.name, credit_limit: acc.creditLimit, ...paymentDayPayload(acc), created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id,updated_at').single();
+  if(!error && data){ acc.cloudId = data.id; shadowSetServer(acc, data.updated_at); } // Rev 2.32.192 (SHADOW-REV)
 }
 // Rev #30 (6D, bank_accounts повний цикл) — Pull pilot: bank_accounts.
 // Написаний ОДРАЗУ у фінальному, вже двічі виправленому вигляді
@@ -7935,6 +8031,7 @@ async function saveInstallmentAccounts(){
   return result;
 }
 async function saveInstallmentAccountsLocal(){
+  shadowNormalizeList(installmentAccounts); // Rev 2.32.192 (SHADOW-REV)
   if(isDomainMigrated('installmentAccounts')){
     try{ await idbAdapterSet(LS_KEY_INSTALLMENTS, JSON.stringify(installmentAccounts)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
@@ -7961,14 +8058,16 @@ async function pushInstallmentAccountsPilot(){
   // Rev 2.23.28 (6D.197, G3) — лише dirty-записи (planInstallmentAccountsPush).
   const plan = planInstallmentAccountsPush(installmentAccounts, null);
   for(const acc of plan.push){
+    const shSnap = shadowSnap(acc); // Rev 2.32.192 (SHADOW-REV)
     // Rev #30 (6D.76) — "already synced" шорткат ВИДАЛЕНО, той самий
     // реальний інцидент і те саме обґрунтування, що pushBankAccountsPilot()
     // вище (докоментар там).
     const prevCloudId = acc.cloudId;
     try{
       if(acc.cloudId){
-        const { data, error } = await client.from('installment_accounts').update({ name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, term_months: acc.termMonths ?? null, start_date: acc.startDate || null, first_payment: acc.firstPayment || null, pay_mode: acc.payMode || null, payment: acc.payment ?? null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id');
+        const { data, error } = await client.from('installment_accounts').update({ name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, term_months: acc.termMonths ?? null, start_date: acc.startDate || null, first_payment: acc.firstPayment || null, pay_mode: acc.payMode || null, payment: acc.payment ?? null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', acc.cloudId).select('id,updated_at');
         if(error){ anyError = true; continue; }
+        if(data && data[0]) shadowSetServer(acc, data[0].updated_at); // Rev 2.32.192 (SHADOW-REV)
         if(data && data.length === 0){
           acc.cloudId = null;
           await reconcileInstallmentAccountCloudId(client, userId, acc);
@@ -7981,6 +8080,7 @@ async function pushInstallmentAccountsPilot(){
         if(prevCloudId) reconciledOldCloudIds.push(prevCloudId); // guard: вперше створена ОЧ не мала старого cloudId
       }
       acc.syncedUpdatedAt = acc.updatedAt;
+      shadowAfterPush(acc, shSnap); // Rev 2.32.192 (SHADOW-REV)
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
@@ -8008,11 +8108,11 @@ async function reconcileInstallmentAccountCloudId(client, userId, acc){
   if(existing){
     acc.cloudId = existing.id;
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
-    await client.from('installment_accounts').update({ initial_amount: acc.initialAmount, due_day: acc.dueDay || null, term_months: acc.termMonths ?? null, start_date: acc.startDate || null, first_payment: acc.firstPayment || null, pay_mode: acc.payMode || null, payment: acc.payment ?? null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', existing.id);
+    { const shUp = await shadowRet(client.from('installment_accounts').update({ initial_amount: acc.initialAmount, due_day: acc.dueDay || null, term_months: acc.termMonths ?? null, start_date: acc.startDate || null, first_payment: acc.firstPayment || null, pay_mode: acc.payMode || null, payment: acc.payment ?? null, updated_at: acc.updatedAt, updated_by: userId }).eq('id', existing.id)); if(shUp && shUp.data && shUp.data[0]) shadowSetServer(acc, shUp.data[0].updated_at); } // Rev 2.32.192 (SHADOW-REV)
     return;
   }
-  const { data, error } = await client.from('installment_accounts').insert({ family_id: cloudFamilyId, name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, term_months: acc.termMonths ?? null, start_date: acc.startDate || null, first_payment: acc.firstPayment || null, pay_mode: acc.payMode || null, payment: acc.payment ?? null, created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id').single();
-  if(!error && data) acc.cloudId = data.id;
+  const { data, error } = await client.from('installment_accounts').insert({ family_id: cloudFamilyId, name: acc.name, initial_amount: acc.initialAmount, due_day: acc.dueDay || null, term_months: acc.termMonths ?? null, start_date: acc.startDate || null, first_payment: acc.firstPayment || null, pay_mode: acc.payMode || null, payment: acc.payment ?? null, created_at: acc.createdAt, updated_at: acc.updatedAt, created_by: userId, updated_by: userId }).select('id,updated_at').single();
+  if(!error && data){ acc.cloudId = data.id; shadowSetServer(acc, data.updated_at); } // Rev 2.32.192 (SHADOW-REV)
 }
 // Rev #30 (6D.27, installment_accounts повний цикл) — Pull pilot, написаний
 // ОДРАЗУ у фінальному вигляді pullBankAccountsCore() (третій раз той самий
@@ -8194,12 +8294,14 @@ async function pushHiddenEntitiesPilot(){
     const entity = name.charAt(0) === '#' ? list.find(function(x){ return x.cloudId === name.slice(1); }) : list.find(function(x){ return x.name === name; }); // Rev 2.32.185: ключ за id
     if(!entity || !entity.cloudId) continue; // батько ще не синхронізований — тихий пропуск, не помилка
     try{
-      const { error } = await client.from('hidden_entities').upsert(
+      const shSnap = shadowSnap(entry); // Rev 2.32.192 (SHADOW-REV)
+      const { data, error } = await shadowRet(client.from('hidden_entities').upsert(
         { family_id: cloudFamilyId, entity_type: entityType, entity_id: entity.cloudId, hidden_from_month: monthToDate(entry.month), deleted_at: entry.deletedAt || null, updated_at: entry.updatedAt, updated_by: userId },
         { onConflict: 'family_id,entity_type,entity_id' }
-      );
+      ));
       if(error){ anyError = true; continue; }
       entry.syncedUpdatedAt = entry.updatedAt;
+      shadowSetServer(entry, data && data[0] && data[0].updated_at); shadowAfterPush(entry, shSnap);
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
@@ -8412,6 +8514,7 @@ async function saveHiddenFrom(){
   return result;
 }
 async function saveHiddenFromLocal(){
+  shadowNormalizeMap(hiddenFrom); // Rev 2.32.192 (SHADOW-REV)
   if(isDomainMigrated('hiddenFrom')){
     try{ await idbAdapterSet(LS_KEY_HIDDEN, JSON.stringify(hiddenFrom)); return { success: true }; }
     catch(err){ return { success: false, error: err.message }; }
@@ -8455,7 +8558,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.190';
+const APP_VERSION = '2.32.192';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11063,6 +11166,7 @@ async function runSyncCheck(reason, o){
   saveSyncSeen(syncSeenState);
   if(o.refreshAll && changedTables.length) refreshAfterSyncAtStart(changedTables);
   if(reason === 'realtime') flushOtherActorEventsAsToasts(); else flushOtherActorEventsAsSummary();
+  shadowDiffReport('sync-' + reason); // Rev 2.32.192 (SHADOW-REV): лише в записі діагностики, увімкнена «Розширена діагностика»
   return { plan: plan, changedTables: changedTables, ms: Date.now() - t0 };
 }
 // syncCheck(reason, opts): opts.force — без обмеження інтервалу; opts.fullReason — примусова повна звірка; opts.profilesLoaded — профілі вже завантажено викликачем.
@@ -12476,6 +12580,7 @@ const DEBUG_LOG_MAX_BYTES_FOR_SEND = 600000; // той самий ліміт, щ
 // жорстка вимога приватності ТЗ ("value"/"text" з полів форми сюди
 // принципово не можуть пройти, навіть якщо якийсь слухач їх передасть).
 const DEBUG_EVENT_ALLOWLIST = [
+  'diffTable', 'diffCount', 'diffReason', // Rev 2.32.192 (SHADOW-REV): rev-diff
   't', 'type', 'innerW', 'innerH', 'outerH', 'vvW', 'vvH', 'vvOffsetTop', 'vvOffsetLeft', 'vvScale',
   'scrollY', 'docClientH', 'bodyClasses', 'kbInset',
   'activeElementTag', 'activeElementId', 'activeElementType',
@@ -15437,6 +15542,7 @@ async function autoSyncStale(reason){
     autoSyncRunning = false;
   }
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'autosync', reason: reason, pending: pending, pushed: pushed, failed: failed });
+  shadowDiffReport('autosync'); // Rev 2.32.192 (SHADOW-REV)
   if(pushed){ populateMonths(); renderAll(); }
   clearTimeout(autoSyncTimer);
   if(failed && autoSyncRetryStep < AUTOSYNC_RETRY_MS.length){
