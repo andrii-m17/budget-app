@@ -37,7 +37,7 @@ function makeServer(){
   }; } };
   srv.stamp = stamp; return srv;
 }
-const NAMES = ['AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', 'editedAtPayload', 'expenseEditedAtValue', 'editedAtDiffers', 'isCloudWriteReady', 'isWriteBlocked', 'pushExpenseRecordPilot', 'linkedOwnerAccount', 'pushExpensesBatch', 'pullExpensesCore'];
+const NAMES = ['recordKey', 'AMOUNT_MAX', 'isSyncableAmount', 'monoSourcePayload', 'editedAtPayload', 'expenseEditedAtValue', 'editedAtDiffers', 'isCloudWriteReady', 'isWriteBlocked', 'pushExpenseRecordPilot', 'linkedOwnerAccount', 'pushExpensesBatch', 'pullExpensesCore'];
 function device(server, userId, skewMs){
   const SkewDate = class extends Date { constructor(...a){ if(a.length) super(...a); else super(Date.now() + skewMs); } static now(){ return Date.now() + skewMs; } };
   const toasts = [];
@@ -208,4 +208,15 @@ test('джерело: умовний update лише змінених полів
   assert.match(SRC, /unreadBadge\(unreadAll\)/);
   assert.ok(!/localTime\s*[<>]=?\s*cloudTime[^\n]*(localRev|syncedRev)/.test(SRC));
   assert.ok(!/conflict[A-Za-z]*\([^)]*\)[^\n]*(backdrop-filter)/.test(SRC), 'без нових стилів і скла');
+});
+
+test('запис, відкритий для редагування, не змінюється під руками: маркер не просувається, після закриття рядок прийде знову', async () => {
+  const s = makeServer(); const A = device(s, 'u1', 0), B = device(s, 'u2', 0);
+  let marker = 'none'; A.setSyncMarker = function(){ marker = 'set'; };
+  await seedSynced(s, [A, B], 'e1');
+  edit(B, 'e1', { amount: 150 }); await B.pushExpenseRecordPilot(B.expenses[0], { suppressPull: true });
+  A.editingRecordKey = 'expense:e1'; marker = 'none';
+  await A.pullExpensesCore();
+  assert.equal(A.expenses[0].amount, 100, 'не змінено'); assert.equal(marker, 'none', 'маркер не просунуто');
+  A.editingRecordKey = null; await A.pullExpensesCore(); assert.equal(A.expenses[0].amount, 150);
 });

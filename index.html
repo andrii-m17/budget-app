@@ -7720,7 +7720,7 @@ async function pullExpensesCore(opts){
       }
       const local = expenses.find(function(e){ return e.id === row.id; });
       // Rev 2.32.193 (MERGE-EXP): запис, відкритий для редагування, не змінюється «під руками»: маркер не просувається, рядок прийде знову після закриття.
-      if(local && editingRecordKey && String(editingRecordKey) === String(local.id) && local.updatedAt !== row.updated_at){ holdMarker = true; continue; }
+      if(local && editingRecordKey === recordKey('expense', local.id) && local.updatedAt !== row.updated_at){ holdMarker = true; continue; }
       if(!maxSeen || row.updated_at > maxSeen) maxSeen = row.updated_at;
       if(local){
         shadowNormalize(local); // Rev 2.32.193 (MERGE-EXP): «брудність» витрат за лічильниками, а не за годинником пристрою

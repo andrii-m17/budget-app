@@ -98,7 +98,7 @@ function buildSandbox(globals, names){
   // Rev 2.32.192 (SHADOW-REV): тіньові помічники обліку версій викликаються з push/save-функцій; додаємо їх у кожен sandbox автоматично (тести не мусять перелічувати їх у NAMES).
   const SHADOW = ['shadowNormalize', 'shadowNormalizeLazy', 'shadowNormalizeList', 'shadowNormalizeMap', 'shadowNormalizeAll', 'shadowSnap', 'shadowSetServer', 'shadowAfterPush', 'shadowRet', 'shadowServerAt', 'shadowDirtyNew', 'shadowDirtyOld', 'shadowDiffCounts', 'shadowDiffReport',
     // Rev 2.32.193 (MERGE-EXP): злиття витрат і журнал конфліктів; push/pull витрат викликають їх завжди
-    'EXP_MERGE_FIELDS', 'EXP_ROW_COLS', 'CONFLICT_TTL_MS', 'LS_KEY_CONFLICTS', 'CONFLICT_FIELD_ACC',
+    'recordKey', 'EXP_MERGE_FIELDS', 'EXP_ROW_COLS', 'CONFLICT_TTL_MS', 'LS_KEY_CONFLICTS', 'CONFLICT_FIELD_ACC',
     'expFieldVal', 'expSnap', 'expSnapFromRow', 'expFieldEq', 'expMerge', 'expSetFromSnap', 'expMergeServerRow', 'expLinkedNameForRow', 'expMigrateBase', 'pushExpenseCas', 'expRecordConflicts',
     'conflictLoad', 'conflictPrune', 'conflictSave', 'conflictOpenCount', 'conflictValueText', 'conflictActor', 'conflictVerb', 'conflictModel', 'conflictDoneModel', 'conflictStillValid', 'conflictResolve', 'conflictUiBusy', 'conflictFlushCards', 'conflictSectionHtml'];
   vm.runInContext("if(typeof conflictLog === 'undefined') var conflictLog = [];"
