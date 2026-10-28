@@ -42,7 +42,7 @@ test('охоронні: групи мають aria-expanded; акордеон і
   assert.match(SRC, /parts\.push\(structAddGroupHtml\('Додати слово', 'openAddDictionaryModal\(\)', STRUCT_CAPTION_DICT\)\)/);
   const css = SRC.slice(SRC.indexOf('.struct-dict-collapse{ display:none'), SRC.indexOf('.struct-dict-collapse{ display:none') + 400);
   assert.match(css, /display:none/); // b: висота миттєво
-  assert.ok(!/grid-template-rows[^;]*transition|transition:[^;}]*(height|grid-template-rows)/.test(SRC.slice(SRC.indexOf('.struct-dict-group{'), SRC.indexOf('#struct-dictionary[data-acc="c"] .struct-dict-collapse{'))));
+  assert.ok(!/grid-template-rows[^;]*transition|transition:[^;}]*(height|grid-template-rows)/.test(SRC.slice(SRC.indexOf('.struct-dict-group{'), SRC.indexOf('@media (hover:hover) and (pointer:fine){', SRC.indexOf('.struct-dict-group{')))));
   assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.struct-dict-chev\{ transition:none; \}/);
 });
 test('охоронні: поле пошуку — type=search, абстрактний id, автозаповнення вимкнено; значення екрановані; видалення слова — у шторці', function(){
@@ -53,9 +53,8 @@ test('охоронні: поле пошуку — type=search, абстракт�
   assert.match(SRC, /label: 'Видалити слово', note: 'Слово більше не підставлятиме категорію\./);
   assert.match(SRC, /showAlertModal\('Спершу додайте категорію: слово словника веде до категорії\.'\)/);
 });
-test('реєстр: structure-accordion (b типовий, c) з повним записом', function(){
+test('Rev 2.32.189: експеримент structure-accordion прибрано (типовий b: висота миттєво); варіант c і data-acc видалено', function(){
   const reg = JSON.parse(ex.evalInSandbox(ex.buildSandbox({}, ['TEST_VARIANTS']), 'JSON.stringify(TEST_VARIANTS)'));
-  const t = reg.filter(function(x){ return x.id === 'structure-accordion'; })[0];
-  assert.ok(t); assert.deepEqual(t.variants.map(function(v){ return v.key; }), ['b', 'c']); assert.equal(t.defaultVariant, 'b');
-  ['title', 'what', 'addedIn', 'cleanupBy'].forEach(function(f){ assert.ok(t[f]); }); assert.ok(t.checkSteps.length >= 2);
+  assert.equal(reg.filter(function(x){ return x.id === 'structure-accordion'; }).length, 0);
+  assert.equal(SRC.indexOf('structAccVariant'), -1); assert.equal(SRC.indexOf('data-acc="c"'), -1);
 });

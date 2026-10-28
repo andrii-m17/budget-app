@@ -54,6 +54,6 @@ test('охоронні: слухачі error/unhandledrejection на почат�
   assert.match(SRC, /if\(e && e\.target && e\.target !== window\) return;/);
   assert.match(SRC, /type: 'js-error-backlog', count: jsErrorList\.length, errors: jsErrorBacklogLines\(jsErrorList\)/);
   assert.match(SRC, /'message', 'source', 'stackTop', 'tab', 'errors'/);
-  assert.match(SRC, /id="js-errors-btn"[^>]*onclick="showJsErrors\(\)">Помилок за сеанс: 0</);
+  assert.match(SRC, /id="js-errors-btn"[^>]*onclick="showJsErrorsLog\(\)">[\s\S]{0,60}Журнал помилок JS[\s\S]{0,260}id="js-errors-count">0</); // Rev 2.32.189 (CHECKS-1): рядок «Діагностики»
   assert.match(SRC, /jsErrorList\.slice\(-5\)\.reverse\(\)/);
 });

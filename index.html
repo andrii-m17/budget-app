@@ -1487,11 +1487,6 @@
   .struct-dict-inner .struct-row{ min-height:52px; }
     .struct-dict-inner .struct-row + .struct-row::before{ left:16px; }
   .struct-dict-group.just-opened .struct-dict-inner{ animation:stFade .16s ease both; }
-  #struct-dictionary[data-acc="c"] .struct-dict-collapse{ display:grid; grid-template-rows:0fr; border-top-color:transparent; transition:grid-template-rows .24s ease; }
-  #struct-dictionary[data-acc="c"] .struct-dict-group.open .struct-dict-collapse{ grid-template-rows:1fr; border-top-color:var(--color-border); }
-  #struct-dictionary[data-acc="c"] .struct-dict-inner{ overflow:hidden; min-height:0; }
-  #struct-dictionary[data-acc="c"] .struct-dict-group:not(.open) .struct-dict-inner{ visibility:hidden; }
-  #struct-dictionary[data-acc="c"] .struct-dict-group.just-opened .struct-dict-inner{ animation:none; }
   /* Rev 2.32.159 (DIALOG-MOTION): словник на десктопі (миша): розгортання категорії — висота (grid-template-rows) і прозорість 0,22 с ease, стрілка обертається в такт, фон рядка/заголовка змінюється плавно 0,16 с. На дотикових пристроях нічого не змінюється (вибір варіанта акордеона як був). Ризик: grid-rows-анімація потребує iOS 16+/сучасних десктопних браузерів — там, де не анімується, група просто розгортається миттєво. */
   @media (hover:hover) and (pointer:fine){
     #struct-dictionary .struct-dict-collapse{ display:grid; grid-template-rows:0fr; opacity:0; border-top-color:transparent; transition:grid-template-rows .22s ease, opacity .22s ease, border-color .22s ease; }
@@ -1502,7 +1497,7 @@
     #struct-dictionary .struct-dict-chev{ transition:transform .22s ease; }
     #struct-dictionary .struct-row, #struct-dictionary .struct-dict-head{ transition:background-color .16s ease; }
   }
-  @media (prefers-reduced-motion: reduce){ .struct-dict-chev{ transition:none; } .struct-dict-group.just-opened .struct-dict-inner{ animation:none; } #struct-dictionary[data-acc="c"] .struct-dict-collapse{ transition:none; } }
+  @media (prefers-reduced-motion: reduce){ .struct-dict-chev{ transition:none; } .struct-dict-group.just-opened .struct-dict-inner{ animation:none; } }
   @media (hover:hover) and (pointer:fine) and (prefers-reduced-motion: reduce){ #struct-dictionary .struct-dict-collapse{ transition:opacity 80ms linear; } #struct-dictionary .struct-dict-chev{ transition:none; } }
 
   .struct-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--color-border); font-size:13px; }
@@ -1744,18 +1739,52 @@
   .n-diag-row:first-child{ border-top:none; }
   .n-diag-row .ok{ color:var(--color-success); }
   .n-diag-row .bad{ color:var(--color-error); }
+  /* ===== Rev 2.32.189 (CHECKS-1): «Перевірки» і «Діагностика» за макетом docs/ui/mockups/checks-mockup.html (кольори лише з токенів застосунку) ===== */
+  .chk-card{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:22px; overflow:hidden; }
+  .chk-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:48px; padding:0 14px; border:0; background:none; font:inherit; font-size:15px; color:var(--color-text-primary); text-align:left; cursor:pointer; box-sizing:border-box; }
+  .chk-row + .chk-row, .chk-row + .chk-box:not(:empty), .chk-box:not(:empty) + .chk-row{ border-top:1px solid var(--color-border); }
+  .chk-row.is-pressed{ background:var(--color-surface-hover); }
+  div.chk-row{ cursor:default; }
+  .chk-mut{ color:var(--color-text-secondary); }
+  .chk-end{ display:flex; align-items:center; gap:8px; flex:none; }
+  .chk-state{ font-size:13px; }
+  .chk-badge{ min-width:24px; height:24px; border-radius:12px; background:var(--ui-success-strong, var(--color-primary)); color:#fff; font-size:13px; display:inline-flex; align-items:center; justify-content:center; padding:0 6px; box-sizing:border-box; }
+  .chk-badge.hidden{ display:none; }
+  .chk-label{ font-size:12px; color:var(--color-text-secondary); margin:18px 4px 6px; }
+  .chk-box{ padding:0; }
+  .chk-box:not(:empty){ padding:10px 14px; }
+  .chk-box.hidden{ display:none; }
+  .chk-chev{ transition:transform .2s; }
+  .chk-row[aria-expanded="true"] .chk-chev, .chk-it.open .chk-chev{ transform:rotate(180deg); }
+  .chk-it{ max-height:420px; overflow:hidden; border-top:1px solid var(--color-border); transition:max-height .35s ease, opacity .35s ease, visibility 0s; }
+  .chk-it:first-child{ border-top:none; }
+  .chk-it.gone{ max-height:0; opacity:0; border-top-width:0; visibility:hidden; transition:max-height .35s ease, opacity .35s ease, visibility 0s linear .35s; }
+  .chk-it .chk-hd{ display:flex; justify-content:space-between; align-items:center; width:100%; min-height:50px; padding:0 14px; border:0; background:none; font:inherit; font-size:15px; font-weight:500; color:var(--color-text-primary); text-align:left; cursor:pointer; box-sizing:border-box; }
+  .chk-it .chk-bd{ display:none; padding:0 14px 14px; }
+  .chk-it.open .chk-bd{ display:block; }
+  .chk-tt{ transition:color .2s; }
+  .chk-it.done .chk-tt{ text-decoration:line-through; color:var(--color-text-secondary); }
+  .chk-steps{ font-size:14px; line-height:1.55; color:var(--color-text-primary); }
+  .chk-exp{ font-size:13px; color:var(--color-text-secondary); margin:8px 0 12px; }
+  .chk-act{ display:flex; gap:8px; align-items:center; }
+  .chk-skip{ margin-left:auto; border:0; background:none; font:inherit; font-size:13px; color:var(--color-text-secondary); padding:0; min-height:44px; cursor:pointer; }
+  .chk-ab{ position:relative; height:38px; padding:0 18px; border-radius:19px; border:1px solid var(--color-border-strong); background:transparent; font:inherit; font-size:14px; color:var(--color-text-primary); cursor:pointer; }
+  .chk-ab::after{ content:''; position:absolute; left:0; right:0; top:-3px; bottom:-3px; }
+  .chk-ab.sm{ height:32px; font-size:13px; padding:0 12px; }
+  .chk-ab.sm::after{ top:-6px; bottom:-6px; }
+  .chk-ab.ok{ background:var(--color-success-bg); border-color:var(--color-success); }
+  .chk-ab.no{ background:var(--color-error-bg); border-color:var(--color-error); }
+  .chk-rs{ display:none; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chk-empty{ display:none; text-align:center; padding:26px 14px; }
+  .chk-empty b{ display:block; font-size:16px; font-weight:500; margin-top:6px; color:var(--color-text-primary); }
+  .chk-empty span{ display:block; font-size:13px; color:var(--color-text-secondary); margin-top:4px; }
+  .chk-empty svg{ color:var(--color-success); }
+  .chk-done-it{ display:flex; justify-content:space-between; gap:10px; min-height:44px; align-items:center; padding:0 14px; border-top:1px solid var(--color-border); font-size:14px; }
+  .chk-done-it span:last-child{ font-size:13px; color:var(--color-text-secondary); text-align:right; }
+  .chk-sent{ text-align:center; font-size:13px; color:var(--color-success); margin-top:10px; opacity:0; transition:opacity .3s; height:16px; }
+  .chk-sent.on{ opacity:1; }
+  @media (prefers-reduced-motion: reduce){ .chk-it, .chk-it.gone, .chk-chev, .chk-tt, .chk-sent{ transition:none; } }
   .n-diag-empty{ padding:10px 14px; font-size:12.5px; color:var(--color-text-secondary); }
-  /* Rev 2.32.122 (QA-1): «Чекліст перевірки» у «Тестуванні» (розробницький екран) */
-  .qa-rev{ font-size:12px; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.04em; margin:14px 0 4px; }
-  .qa-item{ border-top:1px solid var(--color-border); padding:10px 0; }
-  .qa-title{ font-size:14px; font-weight:600; color:var(--color-text-primary); }
-  .qa-steps{ margin:6px 0 0 18px; padding:0; font-size:13px; color:var(--color-text-secondary); }
-  .qa-expected{ margin-top:6px; font-size:13px; color:var(--color-text-primary); }
-  .qa-actions{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  .qa-btn{ min-height:44px; padding:0 12px; border-radius:999px; border:1.5px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-primary); font:inherit; font-size:14px; cursor:pointer; }
-  .qa-btn.on-ok{ background:var(--color-primary-bg); border-color:var(--color-primary); }
-  .qa-btn.on-bad{ background:var(--color-error-bg); border-color:var(--color-error); }
-  .qa-head{ font-size:12.5px; color:var(--color-text-secondary); margin:4px 0 8px; }
   #push-series-form{ border:1px solid var(--color-border); border-radius:var(--radius-sm); } #push-series-form .n-diag-row{ align-items:center; font-size:14px; } #push-series-form select{ font-size:16px; min-height:36px; padding:4px 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); } /* Rev 2.32.104: форма серії без текстових полів; select ≥ 16 px (без масштабування iOS) */
   /* ===== Rev 2.32.12 (R) — «Налаштування → Сповіщення»: inset-grouped список за макетом (рядок 52, групи 18, заголовки 13 пт, тумблер 51×31; значення з токенів --ui-*). Лише всередині #notifications-drawer — решта .n-* (список «Налаштування») без змін. ===== */
   #notifications-drawer .n-section-label{ font-size:13px; font-weight:600; letter-spacing:.04em; margin:22px 16px 7px; }
@@ -3674,25 +3703,17 @@
     </span>
   </button>
 
-  <!-- Rev 2.23.22 (6D.191) — ОДИН рядок "Тестування" (раніше тут стояв
-       окремий рядок "Запис діагностики" — тепер він усередині шторки
-       "Тестування", поруч із тестовими варіантами функцій). Праворуч —
-       нейтральний сірий бейдж з кількістю активних тестів (реєстр
-       TEST_VARIANTS, JS updateTestingBadge()); при 0 не показується. -->
-  <button type="button" class="service-wide-card" id="testing-btn" onclick="openTestingDrawer()">
-    <span class="service-tile-icon c-blue">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M9 3h6"/>
-        <path d="M10 3v6.5L5 19a1.5 1.5 0 0 0 1.3 2.2h11.4A1.5 1.5 0 0 0 19 19l-5-9.5V3"/>
-        <path d="M7.5 15h9"/>
-      </svg>
-    </span>
-    <span class="service-wide-text">
-      <span class="service-wide-title">Тестування</span>
-      <span class="service-wide-sub">Тестові варіанти й запис діагностики</span>
-    </span>
-    <span class="test-badge hidden" id="testing-badge" aria-label="Активних тестів"></span>
-  </button>
+  <!-- Rev 2.32.189 (CHECKS-1): замість одного рядка «Тестування» — «Перевірки» (значок: скільки кроків лишилось; при 0 прихований) і «Діагностика» (приглушена). Макет: docs/ui/mockups/checks-mockup.html, екран 1. -->
+  <div class="chk-card" id="checks-service-group">
+    <button type="button" class="chk-row" id="checks-btn" onclick="openChecksDrawer()">
+      <span>Перевірки</span>
+      <span class="chk-end"><span class="chk-badge hidden" id="checks-badge" aria-label="Кроків, що лишились"></span><span class="chk-mut"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></span>
+    </button>
+    <button type="button" class="chk-row chk-mut" id="diagnostics-btn" onclick="openTestingDrawer()">
+      <span>Діагностика</span>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+  </div>
 
   <div class="section-label" style="color:var(--color-error);">Небезпечні дії</div>
   <button type="button" class="service-danger-card" onclick="clearAllData()">
@@ -3729,7 +3750,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.188</div>
+  <div class="version-footer">Money Tree · Rev 2.32.189</div>
 </div>
   </div>
 </div>
@@ -3941,65 +3962,90 @@
   <button type="button" class="submit-btn pill danger-outline hidden" id="trash-detail-purge-btn" style="margin-top:10px;" onclick="purgeTrashFromDetail()">Видалити назавжди</button>
 </div>
 
-<!-- ================= "Тестування" (Rev 2.23.22, 6D.191) =================
-     Один екран, два чітко розділені блоки: тестові варіанти функцій (реєстр
-     TEST_VARIANTS, картки рендерить renderTestingDrawer()) і запис
-     діагностики (рядок відкриває наявну шторку запису, її вигляд і
-     функціональність не змінені). Той самий .drawer-компонент, що решта. -->
-<div class="drawer-backdrop" id="testing-backdrop" onclick="closeTestingDrawer()" inert></div>
-<div class="drawer" id="testing-drawer" role="dialog" aria-label="Тестування" aria-modal="true" inert>
+<!-- ================= «Перевірки» (Rev 2.32.189, CHECKS-1) =================
+     Кроки перевірки на iPhone зі списку CHECKS (JS): показуються лише без відповіді; відповідь — локально й одним insert у client_debug_logs (scenario 'check').
+     Макет: docs/ui/mockups/checks-mockup.html (екрани 2 і 3). Той самий .drawer-компонент, що решта шторок. -->
+<div class="drawer-backdrop" id="checks-backdrop" onclick="closeChecksDrawer()" inert></div>
+<div class="drawer" id="checks-drawer" role="dialog" aria-label="Перевірки" aria-modal="true" inert>
   <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
     <div class="drawer-head-main">
       <div class="drawer-head-text">
-        <h2>Тестування</h2>
-        <div class="drawer-head-sub">Тестові варіанти й запис діагностики</div>
+        <h2>Перевірки</h2>
+        <div class="drawer-head-sub" id="checks-sub"></div>
+      </div>
+    </div>
+    <button class="drawer-close" onclick="closeChecksDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div class="chk-card" id="checks-list"></div>
+  <div class="chk-card" style="margin-top:10px;">
+    <button type="button" class="chk-row" id="checks-done-btn" aria-expanded="false" onclick="toggleChecksDone()">
+      <span>Пройдено</span>
+      <span class="chk-end chk-mut"><span id="checks-done-count">0</span><svg class="chk-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
+    <div id="checks-done-list" class="hidden"></div>
+  </div>
+  <div class="chk-sent" id="checks-sent" role="status" aria-live="polite">Результат надіслано</div>
+</div>
+
+<!-- ================= «Діагностика» (раніше «Тестування», Rev 2.23.22, 6D.191; Rev 2.32.189: перегруповано за макетом, екран 4) =================
+     Функції без змін, лише розташування: згруповані рядки, блок експерименту окремо. Id шторки (testing-drawer) і кнопок збережено для наявної логіки. -->
+<div class="drawer-backdrop" id="testing-backdrop" onclick="closeTestingDrawer()" inert></div>
+<div class="drawer" id="testing-drawer" role="dialog" aria-label="Діагностика" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-head">
+    <div class="drawer-head-main">
+      <div class="drawer-head-text">
+        <h2>Діагностика</h2>
+        <div class="drawer-head-sub">Для розробника</div>
       </div>
     </div>
     <button class="drawer-close" onclick="closeTestingDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
-  <div class="section-label" style="margin-top:4px;">Тестові варіанти</div>
-  <div class="test-section-sub">Після вибору варіант видаляється із застосунку</div>
-  <div id="testing-variants-list"></div>
-  <!-- Rev 2.32.12 (R): діагностика доставки сповіщень переїхала сюди з екрана «Сповіщення» (функціонал без змін) -->
-  <div class="section-label">Доставка сповіщень</div>
-  <button type="button" class="submit-btn pill secondary" id="testing-diag-btn" style="margin-bottom:10px;" onclick="toggleDeliveryDiagFromTesting()">Показати журнали доставки</button>
-  <div id="testing-diag-box"></div>
-  <!-- Rev 2.32.103 (NOTIF-3 Rev 2): режим розробника для діагностики сповіщень; за замовчуванням вимкнено -->
-  <div class="section-label">Розширена діагностика сповіщень</div>
-  <button type="button" class="submit-btn pill secondary" id="push-diag-btn" style="margin-bottom:10px;" onclick="togglePushDiag()">Розширена діагностика: вимкнено</button>
-  <div id="push-diag-box"></div>
-  <!-- Rev 2.32.122 (QA-1): чекліст перевірки на iPhone; стан лише локально, текст результату копіюється в чат -->
-  <div class="section-label">Чекліст перевірки</div>
-  <button type="button" class="submit-btn pill secondary" id="qa-btn" style="margin-bottom:10px;" onclick="toggleQaChecklist()">Показати чекліст перевірки</button>
-  <div id="qa-box"></div>
-  <!-- Rev 2.32.53 (J): лічильник помилок JavaScript за сеанс (без значень користувача) -->
-  <div class="section-label">Помилки JavaScript</div>
-  <button type="button" class="submit-btn pill secondary" id="js-errors-btn" style="margin-bottom:10px;" onclick="showJsErrors()">Помилок за сеанс: 0</button>
-  <!-- Rev 2.32.74 (U): лічильник запитів до сервера за сеанс за типами (без значень користувача) -->
-  <div class="section-label">Запити до сервера</div>
-  <button type="button" class="submit-btn pill secondary" id="net-stats-btn" style="margin-bottom:10px;" onclick="showNetStats()">Запитів за сеанс: 0</button>
+  <div class="chk-card">
+    <button type="button" class="chk-row" id="debug-record-btn" onclick="openDebugRecordFromTesting()">
+      <span>Записати діагностику</span>
+      <span class="chk-end chk-mut"><span class="chk-state" id="debug-record-btn-sub"></span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
+    <button type="button" class="chk-row" id="js-errors-btn" aria-expanded="false" onclick="showJsErrorsLog()">
+      <span>Журнал помилок JS</span>
+      <span class="chk-end chk-mut"><span id="js-errors-count">0</span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
+    <div id="js-errors-list" class="chk-box n-diag-empty"></div>
+    <button type="button" class="chk-row" id="testing-diag-btn" aria-expanded="false" onclick="toggleDeliveryDiagFromTesting()">
+      <span>Журнал доставки сповіщень</span>
+      <span class="chk-end chk-mut"><svg class="chk-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
+    <div id="testing-diag-box" class="chk-box"></div>
+    <button type="button" class="chk-row" id="net-stats-btn" onclick="showNetStats()">
+      <span>Запитів за сеанс</span>
+      <span class="chk-mut" id="net-stats-count">0</span>
+    </button>
+    <button type="button" class="chk-row" id="fields-census-btn" onclick="recordFieldsCensusFromTesting()">
+      <span>Перепис полів екрана</span>
+      <span class="chk-end chk-mut"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
+    <!-- Rev 2.32.103 (NOTIF-3 Rev 2): режим розробника для діагностики сповіщень; за замовчуванням вимкнено -->
+    <div class="chk-row">
+      <span id="push-diag-label">Розширена діагностика</span>
+      <button type="button" class="mono-switch" id="push-diag-btn" role="switch" aria-checked="false" aria-labelledby="push-diag-label" onclick="togglePushDiag()"><span></span></button>
+    </div>
+    <div id="push-diag-box" class="chk-box"></div>
+  </div>
   <!-- Rev 2.32.75 (K3): середовище (лише поза робочим origin): «Мок» ↔ «Реальна база · лише читання» -->
-  <div class="section-label" id="cloud-env-label">Середовище</div>
+  <div class="chk-label" id="cloud-env-label">Середовище</div>
   <button type="button" class="submit-btn pill secondary" id="cloud-env-btn" style="margin-bottom:10px;" onclick="toggleCloudEnv()">Середовище</button>
-  <div class="section-label">Запис діагностики</div>
-  <!-- Rev 2.32.31 (A): перепис полів екрана (атрибути й підписи, без значень) — для пошуку поля, що викликає панель «Автозаповнити контакт» -->
-  <button type="button" class="submit-btn pill secondary" id="fields-census-btn" style="margin-bottom:10px;" onclick="recordFieldsCensusFromTesting()">Перепис полів екрана</button>
-  <button type="button" class="service-wide-card" id="debug-record-btn" style="margin-bottom:16px;" onclick="openDebugRecordFromTesting()">
-    <span class="service-tile-icon c-blue">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="4" width="20" height="14" rx="2"/>
-        <path d="M8 21h8"/>
-        <path d="M12 18v3"/>
-        <circle cx="12" cy="11" r="3"/>
-      </svg>
-    </span>
-    <span class="service-wide-text">
-      <span class="service-wide-title">Запис діагностики</span>
-      <span class="service-wide-sub" id="debug-record-btn-sub">Для пошуку проблем з екраном і клавіатурою</span>
-    </span>
-  </button>
-  <button type="button" class="submit-btn pill" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="resetAllTestVariantsFromUi()">Скинути всі тестові варіанти</button>
+  <div class="chk-label">Експеримент</div>
+  <div class="chk-card">
+    <button type="button" class="chk-row" id="experiment-btn" aria-expanded="false" onclick="toggleExperiment()">
+      <span>Автозаповнення контактів</span>
+      <span class="chk-end chk-mut"><svg class="chk-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
+    <div id="experiment-box" class="chk-box hidden">
+      <div id="testing-variants-list"></div>
+      <button type="button" class="submit-btn pill" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="resetAllTestVariantsFromUi()">Скинути всі тестові варіанти</button>
+    </div>
+  </div>
 </div>
 
 <!-- ================= "Чорна скринька" діагностики (Rev 2.22.91, 6D.164) =================
@@ -4472,8 +4518,8 @@ function recordJsError(info){
   }catch(e){}
 }
 function updateJsErrorsRow(){
-  const b = document.getElementById('js-errors-btn');
-  if(b) b.textContent = 'Помилок за сеанс: ' + jsErrorList.reduce(function(n, r){ return n + r.count; }, 0);
+  const b = document.getElementById('js-errors-count'); // Rev 2.32.189 (CHECKS-1): число в рядку «Журнал помилок JS»
+  if(b) b.textContent = String(jsErrorList.reduce(function(n, r){ return n + r.count; }, 0));
 }
 function showJsErrors(){
   const last = jsErrorList.slice(-5).reverse();
@@ -4544,6 +4590,17 @@ function jsErrLogView(diagOn, rows){
   if(!diagOn) return { message: 'Увімкніть розширену діагностику, щоб вести журнал помилок JS', rows: [] };
   const list = (Array.isArray(rows) ? rows : []).slice(-30).reverse();
   return list.length ? { message: '', rows: list } : { message: 'Помилок немає', rows: [] };
+}
+// Rev 2.32.189 (CHECKS-1): рядок «Журнал помилок JS» з лічильником сам відкриває журнал (раніше окрема кнопка «Показати журнал помилок JS»): при увімкненій розширеній діагностиці — кільцевий журнал (до 30, новіші вгорі), інакше помилки цього сеансу (showJsErrors).
+async function showJsErrorsLog(){
+  const list = document.getElementById('js-errors-list'); const btn = document.getElementById('js-errors-btn');
+  if(!list) return;
+  if(list.childNodes.length){ list.textContent = ''; if(btn) btn.setAttribute('aria-expanded', 'false'); return; }
+  if(!(await readPushDiagFlag())){ showJsErrors(); return; }
+  const view = jsErrLogView(true, await jsErrReadAll());
+  if(btn) btn.setAttribute('aria-expanded', 'true');
+  if(view.message){ list.textContent = view.message; return; }
+  view.rows.forEach(function(e){ const row = document.createElement('div'); row.className = 'n-diag-row'; const sp = document.createElement('span'); sp.textContent = jsErrEntryLine(e); row.appendChild(sp); list.appendChild(row); });
 }
 function jsErrClear(){
   return jsErrOpen().then(function(db){
@@ -8374,7 +8431,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.188';
+const APP_VERSION = '2.32.189';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -10203,6 +10260,7 @@ async function applyCloudSession(session){
       // слова, картки, ОЧ, потім діти й приховані) на вході в сесію. Переміщено ПІСЛЯ всіх pull-ів: картки/ОЧ мають бути
       // підтягнуті, перш ніж їх пушити й звіряти з переписом.
       setupNotifRealtime(); // Rev 2.32.38 (B): Realtime дзвіночка; лічильники (дзвіночок, «Вхідні») тепер приходять із перевірки «голів» (Rev 2.32.74)
+      flushChecksQueue(); // Rev 2.32.189 (CHECKS-1): відповіді «Перевірок», що не дійшли минулого разу
       autoSyncStale('start'); // Rev 2.32.21 (O): офлайн-записи минулої сесії відправляються при вході/старті
       // Rev #30 (6D.56) — Realtime-підписка: той самий "один раз на
       // sign-in transition" принцип, що весь початковий pull-ланцюжок вище.
@@ -12871,7 +12929,7 @@ function updateDebugRecordButtonUI(){
     if(timerEl) timerEl.textContent = `${mm}:${ss}`;
     if(indicator) indicator.classList.remove('hidden');
   }else{
-    sub.textContent = 'Для пошуку проблем з екраном і клавіатурою';
+    sub.textContent = ''; // Rev 2.32.189 (CHECKS-1): поза записом рядок без підпису
     if(indicator) indicator.classList.add('hidden');
   }
 }
@@ -15118,7 +15176,6 @@ function dictionaryView(words, cats, query, openId){
 // Компенсація прокрутки при акордеоні: заголовок, по якому торкнулись, лишається на тому самому місці екрана (повертає, на скільки змістити scrollTop).
 function accordionAnchorDelta(before, after){ return (Number(after) || 0) - (Number(before) || 0); }
 let structDict = { openId: null, query: '' };
-function structAccVariant(){ try{ return getVariant('structure-accordion') || 'b'; }catch(e){ return 'b'; } }
 // Вихід із вкладки «Структура» (перехід на іншу вкладку застосунку), коли активний сегмент «Словник»: скидання стану й збереженої прокрутки (щоб при поверненні вона не вказувала «в нікуди»).
 function structDictLeave(){
   const dictActive = !document.getElementById('struct-tab-panel-dictionary').classList.contains('hidden');
@@ -15151,7 +15208,6 @@ function renderStructureDictionary(){
   const words = DICTIONARY.filter(function(d){ return !d.deletedAt; });
   const wrap = document.getElementById('struct-dict-search-wrap');
   if(wrap) wrap.style.display = words.length ? '' : 'none';
-  el.setAttribute('data-acc', structAccVariant());
   if(!words.length){
     el.innerHTML = structEmptyHtml('Словник порожній', 'Додайте перше слово, наприклад «кава»: воно підставлятиме «Харчування · Кава».', 'Додати слово', 'openAddDictionaryModal()', STRUCT_CAPTION_DICT_EMPTY);
     return;
@@ -15200,7 +15256,7 @@ function toggleDictGroup(cat, forceOpen){
   if(!head || !main) return;
   const anchor = function(){ main.scrollTop += accordionAnchorDelta(beforeTop, head.getBoundingClientRect().top); };
   anchor();
-  if((structAccVariant() === 'c' || structDictDesktopAnim()) && !motionReduced()){ // анімована висота: тримаємо місце на кожному кадрі
+  if(structDictDesktopAnim() && !motionReduced()){ // анімована висота: тримаємо місце на кожному кадрі
     const t0 = performance.now();
     (function frame(){ anchor(); if(performance.now() - t0 < 280) requestAnimationFrame(frame); })();
   }
@@ -20432,16 +20488,16 @@ function pressEndAllTouch(e){
 const BUTTON_VARIANT_MAP = {
   primary: ['submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn', 'mono-primary'],
   secondary: ['add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
-  text: ['mono-back', 'notif-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
+  text: ['chk-skip', 'mono-back', 'notif-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
   icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
-  chip: ['trash-chip', 'mono-inst-label'],
-  row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
+  chip: ['trash-chip', 'mono-inst-label', 'chk-ab'],
+  row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn', 'och-cond-row']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
-const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated'];
+const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated', 'chk-mut', 'sm'];
 // className → variant (або null). parentClassName — клас контейнера для безкласових кнопок (.n-days > button = chip; .tabbar-glass > button = reference).
 function buttonVariantOf(className, parentClassName){
   const cls = String(className || '').split(/\s+/).filter(Boolean);
@@ -21505,24 +21561,6 @@ const TEST_VARIANTS_LS_KEY = 'budget_variants_v1';
 // Rev 2.32.0 (F): реєстр порожній — motion-intensity («Стандартна», ×1) і card-reveal («Стандартно», 420/40) зафіксовано константами; pruneVariants() прибирає їхні старі ключі з localStorage.
 // Rev 2.32.8 (A): реєстр порожній — edit-label завершено (no-for); pruneVariants() прибирає його ключ із localStorage.
 const TEST_VARIANTS = [
-  // Rev 2.32.50 (S3) — анімація розкриття груп «Словника»: b (типовий) — шеврон 200мс і проявлення рядків 160мс, висота миттєво; c — справжня анімація висоти 240мс (свідомий виняток із правила «без анімації розмірів», лише в цьому тесті). Утримання місця заголовка діє в обох.
-  {
-    id: 'structure-accordion',
-    title: 'Анімація розкриття у «Словнику»',
-    what: 'Яка анімація розкриття групи слів приємніша: b — шеврон повертається й рядки проявляються, висота змінюється миттєво; c — плавна зміна висоти.',
-    variants: [
-      { key: 'b', label: 'B: шеврон і проявлення', hint: 'висота миттєво, шеврон 200 мс, рядки проявляються 160 мс' },
-      { key: 'c', label: 'C: плавна висота', hint: 'висота змінюється за 240 мс' },
-    ],
-    defaultVariant: 'b',
-    addedIn: 'Rev 2.32.50 (S3)',
-    cleanupBy: 'після вибору на iPhone (ревізія зафіксує обраний варіант й прибере тест)',
-    checkSteps: [
-      'Структура → «Словник»: відкрийте кілька груп по черзі, подивіться на повертання шеврона й появу рядків.',
-      'Перемкніть варіант (зміна діє одразу, після повернення на вкладку «Словник») і повторіть; зверніть увагу, чи не стрибає екран при закритті групи вище.',
-      'Оберіть кращий варіант і напишіть.',
-    ],
-  },
   // Rev 2.32.47 (AG) — порівняльний експеримент: що прибирає панель iOS «Автозаповнити контакт» (панель виникає попри autocomplete=off, після першої появи — у кожному полі, тобто це схоже на стан сторінки). Змінюється лише розмітка, не вигляд. Варіант застосовується при СТАРТІ — після вибору повністю закрийте застосунок і відкрийте знову.
   {
     id: 'autofill-guard',
@@ -21654,6 +21692,13 @@ function updateTestingBadge(){
   badge.textContent = n ? String(n) : '';
   badge.classList.toggle('hidden', !n);
 }
+// Rev 2.32.189 (CHECKS-1): рядок блока експерименту розгортає варіанти (раніше вони стояли відкритими в «Тестуванні»).
+function toggleExperiment(){
+  const btn = document.getElementById('experiment-btn'); const box = document.getElementById('experiment-box');
+  if(!btn || !box) return;
+  const open = box.classList.toggle('hidden') === false;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 function testingEl(tag, cls, text){
   const e = document.createElement(tag);
   if(cls) e.className = cls;
@@ -21747,8 +21792,8 @@ function toggleCloudEnv(){
 }
 document.addEventListener('DOMContentLoaded', renderCloudEnvUI);
 function updateNetStatsRow(){
-  const b = document.getElementById('net-stats-btn');
-  if(b) b.textContent = 'Запитів за сеанс: ' + NET_STATS.total;
+  const b = document.getElementById('net-stats-count'); // Rev 2.32.189 (CHECKS-1): число в рядку «Запитів за сеанс»
+  if(b) b.textContent = String(NET_STATS.total);
 }
 function showNetStats(){
   updateNetStatsRow();
@@ -24217,7 +24262,7 @@ function toggleDeliveryDiagFromTesting(){
   notificationDiagOpen = !notificationDiagOpen;
   const box = document.getElementById('testing-diag-box');
   const btn = document.getElementById('testing-diag-btn');
-  if(btn) btn.textContent = notificationDiagOpen ? 'Сховати журнали доставки' : 'Показати журнали доставки';
+  if(btn) btn.setAttribute('aria-expanded', notificationDiagOpen ? 'true' : 'false'); // Rev 2.32.189 (CHECKS-1): рядок з шевроном замість зміни тексту кнопки
   if(!box) return;
   box.textContent = '';
   if(notificationDiagOpen){
@@ -24428,20 +24473,11 @@ function pushSeriesSelect(id, label, options){
 async function renderPushDiag(){
   const on = await readPushDiagFlag();
   const btn = document.getElementById('push-diag-btn');
-  if(btn) btn.textContent = 'Розширена діагностика: ' + (on ? 'увімкнено' : 'вимкнено');
+  if(btn) btn.setAttribute('aria-checked', on ? 'true' : 'false'); // Rev 2.32.189 (CHECKS-1): перемикач замість кнопки з текстом
   const box = document.getElementById('push-diag-box');
   if(!box) return;
   box.textContent = '';
   const mk = function(id, text, handler){ const b = document.createElement('button'); b.type = 'button'; b.className = 'submit-btn pill secondary'; b.id = id; b.style.marginBottom = '10px'; b.textContent = text; b.addEventListener('click', handler); box.appendChild(b); return b; };
-  // Rev 2.32.131 (JSERR-1): «Показати журнал помилок JS» видима завжди й завжди щось показує (список, «Помилок немає» або підказку увімкнути діагностику); раніше кнопка з'являлась лише при ввімкненій діагностиці, тож вимкнений режим виглядав як «нічого не відбувається». Ризик: лише розробницька зона.
-  const errList = document.createElement('div'); errList.id = 'js-errors-list'; errList.className = 'n-diag-empty';
-  mk('push-diag-errors-btn', 'Показати журнал помилок JS', async function(){
-    const view = jsErrLogView(await readPushDiagFlag(), await jsErrReadAll());
-    errList.textContent = '';
-    if(view.message){ errList.textContent = view.message; return; }
-    view.rows.forEach(function(e){ const row = document.createElement('div'); row.className = 'n-diag-row'; const sp = document.createElement('span'); sp.textContent = jsErrEntryLine(e); row.appendChild(sp); errList.appendChild(row); });
-  });
-  box.appendChild(errList);
   if(!on) return;
   const list = document.createElement('div'); list.id = 'push-diag-list'; list.className = 'n-diag-empty';
   mk('push-diag-show-btn', 'Показати події воркера', async function(){
@@ -24475,132 +24511,179 @@ async function togglePushDiag(){
 function jsErrList_flush(){ jsErrorList.slice(-JSERR_RATE_MAX).forEach(function(r){ jsErrPersist(r); }); } // Rev 2.32.124: не більше ліміту частоти (решта відкинулась би мовчки); текст у журналі ≤ 80 символів (приватність)
 // Rev 2.32.123 (JSERR-1): прапорець розробника читаємо один раз на старті (помилки до відповіді не журналяться: допустимо).
 try{ readPushDiagFlag().then(function(v){ jsErrPersistOn = !!v; }); }catch(e){}
-// ===== Rev 2.32.122 (QA-1): «Чекліст перевірки» на iPhone («Тестування») =====
-// Пункти беруться з qa.json (його генерує scripts/gen-qa.mjs зі звітів docs/reports/*.md: розділ «Для iPhone»; публікується разом із застосунком, запит ./qa.json?v=<версія>: сервіс-воркер віддає його з кешу ПОТОЧНОЇ версії (cache-first), а з новою версією застосунку кеш замінюється, тож файл живе не довше за версію); відповіді «ок» / «не ок» (+ причина кнопкою) зберігаються ЛИШЕ локально (localStorage), у мережу нічого не пишеться. «Скопіювати результат» формує текст для чату за номерами пунктів. Без текстових полів (причини готовими кнопками), тож клавіатурна логіка шторок не зачіпається.
-const QA_STATE_KEY = 'budget-qa-state-v1';
-const QA_REASONS = ['обрізано', 'не працює', 'повільно', 'інше'];
-const QA_RESULT_LABELS = { ok: 'ок', bad: 'не ок' };
-let qaItems = null;
-let qaLoadFailed = false;
-function qaValidItems(list){
-  const seen = {};
-  return (Array.isArray(list) ? list : []).filter(function(it){
-    if(!it || typeof it !== 'object') return false;
-    if(typeof it.id !== 'string' || !it.id || typeof it.rev !== 'string' || !it.rev || typeof it.title !== 'string' || !it.title) return false;
-    if(seen[it.id]) return false; seen[it.id] = true;
-    return true;
-  }).map(function(it){
-    return { id: it.id, rev: it.rev, title: it.title, steps: Array.isArray(it.steps) ? it.steps.filter(function(x){ return typeof x === 'string'; }) : [], expected: typeof it.expected === 'string' ? it.expected : '', h: typeof it.h === 'string' ? it.h : '' };
-  });
+// ===== Rev 2.32.189 (CHECKS-1): «Перевірки» (замість чекліста QA-1 з qa.json) =====
+// Кроки лежать у коді (дослівно з блоку checks-data макета docs/ui/mockups/checks-mockup.html; чат додає нові з кожною збіркою). Показуються лише кроки без відповіді.
+// Відповідь: локально (localStorage; лише службовий стан пристрою, не дані користувача) і одним insert у client_debug_logs (scenario 'check', events [{id, result, reason}]; дозвіл на вставку вже є).
+// Черги для журналу немає: що не вдалось надіслати (офлайн, лише читання, помилка) лишається з sent:false і йде повторно при наступному старті (flushChecksQueue) та після наступної відповіді.
+// «Пропустити» теж відповідь (result 'skip'): крок зникає й потрапляє в «Пройдено». «Не ок» підтверджується лише дотиком по причині.
+const CHECKS_STATE_KEY = 'budget-checks-v1';
+const CHECKS = [
+  { id: '2.32.186-1', rev: '2.32.186', title: 'Рамка автора без мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.'], expect: 'ліва рамка витрати одразу синя.', reasons: ["не з'явилась", 'не той колір', 'інше'] },
+  { id: '2.32.186-2', rev: '2.32.186', title: 'Рамка після перезапуску', steps: ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], expect: 'рамка на витраті лишилась.', reasons: ['зникла', 'не той колір', 'інше'] },
+  { id: '2.32.188-1', rev: '2.32.188', title: 'Старт і повернення з фону', steps: ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], expect: 'витрати й баланс не змінились.', reasons: ['дані зникли', 'не оновились', 'інше'] },
+  { id: '2.32.189-1', rev: '2.32.189', title: 'Екран «Перевірки»', steps: ['Відкрийте «Сервіс» → «Перевірки».', 'Натисніть «Ок» на першому кроці.'], expect: 'крок закреслюється й зникає, наступний розгортається.', reasons: ['не закреслився', 'не зник', 'інше'] },
+];
+const CHECK_RESULTS = ['ok', 'no', 'skip'];
+function checksReadState(){
+  try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
 }
-function qaGroupByRev(items){
-  const order = [], map = {};
-  (items || []).forEach(function(it){ if(!map[it.rev]){ map[it.rev] = []; order.push(it.rev); } map[it.rev].push(it); });
-  return order.map(function(rev){ return { rev: rev, items: map[rev] }; });
-}
-function qaReadState(){
-  try{ const o = JSON.parse(localStorage.getItem(QA_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
-}
-function qaWriteState(st){ try{ localStorage.setItem(QA_STATE_KEY, JSON.stringify(st)); return true; }catch(e){ return false; } }
-function qaSetResult(state, id, result, reason, hash){
-  if(id === '__proto__') return Object.assign({}, state || {}); // службовий ключ не приймаємо
-  const next = Object.assign({}, state || {});
-  if(result !== 'ok' && result !== 'bad'){ delete next[id]; return next; }
-  const r = result === 'bad' && QA_REASONS.indexOf(reason) !== -1 ? { s: 'bad', r: reason } : { s: result };
-  if(hash) r.h = hash;
-  next[id] = r;
+function checksWriteState(st){ try{ localStorage.setItem(CHECKS_STATE_KEY, JSON.stringify(st)); return true; }catch(e){ return false; } }
+function checksOwn(st, id){ return st && Object.prototype.hasOwnProperty.call(st, id) && st[id] && typeof st[id] === 'object' ? st[id] : null; }
+function checksPending(st){ return CHECKS.filter(function(c){ return !checksOwn(st, c.id); }); }
+function checksAnswered(st){ return CHECKS.filter(function(c){ return !!checksOwn(st, c.id); }); }
+// Нова відповідь: 'ok' і 'skip' — одразу; 'no' — лише з причиною зі списку кроку (без неї стан не змінюється). Невідомий крок чи результат — без змін. Уже даної відповіді не перезаписує.
+function checksAnswer(st, id, result, reason){
+  const next = Object.assign({}, st || {});
+  const c = CHECKS.filter(function(x){ return x.id === id; })[0];
+  if(!c || CHECK_RESULTS.indexOf(result) === -1 || checksOwn(next, id)) return next;
+  if(result === 'no' && c.reasons.indexOf(reason) === -1) return next;
+  next[id] = { r: result, why: result === 'no' ? reason : null, sent: false, at: new Date().toISOString() };
   return next;
 }
-// Відповідь чинна, лише якщо хеш тексту пункту збігається (id міг змінитись, коли у звіті з'явились інші пункти).
-function qaAnswerFor(state, item){
-  const r = state && Object.prototype.hasOwnProperty.call(state, item.id) ? state[item.id] : null;
-  if(!r) return null;
-  if(r.h && item.h && r.h !== item.h) return null;
-  return r;
-}
-function qaPruneDone(state){
-  const next = {};
-  Object.keys(state || {}).forEach(function(id){ if(state[id] && state[id].s !== 'ok') next[id] = state[id]; });
-  return next;
-}
-function qaSummaryText(items, state, build, dateText){
-  const parts = [];
-  (items || []).forEach(function(it){
-    const r = qaAnswerFor(state, it);
-    if(!r) return;
-    parts.push(it.id + (r.s === 'ok' ? ' ок' : ' не ок' + (r.r ? ': ' + r.r : '')));
-  });
-  return 'Збірка ' + build + ' · ' + dateText + '\n' + (parts.length ? parts.join('; ') : 'Результатів немає');
-}
-async function loadQaItems(){
+let checksSending = false;
+async function checksSendAnswer(id){
+  const a = checksOwn(checksReadState(), id);
+  if(!a || a.sent || !isCloudWriteReady()) return false;
   try{
-    const res = await fetch('./qa.json?v=' + encodeURIComponent(APP_VERSION), { cache: 'no-store' });
-    if(!res.ok) throw new Error('http ' + res.status);
-    qaItems = qaValidItems(await res.json());
-  }catch(e){ qaItems = null; qaLoadFailed = true; } // невдача (офлайн, 404): наступне відкриття спробує ще раз
-  return qaItems;
-}
-let qaOpen = false;
-function qaSetAndRender(item, result, reason){
-  qaWriteState(qaSetResult(qaReadState(), item.id, result, reason, item.h));
-  const box = document.getElementById('qa-box'); const drawer = document.getElementById('testing-drawer');
-  const top = drawer ? drawer.scrollTop : 0;
-  renderQa();
-  if(drawer) drawer.scrollTop = top; // перебудова блока не збиває позицію прокрутки шторки
-}
-function renderQa(){
-  const box = document.getElementById('qa-box');
-  const btn = document.getElementById('qa-btn');
-  if(btn) btn.textContent = qaOpen ? 'Сховати чекліст перевірки' : 'Показати чекліст перевірки';
-  if(!box) return;
-  box.textContent = '';
-  if(!qaOpen) return;
-  const state = qaReadState();
-  const head = document.createElement('div'); head.className = 'qa-head'; head.textContent = 'Збірка ' + APP_VERSION + ' · ' + new Date().toLocaleDateString('uk-UA'); box.appendChild(head);
-  if(!qaItems || !qaItems.length){ const e = document.createElement('div'); e.className = 'n-diag-empty'; e.textContent = qaLoadFailed ? 'qa.json недоступний (офлайн?): закрийте й відкрийте чекліст ще раз' : (qaItems ? 'Пунктів перевірки немає' : 'Завантаження…'); box.appendChild(e); return; }
-  qaGroupByRev(qaItems).forEach(function(g){
-    const rev = document.createElement('div'); rev.className = 'qa-rev'; rev.textContent = 'Rev ' + g.rev; rev.setAttribute('role', 'heading'); rev.setAttribute('aria-level', '3'); box.appendChild(rev);
-    g.items.forEach(function(it){
-      const cur = qaAnswerFor(state, it);
-      const row = document.createElement('div'); row.className = 'qa-item';
-      const t = document.createElement('div'); t.className = 'qa-title'; t.textContent = it.id + ' · ' + it.title; row.appendChild(t);
-      if(it.steps.length){ const ol = document.createElement('ol'); ol.className = 'qa-steps'; it.steps.forEach(function(x){ const li = document.createElement('li'); li.textContent = x; ol.appendChild(li); }); row.appendChild(ol); }
-      if(it.expected){ const ex = document.createElement('div'); ex.className = 'qa-expected'; ex.textContent = 'Очікується: ' + it.expected; row.appendChild(ex); }
-      const act = document.createElement('div'); act.className = 'qa-actions'; act.setAttribute('role', 'group'); act.setAttribute('aria-label', 'Результат: ' + it.id);
-      ['ok', 'bad'].forEach(function(k){
-        const b = document.createElement('button'); b.type = 'button'; b.className = 'qa-btn' + (cur && cur.s === k ? ' on-' + k : '');
-        b.textContent = QA_RESULT_LABELS[k]; b.setAttribute('aria-pressed', cur && cur.s === k ? 'true' : 'false');
-        b.addEventListener('click', function(){ qaSetAndRender(it, cur && cur.s === k ? null : k); });
-        act.appendChild(b);
-      });
-      row.appendChild(act);
-      if(cur && cur.s === 'bad'){
-        const why = document.createElement('div'); why.className = 'qa-actions'; why.setAttribute('role', 'group'); why.setAttribute('aria-label', 'Причина: ' + it.id);
-        QA_REASONS.forEach(function(r){
-          const b = document.createElement('button'); b.type = 'button'; b.className = 'qa-btn' + (cur.r === r ? ' on-bad' : ''); b.textContent = r;
-          b.addEventListener('click', function(){ qaSetAndRender(it, 'bad', cur.r === r ? null : r); });
-          why.appendChild(b);
-        });
-        row.appendChild(why);
-      }
-      box.appendChild(row);
+    const { error } = await getSupabaseClient().from('client_debug_logs').insert({
+      family_id: cloudFamilyId, user_id: cloudSession.user.id, app_version: APP_VERSION, scenario: 'check',
+      device: buildDebugLogDevice(), events: [{ id: id, result: a.r, reason: a.why || null }],
     });
+    if(error) return false;
+    const st = checksReadState();
+    if(checksOwn(st, id)){ st[id].sent = true; checksWriteState(st); }
+    return true;
+  }catch(e){ return false; }
+}
+async function flushChecksQueue(){
+  if(checksSending) return;
+  checksSending = true;
+  try{
+    const st = checksReadState();
+    for(const c of checksAnswered(st)){ if(!checksOwn(st, c.id).sent && !(await checksSendAnswer(c.id))) break; }
+  }catch(e){}
+  checksSending = false;
+}
+function checksSvg(html){ const w = document.createElement('span'); w.innerHTML = html; return w.firstChild; } // лише власні сталі SVG
+const CHECKS_CHEV = '<svg class="chk-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+const CHECKS_OK_ICON = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>';
+function updateChecksBadge(){
+  const b = document.getElementById('checks-badge');
+  if(!b) return;
+  const n = checksPending(checksReadState()).length;
+  b.textContent = n ? String(n) : '';
+  b.classList.toggle('hidden', !n);
+}
+const CHECK_RESULT_LABELS = { ok: 'Ок', no: 'Не ок', skip: 'Пропущено' };
+function checksRenderMeta(){
+  const st = checksReadState();
+  const left = checksPending(st).length, done = checksAnswered(st);
+  const sub = document.getElementById('checks-sub'); if(sub) sub.textContent = 'Збірка ' + APP_VERSION + ' · залишилось ' + left;
+  const cnt = document.getElementById('checks-done-count'); if(cnt) cnt.textContent = String(done.length);
+  const empty = document.getElementById('checks-empty'); if(empty) empty.style.display = left ? 'none' : 'block';
+  const dl = document.getElementById('checks-done-list');
+  if(dl){
+    dl.textContent = '';
+    done.forEach(function(c){
+      const a = checksOwn(st, c.id);
+      const row = document.createElement('div'); row.className = 'chk-done-it';
+      const t = document.createElement('span'); t.textContent = c.title; row.appendChild(t);
+      const r = document.createElement('span'); r.textContent = CHECK_RESULT_LABELS[a.r] + (a.why ? ': ' + a.why : ''); row.appendChild(r);
+      dl.appendChild(row);
+    });
+  }
+  updateChecksBadge();
+}
+function checksFinish(it, c, result, reason){
+  if(it.getAttribute('data-f')) return;
+  const before = checksReadState();
+  const after = checksAnswer(before, c.id, result, reason);
+  if(!checksOwn(after, c.id) || checksOwn(before, c.id)) return; // «Не ок» без причини не підтверджується
+  it.setAttribute('data-f', result);
+  checksWriteState(after);
+  checksRenderMeta();
+  const reduce = motionReduced();
+  if(result !== 'skip' && !reduce) it.classList.add('done'); // закреслення .2 с + пауза до зникнення 0,6 с (макет); при reduced-motion лише зникнення
+  setTimeout(function(){
+    it.classList.remove('open'); it.classList.add('gone');
+    const list = document.getElementById('checks-list');
+    const nx = list ? list.querySelector('.chk-it:not([data-f])') : null;
+    if(nx) nx.classList.add('open');
+  }, (result === 'skip' || reduce) ? 50 : 600);
+  checksSendAnswer(c.id).then(function(ok){
+    if(!ok || result === 'skip') return;
+    const n = document.getElementById('checks-sent'); if(!n) return;
+    n.classList.add('on'); setTimeout(function(){ n.classList.remove('on'); }, 1400);
   });
-  const tools = document.createElement('div'); tools.className = 'qa-actions'; tools.style.marginTop = '12px';
-  const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'submit-btn pill secondary'; copy.id = 'qa-copy-btn'; copy.textContent = 'Скопіювати результат'; copy.addEventListener('click', copyQaResult); tools.appendChild(copy);
-  const clr = document.createElement('button'); clr.type = 'button'; clr.className = 'submit-btn pill secondary'; clr.id = 'qa-clear-btn'; clr.textContent = 'Очистити пройдені'; clr.addEventListener('click', function(){ qaWriteState(qaPruneDone(qaReadState())); renderQa(); }); tools.appendChild(clr);
-  box.appendChild(tools);
 }
-async function toggleQaChecklist(){
-  qaOpen = !qaOpen;
-  renderQa();
-  if(qaOpen && qaItems === null){ await loadQaItems(); renderQa(); }
+function renderChecks(){
+  const list = document.getElementById('checks-list');
+  if(!list) return;
+  list.textContent = '';
+  checksPending(checksReadState()).forEach(function(c, idx){
+    const it = document.createElement('div'); it.className = 'chk-it' + (idx === 0 ? ' open' : '');
+    const hd = document.createElement('button'); hd.type = 'button'; hd.className = 'chk-hd';
+    const tt = document.createElement('span'); tt.className = 'chk-tt'; tt.textContent = c.title; hd.appendChild(tt);
+    const chev = checksSvg(CHECKS_CHEV); chev.style.color = 'var(--color-text-secondary)'; hd.appendChild(chev);
+    hd.addEventListener('click', function(){ if(!it.getAttribute('data-f')) it.classList.toggle('open'); });
+    it.appendChild(hd);
+    const bd = document.createElement('div'); bd.className = 'chk-bd';
+    const steps = document.createElement('div'); steps.className = 'chk-steps';
+    c.steps.forEach(function(s, i){ if(i) steps.appendChild(document.createElement('br')); steps.appendChild(document.createTextNode((i + 1) + '. ' + s)); });
+    bd.appendChild(steps);
+    const exp = document.createElement('div'); exp.className = 'chk-exp'; exp.textContent = 'Очікується: ' + c.expect; bd.appendChild(exp);
+    const rs = document.createElement('div'); rs.className = 'chk-rs'; rs.setAttribute('role', 'group'); rs.setAttribute('aria-label', 'Причина: ' + c.title);
+    c.reasons.forEach(function(r){
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'chk-ab sm'; b.textContent = r;
+      b.addEventListener('click', function(){ b.classList.add('no'); checksFinish(it, c, 'no', r); });
+      rs.appendChild(b);
+    });
+    const act = document.createElement('div'); act.className = 'chk-act';
+    const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'chk-ab'; ok.textContent = 'Ок';
+    ok.addEventListener('click', function(){ ok.classList.add('ok'); checksFinish(it, c, 'ok', null); });
+    const no = document.createElement('button'); no.type = 'button'; no.className = 'chk-ab'; no.textContent = 'Не ок';
+    no.addEventListener('click', function(){ no.classList.add('no'); rs.style.display = 'flex'; });
+    const skip = document.createElement('button'); skip.type = 'button'; skip.className = 'chk-skip'; skip.textContent = 'Пропустити';
+    skip.addEventListener('click', function(){ checksFinish(it, c, 'skip', null); });
+    act.appendChild(ok); act.appendChild(no); act.appendChild(skip);
+    bd.appendChild(act); bd.appendChild(rs);
+    it.appendChild(bd); list.appendChild(it);
+  });
+  const empty = document.createElement('div'); empty.className = 'chk-empty'; empty.id = 'checks-empty';
+  empty.appendChild(checksSvg(CHECKS_OK_ICON));
+  const b = document.createElement('b'); b.textContent = 'Усе перевірено'; empty.appendChild(b);
+  const sp = document.createElement('span'); sp.textContent = 'Нові кроки з’являться з наступною збіркою.'; empty.appendChild(sp);
+  list.appendChild(empty);
+  checksRenderMeta();
 }
-async function copyQaResult(){
-  const text = qaSummaryText(qaItems || [], qaReadState(), APP_VERSION, new Date().toLocaleDateString('uk-UA'));
-  try{ await navigator.clipboard.writeText(text); showTextToast('Результат скопійовано', 'success'); }
-  catch(e){ showAlertModal(text); }
+function toggleChecksDone(){
+  const btn = document.getElementById('checks-done-btn'); const box = document.getElementById('checks-done-list');
+  if(!btn || !box) return;
+  const open = box.classList.toggle('hidden') === false;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
+function openChecksDrawer(){
+  renderChecks();
+  const backdrop = document.getElementById('checks-backdrop');
+  const drawer = document.getElementById('checks-drawer');
+  const wasOpen = drawer && drawer.classList.contains('open');
+  lastFocusedBeforeDialog = document.activeElement;
+  if(backdrop){ backdrop.removeAttribute('inert'); backdrop.classList.add('open'); }
+  if(drawer){ drawer.removeAttribute('inert'); drawer.classList.add('open'); focusFirstIn(drawer); }
+  if(!wasOpen) lockBackgroundScroll();
+  flushChecksQueue();
+}
+function closeChecksDrawer(){
+  const backdrop = document.getElementById('checks-backdrop');
+  const drawer = document.getElementById('checks-drawer');
+  const wasOpen = drawer && drawer.classList.contains('open');
+  if(backdrop){ backdrop.classList.remove('open'); backdrop.setAttribute('inert', ''); }
+  if(drawer){ drawer.classList.remove('open'); drawer.setAttribute('inert', ''); }
+  restoreFocus();
+  if(wasOpen) unlockBackgroundScroll();
+  updateChecksBadge();
+}
+updateChecksBadge();
 // Головний тумблер: вимкнення лише пише false; вмикання за дотиком користувача запитує дозвіл і створює підписку.
 async function onMasterToggle(on){
   // Rev 2.32.14 (A): дозвіл при натисканні тумблера. Системний запит МУСИТЬ іти першим синхронним кроком обробника (жест користувача; після await по мережі iOS його вже не покаже).

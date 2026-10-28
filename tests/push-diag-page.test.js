@@ -57,7 +57,8 @@ test('refreshPushSubscription: без дозволу, без сесії і в «
   assert.ok(toasts.length >= 1);
 });
 test('джерело: режим розробника не вмикається сам; діагностика не пише при старті; кнопки лише в увімкненому режимі; жодного тексту сповіщення в подіях', () => {
-  assert.match(SRC, /id="push-diag-btn"[^>]*onclick="togglePushDiag\(\)">Розширена діагностика: вимкнено</);
+  assert.match(SRC, /id="push-diag-btn"[^>]*role="switch" aria-checked="false"[^>]*onclick="togglePushDiag\(\)"/); // Rev 2.32.189 (CHECKS-1): перемикач; вимкнено за замовчуванням
+  assert.match(SRC, /id="push-diag-label">Розширена діагностика</);
   assert.equal((SRC.match(/writePushDiagFlag\(/g) || []).length, 2, 'лише визначення і togglePushDiag');
   const open = SRC.slice(SRC.indexOf('function openTestingDrawer(){'), SRC.indexOf('function closeTestingDrawer'));
   assert.match(open, /renderPushDiag\(\)/);

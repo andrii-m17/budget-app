@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="uk" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Money Tree: макет «Перевірки» і «Діагностика» (еталон)</title>
+<style>
+/* Еталон для Claude Code. Усі розміри в px = pt iPhone (ширина 390). Кольори орієнтовні за знімками:
+   під час реалізації замініть на наявні токени застосунку, нових кольорів не вводити.
+   Відхилення від макета запишіть у звіт. */
+:root{--page:#0b111b;--bg:#111827;--ln:#2a3447;--tx:#f1f5f9;--t2:#8b97ab;--gr:#16823f;--okb:#153d2b;--okl:#22c55e;--okt:#bbf7d0;--nob:#3d1f2a;--nol:#f87171;--not:#fecaca;--ch:#1c2434}
+:root[data-theme=light]{--page:#eef1f6;--bg:#ffffff;--ln:#dfe3ea;--tx:#0f172a;--t2:#64748b;--okb:#e3f4ea;--okl:#16a34a;--okt:#14532d;--nob:#fdecec;--nol:#dc2626;--not:#7f1d1d;--ch:#f1f5f9}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--tx);font:14px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;padding:16px 0 40px}
+.wrap{width:390px;margin:0 auto}
+.cap{font-size:12px;color:var(--t2);margin:22px 14px 6px}
+.sheet{width:361px;margin:0 auto;background:var(--bg);border-radius:28px;padding:16px 18px 18px}
+.head{display:flex;justify-content:space-between;align-items:center;margin:2px 0 14px}
+.head h1{font-size:20px;font-weight:500;margin:0}
+.head .sub{font-size:13px;color:var(--t2);margin-top:2px}
+.x{width:36px;height:36px;border-radius:18px;border:1px solid var(--ln);display:flex;align-items:center;justify-content:center}
+.card{border:1px solid var(--ln);border-radius:22px;overflow:hidden}
+.rw{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 14px;font-size:15px}
+.rw+.rw{border-top:1px solid var(--ln)}
+.mut{color:var(--t2)}
+.badge{min-width:24px;height:24px;border-radius:12px;background:var(--gr);color:#fff;font-size:13px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+.lb{font-size:12px;color:var(--t2);margin:18px 4px 6px}
+.it{max-height:420px;overflow:hidden;border-top:1px solid var(--ln);transition:max-height .35s ease,opacity .35s ease}
+.it:first-child{border-top:none}
+.it.gone{max-height:0;opacity:0;border-top-width:0}
+.it .hd{display:flex;justify-content:space-between;align-items:center;min-height:50px;padding:0 14px;cursor:pointer;font-size:15px;font-weight:500}
+.it .bd{display:none;padding:0 14px 14px}
+.it.open .bd{display:block}
+.it .ch{transition:transform .2s}
+.it.open .ch{transform:rotate(180deg)}
+.it .tt{transition:color .2s}
+.it.done .tt{text-decoration:line-through;color:var(--t2)}
+.steps{font-size:14px;line-height:1.55}
+.exp{font-size:13px;color:var(--t2);margin:8px 0 12px}
+.act{display:flex;gap:8px;align-items:center}
+.act a{margin-left:auto;font-size:13px;color:var(--t2);text-decoration:none}
+button{font:inherit;color:var(--tx)}
+.ab{height:38px;padding:0 18px;border-radius:19px;border:1px solid var(--ln);background:transparent;font-size:14px}
+.ab.sm{height:32px;font-size:13px;padding:0 12px}
+.ab.ok{background:var(--okb);border-color:var(--okl);color:var(--okt)}
+.ab.no{background:var(--nob);border-color:var(--nol);color:var(--not)}
+.rs{display:none;flex-wrap:wrap;gap:6px;margin-top:10px}
+.empty{display:none;text-align:center;padding:26px 14px}
+.empty b{display:block;font-size:16px;font-weight:500;margin-top:6px}
+.empty span{display:block;font-size:13px;color:var(--t2);margin-top:4px}
+.tg{width:44px;height:26px;border-radius:13px;background:var(--ch);border:1px solid var(--ln);position:relative;display:inline-block}
+.tg i{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:10px;background:var(--t2)}
+.tools{display:flex;gap:6px;margin:0 14px 8px}
+.tools button{height:30px;padding:0 10px;font-size:13px;border-radius:15px;border:1px solid var(--ln);background:transparent}
+@media (prefers-reduced-motion:reduce){.it,.it .ch,.it .tt{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="tools"><button id="tD">Темна</button><button id="tL">Світла</button><button id="rs">Почати спочатку</button></div>
+
+<div class="cap">1. «Сервіс»: замість «Тестування» два рядки</div>
+<div class="sheet" style="padding:12px 18px">
+<div class="card">
+<div class="rw"><span>Перевірки</span><span style="display:flex;align-items:center;gap:8px"><span class="badge" id="bdg">3</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="mut"><path d="M9 6l6 6-6 6"/></svg></span></div>
+<div class="rw mut"><span>Діагностика</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></div>
+</div>
+</div>
+
+<div class="cap">2. Екран «Перевірки» (інтерактивний: Ок, Не ок з причиною, Пропустити)</div>
+<div class="sheet">
+<div class="head"><div><h1>Перевірки</h1><div class="sub" id="sub">Збірка 2.32.188 · залишилось 3</div></div><div class="x"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div></div>
+<div class="card" id="list"></div>
+<div class="card" style="margin-top:10px"><div class="rw"><span>Пройдено</span><span class="mut"><span id="dn">18</span> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px"><path d="M9 6l6 6-6 6"/></svg></span></div></div>
+<div id="sent" style="text-align:center;font-size:13px;color:var(--okt);margin-top:10px;opacity:0;transition:opacity .3s">Результат надіслано</div>
+</div>
+
+<div class="cap">3. Порожній стан (показується, коли кроків не лишилось)</div>
+<div class="sheet">
+<div class="head"><div><h1>Перевірки</h1><div class="sub">Збірка 2.32.188 · залишилось 0</div></div><div class="x"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div></div>
+<div class="card"><div style="text-align:center;padding:26px 14px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--okl)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg><div style="font-size:16px;font-weight:500;margin-top:6px">Усе перевірено</div><div style="font-size:13px;color:var(--t2);margin-top:4px">Нові кроки з'являться з наступною збіркою.</div></div></div>
+<div class="card" style="margin-top:10px"><div class="rw"><span>Пройдено</span><span class="mut">21 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px"><path d="M9 6l6 6-6 6"/></svg></span></div></div>
+</div>
+
+<div class="cap">4. Екран «Діагностика» (функції без змін, лише розташування)</div>
+<div class="sheet">
+<div class="head"><div><h1>Діагностика</h1><div class="sub">Для розробника</div></div><div class="x"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></div></div>
+<div class="card">
+<div class="rw"><span>Записати діагностику</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="mut"><path d="M9 6l6 6-6 6"/></svg></div>
+<div class="rw"><span>Журнал помилок JS</span><span class="mut">0 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px"><path d="M9 6l6 6-6 6"/></svg></span></div>
+<div class="rw"><span>Журнал доставки сповіщень</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="mut"><path d="M9 6l6 6-6 6"/></svg></div>
+<div class="rw"><span>Запитів за сеанс</span><span class="mut">10</span></div>
+<div class="rw"><span>Розширена діагностика</span><span class="tg"><i></i></span></div>
+</div>
+<div class="lb">Експеримент</div>
+<div class="card"><div class="rw"><span>Автозаповнення контактів</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="mut"><path d="M9 6l6 6-6 6"/></svg></div></div>
+</div>
+</div>
+
+<script type="application/json" id="checks-data">
+[
+{"id":"2.32.186-1","rev":"2.32.186","title":"Рамка автора без мережі","steps":["Увімкніть режим у літаку.","Додайте витрату."],"expect":"ліва рамка витрати одразу синя.","reasons":["не з'явилась","не той колір","інше"]},
+{"id":"2.32.186-2","rev":"2.32.186","title":"Рамка після перезапуску","steps":["Вимкніть режим у літаку.","Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.","Відкрийте знову."],"expect":"рамка на витраті лишилась.","reasons":["зникла","не той колір","інше"]},
+{"id":"2.32.188-1","rev":"2.32.188","title":"Старт і повернення з фону","steps":["Згорніть застосунок кнопкою «Додому», не закриваючи.","Поверніться через хвилину."],"expect":"витрати й баланс не змінились.","reasons":["дані зникли","не оновились","інше"]}
+]
+</script>
+<script>
+var root=document.documentElement;
+function th(t){root.setAttribute('data-theme',t)}
+document.getElementById('tD').onclick=function(){th('dark')};
+document.getElementById('tL').onclick=function(){th('light')};
+var data=JSON.parse(document.getElementById('checks-data').textContent);
+var list=document.getElementById('list');var base=18,finished=0;
+var empty=document.createElement('div');empty.className='empty';
+empty.innerHTML='<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--okl)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg><b>Усе перевірено</b><span>Нові кроки з\u2019являться з наступною збіркою.</span>';
+function build(){
+list.innerHTML='';
+data.forEach(function(c,idx){
+var it=document.createElement('div');it.className='it'+(idx===0?' open':'');
+it.innerHTML='<div class="hd"><span class="tt"></span><svg class="ch" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--t2)"><path d="M6 9l6 6 6-6"/></svg></div><div class="bd"><div class="steps"></div><div class="exp"></div><div class="act"><button class="ab" data-v="ok">Ок</button><button class="ab" data-v="no">Не ок</button><a href="#" data-v="skip">Пропустити</a></div><div class="rs"></div></div>';
+it.querySelector('.tt').textContent=c.title;
+it.querySelector('.steps').innerHTML=c.steps.map(function(s,i){return (i+1)+'. '+s}).join('<br>');
+it.querySelector('.exp').textContent='Очікується: '+c.expect;
+var rs=it.querySelector('.rs');
+c.reasons.forEach(function(r){var b=document.createElement('button');b.className='ab sm';b.textContent=r;rs.appendChild(b);b.onclick=function(){b.className='ab sm no';finish(it,'no')}});
+var bs=it.querySelectorAll('button[data-v]');
+bs[0].onclick=function(){bs[0].className='ab ok';finish(it,'ok')};
+bs[1].onclick=function(){bs[1].className='ab no';rs.style.display='flex'};
+it.querySelector('a[data-v]').onclick=function(e){e.preventDefault();finish(it,'skip')};
+it.querySelector('.hd').onclick=function(){if(!it.getAttribute('data-f'))it.classList.toggle('open')};
+list.appendChild(it);
+});
+list.appendChild(empty);
+}
+function left(){return list.querySelectorAll('.it:not([data-f])').length}
+function refresh(){var n=left();document.getElementById('sub').textContent='Збірка 2.32.188 · залишилось '+n;var b=document.getElementById('bdg');b.textContent=n;b.style.display=n?'inline-flex':'none';document.getElementById('dn').textContent=base+finished;empty.style.display=n?'none':'block'}
+function finish(it,mode){
+if(it.getAttribute('data-f'))return;it.setAttribute('data-f',mode);finished++;
+if(mode!=='skip'){it.classList.add('done');var s=document.getElementById('sent');s.style.opacity=1;setTimeout(function(){s.style.opacity=0},1400)}
+setTimeout(function(){it.classList.remove('open');it.classList.add('gone');var nx=list.querySelector('.it:not([data-f])');if(nx)nx.classList.add('open');refresh()},mode==='skip'?50:600);
+}
+document.getElementById('rs').onclick=function(){finished=0;build();refresh()};
+build();refresh();
+</script>
+</body>
+</html>

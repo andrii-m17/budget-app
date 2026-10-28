@@ -5899,7 +5899,7 @@ test('у коді НЕМАЄ жодного читання видалених к
   ['getKbMode', 'setKbMode', 'getKbFocusMode', 'getKbArrowsMode', 'getKbCaretVariant', 'kb-mode-b', 'KB_MODE_LS_KEY', 'KB_ARROWS_LS_KEY', 'KB_CARET_LS_KEY', 'KB_FOCUS_MODE_LS_KEY'].forEach(function(id){
     assert.equal(src.indexOf(id), -1, id + ' має бути видалено');
   });
-  assert.equal(/Експеримент/.test(src), false, 'слова "Експерименти" немає ні в інтерфейсі, ні в коді');
+  assert.equal((src.match(/Експеримент/g) || []).length, 1, 'слово лише одне: підпис блока в «Діагностиці» (макет Rev 2.32.189)');
 });
 // Rev 2.23.22 (6D.191) — реєстр тестових варіантів (TEST_VARIANTS, docs/TESTING.md).
 function validateTestRegistry(reg){
@@ -5947,7 +5947,7 @@ test('ЗАХИСНИЙ реєстр: постачальний TEST_VARIANTS пр
   const ctx = ex.buildSandbox({}, ['TEST_VARIANTS']);
   const reg = JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(TEST_VARIANTS)'));
   assert.deepEqual(validateTestRegistry(reg), []);
-  assert.deepEqual(reg.map(function(t){ return t.id; }), ['structure-accordion', 'autofill-guard'], 'motion-intensity, card-reveal (F), button-style (M4b), dashboard-replay (M4c), edit-label (A) завершені; Rev 2.32.47 (AG): активний лише autofill-guard');
+  assert.deepEqual(reg.map(function(t){ return t.id; }), ['autofill-guard'], 'motion-intensity, card-reveal (F), button-style (M4b), dashboard-replay (M4c), edit-label (A) завершені; Rev 2.32.47 (AG): активний лише autofill-guard');
 });
 test('ЗАХИСНИЙ реєстр: валідатор ловить усі порушення (4 активних, відсутні поля, <2 варіантів, дубль key, defaultVariant, checkSteps, не kebab-case)', () => {
   const ok = makeTestRegistry();
@@ -6024,7 +6024,7 @@ test('у коді немає прямого читання budget_variants_v1 п
   const backup = src.slice(src.indexOf('const BACKUP_LS_KEYS = ['), src.indexOf('];', src.indexOf('const BACKUP_LS_KEYS = [')));
   assert.equal(backup.indexOf('budget_variants'), -1);
   assert.ok(/variants:\s*getVariantsSnapshot\(\)/.test(src), 'device.variants заповнюється з реєстру');
-  assert.equal(/Експеримент/.test(src), false);
+  assert.equal((src.match(/Експеримент/g) || []).length, 1); // Rev 2.32.189: єдиний підпис блока в «Діагностиці»
 });
 test('sheet-anim: подія несе phase/jumpMaxPx/gapNoLayoutMs/drawerHeightRest/drawerHeightKb', () => {
   const { ctx, debugEvents } = kbSheetSandbox();

@@ -79,7 +79,7 @@ test('джерело: основний облік помилок не зміне
   assert.ok(SRC.includes('workerEvents.concat(jsErrToLogEvents(await jsErrReadAll()))'));
   const render = SRC.slice(SRC.indexOf('async function renderPushDiag'), SRC.indexOf('async function togglePushDiag'));
   assert.ok(render.indexOf('if(!on) return;') < render.indexOf("'push-diag-errors-clear-btn'"), '«Очистити журнал помилок» лише при увімкненому режимі');
-  assert.ok(render.indexOf("'push-diag-errors-btn'") < render.indexOf('if(!on) return;'), 'Rev 2.32.131: «Показати журнал помилок JS» видима завжди');
+  assert.equal(render.indexOf('push-diag-errors-btn'), -1, 'Rev 2.32.189: окрему кнопку прибрано, журнал відкриває рядок «Журнал помилок JS» (showJsErrorsLog)');
   assert.ok(!/\.from\(|\.insert\(|\.rpc\(/.test(SRC.slice(SRC.indexOf('const JSERR_DB_NAME'), SRC.indexOf('function jsErrorBacklogLines'))), 'журнал без мережі');
 });
 
