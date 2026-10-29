@@ -306,3 +306,35 @@ test('18. клавіатура відкрита (поле у фокусі): ко
   expect(await page.evaluate(() => window.__renders), 'відкладене перемальовування виконано після закриття поля').toBeGreaterThan(0);
 });
 
+test('19. немає мережі: плашки нема, нічого не зсувається (також при відкритій клавіатурі), індикатор біля аватара видно на всіх вкладках, «Синхронізувати зараз» без мережі → «Потрібна мережа»', async ({ page }) => {
+  await boot(page, 'empty');
+  expect(await page.locator('#offline-banner').count(), 'плашки в DOM нема').toBe(0);
+  const snap = () => page.evaluate(() => { const r = s => { const e = document.querySelector(s); if(!e) return null; const b = e.getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(v => Math.round(v * 10) / 10); }; return { head: r('.page-header-text'), bell: r('#notif-bell-btn'), tabbar: r('.tabbar-glass'), main: r('.view:not(.hidden)'), amount: r('#f-amount'), docH: document.documentElement.scrollHeight, scroll: document.scrollingElement.scrollTop }; });
+  const offline = () => page.evaluate(() => { window.__offline = true; window.dispatchEvent(new Event('offline')); });
+  const online = () => page.evaluate(() => { window.__offline = false; window.dispatchEvent(new Event('online')); });
+  for(const tab of ['analytics', 'accounting', 'vytraty', 'structure', 'service']){
+    await page.evaluate(t => switchTab(t), tab);
+    await expect(page.locator('#profile-avatar-top .avatar-status-dot'), 'індикатор біля аватара видно на вкладці ' + tab).toBeVisible();
+  }
+  await page.evaluate(() => switchTab('accounting')); await page.waitForTimeout(2500);
+  const base = await snap();
+  await offline(); await page.waitForTimeout(800);
+  expect(await snap(), 'без мережі нічого не зсунулось').toEqual(base);
+  await expect(page.locator('#profile-avatar-top .avatar-status-dot.offline'), 'індикатор біля аватара показує офлайн').toHaveCount(1, { timeout: 8000 });
+  await online(); await page.waitForTimeout(1500);
+  expect(await snap(), 'після повернення мережі нічого не зсунулось').toEqual(base);
+  // «Синхронізувати зараз» без мережі
+  await page.evaluate(() => switchTab('service')); await offline();
+  await page.locator('#sync-all-btn').click();
+  await expect(page.locator('#sync-all-status')).toHaveText('Потрібна мережа');
+  expect(await page.locator('#offline-banner').count()).toBe(0);
+  await page.screenshot({ path: 'e2e-results/offline-390-dark.png' });
+  await online(); await page.waitForTimeout(500);
+  // відкрита клавіатура (емульований kb-open)
+  await page.evaluate(() => switchTab('vytraty')); await page.locator('#f-amount').click(); await page.keyboard.type('5');
+  await page.waitForTimeout(1200); await page.evaluate(() => document.body.classList.add('kb-open'));
+  const kb = await snap();
+  await offline(); await page.waitForTimeout(800); expect(await snap(), 'при відкритій клавіатурі без мережі нічого не зсунулось').toEqual(kb);
+  await online(); await page.waitForTimeout(1500); expect(await snap(), 'при відкритій клавіатурі після повернення мережі нічого не зсунулось').toEqual(kb);
+});
+

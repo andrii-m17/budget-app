@@ -359,7 +359,7 @@
   .cloud-env-badge{ position:fixed; top:calc(env(safe-area-inset-top) + 2px); left:50%; transform:translateX(-50%); z-index:9999; padding:1px 8px; border-radius:var(--radius-pill, 999px); font-size:10px; line-height:14px; font-weight:600; letter-spacing:.02em; pointer-events:none; background:var(--color-surface-hover); color:var(--color-text-primary); border:1px solid var(--color-border, rgba(128,128,128,.4)); white-space:nowrap; }
   .cloud-env-badge.readonly{ background:#b45309; color:#fff; border-color:#b45309; }
   .cloud-env-badge.hidden{ display:none; }
-  /* Rev #28.C — той самий компонент .status-banner, що вже #offline-banner
+  /* Rev #28.C — компонент .status-banner (раніше й плашка #offline-banner, прибрана в 2.32.210)
      вище (не винаходимо новий патерн повідомлень — узгоджено з користувачем
      явним уточненням перед стартом Stage C), лише кольоровий варіант
      .error: на відміну від офлайн-режиму (очікуваний, безпечний стан) збій
@@ -2995,16 +2995,8 @@
   </div>
 
   <div class="main-col" id="main-col">
-    <!-- Rev 2.11.1 — індикатор офлайн/онлайн стану: за замовчуванням прихований
-         (hidden), JS вмикає/вимикає через window 'online'/'offline' + разову
-         перевірку navigator.onLine при старті (updateOnlineStatusUI). Мета —
-         дати чесний сигнал "дані зберігаються локально" замість тиші, коли
-         людина не впевнена, чи застосунок взагалі щось зберігає без мережі. -->
-    <div class="status-banner hidden" id="offline-banner" role="status" aria-live="polite">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 12.86a10 10 0 0 1 5.17-2.8"/><path d="M12 20h.01"/></svg>
-      <span>Офлайн-режим — зміни зберігаються локально на цьому пристрої</span>
-    </div>
-    <!-- Rev #28.C — той самий компонент, що #offline-banner вище (.status-
+    <!-- Rev 2.32.210: плашку «Офлайн-режим» прибрано (вона зсувала вміст при появі й зникненні мережі); єдиний постійний індикатор — статус-крапка біля аватара профілю. -->
+    <!-- Rev #28.C — компонент (.status-
          banner, лише варіант .error), для явної помилки запису pilot-домену
          (categories/subcategories/subcategoryPriority/dictionary) —
          "без silent retry" (раніше узгоджено): показуємо факт збою, не
@@ -3796,7 +3788,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.209</div>
+  <div class="version-footer">Money Tree · Rev 2.32.210</div>
 </div>
   </div>
 </div>
@@ -9148,7 +9140,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.209';
+const APP_VERSION = '2.32.210';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12592,6 +12584,7 @@ function installSyncIndicatorHooks(){
 async function syncAllPilotManual(){
   const statusEl = document.getElementById('sync-all-status');
   statusEl.classList.remove('hidden');
+  if(!navigator.onLine){ statusEl.textContent = NEED_NETWORK_TEXT; return; }
   if(!cloudSession || !cloudSession.user){
     statusEl.textContent = 'Спершу увійдіть у Cloud.';
     return;
@@ -12903,6 +12896,7 @@ async function signInCloudAccount(){
   const email = emailEl.value.trim();
   const password = pwEl.value;
   if(!email || !password){ errEl.textContent = 'Вкажіть email і пароль.'; return; }
+  if(!navigator.onLine){ errEl.textContent = NEED_NETWORK_TEXT; return; }
   let client;
   try{
     await loadSupabaseSdk();
@@ -16044,14 +16038,13 @@ function renderStructure(){
       не з'явиться мережа. Тому перевіряємо саме typeof XLSX, а не
       navigator.onLine — це і є справжня причина, чому Excel міг би впасти.
 */
+// Rev 2.32.210: коротке контекстне повідомлення біля кнопки дії, що потребує мережі (замість глобальної плашки); звичайна робота без мережі не блокується.
+const NEED_NETWORK_TEXT = 'Потрібна мережа';
 function updateOnlineStatusUI(){
-  const banner = document.getElementById('offline-banner');
-  if(banner) banner.classList.toggle('hidden', navigator.onLine);
-  // Rev #30 (6D.8) — статус-крапка аватара профілю (онлайн/офлайн) реагує
-  // на ту саму подію, що вже #offline-banner — не окремий детектор мережі.
+  // Rev 2.32.210: плашки «Офлайн-режим» більше нема; стан показує лише статус-крапка аватара профілю (renderProfileUI), розкладка не змінюється.
   renderProfileUI();
 }
-// Rev #28.C — той самий компонент, що #offline-banner вище (.status-banner),
+// Rev #28.C — компонент .status-banner,
 // для явної помилки запису pilot-домену (categories/subcategories/
 // subcategoryPriority/dictionary): показуємо, поки користувач не повторить
 // дію успішно (hideStorageErrorBanner() викликається лише з успішного
@@ -23049,6 +23042,7 @@ async function monoExtractErrorCode(res){
 }
 async function onMonoConnectTap(){
   if(monoState.busy) return;
+  if(!navigator.onLine){ monoState.error = NEED_NETWORK_TEXT; renderMonoScreen(); return; } // Rev 2.32.210: без мережі токен із поля не прибираємо
   const input = document.getElementById('fldmono1');
   const raw = input ? input.value.trim() : '';
   if(input) input.value = ''; // токен прибирається з поля ДО відповіді
@@ -25338,6 +25332,8 @@ const CHECKS = [
   { id: '2.32.205-1', rev: '2.32.205', addedOn: '2026-10-29', title: 'Індикатор синхронізації після мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.', 'Вимкніть режим у літаку.'], expect: 'червона хмаринка, потім синє кільце, три блимання, зелена галочка.', reasons: ['Кільця немає', 'Блимає не три рази'] },
   { id: '2.32.206-1', rev: '2.32.206', addedOn: '2026-10-29', title: 'Екран не стрибає при конфлікті під клавіатурою', steps: ['Відкрийте поле «Сума» у формі нової витрати й почніть вводити число.', 'Нехай виникне конфлікт (вимкніть мережу, змініть суму витрати, Оля змінює ту саму суму, увімкніть мережу).', 'Не закриваючи поле, дивіться на екран.'], expect: 'екран не стрибає; сповіщення з\u2019являється після закриття поля.', reasons: ['Екран стрибнув', 'Сповіщення немає'] },
   { id: '2.32.207-1', rev: '2.32.207', addedOn: '2026-10-29', title: 'Анімація при кожній відправці', steps: ['Змініть суму будь-якої витрати (мережа є).'], expect: 'біля витрати синя хмаринка крутиться кілька секунд, рядок блимає тричі, потім зелена галочка.', reasons: ['Анімації немає', 'Блимає не три рази'] },
+  { id: '2.32.210-1', rev: '2.32.210', addedOn: '2026-10-29', title: 'Немає мережі: нічого не стрибає', steps: ['Відкрийте «Облік» (мережа є).', 'Увімкніть режим у літаку й зачекайте 3 секунди.', 'Вимкніть режим у літаку.'], expect: 'вміст екрана не зсунувся, плашки зверху немає, індикатор біля аватара змінився й повернувся.', reasons: ['Екран стрибнув', 'З\u2019явилась плашка'] },
+  { id: '2.32.210-2', rev: '2.32.210', addedOn: '2026-10-29', title: 'Потрібна мережа біля кнопки', steps: ['Увімкніть режим у літаку.', 'Відкрийте «Сервіс» і натисніть «Синхронізувати зараз».'], expect: 'біля кнопки з\u2019являється «Потрібна мережа», глобальної плашки немає.', reasons: ['Нічого не показано', 'З\u2019явилась плашка'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
