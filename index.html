@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.206</div>
+  <div class="version-footer">Money Tree · Rev 2.32.207</div>
 </div>
   </div>
 </div>
@@ -7348,10 +7348,8 @@ function expSyncBegin(id){
   if(!id) return;
   const e = expSyncEntry(id); e.n++; expSyncClear(e);
   if(e.s === 'done') expSyncSet(id, '');
-  // Rev 2.32.205: користувач уже бачив pending (червона хмаринка) — «syncing» одразу, без порога 400 мс (швидкий запит інакше проскакував pending → done без синього кільця); мінімальний показ SYNC_MIN_SYNCING_MS тримає expSyncSet('syncing'). Звичайна швидка онлайн-правка (стан порожній) лишається без syncing.
-  const seenPending = e.s === 'pending' || expSyncSlots(id).some(function(sl){ return sl.getAttribute('data-s') === 'pending'; });
-  if(seenPending){ expSyncSet(id, 'syncing'); expRowBlink(id, true); }
-  else e.t.push(setTimeout(function(){ if(e.n > 0){ expSyncSet(id, 'syncing'); expRowBlink(id, true); } }, SYNC_SLOT_SYNCING_MS));
+  // Rev 2.32.207: індикатор проходить syncing при КОЖНІЙ відправці (без порога): idle/pending → syncing → done. Повторна правка під час syncing нічого не перезапускає (лише лічильник запитів): стан тримається, поки не завершаться всі запити й не мине SYNC_MIN_SYNCING_MS від першого входу в syncing.
+  if(e.s !== 'syncing'){ expSyncSet(id, 'syncing'); e.blinkAt = Date.now(); expRowBlink(id, true); }
   e.t.push(setTimeout(function(){ if(e.n > 0){ expSyncSet(id, 'pending'); expRowBlink(id, false); } }, SYNC_SLOT_PENDING_MS));
 }
 function expSyncEnd(id, ok){
@@ -7384,10 +7382,10 @@ function expSyncSlotHtml(rec){
   return '<span class="sync-slot" data-sync-id="' + escapeAttr(safeId(rec.id)) + '" data-s="' + s + '"' + (s ? ' role="img" aria-label="' + SYNC_SLOT_LABEL[s] + '"' : '') + '>' + SYNC_SLOT_SVG.slot + '</span>';
 }
 // Чужа зміна (pull): слот «syncing» одразу (рядок малюється вже з ним); фази «done» → порожньо — на місці, без renderAll.
-function expPulledMark(id, map){ (map || recentlyPulledExpenseState).set(id, 'syncing'); expSyncSet(id, 'syncing'); }
+// Rev 2.32.207: чужа зміна лишається без індикатора (хмаринка/кільце/галочка лише для власних відправок); показується наявна підсвітка нового запису.
+function expPulledMark(id, map){ (map || recentlyPulledExpenseState).set(id, 'syncing'); }
 function expPulledPhase(ids, phase){
   ids.forEach(function(id){
-    if(phase === 'done') expSyncDone(id);
     expRowsFor(id).forEach(function(row){
       if(phase === 'done') row.classList.add('just-synced-done');
       else{ row.classList.remove('just-synced'); row.classList.remove('just-synced-done'); }
@@ -9150,7 +9148,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.206';
+const APP_VERSION = '2.32.207';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -18651,8 +18649,11 @@ function buildRecordGroupsHtml(items){
       // окрема Map, той самий принцип) — обидва kind живуть у тому самому
       // "основному списку" Журналу (.expense-row спільний).
       const pullState = isIncome ? recentlyPulledIncomeState.get(e.id) : recentlyPulledExpenseState.get(e.id); // 'syncing'|'done'|undefined
+      // Rev 2.32.207: власна відправка в стані syncing: перемальований рядок (наступна правка) продовжує блимання, а не перезапускає його (від'ємна затримка анімації = скільки вже минуло).
+      const syncEnt = expSyncEntries.get(e.id), syncElapsed = syncEnt && syncEnt.s === 'syncing' && syncEnt.blinkAt ? Date.now() - syncEnt.blinkAt : -1;
+      const ownBlink = syncElapsed >= 0 && syncElapsed < RECORD_SYNC_PULSE_MS * RECORD_SYNC_PULSE_COUNT && !pullState;
       const rowClass = (isIncome ? 'income-row' : '')
-        + (pullState === 'syncing' ? ' just-synced' : pullState === 'done' ? ' just-synced just-synced-done' : '');
+        + (pullState === 'syncing' ? ' just-synced' : pullState === 'done' ? ' just-synced just-synced-done' : '') + (ownBlink ? ' just-synced' : '');
       const chipClass = isIncome ? 'chip income' : (e.category ? 'chip' : 'chip empty');
       const chipText = isIncome ? 'дохід' : (e.category ? (e.subcategory || e.category) : 'без категорії');
       const amountClass = isIncome ? 'exp-amount income mono' : 'exp-amount mono';
@@ -18717,7 +18718,7 @@ function buildRecordGroupsHtml(items){
             ${swipeEditBtnHtml}
             <button type="button" class="swipe-delete-btn" onclick="event.stopPropagation(); closeSwipeActions(); confirmDeleteRecord('${e.kind}','${safeId(e.id)}')" aria-label="Видалити"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
           </div>
-          <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}" data-rec-id="${safeId(e.id)}"${authorStyle}${rowEditAttrs(e)}>
+          <div class="expense-row ${rowClass}" id="journal-row-${e.kind}-${e.__srcIdx}" data-rec-id="${safeId(e.id)}"${ownBlink ? (authorStyle ? authorStyle.replace('style="', 'style="animation-delay:-' + (syncElapsed / 1000).toFixed(2) + 's;') : ' style="animation-delay:-' + (syncElapsed / 1000).toFixed(2) + 's"') : authorStyle}${rowEditAttrs(e)}>
             <div class="exp-row-top">
               <div class="exp-main">
                 <div class="exp-name">${escapeHtml(e.name)}</div>
@@ -25339,6 +25340,7 @@ const CHECKS = [
   { id: '2.32.203-2', rev: '2.32.203', addedOn: '2026-10-29', title: 'Push про ОЧ при повністю закритому застосунку', steps: ['Закрийте застосунок повністю.', 'Дочекайтесь push «Платіж за ОЧ».', 'Натисніть на push.'], expect: 'відкривається «Облік → ОЧ»; якщо в нагадуванні одна ОЧ, вона мигає.', reasons: ['Відкрилась інша вкладка', 'ОЧ не мигає'] },
   { id: '2.32.205-1', rev: '2.32.205', addedOn: '2026-10-29', title: 'Індикатор синхронізації після мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.', 'Вимкніть режим у літаку.'], expect: 'червона хмаринка, потім синє кільце, три блимання, зелена галочка.', reasons: ['Кільця немає', 'Блимає не три рази'] },
   { id: '2.32.206-1', rev: '2.32.206', addedOn: '2026-10-29', title: 'Екран не стрибає при конфлікті під клавіатурою', steps: ['Відкрийте поле «Сума» у формі нової витрати й почніть вводити число.', 'Нехай виникне конфлікт (вимкніть мережу, змініть суму витрати, Оля змінює ту саму суму, увімкніть мережу).', 'Не закриваючи поле, дивіться на екран.'], expect: 'екран не стрибає; сповіщення з\u2019являється після закриття поля.', reasons: ['Екран стрибнув', 'Сповіщення немає'] },
+  { id: '2.32.207-1', rev: '2.32.207', addedOn: '2026-10-29', title: 'Анімація при кожній відправці', steps: ['Змініть суму будь-якої витрати (мережа є).'], expect: 'біля витрати синя хмаринка крутиться кілька секунд, рядок блимає тричі, потім зелена галочка.', reasons: ['Анімації немає', 'Блимає не три рази'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

@@ -244,7 +244,7 @@ test('11. «Перевірки»: спільний список сім\'ї: ві
   }finally{ await ctxB.close(); }
 });
 
-test('17. швидкий запит (мок відповідає миттєво): після pending завжди syncing (не менше SYNC_MIN_SYNCING_MS) → done; швидка онлайн-правка idle → done без syncing', async ({ page }) => {
+test('17. швидкий запит (мок відповідає миттєво): pending і кожна відправка проходять syncing (не менше SYNC_MIN_SYNCING_MS, 3 блимання) → done; повторна правка не перезапускає', async ({ page }) => {
   await boot(page, 'empty');
   const watch = i => page.evaluate(id => { window.__seen = []; window.__t0 = Date.now(); new MutationObserver(list => list.forEach(m => { if(m.target.getAttribute('data-sync-id') === id) window.__seen.push([m.target.getAttribute('data-s'), Date.now() - window.__t0]); })).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-s'] }); }, i);
   // без мережі: pending
@@ -261,14 +261,28 @@ test('17. швидкий запит (мок відповідає миттєво)
   expect(order.slice(0, 2), 'послідовність: ' + JSON.stringify(seen)).toEqual(['syncing', 'done']);
   const tSync = seen.find(x => x[0] === 'syncing')[1], tDone = seen.find(x => x[0] === 'done')[1];
   expect(tDone - tSync, 'syncing показується щонайменше SYNC_MIN_SYNCING_MS').toBeGreaterThanOrEqual(2900);
-  // швидка онлайн-правка: idle → done без syncing
+  // Rev 2.32.207: КОЖНА відправка (онлайн-правка, мок миттєвий) проходить idle → syncing (не менше SYNC_MIN_SYNCING_MS, рівно 3 блимання) → done
   await page.waitForFunction(i => { const r = expenses.find(x => x.id === i); return r && r.serverUpdatedAt && r.serverBase; }, id);
-  await page.waitForTimeout(1500);
-  await page.evaluate(() => { window.__seen = []; window.__t0 = Date.now(); });
+  await page.waitForTimeout(2500);
+  const arm = () => page.evaluate(() => { window.__seen = []; window.__t0 = Date.now(); window.__anim = { start: 0, iter: 0, end: 0 }; });
+  await arm();
+  await page.evaluate(() => { const cnt = ev => document.addEventListener(ev, e => { if(e.animationName === 'cardBlink') window.__anim[ev === 'animationstart' ? 'start' : ev === 'animationiteration' ? 'iter' : 'end']++; }, true); ['animationstart', 'animationiteration', 'animationend'].forEach(cnt); });
   await editAmountUI(page, id, 75);
-  await expect.poll(() => serverRow(page, id), { timeout: 10000 }).toMatchObject({ amount: 75 });
-  await page.waitForTimeout(1500);
-  expect((await page.evaluate(() => window.__seen)).map(x => x[0]), 'швидка онлайн-правка не показує syncing').not.toContain('syncing');
+  await page.waitForFunction(() => window.__seen.some(x => x[0] === 'done'), null, { timeout: 15000 });
+  const s2 = await page.evaluate(() => window.__seen);
+  expect(s2.map(x => x[0]).filter((v, i, a) => v && v !== a[i - 1]).slice(0, 2), JSON.stringify(s2)).toEqual(['syncing', 'done']);
+  expect(s2.find(x => x[0] === 'done')[1] - s2.find(x => x[0] === 'syncing')[1], 'syncing не менше SYNC_MIN_SYNCING_MS').toBeGreaterThanOrEqual(2900);
+  const anim = await page.evaluate(() => window.__anim);
+  expect(anim, 'рівно 3 блимання: один старт і дві ітерації, без четвертого').toEqual({ start: 1, iter: 2, end: 1 });
+  // повторна правка під час syncing: анімація не перезапускається й не дублюється, один syncing → done
+  await page.waitForTimeout(2500);
+  await arm();
+  await editAmountUI(page, id, 80); await page.waitForTimeout(600); await editAmountUI(page, id, 85);
+  await page.waitForFunction(() => window.__seen.some(x => x[0] === 'done'), null, { timeout: 15000 });
+  const s3 = await page.evaluate(() => window.__seen);
+  expect(s3.filter(x => x[0] === 'syncing').length, 'один syncing: ' + JSON.stringify(s3)).toBe(1);
+  expect(s3.find(x => x[0] === 'done')[1], 'мінімум відлічується від першої правки').toBeGreaterThanOrEqual(2900);
+  await expect.poll(() => serverRow(page, id), { timeout: 10000 }).toMatchObject({ amount: 85 });
 });
 
 test('18. клавіатура відкрита (поле у фокусі): конфлікт від синхронізації не зсуває екран і не перемальовує список; картка й перемальовування — після закриття поля', async ({ page }) => {

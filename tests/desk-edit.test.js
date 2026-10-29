@@ -35,7 +35,7 @@ test('розмітка: tabindex/role/aria-label лише для витрат н
   assert.equal(mk(true).rowEditAttrs({ kind: 'income', name: 'x' }), '');
   const a = mk(true).rowEditAttrs({ kind: 'expense', name: '<b>' });
   assert.match(a, /tabindex="0"/); assert.match(a, /role="button"/); assert.match(a, /data-rec-kind="expense"/); assert.ok(!/<b>/.test(a));
-  assert.match(SRC, /data-rec-id="\$\{safeId\(e\.id\)\}"\$\{authorStyle\}\$\{rowEditAttrs\(e\)\}/);
+  assert.match(SRC, /data-rec-id="\$\{safeId\(e\.id\)\}"\$\{ownBlink[^\n]*authorStyle\}\$\{rowEditAttrs\(e\)\}/);
 });
 test('слухачі: click і keydown (Enter/Space) делеговані, touchstart фіксує дотик; свайпова логіка не змінена', function(){
   const blk = SRC.match(/\(function initRowEditPointer\(\)\{[\s\S]*?\n\}\)\(\);/)[0];
