@@ -338,3 +338,27 @@ test('19. немає мережі: плашки нема, нічого не зс
   await online(); await page.waitForTimeout(1500); expect(await snap(), 'при відкритій клавіатурі після повернення мережі нічого не зсунулось').toEqual(kb);
 });
 
+test('20. підказка назви: після «про» тап по підказці вставляє назву за < 150 мс і переводить фокус на «Суму»; перемальовувань списку при незмінному тексті 0', async ({ page }) => {
+  await boot(page, 'empty');
+  await page.evaluate(() => { const now = new Date().toISOString(); expenses.unshift({ id: generateUUID(), date: localDateISO(), name: 'Продукти Тест', amount: 100, category: '', subcategory: '', manual: true, createdAt: now, updatedAt: now }); renderAll(); switchTab('vytraty'); });
+  await page.locator('#expfielda7').click(); await page.keyboard.type('про');
+  await page.waitForTimeout(1000); await page.evaluate(() => document.body.classList.add('kb-open')); // емульована відкрита клавіатура
+  const item = page.locator('#name-suggest-list .name-suggest-item', { hasText: 'Продукти Тест' });
+  await expect(item).toBeVisible();
+  // 0 перемальовувань при незмінному тексті: покоління розмітки не росте, вузол той самий
+  const stable = await page.evaluate(() => { const g = suggestGen, el = document.querySelector('#name-suggest-list .name-suggest-item'), v = document.getElementById('expfielda7').value; for(let i = 0; i < 6; i++) updateNameSuggestions(v); return [suggestGen - g, el === document.querySelector('#name-suggest-list .name-suggest-item')]; });
+  expect(stable, 'незмінний текст: 0 перемальовувань, той самий вузол').toEqual([0, true]);
+  // дотик, під час якого приходить зайвий input без зміни тексту (iOS автокорекція): вибір усе одно миттєвий
+  const res = await page.evaluate(() => {
+    const el = document.querySelector('#name-suggest-list .name-suggest-item'), r = el.getBoundingClientRect(), x = r.left + 20, y = r.top + 10, input = document.getElementById('expfielda7'), v = input.value;
+    const t0 = performance.now();
+    handleSuggestionTouchStart({ touches: [{ clientX: x, clientY: y }] });
+    updateNameSuggestions(v); // зайве перемальовування посеред дотику
+    handleSuggestionTouchEnd({ changedTouches: [{ clientX: x, clientY: y }], currentTarget: el, target: el, preventDefault(){} }, 0);
+    return { ms: performance.now() - t0, value: input.value, active: document.activeElement && document.activeElement.id };
+  });
+  expect(res.value, 'назву вставлено').toBe('Продукти Тест');
+  expect(res.ms, 'вставка < 150 мс').toBeLessThan(150);
+  expect(res.active, 'фокус на «Сумі»').toBe('f-amount');
+});
+

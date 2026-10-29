@@ -3788,7 +3788,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.210</div>
+  <div class="version-footer">Money Tree · Rev 2.32.211</div>
 </div>
   </div>
 </div>
@@ -9140,7 +9140,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.210';
+const APP_VERSION = '2.32.211';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13202,6 +13202,7 @@ const DEBUG_LOG_MAX_BYTES_FOR_SEND = 600000; // той самий ліміт, щ
 // принципово не можуть пройти, навіть якщо якийсь слухач їх передасть).
 const DEBUG_EVENT_ALLOWLIST = [
   'diffTable', 'diffCount', 'diffReason', // Rev 2.32.192 (SHADOW-REV): rev-diff
+  'lag', 'dur', // Rev 2.32.211 (SUGGEST-LAG): затримка «дотик → вставка» і тривалість довгої задачі (longtask), лише мс
   't', 'type', 'innerW', 'innerH', 'outerH', 'vvW', 'vvH', 'vvOffsetTop', 'vvOffsetLeft', 'vvScale',
   'scrollY', 'docClientH', 'bodyClasses', 'kbInset',
   'activeElementTag', 'activeElementId', 'activeElementType',
@@ -13338,7 +13339,7 @@ function debugSuggestRender(ctx, matches, activeIdx){
 }
 function debugSuggestPick(ctx, idx, picked, lenBefore, lenAfter){
   if(!debugRecordingActive) return;
-  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'suggest-pick', ctx: ctx, pickIdx: idx, pickLen: String(picked == null ? '' : picked).length, pickHash: debugTextHash(picked), textLenBefore: lenBefore, textLenAfter: lenAfter });
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), lag: suggestTouchAt ? Math.round(performance.now() - suggestTouchAt) : null, type: 'suggest-pick', ctx: ctx, pickIdx: idx, pickLen: String(picked == null ? '' : picked).length, pickHash: debugTextHash(picked), textLenBefore: lenBefore, textLenAfter: lenAfter });
 }
 // Результат обробника addExpense: added | rejected (reason: gate | name-empty | amount-invalid) | deferred (reason: edit-guard). Пишеться лише під час запису.
 function debugAddResult(result, reason){
@@ -13410,6 +13411,7 @@ function isStandaloneDisplayMode(navigatorStandalone, matchMediaStandalone){
 
 let debugRecordingActive = false;
 let debugRecordingStartedAt = 0;
+let debugLongTaskObserver = null; // Rev 2.32.211
 let debugRecordingScenario = '';
 let debugEventBuffer = [];
 let debugRecordingAutoStopTimer = null;
@@ -13689,6 +13691,13 @@ function startDebugRecording(scenario){
   debugRecordingStartedAt = performance.now();
   debugRecordingScenario = (scenario || '').slice(0, 120);
   debugEventBuffer = [];
+  // Rev 2.32.211 (SUGGEST-LAG): довгі задачі головного потоку (>50 мс) у записі діагностики, лише тривалість; спостерігач живе, поки йде запис.
+  try{
+    if(typeof PerformanceObserver !== 'undefined' && !debugLongTaskObserver){
+      debugLongTaskObserver = new PerformanceObserver(function(list){ list.getEntries().forEach(function(en){ if(debugRecordingActive) pushDebugEvent({ t: Math.round(en.startTime - debugRecordingStartedAt), type: 'longtask', dur: Math.round(en.duration) }); }); });
+      debugLongTaskObserver.observe({ type: 'longtask', buffered: false });
+    }
+  }catch(e){ debugLongTaskObserver = null; }
   if(typeof jsErrorEvents !== 'undefined') jsErrorEvents = {}; // Rev 2.32.53 (J)
   if(typeof jsErrorList !== 'undefined' && jsErrorList.length) pushDebugEvent({ t: 0, type: 'js-error-backlog', count: jsErrorList.length, errors: jsErrorBacklogLines(jsErrorList) }); // помилки до старту запису
   attachDebugRecorderListeners();
@@ -17134,7 +17143,9 @@ let suggestTouchStart = null; // { x, y, gen }
 // Тепер: покоління розмітки (suggestGen) — вибір лише з того самого рендеру, що й touchstart; кінець дотику має лежати в межах самого елемента; mousedown ігнорується, поки триває «вікно дотику» (синтетичні події); дотик поза списком одразу закриває його й нічого не приймає, подію не гасимо (клік по «Додати» доходить до кнопки);
 // після вибору список не відкривається знову, поки користувач сам не змінить текст (suggestSuppressed).
 let suggestGen = 0;
+let lastSuggestKey = ''; // Rev 2.32.211: ключ останнього відмальованого переліку (текст + підказки)
 let suggestSuppressed = false;
+let suggestTouchAt = 0; // performance.now() початку останнього дотику по підказці (діагностика затримки «дотик → вставка»)
 let suggestLastTouchAt = 0;
 const SUGGEST_TOUCH_WINDOW_MS = 800;
 // t: { connected, startGen, currentGen, dx, dy, point:{x,y}|null, rect:{left,top,right,bottom}|null } → true лише для справжнього тапу по тому самому елементу того самого рендеру.
@@ -17160,6 +17171,7 @@ function pickSuggestionNow(i){
   selectNameSuggestion(i);
 }
 function handleSuggestionTouchStart(e){
+  suggestTouchAt = performance.now();
   const t = e.touches && e.touches[0];
   suggestTouchStart = t ? { x: t.clientX, y: t.clientY, gen: suggestGen } : null;
 }
@@ -17214,9 +17226,13 @@ function updateNameSuggestions(text){
   const listEl = document.getElementById('name-suggest-list');
   if(!listEl) return;
   const q = (text||'').trim().toLowerCase();
-  activeNameSuggestIdx = -1;
-  if(q.length < 2){ nameSuggestions = []; listEl.classList.remove('show'); listEl.innerHTML=''; return; }
+  if(q.length < 2){ activeNameSuggestIdx = -1; lastSuggestKey = ''; nameSuggestions = []; listEl.classList.remove('show'); listEl.innerHTML=''; return; }
   const matches = nameSuggestionsFor(nameHistoryMap, text);
+  // Rev 2.32.211 (SUGGEST-LAG): незмінний текст і той самий перелік — НЕ перемальовуємо й не збільшуємо suggestGen: зайве перемальовування (iOS-автокорекція/прогноз надсилають input без зміни тексту) замінювало вузли під пальцем, і дотик, що почався до нього, відхилявся (suggestTapAccepted), а вибір доходив лише запізнілим синтетичним mousedown через ≈1 с.
+  const suggestKey = q + '\u0001' + matches.join('\u0002');
+  if(suggestKey === lastSuggestKey && listEl.classList.contains('show')) return;
+  lastSuggestKey = suggestKey;
+  activeNameSuggestIdx = -1;
   nameSuggestions = matches;
   suggestGen++; // Rev 2.32.132: нове покоління розмітки — старі дотики (touchstart до перемалювання) більше не вибирають
   debugSuggestRender('new', matches, activeNameSuggestIdx); // Rev 2.32.129
@@ -17292,6 +17308,7 @@ function selectNameSuggestion(i){
   if(amountInput){ try{ amountInput.focus({preventScroll:true}); }catch(e){ amountInput.focus(); } }
 }
 function hideNameSuggestions(){
+  lastSuggestKey = '';
   const listEl = document.getElementById('name-suggest-list');
   if(listEl){ listEl.classList.remove('show'); listEl.innerHTML=''; }
   activeNameSuggestIdx = -1;
@@ -25334,6 +25351,7 @@ const CHECKS = [
   { id: '2.32.207-1', rev: '2.32.207', addedOn: '2026-10-29', title: 'Анімація при кожній відправці', steps: ['Змініть суму будь-якої витрати (мережа є).'], expect: 'біля витрати синя хмаринка крутиться кілька секунд, рядок блимає тричі, потім зелена галочка.', reasons: ['Анімації немає', 'Блимає не три рази'] },
   { id: '2.32.210-1', rev: '2.32.210', addedOn: '2026-10-29', title: 'Немає мережі: нічого не стрибає', steps: ['Відкрийте «Облік» (мережа є).', 'Увімкніть режим у літаку й зачекайте 3 секунди.', 'Вимкніть режим у літаку.'], expect: 'вміст екрана не зсунувся, плашки зверху немає, індикатор біля аватара змінився й повернувся.', reasons: ['Екран стрибнув', 'З\u2019явилась плашка'] },
   { id: '2.32.210-2', rev: '2.32.210', addedOn: '2026-10-29', title: 'Потрібна мережа біля кнопки', steps: ['Увімкніть режим у літаку.', 'Відкрийте «Сервіс» і натисніть «Синхронізувати зараз».'], expect: 'біля кнопки з\u2019являється «Потрібна мережа», глобальної плашки немає.', reasons: ['Нічого не показано', 'З\u2019явилась плашка'] },
+  { id: '2.32.211-1', rev: '2.32.211', addedOn: '2026-10-30', title: 'Підказка назви вставляється одразу', steps: ['Відкрийте «Нова витрата» й торкніться поля назви (клавіатура відкрита).', 'Введіть «про».', 'Один раз торкніться підказки «Продукти Велмарт».'], expect: 'назва вставилась одразу (до півсекунди), фокус перейшов на «Суму».', reasons: ['Вставилась із затримкою', 'Не вставилась'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
