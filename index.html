@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.205</div>
+  <div class="version-footer">Money Tree · Rev 2.32.206</div>
 </div>
   </div>
 </div>
@@ -7163,7 +7163,7 @@ async function mdPushCas(dom, rec, ctx, opts, depth){
   mdRecordConflicts(dom, rec, row, merged);
   await dom.save();
   if(merged.localOnly.length) return await mdPushCas(dom, rec, dom.pushCtx(rec), opts, depth + 1);
-  renderAll();
+  renderAfterSync(false);
   return { success: true };
 }
 // Спільна частина pull для запису, що має серверний зліпок: «брудний» за лічильниками й відомий serverUpdatedAt → або чекає на відправку (сервер не змінювався), або потрійне злиття. Повертає null (не мій випадок, далі старий шлях) або { kind: 'kept'|'merged', authorFilled }.
@@ -8159,7 +8159,7 @@ async function pullExpensesCore(opts){
   // Категорії B. Дзеркалимо render-виклик, що вже йде після локального
   // редагування існуючого запису (saveRecordEdit()), не addExpense()
   // (той ще й скидає форму — тут форму не чіпаємо).
-  if(updated || added){ populateMonths(); renderAll(); }
+  if(updated || added) renderAfterSync(true); // Rev 2.32.206: при відкритій клавіатурі перемальовування відкладається до закриття поля
   return { skipped: false, updated: updated, added: added, keptLocal: keptLocal, skippedFk: skippedFk };
 }
 async function pullExpensesPilot(){
@@ -8247,7 +8247,7 @@ async function pullIncomesCore(opts){
   if(updated || added || authorFilled || echoed) await saveIncomes();
   // Rev #30 (6D.55) — той самий принцип, що pullExpensesCore() вище:
   // дзеркалимо render-виклик локального save (saveIncomeDrawer()).
-  if(updated || added) renderAll();
+  if(updated || added) renderAfterSync(false);
   // Rev #30 (6D.87) — "щойно з хмари" pulse (6D.67-69) розширено на incomes
   // (той самий "основний список" Журналу, що expenses — .expense-row
   // спільний для обох kind'ів) — ідентична 2-фазна анімація/таймінг.
@@ -8372,7 +8372,7 @@ async function pullDebtsCore(opts){
   if(updated || added || authorFilled || echoed) await saveDebts();
   // Rev #30 (6D.55) — той самий принцип, що pullExpensesCore() вище:
   // дзеркалимо render-виклик локального save (saveCardDebtDrawer()/saveInstallmentDrawer()).
-  if(updated || added) renderAll();
+  if(updated || added) renderAfterSync(false);
   return { skipped: false, updated: updated, added: added, keptLocal: keptLocal, skippedFk: skippedFk };
 }
 async function pullDebtsPilot(){
@@ -9150,7 +9150,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.205';
+const APP_VERSION = '2.32.206';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -16948,6 +16948,26 @@ function safeCall(fn, label){
   try{ fn(); }
   catch(err){ console.error(`[Money Tree] Помилка в ${label}:`, err); }
 }
+// Rev 2.32.206 (KB-SYNC-RENDER): перемальовування, спричинене синхронізацією (pull чужих змін, злиття конфлікту), не має зсувати екран, поки відкрита клавіатура з полем у фокусі: його відкладено до закриття поля (focusout), одним викликом; поза клавіатурою — як раніше, зі збереженням прокручування документа.
+let renderAfterSyncPending = null;
+function keyboardFieldActive(){
+  if(typeof document === 'undefined' || !document.body || !document.body.classList) return false;
+  const a = document.activeElement;
+  return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && document.body.classList.contains('kb-open'));
+}
+function renderAfterSync(withMonths){
+  if(keyboardFieldActive()){ renderAfterSyncPending = renderAfterSyncPending || { months: false }; if(withMonths) renderAfterSyncPending.months = true; return; }
+  const se = (typeof document !== 'undefined' && document.scrollingElement) || null, top = se ? se.scrollTop : 0;
+  if(withMonths) populateMonths();
+  renderAll();
+  if(se && se.scrollTop !== top) se.scrollTop = top;
+}
+function flushRenderAfterSync(){
+  if(!renderAfterSyncPending || keyboardFieldActive()) return;
+  const p = renderAfterSyncPending; renderAfterSyncPending = null;
+  renderAfterSync(p.months);
+}
+document.addEventListener('focusout', function(){ setTimeout(flushRenderAfterSync, 250); });
 function renderAll(){
   safeCall(rebuildNameHistory, 'rebuildNameHistory');
   safeCall(renderRecords, 'renderRecords');
@@ -25318,6 +25338,7 @@ const CHECKS = [
   { id: '2.32.203-1', rev: '2.32.203', addedOn: '2026-10-29', title: 'Push Monobank при повністю закритому застосунку', steps: ['Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Дочекайтесь push про нові операції Monobank.', 'Натисніть на push.'], expect: 'відкриваються «Вхідні» з підсвіченою пачкою, а не «Аналітика».', reasons: ['Відкрилась «Аналітика»', 'Пачка не підсвічена'] },
   { id: '2.32.203-2', rev: '2.32.203', addedOn: '2026-10-29', title: 'Push про ОЧ при повністю закритому застосунку', steps: ['Закрийте застосунок повністю.', 'Дочекайтесь push «Платіж за ОЧ».', 'Натисніть на push.'], expect: 'відкривається «Облік → ОЧ»; якщо в нагадуванні одна ОЧ, вона мигає.', reasons: ['Відкрилась інша вкладка', 'ОЧ не мигає'] },
   { id: '2.32.205-1', rev: '2.32.205', addedOn: '2026-10-29', title: 'Індикатор синхронізації після мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.', 'Вимкніть режим у літаку.'], expect: 'червона хмаринка, потім синє кільце, три блимання, зелена галочка.', reasons: ['Кільця немає', 'Блимає не три рази'] },
+  { id: '2.32.206-1', rev: '2.32.206', addedOn: '2026-10-29', title: 'Екран не стрибає при конфлікті під клавіатурою', steps: ['Відкрийте поле «Сума» у формі нової витрати й почніть вводити число.', 'Нехай виникне конфлікт (вимкніть мережу, змініть суму витрати, Оля змінює ту саму суму, увімкніть мережу).', 'Не закриваючи поле, дивіться на екран.'], expect: 'екран не стрибає; сповіщення з\u2019являється після закриття поля.', reasons: ['Екран стрибнув', 'Сповіщення немає'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

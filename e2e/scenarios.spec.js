@@ -271,3 +271,24 @@ test('17. швидкий запит (мок відповідає миттєво)
   expect((await page.evaluate(() => window.__seen)).map(x => x[0]), 'швидка онлайн-правка не показує syncing').not.toContain('syncing');
 });
 
+test('18. клавіатура відкрита (поле у фокусі): конфлікт від синхронізації не зсуває екран і не перемальовує список; картка й перемальовування — після закриття поля', async ({ page }) => {
+  await boot(page, 'empty');
+  const id = await addExpenseUI(page, 'Тест клавіатура', 100);
+  await makeConflict(page, id, 110, 140);
+  await page.evaluate(() => switchTab('vytraty'));
+  await page.locator('#f-amount').click(); await page.keyboard.type('5');
+  await page.waitForTimeout(1200); // повз запобіжник «поле без клавіатури» (700 мс), далі емулюємо відкриту клавіатуру
+  await page.evaluate(() => { document.body.classList.add('kb-open'); window.__renders = 0; const f = window.renderAll; window.renderAll = function(){ window.__renders++; return f.apply(this, arguments); }; });
+  const snap = () => page.evaluate(() => { const r = s => { const e = document.querySelector(s); if(!e) return null; const b = e.getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(v => Math.round(v * 10) / 10); }; return { amount: r('#f-amount'), name: r('#expfielda7'), add: r('.submit-btn.expense'), head: r('.page-header-text'), bell: r('#notif-bell-btn'), scroll: document.scrollingElement.scrollTop, docH: document.documentElement.scrollHeight }; });
+  const before = await snap();
+  await goOnline(page);
+  await expect.poll(() => page.evaluate(() => conflictOpenCount()), { timeout: 15000 }).toBeGreaterThan(0); // конфлікт є, значок у дзвіночку є
+  await page.waitForTimeout(2500);
+  expect(await snap(), 'жодного зсуву ключових елементів').toEqual(before);
+  expect(await page.evaluate(() => window.__renders), 'список не перемальовується під відкритою клавіатурою').toBe(0);
+  await expect(page.locator('.success-toast')).toHaveCount(0);
+  await page.evaluate(() => { document.body.classList.remove('kb-open'); document.activeElement && document.activeElement.blur(); });
+  await expect(page.locator('.success-toast')).toContainText(/вже змін(ив|ила) суму/, { timeout: 8000 });
+  expect(await page.evaluate(() => window.__renders), 'відкладене перемальовування виконано після закриття поля').toBeGreaterThan(0);
+});
+
