@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.204</div>
+  <div class="version-footer">Money Tree · Rev 2.32.205</div>
 </div>
   </div>
 </div>
@@ -7348,7 +7348,10 @@ function expSyncBegin(id){
   if(!id) return;
   const e = expSyncEntry(id); e.n++; expSyncClear(e);
   if(e.s === 'done') expSyncSet(id, '');
-  e.t.push(setTimeout(function(){ if(e.n > 0){ expSyncSet(id, 'syncing'); expRowBlink(id, true); } }, SYNC_SLOT_SYNCING_MS));
+  // Rev 2.32.205: користувач уже бачив pending (червона хмаринка) — «syncing» одразу, без порога 400 мс (швидкий запит інакше проскакував pending → done без синього кільця); мінімальний показ SYNC_MIN_SYNCING_MS тримає expSyncSet('syncing'). Звичайна швидка онлайн-правка (стан порожній) лишається без syncing.
+  const seenPending = e.s === 'pending' || expSyncSlots(id).some(function(sl){ return sl.getAttribute('data-s') === 'pending'; });
+  if(seenPending){ expSyncSet(id, 'syncing'); expRowBlink(id, true); }
+  else e.t.push(setTimeout(function(){ if(e.n > 0){ expSyncSet(id, 'syncing'); expRowBlink(id, true); } }, SYNC_SLOT_SYNCING_MS));
   e.t.push(setTimeout(function(){ if(e.n > 0){ expSyncSet(id, 'pending'); expRowBlink(id, false); } }, SYNC_SLOT_PENDING_MS));
 }
 function expSyncEnd(id, ok){
@@ -9147,7 +9150,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.204';
+const APP_VERSION = '2.32.205';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -25314,6 +25317,7 @@ const CHECKS = [
   { id: '2.32.202-1', rev: '2.32.202', addedOn: '2026-10-29', title: 'Спільний список кроків', steps: ['Закрийте будь-який крок кнопкою «Працює» або «Не працює».', 'Нехай Оля відкриє застосунок і «Перевірки».'], expect: 'у Олі цей крок зник, а число «залишилось» збігається з вашим.', reasons: ['У Олі крок лишився', 'Числа різні'] },
   { id: '2.32.203-1', rev: '2.32.203', addedOn: '2026-10-29', title: 'Push Monobank при повністю закритому застосунку', steps: ['Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Дочекайтесь push про нові операції Monobank.', 'Натисніть на push.'], expect: 'відкриваються «Вхідні» з підсвіченою пачкою, а не «Аналітика».', reasons: ['Відкрилась «Аналітика»', 'Пачка не підсвічена'] },
   { id: '2.32.203-2', rev: '2.32.203', addedOn: '2026-10-29', title: 'Push про ОЧ при повністю закритому застосунку', steps: ['Закрийте застосунок повністю.', 'Дочекайтесь push «Платіж за ОЧ».', 'Натисніть на push.'], expect: 'відкривається «Облік → ОЧ»; якщо в нагадуванні одна ОЧ, вона мигає.', reasons: ['Відкрилась інша вкладка', 'ОЧ не мигає'] },
+  { id: '2.32.205-1', rev: '2.32.205', addedOn: '2026-10-29', title: 'Індикатор синхронізації після мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.', 'Вимкніть режим у літаку.'], expect: 'червона хмаринка, потім синє кільце, три блимання, зелена галочка.', reasons: ['Кільця немає', 'Блимає не три рази'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

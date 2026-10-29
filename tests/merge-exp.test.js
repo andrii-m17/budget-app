@@ -372,11 +372,24 @@ test('знак оклику: візуальний центр = центр bbox (
   assert.ok(css.includes('transform:translateY(.5px) scale(.55)') && css.includes('transform:translateY(.5px) scale(.3)'), 'центр хмаринки на центр кільця (12; 12) після масштабу');
 });
 
-test('Rev 2.32.200: з pending (повтор після мережі) індикатор проходить syncing (не раніше 400 мс) → done; syncing показується щонайменше SYNC_MIN_SYNCING_MS', () => {
+test('Rev 2.32.200: з pending (повтор після мережі) індикатор проходить syncing одразу → done; syncing показується щонайменше SYNC_MIN_SYNCING_MS', () => {
   const { c, tm, slot, cls } = slotEnv();
   c.expSyncBegin('e1'); c.expSyncEnd('e1', false); assert.equal(slot.getAttribute('data-s'), 'pending', 'офлайн: pending');
-  c.expSyncBegin('e1'); tm.advance(399); assert.equal(slot.getAttribute('data-s'), 'pending', 'до 400 мс лишається pending');
-  tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'syncing', 'pending → syncing'); assert.ok(cls.has('just-synced'));
+  c.expSyncBegin('e1'); assert.equal(slot.getAttribute('data-s'), 'syncing', 'pending → syncing одразу (Rev 2.32.205: без порога 400 мс)'); assert.ok(cls.has('just-synced'));
   c.expSyncEnd('e1', true); tm.advance(2999); assert.equal(slot.getAttribute('data-s'), 'syncing', 'мінімальний показ збережено');
   tm.advance(1); assert.equal(slot.getAttribute('data-s'), 'done', 'syncing → done');
+});
+
+test('Rev 2.32.205: зі стану pending швидкий запит (50 мс) усе одно проходить syncing одразу (з блиманням) не менше SYNC_MIN_SYNCING_MS, потім done; швидка онлайн-правка idle → done без syncing', () => {
+  const a = slotEnv();
+  a.c.expSyncBegin('e1'); a.c.expSyncEnd('e1', false); assert.equal(a.slot.getAttribute('data-s'), 'pending');
+  a.c.expSyncBegin('e1'); assert.equal(a.slot.getAttribute('data-s'), 'syncing', 'syncing одразу, без порога 400 мс'); assert.ok(a.cls.has('just-synced'));
+  a.tm.advance(50); a.c.expSyncEnd('e1', true); assert.equal(a.slot.getAttribute('data-s'), 'syncing', 'запит скінчився за 50 мс, але syncing лишається');
+  a.tm.advance(2949); assert.equal(a.slot.getAttribute('data-s'), 'syncing'); a.tm.advance(1); assert.equal(a.slot.getAttribute('data-s'), 'done'); assert.ok(!a.cls.has('just-synced'));
+  assert.equal(a.log.filter(x => x === '+just-synced').length, 1, 'одне блимання (3 ітерації cardBlink) без четвертого');
+  // видимий pending лише в DOM (стан відновлено з рендера, запису в entries нема)
+  const d = slotEnv(); d.slot.setAttribute('data-s', 'pending'); d.c.expSyncBegin('e1'); assert.equal(d.slot.getAttribute('data-s'), 'syncing');
+  // звичайна швидка онлайн-правка
+  const b = slotEnv(); b.c.expSyncBegin('e1'); b.tm.advance(50); b.c.expSyncEnd('e1', true); b.tm.advance(5000);
+  assert.equal(b.slot.getAttribute('data-s'), ''); assert.deepEqual(b.log, [], 'idle → done без syncing і без блимання');
 });

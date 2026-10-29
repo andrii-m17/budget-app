@@ -244,3 +244,30 @@ test('11. «Перевірки»: спільний список сім\'ї: ві
   }finally{ await ctxB.close(); }
 });
 
+test('17. швидкий запит (мок відповідає миттєво): після pending завжди syncing (не менше SYNC_MIN_SYNCING_MS) → done; швидка онлайн-правка idle → done без syncing', async ({ page }) => {
+  await boot(page, 'empty');
+  const watch = i => page.evaluate(id => { window.__seen = []; window.__t0 = Date.now(); new MutationObserver(list => list.forEach(m => { if(m.target.getAttribute('data-sync-id') === id) window.__seen.push([m.target.getAttribute('data-s'), Date.now() - window.__t0]); })).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-s'] }); }, i);
+  // без мережі: pending
+  await page.evaluate(() => { window.__offline = true; });
+  const id = await addExpenseUI(page, 'Тест швидкий', 70);
+  await openJournalFor(page, id);
+  await expect(slotOf(page, id)).toHaveAttribute('data-s', 'pending');
+  await page.evaluate(() => { window.__delay = 0; }); // запит швидкий
+  await watch(id); await page.evaluate(i => { window.__blinks = 0; new MutationObserver(l => l.forEach(m => { if(m.target.classList && m.target.classList.contains('just-synced') && /just-synced/.test(String(m.oldValue || '')) === false) window.__blinks++; })).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true }); }, id);
+  await goOnline(page);
+  await page.waitForFunction(() => window.__seen.some(x => x[0] === 'done'), null, { timeout: 20000 });
+  const seen = await page.evaluate(() => window.__seen);
+  const order = seen.map(x => x[0]).filter((v, i, a) => v && v !== a[i - 1]);
+  expect(order.slice(0, 2), 'послідовність: ' + JSON.stringify(seen)).toEqual(['syncing', 'done']);
+  const tSync = seen.find(x => x[0] === 'syncing')[1], tDone = seen.find(x => x[0] === 'done')[1];
+  expect(tDone - tSync, 'syncing показується щонайменше SYNC_MIN_SYNCING_MS').toBeGreaterThanOrEqual(2900);
+  // швидка онлайн-правка: idle → done без syncing
+  await page.waitForFunction(i => { const r = expenses.find(x => x.id === i); return r && r.serverUpdatedAt && r.serverBase; }, id);
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => { window.__seen = []; window.__t0 = Date.now(); });
+  await editAmountUI(page, id, 75);
+  await expect.poll(() => serverRow(page, id), { timeout: 10000 }).toMatchObject({ amount: 75 });
+  await page.waitForTimeout(1500);
+  expect((await page.evaluate(() => window.__seen)).map(x => x[0]), 'швидка онлайн-правка не показує syncing').not.toContain('syncing');
+});
+
