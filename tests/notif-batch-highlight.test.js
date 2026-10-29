@@ -47,7 +47,7 @@ test('highlightMonoRows: клас just-notified лише на рядках зі 
   assert.equal(c.highlightMonoRows(['a', 'b', 'e']), 3);
   assert.deepEqual(d.wraps.map(w => w.row.classList.has('just-notified')), [true, true, false, false, true]);
   assert.equal(d.wraps[0].row.scrolled, 1); assert.equal(d.wraps[1].row.scrolled, 0);
-  assert.deepEqual(timers.map(t => t[1]), [3000, 3000, 3000]);
+  assert.deepEqual(timers.map(t => t[1]), [3000], 'одне вікно підсвітки 3 с (спільна логіка pushHighlightStart)');
   timers.forEach(t => t[0]());
   assert.ok(d.wraps.every(w => !w.row.classList.has('just-notified')));
   assert.equal(c.highlightMonoRows([]), 0); assert.equal(c.highlightMonoRows(null), 0);

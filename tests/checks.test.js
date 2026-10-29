@@ -30,7 +30,7 @@ const FRESH = '2.32.189'; // версія, за якої жоден крок щ�
 test('кроки дослівно з макета v2 (checks-data) без «Інше» + 2.32.189-1; «Інше» додається завжди останнім', () => {
   const data = JSON.parse(MOCK.match(/<script type="application\/json" id="checks-data">([\s\S]*?)<\/script>/)[1]);
   const { ctx } = device();
-  const mine = CH(ctx).filter(c => c.id !== '2.32.189-1' && !c.id.startsWith('2.32.193-') && !c.id.startsWith('2.32.196-') && !c.id.startsWith('2.32.200-') && !c.id.startsWith('2.32.202-'));
+  const mine = CH(ctx).filter(c => c.id !== '2.32.189-1' && !c.id.startsWith('2.32.193-') && !c.id.startsWith('2.32.196-') && !c.id.startsWith('2.32.200-') && !c.id.startsWith('2.32.202-') && !c.id.startsWith('2.32.203-'));
   assert.deepEqual(mine.map(({ addedOn, ...c }) => c), data.map(c => ({ id: c.id, rev: c.rev, title: c.title, steps: c.steps, expect: c.expect, reasons: c.reasons })));
   CH(ctx).forEach(c => assert.ok(!c.reasons.includes('Інше')));
   const last = CH(ctx).find(c => c.id === '2.32.189-1');
@@ -91,7 +91,7 @@ test('термін детермінований: addedOn + 7 днів, не за
   assert.equal(d.ctx.checksIsExpired(c, Date.parse('2026-11-03T23:59:59Z')), false, 'до 4 листопада 00:00 живий');
   assert.equal(d.ctx.checksIsExpired(c, Date.parse('2026-11-04T00:00:00Z')), true, '28.10 + 7 днів');
   ref.now = Date.parse('2026-11-04T10:00:00Z'); const late = device(null, { Date: clockDate(ref) }, '2.32.300'); // «новий» телефон і далека збірка — той самий термін
-  assert.deepEqual(j(late.ctx.checksPending({}).map(x => x.id)), ['2.32.202-1'], 'усі кроки 28.10 закінчились (4.11 00:00); 202-1 (29.10) ще ні');
+  assert.deepEqual(j(late.ctx.checksPending({}).map(x => x.id)), ['2.32.202-1', '2.32.203-1', '2.32.203-2'], 'усі кроки 28.10 закінчились (4.11 00:00); 202-1 (29.10) ще ні');
   assert.ok(late.ctx.checksAnswered({}).length >= 8, 'закінчені — в «Пройдено»');
   assert.deepEqual(j(late.ctx.checksClosedBy({}, c)), { r: 'expired', why: null }, 'показується як «Не перевірено»');
   assert.equal(late.ctx.checksReadOutbox().length, 0, 'події expired більше не пишуться');

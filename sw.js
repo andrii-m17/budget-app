@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.202';
+const CACHE_NAME = 'budget-app-v2.32.203';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -291,6 +291,7 @@ self.addEventListener('notificationclick', function(event){
         if(notifData.type){
           url = './index.html?pushAction=' + encodeURIComponent(notifData.type);
           if(notifData.installmentId) url += '&installmentId=' + encodeURIComponent(notifData.installmentId);
+          if(Array.isArray(notifData.installmentIds) && notifData.installmentIds.length) url += '&installmentIds=' + encodeURIComponent(notifData.installmentIds.join(',')); // Rev 2.32.203 (PUSH-TAP): кілька ОЧ у нагадуванні
           if(notifData.target) url += '&target=' + encodeURIComponent(notifData.target);
           // Rev 2.32.163 (ACTOR-HL): записи зі сповіщення про дії іншого учасника для холодного старту. URL не розростається: коротка форма «e:id,id;i:id;d:id» лише коли вміщається (≤ 330 символів), інакше тільки pushId (клієнт читає ids із user_notifications). Повний notifData у IndexedDB і postMessage і так несе ids.
           if(notifData.ids && typeof notifData.ids === 'object'){

@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.202</div>
+  <div class="version-footer">Money Tree · Rev 2.32.203</div>
 </div>
   </div>
 </div>
@@ -8996,7 +8996,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.202';
+const APP_VERSION = '2.32.203';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11000,21 +11000,48 @@ function routeForPushType(type, data){
     case 'other-actor-deleted': return { screen: 'trash' };
     case 'daily-expense-reminder': return { screen: 'vytraty', noFocus: true };
     case 'monthly-debt-reminder': return { screen: 'debts' };
-    case 'installment-deadline': return { screen: 'installments', installmentId: d.installmentId || null };
+    case 'installment-deadline': return { screen: 'installments', installmentId: d.installmentId || null, installmentIds: Array.isArray(d.installmentIds) ? d.installmentIds : (typeof d.installmentIds === 'string' && d.installmentIds ? d.installmentIds.split(',') : []) };
     case 'weekly-summary': case 'month-end': return { screen: 'analytics' };
     case 'mono-inbox': return { screen: d.connected === false ? 'mono' : 'mono-inbox' }; // Rev 2.32.29: сповіщення Monobank -> «Вхідні» (не підключено -> екран «Monobank»)
     case 'backup-reminder': return { screen: 'backup' }; // Rev 2.32.15 (Z): нагадування про резервну копію → «Сервіс» (плитка експорту підсвічується)
     default: return { screen: null };
   }
 }
-// Підсвітка ОЧ зі сповіщення (замість відкриття шторки, яка фокусувала елементи): рядок мигає й прокручується в кадр.
-function highlightInstallmentRow(idx){
-  const row = document.getElementById('installment-row-' + idx);
-  if(!row) return;
-  row.classList.add('just-notified');
-  try{ row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }catch(e){}
-  setTimeout(function(){ row.classList.remove('just-notified'); }, 3000);
+// Rev 2.32.203 (PUSH-TAP): спільна підсвітка для тапу по push і тапу з дзвіночка (handlePushAction). Вікно PUSH_HIGHLIGHT_MS: елементи шукаються знову після кожного перемальовування (холодний старт: дані й екран догружаються, синхронізація перемальовує списки), клас .just-notified додається на нові вузли, у кінці знімається.
+const PUSH_HIGHLIGHT_MS = 3000;
+let pushHighlightHandle = null;
+function pushHighlightStop(){
+  if(!pushHighlightHandle) return;
+  try{ pushHighlightHandle.obs.disconnect(); }catch(e){}
+  clearTimeout(pushHighlightHandle.timer); clearTimeout(pushHighlightHandle.raf);
+  try{ (pushHighlightHandle.resolve() || []).forEach(function(el){ el.classList.remove('just-notified'); }); }catch(e){}
+  pushHighlightHandle = null;
 }
+function pushHighlightStart(resolve){
+  pushHighlightStop();
+  let scrolled = false;
+  const apply = function(){
+    const els = resolve() || [];
+    els.forEach(function(el){ el.classList.add('just-notified'); }); // add ідемпотентний: анімація наявного вузла не перезапускається
+    if(els[0] && !scrolled){ scrolled = true; try{ els[0].scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){} }
+    return els.length;
+  };
+  const h = { resolve: resolve, obs: null, timer: null, raf: null };
+  h.obs = new MutationObserver(function(){ if(h.raf) return; h.raf = setTimeout(function(){ h.raf = null; if(pushHighlightHandle === h) apply(); }, 30); });
+  h.obs.observe(document.body, { childList: true, subtree: true });
+  h.timer = setTimeout(function(){ if(pushHighlightHandle === h) pushHighlightStop(); }, PUSH_HIGHLIGHT_MS);
+  pushHighlightHandle = h;
+  apply();
+}
+// Підсвітка ОЧ зі сповіщення: один id (installmentId) або список (installmentIds); рядки шукаються за cloudId у поточному списку після кожного перемальовування.
+function highlightInstallments(ids){
+  const set = (ids || []).filter(Boolean);
+  if(!set.length) return;
+  pushHighlightStart(function(){
+    return installmentAccounts.map(function(acc, i){ return set.indexOf(acc.cloudId) !== -1 ? document.getElementById('installment-row-' + i) : null; }).filter(Boolean);
+  });
+}
+function highlightInstallmentRow(idx){ const row = document.getElementById('installment-row-' + idx); if(!row) return; pushHighlightStart(function(){ const r = document.getElementById('installment-row-' + idx); return r ? [r] : []; }); }
 // Рекордер: стан фокусу після маршруту/відновлення — критерій аудиту: activeElement не кнопка "назад",
 // жодна кнопка не в :active.
 function captureFocusAudit(point){
@@ -11147,13 +11174,16 @@ async function monoHasNew(){
 }
 function highlightMonoRows(ids){
   if(!ids || !ids.length) return 0;
-  const els = Array.prototype.filter.call(document.querySelectorAll('#mono-inbox-body [data-mono-row]'), function(w){ return ids.indexOf(w.getAttribute('data-mono-row')) !== -1; })
-    .map(function(w){ return w.querySelector('.expense-row'); }).filter(Boolean);
-  els.forEach(function(el){ el.classList.add('just-notified'); setTimeout(function(){ el.classList.remove('just-notified'); }, 3000); });
-  if(els[0]) try{ els[0].scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' }); }catch(e){}
-  return els.length;
+  const find = function(){
+    return Array.prototype.filter.call(document.querySelectorAll('#mono-inbox-body [data-mono-row]'), function(w){ return ids.indexOf(w.getAttribute('data-mono-row')) !== -1; })
+      .map(function(w){ return w.querySelector('.expense-row'); }).filter(Boolean);
+  };
+  const n = find().length;
+  pushHighlightStart(find); // Rev 2.32.203 (PUSH-TAP): спільна підсвітка, переживає перемальовування «Вхідних»
+  return n;
 }
 // Єдиний вхід для тапу по сповіщенню Monobank: системне (закрите, згорнуте, відкрите) і рядок журналу йдуть сюди. o: { batchTs, daily }.
+const MONO_NAV_EARLY_MS = 400; // Rev 2.32.203: після скількох мс очікування даних пачки відкриваємо «Вхідні», не чекаючи їх
 async function routeMonoNotification(o){
   const opts = o || {};
   const goInbox = async function(tab){
@@ -11167,12 +11197,17 @@ async function routeMonoNotification(o){
     await goInbox('new'); return { kind: 'inbox', tab: 'new', ids: [] };
   }
   if(!opts.batchTs){ await goInbox('new'); return { kind: 'inbox', tab: 'new', ids: [] }; } // пачку не визначити: без підсвітки (не «усі нові»)
-  const b = await monoFetchBatch(opts.batchTs);
-  if(!b.ok){ await goInbox('new'); return { kind: 'inbox', tab: 'new', ids: [] }; } // офлайн: «Вхідні» покажуть своє повідомлення
+  // Rev 2.32.203 (PUSH-TAP): якщо дані пачки не прийшли швидко (ворота Cloud/мережа на холодному старті після довгої паузи могли тривати секунди, а користувач лишався на «Аналітиці»), спершу відкриваємо «Вхідні», далі підсвітка за даними пачки.
+  const fetchP = monoFetchBatch(opts.batchTs);
+  let navigated = false;
+  const early = await Promise.race([fetchP, new Promise(function(r){ setTimeout(function(){ r('slow'); }, MONO_NAV_EARLY_MS); })]);
+  if(early === 'slow'){ await goInbox('new'); navigated = true; }
+  const b = await fetchP;
+  if(!b.ok){ if(!navigated) await goInbox('new'); return { kind: 'inbox', tab: 'new', ids: [] }; } // офлайн: «Вхідні» покажуть своє повідомлення
   const t = monoNotifTarget(b.rows, expenses);
   if(t.kind === 'gone'){ showTextToast('Запис уже недоступний', 'info'); return t; }
   if(t.kind === 'journal'){ closeOpenSheetsForPush(); document.body.classList.remove('kb-open'); openExpenseInJournal(t.expenseId, t.date); return t; }
-  await goInbox(t.tab);
+  if(!navigated || t.tab !== 'new') await goInbox(t.tab);
   highlightMonoRows(t.ids);
   return t;
 }
@@ -11355,10 +11390,9 @@ async function handlePushAction(action){
     switchAccountingTab('installments');
     // installmentId відсутній, коли дедлайн того самого дня мали КІЛЬКА ОЧ (одне зведення) — тоді лише вкладка.
     // Rev 2.23.29 (6D.198): конкретна ОЧ ПІДСВІЧУЄТЬСЯ (раніше відкривалась шторка).
-    if(route.installmentId){
-      const idx = installmentAccounts.findIndex(function(acc){ return acc.cloudId === route.installmentId; });
-      if(idx >= 0) highlightInstallmentRow(idx);
-    }
+    // Rev 2.32.203 (PUSH-TAP): список installmentIds (кілька ОЧ у нагадуванні) або один installmentId; без id лише перехід. Підсвітка переживає перемальовування (холодний старт).
+    const instIds = (Array.isArray(route.installmentIds) ? route.installmentIds : []).concat(route.installmentId ? [route.installmentId] : []);
+    if(instIds.length) highlightInstallments(instIds);
   }else if(route.screen === 'journal' || route.screen === 'accounting' || route.screen === 'debts'){
     // Rev 2.32.163 (ACTOR-HL): journal (Rev #30 6D.101), accounting (Rev 2.23.31, 6D.200: «Облік» → Доходи, місяць найновішого отриманого доходу) і debts — одна функція з підсвіткою записів за data.ids; без ids поведінка як була.
     await routeOtherActorNotification(action, route.screen);
@@ -25124,6 +25158,8 @@ const CHECKS = [
   { id: '2.32.196-2', rev: '2.32.196', addedOn: '2026-10-28', title: 'Старт і повернення з фону', steps: ['Згорніть застосунок кнопкою «Додому», не закриваючи.', 'Поверніться через хвилину.'], expect: 'витрати й баланс не змінились.', reasons: ['Дані зникли', 'Не оновились'] },
   { id: '2.32.200-1', rev: '2.32.200', addedOn: '2026-10-28', title: 'Індикатор синхронізації після мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.', 'Вимкніть режим у літаку.'], expect: 'червона хмаринка стає синьою в обертовому кільці, потім зеленою галочкою; рядок блимає тричі без четвертого.', reasons: ['Кільця немає', 'Блимає не три рази'] },
   { id: '2.32.202-1', rev: '2.32.202', addedOn: '2026-10-29', title: 'Спільний список кроків', steps: ['Закрийте будь-який крок кнопкою «Працює» або «Не працює».', 'Нехай Оля відкриє застосунок і «Перевірки».'], expect: 'у Олі цей крок зник, а число «залишилось» збігається з вашим.', reasons: ['У Олі крок лишився', 'Числа різні'] },
+  { id: '2.32.203-1', rev: '2.32.203', addedOn: '2026-10-29', title: 'Push Monobank при повністю закритому застосунку', steps: ['Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Дочекайтесь push про нові операції Monobank.', 'Натисніть на push.'], expect: 'відкриваються «Вхідні» з підсвіченою пачкою, а не «Аналітика».', reasons: ['Відкрилась «Аналітика»', 'Пачка не підсвічена'] },
+  { id: '2.32.203-2', rev: '2.32.203', addedOn: '2026-10-29', title: 'Push про ОЧ при повністю закритому застосунку', steps: ['Закрийте застосунок повністю.', 'Дочекайтесь push «Платіж за ОЧ».', 'Натисніть на push.'], expect: 'відкривається «Облік → ОЧ»; якщо в нагадуванні одна ОЧ, вона мигає.', reasons: ['Відкрилась інша вкладка', 'ОЧ не мигає'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
@@ -28032,7 +28068,7 @@ restoreExpenseDraft();
 const pushActionParams = new URLSearchParams(location.search);
 const pushActionType = pushActionParams.get('pushAction');
 if(pushActionType){
-  queuePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, target: pushActionParams.get('target') || undefined, batchTs: pushActionParams.get('batchTs') || undefined, tag: pushActionParams.get('tag') || undefined, idsParam: pushActionParams.get('ids') || undefined, pushId: pushActionParams.get('pushId') || undefined, _at: pushActionParams.get('at') || undefined }, 'query'); // Rev 2.32.30 (P)
+  queuePushAction({ type: pushActionType, installmentId: pushActionParams.get('installmentId') || undefined, installmentIds: pushActionParams.get('installmentIds') || undefined, target: pushActionParams.get('target') || undefined, batchTs: pushActionParams.get('batchTs') || undefined, tag: pushActionParams.get('tag') || undefined, idsParam: pushActionParams.get('ids') || undefined, pushId: pushActionParams.get('pushId') || undefined, _at: pushActionParams.get('at') || undefined }, 'query'); // Rev 2.32.30 (P)
   history.replaceState(null, '', location.pathname);
   // 6D.144 — цей запуск уже обслужено через query-параметр (URL з
   // clients.openWindow() цього разу дійшла як є) — прибираємо дубль-запис

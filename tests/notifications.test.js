@@ -16,8 +16,8 @@ test('routeForPushType: усі типи контракту й невідомий
   assert.deepEqual(j(pure.routeForPushType('other-actor-deleted')), { screen: 'trash' });
   assert.deepEqual(j(pure.routeForPushType('daily-expense-reminder')), { screen: 'vytraty', noFocus: true });
   assert.deepEqual(j(pure.routeForPushType('monthly-debt-reminder')), { screen: 'debts' });
-  assert.deepEqual(j(pure.routeForPushType('installment-deadline', { installmentId: 'x' })), { screen: 'installments', installmentId: 'x' });
-  assert.deepEqual(j(pure.routeForPushType('installment-deadline', {})), { screen: 'installments', installmentId: null });
+  assert.deepEqual(j(pure.routeForPushType('installment-deadline', { installmentId: 'x' })), { screen: 'installments', installmentId: 'x', installmentIds: [] });
+  assert.deepEqual(j(pure.routeForPushType('installment-deadline', {})), { screen: 'installments', installmentId: null, installmentIds: [] });
   assert.deepEqual(j(pure.routeForPushType('weekly-summary')), { screen: 'analytics' });
   assert.deepEqual(j(pure.routeForPushType('month-end')), { screen: 'analytics' });
   ['test', 'something-new', '', undefined, null].forEach(function(t){ assert.deepEqual(j(pure.routeForPushType(t)), { screen: null }, String(t)); });
@@ -53,7 +53,7 @@ function runHandle(action){
     document: doc, debugRecordingActive: false, setTimeout: function(){}, cloudAuthInitInFlight: null, installmentAccounts: [{ cloudId: 'inst-1' }], actorWatch: null, expenses: [], incomes: [], activeDebts: function(){ return []; }, bankAccounts: [], safeId: String, awaitCloudGate: async function(){ return 'offline'; }, motionReduced: function(){ return true; }, requestAnimationFrame: function(f){ f(); }, closeAllDataStatusPopovers: function(){}, INCOME_SOURCES: [], sameIncomeSource: function(){ return false; }, monthKey: function(d){ return d ? d.slice(0, 7) : ''; }, 
     performSwitchTab: rec('performSwitchTab'), switchAccountingTab: rec('switchAccountingTab'), openJournal: rec('openJournal'), latestTouchedRecordMonth: function(){ return '2026-10'; },
     openTrashScreen: rec('openTrashScreen'), goToCardDebtsTab: rec('goToCardDebtsTab'), captureDebugGeometry: rec('capture'),
-    captureFocusAudit: function(){}, highlightInstallmentRow: rec('highlight'),
+    captureFocusAudit: function(){}, highlightInstallments: rec('highlight'),
     allMonths: function(){ return ['2026-09', '2026-10']; }, selectedMonth: '2026-09', performMonthChange: rec('performMonthChange'),
   }, ['routeForPushType', 'pushApplyDiag', 'closeOpenSheetsForPush', 'ACTOR_IDS_CAP', 'actorIdsNormalize', 'actorIdsFromParam', 'otherActorPlan', 'actorIdsForAction', 'ACTOR_WATCH_TICK_MS', 'ACTOR_WATCH_MAX_MS', 'ACTOR_FLASH_MS', 'actorNow', 'actorStopWatch', 'actorIdsCount', 'actorWatchTick', 'startActorWatch', 'routeOtherActorNotification', 'handlePushAction']);
   return ctx.handlePushAction(action).then(function(){ return calls; });
@@ -73,7 +73,13 @@ test('handlePushAction: інші типи ведуть куди слід', async
   assert.ok(c.some(function(x){ return x[0] === 'goToCardDebtsTab'; }));
   c = await runHandle({ type: 'installment-deadline', installmentId: 'inst-1' });
   assert.ok(c.some(function(x){ return x[0] === 'switchAccountingTab' && x[1] === 'installments'; }));
-  assert.ok(c.some(function(x){ return x[0] === 'highlight' && x[1] === 0; }));
+  assert.ok(c.some(function(x){ return x[0] === 'highlight' && JSON.stringify(x[1]) === '["inst-1"]'; }));
+  c = await runHandle({ type: 'installment-deadline', installmentIds: ['inst-1', 'inst-2'] });
+  assert.ok(c.some(function(x){ return x[0] === 'highlight' && JSON.stringify(x[1]) === '["inst-1","inst-2"]'; }), 'список installmentIds');
+  c = await runHandle({ type: 'installment-deadline', installmentIds: 'a,b' });
+  assert.ok(c.some(function(x){ return x[0] === 'highlight' && JSON.stringify(x[1]) === '["a","b"]'; }), 'список рядком з query');
+  c = await runHandle({ type: 'installment-deadline' });
+  assert.ok(c.some(function(x){ return x[0] === 'switchAccountingTab'; }) && !c.some(function(x){ return x[0] === 'highlight'; }), 'без id: лише перехід');
   assert.ok(!c.some(function(x){ return x[0] === 'openJournal'; }), 'боргові типи не відкривають Журнал');
   c = await runHandle({ type: 'other-actor-summary' });
   assert.ok(c.some(function(x){ return x[0] === 'openJournal' && x[1] === '2026-10'; }));
