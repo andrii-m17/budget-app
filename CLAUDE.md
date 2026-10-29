@@ -48,6 +48,7 @@
 | `docs/FINANCIAL_RULES_AND_OBLIGATIONS.md` | фінансова модель (carry-forward, ОЧ, обов'язкові платежі). **Формули без явного підтвердження не змінювати** |
 | `docs/PROJECT_SPEC.md`, `docs/DESIGN_SYSTEM.md` | специфікація інтерфейсу й дизайн-система |
 | `docs/PLATFORM_LIMITS.md` | платформні обмеження iOS/WebKit і правила полів вводу (дослівно з колишнього CLAUDE.md) |
+| `docs/CHECKS.md` | «Перевірки»: правило для кроків (початковий стан, дія, видимий результат; другий телефон у назві) |
 | `docs/E2E.md` | E2E у WebKit (Playwright): запуск, 8 сценаріїв, знахідки |
 | `docs/TESTING.md`, `docs/AUDIT.md`, `docs/FIELDS_AUDIT.md` | тестування, аудити, перепис полів |
 | `docs/STATUS_LOG_2.1-2.3.md` | архів колишнього STATUS (Rev 2.1.0–2.3.5) |

@@ -30,6 +30,7 @@ const FRESH = '2.32.189'; // версія, за якої жоден крок щ�
 test('кроки дослівно з макета v2 (checks-data) без «Інше» + 2.32.189-1; «Інше» додається завжди останнім', () => {
   const data = JSON.parse(MOCK.match(/<script type="application\/json" id="checks-data">([\s\S]*?)<\/script>/)[1]);
   const { ctx } = device();
+  data.splice(0, data.length, ...data.filter(c => c.id !== '2.32.188-1')); // Rev 2.32.208: крок 188-1 прибрано як дублікат за змістом
   const OLD_STEP = 'Згорніть застосунок кнопкою «Додому», не закриваючи.', NEW_STEP = 'Проведіть пальцем угору від нижнього краю екрана й відпустіть, щоб застосунок згорнувся (не змахуйте його в перемикачі).';
   data.forEach(c => { c.steps = c.steps.map(x => x === OLD_STEP ? NEW_STEP : x); }); // макет v2 зберігає стару редакцію; формулювання уточнено 29.10
   const mine = CH(ctx).filter(c => c.id !== '2.32.189-1' && !c.id.startsWith('2.32.193-') && !c.id.startsWith('2.32.196-') && !c.id.startsWith('2.32.200-') && !c.id.startsWith('2.32.202-') && !c.id.startsWith('2.32.203-') && !c.id.startsWith('2.32.205-') && !c.id.startsWith('2.32.206-') && !c.id.startsWith('2.32.207-') && !c.id.startsWith('2.32.201-'));
