@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const NAMES = ['NAME_SUGGEST_MIN', 'NAME_SUGGEST_MAX', 'SUGGEST_TOUCH_WINDOW_MS', 'nameSuggestionsFor', 'updateNameSuggestions', 'hideNameSuggestions', 'selectNameSuggestion', 'handleSuggestionPick', 'pickSuggestionNow',
-  'handleSuggestionTouchStart', 'handleSuggestionTouchEnd', 'suggestTapAccepted', 'suggestMouseAllowed', 'suggestShouldClose', 'onNameInput', 'debugSuggestRender', 'debugSuggestPick'];
+  'SUGGEST_TAP_HOLD_MS', 'SUGGEST_TAP_MOVE_PX', 'suggestTouchId', 'suggestCancelTapTimer', 'handleSuggestionTouchMove', 'handleSuggestionTouchCancel', 'handleSuggestionTouchStart', 'handleSuggestionTouchEnd', 'suggestTapAccepted', 'suggestMouseAllowed', 'suggestShouldClose', 'onNameInput', 'debugSuggestRender', 'debugSuggestPick'];
 
 function mk(){
   const el = id => ({ id, value: '', classList: { _s: new Set(), add(c){ this._s.add(c); }, remove(c){ this._s.delete(c); }, contains(c){ return this._s.has(c); }, toggle(){} }, innerHTML: '', dataset: {}, focus(){}, textContent: '' });

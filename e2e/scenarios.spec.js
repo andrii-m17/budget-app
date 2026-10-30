@@ -362,3 +362,27 @@ test('20. підказка назви: після «про» тап по під�
   expect(res.active, 'фокус на «Сумі»').toBe('f-amount');
 });
 
+test('21. підказка назви без touchend (iOS віддає його лише з наступним дотиком): тап розпізнається за 150 мс; рух > 8 px не обирає; швидкий тап і пізній touchend не дублюють вставку', async ({ page }) => {
+  await boot(page, 'empty');
+  await page.evaluate(() => { const now = new Date().toISOString(); expenses.unshift({ id: generateUUID(), date: localDateISO(), name: 'Продукти Тест', amount: 100, category: '', subcategory: '', manual: true, createdAt: now, updatedAt: now }); renderAll(); switchTab('vytraty'); window.__picks = 0; const f = window.selectNameSuggestion; window.selectNameSuggestion = function(){ window.__picks++; return f.apply(this, arguments); }; });
+  await page.locator('#expfielda7').click(); await page.keyboard.type('про');
+  await page.waitForTimeout(1000); await page.evaluate(() => document.body.classList.add('kb-open'));
+  const prep = () => page.evaluate(() => { window.__picks = 0; lastSuggestionPickAt = 0; suggestSuppressed = false; const inp = document.getElementById('expfielda7'); inp.value = 'про'; onNameInput({ type: 'input' }); document.getElementById('f-amount').blur(); });
+  const geo = () => page.evaluate(() => { const el = document.querySelector('#name-suggest-list .name-suggest-item'), r = el.getBoundingClientRect(); return { x: r.left + 20, y: r.top + 10 }; });
+  // 1. touchstart без touchend: вставка за ≈ 150–250 мс, фокус на «Суму»
+  await prep(); let g = await geo();
+  const r1 = await page.evaluate(g => new Promise(res => { const t0 = performance.now(); handleSuggestionTouchStart({ touches: [{ clientX: g.x, clientY: g.y, identifier: 7 }] }, 0); const tick = () => { if(document.getElementById('expfielda7').value === 'Продукти Тест') res({ ms: performance.now() - t0, active: document.activeElement && document.activeElement.id }); else if(performance.now() - t0 > 2000) res({ ms: -1 }); else requestAnimationFrame(tick); }; tick(); }), g);
+  expect(r1.ms, 'вставка за ≈ 150–250 мс без touchend').toBeGreaterThanOrEqual(140); expect(r1.ms).toBeLessThan(300); expect(r1.active).toBe('f-amount');
+  // 4. пізній touchend цього дотику не дублює вставку
+  await page.evaluate(g => { handleSuggestionTouchEnd({ changedTouches: [{ clientX: g.x, clientY: g.y, identifier: 7 }], currentTarget: document.querySelector('#name-suggest-list .name-suggest-item') || { isConnected: false, getBoundingClientRect: () => null }, preventDefault(){} }, 0); }, g);
+  await page.waitForTimeout(900); expect(await page.evaluate(() => window.__picks), 'рівно одна вставка').toBe(1);
+  // 2. touchstart + рух понад 8 px: вставки нема
+  await prep(); g = await geo();
+  await page.evaluate(g => { handleSuggestionTouchStart({ touches: [{ clientX: g.x, clientY: g.y, identifier: 8 }] }, 0); handleSuggestionTouchMove({ touches: [{ clientX: g.x, clientY: g.y + 20, identifier: 8 }] }); }, g);
+  await page.waitForTimeout(500); expect(await page.evaluate(() => [window.__picks, document.getElementById('expfielda7').value]), 'прокрутка не обирає підказку').toEqual([0, 'про']);
+  // 3. звичайний швидкий тап: рівно одна вставка
+  await prep(); g = await geo();
+  await page.evaluate(g => { const el = document.querySelector('#name-suggest-list .name-suggest-item'); handleSuggestionTouchStart({ touches: [{ clientX: g.x, clientY: g.y, identifier: 9 }] }, 0); setTimeout(() => handleSuggestionTouchEnd({ changedTouches: [{ clientX: g.x, clientY: g.y, identifier: 9 }], currentTarget: el, target: el, preventDefault(){} }, 0), 30); }, g);
+  await page.waitForTimeout(600); expect(await page.evaluate(() => [window.__picks, document.getElementById('expfielda7').value])).toEqual([1, 'Продукти Тест']);
+});
+

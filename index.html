@@ -3788,7 +3788,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.211</div>
+  <div class="version-footer">Money Tree · Rev 2.32.212</div>
 </div>
   </div>
 </div>
@@ -9140,7 +9140,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.211';
+const APP_VERSION = '2.32.212';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13202,6 +13202,7 @@ const DEBUG_LOG_MAX_BYTES_FOR_SEND = 600000; // той самий ліміт, щ
 // принципово не можуть пройти, навіть якщо якийсь слухач їх передасть).
 const DEBUG_EVENT_ALLOWLIST = [
   'diffTable', 'diffCount', 'diffReason', // Rev 2.32.192 (SHADOW-REV): rev-diff
+  'ev', 'ts', 'now', 'cancelable', // Rev 2.32.212: події по рядках підказок (час створення події проти часу обробки)
   'lag', 'dur', // Rev 2.32.211 (SUGGEST-LAG): затримка «дотик → вставка» і тривалість довгої задачі (longtask), лише мс
   't', 'type', 'innerW', 'innerH', 'outerH', 'vvW', 'vvH', 'vvOffsetTop', 'vvOffsetLeft', 'vvScale',
   'scrollY', 'docClientH', 'bodyClasses', 'kbInset',
@@ -13656,6 +13657,8 @@ function attachDebugRecorderListeners(){
   on(window, 'pagehide', onDebugPageHide);
   on(window, 'touchstart', onDebugTouchStart, { passive: true });
   on(window, 'touchend', onDebugTouchEnd, { passive: true });
+  // Rev 2.32.212 (SUGGEST-TAP): touchstart/touchend/touchcancel/pointer*/click на рядках підказок: event.timeStamp (коли iOS створив подію) проти performance.now() у момент обробки + cancelable — розрізняє «головний потік завис» і «iOS віддав подію пізно»
+  ['touchstart', 'touchend', 'touchcancel', 'pointerdown', 'pointerup', 'pointercancel', 'click'].forEach(function(ev){ on(document, ev, function(e){ const tg = e.target && e.target.closest ? e.target.closest('.name-suggest-item') : null; if(!tg || !debugRecordingActive) return; pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'suggest-evt', ev: ev, ts: Math.round(e.timeStamp), now: Math.round(performance.now()), cancelable: !!e.cancelable }); }, true); });
   ['pointerdown', 'pointerup', 'pointercancel', 'click'].forEach(function(ev){ on(document, ev, onDebugAddButtonPointer, true); }); // Rev 2.32.129: add-button (capture — до обробників кнопки)
   if(typeof MutationObserver !== 'undefined'){
     debugRecordingMutationObserver = new MutationObserver(onDebugBodyClassChange);
@@ -17170,14 +17173,46 @@ function pickSuggestionNow(i){
   lastSuggestionPickAt = now;
   selectNameSuggestion(i);
 }
-function handleSuggestionTouchStart(e){
+// Rev 2.32.212 (SUGGEST-TAP): iOS інколи не віддає touchend, доки не почнеться наступний дотик (журнал input-bug: touchend за 1 мс до наступного touchstart), тож вставка, що чекала лише touchend, «зависала». Тап розпізнаємо самі: дотик по підказці без руху понад SUGGEST_TAP_MOVE_PX упродовж SUGGEST_TAP_HOLD_MS (touchmove далі, touchcancel чи touchend скасовують/завершують) — це тап: вставляємо один раз і одразу. Пізні touchend цього дотику (за ідентифікатором), click і синтетичний mousedown ігноруються. Швидкий тап (touchend до таймера) працює як раніше; прокрутка пальцем не обирає підказку (Rev 2.32.132-3).
+const SUGGEST_TAP_HOLD_MS = 150;
+const SUGGEST_TAP_MOVE_PX = 8;
+let suggestTapTimer = null;
+const suggestHandledTouchIds = []; // ідентифікатори дотиків, уже оброблених таймером (пізній touchend не дублює вставку)
+function suggestTouchId(e){ const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]); return t && t.identifier != null ? t.identifier : null; }
+function suggestCancelTapTimer(){ if(suggestTapTimer){ clearTimeout(suggestTapTimer); suggestTapTimer = null; } }
+function handleSuggestionTouchStart(e, i){
   suggestTouchAt = performance.now();
   const t = e.touches && e.touches[0];
-  suggestTouchStart = t ? { x: t.clientX, y: t.clientY, gen: suggestGen } : null;
+  suggestCancelTapTimer();
+  suggestTouchStart = t ? { x: t.clientX, y: t.clientY, gen: suggestGen, id: suggestTouchId(e), idx: i == null ? null : i, name: i == null ? null : nameSuggestions[i], moved: false, handled: false } : null;
+  const st = suggestTouchStart;
+  if(st && st.idx != null){
+    suggestTapTimer = setTimeout(function(){
+      suggestTapTimer = null;
+      if(suggestTouchStart !== st || st.moved || st.handled) return;
+      if(st.gen !== suggestGen || nameSuggestions[st.idx] !== st.name) return; // перелік змінився: не вгадуємо
+      st.handled = true; suggestHandledTouchIds.push(st.id); if(suggestHandledTouchIds.length > 10) suggestHandledTouchIds.shift();
+      suggestLastTouchAt = Date.now(); // синтетичний mousedown цього дотику ігнорується (suggestMouseAllowed)
+      pickSuggestionNow(st.idx);
+    }, SUGGEST_TAP_HOLD_MS);
+  }
+}
+function handleSuggestionTouchMove(e){
+  const st = suggestTouchStart, t = e.touches && e.touches[0];
+  if(!st || !t) return;
+  if(Math.abs(t.clientX - st.x) > SUGGEST_TAP_MOVE_PX || Math.abs(t.clientY - st.y) > SUGGEST_TAP_MOVE_PX){ st.moved = true; suggestCancelTapTimer(); }
+}
+function handleSuggestionTouchCancel(e){
+  suggestCancelTapTimer();
+  if(suggestTouchStart) suggestTouchStart.moved = true;
 }
 function handleSuggestionTouchEnd(e, i){
+  suggestCancelTapTimer();
+  const id = suggestTouchId(e);
+  const late = id != null && suggestHandledTouchIds.indexOf(id) !== -1;
   const st = suggestTouchStart;
   suggestTouchStart = null;
+  if(late || (st && st.handled)){ if(late) suggestHandledTouchIds.splice(suggestHandledTouchIds.indexOf(id), 1); try{ e.preventDefault(); }catch(err){} return; } // пізній touchend дотику, який таймер уже обробив
   const t = e.changedTouches && e.changedTouches[0];
   const el = e.currentTarget || (e.target && e.target.closest ? e.target.closest('.name-suggest-item') : null);
   const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
@@ -17240,7 +17275,7 @@ function updateNameSuggestions(text){
   listEl.innerHTML = matches.map(function(n,i){
     const h = nameHistoryMap[n];
     const meta = h.lastCategory ? stripLeadingEmoji(h.lastCategory) : '';
-    return `<div class="name-suggest-item" data-idx="${i}" onmousedown="handleSuggestionPick(event, ${i})" ontouchstart="handleSuggestionTouchStart(event)" ontouchend="handleSuggestionTouchEnd(event, ${i})">
+    return `<div class="name-suggest-item" data-idx="${i}" onmousedown="handleSuggestionPick(event, ${i})" ontouchstart="handleSuggestionTouchStart(event, ${i})" ontouchmove="handleSuggestionTouchMove(event)" ontouchcancel="handleSuggestionTouchCancel(event)" ontouchend="handleSuggestionTouchEnd(event, ${i})">
       <span class="nsi-name">${escapeHtml(n)}</span>
       ${meta ? `<span class="nsi-meta">${escapeHtml(meta)}</span>` : ''}
     </div>`;
@@ -25352,6 +25387,7 @@ const CHECKS = [
   { id: '2.32.210-1', rev: '2.32.210', addedOn: '2026-10-29', title: 'Немає мережі: нічого не стрибає', steps: ['Відкрийте «Облік» (мережа є).', 'Увімкніть режим у літаку й зачекайте 3 секунди.', 'Вимкніть режим у літаку.'], expect: 'вміст екрана не зсунувся, плашки зверху немає, індикатор біля аватара змінився й повернувся.', reasons: ['Екран стрибнув', 'З\u2019явилась плашка'] },
   { id: '2.32.210-2', rev: '2.32.210', addedOn: '2026-10-29', title: 'Потрібна мережа біля кнопки', steps: ['Увімкніть режим у літаку.', 'Відкрийте «Сервіс» і натисніть «Синхронізувати зараз».'], expect: 'біля кнопки з\u2019являється «Потрібна мережа», глобальної плашки немає.', reasons: ['Нічого не показано', 'З\u2019явилась плашка'] },
   { id: '2.32.211-1', rev: '2.32.211', addedOn: '2026-10-30', title: 'Підказка назви вставляється одразу', steps: ['Відкрийте «Нова витрата» й торкніться поля назви (клавіатура відкрита).', 'Введіть «про».', 'Один раз торкніться підказки «Продукти Велмарт».'], expect: 'назва вставилась одразу (до півсекунди), фокус перейшов на «Суму».', reasons: ['Вставилась із затримкою', 'Не вставилась'] },
+  { id: '2.32.212-1', rev: '2.32.212', addedOn: '2026-10-30', title: 'Підказка назви: один дотик без повторного', steps: ['Відкрийте «Нова витрата» й торкніться поля назви (клавіатура відкрита), введіть «про».', 'Один раз коротко торкніться підказки «Продукти Велмарт».'], expect: 'назва вставилась одразу, без повторного дотику.', reasons: ['Рядок лишається натиснутим', 'Вставилась із затримкою'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

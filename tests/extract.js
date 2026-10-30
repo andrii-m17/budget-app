@@ -118,6 +118,8 @@ function buildSandbox(globals, names){
     + "if(typeof lastSuggestKey === 'undefined') var lastSuggestKey = '';"
     + "if(typeof suggestTouchAt === 'undefined') var suggestTouchAt = 0;"
     + "if(typeof performance === 'undefined') var performance = { now: function(){ return Date.now(); } };"
+    + "if(typeof suggestTapTimer === 'undefined') var suggestTapTimer = null;"
+    + "if(typeof suggestHandledTouchIds === 'undefined') var suggestHandledTouchIds = [];"
     + "if(typeof pushHighlightHandle === 'undefined') var pushHighlightHandle = null;"
     + "if(typeof motionReduced === 'undefined') var motionReduced = function(){ return true; };"
     + "if(typeof setTimeout === 'undefined') var setTimeout = function(){ return 0; };"
