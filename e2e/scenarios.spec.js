@@ -386,3 +386,26 @@ test('21. підказка назви без touchend (iOS віддає його
   await page.waitForTimeout(600); expect(await page.evaluate(() => [window.__picks, document.getElementById('expfielda7').value])).toEqual([1, 'Продукти Тест']);
 });
 
+test('22. після вставки підказки (touchend не прийшов) тап по полю назви, «Сумі» й кнопці спрацьовує з першого дотику за < 150 мс', async ({ page }) => {
+  await boot(page, 'empty');
+  await page.evaluate(() => { const now = new Date().toISOString(); expenses.unshift({ id: generateUUID(), date: localDateISO(), name: 'Продукти Тест', amount: 100, category: '', subcategory: '', manual: true, createdAt: now, updatedAt: now }); renderAll(); switchTab('vytraty'); window.__ev = []; document.addEventListener('pointerdown', e => window.__ev.push(['down', performance.now(), e.target.id || e.target.className]), true); document.addEventListener('focusin', e => window.__ev.push(['focus', performance.now(), e.target.id]), true); document.addEventListener('click', e => window.__ev.push(['click', performance.now(), e.target.id || e.target.className]), true); });
+  await page.locator('#expfielda7').click(); await page.keyboard.type('про');
+  await page.waitForTimeout(1000); await page.evaluate(() => document.body.classList.add('kb-open'));
+  const g = await page.evaluate(() => { const r = document.querySelector('#name-suggest-list .name-suggest-item').getBoundingClientRect(); return { x: r.left + 20, y: r.top + 10 }; });
+  await page.evaluate(g => { handleSuggestionTouchStart({ touches: [{ clientX: g.x, clientY: g.y, identifier: 11 }] }, 0); }, g); // палець «лишається» (touchend не приходить)
+  await expect.poll(() => page.evaluate(() => document.getElementById('expfielda7').value)).toBe('Продукти Тест');
+  const tapDelay = async (selector, kind) => {
+    await page.evaluate(() => { window.__ev.length = 0; });
+    const b = await page.locator(selector).boundingBox();
+    await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
+    await page.waitForTimeout(400);
+    const ev = await page.evaluate(() => window.__ev);
+    const down = ev.find(x => x[0] === 'down'), hit = ev.find(x => x[0] === kind);
+    expect(hit, selector + ' отримав ' + kind + ': ' + JSON.stringify(ev)).toBeTruthy();
+    return hit[1] - down[1];
+  };
+  expect(await tapDelay('#expfielda7', 'focus'), 'тап по полю назви: фокус з першого дотику').toBeLessThan(150);
+  expect(await tapDelay('#f-amount', 'focus'), 'тап по «Сумі»').toBeLessThan(150);
+  expect(await tapDelay('.date-nav-btn >> nth=1', 'click'), 'тап по кнопці').toBeLessThan(150);
+});
+

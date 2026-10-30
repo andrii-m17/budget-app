@@ -119,6 +119,7 @@ function buildSandbox(globals, names){
     + "if(typeof suggestTouchAt === 'undefined') var suggestTouchAt = 0;"
     + "if(typeof performance === 'undefined') var performance = { now: function(){ return Date.now(); } };"
     + "if(typeof suggestTapTimer === 'undefined') var suggestTapTimer = null;"
+    + "if(typeof suggestHandledRow === 'undefined') var suggestHandledRow = null;"
     + "if(typeof suggestHandledTouchIds === 'undefined') var suggestHandledTouchIds = [];"
     + "if(typeof pushHighlightHandle === 'undefined') var pushHighlightHandle = null;"
     + "if(typeof motionReduced === 'undefined') var motionReduced = function(){ return true; };"

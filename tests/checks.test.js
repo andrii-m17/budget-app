@@ -33,7 +33,7 @@ test('кроки дослівно з макета v2 (checks-data) без «Ін
   data.splice(0, data.length, ...data.filter(c => c.id !== '2.32.188-1')); // Rev 2.32.208: крок 188-1 прибрано як дублікат за змістом
   const OLD_STEP = 'Згорніть застосунок кнопкою «Додому», не закриваючи.', NEW_STEP = 'Проведіть пальцем угору від нижнього краю екрана й відпустіть, щоб застосунок згорнувся (не змахуйте його в перемикачі).';
   data.forEach(c => { c.steps = c.steps.map(x => x === OLD_STEP ? NEW_STEP : x); }); // макет v2 зберігає стару редакцію; формулювання уточнено 29.10
-  const mine = CH(ctx).filter(c => c.id !== '2.32.189-1' && !c.id.startsWith('2.32.193-') && !c.id.startsWith('2.32.196-') && !c.id.startsWith('2.32.200-') && !c.id.startsWith('2.32.202-') && !c.id.startsWith('2.32.203-') && !c.id.startsWith('2.32.205-') && !c.id.startsWith('2.32.206-') && !c.id.startsWith('2.32.207-') && !c.id.startsWith('2.32.210-') && !c.id.startsWith('2.32.211-') && !c.id.startsWith('2.32.212-') && !c.id.startsWith('2.32.201-'));
+  const mine = CH(ctx).filter(c => c.id !== '2.32.189-1' && !c.id.startsWith('2.32.193-') && !c.id.startsWith('2.32.196-') && !c.id.startsWith('2.32.200-') && !c.id.startsWith('2.32.202-') && !c.id.startsWith('2.32.203-') && !c.id.startsWith('2.32.205-') && !c.id.startsWith('2.32.206-') && !c.id.startsWith('2.32.207-') && !c.id.startsWith('2.32.210-') && !c.id.startsWith('2.32.211-') && !c.id.startsWith('2.32.212-') && !c.id.startsWith('2.32.213-') && !c.id.startsWith('2.32.201-'));
   assert.deepEqual(mine.map(({ addedOn, ...c }) => c), data.map(c => ({ id: c.id, rev: c.rev, title: c.title, steps: c.steps, expect: c.expect, reasons: c.reasons })));
   CH(ctx).forEach(c => assert.ok(!c.reasons.includes('Інше')));
   const last = CH(ctx).find(c => c.id === '2.32.189-1');
@@ -94,7 +94,7 @@ test('термін детермінований: addedOn + 7 днів, не за
   assert.equal(d.ctx.checksIsExpired(c, Date.parse('2026-11-03T23:59:59Z')), false, 'до 4 листопада 00:00 живий');
   assert.equal(d.ctx.checksIsExpired(c, Date.parse('2026-11-04T00:00:00Z')), true, '28.10 + 7 днів');
   ref.now = Date.parse('2026-11-04T10:00:00Z'); const late = device(null, { Date: clockDate(ref) }, '2.32.300'); // «новий» телефон і далека збірка — той самий термін
-  assert.deepEqual(j(late.ctx.checksPending({}).map(x => x.id)), ['2.32.201-2', '2.32.202-1', '2.32.203-1', '2.32.203-2', '2.32.205-1', '2.32.206-1', '2.32.207-1', '2.32.210-1', '2.32.210-2', '2.32.211-1', '2.32.212-1'], 'усі кроки 28.10 закінчились (4.11 00:00); 202-1 (29.10) ще ні');
+  assert.deepEqual(j(late.ctx.checksPending({}).map(x => x.id)), ['2.32.201-2', '2.32.202-1', '2.32.203-1', '2.32.203-2', '2.32.205-1', '2.32.206-1', '2.32.207-1', '2.32.210-1', '2.32.210-2', '2.32.211-1', '2.32.212-1', '2.32.213-1'], 'усі кроки 28.10 закінчились (4.11 00:00); 202-1 (29.10) ще ні');
   assert.ok(late.ctx.checksAnswered({}).length >= 8, 'закінчені — в «Пройдено»');
   assert.deepEqual(j(late.ctx.checksClosedBy({}, c)), { r: 'expired', why: null }, 'показується як «Не перевірено»');
   assert.equal(late.ctx.checksReadOutbox().length, 0, 'події expired більше не пишуться');

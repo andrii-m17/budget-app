@@ -3788,7 +3788,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.212</div>
+  <div class="version-footer">Money Tree · Rev 2.32.213</div>
 </div>
   </div>
 </div>
@@ -9140,7 +9140,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.212';
+const APP_VERSION = '2.32.213';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -17165,6 +17165,7 @@ function suggestShouldClose(listShown, insideList, insideField){ return !!listSh
 function handleSuggestionPick(e, i){
   e.preventDefault();
   if(!suggestMouseAllowed(Date.now(), suggestLastTouchAt)) return; // синтетичний mousedown після дотику: вибір уже відбувся (або мав відбутись) на touchend
+  if(suggestHandledRow && suggestHandledRow.idx === i && Date.now() - suggestHandledRow.at < SUGGEST_TOUCH_WINDOW_MS) return; // Rev 2.32.213: той самий рядок — вибір уже зроблено таймером
   pickSuggestionNow(i);
 }
 function pickSuggestionNow(i){
@@ -17177,6 +17178,7 @@ function pickSuggestionNow(i){
 const SUGGEST_TAP_HOLD_MS = 150;
 const SUGGEST_TAP_MOVE_PX = 8;
 let suggestTapTimer = null;
+let suggestHandledRow = null; // { idx, at }: рядок підказки, вибір якого вже зроблено таймером; лише він ігнорує синтетичний mousedown
 const suggestHandledTouchIds = []; // ідентифікатори дотиків, уже оброблених таймером (пізній touchend не дублює вставку)
 function suggestTouchId(e){ const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]); return t && t.identifier != null ? t.identifier : null; }
 function suggestCancelTapTimer(){ if(suggestTapTimer){ clearTimeout(suggestTapTimer); suggestTapTimer = null; } }
@@ -17192,7 +17194,7 @@ function handleSuggestionTouchStart(e, i){
       if(suggestTouchStart !== st || st.moved || st.handled) return;
       if(st.gen !== suggestGen || nameSuggestions[st.idx] !== st.name) return; // перелік змінився: не вгадуємо
       st.handled = true; suggestHandledTouchIds.push(st.id); if(suggestHandledTouchIds.length > 10) suggestHandledTouchIds.shift();
-      suggestLastTouchAt = Date.now(); // синтетичний mousedown цього дотику ігнорується (suggestMouseAllowed)
+      suggestHandledRow = { idx: st.idx, at: Date.now() }; // Rev 2.32.213: придушення лише для ЦЬОГО рядка підказки (синтетичний mousedown того самого дотику), не глобально
       pickSuggestionNow(st.idx);
     }, SUGGEST_TAP_HOLD_MS);
   }
@@ -17212,7 +17214,8 @@ function handleSuggestionTouchEnd(e, i){
   const late = id != null && suggestHandledTouchIds.indexOf(id) !== -1;
   const st = suggestTouchStart;
   suggestTouchStart = null;
-  if(late || (st && st.handled)){ if(late) suggestHandledTouchIds.splice(suggestHandledTouchIds.indexOf(id), 1); try{ e.preventDefault(); }catch(err){} return; } // пізній touchend дотику, який таймер уже обробив
+  // Rev 2.32.213: пізній touchend дотику, який таймер уже обробив, лише ігноруємо (без preventDefault: він міг би зачепити наступний дотик по іншому елементу).
+  if(late || (st && st.handled)){ if(late) suggestHandledTouchIds.splice(suggestHandledTouchIds.indexOf(id), 1); return; }
   const t = e.changedTouches && e.changedTouches[0];
   const el = e.currentTarget || (e.target && e.target.closest ? e.target.closest('.name-suggest-item') : null);
   const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
@@ -25388,6 +25391,7 @@ const CHECKS = [
   { id: '2.32.210-2', rev: '2.32.210', addedOn: '2026-10-29', title: 'Потрібна мережа біля кнопки', steps: ['Увімкніть режим у літаку.', 'Відкрийте «Сервіс» і натисніть «Синхронізувати зараз».'], expect: 'біля кнопки з\u2019являється «Потрібна мережа», глобальної плашки немає.', reasons: ['Нічого не показано', 'З\u2019явилась плашка'] },
   { id: '2.32.211-1', rev: '2.32.211', addedOn: '2026-10-30', title: 'Підказка назви вставляється одразу', steps: ['Відкрийте «Нова витрата» й торкніться поля назви (клавіатура відкрита).', 'Введіть «про».', 'Один раз торкніться підказки «Продукти Велмарт».'], expect: 'назва вставилась одразу (до півсекунди), фокус перейшов на «Суму».', reasons: ['Вставилась із затримкою', 'Не вставилась'] },
   { id: '2.32.212-1', rev: '2.32.212', addedOn: '2026-10-30', title: 'Підказка назви: один дотик без повторного', steps: ['Відкрийте «Нова витрата» й торкніться поля назви (клавіатура відкрита), введіть «про».', 'Один раз коротко торкніться підказки «Продукти Велмарт».'], expect: 'назва вставилась одразу, без повторного дотику.', reasons: ['Рядок лишається натиснутим', 'Вставилась із затримкою'] },
+  { id: '2.32.213-1', rev: '2.32.213', addedOn: '2026-10-30', title: 'Поле назви реагує одразу після підказки', steps: ['Відкрийте «Нова витрата» й торкніться поля назви (клавіатура відкрита), введіть «про» й торкніться підказки.', 'Одразу торкніться поля назви.'], expect: 'фокус у полі назви з першого дотику.', reasons: ['Не реагує', 'Реагує із затримкою'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
