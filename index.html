@@ -3794,7 +3794,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.216</div>
+  <div class="version-footer">Money Tree · Rev 2.32.217</div>
 </div>
   </div>
 </div>
@@ -9146,7 +9146,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.216';
+const APP_VERSION = '2.32.217';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13217,6 +13217,8 @@ const DEBUG_EVENT_ALLOWLIST = [
   'safeTop', 'safeRight', 'safeBottom', 'safeLeft',
   'touchX', 'touchY', 'targetTag', 'targetId', 'targetClasses',
   // Rev 2.32.169 (FIELD-GUARD): подія field-attrs — атрибути сфокусованого поля у «Структурі» (без значень)
+  // Rev 2.32.217 (FIELDS-SNAP): події fields-snapshot / field-added / field-removed — атрибути полів без значень
+  'fieldName', 'fieldAc', 'snapWhy',
   'fieldId', 'fieldType', 'fieldAttrs', 'fieldParent', 'fieldProxy', 'fieldLinked', 'fieldScreen',
   // Rev 2.22.92 (6D.165) — геометрія відкритої шторки/підложки: живий лог
   // (kb-full-scenario) знайшов дотик, що влучив у .drawer-backdrop замість
@@ -13642,6 +13644,41 @@ function onInputFocusAudit(e){
     fieldLabelFor: !!(t.id && document.querySelector('label[for="' + (window.CSS && CSS.escape ? CSS.escape(t.id) : t.id) + '"]')),
     fieldForbidden: forbiddenInputAttr(t.id) || forbiddenInputAttr(t.getAttribute('name')) || null });
 }
+// Rev 2.32.217 (FIELDS-SNAP, клас A, лише діагностика при записі): знімок атрибутів УСІХ input/textarea у DOM (fields-snapshot: при старті, «Мітка», «Стоп») і журнал додавання/видалення полів (field-added / field-removed, MutationObserver по body) з екраном і міткою часу — щоб побачити, що саме змінюється в DOM у «Структура → Словник» (гіпотеза: Safari перераховує поля сторінки при їх появі/зникненні). Без значень полів; uuid в id замінюється на <uuid>. Поведінку полів не змінює.
+let debugFieldsObserver = null;
+function debugFieldBrief(el){
+  const cut = function(v){ return String(v == null ? '' : v).replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '<uuid>').replace(/\s+/g, ' ').trim().slice(0, 40); };
+  return { id: cut(el.id), type: cut((el.getAttribute('type') || (el.tagName === 'TEXTAREA' ? 'textarea' : 'text')).toLowerCase()), name: cut(el.getAttribute('name')), ac: cut(el.getAttribute('autocomplete')) };
+}
+function debugScreenName(){
+  let v = null; try{ v = document.querySelector('.view:not(.hidden)'); }catch(e){}
+  let name = v && v.id ? v.id : '—';
+  try{
+    const d = document.querySelector('.drawer.open, .app-modal.open'); if(d && d.id) name += '+' + d.id;
+    const sp = document.querySelector('.struct-tab-panel:not(.hidden)'); if(sp && v && v.id === 'view-structure' && sp.id) name += '/' + sp.id.replace('struct-tab-panel-', '');
+  }catch(e){}
+  return name;
+}
+function debugFieldLine(el, visible){ const b = debugFieldBrief(el); return [b.id || '—', b.type, b.name, b.ac, visible ? 'vis' : 'hid'].join('|'); }
+function recordFieldsSnapshot(why){
+  if(!debugRecordingActive) return;
+  const lines = []; let n = 0;
+  document.querySelectorAll('input, textarea').forEach(function(el){
+    n++;
+    if(lines.length < 80){ let vis = false; try{ vis = el.offsetParent !== null || !!(el.closest && el.closest('.drawer.open, .app-modal.open')); }catch(e){} lines.push(debugFieldLine(el, vis)); }
+  });
+  const a = document.activeElement;
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'fields-snapshot', snapWhy: why, fieldsCount: n, fields: lines, fieldScreen: debugScreenName(), activeElementTag: a ? a.tagName : null, activeElementId: a ? debugFieldBrief(a).id : null, activeElementType: a && a.getAttribute ? a.getAttribute('type') : null });
+}
+function onDebugFieldsMutation(muts){
+  if(!debugRecordingActive) return;
+  const report = function(node, kind){
+    if(!node || node.nodeType !== 1) return;
+    const list = /^(INPUT|TEXTAREA)$/.test(node.tagName) ? [node] : Array.prototype.slice.call(node.querySelectorAll ? node.querySelectorAll('input, textarea') : []);
+    list.forEach(function(el){ const b = debugFieldBrief(el); pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: kind, fieldId: b.id, fieldType: b.type, fieldName: b.name, fieldAc: b.ac, fieldScreen: debugScreenName() }); });
+  };
+  muts.forEach(function(m){ Array.prototype.forEach.call(m.addedNodes, function(nd){ report(nd, 'field-added'); }); Array.prototype.forEach.call(m.removedNodes, function(nd){ report(nd, 'field-removed'); }); });
+}
 function attachDebugRecorderListeners(){
   function on(target, type, handler, opts){
     if(!target) return;
@@ -13670,12 +13707,14 @@ function attachDebugRecorderListeners(){
   if(typeof MutationObserver !== 'undefined'){
     debugRecordingMutationObserver = new MutationObserver(onDebugBodyClassChange);
     debugRecordingMutationObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    if(typeof onDebugFieldsMutation === 'function' && typeof debugFieldsObserver !== 'undefined'){ debugFieldsObserver = new MutationObserver(onDebugFieldsMutation); debugFieldsObserver.observe(document.body, { childList: true, subtree: true }); }
   }
 }
 function detachDebugRecorderListeners(){
   debugListenerHandles.forEach(function(h){ h.target.removeEventListener(h.type, h.handler, h.opts); });
   debugListenerHandles = [];
   if(debugRecordingMutationObserver){ debugRecordingMutationObserver.disconnect(); debugRecordingMutationObserver = null; }
+  if(typeof debugFieldsObserver !== 'undefined' && debugFieldsObserver){ debugFieldsObserver.disconnect(); debugFieldsObserver = null; }
   if(debugScrollCoalesceTimer){ clearTimeout(debugScrollCoalesceTimer); debugScrollCoalesceTimer = null; }
 }
 function updateDebugRecordButtonUI(){
@@ -13722,6 +13761,7 @@ function startDebugRecording(scenario){
   if(typeof recordUiAudit === 'function') recordUiAudit(); // Rev 2.26.0 (M3): ui-audit — лише кількості
   if(typeof recordInputAttrsAudit === 'function') recordInputAttrsAudit(); // Rev 2.28.1 (C): input-attrs-audit
   if(typeof recordFieldsCensus === 'function') recordFieldsCensus(); // Rev 2.32.31 (A): fields-census
+  if(typeof recordFieldsSnapshot === 'function') recordFieldsSnapshot('start'); // Rev 2.32.217 (FIELDS-SNAP)
   if(typeof recordKbEnv === 'function') recordKbEnv(); // Rev 2.32.9 (B): kb-env
   if(typeof XSS_AUDITED_SITES === 'number') pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'xss-audit', sites: XSS_AUDITED_SITES }); // Rev 2.32.19 (X): лише кількість місць, значень немає
   debugRecordingTimerInterval = setInterval(updateDebugRecordButtonUI, 1000);
@@ -13731,6 +13771,7 @@ function startDebugRecording(scenario){
 function stopDebugRecording(){
   if(!debugRecordingActive) return;
   captureDebugGeometry('stop');
+  if(typeof recordFieldsSnapshot === 'function') recordFieldsSnapshot('stop'); // Rev 2.32.217 (FIELDS-SNAP)
   debugRecordingActive = false;
   detachDebugRecorderListeners();
   if(debugRecordingTimerInterval){ clearInterval(debugRecordingTimerInterval); debugRecordingTimerInterval = null; }
@@ -13759,6 +13800,7 @@ function stopDebugRecording(){
 // геометрію/фокус/те, що вимірюється (явна вимога ТЗ рекордера).
 function markDebugEvent(){
   captureDebugGeometry('mark');
+  if(typeof recordFieldsSnapshot === 'function') recordFieldsSnapshot('mark'); // Rev 2.32.217 (FIELDS-SNAP)
   const btn = document.getElementById('debug-record-mark-btn');
   if(!btn || btn.disabled) return;
   const original = btn.textContent;
@@ -25463,6 +25505,7 @@ const CHECKS = [
   { id: '2.32.216-1', rev: '2.32.216', addedOn: '2026-10-30', title: 'Автозаповнення: витрати', steps: ['Відкрийте вкладку «Витрати» й торкніться полів «Назва витрати» та «Сума».', 'Відкрийте редагування будь-якої витрати й торкніться її полів «Назва» та «Сума».'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась на «Назві»', 'Панель з\u2019явилась на іншому полі'] },
   { id: '2.32.216-2', rev: '2.32.216', addedOn: '2026-10-30', title: 'Автозаповнення: картки, ОЧ, доходи', steps: ['Натисніть «+ Додати банк» і торкніться полів форми картки (назва, ліміт, день платежу, борг, мінімальний платіж).', 'Закрийте форму, натисніть «+ Додати ОЧ» і торкніться її полів.', 'Відкрийте будь-який дохід у списку й торкніться поля «Сума».'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась у формі картки', 'Панель з\u2019явилась в ОЧ чи доході'] },
   { id: '2.32.216-3', rev: '2.32.216', addedOn: '2026-10-30', title: 'Автозаповнення: пошук і примітки', steps: ['У «Журналі» торкніться поля пошуку.', 'Відкрийте «Структуру», вкладку «Словник», і торкніться поля пошуку слова.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт» (на полях входу в хмару панель паролів допустима).', reasons: ['Панель з\u2019явилась у пошуку', 'Панель з\u2019явилась у «Словнику»'] },
+  { id: '2.32.217-1', rev: '2.32.217', addedOn: '2026-10-30', title: 'Автозаповнення: після Словника', steps: ['Відкрийте «Структуру», вкладку «Словник», і оберіть будь-яке слово; закрийте його.', 'Відкрийте «Нова витрата» і торкніться полів «Назва» та «Сума».'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась на «Назві»', 'Панель з\u2019явилась на «Сумі»'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

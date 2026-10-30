@@ -118,3 +118,21 @@ test('26. підказки в редагуванні запису: рядок л
   expect(foc, 'фокус у «Сумі»: ' + JSON.stringify(ev)).toBeTruthy(); expect(foc[1] - down[1]).toBeLessThan(150);
 });
 
+test('27. діагностика полів: fields-snapshot на старті/«Мітці»/«Стопі»; field-added/field-removed при відкритті форми слова у «Структура → Словник»; без значень', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { startDebugRecording('fields'); switchTab('structure'); switchStructureTab('dictionary'); });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => { const w = DICTIONARY.filter(d => !d.deletedAt)[0]; editDictionaryEntry(w.id); });
+  await page.waitForTimeout(600);
+  await page.evaluate(() => { markDebugEvent(); closeStructForm(); });
+  await page.waitForTimeout(400);
+  const r = await page.evaluate(() => { const ev = debugEventBuffer.slice(); stopDebugRecording(); const all = debugEventBuffer.slice(); return { ev: all.map(e => ({ type: e.type, why: e.snapWhy, id: e.fieldId, name: e.fieldName, ac: e.fieldAc, scr: e.fieldScreen, n: e.fieldsCount, f: e.fields })) }; });
+  const snaps = r.ev.filter(e => e.type === 'fields-snapshot').map(e => e.why);
+  expect(snaps).toEqual(['start', 'mark', 'stop']);
+  const added = r.ev.filter(e => e.type === 'field-added');
+  expect(added.some(e => e.id === 'fldstr3' && e.ac === 'off' && /structure/.test(e.scr)), JSON.stringify(added)).toBe(true);
+  const mark = r.ev.find(e => e.type === 'fields-snapshot' && e.why === 'mark');
+  expect(mark.n).toBeGreaterThan(5); expect(mark.f.some(l => /^fldstr3\|/.test(l))).toBe(true);
+  expect(JSON.stringify(r.ev)).not.toMatch(/value/i);
+});
+
