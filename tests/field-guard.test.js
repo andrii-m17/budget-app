@@ -13,10 +13,10 @@ function fakeInput(id, extra){
 }
 const g = buildSandbox({}, ['INPUT_ATTR_FORBIDDEN', 'forbiddenInputAttr', 'applyFieldGuardAttrs']);
 
-test('applyFieldGuardAttrs: повний набір (autocomplete/autocorrect/autocapitalize off, spellcheck false, aria-label, enterkeyhint, нейтральний name x-<id>)', function(){
+test('applyFieldGuardAttrs: повний набір (autocomplete/autocorrect/autocapitalize off, spellcheck false, aria-label, enterkeyhint, нейтральний name = id без тире)', function(){
   const el = fakeInput('fldstr3');
   assert.equal(g.applyFieldGuardAttrs(el, { label: 'Слово' }), el);
-  assert.deepEqual(JSON.parse(JSON.stringify(el.attrs)), { autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-label': 'Слово', enterkeyhint: 'done', name: 'x-fldstr3' });
+  assert.deepEqual(JSON.parse(JSON.stringify(el.attrs)), { autocomplete: 'off', autocorrect: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-label': 'Слово', enterkeyhint: 'done', name: 'fldstr3' });
   const el2 = fakeInput('fldstr4'); g.applyFieldGuardAttrs(el2, { label: 'Назва', enterkeyhint: 'next' });
   assert.equal(el2.attrs.enterkeyhint, 'next');
 });
@@ -58,10 +58,10 @@ function recorder(active){
 }
 test('field-attrs: атрибути без значень, ознака проміжного поля й id пов\'язаного поля; поза «Структурою»/«Словником» — нічого', function(){
   const { c, events } = recorder(true);
-  c.onFieldAttrsFocusIn({ target: fld('fldstr3', { autocomplete: 'off', name: 'x-fldstr3', 'aria-label': 'Слово', value: 'СЕКРЕТНЕ' }) });
+  c.onFieldAttrsFocusIn({ target: fld('fldstr3', { autocomplete: 'off', name: 'fldstr3', 'aria-label': 'Слово', value: 'СЕКРЕТНЕ' }) });
   assert.equal(events.length, 1); const e = events[0];
   assert.equal(e.type, 'field-attrs'); assert.equal(e.fieldId, 'fldstr3'); assert.equal(e.fieldScreen, 'struct-form'); assert.equal(e.fieldProxy, false); assert.equal(e.fieldLinked, null);
-  assert.equal(e.fieldAttrs, 'autocomplete=off|name=x-fldstr3|aria-label=Слово'); assert.ok(!/СЕКРЕТНЕ/.test(JSON.stringify(e)), 'значення поля не пишеться');
+  assert.equal(e.fieldAttrs, 'autocomplete=off|name=fldstr3|aria-label=Слово'); assert.ok(!/СЕКРЕТНЕ/.test(JSON.stringify(e)), 'значення поля не пишеться');
   // проміжне поле з пов'язаним
   const real = { id: 'fldstr3' };
   const host = { className: 'sf-row', querySelector: () => real };

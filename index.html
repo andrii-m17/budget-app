@@ -3354,7 +3354,7 @@
              JS чи CSS. Повний хід ізоляції — docs/ROADMAP.md, 6D.136-141. -->
         <div class="field"><label>Назва витрати</label>
           <div style="position:relative;">
-            <input type="text" id="expfielda7" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput(event)" onfocus="if(!suggestSuppressed) updateNameSuggestions(this.value)" onblur="scheduleHideNameSuggestions()" onkeydown="handleNameKeydown(event)">
+            <input type="text" id="expfielda7" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput(event)" onfocus="if(!suggestSuppressed) updateNameSuggestions(this.value)" onblur="scheduleHideNameSuggestions()" onkeydown="handleNameKeydown(event)" autocomplete="off" spellcheck="false">
             <div class="name-suggest-list" id="name-suggest-list"></div>
           </div>
           <div class="field auto-hint" id="auto-hint">
@@ -3363,7 +3363,7 @@
           </div>
           <div class="field installment-link-hint" id="installment-link-hint"></div>
         </div>
-        <div class="field"><label for="f-amount">Сума, ₴</label><input type="text" id="f-amount" placeholder="0" inputmode="numeric" oninput="saveExpenseDraft()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
+        <div class="field"><label for="f-amount">Сума, ₴</label><input type="text" id="f-amount" placeholder="0" inputmode="numeric" oninput="saveExpenseDraft()" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)" autocomplete="off" spellcheck="false"></div>
         <div class="field field-date">
           <label for="f-date">Дата</label>
           <div class="date-nav-row">
@@ -3416,7 +3416,7 @@
         <div class="journal-search-row">
           <div class="journal-search-input-wrap">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="journal-search-input" placeholder="Пошук за назвою" oninput="onJournalSearchChange()" autocomplete="off">
+            <input type="text" id="journal-search-input" placeholder="Пошук за назвою" oninput="onJournalSearchChange()" autocomplete="off" spellcheck="false">
             <button type="button" class="journal-search-clear hidden" id="journal-search-clear" onclick="clearJournalSearchText()" aria-label="Очистити пошук">
               <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
@@ -3794,7 +3794,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.215</div>
+  <div class="version-footer">Money Tree · Rev 2.32.216</div>
 </div>
   </div>
 </div>
@@ -4114,7 +4114,7 @@
   <div id="debug-record-form">
     <div class="field">
       <label for="debug-record-scenario">Сценарій (порожній — підставиться поточний екран)</label>
-      <input type="text" id="debug-record-scenario" maxlength="120" placeholder="напр. income-keyboard" autocomplete="off">
+      <input type="text" id="debug-record-scenario" maxlength="120" placeholder="напр. income-keyboard" autocomplete="off" spellcheck="false">
     </div>
     <!-- Rev 2.22.92 (6D.165) — пояснення, КОЛИ саме тиснути "Мітка": за
          проханням користувача ("не зрозуміло у який момент її натискати") —
@@ -4341,27 +4341,27 @@
          виправлено так само для поля витрати в 6D.136-141 (CLAUDE.md) —
          той самий, уже перевірений прийом, тепер і тут. -->
     <label for="cddfielda1">Назва</label>
-    <input type="text" id="cddfielda1">
+    <input type="text" id="cddfielda1" autocomplete="off" spellcheck="false">
   </div>
   <!-- Rev 2.32.66 (P1c): «День платежу» — числове поле (як «Дата платежу» в ОЧ) поруч із кредитним лімітом в одному ряду; необов'язково: порожнє = не задано, 1…31. -->
   <div class="row-2">
     <div class="field">
       <label for="cdd-limit">Кредитний ліміт</label>
-      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-limit" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-limit" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)" autocomplete="off" spellcheck="false">
     </div>
     <div class="field">
       <label for="cdd-payday">День платежу</label>
-      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-payday" placeholder="—" maxlength="2" aria-label="День платежу: день місяця, до якого сплачується мінімальний платіж (необов'язково)">
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-payday" placeholder="—" maxlength="2" aria-label="День платежу: день місяця, до якого сплачується мінімальний платіж (необов'язково)" autocomplete="off" spellcheck="false">
     </div>
   </div>
   <div class="row-2">
     <div class="field">
       <label for="cdd-balance">Борг по карті</label>
-      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-balance" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-balance" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)" autocomplete="off" spellcheck="false">
     </div>
     <div class="field">
       <label for="cdd-minpay">Мін. платіж</label>
-      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-minpay" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+      <input type="text" inputmode="numeric" class="cdd-amount-input" id="cdd-minpay" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)" autocomplete="off" spellcheck="false">
     </div>
   </div>
   <label class="bdr-minpay-check">
@@ -4471,7 +4471,7 @@
   </div>
   <div class="field">
     <label for="ind-amount">Сума</label>
-    <input type="text" inputmode="numeric" class="cdd-amount-input" id="ind-amount" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+    <input type="text" inputmode="numeric" class="cdd-amount-input" id="ind-amount" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)" autocomplete="off" spellcheck="false">
   </div>
   <button type="button" class="submit-btn income pill" onclick="saveIncomeDrawer()">Зберегти</button>
 </div>
@@ -4486,11 +4486,11 @@
 <div class="app-modal" id="app-modal" role="dialog" aria-modal="true" inert>
   <div class="app-modal-text" id="app-modal-text"></div>
   <div class="app-modal-input-wrap" id="app-modal-input-wrap">
-    <input type="text" id="app-modal-input" autocomplete="off" aria-labelledby="app-modal-text">
+    <input type="text" id="app-modal-input" autocomplete="off" aria-labelledby="app-modal-text" spellcheck="false">
   </div>
   <div class="app-modal-amount-wrap" id="app-modal-amount-wrap">
     <label for="app-modal-amount-input" id="app-modal-amount-label">Початкова сума</label>
-    <input type="text" id="app-modal-amount-input" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)">
+    <input type="text" id="app-modal-amount-input" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)" autocomplete="off" spellcheck="false">
   </div>
   <div class="app-modal-select-wrap" id="app-modal-select-wrap">
     <label id="app-modal-select-label" for="app-modal-select">Приховати з місяця</label>
@@ -9146,7 +9146,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.215';
+const APP_VERSION = '2.32.216';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -18789,12 +18789,12 @@ function buildRecordGroupsHtml(items){
         <div class="record-edit-panel" onclick="event.stopPropagation()">
           <div class="field">${editNameLabelHtml(e.id)}
             <div style="position:relative;">
-              <input type="text" id="edtfielda1-${safeId(e.id)}"${editNameAriaAttr()} value="${escapeAttr(e.name)}" oninput="onRecordNameInput('${safeId(e.id)}')" onblur="setTimeout(function(){ hideEditNameSuggestions('${safeId(e.id)}'); }, 150)" onkeydown="onEditNameKeydown(event, '${safeId(e.id)}')">
+              <input type="text" id="edtfielda1-${safeId(e.id)}"${editNameAriaAttr()} value="${escapeAttr(e.name)}" oninput="onRecordNameInput('${safeId(e.id)}')" onblur="setTimeout(function(){ hideEditNameSuggestions('${safeId(e.id)}'); }, 150)" onkeydown="onEditNameKeydown(event, '${safeId(e.id)}')" autocomplete="off" spellcheck="false">
               <!-- Rev 2.32.3 (E2): підказки назви в редагуванні (ті самі правила, що й у «Новій витраті»); id абстрактний (edtlista1), без заборонених підрядків -->
               <div class="name-suggest-list edit-suggest-list" id="edtlista1-${safeId(e.id)}"></div>
             </div></div>
           <div class="record-edit-row">
-            <div class="field"><label for="edit-amount-${safeId(e.id)}">Сума, ₴</label><input type="text" id="edit-amount-${safeId(e.id)}" value="${formatThousands(e.amount)}" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)"></div>
+            <div class="field"><label for="edit-amount-${safeId(e.id)}">Сума, ₴</label><input type="text" id="edit-amount-${safeId(e.id)}" value="${formatThousands(e.amount)}" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)" autocomplete="off" spellcheck="false"></div>
             <div class="field"><label for="edit-date-${safeId(e.id)}">Дата</label><input type="date" id="edit-date-${safeId(e.id)}" value="${e.date}"></div>
           </div>
           <select id="edit-cat-${safeId(e.id)}" aria-label="Категорія" onchange="onRecordCategoryChange('${safeId(e.id)}')">${categoryOptionsHtml(e.category)}</select>
@@ -21670,8 +21670,8 @@ function applyFieldGuardAttrs(input, opts){
   if(o.label) input.setAttribute('aria-label', o.label);
   input.setAttribute('enterkeyhint', o.enterkeyhint || 'done');
   const id = String(input.id || '');
-  const nm = 'x-' + id;
-  if(id && forbiddenInputAttr(nm) === null) input.setAttribute('name', nm);
+  // Rev 2.32.216 (INPUT-AUDIT, клас C): name = сам id без префікса «x-» — тире в name вмикає «телефонну» евристику Safari (ігнорує autocomplete=off); id за схемою fld+код+число тире не містить. Ідентичний id у name додатково перевіряється forbiddenInputAttr і охоронним тестом.
+  if(id && id.indexOf('-') === -1 && forbiddenInputAttr(id) === null) input.setAttribute('name', id);
   return input;
 }
 // Rev 2.32.169 (FIELD-GUARD): рекордер (лише режим розробника) — атрибути поля, що отримало фокус у формі «Структури» (#struct-drawer) і на вкладці «Словник»: без значень, з ознакою проміжного поля й id пов'язаного поля. Допомагає відрізнити «поле» від «проміжного поля» при появі панелі «Автозаповнити контакт».
@@ -25460,6 +25460,9 @@ const CHECKS = [
   { id: '2.32.213-1', rev: '2.32.213', addedOn: '2026-10-30', title: 'Поле назви реагує одразу після підказки', steps: ['Відкрийте «Нова витрата» й торкніться поля назви (клавіатура відкрита), введіть «про» й торкніться підказки.', 'Одразу торкніться поля назви.'], expect: 'фокус у полі назви з першого дотику.', reasons: ['Не реагує', 'Реагує із затримкою'] },
   { id: '2.32.214-1', rev: '2.32.214', addedOn: '2026-10-30', title: 'Дотики з першого разу', steps: ['Відкрийте «Облік» (мережа є) і торкніться по черзі підвкладок «Обліку» й «Структури», шестерні, дзвіночка та аватара.'], expect: 'кожен тап спрацьовує з першого разу без повторних дотиків.', reasons: ['Не спрацював з першого разу', 'Спрацював двічі'] },
   { id: '2.32.215-1', rev: '2.32.215', addedOn: '2026-10-30', title: 'Підказки в редагуванні запису', steps: ['Відкрийте редагування будь-якої витрати й почніть вводити назву.', 'Торкніться підказки.', 'Одразу торкніться іншого поля (наприклад «Сума»).'], expect: 'підказка підставилась з першого дотику, інше поле реагує одразу.', reasons: ['Підказка не підставилась', 'Інше поле не реагує'] },
+  { id: '2.32.216-1', rev: '2.32.216', addedOn: '2026-10-30', title: 'Автозаповнення: витрати', steps: ['Відкрийте вкладку «Витрати» й торкніться полів «Назва витрати» та «Сума».', 'Відкрийте редагування будь-якої витрати й торкніться її полів «Назва» та «Сума».'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась на «Назві»', 'Панель з\u2019явилась на іншому полі'] },
+  { id: '2.32.216-2', rev: '2.32.216', addedOn: '2026-10-30', title: 'Автозаповнення: картки, ОЧ, доходи', steps: ['Натисніть «+ Додати банк» і торкніться полів форми картки (назва, ліміт, день платежу, борг, мінімальний платіж).', 'Закрийте форму, натисніть «+ Додати ОЧ» і торкніться її полів.', 'Відкрийте будь-який дохід у списку й торкніться поля «Сума».'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась у формі картки', 'Панель з\u2019явилась в ОЧ чи доході'] },
+  { id: '2.32.216-3', rev: '2.32.216', addedOn: '2026-10-30', title: 'Автозаповнення: пошук і примітки', steps: ['У «Журналі» торкніться поля пошуку.', 'Відкрийте «Структуру», вкладку «Словник», і торкніться поля пошуку слова.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт» (на полях входу в хмару панель паролів допустима).', reasons: ['Панель з\u2019явилась у пошуку', 'Панель з\u2019явилась у «Словнику»'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
