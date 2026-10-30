@@ -54,3 +54,23 @@ test('applyFieldGuardAttrs: name не містить тире', function(){
   assert.match(SRC, /id\.indexOf\('-'\) === -1 && forbiddenInputAttr\(id\) === null\) input\.setAttribute\('name', id\)/);
   assert.ok(!/setAttribute\('name', 'x-'/.test(SRC));
 });
+
+test('Rev 2.32.222: підказки (placeholder/aria-label) без слів-тригерів, крім явних назв запису і справжнього входу; поля пошуку — type=search, enterkeyhint=search, name відсутній або q', function(){
+  const WORDS = ['назв', 'name', 'phone', 'тел', 'mail', 'пошт', 'addr', 'адрес', 'user', 'login', 'contact', 'card'];
+  const ALLOWED = ['Назва витрати', 'Назва'];
+  const re = /<(input|textarea)\b([^>]*)>/g; let m; let searches = 0;
+  while((m = re.exec(SRC))){
+    const a = m[2]; const get = k => { const r = new RegExp('\\b' + k + '="([^"]*)"').exec(a); return r ? r[1] : null; };
+    const id = get('id') || '';
+    if(LOGIN_IDS.indexOf(id) !== -1) continue;
+    ['placeholder', 'aria-label'].forEach(function(k){
+      const v = get(k); if(!v || ALLOWED.indexOf(v) !== -1 || v.indexOf('${') !== -1) return;
+      WORDS.forEach(function(w){ assert.ok(v.toLowerCase().indexOf(w) === -1, id + ' ' + k + '="' + v + '" містить «' + w + '»'); });
+    });
+    if(/пошук/i.test((get('placeholder') || '') + (get('aria-label') || ''))){
+      searches++;
+      assert.equal(get('type'), 'search', id); assert.equal(get('enterkeyhint'), 'search', id); assert.ok(get('name') === null || get('name') === 'q', id);
+    }
+  }
+  assert.equal(searches, 2, 'пошук журналу й пошук слова');
+});

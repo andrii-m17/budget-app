@@ -227,3 +227,13 @@ test('30. збереження без змін: 0 записів на серве
   expect((await writes()) - w0, 'зі змінами є запит').toBeGreaterThanOrEqual(1);
 });
 
+test('31. поля пошуку: нейтральні підказки, type=search, autocomplete=off, enterkeyhint=search, name відсутній', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { switchTab('structure'); switchStructureTab('dictionary'); });
+  const r = await page.evaluate(() => ['journal-search-input', 'fldstr2'].map(id => { const el = document.getElementById(id); return { id, type: el.type, ac: el.getAttribute('autocomplete'), eh: el.getAttribute('enterkeyhint'), name: el.getAttribute('name'), ph: el.getAttribute('placeholder'), aria: el.getAttribute('aria-label') }; }));
+  r.forEach(x => {
+    expect(x.type, x.id).toBe('search'); expect(x.ac, x.id).toBe('off'); expect(x.eh, x.id).toBe('search'); expect(x.name, x.id).toBeNull();
+    expect(((x.ph || '') + ' ' + (x.aria || '')).toLowerCase(), x.id).not.toMatch(/назв|name|phone|тел|mail|пошт|addr|адрес|user|login|contact|card/);
+  });
+});
+

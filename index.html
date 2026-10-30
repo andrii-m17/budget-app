@@ -994,6 +994,8 @@
      центрується власним flex-правилом .journal-search-clear. */
   .journal-search-input-wrap > svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--color-muted); pointer-events:none; }
   .journal-search-input-wrap input{ width:100%; height:44px; padding:0 34px 0 36px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:14px; box-sizing:border-box; }
+  .journal-search-input-wrap input[type="search"]{ -webkit-appearance:none; appearance:none; } /* Rev 2.32.222: type=search без рідного вигляду поля й хрестика (є власний ✕) */
+  .journal-search-input-wrap input::-webkit-search-cancel-button, .journal-search-input-wrap input::-webkit-search-decoration{ -webkit-appearance:none; display:none; }
   .journal-search-input-wrap input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
   /* Rev 2.21.13 BugFix — кнопка "×" вилазила за межі свого кола: базове
      button{...} правило (вище в файлі) не скидає padding, тому браузерний
@@ -3416,7 +3418,7 @@
         <div class="journal-search-row">
           <div class="journal-search-input-wrap">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="journal-search-input" placeholder="Пошук за назвою" oninput="onJournalSearchChange()" autocomplete="off" spellcheck="false">
+            <input type="search" id="journal-search-input" placeholder="Пошук" aria-label="Пошук" enterkeyhint="search" oninput="onJournalSearchChange()" autocomplete="off" spellcheck="false"><!-- Rev 2.32.222 (SEARCH-NEUTRAL): підказка без слова «назвою» (Safari читає його як «name»), type=search, enterkeyhint=search -->
             <button type="button" class="journal-search-clear hidden" id="journal-search-clear" onclick="clearJournalSearchText()" aria-label="Очистити пошук">
               <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
@@ -3794,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.221</div>
+  <div class="version-footer">Money Tree · Rev 2.32.222</div>
 </div>
   </div>
 </div>
@@ -9218,7 +9220,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.221';
+const APP_VERSION = '2.32.222';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -25610,6 +25612,7 @@ const CHECKS = [
   { id: '2.32.220-1', rev: '2.32.220', addedOn: '2026-10-30', title: 'Збереження без змін', steps: ['Відкрийте редагування будь-якої витрати й нічого не змінюйте.', 'Торкніться «Зберегти».'], expect: 'кнопка неактивна, нічого не відправляється.', reasons: ['Кнопка активна', 'Запис відправився знову'] },
   { id: '2.32.221-1', rev: '2.32.221', addedOn: '2026-10-30', title: 'Приховані: ОЧ ховається на обох телефонах (потрібен другий телефон)', steps: ['Переконайтесь, що на обох телефонах є ОЧ, яка не прихована.', 'На своєму телефоні відкрийте цю ОЧ, натисніть «Видалити ОЧ» і оберіть місяць, з якого її прибрати.', 'Через хвилину відкрийте застосунок на другому телефоні.'], expect: 'ОЧ прихована і на другому телефоні (без кнопки синхронізації).', reasons: ['На другому телефоні ОЧ лишилась', 'З\u2019явилась лише після ручної синхронізації'] },
   { id: '2.32.221-2', rev: '2.32.221', addedOn: '2026-10-30', title: 'Приховані: обоє ховають одну ОЧ (потрібен другий телефон)', steps: ['На обох телефонах вимкніть мережу (авіарежим) і на кожному приховайте ту саму ОЧ з різних місяців.', 'Увімкніть мережу спершу на другому телефоні, потім на своєму; зачекайте хвилину.'], expect: 'на обох телефонах ОЧ прихована з одного місяця (того, що збережено раніше на сервері), без вікон з вибором.', reasons: ['Місяці на телефонах різні', 'З\u2019явилась картка конфлікту'] },
+  { id: '2.32.222-1', rev: '2.32.222', addedOn: '2026-10-30', title: 'Автозаповнення: пошук', steps: ['Відкрийте вкладку «Журнал» і торкніться поля пошуку, введіть літеру.', 'Відкрийте «Структуру», вкладку «Словник», торкніться поля пошуку слова, введіть літеру.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась у пошуку журналу', 'Панель з\u2019явилась у пошуку слова'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
