@@ -136,3 +136,31 @@ test('27. діагностика полів: fields-snapshot на старті/�
   expect(JSON.stringify(r.ev)).not.toMatch(/value/i);
 });
 
+test('28. живий DOM: у редагуванні запису й у шторках (картка, ОЧ, дохід, форма «Структури») усі поля, крім входу, мають autocomplete=off; name/id без тире й слів-тригерів', async ({ page }) => {
+  await boot(page);
+  const grab = () => page.evaluate(() => {
+    const T = ['name', 'phone', 'tel', 'mail', 'addr', 'user', 'login', 'first', 'last', 'fio', 'contact'];
+    const bad = [];
+    document.querySelectorAll('input, textarea').forEach(el => {
+      const type = (el.getAttribute('type') || 'text').toLowerCase();
+      if(['checkbox', 'radio', 'hidden', 'file', 'color'].includes(type)) return;
+      if(el.id === 'cldfielda1' || el.id === 'cloud-password' || el.id === 'kb-focus-proxy') return;
+      const id = el.id.replace(/[0-9a-f]{8}-[0-9a-f-]{27}/g, 'U'), nm = el.getAttribute('name') || '';
+      if(el.getAttribute('autocomplete') !== 'off') bad.push(el.id + ': autocomplete=' + el.getAttribute('autocomplete'));
+      if(nm.includes('-')) bad.push(el.id + ': тире в name');
+      T.forEach(t => { if(id.toLowerCase().includes(t) || nm.toLowerCase().includes(t)) bad.push(el.id + ': тригер ' + t); });
+    });
+    return bad;
+  });
+  const steps = [
+    ['редагування запису', () => { const e = expenses[0]; switchTab('vytraty'); startEditRecord('expense', e.id); }],
+    ['картка', () => openAddBankModal()],
+    ['ОЧ', () => openAddInstallmentModal()],
+    ['дохід', () => openIncomeEditor(0)],
+    ['словник', () => { switchTab('structure'); switchStructureTab('dictionary'); const w = DICTIONARY.filter(d => !d.deletedAt)[0]; editDictionaryEntry(w.id); }],
+    ['категорії', () => { switchStructureTab('categories'); }],
+  ];
+  let bad = await grab(); expect(bad, 'старт').toEqual([]);
+  for(const [k, f] of steps){ await page.evaluate(f); await page.waitForTimeout(500); bad = await grab(); expect(bad, k).toEqual([]); }
+});
+

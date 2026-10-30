@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const TRIGGERS = ['name', 'phone', 'tel', 'mail', 'addr', 'user', 'login', 'first', 'last', 'fio', 'contact', 'card'];
-const SKIP_TYPES = ['checkbox', 'radio', 'hidden', 'file', 'range', 'date', 'month', 'time', 'color', 'submit', 'button'];
+const SKIP_TYPES = ['checkbox', 'radio', 'hidden', 'file', 'range', 'color', 'submit', 'button'];
 const LOGIN_IDS = ['cldfielda1', 'cloud-password'];
 function fields(){
   const out = [];
@@ -46,9 +46,9 @@ test('JS-фабрики input: кожна текстова проходить ч
   while((m = re.exec(SRC))) sites.push(SRC.slice(m.index, m.index + 700));
   assert.equal(sites.length, 6);
   const guarded = sites.filter(s => /applyFieldGuardAttrs\(/.test(s.slice(0, 400)));
-  assert.equal(guarded.length, 2, 'текстові поля: форма «Структури» і поле «Інше» у «Перевірках» — через фабрику');
-  const service = sites.filter(s => /type = 'checkbox'|type = 'time'|kb-focus-proxy|probe/.test(s.slice(0, 250)));
-  assert.equal(service.length, 4);
+  assert.equal(guarded.length, 3, 'форма «Структури», поле «Інше» у «Перевірках» і поле часу — через фабрику');
+  const service = sites.filter(s => /type = 'checkbox'|kb-focus-proxy|probe/.test(s.slice(0, 250)));
+  assert.equal(service.length, 3);
 });
 test('applyFieldGuardAttrs: name не містить тире', function(){
   assert.match(SRC, /id\.indexOf\('-'\) === -1 && forbiddenInputAttr\(id\) === null\) input\.setAttribute\('name', id\)/);

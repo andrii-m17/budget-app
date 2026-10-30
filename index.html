@@ -2516,7 +2516,7 @@
        читається по центру проміжку між карткою й першим записом. */
     #vytraty-default-view .vytraty-recent-col .section-label{ margin-top:20px; margin-bottom:20px; }
   }
-  /* BugFix Rev 2.0.7: справжня причина того, що <input type="date"> вилазив
+  /* BugFix Rev 2.0.7: справжня причина того, що <input type="date" autocomplete="off"> вилазив
      за межі картки — iOS Safari в певних версіях ІГНОРУЄ width:100% для цього
      типу поля й рендерить його за внутрішнім мінімальним розміром незалежно
      від контейнера (документована примха WebKit). Прийом "width:1px +
@@ -3368,7 +3368,7 @@
           <label for="f-date">Дата</label>
           <div class="date-nav-row">
             <button type="button" class="date-nav-btn" onclick="shiftExpenseDate(-1)" aria-label="На день раніше"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-            <div class="date-input-wrap"><input type="date" id="f-date" oninput="updateDateCaption(); saveExpenseDraft()"></div>
+            <div class="date-input-wrap"><input type="date" id="f-date" oninput="updateDateCaption(); saveExpenseDraft()" autocomplete="off"></div>
             <button type="button" class="date-nav-btn" onclick="shiftExpenseDate(1)" aria-label="На день пізніше"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
           </div>
           <div class="date-caption" id="date-caption"></div>
@@ -3447,7 +3447,7 @@
         <div class="journal-month-nav" id="journal-month-nav">
           <div class="date-nav-row">
             <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(-1)" aria-label="Попередній місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-            <div class="date-input-wrap"><input type="date" id="journal-date-input" onchange="onJournalDatePicked(this.value)" aria-label="Перейти до дати"></div>
+            <div class="date-input-wrap"><input type="date" id="journal-date-input" onchange="onJournalDatePicked(this.value)" aria-label="Перейти до дати" autocomplete="off"></div>
             <button type="button" class="date-nav-btn" onclick="shiftJournalMonth(1)" aria-label="Наступний місяць"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
           </div>
           <div class="journal-month-label" id="journal-month-label"></div>
@@ -3794,7 +3794,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.217</div>
+  <div class="version-footer">Money Tree · Rev 2.32.218</div>
 </div>
   </div>
 </div>
@@ -4409,7 +4409,7 @@
     <div class="row-2">
       <div class="field">
         <label for="idd-start">Дата створення</label>
-        <input type="date" id="idd-start" onchange="ochStartChanged()">
+        <input type="date" id="idd-start" onchange="ochStartChanged()" autocomplete="off">
       </div>
       <div class="field">
         <label for="idd-pay">Платіж/міс</label>
@@ -9146,7 +9146,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.217';
+const APP_VERSION = '2.32.218';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -18837,7 +18837,7 @@ function buildRecordGroupsHtml(items){
             </div></div>
           <div class="record-edit-row">
             <div class="field"><label for="edit-amount-${safeId(e.id)}">Сума, ₴</label><input type="text" id="edit-amount-${safeId(e.id)}" value="${formatThousands(e.amount)}" inputmode="numeric" onfocus="unformatAmountFocus(this)" onblur="formatAmountBlur(this)" autocomplete="off" spellcheck="false"></div>
-            <div class="field"><label for="edit-date-${safeId(e.id)}">Дата</label><input type="date" id="edit-date-${safeId(e.id)}" value="${e.date}"></div>
+            <div class="field"><label for="edit-date-${safeId(e.id)}">Дата</label><input type="date" id="edit-date-${safeId(e.id)}" value="${e.date}" autocomplete="off"></div>
           </div>
           <select id="edit-cat-${safeId(e.id)}" aria-label="Категорія" onchange="onRecordCategoryChange('${safeId(e.id)}')">${categoryOptionsHtml(e.category)}</select>
           <select id="edit-sub-${safeId(e.id)}" aria-label="Підкатегорія" onchange="onRecordSubcategoryChange('${safeId(e.id)}')">${subcategoryOptionsHtml(e.category, e.subcategory)}</select>
@@ -21708,6 +21708,8 @@ function forbiddenInputAttr(value){
 function applyFieldGuardAttrs(input, opts){
   const o = opts || {};
   if(!input || typeof input.setAttribute !== 'function') return input;
+  // Rev 2.32.218 (AUTOFILL-DATE): нетекстові поля (date, month, time, number тощо) — лише autocomplete=off: гіпотеза — набір «текст + дата + сума» Safari сприймає як контактну форму; autocorrect/autocapitalize/spellcheck/enterkeyhint для них не мають сенсу й не ставляться.
+  if(['date', 'month', 'time', 'datetime-local', 'week', 'number', 'range'].indexOf(String(input.type || '').toLowerCase()) !== -1){ input.setAttribute('autocomplete', 'off'); return input; }
   input.setAttribute('autocomplete', 'off'); input.setAttribute('autocorrect', 'off'); input.setAttribute('autocapitalize', 'off'); input.setAttribute('spellcheck', 'false');
   if(o.label) input.setAttribute('aria-label', o.label);
   input.setAttribute('enterkeyhint', o.enterkeyhint || 'done');
@@ -25111,7 +25113,7 @@ function renderNotificationsDrawer(){
     }else{ // time
       el = document.createElement('div'); el.className = 'n-time-row';
       const l = document.createElement('span'); l.className = 'n-row-title'; l.textContent = r.title;
-      const inp = document.createElement('input'); inp.type = 'time'; inp.value = r.value; inp.disabled = ro;
+      const inp = document.createElement('input'); inp.type = 'time'; inp.value = r.value; inp.disabled = ro; applyFieldGuardAttrs(inp);
       inp.id = r.id === 'quiet-start' ? 'ntffielda1' : 'ntffielda2'; // Rev 2.32.12 (R): абстрактні id (правило проєкту)
       inp.setAttribute('aria-label', r.id === 'quiet-start' ? 'Тихі години: початок' : 'Тихі години: кінець');
       inp.addEventListener('change', function(){
@@ -25506,6 +25508,7 @@ const CHECKS = [
   { id: '2.32.216-2', rev: '2.32.216', addedOn: '2026-10-30', title: 'Автозаповнення: картки, ОЧ, доходи', steps: ['Натисніть «+ Додати банк» і торкніться полів форми картки (назва, ліміт, день платежу, борг, мінімальний платіж).', 'Закрийте форму, натисніть «+ Додати ОЧ» і торкніться її полів.', 'Відкрийте будь-який дохід у списку й торкніться поля «Сума».'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась у формі картки', 'Панель з\u2019явилась в ОЧ чи доході'] },
   { id: '2.32.216-3', rev: '2.32.216', addedOn: '2026-10-30', title: 'Автозаповнення: пошук і примітки', steps: ['У «Журналі» торкніться поля пошуку.', 'Відкрийте «Структуру», вкладку «Словник», і торкніться поля пошуку слова.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт» (на полях входу в хмару панель паролів допустима).', reasons: ['Панель з\u2019явилась у пошуку', 'Панель з\u2019явилась у «Словнику»'] },
   { id: '2.32.217-1', rev: '2.32.217', addedOn: '2026-10-30', title: 'Автозаповнення: після Словника', steps: ['Відкрийте «Структуру», вкладку «Словник», і оберіть будь-яке слово; закрийте його.', 'Відкрийте «Нова витрата» і торкніться полів «Назва» та «Сума».'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась на «Назві»', 'Панель з\u2019явилась на «Сумі»'] },
+  { id: '2.32.218-1', rev: '2.32.218', addedOn: '2026-10-30', title: 'Автозаповнення: редагування витрати', steps: ['У «Журналі витрат» торкніться витрати й відкрийте редагування.', 'Торкніться поля назви.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась на «Назві»', 'Панель з\u2019явилась на іншому полі'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
