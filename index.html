@@ -3794,7 +3794,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.219</div>
+  <div class="version-footer">Money Tree · Rev 2.32.220</div>
 </div>
   </div>
 </div>
@@ -9165,7 +9165,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.219';
+const APP_VERSION = '2.32.220';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14487,6 +14487,8 @@ async function saveIncomeDrawer(){
       incomes[existingIdx].updatedAt = nowISO;
       pushedRecord = incomes[existingIdx];
     }
+  }else if(existingIdx>=0 && !incomes[existingIdx].deletedAt && incomes[existingIdx].amount === amount){
+    // Rev 2.32.220 (NO-OP-SAVE): та сама сума живого запису — нічого не змінюємо й не шлемо (updatedAt/localRev не рухаються)
   }else if(existingIdx>=0){
     incomes[existingIdx].amount = amount;
     // Rev #30 (6D.7) — updatedAt тепер оновлюється й при редагуванні
@@ -14506,7 +14508,7 @@ async function saveIncomeDrawer(){
     incomes.push(rec);
     pushedRecord = rec;
   }
-  reportSaveResult(await saveIncomes());
+  if(pushedRecord) reportSaveResult(await saveIncomes());
   if(pushedRecord) pushIncomeRecordPilot(pushedRecord);
   closeIncomeEditor();
   renderAll();
@@ -15212,6 +15214,9 @@ async function saveInstallmentDrawer(confirmedDup){
     // лишились без прив'язки). */
     if(renameInfo.expenses) reportSaveResult(await saveExpenses());
   }
+  // Rev 2.32.220 (NO-OP-SAVE): ОЧ пишеться лише за справжньої зміни полів (інакше updatedAt/localRev не рухаються й запиту нема)
+  const instSig = function(){ return [acc.name, acc.initialAmount, acc.termMonths, acc.startDate, acc.payment, acc.firstPayment, acc.payMode, acc.dueDay].map(function(v){ return v == null ? '' : v; }).join('|'); };
+  const instBefore = instSig();
   acc.name = newName;
   acc.initialAmount = newInitial;
   // Rev 2.32.171 (OCH-MODEL): модель ОЧ. «Місяців» — необов'язкове ціле 1–360; «Дата створення» — YYYY-MM-DD (день платежу = її число; без дати створення dueDay лишається як був); «Платіж/міс» пишеться в payment лише якщо користувач сам його змінив (інакше null: стандартний платіж = сума ÷ місяці); сегменти пишуться явно. Для старих ОЧ нові поля null до першого «Зберегти».
@@ -15233,8 +15238,10 @@ async function saveInstallmentDrawer(confirmedDup){
   // дата платежу разом, той самий принцип, що saveCardDebtDrawer()) —
   // Крок 0 явно перевіряв, що due_day теж мусить тригерити цей штамп, а не
   // лише name/initialAmount.
-  acc.updatedAt = new Date().toISOString();
-  reportSaveResult(await saveInstallmentAccounts());
+  if(instSig() !== instBefore){
+    acc.updatedAt = new Date().toISOString();
+    reportSaveResult(await saveInstallmentAccounts());
+  }
 
   const rawBal = document.getElementById('idd-balance').value.trim();
   const balance = parseAmount(rawBal);
@@ -15256,7 +15263,9 @@ async function saveInstallmentDrawer(confirmedDup){
     }
   }else{
     const monthlyPayment = existingIdx>=0 ? debts[existingIdx].monthlyPayment : undefined; // Rev 2.32.171: платіж місяця форма більше не пише (стандартний платіж — у моделі ОЧ)
-    if(existingIdx>=0){
+    if(existingIdx>=0 && !debts[existingIdx].deletedAt && debts[existingIdx].balance === balance && debts[existingIdx].monthlyPayment === monthlyPayment){
+      // Rev 2.32.220 (NO-OP-SAVE): борг місяця ОЧ без змін — нічого не пишемо й не шлемо
+    }else if(existingIdx>=0){
       debts[existingIdx].balance = balance;
       debts[existingIdx].monthlyPayment = monthlyPayment;
       // Rev #30 (6D.7) — той самий принцип, що saveIncomeDrawer(): updatedAt
@@ -15275,7 +15284,7 @@ async function saveInstallmentDrawer(confirmedDup){
       pushedRecord = rec;
     }
   }
-  reportSaveResult(await saveDebts());
+  if(pushedRecord) reportSaveResult(await saveDebts());
   if(pushedRecord) pushDebtRecordPilot(pushedRecord);
   closeInstallmentEditor();
   renderAll();
@@ -15563,13 +15572,17 @@ async function saveCardDebtDrawer(confirmedDup){
     // оновлюються, щоб історія й графіки лишались коректними під новою назвою.
     debts.forEach(function(d){ if(d.name===oldName && d.kind==='card') d.name = newName; });
   }
+  // Rev 2.32.220 (NO-OP-SAVE): картка пишеться лише за справжньої зміни полів (інакше updatedAt/localRev не рухаються й запиту нема)
+  const accChanged = acc.name !== newName || acc.creditLimit !== newLimit || (acc.paymentDay || null) !== (paydayFromInput || null);
   acc.name = newName;
   acc.creditLimit = newLimit;
   acc.paymentDay = paydayFromInput; // Rev 2.32.63 (P1): порожнє = null
   // Rev #30 (6D, bank_accounts Варіант А) — updatedAt оновлюється й при
   // редагуванні (назва/ліміт), createdAt лишається як був.
-  acc.updatedAt = new Date().toISOString();
-  reportSaveResult(await saveBankAccounts());
+  if(accChanged){
+    acc.updatedAt = new Date().toISOString();
+    reportSaveResult(await saveBankAccounts());
+  }
 
   const balRaw = document.getElementById('cdd-balance').value.trim();
   const balAmount = parseAmount(balRaw);
@@ -15593,7 +15606,9 @@ async function saveCardDebtDrawer(confirmedDup){
     const minPayAmount = parseAmount(minPayRaw);
     const minPayment = (minPayRaw && !isNaN(minPayAmount) && minPayAmount>=0) ? minPayAmount : null;
     const minPaymentDone = !!document.getElementById('cdd-paid').checked;
-    if(existingIdx>=0){
+    if(existingIdx>=0 && !debts[existingIdx].deletedAt && debts[existingIdx].balance === balAmount && (debts[existingIdx].minPayment == null ? null : debts[existingIdx].minPayment) === minPayment && !!debts[existingIdx].minPaymentDone === minPaymentDone){
+      // Rev 2.32.220 (NO-OP-SAVE): борг місяця без змін — нічого не пишемо й не шлемо
+    }else if(existingIdx>=0){
       debts[existingIdx].balance = balAmount;
       debts[existingIdx].minPayment = minPayment;
       debts[existingIdx].minPaymentDone = minPaymentDone;
@@ -15609,7 +15624,7 @@ async function saveCardDebtDrawer(confirmedDup){
       pushedRecord = rec;
     }
   }
-  reportSaveResult(await saveDebts());
+  if(pushedRecord || newName !== oldName) reportSaveResult(await saveDebts()); // перейменування картки каскадом змінило назви боргів
   if(pushedRecord) pushDebtRecordPilot(pushedRecord);
   closeCardDebtEditor();
   renderAll();
@@ -17959,6 +17974,12 @@ async function saveRecordEditCore(id){
   if(!amount || amount<=0){ flashField('edit-amount-'+id); return false; }
   if(!date){ flashField('edit-date-'+id); return false; }
   const editBefore = { name: rec.name, amount: rec.amount, date: rec.date, category: rec.category, subcategory: rec.subcategory, linkedInstallment: rec.linkedInstallment }; // Rev 2.32.90 (EDITED-1)
+  // Rev 2.32.220 (NO-OP-SAVE): збереження без змін (кнопка неактивна, але виклик можливий програмно/з клавіатури) нічого не пише: ні updatedAt/localRev, ні запиту до сервера; редагування просто закривається.
+  if(!expenseEditChanged(editBefore, { name: name, amount: amount, date: date, category: catSel.value, subcategory: subSel.value, linkedInstallment: instSel ? (instSel.value || undefined) : rec.linkedInstallment })){
+    editingRecordKey = null; editSnapshot = null;
+    renderAll();
+    return true;
+  }
   rec.name = name;
   rec.amount = amount;
   rec.date = date;
@@ -25533,6 +25554,7 @@ const CHECKS = [
   { id: '2.32.218-1', rev: '2.32.218', addedOn: '2026-10-30', title: 'Автозаповнення: редагування витрати', steps: ['У «Журналі витрат» торкніться витрати й відкрийте редагування.', 'Торкніться поля назви.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась на «Назві»', 'Панель з\u2019явилась на іншому полі'] },
   { id: '2.32.219-1', rev: '2.32.219', addedOn: '2026-10-30', title: 'Конфлікти: видалення свайпом', steps: ['Відкрийте журнал сповіщень (дзвіночок), де є оброблений конфлікт.', 'Проведіть по його рядку ліворуч і торкніться «Видалити».'], expect: 'рядок конфлікту зникає одразу.', reasons: ['Свайп не працює', 'Рядок не зникає'] },
   { id: '2.32.219-2', rev: '2.32.219', addedOn: '2026-10-30', title: 'Конфлікти: необроблений', steps: ['Відкрийте журнал сповіщень, де є необроблений конфлікт.', 'Проведіть по його рядку ліворуч і торкніться «Видалити».'], expect: 'перед видаленням є підтвердження «Видалити? Ваше значення … не буде повернено».', reasons: ['Підтвердження не з\u2019явилось', 'Рядок зник без підтвердження'] },
+  { id: '2.32.220-1', rev: '2.32.220', addedOn: '2026-10-30', title: 'Збереження без змін', steps: ['Відкрийте редагування будь-якої витрати й нічого не змінюйте.', 'Торкніться «Зберегти».'], expect: 'кнопка неактивна, нічого не відправляється.', reasons: ['Кнопка активна', 'Запис відправився знову'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
@@ -26688,6 +26710,7 @@ function openStructForm(cfg){
   save.textContent = cfg.edit ? 'Зберегти' : 'Додати';
   if(cfg.edit) setSaveGate(save, false); else{ save.classList.remove('save-gated'); save.removeAttribute('aria-disabled'); save.removeAttribute('tabindex'); } // Rev 2.32.144 (SAVE-DIRTY): у створенні кнопка завжди активна
   save.onclick = async function(){
+    if(cfg.edit && structForm && structForm.snap && !saveFormChanged(structForm.snap, structForm.read(), false)){ closeStructForm(); return; } // Rev 2.32.220 (NO-OP-SAVE): редагування без змін нічого не зберігає й не оновлює час
     const vals = { name: input.value.trim(), type: state.type };
     Object.keys(picks).forEach(function(k){ vals[k] = picks[k].select.value; });
     if(!vals.name){ flashField('sf-group-main'); return; }

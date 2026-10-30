@@ -204,3 +204,26 @@ test('29. журнал сповіщень, «Конфлікти»: свайп в
   expect(await page.evaluate(() => conflictLog.map(x => x.status))).toEqual(['open']); expect(await badge()).toBe('1');
 });
 
+test('30. збереження без змін: 0 записів на сервер, updatedAt/localRev не змінюються (витрата, дохід, картка, ОЧ, структура); зі змінами — запит є', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { const now = new Date().toISOString(); expenses.unshift({ id: generateUUID(), date: localDateISO(), name: 'Тест збереження', amount: 10, category: '', subcategory: '', manual: true, createdAt: now, updatedAt: now }); renderAll(); window.__eid = expenses[0].id; });
+  await page.waitForTimeout(1500);
+  const writes = () => page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length);
+  const sig = () => page.evaluate(() => JSON.stringify([expenses.map(r => [r.id, r.updatedAt, r.localRev]), incomes.map(r => [r.id, r.updatedAt, r.localRev]), bankAccounts.map(r => [r.updatedAt, r.localRev]), installmentAccounts.map(r => [r.updatedAt, r.localRev]), debts.map(r => [r.id, r.updatedAt, r.localRev]), CATEGORIES.map(r => [r.name, r.updatedAt, r.localRev])]));
+  const run = async (label, fn) => {
+    const w0 = await writes(), s0 = await sig();
+    await page.evaluate(fn); await page.waitForTimeout(1200);
+    expect(await writes(), label + ': запитів запису').toBe(w0); expect(await sig(), label + ': updatedAt/localRev').toBe(s0);
+  };
+  await run('витрата', async () => { const e = expenses.find(x => x.id === window.__eid); switchTab('vytraty'); startEditRecord('expense', e.id); await new Promise(r => setTimeout(r, 300)); await saveRecordEdit(e.id); });
+  await run('дохід', async () => { const inc = incomes.filter(x => !x.deletedAt)[0]; selectedMonth = monthKey(inc.date); const i = INCOME_SOURCES.findIndex(s => sameIncomeSource(inc.source, s.key)); openIncomeEditor(i); await new Promise(r => setTimeout(r, 300)); await saveIncomeDrawer(); });
+  await run('картка', async () => { openCardDebtEditor(0); await new Promise(r => setTimeout(r, 300)); await saveCardDebtDrawer(); });
+  await run('ОЧ', async () => { openInstallmentEditor(0); await new Promise(r => setTimeout(r, 300)); await saveInstallmentDrawer(); });
+  await run('категорія', async () => { switchTab('structure'); editCategory(0); await new Promise(r => setTimeout(r, 300)); document.getElementById('sf-save').click(); });
+  // зі змінами: рівно один запит запису (витрата)
+  const w0 = await writes();
+  await page.evaluate(async () => { const e = expenses.find(x => x.id === window.__eid); switchTab('vytraty'); startEditRecord('expense', e.id); await new Promise(r => setTimeout(r, 300)); document.getElementById('edit-amount-' + e.id).value = String(e.amount + 1); await saveRecordEdit(e.id); });
+  await page.waitForTimeout(1500);
+  expect((await writes()) - w0, 'зі змінами є запит').toBeGreaterThanOrEqual(1);
+});
+
