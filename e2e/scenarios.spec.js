@@ -409,3 +409,68 @@ test('22. після вставки підказки (touchend не прийшо
   expect(await tapDelay('.date-nav-btn >> nth=1', 'click'), 'тап по кнопці').toBeLessThan(150);
 });
 
+// Rev 2.32.221 (MERGE-HIDDEN): приховані на спільному злитті — два пристрої на моку, годинник ±1 доба, без картки конфлікту.
+test('11. приховані: обоє приховали (сервер переміг, годинник ±1 доба), один приховав — інший показав, рядок зник на сервері, запис без зліпка, повторне приховування без змін', async ({ page }) => {
+  await page.goto('/index.html?fixture=typical');
+  await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+  await page.waitForTimeout(1500);
+  const info = await page.evaluate(async () => {
+    const acc = installmentAccounts.find(a => a.cloudId);
+    window.__acc = acc; window.__key = hideKeyForAccount(acc, 'installment');
+    hideEntityFromMonth(window.__key, '2026-01', null, acc.name); await saveHiddenFrom();
+    return { id: acc.cloudId };
+  });
+  const row = () => page.evaluate(i => { const r = window.MockCloud.state.tables.hidden_entities.find(x => x.entity_id === i); return r ? [r.hidden_from_month, r.deleted_at] : null; }, info.id);
+  await expect.poll(row, { timeout: 15000 }).toEqual(['2026-01-01', null]);
+  await page.waitForFunction(k => hiddenFrom[k] && hiddenFrom[k].serverBase && hiddenFrom[k].serverUpdatedAt, await page.evaluate(() => window.__key));
+  const reset = async () => { // сервер і локальний запис у вихідному стані (2026-01, не видалено), зі зліпком
+    await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'hidden_entities', key: 'entity_id', id: i, op: 'update', patch: { hidden_from_month: '2026-01-01', deleted_at: null } }); }, info.id);
+    await page.evaluate(async () => { await pullHiddenEntitiesCore(); });
+    await page.waitForFunction(() => hiddenFrom[window.__key].month === '2026-01' && !hiddenFrom[window.__key].deletedAt && hiddenFrom[window.__key].serverBase);
+  };
+  // A. обоє приховали різні місяці; годинник пристрою ±1 доба не міняє результату
+  for(const skew of [86400000, -86400000]){
+    await reset();
+    await page.evaluate(() => { window.__offline = true; });
+    await page.evaluate(async skew => { hideEntityFromMonth(window.__key, '2026-03', null, window.__acc.name); hiddenFrom[window.__key].updatedAt = new Date(Date.now() + skew).toISOString(); await saveHiddenFromLocal(); }, skew);
+    await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'hidden_entities', key: 'entity_id', id: i, op: 'update', patch: { hidden_from_month: '2026-02-01' } }); }, info.id);
+    await goOnline(page);
+    await page.evaluate(async () => { await pushHiddenEntitiesPilot(); await pullHiddenEntitiesCore(); });
+    expect(await page.evaluate(() => hiddenFrom[window.__key].month), 'сервер переміг (' + skew + ')').toBe('2026-02');
+    expect(await row()).toEqual(['2026-02-01', null]);
+    expect(await page.evaluate(() => conflictLog.length), 'картки конфлікту нема').toBe(0);
+  }
+  // B. я змінив місяць, інший показав назад: перемагає сервер (показано)
+  await reset();
+  await page.evaluate(() => { window.__offline = true; });
+  await page.evaluate(async () => { hideEntityFromMonth(window.__key, '2026-04', null, window.__acc.name); await saveHiddenFromLocal(); });
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'hidden_entities', key: 'entity_id', id: i, op: 'update', patch: { deleted_at: new Date().toISOString() } }); }, info.id);
+  await goOnline(page);
+  await page.evaluate(async () => { await pushHiddenEntitiesPilot(); await pullHiddenEntitiesCore(); });
+  expect(await page.evaluate(() => !!hiddenFrom[window.__key].deletedAt), 'показано назад (сервер)').toBe(true);
+  expect((await row())[1]).not.toBeNull();
+  expect(await page.evaluate(() => conflictLog.length)).toBe(0);
+  // C. рядок зник на сервері (висячий): правка йде попереднім upsert
+  await reset();
+  await page.evaluate(() => { window.__offline = true; });
+  await page.evaluate(async () => { hideEntityFromMonth(window.__key, '2026-05', null, window.__acc.name); await saveHiddenFromLocal(); });
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'hidden_entities', key: 'entity_id', id: i, op: 'harddelete' }); }, info.id);
+  await goOnline(page);
+  await page.evaluate(async () => { await pushHiddenEntitiesPilot(); });
+  await expect.poll(row, { timeout: 15000 }).toEqual(['2026-05-01', null]);
+  // D. запис без зліпка: попередній upsert, після нього зліпок з'являється
+  await page.evaluate(async () => { const en = hiddenFrom[window.__key]; delete en.serverBase; delete en.serverUpdatedAt; hideEntityFromMonth(window.__key, '2026-06', null, window.__acc.name); await saveHiddenFromLocal(); await pushHiddenEntitiesPilot(); });
+  await expect.poll(row, { timeout: 15000 }).toEqual(['2026-06-01', null]);
+  expect(await page.evaluate(() => !!hiddenFrom[window.__key].serverBase)).toBe(true);
+  // E. повторне приховування з тим самим місяцем: версія не змінюється, запитів запису нема
+  await page.waitForTimeout(500);
+  const before = await page.evaluate(() => ({ s: JSON.stringify(hiddenFrom[window.__key]), w: window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length }));
+  await page.evaluate(async () => { hideEntityFromMonth(window.__key, '2026-06', null, window.__acc.name); await saveHiddenFrom(); });
+  await page.waitForTimeout(1000);
+  const after = await page.evaluate(() => ({ s: JSON.stringify(hiddenFrom[window.__key]), w: window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length }));
+  expect(after).toEqual(before);
+  // F. приховане під старим ключем (за назвою): міграція на ключ за id зберігається, запис отримує зліпок сервера
+  await page.evaluate(async () => { const old = hideKeyLegacy(window.__acc.name, 'installment'); hiddenFrom[old] = { month: '2026-06', updatedAt: '2020-01-01T00:00:00.000Z', syncedUpdatedAt: '2020-01-01T00:00:00.000Z', accountName: window.__acc.name }; delete hiddenFrom[window.__key]; await saveHiddenFromLocal(); await pullHiddenEntitiesCore(); });
+  const mig = await page.evaluate(() => ({ old: !!hiddenFrom[hideKeyLegacy(window.__acc.name, 'installment')], neu: hiddenFrom[window.__key] ? hiddenFrom[window.__key].month : null }));
+  expect(mig.neu, 'ключ за id після міграції').toBeTruthy();
+});

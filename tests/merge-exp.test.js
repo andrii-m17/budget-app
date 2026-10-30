@@ -204,7 +204,9 @@ test('журнал конфліктів: 14 днів, чиста міграці�
   A.conflictLog.forEach(x => { x.status = 'kept'; }); assert.ok(!/data-conflict-act/.test(A.conflictSectionHtml()));
 });
 test('джерело: умовний update лише змінених полів з умовою на серверний updated_at, без нових запитів поза конфліктом; журнал очищається при виході; значок рахує відкриті конфлікти', () => {
-  assert.match(SRC, /client\.from\(dom\.table\)\.update\(payload\)\.eq\('id', rec\.id\)\.eq\('updated_at', rec\.serverUpdatedAt\)\.select\('id,updated_at'\)/);
+  assert.match(SRC, /mdWhere\(dom, client\.from\(dom\.table\)\.update\(payload\), rec\)/); // Rev 2.32.221: ключ рядка через mdWhere (за замовчуванням id)
+  assert.match(SRC, /function mdWhere\(dom, q, rec\)\{ return dom\.where \? dom\.where\(q, rec\) : q\.eq\('id', rec\.id\); \}/);
+  assert.match(SRC, /q0\.eq\('updated_at', rec\.serverUpdatedAt\)\.select\(dom\.retCols \|\| 'id,updated_at'\)/);
   assert.match(SRC, /accountLocalStorageKeys[\s\S]{0,400}LS_KEY_CONFLICTS/);
   assert.match(SRC, /unreadBadge\(unreadAll\)/);
   assert.ok(!/localTime\s*[<>]=?\s*cloudTime[^\n]*(localRev|syncedRev)/.test(SRC));
