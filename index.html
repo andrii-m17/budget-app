@@ -208,6 +208,12 @@
      сповіщення. Контейнер без видимого контуру; кнопки без затримки подвійного тапу. */
   [tabindex="-1"]:focus, [tabindex="-1"]:focus-visible{ outline:none; }
   button, .service-wide-card, .service-tile{ touch-action:manipulation; }
+  /* Rev 2.32.214 (TAP-1): touch-action:manipulation на всіх інтерактивних елементах (без затримки подвійного дотику; прокрутка й жести панорамування не змінюються) */
+  [role="button"], a[href], label, input, select, textarea, [onclick], .expense-row, .notif-row, .chip, .mono-row, .struct-row, .pay-day, .pay-line, .card-debt-compact-row, .side-tab, .chk-row{ touch-action:manipulation; }
+  /* Rev 2.32.214 (TAP-1): зони дотику до 44 пт без зміни вигляду: невидимий псевдоелемент (сусідні зони не перекриваються: проміжок між шапковими кнопками 8 px = 4 + 4) */
+  .gear-btn, .exp-del, .struct-tab-btn{ position:relative; }
+  .gear-btn::after, .exp-del::after{ content:''; position:absolute; left:50%; top:50%; width:44px; height:44px; transform:translate(-50%,-50%); } /* рівно 44×44 за центром кнопки незалежно від її бордюру */
+  .struct-tab-btn::after{ content:''; position:absolute; left:0; right:0; top:50%; height:44px; transform:translateY(-50%); }
   input:disabled, select:disabled{ background:var(--color-disabled-bg); color:var(--color-disabled-text); cursor:not-allowed; border-color:var(--color-border); }
   button:disabled{ cursor:not-allowed; opacity:.7; }
   svg.icon{ width:18px; height:18px; flex-shrink:0; }
@@ -3348,7 +3354,7 @@
              JS чи CSS. Повний хід ізоляції — docs/ROADMAP.md, 6D.136-141. -->
         <div class="field"><label>Назва витрати</label>
           <div style="position:relative;">
-            <input type="text" id="expfielda7" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput(event)" onfocus="if(!suggestSuppressed) updateNameSuggestions(this.value)" onblur="setTimeout(hideNameSuggestions, 150)" onkeydown="handleNameKeydown(event)">
+            <input type="text" id="expfielda7" aria-label="Назва витрати" placeholder="напр. таксі додому" oninput="onNameInput(event)" onfocus="if(!suggestSuppressed) updateNameSuggestions(this.value)" onblur="scheduleHideNameSuggestions()" onkeydown="handleNameKeydown(event)">
             <div class="name-suggest-list" id="name-suggest-list"></div>
           </div>
           <div class="field auto-hint" id="auto-hint">
@@ -3788,7 +3794,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.213</div>
+  <div class="version-footer">Money Tree · Rev 2.32.214</div>
 </div>
   </div>
 </div>
@@ -9140,7 +9146,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.213';
+const APP_VERSION = '2.32.214';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13413,6 +13419,7 @@ function isStandaloneDisplayMode(navigatorStandalone, matchMediaStandalone){
 let debugRecordingActive = false;
 let debugRecordingStartedAt = 0;
 let debugLongTaskObserver = null; // Rev 2.32.211
+let debugEventTimingObserver = null; // Rev 2.32.214
 let debugRecordingScenario = '';
 let debugEventBuffer = [];
 let debugRecordingAutoStopTimer = null;
@@ -13695,6 +13702,13 @@ function startDebugRecording(scenario){
   debugRecordingScenario = (scenario || '').slice(0, 120);
   debugEventBuffer = [];
   // Rev 2.32.211 (SUGGEST-LAG): довгі задачі головного потоку (>50 мс) у записі діагностики, лише тривалість; спостерігач живе, поки йде запис.
+  // Rev 2.32.214 (TAP-1): повільні взаємодії (Event Timing, INP) понад 200 мс у записі діагностики: лише назва події й тривалість.
+  try{
+    if(typeof PerformanceObserver !== 'undefined' && !debugEventTimingObserver){
+      debugEventTimingObserver = new PerformanceObserver(function(list){ list.getEntries().forEach(function(en){ if(debugRecordingActive && en.duration >= 200) pushDebugEvent({ t: Math.round(en.startTime - debugRecordingStartedAt), type: 'slow-interaction', ev: String(en.name || '').slice(0, 24), dur: Math.round(en.duration) }); }); });
+      debugEventTimingObserver.observe({ type: 'event', durationThreshold: 200, buffered: false });
+    }
+  }catch(e){ debugEventTimingObserver = null; }
   try{
     if(typeof PerformanceObserver !== 'undefined' && !debugLongTaskObserver){
       debugLongTaskObserver = new PerformanceObserver(function(list){ list.getEntries().forEach(function(en){ if(debugRecordingActive) pushDebugEvent({ t: Math.round(en.startTime - debugRecordingStartedAt), type: 'longtask', dur: Math.round(en.duration) }); }); });
@@ -17275,6 +17289,7 @@ function updateNameSuggestions(text){
   suggestGen++; // Rev 2.32.132: нове покоління розмітки — старі дотики (touchstart до перемалювання) більше не вибирають
   debugSuggestRender('new', matches, activeNameSuggestIdx); // Rev 2.32.129
   if(!matches.length){ listEl.classList.remove('show'); listEl.innerHTML=''; return; }
+  suggestClearPending = false; clearTimeout(suggestClearTimer); // новий список відмальовується поверх відкладеного очищення
   listEl.innerHTML = matches.map(function(n,i){
     const h = nameHistoryMap[n];
     const meta = h.lastCategory ? stripLeadingEmoji(h.lastCategory) : '';
@@ -17345,12 +17360,38 @@ function selectNameSuggestion(i){
   const amountInput = document.getElementById('f-amount');
   if(amountInput){ try{ amountInput.focus({preventScroll:true}); }catch(e){ amountInput.focus(); } }
 }
+// Rev 2.32.214 (TAP-1): тап по підказці знімає фокус із поля (blur), і колишнє setTimeout(hideNameSuggestions, 150) видаляло з DOM рядок, до якого ще торкаються: iOS втрачав touchend цього дотику (журнал input-bug). Тепер список ховається візуально одразу (клас show), але вузли лишаються в DOM, поки триває дотик по списку (touchstart/pointerdown → touchend/pointerup/cancel); очищення — не раніше ніж через 150 мс після завершення дотику, найпізніше через SUGGEST_TOUCH_MAX_HOLD_MS (захист від втраченого touchend).
+const SUGGEST_HIDE_DELAY_MS = 150;
+const SUGGEST_TOUCH_MAX_HOLD_MS = 1500;
+let suggestListTouching = false, suggestListTouchAt = 0, suggestClearPending = false, suggestClearTimer = null, suggestHideTimer = null;
+function suggestClearList(){
+  suggestClearPending = false; clearTimeout(suggestClearTimer); suggestClearTimer = null;
+  const listEl = document.getElementById('name-suggest-list');
+  if(listEl && !listEl.classList.contains('show')) listEl.innerHTML = '';
+}
+function scheduleHideNameSuggestions(){
+  clearTimeout(suggestHideTimer);
+  suggestHideTimer = setTimeout(function(){ suggestHideTimer = null; hideNameSuggestions(); }, SUGGEST_HIDE_DELAY_MS);
+}
+function suggestListTouchEnd(){
+  if(!suggestListTouching) return;
+  suggestListTouching = false;
+  if(suggestClearPending){ clearTimeout(suggestClearTimer); suggestClearTimer = setTimeout(suggestClearList, SUGGEST_HIDE_DELAY_MS); }
+}
 function hideNameSuggestions(){
   lastSuggestKey = '';
   const listEl = document.getElementById('name-suggest-list');
-  if(listEl){ listEl.classList.remove('show'); listEl.innerHTML=''; }
+  if(listEl){
+    listEl.classList.remove('show');
+    if(suggestListTouching && Date.now() - suggestListTouchAt < SUGGEST_TOUCH_MAX_HOLD_MS){ // дотик по списку триває: вузли лишаються, очищення після його завершення
+      suggestClearPending = true; clearTimeout(suggestClearTimer);
+      suggestClearTimer = setTimeout(function(){ suggestListTouching = false; suggestClearList(); }, SUGGEST_TOUCH_MAX_HOLD_MS);
+    }else listEl.innerHTML = '';
+  }
   activeNameSuggestIdx = -1;
 }
+['touchstart', 'pointerdown'].forEach(function(ev){ document.addEventListener(ev, function(e){ if(e.target && e.target.closest && e.target.closest('#name-suggest-list')){ suggestListTouching = true; suggestListTouchAt = Date.now(); } }, { passive: true, capture: true }); });
+['touchend', 'touchcancel', 'pointerup', 'pointercancel'].forEach(function(ev){ document.addEventListener(ev, suggestListTouchEnd, { passive: true, capture: true }); });
 
 // Rev 2.1.2 — заголовки груп журналу: "Сьогодні"/"Вчора" для двох останніх днів,
 // інакше "{день} {місяць у родовому відмінку}" (той самий monthGenitive, що й
@@ -25392,6 +25433,7 @@ const CHECKS = [
   { id: '2.32.211-1', rev: '2.32.211', addedOn: '2026-10-30', title: 'Підказка назви вставляється одразу', steps: ['Відкрийте «Нова витрата» й торкніться поля назви (клавіатура відкрита).', 'Введіть «про».', 'Один раз торкніться підказки «Продукти Велмарт».'], expect: 'назва вставилась одразу (до півсекунди), фокус перейшов на «Суму».', reasons: ['Вставилась із затримкою', 'Не вставилась'] },
   { id: '2.32.212-1', rev: '2.32.212', addedOn: '2026-10-30', title: 'Підказка назви: один дотик без повторного', steps: ['Відкрийте «Нова витрата» й торкніться поля назви (клавіатура відкрита), введіть «про».', 'Один раз коротко торкніться підказки «Продукти Велмарт».'], expect: 'назва вставилась одразу, без повторного дотику.', reasons: ['Рядок лишається натиснутим', 'Вставилась із затримкою'] },
   { id: '2.32.213-1', rev: '2.32.213', addedOn: '2026-10-30', title: 'Поле назви реагує одразу після підказки', steps: ['Відкрийте «Нова витрата» й торкніться поля назви (клавіатура відкрита), введіть «про» й торкніться підказки.', 'Одразу торкніться поля назви.'], expect: 'фокус у полі назви з першого дотику.', reasons: ['Не реагує', 'Реагує із затримкою'] },
+  { id: '2.32.214-1', rev: '2.32.214', addedOn: '2026-10-30', title: 'Дотики з першого разу', steps: ['Відкрийте «Облік» (мережа є) і торкніться по черзі підвкладок «Обліку» й «Структури», шестерні, дзвіночка та аватара.'], expect: 'кожен тап спрацьовує з першого разу без повторних дотиків.', reasons: ['Не спрацював з першого разу', 'Спрацював двічі'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
