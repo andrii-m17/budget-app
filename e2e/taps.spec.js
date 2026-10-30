@@ -271,3 +271,23 @@ test('32. тап по push позначає відповідне сповіще�
   st = await state(); expect(st.read).toEqual([true, false]); expect(st.bell).toBe('1'); expect(st.queue).toEqual(['o1']);
 });
 
+test('33. пошук журналу: під час набору 0 змін DOM у select, полі дати й контейнері (крім списку), список оновлюється, фокус і курсор лишаються', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { const now = new Date().toISOString(); ['Кава тест', 'Кіт тест', 'Хліб'].forEach(n => expenses.unshift({ id: generateUUID(), date: localDateISO(), name: n, amount: 10, category: '', subcategory: '', manual: true, createdAt: now, updatedAt: now })); renderAll(); performSwitchTab('vytraty', { noFocus: true }); openJournal(monthKey(localDateISO())); });
+  await page.waitForTimeout(800);
+  const input = page.locator('#journal-search-input');
+  await input.click();
+  await page.evaluate(() => {
+    window.__muts = [];
+    const body = document.querySelector('#journal-overlay .journal-body');
+    new MutationObserver(list => list.forEach(m => { if(m.target.closest && m.target.closest('#journal-list')) return; window.__muts.push((m.target.id || m.target.className || m.target.nodeName) + ':' + m.type + ':' + (m.attributeName || '')); })).observe(body, { subtree: true, childList: true, attributes: true, characterData: true });
+  });
+  await page.keyboard.type('к'); await page.waitForTimeout(150); await page.keyboard.type('а'); await page.waitForTimeout(150); await page.keyboard.type('в');
+  await page.waitForTimeout(300);
+  const r = await page.evaluate(() => ({ muts: window.__muts, rows: document.querySelectorAll('#journal-list .journal-row, #journal-list [data-rec-id]').length, txt: document.getElementById('journal-list').textContent, focus: document.activeElement.id, caret: document.getElementById('journal-search-input').selectionStart, val: document.getElementById('journal-search-input').value }));
+  const mutsNoSummary = r.muts.filter(x => !/journal-search-summary|journal-search-clear/.test(x)); // підсумок «Знайдено N» і ✕ змінюються лише при зміні стану (перша літера)
+  expect(r.val).toBe('кав'); expect(r.focus).toBe('journal-search-input'); expect(r.caret).toBe(3);
+  expect(r.txt).toContain('Кава тест'); expect(r.txt).not.toContain('Хліб');
+  expect(mutsNoSummary, JSON.stringify(r.muts)).toEqual([]);
+});
+

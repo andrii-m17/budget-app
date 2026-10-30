@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.223</div>
+  <div class="version-footer">Money Tree · Rev 2.32.224</div>
 </div>
   </div>
 </div>
@@ -9220,7 +9220,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.223';
+const APP_VERSION = '2.32.224';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -19050,7 +19050,7 @@ function renderRecords(){
   if(showJournalBtn) showJournalBtn.classList.toggle('hidden', combined.length <= SHORT_JOURNAL_LIMIT);
 
   if(combined.length===0){
-    container.innerHTML = `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><div class="es-title">Ще немає жодного запису</div><div class="es-sub">Додай витрату/дохід вище або імпортуй з Excel у розділі «Сервіс».</div></div>`;
+    setJournalListHtml(container, `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><div class="es-title">Ще немає жодного запису</div><div class="es-sub">Додай витрату/дохід вище або імпортуй з Excel у розділі «Сервіс».</div></div>`, keepIfSame);
     return;
   }
 
@@ -19317,9 +19317,9 @@ function updateJournalResetButton(){
   const btn = document.getElementById('journal-reset-btn');
   if(!btn) return;
   const n = categoryFilterCount(journalFilterState());
-  btn.classList.toggle('hidden', n === 0);
-  btn.textContent = n ? 'Скинути · ' + n : '';
-  btn.setAttribute('aria-label', n ? 'Скинути категорію й підкатегорію, активних: ' + n : 'Скинути фільтри');
+  btn.classList.toggle('hidden', n === 0); // за специфікацією DOM toggle(token, force) без зміни стану не мутує атрибут
+  setTextIfChanged(btn, n ? 'Скинути · ' + n : '');
+  setAttrIfChanged(btn, 'aria-label', n ? 'Скинути категорію й підкатегорію, активних: ' + n : 'Скинути фільтри');
 }
 // Rev 2.32.146 (JOURNAL-RESET): скидає лише категорію й підкатегорію; текст пошуку, поле й його ✕ не чіпає (клавіатурну логіку теж).
 function resetJournalCategoryFilters(){
@@ -19424,6 +19424,14 @@ function journalSubcategoryOptions(expenseRecords, category){
 // Rev 2.20.0 — перебудовує <select> категорій із поточних даних (кожен
 // рендер Журналу — дешево, завжди актуально навіть після редагування запису
 // прямо в Журналі) і зберігає поточний вибір користувача.
+// Rev 2.32.224 (JOURNAL-SEARCH-DOM, клас A): під час набору в пошуку журналу сусідні <select>, поле дати, підпис місяця й підсумок не перезаписуються, якщо значення не змінились (гіпотеза: перебудова DOM навколо поля вмикає «Автозаповнити контакт»). Логіка фільтрів не змінена.
+function setSelectOptionsIfChanged(select, html){
+  if(select._optsHtml === html) return false;
+  select.innerHTML = html; select._optsHtml = html;
+  return true;
+}
+function setAttrIfChanged(el, k, v){ if(typeof el.getAttribute === 'function' && el.getAttribute(k) === v) return; el.setAttribute(k, v); }
+function setTextIfChanged(el, text){ if(el && el.textContent !== text) el.textContent = text; }
 function populateJournalCategoryOptions(){
   const select = document.getElementById('journal-search-category');
   if(!select) return;
@@ -19434,8 +19442,8 @@ function populateJournalCategoryOptions(){
       return `<option value="${escapeAttr(c)}">${escapeHtml(label)}</option>`;
     })
   );
-  select.innerHTML = opts.join('');
-  select.value = journalSearchCategory;
+  setSelectOptionsIfChanged(select, opts.join(''));
+  if(select.value !== journalSearchCategory) select.value = journalSearchCategory;
   populateJournalSubcategoryOptions();
 }
 // Rev 2.20.2 — перебудовує <select> підкатегорій, каскадно звужений під
@@ -19451,12 +19459,12 @@ function populateJournalSubcategoryOptions(){
       return `<option value="${escapeAttr(s)}">${escapeHtml(label)}</option>`;
     })
   );
-  select.innerHTML = opts.join('');
+  setSelectOptionsIfChanged(select, opts.join(''));
   // Якщо попередньо обрана підкатегорія більше не входить у список (бо
   // категорію щойно змінили) — скидаємо на "Усі підкатегорії", а не лишаємо
   // "зависле" значення, якого немає серед опцій.
   if(subs.indexOf(journalSearchSubcategory) === -1) journalSearchSubcategory = '';
-  select.value = journalSearchSubcategory;
+  if(select.value !== journalSearchSubcategory) select.value = journalSearchSubcategory;
 }
 // Rev 2.20.2 — onchange select КАТЕГОРІЇ: окремо від onJournalSearchChange,
 // бо зміна категорії мусить спершу перебудувати список підкатегорій
@@ -19476,8 +19484,8 @@ function onJournalSearchChange(){
   journalSearchCategory = categorySelect ? categorySelect.value : '';
   journalSearchSubcategory = subcategorySelect ? subcategorySelect.value : '';
   const clearBtn = document.getElementById('journal-search-clear');
-  if(clearBtn) clearBtn.classList.toggle('hidden', !journalSearchQuery);
-  renderJournalView();
+  if(clearBtn) clearBtn.classList.toggle('hidden', !journalSearchQuery); // Rev 2.32.224: toggle(force) без зміни стану «є текст» не мутує DOM
+  renderJournalView({ keepIfSame: true });
 }
 function clearJournalSearchText(){
   const input = document.getElementById('journal-search-input');
@@ -19495,7 +19503,12 @@ function clearJournalSearchText(){
 // пошуку (N)" (Rev 2.20.0/2.21.13) — більше не потрібні, місяць-навігація
 // й так завжди на місці; замість "Результати пошуку" — короткий підпис
 // "Знайдено N" поруч із назвою місяця, лише коли пошук/фільтр активні.
-function renderJournalView(){
+function setJournalListHtml(container, html, keepIfSame){
+  if(keepIfSame && container._listHtml === html) return;
+  container.innerHTML = html; container._listHtml = html;
+}
+function renderJournalView(opts){
+  const keepIfSame = !!(opts && opts.keepIfSame); // Rev 2.32.224: під час набору список перебудовується лише коли результат змінився
   const container = document.getElementById('journal-list');
   if(!container || !journalMonth) return;
   populateJournalCategoryOptions();
@@ -19507,8 +19520,8 @@ function renderJournalView(){
     ...activeExpenses().map((e,i)=>({...e, kind:'expense', __srcIdx:i}))
   ];
   const dateInputEl = document.getElementById('journal-date-input');
-  if(dateInputEl) dateInputEl.value = journalMonth + '-01';
-  if(labelEl) labelEl.textContent = monthLabel(journalMonth);
+  if(dateInputEl && dateInputEl.value !== journalMonth + '-01') dateInputEl.value = journalMonth + '-01';
+  setTextIfChanged(labelEl, monthLabel(journalMonth));
 
   const monthRecords = recordsForMonth(allCombined, journalMonth);
   const searchActive = isJournalSearchActive();
@@ -19519,10 +19532,10 @@ function renderJournalView(){
 
   if(searchSummaryEl){
     if(searchActive){
-      searchSummaryEl.textContent = `Знайдено ${combined.length}`;
-      searchSummaryEl.classList.remove('hidden');
+      setTextIfChanged(searchSummaryEl, `Знайдено ${combined.length}`);
+      searchSummaryEl.classList.toggle('hidden', false);
     }else{
-      searchSummaryEl.classList.add('hidden');
+      searchSummaryEl.classList.toggle('hidden', true);
     }
   }
 
@@ -19536,7 +19549,7 @@ function renderJournalView(){
     updateJournalResetButton(); // Rev 2.23.33 (6D.202)
     return;
   }
-  container.innerHTML = buildRecordGroupsHtml(combined);
+  setJournalListHtml(container, buildRecordGroupsHtml(combined), keepIfSame);
   updateJournalResetButton();
 }
 // Rev 2.19.0 — чиста функція: перший запис (витрата чи дохід) на точну дату,
@@ -25652,6 +25665,7 @@ const CHECKS = [
   { id: '2.32.221-2', rev: '2.32.221', addedOn: '2026-10-30', title: 'Приховані: обоє ховають одну ОЧ (потрібен другий телефон)', steps: ['На обох телефонах вимкніть мережу (авіарежим) і на кожному приховайте ту саму ОЧ з різних місяців.', 'Увімкніть мережу спершу на другому телефоні, потім на своєму; зачекайте хвилину.'], expect: 'на обох телефонах ОЧ прихована з одного місяця (того, що збережено раніше на сервері), без вікон з вибором.', reasons: ['Місяці на телефонах різні', 'З\u2019явилась картка конфлікту'] },
   { id: '2.32.222-1', rev: '2.32.222', addedOn: '2026-10-30', title: 'Автозаповнення: пошук', steps: ['Відкрийте вкладку «Журнал» і торкніться поля пошуку, введіть літеру.', 'Відкрийте «Структуру», вкладку «Словник», торкніться поля пошуку слова, введіть літеру.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась у пошуку журналу', 'Панель з\u2019явилась у пошуку слова'] },
   { id: '2.32.223-1', rev: '2.32.223', addedOn: '2026-10-30', title: 'Тап по push гасить сповіщення в дзвіночку', steps: ['Переконайтесь, що в дзвіночку є непрочитане сповіщення й до нього прийшов push.', 'Торкніться push.', 'Відкрийте дзвіночок.'], expect: 'це сповіщення вже прочитане, значок зменшився, інші сповіщення лишились непрочитаними.', reasons: ['Сповіщення лишилось непрочитаним', 'Погасли й інші сповіщення'] },
+  { id: '2.32.224-1', rev: '2.32.224', addedOn: '2026-10-30', title: 'Автозаповнення: пошук у журналі', steps: ['Відкрийте «Журнал» і торкніться поля пошуку.', 'Введіть літеру, потім ще кілька.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась одразу', 'Панель з\u2019явилась після кількох літер'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
