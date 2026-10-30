@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.222</div>
+  <div class="version-footer">Money Tree · Rev 2.32.223</div>
 </div>
   </div>
 </div>
@@ -9220,7 +9220,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.222';
+const APP_VERSION = '2.32.223';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11321,8 +11321,9 @@ function runPendingPushAction(reason){
     if(fired) return; fired = true;
     if(document.visibilityState !== 'visible'){ p.scheduled = false; return; }
     p.used = true; // рівно один раз
-    Promise.resolve(handlePushAction(p.action)).then(function(){
+    Promise.resolve(handlePushAction(p.action)).then(function(done){
       pushApplyDiag('opened', reason, p.action.type);
+      if(done !== false) markPushNotificationsRead(p.action); // Rev 2.32.223 (PUSH-READ): лише після виконаного переходу (також «Запис уже недоступний»)
     }, function(){
       pushApplyDiag('skipped', 'error', p.action.type);
     });
@@ -11597,13 +11598,13 @@ async function routeOtherActorNotification(action, screen){
   return plan;
 }
 async function handlePushAction(action){
-  if(!action || !action.type) return;
+  if(!action || !action.type) return false; // Rev 2.32.223 (PUSH-READ): true лише коли перехід виконано
   if(action.type === 'mono-inbox'){
     // Rev 2.32.30 (P): НЕ чекаємо вхід і мережу — «Вхідні» відкриваються одразу й дозавантажуються; відомий стан «не підключено» -> екран «Monobank»
     action = Object.assign({}, action, { connected: (monoState.loaded && !monoState.offline) ? monoNotifGroupVisible(monoState.connection) : undefined });
   }
   const route = routeForPushType(action.type, action);
-  if(!route.screen){ pushApplyDiag('skipped', 'no-route', action.type); return; } // Rev 2.32.41 (F)
+  if(!route.screen){ pushApplyDiag('skipped', 'no-route', action.type); return false; } // Rev 2.32.41 (F)
   if(route.screen !== 'mono-inbox') closeOpenSheetsForPush(); // Rev 2.32.30 (P): шторки/діалоги закриваються їхніми кнопками, фокус знімається; Rev 2.32.161: для «Вхідних» — лише коли є навігація (routeMonoNotification; тост «Запис уже недоступний» нічого не закриває)
   if(route.screen === 'vytraty'){
     // Rev 2.23.29 (6D.198) — нагадування про витрати: вкладка без автофокусу й без клавіатури; жодного focus().
@@ -11644,6 +11645,7 @@ async function handlePushAction(action){
   }
   captureDebugGeometry('push-route', { route: route.screen });
   setTimeout(function(){ captureFocusAudit('push-route'); }, 400);
+  return true;
 }
 // Rev #30 (6D.56) — Realtime + sync-on-resume (без банерів/зведень — свідомо
 // окремий, наступний крок за продуктовим рішенням користувача).
@@ -24139,17 +24141,53 @@ function closeNotifArchive(){
   unlockBackgroundScroll();
   restoreFocus();
 }
+// Rev 2.32.223 (PUSH-READ, клас A): позначення сповіщень прочитаними — один шлях і для тапу по рядку журналу, і для тапу по push. Локально значок гасне одразу, на сервер — через чергу NOTIF-READ-QUEUE (офлайн — відправиться пізніше). У «лише перегляд» тихий пропуск (Rev 2.32.78).
+function markNotifRowsRead(rows){
+  const fresh = (rows || []).filter(function(r){ return r && !r.read_at; });
+  if(!fresh.length || isWriteBlocked() || !notifQueueUid()) return 0;
+  const now = new Date().toISOString();
+  fresh.forEach(function(r){ r.read_at = now; });
+  notifArchive.unread = Math.max(0, notifArchive.unread - fresh.length); updateNotifBell(); renderNotifArchive();
+  notifQueueAdd(fresh.map(function(r){ return r.id; })); // Rev 2.32.147 (NOTIF-READ-QUEUE): замість відкату при помилці — у чергу; відправка не блокує перехід
+  notifFlush('tap').catch(function(){});
+  return fresh.length;
+}
+// Які рядки журналу відповідають push: за push_id; пачка Monobank — за batch_ts; щоденне нагадування — усі щоденні нагадування; інакше за спільними id записів / ОЧ. Інші сповіщення (інший тип чи інші id) не чіпаються.
+function notifIdSet(o){
+  const out = {};
+  const add = function(v){ if(v != null && v !== '') out[String(v)] = true; };
+  if(!o) return out;
+  add(o.installmentId); (Array.isArray(o.installmentIds) ? o.installmentIds : String(o.installmentIds || '').split(',')).forEach(add);
+  if(o.ids && typeof o.ids === 'object') Object.keys(o.ids).forEach(function(k){ [].concat(o.ids[k] || []).forEach(add); });
+  if(typeof o.idsParam === 'string') o.idsParam.split(';').forEach(function(g){ const p = g.split(':'); (p[1] || '').split(',').forEach(add); });
+  return out;
+}
+function notifRowsForPush(rows, action){
+  const list = rows || [], a = action || {};
+  const rowType = function(r){ return r.type || (r.data && r.data.type) || ''; };
+  const pid = a.pushId || a.push_id;
+  if(pid){ const m = list.filter(function(r){ return r.data && r.data.push_id != null && String(r.data.push_id) === String(pid); }); if(m.length) return m; }
+  if(a.type === 'mono-inbox'){
+    if(a.tag === 'daily-expense-reminder') return list.filter(isDailyReminderRow);
+    const bt = a.batchTs || a.batch_ts;
+    return bt ? list.filter(function(r){ return rowType(r) === 'mono-inbox' && !isDailyReminderRow(r) && ((r.data && r.data.batch_ts) || r.created_at) === bt; }) : [];
+  }
+  const want = notifIdSet(a);
+  if(!Object.keys(want).length) return [];
+  return list.filter(function(r){ if(rowType(r) !== a.type) return false; const have = notifIdSet(Object.assign({}, r.data || {})); return Object.keys(have).some(function(k){ return want[k]; }); });
+}
+async function markPushNotificationsRead(action){
+  try{
+    if(!notifArchive.loaded) await loadNotifArchive(); // холодний старт: журнал ще не завантажено
+    markNotifRowsRead(notifRowsForPush(notifArchive.rows, action));
+  }catch(e){}
+}
 // Тап по рядку: позначає прочитаним і веде як по push (routeForPushType через handlePushAction).
 async function openNotificationRow(id){
   const row = notifArchive.rows.filter(function(r){ return safeId(r.id) === id; })[0];
   if(!row) return;
   const type = row.type || (row.data && row.data.type) || '';
-  if(!row.read_at && !isWriteBlocked() && notifQueueUid()){ // Rev 2.32.78 (KIT-1): у «лише перегляд» позначка «прочитано» не пишеться (тихий пропуск)
-    row.read_at = new Date().toISOString(); // локально прочитано
-    notifArchive.unread = Math.max(0, notifArchive.unread - 1); updateNotifBell(); renderNotifArchive();
-    notifQueueAdd([row.id]); // Rev 2.32.147 (NOTIF-READ-QUEUE): замість відкату при помилці — у чергу; відправка не блокує перехід
-    notifFlush('tap').catch(function(){});
-  }
+  markNotifRowsRead([row]); // Rev 2.32.223 (PUSH-READ): спільний шлях з тапом по push
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'notif-archive', opened: true });
   if(!type) return;
   // Rev 2.32.161 (NOTIF-ROUTE): «Вже оброблено» / «Запис уже недоступний» / оброблена пачка вирішує єдиний routeMonoNotification (як і для системного сповіщення)
@@ -25613,6 +25651,7 @@ const CHECKS = [
   { id: '2.32.221-1', rev: '2.32.221', addedOn: '2026-10-30', title: 'Приховані: ОЧ ховається на обох телефонах (потрібен другий телефон)', steps: ['Переконайтесь, що на обох телефонах є ОЧ, яка не прихована.', 'На своєму телефоні відкрийте цю ОЧ, натисніть «Видалити ОЧ» і оберіть місяць, з якого її прибрати.', 'Через хвилину відкрийте застосунок на другому телефоні.'], expect: 'ОЧ прихована і на другому телефоні (без кнопки синхронізації).', reasons: ['На другому телефоні ОЧ лишилась', 'З\u2019явилась лише після ручної синхронізації'] },
   { id: '2.32.221-2', rev: '2.32.221', addedOn: '2026-10-30', title: 'Приховані: обоє ховають одну ОЧ (потрібен другий телефон)', steps: ['На обох телефонах вимкніть мережу (авіарежим) і на кожному приховайте ту саму ОЧ з різних місяців.', 'Увімкніть мережу спершу на другому телефоні, потім на своєму; зачекайте хвилину.'], expect: 'на обох телефонах ОЧ прихована з одного місяця (того, що збережено раніше на сервері), без вікон з вибором.', reasons: ['Місяці на телефонах різні', 'З\u2019явилась картка конфлікту'] },
   { id: '2.32.222-1', rev: '2.32.222', addedOn: '2026-10-30', title: 'Автозаповнення: пошук', steps: ['Відкрийте вкладку «Журнал» і торкніться поля пошуку, введіть літеру.', 'Відкрийте «Структуру», вкладку «Словник», торкніться поля пошуку слова, введіть літеру.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась у пошуку журналу', 'Панель з\u2019явилась у пошуку слова'] },
+  { id: '2.32.223-1', rev: '2.32.223', addedOn: '2026-10-30', title: 'Тап по push гасить сповіщення в дзвіночку', steps: ['Переконайтесь, що в дзвіночку є непрочитане сповіщення й до нього прийшов push.', 'Торкніться push.', 'Відкрийте дзвіночок.'], expect: 'це сповіщення вже прочитане, значок зменшився, інші сповіщення лишились непрочитаними.', reasons: ['Сповіщення лишилось непрочитаним', 'Погасли й інші сповіщення'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

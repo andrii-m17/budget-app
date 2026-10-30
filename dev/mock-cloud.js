@@ -201,6 +201,12 @@
       state.log.push({ kind: 'rpc', name: m[1], method: method });
       if(m[1] === 'sync_heads') return jsonResponse(200, headsOf(state));
       if(m[1] === 'mono_refund_candidates') return jsonResponse(200, []);
+      if(m[1] === 'mark_notifications_read'){ // Rev 2.32.223 (PUSH-READ): як на сервері — read_at для p_ids (або для всіх, якщо p_ids нема)
+        let ids = null; try{ const raw = (init && init.body) || null; const b = raw ? JSON.parse(raw) : null; ids = b && Array.isArray(b.p_ids) ? b.p_ids.map(String) : null; }catch(e){}
+        const ts = nowIso(state);
+        (state.tables.user_notifications || []).forEach(function(n){ if(!n.read_at && (!ids || ids.indexOf(String(n.id)) !== -1)) n.read_at = ts; });
+        return jsonResponse(200, null);
+      }
       return jsonResponse(200, null);
     }
     if((m = path.match(/\/rest\/v1\/([a-z_0-9]+)/i))) return handleRest(state, m[1], method, u, init, input);

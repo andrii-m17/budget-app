@@ -237,3 +237,37 @@ test('31. поля пошуку: нейтральні підказки, type=sea
   });
 });
 
+test('32. тап по push позначає відповідне сповіщення прочитаним (push_id, група, без зайвих), значок зменшується; неактуальний/невиконаний перехід не позначає; офлайн — черга', async ({ page }) => {
+  await boot(page);
+  const mk = (id, type, data, extra) => Object.assign({ id, type, title: 'Т' + id, body: '', data: Object.assign({ type }, data), created_at: new Date().toISOString(), read_at: null }, extra || {});
+  const seed = (rows, loaded) => page.evaluate(([r, ld]) => { notifArchive.rows = r; notifArchive.unread = r.filter(x => !x.read_at).length; notifArchive.loaded = ld; notifQueueWrite([]); updateNotifBell(); window.MockCloud.state.tables.user_notifications = JSON.parse(JSON.stringify(r)); }, [rows, loaded]);
+  const state = () => page.evaluate(() => ({ read: notifArchive.rows.map(x => !!x.read_at), unread: notifArchive.unread, bell: document.getElementById('notif-bell-count').textContent.trim(), queue: notifQueueIds() }));
+  const tap = (action) => page.evaluate(a => { queuePushAction(Object.assign({ _at: String(Date.now()) }, a), 'test'); }, action);
+  // 1. за push_id: лише своє
+  await seed([mk('n1', 'backup-reminder', { push_id: 'p1' }), mk('n2', 'backup-reminder', { push_id: 'p2' }), mk('n3', 'weekly-summary', { push_id: 'p3' })], true);
+  expect((await state()).bell).toBe('3');
+  await tap({ type: 'backup-reminder', pushId: 'p1' }); await page.waitForTimeout(1200);
+  let st = await state(); expect(st.read).toEqual([true, false, false]); expect(st.bell).toBe('2');
+  // 2. група Monobank: усі рядки пачки, інша пачка і інший тип лишаються
+  await seed([mk('g1', 'mono-inbox', { batch_ts: 'B1' }), mk('g2', 'mono-inbox', { batch_ts: 'B1' }), mk('g3', 'mono-inbox', { batch_ts: 'B2' }), mk('g4', 'weekly-summary', { push_id: 'x' })], true);
+  await tap({ type: 'mono-inbox', batchTs: 'B1' }); await page.waitForTimeout(1200);
+  st = await state(); expect(st.read).toEqual([true, true, false, false]); expect(st.bell).toBe('2');
+  // 3. щоденне нагадування: усі щоденні
+  await seed([mk('d1', 'mono-inbox', { tag: 'daily-expense-reminder' }), mk('d2', 'mono-inbox', { tag: 'daily-expense-reminder' }), mk('d3', 'mono-inbox', { batch_ts: 'B9' })], true);
+  await tap({ type: 'mono-inbox', tag: 'daily-expense-reminder' }); await page.waitForTimeout(1200);
+  st = await state(); expect(st.read).toEqual([true, true, false]);
+  // 4. перехід не виконано (невідомий тип без маршруту): нічого не позначається
+  await seed([mk('u1', 'unknown-type', { push_id: 'pu' })], true);
+  await tap({ type: 'unknown-type', pushId: 'pu' }); await page.waitForTimeout(1200);
+  st = await state(); expect(st.read).toEqual([false]);
+  // 5. холодний старт: журнал не завантажено — вантажиться з сервера, потім позначається
+  await seed([mk('c1', 'backup-reminder', { push_id: 'pc' }), mk('c2', 'weekly-summary', { push_id: 'pd' })], false);
+  await tap({ type: 'backup-reminder', pushId: 'pc' }); await page.waitForTimeout(2500);
+  st = await state(); expect(st.read).toEqual([true, false]); expect(st.bell).toBe('1');
+  // 6. офлайн: локально прочитано одразу, id у черзі, запитів на сервер нема
+  await seed([mk('o1', 'backup-reminder', { push_id: 'po' }), mk('o2', 'weekly-summary', { push_id: 'pq' })], true);
+  await page.evaluate(() => { window.__monoReadyOrig = monoReady; window.monoReady = function(){ return false; }; }); // «немає зв'язку» для відправки черги
+  await tap({ type: 'backup-reminder', pushId: 'po' }); await page.waitForTimeout(1200);
+  st = await state(); expect(st.read).toEqual([true, false]); expect(st.bell).toBe('1'); expect(st.queue).toEqual(['o1']);
+});
+
