@@ -90,3 +90,31 @@ test('25. підказки: рядок, до якого торкаються, н
   const ev = await page.evaluate(() => window.__ev), down = ev.find(x => x[0] === 'down'), foc = ev.find(x => x[0] === 'focus' && x[2] === 'expfielda7');
   expect(foc, 'фокус у полі назви: ' + JSON.stringify(ev)).toBeTruthy(); expect(foc[1] - down[1]).toBeLessThan(150);
 });
+
+test('26. підказки в редагуванні запису: рядок лишається в DOM після blur, поки триває дотик; вибір із першого дотику (без pointerup); тап по сусідньому полю < 150 мс', async ({ page }) => {
+  await boot(page);
+  const id = await page.evaluate(() => { const now = new Date().toISOString(); const mk = (n) => ({ id: generateUUID(), date: localDateISO(), name: n, amount: 10, category: '', subcategory: '', manual: true, createdAt: now, updatedAt: now }); const a = mk('Продукти Тест'), b = mk('Інша витрата'); expenses.unshift(a, b); renderAll(); switchTab('vytraty'); return b.id; });
+  await page.evaluate(i => { startEditRecord('expense', i); }, id);
+  const input = page.locator('#edtfielda1-' + id);
+  await input.click(); await input.fill(''); await page.keyboard.type('про');
+  await expect(page.locator('#edtlista1-' + id + ' .name-suggest-item').first()).toBeVisible();
+  // 1. blur під час дотику: рядок лишається в DOM; після дотику очищається
+  await page.evaluate(i => { window.__item = document.querySelector('#edtlista1-' + i + ' .name-suggest-item'); window.__item.dispatchEvent(new Event('touchstart', { bubbles: true })); document.getElementById('edtfielda1-' + i).blur(); }, id);
+  await page.waitForTimeout(600);
+  expect(await page.evaluate(() => window.__item.isConnected), 'рядок у DOM, поки триває дотик').toBe(true);
+  await page.evaluate(() => window.__item.dispatchEvent(new Event('touchend', { bubbles: true })));
+  await expect.poll(() => page.evaluate(i => document.querySelectorAll('#edtlista1-' + i + ' .name-suggest-item').length, id), { timeout: 2000 }).toBe(0);
+  // 2. вибір без pointerup (iOS затримав його): підставляється за ≈ 150 мс
+  await input.click(); await input.fill(''); await page.keyboard.type('про');
+  await expect(page.locator('#edtlista1-' + id + ' .name-suggest-item').first()).toBeVisible();
+  const ms = await page.evaluate(i => new Promise(res => { const el = document.querySelector('#edtlista1-' + i + ' .name-suggest-item'), r = el.getBoundingClientRect(), t0 = performance.now(); el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true, clientX: r.left + 20, clientY: r.top + 10 })); const tick = () => { if(document.getElementById('edtfielda1-' + i).value === 'Продукти Тест') res(performance.now() - t0); else if(performance.now() - t0 > 2000) res(-1); else requestAnimationFrame(tick); }; tick(); }), id);
+  expect(ms, 'вибір за ≈ 150–300 мс без pointerup').toBeGreaterThanOrEqual(140); expect(ms).toBeLessThan(400);
+  // пізній pointerup не дублює вибір (поле лишається з однією назвою)
+  await page.evaluate(i => { document.getElementById('edtfielda1-' + i).dispatchEvent(new Event('x')); }, id);
+  // 3. тап по сусідньому полю: фокус < 150 мс
+  await page.evaluate(() => { window.__ev = []; document.addEventListener('pointerdown', () => window.__ev.push(['down', performance.now()]), true); document.addEventListener('focusin', e => window.__ev.push(['focus', performance.now(), e.target.id]), true); });
+  const b = await page.locator('#edit-amount-' + id).boundingBox(); await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); await page.waitForTimeout(300);
+  const ev = await page.evaluate(() => window.__ev), down = ev.find(x => x[0] === 'down'), foc = ev.find(x => x[0] === 'focus' && x[2] === 'edit-amount-' + id);
+  expect(foc, 'фокус у «Сумі»: ' + JSON.stringify(ev)).toBeTruthy(); expect(foc[1] - down[1]).toBeLessThan(150);
+});
+
