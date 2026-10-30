@@ -164,3 +164,43 @@ test('28. живий DOM: у редагуванні запису й у штор�
   for(const [k, f] of steps){ await page.evaluate(f); await page.waitForTimeout(500); bad = await grab(); expect(bad, k).toEqual([]); }
 });
 
+test('29. журнал сповіщень, «Конфлікти»: свайп видаляє оброблений одразу; необроблений — з підтвердженням (Скасувати лишає, Видалити прибирає); «Очистити» лишає необроблені; лічильник дзвіночка', async ({ page }) => {
+  await boot(page);
+  const seed = () => page.evaluate(() => {
+    const mk = (id, status) => ({ id, rid: 'r' + id, dom: 'expenses', kind: 'field', field: 'amount', name: 'Тест', actor: 'Інший', gender: 'm', at: Date.now(), status, mine: 100, theirs: 200 });
+    conflictLog = [mk('cfdone', 'mine'), mk('cfopen', 'open'), mk('cfopen2', 'open')]; conflictSave(); updateNotifBell(); renderNotifArchive();
+  });
+  await page.evaluate(() => { openNotifArchive(); });
+  await page.waitForTimeout(800);
+  await seed();
+  const rows = () => page.evaluate(() => document.querySelectorAll('#notif-archive-body [data-conflict-del]').length / 2);
+  const badge = () => page.evaluate(() => document.getElementById('notif-bell-count').textContent.trim());
+  const swipe = (idx) => page.evaluate((i) => {
+    const wrap = document.querySelectorAll('#notif-archive-body .notif-swipe')[i];
+    const row = wrap.querySelector('.expense-row'), r = row.getBoundingClientRect();
+    const mk = (x) => ({ identifier: 1, target: row, clientX: x, clientY: r.top + r.height / 2 });
+    const fire = (type, x) => { const ev = new Event(type, { bubbles: true, cancelable: true }); const l = type === 'touchend' ? [] : [mk(x)]; Object.defineProperty(ev, 'touches', { value: l }); Object.defineProperty(ev, 'targetTouches', { value: l }); Object.defineProperty(ev, 'changedTouches', { value: [mk(x)] }); row.dispatchEvent(ev); };
+    const x0 = r.right - 20; fire('touchstart', x0); for(let k = 1; k <= 8; k++) fire('touchmove', x0 - k * 15); fire('touchend', x0 - 120);
+    return wrap.classList.contains('swipe-open');
+  }, idx);
+  expect(await rows()).toBe(3); expect(await badge()).toBe('2');
+  // оброблений (перший у списку за часом може бути будь-який: шукаємо за заголовком)
+  const idxOf = (st) => page.evaluate((s) => [...document.querySelectorAll('#notif-archive-body .notif-swipe')].findIndex(w => (s === 'done') === !w.querySelector('.expense-row').classList.contains('unread')), st);
+  expect(await swipe(await idxOf('done')), 'свайп відкриває дію').toBe(true);
+  await page.locator('#notif-archive-body .notif-swipe.swipe-open .swipe-delete-btn').click(); await page.waitForTimeout(300);
+  expect(await rows()).toBe(2); expect(await badge()).toBe('2');
+  // необроблений: підтвердження, «Скасувати» лишає рядок
+  expect(await swipe(await idxOf('open'))).toBe(true);
+  await page.locator('#notif-archive-body .notif-swipe.swipe-open .swipe-delete-btn').click(); await page.waitForTimeout(300);
+  await expect(page.locator('#app-modal-text')).toContainText('Видалити? Ваше значення (100 ₴) не буде повернено');
+  await page.locator('#app-modal-cancel-btn, .app-modal [data-cancel], #app-modal button:has-text("Скасувати")').first().click(); await page.waitForTimeout(300);
+  expect(await rows()).toBe(2);
+  await page.evaluate(() => { const id = conflictLog.filter(x => x.status === 'open')[0].id; conflictDelete(id); }); await page.waitForTimeout(300);
+  await page.locator('#app-modal-confirm-btn').click(); await page.waitForTimeout(300);
+  expect(await rows()).toBe(1); expect(await badge()).toBe('1');
+  // «Очистити»: оброблені прибираються, необроблені лишаються
+  await page.evaluate(() => { conflictLog.push({ id: 'cfd2', rid: 'x', dom: 'expenses', kind: 'field', field: 'amount', name: 'Тест', actor: 'Інший', gender: 'm', at: Date.now(), status: 'kept', mine: 1, theirs: 2 }); conflictSave(); renderNotifArchive(); });
+  await page.evaluate(() => { runClearNotifArchive(); }); await page.waitForTimeout(500);
+  expect(await page.evaluate(() => conflictLog.map(x => x.status))).toEqual(['open']); expect(await badge()).toBe('1');
+});
+

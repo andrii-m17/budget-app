@@ -3794,7 +3794,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.218</div>
+  <div class="version-footer">Money Tree · Rev 2.32.219</div>
 </div>
   </div>
 </div>
@@ -7516,6 +7516,23 @@ function conflictFlushCards(){
     { label: m.secondary, onClick: function(){ conflictResolve(e.id, 'kept'); } },
   ] });
 }
+const NOTIF_TRASH_SVG = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+// Rev 2.32.219 (CONFLICT-SWIPE): оброблений конфлікт видаляється одразу, необроблений — після підтвердження («Ваше значення» не буде повернено); лічильник дзвіночка враховує лише необроблені.
+function conflictValueForConfirm(e){ return e.kind === 'deleted' ? 'ваша правка' : conflictValueText(e.field, e.mine); }
+function conflictRemove(id){
+  conflictLog = conflictLog.filter(function(x){ return x.id !== id; });
+  conflictAnnounce = conflictAnnounce.filter(function(x){ return x !== id; });
+  conflictSave(); updateNotifBell();
+  if(isNotifArchiveOpen) renderNotifArchive();
+}
+function conflictDelete(id){
+  const e = conflictLog.filter(function(x){ return x.id === id; })[0];
+  if(!e) return;
+  if(e.status !== 'open'){ conflictRemove(id); return; }
+  showConfirmModal('Видалити? Ваше значення (' + conflictValueForConfirm(e) + ') не буде повернено', function(){ conflictRemove(id); }, 'Видалити');
+}
+function conflictClearDone(){ conflictLog = conflictLog.filter(function(x){ return x.status === 'open'; }); conflictSave(); updateNotifBell(); }
+function conflictProcessedCount(){ return conflictLog.filter(function(x){ return x.status !== 'open'; }).length; }
 function conflictSectionHtml(){
   const rows = conflictLog.slice().sort(function(a, b){ return b.at - a.at; });
   if(!rows.length) return '';
@@ -7524,7 +7541,9 @@ function conflictSectionHtml(){
     const m = open ? conflictModel(e) : conflictDoneModel(e);
     const id = escapeAttr(safeId(e.id));
     const acts = open ? conflictRowsHtml(m.rows) + '<div class="chk-pair" style="flex:1 0 100%"><button type="button" class="chk-fl" style="' + CONFLICT_BTN_STYLE + '" data-conflict-act="mine" data-conflict-id="' + id + '">' + escapeHtml(m.primary) + '</button><button type="button" class="chk-fl" style="' + CONFLICT_BTN_STYLE + '" data-conflict-act="kept" data-conflict-id="' + id + '">' + escapeHtml(m.secondary) + '</button></div>' : '';
-    return '<div class="expense-row notif-row' + (open ? ' unread' : '') + '" style="flex-wrap:wrap"><span class="notif-row-icon" style="color:var(--color-error)">' + SYNC_SLOT_SVG.pending + '</span><span class="notif-row-main"><span class="notif-row-title">' + escapeHtml(m.title) + '</span>' + (m.body ? '<span class="notif-row-text">' + escapeHtml(m.body) + '</span>' : '') + '</span>' + acts + '</div>';
+    // Rev 2.32.219 (CONFLICT-SWIPE): рядок у тій самій обгортці свайпу, що й сповіщення (.expense-row-swipe.notif-swipe + кнопка «Видалити»); видалення — лише з локального журналу, без запитів до сервера
+    const trash = NOTIF_TRASH_SVG;
+    return '<div class="expense-row-swipe notif-swipe"><div class="expense-row-actions"><button type="button" class="swipe-delete-btn" data-conflict-del="' + id + '" aria-label="Видалити">' + trash + '</button></div><div class="expense-row notif-row' + (open ? ' unread' : '') + '" style="flex-wrap:wrap"><span class="notif-row-icon" style="color:var(--color-error)">' + SYNC_SLOT_SVG.pending + '</span><span class="notif-row-main"><span class="notif-row-title">' + escapeHtml(m.title) + '</span>' + (m.body ? '<span class="notif-row-text">' + escapeHtml(m.body) + '</span>' : '') + '</span><button type="button" class="notif-row-trash" data-conflict-del="' + id + '" aria-label="Видалити">' + trash + '</button>' + acts + '</div></div>';
   }).join('');
   return '<div class="mono-section"><div class="mono-group-label">Конфлікти</div><div class="mono-group">' + items + '</div></div>';
 }
@@ -9146,7 +9165,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.218';
+const APP_VERSION = '2.32.219';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -23997,7 +24016,7 @@ function notifRowHtml(row){
   const type = row.type || (row.data && row.data.type) || '';
   const st = notifRowState(row, notifArchive.batches, notifArchive.batchesOk, notifArchive.pendingDays, notifArchive.pendingOk);
   const id = escapeAttr(safeId(row.id));
-  const trash = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+  const trash = NOTIF_TRASH_SVG;
   const icon = NOTIF_ICON_SVG[notificationIcon(type)];
   return '<div class="expense-row-swipe notif-swipe">' +
     '<div class="expense-row-actions"><button type="button" class="swipe-delete-btn" data-notif-delete="' + id + '" aria-label="Видалити сповіщення">' + trash + '</button></div>' +
@@ -24020,7 +24039,7 @@ function renderNotifArchive(){
   else groupNotificationsByDay(notifArchive.rows, new Date()).forEach(function(g){
     parts.push('<div class="mono-section"><div class="mono-group-label">' + escapeHtml(g.label) + '</div><div class="mono-group">' + g.rows.map(notifRowHtml).join('') + '</div></div>');
   });
-  if(notifArchive.rows.length) parts.push('<div class="mono-section"><div class="mono-group"><button type="button" class="mono-row danger" data-notif-clear="1"><span>Очистити архів</span></button></div></div>'); // Rev 2.32.102 (NOTIF-2): як у 2.32.95; підтвердження лишається
+  if(notifArchive.rows.length || (typeof conflictProcessedCount === 'function' && conflictProcessedCount())) parts.push('<div class="mono-section"><div class="mono-group"><button type="button" class="mono-row danger" data-notif-clear="1"><span>Очистити архів</span></button></div></div>'); // Rev 2.32.102 (NOTIF-2): як у 2.32.95; підтвердження лишається
   body.innerHTML = parts.join('');
 }
 async function openNotifArchive(){
@@ -24127,6 +24146,8 @@ async function markAllNotificationsRead(){
 function confirmClearNotifArchive(){ showConfirmModal('Видалити всі сповіщення? Це не можна скасувати.', runClearNotifArchive, 'Видалити'); } // Rev 2.32.96 (NOTIF-1 Rev 3)
 async function runClearNotifArchive(){
   if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
+  if(typeof conflictClearDone === 'function') conflictClearDone(); // Rev 2.32.219 (CONFLICT-SWIPE): оброблені конфлікти прибираються локально, необроблені лишаються
+  if(!notifArchive.rows.length && typeof conflictClearDone === 'function'){ renderNotifArchive(); return; }
   try{
     const r = await getSupabaseClient().rpc('clear_notifications');
     if(r.error) throw r.error;
@@ -24154,6 +24175,7 @@ function teardownNotifRealtime(){
 (function initNotifArchive(){
   const body = document.getElementById('notif-archive-body');
   if(body) body.addEventListener('click', function(e){
+    const cfDel = e.target.closest('[data-conflict-del]'); if(cfDel){ e.stopPropagation(); if(typeof closeSwipeActions === 'function') closeSwipeActions(); conflictDelete(cfDel.getAttribute('data-conflict-del')); return; } // Rev 2.32.219 (CONFLICT-SWIPE)
     const cfAct = e.target.closest('[data-conflict-act]'); if(cfAct){ conflictResolve(cfAct.getAttribute('data-conflict-id'), cfAct.getAttribute('data-conflict-act')); return; } // Rev 2.32.193 (MERGE-EXP)
     if(e.target.closest('[data-notif-clear]')){ confirmClearNotifArchive(); return; }
     const del = e.target.closest('[data-notif-delete]');
@@ -25509,6 +25531,8 @@ const CHECKS = [
   { id: '2.32.216-3', rev: '2.32.216', addedOn: '2026-10-30', title: 'Автозаповнення: пошук і примітки', steps: ['У «Журналі» торкніться поля пошуку.', 'Відкрийте «Структуру», вкладку «Словник», і торкніться поля пошуку слова.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт» (на полях входу в хмару панель паролів допустима).', reasons: ['Панель з\u2019явилась у пошуку', 'Панель з\u2019явилась у «Словнику»'] },
   { id: '2.32.217-1', rev: '2.32.217', addedOn: '2026-10-30', title: 'Автозаповнення: після Словника', steps: ['Відкрийте «Структуру», вкладку «Словник», і оберіть будь-яке слово; закрийте його.', 'Відкрийте «Нова витрата» і торкніться полів «Назва» та «Сума».'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась на «Назві»', 'Панель з\u2019явилась на «Сумі»'] },
   { id: '2.32.218-1', rev: '2.32.218', addedOn: '2026-10-30', title: 'Автозаповнення: редагування витрати', steps: ['У «Журналі витрат» торкніться витрати й відкрийте редагування.', 'Торкніться поля назви.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась на «Назві»', 'Панель з\u2019явилась на іншому полі'] },
+  { id: '2.32.219-1', rev: '2.32.219', addedOn: '2026-10-30', title: 'Конфлікти: видалення свайпом', steps: ['Відкрийте журнал сповіщень (дзвіночок), де є оброблений конфлікт.', 'Проведіть по його рядку ліворуч і торкніться «Видалити».'], expect: 'рядок конфлікту зникає одразу.', reasons: ['Свайп не працює', 'Рядок не зникає'] },
+  { id: '2.32.219-2', rev: '2.32.219', addedOn: '2026-10-30', title: 'Конфлікти: необроблений', steps: ['Відкрийте журнал сповіщень, де є необроблений конфлікт.', 'Проведіть по його рядку ліворуч і торкніться «Видалити».'], expect: 'перед видаленням є підтвердження «Видалити? Ваше значення … не буде повернено».', reasons: ['Підтвердження не з\u2019явилось', 'Рядок зник без підтвердження'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
