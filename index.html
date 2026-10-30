@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.224</div>
+  <div class="version-footer">Money Tree · Rev 2.32.225</div>
 </div>
   </div>
 </div>
@@ -5683,6 +5683,12 @@ async function pushDictionaryPilotRun(){
     // Немає каскаду вниз — жоден інший домен не посилається на
     // dictionary.cloudId як FK.
     try{
+      if(entry.cloudId && entry.serverBase && entry.serverUpdatedAt && entry.serverKw === entry.kw){ // Rev 2.32.225 (MERGE-WORDS): слово зі зліпком і незмінним текстом — умовний update зі злиттям; інакше попередній шлях нижче
+        const cas = await mdPushCas(MERGE_DOMAINS.words, entry, { catId: parentCat.cloudId, subId: subcategoryId }, { suppressPull: true });
+        if(cas && cas.success){ entry.syncedCategoryId = parentCat.cloudId; entry.syncedSubcategoryId = subcategoryId; shadowAfterPush(entry, shSnap); localChanged = true; continue; }
+        if(cas && cas.code === '23505'){ if(await wordAdoptLive(client, entry)){ localChanged = true; continue; } }
+        anyError = true; continue;
+      }
       if(entry.cloudId){
         // Rev 2.22.80 (6D.153, Крок A2) — захист tombstone: `.is('deleted_at',
         // null)` у WHERE цього UPDATE означає "застосувати лише якщо Cloud
@@ -5725,8 +5731,9 @@ async function pushDictionaryPilotRun(){
         // САМ момент видалення) і далі програє — anti-resurrection з A2
         // лишається чинним рівно для цього випадку.
         const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).or('deleted_at.is.null,deleted_at.lt.' + entry.updatedAt).select('id,updated_at');
-        if(error){ anyError = true; continue; }
+        if(error){ if(error.code === '23505' && await wordAdoptLive(client, entry)){ localChanged = true; continue; } anyError = true; continue; } // Rev 2.32.225: відновлення слова при наявному живому з тим самим текстом — усиновлення, без помилки
         if(data && data[0]) shadowSetServer(entry, data[0].updated_at); // Rev 2.32.192 (SHADOW-REV)
+        if(data && data[0]){ entry.serverKw = entry.kw; }
         if(data && data.length === 0){
           const { data: existingRow } = await client.from('dictionary').select('id, deleted_at').eq('id', entry.cloudId).maybeSingle();
           if(existingRow && existingRow.deleted_at){
@@ -5742,8 +5749,9 @@ async function pushDictionaryPilotRun(){
       }else{
         await reconcileDictionaryCloudId(client, userId, entry, parentCat.cloudId, subcategoryId);
       }
-      markDictionarySynced(entry, entry.updatedAt, parentCat.cloudId, subcategoryId);
+      { const pids = dictionaryParentIds(entry); markDictionarySynced(entry, entry.updatedAt, pids.catId || parentCat.cloudId, pids.subId || (entry.sub ? subcategoryId : null)); } // Rev 2.32.225: після усиновлення призначення могло стати серверним
       shadowAfterPush(entry, shSnap); // Rev 2.32.192 (SHADOW-REV)
+      if(entry.cloudId && entry.serverUpdatedAt){ entry.serverKw = entry.kw; entry.serverBase = mdSnap(MERGE_DOMAINS.words, entry); } // Rev 2.32.225: зліпок для наступних умовних update
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
@@ -5763,9 +5771,28 @@ function escapeLikeExact(text){
   return String(text).replace(/[\\%_]/g, '\\$&');
 }
 async function findLiveDictionaryRow(client, keyword){
-  const res = await client.from('dictionary').select('id').eq('family_id', cloudFamilyId).ilike('keyword', escapeLikeExact(keyword)).is('deleted_at', null).order('created_at', { ascending: true }).limit(1);
+  const res = await client.from('dictionary').select('id,category_id,subcategory_id,updated_at').eq('family_id', cloudFamilyId).ilike('keyword', escapeLikeExact(keyword)).is('deleted_at', null).order('created_at', { ascending: true }).limit(1);
   if(res.error) return { error: true, row: null };
   return { error: false, row: (res.data && res.data[0]) || null };
+}
+// Rev 2.32.225 (MERGE-WORDS): порушення унікальності живого слова (23505) — беремо наявне живе слово за lower(keyword): якщо його вже має інший локальний запис, цей запис-дубль прибирається; інакше усиновлюємо cloudId і приймаємо серверне призначення (сервер переміг). Помилку не показуємо.
+async function wordAdoptLive(client, entry){
+  const res = await client.from('dictionary').select('id,category_id,subcategory_id,deleted_at,deleted_via,updated_at,created_at,keyword').eq('family_id', cloudFamilyId).ilike('keyword', escapeLikeExact(entry.kw)).is('deleted_at', null).order('created_at', { ascending: true }).limit(1);
+  const row = res && !res.error && res.data && res.data[0];
+  if(!row) return false;
+  const twin = DICTIONARY.find(function(d){ return d !== entry && d.cloudId === row.id; });
+  const c = CATEGORIES.find(function(x){ return x.cloudId === row.category_id; });
+  if(twin){ const i = DICTIONARY.indexOf(entry); if(i !== -1) DICTIONARY.splice(i, 1); }
+  else{
+    entry.cloudId = row.id; delete entry.deletedAt; delete entry.deletedVia;
+    if(c){ entry.cat = c.name; const sb = row.subcategory_id ? SUBCATEGORIES.find(function(x){ return x.cloudId === row.subcategory_id; }) : null; entry.sub = sb ? sb.name : null; }
+    entry.updatedAt = row.updated_at; entry.createdAt = row.created_at; entry.serverUpdatedAt = row.updated_at; entry.serverKw = row.keyword;
+    markDictionarySynced(entry, row.updated_at, row.category_id, row.subcategory_id);
+    entry.serverBase = mdSnap(MERGE_DOMAINS.words, entry);
+    shadowNormalize(entry);
+  }
+  if(typeof captureDebugGeometry === 'function') captureDebugGeometry('dict-dup-adopt', {});
+  return true;
 }
 async function reconcileDictionaryCloudId(client, userId, entry, categoryId, subcategoryId){
   // Rev 2.22.80 (6D.153, Крок A2, знахідка п.4 звіту) — `.is('deleted_at',
@@ -5776,14 +5803,23 @@ async function reconcileDictionaryCloudId(client, userId, entry, categoryId, sub
   // і йшла гілкою "не знайдено", створюючи ДУБЛІКАТ живого рядка.
   // Rev 2.23.25 (6D.194) — пошук тепер без урахування регістру й через
   // limit(1) (раніше .maybeSingle() падав би й на кількох ЖИВИХ дублях).
-  const adopt = async function(existingId){
+  const adopt = async function(existingId, srvRow){
     entry.cloudId = existingId;
+    // Rev 2.32.225 (MERGE-WORDS): усиновлення наявного живого слова — призначення сервера перемагає (локальне не перезаписує серверне); без відомих батьків (старий шлях) — як раніше
+    const srvCat = srvRow && srvRow.category_id && typeof CATEGORIES !== 'undefined' ? CATEGORIES.find(function(c){ return c.cloudId === srvRow.category_id; }) : null;
+    if(srvCat){
+      entry.cat = srvCat.name;
+      const srvSub = srvRow.subcategory_id ? SUBCATEGORIES.find(function(x){ return x.cloudId === srvRow.subcategory_id; }) : null;
+      entry.sub = srvSub ? srvSub.name : null;
+      if(srvRow.updated_at) shadowSetServer(entry, srvRow.updated_at);
+      return;
+    }
     // Rev #30 (6D.125) BugFix — той самий принцип, що reconcileCategoryCloudId().
     { const shUp = await shadowRet(client.from('dictionary').update({ category_id: categoryId, subcategory_id: subcategoryId, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', existingId)); if(shUp && shUp.data && shUp.data[0]) shadowSetServer(entry, shUp.data[0].updated_at); } // Rev 2.32.192 (SHADOW-REV)
   };
   const found = await findLiveDictionaryRow(client, entry.kw);
   if(found.error) return; // мережа/конфлікт — тихий пропуск, наступний push-цикл спробує знову
-  if(found.row){ await adopt(found.row.id); return; }
+  if(found.row){ await adopt(found.row.id, found.row); return; }
   // Rev 2.22.80 (6D.153) — deleted_at: якщо сам запис офлайн-створений і
   // вже видалений ДО першого успішного sync (ніколи не мав cloudId), його
   // tombstone-стан має дійти в Cloud одразу при створенні рядка.
@@ -5795,7 +5831,7 @@ async function reconcileDictionaryCloudId(client, userId, entry, categoryId, sub
   if(error && error.code === '23505'){
     const again = await findLiveDictionaryRow(client, entry.kw);
     if(!again.error && again.row){
-      await adopt(again.row.id);
+      await adopt(again.row.id, again.row);
       captureDebugGeometry('dict-dup-adopt', {});
     }
   }
@@ -5922,6 +5958,9 @@ async function pullDictionaryCore(opts){
       const subName = parentSub ? parentSub.name : null;
       const byCloudId = DICTIONARY.find(function(d){ return d.cloudId === row.id; });
       if(byCloudId){
+        // Rev 2.32.225 (MERGE-WORDS): слово зі зліпком сервера — спільне злитті (mdPullDirty); без зліпка — старе LWW нижче
+        const dirtyRes = mdPullDirty(MERGE_DOMAINS.words, byCloudId, row, { catName: parentCat.name, subName: subName || '' }, false);
+        if(dirtyRes){ if(dirtyRes.kind === 'kept') keptLocal++; else updated++; continue; }
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
         const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime && planDictionaryPush([byCloudId], null, dictionaryParentIds).push.length > 0; // Rev 2.32.115 (URGENT-LOOP): «чистий» запис з новішим локальним часом — не привід для push (сервер ставить updated_at сам: set_updated_at_if_changed), приймаємо серверний час нижче
@@ -5941,6 +5980,7 @@ async function pullDictionaryCore(opts){
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
           markDictionarySynced(byCloudId, row.updated_at, row.category_id, row.subcategory_id); // Rev #30 (6D.50); G1: + батьки
+          byCloudId.serverBase = MERGE_DOMAINS.words.snapFromRow(row, { catName: parentCat.name, subName: subName || '' }); byCloudId.serverUpdatedAt = row.updated_at; byCloudId.serverKw = row.keyword; // Rev 2.32.225
           updated++;
         }
         continue;
@@ -7077,6 +7117,7 @@ function mdSnap(dom, rec){ const o = {}; dom.fields.forEach(function(f){ o[f] = 
 // Rev 2.32.221 (MERGE-HIDDEN): 'decision' = «YYYY-MM|<мітка видалення або порожньо>» — рівність за місяцем і наявністю мітки (самі мітки часу не порівнюються).
 function hiddenDecisionParts(v){ const t = String(v == null ? '' : v), i = t.indexOf('|'); return i === -1 ? { month: t, deleted: false } : { month: t.slice(0, i), deleted: t.slice(i + 1) !== '' }; }
 function mdFieldEq(f, a, b){
+  if(f === 'deletion'){ const x = String(a == null ? '' : a).split('|'), y = String(b == null ? '' : b).split('|'); return (!!x[0]) === (!!y[0]) && (x[0] ? (x[1] || '') === (y[1] || '') : true); } // Rev 2.32.225 (MERGE-WORDS): deletion = «мітка|deleted_via»: порівнюється наявність мітки й причина, не час
   if(f === 'decision'){ const x = hiddenDecisionParts(a), y = hiddenDecisionParts(b); return x.month === y.month && x.deleted === y.deleted; }
   return f === 'deletedAt' ? (!!a) === (!!b) : a === b;
 }
@@ -7150,7 +7191,7 @@ async function mdPushCas(dom, rec, ctx, opts, depth){
   const q0 = mdWhere(dom, client.from(dom.table).update(payload), rec);
   if(!q0) return { success: true }; // Rev 2.32.221: рядок прив'язаний до батька (рахунок без cloudId) — тихий пропуск, як раніше
   const res = await q0.eq('updated_at', rec.serverUpdatedAt).select(dom.retCols || 'id,updated_at');
-  if(res.error) return { success: false, error: res.error.message || String(res.error) };
+  if(res.error) return { success: false, error: res.error.message || String(res.error), code: res.error.code || null }; // Rev 2.32.225: код помилки (23505 для унікальності слів)
   if(res.data && res.data.length){
     rec.syncedUpdatedAt = sentAt;
     shadowSetServer(rec, res.data[0].updated_at); shadowAfterPush(rec, shSnap);
@@ -7312,6 +7353,32 @@ const MERGE_DOMAINS = {
     extraPayload: function(rec, userId){ return { updated_by: userId }; },
     nameOf: function(rec){ const t = hiddenTargetOf(rec); return t ? t.name : ''; }, eventName: function(row, ctx){ return (ctx && ctx.name) || ''; }, eventAmount: function(){ return null; },
   },
+  // Rev 2.32.225 (MERGE-WORDS, клас C): слова словника на спільному злитті. Два «рішення»: assignment («категорія|підкатегорія» разом) і deletion («мітка видалення|deleted_via» разом). Слово (keyword) і cloudId не зливаються; зміна тексту слова йде попереднім повним update. Політика: збіг рішення — тихо перемагає сервер (лише подія діагностики); різні рішення зливаються; видалення перемагає редагування.
+  words: {
+    key: 'words', table: 'dictionary', fields: ['assignment', 'deletion'], optional: [], silent: true, quiet: true,
+    cols: 'id,keyword,category_id,subcategory_id,deleted_at,deleted_via,created_at,updated_at',
+    list: function(){ return DICTIONARY; },
+    save: function(){ return saveDictionaryLocal(); }, pull: function(){ return pullDictionaryCore(); },
+    // рядка на сервері вже нема (зліпок скинуто): повторний запуск попереднім шляхом ставимо в чергу, а не чекаємо його всередині поточного запуску (інакше взаємне очікування)
+    push: function(rec, opts){ pushDictionaryPilot(); return Promise.resolve({ success: false, error: 'row-gone' }); },
+    get: function(rec, f){ return f === 'assignment' ? (rec.cat || '') + '|' + (rec.sub || '') : (rec.deletedAt || '') + '|' + (rec.deletedVia || ''); },
+    set: function(rec, f, v){
+      const p = String(v == null ? '' : v), i = p.indexOf('|'), a = i === -1 ? p : p.slice(0, i), b = i === -1 ? '' : p.slice(i + 1);
+      if(f === 'assignment'){ rec.cat = a; rec.sub = b || null; }
+      else{ if(a) rec.deletedAt = a; else delete rec.deletedAt; if(b) rec.deletedVia = b; else delete rec.deletedVia; }
+    },
+    snapFromRow: function(row, ctx){ return { assignment: ((ctx && ctx.catName) || '') + '|' + ((ctx && ctx.subName) || ''), deletion: (row.deleted_at || '') + '|' + (row.deleted_via || '') }; },
+    rowCtx: function(row, rec){ const c = CATEGORIES.find(function(x){ return x.cloudId === row.category_id; }), sb = row.subcategory_id ? SUBCATEGORIES.find(function(x){ return x.cloudId === row.subcategory_id; }) : null; return { catName: c ? c.name : (rec && rec.cat) || '', subName: row.subcategory_id ? (sb ? sb.name : (rec && rec.sub) || '') : '' }; },
+    pushCtx: function(rec){ const c = CATEGORIES.find(function(x){ return x.name === rec.cat; }), sb = rec.sub ? SUBCATEGORIES.find(function(x){ return x.name === rec.sub; }) : null; return { catId: c ? c.cloudId || null : null, subId: sb ? sb.cloudId || null : null }; },
+    where: function(q, rec){ return rec.cloudId ? q.eq('id', rec.cloudId) : null; },
+    payloadField: function(rec, f, ctx){ return f === 'assignment' ? { category_id: ctx.catId, subcategory_id: ctx.subId } : { deleted_at: rec.deletedAt || null, deleted_via: rec.deletedVia || null }; },
+    extraPayload: function(rec, userId){ return { updated_by: userId }; },
+    applyExtras: function(rec, row, out, ctx){
+      if(row.keyword !== undefined){ if(rec.serverKw === rec.kw) rec.kw = row.keyword; rec.serverKw = row.keyword; } // текст слова: якщо локально не змінювали — беремо серверний
+      if(!out.localOnly.length) markDictionarySynced(rec, row.updated_at, row.category_id, row.subcategory_id);
+    },
+    nameOf: function(rec){ return rec.kw || ''; }, eventName: function(row){ return row.keyword || ''; }, eventAmount: function(){ return null; },
+  },
 };
 // Рядок прихованого → { type, id (cloudId рахунку), name }; null, якщо запис не з hiddenFrom або рахунок ще без cloudId.
 function hiddenTargetOf(rec){
@@ -7445,6 +7512,10 @@ function conflictPrune(now){ conflictLog = conflictLog.filter(function(e){ retur
 function conflictSave(){ try{ localStorage.setItem(LS_KEY_CONFLICTS, JSON.stringify(conflictLog)); }catch(e){} }
 function conflictOpenCount(){ return conflictLog.filter(function(e){ return e.status === 'open'; }).length; }
 function mdRecordConflicts(dom, rec, row, merged){
+  if(dom.silent && dom.quiet){ // Rev 2.32.225 (MERGE-WORDS): без картки й без сповіщення — лише подія в розробницькому записі
+    if((merged.conflicts.length || merged.deletedConflict) && debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'merge-silent', mergeDom: dom.key, fieldsCount: merged.conflicts.length });
+    return;
+  }
   if(dom.silent){ // Rev 2.32.221 (MERGE-HIDDEN): «сервер переміг» без картки «Повернути моє»: лише сповіщення про дію іншого учасника
     if(merged.conflicts.length || merged.deletedConflict) pushOtherActorEvent(dom.key, row.deleted_at ? 'delete' : 'add', row.updated_by, dom.nameOf(rec), null);
     return;
@@ -9220,7 +9291,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.224';
+const APP_VERSION = '2.32.225';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13294,7 +13365,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   'touchX', 'touchY', 'targetTag', 'targetId', 'targetClasses',
   // Rev 2.32.169 (FIELD-GUARD): подія field-attrs — атрибути сфокусованого поля у «Структурі» (без значень)
   // Rev 2.32.217 (FIELDS-SNAP): події fields-snapshot / field-added / field-removed — атрибути полів без значень
-  'fieldName', 'fieldAc', 'snapWhy',
+  'fieldName', 'fieldAc', 'snapWhy', 'mergeDom',
   'fieldId', 'fieldType', 'fieldAttrs', 'fieldParent', 'fieldProxy', 'fieldLinked', 'fieldScreen',
   // Rev 2.22.92 (6D.165) — геометрія відкритої шторки/підложки: живий лог
   // (kb-full-scenario) знайшов дотик, що влучив у .drawer-backdrop замість
@@ -25666,6 +25737,8 @@ const CHECKS = [
   { id: '2.32.222-1', rev: '2.32.222', addedOn: '2026-10-30', title: 'Автозаповнення: пошук', steps: ['Відкрийте вкладку «Журнал» і торкніться поля пошуку, введіть літеру.', 'Відкрийте «Структуру», вкладку «Словник», торкніться поля пошуку слова, введіть літеру.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась у пошуку журналу', 'Панель з\u2019явилась у пошуку слова'] },
   { id: '2.32.223-1', rev: '2.32.223', addedOn: '2026-10-30', title: 'Тап по push гасить сповіщення в дзвіночку', steps: ['Переконайтесь, що в дзвіночку є непрочитане сповіщення й до нього прийшов push.', 'Торкніться push.', 'Відкрийте дзвіночок.'], expect: 'це сповіщення вже прочитане, значок зменшився, інші сповіщення лишились непрочитаними.', reasons: ['Сповіщення лишилось непрочитаним', 'Погасли й інші сповіщення'] },
   { id: '2.32.224-1', rev: '2.32.224', addedOn: '2026-10-30', title: 'Автозаповнення: пошук у журналі', steps: ['Відкрийте «Журнал» і торкніться поля пошуку.', 'Введіть літеру, потім ще кілька.'], expect: 'над клавіатурою немає панелі «Автозаповнити контакт».', reasons: ['Панель з\u2019явилась одразу', 'Панель з\u2019явилась після кількох літер'] },
+  { id: '2.32.225-1', rev: '2.32.225', addedOn: '2026-10-30', title: 'Те саме слово без мережі (потрібен другий телефон)', steps: ['Переконайтесь, що слова «тест» у словнику нема. Вимкніть мережу на обох телефонах.', 'На кожному телефоні додайте слово «тест» у різні категорії.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'у словнику на обох одне слово «тест» (у категорії, що потрапила на сервер першою), помилок нема.', reasons: ['З\u2019явились два слова', 'Показано помилку'] },
+  { id: '2.32.225-2', rev: '2.32.225', addedOn: '2026-10-30', title: 'Зміна категорії слова на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні змініть категорію слова А, на другому — категорію слова Б.', 'Зачекайте хвилину на обох.'], expect: 'на обох телефонах збережені обидві зміни.', reasons: ['Одна зміна зникла', 'Слова відрізняються між телефонами'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
@@ -26922,6 +26995,7 @@ function editDictionaryEntry(id){
   showDictionaryModal('Редагувати слово:', entry.kw, entry.cat, entry.sub, async function(kw, cat, sub){
     // Rev 2.22.80 (6D.153) — той самий фільтр, що openAddDictionaryModal().
     if(kw !== entry.kw && DICTIONARY.some(d=>d.kw===kw && !d.deletedAt)) return false;
+    if(kw === entry.kw && cat === entry.cat && (sub || null) === (entry.sub || null)) return; // Rev 2.32.225 (NO-OP-SAVE): без змін — нічого не пишемо й не шлемо
     entry.kw = kw; entry.cat = cat; entry.sub = sub;
     // Rev #30 (6D.28) — updatedAt при редагуванні.
     entry.updatedAt = new Date().toISOString();

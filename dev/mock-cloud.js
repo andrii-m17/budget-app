@@ -266,8 +266,12 @@
       if(strip(row) === strip(old)){ row.updated_at = old.updated_at; if('updated_by' in old) row.updated_by = old.updated_by; else delete row.updated_by; }
       else row.updated_at = ts;
     };
+    // Rev 2.32.225 (MERGE-WORDS): часткова унікальність dictionary_live_keyword_uniq — (family_id, lower(keyword)) серед живих; порушення = 409 / 23505 (як у PostgREST)
+    const dupWord = function(cand, self){ return table === 'dictionary' && !cand.deleted_at && rows.some(function(r){ return r !== self && !r.deleted_at && r.family_id === cand.family_id && String(r.keyword).toLowerCase() === String(cand.keyword).toLowerCase(); }); };
+    const dupResp = function(){ return jsonResponse(409, { code: '23505', message: 'duplicate key value violates unique constraint "dictionary_live_keyword_uniq"' }); };
     if(method === 'POST'){
       const items = Array.isArray(body) ? body : (body ? [body] : []);
+      if(table === 'dictionary' && items.some(function(it){ return dupWord(Object.assign({ family_id: state.familyId }, it), null); })) return dupResp();
       const upsert = /merge-duplicates|ignore-duplicates/.test(prefer);
       const out = [];
       items.forEach(function(it){
@@ -287,6 +291,7 @@
     }
     if(method === 'PATCH' || method === 'PUT'){
       const hit = rows.filter(function(r){ return fs.every(function(f){ return f(r); }); });
+      if(table === 'dictionary' && hit.some(function(r){ return dupWord(Object.assign({}, r, body || {}), r); })) return dupResp();
       hit.forEach(function(r){ serverUpdate(r, body || {}); emit(state, table, 'UPDATE', r); });
       return wantRep ? respond(JSON.parse(JSON.stringify(sel(hit)))) : new Response(null, { status: 204 });
     }

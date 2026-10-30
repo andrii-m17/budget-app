@@ -474,3 +474,92 @@ test('11. приховані: обоє приховали (сервер пере
   const mig = await page.evaluate(() => ({ old: !!hiddenFrom[hideKeyLegacy(window.__acc.name, 'installment')], neu: hiddenFrom[window.__key] ? hiddenFrom[window.__key].month : null }));
   expect(mig.neu, 'ключ за id після міграції').toBeTruthy();
 });
+
+// Rev 2.32.225 (MERGE-WORDS): слова словника на спільному злитті — два пристрої на моку.
+test('12. слова: різні рішення зливаються, те саме призначення (годинник ±1 доба) — сервер, видалення проти правки, обоє створили слово, відновлення при живому, висячий cloudId, без зліпка, порожній push', async ({ page }) => {
+  await page.goto('/index.html?fixture=typical');
+  await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+  await page.waitForTimeout(2000);
+  const setup = await page.evaluate(() => {
+    const cats = CATEGORIES.filter(c => c.cloudId && c.active).slice(0, 3);
+    const words = DICTIONARY.filter(d => d.cloudId && !d.deletedAt && d.serverBase !== undefined || (d.cloudId && !d.deletedAt)).slice(0, 6);
+    window.__cats = cats.map(c => ({ name: c.name, id: c.cloudId })); window.__w = words.map(w => w.cloudId);
+    return { c: cats.length, w: words.length };
+  });
+  expect(setup.c).toBeGreaterThanOrEqual(3); expect(setup.w).toBeGreaterThanOrEqual(5);
+  const srv = (cid) => page.evaluate(i => { const r = window.MockCloud.state.tables.dictionary.find(x => x.id === i); return r ? { cat: r.category_id, del: !!r.deleted_at, kw: r.keyword } : null; }, cid);
+  const loc = (cid) => page.evaluate(i => { const d = DICTIONARY.find(x => x.cloudId === i); return d ? { cat: d.cat, del: !!d.deletedAt, base: !!d.serverBase } : null; }, cid);
+  const edit = (cid, fn) => page.evaluate(async ([i, f]) => { const d = DICTIONARY.find(x => x.cloudId === i); new Function('d', 'cats', f)(d, window.__cats); await saveDictionaryLocal(); }, [cid, fn]);
+  const other = (cid, patch) => page.evaluate(([i, pt]) => { window.MockCloud.otherDevice({ table: 'dictionary', id: i, op: 'update', patch: pt }); }, [cid, patch]);
+  const syncNow = () => page.evaluate(async () => { await pushDictionaryPilot(); await pullDictionaryCore(); });
+  const offline = (on) => page.evaluate(v => { window.__offline = v; if(!v) window.dispatchEvent(new Event('online')); }, on);
+  const ids = await page.evaluate(() => window.__w);
+  const cats = await page.evaluate(() => window.__cats);
+  // A. призначення проти видалення: видалення перемагає, правка не воскрешає
+  await page.waitForFunction(i => { const d = DICTIONARY.find(x => x.cloudId === i); return d && d.serverBase; }, ids[0]);
+  await offline(true);
+  await edit(ids[0], "d.cat = cats[2].name; d.sub = null; d.updatedAt = new Date().toISOString();");
+  await other(ids[0], { deleted_at: new Date().toISOString(), deleted_via: 'word' });
+  await offline(false); await syncNow();
+  expect((await srv(ids[0])).del, 'видалення лишилось на сервері').toBe(true);
+  expect((await loc(ids[0])).del, 'локально теж видалено').toBe(true);
+  // B. те саме призначення: сервер переміг; годинник ±1 доба не міняє результату
+  for(const [k, skew] of [[1, 86400000], [2, -86400000]]){
+    const cid = ids[k];
+    await page.waitForFunction(i => { const d = DICTIONARY.find(x => x.cloudId === i); return d && d.serverBase; }, cid);
+    await offline(true);
+    await edit(cid, "d.cat = cats[1].name; d.sub = null; d.updatedAt = new Date(Date.now() + (" + skew + ")).toISOString();");
+    await other(cid, { category_id: cats[2].id, subcategory_id: null });
+    await offline(false); await syncNow();
+    expect((await srv(cid)).cat, 'сервер переміг (' + skew + ')').toBe(cats[2].id);
+    expect((await loc(cid)).cat).toBe(cats[2].name);
+  }
+  // C. різні рішення: я видалив, інший змінив категорію — видалено, категорія сервера
+  await page.waitForFunction(i => { const d = DICTIONARY.find(x => x.cloudId === i); return d && d.serverBase; }, ids[3]);
+  await offline(true);
+  await edit(ids[3], "d.deletedAt = new Date().toISOString(); d.deletedVia = 'word'; d.updatedAt = new Date().toISOString();");
+  await other(ids[3], { category_id: cats[1].id, subcategory_id: null });
+  await offline(false); await syncNow();
+  const c = await srv(ids[3]); expect(c.del).toBe(true); expect(c.cat).toBe(cats[1].id);
+  // D. обоє створили те саме слово: усиновлення, дубля нема, помилки нема
+  await offline(true);
+  await page.evaluate(async () => { const now = new Date().toISOString(); DICTIONARY.push({ id: generateUUID(), kw: 'тестслово', cat: window.__cats[0].name, sub: null, createdAt: now, updatedAt: now }); await saveDictionaryLocal(); });
+  await page.evaluate(([cid]) => { window.MockCloud.otherDevice({ table: 'dictionary', op: 'insert', row: { id: 'srv-word-1', keyword: 'тестслово', category_id: cid, subcategory_id: null, deleted_at: null, deleted_via: null } }); }, [cats[1].id]);
+  await offline(false); await syncNow();
+  const dup = await page.evaluate(() => ({ srv: window.MockCloud.state.tables.dictionary.filter(r => String(r.keyword).toLowerCase() === 'тестслово' && !r.deleted_at).length, loc: DICTIONARY.filter(d => d.kw === 'тестслово' && !d.deletedAt).length, cat: (DICTIONARY.find(d => d.kw === 'тестслово') || {}).cat }));
+  expect(dup.srv).toBe(1); expect(dup.loc).toBe(1); expect(dup.cat, 'категорія з сервера').toBe(cats[1].name);
+  // E. відновлення видаленого слова, коли таке ж уже є живе
+  await offline(true);
+  await page.evaluate(() => { const i = window.__w[4]; window.__kw4 = DICTIONARY.find(x => x.cloudId === i).kw; });
+  await edit(ids[4], "d.deletedAt = new Date().toISOString(); d.deletedVia = 'word'; d.updatedAt = new Date().toISOString();");
+  await offline(false); await syncNow();
+  await offline(true);
+  await page.evaluate(() => { window.MockCloud.otherDevice({ table: 'dictionary', op: 'insert', row: { id: 'srv-word-2', keyword: window.__kw4, category_id: window.__cats[0].id, subcategory_id: null, deleted_at: null, deleted_via: null } }); });
+  await edit(ids[4], "delete d.deletedAt; delete d.deletedVia; d.updatedAt = new Date().toISOString();");
+  await offline(false); await syncNow();
+  const res = await page.evaluate(() => ({ srv: window.MockCloud.state.tables.dictionary.filter(r => String(r.keyword).toLowerCase() === window.__kw4.toLowerCase() && !r.deleted_at).length, loc: DICTIONARY.filter(d => d.kw.toLowerCase() === window.__kw4.toLowerCase() && !d.deletedAt).length }));
+  expect(res.srv, 'на сервері одне живе').toBe(1); expect(res.loc, 'локально одне живе').toBe(1);
+  // F. висячий cloudId: рядок зник на сервері — правка йде попереднім шляхом
+  await page.waitForFunction(() => window.__w.length);
+  const cid5 = await page.evaluate(() => window.__w[5]);
+  await page.waitForFunction(i => { const d = DICTIONARY.find(x => x.cloudId === i); return d && d.serverBase; }, cid5);
+  const kw5 = await page.evaluate(i => DICTIONARY.find(x => x.cloudId === i).kw, cid5);
+  await offline(true);
+  await edit(cid5, "d.cat = cats[1].name; d.sub = null; d.updatedAt = new Date().toISOString();");
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'dictionary', op: 'harddelete', id: i }); }, cid5);
+  await offline(false); await syncNow();
+  const f = await page.evaluate(k => { const r = window.MockCloud.state.tables.dictionary.filter(x => String(x.keyword).toLowerCase() === k.toLowerCase() && !x.deleted_at); return { n: r.length, cat: r[0] && r[0].category_id }; }, kw5);
+  expect(f.n, 'слово відтворено на сервері без дубля').toBe(1); expect(f.cat).toBe(cats[1].id);
+  // H. запис без зліпка: попередній шлях, після нього зліпок з'являється
+  const cid6 = await page.evaluate(i => { const d = DICTIONARY.find(x => x.kw === i); return d.cloudId; }, kw5);
+  await page.evaluate(async i => { const d = DICTIONARY.find(x => x.cloudId === i); delete d.serverBase; delete d.serverUpdatedAt; delete d.serverKw; d.cat = window.__cats[2].name; d.sub = null; d.updatedAt = new Date().toISOString(); await saveDictionaryLocal(); await pushDictionaryPilot(); }, cid6);
+  expect((await srv(cid6)).cat).toBe(cats[2].id);
+  expect((await loc(cid6)).base, 'зліпок після push').toBe(true);
+  // G. порожній push: жодних запитів запису
+  await syncNow(); await page.waitForTimeout(500);
+  const w0 = await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length);
+  await page.evaluate(async () => { await pushDictionaryPilot(); });
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length)).toBe(w0);
+});
+
