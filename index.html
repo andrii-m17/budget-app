@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.226</div>
+  <div class="version-footer">Money Tree · Rev 2.32.227</div>
 </div>
   </div>
 </div>
@@ -4953,6 +4953,11 @@ async function pushCategoriesPilot(){
     // Cloud, щоб це виявити.
     const prevCloudId = cat.cloudId;
     try{
+      if(taxCasEligible(cat)){ // Rev 2.32.227 (MERGE-TAXONOMY): категорія зі зліпком і незмінною назвою — умовний update зі злиттям (лише змінені поля); рядка вже нема → попередній шлях нижче; зі зміненою назвою — попередній повний update
+        const cas = await mdPushCas(MERGE_DOMAINS.categories, cat, {}, { suppressPull: true });
+        if(cas && cas.success){ shadowAfterPush(cat, shSnap); localChanged = true; continue; }
+        if(!(cas && cas.error === 'row-gone')){ anyError = true; continue; }
+      }
       if(cat.cloudId){
         const { data, error } = await client.from('categories').update({ name: cat.name, active: cat.active, type: cat.type, updated_at: cat.updatedAt, updated_by: userId }).eq('id', cat.cloudId).select('id,updated_at');
         if(error){ anyError = true; continue; }
@@ -4973,6 +4978,7 @@ async function pushCategoriesPilot(){
       // синхронізованим на ПОТОЧНЕ значення updatedAt.
       cat.syncedUpdatedAt = cat.updatedAt;
       shadowAfterPush(cat, shSnap); // Rev 2.32.192 (SHADOW-REV)
+      cat.serverName = cat.name; if(cat.cloudId && cat.serverUpdatedAt) cat.serverBase = mdSnap(MERGE_DOMAINS.categories, cat); // Rev 2.32.227: зліпок для наступних умовних update
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск,
@@ -5108,6 +5114,10 @@ async function pullCategoriesCore(opts){
       if(row.deleted_at){ await pullTaxonomyTombstone('category', row); continue; } // Rev 2.32.7 (T3): tombstone — гілка зникає локально, за назвою не зв'язується
       const byCloudId = CATEGORIES.find(function(c){ return c.cloudId === row.id; });
       if(byCloudId){
+        if(byCloudId.serverBase && byCloudId.serverName === byCloudId.name){ // Rev 2.32.227 (MERGE-TAXONOMY): категорія зі зліпком і незмінною назвою — спільне злиття; інакше старе LWW нижче
+          const dirtyRes = mdPullDirty(MERGE_DOMAINS.categories, byCloudId, row, {}, false);
+          if(dirtyRes){ if(dirtyRes.kind === 'kept') keptLocal++; else updated++; continue; }
+        }
         // Rev #30 (6D, Варіант А) — справжній LWW замість "Cloud завжди
         // перемагає": порівнюємо updatedAt. Локальний СТРОГО новіший →
         // НЕ чіпаємо (наступний push, ЯКИЙ ВЖЕ тригериться будь-якою
@@ -5142,6 +5152,7 @@ async function pullCategoriesCore(opts){
           // застосовано) — синхронізовано, наступний push цей запис
           // пропустить, доки він знову НЕ зміниться локально.
           byCloudId.syncedUpdatedAt = row.updated_at;
+          byCloudId.serverName = row.name; byCloudId.serverBase = MERGE_DOMAINS.categories.snapFromRow(row); byCloudId.serverUpdatedAt = row.updated_at; // Rev 2.32.227
           updated++;
         }
         continue;
@@ -5158,6 +5169,7 @@ async function pullCategoriesCore(opts){
         byName.createdAt = row.created_at;
         byName.updatedAt = row.updated_at;
         byName.syncedUpdatedAt = row.updated_at; // Rev #30 (6D.50)
+        byName.serverName = row.name; byName.serverBase = MERGE_DOMAINS.categories.snapFromRow(row); byName.serverUpdatedAt = row.updated_at; // Rev 2.32.227
         linked++;
         continue;
       }
@@ -5165,7 +5177,7 @@ async function pullCategoriesCore(opts){
       // нижче недосяжний за нормальних умов; лишається як страховка на
       // випадок старого/нестандартного рядка без явного значення.
       // Rev #30 (6D.50) — syncedUpdatedAt: row.updated_at — щойно з Cloud, синхронізовано за визначенням.
-      CATEGORIES.push({ name: row.name, type: row.type || 'Гнучка', active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at });
+      CATEGORIES.push({ name: row.name, type: row.type || 'Гнучка', active: row.active, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, serverName: row.name, serverBase: MERGE_DOMAINS.categories.snapFromRow(row), serverUpdatedAt: row.updated_at });
       added++;
     }
     updateSyncMarkerFromAllRows('categories', data); // Rev #30 (6D.38) — усередині try: `data` block-scoped
@@ -5243,6 +5255,11 @@ async function pushSubcategoriesPilot(){
     // реальний клас бага, що pushCategoriesPilot() вище (докоментар там).
     const prevCloudId = sub.cloudId;
     try{
+      if(taxCasEligible(sub, parentCat.cloudId)){ // Rev 2.32.227 (MERGE-TAXONOMY): підкатегорія зі зліпком, незмінними назвою й батьком — умовний update зі злиттям; рядка вже нема → попередній шлях нижче
+        const cas = await mdPushCas(MERGE_DOMAINS.subcategories, sub, {}, { suppressPull: true });
+        if(cas && cas.success){ sub.syncedCategoryId = parentCat.cloudId; shadowAfterPush(sub, shSnap); localChanged = true; continue; }
+        if(!(cas && cas.error === 'row-gone')){ anyError = true; continue; }
+      }
       if(sub.cloudId){
         // Rev 2.22.89 (6D.162, Ревізія C) — deactivated_via: текстовий
         // маркер каскаду (без FK, рішення користувача) — той самий
@@ -5262,6 +5279,7 @@ async function pushSubcategoriesPilot(){
       sub.syncedUpdatedAt = sub.updatedAt;
       shadowAfterPush(sub, shSnap); // Rev 2.32.192 (SHADOW-REV)
       sub.syncedCategoryId = parentCat.cloudId; // Rev 2.23.27 (6D.196, G2): батько, з яким синхронізовано
+      sub.serverName = sub.name; if(sub.cloudId && sub.serverUpdatedAt) sub.serverBase = mdSnap(MERGE_DOMAINS.subcategories, sub); // Rev 2.32.227: зліпок для наступних умовних update
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
@@ -5878,6 +5896,10 @@ async function pullSubcategoriesCore(opts){
       if(!maxSeen || row.updated_at > maxSeen) maxSeen = row.updated_at;
       const byCloudId = SUBCATEGORIES.find(function(s){ return s.cloudId === row.id; });
       if(byCloudId){
+        if(byCloudId.serverBase && byCloudId.serverName === byCloudId.name && byCloudId.syncedCategoryId === row.category_id && byCloudId.category === parentCat.name){ // локальне перенесення в іншу категорію (push ще не пішов) — попередній шлях, батько не зливається; // Rev 2.32.227 (MERGE-TAXONOMY): підкатегорія зі зліпком, незмінними назвою й батьком — спільне злиття; інакше старе LWW нижче
+          const dirtyRes = mdPullDirty(MERGE_DOMAINS.subcategories, byCloudId, row, { parentName: parentCat.name }, false);
+          if(dirtyRes){ if(dirtyRes.kind === 'kept') keptLocal++; else updated++; continue; }
+        }
         const localTime = byCloudId.updatedAt ? Date.parse(byCloudId.updatedAt) : NaN;
         const cloudTime = row.updated_at ? Date.parse(row.updated_at) : NaN;
         const localIsNewer = !isNaN(localTime) && !isNaN(cloudTime) && localTime > cloudTime && isSubcategoryDirty(byCloudId, categoriesByNameMap()); // Rev 2.32.115 (URGENT-LOOP): «чистий» запис з новішим локальним часом — не привід для push (сервер ставить updated_at сам: set_updated_at_if_changed), приймаємо серверний час нижче
@@ -5895,6 +5917,7 @@ async function pullSubcategoriesCore(opts){
           byCloudId.createdAt = row.created_at;
           byCloudId.updatedAt = row.updated_at;
           byCloudId.syncedUpdatedAt = row.updated_at; byCloudId.syncedCategoryId = row.category_id; // Rev #30 (6D.50); G2: + батько
+          byCloudId.serverName = row.name; byCloudId.serverBase = MERGE_DOMAINS.subcategories.snapFromRow(row); byCloudId.serverUpdatedAt = row.updated_at; // Rev 2.32.227
           updated++;
         }
         continue;
@@ -5908,10 +5931,11 @@ async function pullSubcategoriesCore(opts){
         byName.createdAt = row.created_at;
         byName.updatedAt = row.updated_at;
         byName.syncedUpdatedAt = row.updated_at; byName.syncedCategoryId = row.category_id; // Rev #30 (6D.50); G2: + батько
+        byName.serverName = row.name; byName.serverBase = MERGE_DOMAINS.subcategories.snapFromRow(row); byName.serverUpdatedAt = row.updated_at; // Rev 2.32.227
         linked++;
         continue;
       }
-      SUBCATEGORIES.push({ name: row.name, category: parentCat.name, active: row.active, deactivatedVia: row.deactivated_via || undefined, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, syncedCategoryId: row.category_id });
+      SUBCATEGORIES.push({ name: row.name, category: parentCat.name, active: row.active, deactivatedVia: row.deactivated_via || undefined, cloudId: row.id, createdAt: row.created_at, updatedAt: row.updated_at, syncedUpdatedAt: row.updated_at, syncedCategoryId: row.category_id, serverName: row.name, serverBase: MERGE_DOMAINS.subcategories.snapFromRow(row), serverUpdatedAt: row.updated_at });
       added++;
     }
     if(maxSeen) setSyncMarker('subcategories', maxSeen);
@@ -7171,7 +7195,7 @@ function mdMergeServerRow(dom, rec, row, ctx){
 }
 // Для «чистих» записів без зліпка (старий формат): зліпок = поточні поля, серверний час = syncedUpdatedAt (для записів, надісланих до 2.32.192, це не серверний час: перша умова дасть 0 рядків і один GET, далі все точно).
 function mdMigrateBase(dom){
-  try{ dom.list().forEach(function(r){ shadowNormalizeLazy(r); if(!r.serverBase && r.syncedUpdatedAt && r.syncedUpdatedAt === r.updatedAt && !shadowDirtyNew(r)){ r.serverBase = mdSnap(dom, r); if(!r.serverUpdatedAt) r.serverUpdatedAt = r.syncedUpdatedAt; } }); }catch(e){}
+  try{ dom.list().forEach(function(r){ shadowNormalizeLazy(r); if(!r.serverBase && r.syncedUpdatedAt && r.syncedUpdatedAt === r.updatedAt && !shadowDirtyNew(r)){ r.serverBase = mdSnap(dom, r); if(!r.serverUpdatedAt) r.serverUpdatedAt = r.syncedUpdatedAt; if(dom.afterMigrate) dom.afterMigrate(r); } }); }catch(e){}
 }
 function expMigrateBase(){ Object.keys(MERGE_DOMAINS).forEach(function(k){ mdMigrateBase(MERGE_DOMAINS[k]); }); }
 // Умовний push існуючого запису: лише змінені поля, умова на серверний updated_at.
@@ -7214,6 +7238,7 @@ async function mdPushCas(dom, rec, ctx, opts, depth){
     return await dom.push(rec, opts);
   }
   const row = g.data[0];
+  if(dom.gone && row.deleted_at){ await dom.gone(row); return { success: true }; } // Rev 2.32.227: серверний надгробок (видалено назавжди) — видалення перемагає, запис прибирається локально
   const merged = mdMergeServerRow(dom, rec, row, dom.rowCtx(row, rec));
   mdRecordConflicts(dom, rec, row, merged);
   await dom.save();
@@ -7426,7 +7451,54 @@ const MERGE_DOMAINS = {
     },
     nameOf: function(rec){ return rec.name || ''; }, eventName: function(row){ return row.name || ''; }, eventAmount: function(){ return null; },
   },
+  // Rev 2.32.227 (MERGE-TAXONOMY, клас C): категорії й підкатегорії на спільному злитті. Категорія: `type`, `active`. Підкатегорія: `state` = `active` + `deactivated_via` як одне рішення. Ключ і не зливається: `name` (перейменування НЕ змінено — запис із зміненою назвою йде попереднім повним update, `serverName`), батько підкатегорії (`category_id`, `syncedCategoryId`), `cloudId`, `createdAt`. `deleted_at` (назавжди видалене в «Видалених даних») — серверний надгробок: видалення перемагає, локальний запис прибирається (dom.gone). Політика `silent`+`quiet`: різні поля зливаються мовчки; те саме поле — тихо сервер (подія merge-silent у записі діагностики); карток і сповіщень нема. Каскад видалення категорії (підкатегорії active=false/deactivated_via='category', слова deleted_via='category') — звичайні зміни цих полів.
+  categories: {
+    key: 'categories', table: 'categories', fields: ['type', 'active'], optional: [], silent: true, quiet: true, retCols: 'id,updated_at',
+    cols: 'id,name,active,type,created_at,updated_at,deleted_at,created_by,updated_by',
+    list: function(){ return CATEGORIES; }, save: function(){ return saveCategoriesLocal(); }, pull: function(){ return pullCategoriesCore(); },
+    // opts.suppressPull — виклик із циклу pushCategoriesPilot (рядка вже нема): цей самий цикл піде попереднім шляхом (reconcile); інакше (pull) — звичайний push-проход
+    push: function(rec, opts){ if(!(opts && opts.suppressPull)) pushCategoriesPilot(); return Promise.resolve({ success: false, error: 'row-gone' }); },
+    snapFromRow: function(row){ return { type: row.type || '', active: row.active }; },
+    rowCtx: function(){ return {}; }, pushCtx: function(){ return {}; },
+    rid: function(rec){ return rec.cloudId; }, find: function(id){ return CATEGORIES.find(function(c){ return c.cloudId === id; }); },
+    where: function(q, rec){ return rec.cloudId ? q.eq('id', rec.cloudId) : null; },
+    payloadField: function(rec, f){ return f === 'type' ? { type: rec.type } : { active: rec.active }; },
+    extraPayload: function(rec, userId){ return { updated_by: userId }; },
+    afterMigrate: function(rec){ if(rec.serverName === undefined) rec.serverName = rec.name; },
+    applyExtras: function(rec, row){ if(row.name !== undefined){ if(rec.serverName === rec.name) rec.name = row.name; rec.serverName = row.name; } }, // назва: якщо локально не перейменовували — серверна
+    gone: function(row){ return pullTaxonomyTombstone('category', row); },
+    afterMerge: function(){ try{ renderStructure(); populateCategorySelect(); }catch(e){} },
+    nameOf: function(rec){ return rec.name || ''; }, eventName: function(row){ return row.name || ''; }, eventAmount: function(){ return null; },
+  },
+  subcategories: {
+    key: 'subcategories', table: 'subcategories', fields: ['state'], optional: [], silent: true, quiet: true, retCols: 'id,updated_at',
+    cols: 'id,name,category_id,active,deactivated_via,created_at,updated_at,deleted_at,created_by,updated_by',
+    list: function(){ return SUBCATEGORIES; }, save: function(){ return saveSubcategoriesLocal(); }, pull: function(){ return pullSubcategoriesCore(); },
+    push: function(rec, opts){ if(!(opts && opts.suppressPull)) pushSubcategoriesPilot(); return Promise.resolve({ success: false, error: 'row-gone' }); },
+    get: function(rec){ return (rec.active ? '1' : '0') + '|' + (rec.deactivatedVia || ''); },
+    set: function(rec, f, v){ const p = String(v == null ? '' : v), i = p.indexOf('|'), a = i === -1 ? p : p.slice(0, i), b = i === -1 ? '' : p.slice(i + 1); rec.active = a === '1'; if(b) rec.deactivatedVia = b; else delete rec.deactivatedVia; },
+    snapFromRow: function(row){ return { state: (row.active ? '1' : '0') + '|' + (row.deactivated_via || '') }; },
+    rowCtx: function(row){ const c = CATEGORIES.find(function(x){ return x.cloudId === row.category_id; }); return { parentName: c ? c.name : null }; }, pushCtx: function(){ return {}; },
+    rid: function(rec){ return rec.cloudId; }, find: function(id){ return SUBCATEGORIES.find(function(s){ return s.cloudId === id; }); },
+    where: function(q, rec){ return rec.cloudId ? q.eq('id', rec.cloudId) : null; },
+    payloadField: function(rec){ return { active: rec.active, deactivated_via: rec.deactivatedVia || null }; },
+    extraPayload: function(rec, userId){ return { updated_by: userId }; },
+    afterMigrate: function(rec){ if(rec.serverName === undefined) rec.serverName = rec.name; },
+    applyExtras: function(rec, row, out, ctx){
+      if(row.name !== undefined){ if(rec.serverName === rec.name) rec.name = row.name; rec.serverName = row.name; }
+      if(ctx && ctx.parentName){ rec.category = ctx.parentName; rec.syncedCategoryId = row.category_id; } // допуск до злиття вимагає збігу батька, тож це лише оновлення назви батька
+    },
+    gone: function(row){ return pullTaxonomyTombstone('subcategory', row); },
+    afterMerge: function(){ try{ renderStructure(); }catch(e){} },
+    nameOf: function(rec){ return rec.name || ''; }, eventName: function(row){ return row.name || ''; }, eventAmount: function(){ return null; },
+  },
 };
+// Rev 2.32.227 (MERGE-TAXONOMY): допуск запису до умовного update/злиття: є зліпок і серверний час, назва не перейменована локально (перейменування йде попереднім шляхом), у підкатегорії батько не змінено
+function taxCasEligible(rec, parentCloudId){
+  if(!rec || !rec.cloudId || !rec.serverBase || !rec.serverUpdatedAt || rec.serverName !== rec.name) return false;
+  if(parentCloudId !== undefined && (rec.syncedCategoryId || null) !== (parentCloudId || null)) return false;
+  return true;
+}
 const ACC_NULLABLE_FIELDS = ['paymentDay', 'dueDay', 'termMonths', 'startDate', 'firstPayment', 'payMode', 'payment'];
 function accSetField(rec, f, v){ rec[f] = (v === '' && ACC_NULLABLE_FIELDS.indexOf(f) !== -1) ? null : v; }
 // Рядок прихованого → { type, id (cloudId рахунку), name }; null, якщо запис не з hiddenFrom або рахунок ще без cloudId.
@@ -9367,7 +9439,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.226';
+const APP_VERSION = '2.32.227';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -25818,6 +25890,8 @@ const CHECKS = [
   { id: '2.32.226-1', rev: '2.32.226', addedOn: '2026-10-31', title: 'Картка: різні поля (потрібен другий телефон)', steps: ['На першому телефоні змініть ліміт картки, на другому — день платежу тієї ж картки.', 'Зачекайте хвилину на обох.'], expect: 'збережено обидві зміни, без сповіщень.', reasons: ['Одна зміна зникла', 'З\u2019явилось сповіщення'] },
   { id: '2.32.226-2', rev: '2.32.226', addedOn: '2026-10-31', title: 'Картка: те саме поле (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах і змініть ліміт тієї ж картки на різні значення.', 'Увімкніть мережу на обох телефонах.'], expect: 'з\u2019являється картка «Оля вже змінила ліміт» з кнопкою «Повернути моє».', reasons: ['Картки не з\u2019явилось', 'Ліміт на телефонах різний'] },
   { id: '2.32.226-3', rev: '2.32.226', addedOn: '2026-10-31', title: 'ОЧ: платіж на двох телефонах (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах і змініть платіж тієї ж ОЧ на різні значення.', 'Увімкніть мережу на обох телефонах.'], expect: 'з\u2019являється картка «Оля вже змінила платіж» з кнопкою «Повернути моє».', reasons: ['Картки не з\u2019явилось', 'Платіж на телефонах різний'] },
+  { id: '2.32.227-1', rev: '2.32.227', addedOn: '2026-10-31', title: 'Категорії: різні поля (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах. На першому змініть тип категорії, на другому видаліть ту саму категорію.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'категорія видалена на обох (її видно у «Видалених даних» з новим типом), без сповіщень.', reasons: ['Категорія лишилась активною', 'Новий тип зник', 'З\u2019явилось сповіщення'] },
+  { id: '2.32.227-2', rev: '2.32.227', addedOn: '2026-10-31', title: 'Підкатегорія: видалення без мережі (потрібен другий телефон)', steps: ['Вимкніть мережу на першому телефоні й видаліть підкатегорію.', 'Увімкніть мережу й зачекайте хвилину.'], expect: 'на обох телефонах підкатегорія зникла зі списку вибору, помилок і сповіщень нема.', reasons: ['На другому телефоні підкатегорія лишилась', 'З\u2019явилось сповіщення'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

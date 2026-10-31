@@ -759,3 +759,209 @@ test('16. ОЧ: різні поля, те саме поле (платіж) з к
   expect(h.errors).toEqual([]);
 });
 
+
+// Rev 2.32.227 (MERGE-TAXONOMY): категорії й підкатегорії на спільному злитті — два пристрої на моку, годинник ±1 доба.
+async function taxSetup(page, table){
+  await page.goto('/index.html?fixture=typical');
+  await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+  await page.waitForTimeout(2000);
+  const errors = []; page.on('pageerror', x => errors.push(String(x)));
+  const isCat = table === 'categories';
+  const ids = await page.evaluate(t => (t === 'categories' ? CATEGORIES : SUBCATEGORIES).filter(x => x.cloudId && x.active).slice(0, 4).map(x => x.cloudId), table);
+  expect(ids.length, 'у фікстурі є щонайменше 4 живих записи').toBeGreaterThanOrEqual(4);
+  for(const i of ids) await page.waitForFunction(([t, id]) => { const r = (t === 'categories' ? CATEGORIES : SUBCATEGORIES).find(x => x.cloudId === id); return r && r.serverBase && r.serverUpdatedAt && r.serverName === r.name; }, [table, i]);
+  const offline = on => page.evaluate(v => { window.__offline = v; if(!v) window.dispatchEvent(new Event('online')); }, on);
+  const other = (id, patch) => page.evaluate(([t, i, pt]) => { window.MockCloud.otherDevice({ table: t, id: i, op: 'update', patch: pt }); }, [table, id, patch]);
+  const edit = (id, fn, skew) => page.evaluate(async ([t, i, f, k]) => { const a = (t === 'categories' ? CATEGORIES : SUBCATEGORIES).find(x => x.cloudId === i); new Function('a', f)(a); a.updatedAt = new Date(Date.now() + (k || 0)).toISOString(); await (t === 'categories' ? saveCategoriesLocal() : saveSubcategoriesLocal()); }, [table, id, fn, skew]);
+  const sync = () => page.evaluate(async t => { if(t === 'categories'){ await pushCategoriesPilot(); await pullCategoriesCore(); } else { await pushSubcategoriesPilot(); await pullSubcategoriesCore(); } }, table);
+  const srv = id => page.evaluate(([t, i]) => { const r = window.MockCloud.state.tables[t].find(x => x.id === i); return r ? JSON.parse(JSON.stringify(r)) : null; }, [table, id]);
+  const loc = id => page.evaluate(([t, i]) => { const r = (t === 'categories' ? CATEGORIES : SUBCATEGORIES).find(x => x.cloudId === i); return r ? JSON.parse(JSON.stringify(r)) : null; }, [table, id]);
+  const writes = () => page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length);
+  return { ids, errors, offline, other, edit, sync, srv, loc, writes, isCat };
+}
+const otherType = t => (t === 'Гнучка' ? "Обов'язкова" : 'Гнучка');
+
+test('23. категорії: різні поля (тип і «активна»), те саме поле — сервер (±1 доба), видалення проти правки, висячий cloudId, без зліпка, порожній push, офлайн→онлайн; без карток', async ({ page }) => {
+  const h = await taxSetup(page, 'categories');
+  // A. різні поля: мій тип, чужа «активна»
+  await h.offline(true);
+  const t0 = (await h.loc(h.ids[0])).type, mineT = otherType(t0);
+  await h.edit(h.ids[0], "a.type = " + JSON.stringify(mineT) + ";");
+  await h.other(h.ids[0], { active: false });
+  await h.offline(false); await h.sync();
+  let s = await h.srv(h.ids[0]), l = await h.loc(h.ids[0]);
+  expect([s.type, s.active], 'на сервері обидві зміни').toEqual([mineT, false]); expect([l.type, l.active]).toEqual([mineT, false]);
+  // B. те саме поле (тип): сервер переміг, ±1 доба не міняє
+  for(const [k, skew] of [[1, 86400000], [2, -86400000]]){
+    const id = h.ids[k]; const cur = (await h.loc(id)).type;
+    const mine = otherType(cur), theirs = cur === 'Скорочувана' ? 'Гнучка' : 'Скорочувана';
+    const srvVal = theirs === mine ? "Обов'язкова" : theirs;
+    await h.offline(true);
+    await h.edit(id, "a.type = " + JSON.stringify(mine) + ";", skew);
+    await h.other(id, { type: srvVal });
+    await h.offline(false); await h.sync();
+    expect([(await h.srv(id)).type, (await h.loc(id)).type], 'сервер переміг (' + skew + ')').toEqual([srvVal, srvVal]);
+  }
+  // C. видалення (позначка «неактивна») на сервері проти моєї правки типу: обидві зміни; назавжди видалена на сервері: видалення перемагає
+  const idC = h.ids[3];
+  await h.offline(true);
+  await h.edit(idC, "a.type = " + JSON.stringify(otherType((await h.loc(idC)).type)) + ";");
+  await h.other(idC, { deleted_at: new Date().toISOString() });
+  await h.offline(false); await h.sync();
+  expect(await h.loc(idC), 'надгробок сервера: запис прибрано локально').toBeNull();
+  expect((await h.srv(idC)).deleted_at, 'видалення лишилось на сервері').toBeTruthy();
+  // D. порожній push: запитів запису нема
+  await h.sync(); await page.waitForTimeout(400);
+  const w0 = await h.writes();
+  await page.evaluate(async () => { await pushCategoriesPilot(); });
+  await page.waitForTimeout(400);
+  expect(await h.writes(), 'порожній push не пише').toBe(w0);
+  // E. висячий cloudId: рядок зник на сервері → правка відтворюється попереднім шляхом
+  const idE = h.ids[1];
+  await h.offline(true);
+  const nameE = (await h.loc(idE)).name;
+  const typeE = (await h.loc(idE)).type === 'Скорочувана' ? 'Гнучка' : 'Скорочувана';
+  await h.edit(idE, "a.type = " + JSON.stringify(typeE) + ";");
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'categories', id: i, op: 'harddelete' }); }, idE);
+  await h.offline(false); await h.sync();
+  expect(await page.evaluate(n => window.MockCloud.state.tables.categories.some(r => r.name === n[0] && r.type === n[1] && !r.deleted_at), [nameE, typeE]), 'категорію відтворено на сервері').toBe(true);
+  expect(await page.evaluate(n => CATEGORIES.filter(c => c.name === n).length, nameE), 'дубля нема').toBe(1);
+  // F. без зліпка: попередній шлях, після нього зліпок з'являється
+  const idF = h.ids[2];
+  await page.evaluate(async i => { const a = CATEGORIES.find(x => x.cloudId === i); delete a.serverBase; delete a.serverUpdatedAt; a.type = 'Обов\'язкова'; a.updatedAt = new Date().toISOString(); await saveCategoriesLocal(); await pushCategoriesPilot(); }, idF);
+  expect((await h.srv(idF)).type).toBe("Обов'язкова");
+  expect(await page.evaluate(i => !!CATEGORIES.find(x => x.cloudId === i).serverBase, idF)).toBe(true);
+  expect(await page.evaluate(() => conflictLog.length), 'карток і сповіщень нема').toBe(0);
+  expect(h.errors).toEqual([]);
+});
+
+test('24. підкатегорії: «активна» разом з причиною деактивації та інше, те саме поле — сервер (±1 доба), видалення проти правки, висячий cloudId, без зліпка, каскад видалення категорії проти правки слова; без карток', async ({ page }) => {
+  const h = await taxSetup(page, 'subcategories');
+  // A. різні «рішення» для різних підкатегорій: я деактивую, інший теж деактивує іншу — обидві стають неактивними; одна й та сама: сервер
+  await h.offline(true);
+  await h.edit(h.ids[0], "a.active = false;");
+  await h.other(h.ids[1], { active: false, deactivated_via: 'category' });
+  await h.offline(false); await h.sync();
+  expect([(await h.srv(h.ids[0])).active, (await h.loc(h.ids[0])).active], 'моя деактивація дійшла до сервера').toEqual([false, false]);
+  let l1 = await h.loc(h.ids[1]);
+  expect([l1.active, l1.deactivatedVia], 'чужа деактивація каскадом застосована').toEqual([false, 'category']);
+  // B. те саме поле: я деактивую, інший залишає активною й міняє батька-незалежне — сервер; ±1 доба
+  for(const [k, skew] of [[2, 86400000], [3, -86400000]]){
+    const id = h.ids[k];
+    await h.offline(true);
+    await h.edit(id, "a.active = false; delete a.deactivatedVia;", skew);
+    await h.other(id, { active: false, deactivated_via: 'category' });
+    await h.offline(false); await h.sync();
+    const l = await h.loc(id), s = await h.srv(id);
+    expect([s.active, s.deactivated_via, l.active, l.deactivatedVia], 'сервер переміг (' + skew + ')').toEqual([false, 'category', false, 'category']);
+  }
+  // C. видалення проти правки: надгробок сервера перемагає, локально запис прибрано
+  const idC = h.ids[2];
+  await page.evaluate(async i => { const a = SUBCATEGORIES.find(x => x.cloudId === i); a.active = true; delete a.deactivatedVia; }, idC);
+  await h.offline(true);
+  await h.edit(idC, "a.active = true;");
+  await h.other(idC, { deleted_at: new Date().toISOString() });
+  await h.offline(false); await h.sync();
+  expect(await h.loc(idC), 'надгробок сервера: запис прибрано локально').toBeNull();
+  // D. порожній push
+  await h.sync(); await page.waitForTimeout(400);
+  const w0 = await h.writes();
+  await page.evaluate(async () => { await pushSubcategoriesPilot(); });
+  await page.waitForTimeout(400);
+  expect(await h.writes(), 'порожній push не пише').toBe(w0);
+  // E. висячий cloudId
+  const idE = h.ids[3];
+  const nameE = (await h.loc(idE)).name;
+  await h.offline(true);
+  await h.edit(idE, "a.active = !a.active; delete a.deactivatedVia;");
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'subcategories', id: i, op: 'harddelete' }); }, idE);
+  await h.offline(false); await h.sync();
+  expect(await page.evaluate(n => window.MockCloud.state.tables.subcategories.filter(r => r.name === n && !r.deleted_at).length, nameE), 'підкатегорію відтворено один раз').toBe(1);
+  expect(await page.evaluate(n => SUBCATEGORIES.filter(c => c.name === n).length, nameE), 'дубля нема').toBe(1);
+  // F. без зліпка
+  const idF = h.ids[0];
+  await page.evaluate(async i => { const a = SUBCATEGORIES.find(x => x.cloudId === i); delete a.serverBase; delete a.serverUpdatedAt; a.active = true; delete a.deactivatedVia; a.updatedAt = new Date().toISOString(); await saveSubcategoriesLocal(); await pushSubcategoriesPilot(); }, idF);
+  expect((await h.srv(idF)).active).toBe(true);
+  expect(await page.evaluate(i => !!SUBCATEGORIES.find(x => x.cloudId === i).serverBase, idF)).toBe(true);
+  expect(await page.evaluate(() => conflictLog.length), 'карток і сповіщень нема').toBe(0);
+  expect(h.errors).toEqual([]);
+});
+
+test('25. категорія, каскад видалення (підкатегорії, слова) на сервері проти моєї правки слова й типу: усе видалене лишається видаленим, моя зміна типу збережена; без карток', async ({ page }) => {
+  const errors = []; page.on('pageerror', x => errors.push(String(x)));
+  await page.goto('/index.html?fixture=typical');
+  await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+  await page.waitForTimeout(2000);
+  const info = await page.evaluate(() => {
+    const cat = CATEGORIES.find(c => c.cloudId && c.active && DICTIONARY.some(d => d.cloudId && !d.deletedAt && d.cat === c.name && !d.sub));
+    const w = DICTIONARY.find(d => d.cloudId && !d.deletedAt && d.cat === cat.name && !d.sub);
+    const target = CATEGORIES.find(c => c.cloudId && c.active && c !== cat);
+    return { cid: cat.cloudId, cname: cat.name, ctype: cat.type, wid: w.cloudId, target: target.name };
+  });
+  await page.waitForFunction(i => { const c = CATEGORIES.find(x => x.cloudId === i); return c && c.serverBase; }, info.cid);
+  await page.waitForFunction(i => { const d = DICTIONARY.find(x => x.cloudId === i); return d && d.serverBase; }, info.wid);
+  await page.evaluate(() => { window.__offline = true; });
+  await page.evaluate(async ([cid, wid, target, nt]) => { // моє: тип категорії й призначення слова
+    const c = CATEGORIES.find(x => x.cloudId === cid); c.type = nt; c.updatedAt = new Date().toISOString(); await saveCategoriesLocal();
+    const d = DICTIONARY.find(x => x.cloudId === wid); d.cat = target; d.sub = null; d.updatedAt = new Date().toISOString(); await saveDictionaryLocal();
+  }, [info.cid, info.wid, info.target, otherType(info.ctype)]);
+  await page.evaluate(([cid]) => { // інший пристрій: каскад видалення категорії
+    const ts = new Date().toISOString(), M = window.MockCloud;
+    M.otherDevice({ table: 'categories', id: cid, op: 'update', patch: { active: false } });
+    M.state.tables.subcategories.filter(r => r.category_id === cid && r.active).forEach(r => M.otherDevice({ table: 'subcategories', id: r.id, op: 'update', patch: { active: false, deactivated_via: 'category' } }));
+    M.state.tables.dictionary.filter(r => r.category_id === cid && !r.deleted_at).forEach(r => M.otherDevice({ table: 'dictionary', id: r.id, op: 'update', patch: { deleted_at: ts, deleted_via: 'category' } }));
+  }, [info.cid]);
+  await page.evaluate(() => { window.__offline = false; window.dispatchEvent(new Event('online')); });
+  await page.evaluate(async () => { await pushCategoriesPilot(); await pullCategoriesCore(); await pushSubcategoriesPilot(); await pullSubcategoriesCore(); await pushDictionaryPilot(); await pullDictionaryCore(); await pullDictionaryCore(); });
+  const r = await page.evaluate(([cid, wid, nt]) => {
+    const T = window.MockCloud.state.tables, sc = T.categories.find(x => x.id === cid), sw = T.dictionary.find(x => x.id === wid);
+    const c = CATEGORIES.find(x => x.cloudId === cid), w = DICTIONARY.find(x => x.cloudId === wid);
+    return { srvCat: [sc.active, sc.type], locCat: [c.active, c.type], srvWord: !!sw.deleted_at, locWord: !!w.deletedAt,
+      subsLive: SUBCATEGORIES.filter(s => s.cloudId && s.active && T.subcategories.some(x => x.id === s.cloudId && x.category_id === cid)).length,
+      cards: conflictLog.length, nt: nt };
+  }, [info.cid, info.wid, otherType(info.ctype)]);
+  expect(r.srvCat, 'категорія неактивна, мій тип збережений').toEqual([false, otherType(info.ctype)]); expect(r.locCat).toEqual([false, otherType(info.ctype)]);
+  expect([r.srvWord, r.locWord], 'слово лишається видаленим').toEqual([true, true]);
+  expect(r.subsLive, 'підкатегорії категорії неактивні').toBe(0);
+  expect(r.cards, 'карток нема').toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('26. знахідка: перейменування категорії X→Y на цьому пристрої й X→Z на іншому (не падає, результат у анотації finding)', async ({ page }) => {
+  const errors = []; page.on('pageerror', x => errors.push(String(x)));
+  await page.goto('/index.html?fixture=typical');
+  await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+  await page.waitForTimeout(2000);
+  const info = await page.evaluate(() => {
+    const cat = CATEGORIES.find(c => c.cloudId && c.active && expenses.filter(e => e.category === c.name && !e.deletedAt).length >= 2);
+    return cat ? { cid: cat.cloudId, name: cat.name } : null;
+  });
+  test.skip(!info, 'у фікстурі нема категорії щонайменше з двома витратами');
+  await page.waitForFunction(i => { const c = CATEGORIES.find(x => x.cloudId === i); return c && c.serverBase; }, info.cid);
+  await page.evaluate(() => { window.__offline = true; });
+  // цей пристрій: як editCategory — витрати, підкатегорії, словник і сама категорія отримують нову назву «Y»
+  await page.evaluate(async ([cid, old]) => {
+    const now = new Date().toISOString(), c = CATEGORIES.find(x => x.cloudId === cid);
+    expenses.forEach(e => { if(e.category === old){ e.category = 'Y-назва'; e.updatedAt = now; } });
+    SUBCATEGORIES.forEach(s => { if(s.category === old) s.category = 'Y-назва'; });
+    DICTIONARY.forEach(d => { if(d.cat === old) d.cat = 'Y-назва'; });
+    c.name = 'Y-назва'; c.updatedAt = now;
+    await saveExpenses(); await saveSubcategoriesLocal(); await saveDictionaryLocal(); await saveCategoriesLocal();
+  }, [info.cid, info.name]);
+  // інший пристрій (раніше потрапив на сервер): X→Z у категорії й у її витратах
+  await page.evaluate(([cid, old]) => {
+    const M = window.MockCloud;
+    M.otherDevice({ table: 'categories', id: cid, op: 'update', patch: { name: 'Z-назва' } });
+    M.state.tables.expenses.filter(r => r.category === old).forEach(r => M.otherDevice({ table: 'expenses', id: r.id, op: 'update', patch: { category: 'Z-назва' } }));
+  }, [info.cid, info.name]);
+  await page.evaluate(() => { window.__offline = false; window.dispatchEvent(new Event('online')); });
+  await page.evaluate(async () => { await pushCategoriesPilot(); await pullCategoriesCore(); await pullExpensesCore(); try{ await pushExpensesBatched(expenses.filter(e => shadowDirtyNew(e))); }catch(e){} await pullExpensesCore(); await pullCategoriesCore(); });
+  const res = await page.evaluate(([cid]) => {
+    const T = window.MockCloud.state.tables, count = list => { const m = {}; list.forEach(x => { m[x] = (m[x] || 0) + 1; }); return m; };
+    return { srvCat: T.categories.find(x => x.id === cid).name, locCat: CATEGORIES.find(x => x.cloudId === cid).name,
+      srvExp: count(T.expenses.filter(r => r.category === 'Y-назва' || r.category === 'Z-назва').map(r => r.category)), locExp: count(expenses.filter(e => e.category === 'Y-назва' || e.category === 'Z-назва').map(e => e.category)) };
+  }, [info.cid]);
+  test.info().annotations.push({ type: 'finding', description: 'розкол X→Y/X→Z: ' + JSON.stringify(res) });
+  console.log('FINDING 26: ' + JSON.stringify(res));
+  expect(errors).toEqual([]);
+});
