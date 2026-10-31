@@ -563,3 +563,78 @@ test('12. слова: різні рішення зливаються, те са�
   expect(await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length)).toBe(w0);
 });
 
+// Rev 2.32.225 (MERGE-WORDS): додаткові краї — каскад видалення категорії і офлайн→онлайн.
+async function wordsSetup(page){
+  await page.goto('/index.html?fixture=typical');
+  await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+  await page.waitForTimeout(2000);
+  const errors = []; page.on('pageerror', x => errors.push(String(x)));
+  const syncAll = () => page.evaluate(async () => { await pullCategoriesCore(); await pullSubcategoriesCore(); await pushDictionaryPilot(); await pullDictionaryCore(); await pullDictionaryCore(); });
+  const offline = (on) => page.evaluate(v => { window.__offline = v; if(!v) window.dispatchEvent(new Event('online')); }, on);
+  return { errors, syncAll, offline };
+}
+
+test('13. слова, каскад видалення категорії: слово, яке я змінив офлайн, лишається видаленим; не чіпане теж видалене; помилок і дублів нема', async ({ page }) => {
+  const { errors, syncAll, offline } = await wordsSetup(page);
+  const info = await page.evaluate(() => {
+    const byCat = {};
+    DICTIONARY.filter(d => d.cloudId && !d.deletedAt && !d.sub).forEach(d => { (byCat[d.cat] = byCat[d.cat] || []).push(d); });
+    const cat = Object.keys(byCat).find(c => byCat[c].length >= 2 && CATEGORIES.find(x => x.name === c && x.cloudId));
+    const target = CATEGORIES.find(x => x.cloudId && x.active && x.name !== cat);
+    return cat ? { cat: cat, catId: CATEGORIES.find(x => x.name === cat).cloudId, w: byCat[cat].slice(0, 2).map(d => ({ id: d.cloudId, kw: d.kw })), target: { name: target.name, id: target.cloudId } } : null;
+  });
+  expect(info, 'у фікстурі є категорія щонайменше з двома словами без підкатегорії').toBeTruthy();
+  for(const w of info.w) await page.waitForFunction(i => { const d = DICTIONARY.find(x => x.cloudId === i); return d && d.serverBase; }, w.id);
+  await offline(true);
+  // B (цей пристрій, офлайн): змінює призначення слова 1
+  await page.evaluate(async ([id, t]) => { const d = DICTIONARY.find(x => x.cloudId === id); d.cat = t; d.sub = null; d.updatedAt = new Date().toISOString(); await saveDictionaryLocal(); }, [info.w[0].id, info.target.name]);
+  // A (інший пристрій): видаляє категорію разом зі словами (deleted_via = category)
+  await page.evaluate(([cid, words]) => {
+    const ts = new Date().toISOString();
+    window.MockCloud.otherDevice({ table: 'categories', id: cid, op: 'update', patch: { deleted_at: ts } });
+    // каскад: усі слова категорії (як серверне видалення гілки), не лише два
+    window.MockCloud.state.tables.dictionary.filter(r => r.category_id === cid && !r.deleted_at).forEach(r => window.MockCloud.otherDevice({ table: 'dictionary', id: r.id, op: 'update', patch: { deleted_at: ts, deleted_via: 'category' } }));
+  }, [info.catId, info.w.map(w => w.id)]);
+  await offline(false); await syncAll();
+  const srv = await page.evaluate(ids => ids.map(i => { const r = window.MockCloud.state.tables.dictionary.find(x => x.id === i); return !!(r && r.deleted_at); }), info.w.map(w => w.id));
+  expect(srv, 'на сервері обидва слова лишаються видаленими').toEqual([true, true]);
+  const loc = await page.evaluate(ws => ws.map(w => { const all = DICTIONARY.filter(d => d.kw === w.kw); return { n: all.length, liveN: all.filter(d => !d.deletedAt).length }; }), info.w);
+  loc.forEach((x, i) => { expect(x.liveN, 'слово ' + i + ' не відроджене локально').toBe(0); expect(x.n, 'дубля нема').toBeLessThanOrEqual(1); });
+  expect(await page.evaluate(() => window.MockCloud.state.tables.dictionary.filter(r => !r.deleted_at).length - DICTIONARY.filter(d => !d.deletedAt && d.cloudId).length), 'живі слова збігаються з сервером').toBe(0);
+  expect(await page.evaluate(() => conflictLog.length), 'картки конфлікту нема').toBe(0);
+  expect(errors, 'без помилок').toEqual([]);
+});
+
+test('14. слова, офлайн→онлайн: обидва створили те саме слово й змінили призначення різних слів — однаковий стан, без дубля й помилок', async ({ page }) => {
+  const { errors, syncAll, offline } = await wordsSetup(page);
+  const info = await page.evaluate(() => {
+    const cats = CATEGORIES.filter(c => c.cloudId && c.active).slice(0, 3).map(c => ({ name: c.name, id: c.cloudId }));
+    const ws = DICTIONARY.filter(d => d.cloudId && !d.deletedAt && !d.sub).slice(0, 2).map(d => ({ id: d.cloudId, kw: d.kw }));
+    return { cats, ws };
+  });
+  expect(info.cats.length).toBeGreaterThanOrEqual(3); expect(info.ws.length).toBe(2);
+  for(const w of info.ws) await page.waitForFunction(i => { const d = DICTIONARY.find(x => x.cloudId === i); return d && d.serverBase; }, w.id);
+  await offline(true);
+  // цей пристрій: нове слово в категорії 0, слово 1 → категорія 1
+  await page.evaluate(async ([c0, c1, w1]) => { const now = new Date().toISOString(); DICTIONARY.push({ id: generateUUID(), kw: 'новеслово', cat: c0, sub: null, createdAt: now, updatedAt: now }); const d = DICTIONARY.find(x => x.cloudId === w1); d.cat = c1; d.sub = null; d.updatedAt = now; await saveDictionaryLocal(); }, [info.cats[0].name, info.cats[1].name, info.ws[0].id]);
+  // інший пристрій (теж без мережі, підключився першим): те саме слово в категорії 2, слово 2 → категорія 2
+  await page.evaluate(([c2, w2]) => {
+    window.MockCloud.otherDevice({ table: 'dictionary', op: 'insert', row: { id: 'srv-new-1', keyword: 'новеслово', category_id: c2, subcategory_id: null, deleted_at: null, deleted_via: null } });
+    window.MockCloud.otherDevice({ table: 'dictionary', id: w2, op: 'update', patch: { category_id: c2, subcategory_id: null } });
+  }, [info.cats[2].id, info.ws[1].id]);
+  await offline(false); await syncAll();
+  const state = await page.evaluate(([w1, w2]) => {
+    const T = window.MockCloud.state.tables.dictionary, byId = i => T.find(r => r.id === i);
+    const cname = id => (CATEGORIES.find(c => c.cloudId === id) || {}).name;
+    const L = i => (DICTIONARY.find(d => d.cloudId === i) || {}).cat;
+    return { newSrv: T.filter(r => r.keyword === 'новеслово' && !r.deleted_at).length, newLoc: DICTIONARY.filter(d => d.kw === 'новеслово' && !d.deletedAt).length,
+      newSrvCat: cname((T.find(r => r.keyword === 'новеслово') || {}).category_id), newLocCat: (DICTIONARY.find(d => d.kw === 'новеслово') || {}).cat,
+      w1: [cname(byId(w1).category_id), L(w1)], w2: [cname(byId(w2).category_id), L(w2)] };
+  }, [info.ws[0].id, info.ws[1].id]);
+  expect(state.newSrv).toBe(1); expect(state.newLoc).toBe(1);
+  expect(state.newLocCat, 'нове слово: категорія з сервера (інший пристрій був першим)').toBe(state.newSrvCat); expect(state.newSrvCat).toBe(info.cats[2].name);
+  expect(state.w1[0], 'моя зміна слова 1 на сервері').toBe(info.cats[1].name); expect(state.w1[1]).toBe(state.w1[0]);
+  expect(state.w2[0], 'чужа зміна слова 2 локально').toBe(info.cats[2].name); expect(state.w2[1]).toBe(state.w2[0]);
+  expect(errors, 'без помилок').toEqual([]);
+});
+
