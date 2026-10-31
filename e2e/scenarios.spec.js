@@ -638,3 +638,124 @@ test('14. слова, офлайн→онлайн: обидва створили
   expect(errors, 'без помилок').toEqual([]);
 });
 
+// Rev 2.32.226 (MERGE-ACCOUNTS): картки та ОЧ на спільному злитті — два пристрої на моку, годинник ±1 доба.
+async function accountsSetup(page, table, list){
+  await page.goto('/index.html?fixture=typical');
+  await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+  await page.waitForTimeout(2000);
+  const errors = []; page.on('pageerror', x => errors.push(String(x)));
+  const id = await page.evaluate(l => { const a = (l === 'bankAccounts' ? bankAccounts : installmentAccounts).find(x => x.cloudId); window.__aid = a.cloudId; return a.cloudId; }, list);
+  await page.waitForFunction(([l, i]) => { const a = (l === 'bankAccounts' ? bankAccounts : installmentAccounts).find(x => x.cloudId === i); return a && a.serverBase && a.serverUpdatedAt; }, [list, id]);
+  const offline = on => page.evaluate(v => { window.__offline = v; if(!v) window.dispatchEvent(new Event('online')); }, on);
+  const other = patch => page.evaluate(([t, i, pt]) => { window.MockCloud.otherDevice({ table: t, id: i, op: 'update', patch: pt }); }, [table, id, patch]);
+  const edit = (fn, skew) => page.evaluate(async ([l, i, f, k]) => { const a = (l === 'bankAccounts' ? bankAccounts : installmentAccounts).find(x => x.cloudId === i); new Function('a', f)(a); a.updatedAt = new Date(Date.now() + (k || 0)).toISOString(); await (l === 'bankAccounts' ? saveBankAccountsLocal() : saveInstallmentAccountsLocal()); }, [list, id, fn, skew]);
+  const sync = () => page.evaluate(async l => { if(l === 'bankAccounts'){ await pushBankAccountsPilot(); await pullBankAccountsCore(); } else { await pushInstallmentAccountsPilot(); await pullInstallmentAccountsCore(); } }, list);
+  const srv = () => page.evaluate(([t, i]) => JSON.parse(JSON.stringify(window.MockCloud.state.tables[t].find(x => x.id === i))), [table, id]);
+  const loc = () => page.evaluate(([l, i]) => JSON.parse(JSON.stringify((l === 'bankAccounts' ? bankAccounts : installmentAccounts).find(x => x.cloudId === i))), [list, id]);
+  return { id, errors, offline, other, edit, sync, srv, loc };
+}
+
+test('15. картки: різні поля зливаються мовчки; те саме поле — картка з «Повернути моє» (±1 доба); name тихо сервер; порожній push; без зліпка', async ({ page }) => {
+  const h = await accountsSetup(page, 'bank_accounts', 'bankAccounts');
+  // A. різні поля: мій ліміт, чужий день платежу
+  await h.offline(true);
+  await h.edit("a.creditLimit = 77000;");
+  await h.other({ payment_day: 17 });
+  await h.offline(false); await h.sync();
+  let s = await h.srv(), l = await h.loc();
+  expect([s.credit_limit, s.payment_day], 'на сервері обидві зміни').toEqual([77000, 17]); expect([l.creditLimit, l.paymentDay]).toEqual([77000, 17]);
+  expect(await page.evaluate(() => conflictLog.length), 'без сповіщень').toBe(0);
+  // B. те саме поле (ліміт): сервер лишається, у журналі моє; годинник ±1 доба не міняє
+  for(const skew of [86400000, -86400000]){
+    await h.offline(true);
+    await h.edit("a.creditLimit = 11000;", skew);
+    const srvVal = skew > 0 ? 22000 : 23000; // різні значення, щоб серверна зміна справді відбулась
+    await h.other({ credit_limit: srvVal });
+    await h.offline(false); await h.sync();
+    s = await h.srv(); l = await h.loc();
+    expect([s.credit_limit, l.creditLimit], 'сервер переміг (' + skew + ')').toEqual([srvVal, srvVal]);
+    const cf = await page.evaluate(() => conflictLog.filter(x => x.status === 'open' && x.field === 'creditLimit').map(x => [x.mine, x.theirs]));
+    expect(cf[cf.length - 1], 'моє значення в журналі').toEqual([11000, srvVal]);
+  }
+  // «Повернути моє» = нова звичайна правка
+  await page.evaluate(async () => { const e = conflictLog.filter(x => x.status === 'open' && x.field === 'creditLimit').slice(-1)[0]; await conflictResolve(e.id, 'mine'); });
+  await expect.poll(async () => (await h.srv()).credit_limit, { timeout: 15000 }).toBe(11000);
+  // C. name: тихо сервер, без картки
+  const before = await page.evaluate(() => conflictLog.length);
+  await h.offline(true);
+  await h.edit("a.name = 'Моя назва картки';");
+  await h.other({ name: 'Серверна назва картки' });
+  await h.offline(false); await h.sync();
+  expect((await h.loc()).name).toBe('Серверна назва картки'); expect(await page.evaluate(() => conflictLog.length)).toBe(before);
+  // D. порожній push: запитів запису нема
+  await h.sync(); await page.waitForTimeout(400);
+  const w0 = await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length);
+  await page.evaluate(async () => { await pushBankAccountsPilot(); });
+  await page.waitForTimeout(400);
+  expect(await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length)).toBe(w0);
+  // E. висячий cloudId (рядок зник на сервері): правка відтворюється попереднім шляхом
+  await h.offline(true);
+  await h.edit("a.creditLimit = 33000;");
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'bank_accounts', id: i, op: 'harddelete' }); }, h.id);
+  await h.offline(false); await h.sync();
+  const back = await page.evaluate(() => { const a = bankAccounts.find(x => x.creditLimit === 33000); return a ? { has: window.MockCloud.state.tables.bank_accounts.some(r => r.credit_limit === 33000 && !r.deleted_at) } : null; });
+  expect(back && back.has, 'рахунок відтворено на сервері').toBe(true);
+  // F. без зліпка: попередній шлях, після нього зліпок з'являється
+  await page.evaluate(async () => { const a = bankAccounts.find(x => x.creditLimit === 33000); window.__aid = a.cloudId; delete a.serverBase; delete a.serverUpdatedAt; a.creditLimit = 44000; a.updatedAt = new Date().toISOString(); await saveBankAccountsLocal(); await pushBankAccountsPilot(); });
+  expect(await page.evaluate(() => window.MockCloud.state.tables.bank_accounts.some(r => r.credit_limit === 44000))).toBe(true);
+  expect(await page.evaluate(() => !!bankAccounts.find(x => x.creditLimit === 44000).serverBase)).toBe(true);
+  expect(h.errors).toEqual([]);
+});
+
+test('16. ОЧ: різні поля, те саме поле (платіж) з карткою, перейменування одним + платіж іншим (борги з новою назвою), name тихо сервер, без зліпка, порожній push', async ({ page }) => {
+  const h = await accountsSetup(page, 'installment_accounts', 'installmentAccounts');
+  // A. різні поля: мій платіж, чужий термін
+  await h.offline(true);
+  await h.edit("a.payment = 1500;");
+  await h.other({ term_months: 18 });
+  await h.offline(false); await h.sync();
+  let s = await h.srv(), l = await h.loc();
+  expect([s.payment, s.term_months]).toEqual([1500, 18]); expect([l.payment, l.termMonths]).toEqual([1500, 18]);
+  expect(await page.evaluate(() => conflictLog.length)).toBe(0);
+  // B. те саме поле (платіж): картка «вже змінила платіж», годинник ±1 доба
+  for(const skew of [86400000, -86400000]){
+    await h.offline(true);
+    await h.edit("a.payment = 1111;", skew);
+    const srvVal = skew > 0 ? 2222 : 2333;
+    await h.other({ payment: srvVal });
+    await h.offline(false); await h.sync();
+    s = await h.srv(); l = await h.loc();
+    expect([s.payment, l.payment], 'сервер переміг (' + skew + ')').toEqual([srvVal, srvVal]);
+  }
+  const card = await page.evaluate(() => { const e = conflictLog.filter(x => x.status === 'open' && x.field === 'payment').slice(-1)[0]; return { title: conflictModel(e).title, mine: e.mine, theirs: e.theirs }; });
+  expect(card.title).toContain('вже'); expect(card.title).toContain('платіж'); expect([card.mine, card.theirs]).toEqual([1111, 2333]);
+  // C. перейменування одним пристроєм (сервер), платіж — іншим: обидві збережені, борги з новою назвою
+  const oldName = (await h.loc()).name;
+  await page.evaluate(async n => { debts.push({ id: generateUUID(), name: n, kind: 'installment', month: '2026-09', balance: 100, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }); await saveDebts(); }, oldName);
+  await h.offline(true);
+  await h.edit("a.payment = 3333;");
+  await h.other({ name: 'ОЧ нова назва' });
+  await h.offline(false); await h.sync();
+  s = await h.srv(); l = await h.loc();
+  expect([s.name, s.payment]).toEqual(['ОЧ нова назва', 3333]); expect([l.name, l.payment]).toEqual(['ОЧ нова назва', 3333]);
+  expect(await page.evaluate(() => debts.filter(d => d.name === 'ОЧ нова назва').length), 'борги з новою назвою').toBeGreaterThan(0);
+  expect(await page.evaluate(n => debts.filter(d => d.name === n && d.kind === 'installment').length, oldName), 'старої назви в боргах нема').toBe(0);
+  // D. name в обох: тихо сервер, без картки
+  const before = await page.evaluate(() => conflictLog.length);
+  await h.offline(true);
+  await h.edit("a.name = 'Моя назва ОЧ';");
+  await h.other({ name: 'Серверна назва ОЧ' });
+  await h.offline(false); await h.sync();
+  expect((await h.loc()).name).toBe('Серверна назва ОЧ'); expect(await page.evaluate(() => conflictLog.length)).toBe(before);
+  // E. порожній push
+  await h.sync(); await page.waitForTimeout(400);
+  const w0 = await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length);
+  await page.evaluate(async () => { await pushInstallmentAccountsPilot(); });
+  await page.waitForTimeout(400);
+  expect(await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length)).toBe(w0);
+  // F. без зліпка: попередній шлях
+  await page.evaluate(async () => { const a = installmentAccounts.find(x => x.cloudId); delete a.serverBase; delete a.serverUpdatedAt; a.payment = 5555; a.updatedAt = new Date().toISOString(); await saveInstallmentAccountsLocal(); await pushInstallmentAccountsPilot(); });
+  expect(await page.evaluate(() => window.MockCloud.state.tables.installment_accounts.some(r => r.payment === 5555))).toBe(true);
+  expect(h.errors).toEqual([]);
+});
+
