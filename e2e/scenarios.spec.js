@@ -927,41 +927,81 @@ test('25. категорія, каскад видалення (підкатег�
   expect(errors).toEqual([]);
 });
 
-test('26. знахідка: перейменування категорії X→Y на цьому пристрої й X→Z на іншому (не падає, результат у анотації finding)', async ({ page }) => {
-  const errors = []; page.on('pageerror', x => errors.push(String(x)));
+// Rev 2.32.228 (B2): сервер сам змінює назву у витратах тригером; клієнт каскадує локально без штампу й push. Розкол X→Y / X→Z більше неможливий.
+async function renameSetup(page){
   await page.goto('/index.html?fixture=typical');
   await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
   await page.waitForTimeout(2000);
-  const info = await page.evaluate(() => {
-    const cat = CATEGORIES.find(c => c.cloudId && c.active && expenses.filter(e => e.category === c.name && !e.deletedAt).length >= 2);
-    return cat ? { cid: cat.cloudId, name: cat.name } : null;
+  const errors = []; page.on('pageerror', x => errors.push(String(x)));
+  const syncAll = () => page.evaluate(async () => { await pushCategoriesPilot(); await pullCategoriesCore(); await pushSubcategoriesPilot(); await pullSubcategoriesCore(); await pullExpensesCore(); await pullCategoriesCore(); await pullSubcategoriesCore(); });
+  const offline = on => page.evaluate(v => { window.__offline = v; if(!v) window.dispatchEvent(new Event('online')); }, on);
+  return { errors, syncAll, offline };
+}
+const nameCounts = (page, kind, ids) => page.evaluate(([k, ids]) => {
+  const col = k === 'category' ? 'category' : 'subcategory', T = window.MockCloud.state.tables, count = list => { const m = {}; list.forEach(x => { m[x] = (m[x] || 0) + 1; }); return m; };
+  const tbl = k === 'category' ? T.categories : T.subcategories, loc = k === 'category' ? CATEGORIES : SUBCATEGORIES;
+  return { srv: tbl.find(x => x.id === ids).name, loc: loc.find(x => x.cloudId === ids).name,
+    srvExp: count(T.expenses.filter(r => r[col + '_id'] === ids).map(r => r[col])), locExp: count(expenses.filter(e => !e.deletedAt && e[col] && (T.expenses.find(r => r.id === e.id) || {})[col + '_id'] === ids).map(e => e[col])) };
+}, [kind, ids]);
+
+for(const kind of ['category', 'subcategory']){
+  test('26' + (kind === 'category' ? 'a' : 'b') + '. перейменування ' + (kind === 'category' ? 'категорії' : 'підкатегорії') + ' X→Y тут і X→Z на іншому пристрої: одна назва в записі й у всіх витратах, розколу нема', async ({ page }) => {
+    const { errors, syncAll, offline } = await renameSetup(page);
+    const info = await page.evaluate(k => {
+      const isCat = k === 'category';
+      if(!isCat){ // підкатегорія з витратами: прив'язуємо кілька витрат до першої підкатегорії через сервер (як це робить запис витрати з підкатегорією)
+        const M = window.MockCloud, sub = SUBCATEGORIES.find(s => s.cloudId && s.active && M.state.tables.expenses.some(r => r.category === s.category));
+        M.state.tables.expenses.filter(r => r.category === sub.category).slice(0, 4).forEach(r => M.otherDevice({ table: 'expenses', id: r.id, op: 'update', patch: { subcategory: sub.name } }));
+        return { id: sub.cloudId, name: sub.name };
+      }
+      const cat = CATEGORIES.find(c => c.cloudId && c.active && expenses.filter(e => e.category === c.name && !e.deletedAt).length >= 2);
+      return { id: cat.cloudId, name: cat.name };
+    }, kind);
+    await page.evaluate(async () => { await pullExpensesCore({ full: true }).catch(() => pullExpensesCore()); });
+    await page.waitForFunction(([k, i]) => { const r = (k === 'category' ? CATEGORIES : SUBCATEGORIES).find(x => x.cloudId === i); return r && r.serverBase && r.serverName === r.name; }, [kind, info.id]);
+    await offline(true);
+    // цей пристрій: як editCategory/editSubcategory — локальний каскад без штампу, нова назва запису
+    const locExpBefore = await page.evaluate(([k, nm]) => expenses.filter(e => e[k] === nm).map(e => e.updatedAt), [kind, info.name]);
+    await page.evaluate(async ([k, i, old]) => {
+      const rec = (k === 'category' ? CATEGORIES : SUBCATEGORIES).find(x => x.cloudId === i);
+      await saveTaxonomyCascade(cascadeTaxonomyRename(k, old, 'Y-назва'));
+      rec.name = 'Y-назва'; rec.updatedAt = new Date().toISOString();
+      await (k === 'category' ? saveCategoriesLocal() : saveSubcategoriesLocal());
+    }, [kind, info.id, info.name]);
+    expect(await page.evaluate(([k]) => expenses.filter(e => e[k] === 'Y-назва').map(e => e.updatedAt), [kind]), 'локальний каскад не штампує updatedAt').toEqual(locExpBefore);
+    // інший пристрій: X→Z (сервер сам перейменує витрати)
+    await page.evaluate(([k, i]) => { window.MockCloud.otherDevice({ table: k === 'category' ? 'categories' : 'subcategories', id: i, op: 'update', patch: { name: 'Z-назва' } }); }, [kind, info.id]);
+    await offline(false); await syncAll(); await syncAll();
+    const r = await nameCounts(page, kind, info.id);
+    expect(r.srv, 'одна назва на сервері й тут').toBe(r.loc);
+    expect(Object.keys(r.srvExp), 'усі витрати на сервері з тією самою назвою').toEqual([r.srv]);
+    expect(Object.keys(r.locExp), 'усі витрати тут з тією самою назвою').toEqual([r.srv]);
+    expect(await page.evaluate(() => window.MockCloud.state.tables.expenses.filter(r => /^(Y|Z)-назва$/.test(r.category || '') && r.category_id == null).length), 'ідентифікатори витрат на місці').toBe(0);
+    expect(errors, 'без помилок').toEqual([]);
   });
-  test.skip(!info, 'у фікстурі нема категорії щонайменше з двома витратами');
-  await page.waitForFunction(i => { const c = CATEGORIES.find(x => x.cloudId === i); return c && c.serverBase; }, info.cid);
-  await page.evaluate(() => { window.__offline = true; });
-  // цей пристрій: як editCategory — витрати, підкатегорії, словник і сама категорія отримують нову назву «Y»
-  await page.evaluate(async ([cid, old]) => {
-    const now = new Date().toISOString(), c = CATEGORIES.find(x => x.cloudId === cid);
-    expenses.forEach(e => { if(e.category === old){ e.category = 'Y-назва'; e.updatedAt = now; } });
-    SUBCATEGORIES.forEach(s => { if(s.category === old) s.category = 'Y-назва'; });
-    DICTIONARY.forEach(d => { if(d.cat === old) d.cat = 'Y-назва'; });
-    c.name = 'Y-назва'; c.updatedAt = now;
-    await saveExpenses(); await saveSubcategoriesLocal(); await saveDictionaryLocal(); await saveCategoriesLocal();
-  }, [info.cid, info.name]);
-  // інший пристрій (раніше потрапив на сервер): X→Z у категорії й у її витратах
-  await page.evaluate(([cid, old]) => {
-    const M = window.MockCloud;
-    M.otherDevice({ table: 'categories', id: cid, op: 'update', patch: { name: 'Z-назва' } });
-    M.state.tables.expenses.filter(r => r.category === old).forEach(r => M.otherDevice({ table: 'expenses', id: r.id, op: 'update', patch: { category: 'Z-назва' } }));
-  }, [info.cid, info.name]);
-  await page.evaluate(() => { window.__offline = false; window.dispatchEvent(new Event('online')); });
-  await page.evaluate(async () => { await pushCategoriesPilot(); await pullCategoriesCore(); await pullExpensesCore(); try{ await pushExpensesBatched(expenses.filter(e => shadowDirtyNew(e))); }catch(e){} await pullExpensesCore(); await pullCategoriesCore(); });
-  const res = await page.evaluate(([cid]) => {
-    const T = window.MockCloud.state.tables, count = list => { const m = {}; list.forEach(x => { m[x] = (m[x] || 0) + 1; }); return m; };
-    return { srvCat: T.categories.find(x => x.id === cid).name, locCat: CATEGORIES.find(x => x.cloudId === cid).name,
-      srvExp: count(T.expenses.filter(r => r.category === 'Y-назва' || r.category === 'Z-назва').map(r => r.category)), locExp: count(expenses.filter(e => e.category === 'Y-назва' || e.category === 'Z-назва').map(e => e.category)) };
-  }, [info.cid]);
-  test.info().annotations.push({ type: 'finding', description: 'розкол X→Y/X→Z: ' + JSON.stringify(res) });
-  console.log('FINDING 26: ' + JSON.stringify(res));
+}
+
+test('27. перейменування чужим пристроєм: pull категорії й підкатегорії каскадує локально (витрати, підкатегорії, слова) без запису на сервер і без нових міток версій', async ({ page }) => {
+  const { errors, offline } = await renameSetup(page);
+  const info = await page.evaluate(() => {
+    const cat = CATEGORIES.find(c => c.cloudId && c.active && expenses.some(e => e.category === c.name) && SUBCATEGORIES.some(s => s.category === c.name) && DICTIONARY.some(d => !d.deletedAt && d.cat === c.name));
+    return { id: cat.cloudId, name: cat.name, n: expenses.filter(e => e.category === cat.name).length };
+  });
+  await page.waitForFunction(i => { const c = CATEGORIES.find(x => x.cloudId === i); return c && c.serverBase; }, info.id);
+  const stamps = await page.evaluate(n => expenses.filter(e => e.category === n).map(e => e.updatedAt), info.name);
+  const w0 = await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length);
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'categories', id: i, op: 'update', patch: { name: 'Нова-назва' } }); }, info.id);
+  await page.evaluate(async () => { await pullCategoriesCore(); }); // лише категорії: витрати не підтягуємо, каскад мусить спрацювати за cloudId
+  const r = await page.evaluate(([n, i]) => ({ cat: CATEGORIES.find(c => c.cloudId === i).name, exp: expenses.filter(e => e.category === n).length, expNew: expenses.filter(e => e.category === 'Нова-назва').length,
+    subs: SUBCATEGORIES.filter(s => s.category === n).length, subsNew: SUBCATEGORIES.filter(s => s.category === 'Нова-назва').length, words: DICTIONARY.filter(d => d.cat === n).length, wordsNew: DICTIONARY.filter(d => d.cat === 'Нова-назва').length,
+    stamps: expenses.filter(e => e.category === 'Нова-назва').map(e => e.updatedAt) }), [info.name, info.id]);
+  expect(r.cat).toBe('Нова-назва');
+  expect([r.exp, r.subs, r.words], 'старої назви ніде нема').toEqual([0, 0, 0]);
+  expect(r.expNew).toBe(info.n); expect(r.subsNew).toBeGreaterThan(0); expect(r.wordsNew).toBeGreaterThan(0);
+  expect(r.stamps, 'мітки версій витрат не змінились').toEqual(stamps);
+  expect(await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length), 'жодного запису на сервер').toBe(w0);
+  // потім звичайний pull витрат: нічого не ламає, назва та сама
+  await page.evaluate(async () => { await pullExpensesCore(); });
+  expect(await page.evaluate(() => expenses.filter(e => e.category === 'Нова-назва').length)).toBe(info.n);
   expect(errors).toEqual([]);
 });

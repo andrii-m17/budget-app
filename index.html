@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.227</div>
+  <div class="version-footer">Money Tree · Rev 2.32.228</div>
 </div>
   </div>
 </div>
@@ -5143,6 +5143,7 @@ async function pullCategoriesCore(opts){
           continue;
         }
         if(byCloudId.name !== row.name || byCloudId.active !== row.active || byCloudId.type !== row.type || byCloudId.updatedAt !== row.updated_at){
+          const oldNameC = byCloudId.name; // Rev 2.32.228 (B2): перейменування сервером — локальний каскад нижче
           byCloudId.name = row.name;
           byCloudId.active = row.active;
           byCloudId.type = row.type;
@@ -5153,6 +5154,7 @@ async function pullCategoriesCore(opts){
           // пропустить, доки він знову НЕ зміниться локально.
           byCloudId.syncedUpdatedAt = row.updated_at;
           byCloudId.serverName = row.name; byCloudId.serverBase = MERGE_DOMAINS.categories.snapFromRow(row); byCloudId.serverUpdatedAt = row.updated_at; // Rev 2.32.227
+          if(oldNameC !== row.name) await saveTaxonomyCascade(cascadeTaxonomyRename('category', oldNameC, row.name));
           updated++;
         }
         continue;
@@ -5908,6 +5910,7 @@ async function pullSubcategoriesCore(opts){
           pushSubcategoriesPilot();
           continue;
         }
+        const oldNameS = byCloudId.name; // Rev 2.32.228 (B2)
         if(byCloudId.name !== row.name || byCloudId.category !== parentCat.name || byCloudId.active !== row.active || (byCloudId.deactivatedVia||null) !== (row.deactivated_via||null) || byCloudId.updatedAt !== row.updated_at){
           byCloudId.name = row.name;
           byCloudId.category = parentCat.name;
@@ -5918,6 +5921,7 @@ async function pullSubcategoriesCore(opts){
           byCloudId.updatedAt = row.updated_at;
           byCloudId.syncedUpdatedAt = row.updated_at; byCloudId.syncedCategoryId = row.category_id; // Rev #30 (6D.50); G2: + батько
           byCloudId.serverName = row.name; byCloudId.serverBase = MERGE_DOMAINS.subcategories.snapFromRow(row); byCloudId.serverUpdatedAt = row.updated_at; // Rev 2.32.227
+          if(oldNameS !== row.name) await saveTaxonomyCascade(cascadeTaxonomyRename('subcategory', oldNameS, row.name));
           updated++;
         }
         continue;
@@ -7467,7 +7471,10 @@ const MERGE_DOMAINS = {
     afterMigrate: function(rec){ if(rec.serverName === undefined) rec.serverName = rec.name; },
     applyExtras: function(rec, row){ if(row.name !== undefined){ if(rec.serverName === rec.name) rec.name = row.name; rec.serverName = row.name; } }, // назва: якщо локально не перейменовували — серверна
     gone: function(row){ return pullTaxonomyTombstone('category', row); },
-    afterMerge: function(){ try{ renderStructure(); populateCategorySelect(); }catch(e){} },
+    beforeMerge: function(rec){ return rec.name; },
+    afterMerge: function(rec, oldName){ // Rev 2.32.228 (B2): назву змінив сервер (злиття) — локальний каскад без push
+      try{ if(oldName && oldName !== rec.name) saveTaxonomyCascade(cascadeTaxonomyRename('category', oldName, rec.name)).catch(function(){}); renderStructure(); populateCategorySelect(); }catch(e){}
+    },
     nameOf: function(rec){ return rec.name || ''; }, eventName: function(row){ return row.name || ''; }, eventAmount: function(){ return null; },
   },
   subcategories: {
@@ -7489,7 +7496,10 @@ const MERGE_DOMAINS = {
       if(ctx && ctx.parentName){ rec.category = ctx.parentName; rec.syncedCategoryId = row.category_id; } // допуск до злиття вимагає збігу батька, тож це лише оновлення назви батька
     },
     gone: function(row){ return pullTaxonomyTombstone('subcategory', row); },
-    afterMerge: function(){ try{ renderStructure(); }catch(e){} },
+    beforeMerge: function(rec){ return rec.name; },
+    afterMerge: function(rec, oldName){
+      try{ if(oldName && oldName !== rec.name) saveTaxonomyCascade(cascadeTaxonomyRename('subcategory', oldName, rec.name)).catch(function(){}); renderStructure(); }catch(e){}
+    },
     nameOf: function(rec){ return rec.name || ''; }, eventName: function(row){ return row.name || ''; }, eventAmount: function(){ return null; },
   },
 };
@@ -9439,7 +9449,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.227';
+const APP_VERSION = '2.32.228';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -18381,16 +18391,47 @@ function renameRecordsStamp(list, field, oldName, nowISO){
   (list || []).forEach(function(r){ if(r && r[field] === oldName){ r.updatedAt = nowISO; n++; } });
   return n;
 }
+// Rev 2.32.228 (B2): локальний каскад перейменування категорії/підкатегорії БЕЗ нового updatedAt і БЕЗ push залежних записів. Назву в усіх витратах сервер уже змінює сам (тригери trg_categories_propagate_rename / trg_subcategories_propagate_rename, атомарно в одному записі), інші пристрої отримують це звичайним pull. Те саме викликається в pull, коли назву змінив інший пристрій (як cascadeInstallmentRename). Зліпок serverBase витрат і призначення слів переписуються разом із полем, щоб злиття (Rev 193) не бачило хибної різниці. Назви унікальні, тож заміна за старою назвою безпечна. Повертає лічильники.
+function cascadeTaxonomyRename(kind, oldName, newName){
+  const info = { expenses: 0, subs: 0, words: 0, priority: false };
+  if(!oldName || !newName || oldName === newName) return info;
+  const isCat = kind === 'category', f = isCat ? 'category' : 'subcategory';
+  expenses.forEach(function(e){
+    if(e[f] === oldName){ e[f] = newName; info.expenses++; }
+    if(e.serverBase && e.serverBase[f] === oldName) e.serverBase[f] = newName;
+  });
+  if(isCat) SUBCATEGORIES.forEach(function(x){ if(x.category === oldName){ x.category = newName; info.subs++; } });
+  DICTIONARY.forEach(function(d){
+    if(isCat ? d.cat === oldName : d.sub === oldName){ if(isCat) d.cat = newName; else d.sub = newName; info.words++; }
+    if(d.serverBase && typeof d.serverBase.assignment === 'string'){
+      const i = d.serverBase.assignment.indexOf('|'), a = d.serverBase.assignment.slice(0, i === -1 ? undefined : i), b = i === -1 ? '' : d.serverBase.assignment.slice(i + 1);
+      if(isCat ? a === oldName : b === oldName) d.serverBase.assignment = (isCat ? newName : a) + '|' + (isCat ? b : newName);
+    }
+  });
+  if(!isCat && typeof SUBCATEGORY_PRIORITY === 'object' && SUBCATEGORY_PRIORITY && Object.prototype.hasOwnProperty.call(SUBCATEGORY_PRIORITY, oldName) && !Object.prototype.hasOwnProperty.call(SUBCATEGORY_PRIORITY, newName)){
+    SUBCATEGORY_PRIORITY[newName] = SUBCATEGORY_PRIORITY[oldName]; delete SUBCATEGORY_PRIORITY[oldName]; info.priority = true;
+  }
+  return info;
+}
+// Збереження після каскаду: лише локально (без push і без нових міток версій).
+async function saveTaxonomyCascade(info){
+  const rs = [];
+  if(info.expenses) rs.push(await saveExpenses());
+  if(info.subs) rs.push(await saveSubcategoriesLocal());
+  if(info.words) rs.push(await saveDictionaryLocal());
+  if(info.priority) rs.push(await saveSubcategoryPriority());
+  return rs.find(function(r){ return r && r.success === false; }) || { success: true };
+}
 function countActiveWithName(list, field, name){
   return (list || []).filter(function(r){ return r && r[field] === name && !r.deletedAt; }).length;
 }
 function renameConfirmText(n){ return 'Буде оновлено ' + n + ' ' + expenseCountWord(n) + ' на всіх пристроях. Натисніть «Зберегти» ще раз, щоб підтвердити.'; }
 async function afterRenameSync(count){
+  // Rev 2.32.228 (B2): назву у витратах змінює сервер тригером при записі категорії (клієнт витрат не штампує й не шле)
   if(!count) return;
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'category-rename', records: count });
-  const r = await autoSyncStale('rename');
-  if(r && r.pushed && !r.failed) showTextToast('Оновлено ' + count + ' ' + expenseCountWord(count) + ' на всіх пристроях', 'success');
-  else if(!r || r.failed) showTextToast('Перейменовано. ' + count + ' ' + expenseCountWord(count) + ' надішлемо, щойно з\'явиться зв\'язок', 'success');
+  if(navigator.onLine && isCloudSessionReady()) showTextToast('Перейменовано. ' + count + ' ' + expenseCountWord(count) + ' оновиться на всіх пристроях', 'success');
+  else showTextToast('Перейменовано. ' + count + ' ' + expenseCountWord(count) + ' оновимо на всіх пристроях, щойно з\'явиться зв\'язок', 'success');
 }
 function editCategory(i){
   const cat = CATEGORIES[i];
@@ -18402,14 +18443,10 @@ function editCategory(i){
     if(newName !== oldName){
       const activeN = countActiveWithName(expenses, 'category', oldName);
       if(activeN > 0 && renameAsked !== newName){ renameAsked = newName; setAppModalNotice(renameConfirmText(activeN)); return false; }
-      const stampNow = new Date().toISOString();
-      renamedCount = renameRecordsStamp(expenses, 'category', oldName, stampNow);
-      expenses.forEach(function(e){ if(e.category===oldName) e.category = newName; });
-      reportSaveResult(await saveExpenses());
-      SUBCATEGORIES.forEach(function(s){ if(s.category===oldName) s.category = newName; });
-      reportSaveResult(await saveSubcategories());
-      DICTIONARY.forEach(function(d){ if(d.cat===oldName) d.cat = newName; });
-      reportSaveResult(await saveDictionary());
+      // Rev 2.32.228 (B2): локальний каскад без updatedAt витрат і без push залежних записів: сервер змінює назву у витратах сам (тригер), інші пристрої отримують pull
+      const ci = cascadeTaxonomyRename('category', oldName, newName);
+      renamedCount = ci.expenses;
+      reportSaveResult(await saveTaxonomyCascade(ci));
     }
     cat.name = newName;
     cat.type = newType;
@@ -18515,11 +18552,10 @@ function editSubcategory(i){
     if(newName !== oldName){
       const activeN = countActiveWithName(expenses, 'subcategory', oldName);
       if(activeN > 0 && renameAsked !== newName){ renameAsked = newName; setAppModalNotice(renameConfirmText(activeN)); return false; }
-      renamedCount = renameRecordsStamp(expenses, 'subcategory', oldName, new Date().toISOString());
-      expenses.forEach(function(e){ if(e.subcategory===oldName) e.subcategory = newName; });
-      reportSaveResult(await saveExpenses());
-      DICTIONARY.forEach(function(d){ if(d.sub===oldName) d.sub = newName; });
-      reportSaveResult(await saveDictionary());
+      // Rev 2.32.228 (B2): те саме, що в editCategory (тригер trg_subcategories_propagate_rename)
+      const ci = cascadeTaxonomyRename('subcategory', oldName, newName);
+      renamedCount = ci.expenses;
+      reportSaveResult(await saveTaxonomyCascade(ci));
       delete SUBCATEGORY_PRIORITY[oldName];
     }
     sub.name = newName;
@@ -25892,6 +25928,7 @@ const CHECKS = [
   { id: '2.32.226-3', rev: '2.32.226', addedOn: '2026-10-31', title: 'ОЧ: платіж на двох телефонах (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах і змініть платіж тієї ж ОЧ на різні значення.', 'Увімкніть мережу на обох телефонах.'], expect: 'з\u2019являється картка «Оля вже змінила платіж» з кнопкою «Повернути моє».', reasons: ['Картки не з\u2019явилось', 'Платіж на телефонах різний'] },
   { id: '2.32.227-1', rev: '2.32.227', addedOn: '2026-10-31', title: 'Категорії: різні поля (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах. На першому змініть тип категорії, на другому видаліть ту саму категорію.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'категорія видалена на обох (її видно у «Видалених даних» з новим типом), без сповіщень.', reasons: ['Категорія лишилась активною', 'Новий тип зник', 'З\u2019явилось сповіщення'] },
   { id: '2.32.227-2', rev: '2.32.227', addedOn: '2026-10-31', title: 'Підкатегорія: видалення без мережі (потрібен другий телефон)', steps: ['Вимкніть мережу на першому телефоні й видаліть підкатегорію.', 'Увімкніть мережу й зачекайте хвилину.'], expect: 'на обох телефонах підкатегорія зникла зі списку вибору, помилок і сповіщень нема.', reasons: ['На другому телефоні підкатегорія лишилась', 'З\u2019явилось сповіщення'] },
+  { id: '2.32.228-1', rev: '2.32.228', addedOn: '2026-11-01', title: 'Перейменування категорії на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні перейменуйте категорію, у якій є витрати.', 'Зачекайте хвилину й на другому телефоні відкрийте журнал цієї категорії.'], expect: 'на обох телефонах категорія й усі її витрати мають нову назву, старої назви ніде нема.', reasons: ['На другому телефоні лишилась стара назва', 'Категорія розділилась на дві', 'З\u2019явилась помилка'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

@@ -85,7 +85,8 @@ const amountCtx = buildSandbox({ noteAmountRejected: function(){} }, ['AMOUNT_MA
 // A2-13 виправлено в 2.32.23 (N): таблиця вводів — tests/amount.test.js
 
 // ---------- A2-12: каскади ----------
-test('A2-12 (виправлено в 2.32.24): перейменування категорії оновлює updatedAt змінених витрат', function(){
+test('A2-12 (змінено в 2.32.228, B2): перейменування категорії каскадує локально без штампу витрат; назву у витратах змінює сервер тригером', function(){
   const m = SRC.match(/function editCategory\(i\)\{([\s\S]*?)\n\}/)[1];
-  assert.ok(/renameRecordsStamp\(expenses, 'category'/.test(m));
+  assert.ok(/cascadeTaxonomyRename\('category'/.test(m));
+  assert.ok(!/renameRecordsStamp\(/.test(m));
 });

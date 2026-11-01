@@ -128,7 +128,7 @@ const REPOSITORY_NAMES = [
   // нижче. pullCategoriesPilotManual НЕ включена — DOM-шар
   // (document.getElementById), той самий принцип виключення, що вже
   // initCloudAuthUI/applyCloudSession (не extract-тестуються тут).
-  'pullCategoriesCore', 'pullCategoriesPilot',
+  'pullCategoriesCore', 'pullCategoriesPilot', 'cascadeTaxonomyRename', 'saveTaxonomyCascade',
   // Rev #30 (6D, Варіант А) — createdAt/updatedAt backfill (той самий
   // ідемпотентний принцип, що ensureExpenseIdentity()) — потрібна тут
   // ЛИШЕ тому, що loadStructureRefs() тепер на неї посилається

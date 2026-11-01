@@ -61,5 +61,5 @@ test('R: підтвердження «Буде оновлено N витрат»
 test('R2: словник і автовизначення не змінено; перейменування викликає afterRenameSync і подію category-rename', function(){
   assert.match(SRC, /afterRenameSync\(renamedCount\)/);
   assert.match(SRC, /type: 'category-rename', records: count/);
-  assert.match(SRC, /DICTIONARY\.forEach\(function\(d\)\{ if\(d\.cat===oldName\) d\.cat = newName; \}\);/);
+  assert.match(SRC, /DICTIONARY\.forEach\(function\(d\)\{\n    if\(isCat \? d\.cat === oldName : d\.sub === oldName\)/); // Rev 2.32.228: словник каскадує в cascadeTaxonomyRename
 });

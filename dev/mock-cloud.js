@@ -58,12 +58,12 @@
       const mOff = Math.floor(r() * months);
       let y = ay, m = am - mOff; while(m < 1){ m += 12; y--; }
       const c = cats[Math.floor(r() * cats.length)];
-      exp.push(base({ id: uuid(), amount: 50 + Math.floor(r() * 2000), expense_date: isoDate(y, m, 1 + Math.floor(r() * 28)), category: c.name, subcategory: null,
+      exp.push(base({ id: uuid(), amount: 50 + Math.floor(r() * 2000), expense_date: isoDate(y, m, 1 + Math.floor(r() * 28)), category: c.name, category_id: c.id, subcategory: null, subcategory_id: null,
         note: hostile ? ['<img src=x onerror=alert(1)>', '"><svg onload=alert(3)>', 'Я'.repeat(200), '😀🎉', "'; DROP TABLE x;--"][i % 5] : 'Витрата ' + (i + 1),
         linked_installment_id: null, source: null, external_id: null }, 1 + (i % 60)));
     }
     if(name === 'invalid'){
-      exp[0].amount = -5; exp[1].amount = 1.5; exp[2].amount = '12'; exp[3].expense_date = null; exp[4].category = 'Немає такої'; exp[5].amount = 2147483647; exp[6].amount = 0; exp[7].note = null;
+      exp[0].amount = -5; exp[1].amount = 1.5; exp[2].amount = '12'; exp[3].expense_date = null; exp[4].category = 'Немає такої'; exp[4].category_id = null; exp[5].amount = 2147483647; exp[6].amount = 0; exp[7].note = null;
     }
     if(name === 'edge-dates'){
       ['2024-02-29', isoDate(ay, am, 1), isoDate(ay, am, 28), isoDate(ay - 1, 12, 31), isoDate(ay, 1, 1), isoDate(ay + 1, 1, 1), isoDate(ay, am, 30), isoDate(ay, 3, 31)].forEach(function(d, i){ if(exp[i]) exp[i].expense_date = d; });
@@ -153,6 +153,22 @@
     if(!select || select === '*') return rows;
     const cols = select.split(',').map(function(c){ return c.trim(); }).filter(Boolean);
     return rows.map(function(r){ const o = {}; cols.forEach(function(c){ o[c] = r[c] === undefined ? null : r[c]; }); return o; });
+  }
+  // Rev 2.32.228 (B2): серверні тригери нормалізації (веде чат): trg_expenses_resolve_refs — category_id/subcategory_id за назвою при вставці й зміні категорії/підкатегорії витрати (немає такої → null);
+  // trg_categories_propagate_rename / trg_subcategories_propagate_rename — при зміні name сервер сам оновлює назву в усіх витратах з цим id: нова мітка версії, updated_by = автор перейменування.
+  function mockTriggers(state, table, old, row, ts){
+    const T = state.tables;
+    if(table === 'expenses'){
+      if(old && old.category === row.category && old.subcategory === row.subcategory) return;
+      const c = row.category ? (T.categories || []).find(function(x){ return !x.deleted_at && x.name === row.category; }) : null;
+      const sb = row.subcategory ? (T.subcategories || []).find(function(x){ return !x.deleted_at && x.name === row.subcategory; }) : null;
+      row.category_id = c ? c.id : null; row.subcategory_id = sb ? sb.id : null;
+    }else if((table === 'categories' || table === 'subcategories') && old && old.name !== row.name){
+      const col = table === 'categories' ? 'category' : 'subcategory';
+      (T.expenses || []).filter(function(e){ return e[col + '_id'] === row.id; }).forEach(function(e){
+        e[col] = row.name; e.updated_at = ts; e.updated_by = row.updated_by || e.updated_by; emit(state, 'expenses', 'UPDATE', e);
+      });
+    }
   }
   function bump(state, table, hard){
     if(hard && SYNC_TABLES.indexOf(table) !== -1) state.purgedAt = nowIso(state);
@@ -281,9 +297,9 @@
         const conflict = (params.get('on_conflict') || '').split(',').filter(Boolean);
         const keys = conflict.length ? conflict : (KEYS[table] || ['id']);
         const ex = rows.find(function(r){ return keys.every(function(k){ return String(r[k]) === String(row[k]); }); });
-        if(ex && upsert){ if(!/ignore-duplicates/.test(prefer)){ serverUpdate(ex, row); out.push(ex); } }
+        if(ex && upsert){ if(!/ignore-duplicates/.test(prefer)){ const old0 = Object.assign({}, ex); serverUpdate(ex, row); mockTriggers(state, table, old0, ex, ts); out.push(ex); } }
         else if(ex){ out.push(null); }
-        else { rows.push(row); out.push(row); }
+        else { rows.push(row); mockTriggers(state, table, null, row, ts); out.push(row); }
         emit(state, table, ex ? 'UPDATE' : 'INSERT', row);
       });
       const done = out.filter(Boolean);
@@ -292,7 +308,7 @@
     if(method === 'PATCH' || method === 'PUT'){
       const hit = rows.filter(function(r){ return fs.every(function(f){ return f(r); }); });
       if(table === 'dictionary' && hit.some(function(r){ return dupWord(Object.assign({}, r, body || {}), r); })) return dupResp();
-      hit.forEach(function(r){ serverUpdate(r, body || {}); emit(state, table, 'UPDATE', r); });
+      hit.forEach(function(r){ const old0 = Object.assign({}, r); serverUpdate(r, body || {}); mockTriggers(state, table, old0, r, ts); emit(state, table, 'UPDATE', r); });
       return wantRep ? respond(JSON.parse(JSON.stringify(sel(hit)))) : new Response(null, { status: 204 });
     }
     if(method === 'DELETE'){
@@ -311,10 +327,10 @@
   function simulateOtherDevice(state, spec){
     const rows = state.tables[spec.table] || (state.tables[spec.table] = []);
     const ts = nowIso(state);
-    if(spec.op === 'insert'){ const row = Object.assign({ family_id: state.familyId, created_at: ts, updated_at: ts, deleted_at: null }, spec.row); rows.push(row); emit(state, spec.table, 'INSERT', row); return row; }
+    if(spec.op === 'insert'){ const row = Object.assign({ family_id: state.familyId, created_at: ts, updated_at: ts, deleted_at: null }, spec.row); rows.push(row); mockTriggers(state, spec.table, null, row, ts); emit(state, spec.table, 'INSERT', row); return row; }
     const row = rows.find(function(r){ return String(r[spec.key || 'id']) === String(spec.id); });
     if(!row) return null;
-    if(spec.op === 'update'){ Object.assign(row, spec.patch || {}, { updated_at: ts }); emit(state, spec.table, 'UPDATE', row); return row; }
+    if(spec.op === 'update'){ const old0 = Object.assign({}, row); Object.assign(row, spec.patch || {}, { updated_at: ts }); mockTriggers(state, spec.table, old0, row, ts); emit(state, spec.table, 'UPDATE', row); return row; }
     if(spec.op === 'softdelete'){ row.deleted_at = ts; row.updated_at = ts; emit(state, spec.table, 'UPDATE', row); return row; }
     if(spec.op === 'harddelete'){ state.tables[spec.table] = rows.filter(function(r){ return r !== row; }); bump(state, spec.table, true); emit(state, spec.table, 'DELETE', row); return row; }
     return null;
