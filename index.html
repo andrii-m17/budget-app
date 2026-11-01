@@ -2112,6 +2112,35 @@
   /* Rev 2.16.1 — max-height/overflow-y: звіт діагностики може мати багато
      рядків проблем і не поміщатись у фіксовану висоту; для решти (коротких)
      модалок це нічого не змінює, бо контент завжди був нижчий за 80vh. */
+  /* Rev 2.32.235 (RESTORE-SOURCES): лист вибору джерела відновлення, список автоматичних копій і підтвердження (еталон docs/ui/mockups/restore-sources-mockup.html). Лише наявні токени. */
+  .rs-layer{ position:fixed; inset:0; z-index:97; display:none; }
+  .rs-layer.open{ display:block; }
+  .rs-back{ position:absolute; inset:0; background:rgba(16,24,40,.45); opacity:0; transition:opacity var(--duration-base) var(--easing-standard); }
+  .rs-layer.show .rs-back{ opacity:1; }
+  .rs-pane{ line-height:1.35; position:absolute; left:0; right:0; bottom:0; max-width:440px; margin:0 auto; padding:10px 10px max(10px, env(safe-area-inset-bottom)); opacity:0; transform:translateY(24px); transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
+  .rs-layer.show .rs-pane{ opacity:1; transform:none; }
+  .rs-pane.rs-center{ top:0; display:flex; align-items:center; justify-content:center; padding:28px; }
+  .rs-grp{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:24px; overflow:hidden; }
+  .rs-hd{ padding:14px 16px 8px; text-align:center; color:var(--color-text-secondary); font-size:13px; }
+  .rs-rw{ line-height:1.35; display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:8px 16px; border:0; border-top:1px solid var(--color-border); background:none; color:var(--color-text-primary); font:inherit; font-size:16px; text-align:left; cursor:pointer; }
+  .rs-rw:active{ background:var(--color-active-overlay); }
+  .rs-t{ flex:1; min-width:0; }
+  .rs-t small{ display:block; color:var(--color-text-secondary); font-size:13px; margin-top:2px; }
+  .rs-ri{ width:34px; height:34px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .rs-ri.g{ background:var(--color-primary-bg); color:var(--color-primary-hover); }
+  .rs-ri.b{ background:var(--color-info-bg); color:var(--color-info); }
+  .rs-ri.n{ background:var(--color-surface-hover); color:var(--color-text-secondary); }
+  .rs-tag{ font-size:12px; color:var(--color-primary-hover); background:var(--color-primary-bg); border-radius:8px; padding:2px 8px; margin-left:8px; flex:none; }
+  .rs-hint{ padding:10px 16px 14px; border-top:1px solid var(--color-border); color:var(--color-text-secondary); font-size:13px; text-align:center; }
+  .rs-cancel{ display:block; width:100%; margin-top:8px; height:52px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:24px; color:var(--color-text-primary); font:inherit; font-size:16px; font-weight:500; cursor:pointer; }
+  .rs-cancel:active{ background:var(--color-active-overlay); }
+  .rs-dlg{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:22px; padding:18px; width:100%; max-width:360px; }
+  .rs-dlg b{ font-weight:500; font-size:17px; display:block; text-align:center; }
+  .rs-dlg p{ margin:8px 0 16px; font-size:14px; line-height:1.5; color:var(--color-text-secondary); text-align:center; }
+  .rs-dlg button{ display:block; width:100%; height:44px; border-radius:14px; border:none; background:var(--color-surface-hover); color:var(--color-text-primary); font:inherit; font-size:15px; margin-top:8px; cursor:pointer; }
+  .rs-dlg button:active{ background:var(--color-active-overlay); }
+  .backup-auto-status{ color:var(--color-text-secondary); }
+  @media (prefers-reduced-motion:reduce){ .rs-back, .rs-pane{ transition:none; } }
   .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); max-height:80vh; overflow-y:auto; background:var(--color-surface); border-radius:var(--radius-xl); padding:22px 20px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
   .app-modal.open{ opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
   /* Rev 2.32.159 (DIALOG-MOTION): поява 0,24 с (opacity 0→1, translateY 14px→0, scale .98→1, cubic-bezier(.2,.8,.2,1)), зникнення 0,2 с (ease-in, opacity→0, translateY 16px, scale .98) у фазі .leaving (її знімає closeAppModal після animationend / запасних 300 мс). Зсув і масштаб через окремі властивості translate/scale, а не transform: transform належить центруванню й підйому клавіатурних карток (--sheet-lift), анімація їх не зачіпає. Ризик: iOS < 14.5 не знає translate/scale — там лише затухання. */
@@ -3660,7 +3689,7 @@
       </span>
     </button>
 
-    <button type="button" class="service-tile" onclick="triggerRestoreBackupInput()">
+    <button type="button" class="service-tile" onclick="openRestoreSheet()">
       <span
         class="service-tile-icon c-green"
         style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;"
@@ -3698,6 +3727,7 @@
     style="display:none;"
     onchange="handleRestoreBackupFile(event)">
   <div class="import-status" id="backup-status"></div>
+  <div class="import-status backup-auto-status hidden" id="backup-auto-status"></div>
 
   <div class="section-label">Діагностика</div>
   <button type="button" class="service-wide-card" id="diagnostics-btn" onclick="runDataDiagnostics()">
@@ -3796,7 +3826,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.234</div>
+  <div class="version-footer">Money Tree · Rev 2.32.235</div>
 </div>
   </div>
 </div>
@@ -4484,6 +4514,7 @@
      нативні діалоги мовчки блокуються: кнопка натискається, а діалог просто
      не з'являється, і дія тихо не відбувається. Власний DOM-модал працює
      завжди, незалежно від того, де саме відкрито файл. -->
+<div class="rs-layer" id="rs-layer" aria-hidden="true"><div class="rs-back" onclick="rsBackdrop()"></div><div class="rs-pane" id="rs-pane" role="dialog" aria-modal="true" aria-label="Відновлення з копії"></div></div>
 <div class="drawer-backdrop" id="modal-backdrop" onclick="closeAppModal()" inert></div>
 <div class="app-modal" id="app-modal" role="dialog" aria-modal="true" inert>
   <div class="app-modal-text" id="app-modal-text"></div>
@@ -7032,6 +7063,7 @@ async function loadAll(){
   await ensureBankInstallmentNamesStripped();
   await ensureInstallmentFirstMonth();
   await cleanupOrphanHiddenOnce(); // Rev 2.32.234 (HIDDEN-ORPHANS)
+  if(!window.__abTimer){ window.__abTimer = setTimeout(abDailySafe, 45000); setTimeout(function(){ try{ renderBackupAutoStatus(); }catch(e){} }, 1500); } // Rev 2.32.235: запасний запуск (без мережі) і початковий рядок статусу
   shadowNormalizeAll(); // Rev 2.32.192 (SHADOW-REV): міграція лічильників для наявних записів
   expMigrateBase(); conflictLoad(); // Rev 2.32.193 (MERGE-EXP): зліпок серверних полів для «чистих» витрат; журнал конфліктів
   populateMonths(); renderAll(); renderStructure();
@@ -9509,7 +9541,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.234';
+const APP_VERSION = '2.32.235';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9722,6 +9754,198 @@ async function applyBackupData(data){
   lastRestoreSummary = { total: total, serverNewer: Object.keys(restoreMerge.recs).length, stayedDeleted: gone }; // Rev 2.32.232 (RESTORE-MERGE)
   return results;
 }
+// ===== Rev 2.32.235 (RESTORE-SOURCES, клас B+C): автоматичні копії на пристрої та вибір джерела відновлення =====
+// Автоматична копія: раз на день (перший запуск після синхронізації) повний знімок даних, той самий склад і формувач, що файл копії (buildBackupPayloadData). Сховище — IndexedDB (окрема база, не localStorage): метадані й тіла в різних сховищах, тож список читається без розбору тіл. 7 останніх днів (за місцевою датою); обмеження сумарного розміру з тихим прибиранням найстаріших. «Перед відновленням» створюється перед будь-яким відновленням і живе 14 днів. Механізм самого відновлення не змінено (Rev 2.32.232: звичайні правки зі злиттям).
+const AB_DB = 'budget-app-autobackup', AB_META = 'meta', AB_BLOB = 'blob';
+const AB_DAILY_DAYS = 7;
+const AB_BEFORE_DAYS = 14;
+const AB_MAX_BYTES = 30 * 1024 * 1024;
+let abBusy = false;
+function abStore(){
+  const open = function(){ return new Promise(function(resolve, reject){
+    const r = indexedDB.open(AB_DB, 1);
+    r.onupgradeneeded = function(){ r.result.createObjectStore(AB_META, { keyPath: 'id' }); r.result.createObjectStore(AB_BLOB); };
+    r.onsuccess = function(){ resolve(r.result); }; r.onerror = function(){ reject(r.error); };
+  }); };
+  const run = function(stores, mode, fn){ return open().then(function(db){ return new Promise(function(resolve, reject){
+    const tx = db.transaction(stores, mode); let out;
+    out = fn(tx);
+    tx.oncomplete = function(){ db.close(); resolve(out && 'result' in out ? out.result : undefined); };
+    tx.onerror = tx.onabort = function(){ db.close(); reject(tx.error); };
+  }); }); };
+  return {
+    list: function(){ return run([AB_META], 'readonly', function(tx){ return tx.objectStore(AB_META).getAll(); }); },
+    put: function(meta, json){ return run([AB_META, AB_BLOB], 'readwrite', function(tx){ tx.objectStore(AB_BLOB).put(json, meta.id); return tx.objectStore(AB_META).put(meta); }); },
+    get: function(id){ return run([AB_BLOB], 'readonly', function(tx){ return tx.objectStore(AB_BLOB).get(id); }); },
+    del: function(id){ return run([AB_META, AB_BLOB], 'readwrite', function(tx){ tx.objectStore(AB_BLOB).delete(id); return tx.objectStore(AB_META).delete(id); }); },
+  };
+}
+function abDayKey(d){ const p = function(n){ return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+function abDayDiff(a, b){ return Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 86400000); }
+function abCounts(data){
+  const live = function(key){ try{ return JSON.parse(data[key] || '[]').filter(function(x){ return x && !x.deletedAt; }).length; }catch(e){ return 0; } };
+  return { expenses: live(LS_KEY_EXP), debts: live(LS_KEY_DEBT) };
+}
+// Які копії видалити: «щоденні» старші за 7 днів (за датою), «Перед відновленням» старші за 14 діб, потім за сумарним розміром — найстаріші щоденні, далі найстаріші «Перед відновленням»; найновіша щоденна не видаляється.
+function abPlanPrune(metas, now, maxBytes){
+  const today = abDayKey(now), nowMs = now.getTime(), del = [], keep = [];
+  metas.forEach(function(m){
+    const old = m.kind === 'before' ? (nowMs - Date.parse(m.at) >= AB_BEFORE_DAYS * 86400000) : (abDayDiff(m.dayKey, today) >= AB_DAILY_DAYS);
+    (old ? del : keep).push(m);
+  });
+  let total = keep.reduce(function(s, m){ return s + (m.bytes || 0); }, 0);
+  const newest = keep.filter(function(m){ return m.kind !== 'before'; }).sort(function(a, b){ return Date.parse(b.at) - Date.parse(a.at); })[0];
+  const order = keep.filter(function(m){ return m !== newest; }).sort(function(a, b){ return (a.kind === 'before' ? 1 : 0) - (b.kind === 'before' ? 1 : 0) || Date.parse(a.at) - Date.parse(b.at); });
+  for(let i = 0; i < order.length && total > (maxBytes || AB_MAX_BYTES); i++){ del.push(order[i]); total -= order[i].bytes || 0; }
+  return del.map(function(m){ return m.id; });
+}
+async function abPrune(store, now){
+  const metas = await store.list();
+  const ids = abPlanPrune(metas, now);
+  for(const id of ids) await store.del(id);
+  return ids.length;
+}
+async function abCreate(store, kind, now){
+  const data = buildBackupPayloadData(), json = JSON.stringify(data);
+  if(json.length > AB_MAX_BYTES) return null; // одна копія більша за ліміт — не зберігаємо
+  const meta = { id: (kind === 'before' ? 'b' : 'd') + now.getTime(), kind: kind, at: now.toISOString(), dayKey: abDayKey(now), counts: abCounts(data), bytes: json.length };
+  await store.put(meta, json);
+  await abPrune(store, now);
+  return meta;
+}
+// Раз на день: якщо за сьогодні (місцева дата) щоденна копія вже є — нічого.
+async function abDailyOnce(store, now){
+  store = store || abStore(); now = now || new Date();
+  const metas = await store.list();
+  if(metas.some(function(m){ return m.kind !== 'before' && m.dayKey === abDayKey(now); })) return null;
+  return abCreate(store, 'daily', now);
+}
+async function abDailySafe(){
+  if(abBusy || typeof indexedDB === 'undefined') return;
+  abBusy = true;
+  try{ await abDailyOnce(); }catch(e){}
+  finally{ abBusy = false; }
+  try{ await renderBackupAutoStatus(); }catch(e){}
+}
+async function abBeforeRestore(store, now){ return abCreate(store || abStore(), 'before', now || new Date()); }
+const AB_MONTHS = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
+function abDateText(iso, now, lower){
+  const d = new Date(iso), n = now || new Date(), p = function(x){ return (x < 10 ? '0' : '') + x; };
+  const hm = p(d.getHours()) + ':' + p(d.getMinutes());
+  if(abDayKey(d) === abDayKey(n)) return (lower ? 'сьогодні' : 'Сьогодні') + ', ' + hm;
+  return d.getDate() + ' ' + AB_MONTHS[d.getMonth()] + ', ' + hm;
+}
+function abDayMonth(iso){ const d = new Date(iso); return d.getDate() + ' ' + AB_MONTHS[d.getMonth()]; }
+function abExpiryText(meta){ return abDayMonth(new Date(Date.parse(meta.at) + AB_BEFORE_DAYS * 86400000).toISOString()); }
+function abPlural(n, one, few, many){ const m = n % 100, d = n % 10; return (m >= 11 && m <= 14) ? many : (d === 1 ? one : (d >= 2 && d <= 4 ? few : many)); }
+function abNum(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+function abCountsText(c){ return abNum(c.expenses) + ' ' + abPlural(c.expenses, 'витрата', 'витрати', 'витрат') + ' · ' + abNum(c.debts) + ' ' + abPlural(c.debts, 'борг', 'борги', 'боргів'); }
+function abSorted(metas){ return metas.slice().sort(function(a, b){ return Date.parse(b.at) - Date.parse(a.at); }); }
+function abLatestDaily(metas){ return abSorted(metas).filter(function(m){ return m.kind !== 'before'; })[0] || null; }
+async function renderBackupAutoStatus(){
+  const el = document.getElementById('backup-auto-status');
+  if(!el || typeof indexedDB === 'undefined') return;
+  let metas = []; try{ metas = await abStore().list(); }catch(e){}
+  const last = abLatestDaily(metas);
+  el.textContent = last ? 'Остання автоматична копія: ' + abDateText(last.at, new Date(), true) + '.' : '';
+  el.classList.toggle('hidden', !last);
+}
+// ---- лист вибору джерела, список копій, підтвердження ----
+let rsMetas = [];
+function rsLayer(){ return document.getElementById('rs-layer'); }
+function rsOpenPane(html, center){
+  const layer = rsLayer(), pane = document.getElementById('rs-pane');
+  pane.className = 'rs-pane' + (center ? ' rs-center' : '');
+  pane.innerHTML = html;
+  layer.classList.add('open'); layer.setAttribute('aria-hidden', 'false');
+  requestAnimationFrame(function(){ layer.classList.add('show'); });
+}
+function rsBackdrop(){ const cb = rsCancelCb; rsCancelCb = null; rsConfirmCb = null; rsClose(); if(cb) cb(); } // підкладка на підтвердженні = «Не треба»
+function rsClose(){
+  const layer = rsLayer(); if(!layer) return;
+  layer.classList.remove('show'); layer.setAttribute('aria-hidden', 'true');
+  setTimeout(function(){ if(!layer.classList.contains('show')) layer.classList.remove('open'); }, 220);
+}
+const RS_ICON_CLK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>';
+const RS_ICON_FIL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
+const RS_ICON_LST = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7h11M8 12h11M8 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01"/></svg>';
+function rsRow(act, id, icon, cls, title, sub, tag){
+  return '<button type="button" class="rs-rw" data-rs="' + act + '"' + (id ? ' data-id="' + escapeAttr(id) + '"' : '') + '>' + (icon ? '<span class="rs-ri ' + cls + '">' + icon + '</span>' : '') + '<span class="rs-t">' + escapeHtml(title) + '<small>' + escapeHtml(sub) + '</small></span>' + (tag ? '<span class="rs-tag">' + escapeHtml(tag) + '</span>' : '') + '</button>';
+}
+async function openRestoreSheet(){
+  let metas = []; try{ if(typeof indexedDB !== 'undefined') metas = await abStore().list(); }catch(e){}
+  rsMetas = abSorted(metas);
+  rsShowSheet();
+}
+function rsShowSheet(){
+  const last = abLatestDaily(rsMetas), others = rsMetas.length - (last ? 1 : 0), hasBefore = rsMetas.some(function(m){ return m.kind === 'before'; });
+  let rows = '';
+  if(last) rows += rsRow('last', last.id, RS_ICON_CLK, 'g', 'Остання автоматична копія', abDateText(last.at));
+  rows += rsRow('file', '', RS_ICON_FIL, 'b', 'Файл із пристрою', 'Вибрати власну копію');
+  if(others > 0) rows += rsRow('list', '', RS_ICON_LST, 'n', 'Інші автоматичні копії', 'Ще ' + others + (hasBefore ? ', включно з «Перед відновленням»' : ''));
+  const hint = rsMetas.length ? '' : '<div class="rs-hint">Автоматичні копії з’являться після першого дня використання</div>';
+  rsOpenPane('<div class="rs-grp"><div class="rs-hd">Відновити з…</div>' + rows + hint + '</div><button type="button" class="rs-cancel" data-rs="close">Скасувати</button>');
+}
+function rsShowList(){
+  const last = abLatestDaily(rsMetas);
+  const rows = rsMetas.map(function(m){
+    if(m.kind === 'before') return rsRow('pick', m.id, '', '', 'Перед відновленням', abDateText(m.at) + ' · зберігається до ' + abExpiryText(m));
+    return rsRow('pick', m.id, '', '', abDateText(m.at), abCountsText(m.counts || { expenses: 0, debts: 0 }), last && last.id === m.id ? 'остання' : '');
+  }).join('');
+  rsOpenPane('<div class="rs-grp"><div class="rs-hd">Автоматичні копії</div>' + rows + '</div><button type="button" class="rs-cancel" data-rs="back">Назад</button>');
+}
+function abPartnerName(){
+  try{
+    const me = cloudSession && cloudSession.user && cloudSession.user.id;
+    const other = Object.keys(familyUsersById || {}).filter(function(id){ return id !== me; })[0];
+    const info = other ? authorInfoFor(other) : null;
+    return info && info.name ? info.name : '';
+  }catch(e){ return ''; }
+}
+function rsConfirmBody(fromFile){
+  const partner = abPartnerName();
+  return (fromFile ? 'Змінені після створення файлу записи стануть такими, як були. ' : 'Змінені відтоді записи стануть такими, як були. ') + 'Нові й видалені лишаться як є. ' + (partner ? partner + ' теж побачить зміни. ' : '') + 'Поточний стан збережемо на 14 днів: усе можна повернути назад.';
+}
+let rsConfirmCb = null, rsCancelCb = null;
+function rsConfirm(title, body, onConfirm, onCancel, extra){
+  rsConfirmCb = onConfirm; rsCancelCb = onCancel || null;
+  rsOpenPane('<div class="rs-dlg"><b>' + escapeHtml(title) + '</b><p>' + escapeHtml(body) + (extra ? ' ' + escapeHtml(extra) : '') + '</p><button type="button" data-rs="yes">Повернути дані</button><button type="button" data-rs="no">Не треба</button></div>', true);
+}
+async function rsPick(id){
+  const m = rsMetas.filter(function(x){ return x.id === id; })[0]; if(!m) return;
+  rsConfirm('Повернути дані до ' + abDateText(m.at, new Date(), true) + '?', rsConfirmBody(false), async function(){
+    let json = null; try{ json = await abStore().get(m.id); }catch(e){}
+    let data = null; try{ data = json ? JSON.parse(json) : null; }catch(e){}
+    if(!data){ showTextToast('Не вдалося прочитати копію', 'error'); return; }
+    await performRestore(data, { label: 'до ' + abDateText(m.at, new Date(), true) });
+  }, function(){ rsShowList(); });
+}
+document.addEventListener('click', function(e){
+  const t = e.target && e.target.closest ? e.target.closest('#rs-pane [data-rs]') : null;
+  if(!t) return;
+  const act = t.getAttribute('data-rs'), id = t.getAttribute('data-id');
+  if(act === 'close' || act === 'no'){ const cb = act === 'no' ? rsCancelCb : null; rsClose(); if(cb) cb(); }
+  else if(act === 'back') rsShowSheet();
+  else if(act === 'list') rsShowList();
+  else if(act === 'file'){ rsClose(); triggerRestoreBackupInput(); }
+  else if(act === 'last' || act === 'pick') rsPick(id);
+  else if(act === 'yes'){ const cb = rsConfirmCb; rsConfirmCb = null; rsCancelCb = null; rsClose(); if(cb) cb(); }
+});
+// Єдиний шлях відновлення (файл і автоматична копія): знімок «Перед відновленням» → applyBackupData (звичайні правки зі злиттям) → тост і статус.
+async function performRestore(data, info){
+  const statusEl = document.getElementById('backup-status');
+  if(statusEl) statusEl.textContent = 'Відновлюю…';
+  createRestoreSafetySnapshot();
+  let before = null; try{ if(typeof indexedDB !== 'undefined') before = await abBeforeRestore(); }catch(e){}
+  let results;
+  try{ results = await applyBackupData(data); }
+  catch(e){ if(statusEl) statusEl.textContent = 'Не вдалося відновити дані.'; showTextToast('Не вдалося відновити дані', 'error'); return; }
+  Object.values(results).forEach(reportSaveResult);
+  const sm = lastRestoreSummary || { total: 0, serverNewer: 0 };
+  showTextToast('Повернуто ' + sm.total + ' ' + restoreCountWord(sm.total) + '.' + (sm.serverNewer ? ' У ' + sm.serverNewer + ' ' + (sm.serverNewer === 1 ? 'записі' : 'записах') + ' лишились новіші значення (вони в «Конфліктах»).' : ''), 'success');
+  if(statusEl) statusEl.textContent = 'Дані повернуто ' + info.label + '.' + (before ? ' Стан до відновлення збережено до ' + abExpiryText(before) + ': щоб повернутись, оберіть «Відновити» → «Перед відновленням».' : '');
+  try{ await renderBackupAutoStatus(); }catch(e){}
+}
 function handleRestoreBackupFile(event){
   const file = event.target.files[0];
   if(!file) return;
@@ -9749,40 +9973,13 @@ function handleRestoreBackupFile(event){
       const legacy = parseInt(parsed.data[LS_KEY_SCHEMA_VERSION], 10);
       schemaVersion = isNaN(legacy) ? null : legacy;
     }
-    const expCount = backupArrayCount(parsed, LS_KEY_EXP);
-    const incCount = backupArrayCount(parsed, LS_KEY_INC);
-    const debtCount = backupArrayCount(parsed, LS_KEY_DEBT);
-    // Rev 2.15.0 — контрольований прев'ю замість миттєвої заміни (ROADMAP
-    // п.19): кількість записів + Schema/App ДО підтвердження, і окреме
-    // попередження (не блокування!), якщо бекап зі старішої схеми даних.
-    const parts = [
-      `Знайдено в бекапі від ${dateLabel}:`,
-      `• ${expCount} ${expenseCountWord(expCount)}`,
-      `• ${incCount} ${incomeCountWord(incCount)}`,
-      `• ${debtCount} ${debtCountWord(debtCount)}`,
-      '',
-      `Schema: ${schemaVersion != null ? schemaVersion : '?'} · App: ${appVersionLabel}`,
-    ];
-    if(schemaVersion != null && schemaVersion < SCHEMA_VERSION){
-      parts.push('', `⚠️ Бекап зі старішої версії структури даних (Schema ${schemaVersion} → зараз ${SCHEMA_VERSION}). Відновлення однаково спрацює, але варто перевірити дані після нього.`);
-    }
-    // Rev #30 (6D.48) — текст оновлено: відновлення більше НЕ безумовна
-    // заміна (6D.46/47, LWW-merge) — новіші локальні/Cloud дані виживають
-    // автоматично. Плюс явна згадка safety snapshot нижче.
-    parts.push('', 'Значення з файлу застосовуються як звичайні правки: якщо інший пристрій уже змінив те саме поле, лишається його значення, а значення з файлу зберігаються в журналі конфліктів. Видалене не повертається. Значення з файлу перекривають поточні відмінні поля, зокрема локальні зміни, ще не надіслані на сервер. Перед застосуванням буде автоматично збережено знімок поточного стану у завантаження браузера — про всяк випадок.');
-    showConfirmModal(
-      parts.join('\n'),
-      async function(){
-        createRestoreSafetySnapshot();
-        const results = await applyBackupData(parsed.data);
-        Object.values(results).forEach(reportSaveResult);
-        statusEl.textContent = 'Дані відновлено з бекапу від ' + dateLabel + '.';
-        const sm = lastRestoreSummary; // Rev 2.32.232 (RESTORE-MERGE): один підсумок замість карток конфліктів
-        if(sm) showTextToast('Відновлено ' + sm.total + ' ' + restoreCountWord(sm.total) + (sm.serverNewer ? '. У ' + sm.serverNewer + ' ' + (sm.serverNewer === 1 ? 'записі' : 'записах') + ' сервер новіший, значення з копії збережено в журналі конфліктів' : '') + (sm.stayedDeleted ? '. ' + sm.stayedDeleted + ' ' + restoreCountWord(sm.stayedDeleted) + ' видалено на сервері, їх можна повернути з «Видалених даних»' : ''), 'success');
-        inputEl.value = '';
-      },
-      'Так, відновити'
-    );
+    // Rev 2.32.235 (RESTORE-SOURCES): підтвердження за макетом (заголовок, абзац, «Повернути дані» / «Не треба»); відновлення — спільний performRestore (знімок «Перед відновленням» → звичайні правки зі злиттям → тост і статус).
+    const oldSchema = schemaVersion != null && schemaVersion < SCHEMA_VERSION ? 'Файл зі старішої версії структури даних (' + schemaVersion + ' → ' + SCHEMA_VERSION + '): відновлення однаково спрацює.' : '';
+    statusEl.textContent = '';
+    rsConfirm('Відновити дані з файлу?', rsConfirmBody(true), async function(){
+      await performRestore(parsed.data, { label: 'з файлу від ' + dateLabel });
+      inputEl.value = '';
+    }, function(){ inputEl.value = ''; }, oldSchema);
   };
   reader.onerror = function(){ statusEl.textContent = 'Не вдалося прочитати файл.'; inputEl.value=''; };
   reader.readAsText(file);
@@ -12165,6 +12362,7 @@ async function runSyncCheck(reason, o){
   if(o.refreshAll && changedTables.length) refreshAfterSyncAtStart(changedTables);
   if(reason === 'realtime') flushOtherActorEventsAsToasts(); else flushOtherActorEventsAsSummary();
   shadowDiffReport('sync-' + reason); // Rev 2.32.192 (SHADOW-REV): лише в записі діагностики, увімкнена «Розширена діагностика»
+  if(reason !== 'realtime' && typeof abDailySafe === 'function') abDailySafe(); // Rev 2.32.235 (RESTORE-SOURCES): щоденна автоматична копія після завершення синхронізації (раз на день)
   return { plan: plan, changedTables: changedTables, ms: Date.now() - t0 };
 }
 // syncCheck(reason, opts): opts.force — без обмеження інтервалу; opts.fullReason — примусова повна звірка; opts.profilesLoaded — профілі вже завантажено викликачем.
@@ -21882,13 +22080,13 @@ function pressEndAllTouch(e){
 // row (рядки списків і картки) і reference (таббар, scroll-top, desktop-sidebar) — поза M3 (M4 / еталон), але мають явний варіант, щоб жоден клас не лишився без нього.
 const BUTTON_VARIANT_MAP = {
   primary: ['chk-fl', 'submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn', 'mono-primary'],
-  secondary: ['chk-sk', 'add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
+  secondary: ['rs-cancel', 'chk-sk', 'add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
   text: ['mono-back', 'notif-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
   icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip', 'mono-inst-label'],
-  row: ['mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
+  row: ['rs-rw', 'mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn', 'och-cond-row']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
@@ -26026,6 +26224,8 @@ const CHECKS = [
   { id: '2.32.229-1', rev: '2.32.229', addedOn: '2026-11-01', title: 'Діагностика: підрахунок записів без зліпка', steps: ['Відкрийте «Сервіс → Діагностика» і натисніть «Записати діагностику».', 'Закрийте її й відкрийте екран «Журнал», потім поверніться, натисніть «Стоп» і «Надіслати лог».'], expect: 'лог надіслано без помилок.', reasons: ['Лог не надіслано', 'Помилка'] },
   { id: '2.32.230-1', rev: '2.32.230', addedOn: '2026-11-01', title: 'Видалення запису на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні видаліть витрату.', 'Зачекайте хвилину й на другому телефоні перевірте журнал і «Сервіс → Видалені дані».'], expect: 'на другому телефоні витрата зникла з журналу, є у «Видалених даних», повернення з «Видалених даних» повертає її на обох.', reasons: ['Витрата лишилась у журналі', 'Її нема у «Видалених даних»', 'Повернення не спрацювало', 'З\u2019явилось зайве сповіщення'] },
   { id: '2.32.232-1', rev: '2.32.232', addedOn: '2026-11-01', title: 'Відновлення з копії як звичайні правки', steps: ['Відкрийте «Сервіс → Резервне копіювання» і збережіть файл копії.', 'Змініть суму будь-якої витрати й почекайте хвилину.', 'Натисніть «Відновити», оберіть цей файл і підтвердьте.'], expect: 'сума витрати повернулась до значення з копії, показано підсумок «Відновлено N записів», карток конфліктів немає.', reasons: ['Сума не повернулась', 'Підсумку немає', 'З\u2019явилась картка конфліктів', 'Помилка'] },
+  { id: '2.32.235-1', rev: '2.32.235', addedOn: '2026-11-01', title: 'Лист вибору джерела відновлення', steps: ['Відкрийте «Сервіс» і погляньте на блок «Резервна копія».', 'Натисніть «Відновити».'], expect: 'під плитками є рядок «Остання автоматична копія: сьогодні, час» (з другого дня використання), знизу відкрився лист «Відновити з…» з пунктами «Файл із пристрою» і (якщо є копії) «Остання автоматична копія», «Інші автоматичні копії».', reasons: ['Рядка про автоматичну копію нема', 'Лист не відкрився', 'Лист виглядає не так, як на макеті', 'Помилка'] },
+  { id: '2.32.235-2', rev: '2.32.235', addedOn: '2026-11-01', title: 'Відновлення з автоматичної копії та повернення', steps: ['Змініть суму будь-якої витрати.', 'У «Сервіс → Відновити» оберіть «Остання автоматична копія» і підтвердьте «Повернути дані».', 'Знову відкрийте «Відновити» → «Інші автоматичні копії» → «Перед відновленням» і підтвердьте.'], expect: 'після другого кроку сума повернулась і показано «Повернуто N записів…»; після третього сума знову така, як була до відновлення.', reasons: ['Сума не повернулась', 'Нема запису «Перед відновленням»', 'Повернення назад не спрацювало', 'Помилка'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

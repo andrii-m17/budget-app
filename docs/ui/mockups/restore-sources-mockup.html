@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="uk" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Money Tree: «Відновити» з вибором джерела (еталон)</title>
+<style>
+/* Еталон для Claude Code. Розміри в px = pt iPhone (ширина 390). Кольори орієнтовні: беріть наявні токени, нових не вводити.
+   Блок «Резервна копія» і дві плитки лишаються як у застосунку. Нові елементи: рядок статусу, лист вибору джерела,
+   список автоматичних копій, діалог підтвердження. Відхилення від макета запишіть у звіті. */
+:root{--page:#05080e;--bg:#0b111b;--tile:#151c2a;--ln:#252e40;--tx:#f1f5f9;--t2:#8b97ab;--blue:#6ea0ff;--blueb:#1d2c4d;--grn:#5fd18a;--grnb:#1d3a2c;--neu:#a9b4c7;--neub:#232c3d;--sec:rgba(255,255,255,.09);--red:#f87171;--sh:rgba(0,0,0,.6)}
+:root[data-theme=light]{--page:#dfe4ec;--bg:#eef1f6;--tile:#ffffff;--ln:#dfe3ea;--tx:#0f172a;--t2:#64748b;--blue:#2563eb;--blueb:#e3ecff;--grn:#16a34a;--grnb:#e3f4ea;--neu:#475569;--neub:#e8ecf2;--sec:#eceff4;--red:#dc2626;--sh:rgba(15,23,42,.4)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--tx);font:14px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;padding:16px 0 40px}
+.tools{display:flex;gap:6px;margin:0 14px 12px;flex-wrap:wrap}
+.tools button{height:30px;padding:0 10px;font-size:13px;border-radius:15px;border:1px solid var(--ln);background:transparent;color:var(--tx);font:inherit}
+.screen{width:390px;height:620px;margin:0 auto 22px;background:var(--bg);border-radius:28px;overflow:hidden;position:relative;padding:20px 16px}
+.cap{font-size:12px;color:var(--t2);margin:6px 14px 6px;text-align:left}
+.lb{font-size:12px;font-weight:500;letter-spacing:.06em;color:var(--t2);margin:0 4px 8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--tile);border:1px solid var(--ln);border-radius:26px;padding:16px}
+.ic{width:40px;height:40px;border-radius:13px;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.tile b{display:block;font-weight:500;font-size:16px}
+.tile span.d{display:block;font-size:14px;color:var(--t2);margin-top:4px;line-height:1.4}
+.st{font-size:14px;margin:14px 4px 0;line-height:1.5}
+.st .m{color:var(--t2)}
+.scrim{position:absolute;inset:0;background:var(--sh);z-index:3;display:flex;align-items:flex-end;padding:10px}
+.scrim.c{align-items:center;padding:28px}
+.sheet{width:100%}
+.grp{background:var(--tile);border:1px solid var(--ln);border-radius:24px;overflow:hidden}
+.grp .hd{padding:14px 16px 8px;text-align:center;color:var(--t2);font-size:13px}
+.rw{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 16px;border-top:1px solid var(--ln);font-size:16px}
+.rw .t{flex:1}
+.rw small{display:block;color:var(--t2);font-size:13px;margin-top:2px}
+.rw .ri{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none}
+.cancel{margin-top:8px;background:var(--tile);border:1px solid var(--ln);border-radius:24px;text-align:center;height:52px;line-height:52px;font-size:16px;font-weight:500}
+.dlg{background:var(--tile);border:1px solid var(--ln);border-radius:22px;padding:18px;width:100%}
+.dlg b{font-weight:500;font-size:17px;display:block;text-align:center}
+.dlg p{margin:8px 0 16px;font-size:14px;line-height:1.5;color:var(--t2);text-align:center}
+.dlg button{display:block;width:100%;height:44px;border-radius:14px;border:none;background:var(--sec);color:var(--tx);font:inherit;font-size:15px;margin-top:8px}
+.tag{font-size:12px;color:var(--grn);background:var(--grnb);border-radius:8px;padding:2px 8px;margin-left:8px}
+.toast{position:absolute;left:50%;transform:translateX(-50%);top:18px;background:var(--tile);border:1px solid var(--ln);border-radius:22px;padding:12px 16px;font-size:14px;max-width:340px;text-align:center;line-height:1.4;z-index:2}
+</style>
+</head>
+<body>
+<div class="tools"><button id="tD">Темна</button><button id="tL">Світла</button></div>
+<div id="root"></div>
+<script>
+function svg(p){return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'}
+var UP=svg('<path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.5 9a4.5 4.5 0 0 1 0 9"/><path d="M12 12v7M9 14.5l3-3 3 3"/>');
+var RS=svg('<path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4.5v4h4"/>');
+var CLK=svg('<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>');
+var FIL=svg('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>');
+var LST=svg('<path d="M8 7h11M8 12h11M8 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01"/>');
+function tiles(status){return '<div class="lb">РЕЗЕРВНА КОПІЯ</div><div class="grid"><div class="tile"><div class="ic" style="background:var(--blueb);color:var(--blue)">'+UP+'</div><b>Резервне копіювання</b><span class="d">Створіть копію усіх даних</span></div><div class="tile"><div class="ic" style="background:var(--grnb);color:var(--grn)">'+RS+'</div><b>Відновити</b><span class="d">Відновіть усі дані з копії</span></div></div><div class="st">'+status+'</div>'}
+var stNormal='Бекап збережено у завантаження браузера.<br><span class="m">Остання автоматична копія: сьогодні, 09:12.</span>';
+var screens=[
+['1. Блок «Резервна копія»: плитки без змін, у статусі другий рядок',function(){return tiles(stNormal)}],
+['2. Тап по «Відновити»: лист вибору джерела (знизу)',function(){return tiles(stNormal)+'<div class="scrim"><div class="sheet"><div class="grp"><div class="hd">Відновити з…</div>'+
+'<div class="rw"><div class="ri" style="background:var(--grnb);color:var(--grn)">'+CLK+'</div><div class="t">Остання автоматична копія<small>Сьогодні, 09:12</small></div></div>'+
+'<div class="rw"><div class="ri" style="background:var(--blueb);color:var(--blue)">'+FIL+'</div><div class="t">Файл із пристрою<small>Вибрати власну копію</small></div></div>'+
+'<div class="rw"><div class="ri" style="background:var(--neub);color:var(--neu)">'+LST+'</div><div class="t">Інші автоматичні копії<small>Ще 7, включно з «Перед відновленням»</small></div></div></div><div class="cancel">Скасувати</div></div></div>'}],
+['3. Інші автоматичні копії',function(){return tiles(stNormal)+'<div class="scrim"><div class="sheet"><div class="grp"><div class="hd">Автоматичні копії</div>'+
+'<div class="rw"><div class="t">Сьогодні, 09:12<small>1 166 витрат · 71 борг</small></div><span class="tag">остання</span></div>'+
+'<div class="rw"><div class="t">Перед відновленням<small>31 жовтня, 14:20 · зберігається до 14 листопада</small></div></div>'+
+'<div class="rw"><div class="t">31 жовтня, 09:05<small>1 160 витрат · 70 боргів</small></div></div>'+
+'<div class="rw"><div class="t">30 жовтня, 09:01<small>1 151 витрата · 69 боргів</small></div></div>'+
+'<div class="rw"><div class="t">29 жовтня, 08:57<small>1 140 витрат · 68 боргів</small></div></div></div><div class="cancel">Назад</div></div></div>'}],
+['4. Підтвердження (з автоматичної копії)',function(){return tiles(stNormal)+'<div class="scrim c"><div class="dlg"><b>Повернути дані до 31 жовтня, 09:05?</b><p>Змінені відтоді записи стануть такими, як були. Нові й видалені лишаться як є. Оля теж побачить зміни. Поточний стан збережемо на 14 днів: усе можна повернути назад.</p><button>Повернути дані</button><button>Не треба</button></div></div>'}],
+['5. Підтвердження (з файлу)',function(){return tiles(stNormal)+'<div class="scrim c"><div class="dlg"><b>Відновити дані з файлу?</b><p>Змінені після створення файлу записи стануть такими, як були. Нові й видалені лишаться як є. Оля теж побачить зміни. Поточний стан збережемо на 14 днів: усе можна повернути назад.</p><button>Повернути дані</button><button>Не треба</button></div></div>'}],
+['6. Після відновлення: тост і статус',function(){return '<div class="toast">Повернуто 12 записів. У 2 записах лишились новіші значення (вони в «Конфліктах»).</div>'+tiles('Дані повернуто до 31 жовтня, 09:05. Стан до відновлення збережено до 15 листопада: щоб повернутись, оберіть «Відновити» → «Перед відновленням».<br><span class="m">Остання автоматична копія: сьогодні, 09:12.</span>')}]
+];
+var root=document.getElementById('root');
+screens.forEach(function(s){var c=document.createElement('div');c.className='cap';c.textContent=s[0];var d=document.createElement('div');d.className='screen';d.innerHTML=s[1]();root.appendChild(c);root.appendChild(d)});
+document.getElementById('tD').onclick=function(){document.documentElement.setAttribute('data-theme','dark')};
+document.getElementById('tL').onclick=function(){document.documentElement.setAttribute('data-theme','light')};
+</script>
+</body>
+</html>

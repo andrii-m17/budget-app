@@ -336,3 +336,16 @@ _Виміряно Claude Code в Chrome (CDP), синтетичні дані, б
 | «Надіслати» | `.chk-send` | ×40 | — | 14 | 15 | `--ui-accent-strong`, текст білий |
 | Значок кількості | `.chk-badge` | 24×24 (min-width 24) | 0 6 | 12 | 13 | `--ui-success-strong`, текст білий |
 | Рух | — | згортання `max-height`/`opacity` .35 с ease; закреслення `color` .2 с + пауза 0,6 с до згортання; шеврон .2 с | | | | `prefers-reduced-motion`: без переходів, лише зникнення |
+
+## Лист вибору джерела відновлення (Rev 2.32.235)
+Еталон `docs/ui/mockups/restore-sources-mockup.html`; знімки реалізації `docs/ui/restore-sources-{1-status,2-sheet,3-list,4-confirm,6-after}-{dark,light}-390.png`. Токени: `--color-surface`, `--color-border`, `--color-text-*`, `--color-primary-bg/-hover`, `--color-info-bg/-info`, `--color-surface-hover`, `--color-active-overlay`; кольорів не додано.
+| Елемент | Клас | 390: розмір | Радіус | Шрифт | Примітка |
+|---|---|---|---|---|---|
+| Група | `.rs-grp` | 370×(заголовок + рядки) | 24 | — | лист знизу, відступ 10 від країв, `max-width` 440 |
+| Заголовок | `.rs-hd` | 368×39,5 | — | 13 | по центру, `--color-text-secondary` |
+| Рядок | `.rs-rw` | 368×58,1 (мін. 56) | — | 16 / підпис 13 | кнопка, `line-height` 1,35, роздільник зверху 1px |
+| Іконка рядка | `.rs-ri` (g/b/n) | 34×34 | 11 | — | зелена · синя · нейтральна |
+| Позначка | `.rs-tag` | — | 8 | 12 | «остання» |
+| Скасувати / Назад | `.rs-cancel` | 370×52 | 24 | 16/500 | відступ зверху 8 |
+| Діалог | `.rs-dlg` | 334×(≈303–309) | 22 | заг. 17/500, текст 14 (21) | padding 18; кнопки 296×44, радіус 14, шрифт 15 |
+Підкладка `rgba(16,24,40,.45)`, поява 180 мс (opacity, transform), `prefers-reduced-motion` без переходів.

@@ -17,7 +17,7 @@ test('кнопки «Заповнити», «Додати», «Оновити з
   assert.match(SRC, /'Оновити зараз',\s*'primary'/);
   assert.match(SRC, /=== 'Видалити' \? 'danger' : 'primary'/);
   assert.ok(!/confirm-btn'\)\.className = 'submit-btn'; \/\/ основна дія/.test(SRC), 'нема пізнього перезапису класу');
-  assert.match(SRC, /'Так, видалити'\)/); assert.match(SRC, /'Так, відновити'\n/);
+  assert.match(SRC, /'Так, видалити'\)/); assert.match(SRC, /rsConfirm\('Відновити дані з файлу\?'/); // Rev 2.32.235: підтвердження відновлення з файлу — власний діалог за макетом
   // руйнівні виклики не отримали primary
   assert.ok(!/'Так, видалити', 'primary'|'Очистити', 'primary'|'Так, відновити'\s*,\s*'primary'/.test(SRC));
 });

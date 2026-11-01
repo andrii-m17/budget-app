@@ -1175,3 +1175,71 @@ test('32. залишок приховування відсутньої ОЧ пр
   expect(r.marker).toBe('2.32.234'); expect(r.hiddenWrites, 'на сервер нічого не надсилалось').toBe(0);
   expect(errors).toEqual([]);
 });
+
+// Rev 2.32.235 (RESTORE-SOURCES): автоматичні копії на пристрої, лист вибору джерела, список, підтвердження, статус, повернення через «Перед відновленням».
+const abList = page => page.evaluate(async () => (await abStore().list()).map(m => ({ id: m.id, kind: m.kind, dayKey: m.dayKey, at: m.at })));
+test('33. відновлення з вибором джерела: автоматична копія раз на день, лист, список, підтвердження, тост, статус; повернення через «Перед відновленням»; без копій — лише файл', async ({ page }) => {
+  const errors = await boot(page, 'typical');
+  await page.evaluate(() => switchTab('service'));
+  // 1. щоденна копія з'являється після синхронізації; рядок статусу
+  await expect.poll(async () => (await abList(page)).length, { timeout: 20000 }).toBeGreaterThan(0);
+  const first = await abList(page);
+  expect(first.filter(m => m.kind === 'daily').length, 'одна щоденна копія').toBe(1);
+  await page.evaluate(async () => { await abDailySafe(); });
+  expect((await abList(page)).length, 'того ж дня удруге не створюється').toBe(1);
+  await page.evaluate(async () => { await renderBackupAutoStatus(); });
+  await expect(page.locator('#backup-auto-status')).toHaveText(/^Остання автоматична копія: сьогодні, \d\d:\d\d\.$/);
+  // 2. лист вибору: остання + файл (інших копій ще нема)
+  await page.locator('#view-service .service-tile', { hasText: 'Відновити' }).click();
+  await expect(page.locator('#rs-pane .rs-hd')).toHaveText('Відновити з…');
+  await expect(page.locator('#rs-pane .rs-rw')).toHaveCount(2);
+  await expect(page.locator('#rs-pane .rs-rw').first()).toContainText('Остання автоматична копія');
+  await page.locator('#rs-pane [data-rs="close"]').click();
+  // 3. старіші копії та «Перед відновленням» (як після кількох днів використання)
+  await page.evaluate(async () => {
+    const st = abStore(), json = JSON.stringify(buildBackupPayloadData()), c = abCounts(buildBackupPayloadData());
+    const mk = (id, kind, iso) => ({ id, kind, at: iso, dayKey: iso.slice(0, 10), counts: c, bytes: json.length });
+    const day = n => new Date(Date.now() - n * 86400000).toISOString();
+    await st.put(mk('d-old1', 'daily', day(1)), json); await st.put(mk('d-old2', 'daily', day(2)), json); await st.put(mk('b-old', 'before', day(1)), json);
+  });
+  // змінюємо суму після копії: відновлення з копії має її повернути
+  const ex = await page.evaluate(() => { const e = expenses.find(x => !x.deletedAt && x.serverBase); return { id: e.id, amount: e.amount }; });
+  await page.evaluate(async x => { const e = expenses.find(r => r.id === x.id); e.amount = x.amount + 123; e.updatedAt = new Date().toISOString(); await saveExpenses(); await pushExpenseRecordPilot(e); }, ex);
+  await page.locator('#view-service .service-tile', { hasText: 'Відновити' }).click();
+  await expect(page.locator('#rs-pane .rs-rw')).toHaveCount(3);
+  await expect(page.locator('#rs-pane .rs-rw').nth(2)).toContainText('Ще 3, включно з «Перед відновленням»');
+  await page.locator('#rs-pane [data-rs="list"]').click();
+  await expect(page.locator('#rs-pane .rs-hd')).toHaveText('Автоматичні копії');
+  await expect(page.locator('#rs-pane .rs-rw')).toHaveCount(4);
+  await expect(page.locator('#rs-pane .rs-tag')).toHaveText('остання');
+  await expect(page.locator('#rs-pane .rs-rw', { hasText: 'Перед відновленням' })).toContainText('зберігається до');
+  await expect(page.locator('#rs-pane .rs-rw').first()).toContainText('витрат');
+  // 4. підтвердження: «Не треба» повертає до списку, нічого не змінюється
+  await page.locator('#rs-pane .rs-rw').first().click();
+  await expect(page.locator('#rs-pane .rs-dlg b')).toContainText('Повернути дані до');
+  await expect(page.locator('#rs-pane .rs-dlg p')).toContainText('Поточний стан збережемо на 14 днів');
+  await page.locator('#rs-pane [data-rs="no"]').click();
+  await expect(page.locator('#rs-pane .rs-hd')).toHaveText('Автоматичні копії');
+  expect(await page.evaluate(i => expenses.find(r => r.id === i).amount, ex.id)).toBe(ex.amount + 123);
+  const nBefore = (await abList(page)).filter(m => m.kind === 'before').length;
+  // 5. «Повернути дані»: сума повернулась, створено «Перед відновленням», тост і статус
+  await page.locator('#rs-pane .rs-rw').first().click();
+  await page.locator('#rs-pane [data-rs="yes"]').click();
+  await expect.poll(() => page.evaluate(i => expenses.find(r => r.id === i).amount, ex.id), { timeout: 15000 }).toBe(ex.amount);
+  await expect(page.locator('#backup-status')).toContainText('Дані повернуто до');
+  await expect(page.locator('#backup-status')).toContainText('«Відновити» → «Перед відновленням»');
+  expect((await abList(page)).filter(m => m.kind === 'before').length, 'створено новий «Перед відновленням»').toBe(nBefore + 1);
+  // 6. повернення назад через «Перед відновленням» (стан до відновлення: сума + 123)
+  const beforeId = await page.evaluate(async () => (await abStore().list()).filter(m => m.kind === 'before').sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0].id);
+  await page.evaluate(async id => { rsMetas = abSorted(await abStore().list()); await rsPick(id); }, beforeId);
+  await page.locator('#rs-pane [data-rs="yes"]').click();
+  await expect.poll(() => page.evaluate(i => expenses.find(r => r.id === i).amount, ex.id), { timeout: 15000 }).toBe(ex.amount + 123);
+  // 7. без автоматичних копій — лише «Файл із пристрою» і підказка
+  await page.evaluate(async () => { const st = abStore(); for(const m of await st.list()) await st.del(m.id); });
+  await page.locator('#view-service .service-tile', { hasText: 'Відновити' }).click();
+  await expect(page.locator('#rs-pane .rs-rw')).toHaveCount(1);
+  await expect(page.locator('#rs-pane .rs-rw')).toContainText('Файл із пристрою');
+  await expect(page.locator('#rs-pane .rs-hint')).toHaveText('Автоматичні копії з\u2019являться після першого дня використання');
+  await page.locator('#rs-pane [data-rs="close"]').click();
+  expect(errors).toEqual([]);
+});
