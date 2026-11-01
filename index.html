@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.233</div>
+  <div class="version-footer">Money Tree · Rev 2.32.234</div>
 </div>
   </div>
 </div>
@@ -7031,6 +7031,7 @@ async function loadAll(){
   await loadIgnoredDivergences();
   await ensureBankInstallmentNamesStripped();
   await ensureInstallmentFirstMonth();
+  await cleanupOrphanHiddenOnce(); // Rev 2.32.234 (HIDDEN-ORPHANS)
   shadowNormalizeAll(); // Rev 2.32.192 (SHADOW-REV): міграція лічильників для наявних записів
   expMigrateBase(); conflictLoad(); // Rev 2.32.193 (MERGE-EXP): зліпок серверних полів для «чистих» витрат; журнал конфліктів
   populateMonths(); renderAll(); renderStructure();
@@ -7531,6 +7532,29 @@ function taxCasEligible(rec, parentCloudId){
 const ACC_NULLABLE_FIELDS = ['paymentDay', 'dueDay', 'termMonths', 'startDate', 'firstPayment', 'payMode', 'payment'];
 function accSetField(rec, f, v){ rec[f] = (v === '' && ACC_NULLABLE_FIELDS.indexOf(f) !== -1) ? null : v; }
 // Рядок прихованого → { type, id (cloudId рахунку), name }; null, якщо запис не з hiddenFrom або рахунок ще без cloudId.
+// Rev 2.32.234 (HIDDEN-ORPHANS, клас A): одноразове (за маркером) прибирання ЛОКАЛЬНИХ залишків приховування за назвою для ОЧ/картки, якої вже немає серед живих локально (м'яко видалена; сервер видалив і її, і її приховування сам). Чіпаємо лише записи, що не мають зв'язку із сервером (ключ за назвою, без serverBase/serverUpdatedAt/syncedUpdatedAt/cloudId) і чий об'єкт не знайдено за назвою; ключі за id ('kind:#id') і записи живих об'єктів лишаються. На сервер нічого не надсилається (saveHiddenFromLocal). Маркер ставиться і коли чистити нічого. Ризик: пристрій, де рахунки ще не завантажені, лишився б із порожніми списками — тому записи видаляються лише коли хоча б один список рахунків непорожній.
+const HIDDEN_ORPHAN_CLEAN_KEY = 'budget-hidden-orphans-clean';
+const HIDDEN_ORPHAN_CLEAN_REV = '2.32.234';
+async function cleanupOrphanHiddenOnce(){
+  let done = null; try{ done = localStorage.getItem(HIDDEN_ORPHAN_CLEAN_KEY); }catch(e){}
+  if(done === HIDDEN_ORPHAN_CLEAN_REV) return 0;
+  let removed = 0;
+  if((bankAccounts && bankAccounts.length) || (installmentAccounts && installmentAccounts.length)){
+    Object.keys(hiddenFrom).forEach(function(key){
+      const e = hiddenFrom[key], sep = key.indexOf(':');
+      if(sep === -1 || key.charAt(sep + 1) === '#' || !e || typeof e !== 'object') return;
+      if(e.cloudId || e.serverBase || e.serverUpdatedAt || e.syncedUpdatedAt) return;
+      const kind = key.slice(0, sep), nm = key.slice(sep + 1);
+      const list = kind === 'card' ? bankAccounts : (kind === 'installment' ? installmentAccounts : null);
+      if(!list) return;
+      if(list.some(function(x){ return x && x.name === nm && !x.deletedAt; })) return;
+      delete hiddenFrom[key]; removed++;
+    });
+    if(removed) await saveHiddenFromLocal();
+  }
+  try{ localStorage.setItem(HIDDEN_ORPHAN_CLEAN_KEY, HIDDEN_ORPHAN_CLEAN_REV); }catch(e){}
+  return removed;
+}
 function hiddenTargetOf(rec){
   const key = Object.keys(hiddenFrom).filter(function(k){ return hiddenFrom[k] === rec; })[0];
   if(!key) return null;
@@ -9485,7 +9509,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.233';
+const APP_VERSION = '2.32.234';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

@@ -1156,3 +1156,22 @@ test('31. порожній журнал: місяць без записів і �
   expect(consoleErrors.filter(t => /keepIfSame|ReferenceError/.test(t)), 'у консолі немає ReferenceError').toEqual([]);
   expect(errors).toEqual([]);
 });
+
+// Rev 2.32.234 (HIDDEN-ORPHANS): локальний залишок приховування за назвою для відсутньої ОЧ прибирається один раз при старті, на сервер нічого не йде.
+test('32. залишок приховування відсутньої ОЧ прибирається при старті один раз; живі приховування лишаються; запису на сервер немає', async ({ page }) => {
+  const errors = await boot(page, 'typical');
+  await page.waitForTimeout(1500);
+  const live = await page.evaluate(() => installmentAccounts.filter(a => !a.deletedAt)[0].name);
+  await page.evaluate(async n => {
+    hiddenFrom['installment:Предмет-привид'] = { month: '2026-09', updatedAt: new Date().toISOString() };
+    hiddenFrom['installment:' + n] = { month: '2026-09', updatedAt: new Date().toISOString(), serverUpdatedAt: 'x' };
+    await saveHiddenFromLocal(); localStorage.removeItem(HIDDEN_ORPHAN_CLEAN_KEY);
+  }, live);
+  await page.reload();
+  await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
+  await page.waitForTimeout(1500);
+  const r = await page.evaluate(n => ({ ghost: !!hiddenFrom['installment:Предмет-привид'], kept: !!hiddenFrom['installment:' + n], marker: localStorage.getItem(HIDDEN_ORPHAN_CLEAN_KEY), hiddenWrites: window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.table === 'hidden_entities' && x.method !== 'GET').length }), live);
+  expect(r.ghost, 'залишок прибрано').toBe(false); expect(r.kept, 'живе приховування лишилось').toBe(true);
+  expect(r.marker).toBe('2.32.234'); expect(r.hiddenWrites, 'на сервер нічого не надсилалось').toBe(0);
+  expect(errors).toEqual([]);
+});
