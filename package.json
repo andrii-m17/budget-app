@@ -5,7 +5,8 @@
   "description": "Тести фінансової логіки (node:test, без залежностей) і E2E у WebKit (Playwright, devDependency): npm test, npm run e2e.",
   "scripts": {
     "test": "node --test",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:smoke": "playwright test --project=dark --grep @smoke"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1"

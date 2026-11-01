@@ -54,7 +54,7 @@ async function makeConflict(page, id, mine, theirs){
 }
 const goOnline = page => page.evaluate(() => { window.__offline = false; window.dispatchEvent(new Event('online')); });
 
-test('1. старт із порожніми даними: застосунок живий, без помилок і горизонтального скролу @both', async ({ page }) => {
+test('1. старт із порожніми даними: застосунок живий, без помилок і горизонтального скролу @both @smoke', async ({ page }) => {
   const errors = await boot(page, 'empty');
   await expect(page.locator('.tabbar-glass')).toBeVisible();
   for(const tab of ['analytics', 'accounting', 'vytraty', 'structure', 'service']){
@@ -66,7 +66,7 @@ test('1. старт із порожніми даними: застосунок �
   expect(errors).toEqual([]);
 });
 
-test('2. додати витрату: з\'являється в списку й на сервері @both', async ({ page }) => {
+test('2. додати витрату: з\'являється в списку й на сервері @both @smoke', async ({ page }) => {
   const errors = await boot(page, 'empty');
   const id = await addExpenseUI(page, 'Тест кава', 120);
   await expect.poll(() => serverRow(page, id)).toMatchObject({ amount: 120, note: 'Тест кава' });
@@ -75,7 +75,7 @@ test('2. додати витрату: з\'являється в списку й 
   expect(errors).toEqual([]);
 });
 
-test('3. відредагувати витрату: сума змінюється локально й на сервері', async ({ page }) => {
+test('3. відредагувати витрату: сума змінюється локально й на сервері @smoke', async ({ page }) => {
   await boot(page, 'empty');
   const id = await addExpenseUI(page, 'Тест таксі', 90);
   await expect.poll(() => serverRow(page, id)).toMatchObject({ amount: 90 });
@@ -84,7 +84,7 @@ test('3. відредагувати витрату: сума змінюєтьс�
   await expect.poll(() => serverRow(page, id)).toMatchObject({ amount: 95 });
 });
 
-test('4. «Перевірки»: «Працює» і «Не працює» з причиною', async ({ page }) => {
+test('4. «Перевірки»: «Працює» і «Не працює» з причиною @smoke', async ({ page }) => {
   await boot(page, 'empty');
   await page.evaluate(() => { switchTab('service'); openChecksDrawer(); });
   const pendingCount = () => page.evaluate(() => checksPending(checksReadState()).length);
@@ -105,7 +105,7 @@ test('4. «Перевірки»: «Працює» і «Не працює» з п
   expect(await page.evaluate(id => checksReadState()[id].why, secondId)).toBeTruthy();
 });
 
-test('5. без мережі: pending → повернення мережі: syncing → done', async ({ page }) => {
+test('5. без мережі: pending → повернення мережі: syncing → done @smoke', async ({ page }) => {
   await boot(page, 'empty');
   await page.evaluate(() => { window.__offline = true; });
   const id = await addExpenseUI(page, 'Тест офлайн', 70);
@@ -123,7 +123,7 @@ test('5. без мережі: pending → повернення мережі: syn
   await expect(slotOf(page, id)).toHaveAttribute('data-s', '', { timeout: 8000 });
 });
 
-test('6. конфлікт того самого поля: картка, «Повернути моє» застосовує мою суму', async ({ page }) => {
+test('6. конфлікт того самого поля: картка, «Повернути моє» застосовує мою суму @smoke', async ({ page }) => {
   await boot(page, 'empty');
   const id = await addExpenseUI(page, 'Тест футбол', 100);
   await makeConflict(page, id, 120, 150);
@@ -153,7 +153,7 @@ test('7. відкрита шторка/поле вводу не перебива
   await expect(page.locator('.success-toast')).toContainText(/вже змін(ив|ила) суму/, { timeout: 8000 });
 });
 
-test('8. закрита й прихована ОЧ не показуються у «Платежах», відкрита показується @both', async ({ page }) => {
+test('8. закрита й прихована ОЧ не показуються у «Платежах», відкрита показується @both @smoke', async ({ page }) => {
   await boot(page, 'empty');
   await page.evaluate(() => {
     const now = new Date(); const mk = off => { const d = new Date(now.getFullYear(), now.getMonth() + off, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
@@ -1178,7 +1178,7 @@ test('32. залишок приховування відсутньої ОЧ пр
 
 // Rev 2.32.235 (RESTORE-SOURCES): лише копія «Перед відновленням»; без неї «Відновити» відкриває вибір файлу, з нею лист із двома рядками; повернення стану тим самим відновленням.
 const abList = page => page.evaluate(async () => (await abStore().list()).map(m => ({ id: m.id, kind: m.kind, source: m.source, at: m.at })));
-test('33. відновлення: без копії — одразу вибір файлу; після відновлення з файлу — лист із двома рядками, підтвердження, повернення стану, статус; через 14 днів знову лише файл', async ({ page }) => {
+test('33. відновлення: без копії — одразу вибір файлу; після відновлення з файлу — лист із двома рядками, підтвердження, повернення стану, статус; через 14 днів знову лише файл @smoke', async ({ page }) => {
   const errors = await boot(page, 'typical');
   await page.evaluate(() => switchTab('service'));
   const tile = page.locator('#view-service .service-tile', { hasText: 'Відновити' });

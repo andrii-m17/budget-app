@@ -28,7 +28,7 @@ async function tapOnce(page, selector, label){
 }
 const closeAll = page => page.evaluate(() => { try{ closeNotifArchive && closeNotifArchive(); }catch(e){} document.querySelectorAll('.drawer.open .drawer-close, #app-modal.open button').forEach(b => b.click()); try{ closeProfilePopover && closeProfilePopover(); }catch(e){} });
 
-test('23. матриця тапів: таббар, підвкладки «Обліку» й «Структури», шапка (аватар, дзвіночок, шестерня), смітник, рядок: спрацьовує з першого разу за < 150 мс', async ({ page }) => {
+test('23. матриця тапів: таббар, підвкладки «Обліку» й «Структури», шапка (аватар, дзвіночок, шестерня), смітник, рядок: спрацьовує з першого разу за < 150 мс @smoke', async ({ page }) => {
   await boot(page);
   await page.evaluate(() => { const now = new Date().toISOString(); expenses.unshift({ id: generateUUID(), date: localDateISO(), name: 'Тест рядок', amount: 10, category: '', subcategory: '', manual: true, createdAt: now, updatedAt: now }); renderAll(); });
   await tapEffect(page, '.tabbar-glass button >> nth=1', "document.querySelector('#view-accounting') && !document.querySelector('#view-accounting').classList.contains('hidden')", 'таббар «Облік»');
@@ -69,7 +69,7 @@ test('24. зони дотику 44 пт без зміни вигляду й бе
   expect(tabs.length).toBeGreaterThan(2); tabs.forEach(t => { expect(t[0], 'підвкладка: зона 44 пт').toBeGreaterThanOrEqual(44); expect(t[1], 'вигляд не змінено (< 40)').toBeLessThan(40); });
 });
 
-test('25. підказки: рядок, до якого торкаються, не видаляється з DOM після blur поля, поки триває дотик; після дотику список очищається; тап по підказці й одразу по полю назви: фокус < 150 мс', async ({ page }) => {
+test('25. підказки: рядок, до якого торкаються, не видаляється з DOM після blur поля, поки триває дотик; після дотику список очищається; тап по підказці й одразу по полю назви: фокус < 150 мс @smoke', async ({ page }) => {
   await boot(page);
   await page.evaluate(() => { const now = new Date().toISOString(); expenses.unshift({ id: generateUUID(), date: localDateISO(), name: 'Продукти Тест', amount: 100, category: '', subcategory: '', manual: true, createdAt: now, updatedAt: now }); renderAll(); switchTab('vytraty'); });
   await page.locator('#expfielda7').click(); await page.keyboard.type('про');
