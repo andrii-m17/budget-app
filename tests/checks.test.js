@@ -123,6 +123,17 @@ test('спільний список: відповідь будь-кого з с�
   const own = { '2.32.193-1': { r: 'defer', why: 'Немає часу', note: null, at: '2026-10-29T09:00:00.000Z' } };
   const po = A.ctx.checksPending(own, undefined, { at: 1, rows: [] }).map(x => x.id); assert.equal(po[po.length - 1], '2.32.193-1');
 });
+test('Rev 2.32.231: порожній список (усі кроки з відповіддю або з терміном, що минув) — 0 запитів до client_debug_logs, у т.ч. примусово; непорожній — як раніше', async () => {
+  const calls = []; const client = { from(table){ const q = { select(){ return q; }, eq(){ return q; }, gte(){ return q; }, then(f, r){ calls.push(table); return Promise.resolve({ data: [], error: null }).then(f, r); } }; return q; } };
+  const over = ref => ({ Date: clockDate(ref), getSupabaseClient: () => client, isCloudSessionReady: () => true, checksSharedAt: 0, checksSharedBusy: false, navigator: { onLine: true } });
+  const late = device(null, over({ now: Date.parse('2027-06-01T10:00:00Z') })); // усі кроки за межею 7 днів
+  assert.equal(late.ctx.checksPending(late.ctx.checksReadState()).length, 0);
+  assert.equal(await late.ctx.checksRefreshShared(false), false); assert.equal(await late.ctx.checksRefreshShared(true), false);
+  assert.equal(calls.length, 0, 'порожній список — запитів нема');
+  const live = device(null, over({ now: Date.parse('2026-10-29T10:00:00Z') }));
+  assert.ok(live.ctx.checksPending(live.ctx.checksReadState()).length > 0);
+  assert.equal(await live.ctx.checksRefreshShared(false), true); assert.equal(calls.length, 1, 'непорожній — один запит як раніше');
+});
 test('оновлення журналу сім\'ї: один GET (events, created_at) за 7 днів зі scenario = check; кеш; не частіше раз на 60 с; без запиту офлайн', async () => {
   const ref = { now: Date.parse('2026-10-29T10:00:00Z') }; const calls = [];
   const client = { from(table){ const q = { table, filters: [], select(cols){ q.cols = cols; return q; }, eq(c, v){ q.filters.push(['eq', c, v]); return q; }, gte(c, v){ q.filters.push(['gte', c, v]); return q; }, then(f, r){ calls.push({ table: q.table, cols: q.cols, filters: q.filters }); return Promise.resolve({ data: [{ events: [{ id: '2.32.193-1', result: 'ok' }], created_at: '2026-10-29T08:00:00Z' }, { events: [{ id: '2.32.193-2', result: 'defer' }], created_at: '2026-10-29T08:01:00Z' }], error: null }).then(f, r); } }; return q; } };

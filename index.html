@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.230</div>
+  <div class="version-footer">Money Tree · Rev 2.32.231</div>
 </div>
   </div>
 </div>
@@ -9465,7 +9465,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.230';
+const APP_VERSION = '2.32.231';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -25994,6 +25994,7 @@ function checksSharedMap(shared){
 let checksSharedAt = 0, checksSharedBusy = false;
 async function checksRefreshShared(force){
   if(!isCloudSessionReady() || (typeof navigator !== 'undefined' && navigator.onLine === false)) return false;
+  if(!checksPending(checksReadState()).length) return false; // Rev 2.32.231: немає жодного кроку без відповіді й без закінчення терміну — запит до журналу зайвий (≈ 23 на добу); працює для старту, повернення й відкриття «Перевірок»
   const now = Date.now();
   if(checksSharedBusy || (!force && now - checksSharedAt < CHECKS_SHARED_MIN_MS)) return false;
   checksSharedBusy = true;
