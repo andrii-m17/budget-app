@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.228</div>
+  <div class="version-footer">Money Tree · Rev 2.32.229</div>
 </div>
   </div>
 </div>
@@ -9449,7 +9449,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.228';
+const APP_VERSION = '2.32.229';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13524,6 +13524,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   // Rev 2.32.169 (FIELD-GUARD): подія field-attrs — атрибути сфокусованого поля у «Структурі» (без значень)
   // Rev 2.32.217 (FIELDS-SNAP): події fields-snapshot / field-added / field-removed — атрибути полів без значень
   'fieldName', 'fieldAc', 'snapWhy', 'mergeDom',
+  'censusTotal', 'censusCloud', 'censusNoBase', 'censusDirty', 'censusRisk', // Rev 2.32.229 (BASE-CENSUS): baseline-census — лише числа по домену
   'fieldId', 'fieldType', 'fieldAttrs', 'fieldParent', 'fieldProxy', 'fieldLinked', 'fieldScreen',
   // Rev 2.22.92 (6D.165) — геометрія відкритої шторки/підложки: живий лог
   // (kb-full-scenario) знайшов дотик, що влучив у .drawer-backdrop замість
@@ -13965,6 +13966,26 @@ function debugScreenName(){
   return name;
 }
 function debugFieldLine(el, visible){ const b = debugFieldBrief(el); return [b.id || '—', b.type, b.name, b.ac, visible ? 'vis' : 'hid'].join('|'); }
+// Rev 2.32.229 (BASE-CENSUS, клас A, лише діагностика при записі): скільки записів кожного з дев'яти доменів не має зліпка (serverBase/serverUpdatedAt). Лише числа й ключ домену, без назв, сум та id. Дані для плану «прибрати годинникове порівняння» (потрібні, щоб знати, чи досяжний старий LWW-шлях на справжніх пристроях).
+// total — усього записів (із надгробками); cloud — вже були на сервері (cloudId, а в прихованих — хоч раз надіслані); noBase — без зліпка або без serverUpdatedAt; dirty — localRev > syncedRev; risk — cloud && noBase && dirty (саме їх зачіпає старий шлях). Окремої стійкої ознаки row-gone немає: вона тимчасова всередині push, тож тут її не рахуємо.
+function baselineCensusRows(domains){
+  return Object.keys(domains).map(function(k){
+    let list = []; try{ list = domains[k].list() || []; }catch(e){}
+    const o = { dom: k, total: 0, cloud: 0, noBase: 0, dirty: 0, risk: 0 };
+    list.forEach(function(r){
+      if(!r || typeof r !== 'object') return;
+      const cloud = !!(r.cloudId || r.syncedUpdatedAt || r.serverUpdatedAt), noBase = !r.serverBase || !r.serverUpdatedAt, dirty = (r.localRev || 0) > (r.syncedRev || 0);
+      o.total++; if(cloud) o.cloud++; if(noBase) o.noBase++; if(dirty) o.dirty++; if(cloud && noBase && dirty) o.risk++;
+    });
+    return o;
+  });
+}
+function recordBaselineCensus(why){
+  if(!debugRecordingActive) return;
+  baselineCensusRows(MERGE_DOMAINS).forEach(function(o){
+    pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'baseline-census', snapWhy: why, mergeDom: o.dom, censusTotal: o.total, censusCloud: o.cloud, censusNoBase: o.noBase, censusDirty: o.dirty, censusRisk: o.risk });
+  });
+}
 function recordFieldsSnapshot(why){
   if(!debugRecordingActive) return;
   const lines = []; let n = 0;
@@ -14067,6 +14088,7 @@ function startDebugRecording(scenario){
   if(typeof recordInputAttrsAudit === 'function') recordInputAttrsAudit(); // Rev 2.28.1 (C): input-attrs-audit
   if(typeof recordFieldsCensus === 'function') recordFieldsCensus(); // Rev 2.32.31 (A): fields-census
   if(typeof recordFieldsSnapshot === 'function') recordFieldsSnapshot('start'); // Rev 2.32.217 (FIELDS-SNAP)
+  if(typeof recordBaselineCensus === 'function') recordBaselineCensus('start'); // Rev 2.32.229 (BASE-CENSUS)
   if(typeof recordKbEnv === 'function') recordKbEnv(); // Rev 2.32.9 (B): kb-env
   if(typeof XSS_AUDITED_SITES === 'number') pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'xss-audit', sites: XSS_AUDITED_SITES }); // Rev 2.32.19 (X): лише кількість місць, значень немає
   debugRecordingTimerInterval = setInterval(updateDebugRecordButtonUI, 1000);
@@ -14077,6 +14099,7 @@ function stopDebugRecording(){
   if(!debugRecordingActive) return;
   captureDebugGeometry('stop');
   if(typeof recordFieldsSnapshot === 'function') recordFieldsSnapshot('stop'); // Rev 2.32.217 (FIELDS-SNAP)
+  if(typeof recordBaselineCensus === 'function') recordBaselineCensus('stop'); // Rev 2.32.229 (BASE-CENSUS)
   debugRecordingActive = false;
   detachDebugRecorderListeners();
   if(debugRecordingTimerInterval){ clearInterval(debugRecordingTimerInterval); debugRecordingTimerInterval = null; }
@@ -14106,6 +14129,7 @@ function stopDebugRecording(){
 function markDebugEvent(){
   captureDebugGeometry('mark');
   if(typeof recordFieldsSnapshot === 'function') recordFieldsSnapshot('mark'); // Rev 2.32.217 (FIELDS-SNAP)
+  if(typeof recordBaselineCensus === 'function') recordBaselineCensus('mark'); // Rev 2.32.229 (BASE-CENSUS)
   const btn = document.getElementById('debug-record-mark-btn');
   if(!btn || btn.disabled) return;
   const original = btn.textContent;
@@ -25929,6 +25953,7 @@ const CHECKS = [
   { id: '2.32.227-1', rev: '2.32.227', addedOn: '2026-10-31', title: 'Категорії: різні поля (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах. На першому змініть тип категорії, на другому видаліть ту саму категорію.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'категорія видалена на обох (її видно у «Видалених даних» з новим типом), без сповіщень.', reasons: ['Категорія лишилась активною', 'Новий тип зник', 'З\u2019явилось сповіщення'] },
   { id: '2.32.227-2', rev: '2.32.227', addedOn: '2026-10-31', title: 'Підкатегорія: видалення без мережі (потрібен другий телефон)', steps: ['Вимкніть мережу на першому телефоні й видаліть підкатегорію.', 'Увімкніть мережу й зачекайте хвилину.'], expect: 'на обох телефонах підкатегорія зникла зі списку вибору, помилок і сповіщень нема.', reasons: ['На другому телефоні підкатегорія лишилась', 'З\u2019явилось сповіщення'] },
   { id: '2.32.228-1', rev: '2.32.228', addedOn: '2026-11-01', title: 'Перейменування категорії на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні перейменуйте категорію, у якій є витрати.', 'Зачекайте хвилину й на другому телефоні відкрийте журнал цієї категорії.'], expect: 'на обох телефонах категорія й усі її витрати мають нову назву, старої назви ніде нема.', reasons: ['На другому телефоні лишилась стара назва', 'Категорія розділилась на дві', 'З\u2019явилась помилка'] },
+  { id: '2.32.229-1', rev: '2.32.229', addedOn: '2026-11-01', title: 'Діагностика: підрахунок записів без зліпка', steps: ['Відкрийте «Сервіс → Діагностика» і натисніть «Записати діагностику».', 'Закрийте її й відкрийте екран «Журнал», потім поверніться, натисніть «Стоп» і «Надіслати лог».'], expect: 'лог надіслано без помилок.', reasons: ['Лог не надіслано', 'Помилка'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
