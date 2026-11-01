@@ -1069,3 +1069,70 @@ test('29. серверний deleted_at: штамп з відповіді сер
   expect(await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length), 'push назад немає').toBe(w0);
   expect(errors).toEqual([]);
 });
+
+// Rev 2.32.232 (RESTORE-MERGE): відновлення з копії = звичайні правки через спільне злиття; видалене на сервері лишається видаленим. Годинник сервера на добу попереду, час у копії ігнорується.
+async function restoreSetup(page){
+  const errors = await boot(page, 'typical'); // boot вмикає офлайн-прапорець мока (window.__offline)
+  await page.waitForTimeout(1500);
+  const s = { errors, offline: on => page.evaluate(v => { window.__offline = v; if(!v) window.dispatchEvent(new Event('online')); }, on) };
+  await page.evaluate(() => { window.MockCloud.state.clock = () => new Date(Date.now() + 86400000).toISOString(); });
+  await page.waitForFunction(() => expenses.filter(e => !e.deletedAt && e.serverBase && e.serverUpdatedAt).length >= 4);
+  return s;
+}
+const wCount = page => page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length);
+const backupOf = (page, mut) => page.evaluate(m => { const d = buildBackupPayloadData(); const list = JSON.parse(d[LS_KEY_EXP]); new Function('list', m)(list); d[LS_KEY_EXP] = JSON.stringify(list); return d; }, mut || '');
+
+test('30a. відновлення: значення з копії (старіша і новіша за годинником) стають правками і доходять до сервера; записи без змін не пишуться; порожнє відновлення не пише нічого', async ({ page }) => {
+  const { errors } = await restoreSetup(page);
+  const ids = await page.evaluate(() => expenses.filter(e => !e.deletedAt && e.serverBase && e.serverUpdatedAt).slice(0, 2).map(e => e.id));
+  const orig = await page.evaluate(i => i.map(x => expenses.find(e => e.id === x).amount), ids);
+  // копія: перший запис — «старша» мітка часу, другий — «з майбутнього»; суми змінені
+  const data = await backupOf(page, "list.forEach(r => { if(r.id === '" + ids[0] + "'){ r.amount = 111; r.updatedAt = '2000-01-01T00:00:00.000Z'; } if(r.id === '" + ids[1] + "'){ r.amount = 222; r.updatedAt = '2099-01-01T00:00:00.000Z'; } });");
+  const w0 = await wCount(page);
+  const res = await page.evaluate(async d => { await applyBackupData(d); return lastRestoreSummary; }, data);
+  expect(res.total, 'відновлено два записи').toBe(2); expect(res.serverNewer).toBe(0);
+  const srv = await page.evaluate(i => i.map(x => window.MockCloud.state.tables.expenses.find(e => e.id === x).amount), ids);
+  expect(srv, 'на сервері значення з копії, незалежно від часу в копії').toEqual([111, 222]);
+  expect(await page.evaluate(i => i.map(x => expenses.find(e => e.id === x).amount), ids)).toEqual([111, 222]);
+  expect(orig).not.toEqual([111, 222]);
+  expect((await wCount(page)) - w0, 'записано лише два змінені записи').toBeLessThanOrEqual(4);
+  // те саме відновлення вдруге і порожнє: змін немає, записів на сервер немає
+  const w1 = await wCount(page);
+  const again = await page.evaluate(async d => { await applyBackupData(d); return lastRestoreSummary; }, data);
+  expect(again.total).toBe(0); expect(await wCount(page), 'повторне відновлення нічого не пише').toBe(w1);
+  const empty = await page.evaluate(async () => { const d = buildBackupPayloadData(); d[LS_KEY_EXP] = '[]'; d[LS_KEY_INC] = '[]'; d[LS_KEY_DEBT] = '[]'; await applyBackupData(d); return { s: lastRestoreSummary, n: expenses.length }; });
+  expect(empty.s.total, 'порожня копія не змінює записів').toBe(0); expect(empty.n).toBeGreaterThan(3);
+  expect(errors).toEqual([]);
+});
+
+test('30b. змагання під час відновлення: сервер змінив те саме поле між зліпком і відправкою — переможе сервер, значення з копії в журналі конфліктів, у підсумку лічильник; інше поле з копії застосоване', async ({ page }) => {
+  const { errors } = await restoreSetup(page);
+  const id = await page.evaluate(() => expenses.find(e => !e.deletedAt && e.serverBase && e.serverUpdatedAt).id);
+  const data = await backupOf(page, "list.forEach(r => { if(r.id === '" + id + "'){ r.amount = 555; r.name = 'Назва з копії'; } });");
+  // чужа правка тієї ж суми трапляється саме перед нашим умовним update (зліпок уже застарів)
+  await page.evaluate(i => { const orig = window.MockCloud.fetch; let done = false; window.MockCloud.fetch = function(){ const a = arguments; const url = String(typeof a[0] === 'string' ? a[0] : (a[0] && a[0].url) || ''); const m = String((a[1] && a[1].method) || (a[0] && a[0].method) || 'GET'); if(!done && m === 'PATCH' && /\/rest\/v1\/expenses/.test(url)){ done = true; window.MockCloud.otherDevice({ table: 'expenses', id: i, op: 'update', patch: { amount: 777 } }); } return orig.apply(this, a); }; }, id);
+  const sm = await page.evaluate(async d => { await applyBackupData(d); return lastRestoreSummary; }, data);
+  const r = await page.evaluate(i => { const s = window.MockCloud.state.tables.expenses.find(e => e.id === i), l = expenses.find(e => e.id === i); return { srvAmount: s.amount, srvName: s.note, locAmount: l.amount, locName: l.name, journal: conflictLog.filter(c => c.field === 'amount' && c.mine === 555).length, cards: conflictAnnounce.length }; }, id);
+  expect(r.srvAmount, 'сервер переміг для поля, яке змінив він').toBe(777); expect(r.locAmount).toBe(777);
+  expect(r.srvName, 'інше поле з копії дійшло до сервера').toBe('Назва з копії'); expect(r.locName).toBe('Назва з копії');
+  expect(r.journal, 'значення з копії збережено в журналі конфліктів').toBeGreaterThanOrEqual(1);
+  expect(r.cards, 'карток конфліктів немає').toBe(0);
+  expect(sm.serverNewer, 'у підсумку: один запис, де сервер новіший').toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('30c. запис, видалений на сервері, лишається видаленим; відсутній локально й на сервері — повертається', async ({ page }) => {
+  const { errors } = await restoreSetup(page);
+  const [gone, lost] = await page.evaluate(() => expenses.filter(e => !e.deletedAt && e.serverBase && e.serverUpdatedAt).slice(2, 4).map(e => e.id));
+  const data = await backupOf(page);
+  // gone: на сервері надгробок, локально запису нема (пристрій ще не бачив видалення)
+  await page.evaluate(i => { const k = expenses.findIndex(e => e.id === i); expenses.splice(k, 1); window.MockCloud.state.tables.expenses.find(e => e.id === i).deleted_at = new Date().toISOString(); }, gone);
+  // lost: нема ні локально, ні на сервері (очищено)
+  await page.evaluate(i => { const k = expenses.findIndex(e => e.id === i); expenses.splice(k, 1); const t = window.MockCloud.state.tables.expenses; t.splice(t.findIndex(e => e.id === i), 1); }, lost);
+  const sm = await page.evaluate(async d => { await applyBackupData(d); return lastRestoreSummary; }, data);
+  expect(sm.stayedDeleted, 'один запис лишився видаленим').toBe(1);
+  const st = await page.evaluate(([g, l]) => ({ goneLive: expenses.some(e => e.id === g && !e.deletedAt), goneSrv: window.MockCloud.state.tables.expenses.find(e => e.id === g).deleted_at, lostLocal: expenses.some(e => e.id === l && !e.deletedAt), lostSrv: window.MockCloud.state.tables.expenses.some(e => e.id === l && !e.deleted_at), srvHas: window.MockCloud.state.tables.expenses.some(e => e.id === l), log: window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET').slice(-6).map(x => JSON.stringify(x).slice(0, 200)) }), [gone, lost]);
+  expect(st.goneLive, 'видалений на сервері не воскрес локально').toBe(false); expect(st.goneSrv, 'надгробок на сервері лишився').toBeTruthy();
+  expect(st.lostLocal && st.lostSrv, 'відсутній повернувся локально й на сервері ' + JSON.stringify(st)).toBe(true);
+  expect(errors).toEqual([]);
+});

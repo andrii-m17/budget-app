@@ -177,16 +177,17 @@ test('зміна cloudId батьківської категорії робит�
   assert.equal(dict[0].syncedCategoryId, 'cat-relinked');
 });
 
-test('restore з бекапу знімає syncedUpdatedAt у змінених і доданих словах', () => {
+test('restore з бекапу (Rev 2.32.232): змінене слово «брудне» (updatedAt = зараз), додане без syncedUpdatedAt', () => {
   const ctx = buildSandbox({}, ['mergeBackupRecordsByCloudIdOrName']);
-  const local = [{ kw: 'a', updatedAt: '2026-01-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-01-01T00:00:00.000Z', syncedCategoryId: 'x' }];
+  const local = [{ kw: 'a', cat: 'К1', sub: '', updatedAt: '2026-01-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-01-01T00:00:00.000Z', syncedCategoryId: 'x' }];
   const backup = [
-    { kw: 'a', updatedAt: '2026-02-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-02-01T00:00:00.000Z', syncedCategoryId: 'x' },
+    { kw: 'a', cat: 'К2', sub: '', updatedAt: '2026-02-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-02-01T00:00:00.000Z', syncedCategoryId: 'x' },
     { kw: 'b', updatedAt: '2026-02-01T00:00:00.000Z', syncedUpdatedAt: '2026-02-01T00:00:00.000Z', syncedCategoryId: 'x' },
   ];
-  const res = ctx.mergeBackupRecordsByCloudIdOrName(local, backup, 'kw');
+  const res = ctx.mergeBackupRecordsByCloudIdOrName(local, backup, 'kw', 'words');
   assert.equal(res.updated, 1); assert.equal(res.added, 1);
-  local.forEach(function(r){ assert.equal(r.syncedUpdatedAt, undefined); assert.equal(r.syncedCategoryId, undefined); });
+  assert.equal(local[0].cat, 'К2'); assert.notEqual(local[0].syncedUpdatedAt, local[0].updatedAt);
+  assert.equal(local[1].syncedUpdatedAt, undefined); assert.equal(local[1].syncedCategoryId, undefined);
   assert.equal(local[0].cloudId, 'c1');
 });
 

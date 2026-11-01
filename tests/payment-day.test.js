@@ -39,7 +39,7 @@ test('форма картки: «День платежу» — числове п
   assert.ok(save.indexOf('acc.paymentDay = paydayFromInput;') < save.indexOf('acc.updatedAt = new Date().toISOString();'), 'день платежу входить у той самий штамп оновлення');
   assert.match(SRC, /document\.getElementById\('cdd-payday'\)\.value = acc\.paymentDay \|\| '';/);
 });
-test('резервна копія: поле переноситься (merge копіює всі ключі), клавіатурні файли не чіпались', function(){
-  assert.match(SRC, /Object\.keys\(rec\)\.forEach\(function\(key\)\{\n\s*if\(key === 'cloudId'\) return;/);
+test('резервна копія: поле переноситься (paymentDay входить у відстежувані поля рахунку, відновлення як правка), клавіатурні файли не чіпались', function(){
+  assert.match(SRC, /key: 'bankAccounts'[^\n]*fields: \['creditLimit', 'paymentDay'/);
   assert.ok(!/cdd-payday[^\n]*kb-/.test(SRC));
 });

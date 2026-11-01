@@ -207,9 +207,9 @@ test('G3-5: застарілий пристрій без власних прав
   assert.equal(B.bankAccounts.find(function(b){ return b.name === 'Картка1'; }).creditLimit, 9999, 'pull-after-push приніс зміну A');
 });
 
-test('restore з бекапу: змінений рахунок втрачає syncedUpdatedAt і пушиться', () => {
+test('restore з бекапу (Rev 2.32.232): змінений рахунок стає «брудним» (updatedAt = зараз) і пушиться', () => {
   const ctx = buildSandbox({}, ['mergeBackupRecordsByCloudIdOrName']);
   const local = [{ name: 'К', creditLimit: 1, updatedAt: '2026-01-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
-  ctx.mergeBackupRecordsByCloudIdOrName(local, [{ name: 'К', creditLimit: 5, updatedAt: '2026-02-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-02-01T00:00:00.000Z' }], 'name');
-  assert.equal(local[0].creditLimit, 5); assert.equal(local[0].syncedUpdatedAt, undefined); assert.equal(local[0].cloudId, 'c1');
+  ctx.mergeBackupRecordsByCloudIdOrName(local, [{ name: 'К', creditLimit: 5, updatedAt: '2026-02-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-02-01T00:00:00.000Z' }], 'name', 'bankAccounts');
+  assert.equal(local[0].creditLimit, 5); assert.notEqual(local[0].syncedUpdatedAt, local[0].updatedAt); assert.equal(local[0].cloudId, 'c1');
 });

@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.231</div>
+  <div class="version-footer">Money Tree · Rev 2.32.232</div>
 </div>
   </div>
 </div>
@@ -6106,7 +6106,53 @@ async function pullDictionaryPilot(){
 // DEFAULT_*/видаляє ключ (стара поведінка), а трактується як порожній
 // список для merge — існуючі локальні записи не чіпаються (той самий
 // принцип DoD, що й "відсутність запису в бекапі").
-function mergeBackupRecordsByCloudIdOrName(list, backupList, nameField){
+// Rev 2.32.232 (RESTORE-MERGE, клас C): відновлення з копії = звичайні локальні правки. Для кожного відстежуваного поля (dom.fields), що відрізняється від запису з копії, значення з копії ставиться як локальна правка (updatedAt = зараз, localRev зростає, serverBase лишається) і далі йде тим самим умовним update з потрійним злиттям, що й решта застосунку: якщо сервер змінив це поле після зліпка, переможе сервер, а значення з копії піде в журнал конфліктів. Порівняння «час копії <= локальний час» прибрано. Поля видалення (deletedAt, deletion, видалена частина decision) з копії не переносяться: що видалено, лишається видаленим (повернути можна з «Видалених даних»), живе не вилучається. Поле, якого в записі копії немає (старий формат), не затирає локальне. Не відновлюються назва/батько (перейменування й переміщення), createdAt та інші нетрекові поля. Повертає кількість змінених полів.
+function restoreApplyAsEdit(domKey, local, rec){
+  const dom = MERGE_DOMAINS[domKey];
+  if(!dom || !local || !rec) return 0;
+  shadowNormalizeLazy(local);
+  const sb = mdSnap(dom, rec), sl = mdSnap(dom, local), vals = {};
+  let n = 0;
+  dom.fields.forEach(function(f){
+    if(f === 'deletedAt' || f === 'deletion') return;
+    if(f === 'decision' && (hiddenDecisionParts(sb[f]).deleted || hiddenDecisionParts(sl[f]).deleted)) return;
+    if(!dom.get && rec[f] === undefined) return;
+    if(!mdFieldEq(f, sl[f], sb[f])){ vals[f] = sb[f]; n++; }
+  });
+  if(!n) return 0;
+  mdSetFromSnap(dom, local, vals);
+  local.updatedAt = new Date().toISOString();
+  shadowNormalize(local);
+  return n;
+}
+// Записи копії, яких немає локально (expenses/incomes/debts): якщо рядок уже є на сервері (видалений або живий), не відтворюємо — видалений лишається видаленим, живий прийде звичайним pull. Лише рядки, яких на сервері нема зовсім, повертаються як нові. Запит не вдався (офлайн) — стара поведінка: запис повертається й піде в чергу. Мутує list і toPush; повертає { gone, there }.
+async function restoreDropServerKnown(table, list, addedRecs, toPush){
+  const out = { gone: 0, there: 0 };
+  if(!addedRecs.length || !isCloudSessionReady() || (typeof navigator !== 'undefined' && navigator.onLine === false)) return out;
+  const ids = addedRecs.map(function(r){ return r.id; }).filter(function(id){ return UUID_FORMAT_RE.test(id); });
+  const known = {};
+  try{
+    for(let i = 0; i < ids.length; i += 100){
+      const res = await getSupabaseClient().from(table).select('id,deleted_at').in('id', ids.slice(i, i + 100));
+      if(res.error || !res.data) return out;
+      res.data.forEach(function(r){ known[r.id] = r.deleted_at ? 'gone' : 'there'; });
+    }
+  }catch(e){ return out; }
+  addedRecs.forEach(function(r){
+    if(!known[r.id]) return;
+    if(known[r.id] === 'gone') out.gone++; else out.there++;
+    const a = list.indexOf(r); if(a !== -1) list.splice(a, 1);
+    const b = toPush.indexOf(r); if(b !== -1) toPush.splice(b, 1);
+  });
+  return out;
+}
+// Запис із копії, якого немає локально, повертається як НОВИЙ: серверний стан із копії (зліпок, серверний час, лічильники) прибирається, інакше умовний update вважав би «нічого слати» і рядок не створювався б.
+function restoreStripServerState(rec){
+  delete rec.serverBase; delete rec.serverUpdatedAt; delete rec.syncedUpdatedAt; delete rec.localRev; delete rec.syncedRev; delete rec.revAt;
+  return rec;
+}
+function restoreCountWord(n){ const m = n % 100, d = n % 10; return (m >= 11 && m <= 14) ? 'записів' : (d === 1 ? 'запис' : (d >= 2 && d <= 4 ? 'записи' : 'записів')); }
+function mergeBackupRecordsByCloudIdOrName(list, backupList, nameField, domKey){
   let added = 0, updated = 0, kept = 0;
   for(const rec of backupList){
     const byCloudId = rec.cloudId ? list.find(function(x){ return x.cloudId === rec.cloudId; }) : null;
@@ -6116,20 +6162,12 @@ function mergeBackupRecordsByCloudIdOrName(list, backupList, nameField){
       delete toAdd.cloudId;
       delete toAdd.syncedUpdatedAt; // Rev 2.23.26 (6D.195, G1): запис з бекапу ще не синхронізовано
       delete toAdd.syncedCategoryId; delete toAdd.syncedSubcategoryId; // G2: те саме для підкатегорій (syncedCategoryId)
+      restoreStripServerState(toAdd); // Rev 2.32.232
       list.push(toAdd);
       added++;
       continue;
     }
-    const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
-    const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
-    if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)){ kept++; continue; }
-    Object.keys(rec).forEach(function(key){
-      if(key === 'cloudId') return; // НІКОЛИ не переносимо cloudId з бекапу — див. коментар вище
-      local[key] = rec[key];
-    });
-    // Rev 2.23.26 (6D.195, G1) — бекап несе СВІЙ syncedUpdatedAt (== його updatedAt): без явного зняття
-    // змінений запис вважався б синхронізованим і "пуш лише змінених" його пропустив би.
-    delete local.syncedUpdatedAt; delete local.syncedCategoryId; delete local.syncedSubcategoryId;
+    if(!restoreApplyAsEdit(domKey, local, rec)){ kept++; continue; } // Rev 2.32.232 (RESTORE-MERGE): поля копії як звичайні правки, без порівняння годинників
     updated++;
   }
   return { added: added, updated: updated, kept: kept };
@@ -6140,7 +6178,7 @@ async function restoreCategoriesFromBackup(raw){
   catch(e){ backupList = []; }
   backupList = filterPurgedTaxonomy(backupList, readPurgedTaxonomy(), 'categoryIds'); // Rev 2.32.7 (T3): видалені назавжди категорії з бекапу не повертаються
   if(isCloudSessionReady()) await pullCategoriesCore();
-  const counts = mergeBackupRecordsByCloudIdOrName(CATEGORIES, backupList, 'name');
+  const counts = mergeBackupRecordsByCloudIdOrName(CATEGORIES, backupList, 'name', 'categories');
   stampMissingTimestamps(CATEGORIES);
   const saveResult = await saveCategoriesLocal();
   // Rev #30 (6D.57) — await (не fire-and-forget): термінове розслідування
@@ -6160,7 +6198,7 @@ async function restoreSubcategoriesFromBackup(raw){
   catch(e){ backupList = []; }
   backupList = filterPurgedTaxonomy(backupList, readPurgedTaxonomy(), 'subcategoryIds'); // Rev 2.32.7 (T3)
   if(isCloudSessionReady()) await pullSubcategoriesCore();
-  const counts = mergeBackupRecordsByCloudIdOrName(SUBCATEGORIES, backupList, 'name');
+  const counts = mergeBackupRecordsByCloudIdOrName(SUBCATEGORIES, backupList, 'name', 'subcategories');
   stampMissingTimestamps(SUBCATEGORIES);
   const saveResult = await saveSubcategoriesLocal();
   if(counts.updated || counts.added) await pushSubcategoriesPilot(); // Rev #30 (6D.57) — await, той самий принцип, що restoreCategoriesFromBackup()
@@ -6178,7 +6216,7 @@ async function restoreDictionaryFromBackup(raw){
   backupList = filterPurgedTaxonomy(backupList, readPurgedTaxonomy(), 'wordIds'); // Rev 2.32.7 (T3)
   backupList = dropPurgedFromBackup(backupList, 'word'); // Rev 2.32.22 (W): окремо видалені слова
   if(isCloudSessionReady()) await pullDictionaryCore();
-  const counts = mergeBackupRecordsByCloudIdOrName(DICTIONARY, backupList, 'kw');
+  const counts = mergeBackupRecordsByCloudIdOrName(DICTIONARY, backupList, 'kw', 'words');
   // Rev 2.22.79 (6D.152) — записи зі СТАРОГО бекапу (до цього Rev) не мали
   // поля id — бекфіл тут, одразу після мержу (ensureDictionaryIdentity()
   // сама вже не спрацює: loadStructureRefs() виконується ДО відновлення
@@ -6200,7 +6238,7 @@ async function restoreBankAccountsFromBackup(raw){
   catch(e){ backupList = []; }
   backupList = filterPurgedAccounts(backupList, readPurgedAccounts(), 'card'); // Rev 2.32.4 (T2): видалені назавжди рахунки з бекапу не відновлюються
   if(isCloudSessionReady()) await pullBankAccountsCore();
-  const counts = mergeBackupRecordsByCloudIdOrName(bankAccounts, backupList, 'name');
+  const counts = mergeBackupRecordsByCloudIdOrName(bankAccounts, backupList, 'name', 'bankAccounts');
   stampBankAccountTimestamps(bankAccounts, debts); // Rev 2.32.137
   const saveResult = await saveBankAccountsLocal();
   // Rev #30 (6D.57) — await КРИТИЧНО тут: debts (нижче в applyBackupData())
@@ -6238,14 +6276,8 @@ async function restoreHiddenFromFromBackup(raw){
       added++;
       return;
     }
-    const backupTime = backupEntry.updatedAt ? Date.parse(backupEntry.updatedAt) : NaN;
-    const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
-    // Бекап без timestamp (старий формат) чи не новіший за локальне — локальне лишається.
-    if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)) return;
-    local.month = backupEntry.month;
-    local.updatedAt = backupEntry.updatedAt;
-    if(backupEntry.deletedAt) local.deletedAt = backupEntry.deletedAt; else delete local.deletedAt;
-    delete local.syncedUpdatedAt; // змінилось з бекапу — наступний push має це побачити
+    if(typeof backupDict[key] === 'string') return; // найстаріший формат (лише місяць, без часу): для наявного ключа нічого не відновлюємо, як і раніше
+    if(!restoreApplyAsEdit('hidden', local, backupEntry)) return; // Rev 2.32.232 (RESTORE-MERGE)
     updated++;
   });
   const saveResult = await saveHiddenFrom();
@@ -6272,7 +6304,7 @@ async function restoreInstallmentAccountsFromBackup(raw){
   catch(e){ backupList = []; }
   backupList = filterPurgedAccounts(backupList, readPurgedAccounts(), 'installment'); // Rev 2.32.4 (T2)
   if(isCloudSessionReady()) await pullInstallmentAccountsCore();
-  const counts = mergeBackupRecordsByCloudIdOrName(installmentAccounts, backupList, 'name');
+  const counts = mergeBackupRecordsByCloudIdOrName(installmentAccounts, backupList, 'name', 'installmentAccounts');
   stampMissingTimestamps(installmentAccounts);
   const saveResult = await saveInstallmentAccountsLocal();
   // Rev #30 (6D.57) — await КРИТИЧНО тут: той самий принцип, що
@@ -6305,7 +6337,7 @@ async function restoreExpensesFromBackup(raw){
   backupList = dropPurgedFromBackup(backupList, 'expense'); // Rev 2.32.22 (W): видалені назавжди не повертаються
   if(isCloudSessionReady()) await pullExpensesCore();
   let added = 0, updated = 0, kept = 0;
-  const toPush = [];
+  const toPush = [], addedRecs = [];
   // Rev #30 (6D.57) — термінове розслідування "restore не пушиться" (реальні
   // 3-4 місяці даних користувача лишились виключно локальними): цикл нижче
   // РАНІШЕ запускав pushExpenseRecordPilot() як fire-and-forget для КОЖНОГО
@@ -6337,27 +6369,14 @@ async function restoreExpensesFromBackup(raw){
     }
     if(!local){
       expenses.push(rec);
+      restoreStripServerState(rec); // Rev 2.32.232: повертається як новий запис
       added++;
       toPush.push(rec);
+      addedRecs.push(rec);
       continue;
     }
     if(local.deletedAt && !rec.deletedAt){ kept++; restoreFilteredCount++; continue; } // Rev 2.32.22 (W): бекап не повертає в живі запис, що лежить у Корзині
-    const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
-    const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
-    if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)){ kept++; continue; }
-    local.date = rec.date;
-    local.name = rec.name;
-    local.amount = rec.amount;
-    local.category = rec.category;
-    local.subcategory = rec.subcategory;
-    local.manual = rec.manual;
-    if(rec.editedAt) local.editedAt = rec.editedAt; // Rev 2.32.90 (EDITED-1)
-    if(rec.linkedInstallment) local.linkedInstallment = rec.linkedInstallment;
-    else delete local.linkedInstallment;
-    if(rec.deletedAt) local.deletedAt = rec.deletedAt;
-    else delete local.deletedAt;
-    local.createdAt = rec.createdAt;
-    local.updatedAt = rec.updatedAt;
+    if(!restoreApplyAsEdit('expenses', local, rec)){ kept++; continue; } // Rev 2.32.232 (RESTORE-MERGE)
     updated++;
     toPush.push(local);
   }
@@ -6372,12 +6391,14 @@ async function restoreExpensesFromBackup(raw){
   // СПРАВЖНЄ "нічого не змінилось", і не повинен зачіпати навіть
   // НЕпов'язані з цим викликом старі legacy-id записи (те саме зробить
   // наступний звичайний loadAll()).
+  const known = await restoreDropServerKnown('expenses', expenses, addedRecs, toPush); // Rev 2.32.232: видалене на сервері лишається видаленим
+  added -= known.gone + known.there; kept += known.there; const stayedDeleted = known.gone;
   if(toPush.length) await ensureExpenseIdentity();
   const saveResult = await saveExpenses();
   const pushResult = await pushExpensesBatched(toPush);
   // Rev #30 (6D.58) — один pull ПІСЛЯ всього батчу (не на кожен запис) — підхоплює будь-що від інших пристроїв за час операції.
   if(pushResult.pushed) await pullExpensesCore();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushResult.failed, firstError: pushResult.firstError });
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, stayedDeleted: stayedDeleted, pushFailed: pushResult.failed, firstError: pushResult.firstError });
 }
 async function restoreIncomesFromBackup(raw){
   let backupList;
@@ -6386,7 +6407,7 @@ async function restoreIncomesFromBackup(raw){
   backupList = dropPurgedFromBackup(backupList, 'income'); // Rev 2.32.22 (W)
   if(isCloudSessionReady()) await pullIncomesCore();
   let added = 0, updated = 0, kept = 0;
-  const toPush = [];
+  const toPush = [], addedRecs = [];
   // Rev #30 (6D.57/6D.60) — той самий принцип, що restoreExpensesFromBackup(): пакетний push після мерджу.
   for(const rec of backupList){
     let local = incomes.find(function(i){ return i.id === rec.id; });
@@ -6400,29 +6421,24 @@ async function restoreIncomesFromBackup(raw){
     }
     if(!local){
       incomes.push(rec);
+      restoreStripServerState(rec); // Rev 2.32.232: повертається як новий запис
       added++;
       toPush.push(rec);
+      addedRecs.push(rec);
       continue;
     }
     if(local.deletedAt && !rec.deletedAt){ kept++; restoreFilteredCount++; continue; } // Rev 2.32.22 (W): бекап не повертає в живі запис, що лежить у Корзині
-    const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
-    const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
-    if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)){ kept++; continue; }
-    local.date = rec.date;
-    local.source = rec.source;
-    local.amount = rec.amount;
-    if(rec.deletedAt) local.deletedAt = rec.deletedAt;
-    else delete local.deletedAt;
-    local.createdAt = rec.createdAt;
-    local.updatedAt = rec.updatedAt;
+    if(!restoreApplyAsEdit('incomes', local, rec)){ kept++; continue; } // Rev 2.32.232 (RESTORE-MERGE)
     updated++;
     toPush.push(local);
   }
+  const known = await restoreDropServerKnown('incomes', incomes, addedRecs, toPush); // Rev 2.32.232: видалене на сервері лишається видаленим
+  added -= known.gone + known.there; kept += known.there; const stayedDeleted = known.gone;
   if(toPush.length) await ensureIncomeIdentity(); // Rev #30 (6D.75) — нормалізація ДО push, лише коли є що пушити (той самий принцип, що expenses).
   const saveResult = await saveIncomes();
   const pushResult = await pushIncomesBatched(toPush);
   if(pushResult.pushed) await pullIncomesCore();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushResult.failed, firstError: pushResult.firstError });
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, stayedDeleted: stayedDeleted, pushFailed: pushResult.failed, firstError: pushResult.firstError });
 }
 async function restoreDebtsFromBackup(raw){
   let backupList;
@@ -6431,7 +6447,7 @@ async function restoreDebtsFromBackup(raw){
   backupList = filterPurgedDebts(backupList, readPurgedAccounts()); // Rev 2.32.4 (T2): місячні записи видалених назавжди рахунків з бекапу не відновлюються
   if(isCloudSessionReady()) await pullDebtsCore();
   let added = 0, updated = 0, kept = 0;
-  const toPush = [];
+  const toPush = [], addedRecs = [];
   // Rev #30 (6D.57/6D.60) — той самий принцип, що restoreExpensesFromBackup()
   // — тут особливо критично: pushDebtsBatch() залежить від
   // bankAccounts/installmentAccounts[].cloudId, щойно (await-ованого, 6D.57)
@@ -6447,32 +6463,23 @@ async function restoreDebtsFromBackup(raw){
     }
     if(!local){
       debts.push(rec);
+      restoreStripServerState(rec); // Rev 2.32.232: повертається як новий запис
       added++;
       toPush.push(rec);
+      addedRecs.push(rec);
       continue;
     }
-    const backupTime = rec.updatedAt ? Date.parse(rec.updatedAt) : NaN;
-    const localTime = local.updatedAt ? Date.parse(local.updatedAt) : NaN;
-    if(isNaN(backupTime) || (!isNaN(localTime) && backupTime <= localTime)){ kept++; continue; }
-    local.name = rec.name;
-    local.kind = rec.kind;
-    local.month = rec.month;
-    local.balance = rec.balance;
-    if(rec.minPayment != null) local.minPayment = rec.minPayment; else delete local.minPayment;
-    if(rec.minPaymentDone != null) local.minPaymentDone = rec.minPaymentDone; else delete local.minPaymentDone;
-    if(rec.monthlyPayment != null) local.monthlyPayment = rec.monthlyPayment; else delete local.monthlyPayment;
-    if(rec.deletedAt) local.deletedAt = rec.deletedAt;
-    else delete local.deletedAt;
-    local.createdAt = rec.createdAt;
-    local.updatedAt = rec.updatedAt;
+    if(!restoreApplyAsEdit('debts', local, rec)){ kept++; continue; } // Rev 2.32.232 (RESTORE-MERGE)
     updated++;
     toPush.push(local);
   }
+  const known = await restoreDropServerKnown('debts', debts, addedRecs, toPush); // Rev 2.32.232: видалене на сервері лишається видаленим
+  added -= known.gone + known.there; kept += known.there; const stayedDeleted = known.gone;
   if(toPush.length) await ensureDebtIdentity(); // Rev #30 (6D.75) — нормалізація ДО push, лише коли є що пушити (той самий принцип, що expenses).
   const saveResult = await saveDebts();
   const pushResult = await pushDebtsBatched(toPush);
   if(pushResult.pushed) await pullDebtsCore();
-  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, pushFailed: pushResult.failed, firstError: pushResult.firstError });
+  return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, stayedDeleted: stayedDeleted, pushFailed: pushResult.failed, firstError: pushResult.firstError });
 }
 const UA_MONTHS = ['січень','лютий','березень','квітень','травень','червень','липень','серпень','вересень','жовтень','листопад','грудень'];
 
@@ -7644,6 +7651,18 @@ const LS_KEY_CONFLICTS = 'budget_conflicts_v1';
 const CONFLICT_TTL_MS = 14 * 86400000;
 let conflictLog = [];
 let conflictAnnounce = []; // id записів журналу, що чекають на картку
+// Rev 2.32.232 (RESTORE-MERGE): під час відновлення з копії конфлікти не показують карток і не шлють сповіщень: значення з копії («моє») пишеться в журнал конфліктів (14 днів, кнопка «Повернути моє»), а підсумок показує один тост. recs — записи з конфліктом (домен:rid).
+let restoreMerge = { active: false, recs: {} }, lastRestoreSummary = null;
+function restoreNoteConflicts(dom, rec, row, merged){
+  restoreMerge.recs[dom.key + ':' + mdRid(dom, rec)] = 1;
+  const info = row && row.updated_by ? authorInfoFor(row.updated_by) : null;
+  const mk = function(kind, extra){
+    conflictLog.push(Object.assign({ id: 'cf' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), rid: mdRid(dom, rec), dom: dom.key, kind: kind, name: dom.nameOf(rec), actor: info ? info.name : '', gender: info && info.gender === 'f' ? 'f' : 'm', at: Date.now(), status: 'open' }, extra));
+  };
+  merged.conflicts.forEach(function(c){ mk('field', { field: c.field, mine: c.mine, theirs: c.theirs }); });
+  if(merged.deletedConflict) mk('deleted', { mine: merged.deletedConflict.mine });
+  conflictSave();
+}
 function conflictLoad(){
   try{
     const raw = JSON.parse(localStorage.getItem(LS_KEY_CONFLICTS) || '[]');
@@ -7657,6 +7676,7 @@ function conflictOpenCount(){ return conflictLog.filter(function(e){ return e.st
 // Rev 2.32.226 (MERGE-ACCOUNTS): ідентифікатор запису для журналу конфліктів (рахунки не мають id — cloudId) і тихі поля (name: сервер переміг, лише подія діагностики)
 function mdRid(dom, rec){ return dom.rid ? dom.rid(rec) : rec.id; }
 function mdRecordConflicts(dom, rec, row, merged){
+  if(typeof restoreMerge !== 'undefined' && restoreMerge.active){ if(merged.conflicts.length || merged.deletedConflict) restoreNoteConflicts(dom, rec, row, merged); return; } // Rev 2.32.232 (RESTORE-MERGE)
   if(dom.silentFields && merged.conflicts.length){
     const quiet = merged.conflicts.filter(function(c){ return dom.silentFields.indexOf(c.field) !== -1; });
     if(quiet.length && debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'merge-silent', mergeDom: dom.key, fieldsCount: quiet.length });
@@ -9465,7 +9485,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.231';
+const APP_VERSION = '2.32.232';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9634,6 +9654,7 @@ function debtCountWord(n){
 // на кожен результат лишається на викликачі (UI-шар).
 async function applyBackupData(data){
   restoreFilteredCount = 0; // Rev 2.32.22 (W): лічильник відсічених записів для події restore-filtered
+  restoreMerge = { active: true, recs: {} }; // Rev 2.32.232 (RESTORE-MERGE): конфлікти йдуть у журнал без карток; підсумок нижче
   const pilotKeys = pilotBackupKeys();
   // Rev #28.D2 — усі 11 доменних ключів BACKUP_LS_KEYS тепер покриті
   // DOMAIN_MIGRATION_KEYS; єдине, що лишається в nonPilotKeys —
@@ -9648,7 +9669,9 @@ async function applyBackupData(data){
   nonPilotKeys.forEach(function(key){
     if(data[key] != null) localStorage.setItem(key, data[key]);
   });
-  const results = {
+  let results;
+  try{
+  results = {
     categories: await restoreCategoriesFromBackup(data[LS_KEY_CATEGORIES]),
     subcategories: await restoreSubcategoriesFromBackup(data[LS_KEY_SUBCATEGORIES]),
     subcategoryPriority: await restoreSubcategoryPriorityFromBackup(data[LS_KEY_SUBCATEGORY_PRIORITY]),
@@ -9663,12 +9686,16 @@ async function applyBackupData(data){
     incomes: await restoreIncomesFromBackup(data[LS_KEY_INC]),
     debts: await restoreDebtsFromBackup(data[LS_KEY_DEBT]),
   };
+  }finally{ restoreMerge.active = false; }
   // Підтверджувальне перечитування (не єдине джерело присвоєння, як до
   // Stage C, — pilot-домени вже записані щойно через saveX() вище): читає
   // з того самого сховища, куди щойно писали (routing-aware).
   await loadStructureRefs();
   await loadAll();
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'restore-filtered', skipped: restoreFilteredCount });
+  let total = 0, gone = 0;
+  Object.keys(results).forEach(function(k){ const r = results[k]; if(r && typeof r === 'object'){ total += (r.added || 0) + (r.updated || 0); gone += r.stayedDeleted || 0; } });
+  lastRestoreSummary = { total: total, serverNewer: Object.keys(restoreMerge.recs).length, stayedDeleted: gone }; // Rev 2.32.232 (RESTORE-MERGE)
   return results;
 }
 function handleRestoreBackupFile(event){
@@ -9718,7 +9745,7 @@ function handleRestoreBackupFile(event){
     // Rev #30 (6D.48) — текст оновлено: відновлення більше НЕ безумовна
     // заміна (6D.46/47, LWW-merge) — новіші локальні/Cloud дані виживають
     // автоматично. Плюс явна згадка safety snapshot нижче.
-    parts.push('', 'Кожен запис із файлу порівнюється з тим, що вже є (новіше — виграє, старіше з файлу — ігнорується). Перед застосуванням буде автоматично збережено знімок поточного стану у завантаження браузера — про всяк випадок.');
+    parts.push('', 'Значення з файлу застосовуються як звичайні правки: якщо інший пристрій уже змінив те саме поле, лишається його значення, а значення з файлу зберігаються в журналі конфліктів. Видалене не повертається. Значення з файлу перекривають поточні відмінні поля, зокрема локальні зміни, ще не надіслані на сервер. Перед застосуванням буде автоматично збережено знімок поточного стану у завантаження браузера — про всяк випадок.');
     showConfirmModal(
       parts.join('\n'),
       async function(){
@@ -9726,6 +9753,8 @@ function handleRestoreBackupFile(event){
         const results = await applyBackupData(parsed.data);
         Object.values(results).forEach(reportSaveResult);
         statusEl.textContent = 'Дані відновлено з бекапу від ' + dateLabel + '.';
+        const sm = lastRestoreSummary; // Rev 2.32.232 (RESTORE-MERGE): один підсумок замість карток конфліктів
+        if(sm) showTextToast('Відновлено ' + sm.total + ' ' + restoreCountWord(sm.total) + (sm.serverNewer ? '. У ' + sm.serverNewer + ' ' + (sm.serverNewer === 1 ? 'записі' : 'записах') + ' сервер новіший, значення з копії збережено в журналі конфліктів' : '') + (sm.stayedDeleted ? '. ' + sm.stayedDeleted + ' ' + restoreCountWord(sm.stayedDeleted) + ' видалено на сервері, їх можна повернути з «Видалених даних»' : ''), 'success');
         inputEl.value = '';
       },
       'Так, відновити'
@@ -25971,6 +26000,7 @@ const CHECKS = [
   { id: '2.32.228-1', rev: '2.32.228', addedOn: '2026-11-01', title: 'Перейменування категорії на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні перейменуйте категорію, у якій є витрати.', 'Зачекайте хвилину й на другому телефоні відкрийте журнал цієї категорії.'], expect: 'на обох телефонах категорія й усі її витрати мають нову назву, старої назви ніде нема.', reasons: ['На другому телефоні лишилась стара назва', 'Категорія розділилась на дві', 'З\u2019явилась помилка'] },
   { id: '2.32.229-1', rev: '2.32.229', addedOn: '2026-11-01', title: 'Діагностика: підрахунок записів без зліпка', steps: ['Відкрийте «Сервіс → Діагностика» і натисніть «Записати діагностику».', 'Закрийте її й відкрийте екран «Журнал», потім поверніться, натисніть «Стоп» і «Надіслати лог».'], expect: 'лог надіслано без помилок.', reasons: ['Лог не надіслано', 'Помилка'] },
   { id: '2.32.230-1', rev: '2.32.230', addedOn: '2026-11-01', title: 'Видалення запису на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні видаліть витрату.', 'Зачекайте хвилину й на другому телефоні перевірте журнал і «Сервіс → Видалені дані».'], expect: 'на другому телефоні витрата зникла з журналу, є у «Видалених даних», повернення з «Видалених даних» повертає її на обох.', reasons: ['Витрата лишилась у журналі', 'Її нема у «Видалених даних»', 'Повернення не спрацювало', 'З\u2019явилось зайве сповіщення'] },
+  { id: '2.32.232-1', rev: '2.32.232', addedOn: '2026-11-01', title: 'Відновлення з копії як звичайні правки', steps: ['Відкрийте «Сервіс → Резервне копіювання» і збережіть файл копії.', 'Змініть суму будь-якої витрати й почекайте хвилину.', 'Натисніть «Відновити», оберіть цей файл і підтвердьте.'], expect: 'сума витрати повернулась до значення з копії, показано підсумок «Відновлено N записів», карток конфліктів немає.', reasons: ['Сума не повернулась', 'Підсумку немає', 'З\u2019явилась картка конфліктів', 'Помилка'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

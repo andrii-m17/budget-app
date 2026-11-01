@@ -3659,13 +3659,14 @@ test('фікс подвійного push: restoreInstallmentAccountsFromBackup()
 // Rev #30 (6D.47) — LWW-конфлікт для name/cloudId-based доменів
 // (представницьки на categories — той самий mergeBackupRecordsByCloudIdOrName()
 // код обслуговує всі 5).
-test('restoreCategoriesFromBackup: запис у бекапі СТАРІШИЙ за локальний (той самий cloudId) → НЕ застосовується', async () => {
+test('restoreCategoriesFromBackup (Rev 2.32.232): час копії не порівнюється — відстежуване поле (type) застосовується як правка, назва не відновлюється', async () => {
   const { ctx } = sandbox();
   ctx.CATEGORIES = [{ name: 'Локальна (новіша)', type: 'Гнучка', active: true, cloudId: 'c1', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-05T00:00:00.000Z' }];
   const backup = [{ name: 'З бекапу (старіша)', type: "Обов'язкова", active: true, cloudId: 'c1', createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
   const result = await ctx.restoreCategoriesFromBackup(JSON.stringify(backup));
-  assert.equal(result.kept, 1);
-  assert.equal(result.updated, 0);
+  assert.equal(result.updated, 1);
+  assert.equal(result.kept, 0);
+  assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
   assert.equal(ctx.CATEGORIES[0].name, 'Локальна (новіша)');
 });
 
@@ -3875,14 +3876,18 @@ test('restoreHiddenFromFromBackup: ключ УЖЕ Є локально, бека
   assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-09'); // локальне лишається
 });
 
-test('restoreHiddenFromFromBackup: бекап НОВІШИЙ за локальне (LWW) → застосовується, включно з tombstone', async () => {
+test('restoreHiddenFromFromBackup (Rev 2.32.232): місяць із копії застосовується як правка; tombstone із копії не переноситься (видалене лишається видаленим, живе не вилучається)', async () => {
   const { ctx } = sandbox();
   ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-09', updatedAt: '2026-01-01T00:00:00.000Z', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' } };
-  const backup = { 'card:Приват Банк': { month: '2026-09', updatedAt: '2026-05-01T00:00:00.000Z', deletedAt: '2026-05-01T00:00:00.000Z' } };
+  const backup = { 'card:Приват Банк': { month: '2026-07', updatedAt: '2026-05-01T00:00:00.000Z', deletedAt: '2026-05-01T00:00:00.000Z' } };
   const result = await ctx.restoreHiddenFromFromBackup(JSON.stringify(backup));
-  assert.equal(result.updated, 1);
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'].deletedAt, '2026-05-01T00:00:00.000Z');
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'].syncedUpdatedAt, undefined, 'змінений з бекапу запис має перепушитись — syncedUpdatedAt скидається');
+  assert.equal(result.updated, 0, 'у копії запис видалений — рішення не переноситься');
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].deletedAt, undefined);
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-09');
+  const b2 = { 'card:Приват Банк': { month: '2026-07', updatedAt: '2026-05-01T00:00:00.000Z' } };
+  assert.equal((await ctx.restoreHiddenFromFromBackup(JSON.stringify(b2))).updated, 1);
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-07');
+  assert.notEqual(ctx.hiddenFrom['card:Приват Банк'].syncedUpdatedAt, ctx.hiddenFrom['card:Приват Банк'].updatedAt, 'змінений запис «брудний» і піде звичайним шляхом');
 });
 
 test('restoreHiddenFromFromBackup: raw відсутній → існуючі локальні ключі НЕ видаляються', async () => {
@@ -4283,15 +4288,15 @@ test('restoreIncomesFromBackup/restoreDebtsFromBackup: локально поро
 });
 
 // Rev #30 (6D.46) — LWW-конфлікт: реальні сценарії, не лише "локально порожньо".
-test('restoreExpensesFromBackup: запис у бекапі СТАРІШИЙ за локальний → НЕ застосовується, локальне лишається', async () => {
+test('restoreExpensesFromBackup (Rev 2.32.232): час копії не порівнюється — старіша копія теж застосовується як правка (поля amount/date), назва не відновлюється окремо від злиття', async () => {
   const { ctx } = sandbox();
   ctx.expenses = [{ id: 'e1', date: '2026-09-05', name: 'Локальна (новіша)', amount: 999, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-05T00:00:00.000Z' }];
   const backup = [{ id: 'e1', date: '2026-09-01', name: 'З бекапу (старіша)', amount: 65, category: '', subcategory: '', manual: true, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
   const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
-  assert.equal(result.kept, 1);
-  assert.equal(result.updated, 0);
-  assert.equal(ctx.expenses[0].amount, 999);
-  assert.equal(ctx.expenses[0].name, 'Локальна (новіша)');
+  assert.equal(result.updated, 1);
+  assert.equal(ctx.expenses[0].amount, 65);
+  assert.equal(ctx.expenses[0].date, '2026-09-01');
+  assert.ok(Date.parse(ctx.expenses[0].updatedAt) > Date.parse('2026-09-05T00:00:00.000Z'), 'звичайна локальна правка: updatedAt = зараз');
 });
 
 test('restoreExpensesFromBackup: запис у бекапі НОВІШИЙ за локальний → застосовується', async () => {
@@ -4314,13 +4319,13 @@ test('restoreExpensesFromBackup: локальний tombstoned (новіший �
   assert.equal(ctx.expenses[0].deletedAt, '2026-09-10T00:00:00.000Z'); // лишається видаленим
 });
 
-test('restoreExpensesFromBackup: бекап новіший І несе deletedAt → tombstone застосовується (не "воскресіння", а коректне поширення видалення з бекапу)', async () => {
+test('restoreExpensesFromBackup (Rev 2.32.232): tombstone із копії не переноситься — живий запис не вилучається', async () => {
   const { ctx } = sandbox();
   ctx.expenses = [{ id: 'e1', date: '2026-09-01', name: 'Кава', amount: 65, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
   const backup = [{ id: 'e1', date: '2026-09-01', name: 'Кава', amount: 65, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-10T00:00:00.000Z', deletedAt: '2026-09-10T00:00:00.000Z' }];
   const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
-  assert.equal(result.updated, 1);
-  assert.equal(ctx.expenses[0].deletedAt, '2026-09-10T00:00:00.000Z');
+  assert.equal(result.updated, 0);
+  assert.equal(ctx.expenses[0].deletedAt, undefined);
 });
 
 test('restoreExpensesFromBackup: запису немає локально → додається як новий, push-спроба (не помилка навіть без Cloud-сесії)', async () => {
@@ -4350,7 +4355,7 @@ test('restoreExpensesFromBackup: legacy id з бекапу + local вже має
   const result = await ctx.restoreExpensesFromBackup(JSON.stringify(backup));
   assert.equal(ctx.expenses.length, 1, 'НЕ повинно з\'явитись другого запису — той самий, що вже локально');
   assert.equal(result.added, 0);
-  assert.equal(result.updated, 1);
+  assert.equal(result.updated, 0, 'вміст однаковий — змін немає');
   assert.equal(ctx.expenses[0].id, properUuid, 'id лишається ПРАВИЛЬНИМ, не перезаписується legacy-значенням з бекапу');
 });
 
@@ -4362,13 +4367,13 @@ test('restoreExpensesFromBackup: запису немає в бекапі → л�
   assert.equal(ctx.expenses[0].id, 'e1');
 });
 
-test('restoreDebtsFromBackup: LWW-конфлікт (той самий принцип, окремо перевірений для природного-ключа домену)', async () => {
+test('restoreDebtsFromBackup (Rev 2.32.232): без порівняння часу — залишок із копії застосовується як правка', async () => {
   const { ctx } = sandbox();
   ctx.debts = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-09', balance: 999, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-05T00:00:00.000Z' }];
   const backup = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-09', balance: 111, createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }];
   const result = await ctx.restoreDebtsFromBackup(JSON.stringify(backup));
-  assert.equal(result.kept, 1);
-  assert.equal(ctx.debts[0].balance, 999);
+  assert.equal(result.updated, 1);
+  assert.equal(ctx.debts[0].balance, 111);
 });
 
 /* ============ Acceptance D2: mixed-storage export → restore для 3 фінальних доменів ============ */

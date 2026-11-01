@@ -182,11 +182,11 @@ test('pull LWW: гілка «локальна правка новіша за Clo
   assert.equal(cloud.tables.categories.find(function(r){ return r.name === 'Дім'; }).type, 'Скорочувана');
 });
 
-test('restore з бекапу: змінена підкатегорія втрачає syncedCategoryId і пушиться', () => {
+test('restore з бекапу (Rev 2.32.232): стан підкатегорії відновлюється як правка, батьківська категорія з копії не переноситься', () => {
   const ctx = buildSandbox({}, ['mergeBackupRecordsByCloudIdOrName']);
-  const local = [{ name: 'Кафе', category: 'Їжа', updatedAt: '2026-01-01T00:00:00.000Z', cloudId: 's1', syncedUpdatedAt: '2026-01-01T00:00:00.000Z', syncedCategoryId: 'c1' }];
-  ctx.mergeBackupRecordsByCloudIdOrName(local, [{ name: 'Кафе', category: 'Дім', updatedAt: '2026-02-01T00:00:00.000Z', cloudId: 's1', syncedUpdatedAt: '2026-02-01T00:00:00.000Z', syncedCategoryId: 'c9' }], 'name');
-  assert.equal(local[0].category, 'Дім'); assert.equal(local[0].syncedUpdatedAt, undefined); assert.equal(local[0].syncedCategoryId, undefined); assert.equal(local[0].cloudId, 's1');
+  const local = [{ name: 'Кафе', category: 'Їжа', active: true, updatedAt: '2026-01-01T00:00:00.000Z', cloudId: 's1', syncedUpdatedAt: '2026-01-01T00:00:00.000Z', syncedCategoryId: 'c1' }];
+  ctx.mergeBackupRecordsByCloudIdOrName(local, [{ name: 'Кафе', category: 'Дім', active: false, updatedAt: '2026-02-01T00:00:00.000Z', cloudId: 's1', syncedUpdatedAt: '2026-02-01T00:00:00.000Z', syncedCategoryId: 'c9' }], 'name', 'subcategories');
+  assert.equal(local[0].category, 'Їжа', 'переміщення між категоріями не відновлюється'); assert.equal(local[0].active, false); assert.notEqual(local[0].syncedUpdatedAt, local[0].updatedAt); assert.equal(local[0].syncedCategoryId, 'c1'); assert.equal(local[0].cloudId, 's1');
 });
 
 test('перепис: порожня відповідь при наявних cloudId і збій запиту нічого не змінюють (G1-правила діють і для категорій)', async () => {
