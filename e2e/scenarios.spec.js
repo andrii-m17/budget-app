@@ -1032,3 +1032,40 @@ test('28b. витрата з назвою категорії, якої ще не
   expect(await page.evaluate(() => window.MockCloud.state.tables.expenses.find(x => x.id === 'e2e-late-1').category_id), 'після створення категорії id проставлено').toBe('e2e-late-cat');
   expect(errors).toEqual([]);
 });
+
+// Rev 2.32.230 (SERVER-DEL): штамп видалення ставить сервер (мок відтворює trg_deleted_at_server); годинник сервера у тесті випереджає годинник пристрою на добу.
+test('29. серверний deleted_at: штамп з відповіді сервера (не з годинника пристрою ±1 доба), без хибної «чужої зміни»; повторне видалення лишає перший час; повернення з «Видалених даних»; видалення на іншому пристрої зникає тут', async ({ page }) => {
+  const { errors } = await renameSetup(page);
+  const DAY = 86400000;
+  await page.evaluate(d => { window.MockCloud.state.clock = () => new Date(Date.now() + d).toISOString(); }, DAY);
+  const id = await page.evaluate(() => { const e = expenses.find(x => !x.deletedAt && x.serverBase && x.serverUpdatedAt); return e && e.id; });
+  expect(id, 'є синхронізована витрата зі зліпком').toBeTruthy();
+  const srv = i => page.evaluate(i => { const r = window.MockCloud.state.tables.expenses.find(x => x.id === i); return r && r.deleted_at; }, i);
+  // 1. видалення на цьому пристрої (як deleteRecord, але push без завершального pull — перевіряємо саме відповідь push): штамп = серверний (на добу попереду), а не локальний
+  const t0 = Date.now();
+  await page.evaluate(async i => { const e = expenses.find(x => x.id === i); const n = new Date().toISOString(); e.deletedAt = n; e.updatedAt = n; await saveExpenses(); await pushExpenseRecordPilot(e, { suppressPull: true }); }, id);
+  const s1 = await srv(id);
+  expect(Date.parse(s1) - t0, 'штамп поставив сервер (попереду на добу)').toBeGreaterThan(DAY - 60000);
+  expect(await page.evaluate(i => { const e = expenses.find(x => x.id === i); return [Date.parse(e.deletedAt), e.serverBase && e.serverBase.deletedAt ? Date.parse(e.serverBase.deletedAt) : null]; }, id), 'запис і зліпок несуть серверний штамп одразу після push').toEqual([Date.parse(s1), Date.parse(s1)]);
+  const before = await page.evaluate(i => { const e = expenses.find(x => x.id === i); return JSON.stringify([e.deletedAt, e.localRev, e.syncedRev, e.serverBase && e.serverBase.deletedAt]); }, id);
+  await page.evaluate(async () => { await pullExpensesCore(); });
+  const after = await page.evaluate(i => { const e = expenses.find(x => x.id === i); return JSON.stringify([e.deletedAt, e.localRev, e.syncedRev, e.serverBase && e.serverBase.deletedAt]); }, id);
+  expect(after, 'pull не бачить хибної чужої зміни штампа').toBe(before);
+  expect(await page.evaluate(i => { const e = expenses.find(x => x.id === i); return e.localRev === e.syncedRev; }, id), 'запис не «брудний»').toBe(true);
+  // 2. повторне видалення (інший пристрій шле інший час) лишає перший
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'expenses', id: i, op: 'update', patch: { deleted_at: '2030-01-01T00:00:00.000Z' } }); }, id);
+  expect(await srv(id), 'перший час збережено').toBe(s1);
+  // 3. повернення з «Видалених даних»
+  await page.evaluate(async i => { await restoreTrashRecord('expense', i); }, id);
+  await expect.poll(() => srv(id), { timeout: 10000 }).toBeNull();
+  expect(await page.evaluate(i => !expenses.find(x => x.id === i).deletedAt, id), 'локально повернено').toBe(true);
+  // 4. видалення на іншому пристрої: тут запис зникає, штамп серверний, жодного push назад
+  const other = await page.evaluate(i => { const e = expenses.find(x => !x.deletedAt && x.id !== i && x.serverBase); return e && e.id; }, id);
+  const w0 = await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length);
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'expenses', id: i, op: 'update', patch: { deleted_at: new Date(Date.now() - 86400000).toISOString() } }); }, other);
+  await page.evaluate(async () => { await pullExpensesCore(); });
+  const r = await page.evaluate(i => { const e = expenses.find(x => x.id === i); return { gone: !!e.deletedAt, same: Date.parse(e.deletedAt) === Date.parse(window.MockCloud.state.tables.expenses.find(x => x.id === i).deleted_at) }; }, other);
+  expect(r.gone && r.same, 'на цьому пристрої запис видалений із серверним штампом').toBe(true);
+  expect(await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.method !== 'GET' && x.method !== 'HEAD').length), 'push назад немає').toBe(w0);
+  expect(errors).toEqual([]);
+});

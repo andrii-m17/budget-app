@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.229</div>
+  <div class="version-footer">Money Tree · Rev 2.32.230</div>
 </div>
   </div>
 </div>
@@ -5401,7 +5401,18 @@ function shadowAfterPush(rec, snap){
   if(rec.localRev === snap) rec.syncedRev = rec.localRev;
 }
 // .select('id,updated_at') для відповіді push; фейк-клієнти без select лишаються як є.
-function shadowRet(q){ return (q && typeof q.select === 'function') ? q.select('id,updated_at') : q; }
+function shadowRet(q){ return (q && typeof q.select === 'function') ? q.select('id,updated_at,deleted_at') : q; } // Rev 2.32.230: + deleted_at — штамп видалення ставить сервер (trg_deleted_at_server)
+// Rev 2.32.230 (SERVER-DEL): сервер при переході deleted_at «порожнє → заповнене» ставить now() і ігнорує значення клієнта (повторне видалення лишає перший час). Після успішного push беремо штамп із відповіді: у запис і в зліпок serverBase (там він може входити в рядок значення: «мітка|причина», «місяць|мітка»), щоб наступний pull не бачив «чужої зміни» штампа, а сортування «Видалених даних» і строки очищення спиралися на серверний час, а не на годинник пристрою (±1 доба). Якщо запис уже не видалений (повернули під час запиту) або сервер штампа не дав — нічого не робимо. Ризик: повторне видалення під час запиту дістане старіший серверний штамп; запис і так «брудний» і піде ще раз.
+function shadowAdoptDeleted(rec, srvDel){
+  if(!rec || !rec.deletedAt || typeof srvDel !== 'string' || !srvDel || rec.deletedAt === srvDel) return false;
+  const old = String(rec.deletedAt); rec.deletedAt = srvDel;
+  if(rec.serverBase && typeof rec.serverBase === 'object') Object.keys(rec.serverBase).forEach(function(k){ const v = rec.serverBase[k]; if(typeof v === 'string' && v.indexOf(old) !== -1) rec.serverBase[k] = v.split(old).join(srvDel); });
+  return true;
+}
+function shadowServerDeleted(data, id){
+  const row = Array.isArray(data) ? data.filter(function(r){ return r && r.id === id; })[0] : null;
+  return row ? row.deleted_at : null;
+}
 // Серверний updated_at рядка за id з відповіді batch-upsert.
 function shadowServerAt(data, id){
   const row = Array.isArray(data) ? data.filter(function(r){ return r && r.id === id; })[0] : null;
@@ -5750,9 +5761,9 @@ async function pushDictionaryPilotRun(){
         // перемагає"). Справді застарілий пристрій (updatedAt старіший за
         // САМ момент видалення) і далі програє — anti-resurrection з A2
         // лишається чинним рівно для цього випадку.
-        const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).or('deleted_at.is.null,deleted_at.lt.' + entry.updatedAt).select('id,updated_at');
+        const { data, error } = await client.from('dictionary').update({ keyword: entry.kw, category_id: parentCat.cloudId, subcategory_id: subcategoryId, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId }).eq('id', entry.cloudId).or('deleted_at.is.null,deleted_at.lt.' + entry.updatedAt).select('id,updated_at,deleted_at');
         if(error){ if(error.code === '23505' && await wordAdoptLive(client, entry)){ localChanged = true; continue; } anyError = true; continue; } // Rev 2.32.225: відновлення слова при наявному живому з тим самим текстом — усиновлення, без помилки
-        if(data && data[0]) shadowSetServer(entry, data[0].updated_at); // Rev 2.32.192 (SHADOW-REV)
+        if(data && data[0]){ shadowSetServer(entry, data[0].updated_at); shadowAdoptDeleted(entry, data[0].deleted_at); } // Rev 2.32.192 (SHADOW-REV); Rev 2.32.230 (SERVER-DEL)
         if(data && data[0]){ entry.serverKw = entry.kw; }
         if(data && data.length === 0){
           const { data: existingRow } = await client.from('dictionary').select('id, deleted_at').eq('id', entry.cloudId).maybeSingle();
@@ -5843,8 +5854,8 @@ async function reconcileDictionaryCloudId(client, userId, entry, categoryId, sub
   // Rev 2.22.80 (6D.153) — deleted_at: якщо сам запис офлайн-створений і
   // вже видалений ДО першого успішного sync (ніколи не мав cloudId), його
   // tombstone-стан має дійти в Cloud одразу при створенні рядка.
-  const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, created_at: entry.createdAt, updated_at: entry.updatedAt, created_by: userId, updated_by: userId }).select('id,updated_at').single();
-  if(!error && data){ entry.cloudId = data.id; shadowSetServer(entry, data.updated_at); return; } // Rev 2.32.192 (SHADOW-REV)
+  const { data, error } = await client.from('dictionary').insert({ family_id: cloudFamilyId, category_id: categoryId, subcategory_id: subcategoryId, keyword: entry.kw, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, created_at: entry.createdAt, updated_at: entry.updatedAt, created_by: userId, updated_by: userId }).select('id,updated_at,deleted_at').single();
+  if(!error && data){ entry.cloudId = data.id; shadowSetServer(entry, data.updated_at); shadowAdoptDeleted(entry, data.deleted_at); return; } // Rev 2.32.192 (SHADOW-REV)
   // Rev 2.23.25 (6D.194) — 23505 (унікальний індекс живих слів): інший пристрій/запуск
   // устиг вставити те саме слово — це "слово вже є", не збій: усиновлюємо живий рядок,
   // без повторної вставки й без позначки failed (функція повертається нормально).
@@ -7220,12 +7231,13 @@ async function mdPushCas(dom, rec, ctx, opts, depth){
   Object.assign(payload, dom.extraPayload(rec, userId));
   const q0 = mdWhere(dom, client.from(dom.table).update(payload), rec);
   if(!q0) return { success: true }; // Rev 2.32.221: рядок прив'язаний до батька (рахунок без cloudId) — тихий пропуск, як раніше
-  const res = await q0.eq('updated_at', rec.serverUpdatedAt).select(dom.retCols || 'id,updated_at');
+  const res = await q0.eq('updated_at', rec.serverUpdatedAt).select((dom.retCols || 'id,updated_at') + ',deleted_at'); // Rev 2.32.230: + deleted_at (штамп видалення з відповіді сервера)
   if(res.error) return { success: false, error: res.error.message || String(res.error), code: res.error.code || null }; // Rev 2.32.225: код помилки (23505 для унікальності слів)
   if(res.data && res.data.length){
     rec.syncedUpdatedAt = sentAt;
     shadowSetServer(rec, res.data[0].updated_at); shadowAfterPush(rec, shSnap);
     rec.serverBase = sent;
+    shadowAdoptDeleted(rec, res.data[0].deleted_at); // Rev 2.32.230 (SERVER-DEL)
     if(dom.afterPushOk) dom.afterPushOk(rec);
     await dom.save();
     if(!(opts && opts.suppressPull)) await dom.pull();
@@ -7863,6 +7875,7 @@ async function pushExpenseRecordPilotCore(rec, opts){
       rec.syncedUpdatedAt = sentAt;
       shadowSetServer(rec, data && data[0] && data[0].updated_at); shadowAfterPush(rec, shSnap); // Rev 2.32.192 (SHADOW-REV)
       rec.serverBase = sentSnap; // Rev 2.32.193 (MERGE-EXP)
+      shadowAdoptDeleted(rec, data && data[0] && data[0].deleted_at); // Rev 2.32.230 (SERVER-DEL)
       if(!rec.editedAt && rec.edited && rec.updatedAt) rec.editedAt = rec.updatedAt; // Rev 2.32.90 (EDITED-1): одноразове перенесення локального edited
       await saveExpenses();
     }
@@ -7941,7 +7954,7 @@ async function pushExpensesBatch(records){
     const sentSnaps = resolvable.map(function(r){ return expSnap(r.rec); }); // Rev 2.32.193 (MERGE-EXP)
     const { data, error } = await shadowRet(client.from('expenses').upsert(resolvable.map(function(r){ return r.payload; }), { onConflict: 'id' }));
     if(!error){
-      resolvable.forEach(function(r, i){ r.rec.syncedUpdatedAt = r.rec.updatedAt; shadowSetServer(r.rec, shadowServerAt(data, r.rec.id)); shadowAfterPush(r.rec, shSnaps[i]); r.rec.serverBase = sentSnaps[i]; if(!r.rec.editedAt && r.rec.edited && r.rec.updatedAt) r.rec.editedAt = r.rec.updatedAt; }); // Rev 2.32.90 (EDITED-1)
+      resolvable.forEach(function(r, i){ r.rec.syncedUpdatedAt = r.rec.updatedAt; shadowSetServer(r.rec, shadowServerAt(data, r.rec.id)); shadowAfterPush(r.rec, shSnaps[i]); r.rec.serverBase = sentSnaps[i]; shadowAdoptDeleted(r.rec, shadowServerDeleted(data, r.rec.id)); if(!r.rec.editedAt && r.rec.edited && r.rec.updatedAt) r.rec.editedAt = r.rec.updatedAt; }); // Rev 2.32.90 (EDITED-1)
       await saveExpenses();
       resolvable.forEach(function(r){ expSyncEnd(r.rec.id, true); });
       return { pushed: resolvable.length, failed: 0 };
@@ -8011,6 +8024,7 @@ async function pushIncomeRecordPilotCore(rec, opts){
       rec.syncedUpdatedAt = sentAt;
       shadowSetServer(rec, data && data[0] && data[0].updated_at); shadowAfterPush(rec, shSnap); // Rev 2.32.192 (SHADOW-REV)
       rec.serverBase = sentSnap; // Rev 2.32.201
+      shadowAdoptDeleted(rec, data && data[0] && data[0].deleted_at); // Rev 2.32.230 (SERVER-DEL)
       await saveIncomes();
     }
     // Rev #30 (6D.49/6D.58) — той самий принцип, що pushExpenseRecordPilot().
@@ -8042,7 +8056,7 @@ async function pushIncomesBatch(records){
     records.forEach(function(rec){ expSyncBegin(rec.id); });
     const { data, error } = await shadowRet(client.from('incomes').upsert(payloads, { onConflict: 'id' }));
     if(!error){
-      records.forEach(function(rec, i){ rec.syncedUpdatedAt = rec.updatedAt; shadowSetServer(rec, shadowServerAt(data, rec.id)); shadowAfterPush(rec, shSnaps[i]); rec.serverBase = sentSnaps[i]; });
+      records.forEach(function(rec, i){ rec.syncedUpdatedAt = rec.updatedAt; shadowSetServer(rec, shadowServerAt(data, rec.id)); shadowAfterPush(rec, shSnaps[i]); rec.serverBase = sentSnaps[i]; shadowAdoptDeleted(rec, shadowServerDeleted(data, rec.id)); });
       await saveIncomes();
       records.forEach(function(rec){ expSyncEnd(rec.id, true); });
       return { pushed: records.length, failed: 0 };
@@ -8122,6 +8136,7 @@ async function pushDebtRecordPilotCore(rec, opts){
       rec.syncedUpdatedAt = sentAt;
       shadowSetServer(rec, data && data[0] && data[0].updated_at); shadowAfterPush(rec, shSnap); // Rev 2.32.192 (SHADOW-REV)
       rec.serverBase = sentSnap; // Rev 2.32.201
+      shadowAdoptDeleted(rec, data && data[0] && data[0].deleted_at); // Rev 2.32.230 (SERVER-DEL)
       await saveDebts();
     }
     // Rev #30 (6D.76) — КРИТИЧНИЙ фікс: реальний інцидент користувача
@@ -8201,7 +8216,7 @@ async function pushDebtsBatch(records){
     resolvable.forEach(function(r){ expSyncBegin(r.rec.id); });
     const { data, error } = await shadowRet(client.from('debts').upsert(resolvable.map(function(r){ return r.payload; }), { onConflict: 'id' }));
     if(!error){
-      resolvable.forEach(function(r, i){ r.rec.syncedUpdatedAt = r.rec.updatedAt; shadowSetServer(r.rec, shadowServerAt(data, r.rec.id)); shadowAfterPush(r.rec, shSnaps[i]); r.rec.serverBase = sentSnaps[i]; });
+      resolvable.forEach(function(r, i){ r.rec.syncedUpdatedAt = r.rec.updatedAt; shadowSetServer(r.rec, shadowServerAt(data, r.rec.id)); shadowAfterPush(r.rec, shSnaps[i]); r.rec.serverBase = sentSnaps[i]; shadowAdoptDeleted(r.rec, shadowServerDeleted(data, r.rec.id)); });
       await saveDebts();
       resolvable.forEach(function(r){ expSyncEnd(r.rec.id, true); });
       return { pushed: resolvable.length, failed: 0 };
@@ -9187,6 +9202,7 @@ async function pushHiddenEntitiesPilot(){
       entry.syncedUpdatedAt = entry.updatedAt;
       shadowSetServer(entry, data && data[0] && data[0].updated_at); shadowAfterPush(entry, shSnap);
       if(data && data[0] && data[0].updated_at) entry.serverBase = mdSnap(MERGE_DOMAINS.hidden, entry); // Rev 2.32.221: зліпок для наступних умовних update
+      shadowAdoptDeleted(entry, data && data[0] && data[0].deleted_at); // Rev 2.32.230 (SERVER-DEL)
       localChanged = true;
     }catch(e){
       // мережа/CORS/офлайн під час push одного запису — тихий пропуск.
@@ -9449,7 +9465,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.229';
+const APP_VERSION = '2.32.230';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -25954,6 +25970,7 @@ const CHECKS = [
   { id: '2.32.227-2', rev: '2.32.227', addedOn: '2026-10-31', title: 'Підкатегорія: видалення без мережі (потрібен другий телефон)', steps: ['Вимкніть мережу на першому телефоні й видаліть підкатегорію.', 'Увімкніть мережу й зачекайте хвилину.'], expect: 'на обох телефонах підкатегорія зникла зі списку вибору, помилок і сповіщень нема.', reasons: ['На другому телефоні підкатегорія лишилась', 'З\u2019явилось сповіщення'] },
   { id: '2.32.228-1', rev: '2.32.228', addedOn: '2026-11-01', title: 'Перейменування категорії на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні перейменуйте категорію, у якій є витрати.', 'Зачекайте хвилину й на другому телефоні відкрийте журнал цієї категорії.'], expect: 'на обох телефонах категорія й усі її витрати мають нову назву, старої назви ніде нема.', reasons: ['На другому телефоні лишилась стара назва', 'Категорія розділилась на дві', 'З\u2019явилась помилка'] },
   { id: '2.32.229-1', rev: '2.32.229', addedOn: '2026-11-01', title: 'Діагностика: підрахунок записів без зліпка', steps: ['Відкрийте «Сервіс → Діагностика» і натисніть «Записати діагностику».', 'Закрийте її й відкрийте екран «Журнал», потім поверніться, натисніть «Стоп» і «Надіслати лог».'], expect: 'лог надіслано без помилок.', reasons: ['Лог не надіслано', 'Помилка'] },
+  { id: '2.32.230-1', rev: '2.32.230', addedOn: '2026-11-01', title: 'Видалення запису на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні видаліть витрату.', 'Зачекайте хвилину й на другому телефоні перевірте журнал і «Сервіс → Видалені дані».'], expect: 'на другому телефоні витрата зникла з журналу, є у «Видалених даних», повернення з «Видалених даних» повертає її на обох.', reasons: ['Витрата лишилась у журналі', 'Її нема у «Видалених даних»', 'Повернення не спрацювало', 'З\u2019явилось зайве сповіщення'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }

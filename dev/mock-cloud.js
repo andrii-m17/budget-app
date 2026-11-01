@@ -156,8 +156,13 @@
   }
   // Rev 2.32.228 (B2): серверні тригери нормалізації (веде чат): trg_expenses_resolve_refs — category_id/subcategory_id за назвою при вставці й зміні категорії/підкатегорії витрати (немає такої → null);
   // trg_categories_propagate_rename / trg_subcategories_propagate_rename — при зміні name сервер сам оновлює назву в усіх витратах з цим id: нова мітка версії, updated_by = автор перейменування.
+  // Rev 2.32.230: trg_deleted_at_server (на всіх дев'яти таблицях): перехід deleted_at «порожнє → заповнене» ставить серверний час, значення клієнта ігнорує; повторне видалення вже видаленого лишає перший час; повернення (→ null) дозволене.
   function mockTriggers(state, table, old, row, ts){
     const T = state.tables;
+    if(SYNC_TABLES.indexOf(table) !== -1 && row.deleted_at){
+      if(old && old.deleted_at) row.deleted_at = old.deleted_at;
+      else row.deleted_at = ts;
+    }
     if(table === 'expenses'){
       if(old && old.category === row.category && old.subcategory === row.subcategory) return;
       // Rev 2.32.229: розв'язання за псевдонімом (taxonomy_aliases): назви немає серед живих — шукаємо старе ім'я перейменованої сутності, ставимо id і сучасну назву
