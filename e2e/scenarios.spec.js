@@ -1176,70 +1176,56 @@ test('32. залишок приховування відсутньої ОЧ пр
   expect(errors).toEqual([]);
 });
 
-// Rev 2.32.235 (RESTORE-SOURCES): автоматичні копії на пристрої, лист вибору джерела, список, підтвердження, статус, повернення через «Перед відновленням».
-const abList = page => page.evaluate(async () => (await abStore().list()).map(m => ({ id: m.id, kind: m.kind, dayKey: m.dayKey, at: m.at })));
-test('33. відновлення з вибором джерела: автоматична копія раз на день, лист, список, підтвердження, тост, статус; повернення через «Перед відновленням»; без копій — лише файл', async ({ page }) => {
+// Rev 2.32.235 (RESTORE-SOURCES): лише копія «Перед відновленням»; без неї «Відновити» відкриває вибір файлу, з нею лист із двома рядками; повернення стану тим самим відновленням.
+const abList = page => page.evaluate(async () => (await abStore().list()).map(m => ({ id: m.id, kind: m.kind, source: m.source, at: m.at })));
+test('33. відновлення: без копії — одразу вибір файлу; після відновлення з файлу — лист із двома рядками, підтвердження, повернення стану, статус; через 14 днів знову лише файл', async ({ page }) => {
   const errors = await boot(page, 'typical');
   await page.evaluate(() => switchTab('service'));
-  // 1. щоденна копія з'являється після синхронізації; рядок статусу
-  await expect.poll(async () => (await abList(page)).length, { timeout: 20000 }).toBeGreaterThan(0);
-  const first = await abList(page);
-  expect(first.filter(m => m.kind === 'daily').length, 'одна щоденна копія').toBe(1);
-  await page.evaluate(async () => { await abDailySafe(); });
-  expect((await abList(page)).length, 'того ж дня удруге не створюється').toBe(1);
-  await page.evaluate(async () => { await renderBackupAutoStatus(); });
-  await expect(page.locator('#backup-auto-status')).toHaveText(/^Остання автоматична копія: сьогодні, \d\d:\d\d\.$/);
-  // 2. лист вибору: остання + файл (інших копій ще нема)
-  await page.locator('#view-service .service-tile', { hasText: 'Відновити' }).click();
-  await expect(page.locator('#rs-pane .rs-hd')).toHaveText('Відновити з…');
-  await expect(page.locator('#rs-pane .rs-rw')).toHaveCount(2);
-  await expect(page.locator('#rs-pane .rs-rw').first()).toContainText('Остання автоматична копія');
-  await page.locator('#rs-pane [data-rs="close"]').click();
-  // 3. старіші копії та «Перед відновленням» (як після кількох днів використання)
-  await page.evaluate(async () => {
-    const st = abStore(), json = JSON.stringify(buildBackupPayloadData()), c = abCounts(buildBackupPayloadData());
-    const mk = (id, kind, iso) => ({ id, kind, at: iso, dayKey: iso.slice(0, 10), counts: c, bytes: json.length });
-    const day = n => new Date(Date.now() - n * 86400000).toISOString();
-    await st.put(mk('d-old1', 'daily', day(1)), json); await st.put(mk('d-old2', 'daily', day(2)), json); await st.put(mk('b-old', 'before', day(1)), json);
-  });
-  // змінюємо суму після копії: відновлення з копії має її повернути
-  const ex = await page.evaluate(() => { const e = expenses.find(x => !x.deletedAt && x.serverBase); return { id: e.id, amount: e.amount }; });
+  const tile = page.locator('#view-service .service-tile', { hasText: 'Відновити' });
+  // 1. копії немає: лист не показується, відкривається вибір файлу
+  expect(await abList(page)).toEqual([]);
+  const ex = await page.evaluate(() => { const e = expenses.find(x => !x.deletedAt && x.serverBase && x.serverUpdatedAt); return { id: e.id, amount: e.amount }; });
+  const file = await page.evaluate(() => JSON.stringify({ __budgetBackup: true, appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION, createdAt: new Date().toISOString(), data: buildBackupPayloadData() }));
   await page.evaluate(async x => { const e = expenses.find(r => r.id === x.id); e.amount = x.amount + 123; e.updatedAt = new Date().toISOString(); await saveExpenses(); await pushExpenseRecordPilot(e); }, ex);
-  await page.locator('#view-service .service-tile', { hasText: 'Відновити' }).click();
-  await expect(page.locator('#rs-pane .rs-rw')).toHaveCount(3);
-  await expect(page.locator('#rs-pane .rs-rw').nth(2)).toContainText('Ще 3, включно з «Перед відновленням»');
-  await page.locator('#rs-pane [data-rs="list"]').click();
-  await expect(page.locator('#rs-pane .rs-hd')).toHaveText('Автоматичні копії');
-  await expect(page.locator('#rs-pane .rs-rw')).toHaveCount(4);
-  await expect(page.locator('#rs-pane .rs-tag')).toHaveText('остання');
-  await expect(page.locator('#rs-pane .rs-rw', { hasText: 'Перед відновленням' })).toContainText('зберігається до');
-  await expect(page.locator('#rs-pane .rs-rw').first()).toContainText('витрат');
-  // 4. підтвердження: «Не треба» повертає до списку, нічого не змінюється
-  await page.locator('#rs-pane .rs-rw').first().click();
-  await expect(page.locator('#rs-pane .rs-dlg b')).toContainText('Повернути дані до');
-  await expect(page.locator('#rs-pane .rs-dlg p')).toContainText('Поточний стан збережемо на 14 днів');
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), tile.click()]);
+  expect(await page.locator('#rs-layer.open').count(), 'листа без копії нема').toBe(0);
+  await chooser.setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(file) });
+  // 2. підтвердження з файлу (екран 5): «Не треба» нічого не міняє; «Повернути дані» повертає суму
+  await expect(page.locator('#rs-pane .rs-dlg b')).toHaveText('Відновити дані з файлу?');
+  await expect(page.locator('#rs-pane .rs-dlg p')).toContainText('Змінені після створення файлу записи стануть такими, як були.');
   await page.locator('#rs-pane [data-rs="no"]').click();
-  await expect(page.locator('#rs-pane .rs-hd')).toHaveText('Автоматичні копії');
   expect(await page.evaluate(i => expenses.find(r => r.id === i).amount, ex.id)).toBe(ex.amount + 123);
-  const nBefore = (await abList(page)).filter(m => m.kind === 'before').length;
-  // 5. «Повернути дані»: сума повернулась, створено «Перед відновленням», тост і статус
-  await page.locator('#rs-pane .rs-rw').first().click();
+  expect(await abList(page), 'без підтвердження копії нема').toEqual([]);
+  const [chooser2] = await Promise.all([page.waitForEvent('filechooser'), tile.click()]);
+  await chooser2.setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(file) });
   await page.locator('#rs-pane [data-rs="yes"]').click();
   await expect.poll(() => page.evaluate(i => expenses.find(r => r.id === i).amount, ex.id), { timeout: 15000 }).toBe(ex.amount);
-  await expect(page.locator('#backup-status')).toContainText('Дані повернуто до');
-  await expect(page.locator('#backup-status')).toContainText('«Відновити» → «Перед відновленням»');
-  expect((await abList(page)).filter(m => m.kind === 'before').length, 'створено новий «Перед відновленням»').toBe(nBefore + 1);
-  // 6. повернення назад через «Перед відновленням» (стан до відновлення: сума + 123)
-  const beforeId = await page.evaluate(async () => (await abStore().list()).filter(m => m.kind === 'before').sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0].id);
-  await page.evaluate(async id => { rsMetas = abSorted(await abStore().list()); await rsPick(id); }, beforeId);
+  await expect(page.locator('#backup-status')).toHaveText(/^Дані повернуто до \d+ \S+, \d\d:\d\d\. Стан до відновлення збережено до \d+ \S+: щоб повернутись, оберіть «Відновити» → «Повернути стан до відновлення»\.$/);
+  const l1 = await abList(page);
+  expect(l1.length, 'створено «Перед відновленням»').toBe(1); expect(l1[0].kind).toBe('before');
+  // 3. тепер лист із двома рядками (екран 3)
+  await tile.click();
+  await expect(page.locator('#rs-pane .rs-hd')).toHaveText('Відновити з…');
+  await expect(page.locator('#rs-pane .rs-rw')).toHaveCount(2);
+  await expect(page.locator('#rs-pane .rs-rw').first()).toContainText('Повернути стан до відновлення');
+  await expect(page.locator('#rs-pane .rs-rw').first()).toContainText(' · до ');
+  await expect(page.locator('#rs-pane .rs-rw').nth(1)).toContainText('Файл із пристрою');
+  await page.locator('#rs-pane [data-rs="close"]').click();
+  // 4. повернення стану (екран 4): «Не треба» повертає до листа; «Повернути дані» повертає суму + 123 і знімає пояснення зі статусу
+  await tile.click();
+  await page.locator('#rs-pane [data-rs="undo"]').click();
+  await expect(page.locator('#rs-pane .rs-dlg b')).toContainText('Повернути дані до ');
+  await expect(page.locator('#rs-pane .rs-dlg p')).toContainText('Змінені відтоді записи стануть такими, як були.');
+  await page.locator('#rs-pane [data-rs="no"]').click();
+  await expect(page.locator('#rs-pane .rs-hd')).toHaveText('Відновити з…');
+  await page.locator('#rs-pane [data-rs="undo"]').click();
   await page.locator('#rs-pane [data-rs="yes"]').click();
   await expect.poll(() => page.evaluate(i => expenses.find(r => r.id === i).amount, ex.id), { timeout: 15000 }).toBe(ex.amount + 123);
-  // 7. без автоматичних копій — лише «Файл із пристрою» і підказка
-  await page.evaluate(async () => { const st = abStore(); for(const m of await st.list()) await st.del(m.id); });
-  await page.locator('#view-service .service-tile', { hasText: 'Відновити' }).click();
-  await expect(page.locator('#rs-pane .rs-rw')).toHaveCount(1);
-  await expect(page.locator('#rs-pane .rs-rw')).toContainText('Файл із пристрою');
-  await expect(page.locator('#rs-pane .rs-hint')).toHaveText('Автоматичні копії з\u2019являться після першого дня використання');
-  await page.locator('#rs-pane [data-rs="close"]').click();
+  await expect(page.locator('#backup-status')).toHaveText('');
+  // 5. через 14 днів копія зникає: знову лише вибір файлу
+  await page.evaluate(async () => { const st = abStore(); for(const m of await st.list()){ m.at = new Date(Date.now() - 15 * 86400000).toISOString(); await st.put(m, await st.get(m.id)); } });
+  const [chooser3] = await Promise.all([page.waitForEvent('filechooser'), tile.click()]);
+  expect(chooser3).toBeTruthy(); expect(await page.locator('#rs-layer.open').count()).toBe(0);
+  expect(await abList(page), 'прострочена копія прибрана').toEqual([]);
   expect(errors).toEqual([]);
 });

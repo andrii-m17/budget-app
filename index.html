@@ -2130,8 +2130,6 @@
   .rs-ri.g{ background:var(--color-primary-bg); color:var(--color-primary-hover); }
   .rs-ri.b{ background:var(--color-info-bg); color:var(--color-info); }
   .rs-ri.n{ background:var(--color-surface-hover); color:var(--color-text-secondary); }
-  .rs-tag{ font-size:12px; color:var(--color-primary-hover); background:var(--color-primary-bg); border-radius:8px; padding:2px 8px; margin-left:8px; flex:none; }
-  .rs-hint{ padding:10px 16px 14px; border-top:1px solid var(--color-border); color:var(--color-text-secondary); font-size:13px; text-align:center; }
   .rs-cancel{ display:block; width:100%; margin-top:8px; height:52px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:24px; color:var(--color-text-primary); font:inherit; font-size:16px; font-weight:500; cursor:pointer; }
   .rs-cancel:active{ background:var(--color-active-overlay); }
   .rs-dlg{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:22px; padding:18px; width:100%; max-width:360px; }
@@ -2139,7 +2137,6 @@
   .rs-dlg p{ margin:8px 0 16px; font-size:14px; line-height:1.5; color:var(--color-text-secondary); text-align:center; }
   .rs-dlg button{ display:block; width:100%; height:44px; border-radius:14px; border:none; background:var(--color-surface-hover); color:var(--color-text-primary); font:inherit; font-size:15px; margin-top:8px; cursor:pointer; }
   .rs-dlg button:active{ background:var(--color-active-overlay); }
-  .backup-auto-status{ color:var(--color-text-secondary); }
   @media (prefers-reduced-motion:reduce){ .rs-back, .rs-pane{ transition:none; } }
   .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); max-height:80vh; overflow-y:auto; background:var(--color-surface); border-radius:var(--radius-xl); padding:22px 20px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
   .app-modal.open{ opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
@@ -3727,7 +3724,6 @@
     style="display:none;"
     onchange="handleRestoreBackupFile(event)">
   <div class="import-status" id="backup-status"></div>
-  <div class="import-status backup-auto-status hidden" id="backup-auto-status"></div>
 
   <div class="section-label">Діагностика</div>
   <button type="button" class="service-wide-card" id="diagnostics-btn" onclick="runDataDiagnostics()">
@@ -7063,7 +7059,7 @@ async function loadAll(){
   await ensureBankInstallmentNamesStripped();
   await ensureInstallmentFirstMonth();
   await cleanupOrphanHiddenOnce(); // Rev 2.32.234 (HIDDEN-ORPHANS)
-  if(!window.__abTimer){ window.__abTimer = setTimeout(abDailySafe, 45000); setTimeout(function(){ try{ renderBackupAutoStatus(); }catch(e){} }, 1500); } // Rev 2.32.235: запасний запуск (без мережі) і початковий рядок статусу
+  setTimeout(function(){ try{ renderBackupStatus(); }catch(e){} }, 1500); // Rev 2.32.235: статус «Дані повернуто…» живе, поки є копія «Перед відновленням»
   shadowNormalizeAll(); // Rev 2.32.192 (SHADOW-REV): міграція лічильників для наявних записів
   expMigrateBase(); conflictLoad(); // Rev 2.32.193 (MERGE-EXP): зліпок серверних полів для «чистих» витрат; журнал конфліктів
   populateMonths(); renderAll(); renderStructure();
@@ -9754,13 +9750,11 @@ async function applyBackupData(data){
   lastRestoreSummary = { total: total, serverNewer: Object.keys(restoreMerge.recs).length, stayedDeleted: gone }; // Rev 2.32.232 (RESTORE-MERGE)
   return results;
 }
-// ===== Rev 2.32.235 (RESTORE-SOURCES, клас B+C): автоматичні копії на пристрої та вибір джерела відновлення =====
-// Автоматична копія: раз на день (перший запуск після синхронізації) повний знімок даних, той самий склад і формувач, що файл копії (buildBackupPayloadData). Сховище — IndexedDB (окрема база, не localStorage): метадані й тіла в різних сховищах, тож список читається без розбору тіл. 7 останніх днів (за місцевою датою); обмеження сумарного розміру з тихим прибиранням найстаріших. «Перед відновленням» створюється перед будь-яким відновленням і живе 14 днів. Механізм самого відновлення не змінено (Rev 2.32.232: звичайні правки зі злиттям).
+// ===== Rev 2.32.235 (RESTORE-SOURCES, клас B+C): копія «Перед відновленням» і вибір джерела відновлення =====
+// Копія за розкладом не робиться. Перед будь-яким відновленням (з файлу чи поверненням стану) повний знімок даних (той самий склад і формувач, що файл копії: buildBackupPayloadData) зберігається в IndexedDB (окрема база, не localStorage) на 14 діб; лишається лише остання така копія, старіші замінюються. Копія, більша за AB_MAX_BYTES, не зберігається. Повернення стану — те саме відновлення (Rev 2.32.232: звичайні правки зі злиттям).
 const AB_DB = 'budget-app-autobackup', AB_META = 'meta', AB_BLOB = 'blob';
-const AB_DAILY_DAYS = 7;
 const AB_BEFORE_DAYS = 14;
 const AB_MAX_BYTES = 30 * 1024 * 1024;
-let abBusy = false;
 function abStore(){
   const open = function(){ return new Promise(function(resolve, reject){
     const r = indexedDB.open(AB_DB, 1);
@@ -9768,8 +9762,8 @@ function abStore(){
     r.onsuccess = function(){ resolve(r.result); }; r.onerror = function(){ reject(r.error); };
   }); };
   const run = function(stores, mode, fn){ return open().then(function(db){ return new Promise(function(resolve, reject){
-    const tx = db.transaction(stores, mode); let out;
-    out = fn(tx);
+    const tx = db.transaction(stores, mode);
+    const out = fn(tx);
     tx.oncomplete = function(){ db.close(); resolve(out && 'result' in out ? out.result : undefined); };
     tx.onerror = tx.onabort = function(){ db.close(); reject(tx.error); };
   }); }); };
@@ -9780,78 +9774,37 @@ function abStore(){
     del: function(id){ return run([AB_META, AB_BLOB], 'readwrite', function(tx){ tx.objectStore(AB_BLOB).delete(id); return tx.objectStore(AB_META).delete(id); }); },
   };
 }
-function abDayKey(d){ const p = function(n){ return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
-function abDayDiff(a, b){ return Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 86400000); }
-function abCounts(data){
-  const live = function(key){ try{ return JSON.parse(data[key] || '[]').filter(function(x){ return x && !x.deletedAt; }).length; }catch(e){ return 0; } };
-  return { expenses: live(LS_KEY_EXP), debts: live(LS_KEY_DEBT) };
+const AB_MONTHS = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
+function abDayMonth(iso){ const d = new Date(iso); return d.getDate() + ' ' + AB_MONTHS[d.getMonth()]; }
+function abDateText(iso){ const d = new Date(iso), p = function(x){ return (x < 10 ? '0' : '') + x; }; return abDayMonth(iso) + ', ' + p(d.getHours()) + ':' + p(d.getMinutes()); }
+function abExpiryText(meta){ return abDayMonth(new Date(Date.parse(meta.at) + AB_BEFORE_DAYS * 86400000).toISOString()); }
+function abExpired(meta, now){ return (now || new Date()).getTime() - Date.parse(meta.at) >= AB_BEFORE_DAYS * 86400000; }
+// Актуальна копія «Перед відновленням» (остання, не прострочена); прострочені й старіші прибираються.
+async function abCurrent(store, now){
+  store = store || abStore(); now = now || new Date();
+  const metas = (await store.list()).sort(function(a, b){ return Date.parse(b.at) - Date.parse(a.at); });
+  let cur = null;
+  for(const m of metas){ if(!cur && !abExpired(m, now)) cur = m; else await store.del(m.id); }
+  return cur;
 }
-// Які копії видалити: «щоденні» старші за 7 днів (за датою), «Перед відновленням» старші за 14 діб, потім за сумарним розміром — найстаріші щоденні, далі найстаріші «Перед відновленням»; найновіша щоденна не видаляється.
-function abPlanPrune(metas, now, maxBytes){
-  const today = abDayKey(now), nowMs = now.getTime(), del = [], keep = [];
-  metas.forEach(function(m){
-    const old = m.kind === 'before' ? (nowMs - Date.parse(m.at) >= AB_BEFORE_DAYS * 86400000) : (abDayDiff(m.dayKey, today) >= AB_DAILY_DAYS);
-    (old ? del : keep).push(m);
-  });
-  let total = keep.reduce(function(s, m){ return s + (m.bytes || 0); }, 0);
-  const newest = keep.filter(function(m){ return m.kind !== 'before'; }).sort(function(a, b){ return Date.parse(b.at) - Date.parse(a.at); })[0];
-  const order = keep.filter(function(m){ return m !== newest; }).sort(function(a, b){ return (a.kind === 'before' ? 1 : 0) - (b.kind === 'before' ? 1 : 0) || Date.parse(a.at) - Date.parse(b.at); });
-  for(let i = 0; i < order.length && total > (maxBytes || AB_MAX_BYTES); i++){ del.push(order[i]); total -= order[i].bytes || 0; }
-  return del.map(function(m){ return m.id; });
-}
-async function abPrune(store, now){
-  const metas = await store.list();
-  const ids = abPlanPrune(metas, now);
-  for(const id of ids) await store.del(id);
-  return ids.length;
-}
-async function abCreate(store, kind, now){
-  const data = buildBackupPayloadData(), json = JSON.stringify(data);
-  if(json.length > AB_MAX_BYTES) return null; // одна копія більша за ліміт — не зберігаємо
-  const meta = { id: (kind === 'before' ? 'b' : 'd') + now.getTime(), kind: kind, at: now.toISOString(), dayKey: abDayKey(now), counts: abCounts(data), bytes: json.length };
+async function abBeforeRestore(store, now, source, label){
+  store = store || abStore(); now = now || new Date();
+  const json = JSON.stringify(buildBackupPayloadData());
+  if(json.length > AB_MAX_BYTES){ for(const m of await store.list()) await store.del(m.id); return null; } // завелика: старішу копію теж прибираємо, щоб «Повернути стан» не повертав давніший стан, ніж очікується
+  const meta = { id: 'b' + now.getTime(), kind: 'before', at: now.toISOString(), bytes: json.length, source: source || 'file', label: label || '' };
   await store.put(meta, json);
-  await abPrune(store, now);
+  await abCurrent(store, now);
   return meta;
 }
-// Раз на день: якщо за сьогодні (місцева дата) щоденна копія вже є — нічого.
-async function abDailyOnce(store, now){
-  store = store || abStore(); now = now || new Date();
-  const metas = await store.list();
-  if(metas.some(function(m){ return m.kind !== 'before' && m.dayKey === abDayKey(now); })) return null;
-  return abCreate(store, 'daily', now);
-}
-async function abDailySafe(){
-  if(abBusy || typeof indexedDB === 'undefined') return;
-  abBusy = true;
-  try{ await abDailyOnce(); }catch(e){}
-  finally{ abBusy = false; }
-  try{ await renderBackupAutoStatus(); }catch(e){}
-}
-async function abBeforeRestore(store, now){ return abCreate(store || abStore(), 'before', now || new Date()); }
-const AB_MONTHS = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
-function abDateText(iso, now, lower){
-  const d = new Date(iso), n = now || new Date(), p = function(x){ return (x < 10 ? '0' : '') + x; };
-  const hm = p(d.getHours()) + ':' + p(d.getMinutes());
-  if(abDayKey(d) === abDayKey(n)) return (lower ? 'сьогодні' : 'Сьогодні') + ', ' + hm;
-  return d.getDate() + ' ' + AB_MONTHS[d.getMonth()] + ', ' + hm;
-}
-function abDayMonth(iso){ const d = new Date(iso); return d.getDate() + ' ' + AB_MONTHS[d.getMonth()]; }
-function abExpiryText(meta){ return abDayMonth(new Date(Date.parse(meta.at) + AB_BEFORE_DAYS * 86400000).toISOString()); }
-function abPlural(n, one, few, many){ const m = n % 100, d = n % 10; return (m >= 11 && m <= 14) ? many : (d === 1 ? one : (d >= 2 && d <= 4 ? few : many)); }
-function abNum(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
-function abCountsText(c){ return abNum(c.expenses) + ' ' + abPlural(c.expenses, 'витрата', 'витрати', 'витрат') + ' · ' + abNum(c.debts) + ' ' + abPlural(c.debts, 'борг', 'борги', 'боргів'); }
-function abSorted(metas){ return metas.slice().sort(function(a, b){ return Date.parse(b.at) - Date.parse(a.at); }); }
-function abLatestDaily(metas){ return abSorted(metas).filter(function(m){ return m.kind !== 'before'; })[0] || null; }
-async function renderBackupAutoStatus(){
-  const el = document.getElementById('backup-auto-status');
+// Статус під плитками після відновлення з файлу (поки жива копія «Перед відновленням»); після повернення стану й через 14 діб — звичний.
+async function renderBackupStatus(){
+  const el = document.getElementById('backup-status');
   if(!el || typeof indexedDB === 'undefined') return;
-  let metas = []; try{ metas = await abStore().list(); }catch(e){}
-  const last = abLatestDaily(metas);
-  el.textContent = last ? 'Остання автоматична копія: ' + abDateText(last.at, new Date(), true) + '.' : '';
-  el.classList.toggle('hidden', !last);
+  let cur = null; try{ cur = await abCurrent(); }catch(e){}
+  if(cur && cur.source === 'file' && cur.label){ el.textContent = 'Дані повернуто ' + cur.label + '. Стан до відновлення збережено до ' + abExpiryText(cur) + ': щоб повернутись, оберіть «Відновити» → «Повернути стан до відновлення».'; el.setAttribute('data-restore', '1'); }
+  else if(el.getAttribute('data-restore')){ if(/^Дані повернуто /.test(el.textContent)) el.textContent = ''; el.removeAttribute('data-restore'); } // текст експорту після відновлення не затираємо
 }
-// ---- лист вибору джерела, список копій, підтвердження ----
-let rsMetas = [];
+// ---- лист вибору, підтвердження ----
 function rsLayer(){ return document.getElementById('rs-layer'); }
 function rsOpenPane(html, center){
   const layer = rsLayer(), pane = document.getElementById('rs-pane');
@@ -9868,31 +9821,16 @@ function rsClose(){
 }
 const RS_ICON_CLK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>';
 const RS_ICON_FIL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
-const RS_ICON_LST = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7h11M8 12h11M8 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01"/></svg>';
-function rsRow(act, id, icon, cls, title, sub, tag){
-  return '<button type="button" class="rs-rw" data-rs="' + act + '"' + (id ? ' data-id="' + escapeAttr(id) + '"' : '') + '>' + (icon ? '<span class="rs-ri ' + cls + '">' + icon + '</span>' : '') + '<span class="rs-t">' + escapeHtml(title) + '<small>' + escapeHtml(sub) + '</small></span>' + (tag ? '<span class="rs-tag">' + escapeHtml(tag) + '</span>' : '') + '</button>';
+function rsRow(act, icon, cls, title, sub){
+  return '<button type="button" class="rs-rw" data-rs="' + act + '"><span class="rs-ri ' + cls + '">' + icon + '</span><span class="rs-t">' + escapeHtml(title) + '<small>' + escapeHtml(sub) + '</small></span></button>';
 }
+let rsCurrent = null, rsConfirmCb = null, rsCancelCb = null;
+// Плитка «Відновити»: без копії «Перед відновленням» одразу вибір файлу (як до цієї ревізії), з копією — лист «Відновити з…».
 async function openRestoreSheet(){
-  let metas = []; try{ if(typeof indexedDB !== 'undefined') metas = await abStore().list(); }catch(e){}
-  rsMetas = abSorted(metas);
-  rsShowSheet();
-}
-function rsShowSheet(){
-  const last = abLatestDaily(rsMetas), others = rsMetas.length - (last ? 1 : 0), hasBefore = rsMetas.some(function(m){ return m.kind === 'before'; });
-  let rows = '';
-  if(last) rows += rsRow('last', last.id, RS_ICON_CLK, 'g', 'Остання автоматична копія', abDateText(last.at));
-  rows += rsRow('file', '', RS_ICON_FIL, 'b', 'Файл із пристрою', 'Вибрати власну копію');
-  if(others > 0) rows += rsRow('list', '', RS_ICON_LST, 'n', 'Інші автоматичні копії', 'Ще ' + others + (hasBefore ? ', включно з «Перед відновленням»' : ''));
-  const hint = rsMetas.length ? '' : '<div class="rs-hint">Автоматичні копії з’являться після першого дня використання</div>';
-  rsOpenPane('<div class="rs-grp"><div class="rs-hd">Відновити з…</div>' + rows + hint + '</div><button type="button" class="rs-cancel" data-rs="close">Скасувати</button>');
-}
-function rsShowList(){
-  const last = abLatestDaily(rsMetas);
-  const rows = rsMetas.map(function(m){
-    if(m.kind === 'before') return rsRow('pick', m.id, '', '', 'Перед відновленням', abDateText(m.at) + ' · зберігається до ' + abExpiryText(m));
-    return rsRow('pick', m.id, '', '', abDateText(m.at), abCountsText(m.counts || { expenses: 0, debts: 0 }), last && last.id === m.id ? 'остання' : '');
-  }).join('');
-  rsOpenPane('<div class="rs-grp"><div class="rs-hd">Автоматичні копії</div>' + rows + '</div><button type="button" class="rs-cancel" data-rs="back">Назад</button>');
+  let cur = null; try{ if(typeof indexedDB !== 'undefined') cur = await abCurrent(); }catch(e){}
+  if(!cur){ triggerRestoreBackupInput(); return; }
+  rsCurrent = cur;
+  rsOpenPane('<div class="rs-grp"><div class="rs-hd">Відновити з…</div>' + rsRow('undo', RS_ICON_CLK, 'g', 'Повернути стан до відновлення', abDateText(cur.at) + ' · до ' + abExpiryText(cur)) + rsRow('file', RS_ICON_FIL, 'b', 'Файл із пристрою', 'Вибрати власну копію') + '</div><button type="button" class="rs-cancel" data-rs="close">Скасувати</button>');
 }
 function abPartnerName(){
   try{
@@ -9906,45 +9844,43 @@ function rsConfirmBody(fromFile){
   const partner = abPartnerName();
   return (fromFile ? 'Змінені після створення файлу записи стануть такими, як були. ' : 'Змінені відтоді записи стануть такими, як були. ') + 'Нові й видалені лишаться як є. ' + (partner ? partner + ' теж побачить зміни. ' : '') + 'Поточний стан збережемо на 14 днів: усе можна повернути назад.';
 }
-let rsConfirmCb = null, rsCancelCb = null;
 function rsConfirm(title, body, onConfirm, onCancel, extra){
   rsConfirmCb = onConfirm; rsCancelCb = onCancel || null;
   rsOpenPane('<div class="rs-dlg"><b>' + escapeHtml(title) + '</b><p>' + escapeHtml(body) + (extra ? ' ' + escapeHtml(extra) : '') + '</p><button type="button" data-rs="yes">Повернути дані</button><button type="button" data-rs="no">Не треба</button></div>', true);
 }
-async function rsPick(id){
-  const m = rsMetas.filter(function(x){ return x.id === id; })[0]; if(!m) return;
-  rsConfirm('Повернути дані до ' + abDateText(m.at, new Date(), true) + '?', rsConfirmBody(false), async function(){
+async function rsUndo(){
+  const m = rsCurrent; if(!m) return;
+  rsConfirm('Повернути дані до ' + abDateText(m.at) + '?', rsConfirmBody(false), async function(){
     let json = null; try{ json = await abStore().get(m.id); }catch(e){}
     let data = null; try{ data = json ? JSON.parse(json) : null; }catch(e){}
     if(!data){ showTextToast('Не вдалося прочитати копію', 'error'); return; }
-    await performRestore(data, { label: 'до ' + abDateText(m.at, new Date(), true) });
-  }, function(){ rsShowList(); });
+    await performRestore(data, { source: 'undo' });
+  }, function(){ openRestoreSheet(); });
 }
 document.addEventListener('click', function(e){
   const t = e.target && e.target.closest ? e.target.closest('#rs-pane [data-rs]') : null;
   if(!t) return;
-  const act = t.getAttribute('data-rs'), id = t.getAttribute('data-id');
-  if(act === 'close' || act === 'no'){ const cb = act === 'no' ? rsCancelCb : null; rsClose(); if(cb) cb(); }
-  else if(act === 'back') rsShowSheet();
-  else if(act === 'list') rsShowList();
+  const act = t.getAttribute('data-rs');
+  if(act === 'close' || act === 'no'){ const cb = act === 'no' ? rsCancelCb : null; rsCancelCb = null; rsClose(); if(cb) cb(); }
   else if(act === 'file'){ rsClose(); triggerRestoreBackupInput(); }
-  else if(act === 'last' || act === 'pick') rsPick(id);
+  else if(act === 'undo') rsUndo();
   else if(act === 'yes'){ const cb = rsConfirmCb; rsConfirmCb = null; rsCancelCb = null; rsClose(); if(cb) cb(); }
 });
-// Єдиний шлях відновлення (файл і автоматична копія): знімок «Перед відновленням» → applyBackupData (звичайні правки зі злиттям) → тост і статус.
+// Єдиний шлях відновлення (файл і повернення стану): знімок «Перед відновленням» → applyBackupData (звичайні правки зі злиттям) → тост і статус.
+// info: { source: 'file' | 'undo', label: «до 31 жовтня, 09:05» (для файлу) }
 async function performRestore(data, info){
   const statusEl = document.getElementById('backup-status');
   if(statusEl) statusEl.textContent = 'Відновлюю…';
   createRestoreSafetySnapshot();
-  let before = null; try{ if(typeof indexedDB !== 'undefined') before = await abBeforeRestore(); }catch(e){}
+  try{ if(typeof indexedDB !== 'undefined') await abBeforeRestore(null, null, info.source, info.label); }catch(e){}
   let results;
   try{ results = await applyBackupData(data); }
   catch(e){ if(statusEl) statusEl.textContent = 'Не вдалося відновити дані.'; showTextToast('Не вдалося відновити дані', 'error'); return; }
   Object.values(results).forEach(reportSaveResult);
   const sm = lastRestoreSummary || { total: 0, serverNewer: 0 };
   showTextToast('Повернуто ' + sm.total + ' ' + restoreCountWord(sm.total) + '.' + (sm.serverNewer ? ' У ' + sm.serverNewer + ' ' + (sm.serverNewer === 1 ? 'записі' : 'записах') + ' лишились новіші значення (вони в «Конфліктах»).' : ''), 'success');
-  if(statusEl) statusEl.textContent = 'Дані повернуто ' + info.label + '.' + (before ? ' Стан до відновлення збережено до ' + abExpiryText(before) + ': щоб повернутись, оберіть «Відновити» → «Перед відновленням».' : '');
-  try{ await renderBackupAutoStatus(); }catch(e){}
+  if(statusEl) statusEl.textContent = '';
+  try{ await renderBackupStatus(); }catch(e){}
 }
 function handleRestoreBackupFile(event){
   const file = event.target.files[0];
@@ -9966,7 +9902,6 @@ function handleRestoreBackupFile(event){
     // раніше звались "version"/"exportedAt" і не мали власного schemaVersion
     // на верхньому рівні (лише всередині data[LS_KEY_SCHEMA_VERSION]).
     const createdAtRaw = parsed.createdAt || parsed.exportedAt;
-    const dateLabel = createdAtRaw ? new Date(createdAtRaw).toLocaleString('uk-UA') : 'невідомої дати';
     const appVersionLabel = parsed.appVersion || parsed.version || '—';
     let schemaVersion = parsed.schemaVersion;
     if(schemaVersion == null){
@@ -9975,9 +9910,8 @@ function handleRestoreBackupFile(event){
     }
     // Rev 2.32.235 (RESTORE-SOURCES): підтвердження за макетом (заголовок, абзац, «Повернути дані» / «Не треба»); відновлення — спільний performRestore (знімок «Перед відновленням» → звичайні правки зі злиттям → тост і статус).
     const oldSchema = schemaVersion != null && schemaVersion < SCHEMA_VERSION ? 'Файл зі старішої версії структури даних (' + schemaVersion + ' → ' + SCHEMA_VERSION + '): відновлення однаково спрацює.' : '';
-    statusEl.textContent = '';
     rsConfirm('Відновити дані з файлу?', rsConfirmBody(true), async function(){
-      await performRestore(parsed.data, { label: 'з файлу від ' + dateLabel });
+      await performRestore(parsed.data, { source: 'file', label: createdAtRaw && !isNaN(Date.parse(createdAtRaw)) ? 'до ' + abDateText(createdAtRaw) : 'з файлу' });
       inputEl.value = '';
     }, function(){ inputEl.value = ''; }, oldSchema);
   };
@@ -12362,7 +12296,6 @@ async function runSyncCheck(reason, o){
   if(o.refreshAll && changedTables.length) refreshAfterSyncAtStart(changedTables);
   if(reason === 'realtime') flushOtherActorEventsAsToasts(); else flushOtherActorEventsAsSummary();
   shadowDiffReport('sync-' + reason); // Rev 2.32.192 (SHADOW-REV): лише в записі діагностики, увімкнена «Розширена діагностика»
-  if(reason !== 'realtime' && typeof abDailySafe === 'function') abDailySafe(); // Rev 2.32.235 (RESTORE-SOURCES): щоденна автоматична копія після завершення синхронізації (раз на день)
   return { plan: plan, changedTables: changedTables, ms: Date.now() - t0 };
 }
 // syncCheck(reason, opts): opts.force — без обмеження інтервалу; opts.fullReason — примусова повна звірка; opts.profilesLoaded — профілі вже завантажено викликачем.
@@ -26224,8 +26157,7 @@ const CHECKS = [
   { id: '2.32.229-1', rev: '2.32.229', addedOn: '2026-11-01', title: 'Діагностика: підрахунок записів без зліпка', steps: ['Відкрийте «Сервіс → Діагностика» і натисніть «Записати діагностику».', 'Закрийте її й відкрийте екран «Журнал», потім поверніться, натисніть «Стоп» і «Надіслати лог».'], expect: 'лог надіслано без помилок.', reasons: ['Лог не надіслано', 'Помилка'] },
   { id: '2.32.230-1', rev: '2.32.230', addedOn: '2026-11-01', title: 'Видалення запису на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні видаліть витрату.', 'Зачекайте хвилину й на другому телефоні перевірте журнал і «Сервіс → Видалені дані».'], expect: 'на другому телефоні витрата зникла з журналу, є у «Видалених даних», повернення з «Видалених даних» повертає її на обох.', reasons: ['Витрата лишилась у журналі', 'Її нема у «Видалених даних»', 'Повернення не спрацювало', 'З\u2019явилось зайве сповіщення'] },
   { id: '2.32.232-1', rev: '2.32.232', addedOn: '2026-11-01', title: 'Відновлення з копії як звичайні правки', steps: ['Відкрийте «Сервіс → Резервне копіювання» і збережіть файл копії.', 'Змініть суму будь-якої витрати й почекайте хвилину.', 'Натисніть «Відновити», оберіть цей файл і підтвердьте.'], expect: 'сума витрати повернулась до значення з копії, показано підсумок «Відновлено N записів», карток конфліктів немає.', reasons: ['Сума не повернулась', 'Підсумку немає', 'З\u2019явилась картка конфліктів', 'Помилка'] },
-  { id: '2.32.235-1', rev: '2.32.235', addedOn: '2026-11-01', title: 'Лист вибору джерела відновлення', steps: ['Відкрийте «Сервіс» і погляньте на блок «Резервна копія».', 'Натисніть «Відновити».'], expect: 'під плитками є рядок «Остання автоматична копія: сьогодні, час» (з другого дня використання), знизу відкрився лист «Відновити з…» з пунктами «Файл із пристрою» і (якщо є копії) «Остання автоматична копія», «Інші автоматичні копії».', reasons: ['Рядка про автоматичну копію нема', 'Лист не відкрився', 'Лист виглядає не так, як на макеті', 'Помилка'] },
-  { id: '2.32.235-2', rev: '2.32.235', addedOn: '2026-11-01', title: 'Відновлення з автоматичної копії та повернення', steps: ['Змініть суму будь-якої витрати.', 'У «Сервіс → Відновити» оберіть «Остання автоматична копія» і підтвердьте «Повернути дані».', 'Знову відкрийте «Відновити» → «Інші автоматичні копії» → «Перед відновленням» і підтвердьте.'], expect: 'після другого кроку сума повернулась і показано «Повернуто N записів…»; після третього сума знову така, як була до відновлення.', reasons: ['Сума не повернулась', 'Нема запису «Перед відновленням»', 'Повернення назад не спрацювало', 'Помилка'] },
+  { id: '2.32.235-1', rev: '2.32.235', addedOn: '2026-11-01', title: 'Відновлення з файлу й повернення стану до відновлення', steps: ['У «Сервіс → Резервне копіювання» збережіть файл і змініть суму будь-якої витрати.', 'Натисніть «Відновити», оберіть цей файл і підтвердьте «Повернути дані».', 'Знову натисніть «Відновити», оберіть «Повернути стан до відновлення» і підтвердьте.'], expect: 'після другого кроку сума повернулась, показано «Повернуто N записів…», під плитками пояснення, як повернутись; після третього сума знову така, як була до відновлення, а під плитками звичний текст.', reasons: ['Сума не повернулась', 'Лист не відкрився', 'Повернення стану не спрацювало', 'Помилка'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
