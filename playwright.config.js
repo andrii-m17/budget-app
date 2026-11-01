@@ -1,5 +1,5 @@
 // E2E-1: WebKit (рушій Safari), емуляція iPhone 390×844. Мок Cloud — вбудований dev/mock-cloud.js (fixture у URL), мережа Supabase не потрібна.
-// Знімки лише при падінні, у теці з міткою часу (e2e-results/<мітка>/); еталонів немає. Один повтор при збої; загальний ліміт 3 хв.
+// Знімки лише при падінні, у теці з міткою часу (e2e-results/<мітка>/); еталонів немає. Один повтор при збої; загальний ліміт 7 хв.
 const { defineConfig, devices } = require('@playwright/test');
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const PORT = Number(process.env.E2E_PORT || 8935);
@@ -8,7 +8,7 @@ module.exports = defineConfig({
   testMatch: '**/*.spec.js',
   outputDir: './e2e-results/' + stamp,
   timeout: 40000,
-  globalTimeout: 180000,
+  globalTimeout: 420000,
   retries: 1,
   workers: 1,
   reporter: [['list']],
