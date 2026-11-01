@@ -5233,9 +5233,16 @@ test('estimateKeyboardHeight: З кешем — ТОЧНЕ виміряне зн
 // елемента). computeSheetLift/isSheetArrived/shouldForceTransfer — чисті
 // функції нового контролера передачі (requestAnimationFrame-polling, без
 // setTimeout-вгадувань) і transform-підйому шторки (замість bottom).
-test('computeSheetLift: регресія з промту — rest=780, baseVh=894, kbH=389, gap=8 → 283', () => {
+test('computeSheetLift (Rev 2.32.239): регресія з промту (rest 780, vvH 505, gap 8 → 283) і вектори з записів Android/iPad', () => {
   const ctx = keyboardInsetSandbox();
-  assert.equal(ctx.computeSheetLift(780, 894, 389, 8), 283);
+  const L = (o) => ctx.computeSheetLift(Object.assign({ gap: 8 }, o));
+  assert.equal(L({ innerH: 894, vvH: 505, vvTop: 0, restBottom: 780 }), 283);
+  assert.equal(L({ innerH: 778, vvH: 448, vvTop: 330, restBottom: 770 }), 0, 'Android: Chrome уже прокрутив видиму область — подвійної компенсації нема');
+  assert.equal(L({ innerH: 778, vvH: 448, vvTop: 0, restBottom: 770 }), 330, 'Android без прокрутки (offsetTop 0)');
+  assert.equal(L({ innerH: 1148, vvH: 811, vvTop: 0, restBottom: 1048 }), 245, 'iPad портрет: низ листа 803');
+  assert.equal(L({ innerH: 788, vvH: 366, vvTop: 0, restBottom: 688 }), 330, 'iPad ландшафт: низ листа 358');
+  assert.equal(L({ innerH: 1148, vvH: 1148, vvTop: 0, restBottom: 1048 }), -92, 'клавіатури нема: лист не опускається нижче gap від низу (restOffset 100 − 8)');
+  assert.equal(L({ innerH: 1148, vvH: 1148, vvTop: 0, restBottom: 1140 }), 0, 'лист уже на gap від низу — мінімальний підйом 0');
 });
 test('shouldForceTransfer: примусова передача ЛИШЕ після 420мс', () => {
   const ctx = keyboardInsetSandbox();
@@ -5426,7 +5433,7 @@ function kbSheetSandbox(opts){
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
     'viewportOrientationKey', 'nextBaseViewportHeight', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
-    'enterKbSheet', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
+    'enterKbSheet', 'kbRestBottomLayout', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle', 'shouldReleaseKbOpen', // Rev 2.23.30 (6D.199)
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
     'computeSheetLift', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
@@ -5644,18 +5651,26 @@ test('перемикання на поле ІНШОГО типу клавіат�
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawerEl }));
   assert.equal(docElStyle['--sheet-lift'], '283');
 });
-test('updateKbSheetGeometry: після зміни типу клавіатури уточнює --sheet-lift за ЖИВИМ vv лише при розбіжності >2пт, без зміни типу — lift не чіпає', () => {
+test('updateKbSheetGeometry (Rev 2.32.239): підйом живий — на кожен visualViewport resize перераховується за vv.offsetTop + vv.height, зміни ≤ 1 пт ігноруються; нестабільний offsetTop — після «осідання» 120 мс', () => {
   const { ctx, docElStyle } = kbSheetSandbox();
+  ctx.requestAnimationFrame = function(fn){ if(fn.name === 'applyLiveSheetLift') fn(); return 1; }; // кадр живого підйому — синхронно; решту кадрів (семплер анімації) не виконуємо
+  const timers = []; ctx.setTimeout = function(fn, ms){ timers.push({ fn: fn, ms: ms }); return timers.length; }; ctx.clearTimeout = function(id){ if(timers[id - 1]) timers[id - 1].fn = null; };
   const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawerEl }));
   ctx.window.visualViewport.height = 505; ctx.updateKbSheetGeometry();
-  assert.equal(docElStyle['--sheet-lift'], '283', 'без зміни типу lift не перераховується з живого vv (перший фокус H2 не чіпаємо)');
-  ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', drawerEl: drawerEl }));
-  assert.equal(docElStyle['--sheet-lift'], '310'); // оцінка text: 416
-  ctx.window.visualViewport.height = 479; ctx.updateKbSheetGeometry(); // live kbH=415 → 309: розбіжність 1пт ≤2 → НЕ чіпаємо
-  assert.equal(docElStyle['--sheet-lift'], '310', 'розбіжність ≤2пт — не уточнюємо (6D.185)');
-  ctx.window.visualViewport.height = 470; ctx.updateKbSheetGeometry(); // live kbH=424 → 318: розбіжність 8пт >2 → уточнено
-  assert.equal(docElStyle['--sheet-lift'], '318');
+  assert.equal(docElStyle['--sheet-lift'], '283', 'збіг оцінки з живим vv — без змін');
+  ctx.window.visualViewport.height = 470; ctx.updateKbSheetGeometry();
+  assert.equal(docElStyle['--sheet-lift'], '318', 'живий vv уточнює підйом: 780 − (0 + 470 − 8)');
+  ctx.window.visualViewport.height = 469.6; ctx.updateKbSheetGeometry();
+  assert.equal(docElStyle['--sheet-lift'], '318', 'розбіжність ≤ 1 пт — не чіпаємо');
+  // Android: Chrome прокручує видиму область (offsetTop росте) — підйом зменшується до 0 лише після «осідання»
+  ctx.window.visualViewport.height = 448; ctx.window.visualViewport.offsetTop = 14; ctx.updateKbSheetGeometry();
+  assert.equal(docElStyle['--sheet-lift'], '318', 'offsetTop ще змінюється — чекаємо осідання');
+  ctx.window.visualViewport.offsetTop = 330; ctx.updateKbSheetGeometry();
+  assert.equal(docElStyle['--sheet-lift'], '318', 'значення нестабільні — без стрибків');
+  const pending = timers.filter(x => x.fn && x.ms === 120); assert.ok(pending.length >= 1, 'є таймер «осідання» 120 мс');
+  pending[pending.length - 1].fn();
+  assert.equal(docElStyle['--sheet-lift'], '10', 'після осідання: 780 − (330 + 448 − 8)');
 });
 test('correctPanIfNeeded: pan після НАТИВНОГО перемикання → подія switch-native (не pan-corrected); після нашого tap → pan-corrected зі switchKind:tap; без перемикання → звичайний pan-corrected', () => {
   const a = kbSheetSandbox();

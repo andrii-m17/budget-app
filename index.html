@@ -2217,6 +2217,8 @@
      лишатись приклеєним до низу екрана. Тому nav.tabbar (fixed) ніколи не
      отримує transform — ні для центрування (те рішення вже було), ні тепер
      для press-масштабування (ось чому воно на .tabbar-glass нижче). */
+  /* Rev 2.32.239 (KB-UNIFIED): нижній відступ таб-бара на сенсорних пристроях не менший за 21px (iPhone: env 34 − 13 = 21, без змін; iPad: було 7, Android: було 6, бо env() там 20/0). Desktop (бічна панель, pointer:fine) не змінюється. */
+  @media (pointer: coarse){ nav.tabbar{ bottom:max(21px, calc(env(safe-area-inset-bottom) - 13px)); } }
   .tabbar-glass{
     position:relative;
     /* Rev 2.4.11 — touch-action:manipulation: прибирає стандартну обробку
@@ -3822,7 +3824,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.238</div>
+  <div class="version-footer">Money Tree · Rev 2.32.239</div>
 </div>
   </div>
 </div>
@@ -9525,7 +9527,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.238';
+const APP_VERSION = '2.32.239';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13714,7 +13716,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   'scrollY', 'docClientH', 'bodyClasses', 'kbInset',
   'activeElementTag', 'activeElementId', 'activeElementType',
   'orientation', 'tabbarTop', 'tabbarHeight',
-  'kbgWhy', 'devClass', 'ptrCoarse', 'hoverHover', 'standaloneMode', 'vkPresent', 'vkOverlays', 'viewportMeta', 'tabbarGap', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'sheetLiftCss', // Rev 2.32.238 (KB-GEOM): подія kb-geometry — лише числа, прапорці й статичний рядок мета-тега viewport
+  'kbgWhy', 'devClass', 'ptrCoarse', 'hoverHover', 'standaloneMode', 'vkPresent', 'vkOverlays', 'viewportMeta', 'tabbarGap', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'sheetLiftCss', 'sheetRestBottom', // Rev 2.32.238 (KB-GEOM): подія kb-geometry — лише числа, прапорці й статичний рядок мета-тега viewport
   'safeTop', 'safeRight', 'safeBottom', 'safeLeft',
   'touchX', 'touchY', 'targetTag', 'targetId', 'targetClasses',
   // Rev 2.32.169 (FIELD-GUARD): подія field-attrs — атрибути сфокусованого поля у «Структурі» (без значень)
@@ -13961,7 +13963,7 @@ function kbgSnapshot(m){
     vvW: vv ? kbgR(vv.width) : null, vvH: vv ? kbgR(vv.height) : null, vvOffsetTop: vv ? kbgR(vv.offsetTop) : null, vvOffsetLeft: vv ? kbgR(vv.offsetLeft) : null, vvScale: vv ? kbgR(vv.scale) : null,
     safeTop: kbgR(m.safeTop), safeBottom: kbgR(m.safeBottom), ptrCoarse: !!m.coarse, hoverHover: !!m.hover, standaloneMode: !!m.standalone,
     orientation: m.innerWidth > ih ? 'landscape' : 'portrait', vkPresent: !!m.hasVk, vkOverlays: m.vkOverlays == null ? null : !!m.vkOverlays, viewportMeta: String(m.viewportMeta || '').slice(0, 160),
-    kbHeightCalc: vv ? Math.max(0, kbgR(ih - vv.height - vv.offsetTop)) : null, kbInset: m.kbCss == null ? null : String(m.kbCss), sheetLiftCss: m.liftCss == null ? null : String(m.liftCss) };
+    kbHeightCalc: vv ? Math.max(0, kbgR(ih - vv.height - vv.offsetTop)) : null, kbInset: m.kbCss == null ? null : String(m.kbCss), sheetLiftCss: m.liftCss == null ? null : String(m.liftCss), sheetRestBottom: kbgR(m.restBottom) };
   if(m.tabbar){ o.tabbarHeight = kbgR(m.tabbar.height); o.tabbarTop = kbgR(m.tabbar.top); o.tabbarGap = kbgR(ih - m.tabbar.bottom); }
   if(m.sheet){ o.sheetTop = kbgR(m.sheet.top); o.sheetBottom = kbgR(m.sheet.bottom); o.sheetHeight = kbgR(m.sheet.height); }
   if(m.field){ o.fieldTop = kbgR(m.field.top); o.fieldBottom = kbgR(m.field.bottom); }
@@ -13980,7 +13982,7 @@ function kbgMeasure(why){
     hasVk: !!vk, vkOverlays: vk ? vk.overlaysContent : null, viewportMeta: meta ? meta.getAttribute('content') : '',
     device: kbgDeviceClass({ ua: navigator.userAgent, platform: navigator.platform, maxTouchPoints: navigator.maxTouchPoints }),
     tabbar: rect(document.querySelector('nav.tabbar')), sheet: rect(document.querySelector('.drawer.open, .app-modal.open')), field: isField ? rect(a) : null,
-    kbCss: root.style.getPropertyValue('--kb-h'), liftCss: root.style.getPropertyValue('--sheet-lift') };
+    kbCss: root.style.getPropertyValue('--kb-h'), liftCss: root.style.getPropertyValue('--sheet-lift'), restBottom: typeof window.__kbSheetRestBottom === 'number' && document.documentElement.classList.contains('kb-sheet') ? window.__kbSheetRestBottom : null };
 }
 function recordKbGeometry(why){
   if(!debugRecordingActive) return;
@@ -26220,6 +26222,11 @@ const CHECKS = [
   { id: '2.32.236-1', rev: '2.32.236', addedOn: '2026-11-01', title: 'Перейменування категорії й зміна типу на двох телефонах (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах.', 'На першому перейменуйте категорію, на другому змініть її тип.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'на обох телефонах категорія має нову назву й новий тип, сповіщень немає.', reasons: ['Лишилась стара назва', 'Тип не змінився', 'З\u2019явилось сповіщення'] },
   { id: '2.32.237-1', rev: '2.32.237', addedOn: '2026-11-01', title: 'Перейменування картки й зміна ліміту на двох телефонах (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах.', 'На першому перейменуйте картку, на другому змініть її кредитний ліміт.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'на обох телефонах картка має нову назву й новий ліміт, її борги в «Обліку» й «Аналітиці» — з новою назвою, сповіщень немає.', reasons: ['Лишилась стара назва', 'Ліміт не змінився', 'Борги під старою назвою', 'З\u2019явилось сповіщення'] },
   { id: '2.32.238-1', rev: '2.32.238', addedOn: '2026-11-01', title: 'Діагностика геометрії клавіатури', steps: ['Відкрийте «Сервіс → Діагностика → Записати діагностику».', 'Відкрийте форму з полем (наприклад, «Нова витрата»), торкніться поля й дочекайтесь клавіатури, натисніть «Мітка».', 'Закрийте клавіатуру, натисніть «Стоп» і «Надіслати лог».'], expect: 'лог надіслано без помилок.', reasons: ['Лог не надіслано', 'Помилка'] },
+  { id: '2.32.239-1', rev: '2.32.239', addedOn: '2026-11-01', title: 'iPad, портрет: форма «Вхід» над клавіатурою (потрібен iPad)', steps: ['Вийдіть із облікового запису й відкрийте «Вхід».', 'Торкніться поля електронної пошти, потім поля пароля.'], expect: 'форма стоїть рівно над клавіатурою, кнопка «Вхід» видна й не ховається, лист не стрибає.', reasons: ['Кнопка «Вхід» схована', 'Лист стоїть нижче за клавіатуру', 'Лист стрибає'] },
+  { id: '2.32.239-2', rev: '2.32.239', addedOn: '2026-11-01', title: 'iPad, ландшафт: форма «Вхід» над клавіатурою (потрібен iPad)', steps: ['Поверніть iPad горизонтально, відкрийте «Вхід».', 'Торкніться поля електронної пошти.'], expect: 'форма стоїть рівно над клавіатурою, кнопка «Вхід» видна.', reasons: ['Кнопка «Вхід» схована', 'Лист стоїть нижче за клавіатуру'] },
+  { id: '2.32.239-3', rev: '2.32.239', addedOn: '2026-11-01', title: 'Android: «Вхід» і «Нова витрата» (потрібен Android)', steps: ['Відкрийте «Вхід» і торкніться поля.', 'Закрийте, відкрийте «Нову витрату» й торкніться поля суми.'], expect: 'лист стоїть над клавіатурою й не «відлітає» високо вгору.', reasons: ['Лист відлітає вгору', 'Лист схований під клавіатурою'] },
+  { id: '2.32.239-4', rev: '2.32.239', addedOn: '2026-11-01', title: 'iPhone: «Вхід» і шторки з полями без змін', steps: ['Відкрийте «Вхід» і торкніться поля.', 'Відкрийте картку боргу й торкніться поля суми.'], expect: 'лист стоїть над клавіатурою, як і раніше.', reasons: ['Лист стоїть нижче', 'Лист стоїть вище', 'Лист стрибає'] },
+  { id: '2.32.239-5', rev: '2.32.239', addedOn: '2026-11-01', title: 'Таб-бар: відступ від низу на iPad і Android', steps: ['Відкрийте застосунок на iPad, потім на Android без клавіатури.'], expect: 'таб-бар стоїть вище системної смужки, відступ приблизно як на iPhone.', reasons: ['Таб-бар надто низько', 'Таб-бар надто високо'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
@@ -28396,9 +28403,13 @@ function enterKbSheet(drawerEl, fieldEl){
   // немає передвиміру, тож міряємо як і раніше; оскільки ці 3 шторки
   // більше НЕ залежать від kb-open для bottom (CSS, 6D.182), результат той
   // самий незалежно ВІД МОМЕНТУ виміру.
+  const layoutRest = kbRestBottomLayout(drawerEl); // Rev 2.32.239: для .drawer — низ у розмітці після kb-open
   const hasPreMeasure = typeof drawerEl.__kbRestBottomY === 'number';
   let restBottom, naturalHeight;
-  if(hasPreMeasure){
+  if(layoutRest){
+    restBottom = layoutRest.bottom; naturalHeight = layoutRest.height;
+    delete drawerEl.__kbRestBottomY; delete drawerEl.__kbNaturalHeight;
+  }else if(hasPreMeasure){
     restBottom = drawerEl.__kbRestBottomY;
     naturalHeight = drawerEl.__kbNaturalHeight;
     delete drawerEl.__kbRestBottomY;
@@ -28413,7 +28424,8 @@ function enterKbSheet(drawerEl, fieldEl){
   // — ЧИСЛО без одиниць (CSS calc(-1px * var(--sheet-lift))), а не вже
   // готовий px-рядок, як --kb-h/--vv-h, саме тому що знак множиться в
   // самому calc().
-  const lift = computeSheetLift(restBottom, baseVh, estimate, 8);
+  const lift = computeSheetLift({ innerH: window.innerHeight, vvH: vvEstimate, vvTop: 0, restBottom: restBottom, gap: 8 });
+  window.__kbSheetRestBottom = restBottom; // лише для діагностики kb-geometry
   kbSheetNaturalHeight = naturalHeight;
   kbSheetLastLift = lift;
   kbSheetRestBottom = restBottom;
@@ -28448,8 +28460,19 @@ function enterKbSheet(drawerEl, fieldEl){
 // у bottom:calc(var(--kb-h)+8px)) — різниця і є відстань, на яку транслюємо
 // шторку ВГОРУ (від'ємний translateY). Регресія з промту: rest=780,
 // baseVh=894, kbH=389, gap=8 → 283.
-function computeSheetLift(restBottom, baseVh, kbH, gap){
-  return restBottom - (baseVh - kbH - gap);
+// Rev 2.32.239 (KB-UNIFIED): єдина формула підйому для iPhone, iPad і Android. lift = restBottom − (vvTop + vvH − gap): низ листа стає на gap вище нижньої межі ВИДИМОЇ області (visualViewport: offsetTop + height). На Android, де Chrome сам прокручує видиму область (offsetTop росте до висоти клавіатури), підйом автоматично 0 (подвійної компенсації немає); при offsetTop = 0 (iOS) результат такий самий, як у попередній формулі restBottom − (baseVh − kbH − gap) (регресія з промту: rest 780, vvH 505, gap 8 → 283). restBottom — низ листа БЕЗ підйому, виміряний уже в стані kb-open (див. kbRestBottomLayout). Від'ємний підйом (лист ВНИЗ) обмежений відступом спокою: не нижче gap від низу розмітки: minLift = −max(0, (innerH − restBottom) − gap).
+function computeSheetLift(o){
+  const gap = o.gap == null ? 8 : o.gap;
+  const minLift = -Math.max(0, (o.innerH - o.restBottom) - gap);
+  return Math.max(minLift, o.restBottom - ((o.vvTop || 0) + o.vvH - gap));
+}
+// Низ шторки (.drawer) у розмітці БЕЗ підйому: innerHeight − обчислений bottom. Не залежить від transform/анімації відкриття й враховує body.kb-open{--drawer-bottom-base:8px} (шторки, що успадковують базу, під час відкриття клавіатури опускаються з ~100 px до 8 px: раніше передвимір до kb-open давав підйом на цю різницю (≈92 px на iPad) меншим за потрібний). Картки .app-modal (по центру) міряються як і раніше.
+function kbRestBottomLayout(el){
+  if(el && el.classList && el.classList.contains('drawer')){
+    const b = parseFloat(getComputedStyle(el).bottom);
+    if(!isNaN(b)) return { bottom: window.innerHeight - b, height: el.offsetHeight || el.getBoundingClientRect().height };
+  }
+  return null;
 }
 // updateKbSheetGeometry: викликається на КОЖЕН visualViewport resize/scroll,
 // поки kbSheetActive — перераховує --kb-h/--vv-h з живих (baseVh, vv.height)
@@ -28470,14 +28493,8 @@ function updateKbSheetGeometry(){
     if(!keyboardHeightCache[orientKey]) keyboardHeightCache[orientKey] = {};
     keyboardHeightCache[orientKey][kbSheetFieldKind] = kbH;
   }
-  if(kbSheetLiftDirty && isKeyboardOpen(baseVh, vvH)){
-    // Rev 2.23.16 (6D.185): живий vv лише УТОЧНЮЄ, якщо розбіжність >2пт.
-    const liveLift = computeSheetLift(kbSheetRestBottom, baseVh, kbH, 8);
-    if(Math.abs(liveLift - kbSheetCurrentLift) > 2){
-      kbSheetCurrentLift = liveLift;
-      document.documentElement.style.setProperty('--sheet-lift', String(liveLift));
-    }
-  }
+  if(isKeyboardOpen(baseVh, vvH)) scheduleLiveSheetLift(); // Rev 2.32.239: підйом живий на кожен visualViewport resize/scroll (раз на кадр), з «осіданням»
+  else KB_LIVE.lastTop = null;
   correctPanIfNeeded();
 }
 // correctPanIfNeeded — Режим A єдиний запобіжник: якщо, НЕЗВАЖАЮЧИ на
@@ -28485,6 +28502,28 @@ function updateKbSheetGeometry(){
 // (scrollY/vvOffsetTop != 0), одноразово повертаємо її на місце в
 // requestAnimationFrame і фіксуємо подію 'pan-corrected' у рекордер — мета
 // (критерій G ревізії) 0 таких подій у живому логу.
+// Rev 2.32.239 (KB-UNIFIED): живий підйом. Раз на кадр (rAF) перераховуємо lift за visualViewport (offsetTop + height). Поки offsetTop змінюється (iOS оновлює його із запізненням, Android прокручує видиму область за ≈ 0,2 с), чекаємо «осідання» ≈ 120 мс після останньої зміни, щоб лист не смикався; стабільні значення застосовуються одразу.
+const KB_LIVE = { raf: 0, timer: null, lastTop: null }; // стан живого підйому
+const KB_LIFT_SETTLE_MS = 120;
+function applyLiveSheetLift(){
+  KB_LIVE.raf = 0;
+  if(!kbSheetActive || !window.visualViewport) return;
+  const vv = window.visualViewport, baseVh = getBaseViewportHeight();
+  if(!isKeyboardOpen(baseVh, vv.height)) return;
+  const live = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: vv.offsetTop, restBottom: kbSheetRestBottom, gap: 8 });
+  if(Math.abs(live - kbSheetCurrentLift) > 1){
+    kbSheetCurrentLift = live;
+    document.documentElement.style.setProperty('--sheet-lift', String(Math.round(live * 10) / 10));
+  }
+}
+function scheduleLiveSheetLift(){
+  const vv = window.visualViewport; if(!vv) return;
+  const top = Math.round(vv.offsetTop), unstable = KB_LIVE.lastTop !== null && top !== KB_LIVE.lastTop;
+  KB_LIVE.lastTop = top;
+  if(KB_LIVE.timer){ clearTimeout(KB_LIVE.timer); KB_LIVE.timer = null; }
+  if(unstable){ KB_LIVE.timer = setTimeout(function(){ KB_LIVE.timer = null; applyLiveSheetLift(); }, KB_LIFT_SETTLE_MS); return; }
+  if(!KB_LIVE.raf){ KB_LIVE.raf = 1; requestAnimationFrame(applyLiveSheetLift); } // applyLiveSheetLift скидає KB_LIVE.raf
+}
 function correctPanIfNeeded(){
   if(!window.visualViewport) return;
   if(window.scrollY !== 0 || window.visualViewport.offsetTop !== 0){
@@ -28511,6 +28550,7 @@ function correctPanIfNeeded(){
 // напр. фокус перейшов на "Витрати", клавіатура лишається на екрані).
 function exitKbSheet(removeKbOpen){
   if(!kbSheetActive) return;
+  if(KB_LIVE.timer){ clearTimeout(KB_LIVE.timer); KB_LIVE.timer = null; } KB_LIVE.lastTop = null; // Rev 2.32.239: відкладений живий підйом не переживає закриття
   const drawerId = kbSheetDrawerEl ? kbSheetLabel(kbSheetDrawerEl) : null;
   const drawerEl = kbSheetDrawerEl;
   // kbSheetActive=false ОДРАЗУ — updateKbSheetGeometry() гардиться на цьому
@@ -28639,7 +28679,7 @@ function handleKeyboardFieldFocusIn(target){
         const vvEst = Math.max(0, baseVh - est);
         document.documentElement.style.setProperty('--kb-h', est + 'px');
         document.documentElement.style.setProperty('--vv-h', vvEst + 'px');
-        kbSheetCurrentLift = computeSheetLift(kbSheetRestBottom, baseVh, est, 8);
+        kbSheetCurrentLift = computeSheetLift({ innerH: window.innerHeight, vvH: vvEst, vvTop: 0, restBottom: kbSheetRestBottom, gap: 8 });
         document.documentElement.style.setProperty('--sheet-lift', String(kbSheetCurrentLift));
         document.documentElement.style.setProperty('--sheet-max-h', computeSheetMaxHeight(vvEst, 8, kbSheetNaturalHeight) + 'px');
         kbSheetLiftDirty = true;
