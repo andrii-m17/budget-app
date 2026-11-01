@@ -1,6 +1,9 @@
 // E2E-1: вісім основних сценаріїв у WebKit (iPhone 390×844) на моку Cloud. Світла тема — лише сценарії з @both. Без перевірки пікселів; знімки лише при падінні.
 // «Другий пристрій» — MockCloud.otherDevice (зміна стану сервера, як справжній Realtime); мережа емулюється прапорцем window.__offline у MockCloud.fetch (у моку запити не йдуть у мережу).
 const { test, expect, devices } = require('@playwright/test');
+const { installClock } = require('./clock');
+// «Перевірки» прив'язані до реальних дат Rev (термін кроку 7 днів від addedOn), тож їм годинник не підміняється.
+test.beforeEach(async ({ page }, info) => { if(!/Перевірки/.test(info.title)) await installClock(page); });
 
 async function boot(page, fixture){
   const errors = [];
@@ -1003,5 +1006,29 @@ test('27. перейменування чужим пристроєм: pull ка�
   // потім звичайний pull витрат: нічого не ламає, назва та сама
   await page.evaluate(async () => { await pullExpensesCore(); });
   expect(await page.evaluate(() => expenses.filter(e => e.category === 'Нова-назва').length)).toBe(info.n);
+  expect(errors).toEqual([]);
+});
+
+// Rev 2.32.229: сервер після B2 (мок відтворює taxonomy_aliases, резолвер за псевдонімом, запізніле зв'язування). Тут клієнт лише приймає результат pull.
+test('28a. витрата зі старою назвою категорії, надіслана після перейменування, отримує id і нову назву (немає «сироти»)', async ({ page }) => {
+  const { errors } = await renameSetup(page);
+  const info = await page.evaluate(() => { const c = CATEGORIES.find(x => x.cloudId && x.active && expenses.some(e => e.category === x.name)); return { id: c.cloudId, old: c.name }; });
+  await page.evaluate(i => { window.MockCloud.otherDevice({ table: 'categories', id: i, op: 'update', patch: { name: 'Нова-псевдонім' } }); }, info.id);
+  const expId = await page.evaluate(o => { const T = window.MockCloud.state.tables; return window.MockCloud.otherDevice({ table: 'expenses', op: 'insert', row: { id: 'e2e-alias-1', amount: 77, expense_date: localDateISO(), category: o, category_id: null, subcategory: null, subcategory_id: null, note: 'Зі старою назвою', linked_installment_id: null, source: null, external_id: null, created_by: T.categories[0].created_by, updated_by: T.categories[0].created_by } }).id; }, info.old);
+  const srv = await page.evaluate(([i, c]) => { const e = window.MockCloud.state.tables.expenses.find(x => x.id === i); return { cat: e.category, cid: e.category_id, target: c }; }, [expId, info.id]);
+  expect(srv.cid, 'id за псевдонімом').toBe(info.id); expect(srv.cat, 'сучасна назва').toBe('Нова-псевдонім');
+  await page.evaluate(async () => { await pullCategoriesCore(); await pullExpensesCore(); });
+  const loc = await page.evaluate(() => { const e = expenses.find(x => x.note === 'Зі старою назвою' || x.cloudId === 'e2e-alias-1' || x.id === 'e2e-alias-1'); return e ? e.category : null; });
+  expect(loc, 'локально теж нова назва').toBe('Нова-псевдонім');
+  expect(await page.evaluate(() => CATEGORIES.some(c => c.name === 'Нова-псевдонім')), 'категорія перейменована й локально').toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('28b. витрата з назвою категорії, якої ще немає, після створення категорії отримує id (запізніле зв\'язування)', async ({ page }) => {
+  const { errors } = await renameSetup(page);
+  await page.evaluate(() => { const T = window.MockCloud.state.tables; window.MockCloud.otherDevice({ table: 'expenses', op: 'insert', row: { id: 'e2e-late-1', amount: 55, expense_date: localDateISO(), category: 'Ще-не-існує', category_id: null, subcategory: null, subcategory_id: null, note: 'Сирота', linked_installment_id: null, source: null, external_id: null, created_by: T.categories[0].created_by, updated_by: T.categories[0].created_by } }); });
+  expect(await page.evaluate(() => window.MockCloud.state.tables.expenses.find(x => x.id === 'e2e-late-1').category_id), 'поки категорії немає — id порожній').toBeNull();
+  await page.evaluate(() => { const T = window.MockCloud.state.tables; window.MockCloud.otherDevice({ table: 'categories', op: 'insert', row: { id: 'e2e-late-cat', name: 'Ще-не-існує', active: true, type: 'Гнучка', created_by: T.categories[0].created_by, updated_by: T.categories[0].created_by } }); });
+  expect(await page.evaluate(() => window.MockCloud.state.tables.expenses.find(x => x.id === 'e2e-late-1').category_id), 'після створення категорії id проставлено').toBe('e2e-late-cat');
   expect(errors).toEqual([]);
 });

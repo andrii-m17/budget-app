@@ -58,7 +58,7 @@
       const mOff = Math.floor(r() * months);
       let y = ay, m = am - mOff; while(m < 1){ m += 12; y--; }
       const c = cats[Math.floor(r() * cats.length)];
-      exp.push(base({ id: uuid(), amount: 50 + Math.floor(r() * 2000), expense_date: isoDate(y, m, 1 + Math.floor(r() * 28)), category: c.name, category_id: c.id, subcategory: null, subcategory_id: null,
+      exp.push(base({ id: uuid(), amount: 50 + Math.floor(r() * 2000), expense_date: isoDate(y, m, (y === ay && m === am) ? Math.min(1 + Math.floor(r() * 28), +anchor.slice(8, 10)) : 1 + Math.floor(r() * 28)), category: c.name, category_id: c.id, subcategory: null, subcategory_id: null,
         note: hostile ? ['<img src=x onerror=alert(1)>', '"><svg onload=alert(3)>', 'Я'.repeat(200), '😀🎉', "'; DROP TABLE x;--"][i % 5] : 'Витрата ' + (i + 1),
         linked_installment_id: null, source: null, external_id: null }, 1 + (i % 60)));
     }
@@ -160,11 +160,28 @@
     const T = state.tables;
     if(table === 'expenses'){
       if(old && old.category === row.category && old.subcategory === row.subcategory) return;
-      const c = row.category ? (T.categories || []).find(function(x){ return !x.deleted_at && x.name === row.category; }) : null;
-      const sb = row.subcategory ? (T.subcategories || []).find(function(x){ return !x.deleted_at && x.name === row.subcategory; }) : null;
+      // Rev 2.32.229: розв'язання за псевдонімом (taxonomy_aliases): назви немає серед живих — шукаємо старе ім'я перейменованої сутності, ставимо id і сучасну назву
+      const resolve = function(kind, list, nm){
+        if(!nm) return null;
+        const live = (list || []).find(function(x){ return !x.deleted_at && x.name === nm; });
+        if(live) return live;
+        const al = (T.taxonomy_aliases || []).find(function(a){ return a.kind === kind && a.name === nm; });
+        return al ? (list || []).find(function(x){ return !x.deleted_at && x.id === al.target_id; }) || null : null;
+      };
+      const c = resolve('category', T.categories, row.category), sb = resolve('subcategory', T.subcategories, row.subcategory);
       row.category_id = c ? c.id : null; row.subcategory_id = sb ? sb.id : null;
+      if(c) row.category = c.name;
+      if(sb) row.subcategory = sb.name;
+    }else if((table === 'categories' || table === 'subcategories') && !old){
+      // Rev 2.32.229: запізніле зв'язування (trg_categories_late_bind / trg_subcategories_late_bind): витрати з такою назвою й порожнім id отримують його тихо (без нової мітки версії й події)
+      const colL = table === 'categories' ? 'category' : 'subcategory';
+      (T.expenses || []).forEach(function(e){ if(!e[colL + '_id'] && e[colL] === row.name) e[colL + '_id'] = row.id; });
     }else if((table === 'categories' || table === 'subcategories') && old && old.name !== row.name){
       const col = table === 'categories' ? 'category' : 'subcategory';
+      // Rev 2.32.229: старе ім'я стає псевдонімом (таблиця taxonomy_aliases; на сервері 60 днів, очищення cron); псевдонім, що збігається з новою назвою, прибирається
+      const kindA = table === 'categories' ? 'category' : 'subcategory';
+      T.taxonomy_aliases = (T.taxonomy_aliases || []).filter(function(a){ return !(a.kind === kindA && a.name === row.name); });
+      T.taxonomy_aliases.push({ kind: kindA, name: old.name, target_id: row.id, created_at: ts });
       (T.expenses || []).filter(function(e){ return e[col + '_id'] === row.id; }).forEach(function(e){
         e[col] = row.name; e.updated_at = ts; e.updated_by = row.updated_by || e.updated_by; emit(state, 'expenses', 'UPDATE', e);
       });

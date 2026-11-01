@@ -1,5 +1,7 @@
 // E2E-1 (Rev 2.32.214, TAP-1): матриця тапів (touchscreen.tap) по класах інтерактивних елементів: дія < 150 мс і рівно один раз; зони дотику 44 пт без перекриття сусідів; підказки не видаляються під пальцем.
 const { test, expect } = require('@playwright/test');
+const { installClock } = require('./clock');
+test.beforeEach(async ({ page }) => { await installClock(page); });
 
 async function boot(page){
   await page.goto('/index.html?fixture=typical');
