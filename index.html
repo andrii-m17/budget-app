@@ -4105,6 +4105,11 @@
       <button type="button" class="mono-switch" id="push-diag-btn" role="switch" aria-checked="false" aria-labelledby="push-diag-label" onclick="togglePushDiag()"><span></span></button>
     </div>
     <div id="push-diag-box" class="chk-box"></div>
+    <!-- Rev 2.32.239 (KB-UNIFIED): тимчасовий перемикач нової формули підйому листа для iPhone (за замовчуванням вимкнено); TODO: прибрати після підтвердження iPhone -->
+    <div class="chk-row">
+      <span id="kb-newf-label">Нова формула клавіатури (iPhone)</span>
+      <button type="button" class="mono-switch" id="kb-newf-btn" role="switch" aria-checked="false" aria-labelledby="kb-newf-label" onclick="toggleKbNewFormula()"><span></span></button>
+    </div>
   </div>
   <!-- Rev 2.32.75 (K3): середовище (лише поза робочим origin): «Мок» ↔ «Реальна база · лише читання» -->
   <div class="chk-label" id="cloud-env-label">Середовище</div>
@@ -13948,6 +13953,24 @@ function debugSafeAreaInsets(){
   };
 }
 // Rev 2.32.238 (KB-GEOM, клас A, лише діагностика при записі): подія kb-geometry для аналізу клавіатури й таб-бара на iPad/Android/iPhone/desktop. Без значень полів і персональних даних: лише розміри, прапорці й статичний рядок мета-тега viewport. Поведінку клавіатури не змінює (окремі слухачі, лише читання).
+// Rev 2.32.239 (KB-UNIFIED): нова формула підйому листа діє на iPad і Android; на iPhone (iOS, телефонний клас) за замовчуванням лишається СТАРА поведінка, поки її не підтвердить пристрій. Перемикач «Нова формула клавіатури (iPhone)» у «Сервіс → Діагностика» (локально, миттєво, без перезавантаження: діє з наступного відкриття листа). TODO: прибрати після підтвердження iPhone (разом зі старою гілкою й computeSheetLiftLegacy).
+const KB_NEWF_KEY = 'budget-kb-new-formula-iphone';
+function kbIsIphone(){ try{ return kbgDeviceClass({ ua: navigator.userAgent, platform: navigator.platform, maxTouchPoints: navigator.maxTouchPoints }) === 'iPhone'; }catch(e){ return false; } }
+function kbUseNewFormula(){
+  if(!kbIsIphone()) return true;
+  try{ return localStorage.getItem(KB_NEWF_KEY) === '1'; }catch(e){ return false; }
+}
+function renderKbNewFormula(){
+  const b = document.getElementById('kb-newf-btn'); if(!b) return;
+  let on = false; try{ on = localStorage.getItem(KB_NEWF_KEY) === '1'; }catch(e){}
+  b.setAttribute('aria-checked', on ? 'true' : 'false');
+}
+function toggleKbNewFormula(){
+  let on = false; try{ on = localStorage.getItem(KB_NEWF_KEY) === '1'; }catch(e){}
+  try{ if(on) localStorage.removeItem(KB_NEWF_KEY); else localStorage.setItem(KB_NEWF_KEY, '1'); }catch(e){}
+  renderKbNewFormula();
+  showTextToast(on ? 'Стара формула клавіатури (iPhone)' : 'Нова формула клавіатури (iPhone)', 'success');
+}
 function kbgDeviceClass(env){
   const ua = (env && env.ua) || '', mtp = (env && Number(env.maxTouchPoints)) || 0;
   if(/iPhone|iPod/.test(ua)) return 'iPhone';
@@ -23395,6 +23418,7 @@ function showNetStats(){
 function openTestingDrawer(){
   updateNetStatsRow();
   renderPushDiag(); // Rev 2.32.103 (NOTIF-3 Rev 2)
+  renderKbNewFormula(); // Rev 2.32.239
   renderCloudEnvUI();
   renderTestingDrawer();
   const backdrop = document.getElementById('testing-backdrop');
@@ -26227,6 +26251,7 @@ const CHECKS = [
   { id: '2.32.239-3', rev: '2.32.239', addedOn: '2026-11-01', title: 'Android: «Вхід» і «Нова витрата» (потрібен Android)', steps: ['Відкрийте «Вхід» і торкніться поля.', 'Закрийте, відкрийте «Нову витрату» й торкніться поля суми.'], expect: 'лист стоїть над клавіатурою й не «відлітає» високо вгору.', reasons: ['Лист відлітає вгору', 'Лист схований під клавіатурою'] },
   { id: '2.32.239-4', rev: '2.32.239', addedOn: '2026-11-01', title: 'iPhone: «Вхід» і шторки з полями без змін', steps: ['Відкрийте «Вхід» і торкніться поля.', 'Відкрийте картку боргу й торкніться поля суми.'], expect: 'лист стоїть над клавіатурою, як і раніше.', reasons: ['Лист стоїть нижче', 'Лист стоїть вище', 'Лист стрибає'] },
   { id: '2.32.239-5', rev: '2.32.239', addedOn: '2026-11-01', title: 'Таб-бар: відступ від низу на iPad і Android', steps: ['Відкрийте застосунок на iPad, потім на Android без клавіатури.'], expect: 'таб-бар стоїть вище системної смужки, відступ приблизно як на iPhone.', reasons: ['Таб-бар надто низько', 'Таб-бар надто високо'] },
+  { id: '2.32.239-6', rev: '2.32.239', addedOn: '2026-11-01', title: 'iPhone: перемикач у Діагностиці', steps: ['Відкрийте «Сервіс → Діагностика» і знайдіть перемикач «Нова формула клавіатури (iPhone)» (за замовчуванням вимкнений).', 'Відкрийте «Вхід» і торкніться поля, потім увімкніть перемикач, закрийте клавіатуру й торкніться поля знову.'], expect: 'вимкнений — лист стоїть як раніше; увімкнений — лист стоїть рівно над клавіатурою без стрибків; перемикач зберігається після перезапуску.', reasons: ['Перемикача нема', 'Лист стрибає', 'Перемикач не зберігається'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
@@ -28403,7 +28428,8 @@ function enterKbSheet(drawerEl, fieldEl){
   // немає передвиміру, тож міряємо як і раніше; оскільки ці 3 шторки
   // більше НЕ залежать від kb-open для bottom (CSS, 6D.182), результат той
   // самий незалежно ВІД МОМЕНТУ виміру.
-  const layoutRest = kbRestBottomLayout(drawerEl); // Rev 2.32.239: для .drawer — низ у розмітці після kb-open
+  const newF = kbUseNewFormula(); // Rev 2.32.239: iPhone за замовчуванням — стара поведінка (TODO: прибрати після підтвердження iPhone)
+  const layoutRest = newF ? kbRestBottomLayout(drawerEl) : null; // для .drawer — низ у розмітці після kb-open
   const hasPreMeasure = typeof drawerEl.__kbRestBottomY === 'number';
   let restBottom, naturalHeight;
   if(layoutRest){
@@ -28424,7 +28450,7 @@ function enterKbSheet(drawerEl, fieldEl){
   // — ЧИСЛО без одиниць (CSS calc(-1px * var(--sheet-lift))), а не вже
   // готовий px-рядок, як --kb-h/--vv-h, саме тому що знак множиться в
   // самому calc().
-  const lift = computeSheetLift({ innerH: window.innerHeight, vvH: vvEstimate, vvTop: 0, restBottom: restBottom, gap: 8 });
+  const lift = newF ? computeSheetLift({ innerH: window.innerHeight, vvH: vvEstimate, vvTop: 0, restBottom: restBottom, gap: 8 }) : computeSheetLiftLegacy(restBottom, baseVh, estimate, 8);
   window.__kbSheetRestBottom = restBottom; // лише для діагностики kb-geometry
   kbSheetNaturalHeight = naturalHeight;
   kbSheetLastLift = lift;
@@ -28461,6 +28487,10 @@ function enterKbSheet(drawerEl, fieldEl){
 // шторку ВГОРУ (від'ємний translateY). Регресія з промту: rest=780,
 // baseVh=894, kbH=389, gap=8 → 283.
 // Rev 2.32.239 (KB-UNIFIED): єдина формула підйому для iPhone, iPad і Android. lift = restBottom − (vvTop + vvH − gap): низ листа стає на gap вище нижньої межі ВИДИМОЇ області (visualViewport: offsetTop + height). На Android, де Chrome сам прокручує видиму область (offsetTop росте до висоти клавіатури), підйом автоматично 0 (подвійної компенсації немає); при offsetTop = 0 (iOS) результат такий самий, як у попередній формулі restBottom − (baseVh − kbH − gap) (регресія з промту: rest 780, vvH 505, gap 8 → 283). restBottom — низ листа БЕЗ підйому, виміряний уже в стані kb-open (див. kbRestBottomLayout). Від'ємний підйом (лист ВНИЗ) обмежений відступом спокою: не нижче gap від низу розмітки: minLift = −max(0, (innerH − restBottom) − gap).
+// Стара формула (до Rev 2.32.239), лишається для iPhone за замовчуванням. TODO: прибрати після підтвердження iPhone.
+function computeSheetLiftLegacy(restBottom, baseVh, kbH, gap){
+  return restBottom - (baseVh - kbH - gap);
+}
 function computeSheetLift(o){
   const gap = o.gap == null ? 8 : o.gap;
   const minLift = -Math.max(0, (o.innerH - o.restBottom) - gap);
@@ -28493,8 +28523,16 @@ function updateKbSheetGeometry(){
     if(!keyboardHeightCache[orientKey]) keyboardHeightCache[orientKey] = {};
     keyboardHeightCache[orientKey][kbSheetFieldKind] = kbH;
   }
-  if(isKeyboardOpen(baseVh, vvH)) scheduleLiveSheetLift(); // Rev 2.32.239: підйом живий на кожен visualViewport resize/scroll (раз на кадр), з «осіданням»
-  else KB_LIVE.lastTop = null;
+  if(isKeyboardOpen(baseVh, vvH)){
+    if(kbUseNewFormula()) scheduleLiveSheetLift(); // Rev 2.32.239: підйом живий на кожен visualViewport resize/scroll (раз на кадр), з «осіданням»
+    else if(kbSheetLiftDirty){ // стара поведінка (iPhone за замовчуванням), TODO: прибрати після підтвердження iPhone
+      const liveLift = computeSheetLiftLegacy(kbSheetRestBottom, baseVh, kbH, 8);
+      if(Math.abs(liveLift - kbSheetCurrentLift) > 2){
+        kbSheetCurrentLift = liveLift;
+        document.documentElement.style.setProperty('--sheet-lift', String(liveLift));
+      }
+    }
+  }else KB_LIVE.lastTop = null;
   correctPanIfNeeded();
 }
 // correctPanIfNeeded — Режим A єдиний запобіжник: якщо, НЕЗВАЖАЮЧИ на
@@ -28679,7 +28717,7 @@ function handleKeyboardFieldFocusIn(target){
         const vvEst = Math.max(0, baseVh - est);
         document.documentElement.style.setProperty('--kb-h', est + 'px');
         document.documentElement.style.setProperty('--vv-h', vvEst + 'px');
-        kbSheetCurrentLift = computeSheetLift({ innerH: window.innerHeight, vvH: vvEst, vvTop: 0, restBottom: kbSheetRestBottom, gap: 8 });
+        kbSheetCurrentLift = kbUseNewFormula() ? computeSheetLift({ innerH: window.innerHeight, vvH: vvEst, vvTop: 0, restBottom: kbSheetRestBottom, gap: 8 }) : computeSheetLiftLegacy(kbSheetRestBottom, baseVh, est, 8);
         document.documentElement.style.setProperty('--sheet-lift', String(kbSheetCurrentLift));
         document.documentElement.style.setProperty('--sheet-max-h', computeSheetMaxHeight(vvEst, 8, kbSheetNaturalHeight) + 'px');
         kbSheetLiftDirty = true;

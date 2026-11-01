@@ -5433,7 +5433,7 @@ function kbSheetSandbox(opts){
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
     'viewportOrientationKey', 'nextBaseViewportHeight', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
-    'enterKbSheet', 'kbRestBottomLayout', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
+    'enterKbSheet', 'kbRestBottomLayout', 'kbUseNewFormula', 'kbIsIphone', 'kbgDeviceClass', 'computeSheetLiftLegacy', 'KB_NEWF_KEY', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle', 'shouldReleaseKbOpen', // Rev 2.23.30 (6D.199)
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
     'computeSheetLift', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',

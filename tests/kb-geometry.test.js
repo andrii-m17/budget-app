@@ -35,3 +35,16 @@ test('підключення: слухачі лише в записі, на focu
   const body = SRC.slice(SRC.indexOf('function kbgMeasure'), SRC.indexOf('function pushDebugEvent'));
   assert.ok(!/\.value\b|\.textContent|\.innerText|setProperty|classList\.(add|remove)/.test(body), 'лише читання: без значень полів, без змін стилів і класів');
 });
+
+test('Rev 2.32.239: нова формула клавіатури — iPad і Android завжди, iPhone лише з перемикачем (локально); стара формула лишається для iPhone', () => {
+  const mk = (ua, flag, platform, mtp) => { const ls = flag ? { 'budget-kb-new-formula-iphone': '1' } : {}; return buildSandbox({ navigator: { userAgent: ua, platform: platform || '', maxTouchPoints: mtp || 5 }, localStorage: { getItem: k => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = v; } } }, ['kbUseNewFormula', 'kbIsIphone', 'KB_NEWF_KEY']); };
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', IPAD = 'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)', AND = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/126';
+  assert.equal(mk(IPHONE, false).kbUseNewFormula(), false, 'iPhone за замовчуванням — стара');
+  assert.equal(mk(IPHONE, true).kbUseNewFormula(), true, 'iPhone з перемикачем — нова');
+  assert.equal(mk(IPAD, false).kbUseNewFormula(), true); assert.equal(mk(AND, false).kbUseNewFormula(), true);
+  assert.equal(mk('Mozilla/5.0 (Macintosh)', false, 'MacIntel', 5).kbUseNewFormula(), true, 'iPadOS «як Mac» — iPad');
+  const g2 = buildSandbox({}, ['computeSheetLiftLegacy']);
+  assert.equal(g2.computeSheetLiftLegacy(780, 894, 389, 8), 283, 'стара формула без змін');
+  assert.match(SRC, /TODO: прибрати після підтвердження iPhone/);
+  assert.match(SRC, /id="kb-newf-btn" role="switch" aria-checked="false"/);
+});
