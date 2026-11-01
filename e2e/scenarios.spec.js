@@ -1136,3 +1136,23 @@ test('30c. запис, видалений на сервері, лишаєтьс�
   expect(st.lostLocal && st.lostSrv, 'відсутній повернувся локально й на сервері ' + JSON.stringify(st)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+// Rev 2.32.233: порожній журнал не кидає ReferenceError (renderRecords передавав у setJournalListHtml неіснуючу змінну keepIfSame).
+test('31. порожній журнал: місяць без записів і пошук без результатів — помилок сторінки немає, показується порожній стан', async ({ page }) => {
+  const errors = await boot(page, 'empty');
+  await page.waitForTimeout(800);
+  await page.evaluate(() => { switchTab('vytraty'); renderAll(); });
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => !!document.querySelector('#journal-list .empty-state, #records-list .empty-state, .empty-state')), 'порожній стан у «Витрати»').toBe(true);
+  const consoleErrors = [];
+  page.on('console', m => { if(m.type() === 'error' || /Помилка в/.test(m.text())) consoleErrors.push(m.text()); });
+  await page.evaluate(() => { renderRecords(); });
+  // повний журнал з активним пошуком без результатів
+  await page.evaluate(() => { openJournal(); });
+  await page.waitForTimeout(500);
+  await page.evaluate(() => { const i = document.getElementById('journal-search-input'); i.value = 'zzzневідомо'; onJournalSearchChange(); });
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => !!document.querySelector('#journal-list .empty-state, #journal-list')), 'журнал відрендерився').toBe(true);
+  expect(consoleErrors.filter(t => /keepIfSame|ReferenceError/.test(t)), 'у консолі немає ReferenceError').toEqual([]);
+  expect(errors).toEqual([]);
+});

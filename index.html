@@ -3796,7 +3796,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.232</div>
+  <div class="version-footer">Money Tree · Rev 2.32.233</div>
 </div>
   </div>
 </div>
@@ -9485,7 +9485,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.232';
+const APP_VERSION = '2.32.233';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -19374,7 +19374,8 @@ function renderRecords(){
   if(showJournalBtn) showJournalBtn.classList.toggle('hidden', combined.length <= SHORT_JOURNAL_LIMIT);
 
   if(combined.length===0){
-    setJournalListHtml(container, `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><div class="es-title">Ще немає жодного запису</div><div class="es-sub">Додай витрату/дохід вище або імпортуй з Excel у розділі «Сервіс».</div></div>`, keepIfSame);
+    // Rev 2.32.233: раніше тут передавався третій аргумент keepIfSame, якого в renderRecords немає (він з renderJournalView, Rev 2.32.224) — ReferenceError у порожньому журналі; короткий журнал завжди перебудовується.
+    setJournalListHtml(container, `<div class="empty-state"><div class="glyph"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><div class="es-title">Ще немає жодного запису</div><div class="es-sub">Додай витрату/дохід вище або імпортуй з Excel у розділі «Сервіс».</div></div>`);
     return;
   }
 
