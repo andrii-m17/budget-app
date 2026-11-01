@@ -181,6 +181,11 @@
       // Rev 2.32.229: запізніле зв'язування (trg_categories_late_bind / trg_subcategories_late_bind): витрати з такою назвою й порожнім id отримують його тихо (без нової мітки версії й події)
       const colL = table === 'categories' ? 'category' : 'subcategory';
       (T.expenses || []).forEach(function(e){ if(!e[colL + '_id'] && e[colL] === row.name) e[colL + '_id'] = row.id; });
+    }else if(table === 'bank_accounts' && old && old.name !== row.name){
+      // Rev 2.32.237: trg_sync_debt_names_bank (sync_debt_names_on_bank_rename): перейменування картки на сервері одразу міняє назву всіх її боргів (за bank_account_id), нова мітка версії, updated_by = автор перейменування; сервер веде чат.
+      (T.debts || []).filter(function(d){ return d.bank_account_id === row.id; }).forEach(function(d){
+        d.name = row.name; d.updated_at = ts; d.updated_by = row.updated_by || d.updated_by; emit(state, 'debts', 'UPDATE', d);
+      });
     }else if((table === 'categories' || table === 'subcategories') && old && old.name !== row.name){
       const col = table === 'categories' ? 'category' : 'subcategory';
       // Rev 2.32.229: старе ім'я стає псевдонімом (таблиця taxonomy_aliases; на сервері 60 днів, очищення cron); псевдонім, що збігається з новою назвою, прибирається

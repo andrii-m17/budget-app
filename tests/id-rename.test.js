@@ -8,17 +8,18 @@ const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
 const fn = (name) => { const i = SRC.indexOf('function ' + name); assert.ok(i >= 0, name); return SRC.slice(i, SRC.indexOf('\n}\n', i) + 3); };
-const NAMES = ['hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hiddenEntryKey', 'hiddenEntryFor', 'rekeyHiddenFrom', 'hideEntityFromMonth', 'debtOwnerAccount', 'linkedOwnerAccount', 'findAccountMonthDebt', 'cascadeInstallmentRename', 'debtAccount', 'debtAccountKey', 'purgeAccountPlan', 'removeAccountFromState'];
+const NAMES = ['hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor', 'rekeyHiddenFrom', 'hideEntityFromMonth', 'debtOwnerAccount', 'linkedOwnerAccount', 'findAccountMonthDebt', 'cascadeInstallmentRename', 'cascadeAccountRename', 'cascadeCardRename', 'debtAccount', 'debtAccountKey', 'purgeAccountPlan', 'removeAccountFromState'];
 const env = (g) => buildSandbox(Object.assign({ debts: [], expenses: [], hiddenFrom: {}, ignoredDivergences: {}, bankAccounts: [], installmentAccounts: [] }, g), NAMES);
 const A = (name, id) => ({ name, cloudId: id });
 const D = (id, name, month, extra) => Object.assign({ id, name, kind: 'installment', month, balance: 1000 }, extra || {});
 
 // ---- ключі приховування ----
-test('hideKey: ОЧ з cloudId → «installment:#id»; без cloudId і картки — за назвою (як раніше)', function(){
+test('hideKey: ОЧ і картка з cloudId → «kind:#id»; без cloudId — за назвою (Rev 2.32.237: картки теж за id)', function(){
   const c = env({ installmentAccounts: [A('Предмет А', 'id-a'), { name: 'Предмет Б' }], bankAccounts: [A('Картка', 'b1')] });
   assert.equal(c.hideKey('Предмет А', 'installment'), 'installment:#id-a');
   assert.equal(c.hideKey('Предмет Б', 'installment'), 'installment:Предмет Б');
-  assert.equal(c.hideKey('Картка', 'card'), 'card:Картка');
+  assert.equal(c.hideKey('Картка', 'card'), 'card:#b1');
+  assert.equal(c.hideKey('Без-id', 'card'), 'card:Без-id');
   assert.equal(c.hideKey('Нема', 'installment'), 'installment:Нема');
 });
 test('сумісність: старий ключ за назвою читається; ключ за id має пріоритет; ключ зі старим id знаходиться за accountName', function(){

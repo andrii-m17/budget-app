@@ -7,8 +7,8 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
-const BASE_NAMES = ['upcomingPayments', 'ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'expectedPaymentForCard', 'installmentChainCalc', 'installmentDuePassed', 'installmentStartMonth',
-  'installmentPayAmount', 'installmentExpectedPayment', 'installmentPaidFull', 'isHiddenForMonth', 'hiddenEntryFor', 'hiddenEntryKey', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount'];
+const BASE_NAMES = ['upcomingPayments', 'findAccountMonthDebt', 'ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'expectedPaymentForCard', 'installmentChainCalc', 'installmentDuePassed', 'installmentStartMonth',
+  'installmentPayAmount', 'installmentExpectedPayment', 'installmentPaidFull', 'isHiddenForMonth', 'hiddenEntryFor', 'hiddenEntryKey', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind'];
 function sandbox(globals){
   let miss = [];
   for(let i = 0; i < 60; i++){

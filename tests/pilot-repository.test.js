@@ -181,12 +181,12 @@ const REPOSITORY_NAMES = [
   // Rev #30 (6D.27, installment_accounts повний цикл) — той самий
   // cross-realm-override прийом, що pullBankAccountsCore тести.
   // pullInstallmentAccountsPilotManual НЕ включена (DOM-шар).
-  'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom', 'cascadeInstallmentRename', 'debtAccount', 'debtAccountKey', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
+  'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom', 'cascadeInstallmentRename', 'cascadeAccountRename', 'cascadeCardRename', 'debtAccount', 'debtAccountKey', 'pullInstallmentAccountsPilot', 'ensureInstallmentAccountIdentity',
   // Rev #30 (6D.32, hidden_entities перша реалізація) — той самий
   // local/push розподіл, що решта 5 доменів. pullHiddenEntitiesPilotManual
   // НЕ включена (DOM-шар).
   'saveHiddenFrom', 'saveHiddenFromLocal', 'monthToDate', 'dateToMonth', 'pushHiddenEntitiesPilot',
-  'pullHiddenEntitiesCore', 'hideKeyLegacy', 'hideKeyForAccount', 'pullHiddenEntitiesPilot',
+  'pullHiddenEntitiesCore', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'pullHiddenEntitiesPilot',
   // Rev #30 (6D.143) — каскад проти осиротілих hidden_entities-рядків при
   // self-heal cloudId (bank_accounts/installment_accounts), викликається
   // з pushBankAccountsPilot()/pushInstallmentAccountsPilot().
@@ -203,7 +203,7 @@ const REPOSITORY_NAMES = [
   // Rev #30 (6D.60) — пакетний push (лише bulk-шляхи restore/syncAllPilotManual),
   // з відкатом на pushXRecordPilot() вище за провалу пакету.
   'pushExpensesBatch', 'linkedOwnerAccount', 'pushExpensesBatched', 'pushIncomesBatch', 'pushIncomesBatched', 'pushDebtsBatch', 'debtOwnerAccount', 'pushDebtsBatched',
-  'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hiddenEntryKey', 'hiddenEntryFor', 'divergenceKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
+  'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor', 'divergenceKey', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'installmentStartMonth', 'installmentStartMonthFor', 'isCardVisibleForMonth', 'cardCreatedMonth',
   // Rev 2.22.83 (6D.156, Ревізія B1) — epoch-штамп для legacy-бекфілу hiddenFrom.
   'HIDDEN_FROM_LEGACY_EPOCH',
   'ensureInstallmentFirstMonth',
@@ -215,7 +215,7 @@ const REPOSITORY_NAMES = [
   'restoreHiddenFromFromBackup', 'restoreIgnoredDivergencesFromBackup',
   // Rev 2.22.82 (6D.155, Ревізія B) — hiddenFrom tombstone-модель.
   'normalizeHiddenFromBackupEntry', 'ensureHiddenFromShape', 'ensureHiddenFromIdentity',
-  'hideEntityFromMonth', 'hideKeyLegacy', 'hiddenEntryKey', 'hiddenEntryFor', 'unhideEntity',
+  'hideEntityFromMonth', 'hideKeyLegacy', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor', 'unhideEntity',
   // Rev #28.D2
   'loadExpenses', 'loadIncomes', 'loadDebts',
   'saveExpenses', 'saveIncomes', 'saveDebts',
@@ -253,7 +253,7 @@ const REPOSITORY_NAMES = [
   'activeDebts',
   // Rev #30 (6D.47) — P1.3, LWW-merge для 5 name/cloudId-based доменів;
   // спільний хелпер, яким тепер користуються всі 5 restoreXFromBackup().
-  'mergeBackupRecordsByCloudIdOrName', 'mdLostToServer', 'pushInFlight',
+  'mergeBackupRecordsByCloudIdOrName', 'mdLostToServer', 'pushInFlight', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'cascadeAccountRename', 'cascadeCardRename',
   // Rev #30 (6D.84) — Внутрішні сповіщення, Частина 3а/3б: автор-довідник +
   // черга "чужих дій", потрібні pullXCore()-тестам нижче. familyUsersById/
   // hiddenEntitiesPulledOnce/otherActorEvents — lowercase `let`, а не
@@ -1588,7 +1588,8 @@ test('6D.156: нормалізований legacy-запис (epoch) НЕ пер
   ctx.ensureHiddenFromShape();
   const result = await ctx.pullHiddenEntitiesCore();
   assert.equal(result.updated, 1, 'epoch МАЄ програвати Cloud-рядку, навіть реальному tombstone');
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'].deletedAt, '2026-05-01T00:00:00.000Z');
+  assert.equal(ctx.hiddenFrom['card:#b1'].deletedAt, '2026-05-01T00:00:00.000Z'); // Rev 2.32.237: старий ключ за назвою перенесено на ключ за id
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'], undefined);
 });
 
 test('6D.156: ніколи не синхронізований legacy-запис (epoch, Cloud про нього не знає) → pull знімає syncedUpdatedAt, наступний push нарешті відправляє', async () => {
@@ -1888,7 +1889,7 @@ test('pushHiddenEntitiesPilot: нічого не відправлялось (п�
   ctx.isSupabaseSdkReady = () => true;
   ctx.hiddenFrom = {};
   ctx.getSupabaseClient = () => fakeSupabaseSelectClient('hidden_entities', []);
-  const pullSpy = spyOn(ctx, 'pullHiddenEntitiesCore', 'hideKeyLegacy', 'hideKeyForAccount');
+  const pullSpy = spyOn(ctx, 'pullHiddenEntitiesCore', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind');
   await ctx.pushHiddenEntitiesPilot();
   assert.equal(pullSpy.count(), 0);
 });
@@ -2246,7 +2247,7 @@ test('pullHiddenEntitiesCore: entity_type "bank" резолвиться в bankA
   ctx.hiddenFrom = {};
   const result = await ctx.pullHiddenEntitiesCore();
   assert.deepEqual(plain(result), { skipped: false, added: 1, updated: 0, skippedFk: 0 });
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-06');
+  assert.equal(ctx.hiddenFrom['card:#b1'].month, '2026-06');
 });
 
 test('pullHiddenEntitiesCore: entity_type "installment" резолвиться в installmentAccounts за cloudId, kind "installment" у ключі', async () => {
@@ -2268,7 +2269,7 @@ test('pullHiddenEntitiesCore: брудне приховування без зл�
   ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-07-01T00:00:00.000Z' } }; // локальна зміна новіша
   const result = await ctx.pullHiddenEntitiesCore();
   assert.deepEqual(plain(result), { skipped: false, added: 0, updated: 1, skippedFk: 0 });
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-08'); // сервер переміг
+  assert.equal(ctx.hiddenFrom['card:#b1'].month, '2026-08'); // сервер переміг
 });
 
 test('pullHiddenEntitiesCore: LWW — Cloud НОВІШИЙ за локальну версію (інший пристрій оновив) → застосовується', async () => {
@@ -2277,7 +2278,7 @@ test('pullHiddenEntitiesCore: LWW — Cloud НОВІШИЙ за локальну
   ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-01-01T00:00:00.000Z' } }; // локальне старіше
   const result = await ctx.pullHiddenEntitiesCore();
   assert.deepEqual(plain(result), { skipped: false, added: 0, updated: 1, skippedFk: 0 });
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-08');
+  assert.equal(ctx.hiddenFrom['card:#b1'].month, '2026-08');
 });
 
 test('pullHiddenEntitiesCore: Cloud-tombstone (deleted_at) → показує назад локально', async () => {
@@ -2286,7 +2287,7 @@ test('pullHiddenEntitiesCore: Cloud-tombstone (deleted_at) → показує н
   ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-01-01T00:00:00.000Z' } };
   const result = await ctx.pullHiddenEntitiesCore();
   assert.equal(result.updated, 1);
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'].deletedAt, '2026-07-01T00:00:00.000Z');
+  assert.equal(ctx.hiddenFrom['card:#b1'].deletedAt, '2026-07-01T00:00:00.000Z');
 });
 
 test('pullHiddenEntitiesCore: локально приховане, якого Cloud не має → не чіпається (це відповідальність push, не pull)', async () => {

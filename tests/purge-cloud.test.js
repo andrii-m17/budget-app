@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const ex = require('./extract');
 
-const NAMES = ['TRASH_PURGEABLE_TYPES', 'findLiveCloudId', 'isAccountTrashType', 'isTaxonomyTrashType', 'purgeAccountPlan', 'purgeTaxonomyPlan', 'taxonomyUsage', 'purgeBlockedReason',
+const NAMES = ['TRASH_PURGEABLE_TYPES', 'findLiveCloudId', 'isAccountTrashType', 'isTaxonomyTrashType', 'purgeAccountPlan', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'purgeTaxonomyPlan', 'taxonomyUsage', 'purgeBlockedReason',
   'runAccountPurge', 'runTaxonomyPurge', 'runTrashPurgeCore', 'purgeCloudRow'];
 const J = v => JSON.parse(JSON.stringify(v));
 

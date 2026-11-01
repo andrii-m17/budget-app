@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ctx = ex.buildSandbox({}, ['purgeAccountPlan', 'purgeAccountConfirmText', 'removeAccountFromState', 'filterPurgedAccounts', 'filterPurgedDebts']);
+const ctx = ex.buildSandbox({}, ['purgeAccountPlan', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'purgeAccountConfirmText', 'removeAccountFromState', 'filterPurgedAccounts', 'filterPurgedDebts']);
 const J = v => JSON.parse(JSON.stringify(v));
 const fresh = () => ({
   bankAccounts: [{ name: 'Моно', cloudId: 'b1' }, { name: 'Приват', cloudId: 'b2' }],

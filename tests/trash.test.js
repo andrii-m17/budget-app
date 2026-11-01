@@ -352,3 +352,9 @@ test('reconcileTrash: порожня відповідь при "мертвому
   o = await run(null, true);
   assert.equal(o.r, null); assert.deepEqual(o.removed, []);
 });
+
+test('buildTrashItems (Rev 2.32.237): прихована картка/ОЧ з ключем за id («card:#id») показується під назвою рахунку, ключ елемента — за назвою; рахунку з таким id нема — не показується', () => {
+  const st = { expenses: [], incomes: [], dictionary: [], categories: [], subcategories: [], hiddenFrom: { 'card:#b1': { month: '2026-10', updatedAt: '2026-10-04T10:00:00.000Z' }, 'card:#нема': { month: '2026-10', updatedAt: '2026-10-04T10:00:00.000Z' }, 'installment:#i1': { month: '2026-09', updatedAt: '2026-10-05T10:00:00.000Z' } }, bankAccounts: [{ name: 'Картка А', cloudId: 'b1' }], installmentAccounts: [{ name: 'Предмет А', cloudId: 'i1' }], debts: [] };
+  const items = j(ctx.buildTrashItems(st)).filter(i => i.type === 'card' || i.type === 'installment');
+  assert.deepEqual(items.map(i => [i.type, i.title, i.key]).sort(), [['card', 'Картка А', 'card:Картка А'], ['installment', 'Предмет А', 'installment:Предмет А']]);
+});

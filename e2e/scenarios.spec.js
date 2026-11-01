@@ -1254,3 +1254,31 @@ test('34. без порівняння годинників: брудна вит�
   await expect.poll(() => page.evaluate(c => { const r = window.MockCloud.state.tables.categories.find(x => x.id === c.id); return r.name + '|' + r.active; }, cat), { timeout: 15000 }).toBe('Нова-назва-ЧАС|false');
   expect(errors).toEqual([]);
 });
+
+// Rev 2.32.237 (CARD-BY-ID): картки за id: перейменування (сервер міняє назви боргів тригером) і зміна ліміту іншим пристроєм — обидві зберігаються; ключ приховування за id переживає перейменування; без cloudId — за назвою.
+test('35. картки за id: перейменування тут і зміна ліміту на іншому пристрої зберігаються разом, борги з новою назвою (сервер і локально, без push боргів); приховування картки за id переживає перейменування; без cloudId — за назвою', async ({ page }) => {
+  const errors = await boot(page, 'typical');
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => { window.MockCloud.state.clock = () => new Date(Date.now() + 86400000).toISOString(); });
+  const c = await page.evaluate(() => { const a = bankAccounts.find(x => x.cloudId && x.serverBase); return { id: a.cloudId, name: a.name, debts: debts.filter(d => d.kind === 'card' && d.accountId === a.cloudId).length || debts.filter(d => d.kind === 'card' && d.name === a.name).length }; });
+  expect(c.debts, 'у картки є борги').toBeGreaterThan(0);
+  const NEW = 'Нова-картка-ID';
+  // 1. приховування під старою назвою → ключ за id
+  await page.evaluate(([i, n]) => { hideEntityFromMonth(hideKey(n, 'card'), '2099-01', hideKeyLegacy(n, 'card'), n); }, [c.id, c.name]);
+  expect(await page.evaluate(i => Object.keys(hiddenFrom).includes('card:#' + i), c.id), 'ключ приховування за id').toBe(true);
+  // 2. перейменування тут (ще не надіслане) + зміна ліміту на іншому пристрої
+  const w0 = await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.table === 'debts' && x.method !== 'GET' && x.method !== 'HEAD').length);
+  await page.evaluate(async ([i, n, nn]) => { const a = bankAccounts.find(x => x.cloudId === i); const ci = cascadeCardRename(a, n, nn); a.name = nn; a.updatedAt = new Date().toISOString(); await saveDebts(); await saveHiddenFromLocal(); await saveBankAccountsLocal(); window.MockCloud.otherDevice({ table: 'bank_accounts', id: i, op: 'update', patch: { credit_limit: 77777 } }); await pushBankAccountsPilot(); await pullBankAccountsCore(); await pullDebtsCore(); }, [c.id, c.name, NEW]);
+  const srv = await page.evaluate(i => { const T = window.MockCloud.state.tables, a = T.bank_accounts.find(x => x.id === i); return { name: a.name, limit: a.credit_limit, debts: T.debts.filter(d => d.bank_account_id === i).map(d => d.name) }; }, c.id);
+  expect(srv.name, 'нова назва на сервері').toBe(NEW); expect(srv.limit, 'чужий ліміт збережено').toBe(77777);
+  expect(srv.debts.length).toBeGreaterThan(0); expect(srv.debts.every(n => n === NEW), 'усі борги картки з новою назвою на сервері (тригер)').toBe(true);
+  const loc = await page.evaluate(i => { const a = bankAccounts.find(x => x.cloudId === i); return { name: a.name, limit: a.creditLimit, names: debts.filter(d => d.kind === 'card' && d.accountId === i).map(d => d.name) }; }, c.id);
+  expect(loc.name).toBe(NEW); expect(loc.limit, 'ліміт з іншого пристрою прийнято').toBe(77777);
+  expect(loc.names.every(n => n === NEW), 'борги локально з новою назвою').toBe(true);
+  expect(await page.evaluate(() => window.MockCloud.state.log.filter(x => x.kind === 'rest' && x.table === 'debts' && x.method !== 'GET' && x.method !== 'HEAD').length), 'жодного запису боргів із цього пристрою (назву веде сервер)').toBe(w0);
+  // 3. приховування за id пережило перейменування і читається за новою назвою
+  expect(await page.evaluate(([i, n]) => [Object.keys(hiddenFrom).includes('card:#' + i), isHiddenForMonth(n, 'card', '2099-02'), hiddenFrom['card:#' + i].accountName], [c.id, NEW])).toEqual([true, true, NEW]);
+  // 4. картка без cloudId — ключ за назвою (як раніше)
+  expect(await page.evaluate(() => hideKey('Без-id-картка', 'card'))).toBe('card:Без-id-картка');
+  expect(errors).toEqual([]);
+});
