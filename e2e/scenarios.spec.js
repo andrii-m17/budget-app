@@ -1229,3 +1229,28 @@ test('33. відновлення: без копії — одразу вибір 
   expect(await abList(page), 'прострочена копія прибрана').toEqual([]);
   expect(errors).toEqual([]);
 });
+
+// Rev 2.32.236 (NO-CLOCK): рішення «чия версія новіша» не залежить від годинника пристрою. Годинник сервера мока й «майбутній» updatedAt на пристрої (±1 доба).
+test('34. без порівняння годинників: брудна витрата без зліпка з «майбутнім» updatedAt програє серверу; чистий запис приймає сервер; моє перейменування категорії переживає чужу зміну «активна»', async ({ page }) => {
+  const errors = await boot(page, 'typical');
+  await page.waitForTimeout(1500);
+  const DAY = 86400000;
+  await page.evaluate(d => { window.MockCloud.state.clock = () => new Date(Date.now() + d).toISOString(); }, DAY); // годинник сервера не повертається назад (маркер синхронізації рухається лише вперед)
+  for(const sk of [3 * DAY, -DAY]){ // годинник пристрою: updatedAt на 3 доби попереду й на добу позаду
+    // 1. брудна без зліпка, локальний updatedAt на добу попереду: раніше «локальний новіший» лишав свою суму
+    const id = await page.evaluate(i => { const e = expenses.filter(x => !x.deletedAt && x.serverBase && x.serverUpdatedAt)[i]; return e.id; }, sk > 0 ? 0 : 1);
+    await page.evaluate(async ([i, sk]) => { const e = expenses.find(x => x.id === i); delete e.serverBase; delete e.serverUpdatedAt; e.amount += 111; e.updatedAt = new Date(Date.now() + sk).toISOString(); await saveExpenses(); window.MockCloud.otherDevice({ table: 'expenses', id: i, op: 'update', patch: { amount: 4242 } }); await pullExpensesCore(); }, [id, sk]);
+    expect(await page.evaluate(i => expenses.find(x => x.id === i).amount, id), 'сервер переміг (годинник пристрою ' + sk + ')').toBe(4242);
+    expect(await page.evaluate(i => !!expenses.find(x => x.id === i).serverBase, id), 'запис одержав зліпок').toBe(true);
+    // 2. чистий запис із «майбутнім» updatedAt приймає серверну правку
+    await page.evaluate(async ([i, sk]) => { const e = expenses.find(x => x.id === i); e.updatedAt = new Date(Date.now() + sk).toISOString(); e.syncedUpdatedAt = e.updatedAt; await saveExpenses(); window.MockCloud.otherDevice({ table: 'expenses', id: i, op: 'update', patch: { amount: 5151 } }); await pullExpensesCore(); }, [id, sk]);
+    expect(await page.evaluate(i => expenses.find(x => x.id === i).amount, id)).toBe(5151);
+  }
+  // 3. перейменування категорії тут (ще не надіслане), «активна» змінена на іншому пристрої: назва лишається моєю, active — серверне, потім усе доходить до сервера
+  const cat = await page.evaluate(() => { const c = CATEGORIES.find(x => x.cloudId && x.active && x.serverBase); return { id: c.cloudId, name: c.name }; });
+  await page.evaluate(async c => { const x = CATEGORIES.find(r => r.cloudId === c.id); x.name = 'Нова-назва-ЧАС'; x.updatedAt = new Date(Date.now() + 86400000).toISOString(); await saveCategoriesLocal(); window.MockCloud.otherDevice({ table: 'categories', id: c.id, op: 'update', patch: { active: false } }); await pullCategoriesCore(); }, cat);
+  const mid = await page.evaluate(c => { const x = CATEGORIES.find(r => r.cloudId === c.id); return { name: x.name, active: x.active }; }, cat);
+  expect(mid.name, 'моє перейменування лишилось').toBe('Нова-назва-ЧАС'); expect(mid.active, 'серверне «активна» прийнято').toBe(false);
+  await expect.poll(() => page.evaluate(c => { const r = window.MockCloud.state.tables.categories.find(x => x.id === c.id); return r.name + '|' + r.active; }, cat), { timeout: 15000 }).toBe('Нова-назва-ЧАС|false');
+  expect(errors).toEqual([]);
+});

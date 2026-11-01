@@ -132,7 +132,7 @@ test('URGENT-LOOP: джерело — у всіх 6 таблицях завер�
     assert.ok(!SRC.includes('if(!anyError) await pull' + n + 'Core();'), 'безумовного pull немає: ' + n);
     assert.match(SRC, new RegExp("noteSyncCycle\\('[a-z_]+', 'pull'\\);[\\s\\S]{0,3000}?"), 'лічильник pull: ' + n);
   });
-  assert.equal((SRC.match(/localTime > cloudTime && (isDirty\(byCloudId\)|isSubcategoryDirty\(byCloudId, categoriesByNameMap\(\)\)|planDictionaryPush\(\[byCloudId\], null, dictionaryParentIds\)\.push\.length > 0)/g) || []).length, 5);
+  assert.ok(!/localTime > cloudTime/.test(SRC), 'Rev 2.32.236: порівняння за годинником прибрано, «брудність» — лічильники (shadowDirtyNew)');
   assert.equal((SRC.match(/noteSyncCycle\('[a-z_]+', 'push'\)/g) || []).length, 6);
   assert.equal((SRC.match(/noteSyncCycle\('[a-z_]+', 'pull'\)/g) || []).length, 6);
 });
@@ -173,14 +173,14 @@ test('URGENT-LOOP subcategories: «локальний новіший, але ч�
   assert.equal(d.SUBCATEGORIES[0].updatedAt, S0); assert.equal(d.SUBCATEGORIES[0].syncedUpdatedAt, S0);
   assert.equal(d.__log.filter(l => l.method === 'PATCH').length, 0);
 });
-test('URGENT-LOOP subcategories: чистий за часом, але батьківський cloudId змінився (syncedCategoryId ≠) → як раніше push (клас «брудний через батька» збережено), без циклу', async () => {
+test('URGENT-LOOP subcategories: чистий за лічильниками, але батьківський cloudId змінився (syncedCategoryId ≠) → Rev 2.32.236: приймається серверний рядок (батько з сервера), push нема, без циклу', async () => {
   const st = treeServer(); const future = new Date(Date.now() + 3600e3).toISOString();
   const d = treeDevice(st, future, { sub: { syncedCategoryId: 'старий-id' } });
   await d.pullSubcategoriesCore(); await quiet(120);
-  assert.ok(d.__calls.push >= 1, 'push викликано');
+  assert.equal(d.__calls.push, 0, 'push нема: запис чистий, сервер приймається');
   assert.ok(d.__calls.push <= 3 && d.__calls.pull <= 4, `без циклу: push ${d.__calls.push}, pull ${d.__calls.pull}`);
 });
-test('URGENT-LOOP dictionary: «локальний новіший, але чистий» без циклу; зміна батьківських id → push зберігається', async () => {
+test('URGENT-LOOP dictionary: «локальний новіший, але чистий» без циклу; зміна батьківських id → приймається сервер (Rev 2.32.236), push нема', async () => {
   const st = treeServer(); const future = new Date(Date.now() + 3600e3).toISOString();
   const d = treeDevice(st, future);
   await d.pullDictionaryCore(); await quiet(60);
@@ -189,7 +189,7 @@ test('URGENT-LOOP dictionary: «локальний новіший, але чис
   const st2 = treeServer();
   const d2 = treeDevice(st2, future, { dict: { syncedSubcategoryId: 'інший' } });
   await d2.pullDictionaryCore(); await quiet(120);
-  assert.ok(d2.__calls.push >= 1 && d2.__calls.push <= 3 && d2.__calls.pull <= 4, `push ${d2.__calls.push}, pull ${d2.__calls.pull}`);
+  assert.ok(d2.__calls.push === 0 && d2.__calls.pull <= 4, `push ${d2.__calls.push}, pull ${d2.__calls.pull}`);
 });
 test('два пристрої (bank_accounts): A змінює й пушить, B підтягує; B змінює, A підтягує; обидва сходяться на серверному updated_at, без зайвих запитів', async () => {
   const st = server();

@@ -253,7 +253,7 @@ const REPOSITORY_NAMES = [
   'activeDebts',
   // Rev #30 (6D.47) — P1.3, LWW-merge для 5 name/cloudId-based доменів;
   // спільний хелпер, яким тепер користуються всі 5 restoreXFromBackup().
-  'mergeBackupRecordsByCloudIdOrName',
+  'mergeBackupRecordsByCloudIdOrName', 'mdLostToServer', 'pushInFlight',
   // Rev #30 (6D.84) — Внутрішні сповіщення, Частина 3а/3б: автор-довідник +
   // черга "чужих дій", потрібні pullXCore()-тестам нижче. familyUsersById/
   // hiddenEntitiesPulledOnce/otherActorEvents — lowercase `let`, а не
@@ -294,6 +294,7 @@ function sandbox({ localStorageInitial, idbImpl } = {}){
       bankAccounts: [],
       installmentAccounts: [], lastRenameCollisions: [],
       hiddenFrom: {},
+      authorInfoFor: function(){ return null; }, fmt: function(n){ return String(n); }, isoToUaDateText: function(s){ return s; }, updateNotifBell: function(){}, conflictFlushCards: function(){}, document: { querySelectorAll: function(){ return []; }, querySelector: function(){ return null; }, getElementById: function(){ return null; }, activeElement: null }, // Rev 2.32.236: брудний запис без зліпка тепер проходить mdLostToServer → mdRecordConflicts
       ignoredDivergences: {},
       expenses: [],
       incomes: [],
@@ -816,18 +817,18 @@ test('pullCategoriesCore: правило 1 — Cloud новіший (LWW) → о
   assert.equal(ctx.CATEGORIES[0].updatedAt, '2024-06-01T00:00:00.000Z');
 });
 
-test('pullCategoriesCore: LWW — локальний СТРОГО новіший за Cloud → local НЕ перезаписується (keptLocal)', async () => {
+test('pullCategoriesCore: брудна категорія без зліпка → виграє сервер (Rev 2.32.236: без порівняння годинників)', async () => {
   // Точний сценарій з DoD: користувач змінив тип локально (updatedAt
   // свіжий), Cloud ще має старе значення (updated_at давніший) — pull НЕ
   // повинен відкотити локальну зміну.
   const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: "Обов'язкова", active: true, cloudId: 'c1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 1 });
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0 });
   // Локальна версія лишається БЕЗ ЗМІН — Cloud НЕ перезаписав тип.
-  assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
+  assert.equal(ctx.CATEGORIES[0].type, 'Гнучка');
   assert.equal(ctx.CATEGORIES[0].active, true);
-  assert.equal(ctx.CATEGORIES[0].updatedAt, '2024-06-01T00:00:00.000Z');
+  assert.equal(ctx.CATEGORIES[0].updatedAt, '2024-01-01T00:00:00.000Z');
 });
 
 test('pullCategoriesCore: LWW — рівні updatedAt → Cloud перемагає (той самий fallback, що діяв раніше для всіх випадків)', async () => {
@@ -947,13 +948,13 @@ test('pullCategoriesCore: пише лише saveCategoriesLocal() — pushCatego
   assert.equal(ctx.localStorage.getItem('budget_categories_v1'), JSON.stringify(ctx.CATEGORIES));
 });
 
-test('pullCategoriesCore: push-retry — LWW-переможець (keptLocal) ОДРАЗУ тригерить pushCategoriesPilot(), не чекаючи ручного редагування', async () => {
+test('pullCategoriesCore: брудна категорія без зліпка: pushCategoriesPilot() НЕ тригериться (виграє сервер) (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: "Обов'язкова", active: true, cloudId: 'c1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushCategoriesPilot');
   const result = await ctx.pullCategoriesCore();
-  assert.equal(result.keptLocal, 1);
-  assert.equal(pushSpy.count(), 1);
+  assert.equal(result.keptLocal, 0);
+  assert.equal(pushSpy.count(), 0);
 });
 
 test('pullCategoriesCore: push-retry НЕ тригериться, коли Cloud перемагає (лише правило 1 "keptLocal" гілка це робить)', async () => {
@@ -1040,14 +1041,14 @@ test('pullBankAccountsCore: правило 1 — Cloud новіший (LWW) → 
   assert.equal(ctx.bankAccounts[0].creditLimit, 60000);
 });
 
-test('pullBankAccountsCore: LWW — локальний СТРОГО новіший → НЕ перезаписується (keptLocal) + push-retry', async () => {
+test('pullBankAccountsCore: брудний запис без зліпка → виграє сервер, push-retry нема (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват Банк', credit_limit: 50000, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 75000, cloudId: 'b1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushBankAccountsPilot');
   const result = await ctx.pullBankAccountsCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 1 });
-  assert.equal(ctx.bankAccounts[0].creditLimit, 75000); // локальне НЕ перезаписано
-  assert.equal(pushSpy.count(), 1); // Частина 1: push-retry тригериться одразу
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0 });
+  assert.equal(ctx.bankAccounts[0].creditLimit, 50000); // сервер переміг
+  assert.equal(pushSpy.count(), 0);
 });
 
 test('pullBankAccountsCore: push-retry НЕ тригериться, коли Cloud перемагає', async () => {
@@ -1173,15 +1174,15 @@ test('pullInstallmentAccountsCore: правило 1 — Cloud новіший (LW
   assert.equal(ctx.installmentAccounts[0].dueDay, 10);
 });
 
-test('pullInstallmentAccountsCore: LWW — локальний СТРОГО новіший → НЕ перезаписується (keptLocal) + push-retry', async () => {
+test('pullInstallmentAccountsCore: брудна ОЧ без зліпка → виграє сервер, push-retry нема (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 5, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 27000, dueDay: 15, cloudId: 'i1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushInstallmentAccountsPilot');
   const result = await ctx.pullInstallmentAccountsCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 1 });
-  assert.equal(ctx.installmentAccounts[0].initialAmount, 27000); // локальне НЕ перезаписано
-  assert.equal(ctx.installmentAccounts[0].dueDay, 15);
-  assert.equal(pushSpy.count(), 1); // Частина 1: push-retry тригериться одразу
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0 });
+  assert.equal(ctx.installmentAccounts[0].initialAmount, 25000); // сервер переміг
+  assert.equal(ctx.installmentAccounts[0].dueDay, 5);
+  assert.equal(pushSpy.count(), 0);
 });
 
 // Rev #30 (6D.63) — той самий bugfix і клас багу, що pullDebtsCore()
@@ -1256,17 +1257,17 @@ test('pullInstallmentAccountsCore: пише лише saveInstallmentAccountsLoca
   assert.equal(ctx.localStorage.getItem('budget_installmentaccounts_v1'), JSON.stringify(ctx.installmentAccounts));
 });
 
-test('pullInstallmentAccountsCore: reconciliation на два пристрої з різними полями (один міняє initialAmount, другий — dueDay) — новіший локально виграє ЦІЛИМ записом (LWW не field-level)', async () => {
+test('pullInstallmentAccountsCore: reconciliation на два пристрої з різними полями (один міняє initialAmount, другий — dueDay) — без зліпка виграє сервер ЦІЛИМ записом (Rev 2.32.236: без порівняння годинників)', async () => {
   // Той самий, задокументований у "Відомі обмеження" компроміс, що
   // pullCategoriesCore/pullBankAccountsCore: LWW порівнює УВЕСЬ запис за
   // updatedAt, не зливає поля окремо — тут явно перевірено на installment_accounts.
   const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 20, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
   ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 27000, dueDay: 5, cloudId: 'i1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-02T00:00:00.000Z' }];
   const result = await ctx.pullInstallmentAccountsCore();
-  assert.equal(result.keptLocal, 1);
-  // локальний (initialAmount:27000, dueDay:5) новіший за Cloud (due_day:20) → весь запис лишається локальним
-  assert.equal(ctx.installmentAccounts[0].initialAmount, 27000);
-  assert.equal(ctx.installmentAccounts[0].dueDay, 5);
+  assert.equal(result.keptLocal, 0);
+  // без зліпка розбіжні поля — конфлікти, сервер переміг
+  assert.equal(ctx.installmentAccounts[0].initialAmount, 25000);
+  assert.equal(ctx.installmentAccounts[0].dueDay, 20);
 });
 
 test('pullInstallmentAccountsPilot: тонка обгортка над pullInstallmentAccountsCore (той самий результат)', async () => {
@@ -2261,13 +2262,13 @@ test('pullHiddenEntitiesCore: entity_type "installment" резолвиться �
 // Rev 2.22.82 (6D.155, Ревізія B) — "приховати перемагає" (existence-only)
 // замінено на справжній LWW за updated_at: локальна зміна, новіша за
 // Cloud-рядок, перемагає (той самий принцип, що всі tombstone-домени).
-test('pullHiddenEntitiesCore: LWW — локальна зміна НОВІША за Cloud → Cloud-версію НЕ перезаписує', async () => {
+test('pullHiddenEntitiesCore: брудне приховування без зліпка → виграє сервер (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullHiddenSandbox([{ entity_type: 'bank', entity_id: 'b1', hidden_from_month: '2026-08-01', updated_at: '2026-01-01T00:00:00.000Z' }]);
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
   ctx.hiddenFrom = { 'card:Приват Банк': { month: '2026-06', updatedAt: '2026-07-01T00:00:00.000Z' } }; // локальна зміна новіша
   const result = await ctx.pullHiddenEntitiesCore();
-  assert.deepEqual(plain(result), { skipped: false, added: 0, updated: 0, skippedFk: 0 });
-  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-06'); // не перезаписано Cloud-версією
+  assert.deepEqual(plain(result), { skipped: false, added: 0, updated: 1, skippedFk: 0 });
+  assert.equal(ctx.hiddenFrom['card:Приват Банк'].month, '2026-08'); // сервер переміг
 });
 
 test('pullHiddenEntitiesCore: LWW — Cloud НОВІШИЙ за локальну версію (інший пристрій оновив) → застосовується', async () => {
@@ -2541,7 +2542,7 @@ test('pullIncomesCore: інкрементальний пул + редагува�
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
   ctx.setSyncMarker('incomes', '2020-01-01T00:00:00.000Z');
-  ctx.incomes = [{ id: 'i1', date: '2026-05-05', source: 'Зарплата', amount: 900, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' }];
+  ctx.incomes = [{ id: 'i1', date: '2026-05-05', source: 'Зарплата', amount: 900, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z', syncedUpdatedAt: '2024-01-01T00:00:00.000Z' }];
   const fake = fakeSupabaseMarkerAwareClient('incomes', [{ id: 'i1', amount: 1000, income_date: '2026-05-06', note: 'Зарплата+', deleted_at: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z', updated_by: 'user-1' }]);
   ctx.getSupabaseClient = () => fake.client;
   // Перехоплюємо ПЕРШИЙ setTimeout (той, що переводить syncing→done) —
@@ -2609,14 +2610,14 @@ test('pullHiddenEntitiesCore: ДРУГИЙ пул (уже hiddenEntitiesPulledOn
   assert.equal(events[0].name, 'Monobank');
 });
 
-test('pullExpensesCore: LWW — локальний СТРОГО новіший → keptLocal + push-retry, Cloud НЕ перезаписує', async () => {
+test('pullExpensesCore: брудна витрата без зліпка → виграє сервер, push-retry нема (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullExpensesSandbox([{ id: 'e1', amount: 999, expense_date: '2026-05-06', note: 'Cloud-версія', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Локальна версія', amount: 500, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushExpenseRecordPilot', 'linkedOwnerAccount');
   const result = await ctx.pullExpensesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 0, keptLocal: 1, skippedFk: 0 });
-  assert.equal(ctx.expenses[0].name, 'Локальна версія');
-  assert.equal(pushSpy.count(), 1);
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.expenses[0].name, 'Cloud-версія');
+  assert.equal(pushSpy.count(), 0);
 });
 
 test('pullExpensesCore: локальний запис без Cloud-відповідника → не чіпається (видалення не синхронізується)', async () => {
@@ -2646,14 +2647,32 @@ test('pullExpensesCore: Cloud-рядок з deleted_at, локальний за�
   assert.equal(ctx.expenses.length, 1); // фізично лишається в масиві — не спліситься
 });
 
-test('pullExpensesCore: локальний СТРОГО новіший за Cloud-tombstone → keptLocal + push-retry, deletedAt НЕ застосовується', async () => {
+test('pullExpensesCore (Rev 2.32.236): запис у польоті (відлуння власного insert) не затирається серверним рядком, без годинника; без відправки — виграє сервер', async () => {
+  const mk = () => { const c = pullExpensesSandbox([{ id: 'e1', amount: 999, expense_date: '2026-05-06', note: 'Cloud', linked_installment_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]); c.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Локальна', amount: 500, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-02T00:00:00.000Z' }]; spyOn(c, 'pushExpenseRecordPilot', 'linkedOwnerAccount'); return c; };
+  const a = mk(); a.expSyncEntries = new Map([['e1', { n: 1 }]]);
+  const ra = await a.pullExpensesCore();
+  assert.equal(ra.keptLocal, 1); assert.equal(a.expenses[0].amount, 500, 'правка під час відправки збережена');
+  const b = mk(); const rb = await b.pullExpensesCore();
+  assert.equal(rb.keptLocal, 0); assert.equal(b.expenses[0].amount, 999, 'без відправки — сервер');
+});
+test('pullCategoriesCore (Rev 2.32.236): моє перейменування чекає, сервер змінив лише «активна», а я ще й тип: тип мій, «активна» серверна, назва моя, push', async () => {
+  const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: false, type: 'Гнучка', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:00.000Z' }]);
+  const base = { type: 'Гнучка', active: true };
+  ctx.CATEGORIES = [{ name: '🍔 Нова', type: "Обов'язкова", active: true, cloudId: 'c1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-02T00:00:00.000Z', syncedUpdatedAt: '2024-01-01T00:00:00.000Z', serverName: '🍔 Їжа', serverBase: base, serverUpdatedAt: '2024-01-01T00:00:00.000Z' }];
+  const pushSpy = spyOn(ctx, 'pushCategoriesPilot');
+  const r = await ctx.pullCategoriesCore();
+  assert.equal(r.keptLocal, 1);
+  assert.equal(ctx.CATEGORIES[0].name, '🍔 Нова'); assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова"); assert.equal(ctx.CATEGORIES[0].active, false);
+  assert.equal(pushSpy.count(), 1);
+});
+test('pullExpensesCore: ненадіслана правка без зліпка проти Cloud-tombstone → виграє сервер: deletedAt застосовується, push-retry нема (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullExpensesSandbox([{ id: 'e1', amount: 500, expense_date: '2026-05-05', note: 'Кава', linked_installment_id: null, deleted_at: '2026-05-06T00:00:00.000Z', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2026-05-06T00:00:00.000Z' }]);
   ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Кава (відредаговано ПІСЛЯ видалення на іншому пристрої)', amount: 600, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2026-05-08T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushExpenseRecordPilot', 'linkedOwnerAccount');
   const result = await ctx.pullExpensesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, added: 0, keptLocal: 1, skippedFk: 0 });
-  assert.equal(ctx.expenses[0].deletedAt, undefined);
-  assert.equal(pushSpy.count(), 1);
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.expenses[0].deletedAt, '2026-05-06T00:00:00.000Z');
+  assert.equal(pushSpy.count(), 0);
 });
 
 test('pullExpensesPilot: тонка обгортка над pullExpensesCore (той самий результат)', async () => {
@@ -2693,14 +2712,14 @@ test('pullIncomesCore: LWW — Cloud новіший → оновлює', async (
   assert.equal(ctx.incomes[0].amount, 25000);
 });
 
-test('pullIncomesCore: LWW — локальний СТРОГО новіший → keptLocal + push-retry', async () => {
+test('pullIncomesCore: брудний дохід без зліпка → виграє сервер, push-retry нема (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullIncomesSandbox([{ id: 'i1', amount: 25000, income_date: '2026-05-01', note: 'Зарплата', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: 'Зарплата', amount: 20000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushIncomeRecordPilot');
   const result = await ctx.pullIncomesCore();
-  assert.equal(result.keptLocal, 1);
-  assert.equal(ctx.incomes[0].amount, 20000);
-  assert.equal(pushSpy.count(), 1);
+  assert.equal(result.keptLocal, 0);
+  assert.equal(ctx.incomes[0].amount, 25000);
+  assert.equal(pushSpy.count(), 0);
 });
 
 // Rev #30 (6D.43) — Sync Safety Patch P0.1, tombstone для incomes.
@@ -2779,15 +2798,15 @@ test('pullDebtsCore: LWW — Cloud новіший → оновлює балан�
   assert.equal(ctx.debts[0].balance, 2000);
 });
 
-test('pullDebtsCore: LWW — локальний СТРОГО новіший → keptLocal + push-retry, Cloud не перезаписує', async () => {
+test('pullDebtsCore: брудний борг без зліпка → виграє сервер, push-retry нема (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Приват Банк', kind: 'card', month: '2026-05-01', balance: 2000, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.bankAccounts = [{ name: 'Приват Банк', cloudId: 'b1' }];
   ctx.debts = [{ id: 'd1', name: 'Приват Банк', kind: 'card', month: '2026-05', balance: 1500, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushDebtRecordPilot', 'debtOwnerAccount');
   const result = await ctx.pullDebtsCore();
-  assert.equal(result.keptLocal, 1);
-  assert.equal(ctx.debts[0].balance, 1500);
-  assert.equal(pushSpy.count(), 1);
+  assert.equal(result.keptLocal, 0);
+  assert.equal(ctx.debts[0].balance, 2000);
+  assert.equal(pushSpy.count(), 0);
 });
 
 // Rev #30 (6D.63) — КРИТИЧНИЙ фікс, знайдений користувачем: "Синхронізувати
@@ -3027,15 +3046,15 @@ test('pullSubcategoriesCore: правило 1 — Cloud новіший (LWW) →
   assert.equal(ctx.SUBCATEGORIES[0].category, '🍔 Їжа');
 });
 
-test('pullSubcategoriesCore: LWW — локальний СТРОГО новіший → НЕ перезаписується (keptLocal) + push-retry', async () => {
+test('pullSubcategoriesCore: брудна підкатегорія без зліпка → виграє сервер, push-retry нема (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullSubcategoriesSandbox([{ id: 's1', name: 'Кафе', category_id: 'c1', active: true, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
   ctx.SUBCATEGORIES = [{ name: 'Кафе (нова назва)', category: '🍔 Їжа', active: true, cloudId: 's1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushSubcategoriesPilot');
   const result = await ctx.pullSubcategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 1, skippedFk: 0 });
-  assert.equal(ctx.SUBCATEGORIES[0].name, 'Кафе (нова назва)'); // локальне НЕ перезаписано
-  assert.equal(pushSpy.count(), 1); // Частина 1: push-retry тригериться одразу
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.SUBCATEGORIES[0].name, 'Кафе'); // сервер переміг
+  assert.equal(pushSpy.count(), 0);
 });
 
 test('pullSubcategoriesCore: правило 2 — unlinked local з тим самим name → зв\'язується, category резолвиться за cloudId', async () => {
@@ -3170,15 +3189,15 @@ test('pullDictionaryCore: правило 1 — Cloud новіший (LWW) → о
   assert.equal(ctx.DICTIONARY[0].sub, 'Кафе');
 });
 
-test('pullDictionaryCore: LWW — локальний СТРОГО новіший → НЕ перезаписується (keptLocal) + push-retry', async () => {
+test('pullDictionaryCore: брудне слово без зліпка → виграє сервер, push-retry нема (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullDictionarySandbox([{ id: 'd1', keyword: 'кава', category_id: 'c1', subcategory_id: null, created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
   ctx.DICTIONARY = [{ kw: 'кава латте', cat: '🍔 Їжа', sub: null, cloudId: 'd1', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushDictionaryPilot');
   const result = await ctx.pullDictionaryCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 1, skippedFk: 0 });
-  assert.equal(ctx.DICTIONARY[0].kw, 'кава латте');
-  assert.equal(pushSpy.count(), 1);
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 0, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.DICTIONARY[0].kw, 'кава');
+  assert.equal(pushSpy.count(), 0);
 });
 
 test('pullDictionaryCore: правило 2 — unlinked local з тим самим kw → зв\'язується', async () => {
@@ -6713,13 +6732,13 @@ test('pullExpensesCore (2.32.186): локальна версія «новіша�
   assert.equal(ctx.expenses[0].updatedAt, '2024-06-01T00:00:05.000Z');
   assert.equal(pushSpy.count(), 0, 'повторного push нема');
 });
-test('pullExpensesCore (2.32.186): локальна зміна новіша й ще не надіслана → вміст не перезаписується, але автор донаповнюється', async () => {
+test('pullExpensesCore (2.32.186): ненадіслана зміна без зліпка → виграє сервер, автор з сервера (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullExpensesSandbox([{ id: 'e1', amount: 999, expense_date: '2026-05-06', note: 'Cloud', linked_installment_id: null, created_by: 'user-2', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.expenses = [{ id: 'e1', date: '2026-05-05', name: 'Локальна', amount: 500, manual: true, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   spyOn(ctx, 'pushExpenseRecordPilot', 'linkedOwnerAccount');
   const result = await ctx.pullExpensesCore();
-  assert.equal(result.keptLocal, 1);
-  assert.equal(ctx.expenses[0].name, 'Локальна'); assert.equal(ctx.expenses[0].amount, 500);
+  assert.equal(result.keptLocal, 0);
+  assert.equal(ctx.expenses[0].name, 'Cloud'); assert.equal(ctx.expenses[0].amount, 999);
   assert.equal(ctx.expenses[0].createdBy, 'user-2');
 });
 
@@ -6736,13 +6755,13 @@ test('pullIncomesCore (2.32.187): надісланий «новіший» зап
   assert.equal(ctx.incomes[0].createdBy, 'user-2');
   assert.equal(pushSpy.count(), 0);
 });
-test('pullIncomesCore (2.32.187): ненадісланий «новіший» запис лишає свій вміст (push-retry), автор донаповнюється', async () => {
+test('pullIncomesCore (2.32.187): ненадісланий запис без зліпка: виграє сервер, автор з сервера (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullIncomesSandbox([{ id: 'i1', amount: 25000, income_date: '2026-05-01', note: 'ЗП', created_by: 'user-2', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.incomes = [{ id: 'i1', date: '2026-05-01', source: 'ЗП', amount: 20000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushIncomeRecordPilot');
   const result = await ctx.pullIncomesCore();
-  assert.equal(result.keptLocal, 1); assert.equal(ctx.incomes[0].amount, 20000); assert.equal(ctx.incomes[0].createdBy, 'user-2');
-  assert.equal(pushSpy.count(), 1);
+  assert.equal(result.keptLocal, 0); assert.equal(ctx.incomes[0].amount, 25000); assert.equal(ctx.incomes[0].createdBy, 'user-2');
+  assert.equal(pushSpy.count(), 0);
 });
 test('pullDebtsCore (2.32.187): надісланий «новіший» борг приймає серверну версію без повторного push', async () => {
   const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Картка Б', kind: 'card', month: '2026-05-01', balance: 2000, created_by: 'user-2', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-06-01T00:00:20.000Z' }]);
@@ -6754,23 +6773,20 @@ test('pullDebtsCore (2.32.187): надісланий «новіший» борг
   assert.equal(ctx.debts[0].balance, 2000); assert.equal(ctx.debts[0].createdBy, 'user-2');
   assert.equal(pushSpy.count(), 0);
 });
-test('pullDebtsCore (2.32.187): ненадісланий «новіший» борг лишає свій баланс, автор донаповнюється', async () => {
+test('pullDebtsCore (2.32.187): ненадісланий борг без зліпка: виграє сервер, автор з сервера (Rev 2.32.236: без порівняння годинників)', async () => {
   const ctx = pullDebtsSandbox([{ id: 'd1', bank_account_id: 'b1', installment_account_id: null, name: 'Картка Б', kind: 'card', month: '2026-05-01', balance: 2000, created_by: 'user-2', created_at: '2024-01-01T00:00:00.000Z', updated_at: '2024-01-01T00:00:00.000Z' }]);
   ctx.bankAccounts = [{ name: 'Картка Б', cloudId: 'b1' }];
   ctx.debts = [{ id: 'd1', name: 'Картка Б', kind: 'card', month: '2026-05', balance: 1000, createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-06-01T00:00:00.000Z' }];
   const pushSpy = spyOn(ctx, 'pushDebtRecordPilot', 'debtOwnerAccount');
   const result = await ctx.pullDebtsCore();
-  assert.equal(result.keptLocal, 1); assert.equal(ctx.debts[0].balance, 1000); assert.equal(ctx.debts[0].createdBy, 'user-2');
-  assert.equal(pushSpy.count(), 1);
+  assert.equal(result.keptLocal, 0); assert.equal(ctx.debts[0].balance, 2000); assert.equal(ctx.debts[0].createdBy, 'user-2');
+  assert.equal(pushSpy.count(), 0);
 });
-test('охоронні 2.32.187: усі pull із LWW-гілкою «локальна новіша» мають умову clean/dirty; fieldless-формули й push не чіпались', function(){
+test('охоронні Rev 2.32.236: у pull нема рішень «чия версія новіша» за годинником пристрою (localIsNewer/localTime/cloudTime/backupTime); брудний без зліпка проходить mdLostToServer, брудний зі зліпком — mdPullDirty', function(){
   const SRC = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
-  ['pullExpensesCore', 'pullIncomesCore', 'pullDebtsCore'].forEach(function(n){
+  ['localIsNewer', 'localTime', 'cloudTime', 'backupTime'].forEach(function(w){ assert.ok(!SRC.includes(w), w + ' прибрано'); });
+  ['pullExpensesCore', 'pullIncomesCore', 'pullDebtsCore', 'pullCategoriesCore', 'pullSubcategoriesCore', 'pullDictionaryCore', 'pullBankAccountsCore', 'pullInstallmentAccountsCore', 'pullHiddenEntitiesCore'].forEach(function(n){
     const i = SRC.indexOf('async function ' + n), body = SRC.slice(i, SRC.indexOf('\nasync function ', i + 10));
-    assert.match(body, /localIsNewer && !localClean/, n);
-  });
-  ['pullCategoriesCore', 'pullSubcategoriesCore', 'pullDictionaryCore', 'pullBankAccountsCore', 'pullInstallmentAccountsCore'].forEach(function(n){
-    const i = SRC.indexOf('async function ' + n), body = SRC.slice(i, SRC.indexOf('\nasync function ', i + 10));
-    assert.match(body, /localIsNewer = [^\n]*(isDirty|isSubcategoryDirty|planDictionaryPush)/, n + ': вже з перевіркою «брудний» (URGENT-LOOP)');
+    assert.match(body, /mdPullDirty\(/, n); assert.match(body, /mdLostToServer\(/, n);
   });
 });
