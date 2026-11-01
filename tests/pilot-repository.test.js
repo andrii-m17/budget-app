@@ -6514,7 +6514,7 @@ function debugRecorderDomSandbox(opts){
   }, [
     'DEBUG_EVENT_ALLOWLIST', 'sanitizeDebugEvent', 'ringBufferPush', 'pushDebugEvent',
     'debugSafeAreaInsets', 'captureDebugGeometry',
-    'onDebugWindowResize', 'onDebugVvResize', 'onDebugVvScroll', 'onDebugScroll',
+    'onDebugWindowResize', 'onKbgVvChange', 'onKbgFocusIn', 'recordKbGeometry', 'kbgSchedule', 'kbgMeasure', 'onDebugVvResize', 'onDebugVvScroll', 'onDebugScroll',
     'onDebugFocusIn', 'onDebugFocusOut', 'onDebugOrientationChange', 'onDebugVisibilityChange',
     'onDebugPageShow', 'onDebugPageHide', 'onDebugTouchStart', 'onDebugTouchEnd', 'onDebugAddButtonPointer', 'debugPressFacts', 'debugRectOf', 'debugTargetInfo', 'debugTextHash', 'onDebugBodyClassChange', 'onExpenseFocusNeighbors', 'onInputFocusAudit',
     'attachDebugRecorderListeners', 'detachDebugRecorderListeners',

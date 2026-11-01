@@ -3822,7 +3822,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.237</div>
+  <div class="version-footer">Money Tree · Rev 2.32.238</div>
 </div>
   </div>
 </div>
@@ -9525,7 +9525,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.237';
+const APP_VERSION = '2.32.238';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13714,6 +13714,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   'scrollY', 'docClientH', 'bodyClasses', 'kbInset',
   'activeElementTag', 'activeElementId', 'activeElementType',
   'orientation', 'tabbarTop', 'tabbarHeight',
+  'kbgWhy', 'devClass', 'ptrCoarse', 'hoverHover', 'standaloneMode', 'vkPresent', 'vkOverlays', 'viewportMeta', 'tabbarGap', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'sheetLiftCss', // Rev 2.32.238 (KB-GEOM): подія kb-geometry — лише числа, прапорці й статичний рядок мета-тега viewport
   'safeTop', 'safeRight', 'safeBottom', 'safeLeft',
   'touchX', 'touchY', 'targetTag', 'targetId', 'targetClasses',
   // Rev 2.32.169 (FIELD-GUARD): подія field-attrs — атрибути сфокусованого поля у «Структурі» (без значень)
@@ -13944,6 +13945,58 @@ function debugSafeAreaInsets(){
     bottom: parseFloat(cs.paddingBottom) || 0, left: parseFloat(cs.paddingLeft) || 0,
   };
 }
+// Rev 2.32.238 (KB-GEOM, клас A, лише діагностика при записі): подія kb-geometry для аналізу клавіатури й таб-бара на iPad/Android/iPhone/desktop. Без значень полів і персональних даних: лише розміри, прапорці й статичний рядок мета-тега viewport. Поведінку клавіатури не змінює (окремі слухачі, лише читання).
+function kbgDeviceClass(env){
+  const ua = (env && env.ua) || '', mtp = (env && Number(env.maxTouchPoints)) || 0;
+  if(/iPhone|iPod/.test(ua)) return 'iPhone';
+  if(/iPad/.test(ua) || (env && env.platform === 'MacIntel' && mtp > 1)) return 'iPad'; // iPadOS у режимі «сайт для комп'ютера» називає себе Macintosh
+  if(/Android/.test(ua)) return 'Android';
+  return 'desktop';
+}
+function kbgR(v){ return typeof v === 'number' && isFinite(v) ? Math.round(v * 10) / 10 : null; }
+// Чиста функція: знімок вимірів → поля події. kbHeightCalc = innerHeight − vv.height − vv.offsetTop (формула з практик).
+function kbgSnapshot(m){
+  const vv = m.vv || null, ih = m.innerHeight;
+  const o = { kbgWhy: String(m.why || ''), devClass: m.device || kbgDeviceClass(m), innerW: m.innerWidth, innerH: ih,
+    vvW: vv ? kbgR(vv.width) : null, vvH: vv ? kbgR(vv.height) : null, vvOffsetTop: vv ? kbgR(vv.offsetTop) : null, vvOffsetLeft: vv ? kbgR(vv.offsetLeft) : null, vvScale: vv ? kbgR(vv.scale) : null,
+    safeTop: kbgR(m.safeTop), safeBottom: kbgR(m.safeBottom), ptrCoarse: !!m.coarse, hoverHover: !!m.hover, standaloneMode: !!m.standalone,
+    orientation: m.innerWidth > ih ? 'landscape' : 'portrait', vkPresent: !!m.hasVk, vkOverlays: m.vkOverlays == null ? null : !!m.vkOverlays, viewportMeta: String(m.viewportMeta || '').slice(0, 160),
+    kbHeightCalc: vv ? Math.max(0, kbgR(ih - vv.height - vv.offsetTop)) : null, kbInset: m.kbCss == null ? null : String(m.kbCss), sheetLiftCss: m.liftCss == null ? null : String(m.liftCss) };
+  if(m.tabbar){ o.tabbarHeight = kbgR(m.tabbar.height); o.tabbarTop = kbgR(m.tabbar.top); o.tabbarGap = kbgR(ih - m.tabbar.bottom); }
+  if(m.sheet){ o.sheetTop = kbgR(m.sheet.top); o.sheetBottom = kbgR(m.sheet.bottom); o.sheetHeight = kbgR(m.sheet.height); }
+  if(m.field){ o.fieldTop = kbgR(m.field.top); o.fieldBottom = kbgR(m.field.bottom); }
+  return o;
+}
+function kbgMeasure(why){
+  const mm = function(q){ try{ return !!(window.matchMedia && window.matchMedia(q).matches); }catch(e){ return false; } };
+  const rect = function(el){ if(!el) return null; const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, height: b.height }; };
+  const vv = window.visualViewport, safe = debugSafeAreaInsets(), root = document.documentElement;
+  const a = document.activeElement, isField = !!(a && /^(INPUT|TEXTAREA)$/.test(a.tagName));
+  const meta = document.querySelector('meta[name="viewport"]');
+  const vk = typeof navigator !== 'undefined' ? navigator.virtualKeyboard : null;
+  return { why: why, innerWidth: window.innerWidth, innerHeight: window.innerHeight,
+    vv: vv ? { width: vv.width, height: vv.height, offsetTop: vv.offsetTop, offsetLeft: vv.offsetLeft, scale: vv.scale } : null,
+    safeTop: safe.top, safeBottom: safe.bottom, coarse: mm('(pointer: coarse)'), hover: mm('(hover: hover)'), standalone: !!(navigator.standalone || mm('(display-mode: standalone)')),
+    hasVk: !!vk, vkOverlays: vk ? vk.overlaysContent : null, viewportMeta: meta ? meta.getAttribute('content') : '',
+    device: kbgDeviceClass({ ua: navigator.userAgent, platform: navigator.platform, maxTouchPoints: navigator.maxTouchPoints }),
+    tabbar: rect(document.querySelector('nav.tabbar')), sheet: rect(document.querySelector('.drawer.open, .app-modal.open')), field: isField ? rect(a) : null,
+    kbCss: root.style.getPropertyValue('--kb-h'), liftCss: root.style.getPropertyValue('--sheet-lift') };
+}
+function recordKbGeometry(why){
+  if(!debugRecordingActive) return;
+  try{ pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'kb-geometry' }, kbgSnapshot(kbgMeasure(why)))); }catch(e){}
+}
+let kbgSettleTimer = null;
+function kbgSchedule(why){ // «осідання»: iOS оновлює visualViewport із запізненням, тож другий знімок через ≈150 мс
+  if(kbgSettleTimer) clearTimeout(kbgSettleTimer);
+  kbgSettleTimer = setTimeout(function(){ kbgSettleTimer = null; recordKbGeometry(why + '-settled'); }, 150);
+}
+function onKbgFocusIn(e){
+  const t = e && e.target;
+  if(!t || !/^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
+  recordKbGeometry('focus'); kbgSchedule('focus');
+}
+function onKbgVvChange(){ recordKbGeometry('vv'); kbgSchedule('vv'); }
 function pushDebugEvent(raw){
   if(!debugRecordingActive) return;
   debugEventBuffer = ringBufferPush(debugEventBuffer, sanitizeDebugEvent(raw), DEBUG_RECORDING_MAX_EVENTS);
@@ -14210,7 +14263,10 @@ function attachDebugRecorderListeners(){
   if(window.visualViewport){
     on(window.visualViewport, 'resize', onDebugVvResize);
     on(window.visualViewport, 'scroll', onDebugVvScroll);
+    on(window.visualViewport, 'resize', onKbgVvChange); // Rev 2.32.238 (KB-GEOM)
+    on(window.visualViewport, 'scroll', onKbgVvChange);
   }
+  on(document, 'focusin', onKbgFocusIn, true); // Rev 2.32.238 (KB-GEOM): capture, лише читання
   on(window, 'scroll', onDebugScroll, true); // capture: ловимо скрол БУДЬ-ЯКого внутрішнього контейнера (#main-col, .drawer), не лише window
   on(document, 'focusin', onDebugFocusIn);
   on(document, 'focusin', onInputFocusAudit, true); // Rev 2.31.4 (C): input-focus-audit
@@ -14284,6 +14340,7 @@ function startDebugRecording(scenario){
   if(typeof recordFieldsCensus === 'function') recordFieldsCensus(); // Rev 2.32.31 (A): fields-census
   if(typeof recordFieldsSnapshot === 'function') recordFieldsSnapshot('start'); // Rev 2.32.217 (FIELDS-SNAP)
   if(typeof recordBaselineCensus === 'function') recordBaselineCensus('start'); // Rev 2.32.229 (BASE-CENSUS)
+  if(typeof recordKbGeometry === 'function') recordKbGeometry('start'); // Rev 2.32.238 (KB-GEOM)
   if(typeof recordKbEnv === 'function') recordKbEnv(); // Rev 2.32.9 (B): kb-env
   if(typeof XSS_AUDITED_SITES === 'number') pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'xss-audit', sites: XSS_AUDITED_SITES }); // Rev 2.32.19 (X): лише кількість місць, значень немає
   debugRecordingTimerInterval = setInterval(updateDebugRecordButtonUI, 1000);
@@ -14295,6 +14352,7 @@ function stopDebugRecording(){
   captureDebugGeometry('stop');
   if(typeof recordFieldsSnapshot === 'function') recordFieldsSnapshot('stop'); // Rev 2.32.217 (FIELDS-SNAP)
   if(typeof recordBaselineCensus === 'function') recordBaselineCensus('stop'); // Rev 2.32.229 (BASE-CENSUS)
+  if(typeof recordKbGeometry === 'function') recordKbGeometry('stop'); // Rev 2.32.238 (KB-GEOM)
   debugRecordingActive = false;
   detachDebugRecorderListeners();
   if(debugRecordingTimerInterval){ clearInterval(debugRecordingTimerInterval); debugRecordingTimerInterval = null; }
@@ -14325,6 +14383,7 @@ function markDebugEvent(){
   captureDebugGeometry('mark');
   if(typeof recordFieldsSnapshot === 'function') recordFieldsSnapshot('mark'); // Rev 2.32.217 (FIELDS-SNAP)
   if(typeof recordBaselineCensus === 'function') recordBaselineCensus('mark'); // Rev 2.32.229 (BASE-CENSUS)
+  if(typeof recordKbGeometry === 'function') recordKbGeometry('mark'); // Rev 2.32.238 (KB-GEOM)
   const btn = document.getElementById('debug-record-mark-btn');
   if(!btn || btn.disabled) return;
   const original = btn.textContent;
@@ -26160,6 +26219,7 @@ const CHECKS = [
   { id: '2.32.235-1', rev: '2.32.235', addedOn: '2026-11-01', title: 'Відновлення з файлу й повернення стану до відновлення', steps: ['У «Сервіс → Резервне копіювання» збережіть файл і змініть суму будь-якої витрати.', 'Натисніть «Відновити», оберіть цей файл і підтвердьте «Повернути дані».', 'Знову натисніть «Відновити», оберіть «Повернути стан до відновлення» і підтвердьте.'], expect: 'після другого кроку сума повернулась, показано «Повернуто N записів…», під плитками пояснення, як повернутись; після третього сума знову така, як була до відновлення, а під плитками звичний текст.', reasons: ['Сума не повернулась', 'Лист не відкрився', 'Повернення стану не спрацювало', 'Помилка'] },
   { id: '2.32.236-1', rev: '2.32.236', addedOn: '2026-11-01', title: 'Перейменування категорії й зміна типу на двох телефонах (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах.', 'На першому перейменуйте категорію, на другому змініть її тип.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'на обох телефонах категорія має нову назву й новий тип, сповіщень немає.', reasons: ['Лишилась стара назва', 'Тип не змінився', 'З\u2019явилось сповіщення'] },
   { id: '2.32.237-1', rev: '2.32.237', addedOn: '2026-11-01', title: 'Перейменування картки й зміна ліміту на двох телефонах (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах.', 'На першому перейменуйте картку, на другому змініть її кредитний ліміт.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'на обох телефонах картка має нову назву й новий ліміт, її борги в «Обліку» й «Аналітиці» — з новою назвою, сповіщень немає.', reasons: ['Лишилась стара назва', 'Ліміт не змінився', 'Борги під старою назвою', 'З\u2019явилось сповіщення'] },
+  { id: '2.32.238-1', rev: '2.32.238', addedOn: '2026-11-01', title: 'Діагностика геометрії клавіатури', steps: ['Відкрийте «Сервіс → Діагностика → Записати діагностику».', 'Відкрийте форму з полем (наприклад, «Нова витрата»), торкніться поля й дочекайтесь клавіатури, натисніть «Мітка».', 'Закрийте клавіатуру, натисніть «Стоп» і «Надіслати лог».'], expect: 'лог надіслано без помилок.', reasons: ['Лог не надіслано', 'Помилка'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
