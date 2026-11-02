@@ -43,7 +43,7 @@ for(const [name, dev, scrolled, android, flag] of CASES){
         await page.waitForTimeout(1000);
         const r = await page.evaluate(s => { const b = document.querySelector(s).getBoundingClientRect(); return { bottom: b.bottom, target: window.__vv.top + window.__vv.h - 8, lift: getComputedStyle(document.documentElement).getPropertyValue('--sheet-lift') }; }, sel);
         expect(Math.abs(r.bottom - r.target), name + ' · ' + which + ' · низ ' + r.bottom + ' проти цілі ' + r.target + ' (lift ' + r.lift + ')').toBeLessThanOrEqual(1.5);
-        if(scrolled) expect(Number(r.lift), 'Android: Chrome уже прокрутив — підйом не подвоюється').toBeLessThanOrEqual(Math.max(0, r.bottom - r.target) + 40);
+        if(scrolled && which === 'card') expect(await page.evaluate(() => Number(getComputedStyle(document.documentElement).getPropertyValue('--sheet-vvtop'))), 'Android: зсув видимої області йде окремою складовою (--sheet-vvtop), підйом не подвоюється').toBeGreaterThan(300);
         await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.__vv.top = 0; window.visualViewport.dispatchEvent(new Event('resize')); });
         await page.waitForTimeout(700);
         await page.evaluate(() => { document.querySelectorAll('.drawer.open, .drawer-backdrop.open').forEach(d => d.classList.remove('open')); document.body.classList.remove('kb-open'); document.documentElement.classList.remove('kb-sheet'); });
@@ -67,8 +67,8 @@ test('37. desktop 1280×800: бічна панель на місці, таб-б�
 });
 
 // Rev 2.32.239: iPhone за замовчуванням лишає стару поведінку підйому (позиція листа збігається зі станом до змін ±1 пт); значення зняті на старому коді в емуляції iPhone 14 (innerH 664), «справжня» клавіатура = оцінка застосунку (0,465 · innerH), реальний тап по полю.
-test('38. iPhone за замовчуванням: позиція листа як до змін (±1 пт); з перемикачем — нова формула; перемикач у «Діагностиці» працює', async ({ browser }) => {
-  const BASE = { card: 367, login: 439 };
+test('38. iPhone за замовчуванням: позиція шторки з id як до змін (±1 пт), вхід — на новому конвеєрі; з перемикачем — нова формула; перемикач у «Діагностиці» працює', async ({ browser }) => {
+  const BASE = { card: 367, login: 347 }; // картка (шторка з id) — стара поведінка; вхід (profile-drawer) з Rev 2.32.240 завжди на новому конвеєрі: низ = vvH − 8
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, false);
   try{
     for(const which of ['card', 'login']){
@@ -95,5 +95,34 @@ test('38. iPhone за замовчуванням: позиція листа як
     expect(await page.evaluate(() => [localStorage.getItem('budget-kb-new-formula-iphone'), kbUseNewFormula()])).toEqual(['1', true]);
     await page.evaluate(() => toggleKbNewFormula());
     expect(await page.evaluate(() => [localStorage.getItem('budget-kb-new-formula-iphone'), kbUseNewFormula()])).toEqual([null, false]);
+  } finally { await ctx.close(); }
+});
+
+// Rev 2.32.240 (KB-PIPE): Android-регресія за записом — Chrome прокручує видиму область (offsetTop 0 → 330) і під час, і після анімації підйому: позиція листа на екрані (rect.bottom − offsetTop) не відхиляється від цілі (vvH − 8) більш ніж на 2 пт (раніше лист «відлітав» і повертався).
+test('39. Android-прокрутка видимої області: низ листа на екрані стабільний протягом усієї прокрутки (±2 пт), без стрибка вгору й назад', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['Pixel 7'], true, false);
+  try{
+    for(const concurrent of [false, true]){
+      await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openCardDebtEditor(0); });
+      await page.waitForTimeout(900);
+      await page.evaluate(() => document.querySelector('#cdd-balance').scrollIntoView({ block: 'nearest' }));
+      const bb = await page.locator('#cdd-balance').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+      await page.waitForTimeout(150);
+      const K = await page.evaluate(() => Math.round(window.__H0 * 0.4));
+      await page.evaluate(k => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, K);
+      if(!concurrent) await page.waitForTimeout(500); // спершу підйом завершується, потім прокрутка
+      const dev = [];
+      for(const f of [0.003, 0.04, 0.17, 0.64, 0.9, 1]){
+        await page.evaluate(([k, t]) => { window.__vv.top = Math.round(k * t); window.visualViewport.dispatchEvent(new Event('scroll')); }, [K, f]);
+        await page.waitForTimeout(concurrent ? 25 : 60);
+        if(!concurrent) dev.push(await page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return Math.abs((r.bottom - window.__vv.top) - (window.__vv.h - 8)); }));
+      }
+      await page.waitForTimeout(700);
+      dev.push(await page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return Math.abs((r.bottom - window.__vv.top) - (window.__vv.h - 8)); }));
+      dev.forEach((d, i) => expect(d, (concurrent ? 'одночасно' : 'після підйому') + ' · крок ' + i + ': відхилення ' + d).toBeLessThanOrEqual(2));
+      await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.__vv.top = 0; window.visualViewport.dispatchEvent(new Event('resize')); });
+      await page.waitForTimeout(700);
+      await page.evaluate(() => { document.querySelectorAll('.drawer.open, .drawer-backdrop.open').forEach(d => d.classList.remove('open')); document.body.classList.remove('kb-open'); document.documentElement.classList.remove('kb-sheet'); });
+    }
   } finally { await ctx.close(); }
 });
