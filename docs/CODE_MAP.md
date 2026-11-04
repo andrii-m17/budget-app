@@ -5,7 +5,7 @@
 ## Конвеєр клавіатури й листів (єдиний для всіх `.drawer` і `.app-modal`)
 - `kbSheetHostOf` 27814: хост логіки; будь-яке поле всередині `.drawer, .app-modal` автоматично на конвеєрі. Окремих гілок на форму немає (з Rev 2.32.248 прибрано стару формулу iPhone й гілку входу).
 - `beginKbFocusProxy` 28483: перший дотик → проміжне поле `kb-focus-proxy` → передача фокуса на справжнє поле. `handleKeyboardFieldFocusIn` 28953: перемикання між полями, `runProxySwitchTrick`.
-- `enterKbSheet` 28582 → `kbPipeEnter` 28685 → `kbPipeAnimate` 28700: автомат відкриття (armed → measuring → animating → settled); підйом = `computeSheetLift` 28765 за живим `visualViewport`, низ листа `kbRestBottomLayout` 28771; `updateKbSheetGeometry` 28784.
+- `enterKbSheet` 28582 → `kbPipeEnter` 28685 → `kbPipeAnimate` 28700: автомат відкриття (armed → measuring → animating → settled); підйом = `computeSheetLift` 28765 за живим `visualViewport`, низ листа `kbRestBottomLayout` 28771; `updateKbSheetGeometry` 28784; `kbEnsureFieldVisible` (~28695): прокрутка поля в видиму область всередині листа (ландшафт).
 - `exitKbSheet` 28869: закриття; слухач `visualViewport resize` (`KB_CLOSE_CONFIRM_MS`, після `handleKeyboardFieldFocusSettle`): зняття `kb-open` лише після підтвердження 250 мс.
 - Обгортки для глобального коду: `kbSheetUsesProxy`, `focusCardFieldSafe` (~27270). Тести: `tests/pilot-repository.test.js` (`kbSheetSandbox`, `pipeSandbox`), `e2e/ios/run.mjs` (симулятор).
 

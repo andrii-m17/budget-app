@@ -1,0 +1,13 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "struct-error",
+ "title": "Структура: категорія: збій прогону",
+ "why": [
+  "помилка прогону: WebDriverError: TypeError: null is not an object (evaluating 'document.querySelector(q).click') when running \"execute/sync\" with method \"POST\""
+ ],
+ "files": [],
+ "events": [],
+ "anim": null,
+ "m": {},
+ "verdict": "впав"
+}

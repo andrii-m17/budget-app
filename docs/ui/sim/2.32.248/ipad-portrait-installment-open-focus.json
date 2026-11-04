@@ -1,0 +1,66 @@
+{
+ "cfg": "ipad-portrait",
+ "id": "installment-open-focus",
+ "title": "ОЧ: відкриття листа, дотик у поле, клавіатура",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «installment-drawer», очікувалось «idd-initial»"
+ ],
+ "note": "у еталоні сценарію немає",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  314,
+  314,
+  314
+ ],
+ "gapPerRun": [
+  100,
+  100,
+  100
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «installment-drawer», очікувалось «idd-initial»"
+  ],
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «installment-drawer», очікувалось «idd-initial»"
+  ],
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «installment-drawer», очікувалось «idd-initial»"
+  ]
+ ],
+ "gap": 100,
+ "fieldGap": 314,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 834,
+  "fieldTop": 800,
+  "sheetBottom": 1048,
+  "sheetTop": 663,
+  "sheetH": 385,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "installment-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-portrait-installment-open-focus-before.jpg",
+  "ipad-portrait-installment-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

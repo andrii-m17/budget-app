@@ -1,0 +1,68 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "login-switch",
+ "title": "Вхід: перемикання полів",
+ "why": [
+  "клавіатура зникла під час перемикання",
+  "фокус у «profile-drawer», очікувалось «cloud-password»",
+  "низ листа 100 пт проти еталона -322",
+  "запас поля 183 пт проти еталона -239"
+ ],
+ "note": "",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  183,
+  183,
+  183
+ ],
+ "gapPerRun": [
+  100,
+  100,
+  100
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «profile-drawer», очікувалось «cloud-password»"
+  ],
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «profile-drawer», очікувалось «cloud-password»"
+  ],
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «profile-drawer», очікувалось «cloud-password»"
+  ]
+ ],
+ "gap": 100,
+ "fieldGap": 183,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 965,
+  "fieldTop": 919,
+  "sheetBottom": 1048,
+  "sheetTop": 719,
+  "sheetH": 329,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "profile-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-landscape-login-switch-before.jpg",
+  "ipad-landscape-login-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

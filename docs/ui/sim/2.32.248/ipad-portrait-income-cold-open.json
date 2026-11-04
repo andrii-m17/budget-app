@@ -1,0 +1,37 @@
+{
+ "cfg": "ipad-portrait",
+ "id": "income-cold-open",
+ "title": "Дохід: перше відкриття після запуску застосунку (холодна клавіатура)",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «income-drawer», очікувалось «ind-amount»"
+ ],
+ "note": "",
+ "repeats": 1,
+ "anim": null,
+ "gap": 100,
+ "fieldGap": 187,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 961,
+  "fieldTop": 915,
+  "sheetBottom": 1048,
+  "sheetTop": 803,
+  "sheetH": 245,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "income-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-portrait-income-open-focus-before.jpg",
+  "ipad-portrait-income-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

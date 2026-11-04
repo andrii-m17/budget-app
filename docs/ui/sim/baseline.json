@@ -1,11 +1,11 @@
 {
- "version": "2.32.247",
+ "version": "2.32.248",
  "scenarios": {
   "iphone-portrait/card-open-focus": {
    "anim": {
-    "frames": 8,
-    "maxGapMs": 66,
-    "durationMs": 243,
+    "frames": 15,
+    "maxGapMs": 67,
+    "durationMs": 290,
     "jumpMaxPx": null
    },
    "gap": 8,
@@ -18,9 +18,9 @@
   },
   "iphone-portrait/card-close": {
    "anim": {
-    "frames": 15,
+    "frames": 17,
     "maxGapMs": 17,
-    "durationMs": 250,
+    "durationMs": 287,
     "jumpMaxPx": null
    },
    "gap": null,
@@ -28,151 +28,536 @@
   },
   "iphone-portrait/login-open-focus": {
    "anim": {
-    "frames": 14,
-    "maxGapMs": 85,
-    "durationMs": 346,
+    "frames": 10,
+    "maxGapMs": 81,
+    "durationMs": 293,
     "jumpMaxPx": null
    },
-   "gap": -301,
-   "fieldGap": -158
+   "gap": 8,
+   "fieldGap": 151
   },
   "iphone-portrait/login-switch": {
    "anim": null,
-   "gap": -301,
-   "fieldGap": -218
+   "gap": 8,
+   "fieldGap": 91
   },
   "iphone-portrait/login-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 17,
+    "durationMs": 187,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-portrait/mono-open-focus": {
+   "anim": {
+    "frames": 14,
+    "maxGapMs": 63,
+    "durationMs": 288,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 163
+  },
+  "iphone-portrait/mono-switch": {
    "anim": null,
+   "gap": 8,
+   "fieldGap": 163
+  },
+  "iphone-portrait/mono-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 21,
+    "durationMs": 185,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-portrait/income-open-focus": {
+   "anim": {
+    "frames": 15,
+    "maxGapMs": 50,
+    "durationMs": 286,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 95
+  },
+  "iphone-portrait/income-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 95
+  },
+  "iphone-portrait/income-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 17,
+    "durationMs": 186,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-portrait/installment-open-focus": {
+   "anim": {
+    "frames": 14,
+    "maxGapMs": 62,
+    "durationMs": 290,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 222
+  },
+  "iphone-portrait/installment-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 222
+  },
+  "iphone-portrait/installment-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 21,
+    "durationMs": 186,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-portrait/struct-open-focus": {
+   "anim": {
+    "frames": 14,
+    "maxGapMs": 61,
+    "durationMs": 286,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 204.6
+  },
+  "iphone-portrait/struct-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 204.6
+  },
+  "iphone-portrait/struct-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 18,
+    "durationMs": 186,
+    "jumpMaxPx": null
+   },
    "gap": null,
    "fieldGap": null
   },
   "iphone-landscape/card-open-focus": {
    "anim": {
-    "frames": 15,
-    "maxGapMs": 32,
-    "durationMs": 253,
-    "jumpMaxPx": null
-   },
-   "gap": -67,
-   "fieldGap": -230
-  },
-  "iphone-landscape/card-switch": {
-   "anim": null,
-   "gap": -67,
-   "fieldGap": -230
-  },
-  "iphone-landscape/card-close": {
-   "anim": null,
-   "gap": null,
-   "fieldGap": null
-  },
-  "iphone-landscape/login-open-focus": {
-   "anim": null,
-   "gap": 100,
-   "fieldGap": 239.6
-  },
-  "iphone-landscape/login-switch": {
-   "anim": null,
-   "gap": 8,
-   "fieldGap": -160
-  },
-  "iphone-landscape/login-close": {
-   "anim": null,
-   "gap": null,
-   "fieldGap": null
-  },
-  "ipad-portrait/card-open-focus": {
-   "anim": {
-    "frames": 12,
-    "maxGapMs": 98,
+    "frames": 14,
+    "maxGapMs": 67,
     "durationMs": 291,
     "jumpMaxPx": null
    },
    "gap": 8,
-   "fieldGap": 182
+   "fieldGap": 12
   },
-  "ipad-portrait/card-switch": {
+  "iphone-landscape/card-switch": {
    "anim": null,
    "gap": 8,
-   "fieldGap": 182
+   "fieldGap": 12
   },
-  "ipad-portrait/card-close": {
+  "iphone-landscape/card-close": {
    "anim": {
-    "frames": 13,
+    "frames": 17,
     "maxGapMs": 17,
-    "durationMs": 216,
+    "durationMs": 286,
     "jumpMaxPx": null
    },
    "gap": null,
    "fieldGap": null
   },
-  "ipad-portrait/login-open-focus": {
+  "iphone-landscape/login-open-focus": {
    "anim": {
-    "frames": 16,
-    "maxGapMs": 124,
-    "durationMs": 502,
+    "frames": 20,
+    "maxGapMs": 89,
+    "durationMs": 404,
     "jumpMaxPx": null
    },
-   "gap": -237,
-   "fieldGap": -94
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/login-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/login-close": {
+   "anim": {
+    "frames": 17,
+    "maxGapMs": 17,
+    "durationMs": 287,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/mono-open-focus": {
+   "anim": {
+    "frames": 14,
+    "maxGapMs": 61,
+    "durationMs": 288,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/mono-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/mono-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 25,
+    "durationMs": 188,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/income-open-focus": {
+   "anim": {
+    "frames": 15,
+    "maxGapMs": 53,
+    "durationMs": 281,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/income-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/income-close": {
+   "anim": {
+    "frames": 18,
+    "maxGapMs": 17,
+    "durationMs": 302,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/installment-open-focus": {
+   "anim": {
+    "frames": 15,
+    "maxGapMs": 44,
+    "durationMs": 288,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/installment-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/installment-close": {
+   "anim": {
+    "frames": 12,
+    "maxGapMs": 29,
+    "durationMs": 217,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/struct-open-focus": {
+   "anim": {
+    "frames": 14,
+    "maxGapMs": 55,
+    "durationMs": 285,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 11.6
+  },
+  "iphone-landscape/struct-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 11.6
+  },
+  "iphone-landscape/struct-close": {
+   "anim": {
+    "frames": 17,
+    "maxGapMs": 17,
+    "durationMs": 287,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-portrait/card-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 274
+  },
+  "ipad-portrait/card-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 274
+  },
+  "ipad-portrait/card-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-portrait/login-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 243
   },
   "ipad-portrait/login-switch": {
    "anim": null,
-   "gap": -237,
-   "fieldGap": -154
+   "gap": 100,
+   "fieldGap": 183
   },
   "ipad-portrait/login-close": {
    "anim": null,
    "gap": null,
    "fieldGap": null
   },
+  "ipad-portrait/mono-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 284
+  },
+  "ipad-portrait/mono-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 284
+  },
+  "ipad-portrait/mono-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-portrait/income-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 187
+  },
+  "ipad-portrait/income-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 187
+  },
+  "ipad-portrait/income-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-portrait/installment-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 314
+  },
+  "ipad-portrait/installment-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 314
+  },
+  "ipad-portrait/installment-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-portrait/struct-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 279.5
+  },
+  "ipad-portrait/struct-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 279.5
+  },
+  "ipad-portrait/struct-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
   "ipad-landscape/card-open-focus": {
-   "anim": {
-    "frames": 11,
-    "maxGapMs": 118,
-    "durationMs": 290,
-    "jumpMaxPx": null
-   },
-   "gap": 8,
-   "fieldGap": 72
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 274
   },
   "ipad-landscape/card-switch": {
    "anim": null,
-   "gap": 8,
-   "fieldGap": 72
+   "gap": 100,
+   "fieldGap": 274
   },
   "ipad-landscape/card-close": {
-   "anim": {
-    "frames": 17,
-    "maxGapMs": 17,
-    "durationMs": 282,
-    "jumpMaxPx": null
-   },
+   "anim": null,
    "gap": null,
    "fieldGap": null
   },
   "ipad-landscape/login-open-focus": {
-   "anim": {
-    "frames": 15,
-    "maxGapMs": 126,
-    "durationMs": 500,
-    "jumpMaxPx": null
-   },
-   "gap": -322,
-   "fieldGap": -179
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 243
   },
   "ipad-landscape/login-switch": {
    "anim": null,
-   "gap": -322,
-   "fieldGap": -239
+   "gap": 100,
+   "fieldGap": 183
   },
   "ipad-landscape/login-close": {
    "anim": null,
    "gap": null,
    "fieldGap": null
+  },
+  "ipad-landscape/mono-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 284
+  },
+  "ipad-landscape/mono-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 284
+  },
+  "ipad-landscape/mono-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-landscape/income-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 187
+  },
+  "ipad-landscape/income-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 187
+  },
+  "ipad-landscape/income-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-landscape/installment-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 314
+  },
+  "ipad-landscape/installment-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 314
+  },
+  "ipad-landscape/installment-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-trackpad-portrait/card-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 274
+  },
+  "ipad-trackpad-portrait/card-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 274
+  },
+  "ipad-trackpad-portrait/card-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-trackpad-portrait/login-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 243
+  },
+  "ipad-trackpad-portrait/login-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 183
+  },
+  "ipad-trackpad-portrait/login-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-trackpad-portrait/mono-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 284
+  },
+  "ipad-trackpad-portrait/mono-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 284
+  },
+  "ipad-trackpad-portrait/mono-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-trackpad-portrait/income-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 187
+  },
+  "ipad-trackpad-portrait/income-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 187
+  },
+  "ipad-trackpad-portrait/income-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-trackpad-portrait/installment-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 314
+  },
+  "ipad-trackpad-portrait/installment-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 314
+  },
+  "ipad-trackpad-portrait/installment-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-trackpad-portrait/struct-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 279.5
+  },
+  "ipad-trackpad-portrait/struct-switch": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 279.5
+  },
+  "ipad-trackpad-portrait/struct-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
   }
  },
- "runtime": "iphone-portrait: iPhone 16 Pro Max iOS-27-2",
+ "runtime": "iphone-portrait: iPhone 16 Pro Max iOS-27-2; iphone-landscape: iPhone 16 Pro Max iOS-27-2",
  "reps": 4,
- "note": "Еталон симулятора (медіана за 4 проходи) для версії 2.32.247. Оновлюється SIM_UPDATE_BASELINE=1."
+ "note": "Еталон симулятора (медіана за 4 проходи) для версії 2.32.248. Оновлюється SIM_UPDATE_BASELINE=1."
 }

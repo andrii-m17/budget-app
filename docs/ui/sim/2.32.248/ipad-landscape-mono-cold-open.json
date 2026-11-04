@@ -1,0 +1,37 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "mono-cold-open",
+ "title": "Вхідні Mono: операція: перше відкриття після запуску застосунку (холодна клавіатура)",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «BODY», очікувалось «fldmono4»"
+ ],
+ "note": "",
+ "repeats": 1,
+ "anim": null,
+ "gap": 100,
+ "fieldGap": 284,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 864,
+  "fieldTop": 816,
+  "sheetBottom": 1048,
+  "sheetTop": 521,
+  "sheetH": 527,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "BODY",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-landscape-mono-open-focus-before.jpg",
+  "ipad-landscape-mono-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

@@ -1,0 +1,46 @@
+{
+ "cfg": "iphone-landscape",
+ "id": "installment-switch",
+ "title": "ОЧ: перемикання полів",
+ "why": [],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  12
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 12,
+ "m": {
+  "innerH": 378,
+  "innerW": 956,
+  "vvH": 139,
+  "vvTop": 0,
+  "vvBottom": 139,
+  "fieldBottom": 127,
+  "fieldTop": 93,
+  "sheetBottom": 131,
+  "sheetTop": 0,
+  "sheetH": 131,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "idd-initial",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "iphone-landscape-installment-switch-before.jpg",
+  "iphone-landscape-installment-switch-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

@@ -1,0 +1,37 @@
+{
+ "cfg": "ipad-portrait",
+ "id": "login-cold-open",
+ "title": "Вхід: перше відкриття після запуску застосунку (холодна клавіатура)",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «profile-drawer», очікувалось «cldfielda1»"
+ ],
+ "note": "",
+ "repeats": 1,
+ "anim": null,
+ "gap": 100,
+ "fieldGap": 243,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 905,
+  "fieldTop": 859,
+  "sheetBottom": 1048,
+  "sheetTop": 719,
+  "sheetH": 329,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "profile-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-portrait-login-open-focus-before.jpg",
+  "ipad-portrait-login-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

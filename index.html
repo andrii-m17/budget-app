@@ -3827,7 +3827,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.247</div>
+  <div class="version-footer">Money Tree · Rev 2.32.248</div>
 </div>
   </div>
 </div>
@@ -4108,11 +4108,6 @@
       <button type="button" class="mono-switch" id="push-diag-btn" role="switch" aria-checked="false" aria-labelledby="push-diag-label" onclick="togglePushDiag()"><span></span></button>
     </div>
     <div id="push-diag-box" class="chk-box"></div>
-    <!-- Rev 2.32.239 (KB-UNIFIED): тимчасовий перемикач нової формули підйому листа для iPhone (за замовчуванням вимкнено); TODO: прибрати після підтвердження iPhone -->
-    <div class="chk-row">
-      <span id="kb-newf-label">Нова формула клавіатури (iPhone)</span>
-      <button type="button" class="mono-switch" id="kb-newf-btn" role="switch" aria-checked="false" aria-labelledby="kb-newf-label" onclick="toggleKbNewFormula()"><span></span></button>
-    </div>
   </div>
   <!-- Rev 2.32.75 (K3): середовище (лише поза робочим origin): «Мок» ↔ «Реальна база · лише читання» -->
   <div class="chk-label" id="cloud-env-label">Середовище</div>
@@ -9670,7 +9665,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.247';
+const APP_VERSION = '2.32.248';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14100,24 +14095,8 @@ function debugSafeAreaInsets(){
   };
 }
 // Rev 2.32.238 (KB-GEOM, клас A, лише діагностика при записі): подія kb-geometry для аналізу клавіатури й таб-бара на iPad/Android/iPhone/desktop. Без значень полів і персональних даних: лише розміри, прапорці й статичний рядок мета-тега viewport. Поведінку клавіатури не змінює (окремі слухачі, лише читання).
-// Rev 2.32.239 (KB-UNIFIED): нова формула підйому листа діє на iPad і Android; на iPhone (iOS, телефонний клас) за замовчуванням лишається СТАРА поведінка, поки її не підтвердить пристрій. Перемикач «Нова формула клавіатури (iPhone)» у «Сервіс → Діагностика» (локально, миттєво, без перезавантаження: діє з наступного відкриття листа). TODO: прибрати після підтвердження iPhone (разом зі старою гілкою й computeSheetLiftLegacy).
-const KB_NEWF_KEY = 'budget-kb-new-formula-iphone';
+// Rev 2.32.248 (KB-2): перемикач «нова/стара формула» і стара гілка iPhone прибрані — усі шторки й картки (iPhone, iPad, Android) на одному конвеєрі enterKbSheet → kbPipe*.
 function kbIsIphone(){ try{ return kbgDeviceClass({ ua: navigator.userAgent, platform: navigator.platform, maxTouchPoints: navigator.maxTouchPoints }) === 'iPhone'; }catch(e){ return false; } }
-function kbUseNewFormula(){
-  if(!kbIsIphone()) return true;
-  try{ return localStorage.getItem(KB_NEWF_KEY) === '1'; }catch(e){ return false; }
-}
-function renderKbNewFormula(){
-  const b = document.getElementById('kb-newf-btn'); if(!b) return;
-  let on = false; try{ on = localStorage.getItem(KB_NEWF_KEY) === '1'; }catch(e){}
-  b.setAttribute('aria-checked', on ? 'true' : 'false');
-}
-function toggleKbNewFormula(){
-  let on = false; try{ on = localStorage.getItem(KB_NEWF_KEY) === '1'; }catch(e){}
-  try{ if(on) localStorage.removeItem(KB_NEWF_KEY); else localStorage.setItem(KB_NEWF_KEY, '1'); }catch(e){}
-  renderKbNewFormula();
-  showTextToast(on ? 'Стара формула клавіатури (iPhone)' : 'Нова формула клавіатури (iPhone)', 'success');
-}
 function kbgDeviceClass(env){
   const ua = (env && env.ua) || '', mtp = (env && Number(env.maxTouchPoints)) || 0;
   if(/iPhone|iPod/.test(ua)) return 'iPhone';
@@ -23608,7 +23587,6 @@ function showNetStats(){
 function openTestingDrawer(){
   updateNetStatsRow();
   renderPushDiag(); // Rev 2.32.103 (NOTIF-3 Rev 2)
-  renderKbNewFormula(); // Rev 2.32.239
   renderCloudEnvUI();
   renderTestingDrawer();
   const backdrop = document.getElementById('testing-backdrop');
@@ -28608,7 +28586,7 @@ function enterKbSheet(drawerEl, fieldEl){
   kbSheetFieldKind = keyboardKindForField(fieldEl);
   const baseVh = getBaseViewportHeight();
   const orientKey = viewportOrientationKey(window.innerWidth, window.innerHeight);
-  const newF = kbUseNewFormula() || (drawerEl.id === 'profile-drawer'); // Rev 2.32.239/240: iPhone за замовчуванням — стара поведінка (TODO: прибрати після підтвердження iPhone); картка входу — завжди на новому конвеєрі (Rev 2.32.240)
+  const newF = true; // Rev 2.32.248 (KB-2): єдиний конвеєр для всіх листів (без вибору за пристроєм чи id) // Rev 2.32.239/240: iPhone за замовчуванням — стара поведінка (TODO: прибрати після підтвердження iPhone); картка входу — завжди на новому конвеєрі (Rev 2.32.240)
   const storedH = newF ? kbHeightFromStore(orientKey, kbCacheKindForField(fieldEl)) : null; // старий шлях iPhone кеш localStorage не використовує // Rev 2.32.240: кеш із localStorage — лише запасний варіант і --sheet-max-h
   const cacheForEstimate = Object.assign({}, keyboardHeightCache[orientKey]); if(storedH && typeof cacheForEstimate[kbSheetFieldKind] !== 'number') cacheForEstimate[kbSheetFieldKind] = storedH;
   const estimate = estimateKeyboardHeight(baseVh, kbSheetFieldKind, cacheForEstimate);
@@ -28661,7 +28639,7 @@ function enterKbSheet(drawerEl, fieldEl){
   // — ЧИСЛО без одиниць (CSS calc(-1px * var(--sheet-lift))), а не вже
   // готовий px-рядок, як --kb-h/--vv-h, саме тому що знак множиться в
   // самому calc().
-  const lift = newF ? 0 : computeSheetLiftLegacy(restBottom, baseVh, estimate, 8); // Rev 2.32.240: на новому конвеєрі лист не рухається за оцінкою — рух стартує з першим visualViewport resize (kbPipeEnter)
+  const lift = 0; // Rev 2.32.240: на новому конвеєрі лист не рухається за оцінкою — рух стартує з першим visualViewport resize (kbPipeEnter)
   window.__kbSheetRestBottom = restBottom; // лише для діагностики kb-geometry
   kbSheetNaturalHeight = naturalHeight;
   kbSheetLastLift = lift;
@@ -28719,6 +28697,27 @@ function kbPipeTryAnimate(){
   kbPipeAnimate();
 }
 function kbPipeKick(){ if(KB_PIPE.pending && kbSheetActive && kbSheetNewF && kbPipeOpenNow()){ KB_PIPE.pending = false; kbPipeAnimate(); } }
+// Rev 2.32.248 (KB-2): якщо лист вищий за видиму область (ландшафт iPhone: видимо ≈ 139 пт), поле у фокусі лишалось поза нею (−155 пт). Прокручуємо найближчий прокручуваний контейнер ВСЕРЕДИНІ листа так, щоб поле було видно на 12 пт над краєм видимої області й під верхом контейнера. Розміри листів не чіпаємо (UI-1). Нічого не робить, якщо поле вже видно або лист не прокручується.
+function kbEnsureFieldVisible(drawerEl, field){
+  try{
+    const vv = window.visualViewport; if(!vv || !drawerEl || !field || !kbSheetActive || kbSheetDrawerEl !== drawerEl) return;
+    if(document.activeElement !== field) return;
+    let sc = field.parentElement;
+    while(sc && sc !== document.body){
+      const oy = getComputedStyle(sc).overflowY;
+      if((oy === 'auto' || oy === 'scroll') && sc.scrollHeight > sc.clientHeight + 1) break;
+      if(sc === drawerEl){ sc = null; break; }
+      sc = sc.parentElement;
+    }
+    if(!sc || sc === document.body) return;
+    const fr = field.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+    const bottom = vv.offsetTop + vv.height - 12, top = Math.max(sr.top, vv.offsetTop) + 4;
+    let d = 0;
+    if(fr.bottom > bottom) d = fr.bottom - bottom;
+    else if(fr.top < top) d = fr.top - top;
+    if(Math.abs(d) >= 1){ sc.scrollTop += d; captureDebugGeometry('field-scroll', { drawerId: kbSheetLabel(drawerEl), field: field.id || null, delta: Math.round(d) }); }
+  }catch(e){}
+}
 function kbPipeAnimate(){
   const vv = window.visualViewport; if(!vv || !kbSheetDrawerEl) return;
   if(KB_PIPE.timer){ clearTimeout(KB_PIPE.timer); KB_PIPE.timer = null; }
@@ -28730,7 +28729,7 @@ function kbPipeAnimate(){
   startSheetAnimSampler(kbSheetDrawerEl, 'open', kbPipeNatural);
   beginSheetMoving(kbSheetDrawerEl, 'open', null, kbPipeField);
   if(KB_PIPE.doneTimer) clearTimeout(KB_PIPE.doneTimer);
-  KB_PIPE.doneTimer = setTimeout(function(){ KB_PIPE.doneTimer = null; KB_PIPE.state = kbPipeStep(KB_PIPE.state, 'done').state; }, 340);
+  KB_PIPE.doneTimer = setTimeout(function(){ KB_PIPE.doneTimer = null; KB_PIPE.state = kbPipeStep(KB_PIPE.state, 'done').state; kbEnsureFieldVisible(kbSheetDrawerEl, document.activeElement); }, 340);
 }
 // Живе стеження після першої анімації: підйом (без vvTop для .drawer) раз на кадр; vvTop — напряму, а на iOS/WebKit з осіданням 120 мс (offsetTop там нестабільний).
 function kbPipeFollow(){
@@ -28784,10 +28783,6 @@ function kbHeightsSave(orient, kind, h){
   try{ const o = kbHeightsLoad(); o[kbHeightKey(orient, kind)] = Math.round(h); localStorage.setItem(KB_HEIGHTS_KEY, JSON.stringify(o)); }catch(e){}
 }
 function kbHeightFromStore(orient, kind){ const v = kbHeightsLoad()[kbHeightKey(orient, kind)]; return typeof v === 'number' && v > 0 ? v : null; }
-// Стара формула (до Rev 2.32.239), лишається для iPhone за замовчуванням. TODO: прибрати після підтвердження iPhone.
-function computeSheetLiftLegacy(restBottom, baseVh, kbH, gap){
-  return restBottom - (baseVh - kbH - gap);
-}
 function computeSheetLift(o){
   const gap = o.gap == null ? 8 : o.gap;
   const minLift = -Math.max(0, (o.innerH - o.restBottom) - gap);
@@ -28823,14 +28818,7 @@ function updateKbSheetGeometry(){
   }
   if(isKeyboardOpen(baseVh, vvH)){
     if(kbSheetNewF) kbPipeFollow(); // Rev 2.32.239/240: конвеєр і живий підйом на кожен visualViewport resize/scroll (раз на кадр), з «осіданням»
-    else if(kbSheetLiftDirty){ // стара поведінка (iPhone за замовчуванням), TODO: прибрати після підтвердження iPhone
-      const liveLift = computeSheetLiftLegacy(kbSheetRestBottom, baseVh, kbH, 8);
-      if(Math.abs(liveLift - kbSheetCurrentLift) > 2){
-        kbSheetCurrentLift = liveLift;
-        document.documentElement.style.setProperty('--sheet-lift', String(liveLift));
-      }
-    }
-  }else{ KB_LIVE.lastTop = null; if(kbSheetNewF && (KB_PIPE.state === 'measuring' || KB_PIPE.state === 'waiting')){ /* клавіатури ще нема — лист на місці */ } }
+    }else{ KB_LIVE.lastTop = null; if(kbSheetNewF && (KB_PIPE.state === 'measuring' || KB_PIPE.state === 'waiting')){ /* клавіатури ще нема — лист на місці */ } }
   correctPanIfNeeded();
 }
 // correctPanIfNeeded — Режим A єдиний запобіжник: якщо, НЕЗВАЖАЮЧИ на
@@ -29036,16 +29024,13 @@ function handleKeyboardFieldFocusIn(target){
         const vvEst = Math.max(0, baseVh - est);
         document.documentElement.style.setProperty('--kb-h', est + 'px');
         document.documentElement.style.setProperty('--vv-h', vvEst + 'px');
-        if(kbSheetNewF){ kbSheetCacheKind = kbCacheKindForField(target); } // Rev 2.32.240: підйом доведе живий visualViewport (без оцінки)
-        else{
-        kbSheetCurrentLift = computeSheetLiftLegacy(kbSheetRestBottom, baseVh, est, 8);
-        document.documentElement.style.setProperty('--sheet-lift', String(kbSheetCurrentLift));
-        }
+        kbSheetCacheKind = kbCacheKindForField(target); // Rev 2.32.240: підйом доведе живий visualViewport (без оцінки)
         document.documentElement.style.setProperty('--sheet-max-h', computeSheetMaxHeight(vvEst, 8, kbSheetNaturalHeight) + 'px');
         kbSheetLiftDirty = true;
         beginSheetMoving(drawerEl, 'switch', fromField, target);
       }
       if(target.id !== 'kb-focus-proxy') kbLastFocusedField = target;
+      if(target.id !== 'kb-focus-proxy') setTimeout(function(){ kbEnsureFieldVisible(drawerEl, target); }, 340); // Rev 2.32.248 (KB-2): після можливої анімації зміни типу клавіатури
       const nativeCtx = { ios: IS_IOS_RUNTIME, kbSheetOpen: true, fieldInDrawer: true, refocusing: kbRefocusing, via: via, msSinceIntercept: Date.now() - kbLastInterceptAt };
       // Кожне НАТИВНЕ перемикання (стрілки/«Далі») спостерігаємо (native-switch)
       // і виконуємо перехід поле→проміжне→поле (runProxySwitchTrick, "P").
@@ -29320,10 +29305,21 @@ noteViewportHeightIfKeyboardClosed(); // ініціалізація одразу
 function isKeyboardLikelyClosed(baseViewportHeight, visualViewportHeight){
   return (baseViewportHeight - visualViewportHeight) < 100;
 }
+// Rev 2.32.248 (KB-2): запобіжник знімав kb-open і закривав конвеєр на ОДНОМУ кадрі visualViewport.height ≈ base (у вході на кроці після передачі фокуса приходило 894→506→479→826→479: 826 — тимчасовий викид, клавіатура лишалась). Тепер «клавіатура закрита» підтверджується повторним вимірюванням через KB_CLOSE_CONFIRM_MS: якщо область знову стиснута — нічого не знімаємо. Справжнє приховування жестом (Баг 2) спрацьовує з затримкою 250 мс. Ризик: запізніле зняття лише в рідкісному жесті; альтернатива (не знімати за активного поля) повернула б «підвислий» kb-open.
+const KB_CLOSE_CONFIRM_MS = 250;
+let kbCloseConfirmTimer = null;
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', function(){
     if(!document.body.classList.contains('kb-open')) return;
-    if(isKeyboardLikelyClosed(getBaseViewportHeight(), window.visualViewport.height)){
+    if(!isKeyboardLikelyClosed(getBaseViewportHeight(), window.visualViewport.height)){
+      if(kbCloseConfirmTimer){ clearTimeout(kbCloseConfirmTimer); kbCloseConfirmTimer = null; }
+      return;
+    }
+    if(kbCloseConfirmTimer) return;
+    kbCloseConfirmTimer = setTimeout(function(){
+      kbCloseConfirmTimer = null;
+      if(!document.body.classList.contains('kb-open')) return;
+      if(!isKeyboardLikelyClosed(getBaseViewportHeight(), window.visualViewport.height)) return;
       document.body.classList.remove('kb-open');
       // Rev 2.23.4 (6D.173) — той самий запобіжник, що focusout вище:
       // якщо focusout НЕ спрацював (WebKit Баг 2, 6D.52 — клавіатуру
@@ -29334,7 +29330,7 @@ if(window.visualViewport){
       // (та перевіряє activeElement, тут це саме НЕНАДІЙНО за визначенням).
       setDrawerKeyboardBackgroundLock(false);
       exitKbSheet();
-    }
+    }, KB_CLOSE_CONFIRM_MS);
   });
 }
 // Rev 2.23.9 (6D.178) — updateViewportDiagnosticVars(): єдиний завжди-

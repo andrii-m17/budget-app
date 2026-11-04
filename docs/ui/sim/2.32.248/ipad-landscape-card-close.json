@@ -1,0 +1,54 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "card-close",
+ "title": "Картка боргу: закриття, клавіатура зникає, таб-бар на місці",
+ "why": [],
+ "note": "",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  null,
+  null,
+  null
+ ],
+ "gapPerRun": [
+  null,
+  null,
+  null
+ ],
+ "whyPerRun": [
+  [],
+  [],
+  []
+ ],
+ "gap": null,
+ "fieldGap": null,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": null,
+  "fieldTop": null,
+  "sheetBottom": 2228,
+  "sheetTop": 1760,
+  "sheetH": 468,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "BODY",
+  "drawerOpen": false
+ },
+ "events": [],
+ "files": [
+  "ipad-landscape-card-close-before.jpg",
+  "ipad-landscape-card-close-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

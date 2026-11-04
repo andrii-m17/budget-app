@@ -1,0 +1,62 @@
+{
+ "cfg": "ipad-trackpad-portrait",
+ "id": "income-close",
+ "title": "Дохід: закриття, клавіатура зникає, таб-бар на місці",
+ "why": [
+  "лист не закрився"
+ ],
+ "note": "у еталоні сценарію немає",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  null,
+  null,
+  null
+ ],
+ "gapPerRun": [
+  null,
+  null,
+  null
+ ],
+ "whyPerRun": [
+  [
+   "лист не закрився"
+  ],
+  [
+   "лист не закрився"
+  ],
+  [
+   "лист не закрився"
+  ]
+ ],
+ "gap": null,
+ "fieldGap": null,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": null,
+  "fieldTop": null,
+  "sheetBottom": 1048,
+  "sheetTop": 803,
+  "sheetH": 245,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "income-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-trackpad-portrait-income-close-before.jpg",
+  "ipad-trackpad-portrait-income-close-after.jpg"
+ ],
+ "verdict": "впав"
+}

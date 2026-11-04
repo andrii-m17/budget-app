@@ -1,0 +1,66 @@
+{
+ "cfg": "ipad-trackpad-portrait",
+ "id": "card-switch",
+ "title": "Картка боргу: перемикання полів",
+ "why": [
+  "клавіатура зникла під час перемикання",
+  "фокус у «card-debt-drawer», очікувалось «cdd-minpay»"
+ ],
+ "note": "у еталоні сценарію немає",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  274,
+  274,
+  274
+ ],
+ "gapPerRun": [
+  100,
+  100,
+  100
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «card-debt-drawer», очікувалось «cdd-minpay»"
+  ],
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «card-debt-drawer», очікувалось «cdd-minpay»"
+  ],
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «card-debt-drawer», очікувалось «cdd-minpay»"
+  ]
+ ],
+ "gap": 100,
+ "fieldGap": 274,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 874,
+  "fieldTop": 828,
+  "sheetBottom": 1048,
+  "sheetTop": 580,
+  "sheetH": 468,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "card-debt-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-trackpad-portrait-card-switch-before.jpg",
+  "ipad-trackpad-portrait-card-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

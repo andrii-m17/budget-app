@@ -1,0 +1,37 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "installment-cold-open",
+ "title": "ОЧ: перше відкриття після запуску застосунку (холодна клавіатура)",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «installment-drawer», очікувалось «idd-initial»"
+ ],
+ "note": "",
+ "repeats": 1,
+ "anim": null,
+ "gap": 100,
+ "fieldGap": 314,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 834,
+  "fieldTop": 800,
+  "sheetBottom": 1048,
+  "sheetTop": 663,
+  "sheetH": 385,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "installment-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-landscape-installment-open-focus-before.jpg",
+  "ipad-landscape-installment-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

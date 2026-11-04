@@ -1,0 +1,66 @@
+{
+ "cfg": "ipad-portrait",
+ "id": "struct-open-focus",
+ "title": "Структура: категорія: відкриття листа, дотик у поле, клавіатура",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «struct-drawer», очікувалось «fldstr3»"
+ ],
+ "note": "у еталоні сценарію немає",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  279.5,
+  279.5,
+  279.5
+ ],
+ "gapPerRun": [
+  100,
+  100,
+  100
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «struct-drawer», очікувалось «fldstr3»"
+  ],
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «struct-drawer», очікувалось «fldstr3»"
+  ],
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «struct-drawer», очікувалось «fldstr3»"
+  ]
+ ],
+ "gap": 100,
+ "fieldGap": 279.5,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 868.5,
+  "fieldTop": 820.5,
+  "sheetBottom": 1048,
+  "sheetTop": 748.1,
+  "sheetH": 300,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "struct-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-portrait-struct-open-focus-before.jpg",
+  "ipad-portrait-struct-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

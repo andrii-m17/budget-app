@@ -29,6 +29,11 @@ const CONFIGS = [
 const SHEETS = [
   { id: 'card', title: 'Картка боргу', open: () => { switchTab('accounting'); openCardDebtEditor(0); }, sel: '#card-debt-drawer', backdrop: '#card-debt-backdrop', f1: '#cdd-balance', f2: '#cdd-minpay', mode: 'field', switchVia: 'arrow' }, // лист з id на iPhone: старий конвеєр (E2E 38), критерій — поле видно над клавіатурою; перемикання стрілкою «Наступне» панелі над клавіатурою
   { id: 'login', title: 'Вхід', open: () => { showProfileLoginForm(); }, sel: '#profile-drawer', backdrop: '#profile-backdrop', f1: '#cldfielda1', f2: '#cloud-password', mode: 'sheet', switchVia: 'tap' }, // новий конвеєр: критерій — низ листа 8 пт над краєм видимої області
+  // Rev 2.32.248 (KB-2): решта форм із полями на єдиному конвеєрі; однопольні листи перемикання «полів» перевіряють на тому самому полі (клавіатура лишається, лист не зсувається).
+  { id: 'mono', title: 'Вхідні Mono: операція', open: () => { monoInbox.rows = [{ id: 'sim1', status: 'new', tx_time: new Date().toISOString(), amount_uah: 120, description: 'Тест', suggested_category: '', suggested_subcategory: '', mono_account_id: 'x' }]; openMonoDetail('sim1'); }, sel: '#mono-detail-drawer', backdrop: '#mono-detail-backdrop', f1: '#fldmono4', f2: '#fldmono4', mode: 'sheet', switchVia: 'tap' },
+  { id: 'income', title: 'Дохід', open: () => { openIncomeEditor(0); }, sel: '#income-drawer', backdrop: '#income-backdrop', f1: '#ind-amount', f2: '#ind-amount', mode: 'sheet', switchVia: 'tap' },
+  { id: 'installment', title: 'ОЧ', open: () => { switchTab('accounting'); openInstallmentEditor(0); }, sel: '#installment-drawer', backdrop: '#installment-backdrop', f1: '#idd-initial', f2: '#idd-term', landF2: '#idd-initial', mode: 'field', switchVia: 'tap' },
+  { id: 'struct', title: 'Структура: категорія', open: () => { showCategoryModal('Нова категорія', '', null, () => {}, null); }, sel: '#struct-drawer', backdrop: '#struct-backdrop', f1: '#fldstr3', f2: '#fldstr3', mode: 'sheet', switchVia: 'tap' },
 ];
 const pause = ms => new Promise(r => setTimeout(r, ms));
 const idOf = s => String(s).replace('#', '');
@@ -44,7 +49,8 @@ async function pass(d, map, cfg, sh0, rep){
   const first = rep === 0;
   // iPad: конвеєр і геометрія листа інші, інваріанти iPhone (низ листа 8 пт, kb-open, стрілка панелі) не застосовуються; лишаються функціональні перевірки й відносні до еталона
   const ipad = cfg.id.indexOf('ipad') === 0;
-  const sh = ipad ? Object.assign({}, sh0, { mode: 'none', switchVia: 'tap' }) : sh0;
+  const land = cfg.orientation === 'LANDSCAPE'; // ландшафт iPhone: поля поруч видно над клавіатурою, панель стрілок має інше розташування — перемикання дотиком по полю
+  const sh = ipad ? Object.assign({}, sh0, { mode: 'none', switchVia: 'tap' }) : (land ? Object.assign({}, sh0, { switchVia: 'tap', f2: sh0.landF2 || sh0.f2 }) : sh0);
   await L.loadApp(d);
   await L.recorderStart(d);
   const steps = [];
@@ -77,7 +83,7 @@ async function pass(d, map, cfg, sh0, rep){
   if(sh.switchVia === 'arrow'){ // стрілка «Наступне» панелі над клавіатурою: її нема в DOM, шукаємо від верху нативної клавіатури
     const kt = await L.keyboardTopNative(d);
     if(kt != null) await L.tapScreen(d, map.win.width * 0.255, kt - 52); else sw.why.push('верх клавіатури в нативному дереві не знайдено');
-  }else await L.tapSelector(d, map, sh.f2);
+  }else if(!(land && sh.f2 === sh.f1)) await L.tapSelector(d, map, sh.f2); // ландшафт, одне поле: повторний дотик не потрібен (поле вже у фокусі; верх листа за краєм екрана)
   await pause(1500);
   const m2 = await L.metrics(d, sh.sel, sh.f2), ev2 = await L.eventsSince(d, mk2);
   if(first) f2.push(await L.shot(d, name('switch-after')));
@@ -101,6 +107,7 @@ async function pass(d, map, cfg, sh0, rep){
   await pause(1800);
   let m3 = await L.metrics(d, sh.sel), taps = 1;
   if(m3.drawerOpen && !kbUp(m3)){ await L.tapSelector(d, map, sh.backdrop, { x: 24, y: 70 }); await pause(1500); m3 = await L.metrics(d, sh.sel); taps = 2; } // перший дотик по підкладці лише ховає клавіатуру (поведінка застосунку); другий закриває лист
+  if(m3.drawerOpen && land){ for(let k = 0; k < 2 && m3.drawerOpen; k++){ await L.toWeb(d); await d.execute(q => { (document.querySelector(q + ' .drawer-close') || document.querySelector(q + ' #sf-cancel')).click(); }, sh.sel); await pause(1500); m3 = await L.metrics(d, sh.sel); } taps = 2; } // ландшафт: лист вищий за екран (кнопка × за верхнім краєм, розміри — UI-1) і займає всю ширину — закриваємо програмним кліком по ×
   const ev3 = await L.eventsSince(d, mk3);
   if(first) f3.push(await L.shot(d, name('close-after')));
   const a3 = animOf(ev3, 'close');

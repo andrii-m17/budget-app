@@ -66,9 +66,9 @@ test('37. desktop 1280×800: бічна панель на місці, таб-б�
   } finally { await ctx.close(); }
 });
 
-// Rev 2.32.239: iPhone за замовчуванням лишає стару поведінку підйому (позиція листа збігається зі станом до змін ±1 пт); значення зняті на старому коді в емуляції iPhone 14 (innerH 664), «справжня» клавіатура = оцінка застосунку (0,465 · innerH), реальний тап по полю.
-test('38. iPhone за замовчуванням: позиція шторки з id як до змін (±1 пт), вхід — на новому конвеєрі; з перемикачем — нова формула; перемикач у «Діагностиці» працює', async ({ browser }) => {
-  const BASE = { card: 367, login: 347 }; // картка (шторка з id) — стара поведінка; вхід (profile-drawer) з Rev 2.32.240 завжди на новому конвеєрі: низ = vvH − 8
+// Rev 2.32.248 (KB-2): iPhone — і картка з id, і вхід на одному конвеєрі: низ листа на 8 пт над краєм видимої області (стару гілку й перемикач прибрано).
+test('38. iPhone: картка й вхід на одному конвеєрі — низ листа 8 пт над краєм видимої області (±1,5 пт)', async ({ browser }) => {
+
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, false);
   try{
     for(const which of ['card', 'login']){
@@ -81,20 +81,11 @@ test('38. iPhone за замовчуванням: позиція шторки з
       await page.evaluate(() => { const k = Math.round(window.__H0 * 0.465); window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); });
       await page.waitForTimeout(1000);
       const bottom = await page.evaluate(s2 => document.querySelector(s2).getBoundingClientRect().bottom, sel);
-      expect(Math.abs(bottom - BASE[which]), which + ': ' + bottom + ' проти старого ' + BASE[which]).toBeLessThanOrEqual(1);
+      const vvB = await page.evaluate(() => window.__vv.h); expect(Math.abs(bottom - (vvB - 8)), which + ': низ ' + bottom + ' проти ' + (vvB - 8)).toBeLessThanOrEqual(1.5);
       await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
       await page.waitForTimeout(700);
       await page.evaluate(() => { document.querySelectorAll('.drawer.open, .drawer-backdrop.open').forEach(d => d.classList.remove('open')); document.body.classList.remove('kb-open'); document.documentElement.classList.remove('kb-sheet'); });
     }
-    // перемикач у «Діагностиці»: вмикається локально й миттєво
-    await page.evaluate(() => { openTestingDrawer(); });
-    await page.waitForTimeout(500);
-    expect(await page.locator('#kb-newf-btn').getAttribute('aria-checked')).toBe('false');
-    await page.evaluate(() => toggleKbNewFormula());
-    expect(await page.locator('#kb-newf-btn').getAttribute('aria-checked')).toBe('true');
-    expect(await page.evaluate(() => [localStorage.getItem('budget-kb-new-formula-iphone'), kbUseNewFormula()])).toEqual(['1', true]);
-    await page.evaluate(() => toggleKbNewFormula());
-    expect(await page.evaluate(() => [localStorage.getItem('budget-kb-new-formula-iphone'), kbUseNewFormula()])).toEqual([null, false]);
   } finally { await ctx.close(); }
 });
 

@@ -1,0 +1,66 @@
+{
+ "cfg": "ipad-trackpad-portrait",
+ "id": "card-open-focus",
+ "title": "Картка боргу: відкриття листа, дотик у поле, клавіатура",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «card-debt-drawer», очікувалось «cdd-balance»"
+ ],
+ "note": "у еталоні сценарію немає",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  274,
+  274,
+  274
+ ],
+ "gapPerRun": [
+  100,
+  100,
+  100
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «card-debt-drawer», очікувалось «cdd-balance»"
+  ],
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «card-debt-drawer», очікувалось «cdd-balance»"
+  ],
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «card-debt-drawer», очікувалось «cdd-balance»"
+  ]
+ ],
+ "gap": 100,
+ "fieldGap": 274,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 874,
+  "fieldTop": 828,
+  "sheetBottom": 1048,
+  "sheetTop": 580,
+  "sheetH": 468,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "card-debt-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-trackpad-portrait-card-open-focus-before.jpg",
+  "ipad-trackpad-portrait-card-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

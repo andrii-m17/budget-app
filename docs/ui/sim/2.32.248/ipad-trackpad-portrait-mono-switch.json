@@ -1,0 +1,66 @@
+{
+ "cfg": "ipad-trackpad-portrait",
+ "id": "mono-switch",
+ "title": "Вхідні Mono: операція: перемикання полів",
+ "why": [
+  "клавіатура зникла під час перемикання",
+  "фокус у «BODY», очікувалось «fldmono4»"
+ ],
+ "note": "у еталоні сценарію немає",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  284,
+  284,
+  284
+ ],
+ "gapPerRun": [
+  100,
+  100,
+  100
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «BODY», очікувалось «fldmono4»"
+  ],
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «BODY», очікувалось «fldmono4»"
+  ],
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «BODY», очікувалось «fldmono4»"
+  ]
+ ],
+ "gap": 100,
+ "fieldGap": 284,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 864,
+  "fieldTop": 816,
+  "sheetBottom": 1048,
+  "sheetTop": 521,
+  "sheetH": 527,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "BODY",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-trackpad-portrait-mono-switch-before.jpg",
+  "ipad-trackpad-portrait-mono-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

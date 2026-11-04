@@ -1,0 +1,761 @@
+{
+ "cfg": "iphone-landscape",
+ "id": "installment-open-focus",
+ "title": "ОЧ: відкриття листа, дотик у поле, клавіатура",
+ "why": [
+  "пауза 77 мс проти еталона 44"
+ ],
+ "note": "",
+ "repeats": 2,
+ "anim": {
+  "frames": 14,
+  "maxGapMs": 77,
+  "durationMs": 284,
+  "jumpMaxPx": null
+ },
+ "animPerRun": [
+  {
+   "frames": 14,
+   "maxGapMs": 77,
+   "durationMs": 284
+  }
+ ],
+ "fieldGapPerRun": [
+  12
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 12,
+ "m": {
+  "innerH": 378,
+  "innerW": 956,
+  "vvH": 139,
+  "vvTop": 0,
+  "vvBottom": 139,
+  "fieldBottom": 127,
+  "fieldTop": 93,
+  "sheetBottom": 131,
+  "sheetTop": 0,
+  "sheetH": 131,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "idd-initial",
+  "drawerOpen": true
+ },
+ "events": [
+  {
+   "t": 1746,
+   "type": "kb-geometry",
+   "innerW": 956,
+   "innerH": 378,
+   "vvW": 956,
+   "vvH": 378,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "kbgWhy": "focus",
+   "devClass": "iPhone",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": -47.6,
+   "sheetBottom": 278,
+   "sheetHeight": 325.6,
+   "fieldTop": 89.4,
+   "fieldBottom": 90.4,
+   "kbHeightCalc": 0,
+   "sheetLiftCss": "",
+   "sheetRestBottom": null,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 1754,
+   "type": "sheet-open",
+   "innerW": 956,
+   "innerH": 378,
+   "outerH": 440,
+   "vvW": 956,
+   "vvH": 378,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 378,
+   "bodyClasses": "kb-open",
+   "kbInset": "239px",
+   "activeElementTag": "INPUT",
+   "activeElementId": "kb-focus-proxy",
+   "activeElementType": "text",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 62,
+   "safeBottom": 20,
+   "safeLeft": 62,
+   "drawerId": "installment-drawer",
+   "drawerTop": 147,
+   "drawerBottom": 278,
+   "drawerLeft": 16,
+   "drawerRight": 940,
+   "drawerHeight": 131,
+   "backdropId": "installment-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 378,
+   "backdropHeight": 378,
+   "drawerScrollHeight": 385,
+   "drawerClientHeight": 131,
+   "drawerMaxHeightPx": 131,
+   "baseVh": "378px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 284,
+   "activeRectBottom": 285,
+   "kbH": 239
+  },
+  {
+   "t": 1844,
+   "type": "vv-resize",
+   "innerW": 956,
+   "innerH": 378,
+   "outerH": 440,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 378,
+   "bodyClasses": "kb-open",
+   "kbInset": "239px",
+   "activeElementTag": "INPUT",
+   "activeElementId": "kb-focus-proxy",
+   "activeElementType": "text",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 62,
+   "safeBottom": 20,
+   "safeLeft": 62,
+   "drawerId": "installment-drawer",
+   "drawerTop": 147,
+   "drawerBottom": 278,
+   "drawerLeft": 16,
+   "drawerRight": 940,
+   "drawerHeight": 131,
+   "backdropId": "installment-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 378,
+   "backdropHeight": 378,
+   "drawerScrollHeight": 385,
+   "drawerClientHeight": 131,
+   "drawerMaxHeightPx": 131,
+   "baseVh": "378px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 284,
+   "activeRectBottom": 285,
+   "kbH": 239
+  },
+  {
+   "t": 1844,
+   "type": "kb-geometry",
+   "innerW": 956,
+   "innerH": 378,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "239px",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "kbgWhy": "vv",
+   "devClass": "iPhone",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 147,
+   "sheetBottom": 278,
+   "sheetHeight": 131,
+   "fieldTop": 284,
+   "fieldBottom": 285,
+   "kbHeightCalc": 239,
+   "sheetLiftCss": "0",
+   "sheetRestBottom": 278,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 1849,
+   "type": "kb-geometry",
+   "innerW": 956,
+   "innerH": 378,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "239px",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "kbgWhy": "focus",
+   "devClass": "iPhone",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 147,
+   "sheetBottom": 278,
+   "sheetHeight": 131,
+   "fieldTop": 284,
+   "fieldBottom": 318,
+   "kbHeightCalc": 239,
+   "sheetLiftCss": "0",
+   "sheetRestBottom": 278,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 1855,
+   "type": "focus-transfer",
+   "innerW": 956,
+   "innerH": 378,
+   "outerH": 440,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 378,
+   "bodyClasses": "kb-open",
+   "kbInset": "239px",
+   "activeElementTag": "INPUT",
+   "activeElementId": "idd-initial",
+   "activeElementType": "text",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 62,
+   "safeBottom": 20,
+   "safeLeft": 62,
+   "drawerId": "installment-drawer",
+   "drawerTop": 147,
+   "drawerBottom": 278,
+   "drawerLeft": 16,
+   "drawerRight": 940,
+   "drawerHeight": 131,
+   "backdropId": "installment-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 378,
+   "backdropHeight": 378,
+   "drawerScrollHeight": 385,
+   "drawerClientHeight": 131,
+   "drawerMaxHeightPx": 131,
+   "baseVh": "378px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 284,
+   "activeRectBottom": 318,
+   "kbH": 239,
+   "ms": 100,
+   "proxyActive": false,
+   "sheetBottomAtTransfer": 278,
+   "sheetFinalBottom": 131
+  },
+  {
+   "t": 2000,
+   "type": "kb-geometry",
+   "innerW": 956,
+   "innerH": 378,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "239px",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "kbgWhy": "focus-settled",
+   "devClass": "iPhone",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 6.4,
+   "sheetBottom": 137.4,
+   "sheetHeight": 131,
+   "fieldTop": 143.4,
+   "fieldBottom": 177.4,
+   "kbHeightCalc": 239,
+   "sheetLiftCss": "147",
+   "sheetRestBottom": 278,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 2145,
+   "type": "sheet-anim",
+   "innerW": 956,
+   "innerH": 378,
+   "outerH": 440,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 378,
+   "bodyClasses": "kb-open",
+   "kbInset": "239px",
+   "activeElementTag": "INPUT",
+   "activeElementId": "idd-initial",
+   "activeElementType": "text",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 62,
+   "safeBottom": 20,
+   "safeLeft": 62,
+   "drawerId": "installment-drawer",
+   "drawerTop": 0,
+   "drawerBottom": 131,
+   "drawerLeft": 16,
+   "drawerRight": 940,
+   "drawerHeight": 131,
+   "backdropId": "installment-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 378,
+   "backdropHeight": 378,
+   "drawerScrollHeight": 385,
+   "drawerClientHeight": 131,
+   "drawerMaxHeightPx": 131,
+   "baseVh": "378px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 137,
+   "activeRectBottom": 171,
+   "kbH": 239,
+   "frames": 16,
+   "maxGapMs": 42,
+   "durationMs": 290,
+   "samples": [
+    [
+     -10,
+     278
+    ],
+    [
+     32,
+     213
+    ],
+    [
+     50,
+     187
+    ],
+    [
+     57,
+     179
+    ],
+    [
+     90,
+     154
+    ],
+    [
+     107,
+     147
+    ],
+    [
+     123,
+     142
+    ],
+    [
+     140,
+     138
+    ],
+    [
+     157,
+     136
+    ],
+    [
+     173,
+     134
+    ],
+    [
+     190,
+     133
+    ],
+    [
+     207,
+     132
+    ],
+    [
+     223,
+     132
+    ],
+    [
+     240,
+     131
+    ],
+    [
+     257,
+     131
+    ],
+    [
+     273,
+     131
+    ]
+   ],
+   "phase": "open",
+   "jumpMaxPx": 65,
+   "gapNoLayoutMs": 42,
+   "drawerHeightRest": 326,
+   "drawerHeightKb": 131,
+   "firstOfKind": true
+  },
+  {
+   "t": 2462,
+   "type": "kb-frames",
+   "innerW": 956,
+   "innerH": 378,
+   "outerH": 440,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 378,
+   "bodyClasses": "kb-open",
+   "kbInset": "239px",
+   "activeElementTag": "INPUT",
+   "activeElementId": "idd-initial",
+   "activeElementType": "text",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 62,
+   "safeBottom": 20,
+   "safeLeft": 62,
+   "drawerId": "installment-drawer",
+   "drawerTop": 0,
+   "drawerBottom": 131,
+   "drawerLeft": 16,
+   "drawerRight": 940,
+   "drawerHeight": 131,
+   "backdropId": "installment-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 378,
+   "backdropHeight": 378,
+   "drawerScrollHeight": 385,
+   "drawerClientHeight": 131,
+   "drawerMaxHeightPx": 131,
+   "baseVh": "378px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 93,
+   "activeRectBottom": 127,
+   "kbH": 239,
+   "samples": [
+    [
+     13,
+     378,
+     0,
+     378,
+     0
+    ],
+    [
+     78,
+     378,
+     0,
+     378,
+     0
+    ],
+    [
+     99,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     141,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     159,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     166,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     199,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     216,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     232,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     249,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     266,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     282,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     299,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     316,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     332,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     349,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     366,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     382,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     399,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     416,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     432,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     449,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     466,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     482,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     499,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     516,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     532,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     549,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     566,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     582,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     599,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     616,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     632,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     653,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     666,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     682,
+     139,
+     0,
+     378,
+     0
+    ],
+    [
+     699,
+     139,
+     0,
+     378,
+     0
+    ]
+   ],
+   "blips": 0,
+   "firstKbFrameT": 99
+  }
+ ],
+ "files": [
+  "iphone-landscape-installment-open-focus-before.jpg",
+  "iphone-landscape-installment-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}
