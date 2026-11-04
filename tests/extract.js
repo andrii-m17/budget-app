@@ -88,7 +88,7 @@ function extractConstSource(constName){
 // код з index.html. Ім'я з великої літери й ВСІМА ВЕЛИКИМИ (напр. UA_MONTHS)
 // трактується як const-декларація, інакше — як function-декларація.
 function buildSandbox(globals, names){
-  const context = vm.createContext(Object.assign({}, globals));
+  const context = vm.createContext(Object.assign({ window: { crypto: require('node:crypto').webcrypto } }, globals)); // Rev 2.32.242: generateUUID() у sandbox
   // Rev 2.32.75 (K3): push-функції питають isCloudWriteReady()/isWriteBlocked(); у тестах за замовчуванням запис дозволений
   // (тест може передати власні версії в globals).
   vm.runInContext("if(typeof isWriteBlocked === 'undefined') var isWriteBlocked = function(){ return false; };"

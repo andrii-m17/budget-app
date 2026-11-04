@@ -177,7 +177,7 @@ const REPOSITORY_NAMES = [
   // getSupabaseClient/isSupabaseSdkReady підмінюються після buildSandbox().
   // pullBankAccountsPilotManual НЕ включена (DOM-шар).
   'pullBankAccountsCore', 'pullBankAccountsPilot', 'ensureBankAccountIdentity',
-  'saveInstallmentAccounts', 'saveInstallmentAccountsLocal', 'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId',
+  'saveInstallmentAccounts', 'saveInstallmentAccountsLocal', 'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'idSendNew', 'generateUUID', 'pullAccountTombstone',
   // Rev #30 (6D.27, installment_accounts повний цикл) — той самий
   // cross-realm-override прийом, що pullBankAccountsCore тести.
   // pullInstallmentAccountsPilotManual НЕ включена (DOM-шар).
@@ -1210,22 +1210,22 @@ test('pullInstallmentAccountsCore: push-retry НЕ тригериться, ко�
   assert.equal(pushSpy.count(), 0);
 });
 
-test('pullInstallmentAccountsCore: BugFix 6D.19-стиль (превентивно) — local з "мертвим" cloudId + правильний name → self-heal, БЕЗ дублювання', async () => {
+test('pullInstallmentAccountsCore: Rev 2.32.242 (ID-ONLY) — local з іншим cloudId і тією ж назвою НЕ зв\'язується за назвою: серверний рядок додається окремо, id локального лишається', async () => {
   const ctx = pullInstallmentSandbox([{ id: 'i1', name: 'iPhone', initial_amount: 25000, due_day: 5 }]);
   ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000, dueDay: 5, cloudId: 'dead-old-id' }];
   const result = await ctx.pullInstallmentAccountsCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
-  assert.equal(ctx.installmentAccounts.length, 1); // КРИТИЧНО: не задублювалось
-  assert.equal(ctx.installmentAccounts[0].cloudId, 'i1');
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+  assert.equal(ctx.installmentAccounts.length, 2);
+  assert.equal(ctx.installmentAccounts[0].cloudId, 'dead-old-id', 'ідентичність лише за id');
+  assert.equal(ctx.installmentAccounts[1].cloudId, 'i1');
 });
 
-test('pullInstallmentAccountsCore: правило 2 — unlinked local з тим самим name → зв\'язується, не дублюється', async () => {
+test('pullInstallmentAccountsCore: Rev 2.32.242 — запис без id і без ключа (created_at + сума) за назвою не зв\'язується; серверний рядок додається окремо', async () => {
   const ctx = pullInstallmentSandbox([{ id: 'i2', name: 'iPhone', initial_amount: 25000, due_day: 5 }]);
   ctx.installmentAccounts = [{ name: 'iPhone', initialAmount: 25000 }];
   const result = await ctx.pullInstallmentAccountsCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
-  assert.equal(ctx.installmentAccounts.length, 1);
-  assert.equal(ctx.installmentAccounts[0].cloudId, 'i2');
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+  assert.equal(ctx.installmentAccounts.length, 2);
 });
 
 test('pullInstallmentAccountsCore: правило 3 — новий Cloud-рядок без local-відповідника → додається', async () => {
@@ -2031,7 +2031,7 @@ test('pushBankAccountsPilot: cloudId застарів (Cloud-рядок зник
 });
 
 // Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
-test('pushInstallmentAccountsPilot: той самий self-heal, що pushBankAccountsPilot (cloudId застарів → перестворення)', async () => {
+test('pushInstallmentAccountsPilot: рядка з cloudId на сервері немає → GET за id, insert з тим самим id (Rev 2.32.242, без зміни id)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -2049,7 +2049,7 @@ test('pushInstallmentAccountsPilot: той самий self-heal, що pushBankAc
   await ctx.pushInstallmentAccountsPilot();
   assert.equal(updateCalls, 1);
   assert.equal(insertCalls, 1);
-  assert.equal(ctx.installmentAccounts[0].cloudId, 'fresh-new-id');
+  assert.equal(ctx.installmentAccounts[0].cloudId, 'stale-deleted-id', 'Rev 2.32.242: рядок піднімається з ТИМ САМИМ id');
 });
 
 // Rev #30 (6D.143) — каскад проти осиротілих hidden_entities-рядків.
@@ -2109,7 +2109,7 @@ test('pushBankAccountsPilot: cloudId самозцілився → cleanupOrphane
 });
 
 // Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
-test('pushInstallmentAccountsPilot: той самий каскад, entity_type="installment" (6D.143)', async () => {
+test('pushInstallmentAccountsPilot: id не змінюється → осиротілих hidden_entities нема, delete не викликається (Rev 2.32.242; було каскад 6D.143)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -2122,10 +2122,8 @@ test('pushInstallmentAccountsPilot: той самий каскад, entity_type=
   }));
   ctx.getSupabaseClient = () => client;
   await ctx.pushInstallmentAccountsPilot();
-  assert.equal(ctx.installmentAccounts[0].cloudId, 'new-id');
-  assert.equal(deleteCalls.length, 1);
-  assert.equal(deleteCalls[0].entityType, 'installment');
-  assert.deepEqual(plain(deleteCalls[0].entityIds), ['old-id']);
+  assert.equal(ctx.installmentAccounts[0].cloudId, 'old-id');
+  assert.equal(deleteCalls.length, 0);
 });
 
 test('pushBankAccountsPilot: рахунок ВПЕРШЕ створюється (немає старого cloudId) → cleanupOrphanedHiddenEntities НЕ викликається', async () => {

@@ -95,7 +95,7 @@ test('pull: tombstone-рядок прибирає рахунок і не зв’
   const bank = SRC.slice(SRC.indexOf('async function pullBankAccountsCore'), SRC.indexOf('async function pullBankAccountsPilot'));
   assert.ok(bank.indexOf('pullAccountTombstone') < bank.indexOf('bankAccounts.find(function(a){ return a.name === row.name; })'));
   assert.match(SRC, /from\('bank_accounts'\)\.select\('id'\)\.eq\('family_id', cloudFamilyId\)\.eq\('name', acc\.name\)\.is\('deleted_at', null\)\.maybeSingle\(\)/);
-  assert.match(SRC, /from\('installment_accounts'\)\.select\('id'\)\.eq\('family_id', cloudFamilyId\)\.eq\('name', acc\.name\)\.is\('deleted_at', null\)\.maybeSingle\(\)/);
+  assert.doesNotMatch(SRC, /from\('installment_accounts'\)\.select\('id'\)\.eq\('family_id', cloudFamilyId\)\.eq\('name'/, 'Rev 2.32.242: ОЧ більше не шукається за назвою'); // надгробок обробляє idSendNew (GET за id)
 });
 test('перепис id (applyCensus) не відтворює видалений рахунок: рахунку немає локально, push за назвою ігнорує tombstone-рядок', () => {
   const src = SRC.slice(SRC.indexOf('async function reconcileAccountsCensusFor'), SRC.indexOf('async function reconcileBankAccountsCensus'));

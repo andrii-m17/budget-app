@@ -115,8 +115,8 @@ test('«Зберегти» неактивна без змін (SAVE-DIRTY): у �
 });
 test('синхронізація: усі п\'ять полів у select pull, update/insert push і 3 місцях застосування pull; порівняння null ≡ undefined', function(){
   assert.match(SRC, /'id,name,initial_amount,due_day,term_months,start_date,first_payment,pay_mode,payment,created_at,updated_at,deleted_at'/);
-  assert.equal((SRC.match(/term_months: acc\.termMonths \?\? null, start_date: acc\.startDate \|\| null, first_payment: acc\.firstPayment \|\| null, pay_mode: acc\.payMode \|\| null, payment: acc\.payment \?\? null/g) || []).length, 3, 'push: update, reconcile-update, insert');
-  assert.match(SRC, /applyOchModelFromRow\(byCloudId, row\);/); assert.match(SRC, /applyOchModelFromRow\(byName, row\);/); assert.match(SRC, /termMonths: row\.term_months \?\? null, startDate: row\.start_date \?\? null/);
+  assert.equal((SRC.match(/term_months: acc\.termMonths \?\? null, start_date: acc\.startDate \|\| null, first_payment: acc\.firstPayment \|\| null, pay_mode: acc\.payMode \|\| null, payment: acc\.payment \?\? null/g) || []).length, 2, 'push: update, insert (Rev 2.32.242: reconcile-update прибрано)');
+  assert.match(SRC, /applyOchModelFromRow\(byCloudId, row\);/); assert.match(SRC, /termMonths: row\.term_months \?\? null, startDate: row\.start_date \?\? null/);
   assert.equal(g.ochModelDiffers({}, { term_months: null, start_date: null, first_payment: null, pay_mode: null, payment: null }), false);
   assert.equal(g.ochModelDiffers({ termMonths: 12 }, { term_months: 12 }), false); assert.equal(g.ochModelDiffers({ termMonths: 12 }, { term_months: 10 }), true);
   assert.equal(g.ochModelDiffers({ payMode: 'auto' }, { pay_mode: 'manual' }), true);

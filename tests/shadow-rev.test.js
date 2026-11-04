@@ -75,7 +75,8 @@ test('push: фейк-клієнт без select (як у наявних тест
 });
 test('нове й старе правило збігаються для 9 доменів: усі push-місця беруть серверну версію з відповіді (select id,updated_at), а рішення лишаються за часом', () => {
   assert.equal((SRC.match(/shadowAfterPush\(/g) || []).length >= 13, true, 'визначення + 12 push-місць (5 довідників, приховані, 3 записи, 3 пакети) викликають shadowAfterPush');
-  ['categories', 'subcategories', 'dictionary', 'bank_accounts', 'installment_accounts'].forEach(t => assert.ok(new RegExp("from\\('" + t + "'\\)\\.update\\(\\{[^\\n]*\\.select\\('id,updated_at(,deleted_at)?'\\)").test(SRC), t));
+  ['categories', 'subcategories', 'dictionary', 'bank_accounts'].forEach(t => assert.ok(new RegExp("from\\('" + t + "'\\)\\.update\\(\\{[^\\n]*\\.select\\('id,updated_at(,deleted_at)?'\\)").test(SRC), t));
+  assert.ok(/from\('installment_accounts'\)\.update\(body\)\.eq\('id', acc\.cloudId\)\.select\('id,updated_at'\)/.test(SRC), 'installment_accounts (Rev 2.32.242: тіло update збирається окремо)');
   ['expenses', 'incomes', 'debts', 'hidden_entities'].forEach(t => assert.ok(new RegExp("shadowRet\\(client\\.from\\('" + t + "'\\)\\.upsert\\(").test(SRC), t));
   assert.ok(!/serverUpdatedAt/.test(SRC.slice(SRC.indexOf('function isDirty('), SRC.indexOf('function isDirty(') + 200)), 'isDirty лишається за часом');
   assert.match(SRC, /function isStaleRecord\(r\)\{ return r\.syncedUpdatedAt !== r\.updatedAt; \}/);

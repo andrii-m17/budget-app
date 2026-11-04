@@ -69,7 +69,7 @@ function makeCloud(){
 }
 const NAMES = ['LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
   'saveBankAccountsLocal', 'saveInstallmentAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId', 'paymentDayPayload', 'normalizePaymentDay', 'pullBankAccountsCore',
-  'pushInstallmentAccountsPilot', 'reconcileInstallmentAccountCloudId', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom',
+  'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'idSendNew', 'generateUUID', 'pullAccountTombstone', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom',
   'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'planBankAccountsPush', 'planInstallmentAccountsPush',
   'reconcileBankAccountsCensus', 'reconcileInstallmentAccountsCensus', 'reconcileAccountsCensusFor', 'invalidateAccountChildren', 'cleanupOrphanedHiddenEntities',
   'pushHiddenEntitiesPilot', 'monthToDate', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor'];

@@ -317,6 +317,7 @@
       if(table === 'dictionary' && items.some(function(it){ return dupWord(Object.assign({ family_id: state.familyId }, it), null); })) return dupResp();
       const upsert = /merge-duplicates|ignore-duplicates/.test(prefer);
       const out = [];
+      let pkDup = false; // Rev 2.32.242: insert існуючого ключа без merge-duplicates = 409 / 23505, як у PostgREST
       items.forEach(function(it){
         const row = Object.assign({}, it);
         if(!KEYS[table] && !row.id) row.id = 'mock-' + (++state.idN);
@@ -325,10 +326,11 @@
         const keys = conflict.length ? conflict : (KEYS[table] || ['id']);
         const ex = rows.find(function(r){ return keys.every(function(k){ return String(r[k]) === String(row[k]); }); });
         if(ex && upsert){ if(!/ignore-duplicates/.test(prefer)){ const old0 = Object.assign({}, ex); serverUpdate(ex, row); mockTriggers(state, table, old0, ex, ts); out.push(ex); } }
-        else if(ex){ out.push(null); }
+        else if(ex){ out.push(null); pkDup = true; }
         else { rows.push(row); mockTriggers(state, table, null, row, ts); out.push(row); }
         emit(state, table, ex ? 'UPDATE' : 'INSERT', row);
       });
+      if(pkDup) return jsonResponse(409, { code: '23505', message: 'duplicate key value violates unique constraint "' + table + '_pkey"' });
       const done = out.filter(Boolean);
       return wantRep ? respond(JSON.parse(JSON.stringify(sel(done))), 201) : new Response(null, { status: 201 });
     }
