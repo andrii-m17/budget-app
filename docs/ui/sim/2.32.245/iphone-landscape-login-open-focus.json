@@ -1,0 +1,46 @@
+{
+ "id": "login-open-focus",
+ "title": "Вхід: відкриття листа, дотик у поле, клавіатура",
+ "why": [
+  "екранна клавіатура не з'явилась",
+  "фокус у «profile-drawer», очікувалось «cldfielda1»",
+  "низ листа над клавіатурою 100 пт (очікувалось 8 ± 2)",
+  "клас kb-open не встановлено",
+  "подій sheet-anim (open) немає"
+ ],
+ "metrics": {
+  "innerH": 376,
+  "innerW": 956,
+  "vvH": 376,
+  "vvTop": 0,
+  "vvBottom": 376,
+  "sheetBottom": 276,
+  "sheetTop": -49.6,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "profile-drawer",
+  "drawerOpen": true,
+  "keyboardTopPt": null,
+  "keyboardHeightPt": null,
+  "sheetGapVisualViewport": 100,
+  "sheetGapToNativeKeyboard": null,
+  "keyboardShown": false,
+  "tap": {
+   "x": 478,
+   "y": 177,
+   "k": 1,
+   "ox": 0,
+   "oy": 64,
+   "calibrated": true
+  }
+ },
+ "anim": [],
+ "events": [],
+ "files": [
+  "iphone-landscape-login-open-focus-before.jpg",
+  "iphone-landscape-login-open-focus-after.jpg"
+ ],
+ "cfg": "iphone-landscape",
+ "verdict": "впав"
+}

@@ -4,3 +4,5 @@ e2e-results/
 test-results/
 supabase/.temp/
 .env.test
+.appium/
+docs/ui/sim/*/appium.log

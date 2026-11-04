@@ -1,0 +1,34 @@
+{
+ "id": "card-close",
+ "title": "Картка боргу: закриття, клавіатура зникає, таб-бар на місці",
+ "why": [
+  "клавіатура лишилась після закриття",
+  "лист не закрився",
+  "видима область не повернулась: 137 проти 376",
+  "клас kb-open лишився",
+  "таб-бар не видно"
+ ],
+ "metrics": {
+  "innerH": 376,
+  "innerW": 956,
+  "vvH": 137,
+  "vvTop": 0,
+  "vvBottom": 137,
+  "sheetBottom": 204,
+  "sheetTop": 75,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "cdd-balance",
+  "drawerOpen": true,
+  "keyboardShown": true
+ },
+ "anim": [],
+ "events": [],
+ "files": [
+  "iphone-landscape-card-close-before.jpg",
+  "iphone-landscape-card-close-after.jpg"
+ ],
+ "cfg": "iphone-landscape",
+ "verdict": "впав"
+}

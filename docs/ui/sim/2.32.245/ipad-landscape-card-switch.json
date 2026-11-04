@@ -1,0 +1,35 @@
+{
+ "id": "card-switch",
+ "title": "Картка боргу: перемикання полів",
+ "why": [
+  "фокус у «cdd-balance», очікувалось «cdd-limit»",
+  "низ листа над клавіатурою -273 пт (очікувалось 8 ± 2)"
+ ],
+ "metrics": {
+  "innerH": 734,
+  "innerW": 1180,
+  "vvH": 312,
+  "vvTop": 0,
+  "vvBottom": 312,
+  "sheetBottom": 585,
+  "sheetTop": 281,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "cdd-balance",
+  "drawerOpen": true,
+  "keyboardTopPt": 453,
+  "sheetGapVisualViewport": -273,
+  "sheetGapToNativeKeyboard": -218,
+  "driftPt": 0,
+  "keyboardShown": true
+ },
+ "anim": [],
+ "events": [],
+ "files": [
+  "ipad-landscape-card-switch-before.jpg",
+  "ipad-landscape-card-switch-after.jpg"
+ ],
+ "cfg": "ipad-landscape",
+ "verdict": "впав"
+}
