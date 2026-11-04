@@ -177,7 +177,7 @@ const REPOSITORY_NAMES = [
   // getSupabaseClient/isSupabaseSdkReady підмінюються після buildSandbox().
   // pullBankAccountsPilotManual НЕ включена (DOM-шар).
   'pullBankAccountsCore', 'pullBankAccountsPilot', 'ensureBankAccountIdentity',
-  'saveInstallmentAccounts', 'saveInstallmentAccountsLocal', 'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'generateUUID', 'pullAccountTombstone',
+  'saveInstallmentAccounts', 'saveInstallmentAccountsLocal', 'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'idMigrateUnlinkedOnce', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'generateUUID', 'pullAccountTombstone',
   // Rev #30 (6D.27, installment_accounts повний цикл) — той самий
   // cross-realm-override прийом, що pullBankAccountsCore тести.
   // pullInstallmentAccountsPilotManual НЕ включена (DOM-шар).
@@ -253,7 +253,7 @@ const REPOSITORY_NAMES = [
   'activeDebts',
   // Rev #30 (6D.47) — P1.3, LWW-merge для 5 name/cloudId-based доменів;
   // спільний хелпер, яким тепер користуються всі 5 restoreXFromBackup().
-  'mergeBackupRecordsByCloudIdOrName', 'mdLostToServer', 'pushInFlight', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'cascadeAccountRename', 'cascadeCardRename',
+  'mergeBackupRecordsByCloudIdOrName', 'restoreNameKey', 'restoreSameName', 'mdLostToServer', 'pushInFlight', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'cascadeAccountRename', 'cascadeCardRename',
   // Rev #30 (6D.84) — Внутрішні сповіщення, Частина 3а/3б: автор-довідник +
   // черга "чужих дій", потрібні pullXCore()-тестам нижче. familyUsersById/
   // hiddenEntitiesPulledOnce/otherActorEvents — lowercase `let`, а не
@@ -3664,7 +3664,7 @@ test('restoreCategoriesFromBackup (Rev 2.32.232): час копії не пор�
   assert.equal(result.updated, 1);
   assert.equal(result.kept, 0);
   assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
-  assert.equal(ctx.CATEGORIES[0].name, 'Локальна (новіша)');
+  assert.equal(ctx.CATEGORIES[0].name, 'З бекапу (старіша)'); // Rev 2.32.246: назва з копії береться, як решта полів (рішення чату)
 });
 
 test('restoreCategoriesFromBackup: запис у бекапі НОВІШИЙ (за name, cloudId відсутній у local) → застосовується', async () => {

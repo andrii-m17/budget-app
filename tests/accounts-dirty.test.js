@@ -69,7 +69,7 @@ function makeCloud(){
 }
 const NAMES = ['LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
   'saveBankAccountsLocal', 'saveInstallmentAccountsLocal', 'pushBankAccountsPilot', 'bankIdSpec', 'idPushPlain', 'paymentDayPayload', 'normalizePaymentDay', 'pullBankAccountsCore',
-  'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'generateUUID', 'pullAccountTombstone', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom',
+  'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'idMigrateUnlinkedOnce', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'generateUUID', 'pullAccountTombstone', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom',
   'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'planBankAccountsPush', 'planInstallmentAccountsPush',
   'reconcileBankAccountsCensus', 'reconcileInstallmentAccountsCensus', 'reconcileAccountsCensusFor', 'invalidateAccountChildren', 'cleanupOrphanedHiddenEntities',
   'pushHiddenEntitiesPilot', 'monthToDate', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor'];
@@ -202,7 +202,7 @@ test('G3-5: застарілий пристрій без власних прав
 });
 
 test('restore з бекапу (Rev 2.32.232): змінений рахунок стає «брудним» (updatedAt = зараз) і пушиться', () => {
-  const ctx = buildSandbox({}, ['mergeBackupRecordsByCloudIdOrName']);
+  const ctx = buildSandbox({}, ['mergeBackupRecordsByCloudIdOrName', 'restoreNameKey', 'restoreSameName']);
   const local = [{ name: 'К', creditLimit: 1, updatedAt: '2026-01-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-01-01T00:00:00.000Z' }];
   ctx.mergeBackupRecordsByCloudIdOrName(local, [{ name: 'К', creditLimit: 5, updatedAt: '2026-02-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-02-01T00:00:00.000Z' }], 'name', 'bankAccounts');
   assert.equal(local[0].creditLimit, 5); assert.notEqual(local[0].syncedUpdatedAt, local[0].updatedAt); assert.equal(local[0].cloudId, 'c1');

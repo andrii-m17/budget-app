@@ -58,7 +58,7 @@ function makeCloud(){
 function hash(cloud, table){ return JSON.stringify(cloud.tables[table].map(function(r){ return [r.id, r.updated_at]; })); }
 
 const NAMES = ['LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
-  'saveCategoriesLocal', 'saveSubcategoriesLocal', 'pushCategoriesPilot', 'categoryIdSpec', 'idOf', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'idPushPlain', 'generateUUID', 'pullCategoriesCore',
+  'saveCategoriesLocal', 'saveSubcategoriesLocal', 'pushCategoriesPilot', 'categoryIdSpec', 'idOf', 'idMatchKey', 'idMigrateUnlinked', 'idMigrateUnlinkedOnce', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'idPushPlain', 'generateUUID', 'pullCategoriesCore',
   'pushSubcategoriesPilot', 'subcategoryIdSpec', 'pullSubcategoriesCore',
   'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'isSubcategoryDirty', 'planSubcategoriesPush', 'categoriesByNameMap',
   'reconcileCategoriesCensus', 'reconcileSubcategoriesCensus'];
@@ -183,7 +183,7 @@ test('pull LWW: гілка «локальна правка новіша за Clo
 });
 
 test('restore з бекапу (Rev 2.32.232): стан підкатегорії відновлюється як правка, батьківська категорія з копії не переноситься', () => {
-  const ctx = buildSandbox({}, ['mergeBackupRecordsByCloudIdOrName']);
+  const ctx = buildSandbox({}, ['mergeBackupRecordsByCloudIdOrName', 'restoreNameKey', 'restoreSameName']);
   const local = [{ name: 'Кафе', category: 'Їжа', active: true, updatedAt: '2026-01-01T00:00:00.000Z', cloudId: 's1', syncedUpdatedAt: '2026-01-01T00:00:00.000Z', syncedCategoryId: 'c1' }];
   ctx.mergeBackupRecordsByCloudIdOrName(local, [{ name: 'Кафе', category: 'Дім', active: false, updatedAt: '2026-02-01T00:00:00.000Z', cloudId: 's1', syncedUpdatedAt: '2026-02-01T00:00:00.000Z', syncedCategoryId: 'c9' }], 'name', 'subcategories');
   assert.equal(local[0].category, 'Їжа', 'переміщення між категоріями не відновлюється'); assert.equal(local[0].active, false); assert.notEqual(local[0].syncedUpdatedAt, local[0].updatedAt); assert.equal(local[0].syncedCategoryId, 'c1'); assert.equal(local[0].cloudId, 's1');

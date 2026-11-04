@@ -71,7 +71,7 @@ function makeCloud(){
 const row = function(table, o){ return Object.assign({ family_id: 'fam', deleted_at: null, created_at: STAMP, updated_at: tick(), __ua: 0 }, o); };
 
 const NAMES = ['fetchDeltaRows', 'PULL_PAGE_SIZE', 'PULL_MAX_PAGES', 'LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
-  'idOf', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'idPushPlain', 'generateUUID', 'isDirty', 'applyCensus', 'fetchCloudIdCensus',
+  'idOf', 'idMatchKey', 'idMigrateUnlinked', 'idMigrateUnlinkedOnce', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'idPushPlain', 'generateUUID', 'isDirty', 'applyCensus', 'fetchCloudIdCensus',
   'saveCategoriesLocal', 'saveSubcategoriesLocal', 'saveDictionaryLocal', 'saveBankAccountsLocal', 'saveInstallmentAccountsLocal',
   'pushCategoriesPilot', 'categoryIdSpec', 'pullCategoriesCore', 'pushSubcategoriesPilot', 'subcategoryIdSpec', 'pullSubcategoriesCore',
   'pushDictionaryPilotRun', 'dictionaryIdSpec', 'pullDictionaryCore', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus',
@@ -355,4 +355,82 @@ test('245-16 (джерело): пошуку за назвою на відпра�
   assert.match(SRC, /if\(sub\.name !== newName\) sub\.nameDirty = true;/);
   assert.match(SRC, /if\(acc\.name !== newName\) acc\.nameDirty = true;/);
   assert.match(SRC, /if\(entry\.kw !== kw\) entry\.nameDirty = true;/);
+});
+
+// ===== Rev 2.32.246 (RESTORE-ID): відновлення з копії, повернення під старим id, питання про нові картки/ОЧ, видалення назавжди =====
+test('246-1: повернення з копії: надгробок із тим самим id оживає (deleted_at → null), нового рядка нема', async () => {
+  const cloud = makeCloud();
+  cloud.tables.categories.push(row('categories', { id: 'cx', name: 'Їжа', active: true, type: 'Гнучка', deleted_at: '2026-10-01T00:00:00.000Z' }));
+  const D = device(cloud, 'D', { cats: [{ name: 'Їжа', active: true, type: 'Гнучка', createdAt: STAMP, updatedAt: tick(), clientId: 'cx', restoreReturn: true }] });
+  await D.pushCategoriesPilot();
+  assert.equal(cloud.tables.categories.length, 1);
+  assert.equal(cloud.tables.categories[0].id, 'cx');
+  assert.equal(cloud.tables.categories[0].deleted_at, null);
+  assert.equal(D.CATEGORIES[0].cloudId, 'cx');
+  assert.equal(D.CATEGORIES[0].restoreReturn, undefined);
+});
+
+test('246-2: без прапорця повернення надгробок приймається (видалення), а не оживає', async () => {
+  const cloud = makeCloud();
+  cloud.tables.categories.push(row('categories', { id: 'cx', name: 'Їжа', active: true, type: 'Гнучка', deleted_at: '2026-10-01T00:00:00.000Z' }));
+  const D = device(cloud, 'D', { cats: [{ name: 'Їжа', active: true, type: 'Гнучка', createdAt: STAMP, updatedAt: tick(), clientId: 'cx' }] });
+  D.pullTaxonomyTombstone = async function(){ return true; };
+  await D.pushCategoriesPilot();
+  assert.notEqual(cloud.tables.categories[0].deleted_at, null);
+});
+
+function mergeSandbox(){
+  return buildSandbox({ restoreApplyAsEdit: function(dom, local, rec){ let n = 0; Object.keys(rec).forEach(function(k){ if(local[k] !== rec[k] && ['name', 'type'].indexOf(k) !== -1){ local[k] = rec[k]; n++; } }); return n; }, UUID_FORMAT_RE: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, restoreStripServerState: function(r){ return r; } },
+    ['mergeBackupRecordsByCloudIdOrName', 'restoreNameKey', 'restoreSameName', 'idMatchKey']);
+}
+test('246-3: копія без id після перейменування — запис впізнається за міткою, назва береться з копії, третього запису нема (243-4)', () => {
+  const c = mergeSandbox();
+  const list = [{ name: 'Нова', cloudId: 'c1', createdAt: STAMP, updatedAt: 'U' }];
+  const r = c.mergeBackupRecordsByCloudIdOrName(list, [{ name: 'Стара', createdAt: STAMP, updatedAt: 'T' }], 'name', 'categories');
+  assert.deepEqual(j(r), { added: 0, updated: 1, kept: 0, skipped: 0 });
+  assert.equal(list.length, 1);
+  assert.equal(list[0].name, 'Стара');
+  assert.equal(list[0].nameDirty, true);
+});
+
+test('246-4: «мертвий» id: у копії id D, якого нема; є живий запис із такою назвою під іншим id і іншою міткою — не додаємо, лічимо як пропущений', () => {
+  const c = mergeSandbox();
+  const list = [{ name: 'Їжа', cloudId: 'L', createdAt: '2026-09-02T00:00:00.000Z' }];
+  const r = c.mergeBackupRecordsByCloudIdOrName(list, [{ name: 'Їжа', cloudId: '11111111-1111-4111-8111-111111111111', createdAt: STAMP }], 'name', 'categories');
+  assert.deepEqual(j(r), { added: 0, updated: 0, kept: 0, skipped: 1 });
+  assert.equal(list.length, 1);
+});
+
+test('246-5: «мертвий» id без запису з такою назвою — повертається під своїм id (clientId + restoreReturn); неоднозначна мітка — нічого не робимо', () => {
+  const c = mergeSandbox();
+  const list = [];
+  const D = '11111111-1111-4111-8111-111111111111';
+  const r = c.mergeBackupRecordsByCloudIdOrName(list, [{ name: 'Нова', cloudId: D, createdAt: STAMP }], 'name', 'categories');
+  assert.deepEqual(j(r), { added: 1, updated: 0, kept: 0, skipped: 0 });
+  assert.equal(list[0].clientId, D); assert.equal(list[0].restoreReturn, true); assert.equal(list[0].cloudId, undefined);
+  const two = [{ name: 'А', cloudId: 'a', createdAt: STAMP }, { name: 'Б', cloudId: 'b', createdAt: STAMP }];
+  const r2 = c.mergeBackupRecordsByCloudIdOrName(two, [{ name: 'В', createdAt: STAMP }], 'name', 'categories');
+  assert.equal(r2.skipped, 1); assert.equal(two.length, 2);
+});
+
+test('246-6: Excel: текст питання про нові картки й ОЧ; понад п\'ять назв — перші п\'ять і «та ще N»', () => {
+  const c = buildSandbox({}, ['importNewAccountsText']);
+  assert.equal(c.importNewAccountsText(['A', 'B']), 'У файлі є картки й оплати частинами, яких немає в застосунку: «A», «B». Якщо це перейменовані записи, вони з\'являться вдруге. Додати їх як нові?');
+  assert.match(c.importNewAccountsText(['1', '2', '3', '4', '5', '6', '7']), /«5»\sта ще 2\./);
+});
+
+test('246-10: відновлення підкатегорій: така сама назва в ІНШІЙ категорії — окремий запис, не пропуск; у тій самій — пропуск', () => {
+  const c = buildSandbox({ restoreApplyAsEdit: function(){ return 0; }, UUID_FORMAT_RE: /^[0-9a-f-]{36}$/i, restoreStripServerState: function(r){ return r; } }, ['mergeBackupRecordsByCloudIdOrName', 'restoreNameKey', 'restoreSameName', 'idMatchKey']);
+  const list = [{ name: 'Інше', category: 'Б', cloudId: 'b1', createdAt: '2026-09-02T00:00:00.000Z' }];
+  const r = c.mergeBackupRecordsByCloudIdOrName(list, [{ name: 'Інше', category: 'А', createdAt: STAMP }], 'name', 'subcategories');
+  assert.deepEqual(j(r), { added: 1, updated: 0, kept: 0, skipped: 0 });
+  const r2 = c.mergeBackupRecordsByCloudIdOrName(list, [{ name: 'Інше', category: 'Б', createdAt: '2026-01-01T00:00:00.000Z' }], 'name', 'subcategories');
+  assert.equal(r2.skipped, 1);
+});
+
+test('246-11: прапорець restoreReturn із копії не переноситься; слово без правки тексту після push має зліпок і serverKw із відповіді сервера', async () => {
+  const c = buildSandbox({ restoreApplyAsEdit: function(){ return 0; }, UUID_FORMAT_RE: /^[0-9a-f-]{36}$/i, restoreStripServerState: function(r){ return r; } }, ['mergeBackupRecordsByCloudIdOrName', 'restoreNameKey', 'restoreSameName', 'idMatchKey']);
+  const list = [];
+  c.mergeBackupRecordsByCloudIdOrName(list, [{ name: 'Нова', restoreReturn: true, createdAt: STAMP }], 'name', 'categories');
+  assert.equal(list[0].restoreReturn, undefined);
 });

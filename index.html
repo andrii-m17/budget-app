@@ -3827,7 +3827,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.245</div>
+  <div class="version-footer">Money Tree · Rev 2.32.246</div>
 </div>
   </div>
 </div>
@@ -5647,6 +5647,14 @@ function idMatchKey(createdAt){
 const ID_MIGRATE_LAST = {}; // (лишено для сумісності; з Rev 245 замінено ID_AMBIGUOUS)
 const ID_AMBIGUOUS = new WeakSet(); // Rev 2.32.244: записи, які міграція в цьому сеансі визнала неоднозначними: повторно не зіставляються (інакше другий прохід, коли решту кандидатів уже розібрано, зв'язав би їх «методом викреслювання» — це вже вгадування)
 async function idMigrateUnlinked(client, spec){
+  // Rev 2.32.246: два одночасні виклики для однієї таблиці (збереження + push з імпорту/відновлення) обидва бачили б записи без id й видали б їм різні id → два рядки. Виклики однієї таблиці виконуються по черзі.
+  const run = idMigrateUnlinked.running || (idMigrateUnlinked.running = {});
+  while(run[spec.table]){ try{ await run[spec.table]; }catch(e){} }
+  const p = idMigrateUnlinkedOnce(client, spec);
+  run[spec.table] = p;
+  try{ return await p; }finally{ if(run[spec.table] === p) delete run[spec.table]; }
+}
+async function idMigrateUnlinkedOnce(client, spec){
   const list = spec.list();
   const unlinkedAll = list.filter(function(r){ return !r.cloudId && !r.clientId; });
   if(!unlinkedAll.length) return { ok: true, linked: 0, created: 0, ambiguous: 0 };
@@ -5744,7 +5752,14 @@ async function idPushPlain(client, spec, rec, userId, doUpdate){
   if(!sent) return { state: 'updated' };
   if(sent.state === 'error' || sent.state === 'keyConflict') return { state: sent.state };
   if(!rec.cloudId){ rec.cloudId = rec.clientId; delete rec.clientId; }
+  if(sent.state === 'tombstone' && rec.restoreReturn){ // Rev 2.32.246: відновлення з копії — надгробок із цим id стає поверненням (deleted_at → null), а не прийняттям видалення
+    const rv = await client.from(spec.table).update(Object.assign({ deleted_at: null, updated_by: userId }, spec.table === 'dictionary' ? { deleted_via: null } : {})).eq('id', rec.cloudId).select('id');
+    if(rv.error) return { state: 'error' };
+    delete rec.restoreReturn;
+    return (await doUpdate()) === null ? { state: 'error' } : { state: 'updated' };
+  }
   if(sent.state === 'tombstone') return { state: 'tombstone', row: sent.row };
+  delete rec.restoreReturn;
   if(sent.state === 'inserted') return { state: 'inserted', row: sent.row };
   return (await doUpdate()) === null ? { state: 'error' } : { state: 'updated' }; // живий рядок з цим id: звичайне оновлення
 }
@@ -5931,14 +5946,14 @@ async function pushDictionaryPilotRun(){
         // лишається чинним рівно для цього випадку.
         // Rev 2.32.244 (ID-ALL): update за id (з тим самим захистом від воскресіння), а нового рядка — insert з клієнтським id; пошуку за ключовим словом на відправці нема.
         // Текст слова шлеться лише якщо його справді змінено (entry.nameDirty) або зліпок показує розбіжність: застаріла копія не стирає чужу правку.
-        let updErr = null;
+        let updErr = null, srvKw;
         const doUpdate = async function(){
           const body = { category_id: parentCat.cloudId, subcategory_id: subcategoryId, deleted_at: entry.deletedAt || null, deleted_via: entry.deletedVia || null, updated_at: entry.updatedAt, updated_by: userId };
           kwSent = !!(entry.nameDirty || (entry.serverKw !== undefined && entry.serverKw !== entry.kw));
           if(kwSent) body.keyword = entry.kw;
-          const r = await client.from('dictionary').update(body).eq('id', entry.cloudId).or('deleted_at.is.null,deleted_at.lt.' + entry.updatedAt).select('id,updated_at,deleted_at');
+          const r = await client.from('dictionary').update(body).eq('id', entry.cloudId).or('deleted_at.is.null,deleted_at.lt.' + entry.updatedAt).select('id,updated_at,deleted_at,keyword');
           if(r.error){ updErr = r.error; return null; }
-          if(r.data && r.data[0]){ shadowSetServer(entry, r.data[0].updated_at); shadowAdoptDeleted(entry, r.data[0].deleted_at); } // Rev 2.32.192 (SHADOW-REV); Rev 2.32.230 (SERVER-DEL)
+          if(r.data && r.data[0]){ shadowSetServer(entry, r.data[0].updated_at); shadowAdoptDeleted(entry, r.data[0].deleted_at); srvKw = r.data[0].keyword; } // Rev 2.32.192 (SHADOW-REV); Rev 2.32.230 (SERVER-DEL)
           return r.data || [];
         };
         const res = await idPushPlain(client, dictionaryIdSpec(parentCat.cloudId, subcategoryId), entry, userId, doUpdate);
@@ -5951,6 +5966,7 @@ async function pushDictionaryPilotRun(){
           if(!entry.deletedAt) entry.deletedAt = res.row.deleted_at;
         }else if(res.state === 'inserted'){ shadowSetServer(entry, res.row.updated_at); shadowAdoptDeleted(entry, res.row.deleted_at); kwSent = true; }
         if(res.state === 'tombstone') kwSent = false;
+        else if(res.state === 'updated' && !kwSent && typeof srvKw === 'string'){ if(srvKw !== entry.kw) entry.kw = srvKw; entry.serverKw = srvKw; kwSent = true; } // Rev 2.32.246: текст не слали — беремо його з відповіді сервера (зліпок і serverKw відомі, чужа правка не затирається)
       }
       { const pids = dictionaryParentIds(entry); markDictionarySynced(entry, entry.updatedAt, pids.catId || parentCat.cloudId, pids.subId || (entry.sub ? subcategoryId : null)); } // Rev 2.32.225: після усиновлення призначення могло стати серверним
       shadowAfterPush(entry, shSnap); // Rev 2.32.192 (SHADOW-REV)
@@ -6274,25 +6290,52 @@ function restoreStripServerState(rec){
   return rec;
 }
 function restoreCountWord(n){ const m = n % 100, d = n % 10; return (m >= 11 && m <= 14) ? 'записів' : (d === 1 ? 'запис' : (d >= 2 && d <= 4 ? 'записи' : 'записів')); }
+// Rev 2.32.246 (RESTORE-ID, клас C): відновлення за правилом ідентичності 244-245. Запис копії впізнається: 1) за id (cloudId/clientId); 2) якщо id немає або він чужий — за міткою створення до мс серед ще не зіставлених локальних записів
+// (кілька — за назвою; не вибрано — нічого не робимо, лічимо як пропущений); 3) лише для записів без мітки і типових (seed) — за точною назвою, рівно один кандидат. Знайдений = звичайна правка полів з копії (включно з назвою).
+// Не знайдений: якщо живий локальний запис уже має таку саму назву — не додаємо (пропущено); інакше додаємо як повернення під СВОЇМ id із копії (clientId + restoreReturn): рядок із надгробком на сервері оживає, відсутній створюється з цим id.
+function restoreNameKey(v){ return String(v == null ? '' : v).trim().toLowerCase(); }
+function restoreSameName(domKey, nameField, a, b){ return restoreNameKey(a[nameField]) === restoreNameKey(b[nameField]) && (domKey !== 'subcategories' || restoreNameKey(a.category) === restoreNameKey(b.category)); } // підкатегорії з однаковою назвою в різних категоріях — різні записи
 function mergeBackupRecordsByCloudIdOrName(list, backupList, nameField, domKey){
-  let added = 0, updated = 0, kept = 0;
+  let added = 0, updated = 0, kept = 0, skipped = 0;
+  const used = new Set();
+  const isLive = function(x){ return !x.deletedAt; };
   for(const rec of backupList){
-    const byCloudId = rec.cloudId ? list.find(function(x){ return x.cloudId === rec.cloudId; }) : null;
-    const local = byCloudId || list.find(function(x){ return x[nameField] === rec[nameField]; });
+    let local = rec.cloudId ? list.find(function(x){ return !used.has(x) && (x.cloudId === rec.cloudId || x.clientId === rec.cloudId); }) : null;
     if(!local){
+      const stamp = (!rec.seed && rec.createdAt) ? idMatchKey(rec.createdAt) : null;
+      if(stamp !== null){
+        const cands = list.filter(function(x){ return !used.has(x) && !x.seed && idMatchKey(x.createdAt) === stamp; });
+        if(cands.length === 1) local = cands[0];
+        else if(cands.length > 1){
+          const tie = cands.filter(function(x){ return restoreSameName(domKey, nameField, x, rec); });
+          if(tie.length === 1) local = tie[0]; else { skipped++; continue; } // не вибрано однозначно: нічого не чіпаємо
+        }
+      }else{
+        const byName = list.filter(function(x){ return !used.has(x) && isLive(x) && restoreSameName(domKey, nameField, x, rec); });
+        if(byName.length === 1) local = byName[0]; else if(byName.length > 1){ skipped++; continue; }
+      }
+    }
+    if(!local){
+      if(!rec.deletedAt && list.some(function(x){ return isLive(x) && restoreSameName(domKey, nameField, x, rec); })){ skipped++; continue; } // така назва вже є під іншим записом: дубль не створюємо
       const toAdd = Object.assign({}, rec);
       delete toAdd.cloudId;
       delete toAdd.syncedUpdatedAt; // Rev 2.23.26 (6D.195, G1): запис з бекапу ще не синхронізовано
       delete toAdd.syncedCategoryId; delete toAdd.syncedSubcategoryId; // G2: те саме для підкатегорій (syncedCategoryId)
+      delete toAdd.clientId; delete toAdd.seed; delete toAdd.restoreReturn;
+      if(rec.cloudId && UUID_FORMAT_RE.test(rec.cloudId)){ toAdd.clientId = rec.cloudId; toAdd.restoreReturn = true; } // повернення під старим id
       restoreStripServerState(toAdd); // Rev 2.32.232
-      list.push(toAdd);
+      list.push(toAdd); used.add(toAdd);
       added++;
       continue;
     }
-    if(!restoreApplyAsEdit(domKey, local, rec)){ kept++; continue; } // Rev 2.32.232 (RESTORE-MERGE): поля копії як звичайні правки, без порівняння годинників
+    used.add(local);
+    const renamed = !!(nameField && rec[nameField] != null && local[nameField] !== rec[nameField]);
+    if(renamed){ local[nameField] = rec[nameField]; local.nameDirty = true; local.updatedAt = new Date().toISOString(); } // Rev 2.32.246: назва з копії — така сама правка, як решта полів; на сервер іде як справжнє перейменування
+    const changedFields = restoreApplyAsEdit(domKey, local, rec); // Rev 2.32.232 (RESTORE-MERGE): поля копії як звичайні правки, без порівняння годинників
+    if(!changedFields && !renamed){ kept++; continue; }
     updated++;
   }
-  return { added: added, updated: updated, kept: kept };
+  return { added: added, updated: updated, kept: kept, skipped: skipped };
 }
 async function restoreCategoriesFromBackup(raw){
   let backupList;
@@ -9627,7 +9670,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.245';
+const APP_VERSION = '2.32.246';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -9835,9 +9878,9 @@ async function applyBackupData(data){
   await loadStructureRefs();
   await loadAll();
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'restore-filtered', skipped: restoreFilteredCount });
-  let total = 0, gone = 0;
-  Object.keys(results).forEach(function(k){ const r = results[k]; if(r && typeof r === 'object'){ total += (r.added || 0) + (r.updated || 0); gone += r.stayedDeleted || 0; } });
-  lastRestoreSummary = { total: total, serverNewer: Object.keys(restoreMerge.recs).length, stayedDeleted: gone }; // Rev 2.32.232 (RESTORE-MERGE)
+  let total = 0, gone = 0, skippedN = 0;
+  Object.keys(results).forEach(function(k){ const r = results[k]; if(r && typeof r === 'object'){ total += (r.added || 0) + (r.updated || 0); gone += r.stayedDeleted || 0; skippedN += r.skipped || 0; } });
+  lastRestoreSummary = { total: total, serverNewer: Object.keys(restoreMerge.recs).length, stayedDeleted: gone, skipped: skippedN }; // Rev 2.32.232 (RESTORE-MERGE)
   return results;
 }
 // ===== Rev 2.32.235 (RESTORE-SOURCES, клас B+C): копія «Перед відновленням» і вибір джерела відновлення =====
@@ -9968,7 +10011,7 @@ async function performRestore(data, info){
   catch(e){ if(statusEl) statusEl.textContent = 'Не вдалося відновити дані.'; showTextToast('Не вдалося відновити дані', 'error'); return; }
   Object.values(results).forEach(reportSaveResult);
   const sm = lastRestoreSummary || { total: 0, serverNewer: 0 };
-  showTextToast('Повернуто ' + sm.total + ' ' + restoreCountWord(sm.total) + '.' + (sm.serverNewer ? ' У ' + sm.serverNewer + ' ' + (sm.serverNewer === 1 ? 'записі' : 'записах') + ' лишились новіші значення (вони в «Конфліктах»).' : ''), 'success');
+  showTextToast('Повернуто ' + sm.total + ' ' + restoreCountWord(sm.total) + '.' + (sm.skipped ? ' Пропущено ' + sm.skipped + ': вони вже є в застосунку під такою самою назвою.' : '') + (sm.serverNewer ? ' У ' + sm.serverNewer + ' ' + (sm.serverNewer === 1 ? 'записі' : 'записах') + ' лишились новіші значення (вони в «Конфліктах»).' : ''), 'success');
   if(statusEl) statusEl.textContent = '';
   try{ await renderBackupStatus(); }catch(e){}
 }
@@ -17188,6 +17231,21 @@ function mapExcelInstallmentDetailRow(row){
   return { baseName: String(row[1]).trim(), monthlyPay, creditSum, balance };
 }
 
+// Rev 2.32.246 (IMPORT-ASK): запитання про нові картки й ОЧ з файлу (наявна модалка підтвердження; Promise<boolean>). Закриття іншим шляхом (підкладка, Escape) = «Пропустити».
+function importNewAccountsText(names){
+  const shown = names.slice(0, 5).map(function(n){ return '«' + n + '»'; }).join(', ') + (names.length > 5 ? ' та ще ' + (names.length - 5) : '');
+  return 'У файлі є картки й оплати частинами, яких немає в застосунку: ' + shown + '. Якщо це перейменовані записи, вони з\'являться вдруге. Додати їх як нові?';
+}
+function askImportNewAccounts(names){
+  return new Promise(function(resolve){
+    let done = false;
+    const finish = function(v){ if(done) return; done = true; clearInterval(timer); resolve(v); };
+    showConfirmModal(importNewAccountsText(names), function(){ finish(true); }, 'Додати як нові', 'primary');
+    const cancel = document.getElementById('app-modal-cancel-btn'); if(cancel) cancel.textContent = 'Пропустити';
+    let seenOpen = false, ticks = 0;
+    const timer = setInterval(function(){ ticks++; const m = document.getElementById('app-modal'); if(m && m.classList.contains('open')) seenOpen = true; else if(seenOpen || ticks > 10) finish(false); }, 300); // не відкрився за 3 с або закритий (підкладка, Escape) — «Пропустити»; імпорт не зависає
+  });
+}
 function handleImportFile(event){
   const file = event.target.files[0];
   if(!file) return;
@@ -17210,6 +17268,7 @@ function handleImportFile(event){
     try{
       const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
       let addedExpenses = 0, addedIncomes = 0, addedDebts = 0, skipped = 0;
+      const importedDebtRefs = [], importedInstRefs = []; // Rev 2.32.246 (IMPORT-ASK): записи, додані цим імпортом, — щоб за відмови прибрати борги нових карток/ОЧ
       let finDebugLines = []; // Rev 2.1.37 — діагностика по кожному рядку аркуша "Фінанси"
       const missingSheets = [];
 
@@ -17344,12 +17403,13 @@ function handleImportFile(event){
             // (alreadyExists) сюди не потрапляє, updatedAt наявного запису
             // ніколи не чіпається повторним імпортом.
             const importNowIsoDebt = new Date().toISOString();
-            debts.push({
+            const impDebt = {
               // Rev #30 (6D.7) — той самий принцип, що incomes вище.
               id: generateUUID(),
               name: c.name, kind: c.kind, month: c.month, balance: c.balance,
               createdAt: importNowIsoDebt, updatedAt: importNowIsoDebt
-            });
+            };
+            debts.push(impDebt); importedDebtRefs.push(impDebt);
             addedDebts++;
           }
         }
@@ -17438,12 +17498,13 @@ function handleImportFile(event){
           if(alreadyExists){ skippedDuplicateDebts++; return; }
           // Rev #30 (6D.8) — той самий принцип, що обидва місця вище.
           const importNowIsoFin = new Date().toISOString();
-          debts.push({
+          const impDebtFin = {
             id: generateUUID(), // Rev #30 (6D.7) — той самий принцип, що вище
             name: label, kind:'installment', month: finMonth, balance: e.balance,
             monthlyPayment: isNaN(e.monthlyPay) ? undefined : e.monthlyPay,
             createdAt: importNowIsoFin, updatedAt: importNowIsoFin
-          });
+          };
+          debts.push(impDebtFin); importedDebtRefs.push(impDebtFin);
           addedDebts++;
           // Rev 2.1.17 — "Сума кредиту" тепер записується і як справжнє поле
           // initialAmount (потрібне для прогрес-бару на Аналітиці), а не лише
@@ -17451,11 +17512,24 @@ function handleImportFile(event){
           if(!isNaN(e.creditSum)){
             const existingAcc = installmentAccounts.find(a=>a.name===label);
             if(existingAcc){ if(existingAcc.initialAmount !== e.creditSum){ existingAcc.initialAmount = e.creditSum; existingAcc.updatedAt = new Date().toISOString(); /* Rev 2.23.28 (6D.197, G3): реальна правка має зробити запис dirty — раніше її підхоплював "пуш усього" */ } }
-            else{ installmentAccounts.push({ name: label, initialAmount: e.creditSum, firstMonth: finMonth }); }
+            else{ const impAcc = { name: label, initialAmount: e.creditSum, firstMonth: finMonth, clientId: generateUUID() }; installmentAccounts.push(impAcc); importedInstRefs.push(impAcc); }
           }
         });
       }
 
+      // Rev 2.32.246 (IMPORT-ASK, клас C): картки й ОЧ, яких немає в застосунку за назвою, можуть бути перейменованими — без питання вони з'явилися б вдруге. Питаємо один раз; відмова прибирає ці нові картки/ОЧ та їхні борги з цього імпорту.
+      let declinedNew = 0;
+      {
+        const knownCard = function(n){ return bankAccounts.some(function(b){ return b.name === n; }); };
+        const knownInst = function(n){ return installmentAccounts.some(function(a){ return a.name === n && importedInstRefs.indexOf(a) === -1; }); };
+        const newNames = [], newKeys = [];
+        importedDebtRefs.forEach(function(d){ if((d.kind === 'card' ? !knownCard(d.name) : !knownInst(d.name)) && newKeys.indexOf(d.kind + '|' + d.name) === -1){ newKeys.push(d.kind + '|' + d.name); if(newNames.indexOf(d.name) === -1) newNames.push(d.name); } });
+        if(newNames.length && !(await askImportNewAccounts(newNames))){
+          const skip = new Set(newKeys);
+          importedDebtRefs.forEach(function(d){ if(skip.has(d.kind + '|' + d.name)){ const i = debts.indexOf(d); if(i !== -1){ debts.splice(i, 1); addedDebts--; declinedNew++; } } });
+          importedInstRefs.forEach(function(a){ if(skip.has('installment|' + a.name)){ const i = installmentAccounts.indexOf(a); if(i !== -1) installmentAccounts.splice(i, 1); } });
+        }
+      }
       reportSaveResult(await saveExpenses());
       reportSaveResult(await saveIncomes());
       reportSaveResult(await saveDebts());
@@ -17499,7 +17573,7 @@ function handleImportFile(event){
         : '';
 
       statusEl.textContent = `Готово. Імпортовано: ${addedExpenses} витрат, ${addedIncomes} доходів, ${addedDebts} записів боргів.` +
-        (skipped ? `\nПропущено рядків без суми/дати: ${skipped}.` : '') + duplicatesNote + sheetsWarning + renderWarning + finDebugBlock;
+        (skipped ? `\nПропущено рядків без суми/дати: ${skipped}.` : '') + (declinedNew ? `\nНових карток і ОЧ пропущено: записів боргів ${declinedNew}.` : '') + duplicatesNote + sheetsWarning + renderWarning + finDebugBlock;
     }catch(err){
       statusEl.textContent = 'Помилка при читанні файлу: ' + err.message;
       console.error(err);
@@ -19153,12 +19227,13 @@ function buildTrashItems(state){
     const idx = k.indexOf(':');
     const kind = idx === -1 ? '' : k.slice(0, idx);
     let name = idx === -1 ? k : k.slice(idx + 1);
+    let accountId = null; // Rev 2.32.246: ключ за id (`kind:#id`) → id рахунку для видалення назавжди (раніше лише назва: при однакових назвах видалявся перший за списком)
     if(kind !== 'card' && kind !== 'installment') return;
     const list = kind === 'card' ? st.bankAccounts : st.installmentAccounts;
-    if(name.charAt(0) === '#' && Array.isArray(list)){ const byId = list.find(function(a){ return a && a.cloudId === name.slice(1); }); if(byId) name = byId.name; } // Rev 2.32.237: ключ за id (`card:#id`, `installment:#id`) → назва рахунку
+    if(name.charAt(0) === '#' && Array.isArray(list)){ accountId = name.slice(1); const byId = list.find(function(a){ return a && a.cloudId === accountId; }); if(byId) name = byId.name; } // Rev 2.32.237: ключ за id (`card:#id`, `installment:#id`) → назва рахунку
     if(Array.isArray(list) && !list.some(function(a){ return a && a.name === name; })) return;
     const when = entry.updatedAt && entry.updatedAt !== TRASH_HIDDEN_LEGACY_EPOCH ? entry.updatedAt : null;
-    items.push({ type: kind, group: trashTabOf({ type: kind }), id: k, key: kind + ':' + name, title: name, hiddenMonth: entry.month || '', deletedAt: when });
+    items.push({ type: kind, group: trashTabOf({ type: kind }), id: k, key: kind + ':' + name, title: name, accountId: accountId, hiddenMonth: entry.month || '', deletedAt: when });
   });
   items.sort(function(a, b){
     return trashSortKey(b).localeCompare(trashSortKey(a)) || String(b.key).localeCompare(String(a.key));
@@ -19269,7 +19344,7 @@ function purgeAccountPlan(acct, state){
   const hiddenKeys = [];
   if(hasIdHideKey(kind) && accId && Object.prototype.hasOwnProperty.call(hf, kind + ':#' + accId)) hiddenKeys.push(kind + ':#' + accId);
   if(Object.prototype.hasOwnProperty.call(hf, kind + ':' + name)) hiddenKeys.push(kind + ':' + name);
-  return { exists: !!account, kind: kind, name: name, cloudId: (account && account.cloudId) || null, debtIds: debtIds, debtCount: debtIds.length,
+  return { exists: !!account, kind: kind, name: name, cloudId: (account && account.cloudId) || null, serverId: (account && (account.cloudId || account.clientId)) || null, debtIds: debtIds, debtCount: debtIds.length,
     linkedExpenseIds: linked.map(function(e){ return e.id; }), linkedCount: linked.length, hiddenKey: hiddenKeys[0] || null, hiddenKeys: hiddenKeys };
 }
 // Rev 2.32.77 (PURGE-1): строк життя надгробків карток/ОЧ/категорій на сервері (14 днів, cron p_days) користувачу НЕ показуємо: лише внутрішня документація (docs/SUPABASE_POLICY.md).
@@ -25459,7 +25534,7 @@ function purgeTrashItem(key){
     captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });
     return;
   }
-  if(isAccountTrashType(item.type)) item.purgePlan = purgeAccountPlan({ kind: item.type, name: item.title }, trashStateNow());
+  if(isAccountTrashType(item.type)) item.purgePlan = purgeAccountPlan({ kind: item.type, name: item.title, cloudId: item.accountId || null }, trashStateNow());
   if(isTaxonomyTrashType(item.type)){
     const tplan = purgeTaxonomyPlan({ kind: item.type, name: item.title, category: item.category }, trashStateNow());
     if(tplan.blocked){ showTaxonomyBlocked(tplan); return; }
@@ -25529,10 +25604,10 @@ async function findLiveCloudId(table, filters){
 }
 // Rev 2.32.4 (T2) — видалення назавжди прихованої картки/ОЧ (див. коментар над purgeAccountPlan).
 async function runAccountPurge(item){
-  const plan = purgeAccountPlan({ kind: item.type, name: item.title }, trashStateNow());
+  const plan = purgeAccountPlan({ kind: item.type, name: item.title, cloudId: item.accountId || null }, trashStateNow()); // Rev 2.32.246: за id, коли ключ приховування за id
   if(!plan.exists){ showTextToast('Не вдалося видалити: рахунок не знайдено', 'error'); renderTrashScreen(); return; }
   // Rev 2.32.76 (PURGE-1): Cloud-крок йде для БУДЬ-ЯКОЇ назви (ізоляція тестових імен створення/синхронізації тут не діє); порожній cloudId — пошук за назвою, не тихий пропуск.
-  let cloudId = plan.cloudId;
+  let cloudId = plan.serverId || plan.cloudId; // Rev 2.32.246: запис, чий рядок уже створено з клієнтським id (clientId), теж видаляється на сервері за id
   if(!cloudId){
     const found = await findLiveCloudId(plan.kind === 'card' ? 'bank_accounts' : 'installment_accounts', { name: plan.name });
     if(!found.ok){
@@ -25554,6 +25629,10 @@ async function runAccountPurge(item){
       if(r2.error) throw r2.error;
       const r3 = await client.from(plan.kind === 'card' ? 'bank_accounts' : 'installment_accounts').update({ deleted_at: now, updated_at: now, updated_by: userId }).eq('id', cloudId).eq('family_id', cloudFamilyId).select('id');
       if(r3.error) throw r3.error;
+      if(!r3.data || !r3.data.length){ // Rev 2.32.246: 0 оновлених рядків не вважаємо успіхом: рядок має бути відсутній або вже з надгробком, інакше помилка (раніше «Видалено назавжди» без змін на сервері)
+        const chk = await client.from(plan.kind === 'card' ? 'bank_accounts' : 'installment_accounts').select('id,deleted_at').eq('id', cloudId).maybeSingle();
+        if(chk.error || (chk.data && !chk.data.deleted_at)) throw (chk.error || new Error('purge-no-effect'));
+      }
     }catch(err){
       showTextToast('Не вдалося видалити назавжди: помилка зв\'язку з сервером', 'error');
       captureDebugGeometry('trash-purge', { trashType: item.type, ok: false });

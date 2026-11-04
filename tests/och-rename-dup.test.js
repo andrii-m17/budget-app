@@ -69,9 +69,9 @@ function makeCloud(){
   }
   return { tables: tables, stats: stats, from: from };
 }
-const NAMES = ['fetchDeltaRows', 'PULL_PAGE_SIZE', 'PULL_MAX_PAGES', 'fetchFullReconcileRows', 'mergeBackupRecordsByCloudIdOrName', 'restoreStripServerState', 'importEnsureAccounts', 'purgeAccountPlan', 'monthStartISO', 'LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
+const NAMES = ['fetchDeltaRows', 'PULL_PAGE_SIZE', 'PULL_MAX_PAGES', 'fetchFullReconcileRows', 'mergeBackupRecordsByCloudIdOrName', 'restoreNameKey', 'restoreSameName', 'restoreStripServerState', 'importEnsureAccounts', 'purgeAccountPlan', 'monthStartISO', 'LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
   'saveBankAccountsLocal', 'saveInstallmentAccountsLocal', 'pushBankAccountsPilot', 'bankIdSpec', 'idPushPlain', 'paymentDayPayload', 'normalizePaymentDay', 'pullBankAccountsCore',
-  'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'generateUUID', 'pullAccountTombstone', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom',
+  'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'idMigrateUnlinkedOnce', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'generateUUID', 'pullAccountTombstone', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom',
   'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'planBankAccountsPush', 'planInstallmentAccountsPush',
   'reconcileBankAccountsCensus', 'reconcileInstallmentAccountsCensus', 'reconcileAccountsCensusFor', 'invalidateAccountChildren', 'cleanupOrphanedHiddenEntities',
   'pushHiddenEntitiesPilot', 'monthToDate', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor'];
@@ -184,7 +184,7 @@ test('243-3: серверний надгробок — видалення при
   assert.equal(live(cloud).length, 0);
 });
 
-test('243-4: відновлення з копії, зробленої до першої синхронізації, після перейменування — не має додавати третій запис зі старою назвою', { todo: 'Дослідження 243: падає на поточному коді' }, async () => {
+test('243-4: відновлення з копії, зробленої до першої синхронізації, після перейменування — не має додавати третій запис зі старою назвою', async () => {
   const { cloud, A } = await synced();
   rename(A, 0, 'Предмет Б');
   await A.pushInstallmentAccountsPilot();

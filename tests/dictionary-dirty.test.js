@@ -103,7 +103,7 @@ function sandboxWith(cloud, dict){
     pullDictionaryCore: async function(){ return { skipped: true }; },
     captureDebugGeometry: function(t, x){ events.push([t, x]); },
   }, ['isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus',
-      'pushDictionaryPilotRun', 'dictionaryIdSpec', 'idOf', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'idPushPlain', 'generateUUID', 'findLiveDictionaryRow', 'escapeLikeExact']);
+      'pushDictionaryPilotRun', 'dictionaryIdSpec', 'idOf', 'idMatchKey', 'idMigrateUnlinked', 'idMigrateUnlinkedOnce', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'idPushPlain', 'generateUUID', 'findLiveDictionaryRow', 'escapeLikeExact']);
   ctx.__events = events;
   return ctx;
 }
@@ -179,7 +179,7 @@ test('зміна cloudId батьківської категорії робит�
 });
 
 test('restore з бекапу (Rev 2.32.232): змінене слово «брудне» (updatedAt = зараз), додане без syncedUpdatedAt', () => {
-  const ctx = buildSandbox({}, ['mergeBackupRecordsByCloudIdOrName']);
+  const ctx = buildSandbox({}, ['mergeBackupRecordsByCloudIdOrName', 'restoreNameKey', 'restoreSameName']);
   const local = [{ kw: 'a', cat: 'К1', sub: '', updatedAt: '2026-01-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-01-01T00:00:00.000Z', syncedCategoryId: 'x' }];
   const backup = [
     { kw: 'a', cat: 'К2', sub: '', updatedAt: '2026-02-01T00:00:00.000Z', cloudId: 'c1', syncedUpdatedAt: '2026-02-01T00:00:00.000Z', syncedCategoryId: 'x' },

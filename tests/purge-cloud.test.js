@@ -28,7 +28,7 @@ function fakeClient(respond){
 function make(opts){
   const o = opts || {};
   const toasts = [], local = [];
-  const client = fakeClient(o.respond || function(){ return { data: [], error: null }; });
+  const client = fakeClient(o.respond || function(q){ return { data: q && q.op === 'update' ? [{ id: 'x' }] : [], error: null }; }); // Rev 2.32.246: update повертає змінений рядок (0 рядків тепер перевіряється)
   const g = {
     getSupabaseClient: function(){ return client; }, cloudFamilyId: 'fam', cloudSession: { user: { id: 'u1' } },
     showTextToast: function(t, k){ toasts.push({ t, k }); }, captureDebugGeometry: function(){}, debugRecordingActive: false, trashDetailKey: null, closeTrashDetail: function(){},
@@ -59,7 +59,7 @@ test('PURGE-1: тестова назва з cloudId — Cloud-кроки йду�
   assert.equal(c.__toasts[0].k, 'success');
 });
 test('PURGE-1: порожній cloudId — пошук за назвою; знайдено → кроки з цим id; не знайдено → лише локально', async function(){
-  let c = make({ state: stateWithCard(null, 'Нова'), respond: q => q.single ? { data: { id: 'found-1' }, error: null } : { data: [], error: null } });
+  let c = make({ state: stateWithCard(null, 'Нова'), respond: q => q.single ? { data: { id: 'found-1' }, error: null } : { data: q.op === 'update' ? [{ id: 'found-1' }] : [], error: null } });
   await c.runAccountPurge({ type: 'card', title: 'Нова', key: 'card:Нова' });
   const ops = c.__client.calls.map(q => q.op + ':' + q.table);
   assert.deepEqual(ops, ['select:bank_accounts', 'update:debts', 'delete:hidden_entities', 'update:bank_accounts']);
@@ -167,4 +167,30 @@ test('PURGE-1: категорія з відомим cloudId — без пошу�
   await c.runTaxonomyPurge({ type: 'subcategory', title: 'Під', category: 'Невідомий', key: 'subcategory:Під' });
   assert.deepEqual(c.__client.calls.map(q => q.table), ['categories']);
   assert.deepEqual(c.__local, ['taxonomy:Під']); assert.equal(c.__toasts[0].t, 'Видалено назавжди');
+});
+
+test('246-7: видалення назавжди картки за id: при однакових назвах береться саме та, чий id у ключі приховування, а не перша за списком', async function(){
+  const st = { bankAccounts: [{ name: 'Дубль', cloudId: 'cid-1' }, { name: 'Дубль', cloudId: 'cid-2' }], installmentAccounts: [], debts: [], expenses: [], hiddenFrom: {} };
+  const c = make({ state: st });
+  await c.runAccountPurge({ type: 'card', title: 'Дубль', key: 'card:Дубль', accountId: 'cid-2' });
+  const upd = c.__client.calls.find(q => q.op === 'update' && q.table === 'bank_accounts');
+  assert.deepEqual(J(upd.filters).filter(f => f[1] === 'id'), [['eq', 'id', 'cid-2']]);
+  assert.equal(c.__toasts[0].t, 'Видалено назавжди');
+});
+
+test('246-8: запис лише з clientId (рядок створено з клієнтським id) теж видаляється на сервері за id, а не лише локально', async function(){
+  const st = { bankAccounts: [], installmentAccounts: [{ name: 'ОЧ', clientId: 'cli-1' }], debts: [], expenses: [], hiddenFrom: {} };
+  const c = make({ state: st });
+  await c.runAccountPurge({ type: 'installment', title: 'ОЧ', key: 'installment:ОЧ' });
+  const upd = c.__client.calls.find(q => q.op === 'update' && q.table === 'installment_accounts');
+  assert.ok(upd, 'update installment_accounts виконано');
+  assert.deepEqual(J(upd.filters).filter(f => f[1] === 'id'), [['eq', 'id', 'cli-1']]);
+});
+
+test('246-9: update рахунку змінив 0 рядків, а рядок на сервері живий — це помилка, а не «Видалено назавжди»; локальний запис лишається', async function(){
+  const st = { bankAccounts: [{ name: 'Х', cloudId: 'cid-1' }], installmentAccounts: [], debts: [], expenses: [], hiddenFrom: {} };
+  const c = make({ state: st, respond: q => q.op === 'update' ? { data: [], error: null } : (q.single ? { data: { id: 'cid-1', deleted_at: null }, error: null } : { data: [], error: null }) });
+  await c.runAccountPurge({ type: 'card', title: 'Х', key: 'card:Х' });
+  assert.equal(c.__toasts[0].k, 'error');
+  assert.deepEqual(c.__local, []);
 });

@@ -214,3 +214,124 @@ test('10. слово: А перейменовує, Б бачить нове кл
   expect((await tableRows('dictionary')).filter(isTw).length).toBe(1);
   expect(a.errors.concat(b.errors)).toEqual([]);
 });
+
+// ===== Rev 2.32.246 (RESTORE-ID): відновлення з копії, Excel-імпорт, видалення назавжди =====
+const restoreWith = (d, data) => d.page.evaluate(async x => { await applyBackupData(x); }, data);
+const keyOf = (d, k) => d.page.evaluate(n => window[n], k);
+
+test('11. відновлення старої копії (без id) після перейменування: запис впізнається за міткою, дубля нема', async ({ browser }) => {
+  const a = await openDevice(browser, 'A');
+  const T = '2026-10-05T10:00:00.123Z';
+  await a.page.evaluate(async t => { CATEGORIES.push({ name: 'Тест Ї', type: 'Гнучка', active: true, createdAt: t, updatedAt: t, clientId: generateUUID() }); await saveCategories(); }, T);
+  await expect.poll(async () => (await liveOf('categories')).filter(isT).length).toBe(1);
+  const id0 = (await liveOf('categories')).filter(isT)[0].id;
+  await a.page.evaluate(async () => { const c = CATEGORIES.find(x => x.name === 'Тест Ї'); c.nameDirty = true; c.name = 'Тест Є'; c.updatedAt = new Date().toISOString(); await saveCategories(); });
+  await expect.poll(async () => (await liveOf('categories')).filter(isT).map(r => r.name)).toEqual(['Тест Є']);
+  // копія зроблена до першої синхронізації: запис без cloudId, стара назва, та сама мітка створення
+  const data = await a.page.evaluate(t => ({ [LS_KEY_CATEGORIES]: JSON.stringify([{ name: 'Тест Ї', type: 'Гнучка', active: true, createdAt: t, updatedAt: t }]) }), T);
+  await restoreWith(a, data);
+  await expect.poll(async () => (await liveOf('categories')).filter(isT).length, { timeout: 20000 }).toBe(1);
+  expect((await liveOf('categories')).filter(isT)[0].id).toBe(id0);
+  expect((await tableRows('categories')).filter(isT).length).toBe(1);
+  expect(await a.page.evaluate(() => CATEGORIES.filter(c => c.name.indexOf('Тест') === 0).length)).toBe(1);
+  expect(a.errors).toEqual([]);
+});
+
+test('12. відновлення з «мертвим» id: є живий запис із такою назвою під іншим id — не додається; інший запис повертається під своїм id', async ({ browser }) => {
+  const a = await openDevice(browser, 'A');
+  await a.page.evaluate(async t => { CATEGORIES.push({ name: 'Тест Ж', type: 'Гнучка', active: true, createdAt: t, updatedAt: t, clientId: generateUUID() }); await saveCategories(); }, now());
+  await expect.poll(async () => (await liveOf('categories')).filter(isT).length).toBe(1);
+  const DEAD = '11111111-1111-4111-8111-111111111111', DEAD2 = '22222222-2222-4222-8222-222222222222';
+  const data = { [await a.page.evaluate(() => LS_KEY_CATEGORIES)]: JSON.stringify([
+    { name: 'Тест Ж', type: 'Гнучка', active: true, cloudId: DEAD, createdAt: '2026-08-01T00:00:00.000Z', updatedAt: '2026-08-01T00:00:00.000Z' }, // така назва вже є під іншим id
+    { name: 'Тест З', type: 'Гнучка', active: true, cloudId: DEAD2, createdAt: '2026-08-02T00:00:00.000Z', updatedAt: '2026-08-02T00:00:00.000Z' }, // назви ще нема
+  ]) };
+  await restoreWith(a, data);
+  await expect.poll(async () => (await liveOf('categories')).filter(isT).map(r => r.name).sort(), { timeout: 20000 }).toEqual(['Тест Ж', 'Тест З']);
+  expect((await liveOf('categories')).filter(isT).find(r => r.name === 'Тест З').id).toBe(DEAD2);
+  expect(await a.page.evaluate(() => lastRestoreSummary.skipped)).toBe(1);
+  expect(a.errors).toEqual([]);
+});
+
+// Excel-файл збирається в самій сторінці (SheetJS уже завантажено): аркуш «Витрати» і борг картки в «Історії»; імпорт іде тим самим handleImportFile, що й вибір файлу.
+async function importFile(d, answer){
+  return d.page.evaluate(async ans => {
+    const header = ['Витрата', 'Дата', 'Сума', 'Категорія', 'Підкатегорія', 'Статус автоматизації'];
+    const wsExp = XLSX.utils.aoa_to_sheet([header, ['Тестова покупка', new Date(2026, 9, 10), 120, 'Тест Категорія', '', '']], { cellDates: true });
+    const hist = [['Місяць'], ['']]; const row = new Array(22).fill(null); row[0] = 'жовтень 2026'; row[15] = 1000; hist.push(row);
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, wsExp, 'Витрати'); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hist), 'Історія');
+    const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx', cellDates: true });
+    const status = document.getElementById('import-status');
+    const input = { files: [new Blob([buf])], value: '', disabled: false };
+    const askSeen = { v: false };
+    const timer = setInterval(() => { const m = document.getElementById('app-modal'); if(m && m.classList.contains('open') && /яких немає в застосунку/.test(document.getElementById('app-modal-text').textContent)){ askSeen.v = true; document.getElementById(ans === 'add' ? 'app-modal-confirm-btn' : 'app-modal-cancel-btn').click(); } }, 150);
+    handleImportFile({ target: input });
+    const t0 = Date.now(); while(input.disabled !== false || !/Готово|Помилка/.test(status.textContent) || Date.now() - t0 < 800){ if(Date.now() - t0 > 20000) break; await new Promise(r => setTimeout(r, 150)); if(/Готово|Помилка/.test(status.textContent) && input.disabled === false) break; }
+    clearInterval(timer);
+    return { text: status.textContent, asked: askSeen.v };
+  }, answer);
+}
+const liveCards = d => d.page.evaluate(() => bankAccounts.map(b => b.name));
+
+test('13. один Excel-файл двічі: перший імпорт питає про нову картку, другий нічого не питає і не додає; на сервері одна картка й один борг', async ({ browser }) => {
+  const a = await openDevice(browser, 'A');
+  const r1 = await importFile(a, 'add');
+  expect(r1.asked).toBe(true);
+  expect(r1.text).toContain('Готово');
+  await expect.poll(async () => (await liveOf('bank_accounts')).length, { timeout: 30000 }).toBe(1);
+  await expect.poll(async () => [(await liveOf('expenses')).length, (await liveOf('debts')).length], { timeout: 30000 }).toEqual([1, 1]);
+  const exp1 = 1, debts1 = 1;
+  const r2 = await importFile(a, 'add');
+  expect(r2.asked).toBe(false);
+  expect(r2.text).toContain('Імпортовано: 0 витрат');
+  await new Promise(r => setTimeout(r, 2500));
+  expect((await liveOf('bank_accounts')).length).toBe(1);
+  expect((await liveOf('expenses')).length).toBe(exp1);
+  expect((await liveOf('debts')).length).toBe(debts1);
+  expect(a.errors).toEqual([]);
+});
+
+test('14. імпорт після перейменування картки: питає про «нову» картку; «Пропустити» не створює дубль ні картки, ні боргу', async ({ browser }) => {
+  const a = await openDevice(browser, 'A');
+  await importFile(a, 'add');
+  await expect.poll(async () => (await liveOf('bank_accounts')).length, { timeout: 30000 }).toBe(1);
+  await a.page.evaluate(async () => { const acc = bankAccounts.find(b => b.name === 'Приват Банк'); cascadeCardRename(acc, 'Приват Банк', 'Моя картка'); acc.nameDirty = true; acc.name = 'Моя картка'; acc.updatedAt = new Date().toISOString(); await saveBankAccounts(); await saveDebts(); });
+  await expect.poll(async () => (await liveOf('bank_accounts')).map(r => r.name)).toEqual(['Моя картка']);
+  await expect.poll(async () => (await liveOf('debts')).length, { timeout: 30000 }).toBe(1);
+  const debtsBefore = 1;
+  const r = await importFile(a, 'skip');
+  expect(r.asked).toBe(true);
+  expect(await liveCards(a)).toEqual(['Моя картка']);
+  await new Promise(res => setTimeout(res, 2500));
+  expect((await liveOf('bank_accounts')).map(x => x.name)).toEqual(['Моя картка']);
+  expect((await liveOf('debts')).length).toBe(debtsBefore);
+  expect(a.errors).toEqual([]);
+});
+
+test('15. видалення назавжди ОЧ на А: на сервері надгробок (рядок живим не лишається), у кошику Б запису немає', async ({ browser }) => {
+  const a = await openDevice(browser, 'A'), b = await openDevice(browser, 'B');
+  await addOch(a, 'Предмет Т', 5000);
+  await expect.poll(async () => (await liveRows()).length).toBe(1);
+  const id0 = (await liveRows())[0].id;
+  await a.page.evaluate(async id => { hiddenFrom['installment:#' + id] = { month: '2026-10', updatedAt: new Date().toISOString() }; await saveHiddenFrom(); }, id0);
+  const trashTitles = d => d.page.evaluate(() => buildTrashItems(trashStateNow()).filter(i => i.type === 'installment').map(i => i.title));
+  await expect.poll(async () => { await b.page.evaluate(async () => { await pullInstallmentAccountsCore(); await pullHiddenEntitiesCore(); }); return trashTitles(b); }, { timeout: 30000 }).toEqual(['Предмет Т']);
+  await a.page.evaluate(() => { const it = buildTrashItems(trashStateNow()).find(i => i.type === 'installment'); return runTrashPurge(it); });
+  await expect.poll(async () => (await serverRows()).filter(r => r.id === id0 && !r.deleted_at).length, { timeout: 30000 }).toBe(0);
+  await expect.poll(async () => { await b.page.evaluate(async () => { await syncCheck('resume', { force: true }); await pullInstallmentAccountsCore(); await pullHiddenEntitiesCore(); }); return trashTitles(b); }, { timeout: 40000 }).toEqual([]);
+  expect(a.errors.concat(b.errors)).toEqual([]);
+});
+
+test('16. видалення назавжди витрати на А: рядка на сервері немає, у кошику Б запису немає', async ({ browser }) => {
+  const a = await openDevice(browser, 'A'), b = await openDevice(browser, 'B');
+  const id = await a.page.evaluate(async t => { const rec = { id: generateUUID(), name: 'Тестова витрата', amount: 77, date: t.slice(0, 10), category: '', subcategory: '', createdAt: t, updatedAt: t }; expenses.push(rec); await saveExpenses(); await pushExpenseRecordPilot(rec); return rec.id; }, now());
+  await a.page.evaluate(async t => { const rec = { id: generateUUID(), name: 'Інша витрата', amount: 5, date: t.slice(0, 10), category: '', subcategory: '', createdAt: t, updatedAt: t }; expenses.push(rec); await saveExpenses(); await pushExpenseRecordPilot(rec); }, now()); // другий живий запис: порожній індекс сервера звірка вважає збоєм сесії
+  await expect.poll(async () => (await liveOf('expenses', 'id,deleted_at')).length).toBe(2);
+  await a.page.evaluate(async rid => { const rec = expenses.find(e => e.id === rid); rec.deletedAt = new Date().toISOString(); rec.updatedAt = rec.deletedAt; await saveExpenses(); await pushExpenseRecordPilot(rec); }, id);
+  const trashIds = d => d.page.evaluate(() => buildTrashItems(trashStateNow()).filter(i => i.type === 'expense').map(i => i.id));
+  await expect.poll(async () => { await b.page.evaluate(() => pullExpensesCore()); return trashIds(b); }, { timeout: 30000 }).toEqual([id]);
+  await a.page.evaluate(rid => { const it = buildTrashItems(trashStateNow()).find(i => i.id === rid); return runTrashPurge(it); }, id);
+  await expect.poll(async () => (await tableRows('expenses', 'id')).filter(r => r.id === id).length, { timeout: 30000 }).toBe(0);
+  await expect.poll(async () => { await b.page.evaluate(async () => { await syncCheck('resume', { force: true }); }); return trashIds(b); }, { timeout: 40000 }).toEqual([]);
+  expect(a.errors.concat(b.errors)).toEqual([]);
+});
