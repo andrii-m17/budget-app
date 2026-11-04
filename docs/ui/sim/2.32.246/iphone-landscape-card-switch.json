@@ -1,0 +1,66 @@
+{
+ "cfg": "iphone-landscape",
+ "id": "card-switch",
+ "title": "Картка боргу: перемикання полів",
+ "why": [
+  "фокус у «cdd-balance», очікувалось «cdd-minpay»",
+  "поле «cdd-minpay» під клавіатурою (-230 пт до краю видимої області)"
+ ],
+ "note": "еталона немає",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  -230,
+  -230,
+  -230
+ ],
+ "gapPerRun": [
+  -67,
+  -67,
+  -67
+ ],
+ "whyPerRun": [
+  [
+   "фокус у «cdd-balance», очікувалось «cdd-minpay»",
+   "поле «cdd-minpay» під клавіатурою (-230 пт до краю видимої області)"
+  ],
+  [
+   "фокус у «cdd-balance», очікувалось «cdd-minpay»",
+   "поле «cdd-minpay» під клавіатурою (-230 пт до краю видимої області)"
+  ],
+  [
+   "фокус у «cdd-balance», очікувалось «cdd-minpay»",
+   "поле «cdd-minpay» під клавіатурою (-230 пт до краю видимої області)"
+  ]
+ ],
+ "gap": -67,
+ "fieldGap": -230,
+ "m": {
+  "innerH": 378,
+  "innerW": 956,
+  "vvH": 139,
+  "vvTop": 0,
+  "vvBottom": 139,
+  "fieldBottom": 523,
+  "fieldTop": 477,
+  "sheetBottom": 360,
+  "sheetTop": 229,
+  "sheetH": 131,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "cdd-balance",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "iphone-landscape-card-switch-before.jpg",
+  "iphone-landscape-card-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

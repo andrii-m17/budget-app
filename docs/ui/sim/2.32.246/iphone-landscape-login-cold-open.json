@@ -1,0 +1,40 @@
+{
+ "cfg": "iphone-landscape",
+ "id": "login-cold-open",
+ "title": "Вхід: перше відкриття після запуску застосунку (холодна клавіатура)",
+ "why": [
+  "клавіатура не з'явилась (видима область 378 з 378)",
+  "фокус у «profile-drawer», очікувалось «cldfielda1»",
+  "низ листа над краєм видимої області: 100 пт (інваріант 8 ± 2)",
+  "клас kb-open не встановлено",
+  "події sheet-anim (open) немає"
+ ],
+ "note": "",
+ "repeats": 1,
+ "anim": null,
+ "gap": 100,
+ "fieldGap": 239.6,
+ "m": {
+  "innerH": 378,
+  "innerW": 956,
+  "vvH": 378,
+  "vvTop": 0,
+  "vvBottom": 378,
+  "fieldBottom": 138.4,
+  "fieldTop": 92.4,
+  "sheetBottom": 278,
+  "sheetTop": -47.6,
+  "sheetH": 326,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "profile-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "iphone-landscape-login-open-focus-before.jpg",
+  "iphone-landscape-login-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

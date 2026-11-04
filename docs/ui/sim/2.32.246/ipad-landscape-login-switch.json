@@ -1,0 +1,62 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "login-switch",
+ "title": "Вхід: перемикання полів",
+ "why": [
+  "фокус у «cldfielda1», очікувалось «cloud-password»"
+ ],
+ "note": "еталона немає",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  -239,
+  -239,
+  -239
+ ],
+ "gapPerRun": [
+  -322,
+  -322,
+  -322
+ ],
+ "whyPerRun": [
+  [
+   "фокус у «cldfielda1», очікувалось «cloud-password»"
+  ],
+  [
+   "фокус у «cldfielda1», очікувалось «cloud-password»"
+  ],
+  [
+   "фокус у «cldfielda1», очікувалось «cloud-password»"
+  ]
+ ],
+ "gap": -322,
+ "fieldGap": -239,
+ "m": {
+  "innerH": 788,
+  "innerW": 1180,
+  "vvH": 366,
+  "vvTop": 0,
+  "vvBottom": 366,
+  "fieldBottom": 605,
+  "fieldTop": 559,
+  "sheetBottom": 688,
+  "sheetTop": 359,
+  "sheetH": 329,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "cldfielda1",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-landscape-login-switch-before.jpg",
+  "ipad-landscape-login-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

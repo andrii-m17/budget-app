@@ -1,0 +1,82 @@
+{
+ "cfg": "iphone-landscape",
+ "id": "card-close",
+ "title": "Картка боргу: закриття, клавіатура зникає, таб-бар на місці",
+ "why": [
+  "клавіатура лишилась після закриття",
+  "лист не закрився",
+  "видима область не повернулась: 139 проти 378",
+  "клас kb-open лишився",
+  "таб-бар не видно",
+  "події sheet-anim (close) немає"
+ ],
+ "note": "еталона немає",
+ "repeats": 4,
+ "anim": null,
+ "animPerRun": [
+  null,
+  null,
+  null
+ ],
+ "fieldGapPerRun": [
+  null,
+  null,
+  null
+ ],
+ "gapPerRun": [
+  null,
+  null,
+  null
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура лишилась після закриття",
+   "лист не закрився",
+   "видима область не повернулась: 139 проти 378",
+   "клас kb-open лишився",
+   "таб-бар не видно",
+   "події sheet-anim (close) немає"
+  ],
+  [
+   "клавіатура лишилась після закриття",
+   "лист не закрився",
+   "видима область не повернулась: 139 проти 378",
+   "клас kb-open лишився",
+   "таб-бар не видно",
+   "події sheet-anim (close) немає"
+  ],
+  [
+   "клавіатура лишилась після закриття",
+   "лист не закрився",
+   "видима область не повернулась: 139 проти 378",
+   "клас kb-open лишився",
+   "таб-бар не видно",
+   "події sheet-anim (close) немає"
+  ]
+ ],
+ "gap": null,
+ "fieldGap": null,
+ "m": {
+  "innerH": 378,
+  "innerW": 956,
+  "vvH": 139,
+  "vvTop": 0,
+  "vvBottom": 139,
+  "fieldBottom": null,
+  "fieldTop": null,
+  "sheetBottom": 360,
+  "sheetTop": 229,
+  "sheetH": 131,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "cdd-balance",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "iphone-landscape-card-close-before.jpg",
+  "iphone-landscape-card-close-after.jpg"
+ ],
+ "verdict": "впав"
+}

@@ -1,0 +1,183 @@
+{
+ "version": "2.32.246",
+ "scenarios": {
+  "iphone-portrait/card-open-focus": {
+   "anim": {
+    "frames": 14,
+    "maxGapMs": 31,
+    "durationMs": 241,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 182
+  },
+  "iphone-portrait/card-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 182
+  },
+  "iphone-portrait/card-close": {
+   "anim": {
+    "frames": 16,
+    "maxGapMs": 17,
+    "durationMs": 266,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-portrait/login-open-focus": {
+   "anim": {
+    "frames": 16,
+    "maxGapMs": 53,
+    "durationMs": 283,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 151
+  },
+  "iphone-portrait/login-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 91
+  },
+  "iphone-portrait/login-close": {
+   "anim": {
+    "frames": 13,
+    "maxGapMs": 33,
+    "durationMs": 216,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/card-open-focus": {
+   "anim": {
+    "frames": 15,
+    "maxGapMs": 32,
+    "durationMs": 253,
+    "jumpMaxPx": null
+   },
+   "gap": -67,
+   "fieldGap": -230
+  },
+  "iphone-landscape/card-switch": {
+   "anim": null,
+   "gap": -67,
+   "fieldGap": -230
+  },
+  "iphone-landscape/card-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/login-open-focus": {
+   "anim": null,
+   "gap": 100,
+   "fieldGap": 239.6
+  },
+  "iphone-landscape/login-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": -160
+  },
+  "iphone-landscape/login-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-portrait/card-open-focus": {
+   "anim": {
+    "frames": 12,
+    "maxGapMs": 98,
+    "durationMs": 291,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 182
+  },
+  "ipad-portrait/card-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 182
+  },
+  "ipad-portrait/card-close": {
+   "anim": {
+    "frames": 13,
+    "maxGapMs": 17,
+    "durationMs": 216,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-portrait/login-open-focus": {
+   "anim": {
+    "frames": 16,
+    "maxGapMs": 124,
+    "durationMs": 502,
+    "jumpMaxPx": null
+   },
+   "gap": -237,
+   "fieldGap": -94
+  },
+  "ipad-portrait/login-switch": {
+   "anim": null,
+   "gap": -237,
+   "fieldGap": -154
+  },
+  "ipad-portrait/login-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-landscape/card-open-focus": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 118,
+    "durationMs": 290,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 72
+  },
+  "ipad-landscape/card-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 72
+  },
+  "ipad-landscape/card-close": {
+   "anim": {
+    "frames": 17,
+    "maxGapMs": 17,
+    "durationMs": 282,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "ipad-landscape/login-open-focus": {
+   "anim": {
+    "frames": 15,
+    "maxGapMs": 126,
+    "durationMs": 500,
+    "jumpMaxPx": null
+   },
+   "gap": -322,
+   "fieldGap": -179
+  },
+  "ipad-landscape/login-switch": {
+   "anim": null,
+   "gap": -322,
+   "fieldGap": -239
+  },
+  "ipad-landscape/login-close": {
+   "anim": null,
+   "gap": null,
+   "fieldGap": null
+  }
+ },
+ "runtime": "iphone-portrait: iPhone 16 Pro Max iOS-27-2; iphone-landscape: iPhone 16 Pro Max iOS-27-2; ipad-portrait: iPad (10th generation) iOS-27-2; ipad-landscape: iPad (10th generation) iOS-27-2",
+ "reps": 4,
+ "note": "Еталон симулятора (медіана за 4 проходи) для версії 2.32.246. Оновлюється SIM_UPDATE_BASELINE=1."
+}

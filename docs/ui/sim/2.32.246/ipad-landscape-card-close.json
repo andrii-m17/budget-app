@@ -1,0 +1,350 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "card-close",
+ "title": "Картка боргу: закриття, клавіатура зникає, таб-бар на місці",
+ "why": [],
+ "note": "еталона немає",
+ "repeats": 4,
+ "anim": {
+  "frames": 17,
+  "maxGapMs": 17,
+  "durationMs": 282,
+  "jumpMaxPx": null
+ },
+ "animPerRun": [
+  {
+   "frames": 17,
+   "maxGapMs": 17,
+   "durationMs": 283
+  },
+  {
+   "frames": 17,
+   "maxGapMs": 17,
+   "durationMs": 282
+  },
+  {
+   "frames": 17,
+   "maxGapMs": 17,
+   "durationMs": 282
+  }
+ ],
+ "fieldGapPerRun": [
+  null,
+  null,
+  null
+ ],
+ "gapPerRun": [
+  null,
+  null,
+  null
+ ],
+ "whyPerRun": [
+  [],
+  [],
+  []
+ ],
+ "gap": null,
+ "fieldGap": null,
+ "m": {
+  "innerH": 788,
+  "innerW": 1180,
+  "vvH": 788,
+  "vvTop": 0,
+  "vvBottom": 788,
+  "fieldBottom": null,
+  "fieldTop": null,
+  "sheetBottom": 1508,
+  "sheetTop": 1040,
+  "sheetH": 468,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "BODY",
+  "drawerOpen": false
+ },
+ "events": [
+  {
+   "t": 7579,
+   "type": "sheet-close",
+   "innerW": 1180,
+   "innerH": 788,
+   "outerH": 820,
+   "vvW": 1180,
+   "vvH": 788,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 788,
+   "bodyClasses": "",
+   "kbInset": "422px",
+   "activeElementTag": "DIV",
+   "activeElementId": "card-debt-drawer",
+   "activeElementType": null,
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 0,
+   "safeBottom": 20,
+   "safeLeft": 0,
+   "drawerId": "card-debt-drawer",
+   "drawerTop": 0,
+   "drawerBottom": 358,
+   "drawerLeft": 16,
+   "drawerRight": 1164,
+   "drawerHeight": 358,
+   "backdropId": "card-debt-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 788,
+   "backdropHeight": 788,
+   "drawerScrollHeight": 468,
+   "drawerClientHeight": 358,
+   "drawerMaxHeightPx": 358,
+   "baseVh": "788px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 0,
+   "activeRectBottom": 358,
+   "kbH": 422
+  },
+  {
+   "t": 7579,
+   "type": "vv-resize",
+   "innerW": 1180,
+   "innerH": 788,
+   "outerH": 820,
+   "vvW": 1180,
+   "vvH": 788,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 788,
+   "bodyClasses": "",
+   "kbInset": "422px",
+   "activeElementTag": "DIV",
+   "activeElementId": "card-debt-drawer",
+   "activeElementType": null,
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 0,
+   "safeBottom": 20,
+   "safeLeft": 0,
+   "drawerId": "card-debt-drawer",
+   "drawerTop": 0,
+   "drawerBottom": 358,
+   "drawerLeft": 16,
+   "drawerRight": 1164,
+   "drawerHeight": 358,
+   "backdropId": "card-debt-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 788,
+   "backdropHeight": 788,
+   "drawerScrollHeight": 468,
+   "drawerClientHeight": 358,
+   "drawerMaxHeightPx": 358,
+   "baseVh": "788px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 0,
+   "activeRectBottom": 358,
+   "kbH": 422
+  },
+  {
+   "t": 7579,
+   "type": "kb-geometry",
+   "innerW": 1180,
+   "innerH": 788,
+   "vvW": 1180,
+   "vvH": 788,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "422px",
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "kbgWhy": "vv",
+   "devClass": "iPad",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 0,
+   "sheetBottom": 358,
+   "sheetHeight": 358,
+   "kbHeightCalc": 0,
+   "sheetLiftCss": "0",
+   "sheetRestBottom": 688,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 7730,
+   "type": "kb-geometry",
+   "innerW": 1180,
+   "innerH": 788,
+   "vvW": 1180,
+   "vvH": 788,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "422px",
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "kbgWhy": "vv-settled",
+   "devClass": "iPad",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 283.5,
+   "sheetBottom": 641.5,
+   "sheetHeight": 358,
+   "kbHeightCalc": 0,
+   "sheetLiftCss": "0",
+   "sheetRestBottom": 688,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 7857,
+   "type": "sheet-anim",
+   "innerW": 1180,
+   "innerH": 788,
+   "outerH": 820,
+   "vvW": 1180,
+   "vvH": 788,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 788,
+   "bodyClasses": "",
+   "kbInset": "422px",
+   "activeElementTag": "DIV",
+   "activeElementId": "card-debt-drawer",
+   "activeElementType": null,
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 0,
+   "safeBottom": 20,
+   "safeLeft": 0,
+   "drawerId": "card-debt-drawer",
+   "drawerTop": 330,
+   "drawerBottom": 688,
+   "drawerLeft": 16,
+   "drawerRight": 1164,
+   "drawerHeight": 358,
+   "backdropId": "card-debt-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 788,
+   "backdropHeight": 788,
+   "drawerScrollHeight": 468,
+   "drawerClientHeight": 358,
+   "drawerMaxHeightPx": 358,
+   "baseVh": "788px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 330,
+   "activeRectBottom": 688,
+   "kbH": 422,
+   "frames": 17,
+   "maxGapMs": 17,
+   "durationMs": 283,
+   "samples": [
+    [
+     -1,
+     358
+    ],
+    [
+     16,
+     372
+    ],
+    [
+     32,
+     401
+    ],
+    [
+     49,
+     439
+    ],
+    [
+     66,
+     485
+    ],
+    [
+     83,
+     527
+    ],
+    [
+     99,
+     562
+    ],
+    [
+     116,
+     591
+    ],
+    [
+     133,
+     615
+    ],
+    [
+     149,
+     634
+    ],
+    [
+     166,
+     649
+    ],
+    [
+     183,
+     662
+    ],
+    [
+     199,
+     670
+    ],
+    [
+     216,
+     678
+    ],
+    [
+     233,
+     683
+    ],
+    [
+     249,
+     686
+    ],
+    [
+     266,
+     688
+    ]
+   ],
+   "phase": "close",
+   "jumpMaxPx": 46,
+   "gapNoLayoutMs": 17,
+   "drawerHeightRest": 468,
+   "drawerHeightKb": 358,
+   "firstOfKind": true
+  }
+ ],
+ "files": [
+  "ipad-landscape-card-close-before.jpg",
+  "ipad-landscape-card-close-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

@@ -5365,9 +5365,12 @@ function kbSheetSandbox(opts){
     },
     style: { setProperty: function(name, value){ docElStyle[name] = value; } },
   };
-  const state = { activeElement: null };
+  const state = { activeElement: null, clock: 1700000000000 };
   const debugEvents = [];
+  // Керований час (SIM-2): Date.now() не залежить від навантаження машини — msAfterFocusout рахується з годинника тесту, а не з реального, тож порогу «≤100 мс» ніщо не зсуває. Годинник стоїть, доки тест сам його не зсуне (state.clock += мс).
+  const FakeDate = class extends Date { constructor(...a){ if(a.length) super(...a); else super(state.clock); } static now(){ return state.clock; } };
   const ctx = require('./extract').buildSandbox({
+    Date: FakeDate,
     document: Object.defineProperty({
       body: body,
       documentElement: documentElement,
@@ -5687,12 +5690,12 @@ test('кеш висот клавіатури в localStorage (Rev 2.32.240): к�
 });
 test('correctPanIfNeeded: pan після НАТИВНОГО перемикання → подія switch-native (не pan-corrected); після нашого tap → pan-corrected зі switchKind:tap; без перемикання → звичайний pan-corrected', () => {
   const a = kbSheetSandbox();
-  a.ctx.kbLastSwitchKind = 'native'; a.ctx.kbLastSwitchAt = Date.now(); a.ctx.window.scrollY = 53;
+  a.ctx.kbLastSwitchKind = 'native'; a.ctx.kbLastSwitchAt = a.state.clock; a.ctx.window.scrollY = 53;
   a.ctx.correctPanIfNeeded();
   assert.ok(a.debugEvents.some(function(e){ return e.type === 'switch-native' && e.switchKind === 'native'; }));
   assert.ok(!a.debugEvents.some(function(e){ return e.type === 'pan-corrected'; }));
   const b = kbSheetSandbox();
-  b.ctx.kbLastSwitchKind = 'tap'; b.ctx.kbLastSwitchAt = Date.now(); b.ctx.window.scrollY = 53;
+  b.ctx.kbLastSwitchKind = 'tap'; b.ctx.kbLastSwitchAt = b.state.clock; b.ctx.window.scrollY = 53;
   b.ctx.correctPanIfNeeded();
   const ev = b.debugEvents.find(function(e){ return e.type === 'pan-corrected'; });
   assert.ok(ev); assert.equal(ev.switchKind, 'tap');
@@ -5871,14 +5874,14 @@ test('resolveTapField: DIV.field з РІВНО одним текстовим п�
 });
 test('enterKbSheet: перше відкриття НАТИВНО (direct) на iOS → intercept-miss з даними останнього тапу; після перехоплення (H2) — ні', () => {
   const a = kbSheetSandbox();
-  a.ctx.kbLastTap = { tag: 'DIV', id: null, classes: 'field', x: 120, y: 300, endAt: Date.now() - 12 };
+  a.ctx.kbLastTap = { tag: 'DIV', id: null, classes: 'field', x: 120, y: 300, endAt: a.state.clock - 12 };
   a.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
   const miss = a.debugEvents.find(function(e){ return e.type === 'intercept-miss'; });
   assert.ok(miss);
   assert.equal(miss.targetTag, 'DIV'); assert.equal(miss.targetClasses, 'field'); assert.equal(miss.touchX, 120); assert.equal(miss.touchY, 300);
   assert.ok(miss.ms >= 12);
   const b = kbSheetSandbox();
-  b.ctx.kbLastTap = { tag: 'INPUT', id: 'x', classes: '', x: 1, y: 2, endAt: Date.now() };
+  b.ctx.kbLastTap = { tag: 'INPUT', id: 'x', classes: '', x: 1, y: 2, endAt: b.state.clock };
   b.ctx.kbFocusFlowMode = 'proxy';
   b.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
   assert.ok(!b.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }));
