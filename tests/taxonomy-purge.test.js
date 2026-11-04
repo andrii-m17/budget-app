@@ -70,15 +70,15 @@ test('filterPurgedTaxonomy: бекап не повертає видалені к
   assert.deepEqual(J(ctx.filterPurgedTaxonomy(null, null, 'wordIds')), []);
 });
 // ---------- підключення ----------
-test('pull: tombstone-рядок категорії/підкатегорії обробляється ДО LWW/зв’язування за назвою й до перевірки батька; select має deleted_at; reconcile за назвою — лише живі', () => {
+test('pull: tombstone-рядок категорії/підкатегорії обробляється ДО LWW й до перевірки батька; select має deleted_at; пошуку за назвою (pull і push) більше нема', () => {
   assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,active,type,created_at,updated_at,deleted_at'/);
   assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,category_id,active,deactivated_via,created_at,updated_at,deleted_at'/);
   const cat = SRC.slice(SRC.indexOf('async function pullCategoriesCore'), SRC.indexOf('async function pushSubcategoriesPilot'));
   assert.ok(cat.indexOf("pullTaxonomyTombstone('category'") < cat.indexOf('CATEGORIES.find(function(c){ return c.cloudId === row.id; })'));
   const sub = SRC.slice(SRC.indexOf('async function pullSubcategoriesCore'), SRC.indexOf('async function pullSubcategoriesPilot'));
   assert.ok(sub.indexOf("pullTaxonomyTombstone('subcategory'") < sub.indexOf('const parentCat'));
-  assert.match(SRC, /from\('categories'\)\.select\('id'\)\.eq\('family_id', cloudFamilyId\)\.eq\('name', cat\.name\)\.is\('deleted_at', null\)\.maybeSingle\(\)/);
-  assert.match(SRC, /from\('subcategories'\)\.select\('id'\)\.eq\('family_id', cloudFamilyId\)\.eq\('name', sub\.name\)\.is\('deleted_at', null\)\.maybeSingle\(\)/);
+  assert.doesNotMatch(SRC, /from\('categories'\)\.select\('id'\)\.eq\('family_id', cloudFamilyId\)\.eq\('name'/, 'Rev 2.32.244: категорія більше не шукається за назвою');
+  assert.doesNotMatch(SRC, /from\('subcategories'\)\.select\('id'\)\.eq\('family_id', cloudFamilyId\)\.eq\('name'/);
 });
 test('видалення: порядок Cloud-кроків слова → підкатегорії → категорія; блок до будь-якого Cloud-запиту; клієнт не робить DELETE категорій', () => {
   const i = SRC.indexOf('async function runTaxonomyPurge'), code = SRC.slice(i, SRC.indexOf('async function applyTaxonomyRemovalLocally', i));

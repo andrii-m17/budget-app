@@ -75,7 +75,7 @@ test('stampBankAccountTimestamps: наявні createdAt не змінюютьс
   assert.equal(c.stampBankAccountTimestamps(accs, []), false, 'ідемпотентно');
 });
 test('нова картка: createdAt = момент створення (addBankAccount); споживачі правила: список, підсумки, крапки', function(){
-  assert.match(SRC, /bankAccounts\.push\(\{ name, creditLimit: creditLimit \|\| null, createdAt: newCardCreatedAt\(selectedMonth, nowISO\), updatedAt: nowISO \}\);/);
+  assert.match(SRC, /bankAccounts\.push\(\{ name, creditLimit: creditLimit \|\| null, createdAt: newCardCreatedAt\(selectedMonth, nowISO\), updatedAt: nowISO, clientId: generateUUID\(\) \}\);/);
   assert.match(SRC, /\.filter\(function\(x\)\{ return isCardVisibleForMonth\(x\.acc, selectedMonth\); \}\)/);
   assert.match(SRC, /if\(!isCardVisibleForMonth\(acc, selectedMonth\)\) return;/);
   assert.match(SRC, /const hidden = !isCardVisibleForMonth\(acc, selectedMonth\);/);

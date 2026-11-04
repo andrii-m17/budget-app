@@ -103,7 +103,7 @@ function sandboxWith(cloud, dict){
     pullDictionaryCore: async function(){ return { skipped: true }; },
     captureDebugGeometry: function(t, x){ events.push([t, x]); },
   }, ['isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus',
-      'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'findLiveDictionaryRow', 'escapeLikeExact']);
+      'pushDictionaryPilotRun', 'dictionaryIdSpec', 'idOf', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'idPushPlain', 'generateUUID', 'findLiveDictionaryRow', 'escapeLikeExact']);
   ctx.__events = events;
   return ctx;
 }
@@ -123,7 +123,7 @@ test('G1-2: реальна правка слова — рівно один UPDAT
   const cloud = makeCloud([cloudRow('c-1', 'кава'), cloudRow('c-2', 'чай')]);
   const dict = [word(1, 'кава'), word(2, 'чай')];
   const ctx = sandboxWith(cloud, dict);
-  dict[1].cat = 'Їжа'; dict[1].kw = 'чай зелений'; dict[1].updatedAt = 'U2';
+  dict[1].cat = 'Їжа'; dict[1].kw = 'чай зелений'; dict[1].nameDirty = true; dict[1].updatedAt = 'U2'; // як editDictionaryEntry: текст шлеться лише після справжньої правки (Rev 2.32.244)
   await ctx.pushDictionaryPilotRun();
   assert.equal(cloud.stats.updates, 1);
   assert.equal(cloud.rows[0].updated_at, 1);
@@ -131,7 +131,7 @@ test('G1-2: реальна правка слова — рівно один UPDAT
   assert.equal(dict[1].syncedUpdatedAt, 'U2');
 });
 
-test('G1-3: слово, видалене в Cloud вручну → після перепису створюється знову, локально без дубля', async () => {
+test('G1-3: слово, видалене в Cloud вручну → після перепису створюється знову тим самим id, локально без дубля', async () => {
   const cloud = makeCloud([cloudRow('c-2', 'чай')]); // c-1 («кава») видалено вручну
   const dict = [word(1, 'кава'), word(2, 'чай')];
   const ctx = sandboxWith(cloud, dict);
@@ -141,7 +141,8 @@ test('G1-3: слово, видалене в Cloud вручну → після п
   assert.equal(cloud.stats.inserts, 1);
   assert.equal(cloud.rows.filter(function(r){ return r.keyword === 'кава'; }).length, 1);
   assert.equal(dict.length, 2);
-  assert.ok(dict[0].cloudId && dict[0].cloudId !== 'c-1');
+  assert.equal(dict[0].cloudId, 'c-1', 'рядок піднято тим самим id (Rev 2.32.244)');
+  assert.equal(cloud.rows.filter(function(r){ return r.id === 'c-1'; }).length, 1);
   assert.equal(cloud.stats.updates, 0, 'чисте слово «чай» не пушилось');
 });
 

@@ -18,12 +18,11 @@ test('paymentDayPayload: значення відоме → payment_day (null д�
   assert.deepEqual(j(c.paymentDayPayload({ paymentDay: 40 })), { payment_day: null });
   assert.deepEqual(j(c.paymentDayPayload({})), {}); assert.deepEqual(j(c.paymentDayPayload(null)), {});
 });
-test('синхронізація: payment_day у трьох місцях push і в select/pull (оновлення, зв\'язування за назвою, нові рядки)', function(){
-  assert.equal((SRC.match(/\.\.\.paymentDayPayload\(acc\)/g) || []).length, 3);
+test('синхронізація: payment_day у двох місцях push (оновлення за id, вставка з клієнтським id) і в select/pull (оновлення, нові рядки)', function(){
+  assert.equal((SRC.match(/\.\.\.paymentDayPayload\(acc\)/g) || []).length, 2); // Rev 2.32.244: reconcile за назвою прибрано
   assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,credit_limit,payment_day,created_at,updated_at,deleted_at'/);
   assert.match(SRC, /\(byCloudId\.paymentDay \?\? null\) !== \(row\.payment_day \?\? null\)/);
   assert.match(SRC, /byCloudId\.paymentDay = row\.payment_day \?\? null;/);
-  assert.match(SRC, /byName\.paymentDay = row\.payment_day \?\? null;/);
   assert.match(SRC, /bankAccounts\.push\(\{ name: row\.name, creditLimit: row\.credit_limit, paymentDay: row\.payment_day \?\? null,/);
 });
 test('форма картки: «День платежу» — числове поле поруч із кредитним лімітом (як у ОЧ); порожнє = null; 0/32 блокують збереження; перейменування/ліміт не стирають значення', function(){

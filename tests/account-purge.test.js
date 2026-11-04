@@ -87,14 +87,14 @@ test('filterPurgedAccounts / filterPurgedDebts: бекап не відновлю
 });
 
 // ---------- охоронні тести коду ----------
-test('pull: tombstone-рядок прибирає рахунок і не зв’язується/не створює за назвою; select містить deleted_at; reconcile за назвою ігнорує tombstone-рядки', () => {
+test('pull: tombstone-рядок прибирає рахунок і не створює його знову; select містить deleted_at; пошуку за назвою (pull і push) більше нема', () => {
   assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,credit_limit,payment_day,created_at,updated_at,deleted_at'/);
   assert.match(SRC, /fetchDeltaRows\(client, '\w+', 'id,name,initial_amount,due_day(?:,term_months,start_date,first_payment,pay_mode,payment)?,created_at,updated_at,deleted_at'/);
   assert.equal((SRC.match(/if\(row\.deleted_at\)\{ if\(await pullAccountTombstone\(/g) || []).length, 2);
-  // tombstone-обробка йде ДО зв'язування за назвою
+  // Rev 2.32.244 (ID-ALL): зв'язування за назвою прибрано і з pull, і з push
   const bank = SRC.slice(SRC.indexOf('async function pullBankAccountsCore'), SRC.indexOf('async function pullBankAccountsPilot'));
-  assert.ok(bank.indexOf('pullAccountTombstone') < bank.indexOf('bankAccounts.find(function(a){ return a.name === row.name; })'));
-  assert.match(SRC, /from\('bank_accounts'\)\.select\('id'\)\.eq\('family_id', cloudFamilyId\)\.eq\('name', acc\.name\)\.is\('deleted_at', null\)\.maybeSingle\(\)/);
+  assert.ok(!/a\.name === row\.name/.test(bank), 'pull картки: byName прибрано');
+  assert.doesNotMatch(SRC, /from\('bank_accounts'\)\.select\('id'\)\.eq\('family_id', cloudFamilyId\)\.eq\('name'/, 'Rev 2.32.244: картка більше не шукається за назвою');
   assert.doesNotMatch(SRC, /from\('installment_accounts'\)\.select\('id'\)\.eq\('family_id', cloudFamilyId\)\.eq\('name'/, 'Rev 2.32.242: ОЧ більше не шукається за назвою'); // надгробок обробляє idSendNew (GET за id)
 });
 test('перепис id (applyCensus) не відтворює видалений рахунок: рахунку немає локально, push за назвою ігнорує tombstone-рядок', () => {

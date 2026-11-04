@@ -17,7 +17,7 @@ test('ISOL-1: у коді немає фільтра за назвою TRASH-TEST
   assert.ok(!/Очистити тестові записи/.test(SRC), 'кнопки очищення тестових записів немає');
 });
 test('ISOL-1: applyCensus не має виключень за назвою (немає третього аргумента skip); 8 pull читають усі рядки; push-шляхи не відфільтровують записи', function(){
-  assert.match(SRC, /function applyCensus\(entries, cloudIds\)\{/);
+  assert.match(SRC, /function applyCensus\(entries, cloudIds, keepId\)\{/);
   assert.ok(!/function applyCensus\([^)]*skip/.test(SRC));
   assert.equal((SRC.match(/for\(const row of data\)\{/g) || []).length >= 8, true);
   const batch = SRC.slice(SRC.indexOf('async function pushExpensesBatch(records)'), SRC.indexOf('async function pushExpensesBatch(records)') + 600);

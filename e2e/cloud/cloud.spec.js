@@ -129,3 +129,88 @@ test('6. локальний запис без id (старий стан) при�
   await expect.poll(() => b.page.evaluate(() => installmentAccounts.filter(a => !a.deletedAt).map(a => a.cloudId))).toEqual([rowId]);
   expect(await b.page.evaluate(() => installmentAccounts.length)).toBe(1); // і локально без дубля
 });
+
+// ===== Rev 2.32.244 (ID-ALL): картки, категорії, підкатегорії й слова — перейменування з тим самим id на двох пристроях =====
+// Дії виконуються тим самим кодом, що й шторки/форми (nameDirty + updatedAt + збереження, яке само запускає відправку); сервер перевіряється звичайними запитами.
+const tableRows = async (t, sel) => (await rest(cfg, sessA, 'GET', t, 'select=' + (sel || '*') + '&family_id=eq.' + famId + '&order=created_at')).data || [];
+const liveOf = async (t, sel) => (await tableRows(t, sel)).filter(r => !r.deleted_at);
+const now = () => new Date().toISOString();
+// другий пристрій «підключається пізніше»: спершу типові категорії А доходять до сервера (одночасний перший запуск двох чистих телефонів — окремий, рідкісний випадок, див. звіт 244/245)
+const syncedCats = async a => { await expect.poll(async () => (await liveOf('categories')).length, { timeout: 40000 }).toBe(await a.page.evaluate(() => CATEGORIES.length)); };
+
+test('7. картка: А перейменовує, Б бачить нову назву, рядок той самий (id), другого немає; потім Б перейменовує — А бачить', async ({ browser }) => {
+  const a = await openDevice(browser, 'A'), b = await openDevice(browser, 'B');
+  await a.page.evaluate(() => addBankAccount('Картка А', 1000));
+  await expect.poll(async () => (await liveOf('bank_accounts')).length).toBe(1);
+  const id0 = (await liveOf('bank_accounts'))[0].id;
+  const bankNames = d => d.page.evaluate(() => bankAccounts.map(x => x.name));
+  await expect.poll(async () => { await b.page.evaluate(() => pullBankAccountsCore()); return bankNames(b); }).toEqual(['Картка А']);
+  await a.page.evaluate(async () => { const x = bankAccounts.find(y => y.name === 'Картка А'); x.nameDirty = true; x.name = 'Картка Б'; x.updatedAt = new Date().toISOString(); await saveBankAccounts(); });
+  await expect.poll(async () => (await liveOf('bank_accounts')).map(r => r.name)).toEqual(['Картка Б']);
+  expect((await liveOf('bank_accounts'))[0].id).toBe(id0);
+  await expect.poll(async () => { await b.page.evaluate(() => pullBankAccountsCore()); return bankNames(b); }).toEqual(['Картка Б']);
+  await b.page.evaluate(async () => { const x = bankAccounts.find(y => y.name === 'Картка Б'); x.nameDirty = true; x.name = 'Картка В'; x.updatedAt = new Date().toISOString(); await saveBankAccounts(); });
+  await expect.poll(async () => (await liveOf('bank_accounts')).map(r => r.name)).toEqual(['Картка В']);
+  await expect.poll(async () => { await a.page.evaluate(() => pullBankAccountsCore()); return bankNames(a); }).toEqual(['Картка В']);
+  expect((await tableRows('bank_accounts')).length).toBe(1);
+  expect((await liveOf('bank_accounts'))[0].id).toBe(id0);
+  expect(a.errors.concat(b.errors)).toEqual([]);
+});
+
+const isT = r => String(r.name || '').indexOf('Тест') === 0;
+const isTw = r => String(r.keyword || '').indexOf('тестслово') === 0;
+test('8. категорія: А перейменовує — назва у витраті змінилась, category_id той самий; Б бачить нову назву; рядок один; типові категорії не дублюються', async ({ browser }) => {
+  const a = await openDevice(browser, 'A');
+  await a.page.evaluate(async t => { CATEGORIES.push({ name: 'Тест Ї', type: 'Гнучка', active: true, createdAt: t, updatedAt: t, clientId: generateUUID() }); await saveCategories(); }, now());
+  await syncedCats(a);
+  await expect.poll(async () => (await liveOf('categories')).filter(isT).length).toBe(1);
+  const b = await openDevice(browser, 'B'); // Б підключається пізніше: його типові категорії зіставляються з серверними за точною назвою
+  const id0 = (await liveOf('categories')).filter(isT)[0].id;
+  // витрата в цій категорії (запис іде тим самим шляхом, що й звичайна витрата); сервер сам ставить category_id за назвою
+  await a.page.evaluate(async t => { const rec = { id: generateUUID(), name: 'Тест', amount: 100, date: t.slice(0, 10), category: 'Тест Ї', subcategory: '', createdAt: t, updatedAt: t }; expenses.push(rec); await saveExpenses(); await pushExpenseRecordPilot(rec); }, now());
+  await expect.poll(async () => { const e = (await liveOf('expenses', 'id,category,category_id,deleted_at'))[0]; return e && e.category_id; }).toBe(id0);
+  await expect.poll(async () => { await b.page.evaluate(async () => { await pushCategoriesPilot(); await pullCategoriesCore(); }); return b.page.evaluate(() => CATEGORIES.map(c => c.name).filter(n => n.indexOf('Тест') === 0)); }).toEqual(['Тест Ї']);
+  await a.page.evaluate(async () => { const c = CATEGORIES.find(x => x.name === 'Тест Ї'); await saveTaxonomyCascade(cascadeTaxonomyRename('category', 'Тест Ї', 'Тест Є')); c.nameDirty = true; c.name = 'Тест Є'; c.updatedAt = new Date().toISOString(); await saveCategories(); });
+  await expect.poll(async () => (await liveOf('categories')).filter(isT).map(r => r.name)).toEqual(['Тест Є']);
+  expect((await liveOf('categories')).filter(isT)[0].id).toBe(id0);
+  await expect.poll(async () => { const e = (await liveOf('expenses', 'id,category,category_id,deleted_at'))[0]; return e && [e.category, e.category_id]; }, { timeout: 30000 }).toEqual(['Тест Є', id0]);
+  await expect.poll(async () => { await b.page.evaluate(() => pullCategoriesCore()); return b.page.evaluate(() => CATEGORIES.map(c => c.name).filter(n => n.indexOf('Тест') === 0)); }).toEqual(['Тест Є']);
+  expect((await tableRows('categories')).filter(isT).length).toBe(1);
+  const all = (await tableRows('categories')).filter(r => !r.deleted_at).map(r => r.name);
+  expect(new Set(all).size).toBe(all.length); // типові категорії двох пристроїв зіставлено, дублів назв на сервері нема
+  expect(a.errors.concat(b.errors)).toEqual([]);
+});
+
+test('9. підкатегорія: А перейменовує, Б бачить нову назву, рядок той самий (id), другого немає', async ({ browser }) => {
+  const a = await openDevice(browser, 'A'), b = await openDevice(browser, 'B');
+  await a.page.evaluate(async t => { CATEGORIES.push({ name: 'Тест К', type: 'Гнучка', active: true, createdAt: t, updatedAt: t, clientId: generateUUID() }); await saveCategories(); }, now());
+  await expect.poll(async () => (await liveOf('categories')).filter(isT).length).toBe(1);
+  await a.page.evaluate(async t => { SUBCATEGORIES.push({ name: 'Тест П', category: 'Тест К', active: true, createdAt: t, updatedAt: t, clientId: generateUUID() }); await saveSubcategories(); }, now());
+  await expect.poll(async () => (await liveOf('subcategories')).filter(isT).length).toBe(1);
+  const id0 = (await liveOf('subcategories')).filter(isT)[0].id;
+  const subNames = d => d.page.evaluate(() => SUBCATEGORIES.map(s => s.name).filter(n => n.indexOf('Тест') === 0));
+  await expect.poll(async () => { await b.page.evaluate(async () => { await pullCategoriesCore(); await pullSubcategoriesCore(); }); return subNames(b); }).toEqual(['Тест П']);
+  await a.page.evaluate(async () => { const s = SUBCATEGORIES.find(x => x.name === 'Тест П'); await saveTaxonomyCascade(cascadeTaxonomyRename('subcategory', 'Тест П', 'Тест Р')); s.nameDirty = true; s.name = 'Тест Р'; s.updatedAt = new Date().toISOString(); await saveSubcategories(); });
+  await expect.poll(async () => (await liveOf('subcategories')).filter(isT).map(r => r.name)).toEqual(['Тест Р']);
+  expect((await liveOf('subcategories')).filter(isT)[0].id).toBe(id0);
+  await expect.poll(async () => { await b.page.evaluate(() => pullSubcategoriesCore()); return subNames(b); }).toEqual(['Тест Р']);
+  expect((await tableRows('subcategories')).filter(isT).length).toBe(1);
+  expect(a.errors.concat(b.errors)).toEqual([]);
+});
+
+test('10. слово: А перейменовує, Б бачить нове ключове слово, рядок той самий (id), другого немає', async ({ browser }) => {
+  const a = await openDevice(browser, 'A'), b = await openDevice(browser, 'B');
+  await a.page.evaluate(async t => { CATEGORIES.push({ name: 'Тест С', type: 'Гнучка', active: true, createdAt: t, updatedAt: t, clientId: generateUUID() }); await saveCategories(); }, now());
+  await expect.poll(async () => (await liveOf('categories')).filter(isT).length).toBe(1);
+  await a.page.evaluate(async t => { DICTIONARY.push({ id: generateUUID(), kw: 'тестслово', cat: 'Тест С', sub: null, createdAt: t, updatedAt: t, clientId: generateUUID() }); await saveDictionary(); }, now());
+  await expect.poll(async () => (await liveOf('dictionary')).filter(isTw).length).toBe(1);
+  const id0 = (await liveOf('dictionary')).filter(isTw)[0].id;
+  const words = d => d.page.evaluate(() => DICTIONARY.filter(w => !w.deletedAt && w.kw.indexOf('тестслово') === 0).map(w => w.kw));
+  await expect.poll(async () => { await b.page.evaluate(async () => { await pullCategoriesCore(); await pullDictionaryCore(); }); return words(b); }).toEqual(['тестслово']);
+  await a.page.evaluate(async () => { const w = DICTIONARY.find(x => x.kw === 'тестслово'); w.nameDirty = true; w.kw = 'тестслово2'; w.updatedAt = new Date().toISOString(); await saveDictionary(); });
+  await expect.poll(async () => (await liveOf('dictionary')).filter(isTw).map(r => r.keyword)).toEqual(['тестслово2']);
+  expect((await liveOf('dictionary')).filter(isTw)[0].id).toBe(id0);
+  await expect.poll(async () => { await b.page.evaluate(() => pullDictionaryCore()); return words(b); }).toEqual(['тестслово2']);
+  expect((await tableRows('dictionary')).filter(isTw).length).toBe(1);
+  expect(a.errors.concat(b.errors)).toEqual([]);
+});

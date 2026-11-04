@@ -43,6 +43,6 @@ test('джерело: домени без карток (silent+quiet), ключ�
   assert.match(SRC, /mdPullDirty\(MERGE_DOMAINS\.categories, byCloudId, row/);
   assert.match(SRC, /mdPullDirty\(MERGE_DOMAINS\.subcategories, byCloudId, row/);
   assert.match(SRC, /if\(dom\.gone && row\.deleted_at\)/);
-  assert.match(SRC, /name: sub\.name, category_id: parentCat\.cloudId, active: sub\.active/, 'попередній шлях (перейменування, зміна батька) лишився');
+  assert.match(SRC, /const body = \{ category_id: parentCat\.cloudId, active: sub\.active[\s\S]*body\.name = sub\.name/, 'попередній шлях (перейменування, зміна батька) лишився');
   assert.match(SRC, /syncedCategoryId === row\.category_id && byCloudId\.category === parentCat\.name\)\{/, 'pull підкатегорії: локальне перенесення (батько) не йде у злиття');
 });

@@ -68,8 +68,8 @@ function makeCloud(){
   return { tables: tables, stats: stats, from: from };
 }
 const NAMES = ['LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
-  'saveBankAccountsLocal', 'saveInstallmentAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId', 'paymentDayPayload', 'normalizePaymentDay', 'pullBankAccountsCore',
-  'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'idSendNew', 'generateUUID', 'pullAccountTombstone', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom',
+  'saveBankAccountsLocal', 'saveInstallmentAccountsLocal', 'pushBankAccountsPilot', 'bankIdSpec', 'idPushPlain', 'paymentDayPayload', 'normalizePaymentDay', 'pullBankAccountsCore',
+  'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'generateUUID', 'pullAccountTombstone', 'ochModelDiffers', 'applyOchModelFromRow', 'pullInstallmentAccountsCore', 'rekeyHiddenFrom',
   'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'planBankAccountsPush', 'planInstallmentAccountsPush',
   'reconcileBankAccountsCensus', 'reconcileInstallmentAccountsCensus', 'reconcileAccountsCensusFor', 'invalidateAccountChildren', 'cleanupOrphanedHiddenEntities',
   'pushHiddenEntitiesPilot', 'monthToDate', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor'];
@@ -140,7 +140,7 @@ test('G3-3: перейменування картки з боргами / змі
   assert.equal(A.expenses[0].syncedUpdatedAt, 'x');
 });
 
-test('G3-4: видалений у Cloud рахунок → перепис, повторне створення з новим id; приховані записи переходять на новий id, осиротілий рядок видалено; діти dirty', async () => {
+test('G3-4: видалений у Cloud рахунок → перепис, повторне створення з ТИМ САМИМ id (Rev 2.32.244); приховані записи лишаються під тим самим id, діти dirty', async () => {
   const { cloud, A } = await seeded();
   const oldId = A.bankAccounts[1].cloudId;
   // 'Картка2' прихована (стан синхронізований під старим id)
@@ -150,17 +150,15 @@ test('G3-4: видалений у Cloud рахунок → перепис, по�
   A.debts.push({ kind: 'card', name: 'Картка2', syncedUpdatedAt: 'x', updatedAt: 'x' });
   cloud.tables.bank_accounts.splice(1, 1); // Картка2 видалено в Cloud (діти в Cloud відсутні, FK не заважає)
   assert.deepEqual(j(await A.reconcileBankAccountsCensus()), { reset: 1, dropped: 0 });
+  assert.equal(A.bankAccounts[1].clientId, oldId, 'id лишається за карткою (keepId)');
   await A.pushBankAccountsPilot();
   await A.pushHiddenEntitiesPilot(); // останній крок syncNameDomainsOnConnect
-  const newId = A.bankAccounts[1].cloudId;
-  assert.ok(newId && newId !== oldId);
+  assert.equal(A.bankAccounts[1].cloudId, oldId, 'рядок піднято тим самим id');
   assert.equal(cloud.tables.bank_accounts.filter(function(r){ return r.name === 'Картка2'; }).length, 1);
-  assert.deepEqual(j(cloud.stats.hiddenDeletes), [[oldId]]);
-  assert.deepEqual(j(cloud.tables.hidden_entities.map(function(r){ return r.entity_id; })), [newId]);
+  assert.equal(cloud.tables.bank_accounts.filter(function(r){ return r.id === oldId; }).length, 1);
+  assert.deepEqual(j(cloud.tables.hidden_entities.map(function(r){ return r.entity_id; })), [oldId], 'приховані — один рядок під тим самим id');
   assert.equal(A.debts[2].syncedUpdatedAt, undefined, 'борг Картка2 став dirty');
   assert.equal(A.debts[0].syncedUpdatedAt, 'x', 'борг Картка1 не чіпали');
-  const pd = A.__events.filter(function(e){ return e[0] === 'push-dirty' && e[1].children !== undefined; }).pop();
-  assert.equal(pd[1].entries, 1);
   assert.equal(A.nameDomainChildren >= 2, true); // борг + прихований запис (інвалідовано переписом)
 });
 
@@ -176,20 +174,16 @@ test('зміна cloudId ОЧ робить dirty її борги, витрати
   assert.equal(A.hiddenFrom['installment:ОЧ1'].syncedUpdatedAt, undefined);
 });
 
-test('pull byName з іншим cloudId: діти інвалідуються, осиротілий hidden-рядок видаляється (аналог знахідки G2)', async () => {
+test('Rev 2.32.244: pull більше не зв\'язує серверний рядок із карткою за назвою — рядок з іншим id додається окремо, id картки не змінюється', async () => {
   const cloud = makeCloud();
   cloud.tables.bank_accounts.push({ id: 'new-id', family_id: 'fam', name: 'Картка1', credit_limit: 1000, created_at: 'c', updated_at: tick(), __ua: 0 });
-  cloud.tables.hidden_entities.push({ id: 'h0', family_id: 'fam', entity_type: 'bank', entity_id: 'old-id' });
   const A = device(cloud, 'A', {
     banks: [{ name: 'Картка1', creditLimit: 1000, cloudId: 'old-id', updatedAt: 'U', syncedUpdatedAt: 'U' }],
-    debts: [{ kind: 'card', name: 'Картка1', syncedUpdatedAt: 'x', updatedAt: 'x' }],
-    hidden: { 'card:Картка1': { month: '2026-10', updatedAt: 'u', syncedUpdatedAt: 'u' } },
   });
   await A.pullBankAccountsCore();
-  assert.equal(A.bankAccounts[0].cloudId, 'new-id');
-  assert.equal(A.debts[0].syncedUpdatedAt, undefined);
-  assert.equal(A.hiddenFrom['card:Картка1'].syncedUpdatedAt === undefined || A.hiddenFrom['card:Картка1'].syncedUpdatedAt === A.hiddenFrom['card:Картка1'].updatedAt, true);
-  assert.deepEqual(j(cloud.stats.hiddenDeletes), [['old-id']]);
+  assert.equal(A.bankAccounts[0].cloudId, 'old-id', 'id не перезаписано за збігом назви');
+  assert.equal(A.bankAccounts.length, 2);
+  assert.equal(A.bankAccounts[1].cloudId, 'new-id');
 });
 
 test('G3-5: застарілий пристрій без власних правок не затирає чужу зміну ліміту; несуміжне збереження не робить UPDATE', async () => {

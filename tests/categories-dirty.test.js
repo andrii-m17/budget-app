@@ -58,8 +58,8 @@ function makeCloud(){
 function hash(cloud, table){ return JSON.stringify(cloud.tables[table].map(function(r){ return [r.id, r.updated_at]; })); }
 
 const NAMES = ['LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
-  'saveCategoriesLocal', 'saveSubcategoriesLocal', 'pushCategoriesPilot', 'reconcileCategoryCloudId', 'pullCategoriesCore',
-  'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId', 'pullSubcategoriesCore',
+  'saveCategoriesLocal', 'saveSubcategoriesLocal', 'pushCategoriesPilot', 'categoryIdSpec', 'idOf', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'idPushPlain', 'generateUUID', 'pullCategoriesCore',
+  'pushSubcategoriesPilot', 'subcategoryIdSpec', 'pullSubcategoriesCore',
   'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planCategoriesPush', 'isSubcategoryDirty', 'planSubcategoriesPush', 'categoriesByNameMap',
   'reconcileCategoriesCensus', 'reconcileSubcategoriesCensus'];
 function device(cloud, name, cats, subs){
@@ -127,7 +127,7 @@ test('G2-3: видалення категорії з каскадом — оно
   assert.equal(cloud.tables.subcategories[0].deactivated_via, 'category');
 });
 
-test('G2-4: рядок категорії видалено в Cloud → перепис скидає cloudId, push створює знову, підкатегорії отримують новий category_id', async () => {
+test('G2-4: рядок категорії видалено в Cloud → перепис лишає id за записом, push створює знову ТИМ САМИМ id (Rev 2.32.244), підкатегорії лишаються з тим самим category_id', async () => {
   const { cloud, A } = await seeded();
   const oldId = A.CATEGORIES[0].cloudId;
   cloud.tables.categories.splice(0, 1); // «Їжа» видалено вручну; підкатегорії лишились із мертвим category_id
@@ -135,7 +135,7 @@ test('G2-4: рядок категорії видалено в Cloud → пере
   assert.deepEqual(j([rc, rs]), [{ reset: 1, dropped: 0 }, { reset: 0, dropped: 0 }]);
   await A.pushCategoriesPilot(); await A.pushSubcategoriesPilot();
   const newId = A.CATEGORIES[0].cloudId;
-  assert.ok(newId && newId !== oldId);
+  assert.equal(newId, oldId, 'рядок піднято тим самим id');
   assert.equal(cloud.tables.categories.filter(function(r){ return r.name === 'Їжа'; }).length, 1);
   cloud.tables.subcategories.filter(function(r){ return r.name === 'Кафе' || r.name === 'Піца'; }).forEach(function(r){ assert.equal(r.category_id, newId); });
   assert.equal(A.CATEGORIES.length, 2); assert.equal(A.SUBCATEGORIES.length, 3);

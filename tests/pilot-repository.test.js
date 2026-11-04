@@ -119,7 +119,7 @@ const REPOSITORY_NAMES = [
   // applySyncMarker() — прозорий no-op, повний pull як і раніше).
   'LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'SYNC_DELTA_OVERLAP_MS', 'syncDeltaFrom', 'loadSyncMarkers', 'getSyncMarker', 'setSyncMarker',
   'clearSyncMarkers', 'applySyncMarker', 'updateSyncMarkerFromAllRows',
-  'saveCategories', 'saveCategoriesLocal', 'pushCategoriesPilot', 'reconcileCategoryCloudId',
+  'saveCategories', 'saveCategoriesLocal', 'pushCategoriesPilot', 'categoryIdSpec', 'idPushPlain',
   // Rev #30 (6D крок 9) — Pull pilot: categories. На відміну від push-тестів
   // вище (де cloudSession:null завжди зупиняє на guard clause), тут
   // cloudSession/cloudFamilyId/getSupabaseClient/isSupabaseSdkReady ПІДМІНЯЮТЬСЯ
@@ -144,9 +144,9 @@ const REPOSITORY_NAMES = [
   // guard clause, без реального Supabase-клієнта. reconcileXCloudId — не
   // під тестом (мережевий шар), включені лише тому, що saveXLocal/pushXPilot
   // фізично на них посилаються.
-  'saveSubcategories', 'saveSubcategoriesLocal', 'pushSubcategoriesPilot', 'reconcileSubcategoryCloudId',
+  'saveSubcategories', 'saveSubcategoriesLocal', 'pushSubcategoriesPilot', 'subcategoryIdSpec',
   'saveSubcategoryPriority',
-  'saveDictionary', 'saveDictionaryLocal', 'pushDictionaryPilot', 'pushDictionaryPilotRun', 'reconcileDictionaryCloudId', 'escapeLikeExact', 'findLiveDictionaryRow', 'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus', // Rev 2.23.26 (6D.195, G1)
+  'saveDictionary', 'saveDictionaryLocal', 'pushDictionaryPilot', 'pushDictionaryPilotRun', 'dictionaryIdSpec', 'escapeLikeExact', 'findLiveDictionaryRow', 'isDirty', 'applyCensus', 'fetchCloudIdCensus', 'planDictionaryPush', 'dictionaryParentIds', 'markDictionarySynced', 'reconcileDictionaryCensus', // Rev 2.23.26 (6D.195, G1)
   'planCategoriesPush', 'isSubcategoryDirty', 'planSubcategoriesPush', 'categoriesByNameMap', 'reconcileCategoriesCensus', 'reconcileSubcategoriesCensus', 'syncNameDomainsOnConnect', // Rev 2.23.27 (6D.196, G2)
   'planBankAccountsPush', 'planInstallmentAccountsPush', 'reconcileBankAccountsCensus', 'reconcileInstallmentAccountsCensus', 'reconcileAccountsCensusFor', 'invalidateAccountChildren', // Rev 2.23.28 (6D.197, G3)
   // Rev 2.23.25 (6D.194): серіалізація + пошук без урахування регістру
@@ -171,13 +171,13 @@ const REPOSITORY_NAMES = [
   'deleteCategory', 'deleteSubcategory', 'restoreCascadedWords', 'restoreCategory', 'restoreSubcategory',
   // Rev #28.D1
   'loadBankAccounts', 'loadInstallmentAccounts', 'loadHiddenFrom', 'loadIgnoredDivergences',
-  'saveBankAccounts', 'saveBankAccountsLocal', 'pushBankAccountsPilot', 'reconcileBankAccountCloudId', 'paymentDayPayload', 'normalizePaymentDay',
+  'saveBankAccounts', 'saveBankAccountsLocal', 'pushBankAccountsPilot', 'bankIdSpec', 'paymentDayPayload', 'normalizePaymentDay',
   // Rev #30 (6D, bank_accounts повний цикл) — той самий cross-realm-override
   // прийом, що pullCategoriesCore тести нижче: cloudSession/cloudFamilyId/
   // getSupabaseClient/isSupabaseSdkReady підмінюються після buildSandbox().
   // pullBankAccountsPilotManual НЕ включена (DOM-шар).
   'pullBankAccountsCore', 'pullBankAccountsPilot', 'ensureBankAccountIdentity',
-  'saveInstallmentAccounts', 'saveInstallmentAccountsLocal', 'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'idSendNew', 'generateUUID', 'pullAccountTombstone',
+  'saveInstallmentAccounts', 'saveInstallmentAccountsLocal', 'pushInstallmentAccountsPilot', 'installmentIdSpec', 'idOf', 'idEnsureClientId', 'idMatchKey', 'idMigrateUnlinked', 'ID_MIGRATE_LAST', 'ID_AMBIGUOUS', 'idSendNew', 'generateUUID', 'pullAccountTombstone',
   // Rev #30 (6D.27, installment_accounts повний цикл) — той самий
   // cross-realm-override прийом, що pullBankAccountsCore тести.
   // pullInstallmentAccountsPilotManual НЕ включена (DOM-шар).
@@ -386,12 +386,18 @@ function fakeSupabaseStatefulClient(table, nameField){
   let insertCount = 0, updateCount = 0;
   const client = {
     from(t){
-      assert.equal(t, table);
+      if(t !== table){ // Rev 2.32.244: сусідні таблиці (типові підкатегорії тощо) — порожні; міграція id і pull ходять і в них
+        const e = { select(){ return e; }, eq(){ return e; }, is(){ return e; }, order(){ return e; }, range(){ return Promise.resolve({ data: [], error: null }); }, maybeSingle(){ return Promise.resolve({ data: null, error: null }); }, then(res, rej){ return Promise.resolve({ data: [], error: null }).then(res, rej); } };
+        return e;
+      }
       return {
         select(cols){
           return {
             eq(col1, val1){
               return {
+                // Rev 2.32.244 (ID-ALL): міграція id (select.eq.order.range) і GET за id (select.eq.maybeSingle)
+                order(){ return { range(a, b){ return Promise.resolve({ data: [...byName.values()].slice(a, b + 1).map(r => ({ ...r, deleted_at: r.deleted_at || null })), error: null }); } }; },
+                maybeSingle(){ const row = [...byName.values()].find(r => r.id === val1); return Promise.resolve({ data: row ? { id: row.id, deleted_at: row.deleted_at || null } : null, error: null }); },
                 eq(col2, val2){
                   const leaf = {
                     maybeSingle(){
@@ -408,8 +414,8 @@ function fakeSupabaseStatefulClient(table, nameField){
         },
         insert(fields){
           insertCount++;
-          const id = 'gen-' + insertCount;
-          const row = { id, ...fields };
+          const id = fields.id || ('gen-' + insertCount); // Rev 2.32.244: клієнт видає id до мережі
+          const row = { ...fields, id };
           byName.set(fields[nameField], row);
           return { select(){ return { single(){ return Promise.resolve({ data: { id }, error: null }); } }; } };
         },
@@ -654,7 +660,7 @@ test('loadCategories: BugFix — домен мігровано, але в Indexe
   const { ctx, fakeIdbInstance } = sandbox({ localStorageInitial: {} });
   ctx.markDomainMigrated('categories');
   await ctx.loadCategories();
-  assert.deepEqual(plain(ctx.CATEGORIES), plain(readConst(ctx, 'DEFAULT_CATEGORIES')));
+  assert.deepEqual(plain(ctx.CATEGORIES), plain(readConst(ctx, 'DEFAULT_CATEGORIES')).map(c => ({ ...c, seed: true }))); // Rev 2.32.244: типові записи несуть позначку seed (зіставлення за назвою між пристроями)
   assert.equal(fakeIdbInstance.store.get('budget_categories_v1'), JSON.stringify(ctx.CATEGORIES));
   // Наступний виклик loadCategories() (симуляція наступного старту) вже
   // читає щойно збережене значення з IndexedDB, не пише вдруге.
@@ -666,7 +672,7 @@ test('loadCategories: BugFix — домен мігровано, але в Indexe
 test('loadCategories: перший запуск (немає ключа в localStorage) → DEFAULT_CATEGORIES і одразу зберігається', async () => {
   const { ctx } = sandbox({ localStorageInitial: {} });
   await ctx.loadCategories();
-  assert.deepEqual(plain(ctx.CATEGORIES), plain(readConst(ctx, 'DEFAULT_CATEGORIES')));
+  assert.deepEqual(plain(ctx.CATEGORIES), plain(readConst(ctx, 'DEFAULT_CATEGORIES')).map(c => ({ ...c, seed: true }))); // Rev 2.32.244: типові записи несуть позначку seed (зіставлення за назвою між пристроями)
   assert.equal(ctx.localStorage.getItem('budget_categories_v1'), JSON.stringify(ctx.CATEGORIES));
 });
 
@@ -867,37 +873,22 @@ test('pullCategoriesCore: правило 1 (no-op) — cloudId збігаєть�
   assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 0, keptLocal: 0 });
 });
 
-test('pullCategoriesCore: правило 2 — unlinked (без cloudId) local з тим самим name → зв\'язується (cloudId) і self-heal одразу підтягує Cloud active/type, не дублюється', async () => {
+test('pullCategoriesCore: Rev 2.32.244 (ID-ALL) — запис без cloudId з тією самою назвою НЕ зв\'язується за назвою: серверний рядок додається окремо (зіставлення без id — лише в idMigrateUnlinked, див. tests/id-all.test.js)', async () => {
   const ctx = pullSandbox([{ id: 'c2', name: '🍔 Їжа', active: true, type: "Обов'язкова" }]);
-  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true }]; // без cloudId — ще не пушилась
+  ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, clientId: 'cid-1' }];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
-  assert.equal(ctx.CATEGORIES.length, 1); // НЕ задублювалось
-  assert.equal(ctx.CATEGORIES[0].cloudId, 'c2');
-  assert.equal(ctx.CATEGORIES[0].type, "Обов'язкова");
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+  assert.equal(ctx.CATEGORIES.length, 2);
+  assert.equal(ctx.CATEGORIES[0].cloudId, undefined);
+  assert.equal(ctx.CATEGORIES[0].clientId, 'cid-1');
 });
-
-test('pullCategoriesCore: BugFix (6D) — local з "МЕРТВИМ" cloudId (Cloud-рядок з таким id більше не існує) + правильний name → self-heal, БЕЗ дублювання', async () => {
-  // Регресійний тест на точний сценарій з реального інциденту: користувач
-  // відновив локальний бекап, у якому "Харчування" несла застарілий
-  // cloudId з давнього self-heal-тесту (рядок з таким id давно не існує
-  // в Cloud). До фіксу: byCloudId не знаходив (id чужий), byName ТЕЖ не
-  // знаходив (умова `!c.cloudId` виключала запис, бо він МАЄ якийсь
-  // cloudId, хай і мертвий) → падало у гілку "новий запис", утворюючи
-  // ДРУГИЙ локальний об'єкт з тим самим name, лишаючи старий сиротою
-  // назавжди. Підтверджено контрольованим відтворенням у browser preview
-  // (мокнутий Supabase-клієнт, реальний UI-флоу deleteCategory() +
-  // applyBackupData() + pullCategoriesCore()) перед фіксом.
+test('pullCategoriesCore: Rev 2.32.244 (ID-ALL) — local з «мертвим» cloudId НЕ перезв\'язується за назвою (стара поведінка 6D); серверний рядок додається окремо, мертвий id прибирає перепис (keepId)', async () => {
   const ctx = pullSandbox([{ id: 'c1', name: '🍔 Харчування', active: true, type: 'Скорочувана' }]);
   ctx.CATEGORIES = [{ name: '🍔 Харчування', type: 'Гнучка', active: true, cloudId: 'dead-old-selfheal-id' }];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
-  assert.equal(ctx.CATEGORIES.length, 1); // КРИТИЧНО: НЕ задублювалось
-  assert.equal(ctx.CATEGORIES[0].cloudId, 'c1'); // self-heal перезаписав мертвий cloudId
-  assert.equal(ctx.CATEGORIES[0].active, true);
-  assert.equal(ctx.CATEGORIES[0].type, 'Скорочувана');
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+  assert.equal(ctx.CATEGORIES[0].cloudId, 'dead-old-selfheal-id', 'id не перезаписано за збігом назви');
 });
-
 test('pullCategoriesCore: правило 3 — новий Cloud-рядок без local-відповідника → додається з РЕАЛЬНИМ Cloud type', async () => {
   const ctx = pullSandbox([{ id: 'c3', name: '🎮 Розваги (з іншого пристрою)', active: true, type: 'Скорочувана' }]);
   ctx.CATEGORIES = [];
@@ -974,11 +965,11 @@ test('pullCategoriesCore: домен мігровано на IndexedDB → зб�
   assert.equal(ctx.CATEGORIES.length, 1);
 });
 
-test('pullCategoriesCore: змішаний сценарій — усі три правила одночасно, кожен по своєму шляху', async () => {
+test('pullCategoriesCore: змішаний сценарій — оновлення за id і додавання; запис без id за назвою не зв\'язується (Rev 2.32.244)', async () => {
   const ctx = pullSandbox([
-    { id: 'c1', name: '🍔 Їжа (оновлено)', active: true, type: "Обов'язкова" },  // правило 1: update (i.e. type теж)
-    { id: 'c2', name: '🚗 Транспорт', active: true, type: 'Гнучка' },            // правило 2: link
-    { id: 'c3', name: '🎮 Розваги', active: true, type: 'Скорочувана' },         // правило 3: add
+    { id: 'c1', name: '🍔 Їжа (оновлено)', active: true, type: "Обов'язкова" },  // оновлення за id (type теж)
+    { id: 'c2', name: '🚗 Транспорт', active: true, type: 'Гнучка' },            // без id локально: додається окремо
+    { id: 'c3', name: '🎮 Розваги', active: true, type: 'Скорочувана' },         // додавання
   ]);
   ctx.CATEGORIES = [
     { name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' },
@@ -986,16 +977,13 @@ test('pullCategoriesCore: змішаний сценарій — усі три п
     { name: '🧘 Особисте', type: 'Гнучка', active: true },
   ];
   const result = await ctx.pullCategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 1, added: 1, keptLocal: 0 });
-  assert.equal(ctx.CATEGORIES.length, 4);
+  assert.deepEqual(plain(result), { skipped: false, updated: 1, linked: 0, added: 2, keptLocal: 0 });
+  assert.equal(ctx.CATEGORIES.length, 5);
   assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c1').name, '🍔 Їжа (оновлено)');
   assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c1').type, "Обов'язкова");
-  assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c2').name, '🚗 Транспорт');
-  assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c3').name, '🎮 Розваги');
   assert.equal(ctx.CATEGORIES.find(c => c.cloudId === 'c3').type, 'Скорочувана');
   assert.equal(ctx.CATEGORIES.find(c => c.name === '🧘 Особисте').cloudId, undefined);
 });
-
 test('pullCategoriesPilot: тонка обгортка над pullCategoriesCore (той самий результат)', async () => {
   const ctx = pullSandbox([{ id: 'c1', name: '🍔 Їжа', active: true, type: 'Гнучка' }]);
   ctx.CATEGORIES = [];
@@ -1060,24 +1048,23 @@ test('pullBankAccountsCore: push-retry НЕ тригериться, коли Clo
   assert.equal(pushSpy.count(), 0);
 });
 
-test('pullBankAccountsCore: BugFix 6D.19 (превентивно) — local з "мертвим" cloudId + правильний name → self-heal, БЕЗ дублювання', async () => {
+test('pullBankAccountsCore: Rev 2.32.244 (ID-ALL) — local з «мертвим» cloudId НЕ перезв\'язується за назвою; серверний рядок додається окремо', async () => {
   const ctx = pullBankSandbox([{ id: 'b1', name: '🟩 Приват Банк', credit_limit: 50000 }]);
   ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 50000, cloudId: 'dead-old-id' }];
   const result = await ctx.pullBankAccountsCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
-  assert.equal(ctx.bankAccounts.length, 1); // КРИТИЧНО: не задублювалось
-  assert.equal(ctx.bankAccounts[0].cloudId, 'b1');
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+  assert.equal(ctx.bankAccounts[0].cloudId, 'dead-old-id');
+  assert.equal(ctx.bankAccounts[1].cloudId, 'b1');
 });
-
-test('pullBankAccountsCore: правило 2 — unlinked local з тим самим name → зв\'язується, не дублюється', async () => {
+test('pullBankAccountsCore: Rev 2.32.244 (ID-ALL) — запис без id за назвою не зв\'язується (зіставлення без id — idMigrateUnlinked, tests/id-all.test.js)', async () => {
   const ctx = pullBankSandbox([{ id: 'b2', name: '🟩 Приват Банк', credit_limit: 50000 }]);
-  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 50000 }];
+  ctx.bankAccounts = [{ name: '🟩 Приват Банк', creditLimit: 50000, clientId: 'cid-1' }];
   const result = await ctx.pullBankAccountsCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0 });
-  assert.equal(ctx.bankAccounts.length, 1);
-  assert.equal(ctx.bankAccounts[0].cloudId, 'b2');
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0 });
+  assert.equal(ctx.bankAccounts[0].cloudId, undefined);
+  assert.equal(ctx.bankAccounts[0].clientId, 'cid-1');
+  assert.equal(ctx.bankAccounts[1].cloudId, 'b2');
 });
-
 test('pullBankAccountsCore: правило 3 — новий Cloud-рядок без local-відповідника → додається', async () => {
   const ctx = pullBankSandbox([{ id: 'b3', name: '🟨 Raifaizen (з іншого пристрою)', credit_limit: 30000 }]);
   ctx.bankAccounts = [];
@@ -2002,7 +1989,7 @@ test('pushExpenseRecordPilot: linked_installment_id push провалюєтьс�
 // напряму в базі, повторні "Синхронізувати все" НІЧОГО не змінювали, доки
 // шорткат не прибрали.
 // Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
-test('pushBankAccountsPilot: cloudId застарів (Cloud-рядок зник) → update повертає 0 рядків → self-heal перестворює акаунт (НЕ "already synced" назавжди)', async () => {
+test('pushBankAccountsPilot: cloudId застарів (Cloud-рядок зник) → update повертає 0 рядків → рядок піднімається тим самим id (Rev 2.32.244; НЕ "already synced" назавжди)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -2026,8 +2013,8 @@ test('pushBankAccountsPilot: cloudId застарів (Cloud-рядок зник
   }; } });
   await ctx.pushBankAccountsPilot();
   assert.equal(updateCalls, 1, 'МАЄ спробувати update (не пропустити його шорткатом)');
-  assert.equal(insertCalls, 1, 'self-heal: 0 рядків від update → reconcile створює новий');
-  assert.equal(ctx.bankAccounts[0].cloudId, 'fresh-new-id');
+  assert.equal(insertCalls, 1, 'Rev 2.32.244: 0 рядків від update → GET за id (порожньо) → insert з ТИМ САМИМ id');
+  assert.equal(ctx.bankAccounts[0].cloudId, 'stale-deleted-id', 'id картки не змінюється');
 });
 
 // Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
@@ -2088,7 +2075,7 @@ function hiddenEntitiesDeleteTrackingClient(otherTableHandlers){
 }
 
 // Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
-test('pushBankAccountsPilot: cloudId самозцілився → cleanupOrphanedHiddenEntities викликається зі СТАРИМ cloudId (6D.143)', async () => {
+test('pushBankAccountsPilot: id не змінюється → осиротілих hidden_entities нема, delete не викликається (Rev 2.32.244; було каскад 6D.143)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -2101,11 +2088,8 @@ test('pushBankAccountsPilot: cloudId самозцілився → cleanupOrphane
   }));
   ctx.getSupabaseClient = () => client;
   await ctx.pushBankAccountsPilot();
-  assert.equal(ctx.bankAccounts[0].cloudId, 'new-id');
-  assert.equal(deleteCalls.length, 1, 'delete() на hidden_entities мав викликатись рівно раз');
-  assert.equal(deleteCalls[0].entityType, 'bank');
-  assert.equal(deleteCalls[0].familyId, 'fam-1');
-  assert.deepEqual(plain(deleteCalls[0].entityIds), ['old-id'], 'мусить прибирати САМЕ старий, а не новий cloudId');
+  assert.equal(ctx.bankAccounts[0].cloudId, 'old-id');
+  assert.equal(deleteCalls.length, 0);
 });
 
 // Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
@@ -2131,14 +2115,15 @@ test('pushBankAccountsPilot: рахунок ВПЕРШЕ створюється 
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
   ctx.isSupabaseSdkReady = () => true;
-  ctx.bankAccounts = [{ name: 'Новий банк', cloudId: null, creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z' }];
+  ctx.bankAccounts = [{ name: 'Новий банк', cloudId: null, clientId: 'cid-brand-new', creditLimit: null, updatedAt: '2026-01-01T00:00:00.000Z' }]; // Rev 2.32.244: id видано при створенні
   const { client, deleteCalls } = hiddenEntitiesDeleteTrackingClient((chainable) => ({
     insert(){ return { select(){ return { single(){ return Promise.resolve({ data: { id: 'brand-new-id' }, error: null }); } }; } }; },
     select(){ return chainable({ data: null, error: null }); },
   }));
   ctx.getSupabaseClient = () => client;
   await ctx.pushBankAccountsPilot();
-  assert.equal(ctx.bankAccounts[0].cloudId, 'brand-new-id');
+  assert.equal(ctx.bankAccounts[0].cloudId, 'cid-brand-new', 'cloudId = клієнтський id, виданий до мережі');
+  assert.equal(ctx.bankAccounts[0].clientId, undefined);
   assert.equal(deleteCalls.length, 0, 'немає попереднього cloudId — нема що прибирати, delete() не мав викликатись');
 });
 
@@ -2159,7 +2144,7 @@ test('pushBankAccountsPilot: cloudId СТАБІЛЬНИЙ (update успішни
 });
 
 // Rev 2.23.28 (6D.197, G3): фікстура — dirty-запис із мертвим cloudId (чистий запис із мертвим cloudId тепер виявляє перепис id, а не push).
-test('pushBankAccountsPilot: cleanupOrphanedHiddenEntities падає (мережа) → НЕ ламає результат основного push (best-effort)', async () => {
+test('pushBankAccountsPilot: id не змінюється, тож чистка hidden_entities не потрібна й не запускається (Rev 2.32.244; best-effort чистка 6D.143 лишається для зміни id)', async () => {
   const { ctx } = sandbox();
   ctx.cloudSession = { user: { id: 'user-1' } };
   ctx.cloudFamilyId = 'fam-1';
@@ -2177,8 +2162,8 @@ test('pushBankAccountsPilot: cleanupOrphanedHiddenEntities падає (мере�
     };
   } });
   const result = await ctx.pushBankAccountsPilot();
-  assert.equal(ctx.bankAccounts[0].cloudId, 'new-id', 'основний self-heal і далі відпрацював');
-  assert.equal(plain(result).success, true, 'провал ЛИШЕ cleanup-чистки не мав позначити весь push як помилку');
+  assert.equal(ctx.bankAccounts[0].cloudId, 'old-id', 'id картки не змінюється');
+  assert.equal(plain(result).success, true);
 });
 
 test('cleanupOrphanedHiddenEntities: синхронний throw у delete() не пробивається назовні (try/catch)', async () => {
@@ -3056,16 +3041,16 @@ test('pullSubcategoriesCore: брудна підкатегорія без злі
   assert.equal(pushSpy.count(), 0);
 });
 
-test('pullSubcategoriesCore: правило 2 — unlinked local з тим самим name → зв\'язується, category резолвиться за cloudId', async () => {
+test('pullSubcategoriesCore: Rev 2.32.244 (ID-ALL) — запис без id за назвою не зв\'язується; серверний рядок додається окремо, category резолвиться за cloudId', async () => {
   const ctx = pullSubcategoriesSandbox([{ id: 's2', name: 'Кафе', category_id: 'c1', active: true }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
-  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: '🍔 Їжа', active: true }];
+  ctx.SUBCATEGORIES = [{ name: 'Кафе', category: '🍔 Їжа', active: true, clientId: 'cid-1' }];
   const result = await ctx.pullSubcategoriesCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0, skippedFk: 0 });
-  assert.equal(ctx.SUBCATEGORIES.length, 1);
-  assert.equal(ctx.SUBCATEGORIES[0].cloudId, 's2');
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.SUBCATEGORIES.length, 2);
+  assert.equal(ctx.SUBCATEGORIES[0].cloudId, undefined);
+  assert.equal(ctx.SUBCATEGORIES[1].cloudId, 's2');
 });
-
 test('pullSubcategoriesCore: правило 3 — новий Cloud-рядок без local-відповідника → додається', async () => {
   const ctx = pullSubcategoriesSandbox([{ id: 's3', name: 'Ресторани (з іншого пристрою)', category_id: 'c1', active: true }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
@@ -3199,15 +3184,16 @@ test('pullDictionaryCore: брудне слово без зліпка → виг
   assert.equal(pushSpy.count(), 0);
 });
 
-test('pullDictionaryCore: правило 2 — unlinked local з тим самим kw → зв\'язується', async () => {
+test('pullDictionaryCore: Rev 2.32.244 (ID-ALL) — слово без id за ключовим словом не зв\'язується; серверний рядок додається окремо', async () => {
   const ctx = pullDictionarySandbox([{ id: 'd2', keyword: 'кава', category_id: 'c1', subcategory_id: null }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
-  ctx.DICTIONARY = [{ kw: 'кава', cat: '🍔 Їжа', sub: null }];
+  ctx.DICTIONARY = [{ kw: 'кава', cat: '🍔 Їжа', sub: null, clientId: 'cid-1' }];
   const result = await ctx.pullDictionaryCore();
-  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 1, added: 0, keptLocal: 0, skippedFk: 0 });
-  assert.equal(ctx.DICTIONARY[0].cloudId, 'd2');
+  assert.deepEqual(plain(result), { skipped: false, updated: 0, linked: 0, added: 1, keptLocal: 0, skippedFk: 0 });
+  assert.equal(ctx.DICTIONARY.length, 2);
+  assert.equal(ctx.DICTIONARY[0].cloudId, undefined);
+  assert.equal(ctx.DICTIONARY[1].cloudId, 'd2');
 });
-
 test('pullDictionaryCore: правило 3 — новий Cloud-рядок без local-відповідника → додається', async () => {
   const ctx = pullDictionarySandbox([{ id: 'd3', keyword: 'еспресо (з іншого пристрою)', category_id: 'c1', subcategory_id: null }]);
   ctx.CATEGORIES = [{ name: '🍔 Їжа', type: 'Гнучка', active: true, cloudId: 'c1' }];
@@ -3370,7 +3356,7 @@ function dictionaryMockClient(opts){
               return Promise.resolve(r.error ? r : { data: r.data ? [r.data] : [], error: null });
             },
             maybeSingle(){
-              return Promise.resolve(cols === 'id, deleted_at' ? opts.existingRowResult : opts.reconcileSelectResult);
+              return Promise.resolve(String(cols).replace(/\s/g, '') === 'id,deleted_at' ? opts.existingRowResult : opts.reconcileSelectResult); // Rev 2.32.244: GET за id (idSendNew)
             },
           };
           return builder;
@@ -3409,7 +3395,7 @@ test('6D.153: старий пристрій (не знає про видален
   assert.equal(calls.inserts.length, 0, 'НЕ мав запускати reconcile/insert — рядок не "битий", просто видалений');
 });
 
-test('6D.153: справжній self-heal — cloudId дійсно не існує (не tombstone) → reconcile за keyword спрацьовує як раніше', async () => {
+test('6D.153: справжній self-heal — cloudId дійсно не існує (не tombstone) → insert з тим самим id (Rev 2.32.244; раніше reconcile за keyword)', async () => {
   const entry = { id: 'local-1', kw: 'обід', cat: 'Їжа', sub: null, cloudId: 'stale-id', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
   const ctx = dictionarySandboxFor(entry);
   const { client, calls } = dictionaryMockClient({
@@ -3419,8 +3405,9 @@ test('6D.153: справжній self-heal — cloudId дійсно не існ�
   });
   ctx.getSupabaseClient = () => client;
   await ctx.pushDictionaryPilot();
-  assert.equal(entry.cloudId, 'new-cloud-id');
+  assert.equal(entry.cloudId, 'stale-id', 'Rev 2.32.244: рядок піднято тим самим id (не за ключовим словом)');
   assert.equal(calls.inserts.length, 1);
+  assert.equal(calls.inserts[0].id, 'stale-id');
 });
 
 test('Rev 2.22.89 (6D.162, Ревізія C): pushDictionaryPilot() надсилає deleted_via у payload update', async () => {
@@ -3478,7 +3465,7 @@ test('6D.163: навмисна семантика — правка слова П
   // Той самий механізм, що відновлення вище: локальний updatedAt (момент
   // правки) новіший за deleted_at Cloud → правка "воскрешає" слово разом
   // із новими полями (keyword/category/subcategory з цієї самої правки).
-  const entry = { id: 'local-1', kw: 'лате оновлене', cat: 'Їжа', sub: null, cloudId: 'cloud-1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-04-01T00:00:00.000Z' };
+  const entry = { id: 'local-1', kw: 'лате оновлене', nameDirty: true, cat: 'Їжа', sub: null, cloudId: 'cloud-1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-04-01T00:00:00.000Z' };
   const ctx = dictionarySandboxFor(entry);
   const { client, calls } = dictionaryMockClient({
     updateResult: { data: [{ id: 'cloud-1' }], error: null }, // Cloud deleted_at (2026-02-01) < entry.updatedAt (2026-04-01)
@@ -3495,7 +3482,7 @@ test('6D.163: чужий безглуздий bulk-push (рядок у Cloud Ж�
   // updated_at (bulk-push чужого пристрою його й так постійно чіпає,
   // Крок 0 підтвердив) — друга умова (deleted_at.lt...) тут навіть не
   // потрібна, перша вже пропускає.
-  const entry = { id: 'local-1', kw: 'кава без молока', cat: 'Їжа', sub: null, cloudId: 'cloud-1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  const entry = { id: 'local-1', kw: 'кава без молока', nameDirty: true, cat: 'Їжа', sub: null, cloudId: 'cloud-1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
   const ctx = dictionarySandboxFor(entry);
   const { client, calls } = dictionaryMockClient({
     updateResult: { data: [{ id: 'cloud-1' }], error: null }, // Cloud рядок живий (deleted_at null) — перша умова .or() завжди проходить
@@ -3506,28 +3493,20 @@ test('6D.163: чужий безглуздий bulk-push (рядок у Cloud Ж�
   assert.equal(calls.updates[0].keyword, 'кава без молока');
 });
 
-test('6D.153: reconcileDictionaryCloudId фільтрує .is(deleted_at, null) — знаходить ЖИВИЙ рядок навіть якщо є tombstone з тим самим keyword', async () => {
-  const entry = { id: 'local-1', kw: 'кава', cat: 'Їжа', sub: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
-  const ctx = dictionarySandboxFor(entry);
-  const { client, calls } = dictionaryMockClient({
-    reconcileSelectResult: { data: { id: 'live-cloud-id' }, error: null }, // фільтр .is() сам відсікає tombstone-рядок
-  });
-  ctx.getSupabaseClient = () => client;
-  await ctx.reconcileDictionaryCloudId(client, 'user-1', entry, 'cat-cloud-1', null);
-  assert.equal(entry.cloudId, 'live-cloud-id');
-  assert.equal(calls.inserts.length, 0, 'НЕ мав створювати дублікат — живий рядок уже знайдено');
-});
-
-test('6D.153: reconcileDictionaryCloudId — помилка select (напр. "multiple rows") НЕ падає мовчки й НЕ створює дублікат', async () => {
-  const entry = { id: 'local-1', kw: 'кава', cat: 'Їжа', sub: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
-  const ctx = dictionarySandboxFor(entry);
-  const { client, calls } = dictionaryMockClient({
-    reconcileSelectResult: { data: null, error: { message: 'multiple (or no) rows returned' } },
-  });
-  ctx.getSupabaseClient = () => client;
-  await ctx.reconcileDictionaryCloudId(client, 'user-1', entry, 'cat-cloud-1', null);
-  assert.equal(entry.cloudId, undefined, 'cloudId не мав встановитись на помилці');
-  assert.equal(calls.inserts.length, 0, 'НЕ мав іти в insert-гілку на помилці select — це і був би дублікат');
+test('Rev 2.32.244 (ID-ALL): update слова без правки тексту НЕ містить keyword (застаріла копія не стирає чужу правку); з nameDirty — містить', async () => {
+  const clean = { id: 'local-1', kw: 'кава', cat: 'Їжа', sub: null, cloudId: 'cloud-1', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  const ctx = dictionarySandboxFor(clean);
+  const m1 = dictionaryMockClient({ updateResult: { data: [{ id: 'cloud-1' }], error: null } });
+  ctx.getSupabaseClient = () => m1.client;
+  await ctx.pushDictionaryPilot();
+  assert.equal('keyword' in m1.calls.updates[0], false);
+  const dirty = { id: 'local-2', kw: 'чай', nameDirty: true, cat: 'Їжа', sub: null, cloudId: 'cloud-2', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  const ctx2 = dictionarySandboxFor(dirty);
+  const m2 = dictionaryMockClient({ updateResult: { data: [{ id: 'cloud-2' }], error: null } });
+  ctx2.getSupabaseClient = () => m2.client;
+  await ctx2.pushDictionaryPilot();
+  assert.equal(m2.calls.updates[0].keyword, 'чай');
+  assert.equal(dirty.nameDirty, undefined, 'прапорець знято після успішної відправки');
 });
 
 test('pullDictionaryCore: резерв за keyword ІГНОРУЄ запис з іншим живий/видалений-станом (не лінкує локальне живе слово до Cloud-tombstone)', async () => {
