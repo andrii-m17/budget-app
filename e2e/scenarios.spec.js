@@ -221,9 +221,12 @@ test('11. «Перевірки»: спільний список сім\'ї: ві
   const pageB = await ctxB.newPage();
   try{
     await boot(page, 'empty'); await boot(pageB, 'empty');
+    // кроки «Перевірок» живуть 7 днів від дати Rev; годинник фіксуємо на день, коли вони ще діють, щоб тест не залежав від реальної дати (так само, як tests/checks.test.js)
+    for(const pg of [page, pageB]) await pg.clock.setSystemTime(new Date(2026, 10, 4, 12, 0, 0));
     const ids = await page.evaluate(() => checksPending(checksReadState()).map(c => c.id));
     expect(ids.length).toBeGreaterThan(2);
     const [first, second] = ids;
+    const done0 = await pageB.evaluate(() => checksAnswered(checksReadState()).length); // закінчені за терміном теж рахуються як «Пройдено»
     const answerA = async (id, result, reason) => {
       await page.evaluate(([i, r, why]) => { checksCommit(i, r, why); }, [id, result, reason]);
       await page.evaluate(() => flushChecksQueue());
@@ -241,7 +244,7 @@ test('11. «Перевірки»: спільний список сім\'ї: ві
     expect(await pageB.evaluate(i => checksPending(checksReadState()).some(c => c.id === i), second)).toBe(true);
     // числа однакові: у другого лишилось на один менше, ніж було; значок і «Пройдено» беруть той самий список
     const countsB = await pageB.evaluate(() => ({ left: checksPending(checksReadState()).length, done: checksAnswered(checksReadState()).length }));
-    expect(countsB).toEqual({ left: ids.length - 1, done: 1 });
+    expect(countsB).toEqual({ left: ids.length - 1, done: done0 + 1 });
     await pageB.evaluate(() => { switchTab('service'); openChecksDrawer(); });
     await expect(pageB.locator('#checks-sub')).toContainText('залишилось ' + (ids.length - 1));
   }finally{ await ctxB.close(); }
