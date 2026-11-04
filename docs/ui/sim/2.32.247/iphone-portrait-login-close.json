@@ -2,46 +2,25 @@
  "cfg": "iphone-portrait",
  "id": "login-close",
  "title": "Вхід: закриття, клавіатура зникає, таб-бар на місці",
- "why": [],
+ "why": [
+  "події sheet-anim (close) немає"
+ ],
  "note": "",
- "repeats": 4,
- "anim": {
-  "frames": 12,
-  "maxGapMs": 32,
-  "durationMs": 217,
-  "jumpMaxPx": null
- },
+ "repeats": 2,
+ "anim": null,
  "animPerRun": [
-  {
-   "frames": 11,
-   "maxGapMs": 34,
-   "durationMs": 217
-  },
-  {
-   "frames": 12,
-   "maxGapMs": 29,
-   "durationMs": 217
-  },
-  {
-   "frames": 13,
-   "maxGapMs": 32,
-   "durationMs": 216
-  }
+  null
  ],
  "fieldGapPerRun": [
-  null,
-  null,
   null
  ],
  "gapPerRun": [
-  null,
-  null,
   null
  ],
  "whyPerRun": [
-  [],
-  [],
-  []
+  [
+   "події sheet-anim (close) немає"
+  ]
  ],
  "gap": null,
  "fieldGap": null,
@@ -64,52 +43,7 @@
  },
  "events": [
   {
-   "t": 7278,
-   "type": "sheet-close",
-   "innerW": 440,
-   "innerH": 894,
-   "outerH": 956,
-   "vvW": 440,
-   "vvH": 894,
-   "vvOffsetTop": 0,
-   "vvOffsetLeft": 0,
-   "vvScale": 1,
-   "scrollY": 0,
-   "docClientH": 894,
-   "bodyClasses": "",
-   "kbInset": "415px",
-   "activeElementTag": "BODY",
-   "activeElementId": null,
-   "activeElementType": null,
-   "orientation": "portrait",
-   "tabbarTop": 798,
-   "tabbarHeight": 75,
-   "safeTop": 0,
-   "safeRight": 0,
-   "safeBottom": 34,
-   "safeLeft": 0,
-   "drawerId": "profile-drawer",
-   "drawerTop": null,
-   "drawerBottom": null,
-   "drawerLeft": null,
-   "drawerRight": null,
-   "drawerHeight": null,
-   "backdropId": null,
-   "backdropTop": null,
-   "backdropBottom": null,
-   "backdropHeight": null,
-   "drawerScrollHeight": null,
-   "drawerClientHeight": null,
-   "drawerMaxHeightPx": null,
-   "baseVh": "894px",
-   "mainColInert": false,
-   "mainColScrollTop": 0,
-   "activeRectTop": 0,
-   "activeRectBottom": 894,
-   "kbH": 415
-  },
-  {
-   "t": 7279,
+   "t": 7442,
    "type": "vv-resize",
    "innerW": 440,
    "innerH": 894,
@@ -122,7 +56,7 @@
    "scrollY": 0,
    "docClientH": 894,
    "bodyClasses": "",
-   "kbInset": "415px",
+   "kbInset": "0px",
    "activeElementTag": "BODY",
    "activeElementId": null,
    "activeElementType": null,
@@ -151,10 +85,10 @@
    "mainColScrollTop": 0,
    "activeRectTop": 0,
    "activeRectBottom": 894,
-   "kbH": 415
+   "kbH": 0
   },
   {
-   "t": 7279,
+   "t": 7442,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -163,7 +97,7 @@
    "vvOffsetTop": 0,
    "vvOffsetLeft": 0,
    "vvScale": 1,
-   "kbInset": "415px",
+   "kbInset": "0px",
    "orientation": "portrait",
    "tabbarTop": 798,
    "tabbarHeight": 75,
@@ -178,12 +112,12 @@
    "tabbarGap": 21,
    "kbHeightCalc": 0,
    "sheetLiftCss": "0",
-   "sheetRestBottom": 886,
+   "sheetRestBottom": null,
    "safeTop": 0,
    "safeBottom": 34
   },
   {
-   "t": 7430,
+   "t": 7593,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -192,7 +126,7 @@
    "vvOffsetTop": 0,
    "vvOffsetLeft": 0,
    "vvScale": 1,
-   "kbInset": "415px",
+   "kbInset": "0px",
    "orientation": "portrait",
    "tabbarTop": 798,
    "tabbarHeight": 75,
@@ -207,122 +141,14 @@
    "tabbarGap": 21,
    "kbHeightCalc": 0,
    "sheetLiftCss": "0",
-   "sheetRestBottom": 886,
+   "sheetRestBottom": null,
    "safeTop": 0,
    "safeBottom": 34
-  },
-  {
-   "t": 7489,
-   "type": "sheet-anim",
-   "innerW": 440,
-   "innerH": 894,
-   "outerH": 956,
-   "vvW": 440,
-   "vvH": 894,
-   "vvOffsetTop": 0,
-   "vvOffsetLeft": 0,
-   "vvScale": 1,
-   "scrollY": 0,
-   "docClientH": 894,
-   "bodyClasses": "",
-   "kbInset": "415px",
-   "activeElementTag": "BODY",
-   "activeElementId": null,
-   "activeElementType": null,
-   "orientation": "portrait",
-   "tabbarTop": 798,
-   "tabbarHeight": 75,
-   "safeTop": 0,
-   "safeRight": 0,
-   "safeBottom": 34,
-   "safeLeft": 0,
-   "drawerId": null,
-   "drawerTop": null,
-   "drawerBottom": null,
-   "drawerLeft": null,
-   "drawerRight": null,
-   "drawerHeight": null,
-   "backdropId": null,
-   "backdropTop": null,
-   "backdropBottom": null,
-   "backdropHeight": null,
-   "drawerScrollHeight": null,
-   "drawerClientHeight": null,
-   "drawerMaxHeightPx": null,
-   "baseVh": "894px",
-   "mainColInert": false,
-   "mainColScrollTop": 0,
-   "activeRectTop": 0,
-   "activeRectBottom": 894,
-   "kbH": 415,
-   "frames": 13,
-   "maxGapMs": 31,
-   "durationMs": 216,
-   "samples": [
-    [
-     0,
-     475
-    ],
-    [
-     31,
-     717
-    ],
-    [
-     37,
-     806
-    ],
-    [
-     50,
-     1007
-    ],
-    [
-     66,
-     1218
-    ],
-    [
-     83,
-     1382
-    ],
-    [
-     100,
-     1499
-    ],
-    [
-     116,
-     1579
-    ],
-    [
-     133,
-     1640
-    ],
-    [
-     150,
-     1682
-    ],
-    [
-     166,
-     1711
-    ],
-    [
-     183,
-     1727
-    ],
-    [
-     200,
-     1735
-    ]
-   ],
-   "phase": "close",
-   "jumpMaxPx": 242,
-   "gapNoLayoutMs": 31,
-   "drawerHeightRest": 329,
-   "drawerHeightKb": 329,
-   "firstOfKind": true
   }
  ],
  "files": [
   "iphone-portrait-login-close-before.jpg",
   "iphone-portrait-login-close-after.jpg"
  ],
- "verdict": "пройшов"
+ "verdict": "впав"
 }

@@ -72,7 +72,7 @@ export async function startServers(logDir){
   }
   if(!(await ping('http://127.0.0.1:' + APPIUM_PORT + '/status'))){
     fs.mkdirSync(logDir, { recursive: true });
-    const log = fs.openSync(path.join(logDir, 'appium.log'), 'w');
+    const log = fs.openSync(path.join(logDir, 'appium-' + APPIUM_PORT + '.log'), 'w');
     const p = spawn(path.join(ROOT, 'node_modules', '.bin', 'appium'), ['--port', String(APPIUM_PORT)], { env: { ...process.env, APPIUM_HOME: path.join(ROOT, '.appium') }, stdio: ['ignore', log, log] });
     children.push(p);
     if(!(await waitFor('http://127.0.0.1:' + APPIUM_PORT + '/status', 30000))) throw new Error('Appium не запустився (див. appium.log)');
@@ -84,7 +84,7 @@ export async function openSession(dev, orientation){
   const { remote } = await import('webdriverio');
   return remote({ hostname: '127.0.0.1', port: APPIUM_PORT, logLevel: 'error', connectionRetryCount: 1, capabilities: {
     platformName: 'iOS', 'appium:automationName': 'XCUITest', 'appium:udid': dev.udid, 'appium:bundleId': 'com.apple.springboard',
-    'appium:connectHardwareKeyboard': false, 'appium:noReset': true, 'appium:newCommandTimeout': 400, 'appium:orientation': orientation, 'appium:wdaLaunchTimeout': 180000 } });
+    'appium:connectHardwareKeyboard': false, 'appium:noReset': true, 'appium:newCommandTimeout': 400, 'appium:orientation': orientation, 'appium:wdaLaunchTimeout': 180000, ...(process.env.SIM_WDA_PORT ? { 'appium:wdaLocalPort': Number(process.env.SIM_WDA_PORT) } : {}) } });
 }
 const webCtx = async d => { for(let i = 0; i < 24; i++){ const w = (await d.getContexts()).find(c => String(c).startsWith('WEBVIEW')); if(w) return w; await d.pause(500); } throw new Error('Вебвʼю PWA не з\'явилось'); };
 export async function toWeb(d){ await d.switchContext(await webCtx(d)); }
@@ -107,6 +107,30 @@ export async function launchPwa(d){
   if(href.indexOf(ORIGIN + '/') !== 0) throw new Error('ЗУПИНКА: PWA відкрила не локальний сервер: ' + href);
   return href;
 }
+// Режим клавіатури застосунку (kbMode) залежить від media-запитів вказівника. Симулятор повідомляє (any-pointer: fine) = true (миша Mac), тож застосунок вважає його гібридом ('resize'), а справжній iPhone/iPad без вказівника — 'always'.
+// Щоб прогін ішов тим самим шляхом, що й на пристрої, для режиму 'always' у сторінці підміняється matchMedia для запиту any-pointer: fine (лише на локальній адресі тестів; у застосунку жодного перемикача нема: kbMode читає media-запити в момент події).
+// Режим 'resize' = «iPad із трекпадом»: нічого не підміняється, лишається поведінка симулятора.
+let KB_MODE = 'always';
+export function setKbMode(m){ KB_MODE = m; }
+export async function applyKbMode(d){
+  await toWeb(d);
+  if(KB_MODE !== 'always') return;
+  const r = await d.execute(origin => {
+    if(location.origin !== origin) return 'blocked'; // підміна лише на локальній адресі тестів
+    if(!window.__simMatchMediaPatched){
+      const orig = window.matchMedia.bind(window);
+      window.matchMedia = function(q){ if(/any-pointer:\s*fine/.test(String(q))) return { matches: false, media: String(q), onchange: null, addEventListener: function(){}, removeEventListener: function(){}, addListener: function(){}, removeListener: function(){}, dispatchEvent: function(){ return false; } }; return orig(q); };
+      window.__simMatchMediaPatched = true;
+    }
+    return 'ok';
+  }, ORIGIN);
+  if(r !== 'ok') throw new Error('ЗУПИНКА: підміну режиму клавіатури заблоковано (адреса не локальна)');
+}
+// Підтвердження режиму: останній kb-env із рекордера (reason = «режим:причина»).
+export async function kbModeReason(d){
+  await toWeb(d);
+  return d.execute(() => { const e = (typeof debugEventBuffer !== 'undefined' ? debugEventBuffer : []).filter(x => x.type === 'kb-env').pop(); return e ? e.reason : null; });
+}
 export async function loadApp(d){
   await toWeb(d);
   await d.execute(u => { location.replace(u); }, ORIGIN + '/index.html?fixture=typical');
@@ -116,6 +140,7 @@ export async function loadApp(d){
   await d.pause(1200);
   const href = await d.execute(() => location.href);
   if(href.indexOf(ORIGIN + '/') !== 0) throw new Error('ЗУПИНКА: адреса не локальна: ' + href);
+  await applyKbMode(d);
 }
 
 // Прив'язка CSS-координат до точок екрана: прозорий шар ловить два реальні дотики у відомих точках екрана; з їхніх clientX/clientY рахуємо масштаб і зсув. Робиться один раз на завантаження (клавіатура закрита).

@@ -1,0 +1,338 @@
+{
+ "cfg": "iphone-landscape",
+ "id": "login-close",
+ "title": "Вхід: закриття, клавіатура зникає, таб-бар на місці",
+ "why": [
+  "лист не закрився"
+ ],
+ "note": "",
+ "repeats": 2,
+ "anim": {
+  "frames": 17,
+  "maxGapMs": 24,
+  "durationMs": 283,
+  "jumpMaxPx": null
+ },
+ "animPerRun": [
+  {
+   "frames": 17,
+   "maxGapMs": 24,
+   "durationMs": 283
+  }
+ ],
+ "fieldGapPerRun": [
+  null
+ ],
+ "gapPerRun": [
+  null
+ ],
+ "whyPerRun": [
+  [
+   "лист не закрився"
+  ]
+ ],
+ "gap": null,
+ "fieldGap": null,
+ "m": {
+  "innerH": 378,
+  "innerW": 956,
+  "vvH": 378,
+  "vvTop": 0,
+  "vvBottom": 378,
+  "fieldBottom": null,
+  "fieldTop": null,
+  "sheetBottom": 278,
+  "sheetTop": -47.6,
+  "sheetH": 326,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "profile-drawer",
+  "drawerOpen": true
+ },
+ "events": [
+  {
+   "t": 8007,
+   "type": "sheet-close",
+   "innerW": 956,
+   "innerH": 378,
+   "outerH": 440,
+   "vvW": 956,
+   "vvH": 378,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 378,
+   "bodyClasses": "",
+   "kbInset": "292px",
+   "activeElementTag": "DIV",
+   "activeElementId": "profile-drawer",
+   "activeElementType": null,
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 62,
+   "safeBottom": 20,
+   "safeLeft": 62,
+   "drawerId": "profile-drawer",
+   "drawerTop": -92,
+   "drawerBottom": -14,
+   "drawerLeft": 16,
+   "drawerRight": 940,
+   "drawerHeight": 78,
+   "backdropId": "profile-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 378,
+   "backdropHeight": 378,
+   "drawerScrollHeight": 329,
+   "drawerClientHeight": 78,
+   "drawerMaxHeightPx": 78,
+   "baseVh": "378px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": -92,
+   "activeRectBottom": -14,
+   "kbH": 292
+  },
+  {
+   "t": 8007,
+   "type": "vv-resize",
+   "innerW": 956,
+   "innerH": 378,
+   "outerH": 440,
+   "vvW": 956,
+   "vvH": 378,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 378,
+   "bodyClasses": "",
+   "kbInset": "292px",
+   "activeElementTag": "DIV",
+   "activeElementId": "profile-drawer",
+   "activeElementType": null,
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 62,
+   "safeBottom": 20,
+   "safeLeft": 62,
+   "drawerId": "profile-drawer",
+   "drawerTop": -92,
+   "drawerBottom": -14,
+   "drawerLeft": 16,
+   "drawerRight": 940,
+   "drawerHeight": 78,
+   "backdropId": "profile-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 378,
+   "backdropHeight": 378,
+   "drawerScrollHeight": 329,
+   "drawerClientHeight": 78,
+   "drawerMaxHeightPx": 78,
+   "baseVh": "378px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": -92,
+   "activeRectBottom": -14,
+   "kbH": 292
+  },
+  {
+   "t": 8007,
+   "type": "kb-geometry",
+   "innerW": 956,
+   "innerH": 378,
+   "vvW": 956,
+   "vvH": 378,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "292px",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "kbgWhy": "vv",
+   "devClass": "iPhone",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": -92,
+   "sheetBottom": -14,
+   "sheetHeight": 78,
+   "kbHeightCalc": 0,
+   "sheetLiftCss": "0",
+   "sheetRestBottom": 370,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 8158,
+   "type": "kb-geometry",
+   "innerW": 956,
+   "innerH": 378,
+   "vvW": 956,
+   "vvH": 378,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "292px",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "kbgWhy": "vv-settled",
+   "devClass": "iPhone",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 158.9,
+   "sheetBottom": 236.9,
+   "sheetHeight": 78,
+   "kbHeightCalc": 0,
+   "sheetLiftCss": "0",
+   "sheetRestBottom": 370,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 8284,
+   "type": "sheet-anim",
+   "innerW": 956,
+   "innerH": 378,
+   "outerH": 440,
+   "vvW": 956,
+   "vvH": 378,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 378,
+   "bodyClasses": "",
+   "kbInset": "292px",
+   "activeElementTag": "DIV",
+   "activeElementId": "profile-drawer",
+   "activeElementType": null,
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 62,
+   "safeBottom": 20,
+   "safeLeft": 62,
+   "drawerId": "profile-drawer",
+   "drawerTop": 200,
+   "drawerBottom": 278,
+   "drawerLeft": 16,
+   "drawerRight": 940,
+   "drawerHeight": 78,
+   "backdropId": "profile-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 378,
+   "backdropHeight": 378,
+   "drawerScrollHeight": 329,
+   "drawerClientHeight": 78,
+   "drawerMaxHeightPx": 78,
+   "baseVh": "378px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 200,
+   "activeRectBottom": 278,
+   "kbH": 292,
+   "frames": 17,
+   "maxGapMs": 24,
+   "durationMs": 282,
+   "samples": [
+    [
+     -1,
+     -14
+    ],
+    [
+     23,
+     8
+    ],
+    [
+     32,
+     22
+    ],
+    [
+     49,
+     58
+    ],
+    [
+     65,
+     96
+    ],
+    [
+     82,
+     134
+    ],
+    [
+     99,
+     166
+    ],
+    [
+     115,
+     191
+    ],
+    [
+     132,
+     213
+    ],
+    [
+     149,
+     230
+    ],
+    [
+     165,
+     244
+    ],
+    [
+     182,
+     254
+    ],
+    [
+     199,
+     262
+    ],
+    [
+     215,
+     269
+    ],
+    [
+     232,
+     273
+    ],
+    [
+     249,
+     276
+    ],
+    [
+     265,
+     278
+    ]
+   ],
+   "phase": "close",
+   "jumpMaxPx": 38,
+   "gapNoLayoutMs": 24,
+   "drawerHeightRest": 326,
+   "drawerHeightKb": 78,
+   "firstOfKind": true
+  }
+ ],
+ "files": [
+  "iphone-landscape-login-close-before.jpg",
+  "iphone-landscape-login-close-after.jpg"
+ ],
+ "verdict": "впав"
+}

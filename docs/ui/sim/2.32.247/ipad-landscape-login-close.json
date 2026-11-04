@@ -1,0 +1,50 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "login-close",
+ "title": "Вхід: закриття, клавіатура зникає, таб-бар на місці",
+ "why": [
+  "лист не закрився"
+ ],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  null
+ ],
+ "gapPerRun": [
+  null
+ ],
+ "whyPerRun": [
+  [
+   "лист не закрився"
+  ]
+ ],
+ "gap": null,
+ "fieldGap": null,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": null,
+  "fieldTop": null,
+  "sheetBottom": 1048,
+  "sheetTop": 719,
+  "sheetH": 329,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "profile-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-landscape-login-close-before.jpg",
+  "ipad-landscape-login-close-after.jpg"
+ ],
+ "verdict": "впав"
+}

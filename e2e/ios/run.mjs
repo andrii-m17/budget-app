@@ -10,15 +10,21 @@ const VERSION = L.appVersion();
 const OUT = path.join(L.ROOT, 'docs', 'ui', 'sim', VERSION);
 const BASE_FILE = path.join(L.ROOT, 'docs', 'ui', 'sim', 'baseline.json');
 const D = L.DESIGN, R = L.REL;
-const REPS = Number(process.env.SIM_REPS || 3);
+// Швидкий режим за замовчуванням: iPhone портрет, один холодний + один прогрітий прохід (1–2 хв); --target card|login — лише цей лист. Повна матриця: npm run e2e:ios:full. Еталон (3 прогріті проходи) — лише SIM_UPDATE_BASELINE=1.
 const UPDATE = !!process.env.SIM_UPDATE_BASELINE;
+const FULL = !!process.env.SIM_FULL;
+const argv = process.argv.slice(2);
+const TARGET = argv.indexOf('--target') !== -1 ? argv[argv.indexOf('--target') + 1] : null;
+const REPS = Number(process.env.SIM_REPS || (UPDATE ? 4 : 2));
+const GROUP = process.env.SIM_GROUP ? '-' + process.env.SIM_GROUP : '';
 const PHONE = process.env.SIM_IPHONE || 'iPhone 16 Pro Max', PAD = process.env.SIM_IPAD || 'iPad (10th generation)';
-const ONLY = process.env.SIM_ONLY ? process.env.SIM_ONLY.split(',') : null;
+const ONLY = process.env.SIM_ONLY ? process.env.SIM_ONLY.split(',') : (FULL ? null : ['iphone-portrait']);
 const CONFIGS = [
-  { id: 'iphone-portrait', device: PHONE, orientation: 'PORTRAIT' },
-  { id: 'iphone-landscape', device: PHONE, orientation: 'LANDSCAPE' },
-  { id: 'ipad-portrait', device: PAD, orientation: 'PORTRAIT' },
-  { id: 'ipad-landscape', device: PAD, orientation: 'LANDSCAPE' },
+  { id: 'iphone-portrait', device: PHONE, orientation: 'PORTRAIT', kbMode: 'always' },
+  { id: 'iphone-landscape', device: PHONE, orientation: 'LANDSCAPE', kbMode: 'always' },
+  { id: 'ipad-portrait', device: PAD, orientation: 'PORTRAIT', kbMode: 'always' },
+  { id: 'ipad-landscape', device: PAD, orientation: 'LANDSCAPE', kbMode: 'always' },
+  { id: 'ipad-trackpad-portrait', device: PAD, orientation: 'PORTRAIT', kbMode: 'resize' }, // «iPad із трекпадом»: гібридний режим, як його бачить симулятор без підміни
 ].filter(c => !ONLY || ONLY.indexOf(c.id) !== -1);
 const SHEETS = [
   { id: 'card', title: 'Картка боргу', open: () => { switchTab('accounting'); openCardDebtEditor(0); }, sel: '#card-debt-drawer', backdrop: '#card-debt-backdrop', f1: '#cdd-balance', f2: '#cdd-minpay', mode: 'field', switchVia: 'arrow' }, // лист з id на iPhone: старий конвеєр (E2E 38), критерій — поле видно над клавіатурою; перемикання стрілкою «Наступне» панелі над клавіатурою
@@ -134,7 +140,8 @@ async function main(){
     const dev = L.pickDevice(cfg.device);
     L.bootSim(dev);
     let clip; try{ clip = L.ensureSimClip(dev); }catch(e){ all.push({ cfg: cfg.id, id: 'clip', title: 'PWA на ' + cfg.id, why: [String(e.message)], files: [], events: [], anim: null, m: {} }); continue; }
-    info.push({ cfg: cfg.id, device: dev.name, runtime: dev.runtime, others: clip.others });
+    info.push({ cfg: cfg.id, device: dev.name, runtime: dev.runtime, others: clip.others, kbMode: cfg.kbMode });
+    L.setKbMode(cfg.kbMode);
     let d;
     try{
       d = await L.openSession(dev, cfg.orientation);
@@ -142,7 +149,9 @@ async function main(){
       await L.loadApp(d);
       const map = await L.calibrate(d);
       info[info.length - 1].calibration = map.ok ? 'ok' : 'збій';
-      for(const sh of SHEETS){
+      await L.recorderStart(d); const reason = await L.kbModeReason(d); info[info.length - 1].kbReason = reason;
+      if(!reason || reason.indexOf(cfg.kbMode + ':') !== 0) throw new Error('режим клавіатури ' + reason + ', очікувався ' + cfg.kbMode);
+      for(const sh of SHEETS.filter(s => !TARGET || s.id === TARGET)){
         const runs = [];
         try{ for(let i = 0; i < REPS; i++) runs.push(await pass(d, map, cfg, sh, i)); }
         catch(e){ all.push({ cfg: cfg.id, id: sh.id + '-error', title: sh.title + ': збій прогону', why: ['помилка прогону: ' + String(e && e.message || e).split('\n')[0]], files: [], events: [], anim: null, m: {} }); continue; }
@@ -171,16 +180,16 @@ async function main(){
     r.verdict = r.why.length ? 'впав' : 'пройшов';
     fs.writeFileSync(path.join(OUT, r.cfg + '-' + r.id + '.json'), JSON.stringify(r, null, 1));
   });
-  if(UPDATE){ newBase.runtime = info.map(i => i.cfg + ': ' + i.device + ' ' + i.runtime).join('; '); newBase.reps = REPS; newBase.note = 'Еталон симулятора (медіана за ' + REPS + ' проходи) для версії ' + VERSION + '. Оновлюється SIM_UPDATE_BASELINE=1.'; fs.writeFileSync(BASE_FILE, JSON.stringify(newBase, null, 1)); }
+  if(UPDATE){ if(baseline && baseline.scenarios) Object.keys(baseline.scenarios).forEach(k => { if(!newBase.scenarios[k] && !CONFIGS.some(c => k.indexOf(c.id + '/') === 0)) newBase.scenarios[k] = baseline.scenarios[k]; }); newBase.runtime = info.map(i => i.cfg + ': ' + i.device + ' ' + i.runtime).join('; '); newBase.reps = REPS; newBase.note = 'Еталон симулятора (медіана за ' + REPS + ' проходи) для версії ' + VERSION + '. Оновлюється SIM_UPDATE_BASELINE=1.'; fs.writeFileSync(BASE_FILE, JSON.stringify(newBase, null, 1)); }
   const dur = Math.round((Date.now() - t0) / 1000), fails = all.filter(r => r.why.length);
   const md = ['# SIM-2 · ' + VERSION + ' · PWA на симуляторі iOS', '',
-    'Прогін: ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ', ' + dur + ' с, проходів на сценарій: ' + REPS + '. ' + info.map(i => i.cfg + ' = ' + i.device + ' (' + i.runtime + '; калібрування ' + (i.calibration || '—') + '; на симуляторі ще PWA з іншими адресами: ' + i.others + ', їх не запускали)').join('; ') + '.',
+    'Прогін: ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ', ' + dur + ' с, проходів на сценарій: ' + REPS + '. ' + info.map(i => i.cfg + ' = ' + i.device + ' (' + i.runtime + '; режим клавіатури ' + (i.kbReason || '—') + '; калібрування ' + (i.calibration || '—') + '; на симуляторі ще PWA з іншими адресами: ' + i.others + ', їх не запускали)').join('; ') + '.',
     'Еталон: ' + (UPDATE ? 'ЩОЙНО оновлено для ' + VERSION : (baseline ? 'версія ' + baseline.version + (baseline.version !== VERSION ? ' (відстає від ' + VERSION + ': оновіть SIM_UPDATE_BASELINE=1 після перевірки)' : '') : 'немає (перший прогін: SIM_UPDATE_BASELINE=1)')) + '.',
     'Абсолютно: клавіатура з\'явилась/зникла, фокус, `kb-open`, таб-бар ≥ ' + D.tabbarMinPt + ' пт, низ листа ' + D.sheetGapPt + ' ± ' + D.sheetTolPt + ' пт над краєм видимої області. Відносно еталона: кадри ≥ ' + R.framesMinRatio * 100 + '%, пауза ≤ ×' + R.gapRatio + ' (мін. +' + R.gapAbsMs + ' мс), тривалість ≤ ×' + R.durationRatio + ' (+' + R.durationAbsMs + ' мс).', '',
     '| Конфігурація | Сценарій | Результат | Причина |', '|---|---|---|---|'];
   all.forEach(r => md.push('| ' + r.cfg + ' | ' + r.title + ' | ' + r.verdict + ' | ' + (r.why.join('; ') || r.note || '—') + ' |'));
   md.push('', 'Разом: ' + (all.length - fails.length) + ' пройшло, ' + fails.length + ' впало.');
-  fs.writeFileSync(path.join(OUT, 'summary.md'), md.join('\n') + '\n');
+  fs.writeFileSync(path.join(OUT, 'summary' + GROUP + '.md'), md.join('\n') + '\n');
   console.log(md.join('\n'));
   L.killChildren();
   process.exit(fails.length ? 1 : 0);

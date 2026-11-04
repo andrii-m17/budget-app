@@ -1,0 +1,52 @@
+{
+ "cfg": "ipad-trackpad-portrait",
+ "id": "login-switch",
+ "title": "Вхід: перемикання полів",
+ "why": [
+  "клавіатура зникла під час перемикання",
+  "фокус у «profile-drawer», очікувалось «cloud-password»"
+ ],
+ "note": "у еталоні сценарію немає",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  183
+ ],
+ "gapPerRun": [
+  100
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «profile-drawer», очікувалось «cloud-password»"
+  ]
+ ],
+ "gap": 100,
+ "fieldGap": 183,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 965,
+  "fieldTop": 919,
+  "sheetBottom": 1048,
+  "sheetTop": 719,
+  "sheetH": 329,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "profile-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-trackpad-portrait-login-switch-before.jpg",
+  "ipad-trackpad-portrait-login-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

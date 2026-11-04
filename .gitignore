@@ -6,3 +6,4 @@ supabase/.temp/
 .env.test
 .appium/
 docs/ui/sim/*/appium.log
+docs/ui/sim/*/appium*.log

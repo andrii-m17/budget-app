@@ -1,0 +1,54 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "login-open-focus",
+ "title": "Вхід: відкриття листа, дотик у поле, клавіатура",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «profile-drawer», очікувалось «cldfielda1»",
+  "низ листа 100 пт проти еталона -322",
+  "запас поля 243 пт проти еталона -179"
+ ],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  243
+ ],
+ "gapPerRun": [
+  100
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «profile-drawer», очікувалось «cldfielda1»"
+  ]
+ ],
+ "gap": 100,
+ "fieldGap": 243,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 905,
+  "fieldTop": 859,
+  "sheetBottom": 1048,
+  "sheetTop": 719,
+  "sheetH": 329,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "profile-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-landscape-login-open-focus-before.jpg",
+  "ipad-landscape-login-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

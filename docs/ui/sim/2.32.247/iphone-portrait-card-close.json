@@ -4,7 +4,7 @@
  "title": "Картка боргу: закриття, клавіатура зникає, таб-бар на місці",
  "why": [],
  "note": "",
- "repeats": 4,
+ "repeats": 2,
  "anim": {
   "frames": 15,
   "maxGapMs": 17,
@@ -15,32 +15,16 @@
   {
    "frames": 15,
    "maxGapMs": 17,
-   "durationMs": 250
-  },
-  {
-   "frames": 15,
-   "maxGapMs": 17,
-   "durationMs": 249
-  },
-  {
-   "frames": 15,
-   "maxGapMs": 17,
    "durationMs": 249
   }
  ],
  "fieldGapPerRun": [
-  null,
-  null,
   null
  ],
  "gapPerRun": [
-  null,
-  null,
   null
  ],
  "whyPerRun": [
-  [],
-  [],
   []
  ],
  "gap": null,
@@ -64,7 +48,53 @@
  },
  "events": [
   {
-   "t": 7080,
+   "t": 7213,
+   "type": "tabbar-restore",
+   "innerW": 440,
+   "innerH": 894,
+   "outerH": 956,
+   "vvW": 440,
+   "vvH": 894,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 894,
+   "bodyClasses": "",
+   "kbInset": "389px",
+   "activeElementTag": "DIV",
+   "activeElementId": "card-debt-drawer",
+   "activeElementType": null,
+   "orientation": "portrait",
+   "tabbarTop": 798,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 0,
+   "safeBottom": 34,
+   "safeLeft": 0,
+   "drawerId": "card-debt-drawer",
+   "drawerTop": 29,
+   "drawerBottom": 497,
+   "drawerLeft": 16,
+   "drawerRight": 424,
+   "drawerHeight": 468,
+   "backdropId": "card-debt-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 894,
+   "backdropHeight": 894,
+   "drawerScrollHeight": 468,
+   "drawerClientHeight": 468,
+   "drawerMaxHeightPx": 468,
+   "baseVh": "894px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 29,
+   "activeRectBottom": 497,
+   "kbH": 389,
+   "msAfterFocusout": 62
+  },
+  {
+   "t": 7214,
    "type": "sheet-close",
    "innerW": 440,
    "innerH": 894,
@@ -109,7 +139,7 @@
    "kbH": 389
   },
   {
-   "t": 7081,
+   "t": 7214,
    "type": "vv-resize",
    "innerW": 440,
    "innerH": 894,
@@ -154,7 +184,7 @@
    "kbH": 389
   },
   {
-   "t": 7081,
+   "t": 7214,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -186,7 +216,7 @@
    "safeBottom": 34
   },
   {
-   "t": 7232,
+   "t": 7365,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -208,8 +238,8 @@
    "vkOverlays": null,
    "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
    "tabbarGap": 21,
-   "sheetTop": 284.6,
-   "sheetBottom": 752.6,
+   "sheetTop": 283.2,
+   "sheetBottom": 751.2,
    "sheetHeight": 468,
    "kbHeightCalc": 0,
    "sheetLiftCss": "0",
@@ -218,7 +248,7 @@
    "safeBottom": 34
   },
   {
-   "t": 7325,
+   "t": 7464,
    "type": "sheet-anim",
    "innerW": 440,
    "innerH": 894,
@@ -263,67 +293,67 @@
    "kbH": 389,
    "frames": 15,
    "maxGapMs": 17,
-   "durationMs": 249,
+   "durationMs": 254,
    "samples": [
     [
-     -1,
-     497
+     5,
+     500
     ],
     [
-     15,
-     512
+     20,
+     516
     ],
     [
-     32,
-     539
+     37,
+     546
     ],
     [
-     49,
-     581
+     54,
+     588
     ],
     [
-     65,
-     621
+     70,
+     628
     ],
     [
-     82,
-     659
+     87,
+     665
     ],
     [
-     99,
-     690
+     104,
+     695
     ],
     [
-     115,
-     713
+     120,
+     717
     ],
     [
-     132,
-     733
+     137,
+     735
     ],
     [
-     149,
-     748
+     154,
+     750
     ],
     [
-     165,
-     759
+     170,
+     761
     ],
     [
-     182,
-     767
+     187,
+     768
     ],
     [
-     199,
-     773
+     204,
+     774
     ],
     [
-     215,
+     220,
      777
     ],
     [
-     232,
-     779
+     237,
+     780
     ]
    ],
    "phase": "close",

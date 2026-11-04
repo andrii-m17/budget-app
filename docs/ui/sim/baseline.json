@@ -1,11 +1,11 @@
 {
- "version": "2.32.246",
+ "version": "2.32.247",
  "scenarios": {
   "iphone-portrait/card-open-focus": {
    "anim": {
-    "frames": 14,
-    "maxGapMs": 31,
-    "durationMs": 241,
+    "frames": 8,
+    "maxGapMs": 66,
+    "durationMs": 243,
     "jumpMaxPx": null
    },
    "gap": 8,
@@ -18,9 +18,9 @@
   },
   "iphone-portrait/card-close": {
    "anim": {
-    "frames": 16,
+    "frames": 15,
     "maxGapMs": 17,
-    "durationMs": 266,
+    "durationMs": 250,
     "jumpMaxPx": null
    },
    "gap": null,
@@ -28,26 +28,21 @@
   },
   "iphone-portrait/login-open-focus": {
    "anim": {
-    "frames": 16,
-    "maxGapMs": 53,
-    "durationMs": 283,
+    "frames": 14,
+    "maxGapMs": 85,
+    "durationMs": 346,
     "jumpMaxPx": null
    },
-   "gap": 8,
-   "fieldGap": 151
+   "gap": -301,
+   "fieldGap": -158
   },
   "iphone-portrait/login-switch": {
    "anim": null,
-   "gap": 8,
-   "fieldGap": 91
+   "gap": -301,
+   "fieldGap": -218
   },
   "iphone-portrait/login-close": {
-   "anim": {
-    "frames": 13,
-    "maxGapMs": 33,
-    "durationMs": 216,
-    "jumpMaxPx": null
-   },
+   "anim": null,
    "gap": null,
    "fieldGap": null
   },
@@ -177,7 +172,7 @@
    "fieldGap": null
   }
  },
- "runtime": "iphone-portrait: iPhone 16 Pro Max iOS-27-2; iphone-landscape: iPhone 16 Pro Max iOS-27-2; ipad-portrait: iPad (10th generation) iOS-27-2; ipad-landscape: iPad (10th generation) iOS-27-2",
+ "runtime": "iphone-portrait: iPhone 16 Pro Max iOS-27-2",
  "reps": 4,
- "note": "Еталон симулятора (медіана за 4 проходи) для версії 2.32.246. Оновлюється SIM_UPDATE_BASELINE=1."
+ "note": "Еталон симулятора (медіана за 4 проходи) для версії 2.32.247. Оновлюється SIM_UPDATE_BASELINE=1."
 }

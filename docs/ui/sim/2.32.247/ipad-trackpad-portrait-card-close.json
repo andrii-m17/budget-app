@@ -1,0 +1,50 @@
+{
+ "cfg": "ipad-trackpad-portrait",
+ "id": "card-close",
+ "title": "Картка боргу: закриття, клавіатура зникає, таб-бар на місці",
+ "why": [
+  "лист не закрився"
+ ],
+ "note": "у еталоні сценарію немає",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  null
+ ],
+ "gapPerRun": [
+  null
+ ],
+ "whyPerRun": [
+  [
+   "лист не закрився"
+  ]
+ ],
+ "gap": null,
+ "fieldGap": null,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": null,
+  "fieldTop": null,
+  "sheetBottom": 1048,
+  "sheetTop": 580,
+  "sheetH": 468,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "card-debt-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-trackpad-portrait-card-close-before.jpg",
+  "ipad-trackpad-portrait-card-close-after.jpg"
+ ],
+ "verdict": "впав"
+}
