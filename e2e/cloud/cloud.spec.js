@@ -114,19 +114,18 @@ test('5. А видаляє ОЧ: у Б запис зникає і не пове�
   expect((await liveRows()).length).toBe(0);
 });
 
-test('6. локальний запис без id (старий стан) прив’язується міграцією без дубля', async ({ browser }) => {
-  const b = await openDevice(browser, 'B'); // Б відкрито до створення: у нього порожньо
-  const a = await openDevice(browser, 'A');
-  await addOch(a, 'Предмет А', 5000);
-  await expect.poll(async () => (await liveRows()).length).toBe(1);
-  const row = (await liveRows())[0];
-  // імітація старого стану Б: запис із тими самими created_at і сумою, але без жодного id
-  await b.page.evaluate(async r => {
-    installmentAccounts.push({ name: 'Предмет А (старий)', initialAmount: r.initial_amount, createdAt: r.created_at, updatedAt: new Date().toISOString() });
-    await saveInstallmentAccountsLocal();
-    await pushInstallmentAccountsPilot();
-  }, row);
+test('6. локальний запис без id (старий стан) прив\u2019язується міграцією без дубля', async ({ browser }) => {
+  const b = await openDevice(browser, 'B');
+  const T = '2026-10-05T10:00:00.123Z';
+  // старий стан Б: локальний запис без жодного id (лише збережений локально, без відправки)
+  await b.page.evaluate(async t => { installmentAccounts.push({ name: 'Предмет А (старий)', initialAmount: 5000, createdAt: t, updatedAt: t }); await saveInstallmentAccountsLocal(); }, T);
+  // той самий запис уже є на сервері (створений раніше з іншого місця): ті самі created_at і сума, інша назва й id
+  const ins = await rest(cfg, sessA, 'POST', 'installment_accounts', '', { family_id: famId, name: 'Предмет А', initial_amount: 5000, created_at: T, updated_at: T });
+  expect(ins.ok).toBe(true);
+  const rowId = ins.data[0].id;
+  // перша синхронізація Б: міграція зіставляє за created_at і сумою (спершу в pull, інакше в push), нового рядка не створює
+  await b.page.evaluate(async () => { await pullInstallmentAccountsCore(); await pushInstallmentAccountsPilot(); });
   expect((await serverRows()).length).toBe(1);
-  expect(await b.page.evaluate(() => installmentAccounts.filter(a => !a.deletedAt).map(a => !!a.cloudId))).toEqual([true]);
-  expect((await liveRows())[0].id).toBe(row.id);
+  await expect.poll(() => b.page.evaluate(() => installmentAccounts.filter(a => !a.deletedAt).map(a => a.cloudId))).toEqual([rowId]);
+  expect(await b.page.evaluate(() => installmentAccounts.length)).toBe(1); // і локально без дубля
 });
