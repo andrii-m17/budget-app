@@ -2,3 +2,4 @@
 node_modules/
 e2e-results/
 test-results/
+supabase/.temp/
