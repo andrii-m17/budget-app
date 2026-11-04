@@ -434,3 +434,19 @@ test('246-11: прапорець restoreReturn із копії не перено
   c.mergeBackupRecordsByCloudIdOrName(list, [{ name: 'Нова', restoreReturn: true, createdAt: STAMP }], 'name', 'categories');
   assert.equal(list[0].restoreReturn, undefined);
 });
+
+test('246-12: діалог імпорту: технічний збій (не відкрився) → failed, нічого не обрано за користувача; вибір «Додати як нові» → add; закриття після показу → skip', async () => {
+  const mk = (open) => {
+    const cls = { open: false }; const modal = { classList: { contains: () => cls.open } };
+    const btns = { 'app-modal-cancel-btn': { textContent: '' }, 'app-modal-confirm-btn': {} };
+    let confirmCb = null;
+    const c = buildSandbox({ setInterval, clearInterval, document: { getElementById: id => id === 'app-modal' ? modal : btns[id] }, showConfirmModal: (m, cb) => { confirmCb = cb; if(open) cls.open = true; } }, ['askImportNewAccounts', 'importNewAccountsText']);
+    return { c, cls, confirm: () => confirmCb() };
+  };
+  const failed = mk(false);
+  assert.equal(await failed.c.askImportNewAccounts(['A']), 'failed'); // ≈ 3,3 с
+  const add = mk(true); const p = add.c.askImportNewAccounts(['A']); await new Promise(r => setTimeout(r, 400)); add.confirm();
+  assert.equal(await p, 'add');
+  const skip = mk(true); const p2 = skip.c.askImportNewAccounts(['A']); await new Promise(r => setTimeout(r, 400)); skip.cls.open = false;
+  assert.equal(await p2, 'skip');
+});

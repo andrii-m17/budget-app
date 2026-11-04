@@ -17236,14 +17236,19 @@ function importNewAccountsText(names){
   const shown = names.slice(0, 5).map(function(n){ return '«' + n + '»'; }).join(', ') + (names.length > 5 ? ' та ще ' + (names.length - 5) : '');
   return 'У файлі є картки й оплати частинами, яких немає в застосунку: ' + shown + '. Якщо це перейменовані записи, вони з\'являться вдруге. Додати їх як нові?';
 }
+// Повертає 'add' | 'skip' | 'failed'. Діалог чекає вибору без обмеження часу; «Пропустити», підкладка й Escape = 'skip' (вибір користувача). 'failed' — лише технічний збій: діалог не відкрився за 3 с (нічого не обрано).
 function askImportNewAccounts(names){
   return new Promise(function(resolve){
-    let done = false;
+    let done = false, seenOpen = false, ticks = 0;
     const finish = function(v){ if(done) return; done = true; clearInterval(timer); resolve(v); };
-    showConfirmModal(importNewAccountsText(names), function(){ finish(true); }, 'Додати як нові', 'primary');
+    showConfirmModal(importNewAccountsText(names), function(){ finish('add'); }, 'Додати як нові', 'primary');
     const cancel = document.getElementById('app-modal-cancel-btn'); if(cancel) cancel.textContent = 'Пропустити';
-    let seenOpen = false, ticks = 0;
-    const timer = setInterval(function(){ ticks++; const m = document.getElementById('app-modal'); if(m && m.classList.contains('open')) seenOpen = true; else if(seenOpen || ticks > 10) finish(false); }, 300); // не відкрився за 3 с або закритий (підкладка, Escape) — «Пропустити»; імпорт не зависає
+    const timer = setInterval(function(){
+      ticks++; const m = document.getElementById('app-modal');
+      if(m && m.classList.contains('open')) seenOpen = true;
+      else if(seenOpen) finish('skip');
+      else if(ticks > 10) finish('failed');
+    }, 300);
   });
 }
 function handleImportFile(event){
@@ -17518,13 +17523,15 @@ function handleImportFile(event){
       }
 
       // Rev 2.32.246 (IMPORT-ASK, клас C): картки й ОЧ, яких немає в застосунку за назвою, можуть бути перейменованими — без питання вони з'явилися б вдруге. Питаємо один раз; відмова прибирає ці нові картки/ОЧ та їхні борги з цього імпорту.
-      let declinedNew = 0;
+      let declinedNew = 0, importAskFailed = false;
       {
         const knownCard = function(n){ return bankAccounts.some(function(b){ return b.name === n; }); };
         const knownInst = function(n){ return installmentAccounts.some(function(a){ return a.name === n && importedInstRefs.indexOf(a) === -1; }); };
         const newNames = [], newKeys = [];
         importedDebtRefs.forEach(function(d){ if((d.kind === 'card' ? !knownCard(d.name) : !knownInst(d.name)) && newKeys.indexOf(d.kind + '|' + d.name) === -1){ newKeys.push(d.kind + '|' + d.name); if(newNames.indexOf(d.name) === -1) newNames.push(d.name); } });
-        if(newNames.length && !(await askImportNewAccounts(newNames))){
+        const answer = newNames.length ? await askImportNewAccounts(newNames) : 'add';
+        if(answer === 'failed') importAskFailed = true;
+        if(answer !== 'add'){
           const skip = new Set(newKeys);
           importedDebtRefs.forEach(function(d){ if(skip.has(d.kind + '|' + d.name)){ const i = debts.indexOf(d); if(i !== -1){ debts.splice(i, 1); addedDebts--; declinedNew++; } } });
           importedInstRefs.forEach(function(a){ if(skip.has('installment|' + a.name)){ const i = installmentAccounts.indexOf(a); if(i !== -1) installmentAccounts.splice(i, 1); } });
@@ -17573,7 +17580,7 @@ function handleImportFile(event){
         : '';
 
       statusEl.textContent = `Готово. Імпортовано: ${addedExpenses} витрат, ${addedIncomes} доходів, ${addedDebts} записів боргів.` +
-        (skipped ? `\nПропущено рядків без суми/дати: ${skipped}.` : '') + (declinedNew ? `\nНових карток і ОЧ пропущено: записів боргів ${declinedNew}.` : '') + duplicatesNote + sheetsWarning + renderWarning + finDebugBlock;
+        (skipped ? `\nПропущено рядків без суми/дати: ${skipped}.` : '') + (importAskFailed ? '\nІмпорт карток і оплат частинами пропущено. Спробуйте ще раз.' : '') + (declinedNew ? `\nНових карток і ОЧ пропущено: записів боргів ${declinedNew}.` : '') + duplicatesNote + sheetsWarning + renderWarning + finDebugBlock;
     }catch(err){
       statusEl.textContent = 'Помилка при читанні файлу: ' + err.message;
       console.error(err);
