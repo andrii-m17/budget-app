@@ -126,3 +126,34 @@ test('39. Android-прокрутка видимої області: низ ли�
     }
   } finally { await ctx.close(); }
 });
+
+// Rev 2.32.241 (KB-PIPE-CLOSE): закриття листа на Android при ненульовому зсуві видимої області: Chrome повертає offsetTop 330 → 0, зсув листа (--sheet-vvtop) іде кожен кадр разом із ним, без різкого скидання. Позиція листа на екрані (rect.bottom − offsetTop) лише опускається до спокою (не стрибає вгору більш ніж на 2 пт), у кінці — у стані спокою (±2 пт).
+test('40. Android: закриття листа при offsetTop 330→0 — без стрибка, у кінці лист у спокої (±2 пт)', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['Pixel 7'], true, false);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openCardDebtEditor(0); });
+    await page.waitForTimeout(900);
+    const rest = await page.evaluate(() => document.querySelector('#card-debt-drawer').getBoundingClientRect().bottom);
+    await page.evaluate(() => document.querySelector('#cdd-balance').scrollIntoView({ block: 'nearest' }));
+    const bb = await page.locator('#cdd-balance').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    const K = await page.evaluate(() => Math.round(window.__H0 * 0.4));
+    await page.evaluate(k => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, K);
+    await page.evaluate(k => { window.__vv.top = k; window.visualViewport.dispatchEvent(new Event('scroll')); }, K);
+    await page.waitForTimeout(700);
+    const vis = () => page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return r.bottom - window.__vv.top; });
+    const samples = [await vis()];
+    await page.evaluate(() => { document.activeElement && document.activeElement.blur(); }); // закриття клавіатури: фокус пішов
+    for(const f of [0.9, 0.64, 0.4, 0.17, 0.04, 0]){
+      await page.evaluate(([k, t]) => { window.__vv.top = Math.round(k * t); window.visualViewport.dispatchEvent(new Event('scroll')); }, [K, f]);
+      await page.waitForTimeout(35);
+      samples.push(await vis());
+    }
+    await page.evaluate(() => { window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(800);
+    samples.push(await vis());
+    for(let i = 1; i < samples.length; i++) expect(samples[i] - samples[i - 1], 'крок ' + i + ': лист не стрибає вгору (' + samples[i - 1] + ' → ' + samples[i] + ')').toBeGreaterThanOrEqual(-2);
+    expect(Math.abs(samples[samples.length - 1] - rest), 'у кінці лист у спокої: ' + samples[samples.length - 1] + ' проти ' + rest).toBeLessThanOrEqual(2);
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--sheet-vvtop').trim()), 'зсув обнулено').toBe('0');
+  } finally { await ctx.close(); }
+});

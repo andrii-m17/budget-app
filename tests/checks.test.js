@@ -73,7 +73,7 @@ test('«Інше» без тексту (порожньо, пробіли) не �
   assert.equal(d2.ctx.checksReadOutbox()[0].note.length, 300);
 });
 test('«Не можу перевірити зараз» + причина: крок іде в кінець списку, пише defer; без причини/чужа причина — ні; відкладений можна пройти пізніше', async () => {
-  const d = device(null, null, FRESH); const [a, b, c] = ids(d.ctx);
+  const d = device(null, { Date: clockDate({ now: Date.parse('2026-11-01T12:00:00Z') }) }, FRESH); const [a, b, c] = ids(d.ctx); // Rev 2.32.241: фіксований «сьогодні» (кроки «Перевірок» живуть 7 днів від дати Rev, тож залежність від реальної дати ламала тест)
   assert.equal(d.ctx.checksCommit(a, 'defer', 'інша'), false); assert.equal(d.ctx.checksCommit(a, 'defer'), false);
   assert.equal(d.ctx.checksCommit(a, 'defer', 'Немає часу'), true);
   assert.deepEqual(pend(d, FRESH), ids(d.ctx).filter(x => x !== a).concat([a]), 'відкладений у кінці');

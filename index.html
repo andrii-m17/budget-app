@@ -3827,7 +3827,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.240</div>
+  <div class="version-footer">Money Tree · Rev 2.32.241</div>
 </div>
   </div>
 </div>
@@ -9535,7 +9535,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.240';
+const APP_VERSION = '2.32.241';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -28528,7 +28528,7 @@ function kbPipeAnimate(){
   const L = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbSheetRestBottom, gap: 8 });
   kbSheetCurrentLift = L;
   document.documentElement.style.setProperty('--sheet-lift', String(Math.round(L * 10) / 10));
-  if(kbSheetSplit) document.documentElement.style.setProperty('--sheet-vvtop', String(Math.round(vv.offsetTop * 10) / 10));
+  if(kbSheetSplit){ KB_PIPE.vvtop = Math.round(vv.offsetTop * 10) / 10; document.documentElement.style.setProperty('--sheet-vvtop', String(KB_PIPE.vvtop)); }
   startSheetAnimSampler(kbSheetDrawerEl, 'open', kbPipeNatural);
   beginSheetMoving(kbSheetDrawerEl, 'open', null, kbPipeField);
   if(KB_PIPE.doneTimer) clearTimeout(KB_PIPE.doneTimer);
@@ -28545,9 +28545,9 @@ function kbPipeFollow(){
   if(!kbSheetSplit){ scheduleLiveSheetLift(); return; }
   applyLiveSheetLift(); // підйом без vvTop
   const top = Math.round(vv.offsetTop * 10) / 10;
-  if(!IS_IOS_RUNTIME){ document.documentElement.style.setProperty('--sheet-vvtop', String(top)); return; }
+  if(!IS_IOS_RUNTIME){ KB_PIPE.vvtop = top; document.documentElement.style.setProperty('--sheet-vvtop', String(top)); return; }
   if(KB_LIVE.timer){ clearTimeout(KB_LIVE.timer); }
-  KB_LIVE.timer = setTimeout(function(){ KB_LIVE.timer = null; if(kbSheetActive) document.documentElement.style.setProperty('--sheet-vvtop', String(Math.round(window.visualViewport.offsetTop * 10) / 10)); }, KB_LIFT_SETTLE_MS);
+  KB_LIVE.timer = setTimeout(function(){ KB_LIVE.timer = null; if(kbSheetActive){ KB_PIPE.vvtop = Math.round(window.visualViewport.offsetTop * 10) / 10; document.documentElement.style.setProperty('--sheet-vvtop', String(KB_PIPE.vvtop)); } }, KB_LIFT_SETTLE_MS);
 }
 // computeSheetLift: rest (поточний bottom-край шторки ДО підйому) мінус
 // цільовий bottom-край (baseVh - kbH - gap, той самий gap=8, що раніше був
@@ -28568,7 +28568,7 @@ function kbPipeStep(state, ev, open){
   if(state === 'animating' && ev === 'done') return { state: 'settled', animate: false };
   return { state: state, animate: false };
 }
-const KB_PIPE = { state: 'idle', timer: null, doneTimer: null, pending: false };
+const KB_PIPE = { state: 'idle', timer: null, doneTimer: null, pending: false, vvtop: 0 };
 // Кеш висот клавіатури в localStorage: (клас пристрою | орієнтація | тип: numeric/text/email/password). Лише запасний варіант і --sheet-max-h; підйом від нього не залежить.
 const KB_HEIGHTS_KEY = 'budget-kb-heights-v1';
 function kbCacheKindForField(el){
@@ -28686,6 +28686,21 @@ function correctPanIfNeeded(){
 // removeKbOpen — чи знімати ТАКОЖ body.kb-open (повернення таббара): лише
 // коли справді НІЯКОГО клавіатурного поля більше не сфокусовано (інакше,
 // напр. фокус перейшов на "Витрати", клавіатура лишається на екрані).
+const KB_CLOSE_FOLLOW = { raf: 0, frames: 0 };
+function kbVvTopCloseFollow(gen){
+  KB_CLOSE_FOLLOW.frames = 0;
+  if(KB_CLOSE_FOLLOW.raf) return;
+  const step = function(){
+    KB_CLOSE_FOLLOW.raf = 0;
+    const root = document.documentElement, vv = window.visualViewport;
+    if(kbSheetActive || kbSheetGen !== gen || !root.classList.contains('kb-sheet') || !vv){ if(!kbSheetActive) root.style.setProperty('--sheet-vvtop', '0'); return; } // нове відкриття керує зсувом само; лист сховано — скидаємо
+    const top = Math.max(0, Math.round(vv.offsetTop * 10) / 10);
+    root.style.setProperty('--sheet-vvtop', String(top));
+    if(top <= 0.5 || ++KB_CLOSE_FOLLOW.frames > 90){ KB_PIPE.vvtop = 0; root.style.setProperty('--sheet-vvtop', '0'); return; }
+    KB_CLOSE_FOLLOW.raf = requestAnimationFrame(step);
+  };
+  KB_CLOSE_FOLLOW.raf = requestAnimationFrame(step);
+}
 function exitKbSheet(removeKbOpen){
   if(!kbSheetActive) return;
   if(KB_LIVE.timer){ clearTimeout(KB_LIVE.timer); KB_LIVE.timer = null; } KB_LIVE.lastTop = null; // Rev 2.32.239: відкладений живий підйом не переживає закриття
@@ -28731,7 +28746,10 @@ function exitKbSheet(removeKbOpen){
   // анімує через це правило (CSS transition:none) — звичайне миттєве
   // зняття, як і раніше.
   document.documentElement.style.setProperty('--sheet-lift', '0');
-  document.documentElement.style.setProperty('--sheet-vvtop', '0');
+  // Rev 2.32.241 (KB-PIPE-CLOSE): на Android/Chromium при закритті .drawer із ненульовим зсувом видимої області його не скидаємо одразу (різкий стрибок листа), а ведемо кожен кадр за visualViewport.offsetTop, поки він не дійде до нуля (або лист не сховано).
+  const vvtopAtExit = KB_PIPE.vvtop || 0;
+  if(kbSheetSplit && !IS_IOS_RUNTIME && vvtopAtExit > 0) kbVvTopCloseFollow(genAtExit);
+  else{ KB_PIPE.vvtop = 0; document.documentElement.style.setProperty('--sheet-vvtop', '0'); }
   if(KB_PIPE.timer){ clearTimeout(KB_PIPE.timer); KB_PIPE.timer = null; } if(KB_PIPE.doneTimer){ clearTimeout(KB_PIPE.doneTimer); KB_PIPE.doneTimer = null; } KB_PIPE.state = 'idle'; KB_PIPE.pending = false; kbSheetNewF = false; // Rev 2.32.240
   if(drawerEl){
     document.documentElement.classList.add('kb-sheet-closing');
