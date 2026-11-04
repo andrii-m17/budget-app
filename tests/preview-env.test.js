@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildSandbox } = require('./extract');
 
-const NAMES = ['WORK_ORIGINS', 'SS_KEY_PREVIEW_REALDB', 'WRITE_BLOCKED_MESSAGE', 'SESSION_EXPIRED_HINT', 'detectCloudEnv', 'classifyBlockedRequest', 'noteWriteBlocked', 'noteSessionExpiredHint',
+const NAMES = ['WORK_ORIGINS', 'SS_KEY_PREVIEW_REALDB', 'TESTCLOUD_ORIGIN', 'SUPABASE_PROJECT_URL', 'readTestCloudConfig', 'isTestCloudConfigValid', 'WRITE_BLOCKED_MESSAGE', 'SESSION_EXPIRED_HINT', 'detectCloudEnv', 'classifyBlockedRequest', 'noteWriteBlocked', 'noteSessionExpiredHint',
   'isWriteBlocked', 'isCloudWriteReady', 'countingFetch', 'classifyNetRequest', 'countNetRequest', 'NET_STATS', 'LS_KEY_SYNC_MARKERS', 'LS_KEY_SYNC_HEADS', 'clearSyncMarkers'];
 const PROD = 'https://andrii-m17.github.io';
 const BASE = 'https://x.supabase.co';

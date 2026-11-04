@@ -6,6 +6,7 @@ const PORT = Number(process.env.E2E_PORT || 8935);
 module.exports = defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.js',
+  testIgnore: '**/cloud/**', // набір e2e:cloud (справжній тестовий сервер) запускається окремо
   outputDir: './e2e-results/' + stamp,
   timeout: 40000,
   globalTimeout: 420000,

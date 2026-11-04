@@ -24,6 +24,6 @@ test('ISOL-1: applyCensus не має виключень за назвою (не
   assert.ok(!/syncable|TEST/.test(batch));
 });
 test('ISOL-1: правило «автоматичні тести не пишуть у робочу базу» не залежить від імен: мок за замовчуванням, захисник «лише перегляд» (Rev 2.32.75)', function(){
-  assert.match(SRC, /function detectCloudEnv\(origin, realDbFlag\)/); assert.match(SRC, /function classifyBlockedRequest\(/);
+  assert.match(SRC, /function detectCloudEnv\(origin, realDbFlag, testCfg\)/); assert.match(SRC, /function classifyBlockedRequest\(/);
   assert.ok(!/TRASH-TEST/.test(MOCK), 'у моку назв TRASH-TEST немає');
 });

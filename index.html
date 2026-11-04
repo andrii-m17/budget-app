@@ -3827,7 +3827,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.242</div>
+  <div class="version-footer">Money Tree · Rev 2.32.243</div>
 </div>
   </div>
 </div>
@@ -9624,7 +9624,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.242';
+const APP_VERSION = '2.32.243';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11253,15 +11253,22 @@ const WORK_ORIGINS = ['https://andrii-m17.github.io'];
 const SS_KEY_PREVIEW_REALDB = 'budget_preview_realdb_readonly_v1';
 const WRITE_BLOCKED_MESSAGE = 'Запис заблоковано (preview)';
 const SESSION_EXPIRED_HINT = 'Сесія для читання закінчилась: увійдіть знову або поверніться на мок';
-function detectCloudEnv(origin, realDbFlag){
+// Rev 2.32.243 (E2E-CLOUD): четвертий режим «testcloud» — справжній ТЕСТОВИЙ проєкт Supabase (не робочий) для автотестів «два пристрої» (npm run e2e:cloud).
+// Умови (усі разом, інакше далі мок): origin рівно http://127.0.0.1:8936 (порт лише для цього набору; 127.0.0.1:8935 і localhost лишаються на моку, бо на них працюють E2E й preview), адреса й ключ тестового проєкту приходять ТІЛЬКИ з window.__TEST_CLOUD__ (його виставляє прогін Playwright з .env.test, у збірці на GitHub Pages їх нема й бути не може), адреса має вигляд https://<20 символів>.supabase.co і НЕ дорівнює робочій.
+// Альтернатива, що відкинута: localhost і 127.0.0.1 як тестовий проєкт (як у початковому ТЗ): зламала б мок на моєму preview й усіх E2E, які ходять на 127.0.0.1:8935.
+const TESTCLOUD_ORIGIN = 'http://127.0.0.1:8936';
+function readTestCloudConfig(){ try{ return window.__TEST_CLOUD__ || null; }catch(e){ return null; } }
+function isTestCloudConfigValid(c){ return !!c && typeof c.url === 'string' && typeof c.key === 'string' && /^https:\/\/[a-z0-9]{20}\.supabase\.co$/.test(c.url) && c.url !== SUPABASE_PROJECT_URL && c.key.length > 20; }
+function detectCloudEnv(origin, realDbFlag, testCfg){
   if(WORK_ORIGINS.indexOf(origin) !== -1) return { env: 'prod', label: '' };
+  if(origin === TESTCLOUD_ORIGIN && isTestCloudConfigValid(testCfg)) return { env: 'testcloud', label: 'Тестовий сервер' };
   if(realDbFlag === '1') return { env: 'readonly', label: 'Реальні дані · лише перегляд' };
   return { env: 'mock', label: 'Тестові дані' };
 }
 function readPreviewRealDbFlag(){
   try{ return sessionStorage.getItem(SS_KEY_PREVIEW_REALDB); }catch(e){ return null; }
 }
-const CLOUD_ENV = detectCloudEnv(location.origin, readPreviewRealDbFlag());
+const CLOUD_ENV = detectCloudEnv(location.origin, readPreviewRealDbFlag(), readTestCloudConfig());
 function isWriteBlocked(){ return CLOUD_ENV.env === 'readonly'; }
 // Rev 2.32.78 (KIT-1): записи поза push* (дії користувача) у режимі «лише перегляд» не йдуть на сервер: підказка замість помилки мережі; фонові (debug-логи, дата експорту, push-підписка, позначка «прочитано») — тихий пропуск. Захисник у countingFetch лишається останнім бар'єром.
 const READONLY_USER_HINT = 'Режим «Реальні дані · лише перегляд»: зміни не зберігаються';
@@ -11335,7 +11342,9 @@ function getSupabaseClient(){
   const opts = { global: { fetch: countingFetch } }; // Rev 2.32.73 (S): кожен мережевий запит клієнта — у лічильник за сеанс
   if(CLOUD_ENV.env === 'mock') opts.auth = { storageKey: 'sb-mock-auth-token', autoRefreshToken: false, persistSession: true };
   else if(CLOUD_ENV.env === 'readonly') opts.auth = { autoRefreshToken: false };
-  supabaseClient = supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY, opts);
+  else if(CLOUD_ENV.env === 'testcloud') opts.auth = { storageKey: 'sb-testcloud-auth-token', autoRefreshToken: true, persistSession: true }; // Rev 2.32.243: окремий ключ сесії тестового проєкту
+  const tc = CLOUD_ENV.env === 'testcloud' ? readTestCloudConfig() : null; // лише тут і лише в режимі testcloud (див. detectCloudEnv)
+  supabaseClient = supabase.createClient(tc ? tc.url : SUPABASE_PROJECT_URL, tc ? tc.key : SUPABASE_ANON_KEY, opts);
   if(CLOUD_ENV.env === 'mock' && window.MockCloud) window.MockCloud.attachRealtime(supabaseClient);
   return supabaseClient;
 }
@@ -23477,8 +23486,8 @@ function renderCloudEnvUI(){
   if(!badge && CLOUD_ENV.env !== 'prod'){ badge = document.createElement('div'); badge.id = 'cloud-env-badge'; badge.className = 'cloud-env-badge'; badge.setAttribute('aria-hidden', 'true'); document.body.appendChild(badge); }
   const btn = document.getElementById('cloud-env-btn');
   const label = document.getElementById('cloud-env-label');
-  const prod = CLOUD_ENV.env === 'prod';
-  if(badge){ badge.textContent = CLOUD_ENV.label; badge.classList.toggle('hidden', prod); badge.classList.toggle('readonly', CLOUD_ENV.env === 'readonly'); }
+  const prod = CLOUD_ENV.env === 'prod' || CLOUD_ENV.env === 'testcloud'; // Rev 2.32.243: у testcloud перемикача мок/реальні дані нема
+  if(badge){ badge.textContent = CLOUD_ENV.label; badge.classList.toggle('hidden', CLOUD_ENV.env === 'prod'); badge.classList.toggle('readonly', CLOUD_ENV.env === 'readonly'); }
   if(btn){
     btn.classList.toggle('hidden', prod); btn.style.display = prod ? 'none' : '';
     btn.textContent = CLOUD_ENV.env === 'readonly' ? 'Поточне: реальні дані, лише перегляд. Повернутись на тестові дані' : 'Поточне: тестові дані. Підключити реальні дані (лише перегляд)';
@@ -23486,7 +23495,7 @@ function renderCloudEnvUI(){
   if(label) label.style.display = prod ? 'none' : '';
 }
 function toggleCloudEnv(){
-  if(CLOUD_ENV.env === 'prod') return;
+  if(CLOUD_ENV.env === 'prod' || CLOUD_ENV.env === 'testcloud') return;
   const toReal = CLOUD_ENV.env === 'mock';
   const apply = function(){
     try{ if(toReal) sessionStorage.setItem(SS_KEY_PREVIEW_REALDB, '1'); else sessionStorage.removeItem(SS_KEY_PREVIEW_REALDB); }catch(e){}
