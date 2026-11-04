@@ -5410,7 +5410,7 @@ function kbSheetSandbox(opts){
     clearTimeout: function(){},
     performance: { now: function(){ return Date.now(); } },
   }, [
-    'isKeyboardField', 'kbSheetHostOf', 'kbSheetLabel', 'CARD_LAYER_RELEASE_MS', 'shouldPromoteLayer', 'settledPosition', 'kbRestBottomOf', 'isFieldInsideDrawer', 'keyboardKindForField',
+    'isKeyboardField', 'kbSheetHostOf', 'kbSheetLabel', 'CARD_LAYER_RELEASE_MS', 'shouldPromoteLayer', 'settledPosition', 'kbRestBottomOf', 'kbLayoutShrink', 'isFieldInsideDrawer', 'keyboardKindForField',
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
     'viewportOrientationKey', 'nextBaseViewportHeight', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',

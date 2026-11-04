@@ -3827,7 +3827,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.246</div>
+  <div class="version-footer">Money Tree · Rev 2.32.247</div>
 </div>
   </div>
 </div>
@@ -9670,7 +9670,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.246';
+const APP_VERSION = '2.32.247';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -28395,12 +28395,18 @@ function settledPosition(phase, restBottom, lift){
   return phase === 'close' ? rest : rest - l;
 }
 // Низ картки в спокої без впливу scale(.96) відкриття (картка центрована): centerY + offsetHeight/2. Лише для .app-modal — для шторок вимір не змінюється.
+// Rev 2.32.247 (KB-1): низ міряється відносно ЗВИЧАЙНОЇ (без клавіатури) висоти розмітки. Якщо до виміру iOS уже запанорамував сторінку й стиснув розмітку (innerHeight < база; гібридний режим «resize» міряє лише ПІСЛЯ стиснення visualViewport, а також прямий фокус на холодному першому показі клавіатури), низ шторки, прив'язаний до низу розмітки, виходить зміщеним на цю різницю, і підйом рахувався від хибного низу (лист не піднімався або їхав униз). Поправка: + (база − innerHeight) для .drawer (низ прив'язаний до низу розмітки) і + половина для .app-modal (центр прив'язаний до розмітки); у нормальному стані різниця 0.
+function kbLayoutShrink(){
+  const base = getBaseViewportHeight(), cur = window.innerHeight;
+  return (typeof base === 'number' && typeof cur === 'number' && base > cur) ? base - cur : 0;
+}
 function kbRestBottomOf(el){
   const r = el.getBoundingClientRect();
+  const shrink = kbLayoutShrink();
   if(el.classList && el.classList.contains('app-modal') && el.offsetHeight){
-    return { bottom: (r.top + r.bottom) / 2 + el.offsetHeight / 2, height: el.offsetHeight };
+    return { bottom: (r.top + r.bottom) / 2 + el.offsetHeight / 2 + shrink / 2, height: el.offsetHeight };
   }
-  return { bottom: r.bottom, height: r.height };
+  return { bottom: r.bottom + shrink, height: r.height };
 }
 let sheetAnimSeen = {};
 let cardLayerReleaseTimer = null;
@@ -28791,7 +28797,7 @@ function computeSheetLift(o){
 function kbRestBottomLayout(el){
   if(el && el.classList && el.classList.contains('drawer')){
     const b = parseFloat(getComputedStyle(el).bottom);
-    if(!isNaN(b)) return { bottom: window.innerHeight - b, height: el.offsetHeight || el.getBoundingClientRect().height };
+    if(!isNaN(b)) return { bottom: Math.max(window.innerHeight, getBaseViewportHeight()) - b, height: el.offsetHeight || el.getBoundingClientRect().height }; // Rev 2.32.247 (KB-1): від бази, а не від стиснутого innerHeight
   }
   return null;
 }

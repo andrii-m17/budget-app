@@ -52,7 +52,7 @@ test('прямий шлях відкриття картки: на iOS з екр�
   assert.match(SRC, /if\(typeof onTransferred === 'function'\) onTransferred\(\);/);
 });
 test('вимір спокійного положення: для .app-modal без впливу scale(.96), для шторок — getBoundingClientRect як було', () => {
-  const c2 = ex.buildSandbox({}, ['kbRestBottomOf']);
+  const c2 = ex.buildSandbox({ window: { innerHeight: 894 }, getBaseViewportHeight: () => 894 }, ['kbRestBottomOf', 'kbLayoutShrink']); // Rev 2.32.247: розмітка не стиснута — вимір як був
   const drawer = { classList: { contains: () => false }, offsetHeight: 200, getBoundingClientRect: () => ({ top: 100, bottom: 300, height: 200 }) };
   assert.deepEqual(JSON.parse(JSON.stringify(c2.kbRestBottomOf(drawer))), { bottom: 300, height: 200 });
   const modal = { classList: { contains: k => k === 'app-modal' }, offsetHeight: 200, getBoundingClientRect: () => ({ top: 106, bottom: 294, height: 188 }) };
