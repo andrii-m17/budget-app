@@ -3835,7 +3835,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.257</div>
+  <div class="version-footer">Money Tree · Rev 2.32.258</div>
 </div>
   </div>
 </div>
@@ -9673,7 +9673,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.257';
+const APP_VERSION = '2.32.258';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -29401,6 +29401,22 @@ function kbWinDiag(type){
 window.addEventListener('focus', function(){ kbWinDiag('kb-win-focus'); });
 window.addEventListener('blur', function(){ kbWinDiag('kb-win-blur'); });
 document.addEventListener('visibilitychange', function(){ kbWinDiag('kb-visibility'); });
+// Rev 2.32.258 (KB-5a): згортання застосунку (свайп додому, інший застосунок) лишало поле «у фокусі» без клавіатури — після повернення дотик у те саме поле клавіатуру не відкривав (фокус уже там), лише другий перехід. Тепер при visibilitychange:hidden і pagehide фокус знімається з поля і конвеєр клавіатури скидається тим самим шляхом, що звичайне закриття (blur → handleKeyboardFieldFocusSettle: лок фону, exitKbSheet, kb-open). Спільна зміна для всіх форм. Ризик: якщо iOS позначає сторінку прихованою під час Face ID/панелі паролів, фокус там теж знімуть — діагностика kb-visibility покаже (KB-3). Альтернатива (лишати фокус) відтворює збій.
+function kbResetOnBackground(why){
+  try{
+    if(kbCloseConfirmTimer){ clearTimeout(kbCloseConfirmTimer); kbCloseConfirmTimer = null; }
+    kbHiddenSince = 0;
+    const a = document.activeElement;
+    const had = !!(a && a !== document.body && isKeyboardField(a));
+    if(!had && !document.body.classList.contains('kb-open')) return;
+    kbWinDiag('kb-bg-reset');
+    if(had && typeof a.blur === 'function') a.blur();
+    if(kbHideTimeout){ clearTimeout(kbHideTimeout); kbHideTimeout = null; }
+    handleKeyboardFieldFocusSettle();
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') kbResetOnBackground('hidden'); });
+window.addEventListener('pagehide', function(){ kbResetOnBackground('pagehide'); });
 if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){ kbWinDiag('kb-vv-resize'); });
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', function(){
