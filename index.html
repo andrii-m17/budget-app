@@ -3834,7 +3834,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.252</div>
+  <div class="version-footer">Money Tree · Rev 2.32.253</div>
 </div>
   </div>
 </div>
@@ -9672,7 +9672,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.252';
+const APP_VERSION = '2.32.253';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11632,6 +11632,7 @@ async function applyCloudSession(session){
       // слова, картки, ОЧ, потім діти й приховані) на вході в сесію. Переміщено ПІСЛЯ всіх pull-ів: картки/ОЧ мають бути
       // підтягнуті, перш ніж їх пушити й звіряти з переписом.
       setupNotifRealtime(); // Rev 2.32.38 (B): Realtime дзвіночка; лічильники (дзвіночок, «Вхідні») тепер приходять із перевірки «голів» (Rev 2.32.74)
+      flushSignOutReport(); // Rev 2.32.253 (KB-3/6)
       flushChecksQueue(); // Rev 2.32.189 (CHECKS-1): відповіді «Перевірок», що не дійшли минулого разу
       autoSyncStale('start'); // Rev 2.32.21 (O): офлайн-записи минулої сесії відправляються при вході/старті
       // Rev #30 (6D.56) — Realtime-підписка: той самий "один раз на
@@ -13618,6 +13619,19 @@ async function revokeDevicePushSubscription(){
   return unsubscribed;
 }
 // Rev 2.32.251 (SIGNOUT-1): збій глобального виходу пишеться в client_debug_logs АВТОМАТИЧНО (без увімкненого запису діагностики), один запис на збій, до 4 с (вихід не чекає довше). Поля без значень токенів: назва й статус помилки, стан мережі, адреса SDK (версія в ній), версія застосунку. Без Cloud-сесії або в режимі «лише перегляд» не пишеться. Ризик: запис сам потребує сесії, яка в цьому стані діюча; якщо запис не вдався — мовчимо (вихід важливіший).
+// Rev 2.32.253 (KB-3/6): «тихий» шлях — вихід завершився локально, а запит /auth/v1/logout на сервер не пішов або повернув помилку (офлайн; збій оновлення токена: signOut повертає помилку, getSession порожній, застосунок виходить без тосту, серверна сесія лишається). Запису в цих випадках не було. Тепер причина зберігається в localStorage (ключ не входить до даних акаунта, виживає вихід) і відправляється одним записом у client_debug_logs після наступного входу.
+const SIGNOUT_REPORT_KEY = 'budget-signout-report-v1';
+function queueSignOutReport(err){
+  try{ localStorage.setItem(SIGNOUT_REPORT_KEY, JSON.stringify({ type: 'signout-no-server', errName: err ? String(err.name || err.code || 'error').slice(0, 60) : null, status: err && typeof err.status === 'number' ? err.status : null, online: navigator.onLine, sdkUrl: SUPABASE_SDK_CDN_URL, app: APP_VERSION, at: new Date().toISOString() })); }catch(e){}
+}
+async function flushSignOutReport(){
+  try{
+    const raw = localStorage.getItem(SIGNOUT_REPORT_KEY); if(!raw || !isCloudWriteReady()) return;
+    const ev = JSON.parse(raw);
+    const { error } = await getSupabaseClient().from('client_debug_logs').insert({ family_id: cloudFamilyId, user_id: cloudSession.user.id, app_version: APP_VERSION, scenario: 'signout-fallback', device: buildDebugLogDevice(), events: [ev] });
+    if(!error) localStorage.removeItem(SIGNOUT_REPORT_KEY);
+  }catch(e){}
+}
 async function reportSignOutFallback(client, err){
   try{
     if(!isCloudWriteReady()) return;
@@ -13642,6 +13656,7 @@ async function performSignOut(){
     try{ const r = await client.auth.getSession(); stillIn = !!(r && r.data && r.data.session); }catch(e){ stillIn = false; }
   }
   if(stillIn){ showTextToast('Не вдалося вийти — перевірте з\'єднання', 'error'); return; }
+  if(soErr || !navigator.onLine) queueSignOutReport(soErr); // Rev 2.32.253: «тихий» вихід без запиту на сервер
   const cleared = await clearLocalAccountData();
   if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'signout', cleared: cleared > 0, unsubscribed: unsubscribed });
   location.reload();
