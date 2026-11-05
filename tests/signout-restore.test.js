@@ -77,7 +77,7 @@ test('W1: performSignOut — порядок: підписка → signOut → о
   assert.equal(ok.storage.getItem(LS.LS_KEY_EXP), null);
   const fail = signOutSandbox({ stillSignedIn: true });
   await fail.c.performSignOut();
-  assert.deepEqual(fail.calls, ['signOut', 'toast']);
+  assert.deepEqual(fail.calls, ['signOut', 'signOut', 'toast']); // Rev 2.32.251: після збою — повторний локальний вихід, помилка лише якщо й він не допоміг
   assert.notEqual(fail.storage.getItem(LS.LS_KEY_EXP), null); // нічого не очищено, якщо вийти не вдалось
 });
 test('W2: усі LS_KEY_* (крім теми й статусу міграції) входять у список очищення', function(){
