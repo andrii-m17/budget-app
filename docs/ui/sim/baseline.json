@@ -1,6 +1,156 @@
 {
- "version": "2.32.248",
+ "version": "2.32.251",
  "scenarios": {
+  "iphone-landscape/card-open-focus": {
+   "anim": {
+    "frames": 14,
+    "maxGapMs": 44,
+    "durationMs": 289,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/card-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 51
+  },
+  "iphone-landscape/card-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 28,
+    "durationMs": 183,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/login-open-focus": {
+   "anim": {
+    "frames": 20,
+    "maxGapMs": 90,
+    "durationMs": 407,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/login-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 24
+  },
+  "iphone-landscape/login-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 32,
+    "durationMs": 183,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/mono-open-focus": {
+   "anim": {
+    "frames": 14,
+    "maxGapMs": 58,
+    "durationMs": 289,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/mono-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/mono-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 35,
+    "durationMs": 209,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/income-open-focus": {
+   "anim": {
+    "frames": 15,
+    "maxGapMs": 48,
+    "durationMs": 286,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/income-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/income-close": {
+   "anim": {
+    "frames": 12,
+    "maxGapMs": 30,
+    "durationMs": 216,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/installment-open-focus": {
+   "anim": {
+    "frames": 15,
+    "maxGapMs": 43,
+    "durationMs": 290,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/installment-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 12
+  },
+  "iphone-landscape/installment-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 26,
+    "durationMs": 183,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
+  "iphone-landscape/struct-open-focus": {
+   "anim": {
+    "frames": 14,
+    "maxGapMs": 50,
+    "durationMs": 287,
+    "jumpMaxPx": null
+   },
+   "gap": 8,
+   "fieldGap": 11.6
+  },
+  "iphone-landscape/struct-switch": {
+   "anim": null,
+   "gap": 8,
+   "fieldGap": 11.6
+  },
+  "iphone-landscape/struct-close": {
+   "anim": {
+    "frames": 11,
+    "maxGapMs": 29,
+    "durationMs": 183,
+    "jumpMaxPx": null
+   },
+   "gap": null,
+   "fieldGap": null
+  },
   "iphone-portrait/card-open-focus": {
    "anim": {
     "frames": 15,
@@ -146,156 +296,6 @@
     "frames": 11,
     "maxGapMs": 18,
     "durationMs": 186,
-    "jumpMaxPx": null
-   },
-   "gap": null,
-   "fieldGap": null
-  },
-  "iphone-landscape/card-open-focus": {
-   "anim": {
-    "frames": 14,
-    "maxGapMs": 67,
-    "durationMs": 291,
-    "jumpMaxPx": null
-   },
-   "gap": 8,
-   "fieldGap": 12
-  },
-  "iphone-landscape/card-switch": {
-   "anim": null,
-   "gap": 8,
-   "fieldGap": 12
-  },
-  "iphone-landscape/card-close": {
-   "anim": {
-    "frames": 17,
-    "maxGapMs": 17,
-    "durationMs": 286,
-    "jumpMaxPx": null
-   },
-   "gap": null,
-   "fieldGap": null
-  },
-  "iphone-landscape/login-open-focus": {
-   "anim": {
-    "frames": 20,
-    "maxGapMs": 89,
-    "durationMs": 404,
-    "jumpMaxPx": null
-   },
-   "gap": 8,
-   "fieldGap": 12
-  },
-  "iphone-landscape/login-switch": {
-   "anim": null,
-   "gap": 8,
-   "fieldGap": 12
-  },
-  "iphone-landscape/login-close": {
-   "anim": {
-    "frames": 17,
-    "maxGapMs": 17,
-    "durationMs": 287,
-    "jumpMaxPx": null
-   },
-   "gap": null,
-   "fieldGap": null
-  },
-  "iphone-landscape/mono-open-focus": {
-   "anim": {
-    "frames": 14,
-    "maxGapMs": 61,
-    "durationMs": 288,
-    "jumpMaxPx": null
-   },
-   "gap": 8,
-   "fieldGap": 12
-  },
-  "iphone-landscape/mono-switch": {
-   "anim": null,
-   "gap": 8,
-   "fieldGap": 12
-  },
-  "iphone-landscape/mono-close": {
-   "anim": {
-    "frames": 11,
-    "maxGapMs": 25,
-    "durationMs": 188,
-    "jumpMaxPx": null
-   },
-   "gap": null,
-   "fieldGap": null
-  },
-  "iphone-landscape/income-open-focus": {
-   "anim": {
-    "frames": 15,
-    "maxGapMs": 53,
-    "durationMs": 281,
-    "jumpMaxPx": null
-   },
-   "gap": 8,
-   "fieldGap": 12
-  },
-  "iphone-landscape/income-switch": {
-   "anim": null,
-   "gap": 8,
-   "fieldGap": 12
-  },
-  "iphone-landscape/income-close": {
-   "anim": {
-    "frames": 18,
-    "maxGapMs": 17,
-    "durationMs": 302,
-    "jumpMaxPx": null
-   },
-   "gap": null,
-   "fieldGap": null
-  },
-  "iphone-landscape/installment-open-focus": {
-   "anim": {
-    "frames": 15,
-    "maxGapMs": 44,
-    "durationMs": 288,
-    "jumpMaxPx": null
-   },
-   "gap": 8,
-   "fieldGap": 12
-  },
-  "iphone-landscape/installment-switch": {
-   "anim": null,
-   "gap": 8,
-   "fieldGap": 12
-  },
-  "iphone-landscape/installment-close": {
-   "anim": {
-    "frames": 12,
-    "maxGapMs": 29,
-    "durationMs": 217,
-    "jumpMaxPx": null
-   },
-   "gap": null,
-   "fieldGap": null
-  },
-  "iphone-landscape/struct-open-focus": {
-   "anim": {
-    "frames": 14,
-    "maxGapMs": 55,
-    "durationMs": 285,
-    "jumpMaxPx": null
-   },
-   "gap": 8,
-   "fieldGap": 11.6
-  },
-  "iphone-landscape/struct-switch": {
-   "anim": null,
-   "gap": 8,
-   "fieldGap": 11.6
-  },
-  "iphone-landscape/struct-close": {
-   "anim": {
-    "frames": 17,
-    "maxGapMs": 17,
-    "durationMs": 287,
     "jumpMaxPx": null
    },
    "gap": null,
@@ -557,7 +557,7 @@
    "fieldGap": null
   }
  },
- "runtime": "iphone-portrait: iPhone 16 Pro Max iOS-27-2; iphone-landscape: iPhone 16 Pro Max iOS-27-2",
+ "runtime": "iphone-landscape: iPhone 16 Pro Max iOS-27-2",
  "reps": 4,
- "note": "Еталон симулятора (медіана за 4 проходи) для версії 2.32.248. Оновлюється SIM_UPDATE_BASELINE=1."
+ "note": "Еталон симулятора (медіана за 4 проходи) для версії 2.32.251. Оновлюється SIM_UPDATE_BASELINE=1."
 }
