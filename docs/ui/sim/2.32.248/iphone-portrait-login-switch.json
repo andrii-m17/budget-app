@@ -39,7 +39,7 @@
  },
  "events": [
   {
-   "t": 4961,
+   "t": 4490,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -73,7 +73,7 @@
    "safeBottom": 34
   },
   {
-   "t": 4967,
+   "t": 4496,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -107,7 +107,7 @@
    "safeBottom": 34
   },
   {
-   "t": 4971,
+   "t": 4500,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -141,7 +141,7 @@
    "safeBottom": 34
   },
   {
-   "t": 5085,
+   "t": 4623,
    "type": "vv-resize",
    "innerW": 440,
    "innerH": 894,
@@ -186,7 +186,7 @@
    "kbH": 388
   },
   {
-   "t": 5085,
+   "t": 4626,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -220,7 +220,7 @@
    "safeBottom": 34
   },
   {
-   "t": 5116,
+   "t": 4657,
    "type": "vv-resize",
    "innerW": 440,
    "innerH": 894,
@@ -245,8 +245,8 @@
    "safeBottom": 34,
    "safeLeft": 0,
    "drawerId": "profile-drawer",
-   "drawerTop": 151,
-   "drawerBottom": 480,
+   "drawerTop": 152,
+   "drawerBottom": 481,
    "drawerLeft": 16,
    "drawerRight": 424,
    "drawerHeight": 329,
@@ -260,12 +260,12 @@
    "baseVh": "894px",
    "mainColInert": true,
    "mainColScrollTop": 0,
-   "activeRectTop": 351,
-   "activeRectBottom": 397,
+   "activeRectTop": 352,
+   "activeRectBottom": 398,
    "kbH": 415
   },
   {
-   "t": 5116,
+   "t": 4657,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -287,11 +287,11 @@
    "vkOverlays": null,
    "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
    "tabbarGap": 21,
-   "sheetTop": 150.9,
-   "sheetBottom": 479.9,
+   "sheetTop": 151.9,
+   "sheetBottom": 480.9,
    "sheetHeight": 329,
-   "fieldTop": 350.9,
-   "fieldBottom": 396.9,
+   "fieldTop": 351.9,
+   "fieldBottom": 397.9,
    "kbHeightCalc": 415,
    "sheetLiftCss": "415",
    "sheetRestBottom": 886,
@@ -299,7 +299,7 @@
    "safeBottom": 34
   },
   {
-   "t": 5269,
+   "t": 4808,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,

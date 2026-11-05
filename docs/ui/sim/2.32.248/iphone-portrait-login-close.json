@@ -7,15 +7,15 @@
  "repeats": 2,
  "anim": {
   "frames": 11,
-  "maxGapMs": 17,
-  "durationMs": 188,
+  "maxGapMs": 22,
+  "durationMs": 185,
   "jumpMaxPx": null
  },
  "animPerRun": [
   {
    "frames": 11,
-   "maxGapMs": 17,
-   "durationMs": 188
+   "maxGapMs": 22,
+   "durationMs": 185
   }
  ],
  "fieldGapPerRun": [
@@ -48,7 +48,52 @@
  },
  "events": [
   {
-   "t": 7746,
+   "t": 7278,
+   "type": "sheet-close",
+   "innerW": 440,
+   "innerH": 894,
+   "outerH": 956,
+   "vvW": 440,
+   "vvH": 894,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 894,
+   "bodyClasses": "",
+   "kbInset": "415px",
+   "activeElementTag": "BODY",
+   "activeElementId": null,
+   "activeElementType": null,
+   "orientation": "portrait",
+   "tabbarTop": 798,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 0,
+   "safeBottom": 34,
+   "safeLeft": 0,
+   "drawerId": "profile-drawer",
+   "drawerTop": null,
+   "drawerBottom": null,
+   "drawerLeft": null,
+   "drawerRight": null,
+   "drawerHeight": null,
+   "backdropId": null,
+   "backdropTop": null,
+   "backdropBottom": null,
+   "backdropHeight": null,
+   "drawerScrollHeight": null,
+   "drawerClientHeight": null,
+   "drawerMaxHeightPx": null,
+   "baseVh": "894px",
+   "mainColInert": false,
+   "mainColScrollTop": 0,
+   "activeRectTop": 0,
+   "activeRectBottom": 894,
+   "kbH": 415
+  },
+  {
+   "t": 7279,
    "type": "vv-resize",
    "innerW": 440,
    "innerH": 894,
@@ -60,8 +105,8 @@
    "vvScale": 1,
    "scrollY": 0,
    "docClientH": 894,
-   "bodyClasses": "kb-open",
-   "kbInset": "0px",
+   "bodyClasses": "",
+   "kbInset": "415px",
    "activeElementTag": "BODY",
    "activeElementId": null,
    "activeElementType": null,
@@ -86,14 +131,14 @@
    "drawerClientHeight": null,
    "drawerMaxHeightPx": null,
    "baseVh": "894px",
-   "mainColInert": true,
+   "mainColInert": false,
    "mainColScrollTop": 0,
    "activeRectTop": 0,
    "activeRectBottom": 894,
-   "kbH": 0
+   "kbH": 415
   },
   {
-   "t": 7746,
+   "t": 7279,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -102,7 +147,7 @@
    "vvOffsetTop": 0,
    "vvOffsetLeft": 0,
    "vvScale": 1,
-   "kbInset": "0px",
+   "kbInset": "415px",
    "orientation": "portrait",
    "tabbarTop": 798,
    "tabbarHeight": 75,
@@ -116,104 +161,13 @@
    "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
    "tabbarGap": 21,
    "kbHeightCalc": 0,
-   "sheetLiftCss": "415",
+   "sheetLiftCss": "0",
    "sheetRestBottom": 886,
    "safeTop": 0,
    "safeBottom": 34
   },
   {
-   "t": 7760,
-   "type": "tabbar-restore",
-   "innerW": 440,
-   "innerH": 894,
-   "outerH": 956,
-   "vvW": 440,
-   "vvH": 894,
-   "vvOffsetTop": 0,
-   "vvOffsetLeft": 0,
-   "vvScale": 1,
-   "scrollY": 0,
-   "docClientH": 894,
-   "bodyClasses": "",
-   "kbInset": "0px",
-   "activeElementTag": "BODY",
-   "activeElementId": null,
-   "activeElementType": null,
-   "orientation": "portrait",
-   "tabbarTop": 798,
-   "tabbarHeight": 75,
-   "safeTop": 0,
-   "safeRight": 0,
-   "safeBottom": 34,
-   "safeLeft": 0,
-   "drawerId": "profile-drawer",
-   "drawerTop": null,
-   "drawerBottom": null,
-   "drawerLeft": null,
-   "drawerRight": null,
-   "drawerHeight": null,
-   "backdropId": null,
-   "backdropTop": null,
-   "backdropBottom": null,
-   "backdropHeight": null,
-   "drawerScrollHeight": null,
-   "drawerClientHeight": null,
-   "drawerMaxHeightPx": null,
-   "baseVh": "894px",
-   "mainColInert": false,
-   "mainColScrollTop": 0,
-   "activeRectTop": 0,
-   "activeRectBottom": 894,
-   "kbH": 0,
-   "msAfterFocusout": 61
-  },
-  {
-   "t": 7760,
-   "type": "sheet-close",
-   "innerW": 440,
-   "innerH": 894,
-   "outerH": 956,
-   "vvW": 440,
-   "vvH": 894,
-   "vvOffsetTop": 0,
-   "vvOffsetLeft": 0,
-   "vvScale": 1,
-   "scrollY": 0,
-   "docClientH": 894,
-   "bodyClasses": "",
-   "kbInset": "0px",
-   "activeElementTag": "BODY",
-   "activeElementId": null,
-   "activeElementType": null,
-   "orientation": "portrait",
-   "tabbarTop": 798,
-   "tabbarHeight": 75,
-   "safeTop": 0,
-   "safeRight": 0,
-   "safeBottom": 34,
-   "safeLeft": 0,
-   "drawerId": "profile-drawer",
-   "drawerTop": null,
-   "drawerBottom": null,
-   "drawerLeft": null,
-   "drawerRight": null,
-   "drawerHeight": null,
-   "backdropId": null,
-   "backdropTop": null,
-   "backdropBottom": null,
-   "backdropHeight": null,
-   "drawerScrollHeight": null,
-   "drawerClientHeight": null,
-   "drawerMaxHeightPx": null,
-   "baseVh": "894px",
-   "mainColInert": false,
-   "mainColScrollTop": 0,
-   "activeRectTop": 0,
-   "activeRectBottom": 894,
-   "kbH": 0
-  },
-  {
-   "t": 7898,
+   "t": 7431,
    "type": "kb-geometry",
    "innerW": 440,
    "innerH": 894,
@@ -222,7 +176,7 @@
    "vvOffsetTop": 0,
    "vvOffsetLeft": 0,
    "vvScale": 1,
-   "kbInset": "0px",
+   "kbInset": "415px",
    "orientation": "portrait",
    "tabbarTop": 798,
    "tabbarHeight": 75,
@@ -242,7 +196,7 @@
    "safeBottom": 34
   },
   {
-   "t": 7940,
+   "t": 7470,
    "type": "sheet-anim",
    "innerW": 440,
    "innerH": 894,
@@ -255,7 +209,7 @@
    "scrollY": 0,
    "docClientH": 894,
    "bodyClasses": "",
-   "kbInset": "0px",
+   "kbInset": "415px",
    "activeElementTag": "BODY",
    "activeElementId": null,
    "activeElementType": null,
@@ -284,59 +238,59 @@
    "mainColScrollTop": 0,
    "activeRectTop": 0,
    "activeRectBottom": 894,
-   "kbH": 0,
+   "kbH": 415,
    "frames": 11,
-   "maxGapMs": 17,
-   "durationMs": 186,
+   "maxGapMs": 37,
+   "durationMs": 200,
    "samples": [
     [
-     7,
-     806
+     0,
+     601
     ],
     [
-     24,
-     1065
+     37,
+     1022
     ],
     [
-     36,
-     1218
+     49,
+     1183
     ],
     [
-     53,
-     1382
+     66,
+     1349
     ],
     [
-     69,
-     1494
+     83,
+     1475
     ],
     [
-     86,
-     1579
+     100,
+     1566
     ],
     [
-     102,
-     1637
+     116,
+     1627
     ],
     [
-     119,
-     1680
+     133,
+     1674
     ],
     [
-     136,
-     1709
+     150,
+     1705
     ],
     [
-     153,
-     1727
+     166,
+     1724
     ],
     [
-     169,
-     1735
+     183,
+     1734
     ]
    ],
    "phase": "close",
-   "jumpMaxPx": 259,
-   "gapNoLayoutMs": 17,
+   "jumpMaxPx": 421,
+   "gapNoLayoutMs": 37,
    "drawerHeightRest": 329,
    "drawerHeightKb": 329,
    "firstOfKind": true
