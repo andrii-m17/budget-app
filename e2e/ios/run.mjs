@@ -83,7 +83,7 @@ async function pass(d, map, cfg, sh0, rep){
   if(sh.switchVia === 'arrow'){ // стрілка «Наступне» панелі над клавіатурою: її нема в DOM, шукаємо від верху нативної клавіатури
     const kt = await L.keyboardTopNative(d);
     if(kt != null) await L.tapScreen(d, map.win.width * 0.255, kt - 52); else sw.why.push('верх клавіатури в нативному дереві не знайдено');
-  }else if(!(land && sh.f2 === sh.f1)) await L.tapSelector(d, map, sh.f2); // ландшафт, одне поле: повторний дотик не потрібен (поле вже у фокусі; верх листа за краєм екрана)
+  }else if(!(land && sh.f2 === sh.f1)){ if(land){ await L.toWeb(d); await d.execute(q => { const e = document.querySelector(q); if(e) e.scrollIntoView({ block: 'center' }); }, sh.f2); await pause(400); } await L.tapSelector(d, map, sh.f2); } // UI-1: у ландшафті лист має внутрішню прокрутку — друге поле спершу прокручуємо в видиму область, як зробив би користувач // ландшафт, одне поле: повторний дотик не потрібен (поле вже у фокусі; верх листа за краєм екрана)
   await pause(1500);
   const m2 = await L.metrics(d, sh.sel, sh.f2), ev2 = await L.eventsSince(d, mk2);
   if(first) f2.push(await L.shot(d, name('switch-after')));

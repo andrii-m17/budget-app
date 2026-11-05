@@ -1,0 +1,302 @@
+{
+ "iphone-landscape/login/light": {
+  "m": {
+   "left": 16,
+   "right": 940,
+   "width": 924,
+   "top": -47.59375,
+   "bottom": 278,
+   "height": 325.59375,
+   "innerW": 956,
+   "innerH": 378,
+   "scrollH": 329,
+   "clientH": 326
+  },
+  "file": "before-iphone-landscape-login-light.jpg"
+ },
+ "iphone-landscape/card/light": {
+  "m": {
+   "left": 16,
+   "right": 940,
+   "width": 924,
+   "top": -47.59375,
+   "bottom": 278,
+   "height": 325.59375,
+   "innerW": 956,
+   "innerH": 378,
+   "scrollH": 468,
+   "clientH": 326
+  },
+  "file": "before-iphone-landscape-card-light.jpg"
+ },
+ "iphone-landscape/mono/light": {
+  "m": {
+   "left": 16,
+   "right": 940,
+   "width": 924,
+   "top": -47.59375,
+   "bottom": 278,
+   "height": 325.59375,
+   "innerW": 956,
+   "innerH": 378,
+   "scrollH": 527,
+   "clientH": 326
+  },
+  "file": "before-iphone-landscape-mono-light.jpg"
+ },
+ "iphone-landscape/income/light": {
+  "m": {
+   "left": 16,
+   "right": 940,
+   "width": 924,
+   "top": 33,
+   "bottom": 278,
+   "height": 245,
+   "innerW": 956,
+   "innerH": 378,
+   "scrollH": 245,
+   "clientH": 245
+  },
+  "file": "before-iphone-landscape-income-light.jpg"
+ },
+ "iphone-landscape/login/dark": {
+  "m": {
+   "left": 16,
+   "right": 940,
+   "width": 924,
+   "top": -47.59375,
+   "bottom": 278,
+   "height": 325.59375,
+   "innerW": 956,
+   "innerH": 378,
+   "scrollH": 329,
+   "clientH": 326
+  },
+  "file": "before-iphone-landscape-login-dark.jpg"
+ },
+ "iphone-landscape/card/dark": {
+  "m": {
+   "left": 16,
+   "right": 940,
+   "width": 924,
+   "top": -47.59375,
+   "bottom": 278,
+   "height": 325.59375,
+   "innerW": 956,
+   "innerH": 378,
+   "scrollH": 468,
+   "clientH": 326
+  },
+  "file": "before-iphone-landscape-card-dark.jpg"
+ },
+ "iphone-landscape/mono/dark": {
+  "m": {
+   "left": 16,
+   "right": 940,
+   "width": 924,
+   "top": -47.59375,
+   "bottom": 278,
+   "height": 325.59375,
+   "innerW": 956,
+   "innerH": 378,
+   "scrollH": 527,
+   "clientH": 326
+  },
+  "file": "before-iphone-landscape-mono-dark.jpg"
+ },
+ "iphone-landscape/income/dark": {
+  "m": {
+   "left": 16,
+   "right": 940,
+   "width": 924,
+   "top": 33,
+   "bottom": 278,
+   "height": 245,
+   "innerW": 956,
+   "innerH": 378,
+   "scrollH": 245,
+   "clientH": 245
+  },
+  "file": "before-iphone-landscape-income-dark.jpg"
+ },
+ "ipad-landscape/login/light": {
+  "m": {
+   "left": 16,
+   "right": 804,
+   "width": 788,
+   "top": 719,
+   "bottom": 1048,
+   "height": 329,
+   "innerW": 820,
+   "innerH": 1148,
+   "scrollH": 329,
+   "clientH": 329
+  },
+  "file": "before-ipad-landscape-login-light.jpg"
+ },
+ "ipad-landscape/card/light": {
+  "m": {
+   "left": 16,
+   "right": 804,
+   "width": 788,
+   "top": 580,
+   "bottom": 1048,
+   "height": 468,
+   "innerW": 820,
+   "innerH": 1148,
+   "scrollH": 468,
+   "clientH": 468
+  },
+  "file": "before-ipad-landscape-card-light.jpg"
+ },
+ "ipad-landscape/login/dark": {
+  "m": {
+   "left": 16,
+   "right": 804,
+   "width": 788,
+   "top": 719,
+   "bottom": 1048,
+   "height": 329,
+   "innerW": 820,
+   "innerH": 1148,
+   "scrollH": 329,
+   "clientH": 329
+  },
+  "file": "before-ipad-landscape-login-dark.jpg"
+ },
+ "ipad-landscape/card/dark": {
+  "m": {
+   "left": 16,
+   "right": 804,
+   "width": 788,
+   "top": 580,
+   "bottom": 1048,
+   "height": 468,
+   "innerW": 820,
+   "innerH": 1148,
+   "scrollH": 468,
+   "clientH": 468
+  },
+  "file": "before-ipad-landscape-card-dark.jpg"
+ },
+ "iphone-portrait/login/light": {
+  "m": {
+   "left": 16,
+   "right": 424,
+   "width": 408,
+   "top": 451,
+   "bottom": 780,
+   "height": 329,
+   "innerW": 440,
+   "innerH": 894,
+   "scrollH": 329,
+   "clientH": 329
+  },
+  "file": "before-iphone-portrait-login-light.jpg"
+ },
+ "iphone-portrait/card/light": {
+  "m": {
+   "left": 16,
+   "right": 424,
+   "width": 408,
+   "top": 312,
+   "bottom": 780,
+   "height": 468,
+   "innerW": 440,
+   "innerH": 894,
+   "scrollH": 468,
+   "clientH": 468
+  },
+  "file": "before-iphone-portrait-card-light.jpg"
+ },
+ "iphone-portrait/login/dark": {
+  "m": {
+   "left": 16,
+   "right": 424,
+   "width": 408,
+   "top": 451,
+   "bottom": 780,
+   "height": 329,
+   "innerW": 440,
+   "innerH": 894,
+   "scrollH": 329,
+   "clientH": 329
+  },
+  "file": "before-iphone-portrait-login-dark.jpg"
+ },
+ "iphone-portrait/card/dark": {
+  "m": {
+   "left": 16,
+   "right": 424,
+   "width": 408,
+   "top": 312,
+   "bottom": 780,
+   "height": 468,
+   "innerW": 440,
+   "innerH": 894,
+   "scrollH": 468,
+   "clientH": 468
+  },
+  "file": "before-iphone-portrait-card-dark.jpg"
+ },
+ "ipad-portrait/login/light": {
+  "m": {
+   "left": 16,
+   "right": 804,
+   "width": 788,
+   "top": 719,
+   "bottom": 1048,
+   "height": 329,
+   "innerW": 820,
+   "innerH": 1148,
+   "scrollH": 329,
+   "clientH": 329
+  },
+  "file": "before-ipad-portrait-login-light.jpg"
+ },
+ "ipad-portrait/card/light": {
+  "m": {
+   "left": 16,
+   "right": 804,
+   "width": 788,
+   "top": 580,
+   "bottom": 1048,
+   "height": 468,
+   "innerW": 820,
+   "innerH": 1148,
+   "scrollH": 468,
+   "clientH": 468
+  },
+  "file": "before-ipad-portrait-card-light.jpg"
+ },
+ "ipad-portrait/login/dark": {
+  "m": {
+   "left": 16,
+   "right": 804,
+   "width": 788,
+   "top": 719,
+   "bottom": 1048,
+   "height": 329,
+   "innerW": 820,
+   "innerH": 1148,
+   "scrollH": 329,
+   "clientH": 329
+  },
+  "file": "before-ipad-portrait-login-dark.jpg"
+ },
+ "ipad-portrait/card/dark": {
+  "m": {
+   "left": 16,
+   "right": 804,
+   "width": 788,
+   "top": 580,
+   "bottom": 1048,
+   "height": 468,
+   "innerW": 820,
+   "innerH": 1148,
+   "scrollH": 468,
+   "clientH": 468
+  },
+  "file": "before-ipad-portrait-card-dark.jpg"
+ }
+}

@@ -2014,6 +2014,13 @@
      екрана" лишається чинною). Коли клавіатури нема — --kb-inset≈0,
      жодного впливу на звичайний вигляд. */
   .drawer.open{ transform:translateY(0); bottom:var(--drawer-bottom-base); }
+  /* Rev 2.32.249 (UI-1): ландшафт на сенсорних пристроях (iPhone, iPad до 1279 пт) — лист такої ж ширини, як у портреті цього пристрою (--portrait-w = коротша сторона екрана, ставить JS; бокові відступи ті самі 16 пт), по центру. Висота не більша за видиму область (--base-vh): вміст прокручується всередині листа, шапка лишається зверху. З клавіатурою діє html.kb-sheet нижче (--sheet-max-h), конвеєр не чіпали. Нових розмірів немає: 16 пт і 20 пт — наявні. Ризик: iPad у режимі Split View (ширше вікно) — ширина обмежується min(100vw). Альтернатива (JS-розрахунок ширини на кожен лист) відкинута: дублювала б логіку. */
+  @media (orientation:landscape) and (pointer:coarse) and (max-width:1279px){
+    .drawer{ left:max(16px, calc((100vw - var(--portrait-w, 100vw)) / 2 + 16px)); right:max(16px, calc((100vw - var(--portrait-w, 100vw)) / 2 + 16px)); max-height:calc(var(--base-vh, 100vh) - var(--drawer-bottom-base) - env(safe-area-inset-top, 0px) - 12px); }
+    .drawer .drawer-handle{ position:relative; z-index:4; }
+    .drawer .drawer-head{ position:sticky; top:0; z-index:3; background:var(--color-surface); box-shadow:0 -20px 0 var(--color-surface); }
+    html.kb-sheet .drawer .drawer-head{ position:static; box-shadow:none; }
+  }
   /* Rev 2.23.9 (6D.178) — ЄДИНИЙ контролер клавіатури (Режим A, типовий,
      index.html, enterKbSheet()/updateKbSheetGeometry()/exitKbSheet()):
      html.kb-sheet додається СИНХРОННО на focusin поля ВСЕРЕДИНІ шторки —
@@ -3827,7 +3834,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.248</div>
+  <div class="version-footer">Money Tree · Rev 2.32.249</div>
 </div>
   </div>
 </div>
@@ -9665,7 +9672,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.248';
+const APP_VERSION = '2.32.249';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -29302,6 +29309,7 @@ function getBaseViewportHeight(){
   const key = viewportOrientationKey(window.innerWidth, window.innerHeight);
   return baseViewportHeightByOrientation[key] || window.innerHeight;
 }
+try{ if(typeof screen !== 'undefined' && screen.width && screen.height) document.documentElement.style.setProperty('--portrait-w', Math.min(screen.width, screen.height) + 'px'); }catch(e){}
 noteViewportHeightIfKeyboardClosed(); // ініціалізація одразу при завантаженні — kb-open ще не існує (false), клавіатури напевно нема.
 function isKeyboardLikelyClosed(baseViewportHeight, visualViewportHeight){
   return (baseViewportHeight - visualViewportHeight) < 100;
@@ -29361,6 +29369,8 @@ function updateViewportDiagnosticVars(){
   noteViewportHeightIfKeyboardClosed();
   document.documentElement.style.setProperty('--vv-offset-top', Math.round(window.visualViewport.offsetTop) + 'px');
   document.documentElement.style.setProperty('--base-vh', getBaseViewportHeight() + 'px');
+  // Rev 2.32.249 (UI-1): коротша сторона екрана = ширина екрана в портреті; CSS у ландшафті бере з неї ширину листів.
+  if(typeof screen !== 'undefined' && screen.width && screen.height) document.documentElement.style.setProperty('--portrait-w', Math.min(screen.width, screen.height) + 'px');
   if(kbSheetActive) updateKbSheetGeometry();
 }
 if(window.visualViewport){
