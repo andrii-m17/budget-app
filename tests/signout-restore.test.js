@@ -149,3 +149,10 @@ test('W3: слово видаляється за id або cloudId; бекап �
 test('W3: removeTrashLocally запам\'ятовує expense/income/word (і чуже видалення при reconcile)', function(){
   assert.match(SRC, /rememberPurgedRecord\(type, arr\[at\]\.id, arr\[at\]\.cloudId\)/);
 });
+
+test('SIGNOUT-2: SDK Supabase закріплено на точній версії (не плаваюче @2), адреса незмінна', function(){
+  const m = SRC.match(/const SUPABASE_SDK_CDN_URL = '([^']+)'/);
+  assert.ok(m, 'адреса SDK знайдена');
+  assert.match(m[1], /^https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@\d+\.\d+\.\d+\/dist\/umd\/supabase\.min\.js$/);
+  assert.ok(m[1].indexOf('@2/') === -1);
+});

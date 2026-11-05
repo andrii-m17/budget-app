@@ -3834,7 +3834,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.251</div>
+  <div class="version-footer">Money Tree · Rev 2.32.252</div>
 </div>
   </div>
 </div>
@@ -9672,7 +9672,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.251';
+const APP_VERSION = '2.32.252';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11264,7 +11264,8 @@ function clearAllData(){
    правила "лише IndexedDB", що вже узгоджений для theme/draft (нефінансові,
    ефемерні для бізнес-логіки дані). Жодного виклику до жодної з таблиць
    проєкту тут немає — лише supabase.auth.*. */
-const SUPABASE_SDK_CDN_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+// Rev 2.32.252 (SIGNOUT-2): точна версія SDK. Було `@2` (плаваюча): jsdelivr віддає такий URL з max-age=7 днів, тож телефон міг тримати стару 2.x до тижня, а тести бачили свіжу; крім того, чужий код оновлювався непомітно. Точна версія: незмінний URL (immutable, рік), однакова в застосунку й тестах. Оновлення SDK — окремий Rev з прогоном e2e:cloud. Service Worker SDK не кешує (кешує лише свій origin). Ризик: без оновлення SDK не отримує виправлень безпеки автоматично.
+const SUPABASE_SDK_CDN_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js';
 const SUPABASE_PROJECT_URL = 'https://nbykagbcvjryxiaxqwbk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ieWthZ2JjdmpyeXhpYXhxd2JrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3NjA2NjEsImV4cCI6MjEwNTMzNjY2MX0.JDT57OofJ_m2Xq4Vv9sZODTKx54AoKhURYAbg5Bz8qg';
 
