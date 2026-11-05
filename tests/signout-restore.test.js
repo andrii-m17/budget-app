@@ -36,6 +36,7 @@ const LS = {
 function signOutSandbox(opts){
   const o = opts || {};
   const calls = [];
+  const globals_inserts = [];
   const storage = fakeStorage(Object.fromEntries(Object.values(LS).map(function(k){ return [k, '"данi A"']; })));
   storage.setItem('budget_theme_v1', 'dark'); storage.setItem('budget_migration_status_v1', '{"categories":true}');
   const idbRemoved = [];
@@ -50,8 +51,10 @@ function signOutSandbox(opts){
     debugRecordingActive: false, performance: { now: function(){ return 0; } },
     showTextToast: function(t){ calls.push('toast'); },
     location: { reload: function(){ calls.push('reload'); } },
+    isCloudWriteReady: function(){ return true; }, buildDebugLogDevice: function(){ return { ua: 'x' }; }, APP_VERSION: '9.9.9', SUPABASE_SDK_CDN_URL: 'https://cdn/x@2.119.0/y.js', cloudFamilyId: 'F', inserts: [],
     getSupabaseClient: function(){
       return {
+        from: function(t){ return { insert: async function(row){ calls.push('insert:' + t); globals_inserts.push(row); return { error: null }; } }; },
         auth: {
           signOut: async function(){ calls.push('signOut'); },
           getSession: async function(){ return { data: { session: o.stillSignedIn ? { user: { id: 'A' } } : null } }; },
@@ -59,8 +62,8 @@ function signOutSandbox(opts){
       };
     },
   }, Object.fromEntries(Object.entries(LS)));
-  const c = buildSandbox(globals, ['accountLocalStorageKeys', 'clearLocalAccountData', 'revokeDevicePushSubscription', 'performSignOut']);
-  return { c, storage, calls, idbRemoved };
+  const c = buildSandbox(globals, ['accountLocalStorageKeys', 'clearLocalAccountData', 'revokeDevicePushSubscription', 'reportSignOutFallback', 'performSignOut']);
+  return { c, storage, calls, idbRemoved, inserts: globals_inserts };
 }
 test('W1: clearLocalAccountData прибирає всі ключі акаунта, лишає тему й статус міграції, чистить IndexedDB мігрованих доменів', async function(){
   const { c, storage, idbRemoved } = signOutSandbox();
@@ -77,7 +80,12 @@ test('W1: performSignOut — порядок: підписка → signOut → о
   assert.equal(ok.storage.getItem(LS.LS_KEY_EXP), null);
   const fail = signOutSandbox({ stillSignedIn: true });
   await fail.c.performSignOut();
-  assert.deepEqual(fail.calls, ['signOut', 'signOut', 'toast']); // Rev 2.32.251: після збою — повторний локальний вихід, помилка лише якщо й він не допоміг
+  assert.deepEqual(fail.calls, ['signOut', 'insert:client_debug_logs', 'signOut', 'toast']);
+  assert.equal(fail.inserts.length, 1); // один запис на збій, без запису діагностики
+  assert.equal(fail.inserts[0].scenario, 'signout-fallback');
+  assert.equal(fail.inserts[0].events[0].type, 'signout-fallback');
+  assert.equal(fail.inserts[0].events[0].app, '9.9.9');
+  assert.ok(!JSON.stringify(fail.inserts[0]).match(/token/i)); // Rev 2.32.251: після збою — повторний локальний вихід, помилка лише якщо й він не допоміг
   assert.notEqual(fail.storage.getItem(LS.LS_KEY_EXP), null); // нічого не очищено, якщо вийти не вдалось
 });
 test('W2: усі LS_KEY_* (крім теми й статусу міграції) входять у список очищення', function(){

@@ -13616,6 +13616,17 @@ async function revokeDevicePushSubscription(){
   }catch(e){}
   return unsubscribed;
 }
+// Rev 2.32.251 (SIGNOUT-1): збій глобального виходу пишеться в client_debug_logs АВТОМАТИЧНО (без увімкненого запису діагностики), один запис на збій, до 4 с (вихід не чекає довше). Поля без значень токенів: назва й статус помилки, стан мережі, адреса SDK (версія в ній), версія застосунку. Без Cloud-сесії або в режимі «лише перегляд» не пишеться. Ризик: запис сам потребує сесії, яка в цьому стані діюча; якщо запис не вдався — мовчимо (вихід важливіший).
+async function reportSignOutFallback(client, err){
+  try{
+    if(!isCloudWriteReady()) return;
+    const ev = { type: 'signout-fallback', errName: err ? String(err.name || err.code || 'error').slice(0, 60) : null, status: err && typeof err.status === 'number' ? err.status : null, online: navigator.onLine, sdk: (window.supabase && window.supabase.version) || null, sdkUrl: SUPABASE_SDK_CDN_URL, app: APP_VERSION };
+    await Promise.race([
+      Promise.resolve(client.from('client_debug_logs').insert({ family_id: cloudFamilyId, user_id: cloudSession.user.id, app_version: APP_VERSION, scenario: 'signout-fallback', device: buildDebugLogDevice(), events: [ev] })),
+      new Promise(function(res){ setTimeout(res, 4000); }),
+    ]);
+  }catch(e){}
+}
 async function performSignOut(){
   const unsubscribed = await revokeDevicePushSubscription();
   const client = getSupabaseClient();
@@ -13625,9 +13636,9 @@ async function performSignOut(){
   let stillIn = false;
   try{ const r = await client.auth.getSession(); stillIn = !!(r && r.data && r.data.session); }catch(e){}
   if(stillIn){
+    await reportSignOutFallback(client, soErr); // Rev 2.32.251: один запис у client_debug_logs, поки сесія ще діюча
     try{ const r1 = await client.auth.signOut({ scope: 'local' }); if(r1 && r1.error && !soErr) soErr = r1.error; }catch(e){ if(!soErr) soErr = e; }
     try{ const r = await client.auth.getSession(); stillIn = !!(r && r.data && r.data.session); }catch(e){ stillIn = false; }
-    try{ if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'signout-fallback', globalFailed: true, localOk: !stillIn, errName: soErr ? String(soErr.name || soErr.code || 'error').slice(0, 40) : null, status: soErr && soErr.status ? soErr.status : null, online: navigator.onLine }); }catch(e){}
   }
   if(stillIn){ showTextToast('Не вдалося вийти — перевірте з\'єднання', 'error'); return; }
   const cleared = await clearLocalAccountData();
