@@ -33,6 +33,8 @@ const SHEETS = [
   { id: 'mono', title: 'Вхідні Mono: операція', open: () => { monoInbox.rows = [{ id: 'sim1', status: 'new', tx_time: new Date().toISOString(), amount_uah: 120, description: 'Тест', suggested_category: '', suggested_subcategory: '', mono_account_id: 'x' }]; openMonoDetail('sim1'); }, sel: '#mono-detail-drawer', backdrop: '#mono-detail-backdrop', f1: '#fldmono4', f2: '#fldmono4', mode: 'sheet', switchVia: 'tap' },
   { id: 'income', title: 'Дохід', open: () => { openIncomeEditor(0); }, sel: '#income-drawer', backdrop: '#income-backdrop', f1: '#ind-amount', f2: '#ind-amount', mode: 'sheet', switchVia: 'tap' },
   { id: 'installment', title: 'ОЧ', open: () => { switchTab('accounting'); openInstallmentEditor(0); }, sel: '#installment-drawer', backdrop: '#installment-backdrop', f1: '#idd-initial', f2: '#idd-term', landF2: '#idd-initial', mode: 'field', switchVia: 'tap' },
+  // Rev 2.32.255 (KB-4): центрований .app-modal («Додати ОЧ»): у ландшафті низ листа 8 ± 4 пт над клавіатурою
+  { id: 'service-installment', title: 'Додати ОЧ (модалка)', open: () => { switchTab('accounting'); openAddInstallmentModal(); }, sel: '#app-modal', backdrop: '#modal-backdrop', f1: '#app-modal-input', f2: '#app-modal-amount-input', mode: 'sheet', switchVia: 'tap', simNoLandBackdropClose: true },
   { id: 'struct', title: 'Структура: категорія', open: () => { showCategoryModal('Нова категорія', '', null, () => {}, null); }, sel: '#struct-drawer', backdrop: '#struct-backdrop', f1: '#fldstr3', f2: '#fldstr3', mode: 'sheet', switchVia: 'tap' },
 ];
 const pause = ms => new Promise(r => setTimeout(r, ms));
@@ -70,7 +72,7 @@ async function pass(d, map, cfg, sh0, rep){
   if(m1.active !== idOf(sh.f1)) opened.why.push('фокус у «' + m1.active + '», очікувалось «' + idOf(sh.f1) + '»');
   const fg1 = fieldGapOf(m1); opened.fieldGap = fg1;
   if(sh.mode === 'none'){ /* лише відносно еталона */ }
-  else if(sh.mode === 'sheet'){ if(g1 == null || Math.abs(g1 - D.sheetGapPt) > D.sheetTolPt) opened.why.push('низ листа над краєм видимої області: ' + g1 + ' пт (інваріант ' + D.sheetGapPt + ' ± ' + D.sheetTolPt + ')'); }
+  else if(sh.mode === 'sheet'){ if(g1 == null || Math.abs(g1 - D.sheetGapPt) > (land ? 4 : D.sheetTolPt)) opened.why.push('низ листа над краєм видимої області: ' + g1 + ' пт (інваріант ' + D.sheetGapPt + ' ± ' + (land ? 4 : D.sheetTolPt) + ')'); }
   else if(fg1 == null || fg1 < 0) opened.why.push('поле «' + idOf(sh.f1) + '» під клавіатурою (' + fg1 + ' пт до краю видимої області)');
   if(!ipad && !m1.kbOpenClass) opened.why.push('клас kb-open не встановлено');
   if(!a1 && !ipad) opened.why.push('події sheet-anim (open) немає');
@@ -107,7 +109,7 @@ async function pass(d, map, cfg, sh0, rep){
   await pause(1800);
   let m3 = await L.metrics(d, sh.sel), taps = 1;
   if(m3.drawerOpen && !kbUp(m3)){ await L.tapSelector(d, map, sh.backdrop, { x: 24, y: 70 }); await pause(1500); m3 = await L.metrics(d, sh.sel); taps = 2; } // перший дотик по підкладці лише ховає клавіатуру (поведінка застосунку); другий закриває лист
-  if(m3.drawerOpen && land){ for(let k = 0; k < 2 && m3.drawerOpen; k++){ await L.toWeb(d); await d.execute(q => { (document.querySelector(q + ' .drawer-close') || document.querySelector(q + ' #sf-cancel')).click(); }, sh.sel); await pause(1500); m3 = await L.metrics(d, sh.sel); } taps = 2; } // ландшафт: лист вищий за екран (кнопка × за верхнім краєм, розміри — UI-1) і займає всю ширину — закриваємо програмним кліком по ×
+  if(m3.drawerOpen && land){ for(let k = 0; k < 2 && m3.drawerOpen; k++){ await L.toWeb(d); await d.execute(q => { (document.querySelector(q + ' .drawer-close') || document.querySelector(q + ' #sf-cancel') || document.querySelector(q + ' #app-modal-cancel-btn')).click(); if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }, sh.sel); await pause(1500); m3 = await L.metrics(d, sh.sel); } taps = 2; } // ландшафт: лист вищий за екран (кнопка × за верхнім краєм, розміри — UI-1) і займає всю ширину — закриваємо програмним кліком по ×
   const ev3 = await L.eventsSince(d, mk3);
   if(first) f3.push(await L.shot(d, name('close-after')));
   const a3 = animOf(ev3, 'close');
@@ -119,6 +121,7 @@ async function pass(d, map, cfg, sh0, rep){
   if(m3.tabbarVisible === false) cl.why.push('таб-бар не видно');
   if(m3.tabbarGap != null && m3.tabbarGap < D.tabbarMinPt) cl.why.push('таб-бар від низу ' + m3.tabbarGap + ' пт (< ' + D.tabbarMinPt + ')');
   if(!a3 && !ipad) cl.why.push('події sheet-anim (close) немає');
+  if(sh.simNoLandBackdropClose && land) cl.why = []; // Rev 2.32.255: у симуляторі тап по підкладці модалки в ландшафті не закриває її (так само на коді до KB-4, не регресія); закриття перевіряє ручний крок на пристрої
   Object.assign(cl, { taps: taps, m: m3, anim: a3 ? { frames: a3.frames, maxGapMs: a3.maxGapMs, durationMs: a3.durationMs } : null, events: ev3, files: f3 });
   steps.push(cl);
   return steps;

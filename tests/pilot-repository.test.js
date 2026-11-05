@@ -5123,7 +5123,7 @@ function keyboardInsetSandbox(){
     'computeKeyboardHeight', 'isKeyboardOpen', 'nextBaseVh', 'estimateKeyboardHeight',
     'shouldBlockTouchMove', 'keyboardKindForField',
     'computeSheetLift', 'shouldForceTransfer', 'downsampleSheetAnimPairs',
-    'computeSheetMaxHeight', 'planSheetClose',
+    'computeSheetMaxHeight', 'computeCenteredRestBottom', 'planSheetClose',
     'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor', 'shouldTransfer',
     'countKbBlips', 'planTabbarRestore', 'planCaretRestore', 'resolveDebugScenario',
   ]);
@@ -5417,7 +5417,7 @@ function kbSheetSandbox(opts){
     'enterKbSheet', 'kbEnsureFieldVisible', 'kbRestBottomLayout', 'kbPipeStep', 'KB_PIPE', 'KB_PIPE_WAIT_MS', 'kbCacheKindForField', 'kbHeightKey', 'kbHeightsLoad', 'kbHeightsSave', 'kbHeightFromStore', 'KB_HEIGHTS_KEY', 'kbPipeOpenNow', 'kbPipeEnter', 'kbPipeTryAnimate', 'kbPipeKick', 'kbPipeAnimate', 'kbPipeFollow', 'kbVvTopCloseFollow', 'KB_CLOSE_FOLLOW', 'kbIsIphone', 'kbgDeviceClass', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle', 'shouldReleaseKbOpen', // Rev 2.23.30 (6D.199)
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
-    'computeSheetLift', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
+    'computeSheetLift', 'computeCenteredRestBottom', 'kbEffectiveRestBottom', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf',
     'focusWithoutScrollIfSupported',
@@ -5621,14 +5621,14 @@ test('перемикання між полями ТІЄЇ Ж шторки (ві�
   assert.equal(debugEvents.filter(function(e){ return e.type === 'sheet-close'; }).length, 0);
   assert.equal(debugEvents.filter(function(e){ return e.type === 'sheet-open'; }).length, 1);
 });
-test('перемикання на поле ІНШОГО типу клавіатури (числова→текстова): --sheet-lift одразу перераховано за оцінкою нового типу, kb-sheet лишається', () => {
+test('перемикання на поле ІНШОГО типу клавіатури (числова→текстова): без оцінки нового типу (Rev 2.32.255), --sheet-lift лишається, поки не прийде живий visualViewport, kb-sheet лишається', () => {
   const { ctx, docElStyle, docElClasses } = kbSheetSandbox();
   const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawerEl }));
   ctx.window.visualViewport.height = 505; ctx.updateKbSheetGeometry();
   assert.equal(docElStyle['--sheet-lift'], '283'); // numeric: 780-(505-8)
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', drawerEl: drawerEl }));
-  assert.equal(docElStyle['--kb-h'], '416px', 'оцінка нового типу для --kb-h/--sheet-max-h');
+  assert.equal(docElStyle['--kb-h'], '389px', 'Rev 2.32.255: оцінки нового типу нема — лишаються поточні виміряні значення, живий visualViewport доведе їх');
   assert.equal(docElClasses.has('kb-sheet'), true);
   // і назад: numeric
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawerEl }));
@@ -6836,4 +6836,15 @@ test('Rev 2.32.248: кеш висот у localStorage пишуть і iPhone, і
     const o = JSON.parse(ctx.localStorage._m['budget-kb-heights-v1']);
     assert.equal(Object.values(o)[0] === 111, !expectSaved, ua + ': ' + JSON.stringify(o)); // iPhone: значення лишилось 111; iPad: оновлено живою висотою
   }
+});
+
+test('KB-4: computeCenteredRestBottom — центрований лист скорочується від центру, низ у спокої піднімається на (природна − нова)/2', function(){
+  const ctx = keyboardInsetSandbox();
+  // портрет: лист влазить (272 ≤ 506−8) → низ не змінюється
+  assert.equal(ctx.computeCenteredRestBottom(325, 272, 506, 8), 325);
+  // ландшафт iPhone: vvH 130 → висота 122, низ піднімається на 75 (було: лист на 83 пт над клавіатурою замість 8)
+  assert.equal(ctx.computeCenteredRestBottom(325, 272, 130, 8), 250);
+  // порожні/нульові вхідні → без змін
+  assert.equal(ctx.computeCenteredRestBottom(325, 0, 130, 8), 325);
+  assert.equal(ctx.computeCenteredRestBottom(325, 272, 0, 8), 325);
 });

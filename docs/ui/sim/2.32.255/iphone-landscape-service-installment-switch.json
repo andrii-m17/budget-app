@@ -1,0 +1,338 @@
+{
+ "cfg": "iphone-landscape",
+ "id": "service-installment-switch",
+ "title": "Додати ОЧ (модалка): перемикання полів",
+ "why": [],
+ "note": "у еталоні сценарію немає",
+ "repeats": 2,
+ "anim": {
+  "frames": 19,
+  "maxGapMs": 51,
+  "durationMs": 725,
+  "jumpMaxPx": 1
+ },
+ "animPerRun": [
+  {
+   "frames": 19,
+   "maxGapMs": 51,
+   "durationMs": 725,
+   "jumpMaxPx": 1
+  }
+ ],
+ "fieldGapPerRun": [
+  55.9
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 55.9,
+ "m": {
+  "innerH": 378,
+  "innerW": 956,
+  "vvH": 139,
+  "vvTop": 0,
+  "vvBottom": 139,
+  "fieldBottom": 83.1,
+  "fieldTop": 38.4,
+  "sheetBottom": 131,
+  "sheetTop": 0,
+  "sheetH": 131,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "app-modal-amount-input",
+  "drawerOpen": false
+ },
+ "events": [
+  {
+   "t": 4785,
+   "type": "kb-geometry",
+   "innerW": 956,
+   "innerH": 378,
+   "vvW": 956,
+   "vvH": 130,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "248px",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "kbgWhy": "focus",
+   "devClass": "iPhone",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 0,
+   "sheetBottom": 122,
+   "sheetHeight": 122,
+   "fieldTop": 38.4,
+   "fieldBottom": 83.1,
+   "kbHeightCalc": 248,
+   "sheetLiftCss": "128",
+   "sheetRestBottom": 325,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 4897,
+   "type": "vv-resize",
+   "innerW": 956,
+   "innerH": 378,
+   "outerH": 440,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 378,
+   "bodyClasses": "kb-open",
+   "kbInset": "239px",
+   "activeElementTag": "INPUT",
+   "activeElementId": "app-modal-amount-input",
+   "activeElementType": "text",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 62,
+   "safeBottom": 20,
+   "safeLeft": 62,
+   "drawerId": null,
+   "drawerTop": null,
+   "drawerBottom": null,
+   "drawerLeft": null,
+   "drawerRight": null,
+   "drawerHeight": null,
+   "backdropId": "modal-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 378,
+   "backdropHeight": 378,
+   "drawerScrollHeight": null,
+   "drawerClientHeight": null,
+   "drawerMaxHeightPx": null,
+   "baseVh": "378px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 34,
+   "activeRectBottom": 79,
+   "kbH": 239
+  },
+  {
+   "t": 4897,
+   "type": "kb-geometry",
+   "innerW": 956,
+   "innerH": 378,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "239px",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "kbgWhy": "vv",
+   "devClass": "iPhone",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": -4.5,
+   "sheetBottom": 126.5,
+   "sheetHeight": 131,
+   "fieldTop": 33.9,
+   "fieldBottom": 78.6,
+   "kbHeightCalc": 239,
+   "sheetLiftCss": "128",
+   "sheetRestBottom": 325,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 5047,
+   "type": "kb-geometry",
+   "innerW": 956,
+   "innerH": 378,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "239px",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "kbgWhy": "vv-settled",
+   "devClass": "iPhone",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": -0.9,
+   "sheetBottom": 130.1,
+   "sheetHeight": 131,
+   "fieldTop": 37.5,
+   "fieldBottom": 82.2,
+   "kbHeightCalc": 239,
+   "sheetLiftCss": "123.5",
+   "sheetRestBottom": 325,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 5533,
+   "type": "sheet-anim",
+   "innerW": 956,
+   "innerH": 378,
+   "outerH": 440,
+   "vvW": 956,
+   "vvH": 139,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 378,
+   "bodyClasses": "kb-open",
+   "kbInset": "239px",
+   "activeElementTag": "INPUT",
+   "activeElementId": "app-modal-amount-input",
+   "activeElementType": "text",
+   "orientation": "landscape",
+   "tabbarTop": 282,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 62,
+   "safeBottom": 20,
+   "safeLeft": 62,
+   "drawerId": null,
+   "drawerTop": null,
+   "drawerBottom": null,
+   "drawerLeft": null,
+   "drawerRight": null,
+   "drawerHeight": null,
+   "backdropId": "modal-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 378,
+   "backdropHeight": 378,
+   "drawerScrollHeight": null,
+   "drawerClientHeight": null,
+   "drawerMaxHeightPx": null,
+   "baseVh": "378px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 38,
+   "activeRectBottom": 83,
+   "kbH": 239,
+   "frames": 19,
+   "maxGapMs": 72,
+   "durationMs": 742,
+   "samples": [
+    [
+     1,
+     127
+    ],
+    [
+     73,
+     127
+    ],
+    [
+     107,
+     127
+    ],
+    [
+     123,
+     127
+    ],
+    [
+     140,
+     127
+    ],
+    [
+     157,
+     128
+    ],
+    [
+     173,
+     128
+    ],
+    [
+     190,
+     129
+    ],
+    [
+     207,
+     129
+    ],
+    [
+     223,
+     130
+    ],
+    [
+     240,
+     130
+    ],
+    [
+     257,
+     130
+    ],
+    [
+     273,
+     130
+    ],
+    [
+     290,
+     130
+    ],
+    [
+     307,
+     131
+    ],
+    [
+     323,
+     131
+    ],
+    [
+     340,
+     131
+    ],
+    [
+     357,
+     131
+    ],
+    [
+     373,
+     131
+    ]
+   ],
+   "phase": "switch",
+   "jumpMaxPx": 1,
+   "gapNoLayoutMs": 72,
+   "drawerHeightRest": null,
+   "drawerHeightKb": 131,
+   "firstOfKind": true,
+   "settledY": 131,
+   "settleDeltaPx": 0
+  }
+ ],
+ "files": [
+  "iphone-landscape-service-installment-switch-before.jpg",
+  "iphone-landscape-service-installment-switch-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

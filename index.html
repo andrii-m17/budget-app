@@ -2093,7 +2093,8 @@
   html.kb-sheet-moving #income-drawer textarea, html.kb-sheet-moving #card-debt-drawer textarea, html.kb-sheet-moving #installment-drawer textarea{ caret-color:transparent; } /* Rev 2.30.0 (M4b): !important прибрано — селектор з #id (1,2,2) вищий за будь-яке правило, inline caret-color на textarea немає */
   html.kb-sheet.kb-sheet-switching .drawer.open{ transition:transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
   /* Rev 2.32.10 (C) — картки введення «Структури» (#app-modal з полями) — ті самі правила підйому, що шторки: transform = центрування (-50%,-50%) мінус --sheet-lift; вигляд без клавіатури не змінюється. */
-  html.kb-sheet .app-modal.open{ max-height:calc(var(--sheet-max-h, 80vh) - env(safe-area-inset-top, 0px)); transform:translate3d(-50%, calc(-50% - 1px * var(--sheet-lift, 0)), 0) scale(1); transition:transform 240ms cubic-bezier(0.22, 0.9, 0.3, 1); will-change:transform; }
+  /* Rev 2.32.255 (KB-4): max-height анімується тією ж кривою, що й підйом: центрований лист скорочується від центру, і без цього його низ стрибав на (Δвисоти)/2 раніше за підйом (перемикання текстове ↔ числове поле в ландшафті). */
+  html.kb-sheet .app-modal.open{ max-height:calc(var(--sheet-max-h, 80vh) - env(safe-area-inset-top, 0px)); transform:translate3d(-50%, calc(-50% - 1px * var(--sheet-lift, 0)), 0) scale(1); transition:transform 240ms cubic-bezier(0.22, 0.9, 0.3, 1), max-height 240ms cubic-bezier(0.22, 0.9, 0.3, 1); will-change:transform; }
   html.kb-sheet.kb-sheet-closing .app-modal.open{ transition:transform 250ms cubic-bezier(0.25, 0.1, 0.25, 1); }
   html.kb-sheet.kb-sheet-switching .app-modal.open{ transition:transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }
   html.kb-sheet-moving #app-modal input, html.kb-sheet-moving #app-modal textarea{ caret-color:transparent; }
@@ -3834,7 +3835,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.254</div>
+  <div class="version-footer">Money Tree · Rev 2.32.255</div>
 </div>
   </div>
 </div>
@@ -9672,7 +9673,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.254';
+const APP_VERSION = '2.32.255';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -28348,6 +28349,17 @@ function shouldForceTransfer(elapsedMs, maxMs){
 // шторки (naturalH) уже влазить у доступне місце (vvH - topGap) — повертає
 // РІВНО naturalH (0px зміни, жодного "зайвого" стиснення, навіть на 1-5px);
 // інакше обмежує доступним місцем (внутрішній скрол, як і раніше).
+// Rev 2.32.255 (KB-4): низ ЦЕНТРОВАНОГО листа (.app-modal, top:50% + translate(-50%)) у спокої залежить від його висоти: коли клавіатура стискає видиму область і max-height менший за природну висоту, лист скорочується ВІД ЦЕНТРУ, і його низ піднімається на (природна − нова)/2. Підйом раніше рахувався від низу при природній висоті, тож лист піднімався зависоко (ландшафт iPhone, «Додати ОЧ»: низ на 83 пт над клавіатурою замість 8, верх за краєм екрана). Тепер rest-низ береться за висотою, що лист матиме з клавіатурою. .drawer (прив'язаний знизу) не змінюється. Ризик: лист, що скорочується, рахується за формулою computeSheetMaxHeight — та сама, що задає --sheet-max-h; альтернатива (прив'язати модалку до низу) змінила б вигляд.
+function computeCenteredRestBottom(restBottom, naturalH, vvH, topGap){
+  if(!(naturalH > 0) || !(vvH > 0)) return restBottom;
+  const h = Math.min(naturalH, vvH - (topGap == null ? 8 : topGap));
+  return restBottom - (naturalH - Math.max(0, h)) / 2;
+}
+function kbEffectiveRestBottom(vvH){
+  const el = kbSheetDrawerEl;
+  if(!el || !el.classList || el.classList.contains('drawer')) return kbSheetRestBottom;
+  return computeCenteredRestBottom(kbSheetRestBottom, kbSheetNaturalHeight, vvH, 8);
+}
 function computeSheetMaxHeight(vvH, topGap, naturalH){
   const available = vvH - topGap;
   return (typeof naturalH === 'number' && naturalH <= available) ? naturalH : available;
@@ -28786,7 +28798,7 @@ function kbPipeAnimate(){
   const vv = window.visualViewport; if(!vv || !kbSheetDrawerEl) return;
   if(KB_PIPE.timer){ clearTimeout(KB_PIPE.timer); KB_PIPE.timer = null; }
   KB_PIPE.state = 'animating';
-  const L = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbSheetRestBottom, gap: 8 });
+  const L = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: 8 });
   kbSheetCurrentLift = L;
   document.documentElement.style.setProperty('--sheet-lift', String(Math.round(L * 10) / 10));
   if(kbSheetSplit){ KB_PIPE.vvtop = Math.round(vv.offsetTop * 10) / 10; document.documentElement.style.setProperty('--sheet-vvtop', String(KB_PIPE.vvtop)); }
@@ -28898,7 +28910,7 @@ function applyLiveSheetLift(){
   if(!kbSheetActive || !window.visualViewport) return;
   const vv = window.visualViewport, baseVh = getBaseViewportHeight();
   if(!isKeyboardOpen(baseVh, vv.height)) return;
-  const live = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbSheetRestBottom, gap: 8 });
+  const live = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: 8 });
   if(Math.abs(live - kbSheetCurrentLift) > 1){
     kbSheetCurrentLift = live;
     document.documentElement.style.setProperty('--sheet-lift', String(Math.round(live * 10) / 10));
@@ -29084,12 +29096,15 @@ function handleKeyboardFieldFocusIn(target){
       if(prevKind && newKind !== prevKind){
         const baseVh = getBaseViewportHeight();
         const orientKey = viewportOrientationKey(window.innerWidth, window.innerHeight);
-        const est = estimateKeyboardHeight(baseVh, newKind, keyboardHeightCache[orientKey]);
-        const vvEst = Math.max(0, baseVh - est);
-        document.documentElement.style.setProperty('--kb-h', est + 'px');
-        document.documentElement.style.setProperty('--vv-h', vvEst + 'px');
-        kbSheetCacheKind = kbCacheKindForField(target); // Rev 2.32.240: підйом доведе живий visualViewport (без оцінки)
-        document.documentElement.style.setProperty('--sheet-max-h', computeSheetMaxHeight(vvEst, 8, kbSheetNaturalHeight) + 'px');
+        // Rev 2.32.255 (KB-4): висоту нового типу клавіатури беремо лише з ВИМІРЯНОГО (кеш сесії або localStorage); оцінки за формулою більше нема. Оцінка для ландшафту була хибною (модалка «Додати ОЧ»: при перемиканні текстове ↔ числове поле max-height на мить ставав ~206 замість 131, низ листа на −34 пт, потім повертався: стрибок 37 пт). Без виміру лишаємо поточні значення — живий visualViewport resize доведе їх за кадр.
+        const known = (keyboardHeightCache[orientKey] && keyboardHeightCache[orientKey][newKind]) || kbHeightFromStore(orientKey, kbCacheKindForField(target));
+        if(known > 0){
+          const vvKnown = Math.max(0, baseVh - known);
+          document.documentElement.style.setProperty('--kb-h', known + 'px');
+          document.documentElement.style.setProperty('--vv-h', vvKnown + 'px');
+          document.documentElement.style.setProperty('--sheet-max-h', computeSheetMaxHeight(vvKnown, 8, kbSheetNaturalHeight) + 'px');
+        }
+        kbSheetCacheKind = kbCacheKindForField(target); // Rev 2.32.240: підйом доведе живий visualViewport
         kbSheetLiftDirty = true;
         beginSheetMoving(drawerEl, 'switch', fromField, target);
       }
