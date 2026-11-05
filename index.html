@@ -3834,7 +3834,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.249</div>
+  <div class="version-footer">Money Tree · Rev 2.32.250</div>
 </div>
   </div>
 </div>
@@ -9672,7 +9672,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.249';
+const APP_VERSION = '2.32.250';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -26436,6 +26436,7 @@ const CHECKS = [
   { id: '2.32.240-4', rev: '2.32.240', addedOn: '2026-11-02', title: 'Вхід на iPhone (потрібен iPhone)', steps: ['З вимкненим перемикачем «Нова формула клавіатури (iPhone)» відкрийте «Вхід» і торкніться поля.', 'Відкрийте картку боргу й торкніться поля суми.'], expect: 'картка входу стоїть над клавіатурою одним плавним рухом; картка боргу — як раніше.', reasons: ['Вхід смикається', 'Вхід схований під клавіатурою', 'Картка боргу змінилась'] },
   { id: '2.32.248-1', rev: '2.32.248', addedOn: '2026-11-05', title: 'iPhone: вхід, перехід email → пароль і назад, лист не стрибає', steps: ['Відкрийте «Вхід» і торкніться поля email.', 'Торкніться поля пароля, потім знову поля email.'], expect: 'лист стоїть рівно над клавіатурою, не стрибає й не закривається при переходах між полями.', reasons: ['Лист стрибає', 'Лист закрився або клавіатура зникла'] },
   { id: '2.32.248-2', rev: '2.32.248', addedOn: '2026-11-05', title: 'iPad: картка боргу й поле суми', steps: ['Відкрийте «Облік» і картку боргу.', 'Торкніться поля суми.'], expect: 'лист стоїть над клавіатурою, поле суми видно.', reasons: ['Лист закритий клавіатурою', 'Лист стрибає'] },
+  { id: '2.32.250-1', rev: '2.32.250', addedOn: '2026-11-05', title: 'iPhone: вхід, дотик у поле пароля, сторінка не миготить', steps: ['Відкрийте «Вхід» і торкніться поля email.', 'Торкніться поля пароля.'], expect: 'сторінка за листом не миготить і не зсувається, курсор з\'являється одразу в полі пароля.', reasons: ['Сторінка миготить', 'Курсор з\'являється із запізненням'] },
 ];
 function checksReadState(){
   try{ const o = JSON.parse(localStorage.getItem(CHECKS_STATE_KEY) || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }catch(e){ return {}; }
@@ -27955,7 +27956,8 @@ function shouldBlockTouchMove(scrollTop, scrollHeight, clientHeight, deltaY){
 // пікер ОС — проксі-фокус їм не потрібен і не повинен застосовуватись.
 function isTapTargetField(el){
   if(!el || typeof el.matches !== 'function') return false;
-  return el.matches('input[type="text"], input[type="tel"], input[type="number"], input[type="email"], input[type="search"], textarea');
+  // Rev 2.32.250 (LOGIN-1): + type="password". Раніше тап по полю пароля не перехоплювався (switch-native): iOS сам центрував поле й панорамував сторінку (миготіння), а перехід між полями проганяв проміжне поле (фокус ×3 за 10 мс, миготіння курсора). Тепер пароль іде тим самим шляхом, що решта полів. Ризик: перше відкриття листа дотиком просто в поле пароля тепер теж через проміжне поле (як для email); альтернатива — лишити нативним (збережене миготіння).
+  return el.matches('input[type="text"], input[type="tel"], input[type="number"], input[type="email"], input[type="password"], input[type="search"], textarea');
 }
 // shouldInterceptTap — чиста функція (винесена для тестів). targetKind:
 // 'field' лише коли isTapTargetField()===true; inSheet: isFieldInsideDrawer()
