@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.256';
+const CACHE_NAME = 'budget-app-v2.32.257';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -279,36 +279,47 @@ self.addEventListener('notificationclick', function(event){
   event.waitUntil(
     persist.then(function(){
       return self.clients.matchAll({ type: 'window' }).then(function(clientsArr){
-        for(const c of clientsArr){
-          if('focus' in c){
-            if(notifData.type) c.postMessage({ type: 'push-action', action: notifData });
-            return Promise.resolve(c.focus()).then(function(){ return 'ok'; }, function(){ return 'fail'; }).then(function(res){
-              if(notifData.type) try{ c.postMessage({ type: 'push-click-info', pushType: notifData.type, clients: clientsArr.length, focus: res }); }catch(e){}
-            });
-          }
+        // Rev 2.32.257 (PUSH-1): раніше фокусувалося ПЕРШЕ вікно зі списку, а якщо focus() відхилявся (згорнуте/застаріле вікно iOS) — нічого не відбувалося (ні переходу, ні нового вікна). Тепер: видимі вікна першими; дія надсилається КОЖНОМУ вікну (сторінка відсікає дублі за міткою _at); focus() пробується по черзі до першого успішного; якщо жодне не сфокусувалось — запасне openWindow з тим самим URL, що й для холодного старту. Ризик: за наявності кількох живих вікон дія надійде всім (дубль гаситься міткою). Альтернатива (лише перше вікно) лишала збій.
+        const ordered = clientsArr.filter(function(c){ return 'focus' in c; }).sort(function(x, y){ return (y.visibilityState === 'visible' ? 1 : 0) - (x.visibilityState === 'visible' ? 1 : 0); });
+        if(ordered.length){
+          if(notifData.type) ordered.forEach(function(c){ try{ c.postMessage({ type: 'push-action', action: notifData }); }catch(e){} });
+          let idx = 0;
+          const tryFocus = function(){
+            if(idx >= ordered.length) return Promise.resolve(null);
+            const c = ordered[idx++];
+            return Promise.resolve().then(function(){ return c.focus(); }).then(function(){ return c; }, function(){ return tryFocus(); });
+          };
+          return tryFocus().then(function(done){
+            if(notifData.type) try{ (done || ordered[0]).postMessage({ type: 'push-click-info', pushType: notifData.type, clients: clientsArr.length, focus: done ? 'ok' : 'fail' }); }catch(e){}
+            if(done) return null;
+            return openForPush(notifData); // жодне вікно не сфокусувалось
+          });
         }
-        let url = './';
-        if(notifData.type){
-          url = './index.html?pushAction=' + encodeURIComponent(notifData.type);
-          if(notifData.installmentId) url += '&installmentId=' + encodeURIComponent(notifData.installmentId);
-          if(Array.isArray(notifData.installmentIds) && notifData.installmentIds.length) url += '&installmentIds=' + encodeURIComponent(notifData.installmentIds.join(',')); // Rev 2.32.203 (PUSH-TAP): кілька ОЧ у нагадуванні
-          if(notifData.target) url += '&target=' + encodeURIComponent(notifData.target);
-          // Rev 2.32.163 (ACTOR-HL): записи зі сповіщення про дії іншого учасника для холодного старту. URL не розростається: коротка форма «e:id,id;i:id;d:id» лише коли вміщається (≤ 330 символів), інакше тільки pushId (клієнт читає ids із user_notifications). Повний notifData у IndexedDB і postMessage і так несе ids.
-          if(notifData.ids && typeof notifData.ids === 'object'){
-            const parts = [['e', 'expenses'], ['i', 'incomes'], ['d', 'debts']].filter(function(p){ return Array.isArray(notifData.ids[p[1]]) && notifData.ids[p[1]].length; }).map(function(p){ return p[0] + ':' + notifData.ids[p[1]].filter(function(x){ return typeof x === 'string'; }).join(','); });
-            const compact = parts.join(';');
-            if(compact && compact.length <= 330) url += '&ids=' + encodeURIComponent(compact);
-          }
-          if(notifData.push_id) url += '&pushId=' + encodeURIComponent(notifData.push_id);
-          if(notifData.tag) url += '&tag=' + encodeURIComponent(notifData.tag); // Rev 2.32.161 (NOTIF-ROUTE): щоденне нагадування відрізняється від пачки й при холодному старті
-          if(notifData.batch_ts) url += '&batchTs=' + encodeURIComponent(notifData.batch_ts); // Rev 2.32.95 (NOTIF-1 Rev 2): пачка Monobank для підсвітки при холодному старті
-          if(notifData._at) url += '&at=' + encodeURIComponent(notifData._at); // Rev 2.23.31 (6D.200): куди веде зведення (journal/accounting/debts)
-        }
-        if(self.clients.openWindow) return self.clients.openWindow(url);
+        return openForPush(notifData);
       });
     })
   );
 });
+function openForPush(notifData){
+  let url = './';
+  if(notifData.type){
+    url = './index.html?pushAction=' + encodeURIComponent(notifData.type);
+    if(notifData.installmentId) url += '&installmentId=' + encodeURIComponent(notifData.installmentId);
+    if(Array.isArray(notifData.installmentIds) && notifData.installmentIds.length) url += '&installmentIds=' + encodeURIComponent(notifData.installmentIds.join(',')); // Rev 2.32.203 (PUSH-TAP): кілька ОЧ у нагадуванні
+    if(notifData.target) url += '&target=' + encodeURIComponent(notifData.target);
+    // Rev 2.32.163 (ACTOR-HL): записи зі сповіщення про дії іншого учасника для холодного старту. URL не розростається: коротка форма «e:id,id;i:id;d:id» лише коли вміщається (≤ 330 символів), інакше тільки pushId (клієнт читає ids із user_notifications). Повний notifData у IndexedDB і postMessage і так несе ids.
+    if(notifData.ids && typeof notifData.ids === 'object'){
+      const parts = [['e', 'expenses'], ['i', 'incomes'], ['d', 'debts']].filter(function(p){ return Array.isArray(notifData.ids[p[1]]) && notifData.ids[p[1]].length; }).map(function(p){ return p[0] + ':' + notifData.ids[p[1]].filter(function(x){ return typeof x === 'string'; }).join(','); });
+      const compact = parts.join(';');
+      if(compact && compact.length <= 330) url += '&ids=' + encodeURIComponent(compact);
+    }
+    if(notifData.push_id) url += '&pushId=' + encodeURIComponent(notifData.push_id);
+    if(notifData.tag) url += '&tag=' + encodeURIComponent(notifData.tag); // Rev 2.32.161 (NOTIF-ROUTE): щоденне нагадування відрізняється від пачки й при холодному старті
+    if(notifData.batch_ts) url += '&batchTs=' + encodeURIComponent(notifData.batch_ts); // Rev 2.32.95 (NOTIF-1 Rev 2): пачка Monobank для підсвітки при холодному старті
+    if(notifData._at) url += '&at=' + encodeURIComponent(notifData._at); // Rev 2.23.31 (6D.200): куди веде зведення (journal/accounting/debts)
+  }
+  if(self.clients.openWindow) return self.clients.openWindow(url);
+}
 
 self.addEventListener('activate', function(event){
   event.waitUntil(

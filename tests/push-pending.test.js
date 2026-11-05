@@ -139,10 +139,10 @@ test('P1: відкриття зі сповіщення без відомого �
 test('P: sw.js — мітка _at, postMessage + діагностика push-click-info, query at; решта без змін', function(){
   const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
   assert.match(sw, /if\(notifData\.type\) notifData\._at = Date\.now\(\);/);
-  assert.match(sw, /type: 'push-click-info', pushType: notifData\.type, clients: clientsArr\.length, focus: res/);
+  assert.match(sw, /type: 'push-click-info', pushType: notifData\.type, clients: clientsArr\.length, focus: done \? 'ok' : 'fail'/); // Rev 2.32.257 (PUSH-1)
   assert.match(sw, /url \+= '&at=' \+ encodeURIComponent\(notifData\._at\)/);
-  assert.match(sw, /if\(notifData\.type\) c\.postMessage\(\{ type: 'push-action', action: notifData \}\);/);
-  assert.match(sw, /self\.clients\.openWindow\(url\)/);
+  assert.match(sw, /c\.postMessage\(\{ type: 'push-action', action: notifData \}\)/);
+  assert.match(sw, /self\.clients\.openWindow\(url\)/); assert.match(sw, /openForPush\(notifData\)/);
 });
 test('P: усі три входи (query, IndexedDB, message) йдуть через queuePushAction; події push-msg/push-apply/push-click', function(){
   assert.match(SRC, /queuePushAction\(\{ type: pushActionType,/);
