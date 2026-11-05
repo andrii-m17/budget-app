@@ -13,15 +13,25 @@ function fakeStorage(init){
 }
 
 // ---------- чисті рішення ----------
-test('shouldOfferBackupBeforeSignOut: порожньо / старіше 7 днів / зламана дата — пропонуємо; свіжа — ні', function(){
-  const c = buildSandbox({}, ['BACKUP_STALE_DAYS', 'shouldOfferBackupBeforeSignOut', 'signOutConfirmText']);
-  const now = Date.parse('2026-10-10T12:00:00Z');
-  assert.equal(c.shouldOfferBackupBeforeSignOut(null, now), true);
-  assert.equal(c.shouldOfferBackupBeforeSignOut('нісенітниця', now), true);
-  assert.equal(c.shouldOfferBackupBeforeSignOut('2026-10-02T12:00:00Z', now), true);
-  assert.equal(c.shouldOfferBackupBeforeSignOut('2026-10-05T12:00:00Z', now), false);
-  assert.match(c.signOutConfirmText(false), /у хмарі вони лишаються/);
-  assert.match(c.signOutConfirmText(true), /копі/);
+test('SIGNOUT-2: діалог виходу без збереження копії; перед виходом досилання незбережених змін і попередження', async function(){
+  const c = buildSandbox({}, ['signOutConfirmText']);
+  assert.match(c.signOutConfirmText(), /у хмарі вони лишаються/);
+  assert.ok(!/копі/.test(c.signOutConfirmText()));
+  assert.match(SRC, /Деякі зміни ще не відправлено на сервер\. Якщо вийти зараз, вони зникнуть з цього телефона\./);
+  assert.ok(!/downloadBackupBlob|shouldOfferBackupBeforeSignOut/.test(SRC.match(/async function signOutCloudAccount\(\)\{[\s\S]*?\n\}/)[0]));
+  const mk = function(o){
+    const calls = [];
+    const g = { calls, expenses: o.stale ? [{ updatedAt: 'b', syncedUpdatedAt: 'a' }] : [], incomes: [], debts: [], navigator: { onLine: o.online !== false },
+      isCloudWriteReady: function(){ return true; },
+      autoSyncStale: async function(){ calls.push('flush'); if(o.flushOk){ g.expenses.splice(0); } },
+      getSupabaseClient: function(){ return { auth: { getSession: async function(){ return o.sessErr ? { data: { session: null }, error: { name: 'AuthRetryableFetchError' } } : { data: { session: {} } }; } } }; } };
+    return { g, c: buildSandbox(g, ['isStaleRecord', 'autoSyncPlan', 'signOutPreflight']), calls };
+  };
+  let t = mk({ stale: false });  assert.deepEqual(JSON.parse(JSON.stringify(await t.c.signOutPreflight())), { pending: 0, offline: false }); assert.deepEqual(JSON.parse(JSON.stringify(t.calls)), []);
+  t = mk({ stale: true, flushOk: true }); assert.deepEqual(JSON.parse(JSON.stringify(await t.c.signOutPreflight())), { pending: 0, offline: false }); assert.deepEqual(JSON.parse(JSON.stringify(t.calls)), ['flush']);
+  t = mk({ stale: true, flushOk: false }); assert.deepEqual(JSON.parse(JSON.stringify(await t.c.signOutPreflight())), { pending: 1, offline: false });
+  t = mk({ stale: true, online: false }); assert.deepEqual(JSON.parse(JSON.stringify(await t.c.signOutPreflight())), { pending: 1, offline: true }); assert.deepEqual(JSON.parse(JSON.stringify(t.calls)), []);
+  t = mk({ stale: false, sessErr: true }); assert.deepEqual(JSON.parse(JSON.stringify(await t.c.signOutPreflight())), { pending: 0, offline: true });
 });
 
 // ---------- W1/W2: вихід A -> вхід B ----------

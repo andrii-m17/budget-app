@@ -3834,7 +3834,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.253</div>
+  <div class="version-footer">Money Tree · Rev 2.32.254</div>
 </div>
   </div>
 </div>
@@ -9672,7 +9672,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.253';
+const APP_VERSION = '2.32.254';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13575,15 +13575,33 @@ async function signInCloudAccount(){
   const pwAfter = document.getElementById('cloud-password'); if(pwAfter) pwAfter.value = '';
 }
 // Rev 2.32.22 (W, A1-1) — вихід з акаунта. Раніше лише auth.signOut(): дані, журнали purged, маркери, cloudId і push-підписка лишались, тож при вході в іншу родину дані A потрапляли в родину B, а пристрій і далі отримував сповіщення A. Тепер: діалог (з пропозицією копії, якщо last_backup_at старший за 7 днів чи порожній) -> видалення власної push-підписки (Cloud + браузер) -> signOut -> очищення локальних даних акаунта -> перезапуск (чисте початкове завантаження з дефолтами). У хмарі дані лишаються. Альтернатива «пам'ятати family_id і чистити при вході в іншу» не прибирала б чужі дані з пристрою до наступного входу.
-const BACKUP_STALE_DAYS = 7;
-function shouldOfferBackupBeforeSignOut(lastBackupAt, nowMs){
-  if(!lastBackupAt) return true;
-  const t = Date.parse(lastBackupAt);
-  if(isNaN(t)) return true;
-  return (nowMs - t) > BACKUP_STALE_DAYS * 24 * 3600 * 1000;
+// Rev 2.32.254 (SIGNOUT-2): збереження файлу копії з діалогу виходу прибрано (власник: дані й так на сервері; з'явилось у Rev 2.32.22 (W, A1-1), коли вихід почав очищати дані пристрою, — тоді копія страхувала ще не відправлені зміни). Страховку заміняє автоматичне досилання незбережених змін перед виходом і одне попередження, якщо не вдалось.
+function signOutConfirmText(){
+  return 'Вийти? Дані цього пристрою буде очищено; у хмарі вони лишаються.';
 }
-function signOutConfirmText(stale){
-  return 'Вийти? Дані цього пристрою буде очищено; у хмарі вони лишаються.' + (stale ? ' Резервної копії давно не було (чи її ще немає) — спершу буде збережено файл копії.' : '');
+const SIGNOUT_UNSENT_TEXT = 'Деякі зміни ще не відправлено на сервер. Якщо вийти зараз, вони зникнуть з цього телефона.';
+const SIGNOUT_OFFLINE_TEXT = 'Немає зв\'язку із сервером. Якщо вийти зараз, доступ цього телефона на сервері не буде скасовано, поки не мине термін сесії.';
+// Перед виходом: (1) автоматично досилає незбережені зміни (витрати, доходи, борги; категорії, рахунки, ОЧ і словник синхронізуються одразу при зміні, окремого списку «незбережених» для них нема — обмеження), (2) перевіряє, що сесія жива й сервер досяжний (getSession сам оновлює токен; помилка мережі = «офлайн»). Повертає { pending, offline }; нічого не показує.
+async function signOutPreflight(){
+  let pending = 0;
+  try{
+    const plan = autoSyncPlan({ expenses: expenses, incomes: incomes, debts: debts });
+    pending = plan.pending;
+    if(pending && navigator.onLine && isCloudWriteReady()){
+      try{ showTextToast('Відправляю зміни…', 'info'); }catch(e){}
+      await Promise.race([autoSyncStale('signout'), new Promise(function(res){ setTimeout(res, 8000); })]); // не довше 8 с; незавершене = попередження
+      pending = autoSyncPlan({ expenses: expenses, incomes: incomes, debts: debts }).pending;
+    }
+  }catch(e){ pending = Math.max(pending, 1); }
+  let offline = !navigator.onLine;
+  if(!offline){
+    try{
+      // getSession при недосяжному сервері довго повторює запит (кілька секунд) — чекаємо не довше 4 с, після цього вважаємо «офлайн»
+      const r = await Promise.race([getSupabaseClient().auth.getSession(), new Promise(function(res){ setTimeout(function(){ res({ error: { name: 'AuthRetryableFetchError' } }); }, 4000); })]);
+      if(r && r.error && /Retryable|Fetch/i.test(String(r.error.name || ''))) offline = true;
+    }catch(e){ offline = true; }
+  }
+  return { pending: pending, offline: offline };
 }
 // Ключі локального сховища, що належать акаунту/родині (тема й статус міграції сховища лишаються — не дані акаунта).
 function accountLocalStorageKeys(){
@@ -13664,13 +13682,15 @@ async function performSignOut(){
 async function signOutCloudAccount(){
   if(!isSupabaseSdkReady()) return;
   if(typeof closeProfileMenu === 'function') closeProfileMenu();
-  let last = null;
-  try{ await loadNotificationSettings(); last = notificationSettings && !notificationSettingsReadOnly ? notificationSettings.last_backup_at : null; }catch(e){}
-  const stale = shouldOfferBackupBeforeSignOut(last, Date.now());
-  showConfirmModal(signOutConfirmText(stale), async function(){
-    if(stale){ try{ downloadBackupBlob('MoneyTree-бекап-' + localDateISO() + '.json'); }catch(e){} }
+  showConfirmModal(signOutConfirmText(), async function(){
+    const pre = await signOutPreflight();
+    if(pre.pending > 0 || pre.offline){
+      // одне попередження (наявний діалог): «Вийти все одно» або «Скасувати»
+      showConfirmModal(pre.pending > 0 ? SIGNOUT_UNSENT_TEXT : SIGNOUT_OFFLINE_TEXT, function(){ performSignOut(); }, 'Вийти все одно');
+      return;
+    }
     await performSignOut();
-  }, stale ? 'Зберегти копію й вийти' : 'Вийти');
+  }, 'Вийти');
 }
 
 /* ============ Діагностика даних (Rev 2.16.0, ROADMAP п.20) ============
