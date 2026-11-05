@@ -3835,7 +3835,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.255</div>
+  <div class="version-footer">Money Tree · Rev 2.32.256</div>
 </div>
   </div>
 </div>
@@ -9673,7 +9673,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.255';
+const APP_VERSION = '2.32.256';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -29386,19 +29386,36 @@ function isKeyboardLikelyClosed(baseViewportHeight, visualViewportHeight){
   return (baseViewportHeight - visualViewportHeight) < 100;
 }
 // Rev 2.32.248 (KB-2): запобіжник знімав kb-open і закривав конвеєр на ОДНОМУ кадрі visualViewport.height ≈ base (у вході на кроці після передачі фокуса приходило 894→506→479→826→479: 826 — тимчасовий викид, клавіатура лишалась). Тепер «клавіатура закрита» підтверджується повторним вимірюванням через KB_CLOSE_CONFIRM_MS: якщо область знову стиснута — нічого не знімаємо. Справжнє приховування жестом (Баг 2) спрацьовує з затримкою 250 мс. Ризик: запізніле зняття лише в рідкісному жесті; альтернатива (не знімати за активного поля) повернула б «підвислий» kb-open.
+// Rev 2.32.256 (KB-3, діагностична): затримку повернено до 250 мс (1000 мс давало видимий побічний ефект: лист висів у повітрі після приховування клавіатури). Поведінка клавіатури не змінена. Додано лише записи в діагностику, щоб побачити послідовність при Face ID/панелі паролів: kb-win-focus/kb-win-blur (вікно), kb-visibility (visibilitychange), kb-vv-resize (висота visualViewport) — кожен із t (мс), hasFocus, activeElement і vvH; плюс kb-transient-hide (скільки тривало зникнення). Гіпотеза для перевірки: Face ID перекриває застосунок — вікно втрачає фокус при активному полі; своє приховування клавіатури — поле втрачає фокус. Ризик: лише записи під час запису діагностики. Альтернатива (затримка за часом) відкинута.
 const KB_CLOSE_CONFIRM_MS = 250;
 let kbCloseConfirmTimer = null;
+let kbHiddenSince = 0;
+// Rev 2.32.256 (KB-3): легкі записи для розрізнення Face ID й власного приховування клавіатури (лише під час запису діагностики; поведінку не змінюють).
+function kbWinDiag(type){
+  try{
+    if(typeof debugRecordingActive === 'undefined' || !debugRecordingActive) return;
+    const ae = document.activeElement, vv = window.visualViewport;
+    pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: type, hasFocus: document.hasFocus(), visibility: document.visibilityState, activeElementTag: ae ? ae.tagName : null, activeElementId: ae ? (ae.id || null) : null, vvH: vv ? Math.round(vv.height) : null, kbOpen: document.body.classList.contains('kb-open') });
+  }catch(e){}
+}
+window.addEventListener('focus', function(){ kbWinDiag('kb-win-focus'); });
+window.addEventListener('blur', function(){ kbWinDiag('kb-win-blur'); });
+document.addEventListener('visibilitychange', function(){ kbWinDiag('kb-visibility'); });
+if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){ kbWinDiag('kb-vv-resize'); });
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', function(){
-    if(!document.body.classList.contains('kb-open')) return;
+    if(!document.body.classList.contains('kb-open')){ kbHiddenSince = 0; return; }
     if(!isKeyboardLikelyClosed(getBaseViewportHeight(), window.visualViewport.height)){
       if(kbCloseConfirmTimer){ clearTimeout(kbCloseConfirmTimer); kbCloseConfirmTimer = null; }
+      if(kbHiddenSince){ try{ captureDebugGeometry('kb-transient-hide', { ms: Math.round(performance.now() - kbHiddenSince) }); }catch(e){} kbHiddenSince = 0; }
       return;
     }
+    if(!kbHiddenSince) kbHiddenSince = performance.now();
     // Rev 2.32.248 (KB-2, уточнення): затримка лише коли фокус лишився в полі (підозра на хибний кадр висоти); якщо поле вже втратило фокус і нового немає — справжнє закриття, опускаємо одразу.
     const ae = document.activeElement;
     const focusStays = !!(ae && ae !== document.body && ae.matches && ae.matches('input, textarea, select, [contenteditable="true"]'));
     if(!focusStays){
+      kbHiddenSince = 0;
       if(kbCloseConfirmTimer){ clearTimeout(kbCloseConfirmTimer); kbCloseConfirmTimer = null; }
       document.body.classList.remove('kb-open');
       setDrawerKeyboardBackgroundLock(false);
@@ -29410,6 +29427,7 @@ if(window.visualViewport){
       kbCloseConfirmTimer = null;
       if(!document.body.classList.contains('kb-open')) return;
       if(!isKeyboardLikelyClosed(getBaseViewportHeight(), window.visualViewport.height)) return;
+      kbHiddenSince = 0;
       document.body.classList.remove('kb-open');
       // Rev 2.23.4 (6D.173) — той самий запобіжник, що focusout вище:
       // якщо focusout НЕ спрацював (WebKit Баг 2, 6D.52 — клавіатуру
