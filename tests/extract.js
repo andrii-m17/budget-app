@@ -93,7 +93,7 @@ function buildSandbox(globals, names){
   // (тест може передати власні версії в globals).
   vm.runInContext("if(typeof isWriteBlocked === 'undefined') var isWriteBlocked = function(){ return false; };"
     + "if(typeof blockedByReadOnly === 'undefined') var blockedByReadOnly = function(){ return false; };"
-    + "if(typeof READONLY_USER_HINT === 'undefined') var READONLY_USER_HINT = 'x';"
+    + "if(typeof READONLY_USER_HINT === 'undefined') this.READONLY_USER_HINT = 'x';" // OPS-1: не var — інакше const READONLY_USER_HINT з index.html дає SyntaxError «already declared» у Node 22 (CI)
     + "if(typeof isCloudWriteReady === 'undefined') var isCloudWriteReady = function(){ return !isWriteBlocked() && (typeof isCloudSessionReady === 'function' ? isCloudSessionReady() : false); };", context);
   // Rev 2.32.192 (SHADOW-REV): тіньові помічники обліку версій викликаються з push/save-функцій; додаємо їх у кожен sandbox автоматично (тести не мусять перелічувати їх у NAMES).
   const SHADOW = ['shadowNormalize', 'shadowNormalizeLazy', 'shadowNormalizeList', 'shadowNormalizeMap', 'shadowNormalizeAll', 'shadowSnap', 'shadowSetServer', 'shadowAfterPush', 'shadowRet', 'shadowServerAt', 'shadowServerDeleted', 'shadowAdoptDeleted', 'shadowDirtyNew', 'shadowDirtyOld', 'shadowDiffCounts', 'shadowDiffReport',
