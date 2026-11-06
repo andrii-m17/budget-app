@@ -14,7 +14,7 @@ module.exports = defineConfig({
   workers: 1,
   reporter: [['list']],
   expect: { timeout: 8000 },
-  use: { ...devices['iPhone 14'], baseURL: 'http://127.0.0.1:' + PORT, screenshot: 'only-on-failure', trace: 'off', serviceWorkers: 'block' },
+  use: { ...devices['iPhone 14'], baseURL: 'http://127.0.0.1:' + PORT, screenshot: 'only-on-failure', trace: process.env.CI ? 'retain-on-failure' : 'off', serviceWorkers: 'block' },
   projects: [
     { name: 'dark', use: { colorScheme: 'dark' } },
     { name: 'light', use: { colorScheme: 'light' }, grep: /@both/ }, // світла тема: лише сценарії, чутливі до розкладки

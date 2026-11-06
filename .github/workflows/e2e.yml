@@ -1,0 +1,38 @@
+# OPS-1 (Rev 2.32.263): повний E2E у WebKit (npm run e2e) автоматично після кожного пушу в main. Секретів немає (мок Cloud, мережа Supabase не потрібна).
+# Знімки й трасування лише при падінні (артефакт e2e-results, 7 днів). Appium і webdriverio (симулятор) у CI не ставляться.
+name: e2e
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Юніт-тести
+        run: node --test
+      - name: Залежності (лише Playwright)
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));delete p.devDependencies.appium;delete p.devDependencies.webdriverio;fs.writeFileSync('package.json',JSON.stringify(p,null,1))"
+          npm install --no-package-lock --no-audit --no-fund
+      - name: Браузер WebKit
+        run: npx playwright install --with-deps webkit
+      - name: Повний E2E
+        run: npm run e2e
+        env:
+          CI: 'true'
+      - name: Знімки й трасування при падінні
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: e2e-results
+          retention-days: 7
