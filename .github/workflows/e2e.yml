@@ -1,6 +1,7 @@
 # OPS-1 (Rev 2.32.263): повний E2E у WebKit (npm run e2e) автоматично після кожного пушу в main. Секретів немає (мок Cloud, мережа Supabase не потрібна).
 # Знімки й трасування лише при падінні (артефакт e2e-results, 7 днів). Appium і webdriverio (симулятор) у CI не ставляться.
 name: e2e
+# ubuntu-24.04, а не latest: latest мігрує на Ubuntu 26, де встановлення залежностей WebKit зависало (прогін 21:41, понад 24 хв).
 on:
   push:
     branches: [main]
@@ -10,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +25,7 @@ jobs:
           node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));delete p.devDependencies.appium;delete p.devDependencies.webdriverio;fs.writeFileSync('package.json',JSON.stringify(p,null,1))"
           npm install --no-package-lock --no-audit --no-fund
       - name: Браузер WebKit
+        timeout-minutes: 10
         run: npx playwright install --with-deps webkit
       - name: Повний E2E
         run: npm run e2e
