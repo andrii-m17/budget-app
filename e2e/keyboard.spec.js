@@ -148,3 +148,30 @@ test('40. Android: закриття листа при offsetTop 330→0 — бе
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--sheet-vvtop').trim()), 'зсув обнулено').toBe('0');
   } finally { await ctx.close(); }
 });
+
+// KB-8 (Rev 2.32.261): звіт MT-1106-6914 (iPhone, 2.32.260): на початку відкриття нижній лист стрибав на 106 пт вниз (низ 780 → 886, перший семпл анімації [14, 886]), при закритті на 106 пт угору (365 → 780).
+// Причина: body.kb-open міняє --drawer-bottom-base 100 → 8, а шторки, що успадковують базу, миттєво змінюють свій layout-bottom (106 пт = зона таб-бару) до початку transform-анімації. Тест на справжній розмітці WebKit:
+// для КОЖНОЇ .drawer низ у стані «відкрито» не залежить від body.kb-open (±2 пт), тож перший кадр відкриття = положення до дотику, а перший кадр закриття = положення відкритого листа.
+test('41. KB-8: низ кожного нижнього листа не залежить від body.kb-open (немає миттєвого стрибка на 106 пт при відкритті й закритті)', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], 0, true);
+  try{
+    const res = await page.evaluate(() => {
+      const out = [];
+      document.querySelectorAll('.drawer').forEach(function(d){
+        d.classList.add('open');
+        document.body.classList.remove('kb-open'); void d.offsetHeight;
+        const off = d.getBoundingClientRect().bottom;
+        document.body.classList.add('kb-open'); void d.offsetHeight;
+        const on = d.getBoundingClientRect().bottom;
+        document.body.classList.remove('kb-open'); d.classList.remove('open');
+        out.push({ id: d.id, off: Math.round(off * 10) / 10, on: Math.round(on * 10) / 10 });
+      });
+      return out;
+    });
+    expect(res.length).toBeGreaterThan(5);
+    const bad = res.filter(r => Math.abs(r.on - r.off) > 2);
+    expect(bad, 'листи зі зсувом низу при kb-open: ' + JSON.stringify(bad)).toEqual([]);
+    expect(res.some(r => r.id === 'profile-drawer')).toBe(true);
+    expect(res.some(r => r.id === 'mono-detail-drawer')).toBe(true);
+  }finally{ await ctx.close(); }
+});

@@ -2074,7 +2074,8 @@
      custom properties не мають способу "проігнорувати" конкретного предка
      в ланцюгу успадкування, лише revert до POTENTIAL кореня, який тут і
      так дає body.kb-open. */
-  #income-drawer.open, #card-debt-drawer.open, #installment-drawer.open, #struct-drawer.open{
+  /* Rev 2.32.261 (KB-8): звіт MT-1106-6914 (iPhone): profile-drawer і mono-detail-drawer (та решта нижніх листів) досі успадковували --drawer-bottom-base, тож body.kb-open (таб-бар ховається) миттєво зсував їхній layout-низ на 106 пт: при відкритті 780 → 886 ще до анімації (перший семпл [14, 886]), при закритті 365 → 780 стрибком угору. Те саме, що 6D.182 виправила для чотирьох листів нижче; тепер правило спільне для КОЖНОГО .drawer.open: низ листа в стані «відкрито» не залежить від body.kb-open, увесь зсув (клавіатура) входить у --sheet-lift і анімується. Ризик: --sheet-max-h і підйом рахуються від низу в kb-open (kbRestBottomLayout читає обчислений bottom), тож лишаються узгодженими; альтернатива (компенсувати стрибок transform-ом у момент kb-open) складніша й дає той самий результат. */
+  .drawer.open, #income-drawer.open, #card-debt-drawer.open, #installment-drawer.open, #struct-drawer.open{
     bottom:max(100px, calc(env(safe-area-inset-bottom) + 80px));
   }
   /* Rev 2.23.13 (6D.182) — max-height тепер через --sheet-max-h (JS,
@@ -3850,7 +3851,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.260</div>
+  <div class="version-footer">Money Tree · Rev 2.32.261</div>
 </div>
   </div>
 </div>
@@ -9706,7 +9707,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.260';
+const APP_VERSION = '2.32.261';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
