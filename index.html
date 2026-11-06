@@ -2087,12 +2087,14 @@
      повертає ТОЧНО natural, коли вона й так влазить (тоді max-height
      ефективно взагалі нічого не обрізає, 0px зміни замість 5), і лише
      обмежує, коли справді бракує місця. */
-  html.kb-sheet .drawer.open{ max-height:calc(var(--sheet-max-h, 100vh) - env(safe-area-inset-top, 0px)); transform:translate3d(0, calc(-1px * var(--sheet-lift, 0)), 0); transition:transform 240ms cubic-bezier(0.22, 0.9, 0.3, 1); will-change:transform; }
+  html.kb-sheet .drawer.open{ max-height:calc(var(--sheet-max-h, 100vh) - env(safe-area-inset-top, 0px)); transform:translate3d(0, calc(-1px * var(--sheet-lift, 0)), 0); transition:transform 240ms cubic-bezier(0.22, 0.9, 0.3, 1), max-height 240ms cubic-bezier(0.22, 0.9, 0.3, 1); will-change:transform; } /* Rev 2.32.262 (KB-9): max-height входить у той самий перехід, що й підйом (раніше міняв висоту листа миттєво: 498 ↔ 471) */
   /* Rev 2.23.13 (6D.182) — закриття (exitKbSheet()) навмисно інша крива й
      тривалість за промтом (250мс, інший cubic-bezier) — html.kb-sheet-closing
      додається РАЗОМ з --sheet-lift:0, знімається лише ПІСЛЯ завершення
      (transitionend/320мс), разом з html.kb-sheet. */
-  html.kb-sheet.kb-sheet-closing .drawer.open{ transition:transform 250ms cubic-bezier(0.25, 0.1, 0.25, 1); }
+  html.kb-sheet.kb-sheet-closing .drawer.open{ transition:transform 250ms cubic-bezier(0.25, 0.1, 0.25, 1), max-height 250ms cubic-bezier(0.25, 0.1, 0.25, 1); } /* Rev 2.32.262 (KB-9): при закритті висота повертається тією ж кривою, що й опускання */
+  /* Rev 2.32.262 (KB-9): звіти MT-1106-6914/7332: лист «Вхідних» вищий за вільне місце над клавіатурою обрізався, кнопки дії лишались під клавіатурою. Поки клавіатура відкрита, блок кнопок прикріплений до низу листа (sticky, як .och-actions), прокручується лише вміст над ним. Спільно для листів із блоком дій (.mono-detail-actions, .sf-actions). */
+  html.kb-sheet .drawer.open :is(.mono-detail-actions, .sf-actions){ position:sticky; bottom:-20px; z-index:2; background:var(--color-surface); padding:8px 0 20px; margin:6px 0 -20px; } /* WebKit рахує sticky від краю вмісту (без нижнього padding листа 20 пт): bottom:-20px ставить смугу впритул до краю листа; негативний margin лишає відступ у спокої 20 пт */
   /* Rev 2.23.16 (6D.185) — перемикання числова↔текстова клавіатура
      (html.kb-sheet-switching додає JS у touchend-перехопленні): 220мс,
      cubic-bezier(0.25,0.46,0.45,0.94) — найближча до системної кривої
@@ -3851,7 +3853,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.261</div>
+  <div class="version-footer">Money Tree · Rev 2.32.262</div>
 </div>
   </div>
 </div>
@@ -9707,7 +9709,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.261';
+const APP_VERSION = '2.32.262';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14234,8 +14236,11 @@ function kbgMeasure(why){
     kbCss: root.style.getPropertyValue('--kb-h'), liftCss: root.style.getPropertyValue('--sheet-lift'), restBottom: typeof window.__kbSheetRestBottom === 'number' && document.documentElement.classList.contains('kb-sheet') ? window.__kbSheetRestBottom : null };
 }
 function recordKbGeometry(why){
-  if(!debugRecordingActive) return;
-  try{ pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'kb-geometry' }, kbgSnapshot(kbgMeasure(why)))); }catch(e){}
+  if(!recOn()) return; // Rev 2.32.262 (KB-9): тепер і для бортового самописця (vv-settled, rest-settled)
+  try{
+    const d = document.querySelector('.drawer.open');
+    pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'kb-geometry' }, kbgSnapshot(kbgMeasure(why)), d ? { drawerId: d.id || null, drawerScrollHeight: d.scrollHeight, drawerClientHeight: d.clientHeight } : {}));
+  }catch(e){}
 }
 let kbgSettleTimer = null;
 function kbgSchedule(why){ // «осідання»: iOS оновлює visualViewport із запізненням, тож другий знімок через ≈150 мс
@@ -14729,8 +14734,8 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
-const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online'];
+const REC_ALLOWED_TYPES = ['sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
+const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -14969,7 +14974,7 @@ function recCheckFieldVisible(){
 }
 function recBgListeners(){
   function on(t, type, h, o){ if(t) t.addEventListener(type, h, o); }
-  const vvEvent = function(name){ return function(){ if(recVvRaf) return; recVvRaf = requestAnimationFrame(function(){ recVvRaf = 0; try{ captureDebugGeometry(name); }catch(e){} }); if(name === 'vv-resize'){ if(recFieldTimer) clearTimeout(recFieldTimer); recFieldTimer = setTimeout(recCheckFieldVisible, 450); } }; };
+  const vvEvent = function(name){ return function(){ if(recVvRaf) return; recVvRaf = requestAnimationFrame(function(){ recVvRaf = 0; try{ captureDebugGeometry(name); }catch(e){} }); if(name === 'vv-resize'){ if(recFieldTimer) clearTimeout(recFieldTimer); recFieldTimer = setTimeout(function(){ recordKbGeometry('vv-settled'); recCheckFieldVisible(); }, 450); } }; };
   if(window.visualViewport){ on(window.visualViewport, 'resize', vvEvent('vv-resize'), { passive: true }); on(window.visualViewport, 'scroll', vvEvent('vv-scroll'), { passive: true }); }
   on(document, 'focusin', function(e){ const t = e.target; pushDebugEvent({ type: 'focusin', activeElementId: t && t.id || null, activeElementTag: t && t.tagName || null, activeElementType: t && t.type || null, vvH: window.visualViewport ? Math.round(window.visualViewport.height) : null }); }, true);
   on(document, 'focusout', function(e){ const t = e.target; pushDebugEvent({ type: 'focusout', activeElementId: t && t.id || null, activeElementTag: t && t.tagName || null }); }, true);
@@ -14980,7 +14985,7 @@ function recBgListeners(){
   on(window, 'online', function(){ recFlushQueue(); });
   on(document, 'touchstart', function(e){ const t = e.target, p = e.touches && e.touches[0]; pushDebugEvent({ type: 'touch', targetTag: t && t.tagName || null, targetId: t && t.id || null, targetClasses: t && typeof t.className === 'string' ? t.className.slice(0, 60) : null, touchX: p ? Math.round(p.clientX) : null, touchY: p ? Math.round(p.clientY) : null }); }, { passive: true, capture: true });
   if(typeof MutationObserver !== 'undefined' && document.body){
-    new MutationObserver(function(){ pushDebugEvent({ type: 'kb-open-class-changed', kbOpen: document.body.classList.contains('kb-open') }); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(function(){ const open = document.body.classList.contains('kb-open'); pushDebugEvent({ type: 'kb-open-class-changed', kbOpen: open }); if(!open) setTimeout(function(){ if(!document.body.classList.contains('kb-open')) recordKbGeometry('rest-settled'); }, 450); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   }
 }
 async function recBgStart(){
@@ -29325,6 +29330,7 @@ function exitKbSheet(removeKbOpen){
   // анімує через це правило (CSS transition:none) — звичайне миттєве
   // зняття, як і раніше.
   document.documentElement.style.setProperty('--sheet-lift', '0');
+  if(typeof naturalHeightAtClose === 'number' && naturalHeightAtClose > 0) document.documentElement.style.setProperty('--sheet-max-h', naturalHeightAtClose + 'px'); // Rev 2.32.262 (KB-9): висота листа повертається до природної РАЗОМ з опусканням (max-height у переході), а не стрибком після зняття kb-sheet
   // Rev 2.32.241 (KB-PIPE-CLOSE): на Android/Chromium при закритті .drawer із ненульовим зсувом видимої області його не скидаємо одразу (різкий стрибок листа), а ведемо кожен кадр за visualViewport.offsetTop, поки він не дійде до нуля (або лист не сховано).
   const vvtopAtExit = KB_PIPE.vvtop || 0;
   if(kbSheetSplit && !IS_IOS_RUNTIME && vvtopAtExit > 0) kbVvTopCloseFollow(genAtExit);

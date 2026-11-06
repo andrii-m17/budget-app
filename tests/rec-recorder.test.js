@@ -175,3 +175,12 @@ test('REC (spec-reviewer): ліміт частоти має запас у пам
   assert.match(HTML, /recRateCheck\(\(recStoreGet\(REC_RATE_KEY\) \|\| \[\]\)\.concat\(recRateMem\)\.filter\(function\(r\)\{ return r\.type === 'manual'; \}\), 'manual', Date\.now\(\), 15000, 30\)/);
   assert.match(HTML, /try\{ recClearOnSignOut\(\); \}catch\(e\)\{\}/);
 });
+test('REC (KB-9): kb-geometry з vv-settled / rest-settled — висота й положення листа, без значень полів', () => {
+  const c = pure();
+  c.__ev = { type: 'kb-geometry', kbgWhy: 'vv-settled', devClass: 'iPhone', sheetTop: 0, sheetBottom: 498, sheetHeight: 498, fieldTop: 380, fieldBottom: 420, kbHeightCalc: 388, drawerId: 'mono-detail-drawer', drawerScrollHeight: 575, drawerClientHeight: 498, viewportMeta: 'width=device-width', inputValue: '1234' };
+  const o = J(c, 'recSanitizeEvent(__ev, 1)');
+  assert.equal(o.type, 'kb-geometry'); assert.equal(o.sheetHeight, 498); assert.equal(o.drawerScrollHeight, 575); assert.equal(o.kbgWhy, 'vv-settled');
+  assert.ok(!('viewportMeta' in o) && !('inputValue' in o));
+  assert.match(HTML, /recordKbGeometry\('vv-settled'\)/);
+  assert.match(HTML, /recordKbGeometry\('rest-settled'\)/);
+});

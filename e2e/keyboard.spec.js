@@ -175,3 +175,34 @@ test('41. KB-8: низ кожного нижнього листа не зале�
     expect(res.some(r => r.id === 'mono-detail-drawer')).toBe(true);
   }finally{ await ctx.close(); }
 });
+
+// KB-9 (Rev 2.32.262): звіти MT-1106-6914 / MT-1106-7332 (iPhone): «Вхідні» Mono (mono-detail-drawer) вищий за вільне місце над клавіатурою: висота листа міняється миттєво (498 ↔ 471, без переходу max-height; анімується лише підйом), вміст обрізається, кнопки дії («Додати», «Ігнорувати») лишаються під клавіатурою.
+// Тест на справжній розмітці WebKit: (1) кнопки дії у видимій області над клавіатурою, коли лист вищий за вільне місце; (2) max-height листа анімується (той самий перехід, що й підйом) і при відкритті, і при закритті.
+test('42. KB-9: лист вищий за вільне місце — кнопки дії видно над клавіатурою, висота листа анімується', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(async () => { window.__vv.h = null; window.__vv.top = 0; await openMonoInbox(); monoInbox.rows = [{ id: 'sim1', status: 'new', tx_time: new Date().toISOString(), amount_uah: 120, description: 'Тест', suggested_category: '', suggested_subcategory: '', mono_account_id: 'x' }]; openMonoDetail('sim1'); document.getElementById('mono-detail-body').style.minHeight = '700px'; });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { document.getElementById('fldmono4').scrollIntoView({ block: 'nearest' }); });
+    const bb = await page.locator('#fldmono4').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { const k = Math.round(window.__H0 * 0.465); window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1000);
+    const r = await page.evaluate(() => {
+      const vvB = window.__vv.h, dr = document.getElementById('mono-detail-drawer'), cs = getComputedStyle(dr);
+      const rect = id => { const b = document.getElementById(id).getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom) }; };
+      return { vvB, add: rect('mono-detail-add'), ignore: rect('mono-detail-ignore'), drawer: rect('mono-detail-drawer'), tp: cs.transitionProperty, td: cs.transitionDuration, scrollH: dr.scrollHeight, clientH: dr.clientHeight };
+    });
+    if(process.env.KB9_SHOTS){ for(const th of ['light', 'dark']){ await page.evaluate(t => document.documentElement.setAttribute('data-theme', t), th); await page.waitForTimeout(300); await page.screenshot({ path: 'docs/ui/mockups/KB-9/vhidni-klaviatura-' + th + '.png' }); } } // знімки «Вхідних» з клавіатурою (емуляція): KB9_SHOTS=1
+    expect(r.scrollH, 'лист справді вищий за вільне місце (умова тесту)').toBeGreaterThan(r.clientH);
+    expect(r.add.bottom, 'кнопка «Додати» над клавіатурою: ' + JSON.stringify(r)).toBeLessThanOrEqual(r.vvB);
+    expect(r.ignore.bottom, 'кнопка «Ігнорувати» над клавіатурою: ' + JSON.stringify(r)).toBeLessThanOrEqual(r.vvB);
+    expect(r.add.top, 'кнопка «Додати» не вище екрана').toBeGreaterThanOrEqual(0);
+    expect(r.tp, 'max-height входить у перехід листа: ' + r.tp).toMatch(/max-height/);
+    // закриття: перехід max-height діє й у фазі закриття (та сама крива, що й підйом)
+    await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(120);
+    const c = await page.evaluate(() => { const cs = getComputedStyle(document.getElementById('mono-detail-drawer')); return { tp: cs.transitionProperty, closing: document.documentElement.classList.contains('kb-sheet-closing') }; });
+    expect(c.tp, 'при закритті max-height теж у переході: ' + JSON.stringify(c)).toMatch(/max-height/);
+  }finally{ await ctx.close(); }
+});
