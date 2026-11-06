@@ -1,0 +1,220 @@
+{
+ "note": "Фрагмент реального запису iPhone (Rev 2.32.257, вхід з Face ID): лише тип, час (мс), висота visualViewport, id полів. Без особистих даних.",
+ "base": 894,
+ "events": [
+  {
+   "t": 6219,
+   "type": "sheet-open",
+   "id": "kb-focus-proxy",
+   "vvH": 894
+  },
+  {
+   "t": 6219,
+   "type": "focusin",
+   "id": "kb-focus-proxy",
+   "vvH": 894
+  },
+  {
+   "t": 6314,
+   "type": "vv-resize",
+   "id": "kb-focus-proxy",
+   "vvH": 479
+  },
+  {
+   "t": 6317,
+   "type": "focusout",
+   "vvH": 479
+  },
+  {
+   "t": 6318,
+   "type": "focusin",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 6321,
+   "type": "focus-transfer",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 6360,
+   "type": "vv-resize",
+   "id": "cldfielda1",
+   "vvH": 826
+  },
+  {
+   "t": 6455,
+   "type": "kb-transient-hide",
+   "id": "cldfielda1",
+   "vvH": 583
+  },
+  {
+   "t": 6461,
+   "type": "vv-resize",
+   "id": "cldfielda1",
+   "vvH": 583
+  },
+  {
+   "t": 6751,
+   "type": "sheet-anim",
+   "id": "cldfielda1",
+   "vvH": 583
+  },
+  {
+   "t": 8517,
+   "type": "focusout",
+   "vvH": 583
+  },
+  {
+   "t": 8524,
+   "type": "focusout",
+   "vvH": 583
+  },
+  {
+   "t": 8535,
+   "type": "focusin",
+   "id": "kb-focus-proxy",
+   "vvH": 583
+  },
+  {
+   "t": 8540,
+   "type": "focusout",
+   "vvH": 583
+  },
+  {
+   "t": 8542,
+   "type": "focusin",
+   "id": "cloud-password",
+   "vvH": 583
+  },
+  {
+   "t": 8542,
+   "type": "proxy-switch",
+   "id": "cloud-password",
+   "vvH": 583
+  },
+  {
+   "t": 8542,
+   "type": "focusin",
+   "id": "cloud-password",
+   "vvH": 583
+  },
+  {
+   "t": 8644,
+   "type": "vv-resize",
+   "vvH": 479
+  },
+  {
+   "t": 8644,
+   "type": "focusout",
+   "vvH": 479
+  },
+  {
+   "t": 8645,
+   "type": "focusout",
+   "vvH": 479
+  },
+  {
+   "t": 8647,
+   "type": "focusin",
+   "id": "kb-focus-proxy",
+   "vvH": 479
+  },
+  {
+   "t": 8649,
+   "type": "focusout",
+   "vvH": 479
+  },
+  {
+   "t": 8650,
+   "type": "focusin",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8650,
+   "type": "proxy-switch",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8650,
+   "type": "focusin",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8674,
+   "type": "vv-resize",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8738,
+   "type": "switch-native",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8771,
+   "type": "switch-native",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8788,
+   "type": "switch-native",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8801,
+   "type": "switch-native",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8821,
+   "type": "switch-native",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8838,
+   "type": "switch-native",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8851,
+   "type": "switch-native",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8871,
+   "type": "switch-native",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8905,
+   "type": "switch-native",
+   "id": "cldfielda1",
+   "vvH": 479
+  },
+  {
+   "t": 8931,
+   "type": "native-switch",
+   "id": "cloud-password",
+   "vvH": 479
+  },
+  {
+   "t": 9056,
+   "type": "native-switch",
+   "id": "cldfielda1",
+   "vvH": 479
+  }
+ ]
+}

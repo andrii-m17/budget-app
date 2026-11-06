@@ -5363,7 +5363,7 @@ function kbSheetSandbox(opts){
       add: function(c){ docElClasses.add(c); },
       remove: function(c){ docElClasses.delete(c); },
     },
-    style: { setProperty: function(name, value){ docElStyle[name] = value; } },
+    style: { setProperty: function(name, value){ docElStyle[name] = value; }, getPropertyValue: function(name){ return Object.prototype.hasOwnProperty.call(docElStyle, name) ? String(docElStyle[name]) : ''; } },
   };
   const state = { activeElement: null, clock: 1700000000000 };
   const debugEvents = [];
@@ -5421,7 +5421,7 @@ function kbSheetSandbox(opts){
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf',
     'focusWithoutScrollIfSupported',
-    'isNativeSwitch', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'runProxySwitchTrick',
+    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'runProxySwitchTrick',
     'beginSheetMoving', 'planCaretRestore',
     'getOrCreateKbProxyEl', 'configureKbProxy', 'proxyCaretStyle', 'computeProxyOffset', 'computeProxyDist', 'placeKbProxyAtField',
   ]);
@@ -6847,4 +6847,41 @@ test('KB-4: computeCenteredRestBottom — центрований лист ско
   // порожні/нульові вхідні → без змін
   assert.equal(ctx.computeCenteredRestBottom(325, 0, 130, 8), 325);
   assert.equal(ctx.computeCenteredRestBottom(325, 272, 0, 8), 325);
+});
+
+// KB-6 (охоронний, без змін коду): програвання РЕАЛЬНОГО запису iPhone (вхід з Face ID і автозаповненням, фікстура без особистих даних) через справжні
+// handleKeyboardFieldFocusIn / updateKbSheetGeometry з index.html. Знахідка: email і пароль мають один тип клавіатури (text), тож перемикання між ними змінних листа не пише ні до, ні після; лист рухають лише реальні зміни висоти клавіатури (415→311→415).
+function kb6Replay(){
+  const fx = require('./fixtures/kb6-real-log.json');
+  const { ctx, state, docElStyle, debugEvents } = kbSheetSandbox();
+  const drawerEl = makeFakeDrawerEl('cloud-auth-drawer', 780);
+  const fields = { cldfielda1: makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'email', drawerEl: drawerEl }), 'cloud-password': makeDrawerField({ inDrawer: true, type: 'password', drawerEl: drawerEl }) };
+  Object.keys(fields).forEach(k => { fields[k].id = k; fields[k].matches = function(sel){ return sel.indexOf('input') !== -1; }; });
+  const watch = ['--kb-h', '--vv-h', '--sheet-max-h', '--sheet-lift'];
+  const writes = [];
+  let lastId = null; let started = false;
+  for(const e of fx.events){
+    const before = watch.map(k => docElStyle[k]).join('|');
+    const movingBefore = debugEvents.length;
+    if(e.type === 'vv-resize'){ ctx.window.visualViewport.height = e.vvH; if(started) ctx.updateKbSheetGeometry(); }
+    else if(e.type === 'focusin' && fields[e.id] && e.id !== lastId){
+      ctx.window.visualViewport.height = e.vvH;
+      state.activeElement = fields[e.id]; state.clock += 80; lastId = e.id; started = true;
+      ctx.handleKeyboardFieldFocusIn(fields[e.id]);
+    }
+    const after = watch.map(k => docElStyle[k]).join('|');
+    if(before !== after) writes.push({ t: e.t, type: e.type, id: e.id || null, before: before, after: after });
+  }
+  if(process.env.KB6_DEBUG) console.log('KB6WRITES ' + JSON.stringify(writes) + '\nKB6EV ' + JSON.stringify(debugEvents.filter(e => /caret|switch|sheet-open|sheet-close/.test(e.type)).map(e => [e.type, e.phase])) + '\nCACHE ' + JSON.stringify(ctx.keyboardHeightCache));
+  return { writes: writes, debugEvents: debugEvents };
+}
+test('KB-6 (реальний запис): після повернення клавіатури на vvH 479 перемикання пароль → email не пише змінних листа', () => {
+  const r = kb6Replay();
+  const late = r.writes.filter(w => w.t >= 8650 && w.type === 'focusin');
+  assert.deepEqual(late, [], 'зайві записи при перемиканні: ' + JSON.stringify(late));
+});
+test('KB-6 (реальний запис): перемикання пароль → email за тієї самої висоти клавіатури не запускає рух листа (phase switch)', () => {
+  const r = kb6Replay();
+  const mv = r.debugEvents.filter(e => e.type === 'caret-hidden' && e.phase === 'switch');
+  assert.ok(mv.length <= 1, 'рухів switch: ' + mv.length);
 });
