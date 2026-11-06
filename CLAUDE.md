@@ -23,6 +23,7 @@
 | E2E у WebKit | `npm run e2e` (повний, ≈ 3,5 хв; не в гачку пушу; docs/E2E.md); `npm run e2e:smoke` (10 сценаріїв `@smoke`, ≈ 30 с) |
 | Preview | `.claude/launch.json` → `budget-app-static` (`npx http-server -p 8934 -c-1`), http://localhost:8934; перед перевіркою знімай реєстрацію SW і кеші, інакше віддається стара версія |
 | Перевірка перед push | `node scripts/hooks/pre-push-guard.js --manual` (тести, `APP_VERSION` ↔ `CACHE_NAME`, запис у ROADMAP) |
+| Симулятор iOS | `npm run e2e:ios` — не обов'язковий; лише на прямий запит чату (docs/WORKFLOW.md) |
 | Відкат | `git revert <коміт>` → новий Rev; ніколи `push --force` у `main` |
 
 ## Дисципліна ревізій (деталі: навичка `rev-release`)

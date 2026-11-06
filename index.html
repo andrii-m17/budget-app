@@ -3835,7 +3835,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.258</div>
+  <div class="version-footer">Money Tree · Rev 2.32.259</div>
 </div>
   </div>
 </div>
@@ -9673,7 +9673,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.258';
+const APP_VERSION = '2.32.259';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -28882,6 +28882,8 @@ function updateKbSheetGeometry(){
   if(!kbSheetActive || !window.visualViewport) return;
   const baseVh = getBaseViewportHeight();
   const vvH = window.visualViewport.height;
+  // Rev 2.32.259 (KB-5b): поки фокус у полі й конвеєр уже бачив клавіатуру (animating/settled), кадр «клавіатура закрита» (visualViewport.height ≈ base: тимчасові викиди 506↔826 під час набору й Face ID) лист не рухає: --kb-h/--vv-h/--sheet-max-h і підйом лишаються за останнім кадром із клавіатурою. Лист опускається лише після втрати фокуса (focusout → handleKeyboardFieldFocusSettle). Ризик: клавіатуру сховано жестом без blur (Баг 2) — лист лишається піднятим до наступного фокуса/blur; KB-5a знімає фокус при згортанні. Альтернатива (таймер 250 мс) відкинута: вгадування часу.
+  if(!isKeyboardOpen(baseVh, vvH) && kbSheetNewF && (KB_PIPE.state === 'animating' || KB_PIPE.state === 'settled') && kbFocusInTextField()) return;
   const kbH = computeKeyboardHeight(baseVh, vvH);
   document.documentElement.style.setProperty('--kb-h', kbH + 'px');
   document.documentElement.style.setProperty('--vv-h', vvH + 'px');
@@ -29387,7 +29389,7 @@ function isKeyboardLikelyClosed(baseViewportHeight, visualViewportHeight){
 }
 // Rev 2.32.248 (KB-2): запобіжник знімав kb-open і закривав конвеєр на ОДНОМУ кадрі visualViewport.height ≈ base (у вході на кроці після передачі фокуса приходило 894→506→479→826→479: 826 — тимчасовий викид, клавіатура лишалась). Тепер «клавіатура закрита» підтверджується повторним вимірюванням через KB_CLOSE_CONFIRM_MS: якщо область знову стиснута — нічого не знімаємо. Справжнє приховування жестом (Баг 2) спрацьовує з затримкою 250 мс. Ризик: запізніле зняття лише в рідкісному жесті; альтернатива (не знімати за активного поля) повернула б «підвислий» kb-open.
 // Rev 2.32.256 (KB-3, діагностична): затримку повернено до 250 мс (1000 мс давало видимий побічний ефект: лист висів у повітрі після приховування клавіатури). Поведінка клавіатури не змінена. Додано лише записи в діагностику, щоб побачити послідовність при Face ID/панелі паролів: kb-win-focus/kb-win-blur (вікно), kb-visibility (visibilitychange), kb-vv-resize (висота visualViewport) — кожен із t (мс), hasFocus, activeElement і vvH; плюс kb-transient-hide (скільки тривало зникнення). Гіпотеза для перевірки: Face ID перекриває застосунок — вікно втрачає фокус при активному полі; своє приховування клавіатури — поле втрачає фокус. Ризик: лише записи під час запису діагностики. Альтернатива (затримка за часом) відкинута.
-const KB_CLOSE_CONFIRM_MS = 250;
+function kbFocusInTextField(){ const ae = document.activeElement; return !!(ae && ae !== document.body && ae.matches && ae.matches('input, textarea, select, [contenteditable="true"]')); }
 let kbCloseConfirmTimer = null;
 let kbHiddenSince = 0;
 // Rev 2.32.256 (KB-3): легкі записи для розрізнення Face ID й власного приховування клавіатури (лише під час запису діагностики; поведінку не змінюють).
@@ -29427,34 +29429,13 @@ if(window.visualViewport){
       return;
     }
     if(!kbHiddenSince) kbHiddenSince = performance.now();
-    // Rev 2.32.248 (KB-2, уточнення): затримка лише коли фокус лишився в полі (підозра на хибний кадр висоти); якщо поле вже втратило фокус і нового немає — справжнє закриття, опускаємо одразу.
-    const ae = document.activeElement;
-    const focusStays = !!(ae && ae !== document.body && ae.matches && ae.matches('input, textarea, select, [contenteditable="true"]'));
-    if(!focusStays){
-      kbHiddenSince = 0;
-      if(kbCloseConfirmTimer){ clearTimeout(kbCloseConfirmTimer); kbCloseConfirmTimer = null; }
-      document.body.classList.remove('kb-open');
-      setDrawerKeyboardBackgroundLock(false);
-      exitKbSheet();
-      return;
-    }
-    if(kbCloseConfirmTimer) return;
-    kbCloseConfirmTimer = setTimeout(function(){
-      kbCloseConfirmTimer = null;
-      if(!document.body.classList.contains('kb-open')) return;
-      if(!isKeyboardLikelyClosed(getBaseViewportHeight(), window.visualViewport.height)) return;
-      kbHiddenSince = 0;
-      document.body.classList.remove('kb-open');
-      // Rev 2.23.4 (6D.173) — той самий запобіжник, що focusout вище:
-      // якщо focusout НЕ спрацював (WebKit Баг 2, 6D.52 — клавіатуру
-      // сховали жестом без зміни activeElement, тож ВОНО й далі технічно
-      // "у фокусі"), лок на #main-col (якщо був активний через поле
-      // всередині шторки) лишився б "підвішеним" назавжди без примусового
-      // зняття тут — БЕЗУМОВНО, на відміну від handleKeyboardFieldFocusSettle()
-      // (та перевіряє activeElement, тут це саме НЕНАДІЙНО за визначенням).
-      setDrawerKeyboardBackgroundLock(false);
-      exitKbSheet();
-    }, KB_CLOSE_CONFIRM_MS);
+    // Rev 2.32.259 (KB-5b): поки фокус у полі, кадри «клавіатура закрита» ігноруються (сигнал — фокус, а не таймер). Затримку KB_CLOSE_CONFIRM_MS прибрано. Опускання — лише після втрати фокуса.
+    if(kbFocusInTextField()){ kbHiddenSince = 0; if(kbCloseConfirmTimer){ clearTimeout(kbCloseConfirmTimer); kbCloseConfirmTimer = null; } return; }
+    kbHiddenSince = 0;
+    if(kbCloseConfirmTimer){ clearTimeout(kbCloseConfirmTimer); kbCloseConfirmTimer = null; }
+    document.body.classList.remove('kb-open');
+    setDrawerKeyboardBackgroundLock(false);
+    exitKbSheet();
   });
 }
 // Rev 2.23.9 (6D.178) — updateViewportDiagnosticVars(): єдиний завжди-
