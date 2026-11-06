@@ -5958,7 +5958,7 @@ test('у коді НЕМАЄ жодного читання видалених к
   ['getKbMode', 'setKbMode', 'getKbFocusMode', 'getKbArrowsMode', 'getKbCaretVariant', 'kb-mode-b', 'KB_MODE_LS_KEY', 'KB_ARROWS_LS_KEY', 'KB_CARET_LS_KEY', 'KB_FOCUS_MODE_LS_KEY'].forEach(function(id){
     assert.equal(src.indexOf(id), -1, id + ' має бути видалено');
   });
-  assert.equal((src.match(/Експеримент/g) || []).length, 1, 'слово лише одне: підпис блока в «Діагностиці» (макет Rev 2.32.189)');
+  assert.equal((src.match(/Експеримент/g) || []).length, 0, 'Rev 2.32.261 (REC-1): блок «Експеримент» прибрано з екрана');
 });
 // Rev 2.23.22 (6D.191) — реєстр тестових варіантів (TEST_VARIANTS, docs/TESTING.md).
 function validateTestRegistry(reg){
@@ -6083,7 +6083,7 @@ test('у коді немає прямого читання budget_variants_v1 п
   const backup = src.slice(src.indexOf('const BACKUP_LS_KEYS = ['), src.indexOf('];', src.indexOf('const BACKUP_LS_KEYS = [')));
   assert.equal(backup.indexOf('budget_variants'), -1);
   assert.ok(/variants:\s*getVariantsSnapshot\(\)/.test(src), 'device.variants заповнюється з реєстру');
-  assert.equal((src.match(/Експеримент/g) || []).length, 1); // Rev 2.32.189: єдиний підпис блока в «Діагностиці»
+  assert.equal((src.match(/Експеримент/g) || []).length, 0); // Rev 2.32.261 (REC-1): блок прибрано
 });
 test('sheet-anim: подія несе phase/jumpMaxPx/gapNoLayoutMs/drawerHeightRest/drawerHeightKb', () => {
   const { ctx, debugEvents } = kbSheetSandbox();

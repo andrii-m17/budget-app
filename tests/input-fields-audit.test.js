@@ -44,6 +44,6 @@ test('A2: перепис полів — лише атрибути й стати�
   const fn = SRC.slice(SRC.indexOf('function fieldsCensusNow()'), SRC.indexOf('function recordFieldsCensus()'));
   assert.ok(!/\.value\b/.test(fn), 'перепис не читає значення полів');
   assert.match(SRC, /DEBUG_EVENT_ALLOWLIST = \[[\s\S]*'fieldsCount', 'fields'/);
-  assert.match(SRC, /id="fields-census-btn"[^>]*onclick="recordFieldsCensusFromTesting\(\)"/);
+  assert.ok(!/id="fields-census-btn"/.test(SRC), 'Rev 2.32.261 (REC-1): рядок «Перепис полів екрана» прибрано з екрана');
   assert.match(SRC, /type: 'fields-census', fieldsCount: lines\.length/);
 });

@@ -128,6 +128,10 @@ function buildSandbox(globals, names){
     + "if(typeof suggestHandledTouchIds === 'undefined') var suggestHandledTouchIds = [];"
     + "if(typeof pushHighlightHandle === 'undefined') var pushHighlightHandle = null;"
     + "if(typeof motionReduced === 'undefined') var motionReduced = function(){ return true; };"
+    + "if(typeof recBgOn === 'undefined') var recBgOn = false;" // Rev 2.32.260 (REC-1): самописець у sandbox вимкнений; recOn/recTrigger — заглушки (власні тести REC підставляють справжні)
+    + "if(typeof recOn === 'undefined') var recOn = function(){ try{ return !!(typeof debugRecordingActive !== 'undefined' && debugRecordingActive); }catch(e){ return false; } };"
+    + "if(typeof recTrigger === 'undefined') var recTrigger = function(){};"
+    + "if(typeof recPush === 'undefined') var recPush = function(){};"
     + "if(typeof setTimeout === 'undefined') var setTimeout = function(){ return 0; };"
     + "if(typeof clearTimeout === 'undefined') var clearTimeout = function(){};", context);
   names = names.concat(SHADOW.filter(n => !names.includes(n)));

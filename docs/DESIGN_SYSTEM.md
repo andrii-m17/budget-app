@@ -243,3 +243,6 @@
 ## Статус M1 (Rev 2.24.0)
 
 Реалізовано рух-фундамент: токени `--motion-*`/`--ease-*`/`--motion-k` на `:root`, `prefers-reduced-motion`, реакція на натискання (`.is-pressed`), перехід між вкладками, прибрані дорогі `transition`/`@keyframes`, тест `motion-intensity`, подія `motion-perf`. Деталі й таблиця «було → стало» — `docs/ROADMAP.md` 32.42. Токени вигляду `--ui-*` і каталог компонентів — M3/M4.
+
+## Іконки сторонніх наборів
+- Tabler Icons (MIT, https://tabler.io/icons): `message-report` (картка «Повідомити про проблему», Rev 2.32.260), а також `loader-2`, `check`, `cloud-off`, `copy` у шторці звіту. Перелику ліцензій у застосунку немає, тому згадка тут. Іконки малюються як вбудований SVG із `currentColor`.

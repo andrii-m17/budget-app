@@ -1552,6 +1552,11 @@
   .service-wide-card{ display:flex; align-items:center; gap:14px; width:100%; padding:16px; margin-bottom:24px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .service-wide-card:hover{ background:var(--color-surface-hover); } }
+  /* Rev 2.32.260 (REC-1): щільне групування «Дані» і «Допомога» за макетом: картки в групі через 8 пт (було 24), підпис групи ближче до карток */
+  .section-label.compact{ margin:18px 2px 8px; }
+  .service-group{ display:flex; flex-direction:column; gap:8px; margin-bottom:6px; }
+  .service-group > .service-wide-card{ margin-bottom:0; }
+  .service-group > #checks-service-group{ margin:0; }
   .service-wide-card .service-tile-icon{ flex-shrink:0; }
   .service-wide-text{ display:flex; flex-direction:column; gap:2px; }
   .service-wide-title{ font-size:14px; font-weight:700; color:var(--color-text-primary); }
@@ -1835,6 +1840,14 @@
   #checks-done-list.hidden{ display:none; } /* Rev 2.32.190: список «Пройдено» мав бути згорнутим за замовчуванням (глобального .hidden нема) */
   .chk-done-it{ display:flex; justify-content:space-between; gap:10px; min-height:44px; align-items:center; padding:0 14px; border-top:1px solid var(--color-border); font-size:14px; }
   .chk-done-it span:last-child{ font-size:13px; color:var(--color-text-secondary); text-align:right; }
+  /* Rev 2.32.260 (REC-1): шторка «Повідомити про проблему» — стани sending/sent/offline, ті самі токени, що решта шторок */
+  .rec-state{ text-align:center; padding:18px 8px 16px; }
+  .rec-state-icon{ display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:16px; margin-bottom:12px; background:var(--color-primary-bg); color:var(--color-primary-hover); }
+  .rec-state.is-off .rec-state-icon{ background:var(--color-warning-bg); color:var(--color-warning); }
+  .rec-state-title{ font-size:15px; font-weight:600; color:var(--color-text-primary); }
+  .rec-state-code{ margin-top:12px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:18px; font-weight:500; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:var(--color-text-primary); user-select:all; -webkit-user-select:all; }
+  .rec-state-hint{ margin-top:6px; font-size:14px; color:var(--color-text-secondary); }
+  .rec-state.is-sending .rec-state-icon{ background:var(--color-info-bg); color:var(--color-info); }
   .chk-sent{ text-align:center; font-size:13px; color:var(--color-success); margin-top:10px; opacity:0; transition:opacity .3s; height:16px; }
   .chk-sent.on{ opacity:1; }
   @media (prefers-reduced-motion: reduce){ .chk-it, .chk-it.gone, .chk-chev, .chk-tt, .chk-sent, .chk-fl, .chk-rz, .chk-rz.open{ transition:none; } }
@@ -3579,7 +3592,7 @@
     </button>
   </div>
 
-  <div class="section-label">Дані</div>
+  <div class="section-label">Excel</div>
   <div class="service-grid">
     <button type="button" class="service-tile" id="export-btn" onclick="exportToExcel()">
       <span
@@ -3738,21 +3751,8 @@
     onchange="handleRestoreBackupFile(event)">
   <div class="import-status" id="backup-status"></div>
 
-  <div class="section-label">Діагностика</div>
-  <button type="button" class="service-wide-card" id="diagnostics-btn" onclick="runDataDiagnostics()">
-    <span class="service-tile-icon c-blue">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="9" y="2" width="6" height="4" rx="1"/>
-        <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/>
-        <path d="m9 14 2 2 4-4"/>
-      </svg>
-    </span>
-    <span class="service-wide-text">
-      <span class="service-wide-title">Діагностика даних</span>
-      <span class="service-wide-sub">Перевірка цілісності записів</span>
-    </span>
-  </button>
-
+  <div class="section-label compact">Дані</div>
+  <div class="service-group">
   <!-- Rev 2.32.27 (MB-3): рядок «Monobank» у «Сервісі» (назва й стрілка; лічильник нових операцій — MB-4). Інтеграція, а не налаштування вигляду, тому живе тут. -->
   <button type="button" class="service-wide-card" id="mono-btn" onclick="openMonoScreen()">
     <span class="service-tile-icon c-blue">
@@ -3788,16 +3788,31 @@
     </span>
   </button>
 
-  <!-- Rev 2.32.189 (CHECKS-1): замість одного рядка «Тестування» — «Перевірки» (значок: скільки кроків лишилось; при 0 прихований) і «Діагностика» (приглушена). Макет: docs/ui/mockups/checks-mockup.html, екран 1. -->
+  </div>
+  <!-- Rev 2.32.260 (REC-1): розділ «Допомога»: «Повідомити про проблему» (картка, зелена іконка), «Перевірки» і «Для розробника» (згруповані рядки). «Діагностика даних» переїхала у шторку «Для розробника». -->
+  <div class="section-label compact">Допомога</div>
+  <div class="service-group">
+  <button type="button" class="service-wide-card" id="rec-report-btn" onclick="openRecReport()">
+    <span class="service-tile-icon c-green">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><!-- Tabler Icons «message-report», MIT --><path d="M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-5l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12z"/><path d="M12 8v3"/><path d="M12 14v.01"/></svg>
+    </span>
+    <span class="service-wide-text">
+      <span class="service-wide-title">Повідомити про проблему</span>
+      <span class="service-wide-sub">Надішле запис останніх дій</span>
+    </span>
+    <span class="service-wide-right"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></span>
+  </button>
+
   <div class="chk-card" id="checks-service-group">
     <button type="button" class="chk-row" id="checks-btn" onclick="openChecksDrawer()">
       <span>Перевірки</span>
       <span class="chk-end"><span class="chk-badge hidden" id="checks-badge" aria-label="Кроків, що лишились"></span><span class="chk-mut"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></span>
     </button>
     <button type="button" class="chk-row chk-mut" id="diagnostics-btn" onclick="openTestingDrawer()">
-      <span>Діагностика</span>
+      <span>Для розробника</span>
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
     </button>
+  </div>
   </div>
 
   <div class="section-label" style="color:var(--color-error);">Небезпечні дії</div>
@@ -3835,7 +3850,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.259</div>
+  <div class="version-footer">Money Tree · Rev 2.32.260</div>
 </div>
   </div>
 </div>
@@ -4073,64 +4088,78 @@
   <div class="chk-sent" id="checks-sent" role="status" aria-live="polite">Результат надіслано</div>
 </div>
 
-<!-- ================= «Діагностика» (раніше «Тестування», Rev 2.23.22, 6D.191; Rev 2.32.189: перегруповано за макетом, екран 4) =================
-     Функції без змін, лише розташування: згруповані рядки, блок експерименту окремо. Id шторки (testing-drawer) і кнопок збережено для наявної логіки. -->
+<!-- ================= «Для розробника» (раніше «Діагностика»/«Тестування»; Rev 2.32.260, REC-1) =================
+     Самописець (постійний запис останніх дій), надіслані звіти, копіювання запису, перевірка цілісності даних. Id шторки (testing-drawer) збережено для наявної логіки. -->
 <div class="drawer-backdrop" id="testing-backdrop" onclick="closeTestingDrawer()" inert></div>
-<div class="drawer" id="testing-drawer" role="dialog" aria-label="Діагностика" aria-modal="true" inert>
+<div class="drawer" id="testing-drawer" role="dialog" aria-label="Для розробника" aria-modal="true" inert>
   <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
     <div class="drawer-head-main">
       <div class="drawer-head-text">
-        <h2>Діагностика</h2>
-        <div class="drawer-head-sub">Для розробника</div>
+        <h2>Для розробника</h2>
+        <div class="drawer-head-sub">Технічні дані для виправлення помилок</div>
       </div>
     </div>
     <button class="drawer-close" onclick="closeTestingDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
+  <div class="chk-label">Самописець</div>
   <div class="chk-card">
-    <button type="button" class="chk-row" id="debug-record-btn" onclick="openDebugRecordFromTesting()">
-      <span>Записати діагностику</span>
-      <span class="chk-end chk-mut"><span class="chk-state" id="debug-record-btn-sub"></span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    <div class="chk-row" id="rec-status-row">
+      <span>Записує постійно</span>
+      <span class="chk-mut">останні 2 хв</span>
+    </div>
+    <button type="button" class="chk-row" id="rec-sent-btn" aria-expanded="false" onclick="toggleRecSent()">
+      <span>Надіслані звіти</span>
+      <span class="chk-end chk-mut"><span id="rec-sent-count">0</span><svg class="chk-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
     </button>
-    <button type="button" class="chk-row" id="js-errors-btn" aria-expanded="false" onclick="showJsErrorsLog()">
-      <span>Журнал помилок JS</span>
-      <span class="chk-end chk-mut"><span id="js-errors-count">0</span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    <div id="rec-sent-list" class="chk-box hidden"></div>
+    <button type="button" class="chk-row" id="rec-copy-btn" onclick="copyRecBuffer()">
+      <span>Скопіювати запис</span>
+      <span class="chk-end chk-mut"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9.667A2.667 2.667 0 0 1 9.667 7h8.666A2.667 2.667 0 0 1 21 9.667v8.666A2.667 2.667 0 0 1 18.333 21H9.667A2.667 2.667 0 0 1 7 18.333z"/><path d="M4.012 16.737A2.005 2.005 0 0 1 3 15V5c0-1.1.9-2 2-2h10c.75 0 1.158.385 1.5 1"/></svg></span>
     </button>
-    <div id="js-errors-list" class="chk-box n-diag-empty"></div>
-    <button type="button" class="chk-row" id="testing-diag-btn" aria-expanded="false" onclick="toggleDeliveryDiagFromTesting()">
-      <span>Журнал доставки сповіщень</span>
-      <span class="chk-end chk-mut"><svg class="chk-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
-    </button>
-    <div id="testing-diag-box" class="chk-box"></div>
-    <button type="button" class="chk-row" id="net-stats-btn" onclick="showNetStats()">
-      <span>Запитів за сеанс</span>
-      <span class="chk-mut" id="net-stats-count">0</span>
-    </button>
-    <button type="button" class="chk-row" id="fields-census-btn" onclick="recordFieldsCensusFromTesting()">
-      <span>Перепис полів екрана</span>
-      <span class="chk-end chk-mut"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
-    </button>
-    <!-- Rev 2.32.103 (NOTIF-3 Rev 2): режим розробника для діагностики сповіщень; за замовчуванням вимкнено -->
+  </div>
+  <div class="chk-label">Сповіщення</div>
+  <div class="chk-card">
+    <!-- Rev 2.32.103 (NOTIF-3 Rev 2): режим розробника для діагностики сповіщень (журнал доставки, журнал помилок JS в IndexedDB); за замовчуванням вимкнено. Rev 2.32.260: рядок лишено — вмикає збір, який більше ніде не вмикається. -->
     <div class="chk-row">
       <span id="push-diag-label">Розширена діагностика</span>
       <button type="button" class="mono-switch" id="push-diag-btn" role="switch" aria-checked="false" aria-labelledby="push-diag-label" onclick="togglePushDiag()"><span></span></button>
     </div>
     <div id="push-diag-box" class="chk-box"></div>
   </div>
+  <div class="chk-label">Дані</div>
+  <div class="chk-card">
+    <button type="button" class="chk-row" id="data-integrity-btn" onclick="runDataDiagnostics()">
+      <span>Перевірка цілісності даних</span>
+      <span class="chk-end chk-mut"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>
+  </div>
   <!-- Rev 2.32.75 (K3): середовище (лише поза робочим origin): «Мок» ↔ «Реальна база · лише читання» -->
   <div class="chk-label" id="cloud-env-label">Середовище</div>
   <button type="button" class="submit-btn pill secondary" id="cloud-env-btn" style="margin-bottom:10px;" onclick="toggleCloudEnv()">Середовище</button>
-  <div class="chk-label">Експеримент</div>
-  <div class="chk-card">
-    <button type="button" class="chk-row" id="experiment-btn" aria-expanded="false" onclick="toggleExperiment()">
-      <span>Автозаповнення контактів</span>
-      <span class="chk-end chk-mut"><svg class="chk-chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
-    </button>
-    <div id="experiment-box" class="chk-box hidden">
-      <div id="testing-variants-list"></div>
-      <button type="button" class="submit-btn pill" style="background:var(--color-surface-hover);color:var(--color-text-primary);" onclick="resetAllTestVariantsFromUi()">Скинути всі тестові варіанти</button>
+</div>
+
+<!-- ================= «Повідомити про проблему» (Rev 2.32.260, REC-1) =================
+     Один дотик, без форм: сама шторка відкривається, пакет самописця надсилається, показується код MT-ММДД-NNNN. Стани: sending / sent / offline. -->
+<div class="drawer-backdrop" id="rec-report-backdrop" onclick="closeRecReport()" inert></div>
+<div class="drawer" id="rec-report-drawer" role="dialog" aria-label="Повідомити про проблему" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-head">
+    <div class="drawer-head-main">
+      <div class="drawer-head-text">
+        <h2>Повідомити про проблему</h2>
+        <div class="drawer-head-sub" id="rec-report-sub"></div>
+      </div>
     </div>
+    <button class="drawer-close" onclick="closeRecReport()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
+  <div class="rec-state" id="rec-report-state" role="status" aria-live="polite">
+    <span class="rec-state-icon" id="rec-report-icon" aria-hidden="true"></span>
+    <div class="rec-state-title" id="rec-report-title"></div>
+    <div class="rec-state-hint" id="rec-report-hint"></div>
+    <div class="rec-state-code hidden" id="rec-report-code"></div>
+  </div>
+  <button type="button" class="submit-btn pill hidden" id="rec-report-copy" onclick="copyRecCode()"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:6px;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Скопіювати код</button>
 </div>
 
 <!-- ================= "Чорна скринька" діагностики (Rev 2.22.91, 6D.164) =================
@@ -4557,6 +4586,9 @@ const JS_ERROR_BUFFER_MAX = 20;
 function scrubJsErrorText(text, max){
   return String(text == null ? '' : text).replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '<email>').replace(/\d[\d\s.,:-]{5,}\d/g, '<num>').replace(/\s+/g, ' ').trim().slice(0, max || 160);
 }
+// Rev 2.32.260 (REC-1): стан самописця оголошено рано (помилки JS можуть статись до решти скрипта); recOn() безпечна до ініціалізації debugRecordingActive.
+let recBgOn = false;
+function recOn(){ try{ return !!(debugRecordingActive || recBgOn); }catch(e){ return !!recBgOn; } }
 // Джерело: останній сегмент шляху + рядок (без параметрів запиту й хешу); порожньо, якщо немає.
 function jsErrorSource(filename, lineno){
   const f = String(filename || '').split('#')[0].split('?')[0].split('/').pop();
@@ -4590,6 +4622,7 @@ function recordJsError(info){
       if(jsErrorList.length > JS_ERROR_BUFFER_MAX) jsErrorList.shift();
     }
     try{
+      if(recOn() && !debugRecordingActive){ if(rec.count === 1 || (rec.count & (rec.count - 1)) === 0) pushDebugEvent({ t: Math.round(performance.now()), type: 'js-error', message: rec.message, source: rec.source, stackTop: rec.stackTop, tab: rec.tab, count: rec.count }); if(rec.count === 1) recTrigger('js-error'); }
       if(debugRecordingActive){
         const ev = jsErrorEvents[key];
         if(ev){ ev.count = rec.count; }
@@ -9673,7 +9706,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.259';
+const APP_VERSION = '2.32.260';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11363,7 +11396,7 @@ function noteWriteBlocked(kind){
   try{
     NET_STATS.blocked = (NET_STATS.blocked || 0) + 1;
     NET_STATS.byType['blocked ' + kind] = (NET_STATS.byType['blocked ' + kind] || 0) + 1;
-    if(typeof debugRecordingActive !== 'undefined' && debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'write-blocked', kind: kind });
+    if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'write-blocked', kind: kind });
     window.dispatchEvent(new CustomEvent('write-blocked', { detail: { kind: kind } }));
     if(kind === 'auth-refresh') noteSessionExpiredHint();
   }catch(e){}
@@ -11873,7 +11906,7 @@ let pendingPush = null;
 const handledPushStamps = [];
 // Rev 2.32.41 (F): подія push-apply з видимістю сторінки й результатом/причиною (без значень)
 function pushApplyDiag(result, reason, pushType){
-  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-apply', result: result, reason: reason, pushType: pushType || null, visibility: document.visibilityState });
+  if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-apply', result: result, reason: reason, pushType: pushType || null, visibility: document.visibilityState });
 }
 function queuePushAction(action, source){
   if(!action || !action.type) return false;
@@ -11883,7 +11916,7 @@ function queuePushAction(action, source){
   if(stamp){ handledPushStamps.push(String(stamp)); if(handledPushStamps.length > 20) handledPushStamps.shift(); }
   pendingPush = createPendingPush(action, Date.now());
   syncCheck('push', { force: true }); // Rev 2.32.74 (U): push-сповіщення = на сервері щось змінилось; перевірка «голів», а не повне завантаження
-  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-msg', source: source, visibility: document.visibilityState, pushType: action.type });
+  if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-msg', source: source, visibility: document.visibilityState, pushType: action.type });
   runPendingPushAction(source);
   return true;
 }
@@ -12214,6 +12247,7 @@ async function handlePushAction(action){
   }else if(route.screen === 'mono-inbox' || route.screen === 'mono'){
     // Rev 2.32.29: «Вхідні» Monobank — вкладка «Сервіс», таббар видимий, без клавіатури й focus()
     if(route.screen === 'mono-inbox'){ await routeMonoNotification({ batchTs: action.batch_ts || action.batchTs || null, daily: action.tag === 'daily-expense-reminder' }); } // Rev 2.32.161 (NOTIF-ROUTE): єдине правило з рядком журналу
+    if(route.screen === 'mono-inbox') setTimeout(function(){ try{ const sc = document.getElementById('mono-inbox-screen'); if(!sc || sc.classList.contains('hidden')) recTrigger('push-no-open'); }catch(e){} }, 3000); // Rev 2.32.260 (REC-1): після тапу по push «Вхідні» мають відкритись; інакше автозвіт
     else{ document.body.classList.remove('kb-open'); performSwitchTab('service'); openMonoScreen(); }
   }else if(route.screen === 'backup'){
     // Rev 2.32.15 (Z): екран експорту/резервної копії — вкладка «Сервіс»; таббар видимий, без клавіатури, БЕЗ програмного focus(): плитка лише підсвічується й прокручується в центр.
@@ -12327,7 +12361,8 @@ window.addEventListener('focus', pullAllOnResume);
 // «Вхідних» беруться з тієї ж відповіді. Повна звірка: холодний старт, раз на 6 год, «Синхронізувати все», після входу й після помилки.
 let syncSeenState = null, syncLastCheckAt = 0, syncCheckInFlight = null, syncRecheckPending = null, syncRealtimeTimer = null, headsInFlight = null;
 function syncDiag(type, data){
-  if(typeof debugRecordingActive === 'undefined' || !debugRecordingActive) return;
+  if(!recOn()) return;
+  if((type === 'sync-heads' && data && data.failed) || (type === 'sync-delta' && data && data.ok === false)) recTrigger('sync-error'); // Rev 2.32.260 (REC-1)
   pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: type }, data || {}));
 }
 // Один спільний запит «голів»: перевірка змін і лічильники (дзвіночок, «Вхідні») не плодять паралельних RPC.
@@ -13572,7 +13607,8 @@ async function signInCloudAccount(){
     return;
   }
   const { error } = await client.auth.signInWithPassword({ email, password });
-  if(error){ errEl.textContent = 'Не вдалося увійти: '+error.message; return; }
+  if(error){ pushDebugEvent({ type: 'login', ok: false, errorCode: String(error.status || error.code || '').slice(0, 20) }); errEl.textContent = 'Не вдалося увійти: '+error.message; return; }
+  pushDebugEvent({ type: 'login', ok: true });
   const pwAfter = document.getElementById('cloud-password'); if(pwAfter) pwAfter.value = '';
 }
 // Rev 2.32.22 (W, A1-1) — вихід з акаунта. Раніше лише auth.signOut(): дані, журнали purged, маркери, cloudId і push-підписка лишались, тож при вході в іншу родину дані A потрапляли в родину B, а пристрій і далі отримував сповіщення A. Тепер: діалог (з пропозицією копії, якщо last_backup_at старший за 7 днів чи порожній) -> видалення власної push-підписки (Cloud + браузер) -> signOut -> очищення локальних даних акаунта -> перезапуск (чисте початкове завантаження з дефолтами). У хмарі дані лишаються. Альтернатива «пам'ятати family_id і чистити при вході в іншу» не прибирала б чужі дані з пристрою до наступного входу.
@@ -13677,7 +13713,8 @@ async function performSignOut(){
   if(stillIn){ showTextToast('Не вдалося вийти — перевірте з\'єднання', 'error'); return; }
   if(soErr || !navigator.onLine) queueSignOutReport(soErr); // Rev 2.32.253: «тихий» вихід без запиту на сервер
   const cleared = await clearLocalAccountData();
-  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'signout', cleared: cleared > 0, unsubscribed: unsubscribed });
+  try{ recClearOnSignOut(); }catch(e){} // Rev 2.32.260 (REC-1)
+  if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'signout', cleared: cleared > 0, unsubscribed: unsubscribed });
   location.reload();
 }
 async function signOutCloudAccount(){
@@ -14211,7 +14248,7 @@ function onKbgFocusIn(e){
 }
 function onKbgVvChange(){ recordKbGeometry('vv'); kbgSchedule('vv'); }
 function pushDebugEvent(raw){
-  if(!debugRecordingActive) return;
+  if(!debugRecordingActive){ if(recBgOn) recPush(raw); return; } // Rev 2.32.260 (REC-1): поза ручним записом події йдуть у бортовий буфер (білі списки)
   debugEventBuffer = ringBufferPush(debugEventBuffer, sanitizeDebugEvent(raw), DEBUG_RECORDING_MAX_EVENTS);
 }
 // captureDebugGeometry(type, extra) — єдина точка збору "знімку" геометрії,
@@ -14673,6 +14710,287 @@ function buildDebugLogDevice(){
     variants: getVariantsSnapshot(),
   };
 }
+// ===== Rev 2.32.260 (REC-1): бортовий самописець =====
+// Застосунок постійно тримає короткий запис останніх подій (2 хв, до REC_MAX_EVENTS) у пам'яті з дзеркалом в IndexedDB і сам надсилає його в client_debug_logs
+// (scenario 'incident') при збої або за кнопкою «Повідомити про проблему». Пакет ділиться на частини (рядок таблиці ≤ 600 КБ і ≤ 3000 подій у БД), частини одного звіту
+// мають однаковий device.report.code. Приватність: подія проходить через білі списки типів і ключів (REC_ALLOWED_TYPES / REC_ALLOWED_KEYS), рядки очищаються
+// (uuid, email, довгі числа), суми, назви й описи записів, паролі й токени сюди не потрапляють. Верхня межа звіту — REC_MAX_REPORT_BYTES.
+// Пошук для чату: select id, created_at, device->'report', jsonb_array_length(events) from client_debug_logs where scenario = 'incident' and device->'report'->>'code' = 'MT-1106-0193' order by (device->'report'->>'part')::int
+const REC_WINDOW_MS = 120000;
+const REC_MAX_EVENTS = 1200;
+const REC_CHUNK_BYTES = 150000;
+const REC_CHUNK_EVENTS = 600;
+const REC_MAX_REPORT_BYTES = 450000;
+const REC_RATE_TYPE_MS = 600000;
+const REC_RATE_PER_DAY = 20;
+const REC_QUEUE_MAX = 5;
+const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
+const REC_QUEUE_KEY = 'budget-rec-queue-v1';
+const REC_RATE_KEY = 'budget-rec-rate-v1';
+const REC_SENT_KEY = 'budget-rec-sent-v1';
+const REC_ALLOWED_TYPES = ['sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
+const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online'];
+// Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
+function recSanitizeValue(v, depth){
+  if(v == null) return null;
+  if(typeof v === 'number') return isFinite(v) ? Math.round(v * 10) / 10 : null;
+  if(typeof v === 'boolean') return v;
+  if(typeof v === 'string') return String(v).replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '<email>').replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>').replace(/\d[\d\s.,:-]{5,}\d/g, '<num>').replace(/\s+/g, ' ').trim().slice(0, 80);
+  if(depth >= 2) return null;
+  if(Array.isArray(v)) return v.slice(0, 80).map(function(x){ return recSanitizeValue(x, (depth || 0) + 1); }).filter(function(x){ return x !== null; });
+  if(typeof v === 'object'){
+    const o = {};
+    Object.keys(v).slice(0, 12).forEach(function(k){
+      const s = recSanitizeValue(v[k], (depth || 0) + 1);
+      if(s !== null && typeof s !== 'object') o[String(k).replace(/[^A-Za-z0-9_]/g, '').slice(0, 24)] = s;
+    });
+    return o;
+  }
+  return null;
+}
+// Подія → очищена подія або null (тип поза списком). wall — мітка часу (мс від епохи).
+function recSanitizeEvent(raw, wall){
+  if(!raw || typeof raw !== 'object' || REC_ALLOWED_TYPES.indexOf(raw.type) === -1) return null;
+  const out = {};
+  REC_ALLOWED_KEYS.forEach(function(k){
+    if(!Object.prototype.hasOwnProperty.call(raw, k) || raw[k] === undefined) return;
+    const s = recSanitizeValue(raw[k], 0);
+    if(s !== null) out[k] = s;
+  });
+  out.type = raw.type;
+  // Текст помилки може містити дані користувача (назви, суми): у звіт іде лише клас помилки (TypeError тощо); джерело й імена функцій лишаються.
+  if(raw.type === 'js-error') out.message = (String(raw.message == null ? '' : raw.message).match(/^(?:Uncaught\s+)?([A-Za-z]*Error|Unhandled rejection)/) || [])[1] || 'Error';
+  out.wall = typeof wall === 'number' ? wall : Date.now();
+  return out;
+}
+// Лише події за останні windowMs і не більше maxEvents (нові лишаються).
+function recTrim(buf, nowWall, windowMs, maxEvents){
+  const from = nowWall - windowMs;
+  let list = buf.filter(function(e){ return typeof e.wall !== 'number' || e.wall >= from; });
+  if(list.length > maxEvents) list = list.slice(list.length - maxEvents);
+  return list;
+}
+// Відкидає найстаріші події, доки JSON не влізе в maxBytes (верхня межа звіту).
+function recLimitReport(events, maxBytes){
+  let list = events.slice();
+  while(list.length > 1 && JSON.stringify(list).length > maxBytes) list = list.slice(Math.ceil(list.length * 0.1));
+  return list;
+}
+// Частини для вставки: кожна ≤ maxBytes і ≤ maxCount подій; порядок збережено.
+function recChunk(events, maxBytes, maxCount){
+  const chunks = []; let cur = []; let size = 2;
+  events.forEach(function(e){
+    const n = JSON.stringify(e).length + 1;
+    if(cur.length && (size + n > maxBytes || cur.length >= maxCount)){ chunks.push(cur); cur = []; size = 2; }
+    cur.push(e); size += n;
+  });
+  if(cur.length) chunks.push(cur);
+  return chunks;
+}
+function recReportCode(date, rand){
+  const p = function(n, w){ return String(n).padStart(w, '0'); };
+  return 'MT-' + p(date.getMonth() + 1, 2) + p(date.getDate(), 2) + '-' + p(Math.abs(Math.floor(rand)) % 10000, 4);
+}
+// Обмеження частоти: не частіше одного звіту кожного типу за perTypeMs і не більше perDay за добу. log — [{ type, at }].
+function recRateCheck(log, type, now, perTypeMs, perDay){
+  const fresh = (Array.isArray(log) ? log : []).filter(function(r){ return r && typeof r.at === 'number' && now - r.at < 86400000; });
+  const lastSame = fresh.filter(function(r){ return r.type === type; }).reduce(function(m, r){ return Math.max(m, r.at); }, 0);
+  if(lastSame && now - lastSame < perTypeMs) return { allow: false, log: fresh };
+  if(fresh.length >= perDay) return { allow: false, log: fresh };
+  return { allow: true, log: fresh.concat([{ type: type, at: now }]) };
+}
+// Черга непереданих звітів: найстаріші відкидаються понад max.
+function recQueueAdd(queue, report, max){
+  const q = (Array.isArray(queue) ? queue : []).filter(function(r){ return r && r.code !== report.code; }).concat([report]);
+  return q.length > max ? q.slice(q.length - max) : q;
+}
+// Аномалія руху листа: різкий рух >20 пт і одразу назад >20 пт за 600 мс (відскок). Повертає 'sheet-jump' або null.
+function recDetectSheetJump(events){
+  const pts = events.filter(function(e){ return typeof e.drawerBottom === 'number' && typeof e.wall === 'number' && e.drawerId; }).slice(-14);
+  for(let i = 0; i + 2 < pts.length; i++){
+    const a = pts[i], b = pts[i + 1], c = pts[i + 2];
+    if(a.drawerId !== b.drawerId || b.drawerId !== c.drawerId || c.wall - a.wall > 600) continue;
+    const d1 = b.drawerBottom - a.drawerBottom, d2 = c.drawerBottom - b.drawerBottom;
+    if(Math.abs(d1) > 20 && Math.abs(d2) > 20 && d1 * d2 < 0) return 'sheet-jump';
+  }
+  return null;
+}
+// Поле у фокусі нижче нижньої межі видимої області (під клавіатурою): rect.bottom > vv.offsetTop + vv.height + tolerance.
+function recFieldHidden(rectBottom, vvH, vvTop, tolerance){
+  if(typeof rectBottom !== 'number' || typeof vvH !== 'number') return false;
+  return rectBottom > (vvTop || 0) + vvH + (tolerance == null ? 2 : tolerance);
+}
+
+// ----- Рантайм самописця (Rev 2.32.260, REC-1) -----
+let recBuf = [];
+let recMirrorTimer = null;
+let recFlushing = false;
+let recVvRaf = 0;
+let recFieldTimer = null;
+let recRateMem = []; // запас на випадок, коли localStorage недоступний (приватний режим, квота): ліміт частоти діє хоча б до перезапуску
+function recStoreGet(key){ try{ return JSON.parse(localStorage.getItem(key) || 'null'); }catch(e){ return null; } }
+function recStoreSet(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+// Подія з будь-якого джерела (pushDebugEvent) → білий список → буфер у пам'яті. Без запису в IDB на кожну подію: дзеркало раз на кілька секунд.
+function recPush(raw){
+  const ev = recSanitizeEvent(raw, Date.now());
+  if(!ev) return;
+  recBuf.push(ev);
+  const from = ev.wall - REC_WINDOW_MS;
+  while(recBuf.length && (recBuf[0].wall < from || recBuf.length > REC_MAX_EVENTS)) recBuf.shift();
+  recScheduleMirror();
+  if(ev.type === 'vv-resize' || ev.type === 'sheet-anim' || ev.type === 'sheet-close'){
+    const a = recDetectSheetJump(recBuf);
+    if(a) recTrigger(a);
+  }
+}
+function recScheduleMirror(){
+  if(recMirrorTimer) return;
+  recMirrorTimer = setTimeout(function(){ recMirrorTimer = null; recMirrorSave(); }, 3000);
+}
+function recMirrorSave(){
+  try{ return Promise.resolve(idbAdapterSet(REC_MIRROR_KEY, JSON.stringify({ v: 1, ev: recBuf }))).catch(function(){}); }catch(e){ return Promise.resolve(); }
+}
+async function recMirrorLoad(){
+  try{
+    const raw = await idbAdapterGet(REC_MIRROR_KEY);
+    const o = raw ? JSON.parse(raw) : null;
+    if(o && Array.isArray(o.ev)){
+      const restored = recTrim(o.ev.filter(function(e){ return e && typeof e.type === 'string'; }), Date.now(), REC_WINDOW_MS, REC_MAX_EVENTS);
+      recBuf = restored.concat(recBuf);
+    }
+  }catch(e){}
+}
+function recBuildDevice(trigger){
+  let dev = {};
+  try{ dev = buildDebugLogDevice(); }catch(e){}
+  let theme = null; try{ theme = document.documentElement.getAttribute('data-theme') || null; }catch(e){}
+  return Object.assign({}, dev, { appVersion: APP_VERSION, theme: theme, online: navigator.onLine !== false, trigger: trigger, sdk: (typeof supabase !== 'undefined' && supabase && supabase.version) ? String(supabase.version) : null });
+}
+async function recSwVersion(){
+  try{ const keys = await caches.keys(); const k = keys.filter(function(n){ return n.indexOf('budget-app-v') === 0; }).sort().pop(); return k || null; }catch(e){ return null; }
+}
+// Надсилання частинами: insertFn(row) → { error }. Повертає { status: 'sent' | 'partial', next }.
+async function recSendParts(report, insertFn, startPart){
+  const chunks = recChunk(report.events, REC_CHUNK_BYTES, REC_CHUNK_EVENTS);
+  if(!chunks.length) chunks.push([]);
+  for(let i = startPart || 0; i < chunks.length; i++){
+    let res = null;
+    try{ res = await insertFn({ scenario: 'incident', app_version: report.appVersion, device: Object.assign({}, report.device, { report: { code: report.code, trigger: report.trigger, part: i + 1, parts: chunks.length, wall: report.wall } }), events: chunks[i] }); }
+    catch(e){ res = { error: e || new Error('network') }; }
+    if(!res || res.error) return { status: 'partial', next: i, parts: chunks.length };
+  }
+  return { status: 'sent', next: chunks.length, parts: chunks.length };
+}
+function recCanSend(){
+  try{ return isCloudWriteReady() && navigator.onLine !== false; }catch(e){ return false; }
+}
+function recInsertRow(row){
+  return getSupabaseClient().from('client_debug_logs').insert(Object.assign({ family_id: cloudFamilyId, user_id: cloudSession.user.id }, row));
+}
+async function recQueueLoad(){
+  try{ const raw = await idbAdapterGet(REC_QUEUE_KEY); const q = raw ? JSON.parse(raw) : []; return Array.isArray(q) ? q : []; }catch(e){ return []; }
+}
+async function recQueueSave(q){ try{ await idbAdapterSet(REC_QUEUE_KEY, JSON.stringify(q)); }catch(e){} }
+function recSentList(){ const l = recStoreGet(REC_SENT_KEY); return Array.isArray(l) ? l : []; }
+function recSentSet(code, trigger, status){
+  const l = recSentList().filter(function(r){ return r.code !== code; });
+  l.unshift({ code: code, trigger: trigger, at: Date.now(), status: status });
+  recStoreSet(REC_SENT_KEY, l.slice(0, 20));
+}
+// Звіт → у базу (частинами) або в чергу. Повертає 'sent' | 'queued'.
+async function recDeliver(report){
+  if(recCanSend()){
+    const r = await recSendParts(report, recInsertRow, report.next || 0);
+    if(r.status === 'sent'){ recSentSet(report.code, report.trigger, 'sent'); return 'sent'; }
+    report.next = r.next;
+  }
+  const q = recQueueAdd(await recQueueLoad(), report, REC_QUEUE_MAX);
+  await recQueueSave(q);
+  recSentSet(report.code, report.trigger, 'queued');
+  return 'queued';
+}
+async function recFlushQueue(){
+  if(recFlushing || !recCanSend()) return;
+  recFlushing = true;
+  try{
+    let q = await recQueueLoad();
+    if(!q.length) return;
+    const rest = [];
+    for(const rep of q){
+      const r = await recSendParts(rep, recInsertRow, rep.next || 0);
+      if(r.status === 'sent') recSentSet(rep.code, rep.trigger, 'sent'); else { rep.next = r.next; rest.push(rep); }
+    }
+    await recQueueSave(rest);
+  }finally{ recFlushing = false; }
+}
+async function recBuildReport(trigger){
+  recPush({ type: 'rec-trigger', trigger: trigger, online: navigator.onLine !== false });
+  const rand = (window.crypto && crypto.getRandomValues) ? crypto.getRandomValues(new Uint32Array(1))[0] : Math.random() * 1e9;
+  const device = recBuildDevice(trigger);
+  device.sw = await recSwVersion();
+  return { code: recReportCode(new Date(), rand), trigger: trigger, wall: Date.now(), appVersion: APP_VERSION, device: device, events: recLimitReport(recBuf.slice(), REC_MAX_REPORT_BYTES), next: 0 };
+}
+// Автоматичний звіт (з обмеженням частоти) за подією-тригером.
+function recTrigger(kind){
+  if(!recBgOn) return;
+  const rl = recRateCheck((recStoreGet(REC_RATE_KEY) || []).concat(recRateMem), kind, Date.now(), REC_RATE_TYPE_MS, REC_RATE_PER_DAY);
+  if(!rl.allow) return;
+  recRateMem = rl.log;
+  recStoreSet(REC_RATE_KEY, rl.log);
+  recBuildReport(kind).then(recDeliver).catch(function(){});
+}
+// Кнопка «Повідомити про проблему»: без обмежень частоти. Повертає { code, status }.
+async function recReportNow(onCode){
+  const rl = recRateCheck((recStoreGet(REC_RATE_KEY) || []).concat(recRateMem).filter(function(r){ return r.type === 'manual'; }), 'manual', Date.now(), 15000, 30);
+  if(!rl.allow){ const last = recSentList()[0]; if(last){ if(onCode) onCode(last.code); return { code: last.code, status: last.status === 'sent' ? 'sent' : 'queued' }; } }
+  else { recRateMem = recRateMem.concat([{ type: 'manual', at: Date.now() }]).slice(-40); }
+  const rep = await recBuildReport('manual');
+  if(onCode) onCode(rep.code);
+  const status = await Promise.race([recDeliver(rep), new Promise(function(res){ setTimeout(function(){ res('queued'); }, 15000); })]);
+  return { code: rep.code, status: status };
+}
+// Вихід з акаунта: буфер, черга, лічильники й список надісланих очищаються, щоб старі дані не пішли під іншим користувачем.
+function recClearOnSignOut(){
+  recBuf = []; recRateMem = [];
+  try{ [REC_RATE_KEY, REC_SENT_KEY].forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
+  try{ idbAdapterSet(REC_MIRROR_KEY, JSON.stringify({ v: 1, ev: [] })).catch(function(){}); idbAdapterSet(REC_QUEUE_KEY, '[]').catch(function(){}); }catch(e){}
+}
+function recBufferJson(){ return JSON.stringify({ app_version: APP_VERSION, device: recBuildDevice('copy'), events: recBuf }); }
+// Самоперевірка: поле у фокусі не нижче нижньої межі видимої області (через 450 мс після останньої зміни висоти клавіатури).
+function recCheckFieldVisible(){
+  try{
+    const vv = window.visualViewport, a = document.activeElement;
+    if(!vv || !a || !/^(INPUT|TEXTAREA)$/.test(a.tagName) || a.id === 'kb-focus-proxy' || !document.body.classList.contains('kb-open')) return;
+    if(vv.height > window.innerHeight - 100) return;
+    const r = a.getBoundingClientRect();
+    if(recFieldHidden(r.bottom, vv.height, vv.offsetTop, 2)){ pushDebugEvent({ type: 'kb-guard', skipped: false, activeElementId: a.id || null, activeRectBottom: Math.round(r.bottom), vvH: Math.round(vv.height), vvOffsetTop: Math.round(vv.offsetTop) }); recTrigger('field-hidden'); }
+  }catch(e){}
+}
+function recBgListeners(){
+  function on(t, type, h, o){ if(t) t.addEventListener(type, h, o); }
+  const vvEvent = function(name){ return function(){ if(recVvRaf) return; recVvRaf = requestAnimationFrame(function(){ recVvRaf = 0; try{ captureDebugGeometry(name); }catch(e){} }); if(name === 'vv-resize'){ if(recFieldTimer) clearTimeout(recFieldTimer); recFieldTimer = setTimeout(recCheckFieldVisible, 450); } }; };
+  if(window.visualViewport){ on(window.visualViewport, 'resize', vvEvent('vv-resize'), { passive: true }); on(window.visualViewport, 'scroll', vvEvent('vv-scroll'), { passive: true }); }
+  on(document, 'focusin', function(e){ const t = e.target; pushDebugEvent({ type: 'focusin', activeElementId: t && t.id || null, activeElementTag: t && t.tagName || null, activeElementType: t && t.type || null, vvH: window.visualViewport ? Math.round(window.visualViewport.height) : null }); }, true);
+  on(document, 'focusout', function(e){ const t = e.target; pushDebugEvent({ type: 'focusout', activeElementId: t && t.id || null, activeElementTag: t && t.tagName || null }); }, true);
+  on(document, 'visibilitychange', function(){ pushDebugEvent({ type: 'visibilitychange', visibility: document.visibilityState }); if(document.visibilityState === 'hidden') recMirrorSave(); else recFlushQueue(); });
+  on(window, 'pagehide', function(){ pushDebugEvent({ type: 'pagehide' }); recMirrorSave(); });
+  on(window, 'pageshow', function(){ pushDebugEvent({ type: 'pageshow' }); });
+  on(window, 'orientationchange', function(){ pushDebugEvent({ type: 'orientationchange', orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait' }); });
+  on(window, 'online', function(){ recFlushQueue(); });
+  on(document, 'touchstart', function(e){ const t = e.target, p = e.touches && e.touches[0]; pushDebugEvent({ type: 'touch', targetTag: t && t.tagName || null, targetId: t && t.id || null, targetClasses: t && typeof t.className === 'string' ? t.className.slice(0, 60) : null, touchX: p ? Math.round(p.clientX) : null, touchY: p ? Math.round(p.clientY) : null }); }, { passive: true, capture: true });
+  if(typeof MutationObserver !== 'undefined' && document.body){
+    new MutationObserver(function(){ pushDebugEvent({ type: 'kb-open-class-changed', kbOpen: document.body.classList.contains('kb-open') }); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
+}
+async function recBgStart(){
+  if(recBgOn) return;
+  recBgOn = true;
+  await recMirrorLoad();
+  recBgListeners();
+  pushDebugEvent({ type: 'pageshow' });
+  setTimeout(recFlushQueue, 4000);
+}
+
 async function sendDebugLog(){
   if(!isCloudSessionReady()){
     reportSaveResult({ success: false, error: 'Немає Cloud-сесії — скористайтесь "Скопіювати як JSON".' });
@@ -17046,7 +17364,7 @@ async function autoSyncStale(reason){
   }finally{
     autoSyncRunning = false;
   }
-  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'autosync', reason: reason, pending: pending, pushed: pushed, failed: failed });
+  if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'autosync', reason: reason, pending: pending, pushed: pushed, failed: failed });
   shadowDiffReport('autosync'); // Rev 2.32.192 (SHADOW-REV)
   if(pushed){ populateMonths(); renderAll(); }
   clearTimeout(autoSyncTimer);
@@ -17964,14 +18282,14 @@ function refreshUpdateBanner(){
   const st = swUiState();
   if(st.waiting && !swUpdateFoundReported){
     swUpdateFoundReported = true;
-    if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'sw-update', found: true, applied: false });
+    if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'sw-update', found: true, applied: false });
   }
   el.classList.toggle('show', shouldShowUpdateBanner(st));
 }
 function applyAppUpdate(){
   const st = swUiState();
   if(!isSafeToReload(st) || !swRegistration || !swRegistration.waiting){ return; }
-  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'sw-update', found: true, applied: true });
+  if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'sw-update', found: true, applied: true });
   swRegistration.waiting.postMessage('SKIP_WAITING');
 }
 document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible') checkForAppUpdate(); });
@@ -18607,7 +18925,7 @@ function guardEditOpener(name, trigger){
 ['openTrashScreen'].forEach(function(n){ guardEditOpener(n, 'open-trash'); });
 ['switchTab'].forEach(function(n){ guardEditOpener(n, 'tab-switch'); });
 ['addExpense'].forEach(function(n){ guardEditOpener(n, 'add-expense'); });
-['openProfileLoginDrawer', 'openDebugRecordDrawer', 'openIncomeEditor', 'openInstallmentEditor', 'openCardDebtEditor', 'openTestingDrawer', 'openNotificationsDrawer', 'openSettings', 'openTrashDetail']
+['openProfileLoginDrawer', 'openDebugRecordDrawer', 'openIncomeEditor', 'openInstallmentEditor', 'openCardDebtEditor', 'openTestingDrawer', 'openRecReport', 'openNotificationsDrawer', 'openSettings', 'openTrashDetail']
   .forEach(function(n){ guardEditOpener(n, 'open-drawer'); });
 function onRecordCategoryChange(id){
   const catSel = document.getElementById('edit-cat-'+id);
@@ -23648,6 +23966,7 @@ function showNetStats(){
 }
 function openTestingDrawer(){
   updateNetStatsRow();
+  updateRecSentCount(); // Rev 2.32.260 (REC-1)
   renderPushDiag(); // Rev 2.32.103 (NOTIF-3 Rev 2)
   renderCloudEnvUI();
   renderTestingDrawer();
@@ -26427,6 +26746,7 @@ const CHECKS_EXPIRE_DAYS = 7; // Rev 2.32.202: термін кроку — 7 д�
 const CHECKS_NOTE_MAX = 300;
 const CHECKS_SHARED_KEY = 'budget-checks-shared-v1'; // кеш спільного журналу: відповіді сім'ї за 7 днів (client_debug_logs, scenario = 'check')
 const CHECKS_SHARED_MIN_MS = 60000;
+// Rev 2.32.260 (REC-1): закрито 8 кроків, які перевіряють e2e:cloud (перейменування категорії й видалення на двох телефонах, відновлення з копії) або автотести («Перевірки», спільний список), і 2 кроки, що потребували прибраного «Записати діагностику».
 const CHECKS = [
   { id: '2.32.186-1', rev: '2.32.186', addedOn: '2026-10-28', title: 'Рамка автора без мережі', steps: ['Увімкніть режим у літаку.', 'Додайте витрату.'], expect: 'ліва рамка витрати одразу синя.', reasons: ["Не з'явилась", 'Не той колір'] },
   { id: '2.32.186-2', rev: '2.32.186', addedOn: '2026-10-28', title: 'Рамка після перезапуску', steps: ['Вимкніть режим у літаку.', 'Закрийте застосунок повністю: в перемикачі застосунків змахніть його вгору.', 'Відкрийте знову.'], expect: 'рамка на витраті лишилась.', reasons: ['Зникла', 'Не той колір'] },
@@ -26472,14 +26792,8 @@ const CHECKS = [
   { id: '2.32.226-3', rev: '2.32.226', addedOn: '2026-10-31', title: 'ОЧ: платіж на двох телефонах (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах і змініть платіж тієї ж ОЧ на різні значення.', 'Увімкніть мережу на обох телефонах.'], expect: 'з\u2019являється картка «Оля вже змінила платіж» з кнопкою «Повернути моє».', reasons: ['Картки не з\u2019явилось', 'Платіж на телефонах різний'] },
   { id: '2.32.227-1', rev: '2.32.227', addedOn: '2026-10-31', title: 'Категорії: різні поля (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах. На першому змініть тип категорії, на другому видаліть ту саму категорію.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'категорія видалена на обох (її видно у «Видалених даних» з новим типом), без сповіщень.', reasons: ['Категорія лишилась активною', 'Новий тип зник', 'З\u2019явилось сповіщення'] },
   { id: '2.32.227-2', rev: '2.32.227', addedOn: '2026-10-31', title: 'Підкатегорія: видалення без мережі (потрібен другий телефон)', steps: ['Вимкніть мережу на першому телефоні й видаліть підкатегорію.', 'Увімкніть мережу й зачекайте хвилину.'], expect: 'на обох телефонах підкатегорія зникла зі списку вибору, помилок і сповіщень нема.', reasons: ['На другому телефоні підкатегорія лишилась', 'З\u2019явилось сповіщення'] },
-  { id: '2.32.228-1', rev: '2.32.228', addedOn: '2026-11-01', title: 'Перейменування категорії на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні перейменуйте категорію, у якій є витрати.', 'Зачекайте хвилину й на другому телефоні відкрийте журнал цієї категорії.'], expect: 'на обох телефонах категорія й усі її витрати мають нову назву, старої назви ніде нема.', reasons: ['На другому телефоні лишилась стара назва', 'Категорія розділилась на дві', 'З\u2019явилась помилка'] },
-  { id: '2.32.229-1', rev: '2.32.229', addedOn: '2026-11-01', title: 'Діагностика: підрахунок записів без зліпка', steps: ['Відкрийте «Сервіс → Діагностика» і натисніть «Записати діагностику».', 'Закрийте її й відкрийте екран «Журнал», потім поверніться, натисніть «Стоп» і «Надіслати лог».'], expect: 'лог надіслано без помилок.', reasons: ['Лог не надіслано', 'Помилка'] },
-  { id: '2.32.230-1', rev: '2.32.230', addedOn: '2026-11-01', title: 'Видалення запису на двох телефонах (потрібен другий телефон)', steps: ['На першому телефоні видаліть витрату.', 'Зачекайте хвилину й на другому телефоні перевірте журнал і «Сервіс → Видалені дані».'], expect: 'на другому телефоні витрата зникла з журналу, є у «Видалених даних», повернення з «Видалених даних» повертає її на обох.', reasons: ['Витрата лишилась у журналі', 'Її нема у «Видалених даних»', 'Повернення не спрацювало', 'З\u2019явилось зайве сповіщення'] },
-  { id: '2.32.232-1', rev: '2.32.232', addedOn: '2026-11-01', title: 'Відновлення з копії як звичайні правки', steps: ['Відкрийте «Сервіс → Резервне копіювання» і збережіть файл копії.', 'Змініть суму будь-якої витрати й почекайте хвилину.', 'Натисніть «Відновити», оберіть цей файл і підтвердьте.'], expect: 'сума витрати повернулась до значення з копії, показано підсумок «Відновлено N записів», карток конфліктів немає.', reasons: ['Сума не повернулась', 'Підсумку немає', 'З\u2019явилась картка конфліктів', 'Помилка'] },
-  { id: '2.32.235-1', rev: '2.32.235', addedOn: '2026-11-01', title: 'Відновлення з файлу й повернення стану до відновлення', steps: ['У «Сервіс → Резервне копіювання» збережіть файл і змініть суму будь-якої витрати.', 'Натисніть «Відновити», оберіть цей файл і підтвердьте «Повернути дані».', 'Знову натисніть «Відновити», оберіть «Повернути стан до відновлення» і підтвердьте.'], expect: 'після другого кроку сума повернулась, показано «Повернуто N записів…», під плитками пояснення, як повернутись; після третього сума знову така, як була до відновлення, а під плитками звичний текст.', reasons: ['Сума не повернулась', 'Лист не відкрився', 'Повернення стану не спрацювало', 'Помилка'] },
   { id: '2.32.236-1', rev: '2.32.236', addedOn: '2026-11-01', title: 'Перейменування категорії й зміна типу на двох телефонах (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах.', 'На першому перейменуйте категорію, на другому змініть її тип.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'на обох телефонах категорія має нову назву й новий тип, сповіщень немає.', reasons: ['Лишилась стара назва', 'Тип не змінився', 'З\u2019явилось сповіщення'] },
   { id: '2.32.237-1', rev: '2.32.237', addedOn: '2026-11-01', title: 'Перейменування картки й зміна ліміту на двох телефонах (потрібен другий телефон)', steps: ['Вимкніть мережу на обох телефонах.', 'На першому перейменуйте картку, на другому змініть її кредитний ліміт.', 'Увімкніть мережу на обох телефонах і зачекайте хвилину.'], expect: 'на обох телефонах картка має нову назву й новий ліміт, її борги в «Обліку» й «Аналітиці» — з новою назвою, сповіщень немає.', reasons: ['Лишилась стара назва', 'Ліміт не змінився', 'Борги під старою назвою', 'З\u2019явилось сповіщення'] },
-  { id: '2.32.238-1', rev: '2.32.238', addedOn: '2026-11-01', title: 'Діагностика геометрії клавіатури', steps: ['Відкрийте «Сервіс → Діагностика → Записати діагностику».', 'Відкрийте форму з полем (наприклад, «Нова витрата»), торкніться поля й дочекайтесь клавіатури, натисніть «Мітка».', 'Закрийте клавіатуру, натисніть «Стоп» і «Надіслати лог».'], expect: 'лог надіслано без помилок.', reasons: ['Лог не надіслано', 'Помилка'] },
   { id: '2.32.239-1', rev: '2.32.239', addedOn: '2026-11-01', title: 'iPad, портрет: форма «Вхід» над клавіатурою (потрібен iPad)', steps: ['Вийдіть із облікового запису й відкрийте «Вхід».', 'Торкніться поля електронної пошти, потім поля пароля.'], expect: 'форма стоїть рівно над клавіатурою, кнопка «Вхід» видна й не ховається, лист не стрибає.', reasons: ['Кнопка «Вхід» схована', 'Лист стоїть нижче за клавіатуру', 'Лист стрибає'] },
   { id: '2.32.239-2', rev: '2.32.239', addedOn: '2026-11-01', title: 'iPad, ландшафт: форма «Вхід» над клавіатурою (потрібен iPad)', steps: ['Поверніть iPad горизонтально, відкрийте «Вхід».', 'Торкніться поля електронної пошти.'], expect: 'форма стоїть рівно над клавіатурою, кнопка «Вхід» видна.', reasons: ['Кнопка «Вхід» схована', 'Лист стоїть нижче за клавіатуру'] },
   { id: '2.32.239-3', rev: '2.32.239', addedOn: '2026-11-01', title: 'Android: «Вхід» і «Нова витрата» (потрібен Android)', steps: ['Відкрийте «Вхід» і торкніться поля.', 'Закрийте, відкрийте «Нову витрату» й торкніться поля суми.'], expect: 'лист стоїть над клавіатурою й не «відлітає» високо вгору.', reasons: ['Лист відлітає вгору', 'Лист схований під клавіатурою'] },
@@ -29395,7 +29709,7 @@ let kbHiddenSince = 0;
 // Rev 2.32.256 (KB-3): легкі записи для розрізнення Face ID й власного приховування клавіатури (лише під час запису діагностики; поведінку не змінюють).
 function kbWinDiag(type){
   try{
-    if(typeof debugRecordingActive === 'undefined' || !debugRecordingActive) return;
+    if(!recOn()) return;
     const ae = document.activeElement, vv = window.visualViewport;
     pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: type, hasFocus: document.hasFocus(), visibility: document.visibilityState, activeElementTag: ae ? ae.tagName : null, activeElementId: ae ? (ae.id || null) : null, vvH: vv ? Math.round(vv.height) : null, kbOpen: document.body.classList.contains('kb-open') });
   }catch(e){}
@@ -29665,7 +29979,7 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.addEventListener('message', function(event){
     if(event.data && event.data.type === 'push-click-info'){
       // Rev 2.32.30 (P): діагностика кліку з боку SW — без значень
-      if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-click', pushType: event.data.pushType || null, clients: event.data.clients, focus: event.data.focus });
+      if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-click', pushType: event.data.pushType || null, clients: event.data.clients, focus: event.data.focus });
       return;
     }
     if(event.data && event.data.type === 'push-action' && event.data.action){
@@ -29741,6 +30055,83 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
     });
   });
 }
+// ----- Інтерфейс самописця (Rev 2.32.260, REC-1): «Повідомити про проблему», «Надіслані звіти», «Скопіювати запис» -----
+// Вигляд шторки звіту за станом: sending → sent | offline.
+function recReportView(state, code){
+  if(state === 'sent') return { cls: 'is-ok', title: 'Звіт надіслано', code: code || '', hint: 'Напишіть цей код у чат', copy: true };
+  if(state === 'offline') return { cls: 'is-off', title: 'Немає мережі', code: code || '', hint: 'Надішлю, щойно з’явиться зв’язок. Код уже можна писати в чат', copy: true };
+  return { cls: 'is-sending', title: 'Надсилаю…', code: '', hint: 'Це займе кілька секунд', copy: false };
+}
+const REC_ICONS = {
+  sending: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg>',
+  sent: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l10 -10"/></svg>',
+  offline: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M9.58 5.58a5 5 0 0 1 8.42 2.42h1a4.5 4.5 0 0 1 2.5 8.242m-2.5 1.758h-13a4.5 4.5 0 0 1 -.5 -8.973"/></svg>'
+}; // статичні значки, без даних
+let recLastCode = '';
+let recReportBusy = false;
+function recRenderReport(state, code){
+  const v = recReportView(state, code);
+  const box = document.getElementById('rec-report-state'), t = document.getElementById('rec-report-title'), c = document.getElementById('rec-report-code'), h = document.getElementById('rec-report-hint'), cp = document.getElementById('rec-report-copy');
+  if(!box) return;
+  box.className = 'rec-state ' + v.cls;
+  t.textContent = v.title; h.textContent = v.hint;
+  const ic = document.getElementById('rec-report-icon'); if(ic) ic.innerHTML = REC_ICONS[state] || REC_ICONS.sending;
+  c.textContent = v.code; c.classList.toggle('hidden', !v.code);
+  if(cp) cp.classList.toggle('hidden', !v.copy);
+}
+function openRecReport(){
+  const backdrop = document.getElementById('rec-report-backdrop'), drawer = document.getElementById('rec-report-drawer');
+  const wasOpen = drawer && drawer.classList.contains('open');
+  lastFocusedBeforeDialog = document.activeElement;
+  if(backdrop){ backdrop.removeAttribute('inert'); backdrop.classList.add('open'); }
+  if(drawer){ drawer.removeAttribute('inert'); drawer.classList.add('open'); }
+  if(!wasOpen) lockBackgroundScroll();
+  if(recReportBusy) return;
+  recReportBusy = true; recLastCode = '';
+  recRenderReport('sending', '');
+  recReportNow(function(code){ recLastCode = code; }).then(function(r){
+    recLastCode = r.code;
+    recRenderReport(r.status === 'sent' ? 'sent' : 'offline', r.code);
+  }).catch(function(){ recRenderReport('offline', recLastCode); }).then(function(){ recReportBusy = false; updateRecSentCount(); });
+}
+function closeRecReport(){
+  const backdrop = document.getElementById('rec-report-backdrop'), drawer = document.getElementById('rec-report-drawer');
+  const wasOpen = drawer && drawer.classList.contains('open');
+  if(backdrop){ backdrop.classList.remove('open'); backdrop.setAttribute('inert', ''); }
+  if(drawer){ drawer.classList.remove('open'); drawer.setAttribute('inert', ''); }
+  restoreFocus();
+  if(wasOpen) unlockBackgroundScroll();
+}
+async function recCopyText(text, okMsg){
+  try{ await navigator.clipboard.writeText(text); showTextToast(okMsg, 'success'); }
+  catch(e){ showTextToast('Не вдалося скопіювати', 'error'); }
+}
+function copyRecCode(){ if(recLastCode) recCopyText(recLastCode, 'Код скопійовано'); }
+function copyRecBuffer(){ recCopyText(recBufferJson(), 'Запис скопійовано'); }
+function recSentLine(r){
+  const d = new Date(r.at), p = function(n){ return String(n).padStart(2, '0'); };
+  return r.code + ' · ' + p(d.getDate()) + '.' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + (r.status === 'queued' ? ' · у черзі' : '');
+}
+function updateRecSentCount(){
+  const el = document.getElementById('rec-sent-count'); if(el) el.textContent = String(recSentList().length);
+  const list = document.getElementById('rec-sent-list');
+  if(list && !list.classList.contains('hidden')) recFillSent(list);
+}
+function recFillSent(list){
+  list.textContent = '';
+  const items = recSentList();
+  if(!items.length){ list.textContent = 'Звітів ще не було'; return; }
+  items.forEach(function(r){ const row = document.createElement('div'); row.className = 'n-diag-row'; const sp = document.createElement('span'); sp.textContent = recSentLine(r); row.appendChild(sp); list.appendChild(row); });
+}
+function toggleRecSent(){
+  const list = document.getElementById('rec-sent-list'), btn = document.getElementById('rec-sent-btn');
+  if(!list) return;
+  const open = list.classList.toggle('hidden') === false;
+  if(btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if(open) recFillSent(list);
+}
+// Rev 2.32.260 (REC-1): бортовий самописець стартує разом із застосунком.
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ recBgStart(); }); else recBgStart();
 </script>
 </body>
 </html>

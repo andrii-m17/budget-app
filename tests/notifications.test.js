@@ -189,7 +189,7 @@ test('екран «Сповіщення» (R): рядок у «Налаштув�
   assert.match(r, /'ntffielda1'/); assert.match(r, /'ntffielda2'/);
   ['ntffielda1', 'ntffielda2'].forEach(id => assert.ok(!/name|phone|tel|mail|addr|user|login|first|last|fio|contact/i.test(id), id));
   assert.match(SRC.slice(SRC.indexOf('function notifRow'), SRC.indexOf('function notifGroup')), /setAttribute\('role', 'switch'\); input\.setAttribute\('aria-label', titleText\)/);
-  assert.match(SRC, /id="testing-diag-btn"[^>]*toggleDeliveryDiagFromTesting\(\)/);
+  assert.ok(!/id="testing-diag-btn"/.test(SRC), 'Rev 2.32.261 (REC-1): рядок «Журнал доставки сповіщень» прибрано з екрана; збір лишився');
   assert.match(SRC, /function toggleDeliveryDiagFromTesting/);
   assert.match(SRC, /Зміни прийдуть одним зведенням після завершення тихих годин\./);
   assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ #notifications-drawer \.nx-appear\{ animation:none; \} \}/);
