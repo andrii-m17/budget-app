@@ -3853,7 +3853,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.263</div>
+  <div class="version-footer">Money Tree · Rev 2.32.264</div>
 </div>
   </div>
 </div>
@@ -9709,7 +9709,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.263';
+const APP_VERSION = '2.32.264';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14743,7 +14743,7 @@ const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
 const REC_ALLOWED_TYPES = ['sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
-const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online'];
+const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -28489,10 +28489,18 @@ function beginSheetMoving(drawerEl, phase, fromField, toField){
   document.documentElement.classList.add('kb-sheet-moving');
   let done = false;
   let timer = null;
+  let waitingAnims = false;
   function finish(transitionEnded, elapsedOverride){
     if(done) return;
     const elapsed = typeof elapsedOverride === 'number' ? elapsedOverride : performance.now() - t0;
     if(!planCaretRestore({ transitionEnded: transitionEnded, elapsedMs: elapsed })) return;
+    // Rev 2.32.264 (KB-11): курсор показується за подією завершення ВСЬОГО руху: і прокрутки до поля (kbScrollWaiters), і будь-яких анімацій самого листа (getAnimations: підйом, висота, поява форми), а не за таймером; страховка 900 мс.
+    if(elapsed < 900){
+      if(kbScrollAnimActive){ kbScrollWaiters.push(function(){ finish(true); }); return; }
+      let running = [];
+      try{ running = typeof drawerEl.getAnimations === 'function' ? drawerEl.getAnimations().filter(function(a){ return a.playState === 'running'; }) : []; }catch(e){ running = []; }
+      if(running.length && !waitingAnims){ waitingAnims = true; Promise.allSettled(running.map(function(a){ return a.finished; })).then(function(){ waitingAnims = false; finish(true); }); return; }
+    }
     done = true;
     drawerEl.removeEventListener('transitionend', onEnd);
     if(timer){ clearTimeout(timer); timer = null; }
@@ -29102,6 +29110,55 @@ function kbPipeTryAnimate(){
 }
 function kbPipeKick(){ if(KB_PIPE.pending && kbSheetActive && kbSheetNewF && kbPipeOpenNow()){ KB_PIPE.pending = false; kbPipeAnimate(); } }
 // Rev 2.32.248 (KB-2): якщо лист вищий за видиму область (ландшафт iPhone: видимо ≈ 139 пт), поле у фокусі лишалось поза нею (−155 пт). Прокручуємо найближчий прокручуваний контейнер ВСЕРЕДИНІ листа так, щоб поле було видно на 12 пт над краєм видимої області й під верхом контейнера. Розміри листів не чіпаємо (UI-1). Нічого не робить, якщо поле вже видно або лист не прокручується.
+// Rev 2.32.264 (KB-11): прокрутка до поля йде РАЗОМ з підйомом листа (звіт MT-1107-1889: стартувала через ~340 мс після початку підйому, одним кроком 49 пт, а курсор з'являвся до її кінця). Ціль рахується в момент старту підйому з кінцевої геометрії (висота листа з клавіатурою, верх прикріпленого блоку кнопок) і анімується JS-ом (scrollTop не має CSS-переходу) тією ж тривалістю й кривою, що й transform листа. Курсор (kb-sheet-moving) знімається лише після кінця й цієї прокрутки (kbScrollWaiters). Ризик: користувач торкнувся прокрутки посеред руху — анімація зупиняється; запасний kbEnsureFieldVisible (340 мс) лишається страховкою.
+let kbScrollAnimActive = false;
+let kbScrollWaiters = [];
+let kbScrollRaf = 0;
+function kbScrollDone(){
+  kbScrollAnimActive = false; kbScrollRaf = 0;
+  const w = kbScrollWaiters; kbScrollWaiters = [];
+  w.forEach(function(f){ try{ f(); }catch(e){} });
+}
+function kbScrollParentOf(field, drawerEl){
+  let sc = field.parentElement;
+  while(sc && sc !== document.body){
+    const oy = getComputedStyle(sc).overflowY;
+    if(oy === 'auto' || oy === 'scroll') return sc;
+    if(sc === drawerEl) return null;
+    sc = sc.parentElement;
+  }
+  return null;
+}
+function kbStartFieldScroll(drawerEl, field){
+  try{
+    if(!drawerEl || !field || document.activeElement !== field) return;
+    if(kbScrollRaf){ cancelAnimationFrame(kbScrollRaf); kbScrollDone(); }
+    const sc = kbScrollParentOf(field, drawerEl); if(!sc) return;
+    const root = document.documentElement;
+    let finalH = sc.clientHeight;
+    if(sc === drawerEl){
+      const maxH = parseFloat(root.style.getPropertyValue('--sheet-max-h')) - debugSafeAreaInsets().top;
+      if(isFinite(maxH) && maxH > 0) finalH = Math.min(sc.scrollHeight, maxH);
+    }
+    const bar = kbStickyBarOf(sc), barH = bar ? bar.getBoundingClientRect().height : 0;
+    const fr = field.getBoundingClientRect(), sr = sc.getBoundingClientRect(), from = sc.scrollTop;
+    const to = computeFieldScrollTarget({ fieldTop: fr.top - sr.top + from, fieldBottom: fr.bottom - sr.top + from, scrollTop: from, scrollH: sc.scrollHeight, finalClientH: finalH, barH: barH });
+    if(bar) sc.style.scrollPaddingBottom = Math.round(barH) + 'px';
+    if(Math.abs(to - from) < 1) return;
+    const dur = (parseFloat(getComputedStyle(drawerEl).transitionDuration) || 0.28) * 1000;
+    kbScrollAnimActive = true;
+    const t0 = performance.now(); let last = from; // відлік від виклику, а не від першого кадру: перший кадр уже рухає
+    const step = function(now){
+      if(Math.abs(sc.scrollTop - last) > 3){ kbScrollDone(); return; } // користувач сам прокрутив — не боремось
+      const p = Math.min(1, (now - t0) / dur);
+      last = p >= 1 ? to : from + (to - from) * kbBezier(0.22, 0.9, 0.3, 1, p);
+      sc.scrollTop = last; last = sc.scrollTop;
+      if(p >= 1){ captureDebugGeometry('field-scroll', { drawerId: kbSheetLabel(drawerEl), field: field.id || null, delta: Math.round(to - from), scrollFrom: Math.round(from), scrollTo: Math.round(to), ms: Math.round(dur) }); kbScrollDone(); return; }
+      kbScrollRaf = requestAnimationFrame(step);
+    };
+    kbScrollRaf = requestAnimationFrame(step);
+  }catch(e){ kbScrollDone(); }
+}
 function kbEnsureFieldVisible(drawerEl, field){
   try{
     const vv = window.visualViewport; if(!vv || !drawerEl || !field || !kbSheetActive || kbSheetDrawerEl !== drawerEl) return;
@@ -29135,6 +29192,7 @@ function kbPipeAnimate(){
   document.documentElement.style.setProperty('--sheet-lift', String(Math.round(L * 10) / 10));
   if(kbSheetSplit){ KB_PIPE.vvtop = Math.round(vv.offsetTop * 10) / 10; document.documentElement.style.setProperty('--sheet-vvtop', String(KB_PIPE.vvtop)); }
   startSheetAnimSampler(kbSheetDrawerEl, 'open', kbPipeNatural);
+  { const af = document.activeElement; kbStartFieldScroll(kbSheetDrawerEl, (af && af !== document.body && isKeyboardField(af)) ? af : kbPipeField); } // Rev 2.32.264 (KB-11): прокрутка до поля стартує разом з підйомом
   beginSheetMoving(kbSheetDrawerEl, 'open', null, kbPipeField);
   if(KB_PIPE.doneTimer) clearTimeout(KB_PIPE.doneTimer);
   KB_PIPE.doneTimer = setTimeout(function(){ KB_PIPE.doneTimer = null; KB_PIPE.state = kbPipeStep(KB_PIPE.state, 'done').state; kbEnsureFieldVisible(kbSheetDrawerEl, document.activeElement); }, 340);
@@ -29191,6 +29249,24 @@ function kbHeightsSave(orient, kind, h){
   try{ const o = kbHeightsLoad(); o[kbHeightKey(orient, kind)] = Math.round(h); localStorage.setItem(KB_HEIGHTS_KEY, JSON.stringify(o)); }catch(e){}
 }
 function kbHeightFromStore(orient, kind){ const v = kbHeightsLoad()[kbHeightKey(orient, kind)]; return typeof v === 'number' && v > 0 ? v : null; }
+// Rev 2.32.264 (KB-11): кубічна крива Безьє (як CSS cubic-bezier): прогрес t (0..1) → значення; для прокрутки до поля тією ж кривою, що й підйом листа.
+function kbBezier(x1, y1, x2, y2, t){
+  if(t <= 0) return 0; if(t >= 1) return 1;
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  let u = t;
+  for(let i = 0; i < 8; i++){ const x = ((ax * u + bx) * u + cx) * u - t, d = (3 * ax * u + 2 * bx) * u + cx; if(Math.abs(x) < 1e-5 || Math.abs(d) < 1e-6) break; u -= x / d; }
+  u = Math.min(1, Math.max(0, u));
+  return ((ay * u + by) * u + cy) * u;
+}
+// Цільовий scrollTop, щоб поле стояло повністю у видимій частині листа ПІСЛЯ підйому (кінцева висота листа з клавіатурою, висота прикріпленого блоку кнопок): o = { fieldTop, fieldBottom (у координатах вмісту), scrollTop, scrollH, finalClientH, barH }.
+function computeFieldScrollTarget(o){
+  const bottomLimit = o.finalClientH - (o.barH > 0 ? o.barH + 10 : 4), topLimit = 4;
+  const maxScroll = Math.max(0, o.scrollH - o.finalClientH);
+  let t = o.scrollTop;
+  if(o.fieldBottom - t > bottomLimit) t = o.fieldBottom - bottomLimit;
+  else if(o.fieldTop - t < topLimit) t = o.fieldTop - topLimit;
+  return Math.min(maxScroll, Math.max(0, Math.round(t * 10) / 10));
+}
 function computeSheetLift(o){
   const gap = o.gap == null ? 8 : o.gap;
   const minLift = -Math.max(0, (o.innerH - o.restBottom) - gap);

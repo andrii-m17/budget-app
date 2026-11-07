@@ -230,3 +230,33 @@ test('43. KB-10: лист із прикріпленими кнопками — �
     expect(r.fieldTop, 'поле не вище верху екрана: ' + JSON.stringify(r)).toBeGreaterThanOrEqual(0);
   }finally{ await ctx.close(); }
 });
+
+// KB-11 (Rev 2.32.264): звіт MT-1107-1889 (2.32.263, iPhone, 6 однакових циклів «Вхідні»): прокрутка до поля починалась лише через ~340 мс після початку підйому листа (після його зупинки), йшла одним кроком (49 пт), а курсор з'являвся, коли лист уже зупинився, але вміст ще їхав.
+// Тест на справжній розмітці WebKit: від початку підйому листа (visualViewport.resize) семплуємо scrollTop і клас kb-sheet-moving (курсор прихований) щокадру.
+test('44. KB-11: прокрутка до поля йде разом із підйомом листа (старт ≤ 70 мс, крок ≤ 20 пт, кінець разом з анімацією), курсор прихований до кінця всього руху', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(async () => { window.__vv.h = null; window.__vv.top = 0; await openMonoInbox(); monoInbox.rows = [{ id: 'sim1', status: 'new', tx_time: new Date().toISOString(), amount_uah: 120, description: 'Тест', suggested_category: '', suggested_subcategory: '', mono_account_id: 'x' }]; openMonoDetail('sim1'); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { const b = document.getElementById('mono-detail-body'); b.style.minHeight = '0px'; const dr = document.getElementById('mono-detail-drawer'); const top0 = document.getElementById('fldmono4').getBoundingClientRect().top - dr.getBoundingClientRect().top; b.style.minHeight = Math.max(0, 260 - top0) + 'px'; });
+    const bb = await page.locator('#fldmono4').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    const s = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('mono-detail-drawer'), out = []; const t0 = performance.now();
+      const tick = () => { out.push([Math.round(performance.now() - t0), Math.round(dr.scrollTop * 10) / 10, document.documentElement.classList.contains('kb-sheet-moving')]); if(performance.now() - t0 < 1100) requestAnimationFrame(tick); else resolve(out); };
+      requestAnimationFrame(tick);
+      const k = Math.round(window.__H0 * 0.3); window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize'));
+    }));
+    const start0 = s[0][1], end = s[s.length - 1][1];
+    expect(Math.abs(end - start0), 'прокрутка справді відбулась (умова тесту): ' + JSON.stringify(s.slice(-1))).toBeGreaterThan(30);
+    const tStart = (s.find(r => Math.abs(r[1] - start0) > 1) || [9999])[0];
+    const tEnd = (s.find(r => Math.abs(r[1] - end) <= 1) || [9999])[0];
+    let maxStep = 0; for(let i = 1; i < s.length; i++) maxStep = Math.max(maxStep, Math.abs(s[i][1] - s[i - 1][1]));
+    const tCaret = (s.find(r => r[2] === false && r[0] > 50) || [9999])[0]; // курсор показано (клас kb-sheet-moving знято)
+    const info = 'від ' + start0 + ' до ' + end + ', старт прокрутки ' + tStart + ' мс, кінець ' + tEnd + ' мс, макс. крок ' + maxStep + ' пт, курсор показано ' + tCaret + ' мс';
+    expect(tStart, 'прокрутка стартує разом із підйомом (≤ 2–3 кадрів): ' + info).toBeLessThanOrEqual(70);
+    expect(maxStep, 'без кроку понад 20 пт за кадр: ' + info).toBeLessThanOrEqual(20);
+    expect(tEnd, 'прокрутка закінчується разом з анімацією листа (≤ 330 мс): ' + info).toBeLessThanOrEqual(330);
+    expect(tCaret, 'курсор не раніше кінця всієї прокрутки: ' + info).toBeGreaterThanOrEqual(tEnd - 20);
+  }finally{ await ctx.close(); }
+});
