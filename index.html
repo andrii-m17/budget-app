@@ -3853,7 +3853,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.262</div>
+  <div class="version-footer">Money Tree · Rev 2.32.263</div>
 </div>
   </div>
 </div>
@@ -9709,7 +9709,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.262';
+const APP_VERSION = '2.32.263';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14235,11 +14235,19 @@ function kbgMeasure(why){
     tabbar: rect(document.querySelector('nav.tabbar')), sheet: rect(document.querySelector('.drawer.open, .app-modal.open')), field: isField ? rect(a) : null,
     kbCss: root.style.getPropertyValue('--kb-h'), liftCss: root.style.getPropertyValue('--sheet-lift'), restBottom: typeof window.__kbSheetRestBottom === 'number' && document.documentElement.classList.contains('kb-sheet') ? window.__kbSheetRestBottom : null };
 }
+// Rev 2.32.263 (KB-10): прикріплений блок кнопок листа (.mono-detail-actions, .sf-actions): перший видимий у контейнері прокрутки.
+function kbStickyBarOf(sc){
+  try{
+    const list = sc.querySelectorAll('.mono-detail-actions, .sf-actions');
+    for(let i = 0; i < list.length; i++){ if(list[i].offsetParent !== null && getComputedStyle(list[i]).position === 'sticky') return list[i]; }
+  }catch(e){}
+  return null;
+}
 function recordKbGeometry(why){
   if(!recOn()) return; // Rev 2.32.262 (KB-9): тепер і для бортового самописця (vv-settled, rest-settled)
   try{
     const d = document.querySelector('.drawer.open');
-    pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'kb-geometry' }, kbgSnapshot(kbgMeasure(why)), d ? { drawerId: d.id || null, drawerScrollHeight: d.scrollHeight, drawerClientHeight: d.clientHeight } : {}));
+    pushDebugEvent(Object.assign({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'kb-geometry' }, kbgSnapshot(kbgMeasure(why)), d ? (function(){ const bar = kbStickyBarOf(d), br = bar ? bar.getBoundingClientRect() : null; return { drawerId: d.id || null, drawerScrollHeight: d.scrollHeight, drawerClientHeight: d.clientHeight, drawerScrollTop: Math.round(d.scrollTop), actionsTop: br ? Math.round(br.top) : null, actionsBottom: br ? Math.round(br.bottom) : null }; })() : {}));
   }catch(e){}
 }
 let kbgSettleTimer = null;
@@ -14735,7 +14743,7 @@ const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
 const REC_ALLOWED_TYPES = ['sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
-const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online'];
+const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -29107,7 +29115,11 @@ function kbEnsureFieldVisible(drawerEl, field){
     }
     if(!sc || sc === document.body) return;
     const fr = field.getBoundingClientRect(), sr = sc.getBoundingClientRect();
-    const bottom = vv.offsetTop + vv.height - 12, top = Math.max(sr.top, vv.offsetTop) + 4;
+    // Rev 2.32.263 (KB-10): звіт MT-1107-3790: прикріплений (KB-9) блок кнопок («Додати»/«Ігнорувати») закривав поле у фокусі, а лист до поля не прокручувався, бо межа видимості враховувала лише клавіатуру. Тепер нижня межа — верх прикріпленого блоку мінус 10 пт (8 + запас на дробові значення й завершення переходу висоти), і така сама висота виставляється як scroll-padding-bottom контейнера прокрутки (нативні прокрутки до поля теж не заходять під кнопки). Ризик: блок без позиції sticky (кнопки в потоці під полем) лише звужує межу до власного верху — поле однаково над ним.
+    let bottom = vv.offsetTop + vv.height - 12; const top = Math.max(sr.top, vv.offsetTop) + 4;
+    const bar = kbStickyBarOf(sc);
+    if(bar){ const br = bar.getBoundingClientRect(); sc.style.scrollPaddingBottom = Math.max(0, Math.round(sr.bottom - br.top)) + 'px'; if(br.top - 10 < bottom) bottom = br.top - 10; }
+    else if(sc.style.scrollPaddingBottom) sc.style.scrollPaddingBottom = '';
     let d = 0;
     if(fr.bottom > bottom) d = fr.bottom - bottom;
     else if(fr.top < top) d = fr.top - top;

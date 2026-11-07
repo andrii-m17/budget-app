@@ -206,3 +206,27 @@ test('42. KB-9: лист вищий за вільне місце — кнопк�
     expect(c.tp, 'при закритті max-height теж у переході: ' + JSON.stringify(c)).toMatch(/max-height/);
   }finally{ await ctx.close(); }
 });
+
+// KB-10 (Rev 2.32.263): звіт MT-1107-3790 (2.32.262, iPhone): у «Вхідних» з клавіатурою поле «Примітка» у фокусі лишалось на місці (343–391), а нижню частину листа займали прикріплені (KB-9) кнопки «Додати»/«Ігнорувати»: поле опинялось за ними, лист до поля не прокручувався.
+// Тест на справжній розмітці WebKit: поле у фокусі повністю видно над прикріпленим блоком кнопок, відступ ≥ 8 пт.
+test('43. KB-10: лист із прикріпленими кнопками — поле у фокусі над блоком кнопок (відступ ≥ 8 пт)', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(async () => { window.__vv.h = null; window.__vv.top = 0; await openMonoInbox(); monoInbox.rows = [{ id: 'sim1', status: 'new', tx_time: new Date().toISOString(), amount_uah: 120, description: 'Тест', suggested_category: '', suggested_subcategory: '', mono_account_id: 'x' }]; openMonoDetail('sim1'); });
+    await page.waitForTimeout(900);
+    // висота вмісту над полем така, щоб поле стояло приблизно на 260 пт від верху листа (там, де його закриє прикріплений блок кнопок), як у звіті
+    await page.evaluate(() => { const b = document.getElementById('mono-detail-body'); b.style.minHeight = '0px'; const dr = document.getElementById('mono-detail-drawer'); const top0 = document.getElementById('fldmono4').getBoundingClientRect().top - dr.getBoundingClientRect().top; b.style.minHeight = Math.max(0, 260 - top0) + 'px'; });
+    const bb = await page.locator('#fldmono4').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { const k = Math.round(window.__H0 * 0.465); window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1300);
+    const r = await page.evaluate(() => {
+      const dr = document.getElementById('mono-detail-drawer'), f = document.getElementById('fldmono4').getBoundingClientRect(), a = document.getElementById('mono-detail-actions').getBoundingClientRect();
+      return { fieldTop: Math.round(f.top), fieldBottom: Math.round(f.bottom), actionsTop: Math.round(a.top), actionsBottom: Math.round(a.bottom), vvB: window.__vv.h, scrollTop: Math.round(dr.scrollTop), scrollH: dr.scrollHeight, clientH: dr.clientHeight, active: document.activeElement && document.activeElement.id };
+    });
+    expect(r.scrollH, 'лист вищий за вільне місце (умова тесту): ' + JSON.stringify(r)).toBeGreaterThan(r.clientH);
+    expect(r.active).toBe('fldmono4');
+    expect(r.fieldBottom, 'низ поля проти верху блоку кнопок (потрібен відступ ≥ 8): ' + JSON.stringify(r)).toBeLessThanOrEqual(r.actionsTop - 8);
+    expect(r.fieldTop, 'поле не вище верху екрана: ' + JSON.stringify(r)).toBeGreaterThanOrEqual(0);
+  }finally{ await ctx.close(); }
+});

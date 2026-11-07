@@ -184,3 +184,10 @@ test('REC (KB-9): kb-geometry з vv-settled / rest-settled — висота й �
   assert.match(HTML, /recordKbGeometry\('vv-settled'\)/);
   assert.match(HTML, /recordKbGeometry\('rest-settled'\)/);
 });
+test('REC (KB-10): kb-geometry несе положення прокрутки листа й блоку прикріплених кнопок', () => {
+  const c = pure();
+  c.__ev = { type: 'kb-geometry', kbgWhy: 'vv-settled', drawerId: 'mono-detail-drawer', drawerScrollHeight: 581, drawerClientHeight: 498, drawerScrollTop: 148, actionsTop: 360, actionsBottom: 498 };
+  const o = J(c, 'recSanitizeEvent(__ev, 1)');
+  assert.equal(o.drawerScrollTop, 148); assert.equal(o.actionsTop, 360); assert.equal(o.actionsBottom, 498);
+  assert.match(HTML, /kbStickyBarOf\(d\)/);
+});
