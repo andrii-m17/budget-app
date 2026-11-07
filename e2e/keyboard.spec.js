@@ -273,8 +273,9 @@ async function kb12Replay(page, kbs, delays){
 }
 function kb12Metrics(s){
   const final = s[s.length - 1][1];
+  const startY = s[0][1]; const t1 = (s.find(r => Math.abs(r[1] - startY) > 1) || [0])[0]; // початок руху: кадри до нього (запуск анімації з наступного кадру) не рахуємо
   const moving = [];
-  for(let i = 1; i < s.length; i++){ const dt = s[i][0] - s[i - 1][0]; if(dt > 0 && s[i][0] > 20 && Math.abs(s[i][1] - final) > 3) moving.push({ t: s[i][0], y: s[i][1], v: (s[i][1] - s[i - 1][1]) / dt }); } // до фактичного кінця руху
+  for(let i = 1; i < s.length; i++){ const dt = s[i][0] - s[i - 1][0]; if(dt > 0 && s[i][0] >= t1 && Math.abs(s[i][1] - final) > 3) moving.push({ t: s[i][0], y: s[i][1], v: (s[i][1] - s[i - 1][1]) / dt }); } // до фактичного кінця руху
   const reversals = moving.filter(r => r.v > 0.02).length; // низ листа йде вниз екрана (y росте), тоді як ціль вище
   const stalls = moving.filter(r => Math.abs(r.v) < 0.05).length; // кадр без руху, хоча до кінця ще > 3 пт
   // швидкість по двох сусідніх кадрах (згладжує нерівність часу кадрів); у порівнянні лише основна частина руху (≥ 40 % піку), розворот (зміна знаку) не рахується
@@ -310,5 +311,29 @@ test('46. KB-12: Face ID 415 → 311 — один плавний розворо�
     expect(m.frames, 'є кадри руху: ' + info).toBeGreaterThan(5);
     expect(m.stalls, 'жодного кадру без руху до кінця анімації: ' + info).toBeLessThanOrEqual(1);
     expect(m.reversals, 'один розворот, без дрижання: ' + info).toBeGreaterThan(0);
+  } finally { await ctx.close(); }
+});
+
+// KB-12 (Rev 2.32.266): підйом веде анімація браузера (Web Animations API, лише transform), а не покадровий JS: під час руху вона видна в element.getAnimations(), покадрового rAF підйому (kbLiftTick) немає, при зміні цілі стара анімація скасована, а нова стартує з поточного положення.
+test('47. KB-12: підйом — анімація браузера (getAnimations, transform), без покадрового rAF; зміна цілі оновлює діючу анімацію', async ({ browser }) => {
+  const { ctx, page } = await kb12Prepare(browser);
+  try{
+    const r = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('card-debt-drawer'); let rafLift = 0;
+      const origRaf = window.requestAnimationFrame.bind(window);
+      window.requestAnimationFrame = fn => { if(fn && fn.name === 'kbLiftTick') rafLift++; return origRaf(fn); };
+      const out = { first: null, second: null };
+      const snap = () => dr.getAnimations().filter(a => a.effect && a.effect.getKeyframes && a.effect.getKeyframes().some(k => k.transform)).map(a => ({ props: Object.keys(a.effect.getKeyframes()[0]).filter(k => !['offset', 'computedOffset', 'easing', 'composite'].includes(k)), dur: Math.round(a.effect.getTiming().duration), playState: a.playState }));
+      window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize'));
+      requestAnimationFrame(() => { out.first = snap(); setTimeout(() => {
+        window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.434); window.visualViewport.dispatchEvent(new Event('resize'));
+        requestAnimationFrame(() => { out.second = snap(); setTimeout(() => { out.rafLift = rafLift; out.after = dr.getAnimations().filter(a => a.playState === 'running').length; resolve(out); }, 700); });
+      }, 40); });
+    }));
+    expect(r.first.length, 'під час підйому є анімація transform: ' + JSON.stringify(r)).toBeGreaterThan(0);
+    expect(r.first[0].props, 'лише transform: ' + JSON.stringify(r)).toEqual(['transform']);
+    expect(r.second.filter(a => a.playState === 'running').length, 'після зміни цілі — одна діюча анімація (оновлена на місці): ' + JSON.stringify(r)).toBe(1);
+    expect(r.rafLift, 'покадрового rAF для підйому немає').toBe(0);
+    expect(r.after, 'після завершення діючих анімацій листа нема').toBe(0);
   } finally { await ctx.close(); }
 });
