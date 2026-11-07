@@ -198,3 +198,12 @@ test('REC (KB-12): sheet-anim close несе покадрові семпли scr
   assert.deepEqual(o.samplesExt, [[0, 48, 798, 0, 100], [16, 48, 798, 0, 92]]);
   assert.match(HTML, /samplesExt: phase === 'close' \? downsampleSheetAnimPairs\(samplesExt, 30\) : undefined/);
 });
+test('REC (KB-13, D): focusin/focusout мають час t; focus-transfer несе положення проміжного поля (proxyTop/proxyBottom)', () => {
+  const c = pure();
+  c.__ev = { type: 'focus-transfer', ms: 12, drawerId: 'profile-drawer', proxyTop: 420, proxyBottom: 468, sheetBottomAtTransfer: 780, value: 'не дозволено' };
+  const o = J(c, 'recSanitizeEvent(__ev, 1)');
+  assert.equal(o.proxyTop, 420); assert.equal(o.proxyBottom, 468); assert.ok(!('value' in o));
+  assert.match(HTML, /pushDebugEvent\(\{ t: Math\.round\(performance\.now\(\)\), type: 'focusin'/);
+  assert.match(HTML, /pushDebugEvent\(\{ t: Math\.round\(performance\.now\(\)\), type: 'focusout'/);
+  assert.match(HTML, /proxyTop: proxyRect \? proxyRect\.top : null, proxyBottom: proxyRect \? proxyRect\.bottom : null/);
+});

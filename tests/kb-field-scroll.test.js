@@ -34,3 +34,9 @@ test('KB-11: прокрутка стартує в kbPipeAnimate до beginSheetM
   assert.match(HTML, /getAnimations\(\)\.filter\(function\(a\)\{ return a\.playState === 'running'; \}\)/);
   assert.match(HTML, /captureDebugGeometry\('field-scroll', \{[^}]*scrollFrom: Math\.round\(from\), scrollTo: Math\.round\(to\)[^}]*\}\)/);
 });
+test('KB-13/C: при закритті scrollTop веде kbCloseScroll (від поточного до 0 кривою закриття), запускається з exitKbSheet і скасовується при відкритті нового листа', () => {
+  assert.match(HTML, /function kbCloseScroll\(drawerEl, field\)/);
+  assert.match(HTML, /kbCloseScroll\(drawerEl, lastFieldAtClose\);/);
+  assert.match(HTML, /sc\.scrollTop = Math\.min\(sc\.scrollTop, planned\);/);
+  assert.match(HTML, /if\(kbCloseScrollRaf\)\{ cancelAnimationFrame\(kbCloseScrollRaf\); kbCloseScrollRaf = 0; \} \/\/ Rev 2\.32\.267 \(KB-13\)/);
+});

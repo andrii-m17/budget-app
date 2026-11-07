@@ -1,5 +1,6 @@
 // KB-12 (Rev 2.32.265, переписано в Rev 2.32.266): закон руху підйому листа при зміні цілі посеред руху: послідовності зі звіту MT-1107-5492 (клавіатура 415 → 388 через 40 мс; Face ID 415 → 311).
 // Рух веде Web Animations API (element.animate): тест підставляє фальшивий елемент з animate(), керований годинник, і читає параметри створених анімацій (ключові кадри, easing, тривалість) — це справжній код kbSetLift/kbLiftState з index.html.
+// Rev 2.32.267 (KB-13, A): діюча анімація при зміні цілі НЕ змінюється (жодних setKeyframes/currentTime на ній): нова створюється поверх і стартує з положення на наступний кадр, стара скасовується лише після ready нової.
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -8,24 +9,25 @@ const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 function make(isModal){
-  const st = { now: 0, style: {}, classes: new Set(), anims: [] };
+  const st = { now: 0, style: {}, classes: new Set(), anims: [], timers: [] };
   const el = {
     classList: { contains: c => isModal && c === 'app-modal' },
     animate(kf, opts){
-      const a = { kf, opts, startedAt: st.now, cancelled: false, onfinish: null, playState: 'running',
+      let ready; const readyP = { then(f){ ready = f; } }; // ready керується тестом: a._start() — анімація стартувала
+      const a = { kf, opts, startedAt: st.now, cancelled: false, onfinish: null, playState: 'running', ready: readyP,
+        get startTime(){ return a.startedAt; }, set startTime(v){ a.startedAt = v; },
         get currentTime(){ return Math.min(st.now - a.startedAt, a.opts.duration); },
-        set currentTime(v){ a.startedAt = st.now - v; },
-        effect: { setKeyframes(k){ a.kf = k; }, updateTiming(o){ a.opts = Object.assign({}, a.opts, o); } },
-        cancel(){ a.cancelled = true; a.playState = 'idle'; } };
+        _start(){ if(ready) ready(); ready = null; },
+        cancel(){ a.cancelled = true; a.cancelAt = st.now; a.playState = 'idle'; } };
       st.anims.push(a); return a;
     },
   };
   const ctx = buildSandbox({
     performance: { now: () => st.now },
-    document: { documentElement: { style: { setProperty: (k, v) => { st.style[k] = v; }, getPropertyValue: k => st.style[k] || '' }, classList: { add: c => st.classes.add(c), remove: c => st.classes.delete(c), contains: c => st.classes.has(c) } }, activeElement: null, body: {} },
-    kbScrollAnimActive: false, kbScrollWaiters: [], kbSheetDrawerEl: el, getComputedStyle: () => ({ transform: '' }),
+    document: { timeline: { get currentTime(){ return st.now; } }, documentElement: { style: { setProperty: (k, v) => { st.style[k] = v; }, getPropertyValue: k => st.style[k] || '' }, classList: { add: c => st.classes.add(c), remove: c => st.classes.delete(c), contains: c => st.classes.has(c) } }, activeElement: null, body: {} },
+    kbScrollAnimActive: false, kbScrollWaiters: [], kbSheetDrawerEl: el, setTimeout: (f, ms) => { st.timers.push({ f, ms }); return st.timers.length; }, getComputedStyle: () => ({ transform: '' }),
     isKeyboardField: () => false, kbStartFieldScroll: () => {},
-  }, ['kbBezier', 'KB_LIFT_DEFAULT_CURVE', 'kbLiftTransform', 'kbLiftState', 'kbLiftFinish', 'kbLiftStop', 'kbLiftCommit', 'kbSetLift']);
+  }, ['kbBezier', 'KB_LIFT_DEFAULT_CURVE', 'KB_LIFT_LEAD_MS', 'kbLiftTransform', 'kbLiftState', 'kbLiftFinish', 'kbLiftStop', 'kbLiftCommit', 'kbSetLift']);
   evalInSandbox(ctx, 'var kbLiftAnim = null, kbLiftObj = null, kbLiftActive = false;');
   return { ctx, st, el };
 }
@@ -43,9 +45,11 @@ function replay(events, totalMs){
   const { ctx, st } = make(false); const out = []; const FR = 1000 / 60;
   for(let t = 0; t <= totalMs; t += FR){
     st.now = t;
-    events.filter(e => e.at <= t && !e.done).forEach(e => { e.done = true; ctx.__l = e.lift; evalInSandbox(ctx, 'kbSetLift(__l)'); });
-    const live = st.anims.filter(a => !a.cancelled).pop();
+    events.filter(e => e.at <= t && !e.done).forEach(e => { e.done = true; ctx.__l = e.lift; evalInSandbox(ctx, 'kbSetLift(__l)'); st.timers.filter(x => x.at === undefined).forEach(x => { x.at = t + x.ms; }); });
+    st.anims.forEach(a => { if(!a.cancelled && a.startedAt > t - FR) {} });
+    const live = st.anims.filter(a => a.startedAt <= t + 1e-9 && !(a.cancelled && a.cancelAt <= t)).pop();
     out.push([t, live ? posAt(live, t, ctx) : 0]);
+    st.timers.filter(x => !x.done && t >= x.at).forEach(x => { x.done = true; x.f(); });
   }
   return { series: out, st, ctx };
 }
@@ -81,22 +85,32 @@ test('KB-12: 415 → 388 через 40 мс — підйом без плато, 
   for(let i = peakAt + 1; i < v.length; i++) assert.ok(v[i] <= v[i - 1] * 1.03 + 1e-6, 'після піку швидкість не зростає (кадр ' + i + ': ' + v[i - 1].toFixed(3) + ' → ' + v[i].toFixed(3) + ')');
   assert.ok(Math.abs(s[s.length - 1][1] - 196) < 0.2, 'сходиться до нової цілі');
 });
-test('KB-12: зміна цілі оновлює ДІЮЧУ анімацію на місці (без нової: нова стартувала б з наступного кадру); старт з поточного положення; швидкість неперервна (≤ 10 %)', () => {
+test('KB-13/A: зміна цілі НЕ чіпає діючу анімацію; нова стартує у ЗАДАНИЙ момент (startTime = timeline + lead) з положення старої на цей момент; стара скасовується трохи після; швидкість неперервна (≤ 10 %)', () => {
   for(const [l1, l2, at] of [[217, 196, 40], [217, 196, 60], [300, 270, 35]]){
     const { ctx, st } = make(false);
     st.now = 0; ctx.__a = l1; evalInSandbox(ctx, 'kbSetLift(__a)');
     st.now = at;
     const a = st.anims[0];
-    const posBefore = posAt(a, at, ctx);
-    const before = evalInSandbox(ctx, 'kbLiftState(performance.now())');
+    const kfBefore = JSON.stringify(a.kf), optsBefore = JSON.stringify(a.opts), startBefore = a.startedAt;
+    const lead = 33.3;
+    const posAtStart = posAt(a, at + lead, ctx);
+    const velBefore = evalInSandbox(ctx, 'kbLiftState(performance.now(), ' + lead + ')').vel;
     ctx.__b = l2; evalInSandbox(ctx, 'kbSetLift(__b)');
-    assert.equal(st.anims.length, 1, 'нової анімації не створено, оновлено діючу');
-    assert.ok(!a.cancelled);
-    assert.ok(Math.abs(lift(a, 0) - posBefore) < 0.11, 'ключові кадри стартують з поточного положення: ' + lift(a, 0) + ' проти ' + posBefore.toFixed(1));
-    assert.equal(lift(a, 1), l2);
-    assert.equal(a.currentTime, 0, 'відлік нової ноги з нуля');
-    const after = evalInSandbox(ctx, 'kbLiftState(performance.now())');
-    assert.ok(Math.abs(after.vel - before.vel) / Math.abs(before.vel) <= 0.1, l1 + '→' + l2 + ' на ' + at + ' мс: швидкість до ' + before.vel.toFixed(3) + ', після ' + after.vel.toFixed(3));
+    assert.equal(st.anims.length, 2, 'створено нову анімацію');
+    assert.equal(JSON.stringify(a.kf), kfBefore, 'ключові кадри діючої анімації не змінено');
+    assert.equal(JSON.stringify(a.opts), optsBefore, 'тривалість і крива діючої не змінені');
+    assert.equal(a.startedAt, startBefore, 'час діючої не змінювано');
+    assert.ok(!a.cancelled, 'до моменту старту нової діє стара');
+    const b = st.anims[1];
+    assert.ok(Math.abs(b.startedAt - (at + lead)) < 1e-6, 'нова стартує у заданий момент: ' + b.startedAt + ' проти ' + (at + lead));
+    assert.ok(Math.abs(lift(b, 0) - posAtStart) < 0.11, 'нова нога стартує з положення старої на момент старту: ' + lift(b, 0) + ' проти ' + posAtStart.toFixed(1));
+    assert.equal(lift(b, 1), l2);
+    assert.equal(st.timers.length, 1); assert.ok(st.timers[0].ms > lead, 'стару скасовано пізніше за момент старту нової');
+    st.timers[0].f(); assert.ok(a.cancelled);
+    const c = /cubic-bezier\(([^)]+)\)/.exec(b.opts.easing)[1].split(',').map(Number);
+    const eps = 0.5, f = u => { ctx.__u = u; ctx.__c = c; return evalInSandbox(ctx, 'kbBezier(__c[0], __c[1], __c[2], __c[3], __u)'); };
+    const velNew = (lift(b, 1) - lift(b, 0)) * (f(eps / b.opts.duration) - f(0)) / eps;
+    assert.ok(Math.abs(velNew - velBefore) / Math.abs(velBefore) <= 0.1, l1 + '→' + l2 + ' на ' + at + ' мс: швидкість до ' + velBefore.toFixed(3) + ', нова нога ' + velNew.toFixed(3));
   }
 });
 test('KB-12: Face ID 415 → 311 (ціль у протилежний бік) — один розворот, без кадру без руху і без дрижання', () => {
