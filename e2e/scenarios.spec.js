@@ -1187,6 +1187,8 @@ test('33. відновлення: без копії — одразу вибір 
   const tile = page.locator('#view-service .service-tile', { hasText: 'Відновити' });
   // 1. копії немає: лист не показується, відкривається вибір файлу
   expect(await abList(page)).toEqual([]);
+  // OPS-2: фікстурні витрати дістають serverBase/serverUpdatedAt після першої синхронізації з моком; без очікування тест інколи читав їх раніше (e is undefined)
+  await page.waitForFunction(() => expenses.some(x => !x.deletedAt && x.serverBase && x.serverUpdatedAt), null, { timeout: 15000 });
   const ex = await page.evaluate(() => { const e = expenses.find(x => !x.deletedAt && x.serverBase && x.serverUpdatedAt); return { id: e.id, amount: e.amount }; });
   const file = await page.evaluate(() => JSON.stringify({ __budgetBackup: true, appVersion: APP_VERSION, schemaVersion: SCHEMA_VERSION, createdAt: new Date().toISOString(), data: buildBackupPayloadData() }));
   await page.evaluate(async x => { const e = expenses.find(r => r.id === x.id); e.amount = x.amount + 123; e.updatedAt = new Date().toISOString(); await saveExpenses(); await pushExpenseRecordPilot(e); }, ex);
