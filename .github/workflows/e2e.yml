@@ -3,8 +3,6 @@
 name: e2e
 # ubuntu-24.04, а не latest: latest мігрує на Ubuntu 26, де встановлення залежностей WebKit зависало (прогін 21:41, понад 24 хв).
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 concurrency:
   group: e2e-${{ github.ref }}

@@ -69,4 +69,4 @@ npm run e2e:smoke      # 10 сценаріїв з тегом @smoke (старт,
 - Сценарій 33 (`@smoke`, відновлення з копії, `e2e/scenarios.spec.js`) один раз упав у `e2e:smoke` 5.11.2026 (2.32.251) і при повторі пройшов. Якщо червоний: повторити окремо; пушити лише після зеленого прогону.
 
 ## Повний E2E у фоні (OPS-1, Rev 2.32.263)
-- `.github/workflows/e2e.yml`: після кожного пушу в `main` (і вручну, `workflow_dispatch`) ubuntu-latest, Node 22: `node --test`, `npm run e2e` у WebKit. Appium і webdriverio не ставляться. Знімки й трасування лише при падінні (артефакт `e2e-results`, 7 днів). Результат: `gh run list --workflow e2e --limit 1`.
+- **Автозапуск вимкнено (6.11.2026): лише ручний `workflow_dispatch`**; на CI встановлення WebKit зависало (понад 24 хв на `ubuntu-latest`), рішення чату повернутись до цього після закриття критичних багів. Задум: `.github/workflows/e2e.yml` (раніше після кожного пушу в `main`) ubuntu-latest, Node 22: `node --test`, `npm run e2e` у WebKit. Appium і webdriverio не ставляться. Знімки й трасування лише при падінні (артефакт `e2e-results`, 7 днів). Результат: `gh run list --workflow e2e --limit 1`.

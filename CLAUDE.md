@@ -20,7 +20,7 @@
 | Що | Команда |
 |---|---|
 | Усі тести | `node --test` |
-| E2E у WebKit | перед пушем: `node --test`, E2E зміненої області (`npx playwright test e2e/keyboard.spec.js` ≈ 1 хв), `npm run e2e:smoke` (≈ 30 с); для синхронізації ще `e2e:cloud`. Повний `npm run e2e` (≈ 4,5 хв) лише у фоні на GitHub після кожного пушу (`.github/workflows/e2e.yml`); після пушу перевір його результат (`gh run list --workflow e2e --limit 1`) і повідомляй, якщо впав (docs/E2E.md) |
+| E2E у WebKit | перед пушем: `node --test`, E2E зміненої області (`npx playwright test e2e/keyboard.spec.js` ≈ 1 хв), `npm run e2e:smoke` (≈ 30 с); для синхронізації ще `e2e:cloud`. **Ніколи не чекай фонових прогонів і не запускай повний `npm run e2e` без прямого запиту чату.** Фоновий E2E на GitHub вимкнено (лише ручний `workflow_dispatch`; docs/E2E.md) |
 | Preview | `.claude/launch.json` → `budget-app-static` (`npx http-server -p 8934 -c-1`), http://localhost:8934; перед перевіркою знімай реєстрацію SW і кеші, інакше віддається стара версія |
 | Перевірка перед push | `node scripts/hooks/pre-push-guard.js --manual` (тести, `APP_VERSION` ↔ `CACHE_NAME`, запис у ROADMAP) |
 | Симулятор iOS | `npm run e2e:ios` — не обов'язковий; лише на прямий запит чату (docs/WORKFLOW.md) |
