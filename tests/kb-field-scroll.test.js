@@ -30,7 +30,7 @@ test('computeFieldScrollTarget: цифри зі звіту MT-1107-3790/1889 (л
 });
 test('KB-11: прокрутка стартує в kbPipeAnimate до beginSheetMoving; курсор чекає прокрутку й анімації листа; подія field-scroll з початком, кінцем і величиною', () => {
   assert.match(HTML, /kbStartFieldScroll\(kbSheetDrawerEl, [^;]*\);[^\n]*\n\s*beginSheetMoving\(kbSheetDrawerEl, 'open', null, kbPipeField\);/);
-  assert.match(HTML, /if\(kbScrollAnimActive\)\{ kbScrollWaiters\.push\(function\(\)\{ finish\(true\); \}\); return; \}/);
+  assert.match(HTML, /if\(kbScrollAnimActive \|\| kbLiftActive\)\{ kbScrollWaiters\.push\(function\(\)\{ finish\(true\); \}\); return; \}/);
   assert.match(HTML, /getAnimations\(\)\.filter\(function\(a\)\{ return a\.playState === 'running'; \}\)/);
   assert.match(HTML, /captureDebugGeometry\('field-scroll', \{[^}]*scrollFrom: Math\.round\(from\), scrollTo: Math\.round\(to\)[^}]*\}\)/);
 });

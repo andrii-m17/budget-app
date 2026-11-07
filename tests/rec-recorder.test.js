@@ -191,3 +191,10 @@ test('REC (KB-10): kb-geometry несе положення прокрутки л
   assert.equal(o.drawerScrollTop, 148); assert.equal(o.actionsTop, 360); assert.equal(o.actionsBottom, 498);
   assert.match(HTML, /kbStickyBarOf\(d\)/);
 });
+test('REC (KB-12): sheet-anim close несе покадрові семпли scrollTop, таб-бару й підложки (samplesExt)', () => {
+  const c = pure();
+  c.__ev = { type: 'sheet-anim', phase: 'close', drawerId: 'mono-detail-drawer', samples: [[0, 365], [16, 402]], samplesExt: [[0, 48, 798, 0, 100], [16, 48, 798, 0, 92]] };
+  const o = J(c, 'recSanitizeEvent(__ev, 1)');
+  assert.deepEqual(o.samplesExt, [[0, 48, 798, 0, 100], [16, 48, 798, 0, 92]]);
+  assert.match(HTML, /samplesExt: phase === 'close' \? downsampleSheetAnimPairs\(samplesExt, 30\) : undefined/);
+});

@@ -5342,6 +5342,8 @@ function makeFakeDrawerEl(id, bottom){
     appendChild: function(el){ el.parentNode = this; },
   };
 }
+// KB-12 (2.32.265): підйом веде JS щокадру, тож --sheet-lift дорівнює цілі лише після кадрів; тести порівнюють КІНЦЕВУ ціль (--sheet-lift-target), а для не рухомого стану — --sheet-lift
+function liftT(st){ return st['--sheet-lift-target'] !== undefined && st['--sheet-lift-target'] !== '0' ? st['--sheet-lift-target'] : st['--sheet-lift']; }
 function kbSheetSandbox(opts){
   opts = opts || {};
   const timers = [];
@@ -5386,7 +5388,7 @@ function kbSheetSandbox(opts){
     keyboardHeightCache: { portrait: {}, landscape: {} },
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
     drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
-    kbScrollAnimActive: false, kbScrollWaiters: [], kbScrollRaf: 0,
+    kbScrollAnimActive: false, kbScrollWaiters: [], kbScrollRaf: 0, kbLiftAnim: null, kbLiftRaf: 0, kbLiftActive: false,
     kbSheetCurrentLift: 0, kbSwitchKind: null, kbLastSwitchAt: 0, kbLastSwitchKind: null, kbSheetRestBottom: 0, kbSheetLiftDirty: false,
     kbFocusFlowMode: 'direct', kbSheetGen: 0, sheetAnimSeen: {}, cardLayerReleaseTimer: null, kbSheetLastLift: 0, kbSheetLastVvTarget: 0, kbLastFocusoutAt: Date.now() - 50, kbSheetNaturalHeight: null,
     captureDebugGeometry: function(type, extra){ debugEvents.push(Object.assign({ type: type }, extra || {})); },
@@ -5415,7 +5417,7 @@ function kbSheetSandbox(opts){
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
     'viewportOrientationKey', 'nextBaseViewportHeight', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
-    'enterKbSheet', 'kbEnsureFieldVisible', 'kbStartFieldScroll', 'kbScrollParentOf', 'kbScrollDone', 'kbBezier', 'computeFieldScrollTarget', 'kbStickyBarOf', 'debugSafeAreaInsets', 'kbRestBottomLayout', 'kbPipeStep', 'KB_PIPE', 'KB_PIPE_WAIT_MS', 'kbCacheKindForField', 'kbHeightKey', 'kbHeightsLoad', 'kbHeightsSave', 'kbHeightFromStore', 'KB_HEIGHTS_KEY', 'kbPipeOpenNow', 'kbPipeEnter', 'kbPipeTryAnimate', 'kbPipeKick', 'kbPipeAnimate', 'kbPipeFollow', 'kbVvTopCloseFollow', 'KB_CLOSE_FOLLOW', 'kbIsIphone', 'kbgDeviceClass', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
+    'enterKbSheet', 'kbEnsureFieldVisible', 'kbSetLift', 'kbLiftState', 'kbLiftTick', 'kbLiftFinish', 'kbLiftStop', 'KB_LIFT_DEFAULT_CURVE', 'kbStartFieldScroll', 'kbScrollParentOf', 'kbScrollDone', 'kbBezier', 'computeFieldScrollTarget', 'kbStickyBarOf', 'debugSafeAreaInsets', 'kbRestBottomLayout', 'kbPipeStep', 'KB_PIPE', 'KB_PIPE_WAIT_MS', 'kbCacheKindForField', 'kbHeightKey', 'kbHeightsLoad', 'kbHeightsSave', 'kbHeightFromStore', 'KB_HEIGHTS_KEY', 'kbPipeOpenNow', 'kbPipeEnter', 'kbPipeTryAnimate', 'kbPipeKick', 'kbPipeAnimate', 'kbPipeFollow', 'kbVvTopCloseFollow', 'KB_CLOSE_FOLLOW', 'kbIsIphone', 'kbgDeviceClass', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle', 'shouldReleaseKbOpen', // Rev 2.23.30 (6D.199)
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
     'computeSheetLift', 'computeCenteredRestBottom', 'kbEffectiveRestBottom', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
@@ -5516,14 +5518,14 @@ test('enterKbSheet: виставляє --sheet-lift за computeSheetLift(restBo
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'numeric', inputmode: 'numeric', drawerEl: drawerEl }));
   assert.equal(docElStyle['--sheet-lift'], '0', 'Rev 2.32.248: за оцінкою лист не рухається (єдиний конвеєр)');
   ctx.window.visualViewport.height = 505; ctx.updateKbSheetGeometry(); // живий visualViewport: 780-(505-8)=283
-  assert.equal(docElStyle['--sheet-lift'], '283');
+  assert.equal(liftT(docElStyle), '283');
 });
 test('exitKbSheet: повертає --sheet-lift до 0 (symetричне закриття) і все одно знімає kb-sheet/--kb-h/лок', () => {
   const { ctx, mainCol, docElClasses, docElStyle, state } = kbSheetSandbox();
   const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
   ctx.window.visualViewport.height = 478; ctx.updateKbSheetGeometry();
-  assert.notEqual(docElStyle['--sheet-lift'], '0');
+  assert.notEqual(liftT(docElStyle), '0');
   state.activeElement = { tagName: 'BODY' };
   ctx.handleKeyboardFieldFocusSettle();
   assert.equal(docElStyle['--sheet-lift'], '0');
@@ -5549,7 +5551,7 @@ test('enterKbSheet: читає ПЕРЕДВИМІРЯНІ __kbRestBottomY/__kbNa
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'numeric', inputmode: 'numeric', drawerEl: drawerEl }));
   ctx.window.visualViewport.height = 505; ctx.updateKbSheetGeometry();
   // lift з ПЕРЕДВИМІРЯНОГО 780 (не 9999): 780-(505-8)=283
-  assert.equal(docElStyle['--sheet-lift'], '283');
+  assert.equal(liftT(docElStyle), '283');
   assert.equal(docElStyle['--sheet-max-h'], '300px', 'природна висота теж з передвиміру (300), не з drawerEl.getBoundingClientRect() (200 за дефолтом fake)');
   assert.equal(typeof drawerEl.__kbRestBottomY, 'undefined', 'тимчасові поля прибрані після використання');
   assert.equal(typeof drawerEl.__kbNaturalHeight, 'undefined');
@@ -5627,13 +5629,13 @@ test('перемикання на поле ІНШОГО типу клавіат�
   const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawerEl }));
   ctx.window.visualViewport.height = 505; ctx.updateKbSheetGeometry();
-  assert.equal(docElStyle['--sheet-lift'], '283'); // numeric: 780-(505-8)
+  assert.equal(liftT(docElStyle), '283'); // numeric: 780-(505-8)
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', drawerEl: drawerEl }));
   assert.equal(docElStyle['--kb-h'], '389px', 'Rev 2.32.255: оцінки нового типу нема — лишаються поточні виміряні значення, живий visualViewport доведе їх');
   assert.equal(docElClasses.has('kb-sheet'), true);
   // і назад: numeric
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawerEl }));
-  assert.equal(docElStyle['--sheet-lift'], '283');
+  assert.equal(liftT(docElStyle), '283');
 });
 const IPAD_UA = 'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)';
 function pipeSandbox(opts){
@@ -5668,18 +5670,18 @@ test('конвеєр на iPad (Rev 2.32.240): лист не рухається 
     assert.equal(docElStyle['--sheet-lift'], '0', 'за оцінкою лист не рухається');
     if(late){ assert.equal(fire(160), 1); assert.equal(docElStyle['--sheet-lift'], '0', 'resize не прийшов — лист на місці'); }
     ctx.window.visualViewport.height = 470; ctx.updateKbSheetGeometry();
-    assert.equal(docElStyle['--sheet-lift'], '318', 'перший resize: 780 − (470 − 8)');
+    assert.equal(liftT(docElStyle), '318', 'перший resize: 780 − (470 − 8)');
     ctx.window.visualViewport.height = 440; ctx.updateKbSheetGeometry();
-    assert.equal(docElStyle['--sheet-lift'], '348', 'далі живе стеження');
+    assert.equal(liftT(docElStyle), '348', 'далі живе стеження');
   }
 });
 test('Android-прокрутка (Rev 2.32.240): для .drawer підйом рахується без offsetTop, зсув видимої області — окремо (--sheet-vvtop, напряму); сума = computeSheetLift', () => {
   const { ctx, docElStyle, drawer, fire } = pipeSandbox();
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawer('income-drawer', 780) }));
   ctx.window.visualViewport.height = 448; ctx.window.visualViewport.offsetTop = 1; ctx.updateKbSheetGeometry(); fire(120);
-  assert.equal(docElStyle['--sheet-lift'], '340', '780 − (448 − 8) без offsetTop'); assert.equal(docElStyle['--sheet-vvtop'], '1');
-  for(const top of [14, 56, 210, 298, 330]){ ctx.window.visualViewport.offsetTop = top; ctx.updateKbSheetGeometry(); fire(120); assert.equal(docElStyle['--sheet-lift'], '340', 'підйом не залежить від прокрутки'); assert.equal(docElStyle['--sheet-vvtop'], String(top), 'зсув (у пісочниці iOS-гілка: після осідання 120 мс; на Android напряму)'); }
-  assert.equal(Number(docElStyle['--sheet-lift']) - Number(docElStyle['--sheet-vvtop']), 10, 'сума = 780 − (330 + 448 − 8)');
+  assert.equal(liftT(docElStyle), '340', '780 − (448 − 8) без offsetTop'); assert.equal(docElStyle['--sheet-vvtop'], '1');
+  for(const top of [14, 56, 210, 298, 330]){ ctx.window.visualViewport.offsetTop = top; ctx.updateKbSheetGeometry(); fire(120); assert.equal(liftT(docElStyle), '340', 'підйом не залежить від прокрутки'); assert.equal(docElStyle['--sheet-vvtop'], String(top), 'зсув (у пісочниці iOS-гілка: після осідання 120 мс; на Android напряму)'); }
+  assert.equal(Number(liftT(docElStyle)) - Number(docElStyle['--sheet-vvtop']), 10, 'сума = 780 − (330 + 448 − 8)');
 });
 test('кеш висот клавіатури в localStorage (Rev 2.32.240): ключ (клас пристрою | орієнтація | тип), тип email/password окремо; запис при живому вимірі', () => {
   const { ctx, drawer } = pipeSandbox();
@@ -5901,6 +5903,8 @@ test('hide (типово): відкриття шторки ставить html.k
   assert.equal(docElClasses.has('kb-sheet-moving'), true, 'курсор прихований на час руху');
   assert.ok(!debugEvents.some(function(e){ return e.type === 'caret-hidden'; }));
   runTimers();
+  assert.equal(docElClasses.has('kb-sheet-moving'), true, 'KB-12: поки підйом веде JS (kbLiftActive), курсор лишається прихованим навіть після таймера');
+  ctx.kbLiftFinish(); // кінець підйому — курсор повертається
   assert.equal(docElClasses.has('kb-sheet-moving'), false);
   const ev = debugEvents.find(function(e){ return e.type === 'caret-hidden'; });
   assert.ok(ev); assert.equal(ev.phase, 'open'); assert.equal(typeof ev.ms, 'number');

@@ -260,3 +260,55 @@ test('44. KB-11: прокрутка до поля йде разом із під�
     expect(tCaret, 'курсор не раніше кінця всієї прокрутки: ' + info).toBeGreaterThanOrEqual(tEnd - 20);
   }finally{ await ctx.close(); }
 });
+
+// KB-12 (Rev 2.32.265): звіт MT-1107-5492 (2.32.264, iPhone): iOS уточнює висоту клавіатури вже під час руху (vvH 478–479 → через 35–50 мс 505–506; при Face ID 479 → 583). CSS-перехід лише перезапускався з поточного положення з новою кривою: на 3–4 кадрі плато або зворотний крок, далі повільний хід.
+// Тест на справжній розмітці WebKit: програємо послідовності vvH (415 → 388 через 40 мс; 415 → 311 через ~140 мс), семпли низу листа щокадру з часом. Перевіряємо: рух в один бік (415 → 388), жодного кадру без руху до кінця анімації. Різницю швидкості між кадрами (≤ 30 %) у headless WebKit міряти ненадійно (кадри 12–25 мс), її перевіряє детермінований tests/kb-lift-driver.test.js на тих самих функціях.
+async function kb12Replay(page, kbs, delays){
+  return await page.evaluate(([ks, ds]) => new Promise(resolve => {
+    const dr = document.getElementById('card-debt-drawer'), out = []; const t0 = performance.now();
+    const tick = () => { out.push([performance.now() - t0, dr.getBoundingClientRect().bottom]); if(performance.now() - t0 < 1000) requestAnimationFrame(tick); else resolve(out); };
+    requestAnimationFrame(tick);
+    ks.forEach((k, i) => setTimeout(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * k); window.visualViewport.dispatchEvent(new Event('resize')); }, ds[i]));
+  }), [kbs, delays]);
+}
+function kb12Metrics(s){
+  const final = s[s.length - 1][1];
+  const moving = [];
+  for(let i = 1; i < s.length; i++){ const dt = s[i][0] - s[i - 1][0]; if(dt > 0 && s[i][0] > 20 && Math.abs(s[i][1] - final) > 3) moving.push({ t: s[i][0], y: s[i][1], v: (s[i][1] - s[i - 1][1]) / dt }); } // до фактичного кінця руху
+  const reversals = moving.filter(r => r.v > 0.02).length; // низ листа йде вниз екрана (y росте), тоді як ціль вище
+  const stalls = moving.filter(r => Math.abs(r.v) < 0.05).length; // кадр без руху, хоча до кінця ще > 3 пт
+  // швидкість по двох сусідніх кадрах (згладжує нерівність часу кадрів); у порівнянні лише основна частина руху (≥ 40 % піку), розворот (зміна знаку) не рахується
+  const sm = []; for(let i = 1; i < moving.length; i++){ const dt = moving[i].t - moving[i - 1].t; if(dt > 0) sm.push((moving[i].y - moving[i - 1].y) / dt); }
+  const peak = Math.max(0, ...sm.map(Math.abs)); let maxJump = 0;
+  for(let i = 1; i < sm.length; i++){ const a = Math.abs(sm[i - 1]); if(a >= 0.4 * peak && Math.sign(sm[i - 1]) === Math.sign(sm[i])) maxJump = Math.max(maxJump, Math.abs(Math.abs(sm[i]) - a) / a); }
+  return { final: Math.round(final), reversals, stalls, maxJump: Math.round(maxJump * 100) / 100, frames: moving.length };
+}
+async function kb12Prepare(browser){
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openCardDebtEditor(0); });
+  await page.waitForTimeout(900);
+  await page.evaluate(() => { document.querySelector('#cdd-balance').scrollIntoView({ block: 'nearest' }); });
+  const bb = await page.locator('#cdd-balance').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+  await page.waitForTimeout(200);
+  return { ctx, page };
+}
+test('45. KB-12: клавіатура 415 → 388 через 40 мс — лист рухається в один бік, без плато, швидкість змінюється плавно', async ({ browser }) => {
+  const { ctx, page } = await kb12Prepare(browser);
+  try{
+    const s = await kb12Replay(page, [0.465, 0.434], [0, 40]);
+    const m = kb12Metrics(s), info = JSON.stringify(m);
+    expect(m.frames, 'є кадри руху: ' + info).toBeGreaterThan(5);
+    expect(m.reversals, 'рух лише в один бік: ' + info).toBe(0);
+    expect(m.stalls, 'жодного кадру без руху до кінця анімації: ' + info).toBe(0);
+  } finally { await ctx.close(); }
+});
+test('46. KB-12: Face ID 415 → 311 — один плавний розворот (без плато й ривків швидкості)', async ({ browser }) => {
+  const { ctx, page } = await kb12Prepare(browser);
+  try{
+    const s = await kb12Replay(page, [0.465, 0.348], [0, 140]);
+    const m = kb12Metrics(s), info = JSON.stringify(m);
+    expect(m.frames, 'є кадри руху: ' + info).toBeGreaterThan(5);
+    expect(m.stalls, 'жодного кадру без руху до кінця анімації: ' + info).toBeLessThanOrEqual(1);
+    expect(m.reversals, 'один розворот, без дрижання: ' + info).toBeGreaterThan(0);
+  } finally { await ctx.close(); }
+});
