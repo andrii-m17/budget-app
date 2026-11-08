@@ -403,3 +403,68 @@ test('49. KB-13/C: закриття «Вхідних» — прокрутка в
     expect(lateJump, 'без «доскоку» після кінця руху: ' + info).toBe(0);
   }finally{ await ctx.close(); }
 });
+
+// KB-14 (Rev 2.32.268), B: звіт MT-1108-2709 (2.32.267, iPhone): лист, що вміщується над клавіатурою, з клавіатурою стає на 6–8 пт нижчий (sheet-category 406 → 398 при верху листа 100; sheet-subcategory 451 → 443; sheet-dictionary 404 → 396; mono-detail-drawer до відкриття 581, після закриття 575), після закриття висота повертається.
+// Тест на справжній розмітці WebKit: висота листа (offsetHeight і scrollHeight) з клавіатурою дорівнює висоті у спокої ±1 пт, коли лист вміщується, і після закриття повертається.
+async function kb14Heights(page, sel){
+  return await page.evaluate(s => { const d = document.querySelector(s); return { h: d.getBoundingClientRect().height, off: d.offsetHeight, sh: d.scrollHeight, top: Math.round(d.getBoundingClientRect().top), kbs: document.documentElement.classList.contains('kb-sheet') }; }, sel);
+}
+for(const [name, openFn, sel, fld] of [
+  ['struct (sheet-category)', () => { showCategoryModal('Нова категорія', '', null, () => {}, null); }, '#struct-drawer', '#fldstr3'],
+  ['mono-detail-drawer', async () => { await openMonoInbox(); monoInbox.rows = [{ id: 'sim1', status: 'new', tx_time: new Date().toISOString(), amount_uah: 120, description: 'Тест', suggested_category: '', suggested_subcategory: '', mono_account_id: 'x' }]; openMonoDetail('sim1'); }, '#mono-detail-drawer', '#fldmono4'],
+  ['card-debt-drawer', () => { switchTab('accounting'); openCardDebtEditor(0); }, '#card-debt-drawer', '#cdd-balance'],
+]){
+  test('50. KB-14/B: ' + name + ' — висота листа з клавіатурою не змінюється, коли лист вміщується, і повертається після закриття', async ({ browser }) => {
+    const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+    try{
+      await page.evaluate(fn => { window.__vv.h = null; window.__vv.top = 0; return (new Function('return ' + fn))()(); }, openFn.toString());
+      await page.waitForTimeout(1000);
+      const rest = await kb14Heights(page, sel);
+      await page.evaluate(f => { document.querySelector(f).scrollIntoView({ block: 'nearest' }); }, fld);
+      const bb = await page.locator(fld).boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+      await page.waitForTimeout(150);
+      await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.12); window.visualViewport.dispatchEvent(new Event('resize')); }); // низька клавіатура: лист вміщується
+      await page.waitForTimeout(1200);
+      const kb = await kb14Heights(page, sel);
+      await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+      await page.waitForTimeout(1200);
+      const after = await kb14Heights(page, sel);
+      const info = JSON.stringify({ rest, kb, after });
+      expect(kb.kbs, 'умова тесту: клавіатурний режим увімкнено: ' + info).toBe(true);
+      expect(kb.top, 'умова тесту: лист вміщується (верх не біля краю): ' + info).toBeGreaterThan(20);
+      expect(Math.abs(kb.off - rest.off), 'висота з клавіатурою (offsetHeight) = висоті у спокої ±1: ' + info).toBeLessThanOrEqual(1);
+      expect(Math.abs(kb.sh - rest.sh), 'scrollHeight з клавіатурою = у спокої ±1: ' + info).toBeLessThanOrEqual(1);
+      expect(Math.abs(after.off - rest.off), 'після закриття висота повертається до значення до відкриття: ' + info).toBeLessThanOrEqual(1);
+    } finally { await ctx.close(); }
+  });
+}
+
+// KB-14 (Rev 2.32.268), A: звіт MT-1108-2709: центрована форма («Додати ОЧ», поле суми), vvH 478 → 505: анімація закінчується плато на 491–495, а kb-geometry vv-settled дає низ 497 (доскок 2–6 пт після кінця анімації, 6 з 6; нижні листи за тієї ж зміни цілі закінчують рівно на 497–498).
+// Тест на справжній розмітці WebKit: послідовність 415 → 388 клавіатури (через 40 мс), семпли низу форми щокадру: значення в кінці анімації (≈ 450 мс після старту) дорівнює значенню через 600 мс ±1 пт, без доскоку.
+test('51. KB-14/A: «Додати ОЧ», поле суми, клавіатура 415 → 388 — форма закінчує анімацію рівно на кінцевому положенні (±1 пт), без доскоку', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => { const d = document.createElement('div'); d.id = 'kb14-spacer'; d.style.height = '420px'; document.getElementById('app-modal').appendChild(d); }); // форма вища за вільне місце над клавіатурою: її висоту обмежує max-height, що росте разом з visualViewport (415 → 388)
+    await page.waitForTimeout(100);
+    const bb = await page.locator('#app-modal-amount-input').boundingBox();
+    const sampler = page.evaluate(() => new Promise(resolve => {
+      const m = document.getElementById('app-modal'), s = []; const t0 = performance.now();
+      const tick = () => { s.push([Math.round(performance.now() - t0), Math.round(m.getBoundingClientRect().bottom * 10) / 10, m.offsetHeight]); if(performance.now() - t0 < 1500) requestAnimationFrame(tick); else resolve(s); };
+      requestAnimationFrame(tick);
+    }));
+    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    const tKb = await page.evaluate(() => { const t = performance.now(); window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); setTimeout(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.434); window.visualViewport.dispatchEvent(new Event('resize')); }, 40); return t; });
+    const s = await sampler;
+    const startAbs = await page.evaluate(() => performance.now());
+    const endIdx = (() => { const finalY = s[s.length - 1][1]; for(let i = 0; i < s.length; i++) if(Math.abs(s[i][1] - finalY) <= 1.5 && s.slice(i).every(r => Math.abs(r[1] - finalY) <= 1.5)) return i; return s.length - 1; })();
+    const lastMoving = s[Math.max(0, endIdx - 1)], settled = s[s.length - 1];
+    const info = JSON.stringify({ lastMoving: lastMoving[1], settled: settled[1], heightMoving: lastMoving[2], heightSettled: settled[2], endAt: s[endIdx][0] });
+    // доскок: різниця між положенням на кінець анімації (280 мс після початку підйому) і положенням у спокої
+    const tStart = (s.find((r, i) => i > 0 && Math.abs(r[1] - s[i - 1][1]) > 1 && r[0] > 100) || [0])[0];
+    const atEnd = (s.find(r => r[0] >= tStart + 330) || settled)[1];
+    expect(Math.abs(settled[1] - atEnd), 'без доскоку після кінця анімації (±1 пт): ' + info + ' tStart ' + tStart + ', atEnd ' + atEnd).toBeLessThanOrEqual(1);
+  } finally { await ctx.close(); }
+});

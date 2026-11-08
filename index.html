@@ -2096,7 +2096,8 @@
   html.kb-sheet.kb-lift-js .drawer.open, html.kb-sheet.kb-lift-js .app-modal.open{ transition:max-height 240ms cubic-bezier(0.22, 0.9, 0.3, 1); }
   html.kb-sheet.kb-sheet-closing .drawer.open{ transition:transform 250ms cubic-bezier(0.25, 0.1, 0.25, 1), max-height 250ms cubic-bezier(0.25, 0.1, 0.25, 1); } /* Rev 2.32.262 (KB-9): при закритті висота повертається тією ж кривою, що й опускання */
   /* Rev 2.32.262 (KB-9): звіти MT-1106-6914/7332: лист «Вхідних» вищий за вільне місце над клавіатурою обрізався, кнопки дії лишались під клавіатурою. Поки клавіатура відкрита, блок кнопок прикріплений до низу листа (sticky, як .och-actions), прокручується лише вміст над ним. Спільно для листів із блоком дій (.mono-detail-actions, .sf-actions). */
-  html.kb-sheet .drawer.open :is(.mono-detail-actions, .sf-actions){ position:sticky; bottom:-20px; z-index:2; background:var(--color-surface); padding:8px 0 20px; margin:6px 0 -20px; } /* WebKit рахує sticky від краю вмісту (без нижнього padding листа 20 пт): bottom:-20px ставить смугу впритул до краю листа; негативний margin лишає відступ у спокої 20 пт */
+  /* Rev 2.32.268 (KB-14, B): прикріплений блок кнопок має займати в розмітці ТОЙ САМИЙ простір, що й звичайний (звіт MT-1108-2709): раніше (KB-9) padding-top 8 + margin-top 6 додавали листу +6 (mono-detail: 575 → 581) і +8 (struct: 398 → 406) саме при відкритті клавіатури, тож висота листа з клавіатурою міняла розмір, хоча лист вміщується. Спроба замінити margin-top на padding-top теж давала +6: верхній margin колапсує з нижнім margin попереднього блоку (12 пт), а padding ні. Тому верхній margin лишено базовим, padding-top 0, а візуальний відступ над кнопками (щоб вміст, що прокручується, не торкався їх) малюється box-shadow без впливу на розмітку; нижній padding 20 пт перекрито негативним margin. WebKit рахує sticky від краю вмісту (без нижнього padding листа 20 пт): bottom:-20px ставить смугу впритул до краю листа. */
+  html.kb-sheet .drawer.open :is(.mono-detail-actions, .sf-actions){ position:sticky; bottom:-20px; z-index:2; background:var(--color-surface); padding:0 0 20px; margin-bottom:-20px; box-shadow:0 -8px 0 0 var(--color-surface); }
   /* Rev 2.23.16 (6D.185) — перемикання числова↔текстова клавіатура
      (html.kb-sheet-switching додає JS у touchend-перехопленні): 220мс,
      cubic-bezier(0.25,0.46,0.45,0.94) — найближча до системної кривої
@@ -3855,7 +3856,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.267</div>
+  <div class="version-footer">Money Tree · Rev 2.32.268</div>
 </div>
   </div>
 </div>
@@ -9711,7 +9712,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.267';
+const APP_VERSION = '2.32.268';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

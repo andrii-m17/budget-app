@@ -12,3 +12,7 @@ test('KB-8: правило .drawer.open з низом без var(--drawer-bottom
 test('KB-8: body.kb-open і далі змінює базу лише для не-листових елементів (змінна лишилась, листи її не читають у стані open)', () => {
   assert.match(HTML, /body\.kb-open\{ --drawer-bottom-base:8px; \}/);
 });
+test('KB-14/B: прикріплений блок кнопок не змінює розмітку (padding-top 0, відступ box-shadow-ом, margin-top базовий)', () => {
+  assert.match(HTML, /html\.kb-sheet \.drawer\.open :is\(\.mono-detail-actions, \.sf-actions\)\{ position:sticky; bottom:-20px; z-index:2; background:var\(--color-surface\); padding:0 0 20px; margin-bottom:-20px; box-shadow:0 -8px 0 0 var\(--color-surface\); \}/);
+  assert.ok(!/html\.kb-sheet \.drawer\.open \.mono-detail-actions\{ margin-top:0; padding-top:8px; \}/.test(HTML), 'padding-top, що додавав висоту, прибрано');
+});
