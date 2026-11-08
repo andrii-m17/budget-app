@@ -526,3 +526,80 @@ test('53. KB-15/B: перемикання між полями листа (той
     expect(r.after.kbSheet && r.after.kbOpen, 'клавіатурний режим не знято: ' + info).toBe(true);
   } finally { await ctx.close(); }
 });
+
+// KB-16 (Rev 2.32.270), C: звіт MT-1108-9004 (2.32.269, «Вхідні», закриття): focusout за ~45 мс до kb-vv-resize 894, sheet-close ще через ~16 мс, sheet-anim close 290 мс; стандартна тривалість клавіатури iOS 250 мс.
+// Тест на справжній розмітці WebKit: від втрати фокуса (blur) закриття стартує одразу (перший рух ≤ 3 кадрів, 55 мс), перехід закриття триває 250 мс (обчислений transition-duration).
+async function kb16Open(browser){
+  const { ctx, page } = await kb12Prepare(browser);
+  await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.3); window.visualViewport.dispatchEvent(new Event('resize')); });
+  await page.waitForTimeout(1500);
+  return { ctx, page };
+}
+test('54. KB-16/C: закриття стартує в момент втрати фокуса й триває 250 мс (кінець руху збігається з клавіатурою iOS)', async ({ browser }) => {
+  const { ctx, page } = await kb16Open(browser);
+  try{
+    const s = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('card-debt-drawer'), out = []; const t0 = performance.now();
+      const tick = () => { out.push([performance.now() - t0, dr.getBoundingClientRect().bottom]); if(!window.__closeDur && document.documentElement.classList.contains('kb-sheet-closing')) window.__closeDur = getComputedStyle(dr).transitionDuration.split(',')[0].trim(); if(performance.now() - t0 < 900) requestAnimationFrame(tick); else resolve(out); };
+      requestAnimationFrame(tick);
+      document.activeElement && document.activeElement.blur();
+      setTimeout(() => { window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); }, 45); // iOS: vv приходить ~45 мс після focusout
+    }));
+    const closeDur = await page.evaluate(() => window.__closeDur);
+    const startY = s[0][1], finalY = s[s.length - 1][1];
+    const tStart = (s.find(r => Math.abs(r[1] - startY) > 1) || [9999])[0];
+    const tEnd = (s.find((r, i) => Math.abs(r[1] - finalY) <= 1 && s.slice(i).every(q => Math.abs(q[1] - finalY) <= 1)) || [9999])[0];
+    const info = JSON.stringify({ startY: Math.round(startY), finalY: Math.round(finalY), tStart: Math.round(tStart), tEnd: Math.round(tEnd), dur: Math.round(tEnd - tStart), closeDur });
+    expect(tStart, 'рух закриття стартує одразу після втрати фокуса (≤ 3 кадри, 55 мс): ' + info).toBeLessThanOrEqual(55);
+    expect(closeDur, 'тривалість переходу закриття 250 мс (було 280 через kb-pipe-ms): ' + info).toBe('0.25s');
+  } finally { await ctx.close(); }
+});
+
+// KB-16 (Rev 2.32.270), A: звіт MT-1108-9004: при закритті sheet-anim close (484 → 780) і одночасно sheet-anim resize (473 → 780, 579 мс) з тим самим листом: під час зникнення клавіатури iOS шле проміжні кадри visualViewport, застосунок реагував на них «рухом при зміні висоти» (KB-15), а вже за мить починалось закриття.
+// Тест: після втрати фокуса проміжні кадри vv (клавіатура ще «відкрита» за порогом) не запускають рух resize, і на листі в кожен момент не більше однієї анімації положення.
+test('55. KB-16/A: закриття — один рух: проміжні кадри visualViewport після втрати фокуса не запускають resize; не більше однієї анімації положення', async ({ browser }) => {
+  const { ctx, page } = await kb16Open(browser);
+  try{
+    const r = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('card-debt-drawer'); let maxAnims = 0; const t0 = performance.now(); const H0 = window.__H0;
+      const countAnims = () => dr.getAnimations().filter(a => a.playState === 'running' && ((a.effect && a.effect.getKeyframes && a.effect.getKeyframes().some(k => k.transform)) || a.transitionProperty === 'transform')).length;
+      const tick = () => { maxAnims = Math.max(maxAnims, countAnims()); if(performance.now() - t0 < 900) requestAnimationFrame(tick); else resolve({ maxAnims, phases: recBuf.filter(e => e.type === 'sheet-anim' && e.wall > window.__t1).map(e => e.phase) }); };
+      window.__t1 = Date.now(); requestAnimationFrame(tick);
+      document.activeElement && document.activeElement.blur();
+      [[10, 0.22], [30, 0.12], [50, 0.04], [70, null]].forEach(([ms, k]) => setTimeout(() => { window.__vv.h = k === null ? null : H0 - Math.round(H0 * k); window.visualViewport.dispatchEvent(new Event('resize')); }, ms)); // проміжні кадри зникнення клавіатури
+    }));
+    const info = JSON.stringify(r);
+    expect(r.phases.includes('resize'), 'рух resize під час закриття не запускається: ' + info).toBe(false);
+    expect(r.maxAnims, 'не більше однієї анімації положення одночасно: ' + info).toBeLessThanOrEqual(1);
+  } finally { await ctx.close(); }
+});
+
+// KB-16 (Rev 2.32.270), B: звіт MT-1108-9004: центрована форма (sheet-account, поле суми), vvH 478 → 505: семпли 583 → 491/488 до ~90 мс, далі повільно 491 → 497 до ~340 мс: рух проскакує нову ціль на 6–9 пт і повертається.
+// Тест: цілі першої ноги (клавіатура 415) і нової (388) із запізненням нового resize на 35 і 50 мс (як шле iOS): ціль не пролітається більш ніж на 2 пт, рух не повертається назад більш ніж на 2 пт. (Якщо нове уточнення приходить, коли лист уже минув нову ціль, повернення фізично неминуче; нова нога тоді стартує без початкової швидкості, без прольоту.)
+for(const lateMs of [35, 50]){
+  test('56. KB-16/B: «Додати ОЧ», поле суми, клавіатура 415 → 388 із запізненням ' + lateMs + ' мс — ціль не пролітається, повернення назад ≤ 2 пт', async ({ browser }) => {
+    const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+    try{
+      await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
+      await page.waitForTimeout(500);
+      const bb = await page.locator('#app-modal-amount-input').boundingBox();
+      const sampler = page.evaluate(() => new Promise(resolve => {
+        const m = document.getElementById('app-modal'), s = []; const t0 = performance.now();
+        const tick = () => { s.push([Math.round(performance.now() - t0), m.getBoundingClientRect().bottom, m.offsetHeight, document.documentElement.style.getPropertyValue('--sheet-lift-target')]); if(performance.now() - t0 < 1600) requestAnimationFrame(tick); else resolve(s); };
+        requestAnimationFrame(tick);
+      }));
+      await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+      await page.waitForTimeout(150);
+      await page.evaluate(ms => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); setTimeout(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.434); window.visualViewport.dispatchEvent(new Event('resize')); }, ms); }, lateMs);
+      const s = await sampler;
+      const finalY = s[s.length - 1][1];
+      const t1 = (s.find((r, i) => i > 0 && Math.abs(r[1] - s[i - 1][1]) > 1 && r[0] > 100) || [0])[0];
+      const run = s.filter(r => r[0] >= t1 - 20);
+      let minY = 1e9, back = 0, runMax = 0; for(let i = 0; i < run.length; i++){ minY = Math.min(minY, run[i][1]); if(i > 0 && run[i][1] - run[i - 1][1] > 0.3) back += run[i][1] - run[i - 1][1]; runMax = Math.max(runMax, run[i][1]); }
+      const overshoot = finalY - minY; // наскільки пролетіло ціль угору (низ менший за кінцевий) перед поверненням
+      const info = JSON.stringify({ finalY: Math.round(finalY * 10) / 10, minY: Math.round(minY * 10) / 10, overshoot: Math.round(overshoot * 10) / 10, backTravel: Math.round(back * 10) / 10 });
+      expect(overshoot, 'ціль не пролітається (≤ 2 пт): ' + info).toBeLessThanOrEqual(2);
+      expect(back, 'без руху назад (≤ 2 пт сумарно): ' + info).toBeLessThanOrEqual(2);
+    } finally { await ctx.close(); }
+  });
+}

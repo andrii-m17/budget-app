@@ -2094,6 +2094,7 @@
      (transitionend/320мс), разом з html.kb-sheet. */
   /* Rev 2.32.265 (KB-12): поки підйом веде JS (kbSetLift, клас kb-lift-js), CSS-перехід transform вимкнено (інакше він перезапускався б на кожній зміні цілі й давав кадр без руху); висота лишається в переході */
   html.kb-sheet.kb-lift-js .drawer.open, html.kb-sheet.kb-lift-js .app-modal.open{ transition:max-height 240ms cubic-bezier(0.22, 0.9, 0.3, 1); }
+  html.kb-pipe.kb-sheet.kb-sheet-closing .drawer.open, html.kb-pipe.kb-sheet.kb-sheet-closing .app-modal.open{ transition-duration:250ms; } /* Rev 2.32.270 (KB-16, C): закриття 250 мс (стандартна тривалість клавіатури iOS); раніше html.kb-pipe.kb-sheet .drawer.open ставило 280 мс і перекривало це правило (виміряно 290 мс) */
   html.kb-sheet.kb-sheet-closing .drawer.open{ transition:transform 250ms cubic-bezier(0.25, 0.1, 0.25, 1), max-height 250ms cubic-bezier(0.25, 0.1, 0.25, 1); } /* Rev 2.32.262 (KB-9): при закритті висота повертається тією ж кривою, що й опускання */
   /* Rev 2.32.262 (KB-9): звіти MT-1106-6914/7332: лист «Вхідних» вищий за вільне місце над клавіатурою обрізався, кнопки дії лишались під клавіатурою. Поки клавіатура відкрита, блок кнопок прикріплений до низу листа (sticky, як .och-actions), прокручується лише вміст над ним. Спільно для листів із блоком дій (.mono-detail-actions, .sf-actions). */
   /* Rev 2.32.268 (KB-14, B): прикріплений блок кнопок має займати в розмітці ТОЙ САМИЙ простір, що й звичайний (звіт MT-1108-2709): раніше (KB-9) padding-top 8 + margin-top 6 додавали листу +6 (mono-detail: 575 → 581) і +8 (struct: 398 → 406) саме при відкритті клавіатури, тож висота листа з клавіатурою міняла розмір, хоча лист вміщується. Спроба замінити margin-top на padding-top теж давала +6: верхній margin колапсує з нижнім margin попереднього блоку (12 пт), а padding ні. Тому верхній margin лишено базовим, padding-top 0, а візуальний відступ над кнопками (щоб вміст, що прокручується, не торкався їх) малюється box-shadow без впливу на розмітку; нижній padding 20 пт перекрито негативним margin. WebKit рахує sticky від краю вмісту (без нижнього padding листа 20 пт): bottom:-20px ставить смугу впритул до краю листа. */
@@ -3856,7 +3857,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.269</div>
+  <div class="version-footer">Money Tree · Rev 2.32.270</div>
 </div>
   </div>
 </div>
@@ -9712,7 +9713,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.269';
+const APP_VERSION = '2.32.270';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -28872,7 +28873,7 @@ function startSheetAnimSampler(drawerEl, phase, drawerHeightRest, onDone){
   }
   function tick(now){
     if(done) return;
-    if((phase === 'open' || phase === 'resize') && frames > 2 && !busy()){ finish(); return; } // Rev 2.32.265 (KB-12): підйом веде JS (без transitionend) — кінець за завершенням руху, а не за стелею 500 мс
+    if((phase === 'open' || phase === 'resize') && frames > 2 && (!busy() || !kbSheetActive)){ finish(); return; } // !kbSheetActive: лист уже закривається, семпли відкриття/зміни висоти не мають накладатись на close (Rev 2.32.270) // Rev 2.32.265 (KB-12): підйом веде JS (без transitionend) — кінець за завершенням руху, а не за стелею 500 мс
     frames++;
     const gap = now - lastT;
     if(gap > maxGapMs) maxGapMs = gap;
@@ -29181,21 +29182,36 @@ function kbLiftCommit(el){
 const KB_LIFT_LEAD_MS = 33.3;
 function kbSetLift(target, durMs){
   const root = document.documentElement, el = kbSheetDrawerEl, now = performance.now(), dur = durMs || 280;
-  const st = kbLiftState(now, KB_LIFT_LEAD_MS);
+  let st = kbLiftState(now, KB_LIFT_LEAD_MS);
   const inFlight = !!(st && kbLiftAnim && kbLiftActive && (now - kbLiftAnim.t0 < kbLiftAnim.dur));
+  // Rev 2.32.270 (KB-16, B): звіт MT-1108-9004 і вимір на WebKit: проскакування нової цілі на 6–15 пт. Причина: нова нога стартує через KB_LIFT_LEAD_MS з положення, передбаченого за старою ногою, а стара нога на той момент уже ПРОЛЕТІЛА нову ціль (ціль після уточнення клавіатури лежить ближче за ціль першої ноги). Якщо стара нога до моменту старту нової перетне нову ціль, або вже рухається від неї, нова нога стартує негайно з фактичного положення (без заданого часу), стара скасовується одразу, тривалість коротка (60–160 мс), крива без початкової швидкості: ціль не пролітається.
+  let immediate = false;
+  if(inFlight){
+    const stNow = kbLiftState(now, 0), dNow = target - stNow.pos, dLead = target - st.pos;
+    if(dNow * dLead <= 0 || dNow * stNow.vel < 0){
+      immediate = true;
+      // стартове положення — де лист буде на наступному кадрі (≈ 16,7 мс уперед), але не за ціллю: нова анімація з'являється лише з наступного кадру, і старт із «поточного» положення давав крок назад 4–7 пт
+      const st1 = kbLiftState(now, 16.7);
+      const crosses = (target - st1.pos) * dNow <= 0;
+      st = { pos: crosses ? target : st1.pos, vel: stNow.vel };
+    }
+  }
   const from = inFlight ? st.pos : (parseFloat(root.style.getPropertyValue('--sheet-lift')) || 0); // kbSheetCurrentLift тут уже дорівнює цілі (його виставляє викликач до kbSetLift)
   let c = KB_LIFT_DEFAULT_CURVE, dur2 = dur;
   const delta = target - from;
   if(inFlight && Math.abs(delta) > 0.5){
-    if(st.vel * delta > 0){ // нова ціль у той самий бік: початковий нахил ≤ ~3, без перельоту
+    if(immediate){
+      dur2 = Math.max(60, Math.min(160, Math.abs(delta) * 10));
+      c = [0.3, 0, 0.6, 1];
+    }else if(st.vel * delta > 0){ // нова ціль у той самий бік: початковий нахил ≤ ~3, без перельоту
       const speed = Math.abs(st.vel);
-      dur2 = Math.max(40, Math.min(dur, 3 * Math.abs(delta) / Math.max(speed, 0.01)));
-      c = [0.3, Math.min(1, 0.3 * Math.min(3, speed * dur2 / Math.abs(delta))), 0.6, 1];
+      dur2 = Math.max(60, Math.min(dur, 3 * Math.abs(delta) / Math.max(speed, 0.01))); // ≥ 60 мс: нова нога має жити довше за скасування старої
+      c = [0.3, Math.max(0, Math.min(1, 0.3 * Math.min(3, speed * dur2 / Math.abs(delta)))), 0.6, 1];
     }else{ // протилежний бік (Face ID): один плавний розворот
-      c = [0.3, Math.max(-0.4, 0.3 * (st.vel * dur / delta)), 0.6, 1];
+      c = [0.3, 0, 0.6, 1]; // Rev 2.32.270 (KB-16, B): від'ємний нахил (збереження швидкості в протилежний бік) пролітав ціль на 6–15 пт; тепер нова нога стартує без початкової швидкості (нахил 0, контрольні точки в межах 0..1): ціль не пролітається, повернення лише на пройдену відстань
     }
   }
-  kbLiftAnim = { from: from, to: target, t0: now + KB_LIFT_LEAD_MS, dur: dur2, c: c };
+  kbLiftAnim = { from: from, to: target, t0: immediate ? now : now + KB_LIFT_LEAD_MS, dur: dur2, c: c };
   root.style.setProperty('--sheet-lift', String(Math.round(target * 10) / 10)); // кінцева ціль: по завершенні анімації елемент стоїть у ній
   root.style.setProperty('--sheet-lift-target', String(Math.round(target * 10) / 10));
   if(el && typeof el.animate === 'function'){
@@ -29204,15 +29220,19 @@ function kbSetLift(target, durMs){
     const easing = 'cubic-bezier(' + c[0] + ', ' + (Math.round(c[1] * 1000) / 1000) + ', ' + c[2] + ', ' + c[3] + ')';
     const frames = [{ transform: kbLiftTransform(el, Math.round(from * 10) / 10) }, { transform: kbLiftTransform(el, Math.round(target * 10) / 10) }];
     const prev = kbLiftObj;
-    const a = el.animate(frames, { duration: dur2, easing: easing, fill: 'none' });
+    // fill: 'forwards': після завершення нова нога тримає кінцеве значення, тож якщо стара ще не скасована, вона не «виринає» на кадр (виміряно: кадр на 10 пт від цілі в момент, коли коротка нова нога закінчувалась раніше за скасування старої); по завершенні нову знімаємо — під нею те саме значення (--sheet-lift = ціль).
+    const a = el.animate(frames, { duration: dur2, easing: easing, fill: 'forwards' });
     kbLiftObj = a;
-    a.onfinish = function(){ if(kbLiftObj === a) kbLiftFinish(); };
-    if(prev){ // стара діє до заданого моменту старту нової, скасовується трохи після нього
+    a.onfinish = function(){ if(kbLiftObj === a){ kbLiftFinish(); try{ a.cancel(); }catch(e){} } };
+    if(prev && immediate){ // стара пролетіла б нову ціль: скасовуємо одразу, нова стартує з фактичного положення
+      prev.onfinish = null;
+      try{ prev.cancel(); }catch(e){}
+    }else if(prev){ // стара діє до заданого моменту старту нової, скасовується трохи після нього
       prev.onfinish = null;
       const kill = function(){ try{ prev.cancel(); }catch(e){} };
       let timed = false;
       try{ const tl = document.timeline; if(tl && typeof tl.currentTime === 'number'){ a.startTime = tl.currentTime + KB_LIFT_LEAD_MS; timed = true; } }catch(e){ timed = false; }
-      if(timed) setTimeout(kill, KB_LIFT_LEAD_MS + 40);
+      if(timed) setTimeout(kill, KB_LIFT_LEAD_MS + 25);
       else if(a.ready && typeof a.ready.then === 'function') a.ready.then(kill, kill); else kill();
     }
   }else{
@@ -29452,6 +29472,8 @@ function applyLiveSheetLift(){
   if(!kbSheetActive || !window.visualViewport) return;
   const vv = window.visualViewport, baseVh = getBaseViewportHeight();
   if(!isKeyboardOpen(baseVh, vv.height)) return;
+  // Rev 2.32.270 (KB-16, A): після втрати фокуса (activeElement = body) клавіатура зникає й iOS шле проміжні кадри visualViewport; рухом «при зміні висоти» (KB-15) на них відповідати не можна: за мить стартує закриття, і виходило два рухи (close + resize, звіт MT-1108-9004). Закриття веде exitKbSheet.
+  if(document.activeElement && document.activeElement === document.body) return;
   const live = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: 8 });
   if(Math.abs(live - kbSheetCurrentLift) > 1){
     // Rev 2.32.269 (KB-15, A): звіт MT-1108-1788 (Face ID): коли лист уже відкритий і спокійний, а висота клавіатури міняється пізніше (через ~3 с, 99 пт руху), лист їхав без sheet-anim і без caret-hidden: курсор було видно під час руху. Тепер такий рух (> 4 пт, поки іншого руху нема) іде тим самим механізмом, що й відкриття: анімація з поточного положення, курсор прихований до кінця всього руху (beginSheetMoving чекає kbLiftActive), подія sheet-anim (phase resize) записується. Зміна цілі посеред руху лишається ретаргетом.
@@ -29740,7 +29762,9 @@ document.addEventListener('focusout', function(e){
   // таббар усе одно ≤100мс (T1).
   const plan = planSheetClose({ focusoutAt: kbLastFocusoutAt, refocusWindowMs: 60 });
   const tabPlan = planTabbarRestore({ focusoutAt: kbLastFocusoutAt, refocusWindowMs: 60 });
-  kbHideTimeout = setTimeout(handleKeyboardFieldFocusSettle, Math.min(plan.refocusWindowMs, tabPlan.msAfterFocusout));
+  // Rev 2.32.270 (KB-16, C): звіт MT-1108-9004: закриття стартувало лише через ~60 мс після focusout (вікно очікування повторного фокуса), а iOS ховає клавіатуру одразу. Якщо фокус нікуди не переходить (relatedTarget порожній, не наше перемикання через проксі/refocus), закриття планується в тому ж такті без затримки; перемикання на інше поле (relatedTarget) або наше проксі лишає вікно очікування. Ризик: focusout без relatedTarget, після якого фокус повертається синхронно в тому ж такті (хоп автозаповнення), handleKeyboardFieldFocusSettle бачить поле у фокусі й нічого не закриває.
+  const closeNow = !e.relatedTarget && !kbRefocusing && !kbProxyActive;
+  kbHideTimeout = setTimeout(handleKeyboardFieldFocusSettle, closeNow ? 0 : Math.min(plan.refocusWindowMs, tabPlan.msAfterFocusout));
 });
 // Rev 2.23.11 (6D.180) — перехоплення тапу на touchend (НЕ touchstart, щоб
 // нічого не зсувалось під пальцем до відпускання): лише iOS, лише текстові

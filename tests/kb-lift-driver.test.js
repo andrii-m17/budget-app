@@ -86,7 +86,7 @@ test('KB-12: 415 → 388 через 40 мс — підйом без плато, 
   assert.ok(Math.abs(s[s.length - 1][1] - 196) < 0.2, 'сходиться до нової цілі');
 });
 test('KB-13/A: зміна цілі НЕ чіпає діючу анімацію; нова стартує у ЗАДАНИЙ момент (startTime = timeline + lead) з положення старої на цей момент; стара скасовується трохи після; швидкість неперервна (≤ 10 %)', () => {
-  for(const [l1, l2, at] of [[217, 196, 40], [217, 196, 60], [300, 270, 35]]){
+  for(const [l1, l2, at] of [[217, 196, 40], [217, 196, 45], [300, 270, 35]]){
     const { ctx, st } = make(false);
     st.now = 0; ctx.__a = l1; evalInSandbox(ctx, 'kbSetLift(__a)');
     st.now = at;
@@ -130,4 +130,27 @@ test('KB-12: закриття посеред підйому фіксує пот�
   ctx.__el = el; evalInSandbox(ctx, 'kbLiftCommit(__el)');
   assert.ok(st.anims[0].cancelled);
   assert.ok(Math.abs(parseFloat(st.style['--sheet-lift']) - pos) < 0.11, 'лист лишається там, де був: ' + st.style['--sheet-lift'] + ' проти ' + pos.toFixed(1));
+});
+test('KB-16/B: якщо стара нога до старту нової перетне нову ціль, нова стартує негайно з положення наступного кадру (не за ціллю), стара скасовується одразу, без початкової швидкості й перельоту', () => {
+  const { ctx, st } = make(false);
+  st.now = 0; ctx.__a = 121; evalInSandbox(ctx, 'kbSetLift(__a)');
+  st.now = 90; // положення ≈ 96, швидкість ще велика; нова ціль 100 — стара пролетить її до старту нової
+  const a = st.anims[0];
+  ctx.__b = 100; evalInSandbox(ctx, 'kbSetLift(__b)');
+  assert.equal(st.anims.length, 2);
+  assert.ok(a.cancelled, 'стару скасовано одразу');
+  const b = st.anims[1];
+  assert.equal(b.startedAt, 90, 'без заданого часу старту (негайно)');
+  assert.ok(lift(b, 0) <= 100 + 0.11 || lift(b, 0) >= 100 - 30, 'стартове положення в межах руху');
+  assert.ok(Math.abs(lift(b, 0) - 100) < 12, 'стартує поблизу цілі, не за нею: ' + lift(b, 0));
+  assert.ok(b.opts.duration >= 60 && b.opts.duration <= 160, 'коротка нога: ' + b.opts.duration);
+  const c = /cubic-bezier\(([^)]+)\)/.exec(b.opts.easing)[1].split(',').map(Number);
+  assert.ok(c.every((v, i) => i === 0 || i === 2 ? v >= 0 && v <= 1 : v >= 0 && v <= 1), 'контрольні точки в межах 0..1: ' + c.join(','));
+  assert.equal(b.opts.fill, 'forwards');
+});
+test('KB-16/B: нова нога тримає кінцеве значення (fill forwards), щоб скасування старої не показало її кадр; після завершення нова знімається', () => {
+  const { ctx, st } = make(false);
+  st.now = 0; ctx.__a = 217; evalInSandbox(ctx, 'kbSetLift(__a)');
+  const a = st.anims[0]; assert.equal(a.opts.fill, 'forwards');
+  a.onfinish(); assert.ok(a.cancelled, 'завершену ногу знято (під нею те саме значення --sheet-lift)');
 });
