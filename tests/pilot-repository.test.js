@@ -5398,7 +5398,7 @@ function kbSheetSandbox(opts){
     // синхронний виклик спричинив би нескінченну рекурсію в тестах. Жоден
     // наявний тест не покладається на те, що rAF-колбек РЕАЛЬНО
     // виконається (correctPanIfNeeded фіксує подію ПОЗА колбеком).
-    requestAnimationFrame: function(fn){ if(opts.captureRaf){ rafQueue.push(fn); } return 1; },
+    requestAnimationFrame: function(fn){ if(fn && fn.name === 'kbCaretShow'){ fn(); return 1; } if(opts.captureRaf){ rafQueue.push(fn); } return 1; }, // KB-17: показ курсора (наступний кадр) у пісочниці виконується одразу
     queueMicrotask: function(fn){ microtasks.push(fn); },
     localStorage: { getItem: function(k){ return Object.prototype.hasOwnProperty.call(lsStore, k) ? lsStore[k] : null; }, setItem: function(k, v){ lsStore[k] = String(v); } },
     KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', KB_CARET_LS_KEY: 'budget_exp_kb_caret_v1', kbMovingGen: 0, kbProxyEl: null, kbLastFocusedField: null, kbLastTap: null,

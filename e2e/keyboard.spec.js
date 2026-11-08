@@ -603,3 +603,48 @@ for(const lateMs of [35, 50]){
     } finally { await ctx.close(); }
   });
 }
+
+// KB-17 (Rev 2.32.271): опис Андрія (2.32.269): під час руху листа входу курсор уже видно в полі; при появі/зникненні пропозиції Face ID і в кінці появи клавіатури курсор стрибає (до заголовка «Вхід», до кнопки «Увійти»). У формах ОЧ курсор правильний.
+// Причина: правило приховування html.kb-sheet-moving ... { caret-color: transparent } було прив'язане до id чотирьох листів (дохід, картка боргу, ОЧ, структура) і #app-modal; profile-drawer (вхід) і mono-detail-drawer до списку не входили.
+// Тест на справжній розмітці WebKit: під час руху (клас kb-sheet-moving) обчислений caret-color полів входу (cldfielda1, cloud-password) і «Примітки» прозорий, як у app-modal-input.
+const KB17_TRANSPARENT = /^rgba\(0, 0, 0, 0\)$|^transparent$/;
+test('57. KB-17: під час руху листа caret-color полів входу й «Примітки» прозорий (як у формах ОЧ)', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    const r = await page.evaluate(() => new Promise(resolve => {
+      const ids = ['cldfielda1', 'cloud-password'], seen = []; const t0 = performance.now();
+      const tick = () => {
+        if(document.documentElement.classList.contains('kb-sheet-moving')) seen.push(ids.map(i => getComputedStyle(document.getElementById(i)).caretColor));
+        if(performance.now() - t0 < 700) requestAnimationFrame(tick); else resolve(seen);
+      };
+      requestAnimationFrame(tick);
+      window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.4); window.visualViewport.dispatchEvent(new Event('resize'));
+    }));
+    const flat = [].concat(...r);
+    const info = JSON.stringify({ frames: r.length, sample: r[0], visible: flat.filter(c => !KB17_TRANSPARENT.test(c)).length });
+    expect(r.length, 'є кадри руху з прихованим курсором (умова тесту): ' + info).toBeGreaterThan(3);
+    expect(flat.filter(c => !KB17_TRANSPARENT.test(c)).length, 'caret-color полів входу прозорий на всіх кадрах руху: ' + info).toBe(0);
+  } finally { await ctx.close(); }
+});
+test('58. KB-17: caret-color «Примітки» у «Вхідних» і поля суми центрованої форми прозорі під час руху (охорона поряд із входом)', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(async () => { window.__vv.h = null; window.__vv.top = 0; await openMonoInbox(); monoInbox.rows = [{ id: 'sim1', status: 'new', tx_time: new Date().toISOString(), amount_uah: 120, description: 'Тест', suggested_category: '', suggested_subcategory: '', mono_account_id: 'x' }]; openMonoDetail('sim1'); });
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#fldmono4').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    const r = await page.evaluate(() => new Promise(resolve => {
+      const seen = []; const t0 = performance.now();
+      const tick = () => { if(document.documentElement.classList.contains('kb-sheet-moving')) seen.push(getComputedStyle(document.getElementById('fldmono4')).caretColor); if(performance.now() - t0 < 700) requestAnimationFrame(tick); else resolve(seen); };
+      requestAnimationFrame(tick);
+      window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.4); window.visualViewport.dispatchEvent(new Event('resize'));
+    }));
+    const info = JSON.stringify({ frames: r.length, sample: r[0], visible: r.filter(c => !KB17_TRANSPARENT.test(c)).length });
+    expect(r.length, 'є кадри руху: ' + info).toBeGreaterThan(3);
+    expect(r.filter(c => !KB17_TRANSPARENT.test(c)).length, 'caret-color «Примітки» прозорий під час руху: ' + info).toBe(0);
+  } finally { await ctx.close(); }
+});

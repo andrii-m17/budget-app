@@ -215,3 +215,12 @@ test('REC (KB-15, C): sheet-anim несе покадрові висоту й max
   assert.match(HTML, /samplesH: isModalSheet \? downsampleSheetAnimPairs\(samplesH, 40\) : undefined/);
   assert.match(HTML, /if\(\(phase === 'open' \|\| phase === 'resize'\) && frames > 2 && \(!busy\(\) \|\| !kbSheetActive\)\)\{ finish\(\); return; \}/);
 });
+test('REC (KB-17): caret-hidden несе обчислений caret-color поля в момент приховування', () => {
+  const c = pure();
+  c.__ev = { type: 'caret-hidden', phase: 'open', drawerId: 'profile-drawer', ms: 320, caretColor: 'transparent' };
+  const o = J(c, 'recSanitizeEvent(__ev, 1)');
+  assert.equal(o.caretColor, 'transparent');
+  assert.match(HTML, /caretColor: caretAtHide/);
+  assert.match(HTML, /html\.kb-sheet-moving \.drawer input, html\.kb-sheet-moving \.drawer textarea, html\.kb-sheet-moving \.app-modal input, html\.kb-sheet-moving \.app-modal textarea\{ caret-color:transparent; \}/);
+  assert.match(HTML, /af\.setSelectionRange\(af\.selectionStart, af\.selectionEnd\)/);
+});
