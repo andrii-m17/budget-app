@@ -207,3 +207,11 @@ test('REC (KB-13, D): focusin/focusout мають час t; focus-transfer не�
   assert.match(HTML, /pushDebugEvent\(\{ t: Math\.round\(performance\.now\(\)\), type: 'focusout'/);
   assert.match(HTML, /proxyTop: proxyRect \? proxyRect\.top : null, proxyBottom: proxyRect \? proxyRect\.bottom : null/);
 });
+test('REC (KB-15, C): sheet-anim несе покадрові висоту й max-height центрованої форми (samplesH); phase resize дозволена', () => {
+  const c = pure();
+  c.__ev = { type: 'sheet-anim', phase: 'resize', drawerId: 'sheet-account', samples: [[0, 583], [16, 560]], samplesH: [[0, 400, 460], [16, 402, 463]] };
+  const o = J(c, 'recSanitizeEvent(__ev, 1)');
+  assert.deepEqual(o.samplesH, [[0, 400, 460], [16, 402, 463]]); assert.equal(o.phase, 'resize');
+  assert.match(HTML, /samplesH: isModalSheet \? downsampleSheetAnimPairs\(samplesH, 40\) : undefined/);
+  assert.match(HTML, /if\(\(phase === 'open' \|\| phase === 'resize'\) && frames > 2 && !busy\(\)\)\{ finish\(\); return; \}/);
+});

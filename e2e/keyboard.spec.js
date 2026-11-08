@@ -468,3 +468,61 @@ test('51. KB-14/A: «Додати ОЧ», поле суми, клавіатур�
     expect(Math.abs(settled[1] - atEnd), 'без доскоку після кінця анімації (±1 пт): ' + info + ' tStart ' + tStart + ', atEnd ' + atEnd).toBeLessThanOrEqual(1);
   } finally { await ctx.close(); }
 });
+
+// KB-15 (Rev 2.32.269), A: звіт MT-1108-1788 (2.32.267, Face ID): коли лист уже відкритий, а висота клавіатури міняється пізніше (через ~3 с vvH 479, потім 99 пт руху), лист рухається без sheet-anim і без caret-hidden: курсор видно під час руху.
+// Тест на справжній розмітці WebKit: відкритий лист із клавіатурою, висота клавіатури міняється: лист рухається, курсор (kb-sheet-moving) прихований увесь рух і повертається після нього, подія sheet-anim (phase resize) записана.
+test('52. KB-15/A: зміна висоти клавіатури при відкритому листі — рух тим самим механізмом: курсор прихований до кінця руху, sheet-anim записано', async ({ browser }) => {
+  const { ctx, page } = await kb12Prepare(browser);
+  try{
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.3); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1500);
+    const s = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('card-debt-drawer'), out = []; const t0 = performance.now();
+      const tick = () => { out.push([Math.round(performance.now() - t0), Math.round(dr.getBoundingClientRect().bottom * 10) / 10, document.documentElement.classList.contains('kb-sheet-moving')]); if(performance.now() - t0 < 1200) requestAnimationFrame(tick); else resolve(out); };
+      requestAnimationFrame(tick);
+      window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.42); window.visualViewport.dispatchEvent(new Event('resize')); // клавіатура стала вищою (як після зникнення пропозиції)
+    }));
+    const startY = s[0][1], endY = s[s.length - 1][1];
+    const moving = s.filter((r, i) => i > 0 && Math.abs(r[1] - s[i - 1][1]) > 0.3);
+    const tMoveStart = moving.length ? moving[0][0] : 9999, tMoveEnd = moving.length ? moving[moving.length - 1][0] : 0;
+    const caretDuring = moving.filter(r => r[2] === true).length, caretOff = moving.filter(r => r[2] === false).length;
+    const caretAfter = (s.find(r => r[0] > Math.max(tMoveEnd, 320) + 120) || [0, 0, true])[2]; // курсор знімається після кінця руху (нижня межа 320 мс, як у відкритті)
+    const ev = await page.evaluate(() => recBuf.filter(e => e.type === 'sheet-anim').map(e => e.phase));
+    const info = JSON.stringify({ startY, endY, tMoveStart, tMoveEnd, caretDuring, caretOff, caretAfter, phases: ev });
+    expect(Math.abs(endY - startY), 'лист справді рухався (умова тесту): ' + info).toBeGreaterThan(10);
+    expect(caretOff, 'курсор прихований на всіх кадрах руху: ' + info).toBe(0);
+    expect(caretAfter, 'після руху курсор повертається (≤ ~440 мс): ' + info).toBe(false);
+    expect(ev.includes('resize'), 'подія sheet-anim (phase resize) записана: ' + info).toBe(true);
+    // C: семпли відкриття йдуть до фактичного кінця руху (останній семпл = кінцеве положення, тривалість ≈ анімації, а не обрив на ~140 мс)
+    const op = await page.evaluate(() => { const e = recBuf.filter(x => x.type === 'sheet-anim' && x.phase === 'open')[0]; return e ? { dur: e.durationMs, last: e.samples && e.samples.length ? e.samples[e.samples.length - 1][1] : null, firstY: e.samples && e.samples[0] ? e.samples[0][1] : null } : null; });
+    expect(op && op.dur, 'тривалість семплів відкриття ≥ 250 мс (не обрив): ' + JSON.stringify(op)).toBeGreaterThanOrEqual(250);
+  } finally { await ctx.close(); }
+});
+
+// KB-15 (Rev 2.32.269), B: звіт MT-1108-1788: перемикання пошта → пароль (нативне, зокрема автозаповнення iOS) йшло через допоміжне поле kb-focus-proxy (focusin cloud-password, focusin kb-focus-proxy, proxy-switch, focusin cloud-password), курсор на мить з'являвся на місці допоміжного поля, далі клавіатура закрилась.
+// Тест: два поля одного листа з тим самим типом клавіатури, відкрита клавіатура, нативне перемикання (field.focus()): послідовність фокусу — лише нове поле, без kb-focus-proxy; клавіатурний режим не знімається.
+test('53. KB-15/B: перемикання між полями листа (той самий тип клавіатури) — прямий фокус, без допоміжного поля, клавіатура не закривається', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.4); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1200);
+    const r = await page.evaluate(async () => {
+      const seq = []; const h = e => seq.push(e.target.id || e.target.tagName);
+      document.addEventListener('focusin', h, true);
+      const before = { kbSheet: document.documentElement.classList.contains('kb-sheet'), kbOpen: document.body.classList.contains('kb-open'), active: document.activeElement && document.activeElement.id };
+      document.getElementById('cloud-password').focus(); // нативне перемикання (стрілка «Далі» / автозаповнення iOS)
+      await new Promise(res => setTimeout(res, 400));
+      document.removeEventListener('focusin', h, true);
+      return { seq, before, after: { kbSheet: document.documentElement.classList.contains('kb-sheet'), kbOpen: document.body.classList.contains('kb-open'), active: document.activeElement && document.activeElement.id }, closed: recBuf.filter(e => e.type === 'sheet-close').length };
+    });
+    const info = JSON.stringify(r);
+    expect(r.before.active, 'умова тесту: фокус у пошті: ' + info).toBe('cldfielda1');
+    expect(r.seq.includes('kb-focus-proxy'), 'без допоміжного поля: ' + info).toBe(false);
+    expect(r.after.active, 'фокус у новому полі: ' + info).toBe('cloud-password');
+    expect(r.after.kbSheet && r.after.kbOpen, 'клавіатурний режим не знято: ' + info).toBe(true);
+  } finally { await ctx.close(); }
+});
