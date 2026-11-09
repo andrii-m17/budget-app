@@ -30,7 +30,7 @@ test('картки з полями зареєстровані з sheetId; мод
 });
 test('CSS: підйом #app-modal — transform центрування мінус --sheet-lift, ті самі переходи, що в шторок; без клавіатури вигляд не змінюється (правила лише під html.kb-sheet)', () => {
   assert.match(SRC, /html\.kb-sheet \.app-modal\.open\{[^}]*translate3d\(-50%, calc\(-50% - 1px \* var\(--sheet-lift, 0\)\), 0\) scale\(1\)/);
-  assert.match(SRC, /html\.kb-sheet\.kb-sheet-closing \.app-modal\.open\{ transition:transform 250ms/);
+  assert.match(SRC, /html\.kb-sheet\.kb-sheet-closing \.app-modal\.open\{ transition:transform var\(--kb-dur\)/);
   assert.match(SRC, /html\.kb-sheet\.kb-sheet-switching \.app-modal\.open\{ transition:transform 220ms/);
   assert.match(SRC, /html\.kb-sheet-moving #app-modal input/);
   assert.match(SRC, /\.app-modal\.open\{ opacity:1; pointer-events:auto; transform:translate\(-50%,-50%\) scale\(1\); \}/);

@@ -37,6 +37,6 @@ test('KB-11: прокрутка стартує в kbPipeAnimate до beginSheetM
 test('KB-13/C → KB-18/D: закриття веде kbCloseScroll — scrollTop у 0 одним кроком + FLIP тією ж кривою; без rAF-прокрутки', () => {
   assert.match(HTML, /function kbCloseScroll\(drawerEl, field\)/);
   assert.match(HTML, /kbCloseScroll\(drawerEl, lastFieldAtClose\);/);
-  assert.match(HTML, /kbFlipScroll\(sc, function\(\)\{ sc\.scrollTop = 0; \}, dur, 'cubic-bezier\(0\.25, 0\.1, 0\.25, 1\)'\);/);
+  assert.match(HTML, /kbFlipScroll\(sc, function\(\)\{ sc\.scrollTop = 0; \}, KB_MOTION_DUR, KB_MOTION_EASING\);/);
   assert.doesNotMatch(HTML, /kbScrollRaf|kbCloseScrollRaf/, 'покадрової (rAF) прокрутки більше немає');
 });

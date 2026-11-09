@@ -146,7 +146,7 @@ test('«Умови»: рядок із поточними значеннями, �
   assert.ok(!/localStorage[^;]*(cond|och)/i.test(SRC.slice(SRC.indexOf('function ochSetCond'), SRC.indexOf('function ochSetCond') + 400)), 'стан не зберігається');
   // розкриття з клавіатурою: лише scrollIntoView «nearest» для поля в фокусі, без чіпання клавіатурної логіки
   const tog = SRC.slice(SRC.indexOf('function ochToggleCond'), SRC.indexOf('let ochPayManual'));
-  assert.match(tog, /a\.scrollIntoView\(\{ block: 'nearest' \}\)/); assert.ok(!/kb-|focusCardField|visualViewport/.test(tog));
+  assert.match(tog, /kbMotionReveal\(a\)/); assert.ok(!/kb-|focusCardField|visualViewport/.test(tog));
   assert.match(SRC, /if\(typeof ochSetCond === 'function' && el\.closest && el\.closest\('#idd-cond'\)\) ochSetCond\(true\);/, '«Заповнити» розгортає «Умови» для «Залишку»');
 });
 test('підсвітка «заповніть поле»: єдиний клас field-hint лише на самому полі; знімається першим введенням (input/change) або через 6 с', function(){
