@@ -34,9 +34,9 @@ test('KB-11: прокрутка стартує в kbPipeAnimate до beginSheetM
   assert.match(HTML, /getAnimations\(\)\.filter\(function\(a\)\{ return a\.playState === 'running'; \}\)/);
   assert.match(HTML, /captureDebugGeometry\('field-scroll', \{[^}]*scrollFrom: Math\.round\(from\), scrollTo: Math\.round\(to\)[^}]*\}\)/);
 });
-test('KB-13/C: при закритті scrollTop веде kbCloseScroll (від поточного до 0 кривою закриття), запускається з exitKbSheet і скасовується при відкритті нового листа', () => {
+test('KB-13/C → KB-18/D: закриття веде kbCloseScroll — scrollTop у 0 одним кроком + FLIP тією ж кривою; без rAF-прокрутки', () => {
   assert.match(HTML, /function kbCloseScroll\(drawerEl, field\)/);
   assert.match(HTML, /kbCloseScroll\(drawerEl, lastFieldAtClose\);/);
-  assert.match(HTML, /sc\.scrollTop = Math\.min\(sc\.scrollTop, planned\);/);
-  assert.match(HTML, /if\(kbCloseScrollRaf\)\{ cancelAnimationFrame\(kbCloseScrollRaf\); kbCloseScrollRaf = 0; \} \/\/ Rev 2\.32\.267 \(KB-13\)/);
+  assert.match(HTML, /kbFlipScroll\(sc, function\(\)\{ sc\.scrollTop = 0; \}, dur, 'cubic-bezier\(0\.25, 0\.1, 0\.25, 1\)'\);/);
+  assert.doesNotMatch(HTML, /kbScrollRaf|kbCloseScrollRaf/, 'покадрової (rAF) прокрутки більше немає');
 });

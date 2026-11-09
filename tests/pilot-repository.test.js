@@ -5119,8 +5119,8 @@ test('latestTouchedRecordMonth: id у Map, але запису вже немає
 function keyboardInsetSandbox(){
   const { buildSandbox } = require('./extract');
   return buildSandbox({}, [
-    'isKeyboardLikelyClosed', 'viewportOrientationKey', 'nextBaseViewportHeight',
-    'computeKeyboardHeight', 'isKeyboardOpen', 'nextBaseVh', 'estimateKeyboardHeight',
+    'isKeyboardLikelyClosed', 'viewportOrientationKey',
+    'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
     'shouldBlockTouchMove', 'keyboardKindForField',
     'computeSheetLift', 'shouldForceTransfer', 'downsampleSheetAnimPairs',
     'computeSheetMaxHeight', 'computeCenteredRestBottom', 'planSheetClose',
@@ -5154,22 +5154,6 @@ test('viewportOrientationKey: РЕАЛЬНА послідовність пово
   assert.equal(ctx.viewportOrientationKey(440, 956), 'portrait');
   assert.equal(ctx.viewportOrientationKey(440, 894), 'portrait');
 });
-test('nextBaseViewportHeight: перший запис для орієнтації (prevValue=null) → береться як є, навіть якщо він менший за типовий', () => {
-  const ctx = keyboardInsetSandbox();
-  assert.equal(ctx.nextBaseViewportHeight(null, 390), 390);
-});
-test('nextBaseViewportHeight: Rev 2.22.85 — одинична хибна просадка (6D.158, innerHeight=505 в момент появи клавіатури) НЕ псує вже встановлену базу 894', () => {
-  const ctx = keyboardInsetSandbox();
-  assert.equal(ctx.nextBaseViewportHeight(894, 505), 894);
-});
-test('nextBaseViewportHeight: легітимне зростання (напр. приховання адресного рядка) враховується', () => {
-  const ctx = keyboardInsetSandbox();
-  assert.equal(ctx.nextBaseViewportHeight(844, 894), 894);
-});
-
-// Rev 2.23.9 (6D.178) — нові чисті функції контролера. Регресія на РЕАЛЬНИХ
-// рядках з 5 живих логів (client_debug_logs): (vvH=505,vvTop=389) і
-// (vvH=479,vvTop=415) — обидва при base=894.
 test('computeKeyboardHeight: регресія на реальних рядках логу — (894,505)→389, (894,479)→415', () => {
   const ctx = keyboardInsetSandbox();
   assert.equal(ctx.computeKeyboardHeight(894, 505), 389);
@@ -5186,14 +5170,6 @@ test('isKeyboardOpen: ті самі реальні рядки — обидва "
   assert.equal(ctx.isKeyboardOpen(894, 894), false, 'нема клавіатури');
   assert.equal(ctx.isKeyboardOpen(894, 820), false, 'легітимне часткове стиснення, не клавіатура');
 });
-test('nextBaseVh: тонка обгортка над nextBaseViewportHeight — та сама поведінка', () => {
-  const ctx = keyboardInsetSandbox();
-  assert.equal(ctx.nextBaseVh(null, 390), 390);
-  assert.equal(ctx.nextBaseVh(894, 505), 894, 'одинична хибна просадка не псує базу');
-  assert.equal(ctx.nextBaseVh(844, 894), 894);
-});
-// Rev 2.23.11 (6D.180) — коефіцієнт тепер ОКРЕМИЙ на тип клавіатури (був
-// єдиний 0.47 для обох, завжди ~420 — не відрізняв цифрову від QWERTY).
 test('estimateKeyboardHeight: без кешу — окрема оцінка на тип клавіатури (numeric 0.435, text 0.465)', () => {
   const ctx = keyboardInsetSandbox();
   assert.equal(ctx.estimateKeyboardHeight(894, 'text', {}), Math.round(894 * 0.465));
@@ -5384,7 +5360,7 @@ function kbSheetSandbox(opts){
     }, 'activeElement', { get: function(){ return state.activeElement; } }),
     window: { visualViewport: { height: 894, offsetTop: 0 }, innerWidth: 440, innerHeight: 894, scrollY: 0, scrollTo: function(){} },
     navigator: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', platform: 'iPhone', maxTouchPoints: 5 }, // Rev 2.32.240: стара поведінка iPhone за замовчуванням (старі тести); конвеєр — окремі тести з iPad
-    baseViewportHeightByOrientation: { portrait: 894, landscape: null },
+    kbSessionBase: 0,
     keyboardHeightCache: { portrait: {}, landscape: {} },
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
     drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
@@ -5415,7 +5391,7 @@ function kbSheetSandbox(opts){
   }, [
     'isKeyboardField', 'kbSheetHostOf', 'kbSheetLabel', 'CARD_LAYER_RELEASE_MS', 'shouldPromoteLayer', 'settledPosition', 'kbRestBottomOf', 'kbLayoutShrink', 'isFieldInsideDrawer', 'keyboardKindForField',
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
-    'viewportOrientationKey', 'nextBaseViewportHeight', 'getBaseViewportHeight',
+    'viewportOrientationKey', 'kbMeasureBase', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
     'enterKbSheet', 'kbEnsureFieldVisible', 'kbSetLift', 'kbLiftState', 'kbLiftCommit', 'kbLiftTransform', 'kbLiftFinish', 'kbLiftStop', 'KB_LIFT_DEFAULT_CURVE', 'KB_LIFT_LEAD_MS', 'kbStartFieldScroll', 'kbScrollParentOf', 'kbCloseScroll', 'kbScrollDone', 'kbBezier', 'computeFieldScrollTarget', 'kbStickyBarOf', 'debugSafeAreaInsets', 'kbRestBottomLayout', 'kbPipeStep', 'KB_PIPE', 'KB_PIPE_WAIT_MS', 'kbCacheKindForField', 'kbHeightKey', 'kbHeightsLoad', 'kbHeightsSave', 'kbHeightFromStore', 'KB_HEIGHTS_KEY', 'kbPipeOpenNow', 'kbPipeEnter', 'kbPipeTryAnimate', 'kbPipeKick', 'kbPipeAnimate', 'kbPipeFollow', 'kbVvTopCloseFollow', 'KB_CLOSE_FOLLOW', 'kbIsIphone', 'kbgDeviceClass', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle', 'shouldReleaseKbOpen', // Rev 2.23.30 (6D.199)

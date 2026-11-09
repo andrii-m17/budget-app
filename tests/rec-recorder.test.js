@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const PURE = ['REC_WINDOW_MS', 'REC_MAX_EVENTS', 'REC_CHUNK_BYTES', 'REC_CHUNK_EVENTS', 'REC_MAX_REPORT_BYTES', 'REC_RATE_TYPE_MS', 'REC_RATE_PER_DAY', 'REC_QUEUE_MAX', 'REC_MIRROR_KEY', 'REC_QUEUE_KEY', 'REC_RATE_KEY', 'REC_SENT_KEY', 'REC_ALLOWED_TYPES', 'REC_ALLOWED_KEYS',
-  'recSanitizeValue', 'recSanitizeEvent', 'recTrim', 'recLimitReport', 'recChunk', 'recReportCode', 'recRateCheck', 'recQueueAdd', 'recDetectSheetJump', 'recFieldHidden'];
+  'recSanitizeValue', 'recSanitizeEvent', 'recTrim', 'recLimitReport', 'recChunk', 'recReportCode', 'recRateCheck', 'recQueueAdd', 'recDetectSheetJump', 'recFieldHidden', 'recSheetRestOff'];
 function pure(){ return buildSandbox({}, PURE); }
 const J = (ctx, expr) => JSON.parse(JSON.stringify(evalInSandbox(ctx, expr)));
 

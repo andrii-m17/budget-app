@@ -198,12 +198,12 @@ test('42. KB-9: лист вищий за вільне місце — кнопк�
     expect(r.add.bottom, 'кнопка «Додати» над клавіатурою: ' + JSON.stringify(r)).toBeLessThanOrEqual(r.vvB);
     expect(r.ignore.bottom, 'кнопка «Ігнорувати» над клавіатурою: ' + JSON.stringify(r)).toBeLessThanOrEqual(r.vvB);
     expect(r.add.top, 'кнопка «Додати» не вище екрана').toBeGreaterThanOrEqual(0);
-    expect(r.tp, 'max-height входить у перехід листа: ' + r.tp).toMatch(/max-height/);
+    expect(r.tp, 'KB-18: max-height не входить у перехід (міняється одним кроком, не покадрово): ' + r.tp).not.toMatch(/max-height/);
     // закриття: перехід max-height діє й у фазі закриття (та сама крива, що й підйом)
     await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
     await page.waitForTimeout(120);
     const c = await page.evaluate(() => { const cs = getComputedStyle(document.getElementById('mono-detail-drawer')); return { tp: cs.transitionProperty, closing: document.documentElement.classList.contains('kb-sheet-closing') }; });
-    expect(c.tp, 'при закритті max-height теж у переході: ' + JSON.stringify(c)).toMatch(/max-height/);
+    expect(c.tp, 'KB-18: при закритті max-height теж не в переході: ' + JSON.stringify(c)).not.toMatch(/max-height/);
   }finally{ await ctx.close(); }
 });
 
@@ -240,10 +240,11 @@ test('44. KB-11: прокрутка до поля йде разом із під�
     await page.waitForTimeout(900);
     await page.evaluate(() => { const b = document.getElementById('mono-detail-body'); b.style.minHeight = '0px'; const dr = document.getElementById('mono-detail-drawer'); const top0 = document.getElementById('fldmono4').getBoundingClientRect().top - dr.getBoundingClientRect().top; b.style.minHeight = Math.max(0, 260 - top0) + 'px'; });
     const bb = await page.locator('#fldmono4').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(450); // KB-18: FLIP від самого тапу завершено, f0 міряється без залишкового зсуву
     const s = await page.evaluate(() => new Promise(resolve => {
       const dr = document.getElementById('mono-detail-drawer'), out = []; const t0 = performance.now();
-      const tick = () => { out.push([Math.round(performance.now() - t0), Math.round(dr.scrollTop * 10) / 10, document.documentElement.classList.contains('kb-sheet-moving')]); if(performance.now() - t0 < 1100) requestAnimationFrame(tick); else resolve(out); };
+      const fe = document.getElementById('fldmono4'), f0 = fe.getBoundingClientRect().top - dr.getBoundingClientRect().top + dr.scrollTop; // KB-18: видиме положення вмісту (scrollTop ставиться одним кроком, рух — FLIP)
+      const tick = () => { out.push([Math.round(performance.now() - t0), Math.round((f0 - (fe.getBoundingClientRect().top - dr.getBoundingClientRect().top)) * 10) / 10, document.documentElement.classList.contains('kb-sheet-moving')]); if(performance.now() - t0 < 1100) requestAnimationFrame(tick); else resolve(out); };
       requestAnimationFrame(tick);
       const k = Math.round(window.__H0 * 0.3); window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize'));
     }));
@@ -385,7 +386,8 @@ test('49. KB-13/C: закриття «Вхідних» — прокрутка в
     await page.waitForTimeout(1300);
     const s = await page.evaluate(() => new Promise(resolve => {
       const dr = document.getElementById('mono-detail-drawer'), out = []; const t0 = performance.now();
-      const tick = () => { out.push([Math.round(performance.now() - t0), Math.round(dr.scrollTop * 10) / 10, document.documentElement.classList.contains('kb-sheet')]); if(performance.now() - t0 < 900) requestAnimationFrame(tick); else resolve(out); };
+      const fe = document.getElementById('fldmono4'), f0 = fe.getBoundingClientRect().top - dr.getBoundingClientRect().top + dr.scrollTop; // KB-18: видиме положення вмісту (scrollTop ставиться одним кроком, рух — FLIP)
+      const tick = () => { out.push([Math.round(performance.now() - t0), Math.round((f0 - (fe.getBoundingClientRect().top - dr.getBoundingClientRect().top)) * 10) / 10, document.documentElement.classList.contains('kb-sheet')]); if(performance.now() - t0 < 900) requestAnimationFrame(tick); else resolve(out); };
       requestAnimationFrame(tick);
       document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize'));
     }));
@@ -561,7 +563,7 @@ test('55. KB-16/A: закриття — один рух: проміжні кад
   const { ctx, page } = await kb16Open(browser);
   try{
     const r = await page.evaluate(() => new Promise(resolve => {
-      const dr = document.getElementById('card-debt-drawer'); let maxAnims = 0; const t0 = performance.now(); const H0 = window.__H0;
+      const dr = document.getElementById('card-debt-drawer'); let maxAnims = 0, dblMs = 0, tPrev = performance.now(); const t0 = tPrev; const H0 = window.__H0;
       const countAnims = () => dr.getAnimations().filter(a => a.playState === 'running' && ((a.effect && a.effect.getKeyframes && a.effect.getKeyframes().some(k => k.transform)) || a.transitionProperty === 'transform')).length;
       const tick = () => { maxAnims = Math.max(maxAnims, countAnims()); if(performance.now() - t0 < 900) requestAnimationFrame(tick); else resolve({ maxAnims, phases: recBuf.filter(e => e.type === 'sheet-anim' && e.wall > window.__t1).map(e => e.phase) }); };
       window.__t1 = Date.now(); requestAnimationFrame(tick);
@@ -597,7 +599,9 @@ for(const lateMs of [35, 50]){
       const run = s.filter(r => r[0] >= t1 - 20);
       let minY = 1e9, back = 0, runMax = 0; for(let i = 0; i < run.length; i++){ minY = Math.min(minY, run[i][1]); if(i > 0 && run[i][1] - run[i - 1][1] > 0.3) back += run[i][1] - run[i - 1][1]; runMax = Math.max(runMax, run[i][1]); }
       const overshoot = finalY - minY; // наскільки пролетіло ціль угору (низ менший за кінцевий) перед поверненням
-      const info = JSON.stringify({ finalY: Math.round(finalY * 10) / 10, minY: Math.round(minY * 10) / 10, overshoot: Math.round(overshoot * 10) / 10, backTravel: Math.round(back * 10) / 10 });
+      const startY = s[0][1]; const flash = s.filter(r => r[0] > t1 + 20 && Math.abs(r[1] - startY) < 1.5).length; // KB-18/B (MT-1109-7870): кадр зі стартовим положенням посеред руху
+      const info = JSON.stringify({ finalY: Math.round(finalY * 10) / 10, minY: Math.round(minY * 10) / 10, overshoot: Math.round(overshoot * 10) / 10, backTravel: Math.round(back * 10) / 10, startY: Math.round(startY), flash });
+      expect(flash, 'жодного кадру зі стартовим положенням посеред руху: ' + info).toBe(0);
       expect(overshoot, 'ціль не пролітається (≤ 2 пт): ' + info).toBeLessThanOrEqual(2);
       expect(back, 'без руху назад (≤ 2 пт сумарно): ' + info).toBeLessThanOrEqual(2);
     } finally { await ctx.close(); }
@@ -646,5 +650,57 @@ test('58. KB-17: caret-color «Примітки» у «Вхідних» і по�
     const info = JSON.stringify({ frames: r.length, sample: r[0], visible: r.filter(c => !KB17_TRANSPARENT.test(c)).length });
     expect(r.length, 'є кадри руху: ' + info).toBeGreaterThan(3);
     expect(r.filter(c => !KB17_TRANSPARENT.test(c)).length, 'caret-color «Примітки» прозорий під час руху: ' + info).toBe(0);
+  } finally { await ctx.close(); }
+});
+
+// KB-18 (Rev 2.32.271), C: звіт MT-1109-7870: «Додати ОЧ» (центрована форма), перше відкриття: 584 → 594 за 170 мс, лише потім угору: висота форми росте покадрово (перехід max-height, KB-9), а низ центрованої форми рухається на половину зміни висоти проти руху підйому.
+// Принцип «легкість»: max-height міняється одним кроком, не покадрово. Тест: форма вища за вільне місце, клавіатура 415 → 388: висота змінюється не більш ніж на одному кадрі (стрибок), без проміжних значень; низ не рухається вниз.
+test('59. KB-18/C: центрована форма — max-height змінюється одним кроком (не покадрово), низ форми не йде вниз під час підйому', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => { const d = document.createElement('div'); d.style.height = '420px'; document.getElementById('app-modal').appendChild(d); });
+    await page.waitForTimeout(100);
+    const bb = await page.locator('#app-modal-amount-input').boundingBox();
+    const sampler = page.evaluate(() => new Promise(resolve => {
+      const m = document.getElementById('app-modal'), s = []; const t0 = performance.now();
+      const tick = () => { s.push([Math.round(performance.now() - t0), m.getBoundingClientRect().bottom, m.getBoundingClientRect().height]); if(performance.now() - t0 < 1400) requestAnimationFrame(tick); else resolve(s); };
+      requestAnimationFrame(tick);
+    }));
+    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); setTimeout(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.434); window.visualViewport.dispatchEvent(new Event('resize')); }, 40); });
+    const s = await sampler;
+    let hSteps = 0, down = 0; for(let i = 1; i < s.length; i++){ if(Math.abs(s[i][2] - s[i - 1][2]) > 0.5) hSteps++; if(s[i][1] - s[i - 1][1] > 2 && s[i][0] > 200) down++; }
+    const info = JSON.stringify({ hSteps, down, h0: Math.round(s[0][2]), hEnd: Math.round(s[s.length - 1][2]) });
+    expect(hSteps, 'висота змінюється одним кроком, не покадрово: ' + info).toBeLessThanOrEqual(2);
+    expect(down, 'низ форми не йде вниз під час підйому: ' + info).toBe(0);
+  } finally { await ctx.close(); }
+});
+
+// KB-18 (Rev 2.32.272), інваріанти контролера руху на справжній розмітці: для кожної форми з клавіатурою кінець руху = ціль ±1; не більше однієї transform-анімації на формі; жодного кроку низу листа назад посеред підйому; швидкі цикли відкриття-закриття-відкриття (5 разів) не міняють ціль.
+test('60. KB-18: інваріанти — 5 швидких циклів «фокус → клавіатура → закриття» не міняють ціль, перекриття анімацій ≤ 150 мс, без руху назад', async ({ browser }) => {
+  const { ctx, page } = await kb12Prepare(browser);
+  try{
+    const res = [];
+    for(let i = 0; i < 5; i++){
+      const r = await page.evaluate(() => new Promise(resolve => {
+        const dr = document.getElementById('card-debt-drawer'), s = []; let maxAnims = 0, dblMs = 0, tPrev = performance.now(); const t0 = tPrev;
+        const f = document.getElementById('cdd-balance');
+        const tick = () => { s.push(dr.getBoundingClientRect().bottom); const nA = dr.getAnimations().filter(a => a.playState === 'running' && a.effect && a.effect.getComputedTiming().activeDuration > 0 && /transform/.test(JSON.stringify(a.effect.getKeyframes().map(k => Object.keys(k))))).length; maxAnims = Math.max(maxAnims, nA); const tn = performance.now(); if(nA > 1) dblMs += tn - tPrev; tPrev = tn; if(performance.now() - t0 < 900) requestAnimationFrame(tick); else { let back = 0; for(let j = 1; j < s.length; j++) if(s[j] - s[j - 1] > 2) back++; resolve({ end: s[s.length - 1], maxAnims, dblMs, back }); } };
+        requestAnimationFrame(tick);
+        window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.434); window.visualViewport.dispatchEvent(new Event('resize'));
+      }));
+      res.push(r);
+      await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+      await page.waitForTimeout(i < 4 ? 80 : 600); // швидко (≤ 80 мс) — наступне відкриття посеред закриття
+      if(i < 4){ const bb = await page.locator('#cdd-balance').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.waitForTimeout(60); }
+    }
+    const ends = res.map(r => Math.round(r.end));
+    const info = JSON.stringify(res.map(r => ({ end: Math.round(r.end), a: r.maxAnims, dbl: Math.round(r.dblMs), back: r.back })));
+    expect(Math.max(...ends) - Math.min(...ends), 'ціль однакова в усіх циклах (±1): ' + info).toBeLessThanOrEqual(1);
+    expect(Math.max(...res.map(r => r.dblMs)), 'дві transform-анімації разом лише на коротке перекриття нової ноги зі старою (≤ 150 мс; виміряно 35–124): ' + info).toBeLessThanOrEqual(150);
+    expect(Math.max(...res.map(r => r.back)), 'жодного кроку назад посеред підйому: ' + info).toBe(0);
   } finally { await ctx.close(); }
 });
