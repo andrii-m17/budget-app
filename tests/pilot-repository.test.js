@@ -5360,7 +5360,7 @@ function kbSheetSandbox(opts){
     }, 'activeElement', { get: function(){ return state.activeElement; } }),
     window: { visualViewport: { height: 894, offsetTop: 0 }, innerWidth: 440, innerHeight: 894, scrollY: 0, scrollTo: function(){} },
     navigator: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', platform: 'iPhone', maxTouchPoints: 5 }, // Rev 2.32.240: стара поведінка iPhone за замовчуванням (старі тести); конвеєр — окремі тести з iPad
-    kbSessionBase: 0, kbHSeen: [], kbHTimer: null, kbOpenVia: 'direct',
+    kbSessionBase: 0, kbHSeen: [], kbHTimer: null, kbOpenVia: 'direct', kbDirectFocusOn: function(){ return false; },
     keyboardHeightCache: { portrait: {}, landscape: {} },
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
     drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
