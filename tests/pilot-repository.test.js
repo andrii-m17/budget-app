@@ -5400,7 +5400,7 @@ function kbSheetSandbox(opts){
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf',
     'focusWithoutScrollIfSupported',
-    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'runProxySwitchTrick',
+    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan',
     'beginSheetMoving', 'planCaretRestore',
     'getOrCreateKbProxyEl', 'configureKbProxy', 'proxyCaretStyle', 'computeProxyOffset', 'computeProxyDist', 'placeKbProxyAtField',
   ]);
@@ -5780,7 +5780,7 @@ test('switchDirection / computeKeyboardTypeOk', () => {
   assert.equal(ctx.computeKeyboardTypeOk(479, 505), false, 'R: текстова лишилась на числовому полі');
   assert.equal(ctx.computeKeyboardTypeOk(null, 505), false);
 });
-test('handleKeyboardFieldFocusIn: нативне перемикання (стрілки) — "P": СИНХРОННО proxy.focus({preventScroll}) → field.focus({preventScroll}); nested focusin нічого не змінює; тап-перехоплення (via=tap) без переходу', () => {
+test('handleKeyboardFieldFocusIn: нативне перемикання (стрілки) при зміні типу клавіатури — пряме (KB-24, A): допоміжне поле не створюється й не отримує фокус; focus() цільового поля не викликається повторно', () => {
   const { ctx, docElClasses, debugEvents } = kbSheetSandbox();
   const drawerEl = makeFakeDrawerEl('card-debt-drawer', 780);
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, drawerEl: drawerEl }));
@@ -5789,27 +5789,20 @@ test('handleKeyboardFieldFocusIn: нативне перемикання (стр�
   field.focus = function(o){ order.push('field:' + (o && o.preventScroll)); ctx.handleKeyboardFieldFocusIn(field); };
   const sheetOpens = debugEvents.filter(function(e){ return e.type === 'sheet-open'; }).length;
   ctx.handleKeyboardFieldFocusIn(field);
-  const proxy = ctx.kbProxyEl;
-  assert.ok(proxy, 'проміжне поле створено');
-  assert.deepEqual(proxy._calls.slice(), ['focus:true']);
-  assert.deepEqual(order, ['field:true'], 'справжнє поле сфокусоване одразу після проксі');
-  assert.equal(proxy.parentNode, drawerEl, 'проксі лежить у контейнері поля (тут — шторка)');
-  assert.equal(proxy.style.left, '30px', 'проксі стоїть НА МІСЦІ справжнього поля');
-  assert.equal(proxy.style.top, '200px');
-  assert.equal(proxy._attrs.inputmode, 'numeric', 'атрибути поля скопійовано на проксі');
+  assert.equal(ctx.kbProxyEl || null, null, 'допоміжне поле не створюється');
+  assert.deepEqual(order, [], 'справжнє поле не перефокусується');
   assert.equal(ctx.kbRefocusing, false);
   assert.equal(docElClasses.has('kb-sheet'), true);
   assert.equal(debugEvents.filter(function(e){ return e.type === 'sheet-open'; }).length, sheetOpens);
-  assert.ok(debugEvents.some(function(e){ return e.type === 'proxy-switch'; }));
-  // наше перехоплення (tap) — без проміжного переходу
+  assert.ok(!debugEvents.some(function(e){ return e.type === 'proxy-switch'; }));
+  // слід перемикання без дотику (D): switch-trace одразу
+  assert.ok(debugEvents.some(function(e){ return e.type === 'switch-trace' && e.ms === 0; }), 'switch-trace записано для focusin без дотику');
+  // наше перехоплення (tap) — без сліду й без проміжного переходу
   const f2 = makeDrawerField({ inDrawer: true, type: 'text', drawerEl: drawerEl });
-  const calls2 = [];
-  f2.focus = function(){ calls2.push('f2'); };
-  const before = proxy._calls.length;
+  const n0 = debugEvents.filter(function(e){ return e.type === 'switch-trace'; }).length;
   ctx.kbSwitchKind = 'tap';
   ctx.handleKeyboardFieldFocusIn(f2);
-  assert.equal(proxy._calls.length, before);
-  assert.equal(calls2.length, 0);
+  assert.equal(debugEvents.filter(function(e){ return e.type === 'switch-trace'; }).length, n0);
 });
 // Rev 2.23.19 (6D.188) — невидимий курсор проксі, тап по обгортці поля, intercept-miss.
 test('proxyCaretStyle: прозорий курсор/текст/фон + збережено font-size:16px, opacity:0, pointer-events:none; user-select свідомо відсутній', () => {

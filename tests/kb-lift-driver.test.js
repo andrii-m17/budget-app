@@ -148,3 +148,16 @@ test('KB-20/A: крива нової ноги без перельоту — ко
   const c = /cubic-bezier\(([^)]+)\)/.exec(st.anims[1].opts.easing)[1].split(',').map(Number);
   assert.ok(c.every(x => x >= 0 && x <= 1), c.join(','));
 });
+
+// KB-24 (Rev 2.32.279), C: компенсація зсуву сторінки — нова нога стартує з положення + зсув (видиме положення не змінюється), стандартна крива 250 мс, без перенесення швидкості.
+test('KB-24/C: kbSetLift(ціль, boost) — старт = поточне положення + boost, 250 мс, крива клавіатури', () => {
+  const { ctx, st } = make(false);
+  st.now = 0; ctx.__a = 200; evalInSandbox(ctx, 'kbSetLift(__a)');
+  st.now = 60; ctx.__b = 200; ctx.__s = 361; evalInSandbox(ctx, 'kbSetLift(__b, __s)');
+  const b = st.anims[1];
+  const posNow = posAt(st.anims[0], 60, ctx);
+  assert.ok(Math.abs(lift(b, 0) - (posNow + 361)) < 0.11, 'старт ' + lift(b, 0) + ' проти ' + (posNow + 361).toFixed(1));
+  assert.equal(lift(b, 1), 200);
+  assert.equal(b.opts.duration, 250);
+  assert.equal(b.opts.easing, evalInSandbox(ctx, 'KB_MOTION_EASING'));
+});

@@ -856,3 +856,74 @@ for(const [name, openFn, fld] of [
     } finally { await ctx.close(); }
   });
 }
+
+// KB-24 (Rev 2.32.279), звіт MT-1110-8421: A — перемикання назва ↔ сума (нативне: стрілки/«Далі») ішло через допоміжне поле (focusin поле → proxy → поле) і курсор був видно до vv-resize; B — закриття під час resize давало дві анімації й стрибок; C — зсув сторінки iOS посеред відкриття давав стрибок 365 пт.
+test('67. KB-24/A: нативне перемикання назва → сума: допоміжне поле не отримує фокус; курсор прихований з focusin і показаний не пізніше 400 мс без зміни висоти', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; window.__pf = 0; window.__fi = []; const orig = HTMLElement.prototype.focus; HTMLElement.prototype.focus = function(){ if(this.id === 'kb-focus-proxy') window.__pf++; return orig.apply(this, arguments); }; document.addEventListener('focusin', e => window.__fi.push(e.target.id), true); switchTab('accounting'); openAddInstallmentModal(); });
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#app-modal-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(700);
+    await page.evaluate(() => { window.__pf = 0; window.__fi = []; });
+    await page.evaluate(() => { document.getElementById('app-modal-amount-input').focus(); }); // нативне перемикання (стрілка/«Далі»): без дотику
+    await page.waitForTimeout(30);
+    const early = await page.evaluate(() => document.documentElement.classList.contains('kb-sheet-moving'));
+    await page.waitForTimeout(500);
+    const r = await page.evaluate(() => ({ pf: window.__pf, fi: window.__fi.slice(), moving: document.documentElement.classList.contains('kb-sheet-moving'), active: document.activeElement.id }));
+    const info = JSON.stringify({ early, ...r });
+    expect(r.pf, 'допоміжне поле не отримує фокус: ' + info).toBe(0);
+    expect(r.fi, 'послідовність focusin без допоміжного: ' + info).toEqual(['app-modal-amount-input']);
+    expect(early, 'курсор прихований з focusin нового поля: ' + info).toBe(true);
+    expect(r.moving, 'без зміни висоти курсор показано до 400 мс (500 мс після focusin): ' + info).toBe(false);
+  } finally { await ctx.close(); }
+});
+test('68. KB-24/B: закриття посеред resize (vvH 479 → 506 → 894, інтервали 60 і 45 мс) — рівно одна анімація, без стрибка', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    const s = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('profile-drawer'), out = []; const t0 = performance.now();
+      const tick = () => { const run = dr.getAnimations().filter(a => a.playState === 'running').length; out.push([Math.round(performance.now() - t0), dr.getBoundingClientRect().bottom, run]); if(performance.now() - t0 < 1100) requestAnimationFrame(tick); else resolve(out); };
+      requestAnimationFrame(tick);
+      const set = k => { window.__vv.h = k === null ? null : window.__H0 - Math.round(window.__H0 * k); window.visualViewport.dispatchEvent(new Event('resize')); };
+      set(0.465);
+      setTimeout(() => set(0.434), 60);
+      setTimeout(() => { document.activeElement && document.activeElement.blur(); }, 105);
+      [[130, 0.34], [160, 0.22], [190, 0.1], [220, null]].forEach(([t, k]) => setTimeout(() => set(k), t)); // клавіатура ховається не миттєво: vv росте за ~100–250 мс після focusout
+    }));
+    const ys = s.map(r => r[1]); const travel = Math.max(...ys) - Math.min(...ys);
+    let maxStep = 0, maxRun = 0; for(let i = 1; i < s.length; i++){ if(s[i][0] > 100){ maxStep = Math.max(maxStep, Math.abs(s[i][1] - s[i - 1][1])); maxRun = Math.max(maxRun, s[i][2]); } }
+    const info = JSON.stringify({ travel: Math.round(travel), maxStep: Math.round(maxStep), maxRun, seq: s.slice(5, 22).map(r => [r[0], Math.round(r[1]), r[2]]) });
+    expect(maxRun, 'рівно одна анімація на формі після закриття: ' + info).toBeLessThanOrEqual(1);
+    expect(maxStep, 'жодного стрибка понад 45 % шляху за кадр: ' + info).toBeLessThanOrEqual(0.45 * travel);
+  } finally { await ctx.close(); }
+});
+test('69. KB-24/C: зсув сторінки iOS (361) посеред відкриття, повернутий correctPanIfNeeded — видиме положення не стрибає (FLIP), швидкість руху не більше 8× середньої', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    const s = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('profile-drawer'), out = [], root = document.documentElement; const t0 = performance.now();
+      let shifted = false;
+      // емуляція iOS: сторінка зсунута (видима область на 361 нижче) до виклику scrollTo(0,0); після нього сторінка й offsetTop повертаються
+      window.scrollTo = function(){ root.style.transform = ''; shifted = false; window.__vv.top = 0; window.visualViewport.dispatchEvent(new Event('scroll')); };
+      const tick = () => { out.push([Math.round(performance.now() - t0), dr.getBoundingClientRect().bottom, shifted]); if(performance.now() - t0 < 1100) requestAnimationFrame(tick); else resolve(out); };
+      requestAnimationFrame(tick);
+      setTimeout(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); }, 40);
+      setTimeout(() => { shifted = true; root.style.transform = 'translateY(-361px)'; window.__vv.top = 361; window.visualViewport.dispatchEvent(new Event('scroll')); }, 110);
+    }));
+    const ys = s.map(r => r[1]); const travel = Math.max(...ys) - Math.min(...ys);
+    let maxSpeed = 0; for(let i = 1; i < s.length; i++){ if(s[i][0] <= 100 || (s[i][2] && !s[i - 1][2])) continue; maxSpeed = Math.max(maxSpeed, Math.abs(s[i][1] - s[i - 1][1]) / Math.max(1, s[i][0] - s[i - 1][0])); } // сам зсув (кадр, де сторінка зсунулась) робить iOS, не ми; швидкість, а не крок: довгий кадр (головний потік зайнятий) не є стрибком
+    const avg = travel / 250;
+    const info = JSON.stringify({ travel: Math.round(travel), maxSpeed: Math.round(maxSpeed * 10) / 10, avg: Math.round(avg * 10) / 10, seq: s.slice(5, 26).map(r => [r[0], Math.round(r[1]), r[2] ? 1 : 0]) });
+    expect(maxSpeed, 'швидкість не більше 8× середньої (шлях/250 мс); до виправлення стрибок 346–359 пт за кадр ≈ 10× середньої: ' + info).toBeLessThanOrEqual(8 * avg);
+  } finally { await ctx.close(); }
+});
