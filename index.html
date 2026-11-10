@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.276</div>
+  <div class="version-footer">Money Tree · Rev 2.32.277</div>
 </div>
   </div>
 </div>
@@ -4137,14 +4137,6 @@
       <button type="button" class="mono-switch" id="push-diag-btn" role="switch" aria-checked="false" aria-labelledby="push-diag-label" onclick="togglePushDiag()"><span></span></button>
     </div>
     <div id="push-diag-box" class="chk-box"></div>
-  </div>
-  <!-- Rev 2.32.276 (KB-22): експериментальний перемикач; вимкнено за замовчуванням, зберігається лише на пристрої -->
-  <div class="chk-label">Перевірка клавіатури</div>
-  <div class="chk-card">
-    <div class="chk-row">
-      <span id="kb-direct-label">Прямий фокус (експеримент)</span>
-      <button type="button" class="mono-switch" id="kb-direct-btn" role="switch" aria-checked="false" aria-labelledby="kb-direct-label" onclick="toggleKbDirectFocus()"><span></span></button>
-    </div>
   </div>
   <div class="chk-label">Дані</div>
   <div class="chk-card">
@@ -9725,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.276';
+const APP_VERSION = '2.32.277';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14082,7 +14074,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   'cards', 'installments', 'reasonCounts',
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
-  'proxyCaretColor', 'proxyDistToField', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'directFocus',
+  'proxyCaretColor', 'proxyDistToField', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount',
   // Rev 2.23.20 (6D.189) — курсор під час руху шторки.
   'sheetBottomAtTransfer', 'sheetFinalBottom',
   // Rev 2.32.129 (BUG-INPUT, лише запис діагностики): suggest-render/suggest-pick (ctx, count, lens, activeIdx, pickIdx, pickLen, pickHash, textLenBefore/After; без тексту назв, лише довжини й 6-символьні хеші),
@@ -14759,7 +14751,7 @@ const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
 const REC_ALLOWED_TYPES = ['kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
-const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'directFocus'];
+const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -23752,7 +23744,7 @@ const IS_IOS_RUNTIME = isIosRuntime(navigator.userAgent, typeof navigator.standa
 // ЄДИНУ поведінку (режим A, перший фокус H2, стрілки P, курсор hide) —
 // застарілі діагностичні ключі localStorage (перемикачі варіантів 6D.178-
 // 6D.189) видаляються при старті (removeItem — НЕ читання; idempotent).
-const LEGACY_KEYBOARD_LS_KEYS = ['budget_kb_mode_v1', 'budget_kb_focus_mode_v1', 'budget_kb_arrows_v1', 'budget_exp_kb_caret_v1'];
+const LEGACY_KEYBOARD_LS_KEYS = ['budget_kb_mode_v1', 'budget_kb_focus_mode_v1', 'budget_kb_arrows_v1', 'budget_exp_kb_caret_v1', 'budget-kb-direct-focus-v1']; // Rev 2.32.277 (KB-23): + ключ перемикача «Прямий фокус», прибраного (фокус прямий завжди)
 function purgeLegacyKeyboardKeys(){
   LEGACY_KEYBOARD_LS_KEYS.forEach(function(k){
     try{ localStorage.removeItem(k); }catch(e){}
@@ -24016,19 +24008,7 @@ function showNetStats(){
   const tail = cycLines.length ? '\n\nЦикли синхронізації за хвилину:\n' + cycLines.join('\n') : '';
   showAlertModal((lines.length ? 'Усього: ' + NET_STATS.total + '\n' + lines.join('\n') : 'Запитів до сервера за цей сеанс ще не було.') + tail);
 }
-// Rev 2.32.276 (KB-22): «Прямий фокус (експеримент)» у «Для розробника»: вимкнено за замовчуванням (поведінка як у 2.32.275: перший дотик у поле йде через допоміжне поле). Увімкнено: видиме поле при спокійному листі фокусується напряму в дотику. Матриця 6D.183 (H3) фіксувала зсув сторінки 192–389 пт без допоміжного поля: тому лише за перемикачем, стан зберігається на пристрої (поза резервною копією) і пишеться в sheet-open (directFocus).
-const KB_DIRECT_FOCUS_KEY = 'budget-kb-direct-focus-v1';
-function kbDirectFocusOn(){ try{ return localStorage.getItem(KB_DIRECT_FOCUS_KEY) === '1'; }catch(e){ return false; } }
-function updateKbDirectFocusUI(){
-  const b = document.getElementById('kb-direct-btn'); if(!b) return;
-  const on = kbDirectFocusOn(); b.setAttribute('aria-checked', on ? 'true' : 'false'); b.classList.toggle('on', on);
-}
-function toggleKbDirectFocus(){
-  try{ if(kbDirectFocusOn()) localStorage.removeItem(KB_DIRECT_FOCUS_KEY); else localStorage.setItem(KB_DIRECT_FOCUS_KEY, '1'); }catch(e){}
-  updateKbDirectFocusUI();
-}
 function openTestingDrawer(){
-  updateKbDirectFocusUI(); // Rev 2.32.276 (KB-22)
   updateNetStatsRow();
   updateRecSentCount(); // Rev 2.32.260 (REC-1)
   renderPushDiag(); // Rev 2.32.103 (NOTIF-3 Rev 2)
@@ -29161,7 +29141,7 @@ function enterKbSheet(drawerEl, fieldEl){
   document.documentElement.classList.add('kb-sheet');
   kbHSeen = []; if(kbHTimer){ clearTimeout(kbHTimer); kbHTimer = null; }
   kbOpenVia = kbProxyActive ? 'proxy' : 'direct'; // Rev 2.32.276 (KB-22)
-  captureDebugGeometry('sheet-open', { drawerId: kbSheetLabel(drawerEl), via: kbOpenVia, directFocus: kbDirectFocusOn() });
+  captureDebugGeometry('sheet-open', { drawerId: kbSheetLabel(drawerEl), via: kbOpenVia });
   // Rev 2.23.19 (6D.188) — підстраховка від нових "дірок": перше відкриття
   // пройшло НАТИВНО (direct) на iOS — фіксуємо, ЯКИЙ саме тап це був (тег/
   // id/класи/координати/мс від touchend). Жодних змін поведінки.
@@ -29897,7 +29877,8 @@ document.addEventListener('touchend', function(e){
   if(viaLabel) captureDebugGeometry('intercept-via-label', { labelFor: target.id || null, drawerId: kbSheetLabel(drawerEl) });
   e.preventDefault();
   // Rev 2.32.276 (KB-22): звіти MT-1110-2783/0936/1962: кожен дотик ішов через допоміжне поле, і на полях суми клавіатура з'являлась двічі (416 → 389). Якщо цільове поле видиме й доступне, а лист у спокої — фокус напряму в цьому ж дотику (preventDefault уже стоїть, focus з preventScroll, без нативної прокрутки). Допоміжне поле лише коли поле не можна сфокусувати (лист ще виїжджає, поле невидиме). УВАГА: матриця 6D.183 (H3, «без проміжного поля») фіксувала зсув сторінки 192–389 пт; тут фокус із preventScroll, і correctPanIfNeeded лишається страховкою (pan-corrected у самописці) — потрібна перевірка на пристрої.
-  if(kbDirectFocusOn() && kbCanFocusDirect(target, drawerEl)){
+  // Rev 2.32.277 (KB-23): прямий фокус — єдиний режим (звіти MT-1110-7986/1935: через допоміжне поле kbHCount 2 і pan-corrected 21; прямий: kbHCount 1, pan-corrected 0, миготіння нема). Допоміжне поле лише коли kbCanFocusDirect = «ні»: лист ще з'являється (активна анімація), лист не відкритий/inert, поле не в DOM, вимкнене, нульового розміру або поза вікном.
+  if(kbCanFocusDirect(target, drawerEl)){
     startKbFramesSampler();
     kbLastInterceptAt = Date.now();
     focusWithoutScrollIfSupported(target, drawerEl.id);

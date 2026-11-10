@@ -782,10 +782,10 @@ for(const [name, openFn, fld, direct] of [
   ['сума в «Додати ОЧ» (форма в спокої)', () => { switchTab('accounting'); openAddInstallmentModal(); }, '#app-modal-amount-input', true],
   ['назва в «Новій категорії» (форма в спокої)', () => { showCategoryModal('Нова категорія', '', null, () => {}, null); }, '#fldstr3', true],
 ]){
-  test('64. KB-22: перемикач увімкнено · ' + name + ' — прямий фокус у дотику без допоміжного поля й без focus-transfer', async ({ browser }) => {
+  test('64. KB-22: ' + name + ' — прямий фокус у дотику без допоміжного поля й без focus-transfer', async ({ browser }) => {
     const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
     try{
-      await page.evaluate(fn => { localStorage.setItem('budget-kb-direct-focus-v1', '1'); window.__vv.h = null; window.__vv.top = 0; (new Function('return ' + fn))()(); window.__pf = 0; const orig = HTMLElement.prototype.focus; HTMLElement.prototype.focus = function(){ if(this.id === 'kb-focus-proxy') window.__pf++; return orig.apply(this, arguments); }; }, openFn.toString());
+      await page.evaluate(fn => { window.__vv.h = null; window.__vv.top = 0; (new Function('return ' + fn))()(); window.__pf = 0; const orig = HTMLElement.prototype.focus; HTMLElement.prototype.focus = function(){ if(this.id === 'kb-focus-proxy') window.__pf++; return orig.apply(this, arguments); }; }, openFn.toString());
       await page.waitForTimeout(900);
       const bb = await page.locator(fld).boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
       await page.waitForTimeout(150);
@@ -803,7 +803,7 @@ for(const [name, openFn, fld, direct] of [
 test('65. KB-22: поле, що ще виїжджає разом із листом, фокусується через допоміжне (via: proxy), як і раніше', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
-    await page.evaluate(() => { localStorage.setItem('budget-kb-direct-focus-v1', '1'); window.__vv.h = null; window.__vv.top = 0; window.__pf = 0; const orig = HTMLElement.prototype.focus; HTMLElement.prototype.focus = function(){ if(this.id === 'kb-focus-proxy') window.__pf++; return orig.apply(this, arguments); }; switchTab('accounting'); openAddInstallmentModal(); });
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; window.__pf = 0; const orig = HTMLElement.prototype.focus; HTMLElement.prototype.focus = function(){ if(this.id === 'kb-focus-proxy') window.__pf++; return orig.apply(this, arguments); }; switchTab('accounting'); openAddInstallmentModal(); });
     await page.waitForTimeout(40); // лист ще з'являється (CSS-анімація)
     const bb = await page.locator('#app-modal-amount-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
     await page.waitForTimeout(300);
@@ -814,17 +814,25 @@ test('65. KB-22: поле, що ще виїжджає разом із листо
   } finally { await ctx.close(); }
 });
 
-test('64b. KB-22: перемикач вимкнено (типово) — як у 2.32.275: дотик іде через допоміжне поле, sheet-open.directFocus = false', async ({ browser }) => {
+// KB-23 (Rev 2.32.277): для видимого поля в спокійному листі допоміжне поле НІКОЛИ не отримує фокус — для сум, назв і полів входу.
+test('64b. KB-23: видиме поле — допоміжне поле ніколи не отримує фокус (сума, назва, вхід)', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; window.__pf = 0; const orig = HTMLElement.prototype.focus; HTMLElement.prototype.focus = function(){ if(this.id === 'kb-focus-proxy') window.__pf++; return orig.apply(this, arguments); }; switchTab('accounting'); openAddInstallmentModal(); });
-    await page.waitForTimeout(900);
-    const bb = await page.locator('#app-modal-amount-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(150);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.4); window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(500);
-    const r = await page.evaluate(() => ({ pf: window.__pf, transfer: recBuf.filter(e => e.type === 'focus-transfer').length, df: (recBuf.filter(e => e.type === 'sheet-open').pop() || {}).directFocus, via: (recBuf.filter(e => e.type === 'sheet-open').pop() || {}).via }));
-    expect(r.pf, JSON.stringify(r)).toBeGreaterThan(0); expect(r.transfer, JSON.stringify(r)).toBeGreaterThan(0); expect(r.df, JSON.stringify(r)).toBe(false); expect(r.via, JSON.stringify(r)).toBe('proxy');
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; window.__pf = 0; const orig = HTMLElement.prototype.focus; HTMLElement.prototype.focus = function(){ if(this.id === 'kb-focus-proxy') window.__pf++; return orig.apply(this, arguments); }; });
+    for(const [fn, fld] of [[() => { switchTab('accounting'); openAddInstallmentModal(); }, '#app-modal-amount-input'], [() => { showProfileLoginForm(); }, '#cldfielda1'], [() => { showCategoryModal('Нова категорія', '', null, () => {}, null); }, '#fldstr3']]){
+      await page.evaluate(f => (new Function('return ' + f))()(), fn.toString());
+      await page.waitForTimeout(900);
+      const bb = await page.locator(fld).boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+      await page.waitForTimeout(150);
+      await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.4); window.visualViewport.dispatchEvent(new Event('resize')); });
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(f => ({ pf: window.__pf, active: document.activeElement && document.activeElement.id, want: document.querySelector(f).id, via: (recBuf.filter(e => e.type === 'sheet-open').pop() || {}).via }), fld);
+      expect(r.pf, fld + ': ' + JSON.stringify(r)).toBe(0);
+      expect(r.active, fld + ': ' + JSON.stringify(r)).toBe(r.want);
+      expect(r.via, fld + ': ' + JSON.stringify(r)).toBe('direct');
+      await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); document.querySelectorAll('.drawer.open, .drawer-backdrop.open, .app-modal.open').forEach(d => d.classList.remove('open')); document.body.classList.remove('kb-open'); document.documentElement.classList.remove('kb-sheet'); });
+      await page.waitForTimeout(500);
+    }
   } finally { await ctx.close(); }
 });
 

@@ -37,7 +37,7 @@ test('CSS: підйом #app-modal — transform центрування міну
 });
 test('поля карток: чисті id (правило проєкту), нових полів немає; рекордер ті самі події (sheet-open/focus-proxy/…), id картки через data-sheet-id', () => {
   ['app-modal-input', 'app-modal-amount-input'].forEach(id => assert.ok(!/name|phone|tel|mail|addr|user|login|first|last|fio|contact/i.test(id.replace('app-modal-', 'fld-')), id));
-  assert.match(SRC, /captureDebugGeometry\('sheet-open', \{ drawerId: kbSheetLabel\(drawerEl\), via: kbOpenVia, directFocus: kbDirectFocusOn\(\) \}\)/);
+  assert.match(SRC, /captureDebugGeometry\('sheet-open', \{ drawerId: kbSheetLabel\(drawerEl\), via: kbOpenVia \}\)/);
   assert.match(SRC, /captureDebugGeometry\('focus-proxy', \{ drawerId: kbSheetLabel\(drawerEl\)/);
 });
 test('десктоп: логіка не застосовується (режим never із B) і мобільний enterKbSheet без гілок за kbMode', () => {
