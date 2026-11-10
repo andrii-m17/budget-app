@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.280</div>
+  <div class="version-footer">Money Tree · Rev 2.32.281</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.280';
+const APP_VERSION = '2.32.281';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14844,7 +14844,7 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
+const REC_ALLOWED_TYPES = ['pan-track', 'pan-settle', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
 const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
@@ -29401,10 +29401,14 @@ function kbCloseScroll(drawerEl, field){
     kbFlipScroll(sc, function(){ sc.scrollTop = 0; }, KB_MOTION_DUR, KB_MOTION_EASING);
   }catch(e){ kbScrollDone(); }
 }
+// Rev 2.32.281 (KB-25, B): одна прокрутка до поля на одне перемикання: повторний виклик для того самого поля в межах 60 мс (kbSetLift + конвеєр + перемикання викликали її по два рази: дві field-scroll у звіті MT-1111-6091) нічого не робить. Повертає true, коли прокрутка справді відбулась (|ціль − поточне| ≥ 1): за цим вирішується, чи ховати курсор.
+let kbLastFieldScroll = { field: null, at: 0 };
 function kbStartFieldScroll(drawerEl, field){
   try{
-    if(!drawerEl || !field || document.activeElement !== field) return;
-    const sc = kbScrollParentOf(field, drawerEl); if(!sc) return;
+    if(!drawerEl || !field || document.activeElement !== field) return false;
+    const nowT = performance.now();
+    if(kbLastFieldScroll.field === field && nowT - kbLastFieldScroll.at < 60) return false;
+    const sc = kbScrollParentOf(field, drawerEl); if(!sc) return false;
     const root = document.documentElement;
     let finalH = sc.clientHeight;
     if(sc === drawerEl){
@@ -29412,16 +29416,40 @@ function kbStartFieldScroll(drawerEl, field){
       if(isFinite(maxH) && maxH > 0) finalH = Math.min(sc.scrollHeight, maxH);
     }
     const bar = kbStickyBarOf(sc), barH = bar ? bar.getBoundingClientRect().height : 0;
-    let from = 0, to = 0;
+    let from = 0, to = 0, moved = false;
     kbFlipScroll(sc, function(){
       // стара FLIP-анімація вже скасована: міряємо природне положення
       const fr = field.getBoundingClientRect(), sr = sc.getBoundingClientRect(); from = sc.scrollTop;
       to = computeFieldScrollTarget({ fieldTop: fr.top - sr.top + from, fieldBottom: fr.bottom - sr.top + from, scrollTop: from, scrollH: sc.scrollHeight, finalClientH: finalH, barH: barH });
       if(bar) sc.style.scrollPaddingBottom = Math.round(barH) + 'px';
-      if(Math.abs(to - from) >= 1) sc.scrollTop = to;
-      captureDebugGeometry('field-scroll', { drawerId: kbSheetLabel(drawerEl), field: field.id || null, delta: Math.round(to - from), scrollFrom: Math.round(from), scrollTo: Math.round(to), ms: KB_MOTION_DUR });
+      moved = Math.abs(to - from) >= 1;
+      if(moved){ sc.scrollTop = to; kbLastFieldScroll = { field: field, at: nowT }; captureDebugGeometry('field-scroll', { drawerId: kbSheetLabel(drawerEl), field: field.id || null, delta: Math.round(to - from), scrollFrom: Math.round(from), scrollTo: Math.round(to), ms: KB_MOTION_DUR }); }
     }, KB_MOTION_DUR, KB_MOTION_EASING);
-  }catch(e){ kbScrollDone(); }
+    return moved;
+  }catch(e){ kbScrollDone(); return false; }
+}
+// Rev 2.32.281 (KB-25, A): прокрутка сторінки iOS під час перемикання без дотику (стрілки): раніше кожну подію scroll гасив scrollTo(0,0) («гойдалка»: 0 → 6 → 12 → скид → …). Тепер, поки триває вікно перемикання (700 мс від focusin без дотику), зсув компенсується лише властивістю translate (разом із transform підйому; без анімації), тож видиме положення листа не змінюється; коли подій немає ≥ 50 мс (прокрутка вщухла), В ОДНОМУ кадрі: scrollTo(0,0) і зняття компенсації. Покадровий код (rAF) живе лише на час прокрутки iOS. Ризик: якщо iOS не повертає сторінку сама, повертає застосунок (scrollTo) — так і було раніше.
+let kbSwitchUntil = 0, kbPan = null;
+function kbMotionSwitchWindow(){ kbSwitchUntil = performance.now() + 700; }
+function kbMotionPanTrack(){
+  if(!kbSheetActive || !kbSheetDrawerEl || performance.now() > kbSwitchUntil) return false;
+  const vv = window.visualViewport;
+  const shift = Math.max(window.scrollY || 0, vv ? vv.offsetTop : 0);
+  if(!(shift > 0.5)) return !!kbPan;
+  if(!kbPan){ kbPan = { el: kbSheetDrawerEl, last: 0, raf: 0, max: 0 }; captureDebugGeometry('pan-track', { drawerId: kbSheetLabel(kbPan.el), panShift: Math.round(shift) }); }
+  kbPan.el.style.translate = '0 ' + shift + 'px';
+  kbPan.max = Math.max(kbPan.max, shift); kbPan.last = performance.now();
+  if(!kbPan.raf) kbPan.raf = requestAnimationFrame(kbPanSettle);
+  return true;
+}
+function kbPanSettle(){
+  const p = kbPan; if(!p) return;
+  p.raf = 0;
+  if(performance.now() - p.last < 50){ p.raf = requestAnimationFrame(kbPanSettle); return; }
+  window.scrollTo(0, 0); // один крок: сторінка повертається й компенсація знімається в тому самому кадрі
+  p.el.style.translate = '';
+  kbPan = null;
+  captureDebugGeometry('pan-settle', { drawerId: kbSheetLabel(p.el), panShift: Math.round(p.max) });
 }
 // Rev 2.32.279 (KB-24, C): FLIP-компенсація зсуву сторінки: нова нога стартує з поточного положення + зсув (видиме положення не змінюється), далі до цілі.
 function kbMotionPan(shift){
@@ -29629,6 +29657,7 @@ function scheduleLiveSheetLift(){
 function correctPanIfNeeded(){
   if(!window.visualViewport) return;
   if(window.scrollY !== 0 || window.visualViewport.offsetTop !== 0){
+    if(kbMotionPanTrack()) return; // Rev 2.32.281 (KB-25, A): перемикання без дотику — компенсація (translate), скид сторінки один раз після вщухання
     // Rev 2.32.279 (KB-24, C): звіт MT-1110-8421: зсув сторінки iOS (offsetTop 361) посеред відкриття; після scrollTo(0,0) лист видимо стрибав на 365 пт. FLIP: у тому ж кадрі, де сторінка повертається, до положення листа додається компенсація на величину зсуву (kbMotionPan), і рух продовжується до цілі з колишнього видимого положення. Лише iOS (на Android зсув видимої області йде окремою складовою --sheet-vvtop).
     const panShift = Math.max(window.scrollY || 0, window.visualViewport.offsetTop || 0);
     requestAnimationFrame(function(){ window.scrollTo(0, 0); if(IS_IOS_RUNTIME && panShift > 1) kbMotionPan(panShift); });
@@ -29766,6 +29795,7 @@ function kbTraceSwitchIfNoTouch(drawerEl, target, via){
       const vv = window.visualViewport;
       captureDebugGeometry('switch-trace', { to: toId, ms: ms, vvOffsetTop: vv ? Math.round(vv.offsetTop) : null, scrollY: Math.round(window.scrollY || 0), scrollTop: Math.round(drawerEl.scrollTop || 0), sheetBottom: Math.round(drawerEl.getBoundingClientRect().bottom), drawerId: kbSheetLabel(drawerEl) });
     };
+    kbMotionSwitchWindow(); // Rev 2.32.281 (KB-25, A)
     snap(0); [100, 250, 400].forEach(function(ms){ setTimeout(function(){ snap(ms); }, ms); });
   }catch(e){}
 }
@@ -29830,6 +29860,9 @@ function handleKeyboardFieldFocusIn(target){
         kbSheetCacheKind = kbCacheKindForField(target); // Rev 2.32.240: підйом доведе живий visualViewport
         kbSheetLiftDirty = true;
         beginSheetMoving(drawerEl, 'switch', fromField, target);
+      }else if(via !== 'tap' && via !== 'flow'){
+        // Rev 2.32.281 (KB-25, C): звіт MT-1111-6091: курсор мав ховатись лише коли очікується рух. Тип клавіатури не змінився: рух є лише якщо поле не повністю видиме (одна прокрутка до нього); тоді курсор ховається на час прокрутки, інакше курсор не чіпаємо.
+        if(kbStartFieldScroll(drawerEl, target)) beginSheetMoving(drawerEl, 'switch', fromField, target);
       }
       if(target.id !== 'kb-focus-proxy') kbLastFocusedField = target;
       if(target.id !== 'kb-focus-proxy') setTimeout(function(){ kbEnsureFieldVisible(drawerEl, target); }, 340); // Rev 2.32.248 (KB-2): після можливої анімації зміни типу клавіатури
@@ -30034,6 +30067,7 @@ document.addEventListener('touchcancel', function(){ kbTouchStartY = null; }, { 
 // вище встиг би його зупинити).
 window.addEventListener('scroll', function(){
   if(openOverlayCount > 0 && window.scrollY !== 0){
+    if(kbMotionPanTrack()) return; // Rev 2.32.281 (KB-25, A): під час перемикання без дотику — компенсація й один скид після вщухання
     window.scrollTo(0, 0);
   }
 });

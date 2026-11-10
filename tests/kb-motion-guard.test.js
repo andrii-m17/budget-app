@@ -26,3 +26,8 @@ test('KB-19: крива й тривалість в JS збігаються з CS
 test('KB-19: без LEAD-таймера й перекриття ніг: стара нога скасовується в тому ж завданні', () => {
   assert.doesNotMatch(HTML, /KB_LIFT_LEAD_MS|startTime = tl\.currentTime \+/);
 });
+test('KB-25: компенсація зсуву сторінки (style.translate) пишеться лише в модулі; window scroll і correctPanIfNeeded делегують kbMotionPanTrack', () => {
+  assert.doesNotMatch(OUT, /\.style\.translate\s*=/);
+  assert.match(HTML, /if\(kbMotionPanTrack\(\)\) return; \/\/ Rev 2\.32\.281 \(KB-25, A\): під час перемикання/);
+  assert.match(HTML, /if\(kbMotionPanTrack\(\)\) return; \/\/ Rev 2\.32\.281 \(KB-25, A\): перемикання без дотику/);
+});

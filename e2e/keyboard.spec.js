@@ -927,3 +927,80 @@ test('69. KB-24/C: зсув сторінки iOS (361) посеред відкр
     expect(maxSpeed, 'швидкість не більше 8× середньої (шлях/250 мс); до виправлення стрибок 346–359 пт за кадр ≈ 10× середньої: ' + info).toBeLessThanOrEqual(8 * avg);
   } finally { await ctx.close(); }
 });
+
+// KB-25 (Rev 2.32.281), звіт MT-1111-6091 (2.32.279): перемикання стрілками (без дотику): A — власна прокрутка iOS (scrollY/offsetTop 0 → 6 → 12, один раз 112) зсувала лист, а наші обробники скидали її на кожну подію («гойдалка»); B — подвійна field-scroll при зміні типу клавіатури; C — курсор ховався без руху.
+async function kb25Open(browser, withSpacer){
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+  await page.waitForTimeout(900);
+  if(withSpacer) await page.evaluate(() => { const pw = document.getElementById('cloud-password'); const sp = document.createElement('div'); sp.id = 'kb25-spacer'; sp.style.height = '0px'; pw.parentNode.insertBefore(sp, pw); });
+  const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+  await page.waitForTimeout(150);
+  await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
+  await page.waitForTimeout(700);
+  return { ctx, page };
+}
+for(const seq of [[6, 12], [112]]){
+  test('70. KB-25/A: стрілки, iOS прокручує сторінку (' + seq.join(' → ') + ') — видиме положення листа не змінюється більше ніж на 2 пт', async ({ browser }) => {
+    const { ctx, page } = await kb25Open(browser, false);
+    try{
+      const r = await page.evaluate(seq => new Promise(resolve => {
+        const dr = document.getElementById('profile-drawer'), root = document.documentElement, out = []; const t0 = performance.now();
+        window.scrollTo = function(){ root.style.transform = ''; window.__vv.top = 0; window.visualViewport.dispatchEvent(new Event('scroll')); }; // емуляція: iOS повертає сторінку після scrollTo(0,0)
+        const base = dr.getBoundingClientRect().bottom;
+        document.getElementById('cloud-password').focus(); // нативне перемикання: без дотику
+        const tick = () => { out.push([Math.round(performance.now() - t0), dr.getBoundingClientRect().bottom - base]); if(performance.now() - t0 < 900) requestAnimationFrame(tick); else resolve(out); };
+        requestAnimationFrame(tick);
+        seq.forEach((s, i) => setTimeout(() => { root.style.transform = 'translateY(' + (-s) + 'px)'; window.__vv.top = s; window.visualViewport.dispatchEvent(new Event('scroll')); }, 60 + i * 32));
+        // iOS сама не повертає сторінку (повертає застосунок); страховка емуляції після 500 мс
+        setTimeout(() => { if(window.__vv.top) window.scrollTo(); }, 500);
+      }), seq);
+      const maxDev = Math.max(...r.map(x => Math.abs(x[1])));
+      const info = JSON.stringify({ maxDev: Math.round(maxDev * 10) / 10, seq: r.filter(x => x[0] > 40).slice(0, 40).map(x => [x[0], Math.round(x[1])]) });
+      expect(maxDev, 'видиме положення листа не змінюється > 2 пт: ' + info).toBeLessThanOrEqual(2);
+    } finally { await ctx.close(); }
+  });
+}
+test('71. KB-25/B: стрілки зі зміною типу клавіатури (назва → сума) — одна прокрутка до поля й один монотонний рух без перельоту', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => { const d = document.createElement('div'); d.style.height = '420px'; document.getElementById('app-modal').appendChild(d); });
+    await page.waitForTimeout(200);
+    const bb = await page.locator('#app-modal-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(800);
+    const s = await page.evaluate(() => new Promise(resolve => {
+      const m = document.getElementById('app-modal'), out = []; const t0 = performance.now(); const n0 = recBuf.filter(e => e.type === 'field-scroll').length;
+      const tick = () => { out.push([Math.round(performance.now() - t0), -(new DOMMatrix(getComputedStyle(m).transform).m42 + m.offsetHeight / 2)]); if(performance.now() - t0 < 1100) requestAnimationFrame(tick); else resolve({ out, scrolls: recBuf.filter(e => e.type === 'field-scroll').length - n0 }); };
+      requestAnimationFrame(tick);
+      document.getElementById('app-modal-amount-input').focus();
+      setTimeout(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.434); window.visualViewport.dispatchEvent(new Event('resize')); }, 90);
+    }));
+    const ys = s.out.map(r => r[1]); const fin = ys[ys.length - 1];
+    let over = 0, back = 0; for(let i = 0; i < ys.length; i++){ if(fin >= ys[0]) over = Math.max(over, ys[i] - fin); else over = Math.max(over, fin - ys[i]); }
+    for(let i = 1; i < ys.length; i++){ const d = ys[i] - ys[i - 1]; if((fin >= ys[0] && d < -0.5) || (fin < ys[0] && d > 0.5)) back += Math.abs(d); }
+    const info = JSON.stringify({ scrolls: s.scrolls, over: Math.round(over * 10) / 10, back: Math.round(back * 10) / 10, from: Math.round(ys[0]), to: Math.round(fin) });
+    expect(s.scrolls, 'одна field-scroll на перемикання: ' + info).toBeLessThanOrEqual(1);
+    expect(over, 'без перельоту (≤ 1 пт): ' + info).toBeLessThanOrEqual(1);
+    expect(back, 'без руху назад (≤ 0,5 пт): ' + info).toBeLessThanOrEqual(0.5);
+  } finally { await ctx.close(); }
+});
+for(const [name, spacer, expectHide] of [['поле видиме, той самий тип — курсор не чіпаємо', 0, false], ['поле не повністю видиме — курсор ховається на час прокрутки', 600, true]]){
+  test('72. KB-25/C: стрілки, ' + name, async ({ browser }) => {
+    const { ctx, page } = await kb25Open(browser, true);
+    try{
+      await page.evaluate(h => { document.getElementById('kb25-spacer').style.height = h + 'px'; }, spacer);
+      await page.waitForTimeout(100);
+      const seen = await page.evaluate(() => new Promise(resolve => {
+        let hid = false; const root = document.documentElement;
+        const mo = new MutationObserver(() => { if(root.classList.contains('kb-sheet-moving')) hid = true; }); mo.observe(root, { attributes: true, attributeFilter: ['class'] });
+        document.getElementById('cloud-password').focus();
+        setTimeout(() => { mo.disconnect(); resolve(hid); }, 700);
+      }));
+      expect(seen, 'курсор ' + (expectHide ? 'ховається' : 'не ховається') + ' (kb-sheet-moving)').toBe(expectHide);
+    } finally { await ctx.close(); }
+  });
+}
