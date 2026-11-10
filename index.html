@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.277</div>
+  <div class="version-footer">Money Tree · Rev 2.32.278</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.277';
+const APP_VERSION = '2.32.278';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11974,8 +11974,8 @@ function closeOpenSheetsForPush(){
   // Rev 2.32.41 (F): відкритий екран архіву дзвіночка (повноекранний, не шторка) лишався зверху й перекривав ціль переходу (відтворено в preview для backup-reminder/daily-expense-reminder; для mono-inbox лишався відкритим під «Вхідними»)
   try{ if(typeof closeNotifArchive === 'function') closeNotifArchive(); }catch(e){}
 }
-document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible'){ runPendingPushAction('visible'); checkPendingPushFromIdb('visible'); } });
-window.addEventListener('pageshow', function(){ runPendingPushAction('pageshow'); checkPendingPushFromIdb('pageshow'); });
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible'){ runPendingPushAction('visible'); checkPendingPushFromIdb('visible'); } if(typeof monoActiveSync === 'function') monoActiveSync(); }); // Rev 2.32.278 (PUSH-2): стан для сервера + запасне повідомлення
+window.addEventListener('pageshow', function(){ runPendingPushAction('pageshow'); checkPendingPushFromIdb('pageshow'); if(typeof monoActiveSync === 'function') monoActiveSync(); });
 window.addEventListener('focus', function(){ runPendingPushAction('focus'); });
 // Rev 2.32.95 (NOTIF-1 Rev 2): підсвітка рядків пачки Monobank у «Вхідних». Пачка = рядки mono_inbox з однаковим notified_at; сповіщення знає її за data.batch_ts (пуш; формат YYYY-MM-DDTHH24:MI:SS.US+00:00, чат додав 16.10) або за created_at (рядок архіву: збігається з notified_at). Мітки порівнюються за моментом часу (мс), а не рядком (мікросекунди/формат). Без мітки (старе сповіщення) підсвічуються всі нові. Пачка вже оброблена — нічого. Ризик: рядки одного мс не розрізняються (на практиці одна пачка = одна транзакція).
 function monoSameBatch(notifiedAt, batchTs){
@@ -12063,6 +12063,95 @@ async function routeMonoNotification(o){
   highlightMonoRows(t.ids);
   return t;
 }
+// ===== Rev 2.32.278 (PUSH-2): перехід до витрати з центру сповіщень при відкритому застосунку =====
+// WebKit 268797: при відкритому застосунку notificationclick не викликається; Declarative Web Push (iOS 18.4+) відкриває notification.navigate сама. Сервер шле новий формат лише на пристрої, де застосунок на екрані (поле push_subscriptions.app_visible), інакше старий. Адреса переходу: <origin>/budget-app/index.html#mono/<id> (той самий документ → hashchange без перезавантаження; start_url = ./index.html).
+// parseMonoDeepLink: id із хеша `#mono/<id>` (літери, цифри, - і _, до 64 символів) або null.
+function parseMonoDeepLink(hash){
+  const m = /^#mono\/([A-Za-z0-9_-]{1,64})$/.exec(String(hash || ''));
+  return m ? m[1] : null;
+}
+// Стан для сервера пишемо лише при зміні (без таймерів): last — останнє записане значення (null — ще не писали).
+function shouldSyncAppVisible(last, next){ return typeof next === 'boolean' && last !== next; }
+// Запасний шар: нові витрати Monobank (status new), що прийшли після останнього відкриття «Вхідних» (seenAt) і ще не показані (shownUpTo). Повертає null або { count, id (коли одна), upTo, title }.
+function monoNewToastPlan(o){
+  const rows = (o && o.rows) || [];
+  const from = Math.max(Date.parse((o && o.seenAt) || '') || 0, Date.parse((o && o.shownUpTo) || '') || 0);
+  const fresh = rows.filter(function(r){ return r && r.status === 'new' && r.notified_at && Date.parse(r.notified_at) > from; });
+  if(!fresh.length) return null;
+  const upTo = fresh.map(function(r){ return r.notified_at; }).sort().pop();
+  return fresh.length === 1 ? { count: 1, id: fresh[0].id, upTo: upTo, title: 'Нова витрата Monobank' } : { count: fresh.length, id: null, upTo: upTo, title: 'Нових витрат: ' + fresh.length };
+}
+let monoDeepLinkAt = 0;
+function monoTabForStatus(st){ return st === 'new' ? 'new' : (st === 'added' ? 'added' : 'skipped'); }
+// Відкрити «Вхідні» на потрібній вкладці, прокрутити до рядка й підсвітити (існуючі openMonoInbox і highlightMonoRows); нема витрати — просто «Вхідні».
+async function routeMonoDeepLink(id){
+  monoDeepLinkAt = Date.now();
+  let row = null;
+  try{
+    if(await awaitCloudGate() === 'ready'){
+      const r = await getSupabaseClient().from('mono_inbox').select('id,status').eq('id', id).limit(1);
+      if(!r.error && r.data && r.data[0]) row = r.data[0];
+    }
+  }catch(e){ row = null; }
+  closeOpenSheetsForPush();
+  document.body.classList.remove('kb-open');
+  performSwitchTab('service');
+  await openMonoInbox({ tab: row ? monoTabForStatus(row.status) : 'new', fromPush: true });
+  if(row) highlightMonoRows([safeId(row.id)]);
+  captureDebugGeometry('deeplink', { found: !!row, source: 'hash' });
+  return { kind: 'inbox', found: !!row };
+}
+// Хеш: старт і hashchange; адреса одразу прибирається (replaceState не викликає hashchange); дія йде через ту саму чергу, що й сповіщення (холодний старт чекає готовності).
+function handleMonoHash(){
+  const id = parseMonoDeepLink(location.hash);
+  if(!id) return false;
+  try{ history.replaceState(history.state, '', location.pathname + location.search); }catch(e){}
+  queuePushAction({ type: 'mono-deeplink', monoId: id, _at: String(Date.now()) }, 'hash');
+  return true;
+}
+// Стан «застосунок на екрані» для поточної підписки (поле app_visible, час app_visible_at; схему додає сервер). Помилка запису — тихо в самописець.
+let appVisibleLast = null;
+async function syncAppVisible(next){
+  if(!shouldSyncAppVisible(appVisibleLast, next)) return;
+  if(isWriteBlocked() || !cloudSession || !cloudSession.user || !navigator.serviceWorker || !('PushManager' in window)) return;
+  appVisibleLast = next;
+  try{
+    const reg = await Promise.race([navigator.serviceWorker.ready, new Promise(function(r){ setTimeout(function(){ r(null); }, 3000); })]);
+    const sub = reg && await reg.pushManager.getSubscription();
+    if(!sub) return;
+    const r = await getSupabaseClient().from('push_subscriptions').update({ app_visible: next, app_visible_at: new Date().toISOString() }).eq('endpoint', sub.endpoint);
+    if(r.error){ captureDebugGeometry('app-visible-sync', { ok: false, visible: next, errorCode: String(r.error.code || r.error.message || 'err').slice(0, 40) }); return; }
+    captureDebugGeometry('app-visible-sync', { ok: true, visible: next });
+  }catch(e){ captureDebugGeometry('app-visible-sync', { ok: false, visible: next, errorCode: 'exception' }); }
+}
+const MONO_SEEN_KEY = 'budget-mono-inbox-seen-v1', MONO_TOAST_KEY = 'budget-mono-toast-upto-v1';
+function monoLsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } }
+function monoLsSet(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+let monoToastBusy = false, monoToastLastAt = 0;
+async function monoNewToastCheck(){
+  if(monoToastBusy || document.visibilityState !== 'visible' || isMonoInboxOpen) return;
+  if(Date.now() - monoDeepLinkAt < 5000 || Date.now() - monoToastLastAt < 3000) return; // щойно відкрито за адресою — повідомлення не потрібне
+  monoToastLastAt = Date.now();
+  const seen = monoLsGet(MONO_SEEN_KEY);
+  if(!seen){ monoLsSet(MONO_SEEN_KEY, new Date().toISOString()); return; } // перший запуск: точка відліку без повідомлення
+  monoToastBusy = true;
+  try{
+    if(await awaitCloudGate() !== 'ready') return;
+    const r = await getSupabaseClient().from('mono_inbox').select('id,status,notified_at').eq('status', 'new').gt('notified_at', seen).order('notified_at', { ascending: false }).limit(50);
+    if(r.error) return;
+    const plan = monoNewToastPlan({ rows: r.data, seenAt: seen, shownUpTo: monoLsGet(MONO_TOAST_KEY) });
+    if(!plan || document.visibilityState !== 'visible' || isMonoInboxOpen) return;
+    monoLsSet(MONO_TOAST_KEY, plan.upTo);
+    captureDebugGeometry('inbox-new-toast', { shown: true, count: plan.count });
+    showToast({ kind: 'info', icon: 'info', title: plan.title, actionLabel: 'Переглянути', durationMs: 6000, onAction: function(){
+      captureDebugGeometry('inbox-new-toast', { tapped: true, count: plan.count });
+      if(plan.id) routeMonoDeepLink(plan.id); else routeMonoNotification({});
+    } });
+  }catch(e){}finally{ monoToastBusy = false; }
+}
+function monoActiveSync(){ syncAppVisible(document.visibilityState === 'visible'); monoNewToastCheck(); }
+window.addEventListener('hashchange', handleMonoHash);
+window.addEventListener('pagehide', function(){ syncAppVisible(false); });
 // Rev 2.32.163 (ACTOR-HL): підсвітка записів зі сповіщень про дії іншого учасника. Сервер (міграція other_actor_summary_ids_20261023) кладе в data.ids = { expenses:[…], incomes:[…], debts:[…] } (до 10 на вид) і data.target (journal/accounting/debts). Один шлях для системного push (закритий/згорнутий/відкритий застосунок) і рядка журналу сповіщень: handlePushAction → routeOtherActorNotification. Мітки підсвітки — той самий клас just-notified, що для Monobank і ОЧ (вигляд не змінюється).
 const ACTOR_IDS_CAP = 200;
 function actorIdsNormalize(raw){
@@ -12226,6 +12315,7 @@ async function routeOtherActorNotification(action, screen){
 }
 async function handlePushAction(action){
   if(!action || !action.type) return false; // Rev 2.32.223 (PUSH-READ): true лише коли перехід виконано
+  if(action.type === 'mono-deeplink'){ await routeMonoDeepLink(action.monoId); return true; } // Rev 2.32.278 (PUSH-2): #mono/<id>
   if(action.type === 'mono-inbox'){
     // Rev 2.32.30 (P): НЕ чекаємо вхід і мережу — «Вхідні» відкриваються одразу й дозавантажуються; відомий стан «не підключено» -> екран «Monobank»
     action = Object.assign({}, action, { connected: (monoState.loaded && !monoState.offline) ? monoNotifGroupVisible(monoState.connection) : undefined });
@@ -13966,6 +14056,7 @@ const DEBUG_LOG_MAX_BYTES_FOR_SEND = 600000; // той самий ліміт, щ
 // жорстка вимога приватності ТЗ ("value"/"text" з полів форми сюди
 // принципово не можуть пройти, навіть якщо якийсь слухач їх передасть).
 const DEBUG_EVENT_ALLOWLIST = [
+  'visible', 'shown', 'tapped', 'found', 'errorCode', // Rev 2.32.278 (PUSH-2): deeplink, app-visible-sync, inbox-new-toast
   'diffTable', 'diffCount', 'diffReason', // Rev 2.32.192 (SHADOW-REV): rev-diff
   'ev', 'ts', 'now', 'cancelable', // Rev 2.32.212: події по рядках підказок (час створення події проти часу обробки)
   'lag', 'dur', // Rev 2.32.211 (SUGGEST-LAG): затримка «дотик → вставка» і тривалість довгої задачі (longtask), лише мс
@@ -14750,8 +14841,8 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
-const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount'];
+const REC_ALLOWED_TYPES = ['deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
+const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -24760,6 +24851,7 @@ async function openMonoInbox(opts){
   if(!screen) return;
   if(!isMonoInboxOpen){ lastFocusedBeforeDialog = document.activeElement; lockBackgroundScroll(); }
   isMonoInboxOpen = true;
+  monoLsSet(MONO_SEEN_KEY, new Date().toISOString()); // Rev 2.32.278 (PUSH-2): точка відліку для запасного повідомлення
   monoInbox.tab = (opts && opts.tab) || 'new'; monoInbox.loaded = false; // Rev 2.32.96 (NOTIF-1 Rev 3): вкладка за вибором (з обробленого сповіщення)
   renderMonoInbox();
   screen.classList.remove('hidden'); screen.removeAttribute('inert'); screen.scrollTop = 0;
@@ -25578,7 +25670,7 @@ function pumpSuccessToast(){
   if(successToastActive || !successToastQueue.length) return;
   const o = successToastQueue.shift();
   const kind = (o.kind === 'info' || o.kind === 'warning' || o.kind === 'error') ? o.kind : 'success';
-  const ms = toastDuration(kind);
+  const ms = o.durationMs || toastDuration(kind); // Rev 2.32.278 (PUSH-2): durationMs — для тоста «нова витрата Monobank» (~6 с)
   let host = document.getElementById('success-toast-host');
   if(!host){ host = document.createElement('div'); host.id = 'success-toast-host'; host.className = 'success-toast-host'; document.body.appendChild(host); }
   const hdrEl = document.querySelector('.page-header-text'); const topPx = hdrEl ? toastTopBelowHeader(hdrEl.getBoundingClientRect()) : null; // Rev 2.32.166: не накриває заголовок сторінки
@@ -30246,6 +30338,7 @@ restoreExpenseDraft();
 // навігації, вона вже завантажена). Обидва шляхи ведуть у ЄДИНУ
 // handlePushAction() (нижче) — один список дій, не дві копії логіки.
 // Query-параметри читаються РІВНО ОДИН РАЗ і одразу прибираються з URL.
+handleMonoHash(); // Rev 2.32.278 (PUSH-2): холодний старт за адресою #mono/<id>
 const pushActionParams = new URLSearchParams(location.search);
 const pushActionType = pushActionParams.get('pushAction');
 if(pushActionType){

@@ -64,3 +64,44 @@ test('16. push Monobank, теплий старт: «Вхідні» відкри�
   await expect(page.locator('#mono-inbox-screen')).not.toHaveClass(/hidden/, { timeout: 8000 });
   await expect.poll(() => page.evaluate(() => document.querySelectorAll('#mono-inbox-body .just-notified').length), { timeout: 8000 }).toBeGreaterThan(0);
 });
+
+// PUSH-2 (Rev 2.32.278): перехід за адресою #mono/<id> при відкритому застосунку (notificationclick тоді не викликається; iOS сама відкриває notification.navigate) і запасне повідомлення про нові витрати Monobank.
+const rowHl = (page, id) => page.evaluate(i => !!document.querySelector('#mono-inbox-body [data-mono-row="' + i + '"] .just-notified'), id);
+
+test('17. PUSH-2: #mono/<id> у відкритому застосунку — «Вхідні», підсвічений рядок, адреса прибрана, без перезавантаження', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('__mono', '1'));
+  await prime(page);
+  await page.evaluate(() => { window.__same = 'doc'; location.hash = '#mono/m1'; });
+  await expect(page.locator('#mono-inbox-screen')).not.toHaveClass(/hidden/, { timeout: 8000 });
+  await expect.poll(() => rowHl(page, 'm1'), { timeout: 8000 }).toBe(true);
+  expect(await page.evaluate(() => location.hash)).toBe('');
+  expect(await page.evaluate(() => window.__same)).toBe('doc'); // той самий документ: hashchange, а не перезавантаження
+});
+
+test('18. PUSH-2: #mono/<id> на холодному старті — те саме; невідомий id — просто «Вхідні» без підсвітки', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('__mono', '1'));
+  await prime(page);
+  await page.goto('/index.html?fixture=typical#mono/m2');
+  await expect(page.locator('#mono-inbox-screen')).not.toHaveClass(/hidden/, { timeout: 8000 });
+  await expect.poll(() => rowHl(page, 'm2'), { timeout: 8000 }).toBe(true);
+  await page.goto('about:blank'); // новий документ: попередня підсвітка не переноситься
+  await page.goto('/index.html?fixture=typical#mono/nema-takoi');
+  await expect(page.locator('#mono-inbox-screen')).not.toHaveClass(/hidden/, { timeout: 8000 });
+  await page.waitForTimeout(800);
+  expect(await page.evaluate(() => document.querySelectorAll('#mono-inbox-body .just-notified').length)).toBe(0);
+});
+
+test('19. PUSH-2: застосунок знову активний, є нові витрати Monobank після останнього відкриття «Вхідних» — повідомлення з «Переглянути»; після переходу за адресою не показується', async ({ page }) => {
+  await page.addInitScript(() => { localStorage.setItem('__mono', '1'); if(!localStorage.getItem('budget-mono-inbox-seen-v1')) localStorage.setItem('budget-mono-inbox-seen-v1', '2026-10-28T08:00:00.000Z'); });
+  await prime(page);
+  await page.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); });
+  const toast = page.locator('.success-toast');
+  await expect(toast).toContainText('Нових витрат: 2', { timeout: 8000 });
+  await expect(toast.locator('.success-toast-action')).toHaveText('Переглянути');
+  await toast.locator('.success-toast-action').click();
+  await expect(page.locator('#mono-inbox-screen')).not.toHaveClass(/hidden/, { timeout: 8000 });
+  // після відкриття «Вхідних» нових немає: повідомлення не повертається
+  await page.evaluate(() => { closeMonoInbox(); document.dispatchEvent(new Event('visibilitychange')); });
+  await page.waitForTimeout(1200);
+  expect(await page.locator('.success-toast').count()).toBe(0);
+});

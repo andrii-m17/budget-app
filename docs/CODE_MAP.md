@@ -44,3 +44,5 @@
 - `kb-geometry` (Rev 2.32.262): `recordKbGeometry('vv-settled')` через 450 мс після зміни висоти клавіатури та `'rest-settled'` після зняття `kb-open`: `sheetTop/Bottom/Height`, `fieldTop/Bottom`, `kbHeightCalc`, `drawerScrollHeight/ClientHeight`, `drawerScrollTop`, `actionsTop/Bottom` (прикріплений блок кнопок, `kbStickyBarOf`, Rev 2.32.263).
 - Тести: `tests/rec-recorder.test.js` (буфер, приватність, частота, частини, черга), `e2e/cloud/rec.spec.js` (звіт частинами на тестовому сервері, офлайн-черга).
 - E2E: `npm run e2e` (WebKit); симулятор `npm run e2e:ios` лише на прямий запит чату.
+
+- Перехід за адресою `#mono/<id>` і запасне повідомлення (Rev 2.32.278, PUSH-2): `parseMonoDeepLink`, `handleMonoHash`, `routeMonoDeepLink`, `syncAppVisible`, `monoNewToastPlan`, `monoNewToastCheck` (поруч із `routeMonoNotification`); дія `mono-deeplink` у `handlePushAction`.
