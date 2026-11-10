@@ -579,7 +579,7 @@ test('55. KB-16/A: закриття — один рух: проміжні кад
 // KB-16 (Rev 2.32.270), B: звіт MT-1108-9004: центрована форма (sheet-account, поле суми), vvH 478 → 505: семпли 583 → 491/488 до ~90 мс, далі повільно 491 → 497 до ~340 мс: рух проскакує нову ціль на 6–9 пт і повертається.
 // Тест: цілі першої ноги (клавіатура 415) і нової (388) із запізненням нового resize на 35 і 50 мс (як шле iOS): ціль не пролітається більш ніж на 2 пт, рух не повертається назад більш ніж на 2 пт. (Якщо нове уточнення приходить, коли лист уже минув нову ціль, повернення фізично неминуче; нова нога тоді стартує без початкової швидкості, без прольоту.)
 for(const lateMs of [35, 50]){
-  test('56. KB-16/B: «Додати ОЧ», поле суми, клавіатура 415 → 388 із запізненням ' + lateMs + ' мс — ціль не пролітається нова нога, повернення ≤ 12 пт', async ({ browser }) => {
+  test('56. KB-16/B: «Додати ОЧ», поле суми, клавіатура 415 → 388 із запізненням ' + lateMs + ' мс — без перельоту, зворотний крок ≤ 0,5 пт', async ({ browser }) => {
     const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
     try{
       await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
@@ -603,8 +603,8 @@ for(const lateMs of [35, 50]){
       const startY = s[0][1]; const flash = s.filter(r => r[0] > t1 + 20 && Math.abs(r[1] - startY) < 1.5).length; // KB-18/B (MT-1109-7870): кадр зі стартовим положенням посеред руху
       const info = JSON.stringify({ finalY: Math.round(finalY * 10) / 10, minY: Math.round(minY * 10) / 10, overshoot: Math.round(overshoot * 10) / 10, backTravel: Math.round(back * 10) / 10, startY: Math.round(startY), flash });
       expect(flash, 'жодного кадру зі стартовим положенням посеред руху: ' + info).toBe(0);
-      expect(overshoot, 'ціль не пролітається нова нога (≤ 8 пт; KB-19: стара нога з оцінкою 121 може встигнути пройти нову ціль 100 до уточнення — це законне повернення, а не проскакування нової ноги, яке перевіряє tests/kb-lift-driver.test.js): ' + info).toBeLessThanOrEqual(8);
-      expect(back, 'повернення назад лише на надлишок старої ноги (≤ 12 пт): ' + info).toBeLessThanOrEqual(12);
+      expect(overshoot, 'без перельоту (≤ 1 пт): ' + info).toBeLessThanOrEqual(1);
+      expect(back, 'жодного зворотного кроку більше 0,5 пт (KB-20): ' + info).toBeLessThanOrEqual(0.5);
     } finally { await ctx.close(); }
   });
 }
@@ -727,5 +727,26 @@ test('61. KB-19/D: тап по полю в листі — scrollTop змінює
     const info = JSON.stringify({ changes, end: s[s.length - 1][1] });
     expect(changes.length, 'scrollTop змінюється не більше двох разів (наш крок на тапі й уточнення за vv), без нативного кроку: ' + info).toBeLessThanOrEqual(2);
     expect(changes.filter(v => v < s[s.length - 1][1] - 1).length, 'жодного проміжного значення між нулем і ціллю (подвійна прокрутка): ' + info).toBeLessThanOrEqual(1);
+  } finally { await ctx.close(); }
+});
+
+// KB-20 (Rev 2.32.274), B (MT-1110-2783): клавіатура з'являється, поки лист ще виїжджає: обидва руху — один неперервний рух до кінцевої цілі, без кадру зі стрибком (було 1115 → 842 за 148 мс, далі 477 за кадр: 365 пт).
+test('62. KB-20/B: клавіатура з’являється посеред виїзду листа входу — неперервний рух до цілі, жодного стрибка за кадр понад 35 % шляху і руху вниз', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; });
+    const s = await page.evaluate(() => new Promise(resolve => {
+      const out = []; const t0 = performance.now();
+      showProfileLoginForm();
+      const dr = document.getElementById('profile-drawer');
+      const tick = () => { out.push([Math.round(performance.now() - t0), dr.getBoundingClientRect().bottom]); if(performance.now() - t0 < 1200) requestAnimationFrame(tick); else resolve(out); };
+      requestAnimationFrame(tick);
+      setTimeout(() => { const f = document.getElementById('cldfielda1'); f.focus(); window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); }, 60);
+    }));
+    let maxStep = 0, down = 0; for(let i = 1; i < s.length; i++){ const d = s[i][1] - s[i - 1][1]; if(i > 2) maxStep = Math.max(maxStep, Math.abs(d)); if(d > 2 && s[i][0] > 100) down++; }
+    const info = JSON.stringify({ maxStep: Math.round(maxStep), down, seq: s.slice(0, 30).map(r => Math.round(r[1])), end: Math.round(s[s.length - 1][1]) });
+    const travel = s[0][1] - s[s.length - 1][1];
+    expect(maxStep, 'крок за кадр ≤ 35 % усього шляху (до виправлення 55–63 %: 486–550 пт при шляху ≈ 870): ' + info).toBeLessThanOrEqual(0.35 * travel);
+    expect(down, 'без руху вниз посеред підйому: ' + info).toBe(0);
   } finally { await ctx.close(); }
 });

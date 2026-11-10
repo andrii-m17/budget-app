@@ -97,7 +97,7 @@ test('KB-19: зміна цілі — стара скасовується в ТО
     const b = st.anims[1];
     assert.equal(b.startedAt, at, 'нова без заданого часу старту');
     assert.equal(st.timers.length, 0, 'жодних таймерів скасування');
-    assert.equal(b.opts.duration, 250); assert.equal(b.opts.fill, 'forwards');
+    assert.ok(b.opts.duration >= 60 && b.opts.duration <= 250, 'тривалість нової ноги: ' + b.opts.duration); assert.equal(b.opts.fill, 'forwards');
     assert.equal(lift(b, 1), l2);
     const f = lift(b, 0);
     assert.ok((l2 - f) * (l2 - posNext) >= -1e-6 && Math.abs(f - posNext) < 0.11 || f === l2, l1 + '→' + l2 + ': старт ' + f + ' з поточного положення ' + posNext.toFixed(1) + ', не за ціллю');
@@ -124,4 +124,27 @@ test('KB-16/B: нова нога тримає кінцеве значення (f
   st.now = 0; ctx.__a = 217; evalInSandbox(ctx, 'kbSetLift(__a)');
   const a = st.anims[0]; assert.equal(a.opts.fill, 'forwards');
   a.onfinish(); assert.ok(a.cancelled, 'завершену ногу знято (під нею те саме значення --sheet-lift)');
+});
+
+// KB-20 (Rev 2.32.274), A (MT-1110-2783): після KB-19 нова нога стартувала з нульовою швидкістю: швидкість 1,5 → 0,35 пт/мс і зворотний крок. Закон: швидкість у момент зміни цілі неперервна (стрибок між сусідніми кадрами ≤ 30 %), без зворотного кроку й перельоту.
+test('KB-20/A: зміна цілі в той самий бік (оцінка 478 → 505, +27 пт через 36 мс) — швидкість неперервна ≤ 30 %, без зворотного кроку й перельоту', () => {
+  for(const at of [33, 36, 39]){
+    const { series: s } = replay([{ at: 0, lift: 200 }, { at, lift: 227 }], 600);
+    const v = speeds(s);
+    const i0 = s.findIndex(r => r[0] >= at - 1e-9); // кадр зміни цілі
+    for(let i = Math.max(1, i0 - 1); i <= Math.min(v.length - 1, i0 + 2); i++){
+      const a = v[i - 1], b = v[i];
+      assert.ok(Math.abs(b - a) / Math.max(Math.abs(a), 1e-6) <= 0.3, at + ' мс: швидкість ' + a.toFixed(3) + ' → ' + b.toFixed(3) + ' (кадр ' + i + ')');
+    }
+    assert.ok(v.every(x => x >= -1e-6), at + ' мс: без зворотного кроку');
+    assert.ok(Math.max(...s.map(r => r[1])) <= 227 + 0.05, at + ' мс: без перельоту');
+    assert.ok(Math.abs(s[s.length - 1][1] - 227) < 0.2);
+  }
+});
+test('KB-20/A: крива нової ноги без перельоту — контрольні точки в 0..1', () => {
+  const { ctx, st } = make(false);
+  st.now = 0; ctx.__a = 200; evalInSandbox(ctx, 'kbSetLift(__a)');
+  st.now = 36; ctx.__b = 227; evalInSandbox(ctx, 'kbSetLift(__b)');
+  const c = /cubic-bezier\(([^)]+)\)/.exec(st.anims[1].opts.easing)[1].split(',').map(Number);
+  assert.ok(c.every(x => x >= 0 && x <= 1), c.join(','));
 });

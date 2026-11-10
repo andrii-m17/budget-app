@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.273</div>
+  <div class="version-footer">Money Tree · Rev 2.32.274</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.273';
+const APP_VERSION = '2.32.274';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -29213,11 +29213,31 @@ function kbSetLift(target){
   const root = document.documentElement, el = kbSheetDrawerEl, now = performance.now();
   const inFlight = !!(kbLiftAnim && kbLiftActive && (now - kbLiftAnim.t0 < kbLiftAnim.dur));
   let from = parseFloat(root.style.getPropertyValue('--sheet-lift')) || 0; // kbSheetCurrentLift тут уже дорівнює цілі (його виставляє викликач до kbSetLift)
-  if(inFlight){
-    const posNow = kbLiftState(now, 0).pos;
-    from = (target - posNow) * (target - kbLiftState(now, 16.7).pos) <= 0 ? target : posNow; // від ПОТОЧНОГО положення (старт нової ноги прив'язано до цього кадру, див. нижче)
+  let dur = KB_MOTION_DUR, c = KB_MOTION_CURVE;
+  // Rev 2.32.274 (KB-20, B): звіт MT-1110-2783: клавіатура з'явилась, поки лист ще виїжджав (CSS-перехід відкриття): перехід скасовувався, лист стрибав з 1115 → 564 за кадр. Тепер поточне положення виїзду (до скасування переходу) стає початком підйому (lift від'ємний, нижче спокою): один неперервний рух до кінцевої цілі. Лише .drawer; центровані форми мають власну появу.
+  if(!inFlight && el && el.classList && el.classList.contains('drawer') && typeof el.getAnimations === 'function'){
+    try{
+      if(el.getAnimations().some(function(x){ return x.transitionProperty === 'transform' && x.playState === 'running'; })){
+        const m = new DOMMatrix(getComputedStyle(el).transform).m42;
+        if(isFinite(m) && Math.abs(m) > 1) from = -m;
+      }
+    }catch(e){}
   }
-  kbLiftAnim = { from: from, to: target, t0: now, dur: KB_MOTION_DUR, c: KB_MOTION_CURVE };
+  // Rev 2.32.274 (KB-20, A): звіт MT-1110-2783: нова нога стартувала з нульовою швидкістю й положенням попереднього кадру (швидкість 1,5 → 0,35 пт/мс, зворотний крок 2 пт). Тепер положення й швидкість беруться на той самий момент, що й старт нової анімації (startTime = now); у той самий бік — крива з початковим нахилом під швидкість (контрольні точки в 0..1, без перельоту), тривалість ≤ 250 мс; у протилежний — м'який розворот без початкової швидкості. Ризик: коротка нога (≥ 60 мс) при великій швидкості й малій відстані.
+  if(inFlight){
+    const stNow = kbLiftState(now, 0), delta = target - stNow.pos;
+    from = stNow.pos;
+    if(Math.abs(delta) > 0.5){
+      if(stNow.vel * delta > 0){
+        const speed = Math.abs(stNow.vel);
+        dur = Math.max(60, Math.min(KB_MOTION_DUR, 3 * Math.abs(delta) / Math.max(speed, 0.01)));
+        c = [0.3, Math.max(0, Math.min(1, 0.3 * Math.min(3, speed * dur / Math.abs(delta)))), 0.6, 1];
+      }else{
+        c = [0.3, 0, 0.6, 1];
+      }
+    }
+  }
+  kbLiftAnim = { from: from, to: target, t0: now, dur: dur, c: c };
   root.style.setProperty('--sheet-lift', String(Math.round(target * 10) / 10)); // кінцева ціль: по завершенні анімації елемент стоїть у ній
   root.style.setProperty('--sheet-lift-target', String(Math.round(target * 10) / 10));
   if(el && typeof el.animate === 'function'){
@@ -29226,7 +29246,7 @@ function kbSetLift(target){
     const prev = kbLiftObj;
     if(prev){ prev.onfinish = null; try{ prev.cancel(); }catch(e){} }
     try{ if(el.getAnimations) el.getAnimations().forEach(function(x){ if(x !== prev && x.transitionProperty === 'transform') x.cancel(); }); }catch(e){} // CSS-перехід закриття, що ще триває (швидке відкриття посеред закриття), знімається в цьому ж завданні: на формі рівно одна анімація
-    const a = el.animate([{ transform: kbLiftTransform(el, Math.round(from * 10) / 10) }, { transform: kbLiftTransform(el, Math.round(target * 10) / 10) }], { duration: KB_MOTION_DUR, easing: KB_MOTION_EASING, fill: 'forwards' });
+    const a = el.animate([{ transform: kbLiftTransform(el, Math.round(from * 10) / 10) }, { transform: kbLiftTransform(el, Math.round(target * 10) / 10) }], { duration: dur, easing: 'cubic-bezier(' + c[0] + ', ' + (Math.round(c[1] * 1000) / 1000) + ', ' + c[2] + ', ' + c[3] + ')', fill: 'forwards' });
     kbLiftObj = a;
     if(inFlight){ try{ const tl = document.timeline; if(tl && typeof tl.currentTime === 'number') a.startTime = tl.currentTime; }catch(e){} } // без «очікування старту»: WebKit інакше показує перший кадр нової ноги двічі (виміряно: кадр без руху)
     a.onfinish = function(){ if(kbLiftObj === a){ kbLiftFinish(); try{ a.cancel(); }catch(e){} } };
