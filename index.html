@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.274</div>
+  <div class="version-footer">Money Tree · Rev 2.32.275</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.274';
+const APP_VERSION = '2.32.275';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14074,7 +14074,7 @@ const DEBUG_EVENT_ALLOWLIST = [
   'cards', 'installments', 'reasonCounts',
   'dir', 'keyboardTypeOk', 'panMax400',
   // Rev 2.23.19 (6D.188) — невидимий курсор проксі.
-  'proxyCaretColor', 'proxyDistToField',
+  'proxyCaretColor', 'proxyDistToField', 'proxyInputmode', 'targetInputmode',
   // Rev 2.23.20 (6D.189) — курсор під час руху шторки.
   'sheetBottomAtTransfer', 'sheetFinalBottom',
   // Rev 2.32.129 (BUG-INPUT, лише запис діагностики): suggest-render/suggest-pick (ctx, count, lens, activeIdx, pickIdx, pickLen, pickHash, textLenBefore/After; без тексту назв, лише довжини й 6-символьні хеші),
@@ -14751,7 +14751,7 @@ const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
 const REC_ALLOWED_TYPES = ['sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
-const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims'];
+const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -28978,11 +28978,14 @@ function beginKbFocusProxy(target, drawerEl, onTransferred){
     const ms = Date.now() - startedAt;
     kbSwitchKind = 'flow';
     kbLastInterceptAt = Date.now();
+    const proxyIm = proxy.getAttribute('inputmode'), targetIm = target.getAttribute('inputmode'); // Rev 2.32.275 (KB-21): що визначало клавіатуру допоміжного й цільового (у focus-transfer)
     focusWithoutScrollIfSupported(target, drawerEl.id);
+    // Rev 2.32.275 (KB-21): після перенесення фокуса допоміжне поле нейтральне (не тримає атрибутів попереднього поля; наступний фокус знову налаштовує configureKbProxy). Звіт MT-1110-0936: на полях суми перед цифровою клавіатурою (389) з'являлась текстова (416); атрибути на момент фокуса вже збігались (тест 63), тож це страховка від успадкованого стану й запис для розбору.
+    ['inputmode', 'enterkeyhint', 'autocomplete', 'pattern'].forEach(function(n){ proxy.removeAttribute(n); });
     kbSwitchKind = null;
     if(typeof onTransferred === 'function') onTransferred(); // Rev 2.32.11: напр. select() для картки після передачі фокусу
     kbPipeKick(); // Rev 2.32.240: старт анімації конвеєра — після завершення передачі фокуса
-    captureDebugGeometry(forced ? 'focus-transfer-forced' : 'focus-transfer', { ms: ms, drawerId: kbSheetLabel(drawerEl), proxyActive: false, proxyTop: proxyRect ? proxyRect.top : null, proxyBottom: proxyRect ? proxyRect.bottom : null, sheetBottomAtTransfer: Math.round(drawerEl.getBoundingClientRect().bottom), sheetFinalBottom: Math.round(kbSheetRestBottom - kbSheetCurrentLift) });
+    captureDebugGeometry(forced ? 'focus-transfer-forced' : 'focus-transfer', { proxyInputmode: proxyIm, targetInputmode: targetIm, ms: ms, drawerId: kbSheetLabel(drawerEl), proxyActive: false, proxyTop: proxyRect ? proxyRect.top : null, proxyBottom: proxyRect ? proxyRect.bottom : null, sheetBottomAtTransfer: Math.round(drawerEl.getBoundingClientRect().bottom), sheetFinalBottom: Math.round(kbSheetRestBottom - kbSheetCurrentLift) });
   }
   function check(){
     if(settled) return true;
