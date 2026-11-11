@@ -1004,3 +1004,79 @@ for(const [name, spacer, expectHide] of [['поле видиме, той сам�
     } finally { await ctx.close(); }
   });
 }
+
+// KB-26 (Rev 2.32.282), звіти MT-1111-6091/7486 (2.32.279–281): при focusin без дотику (стрілки) iOS через ~100–130 мс одним кроком прокручує сторінку так, що центр поля стає на C ≈ (innerHeight − kbH без рядка підказок)/2 ≈ 253 (12 з 12 перемикань). Випередження: у тому самому обробнику focusin scrollTo(0, d) і зсув листа на d — тоді iOS нічого не прокручує.
+// Емуляція iOS у WebKit: scrollTo(0, y) зсуває все (transform кореня) і offsetTop; «iOS» через 100 мс після focusin прокручує так, щоб центр поля (за документом: центр до будь-яких зсувів мінус поточна прокрутка) став на C, лише якщо він ще не там.
+async function kb26Emulate(page, fieldId){
+  await page.evaluate(id => {
+    const root = document.documentElement, C = window.__H0 * (1 - 0.434) / 2; window.__iosScrolls = 0; // C = (висота − клавіатура без рядка підказок)/2; у тестах підказки = різниця 0,465 і 0,434 висоти (≈ 27 пт на 894)
+    window.__iosC = C;
+    Object.defineProperty(root, 'scrollHeight', { configurable: true, get(){ return 3000; } }); // у сторінки є діапазон прокрутки (без зміни розмітки)
+    window.scrollTo = function(x, y){ y = y || 0; root.style.transform = y ? 'translateY(' + (-y) + 'px)' : ''; window.__vv.top = y; window.visualViewport.dispatchEvent(new Event('scroll')); };
+    window.addEventListener('focusin', e => {
+      if(e.target.id !== id) return;
+      const fr = e.target.getBoundingClientRect(), cy0 = (fr.top + fr.bottom) / 2; window.__cy0 = cy0;
+      setTimeout(() => { const ios = cy0 - window.__vv.top; if(ios > C + 1){ window.__iosScrolls++; window.scrollTo(0, window.__vv.top + (ios - C)); } }, 100);
+    }, true);
+  }, fieldId);
+}
+test('73. KB-26/A: стрілки (пошта → пароль): випередження — «iOS» не прокручує, видиме положення листа ±2 пт, курсор не ховається, повернення при закритті — одна анімація без стрибка', async ({ browser }) => {
+  const { ctx, page } = await kb25Open(browser, false);
+  try{
+    await kb26Emulate(page, 'cloud-password');
+    const r = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('profile-drawer'), root = document.documentElement, out = []; const t0 = performance.now(); let hid = false;
+      const base = dr.getBoundingClientRect().bottom;
+      new MutationObserver(() => { if(root.classList.contains('kb-sheet-moving')) hid = true; }).observe(root, { attributes: true, attributeFilter: ['class'] });
+      document.getElementById('cloud-password').focus(); // стрілка: без дотику
+      const tick = () => { out.push([Math.round(performance.now() - t0), dr.getBoundingClientRect().bottom - base]); if(performance.now() - t0 < 700) requestAnimationFrame(tick); else resolve({ out, hid, scrolls: window.__iosScrolls }); };
+      requestAnimationFrame(tick);
+    }));
+    const maxDev = Math.max(...r.out.map(x => Math.abs(x[1])));
+    const info = JSON.stringify({ maxDev: Math.round(maxDev * 10) / 10, iosScrolls: r.scrolls, hid: r.hid, seq: r.out.slice(0, 30).map(x => [x[0], Math.round(x[1])]) });
+    expect(r.scrolls, '«iOS» не прокручує після випередження: ' + info).toBe(0);
+    expect(maxDev, 'видиме положення листа ±2 пт: ' + info).toBeLessThanOrEqual(2);
+    expect(r.hid, 'курсор не ховається (тип клавіатури той самий, поле видиме): ' + info).toBe(false);
+    // повернення при закритті
+    const c = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('profile-drawer'), out = []; const t0 = performance.now();
+      const tick = () => { out.push([Math.round(performance.now() - t0), dr.getBoundingClientRect().bottom, dr.getAnimations().filter(a => a.playState === 'running').length]); if(performance.now() - t0 < 900) requestAnimationFrame(tick); else resolve(out); };
+      requestAnimationFrame(tick);
+      document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize'));
+    }));
+    const ys = c.map(x => x[1]); const travel = Math.max(...ys) - Math.min(...ys);
+    let maxStep = 0, maxRun = 0; for(let i = 1; i < c.length; i++){ maxStep = Math.max(maxStep, Math.abs(c[i][1] - c[i - 1][1])); maxRun = Math.max(maxRun, c[i][2]); }
+    const info2 = JSON.stringify({ travel: Math.round(travel), maxStep: Math.round(maxStep), maxRun, seq: c.slice(0, 22).map(x => [x[0], Math.round(x[1]), x[2]]) });
+    expect(maxRun, 'при закритті рівно одна анімація: ' + info2).toBeLessThanOrEqual(1);
+    expect(maxStep, 'без стрибка при закритті (≤ 45 % шляху за кадр): ' + info2).toBeLessThanOrEqual(0.45 * travel);
+  } finally { await ctx.close(); }
+});
+test('74. KB-26/B: «Додати ОЧ», стрілки зі зміною клавіатури (назва → сума) — «iOS» не прокручує, один монотонний рух без перельоту, компенсація не накладається', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => { const d = document.createElement('div'); d.style.height = '420px'; document.getElementById('app-modal').appendChild(d); const a = document.getElementById('app-modal-amount-input'); const g = document.createElement('div'); g.style.height = '170px'; a.parentNode.parentNode.insertBefore(g, a.parentNode); });
+    await page.waitForTimeout(200);
+    const bb = await page.locator('#app-modal-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(800);
+    await kb26Emulate(page, 'app-modal-amount-input');
+    const s = await page.evaluate(() => new Promise(resolve => {
+      const m = document.getElementById('app-modal'), out = []; const t0 = performance.now();
+      const tick = () => { out.push([Math.round(performance.now() - t0), -(new DOMMatrix(getComputedStyle(m).transform).m42 + m.offsetHeight / 2)]); if(performance.now() - t0 < 1100) requestAnimationFrame(tick); else resolve({ out, scrolls: window.__iosScrolls, tracks: recBuf.filter(e => e.type === 'pan-track').length }); };
+      requestAnimationFrame(tick);
+      document.getElementById('app-modal-amount-input').focus();
+      setTimeout(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.434); window.visualViewport.dispatchEvent(new Event('resize')); }, 110);
+    }));
+    const ys = s.out.map(r => r[1]); const fin = ys[ys.length - 1];
+    let over = 0, back = 0; for(let i = 0; i < ys.length; i++) over = Math.max(over, fin >= ys[0] ? ys[i] - fin : fin - ys[i]);
+    for(let i = 1; i < ys.length; i++){ const d = ys[i] - ys[i - 1]; if((fin >= ys[0] && d < -0.5) || (fin < ys[0] && d > 0.5)) back += Math.abs(d); }
+    const info = JSON.stringify({ iosScrolls: s.scrolls, tracks: s.tracks, over: Math.round(over * 10) / 10, back: Math.round(back * 10) / 10, from: Math.round(ys[0]), to: Math.round(fin) });
+    expect(s.scrolls, '«iOS» не прокручує після випередження: ' + info).toBe(0);
+    expect(s.tracks, 'компенсація KB-25 не спрацьовує (залишку нема): ' + info).toBe(0);
+    expect(over, 'без перельоту (≤ 1 пт): ' + info).toBeLessThanOrEqual(1);
+    expect(back, 'без руху назад (≤ 0,5 пт): ' + info).toBeLessThanOrEqual(0.5);
+  } finally { await ctx.close(); }
+});
