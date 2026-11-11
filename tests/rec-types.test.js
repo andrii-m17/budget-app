@@ -14,5 +14,5 @@ test('кожен тип події, що передається в самопи�
   (SRC.match(/pushDebugEvent\(\{[^}]*?type: '([^']+)'/g) || []).forEach(x => used.add(/type: '([^']+)'/.exec(x)[1]));
   const missing = [...used].filter(t => !allowed.has(t) && REC_EXEMPT.indexOf(t) === -1);
   assert.deepEqual(missing, [], 'типи не у білому списку REC_ALLOWED_TYPES: ' + missing.join(', '));
-  for(const t of ['arrow-preempt', 'switch-trace', 'pan-track', 'pan-settle', 'pan-comp', 'kb-heights', 'deeplink', 'app-visible-sync', 'inbox-new-toast']) assert.ok(allowed.has(t), t + ' має бути у білому списку');
+  for(const t of ['switch-trace', 'pan-comp', 'kb-heights', 'deeplink', 'app-visible-sync', 'inbox-new-toast']) assert.ok(allowed.has(t), t + ' має бути у білому списку');
 });

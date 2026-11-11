@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.283</div>
+  <div class="version-footer">Money Tree · Rev 2.32.284</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.283';
+const APP_VERSION = '2.32.284';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14058,8 +14058,6 @@ const DEBUG_LOG_MAX_BYTES_FOR_SEND = 600000; // той самий ліміт, щ
 // жорстка вимога приватності ТЗ ("value"/"text" з полів форми сюди
 // принципово не можуть пройти, навіть якщо якийсь слухач їх передасть).
 const DEBUG_EVENT_ALLOWLIST = [
-  'scrollAfter', 'padAdded', // Rev 2.32.283 (KB-27б): arrow-preempt
-  'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', // Rev 2.32.282 (KB-26): arrow-preempt
   'scrollTop', 'panShift', // Rev 2.32.279 (KB-24): switch-trace, pan-comp
   'visible', 'shown', 'tapped', 'found', 'errorCode', // Rev 2.32.278 (PUSH-2): deeplink, app-visible-sync, inbox-new-toast
   'diffTable', 'diffCount', 'diffReason', // Rev 2.32.192 (SHADOW-REV): rev-diff
@@ -14846,7 +14844,7 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['arrow-preempt', 'pan-track', 'pan-settle', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
+const REC_ALLOWED_TYPES = ['switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
 const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
@@ -29430,85 +29428,6 @@ function kbStartFieldScroll(drawerEl, field){
     return moved;
   }catch(e){ kbScrollDone(); return false; }
 }
-// Rev 2.32.281 (KB-25, A): прокрутка сторінки iOS під час перемикання без дотику (стрілки): раніше кожну подію scroll гасив scrollTo(0,0) («гойдалка»: 0 → 6 → 12 → скид → …). Тепер, поки триває вікно перемикання (700 мс від focusin без дотику), зсув компенсується лише властивістю translate (разом із transform підйому; без анімації), тож видиме положення листа не змінюється; коли подій немає ≥ 50 мс (прокрутка вщухла), В ОДНОМУ кадрі: scrollTo(0,0) і зняття компенсації. Покадровий код (rAF) живе лише на час прокрутки iOS. Ризик: якщо iOS не повертає сторінку сама, повертає застосунок (scrollTo) — так і було раніше.
-let kbSwitchUntil = 0, kbPan = null;
-// Rev 2.32.282 (KB-26): випередження прокрутки iOS при focusin без дотику (стрілки). Правило iOS (звіти MT-1111-6091/7486, 12 з 12): через ~100–130 мс після focusin iOS одним кроком прокручує сторінку так, що центр поля стає на C = (innerHeight − висота клавіатури без рядка підказок)/2 ≈ 253 (пароль: центр 365, d = 112). KB-25 компенсує ПІСЛЯ події (кадр уже відмальовано — стрибок видно). Тут у тому самому обробнику focusin синхронно: d = clamp(round(центр поля − C), 0, діапазон прокрутки); scrollTo(0, d) і зсув листа на d (drawer: --sheet-vvtop, яку вже читає розмітка через translate; центрована форма: translate), тож iOS нічого не прокручує, а видиме положення не змінюється. C = (innerHeight − kbHbase)/2 + поправка: kbHbase — найменша висота відкритої клавіатури, побачена в цій сесії й орієнтації (без рядка підказок), поправка уточнюється на залишок r, якщо iOS усе ж прокрутила. Повернення (kbPreemptRelease): scrollTo(0,0) і зняття зсуву в тому самому кадрі (focusout без переходу → закриття, дотик у поле, закриття листа). Ризик (не перевірено на пристрої): якщо iOS бачить поле після компенсації знову не на C, вона прокрутить ще раз — тоді спрацює KB-25 як страховка для залишку, а подія arrow-preempt покаже r.
-let kbPreempt = null, kbHMin = {}, kbCCorr = {};
-function kbVvTopForLift(vv){ return kbSheetSplit ? 0 : Math.max(0, vv.offsetTop - (kbPreempt ? kbPreempt.d : 0)); } // зсув випередження вже врахований розміткою
-function kbPreemptApply(d){
-  const el = kbSheetDrawerEl; if(!el) return;
-  if(el.classList && el.classList.contains('drawer')){ KB_PIPE.vvtop = d; kbMotionVar('--sheet-vvtop', String(d)); }
-  else el.style.translate = d ? '0 ' + d + 'px' : '';
-}
-function kbPreemptRelease(){
-  const p = kbPreempt; if(!p) return;
-  kbPreempt = null;
-  try{ window.scrollTo(0, 0); }catch(e){}
-  if(p.pad && p.pad.parentNode) p.pad.parentNode.removeChild(p.pad); // відступ знімається разом із поверненням сторінки в тому самому кадрі
-  const el = p.el;
-  if(el && el.classList && el.classList.contains('drawer')){ KB_PIPE.vvtop = 0; kbMotionVar('--sheet-vvtop', '0'); }
-  else if(el) el.style.translate = '';
-}
-// Rev 2.32.283 (KB-27б): звіт MT-1111-0929: на пристрої випередження не спрацювало (scrollY на +100 мс = 0 у 10 з 10) і подій arrow-preempt не було. Причина: діапазон прокрутки рахувався як scrollHeight − innerHeight = 0 → d = 0 → ранній вихід ДО запису події. На iOS з відкритою клавіатурою сторінку можна прокрутити до scrollHeight − visualViewport.height (894 − 479 = 415), тому iOS і прокручує на 112. Тепер maxScroll = scrollHeight − (клавіатура відкрита ? visualViewport.height : innerHeight); якщо після scrollTo(0, d) прокрутка менша за d, додається невидимий відступ внизу сторінки висотою kbH і scrollTo повторюється в тому самому обробнику; відступ знімається разом із поверненням сторінки (kbPreemptRelease). Подія arrow-preempt пишеться і при відмові (reason).
-function kbPageShift(){ const v = window.visualViewport; return Math.max(window.scrollY || 0, v ? v.offsetTop : 0); }
-function kbArrowPreempt(drawerEl, target){
-  try{
-    const vv = window.visualViewport;
-    if(!IS_IOS_RUNTIME || !vv || !kbSheetActive || !drawerEl || !target) return;
-    const key = viewportOrientationKey(window.innerWidth, window.innerHeight), hb = kbHMin[key];
-    if(!hb){ captureDebugGeometry('arrow-preempt', { reason: 'no-kbh' }); return; } // висота клавіатури ще не виміряна — не втручаємось
-    const C = (window.innerHeight - hb) / 2 + (kbCCorr[key] || 0);
-    const fr = target.getBoundingClientRect(), cy = (fr.top + fr.bottom) / 2;
-    const kbOpen = vv.height < window.innerHeight - 100, kbH = Math.max(0, Math.round(window.innerHeight - vv.height));
-    const docH = Math.max(document.documentElement.scrollHeight || 0, document.body ? document.body.scrollHeight : 0);
-    const maxScroll = Math.max(0, docH - (kbOpen ? vv.height : window.innerHeight));
-    const want = Math.round(cy - C); let d = Math.max(0, Math.min(want, kbOpen ? Math.max(maxScroll, kbH) : maxScroll)); // відступ (нижче) розширює діапазон до kbH
-    if(d < 2){ captureDebugGeometry('arrow-preempt', { fieldCenter: Math.round(cy), centerC: Math.round(C * 10) / 10, preemptD: 0, maxScroll: Math.round(maxScroll), reason: want < 2 ? 'centered' : 'no-range' }); if(kbPreempt) kbPreemptRelease(); return; } // поле вже в центрі (або прокручувати нікуди)
-    kbPreempt = { d: d, el: drawerEl, key: key, pad: null }; // до scrollTo: його події scroll мають бачити випередження
-    kbPreemptApply(d);
-    window.scrollTo(0, d);
-    let after = kbPageShift(), padAdded = false;
-    if(after < d - 1 && kbOpen){
-      const pad = document.createElement('div'); pad.id = 'kb-scroll-pad'; pad.setAttribute('aria-hidden', 'true');
-      pad.style.cssText = 'height:' + kbH + 'px;width:1px;pointer-events:none;visibility:hidden;';
-      document.body.appendChild(pad); kbPreempt.pad = pad; padAdded = true;
-      window.scrollTo(0, d); after = kbPageShift();
-    }
-    if(after < d - 1){ // сторінку не вдалося прокрутити на d навіть із відступом: зсув листа відповідає лише фактичній прокрутці (інакше лист зсунувся б без прокрутки)
-      d = Math.max(0, Math.round(after)); kbPreempt.d = d; kbPreemptApply(d);
-      if(d < 2){ captureDebugGeometry('arrow-preempt', { fieldCenter: Math.round(cy), centerC: Math.round(C * 10) / 10, preemptD: 0, maxScroll: Math.round(maxScroll), scrollAfter: Math.round(after), padAdded: padAdded, reason: 'scroll-failed' }); kbPreemptRelease(); return; }
-    }
-    captureDebugGeometry('arrow-preempt', { fieldCenter: Math.round(cy), centerC: Math.round(C * 10) / 10, preemptD: d, maxScroll: Math.round(maxScroll), scrollAfter: Math.round(after), padAdded: padAdded });
-    setTimeout(function(){
-      if(!kbPreempt || kbPreempt.d !== d) return;
-      const r = Math.round(kbPageShift() - d);
-      if(r > 1) kbCCorr[key] = (kbCCorr[key] || 0) - r; // iOS прокрутила ще на r: справжній C на r менший
-      captureDebugGeometry('arrow-preempt', { preemptD: d, iosR: r, cAfter: Math.round((((window.innerHeight - kbHMin[key]) / 2) + (kbCCorr[key] || 0)) * 10) / 10 });
-    }, 250);
-  }catch(e){}
-}
-function kbMotionSwitchWindow(){ kbSwitchUntil = performance.now() + 700; }
-function kbMotionPanTrack(){
-  if(!kbSheetActive || !kbSheetDrawerEl) return false;
-  if(!kbPreempt && performance.now() > kbSwitchUntil) return false;
-  const vv = window.visualViewport;
-  const shift = Math.max(window.scrollY || 0, vv ? vv.offsetTop : 0), base = kbPreempt ? kbPreempt.d : 0;
-  if(!(shift - base > 0.5)) return !!kbPan || !!kbPreempt; // зсув = той, що ми випередили: нічого не скидаємо, не компенсуємо
-  if(!kbPan){ kbPan = { el: kbSheetDrawerEl, last: 0, raf: 0, max: 0 }; captureDebugGeometry('pan-track', { drawerId: kbSheetLabel(kbPan.el), panShift: Math.round(shift) }); }
-  kbPan.el.style.translate = '0 ' + shift + 'px'; // залишок r понад випередження: страховка KB-25 (загальний зсув)
-  kbPan.max = Math.max(kbPan.max, shift); kbPan.last = performance.now();
-  if(!kbPan.raf) kbPan.raf = requestAnimationFrame(kbPanSettle);
-  return true;
-}
-function kbPanSettle(){
-  const p = kbPan; if(!p) return;
-  p.raf = 0;
-  if(performance.now() - p.last < 50){ p.raf = requestAnimationFrame(kbPanSettle); return; }
-  kbPan = null;
-  if(kbPreempt){ window.scrollTo(0, kbPreempt.d); kbPreemptApply(kbPreempt.d); } // залишок r зведено до випередженого зсуву
-  else { window.scrollTo(0, 0); p.el.style.translate = ''; } // один крок: сторінка повертається й компенсація знімається в тому самому кадрі
-  captureDebugGeometry('pan-settle', { drawerId: kbSheetLabel(p.el), panShift: Math.round(p.max) });
-}
 // Rev 2.32.279 (KB-24, C): FLIP-компенсація зсуву сторінки: нова нога стартує з поточного положення + зсув (видиме положення не змінюється), далі до цілі.
 function kbMotionPan(shift){
   if(!kbSheetActive || !kbSheetDrawerEl) return;
@@ -29546,7 +29465,7 @@ function kbPipeAnimate(){
   const vv = window.visualViewport; if(!vv || !kbSheetDrawerEl) return;
   if(KB_PIPE.timer){ clearTimeout(KB_PIPE.timer); KB_PIPE.timer = null; }
   KB_PIPE.state = 'animating';
-  const L = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbVvTopForLift(vv), restBottom: kbEffectiveRestBottom(vv.height), gap: 8 });
+  const L = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: 8 });
   kbSheetCurrentLift = L;
   kbSetLift(L);
   if(kbSheetSplit){ KB_PIPE.vvtop = Math.round(vv.offsetTop * 10) / 10; document.documentElement.style.setProperty('--sheet-vvtop', String(KB_PIPE.vvtop)); }
@@ -29651,7 +29570,6 @@ function kbNoteKbH(kbH){
   if(!kbSheetActive || typeof kbH !== 'number') return;
   const v = Math.round(kbH);
   if(v > 0 && kbHSeen.indexOf(v) < 0) kbHSeen.push(v);
-  if(v > 100){ const k = viewportOrientationKey(window.innerWidth, window.innerHeight); if(!kbHMin[k] || v < kbHMin[k]) kbHMin[k] = v; } // Rev 2.32.282 (KB-26): найменша висота клавіатури в сесії й орієнтації
   if(kbHTimer) clearTimeout(kbHTimer);
   kbHTimer = setTimeout(function(){ kbHTimer = null; if(kbHSeen.length) captureDebugGeometry('kb-heights', { via: kbOpenVia, kbHs: kbHSeen.join(','), kbHCount: kbHSeen.length }); }, 700);
 }
@@ -29692,7 +29610,7 @@ function applyLiveSheetLift(){
   if(!isKeyboardOpen(baseVh, vv.height)) return;
   // Rev 2.32.270 (KB-16, A): після втрати фокуса (activeElement = body) клавіатура зникає й iOS шле проміжні кадри visualViewport; рухом «при зміні висоти» (KB-15) на них відповідати не можна: за мить стартує закриття, і виходило два рухи (close + resize, звіт MT-1108-9004). Закриття веде exitKbSheet.
   if(document.activeElement && document.activeElement === document.body) return;
-  const live = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbVvTopForLift(vv), restBottom: kbEffectiveRestBottom(vv.height), gap: 8 });
+  const live = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: 8 });
   if(Math.abs(live - kbSheetCurrentLift) > 1){
     // Rev 2.32.269 (KB-15, A): звіт MT-1108-1788 (Face ID): коли лист уже відкритий і спокійний, а висота клавіатури міняється пізніше (через ~3 с, 99 пт руху), лист їхав без sheet-anim і без caret-hidden: курсор було видно під час руху. Тепер такий рух (> 4 пт, поки іншого руху нема) іде тим самим механізмом, що й відкриття: анімація з поточного положення, курсор прихований до кінця всього руху (beginSheetMoving чекає kbLiftActive), подія sheet-anim (phase resize) записується. Зміна цілі посеред руху лишається ретаргетом.
     const idleBig = !kbLiftActive && KB_PIPE.state !== 'measuring' && KB_PIPE.state !== 'waiting' && Math.abs(live - kbSheetCurrentLift) > 4;
@@ -29716,7 +29634,6 @@ function scheduleLiveSheetLift(){
 function correctPanIfNeeded(){
   if(!window.visualViewport) return;
   if(window.scrollY !== 0 || window.visualViewport.offsetTop !== 0){
-    if(kbMotionPanTrack()) return; // Rev 2.32.281 (KB-25, A): перемикання без дотику — компенсація (translate), скид сторінки один раз після вщухання
     // Rev 2.32.279 (KB-24, C): звіт MT-1110-8421: зсув сторінки iOS (offsetTop 361) посеред відкриття; після scrollTo(0,0) лист видимо стрибав на 365 пт. FLIP: у тому ж кадрі, де сторінка повертається, до положення листа додається компенсація на величину зсуву (kbMotionPan), і рух продовжується до цілі з колишнього видимого положення. Лише iOS (на Android зсув видимої області йде окремою складовою --sheet-vvtop).
     const panShift = Math.max(window.scrollY || 0, window.visualViewport.offsetTop || 0);
     requestAnimationFrame(function(){ window.scrollTo(0, 0); if(IS_IOS_RUNTIME && panShift > 1) kbMotionPan(panShift); });
@@ -29800,7 +29717,6 @@ function exitKbSheet(removeKbOpen){
   // одразу скасувало б саму можливість анімувати повернення. Режим B не
   // анімує через це правило (CSS transition:none) — звичайне миттєве
   // зняття, як і раніше.
-  kbPreemptRelease(); // Rev 2.32.282 (KB-26): scrollTo(0,0) і зняття зсуву в тому самому кадрі, де стартує закриття
   kbLiftCommit(drawerEl); // Rev 2.32.266 (KB-12): якщо закриття посеред підйому — положення фіксується, перехід закриття стартує звідти
   kbLiftStop();
   kbMotionVar('--sheet-lift', '0');
@@ -29855,8 +29771,6 @@ function kbTraceSwitchIfNoTouch(drawerEl, target, via){
       const vv = window.visualViewport;
       captureDebugGeometry('switch-trace', { to: toId, ms: ms, vvOffsetTop: vv ? Math.round(vv.offsetTop) : null, scrollY: Math.round(window.scrollY || 0), scrollTop: Math.round(drawerEl.scrollTop || 0), sheetBottom: Math.round(drawerEl.getBoundingClientRect().bottom), drawerId: kbSheetLabel(drawerEl) });
     };
-    kbMotionSwitchWindow(); // Rev 2.32.281 (KB-25, A)
-    kbArrowPreempt(drawerEl, target); // Rev 2.32.282 (KB-26): випередження прокрутки iOS
     snap(0); [100, 250, 400].forEach(function(ms){ setTimeout(function(){ snap(ms); }, ms); });
   }catch(e){}
 }
@@ -30058,7 +29972,6 @@ document.addEventListener('touchend', function(e){
     const active = document.activeElement;
     if(kbSheetActive && !kbProxyActive && shouldInterceptSwitchTap({ target: rawTarget, active: active, kbSheetOpen: kbSheetActive, moved: moved, durationMs: durationMs })){
       e.preventDefault();
-      kbPreemptRelease(); // Rev 2.32.282 (KB-26): дотик у поле — повернення випередженого зсуву в тому самому кадрі
       const t0 = performance.now();
       // Rev 2.23.16 (6D.185) — зміна типу клавіатури: перехід шторки (220мс,
       // системніша крива) стартує ОДРАЗУ на тапі — --sheet-lift перераховує
@@ -30082,7 +29995,6 @@ document.addEventListener('touchend', function(e){
   // Rev 2.32.276 (KB-22): звіти MT-1110-2783/0936/1962: кожен дотик ішов через допоміжне поле, і на полях суми клавіатура з'являлась двічі (416 → 389). Якщо цільове поле видиме й доступне, а лист у спокої — фокус напряму в цьому ж дотику (preventDefault уже стоїть, focus з preventScroll, без нативної прокрутки). Допоміжне поле лише коли поле не можна сфокусувати (лист ще виїжджає, поле невидиме). УВАГА: матриця 6D.183 (H3, «без проміжного поля») фіксувала зсув сторінки 192–389 пт; тут фокус із preventScroll, і correctPanIfNeeded лишається страховкою (pan-corrected у самописці) — потрібна перевірка на пристрої.
   // Rev 2.32.277 (KB-23): прямий фокус — єдиний режим (звіти MT-1110-7986/1935: через допоміжне поле kbHCount 2 і pan-corrected 21; прямий: kbHCount 1, pan-corrected 0, миготіння нема). Допоміжне поле лише коли kbCanFocusDirect = «ні»: лист ще з'являється (активна анімація), лист не відкритий/inert, поле не в DOM, вимкнене, нульового розміру або поза вікном.
   if(kbCanFocusDirect(target, drawerEl)){
-    kbPreemptRelease(); // Rev 2.32.282 (KB-26)
     startKbFramesSampler();
     kbLastInterceptAt = Date.now();
     focusWithoutScrollIfSupported(target, drawerEl.id);
@@ -30130,7 +30042,6 @@ document.addEventListener('touchcancel', function(){ kbTouchStartY = null; }, { 
 // вище встиг би його зупинити).
 window.addEventListener('scroll', function(){
   if(openOverlayCount > 0 && window.scrollY !== 0){
-    if(kbMotionPanTrack()) return; // Rev 2.32.281 (KB-25, A): під час перемикання без дотику — компенсація й один скид після вщухання
     window.scrollTo(0, 0);
   }
 });

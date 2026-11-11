@@ -26,14 +26,3 @@ test('KB-19: крива й тривалість в JS збігаються з CS
 test('KB-19: без LEAD-таймера й перекриття ніг: стара нога скасовується в тому ж завданні', () => {
   assert.doesNotMatch(HTML, /KB_LIFT_LEAD_MS|startTime = tl\.currentTime \+/);
 });
-test('KB-25: компенсація зсуву сторінки (style.translate) пишеться лише в модулі; window scroll і correctPanIfNeeded делегують kbMotionPanTrack', () => {
-  assert.doesNotMatch(OUT, /\.style\.translate\s*=/);
-  assert.match(HTML, /if\(kbMotionPanTrack\(\)\) return; \/\/ Rev 2\.32\.281 \(KB-25, A\): під час перемикання/);
-  assert.match(HTML, /if\(kbMotionPanTrack\(\)\) return; \/\/ Rev 2\.32\.281 \(KB-25, A\): перемикання без дотику/);
-});
-test('KB-26: випередження прокрутки iOS — у модулі; повернення в exitKbSheet і на дотик; зсув листа не пишеться поза модулем; залишок r лишає KB-25 як страховку', () => {
-  assert.match(HTML, /kbArrowPreempt\(drawerEl, target\); \/\/ Rev 2\.32\.282 \(KB-26\)/);
-  assert.equal((HTML.match(/kbPreemptRelease\(\);/g) || []).length >= 3, true, 'release: закриття, дотик (перемикання), дотик (прямий фокус)');
-  assert.match(HTML, /vvTop: kbVvTopForLift\(vv\)/);
-  assert.doesNotMatch(OUT, /\.style\.translate\s*=/);
-});
