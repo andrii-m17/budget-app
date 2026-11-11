@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.282</div>
+  <div class="version-footer">Money Tree · Rev 2.32.283</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.282';
+const APP_VERSION = '2.32.283';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14058,6 +14058,7 @@ const DEBUG_LOG_MAX_BYTES_FOR_SEND = 600000; // той самий ліміт, щ
 // жорстка вимога приватності ТЗ ("value"/"text" з полів форми сюди
 // принципово не можуть пройти, навіть якщо якийсь слухач їх передасть).
 const DEBUG_EVENT_ALLOWLIST = [
+  'scrollAfter', 'padAdded', // Rev 2.32.283 (KB-27б): arrow-preempt
   'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', // Rev 2.32.282 (KB-26): arrow-preempt
   'scrollTop', 'panShift', // Rev 2.32.279 (KB-24): switch-trace, pan-comp
   'visible', 'shown', 'tapped', 'found', 'errorCode', // Rev 2.32.278 (PUSH-2): deeplink, app-visible-sync, inbox-new-toast
@@ -14846,7 +14847,7 @@ const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
 const REC_ALLOWED_TYPES = ['arrow-preempt', 'pan-track', 'pan-settle', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
-const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll'];
+const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -29443,28 +29444,44 @@ function kbPreemptRelease(){
   const p = kbPreempt; if(!p) return;
   kbPreempt = null;
   try{ window.scrollTo(0, 0); }catch(e){}
+  if(p.pad && p.pad.parentNode) p.pad.parentNode.removeChild(p.pad); // відступ знімається разом із поверненням сторінки в тому самому кадрі
   const el = p.el;
   if(el && el.classList && el.classList.contains('drawer')){ KB_PIPE.vvtop = 0; kbMotionVar('--sheet-vvtop', '0'); }
   else if(el) el.style.translate = '';
 }
+// Rev 2.32.283 (KB-27б): звіт MT-1111-0929: на пристрої випередження не спрацювало (scrollY на +100 мс = 0 у 10 з 10) і подій arrow-preempt не було. Причина: діапазон прокрутки рахувався як scrollHeight − innerHeight = 0 → d = 0 → ранній вихід ДО запису події. На iOS з відкритою клавіатурою сторінку можна прокрутити до scrollHeight − visualViewport.height (894 − 479 = 415), тому iOS і прокручує на 112. Тепер maxScroll = scrollHeight − (клавіатура відкрита ? visualViewport.height : innerHeight); якщо після scrollTo(0, d) прокрутка менша за d, додається невидимий відступ внизу сторінки висотою kbH і scrollTo повторюється в тому самому обробнику; відступ знімається разом із поверненням сторінки (kbPreemptRelease). Подія arrow-preempt пишеться і при відмові (reason).
+function kbPageShift(){ const v = window.visualViewport; return Math.max(window.scrollY || 0, v ? v.offsetTop : 0); }
 function kbArrowPreempt(drawerEl, target){
   try{
     const vv = window.visualViewport;
     if(!IS_IOS_RUNTIME || !vv || !kbSheetActive || !drawerEl || !target) return;
     const key = viewportOrientationKey(window.innerWidth, window.innerHeight), hb = kbHMin[key];
-    if(!hb) return; // висота клавіатури ще не виміряна — не втручаємось
+    if(!hb){ captureDebugGeometry('arrow-preempt', { reason: 'no-kbh' }); return; } // висота клавіатури ще не виміряна — не втручаємось
     const C = (window.innerHeight - hb) / 2 + (kbCCorr[key] || 0);
     const fr = target.getBoundingClientRect(), cy = (fr.top + fr.bottom) / 2;
-    const maxScroll = Math.max(0, Math.max(document.documentElement.scrollHeight || 0, document.body ? document.body.scrollHeight : 0) - window.innerHeight);
-    const d = Math.max(0, Math.min(Math.round(cy - C), Math.floor(maxScroll)));
-    if(d < 2){ if(kbPreempt) kbPreemptRelease(); return; } // поле вже в центрі
-    kbPreempt = { d: d, el: drawerEl, key: key }; // до scrollTo: його події scroll мають бачити випередження
+    const kbOpen = vv.height < window.innerHeight - 100, kbH = Math.max(0, Math.round(window.innerHeight - vv.height));
+    const docH = Math.max(document.documentElement.scrollHeight || 0, document.body ? document.body.scrollHeight : 0);
+    const maxScroll = Math.max(0, docH - (kbOpen ? vv.height : window.innerHeight));
+    const want = Math.round(cy - C); let d = Math.max(0, Math.min(want, kbOpen ? Math.max(maxScroll, kbH) : maxScroll)); // відступ (нижче) розширює діапазон до kbH
+    if(d < 2){ captureDebugGeometry('arrow-preempt', { fieldCenter: Math.round(cy), centerC: Math.round(C * 10) / 10, preemptD: 0, maxScroll: Math.round(maxScroll), reason: want < 2 ? 'centered' : 'no-range' }); if(kbPreempt) kbPreemptRelease(); return; } // поле вже в центрі (або прокручувати нікуди)
+    kbPreempt = { d: d, el: drawerEl, key: key, pad: null }; // до scrollTo: його події scroll мають бачити випередження
     kbPreemptApply(d);
     window.scrollTo(0, d);
-    captureDebugGeometry('arrow-preempt', { fieldCenter: Math.round(cy), centerC: Math.round(C * 10) / 10, preemptD: d, maxScroll: Math.round(maxScroll) });
+    let after = kbPageShift(), padAdded = false;
+    if(after < d - 1 && kbOpen){
+      const pad = document.createElement('div'); pad.id = 'kb-scroll-pad'; pad.setAttribute('aria-hidden', 'true');
+      pad.style.cssText = 'height:' + kbH + 'px;width:1px;pointer-events:none;visibility:hidden;';
+      document.body.appendChild(pad); kbPreempt.pad = pad; padAdded = true;
+      window.scrollTo(0, d); after = kbPageShift();
+    }
+    if(after < d - 1){ // сторінку не вдалося прокрутити на d навіть із відступом: зсув листа відповідає лише фактичній прокрутці (інакше лист зсунувся б без прокрутки)
+      d = Math.max(0, Math.round(after)); kbPreempt.d = d; kbPreemptApply(d);
+      if(d < 2){ captureDebugGeometry('arrow-preempt', { fieldCenter: Math.round(cy), centerC: Math.round(C * 10) / 10, preemptD: 0, maxScroll: Math.round(maxScroll), scrollAfter: Math.round(after), padAdded: padAdded, reason: 'scroll-failed' }); kbPreemptRelease(); return; }
+    }
+    captureDebugGeometry('arrow-preempt', { fieldCenter: Math.round(cy), centerC: Math.round(C * 10) / 10, preemptD: d, maxScroll: Math.round(maxScroll), scrollAfter: Math.round(after), padAdded: padAdded });
     setTimeout(function(){
       if(!kbPreempt || kbPreempt.d !== d) return;
-      const v = window.visualViewport, r = Math.round(Math.max(window.scrollY || 0, v ? v.offsetTop : 0) - d);
+      const r = Math.round(kbPageShift() - d);
       if(r > 1) kbCCorr[key] = (kbCCorr[key] || 0) - r; // iOS прокрутила ще на r: справжній C на r менший
       captureDebugGeometry('arrow-preempt', { preemptD: d, iosR: r, cAfter: Math.round((((window.innerHeight - kbHMin[key]) / 2) + (kbCCorr[key] || 0)) * 10) / 10 });
     }, 250);
