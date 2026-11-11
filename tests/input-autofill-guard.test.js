@@ -44,11 +44,11 @@ test('жодного <form> довкола звичайних полів і cont
 test('JS-фабрики input: кожна текстова проходить через applyFieldGuardAttrs; службові (перемикач, час, проміжне поле, зонд) — перелічені свідомо', function(){
   const sites = []; const re = /createElement\('input'\)/g; let m;
   while((m = re.exec(SRC))) sites.push(SRC.slice(m.index, m.index + 700));
-  assert.equal(sites.length, 6);
+  assert.equal(sites.length, 7); // + ретранслятор KB-30 (службове поле, як проміжне)
   const guarded = sites.filter(s => /applyFieldGuardAttrs\(/.test(s.slice(0, 400)));
   assert.equal(guarded.length, 3, 'форма «Структури», поле «Інше» у «Перевірках» і поле часу — через фабрику');
-  const service = sites.filter(s => /type = 'checkbox'|kb-focus-proxy|probe/.test(s.slice(0, 250)));
-  assert.equal(service.length, 3);
+  const service = sites.filter(s => /type = 'checkbox'|kb-focus-proxy|probe|kb-relay-/.test(s.slice(0, 250)));
+  assert.equal(service.length, 4);
 });
 test('applyFieldGuardAttrs: name не містить тире', function(){
   assert.match(SRC, /id\.indexOf\('-'\) === -1 && forbiddenInputAttr\(id\) === null\) input\.setAttribute\('name', id\)/);

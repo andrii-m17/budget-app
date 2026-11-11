@@ -983,3 +983,59 @@ for(const [name, spacer, expectHide] of [['поле видиме, той сам�
     } finally { await ctx.close(); }
   });
 }
+
+// KB-30 (Rev 2.32.285): «невидиме проміжне поле»: стрілка iOS веде в поле-ретранслятор, яке вже стоїть у точці центрування C, тож iOS не прокручує; на focusin ретранслятора код синхронно переводить фокус у поле призначення (focus + preventScroll).
+// Емуляція iOS: після focusin без дотику через 100 мс прокрутка так, щоб центр ТОГО елемента, який iOS сфокусувала, став на C, лише якщо він нижче C.
+async function kb30Emulate(page){
+  await page.evaluate(() => {
+    const root = document.documentElement, C = window.__H0 * (1 - 0.434) / 2; window.__iosScrolls = 0; window.__iosC = C;
+    window.scrollTo = function(x, y){ y = y || 0; root.style.transform = y ? 'translateY(' + (-y) + 'px)' : ''; window.__vv.top = y; window.visualViewport.dispatchEvent(new Event('scroll')); };
+    window.__arrow = false;
+    window.addEventListener('focusin', e => {
+      if(!window.__arrow) return; window.__arrow = false; // лише фокус, який поставила iOS (стрілка); наш програмний фокус із preventScroll прокрутки не викликає
+      const fr = e.target.getBoundingClientRect(), cy0 = (fr.top + fr.bottom) / 2;
+      setTimeout(() => { const ios = cy0 - window.__vv.top; if(e.target === document.activeElement && ios > C + 1){ window.__iosScrolls++; window.scrollTo(0, window.__vv.top + (ios - C)); } }, 100); // iOS прокручує до елемента, який сфокусувала (якщо фокус уже не там — ні)
+    }, true);
+  });
+}
+const KB30_ATTRS = ['type', 'inputmode', 'enterkeyhint', 'autocomplete', 'autocorrect', 'autocapitalize', 'spellcheck'];
+test('76. KB-30: стрілка (пошта → пароль) через ретранслятор — «iOS» не прокручує, фокус у полі призначення, видиме положення ±1 пт, курсор не ховається, атрибути ретранслятора = атрибутам поля', async ({ browser }) => {
+  const { ctx, page } = await kb25Open(browser, false);
+  try{
+    await kb30Emulate(page);
+    const r = await page.evaluate(attrs => new Promise(resolve => {
+      const dr = document.getElementById('profile-drawer'), root = document.documentElement, out = []; const t0 = performance.now(); let hid = false;
+      const relay = document.getElementById('kb-relay-next'), pw = document.getElementById('cloud-password');
+      const rr = relay ? relay.getBoundingClientRect() : null;
+      const same = relay ? attrs.map(a => [a, relay.getAttribute(a) === pw.getAttribute(a)]).filter(x => !x[1]).map(x => x[0]) : ['нема ретранслятора'];
+      const relayCenterOff = rr ? Math.abs((rr.top + rr.bottom) / 2 - window.__iosC) : null;
+      const base = dr.getBoundingClientRect().bottom;
+      new MutationObserver(() => { if(root.classList.contains('kb-sheet-moving')) hid = true; }).observe(root, { attributes: true, attributeFilter: ['class'] });
+      window.__arrow = true; (relay || pw).focus(); // стрілка вниз: iOS веде в ретранслятор (а без нього — прямо в пароль)
+      const tick = () => { out.push(dr.getBoundingClientRect().bottom - base); if(performance.now() - t0 < 700) requestAnimationFrame(tick); else resolve({ maxDev: Math.max(...out.map(Math.abs)), hid, scrolls: window.__iosScrolls, active: document.activeElement.id, relay: !!relay, diff: same, relayCenterOff, hop: recBuf.filter(e => e.type === 'relay-hop').map(e => [e.dir, e.maxShift, e.centerC].join('/')).join(' ') }); };
+      requestAnimationFrame(tick);
+    }), KB30_ATTRS);
+    const info = JSON.stringify(r);
+    expect(r.relay, 'ретранслятор після поля існує: ' + info).toBe(true);
+    expect(r.scrolls, '«iOS» не прокручує: ' + info).toBe(0);
+    expect(r.active, 'фокус у полі призначення: ' + info).toBe('cloud-password');
+    expect(r.maxDev, 'видиме положення листа ±1 пт: ' + info).toBeLessThanOrEqual(1);
+    expect(r.hid, 'курсор не ховається: ' + info).toBe(false);
+    expect(r.diff, 'атрибути ретранслятора = атрибутам поля: ' + info).toEqual([]);
+    expect(r.relayCenterOff, 'центр ретранслятора на C (±1): ' + info).toBeLessThanOrEqual(1);
+  } finally { await ctx.close(); }
+});
+test('77. KB-30: на першому полі ретранслятора «назад» нема, на останньому — «далі»; після закриття форми ретрансляторів у DOM нема', async ({ browser }) => {
+  const { ctx, page } = await kb25Open(browser, false);
+  try{
+    const a = await page.evaluate(() => ({ prev: !!document.getElementById('kb-relay-prev'), next: !!document.getElementById('kb-relay-next') }));
+    expect(a, 'перше поле (пошта): лише «далі»').toEqual({ prev: false, next: true });
+    await page.evaluate(() => { document.getElementById('kb-relay-next').focus(); });
+    await page.waitForTimeout(400);
+    const b = await page.evaluate(() => ({ active: document.activeElement.id, prev: !!document.getElementById('kb-relay-prev'), next: !!document.getElementById('kb-relay-next') }));
+    expect(b, 'останнє поле (пароль): лише «назад»').toEqual({ active: 'cloud-password', prev: true, next: false });
+    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(700);
+    expect(await page.evaluate(() => document.querySelectorAll('[id^="kb-relay-"]').length), 'після закриття форми ретрансляторів у DOM нема').toBe(0);
+  } finally { await ctx.close(); }
+});
