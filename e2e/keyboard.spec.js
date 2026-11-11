@@ -1005,7 +1005,7 @@ test('76. KB-30: стрілка (пошта → пароль) через рет�
     await kb30Emulate(page);
     const r = await page.evaluate(attrs => new Promise(resolve => {
       const dr = document.getElementById('profile-drawer'), root = document.documentElement, out = []; const t0 = performance.now(); let hid = false;
-      const relay = document.getElementById('kb-relay-next'), pw = document.getElementById('cloud-password');
+      const relay = document.querySelector('[id^="kb-relay-"]'), pw = document.getElementById('cloud-password');
       const rr = relay ? relay.getBoundingClientRect() : null;
       const same = relay ? attrs.map(a => [a, relay.getAttribute(a) === pw.getAttribute(a)]).filter(x => !x[1]).map(x => x[0]) : ['нема ретранслятора'];
       const relayCenterOff = rr ? Math.abs((rr.top + rr.bottom) / 2 - window.__iosC) : null;
@@ -1025,17 +1025,47 @@ test('76. KB-30: стрілка (пошта → пароль) через рет�
     expect(r.relayCenterOff, 'центр ретранслятора на C (±1): ' + info).toBeLessThanOrEqual(1);
   } finally { await ctx.close(); }
 });
-test('77. KB-30: на першому полі ретранслятора «назад» нема, на останньому — «далі»; після закриття форми ретрансляторів у DOM нема', async ({ browser }) => {
+test('77. KB-31: після закриття форми ретрансляторів у DOM нема; закриття клавіатури при відкритій формі їх НЕ прибирає (не перевставляються)', async ({ browser }) => {
   const { ctx, page } = await kb25Open(browser, false);
   try{
-    const a = await page.evaluate(() => ({ prev: !!document.getElementById('kb-relay-prev'), next: !!document.getElementById('kb-relay-next') }));
-    expect(a, 'перше поле (пошта): лише «далі»').toEqual({ prev: false, next: true });
-    await page.evaluate(() => { document.getElementById('kb-relay-next').focus(); });
-    await page.waitForTimeout(400);
-    const b = await page.evaluate(() => ({ active: document.activeElement.id, prev: !!document.getElementById('kb-relay-prev'), next: !!document.getElementById('kb-relay-next') }));
-    expect(b, 'останнє поле (пароль): лише «назад»').toEqual({ active: 'cloud-password', prev: true, next: false });
+    const before = await page.evaluate(() => { const r = document.querySelector('[id^="kb-relay-"]'); window.__relayRef = r; return !!r; });
+    expect(before).toBe(true);
+    await page.evaluate(() => { document.getElementById('cloud-password').focus(); });
+    await page.waitForTimeout(300);
     await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
     await page.waitForTimeout(700);
-    expect(await page.evaluate(() => document.querySelectorAll('[id^="kb-relay-"]').length), 'після закриття форми ретрансляторів у DOM нема').toBe(0);
+    expect(await page.evaluate(() => document.querySelector('[id^="kb-relay-"]') === window.__relayRef && window.__relayRef.isConnected), 'той самий ретранслятор у DOM після закриття клавіатури').toBe(true);
+    await page.evaluate(() => { document.getElementById('profile-drawer').classList.remove('open'); });
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => document.querySelectorAll('[id^="kb-relay-"]').length), 'після закриття форми ретрансляторів нема').toBe(0);
+  } finally { await ctx.close(); }
+});
+test('78. KB-31: ретранслятори є в DOM ДО першого фокуса між кожною парою сусідніх текстових полів; «видимі» для iOS (opacity 0.01, без aria-hidden), не ловлять дотики', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    for(const [name, openFn, sel] of [['вхід', () => { showProfileLoginForm(); }, '#profile-drawer'], ['картка боргу', () => { switchTab('accounting'); openCardDebtEditor(0); }, '#card-debt-drawer']]){
+      await page.evaluate(fn => { window.__vv.h = null; window.__vv.top = 0; (new Function('return ' + fn))()(); }, openFn.toString());
+      await page.waitForTimeout(900);
+      const r = await page.evaluate(sel => {
+        const d = document.querySelector(sel), isText = e => e.tagName === 'TEXTAREA' || (e.tagName === 'INPUT' && /^(text|tel|number|email|password|search)$/.test((e.type || 'text').toLowerCase()));
+        const all = Array.from(d.querySelectorAll('input, textarea, select')).filter(e => !/^kb-relay-/.test(e.id) && e.id !== 'kb-focus-proxy' && e.type !== 'hidden' && !e.disabled && e.getAttribute('tabindex') !== '-1' && e.getClientRects().length > 0);
+        const relays = Array.from(d.querySelectorAll('[id^="kb-relay-"]'));
+        let pairs = 0, ok = 0;
+        for(let i = 0; i + 1 < all.length; i++){
+          if(!isText(all[i]) || !isText(all[i + 1])) continue; pairs++;
+          const between = relays.filter(x => (all[i].compareDocumentPosition(x) & 4) && (x.compareDocumentPosition(all[i + 1]) & 4));
+          if(between.length === 1) ok++;
+        }
+        const cs = relays.map(x => ({ op: getComputedStyle(x).opacity, aria: x.getAttribute('aria-hidden'), pe: getComputedStyle(x).pointerEvents, caret: getComputedStyle(x).caretColor }));
+        return { fields: all.length, pairs, ok, relays: relays.length, cs };
+      }, sel);
+      const info = name + ': ' + JSON.stringify(r);
+      expect(r.pairs, 'є пари текстових полів: ' + info).toBeGreaterThan(0);
+      expect(r.ok, 'між кожною парою рівно один ретранслятор до першого фокуса: ' + info).toBe(r.pairs);
+      expect(r.relays, 'зайвих ретрансляторів нема: ' + info).toBe(r.pairs);
+      r.cs.forEach(c => { expect(c.op, info).toBe('0.01'); expect(c.aria, info).toBeNull(); expect(c.pe, info).toBe('none'); });
+      await page.evaluate(sel => { document.querySelector(sel).classList.remove('open'); document.querySelectorAll('.drawer-backdrop.open').forEach(b => b.classList.remove('open')); }, sel);
+      await page.waitForTimeout(300);
+    }
   } finally { await ctx.close(); }
 });
