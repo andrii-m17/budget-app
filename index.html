@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.287</div>
+  <div class="version-footer">Money Tree · Rev 2.32.288</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.287';
+const APP_VERSION = '2.32.288';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14058,6 +14058,7 @@ const DEBUG_LOG_MAX_BYTES_FOR_SEND = 600000; // той самий ліміт, щ
 // жорстка вимога приватності ТЗ ("value"/"text" з полів форми сюди
 // принципово не можуть пройти, навіть якщо якийсь слухач їх передасть).
 const DEBUG_EVENT_ALLOWLIST = [
+  'during', // Rev 2.32.288 (KB-33): pan-comp
   'scrollTop', 'panShift', // Rev 2.32.279 (KB-24): switch-trace, pan-comp
   'visible', 'shown', 'tapped', 'found', 'errorCode', // Rev 2.32.278 (PUSH-2): deeplink, app-visible-sync, inbox-new-toast
   'diffTable', 'diffCount', 'diffReason', // Rev 2.32.192 (SHADOW-REV): rev-diff
@@ -14845,7 +14846,7 @@ const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
 const REC_ALLOWED_TYPES = ['enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
-const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters'];
+const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -28598,6 +28599,12 @@ function planCaretRestore(o){
   return !!o && (o.transitionEnded === true || (o.elapsedMs || 0) >= 320);
 }
 let kbMovingGen = 0;
+// Rev 2.32.288 (KB-33, B): звіт MT-1111-0911: при зміні типу клавіатури курсор був видно ~170 мс до vv-події: iOS малює курсор одразу при фокусі, тож клас ховання ставиться ДО виклику focus() (дотик-перемикання, Enter «Далі») і далі ним керує beginSheetMoving із focusin; якщо за 600 мс focusin не дійшов — клас знімається.
+function kbPreHideCaret(){
+  const g = kbMovingGen;
+  document.documentElement.classList.add('kb-sheet-moving');
+  setTimeout(function(){ if(kbMovingGen === g) document.documentElement.classList.remove('kb-sheet-moving'); }, 600);
+}
 function beginSheetMoving(drawerEl, phase, fromField, toField){
   if(!drawerEl) return;
   const gen = ++kbMovingGen;
@@ -29432,7 +29439,7 @@ function kbStartFieldScroll(drawerEl, field){
 function kbMotionPan(shift){
   if(!kbSheetActive || !kbSheetDrawerEl) return;
   kbSetLift(kbSheetCurrentLift, shift);
-  captureDebugGeometry('pan-comp', { drawerId: kbSheetLabel(kbSheetDrawerEl), panShift: Math.round(shift) });
+  captureDebugGeometry('pan-comp', { drawerId: kbSheetLabel(kbSheetDrawerEl), panShift: Math.round(shift), during: kbLiftActive }); // Rev 2.32.288 (KB-33, D): during — зсув прийшов, поки триває рух
 }
 function kbMotionVar(name, value){ document.documentElement.style.setProperty(name, value); } // єдина точка запису змінних руху для коду поза модулем
 window.kbMotionReveal = function(el){ if(kbSheetActive && kbSheetDrawerEl && el) kbStartFieldScroll(kbSheetDrawerEl, el); }; // для глобального коду: показати поле, не чіпаючи scrollTop самому
@@ -29465,6 +29472,7 @@ function kbPipeAnimate(){
   const vv = window.visualViewport; if(!vv || !kbSheetDrawerEl) return;
   if(KB_PIPE.timer){ clearTimeout(KB_PIPE.timer); KB_PIPE.timer = null; }
   KB_PIPE.state = 'animating';
+  KB_LIVE.stableH = vv.height; // Rev 2.32.288 (KB-33)
   const L = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: 8 });
   kbSheetCurrentLift = L;
   kbSetLift(L);
@@ -29483,8 +29491,8 @@ function kbPipeFollow(){
     if(kbPipeOpenNow()){ KB_PIPE.state = kbPipeStep(st, 'resize', true).state; kbPipeTryAnimate(); }
     return;
   }
-  if(!kbSheetSplit){ scheduleLiveSheetLift(); return; }
-  applyLiveSheetLift(); // підйом без vvTop
+  if(!kbSheetSplit){ if(!kbHDebounce()) scheduleLiveSheetLift(); return; }
+  if(!kbHDebounce()) applyLiveSheetLift(); // підйом без vvTop
   const top = Math.round(vv.offsetTop * 10) / 10;
   if(!IS_IOS_RUNTIME){ KB_PIPE.vvtop = top; document.documentElement.style.setProperty('--sheet-vvtop', String(top)); return; }
   if(KB_LIVE.timer){ clearTimeout(KB_LIVE.timer); }
@@ -29601,13 +29609,24 @@ function updateKbSheetGeometry(){
 // requestAnimationFrame і фіксуємо подію 'pan-corrected' у рекордер — мета
 // (критерій G ревізії) 0 таких подій у живому логу.
 // Rev 2.32.239 (KB-UNIFIED): живий підйом. Раз на кадр (rAF) перераховуємо lift за visualViewport (offsetTop + height). Поки offsetTop змінюється (iOS оновлює його із запізненням, Android прокручує видиму область за ≈ 0,2 с), чекаємо «осідання» ≈ 120 мс після останньої зміни, щоб лист не смикався; стабільні значення застосовуються одразу.
-const KB_LIVE = { raf: 0, timer: null, lastTop: null }; // стан живого підйому
+const KB_LIVE = { raf: 0, timer: null, lastTop: null, stableH: null, dbTimer: null, kindUntil: 0 }; // стан живого підйому
+// Rev 2.32.288 (KB-33, A): звіт MT-1111-0911: vvH 479 → 506 → 479 за 25–70 мс (iOS на мить змінює висоту) рухав форму на 4–17 пт. Зміна висоти, що повертається до попереднього стабільного значення (±2) протягом 120 мс, не рухає форму: рух лише після 120 мс стабільності або для зміни, що не повернулась. Не діє: відкриття (конвеєр ще не settled), закриття (клавіатура не відкрита — сюди не доходить), триваючий рух (kbLiftActive: нова нога замінює стару, KB-20) і зміна типу клавіатури (KB_LIVE.kindUntil: висота справді міняється).
+function kbHDebounce(){
+  const vv = window.visualViewport; if(!vv) return false;
+  const h = vv.height;
+  if(KB_PIPE.state !== 'settled' || kbLiftActive || performance.now() < KB_LIVE.kindUntil || KB_LIVE.stableH == null){ if(KB_LIVE.stableH == null) KB_LIVE.stableH = h; if(KB_LIVE.dbTimer){ clearTimeout(KB_LIVE.dbTimer); KB_LIVE.dbTimer = null; } return false; }
+  if(Math.abs(h - KB_LIVE.stableH) <= 2){ if(KB_LIVE.dbTimer){ clearTimeout(KB_LIVE.dbTimer); KB_LIVE.dbTimer = null; } return true; } // повернулась до стабільного значення — без руху
+  if(KB_LIVE.dbTimer) clearTimeout(KB_LIVE.dbTimer);
+  KB_LIVE.dbTimer = setTimeout(function(){ KB_LIVE.dbTimer = null; if(kbSheetActive && window.visualViewport && Math.abs(window.visualViewport.height - KB_LIVE.stableH) > 2) applyLiveSheetLift(); }, KB_LIFT_SETTLE_MS);
+  return true;
+}
 const KB_LIFT_SETTLE_MS = 120;
 function applyLiveSheetLift(){
   KB_LIVE.raf = 0;
   if(!kbSheetActive || !window.visualViewport) return;
   const vv = window.visualViewport, baseVh = getBaseViewportHeight();
   if(!isKeyboardOpen(baseVh, vv.height)) return;
+  KB_LIVE.stableH = vv.height; // Rev 2.32.288 (KB-33): це значення прийнято як стабільне
   // Rev 2.32.270 (KB-16, A): після втрати фокуса (activeElement = body) клавіатура зникає й iOS шле проміжні кадри visualViewport; рухом «при зміні висоти» (KB-15) на них відповідати не можна: за мить стартує закриття, і виходило два рухи (close + resize, звіт MT-1108-9004). Закриття веде exitKbSheet.
   if(document.activeElement && document.activeElement === document.body) return;
   const live = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: 8 });
@@ -29694,6 +29713,7 @@ function exitKbSheet(removeKbOpen){
   kbSheetNaturalHeight = null;
   kbSheetLiftDirty = false;
   kbLastFocusedField = null;
+  KB_LIVE.stableH = null; if(KB_LIVE.dbTimer){ clearTimeout(KB_LIVE.dbTimer); KB_LIVE.dbTimer = null; }
   const finishExit = function(){
     // Rev 2.23.14 (6D.183) — гард: якщо за ці ≤320мс уже відкрилась НОВА
     // шторка (швидкий повторний тап), цей "хвіст" закриття не повинен
@@ -29830,6 +29850,7 @@ function kbEnterKey(e){
     const next = kbNextField(t), host = t.closest('.drawer, .app-modal');
     if(!next){ return; }
     e.preventDefault();
+    if(keyboardKindForField(next) !== keyboardKindForField(t)) kbPreHideCaret(); // Rev 2.32.288 (KB-33, B)
     kbEnterHop = true;
     try{ focusWithoutScrollIfSupported(next, host ? host.id : null); }finally{ kbEnterHop = false; }
   }else if(mark === 'done'){ e.preventDefault(); try{ t.blur(); }catch(err){} }
@@ -29904,6 +29925,7 @@ function handleKeyboardFieldFocusIn(target){
         }
         kbSheetCacheKind = kbCacheKindForField(target); // Rev 2.32.240: підйом доведе живий visualViewport
         kbSheetLiftDirty = true;
+        KB_LIVE.kindUntil = performance.now() + 800; // Rev 2.32.288 (KB-33): зміна типу — висота справді міняється, гейт стабільності не діє
         beginSheetMoving(drawerEl, 'switch', fromField, target);
       }else if(via !== 'tap' && via !== 'flow'){
         // Rev 2.32.281 (KB-25, C): звіт MT-1111-6091: курсор мав ховатись лише коли очікується рух. Тип клавіатури не змінився: рух є лише якщо поле не повністю видиме (одна прокрутка до нього); тоді курсор ховається на час прокрутки, інакше курсор не чіпаємо.
@@ -30048,13 +30070,13 @@ document.addEventListener('touchend', function(e){
       // системніша крива) стартує ОДРАЗУ на тапі — --sheet-lift перераховує
       // handleKeyboardFieldFocusIn() синхронно з кешу/оцінки нового типу.
       const kindChanges = !!kbSheetFieldKind && kbKindOf(target) !== kbSheetFieldKind;
-      if(kindChanges) document.documentElement.classList.add('kb-sheet-switching');
+      if(kindChanges){ document.documentElement.classList.add('kb-sheet-switching'); kbPreHideCaret(); }
       kbSwitchKind = 'tap';
       kbLastInterceptAt = Date.now();
       focusWithoutScrollIfSupported(target, drawerEl.id);
       kbSwitchKind = null;
       if(kindChanges){
-        startSheetAnimSampler(drawerEl, 'switch', null, function(){ document.documentElement.classList.remove('kb-sheet-switching'); });
+        setTimeout(function(){ document.documentElement.classList.remove('kb-sheet-switching'); }, 320); // Rev 2.32.288 (KB-33, C): окремий 'switch'-самплер прибрано: рух один (підйом за vv-подією), його записує один sheet-anim resize
       }
       if(viaLabel) captureDebugGeometry('intercept-via-label', { labelFor: target.id || null, switchKind: 'tap', drawerId: kbSheetLabel(drawerEl) });
       captureDebugGeometry('switch-intercept', { from: active ? (active.id || null) : null, to: target.id || null, ms: Math.round(performance.now() - t0), switchKind: 'tap', drawerId: kbSheetLabel(drawerEl) });

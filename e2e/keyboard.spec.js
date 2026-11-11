@@ -1032,3 +1032,83 @@ test('80. KB-32: Return «Далі» — enterkeyhint=next на пошті; Ente
     expect(await page.evaluate(() => document.activeElement.id), 'на паролі Enter не міняє фокус').toBe('cloud-password');
   } finally { await ctx.close(); }
 });
+
+// KB-33 (Rev 2.32.288), звіт MT-1111-0911 (2.32.287): A — коливання vvH 479 → 506 → 479 за 25–70 мс рухало форму (4–17 пт); B — при зміні типу клавіатури (дотик назва → сума) курсор був видно ~170 мс до vv-події; C — на одне перемикання дві анімації (resize і switch); D — pan-comp під час руху при швидкому перемиканні.
+test('81. KB-33/A: коливання vvH 479 → 506 → 479 за 40 мс не рухає форму (0 пт, 0 sheet-anim)', async ({ browser }) => {
+  const { ctx, page } = await kb25Open(browser, false);
+  try{
+    const r = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('profile-drawer'), out = []; const t0 = performance.now(); const base = dr.getBoundingClientRect().bottom; const n0 = recBuf.filter(e => e.type === 'sheet-anim').length;
+      const set = k => { window.__vv.h = window.__H0 - Math.round(window.__H0 * k); window.visualViewport.dispatchEvent(new Event('resize')); };
+      set(0.434); setTimeout(() => set(0.465), 40);
+      const tick = () => { out.push([Math.round(performance.now() - t0), dr.getBoundingClientRect().bottom - base, dr.getAnimations().filter(a => a.playState === 'running').length]); if(performance.now() - t0 < 700) requestAnimationFrame(tick); else resolve({ maxDev: Math.max(...out.map(x => Math.abs(x[1]))), maxRun: Math.max(...out.map(x => x[2])), anims: recBuf.filter(e => e.type === 'sheet-anim').length - n0 }); };
+      requestAnimationFrame(tick);
+    }));
+    const info = JSON.stringify(r);
+    expect(r.maxDev, 'форма не рухається: ' + info).toBeLessThanOrEqual(0.5);
+    expect(r.maxRun, 'жодної анімації: ' + info).toBe(0);
+    expect(r.anims, 'жодного sheet-anim: ' + info).toBe(0);
+  } finally { await ctx.close(); }
+});
+async function kb33Account(browser){
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
+  await page.waitForTimeout(700);
+  const bb = await page.locator('#app-modal-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+  await page.waitForTimeout(150);
+  await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
+  await page.waitForTimeout(800);
+  return { ctx, page };
+}
+test('82. KB-33/B: дотик назва → сума (зміна типу клавіатури) — курсор прихований уже на focusin, до vv-події', async ({ browser }) => {
+  const { ctx, page } = await kb33Account(browser);
+  try{
+    await page.evaluate(() => { window.__hidAtFocusin = null; window.addEventListener('focusin', e => { if(e.target.id === 'app-modal-amount-input') window.__hidAtFocusin = document.documentElement.classList.contains('kb-sheet-moving'); }, true); });
+    const bb = await page.locator('#app-modal-amount-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(170); // vv-подія приходить лише через ~170 мс
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.434); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    const r = await page.evaluate(() => ({ hid: window.__hidAtFocusin, moving: document.documentElement.classList.contains('kb-sheet-moving'), active: document.activeElement.id }));
+    expect(r.hid, 'курсор прихований з focusin: ' + JSON.stringify(r)).toBe(true);
+    expect(r.moving, 'після руху курсор показано: ' + JSON.stringify(r)).toBe(false);
+  } finally { await ctx.close(); }
+});
+test('83. KB-33/C: дотик сума → назва — одна анімація положення і один sheet-anim на перемикання', async ({ browser }) => {
+  const { ctx, page } = await kb33Account(browser);
+  try{
+    let bb = await page.locator('#app-modal-amount-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.434); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    bb = await page.locator('#app-modal-input').boundingBox();
+    const sampler = page.evaluate(() => new Promise(resolve => {
+      const m = document.getElementById('app-modal'), out = []; const t0 = performance.now(); window.__n0 = recBuf.filter(e => e.type === 'sheet-anim').length;
+      const tick = () => { out.push(m.getAnimations().filter(a => a.playState === 'running').length); if(performance.now() - t0 < 1100) requestAnimationFrame(tick); else resolve({ maxRun: Math.max(...out), phases: recBuf.filter(e => e.type === 'sheet-anim').map(e => e.phase).slice(window.__n0) }); };
+      requestAnimationFrame(tick);
+    }));
+    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(170);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
+    const r = await sampler; const info = JSON.stringify(r);
+    expect(r.maxRun, 'рівно одна анімація положення: ' + info).toBeLessThanOrEqual(1);
+    expect(r.phases.length, 'один sheet-anim на перемикання: ' + info).toBeLessThanOrEqual(1);
+  } finally { await ctx.close(); }
+});
+test('84. KB-33/D: швидке перемикання назва → сума → назва посеред руху — одна анімація, pan-comp не з’являється', async ({ browser }) => {
+  const { ctx, page } = await kb33Account(browser);
+  try{
+    const sampler = page.evaluate(() => new Promise(resolve => {
+      const m = document.getElementById('app-modal'), out = []; const t0 = performance.now(); window.__p0 = recBuf.filter(e => e.type === 'pan-comp').length;
+      const tick = () => { out.push(m.getAnimations().filter(a => a.playState === 'running').length); if(performance.now() - t0 < 1400) requestAnimationFrame(tick); else resolve({ maxRun: Math.max(...out), pan: recBuf.filter(e => e.type === 'pan-comp').length - window.__p0 }); };
+      requestAnimationFrame(tick);
+    }));
+    let bb = await page.locator('#app-modal-amount-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.434); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(90);
+    bb = await page.locator('#app-modal-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
+    const r = await sampler; const info = JSON.stringify(r);
+    expect(r.maxRun, 'одна анімація (нова нога замінює стару): ' + info).toBeLessThanOrEqual(1);
+    expect(r.pan, 'pan-comp не з’являється: ' + info).toBe(0);
+  } finally { await ctx.close(); }
+});
