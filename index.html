@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.288</div>
+  <div class="version-footer">Money Tree · Rev 2.32.289</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.288';
+const APP_VERSION = '2.32.289';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14845,8 +14845,8 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
-const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during'];
+const REC_ALLOWED_TYPES = ['autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
+const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -29233,6 +29233,7 @@ function enterKbSheet(drawerEl, fieldEl){
     document.documentElement.classList.add('kb-pipe');
     document.documentElement.style.setProperty('--sheet-vvtop', '0');
     kbPipeEnter(drawerEl, fieldEl, naturalHeight);
+    kbPipeEarlyStart(drawerEl, fieldEl, vvEstimate, naturalHeight); // Rev 2.32.289 (KB-35, B)
   }else{
     startSheetAnimSampler(drawerEl, 'open', naturalHeight);
     beginSheetMoving(drawerEl, 'open', null, fieldEl);
@@ -29252,6 +29253,31 @@ function kbPipeEnter(drawerEl, fieldEl, naturalHeight){
   KB_PIPE.state = r.state;
   KB_PIPE.timer = setTimeout(function(){ KB_PIPE.timer = null; KB_PIPE.state = kbPipeStep(KB_PIPE.state, 'timeout').state; }, KB_PIPE_WAIT_MS);
   if(r.animate) kbPipeTryAnimate();
+}
+// Rev 2.32.289 (KB-35, B): звіт MT-1111-6902: підйом стартував від kb-vv-resize (+65–92 мс після дотику), а iOS до того часу вже вирішувала прокрутку (pan-comp на +103 мс), бо поле було під клавіатурою. Тепер при ПРЯМОМУ дотику (iPhone, не допоміжне поле) підйом стартує синхронно в момент фокуса з ціллю за ОЧІКУВАНОЮ висотою клавіатури для типу поля: остання виміряна в сесії/орієнтації (кеш і localStorage), інакше типова за коефіцієнтом (текст 0,465·baseVh ≈ 415, цифри 0,435 ≈ 389, пароль як текст). Очікувана висота — лише СТАРТОВА ціль; коли приходить kb-vv-resize, ціль уточнюється плавно (нова нога з поточною швидкістю, KB-20). Якщо клавіатура не з'явилась за 600 мс — форма плавно повертається. Перевірка планувальника: kbPipe 'animating' + KB_LIVE.kindUntil вимикає гейт стабільності (KB-33) на цей час.
+function kbPipeEarlyStart(drawerEl, fieldEl, vvEstimate, naturalHeight){
+  try{
+    if(window.__kbNoEarly) return; // лише для E2E-тестів законів руху за vv-подією (44, 45, 50, 52, 56, 59): вони перевіряють рух від kb-vv-resize
+    if(!IS_IOS_RUNTIME || kbProxyActive || Date.now() - kbLastInterceptAt > 400) return; // kbLastInterceptAt ставить лише touchend-перехоплення (iPhone)
+    if(KB_PIPE.state !== 'measuring' || kbPipeOpenNow()) return; // клавіатура вже з'явилась — звичайний шлях
+    const L = computeSheetLift({ innerH: window.innerHeight, vvH: vvEstimate, vvTop: 0, restBottom: kbEffectiveRestBottom(vvEstimate), gap: 8 });
+    if(!(L > 1)) return;
+    KB_PIPE.early = true; KB_PIPE.state = 'animating'; KB_LIVE.stableH = vvEstimate; KB_LIVE.kindUntil = performance.now() + 800;
+    if(KB_PIPE.timer){ clearTimeout(KB_PIPE.timer); KB_PIPE.timer = null; }
+    kbSheetCurrentLift = L;
+    kbSetLift(L);
+    startSheetAnimSampler(drawerEl, 'open', naturalHeight);
+    { const af = document.activeElement; kbStartFieldScroll(drawerEl, (af && af !== document.body && isKeyboardField(af)) ? af : fieldEl); }
+    beginSheetMoving(drawerEl, 'open', null, fieldEl);
+    if(KB_PIPE.doneTimer) clearTimeout(KB_PIPE.doneTimer);
+    KB_PIPE.doneTimer = setTimeout(function(){ KB_PIPE.doneTimer = null; if(KB_PIPE.state === 'animating') KB_PIPE.state = kbPipeStep(KB_PIPE.state, 'done').state; kbEnsureFieldVisible(kbSheetDrawerEl, document.activeElement); }, 340);
+    const gen = kbSheetGen;
+    setTimeout(function(){ // клавіатура не з'явилась: плавно повернути форму й дозволити звичайний шлях
+      if(!kbSheetActive || kbSheetGen !== gen || !KB_PIPE.early || kbPipeOpenNow()) { KB_PIPE.early = false; return; }
+      KB_PIPE.early = false; KB_PIPE.state = 'waiting';
+      kbSheetCurrentLift = 0; kbSetLift(0);
+    }, 600);
+  }catch(e){}
 }
 function kbPipeTryAnimate(){
   if(!kbSheetActive || !kbSheetNewF) return;
@@ -29650,12 +29676,13 @@ function scheduleLiveSheetLift(){
   if(unstable){ KB_LIVE.timer = setTimeout(function(){ KB_LIVE.timer = null; applyLiveSheetLift(); }, KB_LIFT_SETTLE_MS); return; }
   if(!KB_LIVE.raf){ KB_LIVE.raf = 1; requestAnimationFrame(applyLiveSheetLift); } // applyLiveSheetLift скидає KB_LIVE.raf
 }
+let kbPanPending = false;
 function correctPanIfNeeded(){
   if(!window.visualViewport) return;
   if(window.scrollY !== 0 || window.visualViewport.offsetTop !== 0){
     // Rev 2.32.279 (KB-24, C): звіт MT-1110-8421: зсув сторінки iOS (offsetTop 361) посеред відкриття; після scrollTo(0,0) лист видимо стрибав на 365 пт. FLIP: у тому ж кадрі, де сторінка повертається, до положення листа додається компенсація на величину зсуву (kbMotionPan), і рух продовжується до цілі з колишнього видимого положення. Лише iOS (на Android зсув видимої області йде окремою складовою --sheet-vvtop).
     const panShift = Math.max(window.scrollY || 0, window.visualViewport.offsetTop || 0);
-    requestAnimationFrame(function(){ window.scrollTo(0, 0); if(IS_IOS_RUNTIME && panShift > 1) kbMotionPan(panShift); });
+    if(!kbPanPending){ kbPanPending = true; requestAnimationFrame(function(){ kbPanPending = false; window.scrollTo(0, 0); if(IS_IOS_RUNTIME && panShift > 1) kbMotionPan(panShift); }); } // Rev 2.32.289 (KB-35, C): один зсув — одна компенсація (resize і scroll в одному кадрі давали два виклики)
     // Rev 2.23.15 (6D.184) — pan поруч із ПЕРЕМИКАННЯМ між полями: нативний
     // (стрілки/«Далі») — окрема подія switch-native (не губиться серед
     // pan-corrected); pan після НАШОГО перехопленого тапу лишається
@@ -29783,12 +29810,33 @@ function exitKbSheet(removeKbOpen){
   captureDebugGeometry('sheet-close', { drawerId: drawerId });
 }
 // Rev 2.32.279 (KB-24, D): звіт MT-1110-8421: перемикання стрілками клавіатури iOS (без дотику) — Андрій бачить скачок, а в записі нічого нема. На кожен focusin без дотику: vvOffsetTop, scrollY, scrollTop листа й положення листа одразу і через 100, 250, 400 мс (подія switch-trace).
+// Rev 2.32.289 (KB-35, A): звіт MT-1111-6902: автозаповнення паролів iOS заповнює поля по черзі без дотику й Enter (focusin без дотику ×2, далі focusout і закриття клавіатури) — це не стрілки. Серія focusin без дотику й без нашого Enter, що супроводжується input з inputType insertReplacementText (або без inputType) чи станом :-webkit-autofill (вікно ~400 мс), позначається як автозаповнення: подія autofill (кількість полів, тривалість; без значень), без arrow-direct; форма не рухається й курсор не ховається (перемикання однотипне; зміна типу тут не очікується), закриття клавіатури — звичайна анімація.
+let kbAutofillEvidenceAt = -1e9, kbAutofillGroup = null;
+function kbAutofillEvidence(e){
+  try{
+    const el = e.target;
+    if(e.inputType === 'insertReplacementText' || !e.inputType || (el && el.matches && el.matches(':-webkit-autofill'))) kbAutofillEvidenceAt = performance.now();
+  }catch(err){}
+}
+document.addEventListener('input', kbAutofillEvidence, true);
+function kbArrowCandidate(fromId, toId){
+  const t0 = performance.now();
+  setTimeout(function(){
+    const auto = kbAutofillEvidenceAt >= t0 - 150 && kbAutofillEvidenceAt <= t0 + 400;
+    if(!auto){ captureDebugGeometry('arrow-direct', { from: fromId, to: toId }); return; }
+    if(!kbAutofillGroup) kbAutofillGroup = { start: t0, ids: {}, timer: null };
+    const g = kbAutofillGroup; g.ids[fromId || '-'] = 1; g.ids[toId || '-'] = 1;
+    if(g.timer) clearTimeout(g.timer);
+    g.timer = setTimeout(function(){ kbAutofillGroup = null; captureDebugGeometry('autofill', { fields: Object.keys(g.ids).filter(function(k){ return k !== '-'; }).length, ms: Math.round(performance.now() - g.start) }); }, 450);
+  }, 400);
+}
 function kbTraceSwitchIfNoTouch(drawerEl, target, via){
   try{
     if(via === 'tap' || via === 'flow') return;
     if(kbLastTap && Date.now() - kbLastTap.endAt < 600) return;
     const toId = target && target.id || null;
-    captureDebugGeometry(kbEnterHop ? 'enter-next' : 'arrow-direct', { from: kbLastFocusedField ? (kbLastFocusedField.id || null) : null, to: toId }); // Rev 2.32.287 (KB-32): перехід без дотику: через наш Enter (enter-next) або стрілкою iOS (arrow-direct, очікуємо 0)
+    if(kbEnterHop) captureDebugGeometry('enter-next', { from: kbLastFocusedField ? (kbLastFocusedField.id || null) : null, to: toId }); // Rev 2.32.287 (KB-32)
+    else kbArrowCandidate(kbLastFocusedField ? (kbLastFocusedField.id || null) : null, toId); // Rev 2.32.289 (KB-35, A): arrow-direct чи автозаповнення — вирішується через 400 мс
     const snap = function(ms){
       const vv = window.visualViewport;
       captureDebugGeometry('switch-trace', { to: toId, ms: ms, vvOffsetTop: vv ? Math.round(vv.offsetTop) : null, scrollY: Math.round(window.scrollY || 0), scrollTop: Math.round(drawerEl.scrollTop || 0), sheetBottom: Math.round(drawerEl.getBoundingClientRect().bottom), drawerId: kbSheetLabel(drawerEl) });

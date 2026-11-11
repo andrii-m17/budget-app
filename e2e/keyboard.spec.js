@@ -235,6 +235,7 @@ test('43. KB-10: лист із прикріпленими кнопками — �
 // Тест на справжній розмітці WebKit: від початку підйому листа (visualViewport.resize) семплуємо scrollTop і клас kb-sheet-moving (курсор прихований) щокадру.
 test('44. KB-11: прокрутка до поля йде разом із підйомом листа (старт ≤ 70 мс, крок ≤ 20 пт, кінець разом з анімацією), курсор прихований до кінця всього руху', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+    await page.evaluate(() => { window.__kbNoEarly = true; }); // KB-35: тест закону руху від kb-vv-resize (ранній підйом з дотику вимкнено)
   try{
     await page.evaluate(async () => { window.__vv.h = null; window.__vv.top = 0; await openMonoInbox(); monoInbox.rows = [{ id: 'sim1', status: 'new', tx_time: new Date().toISOString(), amount_uah: 120, description: 'Тест', suggested_category: '', suggested_subcategory: '', mono_account_id: 'x' }]; openMonoDetail('sim1'); });
     await page.waitForTimeout(900);
@@ -288,6 +289,7 @@ function kb12Metrics(s){
 }
 async function kb12Prepare(browser){
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  await page.evaluate(() => { window.__kbNoEarly = true; }); // KB-35: закон руху від kb-vv-resize
   await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openCardDebtEditor(0); });
   await page.waitForTimeout(900);
   await page.evaluate(() => { document.querySelector('#cdd-balance').scrollIntoView({ block: 'nearest' }); });
@@ -419,6 +421,7 @@ for(const [name, openFn, sel, fld] of [
 ]){
   test('50. KB-14/B: ' + name + ' — висота листа з клавіатурою не змінюється, коли лист вміщується, і повертається після закриття', async ({ browser }) => {
     const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+    await page.evaluate(() => { window.__kbNoEarly = true; }); // KB-35: тест закону руху від kb-vv-resize (ранній підйом з дотику вимкнено)
     try{
       await page.evaluate(fn => { window.__vv.h = null; window.__vv.top = 0; return (new Function('return ' + fn))()(); }, openFn.toString());
       await page.waitForTimeout(1000);
@@ -506,6 +509,7 @@ test('52. KB-15/A: зміна висоти клавіатури при відк�
 // Тест: два поля одного листа з тим самим типом клавіатури, відкрита клавіатура, нативне перемикання (field.focus()): послідовність фокусу — лише нове поле, без kb-focus-proxy; клавіатурний режим не знімається.
 test('53. KB-15/B: перемикання між полями листа (той самий тип клавіатури) — прямий фокус, без допоміжного поля, клавіатура не закривається', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+    await page.evaluate(() => { window.__kbNoEarly = true; }); // KB-35: тест закону руху від kb-vv-resize (ранній підйом з дотику вимкнено)
   try{
     await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
     await page.waitForTimeout(900);
@@ -582,6 +586,7 @@ test('55. KB-16/A: закриття — один рух: проміжні кад
 for(const lateMs of [33, 39]){ // KB-22: затримки зі звітів (33–39 мс); 50 мс — на межі, де стара нога сама встигає пройти нову ціль до уточнення (фізичний перельот 1–5 пт залежить від джиттеру таймера)
   test('56. KB-16/B: «Додати ОЧ», поле суми, клавіатура 415 → 388 із запізненням ' + lateMs + ' мс — без перельоту, зворотний крок ≤ 0,5 пт', async ({ browser }) => {
     const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+    await page.evaluate(() => { window.__kbNoEarly = true; }); // KB-35: тест закону руху від kb-vv-resize (ранній підйом з дотику вимкнено)
     try{
       await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
       await page.waitForTimeout(500);
@@ -659,6 +664,7 @@ test('58. KB-17: caret-color «Примітки» у «Вхідних» і по�
 // Принцип «легкість»: max-height міняється одним кроком, не покадрово. Тест: форма вища за вільне місце, клавіатура 415 → 388: висота змінюється не більш ніж на одному кадрі (стрибок), без проміжних значень; низ не рухається вниз.
 test('59. KB-18/C: центрована форма — max-height змінюється одним кроком (не покадрово), низ форми не йде вниз під час підйому', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+    await page.evaluate(() => { window.__kbNoEarly = true; }); // KB-35: тест закону руху від kb-vv-resize (ранній підйом з дотику вимкнено)
   try{
     await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
     await page.waitForTimeout(500);
@@ -1110,5 +1116,58 @@ test('84. KB-33/D: швидке перемикання назва → сума �
     const r = await sampler; const info = JSON.stringify(r);
     expect(r.maxRun, 'одна анімація (нова нога замінює стару): ' + info).toBeLessThanOrEqual(1);
     expect(r.pan, 'pan-comp не з’являється: ' + info).toBe(0);
+  } finally { await ctx.close(); }
+});
+
+// KB-35 (Rev 2.32.289), звіт MT-1111-6902 (2.32.288): A — автозаповнення iOS (поля заповнюються по черзі без дотику й Enter) сприймалось як перемикання (arrow-direct ×2); B — підйом стартував від kb-vv-resize (+65–92 мс), поле ще було під клавіатурою; C — pan-comp записувався двічі (один зсув — два виклики).
+test('85. KB-35/A: серія автозаповнення (focusin без дотику й Enter + input insertReplacementText) — autofill, а не arrow-direct; форма не рухається, курсор не ховається', async ({ browser }) => {
+  const { ctx, page } = await kb25Open(browser, false);
+  try{
+    const r = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('profile-drawer'), root = document.documentElement, out = []; const t0 = performance.now(); let hid = false;
+      const base = dr.getBoundingClientRect().bottom; const n0 = recBuf.length;
+      new MutationObserver(() => { if(root.classList.contains('kb-sheet-moving')) hid = true; }).observe(root, { attributes: true, attributeFilter: ['class'] });
+      const em = document.getElementById('cldfielda1'), pw = document.getElementById('cloud-password');
+      const fill = el => el.dispatchEvent(new InputEvent('input', { inputType: 'insertReplacementText', bubbles: true }));
+      pw.focus(); setTimeout(() => { fill(pw); em.focus(); }, 60); setTimeout(() => { fill(em); pw.focus(); }, 140);
+      const tick = () => { out.push(dr.getBoundingClientRect().bottom - base); if(performance.now() - t0 < 1700) requestAnimationFrame(tick); else { const ev = recBuf.slice(n0); resolve({ maxDev: Math.max(...out.map(Math.abs)), hid, direct: ev.filter(e => e.type === 'arrow-direct').length, autofill: ev.filter(e => e.type === 'autofill').map(e => [e.fields, e.ms]) }); } };
+      requestAnimationFrame(tick);
+    }));
+    const info = JSON.stringify(r);
+    expect(r.direct, 'arrow-direct нема: ' + info).toBe(0);
+    expect(r.autofill.length, 'подія autofill (одна на серію): ' + info).toBe(1);
+    expect(r.autofill[0][0], 'кількість полів ≥ 2: ' + info).toBeGreaterThanOrEqual(2);
+    expect(r.maxDev, 'форма не рухається: ' + info).toBeLessThanOrEqual(0.5);
+    expect(r.hid, 'курсор не ховається: ' + info).toBe(false);
+  } finally { await ctx.close(); }
+});
+test('86. KB-35/B: дотик у нижнє поле — через 100 мс, ще до kb-vv-resize, поле вже над очікуваною межею клавіатури', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#cloud-password').boundingBox();
+    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(100);
+    const r = await page.evaluate(() => { const f = document.getElementById('cloud-password').getBoundingClientRect(); return { fieldBottom: f.bottom, limit: window.__H0 - Math.round(window.__H0 * 0.465), vvH: window.visualViewport.height, H0: window.__H0 }; });
+    expect(r.vvH, 'kb-vv-resize ще не приходив (емуляція)').toBe(r.H0);
+    expect(r.fieldBottom, 'поле над очікуваною межею клавіатури: ' + JSON.stringify(r)).toBeLessThanOrEqual(r.limit + 1);
+    // якщо клавіатура так і не з'явилась — форма плавно повертається
+    await page.waitForTimeout(900);
+    const back = await page.evaluate(() => ({ lift: getComputedStyle(document.documentElement).getPropertyValue('--sheet-lift').trim(), running: document.getElementById('profile-drawer').getAnimations().filter(a => a.playState === 'running').length }));
+    expect(Number(back.lift), 'без клавіатури лист повернуто: ' + JSON.stringify(back)).toBeLessThanOrEqual(1);
+  } finally { await ctx.close(); }
+});
+test('87. KB-35/C: один зсув сторінки — одна компенсація pan-comp (resize і scroll в одному кадрі)', async ({ browser }) => {
+  const { ctx, page } = await kb25Open(browser, false);
+  try{
+    const n = await page.evaluate(() => new Promise(resolve => {
+      const root = document.documentElement; const n0 = recBuf.filter(e => e.type === 'pan-comp').length;
+      window.scrollTo = function(x, y){ if(y) return; root.style.transform = ''; window.__vv.top = 0; };
+      root.style.transform = 'translateY(-136px)'; window.__vv.top = 136;
+      window.visualViewport.dispatchEvent(new Event('scroll')); window.visualViewport.dispatchEvent(new Event('resize')); // одна подія зсуву — два слухачі
+      setTimeout(() => resolve(recBuf.filter(e => e.type === 'pan-comp').length - n0), 500);
+    }));
+    expect(n, 'одна компенсація на подію зсуву').toBe(1);
   } finally { await ctx.close(); }
 });
