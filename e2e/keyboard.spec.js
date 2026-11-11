@@ -492,7 +492,7 @@ test('52. KB-15/A: зміна висоти клавіатури при відк�
     const moving = s.filter((r, i) => i > 0 && Math.abs(r[1] - s[i - 1][1]) > 0.3);
     const tMoveStart = moving.length ? moving[0][0] : 9999, tMoveEnd = moving.length ? moving[moving.length - 1][0] : 0;
     const caretDuring = moving.filter(r => r[2] === true).length, caretOff = moving.filter(r => r[2] === false).length;
-    const caretAfter = (s.find(r => r[0] > Math.max(tMoveEnd, 320) + 120) || [0, 0, true])[2]; // курсор знімається після кінця руху (нижня межа 320 мс, як у відкритті)
+    const caretAfter = (s.find(r => r[0] > Math.max(tMoveEnd, 320) + 260) || [0, 0, true])[2]; // курсор знімається після кінця руху (нижня межа 320 мс, як у відкритті); запас 260 мс (було 120): на завантаженій машині рух стартує на ~150 мс пізніше (2.32.290: тест падав і на 2.32.289)
     const ev = await page.evaluate(() => recBuf.filter(e => e.type === 'sheet-anim').map(e => e.phase));
     const info = JSON.stringify({ startY, endY, tMoveStart, tMoveEnd, caretDuring, caretOff, caretAfter, phases: ev });
     expect(Math.abs(endY - startY), 'лист справді рухався (умова тесту): ' + info).toBeGreaterThan(10);
@@ -1149,9 +1149,9 @@ test('86. KB-35/B: дотик у нижнє поле — через 100 мс, щ
     const bb = await page.locator('#cloud-password').boundingBox();
     await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
     await page.waitForTimeout(100);
-    const r = await page.evaluate(() => { const f = document.getElementById('cloud-password').getBoundingClientRect(); return { fieldBottom: f.bottom, limit: window.__H0 - Math.round(window.__H0 * 0.465), vvH: window.visualViewport.height, H0: window.__H0 }; });
+    const r = await page.evaluate(() => { const f = document.getElementById('cloud-password').getBoundingClientRect(); return { fieldBottom: f.bottom, limit: window.__H0 - Math.round(window.__H0 * 0.465 * 0.75), vvH: window.visualViewport.height, H0: window.__H0 }; });
     expect(r.vvH, 'kb-vv-resize ще не приходив (емуляція)').toBe(r.H0);
-    expect(r.fieldBottom, 'поле над очікуваною межею клавіатури: ' + JSON.stringify(r)).toBeLessThanOrEqual(r.limit + 1);
+    expect(r.fieldBottom, 'поле над межею ранньої цілі (0,75 очікуваної висоти): ' + JSON.stringify(r)).toBeLessThanOrEqual(r.limit + 1);
     // якщо клавіатура так і не з'явилась — форма плавно повертається
     await page.waitForTimeout(900);
     const back = await page.evaluate(() => ({ lift: getComputedStyle(document.documentElement).getPropertyValue('--sheet-lift').trim(), running: document.getElementById('profile-drawer').getAnimations().filter(a => a.playState === 'running').length }));
@@ -1171,3 +1171,40 @@ test('87. KB-35/C: один зсув сторінки — одна компен�
     expect(n, 'одна компенсація на подію зсуву').toBe(1);
   } finally { await ctx.close(); }
 });
+
+// KB-35 (Rev 2.32.290): ранній підйом з дотику при РОЗБІЖНОСТІ оцінки й справжньої висоти клавіатури (без __kbNoEarly). Очікувана висота задається збереженим значенням (ключ v2), справжня приходить через 90 мс після дотику. Критерії як у тесті 56: зворотний крок ≤ 0,5 пт, переліт ≤ 1 пт, кінець на цілі еталонного прогону (рух за vv-подією без раннього підйому) ±1.
+const KB35_CASES = [[415, 311, 'Face ID: менша за очікувану'], [415, 389, 'менша за очікувану (цифрова)'], [389, 415, 'більша за очікувану']];
+async function kb35Run(browser, expected, real, early){
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(([e, early]) => {
+      if(!early) window.__kbNoEarly = true;
+      const k = 'iPhone|portrait|password|h' + Math.round(window.__H0); const o = {}; o[k] = e; localStorage.setItem('budget-kb-heights-v2', JSON.stringify(o));
+      window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm();
+    }, [expected, early]);
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#cloud-password').boundingBox();
+    const sampler = page.evaluate(() => new Promise(resolve => {
+      const m = document.getElementById('profile-drawer'), s = []; const t0 = performance.now();
+      const tick = () => { s.push([Math.round(performance.now() - t0), new DOMMatrix(getComputedStyle(m).transform).m42]); if(performance.now() - t0 < 1500) requestAnimationFrame(tick); else resolve(s); };
+      requestAnimationFrame(tick);
+    }));
+    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(90);
+    await page.evaluate(r => { window.__vv.h = window.__H0 - r; window.visualViewport.dispatchEvent(new Event('resize')); }, real);
+    return await sampler;
+  } finally { await ctx.close(); }
+}
+for(const [expected, real, label] of KB35_CASES){
+  test('88. KB-35: ранній підйом, очікувано ' + expected + ', реально ' + real + ' (' + label + ') — без перельоту, без зворотного кроку, кінець на цілі', async ({ browser }) => {
+    const ref = await kb35Run(browser, expected, real, false);
+    const s = await kb35Run(browser, expected, real, true);
+    const refY = ref[ref.length - 1][1], finalY = s[s.length - 1][1];
+    const startY = s[0][1];
+    let minY = 1e9, back = 0; for(let i = 0; i < s.length; i++){ minY = Math.min(minY, s[i][1]); if(i > 0 && s[i][1] - s[i - 1][1] > 0.3) back += s[i][1] - s[i - 1][1]; }
+    const info = JSON.stringify({ expected, real, refY: Math.round(refY * 10) / 10, finalY: Math.round(finalY * 10) / 10, minY: Math.round(minY * 10) / 10, startY: Math.round(startY), overshoot: Math.round((finalY - minY) * 10) / 10, back: Math.round(back * 10) / 10, sample: s.filter(r => r[0] < 700).map(r => [r[0], Math.round(r[1] * 10) / 10]).slice(0, 30) });
+    expect(Math.abs(finalY - refY), 'кінець на цілі еталона ±1: ' + info).toBeLessThanOrEqual(1);
+    expect(finalY - minY, 'переліт ≤ 1 пт: ' + info).toBeLessThanOrEqual(1);
+    expect(back, 'зворотний крок ≤ 0,5 пт: ' + info).toBeLessThanOrEqual(0.5);
+  });
+}

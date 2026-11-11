@@ -5400,7 +5400,7 @@ function kbSheetSandbox(opts){
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf',
     'focusWithoutScrollIfSupported',
-    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'kbPipeEarlyStart', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
+    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'kbPipeEarlyStart','kbHeightKeyBase','KB_EARLY_FACTOR', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
     'beginSheetMoving', 'planCaretRestore',
     'getOrCreateKbProxyEl', 'configureKbProxy', 'proxyCaretStyle', 'computeProxyOffset', 'computeProxyDist', 'placeKbProxyAtField',
   ]);
@@ -5667,7 +5667,14 @@ test('кеш висот клавіатури в localStorage (Rev 2.32.240): к�
   assert.equal(ctx.kbCacheKindForField({ type: 'text', getAttribute: (a) => a === 'inputmode' ? 'numeric' : '' }), 'numeric');
   ctx.kbHeightsSave('portrait', 'email', 337);
   assert.equal(ctx.kbHeightFromStore('portrait', 'email'), 337); assert.equal(ctx.kbHeightFromStore('landscape', 'email'), null);
-  assert.ok(Object.keys(JSON.parse(ctx.localStorage._m['budget-kb-heights-v1']))[0].startsWith('iPad|portrait|email'));
+  const key = Object.keys(JSON.parse(ctx.localStorage._m['budget-kb-heights-v2']))[0];
+  assert.ok(/^iPad\|portrait\|email\|h\d+$/.test(key), 'ключ v2: пристрій|орієнтація|тип|висота: ' + key);
+  // Rev 2.32.290 (KB-35): інша висота екрана — інший ключ (значення не використовується); старий ключ v1 ігнорується
+  const base = ctx.kbHeightKeyBase(); assert.ok(base > 0);
+  ctx.window.innerHeight = base + 40; ctx.getBaseViewportHeight = () => base + 40;
+  assert.equal(ctx.kbHeightFromStore('portrait', 'email'), null, 'інша висота екрана → немає значення');
+  ctx.localStorage._m['budget-kb-heights-v1'] = JSON.stringify({ 'iPad|portrait|email': 999 });
+  assert.equal(ctx.kbHeightFromStore('portrait', 'email'), null, 'старий ключ v1 не читається');
 });
 test('correctPanIfNeeded: pan після НАТИВНОГО перемикання → подія switch-native (не pan-corrected); після нашого tap → pan-corrected зі switchKind:tap; без перемикання → звичайний pan-corrected', () => {
   const a = kbSheetSandbox();
@@ -6802,10 +6809,10 @@ test('Rev 2.32.248: кеш висот у localStorage пишуть і iPhone, і
   for(const [ua, expectSaved] of [['Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', true], [IPAD_UA, true]]){
     const { ctx, drawer } = pipeSandbox();
     ctx.navigator.userAgent = ua; ctx.navigator.platform = ua === IPAD_UA ? 'iPad' : 'iPhone';
-    ctx.localStorage._m['budget-kb-heights-v1'] = JSON.stringify({ [(ua === IPAD_UA ? 'iPad' : 'iPhone') + '|portrait|numeric']: 111 });
+    ctx.localStorage._m['budget-kb-heights-v2'] = JSON.stringify({ [(ua === IPAD_UA ? 'iPad' : 'iPhone') + '|portrait|numeric|h' + ctx.kbHeightKeyBase()]: 111 });
     ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawer('card-debt-drawer', 780) }));
     ctx.window.visualViewport.height = 470; ctx.updateKbSheetGeometry();
-    const o = JSON.parse(ctx.localStorage._m['budget-kb-heights-v1']);
+    const o = JSON.parse(ctx.localStorage._m['budget-kb-heights-v2']);
     assert.equal(Object.values(o)[0] === 111, !expectSaved, ua + ': ' + JSON.stringify(o)); // iPhone: значення лишилось 111; iPad: оновлено живою висотою
   }
 });
