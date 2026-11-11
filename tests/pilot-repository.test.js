@@ -5360,7 +5360,7 @@ function kbSheetSandbox(opts){
     }, 'activeElement', { get: function(){ return state.activeElement; } }),
     window: { visualViewport: { height: 894, offsetTop: 0 }, innerWidth: 440, innerHeight: 894, scrollY: 0, scrollTo: function(){} },
     navigator: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', platform: 'iPhone', maxTouchPoints: 5 }, // Rev 2.32.240: стара поведінка iPhone за замовчуванням (старі тести); конвеєр — окремі тести з iPad
-    kbSessionBase: 0, kbRelays: [], kbRelayKbMin: {}, kbRelayCorr: {}, kbRelayHost: null, kbRelaySeq: 0, kbRelayHopping: false, kbLastFieldScroll: { field: null, at: 0 }, kbHSeen: [], kbHTimer: null, kbOpenVia: 'direct',
+    kbSessionBase: 0, kbEnterHop: false, kbLastFieldScroll: { field: null, at: 0 }, kbHSeen: [], kbHTimer: null, kbOpenVia: 'direct',
     keyboardHeightCache: { portrait: {}, landscape: {} },
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
     drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
@@ -5400,7 +5400,7 @@ function kbSheetSandbox(opts){
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf',
     'focusWithoutScrollIfSupported',
-    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbRelayC', 'kbRelaysRemove', 'kbRelayPosition', 'kbRelaysReposition', 'kbRelayControls', 'kbRelaysEnsure', 'kbRelaysUpdate', 'kbRelayState', 'kbRelayHop', 
+    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
     'beginSheetMoving', 'planCaretRestore',
     'getOrCreateKbProxyEl', 'configureKbProxy', 'proxyCaretStyle', 'computeProxyOffset', 'computeProxyDist', 'placeKbProxyAtField',
   ]);

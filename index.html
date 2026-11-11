@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.286</div>
+  <div class="version-footer">Money Tree · Rev 2.32.287</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.286';
+const APP_VERSION = '2.32.287';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14058,8 +14058,6 @@ const DEBUG_LOG_MAX_BYTES_FOR_SEND = 600000; // той самий ліміт, щ
 // жорстка вимога приватності ТЗ ("value"/"text" з полів форми сюди
 // принципово не можуть пройти, навіть якщо якийсь слухач їх передасть).
 const DEBUG_EVENT_ALLOWLIST = [
-  'relayCount', 'relayIds', 'relayCenters', // Rev 2.32.286 (KB-31): relay-state, arrow-direct
-  'centerC', 'relayCenter', 'maxShift', 'cAfter', // Rev 2.32.285 (KB-30): relay-hop
   'scrollTop', 'panShift', // Rev 2.32.279 (KB-24): switch-trace, pan-comp
   'visible', 'shown', 'tapped', 'found', 'errorCode', // Rev 2.32.278 (PUSH-2): deeplink, app-visible-sync, inbox-new-toast
   'diffTable', 'diffCount', 'diffReason', // Rev 2.32.192 (SHADOW-REV): rev-diff
@@ -14846,7 +14844,7 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['relay-state', 'arrow-direct', 'relay-hop', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
+const REC_ALLOWED_TYPES = ['enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
 const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
@@ -29278,7 +29276,6 @@ function kbLiftState(now, lead){
 }
 function kbLiftFinish(){
   kbLiftActive = false; kbLiftObj = null;
-  kbRelaysReposition(); // Rev 2.32.285 (KB-30): лист доїхав — ретранслятори стають на C
   document.documentElement.classList.remove('kb-lift-js');
   if(!kbScrollAnimActive){ const w = kbScrollWaiters; kbScrollWaiters = []; w.forEach(function(f){ try{ f(); }catch(e){} }); }
 }
@@ -29364,7 +29361,6 @@ let kbScrollWaiters = [];
 let kbFlipAnims = [];
 function kbScrollDone(){
   kbScrollAnimActive = false; kbFlipAnims = [];
-  kbRelaysReposition(); // Rev 2.32.285 (KB-30)
   if(kbLiftActive) return; // курсор (waiters) після кінця й підйому: його завершення покличе kbLiftFinish
   const w = kbScrollWaiters; kbScrollWaiters = [];
   w.forEach(function(f){ try{ f(); }catch(e){} });
@@ -29574,13 +29570,11 @@ function kbNoteKbH(kbH){
   if(!kbSheetActive || typeof kbH !== 'number') return;
   const v = Math.round(kbH);
   if(v > 0 && kbHSeen.indexOf(v) < 0) kbHSeen.push(v);
-  if(v >= 350){ const k = viewportOrientationKey(window.innerWidth, window.innerHeight); if(!kbRelayKbMin[k] || v < kbRelayKbMin[k]) kbRelayKbMin[k] = v; } // Rev 2.32.285 (KB-30): kbH0 для C (без підказок і Face ID)
   if(kbHTimer) clearTimeout(kbHTimer);
   kbHTimer = setTimeout(function(){ kbHTimer = null; if(kbHSeen.length) captureDebugGeometry('kb-heights', { via: kbOpenVia, kbHs: kbHSeen.join(','), kbHCount: kbHSeen.length }); }, 700);
 }
 function updateKbSheetGeometry(){
   if(!kbSheetActive || !window.visualViewport) return;
-  kbRelaysReposition(); // Rev 2.32.285 (KB-30)
   const baseVh = getBaseViewportHeight();
   const vvH = window.visualViewport.height;
   // Rev 2.32.259 (KB-5b): поки фокус у полі й конвеєр уже бачив клавіатуру (animating/settled), кадр «клавіатура закрита» (visualViewport.height ≈ base: тимчасові викиди 506↔826 під час набору й Face ID) лист не рухає: --kb-h/--vv-h/--sheet-max-h і підйом лишаються за останнім кадром із клавіатурою. Лист опускається лише після втрати фокуса (focusout → handleKeyboardFieldFocusSettle). Ризик: клавіатуру сховано жестом без blur (Баг 2) — лист лишається піднятим до наступного фокуса/blur; KB-5a знімає фокус при згортанні. Альтернатива (таймер 250 мс) відкинута: вгадування часу.
@@ -29690,6 +29684,7 @@ function exitKbSheet(removeKbOpen){
   // ("інакше vv-resize до 894 скидає позицію"); значення лишаються РІВНО
   // тими, що виставлені нижче (--sheet-lift:0), аж до фактичного зняття
   // kb-sheet.
+  kbNavUnlockAll(); // Rev 2.32.287 (KB-32): клавіатура закрита — tabindex полів відновлено
   const naturalHeightAtClose = kbSheetNaturalHeight;
   const lastFieldAtClose = kbLastFocusedField;
   const genAtExit = kbSheetGen;
@@ -29773,7 +29768,7 @@ function kbTraceSwitchIfNoTouch(drawerEl, target, via){
     if(via === 'tap' || via === 'flow') return;
     if(kbLastTap && Date.now() - kbLastTap.endAt < 600) return;
     const toId = target && target.id || null;
-    if(!kbRelayHopping) captureDebugGeometry('arrow-direct', { from: kbLastFocusedField ? (kbLastFocusedField.id || null) : null, to: toId, relayCount: kbRelays.length }); // Rev 2.32.286 (KB-31): перемикання без дотику минуло ретранслятор
+    captureDebugGeometry(kbEnterHop ? 'enter-next' : 'arrow-direct', { from: kbLastFocusedField ? (kbLastFocusedField.id || null) : null, to: toId }); // Rev 2.32.287 (KB-32): перехід без дотику: через наш Enter (enter-next) або стрілкою iOS (arrow-direct, очікуємо 0)
     const snap = function(ms){
       const vv = window.visualViewport;
       captureDebugGeometry('switch-trace', { to: toId, ms: ms, vvOffsetTop: vv ? Math.round(vv.offsetTop) : null, scrollY: Math.round(window.scrollY || 0), scrollTop: Math.round(drawerEl.scrollTop || 0), sheetBottom: Math.round(drawerEl.getBoundingClientRect().bottom), drawerId: kbSheetLabel(drawerEl) });
@@ -29781,117 +29776,75 @@ function kbTraceSwitchIfNoTouch(drawerEl, target, via){
     snap(0); [100, 250, 400].forEach(function(ms){ setTimeout(function(){ snap(ms); }, ms); });
   }catch(e){}
 }
-// ===== Rev 2.32.285 (KB-30): «невидиме проміжне поле» (ретранслятори) =====
-// Правило iOS (звіти MT-1111-6091/-7486/-0929/-3569, 22 з 22): при переході стрілкою iOS прокручує сторінку так, що центр поля стає на C = (innerHeight − висота клавіатури без підказок і Face ID)/2 ≈ 253. Прокрутити сторінку з коду при відкритій клавіатурі неможливо (scroll-failed 10 з 10), компенсація після події запізнюється, а програмний фокус з preventScroll прокрутки iOS не викликає. Тому: коли клавіатура відкрита й фокус у полі форми, безпосередньо перед і після поточного поля (у DOM) стоїть по невидимому полю-ретранслятору (лише якщо в той бік є інше текстове поле). Ретранслятор position:fixed (за вимірюванням, бо лист має transform), висота й ширина як у поля призначення, ЦЕНТР РІВНО НА C, opacity 0, pointer-events none, caret-color transparent, font-size 16px, aria-hidden; атрибути клавіатури заздалегідь = атрибутам поля призначення (клавіатура не перебудовується). iOS при стрілці переводить фокус в ретранслятор — він уже на C, прокрутки нема; на його focusin синхронно target.focus({preventScroll:true}) у поле призначення, ретранслятори переставляються навколо нового поля. Прибирання: закриття форми (exitKbSheet), зміна орієнтації. Дотик пальцем — як раніше (прямий фокус), ретранслятори лише переставляються. C: kbH0 — найменша побачена висота клавіатури ≥ 350 у сесії й орієнтації (без підказок/Face ID; запасно 0,434·innerHeight); уточнення: якщо після переходу iOS усе ж прокрутила на r, C −= r для орієнтації. Невідоме (перевірить перший звіт): емуляція припускає, що iOS прокручує до поля, яке сама сфокусувала (ретранслятора); подія relay-hop покаже ненульовий maxShift, якщо ні.
-let kbRelays = [], kbRelayKbMin = {}, kbRelayCorr = {};
-function kbRelayC(){
-  const key = viewportOrientationKey(window.innerWidth, window.innerHeight);
-  const h0 = kbRelayKbMin[key] || Math.round(window.innerHeight * 0.434);
-  return (window.innerHeight - h0) / 2 + (kbRelayCorr[key] || 0);
-}
-function kbRelaysRemove(){
-  kbRelays.forEach(function(r){ if(r.parentNode) r.parentNode.removeChild(r); });
-  kbRelays = [];
-}
-// Rev 2.32.286 (KB-31): звіт MT-1111-7454 (2.32.285): 0 подій relay-hop, усі 10 перемикань ішли напряму поле → поле. Ретранслятори (а) вставлялись після focusin поточного поля, коли iOS уже визначила наступне поле, і (б) мали opacity 0 і aria-hidden (iOS може пропускати такі). Тепер: один ретранслятор на кожну пару сусідніх текстових полів форми, вставляється при ВІДКРИТТІ форми (клас open на .drawer/.app-modal) до першого фокуса, не перевставляється (лише оновлюються положення, розмір, шрифт і атрибути за полем призначення: для пари A|B при фокусі в A — це B, при фокусі в B — A) і прибирається при закритті форми; opacity 0.01, без aria-hidden, pointer-events none, caret-color transparent, розмір і шрифт як у поля призначення, центр на C. Ризик: екранні читачі бачать ретранслятори (aria-hidden свідомо немає).
-function kbRelayPosition(r){
-  const info = r.__kbRelay; if(!info || !info.dest || !info.dest.isConnected) return;
-  const dr = info.dest.getBoundingClientRect(), w = Math.min(dr.width, window.innerWidth), h = dr.height;
-  r.style.width = w + 'px'; r.style.height = h + 'px'; r.style.left = '0px'; r.style.top = '0px';
-  const b = r.getBoundingClientRect(); // лист має transform: fixed рахується від листа, тож зсув вимірюється
-  r.style.left = (Math.max(0, Math.min(dr.left, window.innerWidth - w)) - b.left) + 'px';
-  r.style.top = (kbRelayC() - h / 2 - b.top) + 'px';
-}
-function kbRelaysReposition(){ kbRelays.forEach(kbRelayPosition); }
-function kbRelayControls(drawerEl){
+// ===== Rev 2.32.287 (KB-32): стрілки iOS неактивні; Return «Далі» =====
+// Звіти MT-1111-7454/-0402: ретранслятори (KB-30/KB-31) iOS оминула (arrow-direct 20 з 20, relay-hop 0); при кожній стрілці iOS центрує поле на C ≈ 253, скасувати чи випередити це з коду неможливо (scroll-failed 10/10), вимкнути панель з вебкоду теж. Рішення: (1) поки клавіатура відкрита й фокус у полі форми, усі ІНШІ поля форми мають tabindex="-1" (попереднє значення в data-kb-ti), стрілки iOS неактивні; відновлення при закритті клавіатури (exitKbSheet); після дотику в інше поле набір оновлюється; (2) Return «Далі»: enterkeyhint="next" на текстових полях, де далі є поле, "done" на останньому (лише якщо enterkeyhint не задано розміткою, пароль і числові поля не чіпаємо), Enter на next ставить фокус у наступне поле як дотик (focus + preventScroll), на done — закриває клавіатуру. Ризик: екранні читачі втрачають перехід між полями через tabindex=-1 лише поки клавіатура відкрита.
+let kbEnterHop = false;
+function kbFormControls(drawerEl){
   return Array.prototype.filter.call(drawerEl.querySelectorAll('input, textarea, select'), function(el){
-    if(el.id === 'kb-focus-proxy' || el.__kbRelay || el.disabled) return false;
-    const t = (el.type || '').toLowerCase();
-    if(t === 'hidden' || el.getAttribute('tabindex') === '-1') return false;
+    if(el.id === 'kb-focus-proxy' || el.disabled) return false;
+    if((el.type || '').toLowerCase() === 'hidden') return false;
     return el.getClientRects().length > 0;
   });
 }
-let kbRelayHost = null, kbRelaySeq = 0, kbRelayHopping = false;
-// Один ретранслятор на пару сусідніх текстових полів (a|b): у DOM відразу після a. Існуючі лишаються (не перевставляються).
-function kbRelaysEnsure(drawerEl){
-  try{
-    if(!IS_IOS_RUNTIME || !drawerEl) return;
-    if(kbRelayHost && kbRelayHost !== drawerEl) kbRelaysRemove();
-    kbRelayHost = drawerEl;
-    const list = kbRelayControls(drawerEl), keep = [];
-    for(let i = 0; i + 1 < list.length; i++){
-      const a = list[i], b = list[i + 1];
-      if(!isTapTargetField(a) || !isTapTargetField(b) || !a.parentNode) continue;
-      let r = kbRelays.filter(function(x){ return x.__kbRelay.a === a && x.__kbRelay.b === b && x.isConnected; })[0];
-      if(!r){
-        r = document.createElement('input');
-        r.id = 'kb-relay-' + (++kbRelaySeq);
-        r.style.cssText = proxyCaretStyle(); r.style.position = 'fixed'; r.style.opacity = '0.01'; // не 0 і без aria-hidden: iOS не пропускає такі поля
-        r.__kbRelay = { a: a, b: b, dest: b };
-        configureKbProxy(r, b);
-        a.parentNode.insertBefore(r, a.nextSibling);
-        kbRelays.push(r);
-      }
-      keep.push(r);
-    }
-    kbRelays.filter(function(x){ return keep.indexOf(x) === -1; }).forEach(function(x){ if(x.parentNode) x.parentNode.removeChild(x); });
-    kbRelays = keep;
-  }catch(e){ kbRelaysRemove(); }
+function kbNavRestore(el){
+  const v = el.getAttribute('data-kb-ti'); if(v === null) return;
+  if(v === 'none') el.removeAttribute('tabindex'); else el.setAttribute('tabindex', v);
+  el.removeAttribute('data-kb-ti');
 }
-// Оновлення за поточним полем: dest = друге поле пари; атрибути, розмір, шрифт, положення.
-function kbRelaysUpdate(current){
+function kbNavLock(drawerEl, current){
   try{
-    kbRelays.forEach(function(r){
-      const info = r.__kbRelay, dest = (current && current === info.b) ? info.a : info.b;
-      if(info.dest !== dest || !info.configured){ info.dest = dest; info.configured = true; configureKbProxy(r, dest); try{ r.style.fontSize = Math.max(16, parseFloat(getComputedStyle(dest).fontSize) || 16) + 'px'; }catch(e){} }
-      kbRelayPosition(r);
+    Array.prototype.forEach.call(drawerEl.querySelectorAll('input, textarea, select'), function(el){
+      if(el.id === 'kb-focus-proxy') return;
+      if(el === current){ kbNavRestore(el); return; }
+      if(!el.hasAttribute('data-kb-ti')) el.setAttribute('data-kb-ti', el.hasAttribute('tabindex') ? el.getAttribute('tabindex') : 'none');
+      el.setAttribute('tabindex', '-1');
     });
   }catch(e){}
 }
-function kbRelayState(){
-  try{ captureDebugGeometry('relay-state', { relayCount: kbRelays.length, relayIds: kbRelays.map(function(r){ return r.id; }).join(','), relayCenters: kbRelays.map(function(r){ const b = r.getBoundingClientRect(); return Math.round((b.top + b.bottom) / 2); }).join(',') }); }catch(e){}
+function kbNavUnlockAll(){
+  try{ Array.prototype.forEach.call(document.querySelectorAll('[data-kb-ti]'), kbNavRestore); }catch(e){}
 }
-function kbRelayHop(relay){
-  const info = relay.__kbRelay, from = kbLastFocusedField;
-  const dest = (from && from === info.b) ? info.a : info.b; // з другого поля пари — у перше, інакше у друге
-  if(!dest || !dest.isConnected || !kbSheetActive || !kbSheetDrawerEl) return;
-  const drawerEl = kbSheetDrawerEl, vv = window.visualViewport;
-  const key = viewportOrientationKey(window.innerWidth, window.innerHeight), C = kbRelayC();
-  const rr = relay.getBoundingClientRect(), relayCenter = Math.round(((rr.top + rr.bottom) / 2) * 10) / 10;
-  const shiftNow = function(){ return Math.max(window.scrollY || 0, vv ? vv.offsetTop : 0); };
-  let maxShift = shiftNow();
-  const onS = function(){ maxShift = Math.max(maxShift, shiftNow()); };
-  window.addEventListener('scroll', onS, { passive: true }); if(vv) vv.addEventListener('scroll', onS, { passive: true });
-  kbRelayHopping = true;
-  try{ focusWithoutScrollIfSupported(dest, drawerEl.id); }finally{ kbRelayHopping = false; } // вкладений focusin поля призначення: звичайне перемикання
-  const dir = dest === info.b ? 'next' : 'prev';
-  setTimeout(function(){
-    window.removeEventListener('scroll', onS); if(vv) vv.removeEventListener('scroll', onS);
-    maxShift = Math.max(maxShift, shiftNow());
-    const r = Math.round(maxShift);
-    if(r > 1) kbRelayCorr[key] = (kbRelayCorr[key] || 0) - r; // iOS усе ж прокрутила на r: справжній C на r менший
-    captureDebugGeometry('relay-hop', { dir: dir, from: from ? (from.id || null) : null, to: dest.id || null, centerC: Math.round(C * 10) / 10, relayCenter: relayCenter, kbH: vv ? Math.round(window.innerHeight - vv.height) : null, maxShift: r, cAfter: Math.round(kbRelayC() * 10) / 10 });
-  }, 300);
+function kbNextField(field){
+  const drawerEl = field && field.closest ? field.closest('.drawer, .app-modal') : null; if(!drawerEl) return null;
+  const list = kbFormControls(drawerEl), i = list.indexOf(field);
+  for(let j = i + 1; i >= 0 && j < list.length; j++) if(isTapTargetField(list[j])) return list[j];
+  return null;
 }
-// Форма відкрилась/закрилась (клас open на .drawer/.app-modal): ретранслятори вставляються до першого фокуса й прибираються при закритті.
-function kbRelayWatchForms(){
+// Підказки Return: лише для полів без явного enterkeyhint у розмітці (наші мітки data-kb-enter), без пароля й числових.
+function kbHintsApply(drawerEl){
+  try{
+    if(!IS_IOS_RUNTIME) return;
+    Array.prototype.forEach.call(kbFormControls(drawerEl), function(el){
+      if(!isTapTargetField(el) || (el.type || '').toLowerCase() === 'password' || (el.getAttribute('inputmode') || '').toLowerCase() === 'numeric' || el.tagName === 'TEXTAREA') return;
+      const ek = el.getAttribute('enterkeyhint');
+      if(ek && !el.hasAttribute('data-kb-enter')) return; // розмітка вже задала (go/search/done/next з власним обробником)
+      const mark = kbNextField(el) ? 'next' : 'done';
+      el.setAttribute('enterkeyhint', mark); el.setAttribute('data-kb-enter', mark);
+    });
+  }catch(e){}
+}
+function kbEnterKey(e){
+  if(e.key !== 'Enter' || e.defaultPrevented || e.isComposing) return;
+  const t = e.target, mark = t && t.getAttribute ? t.getAttribute('data-kb-enter') : null; if(!mark) return;
+  if(mark === 'next'){
+    const next = kbNextField(t), host = t.closest('.drawer, .app-modal');
+    if(!next){ return; }
+    e.preventDefault();
+    kbEnterHop = true;
+    try{ focusWithoutScrollIfSupported(next, host ? host.id : null); }finally{ kbEnterHop = false; }
+  }else if(mark === 'done'){ e.preventDefault(); try{ t.blur(); }catch(err){} }
+}
+document.addEventListener('keydown', kbEnterKey);
+// Форма відкрилась (клас open на .drawer/.app-modal): підказки Return виставляються до першого фокуса.
+function kbHintsWatchForms(){
   try{
     if(typeof MutationObserver === 'undefined') return;
-    const obs = new MutationObserver(function(muts){
-      muts.forEach(function(m){
-        const el = m.target;
-        if(!el.classList) return;
-        if(el.classList.contains('open')){ requestAnimationFrame(function(){ if(el.classList.contains('open')){ kbRelaysEnsure(el); kbRelaysUpdate(null); } }); }
-        else if(kbRelayHost === el){ kbRelaysRemove(); kbRelayHost = null; }
-      });
-    });
+    const obs = new MutationObserver(function(muts){ muts.forEach(function(m){ const el = m.target; if(el.classList && el.classList.contains('open')) requestAnimationFrame(function(){ if(el.classList.contains('open')) kbHintsApply(el); }); }); });
     Array.prototype.forEach.call(document.querySelectorAll('.drawer, .app-modal'), function(el){ obs.observe(el, { attributes: true, attributeFilter: ['class'] }); });
   }catch(e){}
 }
-kbRelayWatchForms();
-window.addEventListener('orientationchange', kbRelaysRemove);
+kbHintsWatchForms();
 function handleKeyboardFieldFocusIn(target){
-  if(target && target.__kbRelay){ kbRelayHop(target); return; } // Rev 2.32.285 (KB-30): iOS привела в ретранслятор — переводимо фокус у поле призначення
   // Rev 2.23.16 (6D.185): classList.add НАВІТЬ для вже наявного класу
   // перезаписує атрибут → MutationObserver рекордера пише
   // kb-open-class-changed на КОЖНОМУ перемиканні без зміни класу (L5).
@@ -29971,7 +29924,7 @@ function handleKeyboardFieldFocusIn(target){
       enterKbSheet(drawerEl, target);
     }
   }
-  if(drawerEl && target && target.id !== 'kb-focus-proxy' && !target.__kbRelay){ kbRelaysEnsure(drawerEl); kbRelaysUpdate(target); kbRelayState(); } // Rev 2.32.286 (KB-31): ретранслятори вже є з відкриття форми — лише оновлення за полем
+  if(drawerEl && target && target.id !== 'kb-focus-proxy'){ kbHintsApply(drawerEl); kbNavLock(drawerEl, target); } // Rev 2.32.287 (KB-32): стрілки неактивні (інші поля tabindex=-1)
 }
 // Викликається з відкладеного (100мс) таймауту focusout — перевіряє
 // ПОТОЧНИЙ activeElement: якщо клавіатурного поля вже нема — знімає і

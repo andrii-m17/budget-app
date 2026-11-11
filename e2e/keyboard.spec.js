@@ -984,88 +984,51 @@ for(const [name, spacer, expectHide] of [['поле видиме, той сам�
   });
 }
 
-// KB-30 (Rev 2.32.285): «невидиме проміжне поле»: стрілка iOS веде в поле-ретранслятор, яке вже стоїть у точці центрування C, тож iOS не прокручує; на focusin ретранслятора код синхронно переводить фокус у поле призначення (focus + preventScroll).
-// Емуляція iOS: після focusin без дотику через 100 мс прокрутка так, щоб центр ТОГО елемента, який iOS сфокусувала, став на C, лише якщо він нижче C.
-async function kb30Emulate(page){
-  await page.evaluate(() => {
-    const root = document.documentElement, C = window.__H0 * (1 - 0.434) / 2; window.__iosScrolls = 0; window.__iosC = C;
-    window.scrollTo = function(x, y){ y = y || 0; root.style.transform = y ? 'translateY(' + (-y) + 'px)' : ''; window.__vv.top = y; window.visualViewport.dispatchEvent(new Event('scroll')); };
-    window.__arrow = false;
-    window.addEventListener('focusin', e => {
-      if(!window.__arrow) return; window.__arrow = false; // лише фокус, який поставила iOS (стрілка); наш програмний фокус із preventScroll прокрутки не викликає
-      const fr = e.target.getBoundingClientRect(), cy0 = (fr.top + fr.bottom) / 2;
-      setTimeout(() => { const ios = cy0 - window.__vv.top; if(e.target === document.activeElement && ios > C + 1){ window.__iosScrolls++; window.scrollTo(0, window.__vv.top + (ios - C)); } }, 100); // iOS прокручує до елемента, який сфокусувала (якщо фокус уже не там — ні)
-    }, true);
-  });
-}
-const KB30_ATTRS = ['type', 'inputmode', 'enterkeyhint', 'autocomplete', 'autocorrect', 'autocapitalize', 'spellcheck'];
-test('76. KB-30: стрілка (пошта → пароль) через ретранслятор — «iOS» не прокручує, фокус у полі призначення, видиме положення ±1 пт, курсор не ховається, атрибути ретранслятора = атрибутам поля', async ({ browser }) => {
-  const { ctx, page } = await kb25Open(browser, false);
-  try{
-    await kb30Emulate(page);
-    const r = await page.evaluate(attrs => new Promise(resolve => {
-      const dr = document.getElementById('profile-drawer'), root = document.documentElement, out = []; const t0 = performance.now(); let hid = false;
-      const relay = document.querySelector('[id^="kb-relay-"]'), pw = document.getElementById('cloud-password');
-      const rr = relay ? relay.getBoundingClientRect() : null;
-      const same = relay ? attrs.map(a => [a, relay.getAttribute(a) === pw.getAttribute(a)]).filter(x => !x[1]).map(x => x[0]) : ['нема ретранслятора'];
-      const relayCenterOff = rr ? Math.abs((rr.top + rr.bottom) / 2 - window.__iosC) : null;
-      const base = dr.getBoundingClientRect().bottom;
-      new MutationObserver(() => { if(root.classList.contains('kb-sheet-moving')) hid = true; }).observe(root, { attributes: true, attributeFilter: ['class'] });
-      window.__arrow = true; (relay || pw).focus(); // стрілка вниз: iOS веде в ретранслятор (а без нього — прямо в пароль)
-      const tick = () => { out.push(dr.getBoundingClientRect().bottom - base); if(performance.now() - t0 < 700) requestAnimationFrame(tick); else resolve({ maxDev: Math.max(...out.map(Math.abs)), hid, scrolls: window.__iosScrolls, active: document.activeElement.id, relay: !!relay, diff: same, relayCenterOff, hop: recBuf.filter(e => e.type === 'relay-hop').map(e => [e.dir, e.maxShift, e.centerC].join('/')).join(' ') }); };
-      requestAnimationFrame(tick);
-    }), KB30_ATTRS);
-    const info = JSON.stringify(r);
-    expect(r.relay, 'ретранслятор після поля існує: ' + info).toBe(true);
-    expect(r.scrolls, '«iOS» не прокручує: ' + info).toBe(0);
-    expect(r.active, 'фокус у полі призначення: ' + info).toBe('cloud-password');
-    expect(r.maxDev, 'видиме положення листа ±1 пт: ' + info).toBeLessThanOrEqual(1);
-    expect(r.hid, 'курсор не ховається: ' + info).toBe(false);
-    expect(r.diff, 'атрибути ретранслятора = атрибутам поля: ' + info).toEqual([]);
-    expect(r.relayCenterOff, 'центр ретранслятора на C (±1): ' + info).toBeLessThanOrEqual(1);
-  } finally { await ctx.close(); }
-});
-test('77. KB-31: після закриття форми ретрансляторів у DOM нема; закриття клавіатури при відкритій формі їх НЕ прибирає (не перевставляються)', async ({ browser }) => {
-  const { ctx, page } = await kb25Open(browser, false);
-  try{
-    const before = await page.evaluate(() => { const r = document.querySelector('[id^="kb-relay-"]'); window.__relayRef = r; return !!r; });
-    expect(before).toBe(true);
-    await page.evaluate(() => { document.getElementById('cloud-password').focus(); });
-    await page.waitForTimeout(300);
-    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(700);
-    expect(await page.evaluate(() => document.querySelector('[id^="kb-relay-"]') === window.__relayRef && window.__relayRef.isConnected), 'той самий ретранслятор у DOM після закриття клавіатури').toBe(true);
-    await page.evaluate(() => { document.getElementById('profile-drawer').classList.remove('open'); });
-    await page.waitForTimeout(300);
-    expect(await page.evaluate(() => document.querySelectorAll('[id^="kb-relay-"]').length), 'після закриття форми ретрансляторів нема').toBe(0);
-  } finally { await ctx.close(); }
-});
-test('78. KB-31: ретранслятори є в DOM ДО першого фокуса між кожною парою сусідніх текстових полів; «видимі» для iOS (opacity 0.01, без aria-hidden), не ловлять дотики', async ({ browser }) => {
+// KB-32 (Rev 2.32.287), звіти MT-1111-7454/-0402: ретранслятори (KB-30/31) iOS оминула (arrow-direct 20 з 20, relay-hop 0); стрілки iOS не скасувати й не випередити. Рішення: стрілки неактивні (усі інші поля форми tabindex=-1, поки клавіатура відкрита) + Return «Далі» (enterkeyhint=next, Enter переводить фокус у наступне поле як дотик).
+test('79. KB-32: клавіатура відкрита — у формі рівно одне поле з tabindex ≥ 0 (поточне), після закриття tabindex відновлено', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
-    for(const [name, openFn, sel] of [['вхід', () => { showProfileLoginForm(); }, '#profile-drawer'], ['картка боргу', () => { switchTab('accounting'); openCardDebtEditor(0); }, '#card-debt-drawer']]){
-      await page.evaluate(fn => { window.__vv.h = null; window.__vv.top = 0; (new Function('return ' + fn))()(); }, openFn.toString());
-      await page.waitForTimeout(900);
-      const r = await page.evaluate(sel => {
-        const d = document.querySelector(sel), isText = e => e.tagName === 'TEXTAREA' || (e.tagName === 'INPUT' && /^(text|tel|number|email|password|search)$/.test((e.type || 'text').toLowerCase()));
-        const all = Array.from(d.querySelectorAll('input, textarea, select')).filter(e => !/^kb-relay-/.test(e.id) && e.id !== 'kb-focus-proxy' && e.type !== 'hidden' && !e.disabled && e.getAttribute('tabindex') !== '-1' && e.getClientRects().length > 0);
-        const relays = Array.from(d.querySelectorAll('[id^="kb-relay-"]'));
-        let pairs = 0, ok = 0;
-        for(let i = 0; i + 1 < all.length; i++){
-          if(!isText(all[i]) || !isText(all[i + 1])) continue; pairs++;
-          const between = relays.filter(x => (all[i].compareDocumentPosition(x) & 4) && (x.compareDocumentPosition(all[i + 1]) & 4));
-          if(between.length === 1) ok++;
-        }
-        const cs = relays.map(x => ({ op: getComputedStyle(x).opacity, aria: x.getAttribute('aria-hidden'), pe: getComputedStyle(x).pointerEvents, caret: getComputedStyle(x).caretColor }));
-        return { fields: all.length, pairs, ok, relays: relays.length, cs };
-      }, sel);
-      const info = name + ': ' + JSON.stringify(r);
-      expect(r.pairs, 'є пари текстових полів: ' + info).toBeGreaterThan(0);
-      expect(r.ok, 'між кожною парою рівно один ретранслятор до першого фокуса: ' + info).toBe(r.pairs);
-      expect(r.relays, 'зайвих ретрансляторів нема: ' + info).toBe(r.pairs);
-      r.cs.forEach(c => { expect(c.op, info).toBe('0.01'); expect(c.aria, info).toBeNull(); expect(c.pe, info).toBe('none'); });
-      await page.evaluate(sel => { document.querySelector(sel).classList.remove('open'); document.querySelectorAll('.drawer-backdrop.open').forEach(b => b.classList.remove('open')); }, sel);
-      await page.waitForTimeout(300);
-    }
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const snapFn = () => Array.from(document.querySelector('#profile-drawer').querySelectorAll('input, textarea, select')).filter(e => e.id !== 'kb-focus-proxy').map(e => e.id + ':' + e.getAttribute('tabindex')).join('|');
+    const snap0 = await page.evaluate(snapFn);
+    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(700);
+    const navigable = () => page.evaluate(() => Array.from(document.querySelector('#profile-drawer').querySelectorAll('input, textarea, select')).filter(e => e.id !== 'kb-focus-proxy' && e.tabIndex >= 0).map(e => e.id));
+    expect(await navigable(), 'поле-сусід не навігабельне: лише поточне (пошта)').toEqual(['cldfielda1']);
+    await page.evaluate(() => { document.getElementById('cloud-password').focus(); });
+    await page.waitForTimeout(300);
+    expect(await navigable(), 'після переходу — лише поточне (пароль)').toEqual(['cloud-password']);
+    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(800);
+    const snap1 = await page.evaluate(snapFn);
+    expect(snap1, 'tabindex відновлено').toBe(snap0);
+    expect(await page.evaluate(() => document.querySelectorAll('[data-kb-ti]').length), 'службових атрибутів не лишилось').toBe(0);
+  } finally { await ctx.close(); }
+});
+test('80. KB-32: Return «Далі» — enterkeyhint=next на пошті; Enter переводить фокус у пароль без прокрутки й руху форми; на паролі Enter входу не змінюється', async ({ browser }) => {
+  const { ctx, page } = await kb25Open(browser, false);
+  try{
+    const hint = await page.evaluate(() => ({ email: document.getElementById('cldfielda1').getAttribute('enterkeyhint'), pw: document.getElementById('cloud-password').getAttribute('enterkeyhint') }));
+    expect(hint, 'enterkeyhint: next на пошті; пароль не чіпаємо').toEqual({ email: 'next', pw: null });
+    const r = await page.evaluate(() => new Promise(resolve => {
+      const dr = document.getElementById('profile-drawer'), out = []; const t0 = performance.now(); const base = dr.getBoundingClientRect().bottom;
+      window.__scrolled = 0; window.visualViewport.addEventListener('scroll', () => window.__scrolled++);
+      const tick = () => { out.push(dr.getBoundingClientRect().bottom - base); if(performance.now() - t0 < 600) requestAnimationFrame(tick); else resolve({ maxDev: Math.max(...out.map(Math.abs)), active: document.activeElement.id, scrolled: window.__scrolled, scrollY: window.scrollY, enter: recBuf.filter(e => e.type === 'enter-next').length, direct: recBuf.filter(e => e.type === 'arrow-direct').length }); };
+      requestAnimationFrame(tick);
+      document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    }));
+    const info = JSON.stringify(r);
+    expect(r.active, 'фокус у наступному полі: ' + info).toBe('cloud-password');
+    expect(r.maxDev, 'форма не рухається ±1 пт: ' + info).toBeLessThanOrEqual(1);
+    expect(r.scrollY + r.scrolled, 'без прокрутки: ' + info).toBe(0);
+    expect(r.enter, 'подія enter-next: ' + info).toBe(1);
+    expect(r.direct, 'arrow-direct 0: ' + info).toBe(0);
+    // Enter на останньому (пароль): фокус лишається (вхід — наявна поведінка кнопки)
+    await page.evaluate(() => { document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); });
+    await page.waitForTimeout(200);
+    expect(await page.evaluate(() => document.activeElement.id), 'на паролі Enter не міняє фокус').toBe('cloud-password');
   } finally { await ctx.close(); }
 });
