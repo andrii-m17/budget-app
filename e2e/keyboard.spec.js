@@ -13,7 +13,7 @@ async function open(browser, dev, android, flag){
   const page = await ctx.newPage();
   await installClock(page);
   if(flag) await page.addInitScript(() => { try{ localStorage.setItem('budget-kb-new-formula-iphone', '1'); }catch(e){} }); // перемикач «Нова формула клавіатури (iPhone)»
-  await page.addInitScript(a => { window.__vv = { h: null, top: 0 }; if(a) Object.defineProperty(navigator, 'standalone', { get: () => undefined, configurable: true }); }, android); // Chrome не має navigator.standalone
+  await page.addInitScript(a => { window.__kbNoAuto = true; window.__vv = { h: null, top: 0 }; if(a) Object.defineProperty(navigator, 'standalone', { get: () => undefined, configurable: true }); }, android); // Chrome не має navigator.standalone
   await page.goto('/index.html?fixture=typical');
   await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass'));
   await page.waitForTimeout(1500);
@@ -1402,7 +1402,7 @@ test('95. KB-37/C: три focusin у те саме поле за ≈ 300 мс �
 });
 
 // KB-37 (поправка 2): історія поля {388, 311} → рання ціль за найменшою (311), множник 1; реальна 388 через 120 мс: рух монотонний, без зупинки.
-test('96. KB-37/B: поле з історією {388, 311} — рання ціль за 311, при реальній 388 рух монотонний без зупинки', async ({ browser }) => {
+test('96. KB-37/B: поле з історією {388, 311} — KB-39: рання ціль — остання не-найменша (388), при реальній 388 рух монотонний без зупинки', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     await page.evaluate(() => {
@@ -1420,12 +1420,12 @@ test('96. KB-37/B: поле з історією {388, 311} — рання ціл
     await page.waitForTimeout(120);
     const tr = await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); return Math.round((performance.now() - window.__t0) * 10) / 10; });
     const s = await sampler;
-    const ev = await page.evaluate(() => recBuf.filter(e => e.type === 'kb-early').map(e => ({ src: e.src, expected: e.expected, factor: e.factor })));
+    const ev = await page.evaluate(() => recBuf.filter(e => e.type === 'kb-early' && e.src).map(e => ({ src: e.src, expected: e.expected, factor: e.factor }))); // події старту (друга подія kb-early без src — рішення за дедлайном KB-39)
     const m = kb37Metrics({ s, tr });
     let back = 0; for(let i = 1; i < s.length; i++) if(s[i][1] < s[i - 1][1] - 0.3) back += s[i - 1][1] - s[i][1];
     const info = JSON.stringify({ ev, m, back: Math.round(back * 10) / 10 });
     expect(ev.length, 'один ранній старт: ' + info).toBe(1);
-    expect(ev[0].expected, 'ціль за найменшою висотою з історії (311): ' + info).toBe(311);
+    expect(ev[0].expected, 'KB-39: ціль — остання не-найменша висота (388; найменша 311 лишається на дедлайн): ' + info).toBe(388);
     expect(ev[0].factor, 'множник 1 (власна історія): ' + info).toBe(1);
     expect(back, 'рух монотонний (зворотний крок ≤ 0,5 пт): ' + info).toBeLessThanOrEqual(0.5);
     expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
@@ -1435,12 +1435,12 @@ test('96. KB-37/B: поле з історією {388, 311} — рання ціл
 
 // KB-38 (Rev 2.32.293): швидкість після уточнення ніколи не зростає; рання нога — швидкий профіль 2.32.291.
 function kb38Speeds(r){
-  const sp = []; for(let i = 1; i < r.s.length; i++){ const dt = r.s[i][0] - r.s[i - 1][0]; if(dt >= 10 && dt <= 25) sp.push([r.s[i][0], (r.s[i][1] - r.s[i - 1][1]) / dt]); } // кадри ближче 10 мс (два виклики rAF в одному такті) і затримані дають шум швидкості
+  const sp = []; for(let i = 1; i < r.s.length; i++){ const dt = r.s[i][0] - r.s[i - 1][0]; if(dt >= 14 && dt <= 22) sp.push([r.s[i][0], (r.s[i][1] - r.s[i - 1][1]) / dt]); } // кадри ближче 14 мс і довші за 22 мс (затримка) не рахуються; кадри ближче 10 мс (два виклики rAF в одному такті) і затримані дають шум швидкості
   const vMax = Math.max.apply(null, sp.map(x => x[1]));
   const first = sp.findIndex(x => x[1] > 0.05 * vMax);
   const atSw = (sp.filter(x => x[0] <= r.tr).pop() || [0, 0])[1];
   const pk = sp.reduce((m, x, i, a) => x[1] > a[m][1] ? i : m, 0); // піковий кадр руху
-  const stopped = atSw < 0.06; let grow = null, maxGrowth = 0; for(let i = pk + 1; i < sp.length; i++){ if(stopped && sp[i][0] > r.tr - 5 && sp[i][0] < r.tr + 100) continue; const g = sp[i][1] - sp[i - 1][1] * 1.03; if(g > 0.03 * vMax && g > maxGrowth){ maxGrowth = g; grow = [Math.round(sp[i][0]), Math.round(sp[i - 1][1] * 100) / 100, Math.round(sp[i][1] * 100) / 100]; } }
+  const stopped = atSw < 0.06; let grow = null, maxGrowth = 0; for(let i = pk + 1; i < sp.length; i++){ if(stopped && sp[i][0] > r.tr - 5 && sp[i][0] < r.tr + 100) continue; const g = sp[i][1] - sp[i - 1][1] * 1.03; const g2 = i + 1 < sp.length ? sp[i + 1][1] - sp[i][1] * 1.0 : 1; if(g > 0.03 * vMax && g2 > 0 && g > maxGrowth){ /* зростання в двох кадрах поспіль: поодинокий викид затримки кадру не рахується */ maxGrowth = g; grow = [Math.round(sp[i][0]), Math.round(sp[i - 1][1] * 100) / 100, Math.round(sp[i][1] * 100) / 100]; } }
   return { vMax: Math.round(vMax * 100) / 100, grow, atSwitch: Math.round(((sp.filter(x => x[0] <= r.tr).pop() || [0, 0])[1]) * 100) / 100, afterPeak: Math.round(Math.max.apply(null, sp.filter(x => x[0] > r.tr + 20 && x[0] < r.tr + 140).map(x => x[1])) * 100) / 100 };
 }
 for(const [label, exp, real, late, hist] of [['історія {311, 415} → реально 415 на +110 мс', 388, 415, 110, [311, 415]], ['388 → 415 на +100 мс', 388, 415, 100, null], ['Face ID: 388 → 311 на +235 мс', 388, 311, 235, null], ['415 → 389 на +100 мс', 415, 389, 100, null]]){
@@ -1454,3 +1454,80 @@ for(const [label, exp, real, late, hist] of [['історія {311, 415} → р�
     expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
   });
 }
+
+// KB-39 (Rev 2.32.294), A: відкриття входу з автофокусом. Емуляція iOS: коли на kb-vv-resize сфокусоване поле під клавіатурою, сторінка зсувається на висоту закриття поля (vvOffsetTop + transform), далі pan-comp повертає її. Очікується: 0 зсувів, один монотонний рух від низу екрана, фокус у cldfielda1 лише коли поле над межею клавіатури.
+test('98. KB-39/A: відкриття входу з автофокусом — 0 зсувів iOS, один монотонний рух від низу, фокус у поле після руху', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => {
+      window.__kbNoAuto = false; window.__vv.h = null; window.__vv.top = 0;
+      const root = document.documentElement; window.__pans = 0;
+      window.scrollTo = function(x, y){ if(y) return; root.style.transform = ''; window.__vv.top = 0; };
+      window.__kbShow = function(k){ // клавіатура з'являється; iOS зсуває екран, якщо сфокусоване поле під нею
+        window.__vv.h = window.__H0 - k; const a = document.activeElement, lim = window.__H0 - k;
+        if(a && a !== document.body){ const r = a.getBoundingClientRect(); if(r.bottom > lim){ const sh = Math.round(r.bottom - lim + 8); window.__pans++; root.style.transform = 'translateY(' + (-sh) + 'px)'; window.__vv.top = sh; window.visualViewport.dispatchEvent(new Event('scroll')); } }
+        window.visualViewport.dispatchEvent(new Event('resize'));
+      };
+    });
+    const sampler = page.evaluate(() => new Promise(resolve => {
+      const d = document.getElementById('profile-drawer'), f = document.getElementById('cldfielda1'), s = [], t0 = performance.now(); window.__t0 = t0; window.__fieldAt = null; window.__xfer = null;
+      const tick = () => {
+        const t = Math.round(performance.now() - t0); s.push([t, Math.round(d.getBoundingClientRect().bottom * 10) / 10]);
+        if(window.__fieldAt === null && document.activeElement === f){ window.__fieldAt = t; const lim = window.visualViewport.offsetTop + window.visualViewport.height; window.__xfer = { fieldBottom: Math.round(f.getBoundingClientRect().bottom), limit: Math.round(lim), t }; }
+        if(t < 1700) requestAnimationFrame(tick); else resolve(s);
+      };
+      requestAnimationFrame(tick);
+      showProfileLoginForm(); f.focus({ preventScroll: true }); // фокус у пошту приходить, поки лист ще виїжджає (звіти MT-1112-6851/-4673)
+    }));
+    await page.waitForTimeout(100);
+    await page.evaluate(() => window.__kbShow(Math.round(window.__H0 * 0.465)));
+    const s = await sampler;
+    const r = await page.evaluate(() => ({ pans: window.__pans, panComp: recBuf.filter(e => e.type === 'pan-comp').length, fieldAt: window.__fieldAt, xfer: window.__xfer, active: document.activeElement && document.activeElement.id, ev: recBuf.filter(e => e.type === 'autofocus-transfer').map(e => ({ ms: e.ms, by: e.by, rel: e.rel })) }));
+    let up = 0; for(let i = 1; i < s.length; i++) if(s[i][1] > s[i - 1][1] + 0.5 && s[i - 1][1] < s[0][1]) up += s[i][1] - s[i - 1][1];
+    const info = JSON.stringify({ r, up: Math.round(up * 10) / 10, start: s[0][1], sample: s.filter((x, i) => i % 4 === 0 && x[0] < 800).map(x => [x[0], Math.round(x[1])]) });
+    if(process.env.KB39_DEBUG) throw new Error('DBG ' + info);
+    expect(r.pans, 'жодного зсуву iOS (поле не під клавіатурою в момент kb-vv-resize): ' + info).toBe(0);
+    expect(r.panComp, 'pan-comp 0: ' + info).toBe(0);
+    expect(up, 'один монотонний рух (без руху вниз понад 0,5 пт): ' + info).toBeLessThanOrEqual(1);
+    expect(r.active, 'фокус у cldfielda1 після руху: ' + info).toBe('cldfielda1');
+    expect(r.xfer && r.xfer.fieldBottom <= r.xfer.limit, 'фокус перейшов, коли поле над межею клавіатури: ' + info).toBe(true);
+  } finally { await ctx.close(); }
+});
+
+// KB-39 (Rev 2.32.294), B: поле з історією {311, 415}: рання ціль — остання не-найменша (415); якщо до KB_EARLY_DEADLINE_MS (130 мс) kb-vv-resize не прийшов, ціль плавно змінюється на найменшу (311).
+test('99. KB-39/B: історія {311, 415}, реально 415 на +100 мс — один рух, доповзання після уточнення ≤ 250 мс, швидкість не зростає', async ({ browser }) => {
+  const r = await kb37Run(browser, 388, 415, 100, true, [311, 415]);
+  const m = kb37Metrics(r), g = kb38Speeds(r);
+  const s = r.s, final = s[s.length - 1][1];
+  const tEnd = (s.find(x => x[0] > r.tr && Math.abs(x[1] - final) <= 1) || [1e9])[0];
+  const info = JSON.stringify({ m, g, crawlMs: Math.round(tEnd - r.tr) });
+  expect(tEnd - r.tr, 'від уточнення до кінця руху ≤ 250 мс (без доповзання): ' + info).toBeLessThanOrEqual(250);
+  expect(g.grow, 'швидкість по кадрах не зростає (3 %): ' + info).toBe(null);
+  expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
+});
+test('99. KB-39/B: історія {311, 415}, реально 311 на +235 мс — дедлайн 130 мс переводить ціль на 311: один розворот (без коливань), кінець на цілі ±1', async ({ browser }) => {
+  // Фізична межа: рання ціль 415 (звичайна клавіатура) пролітає висоту для 311 за ≈ 45 мс, тож до дедлайну 130 мс лист уже вище 311-цілі; «переліт ≤ 1 пт» неможливий (виміряно ≈ 74 пт), лишається один плавний розворот.
+  const r = await kb37Run(browser, 388, 311, 235, true, [311, 415]);
+  const ref = await kb37Run(browser, 388, 311, 235, false, [311, 415]);
+  const m = kb37Metrics(r), mr = kb37Metrics(ref);
+  const s = r.s; let turns = 0, dir = 0; for(let i = 1; i < s.length; i++){ const d = s[i][1] - s[i - 1][1]; if(Math.abs(d) < 0.3) continue; const nd = d > 0 ? 1 : -1; if(dir !== 0 && nd !== dir) turns++; dir = nd; }
+  const info = JSON.stringify({ m, refFinal: mr.final, turns });
+  expect(Math.abs(m.final - mr.final), 'кінець на цілі еталона ±1: ' + info).toBeLessThanOrEqual(1);
+  expect(turns, 'один розворот (вгору → вниз до 311), без коливань: ' + info).toBeLessThanOrEqual(1);
+});
+
+// KB-39 (Rev 2.32.294), D: дві vv-події з різницею 12 мс і тим самим vvOffsetTop — одна pan-comp.
+test('100. KB-39/D: дві події vv з тим самим vvOffsetTop (різниця 12 мс) — одна pan-comp', async ({ browser }) => {
+  const { ctx, page } = await kb25Open(browser, false);
+  try{
+    const n = await page.evaluate(() => new Promise(resolve => {
+      const root = document.documentElement; const n0 = recBuf.filter(e => e.type === 'pan-comp').length;
+      window.scrollTo = function(x, y){ if(y) return; root.style.transform = ''; setTimeout(() => { window.__vv.top = 0; }, 60); }; // iOS оновлює vvOffsetTop із запізненням
+      root.style.transform = 'translateY(-52px)'; window.__vv.top = 52;
+      window.visualViewport.dispatchEvent(new Event('resize'));
+      setTimeout(() => { window.visualViewport.dispatchEvent(new Event('scroll')); }, 12);
+      setTimeout(() => resolve(recBuf.filter(e => e.type === 'pan-comp').length - n0), 500);
+    }));
+    expect(n, 'одна pan-comp на два події з тим самим зсувом').toBe(1);
+  } finally { await ctx.close(); }
+});

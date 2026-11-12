@@ -33,8 +33,8 @@ test('із input insertReplacementText (або без inputType) — autofill (�
 test('охорона: тип autofill у білому списку; ранній підйом лише за прямим дотиком, оцінка висоти — стартова ціль; одна компенсація pan (kbPanPending)', () => {
   const i = HTML.indexOf('const REC_ALLOWED_TYPES = ['); assert.ok(HTML.slice(i, HTML.indexOf('];', i)).includes("'autofill'"));
   assert.match(HTML, /kbPipeEarlyStart\(drawerEl, fieldEl, vvEstimate, naturalHeight, \{/);
-  assert.match(HTML, /const earlyOk = IS_IOS_RUNTIME && !kbProxyActive && Date\.now\(\) - kbLastInterceptAt <= 400/);
-  assert.match(HTML, /if\(!kbPanPending\)\{ kbPanPending = true; requestAnimationFrame/);
+  assert.match(HTML, /const earlyOk = IS_IOS_RUNTIME && !window\.__kbNoEarly && \(\(!kbProxyActive && Date\.now\(\) - kbLastInterceptAt <= 400\)/);
+  assert.match(HTML, /if\(!kbPanPending && !panSame\)\{ kbPanPending = true; requestAnimationFrame/);
 });
 
 // KB-36 (Rev 2.32.291), 3: звіт MT-1112-9754: автозаповнення без input з inputType, клавіатура закрилась за ≈95 мс від першого focusin → autofill (by: closed), не arrow-direct; зміна значень двох полів без клавіш → autofill (by: values); без значень у події.
@@ -73,14 +73,14 @@ test('KB-37: kbFieldHeightGet/Save — ключ id | орієнтація | ба
   c.__s = (o, id, h) => { c.__a = [o, id, h]; evalInSandbox(c, 'kbFieldHeightSave(__a[0], __a[1], __a[2])'); };
   c.__g = (o, id) => { c.__a = [o, id]; return evalInSandbox(c, 'kbFieldHeightGet(__a[0], __a[1])'); };
   c.__s('portrait', 'app-modal-input', 415);
-  assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, src: 'field-session' });
+  assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, alt: null, src: 'field-session' });
   assert.equal(c.__g('portrait', 'cldfielda1'), null, 'інше поле — власної історії нема');
   assert.equal(c.__g('landscape', 'app-modal-input'), null, 'інша орієнтація');
   assert.equal(c.__g('portrait', ''), null, 'без id історії поля нема');
   assert.ok(Object.keys(JSON.parse(m['budget-kb-heights-f1']))[0] === 'app-modal-input|portrait|h664', 'ключ у сховищі');
   assert.deepEqual(JSON.parse(m['budget-kb-heights-f1'])['app-modal-input|portrait|h664'], [415], 'у сховищі набір висот');
   base = 700; assert.equal(c.__g('portrait', 'app-modal-input'), null, 'інша база висоти');
-  base = 664; evalInSandbox(c, 'kbFieldSession = {}'); assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, src: 'field-store' }, 'нова сесія читає зі сховища');
+  base = 664; evalInSandbox(c, 'kbFieldSession = {}'); assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, alt: null, src: 'field-store' }, 'нова сесія читає зі сховища');
 });
 test('KB-37: охорона коду — рання нога довша, kb-early-skip у білому списку, множник лише без власної історії, повторний focusin пропускається', () => {
   assert.match(HTML, /kbSetLift\(L, 0, undefined, true\);/);
@@ -129,4 +129,17 @@ test('KB-38: рання нога + нога уточнення — швидкі�
     assert.ok(Math.max.apply(null, frames.map(x => x[1])) - L2 <= 1, name + ': без перельоту');
     assert.ok(lg.dur >= 150 && lg.dur <= 500, name + ': T у межах ' + lg.dur);
   }
+});
+
+// KB-39, B: остання не-найменша висота як рання ціль (alt), найменша — запас на дедлайн.
+test('KB-39: історія {311, 415} — h = 311, alt = 415 (остання не-найменша); {415, 311} — alt = 415; одна висота — alt null', () => {
+  const m = {}; const c = buildSandbox({ localStorage: { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }, getBaseViewportHeight: () => 664, window: { innerHeight: 664 }, kbFieldSession: {} },
+    ['kbFieldKey', 'kbFieldHeightGet', 'kbFieldHeightSave', 'kbHeightKeyBase', 'KB_FIELD_HEIGHTS_KEY', 'KB_FIELD_HEIGHTS_MAX', 'kbFieldList']);
+  const sv = (id, h) => { c.__a = [id, h]; evalInSandbox(c, "kbFieldHeightSave('portrait', __a[0], __a[1])"); };
+  const gt = id => { c.__a = [id]; const r = evalInSandbox(c, "kbFieldHeightGet('portrait', __a[0])"); return r && { h: r.h, alt: r.alt }; };
+  [311, 415].forEach(h => sv('a', h)); assert.deepEqual(gt('a'), { h: 311, alt: 415 });
+  [415, 311].forEach(h => sv('b', h)); assert.deepEqual(gt('b'), { h: 311, alt: 415 });
+  [311, 388, 415].forEach(h => sv('d', h)); assert.deepEqual(gt('d'), { h: 311, alt: 415 }, 'остання не-найменша');
+  [415, 388, 311, 311].forEach(h => sv('e', h)); assert.deepEqual(gt('e'), { h: 311, alt: 388 }, 'остання серед не-найменших — 388');
+  sv('f', 388); assert.deepEqual(gt('f'), { h: 388, alt: null });
 });

@@ -48,7 +48,7 @@ test('прямий шлях відкриття картки: на iOS з екр�
   assert.match(SRC, /function focusCardField\(input\)\{[\s\S]*?beginKbFocusProxy\(input, modal, select\);/);
   assert.equal((SRC.match(/setTimeout\(\(\)=>\{ focusCardFieldSafe\(input\); \}, 60\);/g) || []).length, 1); // Rev 2.32.58 (F1): форми «Структури» — у .drawer; лишилась ОЧ/банк (showInstallmentModal) // Rev 2.32.52 (G): безпечна обгортка
   assert.match(SRC, /if\(!kbSheetUsesProxy\(document\.getElementById\('app-modal'\)\.hasAttribute\('data-sheet-id'\)\)\) focusFirstIn/);
-  assert.match(SRC, /function beginKbFocusProxy\(target, drawerEl, onTransferred\)/);
+  assert.match(SRC, /function beginKbFocusProxy\(target, drawerEl, onTransferred, opts\)/);
   assert.match(SRC, /if\(typeof onTransferred === 'function'\) onTransferred\(\);/);
 });
 test('вимір спокійного положення: для .app-modal без впливу scale(.96), для шторок — getBoundingClientRect як було', () => {
