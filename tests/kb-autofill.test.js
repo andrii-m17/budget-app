@@ -62,5 +62,29 @@ test('KB-36: kb-early у білому списку типів і ключів; �
   const k = HTML.indexOf('const REC_ALLOWED_KEYS = ['); const keys = HTML.slice(k, HTML.indexOf('];', k));
   ['by', 'expected', 'src', 'factor', 'target'].forEach(x => assert.ok(keys.includes("'" + x + "'"), x));
   assert.match(HTML, /const wasClosing = !!\(kbClosingEl && kbClosingEl === drawerEl/);
-  assert.match(HTML, /const factor = \(info\.src === 'session' && !loginField\) \? 1 : KB_EARLY_FACTOR;/);
+  assert.match(HTML, /const factor = \(ownHistory \|\| \(info\.src === 'session' && !loginField\)\) \? 1 : KB_EARLY_FACTOR;/);
+});
+
+// KB-37 (Rev 2.32.292): історія висоти за полем (id + орієнтація + база), kb-early-skip, рання нога.
+test('KB-37: kbFieldHeightGet/Save — ключ id | орієнтація | база; інша база чи інше поле — немає значення; сесія раніше за сховище; без id — null', () => {
+  const m = {}; let base = 664;
+  const c = buildSandbox({ localStorage: { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }, getBaseViewportHeight: () => base, window: { innerHeight: 664 }, kbFieldSession: {} },
+    ['kbFieldKey', 'kbFieldHeightGet', 'kbFieldHeightSave', 'kbHeightKeyBase', 'KB_FIELD_HEIGHTS_KEY']);
+  c.__s = (o, id, h) => { c.__a = [o, id, h]; evalInSandbox(c, 'kbFieldHeightSave(__a[0], __a[1], __a[2])'); };
+  c.__g = (o, id) => { c.__a = [o, id]; return evalInSandbox(c, 'kbFieldHeightGet(__a[0], __a[1])'); };
+  c.__s('portrait', 'app-modal-input', 415);
+  assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, src: 'field-session' });
+  assert.equal(c.__g('portrait', 'cldfielda1'), null, 'інше поле — власної історії нема');
+  assert.equal(c.__g('landscape', 'app-modal-input'), null, 'інша орієнтація');
+  assert.equal(c.__g('portrait', ''), null, 'без id історії поля нема');
+  assert.ok(Object.keys(JSON.parse(m['budget-kb-heights-f1']))[0] === 'app-modal-input|portrait|h664', 'ключ у сховищі');
+  base = 700; assert.equal(c.__g('portrait', 'app-modal-input'), null, 'інша база висоти');
+  base = 664; evalInSandbox(c, 'kbFieldSession = {}'); assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, src: 'field-store' }, 'нова сесія читає зі сховища');
+});
+test('KB-37: охорона коду — рання нога довша, kb-early-skip у білому списку, множник лише без власної історії, повторний focusin пропускається', () => {
+  assert.match(HTML, /const KB_EARLY_DUR = 460;/);
+  assert.match(HTML, /kbSetLift\(L, 0, undefined, true\);/);
+  assert.match(HTML, /captureDebugGeometry\('kb-early-skip', \{ reason: 'same-field'/);
+  const i = HTML.indexOf('const REC_ALLOWED_TYPES = ['); assert.ok(HTML.slice(i, HTML.indexOf('];', i)).includes("'kb-early-skip'"));
+  assert.match(HTML, /const ownH = kbFieldHeightGet\(orientKey, fieldEl && fieldEl\.id\)/);
 });
