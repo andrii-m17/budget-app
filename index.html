@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.292</div>
+  <div class="version-footer">Money Tree · Rev 2.32.293</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.292';
+const APP_VERSION = '2.32.293';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -29319,7 +29319,7 @@ function kbPipeEarlyStart(drawerEl, fieldEl, vvEstimate, naturalHeight, info){
     { const af = document.activeElement; kbStartFieldScroll(drawerEl, (af && af !== document.body && isKeyboardField(af)) ? af : fieldEl); }
     beginSheetMoving(drawerEl, 'open', null, fieldEl);
     if(KB_PIPE.doneTimer) clearTimeout(KB_PIPE.doneTimer);
-    KB_PIPE.doneTimer = setTimeout(function(){ KB_PIPE.doneTimer = null; if(KB_PIPE.state === 'animating') KB_PIPE.state = kbPipeStep(KB_PIPE.state, 'done').state; kbEnsureFieldVisible(kbSheetDrawerEl, document.activeElement); }, KB_EARLY_DUR + 40);
+    KB_PIPE.doneTimer = setTimeout(function(){ KB_PIPE.doneTimer = null; if(KB_PIPE.state === 'animating') KB_PIPE.state = kbPipeStep(KB_PIPE.state, 'done').state; kbEnsureFieldVisible(kbSheetDrawerEl, document.activeElement); }, 340);
     const gen = kbSheetGen;
     setTimeout(function(){ // клавіатура не з'явилась: плавно повернути форму й дозволити звичайний шлях
       if(!kbSheetActive || kbSheetGen !== gen || !KB_PIPE.early || kbPipeOpenNow()){
@@ -29343,9 +29343,17 @@ function kbPipeKick(){ if(KB_PIPE.pending && kbSheetActive && kbSheetNewF && kbP
 // Rev 2.32.265 (KB-12), перероблено в Rev 2.32.266: звіт MT-1107-5492: iOS уточнює висоту клавіатури вже під час підйому (vvH 479 → 506 через 35–50 мс; Face ID 479 → 583). CSS-перехід у такому разі скасовується й стартує заново з НАСТУПНОГО кадру з новою кривою: плато на 3–4 кадрі, зворотний крок, повільний хід. Рух підйому тепер веде Web Animations API (element.animate, лише transform): браузер сам виконує анімацію (на графічному процесорі, не залежить від зайнятості JS і не потребує покадрового rAF; варіант Rev 2.32.265 з rAF міг пропускати кадри на зайнятому телефоні). JS працює один раз на зміну цілі: бере поточне положення й швидкість (kbLiftState: за anim.currentTime і відомими параметрами ноги), скасовує стару анімацію й запускає нову з поточного положення з кривою cubic-bezier, початковий нахил якої дорівнює поточній швидкості (y1 = x1 · v · T / Δ; для цілі в той самий бік тривалість 3·|Δ|/v (≥ 40 мс), крива обмежена y1 ≤ 1 без перельоту; у протилежний бік (Face ID) один плавний розворот). Перша нога та сама cubic-bezier(0.22, 0.9, 0.3, 1) за 280 мс. --sheet-lift одразу дорівнює кінцевій цілі, тож по завершенні анімації елемент стоїть у ній без стрибка; на час руху клас kb-lift-js вимикає CSS-перехід transform. Без WAAPI (стара WebView) лишається CSS-перехід. Те саме для листів і центрованих форм (різний transform). Прокрутка до поля (KB-11) лишається в JS (rAF) і перераховується до нової цілі. Закриття не змінювали, але перед ним поточне положення фіксується (kbLiftCommit), щоб CSS-перехід закриття стартував звідти, де лист зараз.
 // KB-MOTION-BEGIN (Rev 2.32.273, KB-19): єдиний модуль руху листів і карток. Лише тут пишуться --sheet-lift, --sheet-max-h, scrollTop листа й transform анімацій підйому/прокрутки (охоронний тест tests/kb-motion-guard.test.js).
 const KB_MOTION_DUR = 250;
-const KB_EARLY_DUR = 460; // Rev 2.32.292 (KB-37, A): тривалість ранньої ноги (обидві частини)
-// Rev 2.32.292 (KB-37, поправка 1): рання нога — одна гладка крива 460 мс з тим самим початковим нахилом, що й базова (за 100 мс ≈ 64,5 % шляху; швидкість на +235 мс ≈ 12 % початкової; швидкість ніде не зростає, стику частин нема). Двочастинні профілі (ключові кадри) з ≥ 85 % на +100 мс і ≥ 10 % на +235 мс математично несумісні без зростання швидкості в хвості («стоп-і-далі») або без злому швидкості на стику (досліджено: 85 % → ≈ 3 %, 80 % → 14 % зі зламом на стику, 64,5 % → 12 % гладко).
-const KB_EARLY_CURVE = [0.186, 0.655, 0.231, 0.991];
+// Rev 2.32.293 (KB-38): нога уточнення. Звіти MT-1112-5750/-7417: при великому залишку нога ≤ 250 мс (KB-37) змушена розганятися (швидкість 0,45 → 0,95 пт/мс) — видимий «стрибок». Тепер тривалість T = clamp(KB_RETARGET_K·залишок/поточна швидкість, KB_RETARGET_MIN, KB_RETARGET_MAX); початковий нахил кривої = поточна швидкість, далі лише спад (cubic-bezier(0,3; 0,3·s; 0,65; 1), s = швидкість·T/залишок).
+const KB_RETARGET_K = 1.8;
+const KB_RETARGET_MIN = 150;
+const KB_RETARGET_MAX = 500;
+// Нога для зміни цілі в той самий бік (delta — залишок, vel — поточна швидкість, пт/мс, обидві в напрямку руху); обмеження: швидкість не зростає, якщо T не впирається в межі й s ≥ 1,2.
+function kbRetargetLeg(delta, speed){
+  const d = Math.abs(delta), v = Math.max(Math.abs(speed), d / 250, 0.001); // майже зупинений лист (швидкість < залишок/250 мс): стартова швидкість підтягується до залишок/250 — інакше довелось би розганятися
+  const T = Math.max(KB_RETARGET_MIN, Math.min(KB_RETARGET_MAX, KB_RETARGET_K * d / v));
+  const sl = v * T / d;
+  return { dur: T, c: [0.3, Math.min(1, 0.3 * sl), 0.65, 1] };
+}
 const KB_EARLY_QUICK_MS = 40;
 const KB_MOTION_CURVE = [0.38, 0.7, 0.125, 1];
 const KB_MOTION_EASING = 'cubic-bezier(' + KB_MOTION_CURVE.join(', ') + ')';
@@ -29420,9 +29428,8 @@ function kbSetLift(target, boost, fromAbs, early){ // fromAbs (KB-36): поча�
     from = stNow.pos;
     if(Math.abs(delta) > 0.5 && !(boost > 0)){ // після зсуву сторінки (boost) швидкість старої ноги не переноситься: рух стартує з видимого положення стандартною кривою 250 мс
       if(stNow.vel * delta > 0){
-        const speed = Math.abs(stNow.vel);
-        dur = Math.max(60, Math.min(KB_MOTION_DUR, 3 * Math.abs(delta) / Math.max(speed, 0.01)));
-        c = [0.3, Math.max(0, Math.min(1, 0.3 * Math.min(3, speed * dur / Math.abs(delta)))), 0.6, 1];
+        const leg = kbRetargetLeg(delta, stNow.vel); // Rev 2.32.293 (KB-38): тривалість за швидкістю й залишком, без обмеження ≤ 250 мс
+        dur = leg.dur; c = leg.c;
       }else{
         c = [0.3, 0, 0.6, 1];
       }
@@ -29430,7 +29437,6 @@ function kbSetLift(target, boost, fromAbs, early){ // fromAbs (KB-36): поча�
   }
   // Rev 2.32.292 (KB-37, A): звіти MT-1112-5246/-3384: ранній підйом (250 мс) майже закінчувався до kb-vv-resize (+235 мс), і нова нога стартувала з майже нульовою швидкістю («стоп» посеред підйому). Рання нога довша (KB_EARLY_DUR, крива з тим самим початковим нахилом і довшим хвостом: на +235 мс швидкість ≈ 35 % початкової). Нова нога на уточненні бере положення й швидкість (KB-20) і триває ≤ 250 мс. Якщо уточнення прийшло в перші KB_EARLY_QUICK_MS — одна стандартна нога до справжньої цілі.
   if(inFlight && kbLiftAnim.early && now - kbLiftAnim.t0 < KB_EARLY_QUICK_MS){ dur = KB_MOTION_DUR; c = KB_MOTION_CURVE; }
-  else if(early === true && !inFlight){ dur = KB_EARLY_DUR; c = KB_EARLY_CURVE; }
   if(boost > 0) from += boost;
   const earlyLeg = early === true && !inFlight; // рання крива лише для ноги, що стартує зі спокою (після утримання/в русі — стандартна нога з поточною швидкістю)
   kbLiftAnim = { from: from, to: target, t0: now, dur: dur, c: c, early: earlyLeg };

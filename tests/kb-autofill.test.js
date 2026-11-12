@@ -83,7 +83,6 @@ test('KB-37: kbFieldHeightGet/Save — ключ id | орієнтація | ба
   base = 664; evalInSandbox(c, 'kbFieldSession = {}'); assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, src: 'field-store' }, 'нова сесія читає зі сховища');
 });
 test('KB-37: охорона коду — рання нога довша, kb-early-skip у білому списку, множник лише без власної історії, повторний focusin пропускається', () => {
-  assert.match(HTML, /const KB_EARLY_DUR = 460;/);
   assert.match(HTML, /kbSetLift\(L, 0, undefined, true\);/);
   assert.match(HTML, /captureDebugGeometry\('kb-early-skip', \{ reason: 'same-field'/);
   const i = HTML.indexOf('const REC_ALLOWED_TYPES = ['); assert.ok(HTML.slice(i, HTML.indexOf('];', i)).includes("'kb-early-skip'"));
@@ -105,14 +104,29 @@ test('KB-37: історія поля — набір до 4 останніх рі
   assert.deepEqual(JSON.parse(m['budget-kb-heights-f1'])['f|portrait|h664'], [415, 500, 501, 502].slice(-4), 'не більше 4 останніх');
   assert.equal(gt('f').h, 415);
 });
-test('KB-37: профіль ранньої ноги — одна гладка крива 460 мс: ≥ 60 % шляху на +100 мс, швидкість на +235 мс ≥ 10 % початкової, швидкість ніде не зростає, початковий нахил як у базової кривої', () => {
-  const c = buildSandbox({}, ['kbBezier', 'KB_EARLY_DUR', 'KB_EARLY_CURVE', 'KB_MOTION_CURVE']);
-  const f = (cv, T) => t => { c.__a = [cv, T, t]; return evalInSandbox(c, 'kbBezier(__a[0][0], __a[0][1], __a[0][2], __a[0][3], __a[2] / __a[1])'); };
-  const E = JSON.parse(JSON.stringify(evalInSandbox(c, 'KB_EARLY_CURVE'))), B = JSON.parse(JSON.stringify(evalInSandbox(c, 'KB_MOTION_CURVE'))), T = evalInSandbox(c, 'KB_EARLY_DUR');
-  const fe = f(E, T), fb = f(B, 250), v = (g, x) => (g(x + 1.5) - g(Math.max(0, x - 1.5))) / (x < 1.5 ? 1.5 + x : 3);
-  assert.ok(T >= 450, 'тривалість ≥ 450 мс');
-  assert.ok(fe(100) >= 0.6, '≥ 60 % на +100 мс: ' + fe(100));
-  assert.ok(v(fe, 235) >= 0.1 * v(fe, 2), 'v(235)/v0 = ' + (v(fe, 235) / v(fe, 2)));
-  assert.ok(Math.abs(v(fe, 2) - v(fb, 2)) / v(fb, 2) <= 0.1, 'початкова швидкість як у базової: ' + v(fe, 2) + ' vs ' + v(fb, 2));
-  for(let x = 6; x < 454; x += 6) assert.ok(v(fe, x + 6) <= v(fe, x) * 1.01 + 1e-8, 'швидкість не зростає в ' + x);
+// KB-38 (Rev 2.32.293): закон руху — швидкість ніколи не зростає: рання нога (250 мс, профіль 2.32.291) + нога уточнення (T = clamp(k·залишок/швидкість, 150, 500), початковий нахил = поточна швидкість).
+test('KB-38: рання нога + нога уточнення — швидкість по кадрах ніде не зростає (3 %), кінець на цілі, без перельоту', () => {
+  const c = buildSandbox({}, ['kbBezier', 'KB_MOTION_CURVE', 'KB_RETARGET_K', 'KB_RETARGET_MIN', 'KB_RETARGET_MAX', 'kbRetargetLeg']);
+  const B = JSON.parse(JSON.stringify(evalInSandbox(c, 'KB_MOTION_CURVE')));
+  const bz = (cv, x) => { c.__a = [cv, x]; return evalInSandbox(c, 'kbBezier(__a[0][0], __a[0][1], __a[0][2], __a[0][3], __a[1])'); };
+  const leg = (d, v) => { c.__a = [d, v]; return JSON.parse(JSON.stringify(evalInSandbox(c, 'kbRetargetLeg(__a[0], __a[1])'))); };
+  // [назва, ціль ранньої ноги, нова ціль, момент уточнення мс]
+  const cases = [['історія {311, 415}: ціль 311 → реально 415 на +110 мс', 211, 315, 110], ['388 → 415 на +100 мс', 288, 315, 100], ['Face ID: 0,75·388 → 311 на +235 мс', 195, 215, 235], ['415 → 389: 0,75·415 → 389', 210, 290, 100], ['ціль без змін: далеко, на +60 мс', 150, 300, 60]];
+  for(const [name, L1, L2, tr] of cases){
+    const pos1 = t => L1 * bz(B, Math.min(1, t / 250));
+    const vel1 = t => (pos1(t + 0.5) - pos1(Math.max(0, t - 0.5))) / (t < 0.5 ? 0.5 + t : 1);
+    const p0 = pos1(tr), v0 = vel1(tr), dlt = L2 - p0, lg = leg(dlt, v0);
+    const pos = t => t <= tr ? pos1(t) : p0 + dlt * bz(lg.c, Math.min(1, (t - tr) / lg.dur));
+    const end = tr + lg.dur; const frames = []; for(let t = 0; t <= end + 20; t += 16.7) frames.push([t, pos(t)]);
+    const sp = []; for(let i = 1; i < frames.length; i++) sp.push([frames[i][0], frames[i][1] - frames[i - 1][1]]);
+    // швидкість по кадрах: після піка (старт, розгін профілю 2.32.291) не зростає понад 3 %; виняток — майже зупинений лист (v0 < 0,05 пт/мс): нова нога стартує з пікової швидкості
+    const pk = sp.indexOf(sp.slice(0, 6).reduce((m, x) => x[1] > m[1] ? x : m));
+    const stopped = v0 < 0.05;
+    const ref = stopped ? sp.findIndex(x => x[0] > tr) : pk;
+    let bad = null; for(let i = ref + 1; i < sp.length; i++){ if(stopped && sp[i][0] <= tr + 40) continue; if(sp[i][1] > sp[i - 1][1] * 1.03 + 0.02){ bad = [i, sp[i - 1][1].toFixed(2), sp[i][1].toFixed(2)]; break; } }
+    assert.equal(bad, null, name + ': швидкість зросла в кадрі ' + JSON.stringify(bad) + ' T=' + lg.dur + ' v0=' + v0.toFixed(3));
+    assert.ok(Math.abs(pos(end + 20) - L2) <= 1, name + ': кінець на цілі');
+    assert.ok(Math.max.apply(null, frames.map(x => x[1])) - L2 <= 1, name + ': без перельоту');
+    assert.ok(lg.dur >= 150 && lg.dur <= 500, name + ': T у межах ' + lg.dur);
+  }
 });

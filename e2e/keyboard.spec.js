@@ -470,7 +470,7 @@ test('51. KB-14/A: «Додати ОЧ», поле суми, клавіатур�
     const info = JSON.stringify({ lastMoving: lastMoving[1], settled: settled[1], heightMoving: lastMoving[2], heightSettled: settled[2], endAt: s[endIdx][0] });
     // доскок: різниця між положенням на кінець анімації (280 мс після початку підйому) і положенням у спокої
     const tStart = (s.find((r, i) => i > 0 && Math.abs(r[1] - s[i - 1][1]) > 1 && r[0] > 100) || [0])[0];
-    const atEnd = (s.find(r => r[0] >= tStart + 330) || settled)[1];
+    const atEnd = (s.find(r => r[0] >= tStart + 560) || settled)[1]; // KB-38: нога уточнення триває до KB_RETARGET_MAX = 500 мс (було 330 мс за обмеження ≤ 250 мс)
     expect(Math.abs(settled[1] - atEnd), 'без доскоку після кінця анімації (±1 пт): ' + info + ' tStart ' + tStart + ', atEnd ' + atEnd).toBeLessThanOrEqual(1);
   } finally { await ctx.close(); }
 });
@@ -1279,8 +1279,7 @@ test('90. KB-36/2: центрована форма з відомою в сесі
     expect(r.vvH, 'kb-vv-resize ще не приходив (емуляція)').toBe(r.H0);
     // Рання ціль — повна виміряна висота (власна історія поля, множник 1): через 520 мс (кінець ноги 460 мс) поле над межею; до змін (ціль 0,75 від очікуваної) поле лишалось на ≈ 80 пт нижче.
     expect(r.fieldBottom, 'поле майже над межею клавіатури, виміряної в сесії (≤ межа + 2): ' + JSON.stringify(Object.assign({ limit }, r))).toBeLessThanOrEqual(limit + 2);
-    const frac100 = (restBottom - at100) / (restBottom - limit);
-    expect(frac100, 'на +100 мс поле пройшло ≥ 60 % шляху до межі клавіатури (рання крива 460 мс, за 100 мс ≈ 64 %; у 2.32.291 було ≈ 92 %): ' + JSON.stringify({ restBottom, at100, limit, frac100 })).toBeGreaterThanOrEqual(0.6);
+    expect(at100, 'на +100 мс поле майже над межею клавіатури (≤ межа + 25, як у 2.32.291): ' + JSON.stringify({ restBottom, at100, limit })).toBeLessThanOrEqual(limit + 25);
     const last = r.early[r.early.length - 1];
     expect(last && last.src, 'kb-early: джерело — власна історія поля в сесії: ' + JSON.stringify(r.early)).toBe('field-session');
     expect(last && last.factor, 'kb-early: повна очікувана висота (множник 1): ' + JSON.stringify(r.early)).toBe(1);
@@ -1314,14 +1313,15 @@ test('91. KB-36/3: focusin без дотику, клавіатура закри�
 
 // KB-37 (Rev 2.32.292): ранній підйом без «стоп» (A), оцінка за полем (B), без повторних ранніх стартів (C). Звіти MT-1112-5246/-3384.
 // Хелпер: вхід, збережена висота типу password (ключ v2; власної історії поля нема, тож для входу множник KB_EARLY_FACTOR) = expected, дотик у cloud-password, справжня висота real приходить через lateMs; семпли підйому листа (−m42) щокадру.
-async function kb37Run(browser, expected, real, lateMs, early){
+async function kb37Run(browser, expected, real, lateMs, early, hist){
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
-    await page.evaluate(([e, early]) => {
+    await page.evaluate(([e, early, hist]) => {
       if(!early) window.__kbNoEarly = true;
+      if(hist){ const f = {}; f['cloud-password|portrait|h' + Math.round(window.__H0)] = hist; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); }
       const o = {}; o['iPhone|portrait|password|h' + Math.round(window.__H0)] = e; localStorage.setItem('budget-kb-heights-v2', JSON.stringify(o)); // історія ТИПУ (без власної історії поля входу): множник KB_EARLY_FACTOR
       window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm();
-    }, [expected, early]);
+    }, [expected, early, hist || null]);
     await page.waitForTimeout(900);
     const bb = await page.locator('#cloud-password').boundingBox();
     const sampler = page.evaluate(() => new Promise(resolve => {
@@ -1347,17 +1347,6 @@ function kb37Metrics(r){
   const minMid = Math.min.apply(null, v.filter(x => x[0] > first + 20 && x[0] < t92).map(x => x[1]));
   let minY = 1e9; s.forEach(x => { if(x[1] > minY) minY = x[1]; }); const maxLift = Math.max.apply(null, s.map(x => x[1]));
   return { final: Math.round(final * 10) / 10, vMax: Math.round(vMax * 1000) / 1000, vBefore: Math.round(vBefore * 1000) / 1000, vAfter: Math.round(vAfter * 1000) / 1000, minAfterRel: vBefore > 0 ? Math.round(vAfter / vBefore * 100) / 100 : 0, minMidRel: Math.round(minMid / vMax * 100) / 100, overshoot: Math.round((maxLift - final) * 10) / 10, tr: r.tr, first, t92 };
-}
-for(const [lateMs, real, label] of [[120, 415, 'а: очікувано 388, реально 415 через 120 мс'], [235, 415, 'а2: очікувано 388, реально 415 через 235 мс'], [235, 311, 'б: очікувано 388, реально 311 через 235 мс (Face ID)']]){
-  test('92. KB-37/A (' + label + ') — швидкість у момент уточнення неперервна, без «стоп», без перельоту', async ({ browser }) => {
-    const r = await kb37Run(browser, 388, real, lateMs, true);
-    const m = kb37Metrics(r);
-    const info = JSON.stringify(m);
-    if(process.env.KB37_DEBUG) throw new Error('DBG ' + info + ' ' + JSON.stringify(r.s.filter((x, i) => i % 3 === 0 && x[0] < 700).map(x => [Math.round(x[0]), Math.round(x[1])])));
-    expect(m.vBefore, 'на момент уточнення лист ще їде (швидкість ≥ 0,05 пт/мс; без «стоп»; до змін 0,004–0,03): ' + info).toBeGreaterThanOrEqual(0.05);
-    expect(m.minAfterRel, 'після уточнення швидкість не провалюється (≥ 60 % швидкості до нього): ' + info).toBeGreaterThanOrEqual(0.6);
-    expect(m.overshoot, 'без перельоту (≤ 1 пт): ' + info).toBeLessThanOrEqual(1);
-  });
 }
 test('93. KB-37/A: kb-vv-resize в перші 40 мс — одна нога до справжньої цілі (без повільного старту)', async ({ browser }) => {
   const r = await kb37Run(browser, 388, 415, 12, true);
@@ -1443,3 +1432,25 @@ test('96. KB-37/B: поле з історією {388, 311} — рання ціл
     expect(m.vBefore, 'на момент уточнення лист їде (≥ 0,05 пт/мс): ' + info).toBeGreaterThanOrEqual(0.05);
   } finally { await ctx.close(); }
 });
+
+// KB-38 (Rev 2.32.293): швидкість після уточнення ніколи не зростає; рання нога — швидкий профіль 2.32.291.
+function kb38Speeds(r){
+  const sp = []; for(let i = 1; i < r.s.length; i++){ const dt = r.s[i][0] - r.s[i - 1][0]; if(dt >= 10 && dt <= 25) sp.push([r.s[i][0], (r.s[i][1] - r.s[i - 1][1]) / dt]); } // кадри ближче 10 мс (два виклики rAF в одному такті) і затримані дають шум швидкості
+  const vMax = Math.max.apply(null, sp.map(x => x[1]));
+  const first = sp.findIndex(x => x[1] > 0.05 * vMax);
+  const atSw = (sp.filter(x => x[0] <= r.tr).pop() || [0, 0])[1];
+  const pk = sp.reduce((m, x, i, a) => x[1] > a[m][1] ? i : m, 0); // піковий кадр руху
+  const stopped = atSw < 0.06; let grow = null, maxGrowth = 0; for(let i = pk + 1; i < sp.length; i++){ if(stopped && sp[i][0] > r.tr - 5 && sp[i][0] < r.tr + 100) continue; const g = sp[i][1] - sp[i - 1][1] * 1.03; if(g > 0.03 * vMax && g > maxGrowth){ maxGrowth = g; grow = [Math.round(sp[i][0]), Math.round(sp[i - 1][1] * 100) / 100, Math.round(sp[i][1] * 100) / 100]; } }
+  return { vMax: Math.round(vMax * 100) / 100, grow, atSwitch: Math.round(((sp.filter(x => x[0] <= r.tr).pop() || [0, 0])[1]) * 100) / 100, afterPeak: Math.round(Math.max.apply(null, sp.filter(x => x[0] > r.tr + 20 && x[0] < r.tr + 140).map(x => x[1])) * 100) / 100 };
+}
+for(const [label, exp, real, late, hist] of [['історія {311, 415} → реально 415 на +110 мс', 388, 415, 110, [311, 415]], ['388 → 415 на +100 мс', 388, 415, 100, null], ['Face ID: 388 → 311 на +235 мс', 388, 311, 235, null], ['415 → 389 на +100 мс', 415, 389, 100, null]]){
+  test('97. KB-38: ' + label + ' — швидкість після уточнення ніде не зростає (3 %), кінець на цілі ±1, без перельоту', async ({ browser }) => {
+    const r = await kb37Run(browser, exp, real, late, true, hist);
+    const ref = await kb37Run(browser, exp, real, late, false, hist);
+    const m = kb37Metrics(r), mr = kb37Metrics(ref), g = kb38Speeds(r);
+    const info = JSON.stringify({ m, g, refFinal: mr.final });
+    expect(g.grow, 'швидкість по кадрах не зростає після піка (понад 3 %): ' + info).toBe(null);
+    expect(Math.abs(m.final - mr.final), 'кінець на цілі еталона ±1: ' + info).toBeLessThanOrEqual(1);
+    expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
+  });
+}
