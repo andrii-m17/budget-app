@@ -1208,3 +1208,102 @@ for(const [expected, real, label] of KB35_CASES){
     expect(back, 'зворотний крок ≤ 0,5 пт: ' + info).toBeLessThanOrEqual(0.5);
   });
 }
+
+// KB-36 (Rev 2.32.291), тест 89: звіт MT-1112-1038 («Додати ОЧ», швидкі повторні відкриття): фокус приходив, поки анімація закриття ще йшла. Закриття скасовується в цьому ж кадрі, підйом стартує з фактичного поточного положення: рівно одна анімація, рух лише вгору.
+async function kb36OpenModal(page){
+  await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
+  await page.waitForTimeout(600);
+}
+test('89. KB-36/1: дотик у поле під час закриття клавіатури — одна анімація, рух лише вгору від поточного положення', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await kb36OpenModal(page);
+    const K = await page.evaluate(() => Math.round(window.__H0 * 0.42));
+    const bb = await page.locator('#app-modal-amount-input').boundingBox();
+    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(100);
+    await page.evaluate(k => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, K);
+    await page.waitForTimeout(900);
+    const sampler = page.evaluate(() => new Promise(resolve => {
+      const m = document.getElementById('app-modal'), s = [], t0 = performance.now(); let maxAnims = 0, tapAt = null;
+      window.__tapMark = () => { document.addEventListener('focusin', () => { if(tapAt === null) tapAt = Math.round(performance.now() - t0); }, { once: true, capture: true }); }; // відлік від самого фокуса (дотик доходить із затримкою, лист за цей час ще закривається)
+      const tick = () => {
+        const anims = m.getAnimations().filter(a => a.playState === 'running' && (a.transitionProperty === 'transform' || a.transitionProperty === undefined && a.effect)).length;
+        if(tapAt !== null) maxAnims = Math.max(maxAnims, anims);
+        s.push([Math.round(performance.now() - t0), -(new DOMMatrix(getComputedStyle(m).transform).m42 + m.offsetHeight / 2)]);
+        if(performance.now() - t0 < 1700) requestAnimationFrame(tick); else resolve({ s, maxAnims, tapAt });
+      };
+      requestAnimationFrame(tick);
+    }));
+    await page.evaluate(() => { document.activeElement.blur(); setTimeout(() => { window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); }, 30); });
+    await page.waitForFunction(() => document.documentElement.classList.contains('kb-sheet-closing'), null, { timeout: 2000 });
+    await page.waitForTimeout(25); // закриття посеред руху (ранні кадри, лист ще високо)
+    await page.evaluate(() => window.__tapMark());
+    const cur = await page.locator('#app-modal-amount-input').boundingBox(); // поле зараз (лист ще високо)
+    await page.touchscreen.tap(cur.x + cur.width / 2, cur.y + cur.height / 2);
+    await page.waitForTimeout(90);
+    await page.evaluate(k => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, K);
+    const r = await sampler;
+    const after = r.s.filter(x => x[0] >= r.tapAt);
+    let down = 0, minAfter = 1e9; for(let i = 1; i < after.length; i++){ down = Math.max(down, after[i - 1][1] - after[i][1]); minAfter = Math.min(minAfter, after[i][1]); }
+    const startLift = after[0][1], first = after[Math.min(3, after.length - 1)][1];
+    const info = JSON.stringify({ tapAt: r.tapAt, maxAnims: r.maxAnims, maxStepDown: Math.round(down * 10) / 10, startLift: Math.round(startLift * 10) / 10, firstAfter: Math.round(first * 10) / 10, end: Math.round(after[after.length - 1][1] * 10) / 10, sample: after.slice(0, 22).map(x => [x[0], Math.round(x[1] * 10) / 10]), all: r.s.filter((x, i) => i % 6 === 0).map(x => [x[0], Math.round(x[1])]) });
+    expect(startLift, 'закриття справді йшло (умова тесту): ' + info).toBeGreaterThan(5);
+    expect(down, 'жодного кроку вниз більше 1,5 пт після дотику (рух лише вгору): ' + info).toBeLessThanOrEqual(1.5);
+    expect(r.maxAnims, 'рівно одна анімація положення: ' + info).toBeLessThanOrEqual(1);
+  } finally { await ctx.close(); }
+});
+
+// KB-36 (Rev 2.32.291), тест 90: центрована форма, висота клавіатури для цього типу поля вже виміряна в сесії → ціль раннього підйому = повна висота: через 100 мс після дотику (ще до kb-vv-resize) поле над межею клавіатури.
+test('90. KB-36/2: центрована форма з відомою в сесії висотою клавіатури — через 100 мс після дотику поле над межею клавіатури', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await kb36OpenModal(page);
+    const K = await page.evaluate(() => Math.round(window.__H0 * 0.7));
+    let bb = await page.locator('#app-modal-amount-input').boundingBox();
+    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(100);
+    await page.evaluate(k => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, K); // висота виміряна в сесії
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1200); // форма в спокої
+    bb = await page.locator('#app-modal-amount-input').boundingBox();
+    const restBottom = bb.y + bb.height;
+    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(100);
+    const r = await page.evaluate(() => { const f = document.getElementById('app-modal-amount-input').getBoundingClientRect(); return { fieldBottom: f.bottom, vvH: window.visualViewport.height, H0: window.__H0, early: recBuf.filter(e => e.type === 'kb-early').map(e => ({ src: e.src, factor: e.factor, expected: e.expected, target: e.target })) }; });
+    const limit = r.H0 - Math.round(r.H0 * 0.7);
+    expect(restBottom, 'у спокої поле під межею клавіатури (умова тесту): ' + JSON.stringify({ restBottom, limit })).toBeGreaterThan(limit + 5);
+    expect(r.vvH, 'kb-vv-resize ще не приходив (емуляція)').toBe(r.H0);
+    // Крива руху (250 мс, швидкий старт) за 100 мс проходить ≈ 85–90 % шляху до цілі, тож «над межею» вимірюється із запасом 25 пт; до змін (ціль 0,75 від очікуваної) поле на цей момент було на ≈ 80 пт нижче межі.
+    expect(r.fieldBottom, 'поле майже над межею клавіатури, виміряної в сесії (≤ межа + 25): ' + JSON.stringify(Object.assign({ limit }, r))).toBeLessThanOrEqual(limit + 25);
+    const last = r.early[r.early.length - 1];
+    expect(last && last.src, 'kb-early: джерело — сесія: ' + JSON.stringify(r.early)).toBe('session');
+    expect(last && last.factor, 'kb-early: повна очікувана висота (множник 1): ' + JSON.stringify(r.early)).toBe(1);
+  } finally { await ctx.close(); }
+});
+
+// KB-36 (Rev 2.32.291), тест 91: звіт MT-1112-9754: автозаповнення без input, клавіатура закрилась за ≈95 мс від focusin без дотику → autofill (by closed), жодного arrow-direct, жодної анімації resize перед закриттям.
+test('91. KB-36/3: focusin без дотику, клавіатура закрилась за 120 мс, input не було — autofill, жодного resize і arrow-direct', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(100);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.4); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => { window.__n0 = recBuf.length; });
+    await page.evaluate(() => {
+      document.getElementById('cloud-password').focus(); // автозаповнення iOS: фокус без дотику
+      setTimeout(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.4) + 5; window.visualViewport.dispatchEvent(new Event('resize')); }, 40); // мікрозсув 5 пт
+      setTimeout(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); }, 120);
+    });
+    await page.waitForTimeout(1700);
+    const r = await page.evaluate(() => recBuf.slice(window.__n0).filter(e => ['autofill', 'arrow-direct', 'sheet-anim'].includes(e.type)).map(e => [e.type, e.phase || e.by || '']));
+    const info = JSON.stringify(r);
+    expect(r.filter(e => e[0] === 'arrow-direct').length, 'arrow-direct не пишеться: ' + info).toBe(0);
+    expect(r.filter(e => e[0] === 'autofill' && e[1] === 'closed').length, 'одна подія autofill за ознакою closed: ' + info).toBe(1);
+    expect(r.filter(e => e[0] === 'sheet-anim' && e[1] === 'resize').length, 'жодної анімації resize перед закриттям: ' + info).toBe(0);
+  } finally { await ctx.close(); }
+});
