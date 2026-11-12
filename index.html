@@ -29343,8 +29343,9 @@ function kbPipeKick(){ if(KB_PIPE.pending && kbSheetActive && kbSheetNewF && kbP
 // Rev 2.32.265 (KB-12), перероблено в Rev 2.32.266: звіт MT-1107-5492: iOS уточнює висоту клавіатури вже під час підйому (vvH 479 → 506 через 35–50 мс; Face ID 479 → 583). CSS-перехід у такому разі скасовується й стартує заново з НАСТУПНОГО кадру з новою кривою: плато на 3–4 кадрі, зворотний крок, повільний хід. Рух підйому тепер веде Web Animations API (element.animate, лише transform): браузер сам виконує анімацію (на графічному процесорі, не залежить від зайнятості JS і не потребує покадрового rAF; варіант Rev 2.32.265 з rAF міг пропускати кадри на зайнятому телефоні). JS працює один раз на зміну цілі: бере поточне положення й швидкість (kbLiftState: за anim.currentTime і відомими параметрами ноги), скасовує стару анімацію й запускає нову з поточного положення з кривою cubic-bezier, початковий нахил якої дорівнює поточній швидкості (y1 = x1 · v · T / Δ; для цілі в той самий бік тривалість 3·|Δ|/v (≥ 40 мс), крива обмежена y1 ≤ 1 без перельоту; у протилежний бік (Face ID) один плавний розворот). Перша нога та сама cubic-bezier(0.22, 0.9, 0.3, 1) за 280 мс. --sheet-lift одразу дорівнює кінцевій цілі, тож по завершенні анімації елемент стоїть у ній без стрибка; на час руху клас kb-lift-js вимикає CSS-перехід transform. Без WAAPI (стара WebView) лишається CSS-перехід. Те саме для листів і центрованих форм (різний transform). Прокрутка до поля (KB-11) лишається в JS (rAF) і перераховується до нової цілі. Закриття не змінювали, але перед ним поточне положення фіксується (kbLiftCommit), щоб CSS-перехід закриття стартував звідти, де лист зараз.
 // KB-MOTION-BEGIN (Rev 2.32.273, KB-19): єдиний модуль руху листів і карток. Лише тут пишуться --sheet-lift, --sheet-max-h, scrollTop листа й transform анімацій підйому/прокрутки (охоронний тест tests/kb-motion-guard.test.js).
 const KB_MOTION_DUR = 250;
-const KB_EARLY_DUR = 460; // Rev 2.32.292 (KB-37, A): тривалість ранньої ноги
-const KB_EARLY_CURVE = [0.2, 0.66, 0.3, 1];
+const KB_EARLY_DUR = 460; // Rev 2.32.292 (KB-37, A): тривалість ранньої ноги (обидві частини)
+// Rev 2.32.292 (KB-37, поправка 1): рання нога — одна гладка крива 460 мс з тим самим початковим нахилом, що й базова (за 100 мс ≈ 64,5 % шляху; швидкість на +235 мс ≈ 12 % початкової; швидкість ніде не зростає, стику частин нема). Двочастинні профілі (ключові кадри) з ≥ 85 % на +100 мс і ≥ 10 % на +235 мс математично несумісні без зростання швидкості в хвості («стоп-і-далі») або без злому швидкості на стику (досліджено: 85 % → ≈ 3 %, 80 % → 14 % зі зламом на стику, 64,5 % → 12 % гладко).
+const KB_EARLY_CURVE = [0.186, 0.655, 0.231, 0.991];
 const KB_EARLY_QUICK_MS = 40;
 const KB_MOTION_CURVE = [0.38, 0.7, 0.125, 1];
 const KB_MOTION_EASING = 'cubic-bezier(' + KB_MOTION_CURVE.join(', ') + ')';
@@ -29431,7 +29432,8 @@ function kbSetLift(target, boost, fromAbs, early){ // fromAbs (KB-36): поча�
   if(inFlight && kbLiftAnim.early && now - kbLiftAnim.t0 < KB_EARLY_QUICK_MS){ dur = KB_MOTION_DUR; c = KB_MOTION_CURVE; }
   else if(early === true && !inFlight){ dur = KB_EARLY_DUR; c = KB_EARLY_CURVE; }
   if(boost > 0) from += boost;
-  kbLiftAnim = { from: from, to: target, t0: now, dur: dur, c: c, early: early === true };
+  const earlyLeg = early === true && !inFlight; // рання крива лише для ноги, що стартує зі спокою (після утримання/в русі — стандартна нога з поточною швидкістю)
+  kbLiftAnim = { from: from, to: target, t0: now, dur: dur, c: c, early: earlyLeg };
   root.style.setProperty('--sheet-lift', String(Math.round(target * 10) / 10)); // кінцева ціль: по завершенні анімації елемент стоїть у ній
   root.style.setProperty('--sheet-lift-target', String(Math.round(target * 10) / 10));
   if(el && typeof el.animate === 'function'){
@@ -29624,23 +29626,30 @@ function kbHeightsSave(orient, kind, h){
 }
 // Rev 2.32.292 (KB-37, B): очікувана висота за ПОЛЕМ: ключ id поля | орієнтація | база висоти (різні поля одного типу мають різні висоти: «Додати ОЧ» 415, пошта входу 388 чи 311 із Face ID). Сесія (kbFieldSession) і localStorage (KB_FIELD_HEIGHTS_KEY, до 80 записів). Без історії поля — останнє значення цього ТИПУ, потім коефіцієнт.
 const KB_FIELD_HEIGHTS_KEY = 'budget-kb-heights-f1';
+const KB_FIELD_HEIGHTS_MAX = 4;
 let kbFieldSession = {};
 function kbFieldKey(orient, id){ return id ? (String(id) + '|' + orient + '|h' + kbHeightKeyBase()) : null; }
+function kbFieldList(v){ return Array.isArray(v) ? v.filter(function(x){ return typeof x === 'number' && x > 0; }) : ((typeof v === 'number' && v > 0) ? [v] : []); }
+// Rev 2.32.292 (KB-37, поправка 2): для поля зберігається набір побачених висот (до KB_FIELD_HEIGHTS_MAX останніх різних), ранньою ціллю береться НАЙМЕНША (Face ID 388 / 311: лист не перелітає, а при більшій справжній висоті продовжує рух у той самий бік).
 function kbFieldHeightGet(orient, id){
   const k = kbFieldKey(orient, id); if(!k) return null;
-  if(typeof kbFieldSession[k] === 'number' && kbFieldSession[k] > 0) return { h: kbFieldSession[k], src: 'field-session' };
-  try{ const o = JSON.parse(localStorage.getItem(KB_FIELD_HEIGHTS_KEY) || '{}'); if(o && typeof o[k] === 'number' && o[k] > 0) return { h: o[k], src: 'field-store' }; }catch(e){}
+  let l = kbFieldList(kbFieldSession[k]);
+  if(l.length) return { h: Math.min.apply(null, l), src: 'field-session' };
+  try{ const o = JSON.parse(localStorage.getItem(KB_FIELD_HEIGHTS_KEY) || '{}'); l = kbFieldList(o && o[k]); if(l.length) return { h: Math.min.apply(null, l), src: 'field-store' }; }catch(e){}
   return null;
 }
 function kbFieldHeightSave(orient, id, h){
   const k = kbFieldKey(orient, id); if(!k || !(h > 0)) return;
-  kbFieldSession[k] = Math.round(h);
+  const hv = Math.round(h);
+  const push = function(l){ l = kbFieldList(l).filter(function(x){ return x !== hv; }); l.push(hv); return l.slice(-KB_FIELD_HEIGHTS_MAX); };
   try{
     const o = JSON.parse(localStorage.getItem(KB_FIELD_HEIGHTS_KEY) || '{}') || {};
-    delete o[k]; o[k] = Math.round(h); // оновлений запис іде в кінець
+    const base = kbFieldList(kbFieldSession[k]).length ? kbFieldSession[k] : o[k]; // у новій сесії набір підхоплюється зі сховища
+    kbFieldSession[k] = push(base);
+    delete o[k]; o[k] = kbFieldSession[k]; // оновлений запис іде в кінець
     const keys = Object.keys(o); if(keys.length > 80) keys.slice(0, keys.length - 80).forEach(function(x){ delete o[x]; });
     localStorage.setItem(KB_FIELD_HEIGHTS_KEY, JSON.stringify(o));
-  }catch(e){}
+  }catch(e){ kbFieldSession[k] = push(kbFieldSession[k]); }
 }
 function kbHeightFromStore(orient, kind){ const v = kbHeightsLoad()[kbHeightKey(orient, kind)]; return typeof v === 'number' && v > 0 ? v : null; }
 // Rev 2.32.264 (KB-11): кубічна крива Безьє (як CSS cubic-bezier): прогрес t (0..1) → значення; для прокрутки до поля тією ж кривою, що й підйом листа.

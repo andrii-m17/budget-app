@@ -69,7 +69,7 @@ test('KB-36: kb-early у білому списку типів і ключів; �
 test('KB-37: kbFieldHeightGet/Save — ключ id | орієнтація | база; інша база чи інше поле — немає значення; сесія раніше за сховище; без id — null', () => {
   const m = {}; let base = 664;
   const c = buildSandbox({ localStorage: { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }, getBaseViewportHeight: () => base, window: { innerHeight: 664 }, kbFieldSession: {} },
-    ['kbFieldKey', 'kbFieldHeightGet', 'kbFieldHeightSave', 'kbHeightKeyBase', 'KB_FIELD_HEIGHTS_KEY']);
+    ['kbFieldKey', 'kbFieldHeightGet', 'kbFieldHeightSave', 'kbHeightKeyBase', 'KB_FIELD_HEIGHTS_KEY', 'KB_FIELD_HEIGHTS_MAX', 'kbFieldList']);
   c.__s = (o, id, h) => { c.__a = [o, id, h]; evalInSandbox(c, 'kbFieldHeightSave(__a[0], __a[1], __a[2])'); };
   c.__g = (o, id) => { c.__a = [o, id]; return evalInSandbox(c, 'kbFieldHeightGet(__a[0], __a[1])'); };
   c.__s('portrait', 'app-modal-input', 415);
@@ -78,6 +78,7 @@ test('KB-37: kbFieldHeightGet/Save — ключ id | орієнтація | ба
   assert.equal(c.__g('landscape', 'app-modal-input'), null, 'інша орієнтація');
   assert.equal(c.__g('portrait', ''), null, 'без id історії поля нема');
   assert.ok(Object.keys(JSON.parse(m['budget-kb-heights-f1']))[0] === 'app-modal-input|portrait|h664', 'ключ у сховищі');
+  assert.deepEqual(JSON.parse(m['budget-kb-heights-f1'])['app-modal-input|portrait|h664'], [415], 'у сховищі набір висот');
   base = 700; assert.equal(c.__g('portrait', 'app-modal-input'), null, 'інша база висоти');
   base = 664; evalInSandbox(c, 'kbFieldSession = {}'); assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, src: 'field-store' }, 'нова сесія читає зі сховища');
 });
@@ -87,4 +88,31 @@ test('KB-37: охорона коду — рання нога довша, kb-earl
   assert.match(HTML, /captureDebugGeometry\('kb-early-skip', \{ reason: 'same-field'/);
   const i = HTML.indexOf('const REC_ALLOWED_TYPES = ['); assert.ok(HTML.slice(i, HTML.indexOf('];', i)).includes("'kb-early-skip'"));
   assert.match(HTML, /const ownH = kbFieldHeightGet\(orientKey, fieldEl && fieldEl\.id\)/);
+});
+
+// KB-37, поправка 2: набір до 4 останніх різних висот поля, ціль — найменша.
+test('KB-37: історія поля — набір до 4 останніх різних висот, найменша береться як рання ціль; старий формат (число) читається', () => {
+  const m = { 'budget-kb-heights-f1': JSON.stringify({ 'old|portrait|h664': 400 }) };
+  const c = buildSandbox({ localStorage: { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }, getBaseViewportHeight: () => 664, window: { innerHeight: 664 }, kbFieldSession: {} },
+    ['kbFieldKey', 'kbFieldHeightGet', 'kbFieldHeightSave', 'kbHeightKeyBase', 'KB_FIELD_HEIGHTS_KEY', 'KB_FIELD_HEIGHTS_MAX', 'kbFieldList']);
+  const sv = (id, h) => { c.__a = [id, h]; evalInSandbox(c, "kbFieldHeightSave('portrait', __a[0], __a[1])"); };
+  const gt = id => { c.__a = [id]; const r = evalInSandbox(c, "kbFieldHeightGet('portrait', __a[0])"); return r && { h: r.h, src: r.src }; };
+  assert.deepEqual(gt('old'), { h: 400, src: 'field-store' });
+  [388, 311, 388, 415].forEach(h => sv('f', h));
+  assert.equal(gt('f').h, 311, 'найменша з {311, 388, 415}');
+  assert.deepEqual(JSON.parse(m['budget-kb-heights-f1'])['f|portrait|h664'], [311, 388, 415], 'різні значення, повтор 388 не дублюється');
+  [500, 501, 502].forEach(h => sv('f', h));
+  assert.deepEqual(JSON.parse(m['budget-kb-heights-f1'])['f|portrait|h664'], [415, 500, 501, 502].slice(-4), 'не більше 4 останніх');
+  assert.equal(gt('f').h, 415);
+});
+test('KB-37: профіль ранньої ноги — одна гладка крива 460 мс: ≥ 60 % шляху на +100 мс, швидкість на +235 мс ≥ 10 % початкової, швидкість ніде не зростає, початковий нахил як у базової кривої', () => {
+  const c = buildSandbox({}, ['kbBezier', 'KB_EARLY_DUR', 'KB_EARLY_CURVE', 'KB_MOTION_CURVE']);
+  const f = (cv, T) => t => { c.__a = [cv, T, t]; return evalInSandbox(c, 'kbBezier(__a[0][0], __a[0][1], __a[0][2], __a[0][3], __a[2] / __a[1])'); };
+  const E = JSON.parse(JSON.stringify(evalInSandbox(c, 'KB_EARLY_CURVE'))), B = JSON.parse(JSON.stringify(evalInSandbox(c, 'KB_MOTION_CURVE'))), T = evalInSandbox(c, 'KB_EARLY_DUR');
+  const fe = f(E, T), fb = f(B, 250), v = (g, x) => (g(x + 1.5) - g(Math.max(0, x - 1.5))) / (x < 1.5 ? 1.5 + x : 3);
+  assert.ok(T >= 450, 'тривалість ≥ 450 мс');
+  assert.ok(fe(100) >= 0.6, '≥ 60 % на +100 мс: ' + fe(100));
+  assert.ok(v(fe, 235) >= 0.1 * v(fe, 2), 'v(235)/v0 = ' + (v(fe, 235) / v(fe, 2)));
+  assert.ok(Math.abs(v(fe, 2) - v(fb, 2)) / v(fb, 2) <= 0.1, 'початкова швидкість як у базової: ' + v(fe, 2) + ' vs ' + v(fb, 2));
+  for(let x = 6; x < 454; x += 6) assert.ok(v(fe, x + 6) <= v(fe, x) * 1.01 + 1e-8, 'швидкість не зростає в ' + x);
 });

@@ -5400,7 +5400,7 @@ function kbSheetSandbox(opts){
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf',
     'focusWithoutScrollIfSupported',
-    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'kbPipeEarlyStart','kbRealLift','kbSlideRunning','kbSnapValues','kbValuesChanged','kbHeightKeyBase','KB_EARLY_FACTOR','kbFieldKey','kbFieldHeightGet','kbFieldHeightSave','KB_FIELD_HEIGHTS_KEY','KB_EARLY_DUR','KB_EARLY_CURVE','KB_EARLY_QUICK_MS','KB_EARLY_REPEAT_MS', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
+    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'kbPipeEarlyStart','kbRealLift','kbSlideRunning','kbSnapValues','kbValuesChanged','kbHeightKeyBase','KB_EARLY_FACTOR','kbFieldKey','kbFieldHeightGet','kbFieldHeightSave','KB_FIELD_HEIGHTS_KEY','KB_EARLY_DUR','KB_EARLY_CURVE','kbFieldList','KB_FIELD_HEIGHTS_MAX','KB_EARLY_QUICK_MS','KB_EARLY_REPEAT_MS', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
     'beginSheetMoving', 'planCaretRestore',
     'getOrCreateKbProxyEl', 'configureKbProxy', 'proxyCaretStyle', 'computeProxyOffset', 'computeProxyDist', 'placeKbProxyAtField',
   ]);
