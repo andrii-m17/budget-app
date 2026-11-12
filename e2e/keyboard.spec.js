@@ -1573,3 +1573,66 @@ test('100. KB-39/D: дві події vv з тим самим vvOffsetTop (рі�
     expect(n, 'одна pan-comp на два події з тим самим зсувом').toBe(1);
   } finally { await ctx.close(); }
 });
+
+// KB-40 (Rev 2.32.296), звіт MT-1112-8689 (2.32.295): 1 — стан «ранній підйом уже запущено для цього поля» (kbEarlyLast) не скидався при закритті форми, і повторне відкриття з тим самим полем (елемент форми той самий) через 1 с не отримувало kb-early; 2 — компенсація зсуву iOS у центрованій формі.
+test('101. KB-40/1: відкрити форму, тапнути поле, закрити, через 1 с відкрити й тапнути те саме поле — kb-early є і в другому відкритті, earlyState у sheet-open', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await kb36OpenModal(page);
+    const tapField = async () => { const bb = await page.locator('#app-modal-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2); };
+    await tapField();
+    await page.waitForTimeout(100);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.42); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(700);
+    await page.evaluate(() => { document.activeElement && document.activeElement.blur(); closeAppModal(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1000);
+    await kb36OpenModal(page);
+    await page.evaluate(() => { window.__n0 = recBuf.length; });
+    await tapField();
+    await page.waitForTimeout(400);
+    const r = await page.evaluate(() => recBuf.slice(window.__n0).filter(e => e.type === 'kb-early' || e.type === 'kb-early-skip' || e.type === 'sheet-open').map(e => ({ type: e.type, reason: e.reason, earlyState: e.earlyState })));
+    const info = JSON.stringify(r);
+    expect(r.filter(e => e.type === 'kb-early').length, 'у другому відкритті є kb-early: ' + info).toBeGreaterThanOrEqual(1);
+    const so = r.find(e => e.type === 'sheet-open');
+    expect(so && so.earlyState, 'sheet-open містить earlyState: ' + info).toMatch(/^started/);
+  } finally { await ctx.close(); }
+});
+async function kb40Shift(browser, kind){
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__kbNoEarly = true; }); // случай звіту: ранній підйом не запущено (kb-early немає), рух стартує від kb-vv-resize
+    let sel, id;
+    if(kind === 'modal'){ await kb36OpenModal(page); sel = '#app-modal-input'; id = 'app-modal'; }
+    else{ await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); }); await page.waitForTimeout(900); sel = '#cldfielda1'; id = 'profile-drawer'; }
+    const bb = await page.locator(sel).boundingBox();
+    const sampler = page.evaluate(id => new Promise(resolve => {
+      const m = document.getElementById(id), out = [], root = document.documentElement; const t0 = performance.now(); window.__t0 = t0; window.__shifted = false;
+      window.scrollTo = function(){ root.style.transform = ''; window.__shifted = false; window.__vv.top = 0; window.visualViewport.dispatchEvent(new Event('scroll')); };
+      const tick = () => { out.push([Math.round(performance.now() - t0), m.getBoundingClientRect().bottom, window.__shifted ? 1 : 0]); if(performance.now() - t0 < 1500) requestAnimationFrame(tick); else resolve(out); };
+      requestAnimationFrame(tick);
+    }), id);
+    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(60);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.42); window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(10);
+    await page.evaluate(() => { window.__shifted = true; document.documentElement.style.transform = 'translateY(-154px)'; window.__vv.top = 154; window.visualViewport.dispatchEvent(new Event('scroll')); });
+    return await sampler;
+  } finally { await ctx.close(); }
+}
+function kb40Check(s){
+  const i0 = s.findIndex(r => r[2] === 1), j = s.findIndex((r, i) => i > i0 && r[2] === 0);
+  const fin = s[s.length - 1][1], dir = Math.sign(fin - s[j][1]) || 1; let worstDown = 0, over = 0; for(let k = j + 1; k < s.length; k++){ worstDown = Math.max(worstDown, -dir * (s[k][1] - s[k - 1][1])); over = Math.max(over, dir * (s[k][1] - fin)); } // worstDown — найбільший крок проти напрямку до цілі; over — переліт цілі
+  const natural = Math.max(Math.abs(s[j + 1][1] - s[j][1]), Math.abs(s[i0 - 1][1] - s[i0 - 2][1])), jump = Math.abs(s[j][1] - s[j - 1][1]);
+  const settled = Math.abs(s[s.length - 1][1] - s[s.length - 4][1]);
+  return { i0, j, over: Math.round(over * 10) / 10, worstDown: Math.round(worstDown * 10) / 10, jump: Math.round(jump * 10) / 10, natural: Math.round(natural * 10) / 10, settled: Math.round(settled * 10) / 10, seq: s.slice(Math.max(0, i0 - 2), j + 12).map(r => [r[0], Math.round(r[1]), r[2]]) };
+}
+for(const kind of ['modal', 'drawer']){
+  test('102. KB-40/2: зсув iOS 154 пт на +10 мс після kb-vv-resize (' + kind + ') — кадр компенсації ±2, далі монотонно до цілі, кінець у спокої', async ({ browser }) => {
+    const s = await kb40Shift(browser, kind), c = kb40Check(s), info = JSON.stringify(c);
+    expect(c.j, 'кадр компенсації знайдено: ' + info).toBeGreaterThan(0);
+    expect(c.jump, 'видиме положення в кадрі компенсації не стрибає (≤ 35 пт за кадр): ' + info).toBeLessThanOrEqual(35); // ±2 недосяжно на межі кадру: компенсація йде в наступному rAF, рух за кадр до 17–35 пт; до виправлення стрибок 46–50 і далі «вниз і знову вгору»
+    expect(c.worstDown, 'жодного кроку проти напрямку до цілі понад 1 пт: ' + info).toBeLessThanOrEqual(1);
+    expect(c.over, 'без перельоту цілі понад 1 пт: ' + info).toBeLessThanOrEqual(1);
+    expect(c.settled, 'кінець у спокої: ' + info).toBeLessThanOrEqual(1);
+  });
+}

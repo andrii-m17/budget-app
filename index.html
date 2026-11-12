@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.295</div>
+  <div class="version-footer">Money Tree · Rev 2.32.296</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.295';
+const APP_VERSION = '2.32.296';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -14060,7 +14060,7 @@ const DEBUG_LOG_MAX_BYTES_FOR_SEND = 600000; // той самий ліміт, щ
 const DEBUG_EVENT_ALLOWLIST = [
   'during', // Rev 2.32.288 (KB-33): pan-comp
   'need', 'lmin', 'lnorm', // Rev 2.32.295 (KB-39 B): kb-early-fallback
-  'deadline', 'rel', // Rev 2.32.294 (KB-39): kb-early.deadline, autofocus-transfer.rel
+  'deadline', 'rel', 'earlyState', // Rev 2.32.296 (KB-40): sheet-open.earlyState; Rev 2.32.294 (KB-39): kb-early.deadline, autofocus-transfer.rel
   'by', 'expected', 'src', 'factor', 'target', // Rev 2.32.291 (KB-36): kb-early (target, expected, src, factor, from) і autofill (by)
   'scrollTop', 'panShift', // Rev 2.32.279 (KB-24): switch-trace, pan-comp
   'visible', 'shown', 'tapped', 'found', 'errorCode', // Rev 2.32.278 (PUSH-2): deeplink, app-visible-sync, inbox-new-toast
@@ -14849,7 +14849,7 @@ const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
 const REC_ALLOWED_TYPES = ['kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
-const REC_ALLOWED_KEYS = ['t', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm'];
+const REC_ALLOWED_KEYS = ['earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -29175,6 +29175,7 @@ function enterKbSheet(drawerEl, fieldEl){
   const wasClosing = !!(kbClosingEl && kbClosingEl === drawerEl && document.documentElement.classList.contains('kb-sheet-closing'));
   const reopenPos = wasClosing ? kbRealLift(drawerEl) : null;
   kbSessionBase = kbMeasureBase(); // Rev 2.32.272 (KB-18, A): база лише на час цього відкриття
+  if(!kbSheetActive) kbEarlyReset(); // Rev 2.32.296 (KB-40): нове відкриття форми — правило повторного фокуса з нуля
   kbSheetGen++;
   kbSheetActive = true;
   kbSheetDrawerEl = drawerEl;
@@ -29269,7 +29270,7 @@ function enterKbSheet(drawerEl, fieldEl){
   document.documentElement.classList.add('kb-sheet');
   kbHSeen = []; if(kbHTimer){ clearTimeout(kbHTimer); kbHTimer = null; }
   kbOpenVia = kbProxyActive ? 'proxy' : 'direct'; // Rev 2.32.276 (KB-22)
-  captureDebugGeometry('sheet-open', { drawerId: kbSheetLabel(drawerEl), via: kbOpenVia });
+  captureDebugGeometry('sheet-open', { drawerId: kbSheetLabel(drawerEl), via: kbOpenVia, earlyState: kbEarlyStateNow(fieldEl, wasClosing, !!(kbProxyActive && kbAutoOpenAt && Date.now() - kbAutoOpenAt <= 400)) }); // Rev 2.32.296 (KB-40)
   // Rev 2.23.19 (6D.188) — підстраховка від нових "дірок": перше відкриття
   // пройшло НАТИВНО (direct) на iOS — фіксуємо, ЯКИЙ саме тап це був (тег/
   // id/класи/координати/мс від touchend). Жодних змін поведінки.
@@ -29317,6 +29318,17 @@ function kbPipeEnter(drawerEl, fieldEl, naturalHeight, forceMeasure){
 // Rev 2.32.289 (KB-35, B): звіт MT-1111-6902: підйом стартував від kb-vv-resize (+65–92 мс після дотику), а iOS до того часу вже вирішувала прокрутку (pan-comp на +103 мс), бо поле було під клавіатурою. Тепер при ПРЯМОМУ дотику (iPhone, не допоміжне поле) підйом стартує синхронно в момент фокуса з ціллю за ОЧІКУВАНОЮ висотою клавіатури для типу поля: остання виміряна в сесії/орієнтації (кеш і localStorage), інакше типова за коефіцієнтом (текст 0,465·baseVh ≈ 415, цифри 0,435 ≈ 389, пароль як текст). Очікувана висота — лише СТАРТОВА ціль; коли приходить kb-vv-resize, ціль уточнюється плавно (нова нога з поточною швидкістю, KB-20). Якщо клавіатура не з'явилась за 600 мс — форма плавно повертається. Перевірка планувальника: kbPipe 'animating' + KB_LIVE.kindUntil вимикає гейт стабільності (KB-33) на цей час.
 let kbEarlyLast = { el: null, t: 0, left: false };
 let kbAutoOpenAt = 0, kbEarlyGeom = null;
+// Rev 2.32.296 (KB-40, C): звіт MT-1112-8689: 2 з 30 відкриттів без kb-early. Стан «ранній підйом уже запущено для цього поля» (kbEarlyLast) скидався лише при фокусі за межі форми (relatedTarget), а не при закритті форми чи клавіатури; елемент поля той самий, тож повторне відкриття вважалось повторним focusin. Тепер скидається в exitKbSheet, при знятті kb-open і при новому відкритті. Ризик: перебіг focusin/focusout усередині однієї форми (KB-37) не закриває форму, тому не скидає.
+function kbEarlyReset(force){ if(!force && performance.now() - kbEarlyLast.t < KB_EARLY_REPEAT_MS) return; kbEarlyLast = { el: null, t: 0, left: false }; } // без force: перебіг focusout/focusin за < KB_EARLY_REPEAT_MS (KB-37) не скидає
+// Rev 2.32.296 (KB-40, C): earlyState у sheet-open — чому ранній підйом запущено чи ні (ті самі умови, що в kbPipeEarlyStart, без побічних дій)
+function kbEarlyStateNow(fieldEl, wasClosing, autoOpen){
+  if(window.__kbNoEarly) return 'off:test';
+  if(!IS_IOS_RUNTIME) return 'off:not-ios';
+  if(!autoOpen && (kbProxyActive || Date.now() - kbLastInterceptAt > 400)) return 'off:no-touch';
+  if(kbPipeOpenNow() && !wasClosing) return 'off:kb-open';
+  if(kbEarlyLast.el === fieldEl && !kbEarlyLast.left && (kbPipeOpenNow() || performance.now() - kbEarlyLast.t < KB_EARLY_REPEAT_MS)) return 'skipped:same-field';
+  return 'started';
+}
 // Rev 2.32.294 (KB-39, B): поріг, до якого kb-vv-resize має прийти, щоб рання ціль лишилась (звичайна клавіатура). Дані звітів 11–12.11: для звичайної клавіатури kb-vv-resize приходить на +90…+115 мс після дотику, для клавіатури з Face ID (vvH 583) на +155…+240 мс; поріг 130 мс між ними.
 const KB_EARLY_DEADLINE_MS = 130;
 const KB_EARLY_REPEAT_MS = 600; // Rev 2.32.292 (KB-37, C)
@@ -29618,6 +29630,13 @@ function kbStartFieldScroll(drawerEl, field){
 // Rev 2.32.279 (KB-24, C): FLIP-компенсація зсуву сторінки: нова нога стартує з поточного положення + зсув (видиме положення не змінюється), далі до цілі.
 function kbMotionPan(shift){
   if(!kbSheetActive || !kbSheetDrawerEl) return;
+  // Rev 2.32.296 (KB-40, C): звіт MT-1112-8689: у центрованій формі (.app-modal, підйом рахується з vv.offsetTop) ціль, обчислена під час зсуву (offsetTop 154), була на 154 пт нижча; після повернення сторінки форма їхала вниз до неї (166 пт) і знову вгору. Після повернення сторінки (scrollTo(0,0), offsetTop 0) ціль перераховується без зсуву: видиме положення в кадрі компенсації не змінюється, далі рух лише до справжньої цілі. Ризик: якщо клавіатура не відкрита (vv без клавіатури), лишається стара ціль.
+  try{
+    const vv = window.visualViewport;
+    if(vv && !kbSheetSplit && isKeyboardOpen(getBaseViewportHeight(), vv.height) && !(document.activeElement && document.activeElement === document.body)){
+      kbSheetCurrentLift = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: 0, restBottom: kbEffectiveRestBottom(vv.height), gap: 8 });
+    }
+  }catch(e){}
   kbSetLift(kbSheetCurrentLift, shift);
   captureDebugGeometry('pan-comp', { drawerId: kbSheetLabel(kbSheetDrawerEl), panShift: Math.round(shift), during: kbLiftActive }); // Rev 2.32.288 (KB-33, D): during — зсув прийшов, поки триває рух
 }
@@ -29922,6 +29941,7 @@ function exitKbSheet(removeKbOpen){
   // тими, що виставлені нижче (--sheet-lift:0), аж до фактичного зняття
   // kb-sheet.
   kbNavUnlockAll(); // Rev 2.32.287 (KB-32): клавіатура закрита — tabindex полів відновлено
+  kbEarlyReset(); // Rev 2.32.296 (KB-40): форма закривається — наступне відкриття того самого поля не є «повторним focusin»
   const naturalHeightAtClose = kbSheetNaturalHeight;
   const lastFieldAtClose = kbLastFocusedField;
   const genAtExit = kbSheetGen;
@@ -30141,6 +30161,7 @@ function handleKeyboardFieldFocusIn(target){
       const baseVh = getBaseViewportHeight();
       if(shouldReleaseKbOpen(vvH, baseVh, 700)){
         document.body.classList.remove('kb-open');
+        kbEarlyReset(true); // Rev 2.32.296 (KB-40): клавіатура закрита
         captureDebugGeometry('kb-open-released', { kbReleaseVvH: Math.round(vvH), kbReleaseBaseVh: Math.round(baseVh) });
       }
     }, 700);
