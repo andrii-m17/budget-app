@@ -83,7 +83,7 @@ test('KB-37: kbFieldHeightGet/Save — ключ id | орієнтація | ба
   base = 664; evalInSandbox(c, 'kbFieldSession = {}'); assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, alt: null, src: 'field-store' }, 'нова сесія читає зі сховища');
 });
 test('KB-37: охорона коду — рання нога довша, kb-early-skip у білому списку, множник лише без власної історії, повторний focusin пропускається', () => {
-  assert.match(HTML, /kbSetLift\(L, 0, undefined, true\);/);
+  assert.match(HTML, /kbSetLift\(L, 0, undefined, curve \|\| true\);/);
   assert.match(HTML, /captureDebugGeometry\('kb-early-skip', \{ reason: 'same-field'/);
   const i = HTML.indexOf('const REC_ALLOWED_TYPES = ['); assert.ok(HTML.slice(i, HTML.indexOf('];', i)).includes("'kb-early-skip'"));
   assert.match(HTML, /const ownH = kbFieldHeightGet\(orientKey, fieldEl && fieldEl\.id\)/);
@@ -142,4 +142,18 @@ test('KB-39: історія {311, 415} — h = 311, alt = 415 (остання н
   [311, 388, 415].forEach(h => sv('d', h)); assert.deepEqual(gt('d'), { h: 311, alt: 415 }, 'остання не-найменша');
   [415, 388, 311, 311].forEach(h => sv('e', h)); assert.deepEqual(gt('e'), { h: 311, alt: 388 }, 'остання серед не-найменших — 388');
   sv('f', 388); assert.deepEqual(gt('f'), { h: 388, alt: null });
+});
+
+// KB-39 (B, переробка, Rev 2.32.295): підбір кривої раннього підйому під геометрію поля з кількома висотами.
+test('KB-39: kbEarlyCurveFor — крива задовольняє обидві умови (≥ a на +100 мс, ≤ b на +130 мс), спадна швидкість; неможливо — null', () => {
+  const c = buildSandbox({}, ['kbBezier', 'KB_EARLY_CURVES', 'KB_EARLY_CHECK_MS', 'kbEarlyCurveFor']);
+  const cv = (a, b) => { c.__a = [a, b]; const r = evalInSandbox(c, 'kbEarlyCurveFor(__a[0], __a[1])'); return r && JSON.parse(JSON.stringify(r)); };
+  const r = cv(0.554, 0.669); assert.ok(r, 'геометрія пошти входу (a = 0,554; b = 0,669) — крива існує');
+  assert.ok(r.p100 >= 0.554 && r.p130 <= 0.669, 'p100 ' + r.p100 + ', p130 ' + r.p130);
+  const f = t => { c.__t = [r.c, r.dur, t]; return evalInSandbox(c, 'kbBezier(__t[0][0], __t[0][1], __t[0][2], __t[0][3], __t[2] / __t[1])'); };
+  const v = t => (f(t + 1.5) - f(Math.max(0, t - 1.5))) / 3;
+  for(let t = 6; t < r.dur - 6; t += 6) assert.ok(v(t + 6) <= v(t) * 1.02 + 1e-8, 'швидкість не зростає в ' + t);
+  assert.equal(cv(0.9, 0.5), null, 'a ≥ b — неможливо');
+  assert.equal(cv(0.97, 0.98), null, 'надто вузьке вікно (b − a < кроку таблиці) — може не існувати');
+  assert.ok(cv(0.2, 0.9), 'широке вікно — крива є');
 });
