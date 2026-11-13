@@ -164,6 +164,15 @@ test('невідома адреса: 404 без звернень до банку
   assert.equal(r2.status, 404); assert.equal(w.calls.length, 1);
   const r3 = await W.handleWebhook(req(null, 'GET'), w.deps());
   assert.equal(r3.status, 200);
+  assert.deepEqual(w.calls[w.calls.length - 1].args.p_item, { probe: true });
+  assert.deepEqual(w.events[w.events.length - 1], { kind: 'probe', result: 'ok', tail: '' });
+  const r3b = await W.handleWebhook(req(null, 'GET', 'cd'.repeat(32)), w.deps());
+  assert.equal(r3b.status, 404, 'GET невідомого хеша');
+  const before = w.events.length;
+  const r3c = await W.handleWebhook(req({ type: 'StatementItem', data: { account: OLD, statementItem: Object.assign(stmtItem('PR1'), { probe: true }) } }), w.deps());
+  assert.equal(r3c.status, 200);
+  assert.notEqual(w.calls[w.calls.length - 1].args.p_item.probe, true, 'probe у тілі POST не проходить');
+  assert.equal(w.events[before].kind, 'statement');
   const r4 = await W.handleWebhook(req(null, 'DELETE'), w.deps());
   assert.equal(r4.status, 405);
 });
@@ -238,6 +247,33 @@ test('числовий номер рахунку в події теж добир
   w2.bank.statement = function () { return json({}, 429); }; w2.failRpc.mono_backfill_release = true;
   await W.handleWebhook(req(ev(OLD, 'Z2')), w2.deps()); await w2.drain();
   assert.ok(w2.logs.indexOf('release_failed') >= 0);
+});
+
+test('виняток у фоні між отриманням позначки й запитом виписки: release викликано рівно один раз', async function () {
+  const bf = new Date(NOW0 - 2 * 86400000).toISOString();
+  // (а) виняток у d.now() (до запиту виписки)
+  const w = await world(); w.accounts.get(OLD).backfill_from = bf;
+  w.bank.statement = function () { return json([]); };
+  const d = w.deps(); d.now = function () { throw new Error('boom'); };
+  await W.handleWebhook(req(ev(OLD, 'E1')), d); await w.drain();
+  assert.equal(w.count('mono_backfill_release'), 1);
+  assert.equal(w.calls.find(function (x) { return x.name === 'mono_backfill_release'; }).args.p_reason, 'exception');
+  assert.equal(w.fetches.length, 0); assert.equal(w.count('mono_ingest_batch'), 0);
+  assert.equal(w.accounts.get(OLD).backfill_from, bf);
+  // (б) виняток після оновлення рахунків: позначку повернув повторний ingest, а fetch виписки кидає виняток
+  const w2 = await world();
+  w2.bank.clientInfo = clientInfo([{ id: NEW, maskedPan: [PAN], type: 'black', currencyCode: 980 }]);
+  w2.bank.statement = function () { throw new Error('boom'); };
+  w2.fetch = async function (url, init) { if (String(url).indexOf('/statement/') > 0) throw new TypeError('network'); return w2.bank.clientInfo(); };
+  const d2 = w2.deps(); d2.fetch = w2.fetch;
+  await W.handleWebhook(req(ev(NEW, 'E2')), d2); await w2.drain();
+  assert.equal(w2.count('mono_backfill_release'), 1);
+  assert.ok(w2.accounts.get(NEW).backfill_from, 'позначка повернута на рахунок');
+  // (в) виняток самого rpc виписки (пакетний запис кидає) теж повертає позначку
+  const w3 = await world(); w3.accounts.get(OLD).backfill_from = bf; w3.bank.statement = function () { return json([stmtItem('E3')]); };
+  const d3 = w3.deps(); const orig = d3.rpc; d3.rpc = function (n, a) { if (n === 'mono_ingest_batch') throw new Error('boom'); return orig(n, a); };
+  await W.handleWebhook(req(ev(OLD, 'E4')), d3); await w3.drain();
+  assert.equal(w3.count('mono_backfill_release'), 1);
 });
 
 test('межі часу: початок на 1 год раніше позначки, не старше 2 682 000 с; to = зараз', async function () {

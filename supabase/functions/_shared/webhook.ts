@@ -34,9 +34,10 @@ export async function handleWebhook(req: Request, d: WebhookDeps): Promise<Respo
   if (!/^[0-9a-f]{64}$/.test(token)) return new Response("not found", { status: 404 });
   if (req.method !== "GET" && req.method !== "POST") return new Response("method not allowed", { status: 405 });
 
-  // GET: перевірка адреси банком при реєстрації. POST: подія. Усе, що не є подією виписки, іде в базу як порожня подія
+  // GET: перевірка адреси банком при реєстрації: база отримує {probe:true}, сама пише probe/ok й повертає result 'probe'
+  // (невідомий хеш → no_connection → 404). POST: подія. Усе, що не є подією виписки, іде в базу як порожня подія
   // і фіксується там як «invalid» (200, без повторів банку).
-  let item: any = {};
+  let item: any = req.method === "GET" ? { probe: true } : {};
   if (req.method === "POST") {
     const text = await req.text();
     if (text.length > MAX_BODY) return new Response("too large", { status: 413 });
@@ -49,6 +50,7 @@ export async function handleWebhook(req: Request, d: WebhookDeps): Promise<Respo
     const si = payload?.data?.statementItem;
     if (payload?.type === "StatementItem" && si && typeof si === "object" && !Array.isArray(si)) {
       item = { ...si, account: payload.data.account };
+      delete item.probe; // «probe» зарезервовано за GET-перевіркою адреси
     }
   }
 
@@ -70,19 +72,51 @@ export async function handleWebhook(req: Request, d: WebhookDeps): Promise<Respo
   return new Response(JSON.stringify({ result: String(data.result) }), { status: 200, headers: JSON_HEADERS });
 }
 
+// Позначка добору «на руках» з моменту, коли mono_webhook_ingest (перший або повторний виклик) повернув backfill_from.
+// Будь-який вихід без успішного mono_ingest_batch (виняток де завгодно, відмова банку, відсутній токен) повертає її
+// через mono_backfill_release у finally: позначку ніколи не втрачаємо мовчки.
 async function background(d: WebhookDeps, hash: string, item: any, first: any): Promise<void> {
-  let cur = first;
-  if (first.result === "unknown_account" && first.refresh_allowed === true && typeof first.token_ciphertext === "string") {
-    if (await refreshAccounts(d, first)) {
-      const r = await d.rpc("mono_webhook_ingest", { p_token_hash: hash, p_item: item, p_after_refresh: true });
-      if (!r.error && r.data && typeof r.data === "object") cur = r.data;
-      else d.log("reingest_failed");
-    }
-  }
   // Номер рахунку береться так само, як у базі (btrim(coalesce(p_item->>'account',''))): число теж стає текстом.
   const account = String(item?.account ?? "").trim();
-  if (cur.backfill_from && typeof cur.token_ciphertext === "string" && account) {
-    await backfill(d, cur, account);
+  let held: { userId: string; from: string } | null = null;
+  let consumed = false;
+  let reason = "exception";
+  const take = (r: any) => {
+    if (r?.backfill_from && account) held = { userId: r.user_id, from: String(r.backfill_from) };
+  };
+  try {
+    let cur = first;
+    take(first);
+    if (first.result === "unknown_account" && first.refresh_allowed === true && typeof first.token_ciphertext === "string") {
+      if (await refreshAccounts(d, first)) {
+        const r = await d.rpc("mono_webhook_ingest", { p_token_hash: hash, p_item: item, p_after_refresh: true });
+        if (!r.error && r.data && typeof r.data === "object") {
+          cur = r.data;
+          take(cur);
+        } else d.log("reingest_failed");
+      }
+    }
+    if (held) {
+      if (typeof cur.token_ciphertext !== "string") reason = "no_token";
+      else {
+        const failed = await backfill(d, cur, account);
+        if (failed === null) consumed = true;
+        else reason = failed;
+      }
+    }
+  } catch {
+    reason = "exception";
+  } finally {
+    const h = held as { userId: string; from: string } | null;
+    if (h && !consumed) {
+      try {
+        const rel = await d.rpc("mono_backfill_release", { p_user: h.userId, p_account: account, p_from: h.from, p_reason: reason });
+        if (rel.error) d.log("release_failed");
+      } catch {
+        // якщо навіть повернення не вдалось, позначку за потреби поставить чат вручну
+      }
+      d.log(`backfill_${reason}`);
+    }
   }
 }
 
@@ -126,68 +160,37 @@ async function refreshAccounts(d: WebhookDeps, first: any): Promise<boolean> {
   return true;
 }
 
-// Один statement → один mono_ingest_batch. Якщо до пакетного запису не дійшло, позначку повертає mono_backfill_release.
-async function backfill(d: WebhookDeps, cur: any, account: string): Promise<void> {
-  const from: string = cur.backfill_from;
-  let handled = false;
-  let reason = "unknown";
+// Один statement → один mono_ingest_batch. Повертає null, коли позначку спожито пакетним записом, інакше код причини
+// (повернення позначки робить виклик у background; виняток теж піднімається туди).
+async function backfill(d: WebhookDeps, cur: any, account: string): Promise<string | null> {
+  let token: string;
   try {
-    let token: string;
-    try {
-      token = await decryptToken(cur.token_ciphertext, cur.user_id, d.secret());
-    } catch {
-      reason = "decrypt_error";
-      return;
-    }
-    const w = statementWindow(from, d.now());
-    if (!w) {
-      reason = "bad_from";
-      return;
-    }
-    let res: Response;
-    try {
-      res = await monoFetch(
-        `/personal/statement/${encodeURIComponent(account)}/${w.from}/${w.to}`,
-        token,
-        undefined,
-        { timeoutMs: STATEMENT_TIMEOUT_MS, fetchImpl: d.fetch },
-      );
-    } catch (e) {
-      reason = failureReason(e);
-      return;
-    }
-    if (!res.ok) {
-      reason = failureReason(res.status);
-      return;
-    }
-    let items: any;
-    try {
-      items = await res.json();
-    } catch {
-      reason = "bank_bad_response";
-      return;
-    }
-    if (!Array.isArray(items)) {
-      reason = "bank_bad_response";
-      return;
-    }
-    const r = await d.rpc("mono_ingest_batch", { p_user: cur.user_id, p_account: account, p_items: items });
-    if (r.error) {
-      reason = "db_error";
-      return;
-    }
-    handled = true; // позначку спожито (навіть якщо база відповіла {error}: рахунок вимкнули, повторювати нічого)
+    token = await decryptToken(cur.token_ciphertext, cur.user_id, d.secret());
   } catch {
-    reason = "exception";
-  } finally {
-    if (!handled) {
-      try {
-        const rel = await d.rpc("mono_backfill_release", { p_user: cur.user_id, p_account: account, p_from: from, p_reason: reason });
-        if (rel.error) d.log("release_failed");
-      } catch {
-        // якщо навіть повернення не вдалось, позначку за потреби поставить чат вручну
-      }
-      d.log(`backfill_${reason}`);
-    }
+    return "decrypt_error";
   }
+  const w = statementWindow(String(cur.backfill_from), d.now());
+  if (!w) return "bad_from";
+  let res: Response;
+  try {
+    res = await monoFetch(
+      `/personal/statement/${encodeURIComponent(account)}/${w.from}/${w.to}`,
+      token,
+      undefined,
+      { timeoutMs: STATEMENT_TIMEOUT_MS, fetchImpl: d.fetch },
+    );
+  } catch (e) {
+    return failureReason(e);
+  }
+  if (!res.ok) return failureReason(res.status);
+  let items: any;
+  try {
+    items = await res.json();
+  } catch {
+    return "bank_bad_response";
+  }
+  if (!Array.isArray(items)) return "bank_bad_response";
+  const r = await d.rpc("mono_ingest_batch", { p_user: cur.user_id, p_account: account, p_items: items });
+  if (r.error) return "db_error";
+  return null; // позначку спожито (навіть якщо база відповіла {error}: рахунок вимкнули, повторювати нічого)
 }

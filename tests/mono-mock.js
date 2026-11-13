@@ -47,6 +47,7 @@ function makeWorld(opts) {
     mono_webhook_ingest(a) {
       if (a.p_token_hash !== w.conn.webhook_token_hash || w.conn.status === 'disconnected') return { result: 'no_connection' };
       const item = a.p_item || {};
+      if (item.probe === true) { w.events.push({ kind: 'probe', result: 'ok', tail: '' }); return { result: 'probe', user_id: w.conn.user_id }; }
       const acc = String(item.account || '').trim();
       let res, refresh = false, bf = null;
       if (!acc || acc.length > 64) res = 'invalid';
