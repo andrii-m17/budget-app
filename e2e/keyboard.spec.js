@@ -1014,11 +1014,11 @@ test('79. KB-32: клавіатура відкрита — у формі рів�
     expect(await page.evaluate(() => document.querySelectorAll('[data-kb-ti]').length), 'службових атрибутів не лишилось').toBe(0);
   } finally { await ctx.close(); }
 });
-test('80. KB-32: Return «Далі» — enterkeyhint=next на пошті; Enter переводить фокус у пароль без прокрутки й руху форми; на паролі Enter входу не змінюється', async ({ browser }) => {
+test('80. KB-32: Return «Далі» — enterkeyhint=next на пошті; Enter переводить фокус у пароль без прокрутки й руху форми; на паролі Enter = вхід (Rev 2.32.299, LOGIN-RET)', async ({ browser }) => {
   const { ctx, page } = await kb25Open(browser, false);
   try{
     const hint = await page.evaluate(() => ({ email: document.getElementById('cldfielda1').getAttribute('enterkeyhint'), pw: document.getElementById('cloud-password').getAttribute('enterkeyhint') }));
-    expect(hint, 'enterkeyhint: next на пошті; пароль не чіпаємо').toEqual({ email: 'next', pw: null });
+    expect(hint, 'enterkeyhint: next на пошті (ставить kbHintsApply); go на паролі (розмітка, LOGIN-RET)').toEqual({ email: 'next', pw: 'go' });
     const r = await page.evaluate(() => new Promise(resolve => {
       const dr = document.getElementById('profile-drawer'), out = []; const t0 = performance.now(); const base = dr.getBoundingClientRect().bottom;
       window.__scrolled = 0; window.visualViewport.addEventListener('scroll', () => window.__scrolled++);
@@ -1032,10 +1032,10 @@ test('80. KB-32: Return «Далі» — enterkeyhint=next на пошті; Ente
     expect(r.scrollY + r.scrolled, 'без прокрутки: ' + info).toBe(0);
     expect(r.enter, 'подія enter-next: ' + info).toBe(1);
     expect(r.direct, 'arrow-direct 0: ' + info).toBe(0);
-    // Enter на останньому (пароль): фокус лишається (вхід — наявна поведінка кнопки)
+    // Rev 2.32.299 (LOGIN-RET): Enter на паролі = вхід, як кнопка «Увійти» (порожні поля → підказка без запиту); поле втрачає фокус, як при дотику по кнопці
     await page.evaluate(() => { document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })); });
     await page.waitForTimeout(200);
-    expect(await page.evaluate(() => document.activeElement.id), 'на паролі Enter не міняє фокус').toBe('cloud-password');
+    expect(await page.evaluate(() => document.getElementById('cloud-auth-error').textContent), 'Enter на паролі запускає вхід: порожні поля → підказка').toContain('Вкажіть email і пароль');
   } finally { await ctx.close(); }
 });
 

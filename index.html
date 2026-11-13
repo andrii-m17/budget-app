@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.298</div>
+  <div class="version-footer">Money Tree · Rev 2.32.299</div>
 </div>
   </div>
 </div>
@@ -4369,11 +4369,11 @@
     <div id="cloud-login-fields">
     <div class="field field-icon-wrap">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-      <input type="email" id="cldfielda1" placeholder="Email" aria-label="Email" autocomplete="username"><!-- Rev 2.28.1 (C): id було cloud-email (підрядок "mail"); автозаповнення пароля (username/current-password) лишаємо — це справжнє поле входу -->
+      <input type="email" id="cldfielda1" placeholder="Email" aria-label="Email" autocomplete="username" onkeydown="loginEnterKey(event)"><!-- Rev 2.28.1 (C): id було cloud-email (підрядок "mail"); автозаповнення пароля (username/current-password) лишаємо — це справжнє поле входу -->
     </div>
     <div class="field field-icon-wrap">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      <input type="password" id="cloud-password" placeholder="Пароль" aria-label="Пароль" autocomplete="current-password">
+      <input type="password" id="cloud-password" placeholder="Пароль" aria-label="Пароль" autocomplete="current-password" enterkeyhint="go" onkeydown="loginEnterKey(event)">
     </div>
     </div>
     <div class="import-status" id="cloud-auth-error" style="color:var(--color-error);"></div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.298';
+const APP_VERSION = '2.32.299';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13824,7 +13824,38 @@ function closeProfileMenu(){
   if(wasOpen) unlockBackgroundScroll();
 }
 
+// Rev 2.32.299 (LOGIN-RET): Return у формі входу. Пароль: Return = вхід (як кнопка «Увійти»). Пошта: Return → пароль лише там, де клавіатурний модуль не активний
+// (iPad без режиму, десктоп); якщо kbHintsApply уже поставив data-kb-enter, обробник виходить і перехід робить перевірений kbEnterKey (iPhone без змін; два обробники
+// ніколи не спрацюють разом). Без <form>: атрибути автозаповнення (Face ID) і розмітка не змінюються; автозаповнення keydown Enter не генерує. Клавіатурний модуль не чіпається.
+function loginEnterKey(e){
+  if(!e || e.key !== 'Enter' || e.isComposing || e.defaultPrevented || e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return;
+  const t = e.target;
+  if(!t || !t.id) return;
+  if(t.id === 'cldfielda1'){
+    if(t.getAttribute && t.getAttribute('data-kb-enter')) return; // модуль клавіатури вже веде Return цього поля
+    const pw = document.getElementById('cloud-password');
+    if(!pw) return;
+    e.preventDefault();
+    try{ pw.focus({ preventScroll: true }); }catch(err){ pw.focus(); }
+    return;
+  }
+  if(t.id === 'cloud-password'){
+    e.preventDefault();
+    try{ t.blur(); }catch(err){} // як дотик по кнопці: клавіатура закривається, вхід іде тим самим обробником
+    signInCloudAccount();
+  }
+}
+// Rev 2.32.299 (LOGIN-RET): захист від повторного входу (Return + кнопка, подвійний Return): поки вхід триває, повторний виклик ігнорується; прапорець скидається в finally.
+// Запобіжник: завислий запит (нема відповіді) не блокує повторний вхід довше за CLOUD_SIGNIN_BUSY_MAX_MS (раніше можна було тиснути ще раз).
+const CLOUD_SIGNIN_BUSY_MAX_MS = 20000;
+let cloudSignInBusy = false;
 async function signInCloudAccount(){
+  if(cloudSignInBusy) return;
+  cloudSignInBusy = true;
+  const guard = setTimeout(function(){ cloudSignInBusy = false; }, CLOUD_SIGNIN_BUSY_MAX_MS);
+  try{ await signInCloudAccountRun(); }finally{ clearTimeout(guard); cloudSignInBusy = false; }
+}
+async function signInCloudAccountRun(){
   const errEl = document.getElementById('cloud-auth-error');
   errEl.textContent = '';
   const emailEl = document.getElementById('cldfielda1'), pwEl = document.getElementById('cloud-password'); // Rev 2.32.47 (AG): у cloud-lazy полів може не бути в DOM
