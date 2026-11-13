@@ -73,7 +73,7 @@ test('гасіння луни: власний запис гаситься оди
   assert.equal(d.selfEchoCheck(echoPayload(row)), 'skip');
   assert.equal(d.selfEchoCheck(echoPayload(row)), 'pass', 'одноразово');
   assert.deepEqual(j(d.__st.events.map(e => [e.type, e.table, e.idShort, e.kind])), [['echo-skip', 'expenses', 'abcdef12', 'UPDATE']]);
-  assert.ok(!JSON.stringify(d.__st.events).match(/amount|note|name|Кава|100/));
+  d.__st.events.forEach(e => { assert.deepEqual(Object.keys(e).filter(k => !['t', 'type', 'table', 'idShort', 'kind', 'ms'].includes(k)), [], 'лише дозволені службові ключі'); assert.ok(!/Кава/.test(JSON.stringify(e))); }); // ms може випадково містити «100»: перевіряємо ключі, а не значення
   // «Z» проти «+00:00» і 3 проти 6 знаків
   d.selfEchoBegin('r2'); d.selfEchoFinish('r2', '2026-11-14T10:00:00.123Z');
   assert.equal(d.selfEchoCheck(echoPayload({ id: 'r2', updated_at: '2026-11-14T10:00:00.123000+00:00' })), 'skip');
@@ -225,7 +225,7 @@ test('пакетні шляхи не змінені: pushExpensesBatch бере 
 
 test('охоронні: подія самописця в білих списках; Realtime гасить лише витрати; доходи й борги не чіпались', function () {
   assert.match(SRC, /const REC_ALLOWED_TYPES = \[[^\]]*'echo-skip', 'pull-skip'\]/);
-  assert.match(SRC, /const REC_ALLOWED_KEYS = \['idShort',/);
+  assert.match(SRC, /const REC_ALLOWED_KEYS = \['sinceClose', 'idShort',/);
   assert.match(SRC, /if\(domain\.table === 'expenses' && selfEchoCheck\(payload\) !== 'pass'\) return;/);
   assert.ok(/if\(!error && !\(opts && opts\.suppressPull\)\) await pullIncomesCore\(\);/.test(SRC) && /if\(!error && !\(opts && opts\.suppressPull\)\) await pullDebtsCore\(\);/.test(SRC), 'NET-2: доходи й борги без змін');
   assert.match(SRC, /selfEchoFinish\(id, res && res\.serverAt \? res\.serverAt : null\);/);

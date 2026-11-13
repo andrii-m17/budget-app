@@ -5869,6 +5869,29 @@ test('enterKbSheet: перше відкриття НАТИВНО (direct) на i
   const c = kbSheetSandbox(); // без тапу взагалі — нічого
   c.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
   assert.ok(!c.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }));
+  // Rev 2.32.301 (KB-LOGIN): перехоплений дотик (kbLastInterceptAt ≤ 400 мс) уже не «промах»; справжній промах (перехоплення давно/не було) лишається
+  const d = kbSheetSandbox();
+  d.ctx.kbLastTap = { tag: 'INPUT', id: 'cldfielda1', classes: '', x: 10, y: 20, endAt: d.state.clock - 25 };
+  d.ctx.kbLastInterceptAt = d.state.clock - 25;
+  d.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+  assert.ok(!d.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }), 'перехоплений дотик не логується як промах');
+  assert.ok(d.debugEvents.some(function(e){ return e.type === 'sheet-open'; }), 'sheet-open лишається');
+  const m = kbSheetSandbox();
+  m.ctx.kbLastTap = { tag: 'INPUT', id: 'cldfielda1', classes: '', x: 10, y: 20, endAt: m.state.clock - 25 };
+  m.ctx.kbLastInterceptAt = m.state.clock - 5000;
+  m.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+  assert.ok(m.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }), 'перехоплення було давно: промах');
+});
+test('sheet-open: sinceClose = мс від останнього sheet-close; без закриття поля немає; у білому списку самописця', () => {
+  const a = kbSheetSandbox();
+  a.ctx.kbLastSheetCloseAt = a.state.clock - 540;
+  a.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+  const open = a.debugEvents.find(function(e){ return e.type === 'sheet-open'; });
+  assert.ok(open); assert.equal(open.sinceClose, 540);
+  const b = kbSheetSandbox();
+  b.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
+  assert.equal(b.debugEvents.find(function(e){ return e.type === 'sheet-open'; }).sinceClose, undefined);
+  assert.match(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8'), /const REC_ALLOWED_KEYS = \['sinceClose',/);
 });
 // Rev 2.23.20 (6D.189) — курсор справжнього поля під час руху шторки.
 test('hide (типово): відкриття шторки ставить html.kb-sheet-moving, знімає ЛИШЕ після таймера/transitionend + подія caret-hidden; кінцевий клас знято', () => {
