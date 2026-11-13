@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.299</div>
+  <div class="version-footer">Money Tree · Rev 2.32.300</div>
 </div>
   </div>
 </div>
@@ -7460,10 +7460,14 @@ async function mdPushCas(dom, rec, ctx, opts, depth){
     shadowSetServer(rec, res.data[0].updated_at); shadowAfterPush(rec, shSnap);
     rec.serverBase = sent;
     shadowAdoptDeleted(rec, res.data[0].deleted_at); // Rev 2.32.230 (SERVER-DEL)
+    const applied = dom.applyPushRow ? dom.applyPushRow(rec, res.data[0], sentAt) : null; // Rev 2.32.300 (NET-1): домен приймає повний рядок із відповіді (витрати)
     if(dom.afterPushOk) dom.afterPushOk(rec);
     await dom.save();
-    if(!(opts && opts.suppressPull)) await dom.pull();
-    return { success: true };
+    if(applied && applied.visible && typeof renderAfterSync === 'function') renderAfterSync(true);
+    if(!(opts && opts.suppressPull)){
+      if(applied) selfPullSkip(dom.key); else await dom.pull();
+    }
+    return applied ? { success: true, serverAt: res.data[0].updated_at } : { success: true };
   }
   // 0 рядків: сервер змінився після нашого зліпка. Один GET цього рядка й злиття.
   if(depth >= 2) return { success: false, error: 'conflict-retry' };
@@ -7539,10 +7543,101 @@ function expLinkedNameForRow(row){
   return acc ? acc.name : null;
 }
 async function pushExpenseCas(rec, linkedInstallmentId, opts, depth){ return await mdPushCas(MERGE_DOMAINS.expenses, rec, { linkedInstallmentId: linkedInstallmentId }, opts, depth); }
+// ===== Rev 2.32.300 (NET-1): одна дія з витратою = один запит =====
+// Було 4 запити: запис + негайний pull (GET expenses) + після Realtime-луни власного запису sync_heads і ще один GET. Тепер: (1) відповідь на запис містить повний рядок
+// (EXP_ROW_COLS; тригери можуть переписати category/subcategory за taxonomy_aliases і поставити created_by) і застосовується без GET; (2) Realtime-подія власного запису
+// (той самий id, updated_at, updated_by = я) гаситься один раз; подія, що прийшла до відповіді запису, затримується й розв'язується після неї. Чужі зміни, помилки,
+// 0 рядків (конфлікт), правка під час запиту, пакетні шляхи (suppressPull) працюють як раніше. Діагностика самописця: pull-skip, echo-skip (id скорочено).
+const SELF_ECHO_TTL_MS = 15000;
+const SELF_ECHO = { recent: new Map(), held: new Map(), inflight: new Map() };
+// UTC із мікросекундами: «Z» і «+00:00», 3 чи 6 знаків дробової частини дають однаковий рядок; не розібралось або без зони → null (не гасимо).
+function expRetFull(q){ return (q && typeof q.select === 'function') ? q.select(EXP_ROW_COLS) : q; } // повний рядок у відповіді; без select (фейковий клієнт) відповідь лишається як є
+function utcMicros(v){
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?\s*(Z|[+-]\d{2}(?::?\d{2})?)$/.exec(String(v == null ? '' : v).trim());
+  if(!m) return null;
+  if(+m[2] < 1 || +m[2] > 12 || +m[3] < 1 || +m[3] > 31 || +m[4] > 23 || +m[5] > 59 || +m[6] > 59) return null;
+  let off = 0;
+  if(m[8] !== 'Z'){ const sign = m[8][0] === '-' ? -1 : 1; const d = m[8].slice(1).replace(':', ''); off = sign * (+d.slice(0, 2) * 60 + (d.length > 2 ? +d.slice(2, 4) : 0)); }
+  const ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) - off * 60000;
+  if(!isFinite(ms)) return null;
+  return new Date(ms).toISOString().slice(0, 19) + '.' + ((m[7] || '') + '000000').slice(0, 6) + 'Z';
+}
+function selfEchoEvent(type, table, id, kind, ms){
+  try{ if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: type, table: table, idShort: String(id || '').slice(0, 8), kind: kind || undefined, ms: ms === undefined ? undefined : Math.round(ms) }); }catch(e){}
+}
+function selfPullSkip(table){
+  try{ if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'pull-skip', table: table, source: 'push' }); }catch(e){}
+}
+function selfEchoBegin(id){ if(id) SELF_ECHO.inflight.set(id, (SELF_ECHO.inflight.get(id) || 0) + 1); }
+function selfEchoFinish(id, updatedAt){
+  if(!id) return;
+  const n = (SELF_ECHO.inflight.get(id) || 1) - 1;
+  if(n > 0) SELF_ECHO.inflight.set(id, n); else SELF_ECHO.inflight.delete(id);
+  const ts = utcMicros(updatedAt), now = Date.now();
+  if(ts){
+    SELF_ECHO.recent.forEach(function(v, k){ if(now - v.at > SELF_ECHO_TTL_MS) SELF_ECHO.recent.delete(k); });
+    SELF_ECHO.recent.set(id, { ts: ts, at: now });
+  }
+  if(n > 0) return; // ще є запис того самого id у польоті: затримані події розв'яже останній
+  const held = SELF_ECHO.held.get(id);
+  if(!held) return;
+  SELF_ECHO.held.delete(id);
+  let pass = false;
+  held.forEach(function(h){
+    const r = SELF_ECHO.recent.get(id);
+    if(ts && h.ts === ts && r && r.ts === ts){ SELF_ECHO.recent.delete(id); selfEchoEvent('echo-skip', 'expenses', id, h.kind, now - h.at); }
+    else pass = true;
+  });
+  if(pass && typeof scheduleRealtimeSyncCheck === 'function') scheduleRealtimeSyncCheck();
+}
+// 'skip' — власне відлуння (не планувати перевірку); 'held' — запис цього id ще в польоті, рішення після відповіді; 'pass' — звичайна перевірка.
+function selfEchoCheck(payload){
+  try{
+    if(!payload || (payload.eventType !== 'INSERT' && payload.eventType !== 'UPDATE')) return 'pass';
+    const row = payload.new;
+    if(!row || typeof row.id !== 'string' || !row.updated_by) return 'pass';
+    const me = (typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user) ? cloudSession.user.id : null;
+    if(!me || row.updated_by !== me) return 'pass';
+    const ts = utcMicros(row.updated_at);
+    if(!ts) return 'pass';
+    const now = Date.now(), r = SELF_ECHO.recent.get(row.id);
+    if(r && now - r.at <= SELF_ECHO_TTL_MS && r.ts === ts){ SELF_ECHO.recent.delete(row.id); selfEchoEvent('echo-skip', 'expenses', row.id, payload.eventType, now - r.at); return 'skip'; }
+    if((SELF_ECHO.inflight.get(row.id) || 0) > 0){ const h = SELF_ECHO.held.get(row.id) || []; h.push({ ts: ts, at: now, kind: payload.eventType }); SELF_ECHO.held.set(row.id, h); return 'held'; }
+  }catch(e){}
+  return 'pass';
+}
+// Застосовує повний рядок із відповіді на запис так само, як pull прийняв би власне відлуння. null — застосувати не можна (правка під час запиту, запис «брудний»,
+// ОЧ ще не синхронізована): тоді лишається звичайний pull. { visible } — чи змінилась видима категорія/підкатегорія (потрібне перемальовування).
+function expApplyPushedRow(rec, row, sentAt){
+  try{
+    if(!rec || !row || row.id !== rec.id || typeof row.updated_at !== 'string' || !utcMicros(row.updated_at)) return null;
+    if(EXP_ROW_COLS.split(',').some(function(c){ return !Object.prototype.hasOwnProperty.call(row, c); })) return null; // неповний рядок: лишається звичайний pull
+    if(rec.updatedAt !== sentAt) return null;
+    shadowNormalize(rec);
+    if(shadowDirtyNew(rec)) return null;
+    let linkedName = null;
+    if(row.linked_installment_id){
+      const acc = installmentAccounts.find(function(a){ return a.cloudId === row.linked_installment_id; });
+      if(!acc) return null;
+      linkedName = acc.name;
+    }
+    const cat = row.category || '', sub = row.subcategory || '';
+    const visible = (rec.category || '') !== cat || (rec.subcategory || '') !== sub;
+    rec.category = cat; rec.subcategory = sub;
+    if(row.created_at) rec.createdAt = row.created_at;
+    if(row.created_by) rec.createdBy = row.created_by;
+    rec.updatedBy = row.updated_by;
+    if(row.deleted_at) rec.deletedAt = row.deleted_at; else delete rec.deletedAt;
+    if(row.edited_at) rec.editedAt = row.edited_at;
+    rec.updatedAt = row.updated_at; rec.syncedUpdatedAt = row.updated_at; rec.serverUpdatedAt = row.updated_at;
+    rec.serverBase = expSnapFromRow(row, linkedName);
+    return { visible: visible };
+  }catch(e){ return null; }
+}
 // Опис доменів: поля, зв'язок «рядок сервера ↔ запис», поля запиту, побічні дії.
 const MERGE_DOMAINS = {
   expenses: {
-    key: 'expenses', table: 'expenses', rowKind: 'expense', fields: EXP_MERGE_FIELDS, optional: ['linkedInstallment', 'deletedAt'], cols: EXP_ROW_COLS,
+    key: 'expenses', table: 'expenses', rowKind: 'expense', fields: EXP_MERGE_FIELDS, optional: ['linkedInstallment', 'deletedAt'], cols: EXP_ROW_COLS, retCols: EXP_ROW_COLS.replace(',deleted_at', ''), applyPushRow: function(rec, row, sentAt){ return expApplyPushedRow(rec, row, sentAt); },
     list: function(){ return expenses; }, save: function(){ return saveExpenses(); }, push: function(rec, opts){ return pushExpenseRecordPilot(rec, opts); }, pull: function(){ return pullExpensesCore(); },
     snapFromRow: function(row, ctx){ return expSnapFromRow(row, ctx && ctx.linkedName); },
     rowCtx: function(row, rec){ const n = expLinkedNameForRow(row); return { linkedName: n === null ? (rec.linkedInstallment || '') : n }; },
@@ -8088,9 +8183,11 @@ function conflictSectionHtml(){
 async function pushExpenseRecordPilot(rec, opts){
   const id = rec && rec.id;
   expSyncBegin(id);
+  selfEchoBegin(id); // Rev 2.32.300 (NET-1): Realtime-луна власного запису не запускає перевірку
   let res;
   try{ res = await pushExpenseRecordPilotCore(rec, opts); }
-  catch(e){ expSyncEnd(id, false); throw e; }
+  catch(e){ selfEchoFinish(id, null); expSyncEnd(id, false); throw e; }
+  selfEchoFinish(id, res && res.serverAt ? res.serverAt : null);
   expSyncEnd(id, !!(res && res.success && !res.unresolved));
   return res;
 }
@@ -8113,7 +8210,8 @@ async function pushExpenseRecordPilotCore(rec, opts){
   try{
     const shSnap = shadowSnap(rec); // Rev 2.32.192 (SHADOW-REV)
     const sentSnap = expSnap(rec), sentAt = rec.updatedAt; // Rev 2.32.193 (MERGE-EXP): зліпок надісланих полів стає базою; sentAt — правка під час запиту лишається «брудною»
-    const { data, error } = await shadowRet(client.from('expenses').upsert({
+    let applied = null; // Rev 2.32.300 (NET-1): відповідь на запис містить повний рядок (EXP_ROW_COLS): негайний pull не потрібен
+    const { data, error } = await expRetFull(client.from('expenses').upsert({
       id: rec.id,
       family_id: cloudFamilyId,
       amount: rec.amount,
@@ -8150,7 +8248,9 @@ async function pushExpenseRecordPilotCore(rec, opts){
       rec.serverBase = sentSnap; // Rev 2.32.193 (MERGE-EXP)
       shadowAdoptDeleted(rec, data && data[0] && data[0].deleted_at); // Rev 2.32.230 (SERVER-DEL)
       if(!rec.editedAt && rec.edited && rec.updatedAt) rec.editedAt = rec.updatedAt; // Rev 2.32.90 (EDITED-1): одноразове перенесення локального edited
+      applied = expApplyPushedRow(rec, data && data[0], sentAt); // Rev 2.32.300 (NET-1): сервер міг переписати категорію за taxonomy_aliases, поставити created_by
       await saveExpenses();
+      if(applied && applied.visible && typeof renderAfterSync === 'function') renderAfterSync(true);
     }
     // Rev #30 (6D.76) — той самий self-heal, що pushDebtRecordPilot() (той
     // самий клас вразливості: linked_installment_id — FK БЕЗ ON DELETE,
@@ -8166,10 +8266,13 @@ async function pushExpenseRecordPilotCore(rec, opts){
     // Rev #30 (6D.49) — pull одразу після успішного push (Варіант А), той
     // самий принцип, що всюди в цьому Rev. Rev #30 (6D.58) — пропускається
     // за explicit opts.suppressPull (масові цикли роблять один pull самі).
-    if(!error && !(opts && opts.suppressPull)) await pullExpensesCore();
+    if(!error && !(opts && opts.suppressPull)){
+      if(applied) selfPullSkip('expenses'); // Rev 2.32.300 (NET-1): рядок уже застосовано з відповіді
+      else await pullExpensesCore();
+    }
     // Rev #30 (6D.58) — error.message реально зберігається (раніше тихо
     // губився) — саме відсутність цього ускладнила діагностику "846/26".
-    return { success: !error, error: error ? (error.message || String(error)) : undefined };
+    return { success: !error, error: error ? (error.message || String(error)) : undefined, serverAt: applied && data && data[0] ? data[0].updated_at : undefined };
   }catch(e){
     // мережа/CORS/офлайн — тихий пропуск, той самий принцип, що решта push-логіки.
     return { success: false, error: e && e.message ? e.message : String(e) };
@@ -9717,7 +9820,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.299';
+const APP_VERSION = '2.32.300';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12555,7 +12658,8 @@ function setupRealtimeSync(){
   PULL_DOMAINS.forEach(function(domain){
     // Rev 2.32.74 (U): подія Realtime більше не тягне свою таблицю напряму — серія подій згортається (1,5 с) в одну перевірку «голів»,
     // яка завантажує лише реально змінені таблиці (раніше: по запиту на подію; власний запис давав подію на кожну таблицю).
-    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: domain.table, filter: 'family_id=eq.' + cloudFamilyId }, function(){
+    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: domain.table, filter: 'family_id=eq.' + cloudFamilyId }, function(payload){
+      if(domain.table === 'expenses' && selfEchoCheck(payload) !== 'pass') return; // Rev 2.32.300 (NET-1): власне відлуння гаситься, затримане розв'яже відповідь запису
       scheduleRealtimeSyncCheck();
     });
   });
@@ -15012,8 +15116,8 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail'];
-const REC_ALLOWED_KEYS = ['earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm'];
+const REC_ALLOWED_TYPES = ['kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail', 'echo-skip', 'pull-skip'];
+const REC_ALLOWED_KEYS = ['idShort', 'earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;

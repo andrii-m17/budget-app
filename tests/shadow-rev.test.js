@@ -61,7 +61,10 @@ test('push витрати (запис і пакет): серверна верс�
   const c = pushSandbox(); const a = rec(), b = rec({ id: 'e2' }), d = rec({ id: 'e3' });
   await c.pushExpenseRecordPilot(a, { suppressPull: true }); await c.pushExpensesBatch([b, d]);
   [a, b, d].forEach(r => { assert.ok(/\.9612\d\d\+00:00$/.test(r.serverUpdatedAt), r.id + ' ' + r.serverUpdatedAt); assert.equal(r.localRev, r.syncedRev); assert.equal(c.shadowDirtyNew(r), c.shadowDirtyOld(r)); assert.equal(c.shadowDirtyNew(r), false); });
-  assert.equal(c.__calls.length, 2, 'два запити (запис і пакет), нових немає'); assert.ok(c.__calls.every(x => x.selected === 'id,updated_at,deleted_at'));
+  assert.equal(c.__calls.length, 2, 'два запити (запис і пакет), нових немає');
+  // Rev 2.32.300 (NET-1): одиничний запис повертає повний рядок (EXP_ROW_COLS) замість окремого pull; пакет, як і раніше, лише id,updated_at,deleted_at
+  const single = String(c.__calls[0].selected).split(','); ['id', 'updated_at', 'deleted_at', 'category', 'subcategory', 'created_by'].forEach(col => assert.ok(single.indexOf(col) >= 0, 'повний рядок: ' + col));
+  assert.equal(c.__calls[1].selected, 'id,updated_at,deleted_at');
   assert.deepEqual(j(c.shadowDiffCounts()), {}, 'розбіжностей немає');
 });
 test('push: фейк-клієнт без select (як у наявних тестах) працює; завершальний pull не викликається при suppressPull і без помилки не додає запитів', async () => {

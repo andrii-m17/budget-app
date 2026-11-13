@@ -17,6 +17,7 @@
 - `PULL_DOMAINS` 12235 (FK-порядок), `pull*Core` (напр. `pullExpensesCore` 8503), `push*Pilot` / `push*RecordPilot` (8036, 8210, 8305, 4960…).
 - `mdMerge` 7334, `mdMergeServerRow` 7354, `mdPullDirty` 7444, `mdLostToServer` 7439, `mdPushCas` 7389: LWW за `updated_at`, лічильники правок, конфлікти.
 - `syncCheck` 12446 → `planSync` 12762 (через `sync_heads()`): лише змінені таблиці; повна звірка раз на 24 год або при зміні `purged_at` (`purgedAtChanged` 12733).
+- Одна дія з витратою = 1 запит (Rev 2.32.300, NET-1): `expApplyPushedRow`, `expRetFull`, гасіння луни `selfEchoBegin`/`selfEchoFinish`/`selfEchoCheck`/`utcMicros` (`SELF_ECHO`), події `echo-skip`/`pull-skip`; `retCols`/`applyPushRow` у `MERGE_DOMAINS.expenses`, `mdPushCas`.
 - Realtime: `setupRealtimeSync` 12271, `teardownRealtimeSync` 12285, `scheduleRealtimeSyncCheck` 12462.
 - Середовища: `isWriteBlocked` 11313, `countingFetch` 11427, `NET_STATS` 11393; мок `dev/mock-cloud.js`.
 

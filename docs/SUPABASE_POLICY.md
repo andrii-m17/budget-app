@@ -180,3 +180,7 @@
 ## Отримання сповіщень: `push_receipts` (13.11, PUSH-RCPT; сервер змінено чатом)
 - **RPC `report_push_receipts(p_items jsonb)`** (`authenticated`, `service_role`; `public` і `anon` без права): вставка власних рядків, `on conflict (push_id, user_id) do nothing`; для `on conflict` потрібна політика `push_receipts_select_own`. Елемент: `push_id` (uuid), `received_at` (обов'язкові), `shown_at`, `cold_start`, `idle_s`, `app_state` (≤ 24).
 - **Клієнт (Rev 2.32.298).** Воркер лише пише чергу в IndexedDB; сторінка раз на старті/вході робить **один** виклик RPC, якщо черга не порожня (інакше запитів немає); +1 запит до `user_notifications` лише при тапі декларативного сповіщення. Помилка виклику не показується користувачу (подія самописця `push-receipt-fail`), елементи лишаються в черзі (≤ 50, ≤ 7 днів).
+
+## Витрати: один запит на дію (13.11, NET-1, Rev 2.32.300; клієнт)
+- Додавання, зміна, видалення й відновлення витрати = **один** запит (POST/PATCH з `select` повного рядка). Раніше ще: негайний GET `expenses` і після Realtime-луни `sync_heads` + GET. Сервер не змінювався: тригери `expenses` (`set_updated_at_*`, `set_deleted_at_server`, `expenses_resolve_refs`, `mono_expense_sync`, `bump_purge_epoch`) лишились; усе, що вони доповнюють у рядку (`updated_at`, `deleted_at`, `created_by`, alias `category`/`subcategory`), повертається у відповіді на запис.
+- Realtime-подія власного запису (`updated_by` = поточний користувач, той самий `id` і `updated_at`) не запускає перевірку; чужі зміни (інший `updated_by`, інший час, DELETE) — як раніше.
