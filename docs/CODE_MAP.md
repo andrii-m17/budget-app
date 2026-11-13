@@ -31,6 +31,7 @@
 ## Push-сповіщення
 - Клієнт: `requestPushSubscription` 11682, `openPushActionDb` 11724, `queuePushAction` 11868, `handlePushAction` 12173, `pendingPushState` 11853.
 - Service Worker `sw.js`: обробник `push` (~177), `CACHE_NAME`. Серверні функції змінює лише чат.
+- Отримання сповіщень (Rev 2.32.298, PUSH-RCPT): воркер `rcptRecord`/`rcptWrite` (черга IndexedDB `budget-app-push-receipts`), сторінка `pushReceiptTrim`, `flushPushReceipts` (виклик з `requestPushSubscription`), `pushReceiptFromTap` (з `handleMonoHash`, декларативний формат); подія `push-receipt-fail`.
 
 ## Діагностика: бортовий самописець (Rev 2.32.260, REC-1)
 - Код: блок «REC-1» у `index.html` перед `sendDebugLog`: чисті `recSanitizeEvent`, `recTrim`, `recChunk`, `recLimitReport`, `recRateCheck`, `recQueueAdd`, `recReportCode`, `recDetectSheetJump`, `recFieldHidden`; рантайм `recPush` (з `pushDebugEvent`), `recMirrorSave/Load` (IndexedDB, ключ `budget-rec-buffer-v1`), `recSendParts`, `recDeliver`, `recFlushQueue` (черга `budget-rec-queue-v1` в IndexedDB), `recTrigger` (автозвіт), `recReportNow` (кнопка), `recBgStart` (стартує з застосунком, слухачі vv/focus/visibility/touch). Стан `recBgOn`/`recOn()` оголошені на початку скрипта. Старий ручний запис (`startDebugRecording`, шторка `debug-record-drawer`) лишився в коді недосяжним з інтерфейсу.

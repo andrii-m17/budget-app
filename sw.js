@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.297';
+const CACHE_NAME = 'budget-app-v2.32.298';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -174,11 +174,77 @@ function withTimeout(promise, ms){
   });
 }
 function errText(prefix, err){ return prefix + (err && err.message ? err.message : String(err)); }
+// Rev 2.32.298 (PUSH-RCPT): запис отримання кожного показаного push у чергу IndexedDB 'budget-app-push-receipts' (ключ push_id: повтор не дублює).
+// Сторінка відправляє чергу викликом report_push_receipts (токен сесії лише в сторінці) при старті/вході; воркер мережі не торкається.
+// Поля: received_at = початок обробки події push; shown_at = завершення showNotification; cold_start = перший push цього екземпляра воркера;
+// idle_s = секунд від попередньої події push (або від старту воркера); app_state = visible | hidden | closed. Запис після показу й із тайм-аутом
+// (правило NOTIF-3: showNotification першим). Черга ≤ 50, старші за 7 днів відкидаються. Новий (декларативний) формат цього обробника не викликає: див. сторінку (тап).
+const RCPT_DB_NAME = 'budget-app-push-receipts';
+const RCPT_STORE = 'queue';
+const RCPT_LIMIT = 50;
+const RCPT_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+const RCPT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SW_BOOT_AT = Date.now();
+let swLastPushAt = 0;
+let swPushSeen = 0;
+function rcptOpen(){
+  return new Promise(function(resolve, reject){
+    const req = indexedDB.open(RCPT_DB_NAME, 1);
+    req.onupgradeneeded = function(){ if(!req.result.objectStoreNames.contains(RCPT_STORE)) req.result.createObjectStore(RCPT_STORE, { keyPath: 'push_id' }); };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+function rcptKeep(list, nowMs){
+  const ok = [];
+  (list || []).forEach(function(x){
+    const t = x && Date.parse(x.received_at);
+    if(!x || !isFinite(t) || nowMs - t > RCPT_MAX_AGE_MS) return;
+    ok.push({ id: x.push_id, t: t });
+  });
+  ok.sort(function(a, b){ return b.t - a.t; });
+  return ok.slice(0, RCPT_LIMIT).map(function(e){ return e.id; });
+}
+function rcptWrite(item){
+  return rcptOpen().then(function(db){
+    return new Promise(function(resolve){
+      const tx = db.transaction(RCPT_STORE, 'readwrite');
+      const store = tx.objectStore(RCPT_STORE);
+      const add = store.add(item);
+      add.onerror = function(e){ if(e && e.preventDefault) e.preventDefault(); }; // той самий push_id уже в черзі: не дублюємо
+      const all = store.getAll();
+      all.onsuccess = function(){
+        const keep = rcptKeep(all.result, Date.now());
+        (all.result || []).forEach(function(x){ if(keep.indexOf(x.push_id) === -1) store.delete(x.push_id); });
+      };
+      tx.oncomplete = function(){ db.close(); resolve(); };
+      tx.onerror = function(){ db.close(); resolve(); };
+      tx.onabort = function(){ db.close(); resolve(); };
+    });
+  });
+}
+function rcptAppState(){
+  try{
+    return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(arr){
+      if(arr.some(function(c){ return c.visibilityState === 'visible'; })) return 'visible';
+      return arr.length ? 'hidden' : 'closed';
+    }, function(){ return null; });
+  }catch(e){ return Promise.resolve(null); }
+}
+function rcptRecord(pid, t0, cold, idle, shown){
+  if(typeof pid !== 'string' || !RCPT_UUID_RE.test(pid)) return Promise.resolve(null);
+  const shownAt = shown ? new Date().toISOString() : null;
+  return rcptAppState().then(function(state){
+    return rcptWrite({ push_id: pid.toLowerCase(), received_at: new Date(t0).toISOString(), shown_at: shownAt, cold_start: cold, idle_s: idle, app_state: state });
+  }).catch(function(){ return null; });
+}
 self.addEventListener('push', function(event){
   let type = null;
+  let rcptPid = null;
   let problem = null;
   let shownPromise;
   const t0 = Date.now();
+  const rcptCold = swPushSeen === 0; const rcptIdle = Math.max(0, Math.round((t0 - (swLastPushAt || SW_BOOT_AT)) / 1000)); swPushSeen++; swLastPushAt = t0; // Rev 2.32.298 (PUSH-RCPT)
   let meta = diagMeta({}, null);
   try{
     let data = {};
@@ -187,6 +253,7 @@ self.addEventListener('push', function(event){
     const title = (typeof data.title === 'string' && data.title) ? data.title : 'Money Tree';
     const inner = (data.data && typeof data.data === 'object') ? data.data : {};
     type = inner.type || null;
+    rcptPid = inner.push_id || null;
     const options = {
       body: typeof data.body === 'string' ? data.body : '',
       icon: './icons/icon-192-v2.png',
@@ -209,6 +276,7 @@ self.addEventListener('push', function(event){
     shownPromise.then(function(){
       return Promise.all([
         withTimeout(writePushLog({ ts: Date.now(), type: type, shown: true, error: problem }), PUSH_LOG_TIMEOUT_MS),
+        withTimeout(rcptRecord(rcptPid, t0, rcptCold, rcptIdle, true), PUSH_LOG_TIMEOUT_MS), // Rev 2.32.298 (PUSH-RCPT)
         diagRecord(function(vis){ const now = Date.now(); return [Object.assign({ ts: t0, ev: 'push-received', vis: vis }, meta)].concat(problem && /^handler:/.test(problem) ? [Object.assign({ ts: now, ev: 'handler-error', err: diagStr(problem) }, meta)] : []).concat([Object.assign({ ts: now, ev: 'show-ok', dur: now - t0 }, meta)]); }, true)
       ]);
     }, function(err){
@@ -218,6 +286,7 @@ self.addEventListener('push', function(event){
       return retry.then(function(){ return true; }, function(){ return false; }).then(function(ok){
         return Promise.all([
           withTimeout(writePushLog({ ts: Date.now(), type: type, shown: ok, error: errText('show: ', err) }), PUSH_LOG_TIMEOUT_MS),
+          withTimeout(rcptRecord(rcptPid, t0, rcptCold, rcptIdle, ok), PUSH_LOG_TIMEOUT_MS), // Rev 2.32.298 (PUSH-RCPT)
           diagRecord(function(vis){ const now = Date.now(); return [Object.assign({ ts: t0, ev: 'push-received', vis: vis }, meta), Object.assign({ ts: now, ev: ok ? 'show-retry-ok' : 'show-error', dur: now - t0, err: diagStr(errText('show: ', err)) }, meta)]; }, true)
         ]).then(function(){ if(!ok) throw err; });
       });

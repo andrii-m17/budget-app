@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.297</div>
+  <div class="version-footer">Money Tree · Rev 2.32.298</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.297';
+const APP_VERSION = '2.32.298';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11728,6 +11728,137 @@ function urlBase64ToUint8Array(base64String){
   for(let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
   return outputArray;
 }
+// ===== Rev 2.32.298 (PUSH-RCPT): отримання сповіщень → push_receipts =====
+// Воркер (sw.js) кладе запис про кожен показаний push у чергу IndexedDB 'budget-app-push-receipts' (ключ push_id); сторінка раз на старті/вході
+// відправляє чергу одним викликом report_push_receipts(p_items) (на сервері on conflict do nothing). Успішні записи прибираються, решта лишається;
+// черга ≤ 50, старші за 7 днів відкидаються; помилка не ковтається: подія самописця push-receipt-fail (код, текст, кількість). Користувачу нічого не показується.
+// Декларативний формат (#mono/<inbox_id>): подія push у воркер не приходить, тож отримання не видно; при тапі (handleMonoHash) шукаємо push_id за inbox_id
+// одним запитом і пишемо запис з app_state 'tap' (received_at = shown_at = момент тапу): обмеження, див. docs/reports/PUSH-RCPT.md.
+const PUSH_RCPT_DB_NAME = 'budget-app-push-receipts';
+const PUSH_RCPT_STORE = 'queue';
+const PUSH_RCPT_LIMIT = 50;
+const PUSH_RCPT_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+const PUSH_RCPT_MAX_TRIES = 5; // скільки невдалих відправок витримує елемент (захист від «отруєного» запису, що валить увесь пакет)
+const PUSH_RCPT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Чиста: валідні записи (uuid, дата), не старші за 7 днів, без дублів push_id, не більше 50 найновіших за received_at.
+function pushReceiptTrim(list, nowMs){
+  const valid = [];
+  (Array.isArray(list) ? list : []).forEach(function(x){
+    if(!x || typeof x.push_id !== 'string' || !PUSH_RCPT_UUID_RE.test(x.push_id)) return;
+    const t = Date.parse(x.received_at);
+    if(!isFinite(t) || nowMs - t > PUSH_RCPT_MAX_AGE_MS) return;
+    if((x.tries || 0) >= PUSH_RCPT_MAX_TRIES) return;
+    valid.push({ item: x, t: t });
+  });
+  valid.sort(function(a, b){ return b.t - a.t; }); // найновіші першими: при дублях лишається найновіший
+  const seen = new Set(); const ok = [];
+  valid.forEach(function(e){ const id = e.item.push_id.toLowerCase(); if(seen.has(id)) return; seen.add(id); ok.push(e.item); });
+  return ok.slice(0, PUSH_RCPT_LIMIT);
+}
+// Форма елемента для report_push_receipts: push_id, received_at (обов'язкові), shown_at, cold_start, idle_s, app_state (≤ 24 символи).
+function pushReceiptItem(x){
+  const n = function(v){ return (typeof v === 'number' && isFinite(v)) ? Math.max(0, Math.round(v)) : null; };
+  return { push_id: String(x.push_id).toLowerCase(), received_at: x.received_at, shown_at: x.shown_at || null, cold_start: typeof x.cold_start === 'boolean' ? x.cold_start : null, idle_s: n(x.idle_s), app_state: x.app_state == null ? null : String(x.app_state).slice(0, 24) };
+}
+function pushReceiptsDb(){
+  return new Promise(function(resolve, reject){
+    const req = indexedDB.open(PUSH_RCPT_DB_NAME, 1);
+    req.onupgradeneeded = function(){ if(!req.result.objectStoreNames.contains(PUSH_RCPT_STORE)) req.result.createObjectStore(PUSH_RCPT_STORE, { keyPath: 'push_id' }); };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+async function pushReceiptsLoad(){
+  try{
+    const db = await pushReceiptsDb();
+    return await new Promise(function(resolve){
+      const g = db.transaction(PUSH_RCPT_STORE, 'readonly').objectStore(PUSH_RCPT_STORE).getAll();
+      g.onsuccess = function(){ db.close(); resolve(g.result || []); };
+      g.onerror = function(){ db.close(); resolve([]); };
+    });
+  }catch(e){ return []; }
+}
+async function pushReceiptsDelete(ids){
+  if(!ids || !ids.length) return;
+  try{
+    const db = await pushReceiptsDb();
+    await new Promise(function(resolve){
+      const tx = db.transaction(PUSH_RCPT_STORE, 'readwrite');
+      const st = tx.objectStore(PUSH_RCPT_STORE);
+      ids.forEach(function(id){ st.delete(id); });
+      tx.oncomplete = function(){ db.close(); resolve(); };
+      tx.onerror = function(){ db.close(); resolve(); };
+      tx.onabort = function(){ db.close(); resolve(); };
+    });
+  }catch(e){}
+}
+async function pushReceiptAddIfAbsent(item){
+  try{
+    const db = await pushReceiptsDb();
+    await new Promise(function(resolve){
+      const tx = db.transaction(PUSH_RCPT_STORE, 'readwrite');
+      const req = tx.objectStore(PUSH_RCPT_STORE).add(item);
+      req.onerror = function(e){ if(e && e.preventDefault) e.preventDefault(); }; // запис із воркера (повніший) уже є: не перезаписуємо
+      tx.oncomplete = function(){ db.close(); resolve(); };
+      tx.onerror = function(){ db.close(); resolve(); };
+      tx.onabort = function(){ db.close(); resolve(); };
+    });
+  }catch(e){}
+}
+async function pushReceiptsBump(ids){
+  if(!ids || !ids.length) return;
+  try{
+    const db = await pushReceiptsDb();
+    await new Promise(function(resolve){
+      const tx = db.transaction(PUSH_RCPT_STORE, 'readwrite');
+      const st = tx.objectStore(PUSH_RCPT_STORE);
+      ids.forEach(function(id){ const g = st.get(id); g.onsuccess = function(){ if(g.result){ g.result.tries = (g.result.tries || 0) + 1; st.put(g.result); } }; });
+      tx.oncomplete = function(){ db.close(); resolve(); };
+      tx.onerror = function(){ db.close(); resolve(); };
+      tx.onabort = function(){ db.close(); resolve(); };
+    });
+  }catch(e){}
+}
+function pushReceiptFail(error, count){
+  try{
+    if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'push-receipt-fail', errorCode: String((error && (error.code || error.status || error.name)) || 'unknown').slice(0, 40), message: String((error && error.message) || '').slice(0, 120), count: count });
+  }catch(e){}
+}
+let pushReceiptsFlushing = false;
+// Відправка черги. Без сесії/мережі/запису (режим «лише читання») нічого не робить і нічого не прибирає; повертає підсумок для тестів.
+async function flushPushReceipts(){
+  if(pushReceiptsFlushing) return { skipped: 'busy' };
+  if(!isCloudWriteReady() || !navigator.onLine) return { skipped: 'not-ready' };
+  pushReceiptsFlushing = true;
+  try{
+    const all = await pushReceiptsLoad();
+    const keep = pushReceiptTrim(all, Date.now());
+    const keepIds = {}; keep.forEach(function(x){ keepIds[String(x.push_id)] = true; });
+    const drop = all.filter(function(x){ return !(x && keepIds[String(x.push_id)]); }).map(function(x){ return x && x.push_id; }).filter(Boolean);
+    if(drop.length) await pushReceiptsDelete(drop);
+    if(!keep.length) return { sent: 0, dropped: drop.length };
+    const items = keep.map(pushReceiptItem);
+    let res;
+    try{ res = await getSupabaseClient().rpc('report_push_receipts', { p_items: items }); }catch(e){ res = { error: e }; }
+    if(res && res.error){ pushReceiptFail(res.error, items.length); await pushReceiptsBump(keep.map(function(x){ return x.push_id; })); return { failed: items.length, dropped: drop.length }; }
+    await pushReceiptsDelete(keep.map(function(x){ return x.push_id; }));
+    return { sent: items.length, dropped: drop.length };
+  }finally{ pushReceiptsFlushing = false; }
+}
+// Декларативний формат: тап → #mono/<inbox_id>; push_id беремо зі сповіщення журналу за inbox_id (один запит), received_at = shown_at = тап.
+async function pushReceiptFromTap(inboxId){
+  try{
+    if(typeof awaitCloudGate === 'function' && await awaitCloudGate() !== 'ready') return; // холодний старт за тапом: сесія ще відновлюється
+    if(!isCloudWriteReady() || !navigator.onLine) return;
+    const r = await getSupabaseClient().from('user_notifications').select('data').eq('data->>inbox_id', String(inboxId)).order('created_at', { ascending: false }).limit(1);
+    const row = r && !r.error && r.data && r.data[0];
+    const pid = row && row.data && row.data.push_id;
+    if(typeof pid !== 'string' || !PUSH_RCPT_UUID_RE.test(pid)) return;
+    const nowISO = new Date().toISOString();
+    await pushReceiptAddIfAbsent({ push_id: pid.toLowerCase(), received_at: nowISO, shown_at: nowISO, cold_start: null, idle_s: null, app_state: 'tap' });
+    await flushPushReceipts();
+  }catch(e){}
+}
 // Rev #30 (6D.93) — реєструє (чи повторно використовує) PushSubscription і
 // зберігає її в push_subscriptions (upsert по endpoint — той самий фізичний
 // підпис при повторному вході НЕ повинен плодити дублікати рядків). Мовчки
@@ -11736,6 +11867,7 @@ function urlBase64ToUint8Array(base64String){
 async function requestPushSubscription(){
   if(!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   if(!cloudSession || !cloudSession.user || !cloudFamilyId) return;
+  if(typeof flushPushReceipts === 'function') flushPushReceipts().catch(function(){}); // Rev 2.32.298 (PUSH-RCPT): черга отримань → сервер (старт/вхід), незалежно від підписки й дозволу
   try{
     let permission = Notification.permission;
     if(permission === 'default') permission = await Notification.requestPermission();
@@ -12109,6 +12241,7 @@ function handleMonoHash(){
   if(!id) return false;
   try{ history.replaceState(history.state, '', location.pathname + location.search); }catch(e){}
   queuePushAction({ type: 'mono-deeplink', monoId: id, _at: String(Date.now()) }, 'hash');
+  if(typeof pushReceiptFromTap === 'function') pushReceiptFromTap(id); // Rev 2.32.298 (PUSH-RCPT): декларативний формат: запис при тапі (app_state 'tap')
   return true;
 }
 // Стан «застосунок на екрані» для поточної підписки (поле app_visible, час app_visible_at; схему додає сервер). Помилка запису — тихо в самописець.
@@ -14848,7 +14981,7 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger'];
+const REC_ALLOWED_TYPES = ['kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail'];
 const REC_ALLOWED_KEYS = ['earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
