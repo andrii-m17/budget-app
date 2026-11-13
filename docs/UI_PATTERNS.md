@@ -113,7 +113,7 @@ _Виміряно Claude Code в Chrome (CDP), синтетичні дані, б
 - кнопка 2: 149×49, радіус 18px (--ui-r-control), шрифт 15px/normal 600, колір rgb(255, 255, 255), тло --ui-danger-strong, межа —
 
 ## Верхнє сповіщення (тост)
-`showToast({kind, title, subtitle, icon})`; види `success`, `info`, `warning`, `error`; черга по одному. Скріншоти: `docs/ui/tost-390-dark.png`, `docs/ui/tost-390-light.png`; `docs/ui/tost-440-dark.png`, `docs/ui/tost-440-light.png`.
+`showToast({kind, title, subtitle, icon})`; види `success`, `info`, `warning`, `error`; **черги немає (Rev 2.32.297, TOAST-1)**: нове повідомлення замінює поточне в тому самому елементі (старий вміст 120 мс угору на 6 px → новий 160 мс зі зсуву 6 px → розмір 200 мс `cubic-bezier(.2,.8,.2,1)`), той самий вміст лише продовжує час і пульсує (`scale` 1 → 1,03 → 1, 180 мс); зменшений рух: лише прозорість. Скріншоти: `docs/ui/tost-390-dark.png`, `docs/ui/tost-390-light.png`; `docs/ui/tost-440-dark.png`, `docs/ui/tost-440-light.png`.
 
 | Елемент | Селектор | Розмір, пт (ширина екрана) | Відступи (т п н л) | Радіус | Шрифт (розмір/рядок вага) | Колір тексту (темна → світла) | Тло (темна → світла) | Межа | Тінь | Рух |
 |---|---|---|---|---|---|---|---|---|---|---|

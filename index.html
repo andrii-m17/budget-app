@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.296</div>
+  <div class="version-footer">Money Tree · Rev 2.32.297</div>
 </div>
   </div>
 </div>
@@ -9717,7 +9717,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.296';
+const APP_VERSION = '2.32.297';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -25644,7 +25644,6 @@ const TOAST_ICONS = {
   cloud: '<svg class="success-toast-icon static" viewBox="1 1 22 22" aria-hidden="true"><path d="' + SYNC_SLOT_CLOUD_D + '"/>' + SYNC_SLOT_BANG + '</svg>',
   journal: '<svg class="success-toast-icon static" viewBox="4 4 22 22" aria-hidden="true"><path d="M11 9h11"/><path d="M11 15h11"/><path d="M11 21h11"/><path d="M7 9h.01"/><path d="M7 15h.01"/><path d="M7 21h.01"/></svg>'
 };
-let successToastQueue = [];
 let successToastActive = null;
 let successToastTimer = null;
 // Rev 2.32.180 (TOAST-GAPS): ширина текстового блоку = найдовший рядок (блок із переносом інакше лишає порожнє місце праворуч від коротших рядків).
@@ -25670,65 +25669,173 @@ function toastFitText(el){
   if(fit > 0 && fit < text.offsetWidth - 0.5){ text.style.width = (Math.ceil(fit * 100) / 100) + 'px'; text.style.flex = '0 0 auto'; }
 }
 // opts: { kind: 'success'|'info'|'warning'|'error', icon?: 'journal', title, subtitle?, actionLabel?, onAction? }
+// Rev 2.32.297 (TOAST-1): черги немає. Є активна плашка → вона не перестворюється: старий вміст зникає (120 мс, зсув 6 px угору), новий з'являється
+// (160 мс, зсув 6 px униз), плашка плавно міняє розмір (200 мс); той самий вміст лише продовжує час і дає легку пульсацію.
+// Ризик: рух на WAAPI (Element.animate) — без нього (дуже старий WebKit) вміст міняється миттєво (див. toastAnimate). Альтернатива (CSS-класи/transition) відхилена: клас animation перезапускав би stIn.
 function showToast(opts){
-  successToastQueue.push(opts || {});
-  pumpSuccessToast();
+  const o = opts || {};
+  if(successToastActive && successToastActive.parentNode){ replaceSuccessToast(successToastActive, o); return; }
+  pumpSuccessToast(o);
 }
-function pumpSuccessToast(){
-  if(successToastActive || !successToastQueue.length) return;
-  const o = successToastQueue.shift();
-  const kind = (o.kind === 'info' || o.kind === 'warning' || o.kind === 'error') ? o.kind : 'success';
-  const ms = o.durationMs || toastDuration(kind); // Rev 2.32.278 (PUSH-2): durationMs — для тоста «нова витрата Monobank» (~6 с)
+function toastKindOf(o){ return (o.kind === 'info' || o.kind === 'warning' || o.kind === 'error') ? o.kind : 'success'; }
+// Підпис вмісту: однаковий підпис = «той самий вміст» (kind, іконка, заголовок, підзаголовок, кнопки, sticky/compact).
+function toastSignature(o){
+  let rows = null;
+  try{ rows = o.rows ? JSON.stringify(o.rows) : null; }catch(e){ rows = String(o.rows.length); }
+  return JSON.stringify([toastKindOf(o), o.icon || '', o.title || '', o.subtitle || '', o.actionLabel || '', !!o.sticky, !!o.compact, rows,
+    (Array.isArray(o.actions) ? o.actions : []).map(function(a){ return a && a.label; })]);
+}
+function toastReducedMotion(){ try{ return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }catch(e){ return false; } }
+function toastMotionUnitMs(){ // --motion-s = 200 мс × --motion-k
+  let k = 1;
+  try{ const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--motion-k')); if(isFinite(v) && v > 0) k = v; }catch(e){}
+  return Math.round(200 * k);
+}
+function toastAnimate(node, keyframes, opts, st){
+  if(!node || typeof node.animate !== 'function') return null;
+  try{ const a = node.animate(keyframes, opts); if(st) st.anims.push(a); return a; }catch(e){ return null; }
+}
+function toastCancelAnims(st){
+  (st.anims || []).forEach(function(a){ try{ a.cancel(); }catch(e){} });
+  st.anims = [];
+}
+function pumpSuccessToast(o){
+  const host = placeToastHost();
+  const el = document.createElement('div');
+  const state = { o: o, sig: toastSignature(o), ms: o.durationMs || toastDuration(toastKindOf(o)), sticky: !!o.sticky, held: false, y0: null, dy: 0, phase: 'idle', pending: null, leaveTimer: null, anims: [] }; // Rev 2.32.278 (PUSH-2): durationMs — для тоста «нова витрата Monobank» (~6 с)
+  el.__toast = state;
+  fillToastContent(el, o);
+  const close = function(){ closeSuccessToast(el); };
+  el.addEventListener('click', close); // тап закриває
+  // Свайп угору закриває; поки палець на контейнері — таймер на паузі (поновлюється після відпускання)
+  el.addEventListener('touchstart', function(e){ state.y0 = e.touches[0].clientY; state.dy = 0; state.held = true; clearTimeout(successToastTimer); }, { passive: true });
+  el.addEventListener('touchmove', function(e){ if(state.y0 === null) return; state.dy = Math.min(0, e.touches[0].clientY - state.y0); el.style.transform = 'translateY(' + state.dy + 'px)'; }, { passive: true });
+  el.addEventListener('touchcancel', function(){ state.held = false; state.y0 = null; state.dy = 0; el.style.transform = ''; armSuccessToastTimer(el); }); // Rev 2.32.297: скасований дотик не лишає таймер на паузі
+  el.addEventListener('touchend', function(){
+    state.held = false;
+    if(state.y0 === null){ armSuccessToastTimer(el); return; } // зсув скинуто заміною вмісту: таймер нового стартує після відпускання
+    state.y0 = null;
+    if(state.dy < -30){ close(); return; }
+    el.style.transform = '';
+    armSuccessToastTimer(el);
+  });
+  host.appendChild(el);
+  toastFitText(el); // Rev 2.32.180 (TOAST-GAPS)
+  successToastActive = el;
+  armSuccessToastTimer(el);
+}
+// Хост плашки: створення, положення зверху (нижче заголовка сторінки).
+function placeToastHost(){
   let host = document.getElementById('success-toast-host');
   if(!host){ host = document.createElement('div'); host.id = 'success-toast-host'; host.className = 'success-toast-host'; document.body.appendChild(host); }
   const hdrEl = document.querySelector('.page-header-text'); const topPx = hdrEl ? toastTopBelowHeader(hdrEl.getBoundingClientRect()) : null; // Rev 2.32.166: не накриває заголовок сторінки
   if(topPx !== null) host.style.setProperty('--toast-top', topPx + 'px'); else host.style.removeProperty('--toast-top');
-  const el = document.createElement('div'); el.className = 'success-toast t-' + kind; el.setAttribute('role', kind === 'error' || kind === 'warning' ? 'alert' : 'status');
+  return host;
+}
+// Таймер зникнення: один на весь застосунок; картка конфлікту (sticky) не зникає сама (Rev 2.32.193 (MERGE-EXP)); поки палець на плашці, таймер на паузі.
+function armSuccessToastTimer(el){
+  clearTimeout(successToastTimer);
+  const st = el.__toast;
+  if(!st || st.sticky || st.held) return;
+  successToastTimer = setTimeout(function(){ closeSuccessToast(el); }, st.ms);
+}
+function closeSuccessToast(el){
+  if(successToastActive !== el) return;
+  const st = el.__toast;
+  clearTimeout(successToastTimer);
+  if(el.classList.contains('leaving')) return;
+  if(st.phase !== 'out') toastCancelAnims(st); // під час згасання старого вмісту анімації не знімаємо: він не «вертається» на мить
+  el.classList.add('leaving');
+  st.leaveTimer = setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); if(successToastActive === el) successToastActive = null; }, 220); // ≈ --motion-s
+}
+// Вміст плашки (іконка, текст, кнопка/ряди/дії); викликається і при першій появі, і при заміні.
+function fillToastContent(el, o){
+  const kind = toastKindOf(o);
+  el.className = 'success-toast t-' + kind; el.setAttribute('role', kind === 'error' || kind === 'warning' ? 'alert' : 'status');
   el.innerHTML = TOAST_ICONS[o.icon && TOAST_ICONS[o.icon] ? o.icon : kind];
   const text = document.createElement('div'); text.className = 'success-toast-text';
   const t = document.createElement('div'); t.className = 'success-toast-title'; t.textContent = o.title || '';
   text.appendChild(t);
   if(o.subtitle){ const sb = document.createElement('div'); sb.className = 'success-toast-sub'; sb.textContent = o.subtitle; text.appendChild(sb); }
   el.appendChild(text);
-  if((Array.isArray(o.actions) && o.actions.length) || (o.rows && o.rows.length)){ el.style.flexWrap = 'wrap'; }
-  if(o.compact){ el.style.padding = '14px 16px'; el.style.gap = '10px'; } // Rev 2.32.195: компактна картка конфлікту (відступи 14/16, проміжки 10) // Rev 2.32.193 (MERGE-EXP): картка конфлікту — тост із двома кнопками (.chk-fl.k / .chk-sk), без нових стилів
-  const close = function(){
-    if(successToastActive !== el) return;
-    clearTimeout(successToastTimer);
-    el.classList.add('leaving');
-    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); successToastActive = null; pumpSuccessToast(); }, 220); // ≈ --motion-s
-  };
+  el.style.flexWrap = ((Array.isArray(o.actions) && o.actions.length) || (o.rows && o.rows.length)) ? 'wrap' : '';
+  if(o.compact){ el.style.padding = '14px 16px'; el.style.gap = '10px'; } else { el.style.padding = ''; el.style.gap = ''; } // Rev 2.32.195: компактна картка конфлікту (відступи 14/16, проміжки 10) // Rev 2.32.193 (MERGE-EXP): картка конфлікту — тост
+  // Обробники беруть зворотні виклики з ПОТОЧНОГО вмісту (el.__toast.o): той самий вміст з новим onAction не лишає старого.
+  const cur = function(){ return (el.__toast && el.__toast.o) || {}; };
   if(o.actionLabel && typeof o.onAction === 'function'){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'success-toast-action'; b.textContent = o.actionLabel;
-    b.addEventListener('click', function(ev){ ev.stopPropagation(); close(); o.onAction(); });
+    b.addEventListener('click', function(ev){ ev.stopPropagation(); closeSuccessToast(el); const f = cur().onAction; if(typeof f === 'function') f(); });
     el.appendChild(b);
   }
   if(Array.isArray(o.rows) && o.rows.length) el.appendChild(conflictRowsNode(o.rows));
   if(Array.isArray(o.actions) && o.actions.length){
     const pair = document.createElement('div'); pair.className = 'chk-pair'; pair.style.flex = '1 0 100%';
-    o.actions.forEach(function(a){
+    o.actions.forEach(function(a, i){
       const b = document.createElement('button'); b.type = 'button'; b.className = 'chk-fl'; b.style.cssText = CONFLICT_BTN_STYLE; b.textContent = a.label; // Rev 2.32.194: усі кнопки картки нейтральні
-      b.addEventListener('click', function(ev){ ev.stopPropagation(); close(); a.onClick(); });
+      b.addEventListener('click', function(ev){ ev.stopPropagation(); closeSuccessToast(el); const x = (cur().actions || [])[i]; if(x && typeof x.onClick === 'function') x.onClick(); });
       pair.appendChild(b);
     });
     el.appendChild(pair);
   }
-  el.addEventListener('click', close); // тап закриває
-  // Свайп угору закриває; поки палець на контейнері — таймер на паузі (поновлюється після відпускання)
-  let y0 = null, dy = 0;
-  el.addEventListener('touchstart', function(e){ y0 = e.touches[0].clientY; dy = 0; clearTimeout(successToastTimer); }, { passive: true });
-  el.addEventListener('touchmove', function(e){ if(y0 === null) return; dy = Math.min(0, e.touches[0].clientY - y0); el.style.transform = 'translateY(' + dy + 'px)'; }, { passive: true });
-  el.addEventListener('touchend', function(){
-    if(y0 === null) return;
-    y0 = null;
-    if(dy < -30){ close(); return; }
-    el.style.transform = '';
-    if(!o.sticky) successToastTimer = setTimeout(close, ms);
+}
+// Заміна вмісту активної плашки (без перестворення елемента).
+function replaceSuccessToast(el, o){
+  const st = el.__toast;
+  const sig = toastSignature(o);
+  st.ms = o.durationMs || toastDuration(toastKindOf(o)); st.sticky = !!o.sticky; // ознака sticky береться з нового повідомлення
+  if(el.classList.contains('leaving')) toastCancelLeave(el, st); // заміна під час виходу: вихід скасовано
+  if(st.held){ st.y0 = null; st.dy = 0; el.style.transform = ''; } // палець тримає плашку: зсув скинуто, таймер нового стартує після відпускання
+  const shown = st.phase === 'out' ? toastSignature(st.pending) : st.sig;
+  if(sig === shown){ // той самий вміст: лише час і пульсація
+    if(st.phase === 'out') st.pending = o; else st.o = o;
+    placeToastHost();
+    armSuccessToastTimer(el);
+    toastPulse(el, st);
+    return;
+  }
+  placeToastHost();
+  armSuccessToastTimer(el);
+  if(st.phase === 'out'){ st.pending = o; return; } // старий вміст уже згасає: підставиться найновіший
+  st.phase = 'out'; st.pending = o;
+  toastCancelAnims(st);
+  const reduce = toastReducedMotion(), unit = toastMotionUnitMs();
+  const outMs = reduce ? Math.round(unit / 2) : 120;
+  Array.prototype.slice.call(el.children).forEach(function(ch){
+    toastAnimate(ch, reduce ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-6px)' }], { duration: outMs, easing: 'ease-in', fill: 'forwards' }, st);
   });
-  host.appendChild(el);
-  toastFitText(el); // Rev 2.32.180 (TOAST-GAPS)
-  successToastActive = el;
-  if(!o.sticky) successToastTimer = setTimeout(close, ms); // Rev 2.32.193 (MERGE-EXP): картка конфлікту не зникає сама
+  setTimeout(function(){ finishToastSwap(el, st, reduce, unit); }, outMs);
+}
+function finishToastSwap(el, st, reduce, unit){
+  const next = st.pending; st.pending = null; st.phase = 'idle';
+  if(!next || !el.parentNode || el.classList.contains('leaving')) return;
+  toastCancelAnims(st);
+  const w0 = el.offsetWidth, h0 = el.offsetHeight;
+  st.o = next; st.sig = toastSignature(next);
+  fillToastContent(el, next);
+  toastFitText(el); // Rev 2.32.180 (TOAST-GAPS): ширина текстового блоку під найдовший рядок — до виміру нового розміру
+  const w1 = el.offsetWidth, h1 = el.offsetHeight;
+  const kids = Array.prototype.slice.call(el.children);
+  if(reduce){ // зменшений рух: лише перетікання прозорості (--motion-s), без зсуву, руху розміру й пульсації
+    kids.forEach(function(ch){ toastAnimate(ch, [{ opacity: 0 }, { opacity: 1 }], { duration: Math.round(unit / 2), easing: 'ease-out', fill: 'backwards' }, st); });
+    return;
+  }
+  kids.forEach(function(ch){ toastAnimate(ch, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 160, easing: 'ease-out', fill: 'backwards' }, st); });
+  if(w0 > 0 && h0 > 0 && (Math.abs(w0 - w1) > 0.5 || Math.abs(h0 - h1) > 0.5)){
+    toastAnimate(el, [{ width: w0 + 'px', height: h0 + 'px' }, { width: w1 + 'px', height: h1 + 'px' }], { duration: 200, easing: 'cubic-bezier(.2,.8,.2,1)' }, st);
+  }
+}
+function toastPulse(el, st){
+  if(toastReducedMotion()) return;
+  if(st.pulse){ try{ st.pulse.cancel(); }catch(e){} }
+  st.pulse = toastAnimate(el, [{ transform: 'scale(1)' }, { transform: 'scale(1.03)' }, { transform: 'scale(1)' }], { duration: 180, easing: 'ease-out' }, null);
+}
+// Заміна під час виходу: вихід скасовується, плашка плавно повертається в повний вигляд (stIn не перезапускається).
+function toastCancelLeave(el, st){
+  clearTimeout(st.leaveTimer); st.leaveTimer = null;
+  el.style.animation = 'none';
+  el.style.transition = 'opacity var(--motion-s) ease, transform var(--motion-s) ease';
+  el.classList.remove('leaving');
+  setTimeout(function(){ el.style.transition = ''; }, 240);
 }
 // Rev 2.32.127: відкриття цілі кнопки поп-апа (той самий перехід, що маршрути сповіщень 'trash' / 'debts').
 function openToastTarget(action){
