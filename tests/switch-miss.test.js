@@ -27,6 +27,17 @@ test('Rev 2.32.305 (KB-SWITCH-X): native-focus і активне поле на t
   const keys = SRC.slice(ki, SRC.indexOf('];', ki));
   for (const k of ['prevTabindex', 'targetTabindex', 'sinceTouchEnd', 'enterHop', 'activeStart', 'activeEnd', 'sinceIntercept']) assert.ok(keys.includes("'" + k + "'"), k);
   assert.match(SRC, /captureDebugGeometry\('native-focus', \{ from:/);
-  assert.match(SRC, /activeId: document\.activeElement \? \(document\.activeElement\.id \|\| document\.activeElement\.tagName\) : null/);
+  assert.match(SRC, /activeId: active \? \(active\.id \|\| active\.tagName\) : null/); // Rev 2.32.307: запис дотику за identifier
   assert.match(SRC, /activeStart: start\.activeId \|\| null, activeEnd: active \?/);
+});
+test('Rev 2.32.307 (KB-SWITCH-FINAL): перехоплення на touchstart (passive:false, capture), облік за identifier, phase:start, touch-cancel', () => {
+  assert.match(SRC, /const kbTouches = new Map\(\);/);
+  assert.ok(!/(let|const|var) kbTapStart|kbTapStart = /.test(SRC), 'одного глобального стану дотику більше немає');
+  assert.match(SRC, /kbTouches\.set\(t\.identifier, entry\);\n  \}\n\}, \{ passive: false, capture: true \}\);/);
+  assert.match(SRC, /if\(e\.cancelable\) e\.preventDefault\(\);/);
+  assert.match(SRC, /switchKind: 'tap', phase: 'start'/);
+  assert.match(SRC, /captureDebugGeometry\('touch-cancel', \{ to:/);
+  assert.match(SRC, /if\(start\.scrolling \|\| moved \|\| !kbSheetActive \|\| kbProxyActive \|\| !drawerEl \|\| target === active\) return;/);
+  assert.ok(!/shouldInterceptSwitchTap\(\{ target: rawTarget/.test(SRC), 'старий вибір переходу на touchend прибрано');
+  assert.ok(SRC.slice(SRC.indexOf('const REC_ALLOWED_TYPES = ['), SRC.indexOf('];', SRC.indexOf('const REC_ALLOWED_TYPES = ['))).includes("'touch-cancel'"));
 });
