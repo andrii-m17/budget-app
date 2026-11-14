@@ -5377,7 +5377,7 @@ function kbSheetSandbox(opts){
     requestAnimationFrame: function(fn){ if(fn && fn.name === 'kbCaretShow'){ fn(); return 1; } if(opts.captureRaf){ rafQueue.push(fn); } return 1; }, // KB-17: показ курсора (наступний кадр) у пісочниці виконується одразу
     queueMicrotask: function(fn){ microtasks.push(fn); },
     localStorage: { getItem: function(k){ return Object.prototype.hasOwnProperty.call(lsStore, k) ? lsStore[k] : null; }, setItem: function(k, v){ lsStore[k] = String(v); } },
-    KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', KB_CARET_LS_KEY: 'budget_exp_kb_caret_v1', kbMovingGen: 0, kbProxyEl: null, kbLastFocusedField: null, kbLastTap: null,
+    KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', KB_CARET_LS_KEY: 'budget_exp_kb_caret_v1', kbMovingGen: 0, kbProxyEl: null, kbLastFocusedField: null, kbLastTap: null, kbLastSheetCloseAt: 0, // Rev 2.32.303 (KB-LOGIN-FIX)
     IS_IOS_RUNTIME: true, SUPPORTS_FOCUS_PREVENT_SCROLL: true, kbRefocusing: false, kbLastInterceptAt: 0,
     getBaseViewportHeight: function(){ return 894; }, // Rev 2.23.30 (6D.199): база для запобіжника kb-open
     cancelAnimationFrame: function(){},
@@ -5400,7 +5400,7 @@ function kbSheetSandbox(opts){
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
     'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf',
     'focusWithoutScrollIfSupported',
-    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbEarlyReset', 'kbEarlyStateNow', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'kbPipeEarlyStart','KB_PAN_SAME_MS','KB_EARLY_DEADLINE_MS','KB_AUTOFOCUS_MAX_MS','kbRealLift','kbSlideRunning','kbSnapValues','kbValuesChanged','kbHeightKeyBase','KB_EARLY_FACTOR','kbFieldKey','kbFieldHeightGet','kbFieldHeightSave','KB_FIELD_HEIGHTS_KEY','KB_RETARGET_K','KB_RETARGET_MIN','KB_RETARGET_MAX','kbRetargetLeg','kbFieldList','KB_EARLY_CURVES','KB_EARLY_CHECK_MS','KB_EARLY_NEED_SLACK','kbEarlyCurveFor','KB_FIELD_HEIGHTS_MAX','KB_EARLY_QUICK_MS','KB_EARLY_REPEAT_MS', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
+    'KB_REOPEN_QUIET_MS', 'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbEarlyReset', 'kbEarlyStateNow', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'kbPipeEarlyStart','KB_PAN_SAME_MS','KB_EARLY_DEADLINE_MS','KB_AUTOFOCUS_MAX_MS','kbRealLift','kbSlideRunning','kbSnapValues','kbValuesChanged','kbHeightKeyBase','KB_EARLY_FACTOR','kbFieldKey','kbFieldHeightGet','kbFieldHeightSave','KB_FIELD_HEIGHTS_KEY','KB_RETARGET_K','KB_RETARGET_MIN','KB_RETARGET_MAX','kbRetargetLeg','kbFieldList','KB_EARLY_CURVES','KB_EARLY_CHECK_MS','KB_EARLY_NEED_SLACK','kbEarlyCurveFor','KB_FIELD_HEIGHTS_MAX','KB_EARLY_QUICK_MS','KB_EARLY_REPEAT_MS', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
     'beginSheetMoving', 'planCaretRestore',
     'getOrCreateKbProxyEl', 'configureKbProxy', 'proxyCaretStyle', 'computeProxyOffset', 'computeProxyDist', 'placeKbProxyAtField',
   ]);
@@ -5881,6 +5881,16 @@ test('enterKbSheet: перше відкриття НАТИВНО (direct) на i
   m.ctx.kbLastInterceptAt = m.state.clock - 5000;
   m.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
   assert.ok(m.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }), 'перехоплення було давно: промах');
+});
+test('kbEarlyStateNow (KB-LOGIN-FIX): менше KB_REOPEN_QUIET_MS (650) від sheet-close → off:closing; 700 мс і без закриття → started', () => {
+  const mk = (since) => { const s = kbSheetSandbox(); s.ctx.kbLastInterceptAt = s.state.clock - 10; s.ctx.kbLastSheetCloseAt = since === null ? 0 : s.state.clock - since; return s; };
+  const f = makeDrawerField({ inDrawer: true });
+  assert.equal(mk(540).ctx.kbEarlyStateNow(f, false, false), 'off:closing');
+  assert.equal(mk(649).ctx.kbEarlyStateNow(f, false, false), 'off:closing');
+  assert.equal(mk(700).ctx.kbEarlyStateNow(f, false, false), 'started');
+  assert.equal(mk(null).ctx.kbEarlyStateNow(f, false, false), 'started');
+  assert.equal(mk(540).ctx.kbEarlyStateNow(f, false, true), 'off:closing', 'і для автофокусу');
+  assert.match(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8'), /const KB_REOPEN_QUIET_MS = 650;/);
 });
 test('sheet-open: sinceClose = мс від останнього sheet-close; без закриття поля немає; у білому списку самописця', () => {
   const a = kbSheetSandbox();

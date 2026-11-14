@@ -1400,10 +1400,11 @@ test('95. KB-37/C: три focusin у те саме поле за ≈ 300 мс �
       await page.evaluate(() => { document.activeElement && document.activeElement.blur(); }); // Face ID: focusout / focusin скачуть
       await page.waitForTimeout(110);
     }
-    const r = await page.evaluate(() => recBuf.slice(window.__n0).filter(e => e.type === 'kb-early' || e.type === 'kb-early-skip').map(e => e.type));
+    const r = await page.evaluate(() => recBuf.slice(window.__n0).filter(e => e.type === 'kb-early' || e.type === 'kb-early-skip' || (e.type === 'sheet-open' && e.earlyState === 'off:closing')).map(e => e.type === 'sheet-open' ? 'off:closing' : e.type));
     const info = JSON.stringify(r);
     expect(r.filter(x => x === 'kb-early').length, 'один ранній старт: ' + info).toBe(1);
-    expect(r.filter(x => x === 'kb-early-skip').length, 'решта — kb-early-skip: ' + info).toBeGreaterThanOrEqual(1);
+    // Rev 2.32.303 (KB-LOGIN-FIX): повторні фокуси < 650 мс після sheet-close відсікаються раніше (earlyState off:closing), ніж доходять до kb-early-skip; інваріант (один ранній старт) той самий
+    expect(r.filter(x => x === 'kb-early-skip' || x === 'off:closing').length, 'решта — kb-early-skip або off:closing: ' + info).toBeGreaterThanOrEqual(1);
   } finally { await ctx.close(); }
 });
 
@@ -1660,3 +1661,46 @@ for(const [label, real, late] of [['фактично 311 на +146 мс (пан�
     expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
   });
 }
+
+// KB-LOGIN-FIX (Rev 2.32.303): звіти MT-1114-3874/-5678: sheet-open via direct із sinceClose 539–554 мс: 3 з 3 дають зсув iOS (vvOffsetTop до 9) і 7–15 pan-corrected; sinceClose ≥ 561 мс: 14 з 14 чисті.
+// iOS ще ховає клавіатуру: ранній підйом (оцінка за історією) не стартує, лист їде за фактичним kb-vv-resize. Діє для всіх шторок конвеєра (поріг KB_REOPEN_QUIET_MS = 650 мс).
+async function kbReopenRun(browser, gapMs){
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const tapEmail = async () => { const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2); };
+    const lift = () => page.evaluate(() => Math.round(-new DOMMatrix(getComputedStyle(document.getElementById('profile-drawer')).transform).m42 * 10) / 10);
+    await tapEmail(); await page.waitForTimeout(120);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    const firstLift = await lift();
+    await page.evaluate(() => { document.activeElement.blur(); setTimeout(() => { window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); }, 30); });
+    await page.waitForFunction(() => recBuf.filter(e => e.type === 'sheet-close').length >= 1, null, { timeout: 3000 });
+    const closeAt = Date.now();
+    await page.waitForTimeout(Math.max(0, gapMs - 45)); // sheet-close записано за ≈ 30–45 мс до цього моменту
+    await tapEmail();
+    await page.waitForTimeout(110);
+    await page.evaluate(() => { window.__vv.top = 4; window.visualViewport.dispatchEvent(new Event('scroll')); setTimeout(() => { window.__vv.top = 2; window.visualViewport.dispatchEvent(new Event('scroll')); }, 16); setTimeout(() => { window.__vv.top = 0; }, 40); }); // коливання vvOffsetTop (iOS ще повертає екран)
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    const ev = await page.evaluate(() => { const a = recBuf, i = a.map(e => e.type).lastIndexOf('sheet-open'); return { open: a[i], after: a.slice(i + 1).filter(e => e.type === 'kb-early').length }; });
+    return { ev, firstLift, finalLift: await lift(), gapReal: Date.now() - closeAt };
+  } finally { await ctx.close(); }
+}
+// У емуляції анімація повернення листа після закриття закінчується пізніше (≈ 530 мс), ніж на пристрої (≈ 280 мс): 540 мс тут ще дає шлях через проміжне поле, тому беремо ≈ 600 мс (усе ще < 650).
+test('104. KB-LOGIN-FIX: відкриття входу через ≈ 600 мс після закриття клавіатури (< 650) — раннього старту немає (off:closing), лист їде за kb-vv-resize й доходить до тієї ж цілі', async ({ browser }) => {
+  const r = await kbReopenRun(browser, 600);
+  const info = JSON.stringify({ ev: r.ev, firstLift: r.firstLift, finalLift: r.finalLift, gapReal: r.gapReal });
+  expect(r.ev.open.sinceClose, 'sinceClose ≈ 600 (< 650): ' + info).toBeLessThan(650);
+  expect(r.ev.open.earlyState, 'ранній старт вимкнено: ' + info).toBe('off:closing');
+  expect(r.ev.after, 'жодного kb-early після відкриття: ' + info).toBe(0);
+  expect(Math.abs(r.finalLift - r.firstLift), 'кінцеве положення те саме, що при першому відкритті ±1: ' + info).toBeLessThanOrEqual(1);
+});
+test('104. KB-LOGIN-FIX: відкриття входу через ≈ 700 мс після закриття — ранній старт як зараз (started, є kb-early)', async ({ browser }) => {
+  const r = await kbReopenRun(browser, 700);
+  const info = JSON.stringify({ ev: r.ev, gapReal: r.gapReal });
+  expect(r.ev.open.sinceClose, 'sinceClose ≥ 650: ' + info).toBeGreaterThanOrEqual(650);
+  expect(r.ev.open.earlyState, 'ранній старт: ' + info).toBe('started');
+  expect(r.ev.after, 'є kb-early: ' + info).toBeGreaterThanOrEqual(1);
+});

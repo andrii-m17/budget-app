@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.302</div>
+  <div class="version-footer">Money Tree · Rev 2.32.303</div>
 </div>
   </div>
 </div>
@@ -9820,7 +9820,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.302';
+const APP_VERSION = '2.32.303';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -29702,11 +29702,14 @@ function kbEarlyStateNow(fieldEl, wasClosing, autoOpen){
   if(window.__kbNoEarly) return 'off:test';
   if(!IS_IOS_RUNTIME) return 'off:not-ios';
   if(!autoOpen && (kbProxyActive || Date.now() - kbLastInterceptAt > 400)) return 'off:no-touch';
+  if(kbLastSheetCloseAt && Date.now() - kbLastSheetCloseAt < KB_REOPEN_QUIET_MS) return 'off:closing'; // Rev 2.32.303 (KB-LOGIN-FIX)
   if(kbPipeOpenNow() && !wasClosing) return 'off:kb-open';
   if(kbEarlyLast.el === fieldEl && !kbEarlyLast.left && (kbPipeOpenNow() || performance.now() - kbEarlyLast.t < KB_EARLY_REPEAT_MS)) return 'skipped:same-field';
   return 'started';
 }
 // Rev 2.32.294 (KB-39, B): поріг, до якого kb-vv-resize має прийти, щоб рання ціль лишилась (звичайна клавіатура). Дані звітів 11–12.11: для звичайної клавіатури kb-vv-resize приходить на +90…+115 мс після дотику, для клавіатури з Face ID (vvH 583) на +155…+240 мс; поріг 130 мс між ними.
+// Rev 2.32.303 (KB-LOGIN-FIX): звіти MT-1114-3874/-5678: sheet-open via direct із sinceClose 539–554 мс: 3 з 3 дали зсув iOS (vvOffsetTop до 9) і 7–15 pan-corrected; з ≥ 561 мс: 14 з 14 чисті. iOS ще ховає клавіатуру: ранній підйом (оцінка за історією) не стартує, лист їде за фактичним kb-vv-resize (як у гілці без раннього старту; утримання листа reopenPos (KB-36) лишається). Для всіх шторок конвеєра.
+const KB_REOPEN_QUIET_MS = 650;
 const KB_EARLY_DEADLINE_MS = 130;
 const KB_EARLY_REPEAT_MS = 600; // Rev 2.32.292 (KB-37, C)
 const KB_EARLY_FACTOR = 0.75; // частка очікуваної висоти клавіатури для ранньої цілі (311/415 — найнижча відома розбіжність)
@@ -29715,6 +29718,7 @@ function kbPipeEarlyStart(drawerEl, fieldEl, vvEstimate, naturalHeight, info){
   try{
     if(window.__kbNoEarly) return; // лише для E2E-тестів законів руху за vv-подією (44, 45, 50, 52, 56, 59): вони перевіряють рух від kb-vv-resize
     if(!IS_IOS_RUNTIME || (!info.auto && (kbProxyActive || Date.now() - kbLastInterceptAt > 400))) return; // kbLastInterceptAt ставить лише touchend-перехоплення (iPhone)
+    if(kbLastSheetCloseAt && Date.now() - kbLastSheetCloseAt < KB_REOPEN_QUIET_MS) return; // Rev 2.32.303 (KB-LOGIN-FIX): iOS ще ховає клавіатуру: без раннього старту
     if(KB_PIPE.state !== 'measuring' || (kbPipeOpenNow() && !info.wasClosing)) return; // клавіатура вже з'явилась — звичайний шлях (після закриття vv ще не повернувся: стартуємо за очікуваною висотою)
     // Rev 2.32.292 (KB-37, C): звіт MT-1112-3384: 7 пар sheet-open/kb-early для одного поля за 1,3 с (focusin/focusout скакали між листом і полем під час появи Face ID), оцінки 311/415/388. Повторний focusin у те саме поле, поки клавіатура відкривається (< KB_EARLY_REPEAT_MS) або відкрита, не запускає новий ранній підйом і не міняє ціль.
     const tNow = performance.now();
