@@ -5398,7 +5398,7 @@ function kbSheetSandbox(opts){
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
     'computeSheetLift', 'computeCenteredRestBottom', 'kbEffectiveRestBottom', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
-    'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf',
+    'resolveTapField', 'resolveTapFieldNear', 'TAP_NEAR_FIELD_PAD', 'shouldInterceptFirstFocus', 'kbKindOf',
     'focusWithoutScrollIfSupported',
     'KB_REOPEN_QUIET_MS', 'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbEarlyReset', 'kbEarlyStateNow', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'kbPipeEarlyStart','KB_PAN_SAME_MS','KB_EARLY_DEADLINE_MS','KB_AUTOFOCUS_MAX_MS','kbRealLift','kbSlideRunning','kbSnapValues','kbValuesChanged','kbHeightKeyBase','KB_EARLY_FACTOR','kbFieldKey','kbFieldHeightGet','kbFieldHeightSave','KB_FIELD_HEIGHTS_KEY','KB_RETARGET_K','KB_RETARGET_MIN','KB_RETARGET_MAX','kbRetargetLeg','kbFieldList','KB_EARLY_CURVES','KB_EARLY_CHECK_MS','KB_EARLY_NEED_SLACK','kbEarlyCurveFor','KB_FIELD_HEIGHTS_MAX','KB_EARLY_QUICK_MS','KB_EARLY_REPEAT_MS', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
     'beginSheetMoving', 'planCaretRestore',
@@ -5578,7 +5578,11 @@ test('shouldInterceptSwitchTap: перехоплює лише тап по ІНШ
   assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { kbSheetOpen: false })), false, 'клавіатура закрита');
   assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { target: a })), false, 'тап по тому самому полю (курсор)');
   assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { moved: true })), false, 'рух пальця');
-  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: 600 })), false, 'довгий тап');
+  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: 600 })), true, 'довгий тап по іншому полю тепер перехоплюється (Rev 2.32.306)');
+  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: 1129 })), true, 'утримання 1,1 с');
+  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: 1129, target: a })), false, 'утримання на ТОМУ САМОМУ полі: лупа/курсор лишаються');
+  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: 1129, moved: true })), false, 'утримання з рухом');
+  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: undefined })), false, 'без тривалості');
   assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { target: makeDrawerField({ inDrawer: false, type: 'text' }) })), false, 'поза шторкою ("Витрати")');
   assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { target: makeDrawerField({ inDrawer: true, type: 'checkbox' }) })), false, 'не текстове поле');
   assert.equal(ctx.shouldInterceptSwitchTap(null), false);
@@ -6896,4 +6900,32 @@ test('KB-6 (реальний запис): перемикання пароль �
   const r = kb6Replay();
   const mv = r.debugEvents.filter(e => e.type === 'caret-hidden' && e.phase === 'switch');
   assert.ok(mv.length <= 1, 'рухів switch: ' + mv.length);
+});
+
+// Rev 2.32.306 (KB-SWITCH-FIX, C): дотик по контейнеру між полями → найближче поле (звіт MT-1114-2415).
+function nearEl(o){
+  const el = { tagName: o.tag || 'DIV', childNodes: o.childNodes || [], _fields: o.fields || [],
+    matches: function(sel){ return o.noMatch ? false : (o.isDiv !== false); },
+    closest: function(sel){ if(/button|summary|role/.test(sel)) return o.interactive ? el : null; if(/drawer/.test(sel)) return o.outside ? null : {}; return null; },
+    querySelectorAll: function(){ return el._fields; } };
+  return el;
+}
+function nearField(top, bottom, o){ o = o || {}; return { tagName: 'INPUT', disabled: !!o.disabled, matches: function(){ return true; }, getBoundingClientRect: function(){ return { left: 20, right: 320, top: top, bottom: bottom, width: 300, height: bottom - top }; } }; }
+test('resolveTapFieldNear: точка між двома полями → найближче в межах 12 пт; далі, текст, кнопка, поза шторкою → null', () => {
+  const { ctx } = kbSheetSandbox();
+  const f1 = nearField(100, 140), f2 = nearField(150, 190);
+  const box = nearEl({ fields: [f1, f2] });
+  assert.equal(ctx.resolveTapFieldNear(box, 100, 144), f1, '4 пт під першим');
+  assert.equal(ctx.resolveTapFieldNear(box, 100, 146), f2, '4 пт над другим (ближче за 6 пт до першого)');
+  assert.equal(ctx.resolveTapFieldNear(box, 100, 152), f2);
+  assert.equal(ctx.resolveTapFieldNear(box, 100, 60), null, 'далі за 12 пт');
+  assert.equal(ctx.resolveTapFieldNear(box, 328, 120), f1, 'збоку в межах 12 пт');
+  assert.equal(ctx.resolveTapFieldNear(box, 345, 120), null, 'збоку далі');
+  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1, f2], childNodes: [{ nodeType: 3, nodeValue: ' Заголовок ' }] }), 100, 144), null, 'контейнер із власним текстом');
+  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1, f2], childNodes: [{ nodeType: 3, nodeValue: '  \n ' }] }), 100, 144), f1, 'порожній текстовий вузол не заважає');
+  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1], interactive: true }), 100, 144), null, 'інтерактивний');
+  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1], outside: true }), 100, 144), null, 'поза шторкою');
+  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1], tag: 'SPAN', noMatch: true }), 100, 144), null, 'не контейнер');
+  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [nearField(100, 140, { disabled: true })] }), 100, 144), null, 'вимкнене поле');
+  assert.equal(ctx.resolveTapFieldNear(null, 1, 1), null); assert.equal(ctx.resolveTapFieldNear(box, undefined, 1), null);
 });

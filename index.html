@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.305</div>
+  <div class="version-footer">Money Tree · Rev 2.32.306</div>
 </div>
   </div>
 </div>
@@ -9820,7 +9820,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.305';
+const APP_VERSION = '2.32.306';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -29042,7 +29042,8 @@ function shouldInterceptSwitchTap(o){
   if(!t || !isTapTargetField(t) || !isFieldInsideDrawer(t)) return false;
   if(t === o.active) return false;
   if(o.moved === true) return false;
-  return typeof o.durationMs === 'number' && o.durationMs < 500;
+  // Rev 2.32.306 (KB-SWITCH-FIX, C): звіти MT-1114-4490/-1534: дотик до ІНШОГО поля з утриманням 500–1129 мс без руху (switch-miss long ×7, distPx 0) проходив без перехоплення: iOS сам фокусував і зсував сторінку (pan-comp 105–217 мс потому у 5 з 7). Верхню межу тривалості знято; лупа/курсор лишаються на вже сфокусованому полі (t === o.active повертає false вище). Рішення чату: втрата лупи при переході в інше поле погоджена. Ризик: курсор після програмного фокуса не під пальцем.
+  return typeof o.durationMs === 'number';
 }
 // classifyFocusChange — звідки прийшло перемикання: 'tap' (перехоплено нами)
 // чи 'native' (стрілки/«Далі» на панелі клавіатури, програмне — перехопити
@@ -29076,6 +29077,29 @@ function resolveTapField(target){
   if(!wrapper || typeof wrapper.querySelectorAll !== 'function') return null;
   const textFields = Array.prototype.filter.call(wrapper.querySelectorAll('input, textarea'), isTapTargetField);
   return textFields.length === 1 ? textFields[0] : null;
+}
+// Rev 2.32.306 (KB-SWITCH-FIX, C): звіт MT-1114-2415: дотик по контейнеру між полями (DIV #cloud-login-fields, координати між двома полями) давав intercept-miss, системний фокус і зсув 361–388 пт. resolveTapField контейнер без `.field` не знає. Найближче текстове поле шторки за координатами: лише порожній від власного тексту нейтральний контейнер (div/section/form/fieldset) усередині шторки, не інтерактивний, поле не далі PAD пт від точки (за межею прямокутника); заголовки й підписи з текстом не чіпаємо.
+const TAP_NEAR_FIELD_PAD = 12;
+function resolveTapFieldNear(target, x, y){
+  try{
+    if(!target || typeof target.closest !== 'function' || typeof target.matches !== 'function') return null;
+    if(!target.matches('div, section, form, fieldset')) return null;
+    if(target.closest('button, a[href], select, summary, [role="button"], [role="switch"], [role="checkbox"]')) return null;
+    if(!target.closest('.drawer, .app-modal')) return null;
+    if(Array.prototype.some.call(target.childNodes || [], function(n){ return n.nodeType === 3 && String(n.nodeValue || '').trim() !== ''; })) return null;
+    if(typeof x !== 'number' || typeof y !== 'number') return null;
+    let best = null, bestD = Infinity;
+    Array.prototype.forEach.call(target.querySelectorAll('input, textarea'), function(f){
+      if(!isTapTargetField(f) || f.disabled) return;
+      const r = f.getBoundingClientRect();
+      if(!(r.width > 0 && r.height > 0)) return;
+      const dx = Math.max(r.left - x, 0, x - r.right), dy = Math.max(r.top - y, 0, y - r.bottom);
+      if(dx > TAP_NEAR_FIELD_PAD || dy > TAP_NEAR_FIELD_PAD) return;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if(d < bestD){ bestD = d; best = f; }
+    });
+    return best;
+  }catch(e){ return null; }
 }
 // shouldInterceptFirstFocus — перше відкриття клавіатури (проксі/H3): поле
 // (resolveTapField) — текстове всередині шторки, клавіатура ще не відкрита,
@@ -30719,7 +30743,7 @@ document.addEventListener('touchend', function(e){
   // ПІДПИСУ (LABEL/текст/span усередині) — це теж тап по зв'язаному полю.
   // preventDefault() у touchend блокує й синтетичний click по підпису.
   const rawTarget = start.target;
-  const target = resolveTapField(rawTarget);
+  const target = resolveTapField(rawTarget) || resolveTapFieldNear(rawTarget, t.clientX, t.clientY); // Rev 2.32.306 (KB-SWITCH-FIX, C)
   const viaLabel = !!target && rawTarget !== target && !!(rawTarget.closest && rawTarget.closest('label'));
   const drawerEl = kbSheetHostOf(target);
   const intercept = shouldInterceptFirstFocus({

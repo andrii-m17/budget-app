@@ -1704,3 +1704,52 @@ test('104. KB-LOGIN-FIX: відкриття входу через ≈ 700 мс �
   expect(r.ev.open.earlyState, 'ранній старт: ' + info).toBe('started');
   expect(r.ev.after, 'є kb-early: ' + info).toBeGreaterThanOrEqual(1);
 });
+
+
+// Rev 2.32.306 (KB-SWITCH-FIX, C): синтетичний дотик із заданою тривалістю (WebKit-емуляція не вміє тримати палець).
+async function synthTouch(page, sel, holdMs, at){
+  return page.evaluate(async ({ sel, holdMs, at }) => {
+    const el = document.querySelector(sel); const r = el.getBoundingClientRect();
+    const x = at ? at.x : r.left + r.width / 2, y = at ? at.y : r.top + r.height / 2;
+    const mk = (type) => { const ev = new Event(type, { bubbles: true, cancelable: true }); const tt = [{ clientX: x, clientY: y, identifier: 1, target: el }]; Object.defineProperty(ev, 'touches', { value: type === 'touchend' ? [] : tt }); Object.defineProperty(ev, 'changedTouches', { value: tt }); return ev; };
+    el.dispatchEvent(mk('touchstart'));
+    await new Promise(res => setTimeout(res, holdMs));
+    const end = mk('touchend'); el.dispatchEvent(end);
+    return { prevented: end.defaultPrevented, active: document.activeElement && document.activeElement.id };
+  }, { sel, holdMs, at });
+}
+test('105. KB-SWITCH-FIX/1: утримання 700 мс по іншому полі при відкритій клавіатурі — перехоплено (switch-intercept), без switch-miss', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(120);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    expect(await page.evaluate(() => document.activeElement && document.activeElement.id)).toBe('cldfielda1');
+    const n0 = await page.evaluate(() => recBuf.length);
+    const r = await synthTouch(page, '#cloud-password', 700);
+    await page.waitForTimeout(300);
+    const evs = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'switch-intercept' || e.type === 'switch-miss').map(e => e.type + ':' + (e.reason || e.to || '')), n0);
+    expect(r.prevented, 'подію touchend погашено: ' + JSON.stringify(evs)).toBe(true);
+    expect(evs.filter(x => x.startsWith('switch-miss')), JSON.stringify(evs)).toEqual([]);
+    expect(evs.filter(x => x.startsWith('switch-intercept')).length, JSON.stringify(evs)).toBe(1);
+    expect(r.active).toBe('cloud-password');
+  } finally { await ctx.close(); }
+});
+test('106. KB-SWITCH-FIX/2: дотик по контейнеру між полями входу (6 пт під поштою) — перехоплено, фокус у найближчому полі, intercept-miss немає', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const at = await page.evaluate(() => { const r = document.getElementById('cldfielda1').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.bottom + 6 }; });
+    const n0 = await page.evaluate(() => recBuf.length);
+    const r = await synthTouch(page, '#cloud-login-fields', 60, at);
+    await page.waitForTimeout(400);
+    const misses = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'intercept-miss').length, n0);
+    expect(r.prevented, 'touchend погашено').toBe(true);
+    expect(misses, 'intercept-miss').toBe(0);
+    expect(r.active, 'фокус у найближчому полі').toBe('cldfielda1');
+  } finally { await ctx.close(); }
+});
