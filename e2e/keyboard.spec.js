@@ -1313,16 +1313,17 @@ test('91. KB-36/3: focusin без дотику, клавіатура закри�
 
 // KB-37 (Rev 2.32.292): ранній підйом без «стоп» (A), оцінка за полем (B), без повторних ранніх стартів (C). Звіти MT-1112-5246/-3384.
 // Хелпер: вхід, збережена висота типу password (ключ v2; власної історії поля нема, тож для входу множник KB_EARLY_FACTOR) = expected, дотик у cloud-password, справжня висота real приходить через lateMs; семпли підйому листа (−m42) щокадру.
-async function kb37Run(browser, expected, real, lateMs, early, hist, fieldId){
+async function kb37Run(browser, expected, real, lateMs, early, hist, fieldId, dev, prep){
   fieldId = fieldId || 'cloud-password';
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  const { ctx, page } = await open(browser, dev || devices['iPhone 14'], false, true);
   try{
-    await page.evaluate(([e, early, hist, fid]) => {
+    await page.evaluate(([e, early, hist, fid, prep]) => {
+      if(prep) (0, eval)(prep);
       if(!early) window.__kbNoEarly = true;
       if(hist){ const f = {}; f[fid + '|portrait|h' + Math.round(window.__H0)] = hist; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); }
       const o = {}; o['iPhone|portrait|password|h' + Math.round(window.__H0)] = e; localStorage.setItem('budget-kb-heights-v2', JSON.stringify(o)); // історія ТИПУ (без власної історії поля входу): множник KB_EARLY_FACTOR
       window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm();
-    }, [expected, early, hist || null, fieldId]);
+    }, [expected, early, hist || null, fieldId, prep || null]);
     await page.waitForTimeout(900);
     const bb = await page.locator('#' + fieldId).boundingBox();
     const sampler = page.evaluate(fid => new Promise(resolve => {
@@ -1335,7 +1336,7 @@ async function kb37Run(browser, expected, real, lateMs, early, hist, fieldId){
     await page.waitForTimeout(lateMs);
     const tr = await page.evaluate(r => { window.__vv.h = window.__H0 - r; window.visualViewport.dispatchEvent(new Event('resize')); return Math.round((performance.now() - window.__t0) * 10) / 10; }, real);
     const sm = await sampler;
-    const ev = await page.evaluate(() => recBuf.filter(e => String(e.type).indexOf('kb-early') === 0).map(e => ({ type: e.type, target: e.target, expected: e.expected, deadline: e.deadline, ms: e.ms, need: e.need, lmin: e.lmin, lnorm: e.lnorm })));
+    const ev = await page.evaluate(() => recBuf.filter(e => String(e.type).indexOf('kb-early') === 0).map(e => ({ type: e.type, target: e.target, expected: e.expected, deadline: e.deadline, ms: e.ms, need: e.need, lmin: e.lmin, lnorm: e.lnorm, reason: e.reason })));
     const tapAt = await page.evaluate(() => window.__tapAt);
     return { s: sm, tr, ev, tapAt };
   } finally { await ctx.close(); }
@@ -1634,5 +1635,28 @@ for(const kind of ['modal', 'drawer']){
     expect(c.worstDown, 'жодного кроку проти напрямку до цілі понад 1 пт: ' + info).toBeLessThanOrEqual(1);
     expect(c.over, 'без перельоту цілі понад 1 пт: ' + info).toBeLessThanOrEqual(1);
     expect(c.settled, 'кінець у спокої: ' + info).toBeLessThanOrEqual(1);
+  });
+}
+
+// KB-FACEID (Rev 2.32.302): поле входу з історією трьох висот {311, 388, 415} (звіт MT-1114-5678: те саме поле дає 311 із панеллю пропозиції пароля, 388 і 415): ранній підйом із першого кадру цілиться в МІНІМУМ (311), без дедлайну;
+// при фактичних 311 немає різкого гальмування (раніше: ціль 388 → на дедлайні +130 мс перехід на 311 за ≈ 5 пт до цілі, швидкість 1,7 → 0,11 пт/мс); при 388 і 415 вища клавіатура дає ногу вгору, швидкість не зростає.
+// Геометрія пристрою зі звіту MT-1114-7780 (висота 894): на iPhone 14 (844) поле входу надто низько й діє наявний запасний шлях (мінімум), на 894 геометрія дозволяла норму 388 (need 135, lmin 205, lnorm 282).
+// На справжньому iPhone під полем пароля ще ≈ 74 пт (нижній safe-area, кнопка): у емуляції його додаємо, щоб геометрія збігалась (need < lmin).
+const KB_FACEID_PREP = "document.getElementById('cloud-login-form').style.paddingBottom = '74px'";
+const KB_FACEID_DEV = { ...devices['iPhone 14'], viewport: { width: 430, height: 894 } };
+for(const [label, real, late] of [['фактично 311 на +146 мс (панель пропозиції пароля)', 311, 146], ['фактично 388 на +100 мс', 388, 100], ['фактично 415 на +100 мс', 415, 100]]){
+  test('103. KB-FACEID: поле входу {311, 388, 415} — ранній старт на мінімум, ' + label + ': без різкого гальмування, швидкість після уточнення не зростає, кінець на цілі ±1', async ({ browser }) => {
+    const hist = [311, 388, 415];
+    const r = await kb37Run(browser, 388, real, late, true, hist, 'cloud-password', KB_FACEID_DEV, KB_FACEID_PREP);
+    const ref = await kb37Run(browser, 388, real, late, false, hist, 'cloud-password', KB_FACEID_DEV, KB_FACEID_PREP);
+    const m = kb37Metrics(r), mr = kb37Metrics(ref), g = kb38Speeds(r);
+    const early = r.ev.filter(e => e.type === 'kb-early' && e.reason === 'login-min');
+    const info = JSON.stringify({ ev: r.ev, m, g, refFinal: mr.final });
+    expect(early.length, 'рання ціль входу на мінімум (reason login-min): ' + info).toBe(1);
+    expect(early[0].target, 'ціль = мінімум (lmin): ' + info).toBe(early[0].lmin);
+    expect(r.ev.filter(e => e.deadline === true).length, 'дедлайн-переведення немає: ' + info).toBe(0);
+    expect(g.grow, 'швидкість по кадрах не зростає після піка (понад 3 %): ' + info).toBe(null);
+    expect(Math.abs(m.final - mr.final), 'кінець на цілі еталона ±1: ' + info).toBeLessThanOrEqual(1);
+    expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
   });
 }

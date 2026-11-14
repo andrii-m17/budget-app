@@ -3861,7 +3861,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.301</div>
+  <div class="version-footer">Money Tree · Rev 2.32.302</div>
 </div>
   </div>
 </div>
@@ -9820,7 +9820,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.301';
+const APP_VERSION = '2.32.302';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -29730,7 +29730,7 @@ function kbPipeEarlyStart(drawerEl, fieldEl, vvEstimate, naturalHeight, info){
     const vvEarly = Math.max(0, getBaseViewportHeight() - earlyKb);
     let L = computeSheetLift({ innerH: window.innerHeight, vvH: vvEarly, vvTop: 0, restBottom: kbEffectiveRestBottom(vvEarly), gap: 8 });
     // Rev 2.32.295 (KB-39, B): поле з кількома висотами: одна траєкторія до цілі norm з кривою, підібраною під геометрію (див. KB_EARLY_CURVES); інакше ціль min зі швидким профілем (kb-early-fallback)
-    let curve = null, minHActive = info.minH;
+    let curve = null, minHActive = info.minH, loginMin = false;
     if(info.minH){
       const Lnorm = L, vvMin = Math.max(0, getBaseViewportHeight() - Math.round(info.minH * factor));
       const Lmin = computeSheetLift({ innerH: window.innerHeight, vvH: vvMin, vvTop: 0, restBottom: kbEffectiveRestBottom(vvMin), gap: 8 });
@@ -29742,8 +29742,10 @@ function kbPipeEarlyStart(drawerEl, fieldEl, vvEstimate, naturalHeight, info){
       }catch(e){}
       try{ delete drawerEl.__kbFieldDist; }catch(e){}
       kbEarlyGeom = { need: need, lmin: Lmin, lnorm: Lnorm };
-      if(need !== null && Lnorm > 1 && Lmin > 1) curve = kbEarlyCurveFor((need + KB_EARLY_NEED_SLACK) / Lnorm, (Lmin - 3) / Lnorm); // запас до потрібного підйому: затримка старту ноги відносно дотику (≈ 1 кадр) і крок вимірювання
-      if(!curve){
+      // Rev 2.32.302 (KB-FACEID): поля входу з відомими різними висотами (звіт MT-1114-7780: 311 з панеллю пропозиції пароля, 388, 415): лист із першого кадру цілиться в МІНІМУМ, без дедлайну. Раніше: ціль норма 388 → на дедлайні (+130 мс) переведення на 311 за ≈ 5 пт до цілі гальмувало швидкість 1,7 → 0,11 пт/мс (kbRetargetLeg). Вища клавіатура дає звичайну ногу вгору (KB-38, швидкість не зростає). Лише коли мінімум уже відкриває поле (need + запас ≤ мінімум); інакше стара гілка. Інші поля без змін (KB-39).
+      if(loginField && need !== null && Lmin > 1 && need + KB_EARLY_NEED_SLACK <= Lmin){ L = Lmin; minHActive = null; loginMin = true; }
+      else if(need !== null && Lnorm > 1 && Lmin > 1) curve = kbEarlyCurveFor((need + KB_EARLY_NEED_SLACK) / Lnorm, (Lmin - 3) / Lnorm); // запас до потрібного підйому: затримка старту ноги відносно дотику (≈ 1 кадр) і крок вимірювання
+      if(!curve && !loginMin){
         captureDebugGeometry('kb-early-fallback', { need: Math.round(need === null ? -1 : need), lmin: Math.round(Lmin), lnorm: Math.round(Lnorm), reason: 'geometry' });
         L = Lmin; minHActive = null; // ціль min, швидкий профіль, дедлайн не потрібен
       }
@@ -29754,7 +29756,7 @@ function kbPipeEarlyStart(drawerEl, fieldEl, vvEstimate, naturalHeight, info){
     if(KB_PIPE.timer){ clearTimeout(KB_PIPE.timer); KB_PIPE.timer = null; }
     kbSheetCurrentLift = L;
     kbHoldOn = false;
-    captureDebugGeometry('kb-early', { target: Math.round(L), expected: Math.round(expectedKb), src: info.src || 'coef', factor: factor, from: info.motion ? 'motion' : 'rest', deadline: minHActive ? 'armed' : 'off', ms: curve ? curve.dur : null, need: kbEarlyGeom ? Math.round(kbEarlyGeom.need === null ? -1 : kbEarlyGeom.need) : undefined, lmin: kbEarlyGeom ? Math.round(kbEarlyGeom.lmin) : undefined, lnorm: kbEarlyGeom ? Math.round(kbEarlyGeom.lnorm) : undefined });
+    captureDebugGeometry('kb-early', { target: Math.round(L), expected: Math.round(expectedKb), reason: loginMin ? 'login-min' : undefined, src: info.src || 'coef', factor: factor, from: info.motion ? 'motion' : 'rest', deadline: minHActive ? 'armed' : 'off', ms: curve ? curve.dur : null, need: kbEarlyGeom ? Math.round(kbEarlyGeom.need === null ? -1 : kbEarlyGeom.need) : undefined, lmin: kbEarlyGeom ? Math.round(kbEarlyGeom.lmin) : undefined, lnorm: kbEarlyGeom ? Math.round(kbEarlyGeom.lnorm) : undefined });
     kbEarlyGeom = null;
     if(minHActive){ // KB-39, B: поле з кількома висотами — якщо за поріг kb-vv-resize не прийшов, ціль плавно змінюється на найменшу (клавіатура з Face ID)
       const dgen = kbSheetGen;

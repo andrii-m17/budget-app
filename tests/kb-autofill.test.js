@@ -157,3 +157,10 @@ test('KB-39: kbEarlyCurveFor — крива задовольняє обидві 
   assert.equal(cv(0.97, 0.98), null, 'надто вузьке вікно (b − a < кроку таблиці) — може не існувати');
   assert.ok(cv(0.2, 0.9), 'широке вікно — крива є');
 });
+
+// Rev 2.32.302 (KB-FACEID): структурна охорона гілки «поле входу з різними висотами: рання ціль мінімум без дедлайну»; поведінка — e2e 103.
+test('KB-FACEID: гілка login-min лише для полів входу з історією висот і лише коли мінімум відкриває поле; інакше стара гілка KB-39', () => {
+  assert.match(HTML, /if\(loginField && need !== null && Lmin > 1 && need \+ KB_EARLY_NEED_SLACK <= Lmin\)\{ L = Lmin; minHActive = null; loginMin = true; \}\n\s+else if\(need !== null && Lnorm > 1 && Lmin > 1\) curve = kbEarlyCurveFor\(/);
+  assert.match(HTML, /if\(!curve && !loginMin\)\{\n\s+captureDebugGeometry\('kb-early-fallback'/);
+  assert.match(HTML, /reason: loginMin \? 'login-min' : undefined/);
+});
