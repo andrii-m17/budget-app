@@ -1753,3 +1753,47 @@ test('106. KB-SWITCH-FIX/2: дотик по контейнеру між поля
     expect(r.active, 'фокус у найближчому полі').toBe('cldfielda1');
   } finally { await ctx.close(); }
 });
+
+test('107. KB-SWITCH-FIX/3: дотик по самій кнопці поруч із полем («показати пароль») виконує дію кнопки, фокус у поле не переходить', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => {
+      const f = document.getElementById('cloud-password'), w = f.parentElement; w.style.position = 'relative';
+      const b = document.createElement('button'); b.type = 'button'; b.id = 'test-eye-btn'; b.textContent = 'o';
+      b.style.cssText = 'position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;z-index:5;'; b.onclick = () => { window.__eyeClicks = (window.__eyeClicks || 0) + 1; };
+      w.appendChild(b);
+    });
+    const n0 = await page.evaluate(() => recBuf.length);
+    const bb = await page.locator('#test-eye-btn').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(400);
+    const r = await page.evaluate((n) => ({ clicks: window.__eyeClicks || 0, active: document.activeElement && document.activeElement.id, evs: recBuf.slice(n).filter(e => e.type === 'switch-intercept' || e.type === 'intercept-miss' || e.type === 'sheet-open').map(e => e.type) }), n0);
+    expect(r.clicks, 'дію кнопки виконано: ' + JSON.stringify(r)).toBe(1);
+    expect(r.active, 'фокус не в полі: ' + JSON.stringify(r)).not.toBe('cloud-password');
+    expect(r.evs.filter(x => x === 'switch-intercept' || x === 'sheet-open'), JSON.stringify(r)).toEqual([]);
+  } finally { await ctx.close(); }
+});
+test('108. KB-SWITCH-FIX/4: sheet-account — дотик по контейнеру біля поля фокусує найближче поле, без pan-corrected і intercept-miss', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { const a = document.getElementById('app-modal-input'); if(a) a.blur(); document.activeElement && document.activeElement.blur && document.activeElement.blur(); });
+    await page.waitForTimeout(300);
+    const info = await page.evaluate(() => {
+      const a = document.getElementById('app-modal-input'), b = document.getElementById('app-modal-amount-input');
+      let p = a.parentElement; while(p && !p.contains(b)) p = p.parentElement;
+      p.setAttribute('data-test-cont', '1');
+      const r = a.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.bottom + 5, tag: p.tagName, own: Array.prototype.some.call(p.childNodes, n => n.nodeType === 3 && n.nodeValue.trim() !== '') };
+    });
+    const n0 = await page.evaluate(() => recBuf.length);
+    const r = await synthTouch(page, '[data-test-cont="1"]', 60, { x: info.x, y: info.y });
+    await page.waitForTimeout(500);
+    const evs = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'intercept-miss' || e.type === 'pan-corrected').map(e => e.type), n0);
+    expect(r.prevented, 'touchend погашено: ' + JSON.stringify({ info, r })).toBe(true);
+    expect(r.active, 'фокус у найближчому полі').toBe('app-modal-input');
+    expect(evs, 'без intercept-miss і pan-corrected').toEqual([]);
+  } finally { await ctx.close(); }
+});
