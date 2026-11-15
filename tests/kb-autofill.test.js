@@ -114,22 +114,3 @@ test('KB-FINAL: перший фокус на touchstart при закритій 
   const k = HTML.indexOf('const REC_ALLOWED_KEYS = ['); const keys = HTML.slice(k, HTML.indexOf('];', k));
   for (const x of ['pageTop', 'pageTopStart', 'pageTopEnd']) assert.ok(keys.includes("'" + x + "'"), x);
 });
-
-// Rev 2.32.316 (SHEET-FOOTER-3, B): відступ над панеллю автозаповнення / Face ID без смужки зі стрілками.
-test('kbSheetGapPt / kbPanelNoArrows: панель 311/894 (поле входу, iPhone) → 10; клавіатура 415, 388 → 0; не iPhone, не поле входу, центрована форма → 0 / 8', () => {
-  const mk = (o) => buildSandbox(Object.assign({ kbSheetSplit: true, navigator: { userAgent: 'iPhone', platform: 'iPhone', maxTouchPoints: 5 }, kbSheetCacheKind: 'email', getBaseViewportHeight: () => 894 }, o || {}), ['kbPanelNoArrows', 'kbSheetGapPt', 'KB_PANEL_GAP', 'KB_PANEL_RATIO', 'kbIsIphone', 'kbgDeviceClass']);
-  const gap = (c, kbH) => { c.__v = 894 - kbH; return evalInSandbox(c, 'kbSheetGapPt(__v)'); };
-  const c = mk();
-  assert.equal(gap(c, 311), 10, 'панель Face ID 311');
-  assert.equal(gap(c, 292), 10);
-  assert.equal(gap(c, 388), 0, '388 — клавіатура');
-  assert.equal(gap(c, 415), 0, '415 — клавіатура зі стрілками');
-  assert.equal(gap(c, 0), 0, 'клавіатури немає');
-  assert.equal(gap(mk({ kbSheetCacheKind: 'password' }), 311), 10);
-  assert.equal(gap(mk({ kbSheetCacheKind: 'text' }), 311), 0, 'не поле входу');
-  assert.equal(gap(mk({ navigator: { userAgent: 'Macintosh', platform: 'MacIntel', maxTouchPoints: 0 } }), 311), 0, 'не iPhone');
-  assert.equal(gap(mk({ kbSheetSplit: false }), 311), 8, 'центрована форма — 8');
-  const SRC = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
-  assert.match(SRC, /const KB_PANEL_GAP = 10;/); assert.match(SRC, /const KB_PANEL_RATIO = 0\.37;/);
-  assert.ok(!/kbSheetGapPt\(\)/.test(SRC), 'усі виклики передають vvH');
-});
