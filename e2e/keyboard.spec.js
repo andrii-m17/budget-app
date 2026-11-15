@@ -21,7 +21,7 @@ async function open(browser, dev, android, flag){
   return { ctx, page };
 }
 for(const [name, dev, scrolled, android, flag] of CASES){
-  test('36. ' + name + ': низ листа (шторка з id і без id) стає на 8 пт вище нижньої межі видимої області (offsetTop + height); таб-бар ≥ 21 пт від низу', async ({ browser }) => {
+  test('36. ' + name + ': низ листа (шторка з id і без id) прилягає до нижньої межі видимої області (offsetTop + height; Rev 2.32.313: зазор 0); таб-бар ≥ 21 пт від низу', async ({ browser }) => {
     const { ctx, page } = await open(browser, dev, android, flag);
     try{
       const gap = await page.evaluate(() => { const r = document.querySelector('nav.tabbar').getBoundingClientRect(); return Math.round(window.innerHeight - r.bottom); });
@@ -41,7 +41,8 @@ for(const [name, dev, scrolled, android, flag] of CASES){
           await page.evaluate(k => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, K);
         }
         await page.waitForTimeout(1000);
-        const r = await page.evaluate(s => { const b = document.querySelector(s).getBoundingClientRect(); return { bottom: b.bottom, target: window.__vv.top + window.__vv.h - 8, lift: getComputedStyle(document.documentElement).getPropertyValue('--sheet-lift') }; }, sel);
+        const r = await page.evaluate(s => { const b = document.querySelector(s).getBoundingClientRect(); return { bottom: b.bottom, target: window.__vv.top + window.__vv.h, // Rev 2.32.313 (SHEET-FOOTER): нижні шторки прилягають до клавіатури без зазору
+         lift: getComputedStyle(document.documentElement).getPropertyValue('--sheet-lift') }; }, sel);
         expect(Math.abs(r.bottom - r.target), name + ' · ' + which + ' · низ ' + r.bottom + ' проти цілі ' + r.target + ' (lift ' + r.lift + ')').toBeLessThanOrEqual(1.5);
         if(scrolled && which === 'card') expect(await page.evaluate(() => Number(getComputedStyle(document.documentElement).getPropertyValue('--sheet-vvtop'))), 'Android: зсув видимої області йде окремою складовою (--sheet-vvtop), підйом не подвоюється').toBeGreaterThan(300);
         await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.__vv.top = 0; window.visualViewport.dispatchEvent(new Event('resize')); });
@@ -67,7 +68,7 @@ test('37. desktop 1280×800: бічна панель на місці, таб-б�
 });
 
 // Rev 2.32.248 (KB-2): iPhone — і картка з id, і вхід на одному конвеєрі: низ листа на 8 пт над краєм видимої області (стару гілку й перемикач прибрано).
-test('38. iPhone: картка й вхід на одному конвеєрі — низ листа 8 пт над краєм видимої області (±1,5 пт)', async ({ browser }) => {
+test('38. iPhone: картка й вхід на одному конвеєрі — низ листа на краї видимої області (Rev 2.32.313: зазор 0) (±1,5 пт)', async ({ browser }) => {
 
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, false);
   try{
@@ -81,7 +82,7 @@ test('38. iPhone: картка й вхід на одному конвеєрі �
       await page.evaluate(() => { const k = Math.round(window.__H0 * 0.465); window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); });
       await page.waitForTimeout(1000);
       const bottom = await page.evaluate(s2 => document.querySelector(s2).getBoundingClientRect().bottom, sel);
-      const vvB = await page.evaluate(() => window.__vv.h); expect(Math.abs(bottom - (vvB - 8)), which + ': низ ' + bottom + ' проти ' + (vvB - 8)).toBeLessThanOrEqual(1.5);
+      const vvB = await page.evaluate(() => window.__vv.h); expect(Math.abs(bottom - vvB), which + ': низ ' + bottom + ' проти ' + vvB).toBeLessThanOrEqual(1.5);
       await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
       await page.waitForTimeout(700);
       await page.evaluate(() => { document.querySelectorAll('.drawer.open, .drawer-backdrop.open').forEach(d => d.classList.remove('open')); document.body.classList.remove('kb-open'); document.documentElement.classList.remove('kb-sheet'); });
@@ -106,10 +107,10 @@ test('39. Android-прокрутка видимої області: низ ли�
       for(const f of [0.003, 0.04, 0.17, 0.64, 0.9, 1]){
         await page.evaluate(([k, t]) => { window.__vv.top = Math.round(k * t); window.visualViewport.dispatchEvent(new Event('scroll')); }, [K, f]);
         await page.waitForTimeout(concurrent ? 25 : 60);
-        if(!concurrent) dev.push(await page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return Math.abs((r.bottom - window.__vv.top) - (window.__vv.h - 8)); }));
+        if(!concurrent) dev.push(await page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return Math.abs((r.bottom - window.__vv.top) - window.__vv.h); }));
       }
       await page.waitForTimeout(700);
-      dev.push(await page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return Math.abs((r.bottom - window.__vv.top) - (window.__vv.h - 8)); }));
+      dev.push(await page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return Math.abs((r.bottom - window.__vv.top) - window.__vv.h); }));
       dev.forEach((d, i) => expect(d, (concurrent ? 'одночасно' : 'після підйому') + ' · крок ' + i + ': відхилення ' + d).toBeLessThanOrEqual(2));
       await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.__vv.top = 0; window.visualViewport.dispatchEvent(new Event('resize')); });
       await page.waitForTimeout(700);
@@ -1671,9 +1672,9 @@ test('120. KB-TAP/4: прокручувана шторка — touchstart без
     await page.waitForTimeout(150);
     expect(a, 'touchstart скасовано').toBe(true);
     expect(await page.evaluate(() => document.activeElement.id), 'прокручувана шторка: на touchstart фокус не ставиться').toBe('cloud-password');
-    // touchend першого дотику не прийшов; новий дотик по неполю (заголовок шторки) — старий запис стає сиротою
-    await page.evaluate(() => window.__tch('touchstart', '#profile-drawer', 42, { drop: [41] }));
-    await page.evaluate(() => window.__tch('touchend', '#profile-drawer', 42));
+    // touchend першого дотику не прийшов; новий дотик по неполю (ручка шторки, далеко від полів) — старий запис стає сиротою
+    await page.evaluate(() => window.__tch('touchstart', '#profile-drawer .drawer-handle', 42, { drop: [41] }));
+    await page.evaluate(() => window.__tch('touchend', '#profile-drawer .drawer-handle', 42));
     await page.waitForTimeout(100);
     await page.evaluate(() => window.__tch('touchend', '#cldfielda1', 41)); // пізній touchend сирітського дотику
     await page.waitForTimeout(300);
@@ -1688,5 +1689,29 @@ test('120. KB-TAP/4: прокручувана шторка — touchstart без
     expect(await page.evaluate(() => document.activeElement.id), 'новий дотик ставить фокус').toBe('cldfielda1');
     expect(evs.filter(e => e.type === 'switch-intercept').map(e => e.to + ':' + e.phase), JSON.stringify(evs)).toEqual(['cldfielda1:touchend']);
     expect(evs.filter(e => e.type === 'native-focus' || e.type === 'pan-comp'), JSON.stringify(evs)).toEqual([]);
+  } finally { await ctx.close(); }
+});
+
+// Rev 2.32.313 (SHEET-FOOTER, B): при відкритій клавіатурі ряд кнопок ОЧ — нижній край шторки, шторка прилягає до клавіатури.
+test('121. SHEET-FOOTER: installment-drawer при відкритій клавіатурі — низ шторки = верх клавіатури ± 1, низ ряду «Оплатити / Зберегти» = низ шторки ± 1, під рядом немає вмісту форми', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { document.getElementById('idd-pay').focus(); });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1100);
+    await page.evaluate(() => { const d = document.getElementById('installment-drawer'); d.scrollTop = d.scrollHeight; });
+    await page.waitForTimeout(300);
+    const r = await page.evaluate(() => {
+      const d = document.getElementById('installment-drawer'), a = d.querySelector('.och-actions'), del = d.querySelector('.cdd-delete-link');
+      const dr = d.getBoundingClientRect(), ar = a.getBoundingClientRect(), lr = del.getBoundingClientRect();
+      return { vvBottom: window.__vv.h + (window.__vv.top || 0), drawerBottom: dr.bottom, actsBottom: ar.bottom, delBottom: lr.bottom, delTop: lr.top, actsTop: ar.top };
+    });
+    expect(Math.abs(r.drawerBottom - r.vvBottom), 'низ шторки = верх клавіатури: ' + JSON.stringify(r)).toBeLessThanOrEqual(1);
+    expect(Math.abs(r.actsBottom - r.drawerBottom), 'низ ряду кнопок = низ шторки: ' + JSON.stringify(r)).toBeLessThanOrEqual(1);
+    expect(r.delTop, '«Видалити ОЧ» над рядом кнопок (вміст прокручується над ним): ' + JSON.stringify(r)).toBeLessThan(r.actsTop);
+    await page.screenshot({ path: process.env.E2E_SHOT_DIR ? process.env.E2E_SHOT_DIR + '/sheet-footer.png' : 'e2e-results/sheet-footer.png' });
   } finally { await ctx.close(); }
 });
