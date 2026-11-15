@@ -1780,3 +1780,61 @@ test('124. KB-SHOT/3 (контроль): клавіатури не було (з�
     expect(s.active === 'cldfielda1' && s.recs === 0, JSON.stringify(s)).toBe(true);
   } finally { await ctx.close(); }
 });
+
+// Rev 2.32.315 (SHEET-FOOTER-2, B): суцільна панель дій при відкритій клавіатурі.
+test('125. SHEET-FOOTER-2: installment-drawer, клавіатура відкрита — панель дій суцільна на всю ширину шторки (тінь і лінія 40 пт убік), у її прямокутнику й з боків немає елементів вмісту; поле не ховається під панеллю', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { ochToggleCond(); document.getElementById('idd-balance').focus(); });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1100);
+    const st = await page.evaluate(() => { const a = document.querySelector('#installment-drawer .och-actions'); const b = getComputedStyle(a, '::before'); const s = getComputedStyle(a); return { bl: b.left, br: b.right, bc: b.content, bh: b.height, shadow: s.boxShadow, bg: s.backgroundColor, z: s.zIndex }; });
+    expect(st.bc, JSON.stringify(st)).toBe('""');
+    expect(st.bl + '|' + st.br, JSON.stringify(st)).toBe('-40px|-40px');
+    expect(st.shadow, JSON.stringify(st)).toContain('40px');
+    expect(st.bg, 'непрозорий фон: ' + JSON.stringify(st)).not.toMatch(/rgba\(.*, 0\)/);
+    for(const pos of [0, 60, 'end']){
+      await page.evaluate((p) => { const d = document.getElementById('installment-drawer'); d.scrollTop = p === 'end' ? d.scrollHeight : p; }, pos);
+      await page.waitForTimeout(250);
+      const r = await page.evaluate(() => {
+        const d = document.getElementById('installment-drawer'), a = d.querySelector('.och-actions'), f = document.getElementById('idd-balance');
+        const ar = a.getBoundingClientRect(), dr = d.getBoundingClientRect(), fr = f.getBoundingClientRect();
+        const midY = (ar.top + ar.bottom) / 2; const bt = Array.from(a.children).map(c => c.getBoundingClientRect());
+        const gapX = (bt[0].right + bt[1].left) / 2;
+        const pts = { tl: [ar.left + 2, ar.top + 3], tr: [ar.right - 2, ar.top + 3], bl: [ar.left + 2, ar.bottom - 3], br: [ar.right - 2, ar.bottom - 3], gap: [gapX, midY], gapTop: [gapX, ar.top + 3], leftPad: [dr.left + 3, midY], rightPad: [dr.right - 3, midY] };
+        const out = {}; for(const k of Object.keys(pts)){ const el = document.elementFromPoint(pts[k][0], pts[k][1]); out[k] = !el ? 'null' : (el === d ? 'drawer' : (a.contains(el) ? 'row' : 'CONTENT:' + (el.id || el.className.toString().slice(0, 20) || el.tagName))); }
+        return { out, fieldBottom: Math.round(fr.bottom), rowTop: Math.round(ar.top) };
+      });
+      for(const k of Object.keys(r.out)) expect(r.out[k] === 'row' || r.out[k] === 'drawer', 'scroll ' + pos + ' · ' + k + ': ' + JSON.stringify(r)).toBe(true);
+    }
+    await page.evaluate(() => { const d = document.getElementById('installment-drawer'); d.scrollTop = 0; document.getElementById('idd-balance').blur(); document.getElementById('idd-balance').focus(); });
+    await page.waitForTimeout(900);
+    const fb = await page.evaluate(() => ({ f: Math.round(document.getElementById('idd-balance').getBoundingClientRect().bottom), a: Math.round(document.querySelector('#installment-drawer .och-actions').getBoundingClientRect().top) }));
+    expect(fb.f, 'поле не ховається під панеллю: ' + JSON.stringify(fb)).toBeLessThanOrEqual(fb.a);
+    await page.screenshot({ path: process.env.E2E_SHOT_DIR ? process.env.E2E_SHOT_DIR + '/sheet-footer-2.png' : 'e2e-results/sheet-footer-2.png' });
+  } finally { await ctx.close(); }
+});
+test('126. SHEET-FOOTER-2: struct-drawer і mono-detail-drawer — та сама суцільна панель (бокові тіні 40 пт, z-index 5, лінія ::before ±40 пт); правило не перекрите старішим', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    const r = await page.evaluate(() => {
+      document.documentElement.classList.add('kb-sheet');
+      const out = {};
+      for(const [id, sel] of [['struct-drawer', '.sf-actions'], ['mono-detail-drawer', '.mono-detail-actions']]){
+        const d = document.getElementById(id), row = d && d.querySelector(sel); if(!row){ out[id] = 'нема'; continue; }
+        d.classList.add('open'); const s = getComputedStyle(row), b = getComputedStyle(row, '::before');
+        out[id] = { shadow: s.boxShadow, z: s.zIndex, bl: b.left, br: b.right, bc: b.content };
+        d.classList.remove('open');
+      }
+      document.documentElement.classList.remove('kb-sheet');
+      return out;
+    });
+    for(const id of ['struct-drawer', 'mono-detail-drawer']){
+      const o = r[id]; expect(typeof o, JSON.stringify(r)).toBe('object');
+      expect(o.shadow, id + ': ' + JSON.stringify(o)).toContain('40px'); expect(o.z, id).toBe('5'); expect(o.bl + '|' + o.br + '|' + o.bc, id + ': ' + JSON.stringify(o)).toBe('-40px|-40px|""');
+    }
+  } finally { await ctx.close(); }
+});
