@@ -1320,7 +1320,7 @@ async function kb37Run(browser, expected, real, lateMs, early, hist, fieldId, de
     await page.evaluate(([e, early, hist, fid, prep]) => {
       if(prep) (0, eval)(prep);
       if(!early) window.__kbNoEarly = true;
-      if(hist){ const f = {}; f[fid + '|portrait|h' + Math.round(window.__H0)] = hist; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); }
+      if(hist){ const f = {}; f[fid + '|portrait|h' + Math.round(window.__H0) + '|k' + (fid === 'cloud-password' ? 'password' : 'email')] = hist; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); } // Rev 2.32.309: ключ із типом клавіатури
       const o = {}; o['iPhone|portrait|password|h' + Math.round(window.__H0)] = e; localStorage.setItem('budget-kb-heights-v2', JSON.stringify(o)); // історія ТИПУ (без власної історії поля входу): множник KB_EARLY_FACTOR
       window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm();
     }, [expected, early, hist || null, fieldId, prep || null]);
@@ -1413,7 +1413,7 @@ test('96. KB-37/B: поле з історією {388, 311} — KB-39: рання
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     await page.evaluate(() => {
-      const o = {}; o['cloud-password|portrait|h' + Math.round(window.__H0)] = [388, 311]; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(o));
+      const o = {}; o['cloud-password|portrait|h' + Math.round(window.__H0) + '|kpassword'] = [388, 311]; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(o));
       window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm();
     });
     await page.waitForTimeout(900);
@@ -1507,7 +1507,7 @@ async function kb39Run(browser, hist, real, lateMs, early){
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     await kb36OpenModal(page);
-    await page.evaluate(([h, early]) => { if(!early) window.__kbNoEarly = true; const f = {}; f['app-modal-input|portrait|h' + Math.round(window.__H0)] = h; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); }, [hist, early]);
+    await page.evaluate(([h, early]) => { if(!early) window.__kbNoEarly = true; const f = {}; f['app-modal-input|portrait|h' + Math.round(window.__H0) + '|ktext'] = h; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); }, [hist, early]);
     const bb = await page.locator('#app-modal-input').boundingBox();
     const sampler = page.evaluate(() => new Promise(resolve => {
       const m = document.getElementById('app-modal'), fe = document.getElementById('app-modal-input'), s = [], t0 = performance.now(); window.__t0 = t0;
@@ -1549,7 +1549,7 @@ test('99. KB-39/B2: {311, 415}, реально 311 на +235 мс — перел
 test('99. KB-39/B3: поле входу {311, 415} — геометрія не дозволяє (поле надто низько): ціль min і kb-early-fallback', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
-    await page.evaluate(() => { const f = {}; f['cloud-password|portrait|h' + Math.round(window.__H0)] = [311, 415]; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.evaluate(() => { const f = {}; f['cloud-password|portrait|h' + Math.round(window.__H0) + '|kpassword'] = [311, 415]; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
     await page.waitForTimeout(900);
     const bb = await page.locator('#cloud-password').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
     await page.waitForTimeout(120);
@@ -1940,5 +1940,63 @@ test('114. KB-OCH/2 (контроль): верхнє поле (idd-pay) не з�
     const r = await page.evaluate(() => { const d = document.getElementById('installment-drawer'), f = document.getElementById('idd-pay'); const dr = d.getBoundingClientRect(), fr = f.getBoundingClientRect(); return { fromTop: Math.round(fr.top - dr.top), below: Math.round(dr.top + d.clientHeight - fr.bottom), scrollTop: Math.round(d.scrollTop), maxScroll: Math.round(d.scrollHeight - d.clientHeight) }; });
     expect(r.fromTop, 'поле не вище верху видимої частини: ' + JSON.stringify(r)).toBeGreaterThanOrEqual(3);
     expect(r.scrollTop, 'не до кінця вмісту: ' + JSON.stringify(r)).toBeLessThan(r.maxScroll - 50);
+  } finally { await ctx.close(); }
+});
+
+// Rev 2.32.309 (KB-AMOUNT, C): історія висот поля app-modal-amount-input.
+async function kbAmountOpen(page){
+  await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
+  await page.waitForTimeout(900);
+}
+async function kbAmountTap(page, kbH){
+  const bb = await page.locator('#app-modal-amount-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+  await page.waitForTimeout(120);
+  await page.evaluate((h) => { window.__vv.h = window.__H0 - h; window.visualViewport.dispatchEvent(new Event('resize')); }, kbH);
+}
+const kbAmountHist = (page) => page.evaluate(() => { const o = JSON.parse(localStorage.getItem('budget-kb-heights-f1') || '{}'); const k = Object.keys(o).filter(x => x.startsWith('app-modal-amount-input|')); return k.map(x => ({ key: x, list: o[x] })); });
+test('115. KB-AMOUNT/1: історія [416, 389] при фактичній 389 — без раннього підйому (off:uncertain), жодного kb-early, ціль не змінюється на ходу', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await kbAmountOpen(page); await kbAmountTap(page, 389); await page.waitForTimeout(1300);
+    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    const h = await kbAmountHist(page);
+    expect(h.length, JSON.stringify(h)).toBe(1);
+    await page.evaluate((key) => { const o = JSON.parse(localStorage.getItem('budget-kb-heights-f1')); o[key] = [416, 389]; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(o)); }, h[0].key); // «примарна» 416 в історії
+    await page.reload(); await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass')); await page.waitForTimeout(1500);
+    await page.evaluate(() => { const vv = window.visualViewport, H0 = window.innerHeight; window.__H0 = H0; window.__vv = { h: null, top: 0 }; Object.defineProperty(vv, 'height', { configurable: true, get(){ return window.__vv.h == null ? H0 : window.__vv.h; } }); Object.defineProperty(vv, 'offsetTop', { configurable: true, get(){ return window.__vv.top || 0; } }); });
+    await kbAmountOpen(page);
+    const n0 = await page.evaluate(() => recBuf.length);
+    await kbAmountTap(page, 389); await page.waitForTimeout(1200);
+    const evs = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'sheet-open' || e.type === 'kb-early').map(e => ({ type: e.type, es: e.earlyState || null, expected: e.expected || null })), n0);
+    expect(evs.filter(e => e.type === 'kb-early'), 'раннього підйому немає: ' + JSON.stringify(evs)).toEqual([]);
+    expect(evs.find(e => e.type === 'sheet-open').es, JSON.stringify(evs)).toBe('off:uncertain');
+  } finally { await ctx.close(); }
+});
+test('116. KB-AMOUNT/2: проміжна 416 під час зміни клавіатури в історію не потрапляє (лише стабільна 389); наступне відкриття стартує одразу з цілі', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await kbAmountOpen(page);
+    const bb = await page.locator('#app-modal-amount-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(120);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 416; window.visualViewport.dispatchEvent(new Event('resize')); }); // проміжна висота (текстова клавіатура)
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); }); // справжня
+    await page.waitForTimeout(1400);
+    const h = await kbAmountHist(page);
+    expect(h.length, JSON.stringify(h)).toBe(1);
+    expect(h[0].list, 'у історії лише стабільна висота: ' + JSON.stringify(h)).toEqual([389]);
+    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { closeAppModal(); }); await page.waitForTimeout(500);
+    await kbAmountOpen(page);
+    const n0 = await page.evaluate(() => recBuf.length);
+    await kbAmountTap(page, 389); await page.waitForTimeout(1200);
+    const evs = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'sheet-open' || e.type === 'kb-early').map(e => ({ type: e.type, es: e.earlyState || null, expected: e.expected || null, dl: e.deadline === undefined ? null : String(e.deadline) })), n0);
+    expect(evs.find(e => e.type === 'sheet-open').es, JSON.stringify(evs)).toBe('started');
+    const ke = evs.filter(e => e.type === 'kb-early');
+    expect(ke.length, JSON.stringify(evs)).toBe(1);
+    expect(Number(ke[0].expected), 'рання ціль з історії 389: ' + JSON.stringify(evs)).toBeLessThanOrEqual(393);
+    expect(Number(ke[0].expected)).toBeGreaterThanOrEqual(385);
   } finally { await ctx.close(); }
 });
