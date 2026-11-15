@@ -1782,7 +1782,7 @@ test('124. KB-SHOT/3 (контроль): клавіатури не було (з�
 });
 
 // Rev 2.32.315 (SHEET-FOOTER-2, B): суцільна панель дій при відкритій клавіатурі.
-test('125. SHEET-FOOTER-2: installment-drawer, клавіатура відкрита — панель дій суцільна на всю ширину шторки (тінь і лінія 40 пт убік), у її прямокутнику й з боків немає елементів вмісту; поле не ховається під панеллю', async ({ browser }) => {
+test('125. SHEET-FOOTER-2: installment-drawer, клавіатура відкрита — панель дій суцільна рівно на ширину шторки (лінія від краю до краю, без елементів ширших за шторку), у її прямокутнику й з боків немає елементів вмісту; поле не ховається під панеллю', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
@@ -1793,8 +1793,8 @@ test('125. SHEET-FOOTER-2: installment-drawer, клавіатура відкри
     await page.waitForTimeout(1100);
     const st = await page.evaluate(() => { const a = document.querySelector('#installment-drawer .och-actions'); const b = getComputedStyle(a, '::before'); const s = getComputedStyle(a); return { bl: b.left, br: b.right, bc: b.content, bh: b.height, shadow: s.boxShadow, bg: s.backgroundColor, z: s.zIndex }; });
     expect(st.bc, JSON.stringify(st)).toBe('""');
-    expect(st.bl + '|' + st.br, JSON.stringify(st)).toBe('-40px|-40px');
-    expect(st.shadow, JSON.stringify(st)).toContain('40px');
+    expect(st.bl + '|' + st.br, JSON.stringify(st)).toBe('0px|0px'); // Rev 2.32.318: лінія рівно на ширину панелі (без +40 пт убік)
+    expect(st.shadow, JSON.stringify(st)).not.toContain('40px');
     expect(st.bg, 'непрозорий фон: ' + JSON.stringify(st)).not.toMatch(/rgba\(.*, 0\)/);
     for(const pos of [0, 60, 'end']){
       await page.evaluate((p) => { const d = document.getElementById('installment-drawer'); d.scrollTop = p === 'end' ? d.scrollHeight : p; }, pos);
@@ -1817,7 +1817,7 @@ test('125. SHEET-FOOTER-2: installment-drawer, клавіатура відкри
     await page.screenshot({ path: process.env.E2E_SHOT_DIR ? process.env.E2E_SHOT_DIR + '/sheet-footer-2.png' : 'e2e-results/sheet-footer-2.png' });
   } finally { await ctx.close(); }
 });
-test('126. SHEET-FOOTER-2: struct-drawer і mono-detail-drawer — та сама суцільна панель (бокові тіні 40 пт, z-index 5, лінія ::before ±40 пт); правило не перекрите старішим', async ({ browser }) => {
+test('126. SHEET-FOOTER-2: struct-drawer і mono-detail-drawer — та сама суцільна панель (z-index 5, лінія ::before від краю до краю, без бокових тіней); правило не перекрите старішим', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     const r = await page.evaluate(() => {
@@ -1834,7 +1834,53 @@ test('126. SHEET-FOOTER-2: struct-drawer і mono-detail-drawer — та сама
     });
     for(const id of ['struct-drawer', 'mono-detail-drawer']){
       const o = r[id]; expect(typeof o, JSON.stringify(r)).toBe('object');
-      expect(o.shadow, id + ': ' + JSON.stringify(o)).toContain('40px'); expect(o.z, id).toBe('5'); expect(o.bl + '|' + o.br + '|' + o.bc, id + ': ' + JSON.stringify(o)).toBe('-40px|-40px|""');
+      expect(o.shadow, id + ': ' + JSON.stringify(o)).not.toContain('40px'); expect(o.z, id).toBe('5'); expect(o.bl + '|' + o.br + '|' + o.bc, id + ': ' + JSON.stringify(o)).toBe('0px|0px|""'); // Rev 2.32.318
     }
+  } finally { await ctx.close(); }
+});
+
+// Rev 2.32.318 (SHEET-FOOTER-4, B): панель дій рівно на ширину шторки (без бокової прокрутки) і «Видалити» докручується над панеллю.
+test('128. SHEET-FOOTER-4/1: ОЧ при відкритій клавіатурі — вміст шторки не прокручується вбік (scrollWidth ≤ clientWidth), панель дій рівно від краю до краю шторки', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { ochToggleCond(); document.getElementById('idd-balance').focus(); });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1100);
+    await page.evaluate(() => { const d = document.getElementById('installment-drawer'); d.scrollTop = d.scrollHeight; });
+    await page.waitForTimeout(250);
+    const r = await page.evaluate(() => { const d = document.getElementById('installment-drawer'), a = d.querySelector('.och-actions'), dr = d.getBoundingClientRect(), ar = a.getBoundingClientRect(); return { sw: d.scrollWidth, cw: d.clientWidth, dl: dr.left, dr: dr.right, al: ar.left, ar: ar.right, ox: getComputedStyle(d).overflowX }; });
+    expect(r.sw, 'scrollWidth ≤ clientWidth: ' + JSON.stringify(r)).toBeLessThanOrEqual(r.cw);
+    expect(Math.abs(r.al - r.dl) <= 1.5 && Math.abs(r.ar - r.dr) <= 1.5, 'панель від краю до краю: ' + JSON.stringify(r)).toBe(true);
+  } finally { await ctx.close(); }
+});
+test('129. SHEET-FOOTER-4/2: прокрутка до кінця при відкритій клавіатурі — «Видалити ОЧ» і «Видалити» у «Структурі» повністю над панеллю дій', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { ochToggleCond(); document.getElementById('idd-balance').focus(); });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1100);
+    await page.evaluate(() => { const d = document.getElementById('installment-drawer'); d.scrollTop = d.scrollHeight; });
+    await page.waitForTimeout(250);
+    const o = await page.evaluate(() => { const d = document.getElementById('installment-drawer'); return { del: d.querySelector('.cdd-delete-link').getBoundingClientRect().bottom, row: d.querySelector('.och-actions').getBoundingClientRect().top }; });
+    expect(o.del, 'ОЧ: низ «Видалити ОЧ» ≤ верху панелі: ' + JSON.stringify(o)).toBeLessThanOrEqual(o.row + 0.5);
+    // «Структура»
+    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); closeInstallmentEditor && closeInstallmentEditor(); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { showCategoryModal('Редагувати', 'Кава', CATEGORY_TYPES[0], function(){}, { label: 'Видалити категорію', note: 'Нотатка', onDelete: function(){} }); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { const sp = document.createElement('div'); sp.style.height = '900px'; document.getElementById('sf-body').appendChild(sp); document.getElementById('fldstr3').focus(); });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1100);
+    await page.evaluate(() => { const d = document.getElementById('struct-drawer'); d.scrollTop = d.scrollHeight; });
+    await page.waitForTimeout(250);
+    const s = await page.evaluate(() => { const d = document.getElementById('struct-drawer'); return { del: document.getElementById('sf-delete-note').getBoundingClientRect().bottom, delBtn: document.getElementById('sf-delete').getBoundingClientRect().bottom, row: d.querySelector('.sf-actions').getBoundingClientRect().top, sh: d.scrollHeight, ch: d.clientHeight }; });
+    expect(Math.max(s.del, s.delBtn), 'Структура: «Видалити» над панеллю: ' + JSON.stringify(s)).toBeLessThanOrEqual(s.row + 0.5);
   } finally { await ctx.close(); }
 });

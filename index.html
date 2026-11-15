@@ -673,6 +673,7 @@
   /* Rev 2.32.173/174 (OCH-FORM-3, без скла): шторка r 28 зверху з відступом 14, ручка 36×4; заголовок: логотип 32 (r 8), назва 15/500, підзаголовок 11, закриття — коло 30; поле 34 / r 12 / текст 14 / підпис 10 px caps (підпис→поле 3, між рядками 8, між колонками 8). «Умови» — звичайне поле (токени поля, висота 34, r 12), сегменти — НАЯВНИЙ компонент (.struct-tabs + .seg-indicator + initSegments): контейнер 32 / r 12, повзунок r 10 (--color-success-bg / --color-success), решта приглушені; кнопки 40 / r 14: звичайна «Оплатити» й зелена «Зберегти»; закріплений футер із тонкою лінією; «Видалити ОЧ» 12 px. Без градієнтів, блиску й backdrop-filter. */
   @media (max-width:1279px){
     #installment-drawer{ border-radius:28px 28px var(--radius-xl) var(--radius-xl); padding:14px 14px 12px; }
+    #installment-drawer{ --sheet-pad-x:14px; } /* Rev 2.32.318 (SHEET-FOOTER-4): бічний відступ для панелі дій */
     #installment-drawer .drawer-handle{ margin:-6px -14px 2px; padding:6px 0 2px; }
   }
   #installment-drawer .drawer-head{ margin-bottom:8px; }
@@ -1987,7 +1988,7 @@
        мимоволі закривалась) — "скрол обрізає картку". contain — стандартний
        спосіб зупинити це протікання скрол-жесту за межі самого елемента. */
     overscroll-behavior:contain;
-    border-radius:var(--radius-xl); padding:20px;
+    border-radius:var(--radius-xl); padding:20px; --sheet-pad-x:20px; /* Rev 2.32.318: бічний відступ вмісту (панель дій розтягується на нього) */
     /* BugFix (6D.11, знайдено живою перевіркою): translateY(100%) рахується
        від ВЛАСНОЇ висоти елемента, не від нового bottom-відступу картки —
        короткий drawer (напр. "Дохід") лишав видимий "хвостик" знизу
@@ -2105,11 +2106,18 @@
   /* Rev 2.32.268 (KB-14, B): прикріплений блок кнопок має займати в розмітці ТОЙ САМИЙ простір, що й звичайний (звіт MT-1108-2709): раніше (KB-9) padding-top 8 + margin-top 6 додавали листу +6 (mono-detail: 575 → 581) і +8 (struct: 398 → 406) саме при відкритті клавіатури, тож висота листа з клавіатурою міняла розмір, хоча лист вміщується. Спроба замінити margin-top на padding-top теж давала +6: верхній margin колапсує з нижнім margin попереднього блоку (12 пт), а padding ні. Тому верхній margin лишено базовим, padding-top 0, а візуальний відступ над кнопками (щоб вміст, що прокручується, не торкався їх) малюється box-shadow без впливу на розмітку; нижній padding 20 пт перекрито негативним margin. WebKit рахує sticky від краю вмісту (без нижнього padding листа 20 пт): bottom:-20px ставить смугу впритул до краю листа. */
   /* Rev 2.32.313 (SHEET-FOOTER, B): знімок «ПУМБ Dyson»: під рядом «Оплатити / Зберегти» при відкритій клавіатурі видно «Видалити ОЧ» (рядок вмісту), під шторкою — смуга сторінки 8 пт. Ряд кнопок ОЧ іде в потоці останнім (flex order) і є нижнім краєм шторки: sticky bottom та від'ємний margin-bottom на висоту нижнього відступу шторки (12 пт), фон суцільний; вміст прокручується під ним. Закрита клавіатура — без змін. */
   html.kb-sheet #installment-drawer .och-form{ display:flex; flex-direction:column; }
-  html.kb-sheet #installment-drawer .och-actions{ order:99; bottom:-12px; margin-bottom:-12px; padding-bottom:18px; border-top-color:transparent; }
+  html.kb-sheet #installment-drawer .och-actions{ order:99; bottom:-12px; margin-bottom:-12px; padding-bottom:18px; border-top-color:transparent; margin-left:calc(-1 * var(--sheet-pad-x)); margin-right:calc(-1 * var(--sheet-pad-x)); padding-left:var(--sheet-pad-x); padding-right:var(--sheet-pad-x); }
   html.kb-sheet .drawer.open :is(.mono-detail-actions, .sf-actions){ position:sticky; bottom:-20px; z-index:2; background:var(--color-surface); padding:0 0 20px; margin-bottom:-20px; box-shadow:0 -8px 0 0 var(--color-surface); }
   /* Rev 2.32.315 (SHEET-FOOTER-2, B): ПІСЛЯ правила mono-detail-actions/sf-actions вище (та сама специфічність, інакше воно перекриває тіні й z-index); звіт MT-1115-3231: навколо кнопок і між ними при відкритій клавіатурі проглядав вміст форми. Спільна панель дій для всіх шторок із рядом дій (.och-actions, .mono-detail-actions, .sf-actions): суцільний непрозорий фон на всю ширину шторки (тінь убік на 40 пт, обрізається краєм шторки; кнопки лишаються з горизонтальними відступами шторки), z-index над вмістом, ледь помітна лінія-роздільник (--color-border) від краю до краю. */
-  html.kb-sheet .drawer.open :is(.och-actions, .mono-detail-actions, .sf-actions){ z-index:5; background:var(--color-surface); box-shadow:-40px 0 0 0 var(--color-surface), 40px 0 0 0 var(--color-surface), 0 -8px 0 0 var(--color-surface); }
-  html.kb-sheet .drawer.open :is(.och-actions, .mono-detail-actions, .sf-actions)::before{ content:''; position:absolute; left:-40px; right:-40px; top:0; height:1px; background:var(--color-border); pointer-events:none; }
+  /* Rev 2.32.318 (SHEET-FOOTER-4, B): MT-1116-2006: тінь і ::before шириною +40 пт убік (Rev 2.32.315) розширювали область прокрутки: вміст ОЧ їхав убік. Тепер панель РІВНО на внутрішню ширину шторки: від'ємні бічні поля = бічний відступ шторки (--sheet-pad-x), width: calc(100% + 2 × відступ), горизонтальні відступи всередині; жодного елемента ширшого за шторку; прокручуваний контейнер без горизонтальної прокрутки. */
+  html.kb-sheet .drawer.open{ overflow-x:hidden; overscroll-behavior-x:none; }
+  html.kb-sheet .drawer.open :is(.och-actions, .mono-detail-actions, .sf-actions){ z-index:5; background:var(--color-surface); box-sizing:border-box; width:calc(100% + 2 * var(--sheet-pad-x)); margin-left:calc(-1 * var(--sheet-pad-x)); margin-right:calc(-1 * var(--sheet-pad-x)); padding-left:var(--sheet-pad-x); padding-right:var(--sheet-pad-x); box-shadow:0 -8px 0 0 var(--color-surface); }
+  html.kb-sheet .drawer.open :is(.och-actions, .mono-detail-actions, .sf-actions)::before{ content:''; position:absolute; left:0; right:0; top:0; height:1px; background:var(--color-border); pointer-events:none; }
+  /* Rev 2.32.318: «Структура»: ряд дій іде в потоці останнім (як ОЧ), щоб «Видалити» докручувалось над панеллю, а не лишалось під нею */
+  html.kb-sheet #struct-drawer.open{ display:flex; flex-direction:column; }
+  html.kb-sheet #struct-drawer.open > *{ flex-shrink:0; } /* з рев'ю: у flex-колонці з overflow діти не стискаються (заголовок .sf-title має overflow:hidden) */
+  html.kb-sheet #struct-drawer.open .sf-body{ margin-bottom:-8px; }
+  html.kb-sheet #struct-drawer.open .sf-actions{ order:99; } /* flex не згортає поля: останній .sf-group (margin-bottom 8) і margin-top ряду давали +8 пт до висоти листа при відкритті клавіатури (тест 50); .sf-body margin-bottom −8 повертає блокову висоту */
   /* Rev 2.23.16 (6D.185) — перемикання числова↔текстова клавіатура
      (html.kb-sheet-switching додає JS у touchend-перехопленні): 220мс,
      cubic-bezier(0.25,0.46,0.45,0.94) — найближча до системної кривої
@@ -3871,7 +3879,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.317</div>
+  <div class="version-footer">Money Tree · Rev 2.32.318</div>
 </div>
   </div>
 </div>
@@ -9830,7 +9838,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.317';
+const APP_VERSION = '2.32.318';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
