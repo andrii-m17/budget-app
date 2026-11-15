@@ -30,10 +30,8 @@ test('із input insertReplacementText (або без inputType) — autofill (�
   typed.c.__a = 'x'; typed.c.__b = 'y'; evalInSandbox(typed.c, 'kbArrowCandidate(__a, __b)'); typed.run();
   assert.deepEqual(typed.events.map(e => e.type), ['arrow-direct'], 'звичайний набір тексту — не автозаповнення');
 });
-test('охорона: тип autofill у білому списку; ранній підйом лише за прямим дотиком, оцінка висоти — стартова ціль; одна компенсація pan (kbPanPending)', () => {
+test('охорона: тип autofill у білому списку; одна компенсація pan (kbPanPending)', () => {
   const i = HTML.indexOf('const REC_ALLOWED_TYPES = ['); assert.ok(HTML.slice(i, HTML.indexOf('];', i)).includes("'autofill'"));
-  assert.match(HTML, /kbPipeEarlyStart\(drawerEl, fieldEl, vvEstimate, naturalHeight, \{/);
-  assert.match(HTML, /const earlyOk = IS_IOS_RUNTIME && !window\.__kbNoEarly && \(\(!kbProxyActive && Date\.now\(\) - kbLastInterceptAt <= 400\)/);
   assert.match(HTML, /if\(!kbPanPending && !panSame\)\{ kbPanPending = true; requestAnimationFrame/);
 });
 
@@ -57,53 +55,14 @@ test('KB-36: значення двох полів змінились без кл
   keyed.c.__a = 'a'; keyed.c.__b = 'b'; evalInSandbox(keyed.c, 'kbArrowCandidate(__a, __b)'); keyed.run();
   assert.deepEqual(keyed.events.map(e => e.type), ['arrow-direct'], 'були натискання клавіш — не автозаповнення');
 });
-test('KB-36: kb-early у білому списку типів і ключів; по закритій формі kbRealLift/kbHoldOn/KB_EARLY_FACTOR присутні', () => {
+test('KB-36: kb-early у білому списку типів і ключів (історичні події лишаються дозволеними); по закритій формі kbRealLift/kbHoldOn присутні', () => {
   const i = HTML.indexOf('const REC_ALLOWED_TYPES = ['); assert.ok(HTML.slice(i, HTML.indexOf('];', i)).includes("'kb-early'"));
   const k = HTML.indexOf('const REC_ALLOWED_KEYS = ['); const keys = HTML.slice(k, HTML.indexOf('];', k));
   ['by', 'expected', 'src', 'factor', 'target'].forEach(x => assert.ok(keys.includes("'" + x + "'"), x));
   assert.match(HTML, /const wasClosing = !!\(kbClosingEl && kbClosingEl === drawerEl/);
-  assert.match(HTML, /const factor = \(ownHistory \|\| \(info\.src === 'session' && !loginField\)\) \? 1 : KB_EARLY_FACTOR;/);
 });
 
-// KB-37 (Rev 2.32.292): історія висоти за полем (id + орієнтація + база), kb-early-skip, рання нога.
-test('KB-37: kbFieldHeightGet/Save — ключ id | орієнтація | база; інша база чи інше поле — немає значення; сесія раніше за сховище; без id — null', () => {
-  const m = {}; let base = 664;
-  const c = buildSandbox({ localStorage: { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }, getBaseViewportHeight: () => base, window: { innerHeight: 664 }, kbFieldSession: {} },
-    ['kbFieldKey', 'kbFieldHeightGet', 'kbFieldHeightSave', 'kbHeightKeyBase', 'KB_FIELD_HEIGHTS_KEY', 'KB_FIELD_HEIGHTS_MAX', 'kbFieldList']);
-  c.__s = (o, id, h) => { c.__a = [o, id, h]; evalInSandbox(c, 'kbFieldHeightSave(__a[0], __a[1], __a[2])'); };
-  c.__g = (o, id) => { c.__a = [o, id]; return evalInSandbox(c, 'kbFieldHeightGet(__a[0], __a[1])'); };
-  c.__s('portrait', 'app-modal-input', 415);
-  assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, alt: null, src: 'field-session', last: 415 });
-  assert.equal(c.__g('portrait', 'cldfielda1'), null, 'інше поле — власної історії нема');
-  assert.equal(c.__g('landscape', 'app-modal-input'), null, 'інша орієнтація');
-  assert.equal(c.__g('portrait', ''), null, 'без id історії поля нема');
-  assert.ok(Object.keys(JSON.parse(m['budget-kb-heights-f1']))[0] === 'app-modal-input|portrait|h664', 'ключ у сховищі');
-  assert.deepEqual(JSON.parse(m['budget-kb-heights-f1'])['app-modal-input|portrait|h664'], [415], 'у сховищі набір висот');
-  base = 700; assert.equal(c.__g('portrait', 'app-modal-input'), null, 'інша база висоти');
-  base = 664; evalInSandbox(c, 'kbFieldSession = {}'); assert.deepEqual(JSON.parse(JSON.stringify(c.__g('portrait', 'app-modal-input'))), { h: 415, alt: null, src: 'field-store', last: 415 }, 'нова сесія читає зі сховища');
-});
-test('KB-37: охорона коду — рання нога довша, kb-early-skip у білому списку, множник лише без власної історії, повторний focusin пропускається', () => {
-  assert.match(HTML, /kbSetLift\(L, 0, undefined, curve \|\| true\);/);
-  assert.match(HTML, /captureDebugGeometry\('kb-early-skip', \{ reason: 'same-field'/);
-  const i = HTML.indexOf('const REC_ALLOWED_TYPES = ['); assert.ok(HTML.slice(i, HTML.indexOf('];', i)).includes("'kb-early-skip'"));
-  assert.match(HTML, /const ownH = kbFieldHeightGet\(orientKey, fieldEl && fieldEl\.id, kbCacheKindForField\(fieldEl\)\)/); // Rev 2.32.309 (KB-AMOUNT): ключ із типом клавіатури
-});
 
-// KB-37, поправка 2: набір до 4 останніх різних висот поля, ціль — найменша.
-test('KB-37: історія поля — набір до 4 останніх різних висот, найменша береться як рання ціль; старий формат (число) читається', () => {
-  const m = { 'budget-kb-heights-f1': JSON.stringify({ 'old|portrait|h664': 400 }) };
-  const c = buildSandbox({ localStorage: { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }, getBaseViewportHeight: () => 664, window: { innerHeight: 664 }, kbFieldSession: {} },
-    ['kbFieldKey', 'kbFieldHeightGet', 'kbFieldHeightSave', 'kbHeightKeyBase', 'KB_FIELD_HEIGHTS_KEY', 'KB_FIELD_HEIGHTS_MAX', 'kbFieldList']);
-  const sv = (id, h) => { c.__a = [id, h]; evalInSandbox(c, "kbFieldHeightSave('portrait', __a[0], __a[1])"); };
-  const gt = id => { c.__a = [id]; const r = evalInSandbox(c, "kbFieldHeightGet('portrait', __a[0])"); return r && { h: r.h, src: r.src }; };
-  assert.deepEqual(gt('old'), { h: 400, src: 'field-store' });
-  [388, 311, 388, 415].forEach(h => sv('f', h));
-  assert.equal(gt('f').h, 311, 'найменша з {311, 388, 415}');
-  assert.deepEqual(JSON.parse(m['budget-kb-heights-f1'])['f|portrait|h664'], [311, 388, 415], 'різні значення, повтор 388 не дублюється');
-  [500, 501, 502].forEach(h => sv('f', h));
-  assert.deepEqual(JSON.parse(m['budget-kb-heights-f1'])['f|portrait|h664'], [415, 500, 501, 502].slice(-4), 'не більше 4 останніх');
-  assert.equal(gt('f').h, 415);
-});
 // KB-38 (Rev 2.32.293): закон руху — швидкість ніколи не зростає: рання нога (250 мс, профіль 2.32.291) + нога уточнення (T = clamp(k·залишок/швидкість, 150, 500), початковий нахил = поточна швидкість).
 test('KB-38: рання нога + нога уточнення — швидкість по кадрах ніде не зростає (3 %), кінець на цілі, без перельоту', () => {
   const c = buildSandbox({}, ['kbBezier', 'KB_MOTION_CURVE', 'KB_RETARGET_K', 'KB_RETARGET_MIN', 'KB_RETARGET_MAX', 'kbRetargetLeg']);
@@ -131,69 +90,27 @@ test('KB-38: рання нога + нога уточнення — швидкі�
   }
 });
 
-// KB-39, B: остання не-найменша висота як рання ціль (alt), найменша — запас на дедлайн.
-test('KB-39: історія {311, 415} — h = 311, alt = 415 (остання не-найменша); {415, 311} — alt = 415; одна висота — alt null', () => {
-  const m = {}; const c = buildSandbox({ localStorage: { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }, getBaseViewportHeight: () => 664, window: { innerHeight: 664 }, kbFieldSession: {} },
-    ['kbFieldKey', 'kbFieldHeightGet', 'kbFieldHeightSave', 'kbHeightKeyBase', 'KB_FIELD_HEIGHTS_KEY', 'KB_FIELD_HEIGHTS_MAX', 'kbFieldList']);
-  const sv = (id, h) => { c.__a = [id, h]; evalInSandbox(c, "kbFieldHeightSave('portrait', __a[0], __a[1])"); };
-  const gt = id => { c.__a = [id]; const r = evalInSandbox(c, "kbFieldHeightGet('portrait', __a[0])"); return r && { h: r.h, alt: r.alt }; };
-  [311, 415].forEach(h => sv('a', h)); assert.deepEqual(gt('a'), { h: 311, alt: 415 });
-  [415, 311].forEach(h => sv('b', h)); assert.deepEqual(gt('b'), { h: 311, alt: 415 });
-  [311, 388, 415].forEach(h => sv('d', h)); assert.deepEqual(gt('d'), { h: 311, alt: 415 }, 'остання не-найменша');
-  [415, 388, 311, 311].forEach(h => sv('e', h)); assert.deepEqual(gt('e'), { h: 311, alt: 388 }, 'остання серед не-найменших — 388');
-  sv('f', 388); assert.deepEqual(gt('f'), { h: 388, alt: null });
-});
 
-// KB-39 (B, переробка, Rev 2.32.295): підбір кривої раннього підйому під геометрію поля з кількома висотами.
-test('KB-39: kbEarlyCurveFor — крива задовольняє обидві умови (≥ a на +100 мс, ≤ b на +130 мс), спадна швидкість; неможливо — null', () => {
-  const c = buildSandbox({}, ['kbBezier', 'KB_EARLY_CURVES', 'KB_EARLY_CHECK_MS', 'kbEarlyCurveFor']);
-  const cv = (a, b) => { c.__a = [a, b]; const r = evalInSandbox(c, 'kbEarlyCurveFor(__a[0], __a[1])'); return r && JSON.parse(JSON.stringify(r)); };
-  const r = cv(0.554, 0.669); assert.ok(r, 'геометрія пошти входу (a = 0,554; b = 0,669) — крива існує');
-  assert.ok(r.p100 >= 0.554 && r.p130 <= 0.669, 'p100 ' + r.p100 + ', p130 ' + r.p130);
-  const f = t => { c.__t = [r.c, r.dur, t]; return evalInSandbox(c, 'kbBezier(__t[0][0], __t[0][1], __t[0][2], __t[0][3], __t[2] / __t[1])'); };
-  const v = t => (f(t + 1.5) - f(Math.max(0, t - 1.5))) / 3;
-  for(let t = 6; t < r.dur - 6; t += 6) assert.ok(v(t + 6) <= v(t) * 1.02 + 1e-8, 'швидкість не зростає в ' + t);
-  assert.equal(cv(0.9, 0.5), null, 'a ≥ b — неможливо');
-  assert.equal(cv(0.97, 0.98), null, 'надто вузьке вікно (b − a < кроку таблиці) — може не існувати');
-  assert.ok(cv(0.2, 0.9), 'широке вікно — крива є');
-});
 
-// Rev 2.32.302 (KB-FACEID): структурна охорона гілки «поле входу з різними висотами: рання ціль мінімум без дедлайну»; поведінка — e2e 103.
-test('KB-FACEID: гілка login-min лише для полів входу з історією висот і лише коли мінімум відкриває поле; інакше стара гілка KB-39', () => {
-  assert.match(HTML, /if\(loginField && need !== null && Lmin > 1 && need \+ KB_EARLY_NEED_SLACK <= Lmin\)\{ L = Lmin; minHActive = null; loginMin = true; \}\n\s+else if\(need !== null && Lnorm > 1 && Lmin > 1\) curve = kbEarlyCurveFor\(/);
-  assert.match(HTML, /if\(!curve && !loginMin\)\{\n\s+captureDebugGeometry\('kb-early-fallback'/);
-  assert.match(HTML, /reason: loginMin \? 'login-min' : undefined/);
-});
 
-// Rev 2.32.309 (KB-AMOUNT, C): історія висот поля — ключ із типом клавіатури, запис лише після стабілізації, off:uncertain.
-test('KB-AMOUNT: kbEarlyUncertainFor — недостовірна лише коли історія є, а last немає; [416, 389] → достовірна (ціль last 389); поле входу й без історії → ні', () => {
-  const m = {}; let base = 894;
-  const c = buildSandbox({ localStorage: { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }, getBaseViewportHeight: () => base, window: { innerHeight: 894 }, navigator: { userAgent: 'iPhone', platform: 'iPhone', maxTouchPoints: 5 },
-    kbCacheKindForField: f => f.kind, viewportOrientationKey: () => 'portrait', kbFieldSession: {} },
-    ['kbFieldKey', 'kbFieldHeightGet', 'kbFieldHeightSave', 'kbHeightKeyBase', 'KB_FIELD_HEIGHTS_KEY', 'KB_FIELD_HEIGHTS_MAX', 'kbFieldList', 'kbEarlyUncertainFor']);
-  const sv = (id, h, kind) => { c.__a = [id, h, kind]; evalInSandbox(c, "kbFieldHeightSave('portrait', __a[0], __a[1], __a[2])"); };
-  const un = f => { c.__f = f; return evalInSandbox(c, 'kbEarlyUncertainFor(__f)'); };
-  const amount = { id: 'app-modal-amount-input', kind: 'numeric' };
-  assert.equal(un(amount), false, 'без історії — поведінка попередня');
-  sv('app-modal-amount-input', 416, 'numeric'); sv('app-modal-amount-input', 389, 'numeric');
-  assert.equal(un(amount), false, '[416, 389]: ціль = last 389 — достовірна');
-  assert.equal(evalInSandbox(c, "kbFieldHeightGet('portrait', 'app-modal-amount-input', 'numeric').last"), 389);
-  m['budget-kb-heights-f1'] = JSON.stringify({ 'app-modal-amount-input|portrait|h894|knumeric': [] }); evalInSandbox(c, 'kbFieldSession = {}');
-  assert.equal(un(amount), false, 'порожній набір — історії нема');
-  assert.equal(un({ id: 'cldfielda1', kind: 'email' }), false, 'поле входу — окреме правило');
-  assert.equal(un({ id: '', kind: 'numeric' }), false);
-  assert.ok(JSON.stringify(Object.keys(JSON.parse(m['budget-kb-heights-f1']))).includes('knumeric'), 'ключ містить тип клавіатури');
+
+// Rev 2.32.310 (KB-FINAL, C): ранній підйом, історія висот поля, гейт 650 мс і off:uncertain прибрані; earlyState у sheet-open лишається зі значенням off:removed.
+test('KB-FINAL: коду раннього підйому й історії висот поля немає; sheet-open пише earlyState off:removed; kbSetLift без параметра early', () => {
+  for (const n of ['kbPipeEarlyStart', 'kbEarlyStateNow', 'kbEarlyReset', 'kbEarlyCurveFor', 'kbFieldHeightGet', 'kbFieldHeightSave', 'kbSaveStableFieldHeight', 'kbEarlyUncertainFor', 'KB_EARLY_FACTOR', 'KB_EARLY_DEADLINE_MS', 'KB_REOPEN_QUIET_MS', 'KB_FIELD_HEIGHTS_KEY', 'kbFieldSession', 'kbEarlyLast'])
+    assert.ok(!new RegExp('\\b' + n + '\\b').test(HTML.replace(/\/\/[^\n]*/g, '')), n + ' має бути прибрано');
+  assert.match(HTML, /earlyState: 'off:removed'/);
+  assert.match(HTML, /function kbSetLift\(target, boost, fromAbs\)\{/);
+  assert.match(HTML, /kbPipeEnter\(drawerEl, fieldEl, naturalHeight, forceMeasure\);/);
 });
-test('KB-AMOUNT: ціль раннього підйому для поля поза входом — last, не alt', () => {
-  assert.match(HTML, /const ownUseLast = !!ownH && !ownLoginField && typeof ownH\.last === 'number';/);
-  assert.match(HTML, /const estimate = ownH \? \(ownUseLast \? ownH\.last : \(ownH\.alt \|\| ownH\.h\)\)/);
-  assert.match(HTML, /minH: \(ownH && ownH\.alt && !ownUseLast\) \? ownH\.h : null/);
-});
-test('KB-AMOUNT: структура — запис історії лише у kbSaveStableFieldHeight (таймер kb-heights), не в updateKbSheetGeometry; off:uncertain у kbEarlyStateNow і kbPipeEarlyStart', () => {
-  const u0 = HTML.indexOf('function updateKbSheetGeometry(){'); const u1 = HTML.indexOf('\nfunction ', u0 + 10);
-  assert.ok(!/kbFieldHeightSave\(/.test(HTML.slice(u0, u1)), 'updateKbSheetGeometry більше не пише історію');
-  assert.match(HTML, /if\(kbHSeen\.length\) kbSaveStableFieldHeight\(kbHSeen\[kbHSeen\.length - 1\]\);/);
-  assert.match(HTML, /kbFieldHeightSave\(viewportOrientationKey\(window\.innerWidth, window\.innerHeight\), hf\.id, h, kbCacheKindForField\(hf\)\)/);
-  assert.match(HTML, /return 'off:uncertain'; \/\/ Rev 2\.32\.309 \(KB-AMOUNT\)/);
-  assert.match(HTML, /if\(kbEarlyUncertainFor\(fieldEl\)\) return; \/\/ Rev 2\.32\.309 \(KB-AMOUNT, C\)/);
+test('KB-FINAL: перший фокус на touchstart при закритій клавіатурі (≤ 12 пт, не кнопки), start.first обходить межу тривалості; kb-sheet-pre; pageTop у білому списку', () => {
+  assert.match(HTML, /const KB_FIRST_NEAR_PAD = 12;/);
+  assert.match(HTML, /target\.closest\('button, a\[href\], select, summary, \[role="button"\], \[role="switch"\], \[role="checkbox"\], \[role="tab"\], label, input, textarea, \[onclick\], \[tabindex\]:not\(\[tabindex="-1"\]\), \[data-action\]'\)\) return null;/);
+  assert.match(HTML, /else if\(!kbSheetActive && !kbProxyActive\)\{/);
+  assert.match(HTML, /entry\.field = field; entry\.intercept = true; entry\.first = true;/);
+  assert.match(HTML, /if\(start\.first && \(start\.scrolling \|\| moved \|\| !target\)\) return;/);
+  assert.match(HTML, /const intercept = \(start\.first && !!target\) \? true : shouldInterceptFirstFocus\(/);
+  assert.match(HTML, /:where\(html:not\(\.kb-sheet-pre\)\) body\.kb-open nav\.tabbar\{ display:none; \}/);
+  assert.match(HTML, /queueMicrotask\(function\(\)\{ document\.documentElement\.classList\.remove\('kb-sheet-pre'\); \}\);/);
+  const k = HTML.indexOf('const REC_ALLOWED_KEYS = ['); const keys = HTML.slice(k, HTML.indexOf('];', k));
+  for (const x of ['pageTop', 'pageTopStart', 'pageTopEnd']) assert.ok(keys.includes("'" + x + "'"), x);
 });

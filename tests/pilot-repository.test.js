@@ -5360,7 +5360,7 @@ function kbSheetSandbox(opts){
     }, 'activeElement', { get: function(){ return state.activeElement; } }),
     window: { visualViewport: { height: 894, offsetTop: 0 }, innerWidth: 440, innerHeight: 894, scrollY: 0, scrollTo: function(){} },
     navigator: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', platform: 'iPhone', maxTouchPoints: 5 }, // Rev 2.32.240: стара поведінка iPhone за замовчуванням (старі тести); конвеєр — окремі тести з iPad
-    kbSessionBase: 0, kbEnterHop: false, kbAutofillEvidenceAt: -1e9, kbAutofillGroup: null, kbPanPending: false, kbClosingEl: null, kbPanLastTop: -1, kbPanLastAt: 0, kbAutoOpenAt: 0, kbEarlyGeom: null, kbFieldSession: {}, kbEarlyLast: { el: null, t: 0, left: false }, kbHoldOn: false, kbNoTouchUntil: 0, kbLastKeyAt: 0, kbValBase: null, kbLastFieldScroll: { field: null, at: 0 }, kbHSeen: [], kbHTimer: null, kbOpenVia: 'direct',
+    kbSessionBase: 0, kbEnterHop: false, kbAutofillEvidenceAt: -1e9, kbAutofillGroup: null, kbPanPending: false, kbClosingEl: null, kbPanLastTop: -1, kbPanLastAt: 0, kbAutoOpenAt: 0, kbFieldSession: {}, kbHoldOn: false, kbNoTouchUntil: 0, kbLastKeyAt: 0, kbValBase: null, kbLastFieldScroll: { field: null, at: 0 }, kbHSeen: [], kbHTimer: null, kbOpenVia: 'direct',
     keyboardHeightCache: { portrait: {}, landscape: {} },
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
     drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
@@ -5393,14 +5393,14 @@ function kbSheetSandbox(opts){
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
     'viewportOrientationKey', 'kbMeasureBase', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
-    'enterKbSheet', 'kbStMs', 'kbStSnapMs', 'kbSaveStableFieldHeight', 'kbEarlyUncertainFor', 'kbEnsureFieldVisible', 'kbSetLift', 'kbLiftState', 'kbLiftCommit', 'kbLiftTransform', 'kbLiftFinish', 'kbLiftStop', 'KB_MOTION_DUR', 'KB_MOTION_CURVE', 'KB_MOTION_EASING', 'kbMotionVar', 'kbNoteKbH', 'kbStartFieldScroll', 'kbScrollParentOf', 'kbCloseScroll', 'kbScrollDone', 'kbBezier', 'computeFieldScrollTarget', 'kbStickyBarOf', 'debugSafeAreaInsets', 'kbRestBottomLayout', 'kbPipeStep', 'KB_PIPE', 'KB_PIPE_WAIT_MS', 'kbCacheKindForField', 'kbHeightKey', 'kbHeightsLoad', 'kbHeightsSave', 'kbHeightFromStore', 'KB_HEIGHTS_KEY', 'kbPipeOpenNow', 'kbPipeEnter', 'kbPipeTryAnimate', 'kbPipeKick', 'kbPipeAnimate', 'kbPipeFollow', 'kbVvTopCloseFollow', 'KB_CLOSE_FOLLOW', 'kbIsIphone', 'kbgDeviceClass', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
+    'enterKbSheet', 'kbStMs', 'kbStSnapMs', 'kbPageTop', 'kbEnsureFieldVisible', 'kbSetLift', 'kbLiftState', 'kbLiftCommit', 'kbLiftTransform', 'kbLiftFinish', 'kbLiftStop', 'KB_MOTION_DUR', 'KB_MOTION_CURVE', 'KB_MOTION_EASING', 'kbMotionVar', 'kbNoteKbH', 'kbStartFieldScroll', 'kbScrollParentOf', 'kbCloseScroll', 'kbScrollDone', 'kbBezier', 'computeFieldScrollTarget', 'kbStickyBarOf', 'debugSafeAreaInsets', 'kbRestBottomLayout', 'kbPipeStep', 'KB_PIPE', 'KB_PIPE_WAIT_MS', 'kbCacheKindForField', 'kbHeightKey', 'kbHeightsLoad', 'kbHeightsSave', 'kbHeightFromStore', 'KB_HEIGHTS_KEY', 'kbPipeOpenNow', 'kbPipeEnter', 'kbPipeTryAnimate', 'kbPipeKick', 'kbPipeAnimate', 'kbPipeFollow', 'kbVvTopCloseFollow', 'KB_CLOSE_FOLLOW', 'kbIsIphone', 'kbgDeviceClass', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle', 'shouldReleaseKbOpen', // Rev 2.23.30 (6D.199)
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
     'computeSheetLift', 'computeCenteredRestBottom', 'kbEffectiveRestBottom', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
     'resolveTapField', 'resolveTapFieldNear', 'TAP_NEAR_FIELD_PAD', 'shouldInterceptFirstFocus', 'kbKindOf',
     'focusWithoutScrollIfSupported',
-    'KB_REOPEN_QUIET_MS', 'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbEarlyReset', 'kbEarlyStateNow', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'kbPipeEarlyStart','KB_PAN_SAME_MS','KB_EARLY_DEADLINE_MS','KB_AUTOFOCUS_MAX_MS','kbRealLift','kbSlideRunning','kbSnapValues','kbValuesChanged','kbHeightKeyBase','KB_EARLY_FACTOR','kbFieldKey','kbFieldHeightGet','kbFieldHeightSave','KB_FIELD_HEIGHTS_KEY','KB_RETARGET_K','KB_RETARGET_MIN','KB_RETARGET_MAX','kbRetargetLeg','kbFieldList','KB_EARLY_CURVES','KB_EARLY_CHECK_MS','KB_EARLY_NEED_SLACK','kbEarlyCurveFor','KB_FIELD_HEIGHTS_MAX','KB_EARLY_QUICK_MS','KB_EARLY_REPEAT_MS', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
+    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'KB_PAN_SAME_MS','KB_AUTOFOCUS_MAX_MS','kbRealLift','kbSlideRunning','kbSnapValues','kbValuesChanged','kbHeightKeyBase','KB_RETARGET_K','KB_RETARGET_MIN','KB_RETARGET_MAX','kbRetargetLeg', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
     'beginSheetMoving', 'planCaretRestore',
     'getOrCreateKbProxyEl', 'configureKbProxy', 'proxyCaretStyle', 'computeProxyOffset', 'computeProxyDist', 'placeKbProxyAtField',
   ]);
@@ -5885,16 +5885,6 @@ test('enterKbSheet: перше відкриття НАТИВНО (direct) на i
   m.ctx.kbLastInterceptAt = m.state.clock - 5000;
   m.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
   assert.ok(m.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }), 'перехоплення було давно: промах');
-});
-test('kbEarlyStateNow (KB-LOGIN-FIX): менше KB_REOPEN_QUIET_MS (650) від sheet-close → off:closing; 700 мс і без закриття → started', () => {
-  const mk = (since) => { const s = kbSheetSandbox(); s.ctx.kbLastInterceptAt = s.state.clock - 10; s.ctx.kbLastSheetCloseAt = since === null ? 0 : s.state.clock - since; return s; };
-  const f = makeDrawerField({ inDrawer: true });
-  assert.equal(mk(540).ctx.kbEarlyStateNow(f, false, false), 'off:closing');
-  assert.equal(mk(649).ctx.kbEarlyStateNow(f, false, false), 'off:closing');
-  assert.equal(mk(700).ctx.kbEarlyStateNow(f, false, false), 'started');
-  assert.equal(mk(null).ctx.kbEarlyStateNow(f, false, false), 'started');
-  assert.equal(mk(540).ctx.kbEarlyStateNow(f, false, true), 'off:closing', 'і для автофокусу');
-  assert.match(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8'), /const KB_REOPEN_QUIET_MS = 650;/);
 });
 test('sheet-open: sinceClose = мс від останнього sheet-close; без закриття поля немає; у білому списку самописця', () => {
   const a = kbSheetSandbox();

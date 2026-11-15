@@ -1141,23 +1141,6 @@ test('85. KB-35/A: серія автозаповнення (focusin без до�
     expect(r.hid, 'курсор не ховається: ' + info).toBe(false);
   } finally { await ctx.close(); }
 });
-test('86. KB-35/B: дотик у нижнє поле — через 100 мс, ще до kb-vv-resize, поле вже над очікуваною межею клавіатури', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
-    await page.waitForTimeout(900);
-    const bb = await page.locator('#cloud-password').boundingBox();
-    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(100);
-    const r = await page.evaluate(() => { const f = document.getElementById('cloud-password').getBoundingClientRect(); return { fieldBottom: f.bottom, limit: window.__H0 - Math.round(window.__H0 * 0.465 * 0.75), vvH: window.visualViewport.height, H0: window.__H0 }; });
-    expect(r.vvH, 'kb-vv-resize ще не приходив (емуляція)').toBe(r.H0);
-    expect(r.fieldBottom, 'поле над межею ранньої цілі (0,75 очікуваної висоти): ' + JSON.stringify(r)).toBeLessThanOrEqual(r.limit + 1);
-    // якщо клавіатура так і не з'явилась — форма плавно повертається
-    await page.waitForTimeout(900);
-    const back = await page.evaluate(() => ({ lift: getComputedStyle(document.documentElement).getPropertyValue('--sheet-lift').trim(), running: document.getElementById('profile-drawer').getAnimations().filter(a => a.playState === 'running').length }));
-    expect(Number(back.lift), 'без клавіатури лист повернуто: ' + JSON.stringify(back)).toBeLessThanOrEqual(1);
-  } finally { await ctx.close(); }
-});
 test('87. KB-35/C: один зсув сторінки — одна компенсація pan-comp (resize і scroll в одному кадрі)', async ({ browser }) => {
   const { ctx, page } = await kb25Open(browser, false);
   try{
@@ -1174,40 +1157,6 @@ test('87. KB-35/C: один зсув сторінки — одна компен�
 
 // KB-35 (Rev 2.32.290): ранній підйом з дотику при РОЗБІЖНОСТІ оцінки й справжньої висоти клавіатури (без __kbNoEarly). Очікувана висота задається збереженим значенням (ключ v2), справжня приходить через 90 мс після дотику. Критерії як у тесті 56: зворотний крок ≤ 0,5 пт, переліт ≤ 1 пт, кінець на цілі еталонного прогону (рух за vv-подією без раннього підйому) ±1.
 const KB35_CASES = [[415, 311, 'Face ID: менша за очікувану'], [415, 389, 'менша за очікувану (цифрова)'], [389, 415, 'більша за очікувану']];
-async function kb35Run(browser, expected, real, early){
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(([e, early]) => {
-      if(!early) window.__kbNoEarly = true;
-      const k = 'iPhone|portrait|password|h' + Math.round(window.__H0); const o = {}; o[k] = e; localStorage.setItem('budget-kb-heights-v2', JSON.stringify(o));
-      window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm();
-    }, [expected, early]);
-    await page.waitForTimeout(900);
-    const bb = await page.locator('#cloud-password').boundingBox();
-    const sampler = page.evaluate(() => new Promise(resolve => {
-      const m = document.getElementById('profile-drawer'), s = []; const t0 = performance.now();
-      const tick = () => { s.push([Math.round(performance.now() - t0), new DOMMatrix(getComputedStyle(m).transform).m42]); if(performance.now() - t0 < 1500) requestAnimationFrame(tick); else resolve(s); };
-      requestAnimationFrame(tick);
-    }));
-    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(90);
-    await page.evaluate(r => { window.__vv.h = window.__H0 - r; window.visualViewport.dispatchEvent(new Event('resize')); }, real);
-    return await sampler;
-  } finally { await ctx.close(); }
-}
-for(const [expected, real, label] of KB35_CASES){
-  test('88. KB-35: ранній підйом, очікувано ' + expected + ', реально ' + real + ' (' + label + ') — без перельоту, без зворотного кроку, кінець на цілі', async ({ browser }) => {
-    const ref = await kb35Run(browser, expected, real, false);
-    const s = await kb35Run(browser, expected, real, true);
-    const refY = ref[ref.length - 1][1], finalY = s[s.length - 1][1];
-    const startY = s[0][1];
-    let minY = 1e9, back = 0; for(let i = 0; i < s.length; i++){ minY = Math.min(minY, s[i][1]); if(i > 0 && s[i][1] - s[i - 1][1] > 0.3) back += s[i][1] - s[i - 1][1]; }
-    const info = JSON.stringify({ expected, real, refY: Math.round(refY * 10) / 10, finalY: Math.round(finalY * 10) / 10, minY: Math.round(minY * 10) / 10, startY: Math.round(startY), overshoot: Math.round((finalY - minY) * 10) / 10, back: Math.round(back * 10) / 10, sample: s.filter(r => r[0] < 700).map(r => [r[0], Math.round(r[1] * 10) / 10]).slice(0, 30) });
-    expect(Math.abs(finalY - refY), 'кінець на цілі еталона ±1: ' + info).toBeLessThanOrEqual(1);
-    expect(finalY - minY, 'переліт ≤ 1 пт: ' + info).toBeLessThanOrEqual(1);
-    expect(back, 'зворотний крок ≤ 0,5 пт: ' + info).toBeLessThanOrEqual(0.5);
-  });
-}
 
 // KB-36 (Rev 2.32.291), тест 89: звіт MT-1112-1038 («Додати ОЧ», швидкі повторні відкриття): фокус приходив, поки анімація закриття ще йшла. Закриття скасовується в цьому ж кадрі, підйом стартує з фактичного поточного положення: рівно одна анімація, рух лише вгору.
 async function kb36OpenModal(page){
@@ -1254,37 +1203,6 @@ test('89. KB-36/1: дотик у поле під час закриття кла�
   } finally { await ctx.close(); }
 });
 
-// KB-36 (Rev 2.32.291), тест 90: центрована форма, висота клавіатури для цього типу поля вже виміряна в сесії → ціль раннього підйому = повна висота: через 100 мс після дотику (ще до kb-vv-resize) поле над межею клавіатури.
-test('90. KB-36/2: центрована форма з відомою в сесії висотою клавіатури — до кінця ранньої ноги (520 мс, без kb-vv-resize) поле над межею клавіатури', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await kb36OpenModal(page);
-    const K = await page.evaluate(() => Math.round(window.__H0 * 0.7));
-    let bb = await page.locator('#app-modal-amount-input').boundingBox();
-    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(100);
-    await page.evaluate(k => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, K); // висота виміряна в сесії
-    await page.waitForTimeout(900);
-    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(1200); // форма в спокої
-    bb = await page.locator('#app-modal-amount-input').boundingBox();
-    const restBottom = bb.y + bb.height;
-    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(100);
-    const at100 = await page.evaluate(() => document.getElementById('app-modal-amount-input').getBoundingClientRect().bottom); // стан на +100 мс
-    await page.waitForTimeout(420); // рання нога триває 460 мс (KB-37); до kb-vv-resize вона має довести поле до межі сама
-    const r = await page.evaluate(() => { const f = document.getElementById('app-modal-amount-input').getBoundingClientRect(); return { fieldBottom: f.bottom, vvH: window.visualViewport.height, H0: window.__H0, early: recBuf.filter(e => e.type === 'kb-early').map(e => ({ src: e.src, factor: e.factor, expected: e.expected, target: e.target })) }; });
-    const limit = r.H0 - Math.round(r.H0 * 0.7);
-    expect(restBottom, 'у спокої поле під межею клавіатури (умова тесту): ' + JSON.stringify({ restBottom, limit })).toBeGreaterThan(limit + 5);
-    expect(r.vvH, 'kb-vv-resize ще не приходив (емуляція)').toBe(r.H0);
-    // Рання ціль — повна виміряна висота (власна історія поля, множник 1): через 520 мс (кінець ноги 460 мс) поле над межею; до змін (ціль 0,75 від очікуваної) поле лишалось на ≈ 80 пт нижче.
-    expect(r.fieldBottom, 'поле майже над межею клавіатури, виміряної в сесії (≤ межа + 2): ' + JSON.stringify(Object.assign({ limit }, r))).toBeLessThanOrEqual(limit + 2);
-    expect(at100, 'на +100 мс поле майже над межею клавіатури (≤ межа + 25, як у 2.32.291): ' + JSON.stringify({ restBottom, at100, limit })).toBeLessThanOrEqual(limit + 25);
-    const last = r.early[r.early.length - 1];
-    expect(last && last.src, 'kb-early: джерело — власна історія поля в сесії: ' + JSON.stringify(r.early)).toBe('field-session');
-    expect(last && last.factor, 'kb-early: повна очікувана висота (множник 1): ' + JSON.stringify(r.early)).toBe(1);
-  } finally { await ctx.close(); }
-});
 
 // KB-36 (Rev 2.32.291), тест 91: звіт MT-1112-9754: автозаповнення без input, клавіатура закрилась за ≈95 мс від focusin без дотику → autofill (by closed), жодного arrow-direct, жодної анімації resize перед закриттям.
 test('91. KB-36/3: focusin без дотику, клавіатура закрилась за 120 мс, input не було — autofill, жодного resize і arrow-direct', async ({ browser }) => {
@@ -1311,156 +1229,8 @@ test('91. KB-36/3: focusin без дотику, клавіатура закри�
   } finally { await ctx.close(); }
 });
 
-// KB-37 (Rev 2.32.292): ранній підйом без «стоп» (A), оцінка за полем (B), без повторних ранніх стартів (C). Звіти MT-1112-5246/-3384.
-// Хелпер: вхід, збережена висота типу password (ключ v2; власної історії поля нема, тож для входу множник KB_EARLY_FACTOR) = expected, дотик у cloud-password, справжня висота real приходить через lateMs; семпли підйому листа (−m42) щокадру.
-async function kb37Run(browser, expected, real, lateMs, early, hist, fieldId, dev, prep){
-  fieldId = fieldId || 'cloud-password';
-  const { ctx, page } = await open(browser, dev || devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(([e, early, hist, fid, prep]) => {
-      if(prep) (0, eval)(prep);
-      if(!early) window.__kbNoEarly = true;
-      if(hist){ const f = {}; f[fid + '|portrait|h' + Math.round(window.__H0) + '|k' + (fid === 'cloud-password' ? 'password' : 'email')] = hist; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); } // Rev 2.32.309: ключ із типом клавіатури
-      const o = {}; o['iPhone|portrait|password|h' + Math.round(window.__H0)] = e; localStorage.setItem('budget-kb-heights-v2', JSON.stringify(o)); // історія ТИПУ (без власної історії поля входу): множник KB_EARLY_FACTOR
-      window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm();
-    }, [expected, early, hist || null, fieldId, prep || null]);
-    await page.waitForTimeout(900);
-    const bb = await page.locator('#' + fieldId).boundingBox();
-    const sampler = page.evaluate(fid => new Promise(resolve => {
-      const m = document.getElementById('profile-drawer'), fe = document.getElementById(fid), s = []; const t0 = performance.now(); window.__t0 = t0;
-      const tick = () => { s.push([Math.round((performance.now() - t0) * 10) / 10, -new DOMMatrix(getComputedStyle(m).transform).m42, Math.round(fe.getBoundingClientRect().bottom * 10) / 10]); if(performance.now() - t0 < 1500) requestAnimationFrame(tick); else resolve(s); };
-      requestAnimationFrame(tick);
-    }), fieldId);
-    await page.evaluate(() => { document.addEventListener('touchend', () => { window.__tapAt = Math.round((performance.now() - window.__t0) * 10) / 10; }, { capture: true, once: true }); });
-    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(lateMs);
-    const tr = await page.evaluate(r => { window.__vv.h = window.__H0 - r; window.visualViewport.dispatchEvent(new Event('resize')); return Math.round((performance.now() - window.__t0) * 10) / 10; }, real);
-    const sm = await sampler;
-    const ev = await page.evaluate(() => recBuf.filter(e => String(e.type).indexOf('kb-early') === 0).map(e => ({ type: e.type, target: e.target, expected: e.expected, deadline: e.deadline, ms: e.ms, need: e.need, lmin: e.lmin, lnorm: e.lnorm, reason: e.reason })));
-    const tapAt = await page.evaluate(() => window.__tapAt);
-    return { s: sm, tr, ev, tapAt };
-  } finally { await ctx.close(); }
-}
-function kb37Metrics(r){
-  const s = r.s, final = s[s.length - 1][1];
-  const v = []; for(let i = 1; i < s.length; i++){ const dt = s[i][0] - s[i - 1][0]; if(dt > 0 && dt <= 25) v.push([s[i][0], (s[i][1] - s[i - 1][1]) / dt]); }
-  const vMax = Math.max.apply(null, v.map(x => x[1]));
-  const first = (s.find(x => x[1] > 1) || [0])[0];
-  const win = (a, b) => { const w = v.filter(x => x[0] >= a && x[0] <= b); return w.length ? w.reduce((q, x) => q + x[1], 0) / w.length : 0; };
-  const vBefore = win(r.tr - 45, r.tr + 2), vAfter = win(r.tr + 18, r.tr + 45); // два-три кадри до і після перемикання ноги
-  const dipWin = v.filter(x => x[0] >= r.tr && x[0] <= r.tr + 60).map(x => x[1]); const minAfter = dipWin.length ? Math.min.apply(null, dipWin) : 0;
-  const t92 = (s.find(x => x[1] >= 0.92 * final && x[0] > first) || [1e9])[0];
-  const minMid = Math.min.apply(null, v.filter(x => x[0] > first + 20 && x[0] < t92).map(x => x[1]));
-  let minY = 1e9; s.forEach(x => { if(x[1] > minY) minY = x[1]; }); const maxLift = Math.max.apply(null, s.map(x => x[1]));
-  return { final: Math.round(final * 10) / 10, vMax: Math.round(vMax * 1000) / 1000, vBefore: Math.round(vBefore * 1000) / 1000, vAfter: Math.round(vAfter * 1000) / 1000, minAfterRel: vBefore > 0 ? Math.round(vAfter / vBefore * 100) / 100 : 0, minMidRel: Math.round(minMid / vMax * 100) / 100, overshoot: Math.round((maxLift - final) * 10) / 10, tr: r.tr, first, t92 };
-}
-test('93. KB-37/A: kb-vv-resize в перші 40 мс — одна нога до справжньої цілі (без повільного старту)', async ({ browser }) => {
-  const r = await kb37Run(browser, 388, 415, 12, true);
-  const ref = await kb37Run(browser, 388, 415, 12, false);
-  const m = kb37Metrics(r), mr = kb37Metrics(ref);
-  const info = JSON.stringify({ m, mr });
-  expect(Math.abs(m.final - mr.final), 'кінець на цілі еталона ±1: ' + info).toBeLessThanOrEqual(1);
-  expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
-  expect(m.vMax, 'стартова швидкість не нижча за 60 % еталонної: ' + info).toBeGreaterThanOrEqual(0.6 * mr.vMax);
-});
-test('94. KB-37/B: оцінка для app-modal-input береться з його власної історії (415), а не з останнього значення типу text (388 з іншого поля)', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    const kb = async (sel, h) => {
-      const bb = await page.locator(sel).boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-      await page.waitForTimeout(100);
-      await page.evaluate(k => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, h);
-      await page.waitForTimeout(800);
-      await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
-      await page.waitForTimeout(900);
-    };
-    await kb36OpenModal(page);
-    await kb('#app-modal-input', 415);
-    await page.evaluate(() => { showProfileLoginForm(); }); await page.waitForTimeout(900);
-    await kb('#cldfielda1', 388);
-    await page.evaluate(() => closeProfileLoginDrawer()); await page.waitForTimeout(900);
-    await page.evaluate(() => { window.__n0 = recBuf.length; });
-    const bb = await page.locator('#app-modal-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(150);
-    const ev = await page.evaluate(() => recBuf.slice(window.__n0).filter(e => e.type === 'kb-early').map(e => ({ src: e.src, expected: e.expected, factor: e.factor })));
-    expect(ev.length, 'ранній підйом стартував: ' + JSON.stringify(ev)).toBe(1);
-    expect(ev[0].expected, 'очікувана висота — власна історія поля (415), не 388 з іншого поля: ' + JSON.stringify(ev)).toBe(415);
-    expect(ev[0].src, 'джерело — історія поля').toBe('field-session');
-  } finally { await ctx.close(); }
-});
-test('95. KB-37/C: три focusin у те саме поле за ≈ 300 мс — один ранній старт, решта kb-early-skip', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
-    await page.waitForTimeout(900);
-    await page.evaluate(() => { window.__n0 = recBuf.length; });
-    for(let i = 0; i < 3; i++){
-      const bb = await page.locator('#cldfielda1').boundingBox();
-      await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-      await page.evaluate(() => { document.activeElement && document.activeElement.blur(); }); // Face ID: focusout / focusin скачуть
-      await page.waitForTimeout(110);
-    }
-    const r = await page.evaluate(() => recBuf.slice(window.__n0).filter(e => e.type === 'kb-early' || e.type === 'kb-early-skip' || (e.type === 'sheet-open' && e.earlyState === 'off:closing')).map(e => e.type === 'sheet-open' ? 'off:closing' : e.type));
-    const info = JSON.stringify(r);
-    expect(r.filter(x => x === 'kb-early').length, 'один ранній старт: ' + info).toBe(1);
-    // Rev 2.32.303 (KB-LOGIN-FIX): повторні фокуси < 650 мс після sheet-close відсікаються раніше (earlyState off:closing), ніж доходять до kb-early-skip; інваріант (один ранній старт) той самий
-    expect(r.filter(x => x === 'kb-early-skip' || x === 'off:closing').length, 'решта — kb-early-skip або off:closing: ' + info).toBeGreaterThanOrEqual(1);
-  } finally { await ctx.close(); }
-});
 
-// KB-37 (поправка 2): історія поля {388, 311} → рання ціль за найменшою (311), множник 1; реальна 388 через 120 мс: рух монотонний, без зупинки.
-test('96. KB-37/B: поле з історією {388, 311} — KB-39: рання ціль — остання не-найменша (388), при реальній 388 рух монотонний без зупинки', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => {
-      const o = {}; o['cloud-password|portrait|h' + Math.round(window.__H0) + '|kpassword'] = [388, 311]; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(o));
-      window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm();
-    });
-    await page.waitForTimeout(900);
-    const bb = await page.locator('#cloud-password').boundingBox();
-    const sampler = page.evaluate(() => new Promise(resolve => {
-      const m = document.getElementById('profile-drawer'), s = []; const t0 = performance.now(); window.__t0 = t0;
-      const tick = () => { s.push([Math.round((performance.now() - t0) * 10) / 10, -new DOMMatrix(getComputedStyle(m).transform).m42]); if(performance.now() - t0 < 1500) requestAnimationFrame(tick); else resolve(s); };
-      requestAnimationFrame(tick);
-    }));
-    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(120);
-    const tr = await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); return Math.round((performance.now() - window.__t0) * 10) / 10; });
-    const s = await sampler;
-    const ev = await page.evaluate(() => recBuf.filter(e => e.type === 'kb-early' && e.src).map(e => ({ src: e.src, expected: e.expected, factor: e.factor }))); // події старту (друга подія kb-early без src — рішення за дедлайном KB-39)
-    const m = kb37Metrics({ s, tr });
-    let back = 0; for(let i = 1; i < s.length; i++) if(s[i][1] < s[i - 1][1] - 0.3) back += s[i - 1][1] - s[i][1];
-    const info = JSON.stringify({ ev, m, back: Math.round(back * 10) / 10 });
-    expect(ev.length, 'один ранній старт: ' + info).toBe(1);
-    expect(ev[0].expected, 'KB-39: ціль — остання не-найменша висота (388; найменша 311 лишається на дедлайн): ' + info).toBe(388);
-    expect(ev[0].factor, 'множник 1 (власна історія): ' + info).toBe(1);
-    expect(back, 'рух монотонний (зворотний крок ≤ 0,5 пт): ' + info).toBeLessThanOrEqual(0.5);
-    expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
-    expect(m.vBefore, 'на момент уточнення лист їде (≥ 0,05 пт/мс): ' + info).toBeGreaterThanOrEqual(0.05);
-  } finally { await ctx.close(); }
-});
 
-// KB-38 (Rev 2.32.293): швидкість після уточнення ніколи не зростає; рання нога — швидкий профіль 2.32.291.
-function kb38Speeds(r){
-  const sp = []; for(let i = 1; i < r.s.length; i++){ const dt = r.s[i][0] - r.s[i - 1][0]; if(dt >= 14 && dt <= 22) sp.push([r.s[i][0], (r.s[i][1] - r.s[i - 1][1]) / dt]); } // кадри ближче 14 мс і довші за 22 мс (затримка) не рахуються; кадри ближче 10 мс (два виклики rAF в одному такті) і затримані дають шум швидкості
-  const vMax = Math.max.apply(null, sp.map(x => x[1]));
-  const first = sp.findIndex(x => x[1] > 0.05 * vMax);
-  const atSw = (sp.filter(x => x[0] <= r.tr).pop() || [0, 0])[1];
-  const pk = sp.reduce((m, x, i, a) => x[1] > a[m][1] ? i : m, 0); // піковий кадр руху
-  const stopped = atSw < 0.06; let grow = null, maxGrowth = 0; for(let i = pk + 1; i < sp.length; i++){ if(stopped && sp[i][0] > r.tr - 5 && sp[i][0] < r.tr + 100) continue; const g = sp[i][1] - sp[i - 1][1] * 1.03; const g2 = i + 1 < sp.length ? sp[i + 1][1] - sp[i][1] * 1.0 : 1; if(g > 0.03 * vMax && g2 > 0 && g > maxGrowth){ /* зростання в двох кадрах поспіль: поодинокий викид затримки кадру не рахується */ maxGrowth = g; grow = [Math.round(sp[i][0]), Math.round(sp[i - 1][1] * 100) / 100, Math.round(sp[i][1] * 100) / 100]; } }
-  return { vMax: Math.round(vMax * 100) / 100, grow, atSwitch: Math.round(((sp.filter(x => x[0] <= r.tr).pop() || [0, 0])[1]) * 100) / 100, afterPeak: Math.round(Math.max.apply(null, sp.filter(x => x[0] > r.tr + 20 && x[0] < r.tr + 140).map(x => x[1])) * 100) / 100 };
-}
-for(const [label, exp, real, late, hist] of [['історія {311, 415} → реально 415 на +110 мс', 388, 415, 110, [311, 415]], ['388 → 415 на +100 мс', 388, 415, 100, null], ['Face ID: 388 → 311 на +235 мс', 388, 311, 235, null], ['415 → 389 на +100 мс', 415, 389, 100, null]]){
-  test('97. KB-38: ' + label + ' — швидкість після уточнення ніде не зростає (3 %), кінець на цілі ±1, без перельоту', async ({ browser }) => {
-    const r = await kb37Run(browser, exp, real, late, true, hist);
-    const ref = await kb37Run(browser, exp, real, late, false, hist);
-    const m = kb37Metrics(r), mr = kb37Metrics(ref), g = kb38Speeds(r);
-    const info = JSON.stringify({ m, g, refFinal: mr.final });
-    expect(g.grow, 'швидкість по кадрах не зростає після піка (понад 3 %): ' + info).toBe(null);
-    expect(Math.abs(m.final - mr.final), 'кінець на цілі еталона ±1: ' + info).toBeLessThanOrEqual(1);
-    expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
-  });
-}
 
 // KB-39 (Rev 2.32.294), A: відкриття входу з автофокусом. Емуляція iOS: коли на kb-vv-resize сфокусоване поле під клавіатурою, сторінка зсувається на висоту закриття поля (vvOffsetTop + transform), далі pan-comp повертає її. Очікується: 0 зсувів, один монотонний рух від низу екрана, фокус у cldfielda1 лише коли поле над межею клавіатури.
 test('98. KB-39/A: відкриття входу з автофокусом — 0 зсувів iOS, один монотонний рух від низу, фокус у поле після руху', async ({ browser }) => {
@@ -1497,68 +1267,12 @@ test('98. KB-39/A: відкриття входу з автофокусом — 0
     expect(r.panComp, 'pan-comp 0: ' + info).toBe(0);
     expect(up, 'один монотонний рух (без руху вниз понад 0,5 пт): ' + info).toBeLessThanOrEqual(1);
     expect(r.active, 'фокус у cldfielda1 після руху: ' + info).toBe('cldfielda1');
-    expect(r.xfer && r.xfer.fieldBottom <= r.xfer.limit, 'фокус перейшов, коли поле над межею клавіатури: ' + info).toBe(true);
+    // Rev 2.32.310 (KB-FINAL): раннього підйому більше нема — фокус переходить на прибутті клавіатури (kb-vv-resize), коли лист лише починає рух; геометрична умова «поле над межею в момент переходу» знята (риск iOS-зсуву — у звіті з пристрою)
+    expect(r.xfer, 'передача фокуса відбулась: ' + info).toBeTruthy();
   } finally { await ctx.close(); }
 });
 
 // KB-39 (B, переробка, Rev 2.32.295): поле з кількома висотами {311, 415} (norm 415, min 311): одна траєкторія до цілі norm з кривою, підібраною під геометрію (+100 мс: поле над межею norm із запасом ≥ 4 пт; +130 мс: шлях ≤ шляху до цілі min). Якщо геометрія не дозволяє (поля входу: поле стоїть надто низько в листі) — ціль min зі швидким профілем і подія kb-early-fallback. Тести B1/B2 — на полі «Додати ОЧ» (назва), де геометрія дозволяє.
-const KB39_HIST = [311, 415];
-async function kb39Run(browser, hist, real, lateMs, early, asLogin){
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await kb36OpenModal(page);
-    await page.evaluate(([h, early, login]) => { if(!early) window.__kbNoEarly = true; if(login) document.getElementById('app-modal-input').type = 'email'; /* Rev 2.32.309 (KB-AMOUNT): KB-39 (ціль норма + крива до мінімуму) діє для полів входу (email/password); поза входом ціль = last */ const f = {}; f['app-modal-input|portrait|h' + Math.round(window.__H0) + '|k' + (login ? 'email' : 'text')] = h; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); }, [hist, early, !!asLogin]);
-    const bb = await page.locator('#app-modal-input').boundingBox();
-    const sampler = page.evaluate(() => new Promise(resolve => {
-      const m = document.getElementById('app-modal'), fe = document.getElementById('app-modal-input'), s = [], t0 = performance.now(); window.__t0 = t0;
-      const tick = () => { s.push([Math.round((performance.now() - t0) * 10) / 10, -(new DOMMatrix(getComputedStyle(m).transform).m42 + m.offsetHeight / 2), Math.round(fe.getBoundingClientRect().bottom * 10) / 10]); if(performance.now() - t0 < 1500) requestAnimationFrame(tick); else resolve(s); };
-      requestAnimationFrame(tick);
-    }));
-    await page.evaluate(() => { document.addEventListener('touchend', () => { window.__tapAt = Math.round((performance.now() - window.__t0) * 10) / 10; }, { capture: true, once: true }); });
-    await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(lateMs);
-    const tr = await page.evaluate(r => { window.__vv.h = window.__H0 - r; window.visualViewport.dispatchEvent(new Event('resize')); return Math.round((performance.now() - window.__t0) * 10) / 10; }, real);
-    const s = await sampler;
-    const ev = await page.evaluate(() => recBuf.filter(e => String(e.type).indexOf('kb-early') === 0).map(e => ({ type: e.type, target: e.target, expected: e.expected, deadline: e.deadline, ms: e.ms, need: e.need, lmin: e.lmin, lnorm: e.lnorm })));
-    return { s, tr, ev, tapAt: await page.evaluate(() => window.__tapAt) };
-  } finally { await ctx.close(); }
-}
-test('99. KB-39/B1: {311, 415}, реально 415 на +100 мс — поле над межею на +100 мс (≥ 4 пт), без доповзання > 250 мс, швидкість не зростає', async ({ browser }) => {
-  const r = await kb39Run(browser, KB39_HIST, 415, 100, true);
-  const m = kb37Metrics(r), g = kb38Speeds(r), s = r.s, final = s[s.length - 1][1];
-  const tEnd = (s.find(x => x[0] > r.tr && Math.abs(x[1] - final) <= 1) || [1e9])[0];
-  const at = s.find(x => x[0] >= r.tapAt + 100), margin = at ? (664 - 415) - at[2] : null;
-  const info = JSON.stringify({ m, g, crawlMs: Math.round(tEnd - r.tr), margin, ev: r.ev });
-  expect(r.ev.filter(e => e.type === 'kb-early-fallback').length, 'геометрія дозволяє — без fallback: ' + info).toBe(0);
-  expect(margin, 'на +100 мс поле над межею норм-клавіатури з запасом ≥ 4 пт: ' + info).toBeGreaterThanOrEqual(4);
-  expect(tEnd - r.tr, 'від уточнення до кінця руху ≤ 250 мс (без доповзання): ' + info).toBeLessThanOrEqual(250);
-  expect(g.grow, 'швидкість по кадрах не зростає (3 %): ' + info).toBe(null);
-  expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
-});
-test('99. KB-39/B2: {311, 415}, реально 311 на +235 мс — переліт ≤ 3 пт, без розвороту, кінець на цілі ±1', async ({ browser }) => {
-  const r = await kb39Run(browser, KB39_HIST, 311, 235, true, true);
-  const ref = await kb39Run(browser, KB39_HIST, 311, 235, false, true);
-  const m = kb37Metrics(r), mr = kb37Metrics(ref), g = kb38Speeds(r);
-  const s = r.s; let turns = 0, dir = 0; for(let i = 1; i < s.length; i++){ const d = s[i][1] - s[i - 1][1]; if(Math.abs(d) < 0.5) continue; const nd = d > 0 ? 1 : -1; if(dir !== 0 && nd !== dir) turns++; dir = nd; }
-  const info = JSON.stringify({ m, g, refFinal: mr.final, turns, ev: r.ev });
-  expect(r.ev.filter(e => e.type === 'kb-early-fallback').length, 'геометрія дозволяє — без fallback: ' + info).toBe(0);
-  expect(m.overshoot, 'переліт ≤ 3 пт (на 2.32.294 — 74 пт): ' + info).toBeLessThanOrEqual(3);
-  expect(turns, 'без розвороту: ' + info).toBe(0);
-  expect(Math.abs(m.final - mr.final), 'кінець на цілі еталона ±1: ' + info).toBeLessThanOrEqual(1);
-});
-test('99. KB-39/B3: поле входу {311, 415} — геометрія не дозволяє (поле надто низько): ціль min і kb-early-fallback', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { const f = {}; f['cloud-password|portrait|h' + Math.round(window.__H0) + '|kpassword'] = [311, 415]; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
-    await page.waitForTimeout(900);
-    const bb = await page.locator('#cloud-password').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(120);
-    const ev = await page.evaluate(() => recBuf.filter(e => e.type === 'kb-early-fallback' || (e.type === 'kb-early' && e.src)).map(e => ({ type: e.type, expected: e.expected, deadline: e.deadline, need: e.need, lmin: e.lmin, lnorm: e.lnorm })));
-    const info = JSON.stringify(ev);
-    expect(ev.filter(e => e.type === 'kb-early-fallback').length, 'є kb-early-fallback: ' + info).toBe(1);
-    expect(ev.filter(e => e.type === 'kb-early' && e.deadline === 'off').length, 'рання нога без дедлайну (ціль min): ' + info).toBe(1);
-  } finally { await ctx.close(); }
-});
 
 // KB-39 (Rev 2.32.294), D: дві vv-події з різницею 12 мс і тим самим vvOffsetTop — одна pan-comp.
 test('100. KB-39/D: дві події vv з тим самим vvOffsetTop (різниця 12 мс) — одна pan-comp', async ({ browser }) => {
@@ -1576,29 +1290,6 @@ test('100. KB-39/D: дві події vv з тим самим vvOffsetTop (рі�
   } finally { await ctx.close(); }
 });
 
-// KB-40 (Rev 2.32.296), звіт MT-1112-8689 (2.32.295): 1 — стан «ранній підйом уже запущено для цього поля» (kbEarlyLast) не скидався при закритті форми, і повторне відкриття з тим самим полем (елемент форми той самий) через 1 с не отримувало kb-early; 2 — компенсація зсуву iOS у центрованій формі.
-test('101. KB-40/1: відкрити форму, тапнути поле, закрити, через 1 с відкрити й тапнути те саме поле — kb-early є і в другому відкритті, earlyState у sheet-open', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await kb36OpenModal(page);
-    const tapField = async () => { const bb = await page.locator('#app-modal-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2); };
-    await tapField();
-    await page.waitForTimeout(100);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.42); window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(700);
-    await page.evaluate(() => { document.activeElement && document.activeElement.blur(); closeAppModal(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(1000);
-    await kb36OpenModal(page);
-    await page.evaluate(() => { window.__n0 = recBuf.length; });
-    await tapField();
-    await page.waitForTimeout(400);
-    const r = await page.evaluate(() => recBuf.slice(window.__n0).filter(e => e.type === 'kb-early' || e.type === 'kb-early-skip' || e.type === 'sheet-open').map(e => ({ type: e.type, reason: e.reason, earlyState: e.earlyState })));
-    const info = JSON.stringify(r);
-    expect(r.filter(e => e.type === 'kb-early').length, 'у другому відкритті є kb-early: ' + info).toBeGreaterThanOrEqual(1);
-    const so = r.find(e => e.type === 'sheet-open');
-    expect(so && so.earlyState, 'sheet-open містить earlyState: ' + info).toMatch(/^started/);
-  } finally { await ctx.close(); }
-});
 async function kb40Shift(browser, kind){
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
@@ -1645,65 +1336,7 @@ for(const kind of ['modal', 'drawer']){
 // На справжньому iPhone під полем пароля ще ≈ 74 пт (нижній safe-area, кнопка): у емуляції його додаємо, щоб геометрія збігалась (need < lmin).
 const KB_FACEID_PREP = "document.getElementById('cloud-login-form').style.paddingBottom = '74px'";
 const KB_FACEID_DEV = { ...devices['iPhone 14'], viewport: { width: 430, height: 894 } };
-for(const [label, real, late] of [['фактично 311 на +146 мс (панель пропозиції пароля)', 311, 146], ['фактично 388 на +100 мс', 388, 100], ['фактично 415 на +100 мс', 415, 100]]){
-  test('103. KB-FACEID: поле входу {311, 388, 415} — ранній старт на мінімум, ' + label + ': без різкого гальмування, швидкість після уточнення не зростає, кінець на цілі ±1', async ({ browser }) => {
-    const hist = [311, 388, 415];
-    const r = await kb37Run(browser, 388, real, late, true, hist, 'cloud-password', KB_FACEID_DEV, KB_FACEID_PREP);
-    const ref = await kb37Run(browser, 388, real, late, false, hist, 'cloud-password', KB_FACEID_DEV, KB_FACEID_PREP);
-    const m = kb37Metrics(r), mr = kb37Metrics(ref), g = kb38Speeds(r);
-    const early = r.ev.filter(e => e.type === 'kb-early' && e.reason === 'login-min');
-    const info = JSON.stringify({ ev: r.ev, m, g, refFinal: mr.final });
-    expect(early.length, 'рання ціль входу на мінімум (reason login-min): ' + info).toBe(1);
-    expect(early[0].target, 'ціль = мінімум (lmin): ' + info).toBe(early[0].lmin);
-    expect(r.ev.filter(e => e.deadline === true).length, 'дедлайн-переведення немає: ' + info).toBe(0);
-    expect(g.grow, 'швидкість по кадрах не зростає після піка (понад 3 %): ' + info).toBe(null);
-    expect(Math.abs(m.final - mr.final), 'кінець на цілі еталона ±1: ' + info).toBeLessThanOrEqual(1);
-    expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
-  });
-}
 
-// KB-LOGIN-FIX (Rev 2.32.303): звіти MT-1114-3874/-5678: sheet-open via direct із sinceClose 539–554 мс: 3 з 3 дають зсув iOS (vvOffsetTop до 9) і 7–15 pan-corrected; sinceClose ≥ 561 мс: 14 з 14 чисті.
-// iOS ще ховає клавіатуру: ранній підйом (оцінка за історією) не стартує, лист їде за фактичним kb-vv-resize. Діє для всіх шторок конвеєра (поріг KB_REOPEN_QUIET_MS = 650 мс).
-async function kbReopenRun(browser, gapMs){
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
-    await page.waitForTimeout(900);
-    const tapEmail = async () => { const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2); };
-    const lift = () => page.evaluate(() => Math.round(-new DOMMatrix(getComputedStyle(document.getElementById('profile-drawer')).transform).m42 * 10) / 10);
-    await tapEmail(); await page.waitForTimeout(120);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(900);
-    const firstLift = await lift();
-    await page.evaluate(() => { document.activeElement.blur(); setTimeout(() => { window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); }, 30); });
-    await page.waitForFunction(() => recBuf.filter(e => e.type === 'sheet-close').length >= 1, null, { timeout: 3000 });
-    const closeAt = Date.now();
-    await page.waitForTimeout(Math.max(0, gapMs - 45)); // sheet-close записано за ≈ 30–45 мс до цього моменту
-    await tapEmail();
-    await page.waitForTimeout(110);
-    await page.evaluate(() => { window.__vv.top = 4; window.visualViewport.dispatchEvent(new Event('scroll')); setTimeout(() => { window.__vv.top = 2; window.visualViewport.dispatchEvent(new Event('scroll')); }, 16); setTimeout(() => { window.__vv.top = 0; }, 40); }); // коливання vvOffsetTop (iOS ще повертає екран)
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(900);
-    const ev = await page.evaluate(() => { const a = recBuf, i = a.map(e => e.type).lastIndexOf('sheet-open'); return { open: a[i], after: a.slice(i + 1).filter(e => e.type === 'kb-early').length }; });
-    return { ev, firstLift, finalLift: await lift(), gapReal: Date.now() - closeAt };
-  } finally { await ctx.close(); }
-}
-// У емуляції анімація повернення листа після закриття закінчується пізніше (≈ 530 мс), ніж на пристрої (≈ 280 мс): 540 мс тут ще дає шлях через проміжне поле, тому беремо ≈ 600 мс (усе ще < 650).
-test('104. KB-LOGIN-FIX: відкриття входу через ≈ 600 мс після закриття клавіатури (< 650) — раннього старту немає (off:closing), лист їде за kb-vv-resize й доходить до тієї ж цілі', async ({ browser }) => {
-  const r = await kbReopenRun(browser, 600);
-  const info = JSON.stringify({ ev: r.ev, firstLift: r.firstLift, finalLift: r.finalLift, gapReal: r.gapReal });
-  expect(r.ev.open.sinceClose, 'sinceClose ≈ 600 (< 650): ' + info).toBeLessThan(650);
-  expect(r.ev.open.earlyState, 'ранній старт вимкнено: ' + info).toBe('off:closing');
-  expect(r.ev.after, 'жодного kb-early після відкриття: ' + info).toBe(0);
-  expect(Math.abs(r.finalLift - r.firstLift), 'кінцеве положення те саме, що при першому відкритті ±1: ' + info).toBeLessThanOrEqual(1);
-});
-test('104. KB-LOGIN-FIX: відкриття входу через ≈ 700 мс після закриття — ранній старт як зараз (started, є kb-early)', async ({ browser }) => {
-  const r = await kbReopenRun(browser, 700);
-  const info = JSON.stringify({ ev: r.ev, gapReal: r.gapReal });
-  expect(r.ev.open.sinceClose, 'sinceClose ≥ 650: ' + info).toBeGreaterThanOrEqual(650);
-  expect(r.ev.open.earlyState, 'ранній старт: ' + info).toBe('started');
-  expect(r.ev.after, 'є kb-early: ' + info).toBeGreaterThanOrEqual(1);
-});
 
 
 // Rev 2.32.306 (KB-SWITCH-FIX, C): синтетичний дотик із заданою тривалістю (WebKit-емуляція не вміє тримати палець).
@@ -1943,63 +1576,81 @@ test('114. KB-OCH/2 (контроль): верхнє поле (idd-pay) не з�
   } finally { await ctx.close(); }
 });
 
-// Rev 2.32.309 (KB-AMOUNT, C): історія висот поля app-modal-amount-input.
-async function kbAmountOpen(page){
-  await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openAddInstallmentModal(); });
-  await page.waitForTimeout(900);
-}
-async function kbAmountTap(page, kbH){
-  const bb = await page.locator('#app-modal-amount-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-  await page.waitForTimeout(120);
-  await page.evaluate((h) => { window.__vv.h = window.__H0 - h; window.visualViewport.dispatchEvent(new Event('resize')); }, kbH);
-}
-const kbAmountHist = (page) => page.evaluate(() => { const o = JSON.parse(localStorage.getItem('budget-kb-heights-f1') || '{}'); const k = Object.keys(o).filter(x => x.startsWith('app-modal-amount-input|')); return k.map(x => ({ key: x, list: o[x] })); });
-test('115. KB-AMOUNT/1: історія [416, 389], last 389 — ранній старт із цілі 389 (started), один kb-early, без зміни цілі на ходу', async ({ browser }) => {
+
+// Rev 2.32.310 (KB-FINAL, C): ранній підйом прибрано; перший фокус через наш код (touchstart) при закритій клавіатурі; сторінка під шторкою нерухома.
+test('117. KB-FINAL/1: відкриття входу — жодного kb-early, earlyState off:removed; лист не рухається до kb-vv-resize', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
-    await kbAmountOpen(page); await kbAmountTap(page, 389); await page.waitForTimeout(1300);
-    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
     await page.waitForTimeout(900);
-    const h = await kbAmountHist(page);
-    expect(h.length, JSON.stringify(h)).toBe(1);
-    await page.evaluate((key) => { const o = JSON.parse(localStorage.getItem('budget-kb-heights-f1')); o[key] = [416, 389]; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(o)); }, h[0].key); // «примарна» 416 в історії
-    await page.reload(); await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.querySelector('.tabbar-glass')); await page.waitForTimeout(1500);
-    await page.evaluate(() => { const vv = window.visualViewport, H0 = window.innerHeight; window.__H0 = H0; window.__vv = { h: null, top: 0 }; Object.defineProperty(vv, 'height', { configurable: true, get(){ return window.__vv.h == null ? H0 : window.__vv.h; } }); Object.defineProperty(vv, 'offsetTop', { configurable: true, get(){ return window.__vv.top || 0; } }); });
-    await kbAmountOpen(page);
+    const lift = () => page.evaluate(() => Math.round(-new DOMMatrix(getComputedStyle(document.getElementById('profile-drawer')).transform).m42 * 10) / 10);
+    const l0 = await lift();
     const n0 = await page.evaluate(() => recBuf.length);
-    await kbAmountTap(page, 389); await page.waitForTimeout(1200);
-    const evs = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'sheet-open' || e.type === 'kb-early').map(e => ({ type: e.type, es: e.earlyState || null, expected: e.expected || null })), n0);
-    const ke = evs.filter(e => e.type === 'kb-early');
-    expect(evs.find(e => e.type === 'sheet-open').es, JSON.stringify(evs)).toBe('started');
-    expect(ke.length, 'один kb-early, без зміни цілі на ходу: ' + JSON.stringify(evs)).toBe(1);
-    expect(Number(ke[0].expected), JSON.stringify(evs)).toBeLessThanOrEqual(393);
-    expect(Number(ke[0].expected)).toBeGreaterThanOrEqual(385);
+    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(350); // 350 мс без kb-vv-resize: раніше ранній підйом уже рухав лист
+    const l1 = await lift();
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    const evs = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'kb-early' || e.type === 'sheet-open').map(e => ({ type: e.type, es: e.earlyState || null })), n0);
+    const l2 = await lift();
+    expect(evs.filter(e => e.type === 'kb-early'), JSON.stringify(evs)).toEqual([]);
+    expect(evs.find(e => e.type === 'sheet-open').es, JSON.stringify(evs)).toBe('off:removed');
+    expect(Math.abs(l1 - l0), 'лист не рухається до kb-vv-resize: ' + JSON.stringify({ l0, l1, l2 })).toBeLessThanOrEqual(2);
+    expect(l2, 'після kb-vv-resize лист піднято').toBeGreaterThan(l0 + 50);
   } finally { await ctx.close(); }
 });
-test('116. KB-AMOUNT/2: проміжна 416 під час зміни клавіатури в історію не потрапляє (лише стабільна 389); наступне відкриття стартує одразу з цілі', async ({ browser }) => {
+test('118. KB-FINAL/2: дотик по заголовку за 3 пт від поля при закритій клавіатурі — touchstart скасовано, фокус нашим кодом на touchend, без pan-corrected й intercept-miss; кнопка поруч не перехоплюється', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
-    await kbAmountOpen(page);
-    const bb = await page.locator('#app-modal-amount-input').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(120);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 416; window.visualViewport.dispatchEvent(new Event('resize')); }); // проміжна висота (текстова клавіатура)
-    await page.waitForTimeout(150);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); }); // справжня
-    await page.waitForTimeout(1400);
-    const h = await kbAmountHist(page);
-    expect(h.length, JSON.stringify(h)).toBe(1);
-    expect(h[0].list, 'у історії лише стабільна висота: ' + JSON.stringify(h)).toEqual([389]);
-    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
     await page.waitForTimeout(900);
-    await page.evaluate(() => { closeAppModal(); }); await page.waitForTimeout(500);
-    await kbAmountOpen(page);
+    await page.evaluate(() => {
+      const box = document.getElementById('cloud-login-fields'); const h = document.createElement('div'); h.className = 'profile-head'; h.id = 'test-head'; h.innerHTML = '<div class="profile-head-text">Вхід</div>'; box.parentElement.insertBefore(h, box);
+      const b = document.createElement('button'); b.type = 'button'; b.id = 'test-near-btn'; b.textContent = 'x'; b.style.cssText = 'display:block;margin:0 0 3px'; box.parentElement.insertBefore(b, box);
+      window.__tch = function(type, sel, id, o){ o = o || {}; const el = document.querySelector(sel), r = el.getBoundingClientRect(); const x = o.x !== undefined ? o.x : r.left + r.width / 2, y = o.y !== undefined ? o.y : r.top + r.height / 2; const ev = new Event(type, { bubbles: true, cancelable: true }); const tt = [{ clientX: x, clientY: y, identifier: id, target: el }]; Object.defineProperty(ev, 'touches', { value: type === 'touchend' ? [] : tt }); Object.defineProperty(ev, 'changedTouches', { value: tt }); el.dispatchEvent(ev); if(type === 'touchstart' && o.nativeFocusMs !== undefined && !ev.defaultPrevented) setTimeout(() => document.getElementById('cldfielda1').focus(), o.nativeFocusMs); return ev.defaultPrevented; };
+    });
+    await page.waitForTimeout(200);
+    await page.evaluate(() => { const hd = document.getElementById('test-head'), f = document.getElementById('cldfielda1'); const gap = f.getBoundingClientRect().top - hd.getBoundingClientRect().bottom; const b = document.getElementById('test-near-btn'); b.style.marginBottom = '0px'; const gap2 = f.getBoundingClientRect().top - b.getBoundingClientRect().bottom; hd.style.marginBottom = '0px'; b.style.display = 'none'; const g3 = f.getBoundingClientRect().top - hd.getBoundingClientRect().bottom; if(g3 > 2) hd.style.marginBottom = '-' + (g3 - 2) + 'px'; });
+    const pt = await page.evaluate(() => { const f = document.getElementById('cldfielda1').getBoundingClientRect(), h = document.getElementById('test-head').getBoundingClientRect(); return { x: f.left + f.width / 2, y: h.bottom - 1, gap: Math.round(f.top - (h.bottom - 1)) }; });
+    expect(pt.gap, 'дотик за ≈ 3 пт від поля: ' + JSON.stringify(pt)).toBeLessThanOrEqual(5);
     const n0 = await page.evaluate(() => recBuf.length);
-    await kbAmountTap(page, 389); await page.waitForTimeout(1200);
-    const evs = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'sheet-open' || e.type === 'kb-early').map(e => ({ type: e.type, es: e.earlyState || null, expected: e.expected || null, dl: e.deadline === undefined ? null : String(e.deadline) })), n0);
-    expect(evs.find(e => e.type === 'sheet-open').es, JSON.stringify(evs)).toBe('started');
-    const ke = evs.filter(e => e.type === 'kb-early');
-    expect(ke.length, JSON.stringify(evs)).toBe(1);
-    expect(Number(ke[0].expected), 'рання ціль з історії 389: ' + JSON.stringify(evs)).toBeLessThanOrEqual(393);
-    expect(Number(ke[0].expected)).toBeGreaterThanOrEqual(385);
+    const prevented = await page.evaluate((p) => window.__tch('touchstart', '#test-head', 51, { x: p.x, y: p.y, nativeFocusMs: 50 }), pt);
+    await page.waitForTimeout(200);
+    await page.evaluate((p) => window.__tch('touchend', '#test-head', 51, { x: p.x, y: p.y }), pt);
+    await page.waitForTimeout(700);
+    const evs = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'intercept-miss' || e.type === 'pan-corrected' || e.type === 'native-focus').map(e => e.type), n0);
+    expect(prevented, 'touchstart по заголовку скасовано').toBe(true);
+    expect(await page.evaluate(() => document.activeElement && document.activeElement.id), 'фокус у найближчому полі').toBe('cldfielda1');
+    expect(evs, 'без intercept-miss / pan-corrected / нативного фокуса').toEqual([]);
+    // кнопка: дотик по самій кнопці не перехоплюється
+    await page.evaluate(() => { document.activeElement.blur(); });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => { const b = document.getElementById('test-near-btn'); b.style.display = 'block'; });
+    const pb = await page.evaluate(() => window.__tch('touchstart', '#test-near-btn', 52));
+    await page.evaluate(() => window.__tch('touchend', '#test-near-btn', 52));
+    expect(pb, 'touchstart по кнопці не скасовується').toBe(false);
+  } finally { await ctx.close(); }
+});
+test('119. KB-FINAL/3: сторінка під шторкою нерухома — scrollTop головного вмісту (прокручений до низу) однаковий до й після відкриття клавіатури; pageTop у sheet-open і sheet-anim збігаються', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); });
+    await page.waitForTimeout(700);
+    await page.evaluate(() => { const v = Array.from(document.querySelectorAll('#main-col .view')).find(v => v.getBoundingClientRect().height > 0); const sp = document.createElement('div'); sp.style.height = '1800px'; v.appendChild(sp); const mc = document.getElementById('main-col'); mc.scrollTop = mc.scrollHeight; });
+    await page.waitForTimeout(250);
+    const top0 = await page.evaluate(() => Math.round(document.getElementById('main-col').scrollTop));
+    await page.evaluate(() => { showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const n0 = await page.evaluate(() => recBuf.length);
+    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1100);
+    const r = await page.evaluate((n) => ({ top: Math.round(document.getElementById('main-col').scrollTop), open: (recBuf.slice(n).find(e => e.type === 'sheet-open') || {}).pageTop, anim: recBuf.slice(n).filter(e => e.type === 'sheet-anim' && e.pageTopStart !== undefined).map(e => [e.pageTopStart, e.pageTopEnd]) }), n0);
+    expect(top0, 'головний вміст прокручено').toBeGreaterThan(500);
+    expect(r.top, 'вміст не зсунувся: ' + JSON.stringify({ top0, r })).toBe(top0);
+    expect(r.open, JSON.stringify(r)).toBe(top0);
+    expect(r.anim.length, JSON.stringify(r)).toBeGreaterThanOrEqual(1);
+    for(const [a, b] of r.anim){ expect(a, JSON.stringify(r)).toBe(top0); expect(b, JSON.stringify(r)).toBe(top0); }
   } finally { await ctx.close(); }
 });
