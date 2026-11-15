@@ -3871,7 +3871,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.315</div>
+  <div class="version-footer">Money Tree · Rev 2.32.316</div>
 </div>
   </div>
 </div>
@@ -9830,7 +9830,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.315';
+const APP_VERSION = '2.32.316';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -29358,7 +29358,18 @@ function kbRestBottomOf(el){
 // Rev 2.32.308 (KB-OCH, A): етапи синхронної частини обробника focusin (globalThis.__kbSt) — лише діагностика.
 // Rev 2.32.310 (KB-FINAL, A): pageTop — scrollTop головного вмісту (#main-col) під шторкою: має лишатись однаковим до й після відкриття клавіатури.
 // Rev 2.32.313 (SHEET-FOOTER, B): зазор між низом шторки й верхом клавіатури: нижні шторки (.drawer) прилягають до клавіатури без смуги сторінки (0 пт), центровані форми (.app-modal) — як раніше (8 пт).
-function kbSheetGapPt(){ return kbSheetSplit ? 0 : 8; }
+// Rev 2.32.316 (SHEET-FOOTER-3, B): звіт MT-1115-3231: з панеллю автозаповнення / Face ID (vvH 583, kbH 311) низ шторки = vvH, а видимий проміжок над панеллю дає лише її власний відступ; з клавіатурою (vvH 479, kbH 415) проміжок задає смужка зі стрілками. Ознака панелі без смужки зі стрілками: iPhone, поле входу (email/password), висота клавіатури < 40 % базової висоти (311/894 = 0,35; 388/894 = 0,43; 415/894 = 0,46; за даними 10 днів: email 311 ×80 у 64 звітах, 415 ×360, 388 ×8; password 311 ніколи). Для неї низ шторки на KB_PANEL_GAP (10) пт вище верху панелі, з клавіатурою 0.
+const KB_PANEL_GAP = 10;
+const KB_PANEL_RATIO = 0.37; // Rev 2.32.316 (з рев'ю): 0,35 — панель, 0,43 — клавіатура; 0,37 — запас проти компактних iPhone (≈ 0,39)
+function kbPanelNoArrows(vvH){
+  try{
+    if(!kbSheetSplit || typeof vvH !== 'number' || !kbIsIphone()) return false;
+    if(kbSheetCacheKind !== 'email' && kbSheetCacheKind !== 'password') return false;
+    const base = getBaseViewportHeight(), kbH = base - vvH;
+    return base > 0 && kbH >= 100 && (kbH / base) < KB_PANEL_RATIO;
+  }catch(e){ return false; }
+}
+function kbSheetGapPt(vvH){ if(!kbSheetSplit) return 8; return kbPanelNoArrows(vvH) ? KB_PANEL_GAP : 0; }
 function kbPageTop(){ try{ const mc = document.getElementById('main-col'); return mc ? Math.round(mc.scrollTop) : null; }catch(e){ return null; } }
 function kbStMs(a, b){ const s = globalThis.__kbSt; return (s && typeof s[a] === 'number' && typeof s[b] === 'number') ? Math.round((s[a] - s[b]) * 10) / 10 : null; }
 function kbStSnapMs(s, a, b){ return (s && typeof s[a] === 'number' && typeof s[b] === 'number') ? Math.round((s[a] - s[b]) * 10) / 10 : null; }
@@ -29699,7 +29710,7 @@ function enterKbSheet(drawerEl, fieldEl){
   kbSheetCurrentLift = lift;
   kbSheetLiftDirty = false;
   kbSheetLastVvTarget = vvEstimate;
-  const maxH = computeSheetMaxHeight(vvEstimate, kbSheetGapPt(), naturalHeight);
+  const maxH = computeSheetMaxHeight(vvEstimate, kbSheetGapPt(vvEstimate), naturalHeight);
   document.documentElement.style.setProperty('--kb-h', estimate + 'px');
   document.documentElement.style.setProperty('--vv-h', vvEstimate + 'px');
   kbLiftStop(); // Rev 2.32.265 (KB-12): новий лист — нового руху підйому ще немає
@@ -29972,7 +29983,7 @@ function kbMotionPan(shift, preTop, preSy){
   try{
     const vv = window.visualViewport;
     if(vv && !kbSheetSplit && isKeyboardOpen(getBaseViewportHeight(), vv.height) && !(document.activeElement && document.activeElement === document.body)){
-      kbSheetCurrentLift = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: 0, restBottom: kbEffectiveRestBottom(vv.height), gap: kbSheetGapPt() });
+      kbSheetCurrentLift = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: 0, restBottom: kbEffectiveRestBottom(vv.height), gap: kbSheetGapPt(vv.height) });
     }
   }catch(e){}
   kbSetLift(kbSheetCurrentLift, shift);
@@ -30010,7 +30021,7 @@ function kbPipeAnimate(){
   if(KB_PIPE.timer){ clearTimeout(KB_PIPE.timer); KB_PIPE.timer = null; }
   KB_PIPE.state = 'animating';
   KB_LIVE.stableH = vv.height; // Rev 2.32.288 (KB-33)
-  const L = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: kbSheetGapPt() });
+  const L = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: kbSheetGapPt(vv.height) });
   kbSheetCurrentLift = L;
   kbSetLift(L);
   if(kbSheetSplit){ KB_PIPE.vvtop = Math.round(vv.offsetTop * 10) / 10; document.documentElement.style.setProperty('--sheet-vvtop', String(KB_PIPE.vvtop)); }
@@ -30135,7 +30146,7 @@ function updateKbSheetGeometry(){
   document.documentElement.style.setProperty('--kb-h', kbH + 'px');
   kbNoteKbH(kbH);
   document.documentElement.style.setProperty('--vv-h', vvH + 'px');
-  kbMotionVar('--sheet-max-h', computeSheetMaxHeight(vvH, kbSheetGapPt(), kbSheetNaturalHeight) + 'px');
+  kbMotionVar('--sheet-max-h', computeSheetMaxHeight(vvH, kbSheetGapPt(vvH), kbSheetNaturalHeight) + 'px');
   if(isKeyboardOpen(baseVh, vvH) && kbSheetFieldKind){
     const orientKey = viewportOrientationKey(window.innerWidth, window.innerHeight);
     if(!keyboardHeightCache[orientKey]) keyboardHeightCache[orientKey] = {};
@@ -30175,7 +30186,7 @@ function applyLiveSheetLift(){
   KB_LIVE.stableH = vv.height; // Rev 2.32.288 (KB-33): це значення прийнято як стабільне
   // Rev 2.32.270 (KB-16, A): після втрати фокуса (activeElement = body) клавіатура зникає й iOS шле проміжні кадри visualViewport; рухом «при зміні висоти» (KB-15) на них відповідати не можна: за мить стартує закриття, і виходило два рухи (close + resize, звіт MT-1108-9004). Закриття веде exitKbSheet.
   if(document.activeElement && document.activeElement === document.body) return;
-  const live = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: kbSheetGapPt() });
+  const live = computeSheetLift({ innerH: window.innerHeight, vvH: vv.height, vvTop: kbSheetSplit ? 0 : vv.offsetTop, restBottom: kbEffectiveRestBottom(vv.height), gap: kbSheetGapPt(vv.height) });
   if(performance.now() < kbNoTouchUntil && Math.abs(live - kbSheetCurrentLift) <= 12) return; // Rev 2.32.291 (KB-36, 3): серія focusin без дотику (можливе автозаповнення): дрібний зсув (≈5 пт) не запускає resize-рух перед закриттям
   if(Math.abs(live - kbSheetCurrentLift) > 1){
     // Rev 2.32.269 (KB-15, A): звіт MT-1108-1788 (Face ID): коли лист уже відкритий і спокійний, а висота клавіатури міняється пізніше (через ~3 с, 99 пт руху), лист їхав без sheet-anim і без caret-hidden: курсор було видно під час руху. Тепер такий рух (> 4 пт, поки іншого руху нема) іде тим самим механізмом, що й відкриття: анімація з поточного положення, курсор прихований до кінця всього руху (beginSheetMoving чекає kbLiftActive), подія sheet-anim (phase resize) записується. Зміна цілі посеред руху лишається ретаргетом.
@@ -30517,7 +30528,7 @@ function handleKeyboardFieldFocusIn(target){
           const vvKnown = Math.max(0, baseVh - known);
           document.documentElement.style.setProperty('--kb-h', known + 'px');
           document.documentElement.style.setProperty('--vv-h', vvKnown + 'px');
-          kbMotionVar('--sheet-max-h', computeSheetMaxHeight(vvKnown, kbSheetGapPt(), kbSheetNaturalHeight) + 'px');
+          kbMotionVar('--sheet-max-h', computeSheetMaxHeight(vvKnown, kbSheetGapPt(vvKnown), kbSheetNaturalHeight) + 'px');
         }
         kbSheetCacheKind = kbCacheKindForField(target); // Rev 2.32.240: підйом доведе живий visualViewport
         kbSheetLiftDirty = true;

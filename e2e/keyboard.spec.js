@@ -1838,3 +1838,20 @@ test('126. SHEET-FOOTER-2: struct-drawer і mono-detail-drawer — та сама
     }
   } finally { await ctx.close(); }
 });
+
+// Rev 2.32.316 (SHEET-FOOTER-3, B): панель автозаповнення / Face ID (≈ 0,35 базової висоти) — низ шторки на 10 пт вище верху панелі; клавіатура (≈ 0,46) — 0.
+for(const [label, frac, gap] of [['панель Face ID (0,348)', 0.348, 10], ['клавіатура зі стрілками (0,464)', 0.464, 0]]){
+  test('127. SHEET-FOOTER-3: форма входу, ' + label + ' — проміжок між низом шторки й верхом панелі ' + gap + ' ± 1 пт', async ({ browser }) => {
+    const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+    try{
+      await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+      await page.waitForTimeout(900);
+      const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+      await page.waitForTimeout(120);
+      await page.evaluate((f) => { window.__vv.h = window.__H0 - Math.round(window.__H0 * f); window.visualViewport.dispatchEvent(new Event('resize')); }, frac);
+      await page.waitForTimeout(1100);
+      const r = await page.evaluate(() => { const d = document.getElementById('profile-drawer').getBoundingClientRect(); return { gap: Math.round((window.__vv.h + (window.__vv.top || 0) - d.bottom) * 10) / 10, vvH: window.__vv.h, H0: window.__H0 }; });
+      expect(Math.abs(r.gap - gap), JSON.stringify(r)).toBeLessThanOrEqual(1);
+    } finally { await ctx.close(); }
+  });
+}
