@@ -1902,3 +1902,43 @@ test('112. KB-SWITCH-FINAL/4: жест прокрутки, початий на �
     expect(evs, JSON.stringify(evs)).toEqual([]);
   } finally { await ctx.close(); }
 });
+
+// Rev 2.32.308 (KB-OCH, C): правило прокрутки до поля (відступ 48 пт, ≤ 120 пт прихованого → до кінця; поле вгорі не рухається).
+async function kbOchOpen(browser){
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
+  await page.waitForTimeout(900);
+  await page.evaluate(() => { ochToggleCond(); });
+  await page.waitForTimeout(500);
+  return { ctx, page };
+}
+test('113. KB-OCH/1: installment-drawer, поле idd-balance під «Умовами» — під полем ≥ 48 пт до межі над клавіатурою або прокрутка до кінця вмісту; є field-scroll', async ({ browser }) => {
+  const { ctx, page } = await kbOchOpen(browser);
+  try{
+    const n0 = await page.evaluate(() => recBuf.length);
+    await page.evaluate(() => document.getElementById('idd-balance').focus());
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1000);
+    const r = await page.evaluate((n) => {
+      const d = document.getElementById('installment-drawer'), f = document.getElementById('idd-balance');
+      const dr = d.getBoundingClientRect(), fr = f.getBoundingClientRect();
+      const maxScroll = d.scrollHeight - d.clientHeight;
+      return { below: Math.round(dr.top + d.clientHeight - fr.bottom), atEnd: d.scrollTop >= maxScroll - 1, scrollTop: Math.round(d.scrollTop), maxScroll: Math.round(maxScroll), scrolls: recBuf.slice(n).filter(e => e.type === 'field-scroll').length };
+    }, n0);
+    expect(r.scrolls, JSON.stringify(r)).toBeGreaterThanOrEqual(1);
+    expect(r.atEnd || r.below >= 47, 'відступ під полем ≥ 48 пт або кінець вмісту: ' + JSON.stringify(r)).toBe(true);
+  } finally { await ctx.close(); }
+});
+test('114. KB-OCH/2 (контроль): верхнє поле (idd-pay) не заходить вище верхнього краю видимої частини листа і не пролітає до кінця вмісту', async ({ browser }) => {
+  const { ctx, page } = await kbOchOpen(browser);
+  try{
+    await page.evaluate(() => document.getElementById('idd-pay').focus());
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1000);
+    const r = await page.evaluate(() => { const d = document.getElementById('installment-drawer'), f = document.getElementById('idd-pay'); const dr = d.getBoundingClientRect(), fr = f.getBoundingClientRect(); return { fromTop: Math.round(fr.top - dr.top), below: Math.round(dr.top + d.clientHeight - fr.bottom), scrollTop: Math.round(d.scrollTop), maxScroll: Math.round(d.scrollHeight - d.clientHeight) }; });
+    expect(r.fromTop, 'поле не вище верху видимої частини: ' + JSON.stringify(r)).toBeGreaterThanOrEqual(3);
+    expect(r.scrollTop, 'не до кінця вмісту: ' + JSON.stringify(r)).toBeLessThan(r.maxScroll - 50);
+  } finally { await ctx.close(); }
+});
