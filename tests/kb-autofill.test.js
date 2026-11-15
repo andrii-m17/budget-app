@@ -166,7 +166,7 @@ test('KB-FACEID: гілка login-min лише для полів входу з �
 });
 
 // Rev 2.32.309 (KB-AMOUNT, C): історія висот поля — ключ із типом клавіатури, запис лише після стабілізації, off:uncertain.
-test('KB-AMOUNT: kbEarlyUncertainFor — історія [416, 389] (остання 389, ціль alt 416) → недостовірна; [389] → ні; поле входу → ні; без історії → ні', () => {
+test('KB-AMOUNT: kbEarlyUncertainFor — недостовірна лише коли історія є, а last немає; [416, 389] → достовірна (ціль last 389); поле входу й без історії → ні', () => {
   const m = {}; let base = 894;
   const c = buildSandbox({ localStorage: { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }, getBaseViewportHeight: () => base, window: { innerHeight: 894 }, navigator: { userAgent: 'iPhone', platform: 'iPhone', maxTouchPoints: 5 },
     kbCacheKindForField: f => f.kind, viewportOrientationKey: () => 'portrait', kbFieldSession: {} },
@@ -175,14 +175,19 @@ test('KB-AMOUNT: kbEarlyUncertainFor — історія [416, 389] (останн
   const un = f => { c.__f = f; return evalInSandbox(c, 'kbEarlyUncertainFor(__f)'); };
   const amount = { id: 'app-modal-amount-input', kind: 'numeric' };
   assert.equal(un(amount), false, 'без історії — поведінка попередня');
-  sv('app-modal-amount-input', 389, 'numeric'); assert.equal(un(amount), false, 'одна висота = остання');
   sv('app-modal-amount-input', 416, 'numeric'); sv('app-modal-amount-input', 389, 'numeric');
-  assert.equal(un(amount), true, '[416, 389]: ціль alt 416, остання фактична 389');
-  assert.equal(un({ id: 'app-modal-amount-input', kind: 'text' }), false, 'інший тип клавіатури — окрема історія');
-  sv('cldfielda1', 415, 'email'); sv('cldfielda1', 311, 'email'); sv('cldfielda1', 415, 'email');
-  assert.equal(un({ id: 'cldfielda1', kind: 'email' }), false, 'поля входу з кількома висотами — окреме правило (KB-FACEID)');
+  assert.equal(un(amount), false, '[416, 389]: ціль = last 389 — достовірна');
+  assert.equal(evalInSandbox(c, "kbFieldHeightGet('portrait', 'app-modal-amount-input', 'numeric').last"), 389);
+  m['budget-kb-heights-f1'] = JSON.stringify({ 'app-modal-amount-input|portrait|h894|knumeric': [] }); evalInSandbox(c, 'kbFieldSession = {}');
+  assert.equal(un(amount), false, 'порожній набір — історії нема');
+  assert.equal(un({ id: 'cldfielda1', kind: 'email' }), false, 'поле входу — окреме правило');
   assert.equal(un({ id: '', kind: 'numeric' }), false);
-  assert.ok(Object.keys(JSON.parse(m['budget-kb-heights-f1'])).some(k => k === 'app-modal-amount-input|portrait|h894|knumeric'), 'ключ містить тип клавіатури');
+  assert.ok(JSON.stringify(Object.keys(JSON.parse(m['budget-kb-heights-f1']))).includes('knumeric'), 'ключ містить тип клавіатури');
+});
+test('KB-AMOUNT: ціль раннього підйому для поля поза входом — last, не alt', () => {
+  assert.match(HTML, /const ownUseLast = !!ownH && !ownLoginField && typeof ownH\.last === 'number';/);
+  assert.match(HTML, /const estimate = ownH \? \(ownUseLast \? ownH\.last : \(ownH\.alt \|\| ownH\.h\)\)/);
+  assert.match(HTML, /minH: \(ownH && ownH\.alt && !ownUseLast\) \? ownH\.h : null/);
 });
 test('KB-AMOUNT: структура — запис історії лише у kbSaveStableFieldHeight (таймер kb-heights), не в updateKbSheetGeometry; off:uncertain у kbEarlyStateNow і kbPipeEarlyStart', () => {
   const u0 = HTML.indexOf('function updateKbSheetGeometry(){'); const u1 = HTML.indexOf('\nfunction ', u0 + 10);

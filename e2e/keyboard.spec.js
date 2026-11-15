@@ -1503,11 +1503,11 @@ test('98. KB-39/A: відкриття входу з автофокусом — 0
 
 // KB-39 (B, переробка, Rev 2.32.295): поле з кількома висотами {311, 415} (norm 415, min 311): одна траєкторія до цілі norm з кривою, підібраною під геометрію (+100 мс: поле над межею norm із запасом ≥ 4 пт; +130 мс: шлях ≤ шляху до цілі min). Якщо геометрія не дозволяє (поля входу: поле стоїть надто низько в листі) — ціль min зі швидким профілем і подія kb-early-fallback. Тести B1/B2 — на полі «Додати ОЧ» (назва), де геометрія дозволяє.
 const KB39_HIST = [311, 415];
-async function kb39Run(browser, hist, real, lateMs, early){
+async function kb39Run(browser, hist, real, lateMs, early, asLogin){
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     await kb36OpenModal(page);
-    await page.evaluate(([h, early]) => { if(!early) window.__kbNoEarly = true; const f = {}; f['app-modal-input|portrait|h' + Math.round(window.__H0) + '|ktext'] = h; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); }, [hist, early]);
+    await page.evaluate(([h, early, login]) => { if(!early) window.__kbNoEarly = true; if(login) document.getElementById('app-modal-input').type = 'email'; /* Rev 2.32.309 (KB-AMOUNT): KB-39 (ціль норма + крива до мінімуму) діє для полів входу (email/password); поза входом ціль = last */ const f = {}; f['app-modal-input|portrait|h' + Math.round(window.__H0) + '|k' + (login ? 'email' : 'text')] = h; localStorage.setItem('budget-kb-heights-f1', JSON.stringify(f)); }, [hist, early, !!asLogin]);
     const bb = await page.locator('#app-modal-input').boundingBox();
     const sampler = page.evaluate(() => new Promise(resolve => {
       const m = document.getElementById('app-modal'), fe = document.getElementById('app-modal-input'), s = [], t0 = performance.now(); window.__t0 = t0;
@@ -1536,8 +1536,8 @@ test('99. KB-39/B1: {311, 415}, реально 415 на +100 мс — поле �
   expect(m.overshoot, 'без перельоту: ' + info).toBeLessThanOrEqual(1);
 });
 test('99. KB-39/B2: {311, 415}, реально 311 на +235 мс — переліт ≤ 3 пт, без розвороту, кінець на цілі ±1', async ({ browser }) => {
-  const r = await kb39Run(browser, KB39_HIST, 311, 235, true);
-  const ref = await kb39Run(browser, KB39_HIST, 311, 235, false);
+  const r = await kb39Run(browser, KB39_HIST, 311, 235, true, true);
+  const ref = await kb39Run(browser, KB39_HIST, 311, 235, false, true);
   const m = kb37Metrics(r), mr = kb37Metrics(ref), g = kb38Speeds(r);
   const s = r.s; let turns = 0, dir = 0; for(let i = 1; i < s.length; i++){ const d = s[i][1] - s[i - 1][1]; if(Math.abs(d) < 0.5) continue; const nd = d > 0 ? 1 : -1; if(dir !== 0 && nd !== dir) turns++; dir = nd; }
   const info = JSON.stringify({ m, g, refFinal: mr.final, turns, ev: r.ev });
@@ -1954,7 +1954,7 @@ async function kbAmountTap(page, kbH){
   await page.evaluate((h) => { window.__vv.h = window.__H0 - h; window.visualViewport.dispatchEvent(new Event('resize')); }, kbH);
 }
 const kbAmountHist = (page) => page.evaluate(() => { const o = JSON.parse(localStorage.getItem('budget-kb-heights-f1') || '{}'); const k = Object.keys(o).filter(x => x.startsWith('app-modal-amount-input|')); return k.map(x => ({ key: x, list: o[x] })); });
-test('115. KB-AMOUNT/1: історія [416, 389] при фактичній 389 — без раннього підйому (off:uncertain), жодного kb-early, ціль не змінюється на ходу', async ({ browser }) => {
+test('115. KB-AMOUNT/1: історія [416, 389], last 389 — ранній старт із цілі 389 (started), один kb-early, без зміни цілі на ходу', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     await kbAmountOpen(page); await kbAmountTap(page, 389); await page.waitForTimeout(1300);
@@ -1969,8 +1969,11 @@ test('115. KB-AMOUNT/1: історія [416, 389] при фактичній 389 
     const n0 = await page.evaluate(() => recBuf.length);
     await kbAmountTap(page, 389); await page.waitForTimeout(1200);
     const evs = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'sheet-open' || e.type === 'kb-early').map(e => ({ type: e.type, es: e.earlyState || null, expected: e.expected || null })), n0);
-    expect(evs.filter(e => e.type === 'kb-early'), 'раннього підйому немає: ' + JSON.stringify(evs)).toEqual([]);
-    expect(evs.find(e => e.type === 'sheet-open').es, JSON.stringify(evs)).toBe('off:uncertain');
+    const ke = evs.filter(e => e.type === 'kb-early');
+    expect(evs.find(e => e.type === 'sheet-open').es, JSON.stringify(evs)).toBe('started');
+    expect(ke.length, 'один kb-early, без зміни цілі на ходу: ' + JSON.stringify(evs)).toBe(1);
+    expect(Number(ke[0].expected), JSON.stringify(evs)).toBeLessThanOrEqual(393);
+    expect(Number(ke[0].expected)).toBeGreaterThanOrEqual(385);
   } finally { await ctx.close(); }
 });
 test('116. KB-AMOUNT/2: проміжна 416 під час зміни клавіатури в історію не потрапляє (лише стабільна 389); наступне відкриття стартує одразу з цілі', async ({ browser }) => {

@@ -29607,7 +29607,9 @@ function enterKbSheet(drawerEl, fieldEl){
   const storedH = newF ? kbHeightFromStore(orientKey, kbCacheKindForField(fieldEl)) : null; // старий шлях iPhone кеш localStorage не використовує // Rev 2.32.240: кеш із localStorage — лише запасний варіант і --sheet-max-h
   const cacheForEstimate = Object.assign({}, keyboardHeightCache[orientKey]); if(storedH && typeof cacheForEstimate[kbSheetFieldKind] !== 'number') cacheForEstimate[kbSheetFieldKind] = storedH;
   const ownH = kbFieldHeightGet(orientKey, fieldEl && fieldEl.id, kbCacheKindForField(fieldEl)); // Rev 2.32.309 (KB-AMOUNT): ключ із типом клавіатури // Rev 2.32.292 (KB-37, B): спершу власна історія поля
-  const estimate = ownH ? (ownH.alt || ownH.h) : estimateKeyboardHeight(baseVh, kbSheetFieldKind, cacheForEstimate); // KB-39: для поля з кількома висотами — остання не-найменша
+  const ownLoginField = (kbCacheKindForField(fieldEl) === 'password' || kbCacheKindForField(fieldEl) === 'email'); // Rev 2.32.309 (KB-AMOUNT): для полів поза входом ціль = last (остання стабільна висота), поля входу — як раніше (KB-FACEID)
+  const ownUseLast = !!ownH && !ownLoginField && typeof ownH.last === 'number';
+  const estimate = ownH ? (ownUseLast ? ownH.last : (ownH.alt || ownH.h)) : estimateKeyboardHeight(baseVh, kbSheetFieldKind, cacheForEstimate); // KB-39: для поля з кількома висотами — остання не-найменша
   const earlySrc = ownH ? ownH.src : ((typeof (keyboardHeightCache[orientKey] || {})[kbSheetFieldKind] === 'number') ? 'session' : (storedH ? 'store' : 'coef')); // Rev 2.32.291 (KB-36, 2): звідки очікувана висота — виміряна в цій сесії, зі збереженого чи за коефіцієнтом
   // Rev 2.23.10 (6D.179) — BugFix: --vv-h РАНІШЕ бралось з живого
   // window.visualViewport.height у ЦЕЙ САМИЙ тік (синхронно на focusin) —
@@ -29708,7 +29710,7 @@ function enterKbSheet(drawerEl, fieldEl){
     const autoOpen = !!(kbProxyActive && kbAutoOpenAt && Date.now() - kbAutoOpenAt <= 400); // KB-39, A: відкриття з автофокусом (фокус у допоміжному полі, лист ще виїжджає)
     const earlyOk = IS_IOS_RUNTIME && !window.__kbNoEarly && ((!kbProxyActive && Date.now() - kbLastInterceptAt <= 400) || autoOpen);
     kbPipeEnter(drawerEl, fieldEl, naturalHeight, wasClosing && earlyOk); // Rev 2.32.291 (KB-36): після закриття клавіатура ще «відкрита» за vv — вимірювання не запускає звичайний підйом за тимчасовою висотою
-    kbPipeEarlyStart(drawerEl, fieldEl, vvEstimate, naturalHeight, { src: earlySrc, wasClosing: wasClosing, motion: wasClosing || kbSlideRunning(drawerEl), minH: (ownH && ownH.alt) ? ownH.h : null, auto: autoOpen }); // Rev 2.32.289 (KB-35, B)
+    kbPipeEarlyStart(drawerEl, fieldEl, vvEstimate, naturalHeight, { src: earlySrc, wasClosing: wasClosing, motion: wasClosing || kbSlideRunning(drawerEl), minH: (ownH && ownH.alt && !ownUseLast) ? ownH.h : null, auto: autoOpen }); // Rev 2.32.289 (KB-35, B)
   }else{
     startSheetAnimSampler(drawerEl, 'open', naturalHeight);
     beginSheetMoving(drawerEl, 'open', null, fieldEl);
@@ -30262,15 +30264,14 @@ function kbSaveStableFieldHeight(h){
     kbFieldHeightSave(viewportOrientationKey(window.innerWidth, window.innerHeight), hf.id, h, kbCacheKindForField(hf));
   }catch(e){}
 }
-// Rev 2.32.309 (KB-AMOUNT, C): рання ціль із історії недостовірна, якщо вона не збігається (±4 пт) з ОСТАННЬОЮ фактичною висотою цього поля (поля входу з кількома висотами — окреме правило KB-FACEID, тут не чіпаємо). Без історії поведінка попередня (множник KB_EARLY_FACTOR).
+// Rev 2.32.309 (KB-AMOUNT, C): рішення чату: для полів поза входом рання ціль = last (остання стабільна висота); недостовірна (off:uncertain) лише коли історія є, а last немає. Поля входу з кількома висотами — окреме правило (KB-FACEID). Без історії поведінка попередня (множник KB_EARLY_FACTOR).
 function kbEarlyUncertainFor(fieldEl){
   try{
     if(!fieldEl || !fieldEl.id) return false;
     const kind = kbCacheKindForField(fieldEl);
     if(kind === 'password' || kind === 'email') return false;
     const o = kbFieldHeightGet(viewportOrientationKey(window.innerWidth, window.innerHeight), fieldEl.id, kind);
-    if(!o || typeof o.last !== 'number') return false;
-    return Math.abs((o.alt || o.h) - o.last) > 4;
+    return !!o && typeof o.last !== 'number';
   }catch(e){ return false; }
 }
 function updateKbSheetGeometry(){
