@@ -3868,7 +3868,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.313</div>
+  <div class="version-footer">Money Tree · Rev 2.32.314</div>
 </div>
   </div>
 </div>
@@ -9827,7 +9827,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.313';
+const APP_VERSION = '2.32.314';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15123,7 +15123,7 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['touch-cancel', 'native-focus', 'switch-miss', 'kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail', 'echo-skip', 'pull-skip'];
+const REC_ALLOWED_TYPES = ['kb-shot-close', 'touch-cancel', 'native-focus', 'switch-miss', 'kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail', 'echo-skip', 'pull-skip'];
 const REC_ALLOWED_KEYS = ['sinceClose', 'idShort', 'earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm', 'vvTopBefore', 'scrollYBefore', 'distPx', 'prevTabindex', 'targetTabindex', 'sinceTouchEnd', 'enterHop', 'activeStart', 'activeEnd', 'sinceIntercept', 'stPreMs', 'stEnterMs', 'stCapMs', 'stPipeMs', 'stRestMs', 'stTotalMs', 'firstFrameMs', 'firstAnimMs', 'samplesLift', 'pageTop', 'pageTopStart', 'pageTopEnd', 'latencyMs'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
@@ -30905,8 +30905,27 @@ function kbWinDiag(type){
     pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: type, hasFocus: document.hasFocus(), visibility: document.visibilityState, activeElementTag: ae ? ae.tagName : null, activeElementId: ae ? (ae.id || null) : null, vvH: vv ? Math.round(vv.height) : null, kbOpen: document.body.classList.contains('kb-open') });
   }catch(e){}
 }
-window.addEventListener('focus', function(){ kbWinDiag('kb-win-focus'); });
-window.addEventListener('blur', function(){ kbWinDiag('kb-win-blur'); });
+// Rev 2.32.314 (KB-SHOT, C): звіт MT-1115-8654: після скріншота — window blur (hasFocus false), у ту ж мс kb-vv-resize vvH 894 при kbOpen true, window focus через 0,8–1,3 с, vvH лишається 894 (клавіатуру сховала системна панель скріншота), шторка висить без клавіатури до наступного дотику (2,6 с). KB-5b ігнорує кадри «клавіатура закрита», поки поле у фокусі. Тепер: після window focus, якщо vvH усе ще повна висота ≈ KB_SHOT_CONFIRM_MS (300 мс), клавіатуру вважаємо закритою: blur() активного поля й звичайне закриття шторки (kbResetOnBackground). Якщо клавіатура повернулась сама до кінця таймера — нічого не робимо. Короткий блиск vvH без втрати фокуса вікна нічого не закриває (таймер стартує лише на window focus).
+const KB_SHOT_CONFIRM_MS = 300;
+function kbShotSawKeyboard(){ return KB_PIPE.state === 'animating' || KB_PIPE.state === 'settled'; } // конвеєр бачив клавіатуру в цій сесії; iPad із зовнішньою клавіатурою (vvH завжди повна) — ні, форму не закриваємо (з рев'ю)
+let kbShotTimer = null;
+function kbShotCancel(){ if(kbShotTimer){ clearTimeout(kbShotTimer); kbShotTimer = null; } }
+window.addEventListener('focus', function(){
+  kbWinDiag('kb-win-focus');
+  kbShotCancel();
+  try{
+    if(!kbSheetActive || !window.visualViewport || !kbFocusInTextField() || !kbShotSawKeyboard()) return;
+    if(!isKeyboardLikelyClosed(getBaseViewportHeight(), window.visualViewport.height)) return;
+    kbShotTimer = setTimeout(function(){
+      kbShotTimer = null;
+      if(!kbSheetActive || !window.visualViewport || !kbFocusInTextField() || !kbShotSawKeyboard()) return;
+      if(!isKeyboardLikelyClosed(getBaseViewportHeight(), window.visualViewport.height)) return; // клавіатура повернулась сама
+      try{ captureDebugGeometry('kb-shot-close', { ms: KB_SHOT_CONFIRM_MS }); }catch(e){}
+      kbResetOnBackground('win-focus');
+    }, KB_SHOT_CONFIRM_MS);
+  }catch(e){}
+});
+window.addEventListener('blur', function(){ kbShotCancel(); kbWinDiag('kb-win-blur'); });
 document.addEventListener('visibilitychange', function(){ kbWinDiag('kb-visibility'); });
 // Rev 2.32.258 (KB-5a): згортання застосунку (свайп додому, інший застосунок) лишало поле «у фокусі» без клавіатури — після повернення дотик у те саме поле клавіатуру не відкривав (фокус уже там), лише другий перехід. Тепер при visibilitychange:hidden і pagehide фокус знімається з поля і конвеєр клавіатури скидається тим самим шляхом, що звичайне закриття (blur → handleKeyboardFieldFocusSettle: лок фону, exitKbSheet, kb-open). Спільна зміна для всіх форм. Ризик: якщо iOS позначає сторінку прихованою під час Face ID/панелі паролів, фокус там теж знімуть — діагностика kb-visibility покаже (KB-3). Альтернатива (лишати фокус) відтворює збій.
 function kbResetOnBackground(why){

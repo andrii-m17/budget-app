@@ -1715,3 +1715,68 @@ test('121. SHEET-FOOTER: installment-drawer при відкритій клаві
     await page.screenshot({ path: process.env.E2E_SHOT_DIR ? process.env.E2E_SHOT_DIR + '/sheet-footer.png' : 'e2e-results/sheet-footer.png' });
   } finally { await ctx.close(); }
 });
+
+// Rev 2.32.314 (KB-SHOT, C): шторка після скріншота (window blur → vvH повна → window focus → vvH лишається повною).
+async function kbShotOpen(browser){
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+  await page.waitForTimeout(900);
+  const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+  await page.waitForTimeout(120);
+  await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+  await page.waitForTimeout(1000);
+  return { ctx, page };
+}
+const kbShotState = (page) => page.evaluate(() => ({ active: document.activeElement && document.activeElement.id, sheet: document.documentElement.classList.contains('kb-sheet'), kbOpen: document.body.classList.contains('kb-open'), recs: recBuf.filter(e => e.type === 'kb-shot-close').length }));
+test('122. KB-SHOT/1: blur вікна, vvH повна, focus вікна, vvH лишається повною — шторка закрита, поле без фокуса (kb-shot-close)', async ({ browser }) => {
+  const { ctx, page } = await kbShotOpen(browser);
+  try{
+    expect((await kbShotState(page)).active, 'до скріншота поле у фокусі').toBe('cldfielda1');
+    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    expect((await kbShotState(page)).sheet, 'поки вікно без фокуса, нічого не закриваємо (KB-5b)').toBe(true);
+    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
+    await page.waitForTimeout(150);
+    expect((await kbShotState(page)).sheet, 'до 300 мс ще не закрито').toBe(true);
+    await page.waitForTimeout(700);
+    const s = await kbShotState(page);
+    expect(s.sheet, JSON.stringify(s)).toBe(false);
+    expect(s.active, 'поле без фокуса: ' + JSON.stringify(s)).not.toBe('cldfielda1');
+    expect(s.recs, JSON.stringify(s)).toBe(1);
+  } finally { await ctx.close(); }
+});
+test('123. KB-SHOT/2 (контроль): клавіатура повернулась сама до кінця таймера — нічого не закривається; короткий блиск vvH без втрати фокуса вікна — теж', async ({ browser }) => {
+  const { ctx, page } = await kbShotOpen(browser);
+  try{
+    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
+    await page.waitForTimeout(100);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); }); // клавіатура повернулась сама
+    await page.waitForTimeout(900);
+    let s = await kbShotState(page);
+    expect(s.sheet && s.active === 'cldfielda1' && s.recs === 0, 'повернулась сама: ' + JSON.stringify(s)).toBe(true);
+    // короткий блиск без blur/focus вікна
+    await page.evaluate(() => { window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(120);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    s = await kbShotState(page);
+    expect(s.sheet && s.active === 'cldfielda1' && s.recs === 0, 'блиск vvH: ' + JSON.stringify(s)).toBe(true);
+  } finally { await ctx.close(); }
+});
+test('124. KB-SHOT/3 (контроль): клавіатури не було (зовнішня, vvH завжди повна) — blur/focus вікна форму не закриває', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(600); // vvH так і лишається повною: клавіатура не з'являлась
+    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
+    await page.waitForTimeout(900);
+    const s = await kbShotState(page);
+    expect(s.active === 'cldfielda1' && s.recs === 0, JSON.stringify(s)).toBe(true);
+  } finally { await ctx.close(); }
+});
