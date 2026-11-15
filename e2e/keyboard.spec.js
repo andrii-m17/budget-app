@@ -1432,21 +1432,25 @@ test('108. KB-SWITCH-FIX/4: sheet-account — дотик по контейнер
 });
 
 // Rev 2.32.307 (KB-SWITCH-FINAL, C): сценарії перехоплення на touchstart. Синтетичні дотики з identifier; «нативний» фокус iOS емулюється як field.focus() через 50 мс після touchstart, якщо дію за замовчуванням не скасовано.
-async function kbLoginOpen(browser, focusId){
+async function kbLoginOpen(browser, focusId, kbH){
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
   await page.waitForTimeout(900);
   const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
   await page.waitForTimeout(120);
-  await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+  await page.evaluate((h) => { window.__vv.h = window.__H0 - h; window.visualViewport.dispatchEvent(new Event('resize')); }, kbH || 388); // KB-TAP: у моку (екран 664) форма входу влазить без прокрутки лише при низькій «клавіатурі» (kbH 200)
   await page.waitForTimeout(900);
   if(focusId){ await page.evaluate((id) => document.getElementById(id).focus({ preventScroll: true }), focusId); await page.waitForTimeout(700); }
   await page.evaluate(() => {
+    window.__tchActive = {};
     window.__tch = function(type, sel, id, o){
       o = o || {}; const el = document.querySelector(sel), r = el.getBoundingClientRect();
       const x = o.x !== undefined ? o.x : r.left + r.width / 2, y = o.y !== undefined ? o.y : r.top + r.height / 2;
+      (o.drop || []).forEach(d => { delete window.__tchActive[d]; }); // «втрачені» дотики: touchend не надійшов
       const ev = new Event(type, { bubbles: true, cancelable: true }); const tt = [{ clientX: x, clientY: y, identifier: id, target: el }];
-      Object.defineProperty(ev, 'touches', { value: type === 'touchend' || type === 'touchcancel' ? [] : tt }); Object.defineProperty(ev, 'changedTouches', { value: tt });
+      if(type === 'touchstart') window.__tchActive[id] = tt[0];
+      Object.defineProperty(ev, 'touches', { value: type === 'touchend' || type === 'touchcancel' ? Object.values(window.__tchActive).filter(v => v.identifier !== id) : Object.values(window.__tchActive) }); Object.defineProperty(ev, 'changedTouches', { value: tt });
+      if(type === 'touchend' || type === 'touchcancel') delete window.__tchActive[id];
       el.dispatchEvent(ev);
       if(type === 'touchstart' && o.nativeFocusMs !== undefined && !ev.defaultPrevented) setTimeout(() => el.focus(), o.nativeFocusMs);
       return ev.defaultPrevented;
@@ -1455,64 +1459,6 @@ async function kbLoginOpen(browser, focusId){
   return { ctx, page };
 }
 const kbEvs = (page, n0, types) => page.evaluate(({ n0, types }) => recBuf.slice(n0).filter(e => types.includes(e.type)).map(e => ({ type: e.type, to: e.to || null, phase: e.phase || null, reason: e.reason || null, dur: e.durationMs === undefined ? null : e.durationMs, activeStart: e.activeStart || null })), { n0, types });
-test('109. KB-SWITCH-FINAL/1: нативний фокус iOS через 50 мс після touchstart по іншому полю — touchstart скасовано, жодного native-focus / pan-comp, фокус на touchend (phase start)', async ({ browser }) => {
-  const { ctx, page } = await kbLoginOpen(browser, null);
-  try{
-    const n0 = await page.evaluate(() => recBuf.length);
-    const prevented = await page.evaluate(() => window.__tch('touchstart', '#cloud-password', 11, { nativeFocusMs: 50 }));
-    await page.waitForTimeout(250);
-    expect(await page.evaluate(() => document.activeElement.id), 'фокус не перейшов до touchend').toBe('cldfielda1');
-    await page.evaluate(() => window.__tch('touchend', '#cloud-password', 11));
-    await page.waitForTimeout(500);
-    const evs = await kbEvs(page, n0, ['native-focus', 'pan-comp', 'switch-intercept', 'switch-miss']);
-    expect(prevented, 'touchstart скасовано').toBe(true);
-    expect(evs.filter(e => e.type === 'native-focus' || e.type === 'pan-comp'), JSON.stringify(evs)).toEqual([]);
-    expect(evs.filter(e => e.type === 'switch-intercept' && e.phase === 'start' && e.to === 'cloud-password').length, JSON.stringify(evs)).toBe(1);
-    expect(await page.evaluate(() => document.activeElement.id)).toBe('cloud-password');
-  } finally { await ctx.close(); }
-});
-test('110. KB-SWITCH-FINAL/2: два пальці внахлест — кожен дотик оцінюється за власним початком (identifier)', async ({ browser }) => {
-  const { ctx, page } = await kbLoginOpen(browser, 'cloud-password');
-  try{
-    const n0 = await page.evaluate(() => recBuf.length);
-    const a = await page.evaluate(() => window.__tch('touchstart', '#cldfielda1', 21, { nativeFocusMs: 50 }));       // інше поле → перехоплено
-    const b = await page.evaluate(() => window.__tch('touchstart', '#cloud-password', 22));                          // активне поле → не чіпаємо
-    await page.waitForTimeout(150);
-    await page.evaluate(() => window.__tch('touchend', '#cloud-password', 22));                                      // другий палець піднято першим
-    await page.waitForTimeout(450);
-    expect(await page.evaluate(() => document.activeElement.id), 'підняття іншого пальця не фокусує поле першого').toBe('cloud-password');
-    await page.evaluate(() => window.__tch('touchend', '#cldfielda1', 21));
-    await page.waitForTimeout(500);
-    const evs = await kbEvs(page, n0, ['native-focus', 'pan-comp', 'switch-intercept', 'switch-miss']);
-    expect(a, 'перший (інше поле) скасовано').toBe(true);
-    expect(b, 'другий (активне поле) НЕ скасовано: курсор/лупа системні').toBe(false);
-    expect(await page.evaluate(() => document.activeElement.id), JSON.stringify(evs)).toBe('cldfielda1');
-    expect(evs.filter(e => e.type === 'native-focus' || e.type === 'pan-comp'), JSON.stringify(evs)).toEqual([]);
-    expect(evs.filter(e => e.type === 'switch-intercept' && e.to === 'cldfielda1').length, JSON.stringify(evs)).toBe(1);
-    const miss = evs.filter(e => e.type === 'switch-miss');
-    expect(miss.length, JSON.stringify(evs)).toBe(1);
-    expect(miss[0].reason).toBe('same'); expect(miss[0].to, 'власний початок другого пальця').toBe('cloud-password'); expect(miss[0].dur, 'тривалість другого пальця, а не першого').toBeLessThan(400);
-  } finally { await ctx.close(); }
-});
-test('111. KB-SWITCH-FINAL/3: дотик по активному полю не скасовується (лупа, курсор); touchcancel нічого не фокусує й пише touch-cancel', async ({ browser }) => {
-  const { ctx, page } = await kbLoginOpen(browser, 'cloud-password');
-  try{
-    const n0 = await page.evaluate(() => recBuf.length);
-    const prevented = await page.evaluate(() => window.__tch('touchstart', '#cloud-password', 31));
-    await page.evaluate(() => window.__tch('touchend', '#cloud-password', 31));
-    expect(prevented, 'touchstart по активному полю не скасовується').toBe(false);
-    await page.waitForTimeout(200);
-    const p2 = await page.evaluate(() => window.__tch('touchstart', '#cldfielda1', 32, { nativeFocusMs: 50 }));
-    await page.waitForTimeout(120);
-    await page.evaluate(() => window.__tch('touchcancel', '#cldfielda1', 32));
-    await page.waitForTimeout(400);
-    const evs = await kbEvs(page, n0, ['native-focus', 'pan-comp', 'switch-intercept', 'touch-cancel']);
-    expect(p2).toBe(true);
-    expect(await page.evaluate(() => document.activeElement.id), 'touchcancel нічого не фокусує').toBe('cloud-password');
-    expect(evs.filter(e => e.type === 'touch-cancel' && e.to === 'cldfielda1').length, JSON.stringify(evs)).toBe(1);
-    expect(evs.filter(e => e.type === 'native-focus' || e.type === 'pan-comp' || e.type === 'switch-intercept'), JSON.stringify(evs)).toEqual([]);
-  } finally { await ctx.close(); }
-});
 test('112. KB-SWITCH-FINAL/4: жест прокрутки, початий на неактивному полі у шторці з прокруткою — scrollTop веде за пальцем, фокус не ставиться', async ({ browser }) => {
   const { ctx, page } = await kbLoginOpen(browser, 'cldfielda1');
   try{
@@ -1652,5 +1598,95 @@ test('119. KB-FINAL/3: сторінка під шторкою нерухома �
     expect(r.open, JSON.stringify(r)).toBe(top0);
     expect(r.anim.length, JSON.stringify(r)).toBeGreaterThanOrEqual(1);
     for(const [a, b] of r.anim){ expect(a, JSON.stringify(r)).toBe(top0); expect(b, JSON.stringify(r)).toBe(top0); }
+  } finally { await ctx.close(); }
+});
+
+
+// Rev 2.32.311 (KB-TAP, C): форма без прокрутки — фокус на touchstart; прокручувана шторка — на touchend; сирітські дотики не фокусують.
+test('109. KB-TAP/1: форма входу без прокрутки, фокус у паролі, touchstart по пошті БЕЗ touchend — фокус у пошті одразу (phase touchstart), без native-focus / pan-comp; touchend нічого не робить', async ({ browser }) => {
+  const { ctx, page } = await kbLoginOpen(browser, 'cloud-password', 200);
+  try{
+    const n0 = await page.evaluate(() => recBuf.length);
+    const prevented = await page.evaluate(() => window.__tch('touchstart', '#cldfielda1', 11, { nativeFocusMs: 50 }));
+    await page.waitForTimeout(120);
+    expect(prevented, 'touchstart скасовано').toBe(true);
+    expect(await page.evaluate(() => document.activeElement.id), 'фокус у пошті одразу, без touchend').toBe('cldfielda1');
+    await page.waitForTimeout(350);
+    await page.evaluate(() => window.__tch('touchend', '#cldfielda1', 11));
+    await page.waitForTimeout(400);
+    const evs = await kbEvs(page, n0, ['native-focus', 'pan-comp', 'switch-intercept', 'switch-miss']);
+    expect(evs.filter(e => e.type === 'native-focus' || e.type === 'pan-comp'), JSON.stringify(evs)).toEqual([]);
+    const si = evs.filter(e => e.type === 'switch-intercept');
+    expect(si.length, 'один перехід: ' + JSON.stringify(evs)).toBe(1);
+    expect(si[0].phase, JSON.stringify(evs)).toBe('touchstart');
+    expect(evs.filter(e => e.type === 'switch-miss'), 'touchend не створює повторного рішення: ' + JSON.stringify(evs)).toEqual([]);
+  } finally { await ctx.close(); }
+});
+test('110. KB-TAP/2: два пальці внахлест у формі без прокрутки — кожен touchstart вирішує за власним дотиком; touchend нічого не фокусує', async ({ browser }) => {
+  const { ctx, page } = await kbLoginOpen(browser, 'cloud-password', 200);
+  try{
+    const n0 = await page.evaluate(() => recBuf.length);
+    const a = await page.evaluate(() => window.__tch('touchstart', '#cldfielda1', 21, { nativeFocusMs: 50 }));
+    await page.waitForTimeout(100);
+    expect(await page.evaluate(() => document.activeElement.id)).toBe('cldfielda1');
+    const b = await page.evaluate(() => window.__tch('touchstart', '#cloud-password', 22, { nativeFocusMs: 50 }));
+    await page.waitForTimeout(120);
+    expect(await page.evaluate(() => document.activeElement.id), 'другий палець: фокус у паролі').toBe('cloud-password');
+    await page.evaluate(() => window.__tch('touchend', '#cloud-password', 22));
+    await page.evaluate(() => window.__tch('touchend', '#cldfielda1', 21));
+    await page.waitForTimeout(400);
+    const evs = await kbEvs(page, n0, ['native-focus', 'pan-comp', 'switch-intercept']);
+    expect(a && b).toBe(true);
+    expect(await page.evaluate(() => document.activeElement.id), 'підняття пальців нічого не змінює').toBe('cloud-password');
+    expect(evs.filter(e => e.type === 'native-focus' || e.type === 'pan-comp'), JSON.stringify(evs)).toEqual([]);
+    expect(evs.filter(e => e.type === 'switch-intercept').map(e => e.to + ':' + e.phase), JSON.stringify(evs)).toEqual(['cldfielda1:touchstart', 'cloud-password:touchstart']);
+  } finally { await ctx.close(); }
+});
+test('111. KB-TAP/3: дотик по активному полю не скасовується (лупа, курсор); touchcancel після перехоплення на touchstart не повертає фокус і пише touch-cancel', async ({ browser }) => {
+  const { ctx, page } = await kbLoginOpen(browser, 'cloud-password', 200);
+  try{
+    const n0 = await page.evaluate(() => recBuf.length);
+    const prevented = await page.evaluate(() => window.__tch('touchstart', '#cloud-password', 31));
+    await page.evaluate(() => window.__tch('touchend', '#cloud-password', 31));
+    expect(prevented, 'touchstart по активному полю не скасовується').toBe(false);
+    await page.waitForTimeout(200);
+    const p2 = await page.evaluate(() => window.__tch('touchstart', '#cldfielda1', 32, { nativeFocusMs: 50 }));
+    await page.waitForTimeout(120);
+    await page.evaluate(() => window.__tch('touchcancel', '#cldfielda1', 32));
+    await page.waitForTimeout(400);
+    const evs = await kbEvs(page, n0, ['native-focus', 'pan-comp', 'switch-intercept', 'touch-cancel']);
+    expect(p2).toBe(true);
+    expect(await page.evaluate(() => document.activeElement.id), 'фокус поставлено на touchstart; touchcancel його не змінює').toBe('cldfielda1');
+    expect(evs.filter(e => e.type === 'touch-cancel' && e.to === 'cldfielda1').length, JSON.stringify(evs)).toBe(1);
+    expect(evs.filter(e => e.type === 'native-focus' || e.type === 'pan-comp'), JSON.stringify(evs)).toEqual([]);
+  } finally { await ctx.close(); }
+});
+test('120. KB-TAP/4: прокручувана шторка — touchstart без touchend фокус не ставить; сирітський запис не фокусує при пізньому touchend; новий дотик вирішує сам (на touchend)', async ({ browser }) => {
+  const { ctx, page } = await kbLoginOpen(browser, 'cloud-password');
+  try{
+    await page.evaluate(() => { const d = document.getElementById('profile-drawer'); const sp = document.createElement('div'); sp.style.height = '2500px'; d.appendChild(sp); });
+    await page.waitForTimeout(150);
+    const n0 = await page.evaluate(() => recBuf.length);
+    const a = await page.evaluate(() => window.__tch('touchstart', '#cldfielda1', 41, { nativeFocusMs: 50 }));
+    await page.waitForTimeout(150);
+    expect(a, 'touchstart скасовано').toBe(true);
+    expect(await page.evaluate(() => document.activeElement.id), 'прокручувана шторка: на touchstart фокус не ставиться').toBe('cloud-password');
+    // touchend першого дотику не прийшов; новий дотик по неполю (заголовок шторки) — старий запис стає сиротою
+    await page.evaluate(() => window.__tch('touchstart', '#profile-drawer', 42, { drop: [41] }));
+    await page.evaluate(() => window.__tch('touchend', '#profile-drawer', 42));
+    await page.waitForTimeout(100);
+    await page.evaluate(() => window.__tch('touchend', '#cldfielda1', 41)); // пізній touchend сирітського дотику
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => document.activeElement.id), 'сирітський touchend фокус не ставить').toBe('cloud-password');
+    // новий повний дотик по пошті: фокус на touchend цього дотику
+    await page.evaluate(() => window.__tch('touchstart', '#cldfielda1', 43));
+    await page.waitForTimeout(100);
+    expect(await page.evaluate(() => document.activeElement.id)).toBe('cloud-password');
+    await page.evaluate(() => window.__tch('touchend', '#cldfielda1', 43));
+    await page.waitForTimeout(400);
+    const evs = await kbEvs(page, n0, ['native-focus', 'pan-comp', 'switch-intercept']);
+    expect(await page.evaluate(() => document.activeElement.id), 'новий дотик ставить фокус').toBe('cldfielda1');
+    expect(evs.filter(e => e.type === 'switch-intercept').map(e => e.to + ':' + e.phase), JSON.stringify(evs)).toEqual(['cldfielda1:touchend']);
+    expect(evs.filter(e => e.type === 'native-focus' || e.type === 'pan-comp'), JSON.stringify(evs)).toEqual([]);
   } finally { await ctx.close(); }
 });

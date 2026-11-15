@@ -35,7 +35,7 @@ test('Rev 2.32.307 (KB-SWITCH-FINAL): перехоплення на touchstart (
   assert.ok(!/(let|const|var) kbTapStart|kbTapStart = /.test(SRC), 'одного глобального стану дотику більше немає');
   assert.match(SRC, /kbTouches\.set\(t\.identifier, entry\);\n  \}\n\}, \{ passive: false, capture: true \}\);/);
   assert.match(SRC, /if\(e\.cancelable\) e\.preventDefault\(\);/);
-  assert.match(SRC, /switchKind: 'tap', phase: 'start'/);
+  assert.match(SRC, /switchKind: 'tap', phase: phase, latencyMs: /);
   assert.match(SRC, /captureDebugGeometry\('touch-cancel', \{ to:/);
   assert.match(SRC, /if\(start\.scrolling \|\| moved \|\| !kbSheetActive \|\| kbProxyActive \|\| !drawerEl \|\| target === active\) return;/);
   assert.ok(!/shouldInterceptSwitchTap\(\{ target: rawTarget/.test(SRC), 'старий вибір переходу на touchend прибрано');
