@@ -197,9 +197,6 @@
      керує власною типографікою, адаптивний авто-зум тексту тут зайвий. */
   html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; background:var(--color-bg); min-height:100%; }
   html,body{ margin:0; padding:0; height:100%; overflow:hidden; position:fixed; inset:0; width:100%; overscroll-behavior:none; background:var(--color-bg); color:var(--color-text-primary); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
-  /* Rev 2.32.312 (UI-SELECT, B): довгий дотик по картках (список ОЧ) виділяв текст кількох карток і показував системне меню «Скопіювати / Переклад». Текст інтерфейсу не виділяється; поля введення лишають виділення й вставку. Код звіту «MT-…» копіюється кнопкою (copyRecCode), виділення .rec-state-code не потрібне. */
-  body{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-  input, textarea, [contenteditable]{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
   .mono{ font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
   /* Rev 2.25.0 (M2) — стовпчики графіка ростуть знизу (scaleY у межах власного bbox); лічильники KPI з tabular-nums, щоб ширина не стрибала під час рахунку. */
   .dash-bar{ transform-box:fill-box; transform-origin:50% 100%; }
@@ -1849,7 +1846,7 @@
   .rec-state-icon{ display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:16px; margin-bottom:12px; background:var(--color-primary-bg); color:var(--color-primary-hover); }
   .rec-state.is-off .rec-state-icon{ background:var(--color-warning-bg); color:var(--color-warning); }
   .rec-state-title{ font-size:15px; font-weight:600; color:var(--color-text-primary); }
-  .rec-state-code{ margin-top:12px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:18px; font-weight:500; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:var(--color-text-primary); }
+  .rec-state-code{ margin-top:12px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:18px; font-weight:500; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:var(--color-text-primary); user-select:all; -webkit-user-select:all; }
   .rec-state-hint{ margin-top:6px; font-size:14px; color:var(--color-text-secondary); }
   .rec-state.is-sending .rec-state-icon{ background:var(--color-info-bg); color:var(--color-info); }
   .chk-sent{ text-align:center; font-size:13px; color:var(--color-success); margin-top:10px; opacity:0; transition:opacity .3s; height:16px; }
@@ -3879,7 +3876,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.319</div>
+  <div class="version-footer">Money Tree · Rev 2.32.320</div>
 </div>
   </div>
 </div>
@@ -9838,7 +9835,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.319';
+const APP_VERSION = '2.32.320';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
