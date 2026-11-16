@@ -1970,3 +1970,29 @@ test('133. FACEID-RESTORE/2: перекидання фокуса пошта → 
     expect(r.so, JSON.stringify(r)).toBe(true);
   } finally { await ctx.close(); }
 });
+
+// Rev 2.32.328 (LOGIN-FORM-3, C): перехід фокусу, який iOS робить сам, під час зміни висоти клавіатури — не більше одного pan-comp (без коливання 1↔2 пт щокадру).
+test('136. LOGIN-FORM-3: перехід фокусу пароль → пошта без дотику, поки висота клавіатури змінюється, а vvOffsetTop коливається 1↔2 пт щокадру — не більше одного pan-comp', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { document.getElementById('cloud-password').focus(); });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1000);
+    const n0 = await page.evaluate(() => recBuf.length);
+    await page.evaluate(async () => {
+      document.getElementById('cldfielda1').focus(); // iOS сам перекидає фокус, без дотику
+      for(let i = 0; i < 14; i++){ // ≈ 240 мс щокадру: висота клавіатури трохи міняється, vvOffsetTop 1↔2
+        window.__vv.h = window.__H0 - 388 - (i % 2 ? 2 : 0); window.__vv.top = (i % 2) ? 2 : 1;
+        window.visualViewport.dispatchEvent(new Event('resize')); window.visualViewport.dispatchEvent(new Event('scroll'));
+        await new Promise(r => requestAnimationFrame(r));
+      }
+      window.__vv.top = 0; window.visualViewport.dispatchEvent(new Event('scroll'));
+    });
+    await page.waitForTimeout(700);
+    const c = await page.evaluate((n) => recBuf.slice(n).filter(e => e.type === 'pan-comp').length, n0);
+    expect(c, 'pan-comp ≤ 1: ' + c).toBeLessThanOrEqual(1);
+  } finally { await ctx.close(); }
+});

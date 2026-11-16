@@ -3878,7 +3878,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.327</div>
+  <div class="version-footer">Money Tree · Rev 2.32.328</div>
 </div>
   </div>
 </div>
@@ -9846,7 +9846,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.327';
+const APP_VERSION = '2.32.328';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -13973,10 +13973,12 @@ function loginEnterKey(e){
   // Rev 2.32.326 (LOGIN-FORM): Return у паролі тепер подає форму штатно (submit → loginFormSubmit); тут лише перехід пошта → пароль
 }
 // Rev 2.32.326 (LOGIN-FORM, C): форма входу й вхід за автозаповненням. Факти: після автозаповнення (Face ID) еталонні застосунки ховають клавіатуру, і вхід іде сам (iOS подає форму); у нас поля в <div>, кнопка type=button, тож iOS подавати було нічого. Тепер <form id="cloud-login-form-el"> з кнопкою type=submit; submit: preventDefault, blur активного поля, signInCloudAccount() (cloudSignInBusy гарантує один вхід). Додатково: коли обидва поля заповнено автозаповненням (input без inputType / insertReplacementText / :-webkit-autofill) і після заповнення не було ні keydown, ні дотику по полях — один form.requestSubmit() на заповнення; не повторюється для тих самих значень після помилки входу. Самописець: login-submit by: button | return | autofill | ios.
-let loginKeyDown = false, loginFillTimer = null, loginAutoDoneFor = '', loginSubmitBy = null, loginSubmitByAt = 0;
+let loginKdPending = false, loginFillTimer = null, loginAutoDoneFor = '', loginSubmitBy = null, loginSubmitByAt = 0;
 // Rev 2.32.327 (LOGIN-FORM-2, C): звіти MT-1117-1653 / -3640: після автозаповнення (панель Face ID / QuickType) самописець писав autofill by panel / closed, але login-submit by autofill не було: умови 2.32.326 (ознака autofill у input, «без дотику») не збігалися з тим, що подає iOS. Тепер: input і change на обох полях → через 300 мс один form.requestSubmit(), коли обидва поля не порожні, у полях входу не було keydown після відкриття форми (ручний набір подає лише Return/кнопка), вхід не триває (cloudSignInBusy) і цю пару значень ще не подавали. Друге джерело того самого рішення: завершення групи autofill у самописці (будь-який by) викликає ту саму loginAutoCheck. Дотик по полях умовою більше не є (він лише відкриває панель Face ID).
 function loginIsField(el){ return !!(el && (el.id === 'cldfielda1' || el.id === 'cloud-password')); }
-function loginAutoReset(){ loginKeyDown = false; if(loginFillTimer){ clearTimeout(loginFillTimer); loginFillTimer = null; } }
+// Rev 2.32.328 (LOGIN-FORM-3, C): звіт MT-1117-0178: через Face ID iOS заповнює поля посимвольно (keydown/input insertText кожні ~8 мс), потім change з :-webkit-autofill на обох полях; умова «без keydown» (2.32.327) блокувала автовхід. Тепер ознака — :-webkit-autofill на обох полях (перевіряється на input, change і після завершення групи autofill, 300 мс); keydown умовою не є.
+function loginIsAutofilled(el){ try{ return !!(el && el.matches && el.matches(':-webkit-autofill')); }catch(e){ return false; } }
+function loginAutoReset(){ loginKdPending = false; if(loginFillTimer){ clearTimeout(loginFillTimer); loginFillTimer = null; } }
 function loginMarkSubmitBy(by){ loginSubmitBy = by; loginSubmitByAt = performance.now(); }
 function loginFormSubmit(ev){
   if(ev && ev.preventDefault) ev.preventDefault();
@@ -13992,7 +13994,7 @@ function loginAutoCheck(){
   try{
     const e = document.getElementById('cldfielda1'), p = document.getElementById('cloud-password'), f = document.getElementById('cloud-login-form-el');
     if(!e || !p || !f || !e.value || !p.value || cloudSignInBusy) return;
-    if(loginKeyDown) return; // ручний набір: лише Return і кнопка
+    if(!loginIsAutofilled(e) || !loginIsAutofilled(p)) return; // Rev 2.32.328 (LOGIN-FORM-3): лише коли ОБИДВА поля збігаються з :-webkit-autofill; виправлене руками поле позначки не має — тоді лише Return і кнопка
     const key = e.value + '\n' + p.value;
     if(key === loginAutoDoneFor) return; // одну пару значень подаємо один раз; після помилки входу — без повтору
     loginAutoDoneFor = key;
@@ -14000,14 +14002,15 @@ function loginAutoCheck(){
     if(typeof f.requestSubmit === 'function') f.requestSubmit(); else loginFormSubmit({ preventDefault: function(){} });
   }catch(err){}
 }
-document.addEventListener('keydown', function(ev){ if(!loginIsField(ev.target)) return; loginKeyDown = true; if(ev.key === 'Enter' && ev.target.id === 'cloud-password') loginMarkSubmitBy('return'); }, true);
+document.addEventListener('keydown', function(ev){ if(!loginIsField(ev.target)) return; loginKdPending = true; if(ev.key === 'Enter' && ev.target.id === 'cloud-password') loginMarkSubmitBy('return'); }, true);
 document.addEventListener('click', function(ev){ try{ if(ev.target && ev.target.closest && ev.target.closest('#cloud-login-form-el button[type="submit"]') && !(loginSubmitBy === 'return' && performance.now() - loginSubmitByAt < 400)) loginMarkSubmitBy('button'); /* Return у паролі штатно відправляє синтетичний click по кнопці: це все ще 'return' */ }catch(e){} }, true);
 ['input', 'change'].forEach(function(evName){
   document.addEventListener(evName, function(ev){
     const el = ev.target; if(!loginIsField(el)) return;
-    try{ captureDebugGeometry('login-fill', { field: el.id, ev: evName, inputType: ev.inputType || null, autofill: (function(){ try{ return el.matches(':-webkit-autofill'); }catch(e){ return false; } })(), filled: !!el.value }); }catch(e){} // значень не пишемо
+    const kd = evName === 'input' ? loginKdPending : false; if(evName === 'input') loginKdPending = false;
+    try{ captureDebugGeometry('login-fill', { field: el.id, ev: evName, inputType: ev.inputType || null, autofill: loginIsAutofilled(el), filled: !!el.value, kd: kd }); }catch(e){} // значень не пишемо; kd — перед цим input був keydown
     const ee = document.getElementById('cldfielda1'), pp = document.getElementById('cloud-password');
-    if(ee && pp && !ee.value && !pp.value){ loginKeyDown = false; loginAutoDoneFor = ''; } // обидва порожні: нова спроба
+    if(ee && pp && !ee.value && !pp.value){ loginKdPending = false; loginAutoDoneFor = ''; } // обидва порожні: нова спроба
     if(loginFillTimer) clearTimeout(loginFillTimer);
     loginFillTimer = setTimeout(loginAutoCheck, 300);
   }, true);
@@ -15180,7 +15183,7 @@ const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
 const REC_ALLOWED_TYPES = ['login-fill', 'login-submit', 'kb-shot-close', 'touch-cancel', 'native-focus', 'switch-miss', 'kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail', 'echo-skip', 'pull-skip'];
-const REC_ALLOWED_KEYS = ['sinceClose', 'idShort', 'earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm', 'vvTopBefore', 'scrollYBefore', 'distPx', 'prevTabindex', 'targetTabindex', 'sinceTouchEnd', 'enterHop', 'activeStart', 'activeEnd', 'sinceIntercept', 'stPreMs', 'stEnterMs', 'stCapMs', 'stPipeMs', 'stRestMs', 'stTotalMs', 'firstFrameMs', 'firstAnimMs', 'samplesLift', 'pageTop', 'pageTopStart', 'pageTopEnd', 'latencyMs', 'platformField', 'ev', 'inputType', 'autofill', 'filled'];
+const REC_ALLOWED_KEYS = ['sinceClose', 'idShort', 'earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm', 'vvTopBefore', 'scrollYBefore', 'distPx', 'prevTabindex', 'targetTabindex', 'sinceTouchEnd', 'enterHop', 'activeStart', 'activeEnd', 'sinceIntercept', 'stPreMs', 'stEnterMs', 'stCapMs', 'stPipeMs', 'stRestMs', 'stTotalMs', 'firstFrameMs', 'firstAnimMs', 'samplesLift', 'pageTop', 'pageTopStart', 'pageTopEnd', 'latencyMs', 'platformField', 'ev', 'inputType', 'autofill', 'filled', 'kd'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -30251,9 +30254,15 @@ function scheduleLiveSheetLift(){
   if(!KB_LIVE.raf){ KB_LIVE.raf = 1; requestAnimationFrame(applyLiveSheetLift); } // applyLiveSheetLift скидає KB_LIVE.raf
 }
 let kbPanPending = false, kbPanLastTop = -1, kbPanLastAt = 0;
+// Rev 2.32.328 (LOGIN-FORM-3, C): звіт MT-1117-0178: після автозаповнення iOS сам перекидає фокус (пароль → пошта) і ~240 мс switch-native / pan-comp щокадру коригували зсув на 1–2 пт (колив 1↔2: різні panShift не збігались із kbPanLastTop). Для switch-native БЕЗ дотику поки висота клавіатури змінюється (vv.height змінювалась < KB_PAN_SETTLE_MS тому) корекцію не робимо щокадру: одна відкладена перевірка, коли висота стабілізується. Дотик і перехоплення не змінено.
+const KB_PAN_SETTLE_MS = 140;
+let kbPanDeferTimer = null, kbVvHChangeAt = 0; // kbVvHChangeAt: момент останнього visualViewport resize (висота клавіатури змінюється)
+if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){ kbVvHChangeAt = performance.now(); });
 function correctPanIfNeeded(){
   if(!window.visualViewport) return;
   if(window.scrollY !== 0 || window.visualViewport.offsetTop !== 0){
+    { const nativeNoTouch = kbLastSwitchKind === 'native' && Date.now() - kbLastSwitchAt < 600 && !(kbLastTap && Date.now() - kbLastTap.endAt < 600);
+      if(nativeNoTouch && performance.now() - kbVvHChangeAt < KB_PAN_SETTLE_MS){ if(kbPanDeferTimer) clearTimeout(kbPanDeferTimer); kbPanDeferTimer = setTimeout(function(){ kbPanDeferTimer = null; correctPanIfNeeded(); }, KB_PAN_SETTLE_MS); return; } }
     // Rev 2.32.279 (KB-24, C): звіт MT-1110-8421: зсув сторінки iOS (offsetTop 361) посеред відкриття; після scrollTo(0,0) лист видимо стрибав на 365 пт. FLIP: у тому ж кадрі, де сторінка повертається, до положення листа додається компенсація на величину зсуву (kbMotionPan), і рух продовжується до цілі з колишнього видимого положення. Лише iOS (на Android зсув видимої області йде окремою складовою --sheet-vvtop).
     const panShift = Math.max(window.scrollY || 0, window.visualViewport.offsetTop || 0);
     // Rev 2.32.294 (KB-39, D): звіт MT-1112-4673: дві pan-comp на один зсув (дві vv-події з різницею 12 мс, vvOffsetTop той самий 52 пт): перша компенсація вже повернула сторінку, друга подія ще несе стару висоту. Однаковий зсув протягом KB_PAN_SAME_MS не компенсується вдруге.
