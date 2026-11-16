@@ -1717,11 +1717,12 @@ test('121. SHEET-FOOTER: installment-drawer при відкритій клаві
 });
 
 // Rev 2.32.314 (KB-SHOT, C): шторка після скріншота (window blur → vvH повна → window focus → vvH лишається повною).
-async function kbShotOpen(browser){
+async function kbShotOpen(browser, fid){
+  fid = fid || 'idd-pay'; // Rev 2.32.319 (FACEID-FIX): поля входу (autocomplete username/current-password) KB-SHOT не чіпає; сценарій скріншота — у полі ОЧ
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+  await page.evaluate((f) => { window.__vv.h = null; window.__vv.top = 0; if(f === 'idd-pay'){ switchTab('accounting'); openInstallmentEditor(0); } else showProfileLoginForm(); }, fid);
   await page.waitForTimeout(900);
-  const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+  const bb = await page.locator('#' + fid).boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
   await page.waitForTimeout(120);
   await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
   await page.waitForTimeout(1000);
@@ -1731,7 +1732,7 @@ const kbShotState = (page) => page.evaluate(() => ({ active: document.activeElem
 test('122. KB-SHOT/1: blur вікна, vvH повна, focus вікна, vvH лишається повною — шторка закрита, поле без фокуса (kb-shot-close)', async ({ browser }) => {
   const { ctx, page } = await kbShotOpen(browser);
   try{
-    expect((await kbShotState(page)).active, 'до скріншота поле у фокусі').toBe('cldfielda1');
+    expect((await kbShotState(page)).active, 'до скріншота поле у фокусі').toBe('idd-pay');
     await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
     await page.waitForTimeout(900);
     expect((await kbShotState(page)).sheet, 'поки вікно без фокуса, нічого не закриваємо (KB-5b)').toBe(true);
@@ -1741,7 +1742,7 @@ test('122. KB-SHOT/1: blur вікна, vvH повна, focus вікна, vvH л�
     await page.waitForTimeout(700);
     const s = await kbShotState(page);
     expect(s.sheet, JSON.stringify(s)).toBe(false);
-    expect(s.active, 'поле без фокуса: ' + JSON.stringify(s)).not.toBe('cldfielda1');
+    expect(s.active, 'поле без фокуса: ' + JSON.stringify(s)).not.toBe('idd-pay');
     expect(s.recs, JSON.stringify(s)).toBe(1);
   } finally { await ctx.close(); }
 });
@@ -1755,29 +1756,29 @@ test('123. KB-SHOT/2 (контроль): клавіатура повернула
     await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); }); // клавіатура повернулась сама
     await page.waitForTimeout(900);
     let s = await kbShotState(page);
-    expect(s.sheet && s.active === 'cldfielda1' && s.recs === 0, 'повернулась сама: ' + JSON.stringify(s)).toBe(true);
+    expect(s.sheet && s.active === 'idd-pay' && s.recs === 0, 'повернулась сама: ' + JSON.stringify(s)).toBe(true);
     // короткий блиск без blur/focus вікна
     await page.evaluate(() => { window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
     await page.waitForTimeout(120);
     await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
     await page.waitForTimeout(900);
     s = await kbShotState(page);
-    expect(s.sheet && s.active === 'cldfielda1' && s.recs === 0, 'блиск vvH: ' + JSON.stringify(s)).toBe(true);
+    expect(s.sheet && s.active === 'idd-pay' && s.recs === 0, 'блиск vvH: ' + JSON.stringify(s)).toBe(true);
   } finally { await ctx.close(); }
 });
 test('124. KB-SHOT/3 (контроль): клавіатури не було (зовнішня, vvH завжди повна) — blur/focus вікна форму не закриває', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
     await page.waitForTimeout(900);
-    const bb = await page.locator('#cldfielda1').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    const bb = await page.locator('#idd-pay').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
     await page.waitForTimeout(600); // vvH так і лишається повною: клавіатура не з'являлась
     await page.evaluate(() => { window.dispatchEvent(new Event('blur')); });
     await page.waitForTimeout(300);
     await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
     await page.waitForTimeout(900);
     const s = await kbShotState(page);
-    expect(s.active === 'cldfielda1' && s.recs === 0, JSON.stringify(s)).toBe(true);
+    expect(s.active === 'idd-pay' && s.recs === 0, JSON.stringify(s)).toBe(true);
   } finally { await ctx.close(); }
 });
 
@@ -1882,5 +1883,24 @@ test('129. SHEET-FOOTER-4/2: прокрутка до кінця при відк�
     await page.waitForTimeout(250);
     const s = await page.evaluate(() => { const d = document.getElementById('struct-drawer'); return { del: document.getElementById('sf-delete-note').getBoundingClientRect().bottom, delBtn: document.getElementById('sf-delete').getBoundingClientRect().bottom, row: d.querySelector('.sf-actions').getBoundingClientRect().top, sh: d.scrollHeight, ch: d.clientHeight }; });
     expect(Math.max(s.del, s.delBtn), 'Структура: «Видалити» над панеллю: ' + JSON.stringify(s)).toBeLessThanOrEqual(s.row + 0.5);
+  } finally { await ctx.close(); }
+});
+test('130. FACEID-FIX: поле входу (autocomplete username/current-password), blur вікна, vvH повна, focus вікна, vvH лишається повною — поле лишається у фокусі, шторка не закривається, kb-shot-close немає', async ({ browser }) => {
+  const { ctx, page } = await kbShotOpen(browser, 'cldfielda1');
+  try{
+    expect((await kbShotState(page)).active).toBe('cldfielda1');
+    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
+    await page.waitForTimeout(1200);
+    const s = await kbShotState(page);
+    expect(s.active === 'cldfielda1' && s.sheet && s.recs === 0, JSON.stringify(s)).toBe(true);
+    await page.evaluate(() => { document.getElementById('cloud-password').focus(); });
+    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
+    await page.waitForTimeout(1200);
+    const p = await kbShotState(page);
+    expect(p.active === 'cloud-password' && p.sheet && p.recs === 0, 'поле пароля: ' + JSON.stringify(p)).toBe(true);
   } finally { await ctx.close(); }
 });
