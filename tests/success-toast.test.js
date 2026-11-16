@@ -46,10 +46,10 @@ test('охоронні (TO): жодного старого тосту; усі в
   assert.ok(!/live-toast|attachToastDismiss|dismissLiveToast|showTrashToast|showSuccessToast|successToastModel/.test(SRC.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')), 'старих тостів немає');
   ['success', 'info', 'warning', 'error', 'journal'].forEach(function(k){ assert.match(SRC, new RegExp('\\n  ' + k + ": '<svg class=\"success-toast-icon")); });
   assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.success-toast\{ animation:stFade/);
-  assert.match(SRC, /if\(successToastActive \|\| !successToastQueue\.length\) return;/);
+  assert.ok(!/successToastQueue/.test(SRC), 'Rev 2.32.297 (TOAST-1): черги немає'); assert.match(SRC, /if\(successToastActive && successToastActive\.parentNode\)\{ replaceSuccessToast\(successToastActive, o\); return; \}/);
   const host = SRC.match(/\.success-toast-host\{([^}]*)\}/)[1];
   assert.match(host, /top:max\(calc\(env\(safe-area-inset-top, 0px\) \+ 8px\), var\(--toast-top, 0px\)\)/); assert.match(host, /left:18px; right:18px/); assert.ok(!/bottom:/.test(host)); assert.match(host, /pointer-events:none/);
-  assert.match(SRC, /if\(dy < -30\)\{ close\(\); return; \}/);
+  assert.match(SRC, /if\(state\.dy < -30\)\{ close\(\); return; \}/);
   assert.match(SRC, /\.update-banner\{ position:fixed; left:50%; bottom:calc\(env\(safe-area-inset-bottom, 0px\) \+ 104px\)/);
   const body = SRC.slice(SRC.indexOf('function pumpSuccessToast'), SRC.indexOf('function openJournalFromToast'));
   assert.equal((body.match(/innerHTML/g) || []).length, 1); // лише статичний svg із TOAST_ICONS

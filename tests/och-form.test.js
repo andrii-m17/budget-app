@@ -77,7 +77,7 @@ test('день платежу: число дати створення; 31 чис
   assert.equal(g.ppClampDate('2026-02', 31), '2026-02-28'); assert.equal(g.ppClampDate('2028-02', 31), '2028-02-29'); assert.equal(g.ppClampDate('2026-04', 31), '2026-04-30'); assert.equal(g.ppClampDate('2026-10', 31), '2026-10-31');
 });
 test('«Далі» на клавіатурі: назва → сума → місяців → платіж/міс → кінець; Enter не відправляє форму', function(){
-  const form = SRC.slice(SRC.indexOf('<div class="och-form">'), SRC.indexOf('Видалити ОЧ</button>'));
+  const form = SRC.slice(SRC.indexOf('<div class="och-form">'), SRC.indexOf('</div>', SRC.indexOf('onclick="saveInstallmentDrawer()"')));
   const chain = {}; for(const m of form.matchAll(/id="([\w-]+)"[^>]*?onkeydown="ochEnterNext\(event, ('([\w-]+)'|null)\)"/g)) chain[m[1]] = m[3] || null;
   assert.deepEqual(chain, { iddfielda1: 'idd-initial', 'idd-initial': 'idd-term', 'idd-term': 'idd-pay', 'idd-pay': null });
   ['iddfielda1', 'idd-initial', 'idd-term'].forEach(id => assert.match(form, new RegExp('id="' + id + '"[^>]*enterkeyhint="next"')));
@@ -89,14 +89,14 @@ test('«Далі» на клавіатурі: назва → сума → міс
   c.ochEnterNext({ key: 'a', preventDefault: () => prevented++, target: {} }, 'x'); assert.equal(prevented, 2, 'інші клавіші не чіпає');
 });
 test('форма: розмітка — поля й сегменти за описом; без «Дати платежу», прогресу й підсумків; кнопки в одному ряду, закріплені; захисні атрибути; поля 34 px, підписи 10 px', function(){
-  const form = SRC.slice(SRC.indexOf('<div class="och-form">'), SRC.indexOf('Видалити ОЧ</button>') + 30);
+  const form = SRC.slice(SRC.indexOf('<div class="och-form">'), SRC.indexOf('</div>', SRC.indexOf('onclick="saveInstallmentDrawer()"')) + 30);
   ['Назва', 'Загальна сума', 'Місяців', 'Дата створення', 'Платіж/міс', 'Перший платіж', 'Списання', "Залишок за банком до платежу цього місяця (необов'язково)"].forEach(l => assert.ok(form.includes(l), l));
   ['У день оформлення', 'Наступного місяця', 'Автоматично', 'Вношу вручну', 'Оплатити', 'Зберегти', 'Видалити ОЧ'].forEach(l => assert.ok(form.includes(l), l));
   assert.ok(!/idd-due-day|Дата платежу|progress|t-bar|Разом/.test(form));
   assert.match(form, /<input type="date" id="idd-start"/);
   assert.match(form, /<div class="struct-tabs och-seg" id="idd-first"[^>]*>\s*<button type="button" class="struct-tab-btn active"/, 'сегменти — наявний компонент .struct-tabs');
   assert.match(form, /<div class="struct-tabs och-seg" id="idd-mode"[^>]*>\s*<button type="button" class="struct-tab-btn"[^>]*>Автоматично[\s\S]*?class="struct-tab-btn active"[^>]*>Вношу вручну/);
-  assert.match(form, /<div class="och-actions">\s*<button type="button" class="installment-pay-btn"[^>]*>Оплатити<\/button>\s*<button type="button" class="submit-btn debt pill"[^>]*>Зберегти<\/button>\s*<\/div>/);
+  assert.match(form, /<div class="och-actions">\s*(?:<!--[^]*?-->\s*)?<button type="button" class="och-delete-btn" aria-label="Видалити ОЧ"[^>]*><svg[^]*?<\/svg><\/button>\s*<button type="button" class="installment-pay-btn"[^>]*>Оплатити<\/button>\s*<button type="button" class="submit-btn debt pill"[^>]*>Зберегти<\/button>\s*<\/div>/);
   for(const id of ['iddfielda1', 'idd-initial', 'idd-term', 'idd-pay', 'idd-balance']) assert.match(form, new RegExp('id="' + id + '"[^>]*autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"'));
   assert.match(CSS, /#installment-drawer \.och-form \.field input\{ height:34px; padding:0 12px; \}/);
   assert.match(CSS, /#installment-drawer \.och-form \.field label\{ font-size:10px;/);
@@ -135,7 +135,7 @@ test('таблиця Аналітики: «Платіж/міс» = станда�
 test('«Умови»: рядок із поточними значеннями, згорнуті за замовчуванням, у розгорнутих — сегменти й «Залишок за банком»; стан не зберігається', function(){
   assert.equal(g.ochCondSummary('next_month', 'manual'), 'Наступного місяця · Вручну');
   assert.equal(g.ochCondSummary('same_day', 'auto'), 'У день оформлення · Автоматично'); assert.equal(g.ochCondSummary(undefined, undefined), 'У день оформлення · Вручну');
-  const form = SRC.slice(SRC.indexOf('<div class="och-form">'), SRC.indexOf('Видалити ОЧ</button>'));
+  const form = SRC.slice(SRC.indexOf('<div class="och-form">'), SRC.indexOf('</div>', SRC.indexOf('onclick="saveInstallmentDrawer()"')));
   assert.match(form, /<button type="button" class="och-cond-row" id="idd-cond-btn" aria-expanded="false" aria-controls="idd-cond" onclick="ochToggleCond\(\)">/);
   assert.match(form, /<div class="och-cond" id="idd-cond" hidden>/);
   const body = form.slice(form.indexOf('<div class="och-cond" id="idd-cond" hidden>'), form.indexOf('<div class="och-actions">'));

@@ -21,7 +21,7 @@ test('підключення: focusin/focusout/touchstart/touchend шторок 
   assert.match(SRC, /if\(kbMode\(\)\.mode !== 'always'\) return; \/\/ Rev 2\.32\.9 \(B\)/);
   assert.match(SRC, /km === 'never' \|\| \(km === 'resize' && !kbSheetActive\)/);
   assert.match(SRC, /if\(!IS_IOS_RUNTIME \|\| kbMode\(\)\.mode !== 'always'\) return;/);
-  assert.match(SRC, /if\(!IS_IOS_RUNTIME \|\| !kbTapStart \|\| kbMode\(\)\.mode !== 'always'\) return;/);
+  assert.match(SRC, /if\(!IS_IOS_RUNTIME \|\| !kbTouches\.size \|\| kbMode\(\)\.mode !== 'always'\) return;/); // Rev 2.32.307: облік дотиків за identifier
   assert.match(SRC, /kbMode\(\)\.mode !== 'resize' \|\| kbSheetActive/);
   assert.match(SRC, /isKeyboardOpen\(getBaseViewportHeight\(\), window\.visualViewport\.height\)\) handleKeyboardFieldFocusIn\(a\)/);
 });

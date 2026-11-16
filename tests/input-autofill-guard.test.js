@@ -37,8 +37,14 @@ test('реєстр: id (статична частина) без слів-три�
     }
   });
 });
-test('жодного <form> довкола звичайних полів і contenteditable у розмітці', function(){
-  assert.ok(!/^(?!\s*\/\/).*<form[\s>]/m.test(SRC), '<form> у розмітці');
+test('жодного <form> довкола звичайних полів і contenteditable у розмітці; єдиний виняток — форма входу (Rev 2.32.326: поля username / current-password)', function(){
+  const forms = SRC.match(/^(?!\s*\/\/).*<form[\s>][^>]*>/mg) || [];
+  assert.equal(forms.length, 1, '<form> у розмітці лише один: ' + forms.join(' | '));
+  assert.match(forms[0], /<form id="cloud-login-form-el" method="post" action="#" novalidate autocomplete="on" onsubmit="return loginFormSubmit\(event\)">/);
+  const f0 = SRC.indexOf('<form id="cloud-login-form-el"'), f1 = SRC.indexOf('</form>', f0);
+  const inner = SRC.slice(f0, f1);
+  assert.equal((inner.match(/<input /g) || []).length, 2, 'у формі лише два поля входу');
+  assert.match(inner, /type="email" id="cldfielda1"[^>]*autocomplete="username"/); assert.match(inner, /type="password" id="cloud-password"[^>]*autocomplete="current-password"/);
   assert.ok(!/<[a-z]+[^>]*\scontenteditable=/.test(SRC), 'contenteditable у розмітці');
 });
 test('JS-фабрики input: кожна текстова проходить через applyFieldGuardAttrs; службові (перемикач, час, проміжне поле, зонд) — перелічені свідомо', function(){

@@ -17,6 +17,7 @@
 - `PULL_DOMAINS` 12235 (FK-порядок), `pull*Core` (напр. `pullExpensesCore` 8503), `push*Pilot` / `push*RecordPilot` (8036, 8210, 8305, 4960…).
 - `mdMerge` 7334, `mdMergeServerRow` 7354, `mdPullDirty` 7444, `mdLostToServer` 7439, `mdPushCas` 7389: LWW за `updated_at`, лічильники правок, конфлікти.
 - `syncCheck` 12446 → `planSync` 12762 (через `sync_heads()`): лише змінені таблиці; повна звірка раз на 24 год або при зміні `purged_at` (`purgedAtChanged` 12733).
+- Одна дія з витратою = 1 запит (Rev 2.32.300, NET-1): `expApplyPushedRow`, `expRetFull`, гасіння луни `selfEchoBegin`/`selfEchoFinish`/`selfEchoCheck`/`utcMicros` (`SELF_ECHO`), події `echo-skip`/`pull-skip`; `retCols`/`applyPushRow` у `MERGE_DOMAINS.expenses`, `mdPushCas`.
 - Realtime: `setupRealtimeSync` 12271, `teardownRealtimeSync` 12285, `scheduleRealtimeSyncCheck` 12462.
 - Середовища: `isWriteBlocked` 11313, `countingFetch` 11427, `NET_STATS` 11393; мок `dev/mock-cloud.js`.
 
@@ -31,6 +32,7 @@
 ## Push-сповіщення
 - Клієнт: `requestPushSubscription` 11682, `openPushActionDb` 11724, `queuePushAction` 11868, `handlePushAction` 12173, `pendingPushState` 11853.
 - Service Worker `sw.js`: обробник `push` (~177), `CACHE_NAME`. Серверні функції змінює лише чат.
+- Отримання сповіщень (Rev 2.32.298, PUSH-RCPT): воркер `rcptRecord`/`rcptWrite` (черга IndexedDB `budget-app-push-receipts`), сторінка `pushReceiptTrim`, `flushPushReceipts` (виклик з `requestPushSubscription`), `pushReceiptFromTap` (з `handleMonoHash`, декларативний формат); подія `push-receipt-fail`.
 
 ## Діагностика: бортовий самописець (Rev 2.32.260, REC-1)
 - Код: блок «REC-1» у `index.html` перед `sendDebugLog`: чисті `recSanitizeEvent`, `recTrim`, `recChunk`, `recLimitReport`, `recRateCheck`, `recQueueAdd`, `recReportCode`, `recDetectSheetJump`, `recFieldHidden`; рантайм `recPush` (з `pushDebugEvent`), `recMirrorSave/Load` (IndexedDB, ключ `budget-rec-buffer-v1`), `recSendParts`, `recDeliver`, `recFlushQueue` (черга `budget-rec-queue-v1` в IndexedDB), `recTrigger` (автозвіт), `recReportNow` (кнопка), `recBgStart` (стартує з застосунком, слухачі vv/focus/visibility/touch). Стан `recBgOn`/`recOn()` оголошені на початку скрипта. Старий ручний запис (`startDebugRecording`, шторка `debug-record-drawer`) лишився в коді недосяжним з інтерфейсу.
