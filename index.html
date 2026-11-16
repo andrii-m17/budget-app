@@ -3878,7 +3878,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.322</div>
+  <div class="version-footer">Money Tree · Rev 2.32.323</div>
 </div>
   </div>
 </div>
@@ -4129,6 +4129,11 @@
       </div>
     </div>
     <button class="drawer-close" onclick="closeTestingDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <!-- Rev 2.32.323 (LOGIN-LAB): діагностична сторінка входу без коду застосунку -->
+  <div class="chk-label">Лабораторія входу</div>
+  <div class="chk-card">
+    <a class="chk-row" href="login-lab.html" id="login-lab-link"><span>Тест автозаповнення входу (без нашого коду)</span><span class="chk-end chk-mut">відкрити</span></a>
   </div>
   <div class="chk-label">Самописець</div>
   <div class="chk-card">
@@ -9838,7 +9843,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.322';
+const APP_VERSION = '2.32.323';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
