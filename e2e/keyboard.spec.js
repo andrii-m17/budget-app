@@ -992,7 +992,7 @@ for(const [name, spacer, expectHide] of [['поле видиме, той сам�
 }
 
 // KB-32 (Rev 2.32.287), звіти MT-1111-7454/-0402: ретранслятори (KB-30/31) iOS оминула (arrow-direct 20 з 20, relay-hop 0); стрілки iOS не скасувати й не випередити. Рішення: стрілки неактивні (усі інші поля форми tabindex=-1, поки клавіатура відкрита) + Return «Далі» (enterkeyhint=next, Enter переводить фокус у наступне поле як дотик).
-test('79. KB-32: клавіатура відкрита — у формі рівно одне поле з tabindex ≥ 0 (поточне), після закриття tabindex відновлено', async ({ browser }) => {
+test('79. KB-32 (Rev 2.32.322): клавіатура відкрита — поля входу (платформа) лишаються навігабельними (tabindex не чіпаємо), після закриття tabindex як був', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
@@ -1004,10 +1004,10 @@ test('79. KB-32: клавіатура відкрита — у формі рів�
     await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
     await page.waitForTimeout(700);
     const navigable = () => page.evaluate(() => Array.from(document.querySelector('#profile-drawer').querySelectorAll('input, textarea, select')).filter(e => e.id !== 'kb-focus-proxy' && e.tabIndex >= 0).map(e => e.id));
-    expect(await navigable(), 'поле-сусід не навігабельне: лише поточне (пошта)').toEqual(['cldfielda1']);
+    expect(await navigable(), 'поля платформи: обидва навігабельні (kbNavLock не діє)').toEqual(['cldfielda1', 'cloud-password']);
     await page.evaluate(() => { document.getElementById('cloud-password').focus(); });
     await page.waitForTimeout(300);
-    expect(await navigable(), 'після переходу — лише поточне (пароль)').toEqual(['cloud-password']);
+    expect(await navigable(), 'після переходу — так само').toEqual(['cldfielda1', 'cloud-password']);
     await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
     await page.waitForTimeout(800);
     const snap1 = await page.evaluate(snapFn);
@@ -1928,5 +1928,42 @@ test('131. SHEET-FOOTER-4/3: ОЧ — кнопка-кошик 40 × 40, r 14, с
     const g1 = await geo();
     expect(g1.w + 'x' + g1.h + '|' + g1.radius + '|' + g1.first, 'з клавіатурою той самий розмір і порядок: ' + JSON.stringify(g1)).toBe(g0.w + 'x' + g0.h + '|' + g0.radius + '|' + g0.first);
     await page.screenshot({ path: process.env.E2E_SHOT_DIR ? process.env.E2E_SHOT_DIR + '/och-actions-row.png' : 'e2e-results/och-actions-row.png' });
+  } finally { await ctx.close(); }
+});
+
+// Rev 2.32.322 (FACEID-RESTORE, C): поля входу належать платформі.
+test('132. FACEID-RESTORE/1: клавіатура закрита, прямий touchstart по cldfielda1 / cloud-password — не скасовано (фокус ставить iOS); по заголовку біля поля — як було (118)', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const r = await page.evaluate(() => {
+      const mk = (sel, id) => { const el = document.querySelector(sel), b = el.getBoundingClientRect(); const ev = new Event('touchstart', { bubbles: true, cancelable: true }); const tt = [{ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2, identifier: id, target: el }]; Object.defineProperty(ev, 'touches', { value: tt }); Object.defineProperty(ev, 'changedTouches', { value: tt }); el.dispatchEvent(ev); const end = new Event('touchend', { bubbles: true, cancelable: true }); Object.defineProperty(end, 'touches', { value: [] }); Object.defineProperty(end, 'changedTouches', { value: tt }); el.dispatchEvent(end); return { start: ev.defaultPrevented, end: end.defaultPrevented }; };
+      return { email: mk('#cldfielda1', 71), pass: mk('#cloud-password', 72) };
+    });
+    expect(r.email.start || r.email.end, 'пошта: ні touchstart, ні touchend не скасовано: ' + JSON.stringify(r)).toBe(false);
+    expect(r.pass.start || r.pass.end, 'пароль: ' + JSON.stringify(r)).toBe(false);
+  } finally { await ctx.close(); }
+});
+test('133. FACEID-RESTORE/2: перекидання фокуса пошта → пароль → пошта без дотику й без клавіш — немає arrow-direct, наш код не змінює фокус і не ставить tabindex=-1 на поля платформи; sheet-open має platformField', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
+    await page.waitForTimeout(900);
+    const n0 = await page.evaluate(() => recBuf.length);
+    await page.evaluate(() => { document.getElementById('cldfielda1').focus(); });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { document.getElementById('cloud-password').focus(); });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { document.getElementById('cldfielda1').focus(); });
+    await page.waitForTimeout(900);
+    const r = await page.evaluate((n) => ({ active: document.activeElement && document.activeElement.id, tabEmail: document.getElementById('cldfielda1').getAttribute('tabindex'), tabPass: document.getElementById('cloud-password').getAttribute('tabindex'), arrow: recBuf.slice(n).filter(e => e.type === 'arrow-direct').length, panel: recBuf.slice(n).filter(e => e.type === 'autofill' && e.by === 'panel').length, so: (recBuf.slice(n).find(e => e.type === 'sheet-open') || {}).platformField }), n0);
+    expect(r.arrow, JSON.stringify(r)).toBe(0);
+    expect(r.active, 'фокус там, де поставили (наш код не змінював): ' + JSON.stringify(r)).toBe('cldfielda1');
+    expect(r.tabEmail === null && r.tabPass === null, 'tabindex не чіпали: ' + JSON.stringify(r)).toBe(true);
+    expect(r.panel, 'діагностика autofill by panel: ' + JSON.stringify(r)).toBeGreaterThanOrEqual(1);
+    expect(r.so, JSON.stringify(r)).toBe(true);
   } finally { await ctx.close(); }
 });

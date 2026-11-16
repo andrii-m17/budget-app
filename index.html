@@ -3878,7 +3878,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.321</div>
+  <div class="version-footer">Money Tree · Rev 2.32.322</div>
 </div>
   </div>
 </div>
@@ -9838,7 +9838,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.321';
+const APP_VERSION = '2.32.322';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15135,7 +15135,7 @@ const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
 const REC_ALLOWED_TYPES = ['kb-shot-close', 'touch-cancel', 'native-focus', 'switch-miss', 'kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail', 'echo-skip', 'pull-skip'];
-const REC_ALLOWED_KEYS = ['sinceClose', 'idShort', 'earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm', 'vvTopBefore', 'scrollYBefore', 'distPx', 'prevTabindex', 'targetTabindex', 'sinceTouchEnd', 'enterHop', 'activeStart', 'activeEnd', 'sinceIntercept', 'stPreMs', 'stEnterMs', 'stCapMs', 'stPipeMs', 'stRestMs', 'stTotalMs', 'firstFrameMs', 'firstAnimMs', 'samplesLift', 'pageTop', 'pageTopStart', 'pageTopEnd', 'latencyMs'];
+const REC_ALLOWED_KEYS = ['sinceClose', 'idShort', 'earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm', 'vvTopBefore', 'scrollYBefore', 'distPx', 'prevTabindex', 'targetTabindex', 'sinceTouchEnd', 'enterHop', 'activeStart', 'activeEnd', 'sinceIntercept', 'stPreMs', 'stEnterMs', 'stCapMs', 'stPipeMs', 'stRestMs', 'stTotalMs', 'firstFrameMs', 'firstAnimMs', 'samplesLift', 'pageTop', 'pageTopStart', 'pageTopEnd', 'latencyMs', 'platformField'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -29732,7 +29732,7 @@ function enterKbSheet(drawerEl, fieldEl){
   kbHSeen = []; if(kbHTimer){ clearTimeout(kbHTimer); kbHTimer = null; }
   kbOpenVia = kbProxyActive ? 'proxy' : 'direct'; // Rev 2.32.276 (KB-22)
   if(globalThis.__kbSt) globalThis.__kbSt.tCap0 = performance.now();
-  captureDebugGeometry('sheet-open', { drawerId: kbSheetLabel(drawerEl), via: kbOpenVia, sinceClose: (typeof kbLastSheetCloseAt === 'number' && kbLastSheetCloseAt) ? Math.max(0, Date.now() - kbLastSheetCloseAt) : undefined, earlyState: 'off:removed', pageTop: kbPageTop(), stPreMs: kbStMs('tEnter', 't0'), stEnterMs: kbStMs('tCap0', 'tEnter') }); // Rev 2.32.296 (KB-40); Rev 2.32.308 (KB-OCH, A): stPreMs/stEnterMs — етапи синхронної частини focusin
+  captureDebugGeometry('sheet-open', { drawerId: kbSheetLabel(drawerEl), via: kbOpenVia, sinceClose: (typeof kbLastSheetCloseAt === 'number' && kbLastSheetCloseAt) ? Math.max(0, Date.now() - kbLastSheetCloseAt) : undefined, earlyState: 'off:removed', pageTop: kbPageTop(), platformField: kbIsPlatformField(fieldEl) ? true : undefined, stPreMs: kbStMs('tEnter', 't0'), stEnterMs: kbStMs('tCap0', 'tEnter') }); // Rev 2.32.296 (KB-40); Rev 2.32.308 (KB-OCH, A): stPreMs/stEnterMs — етапи синхронної частини focusin
   // Rev 2.23.19 (6D.188) — підстраховка від нових "дірок": перше відкриття
   // пройшло НАТИВНО (direct) на iOS — фіксуємо, ЯКИЙ саме тап це був (тег/
   // id/класи/координати/мс від touchend). Жодних змін поведінки.
@@ -30369,7 +30369,7 @@ function kbAutofillEvidence(e){
 }
 document.addEventListener('input', kbAutofillEvidence, true);
 document.addEventListener('keydown', function(){ kbLastKeyAt = performance.now(); }, true);
-function kbArrowCandidate(fromId, toId){
+function kbArrowCandidate(fromId, toId, platformPair){ // Rev 2.32.322 (FACEID-RESTORE): platformPair — перекидання між полями платформи без дотику: без ознак input/closed/values це діагностика autofill by:'panel', а не arrow-direct
   const t0 = performance.now(), w0 = Date.now(), base = kbValBase;
   kbNoTouchUntil = Math.max(kbNoTouchUntil, t0 + 400);
   setTimeout(function(){
@@ -30377,6 +30377,7 @@ function kbArrowCandidate(fromId, toId){
     if(kbAutofillEvidenceAt >= t0 - 150 && kbAutofillEvidenceAt <= t0 + 400) by = 'input';
     else if(kbLastFocusoutAt >= w0 && !(document.activeElement && document.activeElement !== document.body && isKeyboardField(document.activeElement))) by = 'closed';
     else if(base && kbLastKeyAt < base.t && kbValuesChanged(base) >= 2) by = 'values';
+    if(!by && platformPair) by = 'panel';
     if(!by){ captureDebugGeometry('arrow-direct', { from: fromId, to: toId }); return; }
     if(!kbAutofillGroup) kbAutofillGroup = { start: t0, ids: {}, timer: null, by: by };
     const g = kbAutofillGroup; g.ids[fromId || '-'] = 1; g.ids[toId || '-'] = 1;
@@ -30390,7 +30391,7 @@ function kbTraceSwitchIfNoTouch(drawerEl, target, via){
     if(kbLastTap && Date.now() - kbLastTap.endAt < 600) return;
     const toId = target && target.id || null;
     if(kbEnterHop) captureDebugGeometry('enter-next', { from: kbLastFocusedField ? (kbLastFocusedField.id || null) : null, to: toId }); // Rev 2.32.287 (KB-32)
-    else kbArrowCandidate(kbLastFocusedField ? (kbLastFocusedField.id || null) : null, toId); // Rev 2.32.289 (KB-35, A): arrow-direct чи автозаповнення — вирішується через 400 мс
+    else kbArrowCandidate(kbLastFocusedField ? (kbLastFocusedField.id || null) : null, toId, !!(kbIsPlatformField(target) && kbLastFocusedField && kbLastFocusedField !== target && kbIsPlatformField(kbLastFocusedField))); // Rev 2.32.289 (KB-35, A): arrow-direct чи автозаповнення — вирішується через 400 мс
     const snap = function(ms){
       const vv = window.visualViewport;
       captureDebugGeometry('switch-trace', { to: toId, ms: ms, vvOffsetTop: vv ? Math.round(vv.offsetTop) : null, scrollY: Math.round(window.scrollY || 0), scrollTop: Math.round(drawerEl.scrollTop || 0), sheetBottom: Math.round(drawerEl.getBoundingClientRect().bottom), drawerId: kbSheetLabel(drawerEl) });
@@ -30554,7 +30555,7 @@ function handleKeyboardFieldFocusIn(target){
       else enterKbSheet(drawerEl, target);
     }
   }
-  if(drawerEl && target && target.id !== 'kb-focus-proxy'){ kbHintsApply(drawerEl); kbNavLock(drawerEl, target); } // Rev 2.32.287 (KB-32): стрілки неактивні (інші поля tabindex=-1)
+  if(drawerEl && target && target.id !== 'kb-focus-proxy'){ kbHintsApply(drawerEl); if(kbIsPlatformField(target)) kbNavUnlockAll(); else kbNavLock(drawerEl, target); } // Rev 2.32.287 (KB-32): стрілки неактивні (інші поля tabindex=-1); Rev 2.32.322: поля платформи — tabindex не чіпаємо
   if(globalThis.__kbSt) globalThis.__kbSt.tEnd = performance.now(); // Rev 2.32.308 (KB-OCH, A)
 }
 // Викликається з відкладеного (100мс) таймауту focusout — перевіряє
@@ -30673,7 +30674,8 @@ document.addEventListener('touchstart', function(e){
       else if(!kbSheetActive && !kbProxyActive){
         // Rev 2.32.310 (KB-FINAL, C): клавіатура закрита: дотик у межах 12 пт від текстового поля шторки (input, підпис, заголовок поряд) — preventDefault одразу, фокус на touchend цього ж дотику (шлях першого фокуса: прямий або через допоміжне поле)
         const field = resolveTapField(raw) || resolveTapFieldNear(raw, t.clientX, t.clientY) || resolveTapFieldInSheet(raw, t.clientX, t.clientY);
-        if(field && field !== active && isFieldInsideDrawer(field) && shouldInterceptFirstFocus({ field: field, kbSheetOpen: false, moved: false, durationMs: 0 })){
+        const platformDirect = kbIsPlatformField(field) && raw === field; // Rev 2.32.322 (FACEID-RESTORE): прямий дотик по input поля платформи при закритій клавіатурі не скасовуємо — фокус ставить iOS
+        if(field && field !== active && !platformDirect && isFieldInsideDrawer(field) && shouldInterceptFirstFocus({ field: field, kbSheetOpen: false, moved: false, durationMs: 0 })){
           entry.field = field; entry.intercept = true; entry.first = true; entry.scroller = kbTouchScroller(field);
           if(e.cancelable) e.preventDefault();
         }
@@ -30742,6 +30744,7 @@ function kbTapEnd(e, t, start){ // Rev 2.32.307 (KB-SWITCH-FINAL): рішенн�
   const drawerEl = kbSheetHostOf(target);
   // Rev 2.32.310 (KB-FINAL, C): перший фокус, ухвалений на touchstart (start.first): за будь-якої тривалості, лише без зсуву; зсув = прокрутка, фокус не ставимо
   if(start.first && (start.scrolling || moved || !target)) return;
+  if(!start.intercept && !kbSheetActive && target && rawTarget === target && kbIsPlatformField(target)) return; // Rev 2.32.322 (FACEID-RESTORE): прямий дотик по полю платформи при закритій клавіатурі — iOS (без preventDefault і нашого фокуса)
   const intercept = (start.first && !!target) ? true : shouldInterceptFirstFocus({
     field: target,
     kbSheetOpen: kbSheetActive,
@@ -30919,13 +30922,15 @@ function kbWinDiag(type){
 // Rev 2.32.314 (KB-SHOT, C): звіт MT-1115-8654: після скріншота — window blur (hasFocus false), у ту ж мс kb-vv-resize vvH 894 при kbOpen true, window focus через 0,8–1,3 с, vvH лишається 894 (клавіатуру сховала системна панель скріншота), шторка висить без клавіатури до наступного дотику (2,6 с). KB-5b ігнорує кадри «клавіатура закрита», поки поле у фокусі. Тепер: після window focus, якщо vvH усе ще повна висота ≈ KB_SHOT_CONFIRM_MS (300 мс), клавіатуру вважаємо закритою: blur() активного поля й звичайне закриття шторки (kbResetOnBackground). Якщо клавіатура повернулась сама до кінця таймера — нічого не робимо. Короткий блиск vvH без втрати фокуса вікна нічого не закриває (таймер стартує лише на window focus).
 const KB_SHOT_CONFIRM_MS = 300;
 // Rev 2.32.319 (FACEID-FIX, C): звіт MT-1115-3231: під час Face ID вікно втрачає й повертає фокус (kb-win-blur / kb-win-focus), vvH повна, і KB-SHOT через 300 мс закривав форму входу (focusout cldfielda1 → sheet-close): вхід через Face ID не спрацьовував. Поля входу (autocomplete username, email, current-password, new-password) KB-SHOT не чіпає; решта форм як було.
-function kbShotLoginField(){
+// Rev 2.32.322 (FACEID-RESTORE, C): «поле платформи» — поле входу з autocomplete username / email / current-password / new-password: iOS сам керує його фокусом і автозаповненням (панель паролів / Face ID). Одна ознака для всіх місць: прямий дотик при закритій клавіатурі (touchstart/touchend), перекидання фокуса між такими полями без дотику (arrow-direct, kbNavLock), KB-SHOT, діагностика sheet-open.
+function kbIsPlatformField(el){
   try{
-    const ae = document.activeElement; if(!ae || !ae.getAttribute) return false;
-    const toks = String(ae.getAttribute('autocomplete') || '').toLowerCase().split(/\s+/);
+    if(!el || !el.getAttribute) return false;
+    const toks = String(el.getAttribute('autocomplete') || '').toLowerCase().split(/\s+/);
     return toks.indexOf('username') >= 0 || toks.indexOf('email') >= 0 || toks.indexOf('current-password') >= 0 || toks.indexOf('new-password') >= 0;
   }catch(e){ return false; }
 }
+function kbShotLoginField(){ return kbIsPlatformField(document.activeElement); }
 function kbShotSawKeyboard(){ return KB_PIPE.state === 'animating' || KB_PIPE.state === 'settled'; } // конвеєр бачив клавіатуру в цій сесії; iPad із зовнішньою клавіатурою (vvH завжди повна) — ні, форму не закриваємо (з рев'ю)
 let kbShotTimer = null;
 function kbShotCancel(){ if(kbShotTimer){ clearTimeout(kbShotTimer); kbShotTimer = null; } }
