@@ -95,7 +95,7 @@ test('134c. LOGIN-FORM (контроль): кнопка → by button, Return у
   await page.locator('#cldfielda1').focus(); await page.keyboard.press('Enter'); await page.waitForTimeout(150);
   expect(await page.evaluate(() => [window.__sign, document.activeElement.id])).toEqual([2, 'cloud-password']);
   // помилка входу: ті самі автозаповнені значення — без повтору
-  await page.evaluate(() => { document.getElementById('cldfielda1').value = ''; document.getElementById('cloud-password').value = ''; });
+  await page.evaluate(() => { document.getElementById('cldfielda1').value = ''; document.getElementById('cloud-password').value = ''; document.getElementById('cldfielda1').dispatchEvent(new Event('input', { bubbles: true })); }); // обидва порожні: нова спроба (скидає keydown)
   await fillLike(page, 'cldfielda1', 'z@x.test'); await fillLike(page, 'cloud-password', 'pw2');
   await page.waitForTimeout(900); expect(await page.evaluate(() => window.__sign)).toBe(3);
   await page.waitForTimeout(1800);
@@ -114,4 +114,34 @@ test('134d. LOGIN-FORM (контроль): ручний набір (keydown/inse
   await page.locator('#cloud-password').focus(); await page.keyboard.press('Shift'); // keydown після заповнення
   await page.waitForTimeout(900);
   expect(await page.evaluate(() => window.__sign), 'після заповнення була клавіша — без автовходу').toBe(0);
+});
+
+// Rev 2.32.327 (LOGIN-FORM-2, C): автовхід за input/change без умови «без дотику»; поле без фокуса отримує лише change.
+const setChange = (page, id, value) => page.evaluate(([id, value]) => { const el = document.getElementById(id); el.value = value; el.dispatchEvent(new Event('change', { bubbles: true })); }, [id, value]); // лише change
+test('135a. LOGIN-FORM-2: дотик до пошти, фокус пошта → пароль → пошта, значення: пошта — input, пароль (без фокуса) — лише change → рівно один вхід, by autofill', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { const e = document.getElementById('cldfielda1'), p = document.getElementById('cloud-password'); e.dispatchEvent(new Event('touchstart', { bubbles: true })); e.focus(); p.focus(); e.focus(); });
+  await fillLike(page, 'cldfielda1', 'a@x.test');
+  await setChange(page, 'cloud-password', 'pw');
+  await page.waitForTimeout(900);
+  expect(await page.evaluate(() => window.__sign)).toBe(1);
+  expect(await submits(page)).toEqual(['autofill']);
+  const fills = await page.evaluate(() => recBuf.filter(e => e.type === 'login-fill').map(e => e.field + ':' + e.ev + ':' + e.filled));
+  expect(fills, JSON.stringify(fills)).toEqual(expect.arrayContaining(['cldfielda1:input:true', 'cloud-password:change:true']));
+});
+test('135b. LOGIN-FORM-2 (контроль): keydown перед заповненням — подання немає; нова спроба після очищення полів знову працює', async ({ page }) => {
+  await boot(page);
+  await page.locator('#cldfielda1').focus(); await page.keyboard.press('a');
+  await fillLike(page, 'cldfielda1', 'a@x.test'); await fillLike(page, 'cloud-password', 'pw');
+  await page.waitForTimeout(900);
+  expect(await page.evaluate(() => window.__sign), 'після keydown автовходу нема').toBe(0);
+});
+test('135c. LOGIN-FORM-2: перша подія групи autofill (будь-який by) — те саме одне подання (друге джерело рішення)', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => { document.getElementById('cldfielda1').value = 'a@x.test'; document.getElementById('cloud-password').value = 'pw'; });
+  await page.evaluate(() => { try{ loginAutoCheck(); }catch(e){ window.__err = String(e); } });
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => window.__sign)).toBe(1);
+  await page.evaluate(() => { loginAutoCheck(); }); await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__sign), 'та сама пара — не повторюється').toBe(1);
 });

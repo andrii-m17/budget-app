@@ -1932,17 +1932,20 @@ test('131. SHEET-FOOTER-4/3: ОЧ — кнопка-кошик 40 × 40, r 14, с
 });
 
 // Rev 2.32.322 (FACEID-RESTORE, C): поля входу належать платформі.
-test('132. FACEID-RESTORE/1: клавіатура закрита, прямий touchstart по cldfielda1 / cloud-password — не скасовано (фокус ставить iOS); по заголовку біля поля — як було (118)', async ({ browser }) => {
+test('132. LOGIN-FORM-2: клавіатура закрита, прямий touchstart по cldfielda1 / cloud-password і по проміжку між полями (форма) — перехоплено (перший фокус нашим кодом), без intercept-miss', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
     await page.waitForTimeout(900);
-    const r = await page.evaluate(() => {
-      const mk = (sel, id) => { const el = document.querySelector(sel), b = el.getBoundingClientRect(); const ev = new Event('touchstart', { bubbles: true, cancelable: true }); const tt = [{ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2, identifier: id, target: el }]; Object.defineProperty(ev, 'touches', { value: tt }); Object.defineProperty(ev, 'changedTouches', { value: tt }); el.dispatchEvent(ev); const end = new Event('touchend', { bubbles: true, cancelable: true }); Object.defineProperty(end, 'touches', { value: [] }); Object.defineProperty(end, 'changedTouches', { value: tt }); el.dispatchEvent(end); return { start: ev.defaultPrevented, end: end.defaultPrevented }; };
-      return { email: mk('#cldfielda1', 71), pass: mk('#cloud-password', 72) };
-    });
-    expect(r.email.start || r.email.end, 'пошта: ні touchstart, ні touchend не скасовано: ' + JSON.stringify(r)).toBe(false);
-    expect(r.pass.start || r.pass.end, 'пароль: ' + JSON.stringify(r)).toBe(false);
+    const mk = (sel, o) => page.evaluate(([sel, o]) => { const el = document.querySelector(sel), b = el.getBoundingClientRect(); const x = o && o.x !== undefined ? o.x : b.left + b.width / 2, y = o && o.y !== undefined ? o.y : b.top + b.height / 2; const ev = new Event('touchstart', { bubbles: true, cancelable: true }); const tt = [{ clientX: x, clientY: y, identifier: 7, target: el }]; Object.defineProperty(ev, 'touches', { value: tt }); Object.defineProperty(ev, 'changedTouches', { value: tt }); el.dispatchEvent(ev); const end = new Event('touchend', { bubbles: true, cancelable: true }); Object.defineProperty(end, 'touches', { value: [] }); Object.defineProperty(end, 'changedTouches', { value: tt }); el.dispatchEvent(end); return ev.defaultPrevented; }, [sel, o || null]);
+    expect(await mk('#cldfielda1'), 'пошта: touchstart скасовано').toBe(true);
+    await page.evaluate(() => { document.activeElement.blur(); }); await page.waitForTimeout(500);
+    expect(await mk('#cloud-password'), 'пароль: скасовано').toBe(true);
+    await page.evaluate(() => { document.activeElement.blur(); }); await page.waitForTimeout(500);
+    const gap = await page.evaluate(() => { const a = document.getElementById('cldfielda1').getBoundingClientRect(), b = document.getElementById('cloud-password').getBoundingClientRect(); return { x: a.left + a.width / 2, y: (a.bottom + b.top) / 2 }; });
+    expect(await mk('#cloud-login-form-el', gap), 'проміжок між полями (елемент form): скасовано').toBe(true);
+    const miss = await page.evaluate(() => recBuf.filter(e => e.type === 'intercept-miss').length);
+    expect(miss, 'без intercept-miss').toBe(0);
   } finally { await ctx.close(); }
 });
 test('133. FACEID-RESTORE/2: перекидання фокуса пошта → пароль → пошта без дотику й без клавіш — немає arrow-direct, наш код не змінює фокус і не ставить tabindex=-1 на поля платформи; sheet-open має platformField', async ({ browser }) => {
