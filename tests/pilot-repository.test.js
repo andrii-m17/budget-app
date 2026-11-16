@@ -5393,7 +5393,7 @@ function kbSheetSandbox(opts){
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
     'viewportOrientationKey', 'kbMeasureBase', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
-    'enterKbSheet', 'kbStMs', 'kbStSnapMs', 'kbIsPlatformField', 'kbNavUnlockAll', 'kbSheetGapPt', 'kbPageTop', 'kbEnsureFieldVisible', 'kbSetLift', 'kbLiftState', 'kbLiftCommit', 'kbLiftTransform', 'kbLiftFinish', 'kbLiftStop', 'KB_MOTION_DUR', 'KB_MOTION_CURVE', 'KB_MOTION_EASING', 'kbMotionVar', 'kbNoteKbH', 'kbStartFieldScroll', 'kbScrollParentOf', 'kbCloseScroll', 'kbScrollDone', 'kbBezier', 'computeFieldScrollTarget', 'kbStickyBarOf', 'debugSafeAreaInsets', 'kbRestBottomLayout', 'kbPipeStep', 'KB_PIPE', 'KB_PIPE_WAIT_MS', 'kbCacheKindForField', 'kbHeightKey', 'kbHeightsLoad', 'kbHeightsSave', 'kbHeightFromStore', 'KB_HEIGHTS_KEY', 'kbPipeOpenNow', 'kbPipeEnter', 'kbPipeTryAnimate', 'kbPipeKick', 'kbPipeAnimate', 'kbPipeFollow', 'kbVvTopCloseFollow', 'KB_CLOSE_FOLLOW', 'kbIsIphone', 'kbgDeviceClass', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
+    'enterKbSheet', 'kbStMs', 'kbStSnapMs', 'kbPageTop', 'kbEnsureFieldVisible', 'kbSetLift', 'kbLiftState', 'kbLiftCommit', 'kbLiftTransform', 'kbLiftFinish', 'kbLiftStop', 'KB_MOTION_DUR', 'KB_MOTION_CURVE', 'KB_MOTION_EASING', 'kbMotionVar', 'kbNoteKbH', 'kbStartFieldScroll', 'kbScrollParentOf', 'kbCloseScroll', 'kbScrollDone', 'kbBezier', 'computeFieldScrollTarget', 'kbStickyBarOf', 'debugSafeAreaInsets', 'kbRestBottomLayout', 'kbPipeStep', 'KB_PIPE', 'KB_PIPE_WAIT_MS', 'kbCacheKindForField', 'kbHeightKey', 'kbHeightsLoad', 'kbHeightsSave', 'kbHeightFromStore', 'KB_HEIGHTS_KEY', 'kbPipeOpenNow', 'kbPipeEnter', 'kbPipeTryAnimate', 'kbPipeKick', 'kbPipeAnimate', 'kbPipeFollow', 'kbVvTopCloseFollow', 'KB_CLOSE_FOLLOW', 'kbIsIphone', 'kbgDeviceClass', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle', 'shouldReleaseKbOpen', // Rev 2.23.30 (6D.199)
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
     'computeSheetLift', 'computeCenteredRestBottom', 'kbEffectiveRestBottom', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
@@ -5650,18 +5650,18 @@ test('конвеєр на iPad (Rev 2.32.240): лист не рухається 
     assert.equal(docElStyle['--sheet-lift'], '0', 'за оцінкою лист не рухається');
     if(late){ assert.equal(fire(160), 1); assert.equal(docElStyle['--sheet-lift'], '0', 'resize не прийшов — лист на місці'); }
     ctx.window.visualViewport.height = 470; ctx.updateKbSheetGeometry();
-    assert.equal(liftT(docElStyle), '310', 'перший resize: 780 − 470 (Rev 2.32.313: зазор для .drawer 0)');
+    assert.equal(liftT(docElStyle), '318', 'перший resize: 780 − (470 − 8)');
     ctx.window.visualViewport.height = 440; ctx.updateKbSheetGeometry();
-    assert.equal(liftT(docElStyle), '340', 'далі живе стеження');
+    assert.equal(liftT(docElStyle), '348', 'далі живе стеження');
   }
 });
 test('Android-прокрутка (Rev 2.32.240): для .drawer підйом рахується без offsetTop, зсув видимої області — окремо (--sheet-vvtop, напряму); сума = computeSheetLift', () => {
   const { ctx, docElStyle, drawer, fire } = pipeSandbox();
   ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true, type: 'text', inputmode: 'numeric', drawerEl: drawer('income-drawer', 780) }));
   ctx.window.visualViewport.height = 448; ctx.window.visualViewport.offsetTop = 1; ctx.updateKbSheetGeometry(); fire(120);
-  assert.equal(liftT(docElStyle), '332', '780 − 448 без offsetTop (Rev 2.32.313: зазор для .drawer 0)'); assert.equal(docElStyle['--sheet-vvtop'], '1');
-  for(const top of [14, 56, 210, 298, 330]){ ctx.window.visualViewport.offsetTop = top; ctx.updateKbSheetGeometry(); fire(120); assert.equal(liftT(docElStyle), '332', 'підйом не залежить від прокрутки'); assert.equal(docElStyle['--sheet-vvtop'], String(top), 'зсув (у пісочниці iOS-гілка: після осідання 120 мс; на Android напряму)'); }
-  assert.equal(Number(liftT(docElStyle)) - Number(docElStyle['--sheet-vvtop']), 2, 'сума = 780 − (330 + 448)');
+  assert.equal(liftT(docElStyle), '340', '780 − (448 − 8) без offsetTop'); assert.equal(docElStyle['--sheet-vvtop'], '1');
+  for(const top of [14, 56, 210, 298, 330]){ ctx.window.visualViewport.offsetTop = top; ctx.updateKbSheetGeometry(); fire(120); assert.equal(liftT(docElStyle), '340', 'підйом не залежить від прокрутки'); assert.equal(docElStyle['--sheet-vvtop'], String(top), 'зсув (у пісочниці iOS-гілка: після осідання 120 мс; на Android напряму)'); }
+  assert.equal(Number(liftT(docElStyle)) - Number(docElStyle['--sheet-vvtop']), 10, 'сума = 780 − (330 + 448 − 8)');
 });
 test('кеш висот клавіатури в localStorage (Rev 2.32.240): ключ (клас пристрою | орієнтація | тип), тип email/password окремо; запис при живому вимірі', () => {
   const { ctx, drawer } = pipeSandbox();

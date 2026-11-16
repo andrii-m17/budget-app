@@ -21,7 +21,7 @@ async function open(browser, dev, android, flag){
   return { ctx, page };
 }
 for(const [name, dev, scrolled, android, flag] of CASES){
-  test('36. ' + name + ': низ листа (шторка з id і без id) прилягає до нижньої межі видимої області (offsetTop + height; Rev 2.32.313: зазор 0); таб-бар ≥ 21 пт від низу', async ({ browser }) => {
+  test('36. ' + name + ': низ листа (шторка з id і без id) стає на 8 пт вище нижньої межі видимої області (offsetTop + height); таб-бар ≥ 21 пт від низу', async ({ browser }) => {
     const { ctx, page } = await open(browser, dev, android, flag);
     try{
       const gap = await page.evaluate(() => { const r = document.querySelector('nav.tabbar').getBoundingClientRect(); return Math.round(window.innerHeight - r.bottom); });
@@ -41,8 +41,7 @@ for(const [name, dev, scrolled, android, flag] of CASES){
           await page.evaluate(k => { window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); }, K);
         }
         await page.waitForTimeout(1000);
-        const r = await page.evaluate(s => { const b = document.querySelector(s).getBoundingClientRect(); return { bottom: b.bottom, target: window.__vv.top + window.__vv.h, // Rev 2.32.313 (SHEET-FOOTER): нижні шторки прилягають до клавіатури без зазору
-         lift: getComputedStyle(document.documentElement).getPropertyValue('--sheet-lift') }; }, sel);
+        const r = await page.evaluate(s => { const b = document.querySelector(s).getBoundingClientRect(); return { bottom: b.bottom, target: window.__vv.top + window.__vv.h - 8, lift: getComputedStyle(document.documentElement).getPropertyValue('--sheet-lift') }; }, sel);
         expect(Math.abs(r.bottom - r.target), name + ' · ' + which + ' · низ ' + r.bottom + ' проти цілі ' + r.target + ' (lift ' + r.lift + ')').toBeLessThanOrEqual(1.5);
         if(scrolled && which === 'card') expect(await page.evaluate(() => Number(getComputedStyle(document.documentElement).getPropertyValue('--sheet-vvtop'))), 'Android: зсув видимої області йде окремою складовою (--sheet-vvtop), підйом не подвоюється').toBeGreaterThan(300);
         await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.__vv.top = 0; window.visualViewport.dispatchEvent(new Event('resize')); });
@@ -68,7 +67,7 @@ test('37. desktop 1280×800: бічна панель на місці, таб-б�
 });
 
 // Rev 2.32.248 (KB-2): iPhone — і картка з id, і вхід на одному конвеєрі: низ листа на 8 пт над краєм видимої області (стару гілку й перемикач прибрано).
-test('38. iPhone: картка й вхід на одному конвеєрі — низ листа на краї видимої області (Rev 2.32.313: зазор 0) (±1,5 пт)', async ({ browser }) => {
+test('38. iPhone: картка й вхід на одному конвеєрі — низ листа 8 пт над краєм видимої області (±1,5 пт)', async ({ browser }) => {
 
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, false);
   try{
@@ -82,7 +81,7 @@ test('38. iPhone: картка й вхід на одному конвеєрі �
       await page.evaluate(() => { const k = Math.round(window.__H0 * 0.465); window.__vv.h = window.__H0 - k; window.visualViewport.dispatchEvent(new Event('resize')); });
       await page.waitForTimeout(1000);
       const bottom = await page.evaluate(s2 => document.querySelector(s2).getBoundingClientRect().bottom, sel);
-      const vvB = await page.evaluate(() => window.__vv.h); expect(Math.abs(bottom - vvB), which + ': низ ' + bottom + ' проти ' + vvB).toBeLessThanOrEqual(1.5);
+      const vvB = await page.evaluate(() => window.__vv.h); expect(Math.abs(bottom - (vvB - 8)), which + ': низ ' + bottom + ' проти ' + (vvB - 8)).toBeLessThanOrEqual(1.5);
       await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
       await page.waitForTimeout(700);
       await page.evaluate(() => { document.querySelectorAll('.drawer.open, .drawer-backdrop.open').forEach(d => d.classList.remove('open')); document.body.classList.remove('kb-open'); document.documentElement.classList.remove('kb-sheet'); });
@@ -107,10 +106,10 @@ test('39. Android-прокрутка видимої області: низ ли�
       for(const f of [0.003, 0.04, 0.17, 0.64, 0.9, 1]){
         await page.evaluate(([k, t]) => { window.__vv.top = Math.round(k * t); window.visualViewport.dispatchEvent(new Event('scroll')); }, [K, f]);
         await page.waitForTimeout(concurrent ? 25 : 60);
-        if(!concurrent) dev.push(await page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return Math.abs((r.bottom - window.__vv.top) - window.__vv.h); }));
+        if(!concurrent) dev.push(await page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return Math.abs((r.bottom - window.__vv.top) - (window.__vv.h - 8)); }));
       }
       await page.waitForTimeout(700);
-      dev.push(await page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return Math.abs((r.bottom - window.__vv.top) - window.__vv.h); }));
+      dev.push(await page.evaluate(() => { const r = document.querySelector('#card-debt-drawer').getBoundingClientRect(); return Math.abs((r.bottom - window.__vv.top) - (window.__vv.h - 8)); }));
       dev.forEach((d, i) => expect(d, (concurrent ? 'одночасно' : 'після підйому') + ' · крок ' + i + ': відхилення ' + d).toBeLessThanOrEqual(2));
       await page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.__vv.h = null; window.__vv.top = 0; window.visualViewport.dispatchEvent(new Event('resize')); });
       await page.waitForTimeout(700);
@@ -992,7 +991,7 @@ for(const [name, spacer, expectHide] of [['поле видиме, той сам�
 }
 
 // KB-32 (Rev 2.32.287), звіти MT-1111-7454/-0402: ретранслятори (KB-30/31) iOS оминула (arrow-direct 20 з 20, relay-hop 0); стрілки iOS не скасувати й не випередити. Рішення: стрілки неактивні (усі інші поля форми tabindex=-1, поки клавіатура відкрита) + Return «Далі» (enterkeyhint=next, Enter переводить фокус у наступне поле як дотик).
-test('79. KB-32 (Rev 2.32.322): клавіатура відкрита — поля входу (платформа) лишаються навігабельними (tabindex не чіпаємо), після закриття tabindex як був', async ({ browser }) => {
+test('79. KB-32: клавіатура відкрита — у формі рівно одне поле з tabindex ≥ 0 (поточне), після закриття tabindex відновлено', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
@@ -1004,10 +1003,10 @@ test('79. KB-32 (Rev 2.32.322): клавіатура відкрита — пол
     await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
     await page.waitForTimeout(700);
     const navigable = () => page.evaluate(() => Array.from(document.querySelector('#profile-drawer').querySelectorAll('input, textarea, select')).filter(e => e.id !== 'kb-focus-proxy' && e.tabIndex >= 0).map(e => e.id));
-    expect(await navigable(), 'поля платформи: обидва навігабельні (kbNavLock не діє)').toEqual(['cldfielda1', 'cloud-password']);
+    expect(await navigable(), 'поле-сусід не навігабельне: лише поточне (пошта)').toEqual(['cldfielda1']);
     await page.evaluate(() => { document.getElementById('cloud-password').focus(); });
     await page.waitForTimeout(300);
-    expect(await navigable(), 'після переходу — так само').toEqual(['cldfielda1', 'cloud-password']);
+    expect(await navigable(), 'після переходу — лише поточне (пароль)').toEqual(['cloud-password']);
     await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
     await page.waitForTimeout(800);
     const snap1 = await page.evaluate(snapFn);
@@ -1672,9 +1671,9 @@ test('120. KB-TAP/4: прокручувана шторка — touchstart без
     await page.waitForTimeout(150);
     expect(a, 'touchstart скасовано').toBe(true);
     expect(await page.evaluate(() => document.activeElement.id), 'прокручувана шторка: на touchstart фокус не ставиться').toBe('cloud-password');
-    // touchend першого дотику не прийшов; новий дотик по неполю (ручка шторки, далеко від полів) — старий запис стає сиротою
-    await page.evaluate(() => window.__tch('touchstart', '#profile-drawer .drawer-handle', 42, { drop: [41] }));
-    await page.evaluate(() => window.__tch('touchend', '#profile-drawer .drawer-handle', 42));
+    // touchend першого дотику не прийшов; новий дотик по неполю (заголовок шторки) — старий запис стає сиротою
+    await page.evaluate(() => window.__tch('touchstart', '#profile-drawer', 42, { drop: [41] }));
+    await page.evaluate(() => window.__tch('touchend', '#profile-drawer', 42));
     await page.waitForTimeout(100);
     await page.evaluate(() => window.__tch('touchend', '#cldfielda1', 41)); // пізній touchend сирітського дотику
     await page.waitForTimeout(300);
@@ -1689,281 +1688,5 @@ test('120. KB-TAP/4: прокручувана шторка — touchstart без
     expect(await page.evaluate(() => document.activeElement.id), 'новий дотик ставить фокус').toBe('cldfielda1');
     expect(evs.filter(e => e.type === 'switch-intercept').map(e => e.to + ':' + e.phase), JSON.stringify(evs)).toEqual(['cldfielda1:touchend']);
     expect(evs.filter(e => e.type === 'native-focus' || e.type === 'pan-comp'), JSON.stringify(evs)).toEqual([]);
-  } finally { await ctx.close(); }
-});
-
-// Rev 2.32.313 (SHEET-FOOTER, B): при відкритій клавіатурі ряд кнопок ОЧ — нижній край шторки, шторка прилягає до клавіатури.
-test('121. SHEET-FOOTER: installment-drawer при відкритій клавіатурі — низ шторки = верх клавіатури ± 1, низ ряду «Оплатити / Зберегти» = низ шторки ± 1, під рядом немає вмісту форми', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
-    await page.waitForTimeout(900);
-    await page.evaluate(() => { document.getElementById('idd-pay').focus(); });
-    await page.waitForTimeout(150);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(1100);
-    await page.evaluate(() => { const d = document.getElementById('installment-drawer'); d.scrollTop = d.scrollHeight; });
-    await page.waitForTimeout(300);
-    const r = await page.evaluate(() => {
-      const d = document.getElementById('installment-drawer'), a = d.querySelector('.och-actions');
-      const dr = d.getBoundingClientRect(), ar = a.getBoundingClientRect();
-      return { vvBottom: window.__vv.h + (window.__vv.top || 0), drawerBottom: dr.bottom, actsBottom: ar.bottom, actsTop: ar.top };
-    });
-    expect(Math.abs(r.drawerBottom - r.vvBottom), 'низ шторки = верх клавіатури: ' + JSON.stringify(r)).toBeLessThanOrEqual(1);
-    expect(Math.abs(r.actsBottom - r.drawerBottom), 'низ ряду кнопок = низ шторки: ' + JSON.stringify(r)).toBeLessThanOrEqual(1);
-    await page.screenshot({ path: process.env.E2E_SHOT_DIR ? process.env.E2E_SHOT_DIR + '/sheet-footer.png' : 'e2e-results/sheet-footer.png' });
-  } finally { await ctx.close(); }
-});
-
-// Rev 2.32.314 (KB-SHOT, C): шторка після скріншота (window blur → vvH повна → window focus → vvH лишається повною).
-async function kbShotOpen(browser, fid){
-  fid = fid || 'idd-pay'; // Rev 2.32.319 (FACEID-FIX): поля входу (autocomplete username/current-password) KB-SHOT не чіпає; сценарій скріншота — у полі ОЧ
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  await page.evaluate((f) => { window.__vv.h = null; window.__vv.top = 0; if(f === 'idd-pay'){ switchTab('accounting'); openInstallmentEditor(0); } else showProfileLoginForm(); }, fid);
-  await page.waitForTimeout(900);
-  const bb = await page.locator('#' + fid).boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-  await page.waitForTimeout(120);
-  await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
-  await page.waitForTimeout(1000);
-  return { ctx, page };
-}
-const kbShotState = (page) => page.evaluate(() => ({ active: document.activeElement && document.activeElement.id, sheet: document.documentElement.classList.contains('kb-sheet'), kbOpen: document.body.classList.contains('kb-open'), recs: recBuf.filter(e => e.type === 'kb-shot-close').length }));
-test('122. KB-SHOT/1: blur вікна, vvH повна, focus вікна, vvH лишається повною — шторка закрита, поле без фокуса (kb-shot-close)', async ({ browser }) => {
-  const { ctx, page } = await kbShotOpen(browser);
-  try{
-    expect((await kbShotState(page)).active, 'до скріншота поле у фокусі').toBe('idd-pay');
-    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(900);
-    expect((await kbShotState(page)).sheet, 'поки вікно без фокуса, нічого не закриваємо (KB-5b)').toBe(true);
-    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
-    await page.waitForTimeout(150);
-    expect((await kbShotState(page)).sheet, 'до 300 мс ще не закрито').toBe(true);
-    await page.waitForTimeout(700);
-    const s = await kbShotState(page);
-    expect(s.sheet, JSON.stringify(s)).toBe(false);
-    expect(s.active, 'поле без фокуса: ' + JSON.stringify(s)).not.toBe('idd-pay');
-    expect(s.recs, JSON.stringify(s)).toBe(1);
-  } finally { await ctx.close(); }
-});
-test('123. KB-SHOT/2 (контроль): клавіатура повернулась сама до кінця таймера — нічого не закривається; короткий блиск vvH без втрати фокуса вікна — теж', async ({ browser }) => {
-  const { ctx, page } = await kbShotOpen(browser);
-  try{
-    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(500);
-    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
-    await page.waitForTimeout(100);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); }); // клавіатура повернулась сама
-    await page.waitForTimeout(900);
-    let s = await kbShotState(page);
-    expect(s.sheet && s.active === 'idd-pay' && s.recs === 0, 'повернулась сама: ' + JSON.stringify(s)).toBe(true);
-    // короткий блиск без blur/focus вікна
-    await page.evaluate(() => { window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(120);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(900);
-    s = await kbShotState(page);
-    expect(s.sheet && s.active === 'idd-pay' && s.recs === 0, 'блиск vvH: ' + JSON.stringify(s)).toBe(true);
-  } finally { await ctx.close(); }
-});
-test('124. KB-SHOT/3 (контроль): клавіатури не було (зовнішня, vvH завжди повна) — blur/focus вікна форму не закриває', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
-    await page.waitForTimeout(900);
-    const bb = await page.locator('#idd-pay').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(600); // vvH так і лишається повною: клавіатура не з'являлась
-    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); });
-    await page.waitForTimeout(300);
-    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
-    await page.waitForTimeout(900);
-    const s = await kbShotState(page);
-    expect(s.active === 'idd-pay' && s.recs === 0, JSON.stringify(s)).toBe(true);
-  } finally { await ctx.close(); }
-});
-
-// Rev 2.32.315 (SHEET-FOOTER-2, B): суцільна панель дій при відкритій клавіатурі.
-test('125. SHEET-FOOTER-2: installment-drawer, клавіатура відкрита — панель дій суцільна рівно на ширину шторки (лінія від краю до краю, без елементів ширших за шторку), у її прямокутнику й з боків немає елементів вмісту; поле не ховається під панеллю', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
-    await page.waitForTimeout(900);
-    await page.evaluate(() => { ochToggleCond(); document.getElementById('idd-balance').focus(); });
-    await page.waitForTimeout(150);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(1100);
-    const st = await page.evaluate(() => { const a = document.querySelector('#installment-drawer .och-actions'); const b = getComputedStyle(a, '::before'); const s = getComputedStyle(a); return { bl: b.left, br: b.right, bc: b.content, bh: b.height, shadow: s.boxShadow, bg: s.backgroundColor, z: s.zIndex }; });
-    expect(st.bc, JSON.stringify(st)).toBe('""');
-    expect(st.bl + '|' + st.br, JSON.stringify(st)).toBe('0px|0px'); // Rev 2.32.318: лінія рівно на ширину панелі (без +40 пт убік)
-    expect(st.shadow, JSON.stringify(st)).not.toContain('40px');
-    expect(st.bg, 'непрозорий фон: ' + JSON.stringify(st)).not.toMatch(/rgba\(.*, 0\)/);
-    for(const pos of [0, 60, 'end']){
-      await page.evaluate((p) => { const d = document.getElementById('installment-drawer'); d.scrollTop = p === 'end' ? d.scrollHeight : p; }, pos);
-      await page.waitForTimeout(250);
-      const r = await page.evaluate(() => {
-        const d = document.getElementById('installment-drawer'), a = d.querySelector('.och-actions'), f = document.getElementById('idd-balance');
-        const ar = a.getBoundingClientRect(), dr = d.getBoundingClientRect(), fr = f.getBoundingClientRect();
-        const midY = (ar.top + ar.bottom) / 2; const bt = Array.from(a.children).map(c => c.getBoundingClientRect());
-        const gapX = (bt[0].right + bt[1].left) / 2;
-        const pts = { tl: [ar.left + 2, ar.top + 3], tr: [ar.right - 2, ar.top + 3], bl: [ar.left + 2, ar.bottom - 3], br: [ar.right - 2, ar.bottom - 3], gap: [gapX, midY], gapTop: [gapX, ar.top + 3], leftPad: [dr.left + 3, midY], rightPad: [dr.right - 3, midY] };
-        const out = {}; for(const k of Object.keys(pts)){ const el = document.elementFromPoint(pts[k][0], pts[k][1]); out[k] = !el ? 'null' : (el === d ? 'drawer' : (a.contains(el) ? 'row' : 'CONTENT:' + (el.id || el.className.toString().slice(0, 20) || el.tagName))); }
-        return { out, fieldBottom: Math.round(fr.bottom), rowTop: Math.round(ar.top) };
-      });
-      for(const k of Object.keys(r.out)) expect(r.out[k] === 'row' || r.out[k] === 'drawer', 'scroll ' + pos + ' · ' + k + ': ' + JSON.stringify(r)).toBe(true);
-    }
-    await page.evaluate(() => { const d = document.getElementById('installment-drawer'); d.scrollTop = 0; document.getElementById('idd-balance').blur(); document.getElementById('idd-balance').focus(); });
-    await page.waitForTimeout(900);
-    const fb = await page.evaluate(() => ({ f: Math.round(document.getElementById('idd-balance').getBoundingClientRect().bottom), a: Math.round(document.querySelector('#installment-drawer .och-actions').getBoundingClientRect().top) }));
-    expect(fb.f, 'поле не ховається під панеллю: ' + JSON.stringify(fb)).toBeLessThanOrEqual(fb.a);
-    await page.screenshot({ path: process.env.E2E_SHOT_DIR ? process.env.E2E_SHOT_DIR + '/sheet-footer-2.png' : 'e2e-results/sheet-footer-2.png' });
-  } finally { await ctx.close(); }
-});
-test('126. SHEET-FOOTER-2: struct-drawer і mono-detail-drawer — та сама суцільна панель (z-index 5, лінія ::before від краю до краю, без бокових тіней); правило не перекрите старішим', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    const r = await page.evaluate(() => {
-      document.documentElement.classList.add('kb-sheet');
-      const out = {};
-      for(const [id, sel] of [['struct-drawer', '.sf-actions'], ['mono-detail-drawer', '.mono-detail-actions']]){
-        const d = document.getElementById(id), row = d && d.querySelector(sel); if(!row){ out[id] = 'нема'; continue; }
-        d.classList.add('open'); const s = getComputedStyle(row), b = getComputedStyle(row, '::before');
-        out[id] = { shadow: s.boxShadow, z: s.zIndex, bl: b.left, br: b.right, bc: b.content };
-        d.classList.remove('open');
-      }
-      document.documentElement.classList.remove('kb-sheet');
-      return out;
-    });
-    for(const id of ['struct-drawer', 'mono-detail-drawer']){
-      const o = r[id]; expect(typeof o, JSON.stringify(r)).toBe('object');
-      expect(o.shadow, id + ': ' + JSON.stringify(o)).not.toContain('40px'); expect(o.z, id).toBe('5'); expect(o.bl + '|' + o.br + '|' + o.bc, id + ': ' + JSON.stringify(o)).toBe('0px|0px|""'); // Rev 2.32.318
-    }
-  } finally { await ctx.close(); }
-});
-
-// Rev 2.32.318 (SHEET-FOOTER-4, B): панель дій рівно на ширину шторки (без бокової прокрутки) і «Видалити» докручується над панеллю.
-test('128. SHEET-FOOTER-4/1: ОЧ при відкритій клавіатурі — вміст шторки не прокручується вбік (scrollWidth ≤ clientWidth), панель дій рівно від краю до краю шторки', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
-    await page.waitForTimeout(900);
-    await page.evaluate(() => { ochToggleCond(); document.getElementById('idd-balance').focus(); });
-    await page.waitForTimeout(150);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(1100);
-    await page.evaluate(() => { const d = document.getElementById('installment-drawer'); d.scrollTop = d.scrollHeight; });
-    await page.waitForTimeout(250);
-    const r = await page.evaluate(() => { const d = document.getElementById('installment-drawer'), a = d.querySelector('.och-actions'), dr = d.getBoundingClientRect(), ar = a.getBoundingClientRect(); return { sw: d.scrollWidth, cw: d.clientWidth, dl: dr.left, dr: dr.right, al: ar.left, ar: ar.right, ox: getComputedStyle(d).overflowX }; });
-    expect(r.sw, 'scrollWidth ≤ clientWidth: ' + JSON.stringify(r)).toBeLessThanOrEqual(r.cw);
-    expect(Math.abs(r.al - r.dl) <= 1.5 && Math.abs(r.ar - r.dr) <= 1.5, 'панель від краю до краю: ' + JSON.stringify(r)).toBe(true);
-  } finally { await ctx.close(); }
-});
-test('129. SHEET-FOOTER-4/2: прокрутка до кінця при відкритій клавіатурі — останнє поле ОЧ і «Видалити» у «Структурі» повністю над панеллю дій', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
-    await page.waitForTimeout(900);
-    await page.evaluate(() => { ochToggleCond(); document.getElementById('idd-balance').focus(); });
-    await page.waitForTimeout(150);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(1100);
-    await page.evaluate(() => { const d = document.getElementById('installment-drawer'); d.scrollTop = d.scrollHeight; });
-    await page.waitForTimeout(250);
-    const o = await page.evaluate(() => { const d = document.getElementById('installment-drawer'); return { last: document.getElementById('idd-balance').getBoundingClientRect().bottom, row: d.querySelector('.och-actions').getBoundingClientRect().top }; });
-    expect(o.last, 'ОЧ: останнє поле (idd-balance) над панеллю з запасом ≥ 11 пт: ' + JSON.stringify(o)).toBeLessThanOrEqual(o.row - 11);
-    // «Структура»
-    await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); closeInstallmentEditor && closeInstallmentEditor(); });
-    await page.waitForTimeout(900);
-    await page.evaluate(() => { showCategoryModal('Редагувати', 'Кава', CATEGORY_TYPES[0], function(){}, { label: 'Видалити категорію', note: 'Нотатка', onDelete: function(){} }); });
-    await page.waitForTimeout(900);
-    await page.evaluate(() => { const sp = document.createElement('div'); sp.style.height = '900px'; document.getElementById('sf-body').appendChild(sp); document.getElementById('fldstr3').focus(); });
-    await page.waitForTimeout(150);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(1100);
-    await page.evaluate(() => { const d = document.getElementById('struct-drawer'); d.scrollTop = d.scrollHeight; });
-    await page.waitForTimeout(250);
-    const s = await page.evaluate(() => { const d = document.getElementById('struct-drawer'); return { del: document.getElementById('sf-delete-note').getBoundingClientRect().bottom, delBtn: document.getElementById('sf-delete').getBoundingClientRect().bottom, row: d.querySelector('.sf-actions').getBoundingClientRect().top, sh: d.scrollHeight, ch: d.clientHeight }; });
-    expect(Math.max(s.del, s.delBtn), 'Структура: «Видалити» над панеллю: ' + JSON.stringify(s)).toBeLessThanOrEqual(s.row + 0.5);
-  } finally { await ctx.close(); }
-});
-test('130. FACEID-FIX: поле входу (autocomplete username/current-password), blur вікна, vvH повна, focus вікна, vvH лишається повною — поле лишається у фокусі, шторка не закривається, kb-shot-close немає', async ({ browser }) => {
-  const { ctx, page } = await kbShotOpen(browser, 'cldfielda1');
-  try{
-    expect((await kbShotState(page)).active).toBe('cldfielda1');
-    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(900);
-    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
-    await page.waitForTimeout(1200);
-    const s = await kbShotState(page);
-    expect(s.active === 'cldfielda1' && s.sheet && s.recs === 0, JSON.stringify(s)).toBe(true);
-    await page.evaluate(() => { document.getElementById('cloud-password').focus(); });
-    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(500);
-    await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
-    await page.waitForTimeout(1200);
-    const p = await kbShotState(page);
-    expect(p.active === 'cloud-password' && p.sheet && p.recs === 0, 'поле пароля: ' + JSON.stringify(p)).toBe(true);
-  } finally { await ctx.close(); }
-});
-
-// Rev 2.32.321 (SHEET-FOOTER-4, B): «Видалити ОЧ» — кнопка-кошик у ряду дій.
-test('131. SHEET-FOOTER-4/3: ОЧ — кнопка-кошик 40 × 40, r 14, сірий фон, червона іконка, aria-label, ліворуч у ряду; окремого посилання нема; дотик викликає те саме підтвердження; ряд однаковий з клавіатурою і без', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
-    await page.waitForTimeout(900);
-    const geo = () => page.evaluate(() => { const d = document.getElementById('installment-drawer'), b = d.querySelector('.och-delete-btn'), row = d.querySelector('.och-actions'); const r = b.getBoundingClientRect(), rr = row.getBoundingClientRect(), cs = getComputedStyle(b), kids = Array.from(row.children).map(c => c.className.toString().split(' ')[0]); return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, radius: cs.borderTopLeftRadius, bg: cs.backgroundColor, color: cs.color, aria: b.getAttribute('aria-label'), first: kids[0], kids, linkCount: d.querySelectorAll('.cdd-delete-link').length, leftOffset: Math.round(r.left - rr.left) }; });
-    const g0 = await geo();
-    expect(g0.w + 'x' + g0.h, JSON.stringify(g0)).toBe('40x40'); expect(g0.radius, JSON.stringify(g0)).toBe('14px');
-    expect(g0.aria).toBe('Видалити ОЧ'); expect(g0.first, JSON.stringify(g0)).toBe('och-delete-btn'); expect(g0.linkCount, 'окремого посилання немає').toBe(0);
-    expect(g0.color, 'червона іконка: ' + JSON.stringify(g0)).toMatch(/rgb\((239, 68, 68|248, 113, 113)\)/);
-    // той самий виклик з підтвердженням
-    await page.evaluate(() => { window.__del = null; window.removeInstallmentAccount = function(i, cb){ window.__del = [typeof i, typeof cb]; }; });
-    const bb = await page.locator('#installment-drawer .och-delete-btn').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
-    await page.waitForTimeout(300);
-    expect(await page.evaluate(() => window.__del), 'deleteInstallmentFromDrawer → removeInstallmentAccount(idx, closeInstallmentEditor)').toEqual(['number', 'function']);
-    // з клавіатурою ряд той самий
-    await page.evaluate(() => { document.getElementById('idd-pay').focus(); });
-    await page.waitForTimeout(150);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(1100);
-    const g1 = await geo();
-    expect(g1.w + 'x' + g1.h + '|' + g1.radius + '|' + g1.first, 'з клавіатурою той самий розмір і порядок: ' + JSON.stringify(g1)).toBe(g0.w + 'x' + g0.h + '|' + g0.radius + '|' + g0.first);
-    await page.screenshot({ path: process.env.E2E_SHOT_DIR ? process.env.E2E_SHOT_DIR + '/och-actions-row.png' : 'e2e-results/och-actions-row.png' });
-  } finally { await ctx.close(); }
-});
-
-// Rev 2.32.322 (FACEID-RESTORE, C): поля входу належать платформі.
-test('132. FACEID-RESTORE/1: клавіатура закрита, прямий touchstart по cldfielda1 / cloud-password — не скасовано (фокус ставить iOS); по заголовку біля поля — як було (118)', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
-    await page.waitForTimeout(900);
-    const r = await page.evaluate(() => {
-      const mk = (sel, id) => { const el = document.querySelector(sel), b = el.getBoundingClientRect(); const ev = new Event('touchstart', { bubbles: true, cancelable: true }); const tt = [{ clientX: b.left + b.width / 2, clientY: b.top + b.height / 2, identifier: id, target: el }]; Object.defineProperty(ev, 'touches', { value: tt }); Object.defineProperty(ev, 'changedTouches', { value: tt }); el.dispatchEvent(ev); const end = new Event('touchend', { bubbles: true, cancelable: true }); Object.defineProperty(end, 'touches', { value: [] }); Object.defineProperty(end, 'changedTouches', { value: tt }); el.dispatchEvent(end); return { start: ev.defaultPrevented, end: end.defaultPrevented }; };
-      return { email: mk('#cldfielda1', 71), pass: mk('#cloud-password', 72) };
-    });
-    expect(r.email.start || r.email.end, 'пошта: ні touchstart, ні touchend не скасовано: ' + JSON.stringify(r)).toBe(false);
-    expect(r.pass.start || r.pass.end, 'пароль: ' + JSON.stringify(r)).toBe(false);
-  } finally { await ctx.close(); }
-});
-test('133. FACEID-RESTORE/2: перекидання фокуса пошта → пароль → пошта без дотику й без клавіш — немає arrow-direct, наш код не змінює фокус і не ставить tabindex=-1 на поля платформи; sheet-open має platformField', async ({ browser }) => {
-  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
-  try{
-    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm(); });
-    await page.waitForTimeout(900);
-    const n0 = await page.evaluate(() => recBuf.length);
-    await page.evaluate(() => { document.getElementById('cldfielda1').focus(); });
-    await page.waitForTimeout(150);
-    await page.evaluate(() => { window.__vv.h = window.__H0 - 388; window.visualViewport.dispatchEvent(new Event('resize')); });
-    await page.waitForTimeout(900);
-    await page.evaluate(() => { document.getElementById('cloud-password').focus(); });
-    await page.waitForTimeout(150);
-    await page.evaluate(() => { document.getElementById('cldfielda1').focus(); });
-    await page.waitForTimeout(900);
-    const r = await page.evaluate((n) => ({ active: document.activeElement && document.activeElement.id, tabEmail: document.getElementById('cldfielda1').getAttribute('tabindex'), tabPass: document.getElementById('cloud-password').getAttribute('tabindex'), arrow: recBuf.slice(n).filter(e => e.type === 'arrow-direct').length, panel: recBuf.slice(n).filter(e => e.type === 'autofill' && e.by === 'panel').length, so: (recBuf.slice(n).find(e => e.type === 'sheet-open') || {}).platformField }), n0);
-    expect(r.arrow, JSON.stringify(r)).toBe(0);
-    expect(r.active, 'фокус там, де поставили (наш код не змінював): ' + JSON.stringify(r)).toBe('cldfielda1');
-    expect(r.tabEmail === null && r.tabPass === null, 'tabindex не чіпали: ' + JSON.stringify(r)).toBe(true);
-    expect(r.panel, 'діагностика autofill by panel: ' + JSON.stringify(r)).toBeGreaterThanOrEqual(1);
-    expect(r.so, JSON.stringify(r)).toBe(true);
   } finally { await ctx.close(); }
 });

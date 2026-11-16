@@ -16,7 +16,7 @@ test('відновлення tabindex: «немає» → атрибут при�
   const plain = el({}); c.__e = plain; evalInSandbox(c, 'kbNavRestore(__e)'); assert.deepEqual(plain._a, {}, 'без службового атрибута нічого не змінюється');
 });
 test('охорона: lock при focusin, unlock при закритті клавіатури; Return: next/done; пароль, числові й розмітка з enterkeyhint не чіпаються; події enter-next/arrow-direct у білому списку; ретрансляторів немає', () => {
-  assert.match(HTML, /kbHintsApply\(drawerEl\); if\(kbIsPlatformField\(target\)\) kbNavUnlockAll\(\); else kbNavLock\(drawerEl, target\); \} \/\/ Rev 2\.32\.287 \(KB-32\)/);
+  assert.match(HTML, /kbHintsApply\(drawerEl\); kbNavLock\(drawerEl, target\); \} \/\/ Rev 2\.32\.287 \(KB-32\)/);
   assert.match(HTML, /kbNavUnlockAll\(\); \/\/ Rev 2\.32\.287 \(KB-32\): клавіатура закрита/);
   assert.match(HTML, /\(el\.type \|\| ''\)\.toLowerCase\(\) === 'password' \|\| \(el\.getAttribute\('inputmode'\) \|\| ''\)\.toLowerCase\(\) === 'numeric'/);
   assert.match(HTML, /if\(ek && !el\.hasAttribute\('data-kb-enter'\)\) return;/);
