@@ -1705,13 +1705,12 @@ test('121. SHEET-FOOTER: installment-drawer при відкритій клаві
     await page.evaluate(() => { const d = document.getElementById('installment-drawer'); d.scrollTop = d.scrollHeight; });
     await page.waitForTimeout(300);
     const r = await page.evaluate(() => {
-      const d = document.getElementById('installment-drawer'), a = d.querySelector('.och-actions'), del = d.querySelector('.cdd-delete-link');
-      const dr = d.getBoundingClientRect(), ar = a.getBoundingClientRect(), lr = del.getBoundingClientRect();
-      return { vvBottom: window.__vv.h + (window.__vv.top || 0), drawerBottom: dr.bottom, actsBottom: ar.bottom, delBottom: lr.bottom, delTop: lr.top, actsTop: ar.top };
+      const d = document.getElementById('installment-drawer'), a = d.querySelector('.och-actions');
+      const dr = d.getBoundingClientRect(), ar = a.getBoundingClientRect();
+      return { vvBottom: window.__vv.h + (window.__vv.top || 0), drawerBottom: dr.bottom, actsBottom: ar.bottom, actsTop: ar.top };
     });
     expect(Math.abs(r.drawerBottom - r.vvBottom), 'низ шторки = верх клавіатури: ' + JSON.stringify(r)).toBeLessThanOrEqual(1);
     expect(Math.abs(r.actsBottom - r.drawerBottom), 'низ ряду кнопок = низ шторки: ' + JSON.stringify(r)).toBeLessThanOrEqual(1);
-    expect(r.delTop, '«Видалити ОЧ» над рядом кнопок (вміст прокручується над ним): ' + JSON.stringify(r)).toBeLessThan(r.actsTop);
     await page.screenshot({ path: process.env.E2E_SHOT_DIR ? process.env.E2E_SHOT_DIR + '/sheet-footer.png' : 'e2e-results/sheet-footer.png' });
   } finally { await ctx.close(); }
 });
@@ -1857,7 +1856,7 @@ test('128. SHEET-FOOTER-4/1: ОЧ при відкритій клавіатурі
     expect(Math.abs(r.al - r.dl) <= 1.5 && Math.abs(r.ar - r.dr) <= 1.5, 'панель від краю до краю: ' + JSON.stringify(r)).toBe(true);
   } finally { await ctx.close(); }
 });
-test('129. SHEET-FOOTER-4/2: прокрутка до кінця при відкритій клавіатурі — «Видалити ОЧ» і «Видалити» у «Структурі» повністю над панеллю дій', async ({ browser }) => {
+test('129. SHEET-FOOTER-4/2: прокрутка до кінця при відкритій клавіатурі — останнє поле ОЧ і «Видалити» у «Структурі» повністю над панеллю дій', async ({ browser }) => {
   const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
   try{
     await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
@@ -1868,8 +1867,8 @@ test('129. SHEET-FOOTER-4/2: прокрутка до кінця при відк�
     await page.waitForTimeout(1100);
     await page.evaluate(() => { const d = document.getElementById('installment-drawer'); d.scrollTop = d.scrollHeight; });
     await page.waitForTimeout(250);
-    const o = await page.evaluate(() => { const d = document.getElementById('installment-drawer'); return { del: d.querySelector('.cdd-delete-link').getBoundingClientRect().bottom, row: d.querySelector('.och-actions').getBoundingClientRect().top }; });
-    expect(o.del, 'ОЧ: низ «Видалити ОЧ» ≤ верху панелі: ' + JSON.stringify(o)).toBeLessThanOrEqual(o.row + 0.5);
+    const o = await page.evaluate(() => { const d = document.getElementById('installment-drawer'); return { last: document.getElementById('idd-balance').getBoundingClientRect().bottom, row: d.querySelector('.och-actions').getBoundingClientRect().top }; });
+    expect(o.last, 'ОЧ: останнє поле (idd-balance) над панеллю з запасом ≥ 11 пт: ' + JSON.stringify(o)).toBeLessThanOrEqual(o.row - 11);
     // «Структура»
     await page.evaluate(() => { document.activeElement.blur(); window.__vv.h = null; window.visualViewport.dispatchEvent(new Event('resize')); closeInstallmentEditor && closeInstallmentEditor(); });
     await page.waitForTimeout(900);
@@ -1902,5 +1901,32 @@ test('130. FACEID-FIX: поле входу (autocomplete username/current-passwo
     await page.waitForTimeout(1200);
     const p = await kbShotState(page);
     expect(p.active === 'cloud-password' && p.sheet && p.recs === 0, 'поле пароля: ' + JSON.stringify(p)).toBe(true);
+  } finally { await ctx.close(); }
+});
+
+// Rev 2.32.321 (SHEET-FOOTER-4, B): «Видалити ОЧ» — кнопка-кошик у ряду дій.
+test('131. SHEET-FOOTER-4/3: ОЧ — кнопка-кошик 40 × 40, r 14, сірий фон, червона іконка, aria-label, ліворуч у ряду; окремого посилання нема; дотик викликає те саме підтвердження; ряд однаковий з клавіатурою і без', async ({ browser }) => {
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  try{
+    await page.evaluate(() => { window.__vv.h = null; window.__vv.top = 0; switchTab('accounting'); openInstallmentEditor(0); });
+    await page.waitForTimeout(900);
+    const geo = () => page.evaluate(() => { const d = document.getElementById('installment-drawer'), b = d.querySelector('.och-delete-btn'), row = d.querySelector('.och-actions'); const r = b.getBoundingClientRect(), rr = row.getBoundingClientRect(), cs = getComputedStyle(b), kids = Array.from(row.children).map(c => c.className.toString().split(' ')[0]); return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, radius: cs.borderTopLeftRadius, bg: cs.backgroundColor, color: cs.color, aria: b.getAttribute('aria-label'), first: kids[0], kids, linkCount: d.querySelectorAll('.cdd-delete-link').length, leftOffset: Math.round(r.left - rr.left) }; });
+    const g0 = await geo();
+    expect(g0.w + 'x' + g0.h, JSON.stringify(g0)).toBe('40x40'); expect(g0.radius, JSON.stringify(g0)).toBe('14px');
+    expect(g0.aria).toBe('Видалити ОЧ'); expect(g0.first, JSON.stringify(g0)).toBe('och-delete-btn'); expect(g0.linkCount, 'окремого посилання немає').toBe(0);
+    expect(g0.color, 'червона іконка: ' + JSON.stringify(g0)).toMatch(/rgb\((239, 68, 68|248, 113, 113)\)/);
+    // той самий виклик з підтвердженням
+    await page.evaluate(() => { window.__del = null; window.removeInstallmentAccount = function(i, cb){ window.__del = [typeof i, typeof cb]; }; });
+    const bb = await page.locator('#installment-drawer .och-delete-btn').boundingBox(); await page.touchscreen.tap(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => window.__del), 'deleteInstallmentFromDrawer → removeInstallmentAccount(idx, closeInstallmentEditor)').toEqual(['number', 'function']);
+    // з клавіатурою ряд той самий
+    await page.evaluate(() => { document.getElementById('idd-pay').focus(); });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__vv.h = window.__H0 - 389; window.visualViewport.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(1100);
+    const g1 = await geo();
+    expect(g1.w + 'x' + g1.h + '|' + g1.radius + '|' + g1.first, 'з клавіатурою той самий розмір і порядок: ' + JSON.stringify(g1)).toBe(g0.w + 'x' + g0.h + '|' + g0.radius + '|' + g0.first);
+    await page.screenshot({ path: process.env.E2E_SHOT_DIR ? process.env.E2E_SHOT_DIR + '/och-actions-row.png' : 'e2e-results/och-actions-row.png' });
   } finally { await ctx.close(); }
 });

@@ -691,6 +691,8 @@
   #installment-drawer .och-actions{ gap:8px; padding:8px 0 6px; margin-top:4px; border-top:1px solid var(--color-border); }
   #installment-drawer .och-actions > button{ height:40px; border-radius:14px; }
   #installment-drawer .och-actions .submit-btn.debt{ background:var(--color-primary); border:0; color:#fff; box-shadow:none; }
+  /* Rev 2.32.321 (SHEET-FOOTER-4, B): кнопка-кошик 40 × 40, r 14, сірий фон вторинних кнопок (--color-track-bg), червона іконка (--color-error) */
+  #installment-drawer .och-actions > .och-delete-btn{ flex:0 0 40px; width:40px; min-width:40px; height:40px; padding:0; border:0; border-radius:14px; background:var(--color-track-bg); color:var(--color-error); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   #installment-drawer .och-form .cdd-delete-link{ font-size:12px; margin-top:2px; padding-top:6px; border-top:0; }
   /* Rev 2.32.6 (X): .fld-label-like — той самий вигляд підпису БЕЗ <label for> (варіант no-for тесту edit-label) */
   .field label, .field .fld-label-like{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
@@ -2103,7 +2105,7 @@
   /* Rev 2.32.268 (KB-14, B): прикріплений блок кнопок має займати в розмітці ТОЙ САМИЙ простір, що й звичайний (звіт MT-1108-2709): раніше (KB-9) padding-top 8 + margin-top 6 додавали листу +6 (mono-detail: 575 → 581) і +8 (struct: 398 → 406) саме при відкритті клавіатури, тож висота листа з клавіатурою міняла розмір, хоча лист вміщується. Спроба замінити margin-top на padding-top теж давала +6: верхній margin колапсує з нижнім margin попереднього блоку (12 пт), а padding ні. Тому верхній margin лишено базовим, padding-top 0, а візуальний відступ над кнопками (щоб вміст, що прокручується, не торкався їх) малюється box-shadow без впливу на розмітку; нижній padding 20 пт перекрито негативним margin. WebKit рахує sticky від краю вмісту (без нижнього padding листа 20 пт): bottom:-20px ставить смугу впритул до краю листа. */
   /* Rev 2.32.313 (SHEET-FOOTER, B): знімок «ПУМБ Dyson»: під рядом «Оплатити / Зберегти» при відкритій клавіатурі видно «Видалити ОЧ» (рядок вмісту), під шторкою — смуга сторінки 8 пт. Ряд кнопок ОЧ іде в потоці останнім (flex order) і є нижнім краєм шторки: sticky bottom та від'ємний margin-bottom на висоту нижнього відступу шторки (12 пт), фон суцільний; вміст прокручується під ним. Закрита клавіатура — без змін. */
   html.kb-sheet #installment-drawer .och-form{ display:flex; flex-direction:column; }
-  html.kb-sheet #installment-drawer .och-actions{ order:99; bottom:-12px; margin-bottom:-12px; padding-bottom:18px; border-top-color:transparent; margin-left:calc(-1 * var(--sheet-pad-x)); margin-right:calc(-1 * var(--sheet-pad-x)); padding-left:var(--sheet-pad-x); padding-right:var(--sheet-pad-x); }
+  html.kb-sheet #installment-drawer .och-actions{ order:99; bottom:-12px; margin-bottom:-12px; padding-bottom:18px; margin-top:12px; border-top-color:transparent; margin-left:calc(-1 * var(--sheet-pad-x)); margin-right:calc(-1 * var(--sheet-pad-x)); padding-left:var(--sheet-pad-x); padding-right:var(--sheet-pad-x); }
   html.kb-sheet .drawer.open :is(.mono-detail-actions, .sf-actions){ position:sticky; bottom:-20px; z-index:2; background:var(--color-surface); padding:0 0 20px; margin-bottom:-20px; box-shadow:0 -8px 0 0 var(--color-surface); }
   /* Rev 2.32.315 (SHEET-FOOTER-2, B): ПІСЛЯ правила mono-detail-actions/sf-actions вище (та сама специфічність, інакше воно перекриває тіні й z-index); звіт MT-1115-3231: навколо кнопок і між ними при відкритій клавіатурі проглядав вміст форми. Спільна панель дій для всіх шторок із рядом дій (.och-actions, .mono-detail-actions, .sf-actions): суцільний непрозорий фон на всю ширину шторки (тінь убік на 40 пт, обрізається краєм шторки; кнопки лишаються з горизонтальними відступами шторки), z-index над вмістом, ледь помітна лінія-роздільник (--color-border) від краю до краю. */
   /* Rev 2.32.318 (SHEET-FOOTER-4, B): MT-1116-2006: тінь і ::before шириною +40 пт убік (Rev 2.32.315) розширювали область прокрутки: вміст ОЧ їхав убік. Тепер панель РІВНО на внутрішню ширину шторки: від'ємні бічні поля = бічний відступ шторки (--sheet-pad-x), width: calc(100% + 2 × відступ), горизонтальні відступи всередині; жодного елемента ширшого за шторку; прокручуваний контейнер без горизонтальної прокрутки. */
@@ -3876,7 +3878,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.320</div>
+  <div class="version-footer">Money Tree · Rev 2.32.321</div>
 </div>
   </div>
 </div>
@@ -4541,10 +4543,11 @@
     </div>
     <div class="bdr-init-amount" id="idd-linked-note"></div>
     <div class="och-actions">
+      <!-- Rev 2.32.321 (SHEET-FOOTER-4, B): «Видалити ОЧ» — квадратна кнопка-кошик ліворуч у ряду дій (було окреме посилання під рядом); та сама дія з підтвердженням -->
+      <button type="button" class="och-delete-btn" aria-label="Видалити ОЧ" onclick="deleteInstallmentFromDrawer()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
       <button type="button" class="installment-pay-btn" onclick="payInstallmentQuick()">Оплатити</button>
       <button type="button" class="submit-btn debt pill" onclick="saveInstallmentDrawer()">Зберегти</button>
     </div>
-    <button type="button" class="cdd-delete-link" onclick="deleteInstallmentFromDrawer()">Видалити ОЧ</button>
   </div>
 </div>
 
@@ -9835,7 +9838,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.320';
+const APP_VERSION = '2.32.321';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -23074,7 +23077,7 @@ const BUTTON_VARIANT_MAP = {
   secondary: ['rs-cancel', 'chk-sk', 'add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
   text: ['mono-back', 'notif-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
-  icon: ['drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
+  icon: ['och-delete-btn', 'drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip', 'mono-inst-label'],
   row: ['rs-rw', 'mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
