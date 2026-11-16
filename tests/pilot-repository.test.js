@@ -5360,7 +5360,7 @@ function kbSheetSandbox(opts){
     }, 'activeElement', { get: function(){ return state.activeElement; } }),
     window: { visualViewport: { height: 894, offsetTop: 0 }, innerWidth: 440, innerHeight: 894, scrollY: 0, scrollTo: function(){} },
     navigator: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', platform: 'iPhone', maxTouchPoints: 5 }, // Rev 2.32.240: стара поведінка iPhone за замовчуванням (старі тести); конвеєр — окремі тести з iPad
-    kbSessionBase: 0, kbEnterHop: false, kbAutofillEvidenceAt: -1e9, kbAutofillGroup: null, kbPanPending: false, kbClosingEl: null, kbPanLastTop: -1, kbPanLastAt: 0, kbAutoOpenAt: 0, kbFieldSession: {}, kbHoldOn: false, kbNoTouchUntil: 0, kbLastKeyAt: 0, kbValBase: null, kbLastFieldScroll: { field: null, at: 0 }, kbHSeen: [], kbHTimer: null, kbOpenVia: 'direct',
+    kbSessionBase: 0, kbEnterHop: false, kbAutofillEvidenceAt: -1e9, kbAutofillGroup: null, kbPanPending: false, kbClosingEl: null, kbPanLastTop: -1, kbPanLastAt: 0, kbAutoOpenAt: 0, kbEarlyGeom: null, kbFieldSession: {}, kbEarlyLast: { el: null, t: 0, left: false }, kbHoldOn: false, kbNoTouchUntil: 0, kbLastKeyAt: 0, kbValBase: null, kbLastFieldScroll: { field: null, at: 0 }, kbHSeen: [], kbHTimer: null, kbOpenVia: 'direct',
     keyboardHeightCache: { portrait: {}, landscape: {} },
     kbSheetActive: false, kbSheetDrawerEl: null, kbSheetFieldKind: null,
     drawerKeyboardLockActive: false, openOverlayCount: 0, kbProxyActive: false,
@@ -5377,7 +5377,7 @@ function kbSheetSandbox(opts){
     requestAnimationFrame: function(fn){ if(fn && fn.name === 'kbCaretShow'){ fn(); return 1; } if(opts.captureRaf){ rafQueue.push(fn); } return 1; }, // KB-17: показ курсора (наступний кадр) у пісочниці виконується одразу
     queueMicrotask: function(fn){ microtasks.push(fn); },
     localStorage: { getItem: function(k){ return Object.prototype.hasOwnProperty.call(lsStore, k) ? lsStore[k] : null; }, setItem: function(k, v){ lsStore[k] = String(v); } },
-    KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', KB_CARET_LS_KEY: 'budget_exp_kb_caret_v1', kbMovingGen: 0, kbProxyEl: null, kbLastFocusedField: null, kbLastTap: null, kbLastSheetCloseAt: 0, // Rev 2.32.303 (KB-LOGIN-FIX)
+    KB_ARROWS_LS_KEY: 'budget_kb_arrows_v1', KB_CARET_LS_KEY: 'budget_exp_kb_caret_v1', kbMovingGen: 0, kbProxyEl: null, kbLastFocusedField: null, kbLastTap: null,
     IS_IOS_RUNTIME: true, SUPPORTS_FOCUS_PREVENT_SCROLL: true, kbRefocusing: false, kbLastInterceptAt: 0,
     getBaseViewportHeight: function(){ return 894; }, // Rev 2.23.30 (6D.199): база для запобіжника kb-open
     cancelAnimationFrame: function(){},
@@ -5393,14 +5393,14 @@ function kbSheetSandbox(opts){
     'computeKeyboardHeight', 'isKeyboardOpen', 'estimateKeyboardHeight',
     'viewportOrientationKey', 'kbMeasureBase', 'getBaseViewportHeight',
     'lockBackgroundScroll', 'unlockBackgroundScroll', 'setDrawerKeyboardBackgroundLock',
-    'enterKbSheet', 'kbStMs', 'kbStSnapMs', 'kbPageTop', 'kbEnsureFieldVisible', 'kbSetLift', 'kbLiftState', 'kbLiftCommit', 'kbLiftTransform', 'kbLiftFinish', 'kbLiftStop', 'KB_MOTION_DUR', 'KB_MOTION_CURVE', 'KB_MOTION_EASING', 'kbMotionVar', 'kbNoteKbH', 'kbStartFieldScroll', 'kbScrollParentOf', 'kbCloseScroll', 'kbScrollDone', 'kbBezier', 'computeFieldScrollTarget', 'kbStickyBarOf', 'debugSafeAreaInsets', 'kbRestBottomLayout', 'kbPipeStep', 'KB_PIPE', 'KB_PIPE_WAIT_MS', 'kbCacheKindForField', 'kbHeightKey', 'kbHeightsLoad', 'kbHeightsSave', 'kbHeightFromStore', 'KB_HEIGHTS_KEY', 'kbPipeOpenNow', 'kbPipeEnter', 'kbPipeTryAnimate', 'kbPipeKick', 'kbPipeAnimate', 'kbPipeFollow', 'kbVvTopCloseFollow', 'KB_CLOSE_FOLLOW', 'kbIsIphone', 'kbgDeviceClass', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
+    'enterKbSheet', 'kbEnsureFieldVisible', 'kbSetLift', 'kbLiftState', 'kbLiftCommit', 'kbLiftTransform', 'kbLiftFinish', 'kbLiftStop', 'KB_MOTION_DUR', 'KB_MOTION_CURVE', 'KB_MOTION_EASING', 'kbMotionVar', 'kbNoteKbH', 'kbStartFieldScroll', 'kbScrollParentOf', 'kbCloseScroll', 'kbScrollDone', 'kbBezier', 'computeFieldScrollTarget', 'kbStickyBarOf', 'debugSafeAreaInsets', 'kbRestBottomLayout', 'kbPipeStep', 'KB_PIPE', 'KB_PIPE_WAIT_MS', 'kbCacheKindForField', 'kbHeightKey', 'kbHeightsLoad', 'kbHeightsSave', 'kbHeightFromStore', 'KB_HEIGHTS_KEY', 'kbPipeOpenNow', 'kbPipeEnter', 'kbPipeTryAnimate', 'kbPipeKick', 'kbPipeAnimate', 'kbPipeFollow', 'kbVvTopCloseFollow', 'KB_CLOSE_FOLLOW', 'kbIsIphone', 'kbgDeviceClass', 'applyLiveSheetLift', 'scheduleLiveSheetLift', 'KB_LIVE', 'KB_LIFT_SETTLE_MS', 'updateKbSheetGeometry', 'correctPanIfNeeded', 'exitKbSheet',
     'handleKeyboardFieldFocusIn', 'handleKeyboardFieldFocusSettle', 'shouldReleaseKbOpen', // Rev 2.23.30 (6D.199)
     'isIosRuntime', 'isTapTargetField', 'shouldInterceptTap', 'KB_PROXY_COPIED_ATTRS', 'proxyAttrsFor',
     'computeSheetLift', 'computeCenteredRestBottom', 'kbEffectiveRestBottom', 'downsampleSheetAnimPairs', 'startSheetAnimSampler',
     'computeSheetMaxHeight', 'planSheetClose', 'shouldInterceptSwitchTap', 'classifyFocusChange',
-    'resolveTapField', 'resolveTapFieldNear', 'TAP_NEAR_FIELD_PAD', 'shouldInterceptFirstFocus', 'kbKindOf',
+    'resolveTapField', 'shouldInterceptFirstFocus', 'kbKindOf',
     'focusWithoutScrollIfSupported',
-    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'KB_PAN_SAME_MS','KB_AUTOFOCUS_MAX_MS','kbRealLift','kbSlideRunning','kbSnapValues','kbValuesChanged','kbHeightKeyBase','KB_RETARGET_K','KB_RETARGET_MIN','KB_RETARGET_MAX','kbRetargetLeg', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
+    'isNativeSwitch', 'kbFocusInTextField', 'switchDirection', 'computeKeyboardTypeOk', 'observeNativeSwitch', 'kbTraceSwitchIfNoTouch', 'kbMotionPan', 'kbEarlyReset', 'kbEarlyStateNow', 'kbHDebounce', 'kbPreHideCaret', 'kbAutofillEvidence', 'kbArrowCandidate', 'kbPipeEarlyStart','KB_PAN_SAME_MS','KB_EARLY_DEADLINE_MS','KB_AUTOFOCUS_MAX_MS','kbRealLift','kbSlideRunning','kbSnapValues','kbValuesChanged','kbHeightKeyBase','KB_EARLY_FACTOR','kbFieldKey','kbFieldHeightGet','kbFieldHeightSave','KB_FIELD_HEIGHTS_KEY','KB_RETARGET_K','KB_RETARGET_MIN','KB_RETARGET_MAX','kbRetargetLeg','kbFieldList','KB_EARLY_CURVES','KB_EARLY_CHECK_MS','KB_EARLY_NEED_SLACK','kbEarlyCurveFor','KB_FIELD_HEIGHTS_MAX','KB_EARLY_QUICK_MS','KB_EARLY_REPEAT_MS', 'kbFormControls', 'kbNavRestore', 'kbNavLock', 'kbNavUnlockAll', 'kbNextField', 'kbHintsApply', 'kbEnterKey', 
     'beginSheetMoving', 'planCaretRestore',
     'getOrCreateKbProxyEl', 'configureKbProxy', 'proxyCaretStyle', 'computeProxyOffset', 'computeProxyDist', 'placeKbProxyAtField',
   ]);
@@ -5578,11 +5578,7 @@ test('shouldInterceptSwitchTap: перехоплює лише тап по ІНШ
   assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { kbSheetOpen: false })), false, 'клавіатура закрита');
   assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { target: a })), false, 'тап по тому самому полю (курсор)');
   assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { moved: true })), false, 'рух пальця');
-  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: 600 })), true, 'довгий тап по іншому полю тепер перехоплюється (Rev 2.32.306)');
-  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: 1129 })), true, 'утримання 1,1 с');
-  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: 1129, target: a })), false, 'утримання на ТОМУ САМОМУ полі: лупа/курсор лишаються');
-  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: 1129, moved: true })), false, 'утримання з рухом');
-  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: undefined })), false, 'без тривалості');
+  assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { durationMs: 600 })), false, 'довгий тап');
   assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { target: makeDrawerField({ inDrawer: false, type: 'text' }) })), false, 'поза шторкою ("Витрати")');
   assert.equal(ctx.shouldInterceptSwitchTap(Object.assign({}, base, { target: makeDrawerField({ inDrawer: true, type: 'checkbox' }) })), false, 'не текстове поле');
   assert.equal(ctx.shouldInterceptSwitchTap(null), false);
@@ -5873,29 +5869,6 @@ test('enterKbSheet: перше відкриття НАТИВНО (direct) на i
   const c = kbSheetSandbox(); // без тапу взагалі — нічого
   c.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
   assert.ok(!c.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }));
-  // Rev 2.32.301 (KB-LOGIN): перехоплений дотик (kbLastInterceptAt ≤ 400 мс) уже не «промах»; справжній промах (перехоплення давно/не було) лишається
-  const d = kbSheetSandbox();
-  d.ctx.kbLastTap = { tag: 'INPUT', id: 'cldfielda1', classes: '', x: 10, y: 20, endAt: d.state.clock - 25 };
-  d.ctx.kbLastInterceptAt = d.state.clock - 25;
-  d.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
-  assert.ok(!d.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }), 'перехоплений дотик не логується як промах');
-  assert.ok(d.debugEvents.some(function(e){ return e.type === 'sheet-open'; }), 'sheet-open лишається');
-  const m = kbSheetSandbox();
-  m.ctx.kbLastTap = { tag: 'INPUT', id: 'cldfielda1', classes: '', x: 10, y: 20, endAt: m.state.clock - 25 };
-  m.ctx.kbLastInterceptAt = m.state.clock - 5000;
-  m.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
-  assert.ok(m.debugEvents.some(function(e){ return e.type === 'intercept-miss'; }), 'перехоплення було давно: промах');
-});
-test('sheet-open: sinceClose = мс від останнього sheet-close; без закриття поля немає; у білому списку самописця', () => {
-  const a = kbSheetSandbox();
-  a.ctx.kbLastSheetCloseAt = a.state.clock - 540;
-  a.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
-  const open = a.debugEvents.find(function(e){ return e.type === 'sheet-open'; });
-  assert.ok(open); assert.equal(open.sinceClose, 540);
-  const b = kbSheetSandbox();
-  b.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
-  assert.equal(b.debugEvents.find(function(e){ return e.type === 'sheet-open'; }).sinceClose, undefined);
-  assert.match(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8'), /const REC_ALLOWED_KEYS = \['sinceClose',/);
 });
 // Rev 2.23.20 (6D.189) — курсор справжнього поля під час руху шторки.
 test('hide (типово): відкриття шторки ставить html.kb-sheet-moving, знімає ЛИШЕ після таймера/transitionend + подія caret-hidden; кінцевий клас знято', () => {
@@ -6890,32 +6863,4 @@ test('KB-6 (реальний запис): перемикання пароль �
   const r = kb6Replay();
   const mv = r.debugEvents.filter(e => e.type === 'caret-hidden' && e.phase === 'switch');
   assert.ok(mv.length <= 1, 'рухів switch: ' + mv.length);
-});
-
-// Rev 2.32.306 (KB-SWITCH-FIX, C): дотик по контейнеру між полями → найближче поле (звіт MT-1114-2415).
-function nearEl(o){
-  const el = { tagName: o.tag || 'DIV', childNodes: o.childNodes || [], _fields: o.fields || [],
-    matches: function(sel){ return o.noMatch ? false : (o.isDiv !== false); },
-    closest: function(sel){ if(/button|summary|role/.test(sel)) return o.interactive ? el : null; if(/drawer/.test(sel)) return o.outside ? null : {}; return null; },
-    querySelectorAll: function(){ return el._fields; } };
-  return el;
-}
-function nearField(top, bottom, o){ o = o || {}; return { tagName: 'INPUT', disabled: !!o.disabled, matches: function(){ return true; }, getBoundingClientRect: function(){ return { left: 20, right: 320, top: top, bottom: bottom, width: 300, height: bottom - top }; } }; }
-test('resolveTapFieldNear: точка між двома полями → найближче в межах 12 пт; далі, текст, кнопка, поза шторкою → null', () => {
-  const { ctx } = kbSheetSandbox();
-  const f1 = nearField(100, 140), f2 = nearField(150, 190);
-  const box = nearEl({ fields: [f1, f2] });
-  assert.equal(ctx.resolveTapFieldNear(box, 100, 144), f1, '4 пт під першим');
-  assert.equal(ctx.resolveTapFieldNear(box, 100, 146), f2, '4 пт над другим (ближче за 6 пт до першого)');
-  assert.equal(ctx.resolveTapFieldNear(box, 100, 152), f2);
-  assert.equal(ctx.resolveTapFieldNear(box, 100, 60), null, 'далі за 12 пт');
-  assert.equal(ctx.resolveTapFieldNear(box, 328, 120), f1, 'збоку в межах 12 пт');
-  assert.equal(ctx.resolveTapFieldNear(box, 345, 120), null, 'збоку далі');
-  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1, f2], childNodes: [{ nodeType: 3, nodeValue: ' Заголовок ' }] }), 100, 144), null, 'контейнер із власним текстом');
-  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1, f2], childNodes: [{ nodeType: 3, nodeValue: '  \n ' }] }), 100, 144), f1, 'порожній текстовий вузол не заважає');
-  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1], interactive: true }), 100, 144), null, 'інтерактивний');
-  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1], outside: true }), 100, 144), null, 'поза шторкою');
-  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [f1], tag: 'SPAN', noMatch: true }), 100, 144), null, 'не контейнер');
-  assert.equal(ctx.resolveTapFieldNear(nearEl({ fields: [nearField(100, 140, { disabled: true })] }), 100, 144), null, 'вимкнене поле');
-  assert.equal(ctx.resolveTapFieldNear(null, 1, 1), null); assert.equal(ctx.resolveTapFieldNear(box, undefined, 1), null);
 });
