@@ -48,3 +48,8 @@
 - E2E: `npm run e2e` (WebKit); симулятор `npm run e2e:ios` лише на прямий запит чату.
 
 - Перехід за адресою `#mono/<id>` і запасне повідомлення (Rev 2.32.278, PUSH-2): `parseMonoDeepLink`, `handleMonoHash`, `routeMonoDeepLink`, `syncAppVisible`, `monoNewToastPlan`, `monoNewToastCheck` (поруч із `routeMonoNotification`); дія `mono-deeplink` у `handlePushAction`.
+
+## Вхідні Monobank: повернення (Rev 2.32.330, MONO-REFUND)
+- Модель: `monoNetUah`, `monoRefundedUah`, `monoSuggestLabelText`, `inboxRowModel(row, accounts, suggestMap)`; завантаження `loadMonoInbox` (+ `loadMonoSuggestRows`); рядок `monoInboxRowHtml`.
+- Діалог і застосування: `monoRefundStart` (`mono_refund_options`), `monoOptionsSorted`, `monoRefundApplyCall`, `monoConsiderSuggested`, `monoRefundPickFromLabel`, `monoRefundApply`, `monoRefundUndoStart/Run`.
+- Тост автоповернення: `monoRefundSignal` (виклики з `applyHeadsCounters` і `refreshMonoNewCount`), `monoRefundToastPlan`, ключі `MONO_REFUND_AT_KEY`, `MONO_REFUND_SEEN_KEY`; `toastModel('mono-refund-auto')`.

@@ -1677,6 +1677,11 @@
   .mono-meta{ font-size:12px; color:var(--color-text-secondary); }
   /* Rev 2.32.128: мітка «🔗 Платіж за ОЧ «назва»» у «Нових» (тап перемикає на «Без ОЧ» і назад); той самий фіолетовий акцент ОЧ, що підказка автозв'язку у формі витрати. */
   .mono-inst-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:6px; padding:4px 10px; border:0; border-radius:20px; background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font:inherit; font-size:12px; font-weight:600; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  /* Rev 2.32.330 (MONO-REFUND), макет docs/ui/mockups/mono-refund-mockup.html: мітка повернення — форма .mono-inst-label, тло --color-info-bg, текст --color-info; стара сума закреслена 12 px secondary */
+  .mono-refund-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:6px; padding:4px 10px; border:0; border-radius:20px; background:var(--color-info-bg); color:var(--color-info); font:inherit; font-size:12px; font-weight:600; -webkit-tap-highlight-color:transparent; }
+  button.mono-refund-label{ cursor:pointer; text-align:left; }
+  .mono-refund-label > span{ min-width:0; white-space:normal; text-align:left; line-height:1.3; } /* як у макеті: текст переноситься, а не обрізається (сума списання в підказці має бути видна на 390 пт) */
+  .mono-old-amount{ display:block; margin-top:3px; font-size:12px; font-weight:400; color:var(--color-text-secondary); text-decoration:line-through; }
   .mono-inst-label > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mono-inst-label.off{ background:var(--color-surface-hover); color:var(--color-text-secondary); }
   .expense-row-actions .swipe-ignore-btn{ background:var(--color-text-tertiary); width:96px; flex-direction:column; gap:2px; font-size:11px; font-weight:700; font-family:inherit; }
@@ -3878,7 +3883,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.329</div>
+  <div class="version-footer">Money Tree · Rev 2.32.330</div>
 </div>
   </div>
 </div>
@@ -4025,6 +4030,9 @@
   <div class="mono-detail-actions" id="mono-detail-refund-actions" style="display:none;">
     <button type="button" class="submit-btn pill" id="mono-detail-refund-btn" onclick="monoRefundStart()">Врахувати повернення</button>
     <button type="button" class="submit-btn pill secondary" onclick="monoDetailIgnore()">Ігнорувати</button>
+  </div>
+  <div class="mono-detail-actions" id="mono-detail-undo-actions" style="display:none;">
+    <button type="button" class="submit-btn pill secondary" id="mono-detail-undo-btn" onclick="monoRefundUndoStart()">Скасувати зіставлення</button>
   </div>
   <div class="mono-detail-actions" id="mono-detail-actions">
     <button type="button" class="submit-btn pill" id="mono-detail-add" onclick="monoDetailAdd()">Додати</button>
@@ -9846,7 +9854,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.329';
+const APP_VERSION = '2.32.330';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12393,6 +12401,56 @@ async function syncAppVisible(next){
 const MONO_SEEN_KEY = 'budget-mono-inbox-seen-v1', MONO_TOAST_KEY = 'budget-mono-toast-upto-v1';
 function monoLsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } }
 function monoLsSet(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+// Rev 2.32.330 (MONO-REFUND): сигнал сервера sync_heads().mono_refund_at (час останнього автоповернення). Realtime на mono_inbox немає (рішення чату), тому: значення змінилось порівняно із запам'ятованим → вибірка автоповернень після попередньої мітки (refund_auto = true, decided_at > мітка) + друга вибірка списань за refund_of (назва, поточна сума) → тост «Повернення N ₴ враховано» лише коли витрату вже додано (expense_id на рядку повернення). Один раз на id: набір id у localStorage (без сум, до 100). Перший раз (мітки ще немає) лише запам'ятовуємо. Мітка зсувається лише після успішної вибірки (збій → наступна перевірка повторить). Ризик: тост спізнюється до наступної перевірки голів (push на повернення не надсилається).
+const MONO_REFUND_AT_KEY = 'budget-mono-refund-at-v1', MONO_REFUND_SEEN_KEY = 'budget-mono-refund-toasted-v1', MONO_REFUND_SEEN_MAX = 100;
+let monoRefundSignalBusy = false;
+function monoRefundSeenGet(){ try{ const a = JSON.parse(monoLsGet(MONO_REFUND_SEEN_KEY) || '[]'); return Array.isArray(a) ? a.filter(function(x){ return typeof x === 'string'; }) : []; }catch(e){ return []; } }
+function monoRefundSeenAdd(ids){
+  const next = monoRefundSeenGet().concat(ids.filter(function(x){ return typeof x === 'string'; }));
+  monoLsSet(MONO_REFUND_SEEN_KEY, JSON.stringify(next.slice(-MONO_REFUND_SEEN_MAX)));
+}
+// Чиста модель тостів: refunds — рядки повернень (id, amount_minor, refund_of, expense_id), charges — карта списань за id (description, net_uah, amount_uah), seen — id, що вже показувались.
+function monoRefundToastPlan(refunds, charges, seen){
+  const out = [];
+  (refunds || []).forEach(function(r){
+    if(!r || !r.id || (seen || []).indexOf(r.id) !== -1 || !r.expense_id) return;
+    const ch = (charges || {})[r.refund_of];
+    if(!ch) return;
+    const n = Math.round(Math.abs(Number(r.amount_minor) || 0) / 100);
+    const after = Math.round(Math.abs(Number(ch.net_uah != null ? ch.net_uah : ch.amount_uah) || 0));
+    out.push({ id: r.id, name: ch.description || '', refundUah: n, oldAmount: after + n, newAmount: after, deleted: after <= 0 });
+  });
+  return out;
+}
+async function monoRefundSignal(at){
+  if(!at || monoRefundSignalBusy) return;
+  const prev = monoLsGet(MONO_REFUND_AT_KEY);
+  if(!prev){ monoLsSet(MONO_REFUND_AT_KEY, at); return; }
+  if(prev === at) return;
+  if(!monoReady()) return;
+  monoRefundSignalBusy = true;
+  try{
+    const client = getSupabaseClient();
+    const r = await client.from('mono_inbox').select('id,amount_minor,refund_of,expense_id,description').eq('refund_auto', true).gt('decided_at', prev).limit(50);
+    if(r.error) throw r.error;
+    const rows = r.data || [];
+    const ids = rows.map(function(x){ return x.refund_of; }).filter(function(v, i, a){ return !!v && a.indexOf(v) === i; });
+    const charges = {};
+    if(ids.length){
+      const c = await client.from('mono_inbox').select('id,description,amount_uah,net_uah').in('id', ids);
+      if(c.error) throw c.error;
+      (c.data || []).forEach(function(x){ charges[x.id] = x; });
+    }
+    monoLsSet(MONO_REFUND_AT_KEY, at);
+    const plan = monoRefundToastPlan(rows, charges, monoRefundSeenGet());
+    monoRefundSeenAdd(rows.map(function(x){ return x.id; }));
+    plan.slice(0, 3).forEach(function(p, i){
+      setTimeout(function(){ const m = toastModel('mono-refund-auto', p); showToast({ kind: m.kind, icon: m.icon, title: m.title, subtitle: m.subtitle }); }, i * 3700);
+    });
+    if(isMonoInboxOpen) loadMonoInbox().then(renderMonoInbox);
+  }catch(e){}
+  monoRefundSignalBusy = false;
+}
 let monoToastBusy = false, monoToastLastAt = 0;
 async function monoNewToastCheck(){
   if(monoToastBusy || document.visibilityState !== 'visible' || isMonoInboxOpen) return;
@@ -12751,6 +12809,7 @@ function applyHeadsCounters(c){
   try{
     if(typeof c.unread === 'number'){ notifArchive.unread = notifEffectiveUnread(c.unread, notifQueueLen()); updateNotifBell(); } // Rev 2.32.147 (NOTIF-READ-QUEUE): мінус черга «до прочитання»
     if(typeof c.monoNew === 'number'){ monoInbox.newCount = c.monoNew; updateMonoBadges(); }
+    if(c.monoRefundAt) monoRefundSignal(c.monoRefundAt); // Rev 2.32.330 (MONO-REFUND)
   }catch(e){}
 }
 async function refreshSyncProfiles(){
@@ -13176,7 +13235,7 @@ function planSync(heads, seen, now, opts){
   const o = opts || {};
   const s = seen || emptySyncSeen(null);
   if(!heads || typeof heads !== 'object') return { ok: false, full: null, tables: [], profiles: false, counters: null };
-  const counters = { unread: typeof heads.unread_notifications === 'number' ? heads.unread_notifications : null, monoNew: typeof heads.mono_new === 'number' ? heads.mono_new : null };
+  const counters = { unread: typeof heads.unread_notifications === 'number' ? heads.unread_notifications : null, monoNew: typeof heads.mono_new === 'number' ? heads.mono_new : null, monoRefundAt: typeof heads.mono_refund_at === 'string' && heads.mono_refund_at ? heads.mono_refund_at : null };
   let full = null;
   if(o.fullReason) full = String(o.fullReason);
   else if(s.needFull) full = 'error';
@@ -23144,7 +23203,7 @@ const BUTTON_VARIANT_MAP = {
   danger: ['danger-outline'],
   icon: ['och-delete-btn', 'drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
-  chip: ['trash-chip', 'mono-inst-label'],
+  chip: ['trash-chip', 'mono-inst-label', 'mono-refund-label'],
   row: ['rs-rw', 'mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn', 'och-cond-row']
 };
@@ -25011,7 +25070,7 @@ async function runMonoDisconnect(){
 })();
 /* ============ Monobank: «Вхідні» (Rev 2.32.28, MB-4) ============
    Вхідні лише читаються (mono_inbox); витрата створюється ВИКЛЮЧНО серверною mono_accept. Усі тексти з банку — зовнішні, тому екрануються. */
-const MONO_SKIP_LABELS = { income_or_refund: 'Поповнення чи повернення', cash: 'Готівка', transfer: 'Переказ', too_small: 'Менше 1 ₴', zero: 'Нульова сума' };
+const MONO_SKIP_LABELS = { income_or_refund: 'Поповнення чи повернення', cash: 'Готівка', transfer: 'Переказ', too_small: 'Менше 1 ₴', zero: 'Нульова сума', refunded_full: 'Повернено повністю' }; // Rev 2.32.330 (MONO-REFUND): refunded_full — списання, яке повністю покрите поверненням (сервер)
 // Rev 2.32.128 (MONO-INST): прив'язка платежу Mono до ОЧ. Сервер заповнює mono_inbox.suggested_installment_id (лише коли збіг єдиний) і приймає mono_accept(p_installment_id). Клієнт нічого не додає автоматично: пропозицію видно в мітці рядка й у шторці, змінити чи зняти можна до додавання; те, що показано, те й передається.
 // picks: { [row.id]: cloudId ОЧ | '' (явно «Без ОЧ») }; list — installmentAccounts. Невідомий локально id (ОЧ ще не синхронізована) = немає прив'язки, на сервер не передається.
 function monoShowsInstRow(row){
@@ -25068,8 +25127,30 @@ function groupInboxByDay(rows, now){
   });
   return order.map(function(k){ return map[k]; });
 }
+// Rev 2.32.330 (MONO-REFUND): чиста сума списання. Сервер веде net_uah (сума мінус застосовані повернення); старі рядки без поля й повністю повернені (refunded_full, net = 0) показують початкову суму. Ризик: сервер без поля = поведінка як раніше (amount_uah).
+function monoNetUah(row){
+  if(!row) return null;
+  const gross = row.amount_uah == null ? null : Math.abs(Number(row.amount_uah));
+  if(row.net_uah == null || row.skip_reason === 'refunded_full') return gross;
+  const n = Math.abs(Number(row.net_uah));
+  return isFinite(n) ? n : gross;
+}
+// Скільки повернено до списання (грн, ціле) і початкова сума; 0 → повернень немає.
+function monoRefundedUah(row){
+  const m = row && row.refunded_minor != null ? Math.abs(Number(row.refunded_minor)) : 0;
+  return isFinite(m) && m > 0 ? Math.round(m / 100) : 0;
+}
+function monoShortMonth(d){ return ['січ','лют','бер','кві','тра','чер','лип','сер','вер','жов','лис','гру'][d.getMonth()]; }
+// Мітка рядка-підказки: «↩ Повернення до витрати 12 лис, 1 200 ₴ ›». charge — рядок списання (id,tx_time,amount_uah); немає даних → без дати й суми.
+function monoSuggestLabelText(charge){
+  const d = charge ? new Date(charge.tx_time) : null;
+  const a = charge && charge.amount_uah != null ? monoFmtUah(Math.abs(Number(charge.amount_uah))).replace(/ /g, '\u00a0') : ''; // нерозривний пробіл: «₴» не відривається від суми при переносі мітки
+  const parts = [d && !isNaN(d) ? d.getDate() + ' ' + monoShortMonth(d) : '', a].filter(Boolean).join(', ');
+  return '↩ Повернення до витрати' + (parts ? ' ' + parts : '') + '\u00a0›';
+}
 // Модель рядка (без HTML): торговець, мітка категорії, мета «14:32 · •••• 1234», сума, причина для пропущених.
-function inboxRowModel(row, accounts){
+// Rev 2.32.330 (MONO-REFUND): сума списання — чиста (net_uah), стара сума закреслена, мітка «Повернено N ₴ із M ₴»; рядок-підказка (skipped + refund_suggest) — мітка-кнопка; рядок refunded: «враховано автоматично» (refund_auto).
+function inboxRowModel(row, accounts, suggestMap){
   const acc = (accounts || []).filter(function(a){ return a.mono_account_id === row.mono_account_id; })[0];
   const d = new Date(row.tx_time);
   const pad = function(v){ return String(v).padStart(2, '0'); };
@@ -25078,16 +25159,26 @@ function inboxRowModel(row, accounts){
   const hasCat = !!row.suggested_category;
   const chip = hasCat ? row.suggested_category + (row.suggested_subcategory ? ' · ' + row.suggested_subcategory : '') : 'Оберіть категорію';
   const tooSmall = row.skip_reason === 'too_small';
-  const inflow = row.skip_reason === 'income_or_refund' || row.status === 'refunded'; // Rev 2.32.32: надходження/повернення без знака «−»
-  const amountText = tooSmall ? 'менше 1 ₴' : (row.amount_uah == null ? '' : (inflow ? '+' : '−') + monoFmtUah(Math.abs(row.amount_uah)));
+  const suggest = row.status === 'skipped' && !!row.refund_suggest;
+  const inflow = row.skip_reason === 'income_or_refund' || row.status === 'refunded' || suggest; // Rev 2.32.32: надходження/повернення без знака «−»
+  const shown = inflow ? (row.amount_uah == null ? null : Math.abs(Number(row.amount_uah))) : monoNetUah(row);
+  const amountText = tooSmall ? 'менше 1 ₴' : (shown == null ? '' : (inflow ? '+' : '−') + monoFmtUah(shown));
+  const refunded = !inflow && row.status === 'new' ? monoRefundedUah(row) : 0;
+  const gross = row.amount_uah == null ? null : Math.abs(Number(row.amount_uah));
+  const withRefund = refunded > 0 && row.net_uah != null && gross != null;
   let reason = '';
   if(row.status === 'skipped') reason = skipReasonLabel(row.skip_reason);
   else if(row.status === 'ignored') reason = 'Ігноровано';
-  else if(row.status === 'refunded') reason = 'Повернення враховано'; // Rev 2.32.32
-  return { id: row.id, merchant: row.description || 'Без назви', hasCategory: hasCat, chip: chip, meta: [time, card].filter(Boolean).join(' · '), amount: amountText, reason: reason, status: row.status };
+  else if(row.status === 'refunded') reason = row.refund_auto ? 'Повернення враховано автоматично' : 'Повернення враховано'; // Rev 2.32.32; Rev 2.32.330
+  if(suggest) reason = '';
+  return { id: row.id, merchant: row.description || 'Без назви', hasCategory: hasCat, chip: chip, meta: [time, card].filter(Boolean).join(' · '), amount: amountText, reason: reason, status: row.status,
+    oldAmount: withRefund ? '−' + monoFmtUah(gross) : '',
+    refundLabel: withRefund ? '↩ Повернено ' + monoFmtUah(refunded) + ' із ' + monoFmtUah(gross) : '',
+    suggest: suggest, suggestLabel: suggest ? monoSuggestLabelText(suggestMap ? suggestMap[row.refund_suggest] : null) : '',
+    canUndo: row.status === 'refunded' && !!row.refund_of };
 }
 // «Додати всі»: нові зі suggested_category та сумою. Rev 2.32.33: виключення за hold прибрано — банк ставить hold=true на ВСІ покупки й не надсилає повторної події, тож воно робило кнопку завжди порожньою.
-function addAllCandidates(rows){ return (rows || []).filter(function(r){ return r.status === 'new' && !!r.suggested_category && r.amount_uah != null; }); }
+function addAllCandidates(rows){ return (rows || []).filter(function(r){ return r.status === 'new' && !!r.suggested_category && r.amount_uah != null && monoNetUah(r) > 0; }); } // Rev 2.32.330: списання, повністю покрите поверненням, не додається
 // Підсумок відповіді mono_accept (помилки Postgres за code).
 function monoAcceptOutcome(error){
   if(!error) return { kind: 'ok' };
@@ -25118,7 +25209,7 @@ function refundConfirmLabel(expense, refundUah){ return refundWholeUah(refundUah
 function refundRowActions(row){
   if(!row) return [];
   if(row.status === 'new') return ['add', 'ignore'];
-  if(row.status === 'skipped' && row.skip_reason === 'income_or_refund') return ['refund', 'ignore'];
+  if(row.status === 'skipped' && (row.skip_reason === 'income_or_refund' || !!row.refund_suggest)) return ['refund', 'ignore']; // Rev 2.32.330: і рядок-підказка
   return [];
 }
 // Підсумок mono_apply_refund / mono_refund_candidates за кодом помилки Postgres.
@@ -25128,13 +25219,14 @@ function monoRefundOutcome(error){
   if(error.code === 'P0002') return { kind: 'notfound', toast: 'Не знайдено', refresh: true };
   return { kind: 'network', toast: 'Немає зв\'язку, спробуйте пізніше' };
 }
-let monoInbox = { gate: 'ready', tab: 'new', rows: [], loaded: false, newCount: 0, detailId: null, busy: false, instPick: {} };
+let monoInbox = { gate: 'ready', tab: 'new', rows: [], loaded: false, newCount: 0, detailId: null, busy: false, instPick: {}, suggestRows: {} };
 let isMonoInboxOpen = false;
 async function refreshMonoNewCount(){
   if(!monoReady()) return;
   try{
     const h = await fetchSyncHeadsShared(); // Rev 2.32.74 (U): лічильник із спільного запиту «голів» (раніше окремий HEAD)
     if(h && typeof h.mono_new === 'number'){ monoInbox.newCount = h.mono_new; updateMonoBadges(); }
+    if(h && typeof h.mono_refund_at === 'string' && h.mono_refund_at) monoRefundSignal(h.mono_refund_at); // Rev 2.32.330 (MONO-REFUND)
   }catch(e){}
 }
 function updateMonoBadges(){
@@ -25155,11 +25247,13 @@ async function loadMonoInbox(){
   monoInbox.offline = false;
   if(!monoState.loaded || !monoState.accounts.length) await loadMonoState();
   try{
-    let q = getSupabaseClient().from('mono_inbox').select('id,mono_tx_id,mono_account_id,tx_time,description,comment,mcc,hold,amount_minor,amount_uah,status,skip_reason,suggested_category,suggested_subcategory,suggested_installment_id,expense_id,notified_at').order('tx_time', { ascending: false }).limit(200);
-    q = monoInbox.tab === 'skipped' ? q.in('status', ['skipped', 'ignored', 'refunded']) : q.eq('status', monoInbox.tab);
+    let q = getSupabaseClient().from('mono_inbox').select('id,mono_tx_id,mono_account_id,tx_time,description,comment,mcc,hold,amount_minor,amount_uah,status,skip_reason,suggested_category,suggested_subcategory,suggested_installment_id,expense_id,notified_at,refunded_minor,net_uah,refund_of,refund_auto,refund_suggest').order('tx_time', { ascending: false }).limit(200);
+    // Rev 2.32.330 (MONO-REFUND): «Нові» = нові + повернення з підказкою (skipped + refund_suggest); «Пропущені» без підказок (вони у «Нових»). Нові колонки вже на сервері (запасного шляху немає: підтвердив чат).
+    q = monoInbox.tab === 'skipped' ? q.or('status.in.(ignored,refunded),and(status.eq.skipped,refund_suggest.is.null)') : (monoInbox.tab === 'new' ? q.or('status.eq.new,and(status.eq.skipped,refund_suggest.not.is.null)') : q.eq('status', monoInbox.tab));
     const r = await q;
     if(r.error) throw r.error;
     monoInbox.rows = r.data || [];
+    await loadMonoSuggestRows();
     monoInbox.loaded = true;
     if(debugRecordingActive){
       const cnt = function(st){ return monoInbox.rows.filter(function(x){ return x.status === st; }).length; };
@@ -25167,21 +25261,35 @@ async function loadMonoInbox(){
     }
   }catch(e){ monoInbox.offline = true; monoInbox.loaded = true; }
 }
+// Rev 2.32.330 (MONO-REFUND): рядки списань, на які вказують підказки (дата й сума для мітки; дані для «Врахувати» зі свайпу). Збій = мітка без дати.
+async function loadMonoSuggestRows(){
+  monoInbox.suggestRows = {};
+  const ids = monoInbox.rows.map(function(r){ return r.refund_suggest; }).filter(function(v, i, a){ return !!v && a.indexOf(v) === i; });
+  if(!ids.length) return;
+  try{
+    const r = await getSupabaseClient().from('mono_inbox').select('id,tx_time,amount_uah,net_uah,status,expense_id,description').in('id', ids);
+    if(r.error) throw r.error;
+    (r.data || []).forEach(function(c){ monoInbox.suggestRows[c.id] = c; });
+  }catch(e){}
+}
 // Rev 2.32.32: мітки «в обробці» немає — банк надсилає hold=true для ВСІХ покупок, тож вона нічого не означала (hold лишається в даних лише для логіки «Додати всі»).
 function monoInboxRowHtml(row){
-  const m = inboxRowModel(row, monoState.accounts);
+  const m = inboxRowModel(row, monoState.accounts, monoInbox.suggestRows);
   const isNew = row.status === 'new';
   const chipCls = m.hasCategory ? 'chip' : 'chip mono-chip-accent';
   const meta = m.reason ? '<span class="mono-meta">' + escapeHtml(m.reason) + '</span>' : '';
   const lm = monoInstLabelModel(row, monoInbox.instPick, installmentAccounts);
   const instLabel = lm ? '<button type="button" class="mono-inst-label' + (lm.on ? '' : ' off') + '" data-mono-inst-toggle="1" aria-pressed="' + (lm.on ? 'true' : 'false') + '"><span>' + (lm.on ? '🔗 Платіж за ОЧ «' + escapeHtml(lm.name) + '»' : 'Без ОЧ') + '</span></button>' : '';
-  const actions = isNew ? '<div class="expense-row-actions"><button type="button" class="swipe-ignore-btn" data-mono-ignore="1" aria-label="Ігнорувати"><span>Ігнорувати</span></button><button type="button" class="swipe-restore-btn" data-mono-add="1" aria-label="Додати"><span>Додати</span></button></div>' : '';
+  // Rev 2.32.330 (MONO-REFUND): мітка повернення (інформаційна) і мітка-кнопка підказки; свайп підказки: «Ігнорувати» + «Врахувати»
+  const refundLabel = m.refundLabel ? '<span class="mono-refund-label"><span>' + escapeHtml(m.refundLabel) + '</span></span>' : (m.suggest ? '<button type="button" class="mono-refund-label" data-mono-refund-pick="1"><span>' + escapeHtml(m.suggestLabel) + '</span></button>' : '');
+  const actions = isNew ? '<div class="expense-row-actions"><button type="button" class="swipe-ignore-btn" data-mono-ignore="1" aria-label="Ігнорувати"><span>Ігнорувати</span></button><button type="button" class="swipe-restore-btn" data-mono-add="1" aria-label="Додати"><span>Додати</span></button></div>'
+    : (m.suggest ? '<div class="expense-row-actions"><button type="button" class="swipe-ignore-btn" data-mono-ignore="1" aria-label="Ігнорувати"><span>Ігнорувати</span></button><button type="button" class="swipe-restore-btn" data-mono-consider="1" aria-label="Врахувати"><span>Врахувати</span></button></div>' : '');
   return '<div class="expense-row-swipe" data-mono-row="' + escapeAttr(safeId(row.id)) + '">' + actions +
     '<div class="expense-row"><div class="exp-row-top"><div class="exp-main">' +
       '<div class="exp-name">' + escapeHtml(m.merchant) + '</div>' +
       '<div class="exp-meta">' + monoBadgeHtml('mono') + (isNew ? '<span class="' + chipCls + '">' + escapeHtml(m.chip) + '</span>' : '') +
-      (m.meta ? '<span class="mono-meta">' + escapeHtml(m.meta) + '</span>' : '') + meta + '</div>' + instLabel +
-    '</div><div class="exp-amount mono">' + escapeHtml(m.amount) + '</div></div></div></div>';
+      (m.meta ? '<span class="mono-meta">' + escapeHtml(m.meta) + '</span>' : '') + meta + '</div>' + instLabel + refundLabel +
+    '</div><div class="exp-amount mono">' + escapeHtml(m.amount) + (m.oldAmount ? '<span class="mono-old-amount">' + escapeHtml(m.oldAmount) + '</span>' : '') + '</div></div></div></div>';
 }
 function renderMonoInbox(){
   const body = document.getElementById('mono-inbox-body');
@@ -25266,10 +25374,11 @@ async function monoAcceptFromRow(id){
   if(!row) return;
   if(!row.suggested_category){ openMonoDetail(id); return; }
   if(monoInbox.busy) return;
+  if(!(monoNetUah(row) > 0)){ showTextToast('Операцію повністю повернено', 'error'); return; } // Rev 2.32.330 (MONO-REFUND): нульова чиста сума не додається
   monoInbox.busy = true;
   const out = await monoAcceptRow(row, row.suggested_category, row.suggested_subcategory, row.description, monoEffectiveInstId(row, monoInbox.instPick, installmentAccounts));
   monoInbox.busy = false;
-  if(out.kind === 'ok'){ showMonoAddedToast(1, row.amount_uah); await monoAfterChange(); return; } // Rev 2.32.37 (T)
+  if(out.kind === 'ok'){ showMonoAddedToast(1, monoNetUah(row)); await monoAfterChange(); return; } // Rev 2.32.37 (T)
   if(out.kind === 'need-category'){ openMonoDetail(id); return; }
   showTextToast(out.toast, 'error');
   if(out.refresh) await monoAfterChange();
@@ -25297,7 +25406,7 @@ async function runMonoAddAll(){
     while(i < list.length){
       const row = list[i++];
       const out = await monoAcceptRow(row, row.suggested_category, row.suggested_subcategory, row.description, monoEffectiveInstId(row, monoInbox.instPick, installmentAccounts));
-      if(out.kind === 'ok'){ done++; sum += Math.abs(row.amount_uah || 0); }
+      if(out.kind === 'ok'){ done++; sum += Math.abs(monoNetUah(row) || 0); }
     }
   };
   monoInbox.busy = true;
@@ -25311,7 +25420,7 @@ function openMonoDetail(id){
   const row = monoInbox.rows.filter(function(r){ return safeId(r.id) === id; })[0];
   if(!row) return;
   monoInbox.detailId = id;
-  const m = inboxRowModel(row, monoState.accounts);
+  const m = inboxRowModel(row, monoState.accounts, monoInbox.suggestRows);
   const isNew = row.status === 'new';
   document.getElementById('mono-detail-title').textContent = m.merchant;
   document.getElementById('mono-detail-sub').textContent = m.amount;
@@ -25321,6 +25430,7 @@ function openMonoDetail(id){
   const d = new Date(row.tx_time);
   if(row.description && row.description !== m.merchant) add('Опис', row.description); // Rev 2.32.59 (F2): збігається із заголовком — не дублюємо
   add('Сума', m.amount);
+  if(m.refundLabel) add('Повернено', monoFmtUah(monoRefundedUah(row)) + ' із ' + monoFmtUah(Math.abs(Number(row.amount_uah)))); // Rev 2.32.330 (MONO-REFUND)
   add('Дата й час', isNaN(d) ? '' : d.getDate() + ' ' + MONO_MONTHS_GEN[d.getMonth()] + ' ' + d.getFullYear() + ', ' + m.meta.split(' · ')[0]);
   add('Картка', (m.meta.split(' · ')[1]) || '');
   add('Коментар', row.comment);
@@ -25333,6 +25443,7 @@ function openMonoDetail(id){
   // Rev 2.32.32: повернення у «Пропущених» — «Врахувати повернення» / «Ігнорувати»
   const canRefund = refundRowActions(row).indexOf('refund') !== -1;
   document.getElementById('mono-detail-refund-actions').style.display = canRefund ? '' : 'none';
+  document.getElementById('mono-detail-undo-actions').style.display = m.canUndo ? '' : 'none'; // Rev 2.32.330 (MONO-REFUND): «Скасувати зіставлення»
   const rf = document.getElementById('mono-detail-refund'); rf.textContent = ''; rf.style.display = 'none';
   if(isNew){
     const cat = document.getElementById('fldmono2');
@@ -25468,12 +25579,13 @@ async function monoDetailAdd(){
   const id = monoInbox.detailId;
   const row = monoInbox.rows.filter(function(r){ return safeId(r.id) === id; })[0];
   if(!row || monoInbox.busy) return;
+  if(!(monoNetUah(row) > 0)){ showTextToast('Операцію повністю повернено', 'error'); return; }
   const category = document.getElementById('fldmono2').value;
   if(!category){ flashField('mono-pick-group'); showTextToast('Оберіть категорію', 'error'); return; }
   monoInbox.busy = true;
   const out = await monoAcceptRow(row, category, document.getElementById('fldmono3').value, document.getElementById('fldmono4').value.trim(), monoEffectiveInstId(row, monoInbox.instPick, installmentAccounts));
   monoInbox.busy = false;
-  if(out.kind === 'ok'){ closeMonoDetail(); showMonoAddedToast(1, row.amount_uah); await monoAfterChange(); return; } // Rev 2.32.37 (T)
+  if(out.kind === 'ok'){ closeMonoDetail(); showMonoAddedToast(1, monoNetUah(row)); await monoAfterChange(); return; } // Rev 2.32.37 (T)
   showTextToast(out.toast, 'error');
   if(out.refresh){ closeMonoDetail(); await monoAfterChange(); }
 }
@@ -25483,12 +25595,22 @@ function monoRefundNote(text){
   const box = document.getElementById('mono-detail-refund'); box.textContent = ''; box.style.display = '';
   const n = document.createElement('div'); n.className = 'mono-note'; n.textContent = text; box.appendChild(n);
 }
+// Rev 2.32.330 (MONO-REFUND): діалог вибору — mono_refund_options(p_inbox_id) → charge_inbox_id, expense_id, tx_date, amount, note, status, suggested (запропоноване сервером перше). Раніше mono_refund_candidates (лише додані витрати).
+function monoOptionsSorted(list){
+  return (list || []).map(function(c, i){ return { c: c, i: i }; }).sort(function(a, b){ return (b.c.suggested ? 1 : 0) - (a.c.suggested ? 1 : 0) || a.i - b.i; }).map(function(x){ return x.c; });
+}
+// Застосування обраного списання: ще у «Вхідних» (status new) → mono_apply_refund_inbox; додана витрата → mono_apply_refund.
+function monoRefundApplyCall(row, cand){
+  if(cand && cand.status === 'new' && cand.charge_inbox_id) return { fn: 'mono_apply_refund_inbox', args: { p_inbox_id: row.id, p_charge_inbox_id: cand.charge_inbox_id } };
+  return { fn: 'mono_apply_refund', args: { p_inbox_id: row.id, p_expense_id: cand.expense_id } };
+}
+function monoOptDate(v){ const t = String(v || ''); return new Date(/^\d{4}-\d{2}-\d{2}$/.test(t) ? t + 'T12:00:00' : t); }
 async function monoRefundStart(){
   const id = monoInbox.detailId, row = monoRefundRowOf(id);
   if(!row || monoInbox.busy) return;
   monoInbox.busy = true;
   let data = null, error = null;
-  try{ const r = await getSupabaseClient().rpc('mono_refund_candidates', { p_inbox_id: row.id }); data = r.data || []; error = r.error || null; }catch(e){ error = { message: 'network' }; }
+  try{ const r = await getSupabaseClient().rpc('mono_refund_options', { p_inbox_id: row.id }); data = monoOptionsSorted(r.data || []); error = r.error || null; }catch(e){ error = { message: 'network' }; }
   monoInbox.busy = false;
   const out = monoRefundOutcome(error);
   if(out.kind !== 'ok'){ showTextToast(out.toast, 'error'); return; }
@@ -25499,7 +25621,7 @@ async function monoRefundStart(){
   const group = document.createElement('div'); group.className = 'mono-group';
   data.forEach(function(c){
     const b = document.createElement('button'); b.type = 'button'; b.className = 'mono-row';
-    const d = new Date(c.expense_date + 'T12:00:00');
+    const d = monoOptDate(c.tx_date);
     const a = document.createElement('span'); a.textContent = (isNaN(d) ? '' : d.getDate() + ' ' + MONO_MONTHS_GEN[d.getMonth()] + ' · ') + (c.note || 'Без назви');
     const z = document.createElement('span'); z.className = 'mono-row-side'; z.textContent = monoFmtUah(c.amount);
     b.appendChild(a); b.appendChild(z);
@@ -25507,6 +25629,20 @@ async function monoRefundStart(){
     group.appendChild(b);
   });
   box.appendChild(group);
+}
+// Тап по мітці підказки: шторка рядка + наявний діалог вибору (запропонована витрата перша).
+function monoRefundPickFromLabel(id){
+  openMonoDetail(id);
+  monoRefundStart();
+}
+// «Врахувати» зі свайпу: застосовує запропоноване (з підтвердженням, як і вибір у діалозі). Немає даних про списання → діалог вибору.
+function monoConsiderSuggested(id){
+  const row = monoRefundRowOf(id);
+  if(!row) return;
+  const ch = monoInbox.suggestRows[row.refund_suggest];
+  if(!ch || (ch.status !== 'new' && !ch.expense_id)){ monoRefundPickFromLabel(id); return; }
+  monoInbox.detailId = id;
+  monoRefundChoose(row, { charge_inbox_id: ch.id, expense_id: ch.expense_id, amount: monoNetUah(ch), note: ch.description, status: ch.status });
 }
 function monoRefundChoose(row, cand){
   const refund = refundAmountUah(row); // Rev 2.32.85 (FIX-REFUND-1)
@@ -25517,14 +25653,38 @@ async function monoRefundApply(row, cand){
   if(blockedByReadOnly()) return; // Rev 2.32.78 (KIT-1)
   monoInbox.busy = true;
   let data = null, error = null;
-  try{ const r = await getSupabaseClient().rpc('mono_apply_refund', { p_inbox_id: row.id, p_expense_id: cand.expense_id }); data = r.data; error = r.error || null; }catch(e){ error = { message: 'network' }; }
+  const call = monoRefundApplyCall(row, cand);
+  try{ const r = await getSupabaseClient().rpc(call.fn, call.args); data = r.data; error = r.error || null; }catch(e){ error = { message: 'network' }; }
   monoInbox.busy = false;
   const out = monoRefundOutcome(error);
   if(out.kind !== 'ok'){ showTextToast(out.toast, 'error'); if(out.refresh){ closeMonoDetail(); await monoAfterChange(); } return; }
   const res = Array.isArray(data) ? data[0] : data;
-  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'mono-refund', applied: true, deleted: !!(res && res.deleted) });
+  const whole = refundWholeUah(refundAmountUah(row));
+  const newAmount = res && res.new_amount != null ? res.new_amount : Math.max(0, (Number(cand.amount) || 0) - whole);
+  const deleted = !!(res && res.deleted) || newAmount <= 0;
+  if(debugRecordingActive) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'mono-refund', applied: true, deleted: deleted });
   closeMonoDetail();
-  { const m = toastModel('refund', { name: cand.note, oldAmount: res && res.old_amount != null ? res.old_amount : cand.amount, newAmount: res && res.new_amount, deleted: !!(res && res.deleted) }); showToast({ kind: m.kind, title: m.title, subtitle: m.subtitle }); } // Rev 2.32.37 (T)
+  if(cand.status === 'new'){ showTextToast('Повернення враховано', 'success'); await monoAfterChange(); return; } // Rev 2.32.330: витрати ще немає, «→ видалено» вводило б в оману
+  { const m = toastModel('refund', { name: cand.note, oldAmount: res && res.old_amount != null ? res.old_amount : cand.amount, newAmount: newAmount, deleted: deleted }); showToast({ kind: m.kind, title: m.title, subtitle: m.subtitle }); } // Rev 2.32.37 (T)
+  await monoAfterChange();
+}
+// Rev 2.32.330 (MONO-REFUND): «Скасувати зіставлення» (mono_refund_undo): рядок повернення знову «Пропущені», сума витрати відновлюється сервером; підтвердження обов'язкове.
+function monoRefundUndoStart(){
+  const id = monoInbox.detailId, row = monoRefundRowOf(id);
+  if(!row) return;
+  showConfirmModal('Скасувати зіставлення? Сума витрати повернеться до попередньої.', function(){ monoRefundUndoRun(row); }, 'Скасувати', 'primary');
+}
+async function monoRefundUndoRun(row){
+  if(monoInbox.busy) return;
+  if(blockedByReadOnly()) return;
+  monoInbox.busy = true;
+  let error = null;
+  try{ const r = await getSupabaseClient().rpc('mono_refund_undo', { p_inbox_id: row.id }); error = r.error || null; }catch(e){ error = { message: 'network' }; }
+  monoInbox.busy = false;
+  const out = monoRefundOutcome(error);
+  if(out.kind !== 'ok'){ showTextToast(out.toast, 'error'); if(out.refresh){ closeMonoDetail(); await monoAfterChange(); } return; }
+  closeMonoDetail();
+  showTextToast('Зіставлення скасовано', 'success');
   await monoAfterChange();
 }
 async function monoDetailIgnore(){
@@ -25546,6 +25706,8 @@ async function monoDetailIgnore(){
     if(e.target.closest('[data-mono-inst-toggle]')){ e.stopPropagation(); monoInstToggle(id); return; }
     if(e.target.closest('[data-mono-add]')){ e.stopPropagation(); if(typeof closeSwipeActions === 'function') closeSwipeActions(); monoAcceptFromRow(id); return; }
     if(e.target.closest('[data-mono-ignore]')){ e.stopPropagation(); if(typeof closeSwipeActions === 'function') closeSwipeActions(); monoIgnoreRow(id); return; }
+    if(e.target.closest('[data-mono-consider]')){ e.stopPropagation(); if(typeof closeSwipeActions === 'function') closeSwipeActions(); monoConsiderSuggested(id); return; } // Rev 2.32.330 (MONO-REFUND)
+    if(e.target.closest('[data-mono-refund-pick]')){ e.stopPropagation(); monoRefundPickFromLabel(id); return; }
     if(suppressNextRowTapSelect){ suppressNextRowTapSelect = false; return; }
     if(wrap.classList.contains('swipe-open')){ if(typeof closeSwipeActions === 'function') closeSwipeActions(); return; }
     openMonoDetail(id);
@@ -25956,6 +26118,9 @@ function toastModel(kind, data){
   }
   if(kind === 'refund'){
     return { kind: 'success', title: 'Повернення враховано', subtitle: (d.name || 'Витрата') + ' · ' + (d.deleted ? monoFmtUah(d.oldAmount) + ' → видалено' : monoFmtUah(d.oldAmount) + ' → ' + monoFmtUah(d.newAmount)), actionLabel: '', action: null };
+  }
+  if(kind === 'mono-refund-auto'){ // Rev 2.32.330 (MONO-REFUND): info, без кнопки, без push
+    return { kind: 'info', icon: 'info', title: 'Повернення ' + monoFmtUah(d.refundUah) + ' враховано', subtitle: (d.name || 'Витрата') + ': ' + monoFmtUah(d.oldAmount) + ' → ' + (d.deleted ? 'видалено' : monoFmtUah(d.newAmount)), actionLabel: '', action: null };
   }
   if(kind === 'other-actor'){
     const t = toastActionTarget(d.domain, d.action); // Rev 2.32.127: кнопка веде за змістом події

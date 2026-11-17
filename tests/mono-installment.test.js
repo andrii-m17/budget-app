@@ -66,7 +66,7 @@ test('mono_accept: p_installment_id передається лише коли п�
   assert.ok(!('p_installment_id' in calls[1].args) && !('p_installment_id' in calls[2].args));
 });
 test('охоронні: запит «Вхідних» читає suggested_installment_id; свайп, «Додати всі» і шторка передають ефективний id; мітка екранована; рядок ОЧ — select без нових текстових полів', function(){
-  assert.match(SRC, /suggested_subcategory,suggested_installment_id,expense_id,notified_at'\)/);
+  assert.match(SRC, /suggested_subcategory,suggested_installment_id,expense_id,notified_at[,']/);
   assert.equal((SRC.match(/monoEffectiveInstId\(row, monoInbox\.instPick, installmentAccounts\)\)/g) || []).length >= 3, true);
   assert.match(SRC, /'🔗 Платіж за ОЧ «' \+ escapeHtml\(lm\.name\) \+ '»'/);
   assert.match(SRC, /<select id="fldmono5" class="sf-select" aria-label="ОЧ"/);
@@ -76,7 +76,7 @@ test('мітка в рядку «Нових»: рендер через monoInbox
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const ctx = buildSandbox({ escapeHtml: esc, escapeAttr: s => esc(s).replace(/"/g, '&quot;'), safeId: x => String(x).replace(/[^0-9A-Za-z_-]/g, ''), monoState: { accounts: [] }, monoBadgeHtml: () => '',
     monoInbox: { instPick: {} }, installmentAccounts: [{ name: '<b>ОЧ</b>', cloudId: 'i1' }] },
-    ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'groupInboxByDay', 'inboxRowModel', 'monoInstById', 'monoEffectiveInstId', 'monoInstLabelModel', 'stripLeadingEmoji', 'monoInboxRowHtml']);
+    ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'groupInboxByDay', 'inboxRowModel', 'monoNetUah', 'monoRefundedUah', 'monoShortMonth', 'monoSuggestLabelText', 'monoInstById', 'monoEffectiveInstId', 'monoInstLabelModel', 'stripLeadingEmoji', 'monoInboxRowHtml']);
   const html = ctx.monoInboxRowHtml(Object.assign(R({ suggested_installment_id: 'i1' }), { tx_time: '2026-10-12T10:00:00Z', amount_uah: 100, mono_account_id: 'm' }));
   assert.match(html, /data-mono-inst-toggle="1"/);
   assert.ok(html.indexOf('&lt;b&gt;ОЧ&lt;/b&gt;') !== -1 && !/<b>/.test(html));

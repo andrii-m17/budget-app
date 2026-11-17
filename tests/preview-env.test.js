@@ -133,7 +133,7 @@ test('KIT-1 (2.32.78): назви позначок і підказка «лиш�
 test('KIT-1 (2.32.78): записи поза push* — у «лише перегляд» гілки пропуску стоять до будь-якого запиту (охоронний тест на коді)', function(){
   const SRC = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
   const bodyOf = n => { const i = SRC.search(new RegExp('(async )?function ' + n + '\\(')); return SRC.slice(i, i + 900); };
-  const guarded = ['sendTestNotification', 'runMonoDisconnect', 'runClearNotifArchive', 'monoRefundApply', 'markAllNotificationsRead'];
+  const guarded = ['sendTestNotification', 'runMonoDisconnect', 'runClearNotifArchive', 'monoRefundApply', 'monoRefundUndoRun', 'markAllNotificationsRead'];
   guarded.forEach(n => assert.match(bodyOf(n), /blockedByReadOnly\(\)/, n));
   assert.match(bodyOf('monoAcceptRow'), /isWriteBlocked\(\)\) return \{ kind: 'readonly'/);
   assert.match(bodyOf('loadNotificationSettings'), /\|\| isWriteBlocked\(\)/);

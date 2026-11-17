@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const c = buildSandbox({}, ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'inboxRowModel', 'refundWholeUah', 'refundAmountUah', 'refundConfirmText', 'refundConfirmLabel', 'refundRowActions', 'monoRefundOutcome']);
+const c = buildSandbox({}, ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'inboxRowModel', 'monoNetUah', 'monoRefundedUah', 'monoShortMonth', 'monoSuggestLabelText', 'refundWholeUah', 'refundAmountUah', 'refundConfirmText', 'refundConfirmLabel', 'refundRowActions', 'monoRefundOutcome']);
 
 test('refundConfirmText: часткове повернення (40 − 25 → 15)', function(){
   assert.equal(c.refundConfirmText({ note: 'Bolt самокат', amount: 40 }, 25), 'Зменшити «Bolt самокат» з 40 ₴ до 15 ₴?');
@@ -27,7 +27,7 @@ test('refundRowActions: нові, повернення, решта', function(){
 });
 test('refunded: позначка «Повернення враховано», потрапляє у «Пропущені»', function(){
   assert.equal(c.inboxRowModel({ id: 'a', status: 'refunded', amount_uah: 25, tx_time: new Date().toISOString() }, []).reason, 'Повернення враховано');
-  assert.match(SRC, /q\.in\('status', \['skipped', 'ignored', 'refunded'\]\)/);
+  assert.match(SRC, /status\.in\.\(ignored,refunded\),and\(status\.eq\.skipped,refund_suggest\.is\.null\)/); // Rev 2.32.330: «Пропущені» без підказок
 });
 test('повернення показується зі знаком «+», витрати — «−»', function(){
   assert.match(c.inboxRowModel({ id: 'a', status: 'skipped', skip_reason: 'income_or_refund', amount_uah: 25, tx_time: new Date().toISOString() }, []).amount, /^\+25\s₴$/);

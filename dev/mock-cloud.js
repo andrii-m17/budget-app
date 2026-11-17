@@ -230,8 +230,8 @@
     SYNC_TABLES.forEach(function(t){ let max = null; (state.tables[t] || []).forEach(function(r){ if(r.updated_at && (!max || cmp(r.updated_at, max) > 0)) max = r.updated_at; }); tables[t] = max; });
     const hash = function(s){ let h = 0; for(let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return String(h); };
     return { tables: tables, members_hash: hash(state.users.map(function(u){ return u.id + '|' + u.display_name; }).join(',')), family_hash: hash(state.familyId),
-      unread_notifications: (state.tables.user_notifications || []).filter(function(n){ return !n.read_at; }).length, mono_new: (state.tables.mono_inbox || []).filter(function(n){ return n.status === 'new'; }).length,
-      purged_at: state.purgedAt, server_time: nowIso(state) };
+      unread_notifications: (state.tables.user_notifications || []).filter(function(n){ return !n.read_at; }).length, mono_new: (state.tables.mono_inbox || []).filter(function(n){ return n.status === 'new' || (n.status === 'skipped' && n.refund_suggest); }).length,
+      purged_at: state.purgedAt, mono_refund_at: state.monoRefundAt || null, server_time: nowIso(state) }; // Rev 2.32.330 (MONO-REFUND): час останнього автоповернення
   }
 
   // handle(state, url, init, input) → Promise<Response>
@@ -244,6 +244,15 @@
       state.log.push({ kind: 'rpc', name: m[1], method: method });
       if(m[1] === 'sync_heads') return jsonResponse(200, headsOf(state));
       if(m[1] === 'mono_refund_candidates') return jsonResponse(200, []);
+      // Rev 2.32.330 (MONO-REFUND): mono_refund_options / mono_apply_refund(_inbox) / mono_refund_undo — результат задає тест через state.rpcResults[ім'я] (значення або функція(body)); тіло виклику пишеться в журнал
+      if(/^mono_(refund_options|apply_refund|apply_refund_inbox|refund_undo)$/.test(m[1])){
+        let body = null; try{ const raw = (init && init.body) || null; body = raw ? JSON.parse(raw) : null; }catch(e){}
+        state.log.push({ kind: 'rpc-body', name: m[1], body: body });
+        const rr = state.rpcResults && state.rpcResults[m[1]];
+        if(rr === undefined) return jsonResponse(200, m[1] === 'mono_refund_options' ? [] : null);
+        if(rr && rr.error) return jsonResponse(rr.status || 400, rr.error);
+        return jsonResponse(200, typeof rr === 'function' ? rr(body) : rr);
+      }
       if(m[1] === 'mark_notifications_read'){ // Rev 2.32.223 (PUSH-READ): як на сервері — read_at для p_ids (або для всіх, якщо p_ids нема)
         let ids = null; try{ const raw = (init && init.body) || null; const b = raw ? JSON.parse(raw) : null; ids = b && Array.isArray(b.p_ids) ? b.p_ids.map(String) : null; }catch(e){}
         const ts = nowIso(state);
