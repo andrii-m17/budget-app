@@ -280,7 +280,7 @@ test('картка конфлікту замінюється: дії новог�
 });
 
 test('охоронні: черги немає, рух лише opacity/transform/розмір, колірних і тіньових змін немає', function () {
-  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const src = require('./extract').readIndexWithCss();
   const a = src.indexOf('function showToast(opts)'), b = src.indexOf('// Rev 2.32.127: відкриття цілі кнопки поп-апа');
   const body = src.slice(a, b);
   assert.ok(!/successToastQueue/.test(src));

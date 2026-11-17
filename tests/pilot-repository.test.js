@@ -5895,7 +5895,7 @@ test('sheet-open: sinceClose = мс від останнього sheet-close; б�
   const b = kbSheetSandbox();
   b.ctx.handleKeyboardFieldFocusIn(makeDrawerField({ inDrawer: true }));
   assert.equal(b.debugEvents.find(function(e){ return e.type === 'sheet-open'; }).sinceClose, undefined);
-  assert.match(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8'), /const REC_ALLOWED_KEYS = \['sinceClose',/);
+  assert.match(require('./extract').readIndexWithCss(), /const REC_ALLOWED_KEYS = \['sinceClose',/);
 });
 // Rev 2.23.20 (6D.189) — курсор справжнього поля під час руху шторки.
 test('hide (типово): відкриття шторки ставить html.kb-sheet-moving, знімає ЛИШЕ після таймера/transitionend + подія caret-hidden; кінцевий клас знято', () => {
@@ -5959,7 +5959,7 @@ test('purgeLegacyKeyboardKeys: при старті видаляє застарі
   assert.deepEqual(Object.keys(store), ['budget_expenses_v1']);
 });
 test('у коді НЕМАЄ жодного читання видалених ключів/перемикачів варіантів клавіатури (лише removeItem у списку застарілих)', () => {
-  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const src = require('./extract').readIndexWithCss();
   assert.equal(/getItem\([^)]*(budget_kb_mode_v1|budget_kb_focus_mode_v1|budget_kb_arrows_v1|budget_exp_kb_caret_v1)/.test(src), false);
   ['getKbMode', 'setKbMode', 'getKbFocusMode', 'getKbArrowsMode', 'getKbCaretVariant', 'kb-mode-b', 'KB_MODE_LS_KEY', 'KB_ARROWS_LS_KEY', 'KB_CARET_LS_KEY', 'KB_FOCUS_MODE_LS_KEY'].forEach(function(id){
     assert.equal(src.indexOf(id), -1, id + ' має бути видалено');
@@ -6072,7 +6072,7 @@ test('getVariantsSnapshot: усі id → обраний варіант (для d
   assert.deepEqual(JSON.parse(JSON.stringify(ctx.getVariantsSnapshot())), { 'sample-test': 'b' });
 });
 test('у коді немає прямого читання budget_variants_v1 поза модулем; ключ не в BACKUP_LS_KEYS; device.variants; слово "Експерименти" відсутнє', () => {
-  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const src = require('./extract').readIndexWithCss();
   const start = src.indexOf('// <test-variants-module>');
   const end = src.indexOf('// </test-variants-module>');
   assert.ok(start !== -1 && end > start, 'модуль позначений маркерами');
@@ -6329,7 +6329,7 @@ test('restoreCategory/restoreSubcategory без дублів: повне від�
   assert.equal(r.skippedWords, 1); assert.equal(t.ctx.DICTIONARY.filter(d => !d.deletedAt).length, 1);
 });
 test('restoreTrashItem: тост «N слів не відновлено: вони вже існують» підключено', () => {
-  assert.ok(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8').includes("' не відновлено: ' + (pluralUa(result.skippedWords, ['воно', 'вони', 'вони']) )"));
+  assert.ok(require('./extract').readIndexWithCss().includes("' не відновлено: ' + (pluralUa(result.skippedWords, ['воно', 'вони', 'вони']) )"));
 });
 test('restoreCategory: блокується, якщо вже є АКТИВНА категорія з такою самою назвою (захисна перевірка колізії)', async () => {
   const { ctx } = sandbox();
@@ -6825,7 +6825,7 @@ test('pullDebtsCore (2.32.187): ненадісланий борг без злі�
   assert.equal(pushSpy.count(), 0);
 });
 test('охоронні Rev 2.32.236: у pull нема рішень «чия версія новіша» за годинником пристрою (localIsNewer/localTime/cloudTime/backupTime); брудний без зліпка проходить mdLostToServer, брудний зі зліпком — mdPullDirty', function(){
-  const SRC = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const SRC = require('./extract').readIndexWithCss();
   ['localIsNewer', 'localTime', 'cloudTime', 'backupTime'].forEach(function(w){ assert.ok(!SRC.includes(w), w + ' прибрано'); });
   ['pullExpensesCore', 'pullIncomesCore', 'pullDebtsCore', 'pullCategoriesCore', 'pullSubcategoriesCore', 'pullDictionaryCore', 'pullBankAccountsCore', 'pullInstallmentAccountsCore', 'pullHiddenEntitiesCore'].forEach(function(n){
     const i = SRC.indexOf('async function ' + n), body = SRC.slice(i, SRC.indexOf('\nasync function ', i + 10));

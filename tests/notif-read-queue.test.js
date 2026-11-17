@@ -184,7 +184,7 @@ test('«Прочитати всі» офлайн без завантажених
 });
 
 test('охоронні: черга живе поза блоком Monobank/сповіщень (там сховища заборонені), ключ чиститься при виході, у черзі лише id, зв\'язок із лічильником «голів»', function(){
-  const SRC = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const SRC = require('./extract').readIndexWithCss();
   const monoStart = SRC.indexOf('/* ============ Monobank: екран підключення');
   assert.ok(SRC.indexOf("const LS_KEY_NOTIF_READ_QUEUE =") < monoStart && SRC.indexOf('async function notifFlush(') < monoStart);
   assert.match(SRC.match(/function accountLocalStorageKeys\(\)\{([\s\S]*?)\n\}/)[1], /LS_KEY_NOTIF_READ_QUEUE/);

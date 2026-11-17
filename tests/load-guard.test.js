@@ -11,6 +11,7 @@ const INDEX = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const SW = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const c = buildSandbox({}, ['mtLoadCheck']);
 const J = (v) => JSON.parse(JSON.stringify(v));
+const FULL = require('./extract').readIndexWithCss(); // весь код (index.html + js/*.js): самописець живе в js/diag.js
 
 test('mtLoadCheck: усе є / бракує одного / зайва позначка / не масив', function(){
   assert.deepEqual(J(c.mtLoadCheck(['a.js', 'b.js'], ['a.js', 'b.js'])), { missing: [], extra: [] });
@@ -30,15 +31,15 @@ test('позначка завантаження — останній непор�
 test('основний скрипт починається з перевірки завантаження; збій зупиняє скрипт винятком; ключ mt-load-fail; без токенів у стилях екрана', function(){
   const main = INDEX.slice(INDEX.indexOf('<script>\n/* ============ Захист від білого екрана'));
   assert.ok(main.startsWith('<script>\n/* ============ Захист від білого екрана'), 'перевірка — першою в основному скрипті');
-  const guard = main.slice(0, main.indexOf('/* ============ Помилки JavaScript'));
+  const guard = main.slice(0, main.indexOf('function loadFailReport'));
   assert.match(guard, /throw new Error\('mt-load-fail: '/);
   assert.match(guard, /localStorage\.setItem\('mt-load-fail'/);
   assert.match(guard, /Не вдалося завантажити застосунок/); assert.match(guard, /Перевірте інтернет і спробуйте ще раз/); assert.match(guard, /textContent = 'Оновити'/);
   assert.match(guard, /prefers-color-scheme:dark/); assert.match(guard, /height:44px/); assert.match(guard, /border-radius:999px/); assert.match(guard, /safe-area-inset-top/);
   assert.ok(!/var\(--/.test(guard), 'без CSS-змінних: css/*.css міг не завантажитись');
   assert.ok(!/<input|createElement\('input'\)/.test(guard), 'полів вводу немає');
-  assert.match(INDEX, /const REC_ALLOWED_TYPES = \[[^\]]*'load-fail'[^\]]*\]/); assert.match(INDEX, /const REC_ALLOWED_KEYS = \[[^\]]*'files', 'ageMin', 'loadVer'\]/);
-  assert.match(INDEX, /recBgListeners\(\);\n  loadFailReport\(\);/);
+  assert.match(FULL, /const REC_ALLOWED_TYPES = \[[^\]]*'load-fail'[^\]]*\]/); assert.match(FULL, /const REC_ALLOWED_KEYS = \[[^\]]*'files', 'ageMin', 'loadVer'\]/);
+  assert.match(FULL, /recBgListeners\(\);\n  loadFailReport\(\);/);
 });
 // sw.js: гілка css/js — мережа-спочатку; res.ok → кеш і відповідь; !res.ok → копія з кешу, немає копії → сама відповідь; збій мережі → кеш
 function swFetch(opts){
