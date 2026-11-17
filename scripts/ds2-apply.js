@@ -26,9 +26,11 @@ function parse(src){
   const lineOf = (pos) => src.slice(0, pos).split('\n').length;
   const flushDecl = (endPos) => {
     if(declStart < 0) return;
-    const text = src.slice(declStart, endPos); const m = text.match(/^\s*([a-zA-Z-]+|--[a-zA-Z0-9-]+)\s*:/);
+    // коментарі перед оголошенням (/* … */) пропускаємо: оголошення починається після них
+    let ds = declStart; for(;;){ const w = src.slice(ds, endPos).match(/^\s*\/\*[^]*?\*\//); if(!w) break; ds += w[0].length; }
+    const text = src.slice(ds, endPos); const m = text.match(/^\s*([a-zA-Z-]+|--[a-zA-Z0-9-]+)\s*:/);
     const top = stack[stack.length - 1];
-    if(m && top && !top.at){ decls.push({ start: declStart, end: endPos, prop: m[1], sel: stack.map(s => s.sel).join(' ⟶ '), keyframes: stack.some(s => /@keyframes|@font-face/.test(s.sel)) }); }
+    if(m && top && !top.at){ decls.push({ start: ds, end: endPos, prop: m[1], sel: stack.map(s => s.sel).join(' ⟶ '), keyframes: stack.some(s => /@keyframes|@font-face/.test(s.sel)) }); }
     declStart = -1;
   };
   while(i < n){

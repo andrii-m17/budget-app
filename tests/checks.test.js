@@ -185,7 +185,7 @@ test('кнопки «Працює» (галочка) / «Не працює» (х
   const flat = SRC.slice(SRC.indexOf('function checksFlatButton'), SRC.indexOf('function renderChecks()'));
   assert.match(flat, /checksSvg\(icon\)/, 'іконка в кнопці');
   assert.match(SRC, /it\.classList\.add\('st-no'\)/); assert.match(SRC, /it\.classList\.add\('st-sk'\)/);
-  assert.match(SRC, /\.chk-it\.st-no \.chk-fl\.k, \.chk-it\.st-sk \.chk-fl\.k\{ background:color-mix\(in srgb, var\(--ui-accent-strong, var\(--color-primary\)\) 16%, transparent\)/, 'той самий рівень 16%, що й у «Не працює» за замовчуванням');
+  assert.match(SRC, /\.chk-it\.st-no \.chk-fl\.k, \.chk-it\.st-sk \.chk-fl\.k\{ background:color-mix\(in srgb, var\(--ui-accent-strong, var\(--accent\)\) 16%, transparent\)/, 'той самий рівень 16%, що й у «Не працює» за замовчуванням');
   assert.match(SRC, /\.chk-fl\.n\{[^}]*color-mix\(in srgb, var\(--color-error\) 16%, transparent\)/);
   assert.ok(!/\.st-sk[^{]*\.chk-fl\.n/.test(SRC), '«Не працює» при «Не можу перевірити» не змінюється');
   const removed = []; const mk = () => ({ classList: { remove(){} } });
@@ -207,9 +207,9 @@ test('джерело: два рядки в «Сервісі», чекліста 
   const checksCss = SRC.slice(SRC.indexOf('.chk-card{'), SRC.indexOf('.n-diag-empty{'));
   assert.ok(!/backdrop-filter|box-shadow/.test(checksCss), 'жодного скла й тіней у «Перевірках»');
   [['.chk-it{ max-height:760px', 'max-height 760'], ['.chk-fl, .chk-sk, .chk-send{ position:relative; height:40px; border-radius:14px', 'кнопки 40/14'], ['.chk-pair{ display:grid; grid-template-columns:1fr 1fr; gap:10px', 'пара, проміжок 10'],
-    ['.chk-grp button{ display:flex; width:100%; align-items:center; justify-content:space-between; height:48px', 'рядок причин 48'], ['.chk-grp{ background:var(--color-surface-hover); border-radius:14px', 'група, радіус 14'],
-    ['.chk-fld{ width:100%; height:34px', 'поле 34'], ['border-radius:12px; border:1px solid var(--color-border)', 'поле радіус 12'], ['font:inherit; font-size:14px; padding:0 12px', 'поле 14'], ['background:var(--color-surface-hover); border:none; color:var(--color-text-secondary); font-size:14px', 'суцільна сіра вторинна кнопка'],
-    ['.chk-rz{ overflow:hidden; max-height:0; opacity:0', 'списки'], ['transition:max-height .28s ease, opacity .2s ease', 'анімація списків .28/.2'], ['.chk-it.done .chk-tt{ text-decoration:line-through', 'закреслення']]
+    ['.chk-grp button{ display:flex; width:100%; align-items:center; justify-content:space-between; height:48px', 'рядок причин 48'], ['.chk-grp{ background:var(--surface-2); border-radius:14px', 'група, радіус 14'],
+    ['.chk-fld{ width:100%; height:34px', 'поле 34'], ['border-radius:var(--r-s); border:1px solid var(--line)', 'поле радіус 12'], ['font:inherit; font-size:14px; padding:0 12px', 'поле 14'], ['background:var(--surface-2); border:none; color:var(--text-2); font-size:14px', 'суцільна сіра вторинна кнопка'],
+    ['.chk-rz{ overflow:hidden; max-height:0; opacity:0', 'списки'], ['transition:max-height .28s ease, opacity var(--t-s) ease', 'анімація списків .28/.2'], ['.chk-it.done .chk-tt{ text-decoration:line-through', 'закреслення']]
     .forEach(([n, w]) => assert.ok(checksCss.indexOf(n) !== -1, w));
   assert.match(SRC, /\.chk-it \.chk-bd\{ display:none; padding:0 16px 16px; \}/);
   assert.match(SRC, /reduce \? 50 : 600/); assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.chk-it, \.chk-it\.gone, \.chk-chev, \.chk-tt, \.chk-sent, \.chk-fl, \.chk-rz, \.chk-rz\.open\{ transition:none; \} \}/);

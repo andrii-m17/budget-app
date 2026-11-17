@@ -297,8 +297,8 @@ test('джерело: слот лише для витрат, reduced-motion, т�
   assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.sync-slot \.sl-ring\{ animation:none; \}/);
   const css = SRC.slice(SRC.indexOf('.sync-slot{ display:inline-flex'), SRC.indexOf('/* ===== Rev 2.32.189 (CHECKS-1)'));
   assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(css), 'лише токени'); assert.match(css, /width:20px; height:20px/);
-  assert.match(css, /animation:syncRing 1\.1s linear infinite/); assert.match(css, /transform:translateY\(\.5px\) scale\(\.55\)/); assert.match(css, /stroke:var\(--color-error\)/); assert.match(css, /fill:var\(--color-success\)/); assert.match(css, /stroke:var\(--color-text-secondary\)/);
-  assert.match(css, /transition:transform \.28s cubic-bezier\(\.3,1\.4,\.5,1\) \.2s/); assert.match(css, /transition:stroke-dashoffset \.35s ease/); assert.match(css, /transition:stroke-dashoffset \.26s ease \.38s/);
+  assert.match(css, /animation:syncRing 1\.1s linear infinite/); assert.match(css, /transform:translateY\(\.5px\) scale\(\.55\)/); assert.match(css, /stroke:var\(--color-error\)/); assert.match(css, /fill:var\(--color-success\)/); assert.match(css, /stroke:var\(--text-2\)/);
+  assert.match(css, /transition:transform \.28s cubic-bezier\(\.3,1\.4,\.5,1\) var\(--t-s\)/); assert.match(css, /transition:stroke-dashoffset \.35s ease/); assert.match(css, /transition:stroke-dashoffset \.26s ease \.38s/);
   assert.match(css, /\.sl-close\{[^}]*transform:rotate\(-90deg\)/); assert.match(css, /transform-box:fill-box; transform-origin:center/);
   assert.ok(!/dashed|dotted/.test(css));
   assert.ok(!/не збережено/.test(SRC.slice(SRC.indexOf('function conflictModel'), SRC.indexOf('function conflictDoneModel'))));

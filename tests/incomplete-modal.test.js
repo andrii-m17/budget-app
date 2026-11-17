@@ -28,7 +28,7 @@ test('розмітка: тексти через textContent (назва банк
   assert.match(fn, /lb\.textContent = m\.label/); assert.match(fn, /vl\.textContent = m\.value/);
   assert.ok(!/innerHTML\s*=[^;]*acc\.name/.test(fn));
   assert.match(fn, /'Заповнити', 'primary'/); assert.match(fn, /cancelBtn\.textContent = 'Закрити'/);
-  assert.match(SRC, /\.inc-list\{[^}]*border-top:1px solid var\(--color-border\)/); // розділювач над першим рядком, як у макеті
+  assert.match(SRC, /\.inc-list\{[^}]*border-top:1px solid var\(--line\)/); // розділювач над першим рядком, як у макеті
   assert.match(SRC, /INCOMPLETE_WARN_SVG = '<svg[^']*<circle cx="15" cy="15" r="10"\/>/); // коло зі знаком оклику
   assert.match(SRC, /\.inc-row\{[^}]*min-height:44px/); assert.match(SRC, /\.inc-icon\{[^}]*color:var\(--color-warning\)/);
   assert.match(SRC, /\.inc-value\{[^}]*white-space:nowrap/); assert.match(SRC, /\.inc-label\{[^}]*overflow-wrap:normal/);

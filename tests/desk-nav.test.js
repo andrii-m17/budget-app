@@ -31,7 +31,7 @@ test('вигляд: радіус 22 px, відступ 12 px, скло (backdrop
   assert.match(panel, /border:1px solid var\(--color-glass-border\)/); assert.match(panel, /box-shadow:var\(--shadow-glass\)/);
   assert.match(navBlock, /html\{ --side-w:240px; \}/); assert.match(navBlock, /html\.side-collapsed\{ --side-w:62px; \}/);
   const tb = CSS.match(/\.tabbar-glass\{[\s\S]*?\n  \}/)[0];
-  assert.match(tb, /var\(--color-glass-bg\)/); assert.match(tb, /var\(--color-glass-border\)/); assert.match(tb, /var\(--shadow-glass\)/);
+  assert.match(tb, /var\(--glass\)/); assert.match(tb, /var\(--glass-edge\)/); assert.match(tb, /var\(--glass-shadow\)/);
   assert.equal((CSS.match(/backdrop-filter\s*:/g) || []).length - (CSS.match(/-webkit-backdrop-filter\s*:/g) || []).length > 0, true);
   assert.equal((navBlock.match(/backdrop-filter/g) || []).length, 2, 'у блоці панелі лише одне скло (разом із -webkit-)');
 });
@@ -42,7 +42,7 @@ test('умова показу: ≥ 1280 px або ≥ 768 px з мишею; до
 });
 test('активний пункт: скляна пілюля з рамкою акценту (значення .tabbar-bubble), «Витрати» — зелене коло з плюсом без пілюлі', function(){
   assert.match(navBlock, /\.side button\.side-tab\.active\{ background:rgba\(34,197,94,\.16\); border-color:rgba\(34,197,94,\.32\); box-shadow:0 2px 8px rgba\(34,197,94,\.22\); color:var\(--color-primary-hover\); \}/);
-  assert.match(CSS, /\.tabbar-bubble\{[\s\S]*?background:rgba\(34,197,94,\.16\);[\s\S]*?border:1px solid rgba\(34,197,94,\.32\);[\s\S]*?box-shadow:0 2px 8px rgba\(34,197,94,\.22\)/);
+  assert.match(CSS, /\.tabbar-bubble\{[\s\S]*?background:var\(--accent-bg\);[\s\S]*?border:1px solid var\(--accent-line\);[\s\S]*?box-shadow:0 2px 8px rgba\(34,197,94,\.22\)/);
   assert.match(navBlock, /\.side-plus\{[^}]*border-radius:50%; background:var\(--color-primary\); color:#fff;/);
   assert.match(navBlock, /\.tab-vytraty\.active\{ background:none; border-color:transparent; box-shadow:none;/);
   assert.match(NC, /<span class="side-plus" aria-hidden="true"><svg[^>]*><line x1="12" y1="5" x2="12" y2="19"\/><line x1="5" y1="12" x2="19" y2="12"\/><\/svg><\/span>/);
