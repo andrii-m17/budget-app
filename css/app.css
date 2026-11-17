@@ -163,12 +163,12 @@
   .success-toast-text{ min-width:0; display:flex; flex-direction:column; gap:1px; }
   .success-toast-title{ font-size:var(--fs-subhead); font-weight:600; line-height:1.3; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
   .success-toast-sub{ font-size:var(--fs-footnote); line-height:1.3; color:var(--text-2); white-space:normal; overflow-wrap:anywhere; }
-  .success-toast-action{ flex:none; border:0; background:var(--accent); color:#fff; font:inherit; font-size:var(--fs-subhead); font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
+  .success-toast-action{ flex:none; border:0; background:var(--accent); color:#fff; font:inherit; font-size:var(--fs-subhead); font-weight:600; padding:7px 14px; border-radius:var(--r-m); cursor:pointer; }
   @keyframes stDraw{ to{ stroke-dashoffset:0; } }
   @keyframes stIn{ from{ opacity:0; transform:translateY(-16px); } to{ opacity:1; transform:translateY(0); } }
   @keyframes stFade{ from{ opacity:0; } to{ opacity:1; } }
   @media (prefers-reduced-motion: reduce){ .success-toast{ animation:stFade var(--t-s) ease both; } .success-toast.leaving{ transform:none; } .success-toast-icon circle, .success-toast-icon path{ animation:none; stroke-dashoffset:0; } }
-  .update-banner button{ border:0; background:var(--accent); color:#fff; font:inherit; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
+  .update-banner button{ border:0; background:var(--accent); color:#fff; font:inherit; font-weight:600; padding:7px 14px; border-radius:var(--r-m); cursor:pointer; }
   .page-header-text h1{ margin:0; font-size:var(--fs-title2); line-height:27px; font-weight:700; letter-spacing:-.01em; }
   /* Rev 2.32.48 (S1): підзаголовок в один рядок по центру екрана під рядом кнопок (ширина не обмежена відступами під кнопки шапки) */
   @media (max-width:1279px){ .page-header-text .page-subtitle{ margin-left:-60px; margin-right:-60px; white-space:nowrap; } }
@@ -205,7 +205,7 @@
   .month-pill select:focus{ outline:none; }
   .month-pill.hidden{ display:none; }
   .brand-row{ display:flex; align-items:center; gap:8px; }
-  .brand-logo{ width:28px; height:28px; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .brand-logo{ width:28px; height:28px; border-radius:var(--r-xs); overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .brand-logo img{ width:100%; height:100%; object-fit:cover; display:block; }
   .gear-btn{ width:36px; height:36px; border-radius:var(--r-s); border:1.5px solid var(--line-strong); background:var(--surface); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-2); flex-shrink:0; }
   /* Rev 2.21.16 — те саме "залипаюче :hover" на iOS Safari, що виправлено для
@@ -481,10 +481,10 @@
   .t-row .t-bar-h.och-bar-h, .table-header .t-bar-h.och-bar-h{ flex:0 0 24%; min-width:48px; max-width:90px; overflow:hidden; } /* частка ширини рядка (однакова в усіх рядках): ≈ 76 px на картці 360 px */
   .t-row .t-amt.narrow.och-pay, .table-header .t-amt.narrow.och-pay{ flex:0 0 46px; } /* колонка «Платіж/міс» без знака валюти — місце під назви */
   .och-ovals{ display:flex; gap:2px; width:100%; overflow:hidden; align-items:center; }
-  .och-oval{ display:block; flex:1 1 0; min-width:0; height:5px; border-radius:3px; background:var(--color-track-bg); }
+  .och-oval{ display:block; flex:1 1 0; min-width:0; height:5px; border-radius:var(--r-2xs); background:var(--color-track-bg); }
   .och-oval.on{ background:var(--color-success); }
-  .och-solid{ display:block; width:100%; height:5px; border-radius:3px; background:var(--color-track-bg); overflow:hidden; }
-  .och-solid > i{ display:block; height:100%; border-radius:3px; background:var(--color-success); }
+  .och-solid{ display:block; width:100%; height:5px; border-radius:var(--r-2xs); background:var(--color-track-bg); overflow:hidden; }
+  .och-solid > i{ display:block; height:100%; border-radius:var(--r-2xs); background:var(--color-success); }
   /* Rev 2.32.173/174 (OCH-FORM-3, без скла): шторка r 28 зверху з відступом 14, ручка 36×4; заголовок: логотип 32 (r 8), назва 15/500, підзаголовок 11, закриття — коло 30; поле 34 / r 12 / текст 14 / підпис 10 px caps (підпис→поле 3, між рядками 8, між колонками 8). «Умови» — звичайне поле (токени поля, висота 34, r 12), сегменти — НАЯВНИЙ компонент (.struct-tabs + .seg-indicator + initSegments): контейнер 32 / r 12, повзунок r 10 (--color-success-bg / --color-success), решта приглушені; кнопки 40 / r 14: звичайна «Оплатити» й зелена «Зберегти»; закріплений футер із тонкою лінією; «Видалити ОЧ» 12 px. Без градієнтів, блиску й backdrop-filter. */
   @media (max-width:1279px){
     #installment-drawer{ border-radius:var(--r-xl) var(--r-xl) var(--radius-xl) var(--radius-xl); padding:14px 14px 12px; }
@@ -492,7 +492,7 @@
     #installment-drawer .drawer-handle{ margin:-6px -14px 2px; padding:6px 0 2px; }
   }
   #installment-drawer .drawer-head{ margin-bottom:8px; }
-  #installment-drawer .drawer-head-icon{ width:32px; height:32px; border-radius:8px; overflow:hidden; }
+  #installment-drawer .drawer-head-icon{ width:32px; height:32px; border-radius:var(--r-xs); overflow:hidden; }
   #installment-drawer .drawer-head h2{ font-size:var(--fs-subhead); font-weight:500; }
   #installment-drawer .drawer-head-sub{ font-size:var(--fs-caption2); }
   #installment-drawer .drawer-close{ width:30px; height:30px; border-radius:50%; }
@@ -503,14 +503,14 @@
   html:root .och-cond-row{ height:34px; border:1.5px solid var(--line-strong); border-radius:var(--r-s); padding:0 12px; background-color:var(--ui-glass, var(--surface)); box-shadow:inset 0 1px 2px rgba(16,24,40,.05); font-size:var(--fs-footnote); }
   .och-cond-val{ font-size:var(--fs-footnote); font-weight:600; }
   #installment-drawer .och-seg.struct-tabs{ height:32px; box-sizing:border-box; padding:2px; gap:2px; margin:0; border-radius:var(--r-s); border:1.5px solid var(--line-strong); }
-  #installment-drawer .och-seg .struct-tab-btn{ height:100%; padding:0 4px; border-radius:10px; font-size:var(--fs-footnote); font-weight:500; }
+  #installment-drawer .och-seg .struct-tab-btn{ height:100%; padding:0 4px; border-radius:var(--r-s); font-size:var(--fs-footnote); font-weight:500; }
   #installment-drawer .och-seg .struct-tab-btn.active{ color:var(--color-success); font-weight:600; }
-  #installment-drawer .och-seg .seg-indicator{ border-radius:10px; background:var(--color-success-bg); border:1px solid var(--color-success); box-shadow:none; }
+  #installment-drawer .och-seg .seg-indicator{ border-radius:var(--r-s); background:var(--color-success-bg); border:1px solid var(--color-success); box-shadow:none; }
   #installment-drawer .och-actions{ gap:8px; padding:8px 0 6px; margin-top:4px; border-top:1px solid var(--line); }
-  #installment-drawer .och-actions > button{ height:40px; border-radius:14px; }
+  #installment-drawer .och-actions > button{ height:40px; border-radius:var(--r-s); }
   #installment-drawer .och-actions .submit-btn.debt{ background:var(--accent); border:0; color:#fff; box-shadow:none; }
   /* Rev 2.32.321 (SHEET-FOOTER-4, B): кнопка-кошик 40 × 40, r 14, сірий фон вторинних кнопок (--color-track-bg), червона іконка (--color-error) */
-  #installment-drawer .och-actions > .och-delete-btn{ flex:0 0 40px; width:40px; min-width:40px; height:40px; padding:0; border:0; border-radius:14px; background:var(--color-track-bg); color:var(--color-error); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  #installment-drawer .och-actions > .och-delete-btn{ flex:0 0 40px; width:40px; min-width:40px; height:40px; padding:0; border:0; border-radius:var(--r-s); background:var(--color-track-bg); color:var(--color-error); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   #installment-drawer .och-form .cdd-delete-link{ font-size:var(--fs-caption1); margin-top:2px; padding-top:6px; border-top:0; }
   /* Rev 2.32.6 (X): .fld-label-like — той самий вигляд підпису БЕЗ <label for> (варіант no-for тесту edit-label) */
   .field label, .field .fld-label-like{ display:block; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
@@ -566,7 +566,7 @@
      першого-ліпшого в масиві. */
   .field.installment-link-hint.multi{ flex-direction:column; align-items:stretch; gap:8px; }
   .installment-link-candidates{ display:flex; flex-wrap:wrap; gap:6px; }
-  .installment-link-candidates button{ text-decoration:none; background:var(--surface); border:1.5px solid var(--color-accent-purple); border-radius:20px; padding:4px 10px; font-size:var(--fs-caption2); font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }
+  .installment-link-candidates button{ text-decoration:none; background:var(--surface); border:1.5px solid var(--color-accent-purple); border-radius:var(--r-l); padding:4px 10px; font-size:var(--fs-caption2); font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .installment-link-candidates button:hover{ background:var(--color-accent-purple-bg); } }
   /* Rev 2.1.6 — за порадою поради ззовні спростили форму: категорія/підкатегорія
@@ -842,7 +842,7 @@
      редагування категорії); .expense-row тепер контейнер-картка (може містити
      інлайн-панель редагування знизу), а сам горизонтальний рядок (назва+сума+
      кнопки) переїхав у вкладений .exp-row-top, щоб не ламати існуючий вигляд. */
-  .expense-row{ background:var(--surface); border-radius:13px; padding:12px 14px; margin-bottom:0; box-shadow:var(--shadow-sm); border:1px solid var(--line); border-left:3px solid transparent; cursor:pointer; position:relative; touch-action:pan-y; transition:background var(--duration-fast) var(--easing-standard), transform var(--duration-fast) var(--easing-standard); }
+  .expense-row{ background:var(--surface); border-radius:var(--r-s); padding:12px 14px; margin-bottom:0; box-shadow:var(--shadow-sm); border:1px solid var(--line); border-left:3px solid transparent; cursor:pointer; position:relative; touch-action:pan-y; transition:background var(--duration-fast) var(--easing-standard), transform var(--duration-fast) var(--easing-standard); }
   /* Rev 2.24.0 (M1) — тінь виділення (колишній transition box-shadow) тепер ::after з opacity: shadow-md малюється один раз, анімується лише прозорість. border-color у transition прибрано: він ніде не змінюється. */
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .expense-row:hover{ background:var(--surface-2); } }
@@ -858,7 +858,7 @@
      hidden кліпає кнопки дій, доки .expense-row (усередині) не зсунутий
      translateX вліво власним JS-драгом (initExpenseRowSwipeActions нижче).
      Незалежний механізм від тап-виділення вище — працюють одночасно. */
-  .expense-row-swipe{ position:relative; overflow:hidden; border-radius:13px; margin-bottom:8px; }
+  .expense-row-swipe{ position:relative; overflow:hidden; border-radius:var(--r-s); margin-bottom:8px; }
   .expense-row-swipe.dragging .expense-row{ transition:none; }
   /* Rev 2.22.54 (6D.124) BugFix — живий тест на iPhone: навіть у стані
      спокою (без жодного свайпу) крізь заокруглений кут картки прозирав
@@ -928,7 +928,7 @@
   .sync-badge-icon svg{ display:block; width:12px; height:12px; }
   .sync-badge-icon.syncing{ color:var(--color-info); }
   .sync-badge-icon.done{ color:var(--color-success); }
-  .chip{ font-size:var(--fs-caption2); background:var(--color-primary-bg); color:var(--color-primary-hover); padding:2px 8px; border-radius:20px; font-weight:600; white-space:nowrap; }
+  .chip{ font-size:var(--fs-caption2); background:var(--color-primary-bg); color:var(--color-primary-hover); padding:2px 8px; border-radius:var(--r-l); font-weight:600; white-space:nowrap; }
   .chip.empty{ background:var(--color-warning-bg); color:var(--color-warning); }
   .chip.income{ background:var(--color-success-bg); color:var(--color-success); }
   .chip.debt{ background:var(--color-warning-bg); color:var(--color-warning); }
@@ -1028,7 +1028,7 @@
 
   .ov-row2{ display:grid; grid-template-columns:1fr; gap:24px; margin:20px 0 24px; align-items:stretch; }
   .ov-row2 > .card{ margin-top:0; }
-  .gm-chart-card{ background:var(--surface); border:1px solid var(--line); border-radius:24px; padding:24px; box-shadow:0 1px 2px rgba(16,24,40,0.04); display:flex; flex-direction:column; min-width:0; height:100%; }
+  .gm-chart-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); padding:24px; box-shadow:0 1px 2px rgba(16,24,40,0.04); display:flex; flex-direction:column; min-width:0; height:100%; }
   .gm-chart-title{ font-size:var(--fs-caption2); font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--text); line-height:14px; margin-bottom:8px; }
   .gm-legend{ display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
   .gm-legend span{ display:flex; align-items:center; gap:6px; font-size:var(--fs-subhead); font-weight:500; color:var(--text-2); }
@@ -1079,8 +1079,8 @@
   .t-row.summary{ font-weight:700; border-top:1.5px solid var(--line-strong); margin-top:2px; padding-top:7px; }
   .t-row .t-name{ flex:1 1 auto; min-width:0; font-size:var(--fs-footnote); font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .t-row .t-bar-h{ flex:0 0 64px; min-width:40px; }
-  .t-row .t-bar-track{ height:6px; background:var(--color-track-bg); border-radius:20px; overflow:hidden; }
-  .t-row .t-bar-fill{ height:100%; border-radius:20px; }
+  .t-row .t-bar-track{ height:6px; background:var(--color-track-bg); border-radius:var(--r-l); overflow:hidden; }
+  .t-row .t-bar-fill{ height:100%; border-radius:var(--r-l); }
   .t-row .t-amt{ flex:0 0 72px; min-width:0; text-align:right; font-size:var(--fs-footnote); font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:visible; }
   /* Rev 2.1.20 — у детальному вигляді картки ОЧ дві колонки сум (Залишок +
      Платіж/міс) замість однієї (як у категорій/боргів) — за умови тісного
@@ -1152,7 +1152,7 @@
   .bank-badge.bank-badge-generic{ background:var(--surface-2); color:var(--text-2); border-radius:50%; margin-right:6px; } /* .bank-badge.…: специфічність вища за пізніше правило .bank-badge (border-radius:7px) */
   .bank-badge-generic svg, .cdr-avatar .bank-badge-generic svg, #card-debt-drawer .drawer-head-icon .bank-badge-generic svg{ width:58%; height:58%; display:block; margin:0; }
   .cdr-avatar .bank-badge-generic, .drawer-head-icon .bank-badge-generic, #card-debt-drawer .drawer-head-icon .bank-badge-generic{ margin-right:0; display:inline-flex; align-items:center; justify-content:center; } /* перебиває display:block правил .cdr-avatar/.drawer-head-icon .bank-badge (центрування іконки в колі) */
-  .bank-badge{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:7px; font-size:var(--fs-caption2); font-weight:700; color:#fff; margin-right:2px; flex-shrink:0; }
+  .bank-badge{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:var(--r-xs); font-size:var(--fs-caption2); font-weight:700; color:#fff; margin-right:2px; flex-shrink:0; }
   /* Rev 2.17.2 — іконка джерела доходу: той самий прийом, що .kpi-icon-circle
      на Аналітиці (кругла підсвічена плашка семантичного кольору + іконка-обрис
      currentColor по центру), лише менша — щоб пасувати в .cdr-avatar/
@@ -1191,7 +1191,7 @@
   html:root #pay-action-drawer .pay-action-btns .submit-btn.secondary{ background:transparent; border:1.5px solid var(--line-strong); color:var(--text); box-shadow:none; }
 
   /* Rev 2.32.71 — компактна картка «Найближчі платежі» (макет «Компакт»): заголовок в один рядок із сумою й ›, смуга 7 днів у два рядки, один найближчий платіж одним рядком, до двох тонких повідомлень; уся картка — одна кнопка (прозорий шар .pay-card-hit); комірки смуги — над ним. Токени застосунку (обидві теми), без емодзі, мін. шрифт 11 пт. */
-  .pay-card{ position:relative; background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:12px 14px 6px; margin-bottom:14px; color:var(--text); }
+  .pay-card{ position:relative; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); padding:12px 14px 6px; margin-bottom:14px; color:var(--text); }
   .pay-card.hidden{ display:none; }
   .pay-card.is-flat{ padding-bottom:0; }
   .pay-card:has(.pay-card-hit.is-pressed){ background:var(--surface-2); }
@@ -1282,7 +1282,7 @@
   .struct-group{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); overflow:hidden; }
   .struct-row{ position:relative; display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:0 16px; box-sizing:border-box; background:transparent; border:0; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .struct-row + .struct-row::before{ content:''; position:absolute; top:0; left:60px; right:0; height:1px; background:var(--line); }
-  .struct-tile{ width:32px; height:32px; flex:none; border-radius:10px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:var(--fs-body); line-height:1; }
+  .struct-tile{ width:32px; height:32px; flex:none; border-radius:var(--r-s); background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:var(--fs-body); line-height:1; }
   .struct-tile.letter{ font-size:var(--fs-subhead); font-weight:700; color:var(--text-2); }
   /* Rev 2.32.57 (P): підсвічування рядків-списків при натисканні. Реакція M1 (scale 0.97 + opacity 0.9) на рядках усередині груп з overflow:hidden майже непомітна (масштаб обрізається) — додано фон на час .is-pressed (клас ставить наявний механізм pressStart, нових обробників немає). */
   .struct-row.is-pressed, .struct-dict-head.is-pressed, .notif-row.is-pressed, .mono-row.is-pressed{ background:var(--surface-2); }
@@ -1298,7 +1298,7 @@
   .struct-empty .struct-section{ margin-top:22px; margin-bottom:0; }
   /* Rev 2.32.50 (S3) — «Словник»: групи-акордеон за категорією, пошук. Варіанти анімації (тест structure-accordion): b — шеврон 200мс + проявлення рядків 160мс, висота миттєво; c — анімована висота (grid-template-rows 240мс) лише як свідомий виняток тесту. */
   .struct-search-wrap{ margin:0 0 14px; }
-  .struct-search{ width:100%; height:44px; box-sizing:border-box; padding:0 14px; border:1.5px solid var(--line-strong); border-radius:var(--r-m, 14px); background:var(--ui-glass, var(--surface)); color:var(--text); font-size:var(--fs-callout); -webkit-appearance:none; appearance:none; }
+  .struct-search{ width:100%; height:44px; box-sizing:border-box; padding:0 14px; border:1.5px solid var(--line-strong); border-radius:var(--r-m, var(--r-s)); background:var(--ui-glass, var(--surface)); color:var(--text); font-size:var(--fs-callout); -webkit-appearance:none; appearance:none; }
   .struct-search:focus{ outline:none; border-color:var(--ui-accent, var(--accent)); }
   .struct-search::-webkit-search-cancel-button, .struct-search::-webkit-search-decoration{ -webkit-appearance:none; display:none; }
   .struct-dict-group{ margin-bottom:10px; }
@@ -1345,7 +1345,7 @@
   .info-note-icon{ flex:0 0 auto; width:22px; height:22px; border-radius:50%; background:var(--color-info-bg); border:1.5px solid var(--color-info); color:var(--color-info); display:flex; align-items:center; justify-content:center; font-size:var(--fs-footnote); font-weight:600; font-style:italic; font-family:Georgia,'Times New Roman',serif; line-height:1; }
   .kw-row{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:8px 0; border-bottom:1px solid var(--line); }
   .kw-row:last-child{ border-bottom:none; }
-  .kw-tag{ font-size:var(--fs-caption2); background:var(--surface-2); color:var(--text-2); padding:3px 8px; border-radius:20px; font-family:'JetBrains Mono',monospace; }
+  .kw-tag{ font-size:var(--fs-caption2); background:var(--surface-2); color:var(--text-2); padding:3px 8px; border-radius:var(--r-l); font-family:'JetBrains Mono',monospace; }
   .kw-target{ font-size:var(--fs-footnote); color:var(--text); margin-left:auto; font-weight:600; }
 
   /* ---- Сервіс (Rev 2.10.0 — компактна сітка замість великих карток з описами) ---- */
@@ -1417,14 +1417,14 @@
   .mono-row-side{ display:flex; align-items:center; gap:10px; color:var(--text-2); font-size:var(--fs-subhead); }
   .mono-dot{ width:8px; height:8px; border-radius:50%; background:var(--color-success); flex:none; }
   .mono-dot.err{ background:var(--color-error); }
-  .mono-badge{ min-width:22px; height:22px; padding:0 7px; box-sizing:border-box; border-radius:11px; background:var(--surface-2); color:var(--text); font-size:var(--fs-footnote); font-weight:700; line-height:22px; text-align:center; }
+  .mono-badge{ min-width:22px; height:22px; padding:0 7px; box-sizing:border-box; border-radius:var(--r-s); background:var(--surface-2); color:var(--text); font-size:var(--fs-footnote); font-weight:700; line-height:22px; text-align:center; }
   .mono-badge.hidden{ display:none; }
   .mono-token-input{ flex:1; min-width:0; height:44px; background:transparent; border:0; outline:0; color:var(--text); font:inherit; font-size:16px; text-align:right; }
   .mono-token-input::placeholder{ color:var(--text-3); }
   .mono-error{ font-size:var(--fs-footnote); line-height:1.35; color:var(--color-error); margin:8px 16px 0; }
   .mono-primary{ width:100%; height:52px; margin-top:22px; border:0; border-radius:var(--radius-lg); background:var(--ui-success-strong, var(--accent)); color:#fff; font:inherit; font-size:var(--fs-callout); font-weight:700; cursor:pointer; }
   .mono-primary:disabled{ opacity:.55; cursor:not-allowed; }
-  .mono-switch{ position:relative; width:51px; height:31px; border-radius:16px; border:0; padding:0; flex:none; cursor:pointer; background:var(--line-strong); transition:background var(--t-s); -webkit-tap-highlight-color:transparent; }
+  .mono-switch{ position:relative; width:51px; height:31px; border-radius:var(--r-m); border:0; padding:0; flex:none; cursor:pointer; background:var(--line-strong); transition:background var(--t-s); -webkit-tap-highlight-color:transparent; }
   .mono-switch::before{ content:''; position:absolute; inset:-7px -4px; }
   .mono-switch[aria-checked="true"]{ background:var(--ui-success-strong, var(--accent)); }
   .mono-switch > span{ position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,.3); transition:transform var(--t-s); }
@@ -1439,7 +1439,7 @@
   .gear-btn.notif-bell-btn::after{ content:''; position:absolute; inset:-4px; } /* зона дотику 44×44 при візуальних 36×36, як у шестерні поруч */
   /* Rev 2.32.40 (V) — лічильник дзвіночка. Причина спотворення (Крок 0): значок був нащадком кнопки і мав border:2px при height:18px + line-height:18px у border-box → вміст 14px, рядок 18px: цифра зсунута вниз, а форма залежала від контексту кнопки. Тепер значок — сусід кнопки в обгортці .notif-bell-wrap (не нащадок), inline-flex по центру, line-height:1, обводка кольору шапки через box-shadow, не border. */
   .notif-bell-wrap{ position:relative; display:inline-flex; }
-  .notif-bell-count{ position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background:var(--color-error); color:#fff; font-size:var(--fs-caption2); font-weight:700; line-height:1; letter-spacing:0; font-variant-numeric:tabular-nums; box-shadow:0 0 0 1.5px var(--bg); /* Rev 2.32.42 (V2): менший значок (16px, шрифт 10px) — «9+» виглядав завеликим */ pointer-events:none; }
+  .notif-bell-count{ position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:var(--r-xs); display:inline-flex; align-items:center; justify-content:center; background:var(--color-error); color:#fff; font-size:var(--fs-caption2); font-weight:700; line-height:1; letter-spacing:0; font-variant-numeric:tabular-nums; box-shadow:0 0 0 1.5px var(--bg); /* Rev 2.32.42 (V2): менший значок (16px, шрифт 10px) — «9+» виглядав завеликим */ pointer-events:none; }
   .notif-bell-count.hidden{ display:none; }
   .notif-archive-top-action{ position:absolute; right:0; top:0; height:48px; display:flex; align-items:center; }
   .notif-readall{ background:none; border:0; font:inherit; font-size:var(--fs-subhead); font-weight:600; color:var(--color-primary-text, var(--accent)); cursor:pointer; min-height:44px; padding:0 4px; }
@@ -1469,7 +1469,7 @@
   .expense-row.notif-row.unread{ background-image:linear-gradient(var(--notif-unread-bg), var(--notif-unread-bg)); }
   .expense-row.notif-row.is-pressed{ background-color:var(--surface-2); background-image:none; } /* Rev 2.32.97: реакція на натискання (специфічність вища за .expense-row.notif-row) */
   /* Rev 2.32.143 (DESK-TRASH): кошик стоїть на місці часу (праворуч, у тій самій зоні), а не поверх нього: при наведенні/фокусі час плавно зникає (opacity), кошик плавно з'являється; обидва лишаються в потоці/абсолютно без зміни розмірів, тож рядок і текст не зсуваються і накладання немає. Фокус клавіатури на кнопці дає той самий стан (:has). */
-  .notif-row-trash{ position:absolute; top:5px; right:18px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:0; border-radius:8px; background:transparent; color:var(--color-error); cursor:pointer; opacity:0; pointer-events:none; transition:opacity .15s ease; }
+  .notif-row-trash{ position:absolute; top:5px; right:18px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:0; border-radius:var(--r-xs); background:transparent; color:var(--color-error); cursor:pointer; opacity:0; pointer-events:none; transition:opacity .15s ease; }
   .notif-row-trash:focus-visible{ opacity:1; pointer-events:auto; outline:2px solid var(--accent); }
   .notif-row:has(.notif-row-trash:focus-visible) .notif-row-time{ opacity:0; }
   .notif-row-time{ transition:opacity .15s ease; }
@@ -1494,9 +1494,9 @@
   .chip.mono-chip-accent{ background:var(--ui-success-strong, var(--accent)); color:#fff; }
   .mono-meta{ font-size:var(--fs-caption1); color:var(--text-2); }
   /* Rev 2.32.128: мітка «🔗 Платіж за ОЧ «назва»» у «Нових» (тап перемикає на «Без ОЧ» і назад); той самий фіолетовий акцент ОЧ, що підказка автозв'язку у формі витрати. */
-  .mono-inst-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:6px; padding:4px 10px; border:0; border-radius:20px; background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font:inherit; font-size:var(--fs-caption1); font-weight:600; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mono-inst-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:6px; padding:4px 10px; border:0; border-radius:var(--r-l); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font:inherit; font-size:var(--fs-caption1); font-weight:600; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   /* Rev 2.32.330 (MONO-REFUND), макет docs/ui/mockups/mono-refund-mockup.html: мітка повернення — форма .mono-inst-label, тло --color-info-bg, текст --color-info; стара сума закреслена 12 px secondary */
-  .mono-refund-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:6px; padding:4px 10px; border:0; border-radius:20px; background:var(--color-info-bg); color:var(--color-info); font:inherit; font-size:var(--fs-caption1); font-weight:600; -webkit-tap-highlight-color:transparent; }
+  .mono-refund-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:6px; padding:4px 10px; border:0; border-radius:var(--r-l); background:var(--color-info-bg); color:var(--color-info); font:inherit; font-size:var(--fs-caption1); font-weight:600; -webkit-tap-highlight-color:transparent; }
   button.mono-refund-label{ cursor:pointer; text-align:left; }
   .mono-refund-label > span{ min-width:0; white-space:normal; text-align:left; line-height:1.3; } /* як у макеті: текст переноситься, а не обрізається (сума списання в підказці має бути видна на 390 пт) */
   .mono-old-amount{ display:block; margin-top:3px; font-size:var(--fs-caption1); font-weight:400; color:var(--text-2); text-decoration:line-through; }
@@ -1525,7 +1525,7 @@
   .mono-cat-btn.first{ background:var(--accent-bg, var(--color-primary-bg)); color:var(--accent-text, var(--color-primary-hover)); border-color:transparent; font-weight:600; }
   .mono-cat-btn.more{ color:var(--text-2); }
   /* Rev 2.32.36 (L) — значок Monobank замість тексту «з банку» (.exp-source). 18px, тонка рамка: світла на темній темі, ледь помітна на світлій. */
-  .mono-bank-icon{ width:18px; height:18px; flex:none; border-radius:5px; vertical-align:middle; box-shadow:0 0 0 1px rgba(16,24,40,.10); }
+  .mono-bank-icon{ width:18px; height:18px; flex:none; border-radius:var(--r-2xs); vertical-align:middle; box-shadow:0 0 0 1px rgba(16,24,40,.10); }
   :root[data-theme="dark"] .mono-bank-icon{ box-shadow:0 0 0 1px rgba(255,255,255,.22); }
   .mono-detail-actions{ display:flex; flex-direction:column; gap:10px; margin-top:8px; }
   #mono-detail-drawer .sf-group{ margin-bottom:8px; }
@@ -1649,7 +1649,7 @@
   .chk-exp{ font-size:var(--fs-footnote); color:var(--text-2); margin:8px 0 14px; }
   /* Rev 2.32.190 (CHECKS-2, макет v2): «Працює» / «Не працює» — дві плоскі кнопки 40/14 на всю ширину (без скла й тіней); «Не можу перевірити зараз» — пунктирна; причини — згрупований список (рядок 48, радіус 14); «Інше» — поле 34/12 і «Надіслати» 40/14. Зона дотику 44 — невидимим псевдоелементом. */
   .chk-pair{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .chk-fl, .chk-sk, .chk-send{ position:relative; height:40px; border-radius:14px; border:none; font:inherit; font-size:var(--fs-subhead); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 12px; box-sizing:border-box; }
+  .chk-fl, .chk-sk, .chk-send{ position:relative; height:40px; border-radius:var(--r-s); border:none; font:inherit; font-size:var(--fs-subhead); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 12px; box-sizing:border-box; }
   .chk-fl::after, .chk-sk::after, .chk-send::after{ content:''; position:absolute; left:0; right:0; top:-2px; bottom:-2px; }
   .chk-fl{ transition:background var(--t-s) ease, color var(--t-s) ease; }
   .chk-fl.k, .chk-send{ background:var(--ui-accent-strong, var(--ui-success-strong, var(--accent))); color:#fff; }
@@ -1664,7 +1664,7 @@
   .chk-sk.sel{ color:var(--text); outline:2px solid var(--text-2); outline-offset:2px; }
   .chk-rz{ overflow:hidden; max-height:0; opacity:0; visibility:hidden; transition:max-height .28s ease, opacity var(--t-s) ease, visibility 0s linear .28s; }
   .chk-rz.open{ max-height:340px; opacity:1; visibility:visible; transition:max-height .28s ease, opacity var(--t-s) ease, visibility 0s; }
-  .chk-grp{ background:var(--surface-2); border-radius:14px; overflow:hidden; margin-top:10px; }
+  .chk-grp{ background:var(--surface-2); border-radius:var(--r-s); overflow:hidden; margin-top:10px; }
   .chk-grp button{ display:flex; width:100%; align-items:center; justify-content:space-between; height:48px; padding:0 14px; border:none; background:transparent; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; border-radius:0; }
   .chk-grp button + button{ border-top:1px solid var(--line); }
   .chk-grp button:active{ background:var(--line); }
@@ -1686,7 +1686,7 @@
   .chk-done-it span:last-child{ font-size:var(--fs-footnote); color:var(--text-2); text-align:right; }
   /* Rev 2.32.260 (REC-1): шторка «Повідомити про проблему» — стани sending/sent/offline, ті самі токени, що решта шторок */
   .rec-state{ text-align:center; padding:18px 8px 16px; }
-  .rec-state-icon{ display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:16px; margin-bottom:12px; background:var(--color-primary-bg); color:var(--color-primary-hover); }
+  .rec-state-icon{ display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:var(--r-m); margin-bottom:12px; background:var(--color-primary-bg); color:var(--color-primary-hover); }
   .rec-state.is-off .rec-state-icon{ background:var(--color-warning-bg); color:var(--color-warning); }
   .rec-state-title{ font-size:var(--fs-subhead); font-weight:600; color:var(--text); }
   .rec-state-code{ margin-top:12px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:var(--fs-body); font-weight:500; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:var(--text); user-select:all; -webkit-user-select:all; }
@@ -1755,7 +1755,7 @@
   .diag-check{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:var(--fs-footnote); }
   .diag-check:last-child{ border-bottom:none; }
   .diag-check-label{ font-weight:600; }
-  .diag-status{ flex:0 0 auto; font-size:var(--fs-caption2); font-weight:700; padding:3px 9px; border-radius:20px; }
+  .diag-status{ flex:0 0 auto; font-size:var(--fs-caption2); font-weight:700; padding:3px 9px; border-radius:var(--r-l); }
   .diag-status.ok{ background:var(--color-success-bg); color:var(--color-success); }
   .diag-status.bad{ background:var(--color-error-bg); color:var(--color-error); }
   .diag-issue-list{ margin:0 0 12px; }
@@ -1968,7 +1968,7 @@
      верхній margin компенсує padding:20px самого .drawer, щоб рисочка не
      з'їдала зайвий простір над заголовком. */
   .drawer-handle{ display:flex; justify-content:center; margin:-8px -20px 6px; padding:8px 0 6px; cursor:grab; touch-action:none; }
-  .drawer-handle::before{ content:''; width:36px; height:4px; border-radius:2px; background:var(--line); }
+  .drawer-handle::before{ content:''; width:36px; height:4px; border-radius:var(--r-2xs); background:var(--line); }
   .drawer-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .drawer-head h2{ margin:0; font-size:var(--fs-body); font-weight:700; }
   .drawer-close{ width:32px; height:32px; border-radius:var(--r-s); border:none; background:var(--surface-2); cursor:pointer; color:var(--text-2); display:flex; align-items:center; justify-content:center; }
@@ -1992,22 +1992,22 @@
   .rs-pane{ line-height:1.35; position:absolute; left:0; right:0; bottom:0; max-width:440px; margin:0 auto; padding:10px 10px max(10px, env(safe-area-inset-bottom)); opacity:0; transform:translateY(24px); transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
   .rs-layer.show .rs-pane{ opacity:1; transform:none; }
   .rs-pane.rs-center{ top:0; display:flex; align-items:center; justify-content:center; padding:28px; }
-  .rs-grp{ background:var(--surface); border:1px solid var(--line); border-radius:24px; overflow:hidden; }
+  .rs-grp{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); overflow:hidden; }
   .rs-hd{ padding:14px 16px 8px; text-align:center; color:var(--text-2); font-size:var(--fs-footnote); }
   .rs-rw{ line-height:1.35; display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:8px 16px; border:0; border-top:1px solid var(--line); background:none; color:var(--text); font:inherit; font-size:var(--fs-callout); text-align:left; cursor:pointer; }
   .rs-rw:active{ background:var(--color-active-overlay); }
   .rs-t{ flex:1; min-width:0; }
   .rs-t small{ display:block; color:var(--text-2); font-size:var(--fs-footnote); margin-top:2px; }
-  .rs-ri{ width:34px; height:34px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .rs-ri{ width:34px; height:34px; border-radius:var(--r-s); display:flex; align-items:center; justify-content:center; flex:none; }
   .rs-ri.g{ background:var(--color-primary-bg); color:var(--color-primary-hover); }
   .rs-ri.b{ background:var(--color-info-bg); color:var(--color-info); }
   .rs-ri.n{ background:var(--surface-2); color:var(--text-2); }
-  .rs-cancel{ display:block; width:100%; margin-top:8px; height:52px; background:var(--surface); border:1px solid var(--line); border-radius:24px; color:var(--text); font:inherit; font-size:var(--fs-callout); font-weight:500; cursor:pointer; }
+  .rs-cancel{ display:block; width:100%; margin-top:8px; height:52px; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); color:var(--text); font:inherit; font-size:var(--fs-callout); font-weight:500; cursor:pointer; }
   .rs-cancel:active{ background:var(--color-active-overlay); }
   .rs-dlg{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); padding:18px; width:100%; max-width:360px; }
   .rs-dlg b{ font-weight:500; font-size:var(--fs-body); display:block; text-align:center; }
   .rs-dlg p{ margin:8px 0 16px; font-size:var(--fs-subhead); line-height:1.5; color:var(--text-2); text-align:center; }
-  .rs-dlg button{ display:block; width:100%; height:44px; border-radius:14px; border:none; background:var(--surface-2); color:var(--text); font:inherit; font-size:var(--fs-subhead); margin-top:8px; cursor:pointer; }
+  .rs-dlg button{ display:block; width:100%; height:44px; border-radius:var(--r-s); border:none; background:var(--surface-2); color:var(--text); font:inherit; font-size:var(--fs-subhead); margin-top:8px; cursor:pointer; }
   .rs-dlg button:active{ background:var(--color-active-overlay); }
   @media (prefers-reduced-motion:reduce){ .rs-back, .rs-pane{ transition:none; } }
   .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); max-height:80vh; overflow-y:auto; background:var(--surface); border-radius:var(--radius-xl); padding:22px 20px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
@@ -2127,7 +2127,7 @@
     -webkit-backdrop-filter:blur(24px) saturate(180%);
     backdrop-filter:blur(24px) saturate(180%);
     border:1px solid var(--glass-edge);
-    border-radius:26px;
+    border-radius:var(--r-xl);
     display:flex; align-items:stretch;
     padding:6px 6px;
     box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge), inset 0 -1px 0 var(--glass-edge-2), inset 0 0 0 1px var(--glass-edge-2); /* DS-N1: кромка скла окремо від тіні (як у макеті) */
@@ -2386,9 +2386,9 @@
   /* Rev 2.3.6 — бейдж кількості витрат, внесених СЬОГОДНІ, на кнопці "Витрати"
      (tabbar і sidebar): миттєво видно, чи вже щось внесено сьогодні, без
      переходу на вкладку — та сама ідея, що бейдж непрочитаних повідомлень. */
-  .tb-count-badge{ position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--surface); color:var(--color-primary-hover); font-size:var(--fs-caption2); font-weight:800; line-height:16px; text-align:center; box-shadow:0 0 0 1.5px var(--color-primary-hover); }
+  .tb-count-badge{ position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; padding:0 4px; border-radius:var(--r-xs); background:var(--surface); color:var(--color-primary-hover); font-size:var(--fs-caption2); font-weight:800; line-height:16px; text-align:center; box-shadow:0 0 0 1.5px var(--color-primary-hover); }
   .tb-count-badge.hidden{ display:none; }
-  .side-count-badge{ margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--color-primary-bg); color:var(--color-primary-hover); font-size:var(--fs-caption2); font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .side-count-badge{ margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:var(--r-xs); background:var(--color-primary-bg); color:var(--color-primary-hover); font-size:var(--fs-caption2); font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .side-count-badge.hidden{ display:none; }
   /* Rev 2.3.6 — кнопка "Доступне оновлення" (top header + sidebar): за
      замовчуванням прихована inline-стилем у розмітці, JS лише вмикає
@@ -2564,11 +2564,11 @@
     .side-head{ display:flex; align-items:center; gap:6px; padding:2px 4px 12px; min-height:40px; }
     .side .brand-side{ flex:1; min-width:0; }
     .side .brand-side h1{ font-size:var(--fs-body); margin:0; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .side-collapse-btn{ flex:none; width:32px; height:32px; border-radius:11px; border:1px solid var(--line); background:transparent; color:var(--text-2); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+    .side-collapse-btn{ flex:none; width:32px; height:32px; border-radius:var(--r-s); border:1px solid var(--line); background:transparent; color:var(--text-2); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
     .side-collapse-btn svg{ width:16px; height:16px; transition:transform .22s ease; }
     .side-collapse-btn:focus-visible, .side button.side-tab:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
     @media (hover:hover) and (pointer:fine){ .side-collapse-btn:hover{ background:var(--surface-2); color:var(--text); } }
-    .side button.side-tab{ position:relative; text-align:left; background:none; border:1px solid transparent; padding:10px 12px; border-radius:16px; font-size:var(--fs-subhead); font-weight:600; color:var(--text-2); cursor:pointer; display:flex; align-items:center; gap:10px; min-height:44px; box-sizing:border-box; width:100%; }
+    .side button.side-tab{ position:relative; text-align:left; background:none; border:1px solid transparent; padding:10px 12px; border-radius:var(--r-m); font-size:var(--fs-subhead); font-weight:600; color:var(--text-2); cursor:pointer; display:flex; align-items:center; gap:10px; min-height:44px; box-sizing:border-box; width:100%; }
     @media (hover:hover) and (pointer:fine){ .side button.side-tab:hover{ background:var(--surface-2); color:var(--text); } }
     /* активний пункт — скляна пілюля з рамкою акценту (ті самі значення, що .tabbar-bubble на мобільній) */
     .side button.side-tab.active{ background:var(--accent-bg); border-color:var(--accent-line); box-shadow:0 2px 8px rgba(34,197,94,.22); color:var(--color-primary-hover); }
@@ -2594,7 +2594,7 @@
     .side-bottom button.side-tab{ flex:1; justify-content:center; padding:0; min-height:40px; }
     .side-bottom .side-label{ display:none; }
     /* підказки: у вузькій панелі для всіх пунктів, у нижньому ряду — завжди; при наведенні й фокусі клавіатурою */
-    .side button.side-tab[data-tip]::after{ content:attr(data-tip); position:absolute; left:calc(100% + 12px); top:50%; transform:translateY(-50%); padding:6px 10px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--line); box-shadow:var(--shadow-md, 0 6px 18px rgba(16,24,40,.18)); font-size:var(--fs-footnote); font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; visibility:hidden; transition:opacity var(--t-micro) ease; z-index:30; }
+    .side button.side-tab[data-tip]::after{ content:attr(data-tip); position:absolute; left:calc(100% + 12px); top:50%; transform:translateY(-50%); padding:6px 10px; border-radius:var(--r-s); background:var(--surface); color:var(--text); border:1px solid var(--line); box-shadow:var(--shadow-md, 0 6px 18px rgba(16,24,40,.18)); font-size:var(--fs-footnote); font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; visibility:hidden; transition:opacity var(--t-micro) ease; z-index:30; }
     .side-bottom button.side-tab[data-tip]::after{ left:50%; top:auto; bottom:calc(100% + 8px); transform:translateX(-50%); }
     html.side-collapsed .side button.side-tab[data-tip]:hover::after, html.side-collapsed .side button.side-tab[data-tip]:focus-visible::after,
     .side-bottom button.side-tab[data-tip]:hover::after, .side-bottom button.side-tab[data-tip]:focus-visible::after{ opacity:1; visibility:visible; }

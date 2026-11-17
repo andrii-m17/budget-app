@@ -68,6 +68,11 @@ function transform(decl, text){
       val = val.replace(/(?<![\w.-])(120ms|200ms|320ms|480ms|0?\.12s|0?\.2s|0?\.32s|0?\.48s)(?![\w])/g, (all, v) => { stats.durations++; return DUR[v.replace(/^0/, '')]; });
     }
   }
+  // DS-N3: радіуси поза шкалою на токени (2/3/5→--r-2xs, 7/8/9→--r-xs, 10/11/13/14→--r-s, 16→--r-m, 20/24→--r-l, 26→--r-xl); 50%, calc(), inherit і правила kb-* не чіпаємо
+  if(has('--radius') && /^border(-(top|bottom)-(left|right))?-radius$/.test(prop) && !kbRule && !decl.keyframes && !/calc\(|inherit/.test(val)){
+    const RM = { '2': 'r-2xs', '3': 'r-2xs', '5': 'r-2xs', '7': 'r-xs', '8': 'r-xs', '9': 'r-xs', '10': 'r-s', '11': 'r-s', '13': 'r-s', '14': 'r-s', '16': 'r-m', '20': 'r-l', '24': 'r-l', '26': 'r-xl' };
+    val = val.replace(/(?<![\w.#-])(\d+)px(?![\w%])/g, (all, n) => { if(RM[n]){ stats.radiusN3 = (stats.radiusN3 || 0) + 1; (stats.byVal = stats.byVal || {})[n] = ((stats.byVal || {})[n] || 0) + 1; return 'var(--' + RM[n] + ')'; } return all; });
+  }
   if(has('--fs') && prop === 'font-size' && !kbRule && !decl.keyframes){
     if(isFieldSel(decl.sel)){ globalThis.__fsExceptions.push({ line: decl.line, sel: decl.sel, val: val.trim() }); }
     else val = val.replace(/(?<![\w.#-])(\d+(?:\.5)?)px(?![\w%])/g, (all, n) => { if(FS_MAP[n]){ stats.fs = (stats.fs || 0) + 1; return 'var(--fs-' + FS_MAP[n] + ')'; } return all; });
@@ -100,8 +105,8 @@ if(has('--count')){ console.log(JSON.stringify(counts(src))); process.exit(0); }
 if(has('--offscale')){ fs.writeSync(1, JSON.stringify({ decls: parse(src).map(d => ({ line: d.line, prop: d.prop, sel: d.sel, text: src.slice(d.start, d.end) })) })); process.exit(0); }
 const from = Number(arg('--from', 1)), to = Number(arg('--to', 1e9));
 const decls = parse(src).filter(d => d.line >= from && d.line <= to).sort((a, b) => b.start - a.start);
-let out = src; const tot = { names: 0, radius: 0, colors: 0, durations: 0, fs: 0 };
-decls.forEach(d => { const orig = out.slice(d.start, d.end); const r = transform(d, orig); if(r.text !== orig){ out = out.slice(0, d.start) + r.text + out.slice(d.end); Object.keys(tot).forEach(k => { tot[k] += r.stats[k] || 0; }); } });
+let out = src; const tot = { names: 0, radius: 0, colors: 0, durations: 0, fs: 0, radiusN3: 0, byVal: {} };
+decls.forEach(d => { const orig = out.slice(d.start, d.end); const r = transform(d, orig); if(r.text !== orig){ out = out.slice(0, d.start) + r.text + out.slice(d.end); Object.keys(tot).forEach(k => { if(k === 'byVal'){ Object.keys(r.stats.byVal || {}).forEach(v => { tot.byVal[v] = (tot.byVal[v] || 0) + r.stats.byVal[v]; }); } else tot[k] += r.stats[k] || 0; }); } });
 console.log(JSON.stringify({ from, to, replaced: tot, before: counts(src), after: counts(out), lines: src.split('\n').length === out.split('\n').length }));
 if(has('--fs')) console.log(JSON.stringify({ fsExceptions: globalThis.__fsExceptions }));
 if(!has('--dry')) fs.writeFileSync(FILE, out);

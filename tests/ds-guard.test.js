@@ -14,8 +14,8 @@ function counts(src){
   const refs = (re) => (nc.match(re) || []).length;
   return { hex: refs(/#[0-9a-fA-F]{3,8}\b/g), rgba: refs(/rgba?\(/g), radiusPx, refColor: refs(/var\(\s*--color-/g), refUi: refs(/var\(\s*--ui-/g), refRadius: refs(/var\(\s*--radius-/g) };
 }
-// Базові числа: стан після останньої ревізії DS-2 (Rev 2.32.338, DS-2d)
-const BASE = { hex: 31, rgba: 27, radiusPx: 45, refColor: 293, refUi: 65, refRadius: 50 };
+// Базові числа: стан після останньої ревізії DS-2 (Rev 2.32.342, DS-N3)
+const BASE = { hex: 31, rgba: 27, radiusPx: 0, refColor: 293, refUi: 65, refRadius: 50 };
 test('DS-2: сирі hex/rgba(, px у border-radius і посилання на старі назви не зростають', function(){
   const c = counts(APP);
   Object.keys(BASE).forEach(function(k){ assert.ok(c[k] <= BASE[k], k + ': ' + c[k] + ' > ' + BASE[k] + ' (число можна лише зменшувати; нові значення — через токени з css/tokens.css)'); });
@@ -37,4 +37,8 @@ test('DS-N2: сирих font-size у px поза винятками (поля в
   assert.ok(ex.length <= 19, 'винятків (поля вводу) не більше 19, зараз ' + ex.length);
   ex.forEach(function(e){ assert.ok(/input|select|textarea|sf-input|sf-select|mono-token-input|chk-fld|journal-date-input/.test(e.sel.split(' ⟶ ').pop()), 'виняток не поле вводу: ' + e.sel); });
   ['--fs-large: 34px', '--fs-title1: 28px', '--fs-title2: 22px', '--fs-title3: 20px', '--fs-body: 17px', '--fs-callout: 16px', '--fs-subhead: 15px', '--fs-footnote: 13px', '--fs-caption1: 12px', '--fs-caption2: 11px'].forEach(function(t){ assert.ok(TOK.indexOf(t) !== -1, t); });
+});
+test('DS-N3: сирих border-radius у px у app.css немає (лише токени --r-*, 50%, calc, inherit); малі радіуси оголошено', function(){
+  assert.equal(counts(APP).radiusPx, 0);
+  assert.ok(TOK.indexOf('--r-xs: 8px') !== -1 && TOK.indexOf('--r-2xs: 4px') !== -1);
 });

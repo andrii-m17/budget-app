@@ -17,6 +17,10 @@ function variants(src){
   out.add(all);
   // 3) лише радіуси без назв (коли назви в тесті вже старі, а значення нові)
   out.add(src.replace(/(border(?:-(?:top|bottom)-(?:left|right))?-radius:)([^;}]*)/g, (a, p, v) => p + v.replace(/(?<![\w.#-])(12|18|22|28|999)px/g, (b, n) => 'var\\(--' + RAD[n] + '\\)')));
+  // 5) радіуси DS-N3
+  const RM = { 2: 'r-2xs', 3: 'r-2xs', 5: 'r-2xs', 7: 'r-xs', 8: 'r-xs', 9: 'r-xs', 10: 'r-s', 11: 'r-s', 13: 'r-s', 14: 'r-s', 16: 'r-m', 20: 'r-l', 24: 'r-l', 26: 'r-xl' };
+  const rm = (t) => t.replace(/(border(?:-(?:top|bottom)-(?:left|right))?-radius:)([^;}]*)/g, (a, p, v) => /calc|inherit/.test(v) ? a : p + v.replace(/(?<![\w.#-])(\d+)px/g, (b, n) => RM[n] ? 'var\\(--' + RM[n] + '\\)' : b));
+  out.add(rm(src)); out.add(rm(names)); out.add(rm(all));
   // 4) кеглі (DS-N2): font-size:13px → font-size:var\(--fs-footnote\) тощо
   const FS = { '9': 'caption2', '9.5': 'caption2', '10': 'caption2', '10.5': 'caption2', '11': 'caption2', '11.5': 'caption1', '12': 'caption1', '12.5': 'footnote', '13': 'footnote', '13.5': 'footnote', '14': 'subhead', '14.5': 'subhead', '15': 'subhead', '16': 'callout', '17': 'body', '18': 'body', '20': 'title3', '21': 'title2', '22': 'title2', '26': 'title1', '28': 'title1' };
   const fsv = (t) => t.replace(/(font-size:\s*)(\d+(?:\\\.\d)?)px/g, (a, p, n) => { const k = n.replace('\\.', '.'); return FS[k] ? p + 'var\\(--fs-' + FS[k] + '\\)' : a; });

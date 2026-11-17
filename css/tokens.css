@@ -177,3 +177,5 @@
     --fs-large: 34px; --fs-title1: 28px; --fs-title2: 22px; --fs-title3: 20px; --fs-body: 17px;
     --fs-callout: 16px; --fs-subhead: 15px; --fs-footnote: 13px; --fs-caption1: 12px; --fs-caption2: 11px;
   }
+  /* ===== Rev 2.32.342 (DS-N3): два малі радіуси для дрібних елементів (смуги, мітки, малі плитки, логотипи); шкала радіусів: 4 · 8 · 12 · 18 · 22 · 28 · 999 ===== */
+  :root{ --r-xs: 8px; --r-2xs: 4px; }
