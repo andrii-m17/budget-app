@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 
 // ---------- A1-1: вихід з акаунта і вхід в інший (витік між акаунтами) ----------
 {

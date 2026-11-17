@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const rule = sel => { const i = SRC.indexOf(sel + '{ position:fixed'); return SRC.slice(i, SRC.indexOf('}', i)); };
 
 test('T1: .trash-screen лежить під таббаром (z-index менший за nav.tabbar) і має нижній відступ під нього', () => {

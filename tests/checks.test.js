@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const MOCK = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ui', 'mockups', 'checks-mockup.html'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
 const NAMES = ['CHECKS_SHARED_KEY', 'CHECKS_SHARED_MIN_MS', 'checksReadShared', 'checksWriteShared', 'checksSharedMap', 'checksRefreshShared', 'checksClosedBy', 'CHECKS_STATE_KEY', 'CHECKS_OUTBOX_KEY', 'CHECKS_OTHER', 'CHECKS_DEFER_REASONS', 'CHECKS_NOTE_MAX', 'CHECKS_EXPIRE_DAYS', 'CHECKS', 'checksReadState', 'checksWriteState', 'checksReadOutbox', 'checksWriteOutbox',
@@ -219,6 +219,6 @@ test('джерело: два рядки в «Сервісі», чекліста 
   assert.ok(!/innerHTML/.test(fn), 'без innerHTML у відображенні кроків'); assert.match(fn, /'Не можу перевірити зараз'/); assert.match(fn, /'Працює'/); assert.match(fn, /'Не працює'/);
 });
 test('Rev 2.32.194: у стилях немає dashed і dotted', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').split('<script')[0];
+  const css = require('./extract').readIndexWithCss().split('<script')[0];
   assert.ok(!/dashed|dotted/.test(css), 'пунктир прибрано повністю');
 });

@@ -1,5 +1,7 @@
 # Карта коду Money Tree (`index.html`, Rev 2.32.248)
 
+**Стилі (Rev 2.32.333, STRUCT-1):** увесь CSS у `css/app.css` (колишній єдиний блок `<style>` дослівно; підключення `<link rel="stylesheet" href="./css/app.css">` у `<head>`); `sw.js`: у `APP_SHELL` і мережа-спочатку для `/css/*.css`. Тести читають стилі через `readAppCss()` / `readIndexWithCss()` (`tests/extract.js`); `readIndexWithCss()` підставляє css на місце `<link>`, тож перевірки порядку частин документа працюють як раніше.
+
 Номери рядків орієнтовні (зсуваються з правками): шукай за назвою функції (`grep -n "function name"`). Оновлюй карту, коли змінюєш описану тут частину.
 
 ## Конвеєр клавіатури й листів (єдиний для всіх `.drawer` і `.app-modal`)

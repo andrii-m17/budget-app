@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const NAMES = ['chartsBelowFold', 'revealDecision', 'shouldDeferChart', 'motionDuration', 'staggerDelay', 'countStep', 'chartSignature', 'cardRevealTiming', 'chartDuration', 'bezierEase', 'shouldReplaceChart', 'dashboardQueueSize', 'dashboardReplayMode'];
 const CONSTS = ['CHART_REVEAL_DWELL_MS', 'CHART_REVEAL_RATIO', 'MOTION_BASE_MS', 'MOTION_REDUCED_MAX_MS', 'DASH_MAX_QUEUE', 'DASH_STAGGER_MS', 'DASH_MAX_COUNTERS', 'DASH_MAX_TOTAL_MS', 'DASH_COUNTER_IDS', 'CARD_REVEAL', 'DASH_REPLAY_SCALE', 'DASH_UPDATE_SCALE'];
 const ctx = ex.buildSandbox({}, CONSTS.concat(NAMES));

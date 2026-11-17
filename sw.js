@@ -6,13 +6,14 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.332';
+const CACHE_NAME = 'budget-app-v2.32.333';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
 const APP_SHELL = [
   './',
   './index.html',
+  './css/app.css', // Rev 2.32.333 (STRUCT-1): стилі окремим файлом; без нього офлайн-запуск був би без оформлення
   './manifest.json',
   './icons/icon-192-v2.png',
   './icons/icon-512-v2.png'
@@ -424,6 +425,19 @@ self.addEventListener('fetch', function(event){
           return res;
         })
         .catch(function(){ return caches.match('./index.html'); })
+    );
+    return;
+  }
+
+  // Rev 2.32.333 (STRUCT-1): стилі окремим файлом. Мережа-спочатку, як і сам HTML: раніше CSS їхав разом з index.html (навігація мережа-спочатку), тож нова ревізія завжди мала свої стилі; кеш-спочатку дав би новий HTML зі старим css/app.css до підтвердження оновлення. Офлайн (мережа не відповіла) — файл із кешу, куди він потрапляє при встановленні (APP_SHELL).
+  if(req.url.indexOf(self.location.origin + '/') === 0 && /\/css\/[^/]+\.css(\?|$)/.test(req.url)){
+    event.respondWith(
+      fetch(req)
+        .then(function(res){
+          if(res && res.ok){ const copy = res.clone(); caches.open(CACHE_NAME).then(function(cache){ cache.put(req, copy); }); }
+          return res;
+        })
+        .catch(function(){ return caches.match(req); })
     );
     return;
   }

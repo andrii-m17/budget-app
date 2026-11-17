@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const ctx = ex.buildSandbox({}, ['EDGE_SWIPE_ZONE', 'EDGE_SWIPE_THRESHOLD', 'shouldCloseBySwipe']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const IMPL = SRC.slice(SRC.indexOf('const EDGE_SWIPE_ZONE'), SRC.indexOf('function shiftJournalMonth('));

@@ -5,9 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const NC = SRC.replace(/<!--[\s\S]*?-->/g, '');
-const CSS = [...SRC.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+const CSS = require('./extract').readAppCss(); // Rev 2.32.333 (STRUCT-1): стилі з css/app.css
 const NAV_MQ = '@media (min-width:1280px), (min-width:768px) and (hover:hover) and (pointer:fine){';
 const navBlock = (function(){ const i = CSS.indexOf(NAV_MQ); assert.ok(i > 0, 'блок навігації'); let d = 0, k = i + NAV_MQ.length - 1; for(; k < CSS.length; k++){ if(CSS[k] === '{') d++; if(CSS[k] === '}'){ d--; if(d === 0) break; } } return CSS.slice(i, k + 1); })();
 

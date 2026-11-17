@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 function ui(st){
   const btn = { hidden: true, text: '', attrs: {}, classList: { toggle(c, on){ btn.hidden = !!on; } }, setAttribute(k, v){ btn.attrs[k] = v; }, set textContent(v){ btn.text = v; }, get textContent(){ return btn.text; } };
   const input = { value: st.query };

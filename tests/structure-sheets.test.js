@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 test('хост клавіатурної логіки: .drawer і .app-modal через одну функцію kbSheetHostOf; isFieldInsideDrawer і вибір drawerEl користуються нею', () => {
   assert.match(SRC, /el\.closest\('\.drawer, \.app-modal'\)/);
   assert.match(SRC, /function isFieldInsideDrawer\(el\)\{\s*return !!kbSheetHostOf\(el\);/);

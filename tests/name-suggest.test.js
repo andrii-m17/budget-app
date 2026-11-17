@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const ctx = ex.buildSandbox({}, ['NAME_SUGGEST_MIN', 'NAME_SUGGEST_MAX', 'nameSuggestionsFor']);
 const S = (map, text) => JSON.parse(ex.evalInSandbox(ctx, `JSON.stringify(nameSuggestionsFor(${JSON.stringify(map)},${JSON.stringify(text)}))`));
 const H = (count, lastDate) => ({ count, lastDate, lastCategory: '', lastSubcategory: '' });

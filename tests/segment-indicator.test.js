@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const c = ex.buildSandbox({}, ['segmentIndicatorBox']);
 const B = (b, i) => JSON.parse(JSON.stringify(c.segmentIndicatorBox(b, i)));
 test('segmentIndicatorBox: вибраний сегмент → ненульовий бокс; не виміряний (ширина 0, рядок ще прихований) або немає вибраного → null', () => {

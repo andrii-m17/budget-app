@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const media = (function(){ const i = SRC.indexOf('#vytraty-default-view{ display:grid;'); const st = SRC.lastIndexOf('@media (min-width:768px){', i); return SRC.slice(st, SRC.indexOf('#vytraty-default-view .vytraty-recent-col', i)); })();
 test('desktop (≥768px): колонка форми align-self:start, картка без margin:auto; сітка двоколонкова', function(){
   assert.match(media, /#vytraty-default-view\{ display:grid; grid-template-columns:minmax\(280px,420px\) 1fr; gap:24px; align-items:stretch; \}/);

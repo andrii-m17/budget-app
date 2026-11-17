@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 
 function rule(sel){ const i = SRC.indexOf('\n  ' + sel + '{'); assert.ok(i >= 0, 'нема правила ' + sel); return SRC.slice(i, SRC.indexOf('}', i) + 1); }
 

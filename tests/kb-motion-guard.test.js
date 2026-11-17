@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const HTML = fs.readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+const HTML = require('./extract').readIndexWithCss();
 const b = HTML.indexOf('// KB-MOTION-BEGIN'), e = HTML.indexOf('// KB-MOTION-END');
 const OUT = HTML.slice(0, b) + HTML.slice(e);
 test('KB-19: модуль руху існує, межі впорядковані', () => { assert.ok(b > 0 && e > b); });

@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const { buildSandbox } = require('./extract');
 function env(catVal, catText, subVal, subText){
   const els = { fldmono2: { value: catVal, selectedIndex: 0, options: [{ text: catText }] }, fldmono3: { value: subVal, selectedIndex: 0, options: [{ text: subText }] }, 'mono-val-cat': { textContent: '' }, 'mono-val-sub': { textContent: '' } };

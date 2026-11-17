@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const POP = id => { const a = SRC.indexOf('id="' + id + '"'); return SRC.slice(a, SRC.indexOf('</div>\n          </div>', a)); };
 
 test('картка «Борги по картках» має ту саму розмітку крапки й попапа, що KPI «Борг» і кільце (data-status + dot + popover + title/text/hint/action)', () => {

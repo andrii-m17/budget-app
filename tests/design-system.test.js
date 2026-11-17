@@ -6,8 +6,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const CSS = [...SRC.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+const SRC = require('./extract').readIndexWithCss();
+const CSS = require('./extract').readAppCss().replace(/\/\*[\s\S]*?\*\//g, '');
 const NAMES = ['buttonVariantOf', 'meetsMinTarget', 'parseCssColor', 'compositeColor', 'relativeLuminance', 'contrastRatio'];
 const ctx = ex.buildSandbox({}, ['BUTTON_VARIANT_MAP', 'BUTTON_MODIFIER_CLASSES'].concat(NAMES));
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
@@ -62,7 +62,7 @@ test('КОЖЕН клас кнопки в розмітці/шаблонах ма
 });
 
 // ---- CSS охорона ----
-const CSS_ALL = [...SRC.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+const CSS_ALL = require('./extract').readAppCss();
 const M3_START = SRC.lastIndexOf('/*', SRC.indexOf('Rev 2.26.0 (M3) — токени дизайн-системи'));
 const M3_END = SRC.lastIndexOf('/*', SRC.indexOf('Rev 2.30.0 (M4b) — решта компонентів у стилі'));
 const M4B_START = M3_END;
@@ -97,12 +97,16 @@ test('M4b: «Скло» — єдиний стиль: жодних data-ui/data-f
   assert.ok((M3.match(/html:root /g) || []).length >= 30);
 });
 
-test('M4b: !important лишився лише в блоці prefers-reduced-motion (свідоме перевизначення авторських переходів); другого <style> немає', () => {
+test('M4b: !important лишився лише в блоці prefers-reduced-motion (свідоме перевизначення авторських переходів); стилі лише в css/app.css, у index.html жодного <style>', () => {
   const noComments = CSS_ALL.replace(/\/\*[\s\S]*?\*\//g, '');
   const lines = noComments.split('\n').filter(l => /!important/.test(l));
   assert.equal(lines.length, 3, lines.join(' | '));
   lines.forEach(l => assert.ok(/transition-duration:80ms !important|animation:none !important/.test(l), l));
-  assert.equal((SRC.match(/^\s*<style>\s*$/gm) || []).length, 1, 'один блок <style>');
+  // Rev 2.32.333 (STRUCT-1): стилі лише в css/app.css; у справжньому index.html жодного <style> і є посилання на файл
+  const rawIndex = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  assert.equal((rawIndex.match(/<style/g) || []).length, 0, 'у index.html немає <style>');
+  assert.equal((rawIndex.match(/<link rel="stylesheet" href="\.\/css\/app\.css">/g) || []).length, 1, 'одне посилання на css/app.css');
+  assert.ok(/'\.\/css\/app\.css'/.test(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'sw.js'), 'utf8')), 'css/app.css у APP_SHELL sw.js');
   assert.ok(!/margin-right:0 !important|color:transparent !important|caret-color:transparent !important/.test(SRC));
 });
 

@@ -5,7 +5,7 @@
 
 ## Що це за проєкт
 Особистий українськомовний PWA сімейного бюджету (двоє користувачів). Усе інтерфейсне й комунікація — українською.
-Файли: `index.html` (весь UI, бізнес-логіка, сховище; ≈ 24 000 рядків), `sw.js` (service worker, офлайн), `manifest.json`, `icons/`, `tests/`, `docs/`, `scripts/`, `.github/workflows/keepalive.yml`.
+Файли: `index.html` (UI, бізнес-логіка, сховище), `css/app.css` (усі стилі, з Rev 2.32.333), `sw.js` (service worker, офлайн), `manifest.json`, `icons/`, `tests/`, `docs/`, `scripts/`, `.github/workflows/keepalive.yml`.
 
 ## Архітектура (коротко)
 - **Один файл без збірки.** Скрипти `index.html` виконуються у звичайній глобальній області; DOM-ініціалізація йде під час завантаження. Модулів немає.

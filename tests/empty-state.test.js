@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const c = buildSandbox({}, ['EMPTY_STATE_ICONS', 'emptyStateHtml']);
 
 test('картки: іконка картки, заголовок, пояснення й кнопка «+ Додати картку» (openAddBankModal)', function(){

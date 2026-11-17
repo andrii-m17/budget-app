@@ -156,4 +156,12 @@ function evalInSandbox(context, expr){
   return vm.runInContext(expr, context);
 }
 
-module.exports = { extractFunctionSource, extractConstSource, buildSandbox, evalInSandbox };
+// Rev 2.32.333 (STRUCT-1): стилі живуть у css/app.css, а не в index.html. readAppCss() — сам файл стилів; readIndexWithCss() — index.html із вмістом css/app.css, підставленим на місце <link rel="stylesheet" href="./css/app.css"> (рівно там, де колись був блок <style>): тести з перевірками CSS і порядку частин документа читають текст як раніше.
+function readAppCss(){ return require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'css', 'app.css'), 'utf8'); }
+function readIndexWithCss(){
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const re = /<link rel="stylesheet" href="\.\/css\/app\.css">(<!--[^]*?-->)?/;
+  if(!re.test(html)) throw new Error('index.html: немає <link rel="stylesheet" href="./css/app.css">');
+  return html.replace(re, function(){ return '<style>\n' + readAppCss() + '</style>'; });
+}
+module.exports = { extractFunctionSource, extractConstSource, buildSandbox, evalInSandbox, readAppCss, readIndexWithCss };

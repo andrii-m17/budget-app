@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
 const c = buildSandbox({}, ['toastTopBelowHeader', 'MONO_MONTHS_GEN', 'monoFmtUah', 'pluralUa', 'pluralToastWord', 'toastActionTarget', 'toastActionForEvents', 'toastModel', 'toastDuration', 'splitToastText', 'shouldShowToast', 'successToastPlacement']);
 test('toastModel: додано N витрат · з Monobank · сума; відмінювання', function(){

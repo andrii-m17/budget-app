@@ -5,8 +5,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const CSS = [...SRC.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+const SRC = require('./extract').readIndexWithCss();
+const CSS = require('./extract').readAppCss(); // Rev 2.32.333 (STRUCT-1)
 const j = v => JSON.parse(JSON.stringify(v));
 const g = buildSandbox({ parseAmount: v => Number(String(v).replace(/[\s ]/g, '')), ppPad: undefined }, ['ppPad', 'ppDaysInMonth', 'ppClampDate', 'OCH_FIRST_PAYMENTS', 'OCH_PAY_MODES', 'ochModelDiffers', 'applyOchModelFromRow', 'ochDefaultSegments', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'OCH_OVALS_MAX', 'ochOvalsModel', 'ochOvalsHtml', 'ochDueDayFor', 'ochCalcAutoPay', 'ochEnterNext', 'FIELD_HINT_MS', 'clearFieldHint', 'hintField', 'ochCondSummary', 'ochBalanceDiffers']);
 

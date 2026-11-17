@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const SW = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 const j = v => JSON.parse(JSON.stringify(v));
 

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const c = buildSandbox({ __bankIconSeq: 0, stripLeadingEmoji: function(x){ return x; } }, ['EMPTY_STATE_ICONS', 'bankIcon']);
 test('відомі банки (Приват, Моно, ПУМБ, Sense, Райффайзен) — логотип, не нейтральне коло; незалежно від виду й регістру', function(){
   ['Приватбанк', 'ПриватБанк 2', 'Монобанк', 'моно чорна', 'ПУМБ', 'Sense Bank', 'Райффайзен', 'Raiffeisen'].forEach(function(n){

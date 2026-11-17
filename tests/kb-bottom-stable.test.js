@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const HTML = require('./extract').readIndexWithCss();
 test('KB-8: правило .drawer.open з низом без var(--drawer-bottom-base) діє для всіх шторок', () => {
   assert.match(HTML, /\.drawer\.open, #income-drawer\.open, #card-debt-drawer\.open, #installment-drawer\.open, #struct-drawer\.open\{\s*bottom:max\(100px, calc\(env\(safe-area-inset-bottom\) \+ 80px\)\);\s*\}/);
 });

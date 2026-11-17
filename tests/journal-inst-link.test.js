@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 function mk(accs){ return buildSandbox({ escapeHtml: esc, escapeAttr: esc, installmentAccounts: accs }, ['INST_LINK_ICON_SVG', 'installmentLinkBadgeHtml']); }
 test('з прив\'язкою: значок і назва, aria-label', function(){

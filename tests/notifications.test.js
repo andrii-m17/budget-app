@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
 const pure = buildSandbox({ pluralUa: undefined }, ['routeForPushType', 'notificationSettingsDefaults', 'validateQuietHours', 'permissionNotice', 'toggleOutcome', 'shouldRecordBackupDate', 'dimmedState', 'notificationRows', 'describeDeliveryRow', 'shouldReleaseKbOpen', 'pushTypeLabel', 'PUSH_TYPE_LABELS']);
 
@@ -110,8 +110,7 @@ test('restoreFocus не фокусує кнопки', () => {
 });
 
 test('CSS-аудит: жодного :hover поза @media (hover:hover) and (pointer:fine); performSwitchTab має noFocus', () => {
-  const a = SRC.indexOf('<style'), b = SRC.indexOf('</style>', a);
-  const css = SRC.slice(a, b).replace(/\/\*[\s\S]*?\*\//g, function(m){ return m.replace(/[^\n]/g, ' '); });
+  const css = require('./extract').readAppCss().replace(/\/\*[\s\S]*?\*\//g, function(m){ return m.replace(/[^\n]/g, ' '); });
   const stack = []; let buf = ''; const bad = [];
   for(const ch of css){
     if(ch === '{'){ const head = buf.trim(); buf = ''; stack.push(head);

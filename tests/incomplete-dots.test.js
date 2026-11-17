@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const ctx = ex.buildSandbox({}, ['incompleteMonthWindow', 'incompleteDetails', 'incompleteReasons']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const R = (e, r, h) => j(`incompleteReasons(${JSON.stringify(e)},${JSON.stringify(r)},"2026-10",${!!h})`);

@@ -62,7 +62,7 @@ test('37. desktop 1280×800: бічна панель на місці, таб-б�
     await page.waitForTimeout(1500);
     const d = await page.evaluate(() => ({ bottom: getComputedStyle(document.querySelector('nav.tabbar')).bottom, tabbar: getComputedStyle(document.querySelector('nav.tabbar')).display, side: !!document.querySelector('.side-panel') && getComputedStyle(document.querySelector('.side-panel')).display !== 'none' }));
     expect(d.tabbar, 'на desktop нижній таб-бар прихований (його замінює бічна панель)').toBe('none');
-    expect(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8')).toContain('@media (pointer: coarse){ nav.tabbar{ bottom:max(21px, calc(env(safe-area-inset-bottom) - 13px)); } }'); // Playwright WebKit без миші повідомляє pointer:coarse, тож значення на справжньому desktop (pointer:fine = 6px, як раніше) перевіряємо за джерелом
+    expect(require('../tests/extract').readIndexWithCss()).toContain('@media (pointer: coarse){ nav.tabbar{ bottom:max(21px, calc(env(safe-area-inset-bottom) - 13px)); } }'); // Playwright WebKit без миші повідомляє pointer:coarse, тож значення на справжньому desktop (pointer:fine = 6px, як раніше) перевіряємо за джерелом
     expect(d.side, 'бічна панель').toBe(true);
   } finally { await ctx.close(); }
 });

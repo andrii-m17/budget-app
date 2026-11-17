@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 test('усі інтерактивні елементи «Структури», «Сповіщень» і Monobank охоплені реакцією натискання (button у PRESS_SELECTOR), без винятків', function(){
   const sel = SRC.match(/const PRESS_SELECTOR = '([^']*)'/)[1];
   assert.ok(/(^|, )button(,|$)/.test(sel));
