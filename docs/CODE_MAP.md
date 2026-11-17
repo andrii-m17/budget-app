@@ -8,6 +8,8 @@
 
 **Область «shell» (Rev 2.32.349, STRUCT-3):** `js/shell.js` — 101 функцій, 38 const, 10 let. Оператори верхнього рівня (підписки, initSideNav, IIFE таббару/«вгору»/натискань) і keyboardFieldActive лишились в index.html. Додатково перевірено taps.spec.js і E2E таббару/вкладок.
 
+**Область «payments» (Rev 2.32.350, STRUCT-3):** `js/payments.js` — 59 функцій, 11 const, 3 let. Оператор верхнього рівня (IIFE initPaymentsScreen) лишився в index.html. Побічно: у e2e/keyboard.spec.js тест 131 оновлено під DS-N3 (радіус 14 → 12); тест 45 — відомий нестабільний (KB-12), не пов'язаний з перенесенням.
+
 **Як тепер шукати код (STRUCT-3, Rev 2.32.345+):** код застосунку розкладається по `js/*.js` за областями (план і порядок підключення — `docs/reports/STRUCT-3-step0.md`; уже винесено `js/util-*.js`). Шукай функцію за назвою одразу в `index.html` і `js/`: `grep -rn "function name" index.html js/`. Оператори верхнього рівня й `initApp` лишаються в основному `<script>` `index.html`. Порядок підключення й цілісність перевіряє `node scripts/struct3-check-load.js` (також у перевірці перед пушем). Тести читають увесь код через `readIndexWithCss()` / `SOURCE` у `tests/extract.js`.
 
 **Допоміжні функції (Rev 2.32.345, STRUCT-2):** без стану, глобальні, підключені звичайними `<script src="./js/…?v=<APP_VERSION>">` перед основним `<script>` (мережа-спочатку в `sw.js`, у `APP_SHELL`; мітку перевіряє `pre-push-guard`). `tests/extract.js`: `SOURCE` = ці файли в порядку підключення + `index.html`.

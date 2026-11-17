@@ -1912,7 +1912,7 @@ test('131. SHEET-FOOTER-4/3: ОЧ — кнопка-кошик 40 × 40, r 14, с
     await page.waitForTimeout(900);
     const geo = () => page.evaluate(() => { const d = document.getElementById('installment-drawer'), b = d.querySelector('.och-delete-btn'), row = d.querySelector('.och-actions'); const r = b.getBoundingClientRect(), rr = row.getBoundingClientRect(), cs = getComputedStyle(b), kids = Array.from(row.children).map(c => c.className.toString().split(' ')[0]); return { w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, radius: cs.borderTopLeftRadius, bg: cs.backgroundColor, color: cs.color, aria: b.getAttribute('aria-label'), first: kids[0], kids, linkCount: d.querySelectorAll('.cdd-delete-link').length, leftOffset: Math.round(r.left - rr.left) }; });
     const g0 = await geo();
-    expect(g0.w + 'x' + g0.h, JSON.stringify(g0)).toBe('40x40'); expect(g0.radius, JSON.stringify(g0)).toBe('14px');
+    expect(g0.w + 'x' + g0.h, JSON.stringify(g0)).toBe('40x40'); expect(g0.radius, JSON.stringify(g0)).toBe('12px'); // DS-N3: радіус 14 → --r-s (12)
     expect(g0.aria).toBe('Видалити ОЧ'); expect(g0.first, JSON.stringify(g0)).toBe('och-delete-btn'); expect(g0.linkCount, 'окремого посилання немає').toBe(0);
     expect(g0.color, 'червона іконка: ' + JSON.stringify(g0)).toMatch(/rgb\((239, 68, 68|248, 113, 113)\)/);
     // той самий виклик з підтвердженням
