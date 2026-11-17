@@ -32,4 +32,4 @@ function fmtSignedPercent(rawPercent){
   const str = Number.isInteger(abs) ? String(abs) : abs.toFixed(1);
   return (rawPercent < 0 ? '-' : '') + str + '%';
 }
-
+(window.__MT_FILES = window.__MT_FILES || []).push('util-format.js');

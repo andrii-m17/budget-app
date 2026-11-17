@@ -152,4 +152,4 @@ function kyivDateKey(iso){
   const fmt = function(zone){ return new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t)); };
   try{ return fmt('Europe/Kyiv'); }catch(e){ try{ return fmt('Europe/Kiev'); }catch(e2){ return ''; } } // запасна назва зони для старих ICU
 }
-
+(window.__MT_FILES = window.__MT_FILES || []).push('util-date.js');

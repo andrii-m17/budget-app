@@ -25,4 +25,4 @@ function escapeAttr(s){
 }
 
 function safeId(id){ return String(id==null?'':id).replace(/[^0-9A-Za-z_-]/g,''); }
-
+(window.__MT_FILES = window.__MT_FILES || []).push('util-safe.js');

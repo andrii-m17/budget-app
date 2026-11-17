@@ -2,7 +2,8 @@
 //  1) оператор або ініціалізатор const/let у js/X.js під час завантаження звертається до імені з файлу, підключеного ПІЗНІШЕ (або з основного inline-скрипта), чи до const/let того ж файлу нижче за себе;
 //  2) глобальне ім'я (функція, const, let, var, class) оголошене більше одного разу в index.html і js/*.js;
 //  3) js/*.js (і css/*.css), підключений в index.html, відсутній в APP_SHELL у sw.js;
-//  4) мітка ?v= у посиланні на скрипт/стиль не дорівнює APP_VERSION.
+//  4) мітка ?v= у посиланні на скрипт/стиль не дорівнює APP_VERSION;
+//  5) останній непорожній рядок js/X.js не є позначкою завантаження (window.__MT_FILES.push('X.js')) — Rev 2.32.347 (STRUCT-3a2): за нею основний скрипт виявляє файл, що не завантажився.
 // Використання: node scripts/struct3-check-load.js  (також з scripts/hooks/pre-push-guard.js і tests/struct3-check-load.test.js)
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -20,6 +21,8 @@ function checkFiles(files){
   // 3) APP_SHELL
   const shell = (sw.match(/const APP_SHELL = \[([^\]]*)\]/) || [, ''])[1];
   tags.concat(links).forEach(t => { if(shell.indexOf("'./" + t.rel + "'") === -1) out.push('3) «' + t.rel + '» підключено в index.html, але його немає в APP_SHELL (sw.js)'); });
+  // 5) позначки завантаження
+  tags.forEach(t => { const text = (files.js || {})[t.name]; if(text === undefined) return; const last = text.replace(/\s+$/, '').split('\n').pop().trim(); const want = "(window.__MT_FILES = window.__MT_FILES || []).push('" + t.name + "');"; if(last !== want) out.push('5) останній рядок «' + t.rel + '» має бути позначкою завантаження: ' + want); });
   // розбір: js-файли за порядком підключення, потім inline-скрипти
   const units = []; // { file, order, items }
   tags.forEach((t, i) => { const text = (files.js || {})[t.name]; if(text === undefined){ out.push('1) файл «' + t.rel + '» підключено в index.html, але не знайдено на диску'); units.push({ file: t.rel, order: i, items: [], src: '' }); } else units.push({ file: t.rel, order: i, items: parseTop(text), src: text }); });

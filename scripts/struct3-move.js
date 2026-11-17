@@ -32,7 +32,7 @@ let body = ''; const removals = []; let pointerAt = null;
 sel.forEach(it => { const a = startWithComment(it); let e = best.start + it.end; e = html.indexOf('\n', e); if(e < 0) e = html.length; e += 1; if(pointerAt === null) pointerAt = a; const chunk = html.slice(a, e); body += chunk + (chunk.endsWith('\n\n') ? '' : '\n'); removals.push([a, e]); });
 const header = '// ' + desc + '\n// Перенесено з index.html дослівно, без змін (Rev ' + VER + ', STRUCT-3). Звичайний скрипт: функції й const/let лишаються глобальними; підключається в index.html перед основним <script>; оператори верхнього рівня цієї області лишились в основному скрипті.\n\n';
 fs.mkdirSync(path.join(ROOT, 'js'), { recursive: true });
-fs.writeFileSync(path.join(ROOT, 'js', file), header + body);
+fs.writeFileSync(path.join(ROOT, 'js', file), header + body.replace(/\n+$/, '\n') + "(window.__MT_FILES = window.__MT_FILES || []).push('" + file + "');\n"); // Rev 2.32.347 (STRUCT-3a2): позначка завантаження — останній рядок файлу
 const pointer = '// Rev ' + VER + ' (STRUCT-3): область «' + area + '» — ' + rep.fn + ' функцій, ' + rep.const + ' const, ' + rep.let + ' let — перенесено дослівно в js/' + file + ' (підключено перед основним скриптом); тут лишились лише оператори верхнього рівня цієї області.\n';
 removals.sort((x, y) => y[0] - x[0]).forEach(([a, e]) => { html = html.slice(0, a) + (a === pointerAt ? pointer : '') + html.slice(e); });
 // тег підключення за порядком ORDER

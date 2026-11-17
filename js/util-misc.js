@@ -38,4 +38,4 @@ function relativeLuminance(rgb){
   const ch = rgb.slice(0, 3).map(v => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
   return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
 }
-
+(window.__MT_FILES = window.__MT_FILES || []).push('util-misc.js');

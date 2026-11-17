@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.346';
+const CACHE_NAME = 'budget-app-v2.32.347';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -440,8 +440,9 @@ self.addEventListener('fetch', function(event){
     event.respondWith(
       fetch(req)
         .then(function(res){
-          if(res && res.ok){ const copy = res.clone(); caches.open(CACHE_NAME).then(function(cache){ cache.put(req, copy); }); }
-          return res;
+          if(res && res.ok){ const copy = res.clone(); caches.open(CACHE_NAME).then(function(cache){ cache.put(req, copy); }); return res; }
+          // Rev 2.32.347 (STRUCT-3a2): відповідь з помилкою (404/5xx, напр. під час оновлення GitHub Pages) не мусить ламати запуск: беремо копію з кешу; немає копії — віддаємо саму відповідь. Помилкові відповіді в кеш не пишемо.
+          return caches.match(req, { ignoreSearch: true }).then(function(cached){ return cached || res; });
         })
         .catch(function(){ return caches.match(req, { ignoreSearch: true }); }) // Rev 2.32.334 (DS-1): у посиланнях мітка ?v=<версія>, а в кеші (APP_SHELL) файл без неї
     );

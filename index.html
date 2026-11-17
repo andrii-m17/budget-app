@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.346"><link rel="stylesheet" href="./css/app.css?v=2.32.346"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.347"><link rel="stylesheet" href="./css/app.css?v=2.32.347"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -945,7 +945,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.346</div>
+  <div class="version-footer">Money Tree · Rev 2.32.347</div>
 </div>
   </div>
 </div>
@@ -1691,12 +1691,62 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.346"></script>
-<script src="./js/util-date.js?v=2.32.346"></script>
-<script src="./js/util-safe.js?v=2.32.346"></script>
-<script src="./js/util-misc.js?v=2.32.346"></script>
-<script src="./js/structure.js?v=2.32.346"></script>
+<script src="./js/util-format.js?v=2.32.347"></script>
+<script src="./js/util-date.js?v=2.32.347"></script>
+<script src="./js/util-safe.js?v=2.32.347"></script>
+<script src="./js/util-misc.js?v=2.32.347"></script>
+<script src="./js/structure.js?v=2.32.347"></script>
 <script>
+/* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
+   Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
+   (404/5xx, обрив мережі, синтаксична помилка), решта коду не мусить стартувати «наосліп»: показуємо екран збою з кнопкою «Оновити»,
+   записуємо mt-load-fail (назви файлів, час, версія; без особистих даних) і зупиняємо скрипт винятком — тоді initApp, синхронізація й Realtime
+   не запускаються. На наступному успішному старті ключ передається в самописець (подія load-fail) і видаляється (loadFailReport).
+   Стилі екрана вбудовані тут, бо css/*.css теж міг не завантажитись: без токенів і скла, світла/темна тема через prefers-color-scheme. */
+function mtLoadCheck(expected, loaded){
+  const have = Array.isArray(loaded) ? loaded : [];
+  const want = Array.isArray(expected) ? expected : [];
+  return { missing: want.filter(function(n){ return have.indexOf(n) === -1; }), extra: have.filter(function(n){ return want.indexOf(n) === -1; }) };
+}
+function mtShowLoadFail(){
+  try{
+    const st = document.createElement('style'); st.id = 'mt-load-fail-css';
+    st.textContent = '#mt-load-fail{position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;padding:max(24px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));background:#F5F6F8;color:#101828;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;text-align:center;-webkit-text-size-adjust:100%}'
+      + '#mt-load-fail h1{margin:0;font-size:17px;line-height:22px;font-weight:600}'
+      + '#mt-load-fail p{margin:0;font-size:15px;line-height:20px;color:#475467}'
+      + '#mt-load-fail button{margin-top:16px;min-width:140px;height:44px;padding:0 24px;border:0;border-radius:999px;background:#15803D;color:#fff;font:inherit;font-size:15px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}'
+      + '@media (prefers-color-scheme:dark){#mt-load-fail{background:#0B0F16;color:#F1F4F8}#mt-load-fail p{color:#A3AEC0}}';
+    document.head.appendChild(st);
+    const box = document.createElement('div'); box.id = 'mt-load-fail'; box.setAttribute('role', 'alert');
+    const h = document.createElement('h1'); h.textContent = 'Не вдалося завантажити застосунок';
+    const p = document.createElement('p'); p.textContent = 'Перевірте інтернет і спробуйте ще раз';
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Оновити'; b.addEventListener('click', function(){ location.reload(); });
+    box.appendChild(h); box.appendChild(p); box.appendChild(b);
+    document.body.appendChild(box);
+  }catch(e){}
+}
+(function mtLoadGuard(){
+  let missing = [];
+  try{
+    const tags = Array.prototype.slice.call(document.querySelectorAll('script[src^="./js/"]'));
+    const expected = tags.map(function(s){ return (s.getAttribute('src') || '').replace(/^\.\/js\//, '').replace(/\?.*$/, ''); });
+    missing = mtLoadCheck(expected, window.__MT_FILES).missing;
+    if(!missing.length) return;
+    const v = ((tags[0] && tags[0].getAttribute('src') || '').match(/\?v=([^&"]+)/) || [])[1] || '';
+    try{ localStorage.setItem('mt-load-fail', JSON.stringify({ files: missing, t: Date.now(), v: v })); }catch(e){}
+    mtShowLoadFail();
+  }catch(e){ return; }
+  throw new Error('mt-load-fail: ' + missing.join(',')); // зупиняє решту скрипта (initApp, синхронізацію, Realtime)
+})();
+// Наступний успішний старт: передаємо збій у самописець (подія load-fail без особистих даних) і видаляємо ключ
+function loadFailReport(){
+  try{
+    const raw = localStorage.getItem('mt-load-fail'); if(!raw) return;
+    localStorage.removeItem('mt-load-fail');
+    const o = JSON.parse(raw);
+    recPush({ type: 'load-fail', files: (Array.isArray(o.files) ? o.files : []).join(','), ageMin: Math.max(0, Math.round((Date.now() - Number(o.t || 0)) / 60000)), loadVer: String(o.v || '').replace(/\./g, '_') }); // «2_32_347»: самописець маскує послідовності цифр із крапками
+  }catch(e){}
+}
 /* ============ Помилки JavaScript у рекордері (Rev 2.32.53, J) ============
    Причина: виняток kbMode/focusCardField на iPhone довго лишався непомітним — рекордер не записував винятки. Тепер window.onerror і unhandledrejection фіксуються: повідомлення (≤160 символів, без довгих чисел і email), джерело без параметрів запиту, назви 3 перших кадрів стека, вкладка, лічильник повторів. Значень користувача немає. Однакові помилки (повідомлення + джерело) зливаються в одну з count. До старту запису — буфер до 20 унікальних, при старті виводиться як js-error-backlog. */
 const JS_ERROR_BUFFER_MAX = 20;
@@ -6899,7 +6949,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.346';
+const APP_VERSION = '2.32.347';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12274,8 +12324,8 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['login-lock', 'login-fill', 'login-submit', 'kb-shot-close', 'touch-cancel', 'native-focus', 'switch-miss', 'kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail', 'echo-skip', 'pull-skip'];
-const REC_ALLOWED_KEYS = ['sinceClose', 'idShort', 'earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm', 'vvTopBefore', 'scrollYBefore', 'distPx', 'prevTabindex', 'targetTabindex', 'sinceTouchEnd', 'enterHop', 'activeStart', 'activeEnd', 'sinceIntercept', 'stPreMs', 'stEnterMs', 'stCapMs', 'stPipeMs', 'stRestMs', 'stTotalMs', 'firstFrameMs', 'firstAnimMs', 'samplesLift', 'pageTop', 'pageTopStart', 'pageTopEnd', 'latencyMs', 'platformField', 'ev', 'inputType', 'autofill', 'filled', 'kd', 'on'];
+const REC_ALLOWED_TYPES = ['login-lock', 'login-fill', 'login-submit', 'kb-shot-close', 'touch-cancel', 'native-focus', 'switch-miss', 'kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail', 'load-fail', 'echo-skip', 'pull-skip'];
+const REC_ALLOWED_KEYS = ['sinceClose', 'idShort', 'earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm', 'vvTopBefore', 'scrollYBefore', 'distPx', 'prevTabindex', 'targetTabindex', 'sinceTouchEnd', 'enterHop', 'activeStart', 'activeEnd', 'sinceIntercept', 'stPreMs', 'stEnterMs', 'stCapMs', 'stPipeMs', 'stRestMs', 'stTotalMs', 'firstFrameMs', 'firstAnimMs', 'samplesLift', 'pageTop', 'pageTopStart', 'pageTopEnd', 'latencyMs', 'platformField', 'ev', 'inputType', 'autofill', 'filled', 'kd', 'on', 'files', 'ageMin', 'loadVer'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -12555,6 +12605,7 @@ async function recBgStart(){
   recBgOn = true;
   await recMirrorLoad();
   recBgListeners();
+  loadFailReport(); // Rev 2.32.347 (STRUCT-3a2): збій завантаження файлу з попереднього запуску → подія load-fail
   pushDebugEvent({ type: 'pageshow' });
   setTimeout(recFlushQueue, 4000);
 }
