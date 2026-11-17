@@ -1,0 +1,1651 @@
+// Аналітика: SVG-графіки, дашборди, анімація появи, картки Row 4, поява «Обліку»
+// Перенесено з index.html дослівно, без змін (Rev 2.32.348, STRUCT-3). Звичайний скрипт: функції й const/let лишаються глобальними; підключається в index.html перед основним <script>; оператори верхнього рівня цієї області лишились в основному скрипті.
+
+/* ============ SVG-графіки (без зовнішніх бібліотек) ============ */
+/* Кольори узгоджені з Design System v1.1 §2 / §12: дохід = info (синій),
+   витрати = expense (нейтральний графіт, НЕ червоний — червоний лише для проблем). */
+// Родовий відмінок назви місяця (той самий довідник, що й у setKpiTrend) - винесено
+// в окрему функцію, щоб використовувати і в блоці "Ключові показники місяця" (Rev 1.5.8).
+// Підпис тренду для верхніх KPI-карток.
+function setKpiTrend(id, type, curr, prevVal, month, hasCurrentData){
+  const el = document.getElementById(id);
+  el.classList.remove('is-positive','is-negative');
+  // Rev 2.1.1 — Debt Data Integrity, застосовано і тут: 0 ₴ через ВІДСУТНІСТЬ
+  // записів за місяць — це не те саме, що фактичний нуль. Порівнювати таке з
+  // минулим місяцем і показувати "-100%" оманливо, тому замінюємо на чесний
+  // напис (той самий принцип, що для боргу, тільки без carry-forward).
+  if(hasCurrentData === false){
+    el.textContent = 'Немає даних за ' + UA_MONTHS[parseInt(month.slice(5),10)-1];
+    return;
+  }
+  if(!prevVal || curr===prevVal){ el.textContent = '—'; return; }
+  const increased = curr > prevVal;
+  const pct = Math.abs((curr-prevVal)/prevVal*100).toFixed(1);
+  // Rev #30 (6D.65) — "Баланс" (як і "Борг") — іменник в однині, тому
+  // "Збільшився"/"Зменшився", не "Збільшились"/"Зменшились" (правильно
+  // лише для множинних "Доходи"/"Витрати").
+  const labels = (type==='debt' || type==='savings')
+    ? (increased ? '▲ Збільшився' : '▼ Зменшився')
+    : (increased ? '▲ Збільшились' : '▼ Зменшились');
+  const positive = (type==='income' || type==='savings') ? increased : !increased;
+  const prevMonthForms = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
+  const prevMonth = prevMonthForms[parseInt(shiftMonth(month,-1).slice(5),10)-1];
+  el.classList.add(positive ? 'is-positive' : 'is-negative');
+  el.innerHTML = `<span class="trend-main">${labels} на ${pct}%</span><span class="trend-context">відносно ${prevMonth}</span>`;
+}
+
+// Міні-спарклайн (без сітки й підписів) для верхніх KPI-карток
+function svgSparkline(values, colorVar){
+  const W=100, H=26, pad=2;
+  const max = Math.max(1, ...values), min = Math.min(0, ...values);
+  const range = (max-min) || 1;
+  const stepX = (W-2*pad) / ((values.length-1) || 1);
+  const pts = values.map((v,i)=>{
+    const x = pad + i*stepX;
+    const y = H - pad - ((v-min)/range) * (H-2*pad);
+    return [x, y];
+  });
+  const path = pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const points = pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.25" data-late fill="var(${colorVar})" stroke="var(--color-surface)" stroke-width=".75"/>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:100%; display:block;"><path data-draw pathLength="1" d="${path}" fill="none" stroke="var(${colorVar})" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>${points}</svg>`;
+}
+
+// Бейдж банку (Rev 1.6.3) — офіційні SVG-іконки, надані користувачем напряму
+// (name_*__style_square.svg + Privat_BR_RGB_white.svg), вбудовані як є, без
+// переробки контурів. id-и градієнтів/clipPath отримують унікальний суфікс на
+// виклик, щоб уникнути колізій, якщо той самий банк зустрічається кілька разів.
+let __bankIconSeq = 0;
+// Rev 2.32.157 (ICON-NEUTRAL, рішення чату): логотип лише для відомих банків (Приват, Моно, ПУМБ, Sense, Райффайзен); інакше (невідома чи порожня назва) нейтральне коло з приглушеною іконкою: картка для боргів, календар з гривнею для ОЧ (ті самі форми, що в порожніх станах, EMPTY_STATE_ICONS). kind: 'card' (за замовчуванням) | 'installment'. Було: сірий квадрат з двома літерами назви. Ризик: назва «Моно…» чи «Приват…» і далі дає логотип за збігом підрядка (правило не змінювалось).
+function bankIcon(name, size, block, kind){
+  const s = size || 22;
+  const lower = (name||'').toLowerCase();
+  const uid = 'bi' + (__bankIconSeq++);
+  // BugFix Rev 1.6.3: display:block на <svg> усередині інлайнового .t-name
+  // розривав рядок і зносив назву банку на новий рядок — тепер inline-block +
+  // vertical-align:middle тримають іконку й текст в одному рядку, а
+  // margin-right:6px дає видимий відступ тексту після іконки.
+  // Rev 2.30.0 (M4b) — block=true (аватар картки/шапка шторки): без margin-right й display:block прямо в style → CSS-правила .cdr-avatar/.drawer-head-icon більше не потребують !important.
+  const wrapOpen = block
+    ? `<svg width="${s}" height="${s}" viewBox="0 0 40 40" style="flex-shrink:0; display:block;">`
+    : `<svg width="${s}" height="${s}" viewBox="0 0 40 40" style="flex-shrink:0; margin-right:6px; display:inline-block; vertical-align:middle;">`;
+  const wrapClose = `</svg>`;
+
+  if(lower.includes('приват')){
+    return `${wrapOpen}
+      <g clip-path="url(#${uid}-clip)">
+        <path d="M32.7058 32H20.6827C20.6827 31.029 20.6922 30.0756 20.6803 29.1211C20.6636 27.7979 20.4866 26.4969 20.054 25.2395C19.0749 22.3911 17.0156 20.7497 14.1114 20.0511C12.5999 19.6871 11.061 19.6636 9.51861 19.6707C9.02784 19.673 8.53707 19.6707 8.03442 19.6707V8H32.7058V32ZM27.5985 27.0406V12.9771H13.1524V14.8521C20.3808 15.8595 24.6135 19.8421 25.6557 27.0417H27.5997L27.5985 27.0406Z" fill="#76AE42"/>
+        <path d="M8 31.9909V22.625H17.649V31.9909H8Z" fill="black"/>
+      </g>
+      <defs><clipPath id="${uid}-clip"><rect width="24.7059" height="24" fill="white" transform="translate(8 8)"/></clipPath></defs>
+    ${wrapClose}`;
+  }
+  if(lower.includes('моно')){
+    return `${wrapOpen}
+      <g clip-path="url(#${uid}-clip)">
+        <path d="M33.219 0.0605469H6.75236C3.07046 0.0605469 0.0856934 3.04532 0.0856934 6.72721V33.2172C0.0856934 36.8991 3.07046 39.8839 6.75236 39.8839H33.219C36.9009 39.8839 39.8857 36.8991 39.8857 33.2172V6.72721C39.8857 3.04532 36.9009 0.0605469 33.219 0.0605469Z" fill="url(#${uid}-grad)"/>
+        <path d="M13.3677 23.1069V18.6166C13.3677 17.3429 12.6857 16.7383 11.541 16.7383C10.5887 16.7383 9.76537 17.3043 9.40504 17.8703C9.17337 17.1626 8.59437 16.7383 7.68104 16.7383C6.7287 16.7383 5.90537 17.3299 5.64804 17.7033V16.8926H4.01404V23.1066H5.64804V18.9256C5.89237 18.5783 6.36871 18.1923 6.93471 18.1923C7.60371 18.1923 7.86104 18.604 7.86104 19.183V23.1066H9.5077V18.9126C9.73937 18.5779 10.2154 18.1919 10.7944 18.1919C11.4634 18.1919 11.721 18.6036 11.721 19.1826V23.1066L13.3677 23.1069ZM17.858 23.2613C15.8124 23.2613 14.5774 21.769 14.5774 19.9933C14.5774 18.2306 15.8124 16.7383 17.858 16.7383C19.9167 16.7383 21.1517 18.2306 21.1517 19.9933C21.1517 21.769 19.9167 23.2613 17.858 23.2613ZM17.858 21.8076C18.8747 21.8076 19.4534 20.971 19.4534 19.9933C19.4534 19.0283 18.8744 18.1923 17.858 18.1923C16.8414 18.1923 16.2754 19.0283 16.2754 19.9933C16.2754 20.9713 16.8417 21.8076 17.858 21.8076ZM28.1894 23.1069V18.7196C28.1894 17.5103 27.5334 16.7383 26.1694 16.7383C25.1527 16.7383 24.394 17.2273 23.995 17.7033V16.8926H22.361V23.1069H23.995V18.9256C24.265 18.5523 24.767 18.1923 25.4104 18.1923C26.105 18.1923 26.5554 18.4883 26.5554 19.3503V23.1069H28.1894ZM32.6924 23.2613C30.6467 23.2613 29.4117 21.769 29.4117 19.9933C29.4117 18.2306 30.6467 16.7383 32.6924 16.7383C34.751 16.7383 35.986 18.2306 35.986 19.9933C35.986 21.769 34.751 23.2613 32.6924 23.2613ZM32.6924 21.8076C33.709 21.8076 34.2877 20.971 34.2877 19.9933C34.2877 19.0283 33.7087 18.1923 32.6924 18.1923C31.6757 18.1923 31.1097 19.0283 31.1097 19.9933C31.1097 20.9713 31.676 21.8076 32.6924 21.8076Z" fill="white"/>
+      </g>
+      <defs>
+        <linearGradient id="${uid}-grad" x1="20.4474" y1="0.533547" x2="20.4474" y2="39.3295" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#373B45"/><stop offset="1" stop-color="#181A1D"/>
+        </linearGradient>
+        <clipPath id="${uid}-clip"><rect width="40" height="40" fill="white"/></clipPath>
+      </defs>
+    ${wrapClose}`;
+  }
+  if(lower.includes('пумб')){
+    return `${wrapOpen}
+      <rect width="40" height="40" rx="10" fill="#E60C2A"/>
+      <path d="M30.6658 20.8654C30.6658 21.8328 31.4553 22.4366 32.2913 22.4366C33.1582 22.4366 33.9167 21.8328 33.8933 20.9428C33.9167 20.0217 33.1348 19.418 32.2371 19.418C31.4011 19.4257 30.6968 19.9753 30.6658 20.8654ZM22.0899 24.0155H20.093V16.856H22.1131L23.9242 19.6347L25.7122 16.856H27.7323V24.0233H25.7354V20.1688L23.9242 22.8158L22.0899 20.1688V24.0155ZM15.2632 23.1254L12.144 16.856H14.3499L16.2694 20.6641L16.3468 20.4784L17.4769 16.856H19.706L17.4459 23.048C16.7338 25.1224 15.5573 26.1982 13.4598 26.2214V24.1471C14.5124 24.1471 15.0852 23.8607 15.271 23.1486V23.1254H15.2632ZM7.07432 24.0155H5V16.856H11.7415V24.0233H9.64398V18.7756H7.07432V24.0155ZM32.3996 24.387C30.271 24.387 28.4908 22.7075 28.4908 20.401C28.4908 18.0944 29.4893 16.4613 31.8268 15.4164C32.1906 15.2307 32.7711 15.0217 33.2432 14.6037C33.4289 14.4489 33.638 14.1858 33.7384 14L35.4723 15.0759C35.0775 16.1285 34.079 16.5155 33.1117 16.9102C32.1906 17.2508 31.3237 17.6223 30.9831 18.4582L31.0373 18.4814C31.5327 18.0325 32.2216 17.8236 32.9026 17.8236C34.528 17.8236 36.0528 19.1084 35.9986 20.9737C35.9444 23.3112 34.1024 24.387 32.3996 24.387Z" fill="white"/>
+    ${wrapClose}`;
+  }
+  if(lower.includes('sense')){
+    return `${wrapOpen}
+      <defs><clipPath id="${uid}-clip"><rect width="40" height="40" rx="10"/></clipPath></defs>
+      <g clip-path="url(#${uid}-clip)">
+        <rect width="40" height="40" fill="#2923FF"/>
+        <path d="M13.7432 22.2483C12.6724 22.2483 11.8765 21.5075 11.7738 20.4586H15.9877C16.4535 18.6029 15.4193 17.2129 13.5599 17.2129C11.9865 17.2129 10.6992 18.5699 10.6992 20.2312C10.6992 21.9513 12.0085 23.2496 13.7396 23.2496C15.0489 23.2496 16.0537 22.5784 16.5085 21.5515L15.6357 21.0051C15.3606 21.7459 14.7004 22.2483 13.7432 22.2483ZM13.5599 18.1811C14.5281 18.1811 15.0965 18.7496 15.0745 19.5931H11.8288C12.0232 18.7056 12.6613 18.1811 13.5599 18.1811Z" fill="white"/>
+        <path d="M20.2016 17.2129C19.4388 17.2129 18.8006 17.565 18.3459 18.0564V17.3816H17.319V23.0772H18.3459V20.0809C18.3459 19.0796 19.028 18.2141 20.1466 18.2141C21.0818 18.2141 21.6392 18.8082 21.6392 19.6628V23.0809H22.6661V19.5711C22.6625 18.0527 21.7163 17.2129 20.2016 17.2129Z" fill="white"/>
+        <path d="M32.231 23.2496C33.5403 23.2496 34.5452 22.5784 35 21.5515L34.1234 21.0051C33.8484 21.7459 33.1882 22.2483 32.231 22.2483C31.1601 22.2483 30.3642 21.5075 30.2616 20.4586H34.4755C34.9413 18.6029 33.9071 17.2129 32.0476 17.2129C30.4743 17.2129 29.187 18.5699 29.187 20.2312C29.1907 21.9513 30.4999 23.2496 32.231 23.2496ZM32.0476 18.1811C33.0158 18.1811 33.5843 18.7496 33.5623 19.5931H30.3166C30.511 18.7056 31.1491 18.1811 32.0476 18.1811Z" fill="white"/>
+        <path d="M25.9815 18.1885C26.6417 18.1885 27.2101 18.3609 27.8629 18.8707L27.8923 18.7716L28.4387 17.279L27.5952 17.0039L27.4412 17.6127C27.0267 17.3963 26.5316 17.2203 25.9925 17.2203C24.6136 17.2203 23.8507 17.8584 23.8507 18.8156C23.8507 19.7618 24.6832 20.2276 25.9705 20.6384C27.0194 20.9574 27.3165 21.2655 27.3165 21.5626C27.3165 22.0393 26.8507 22.3144 26.1869 22.3144C25.3324 22.3144 24.6026 21.8817 24.2175 21.2215L23.4326 21.8706C23.9094 22.6445 24.8666 23.2606 26.1429 23.2606C27.6465 23.2606 28.3764 22.4648 28.3764 21.4599C28.3764 20.7998 27.9326 20.2533 26.2346 19.6922C25.4717 19.4318 24.9143 19.2814 24.9143 18.7936C24.9106 18.4416 25.149 18.1885 25.9815 18.1885Z" fill="white"/>
+        <path d="M7.55256 18.1846C8.21271 18.1846 8.78115 18.357 9.43399 18.8667L9.46334 18.7677L10.0098 17.2751L9.16626 17L9.01221 17.6088C8.59779 17.3924 8.10269 17.2164 7.56357 17.2164C6.18459 17.2164 5.42176 17.8545 5.42176 18.8117C5.42176 19.758 6.25428 20.2237 7.54156 20.6345C8.59047 20.9535 8.88754 21.2616 8.88754 21.5587C8.88754 22.0355 8.42176 22.3105 7.75794 22.3105C6.90342 22.3105 6.17359 21.8777 5.78851 21.2176L5 21.8667C5.47677 22.6406 6.43398 23.2567 7.71027 23.2567C9.21392 23.2567 9.94377 22.4609 9.94377 21.456C9.94377 20.7958 9.50001 20.2494 7.80195 19.6883C7.03912 19.4279 6.48166 19.2775 6.48166 18.7897C6.48166 18.4377 6.72005 18.1846 7.55256 18.1846Z" fill="white"/>
+      </g>
+    ${wrapClose}`;
+  }
+  if(lower.includes('райф') || lower.includes('raif')){
+    return `${wrapOpen}
+      <defs><clipPath id="${uid}-clip"><rect width="40" height="40" rx="10"/></clipPath></defs>
+      <g clip-path="url(#${uid}-clip)">
+        <rect width="40" height="40" fill="#FFF200"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M12.9773 18.2667L8.99103 14.2787L7.91858 15.3461C7.96005 13.5074 8.7097 11.7556 10.0112 10.456C12.1342 8.39034 14.2505 9.59938 14.9806 10.3228L18.8202 14.1691L17.8675 15.1202L19.9584 17.2094L22.0477 15.1202L21.0967 14.1691L24.9379 10.3228C25.6697 9.59432 27.7894 8.38528 29.9074 10.4509C31.2096 11.75 31.9593 13.5021 32 15.3411L30.9326 14.2737L26.9395 18.2667L25.8401 17.169V14.5384L24.7119 15.6682V18.8485L23.1539 20.4049L31.2276 28.4787L28.0323 31.6826L19.9584 23.6003L11.8846 31.6742L8.6892 28.4703L16.763 20.4049L15.2066 18.8485V15.6716L14.0768 14.5384V17.169L12.9773 18.2667Z" fill="#2B2D33"/>
+      </g>
+    ${wrapClose}`;
+  }
+
+  return `<span class="bank-badge bank-badge-generic" aria-hidden="true" style="width:${s}px; height:${s}px;">${EMPTY_STATE_ICONS[kind === 'installment' ? 'calendar' : 'card']}</span>`;
+}
+
+// Заокруглений зверху прямокутник-колонка (Rev 1.5.10: GM використовує заокруглення лише
+// зверху, а не з усіх боків - stroke/rect так не вміє, тому будуємо шлях вручну).
+function roundedTopBarPath(x, y, w, h, r){
+  if(h<=0) return '';
+  r = Math.min(r, w/2, h);
+  return `M${x.toFixed(1)},${(y+h).toFixed(1)} L${x.toFixed(1)},${(y+r).toFixed(1)} Q${x.toFixed(1)},${y.toFixed(1)} ${(x+r).toFixed(1)},${y.toFixed(1)} L${(x+w-r).toFixed(1)},${y.toFixed(1)} Q${(x+w).toFixed(1)},${y.toFixed(1)} ${(x+w).toFixed(1)},${(y+r).toFixed(1)} L${(x+w).toFixed(1)},${(y+h).toFixed(1)} Z`;
+}
+function svgBarChart(trendData, totalSlots){
+  totalSlots = totalSlots || trendData.length || 1;
+  const W=480, H=172, padL=38, padR=10, padT=16, padB=22;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const rawMax = Math.max(1, ...trendData.map(t=>Math.max(t.totalIncome,t.totalExpense)));
+  const STEP=20000;
+  const numSteps = Math.max(1, Math.ceil(rawMax/STEP));
+  const axisMax = numSteps*STEP;
+  const groupW = plotW/totalSlots;
+  const barW = Math.min(17, groupW*0.28);
+  let grid='', bars='';
+  for(let i=0;i<=numSteps;i++){
+    const val = STEP*i;
+    const y = padT+plotH-(val/axisMax*plotH);
+    grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--color-chart-grid)" stroke-width="1"/>`;
+    grid += `<text x="${padL-8}" y="${(y+4).toFixed(1)}" font-size="12" font-weight="500" text-anchor="end" fill="var(--color-text-tertiary)">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`;
+  }
+  trendData.forEach((t,i)=>{
+    const gx = padL + i*groupW + groupW/2;
+    const incH = t.totalIncome/axisMax*plotH, expH = t.totalExpense/axisMax*plotH;
+    const incX = gx - barW - 3, expX = gx + 3;
+    const incY = padT+plotH-incH, expY = padT+plotH-expH;
+    bars += `<path class="dash-bar" d="${roundedTopBarPath(incX, incY, barW, incH, 6)}" fill="var(--color-success)"/>`;
+    bars += `<path class="dash-bar" d="${roundedTopBarPath(expX, expY, barW, expH, 6)}" fill="var(--color-error)"/>`;
+    if(t.totalIncome>0) bars += `<text data-late x="${(incX+barW/2).toFixed(1)}" y="${(incY-6).toFixed(1)}" font-size="12" text-anchor="middle" fill="var(--color-text-primary)" font-weight="600">${Math.round(t.totalIncome/1000)}k</text>`;
+    if(t.totalExpense>0) bars += `<text data-late x="${(expX+barW/2).toFixed(1)}" y="${(expY-6).toFixed(1)}" font-size="12" text-anchor="middle" fill="var(--color-text-primary)" font-weight="600">${Math.round(t.totalExpense/1000)}k</text>`;
+    bars += `<text x="${gx.toFixed(1)}" y="${H-8}" font-size="12" font-weight="500" text-anchor="middle" fill="var(--color-text-secondary)">${monthLabelShort(t.m)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">${grid}${bars}</svg>`;
+}
+
+function svgLineChart(debtTrend, totalSlots){
+  // Rev 2.1.0 — Debt Data Integrity: debtTrend тепер несе прапорець .actual
+  // (true = фактичний запис саме за цей місяць). Для місяців без факту НЕ
+  // малюємо ані точку, ані підпис суми, ані з'єднувальний відрізок лінії —
+  // справжній розрив замість carry-forward-фейку. Підпис місяця на осі X
+  // лишається завжди, щоб розрив був видимий саме на своєму місці.
+  totalSlots = totalSlots || debtTrend.length || 1;
+  const W=480, H=172, padL=42, padR=12, padT=18, padB=22;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const vals = debtTrend.filter(t=>t.actual).map(t=>t.total);
+  const rawMax = Math.max(1, ...vals, 0);
+  const STEP=40000;
+  const numSteps = Math.max(1, Math.ceil(rawMax/STEP));
+  const axisMax = numSteps*STEP;
+  const inset = 18;
+  const usablePlotW = Math.max(0, plotW - inset*2);
+  const stepX = usablePlotW/((totalSlots-1) || 1);
+  let grid='', labels='';
+  for(let i=0;i<=numSteps;i++){
+    const val = STEP*i;
+    const y = padT+plotH-(val/axisMax*plotH);
+    grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--color-chart-grid)" stroke-width="1"/>`;
+    grid += `<text x="${padL-8}" y="${(y+4).toFixed(1)}" font-size="12" font-weight="500" text-anchor="end" fill="var(--color-text-tertiary)">${val>=1000?Math.round(val/1000)+'k':Math.round(val)}</text>`;
+  }
+  const points = debtTrend.map((t,i)=>{
+    const x = padL + inset + i*stepX;
+    labels += `<text x="${x.toFixed(1)}" y="${H-8}" font-size="12" font-weight="500" text-anchor="middle" fill="var(--color-text-secondary)">${monthLabelShort(t.m)}</text>`;
+    if(!t.actual) return { x, y:null, actual:false, total:t.total };
+    const y = padT+plotH-(t.total/axisMax*plotH);
+    return { x, y, actual:true, total:t.total };
+  });
+  // Будуємо шлях лише окремими сегментами між сусідніми ФАКТИЧНИМИ точками —
+  // кожен розрив (не-факт) перериває поточний сегмент, новий сегмент
+  // починається з наступної фактичної точки.
+  // Rev 2.25.0 (M2) — кожен сегмент між фактичними точками тепер окремий <path data-draw> (раніше — один path з кількома "M"):
+  // візуально те саме, але анімація "малювання" ніколи не з'єднує розриви (кожен сегмент малюється окремо).
+  let segPaths = '', run = [];
+  const flushRun = function(){ if(run.length>1) segPaths += `<path data-draw pathLength="1" d="${run.map((r,j)=>(j===0?'M':'L')+r.x.toFixed(1)+' '+r.y.toFixed(1)).join(' ')}" fill="none" stroke="#F59E0B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`; run = []; };
+  points.forEach(p=>{
+    if(p.actual){ run.push(p); }
+    else flushRun();
+  });
+  flushRun();
+  let circles = '';
+  points.forEach(p=>{
+    if(!p.actual) return;
+    circles += `<circle data-late cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="#F59E0B" stroke="var(--color-surface)" stroke-width="2"/>`;
+    if(p.total>0) labels += `<text data-late x="${p.x.toFixed(1)}" y="${(p.y-12).toFixed(1)}" font-size="12" text-anchor="middle" fill="var(--color-text-primary)" font-weight="600">${p.total>=1000?Math.round(p.total/1000)+'k':Math.round(p.total)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; display:block;">${grid}
+    ${segPaths}${circles}${labels}</svg>`;
+}
+
+// ===== Rev 2.25.0 (M2) / Rev 2.27.0 (M2.1) — дашборди «оживають» (docs/DESIGN_SYSTEM.md, ROADMAP 32.43, 32.45) =====
+// Принцип: renderDashboard() малює КІНЦЕВИЙ стан (числа, SVG) синхронно; анімація — окремий шар поверх готового DOM, що не змінює дані й не відкладає їх.
+// M2.1: (1) анімація при КОЖНОМУ візиті (режим dashboard-replay), (2) повільніше (токени --motion-chart/-bars/-count/-card), (3) початковий стан виставляється синхронно
+// (ніякого "кадру готового дашборду"), (4) лінії/кільце/стовпчики малює rAF-цикл (inline-стилі), а не WAAPI по SVG-властивостях, (5) вузли SVG не замінюються, якщо data-sig не змінився.
+const DASH_MAX_QUEUE = 8;          // найбільше карток у черзі появи
+const DASH_STAGGER_MS = 40;        // типова розсинхронізація карток (× --motion-k)
+const DASH_MAX_COUNTERS = 6;
+const DASH_MAX_TOTAL_MS = 2200;    // стеля хореографії 
+const DASH_REPLAY_SCALE = 0.7;     // повтор: лічильники/графіки коротші, ніж у першому показі
+const DASH_UPDATE_SCALE = 0.4;     // оновлення змінених даних
+const DASH_COUNTER_IDS = ['kpi-income', 'kpi-expense', 'kpi-savings', 'kpi-debt', 'kpi-mandatory', 'kpi-free'];
+const DASH_CHART_HOSTS = ['spark-income', 'spark-expense', 'spark-savings', 'spark-debt', 'chart-income-expense', 'chart-debt-line', 'debt-donut'];
+// Rev 2.32.0 (F): тест card-reveal завершено — обрано «Стандартно»: тривалість появи однієї картки (d) і розсинхронізація між картками (s), мс при ×1.
+const CARD_REVEAL = { d: 420, s: 40 };
+function staggerDelay(i, k, max, step){
+  const n = Math.max(1, Math.floor(max) || 1);
+  const idx = Math.min(Math.max(0, Math.floor(i) || 0), n - 1);
+  const kk = (typeof k === 'number' && isFinite(k) && k > 0) ? k : 1;
+  const st = (typeof step === 'number' && isFinite(step) && step >= 0) ? step : DASH_STAGGER_MS;
+  return Math.round(idx * st * kk);
+}
+// Ціле значення лічильника в момент t∈[0,1]: ease-out (cubic), завжди ціле, монотонне від from до to; t>=1 → точно to.
+function countStep(from, to, t){
+  if(!(t < 1)) return to;
+  if(!(t > 0)) return from;
+  const eased = 1 - Math.pow(1 - t, 3);
+  return Math.round(from + (to - from) * eased);
+}
+// Стабільний підпис даних графіка (числа округлено до цілих; рядки — як є, напр. місяці) — повторний рендер із тими самими даними не замінює вузол.
+function chartSignature(data){
+  return JSON.stringify(data, function(key, v){ return typeof v === 'number' ? (isFinite(v) ? Math.round(v) : null) : v; });
+}
+// Тривалість і розсинхронізація появи картки (× k).
+function cardRevealTiming(k){
+  const kk = (typeof k === 'number' && isFinite(k) && k > 0) ? k : 1;
+  return { duration: Math.round(CARD_REVEAL.d * kk), stagger: Math.round(CARD_REVEAL.s * kk) };
+}
+// Тривалість малювання: 'lines'/'ring' → --motion-chart, 'bars' → --motion-bars (× k); reduced ≤ 80 мс.
+function chartDuration(kind, k, reduced){
+  return motionDuration(kind === 'bars' ? 'bars' : 'chart', k, reduced);
+}
+// cubic-bezier(.22, 1, .36, 1) (крива графіків) — ease(t) для rAF-циклу; ease(0)=0, ease(1)=1, монотонна.
+function bezierEase(t){
+  if(!(t > 0)) return 0;
+  if(!(t < 1)) return 1;
+  const x1 = 0.22, y1 = 1, x2 = 0.36, y2 = 1;
+  const bx = s => 3 * (1 - s) * (1 - s) * s * x1 + 3 * (1 - s) * s * s * x2 + s * s * s;
+  const by = s => 3 * (1 - s) * (1 - s) * s * y1 + 3 * (1 - s) * s * s * y2 + s * s * s;
+  let lo = 0, hi = 1;
+  for(let i = 0; i < 28; i++){ const mid = (lo + hi) / 2; if(bx(mid) < t) lo = mid; else hi = mid; }
+  return by((lo + hi) / 2);
+}
+// Чи треба замінювати вузол графіка: немає попереднього підпису або він змінився. Той самий підпис → вузол лишається (інакше фоновий рендер обриває анімацію).
+function shouldReplaceChart(prevSig, nextSig){
+  return prevSig === undefined || prevSig === null || prevSig !== nextSig;
+}
+// Скільки карток лишити в черзі, щоб остання встигла завершитись у maxTotalMs; timing = cardRevealTiming().
+function dashboardQueueSize(count, timing, maxItems, maxTotalMs){
+  let n = Math.max(0, Math.min(count, maxItems));
+  while(n > 1 && (n - 1) * timing.stagger + timing.duration > maxTotalMs) n--;
+  return n;
+}
+// Рішення про режим: state = { trigger:'first'|'visit'|'month'|'update'|'render', hidden, reduced, active, played, sameMonth, changed }.
+// → { mode:'full'|'replay'|'update'|'none', skipped: null|'reduced'|'hidden'|'no-change' }.
+function dashboardReplayMode(state){
+  const s = state || {};
+  const none = reason => ({ mode: 'none', skipped: reason });
+  if(s.trigger === 'render') return none('no-change'); // фоновий рендер (синхронізація/Realtime): статика
+  if(s.reduced) return none('reduced');
+  if(s.hidden || !s.active) return none('hidden');
+  switch(s.trigger){
+    case 'first': return s.played ? none('no-change') : { mode: 'full', skipped: null };
+    case 'month': return { mode: 'full', skipped: null };
+    case 'update': return s.changed ? { mode: 'update', skipped: null } : none('no-change');
+    case 'visit':
+      // Rev 2.31.0 (M4c): тест dashboard-replay завершено — «Щоразу» єдина поведінка: кожен візит перемальовується (replay); перший показ/інший місяць — full.
+      if(!s.played || !s.sameMonth) return { mode: 'full', skipped: null };
+      return { mode: 'replay', skipped: null };
+  }
+  return none('no-change');
+}
+// ===== Rev 2.28.0 (M2.2) — картки/графіки нижче першого екрана малюються, коли до них доскролили (IntersectionObserver), раз на візит =====
+const CHART_REVEAL_DWELL_MS = 120; // скільки картка має ЗАЛИШАТИСЬ у видимій області (≥25%), перш ніж малюватись: швидке проскакування повз не запускає анімацію
+const CHART_REVEAL_RATIO = 0.25;
+// layout = { viewportH, cards:[{ id, top, bottom }] } → id карток, що цілком нижче першого екрана (top >= viewportH). Видимі (хоч частково) — перший екран, вище — вже проскролені.
+function chartsBelowFold(layout){
+  const l = layout || {};
+  const vh = Number(l.viewportH);
+  if(!(vh > 0) || !Array.isArray(l.cards)) return [];
+  return l.cards.filter(c => c && Number(c.top) >= vh).map(c => c.id);
+}
+// 'draw' — малювати зараз; 'wait' — ще ні (не в області / замало часу в області); 'skip' — не малювати (вже намальовано, reduced, прихована сторінка).
+// entry = { isIntersecting, intersectionRatio }, state = { revealed, reduced, hidden, dwellMs }.
+function revealDecision(entry, state){
+  const e = entry || {}, s = state || {};
+  if(s.revealed || s.reduced || s.hidden) return 'skip';
+  const inView = !!e.isIntersecting && Number(e.intersectionRatio || 0) >= CHART_REVEAL_RATIO;
+  if(!inView) return 'wait';
+  return Number(s.dwellMs || 0) >= CHART_REVEAL_DWELL_MS ? 'draw' : 'wait';
+}
+// Чи відкладати малювання нижче першого екрана: лише повна/повторна поява, не reduced, і лише якщо є IntersectionObserver (інакше — кінцевий стан одразу).
+function shouldDeferChart(mode, reduced, hasObserver){
+  return !!hasObserver && !reduced && (mode === 'full' || mode === 'replay');
+}
+const dashState = { played: false, seenMonth: null, seenNums: {}, seenSigs: {}, running: null, updatePending: false, enterAt: 0,
+  deferred: { io: null, cards: new Map(), runners: new Set(), mode: 'full', scale: 1, trigger: 'first' } };
+function setDashFinal(id, n){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(typeof n === 'number' && isFinite(n)) el.dataset.final = String(Math.round(n)); else delete el.dataset.final;
+}
+// Замінює вміст графіка ЛИШЕ коли змінився підпис даних (або вузла ще нема). Зміна під час анімації: спершу finish() поточної → оновлення DOM → коротка анімація оновлення.
+function setDashChart(id, data, build){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const sig = chartSignature(data);
+  if(!shouldReplaceChart(el.dataset.sig, sig) && el.firstElementChild) return;
+  if(dashState.running){ dashState.updatePending = true; finishDashboard(); }
+  el.innerHTML = build();
+  el.dataset.sig = sig;
+}
+function clearDashChart(id, html){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(dashState.running){ dashState.updatePending = true; finishDashboard(); }
+  el.innerHTML = html;
+  delete el.dataset.sig;
+}
+function dashSnapshotFromDom(){
+  const nums = {}, sigs = {};
+  DASH_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el && el.dataset.final !== undefined) nums[id] = Number(el.dataset.final); });
+  DASH_CHART_HOSTS.forEach(function(id){ const el = document.getElementById(id); if(el && el.dataset.sig !== undefined) sigs[id] = el.dataset.sig; });
+  return { nums: nums, sigs: sigs };
+}
+function dashMarkSeen(month){
+  const snap = dashSnapshotFromDom();
+  dashState.seenNums = snap.nums; dashState.seenSigs = snap.sigs; dashState.seenMonth = month;
+}
+function dashChanged(){
+  const snap = dashSnapshotFromDom();
+  return JSON.stringify(snap.nums) !== JSON.stringify(dashState.seenNums) || JSON.stringify(snap.sigs) !== JSON.stringify(dashState.seenSigs);
+}
+function dashIsActive(){
+  const v = document.getElementById('view-analytics');
+  const body = document.getElementById('analytics-body');
+  return lastActiveTab === 'analytics' && !!v && !v.classList.contains('hidden') && !!body && !body.classList.contains('hidden');
+}
+function dashStartupReady(){ return document.visibilityState === 'visible' && document.readyState === 'complete'; }
+function recordDashSkip(reason, trigger){
+  recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', mode: 'none', skipped: reason, elements: 0, counters: 0, charts: 0, chartsAnimated: 0, chartsSkipped: 0, frames: 0, maxGapMs: 0, durationMs: 0,
+    reduced: motionReduced(), repeat: dashState.played });
+}
+// Єдина точка рішення: рахує режим і (синхронно, ДО малювання кадру) стартує анімацію або фіксує причину пропуску. "Перший показ" витрачається ЛИШЕ коли анімація реально стартувала.
+function dashRun(trigger, month, active){
+  const d = dashboardReplayMode({ trigger: trigger, active: active, hidden: !dashStartupReady(), reduced: motionReduced(), played: dashState.played,
+    sameMonth: dashState.seenMonth === month, changed: dashChanged() });
+  if(d.mode === 'none'){
+    if(trigger !== 'render') recordDashSkip(d.skipped, trigger);
+    if(active && !dashState.running && d.skipped !== 'hidden') dashMarkSeen(month); // користувач бачить цей стан → наступне порівняння від нього
+    return;
+  }
+  playDashboard(d.mode, trigger, month);
+}
+// Наприкінці кожного renderDashboard(): перший показ / зміна місяця / оновлення змінених даних — анімуємо; решта фонових рендерів — статика.
+function dashAfterRender(month){
+  const active = dashIsActive();
+  let trigger = 'render';
+  if(dashState.updatePending){ trigger = 'update'; dashState.updatePending = false; }
+  else if(active && !dashState.running){
+    if(!dashState.played) trigger = 'first';
+    else if(dashState.seenMonth !== null && dashState.seenMonth !== month) trigger = 'month';
+  }
+  dashRun(trigger, month, active);
+}
+// Перехід на вкладку «Аналітика» (performSwitchTab, синхронно після показу вкладки): повна/коротка анімація залежно від варіанта dashboard-replay.
+function onDashboardVisit(){
+  dashRun('visit', selectedMonth, dashIsActive());
+  recordStatusDots();
+}
+// Rev 2.31.5 (B2-lite) — подія status-dots при відкритті «Аналітики»: скільки крапок-статусів видно (KPI «Борг», кільце, «Борги по картках») і яка причина (той самий debtUiStatus), без назв і сум.
+function recordStatusDots(){
+  if(!debugRecordingActive || !selectedMonth) return;
+  const dots = ['kpi-debt-asof', 'debt-donut-asof', 'debts-card-asof'].filter(function(id){ const el = document.getElementById(id); return el && !el.classList.contains('hidden'); }).length;
+  const st = debtUiStatus(debtAsOfInfo(selectedMonth, 'card'), selectedMonth, 'card');
+  pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'status-dots', tab: 'analytics', dots: dots, reasons: { status: st.status, missingCards: missingCardDebtsForMonth(selectedMonth).length } });
+}
+// Перший показ при старті не втрачається: якщо сторінка була невидима/ще вантажилась — стартуємо, коли стала видимою й завантаженою.
+function dashKick(){
+  if(!selectedMonth || dashState.played || dashState.running || !dashIsActive()) return;
+  requestAnimationFrame(function(){ if(!dashState.played && !dashState.running && dashIsActive()) dashRun('first', selectedMonth, true); });
+}
+
+function finishDashboard(){
+  const r = dashState.running;
+  if(r){ dashState.running = null; r.stop(false); }
+}
+function pathLengthSupported(){
+  return typeof SVGGeometryElement !== 'undefined' && 'pathLength' in SVGGeometryElement.prototype;
+}
+// Прибирає очікування відкладених карток (новий візит/місяць): скасовує спостерігач і таймери, повертає картки в кінцевий стан, дозавершує незавершені малювання.
+function dashClearDeferred(){
+  const d = dashState.deferred;
+  if(d.io){ try{ d.io.disconnect(); }catch(e){} d.io = null; }
+  d.cards.forEach(function(st, card){
+    if(st.timer) clearTimeout(st.timer);
+    card.style.removeProperty('opacity'); card.style.removeProperty('transform');
+  });
+  d.cards.clear();
+  d.runners.forEach(function(r){ r.stop(false); });
+  d.runners.clear();
+}
+// Бігунок анімації: картки (WAAPI) + лічильники + елементи графіків (rAF, inline-стилі). Початковий стан — paint(0) синхронно ДО першого кадру. Без читань розмітки в циклі.
+function makeDashRunner(onFinish, tabName){
+  const runnerTab = tabName || 'analytics';
+  const r = { cardAnims: [], counters: [], items: [], endAt: 0, charts: [], cards: 0, ended: false, frames: 0, maxGap: 0, startedAt: 0 };
+  r.track = function(delay, dur){ if(delay + dur > r.endAt) r.endAt = delay + dur; };
+  r.empty = function(){ return !r.cardAnims.length && !r.counters.length && !r.items.length; };
+  function paint(ms){
+    for(let i = 0; i < r.items.length; i++){
+      const it = r.items[i];
+      const p = Math.min(1, Math.max(0, (ms - it.delay) / it.dur));
+      const st = it.el.style;
+      if(it.kind === 'line' || it.kind === 'ring'){
+        const e = bezierEase(p);
+        if(it.kind === 'line') st.strokeDasharray = it.pl ? '1' : String(it.len);
+        st.strokeDashoffset = String(it.len * (1 - e));
+        st.opacity = String(it.op * Math.min(1, p * 10));
+      }else if(it.kind === 'bar'){
+        st.transform = 'scaleY(' + bezierEase(p) + ')';
+      }else{
+        st.opacity = String(p);
+      }
+    }
+    for(let i = 0; i < r.counters.length; i++){
+      const c = r.counters[i];
+      if(!c.el.isConnected || c.el.dataset.final === undefined) continue;
+      const t = (ms - c.delay) / c.dur;
+      if(t >= 0) c.el.textContent = fmt(countStep(c.from, Number(c.el.dataset.final), t));
+    }
+  }
+  r.stop = function(completed){
+    if(r.ended) return;
+    r.ended = true;
+    r.cardAnims.forEach(function(a){ try{ a.cancel(); }catch(e){} });
+    r.items.forEach(function(it){
+      const st = it.el.style;
+      st.removeProperty('stroke-dasharray'); st.removeProperty('stroke-dashoffset'); st.removeProperty('opacity'); st.removeProperty('transform');
+    });
+    r.counters.forEach(function(c){ if(c.el.isConnected && c.el.dataset.final !== undefined) c.el.textContent = fmt(Number(c.el.dataset.final)); });
+    onFinish(completed, r, performance.now() - r.startedAt);
+  };
+  r.start = function(){
+    paint(0);
+    r.startedAt = performance.now();
+    let lastT = r.startedAt;
+    function tick(now){
+      if(r.ended) return;
+      if(lastActiveTab !== runnerTab){ r.stop(false); return; }
+      r.frames++;
+      const gap = now - lastT; if(gap > r.maxGap) r.maxGap = gap;
+      lastT = now;
+      const el = now - r.startedAt;
+      paint(el);
+      if(el >= r.endAt + 20){ r.stop(true); return; }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  };
+  return r;
+}
+function playDashboard(mode, trigger, month){
+  finishDashboard();
+  if(!dashStartupReady() || !dashIsActive()) return;
+  const body = document.getElementById('analytics-body');
+  const k = motionK;
+  const scale = mode === 'full' ? 1 : (mode === 'replay' ? DASH_REPLAY_SCALE : DASH_UPDATE_SCALE);
+  const timing = cardRevealTiming(k);
+  const seenNums = dashState.seenNums, seenSigs = dashState.seenSigs;
+  const diag = debugRecordingActive;
+  const plSupported = pathLengthSupported();
+  const stats = { pathLenZero: 0, chartsSkipped: 0 };
+  if(mode !== 'update'){ dashClearDeferred(); dashState.enterAt = performance.now(); }
+
+  // Лічильник усередині кадру/одиниці: full — від 0 (або від баченого при зміні місяця), replay — від 0, update — лише змінені від баченого.
+  function addCounter(r, el, delay){
+    if(r.counters.length >= DASH_MAX_COUNTERS || el.dataset.final === undefined) return;
+    const to = Number(el.dataset.final);
+    let from = 0;
+    if(mode === 'update' || (mode === 'full' && trigger === 'month')) from = typeof seenNums[el.id] === 'number' ? seenNums[el.id] : (mode === 'update' ? to : 0);
+    if(from === to) return;
+    const dur = Math.max(120, Math.min(Math.round(motionDuration('count', k, false) * scale), DASH_MAX_TOTAL_MS - delay));
+    r.counters.push({ el: el, from: from, delay: delay, dur: dur });
+    r.track(delay, dur);
+    el.textContent = fmt(from);
+  }
+  // Графік-господар: лінії/кільце — dashoffset, стовпчики — scaleY, точки й підписи — opacity наприкінці.
+  function addHost(r, host, base){
+    const lineDur0 = Math.round(chartDuration('lines', k, false) * scale), barDur0 = Math.round(chartDuration('bars', k, false) * scale);
+    const lineDur = Math.max(160, Math.min(lineDur0, Math.round((DASH_MAX_TOTAL_MS - base) / 1.3)));
+    const barDur = Math.max(160, Math.min(barDur0, DASH_MAX_TOTAL_MS - base - 330));
+    const lateDelay = base + Math.round(lineDur * 0.85), lateDur = Math.max(120, Math.round(lineDur * 0.3));
+    let any = false;
+    host.querySelectorAll('[data-draw]').forEach(function(path){
+      const L = (path.getTotalLength ? path.getTotalLength() : 0);
+      if(diag && !(L > 0)) stats.pathLenZero++;
+      const dash = plSupported ? 1 : L;
+      if(!(dash > 0)) return;
+      const op = parseFloat(path.getAttribute('opacity'));
+      r.items.push({ kind: 'line', el: path, delay: base, dur: lineDur, len: dash, pl: plSupported, op: isNaN(op) ? 1 : op });
+      r.track(base, lineDur); any = true;
+    });
+    host.querySelectorAll('.dash-bar').forEach(function(bar, i){
+      const d = base + staggerDelay(i, k, 12, 30) * (mode === 'update' ? 0 : 1);
+      r.items.push({ kind: 'bar', el: bar, delay: d, dur: barDur });
+      r.track(d, barDur); any = true;
+    });
+    host.querySelectorAll('[data-ring]').forEach(function(ring){
+      const arc = parseFloat((ring.getAttribute('stroke-dasharray') || '').split(/[ ,]+/)[0]) || 0;
+      if(!(arc > 0)) return;
+      r.items.push({ kind: 'ring', el: ring, delay: base, dur: lineDur, len: arc, op: 1 });
+      r.track(base, lineDur); any = true;
+    });
+    if(any){
+      host.querySelectorAll('[data-late]').forEach(function(late){
+        r.items.push({ kind: 'late', el: late, delay: lateDelay, dur: lateDur });
+        r.track(lateDelay, lateDur);
+      });
+      r.charts.push(host.id);
+    }
+    return any;
+  }
+  // Одиниця = картка: її поява + лічильники й графіки всередині (однаково для першого екрана й для відкладеної появи).
+  function addUnit(r, card, base){
+    r.cardAnims.push(card.animate([
+      { opacity: 0, transform: 'translateY(' + (12 * k) + 'px) scale(.985)' },
+      { opacity: 1, transform: 'translateY(0px) scale(1)' }
+    ], { duration: timing.duration, delay: base, easing: MOTION_EASE_OUT, fill: 'backwards' }));
+    r.track(base, timing.duration);
+    r.cards++;
+    DASH_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el && card.contains(el)) addCounter(r, el, base); });
+    DASH_CHART_HOSTS.forEach(function(id){
+      const host = document.getElementById(id);
+      if(!host || !card.contains(host) || host.dataset.sig === undefined) return;
+      if(!addHost(r, host, base)) stats.chartsSkipped++;
+    });
+  }
+
+  // ---- перший екран ----
+  const mainRunner = makeDashRunner(function(completed, r, durationMs){
+    if(dashState.running && dashState.running.stop === r.stop) dashState.running = null;
+    dashState.played = true;
+    dashMarkSeen(month);
+    if(completed){
+      recordMotionPerf({ kind: 'dashboard-enter', tab: 'analytics', mode: mode, skipped: null, elements: r.cards, counters: r.counters.length, charts: r.charts.length, chartsAnimated: r.charts.length, chartsSkipped: stats.chartsSkipped,
+        deferredCharts: deferredCharts, pathLenZero: stats.pathLenZero, pathLengthAttr: plSupported,
+        frames: r.frames, maxGapMs: Math.round(r.maxGap), durationMs: Math.round(durationMs), reduced: false, repeat: mode !== 'full' });
+    }
+  });
+  let deferredCharts = 0;
+  if(mode === 'update'){
+    // оновлення змінених даних: лише змінені лічильники й графіки, без карток і без відкладення
+    DASH_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el) addCounter(mainRunner, el, 0); });
+    DASH_CHART_HOSTS.forEach(function(id){
+      const host = document.getElementById(id);
+      if(!host || host.dataset.sig === undefined) return;
+      if(seenSigs[id] === host.dataset.sig){ stats.chartsSkipped++; return; }
+      if(!addHost(mainRunner, host, 0)) stats.chartsSkipped++;
+    });
+  }else{
+    const vh = window.innerHeight;
+    const all = Array.from(body.querySelectorAll('.kpi-card, .card')).filter(function(el){ return !el.parentElement.closest('.kpi-card, .card'); });
+    const rects = all.map(function(el, i){ const rc = el.getBoundingClientRect(); return { id: i, top: rc.top, bottom: rc.bottom }; }); // одне читання розмітки до старту
+    let queue = all.filter(function(el, i){ return rects[i].bottom > 0 && rects[i].top < vh; });
+    queue = queue.slice(0, dashboardQueueSize(queue.length, timing, DASH_MAX_QUEUE, DASH_MAX_TOTAL_MS));
+    queue.forEach(function(el, i){ addUnit(mainRunner, el, Math.min(i, queue.length - 1) * timing.stagger); });
+    // нижче першого екрана: початковий стан (opacity/transform — висота не змінюється) + IntersectionObserver; без нього — кінцевий стан одразу
+    const below = chartsBelowFold({ viewportH: vh, cards: rects });
+    if(below.length && shouldDeferChart(mode, false, typeof IntersectionObserver === 'function')){
+      const d = dashState.deferred;
+      d.mode = mode; d.scale = scale; d.trigger = trigger;
+      d.io = new IntersectionObserver(onDashCardIntersect, { root: document.getElementById('main-col'), rootMargin: '0px 0px -10% 0px', threshold: [0, CHART_REVEAL_RATIO] });
+      below.forEach(function(idx){
+        const card = all[idx];
+        card.style.opacity = '0'; card.style.transform = 'translateY(' + (12 * k) + 'px) scale(.985)';
+        d.cards.set(card, { timer: null, ok: false });
+        DASH_CHART_HOSTS.forEach(function(id){ const h = document.getElementById(id); if(h && card.contains(h) && h.dataset.sig !== undefined) deferredCharts++; });
+        d.io.observe(card);
+      });
+    }
+  }
+
+  if(mainRunner.empty()){
+    dashState.played = true; dashMarkSeen(month);
+    if(!dashState.deferred.cards.size) recordDashSkip('no-change', trigger);
+    return;
+  }
+  dashState.running = { stop: mainRunner.stop };
+  mainRunner.start();
+}
+// IntersectionObserver: картка стала видимою ≥25% (rootMargin -10% знизу) → чекаємо CHART_REVEAL_DWELL_MS і, якщо вона досі в області, малюємо (раз на візит).
+function onDashCardIntersect(entries){
+  const d = dashState.deferred;
+  entries.forEach(function(entry){
+    const st = d.cards.get(entry.target);
+    if(!st) return;
+    st.ok = revealDecision(entry, { revealed: false, reduced: false, hidden: false, dwellMs: CHART_REVEAL_DWELL_MS }) === 'draw';
+    if(st.ok && !st.timer){
+      st.timer = setTimeout(function(){ st.timer = null; dashRevealCard(entry.target, 0); }, CHART_REVEAL_DWELL_MS);
+    }else if(!st.ok && st.timer){
+      clearTimeout(st.timer); st.timer = null; // проскочила повз — чекаємо, поки справді зупиниться в області
+    }
+  });
+}
+function dashRevealCard(card, attempt){
+  const d = dashState.deferred;
+  const st = d.cards.get(card);
+  if(!st || !st.ok) return;
+  if(!dashStartupReady() || !dashIsActive()){
+    if(attempt < 20) st.timer = setTimeout(function(){ st.timer = null; dashRevealCard(card, attempt + 1); }, 250);
+    return;
+  }
+  // Перевірка перед малюванням (одне читання розмітки, не в циклі анімації): IO-повідомлення можуть запізнюватись, тож переконуємось, що картка ДОСІ в області ≥25%.
+  const root = document.getElementById('main-col');
+  if(root){
+    const rc = card.getBoundingClientRect(), rr = root.getBoundingClientRect();
+    const visH = Math.min(rc.bottom, rr.bottom - rr.height * 0.1) - Math.max(rc.top, rr.top);
+    if(!(rc.height > 0) || visH / rc.height < CHART_REVEAL_RATIO){ st.ok = false; return; }
+  }
+  d.cards.delete(card);
+  if(d.io) d.io.unobserve(card);
+  card.style.removeProperty('opacity'); card.style.removeProperty('transform');
+  const k = motionK, scale = d.scale, mode = d.mode;
+  const timing = cardRevealTiming(k);
+  const plSupported = pathLengthSupported();
+  const enterMs = Math.round(performance.now() - dashState.enterAt);
+  const diag = debugRecordingActive;
+  let pathLenZero = 0;
+  const runner = makeDashRunner(function(completed, r, durationMs){
+    d.runners.delete(r);
+    if(completed){
+      r.charts.forEach(function(id){
+        recordMotionPerf({ kind: 'chart-reveal', chart: id, fromEnterMs: enterMs, frames: r.frames, maxGapMs: Math.round(r.maxGap), durationMs: Math.round(durationMs), pathLenZero: pathLenZero, pathLengthAttr: plSupported });
+      });
+    }
+  });
+  // та сама побудова, що й на першому екрані (тривалості, крива, лічильники, підписи)
+  runner.cardAnims.push(card.animate([
+    { opacity: 0, transform: 'translateY(' + (12 * k) + 'px) scale(.985)' },
+    { opacity: 1, transform: 'translateY(0px) scale(1)' }
+  ], { duration: timing.duration, delay: 0, easing: MOTION_EASE_OUT, fill: 'backwards' }));
+  runner.track(0, timing.duration); runner.cards++;
+  DASH_COUNTER_IDS.forEach(function(id){
+    const el = document.getElementById(id);
+    if(!el || !card.contains(el) || el.dataset.final === undefined || runner.counters.length >= DASH_MAX_COUNTERS) return;
+    const to = Number(el.dataset.final);
+    if(to === 0) return;
+    const dur = Math.max(120, Math.round(motionDuration('count', k, false) * scale));
+    runner.counters.push({ el: el, from: 0, delay: 0, dur: dur }); runner.track(0, dur); el.textContent = fmt(0);
+  });
+  DASH_CHART_HOSTS.forEach(function(id){
+    const host = document.getElementById(id);
+    if(!host || !card.contains(host) || host.dataset.sig === undefined) return;
+    const lineDur = Math.max(160, Math.round(chartDuration('lines', k, false) * scale)), barDur = Math.max(160, Math.round(chartDuration('bars', k, false) * scale));
+    const lateDelay = Math.round(lineDur * 0.85), lateDur = Math.max(120, Math.round(lineDur * 0.3));
+    let any = false;
+    host.querySelectorAll('[data-draw]').forEach(function(path){
+      const L = path.getTotalLength ? path.getTotalLength() : 0;
+      if(diag && !(L > 0)) pathLenZero++;
+      const dash = plSupported ? 1 : L; if(!(dash > 0)) return;
+      const op = parseFloat(path.getAttribute('opacity'));
+      runner.items.push({ kind: 'line', el: path, delay: 0, dur: lineDur, len: dash, pl: plSupported, op: isNaN(op) ? 1 : op }); runner.track(0, lineDur); any = true;
+    });
+    host.querySelectorAll('.dash-bar').forEach(function(bar, i){
+      const d2 = staggerDelay(i, k, 12, 30);
+      runner.items.push({ kind: 'bar', el: bar, delay: d2, dur: barDur }); runner.track(d2, barDur); any = true;
+    });
+    host.querySelectorAll('[data-ring]').forEach(function(ring){
+      const arc = parseFloat((ring.getAttribute('stroke-dasharray') || '').split(/[ ,]+/)[0]) || 0; if(!(arc > 0)) return;
+      runner.items.push({ kind: 'ring', el: ring, delay: 0, dur: lineDur, len: arc, op: 1 }); runner.track(0, lineDur); any = true;
+    });
+    if(any){
+      host.querySelectorAll('[data-late]').forEach(function(late){ runner.items.push({ kind: 'late', el: late, delay: lateDelay, dur: lateDur }); runner.track(lateDelay, lateDur); });
+      runner.charts.push(id);
+    }
+  });
+  d.runners.add(runner);
+  runner.start();
+}
+// ===== Rev 2.29.0 (A) — поява «Обліку» (підсумки, рядки списків, сегменти); спільні makeDashRunner/IntersectionObserver із «Аналітикою» (M2.x) =====
+const ACCT_COUNTER_IDS = ['income-summary-total', 'card-debt-summary-balance', 'card-debt-summary-minpay', 'installment-balance-total-value', 'installment-total-value'];
+const ACCT_TABLE_IDS = ['income-table', 'bank-debt-table', 'installment-table'];
+const ACCT_MAX_ROWS = 10;          // перші видимі рядки з'являються по черзі
+const ACCT_ROW_STAGGER_MS = 25;    // × --motion-k
+// visible = індекси видимих рядків у порядку DOM → перші max (решта видимих — без анімації, нижче екрана — відкладені IO).
+function rowsToAnimate(visible, max){
+  const v = Array.isArray(visible) ? visible : [];
+  return v.slice(0, Math.max(0, Math.floor(max) || 0));
+}
+// Той самий вибір режиму, що й для «Аналітики»: full/replay/update/none + причина пропуску.
+function accountRevealPlan(state){ return dashboardReplayMode(state); }
+// Rev 2.31.0 (M4c) — перемикання сегментів «Обліку» (Доходи/Борги/ОЧ) запускає ту саму хореографію replay: підсумок і рядки по черзі, суми від 0; старий сегмент коротко гасне.
+const ACCT_SEGMENTS = ['data', 'debts', 'installments'];
+const ACCT_SEGMENT_NAMES = { data: 'income', debts: 'debts', installments: 'installments' };
+function shouldAnimateSegment(prev, next, reduced){
+  return !reduced && prev !== next && ACCT_SEGMENTS.indexOf(prev) !== -1 && ACCT_SEGMENTS.indexOf(next) !== -1;
+}
+// → { run, mode, skipped, elements } ; повторний клік на активний сегмент ('same') нічого не анімує і не пишеться в рекордер.
+function accountSegmentPlan(prev, next, state){
+  const s = state || {};
+  const no = reason => ({ run: false, mode: 'none', skipped: reason, elements: [] });
+  if(prev === next) return no('same');
+  if(ACCT_SEGMENTS.indexOf(prev) === -1 || ACCT_SEGMENTS.indexOf(next) === -1) return no('no-change');
+  if(s.reduced) return no('reduced');
+  if(s.hidden || !s.active) return no('hidden');
+  return { run: true, mode: 'replay', skipped: null, elements: ['summary', 'label', 'rows', 'counters-from-zero'] };
+}
+// Підмітальник натискань: .is-pressed лишився на елементі, що НЕ відстежується активним натисканням, і минуло ≥300 мс від відпускання → зняти.
+// info = { pressed, tracked, sinceMs }.
+function shouldSweepPress(info, nowMs){
+  const i = info || {};
+  return !!i.pressed && !i.tracked && (nowMs - Number(i.sinceMs || 0)) >= 300;
+}
+const acctState = { played: false, seenMonth: null, seenNums: {}, seenSigs: {}, running: null, enterAt: 0,
+  deferred: { io: null, rows: new Map(), runners: new Set() } };
+function acctHash(str){ let h = 5381; for(let i = 0; i < str.length; i++){ h = ((h << 5) + h + str.charCodeAt(i)) | 0; } return String(h >>> 0); }
+// Таблиці «Обліку» перемальовуються тільки при зміні вмісту (інакше фоновий рендер замінював би рядки й обривав анімацію); зміна під час анімації → спершу finish().
+const ACCT_NATIVE_INNER_HTML = (typeof Element !== 'undefined') ? Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML') : null;
+function acctGuardedSetHtml(el, value){
+  if(el.__acctHtml === value && el.firstChild) return;
+  if(acctState.running) finishAccount();
+  acctState.deferred.rows.forEach(function(st, row){ if(el.contains(row)){ if(st.timer) clearTimeout(st.timer); if(acctState.deferred.io) acctState.deferred.io.unobserve(row); acctState.deferred.rows.delete(row); } });
+  ACCT_NATIVE_INNER_HTML.set.call(el, value);
+  el.__acctHtml = value;
+}
+function acctInstallGuards(){
+  if(!ACCT_NATIVE_INNER_HTML || !ACCT_NATIVE_INNER_HTML.set) return;
+  ACCT_TABLE_IDS.forEach(function(id){
+    const el = document.getElementById(id);
+    if(!el || el.__acctGuarded) return;
+    el.__acctGuarded = true;
+    Object.defineProperty(el, 'innerHTML', { configurable: true, get: function(){ return ACCT_NATIVE_INNER_HTML.get.call(el); }, set: function(v){ acctGuardedSetHtml(el, v); } });
+  });
+}
+function acctSnapshot(){
+  const nums = {}, sigs = {};
+  ACCT_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el && el.dataset.final !== undefined) nums[id] = Number(el.dataset.final); });
+  ACCT_TABLE_IDS.forEach(function(id){ const el = document.getElementById(id); if(el) sigs[id] = acctHash(el.__acctHtml || ''); });
+  return { nums: nums, sigs: sigs };
+}
+function acctMarkSeen(month){ const sn = acctSnapshot(); acctState.seenNums = sn.nums; acctState.seenSigs = sn.sigs; acctState.seenMonth = month; }
+function acctChanged(){ const sn = acctSnapshot(); return JSON.stringify(sn.nums) !== JSON.stringify(acctState.seenNums) || JSON.stringify(sn.sigs) !== JSON.stringify(acctState.seenSigs); }
+function acctIsActive(){
+  const v = document.getElementById('view-accounting');
+  return lastActiveTab === 'accounting' && !!v && !v.classList.contains('hidden');
+}
+function acctPanel(){ return document.querySelector('#view-accounting .struct-tab-panel:not(.hidden):not([data-seg-leaving])'); } // Rev 2.31.0: панель, що гасне (fade-out), не вважається активною
+function acctSelector(el){ return el ? (el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.classList && el.classList[0] ? '.' + el.classList[0] : '')) : ''; }
+function recordAcctSkip(reason, trigger, segment){
+  recordMotionPerf({ kind: 'account-enter', tab: 'accounting', mode: 'none', skipped: reason, elements: 0, counters: 0, rows: 0, frames: 0, maxGapMs: 0, durationMs: 0, reduced: motionReduced(), trigger: trigger || 'tab', segment: segment || acctSegmentName(acctPanel()) });
+}
+function acctRun(trigger, month, active){
+  const d = accountRevealPlan({ trigger: trigger, active: active, hidden: !dashStartupReady(), reduced: motionReduced(), played: acctState.played,
+    sameMonth: acctState.seenMonth === month, changed: acctChanged() });
+  if(d.mode === 'none'){
+    if(trigger !== 'render') recordAcctSkip(d.skipped, 'tab');
+    if(active && !acctState.running && d.skipped !== 'hidden') acctMarkSeen(month);
+    return;
+  }
+  playAccount(d.mode, trigger, month);
+}
+// Наприкінці кожного renderAll(): перший показ (активна вкладка, ще не грали) / зміна місяця — анімуємо; решта фонових рендерів — лише оновлюємо «бачене».
+function acctAfterRender(){
+  acctInstallGuards();
+  const active = acctIsActive();
+  let trigger = 'render';
+  if(active && !acctState.running){
+    if(!acctState.played) trigger = 'first';
+    else if(acctState.seenMonth !== null && acctState.seenMonth !== selectedMonth) trigger = 'month';
+  }
+  acctRun(trigger, selectedMonth, active);
+}
+function onAccountVisit(){ acctFinishSegFade(); acctInstallGuards(); acctRun('visit', selectedMonth, acctIsActive()); recordIncompleteDots(); }
+function finishAccount(){ const r = acctState.running; if(r){ acctState.running = null; r.stop(false); } }
+function acctClearDeferred(){
+  const d = acctState.deferred;
+  if(d.io){ try{ d.io.disconnect(); }catch(e){} d.io = null; }
+  d.rows.forEach(function(st, row){ if(st.timer) clearTimeout(st.timer); row.style.removeProperty('opacity'); row.style.removeProperty('transform'); });
+  d.rows.clear();
+  d.runners.forEach(function(r){ r.stop(false); });
+  d.runners.clear();
+}
+function acctSegmentName(panel){ const id = panel && panel.id ? panel.id.replace('acct-tab-panel-', '') : ''; return ACCT_SEGMENT_NAMES[id] || null; }
+// Старий сегмент гасне коротко (--motion-s): його панель на час fade лишається видимою, знята з потоку (position:absolute у тому самому місці), тож нова панель стає на місце без додаткового стрибка висоти.
+let acctSegFade = null;
+function acctFinishSegFade(){ if(acctSegFade){ const f = acctSegFade; acctSegFade = null; f.done(); } }
+function acctSegmentFadeOut(oldPanel, oldRect){
+  acctFinishSegFade();
+  const view = document.getElementById('view-accounting');
+  if(!oldPanel || !oldRect || !view || typeof oldPanel.animate !== 'function' || motionReduced()) return;
+  const vr = view.getBoundingClientRect();
+  const dur = motionDuration('s', motionK, false);
+  view.classList.add('acct-seg-transition');
+  oldPanel.classList.remove('hidden'); oldPanel.setAttribute('data-seg-leaving', '');
+  oldPanel.style.position = 'absolute'; oldPanel.style.left = (oldRect.left - vr.left) + 'px'; oldPanel.style.top = (oldRect.top - vr.top) + 'px';
+  oldPanel.style.width = oldRect.width + 'px'; oldPanel.style.pointerEvents = 'none';
+  const anim = oldPanel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: dur, easing: 'ease-out', fill: 'forwards' });
+  let timer = null;
+  const done = function(){
+    if(timer){ clearTimeout(timer); timer = null; }
+    try{ anim.cancel(); }catch(e){}
+    oldPanel.classList.add('hidden'); oldPanel.removeAttribute('data-seg-leaving');
+    oldPanel.style.position = ''; oldPanel.style.left = ''; oldPanel.style.top = ''; oldPanel.style.width = ''; oldPanel.style.pointerEvents = '';
+    view.classList.remove('acct-seg-transition');
+  };
+  acctSegFade = { done: done };
+  const finish = function(){ if(acctSegFade && acctSegFade.done === done){ acctSegFade = null; done(); } };
+  anim.finished.then(finish, function(){});
+  timer = setTimeout(finish, dur + 200); // запасний кінець, якщо сторінка прихована й анімація не рахується
+}
+function onAccountSegment(prev, next, oldPanel, oldRect){
+  const plan = accountSegmentPlan(prev, next, { reduced: motionReduced(), hidden: !dashStartupReady(), active: acctIsActive() });
+  if(!plan.run){
+    if(plan.skipped !== 'same') recordAcctSkip(plan.skipped, 'segment', ACCT_SEGMENT_NAMES[next] || null);
+    if(plan.skipped !== 'same' && acctIsActive() && !acctState.running) acctMarkSeen(selectedMonth);
+    return;
+  }
+  acctSegmentFadeOut(oldPanel, oldRect);
+  playAccount(plan.mode, 'segment', selectedMonth, { trigger: 'segment' });
+}
+function playAccount(mode, trigger, month, meta){
+  meta = meta || {};
+  finishAccount();
+  if(!dashStartupReady() || !acctIsActive()) return;
+  const panel = acctPanel();
+  if(!panel) return;
+  const k = motionK;
+  const scale = mode === 'full' ? 1 : (mode === 'replay' ? DASH_REPLAY_SCALE : DASH_UPDATE_SCALE);
+  const timing = cardRevealTiming(k);
+  const seenNums = acctState.seenNums;
+  let rowsN = 0, deferredRows = 0, unitsN = 0;
+  const runner = makeDashRunner(function(completed, r, durationMs){
+    if(acctState.running && acctState.running.stop === r.stop) acctState.running = null;
+    acctState.played = true;
+    acctMarkSeen(month);
+    if(completed){
+      recordMotionPerf({ kind: 'account-enter', tab: 'accounting', mode: mode, skipped: null, elements: unitsN + rowsN, counters: r.counters.length, rows: rowsN, deferredRows: deferredRows,
+        frames: r.frames, maxGapMs: Math.round(r.maxGap), durationMs: Math.round(durationMs), reduced: false, trigger: meta.trigger || 'tab', segment: acctSegmentName(panel) });
+    }
+  }, 'accounting');
+  function addCounter(el, delay){
+    if(runner.counters.length >= DASH_MAX_COUNTERS || el.dataset.final === undefined) return;
+    const to = Number(el.dataset.final);
+    let from = 0;
+    if(mode === 'update' || (mode === 'full' && trigger === 'month')) from = typeof seenNums[el.id] === 'number' ? seenNums[el.id] : (mode === 'update' ? to : 0);
+    if(from === to) return;
+    // суми «Обліку» рахуються коротше за KPI «Аналітики» (щоб увесь візит вкладався в ~600–1000 мс): full ×0.7, replay ×0.5, update ×0.3 від --motion-count
+    const cScale = mode === 'full' ? 0.7 : (mode === 'replay' ? 0.5 : 0.3);
+    const dur = Math.max(120, Math.min(Math.round(motionDuration('count', k, false) * cScale), DASH_MAX_TOTAL_MS - delay));
+    runner.counters.push({ el: el, from: from, delay: delay, dur: dur });
+    runner.track(delay, dur);
+    el.textContent = fmt(from);
+  }
+  function addAppear(el, delay, dur, shift){
+    runner.cardAnims.push(el.animate([
+      { opacity: 0, transform: 'translateY(' + (shift * k) + 'px)' + (shift >= 12 ? ' scale(.985)' : '') },
+      { opacity: 1, transform: 'translateY(0px)' + (shift >= 12 ? ' scale(1)' : '') }
+    ], { duration: dur, delay: delay, easing: MOTION_EASE_OUT, fill: 'backwards' }));
+    runner.track(delay, dur);
+  }
+  if(mode === 'update'){
+    ACCT_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el && panel.contains(el)) addCounter(el, 0); });
+  }else{
+    acctClearDeferred();
+    acctState.enterAt = performance.now();
+    const summary = panel.querySelector('.card-summary'), label = panel.querySelector('.section-label');
+    const units = [summary, label].filter(Boolean);
+    units.forEach(function(u, i){
+      const delay = i * timing.stagger;
+      addAppear(u, delay, timing.duration, 12); unitsN++;
+      ACCT_COUNTER_IDS.forEach(function(id){ const el = document.getElementById(id); if(el && u.contains(el)) addCounter(el, delay); });
+    });
+    // рядки списку: перші до 10 видимих — по черзі (25·k мс) після підсумків; нижче екрана — IntersectionObserver (раз на візит)
+    const rows = Array.from(panel.querySelectorAll('.card-debt-compact-row'));
+    const vh = window.innerHeight;
+    const rects = rows.map(function(el, i){ const rc = el.getBoundingClientRect(); return { id: i, top: rc.top, bottom: rc.bottom }; }); // одне читання розмітки до старту
+    const visibleIdx = rects.filter(function(rc){ return rc.bottom > 0 && rc.top < vh; }).map(function(rc){ return rc.id; });
+    const baseRows = units.length * timing.stagger;
+    rowsToAnimate(visibleIdx, ACCT_MAX_ROWS).forEach(function(idx, n){
+      addAppear(rows[idx], baseRows + n * Math.round(ACCT_ROW_STAGGER_MS * k), motionDuration('m', k, false), 8); rowsN++;
+    });
+    const below = chartsBelowFold({ viewportH: vh, cards: rects });
+    if(below.length && shouldDeferChart(mode, false, typeof IntersectionObserver === 'function')){
+      const d = acctState.deferred;
+      d.io = new IntersectionObserver(onAcctRowIntersect, { root: document.getElementById('main-col'), rootMargin: '0px 0px -10% 0px', threshold: [0, CHART_REVEAL_RATIO] });
+      below.forEach(function(idx){
+        const row = rows[idx];
+        row.style.opacity = '0'; row.style.transform = 'translateY(' + (8 * k) + 'px)';
+        d.rows.set(row, { timer: null, ok: false });
+        d.io.observe(row); deferredRows++;
+      });
+    }
+  }
+  if(runner.empty()){ acctState.played = true; acctMarkSeen(month); if(!acctState.deferred.rows.size) recordAcctSkip('no-change'); return; }
+  acctState.running = { stop: runner.stop };
+  runner.start();
+}
+function onAcctRowIntersect(entries){
+  const d = acctState.deferred;
+  entries.forEach(function(entry){
+    const st = d.rows.get(entry.target);
+    if(!st) return;
+    st.ok = revealDecision(entry, { revealed: false, reduced: false, hidden: false, dwellMs: CHART_REVEAL_DWELL_MS }) === 'draw';
+    if(st.ok && !st.timer){ st.timer = setTimeout(function(){ st.timer = null; acctRevealRow(entry.target, 0); }, CHART_REVEAL_DWELL_MS); }
+    else if(!st.ok && st.timer){ clearTimeout(st.timer); st.timer = null; }
+  });
+}
+function acctRevealRow(row, attempt){
+  const d = acctState.deferred;
+  const st = d.rows.get(row);
+  if(!st || !st.ok) return;
+  if(!dashStartupReady() || !acctIsActive()){
+    if(attempt < 20) st.timer = setTimeout(function(){ st.timer = null; acctRevealRow(row, attempt + 1); }, 250);
+    return;
+  }
+  const root = document.getElementById('main-col');
+  if(root){
+    const rc = row.getBoundingClientRect(), rr = root.getBoundingClientRect();
+    const visH = Math.min(rc.bottom, rr.bottom - rr.height * 0.1) - Math.max(rc.top, rr.top);
+    if(!(rc.height > 0) || visH / rc.height < CHART_REVEAL_RATIO){ st.ok = false; return; }
+  }
+  d.rows.delete(row);
+  if(d.io) d.io.unobserve(row);
+  row.style.removeProperty('opacity'); row.style.removeProperty('transform');
+  const k = motionK;
+  const runner = makeDashRunner(function(completed, r){ d.runners.delete(r); }, 'accounting');
+  runner.cardAnims.push(row.animate([{ opacity: 0, transform: 'translateY(' + (8 * k) + 'px)' }, { opacity: 1, transform: 'translateY(0px)' }],
+    { duration: motionDuration('m', k, false), easing: MOTION_EASE_OUT, fill: 'backwards' }));
+  runner.track(0, motionDuration('m', k, false));
+  d.runners.add(runner);
+  runner.start();
+}
+function renderDashboard(){
+  const month = selectedMonth;
+  if(!month) return;
+  const { monthExp, monthInc, totalIncome, totalExpense, savings } = monthAggregates(month);
+  const debtNow = debtTotalsForMonth(month);
+  const debtPrev = debtTotalsForMonth(shiftMonth(month,-1));
+  // Rev #30 (6D.44) — activeDebts(): якщо всі борги tombstoned, це логічно "немає даних", не "є дані".
+  const hasDebtData = activeDebts().length > 0;
+  const debtChange = debtPrev.total - debtNow.total; // позитивне = борг зменшився (за місяць)
+  const startMonth = earliestDebtMonth();
+  const debtStart = startMonth ? debtTotalsForMonth(startMonth) : { total: 0 };
+  const paidSinceStart = debtStart.total - debtNow.total; // позитивне = борг зменшився з початку обліку
+  const prevMonth = shiftMonth(month, -1);
+  const prev = monthAggregates(prevMonth);
+
+  /* --- Порожній стан Аналітики (немає жодного запису в системі взагалі) --- */
+  // Rev #30 (6D.44) — activeExpenses()/activeIncomes()/activeDebts(): якщо все видалено, це порожній стан.
+  const analyticsIsEmpty = activeExpenses().length===0 && activeIncomes().length===0 && activeDebts().length===0;
+  document.getElementById('analytics-empty').classList.toggle('hidden', !analyticsIsEmpty);
+  document.getElementById('analytics-body').classList.toggle('hidden', analyticsIsEmpty);
+  if(analyticsIsEmpty){ expandedRow4Key = null; secondaryExpandedKey = null; return; } // немає сенсу рахувати картки/графіки по порожніх даних
+
+  /* --- 6-місячний тренд (потрібен і для спарклайнів у Ряду 1, і для великого графіка в Ряду 2) --- */
+  const months6 = [];
+  for(let i=5;i>=0;i--) months6.push(shiftMonth(month, -i));
+  const trendData = months6.map(m => ({ m, ...monthAggregates(m) }));
+
+  /* --- Ряд 1: KPI зі спарклайном і трендом (за еталонним макетом) --- */
+  document.getElementById('kpi-income').textContent = fmt(totalIncome);
+  document.getElementById('kpi-expense').textContent = fmt(totalExpense);
+  document.getElementById('kpi-savings').textContent = fmt(savings);
+  // Rev 2.25.0 (M2) — data-final: розрахункове число для лічильників (текст формує та сама fmt(), анімація лише добігає до нього).
+  setDashFinal('kpi-income', totalIncome); setDashFinal('kpi-expense', totalExpense); setDashFinal('kpi-savings', savings);
+  document.getElementById('kpi-savings-card').classList.toggle('negative', savings < 0);
+  document.getElementById('kpi-debt').textContent = hasDebtData ? fmt(debtNow.total) : '—';
+  setDashFinal('kpi-debt', hasDebtData ? debtNow.total : null);
+
+  // Rev 2.27.0 (M2.1) — вузол графіка замінюється лише коли змінився підпис даних (фоновий рендер не обриває анімацію й не мерехтить).
+  setDashChart('spark-income', trendData.map(t=>t.totalIncome), ()=>svgSparkline(trendData.map(t=>t.totalIncome), '--color-success'));
+  setDashChart('spark-expense', trendData.map(t=>t.totalExpense), ()=>svgSparkline(trendData.map(t=>t.totalExpense), '--color-error'));
+  setDashChart('spark-savings', trendData.map(t=>t.savings), ()=>svgSparkline(trendData.map(t=>t.savings), '--color-info'));
+  { const debtSpark = months6.map(m=>debtTotalsForMonth(m).total); setDashChart('spark-debt', debtSpark, ()=>svgSparkline(debtSpark, '--color-warning')); }
+  const incHasData = monthInc.length > 0;
+  const expHasData = monthExp.length > 0;
+  setKpiTrend('trend-income', 'income', totalIncome, prev.totalIncome, month, incHasData);
+  setKpiTrend('trend-expense', 'expense', totalExpense, prev.totalExpense, month, expHasData);
+  setKpiTrend('trend-savings', 'savings', savings, prev.savings, month, incHasData || expHasData);
+  // Rev 2.1.0 — Debt Data Integrity: замість мовчазного carry-forward, честно
+  // показуємо, чи це фактичні дані поточного місяця, чи "останнє відоме" —
+  // тоді в тренд-рядку зʼявляється жовтий бейдж "Станом на [місяць]" замість
+  // проценту зміни (сам проценти залишаємо тільки коли дані дійсно свіжі).
+  const cardAsOf = debtAsOfInfo(month, 'card');
+  const trendDebtEl = document.getElementById('trend-debt');
+  trendDebtEl.classList.remove('is-positive','is-negative');
+  if(!hasDebtData || !cardAsOf.hasData){
+    trendDebtEl.textContent = 'Немає даних';
+  }else if(!cardAsOf.isCurrent){
+    trendDebtEl.textContent = '—';
+  }else{
+    setKpiTrend('trend-debt', 'debt', debtNow.total, debtPrev.total, month);
+  }
+  // Rev #21 + #23 — Unified Data Status: «Борг» і «Скорочення боргу»
+  // використовують ОДИН і той самий debtAsOfInfo(month,'card'), тому завжди
+  // показують однаковий статус — рахуємо його раз і застосовуємо до обох dots.
+  const debtUiStatusNow = debtUiStatus(cardAsOf, month, 'card');
+  renderDataStatusDot('kpi-debt-asof', debtUiStatusNow, month);
+  renderDataStatusDot('debts-card-asof', debtUiStatusNow, month); // Rev 2.31.5 (B2-lite): той самий статус і попап на картці «Борги по картках»
+
+  renderDebtDonut(hasDebtData, debtStart.total, debtNow.total, paidSinceStart, debtUiStatusNow, month);
+
+  /* --- Ряд 2: графіки --- */
+  // Дані завжди починаються зліва: беремо тільки ту частину 6-місячного вікна,
+  // яка йде від найпершого місяця з реальними записами (а не завжди останні 6).
+  const earliestActivity = earliestActivityMonth();
+  const availableTrendData = earliestActivity ? trendData.filter(t => t.m >= earliestActivity) : trendData;
+  setDashChart('chart-income-expense', availableTrendData.map(t=>[t.m, t.totalIncome, t.totalExpense]), ()=>svgBarChart(availableTrendData, 6));
+  if(hasDebtData){
+    const debtTrend = months6.map(m => ({ m, total: debtTotalsForMonth(m).total, actual: kindHasActualForMonth('card', m) }));
+    const availableDebtTrend = startMonth ? debtTrend.filter(t => t.m >= startMonth) : debtTrend;
+    setDashChart('chart-debt-line', availableDebtTrend.map(t=>[t.m, t.total, t.actual ? 1 : 0]), ()=>svgLineChart(availableDebtTrend, 6));
+  }else{
+    clearDashChart('chart-debt-line', `<div class="empty-hint">Ще немає даних. Додай борги на вкладці «Облік» або імпортуй з Excel у «Сервіс».</div>`);
+  }
+
+  /* --- Витрати за категоріями (з рядком "Інші категорії") ---
+     Для кожної картки будуємо ОБИДВА варіанти вмісту — компактний (назва+
+     сума) і детальний (+бар+%, показується при розгортанні) — і складаємо
+     їх у cardVariants, звідки applyCardExpandState() бере готовий HTML
+     залежно від поточного стану expandedRow4Key. */
+  const byCat = {};
+  monthExp.forEach(e=>{ const key = e.category || '🧾 Без категорії'; byCat[key] = (byCat[key]||0)+e.amount; });
+  const allCatSorted = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const top5 = allCatSorted.slice(0,5);
+  const restCat = allCatSorted.slice(5).reduce((s,pair)=>s+pair[1],0);
+  const max5 = top5.length ? top5[0][1] : 1;
+  const maxCatAll = allCatSorted.length ? allCatSorted[0][1] : 1;
+
+  cardVariants.categories = {
+    triggerLabel: 'Всі категорії',
+    compactHeaderClass: 'table-header t-row-2col',
+    compactHeaderHtml: '<span class="t-name">Категорія</span><span class="t-amt">Сума</span>',
+    compactBodyHtml: (top5.length===0
+      ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
+      : top5.map(function(pair){ var name=pair[0], sum=pair[1]; return `
+        <div class="t-row t-row-2col">
+          <span class="t-name">${escapeHtml(name)}</span>
+          <span class="t-amt">${fmt(sum)}</span>
+        </div>`; }).join('')) +
+      (restCat>0 ? `<div class="t-row t-row-2col summary"><span class="t-name">Інші категорії</span><span class="t-amt">${fmt(restCat)}</span></div>` : ''),
+    detailHeaderClass: 'table-header',
+    detailHeaderHtml: '<span class="t-name">Категорія</span><span class="t-bar-h"></span><span class="t-amt">Сума</span><span class="t-pct">%</span>',
+    // BugFix Rev 1.7.1 (#8): "Всі категорії →" буквально мало показувати ВСІ
+    // категорії, а не той самий топ-5, що й у згорнутому вигляді — раніше
+    // detailBodyHtml помилково повторював top5. Тепер це allCatSorted цілком,
+    // тому рядка "Інші категорії" тут більше не потрібно (нема залишку).
+    detailBodyHtml: (allCatSorted.length===0
+      ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
+      : allCatSorted.map(function(pair){ var name=pair[0], sum=pair[1]; return `
+        <div class="t-row">
+          <span class="t-name">${escapeHtml(name)}</span>
+          <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(sum/maxCatAll*100).toFixed(0)}%; background:var(--color-warning);"></div></div></span>
+          <span class="t-amt">${fmt(sum)}</span>
+          <span class="t-pct">${totalIncome>0 ? ((sum/totalIncome)*100).toFixed(1)+'%' : '—'}</span>
+        </div>`; }).join(''))
+  };
+
+  /* --- Деталізація витрат (підкатегорії) ---
+     Важливо: враховуємо лише записи з реальною підкатегорією. Раніше запис без
+     підкатегорії підставляв назву КАТЕГОРІЇ — і категорії "протікали" у список
+     підкатегорій (Rev 1.3.1, виправлення алгоритму вибірки). --- */
+  const bySub = {};
+  monthExp.forEach(e=>{ if(!e.subcategory) return; bySub[e.subcategory] = (bySub[e.subcategory]||0) + e.amount; });
+  const allSubSorted = Object.entries(bySub).sort((a,b)=>b[1]-a[1]);
+  const top10 = allSubSorted.slice(0,10);
+  const max10 = top10.length ? top10[0][1] : 1;
+  const collapsedSub = allSubSorted.slice(0,5);
+  const collapsedRestSub = allSubSorted.slice(5).reduce((s,pair)=>s+pair[1],0);
+
+  cardVariants.subcategories = {
+    triggerLabel: 'Всі підкатегорії',
+    compactHeaderClass: 'table-header t-row-2col',
+    compactHeaderHtml: '<span class="t-name">Підкатегорія</span><span class="t-amt">Сума</span>',
+    compactBodyHtml: (collapsedSub.length===0
+      ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
+      : collapsedSub.map(function(pair){ var name=pair[0], sum=pair[1]; return `
+        <div class="t-row t-row-2col">
+          <span class="t-name">${escapeHtml(name)}</span>
+          <span class="t-amt">${fmt(sum)}</span>
+        </div>`; }).join('')) +
+      (collapsedRestSub>0 ? `<div class="t-row t-row-2col summary"><span class="t-name">Інші підкатегорії</span><span class="t-amt">${fmt(collapsedRestSub)}</span></div>` : ''),
+    detailHeaderClass: 'table-header',
+    detailHeaderHtml: '<span class="t-name">Підкатегорія</span><span class="t-bar-h"></span><span class="t-amt">Сума</span><span class="t-pct">%</span>',
+    detailBodyHtml: (top10.length===0
+      ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
+      : top10.map(function(pair){ var name=pair[0], sum=pair[1]; return `
+        <div class="t-row">
+          <span class="t-name">${escapeHtml(name)}</span>
+          <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(sum/max10*100).toFixed(0)}%; background:var(--color-info);"></div></div></span>
+          <span class="t-amt">${fmt(sum)}</span>
+          <span class="t-pct">${totalIncome>0 ? ((sum/totalIncome)*100).toFixed(1)+'%' : '—'}</span>
+        </div>`; }).join('')) +
+      (allSubSorted.length>10 ? `<div class="t-row summary"><span class="t-name">Інші підкатегорії</span><span class="t-bar-h"></span><span class="t-amt">${fmt(allSubSorted.slice(10).reduce((s,p)=>s+p[1],0))}</span><span class="t-pct">${totalIncome>0?((allSubSorted.slice(10).reduce((s,p)=>s+p[1],0)/totalIncome)*100).toFixed(1)+'%':'—'}</span></div>` : '')
+  };
+
+  /* --- Потенціал економії: ТОП-5 підкатегорій за (сума × пріоритет) --- */
+  const scored = Object.entries(bySub)
+    .map(function(pair){ return { name: pair[0], sum: pair[1], priority: SUBCATEGORY_PRIORITY[pair[0]] }; })
+    .filter(function(r){ return !!r.priority; })
+    .map(function(r){ return Object.assign({}, r, { weighted: r.sum * r.priority.score }); })
+    .sort(function(a,b){ return b.weighted-a.weighted; })
+    .slice(0,5);
+  const reducibleTotal = scored.reduce((s,r)=>s+r.sum,0);
+
+  cardVariants.reducible = {
+    triggerLabel: 'Всі рекомендації',
+    compactHeaderClass: 'table-header t-row-3col',
+    compactHeaderHtml: '<span class="t-name">Підкатегорія</span><span class="t-priority">Потенціал</span>',
+    compactBodyHtml: (scored.length===0
+      ? `<div class="empty-hint">Немає підкатегорій для аналізу цього місяця</div>`
+      : scored.map(function(r){ return `
+        <div class="t-row t-row-3col">
+          <span class="t-name">${escapeHtml(r.name)}</span>
+          <span class="t-priority" style="color:var(--color-${r.priority.color});">${r.priority.label}</span>
+        </div>`; }).join('') +
+        `<div class="t-row t-row-2col summary"><span class="t-name">Потенціал економії</span><span class="t-amt">${fmt(reducibleTotal)}</span></div>`),
+    detailHeaderClass: 'table-header t-row-3col',
+    detailHeaderHtml: '<span class="t-name">Підкатегорія</span><span class="t-amt">Сума</span><span class="t-priority">Потенціал</span>',
+    detailBodyHtml: (scored.length===0
+      ? `<div class="empty-hint">Немає підкатегорій для аналізу цього місяця</div>`
+      : scored.map(function(r){ return `
+        <div class="t-row t-row-3col">
+          <span class="t-name">${escapeHtml(r.name)}</span>
+          <span class="t-amt">${fmt(r.sum)}</span>
+          <span class="t-priority" style="color:var(--color-${r.priority.color});">${r.priority.label}</span>
+        </div>`; }).join('') +
+        `<div class="t-row t-row-3col summary"><span class="t-name">Потенціал економії</span><span class="t-amt">${fmt(reducibleTotal)}</span><span class="t-priority"></span></div>`)
+  };
+
+  /* --- Борги по картках (мінімалістичні бейджі замість офіційних логотипів банків —
+     логотипи є торговою маркою й не відтворюються; бейдж лишається кольорово впізнаваним) --- */
+  const cardDebts = debtNow.list.filter(d=>d.kind==='card');
+  let debtsCompactBody, debtsDetailBody;
+  if(!hasDebtData){
+    debtsCompactBody = debtsDetailBody = `<div class="empty-hint">Ще немає даних. Додай борги на вкладці «Облік» або імпортуй з Excel у «Сервіс».</div>`;
+  }else if(cardDebts.length===0){
+    debtsCompactBody = debtsDetailBody = `<div class="empty-hint">Немає записів по картках станом на цей місяць.</div>`;
+  }else{
+    const maxDebt = Math.max(...cardDebts.map(d=>d.balance), 1);
+    const sortedCardDebts = cardDebts.sort((a,b)=>b.balance-a.balance);
+    // BugFix Rev 1.7.1 (#7): раніше компактний вигляд показував УСІ картки без
+    // обмеження — якщо їх було більше 5 (напр. "Оля"-варіанти), ця картка ставала
+    // вищою за інші три в звичайному (нерозгорнутому) ряду. Обмежуємо до топ-5 +
+    // рядок "Інші картки", так само як категорії/підкатегорії. Повний список
+    // лишається доступним у розгорнутому вигляді (detailBody, без обмеження).
+    const compactDebts = sortedCardDebts.slice(0,5);
+    const restDebtsSum = sortedCardDebts.slice(5).reduce((s,d)=>s+d.balance,0);
+    debtsCompactBody = compactDebts.map(function(d){ return `
+      <div class="t-row t-row-2col">
+        <span class="t-name">${bankIcon(d.name, 22, false, 'card')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
+        <span class="t-amt">${fmt(d.balance)}</span>
+      </div>`; }).join('') +
+      (restDebtsSum>0 ? `<div class="t-row t-row-2col summary"><span class="t-name">Інші картки</span><span class="t-amt">${fmt(restDebtsSum)}</span></div>` : '') +
+      `<div class="t-row t-row-2col summary"><span class="t-name">Загальний борг</span><span class="t-amt">${fmt(debtNow.total)}</span></div>`;
+    debtsDetailBody = sortedCardDebts.map(function(d){ return `
+      <div class="t-row">
+        <span class="t-name">${bankIcon(d.name, 22, false, 'card')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
+        <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(d.balance/maxDebt*100).toFixed(0)}%; background:var(--color-success);"></div></div></span>
+        <span class="t-amt">${fmt(d.balance)}</span>
+      </div>`; }).join('') +
+      `<div class="t-row summary"><span class="t-name">Загальний борг</span><span class="t-bar-h"></span><span class="t-amt">${fmt(debtNow.total)}</span></div>`;
+  }
+  cardVariants.debts = {
+    triggerLabel: 'Всі борги',
+    compactHeaderClass: 'table-header t-row-2col',
+    compactHeaderHtml: '<span class="t-name">Картка</span><span class="t-amt">Сума</span>',
+    compactBodyHtml: debtsCompactBody,
+    detailHeaderClass: 'table-header',
+    detailHeaderHtml: '<span class="t-name">Картка</span><span class="t-bar-h"></span><span class="t-amt">Сума</span>',
+    detailBodyHtml: debtsDetailBody
+  };
+
+  ['categories','subcategories','reducible'].forEach(applyCardExpandState);
+  updateRow3GridColumns();
+  renderDebtsCard();
+
+  /* --- Оплати частинами (Block 5): картка з прогрес-баром по кожному ОЧ ---
+     Прогрес рахується від "Початкової суми" (installmentAccounts[].initialAmount,
+     Rev 2.1.17) — якщо вона ще не вказана для конкретного ОЧ, показуємо рядок
+     без бару (той самий принцип, що й для карток: "бар лише де є математична
+     база", інакше просто залишок). */
+  renderInstallmentsCard(debtNow, hasDebtData);
+
+  /* --- Ряд 4: "Ключові показники місяця" — рівно 6, порядок фіксований (Design-System-v2.0 §7) --- */
+  // 1. Витрати / Дохід
+  if(totalIncome > 0){
+    const ratio = totalExpense / totalIncome;
+    document.getElementById('kpi-ratio-val').textContent = (ratio*100).toFixed(1) + '%';
+  }else{
+    document.getElementById('kpi-ratio-val').textContent = totalExpense > 0 ? '— (немає доходу)' : '—';
+  }
+  document.getElementById('kpi-ratio-sub').textContent = 'Норма: <80%';
+
+  // 2. Обов'язкові платежі
+  // Rev #26.3 — mandatory/freeMoney тепер рахує mandatoryPaymentsSummary()
+  // (index.html, поруч з monthAggregates) — renderDashboard() лише викликає
+  // і рендерить результат, формула не змінена.
+  const { mandatory, freeMoney } = mandatoryPaymentsSummary(monthExp, totalIncome);
+  document.getElementById('kpi-mandatory').textContent = fmt(mandatory);
+  setDashFinal('kpi-mandatory', mandatory);
+  document.getElementById('kpi-mandatory-sub').textContent = totalIncome>0 ? `${(mandatory/totalIncome*100).toFixed(1)}% від доходу` : '—';
+
+  // 3. Вільні гроші — Rev 1.5.7: підпис "Профіцит/Дефіцит/Баланс" прибрано за вимогою
+  // Golden Master, лишається лише відсоток від доходу. Значення лишається темним (як усі
+  // секції цього блоку) - кольорове кодування прибрано разом зі статусним текстом.
+  document.getElementById('kpi-free').textContent = fmt(freeMoney);
+  setDashFinal('kpi-free', freeMoney);
+  document.getElementById('kpi-free-sub').textContent = totalIncome>0 ? `${(freeMoney/totalIncome*100).toFixed(1)}% від доходу` : '—';
+
+  // Rev 2.1.32 — "Динаміка боргу" звужена до ЛИШЕ карток: розбивка "Картки Х ·
+  // ОЧ Y" переїхала в підпис картки "Платежі по ОЧ" нижче (там тепер весь
+  // контекст саме про ОЧ в одному місці) — тут вона більше не потрібна й лише
+  // дублювала б інформацію. Підпис перевикористовує вже наявний в застосунку
+  // патерн "відносно [місяць]" (той самий, що в трендах Доходи/Витрати/
+  // Заощадження) замість розбивки по компонентах.
+  const debtchangeValEl = document.getElementById('kpi-debtchange');
+  const debtchangeSubEl = document.getElementById('kpi-debtchange-sub');
+  debtchangeValEl.classList.remove('is-positive','is-negative');
+  const cardDeltaKnown = kindHasActualForMonth('card', month) && kindHasActualForMonth('card', prevMonth);
+  const cardDelta = debtPrev.total - debtNow.total; // позитивне = борг скоротився
+  if(!hasDebtData || !cardDeltaKnown){
+    debtchangeValEl.textContent = '—';
+    debtchangeSubEl.textContent = hasDebtData ? `Немає даних за ${UA_MONTHS[parseInt(month.slice(5),10)-1]}` : '';
+  }else{
+    if(cardDelta > 0){ debtchangeValEl.textContent = '↓ ' + fmt(cardDelta); debtchangeValEl.classList.add('is-positive'); }
+    else if(cardDelta < 0){ debtchangeValEl.textContent = '↑ ' + fmt(Math.abs(cardDelta)); debtchangeValEl.classList.add('is-negative'); }
+    else{ debtchangeValEl.textContent = '0 ₴ · без змін'; }
+    debtchangeSubEl.textContent = `Відносно ${monthGenitive(prevMonth)}`;
+  }
+
+  // 5. Оплати частинами (ОЧ) — фіксований пункт, не видаляється й не переноситься (DS §7)
+  // Rev 2.1.19 — раніше головним числом був загальний ЗАЛИШОК ОЧ, який тепер
+  // дублюється в картці Block 5 ("Разом"). Змінено на суму платежів ЦЬОГО
+  // МІСЯЦЯ — відповідає тематиці решти Row 2 (Обов'язкові платежі/Вільні
+  // гроші — теж місячні цифри, а не залишки боргу) і раніше взагалі ніде в
+  // Row 1/2 не показувалась.
+  // Rev 2.1.32 — підпис тепер показує динаміку боргу ОЧ (скільки погашено з
+  // минулого місяця) замість залишку — залишок і так видно в картці "Оплати
+  // частинами" нижче на дашборді, а тут натомість зʼявляється те, чого раніше
+  // не було ніде: власне динаміка саме ОЧ-частини боргу.
+  document.getElementById('kpi-och').textContent = hasDebtData ? fmt(debtNow.totalMonthlyInstallment) : '0 ₴';
+  const activeOch = hasDebtData ? debtNow.list.filter(d=>d.kind==='installment').length : 0;
+  const instDeltaKnown = kindHasActualForMonth('installment', month) && kindHasActualForMonth('installment', prevMonth);
+  const instDelta = debtPrev.totalInstallment - debtNow.totalInstallment; // позитивне = борг скоротився
+  function fmtOchDelta(d){ return d>0 ? '↓ '+fmt(d) : (d<0 ? '↑ '+fmt(Math.abs(d)) : '0 ₴ без змін'); }
+  const ochDeltaText = !hasDebtData ? '' : (instDeltaKnown ? fmtOchDelta(instDelta) : 'борг ОЧ: н/д');
+  document.getElementById('kpi-och-sub').textContent = hasDebtData
+    ? `${activeOch} ${activeOch===1?'активний':'активних'} · ${ochDeltaText}` : '—';
+
+  /* --- Звичка місяця --- */
+  // Rev 2.1.21 — BugFix: раніше ключем був "підкатегорія АБО категорія"
+  // (фолбек), тому категорії без жодних підкатегорій (напр. "🛒 Продукти" —
+  // для неї в SUBCATEGORIES взагалі нема записів) завжди перемагали за
+  // кількістю записів і "Звичка місяця" незмінно показувала "Продукти" —
+  // найчастіша, але нічого не каже про РЕАЛЬНУ звичку. Тепер рахуємо лише за
+  // підкатегоріями (без фолбеку): записи без підкатегорії просто не
+  // враховуються в цій метриці — так видно, куди саме йдуть гроші в деталях
+  // (кава/таксі/перекуси тощо), а не найбільшу за обсягом категорію загалом.
+  const countBySub = {};
+  monthExp.forEach(e=>{
+    const key = e.subcategory;
+    if(!key) return;
+    countBySub[key] = countBySub[key] || {count:0, sum:0};
+    countBySub[key].count++; countBySub[key].sum += e.amount;
+  });
+  const habitEntries = Object.entries(countBySub).sort((a,b)=>b[1].count-a[1].count);
+  const habitText = habitEntries.length===0 ? null : `${habitEntries[0][0]} · ${habitEntries[0][1].count} ${habitCountWord(habitEntries[0][1].count)}`;
+  // 6. Звичка місяця
+  // Rev 2.1.23 — за проханням: один рядок з роздільником "·", за аналогією з
+  // підписом картки "Платежі по ОЧ" ("N активних · залишок X ₴").
+  document.getElementById('kpi-habit').textContent = habitEntries.length===0 ? '—' : habitEntries[0][0];
+  document.getElementById('kpi-habit-sub').textContent = (habitEntries.length && totalExpense>0)
+    ? `${habitEntries[0][1].count} ${habitCountWord(habitEntries[0][1].count)} · ${(habitEntries[0][1].sum/totalExpense*100).toFixed(1)}% усіх витрат`
+    : '—';
+
+  /* --- Висновки місяця: картки-інсайти (іконка + заголовок + опис) ---
+     Rev 1.7.3: використовую лише ВЖЕ наявні в цій функції обчислені значення
+     (savings, top5, habitEntries, debtNow.totalInstallment, debtChange) —
+     нової бізнес-логіки/метрик не додаю, лише новий формат подачі того самого. */
+  const INSIGHT_ICONS = {
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
+    dot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+  };
+  const INSIGHT_COLORS = {
+    success:{bg:'var(--color-success-bg)', fg:'var(--color-success)'},
+    warning:{bg:'var(--color-warning-bg)', fg:'var(--color-warning)'},
+    error:{bg:'var(--color-error-bg)', fg:'var(--color-error)'},
+    info:{bg:'var(--color-info-bg)', fg:'var(--color-info)'},
+    purple:{bg:'var(--color-accent-purple-bg)', fg:'var(--color-accent-purple)'},
+    muted:{bg:'#F2F4F7', fg:'#64748B'}
+  };
+  const summaryEl = document.getElementById('summary-container');
+  let insights = [];
+  if(totalIncome===0 && totalExpense===0){
+    insights.push({icon:'dot', color:'muted', title:'Ще немає даних',
+      desc:'Додай перші записи в «Обліку», щоб побачити висновки місяця.'});
+  }else{
+    // 1. Фінансовий результат
+    if(savings>=0){
+      insights.push({icon:'check', color:'success', title:'Фінансовий результат',
+        desc: totalIncome>0
+          ? `Цього місяця у вас профіцит ${fmtSigned(savings)} або ${(savings/totalIncome*100).toFixed(1)}% від доходу.`
+          : `Цього місяця у вас профіцит ${fmtSigned(savings)}.`});
+    }else{
+      insights.push({icon:'alert', color:'error', title:'Фінансовий результат',
+        desc: totalIncome>0
+          ? `Витрати перевищили дохід на ${fmt(Math.abs(savings))} (${(Math.abs(savings)/totalIncome*100).toFixed(1)}% від доходу).`
+          : `Витрати перевищили дохід на ${fmt(Math.abs(savings))}.`});
+    }
+    // 2. Найбільша витрата
+    if(top5.length>0){
+      const pct = totalExpense>0 ? (top5[0][1]/totalExpense*100).toFixed(0) : null;
+      insights.push({icon:'flag', color:'warning', title:'Найбільша витрата',
+        desc:`Категорія «${escapeHtml(top5[0][0])}» займає найбільшу частку ваших витрат${pct?` — ${pct}%`:''}.`});
+    }
+    // 3. Звичка місяця
+    if(habitEntries.length){
+      const h = habitEntries[0];
+      insights.push({icon:'dot', color:'info', title:'Звичка місяця',
+        desc:`«${escapeHtml(h[0])}» — ${h[1].count} ${habitCountWord(h[1].count)} цього місяця.`});
+    }
+    // 4. Оплати частинами (лише якщо є активні платежі)
+    const activeOchCount = hasDebtData ? debtNow.list.filter(d=>d.kind==='installment').length : 0;
+    if(activeOchCount>0){
+      insights.push({icon:'dot', color:'purple', title:'Оплати частинами',
+        desc:`У вас ${activeOchCount} ${activeOchCount===1?'активний платіж':'активних платежів'} на загальну суму ${fmt(debtNow.totalInstallment)}.`});
+    }
+    // 5. Борг
+    // Rev 2.10.1 BugFix (P1, аудит) — раніше цей інсайт брав debtChange
+    // БЕЗ перевірки, чи є ФАКТИЧНІ записи карток за поточний і попередній
+    // місяць (та сама перевірка cardDeltaKnown, що вже захищає KPI "Динаміка
+    // боргу" в Row 2 — вона обчислюється вище, у цій самій функції). Без цієї
+    // перевірки carry-forward значення (борг просто не оновлювався кілька
+    // місяців, тому дельта виходить 0 чи випадкова) видавалось за реальний
+    // факт "Ви зменшили борг" — пряме порушення FINANCIAL_RULES §3.1: carry-
+    // forward ніколи не подається як підтверджена дельта місяця.
+    if(!hasDebtData){
+      insights.push({icon:'dot', color:'muted', title:'Борги',
+        desc:'Додай борги на вкладці «Облік», щоб бачити повну картину.'});
+    }else if(!cardDeltaKnown){
+      insights.push({icon:'dot', color:'muted', title:'Борг',
+        desc:'Потрібен факт за поточний і попередній місяць, щоб порахувати динаміку боргу.'});
+    }else{
+      insights.push(cardDelta>=0
+        ? {icon:'check', color:'success', title:'Чудова робота!', desc:`Ви зменшили борг на ${fmt(cardDelta)} у порівнянні з минулим місяцем.`}
+        : {icon:'alert', color:'error', title:'Борг зростає', desc:`Борг зріс на ${fmt(Math.abs(cardDelta))} у порівнянні з минулим місяцем.`});
+    }
+  }
+  summaryEl.innerHTML = insights.map(function(i){
+    const c = INSIGHT_COLORS[i.color];
+    return `<div class="insight-item">
+      <div class="insight-icon" style="background:${c.bg}; color:${c.fg};">${INSIGHT_ICONS[i.icon]}</div>
+      <div class="insight-title">${i.title}</div>
+      <div class="insight-desc">${i.desc}</div>
+    </div>`;
+  }).join('');
+  dashAfterRender(month); // Rev 2.25.0 (M2): хореографія появи (лише якщо вкладка активна; фонові ре-рендери статичні)
+}
+
+function renderDebtDonut(hasDebtData, startTotal, currTotal, change, debtStatus, month){
+  // startTotal — борг станом на найперший місяць обліку (не минулий місяць!);
+  // change — скільки погашено з того моменту. Разом дають прогрес "з початку обліку" (Rev 1.3).
+  // Rev 1.5.6: SVG-кільце завжди малюється НЕВІД'ЄМНОЮ довжиною дуги (stroke-dasharray не може
+  // бути від'ємним) — тому напрям (погашено/заборговано) керує лише кольором і знаком тексту,
+  // а довжина дуги завжди береться з Math.abs(відсоток). Це три незалежні змінні:
+  //   1) rawPercent   — підписане число для тексту (-17.6 / +15);
+  //   2) isPositive   — прапорець напряму, визначає колір (#FF7000 / червоний) і знак "+"/"-";
+  //   3) arcFraction  — Math.abs(rawPercent)/100, завжди 0..1, довжина дуги.
+  const svg = document.getElementById('debt-donut');
+  const titleEl = document.getElementById('debt-donut-title');
+  const statusLabelEl = document.getElementById('debt-status-label');
+  const amountEl = document.getElementById('m-paid');
+  const startAmountEl = document.getElementById('m-remaining');
+  const r = 45, cx = 54, cy = 54, circumference = 2 * Math.PI * r;
+  const ringWidth = 8; // BugFix/ревізія: було 14 — за проханням зробили кільце тоншим
+
+  // Rev 2.27.0 (M2.1) — вузол кільця замінюється лише при зміні підпису даних (див. setDashChart).
+  function setDonutSvg(sig, html){
+    if(!shouldReplaceChart(svg.dataset.sig, sig) && svg.firstElementChild) return;
+    if(dashState.running){ dashState.updatePending = true; finishDashboard(); }
+    svg.innerHTML = html;
+    svg.dataset.sig = sig;
+  }
+  if(!hasDebtData || startTotal <= 0){
+    setDonutSvg(chartSignature(['none']), `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--color-border)" stroke-width="${ringWidth}"/>
+      <text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="20" font-weight="700" fill="var(--color-text-primary)" font-family="Inter">—</text>`);
+    titleEl.textContent = 'Скорочення боргу';
+    statusLabelEl.textContent = 'Погашено';
+    amountEl.textContent = '—'; amountEl.style.color = '';
+    startAmountEl.textContent = '—';
+    renderDataStatusDot('debt-donut-asof', { status:'none' }, month);
+    return;
+  }
+  // Rev #21 + #23 — Unified Data Status: той самий статус, що вже показаний
+  // на картці «Борг» (debtStatus рахується один раз у caller, обидві картки
+  // завжди узгоджені між собою).
+  renderDataStatusDot('debt-donut-asof', debtStatus, month);
+
+  const isPositive = change >= 0; // борг зменшився (або без змін) = позитивний результат
+  const rawPercent = (change / startTotal) * 100; // підписане число, лише для форматування тексту
+  const arcFraction = Math.max(0, Math.min(1, Math.abs(rawPercent) / 100)); // довжина дуги — завжди >= 0
+  const arcLen = circumference * arcFraction;
+  const pctText = fmtSignedPercent(rawPercent);
+  const ringColor = isPositive ? '#FF7000' : 'var(--color-error)';
+  // За проханням: заголовок картки тепер відповідає напряму зміни — "Скорочення
+  // боргу", коли борг зменшується, "Збільшення боргу", коли зростає (замість
+  // завжди статичного "Скорочення боргу").
+  titleEl.textContent = isPositive ? 'Скорочення боргу' : 'Збільшення боргу';
+
+  setDonutSvg(chartSignature([startTotal, change, ringColor]), `
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--color-border)" stroke-width="${ringWidth}"/>
+    <circle data-ring cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ringColor}" stroke-width="${ringWidth}"
+      stroke-dasharray="${arcLen} ${circumference}" stroke-dashoffset="0" stroke-linecap="round"
+      transform="rotate(-90 ${cx} ${cy})"/>
+    <text data-late x="${cx}" y="${cy+8}" text-anchor="middle" font-size="24" font-weight="700" fill="var(--color-text-primary)" font-family="Inter">${pctText}</text>`);
+
+  statusLabelEl.textContent = isPositive ? 'Погашено' : 'Заборговано';
+  amountEl.textContent = (isPositive ? '' : '-') + fmt(Math.abs(change));
+  amountEl.style.color = isPositive ? 'var(--color-success)' : 'var(--color-error)';
+
+  startAmountEl.textContent = fmt(startTotal);
+}
+
+// Форматує відсоток для центру donut: 15% / -17.6% (максимум 1 знак після коми,
+// зайвий ".0" прибирається). Rev 1.5.6.1: знак "+" для позитивного сценарію прибрано за
+// вимогою — борг зменшився → просто "15%", борг зріс → лишається "-17.6%".
+// Довжина дуги в renderDebtDonut рахується окремо через Math.abs() і сюди не потрапляє.
+
+function habitCountWord(n){
+  const mod10=n%10, mod100=n%100;
+  if(mod10===1 && mod100!==11) return 'раз';
+  if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'рази';
+  return 'разів';
+}
+// BugFix — ця функція існувала з самого початку (задовго до Rev 2.22.20), і
+// той Rev явно стверджував у commit-повідомленні "expenseCountWord()
+// лишено — генерична плюралізація, використовується іншими місцями" — але
+// насправді видалив саме ЦЮ функцію разом із рештою видаленої фічі "Спільні
+// витрати" (Family Bridge), бо вона фізично лежала в тому самому видаленому
+// блоці коду. Обидва залишкові виклики (populateInstallmentTable, вище, і
+// buildDiagnosticsReport(), Rev 2.16.0) з того часу кидали ReferenceError —
+// саме тому не працювала кнопка "Діагностика даних". Відновлено 1:1 з
+// історії (Rev 2.22.19, останній коміт, де вона ще існувала).
+function expenseCountWord(n){
+  const mod10=n%10, mod100=n%100;
+  if(mod10===1 && mod100!==11) return 'витрата';
+  if([2,3,4].includes(mod10) && ![12,13,14].includes(mod100)) return 'витрати';
+  return 'витрат';
+}
+
+// Rev 2.1.16 — escapeHtml() не екранує лапки (не потрібно було для текстового
+// вмісту), а тепер назву витрати вставляємо і в value="..." інпута для
+// редагування — там лапка в назві ("Пательня 32\"") зламала б розмітку.
+// Rev 2.32.19 (X, A1-5) — safeId(): id запису, що підставляється всередину JS-рядка в inline-обробнику (onclick="f('${id}')"). Справжні id — UUID/ключі з [0-9A-Za-z_-]; все інше (лапки, дужки, пробіли) відсікається, тож зовнішній текст не може вийти з рядка обробника. Альтернатива (data-* + делегований обробник) змінила б сотню місць розмітки — свідомо відкладено.
+// Rev 2.32.19 (X) — кількість місць розмітки, де значення з даних екрануються (для події xss-audit рекордера; значення не пишуться).
+const XSS_AUDITED_SITES = 25;
+
+/* ============ Розгортання карток Row 4 (Категорії/Підкатегорії/Потенціал) ============ */
+// Rev 2.1.33 — прибрано механізм "стискання сусіда в тонку смужку" (ICONS,
+// collapsedKeyFor, applyCardStates, handleCardStripClick — усе видалено).
+// Rev 2.1.39 — за проханням картки знову пов'язані між собою (взаємовиключно,
+// як і Борги/ОЧ нижче): розгортання однієї автоматично згортає попередню
+// назад у компактний вигляд. Один спільний прапорець замість трьох
+// незалежних — БЕЗ "стискання в смужку" (просто помірне звуження ширини
+// сусідніх карток через updateRow3GridColumns(), як і раніше).
+let expandedRow4Key = null; // 'categories' | 'subcategories' | 'reducible' | null
+function applyCardExpandState(key){
+  const v = cardVariants[key];
+  const headerEl = document.getElementById(key+'-header');
+  const bodyEl = document.getElementById(key+'-body');
+  const triggerEl = document.getElementById(key+'-trigger');
+  if(!v || !headerEl || !bodyEl || !triggerEl) return;
+  if(expandedRow4Key === key){
+    headerEl.className = v.detailHeaderClass;
+    headerEl.innerHTML = v.detailHeaderHtml;
+    bodyEl.innerHTML = v.detailBodyHtml;
+    triggerEl.innerHTML = 'Згорнути <span class="arrow">↑</span>';
+  }else{
+    headerEl.className = v.compactHeaderClass;
+    headerEl.innerHTML = v.compactHeaderHtml;
+    bodyEl.innerHTML = v.compactBodyHtml;
+    triggerEl.innerHTML = v.triggerLabel + ' <span class="arrow">→</span>';
+  }
+}
+// Rev 2.1.34 — розгорнута картка отримує трохи більше ширини за рахунок
+// сусідніх (не тонка смужка, а помірне звуження — щоб увесь текст
+// розгорнутого вмісту поміщався). Реалізовано через CSS custom properties
+// (--row3-col-N), а не прямий inline grid-template-columns: властивість сама
+// по собі нічого не форсує на вузьких екранах, бо правило grid-template-
+// columns, яке її читає, живе лише всередині @media (min-width:1280px).
+function updateRow3GridColumns(){
+  const row = document.getElementById('ov-row3');
+  if(!row) return;
+  const w = key => expandedRow4Key === key ? '1.5fr' : '1fr';
+  row.style.setProperty('--row3-col-1', w('categories'));
+  row.style.setProperty('--row3-col-2', w('subcategories'));
+  row.style.setProperty('--row3-col-3', w('reducible'));
+  // Rev 2.24.0 (M1) — замість анімації grid-template-columns (layout щокадру): короткий opacity-перехід при зміні розкладки.
+  const sig = [w('categories'), w('subcategories'), w('reducible')].join('|');
+  if(row.dataset.cols && row.dataset.cols !== sig && typeof row.animate === 'function' && !motionReduced()){
+    row.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: motionDuration('s', motionK, false), easing: MOTION_EASE_OUT });
+  }
+  row.dataset.cols = sig;
+}
+function toggleCardExpand(key){
+  expandedRow4Key = (expandedRow4Key === key) ? null : key;
+  ['categories','subcategories','reducible'].forEach(applyCardExpandState);
+  updateRow3GridColumns();
+}
+
+// Rev 2.1.18 — "Борги по картках" тепер поза спільною grid-системою Row 4
+// (окремий рядок ov-row3-secondary).
+// Rev 2.1.20 — за проханням: "Борги по картках" і "ОЧ" пов'язані між собою,
+// як і верхні 3 картки — розгортання однієї згортає іншу. З лише двома
+// картками повноцінний collapsedKeyFor тут не потрібен: просто один спільний
+// прапорець "яка зараз розгорнута" (або жодна).
+let secondaryExpandedKey = null; // 'debts' | 'installments' | null
+function renderDebtsCard(){
+  const v = cardVariants.debts;
+  const headerEl = document.getElementById('debts-header');
+  const bodyEl = document.getElementById('debts-body');
+  const triggerEl = document.getElementById('debts-trigger');
+  if(!v || !headerEl || !bodyEl || !triggerEl) return;
+  if(secondaryExpandedKey === 'debts'){
+    headerEl.className = v.detailHeaderClass;
+    headerEl.innerHTML = v.detailHeaderHtml;
+    bodyEl.innerHTML = v.detailBodyHtml;
+    triggerEl.innerHTML = 'Згорнути <span class="arrow">↑</span>';
+  }else{
+    headerEl.className = v.compactHeaderClass;
+    headerEl.innerHTML = v.compactHeaderHtml;
+    bodyEl.innerHTML = v.compactBodyHtml;
+    triggerEl.innerHTML = v.triggerLabel + ' <span class="arrow">→</span>';
+  }
+}
+function toggleDebtsCardExpand(){
+  secondaryExpandedKey = (secondaryExpandedKey === 'debts') ? null : 'debts';
+  renderDebtsCard();
+  applyInstallmentsCardState();
+}
+// Rev 2.1.18 — Block 5: картка "Оплати частинами" з прогрес-баром по кожному
+// ОЧ. Прогрес = (початкова сума − поточний залишок) / початкова сума, тільки
+// якщо початкова сума відома (installmentAccounts[].initialAmount, Rev 2.1.17);
+// інакше — рядок без бару, лише залишок (той самий принцип, що вже діє для
+// кредитних карток: "бар лише де є математична база для нього").
+// Rev 2.1.19 — картка ОЧ тепер компакт/деталі, як і решта карток Block 4/5:
+// за замовчуванням лише назва+платіж/міс (як "Всі категорії" в компактному
+// вигляді), по кліку на тригер розкриваються залишок і прогрес-бар. Обидва
+// варіанти рахуються один раз тут і кешуються в installmentsCardData —
+// applyInstallmentsCardState() лише перемикає, які з них показати, без
+// повторного рахування (той самий підхід, що cardVariants.* для Row 4).
+let installmentsCardData = null;
+function renderInstallmentsCard(debtNow, hasDebtData){
+  const instList = hasDebtData ? debtNow.list.filter(d=>d.kind==='installment') : [];
+  if(!hasDebtData || instList.length===0){
+    installmentsCardData = {
+      hasAny: false,
+      emptyHtml: !hasDebtData
+        ? `<div class="empty-hint">Ще немає даних. Додай ОЧ на вкладці «Облік» або імпортуй з Excel у «Сервіс».</div>`
+        : `<div class="empty-hint">Немає активних ОЧ станом на цей місяць.</div>`
+    };
+    applyInstallmentsCardState();
+    return;
+  }
+  const sorted = instList.slice().sort((a,b)=>b.balance-a.balance);
+  // Rev 2.32.171 (OCH-MODEL): «Платіж/міс» = стандартний платіж ОЧ (payment ?? сума ÷ місяці), для ОЧ без моделі — платіж місяця, як було; смуга овалів: кількість = term_months, зафарбовані = term_months − ceil(залишок ÷ стандартний платіж), без підпису; > 24 — суцільна смуга; без term_months смуги нема.
+  const payOf = function(d){ const acc = installmentAccounts.find(function(a){ return a.name === d.name; }); const std = installmentStandardPayment(acc); return std != null ? std : d.monthlyPayment; };
+  const fmtPlain = function(n){ return fmt(n).replace(/\s*₴$/, ''); }; // колонка «Платіж/міс» без знака валюти (місце під назви)
+  const totalPay = sorted.reduce(function(sum, d){ const v = payOf(d); return sum + (v != null ? v : 0); }, 0);
+  const compactBody = sorted.map(function(d){
+    const pv = payOf(d);
+    return `<div class="t-row t-row-2col">
+      <span class="t-name">${bankIcon(d.name, 22, false, 'installment')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
+      <span class="t-amt">${pv!=null ? fmt(pv) : '—'}</span>
+    </div>`;
+  }).join('') + `<div class="t-row t-row-2col summary"><span class="t-name">Разом на місяць</span><span class="t-amt">${fmt(totalPay)}</span></div>`;
+  const detailBody = sorted.map(function(d){
+    const acc = installmentAccounts.find(a=>a.name===d.name);
+    const pv = payOf(d);
+    const barHtml = ochOvalsHtml(ochOvalsModel(acc ? acc.termMonths : null, d.balance, acc ? installmentStandardPayment(acc) : null));
+    return `<div class="t-row">
+      <span class="t-name">${bankIcon(d.name, 22, false, 'installment')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
+      <span class="t-bar-h och-bar-h">${barHtml}</span>
+      <span class="t-amt narrow">${fmt(d.balance)}</span>
+      <span class="t-amt narrow och-pay">${pv!=null ? fmtPlain(pv) : '—'}</span>
+    </div>`;
+  }).join('') + `<div class="t-row summary"><span class="t-name">Разом</span><span class="t-bar-h och-bar-h"></span><span class="t-amt narrow">${fmt(debtNow.totalInstallment)}</span><span class="t-amt narrow och-pay">${fmtPlain(totalPay)}</span></div>`;
+  installmentsCardData = { hasAny: true, compactBody, detailBody };
+  applyInstallmentsCardState();
+}
+function applyInstallmentsCardState(){
+  const headerEl = document.getElementById('installments-header');
+  const bodyEl = document.getElementById('installments-body');
+  const triggerEl = document.getElementById('installments-trigger');
+  if(!installmentsCardData || !headerEl || !bodyEl || !triggerEl) return;
+  if(!installmentsCardData.hasAny){
+    triggerEl.style.display = 'none';
+    headerEl.className = 'table-header t-row-2col';
+    headerEl.innerHTML = '<span class="t-name">Назва</span><span class="t-amt">Платіж/міс</span>';
+    bodyEl.innerHTML = installmentsCardData.emptyHtml;
+    return;
+  }
+  triggerEl.style.display = '';
+  if(secondaryExpandedKey === 'installments'){
+    headerEl.className = 'table-header';
+    headerEl.innerHTML = '<span class="t-name">Назва</span><span class="t-bar-h och-bar-h"></span><span class="t-amt narrow">Залишок</span><span class="t-amt narrow och-pay">Платіж/ міс</span>';
+    bodyEl.innerHTML = installmentsCardData.detailBody;
+    triggerEl.innerHTML = 'Згорнути <span class="arrow">↑</span>';
+  }else{
+    headerEl.className = 'table-header t-row-2col';
+    headerEl.innerHTML = '<span class="t-name">Назва</span><span class="t-amt">Платіж/міс</span>';
+    bodyEl.innerHTML = installmentsCardData.compactBody;
+    triggerEl.innerHTML = 'Всі ОЧ <span class="arrow">→</span>';
+  }
+}
+function toggleInstallmentsCardExpand(){
+  secondaryExpandedKey = (secondaryExpandedKey === 'installments') ? null : 'installments';
+  renderDebtsCard();
+  applyInstallmentsCardState();
+}
+(window.__MT_FILES = window.__MT_FILES || []).push('analytics.js');

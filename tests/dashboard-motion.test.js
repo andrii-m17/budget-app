@@ -157,8 +157,8 @@ test('"перший показ" витрачається лише коли ан�
   assert.match(run, /if\(d\.mode === 'none'\)\{[\s\S]*?return;\s*\}\s*playDashboard\(/, 'при none анімація не стартує');
   assert.ok(!/dashState\.played = true/.test(run), 'dashRun сам "played" не ставить');
   assert.match(MODULE, /function dashStartupReady\(\)\{ return document\.visibilityState === 'visible' && document\.readyState === 'complete'; \}/);
-  assert.match(MODULE, /window\.addEventListener\('load', dashKick\)/);
-  assert.match(MODULE, /visibilitychange', function\(\)\{ if\(document\.visibilityState === 'visible'\) dashKick\(\)/);
+  assert.match(SRC, /window\.addEventListener\('load', dashKick\)/); // Rev 2.32.348 (STRUCT-3c): оператори верхнього рівня лишились в index.html, поза js/analytics.js
+  assert.match(SRC, /visibilitychange', function\(\)\{ if\(document\.visibilityState === 'visible'\) dashKick\(\)/);
   // played ставиться лише у stop() після реального старту та у гілці «нічого анімувати»
   assert.equal((MODULE.match(/dashState\.played = true/g) || []).length, 2);
 });

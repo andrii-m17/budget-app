@@ -37,5 +37,6 @@ test('усі файли доступні: екрана збою немає, за
   await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user && document.getElementById('f-date').value);
   await expect(page.locator('#mt-load-fail')).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('mt-load-fail'))).toBeNull();
-  expect(await page.evaluate(() => window.__MT_FILES.slice().sort())).toEqual(['structure.js', 'util-date.js', 'util-format.js', 'util-misc.js', 'util-safe.js']);
+  const r = await page.evaluate(() => ({ loaded: window.__MT_FILES.slice().sort(), tags: Array.from(document.querySelectorAll('script[src^="./js/"]')).map(s => s.getAttribute('src').replace(/^\.\/js\//, '').replace(/\?.*$/, '')).sort() }));
+  expect(r.loaded).toEqual(r.tags); expect(r.tags.length).toBeGreaterThanOrEqual(5); // кожен підключений файл відзвітував
 });

@@ -6,7 +6,7 @@
 //
 // Версію кешу треба піднімати руками при кожному релізі HTML-файлу —
 // інакше стара закешована версія може пережити оновлення на сервері.
-const CACHE_NAME = 'budget-app-v2.32.347';
+const CACHE_NAME = 'budget-app-v2.32.348';
 // Rev 2.6.1 — назви файлів іконок отримали суфікс "-v2" (cache-busting):
 // та сама назва файлу під заміненим вмістом не гарантовано пробивала кеш
 // CDN GitHub Pages / Cache Storage / кеш фавіконок Safari одночасно.
@@ -20,6 +20,7 @@ const APP_SHELL = [
   './js/util-safe.js',
   './js/util-misc.js',
   './js/structure.js', // Rev 2.32.346 (STRUCT-3)
+  './js/analytics.js', // Rev 2.32.348 (STRUCT-3)
   './manifest.json',
   './icons/icon-192-v2.png',
   './icons/icon-512-v2.png'
