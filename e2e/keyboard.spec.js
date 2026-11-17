@@ -1996,3 +1996,54 @@ test('136. LOGIN-FORM-3: перехід фокусу пароль → пошта
     expect(c, 'pan-comp ≤ 1: ' + c).toBeLessThanOrEqual(1);
   } finally { await ctx.close(); }
 });
+
+// Rev 2.32.329 (LOGIN-FORM-4, C): стан «входимо» після автозаповнення.
+async function lf4Open(browser){
+  const { ctx, page } = await open(browser, devices['iPhone 14'], false, true);
+  await page.evaluate(() => {
+    window.__sign = 0; window.__af = new Set(); const _m = Element.prototype.matches; Element.prototype.matches = function(sel){ if(sel === ':-webkit-autofill') return window.__af.has(this.id); return _m.call(this, sel); };
+    window.loadSupabaseSdk = async function(){}; window.getSupabaseClient = function(){ return { auth: { signInWithPassword: function(){ window.__sign++; return new Promise(r => setTimeout(() => r({ error: { message: 'тест', status: 400 } }), 1500)); } } }; };
+    window.__vv.h = null; window.__vv.top = 0; showProfileLoginForm();
+  });
+  await page.waitForTimeout(900);
+  await page.evaluate(() => { document.getElementById('cldfielda1').focus(); });
+  await page.waitForTimeout(150);
+  await page.evaluate(() => { window.__vv.h = window.__H0 - Math.round(window.__H0 * 0.465); window.visualViewport.dispatchEvent(new Event('resize')); });
+  await page.waitForTimeout(1000);
+  return { ctx, page };
+}
+const lf4Fill = (page, id, value, ev) => page.evaluate(([id, value, ev]) => { const el = document.getElementById(id); window.__af.add(id); el.value = value; el.dispatchEvent(new Event(ev, { bubbles: true })); }, [id, value, ev]);
+test('137a. LOGIN-FORM-4: послідовність MT-1117-7227 (заповнення пошти, фокус на пароль, висота 583/506/479, прокрутка 1–3 пт, заповнення пароля) — після першого заповнення положення форми не змінюється, 0 pan-comp, рівно один вхід', async ({ browser }) => {
+  const { ctx, page } = await lf4Open(browser);
+  try{
+    const bottom = () => page.evaluate(() => Math.round(document.getElementById('profile-drawer').getBoundingClientRect().bottom * 10) / 10);
+    const n0 = await page.evaluate(() => recBuf.length);
+    await lf4Fill(page, 'cldfielda1', 'a@x.test', 'input'); await lf4Fill(page, 'cldfielda1', 'a@x.test', 'change'); // перший change з autofill → «входимо»
+    await page.waitForTimeout(60);
+    const b0 = await bottom(); const seen = [b0];
+    await page.evaluate(() => { document.getElementById('cloud-password').focus(); }); // iOS сам перекидає фокус
+    for(const [f, top] of [[583 / 894, 1], [506 / 894, 2], [479 / 894, 3], [583 / 894, 1], [506 / 894, 2]]){
+      await page.evaluate(([f, top]) => { window.__vv.h = Math.round(window.__H0 * f); window.__vv.top = top; window.visualViewport.dispatchEvent(new Event('resize')); window.visualViewport.dispatchEvent(new Event('scroll')); }, [f, top]);
+      await page.waitForTimeout(120); seen.push(await bottom());
+    }
+    expect(Math.max(...seen) - Math.min(...seen), 'положення форми не змінюється: ' + JSON.stringify(seen)).toBeLessThanOrEqual(0.5);
+    await lf4Fill(page, 'cloud-password', 'pw', 'change'); // обидва поля → одразу подання
+    await page.waitForTimeout(300);
+    const r = await page.evaluate((n) => ({ sign: window.__sign, panComp: recBuf.slice(n).filter(e => e.type === 'pan-comp').length, panCorr: recBuf.slice(n).filter(e => e.type === 'pan-corrected').length, lock: recBuf.slice(n).filter(e => e.type === 'login-lock').map(e => e.on + ':' + (e.reason || '')), by: recBuf.slice(n).filter(e => e.type === 'login-submit').map(e => e.by) }), n0);
+    expect(r.panComp + r.panCorr, JSON.stringify(r)).toBe(0);
+    expect(r.sign, JSON.stringify(r)).toBe(1);
+    expect(r.by, JSON.stringify(r)).toEqual(['autofill']);
+    expect(r.lock[0], JSON.stringify(r)).toBe('true:');
+  } finally { await ctx.close(); }
+});
+test('137b. LOGIN-FORM-4: заповнилось лише одне поле — через 1 с стан вимикається (login-lock off timeout), подання немає', async ({ browser }) => {
+  const { ctx, page } = await lf4Open(browser);
+  try{
+    const n0 = await page.evaluate(() => recBuf.length);
+    await lf4Fill(page, 'cldfielda1', 'a@x.test', 'change');
+    await page.waitForTimeout(1300);
+    const r = await page.evaluate((n) => ({ sign: window.__sign, lock: recBuf.slice(n).filter(e => e.type === 'login-lock').map(e => e.on + ':' + (e.reason || '')) }), n0);
+    expect(r.sign, JSON.stringify(r)).toBe(0);
+    expect(r.lock, JSON.stringify(r)).toEqual(['true:', 'false:timeout']);
+  } finally { await ctx.close(); }
+});

@@ -3878,7 +3878,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.328</div>
+  <div class="version-footer">Money Tree · Rev 2.32.329</div>
 </div>
   </div>
 </div>
@@ -9846,7 +9846,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.328';
+const APP_VERSION = '2.32.329';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -11666,6 +11666,7 @@ function openProfileLoginDrawer(){
   lockBackgroundScroll();
 }
 function closeProfileLoginDrawer(){
+  try{ loginLockOff('closed'); }catch(e){} // Rev 2.32.329 (LOGIN-FORM-4)
   const drawer = document.getElementById('profile-drawer');
   // Guard: setCloudAuthFormVisible(false) кличе цю функцію БЕЗУМОВНО за
   // кожної переоцінки сесії (типово: щоразу, коли popover відкривається
@@ -13973,6 +13974,21 @@ function loginEnterKey(e){
   // Rev 2.32.326 (LOGIN-FORM): Return у паролі тепер подає форму штатно (submit → loginFormSubmit); тут лише перехід пошта → пароль
 }
 // Rev 2.32.326 (LOGIN-FORM, C): форма входу й вхід за автозаповненням. Факти: після автозаповнення (Face ID) еталонні застосунки ховають клавіатуру, і вхід іде сам (iOS подає форму); у нас поля в <div>, кнопка type=button, тож iOS подавати було нічого. Тепер <form id="cloud-login-form-el"> з кнопкою type=submit; submit: preventDefault, blur активного поля, signInCloudAccount() (cloudSignInBusy гарантує один вхід). Додатково: коли обидва поля заповнено автозаповненням (input без inputType / insertReplacementText / :-webkit-autofill) і після заповнення не було ні keydown, ні дотику по полях — один form.requestSubmit() на заповнення; не повторюється для тих самих значень після помилки входу. Самописець: login-submit by: button | return | autofill | ios.
+let loginLock = false, loginLockTimer = null;
+// Rev 2.32.329 (LOGIN-FORM-4, C): стан «входимо» (MT-1117-7227: за 1,6 с форма 5 разів змінювала положення, слідуючи за висотою клавіатури 388 → 311 → 388 → 415 → закрито, а iOS прокручував сторінку на 1–3 пт і наш код відповідав 5 pan-comp). Вмикається на першому change у полі входу з :-webkit-autofill; поки діє, конвеєр клавіатури для шторки входу не міняє положення й висоту (kb-vv-resize, прокрутка сторінки, перекидання фокуса iOS, pan-comp / pan-corrected). Вимикається: форма закрилась (closed), вхід завершився (submitted), або за 1000 мс друге поле не заповнилось (timeout). Самописець: login-lock on / off + reason.
+function loginLockOn(){
+  if(loginLock) return;
+  loginLock = true;
+  try{ captureDebugGeometry('login-lock', { on: true }); }catch(e){}
+  if(loginLockTimer) clearTimeout(loginLockTimer);
+  loginLockTimer = setTimeout(function(){ loginLockTimer = null; if(!loginLock) return; const e = document.getElementById('cldfielda1'), p = document.getElementById('cloud-password'); if(cloudSignInBusy || (e && p && e.value && p.value && loginIsAutofilled(e) && loginIsAutofilled(p))) return; loginLockOff('timeout'); }, 1000);
+}
+function loginLockOff(reason){
+  if(!loginLock) return;
+  loginLock = false;
+  if(loginLockTimer){ clearTimeout(loginLockTimer); loginLockTimer = null; }
+  try{ captureDebugGeometry('login-lock', { on: false, reason: reason }); }catch(e){}
+}
 let loginKdPending = false, loginFillTimer = null, loginAutoDoneFor = '', loginSubmitBy = null, loginSubmitByAt = 0;
 // Rev 2.32.327 (LOGIN-FORM-2, C): звіти MT-1117-1653 / -3640: після автозаповнення (панель Face ID / QuickType) самописець писав autofill by panel / closed, але login-submit by autofill не було: умови 2.32.326 (ознака autofill у input, «без дотику») не збігалися з тим, що подає iOS. Тепер: input і change на обох полях → через 300 мс один form.requestSubmit(), коли обидва поля не порожні, у полях входу не було keydown після відкриття форми (ручний набір подає лише Return/кнопка), вхід не триває (cloudSignInBusy) і цю пару значень ще не подавали. Друге джерело того самого рішення: завершення групи autofill у самописці (будь-який by) викликає ту саму loginAutoCheck. Дотик по полях умовою більше не є (він лише відкриває панель Face ID).
 function loginIsField(el){ return !!(el && (el.id === 'cldfielda1' || el.id === 'cloud-password')); }
@@ -14011,8 +14027,9 @@ document.addEventListener('click', function(ev){ try{ if(ev.target && ev.target.
     try{ captureDebugGeometry('login-fill', { field: el.id, ev: evName, inputType: ev.inputType || null, autofill: loginIsAutofilled(el), filled: !!el.value, kd: kd }); }catch(e){} // значень не пишемо; kd — перед цим input був keydown
     const ee = document.getElementById('cldfielda1'), pp = document.getElementById('cloud-password');
     if(ee && pp && !ee.value && !pp.value){ loginKdPending = false; loginAutoDoneFor = ''; } // обидва порожні: нова спроба
-    if(loginFillTimer) clearTimeout(loginFillTimer);
-    loginFillTimer = setTimeout(loginAutoCheck, 300);
+    if(loginFillTimer){ clearTimeout(loginFillTimer); loginFillTimer = null; }
+    if(evName === 'change'){ if(loginIsAutofilled(el)) loginLockOn(); loginAutoCheck(); } // Rev 2.32.329: change — одразу (без 300 мс); input лишається з паузою 300 мс (посимвольне заповнення)
+    else loginFillTimer = setTimeout(loginAutoCheck, 300);
   }, true);
 });
 // Rev 2.32.299 (LOGIN-RET): захист від повторного входу (Return + кнопка, подвійний Return): поки вхід триває, повторний виклик ігнорується; прапорець скидається в finally.
@@ -14023,7 +14040,7 @@ async function signInCloudAccount(){
   if(cloudSignInBusy) return;
   cloudSignInBusy = true;
   const guard = setTimeout(function(){ cloudSignInBusy = false; }, CLOUD_SIGNIN_BUSY_MAX_MS);
-  try{ await signInCloudAccountRun(); }finally{ clearTimeout(guard); cloudSignInBusy = false; }
+  try{ await signInCloudAccountRun(); }finally{ clearTimeout(guard); cloudSignInBusy = false; try{ loginLockOff('submitted'); }catch(e){} }
 }
 async function signInCloudAccountRun(){
   const errEl = document.getElementById('cloud-auth-error');
@@ -15182,8 +15199,8 @@ const REC_MIRROR_KEY = 'budget-rec-buffer-v1';
 const REC_QUEUE_KEY = 'budget-rec-queue-v1';
 const REC_RATE_KEY = 'budget-rec-rate-v1';
 const REC_SENT_KEY = 'budget-rec-sent-v1';
-const REC_ALLOWED_TYPES = ['login-fill', 'login-submit', 'kb-shot-close', 'touch-cancel', 'native-focus', 'switch-miss', 'kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail', 'echo-skip', 'pull-skip'];
-const REC_ALLOWED_KEYS = ['sinceClose', 'idShort', 'earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm', 'vvTopBefore', 'scrollYBefore', 'distPx', 'prevTabindex', 'targetTabindex', 'sinceTouchEnd', 'enterHop', 'activeStart', 'activeEnd', 'sinceIntercept', 'stPreMs', 'stEnterMs', 'stCapMs', 'stPipeMs', 'stRestMs', 'stTotalMs', 'firstFrameMs', 'firstAnimMs', 'samplesLift', 'pageTop', 'pageTopStart', 'pageTopEnd', 'latencyMs', 'platformField', 'ev', 'inputType', 'autofill', 'filled', 'kd'];
+const REC_ALLOWED_TYPES = ['login-lock', 'login-fill', 'login-submit', 'kb-shot-close', 'touch-cancel', 'native-focus', 'switch-miss', 'kb-early-fallback', 'autofocus-transfer', 'kb-early-skip', 'kb-early', 'autofill', 'enter-next', 'arrow-direct', 'switch-trace', 'pan-comp', 'deeplink', 'app-visible-sync', 'inbox-new-toast', 'kb-heights', 'sheet-open', 'sheet-close', 'sheet-anim', 'caret-hidden', 'pan-corrected', 'switch-native', 'native-switch', 'proxy-switch', 'focus-transfer', 'focus-transfer-forced', 'focus-proxy', 'field-scroll', 'kb-vv-resize', 'kb-win-focus', 'kb-win-blur', 'kb-visibility', 'kb-bg-reset', 'kb-transient-hide', 'kb-open-class-changed', 'kb-open-released', 'kb-frames', 'kb-guard', 'kb-geometry', 'tabbar-restore', 'vv-resize', 'vv-scroll', 'focusin', 'focusout', 'visibilitychange', 'pageshow', 'pagehide', 'orientationchange', 'resize', 'touch', 'intercept-miss', 'intercept-via-label', 'switch-intercept', 'focus-no-preventscroll', 'sync-heads', 'sync-delta', 'sync-full', 'sync-full-recon', 'autosync', 'push-msg', 'push-apply', 'push-click', 'push-route', 'sw-update', 'signout', 'signout-fallback', 'signout-no-server', 'login', 'js-error', 'write-blocked', 'rec-trigger', 'push-receipt-fail', 'echo-skip', 'pull-skip'];
+const REC_ALLOWED_KEYS = ['sinceClose', 'idShort', 'earlyState', 't', 'wall', 'type', 'innerW', 'innerH', 'vvW', 'vvH', 'vvOffsetTop', 'scrollY', 'kbInset', 'kbH', 'activeElementTag', 'activeElementId', 'activeElementType', 'orientation', 'tabbarTop', 'tabbarHeight', 'drawerId', 'drawerTop', 'drawerBottom', 'drawerHeight', 'backdropId', 'sheetLiftCss', 'sheetRestBottom', 'sheetBottomAtTransfer', 'sheetFinalBottom', 'activeRectTop', 'activeRectBottom', 'ms', 'proxyActive', 'frames', 'maxGapMs', 'durationMs', 'samples', 'phase', 'jumpMaxPx', 'settledY', 'settleDeltaPx', 'from', 'to', 'switchKind', 'dir', 'keyboardTypeOk', 'panMax400', 'hasFocus', 'visibility', 'kbOpen', 'msAfterFocusout', 'blips', 'firstKbFrameT', 'kbReleaseVvH', 'kbReleaseBaseVh', 'skipped', 'field', 'delta', 'bodyClasses', 'targetTag', 'targetId', 'targetClasses', 'touchX', 'touchY', 'kbgWhy', 'devClass', 'sheetTop', 'sheetBottom', 'sheetHeight', 'fieldTop', 'fieldBottom', 'kbHeightCalc', 'tabbarGap', 'drawerScrollHeight', 'drawerClientHeight', 'drawerScrollTop', 'actionsTop', 'actionsBottom', 'scrollFrom', 'scrollTo', 'samplesExt', 'samplesH', 'caretColor', 'proxyTop', 'proxyBottom', 'table', 'rows', 'ok', 'changedTables', 'profiles', 'full', 'failed', 'server', 'fetched', 'removed', 'dirty', 'trigger', 'reason', 'pushType', 'clients', 'focus', 'source', 'found', 'applied', 'result', 'cleared', 'unsubscribed', 'message', 'stackTop', 'tab', 'count', 'kind', 'errorCode', 'route', 'online', 'why', 'gap', 'anims', 'proxyInputmode', 'targetInputmode', 'via', 'kbHs', 'kbHCount', 'visible', 'shown', 'tapped', 'scrollTop', 'panShift', 'fieldCenter', 'centerC', 'preemptD', 'iosR', 'cAfter', 'maxScroll', 'scrollAfter', 'padAdded', 'relayCenter', 'maxShift', 'relayCount', 'relayIds', 'relayCenters', 'during', 'fields', 'by', 'expected', 'src', 'factor', 'target', 'deadline', 'rel', 'need', 'lmin', 'lnorm', 'vvTopBefore', 'scrollYBefore', 'distPx', 'prevTabindex', 'targetTabindex', 'sinceTouchEnd', 'enterHop', 'activeStart', 'activeEnd', 'sinceIntercept', 'stPreMs', 'stEnterMs', 'stCapMs', 'stPipeMs', 'stRestMs', 'stTotalMs', 'firstFrameMs', 'firstAnimMs', 'samplesLift', 'pageTop', 'pageTopStart', 'pageTopEnd', 'latencyMs', 'platformField', 'ev', 'inputType', 'autofill', 'filled', 'kd', 'on'];
 // Значення: числа (округлені), булеві, короткі очищені рядки, масиви чисел/коротких рядків/пар, плоскі об'єкти з тих самих листків. Усе інше відкидається.
 function recSanitizeValue(v, depth){
   if(v == null) return null;
@@ -30181,8 +30198,10 @@ function kbNoteKbH(kbH){
   if(kbHTimer) clearTimeout(kbHTimer);
   kbHTimer = setTimeout(function(){ kbHTimer = null; if(kbHSeen.length) captureDebugGeometry('kb-heights', { via: kbOpenVia, kbHs: kbHSeen.join(','), kbHCount: kbHSeen.length }); }, 700);
 }
+function kbLoginLockOn(){ return !!(loginLock && kbSheetDrawerEl && kbSheetDrawerEl.id === 'profile-drawer'); } // Rev 2.32.329 (LOGIN-FORM-4): стан «входимо» для шторки входу
 function updateKbSheetGeometry(){
   if(!kbSheetActive || !window.visualViewport) return;
+  if(kbLoginLockOn()) return; // Rev 2.32.329 (LOGIN-FORM-4): стан «входимо»: зміни висоти клавіатури положення й висоту форми не міняють
   const baseVh = getBaseViewportHeight();
   const vvH = window.visualViewport.height;
   // Rev 2.32.259 (KB-5b): поки фокус у полі й конвеєр уже бачив клавіатуру (animating/settled), кадр «клавіатура закрита» (visualViewport.height ≈ base: тимчасові викиди 506↔826 під час набору й Face ID) лист не рухає: --kb-h/--vv-h/--sheet-max-h і підйом лишаються за останнім кадром із клавіатурою. Лист опускається лише після втрати фокуса (focusout → handleKeyboardFieldFocusSettle). Ризик: клавіатуру сховано жестом без blur (Баг 2) — лист лишається піднятим до наступного фокуса/blur; KB-5a знімає фокус при згортанні. Альтернатива (таймер 250 мс) відкинута: вгадування часу.
@@ -30260,6 +30279,7 @@ let kbPanDeferTimer = null, kbVvHChangeAt = 0; // kbVvHChangeAt: момент о
 if(window.visualViewport) window.visualViewport.addEventListener('resize', function(){ kbVvHChangeAt = performance.now(); });
 function correctPanIfNeeded(){
   if(!window.visualViewport) return;
+  if(kbLoginLockOn()) return; // Rev 2.32.329 (LOGIN-FORM-4): стан «входимо»: прокрутку iOS не коригуємо (без pan-comp / pan-corrected)
   if(window.scrollY !== 0 || window.visualViewport.offsetTop !== 0){
     { const nativeNoTouch = kbLastSwitchKind === 'native' && Date.now() - kbLastSwitchAt < 600 && !(kbLastTap && Date.now() - kbLastTap.endAt < 600);
       if(nativeNoTouch && performance.now() - kbVvHChangeAt < KB_PAN_SETTLE_MS){ if(kbPanDeferTimer) clearTimeout(kbPanDeferTimer); kbPanDeferTimer = setTimeout(function(){ kbPanDeferTimer = null; correctPanIfNeeded(); }, KB_PAN_SETTLE_MS); return; } }
@@ -30550,6 +30570,7 @@ function handleKeyboardFieldFocusIn(target){
       // Rev 2.23.17 (6D.186): наш власний перехід (runProxySwitchTrick) нічого
       // не змінює — ні класів, ні --sheet-lift, ні класифікації перемикання.
       if(kbRefocusing) return;
+      if(kbLoginLockOn()){ if(target.id !== 'kb-focus-proxy') kbLastFocusedField = target; return; } // Rev 2.32.329 (LOGIN-FORM-4): стан «входимо»: перекидання фокуса, яке робить iOS, форму не рухає
       // Rev 2.23.11 (6D.180) — перехід проксі→справжнє поле (чи Tab між
       // полями тієї ж УЖЕ відкритої шторки): НЕ викликаємо enterKbSheet()
       // повторно — це скинуло б --kb-h/--vv-h до ОЦІНКИ замість уже точних
