@@ -2437,9 +2437,9 @@
      у власний повноширинний рядок (замість row-2 пліч-о-пліч) — на 390px
      двом кнопкам + інпуту дати в спільному ряду з "Сумою" було б затісно. */
   .date-nav-row{ display:flex; align-items:center; gap:8px; }
-  .date-nav-btn{ flex:0 0 auto; width:48px; height:48px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .date-nav-btn{ flex:0 0 auto; width:48px; height:48px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text-2); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
-  @media (hover:hover) and (pointer:fine){ .date-nav-btn:hover{ background:var(--color-hover-overlay); color:var(--color-text-primary); } }
+  @media (hover:hover) and (pointer:fine){ .date-nav-btn:hover{ background:var(--color-hover-overlay); color:var(--text); } }
   .date-nav-btn:active{ background:var(--color-active-overlay); }
   .date-input-wrap{ flex:1 1 auto; min-width:0; overflow:hidden; }
   /* Rev 2.1.7 — нативний input[type=date] не можна надійно змусити показувати
@@ -2447,7 +2447,7 @@
      це обійти оверлеєм ризикують зламати вже існуючий iOS-фікс вище. Замість
      цього — окремий підпис під полем з повною українською датою, який просто
      читається, а сам контрол лишається нативним і надійним. */
-  .date-caption{ margin-top:6px; font-size:12.5px; font-weight:600; color:var(--color-text-secondary); text-align:center; }
+  .date-caption{ margin-top:6px; font-size:12.5px; font-weight:600; color:var(--text-2); text-align:center; }
   /* BugFix Rev 2.0.2: на вузькому екрані назва банку обрізалась ("Приват Б...")
      — 130px-поле суми + дві іконки з тими самими зазорами, що на desktop,
      забирали занадто багато місця. Звужуємо поле суми й іконки саме на mobile. */
@@ -2539,9 +2539,9 @@
     .ov-row1 .wide{ grid-column:span 2; }
     .ov-row3{ grid-template-columns:repeat(2,1fr); }
     .kpi-strip{ grid-template-columns:repeat(3,1fr); }
-    .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; border-left:1px solid var(--color-border); padding-left:14px; }
+    .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; border-left:1px solid var(--line); padding-left:14px; }
     .kpi-strip-item:nth-child(3n+1){ border-left:none; padding-left:0; }
-    .kpi-strip-item:nth-child(n+4){ border-top:1px solid var(--color-border); margin-top:12px; padding-top:12px; }
+    .kpi-strip-item:nth-child(n+4){ border-top:1px solid var(--line); margin-top:12px; padding-top:12px; }
   }
 
   /* ---- Rev 2.32.162 (DESK-NAV): плаваюча навігаційна панель десктопа ----
@@ -2559,42 +2559,42 @@
     .page-header-text h1{ font-size:28px; line-height:34px; }
     .page-header-text .page-subtitle{ font-size:13.5px; margin-top:5px; }
     .side{ display:block; flex:none; position:relative; width:calc(var(--side-w) + 24px); transition:width .22s ease; }
-    .side-panel{ position:fixed; z-index:20; top:12px; bottom:12px; left:12px; width:var(--side-w); box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:12px 8px; border-radius:22px; background:var(--color-glass-bg); -webkit-backdrop-filter:blur(14px) saturate(160%); backdrop-filter:blur(14px) saturate(160%); border:1px solid var(--color-glass-border); box-shadow:var(--shadow-glass); transition:width .22s ease; }
+    .side-panel{ position:fixed; z-index:20; top:12px; bottom:12px; left:12px; width:var(--side-w); box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:12px 8px; border-radius:var(--r-l); background:var(--glass); -webkit-backdrop-filter:blur(14px) saturate(160%); backdrop-filter:blur(14px) saturate(160%); border:1px solid var(--glass-edge); box-shadow:var(--glass-shadow); transition:width .22s ease; }
     @media (max-height:559px){ .side-panel{ overflow-y:auto; } }
     .side-head{ display:flex; align-items:center; gap:6px; padding:2px 4px 12px; min-height:40px; }
     .side .brand-side{ flex:1; min-width:0; }
     .side .brand-side h1{ font-size:17px; margin:0; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .side-collapse-btn{ flex:none; width:32px; height:32px; border-radius:11px; border:1px solid var(--color-border); background:transparent; color:var(--color-text-secondary); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+    .side-collapse-btn{ flex:none; width:32px; height:32px; border-radius:11px; border:1px solid var(--line); background:transparent; color:var(--text-2); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
     .side-collapse-btn svg{ width:16px; height:16px; transition:transform .22s ease; }
-    .side-collapse-btn:focus-visible, .side button.side-tab:focus-visible{ outline:2px solid var(--color-primary); outline-offset:2px; }
-    @media (hover:hover) and (pointer:fine){ .side-collapse-btn:hover{ background:var(--color-surface-hover); color:var(--color-text-primary); } }
-    .side button.side-tab{ position:relative; text-align:left; background:none; border:1px solid transparent; padding:10px 12px; border-radius:16px; font-size:14px; font-weight:600; color:var(--color-text-secondary); cursor:pointer; display:flex; align-items:center; gap:10px; min-height:44px; box-sizing:border-box; width:100%; }
-    @media (hover:hover) and (pointer:fine){ .side button.side-tab:hover{ background:var(--color-surface-hover); color:var(--color-text-primary); } }
+    .side-collapse-btn:focus-visible, .side button.side-tab:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+    @media (hover:hover) and (pointer:fine){ .side-collapse-btn:hover{ background:var(--surface-2); color:var(--text); } }
+    .side button.side-tab{ position:relative; text-align:left; background:none; border:1px solid transparent; padding:10px 12px; border-radius:16px; font-size:14px; font-weight:600; color:var(--text-2); cursor:pointer; display:flex; align-items:center; gap:10px; min-height:44px; box-sizing:border-box; width:100%; }
+    @media (hover:hover) and (pointer:fine){ .side button.side-tab:hover{ background:var(--surface-2); color:var(--text); } }
     /* активний пункт — скляна пілюля з рамкою акценту (ті самі значення, що .tabbar-bubble на мобільній) */
-    .side button.side-tab.active{ background:rgba(34,197,94,.16); border-color:rgba(34,197,94,.32); box-shadow:0 2px 8px rgba(34,197,94,.22); color:var(--color-primary-hover); }
+    .side button.side-tab.active{ background:var(--accent-bg); border-color:var(--accent-line); box-shadow:0 2px 8px rgba(34,197,94,.22); color:var(--color-primary-hover); }
   .side button.side-tab svg{ width:18px; height:18px; flex-shrink:0; }
   /* Rev 2.32.141 (DESK-BADGE): обгортка іконки для бейджа непрочитаних; бейдж — той самий клас, що на мобільному дзвіночку (колір --color-error, 16 px / 10 px), зсунутий до кута 18-px іконки. */
   .side button.side-tab .side-ico{ position:relative; display:inline-flex; flex-shrink:0; }
   .side-ico .notif-bell-count{ top:-7px; right:-9px; }
   /* Rev 2.32.126: значок синхронізації на аватарі в боковій панелі — як маленький у куті аватара на мобільній. Причина: правило вище (0,2,2) перебивало .avatar-status-dot svg (0,1,1), тож гліф 18px вилазив з крапки 11px; крапка була пів-аватара (11 з 22 px, на мобільній 11 з 36) і мала світле кільце --color-surface на темнішому тлі панелі. Тепер: крапка 8px (пропорція мобільної ≈ 0,3), кільце 1.5px кольору тла панелі, гліф 70% крапки. Ризик: гліф у 8px крапці дрібний (≈3.5px), як і задумано «маленький значок». */
-  .side button.side-tab .avatar-status-dot{ width:8px; height:8px; border-width:1.5px; border-color:var(--color-bg); bottom:-1px; right:-1px; }
+  .side button.side-tab .avatar-status-dot{ width:8px; height:8px; border-width:1.5px; border-color:var(--bg); bottom:-1px; right:-1px; }
   .side button.side-tab .avatar-status-dot svg{ width:70%; height:70%; }
     .side-label{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
     /* «Витрати» — зелене коло з плюсом (як центральна кнопка мобільного таб-бара); пілюлі в нього немає, активний стан — темніше коло й колір підпису */
-    .side button.side-tab.tab-vytraty{ background:none; border-color:transparent; box-shadow:none; color:var(--color-text-secondary); margin:2px 0; }
-    .side-plus{ flex:none; width:30px; height:30px; margin:-3px 0 -3px -4px; border-radius:50%; background:var(--color-primary); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(34,197,94,.35); transition:background var(--duration-fast) var(--easing-standard); }
+    .side button.side-tab.tab-vytraty{ background:none; border-color:transparent; box-shadow:none; color:var(--text-2); margin:2px 0; }
+    .side-plus{ flex:none; width:30px; height:30px; margin:-3px 0 -3px -4px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(34,197,94,.35); transition:background var(--duration-fast) var(--easing-standard); }
     .side button.side-tab .side-plus svg{ width:16px; height:16px; }
-    @media (hover:hover) and (pointer:fine){ .side button.side-tab.tab-vytraty:hover{ background:var(--color-surface-hover); } .side button.side-tab.tab-vytraty:hover .side-plus{ background:var(--color-primary-hover); } }
+    @media (hover:hover) and (pointer:fine){ .side button.side-tab.tab-vytraty:hover{ background:var(--surface-2); } .side button.side-tab.tab-vytraty:hover .side-plus{ background:var(--color-primary-hover); } }
     .side button.side-tab.tab-vytraty.active{ background:none; border-color:transparent; box-shadow:none; color:var(--color-primary-hover); }
     .side button.side-tab.tab-vytraty.active .side-plus{ background:var(--color-primary-hover); }
     .side-spacer{ flex:1; }
-    .side-divider{ border-top:1px solid var(--color-border); margin:8px 4px; }
+    .side-divider{ border-top:1px solid var(--line); margin:8px 4px; }
     /* нижній ряд: профіль, сповіщення, налаштування — три кнопки-іконки в рядок (у вузькій панелі стовпчиком) */
     .side-bottom{ display:flex; gap:4px; }
     .side-bottom button.side-tab{ flex:1; justify-content:center; padding:0; min-height:40px; }
     .side-bottom .side-label{ display:none; }
     /* підказки: у вузькій панелі для всіх пунктів, у нижньому ряду — завжди; при наведенні й фокусі клавіатурою */
-    .side button.side-tab[data-tip]::after{ content:attr(data-tip); position:absolute; left:calc(100% + 12px); top:50%; transform:translateY(-50%); padding:6px 10px; border-radius:10px; background:var(--color-surface); color:var(--color-text-primary); border:1px solid var(--color-border); box-shadow:var(--shadow-md, 0 6px 18px rgba(16,24,40,.18)); font-size:12.5px; font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .12s ease; z-index:30; }
+    .side button.side-tab[data-tip]::after{ content:attr(data-tip); position:absolute; left:calc(100% + 12px); top:50%; transform:translateY(-50%); padding:6px 10px; border-radius:10px; background:var(--surface); color:var(--text); border:1px solid var(--line); box-shadow:var(--shadow-md, 0 6px 18px rgba(16,24,40,.18)); font-size:12.5px; font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; visibility:hidden; transition:opacity var(--t-micro) ease; z-index:30; }
     .side-bottom button.side-tab[data-tip]::after{ left:50%; top:auto; bottom:calc(100% + 8px); transform:translateX(-50%); }
     html.side-collapsed .side button.side-tab[data-tip]:hover::after, html.side-collapsed .side button.side-tab[data-tip]:focus-visible::after,
     .side-bottom button.side-tab[data-tip]:hover::after, .side-bottom button.side-tab[data-tip]:focus-visible::after{ opacity:1; visibility:visible; }
@@ -2631,7 +2631,7 @@
     .ov-row4{ flex-direction:row; }
     .ov-row4 > .card{ flex:1; min-width:0; }
     .kpi-strip{ grid-template-columns:repeat(6,1fr); }
-    .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; padding-right:0; border-left:1px solid var(--color-border); padding-left:16px; }
+    .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; padding-right:0; border-left:1px solid var(--line); padding-left:16px; }
     .kpi-strip-item:first-child{ border-left:none; padding-left:0; }
 
     /* Rev 2.1.2 — картка "Нова витрата" на desktop розтягувалась на всю
@@ -2709,50 +2709,50 @@
     background:var(--ui-glass); border:1px solid var(--ui-btn-border); color:var(--ui-text);
     box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--ui-btn-shadow);
   }
-  html:root :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .installment-pay-btn){ border-radius:var(--ui-r-control); }
-  html:root :is(.diag-issue-ignore){ border-radius:var(--ui-r-small); }
-  html:root :is(.gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close){ border-radius:min(var(--ui-r-control), 50%); }
+  html:root :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .installment-pay-btn){ border-radius:var(--r-m); }
+  html:root :is(.diag-issue-ignore){ border-radius:var(--r-s); }
+  html:root :is(.gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close){ border-radius:min(var(--r-m), 50%); }
   html:root .add-trigger-btn{ border-style:solid; color:var(--ui-text-2); }
-  html:root .show-journal-link{ color:var(--ui-accent-text); }
+  html:root .show-journal-link{ color:var(--accent-text); }
   html:root .installment-pay-btn{ color:var(--color-accent-purple); border-color:var(--color-accent-purple); background:var(--color-accent-purple-bg); box-shadow:inset 0 1px 0 var(--ui-btn-highlight); }
-  html:root .gear-btn.update-btn{ border-color:var(--ui-accent-border); color:var(--ui-accent-text); }
+  html:root .gear-btn.update-btn{ border-color:var(--accent-line); color:var(--accent-text); }
   html:root .drawer-close{ background:var(--ui-glass); }
   @media (hover:hover) and (pointer:fine){
     html:root :is(.submit-btn.secondary, .add-trigger-btn, .show-journal-link, .journal-reset-btn, .rce-cancel, .gear-btn:not(.profile-header-btn), .date-nav-btn, .journal-back-btn, .drawer-close, .trash-chip:not(.active), .n-days button:not(.active)):hover{ background:var(--ui-glass-press); }
   }
   /* --- Основні: зелена/семантична заливка, радіус зі шкали, відблиск; затемнені заливки дають контраст ≥4.5:1 з білим текстом (AA) --- */
   html:root :is(.submit-btn:not(.secondary):not(.danger-outline), .rce-save, .dsp-action){
-    border-radius:var(--ui-r-control); box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 2px 8px rgba(16,24,40,.14); }
-  html:root .dsp-action{ border-radius:var(--ui-r-small); }
+    border-radius:var(--r-m); box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 2px 8px rgba(16,24,40,.14); }
+  html:root .dsp-action{ border-radius:var(--r-s); }
   html:root :is(.submit-btn:not(.secondary):not(.danger-outline):not(.income):not(.debt):not(.expense):not(.danger), .rce-save, .dsp-action){ background:var(--ui-accent-strong); }
   html:root .submit-btn.income{ background:var(--ui-success-strong); }
   html:root .submit-btn.debt{ background:var(--ui-warning-strong); }
   html:root :is(.submit-btn.expense, .submit-btn.danger){ background:var(--ui-danger-strong); }
   /* --- Небезпечні: контур + скляна червона підкладка --- */
-  html:root .submit-btn.danger-outline{ background:var(--ui-danger-glass); color:var(--ui-danger-text); border:1.5px solid var(--ui-danger); border-radius:var(--ui-r-control); }
+  html:root .submit-btn.danger-outline{ background:var(--ui-danger-glass); color:var(--ui-danger-text); border:1.5px solid var(--ui-danger); border-radius:var(--r-m); }
   html:root .cdd-delete-link{ color:var(--ui-danger-text); }
   /* --- Текстові: колір з контрастом AA --- */
-  html:root :is(.dsp-link, .bdr-diff-apply){ color:var(--ui-accent-text); }
+  html:root :is(.dsp-link, .bdr-diff-apply){ color:var(--accent-text); }
   html:root .bdr-diff-warning .bdr-diff-apply{ color:var(--ui-warning-strong); }
   /* --- Чипи (різна ширина): активний стан — плавна зміна заливки через opacity ::before, без анімації ширини --- */
-  html:root .trash-chip{ position:relative; isolation:isolate; border-radius:var(--ui-r-pill); }
+  html:root .trash-chip{ position:relative; isolation:isolate; border-radius:var(--r-pill); }
   html:root .trash-chip::before{ content:''; position:absolute; inset:-1px; border-radius:inherit; z-index:-1; pointer-events:none;
-    background:var(--ui-accent-bg); box-shadow:inset 0 0 0 1px var(--ui-accent-border); opacity:0; transition:opacity var(--motion-s) var(--ease-standard); }
-  html:root .trash-chip.active{ background:var(--ui-glass); border-color:transparent; color:var(--ui-accent-text); }
+    background:var(--accent-bg); box-shadow:inset 0 0 0 1px var(--accent-line); opacity:0; transition:opacity var(--t-s) var(--ease-standard); }
+  html:root .trash-chip.active{ background:var(--ui-glass); border-color:transparent; color:var(--accent-text); }
   html:root .trash-chip.active::before{ opacity:1; }
-  html:root .trash-restore-btn{ border-radius:var(--ui-r-pill); }
+  html:root .trash-restore-btn{ border-radius:var(--r-pill); }
   /* --- Сегменти однакової ширини: трек-скло + ковзний індикатор (.seg-indicator, лише transform; вимір ширини в JS при показі/повороті) --- */
   html:root :is(.struct-tabs, .theme-toggle, .n-days){ position:relative; }
   html:root .seg-indicator{ display:block; position:absolute; left:0; top:0; z-index:0; pointer-events:none; opacity:0;
-    background:var(--ui-accent-bg); border:1px solid var(--ui-accent-border); box-shadow:0 2px 8px rgba(34,197,94,.22); border-radius:var(--ui-r-control);
-    transform:translate(var(--seg-x,0px), var(--seg-y,0px)); transition:transform var(--motion-l) var(--ease-spring), opacity var(--motion-s) var(--ease-standard); }
+    background:var(--accent-bg); border:1px solid var(--accent-line); box-shadow:0 2px 8px rgba(34,197,94,.22); border-radius:var(--r-m);
+    transform:translate(var(--seg-x,0px), var(--seg-y,0px)); transition:transform var(--t-l) var(--ease-spring), opacity var(--t-s) var(--ease-standard); }
   html:root .seg-indicator.on{ opacity:1; }
   html:root .seg-indicator.no-anim{ transition:none; }
   html:root :is(.struct-tabs, .theme-toggle){ background:var(--ui-glass); border-radius:var(--ui-r-container); box-shadow:inset 0 0 0 1px var(--ui-btn-border), inset 0 1px 0 var(--ui-btn-highlight); }
-  html:root :is(.struct-tab-btn, .theme-toggle-btn){ position:relative; z-index:1; border-radius:var(--ui-r-control); }
-  html:root :is(.struct-tab-btn.active, .theme-toggle-btn.active){ background:transparent; box-shadow:none; color:var(--ui-accent-text); }
-  html:root .n-days button{ position:relative; z-index:1; border-radius:var(--ui-r-control); }
-  html:root .n-days button.active{ background:transparent; border-color:transparent; box-shadow:none; color:var(--ui-accent-text); }
+  html:root :is(.struct-tab-btn, .theme-toggle-btn){ position:relative; z-index:1; border-radius:var(--r-m); }
+  html:root :is(.struct-tab-btn.active, .theme-toggle-btn.active){ background:transparent; box-shadow:none; color:var(--accent-text); }
+  html:root .n-days button{ position:relative; z-index:1; border-radius:var(--r-m); }
+  html:root .n-days button.active{ background:transparent; border-color:transparent; box-shadow:none; color:var(--accent-text); }
   /* ===== Rev 2.30.0 (M4b) — решта компонентів у стилі «Скло» (токени --ui-*) =====
      Без backdrop-filter (він лише на таббарі й scroll-top; на шапки шторок НЕ додано: ризик для sheet-anim/клавіатурної логіки). Поверхні лишаються непрозорими (колір тексту/контраст не змінюється),
      «скло» = єдиний радіус зі шкали, межа --ui-btn-border (лише верх/право/низ — ліва межа тостів/рядків несе семантичний колір), inset-відблиск і м'яка тінь. Розкладка не змінюється (радіус/тінь). */
@@ -2760,18 +2760,18 @@
     border-top-color:var(--ui-btn-border); border-right-color:var(--ui-btn-border); border-bottom-color:var(--ui-btn-border);
     box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--ui-btn-shadow);
   }
-  html:root :is(.card, .card-summary, .kpi-card.v2, .service-tile, .service-wide-card, .service-danger-card, .card-debt-compact-row){ border-radius:var(--ui-r-control); }
-  html:root :is(.expense-row, .expense-row-swipe){ border-radius:var(--ui-r-control); }
+  html:root :is(.card, .card-summary, .kpi-card.v2, .service-tile, .service-wide-card, .service-danger-card, .card-debt-compact-row){ border-radius:var(--r-m); }
+  html:root :is(.expense-row, .expense-row-swipe){ border-radius:var(--r-m); }
   html:root :is(.success-toast, .app-modal, .drawer){ box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--shadow-lg); }
   html:root :is(.app-modal, .drawer){ border-radius:var(--ui-r-container); }
   /* Поля вводу: лише поверхня/межа/радіус (id, атрибути й поведінка не чіпались). background-color (не shorthand) — щоб не скинути стрілку select; .manual-flag зберігає свій фон. */
-  html:root :is(.field input, .field select:not(.manual-flag), .field textarea){ border-radius:var(--ui-r-control); background-color:var(--ui-glass); box-shadow:inset 0 1px 2px rgba(16,24,40,.05); }
-  html:root :is(.field input, .field select, .field textarea):focus{ border-color:var(--ui-accent); box-shadow:0 0 0 3px var(--ui-accent-bg); }
-  html:root .field select.manual-flag{ border-radius:var(--ui-r-control); }
+  html:root :is(.field input, .field select:not(.manual-flag), .field textarea){ border-radius:var(--r-m); background-color:var(--ui-glass); box-shadow:inset 0 1px 2px rgba(16,24,40,.05); }
+  html:root :is(.field input, .field select, .field textarea):focus{ border-color:var(--ui-accent); box-shadow:0 0 0 3px var(--accent-bg); }
+  html:root .field select.manual-flag{ border-radius:var(--r-m); }
   /* Тумблер: трек-скло, бігунок з відблиском і пружиною (--ease-spring — єдине місце, де вона дозволена); увімкнено — --ui-success */
   html:root .n-switch-input{ box-shadow:inset 0 0 0 1px var(--ui-btn-border); }
   html:root .n-switch-input:checked{ background:var(--ui-success); }
-  html:root .n-switch-input::after{ box-shadow:0 1px 3px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.7); transition:transform var(--motion-s) var(--ease-spring); }
+  html:root .n-switch-input::after{ box-shadow:0 1px 3px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.7); transition:transform var(--t-s) var(--ease-spring); }
   /* Дії свайпу: темніші заливки → білий текст ≥4.5:1 (AA); решта вигляду без змін */
   html:root .expense-row-actions .swipe-restore-btn{ background:var(--ui-success-strong); }
   html:root .expense-row-actions .swipe-purge-btn{ background:var(--ui-danger-strong); }
@@ -2785,7 +2785,7 @@
       margin-top: 3px;
       font-size: 12px;
       line-height: 1.3;
-      color: var(--color-text-secondary);
+      color: var(--text-2);
     }
   /* Rev 2.22.92 (6D.165) BugFix — + var(--vv-offset-top): без цього
      доданка індикатор ставав невидимим одразу при появі клавіатури (той
@@ -2793,7 +2793,7 @@
      живий тест користувача: "не можу додати мітку тоді, коли потрібно на
      100%" саме тому, що найважливіший момент для мітки — це й є момент із
      відкритою клавіатурою. */
-  #debug-record-indicator{ position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + var(--vv-offset-top, 0px)); right:12px; z-index:97; display:flex; align-items:center; gap:6px; background:var(--color-surface); border:1px solid var(--color-border-strong); border-radius:999px; padding:6px 10px; box-shadow:var(--shadow-md); font-size:12px; font-family:'JetBrains Mono',monospace; }
+  #debug-record-indicator{ position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + var(--vv-offset-top, 0px)); right:12px; z-index:97; display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--line-strong); border-radius:var(--r-pill); padding:6px 10px; box-shadow:var(--shadow-md); font-size:12px; font-family:'JetBrains Mono',monospace; }
   /* Rev 2.22.91 (6D.164) BugFix — живий тест: у цьому файлі НЕМАЄ глобального
      .hidden{display:none} — кожен компонент визначає свій .hidden-варіант
      окремо (.view.hidden, .status-banner.hidden тощо, той самий принцип по
@@ -2802,13 +2802,13 @@
      не починався. */
   #debug-record-indicator.hidden{ display:none; }
   #debug-record-form.hidden, #debug-record-stop-actions.hidden{ display:none; }
-  #debug-record-indicator button{ border:none; background:var(--color-surface-hover); color:var(--color-text-primary); border-radius:999px; padding:4px 10px; font-size:11.5px; font-family:inherit; cursor:pointer; }
+  #debug-record-indicator button{ border:none; background:var(--surface-2); color:var(--text); border-radius:var(--r-pill); padding:4px 10px; font-size:11.5px; font-family:inherit; cursor:pointer; }
   .debug-record-dot{ width:8px; height:8px; border-radius:50%; background:var(--color-error); flex:0 0 auto; }
 
   /* Rev 2.31.3 (B) — крапка «дані неповні» в рядку картки/ОЧ (7px, --color-warning — як .data-status-dot) і лічильник на сегментах «Борги»/«ОЧ» */
   .cdr-dot{ position:relative; display:inline-flex; width:7px; height:7px; margin-left:7px; border-radius:50%; background:var(--color-warning); vertical-align:middle; flex-shrink:0; }
   .cdr-dot::before{ content:''; position:absolute; inset:-14px; } /* невидима зона натискання ≈35pt; увесь рядок і так клікабельний */
-  .seg-badge{ display:inline-block; min-width:16px; height:16px; margin-left:6px; padding:0 4px; border-radius:999px; background:var(--ui-warning-strong); color:#fff; font-size:10px; font-weight:700; line-height:16px; text-align:center; vertical-align:middle; box-sizing:border-box; }
+  .seg-badge{ display:inline-block; min-width:16px; height:16px; margin-left:6px; padding:0 4px; border-radius:var(--r-pill); background:var(--ui-warning-strong); color:#fff; font-size:10px; font-weight:700; line-height:16px; text-align:center; vertical-align:middle; box-sizing:border-box; }
   .seg-badge.hidden{ display:none; }
   /* Rev 2.24.0 (M1) — prefers-reduced-motion: лише швидкі затухання (≤80мс), без зсувів/масштабів/нескінченних відблисків.
      Шторки (.drawer, .drawer-backdrop) НЕ чіпаємо: їхня анімація зав'язана на логіку клавіатури (transitionend, sheet-anim). Спінери (syncSpin/spin) лишаються — це індикатор роботи, не декор. */

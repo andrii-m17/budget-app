@@ -84,7 +84,7 @@ test('нові правила M3/M4b: радіуси лише зі шкали --
   assert.ok(M3.length > 2000 && M4B.length > 1000, 'блоки знайдено');
   const radii = [...css.matchAll(/border-radius\s*:\s*([^;}]+)/g)].map(r => r[1].trim());
   assert.ok(radii.length >= 14, 'радіусів: ' + radii.length);
-  radii.forEach(r => assert.ok(/^(var\(--ui-r-(container|control|small|pill)\)|min\(var\(--ui-r-control\), 50%\)|inherit)$/.test(r), 'радіус поза шкалою: ' + r));
+  radii.forEach(r => assert.ok(/^(var\(--ui-r-(container|control|small|pill)\)|var\(--r-(s|m|l|xl|pill)\)|min\(var\(--(ui-r-control|r-m)\), 50%\)|inherit)$/.test(r), 'радіус поза шкалою: ' + r));
   const trans = [...css.matchAll(/transition\s*:\s*([^;}]+)/g)].map(r => r[1]);
   assert.ok(trans.length >= 3);
   trans.forEach(x => assert.ok(!/(^|,)\s*(all|width|height|top|left|margin|padding|box-shadow|filter|backdrop-filter)\b/.test(x), 'дорогий transition: ' + x));

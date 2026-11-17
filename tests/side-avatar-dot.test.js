@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const SRC = require('./extract').readIndexWithCss();
 test('бокова панель: крапка 8px з кільцем кольору тла, гліф 70% (специфічність вища за .side button.side-tab svg)', function(){
-  assert.match(SRC, /\.side button\.side-tab \.avatar-status-dot\{ width:8px; height:8px; border-width:1\.5px; border-color:var\(--color-bg\);/);
+  assert.match(SRC, /\.side button\.side-tab \.avatar-status-dot\{ width:8px; height:8px; border-width:1\.5px; border-color:var\(--bg\);/);
   assert.match(SRC, /\.side button\.side-tab \.avatar-status-dot svg\{ width:70%; height:70%; \}/);
   const generic = SRC.indexOf('.side button.side-tab svg{ width:18px');
   assert.ok(generic > 0 && SRC.indexOf('.side button.side-tab .avatar-status-dot svg{') > generic, 'правило для крапки має йти після загального');

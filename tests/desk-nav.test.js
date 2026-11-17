@@ -26,9 +26,9 @@ test('структура: nav з aria-label, п’ять пунктів, ниж�
 });
 test('вигляд: радіус 22 px, відступ 12 px, скло (backdrop-filter), токени скла мобільного таб-бара, обводка й тінь, ширини 240/62', function(){
   const panel = navBlock.match(/\.side-panel\{([^}]*)\}/)[1];
-  assert.match(panel, /position:fixed/); assert.match(panel, /top:12px; bottom:12px; left:12px/); assert.match(panel, /border-radius:22px/);
-  assert.match(panel, /backdrop-filter:blur\(14px\) saturate\(160%\)/); assert.match(panel, /background:var\(--color-glass-bg\)/);
-  assert.match(panel, /border:1px solid var\(--color-glass-border\)/); assert.match(panel, /box-shadow:var\(--shadow-glass\)/);
+  assert.match(panel, /position:fixed/); assert.match(panel, /top:12px; bottom:12px; left:12px/); assert.match(panel, /border-radius:var\(--r-l\)/);
+  assert.match(panel, /backdrop-filter:blur\(14px\) saturate\(160%\)/); assert.match(panel, /background:var\(--glass\)/);
+  assert.match(panel, /border:1px solid var\(--glass-edge\)/); assert.match(panel, /box-shadow:var\(--glass-shadow\)/);
   assert.match(navBlock, /html\{ --side-w:240px; \}/); assert.match(navBlock, /html\.side-collapsed\{ --side-w:62px; \}/);
   const tb = CSS.match(/\.tabbar-glass\{[\s\S]*?\n  \}/)[0];
   assert.match(tb, /var\(--glass\)/); assert.match(tb, /var\(--glass-edge\)/); assert.match(tb, /var\(--glass-shadow\)/);
@@ -41,9 +41,9 @@ test('умова показу: ≥ 1280 px або ≥ 768 px з мишею; до
   const tablet = CSS.slice(t0, CSS.indexOf('\n  }', t0)); assert.ok(!/\.side|tabbar/.test(tablet), 'планшетний блок навігації не чіпає');
 });
 test('активний пункт: скляна пілюля з рамкою акценту (значення .tabbar-bubble), «Витрати» — зелене коло з плюсом без пілюлі', function(){
-  assert.match(navBlock, /\.side button\.side-tab\.active\{ background:rgba\(34,197,94,\.16\); border-color:rgba\(34,197,94,\.32\); box-shadow:0 2px 8px rgba\(34,197,94,\.22\); color:var\(--color-primary-hover\); \}/);
+  assert.match(navBlock, /\.side button\.side-tab\.active\{ background:var\(--accent-bg\); border-color:var\(--accent-line\); box-shadow:0 2px 8px rgba\(34,197,94,\.22\); color:var\(--color-primary-hover\); \}/);
   assert.match(CSS, /\.tabbar-bubble\{[\s\S]*?background:var\(--accent-bg\);[\s\S]*?border:1px solid var\(--accent-line\);[\s\S]*?box-shadow:0 2px 8px rgba\(34,197,94,\.22\)/);
-  assert.match(navBlock, /\.side-plus\{[^}]*border-radius:50%; background:var\(--color-primary\); color:#fff;/);
+  assert.match(navBlock, /\.side-plus\{[^}]*border-radius:50%; background:var\(--accent\); color:#fff;/);
   assert.match(navBlock, /\.tab-vytraty\.active\{ background:none; border-color:transparent; box-shadow:none;/);
   assert.match(NC, /<span class="side-plus" aria-hidden="true"><svg[^>]*><line x1="12" y1="5" x2="12" y2="19"\/><line x1="5" y1="12" x2="19" y2="12"\/><\/svg><\/span>/);
 });

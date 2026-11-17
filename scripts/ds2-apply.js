@@ -81,7 +81,7 @@ function counts(src){
 const args = process.argv.slice(2); const has = (a) => args.includes(a); const arg = (a, d) => { const i = args.indexOf(a); return i < 0 ? d : args[i + 1]; };
 const src = fs.readFileSync(FILE, 'utf8');
 if(has('--count')){ console.log(JSON.stringify(counts(src))); process.exit(0); }
-if(has('--offscale')){ process.stdout.write(JSON.stringify({ decls: parse(src).map(d => ({ line: d.line, prop: d.prop, sel: d.sel, text: src.slice(d.start, d.end) })) })); process.exit(0); }
+if(has('--offscale')){ fs.writeSync(1, JSON.stringify({ decls: parse(src).map(d => ({ line: d.line, prop: d.prop, sel: d.sel, text: src.slice(d.start, d.end) })) })); process.exit(0); }
 const from = Number(arg('--from', 1)), to = Number(arg('--to', 1e9));
 const decls = parse(src).filter(d => d.line >= from && d.line <= to).sort((a, b) => b.start - a.start);
 let out = src; const tot = { names: 0, radius: 0, colors: 0, durations: 0 };
