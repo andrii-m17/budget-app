@@ -1685,9 +1685,24 @@
   .mono-inst-label > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mono-inst-label.off{ background:var(--color-surface-hover); color:var(--color-text-secondary); }
   .expense-row-actions .swipe-ignore-btn{ background:var(--color-text-tertiary); width:96px; flex-direction:column; gap:2px; font-size:11px; font-weight:700; font-family:inherit; }
-  .mono-banner{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:52px; padding:0 16px; margin-bottom:14px; box-sizing:border-box; border-radius:var(--radius-lg); border:1px solid var(--color-border); background:var(--color-success-bg, var(--color-surface)); color:var(--color-text-primary); font:inherit; font-size:15px; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-  .mono-banner.hidden{ display:none; }
-  .mono-banner small{ color:var(--color-text-secondary); font-size:14px; }
+  /* Rev 2.32.331 (MONO-FLOW), макет docs/ui/mockups/mono-flow-mockup.html: банер «Monobank · N нових» прибрано — його замінює лапка в шапці (.mono-paw). Лічильник = .notif-bell-count з тлом --color-info; лише крапка 8 pt, коли є тільки автододані на перевірку. */
+  .mono-paw-wrap.hidden, .mono-paw-wrap .hidden{ display:none; }
+  .side button.side-tab.hidden{ display:none; }
+  .notif-bell-count.mono-paw-count{ background:var(--color-info); }
+  .mono-paw-dot{ position:absolute; top:-2px; right:-2px; width:8px; height:8px; border-radius:50%; background:var(--color-info); box-shadow:0 0 0 1.5px var(--color-bg); }
+  .side-ico .mono-paw-dot{ top:-4px; right:-6px; }
+  .mono-auto-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:48px; padding:10px 14px; box-sizing:border-box; border:0; border-top:1px solid var(--color-border); background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mono-auto-row:first-child{ border-top:0; }
+  .mono-auto-row .mono-auto-name{ font-size:15px; }
+  .mono-auto-row .mono-auto-sub{ font-size:12px; color:var(--color-text-secondary); margin-top:2px; }
+  .mono-auto-row .mono-auto-amt{ font-family:'JetBrains Mono',ui-monospace,Menlo,monospace; font-size:15px; white-space:nowrap; }
+  .mono-auto-ok{ display:block; width:100%; height:44px; border:0; border-top:1px solid var(--color-border); background:transparent; color:var(--color-info); font:inherit; font-size:15px; font-weight:600; cursor:pointer; }
+  .mono-auto-cats{ padding:0 14px 12px; }
+  .mono-cat-row{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .mono-cat-btn{ position:relative; height:32px; padding:0 12px; border-radius:999px; border:1px solid var(--color-border); background:var(--color-surface-hover); color:var(--color-text-primary); font:inherit; font-size:13px; display:inline-flex; align-items:center; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mono-cat-btn::after{ content:''; position:absolute; left:50%; top:50%; width:100%; min-width:44px; height:44px; transform:translate(-50%,-50%); } /* зона дотику ≥ 44 pt при висоті 32 (як у .gear-btn::after); сусідні зони перекриваються лише в проміжку 6 pt */
+  .mono-cat-btn.first{ background:var(--ui-accent-bg, var(--color-primary-bg)); color:var(--ui-accent-text, var(--color-primary-hover)); border-color:transparent; font-weight:600; }
+  .mono-cat-btn.more{ color:var(--color-text-secondary); }
   /* Rev 2.32.36 (L) — значок Monobank замість тексту «з банку» (.exp-source). 18px, тонка рамка: світла на темній темі, ледь помітна на світлій. */
   .mono-bank-icon{ width:18px; height:18px; flex:none; border-radius:5px; vertical-align:middle; box-shadow:0 0 0 1px rgba(16,24,40,.10); }
   :root[data-theme="dark"] .mono-bank-icon{ box-shadow:0 0 0 1px rgba(255,255,255,.22); }
@@ -3074,6 +3089,10 @@
       <span class="avatar-badge" id="profile-avatar-side" style="width:22px; height:22px;" aria-hidden="true"><span class="avatar-face guest" style="font-size:10.5px;"></span></span>
       <span class="side-label">Профіль</span>
     </button>
+    <button class="side-tab hidden" onclick="openMonoInbox({ tab: 'new' })" id="mono-side-tab" aria-label="Monobank" data-tip="Monobank">
+      <span class="side-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><ellipse cx="7" cy="8.5" rx="2" ry="2.6"/><ellipse cx="12" cy="6" rx="2.1" ry="2.7"/><ellipse cx="17" cy="8.5" rx="2" ry="2.6"/><ellipse cx="4.6" cy="13.4" rx="1.7" ry="2.2"/><ellipse cx="19.4" cy="13.4" rx="1.7" ry="2.2"/><path d="M12 11.2c-3 0-6 4.3-6 6.6 0 1.7 1.4 2.6 3 2.2 1.1-.3 2-.6 3-.6s1.9.3 3 .6c1.6.4 3-.5 3-2.2 0-2.3-3-6.6-6-6.6z"/></svg><span class="notif-bell-count mono-paw-count hidden" id="mono-side-count" aria-hidden="true"></span><span class="mono-paw-dot hidden" id="mono-side-dot" aria-hidden="true"></span></span>
+      <span class="side-label">Monobank</span>
+    </button>
     <button class="side-tab" onclick="openNotifArchive()" id="notif-side-tab" aria-label="Сповіщення" data-tip="Сповіщення">
       <!-- Rev 2.32.141 (DESK-BADGE): той самий бейдж непрочитаних, що на дзвіночку мобільної версії (клас .notif-bell-count), на іконці пункту; оновлює updateNotifBell() -->
       <span class="side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="notif-bell-count hidden" id="notif-side-count" aria-hidden="true"></span></span>
@@ -3108,6 +3127,14 @@
         <button class="gear-btn profile-header-btn" onclick="openProfileMenu()" aria-label="Профіль" id="profile-btn-top">
           <span class="avatar-badge" id="profile-avatar-top" aria-hidden="true"><span class="avatar-face guest"></span></span>
         </button>
+        <!-- Rev 2.32.331 (MONO-FLOW): лапка Monobank у лівій групі шапки одразу після аватара (рішення чату: так заголовок лишається по центру); число = mono_new, крапка = лише автододані на перевірку; обидва нулі або банк не підключено → прихована (updateMonoBadges) -->
+        <span class="notif-bell-wrap mono-paw-wrap hidden" id="mono-paw-wrap">
+        <button class="gear-btn notif-bell-btn" id="mono-paw-btn" onclick="openMonoInbox({ tab: 'new' })" aria-label="Monobank">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><ellipse cx="7" cy="8.5" rx="2" ry="2.6"/><ellipse cx="12" cy="6" rx="2.1" ry="2.7"/><ellipse cx="17" cy="8.5" rx="2" ry="2.6"/><ellipse cx="4.6" cy="13.4" rx="1.7" ry="2.2"/><ellipse cx="19.4" cy="13.4" rx="1.7" ry="2.2"/><path d="M12 11.2c-3 0-6 4.3-6 6.6 0 1.7 1.4 2.6 3 2.2 1.1-.3 2-.6 3-.6s1.9.3 3 .6c1.6.4 3-.5 3-2.2 0-2.3-3-6.6-6-6.6z"/></svg>
+        </button>
+        <span class="notif-bell-count mono-paw-count hidden" id="mono-paw-count" aria-hidden="true"></span>
+        <span class="mono-paw-dot hidden" id="mono-paw-dot" aria-hidden="true"></span>
+        </span>
       </div>
       <div class="page-header-buttons">
         <!-- Rev 2.32.38 (B): кругла іконка «Доступне оновлення» (#update-btn-top) прибрана з шапки за рішенням користувача — оновлення пропонує спливаюче повідомлення з кнопкою «Оновити»; на її місці дзвіночок. Бічна кнопка (desktop) лишається. -->
@@ -3423,8 +3450,6 @@
            прямим нащадком #vytraty-default-view і зламав 2-колонковий grid,
            Rev 2.21.3). -->
       <div class="vytraty-form-col">
-        <!-- Rev 2.32.28 (MB-4): банер «Monobank · N нових операцій ›» (лише коли є нові; сама форма нижче не змінена) -->
-        <button type="button" class="mono-banner hidden" id="mono-banner" onclick="openMonoInbox()"><span>Monobank <small id="mono-banner-text"></small></span><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
         <div class="entry-title vytraty-form-title">Нова витрата</div>
         <div class="card entry-card expense-entry vytraty-form-spacious">
         <div class="field draft-hint" id="draft-restored-hint">
@@ -3883,7 +3908,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.330</div>
+  <div class="version-footer">Money Tree · Rev 2.32.331</div>
 </div>
   </div>
 </div>
@@ -4033,6 +4058,10 @@
   </div>
   <div class="mono-detail-actions" id="mono-detail-undo-actions" style="display:none;">
     <button type="button" class="submit-btn pill secondary" id="mono-detail-undo-btn" onclick="monoRefundUndoStart()">Скасувати зіставлення</button>
+  </div>
+  <div class="mono-detail-actions" id="mono-detail-auto-actions" style="display:none;">
+    <button type="button" class="submit-btn pill" id="mono-detail-recat" onclick="monoDetailRecategorize()">Змінити категорію</button>
+    <button type="button" class="submit-btn pill secondary" onclick="monoAutoRevertStart()">Повернути в нові</button>
   </div>
   <div class="mono-detail-actions" id="mono-detail-actions">
     <button type="button" class="submit-btn pill" id="mono-detail-add" onclick="monoDetailAdd()">Додати</button>
@@ -9854,7 +9883,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.330';
+const APP_VERSION = '2.32.331';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12808,7 +12837,9 @@ function applyHeadsCounters(c){
   if(!c) return;
   try{
     if(typeof c.unread === 'number'){ notifArchive.unread = notifEffectiveUnread(c.unread, notifQueueLen()); updateNotifBell(); } // Rev 2.32.147 (NOTIF-READ-QUEUE): мінус черга «до прочитання»
-    if(typeof c.monoNew === 'number'){ monoInbox.newCount = c.monoNew; updateMonoBadges(); }
+    if(typeof c.monoNew === 'number'){ monoInbox.newCount = c.monoNew; monoInbox.countsKnown = true; }
+    if(typeof c.monoAutoReview === 'number'){ monoInbox.autoReviewCount = c.monoAutoReview; monoInbox.countsKnown = true; }
+    if(typeof c.monoNew === 'number' || typeof c.monoAutoReview === 'number') updateMonoBadges(); // Rev 2.32.331 (MONO-FLOW)
     if(c.monoRefundAt) monoRefundSignal(c.monoRefundAt); // Rev 2.32.330 (MONO-REFUND)
   }catch(e){}
 }
@@ -12894,6 +12925,7 @@ async function runSyncCheck(reason, o){
   }
   const plan = planSync(heads, syncSeenState, now, { fullReason: o.fullReason });
   applyHeadsCounters(plan.counters);
+  if(plan.full) monoLoadConnection(); // Rev 2.32.331 (MONO-FLOW): стан підключення для лапки — один запит на повну звірку (вхід, холодний старт, періодична)
   syncDiag('sync-heads', { reason: reason, changedTables: plan.tables.length, profiles: plan.profiles, full: plan.full || null });
   if(plan.full) syncDiag('sync-full', { reason: plan.full, trigger: reason });
   const results = {};
@@ -12936,6 +12968,8 @@ function scheduleRealtimeSyncCheck(){
   syncRealtimeTimer = setTimeout(function(){ syncRealtimeTimer = null; syncCheck('realtime', { force: true }); }, SYNC_REALTIME_DELAY_MS);
 }
 function resetSyncCheckState(){
+  try{ localStorage.removeItem('budget-mono-header-v1'); }catch(e){} // Rev 2.32.331 (MONO-FLOW): кеш лапки й пам'ять лічильників не переживають зміну сесії
+  try{ monoState.connection = null; monoState.connectionKnown = false; monoInbox.newCount = 0; monoInbox.autoReviewCount = 0; monoInbox.countsKnown = false; monoInbox.autoRows = []; updateMonoBadges(); }catch(e){}
   syncSeenState = null; syncLastCheckAt = 0; syncRecheckPending = null;
   if(syncRealtimeTimer){ clearTimeout(syncRealtimeTimer); syncRealtimeTimer = null; }
 }
@@ -12950,6 +12984,7 @@ async function recordManualFullSync(heads, okByTable){
     syncSeenState = applySyncResult(syncSeenState, heads, plan, results, now);
     saveSyncSeen(syncSeenState);
     applyHeadsCounters(plan.counters);
+    monoLoadConnection();
     syncDiag('sync-full', { reason: 'manual' });
   }catch(e){}
 }
@@ -13235,7 +13270,7 @@ function planSync(heads, seen, now, opts){
   const o = opts || {};
   const s = seen || emptySyncSeen(null);
   if(!heads || typeof heads !== 'object') return { ok: false, full: null, tables: [], profiles: false, counters: null };
-  const counters = { unread: typeof heads.unread_notifications === 'number' ? heads.unread_notifications : null, monoNew: typeof heads.mono_new === 'number' ? heads.mono_new : null, monoRefundAt: typeof heads.mono_refund_at === 'string' && heads.mono_refund_at ? heads.mono_refund_at : null };
+  const counters = { unread: typeof heads.unread_notifications === 'number' ? heads.unread_notifications : null, monoNew: typeof heads.mono_new === 'number' ? heads.mono_new : null, monoRefundAt: typeof heads.mono_refund_at === 'string' && heads.mono_refund_at ? heads.mono_refund_at : null, monoAutoReview: typeof heads.mono_auto_review === 'number' ? heads.mono_auto_review : null };
   let full = null;
   if(o.fullReason) full = String(o.fullReason);
   else if(s.needFull) full = 'error';
@@ -23203,12 +23238,12 @@ const BUTTON_VARIANT_MAP = {
   danger: ['danger-outline'],
   icon: ['och-delete-btn', 'drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
-  chip: ['trash-chip', 'mono-inst-label', 'mono-refund-label'],
-  row: ['rs-rw', 'mono-row', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'mono-banner', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
+  chip: ['trash-chip', 'mono-inst-label', 'mono-refund-label', 'mono-cat-btn'],
+  row: ['rs-rw', 'mono-row', 'mono-auto-row', 'mono-auto-ok', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn', 'och-cond-row']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
-const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated', 'chk-mut', 'k'];
+const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated', 'chk-mut', 'k', 'first', 'more'];
 // className → variant (або null). parentClassName — клас контейнера для безкласових кнопок (.n-days > button = chip; .tabbar-glass > button = reference).
 function buttonVariantOf(className, parentClassName){
   const cls = String(className || '').split(/\s+/).filter(Boolean);
@@ -24886,6 +24921,8 @@ async function loadMonoState(){
     const c = await client.from('mono_connections').select('status,connected_at,last_event_at,last_error,backfill_done,auto_add').eq('user_id', cloudSession.user.id).maybeSingle();
     if(c.error) throw c.error;
     monoState.connection = c.data || null;
+    monoState.connectionKnown = true;
+    updateMonoBadges();
     const a = await client.from('mono_accounts').select('id,mono_account_id,masked_pan,account_type,currency_code,is_jar,tracked');
     if(a.error) throw a.error;
     monoState.accounts = a.data || [];
@@ -24940,6 +24977,8 @@ function renderMonoScreen(){
       }).join('');
       parts.push('<div class="mono-section"><div class="mono-group-label">Картки</div><div class="mono-group">' + accRows + '</div><div class="mono-hint">Відстежуються лише гривневі картки. Скарбнички вимкнені.</div></div>');
     }
+    // Rev 2.32.331 (MONO-FLOW): «Додавати знайомі покупки автоматично» (mono_connections.auto_add через RPC mono_set_auto_add; у кожного свій)
+    parts.push('<div class="mono-section"><div class="mono-group"><div class="mono-row"><span>Додавати знайомі покупки автоматично</span><span class="mono-row-side"><button type="button" class="mono-switch" role="switch" aria-checked="' + (conn.auto_add ? 'true' : 'false') + '" aria-label="Додавати знайомі покупки автоматично" data-mono-autoadd="1"><span></span></button></span></div></div><div class="mono-hint">Покупки у продавців, яких ви вже двічі додали в ту саму категорію. Супермаркети завжди чекають вашого вибору.</div></div>');
     parts.push('<div class="mono-section"><div class="mono-group">' + monoRowHtml({ label: 'Вхідні', badge: '', badgeId: 'mono-inbox-badge', chevron: true, action: 'inbox' }) + '</div></div>');
     parts.push('<div class="mono-section"><div class="mono-group">' + monoRowHtml({ label: 'Відключити Monobank', action: 'disconnect', danger: true }) + '</div></div>');
   }
@@ -25023,6 +25062,19 @@ async function onMonoToggleAccount(btn){
   }catch(e){ failed = true; }
   if(failed){ acc.tracked = !next; renderMonoScreen(); showTextToast('Не вдалося змінити. Спробуйте ще раз', 'error'); }
 }
+async function onMonoToggleAutoAdd(){
+  const conn = monoState.connection;
+  if(!conn || monoState.busy) return;
+  if(blockedByReadOnly()) return;
+  const next = !conn.auto_add;
+  monoState.busy = true;
+  let error = null, data = null;
+  try{ const r = await getSupabaseClient().rpc('mono_set_auto_add', { p_on: next }); error = r.error || null; data = r.data; }catch(e){ error = { message: 'network' }; }
+  monoState.busy = false;
+  if(error){ showTextToast(error.code === '28000' ? 'Увійдіть у Cloud' : (error.code === 'P0002' ? 'Monobank не підключено' : 'Не вдалося змінити. Спробуйте ще раз'), 'error'); return; }
+  conn.auto_add = typeof data === 'boolean' ? data : next;
+  renderMonoScreen();
+}
 function confirmMonoDisconnect(){
   const text = document.getElementById('app-modal-text');
   text.textContent = '';
@@ -25055,6 +25107,7 @@ async function runMonoDisconnect(){
   if(body) body.addEventListener('click', function(e){
     const sw = e.target.closest('[data-mono-acc]');
     if(sw){ onMonoToggleAccount(sw); return; }
+    if(e.target.closest('[data-mono-autoadd]')){ onMonoToggleAutoAdd(); return; }
     const act = e.target.closest('[data-mono-action]');
     if(!act) return;
     const a = act.getAttribute('data-mono-action');
@@ -25178,7 +25231,33 @@ function inboxRowModel(row, accounts, suggestMap){
     canUndo: row.status === 'refunded' && !!row.refund_of };
 }
 // «Додати всі»: нові зі suggested_category та сумою. Rev 2.32.33: виключення за hold прибрано — банк ставить hold=true на ВСІ покупки й не надсилає повторної події, тож воно робило кнопку завжди порожньою.
-function addAllCandidates(rows){ return (rows || []).filter(function(r){ return r.status === 'new' && !!r.suggested_category && r.amount_uah != null && monoNetUah(r) > 0; }); } // Rev 2.32.330: списання, повністю покрите поверненням, не додається
+// Rev 2.32.331 (MONO-FLOW): варіанти категорії рядка: suggestions (до 3, найімовірніший перший; s порожній = без підкатегорії); порожнє suggestions + suggested_category → один варіант; інакше немає.
+function monoSuggestOptions(row){
+  const out = [];
+  const sg = row && Array.isArray(row.suggestions) ? row.suggestions : [];
+  sg.forEach(function(x){
+    if(!x || typeof x.c !== 'string' || !x.c || out.length >= 3) return;
+    const sub = typeof x.s === 'string' ? x.s : '';
+    if(!out.some(function(o){ return o.c === x.c && o.s === sub; })) out.push({ c: x.c, s: sub });
+  });
+  if(!out.length && row && row.suggested_category) out.push({ c: row.suggested_category, s: row.suggested_subcategory || '' });
+  return out;
+}
+function monoCatLabel(o){ return o.s ? o.c + ' · ' + o.s : o.c; }
+// «Додати всі»: лише рядки з рівно одним варіантом; 2–3 варіанти = неоднозначний продавець, масово не додаємо (рішення чату).
+function addAllCandidates(rows){ return (rows || []).filter(function(r){ return r.status === 'new' && monoSuggestOptions(r).length === 1 && r.amount_uah != null && monoNetUah(r) > 0; }); }
+// Група «Додано автоматично»: категорія/підкатегорія/сума з локальної витрати (фактичний стан після правок); витрати ще немає — suggested_* і чиста сума; видалена в Журналі — рядка немає.
+function monoAutoGroupModel(rows, expensesList){
+  const pad = function(v){ return String(v).padStart(2, '0'); };
+  return (rows || []).map(function(r){
+    const e = r.expense_id ? (expensesList || []).filter(function(x){ return x && x.id === r.expense_id; })[0] : null;
+    if(e && e.deletedAt) return null;
+    const d = new Date(r.tx_time), time = isNaN(d) ? '' : pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const cat = e ? e.category : r.suggested_category, sub = e ? e.subcategory : r.suggested_subcategory;
+    const amt = e ? Math.abs(Number(e.amount) || 0) : monoNetUah(r);
+    return { id: r.id, name: (e && e.name) || r.description || 'Без назви', sub: [cat, sub, time].filter(Boolean).join(' · '), amount: amt == null ? '' : '−' + monoFmtUah(amt) };
+  }).filter(Boolean);
+} // Rev 2.32.330: списання, повністю покрите поверненням, не додається
 // Підсумок відповіді mono_accept (помилки Postgres за code).
 function monoAcceptOutcome(error){
   if(!error) return { kind: 'ok' };
@@ -25219,27 +25298,58 @@ function monoRefundOutcome(error){
   if(error.code === 'P0002') return { kind: 'notfound', toast: 'Не знайдено', refresh: true };
   return { kind: 'network', toast: 'Немає зв\'язку, спробуйте пізніше' };
 }
-let monoInbox = { gate: 'ready', tab: 'new', rows: [], loaded: false, newCount: 0, detailId: null, busy: false, instPick: {}, suggestRows: {} };
+let monoInbox = { gate: 'ready', tab: 'new', rows: [], loaded: false, newCount: 0, detailId: null, busy: false, instPick: {}, suggestRows: {}, autoRows: [], autoOpen: null, autoReviewCount: 0, countsKnown: false };
 let isMonoInboxOpen = false;
+const MONO_AUTO_DAYS = 3;
 async function refreshMonoNewCount(){
   if(!monoReady()) return;
   try{
     const h = await fetchSyncHeadsShared(); // Rev 2.32.74 (U): лічильник із спільного запиту «голів» (раніше окремий HEAD)
-    if(h && typeof h.mono_new === 'number'){ monoInbox.newCount = h.mono_new; updateMonoBadges(); }
+    if(h && typeof h.mono_new === 'number'){ monoInbox.newCount = h.mono_new; monoInbox.countsKnown = true; if(typeof h.mono_auto_review === 'number') monoInbox.autoReviewCount = h.mono_auto_review; updateMonoBadges(); }
     if(h && typeof h.mono_refund_at === 'string' && h.mono_refund_at) monoRefundSignal(h.mono_refund_at); // Rev 2.32.330 (MONO-REFUND)
+  }catch(e){}
+}
+// Rev 2.32.331 (MONO-FLOW): модель лапки в шапці/бічній панелі. Число = mono_new; крапка (без числа) = лише автододані на перевірку; обидва нулі, банк не підключено або немає сесії Cloud → прихована. Офлайн: останні відомі значення з localStorage.
+function monoHeaderModel(connected, newCount, reviewCount, hasSession){
+  const nn = Math.max(0, Math.floor(Number(newCount) || 0)), rr = Math.max(0, Math.floor(Number(reviewCount) || 0));
+  if(!connected || !hasSession || (!nn && !rr)) return { visible: false, count: '', dot: false, label: 'Monobank' };
+  return { visible: true, count: nn ? (nn >= 10 ? '9+' : String(nn)) : '', dot: !nn && rr > 0, label: nn ? 'Monobank, нових: ' + nn : (rr ? 'Monobank, автододані на перевірку: ' + rr : 'Monobank') };
+}
+const MONO_HEADER_KEY = 'budget-mono-header-v1';
+function monoHeaderCacheGet(){ try{ const o = JSON.parse(monoLsGet(MONO_HEADER_KEY) || 'null'); return o && typeof o === 'object' ? o : null; }catch(e){ return null; } }
+async function monoLoadConnection(){
+  if(!monoReady()) return;
+  try{
+    const c = await getSupabaseClient().from('mono_connections').select('status,connected_at,last_event_at,last_error,backfill_done,auto_add').eq('user_id', cloudSession.user.id).maybeSingle();
+    if(c.error) return;
+    monoState.connection = c.data || null;
+    monoState.connectionKnown = true; // відповідь сервера важить більше за кеш (відключення на іншому пристрої)
+    updateMonoBadges();
   }catch(e){}
 }
 function updateMonoBadges(){
   const n = monoInbox.newCount;
   const set = function(id){ const el = document.getElementById(id); if(!el) return; el.textContent = n ? String(n) : ''; el.classList.toggle('hidden', !n); };
   set('mono-badge'); set('mono-inbox-badge');
-  const banner = document.getElementById('mono-banner');
-  if(banner){
-    banner.classList.toggle('hidden', !n);
-    const t = document.getElementById('mono-banner-text'); if(t) t.textContent = n ? monoNewOpsLabel(n) : '';
-  }
   const segNew = document.getElementById('mono-tab-new');
   if(segNew) segNew.textContent = n ? 'Нові ' + n : 'Нові';
+  // лапка
+  const cache = monoHeaderCacheGet();
+  const connKnown = !!monoState.connection || monoState.loaded || monoState.connectionKnown;
+  const connected = monoState.connection ? monoNotifGroupVisible(monoState.connection) : (connKnown ? false : !!(cache && cache.c));
+  const nn = monoInbox.countsKnown ? monoInbox.newCount : (cache ? cache.n : 0), rr = monoInbox.countsKnown ? monoInbox.autoReviewCount : (cache ? cache.r : 0);
+  const hasSession = typeof cloudSession !== 'undefined' && !!cloudSession && !!cloudSession.user;
+  const m = monoHeaderModel(connected, nn, rr, hasSession);
+  if(hasSession && (monoInbox.countsKnown || monoState.connection)) monoLsSet(MONO_HEADER_KEY, JSON.stringify({ c: connected ? 1 : 0, n: Number(nn) || 0, r: Number(rr) || 0 }));
+  const wrap = document.getElementById('mono-paw-wrap'); if(wrap) wrap.classList.toggle('hidden', !m.visible);
+  const btn = document.getElementById('mono-paw-btn'); if(btn) btn.setAttribute('aria-label', m.label);
+  [['mono-paw-count', 'mono-paw-dot'], ['mono-side-count', 'mono-side-dot']].forEach(function(ids){
+    const c = document.getElementById(ids[0]), d = document.getElementById(ids[1]);
+    if(c){ c.textContent = m.count; c.classList.toggle('hidden', !m.count); }
+    if(d) d.classList.toggle('hidden', !m.dot);
+  });
+  const side = document.getElementById('mono-side-tab');
+  if(side){ side.classList.toggle('hidden', !m.visible); side.setAttribute('aria-label', m.label); }
 }
 async function loadMonoInbox(){
   monoInbox.gate = await awaitCloudGate(); // Rev 2.32.89 (SYNCUI-1)
@@ -25247,12 +25357,20 @@ async function loadMonoInbox(){
   monoInbox.offline = false;
   if(!monoState.loaded || !monoState.accounts.length) await loadMonoState();
   try{
-    let q = getSupabaseClient().from('mono_inbox').select('id,mono_tx_id,mono_account_id,tx_time,description,comment,mcc,hold,amount_minor,amount_uah,status,skip_reason,suggested_category,suggested_subcategory,suggested_installment_id,expense_id,notified_at,refunded_minor,net_uah,refund_of,refund_auto,refund_suggest').order('tx_time', { ascending: false }).limit(200);
+    const cols = 'id,mono_tx_id,mono_account_id,tx_time,description,comment,mcc,hold,amount_minor,amount_uah,status,skip_reason,suggested_category,suggested_subcategory,suggested_installment_id,expense_id,notified_at,refunded_minor,net_uah,refund_of,refund_auto,refund_suggest,auto_added,reviewed_at,suggestions';
+    let q = getSupabaseClient().from('mono_inbox').select(cols).order('tx_time', { ascending: false }).limit(200);
     // Rev 2.32.330 (MONO-REFUND): «Нові» = нові + повернення з підказкою (skipped + refund_suggest); «Пропущені» без підказок (вони у «Нових»). Нові колонки вже на сервері (запасного шляху немає: підтвердив чат).
     q = monoInbox.tab === 'skipped' ? q.or('status.in.(ignored,refunded),and(status.eq.skipped,refund_suggest.is.null)') : (monoInbox.tab === 'new' ? q.or('status.eq.new,and(status.eq.skipped,refund_suggest.not.is.null)') : q.eq('status', monoInbox.tab));
     const r = await q;
     if(r.error) throw r.error;
     monoInbox.rows = r.data || [];
+    // Rev 2.32.331 (MONO-FLOW): група «Додано автоматично» — added + auto_added + не підтверджено + за останні 3 дні (як у серверному лічильнику)
+    monoInbox.autoRows = [];
+    if(monoInbox.tab === 'new'){
+      const since = new Date(Date.now() - MONO_AUTO_DAYS * 86400000).toISOString();
+      const ar = await getSupabaseClient().from('mono_inbox').select(cols).eq('status', 'added').eq('auto_added', true).is('reviewed_at', null).gt('decided_at', since).order('tx_time', { ascending: false }).limit(100);
+      if(!ar.error) monoInbox.autoRows = ar.data || [];
+    }
     await loadMonoSuggestRows();
     monoInbox.loaded = true;
     if(debugRecordingActive){
@@ -25282,14 +25400,25 @@ function monoInboxRowHtml(row){
   const instLabel = lm ? '<button type="button" class="mono-inst-label' + (lm.on ? '' : ' off') + '" data-mono-inst-toggle="1" aria-pressed="' + (lm.on ? 'true' : 'false') + '"><span>' + (lm.on ? '🔗 Платіж за ОЧ «' + escapeHtml(lm.name) + '»' : 'Без ОЧ') + '</span></button>' : '';
   // Rev 2.32.330 (MONO-REFUND): мітка повернення (інформаційна) і мітка-кнопка підказки; свайп підказки: «Ігнорувати» + «Врахувати»
   const refundLabel = m.refundLabel ? '<span class="mono-refund-label"><span>' + escapeHtml(m.refundLabel) + '</span></span>' : (m.suggest ? '<button type="button" class="mono-refund-label" data-mono-refund-pick="1"><span>' + escapeHtml(m.suggestLabel) + '</span></button>' : '');
+  // Rev 2.32.331 (MONO-FLOW): кнопки-категорії замість одного чипа: варіанти suggestions (перший підсвічений) + «Інше…»; без варіантів лише «Інше…»
+  const catRow = isNew ? '<div class="mono-cat-row">' + monoSuggestOptions(row).map(function(o, i){ return '<button type="button" class="mono-cat-btn' + (i === 0 ? ' first' : '') + '" data-mono-cat="' + i + '">' + escapeHtml(monoCatLabel(o)) + '</button>'; }).join('') + '<button type="button" class="mono-cat-btn more" data-mono-other="1">Інше…</button></div>' : '';
   const actions = isNew ? '<div class="expense-row-actions"><button type="button" class="swipe-ignore-btn" data-mono-ignore="1" aria-label="Ігнорувати"><span>Ігнорувати</span></button><button type="button" class="swipe-restore-btn" data-mono-add="1" aria-label="Додати"><span>Додати</span></button></div>'
     : (m.suggest ? '<div class="expense-row-actions"><button type="button" class="swipe-ignore-btn" data-mono-ignore="1" aria-label="Ігнорувати"><span>Ігнорувати</span></button><button type="button" class="swipe-restore-btn" data-mono-consider="1" aria-label="Врахувати"><span>Врахувати</span></button></div>' : '');
   return '<div class="expense-row-swipe" data-mono-row="' + escapeAttr(safeId(row.id)) + '">' + actions +
     '<div class="expense-row"><div class="exp-row-top"><div class="exp-main">' +
       '<div class="exp-name">' + escapeHtml(m.merchant) + '</div>' +
-      '<div class="exp-meta">' + monoBadgeHtml('mono') + (isNew ? '<span class="' + chipCls + '">' + escapeHtml(m.chip) + '</span>' : '') +
-      (m.meta ? '<span class="mono-meta">' + escapeHtml(m.meta) + '</span>' : '') + meta + '</div>' + instLabel + refundLabel +
+      '<div class="exp-meta">' + monoBadgeHtml('mono') +
+      (m.meta ? '<span class="mono-meta">' + escapeHtml(m.meta) + '</span>' : '') + meta + '</div>' + instLabel + refundLabel + catRow +
     '</div><div class="exp-amount mono">' + escapeHtml(m.amount) + (m.oldAmount ? '<span class="mono-old-amount">' + escapeHtml(m.oldAmount) + '</span>' : '') + '</div></div></div></div>';
+}
+function monoAutoGroupHtml(list){
+  const rows = list.map(function(g){
+    const row = monoInbox.autoRows.filter(function(r){ return r.id === g.id; })[0];
+    const open = monoInbox.autoOpen === g.id;
+    const cats = open && row ? '<div class="mono-auto-cats" data-mono-auto-cats="' + escapeAttr(safeId(g.id)) + '"><div class="mono-cat-row">' + monoSuggestOptions(row).map(function(o, i){ return '<button type="button" class="mono-cat-btn' + (i === 0 ? ' first' : '') + '" data-mono-auto-cat="' + i + '">' + escapeHtml(monoCatLabel(o)) + '</button>'; }).join('') + '<button type="button" class="mono-cat-btn more" data-mono-auto-other="1">Інше…</button><button type="button" class="mono-cat-btn more" data-mono-auto-revert="1">Повернути в нові</button></div></div>' : '';
+    return '<button type="button" class="mono-auto-row" data-mono-auto="' + escapeAttr(safeId(g.id)) + '" aria-expanded="' + (open ? 'true' : 'false') + '"><span><span class="mono-auto-name" style="display:block">' + escapeHtml(g.name) + '</span><span class="mono-auto-sub" style="display:block">' + escapeHtml(g.sub) + '</span></span><span class="mono-auto-amt">' + escapeHtml(g.amount) + '</span></button>' + cats;
+  }).join('');
+  return '<div class="mono-section"><div class="mono-group-label">Додано автоматично · ' + list.length + '</div><div class="mono-group">' + rows + '<button type="button" class="mono-auto-ok" data-mono-auto-ok="1">Все вірно</button></div></div>';
 }
 function renderMonoInbox(){
   const body = document.getElementById('mono-inbox-body');
@@ -25301,10 +25430,14 @@ function renderMonoInbox(){
   const parts = [];
   if(monoInbox.tab === 'new'){
     const cands = addAllCandidates(monoInbox.rows).length;
+    const autoList = monoAutoGroupModel(monoInbox.autoRows, expenses);
+    if(autoList.length) parts.push(monoAutoGroupHtml(autoList));
     if(cands) parts.push('<div class="mono-section"><div class="mono-group"><button type="button" class="mono-row link" data-mono-addall="1"><span>Додати всі з категорією</span><span class="mono-row-side">' + cands + '</span></button></div></div>');
   }
+  const pickN = monoInbox.rows.filter(function(r){ return r.status === 'new'; }).length;
+  if(monoInbox.tab === 'new' && pickN) parts.push('<div class="mono-section"><div class="mono-group-label">Оберіть категорію · ' + pickN + '</div></div>');
   if(!monoInbox.rows.length){
-    parts.push('<div class="mono-note">' + (monoInbox.tab === 'new' ? 'Нових операцій немає' : monoInbox.tab === 'added' ? 'Доданих операцій ще немає' : 'Пропущених операцій немає') + '</div>');
+    if(!(monoInbox.tab === 'new' && monoAutoGroupModel(monoInbox.autoRows, expenses).length)) parts.push('<div class="mono-note">' + (monoInbox.tab === 'new' ? 'Нових операцій немає' : monoInbox.tab === 'added' ? 'Доданих операцій ще немає' : 'Пропущених операцій немає') + '</div>');
   }else{
     groupInboxByDay(monoInbox.rows, new Date()).forEach(function(g){
       parts.push('<div class="mono-day"><div class="mono-group-label">' + escapeHtml(g.label) + '</div>' + g.rows.map(monoInboxRowHtml).join('') + '</div>');
@@ -25372,16 +25505,74 @@ async function monoAfterChange(){
 async function monoAcceptFromRow(id){
   const row = monoInbox.rows.filter(function(r){ return safeId(r.id) === id; })[0];
   if(!row) return;
-  if(!row.suggested_category){ openMonoDetail(id); return; }
+  const opts0 = monoSuggestOptions(row);
+  if(opts0.length !== 1){ openMonoDetail(id); return; } // Rev 2.32.331 (MONO-FLOW): без варіантів або неоднозначно — вибір у шторці
   if(monoInbox.busy) return;
   if(!(monoNetUah(row) > 0)){ showTextToast('Операцію повністю повернено', 'error'); return; } // Rev 2.32.330 (MONO-REFUND): нульова чиста сума не додається
   monoInbox.busy = true;
-  const out = await monoAcceptRow(row, row.suggested_category, row.suggested_subcategory, row.description, monoEffectiveInstId(row, monoInbox.instPick, installmentAccounts));
+  const out = await monoAcceptRow(row, opts0[0].c, opts0[0].s, row.description, monoEffectiveInstId(row, monoInbox.instPick, installmentAccounts));
   monoInbox.busy = false;
   if(out.kind === 'ok'){ showMonoAddedToast(1, monoNetUah(row)); await monoAfterChange(); return; } // Rev 2.32.37 (T)
   if(out.kind === 'need-category'){ openMonoDetail(id); return; }
   showTextToast(out.toast, 'error');
   if(out.refresh) await monoAfterChange();
+}
+// Rev 2.32.331 (MONO-FLOW): дотик по кнопці-категорії нового рядка → mono_accept з цією категорією й підкатегорією.
+async function monoAcceptOption(id, idx){
+  const row = monoInbox.rows.filter(function(r){ return safeId(r.id) === id; })[0];
+  if(!row || monoInbox.busy) return;
+  const o = monoSuggestOptions(row)[idx];
+  if(!o) return;
+  if(!(monoNetUah(row) > 0)){ showTextToast('Операцію повністю повернено', 'error'); return; }
+  monoInbox.busy = true;
+  const out = await monoAcceptRow(row, o.c, o.s, row.description, monoEffectiveInstId(row, monoInbox.instPick, installmentAccounts));
+  monoInbox.busy = false;
+  if(out.kind === 'ok'){ showMonoAddedToast(1, monoNetUah(row)); await monoAfterChange(); return; }
+  if(out.kind === 'need-category'){ openMonoDetail(id); return; }
+  showTextToast(out.toast, 'error');
+  if(out.refresh) await monoAfterChange();
+}
+// Rev 2.32.331 (MONO-FLOW): автододані. «Все вірно» = mono_auto_review(null) (усі); зміна категорії = mono_recategorize; «Повернути в нові» = mono_auto_revert (витрата видаляється м'яко).
+async function monoAutoRpc(fn, args){
+  if(blockedByReadOnly()) return { error: { blocked: true } };
+  if(monoInbox.busy) return { error: { blocked: true } };
+  monoInbox.busy = true;
+  let error = null, data = null;
+  try{ const r = await getSupabaseClient().rpc(fn, args); error = r.error || null; data = r.data; }catch(e){ error = { message: 'network' }; }
+  monoInbox.busy = false;
+  return { error: error, data: data };
+}
+async function monoAutoFinish(r, okToast){
+  if(r.error && r.error.blocked) return false;
+  const out = monoRefundOutcome(r.error);
+  if(out.kind !== 'ok'){ showTextToast(out.toast, 'error'); if(out.refresh) await monoAfterChange(); return false; }
+  if(okToast) showTextToast(okToast, 'success');
+  monoInbox.autoOpen = null;
+  await monoAfterChange();
+  return true;
+}
+async function monoAutoReviewAll(){ await monoAutoFinish(await monoAutoRpc('mono_auto_review', { p_ids: null }), ''); }
+async function monoAutoRecat(id, idx){
+  const row = monoInbox.autoRows.filter(function(r){ return safeId(r.id) === id; })[0];
+  const o = row && monoSuggestOptions(row)[idx];
+  if(!o) return;
+  closeMonoDetail();
+  await monoAutoFinish(await monoAutoRpc('mono_recategorize', { p_inbox_id: row.id, p_category: o.c, p_subcategory: o.s || null }), 'Категорію змінено');
+}
+function monoAutoRevertStart(id){
+  const rid = id || monoInbox.detailId;
+  const row = monoInbox.autoRows.filter(function(r){ return safeId(r.id) === rid; })[0];
+  if(!row) return;
+  showConfirmModal('Повернути в «Нові»? Додану витрату буде видалено.', async function(){ closeMonoDetail(); await monoAutoFinish(await monoAutoRpc('mono_auto_revert', { p_inbox_id: row.id }), 'Повернено в «Нові»'); }, 'Повернути', 'primary');
+}
+async function monoDetailRecategorize(){
+  const id = monoInbox.detailId;
+  const row = monoInbox.autoRows.filter(function(r){ return safeId(r.id) === id; })[0];
+  if(!row) return;
+  const category = document.getElementById('fldmono2').value;
+  if(!category){ flashField('mono-pick-group'); showTextToast('Оберіть категорію', 'error'); return; }
+  closeMonoDetail();
+  await monoAutoFinish(await monoAutoRpc('mono_recategorize', { p_inbox_id: row.id, p_category: category, p_subcategory: document.getElementById('fldmono3').value || null }), 'Категорію змінено');
 }
 async function monoIgnoreRow(id){
   const row = monoInbox.rows.filter(function(r){ return safeId(r.id) === id; })[0];
@@ -25405,7 +25596,9 @@ async function runMonoAddAll(){
   const worker = async function(){
     while(i < list.length){
       const row = list[i++];
-      const out = await monoAcceptRow(row, row.suggested_category, row.suggested_subcategory, row.description, monoEffectiveInstId(row, monoInbox.instPick, installmentAccounts));
+      const o1 = monoSuggestOptions(row)[0]; // Rev 2.32.331 (MONO-FLOW): єдиний варіант (addAllCandidates) — із suggestions або suggested_category
+      if(!o1) continue;
+      const out = await monoAcceptRow(row, o1.c, o1.s, row.description, monoEffectiveInstId(row, monoInbox.instPick, installmentAccounts));
       if(out.kind === 'ok'){ done++; sum += Math.abs(monoNetUah(row) || 0); }
     }
   };
@@ -25417,11 +25610,12 @@ async function runMonoAddAll(){
 }
 // ----- шторка з деталями -----
 function openMonoDetail(id){
-  const row = monoInbox.rows.filter(function(r){ return safeId(r.id) === id; })[0];
+  const row = monoInbox.rows.concat(monoInbox.autoRows || []).filter(function(r){ return safeId(r.id) === id; })[0]; // Rev 2.32.331 (MONO-FLOW): і рядки групи «Додано автоматично»
   if(!row) return;
   monoInbox.detailId = id;
   const m = inboxRowModel(row, monoState.accounts, monoInbox.suggestRows);
   const isNew = row.status === 'new';
+  const isAuto = row.status === 'added' && !!row.auto_added && !row.reviewed_at; // Rev 2.32.331 (MONO-FLOW): шторка зміни категорії автододаної
   document.getElementById('mono-detail-title').textContent = m.merchant;
   document.getElementById('mono-detail-sub').textContent = m.amount;
   const body = document.getElementById('mono-detail-body'); body.textContent = '';
@@ -25438,7 +25632,9 @@ function openMonoDetail(id){
   const showInst = monoShowsInstRow(row);
   if(showInst && !isNew){ const ia = monoInstById(installmentAccounts, monoEffectiveInstId(row, monoInbox.instPick, installmentAccounts)); add('ОЧ', ia ? stripLeadingEmoji(ia.name) : 'Не прив\'язано'); } // Rev 2.32.128: у «Пропущених» лише показ
   if(!grp.firstChild) grp.style.display = 'none';
-  document.getElementById('mono-detail-fields').style.display = isNew ? '' : 'none';
+  document.getElementById('mono-detail-fields').style.display = (isNew || isAuto) ? '' : 'none';
+  document.getElementById('mono-detail-auto-actions').style.display = isAuto ? '' : 'none';
+  { const nr = document.getElementById('fldmono4').closest('.sf-row'); if(nr) nr.style.display = isAuto ? 'none' : ''; }
   document.getElementById('mono-detail-actions').style.display = isNew ? '' : 'none';
   // Rev 2.32.32: повернення у «Пропущених» — «Врахувати повернення» / «Ігнорувати»
   const canRefund = refundRowActions(row).indexOf('refund') !== -1;
@@ -25454,6 +25650,13 @@ function openMonoDetail(id){
     monoKwReset(); // Rev 2.32.35 (K): початкове значення — підказка сервера
     monoInstFill(row, showInst);
     monoPickRefresh();
+  }else if(isAuto){
+    const e0 = row.expense_id ? expenses.filter(function(x){ return x && x.id === row.expense_id; })[0] : null;
+    const c0 = e0 ? e0.category : row.suggested_category, s0 = e0 ? e0.subcategory : row.suggested_subcategory;
+    const cat = document.getElementById('fldmono2');
+    cat.innerHTML = categoryOptionsHtml(c0 || ''); cat.value = c0 || '';
+    document.getElementById('fldmono3').innerHTML = subcategoryOptionsHtml(cat.value, s0 || '');
+    monoKwShowHint(null); monoInstFill(row, false); monoPickRefresh();
   }
   const backdrop = document.getElementById('mono-detail-backdrop'), drawer = document.getElementById('mono-detail-drawer');
   const wasOpen = drawer.classList.contains('open');
@@ -25700,10 +25903,25 @@ async function monoDetailIgnore(){
   const body = document.getElementById('mono-inbox-body');
   if(body) body.addEventListener('click', function(e){
     if(e.target.closest('[data-mono-addall]')){ confirmMonoAddAll(); return; }
+    // Rev 2.32.331 (MONO-FLOW): група «Додано автоматично»
+    if(e.target.closest('[data-mono-auto-ok]')){ monoAutoReviewAll(); return; }
+    const ac = e.target.closest('[data-mono-auto-cats]');
+    if(ac){
+      const aid = ac.getAttribute('data-mono-auto-cats'), cb = e.target.closest('[data-mono-auto-cat]');
+      if(cb) monoAutoRecat(aid, +cb.getAttribute('data-mono-auto-cat'));
+      else if(e.target.closest('[data-mono-auto-other]')) openMonoDetail(aid);
+      else if(e.target.closest('[data-mono-auto-revert]')) monoAutoRevertStart(aid);
+      return;
+    }
+    const ar = e.target.closest('[data-mono-auto]');
+    if(ar){ const aid = ar.getAttribute('data-mono-auto'), r0 = monoInbox.autoRows.filter(function(r){ return safeId(r.id) === aid; })[0]; monoInbox.autoOpen = (r0 && monoInbox.autoOpen === r0.id) ? null : (r0 ? r0.id : null); renderMonoInbox(); return; }
     const wrap = e.target.closest('.expense-row-swipe');
     if(!wrap) return;
     const id = wrap.getAttribute('data-mono-row');
     if(e.target.closest('[data-mono-inst-toggle]')){ e.stopPropagation(); monoInstToggle(id); return; }
+    const catBtn = e.target.closest('[data-mono-cat]');
+    if(catBtn){ e.stopPropagation(); monoAcceptOption(id, +catBtn.getAttribute('data-mono-cat')); return; }
+    if(e.target.closest('[data-mono-other]')){ e.stopPropagation(); openMonoDetail(id); return; }
     if(e.target.closest('[data-mono-add]')){ e.stopPropagation(); if(typeof closeSwipeActions === 'function') closeSwipeActions(); monoAcceptFromRow(id); return; }
     if(e.target.closest('[data-mono-ignore]')){ e.stopPropagation(); if(typeof closeSwipeActions === 'function') closeSwipeActions(); monoIgnoreRow(id); return; }
     if(e.target.closest('[data-mono-consider]')){ e.stopPropagation(); if(typeof closeSwipeActions === 'function') closeSwipeActions(); monoConsiderSuggested(id); return; } // Rev 2.32.330 (MONO-REFUND)

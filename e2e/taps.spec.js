@@ -36,7 +36,7 @@ test('23. матриця тапів: таббар, підвкладки «Обл
   await tapEffect(page, '.tabbar-glass button >> nth=3', "document.querySelector('#view-structure') && !document.querySelector('#view-structure').classList.contains('hidden')", 'таббар «Структура»');
   await tapOnce(page, '#struct-tab-btn-dictionary', 'підвкладка «Словник»'); await tapOnce(page, '#struct-tab-btn-subcategories', 'підвкладка «Підкатегорії»');
   await tapOnce(page, '#notif-bell-btn', 'дзвіночок'); await closeAll(page);
-  await tapOnce(page, '.gear-btn:not(#notif-bell-btn):not(#profile-btn-top) >> nth=0', 'шестерня'); await closeAll(page);
+  await tapOnce(page, '.gear-btn:not(#notif-bell-btn):not(#mono-paw-btn):not(#profile-btn-top) >> nth=0', 'шестерня'); await closeAll(page);
   await tapOnce(page, '#profile-btn-top', 'аватар'); await closeAll(page);
   await page.evaluate(() => switchTab('vytraty')); await page.waitForTimeout(500);
   await tapOnce(page, '.exp-del >> nth=0', 'смітник витрати'); await closeAll(page);
@@ -49,13 +49,13 @@ test('24. зони дотику 44 пт без зміни вигляду й бе
   await page.evaluate(() => { const now = new Date().toISOString(); expenses.unshift({ id: generateUUID(), date: localDateISO(), name: 'Тест', amount: 10, category: '', subcategory: '', manual: true, createdAt: now, updatedAt: now }); renderAll(); switchTab('vytraty'); });
   await page.waitForTimeout(600);
   // геометрія зон: псевдоелемент 44×44 за центром; вигляд (розмір кнопки) не змінений; зони сусідів не перекриваються
-  const zones = await page.evaluate(() => { const z = sel => { const el = document.querySelector(sel), r = el.getBoundingClientRect(), cs = getComputedStyle(el, '::after'); return { w: parseFloat(cs.width), h: parseFloat(cs.height), box: [r.width, r.height], zone: { l: r.left + r.width / 2 - parseFloat(cs.width) / 2, r: r.left + r.width / 2 + parseFloat(cs.width) / 2, t: r.top + r.height / 2 - parseFloat(cs.height) / 2, b: r.top + r.height / 2 + parseFloat(cs.height) / 2 } }; }; return { avatar: z('#profile-btn-top'), bell: z('#notif-bell-btn'), gear: z('.gear-btn:not(#notif-bell-btn):not(#profile-btn-top)'), del: z('.exp-del') }; });
+  const zones = await page.evaluate(() => { const z = sel => { const el = document.querySelector(sel), r = el.getBoundingClientRect(), cs = getComputedStyle(el, '::after'); return { w: parseFloat(cs.width), h: parseFloat(cs.height), box: [r.width, r.height], zone: { l: r.left + r.width / 2 - parseFloat(cs.width) / 2, r: r.left + r.width / 2 + parseFloat(cs.width) / 2, t: r.top + r.height / 2 - parseFloat(cs.height) / 2, b: r.top + r.height / 2 + parseFloat(cs.height) / 2 } }; }; return { avatar: z('#profile-btn-top'), bell: z('#notif-bell-btn'), gear: z('.gear-btn:not(#notif-bell-btn):not(#mono-paw-btn):not(#profile-btn-top)'), del: z('.exp-del') }; });
   for(const k of ['avatar', 'bell', 'gear']){ expect(zones[k].w, k + ' зона 44').toBeGreaterThanOrEqual(44); expect(zones[k].h).toBeGreaterThanOrEqual(44); expect(zones[k].box, k + ': вигляд кнопки 36×36 не змінено').toEqual([36, 36]); }
   expect(zones.del.w).toBeGreaterThanOrEqual(44); expect(zones.del.box[0], 'смітник: вигляд ≈ 27').toBeLessThan(30);
   expect(zones.bell.zone.r, 'зони дзвіночка й шестерні не перекриваються').toBeLessThanOrEqual(zones.gear.zone.l + 0.5);
   expect(zones.avatar.zone.r).toBeLessThanOrEqual(zones.bell.zone.l);
   // реальні тапи за межею вигляду (3 пт зовні) потрапляють у свою кнопку й лише в неї
-  for(const [sel, id] of [['#notif-bell-btn', 'notif-bell-btn'], ['.gear-btn:not(#notif-bell-btn):not(#profile-btn-top)', null]]){
+  for(const [sel, id] of [['#notif-bell-btn', 'notif-bell-btn'], ['.gear-btn:not(#notif-bell-btn):not(#mono-paw-btn):not(#profile-btn-top)', null]]){
     const b = await page.locator(sel).first().boundingBox();
     await page.evaluate(() => { window.__tap.clicks = []; });
     await page.touchscreen.tap(b.x + b.width / 2, b.y - 3 + 0.001 > 0 ? b.y - 3 : b.y + b.height / 2);

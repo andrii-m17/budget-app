@@ -359,3 +359,15 @@ _Виміряно Claude Code в Chrome (CDP), синтетичні дані, б
 | Мітка-підказка | `button.mono-refund-label` | те саме + курсор; текст переноситься (нерозривний пробіл у сумі), «›» наприкінці | ті самі |
 | Свайп підказки | `.expense-row-actions` | «Ігнорувати» (96) + «Врахувати» (88) як у «Нових» | як було |
 | Тост автоповернення | `showToast` info | «Повернення N ₴ враховано», підзаголовок «<назва>: M ₴ → K ₴», без кнопки | наявний info |
+
+## Лапка Monobank і швидкий вибір категорії (Rev 2.32.331, MONO-FLOW)
+Еталон `docs/ui/mockups/mono-flow-mockup.html`; знімки `e2e-results/mono-flow-{390,320}-{dark,light}.png`, `mono-flow-header-*.png`. Нових токенів немає.
+| Елемент | Клас | Виміри | Токени |
+|---|---|---|---|
+| Лапка | `.gear-btn.notif-bell-btn#mono-paw-btn` | 36×36, радіус 12, межа 1,5, зона дотику 44 (`::after`) | як шестерня |
+| Лічильник | `.notif-bell-count.mono-paw-count` | 16 pt, радіус 8, 10px/700 | тло `--color-info` |
+| Крапка | `.mono-paw-dot` | 8 pt | `--color-info` |
+| Група | `.mono-group` + `.mono-auto-row` | рядок ≥ 48, назва 15, підпис 12 secondary, сума 15 моноширинна | `--color-surface`, `--color-border` |
+| «Все вірно» | `.mono-auto-ok` | висота 44, 15/600 | `--color-info` |
+| Кнопка-категорія | `.mono-cat-btn` | висота 32, радіус 999, 13 px; зона дотику ≥ 44 (`::after`); перша `.first` | `--ui-accent-bg/-text`; інші `--color-surface-hover` + межа; «Інше…» secondary |
+Лапка стоїть у лівій групі шапки (`.page-header-buttons-left`) одразу після аватара, відступ 8 pt; заголовок не рухається (рішення чату, Rev 2.32.331).

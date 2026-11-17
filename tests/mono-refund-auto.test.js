@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const c = buildSandbox({}, ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'inboxRowModel', 'monoNetUah', 'monoRefundedUah', 'monoShortMonth', 'monoSuggestLabelText', 'addAllCandidates', 'refundRowActions', 'monoOptionsSorted', 'monoRefundApplyCall', 'monoRefundToastPlan']);
+const c = buildSandbox({}, ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'inboxRowModel', 'monoNetUah', 'monoRefundedUah', 'monoShortMonth', 'monoSuggestLabelText', 'monoSuggestOptions', 'monoCatLabel', 'monoAutoGroupModel', 'MONO_AUTO_DAYS', 'addAllCandidates', 'refundRowActions', 'monoOptionsSorted', 'monoRefundApplyCall', 'monoRefundToastPlan']);
 const T = new Date(2026, 10, 12, 9, 13).toISOString();
 const R = function(extra){ return Object.assign({ id: 'c1', mono_account_id: 'm1', tx_time: T, description: 'Тест', amount_uah: 50, status: 'new', suggested_category: 'Транспорт' }, extra || {}); };
 
@@ -65,7 +65,7 @@ test('план тостів: лише коли витрату додано, од
 });
 test('охоронні: вкладки «Нові»/«Пропущені», нові колонки, тост info без кнопки, сигнал mono_refund_at', function(){
   assert.match(SRC, /status\.eq\.new,and\(status\.eq\.skipped,refund_suggest\.not\.is\.null\)/);
-  assert.match(SRC, /notified_at,refunded_minor,net_uah,refund_of,refund_auto,refund_suggest'\)/);
+  assert.match(SRC, /notified_at,refunded_minor,net_uah,refund_of,refund_auto,refund_suggest,auto_added,reviewed_at,suggestions'/);
   assert.match(SRC, /kind === 'mono-refund-auto'\)\{[^]*?kind: 'info'[^]*?actionLabel: '', action: null/);
   assert.match(SRC, /rpc\('mono_refund_options'/); assert.match(SRC, /rpc\('mono_refund_undo'/);
   assert.match(SRC, /heads\.mono_refund_at/); assert.match(SRC, /eq\('refund_auto', true\)\.gt\('decided_at', prev\)/);

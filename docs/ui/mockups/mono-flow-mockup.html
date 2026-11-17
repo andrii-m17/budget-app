@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MONO-FLOW макет</title>
+<!-- Погоджено Андрієм 17.11.2026. Шапка: кнопка-лапка = .top .gear-btn (36×36, радіус 12, межа 1.5 --color-border-strong, тло --color-surface, іконка --color-text-secondary); лічильник як .notif-bell-count (16 pt, радіус 8, 10px/700), але тло --color-info; лише крапка 8 pt --color-info, коли є тільки автододані на перевірку. Група = .mono-group (--color-surface, межа 1px --color-border, радіус --radius-lg 20); рядок групи min-height 48, 15px, підпис 12px --color-text-secondary; «Все вірно» — рядок-кнопка 44 pt, 15px/600 --color-info. Кнопки-категорії: висота 32 (зона дотику ≥44 через наявний механізм розширення), радіус 999, 13px; перша — тло --ui-accent-bg, текст --ui-accent-text, 600; інші — тло --color-surface-hover, межа 1px --color-border; «Інше…» текст --color-text-secondary. Назви й суми вигадані. -->
+<style>
+body{margin:0;padding:16px;background:#0B0F16;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.w{display:flex;gap:16px;flex-wrap:wrap}
+.p{flex:1 1 300px;max-width:390px;border-radius:26px;padding:0 0 16px;box-sizing:border-box;background:var(--bg);color:var(--t1);overflow:hidden}
+.d{--bg:#0B0F16;--sf:#151B26;--sfh:#1E2530;--bd:#262E3B;--bds:#2E3745;--t1:#F1F4F8;--t2:#94A0B4;--ab:rgba(34,197,94,.16);--at:#34D673;--ib:rgba(59,130,246,.18);--it:#60A5FA;--er:#EF4444}
+.l{--bg:#F7F8FA;--sf:#FFFFFF;--sfh:#F1F3F5;--bd:#E6EAF2;--bds:#E6EAF2;--t1:#101828;--t2:#64748B;--ab:rgba(34,197,94,.16);--at:#166534;--ib:#EAF1FE;--it:#3B82F6;--er:#EF4444}
+.top{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--bd)}
+.btns{display:flex;gap:8px}
+.gb{position:relative;width:36px;height:36px;border-radius:12px;border:1.5px solid var(--bds);background:var(--sf);display:grid;place-items:center;color:var(--t2);box-sizing:border-box}
+.gb svg{width:18px;height:18px}
+.cnt{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:8px;background:var(--it);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center}
+.cnt.r{background:var(--er)}
+.ttl{font-size:17px;font-weight:700}
+.body{padding:14px 16px 0}
+.cap{font-size:12px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin:14px 4px 6px;display:flex;justify-content:space-between}
+.cap:first-child{margin-top:0}
+.grp{background:var(--sf);border:1px solid var(--bd);border-radius:20px;overflow:hidden}
+.gr{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--bd);min-height:48px;box-sizing:border-box}
+.gr:first-child{border-top:0}
+.nm{font-size:15px}.sub{font-size:12px;color:var(--t2);margin-top:2px}
+.am{font-family:ui-monospace,Menlo,monospace;font-size:15px;white-space:nowrap}
+.ok{display:block;width:100%;height:44px;border:0;border-top:1px solid var(--bd);background:transparent;color:var(--it);font:inherit;font-size:15px;font-weight:600}
+.row{background:var(--sf);border:1px solid var(--bd);border-radius:18px;padding:12px 14px;margin-top:8px}
+.rt{display:flex;justify-content:space-between;gap:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.ch{height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--bd);background:var(--sfh);color:var(--t1);font:inherit;font-size:13px;display:inline-flex;align-items:center}
+.ch.f{background:var(--ab);color:var(--at);border-color:transparent;font-weight:600}
+.more{color:var(--t2)}
+</style></head><body>
+<div class="w"><div class="p d" id="A"></div><div class="p l" id="B"></div></div>
+<script>
+const paw='<svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="7" cy="8.5" rx="2" ry="2.6"/><ellipse cx="12" cy="6" rx="2.1" ry="2.7"/><ellipse cx="17" cy="8.5" rx="2" ry="2.6"/><ellipse cx="4.6" cy="13.4" rx="1.7" ry="2.2"/><ellipse cx="19.4" cy="13.4" rx="1.7" ry="2.2"/><path d="M12 11.2c-3 0-6 4.3-6 6.6 0 1.7 1.4 2.6 3 2.2 1.1-.3 2-.6 3-.6s1.9.3 3 .6c1.6.4 3-.5 3-2.2 0-2.3-3-6.6-6-6.6z"/></svg>';
+const bell='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>';
+const h=`<div class="top"><div class="gb" style="border-radius:50%">А</div><div class="ttl">Витрати</div>
+<div class="btns"><div class="gb">${paw}<span class="cnt">2</span></div><div class="gb">${bell}<span class="cnt r">1</span></div></div></div>
+<div class="body">
+<div class="cap"><span>Додано автоматично · 3</span><span>перевірте</span></div>
+<div class="grp">
+<div class="gr"><div><div class="nm">Самокат</div><div class="sub">Транспорт · Самокат · 09:13</div></div><div class="am">−23 ₴</div></div>
+<div class="gr"><div><div class="nm">Аптека</div><div class="sub">Здоров'я · Ліки · 12:40</div></div><div class="am">−186 ₴</div></div>
+<div class="gr"><div><div class="nm">Кав'ярня</div><div class="sub">Харчування · Кава · 08:55</div></div><div class="am">−75 ₴</div></div>
+<button class="ok">Все вірно</button></div>
+<div class="cap"><span>Оберіть категорію · 2</span></div>
+<div class="row"><div class="rt"><div><div class="nm">Продуктовий магазин</div><div class="sub">14:05 · ••0000</div></div><div class="am">−84 ₴</div></div>
+<div class="chips"><span class="ch f">Обіди</span><span class="ch">Продукти</span><span class="ch">Перекус</span><span class="ch more">Інше…</span></div></div>
+<div class="row"><div class="rt"><div><div class="nm">Новий магазин</div><div class="sub">17:30 · ••0000</div></div><div class="am">−320 ₴</div></div>
+<div class="chips"><span class="ch f">Покупки</span><span class="ch more">Інше…</span></div></div>
+</div>`;
+A.innerHTML=h;B.innerHTML=h;
+</script></body></html>

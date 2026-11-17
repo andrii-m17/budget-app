@@ -231,7 +231,7 @@
     const hash = function(s){ let h = 0; for(let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return String(h); };
     return { tables: tables, members_hash: hash(state.users.map(function(u){ return u.id + '|' + u.display_name; }).join(',')), family_hash: hash(state.familyId),
       unread_notifications: (state.tables.user_notifications || []).filter(function(n){ return !n.read_at; }).length, mono_new: (state.tables.mono_inbox || []).filter(function(n){ return n.status === 'new' || (n.status === 'skipped' && n.refund_suggest); }).length,
-      purged_at: state.purgedAt, mono_refund_at: state.monoRefundAt || null, server_time: nowIso(state) }; // Rev 2.32.330 (MONO-REFUND): час останнього автоповернення
+      purged_at: state.purgedAt, mono_refund_at: state.monoRefundAt || null, mono_auto_review: (state.tables.mono_inbox || []).filter(function(n){ return n.status === 'added' && n.auto_added && !n.reviewed_at && (n.decided_at && cmp(n.decided_at, new Date(Date.parse(nowIso(state)) - 3 * 86400000).toISOString()) > 0); }).length, server_time: nowIso(state) }; // Rev 2.32.330 (MONO-REFUND): час останнього автоповернення
   }
 
   // handle(state, url, init, input) → Promise<Response>
@@ -245,7 +245,19 @@
       if(m[1] === 'sync_heads') return jsonResponse(200, headsOf(state));
       if(m[1] === 'mono_refund_candidates') return jsonResponse(200, []);
       // Rev 2.32.330 (MONO-REFUND): mono_refund_options / mono_apply_refund(_inbox) / mono_refund_undo — результат задає тест через state.rpcResults[ім'я] (значення або функція(body)); тіло виклику пишеться в журнал
-      if(/^mono_(refund_options|apply_refund|apply_refund_inbox|refund_undo)$/.test(m[1])){
+      // Rev 2.32.331 (MONO-FLOW): mono_auto_review / mono_recategorize / mono_auto_revert / mono_set_auto_add — типова поведінка сервера на таблиці mono_inbox/mono_connections (результат можна перекрити через state.rpcResults)
+      if(/^mono_(auto_review|recategorize|auto_revert|set_auto_add)$/.test(m[1])){
+        let body = null; try{ const raw = (init && init.body) || null; body = raw ? JSON.parse(raw) : null; }catch(e){}
+        state.log.push({ kind: 'rpc-body', name: m[1], body: body });
+        const rr0 = state.rpcResults && state.rpcResults[m[1]];
+        if(rr0 && rr0.error) return jsonResponse(rr0.status || 400, rr0.error);
+        const tb = state.tables.mono_inbox || [], ts0 = nowIso(state);
+        if(m[1] === 'mono_auto_review'){ const ids = body && Array.isArray(body.p_ids) ? body.p_ids : null; let n = 0; tb.forEach(function(r){ if(r.status === 'added' && r.auto_added && !r.reviewed_at && (!ids || ids.indexOf(r.id) !== -1)){ r.reviewed_at = ts0; n++; } }); return jsonResponse(200, n); }
+        if(m[1] === 'mono_recategorize'){ const r = tb.find(function(x){ return x.id === (body && body.p_inbox_id); }); if(!r) return jsonResponse(404, { code: 'P0002', message: 'not found' }); r.reviewed_at = ts0; r.suggested_category = body.p_category; r.suggested_subcategory = body.p_subcategory || null; return jsonResponse(200, r.expense_id || null); }
+        if(m[1] === 'mono_auto_revert'){ const r = tb.find(function(x){ return x.id === (body && body.p_inbox_id); }); if(!r) return jsonResponse(404, { code: 'P0002', message: 'not found' }); r.status = 'new'; r.auto_added = false; r.expense_id = null; return jsonResponse(200, null); }
+        const cn = (state.tables.mono_connections || [])[0]; if(!cn) return jsonResponse(404, { code: 'P0002', message: 'no connection' }); cn.auto_add = !!(body && body.p_on); return jsonResponse(200, cn.auto_add);
+      }
+      if(/^mono_(refund_options|apply_refund|apply_refund_inbox|refund_undo|accept)$/.test(m[1])){
         let body = null; try{ const raw = (init && init.body) || null; body = raw ? JSON.parse(raw) : null; }catch(e){}
         state.log.push({ kind: 'rpc-body', name: m[1], body: body });
         const rr = state.rpcResults && state.rpcResults[m[1]];

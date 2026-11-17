@@ -53,3 +53,8 @@
 - Модель: `monoNetUah`, `monoRefundedUah`, `monoSuggestLabelText`, `inboxRowModel(row, accounts, suggestMap)`; завантаження `loadMonoInbox` (+ `loadMonoSuggestRows`); рядок `monoInboxRowHtml`.
 - Діалог і застосування: `monoRefundStart` (`mono_refund_options`), `monoOptionsSorted`, `monoRefundApplyCall`, `monoConsiderSuggested`, `monoRefundPickFromLabel`, `monoRefundApply`, `monoRefundUndoStart/Run`.
 - Тост автоповернення: `monoRefundSignal` (виклики з `applyHeadsCounters` і `refreshMonoNewCount`), `monoRefundToastPlan`, ключі `MONO_REFUND_AT_KEY`, `MONO_REFUND_SEEN_KEY`; `toastModel('mono-refund-auto')`.
+
+## Лапка Monobank, автододані, кнопки-категорії (Rev 2.32.331, MONO-FLOW)
+- Лапка: `monoHeaderModel`, `updateMonoBadges`, `monoLoadConnection` (виклики з `runSyncCheck` при повній звірці й `recordManualFullSync`), кеш `MONO_HEADER_KEY`; лічильники `planSync.counters.monoAutoReview`.
+- Автододані: `loadMonoInbox` (+ `autoRows`), `monoAutoGroupModel`, `monoAutoGroupHtml`, `monoAutoRpc`, `monoAutoFinish`, `monoAutoReviewAll`, `monoAutoRecat`, `monoAutoRevertStart`, `monoDetailRecategorize` (режим `isAuto` у `openMonoDetail`).
+- Категорії: `monoSuggestOptions`, `monoCatLabel`, `monoAcceptOption`, `addAllCandidates` (рівно один варіант). Налаштування: `onMonoToggleAutoAdd`.

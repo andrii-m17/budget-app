@@ -76,7 +76,7 @@ test('мітка в рядку «Нових»: рендер через monoInbox
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const ctx = buildSandbox({ escapeHtml: esc, escapeAttr: s => esc(s).replace(/"/g, '&quot;'), safeId: x => String(x).replace(/[^0-9A-Za-z_-]/g, ''), monoState: { accounts: [] }, monoBadgeHtml: () => '',
     monoInbox: { instPick: {} }, installmentAccounts: [{ name: '<b>ОЧ</b>', cloudId: 'i1' }] },
-    ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'groupInboxByDay', 'inboxRowModel', 'monoNetUah', 'monoRefundedUah', 'monoShortMonth', 'monoSuggestLabelText', 'monoInstById', 'monoEffectiveInstId', 'monoInstLabelModel', 'stripLeadingEmoji', 'monoInboxRowHtml']);
+    ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'groupInboxByDay', 'inboxRowModel', 'monoNetUah', 'monoRefundedUah', 'monoShortMonth', 'monoSuggestLabelText', 'monoSuggestOptions', 'monoCatLabel', 'monoAutoGroupModel', 'MONO_AUTO_DAYS', 'monoInstById', 'monoEffectiveInstId', 'monoInstLabelModel', 'stripLeadingEmoji', 'monoInboxRowHtml']);
   const html = ctx.monoInboxRowHtml(Object.assign(R({ suggested_installment_id: 'i1' }), { tx_time: '2026-10-12T10:00:00Z', amount_uah: 100, mono_account_id: 'm' }));
   assert.match(html, /data-mono-inst-toggle="1"/);
   assert.ok(html.indexOf('&lt;b&gt;ОЧ&lt;/b&gt;') !== -1 && !/<b>/.test(html));

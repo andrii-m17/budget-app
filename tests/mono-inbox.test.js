@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const base = ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'monoNewOpsLabel', 'monoOpsAcc', 'groupInboxByDay', 'inboxRowModel', 'monoNetUah', 'monoRefundedUah', 'monoShortMonth', 'monoSuggestLabelText', 'addAllCandidates', 'monoAcceptOutcome', 'monoShowsInstRow', 'monoInstById', 'monoEffectiveInstId', 'monoInstLabelModel', 'monoInstToggleNext', 'stripLeadingEmoji'];
+const base = ['MONO_MONTHS_GEN', 'MONO_CARD_TYPES', 'monoAccountLabel', 'monoAccountDetail', 'MONO_SKIP_LABELS', 'skipReasonLabel', 'monoFmtUah', 'monoNewOpsLabel', 'monoOpsAcc', 'groupInboxByDay', 'inboxRowModel', 'monoNetUah', 'monoRefundedUah', 'monoShortMonth', 'monoSuggestLabelText', 'monoSuggestOptions', 'monoCatLabel', 'monoAutoGroupModel', 'MONO_AUTO_DAYS', 'addAllCandidates', 'monoAcceptOutcome', 'monoShowsInstRow', 'monoInstById', 'monoEffectiveInstId', 'monoInstLabelModel', 'monoInstToggleNext', 'stripLeadingEmoji'];
 const c = buildSandbox({}, base);
 const T = function(d, h, m){ return new Date(2026, 9, d, h, m).toISOString(); };
 const ACC = [{ mono_account_id: 'm1', masked_pan: '537541******1234', account_type: 'black' }];
@@ -136,8 +136,9 @@ test('I2: «Додати всі» — діалог, ≤ 3 паралельних
 // ---------- id полів, точки входу ----------
 test('id полів «Вхідні» чисті; точки входу: банер лише коли є нові, лічильники, закриття при перемиканні вкладки', function(){
   ['fldmono2', 'fldmono3', 'fldmono4'].forEach(function(id){ assert.ok(!/(name|phone|tel|mail|addr|user|login|first|last|fio|contact)/i.test(id)); assert.ok(SRC.indexOf('id="' + id + '"') !== -1); });
-  assert.match(SRC, /banner\.classList\.toggle\('hidden', !n\)/);
-  assert.match(SRC, /id="mono-banner" onclick="openMonoInbox\(\)"/);
+  assert.doesNotMatch(SRC, /id="mono-banner"/); // Rev 2.32.331 (MONO-FLOW): банер замінено лапкою в шапці
+  assert.match(SRC, /id="mono-paw-btn" onclick="openMonoInbox\(\{ tab: 'new' \}\)" aria-label="Monobank"/);
+  assert.match(SRC, /id="mono-side-tab"/);
   assert.match(SRC, /if\(isMonoInboxOpen\) closeMonoInbox\(\);/);
   assert.match(SRC, /'mono-inbox-badge'|id: 'mono-inbox-badge'|badgeId: 'mono-inbox-badge'/);
   const mi = SRC.slice(SRC.indexOf("type: 'mono-inbox'"), SRC.indexOf("type: 'mono-inbox'") + 200);
