@@ -39,7 +39,7 @@
     --color-glass-bg:var(--glass);
     --color-glass-pressed-bg:var(--glass-press);
     --color-glass-border:var(--glass-edge);
-    --color-glass-shimmer:var(--glass-edge-2);
+    --color-glass-shimmer:var(--glass-shimmer);
     --shadow-glass:var(--glass-shadow);
 
     --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:24px;
@@ -100,7 +100,7 @@
     --color-glass-bg:var(--glass);
     --color-glass-pressed-bg:var(--glass-press);
     --color-glass-border:var(--glass-edge);
-    --color-glass-shimmer:var(--glass-edge-2);
+    --color-glass-shimmer:var(--glass-shimmer);
     --shadow-glass:var(--glass-shadow);
 
     --shadow-sm:0 2px 10px rgba(0,0,0,.35);
@@ -140,20 +140,20 @@
     --ui-accent-text:var(--accent-text); --ui-danger-text:#F87171; --ui-warning-text:#F59E0B;
   }
 
-  /* ===== Rev 2.32.334 (DS-1), Rev 2.32.339 (DS-N1): нові назви дизайн-системи (docs/specs/DS-PLAN.md §1) ===== */
+  /* ===== Rev 2.32.334 (DS-1), Rev 2.32.339 (DS-N1, виправлення перед пушем: окремий --glass-shimmer зі старими значеннями, світлий --text-3 #626B80, щільніше скло .82/.92): нові назви дизайн-системи (docs/specs/DS-PLAN.md §1) ===== */
   /* DS-N1: ПАЛІТРА — тепер власні (погоджені) значення нових назв, взяті з макета docs/ui/mockups/analytics-ds/index.html; старі назви вище стали псевдонімами на нові (--color-bg: var(--bg) тощо), тож кожен колір визначено в одному місці. Семантичні --color-success/-error/-warning/-info не змінювались. */
   :root{
     --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#EEF1F5; --line:#E4E8EF; --line-strong:#D5DBE5;
-    --text:#101828; --text-2:#475467; --text-3:#667085;
+    --text:#101828; --text-2:#475467; --text-3:#626B80;
     --accent:#22C55E; --accent-text:#166534; --accent-bg:rgba(34,197,94,.14); --accent-line:rgba(34,197,94,.34);
-    --glass:rgba(255,255,255,.58); --glass-press:rgba(255,255,255,.78); --glass-edge:rgba(255,255,255,.9); --glass-edge-2:rgba(16,24,40,.08);
+    --glass:rgba(255,255,255,.82); --glass-press:rgba(255,255,255,.92); --glass-edge:rgba(255,255,255,.9); --glass-edge-2:rgba(16,24,40,.08); --glass-shimmer:rgba(255,255,255,.65);
     --glass-shadow:0 12px 34px rgba(16,24,40,.16), 0 2px 8px rgba(16,24,40,.06);
   }
   :root[data-theme="dark"]{
     --bg:#0B0F16; --surface:#151B26; --surface-2:#1E2530; --line:#252D3A; --line-strong:#333D4D;
     --text:#F1F4F8; --text-2:#A3AEC0; --text-3:#8391A7;
     --accent:#22C55E; --accent-text:#34D673; --accent-bg:rgba(34,197,94,.16); --accent-line:rgba(34,197,94,.32);
-    --glass:rgba(24,30,42,.56); --glass-press:rgba(34,42,58,.8); --glass-edge:rgba(255,255,255,.16); --glass-edge-2:rgba(255,255,255,.04);
+    --glass:rgba(22,28,40,.82); --glass-press:rgba(34,42,58,.9); --glass-edge:rgba(255,255,255,.16); --glass-edge-2:rgba(255,255,255,.04); --glass-shimmer:rgba(255,255,255,.22);
     --glass-shadow:0 12px 34px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3);
   }
   /* Псевдоніми на поточні значення (DS-1): назви за змістом, значення DS-PLAN — окремими кроками */

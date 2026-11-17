@@ -25,6 +25,11 @@ test('ds-shots: знімки й значення токенів', async ({ page 
     for (const tab of ['accounting', 'vytraty', 'structure', 'service']){ await page.evaluate((t) => switchTab(t), tab); await page.waitForTimeout(500); await shot(tab); }
     const overlays = [['settings', () => openSettings(), () => { const b = document.querySelector('.drawer.open .drawer-close, .app-modal.open .drawer-close'); if(b) b.click(); }], ['notif', () => openNotifArchive(), () => closeNotifArchive()], ['profile', () => openProfileMenu(), () => closeProfileMenu()], ['monoscreen', () => openMonoScreen(), () => closeMonoScreen()], ['inbox', () => openMonoInbox({ tab: 'new' }), () => closeMonoInbox()], ['trash', () => openTrashScreen(), () => closeTrashScreen()]];
     for (const [n, open, close] of overlays){ try{ await page.evaluate(open); await page.waitForTimeout(700); await shot('ov-' + n); await page.evaluate(close); await page.waitForTimeout(400); }catch(e){} }
+    // скло плаваючих елементів: натиск таббару (блиск) і таббар поверх тексту (прокручений список)
+    await page.evaluate(() => switchTab('accounting')); await page.waitForTimeout(400);
+    await page.evaluate(() => { document.querySelector('nav.tabbar').classList.add('pressed'); }); await shot('tabbar-press');
+    await page.evaluate(() => { document.querySelector('nav.tabbar').classList.remove('pressed'); switchTab('vytraty'); }); await page.waitForTimeout(500);
+    await page.evaluate(() => { document.querySelectorAll('*').forEach(e => { if(e.scrollHeight > e.clientHeight + 300 && /(auto|scroll)/.test(getComputedStyle(e).overflowY)) e.scrollTop = 420; }); }); await shot('tabbar-over-text');
     await page.evaluate(() => switchTab('analytics'));
   }
   fs.writeFileSync(path.join(DIR, 'vars-' + SUF + '.json'), JSON.stringify(vars, null, 1));
