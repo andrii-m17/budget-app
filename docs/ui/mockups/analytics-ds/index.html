@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Money Tree: дизайн-система й Аналітика</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<script>
+(function(){var r=document.documentElement;if(!r.dataset.theme){r.dataset.theme=matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}})();
+</script>
+<style>
+/* План: оболонка першої версії (шапка, плитки, скляний таббар, шторка) + зміст і дотики третьої
+   (спокійна картка балансу, розкриття на місці, графіки відповідають на дотик).
+   Дохід зелений, витрата червона, борг жовтий, ОЧ і платіж сині; категорії мають власну палітру. */
+:root{
+  --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#EEF1F5; --line:#E4E8EF; --line-strong:#D5DBE5;
+  --text:#101828; --text-2:#475467; --text-3:#667085;
+  --accent:#22C55E; --accent-text:#166534; --accent-bg:rgba(34,197,94,.14); --accent-line:rgba(34,197,94,.34);
+  --income:#16A34A; --income-text:#15803D; --expense:#D4483B; --debt:#D98A0B; --debt-text:#B45309; --inst:#3B82F6; --inst-text:#1D4ED8; --inst-bg:rgba(59,130,246,.10); --inst-line:rgba(59,130,246,.45);
+  --cat-1:#3B82F6; --cat-2:#8B5CF6; --cat-3:#E08A0B; --cat-4:#DB5C9A; --cat-5:#E5644A; --cat-6:#8A97AB;
+  --card-shadow:0 1px 2px rgba(16,24,40,.04), 0 4px 14px rgba(16,24,40,.05);
+  --glass:rgba(255,255,255,.58); --glass-press:rgba(255,255,255,.78); --glass-edge:rgba(255,255,255,.9); --glass-edge-2:rgba(16,24,40,.08);
+  --glass-shadow:0 12px 34px rgba(16,24,40,.16), 0 2px 8px rgba(16,24,40,.06);
+  --scrim:rgba(16,24,40,.36);
+  --r-s:12px; --r-m:18px; --r-l:22px; --r-xl:28px; --r-pill:999px;
+  --ramp-1:var(--inst); --ramp-2:color-mix(in srgb,var(--inst) 78%,var(--surface-2)); --ramp-3:color-mix(in srgb,var(--inst) 60%,var(--surface-2)); --ramp-4:color-mix(in srgb,var(--inst) 44%,var(--surface-2)); --ramp-5:color-mix(in srgb,var(--inst) 30%,var(--surface-2)); --ramp-6:color-mix(in srgb,var(--inst) 18%,var(--surface-2));
+  --info-c:var(--inst);
+  --k1:#E8833A; --k2:#4F86E8; --k3:#8B6FD9; --k4:#2FA592; --k5:#D9668F; --k6:#8A97AB; --cat-bar:#EA7A1A; --sub-bar:#3B82F6;
+  --t-micro:120ms; --t-s:200ms; --t-m:320ms; --t-l:480ms; --t-count:800ms; --stagger:50ms;
+  --ease:cubic-bezier(.4,0,.2,1); --ease-out:cubic-bezier(.22,1,.36,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0B0F16; --surface:#151B26; --surface-2:#1E2530; --line:#252D3A; --line-strong:#333D4D;
+  --text:#F1F4F8; --text-2:#A3AEC0; --text-3:#8391A7;
+  --accent-text:#34D673; --accent-bg:rgba(34,197,94,.16); --accent-line:rgba(34,197,94,.32);
+  --income:#22C55E; --income-text:#34D673; --expense:#F87171; --debt:#F5A524; --debt-text:#F5A524; --inst:#60A5FA; --inst-text:#7DB6FB; --inst-bg:rgba(96,165,250,.10); --inst-line:rgba(96,165,250,.42);
+  --cat-1:#5B9DF5; --cat-2:#A78BFA; --cat-3:#F0A93B; --cat-4:#EC7FB0; --cat-5:#F2785C; --cat-6:#8493A8;
+  --card-shadow:none;
+  --glass:rgba(24,30,42,.56); --glass-press:rgba(34,42,58,.8); --glass-edge:rgba(255,255,255,.16); --glass-edge-2:rgba(255,255,255,.04);
+  --glass-shadow:0 12px 34px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3);
+  --scrim:rgba(0,0,0,.55);
+  --k1:#F29A55; --k2:#6B9BF0; --k3:#A08AE6; --k4:#43BBA8; --k5:#E683A6; --k6:#7F8DA3; --cat-bar:#FB923C; --sub-bar:#60A5FA;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0B0F16; --surface:#151B26; --surface-2:#1E2530; --line:#252D3A; --line-strong:#333D4D;
+  --text:#F1F4F8; --text-2:#A3AEC0; --text-3:#8391A7;
+  --accent-text:#34D673; --accent-bg:rgba(34,197,94,.16); --accent-line:rgba(34,197,94,.32);
+  --income:#22C55E; --income-text:#34D673; --expense:#F87171; --debt:#F5A524; --debt-text:#F5A524; --inst:#60A5FA; --inst-text:#7DB6FB; --inst-bg:rgba(96,165,250,.10); --inst-line:rgba(96,165,250,.42);
+  --cat-1:#5B9DF5; --cat-2:#A78BFA; --cat-3:#F0A93B; --cat-4:#EC7FB0; --cat-5:#F2785C; --cat-6:#8493A8;
+  --card-shadow:none;
+  --glass:rgba(24,30,42,.56); --glass-press:rgba(34,42,58,.8); --glass-edge:rgba(255,255,255,.16); --glass-edge-2:rgba(255,255,255,.04);
+  --glass-shadow:0 12px 34px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3);
+  --scrim:rgba(0,0,0,.55);
+  --k1:#F29A55; --k2:#6B9BF0; --k3:#A08AE6; --k4:#43BBA8; --k5:#E683A6; --k6:#7F8DA3; --cat-bar:#FB923C; --sub-bar:#60A5FA;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:22px;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;overflow:hidden}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+svg{display:block}
+
+/* каркас сторінки */
+.app{height:100%;display:grid;grid-template-rows:auto 1fr}
+.bar{display:flex;align-items:center;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line);background:var(--surface)}
+.bar h1{font-size:15px;line-height:20px;font-weight:700;margin:0;margin-right:auto}
+.bar h1 span{color:var(--text-3);font-weight:500}
+.ctl{display:inline-flex;background:var(--surface-2);border-radius:var(--r-pill);padding:2px}
+.ctl button{height:30px;padding:0 12px;border-radius:var(--r-pill);font-size:13px;font-weight:600;color:var(--text-2)}
+.ctl button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.ghost{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:var(--r-pill);background:var(--surface-2);font-size:13px;font-weight:600}
+.stage{min-height:0;display:grid;grid-template-columns:minmax(424px,470px) 1fr}
+.devcol{min-height:0;display:flex;align-items:center;justify-content:center;padding:16px;border-right:1px solid var(--line)}
+.screen{position:relative;width:390px;height:100%;max-height:844px;border-radius:44px;border:1px solid var(--line-strong);background:var(--bg);overflow:hidden;isolation:isolate}
+.doc{min-height:0;overflow:auto;padding:28px 32px 64px}
+#modeCtl{display:none}
+@media (max-width:860px){
+  #modeCtl{display:inline-flex}
+  .stage{grid-template-columns:1fr}
+  .devcol{padding:0;border:0}
+  .screen{width:100%;max-height:none;border-radius:0;border:0}
+  .doc{display:none;padding:20px 16px 48px}
+  body.show-doc .doc{display:block}
+  body.show-doc .devcol{display:none}
+  .bar h1,.ghost span{display:none}
+  .bar{justify-content:space-between;gap:8px;padding:8px 12px}
+  .ghost{padding:0 10px}
+}
+
+/* екран застосунку */
+.scroll{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:14px 20px 132px;scrollbar-width:none}
+.scroll::-webkit-scrollbar{display:none}
+.top{display:flex;align-items:center;justify-content:space-between;height:40px}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--inst);color:#fff;font-size:15px;font-weight:700;display:grid;place-items:center;transition:transform var(--t-micro) var(--ease)}
+.avatar:active{transform:scale(.92)}
+.icon-btn{position:relative}
+.badge{position:absolute;top:5px;right:4px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--expense);color:#fff;font-size:11px;line-height:17px;font-weight:700;text-align:center;box-shadow:0 0 0 2px var(--bg)}
+.title-row{position:relative;z-index:4}
+.mstep{position:relative;display:flex;align-items:center;height:38px;border-radius:var(--r-pill);background:var(--surface);border:1px solid var(--line);box-shadow:var(--card-shadow);padding:0 2px}
+.mstep .mb{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:var(--text-2);transition:transform var(--t-micro) var(--ease),opacity var(--t-s) var(--ease)}
+.mstep .mb:active{transform:scale(.88)}
+.mstep .mb:disabled{opacity:.28;cursor:default}
+.mstep .mn{min-width:86px;height:34px;padding:0 4px;text-align:center;font-size:15px;font-weight:600;white-space:nowrap}
+.mstep .mn span{display:inline-block;animation:mfade var(--t-m) var(--ease-out)}
+@keyframes mfade{from{opacity:0;transform:translateY(var(--dy,6px))}}
+.mmenu{position:absolute;top:46px;right:0;width:224px;max-height:340px;overflow:auto;border-radius:18px;padding:6px;opacity:0;transform:scale(.9) translateY(-6px);transform-origin:top right;pointer-events:none;transition:opacity var(--t-s) var(--ease),transform var(--t-m) var(--ease-spring);scrollbar-width:none}
+.mmenu.on{opacity:1;transform:none;pointer-events:auto}
+.mmenu .yh{padding:8px 12px 4px;font-size:12px;line-height:16px;font-weight:600;color:var(--text-3)}
+.mmenu button{width:100%;height:42px;padding:0 12px;border-radius:12px;display:flex;align-items:center;justify-content:space-between;font-size:16px;color:var(--text);transition:background var(--t-micro) var(--ease)}
+.mmenu button:active{background:var(--glass-press)}
+.mmenu button.on{font-weight:600}
+.mmenu button svg{color:var(--accent-text)}
+.mmenu button small{font-size:12px;color:var(--text-3);font-weight:500}
+.mmenu .sep{height:1px;background:var(--glass-edge-2);margin:2px 12px}
+.mnow{display:none;align-items:center;justify-content:space-between;margin:-6px 0 14px;font-size:13px;line-height:18px;color:var(--text-2)}
+.mnow.on{display:flex}
+.mnow button{color:var(--accent-text);font-weight:600;font-size:13px}
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mgrid button{height:48px;border-radius:var(--r-s);background:var(--surface-2);text-align:center;font-size:15px;font-weight:500;transition:transform var(--t-micro) var(--ease)}
+.mgrid button:active{transform:scale(.96)}
+.mgrid button.on{background:var(--accent-bg);box-shadow:inset 0 0 0 1px var(--accent-line);color:var(--accent-text);font-weight:700}
+.mgrid button.now:not(.on){box-shadow:inset 0 0 0 1px var(--line-strong)}
+.mgrid button:disabled{opacity:.35;cursor:default}
+.yrow{display:flex;align-items:center;justify-content:space-between}
+.yrow b{font-size:17px;font-weight:700}
+.icons{display:flex;gap:4px}
+.icon-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--text-2);transition:transform var(--t-micro) var(--ease),background var(--t-micro) var(--ease)}
+.icon-btn:active{transform:scale(.92);background:var(--surface-2)}
+.title-row{display:flex;align-items:center;justify-content:space-between;margin:10px 0 16px;gap:12px}
+.title-row h2{font-size:30px;line-height:36px;font-weight:700;letter-spacing:-.5px;margin:0}
+.month{height:36px;padding:0 14px;border-radius:var(--r-pill);background:var(--surface);border:1px solid var(--line);font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px;box-shadow:var(--card-shadow)}
+.month svg{color:var(--text-3)}
+.view{display:none;flex-direction:column;gap:12px}
+.view.on{display:flex}
+.view.from-r{animation:inR var(--t-m) var(--ease-out) backwards}
+.view.from-l{animation:inL var(--t-m) var(--ease-out) backwards}
+@keyframes inR{from{opacity:0;transform:translateX(14px)}}
+@keyframes inL{from{opacity:0;transform:translateX(-14px)}}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);padding:16px;box-shadow:var(--card-shadow);display:flex;flex-direction:column;gap:12px;width:100%;min-width:0}
+button.card{transition:transform var(--t-s) var(--ease-out)}
+button.card:active{transform:scale(.975)}
+.rise{animation:rise var(--t-l) var(--ease-out) backwards;animation-delay:calc(var(--i,0) * var(--stagger))}
+@keyframes rise{from{opacity:0;transform:translateY(16px) scale(.98)}}
+.sum{display:flex;flex-direction:column;gap:12px;width:100%;border-radius:8px;transition:opacity var(--t-micro) var(--ease)}
+.sum:active{opacity:.6}
+.row{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.h{font-size:17px;line-height:22px;font-weight:600}
+.h small{font-size:13px;font-weight:400;color:var(--text-3);margin-left:4px}
+.more{font-size:15px;line-height:20px;color:var(--text-2);font-weight:500;display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
+.more svg{color:var(--text-3)}
+.cap{font-size:13px;line-height:18px;color:var(--text-2)}
+.lab{font-size:13px;line-height:18px;color:var(--text-2);font-weight:500;display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.num-l{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.2px;white-space:nowrap}
+.num-l small{font-size:13px;font-weight:500;color:var(--text-3);letter-spacing:0}
+.pos{color:var(--income-text);font-weight:600}
+.track{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;position:relative}
+.fill{position:absolute;inset:0;border-radius:3px;transform-origin:left;transform:scaleX(var(--v,0));animation:growX var(--t-count) var(--ease-out) backwards;animation-delay:calc(var(--i,0) * var(--stagger) + 200ms)}
+@keyframes growX{from{transform:scaleX(0)}}
+.divider{height:1px;background:var(--line)}
+.chev{width:18px;height:18px;color:var(--text-3);transition:transform var(--t-m) var(--ease-out);flex:none;align-self:center}
+.open>.sum .chev{transform:rotate(180deg)}
+
+/* розкриття на місці */
+.xp{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--t-m) var(--ease-out);margin-top:-12px}
+.xp>div{overflow:hidden;min-height:0}
+.xin{padding-top:12px;display:flex;flex-direction:column;gap:12px;opacity:0;transition:opacity var(--t-s) var(--ease)}
+.open>.xp{grid-template-rows:1fr}
+.open>.xp .xin{opacity:1;transition-delay:80ms}
+.xp.inv{grid-template-rows:1fr}
+.xp.inv .xin{opacity:1}
+.open>.xp.inv{grid-template-rows:0fr}
+.open>.xp.inv .xin{opacity:0;transition-delay:0ms}
+
+/* баланс */
+.big{font-size:34px;line-height:40px;font-weight:700;letter-spacing:-.6px;white-space:nowrap}
+.dwrap{position:relative;padding-top:18px}
+.dsegs{display:flex;gap:2px;height:14px}
+.dseg{flex:1;border-radius:3px;background:var(--surface-2);position:relative;overflow:hidden;transform-origin:50% 100%;animation:dpop var(--t-m) var(--ease-out) backwards;animation-delay:calc(var(--n) * 14ms + 150ms)}
+.dseg.past{background:color-mix(in srgb,var(--income) 22%,var(--surface-2))}
+.dseg i{position:absolute;left:0;top:0;bottom:0}
+.dline{position:absolute;top:14px;bottom:-4px;width:2px;margin-left:-1px;border-radius:1px;background:var(--text);animation:fade var(--t-m) var(--ease) backwards 650ms}
+.dwrap .dtag{position:absolute;top:0;transform:translateX(-50%)}
+.dax{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;line-height:14px;color:var(--text-3)}
+.dstate{margin-top:4px;font-size:13px;line-height:18px;color:var(--text-2)}
+.dstate b{font-weight:700}
+.dbar{position:relative}
+@keyframes dpop{from{opacity:0;transform:scaleY(.2)}}
+.dtag{position:absolute;top:0;transform:translateX(-50%);font-size:10px;line-height:12px;font-weight:700;color:var(--text);white-space:nowrap;animation:fade var(--t-m) var(--ease) backwards 650ms}
+.dleg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:10px;font-size:12px;line-height:16px;color:var(--text-2)}
+.dleg span{display:flex;align-items:center;gap:6px}
+.dleg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.dsum{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;line-height:18px;color:var(--text-2)}
+.dsum b{color:var(--text);font-weight:600}
+.pbar{position:relative;padding-top:18px}
+.pbar .track{height:10px;border-radius:5px;overflow:visible;background:var(--surface-2)}
+.pbar .fill{border-radius:5px}
+.pmark{position:absolute;top:13px;height:20px;width:2px;border-radius:1px;background:var(--text);left:var(--x);transform:translateX(-1px);animation:fade var(--t-m) var(--ease) backwards 700ms}
+.pmark span{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);font-size:10px;line-height:12px;font-weight:600;color:var(--text-2);white-space:nowrap}
+.plab{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;line-height:18px;color:var(--text-2)}
+.plab b{color:var(--text);font-weight:600}
+.pace-box{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;background:var(--surface-2);border-radius:var(--r-s);padding:10px 12px}
+.pace-box .st{display:flex;align-items:center;gap:8px;font-size:14px;line-height:18px;font-weight:600}
+.pace-box .st svg{width:18px;height:18px;flex:none}
+.pace-box .cap{font-size:12px;line-height:16px}
+.pace-box .rt{text-align:right}
+.pace-box .rt b{display:block;font-size:15px;line-height:20px;font-weight:700;white-space:nowrap}
+.mini6{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:74px;position:relative;margin-top:4px}
+.mini6 div{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%;font-size:10px;line-height:12px;color:var(--text-3)}
+.mini6 i{width:16px;border-radius:4px 4px 0 0;background:color-mix(in srgb,var(--text-3) 70%,transparent);transform-origin:bottom;animation:growY var(--t-count) var(--ease-out) backwards;animation-delay:calc(var(--n) * 50ms + 150ms)}
+.mini6 i.cut{background:color-mix(in srgb,var(--text-3) 28%,transparent)}
+.mini6 i.cur{background:var(--income)}
+.mini6 i.proj{background:color-mix(in srgb,var(--income) 35%,transparent)}
+.mini6 .typ{position:absolute;left:0;right:0;height:0;border-top:1.5px solid var(--text-2);opacity:.6}
+.mini6 .typ span{position:absolute;right:0;top:-15px;font-size:10px;color:var(--text-2);font-weight:600}
+.how{display:flex;flex-direction:column;gap:6px;background:var(--surface-2);border-radius:var(--r-s);padding:12px;margin-top:10px}
+.how .row{font-size:13px;line-height:18px}
+.how .row b{font-weight:600;white-space:nowrap}
+.sheet-head{cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.sheet.drag{transition:none}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cols .v{font-size:20px;line-height:26px;font-weight:600;white-space:nowrap}
+.delta{display:inline-block;padding:0 7px;border-radius:var(--r-pill);background:var(--accent-bg);color:var(--income-text);font-size:12px;line-height:18px;font-weight:600;margin-left:4px}
+
+/* KPI як у застосунку */
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{background:var(--surface-2);border-radius:var(--r-s);padding:10px 12px 11px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.kpi .hd{display:flex;align-items:center;gap:8px;min-height:28px;font-size:11px;line-height:13px;font-weight:700;text-transform:uppercase;letter-spacing:.2px}
+.kpi .hd .ic{width:28px;height:28px}
+.kpi .hd .ic svg{width:15px;height:15px}
+.kpi .hd .tl{flex:1;min-width:0}
+.kpi .hd .tr{margin-left:auto;font-size:12px;font-weight:700;white-space:nowrap;text-transform:none;letter-spacing:0;color:var(--text-2)}
+.kpi .val{font-family:var(--mono);font-size:19px;line-height:24px;font-weight:700;letter-spacing:-.04em;white-space:nowrap}
+.kpi .foot{height:62px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px}
+.kpi .track{background:var(--line-strong)}
+.kpi .sel{font-size:12px;line-height:16px;height:16px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .sel b{color:var(--text);font-weight:600}
+.kpi .foot .row{align-items:center}
+.kpi .foot .cap{font-size:12px;line-height:16px}
+.ic{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex:none;color:var(--c);background:color-mix(in srgb, var(--c) 16%, transparent)}
+.ic svg{width:18px;height:18px}
+.chart{position:relative;touch-action:pan-y;cursor:pointer;-webkit-user-select:none;user-select:none}
+.chart text{font-size:11px;fill:var(--text-3);font-family:var(--font)}
+.chart text.on{fill:var(--text);font-weight:600}
+.chart .ln{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;animation:draw 800ms var(--ease-out) backwards 150ms}
+@keyframes draw{from{stroke-dashoffset:1}}
+.chart circle{transform-box:fill-box;transform-origin:center;transition:transform var(--t-s) var(--ease-spring);animation:pop 320ms var(--ease-spring) backwards;animation-delay:calc(var(--n) * 60ms + 250ms)}
+.chart circle.on{transform:scale(1.7)}
+@keyframes pop{from{opacity:0;transform:scale(.3)}}
+.chart .vl{stroke:var(--text-3);stroke-width:1;opacity:0;transition:opacity var(--t-micro) var(--ease)}
+.chart .vl.on{opacity:.8}
+.chart .gridl{stroke:var(--line);stroke-width:1}
+
+.ic img{width:22px;height:auto;display:block}
+.ic.s{width:28px;height:28px}
+.ic.s svg{width:15px;height:15px}
+.strip{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:var(--r-s)}
+.strip>div{padding:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.strip>div+div{border-left:1px solid var(--line)}
+.strip .shd{display:flex;align-items:center;gap:6px;font-size:11px;line-height:14px;font-weight:700;text-transform:uppercase;color:var(--text-2)}
+.strip .shd svg{width:14px;height:14px;flex:none}
+.strip b{font-family:var(--mono);font-size:18px;line-height:24px;font-weight:700;letter-spacing:-.04em;white-space:nowrap}
+.strip .cap{font-size:12px;line-height:16px}
+.em{width:28px;height:28px;border-radius:8px;background:var(--surface-2);display:grid;place-items:center;font-size:15px;line-height:1;flex:none}
+.crow{padding:9px 0;display:flex;flex-direction:column;gap:7px;border-top:1px solid var(--line)}
+.crow:first-child{border-top:0}
+.sq{width:8px;height:8px;border-radius:2px;flex:none;display:inline-block}
+.sw-ln{width:14px;height:3px;border-radius:2px;flex:none;display:inline-block}
+.lvl{font-size:14px;font-weight:600;white-space:nowrap}
+.ii{width:20px;height:20px;color:var(--text-3);flex:none}
+.ii svg{width:20px;height:20px}
+.thead{padding:0 0 6px;font-size:13px;line-height:18px;color:var(--text-3)}
+.trow{display:grid;align-items:center;gap:10px;height:48px;font-size:15px;animation:rise var(--t-m) var(--ease-out) backwards;animation-delay:calc(var(--n) * 40ms + 120ms)}
+.trow.d{grid-template-columns:32px minmax(0,1fr) 84px 92px}
+.trow.o,.thead.o{display:grid;grid-template-columns:32px minmax(0,1fr) 62px 80px 50px;gap:10px}
+.thead.o{align-items:end}
+.trow .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.logo{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:700}
+.mono{font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:-.04em;white-space:nowrap;text-align:right}
+.totalrow{display:grid;align-items:center;gap:10px;height:46px;padding:0 12px;margin:6px -12px 0;border:1px solid var(--line-strong);border-radius:var(--r-s);font-weight:600;font-size:15px}
+.bw{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px}
+.bl{font-size:10px;line-height:12px;font-weight:600;color:var(--text-2);animation:fade var(--t-m) var(--ease) backwards;animation-delay:calc(var(--n) * 45ms + 600ms)}
+@keyframes fade{from{opacity:0}}
+.chart text.vt{fill:var(--text);font-weight:600;animation:fade var(--t-m) var(--ease) backwards 700ms}
+
+/* графіки як у застосунку: шкала зліва, сітка, місяці знизу, підписи над */
+.ac .band{fill:var(--surface-2);opacity:0;transition:opacity var(--t-micro) var(--ease)}
+.ac .band.on{opacity:1}
+.ac .grp{transition:opacity var(--t-s) var(--ease)}
+.ac.has .grp:not(.on){opacity:.32}
+.ac .bar{transform-box:fill-box;transform-origin:50% 100%;animation:growY var(--t-count) var(--ease-out) backwards;animation-delay:calc(var(--n) * 45ms + 150ms)}
+.ac .bar.part{opacity:.5}
+.ac text.vt{font-size:9.5px;letter-spacing:-.2px;fill:var(--text-2);font-weight:600;animation:fade var(--t-m) var(--ease) backwards;animation-delay:calc(var(--n) * 45ms + 650ms)}
+.ac .grp.on text.vt{fill:var(--text)}
+.ac text.xl.cur{fill:var(--text);font-weight:600}
+.chart text.vt.on{fill:var(--text)}
+
+/* деталізація витрат: подвійне кільце */
+.sunwrap{position:relative;width:208px;height:208px;margin:4px auto 0}
+.sunwrap svg{width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.sg{fill:none;cursor:pointer;pointer-events:stroke;transition:stroke-dasharray var(--t-count) var(--ease-out),opacity var(--t-s) var(--ease)}
+.sg.dim{opacity:.22}
+.sun-c{position:absolute;left:50%;top:50%;width:112px;transform:translate(-50%,-50%);text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px;border-radius:50%;padding:6px 0}
+.sun-c .e{font-size:20px;line-height:24px}
+.sun-c b{font-size:16px;line-height:20px;font-weight:700;white-space:nowrap}
+.sun-c span{font-size:11px;line-height:14px;color:var(--text-2);max-width:104px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sun-c{animation:fade var(--t-s) var(--ease)}
+.sunleg{display:flex;justify-content:center;gap:16px;font-size:12px;line-height:16px;color:var(--text-3)}
+.sunleg span{display:flex;align-items:center;gap:6px}
+.sunleg i{display:inline-block;width:12px;border-radius:2px;background:var(--text-3)}
+button.crow{width:100%;text-align:left}
+.sheet .crow{margin:0 -10px;padding:9px 10px;border-radius:12px;transition:background var(--t-micro) var(--ease)}
+.sheet .crow.on{background:var(--surface-2)}
+.sheet .crow.on+.crow,.sheet .crow.on{border-top-color:transparent}
+
+/* рядки боргу й ОЧ у шторці */
+.sumbox{display:flex;flex-direction:column;gap:8px}
+.cap3{font-size:12px;line-height:16px;color:var(--text-3)}
+.dr{padding:12px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px;animation:rise var(--t-m) var(--ease-out) backwards;animation-delay:calc(var(--n) * 40ms + 120ms)}
+.dr:first-child{border-top:0}
+.dr .top{display:flex;align-items:center;gap:10px}
+.dr .top .nm{flex:1;min-width:0;font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr .top .mono{font-size:15px}
+.dr .top .mono small{font-family:var(--font);font-size:12px;font-weight:500;color:var(--text-3);letter-spacing:0}
+.dr .track{height:8px;border-radius:4px}
+.dr .ovals i{height:8px;border-radius:4px}
+.dr .row{align-items:center}
+
+.nsub{display:block;font-size:12px;line-height:16px;color:var(--text-3);font-weight:400}
+.dl{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;font-size:10px;line-height:11px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);pointer-events:none;transition:opacity var(--t-s) var(--ease);animation:fade var(--t-m) var(--ease) backwards;animation-delay:calc(var(--n) * 40ms + 550ms)}
+.dl i{font-style:normal;font-size:14px;line-height:16px;text-shadow:none}
+.dl.dim{opacity:.2}
+.potbar{display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden;background:var(--surface-2)}
+.potbar i{height:100%;transform-origin:left;animation:growX var(--t-count) var(--ease-out) backwards;animation-delay:calc(var(--n) * 80ms + 250ms)}
+.emst{display:flex;padding-left:8px}
+.emst span{width:32px;height:32px;border-radius:50%;background:var(--surface-2);border:2px solid var(--surface);display:grid;place-items:center;font-size:15px;margin-left:-8px}
+.hint{font-size:12px;line-height:16px;color:var(--text-3);text-align:center;margin-top:-6px}
+
+/* одометр */
+.odo{display:inline-flex;line-height:1.15}
+.od{display:inline-block;height:1.15em;overflow:hidden}
+.odc{display:block;white-space:pre;transition:transform var(--t-count) var(--ease-out);transform:translateY(calc(var(--d,0) * -1.15em))}
+.odc.z{transition:none}
+
+/* платежі */
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.day{height:56px;border-radius:var(--r-s);padding-top:5px;border:1px solid transparent}
+.day i{display:block;font-style:normal;font-size:11px;line-height:14px;color:var(--text-3);font-weight:500}
+.day b{display:block;font-size:16px;line-height:20px;font-weight:600}
+.day u{display:block;text-decoration:none;font-size:11px;line-height:14px;color:var(--inst-text);font-weight:600}
+.day.today{border-color:var(--line-strong)}
+.day.pay{border-color:var(--inst-line);background:var(--inst-bg)}
+.next{font-size:14px;line-height:20px;color:var(--text-2)}
+.next b{color:var(--text);font-weight:600;white-space:nowrap}
+
+/* плитки */
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pair .card{gap:8px}
+.ovals{display:flex;gap:3px}
+.ovals i{flex:1;height:6px;border-radius:3px;background:var(--surface-2)}
+.ovals i.f{background:var(--income)}
+
+/* категорії */
+.stack{display:flex;gap:2px;height:10px;border-radius:5px;overflow:hidden}
+.stack i{height:100%;border-radius:2px;transform-origin:left;animation:growX var(--t-count) var(--ease-out) backwards;animation-delay:calc(var(--n) * 50ms + 100ms)}
+.list{display:flex;flex-direction:column}
+.li{min-height:44px;display:flex;align-items:center;gap:10px;font-size:16px;border-top:1px solid var(--line)}
+.li:first-child{border-top:0}
+.li .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .am{font-weight:600;white-space:nowrap}
+.li .pc{font-size:13px;color:var(--text-3);width:34px;text-align:right;flex:none}
+.li .sub{font-size:13px;color:var(--text-3);margin-left:6px}
+.li .sub2{display:block;font-size:13px;line-height:18px;color:var(--text-3)}
+.chip{font-size:12px;line-height:20px;font-weight:600;padding:0 8px;border-radius:var(--r-pill);background:var(--surface-2);display:inline-flex;align-items:center;gap:6px}
+
+/* сегмент */
+.seg{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--surface-2);border-radius:var(--r-pill);padding:3px;height:40px}
+.seg button{position:relative;z-index:1;text-align:center;font-size:14px;font-weight:600;color:var(--text-2);border-radius:var(--r-pill);transition:color var(--t-s) var(--ease)}
+.seg button[aria-pressed="true"]{color:var(--accent-text)}
+.seg .ind{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px) / var(--n,2));border-radius:var(--r-pill);background:var(--accent-bg);border:1px solid var(--accent-line);transform:translateX(calc(var(--p,0) * 100%));transition:transform var(--t-l) var(--ease-spring)}
+
+/* стовпчики */
+.legend{display:flex;gap:16px;font-size:13px;line-height:18px;color:var(--text-2);min-height:18px;white-space:nowrap}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend b{color:var(--text);font-weight:600}
+.bars{isolation:isolate;display:grid;grid-template-columns:repeat(6,1fr);height:126px;border-bottom:1px solid var(--line);touch-action:pan-y;cursor:pointer;-webkit-user-select:none;user-select:none}
+.bars .g{position:relative;display:flex;gap:6px;align-items:flex-end;justify-content:center;height:100%;transition:opacity var(--t-s) var(--ease)}
+.bars .g::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:1px;background:var(--text-3);opacity:0;transition:opacity var(--t-micro) var(--ease)}
+.bars .g::after{content:"";position:absolute;inset:0 3px 0 3px;border-radius:8px 8px 0 0;background:var(--surface-2);opacity:0;z-index:-1;transition:opacity var(--t-micro) var(--ease)}
+.bars .b{position:relative;width:16px;border-radius:4px 4px 0 0;transform-origin:bottom;animation:growY var(--t-count) var(--ease-out) backwards;animation-delay:calc(var(--n) * 45ms + 150ms)}
+.bars .g.part .b{opacity:.45}
+.bars.has .g:not(.sel){opacity:.4}
+.bars .g.sel::before{opacity:.5}
+.bars .g.sel::after{opacity:1}
+@keyframes growY{from{transform:scaleY(0)}}
+.xs{display:grid;grid-template-columns:repeat(6,1fr);text-align:center;font-size:12px;line-height:16px;color:var(--text-3);margin-top:8px}
+
+/* плаваючий шар */
+.glass{background:var(--glass);-webkit-backdrop-filter:blur(22px) saturate(190%);backdrop-filter:blur(22px) saturate(190%);box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge), inset 0 -1px 0 var(--glass-edge-2), inset 0 0 0 1px var(--glass-edge-2)}
+.mini-head{position:absolute;z-index:5;top:10px;left:50%;height:40px;padding:0 16px;border-radius:var(--r-pill);display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;white-space:nowrap;opacity:0;transform:translate(-50%,-14px) scale(.94);pointer-events:none;transition:opacity var(--t-s) var(--ease),transform var(--t-m) var(--ease-out)}
+.mini-head.on{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto}
+.mini-head span{color:var(--text-2);font-weight:500}
+.tabbar{position:absolute;z-index:6;left:14px;right:14px;bottom:14px}
+.tabbar-glass{position:relative;height:74px;border-radius:var(--r-xl);padding:6px;display:flex;transform-origin:50% 100%;transition:transform var(--t-l) var(--ease-out),background var(--t-s) var(--ease)}
+.tabbar button{flex:1;min-width:0;position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border-radius:var(--r-m);font-size:11px;line-height:14px;font-weight:600;color:var(--text-2);transition:color var(--t-s) var(--ease)}
+.tabbar button.active{color:var(--accent-text)}
+.tabbar button svg{width:22px;height:22px;transition:transform var(--t-l) var(--ease-out)}
+/* активна вкладка: іконка заповнюється кольором вкладки; неактивна лишається контурною */
+.tabbar svg .f{fill:currentColor;fill-opacity:0;transition:fill-opacity var(--t-s) var(--ease)}
+.tabbar svg .in{transition:stroke var(--t-s) var(--ease)}
+.tabbar button.active svg .f{fill-opacity:1}
+.tabbar button.active svg .in{stroke:var(--surface)}
+.tabbar svg .o,.tabbar svg .s{transition:opacity var(--t-s) var(--ease)}
+.tabbar svg .s{opacity:0}
+.tabbar button.active svg .s{opacity:1}
+.tabbar button.active svg .o{opacity:0}
+/* «Витрати»: кнопка вже заповнена, тож вибраний стан = м'яке кільце навколо і поворот «+» */
+.plus svg{transition:transform var(--t-l) var(--ease-spring)}
+.tabbar button.active .plus{box-shadow:0 0 0 4px var(--accent-bg),0 0 0 5px var(--accent-line),0 6px 16px rgba(34,197,94,.4)}
+.tabbar button.active .plus svg{transform:rotate(90deg)}
+.tabbar button[data-tab="vytraty"].active svg{animation:none}
+.tabbar button.active svg{animation:tabpop var(--t-l) var(--ease-spring)}
+@keyframes tabpop{40%{scale:1.16}}
+/* своя анімація для кожної вкладки при виборі */
+.tabbar button[data-tab="analytics"].active svg,.tabbar button[data-tab="accounting"].active svg,.tabbar button[data-tab="structure"].active svg,.tabbar button[data-tab="service"].active svg{animation:none}
+.tabbar svg .pie,.tabbar svg .sl,.tabbar svg circle{transform-box:fill-box;transform-origin:center}
+.tabbar svg .sl{transform-origin:0% 100%}
+.tabbar button svg{overflow:visible}
+.tabbar button[data-tab="analytics"].active .sl{animation:tbSlice 560ms cubic-bezier(.3,1.35,.5,1)}
+@keyframes tbSlice{0%{transform:scale(1)}45%{transform:scale(1.16)}100%{transform:scale(1)}}
+@keyframes tbPie{0%{transform:scale(.86)}100%{transform:none}}
+.tabbar button[data-tab="accounting"].active svg{animation:tbPress 520ms cubic-bezier(.3,1.25,.5,1)}
+@keyframes tbPress{0%{transform:scale(1)}30%{transform:scale(.86)}70%{transform:scale(1.04)}100%{transform:scale(1)}}
+.tabbar button[data-tab="structure"].active svg circle{animation:tbNode 440ms cubic-bezier(.3,1.3,.5,1) backwards}
+.tabbar button[data-tab="structure"].active svg circle:nth-of-type(2){animation-delay:110ms}
+.tabbar button[data-tab="structure"].active svg circle:nth-of-type(3){animation-delay:160ms}
+.tabbar button[data-tab="structure"].active svg circle:nth-of-type(4){animation-delay:210ms}
+@keyframes tbNode{0%{transform:scale(.55)}60%{transform:scale(1.15)}100%{transform:none}}
+.tabbar svg .rot{transform-box:view-box;transform-origin:12px 12px}
+.tabbar button[data-tab="service"].active .rot{animation:tbSpin 620ms cubic-bezier(.3,1.15,.45,1)}
+.tabbar button[data-tab="service"].active .s>circle{animation:tbPie 420ms var(--ease-out)}
+@keyframes tbSpin{from{transform:rotate(180deg)}to{transform:none}}
+/* натиск: іконка й підпис стискаються, поки палець на кнопці, і пружно повертаються після відпускання */
+.tabbar button .tbx{display:flex;flex-direction:column;align-items:center;gap:5px;transition:scale 380ms cubic-bezier(.3,1.4,.5,1),opacity 380ms var(--ease)}
+.tabbar button.pressing .tbx{scale:.86;opacity:.75;transition:scale 110ms var(--ease),opacity 110ms var(--ease)}
+.tabbar button.pressing .plus{scale:.9}
+.plus{transition:transform var(--t-l) var(--ease-out),scale 380ms cubic-bezier(.3,1.4,.5,1)}
+.tabbar .lb{transition:opacity var(--t-s) var(--ease)}
+.plus{width:44px;height:44px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;margin-top:-22px;box-shadow:0 6px 16px rgba(34,197,94,.4);transition:transform var(--t-l) var(--ease-out)}
+.bubble{position:absolute;top:6px;left:0;height:62px;border-radius:var(--r-m);background:var(--accent-bg);border:1px solid var(--accent-line);transform:translateX(var(--x,6px));transition:transform 520ms cubic-bezier(.3,1.12,.5,1),opacity var(--t-s) var(--ease)}
+.tabbar.mini .tabbar-glass{transform:translateY(8px) scale(.8)}
+.tabbar.mini .lb{opacity:0}
+.tabbar.mini button svg{transform:translateY(9px) scale(1.14)}
+.tabbar.mini .plus{transform:translateY(20px) scale(.9)}
+.tabbar.mini .plus svg{transform:none}
+
+/* шторка */
+.scrim{position:absolute;inset:0;z-index:8;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity var(--t-m) var(--ease)}
+.sheet{position:absolute;z-index:9;left:0;right:0;bottom:0;max-height:88%;display:flex;flex-direction:column;background:var(--surface);border-radius:var(--r-xl) var(--r-xl) 0 0;transform:translateY(105%);transition:transform var(--t-l) var(--ease-out);box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+.sheet-open .scrim{opacity:1;pointer-events:auto}
+.sheet-open .sheet{transform:none}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--line-strong);margin:0 auto}
+.sheet-top{padding-top:8px;cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:12px 20px 10px}
+.sheet-head h3{font-size:20px;line-height:26px;font-weight:700;margin:0}
+.sheet-body{overflow:auto;padding:4px 20px 28px;display:flex;flex-direction:column;gap:16px}
+.group{background:var(--surface-2);border-radius:var(--r-m);padding:0 14px}
+.group .li{border-color:var(--line-strong)}
+.bank{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:14px;font-weight:700;color:#fff;flex:none}
+.donut{display:flex;align-items:center;gap:20px}
+.donut svg{width:124px;height:124px;flex:none;transform:rotate(-90deg)}
+.donut circle{fill:none;stroke-width:5;transition:stroke-dasharray var(--t-count) var(--ease-out)}
+.total{font-size:28px;line-height:34px;font-weight:700;letter-spacing:-.4px;white-space:nowrap}
+
+/* документ */
+.doc>*{max-width:760px}
+.doc h2{font-size:22px;line-height:28px;font-weight:700;margin:36px 0 6px;text-wrap:balance}
+.doc h2:first-child{margin-top:0}
+.doc p,.doc li{color:var(--text-2);font-size:15px;line-height:22px}
+.doc p{margin:0 0 12px}
+.doc ul{margin:0 0 12px;padding-left:20px}
+.doc li b{color:var(--text);font-weight:600}
+.doc table{width:100%;border-collapse:collapse;font-size:14px;line-height:20px;margin:8px 0 12px}
+.doc th{text-align:left;font-size:12px;font-weight:600;color:var(--text-3);padding:6px 10px 6px 0;border-bottom:1px solid var(--line-strong)}
+.doc td{padding:8px 10px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.doc td:first-child{font-weight:600;white-space:nowrap}
+.tw{overflow-x:auto}
+.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin:10px 0 14px}
+.sw div{border:1px solid var(--line);border-radius:var(--r-s);overflow:hidden;background:var(--surface);font-size:12px;line-height:16px}
+.sw i{display:block;height:40px}
+.sw b{display:block;padding:6px 8px 7px;font-weight:600}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:1ms !important;animation-delay:0ms !important;transition-duration:1ms !important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <h1>Money Tree <span>· Аналітика, об'єднаний макет</span></h1>
+    <div class="ctl" id="modeCtl"><button data-mode="proto" aria-pressed="true">Макет</button><button data-mode="doc" aria-pressed="false">Опис</button></div>
+    <div class="ctl" id="themeCtl"><button data-th="dark">Темна</button><button data-th="light">Світла</button></div>
+    <button class="ghost" id="replay" aria-label="Повторити анімацію"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span>Повторити анімацію</span></button>
+  </div>
+
+  <div class="stage">
+    <div class="devcol">
+      <div class="screen" id="screen">
+        <div class="scroll" id="scroll">
+          <div class="top">
+            <button class="avatar" aria-label="Профіль і сім'я">А</button>
+            <div class="icons">
+              <button class="icon-btn" aria-label="Сповіщення, 2 нові"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge">2</span></button>
+              <button class="icon-btn" aria-label="Налаштування"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </div>
+          <div class="title-row">
+            <h2 id="pageTitle">Аналітика</h2>
+            <div class="mstep" id="mstep" role="group" aria-label="Місяць"><div class="mmenu glass" id="mMenu" role="menu" aria-label="Вибір місяця"></div>
+              <button class="mb" id="mPrev" aria-label="Попередній місяць"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <button class="mn" id="mName" aria-label="Вибрати місяць" aria-haspopup="menu" aria-expanded="false"></button>
+              <button class="mb" id="mNext" aria-label="Наступний місяць"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+            </div>
+          </div>
+          <div class="mnow" id="mNow"><span id="mNowText"></span><button id="mBack">До поточного місяця</button></div>
+          <div class="view on" id="v-analytics"></div>
+          <div class="view" id="v-other"><div class="card"><span class="h">Поза цим макетом</span><span class="cap" id="otherP"></span></div></div>
+        </div>
+
+        <div class="mini-head glass" id="miniHead">Аналітика <span> · Листопад ·</span> <b>+18 400 ₴</b></div>
+
+        <nav class="tabbar" id="tabbar" aria-label="Вкладки">
+          <div class="tabbar-glass glass">
+            <div class="bubble" id="bubble"></div>
+            <button class="active" data-tab="analytics"><span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><g class="o"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g><g class="s" stroke="none" fill="currentColor"><path class="pie" d="M10.5 3.6A9.9 9.9 0 1 0 20.4 13.5H10.5Z"/><path class="sl" d="M12.5 1.6V11.5H22.4A9.9 9.9 0 0 0 12.5 1.6Z"/></g></svg><span class="lb">Аналітика</span></span></button>
+            <button data-tab="accounting"><span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle class="f" cx="12" cy="12" r="9.5"/><path class="in" d="M8 12h8"/><path class="in" d="M12 8v8"/></svg><span class="lb">Облік</span></span></button>
+            <button data-tab="vytraty"><span class="tbx"><span class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="lb">Витрати</span></span></button>
+            <button data-tab="structure"><span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle class="f" cx="12" cy="4.5" r="2.5"/><circle class="f" cx="3" cy="19.5" r="2.5"/><circle class="f" cx="12" cy="19.5" r="2.5"/><circle class="f" cx="21" cy="19.5" r="2.5"/><path d="M12 7v3.5M3 17v-3.5h18V17M12 10.5V17"/></svg><span class="lb">Структура</span></span></button>
+            <button data-tab="service"><span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="o"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></g><g class="s"><circle cx="12" cy="12" r="11.2" fill="currentColor" stroke="none"/><g class="rot"><g transform="translate(12 12) scale(.76) translate(-12 -12)" stroke="var(--surface)" stroke-width="2.5"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></g></g></g></svg><span class="lb">Сервіс</span></span></button>
+          </div>
+        </nav>
+
+        <div class="scrim" id="scrim"></div>
+        <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+          <div class="sheet-top" id="sheetTop"><div class="grab"></div><div class="sheet-head"><h3 id="sheetTitle"></h3></div></div>
+          <div class="sheet-body" id="sheetBody"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="doc" id="doc">
+      <h2>Що змінилось у восьмій версії</h2>
+      <ul>
+        <li><b>Таббар:</b> іконка вибраної вкладки заповнюється кольором і коротко «пружинить»; невибрані лишаються контурними. «Аналітика»: суцільна діаграма з відсунутим сектором. «Сервіс»: зелене коло з білими стрілками. «Витрати»: кнопка вже зелена, тому вибраний стан показано м'яким кільцем навколо, а «+» повертається. Натиск: поки палець на кнопці, іконка з підписом стискаються, а після відпускання пружно повертаються. Анімації вибору: «Аналітика» сектор трохи збільшується й повертається; «Облік» іконка натискається й пружинить; «Структура» вузли м'яко з'являються по черзі зверху вниз; «Сервіс» стрілки обертаються на пів оберту проти годинникової стрілки.</li>
+        <li><b>Верхня панель:</b> профіль ліворуч, сповіщення з лічильником і налаштування праворуч. Великий заголовок «Аналітика», поруч перемикач місяця «‹ Листопад ›»: стрілки гортають по одному місяцю, дотик по назві відкриває випадний список місяців (від поточного назад, по роках), вибраний позначено галочкою. Майбутні місяці недоступні. Коли відкрито минулий місяць, під заголовком з'являється «До поточного місяця». При прокрутці замість заголовка з'являється скляна капсула з назвою місяця й залишком.</li>
+        <li><b>Сімейний баланс:</b> одна смуга з 30 сегментів-днів. Синім зафарбовано витрати, переведені в дні (частка витраченого доходу × 30). Риска «сьогодні» показує, скільки днів минуло. Що зафарбовано за рискою, стає бурштиновим: витрати обганяють дні. Що лишилось незафарбованим до риски, світло-зелене: це запас. Під смугою різниця в гривнях.</li>
+        <li><b>Потенціал економії:</b> підпис «Необов'язкові витрати цього місяця». Річна сума: 12 × типовий місяць, де типовий місяць є середнім за 6 повних місяців без найбільшого й найменшого.</li>
+        <li><b>Шторки:</b> хрестика більше немає. Закрити можна свайпом униз за смужку або заголовок (довгий рух або швидкий короткий), а також дотиком поза шторкою.</li>
+      </ul>
+      <p>Суми й назви вигадані.</p>
+      <h2>Кольори</h2>
+      <div class="sw" id="swatches"></div>
+      <h2>Розміри</h2>
+      <div class="tw"><table>
+        <tr><th>Що</th><th>Значення</th></tr>
+        <tr><td>Картка</td><td>радіус 22, поле 16, між картками 12; поле екрана 20</td></tr>
+        <tr><td>Вкладена картка KPI</td><td>радіус 12, поле 12, тло другого рівня</td></tr>
+        <tr><td>Кеглі</td><td>34 головна сума · 28 заголовок екрана · 22 сума плитки · 20 сума в парі та KPI · 17 заголовок картки · 16 рядок · 13 підпис · 11 осі й мітки</td></tr>
+        <tr><td>Рядок списку</td><td>44, у шторці з іконкою 60</td></tr>
+        <tr><td>Сегмент</td><td>40, пігулка, зелений індикатор</td></tr>
+        <tr><td>Шторка, таббар</td><td>радіус 28</td></tr>
+      </table></div>
+      <h2>Рух</h2>
+      <div class="tw"><table>
+        <tr><th>Що</th><th>Час</th></tr>
+        <tr><td>Натискання</td><td>120 мс</td></tr>
+        <tr><td>Вибір точки, затухання</td><td>200 мс</td></tr>
+        <tr><td>Розкриття картки, зміна вкладки</td><td>320 мс</td></tr>
+        <tr><td>Шторка, сегмент, таббар, поява картки</td><td>480 мс</td></tr>
+        <tr><td>Лічильник, смуги, стовпчики, лінії</td><td>800 мс</td></tr>
+      </table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const root=document.documentElement, screen_=$('#screen'), scroll=$('#scroll');
+const sv=(d,w=1.75)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const CHEV=`<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
+const GO='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+const WALLET='<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>';
+const CART='<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>';
+const fmt=n=>(n<0?'−':'')+Math.abs(n).toLocaleString('uk-UA').replace(/ |\s/g,' ')+' ₴';
+
+function setTheme(t){root.dataset.theme=t;$$('#themeCtl button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.th===t));}
+$$('#themeCtl button').forEach(b=>b.onclick=()=>setTheme(b.dataset.th));
+setTheme(root.dataset.theme);
+$$('#modeCtl button').forEach(b=>b.onclick=()=>{document.body.classList.toggle('show-doc',b.dataset.mode==='doc');$$('#modeCtl button').forEach(x=>x.setAttribute('aria-pressed',x===b));if(b.dataset.mode==='proto')requestAnimationFrame(()=>{placeBubble();drawCharts();});});
+
+/* дані (вигадані) */
+const MON=['Чер','Лип','Сер','Вер','Жов','Лис'], MONF=['Червень','Липень','Серпень','Вересень','Жовтень','Листопад'];
+const INC=[35000,40500,48000,49000,49000,42000], EXP=[41000,39000,52000,47000,51000,23600], DEBT=[126800,121500,116000,110200,104600,96400];
+const CATS=[['Продукти',6900,29,1,'','🛒'],['Оплати частинами',5000,21,2,'','🏦'],['Покупки',3800,16,3,'','🛍️'],['Харчування',2900,12,4,'','🍔'],['Транспорт',1700,7,5,'','🚌'],['Інші',3300,14,6,'','📦']];
+const SUBS=[['Телефон',5000,21,2,'Оплати частинами','📱'],['Супермаркет',4800,20,1,'Продукти','🛒'],['Одяг',2300,10,3,'Покупки','👕'],['Ринок',2100,9,1,'Продукти','🥬'],['Кафе',1900,8,4,'Харчування','☕'],['Дім',1500,6,3,'Покупки','🏠'],['Пальне',1200,5,5,'Транспорт','⛽'],['Доставка їжі',1000,4,4,'Харчування','🍕'],['Проїзд',500,2,5,'Транспорт','🚌'],['Інші',3300,14,6,'','📦']];
+const INST=[['Ноутбук',4940,4,10,'А','#2A2D34'],['Телефон',5000,2,12,'Б','#C73A3A'],['Пилосос',1875,10,12,'Б','#C73A3A'],['Диван',3600,3,6,'А','#2A2D34'],['Навушники',1200,1,4,'А','#2A2D34'],['Монітор',2685,6,8,'Б','#C73A3A'],['Крісло',2000,2,5,'А','#2A2D34']];
+const REM=INST.reduce((a,r)=>a+r[1]*(r[3]-r[2]),0);
+const DEBTS=[['Картка А',41200,'А','#2B3BE8',60000],['Картка Б',30100,'Б','#4E8A3A',50000],['Картка В',25100,'В','#2A2D34',40000],['Картка Г',0,'Г','#C79A0B',30000],['Картка Д',0,'Д','#C73A3A',20000]];
+const INIT=INST.reduce((a,r)=>a+r[1]*r[3],0);
+const CARD='<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>';
+const PIE='<path d="M10.5 5.5A8 8 0 1 0 18.5 13.5H10.5Z"/><path d="M13.5 2.5V10.5H21.5A8 8 0 0 0 13.5 2.5Z"/>';
+const COINS='<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>';
+const SPROUT='<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>';
+const BAL_INC=42000, BAL_EXP=23600, BAL_DAY=16, BAL_DAYS=30, BAL_SPENT=BAL_EXP/BAL_INC;
+/* темп: порівнюємо частку витраченого доходу з часткою минулих днів */
+const PACE=(()=>{const even=Math.round(BAL_INC*BAL_DAY/BAL_DAYS), diff=BAL_EXP-even, gap=BAL_SPENT-BAL_DAY/BAL_DAYS;
+  const GAUGE='<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>';
+  if(gap<=0)return {tone:'income-text',icon:GAUGE,title:'У темпі',sub:`на ${fmt(-diff)} менше, ніж рівномірно`};
+  if(gap<=.1)return {tone:'debt-text',icon:GAUGE,title:'Трохи швидше',sub:`+${fmt(diff)} понад рівний темп`};
+  return {tone:'expense',icon:GAUGE,title:'Швидше за темп',sub:`+${fmt(diff)} понад рівний темп`};})();
+/* необов'язкові витрати за 6 повних місяців (чер–жов + вер) і поточний місяць */
+const DISC=[4200,5100,7900,4600,4900,5400], DISC_NOW=5200;
+const trimmedMean=a=>{const v=a.filter(x=>x>0).sort((p,q)=>p-q);if(v.length<3)return v.reduce((x,y)=>x+y,0)/Math.max(1,v.length);const t=v.slice(1,-1);return t.reduce((x,y)=>x+y,0)/t.length;};
+const TYP=Math.round(trimmedMean(DISC)/100)*100;
+/* прогноз місяця: темп цього місяця з вагою частки минулих днів + звичний рівень з рештою ваги */
+const PW=BAL_DAY/BAL_DAYS, PROJ2=Math.round((PW*(DISC_NOW*BAL_DAYS/BAL_DAY)+(1-PW)*TYP)/100)*100;
+const YEAR=TYP*12;
+const POT=[['Одяг',2300,'👕','Середній'],['Кафе',1900,'☕','Високий'],['Доставка їжі',1000,'🍕','Високий']];
+const COLS='<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>';
+const CAL='<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>';
+const TAG='<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1.5"/>';
+const DOWN='<path d="M22 17l-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/>';
+const BAL='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFQAAABOCAYAAAC+JjE8AAAI1klEQVR4nO2cW29UVRTHf52htOUZg4gtRSU++CJiJMaPA5jIJ4BoKxYT+AJeIvIZ9FsQjNAnnwxS7hJ5lV6n9WHt5VmzZ+999plz5lb6TyYDp+f6P2utva4z9dnKKw7QHFqjvoH9hgNCG8YBoQ3j0KhvwKAFTAW27wG7Q76XvjEOhLaAw8Bx5H4sqXvADvAc2GICiB0loUrkCWABWEJItWZoFyHzGvAIeMqYEzsqQmfpJnLB/X86sO8icBMh1BK7MYwbrYpREDoHfISQo0QeJr5AtoFTbj8ldgm4B6wP+marYtir/BxwFrgBnEOImjX3sQt0zEdVu+X2O+WOu+HOMzesG8/FMAmdRUi47r6P0E3kBvAQ+Au4774fuu2W2CPeeWaHc/t5GJbKtxGVXUHU3UrWBmIT1UY+RwhsIYuUtbFKnpqNFeAisIZI9MgxLEKnEVIWgBmzfR2xhUsUi822+fsaQtgCQraVyBlzzqeMCaHDUPk2haSdcP8Hkcy7wGXgDvDAbbM2dMNt/80db4lTqffPW4YWA3zuYdnQGYRUdYs6iGovIxL6irhvqfb1kftYCbaSH3K5LHRhO+k+djFsDMMgdBohc8bbvomQuplxjg4inWpjQ1J6nLCUWg/hU8T1uun+rV5GYxi0DbXqbh94m3wyFXrMtrddX1hIQmMBBHT7tHdpKFAYNKEt4uruS1sOYmYhZBfLAohTwJvu7415CoNS+ZC9stgG/qZX2vrFNPCWu06bwleNBRD2HnNtcBaaJtS3Vz8B3yEPa+3bNCIdTTyEmpUV4BPgfbqjKRtAhI4ts8GV0JTKhzJHsTjd2tXziB3LVbUYMRqF3ULSfYfcNVQzdpFU4FTgHCkbXBlNEBoz/KmEh1352+QlkX1bHLqPk/QSt4HYaiVa782iMU2tS2jVzJGFEgCFCxWzqTMUoWZKNf3r2kjsBTAP/Oi+7Tkay6/WIVQzR9eRh/WNfkrN2ohd/YGCTBvHW2hMf81cx4dNnijWEXfoCkLqjttvyzt2GyG7kQWyX0ItmX4aTW+6TM0OU6joIoX92/P2m6LXJlqoSkNhEjYREq8gpK4jL9F/WR3gJfCz+67tNvVDaIpMP3OkavYdQpqvqipRbQpyQwhJORQqfdUd+yVwzF03JwndBo4CF4Db7v5rSWpVQmNkary9SnfmqINIyyPETZojbl/L7K6aEIWVwlV3rfPIM2lhLxT9+FI6jbz0d5EX9yRyXBaqEBojcwt4TBHGrdKdFH7qttuFq6qLomGnmgQt3vlS+BAhJeY16HkWEP8URErfBr6ngfLKVGZv0yzwMb1kdpCQ7RKSYY+9Xd+18qubKdjKpy5atrxcRZpiz6HX2aCQ+t8rnhvII7RNUXk8R/FmQdJud5BY2E+t+UjV31Ow5G172/txd8q8E/tMa1RcqHJUvizbvkxvpj0EWzfKJVPRZPeIulOXKczQPIUXYisBzxGCs1GmdrGsuGbb1S2pohp+ZTPn03Rjg5L6OWKuHtObY9X6V6V8aRmhoYy4Jns12z52tfFMqLbcR8yVzc3OUkRmuohm2fzUTjHp3KYoR1RJEI8TWhSO/jMK4bCapqr/HuJSZZVNUn+MSaeuuGNTaawIzSG8gzzbHuLq6VpgVX8eCY9/QSK50rJJKk8YqlRCeSJjnKEr/C3gV/d9FlkkQ0VADY9P012PinatpCQ0lC7rpxY0LpgBzlBk8W0i+kMklg9pnpqHUCtQj6Tm5CsVdWpBo0YbeAP4AviA7lLJGeBrJKZ/Qnpt0FagaCoxRGisUgnxyuO4owP8g9jDPwgTtku39/KKuNsWTXaXSah/wG7g5JOCTWTxUd/5X/dZBb5BBMU6/XeAPyma1vw8apC7VKTkHzCp0mlhCbvqtl2l22XSfTRzpanFUKa/B7nZpkm2nz5slAThBIsNkduIcPkSGkSV9N1+kFCFEgbpnioQs3eMzJRj1QTzpNrPEHKepY0kxr9y36V1+5QfGrrgwaBYCWIEhdS70YaACUEHaRn61n2Xrh0hQkMLUMo33e/YoUIfVsyGHkhoMSpZ1rHShdSiFLOhr4MdnaUIvbURLUszq67yKqVrTLYvmoJtL7Kk+omQoJeQUwtXvA521B9MO01vf6vWxp4RsKspCVU7ukhBXqxffj/AH0zz853aYqSdMcsEosaYhKYy86oC+4nU1GCaSuQDpF3novsEi5Mplbe1IxVt2y1cuSI4xrClYysoW/QSeZtipqoHKUJjoyx+RXDSbakdc7TP00HKy5eQRIolMhq2li1KsZJH7I1OGvx+Latx2uR2n94h3ihyfMrQgFatZoAxQaots2pXzP8oI9QfIbRNDZOs+mVk9tsVkyWhftuNJXXSVF+LbLlkVu6KyQ0jY28t5W6MG8p+EaI2mVAtLvftil31Uw7xOEBVPNao0AiZUD3RoSufX7tOrZajhr5wf0xR0RiZUJ1Qv/POGmzrz6VGrduZH02f5R6T6jFQk+SPKTZKJvQ3BaJt08tIb9ACBXmp3KGmxHK6l7Vr+SXS0VF2TKpFPJZ/aJxM6H9OKdUwFpIUPyWWk+V6gcwPXUCqjmX1r9AQQ+yeUp5LLdSZpEtFDaqmUIwVak97rnu1iPRlHiUvW76A2MmygYOUb10bdWc9Q6RqC6DCjhVW8QB0fDHXztsmLh2iiA2MDayLsA6hoXypneHcMdeIZbxDY4iWgFZkv9C+0N11rFJ9kt6xSL1+4+iXUJsv9RcmO8MJ4Qe3I9d2PyVfyfAHvgjsa6efbdexfaH+DyAMDE1IaEhtUmqqAcIS3dPHOnWsJRaITynbfXU6TzUg54UOrAOmrg3dRGor86TnOBXWVblH78tYo+h6g/DAl93X/uqYtdGp+xhoS3vuaGIMGoXkzHGGRq5DUIceyge+WhRZrxwvwt5DX6OHZahLKOTNcZb5iXWR4+cO+h6AZgiF8jnOfoddq6AsEhvGPTT2qzg5c5yD/rXvnDnSgf/ieNO/LDbq/tFRX/+16FMaKg4IbRj/AbSZ9nt8XWGeAAAAAElFTkSuQmCC';
+const logo=(l,c)=>`<span class="logo" style="background:${c}">${l}</span>`;
+let catMode='cat';
+const ovals=(f,n)=>`<div class="ovals">${Array.from({length:n},(_,i)=>`<i class="${i<f?'f':''}"></i>`).join('')}</div>`;
+const SHADE=[100,64,42];
+const subIdx=n=>{const s=SUBS.find(x=>x[0]===n);return SUBS.filter(x=>x[3]===s[3]).sort((a,b)=>b[1]-a[1]).findIndex(x=>x[0]===n);};
+const colOf=(c,sub)=>sub?`color-mix(in srgb, var(--k${c[3]}) ${SHADE[subIdx(c[0])]}%, var(--surface))`:`var(--k${c[3]})`;
+const catRow=(c,i,max,sub,col,tag)=>`<button class="crow" data-k="${sub?'s':'c'}" data-n="${c[0]}"${tag||''}><div class="li" style="min-height:0;border:0"><span class="em" aria-hidden="true">${c[5]}</span><span class="nm">${c[0]}${sub&&c[4]?`<span class="sub">${c[4]}</span>`:''}</span><span class="am">${fmt(c[1])}</span><span class="pc">${c[2]}%</span></div><div class="track" style="height:4px;margin-left:38px"><div class="fill" style="--v:${c[1]/max};--i:${i};background:${col}"></div></div></button>`;
+const kpi=(id,c,icon,name,val,trend,foot)=>`<div class="kpi"><div class="hd"><span class="ic" style="--c:var(--${c})">${sv(icon,2)}</span><span class="tl">${name}</span>${trend?`<span class="tr" id="tr-${id}">${trend}</span>`:''}</div><div class="val" id="val-${id}">${val}</div><div class="foot">${foot}</div></div>`;
+
+/* одна смуга: сегмент = день місяця; синім зафарбовано витрати, переведені в дні (частка доходу × днів у місяці);
+   риска «сьогодні» показує, скільки днів минуло. За рискою зафарбоване = випередження (бурштин), не зафарбоване до риски = запас (світло-зелений). */
+function dayBar(){
+  const past=mIdx(SEL)<mIdx(NOW),N=past?new Date(SEL.y,SEL.m+1,0).getDate():BAL_DAYS,T=past?N:BAL_DAY,S=BAL_SPENT*N,diff=Math.round((BAL_SPENT-T/N)*BAL_INC/100)*100;
+  const ab=MGEN[SEL.m].slice(0,3);
+  let h='';for(let d=1;d<=N;d++){const f=Math.max(0,Math.min(1,S-(d-1)));
+    h+=`<span class="dseg${d<=T?' past':''}" style="--n:${d}">${f>0?`<i style="width:${(f*100).toFixed(0)}%;background:var(--${d<=T?'inst':'debt'})"></i>`:''}</span>`;}
+  const stPast=`<span>Місяць завершено: витрачено ${Math.round(BAL_SPENT*100)}% доходу</span>`;
+  const st=past?stPast:diff>0?`<span style="color:var(--debt-text)">Витрати на <b>${fmt(diff)}</b> випереджають дні</span>`:diff<0?`<span style="color:var(--income-text)">Витрати на <b>${fmt(-diff)}</b> менші, ніж минуло днів</span>`:'<span>Витрати йдуть у ногу з днями</span>';
+  const x=(T/N*100).toFixed(2);
+  return `<div class="dwrap">${past?'':`<span class="dtag" style="left:${x}%">сьогодні</span><span class="dline" style="left:${x}%"></span>`}
+      <div class="dsegs" role="img" aria-label="Минуло ${T} з ${N} днів, витрачено ${Math.round(BAL_SPENT*100)}% доходу">${h}</div></div>
+    <div class="dax"><span>1 ${ab}</span><span>${N} ${ab}</span></div>
+    <div class="dsum"><span>Витрачено <b>23 600</b> з 42 000 ₴</span><span>${past?'усі '+N+' днів':(N-T)+' днів лишилось'}</span></div>
+    <div class="dstate">${st}</div>`;
+}
+/* вибір місяця: стрілки ‹ ›, дотик по назві відкриває сітку місяців; майбутні місяці недоступні */
+const MN=['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'];
+const MGEN=['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
+const NOW={y:2026,m:10}, FIRST={y:2026,m:0}; let SEL={y:2026,m:10};
+const mIdx=x=>x.y*12+x.m;
+function balSub(){return mIdx(SEL)===mIdx(NOW)?`залишок ${MGEN[SEL.m]} · день 16 з 30`:`залишок ${MGEN[SEL.m]}${SEL.y!==NOW.y?' '+SEL.y:''} · місяць завершено`;}
+function paintMonth(dir){
+  const name=MN[SEL.m]+(SEL.y!==NOW.y?' '+SEL.y:'');
+  $('#mName').innerHTML=`<span style="--dy:${dir<0?'-6px':'6px'}">${name}</span>`;
+  $('#mPrev').disabled=mIdx(SEL)<=mIdx(FIRST); $('#mNext').disabled=mIdx(SEL)>=mIdx(NOW);
+  const past=mIdx(SEL)<mIdx(NOW); $('#mNow').classList.toggle('on',past); $('#mNowText').textContent=past?'Ви дивитесь минулий місяць':'';
+  const mh=$('#miniHead span'); if(mh)mh.textContent=` · ${name} ·`;
+}
+function setMonth(x,dir){if(mIdx(x)>mIdx(NOW)||mIdx(x)<mIdx(FIRST))return;SEL={y:x.y,m:x.m};paintMonth(dir);
+  const a=$('#v-analytics');a.classList.remove('from-r','from-l');void a.offsetWidth;build();a.classList.add(dir<0?'from-l':'from-r');}
+const shiftM=d=>{const i=mIdx(SEL)+d;setMonth({y:Math.floor(i/12),m:i%12},d);};
+function build(){
+  $('#v-analytics').innerHTML=`
+  <section class="card rise" style="--i:0" id="c-bal">
+    <button class="sum" data-xp aria-expanded="false">
+      <div class="row" style="align-items:center"><span style="display:flex;align-items:center;gap:10px"><span class="ic" style="--c:var(--inst)"><img src="${BAL}" alt=""></span><span><span class="h" style="display:block">Сімейний баланс</span><span class="cap">${balSub()}</span></span></span>${CHEV}</div>
+      <div class="big"><span class="odo" data-odo="+18 400 ₴"></span></div>
+      <div class="dbar" id="dbar">${dayBar()}</div>
+    </button>
+    <div class="xp inv"><div><div class="xin">
+      <div class="divider"></div>
+      <div class="cols">
+        <div><div class="lab">Доходи</div><div class="v">42 000 ₴</div><div class="cap">на 16 жов: 39 500</div></div>
+        <div><div class="lab">Витрати <span class="delta">−13%</span></div><div class="v">23 600 ₴</div><div class="cap">на 16 жов: 27 100</div></div>
+      </div>
+    </div></div></div>
+    <div class="xp"><div><div class="xin">
+      <div class="kpis">
+        ${kpi('inc','income',WALLET,'Доходи','42 000 ₴','<span class="pos">+6%</span>','<div class="sel" id="sel-inc">за 6 місяців</div><div class="chart" id="ch-inc"></div>')}
+        ${kpi('exp','expense',CART,'Витрати','23 600 ₴','<span class="pos">−13%</span>','<div class="sel" id="sel-exp">за 6 місяців</div><div class="chart" id="ch-exp"></div>')}
+        ${kpi('man','inst',CAL,"Обов'язкові платежі",'25 300 ₴','','<div class="row" style="white-space:nowrap"><span class="cap">60% доходу</span></div><div class="track" style="height:6px"><div class="fill" style="--v:.6;background:var(--inst)"></div></div><span class="cap3">решта 16 700 ₴</span>')}
+        ${kpi('free','income',COINS,"Після обов'язкових",'16 700 ₴','','<div class="row" style="white-space:nowrap"><span class="cap">40% доходу</span></div><div class="track" style="height:6px"><div class="fill" style="--v:.4;background:var(--income)"></div></div><span class="cap3">≈ 1 110 ₴ на день</span>')}
+      </div>
+    </div></div></div>
+  </section>
+
+  <section class="card rise" style="--i:1">
+    <div class="row"><span class="h">Найближчі платежі <small>7 днів</small></span><span class="more" style="color:var(--text);font-weight:600">≈ 7 400 ₴ ${GO}</span></div>
+    <div class="week">
+      <div class="day today"><i>ПН</i><b>16</b></div><div class="day pay"><i>ВТ</i><b>17</b><u>5 000</u></div><div class="day"><i>СР</i><b>18</b></div><div class="day"><i>ЧТ</i><b>19</b></div><div class="day pay"><i>ПТ</i><b>20</b><u>2 400</u></div><div class="day"><i>СБ</i><b>21</b></div><div class="day"><i>НД</i><b>22</b></div>
+    </div>
+    <div class="row next"><span>Наступний · Вт 17 · Телефон</span><b>≈ 5 000 ₴</b></div>
+  </section>
+
+  <div class="pair">
+    <button class="card rise" style="--i:2" data-sheet="debt">
+      <span class="lab"><span class="ic s" style="--c:var(--debt)">${sv(CARD,2)}</span>Борг</span>
+      <span class="num-l"><span class="odo" data-odo="96 400 ₴"></span></span>
+      <span class="cap"><span class="pos">−8 200 ₴</span> від жовтня</span>
+      <div class="track"><div class="fill" style="--v:.24;--i:2;background:var(--income)"></div></div>
+      <span class="cap">погашено 24%</span>
+    </button>
+    <button class="card rise" style="--i:3" data-sheet="inst">
+      <span class="lab"><span class="ic s" style="--c:var(--inst)">${sv(PIE,2)}</span>ОЧ</span>
+      <span class="num-l"><span class="odo" data-odo="21 300 ₴"></span> <small>/ міс</small></span>
+      <span class="cap">залишок ${fmt(REM)}</span>
+      <div class="track"><div class="fill" style="--v:${(INIT-REM)/INIT};--i:3;background:var(--income)"></div></div>
+      <span class="cap">сплачено ${Math.round((INIT-REM)/INIT*100)}%</span>
+    </button>
+  </div>
+
+  <section class="card rise" style="--i:4" id="c-cat">
+    <div class="row"><span class="h">Деталізація витрат</span><button class="more" data-sheet="cats">Усі ${GO}</button></div>
+    <div class="seg" id="segCat" style="--n:2"><div class="ind"></div><button aria-pressed="true" data-k="cat">Категорії</button><button aria-pressed="false" data-k="sub">Підкатегорії</button></div>
+    <div class="list" id="catTop"></div>
+  </section>
+
+  <section class="card rise" style="--i:5" id="c-pot">
+    <button class="sum" data-xp aria-expanded="false" style="gap:10px">
+      <div class="row" style="align-items:center"><span style="display:flex;align-items:center;gap:10px"><span class="ic s" style="--c:var(--income)">${sv(SPROUT,2)}</span><span class="h">Потенціал економії</span></span>${CHEV}</div>
+      <div class="row" style="align-items:flex-end"><div><div class="cap">Необов'язкові витрати цього місяця</div><div class="num-l">5 200 ₴</div></div><div class="emst" aria-hidden="true">${POT.map(p=>`<span>${p[2]}</span>`).join('')}</div></div>
+      <div><div class="potbar" role="img" aria-label="22% витрат необов'язкові">${POT.map((p,i)=>`<i style="width:${p[1]/236}%;background:color-mix(in srgb,var(--income) ${[100,72,50][i]}%,var(--surface));--n:${i}"></i>`).join('')}</div>
+      <div class="row" style="margin-top:8px"><span class="cap">22% із 23 600 ₴ витрат</span><span class="cap"><span class="pos">≈ ${fmt(YEAR)}</span> на рік</span></div></div>
+    </button>
+    <div class="xp"><div><div class="xin" style="gap:0">
+      <div class="row cap" style="padding-bottom:6px"><span>Підкатегорія</span><span>Потенціал</span></div>
+      <div class="list">${POT.map((p,i)=>`<div class="li"><span class="em" aria-hidden="true">${p[2]}</span><span class="nm">${p[0]}<span class="sub">${fmt(p[1])}</span></span><span class="lvl" style="color:var(--${p[3]==='Високий'?'income':'debt'}-text)">${p[3]}</span></div>`).join('')}</div>
+    </div></div></div>
+  </section>
+
+  <section class="card rise" style="--i:6">
+    <div class="h">Динаміка за 6 місяців</div>
+    <div class="seg" id="segHalf" style="--n:2"><div class="ind"></div><button aria-pressed="true" data-k="io">Доходи і витрати</button><button aria-pressed="false" data-k="debt">Борг</button></div>
+    <div class="legend" id="roHalf"></div>
+    <div id="half"></div>
+    <div class="cap" id="halfNote"></div>
+  </section>
+
+  <section class="card rise" style="--i:7;gap:4px">
+    <span class="h">Висновки</span>
+    <div class="list">
+      <div class="li" style="font-size:15px;line-height:20px;padding:8px 0"><span class="ii">${sv(DOWN)}</span><span>Витрати на 13% менші, ніж на 16 жовтня</span></div>
+      <div class="li" style="font-size:15px;line-height:20px;padding:8px 0"><span class="ii">${sv(TAG)}</span><span>Найбільша категорія: Продукти, 29%</span></div>
+      <div class="li" style="font-size:15px;line-height:20px;padding:8px 0"><span class="ii">${sv(CARD)}</span><span>Борг зменшується третій місяць поспіль</span></div>
+    </div>
+  </section>`;
+  $$('#v-analytics [data-xp]').forEach(b=>b.onclick=()=>{const c=b.closest('.card');const o=c.classList.toggle('open');b.setAttribute('aria-expanded',o);if(o&&c.id==='c-bal')drawKpi();});
+  $$('#v-analytics [data-sheet]').forEach(b=>b.onclick=()=>openSheet(b.dataset.sheet));
+  initSeg($('#segCat'),b=>{catMode=b.dataset.k;drawCats();}); initSeg($('#segHalf'),b=>drawHalf(b.dataset.k));
+  catMode='cat'; drawCats(); drawCharts(); runOdo($('#v-analytics'));
+}
+function drawCats(){
+  const d=catMode==='cat'?CATS:SUBS, col=catMode==='cat'?'var(--cat-bar)':'var(--sub-bar)';
+  $('#catTop').innerHTML=d.slice(0,4).map((c,i)=>catRow(c,i,d[0][1],catMode==='sub',col)).join('');
+  $$('#catTop .crow').forEach(b=>b.onclick=()=>{openSheet('cats');selectSeg(b.dataset.k,b.dataset.n);});
+}
+
+/* ламана з точками; дотик або проведення вибирає точку */
+function lineChart(host,o){
+  const W=host.clientWidth||300, H=o.h, pl=o.axis?36:4, pr=o.axis?16:4, pt=o.vlab?24:10, pb=o.labels?22:8, n=o.vals.length, pad=o.axis?10:6;
+  const hi=Math.max(...o.vals), lo=Math.min(...o.vals), mx=o.axis?Math.ceil(hi/40000)*40000:hi, mn=o.axis?0:lo-(hi-lo)*.15;
+  const X=i=>pl+pad+i*(W-pl-pr-pad*2)/(n-1), Y=v=>pt+(H-pt-pb)*(1-(v-mn)/(mx-mn));
+  let g='';
+  if(o.axis)for(let v=0;v<=mx;v+=40000)g+=`<line class="gridl" x1="${pl}" x2="${W-4}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${pl-8}" y="${Y(v)+4}" text-anchor="end">${v?v/1000+'k':'0'}</text>`;
+  host.innerHTML=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${o.label}">${g}
+    <line class="vl" y1="${pt-6}" y2="${H-pb+2}"/>
+    <path class="ln" pathLength="1" stroke="${o.color}" stroke-width="${o.axis?2.5:2}" d="${o.vals.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')}"/>
+    ${o.vals.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="${o.axis?4:3.5}" fill="${o.color}" stroke="var(--${o.axis?'surface':'surface-2'})" stroke-width="1.5" style="--n:${i}"/>`).join('')}
+    ${o.vlab?o.vals.map((v,i)=>`<text class="vt" x="${X(i)}" y="${Y(v)-9}" text-anchor="middle">${Math.round(v/1000)}k</text>`).join(''):''}
+    ${o.labels?MON.map((m,i)=>`<text class="xl" x="${X(i)}" y="${H-5}" text-anchor="middle">${m}</text>`).join(''):''}</svg>`;
+  let sel=-1; const vl=$('.vl',host), cs=$$('circle',host), ts=$$('.xl',host);
+  const set=i=>{sel=i;cs.forEach((c,j)=>c.classList.toggle('on',j===i));ts.forEach((t,j)=>t.classList.toggle('on',j===i));vl.classList.toggle('on',i>=0);if(i>=0){vl.setAttribute('x1',X(i));vl.setAttribute('x2',X(i));}o.ro(i);};
+  scrub(host,x=>{let b=0;for(let i=1;i<n;i++)if(Math.abs(X(i)-x)<Math.abs(X(b)-x))b=i;return b;},()=>sel,set); o.ro(-1);
+}
+function scrub(el,pick,get,set){
+  let down=false,moved=false;
+  el.onpointerdown=e=>{down=true;moved=false;const i=pick(e.clientX-el.getBoundingClientRect().left);if(i!==get()){set(i);moved=true;}};
+  el.onpointermove=e=>{if(!down)return;const i=pick(e.clientX-el.getBoundingClientRect().left);if(i!==get()){set(i);moved=true;}};
+  el.onpointerup=el.onpointercancel=()=>{if(down&&!moved)set(-1);down=false;};
+  el.onpointerleave=()=>{down=false;};
+}
+function drawKpi(){
+  const ro=id=>(vals)=>i=>{$('#sel-'+id).innerHTML=i<0?'за 6 місяців':`${MONF[i]}: <b>${fmt(vals[i])}</b>`;};
+  lineChart($('#ch-inc'),{vals:INC,h:38,color:'var(--income)',label:'Доходи за шість місяців',ro:ro('inc')(INC)});
+  lineChart($('#ch-exp'),{vals:EXP,h:38,color:'var(--expense)',label:'Витрати за шість місяців',ro:ro('exp')(EXP)});
+}
+function niceStep(m){for(const st of [5000,10000,20000,25000,40000,50000,100000])if(m/st<=4)return st;return 200000;}
+const rr=(x,y,w,h,r)=>{r=Math.min(r,h);return `M${x} ${y+h}V${y+r}Q${x} ${y} ${x+r} ${y}H${x+w-r}Q${x+w} ${y} ${x+w} ${y+r}V${y+h}Z`;};
+const kk=v=>Math.round(v/1000)+'k';
+function appChart(host,o){
+  host.className='chart ac';
+  const W=host.clientWidth||310,H=212,pl=34,pr=4,pt=24,pb=24,n=6;
+  const hi=Math.max(...o.series.flatMap(x=>x.vals)),st=niceStep(hi),mx=Math.ceil(hi/st)*st;
+  const gw=(W-pl-pr)/n,X=i=>pl+gw*(i+.5),Y=v=>pt+(H-pt-pb)*(1-v/mx),base=Y(0);
+  let g='',body='';
+  for(let v=0;v<=mx;v+=st)g+=`<line class="gridl" x1="${pl}" x2="${W-pr}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="${pl-6}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end">${v?kk(v):'0'}</text>`;
+  if(o.type==='bars'){
+    const bw=Math.min(13,gw*.28),gap=8;
+    body=MON.map((m,i)=>{const x0=X(i)-(2*bw+gap)/2;return `<g class="grp">${o.series.map((sr,k)=>{const v=sr.vals[i],x=x0+k*(bw+gap),y=Y(v);
+      return `<path class="bar${o.partial&&i===5?' part':''}" style="--n:${i*2+k}" fill="${sr.color}" d="${rr(x,y,bw,base-y,4)}"/><text class="vt" style="--n:${i*2+k}" x="${(x+bw/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle">${kk(v)}</text>`;}).join('')}</g>`;}).join('');
+  }else{
+    const sr=o.series[0];
+    body=`<path class="ln" pathLength="1" stroke="${sr.color}" stroke-width="2.5" d="${sr.vals.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')}"/>`+
+      sr.vals.map((v,i)=>`<g class="grp"><circle cx="${X(i)}" cy="${Y(v)}" r="4" fill="${sr.color}" stroke="var(--surface)" stroke-width="1.5" style="--n:${i}"/><text class="vt" style="--n:${i}" x="${X(i)}" y="${(Y(v)-10).toFixed(1)}" text-anchor="middle">${kk(v)}</text></g>`).join('');
+  }
+  host.innerHTML=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${o.label}">
+    <rect class="band" y="${pt-18}" height="${base-pt+18}" width="${gw-4}" rx="8"/>${g}
+    <line class="vl" y1="${pt-18}" y2="${base}"/>${body}
+    ${MON.map((m,i)=>`<text class="xl${i===5?' cur':''}" x="${X(i)}" y="${H-6}" text-anchor="middle">${m}</text>`).join('')}</svg>`;
+  const svgEl=$('svg',host),band=$('.band',host),vl=$('.vl',host),gs=$$('.grp',host),xs=$$('.xl',host),cs=$$('circle',host);let sel=-1;
+  const set=i=>{sel=i;svgEl.classList.toggle('has',i>=0);host.classList.toggle('has',i>=0&&o.type==='bars');
+    band.classList.toggle('on',i>=0);vl.classList.toggle('on',i>=0);
+    if(i>=0){band.setAttribute('x',X(i)-(gw-4)/2);vl.setAttribute('x1',X(i));vl.setAttribute('x2',X(i));}
+    gs.forEach((x,j)=>x.classList.toggle('on',j===i));xs.forEach((x,j)=>x.classList.toggle('on',j===i));cs.forEach((c,j)=>c.classList.toggle('on',j===i));o.ro(i);};
+  scrub(host,x=>Math.max(0,Math.min(n-1,Math.floor((x-pl)/gw))),()=>sel,set); o.ro(-1);
+}
+function drawHalf(k){
+  const ro=$('#roHalf'), host=$('#half');
+  if(k==='debt'){
+    appChart(host,{type:'line',series:[{vals:DEBT,color:'var(--debt)'}],label:'Динаміка боргу за шість місяців',ro:i=>{ro.innerHTML=i<0?'<span><i class="sw-ln" style="background:var(--debt)"></i>Борг на кінець місяця</span>':`<span><b>${MONF[i]}</b></span><span><b>${fmt(DEBT[i])}</b></span>${i?`<span class="pos">${fmt(DEBT[i]-DEBT[i-1])}</span>`:''}`;}});
+    $('#halfNote').textContent='Торкніться точки або проведіть пальцем.'; return;
+  }
+  const def='<span><i class="sq" style="background:var(--income)"></i>Доходи</span><span><i class="sq" style="background:var(--expense)"></i>Витрати</span>';
+  appChart(host,{type:'bars',partial:true,series:[{vals:INC,color:'var(--income)'},{vals:EXP,color:'var(--expense)'}],label:'Доходи і витрати за шість місяців',
+    ro:i=>{ro.innerHTML=i<0?def:`<span><b>${MON[i]}</b></span><span><i class="sq" style="background:var(--income)"></i><b>${fmt(INC[i])}</b></span><span><i class="sq" style="background:var(--expense)"></i><b>${fmt(EXP[i])}</b></span>`;}});
+  $('#halfNote').textContent='Листопад неповний: 16 днів. Торкніться місяця.';
+}
+function drawCharts(){ if(!$('#ch-inc'))return; drawKpi(); drawHalf($('#segHalf button[aria-pressed="true"]').dataset.k); }
+function initSeg(seg,cb){const bs=$$('button',seg);bs.forEach((b,i)=>b.onclick=()=>{bs.forEach(x=>x.setAttribute('aria-pressed',x===b));seg.style.setProperty('--p',i);cb&&cb(b);});}
+
+function runOdo(scope){
+  $$('.odo',scope).forEach(el=>{
+    el.innerHTML=[...el.dataset.odo].map(ch=>/\d/.test(ch)?`<span class="od"><span class="odc z" data-d="${ch}">0\n1\n2\n3\n4\n5\n6\n7\n8\n9</span></span>`:`<span style="white-space:pre">${ch}</span>`).join('');
+    el.setAttribute('aria-label',el.dataset.odo); void el.offsetWidth;
+    $$('.odc',el).forEach((c,i)=>{c.classList.remove('z');c.style.transitionDelay=(120+i*45)+'ms';c.style.setProperty('--d',c.dataset.d);});});
+}
+
+/* шторки */
+let catSel=null;
+const curList=()=>catMode==='sub'?CATS.flatMap(c=>SUBS.filter(x=>x[3]===c[3]).sort((p,q)=>q[1]-p[1])):CATS;
+function donutHTML(){
+  const sub=catMode==='sub',d=curList(),tot=d.reduce((a,c)=>a+c[1],0),R=80.9;let a=0,segs='',labs='';
+  d.forEach((c,i)=>{const L=c[1]/tot*100,mid=(a+L/2)/100*2*Math.PI-Math.PI/2;
+    segs+=`<circle class="sg" data-n="${c[0]}" cx="18" cy="18" r="14" pathLength="100" stroke-width="7.4" stroke="${colOf(c,sub)}" stroke-dasharray="0 100" data-v="${Math.max(L-.8,.3).toFixed(2)}" stroke-dashoffset="${(-(a+.4)).toFixed(2)}"/>`;
+    if(L>=7)labs+=`<span class="dl" data-n="${c[0]}" style="left:${(104+R*Math.cos(mid)).toFixed(1)}px;top:${(104+R*Math.sin(mid)).toFixed(1)}px;--n:${i}"><i>${c[5]}</i>${Math.round(L)}%</span>`;
+    a+=L;});
+  return `<svg viewBox="0 0 36 36" role="img" aria-label="${sub?'Частки підкатегорій':'Частки категорій'}">${segs}</svg>${labs}<button class="sun-c" id="sunC" aria-label="Скинути вибір"></button>`;
+}
+function renderDonut(){
+  const w=$('#dwrap'); if(!w)return; w.innerHTML=donutHTML();
+  $$('.sg',w).forEach(g=>g.onclick=()=>selectSeg(catMode==='cat'?'c':'s',g.dataset.n));
+  $('#sunC').onclick=()=>{catSel=null;applySel();}; applySel();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>$$('.sg',w).forEach((c,i)=>{c.style.transitionDelay=(120+i*45)+'ms, 0ms';c.setAttribute('stroke-dasharray',c.dataset.v+' '+(100-c.dataset.v));setTimeout(()=>{c.style.transitionDelay='';},1500);})));
+}
+function sunCenter(){
+  const c=$('#sunC'); if(!c)return;
+  const sub=catMode==='sub';
+  if(!catSel)c.innerHTML=`<b>23 600 ₴</b><span>${sub?'10 підкатегорій':'6 категорій'}</span><span class="pos">−13% до 16 жов</span>`;
+  else{const r=curList().find(x=>x[0]===catSel);c.innerHTML=`<span class="e">${r[5]}</span><b>${fmt(r[1])}</b><span>${r[0]} · ${r[2]}%</span>`;}
+  c.style.animation='none';void c.offsetWidth;c.style.animation='';
+}
+function applySel(){
+  $$('.sg, .dl').forEach(g=>g.classList.toggle('dim',!!catSel&&g.dataset.n!==catSel));
+  $$('#catAll .crow').forEach(r=>r.classList.toggle('on',r.dataset.n===catSel));
+  sunCenter();
+}
+function selectSeg(k,n){
+  if(k&&(k==='c')!==(catMode==='cat')){catMode=k==='c'?'cat':'sub';syncCatSeg();}
+  catSel=catSel===n?null:n; applySel();
+  if(catSel){const r=$(`#catAll .crow[data-n="${n}"]`);r&&r.scrollIntoView({block:'nearest',behavior:'smooth'});}
+}
+function syncCatSeg(){
+  [$('#segCat'),$('#segCatS')].forEach(m=>{if(!m)return;$$('button',m).forEach((x,i)=>{const on=x.dataset.k===catMode;x.setAttribute('aria-pressed',on);if(on)m.style.setProperty('--p',i);});});
+  drawCats(); if($('#catAll')){$('#catAll').innerHTML=catsAll();bindRows();renderDonut();}
+}
+function bindRows(){$$('#catAll .crow').forEach(r=>r.onclick=()=>selectSeg(r.dataset.k,r.dataset.n));}
+function catsSheet(){
+  return `<div class="seg" id="segCatS" style="--n:2;--p:${catMode==='cat'?0:1}"><div class="ind"></div><button aria-pressed="${catMode==='cat'}" data-k="cat">Категорії</button><button aria-pressed="${catMode==='sub'}" data-k="sub">Підкатегорії</button></div>
+  <div class="sunwrap" id="dwrap"></div>
+  <div class="hint">Сектор показує частку витрат місяця. Торкніться сектора або рядка.</div>
+  <div id="catAll">${catsAll()}</div>`;
+}
+function catsAll(){const sub=catMode==='sub',d=sub?SUBS:CATS;return d.map((c,i)=>catRow(c,i,d[0][1],sub,colOf(c,sub))).join('');}
+const SHEETS={
+  debt:['Борги по картках',()=>`
+    <div class="sumbox">
+      <div class="row"><span class="total">96 400 ₴</span><span class="cap"><span class="pos">−8 200 ₴</span> від жовтня</span></div>
+      <div class="track" style="height:8px;border-radius:4px"><div class="fill" style="--v:.24;background:var(--income)"></div></div>
+      <div class="row"><span class="cap">Погашено 24% стартового боргу</span><span class="cap3">старт 126 800 ₴</span></div>
+    </div>
+    <div>${DEBTS.map((r,i)=>`<div class="dr" style="--n:${i}">
+      <div class="top">${logo(r[2],r[3])}<span class="nm">${r[0]}</span><span class="mono"${r[1]?'':' style="color:var(--text-3)"'}>${fmt(r[1])}</span></div>
+      <div class="track"><div class="fill" style="--v:${r[1]/r[4]};--i:${i};background:var(--income)"></div></div>
+      <div class="row"><span class="cap3">кредитний ліміт ${fmt(r[4])}</span><span class="cap3">${r[1]?Math.round(r[1]/r[4]*100)+'% використано':'без боргу'}</span></div>
+    </div>`).join('')}</div>`],
+  inst:['Оплати частинами',()=>`
+    <div class="sumbox">
+      <div class="row"><span class="total">21 300 ₴ <small style="font-size:15px;font-weight:400;color:var(--text-3)">/ міс</small></span><span class="cap">залишок ${fmt(REM)}</span></div>
+      <div class="track" style="height:8px;border-radius:4px"><div class="fill" style="--v:${(INIT-REM)/INIT};background:var(--income)"></div></div>
+      <div class="row"><span class="cap">Сплачено ${Math.round((INIT-REM)/INIT*100)}% · ${INST.length} активних</span><span class="cap3">початкова ${fmt(INIT)}</span></div>
+    </div>
+    <div>${INST.map((r,i)=>`<div class="dr" style="--n:${i}">
+      <div class="top">${logo(r[4],r[5])}<span class="nm">${r[0]}<span class="nsub">початкова сума ${fmt(r[1]*r[3])}</span></span><span class="mono">${fmt(r[1])}<small> /міс</small></span></div>
+      ${ovals(r[2],r[3])}
+      <div class="row"><span class="cap3">${r[2]} з ${r[3]} платежів</span><span class="cap3">залишок ${fmt(r[1]*(r[3]-r[2]))}</span></div>
+    </div>`).join('')}</div>`],
+  cats:['Деталізація витрат',catsSheet],
+  month:['Місяць',()=>monthGrid(SEL.y)]
+};
+let pickY=2026;
+function monthGrid(y){pickY=y;return `<div class="yrow"><button class="icon-btn" id="yPrev" aria-label="Попередній рік" ${y<=FIRST.y?'disabled style="opacity:.3"':''}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button><b>${y}</b><button class="icon-btn" id="yNext" aria-label="Наступний рік" ${y>=NOW.y?'disabled style="opacity:.3"':''}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></div>
+  <div class="mgrid">${MN.map((n,i)=>{const x={y,m:i},dis=mIdx(x)>mIdx(NOW)||mIdx(x)<mIdx(FIRST);return `<button data-m="${i}" class="${mIdx(x)===mIdx(SEL)?'on':''}${mIdx(x)===mIdx(NOW)?' now':''}" ${dis?'disabled':''}>${n.slice(0,3)}</button>`;}).join('')}</div>
+  <div class="cap3" style="text-align:center">Майбутні місяці недоступні. Поточний обведено.</div>`;}
+function bindMonth(){$$('.mgrid button').forEach(b=>b.onclick=()=>{const x={y:pickY,m:+b.dataset.m};const d=Math.sign(mIdx(x)-mIdx(SEL))||1;closeSheet();setTimeout(()=>setMonth(x,d),180);});
+  const yp=$('#yPrev'),yn=$('#yNext');if(yp)yp.onclick=()=>{$('#sheetBody').innerHTML=monthGrid(pickY-1);bindMonth();};if(yn)yn.onclick=()=>{$('#sheetBody').innerHTML=monthGrid(pickY+1);bindMonth();};}
+function openSheet(k){const s=SHEETS[k];$('#sheetTitle').textContent=s[0];catSel=null;$('#sheetBody').innerHTML=s[1]();$('#sheetBody').scrollTop=0;screen_.classList.add('sheet-open');runOdo($('#sheet'));
+  if(k==='month')bindMonth();
+  if(k==='cats'){initSeg($('#segCatS'),b=>{catMode=b.dataset.k;catSel=null;syncCatSeg();});bindRows();renderDonut();}}
+function closeSheet(){screen_.classList.remove('sheet-open');}
+$('#scrim').onclick=closeSheet;
+/* свайп униз за шапку шторки (смужка й заголовок) */
+(()=>{const top=$('#sheetTop'),sh=$('#sheet');let y0=null,t0=0,dy=0;
+  top.addEventListener('pointerdown',e=>{y0=e.clientY;t0=performance.now();dy=0;sh.classList.add('drag');top.setPointerCapture(e.pointerId);});
+  top.addEventListener('pointermove',e=>{if(y0===null)return;dy=Math.max(0,e.clientY-y0);const r=dy>0?dy:0;sh.style.transform=`translateY(${r}px)`;$('#scrim').style.opacity=String(Math.max(0,1-r/400));});
+  const end=()=>{if(y0===null)return;const v=dy/Math.max(1,performance.now()-t0);sh.classList.remove('drag');sh.style.transform='';$('#scrim').style.opacity='';
+    if(dy>110||(dy>30&&v>.6))closeSheet();y0=null;};
+  top.addEventListener('pointerup',end);top.addEventListener('pointercancel',end);})();
+addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet();});
+
+/* таббар і прокрутка */
+const tabbar=$('#tabbar'), bubble=$('#bubble'), tabs=$$('#tabbar button');
+const ORDER=['analytics','accounting','vytraty','structure','service']; let cur='analytics';
+const OTHER={accounting:['Облік','Доходи, Борги й ОЧ: ті самі рядки, сегменти й кольори.'],vytraty:['Витрати','Форма витрати лишається як є.'],structure:['Структура','Категорії, підкатегорії, словник.'],service:['Сервіс','Дані й допомога.']};
+function placeBubble(){const b=tabs[ORDER.indexOf(cur)];bubble.style.width=b.offsetWidth+'px';bubble.style.setProperty('--x',b.offsetLeft+'px');bubble.style.opacity=cur==='vytraty'?0:1;}
+function go(tab){
+  if(tab===cur){scroll.scrollTo({top:0,behavior:'smooth'});return;}
+  const dir=ORDER.indexOf(tab)>ORDER.indexOf(cur)?'from-r':'from-l'; cur=tab;
+  tabs.forEach(b=>b.classList.toggle('active',b.dataset.tab===tab)); placeBubble();
+  const a=$('#v-analytics'), o=$('#v-other'); [a,o].forEach(v=>v.classList.remove('on','from-r','from-l'));
+  $$('.rise',a).forEach(c=>c.classList.remove('rise'));
+  if(tab==='analytics'){a.classList.add('on',dir);$('#pageTitle').textContent='Аналітика';}
+  else{$('#pageTitle').textContent=OTHER[tab][0];$('#otherP').textContent=OTHER[tab][1];void o.offsetWidth;o.classList.add('on',dir);}
+  scroll.scrollTop=0; onScroll();
+}
+tabs.forEach(b=>{b.onclick=()=>{tabbar.classList.remove('mini');go(b.dataset.tab);};
+  b.addEventListener('pointerdown',()=>b.classList.add('pressing'));
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,()=>b.classList.remove('pressing')));});
+let lastY=0,tick=false;
+function onScroll(){const y=scroll.scrollTop,max=scroll.scrollHeight-scroll.clientHeight,d=y-lastY;
+  if(y<24||y>max-24)tabbar.classList.remove('mini');else if(d>6)tabbar.classList.add('mini');else if(d<-6)tabbar.classList.remove('mini');
+  $('#miniHead').classList.toggle('on',cur==='analytics'&&y>150);if(Math.abs(d)>6)lastY=y;tick=false;}
+scroll.addEventListener('scroll',()=>{if(!tick){tick=true;requestAnimationFrame(onScroll);}},{passive:true});
+$('#miniHead').onclick=()=>scroll.scrollTo({top:0,behavior:'smooth'});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{placeBubble();drawCharts();},150);});
+
+$('#swatches').innerHTML=[['--income','Дохід, погашено'],['--expense','Витрати'],['--debt','Борг'],['--inst','ОЧ, платіж, смуга балансу'],['--accent','Дія, активна вкладка'],['--ramp-1','Категорії 1'],['--ramp-3','Категорії 3'],['--ramp-5','Категорії 5'],['--surface','Картка'],['--surface-2','Другий рівень'],['--bg','Тло']].map(s=>`<div><i style="background:var(${s[0]})"></i><b>${s[1]}</b></div>`).join('');
+$('#replay').onclick=()=>{document.body.classList.remove('show-doc');$$('#modeCtl button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.mode==='proto'));closeSheet();if(cur!=='analytics')go('analytics');scroll.scrollTop=0;$('#v-analytics').classList.remove('from-r','from-l');build();};
+paintMonth(0); build(); placeBubble();
+$('#mPrev').onclick=()=>shiftM(-1); $('#mNext').onclick=()=>shiftM(1); $('#mName').onclick=e=>{e.stopPropagation();toggleMenu();};
+function menuHTML(){let h='',y=null;for(let i=mIdx(NOW);i>=mIdx(FIRST);i--){const x={y:Math.floor(i/12),m:i%12};
+    if(x.y!==y){y=x.y;h+=`<div class="yh">${y}</div>`;}
+    const on=i===mIdx(SEL);h+=`<button role="menuitemradio" aria-checked="${on}" data-i="${i}" class="${on?'on':''}"><span>${MN[x.m]}${i===mIdx(NOW)?' <small>поточний</small>':''}</span>${on?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>':''}</button>`;}
+  return h;}
+function toggleMenu(open){const m=$('#mMenu'),o=open??!m.classList.contains('on');
+  if(o){m.innerHTML=menuHTML();$$('button',m).forEach(b=>b.onclick=ev=>{ev.stopPropagation();const i=+b.dataset.i,d=Math.sign(i-mIdx(SEL))||1;toggleMenu(false);setMonth({y:Math.floor(i/12),m:i%12},d);});}
+  m.classList.toggle('on',o);$('#mName').setAttribute('aria-expanded',o);}
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('#mstep'))toggleMenu(false);});
+scroll.addEventListener('scroll',()=>toggleMenu(false),{passive:true}); $('#mBack').onclick=()=>setMonth(NOW,1);
+</script>
+</body>
+</html>
