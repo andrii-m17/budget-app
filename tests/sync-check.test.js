@@ -34,7 +34,7 @@ function make(){
     syncNameDomainsOnConnect: async function(o){ rec.nameDomain++; (rec.nameOpts = rec.nameOpts || []).push(o); }, nameDomainDirtyBreakdown: function(){ return {}; },
     flushOtherActorEventsAsToasts: function(){ rec.toasts++; }, flushOtherActorEventsAsSummary: function(){ rec.summary++; },
     refreshAfterSyncAtStart: function(){ rec.refresh++; },
-    notifArchive: { unread: 0 }, notifQueueLen: function(){ return 0; }, monoInbox: { newCount: 0 }, updateNotifBell: function(){}, updateMonoBadges: function(){}, monoLoadConnection: function(){},
+    notifArchive: { unread: 0 }, notifQueueLen: function(){ return 0; }, monoInbox: { newCount: 0 }, updateNotifBell: function(){}, updateMonoBadges: function(){}, monoLoadConnection: function(){}, monoState: { connectionKnown: true },
     debugRecordingActive: false, pushDebugEvent: function(){}, performance: { now: function(){ return 0; } },
     syncSeenState: null, syncLastCheckAt: 0, syncCheckInFlight: null, syncRecheckPending: null, syncRealtimeTimer: null, headsInFlight: null,
     setTimeout: function(fn, ms){ timers.push({ fn: fn, ms: ms }); return timers.length; }, clearTimeout: function(){},

@@ -98,20 +98,34 @@ test('5. налаштування Monobank: перемикач автодода�
 });
 
 for (const theme of ['dark', 'light']){
-  test('6. @both шапка: лапка в лівій групі, заголовок не рухається й не накривається (320/360/390/440 пт, ' + theme + ', з лапкою і без)', async ({ page }) => {
+  test('6. @both шапка: лапка перед дзвіночком, заголовок зсувається лише при видимій лапці й нічого не накриває (320/360/390/440 пт, ' + theme + ')', async ({ page }) => {
     for (const w of [320, 360, 390, 440]){
       await boot(page, w); await seed(page, { noAuto: true, noNew: true }); await refresh(page);
       await page.evaluate((th) => document.documentElement.setAttribute('data-theme', th), theme);
-      const geo = () => page.evaluate(() => { const h = document.getElementById('page-title'); const rg = document.createRange(); rg.selectNodeContents(h); const t = rg.getBoundingClientRect(), p = document.getElementById('mono-paw-btn').getBoundingClientRect(), a = document.getElementById('profile-btn-top').getBoundingClientRect(), b = document.getElementById('notif-bell-btn').getBoundingClientRect(); return { tl: t.left, tr: t.right, paw: [p.left, p.right], av: a.right, bell: b.left, vis: document.getElementById('mono-paw-wrap').getBoundingClientRect().width > 0 }; });
+      const geo = () => page.evaluate(() => { const h = document.getElementById('page-title'); const rg = document.createRange(); rg.selectNodeContents(h); const t = rg.getBoundingClientRect(), p = document.getElementById('mono-paw-btn').getBoundingClientRect(), a = document.getElementById('profile-btn-top').getBoundingClientRect(), b = document.getElementById('notif-bell-btn').getBoundingClientRect(); return { tl: t.left, tr: t.right, paw: [p.left, p.right], av: a.right, bell: [b.left, b.right], vis: document.getElementById('mono-paw-wrap').getBoundingClientRect().width > 0, fs: getComputedStyle(h).fontSize }; });
       const without = await geo(); expect(without.vis).toBe(false);
       await page.screenshot({ path: 'e2e-results/mono-flow-hdr-' + w + '-' + theme + '-without.png', clip: { x: 0, y: 0, width: w, height: 120 } });
       await seed(page, { noNew: true }); await refresh(page);
-      const withPaw = await geo(); expect(withPaw.vis).toBe(true);
-      expect(withPaw.tl, w + ': заголовок не рухається (ліво)').toBeCloseTo(without.tl, 0); expect(withPaw.tr, w + ': заголовок не рухається (право)').toBeCloseTo(without.tr, 0);
-      expect(withPaw.paw[0] - withPaw.av, w + ': відступ від аватара 8 pt').toBeCloseTo(8, 0);
-      expect(withPaw.paw[1], w + ': лапка не накриває заголовок').toBeLessThanOrEqual(withPaw.tl + 0.5);
-      expect(withPaw.tr, w + ': заголовок не накриває дзвіночок').toBeLessThanOrEqual(withPaw.bell + 0.5);
+      const wp = await geo(); expect(wp.vis).toBe(true);
+      expect(wp.paw[1], w + ': лапка перед дзвіночком, відступ 8 pt').toBeCloseTo(wp.bell[0] - 8, 0);
+      expect(wp.tr, w + ': заголовок не накриває лапку').toBeLessThanOrEqual(wp.paw[0] + 1);
+      expect(wp.tl, w + ': заголовок не накриває аватар').toBeGreaterThanOrEqual(wp.av - 0.5);
+      expect(wp.tl, w + ': заголовок зсунуто ліворуч').toBeLessThan(without.tl - 20);
+      if(w <= 360) expect(wp.fs).toBe('21px');
       await page.screenshot({ path: 'e2e-results/mono-flow-hdr-' + w + '-' + theme + '-with.png', clip: { x: 0, y: 0, width: w, height: 120 } });
     }
   });
 }
+
+test('7. холодний старт з активною сесією, mono_new > 0, без повної звірки: лапка видима з числом (без кешу й до відповіді mono_connections)', async ({ page }) => {
+  await boot(page); await seed(page, { noAuto: true });
+  await page.evaluate(() => { localStorage.removeItem('budget-mono-header-v1'); monoState.connection = null; monoState.connectionKnown = false; monoState.loaded = false; monoInbox.countsKnown = false; monoInbox.newCount = 0; monoInbox.autoReviewCount = 0; updateMonoBadges(); });
+  expect(await page.evaluate(() => document.getElementById('mono-paw-wrap').getBoundingClientRect().width)).toBe(0); // нічого не відомо → прихована
+  await page.evaluate(() => applyHeadsCounters({ unread: null, monoNew: 3, monoRefundAt: null, monoAutoReview: 0 })); // лише лічильники з sync_heads, підключення ще не відоме
+  const r = await page.evaluate(() => ({ vis: document.getElementById('mono-paw-wrap').getBoundingClientRect().width > 0, count: document.getElementById('mono-paw-count').textContent, known: monoState.connectionKnown }));
+  expect(r).toEqual({ vis: true, count: '3', known: false });
+  // звичайна перевірка (не повна) сама дістає стан підключення, поки він невідомий
+  await page.evaluate(() => syncCheck('test', { force: true }));
+  await expect.poll(() => page.evaluate(() => monoState.connectionKnown)).toBe(true);
+  expect(await page.evaluate(() => document.getElementById('mono-paw-count').textContent)).toBe('3');
+});

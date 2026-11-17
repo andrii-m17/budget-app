@@ -1688,6 +1688,9 @@
   /* Rev 2.32.331 (MONO-FLOW), макет docs/ui/mockups/mono-flow-mockup.html: банер «Monobank · N нових» прибрано — його замінює лапка в шапці (.mono-paw). Лічильник = .notif-bell-count з тлом --color-info; лише крапка 8 pt, коли є тільки автододані на перевірку. */
   .mono-paw-wrap.hidden, .mono-paw-wrap .hidden{ display:none; }
   .side button.side-tab.hidden{ display:none; }
+  /* Rev 2.32.332 (MONO-FLOW-2): тимчасова компенсація заголовка шапки, коли лапка видима (третя кнопка праворуч), до нового макета шапки з дизайн-системи */
+  @media (max-width:440px){ html.mono-paw-on .page-header-text h1{ position:relative; left:-28px; } }
+  @media (max-width:360px){ html.mono-paw-on .page-header-text h1{ left:-36px; font-size:21px; line-height:27px; } }
   .notif-bell-count.mono-paw-count{ background:var(--color-info); }
   .mono-paw-dot{ position:absolute; top:-2px; right:-2px; width:8px; height:8px; border-radius:50%; background:var(--color-info); box-shadow:0 0 0 1.5px var(--color-bg); }
   .side-ico .mono-paw-dot{ top:-4px; right:-6px; }
@@ -3127,7 +3130,10 @@
         <button class="gear-btn profile-header-btn" onclick="openProfileMenu()" aria-label="Профіль" id="profile-btn-top">
           <span class="avatar-badge" id="profile-avatar-top" aria-hidden="true"><span class="avatar-face guest"></span></span>
         </button>
-        <!-- Rev 2.32.331 (MONO-FLOW): лапка Monobank у лівій групі шапки одразу після аватара (рішення чату: так заголовок лишається по центру); число = mono_new, крапка = лише автододані на перевірку; обидва нулі або банк не підключено → прихована (updateMonoBadges) -->
+      </div>
+      <div class="page-header-buttons">
+        <!-- Rev 2.32.38 (B): кругла іконка «Доступне оновлення» (#update-btn-top) прибрана з шапки за рішенням користувача — оновлення пропонує спливаюче повідомлення з кнопкою «Оновити»; на її місці дзвіночок. Бічна кнопка (desktop) лишається. -->
+        <!-- Rev 2.32.331 (MONO-FLOW): лапка Monobank у правій групі шапки перед дзвіночком (MONO-FLOW-2; заголовок при видимій лапці зсувається тимчасово, до нового макета шапки з дизайн-системи); число = mono_new, крапка = лише автододані на перевірку; обидва нулі або банк не підключено → прихована (updateMonoBadges) -->
         <span class="notif-bell-wrap mono-paw-wrap hidden" id="mono-paw-wrap">
         <button class="gear-btn notif-bell-btn" id="mono-paw-btn" onclick="openMonoInbox({ tab: 'new' })" aria-label="Monobank">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><ellipse cx="7" cy="8.5" rx="2" ry="2.6"/><ellipse cx="12" cy="6" rx="2.1" ry="2.7"/><ellipse cx="17" cy="8.5" rx="2" ry="2.6"/><ellipse cx="4.6" cy="13.4" rx="1.7" ry="2.2"/><ellipse cx="19.4" cy="13.4" rx="1.7" ry="2.2"/><path d="M12 11.2c-3 0-6 4.3-6 6.6 0 1.7 1.4 2.6 3 2.2 1.1-.3 2-.6 3-.6s1.9.3 3 .6c1.6.4 3-.5 3-2.2 0-2.3-3-6.6-6-6.6z"/></svg>
@@ -3135,9 +3141,6 @@
         <span class="notif-bell-count mono-paw-count hidden" id="mono-paw-count" aria-hidden="true"></span>
         <span class="mono-paw-dot hidden" id="mono-paw-dot" aria-hidden="true"></span>
         </span>
-      </div>
-      <div class="page-header-buttons">
-        <!-- Rev 2.32.38 (B): кругла іконка «Доступне оновлення» (#update-btn-top) прибрана з шапки за рішенням користувача — оновлення пропонує спливаюче повідомлення з кнопкою «Оновити»; на її місці дзвіночок. Бічна кнопка (desktop) лишається. -->
         <span class="notif-bell-wrap">
         <button class="gear-btn notif-bell-btn" id="notif-bell-btn" onclick="openNotifArchive()" aria-label="Сповіщення">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
@@ -3908,7 +3911,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.331</div>
+  <div class="version-footer">Money Tree · Rev 2.32.332</div>
 </div>
   </div>
 </div>
@@ -9883,7 +9886,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.331';
+const APP_VERSION = '2.32.332';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -12921,11 +12924,12 @@ async function runSyncCheck(reason, o){
     syncSeenState.needFull = 'error'; saveSyncSeen(syncSeenState);
     const res = {};
     await runSyncPulls(SYNC_TABLE_ORDER, res);
+    monoLoadConnection();
     return { fallback: true };
   }
   const plan = planSync(heads, syncSeenState, now, { fullReason: o.fullReason });
   applyHeadsCounters(plan.counters);
-  if(plan.full) monoLoadConnection(); // Rev 2.32.331 (MONO-FLOW): стан підключення для лапки — один запит на повну звірку (вхід, холодний старт, періодична)
+  if(plan.full || !monoState.connectionKnown) monoLoadConnection(); // Rev 2.32.332 (MONO-FLOW-2): також, поки стан підключення невідомий (старт без повної звірки). Rev 2.32.331 (MONO-FLOW): стан підключення для лапки — один запит на повну звірку (вхід, холодний старт, періодична)
   syncDiag('sync-heads', { reason: reason, changedTables: plan.tables.length, profiles: plan.profiles, full: plan.full || null });
   if(plan.full) syncDiag('sync-full', { reason: plan.full, trigger: reason });
   const results = {};
@@ -25336,12 +25340,13 @@ function updateMonoBadges(){
   // лапка
   const cache = monoHeaderCacheGet();
   const connKnown = !!monoState.connection || monoState.loaded || monoState.connectionKnown;
-  const connected = monoState.connection ? monoNotifGroupVisible(monoState.connection) : (connKnown ? false : !!(cache && cache.c));
+  const connected = monoState.connection ? monoNotifGroupVisible(monoState.connection) : (connKnown ? false : (cache ? !!cache.c : ((Number(monoInbox.newCount) || 0) > 0 || (Number(monoInbox.autoReviewCount) || 0) > 0))); // Rev 2.32.332 (MONO-FLOW-2): до відповіді сервера — кеш; кешу немає, а лічильники > 0 — підключення очевидне
   const nn = monoInbox.countsKnown ? monoInbox.newCount : (cache ? cache.n : 0), rr = monoInbox.countsKnown ? monoInbox.autoReviewCount : (cache ? cache.r : 0);
   const hasSession = typeof cloudSession !== 'undefined' && !!cloudSession && !!cloudSession.user;
   const m = monoHeaderModel(connected, nn, rr, hasSession);
   if(hasSession && (monoInbox.countsKnown || monoState.connection)) monoLsSet(MONO_HEADER_KEY, JSON.stringify({ c: connected ? 1 : 0, n: Number(nn) || 0, r: Number(rr) || 0 }));
   const wrap = document.getElementById('mono-paw-wrap'); if(wrap) wrap.classList.toggle('hidden', !m.visible);
+  document.documentElement.classList.toggle('mono-paw-on', m.visible);
   const btn = document.getElementById('mono-paw-btn'); if(btn) btn.setAttribute('aria-label', m.label);
   [['mono-paw-count', 'mono-paw-dot'], ['mono-side-count', 'mono-side-dot']].forEach(function(ids){
     const c = document.getElementById(ids[0]), d = document.getElementById(ids[1]);
