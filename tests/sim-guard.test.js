@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const LIB = fs.readFileSync(path.join(__dirname, '..', 'e2e', 'ios', 'lib.mjs'), 'utf8');
-const APP = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const APP = require('./extract').readIndexWithCss();
 const SW = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 
 test('SIM-3: у застосунку й service worker немає жодного сліду підміни режиму клавіатури', () => {

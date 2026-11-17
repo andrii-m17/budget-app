@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const j = v => JSON.parse(JSON.stringify(v));
 const NAMES = ['hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor', 'rekeyHiddenFrom', 'hideEntityFromMonth', 'debtOwnerAccount', 'findAccountMonthDebt', 'cascadeInstallmentRename', 'cascadeAccountRename', 'cascadeCardRename', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'isHiddenForMonth'];
 const env = (g) => buildSandbox(Object.assign({ debts: [], expenses: [], hiddenFrom: {}, ignoredDivergences: {}, bankAccounts: [], installmentAccounts: [] }, g), NAMES);

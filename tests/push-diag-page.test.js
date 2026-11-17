@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const NAMES = ['pushDiagLineText', 'pushEndpointHash', 'readPushDiagFlag', 'pushDiagOpen', 'sendPushDiagLog', 'refreshPushSubscription', 'PUSH_DIAG_DB', 'buildPushSeriesPlan', 'startPushTestSeries', 'PUSH_SERIES_PATTERNS', 'PUSH_SERIES_TAGS'];
 
 test('pushDiagLineText: рядок події без тексту сповіщення; поля type/№/мс/вікон/помилка', () => {

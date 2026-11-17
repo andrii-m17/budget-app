@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const c = buildSandbox({}, ['incompleteMonthWindow', 'incompleteDetails', 'incompleteReasons']);
 const NOW = '2026-10', PREV = '2026-09', OLD = '2026-08', FUT = '2026-11';
 const R = function(e, r, m, hidden, now){ return JSON.parse(JSON.stringify(c.incompleteDetails(e, r, m || NOW, !!hidden, now === undefined ? NOW : now).map(function(d){ return d.code; }))); };

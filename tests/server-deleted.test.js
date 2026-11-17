@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const g = buildSandbox({}, ['shadowAdoptDeleted', 'shadowServerDeleted']);
 const J = (x) => JSON.parse(JSON.stringify(x));
 const L = '2026-11-01T10:00:00.000Z', S = '2026-11-02T10:00:00.123+00:00';

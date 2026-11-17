@@ -172,6 +172,9 @@ function readIndexWithCss(){
   const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
   if(!cssLinks(html).length) throw new Error('index.html: немає посилань на css/*.css');
   let first = true;
-  return html.replace(CSS_LINK_RE, function(){ if(!first) return ''; first = false; return '<style>\n' + readAppCss() + '</style>'; });
+  let out = html.replace(CSS_LINK_RE, function(){ if(!first) return ''; first = false; return '<style>\n' + readAppCss() + '</style>'; });
+  // Rev 2.32.346 (STRUCT-3a): <script src="./js/…"> замінюється вмістом файлу на тому ж місці (порядок підключення збережено), тож тести бачать увесь код як раніше в одному index.html
+  out = out.replace(/<script src="\.\/(js\/[a-z0-9-]+\.js)(?:\?v=[^"]*)?"><\/script>/g, function(m, f){ return '<script>\n' + require('node:fs').readFileSync(require('node:path').join(__dirname, '..', f), 'utf8') + '</script>'; });
+  return out;
 }
 module.exports = { extractFunctionSource, extractConstSource, buildSandbox, evalInSandbox, readAppCss, readIndexWithCss, cssLinks };

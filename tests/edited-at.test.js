@@ -2,7 +2,7 @@
 const test = require('node:test'); const assert = require('node:assert');
 const fs = require('fs'); const path = require('path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const c = buildSandbox({}, ['expenseEditedAtValue', 'editedAtPayload', 'editedAtDiffers', 'expenseEditChanged']);
 
 test('payload: edited_at лише коли значення відоме (upsert без нього не затирає серверне)', function(){

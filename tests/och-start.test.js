@@ -62,7 +62,7 @@ test('«Разом ОЧ»/аналітика: до початку ОЧ не вх
 });
 test('охоронні: розрахунок залишку не чіпали; «Платежі» й стан платежу використовують початок з даних', function(){
   const fs = require('node:fs'), path = require('node:path');
-  const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const SRC = require('./extract').readIndexWithCss();
   assert.match(SRC, /const startM = installmentStartMonth\(inst, debts, expenses\);[^\n]*\n\s*if\(startM && month < startM\) return;/);
   assert.match(SRC, /firstMonth: installmentStartMonthFor\(acc\) \|\| null/);
   assert.match(SRC, /const chainSpec = \{ initial: inst\.initialAmount, firstMonth: inst\.firstMonth \|\| null/, 'ланцюжок залишку лишився на локальному firstMonth');

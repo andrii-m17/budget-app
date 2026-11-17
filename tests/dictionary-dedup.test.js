@@ -123,7 +123,7 @@ test('pushDictionaryPilot: не більше одного одночасного
 });
 
 test('джерело (F): подія dict-dup-adopt без значення слова; нових DELETE/міграцій немає', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const src = require('./extract').readIndexWithCss();
   assert.ok(/captureDebugGeometry\('dict-dup-adopt', \{\}\)/.test(src));
   assert.equal(/from\('dictionary'\)\.delete\(\)/.test(src.replace(/purgeCloudRow[\s\S]*?\n}/, '')), false);
 });

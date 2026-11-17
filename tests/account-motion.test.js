@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const ctx = ex.buildSandbox({}, ['rowsToAnimate', 'accountRevealPlan', 'shouldSweepPress', 'dashboardReplayMode', 'ACCT_SEGMENTS', 'ACCT_SEGMENT_NAMES', 'shouldAnimateSegment', 'accountSegmentPlan']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const ACCT = SRC.slice(SRC.indexOf('// ===== Rev 2.29.0 (A) — поява «Обліку»'), SRC.indexOf('function renderDashboard(){'));

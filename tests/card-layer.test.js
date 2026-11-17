@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const c = ex.buildSandbox({}, ['CARD_LAYER_RELEASE_MS', 'shouldPromoteLayer', 'settledPosition']);
 test('shouldPromoteLayer: картка — при відкритті й закритті, ~400 мс після закриття; потім ні; шторки — ніколи', () => {
   assert.equal(c.shouldPromoteLayer({ isCard: true, phase: 'open' }), true);

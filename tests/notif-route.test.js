@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const j = v => JSON.parse(JSON.stringify(v));
 const B1 = '2026-10-16T05:00:00.123456+00:00', B2 = '2026-10-16T05:10:00.000000+00:00', B3 = '2026-10-16T06:00:00.000000+00:00';
 const EXP = [{ id: 'x1', date: '2026-10-10' }, { id: 'x2', date: '2026-10-11' }, { id: 'xd', date: '2026-10-12', deletedAt: '2026-10-13' }];

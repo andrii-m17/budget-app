@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const j = v => JSON.parse(JSON.stringify(v));
 const NAMES = ['debtTotalsForMonth', 'debtAccount', 'debtAccountKey', 'debtDisplayName', 'cascadeInstallmentRename', 'cascadeAccountRename', 'cascadeCardRename', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind', 'hiddenEntryKey', 'hiddenEntryFor', 'isHiddenForMonth', 'isAccountHiddenForMonth', 'isCardVisibleForMonth', 'cardCreatedMonth', 'activeDebts', 'resolveInstallmentFact', 'OCH_OVALS_MAX', 'installmentStandardPayment', 'installmentPaymentsLeft', 'installmentPayAmount', 'installmentTypicalPay', 'ppPad', 'ppNextMonth', 'ochMonthIndex', 'ochPlannedPaymentsBefore', 'ochOpeningBalance', 'installmentChainCalc', 'installmentStartMonth', 'installmentStartMonthFor', 'installmentChainSpec', 'installmentBalanceBefore', 'estimateInstallment', 'linkedExpensesSum', 'lastKnownBalance', 'typicalMonthlyPayment', 'activeExpenses', 'monthKey'];
 const app = (debts, expenses, accounts, extra) => buildSandbox(Object.assign({ debts, expenses, hiddenFrom: {}, ignoredDivergences: {}, bankAccounts: [], installmentAccounts: accounts }, extra || {}), NAMES);

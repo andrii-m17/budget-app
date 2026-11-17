@@ -1,5 +1,7 @@
 # Карта коду Money Tree (`index.html`, Rev 2.32.248)
 
+**Як тепер шукати код (STRUCT-3, Rev 2.32.345+):** код застосунку розкладається по `js/*.js` за областями (план і порядок підключення — `docs/reports/STRUCT-3-step0.md`; уже винесено `js/util-*.js`). Шукай функцію за назвою одразу в `index.html` і `js/`: `grep -rn "function name" index.html js/`. Оператори верхнього рівня й `initApp` лишаються в основному `<script>` `index.html`. Порядок підключення й цілісність перевіряє `node scripts/struct3-check-load.js` (також у перевірці перед пушем). Тести читають увесь код через `readIndexWithCss()` / `SOURCE` у `tests/extract.js`.
+
 **Допоміжні функції (Rev 2.32.345, STRUCT-2):** без стану, глобальні, підключені звичайними `<script src="./js/…?v=<APP_VERSION>">` перед основним `<script>` (мережа-спочатку в `sw.js`, у `APP_SHELL`; мітку перевіряє `pre-push-guard`). `tests/extract.js`: `SOURCE` = ці файли в порядку підключення + `index.html`.
 - `js/util-format.js` (6): `pluralUa`, `fmt`, `fmtSigned`, `formatThousands`, `pluralizeRecords`, `fmtSignedPercent`.
 - `js/util-date.js` (27): `monthStartISO`, `utcMicros`, `monthToDate`, `dateToMonth`, `ppPad`, `ppDaysInMonth`, `ppAddDays`, `ppDayDiff`, `ppNextMonth`, `ppClampDate`, `ppPrevMonth`, `kyivTodayISO`, `monthKey2`, `isoToUaDateText`, `parseUaMonth`, `localDateISO`, `monthKey`, `monthLabel`, `monthLabelShort`, `allMonths`, `shiftMonth`, `shiftDate`, `dayHeaderLabel`, `weekdayShort`, `monthGenitive`, `kyivDateKey`, `UA_MONTHS`.

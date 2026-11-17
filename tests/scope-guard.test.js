@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 function strip(t){ return t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/(?<![:'"])\/\/[^\n]*/g, ''); }
 const a = SRC.indexOf('(async function initApp(){'), b = SRC.indexOf('\n})();', a);
 const inner = SRC.slice(a, b), outer = strip(SRC.slice(0, a) + SRC.slice(b));

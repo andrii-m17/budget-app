@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
-const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const HTML = require('./extract').readIndexWithCss();
 const ctx = buildSandbox({}, ['kbBezier', 'computeFieldScrollTarget', 'KB_FIELD_BOTTOM_MARGIN', 'KB_FIELD_END_SNAP']);
 const num = expr => evalInSandbox(ctx, expr);
 test('kbBezier: початок 0, кінець 1, монотонна, швидкий старт для кривої підйому (0.22, 0.9, 0.3, 1)', () => {

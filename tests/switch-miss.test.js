@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 test('switch-miss: тип і ключі дозволені, причини proxy/same/moved/long, гілка лише при відкритій шторці й полі шторки', () => {
   const ti = SRC.indexOf('const REC_ALLOWED_TYPES = ['), ki = SRC.indexOf('const REC_ALLOWED_KEYS = [');
   assert.ok(SRC.slice(ti, SRC.indexOf('];', ti)).includes("'switch-miss'"));

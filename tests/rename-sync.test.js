@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 
 const helpers = buildSandbox({ expenseCountWord: function(n){ return n === 1 ? 'витрата' : 'витрат'; } }, ['renameRecordsStamp', 'countActiveWithName', 'renameConfirmText']);
 

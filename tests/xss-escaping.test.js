@@ -9,7 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 
 const DATA_PROPS = /(^|\.)(name|kw|cat|sub|category|subcategory|source|note|label|title|desc|text|type|chipText|names|labels)$/;
 // Винятки: вираз → чому безпечно.

@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
 const M = require('../dev/mock-cloud.js');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const BASE = 'https://x.supabase.co';
 const j = v => JSON.parse(JSON.stringify(v));
 

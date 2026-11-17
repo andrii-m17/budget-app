@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
 const M = require('../dev/mock-cloud.js');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 
 // Мінімальний клієнт, що будує URL так само, як supabase-js (eq/gte/or/order/limit/select+count), і виконує його на моку.
 function client(state, hooks){

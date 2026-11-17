@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const body = (function(){ const i = SRC.indexOf('function performSwitchTab(tab, opts){'); return SRC.slice(i, SRC.indexOf('\n}\n', i)); })();
 // Таблиця накладок: [прапорець, закриття, відкриття]; кожна має installEdgeSwipeClose (єдиний патерн «накладка поверх вкладки»)
 const OVERLAYS = [['isJournalOpen', 'closeJournal', 'openJournal'], ['isTrashOpen', 'closeTrashScreen', 'openTrashScreen'], ['isMonoOpen', 'closeMonoScreen', 'openMonoScreen'],

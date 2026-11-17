@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 function mk(mouse){ return buildSandbox({ escapeAttr: esc, window: { matchMedia: () => ({ matches: mouse }) } }, ['ROW_EDIT_TOUCH_GUARD_MS', 'isMouseDevice', 'rowEditAttrs', 'shouldOpenRowEdit']); }
 const base = { kind: 'expense', mouse: true, sinceTouchMs: 99999, interactiveTarget: false, hasSelection: false, swipeOpen: false, alreadyEditing: false, viaKeyboard: false };

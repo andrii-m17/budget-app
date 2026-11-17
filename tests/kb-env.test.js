@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const ctx = ex.buildSandbox({}, ['usesOnScreenKeyboard']);
 const U = env => JSON.parse(ex.evalInSandbox(ctx, `JSON.stringify(usesOnScreenKeyboard(${JSON.stringify(env)}))`));
 test('usesOnScreenKeyboard: iPhone/Android → always; десктоп з мишею → never; iPad із трекпадом і сенсорний ноутбук → resize', () => {

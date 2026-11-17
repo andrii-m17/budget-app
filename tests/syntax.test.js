@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 test('index.html: кожен вбудований скрипт компілюється', function(){
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const html = require('./extract').readIndexWithCss();
   const re = /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/g; let m, n = 0;
   while((m = re.exec(html))){
     if(/type="(?!text\/javascript|module)/.test(m[1])) continue; // json/інші типи

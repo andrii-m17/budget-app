@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const MOCK = fs.readFileSync(path.join(__dirname, '..', 'dev', 'mock-cloud.js'), 'utf8');
 
 test('ISOL-1: у коді немає фільтра за назвою TRASH-TEST (предикатів, прапорця, кнопки очищення), записи з будь-якою назвою синхронізуються однаково', function(){

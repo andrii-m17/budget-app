@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 function el(){ return { textContent: '', hidden: true, attrs: {}, classList: { toggle(c, on){ this.h = on; } }, setAttribute(k, v){ this.attrs[k] = v; }, getAttribute(k){ return this.attrs[k]; } }; }
 function run(unread){
   const els = { 'notif-bell-count': el(), 'notif-bell-btn': el(), 'notif-side-count': el(), 'notif-side-tab': el() };

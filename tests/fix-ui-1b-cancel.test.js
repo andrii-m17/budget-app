@@ -1,7 +1,7 @@
 // Rev 2.32.87 (FIX-UI-1b): «Скасувати» у підтвердженні видалення лишає шторку деталей відкритою.
 const test = require('node:test'); const assert = require('node:assert');
 const fs = require('fs'); const path = require('path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 function body(name){ const i = SRC.indexOf('function ' + name + '('); assert.ok(i >= 0, name); return SRC.slice(i, i + 6000); }
 test('шторки деталей не закриваються до підтвердження видалення', function(){
   assert.ok(!/function deleteInstallmentFromDrawer\(\)\{\s*const i = editingInstallmentIdx;\s*closeInstallmentEditor\(\);/.test(SRC));

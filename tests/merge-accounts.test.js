@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const g = buildSandbox({}, ['accSetField', 'ACC_NULLABLE_FIELDS', 'mdMerge', 'mdFieldEq', 'hiddenDecisionParts']);
 const J = (x) => JSON.parse(JSON.stringify(x));
 

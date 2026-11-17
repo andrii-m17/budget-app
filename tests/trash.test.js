@@ -13,7 +13,7 @@ const ctx = buildSandbox({}, [
   'TRASH_PURGEABLE_TYPES', 'isAccountTrashType', 'isTaxonomyTrashType', 'isMonthRecordType', 'purgeAccountConfirmText', 'purgeTaxonomyConfirmText', 'taxonomyPlural', 'canPurge', 'purgeBlockedReason', 'purgeConfirmText', 'trashTombstonesForReconcile', 'reconcilePlan', 'fmt',
   'pluralUa', 'pluralizeRecords', 'trashCascadeNote', 'formatTrashShortDate', 'formatTrashDeletedAt',
 ]);
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
 
 function baseState(){
@@ -153,7 +153,7 @@ test('формат дат: "30 вер.", "1 жовт., 06:20"', () => {
   assert.equal(ctx.formatTrashDeletedAt(null), '');
 });
 test('джерело: події trash-* без назв і сум, не використовується закритий view', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const src = require('./extract').readIndexWithCss();
   assert.equal(src.indexOf('hidden_entities_readable'), -1, 'view закритий у Фазі 0 — клієнт його не використовує');
   const evts = src.match(/captureDebugGeometry\('trash-(open|restore|reconcile|purge)'[^;]*;/g) || [];
   assert.ok(evts.length >= 8);
@@ -164,7 +164,7 @@ test('джерело: події trash-* без назв і сум, не вик�
 // мовчки перекривають одна одну — зламало б зведене сповіщення синхронізації).
 // Охоронний тест: жодна top-level функція index.html не оголошена двічі.
 test('index.html: жодна top-level function не оголошена двічі (мовчазне перекриття)', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const src = require('./extract').readIndexWithCss();
   const names = (src.match(/^(?:async )?function [A-Za-z0-9_]+\(/gm) || []).map(function(m){ return m.replace(/^(?:async )?function /, ''); });
   const seen = new Set(); const dups = new Set();
   names.forEach(function(n){ if(seen.has(n)) dups.add(n); seen.add(n); });
@@ -248,7 +248,7 @@ test('reconcilePlan: збій запиту (null) → нічого не приб
   assert.deepEqual(j(ctx.reconcilePlan([], [])), { removeLocal: [], keep: [], skip: [], restoredElsewhere: [] });
 });
 test('джерело (E): DELETE лише для tombstone, порціями по 100, без нових міграцій і без викликів send-push-notification', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const src = require('./extract').readIndexWithCss();
   assert.ok(/\.delete\(\)\.eq\('id', id\)\.eq\('family_id', cloudFamilyId\)\.not\('deleted_at', 'is', null\)/.test(src), 'DELETE лише рядків-tombstone');
   assert.ok(src.indexOf('i += 100') !== -1);
   assert.equal(/\.delete\(\)[^;]*from\('(categories|subcategories|bank_accounts|installment_accounts|debts|hidden_entities)'/.test(src), false);

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const j = v => JSON.parse(JSON.stringify(v));
 const BASE_NAMES = ['upcomingPayments', 'findAccountMonthDebt', 'ppPad', 'ppDaysInMonth', 'ppAddDays', 'ppDayDiff', 'ppNextMonth', 'ppClampDate', 'expectedPaymentForCard', 'installmentChainCalc', 'installmentDuePassed', 'installmentStartMonth',
   'installmentPayAmount', 'installmentExpectedPayment', 'installmentPaidFull', 'isHiddenForMonth', 'hiddenEntryFor', 'hiddenEntryKey', 'hideKey', 'hideKeyLegacy', 'hideKeyForAccount', 'hasIdHideKey', 'findAccountMonthDebt', 'accountsOfKind'];
@@ -62,7 +62,7 @@ test('ОЧ з триваючим графіком показується як з
   assert.deepEqual(counts(empty.r), [1, 1, 0], 'без записів ОЧ показується як зараз');
 });
 test('джерело: upcomingPayments не читає hiddenFrom напряму; computeUpcomingNow передає спільний читач; завершеність із ланцюжка, не з balance останнього запису', () => {
-  const up = SRC.slice(SRC.indexOf('function upcomingPayments('), SRC.indexOf('function kyivTodayISO'));
+  const u0 = SRC.indexOf('function upcomingPayments('); const up = SRC.slice(u0, SRC.indexOf('\nfunction ', u0 + 10)); // Rev 2.32.346 (STRUCT-3a): kyivTodayISO у js/util-date.js — тіло до наступної функції
   assert.ok(!/withBal/.test(up) && !/lastRec\.balance/.test(up.replace(/lastRec\.monthlyPayment/g, '')));
   assert.match(up, /if\(chainBefore === 0\) return;/);
   assert.match(SRC, /hidden: hiddenFrom, isHidden: isHiddenForMonth \}\);/);

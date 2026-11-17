@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
 function env(extra){
   const g = Object.assign({ jsErrorList: [], jsErrorEvents: {}, JS_ERROR_BUFFER_MAX: 20, lastActiveTab: 'structure', debugRecordingActive: false, debugRecordingStartedAt: 0, performance: { now: function(){ return 50; } }, debugEventBuffer: [], updateJsErrorsRow: function(){}, pushDebugEvent: function(e){ g.debugEventBuffer.push(e); } }, extra || {});

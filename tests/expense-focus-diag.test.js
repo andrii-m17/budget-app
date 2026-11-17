@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const ctx = ex.buildSandbox({}, ['focusNeighborsOf', 'shouldSkipTabTransition']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const DIAG = SRC.slice(SRC.indexOf('// ===== Rev 2.29.1 — діагностика стрілок'), SRC.indexOf('function attachDebugRecorderListeners'));

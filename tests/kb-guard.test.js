@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 function env(ios, extra){
   const log = { focus: 0, select: 0, events: [] };
   const input = { focus: function(){ log.focus++; }, select: function(){ log.select++; } };

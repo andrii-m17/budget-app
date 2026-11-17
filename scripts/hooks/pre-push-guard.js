@@ -58,6 +58,11 @@ if (!appVersion) {
       if (l.indexOf('?v=' + appVersion + '"') === -1) fail('Push заблоковано: у посиланні на стилі ' + l + ' мітка ?v= не дорівнює APP_VERSION (' + appVersion + '). Онови мітку в index.html (навичка rev-release).');
     });
   } catch (_) {}
+  // 2в) Rev 2.32.346 (STRUCT-3a): порядок завантаження скриптів, унікальність глобальних імен, APP_SHELL і мітки ?v= (scripts/struct3-check-load.js)
+  try {
+    const r = require('../struct3-check-load.js').checkRepo(ROOT);
+    if (r.length) fail('Push заблоковано: struct3-check-load знайшов ' + r.length + ' порушень:\n  ' + r.slice(0, 8).join('\n  '));
+  } catch (e) { if (e && /struct3-check-load/.test(String(e.message || ''))) throw e; fail('Push заблоковано: struct3-check-load не виконався: ' + (e && e.message)); }
   // 3) ROADMAP
   let roadmap = '';
   try { roadmap = fs.readFileSync(path.join(ROOT, 'docs/ROADMAP.md'), 'utf8'); } catch (_) {}

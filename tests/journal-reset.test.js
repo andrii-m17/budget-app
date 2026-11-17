@@ -7,7 +7,7 @@ const path = require('node:path');
 const { buildSandbox } = require('./extract');
 
 const j = function(v){ return JSON.parse(JSON.stringify(v)); };
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const pure = buildSandbox({}, ['activeFilterCount', 'resetFilters']);
 
 test('activeFilterCount: кожен фільтр окремо й разом; пробіли в пошуку не рахуються; місяць не фільтр', () => {

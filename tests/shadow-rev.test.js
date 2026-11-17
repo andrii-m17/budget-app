@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const j = v => JSON.parse(JSON.stringify(v));
 const T0 = '2026-10-15T10:00:00.000Z', T1 = '2026-10-15T11:00:00.000Z';
 const SRV = '2026-10-28T12:04:12.961234+00:00'; // мікросекунди сервера

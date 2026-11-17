@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 test('KB-5a: visibilitychange:hidden і pagehide викликають kbResetOnBackground', function(){
   assert.match(SRC, /document\.addEventListener\('visibilitychange', function\(\)\{ if\(document\.visibilityState === 'hidden'\) kbResetOnBackground\('hidden'\); \}\);/);
   assert.match(SRC, /window\.addEventListener\('pagehide', function\(\)\{ kbResetOnBackground\('pagehide'\); \}\);/);

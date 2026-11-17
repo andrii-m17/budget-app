@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const NAMES = ['NAME_SUGGEST_MIN', 'NAME_SUGGEST_MAX', 'SUGGEST_TOUCH_WINDOW_MS', 'nameSuggestionsFor', 'updateNameSuggestions', 'SUGGEST_HIDE_DELAY_MS', 'SUGGEST_TOUCH_MAX_HOLD_MS', 'suggestClearList', 'scheduleHideNameSuggestions', 'suggestListTouchEnd', 'hideNameSuggestions', 'selectNameSuggestion', 'handleSuggestionPick', 'pickSuggestionNow',
   'SUGGEST_TAP_HOLD_MS', 'SUGGEST_TAP_MOVE_PX', 'suggestTouchId', 'suggestCancelTapTimer', 'handleSuggestionTouchMove', 'handleSuggestionTouchCancel', 'handleSuggestionTouchStart', 'handleSuggestionTouchEnd', 'suggestTapAccepted', 'suggestMouseAllowed', 'suggestShouldClose', 'onNameInput', 'debugSuggestRender', 'debugSuggestPick'];
 

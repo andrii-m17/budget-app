@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
-const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const HTML = require('./extract').readIndexWithCss();
 function el(attrs){ const a = Object.assign({}, attrs); return { getAttribute: k => (k in a ? a[k] : null), setAttribute: (k, v) => { a[k] = String(v); }, removeAttribute: k => { delete a[k]; }, hasAttribute: k => k in a, _a: a }; }
 test('відновлення tabindex: «немає» → атрибут прибрано; значення (0, -1) → повернуто; службовий атрибут знято', () => {
   const c = buildSandbox({}, ['kbNavRestore']);

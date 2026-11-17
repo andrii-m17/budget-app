@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { fields } = require('../scripts/fields-audit');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 
 // Явні винятки (id → чому безпечно). Лише поле входу в Cloud: type="email" з autocomplete="username" — це справжня форма входу, де
 // панель паролів/контактів очікувана і потрібна; id абстрактний (cldfielda1).

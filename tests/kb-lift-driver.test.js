@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox, evalInSandbox } = require('./extract');
-const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const HTML = require('./extract').readIndexWithCss();
 function make(isModal){
   const st = { now: 0, style: {}, classes: new Set(), anims: [], timers: [] };
   const el = {

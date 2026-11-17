@@ -193,7 +193,7 @@ test('restore з бекапу (Rev 2.32.232): змінене слово «бру
 });
 
 test('джерело (G1): перепис id не на кожному збереженні (save* його не кличе), без нових DELETE', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const src = require('./extract').readIndexWithCss();
   const saveFn = src.slice(src.indexOf('async function saveDictionary()'), src.indexOf('async function saveDictionaryLocal()'));
   assert.equal(saveFn.indexOf('Census'), -1);
   const n = (src.match(/reconcileDictionaryCensus\(\)/g) || []).length;

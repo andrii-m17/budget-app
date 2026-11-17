@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ex = require('./extract');
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const ctx = ex.buildSandbox({}, ['shouldAutoFillOnEdit']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const EDIT = SRC.slice(SRC.indexOf('// ===== Rev 2.31.2 (A)'), SRC.indexOf('// Rev 2.1.16 — раніше тут можна було змінити'));

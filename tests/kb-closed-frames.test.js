@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const HTML = require('./extract').readIndexWithCss();
 test('KB-5b: константи KB_CLOSE_CONFIRM_MS і setTimeout закриття немає', () => {
   assert.ok(!/const KB_CLOSE_CONFIRM_MS/.test(HTML));
   assert.ok(!/\}, KB_CLOSE_CONFIRM_MS\)/.test(HTML));

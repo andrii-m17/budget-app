@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const c = buildSandbox({}, ['SW_UPDATE_INTERVAL_MS', 'SW_UPDATE_MIN_GAP_MS', 'shouldCheckForUpdate', 'isSafeToReload', 'shouldShowUpdateBanner']);
 
 test('U1: shouldCheckForUpdate — перша перевірка одразу, далі не частіше ніж раз на хвилину', function(){

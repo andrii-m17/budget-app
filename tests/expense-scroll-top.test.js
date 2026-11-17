@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const c = buildSandbox({}, ['shouldScrollExpenseTop']);
 test('shouldScrollExpenseTop: усі тригери «+Витрата» — так; інші вкладки й невідомі тригери — ні', function(){
   ['tab', 'repeat', 'push'].forEach(function(t){ assert.equal(c.shouldScrollExpenseTop(t, { tab: 'vytraty' }), true, t); assert.equal(c.shouldScrollExpenseTop(t, { tab: 'analytics' }), false, t); });

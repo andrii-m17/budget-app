@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { buildSandbox } = require('./extract');
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = require('./extract').readIndexWithCss();
 const c = buildSandbox({}, ['monoBadgeHtml']);
 test('значок з\'являється лише для source = mono; є role і aria-label', function(){
   assert.equal(c.monoBadgeHtml(undefined), ''); assert.equal(c.monoBadgeHtml('manual'), '');
