@@ -1,0 +1,86 @@
+{
+ "light-analytics": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)",
+  "button.pay-card-hit (r 22) у section#payments-card.pay-card.is-flat (r 22, відступ 1)",
+  "span.bank-badge.bank-badge-generic (r 10.8) у div.t-row.t-row-2col (r 10, відступ 3.9)",
+  "span.bank-badge.bank-badge-generic (r 10.8) у div.t-row.t-row-2col (r 10, відступ 3.9)"
+ ],
+ "light-accounting": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-vytraty": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-structure": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-service": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-ov-settings": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-ov-notif": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-ov-profile": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-ov-monoscreen": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-ov-inbox": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-ov-trash": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-tabbar-press": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "light-tabbar-over-text": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-analytics": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)",
+  "button.pay-card-hit (r 22) у section#payments-card.pay-card.is-flat (r 22, відступ 1)",
+  "span.bank-badge.bank-badge-generic (r 10.8) у div.t-row.t-row-2col (r 10, відступ 3.9)",
+  "span.bank-badge.bank-badge-generic (r 10.8) у div.t-row.t-row-2col (r 10, відступ 3.9)"
+ ],
+ "dark-accounting": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-vytraty": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-structure": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-service": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-ov-settings": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-ov-notif": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-ov-profile": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-ov-monoscreen": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-ov-inbox": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-ov-trash": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-tabbar-press": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ],
+ "dark-tabbar-over-text": [
+  "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)"
+ ]
+}

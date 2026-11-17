@@ -9,7 +9,7 @@ const rule = sel => { const m = SRC.match(new RegExp(sel.replace(/[.*+?^${}()|[\
 test('кошик абсолютний над зоною часу, без фону; час лише міняє opacity (розміри незмінні), плавно', function(){
   const t = rule('.notif-row-trash');
   assert.match(t, /position:absolute/); assert.match(t, /opacity:0/); assert.match(t, /transition:opacity/); assert.match(t, /background:transparent/);
-  assert.match(SRC, /\.notif-row-time\{ transition:opacity \.15s ease; \}/);
+  assert.match(SRC, /\.notif-row-time\{ transition:opacity var\(--t-micro\) ease; \}/);
   assert.match(SRC, /\.notif-row:hover \.notif-row-time\{ opacity:0; \}/);
   assert.ok(!/\.notif-row:hover \.notif-row-time\{[^}]*(display|width|margin|padding|visibility)/.test(SRC));
 });

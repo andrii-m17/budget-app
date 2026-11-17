@@ -166,8 +166,8 @@ test('sw.js: коротка форма ids лише коли вміщаєтьс�
 });
 test('охоронні: query читає ids і pushId; підсвітка Monobank (highlightMonoRows, клас) і CSS підсвітки не змінені', function(){
   assert.match(SRC, /idsParam: pushActionParams\.get\('ids'\) \|\| undefined, pushId: pushActionParams\.get\('pushId'\) \|\| undefined/);
-  assert.match(SRC, /\.expense-row\.just-notified\{ background:var\(--color-info-bg\); animation:cardBlink \.8s ease-in-out 3; \}/);
-  assert.match(SRC, /\.card-debt-compact-row\.just-notified\{ background:var\(--color-info-bg\); animation:cardBlink \.8s ease-in-out 3; \}/);
+  assert.match(SRC, /\.expense-row\.just-notified\{ background:var\(--color-info-bg\); animation:cardBlink var\(--t-count\) ease-in-out 3; \}/);
+  assert.match(SRC, /\.card-debt-compact-row\.just-notified\{ background:var\(--color-info-bg\); animation:cardBlink var\(--t-count\) ease-in-out 3; \}/);
 });
 
 // ---- Rev 2.32.165 (ACTOR-HL2): наглядач — новий запис доходить після тапу, перемальовування, таймаут, заміна ----

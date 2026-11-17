@@ -17,6 +17,9 @@ function variants(src){
   out.add(all);
   // 3) лише радіуси без назв (коли назви в тесті вже старі, а значення нові)
   out.add(src.replace(/(border(?:-(?:top|bottom)-(?:left|right))?-radius:)([^;}]*)/g, (a, p, v) => p + v.replace(/(?<![\w.#-])(12|18|22|28|999)px/g, (b, n) => 'var\\(--' + RAD[n] + '\\)')));
+  // 6) тривалості DS-N4a: найближчий токен
+  const dm = (t) => t.replace(/(?<![\w.\\-])(\d*(?:\\\.)?\d+)(ms|s)(?![\w])/g, (a, n, u) => { const v = parseFloat(n.replace('\\.', '.')); const ms = u === 'ms' ? v : v * 1000; if(!ms || ms > 900) return a; const tok = ms <= 150 ? 't-micro' : ms <= 260 ? 't-s' : ms <= 400 ? 't-m' : ms <= 640 ? 't-l' : 't-count'; return 'var\\(--' + tok + '\\)'; });
+  out.add(dm(src)); out.add(dm(names)); out.add(dm(all));
   // 5) радіуси DS-N3
   const RM = { 2: 'r-2xs', 3: 'r-2xs', 5: 'r-2xs', 7: 'r-xs', 8: 'r-xs', 9: 'r-xs', 10: 'r-s', 11: 'r-s', 13: 'r-s', 14: 'r-s', 16: 'r-m', 20: 'r-l', 24: 'r-l', 26: 'r-xl' };
   const rm = (t) => t.replace(/(border(?:-(?:top|bottom)-(?:left|right))?-radius:)([^;}]*)/g, (a, p, v) => /calc|inherit/.test(v) ? a : p + v.replace(/(?<![\w.#-])(\d+)px/g, (b, n) => RM[n] ? 'var\\(--' + RM[n] + '\\)' : b));

@@ -74,7 +74,7 @@
      .avatar-badge, поза межами обрізання. */
   .avatar-badge{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; flex-shrink:0; position:relative; }
   .avatar-face.slot-pending{ opacity:0; } /* Rev 2.32.119 (PRIV-1): аватар прихований, доки невідомий колір автора (перший запуск після оновлення) */
-  .avatar-face{ transition:opacity .25s ease; display:flex; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; border-radius:50%; overflow:hidden; background:var(--accent); color:#fff; font-size:var(--fs-subhead); font-weight:700; }
+  .avatar-face{ transition:opacity var(--t-s) ease; display:flex; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; border-radius:50%; overflow:hidden; background:var(--accent); color:#fff; font-size:var(--fs-subhead); font-weight:700; }
   .avatar-face.guest{ background:var(--surface); color:var(--text-2); border:1.5px solid var(--line-strong); }
   /* Rev #30 (6D.9→6D.10) — BugFix: #profile-btn-top обгортає .avatar-badge
      у .gear-btn (прямокутне border-radius:var(--radius-md)) — inline-стиль
@@ -111,8 +111,8 @@
   .avatar-status-dot svg{ width:70%; height:70%; color:#fff; display:block; }
   .avatar-status-dot.syncing{ background:var(--color-info); }
   .avatar-status-dot.syncing svg{ animation:syncSpin .9s linear infinite; }
-  .avatar-status-dot.done{ background:var(--color-success); animation:syncPop .35s ease-out; }
-  .avatar-status-dot.error{ background:var(--color-error); animation:syncPop .35s ease-out; }
+  .avatar-status-dot.done{ background:var(--color-success); animation:syncPop var(--t-m) ease-out; }
+  .avatar-status-dot.error{ background:var(--color-error); animation:syncPop var(--t-m) ease-out; }
   @keyframes syncPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
   @keyframes syncPop{ 0%{ transform:scale(1); } 45%{ transform:scale(1.7); } 100%{ transform:scale(1); } }
   @keyframes syncSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
@@ -157,8 +157,8 @@
   .success-toast.t-error .success-toast-icon{ color:var(--color-error); }
   .success-toast-icon.static circle, .success-toast-icon.static path{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; animation:none; stroke-dasharray:none; stroke-dashoffset:0; }
   .success-toast-icon.static circle{ transform:none; }
-  .success-toast-icon circle{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-dasharray:63; stroke-dashoffset:63; animation:stDraw .38s var(--t-m) ease-out forwards; transform:rotate(-90deg); transform-box:fill-box; transform-origin:center; }
-  .success-toast-icon path{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:16; stroke-dashoffset:16; animation:stDraw .26s calc(var(--t-m) + .3s) ease-out forwards; }
+  .success-toast-icon circle{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-dasharray:63; stroke-dashoffset:63; animation:stDraw var(--t-m) var(--t-m) ease-out forwards; transform:rotate(-90deg); transform-box:fill-box; transform-origin:center; }
+  .success-toast-icon path{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:16; stroke-dashoffset:16; animation:stDraw var(--t-s) calc(var(--t-m) + var(--t-m)) ease-out forwards; }
   /* Rev 2.32.180 (TOAST-GAPS): іконка 22×22 без внутрішніх полів (viewBox обрізано до малюнка: раніше 4 px прозорого поля збільшували лівий відступ до ≈22); текстовий блок після показу підганяється під найдовший рядок (toastFitText), тож відступ праворуч до кінця тексту = лівому 18 px; проміжок іконка–текст і текст–кнопка 12 px (gap), зайвих зазорів нема. */
   .success-toast-text{ min-width:0; display:flex; flex-direction:column; gap:1px; }
   .success-toast-title{ font-size:var(--fs-subhead); font-weight:600; line-height:1.3; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
@@ -467,7 +467,7 @@
   .och-cond-row{ display:flex; align-items:center; gap:8px; width:100%; height:34px; padding:0 10px; margin-bottom:8px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:transparent; color:var(--text); font:inherit; font-size:var(--fs-caption1); cursor:pointer; text-align:left; }
   .och-cond-title{ flex:none; font-size:var(--fs-caption2); font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--text-2); }
   .och-cond-val{ flex:1; min-width:0; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text); font-size:var(--fs-caption1); }
-  .och-cond-chev{ flex:none; color:var(--text-2); transition:transform .18s ease; }
+  .och-cond-chev{ flex:none; color:var(--text-2); transition:transform var(--t-s) ease; }
   .och-cond-row[aria-expanded="true"] .och-cond-chev{ transform:rotate(90deg); }
   .och-cond[hidden]{ display:none; }
   /* Rev 2.32.172 (FIELD-HINT): єдина підказка «заповніть це поле» — тонке тепле кільце (--color-warning ≈ 55%) лише на самому полі; знімається першим введенням або через 6 с. Синя .just-notified лишається для рядків списків після сповіщень. */
@@ -657,8 +657,8 @@
   .profile-status-dot.online{ background:var(--color-success); }
   .profile-status-dot.offline{ background:var(--color-error); }
   .profile-status-dot.syncing{ background:var(--color-info); animation:syncPulse 1s ease-in-out infinite; }
-  .profile-status-dot.done{ background:var(--color-success); animation:syncPop .35s ease-out; }
-  .profile-status-dot.error{ background:var(--color-error); animation:syncPop .35s ease-out; }
+  .profile-status-dot.done{ background:var(--color-success); animation:syncPop var(--t-m) ease-out; }
+  .profile-status-dot.error{ background:var(--color-error); animation:syncPop var(--t-m) ease-out; }
   /* Rev #30 (6D.71) — картка синхронізації "Сервісу", компактна версія
      референс-макета "Варіант 1": той самий структурний принцип, що
      .service-tile/.service-wide-card нижче (icon+title+sub у рядку) +
@@ -920,9 +920,9 @@
      "pop" (~0.6с, RECORD_SYNC_DONE_MS), і плавний перехід назад до
      звичайного стану картки. Разом ≈3с — той самий порядок величини, що
      SYNC_MIN_SYNCING_MS індикатора зверху зліва. */
-  .expense-row.just-synced{ background:var(--color-info-bg); animation:cardBlink .8s ease-in-out 3; }
-  .expense-row.just-notified{ background:var(--color-info-bg); animation:cardBlink .8s ease-in-out 3; } /* Rev 2.32.95 (NOTIF-1 Rev 2): підсвітка рядків пачки Monobank у «Вхідних» зі сповіщення (як для ОЧ) */
-  .expense-row.just-synced.just-synced-done{ background:var(--color-success-bg); transition:background .3s ease; }
+  .expense-row.just-synced{ background:var(--color-info-bg); animation:cardBlink var(--t-count) ease-in-out 3; }
+  .expense-row.just-notified{ background:var(--color-info-bg); animation:cardBlink var(--t-count) ease-in-out 3; } /* Rev 2.32.95 (NOTIF-1 Rev 2): підсвітка рядків пачки Monobank у «Вхідних» зі сповіщення (як для ОЧ) */
+  .expense-row.just-synced.just-synced-done{ background:var(--color-success-bg); transition:background var(--t-m) ease; }
   @keyframes cardBlink{ 0%,100%{ opacity:1; } 50%{ opacity:.5; } }
   .sync-badge-icon{ display:inline-flex; flex-shrink:0; }
   .sync-badge-icon svg{ display:block; width:12px; height:12px; }
@@ -946,7 +946,7 @@
   /* Rev 2.1.16 — панель редагування розширена: тепер і назва/сума/дата, не
      лише категорія (перейменовано з .record-cat-edit). */
   /* Rev 2.32.5 (E1b): коротка підсвітка картки при поверненні до редагування — лише контур (без зміни розмірів), ~600 мс */
-  .expense-row-swipe.edit-return-flash{ outline:2px solid var(--accent); outline-offset:-2px; transition:outline-color .3s; }
+  .expense-row-swipe.edit-return-flash{ outline:2px solid var(--accent); outline-offset:-2px; transition:outline-color var(--t-m); }
   .record-edit-panel{ margin-top:12px; padding-top:12px; border-top:1px solid var(--line-strong); display:flex; flex-direction:column; gap:10px; cursor:default; }
   .record-edit-panel .field{ margin-bottom:0; }
   .record-edit-panel select{ width:100%; height:40px; padding:8px 10px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--surface); color:var(--text); box-sizing:border-box; }
@@ -1315,16 +1315,16 @@
   .struct-word-sub{ font-size:var(--fs-footnote); line-height:1.25; color:var(--text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .struct-dict-inner .struct-row{ min-height:52px; }
     .struct-dict-inner .struct-row + .struct-row::before{ left:16px; }
-  .struct-dict-group.just-opened .struct-dict-inner{ animation:stFade .16s ease both; }
+  .struct-dict-group.just-opened .struct-dict-inner{ animation:stFade var(--t-s) ease both; }
   /* Rev 2.32.159 (DIALOG-MOTION): словник на десктопі (миша): розгортання категорії — висота (grid-template-rows) і прозорість 0,22 с ease, стрілка обертається в такт, фон рядка/заголовка змінюється плавно 0,16 с. На дотикових пристроях нічого не змінюється (вибір варіанта акордеона як був). Ризик: grid-rows-анімація потребує iOS 16+/сучасних десктопних браузерів — там, де не анімується, група просто розгортається миттєво. */
   @media (hover:hover) and (pointer:fine){
-    #struct-dictionary .struct-dict-collapse{ display:grid; grid-template-rows:0fr; opacity:0; border-top-color:transparent; transition:grid-template-rows .22s ease, opacity .22s ease, border-color .22s ease; }
+    #struct-dictionary .struct-dict-collapse{ display:grid; grid-template-rows:0fr; opacity:0; border-top-color:transparent; transition:grid-template-rows var(--t-s) ease, opacity var(--t-s) ease, border-color var(--t-s) ease; }
     #struct-dictionary .struct-dict-group.open .struct-dict-collapse{ grid-template-rows:1fr; opacity:1; border-top-color:var(--line); }
     #struct-dictionary .struct-dict-inner{ overflow:hidden; min-height:0; }
-    #struct-dictionary .struct-dict-group:not(.open) .struct-dict-inner{ visibility:hidden; transition:visibility 0s linear .22s; }
+    #struct-dictionary .struct-dict-group:not(.open) .struct-dict-inner{ visibility:hidden; transition:visibility 0s linear var(--t-s); }
     #struct-dictionary .struct-dict-group.just-opened .struct-dict-inner{ animation:none; }
-    #struct-dictionary .struct-dict-chev{ transition:transform .22s ease; }
-    #struct-dictionary .struct-row, #struct-dictionary .struct-dict-head{ transition:background-color .16s ease; }
+    #struct-dictionary .struct-dict-chev{ transition:transform var(--t-s) ease; }
+    #struct-dictionary .struct-row, #struct-dictionary .struct-dict-head{ transition:background-color var(--t-s) ease; }
   }
   @media (prefers-reduced-motion: reduce){ .struct-dict-chev{ transition:none; } .struct-dict-group.just-opened .struct-dict-inner{ animation:none; } }
   @media (hover:hover) and (pointer:fine) and (prefers-reduced-motion: reduce){ #struct-dictionary .struct-dict-collapse{ transition:opacity 80ms linear; } #struct-dictionary .struct-dict-chev{ transition:none; } }
@@ -1469,10 +1469,10 @@
   .expense-row.notif-row.unread{ background-image:linear-gradient(var(--notif-unread-bg), var(--notif-unread-bg)); }
   .expense-row.notif-row.is-pressed{ background-color:var(--surface-2); background-image:none; } /* Rev 2.32.97: реакція на натискання (специфічність вища за .expense-row.notif-row) */
   /* Rev 2.32.143 (DESK-TRASH): кошик стоїть на місці часу (праворуч, у тій самій зоні), а не поверх нього: при наведенні/фокусі час плавно зникає (opacity), кошик плавно з'являється; обидва лишаються в потоці/абсолютно без зміни розмірів, тож рядок і текст не зсуваються і накладання немає. Фокус клавіатури на кнопці дає той самий стан (:has). */
-  .notif-row-trash{ position:absolute; top:5px; right:18px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:0; border-radius:var(--r-xs); background:transparent; color:var(--color-error); cursor:pointer; opacity:0; pointer-events:none; transition:opacity .15s ease; }
+  .notif-row-trash{ position:absolute; top:5px; right:18px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:0; border-radius:var(--r-xs); background:transparent; color:var(--color-error); cursor:pointer; opacity:0; pointer-events:none; transition:opacity var(--t-micro) ease; }
   .notif-row-trash:focus-visible{ opacity:1; pointer-events:auto; outline:2px solid var(--accent); }
   .notif-row:has(.notif-row-trash:focus-visible) .notif-row-time{ opacity:0; }
-  .notif-row-time{ transition:opacity .15s ease; }
+  .notif-row-time{ transition:opacity var(--t-micro) ease; }
   @media (hover:hover) and (pointer:fine){ .notif-row:hover .notif-row-trash{ opacity:1; pointer-events:auto; } .notif-row:hover .notif-row-time{ opacity:0; } }
   @media (prefers-reduced-motion:reduce){ .notif-row-trash, .notif-row-time{ transition:none; } }
   /* Rev 2.32.102 (NOTIF-2): вигляд журналу як у Rev 2.32.95 (без крапки, пілюль стану й підпису «джерело · час»; час праворуч; «Прочитати всі» у шапці, «Очистити архів» знизу); лишились свайп-видалення й кошик. Непрочитане: жирний заголовок і фон; оброблене й прочитане лише приглушені (повна іконка .45, сірі заголовок і текст). */
@@ -1597,17 +1597,17 @@
   .n-diag-row .ok{ color:var(--color-success); }
   .n-diag-row .bad{ color:var(--color-error); }
   /* Rev 2.32.195 (SYNC-SLOT): слот індикатора синхронізації витрати 20×20 (стани на місці); кільце — SVG stroke-dasharray, єдиний дозволений пунктир */
-  .sync-slot{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; opacity:0; transition:opacity .3s ease; }
+  .sync-slot{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; flex:none; opacity:0; transition:opacity var(--t-m) ease; }
   .sync-slot[data-s]:not([data-s=""]){ opacity:1; }
   .sync-slot[data-fade]{ opacity:0; }
   .sync-slot svg{ display:block; overflow:visible; }
   .sync-slot .sl-ring, .sync-slot .sl-close, .sync-slot .sl-fill, .sync-slot .sl-cloud{ transform-box:fill-box; transform-origin:center; }
-  .sync-slot .sl-cloud{ stroke:var(--color-error); transform:scale(1); opacity:1; transition:transform .3s ease, stroke .3s ease, opacity .3s ease; }
+  .sync-slot .sl-cloud{ stroke:var(--color-error); transform:scale(1); opacity:1; transition:transform var(--t-m) ease, stroke var(--t-m) ease, opacity var(--t-m) ease; }
   .sync-slot .sl-bang{ opacity:1; transition:opacity var(--t-s) ease; }
-  .sync-slot .sl-ring{ stroke:var(--color-info); opacity:0; transition:opacity .25s ease; }
-  .sync-slot .sl-close{ stroke:var(--color-success); stroke-dashoffset:69.1; transform:rotate(-90deg); transition:stroke-dashoffset .35s ease; }
-  .sync-slot .sl-fill{ fill:var(--color-success); transform:scale(0); transition:transform .28s cubic-bezier(.3,1.4,.5,1) var(--t-s); }
-  .sync-slot .sl-tick{ stroke-dashoffset:16; transition:stroke-dashoffset .26s ease .38s; }
+  .sync-slot .sl-ring{ stroke:var(--color-info); opacity:0; transition:opacity var(--t-s) ease; }
+  .sync-slot .sl-close{ stroke:var(--color-success); stroke-dashoffset:69.1; transform:rotate(-90deg); transition:stroke-dashoffset var(--t-m) ease; }
+  .sync-slot .sl-fill{ fill:var(--color-success); transform:scale(0); transition:transform var(--t-m) cubic-bezier(.3,1.4,.5,1) var(--t-s); }
+  .sync-slot .sl-tick{ stroke-dashoffset:16; transition:stroke-dashoffset var(--t-s) ease var(--t-m); }
   .sync-slot[data-s="syncing"] .sl-cloud{ stroke:var(--color-info); transform:translateY(.5px) scale(.55); } /* центр bbox хмаринки (12; 11,5) → центр кільця (12; 12) */
   .sync-slot[data-s="syncing"] .sl-bang{ opacity:0; }
   .sync-slot[data-s="syncing"] .sl-ring{ opacity:1; animation:syncRing 1.1s linear infinite; }
@@ -1635,9 +1635,9 @@
   .chk-box.hidden{ display:none; }
   .chk-chev{ transition:transform var(--t-s); }
   .chk-row[aria-expanded="true"] .chk-chev, .chk-it.open .chk-chev{ transform:rotate(180deg); }
-  .chk-it{ max-height:760px; overflow:hidden; border-top:1px solid var(--line); transition:max-height .35s ease, opacity .35s ease, visibility 0s; }
+  .chk-it{ max-height:760px; overflow:hidden; border-top:1px solid var(--line); transition:max-height var(--t-m) ease, opacity var(--t-m) ease, visibility 0s; }
   .chk-it:first-child{ border-top:none; }
-  .chk-it.gone{ max-height:0; opacity:0; border-top-width:0; visibility:hidden; transition:max-height .35s ease, opacity .35s ease, visibility 0s linear .35s; }
+  .chk-it.gone{ max-height:0; opacity:0; border-top-width:0; visibility:hidden; transition:max-height var(--t-m) ease, opacity var(--t-m) ease, visibility 0s linear var(--t-m); }
   .chk-it .chk-hd{ display:flex; align-items:center; gap:8px; min-height:50px; padding:0 16px; font-size:var(--fs-subhead); font-weight:500; color:var(--text); cursor:pointer; }
   .chk-tag{ margin-left:auto; font-size:var(--fs-footnote); font-weight:400; color:var(--text-2); }
   .chk-it .chk-chev{ flex:none; }
@@ -1662,8 +1662,8 @@
   .chk-fl:active, .chk-sk:active, .chk-send:active{ opacity:.7; }
   .chk-sk{ width:100%; margin-top:10px; background:var(--surface-2); border:none; color:var(--text-2); font-size:var(--fs-subhead); }
   .chk-sk.sel{ color:var(--text); outline:2px solid var(--text-2); outline-offset:2px; }
-  .chk-rz{ overflow:hidden; max-height:0; opacity:0; visibility:hidden; transition:max-height .28s ease, opacity var(--t-s) ease, visibility 0s linear .28s; }
-  .chk-rz.open{ max-height:340px; opacity:1; visibility:visible; transition:max-height .28s ease, opacity var(--t-s) ease, visibility 0s; }
+  .chk-rz{ overflow:hidden; max-height:0; opacity:0; visibility:hidden; transition:max-height var(--t-m) ease, opacity var(--t-s) ease, visibility 0s linear var(--t-m); }
+  .chk-rz.open{ max-height:340px; opacity:1; visibility:visible; transition:max-height var(--t-m) ease, opacity var(--t-s) ease, visibility 0s; }
   .chk-grp{ background:var(--surface-2); border-radius:var(--r-s); overflow:hidden; margin-top:10px; }
   .chk-grp button{ display:flex; width:100%; align-items:center; justify-content:space-between; height:48px; padding:0 14px; border:none; background:transparent; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; border-radius:0; }
   .chk-grp button + button{ border-top:1px solid var(--line); }
@@ -1692,7 +1692,7 @@
   .rec-state-code{ margin-top:12px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:var(--fs-body); font-weight:500; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:var(--text); user-select:all; -webkit-user-select:all; }
   .rec-state-hint{ margin-top:6px; font-size:var(--fs-subhead); color:var(--text-2); }
   .rec-state.is-sending .rec-state-icon{ background:var(--color-info-bg); color:var(--color-info); }
-  .chk-sent{ text-align:center; font-size:var(--fs-footnote); color:var(--color-success); margin-top:10px; opacity:0; transition:opacity .3s; height:16px; }
+  .chk-sent{ text-align:center; font-size:var(--fs-footnote); color:var(--color-success); margin-top:10px; opacity:0; transition:opacity var(--t-m); height:16px; }
   .chk-sent.on{ opacity:1; }
   @media (prefers-reduced-motion: reduce){ .chk-it, .chk-it.gone, .chk-chev, .chk-tt, .chk-sent, .chk-fl, .chk-rz, .chk-rz.open{ transition:none; } }
   .n-diag-empty{ padding:10px 14px; font-size:var(--fs-footnote); color:var(--text-2); }
@@ -1727,8 +1727,8 @@
   #notifications-drawer .nx-appear{ animation:nxAppear var(--t-s) var(--ease-out) both; }
   @media (prefers-reduced-motion: reduce){ #notifications-drawer .nx-appear{ animation:none; } }
   .n-readonly-note{ font-size:var(--fs-footnote); color:var(--text-2); padding:8px 4px 0; }
-  .service-tile.just-notified{ animation:cardBlink .8s ease-in-out 3; } /* Rev 2.32.15 (Z): підсвітка плитки експорту зі сповіщення (лише opacity) */
-  .card-debt-compact-row.just-notified{ background:var(--color-info-bg); animation:cardBlink .8s ease-in-out 3; }
+  .service-tile.just-notified{ animation:cardBlink var(--t-count) ease-in-out 3; } /* Rev 2.32.15 (Z): підсвітка плитки експорту зі сповіщення (лише opacity) */
+  .card-debt-compact-row.just-notified{ background:var(--color-info-bg); animation:cardBlink var(--t-count) ease-in-out 3; }
   .trash-sync-line{ height:16px; margin:-2px 2px 6px; font-size:var(--fs-caption1); color:var(--text-2); opacity:0; transition:opacity var(--duration-fast) var(--easing-standard); }
   .trash-sync-line.on{ opacity:1; }
   .trash-offline-banner{ margin:0 0 12px; padding:10px 12px; border-radius:var(--r-s); background:var(--color-error-bg); color:var(--text); border-left:3px solid var(--color-error); font-size:var(--fs-footnote); line-height:1.4; }
@@ -2558,14 +2558,14 @@
     .page-header-text{ padding:0; }
     .page-header-text h1{ font-size:var(--fs-title1); line-height:34px; }
     .page-header-text .page-subtitle{ font-size:var(--fs-footnote); margin-top:5px; }
-    .side{ display:block; flex:none; position:relative; width:calc(var(--side-w) + 24px); transition:width .22s ease; }
-    .side-panel{ position:fixed; z-index:20; top:12px; bottom:12px; left:12px; width:var(--side-w); box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:12px 8px; border-radius:var(--r-l); background:var(--glass); -webkit-backdrop-filter:blur(14px) saturate(160%); backdrop-filter:blur(14px) saturate(160%); border:1px solid var(--glass-edge); box-shadow:var(--glass-shadow); transition:width .22s ease; }
+    .side{ display:block; flex:none; position:relative; width:calc(var(--side-w) + 24px); transition:width var(--t-s) ease; }
+    .side-panel{ position:fixed; z-index:20; top:12px; bottom:12px; left:12px; width:var(--side-w); box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:12px 8px; border-radius:var(--r-l); background:var(--glass); -webkit-backdrop-filter:blur(14px) saturate(160%); backdrop-filter:blur(14px) saturate(160%); border:1px solid var(--glass-edge); box-shadow:var(--glass-shadow); transition:width var(--t-s) ease; }
     @media (max-height:559px){ .side-panel{ overflow-y:auto; } }
     .side-head{ display:flex; align-items:center; gap:6px; padding:2px 4px 12px; min-height:40px; }
     .side .brand-side{ flex:1; min-width:0; }
     .side .brand-side h1{ font-size:var(--fs-body); margin:0; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .side-collapse-btn{ flex:none; width:32px; height:32px; border-radius:var(--r-s); border:1px solid var(--line); background:transparent; color:var(--text-2); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
-    .side-collapse-btn svg{ width:16px; height:16px; transition:transform .22s ease; }
+    .side-collapse-btn svg{ width:16px; height:16px; transition:transform var(--t-s) ease; }
     .side-collapse-btn:focus-visible, .side button.side-tab:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
     @media (hover:hover) and (pointer:fine){ .side-collapse-btn:hover{ background:var(--surface-2); color:var(--text); } }
     .side button.side-tab{ position:relative; text-align:left; background:none; border:1px solid transparent; padding:10px 12px; border-radius:var(--r-m); font-size:var(--fs-subhead); font-weight:600; color:var(--text-2); cursor:pointer; display:flex; align-items:center; gap:10px; min-height:44px; box-sizing:border-box; width:100%; }

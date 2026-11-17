@@ -25,9 +25,9 @@ test('CSS: reduced-motion — лише затухання 0,08 с, без transl
 test('CSS: словник на десктопі — висота й прозорість 0,22 с ease, стрілка в такт, фон 0,16 с; лише миша', function(){
   const i = SRC.indexOf('@media (hover:hover) and (pointer:fine){'); assert.ok(i > 0);
   const blk = SRC.slice(i, SRC.indexOf('@media (prefers-reduced-motion', i));
-  assert.match(blk, /transition:grid-template-rows \.22s ease, opacity \.22s ease/);
-  assert.match(blk, /\.struct-dict-chev\{ transition:transform \.22s ease; \}/);
-  assert.match(blk, /background-color \.16s ease/);
+  assert.match(blk, /transition:grid-template-rows var\(--t-s\) ease, opacity var\(--t-s\) ease/);
+  assert.match(blk, /\.struct-dict-chev\{ transition:transform var\(--t-s\) ease; \}/);
+  assert.match(blk, /background-color var\(--t-s\) ease/);
   assert.match(SRC, /\.struct-dict-group\.open \.struct-dict-chev\{ transform:rotate\(180deg\)/);
 });
 

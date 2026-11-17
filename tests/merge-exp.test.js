@@ -250,7 +250,7 @@ test('спільні константи з індикатором біля ав�
   assert.ok(!/SYNC_SLOT_(HOLD|MIN)_/.test(SRC), 'власних дубльованих значень нема');
   const avatar = SRC.slice(SRC.indexOf('function scheduleSyncSettle'), SRC.indexOf('function scheduleSyncSettle') + 700);
   assert.ok(/SYNC_MIN_SYNCING_MS/.test(avatar) && /SYNC_RESULT_MS/.test(avatar), 'індикатор біля аватара — ті самі константи');
-  assert.match(SRC, /\.expense-row\.just-synced\{ background:var\(--color-info-bg\); animation:cardBlink \.8s ease-in-out 3; \}/, '3 блимання по 0,8 с');
+  assert.match(SRC, /\.expense-row\.just-synced\{ background:var\(--color-info-bg\); animation:cardBlink var\(--t-count\) ease-in-out 3; \}/, '3 блимання по 0,8 с (--t-count)');
   const old = SRC.match(/\.sync-badge-icon\.syncing\{ color:(var\(--[a-z-]+\)); \}/)[1]; assert.equal(old, 'var(--color-info)');
   const css = SRC.slice(SRC.indexOf('.sync-slot{ display:inline-flex'), SRC.indexOf('/* ===== Rev 2.32.189 (CHECKS-1)'));
   assert.ok(css.includes('.sl-ring{ stroke:' + old) && css.includes('[data-s="syncing"] .sl-cloud{ stroke:' + old), 'хмаринка й кільце в syncing — колір старої іконки');
@@ -298,7 +298,7 @@ test('джерело: слот лише для витрат, reduced-motion, т�
   const css = SRC.slice(SRC.indexOf('.sync-slot{ display:inline-flex'), SRC.indexOf('/* ===== Rev 2.32.189 (CHECKS-1)'));
   assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(css), 'лише токени'); assert.match(css, /width:20px; height:20px/);
   assert.match(css, /animation:syncRing 1\.1s linear infinite/); assert.match(css, /transform:translateY\(\.5px\) scale\(\.55\)/); assert.match(css, /stroke:var\(--color-error\)/); assert.match(css, /fill:var\(--color-success\)/); assert.match(css, /stroke:var\(--text-2\)/);
-  assert.match(css, /transition:transform \.28s cubic-bezier\(\.3,1\.4,\.5,1\) var\(--t-s\)/); assert.match(css, /transition:stroke-dashoffset \.35s ease/); assert.match(css, /transition:stroke-dashoffset \.26s ease \.38s/);
+  assert.match(css, /transition:transform var\(--t-m\) cubic-bezier\(\.3,1\.4,\.5,1\) var\(--t-s\)/); assert.match(css, /transition:stroke-dashoffset var\(--t-m\) ease/); assert.match(css, /transition:stroke-dashoffset var\(--t-s\) ease var\(--t-m\)/);
   assert.match(css, /\.sl-close\{[^}]*transform:rotate\(-90deg\)/); assert.match(css, /transform-box:fill-box; transform-origin:center/);
   assert.ok(!/dashed|dotted/.test(css));
   assert.ok(!/не збережено/.test(SRC.slice(SRC.indexOf('function conflictModel'), SRC.indexOf('function conflictDoneModel'))));

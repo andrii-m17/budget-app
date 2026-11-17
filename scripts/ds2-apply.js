@@ -73,6 +73,14 @@ function transform(decl, text){
     const RM = { '2': 'r-2xs', '3': 'r-2xs', '5': 'r-2xs', '7': 'r-xs', '8': 'r-xs', '9': 'r-xs', '10': 'r-s', '11': 'r-s', '13': 'r-s', '14': 'r-s', '16': 'r-m', '20': 'r-l', '24': 'r-l', '26': 'r-xl' };
     val = val.replace(/(?<![\w.#-])(\d+)px(?![\w%])/g, (all, n) => { if(RM[n]){ stats.radiusN3 = (stats.radiusN3 || 0) + 1; (stats.byVal = stats.byVal || {})[n] = ((stats.byVal || {})[n] || 0) + 1; return 'var(--' + RM[n] + ')'; } return all; });
   }
+  // DS-N4a: тривалості на найближчий токен (≤150 → --t-micro, 151–260 → --t-s, 261–400 → --t-m, 401–640 → --t-l, 641–900 → --t-count). Не чіпаємо: > 900 мс, infinite, !important, prefers-reduced-motion, шторки/kb-*/таббар
+  if(has('--dur') && /^(transition|transition-duration|transition-delay|animation|animation-duration|animation-delay)$/.test(prop) && !decl.keyframes){
+    const why = kbRule ? 'kb-*' : /drawer|app-modal|backdrop|\.sheet/.test(decl.sel) ? 'шторка' : /tabbar|\.tb-|bubble|scroll-top|stb-/.test(decl.sel) ? 'таббар/«вгору»' : /prefers-reduced-motion/.test(decl.sel) ? 'reduced-motion' : /!important/.test(val) ? '!important' : /infinite/.test(val) ? 'infinite' : '';
+    const times = (val.match(/(?<![\w.-])\d*\.?\d+m?s(?![\w])/g) || []).map(t => (/ms$/.test(t) ? parseFloat(t) : parseFloat(t) * 1000));
+    const long = times.some(ms => ms > 900);
+    if(why || long){ if(times.some(ms => ms > 0)) (globalThis.__durExceptions = globalThis.__durExceptions || []).push({ line: decl.line, sel: decl.sel.split(' ⟶ ').pop().slice(0, 70), prop, val: val.trim().slice(0, 80), why: why || '> 900 мс' }); }
+    else val = val.replace(/(?<![\w.-])(\d*\.?\d+)(ms|s)(?![\w])/g, (all, n, u) => { const ms = u === 'ms' ? parseFloat(n) : parseFloat(n) * 1000; if(ms === 0) return all; const tok = ms <= 150 ? 't-micro' : ms <= 260 ? 't-s' : ms <= 400 ? 't-m' : ms <= 640 ? 't-l' : 't-count'; if(tok === 't-s' && ms === 200 || tok === 't-micro' && ms === 120 || tok === 't-m' && ms === 320 || tok === 't-l' && ms === 480 || tok === 't-count' && ms === 800) stats.durExact = (stats.durExact || 0) + 1; stats.durN4 = (stats.durN4 || 0) + 1; (stats.byVal = stats.byVal || {})[all] = ((stats.byVal || {})[all] || 0) + 1; return 'var(--' + tok + ')'; });
+  }
   if(has('--fs') && prop === 'font-size' && !kbRule && !decl.keyframes){
     if(isFieldSel(decl.sel)){ globalThis.__fsExceptions.push({ line: decl.line, sel: decl.sel, val: val.trim() }); }
     else val = val.replace(/(?<![\w.#-])(\d+(?:\.5)?)px(?![\w%])/g, (all, n) => { if(FS_MAP[n]){ stats.fs = (stats.fs || 0) + 1; return 'var(--fs-' + FS_MAP[n] + ')'; } return all; });
@@ -105,8 +113,9 @@ if(has('--count')){ console.log(JSON.stringify(counts(src))); process.exit(0); }
 if(has('--offscale')){ fs.writeSync(1, JSON.stringify({ decls: parse(src).map(d => ({ line: d.line, prop: d.prop, sel: d.sel, text: src.slice(d.start, d.end) })) })); process.exit(0); }
 const from = Number(arg('--from', 1)), to = Number(arg('--to', 1e9));
 const decls = parse(src).filter(d => d.line >= from && d.line <= to).sort((a, b) => b.start - a.start);
-let out = src; const tot = { names: 0, radius: 0, colors: 0, durations: 0, fs: 0, radiusN3: 0, byVal: {} };
+let out = src; const tot = { names: 0, radius: 0, colors: 0, durations: 0, fs: 0, radiusN3: 0, durN4: 0, byVal: {} };
 decls.forEach(d => { const orig = out.slice(d.start, d.end); const r = transform(d, orig); if(r.text !== orig){ out = out.slice(0, d.start) + r.text + out.slice(d.end); Object.keys(tot).forEach(k => { if(k === 'byVal'){ Object.keys(r.stats.byVal || {}).forEach(v => { tot.byVal[v] = (tot.byVal[v] || 0) + r.stats.byVal[v]; }); } else tot[k] += r.stats[k] || 0; }); } });
 console.log(JSON.stringify({ from, to, replaced: tot, before: counts(src), after: counts(out), lines: src.split('\n').length === out.split('\n').length }));
 if(has('--fs')) console.log(JSON.stringify({ fsExceptions: globalThis.__fsExceptions }));
+if(has('--dur')) console.log(JSON.stringify({ durExceptions: globalThis.__durExceptions || [] }));
 if(!has('--dry')) fs.writeFileSync(FILE, out);

@@ -42,3 +42,10 @@ test('DS-N3: сирих border-radius у px у app.css немає (лише то
   assert.equal(counts(APP).radiusPx, 0);
   assert.ok(TOK.indexOf('--r-xs: 8px') !== -1 && TOK.indexOf('--r-2xs: 4px') !== -1);
 });
+test('DS-N4a: тривалості (transition/animation) у app.css на токени --t-*, крім винятків (шторки, kb-*, таббар/«вгору», infinite, > 900 мс, reduced-motion, !important)', function(){
+  const r = require('node:child_process').spawnSync('node', [path.join(__dirname, '..', 'scripts', 'ds2-apply.js'), '--dur', '--dry'], { encoding: 'utf8', maxBuffer: 1e9 });
+  const lines = r.stdout.trim().split('\n');
+  assert.equal(JSON.parse(lines[0]).replaced.durN4, 0, 'є тривалість, яку можна замінити на токен');
+  const ex = JSON.parse(lines[1]).durExceptions;
+  assert.ok(ex.length <= 30, 'винятків не більше 30, зараз ' + ex.length);
+});
