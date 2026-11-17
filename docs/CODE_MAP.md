@@ -2,6 +2,8 @@
 
 **Стилі (Rev 2.32.333, STRUCT-1):** увесь CSS у `css/app.css` (колишній єдиний блок `<style>` дослівно; підключення `<link rel="stylesheet" href="./css/app.css">` у `<head>`); `sw.js`: у `APP_SHELL` і мережа-спочатку для `/css/*.css`. Тести читають стилі через `readAppCss()` / `readIndexWithCss()` (`tests/extract.js`); `readIndexWithCss()` підставляє css на місце `<link>`, тож перевірки порядку частин документа працюють як раніше.
 
+**Токени (Rev 2.32.334, DS-1):** `css/tokens.css` — блоки змінних `:root` / `:root[data-theme="dark"]` (дослівно з колишнього `app.css`) і нові назви DS-PLAN §1 як псевдоніми; підключається перед `css/app.css`, обидва посилання з `?v=<APP_VERSION>`. Лишився лише `:root{--motion-*}` у `@media (prefers-reduced-motion)` в `app.css` (свідомо: перевизначення). `readAppCss()` (`tests/extract.js`) читає обидва файли в порядку підключення.
+
 Номери рядків орієнтовні (зсуваються з правками): шукай за назвою функції (`grep -n "function name"`). Оновлюй карту, коли змінюєш описану тут частину.
 
 ## Конвеєр клавіатури й листів (єдиний для всіх `.drawer` і `.app-modal`)

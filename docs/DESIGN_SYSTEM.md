@@ -246,3 +246,17 @@
 
 ## Іконки сторонніх наборів
 - Tabler Icons (MIT, https://tabler.io/icons): `message-report` (картка «Повідомити про проблему», Rev 2.32.260), а також `loader-2`, `check`, `cloud-off`, `copy` у шторці звіту. Перелику ліцензій у застосунку немає, тому згадка тут. Іконки малюються як вбудований SVG із `currentColor`.
+
+## Нові назви токенів → старі (DS-1, Rev 2.32.334)
+Файл `css/tokens.css`: перенесені блоки змінних (дослівно) і наприкінці нові назви з `docs/specs/DS-PLAN.md` §1. Нові назви поки що **псевдоніми**: вигляд не змінюється, у правилах `app.css` вони ще не вживаються (це DS-2); нові значення палітри — окрема видима ревізія. Мітка `?v=<APP_VERSION>` у посиланнях на стилі перевіряється гачком перед пушем і `tests/css-links.test.js`.
+| Нова назва | Дорівнює (стара) | Примітка |
+|---|---|---|
+| `--bg`, `--surface`, `--surface-2` | `--color-bg`, `--color-surface`, `--color-surface-hover` | |
+| `--line`, `--line-strong` | `--color-border`, `--color-border-strong` | |
+| `--text`, `--text-2`, `--text-3` | `--color-text-primary`, `--color-text-secondary`, `--color-text-tertiary` | значення DS-PLAN (`#8391A7` тощо) застосує DS-2 |
+| `--accent`, `--accent-text`, `--accent-bg`, `--accent-line` | `--color-primary`, `--ui-accent-text`, `--ui-accent-bg`, `--ui-accent-border` | |
+| `--income`, `--expense`, `--debt`, `--inst` | `--color-success`, `--color-error`, `--color-warning`, `--color-info` | найближчі за змістом; точні значення DS-PLAN — DS-2 |
+| `--glass`, `--glass-press`, `--glass-edge`, `--glass-edge-2`, `--glass-shadow` | `--color-glass-bg`, `--color-glass-pressed-bg`, `--color-glass-border`, `--color-glass-shimmer`, `--shadow-glass` | |
+| `--r-s`, `--r-m`, `--r-pill` | `--ui-r-small` (12), `--ui-r-control` (18), `--ui-r-pill` (999) | |
+| `--t-micro`, `--t-s`, `--t-m`, `--t-l`, `--t-count` | `--motion-micro`, `--motion-s`, `--motion-m`, `--motion-l`, `--motion-count` | `--t-count` у DS-PLAN 800 мс, зараз 1000 (`--motion-count`) |
+| `--r-l` 22, `--r-xl` 28, `--stagger` 50 мс, `--cat-bar`, `--sub-bar`, `--k1…--k6` | значення DS-PLAN (темна й світла) | відповідників немає; ще ніде не вживаються |

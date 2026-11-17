@@ -17,7 +17,7 @@ test('T1: .trash-screen лежить під таббаром (z-index менши
   assert.match(SRC, /\.main-col\{[^}]*padding-bottom:112px/);
 });
 test('T1: шторки, модалки й тости лишаються над таббаром; клавіатура ховає таббар як і раніше', () => {
-  const zOf = sel => Number((SRC.slice(SRC.indexOf(sel + '{')).match(/z-index:(\d+)/) || [])[1]);
+  const zOf = sel => { const m = new RegExp('\\n\\s*' + sel.replace(/\./g, '\\.') + '\\{').exec(SRC); return Number((SRC.slice(m ? m.index : SRC.indexOf(sel + '{')).match(/z-index:(\d+)/) || [])[1]); }; // Rev 2.32.334 (DS-1): селектор на початку рядка (у коментарях токенів теж трапляється «.drawer{»)
   const tb = 20;
   assert.ok(zOf('.drawer') > tb && zOf('.app-modal') > tb && zOf('.success-toast-host') > tb && zOf('.drawer-backdrop') > tb);
   assert.match(SRC, /body\.kb-open nav\.tabbar\{ display:none; \}/);

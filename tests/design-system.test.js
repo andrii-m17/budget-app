@@ -105,8 +105,8 @@ test('M4b: !important лишився лише в блоці prefers-reduced-moti
   // Rev 2.32.333 (STRUCT-1): стилі лише в css/app.css; у справжньому index.html жодного <style> і є посилання на файл
   const rawIndex = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
   assert.equal((rawIndex.match(/<style/g) || []).length, 0, 'у index.html немає <style>');
-  assert.equal((rawIndex.match(/<link rel="stylesheet" href="\.\/css\/app\.css">/g) || []).length, 1, 'одне посилання на css/app.css');
-  assert.ok(/'\.\/css\/app\.css'/.test(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'sw.js'), 'utf8')), 'css/app.css у APP_SHELL sw.js');
+  assert.deepEqual(require('./extract').cssLinks(rawIndex), ['css/tokens.css', 'css/app.css'], 'посилання: tokens.css, потім app.css');
+  assert.ok(/'\.\/css\/tokens\.css'/.test(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'sw.js'), 'utf8')) && /'\.\/css\/app\.css'/.test(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'sw.js'), 'utf8')), 'css/tokens.css і css/app.css у APP_SHELL sw.js');
   assert.ok(!/margin-right:0 !important|color:transparent !important|caret-color:transparent !important/.test(SRC));
 });
 

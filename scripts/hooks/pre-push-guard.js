@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Гачок PreToolUse (Bash). Спрацьовує лише на `git push`:
 //   1) node --test має проходити;
-//   2) APP_VERSION (index.html) має входити в CACHE_NAME (sw.js);
+//   2) APP_VERSION (index.html) має входити в CACHE_NAME (sw.js), і мітка ?v= у посиланнях на css/*.css дорівнює APP_VERSION;
 //   3) у docs/ROADMAP.md має бути запис про поточну версію.
 // Блокує через exit 2 (stderr бачить Claude). Ручний запуск: node scripts/hooks/pre-push-guard.js --manual
 'use strict';
@@ -50,6 +50,14 @@ if (!appVersion) {
   if (cacheName && !cacheName.includes(appVersion)) {
     fail('Push заблоковано: APP_VERSION (' + appVersion + ') не збігається з CACHE_NAME (' + cacheName + '). Онови обидва (навичка rev-release).');
   }
+  // 2б) Rev 2.32.334 (DS-1): мітка ?v= у посиланнях на стилі = APP_VERSION (інакше браузер/SW віддасть застарілий файл стилів)
+  try {
+    const idx = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const links = idx.match(/<link rel="stylesheet" href="\.\/css\/[a-z0-9-]+\.css[^"]*">/g) || [];
+    links.forEach(function (l) {
+      if (l.indexOf('?v=' + appVersion + '"') === -1) fail('Push заблоковано: у посиланні на стилі ' + l + ' мітка ?v= не дорівнює APP_VERSION (' + appVersion + '). Онови мітку в index.html (навичка rev-release).');
+    });
+  } catch (_) {}
   // 3) ROADMAP
   let roadmap = '';
   try { roadmap = fs.readFileSync(path.join(ROOT, 'docs/ROADMAP.md'), 'utf8'); } catch (_) {}

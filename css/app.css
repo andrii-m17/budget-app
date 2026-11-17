@@ -1,111 +1,3 @@
-  :root{
-    color-scheme: light;
-    /* --- Design System v2.0 — єдине джерело істини (замінює v1.1/v1.2) --- */
-    --color-bg:#F7F8FA; --color-surface:#FFFFFF; --color-surface-hover:#F1F3F5;
-    --color-border:#E6EAF2; --color-border-strong:#E6EAF2;
-    --color-text-primary:#101828; --color-text-secondary:#64748B; --color-muted:#64748B;
-    --color-hover-overlay:rgba(16,24,40,.04); --color-active-overlay:rgba(16,24,40,.07);
-    --color-disabled-bg:#F2F4F7; --color-disabled-text:#D0D5DD;
-
-    --color-primary:#22C55E; --color-primary-bg:#EAFBF1; --color-primary-hover:#16A34A;
-    --color-success:#22C55E; --color-success-bg:#EAFBF1;
-    --color-warning:#F59E0B; --color-warning-bg:#FEF3E2; --color-warning-hover:#D97706;
-    --color-error:#EF4444; --color-error-bg:#FDECEC; --color-error-hover:#DC2626;
-    --color-info:#3B82F6; --color-info-bg:#EAF1FE;
-    --color-expense:#101828; --color-expense-bg:#F1F3F5;
-    --color-accent-purple:#9333EA; --color-accent-purple-bg:#F5E9FE;
-    /* Rev #30 (6D.62) — Cloud Sync UI: автор-маркер (Користувач А=--color-info,
-       уже використаний для іконки "ЗП <ім'я 1>"; Користувач Б потребує ОКРЕМОГО
-       рожевого — --color-accent-purple вже зайнятий іконкою "ЗП Оля" в
-       іншому, непов'язаному контексті, свідомо новий токен, не перевикористання). */
-    --color-accent-pink:#EC4899; --color-accent-pink-bg:#FCE7F3;
-
-    /* Rev 2.6.0 — нові токени: раніше ці кольори жили як прямі hex-значення
-       поза системою змінних (SVG-графіки, треки прогрес-барів, приглушені
-       підписи заголовків таблиць) — тому не підхоплювали б темну тему
-       автоматично. Винесено окремо, а не змішано з уже наявними
-       --color-muted/--color-border, бо це візуально інші відтінки
-       (світліший/приглушеніший), які потребують ВЛАСНОГО темного варіанту. */
-    --color-text-tertiary:#94A3B8;
-    --color-chart-grid:#D1D5DB;
-    --color-track-bg:#F1F5F9;
-
-    /* Rev 2.6.0 — "скляна" капсула нижнього таббару (Rev 2.4.x) досі мала
-       пряму білизну rgba(255,255,255,...) — на темному фоні виглядало б як
-       яскрава пляма замість скла. Власні токени, а не --color-surface,
-       бо ефект напівпрозорого скла (backdrop-filter) працює лише з rgba(),
-       а не суцільним кольором поверхні. */
-    --color-glass-bg:rgba(255,255,255,.52);
-    --color-glass-pressed-bg:rgba(255,255,255,.74);
-    --color-glass-border:rgba(255,255,255,.7);
-    --color-glass-shimmer:rgba(255,255,255,.65);
-    --shadow-glass:0 10px 32px rgba(16,24,40,.16), 0 2px 8px rgba(16,24,40,.06), inset 0 1px 0 rgba(255,255,255,.5);
-
-    --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:24px;
-    --space-6:32px; --space-7:40px; --space-8:48px; --space-9:64px;
-    --radius-sm:10px; --radius-md:12px; --radius-lg:20px; --radius-xl:24px;
-    --shadow-sm:0 2px 10px rgba(15,23,42,.05);
-    --shadow-md:0 2px 10px rgba(15,23,42,.05);
-    --shadow-lg:0 2px 10px rgba(15,23,42,.05);
-    --duration-fast:120ms; --duration-base:180ms; --duration-slow:240ms;
-    --easing-standard:cubic-bezier(.4,0,.2,1);
-    /* Rev 2.24.0 (M1) — токени руху. Базові тривалості множаться на --motion-k (Rev 2.32.0 (F): стала 1, «Стандартна»;
-       тест motion-intensity завершено). JS-дзеркало: MOTION_BASE_MS у motionDuration(). Існуючі --duration-* не чіпаємо
-       (вигляд не змінюється, M1 — лише рух). */
-    --motion-k:1;
-    --motion-micro:calc(120ms * var(--motion-k)); --motion-s:calc(200ms * var(--motion-k)); --motion-m:calc(320ms * var(--motion-k));
-    --motion-l:calc(480ms * var(--motion-k)); --motion-count:calc(1000ms * var(--motion-k));
-    --motion-chart:calc(900ms * var(--motion-k)); --motion-bars:calc(700ms * var(--motion-k)); --motion-card:calc(420ms * var(--motion-k)); /* Rev 2.27.0 (M2.1) */
-    --ease-standard:cubic-bezier(.4,0,.2,1); --ease-out:cubic-bezier(.22,1,.36,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
-  }
-  /* Rev 2.6.0 — темна палітра. Керується атрибутом data-theme на <html>,
-     який виставляє JS (applyTheme()) ще ДО першого рендеру (синхронний
-     скрипт у самому початку <head>, щоб уникнути "спалаху світлої теми"
-     при завантаженні). CSS-селектор [data-theme="dark"] навмисно НЕ
-     дублюється через @media(prefers-color-scheme:dark) — вибір "Системна"
-     теж резолвиться в JS у явний атрибут, тому одне єдине джерело істини
-     для теми, а не два різні механізми, які можуть розійтись.
-     Принцип підбору кольорів: акцентні (зелений/червоний/жовтий/синій/
-     фіолетовий) лишаються впізнаваними, але трохи СВІТЛІШими за light-
-     версію — темний фон вимагає світлішого акценту для того самого
-     відчуття контрасту (протилежний напрям до звичного "щоб було темніше
-     при hover"). Фонові -bg відтінки (--color-*-bg) замінені з суцільних
-     пастельних на напівпрозорі rgba() того самого акцентного кольору —
-     суцільний блідо-м'ятний/бежевий фон на темній картці виглядав би як
-     "вирізана світла пляма", а напівпрозорий тон читається як природне
-     підсвічування поверх темної картки. */
-  :root[data-theme="dark"]{
-    color-scheme: dark;
-    --color-bg:#0B0F16; --color-surface:#151B26; --color-surface-hover:#1E2530;
-    --color-border:#262E3B; --color-border-strong:#2E3745;
-    --color-text-primary:#F1F4F8; --color-text-secondary:#94A0B4; --color-muted:#94A0B4;
-    --color-hover-overlay:rgba(255,255,255,.06); --color-active-overlay:rgba(255,255,255,.1);
-    --color-disabled-bg:#1A212C; --color-disabled-text:#4B5563;
-
-    --color-primary:#22C55E; --color-primary-bg:rgba(34,197,94,.16); --color-primary-hover:#34D673;
-    --color-success:#22C55E; --color-success-bg:rgba(34,197,94,.16);
-    --color-warning:#F59E0B; --color-warning-bg:rgba(245,158,11,.16); --color-warning-hover:#FBBF24;
-    --color-error:#F87171; --color-error-bg:rgba(239,68,68,.18); --color-error-hover:#FCA5A5;
-    --color-info:#60A5FA; --color-info-bg:rgba(59,130,246,.18);
-    --color-expense:#F1F4F8; --color-expense-bg:#1E2530;
-    --color-accent-purple:#C084FC; --color-accent-purple-bg:rgba(147,51,234,.2);
-    /* Rev #30 (6D.62) — той самий новий токен, що light-тема вище. */
-    --color-accent-pink:#F472B6; --color-accent-pink-bg:rgba(236,72,153,.2);
-
-    --color-text-tertiary:#7C8BA3;
-    --color-chart-grid:#29323F;
-    --color-track-bg:#1E2530;
-
-    --color-glass-bg:rgba(21,27,38,.62);
-    --color-glass-pressed-bg:rgba(31,38,52,.82);
-    --color-glass-border:rgba(255,255,255,.1);
-    --color-glass-shimmer:rgba(255,255,255,.22);
-    --shadow-glass:0 10px 32px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.08);
-
-    --shadow-sm:0 2px 10px rgba(0,0,0,.35);
-    --shadow-md:0 2px 12px rgba(0,0,0,.35);
-    --shadow-lg:0 4px 18px rgba(0,0,0,.45);
-  }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   /* Rev 2.22.87 (6D.160) BugFix — живий тест (Web Inspector, числове
      підтвердження): getComputedStyle(.submit-btn).fontSize сам звітував
@@ -1899,21 +1791,6 @@
      Свайп-риска (grab handle) НЕ додається: перевірено (6D.11 крок 0) —
      її ніколи не було в коді (ні візуально, ні як drag-to-dismiss логіка),
      лише на оригінальному дизайн-референсі. */
-  /* Rev 2.22.87 (6D.160) BugFix — --drawer-bottom-base: той самий вираз,
-     що раніше був буквально продубльований у .drawer{bottom} і
-     .drawer.open{bottom} нижче — винесено в один CSS custom property, щоб
-     нова max-height нижче могла посилатись на ТЕ САМЕ число без ризику
-     розбіжності при майбутній зміні однієї з трьох копій.
-     --base-vh (px) — єдине число, яке реально рахує JS (updateKeyboardInset(),
-     той самий надійний baseViewportHeight, що й --kb-inset, 6D.158) —
-     решта (safe-area зверху, нижня прив'язка, клавіатура, запас) чисто
-     декларативно віднімається тут-таки в CSS, щоб JS не мусив знати про
-     env(safe-area-inset-top) чи дублювати --drawer-bottom-base вдруге.
-     100vh/0px у var(...,) — фолбек ЛИШЕ на вікно ДО першого виклику
-     updateKeyboardInset() (виконується одразу при старті скрипта). */
-  :root{
-    --drawer-bottom-base:max(100px, calc(env(safe-area-inset-bottom) + 80px));
-  }
   /* Rev 2.22.88 (6D.161) BugFix — живий тест (iPhone, Web Inspector):
      ~100px --drawer-bottom-base існує, щоб відступити від home-indicator,
      КОЛИ клавіатури нема — коли клавіатура вже відкрита, вона сама візуально
@@ -2039,8 +1916,6 @@
      повертає ТОЧНО natural, коли вона й так влазить (тоді max-height
      ефективно взагалі нічого не обрізає, 0px зміни замість 5), і лише
      обмежує, коли справді бракує місця. */
-  /* Rev 2.32.273 (KB-19): одна тривалість і одна крива для відкриття, зміни висоти, прокрутки й закриття (kbMotion; значення дублюють KB_MOTION_DUR/KB_MOTION_CURVE, їх звіряє тест tests/kb-motion-guard.test.js). Крива клавіатури UIKit ≈ cubic-bezier(0.38, 0.7, 0.125, 1) за 250 мс. */
-  :root{ --kb-dur:250ms; --kb-ease:cubic-bezier(0.38, 0.7, 0.125, 1); }
   html.kb-sheet .drawer.open{ max-height:calc(var(--sheet-max-h, 100vh) - env(safe-area-inset-top, 0px)); transform:translate3d(0, calc(-1px * var(--sheet-lift, 0)), 0); transition:transform var(--kb-dur) var(--kb-ease); } /* Rev 2.32.262 (KB-9): max-height входить у той самий перехід, що й підйом (раніше міняв висоту листа миттєво: 498 ↔ 471) */
   /* Rev 2.23.13 (6D.182) — закриття (exitKbSheet()) навмисно інша крива й
      тривалість за промтом (250мс, інший cubic-bezier) — html.kb-sheet-closing
@@ -2817,21 +2692,6 @@
      --ui-* — ПСЕВДОНІМИ існуючих токенів (нічого не перейменовано); значення поверхні/межі/тіні беруться з таббару для обох тем.
      Rev 2.30.0 (M4b): «Скло» — єдиний стиль (тест button-style завершено, гілки data-ui прибрано). Правила мають префікс `html:root` — він дає ту саму специфічність (0,1,1), що мав `html[data-ui="glass"]`, тож каскад лишився без змін.
      backdrop-filter на кнопках НЕ вживаємо (лише таббар, scroll-top і шапки шторок): "скло" = напівпрозорий фон + межа 1px + inset-відблиск + легка тінь. */
-  :root{
-    --ui-r-container:26px; --ui-r-control:18px; --ui-r-small:12px; --ui-r-pill:999px;
-    --ui-h-control:48px; --ui-min-target:44px;
-    --ui-glass:var(--color-glass-bg); --ui-glass-press:var(--color-glass-pressed-bg); --ui-glass-border:var(--color-glass-border);
-    --ui-btn-border:rgba(16,24,40,.10); --ui-btn-highlight:rgba(255,255,255,.9); --ui-btn-shadow:0 2px 8px rgba(16,24,40,.08);
-    --ui-text:var(--color-text-primary); --ui-text-2:var(--color-text-secondary);
-    --ui-accent:var(--color-primary); --ui-accent-bg:rgba(34,197,94,.16); --ui-accent-border:rgba(34,197,94,.32);
-    --ui-accent-strong:#15803D; --ui-accent-text:#166534;
-    --ui-danger:var(--color-error); --ui-danger-strong:#DC2626; --ui-danger-text:#B91C1C; --ui-danger-glass:rgba(239,68,68,.08);
-    --ui-success:var(--color-success); --ui-success-strong:#15803D; --ui-warning-strong:#B45309; --ui-warning-text:#B45309; /* Rev 2.32.16: жовтогарячий ТЕКСТ ≥4,5:1 на світлому тлі */
-  }
-  :root[data-theme="dark"]{
-    --ui-btn-border:rgba(255,255,255,.10); --ui-btn-highlight:rgba(255,255,255,.08); --ui-btn-shadow:0 2px 8px rgba(0,0,0,.35);
-    --ui-accent-text:#34D673; --ui-danger-text:#F87171; --ui-warning-text:#F59E0B;
-  }
   /* Зона натискання ≥44: невидиме розширення ::after (--ui-hit) — розмір і розкладка не змінюються. position:relative через :where (0 специфічності): існуючі absolute/fixed лишаються. */
   html:root :where(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
   html:root :is(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .exp-del, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link)::after,

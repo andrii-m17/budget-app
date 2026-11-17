@@ -156,12 +156,19 @@ function evalInSandbox(context, expr){
   return vm.runInContext(expr, context);
 }
 
-// Rev 2.32.333 (STRUCT-1): стилі живуть у css/app.css, а не в index.html. readAppCss() — сам файл стилів; readIndexWithCss() — index.html із вмістом css/app.css, підставленим на місце <link rel="stylesheet" href="./css/app.css"> (рівно там, де колись був блок <style>): тести з перевірками CSS і порядку частин документа читають текст як раніше.
-function readAppCss(){ return require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'css', 'app.css'), 'utf8'); }
+// Rev 2.32.333 (STRUCT-1), Rev 2.32.334 (DS-1): стилі живуть у css/tokens.css і css/app.css (у порядку підключення в <head>), а не в index.html. cssLinks() — перелік файлів стилів із посилань index.html; readAppCss() — їхній вміст підряд; readIndexWithCss() — index.html, де перше посилання замінено блоком <style> з усім вмістом, а решту посилань прибрано (рівно там, де колись був блок <style>): тести з перевірками CSS і порядку частин документа читають текст як раніше.
+const CSS_LINK_RE = /<link rel="stylesheet" href="\.\/(css\/[a-z0-9-]+\.css)(?:\?v=[^"]*)?">(?:<!--[^]*?-->)?/g;
+function cssLinks(html){
+  const h = html || require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  return Array.from(h.matchAll(CSS_LINK_RE)).map(function(m){ return m[1]; });
+}
+function readAppCss(){
+  return cssLinks().map(function(f){ return require('node:fs').readFileSync(require('node:path').join(__dirname, '..', f), 'utf8'); }).join('');
+}
 function readIndexWithCss(){
   const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
-  const re = /<link rel="stylesheet" href="\.\/css\/app\.css">(<!--[^]*?-->)?/;
-  if(!re.test(html)) throw new Error('index.html: немає <link rel="stylesheet" href="./css/app.css">');
-  return html.replace(re, function(){ return '<style>\n' + readAppCss() + '</style>'; });
+  if(!cssLinks(html).length) throw new Error('index.html: немає посилань на css/*.css');
+  let first = true;
+  return html.replace(CSS_LINK_RE, function(){ if(!first) return ''; first = false; return '<style>\n' + readAppCss() + '</style>'; });
 }
-module.exports = { extractFunctionSource, extractConstSource, buildSandbox, evalInSandbox, readAppCss, readIndexWithCss };
+module.exports = { extractFunctionSource, extractConstSource, buildSandbox, evalInSandbox, readAppCss, readIndexWithCss, cssLinks };
