@@ -29,7 +29,8 @@ test('значки: календар (Наступний), жовте «!», н�
 test('кольори підписів: «N без позначки» warning, назви у приглушеному токені; токен існує', function(){
   assert.match(SRC, /\.pay-msg\.amber \.l \.head\{ color:var\(--color-warning\); \}/);
   assert.match(SRC, /\.pay-msg \.l \.tail\{ color:var\(--text-3\); \}/);
-  assert.ok(/--color-text-tertiary:#94A3B8/.test(SRC) && /--color-text-tertiary:#7C8BA3/.test(SRC));
+  // Rev 2.32.339 (DS-N1): --text-3 має власні значення (макет), --color-text-tertiary — псевдонім на нього
+  assert.ok(/--text-3:#667085/.test(SRC) && /--text-3:#8391A7/.test(SRC) && /--color-text-tertiary:var\(--text-3\)/.test(SRC));
 });
 test('«без позначки»: без дати, лише назви через кому; заголовок і перелік окремо', function(){
   const m = model({ installments: [I('Стара А', 4), I('Стара Б', 5), I('Ок', 17)], debtsByMonth: [D('Стара А', '2026-10'), D('Стара Б', '2026-10'), D('Ок', '2026-10')] });

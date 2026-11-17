@@ -2,13 +2,13 @@
   :root{
     color-scheme: light;
     /* --- Design System v2.0 — єдине джерело істини (замінює v1.1/v1.2) --- */
-    --color-bg:#F7F8FA; --color-surface:#FFFFFF; --color-surface-hover:#F1F3F5;
-    --color-border:#E6EAF2; --color-border-strong:#E6EAF2;
-    --color-text-primary:#101828; --color-text-secondary:#64748B; --color-muted:#64748B;
+    --color-bg:var(--bg); --color-surface:var(--surface); --color-surface-hover:var(--surface-2);
+    --color-border:var(--line); --color-border-strong:var(--line-strong);
+    --color-text-primary:var(--text); --color-text-secondary:var(--text-2); --color-muted:#64748B;
     --color-hover-overlay:rgba(16,24,40,.04); --color-active-overlay:rgba(16,24,40,.07);
     --color-disabled-bg:#F2F4F7; --color-disabled-text:#D0D5DD;
 
-    --color-primary:#22C55E; --color-primary-bg:#EAFBF1; --color-primary-hover:#16A34A;
+    --color-primary:var(--accent); --color-primary-bg:#EAFBF1; --color-primary-hover:#16A34A;
     --color-success:#22C55E; --color-success-bg:#EAFBF1;
     --color-warning:#F59E0B; --color-warning-bg:#FEF3E2; --color-warning-hover:#D97706;
     --color-error:#EF4444; --color-error-bg:#FDECEC; --color-error-hover:#DC2626;
@@ -27,7 +27,7 @@
        автоматично. Винесено окремо, а не змішано з уже наявними
        --color-muted/--color-border, бо це візуально інші відтінки
        (світліший/приглушеніший), які потребують ВЛАСНОГО темного варіанту. */
-    --color-text-tertiary:#94A3B8;
+    --color-text-tertiary:var(--text-3);
     --color-chart-grid:#D1D5DB;
     --color-track-bg:#F1F5F9;
 
@@ -36,11 +36,11 @@
        яскрава пляма замість скла. Власні токени, а не --color-surface,
        бо ефект напівпрозорого скла (backdrop-filter) працює лише з rgba(),
        а не суцільним кольором поверхні. */
-    --color-glass-bg:rgba(255,255,255,.52);
-    --color-glass-pressed-bg:rgba(255,255,255,.74);
-    --color-glass-border:rgba(255,255,255,.7);
-    --color-glass-shimmer:rgba(255,255,255,.65);
-    --shadow-glass:0 10px 32px rgba(16,24,40,.16), 0 2px 8px rgba(16,24,40,.06), inset 0 1px 0 rgba(255,255,255,.5);
+    --color-glass-bg:var(--glass);
+    --color-glass-pressed-bg:var(--glass-press);
+    --color-glass-border:var(--glass-edge);
+    --color-glass-shimmer:var(--glass-edge-2);
+    --shadow-glass:var(--glass-shadow);
 
     --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:24px;
     --space-6:32px; --space-7:40px; --space-8:48px; --space-9:64px;
@@ -77,13 +77,13 @@
      підсвічування поверх темної картки. */
   :root[data-theme="dark"]{
     color-scheme: dark;
-    --color-bg:#0B0F16; --color-surface:#151B26; --color-surface-hover:#1E2530;
-    --color-border:#262E3B; --color-border-strong:#2E3745;
-    --color-text-primary:#F1F4F8; --color-text-secondary:#94A0B4; --color-muted:#94A0B4;
+    --color-bg:var(--bg); --color-surface:var(--surface); --color-surface-hover:var(--surface-2);
+    --color-border:var(--line); --color-border-strong:var(--line-strong);
+    --color-text-primary:var(--text); --color-text-secondary:var(--text-2); --color-muted:#94A0B4;
     --color-hover-overlay:rgba(255,255,255,.06); --color-active-overlay:rgba(255,255,255,.1);
     --color-disabled-bg:#1A212C; --color-disabled-text:#4B5563;
 
-    --color-primary:#22C55E; --color-primary-bg:rgba(34,197,94,.16); --color-primary-hover:#34D673;
+    --color-primary:var(--accent); --color-primary-bg:rgba(34,197,94,.16); --color-primary-hover:#34D673;
     --color-success:#22C55E; --color-success-bg:rgba(34,197,94,.16);
     --color-warning:#F59E0B; --color-warning-bg:rgba(245,158,11,.16); --color-warning-hover:#FBBF24;
     --color-error:#F87171; --color-error-bg:rgba(239,68,68,.18); --color-error-hover:#FCA5A5;
@@ -93,15 +93,15 @@
     /* Rev #30 (6D.62) — той самий новий токен, що light-тема вище. */
     --color-accent-pink:#F472B6; --color-accent-pink-bg:rgba(236,72,153,.2);
 
-    --color-text-tertiary:#7C8BA3;
+    --color-text-tertiary:var(--text-3);
     --color-chart-grid:#29323F;
     --color-track-bg:#1E2530;
 
-    --color-glass-bg:rgba(21,27,38,.62);
-    --color-glass-pressed-bg:rgba(31,38,52,.82);
-    --color-glass-border:rgba(255,255,255,.1);
-    --color-glass-shimmer:rgba(255,255,255,.22);
-    --shadow-glass:0 10px 32px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.08);
+    --color-glass-bg:var(--glass);
+    --color-glass-pressed-bg:var(--glass-press);
+    --color-glass-border:var(--glass-edge);
+    --color-glass-shimmer:var(--glass-edge-2);
+    --shadow-glass:var(--glass-shadow);
 
     --shadow-sm:0 2px 10px rgba(0,0,0,.35);
     --shadow-md:0 2px 12px rgba(0,0,0,.35);
@@ -130,25 +130,35 @@
     --ui-glass:var(--color-glass-bg); --ui-glass-press:var(--color-glass-pressed-bg); --ui-glass-border:var(--color-glass-border);
     --ui-btn-border:rgba(16,24,40,.10); --ui-btn-highlight:rgba(255,255,255,.9); --ui-btn-shadow:0 2px 8px rgba(16,24,40,.08);
     --ui-text:var(--color-text-primary); --ui-text-2:var(--color-text-secondary);
-    --ui-accent:var(--color-primary); --ui-accent-bg:rgba(34,197,94,.16); --ui-accent-border:rgba(34,197,94,.32);
-    --ui-accent-strong:#15803D; --ui-accent-text:#166534;
+    --ui-accent:var(--color-primary); --ui-accent-bg:var(--accent-bg); --ui-accent-border:var(--accent-line);
+    --ui-accent-strong:#15803D; --ui-accent-text:var(--accent-text);
     --ui-danger:var(--color-error); --ui-danger-strong:#DC2626; --ui-danger-text:#B91C1C; --ui-danger-glass:rgba(239,68,68,.08);
     --ui-success:var(--color-success); --ui-success-strong:#15803D; --ui-warning-strong:#B45309; --ui-warning-text:#B45309; /* Rev 2.32.16: жовтогарячий ТЕКСТ ≥4,5:1 на світлому тлі */
   }
   :root[data-theme="dark"]{
     --ui-btn-border:rgba(255,255,255,.10); --ui-btn-highlight:rgba(255,255,255,.08); --ui-btn-shadow:0 2px 8px rgba(0,0,0,.35);
-    --ui-accent-text:#34D673; --ui-danger-text:#F87171; --ui-warning-text:#F59E0B;
+    --ui-accent-text:var(--accent-text); --ui-danger-text:#F87171; --ui-warning-text:#F59E0B;
   }
 
-  /* ===== Rev 2.32.334 (DS-1): нові назви дизайн-системи (docs/specs/DS-PLAN.md §1) ===== */
-  /* Псевдоніми на ПОТОЧНІ значення: вигляд не змінюється; нових значень кольорів тут немає. Застосування нових назв у правилах і нові значення палітри — DS-2 і далі. Таблиця «нова назва → стара» — docs/DESIGN_SYSTEM.md. */
+  /* ===== Rev 2.32.334 (DS-1), Rev 2.32.339 (DS-N1): нові назви дизайн-системи (docs/specs/DS-PLAN.md §1) ===== */
+  /* DS-N1: ПАЛІТРА — тепер власні (погоджені) значення нових назв, взяті з макета docs/ui/mockups/analytics-ds/index.html; старі назви вище стали псевдонімами на нові (--color-bg: var(--bg) тощо), тож кожен колір визначено в одному місці. Семантичні --color-success/-error/-warning/-info не змінювались. */
   :root{
-    --bg: var(--color-bg); --surface: var(--color-surface); --surface-2: var(--color-surface-hover);
-    --line: var(--color-border); --line-strong: var(--color-border-strong);
-    --text: var(--color-text-primary); --text-2: var(--color-text-secondary); --text-3: var(--color-text-tertiary);
-    --accent: var(--color-primary); --accent-text: var(--ui-accent-text); --accent-bg: var(--ui-accent-bg); --accent-line: var(--ui-accent-border);
+    --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#EEF1F5; --line:#E4E8EF; --line-strong:#D5DBE5;
+    --text:#101828; --text-2:#475467; --text-3:#667085;
+    --accent:#22C55E; --accent-text:#166534; --accent-bg:rgba(34,197,94,.14); --accent-line:rgba(34,197,94,.34);
+    --glass:rgba(255,255,255,.58); --glass-press:rgba(255,255,255,.78); --glass-edge:rgba(255,255,255,.9); --glass-edge-2:rgba(16,24,40,.08);
+    --glass-shadow:0 12px 34px rgba(16,24,40,.16), 0 2px 8px rgba(16,24,40,.06);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0B0F16; --surface:#151B26; --surface-2:#1E2530; --line:#252D3A; --line-strong:#333D4D;
+    --text:#F1F4F8; --text-2:#A3AEC0; --text-3:#8391A7;
+    --accent:#22C55E; --accent-text:#34D673; --accent-bg:rgba(34,197,94,.16); --accent-line:rgba(34,197,94,.32);
+    --glass:rgba(24,30,42,.56); --glass-press:rgba(34,42,58,.8); --glass-edge:rgba(255,255,255,.16); --glass-edge-2:rgba(255,255,255,.04);
+    --glass-shadow:0 12px 34px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3);
+  }
+  /* Псевдоніми на поточні значення (DS-1): назви за змістом, значення DS-PLAN — окремими кроками */
+  :root{
     --income: var(--color-success); --expense: var(--color-error); --debt: var(--color-warning); --inst: var(--color-info);
-    --glass: var(--color-glass-bg); --glass-press: var(--color-glass-pressed-bg); --glass-edge: var(--color-glass-border); --glass-edge-2: var(--color-glass-shimmer); --glass-shadow: var(--shadow-glass);
     --r-s: var(--ui-r-small); --r-m: var(--ui-r-control); --r-pill: var(--ui-r-pill);
     --t-micro: var(--motion-micro); --t-s: var(--motion-s); --t-m: var(--motion-m); --t-l: var(--motion-l); --t-count: var(--motion-count);
   }

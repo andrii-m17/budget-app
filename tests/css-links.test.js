@@ -32,8 +32,11 @@ test('tokens.css: усі блоки змінних на :root, app.css не ог
 test('нові назви DS-PLAN §1: псевдоніми ведуть на змінні, оголошені в tokens.css; решта має значення', function(){
   const declared = new Set((TOK.replace(/\/\*[^]*?\*\//g, '').match(/--[a-zA-Z0-9-]+(?=\s*:)/g) || []));
   const aliases = (TOK.replace(/\/\*[^]*?\*\//g, '').match(/(--[a-z0-9-]+):\s*var\((--[a-z0-9-]+)\)/g) || []).map(function(x){ const m = x.match(/(--[a-z0-9-]+):\s*var\((--[a-z0-9-]+)\)/); return [m[1], m[2]]; });
-  const newNames = ['--bg', '--surface', '--surface-2', '--line', '--line-strong', '--text', '--text-2', '--text-3', '--accent', '--accent-text', '--accent-bg', '--accent-line', '--income', '--expense', '--debt', '--inst', '--glass', '--glass-press', '--glass-edge', '--glass-edge-2', '--glass-shadow', '--r-s', '--r-m', '--r-pill', '--t-micro', '--t-s', '--t-m', '--t-l', '--t-count'];
+  const newNames = ['--income', '--expense', '--debt', '--inst', '--r-s', '--r-m', '--r-pill', '--t-micro', '--t-s', '--t-m', '--t-l', '--t-count'];
   newNames.forEach(function(n){ const a = aliases.filter(function(x){ return x[0] === n; })[0]; assert.ok(a, n + ': є псевдонім'); assert.ok(declared.has(a[1]), n + ' → ' + a[1] + ' існує'); });
+  // DS-N1 (Rev 2.32.339): палітра має власні значення нових назв; старі назви — псевдоніми на них
+  ['--bg', '--surface', '--surface-2', '--line', '--line-strong', '--text', '--text-2', '--text-3', '--accent', '--accent-text', '--accent-bg', '--accent-line', '--glass', '--glass-press', '--glass-edge', '--glass-edge-2', '--glass-shadow'].forEach(function(n){ assert.ok(declared.has(n) && !aliases.some(function(a){ return a[0] === n; }), n + ': власне значення, не псевдонім'); });
+  assert.ok(/--color-bg:var\(--bg\)/.test(TOK) && /--color-border-strong:var\(--line-strong\)/.test(TOK) && /--shadow-glass:var\(--glass-shadow\)/.test(TOK), 'старі назви ведуть на нові');
   ['--r-l', '--r-xl', '--stagger', '--cat-bar', '--sub-bar', '--k1', '--k2', '--k3', '--k4', '--k5', '--k6'].forEach(function(n){ assert.ok(declared.has(n), n + ' оголошено'); });
   // DS-2 (Rev 2.32.335+): нові назви вже вживаються в app.css; --income/--expense/--debt/--inst свідомо ні (збіг лише за значенням, не за змістом)
   assert.ok(!/var\(--(income|expense|debt|inst)\)/.test(APP));
