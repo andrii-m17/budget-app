@@ -43,7 +43,10 @@ test('нові назви DS-PLAN §1: псевдоніми ведуть на з
 });
 test('STRUCT-2 (Rev 2.32.345): js/util-*.js підключено звичайними <script src> з ?v=<APP_VERSION> перед основним <script>; у APP_SHELL sw.js; функцій у index.html більше немає', function(){
   const tags = INDEX.match(/<script src="\.\/js\/[a-z0-9-]+\.js[^"]*"><\/script>/g) || [];
-  assert.deepEqual(tags.map(function(t){ return t.match(/js\/([a-z0-9-]+\.js)/)[1]; }), ['util-format.js', 'util-date.js', 'util-safe.js', 'util-misc.js']);
+  const jsNames = tags.map(function(t){ return t.match(/js\/([a-z0-9-]+\.js)/)[1]; });
+  assert.deepEqual(jsNames.slice(0, 4), ['util-format.js', 'util-date.js', 'util-safe.js', 'util-misc.js']); // далі — файли областей (STRUCT-3) у порядку з docs/reports/STRUCT-3-step0.md §5
+  const AREAS = ['structure-data.js', 'storage.js', 'cloud-auth.js', 'sync.js', 'diag.js', 'shell.js', 'structure.js', 'analytics.js', 'payments.js', 'sheets-forms.js', 'monobank.js', 'notif-push.js', 'accounting.js', 'service.js', 'expenses.js'];
+  const idx = jsNames.slice(4).map(function(n){ return AREAS.indexOf(n); }); assert.ok(idx.every(function(i, k){ return i !== -1 && (k === 0 || i > idx[k - 1]); }), 'файли областей підключено в порядку плану: ' + jsNames.slice(4).join(', '));
   tags.forEach(function(t){ assert.ok(t.indexOf('?v=' + VERSION + '"') !== -1, t + ' має містити ?v=' + VERSION); });
   const last = INDEX.lastIndexOf('<script src="./js/'); const main = INDEX.indexOf('\n<script>\n', last);
   assert.ok(last !== -1 && main > last && !/\n<script>\n/.test(INDEX.slice(last, main)), 'основний <script> іде після util-скриптів');

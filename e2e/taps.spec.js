@@ -51,7 +51,7 @@ test('24. зони дотику 44 пт без зміни вигляду й бе
   // геометрія зон: псевдоелемент 44×44 за центром; вигляд (розмір кнопки) не змінений; зони сусідів не перекриваються
   const zones = await page.evaluate(() => { const z = sel => { const el = document.querySelector(sel), r = el.getBoundingClientRect(), cs = getComputedStyle(el, '::after'); return { w: parseFloat(cs.width), h: parseFloat(cs.height), box: [r.width, r.height], zone: { l: r.left + r.width / 2 - parseFloat(cs.width) / 2, r: r.left + r.width / 2 + parseFloat(cs.width) / 2, t: r.top + r.height / 2 - parseFloat(cs.height) / 2, b: r.top + r.height / 2 + parseFloat(cs.height) / 2 } }; }; return { avatar: z('#profile-btn-top'), bell: z('#notif-bell-btn'), gear: z('.gear-btn:not(#notif-bell-btn):not(#mono-paw-btn):not(#profile-btn-top)'), del: z('.exp-del') }; });
   for(const k of ['avatar', 'bell', 'gear']){ expect(zones[k].w, k + ' зона 44').toBeGreaterThanOrEqual(44); expect(zones[k].h).toBeGreaterThanOrEqual(44); expect(zones[k].box, k + ': вигляд кнопки 36×36 не змінено').toEqual([36, 36]); }
-  expect(zones.del.w).toBeGreaterThanOrEqual(44); expect(zones.del.box[0], 'смітник: вигляд ≈ 27').toBeLessThan(30);
+  expect(zones.del.w).toBeGreaterThanOrEqual(44); expect(zones.del.box[0], 'смітник: вигляд ≈ 31 (DS-N4b: padding 6→8 px на сітці 4 pt)').toBeLessThan(34);
   expect(zones.bell.zone.r, 'зони дзвіночка й шестерні не перекриваються').toBeLessThanOrEqual(zones.gear.zone.l + 0.5);
   expect(zones.avatar.zone.r).toBeLessThanOrEqual(zones.bell.zone.l);
   // реальні тапи за межею вигляду (3 пт зовні) потрапляють у свою кнопку й лише в неї
