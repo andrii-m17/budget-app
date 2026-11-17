@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.344"><link rel="stylesheet" href="./css/app.css?v=2.32.344"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.345"><link rel="stylesheet" href="./css/app.css?v=2.32.345"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -945,7 +945,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.344</div>
+  <div class="version-footer">Money Tree · Rev 2.32.345</div>
 </div>
   </div>
 </div>
@@ -1690,6 +1690,11 @@
   </div>
 </div>
 
+<!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
+<script src="./js/util-format.js?v=2.32.345"></script>
+<script src="./js/util-date.js?v=2.32.345"></script>
+<script src="./js/util-safe.js?v=2.32.345"></script>
+<script src="./js/util-misc.js?v=2.32.345"></script>
 <script>
 /* ============ Помилки JavaScript у рекордері (Rev 2.32.53, J) ============
    Причина: виняток kbMode/focusCardField на iPhone довго лишався непомітним — рекордер не записував винятки. Тепер window.onerror і unhandledrejection фіксуються: повідомлення (≤160 символів, без довгих чисел і email), джерело без параметрів запиту, назви 3 перших кадрів стека, вкладка, лічильник повторів. Значень користувача немає. Однакові помилки (повідомлення + джерело) зливаються в одну з count. До старту запису — буфер до 20 унікальних, при старті виводиться як js-error-backlog. */
@@ -3134,9 +3139,6 @@ async function pushDictionaryPilotRun(){
 // регістру (у БД частково-унікальний індекс за (family_id, lower(keyword)) де
 // deleted_at is null). Метасимволи LIKE (\\, %, _) екрануються — шукаємо точний збіг.
 // Tombstone-рядки (deleted_at не null) ніколи не усиновлюються.
-function escapeLikeExact(text){
-  return String(text).replace(/[\\%_]/g, '\\$&');
-}
 async function findLiveDictionaryRow(client, keyword){
   const res = await client.from('dictionary').select('id,category_id,subcategory_id,updated_at').eq('family_id', cloudFamilyId).ilike('keyword', escapeLikeExact(keyword)).is('deleted_at', null).order('created_at', { ascending: true }).limit(1);
   if(res.error) return { error: true, row: null };
@@ -3793,7 +3795,6 @@ async function restoreDebtsFromBackup(raw){
   if(pushResult.pushed) await pullDebtsCore();
   return Object.assign({}, saveResult, { added: added, updated: updated, kept: kept, stayedDeleted: stayedDeleted, pushFailed: pushResult.failed, firstError: pushResult.firstError });
 }
-const UA_MONTHS = ['січень','лютий','березень','квітень','травень','червень','липень','серпень','вересень','жовтень','листопад','грудень'];
 
 /* ============ Стан + localStorage ============ */
 const LS_KEY_EXP = 'budget_expenses_v1';
@@ -4026,11 +4027,6 @@ function stampBankAccountTimestamps(accounts, debtList){
     if(!a.updatedAt){ a.updatedAt = nowISO; changed = true; }
   });
   return changed;
-}
-// Початок місяця 'YYYY-MM' у локальному часі (полудень першого числа: однаковий місяць у будь-якому поясі), у ISO.
-function monthStartISO(month){
-  const y = +String(month).slice(0, 4), m = +String(month).slice(5, 7);
-  return new Date(y, m - 1, 1, 12, 0, 0).toISOString();
 }
 async function ensureBankAccountIdentity(){
   if(stampBankAccountTimestamps(bankAccounts, debts)) reportSaveResult(await saveBankAccounts());
@@ -4652,16 +4648,6 @@ const SELF_ECHO_TTL_MS = 15000;
 const SELF_ECHO = { recent: new Map(), held: new Map(), inflight: new Map() };
 // UTC із мікросекундами: «Z» і «+00:00», 3 чи 6 знаків дробової частини дають однаковий рядок; не розібралось або без зони → null (не гасимо).
 function expRetFull(q){ return (q && typeof q.select === 'function') ? q.select(EXP_ROW_COLS) : q; } // повний рядок у відповіді; без select (фейковий клієнт) відповідь лишається як є
-function utcMicros(v){
-  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?\s*(Z|[+-]\d{2}(?::?\d{2})?)$/.exec(String(v == null ? '' : v).trim());
-  if(!m) return null;
-  if(+m[2] < 1 || +m[2] > 12 || +m[3] < 1 || +m[3] > 31 || +m[4] > 23 || +m[5] > 59 || +m[6] > 59) return null;
-  let off = 0;
-  if(m[8] !== 'Z'){ const sign = m[8][0] === '-' ? -1 : 1; const d = m[8].slice(1).replace(':', ''); off = sign * (+d.slice(0, 2) * 60 + (d.length > 2 ? +d.slice(2, 4) : 0)); }
-  const ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) - off * 60000;
-  if(!isFinite(ms)) return null;
-  return new Date(ms).toISOString().slice(0, 19) + '.' + ((m[7] || '') + '000000').slice(0, 6) + 'Z';
-}
 function selfEchoEvent(type, table, id, kind, ms){
   try{ if(recOn()) pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: type, table: table, idShort: String(id || '').slice(0, 8), kind: kind || undefined, ms: ms === undefined ? undefined : Math.round(ms) }); }catch(e){}
 }
@@ -6584,14 +6570,6 @@ async function pullInstallmentAccountsPilot(){
 // видаляє Cloud-рядок, лише створює/оновлює місяць. Видалення так само
 // не синхронізується, як і в решти доменів (той самий, уже
 // задокументований принцип).
-// Rev #30 (6D.32 BugFix, знайдений живою перевіркою) — Cloud-колонка
-// `hidden_from_month` типу `date`, локальний формат — "YYYY-MM" (без дня),
-// невалідний date-літерал напряму ("invalid input syntax for type date").
-// monthToDate()/dateToMonth() — явна конверсія в обидва боки (день завжди
-// "01", несуттєвий — колонка існує лише заради сортування/порівняння
-// місяців, а не конкретної дати).
-function monthToDate(month){ return month + '-01'; }
-function dateToMonth(dateStr){ return (dateStr || '').slice(0, 7); }
 // Rev #30 (6D.143) — каскад проти "осиротілих" рядків hidden_entities,
 // викликається з pushBankAccountsPilot()/pushInstallmentAccountsPilot()
 // одразу після self-heal/reconcile: pushHiddenEntitiesPilot() НІКОЛИ не
@@ -6920,7 +6898,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.344';
+const APP_VERSION = '2.32.345';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -7746,12 +7724,6 @@ function lastKnownBalance(name, kind, beforeMonth){
 // 4000 → типовим лишається 3500. Тай-брейк при рівній частоті — новіше значення.
 /* ============ Найближчі платежі: чиста логіка (Rev 2.32.64, P2) ============
    upcomingPayments — без доступу до Date.now() і DOM (параметр today = «YYYY-MM-DD» за київським часом). Нічого не зберігає: суми «≈» — очікувані за попередніми місяцями (мода останніх до 6 платежів), як typicalMonthlyPayment. Збіг із серверною build_installment_deadlines: дата = due_day, у коротших місяцях — останній день; приховані (hiddenFrom ≤ місяць) пропускаються; є прив'язана витрата за місяць → сплачено. Відмінності (свідомі, лише клієнт): завершені ОЧ (останній відомий залишок ≤ 0) пропускаються; сума береться з запису місяця, інакше мода історії (сервер — останній monthly_payment). */
-function ppPad(n){ return (n < 10 ? '0' : '') + n; }
-function ppDaysInMonth(y, m){ return new Date(Date.UTC(y, m, 0)).getUTCDate(); } // m: 1…12
-function ppAddDays(iso, n){ const t = Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) + n * 86400000; const d = new Date(t); return d.getUTCFullYear() + '-' + ppPad(d.getUTCMonth() + 1) + '-' + ppPad(d.getUTCDate()); }
-function ppDayDiff(a, b){ return Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 86400000); }
-function ppNextMonth(month){ const y = +month.slice(0, 4), m = +month.slice(5, 7); return m === 12 ? (y + 1) + '-01' : y + '-' + ppPad(m + 1); }
-function ppClampDate(month, day){ const last = ppDaysInMonth(+month.slice(0, 4), +month.slice(5, 7)); return month + '-' + ppPad(Math.min(day, last)); }
 // Мода останніх до 6 непустих сум до місяця (тай-брейк — новіша), як typicalMonthlyPayment.
 function ppModeAmount(values){
   const list = values.slice(-6);
@@ -7787,7 +7759,6 @@ function installmentPaidFull(linked, expected){
   const tol = Math.max(2, expected * 0.01);
   return { paid: l >= expected - tol, more: l > expected + tol };
 }
-function ppPrevMonth(month){ const y = +month.slice(0, 4), m = +month.slice(5, 7); return m === 1 ? (y - 1) + '-12' : y + '-' + ppPad(m - 1); }
 // Rev 2.32.152 (OCH-DUE, рішення чату): ЄДИНЕ визначення «дата платежу минула» для рядка ОЧ («!») і для «Найближчі платежі» («N без позначки»): попередній (чи старший) місяць — завжди; поточний — сьогодні пізніше за дату платежу + 1 день (пільговий день: у dueDate+1 ще «скоро»). Раніше «Найближчі» вважали минулою вже дату < сьогодні (на день раніше за «!»).
 function installmentDuePassed(month, dueDate, today){
   if(!month || !dueDate || !today) return false;
@@ -8038,12 +8009,6 @@ function upcomingPayments(opts){
     if(it.amount != null){ result.load.total += it.amount; if(it.estimated) result.load.estimated = true; } else result.load.unknown++;
   });
   return result;
-}
-// Сьогодні за київським часом («YYYY-MM-DD»); now передається ззовні (тести).
-function kyivTodayISO(now){
-  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now || new Date());
-  const g = function(t){ return parts.filter(function(p){ return p.type === t; })[0].value; };
-  return g('year') + '-' + g('month') + '-' + g('day');
 }
 // Обгортка над реальними даними застосунку (для картки й екрана «Платежі»).
 function computeUpcomingNow(horizonDays){
@@ -8925,14 +8890,6 @@ async function applyCloudSession(session){
 // на сервері) — безпечно тримати в клієнтському коді, той самий принцип, що
 // anon-ключ Supabase вище.
 const VAPID_PUBLIC_KEY = 'BNe7PnQHTKSEzrjSnoAfvhUGB8mRzdK7pT-xxC0KP_dsJ1VMrkoSejcl-l1PitVZ9jxcY384b5BdSMnhYzbBejE';
-function urlBase64ToUint8Array(base64String){
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for(let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
-}
 // ===== Rev 2.32.298 (PUSH-RCPT): отримання сповіщень → push_receipts =====
 // Воркер (sw.js) кладе запис про кожен показаний push у чергу IndexedDB 'budget-app-push-receipts' (ключ push_id); сторінка раз на старті/вході
 // відправляє чергу одним викликом report_push_receipts(p_items) (на сервері on conflict do nothing). Успішні записи прибираються, решта лишається;
@@ -10537,14 +10494,6 @@ const NOTIF_DOMAIN_LABELS = {
   debts: ['борг', 'борги', 'боргів'],
   hiddenEntities: ['запис по ОЧ', 'записи по ОЧ', 'записів по ОЧ'],
 };
-// Rev #30 (6D.86) — стандартне українське узгодження числівника з
-// іменником: forms = [1, 2-4, 5+] (напр. ['витрату','витрати','витрат']).
-function pluralUa(n, forms){
-  const mod10 = n % 10, mod100 = n % 100;
-  if(mod10 === 1 && mod100 !== 11) return forms[0];
-  if(mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
-  return forms[2];
-}
 function buildSyncSummaryText(events, raw){ // Rev 2.32.46 (TO): raw=true — без екранування (для textContent у тості)
   if(!events.length) return null;
   const gender = events[0].gender;
@@ -11730,13 +11679,6 @@ function sanitizeDebugEvent(raw){
     if(Object.prototype.hasOwnProperty.call(raw, key) && raw[key] !== undefined) out[key] = raw[key];
   });
   return out;
-}
-// ringBufferPush(buffer, event, maxSize) — чиста функція: повертає НОВИЙ
-// масив (immutable), найстаріші (з початку) відкидаються понад maxSize.
-function ringBufferPush(buffer, event, maxSize){
-  const next = buffer.concat([event]);
-  if(next.length > maxSize) return next.slice(next.length - maxSize);
-  return next;
 }
 // trimEventsForSizeLimit(events, maxCount, maxBytes) — перед надсиланням:
 // спершу обрізає за кількістю, потім відкидає найстаріші, доки JSON не
@@ -14208,7 +14150,6 @@ function updateBankDebtTotal(){
 // д-місяць у боргах зберігався як 'YYYY-MM' (тип input=month), а monthKey()
 // в решті коду рахується з дати 'YYYY-MM-DD' через .slice(0,7) — для d.month
 // (вже 'YYYY-MM') просто повертаємо як є, окрема функція для ясності.
-function monthKey2(m){ return m || ''; }
 let editingBankIdx = -1;
 // Rev 2.16.5 — тап по компактній картці відкриває шторку з усіма полями
 // одразу заповненими (карт-форвард з минулого місяця так само, як раніше в
@@ -14660,14 +14601,6 @@ function switchStructureTab(tab){
     document.getElementById(`struct-tab-btn-${t}`).classList.toggle('active', t===tab);
   });
 }
-/* ============ Структура: списки в стилі «Налаштувань» (Rev 2.32.48, S1) ============ */
-// Перший емодзі на початку назви → плитка; решта — назва. Без емодзі: emoji = '' (плитка з першою літерою).
-function splitLeadingEmoji(name){
-  const str = String(name == null ? '' : name);
-  const m = str.match(/^(?:\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}])*)/u);
-  if(!m) return { emoji: '', text: str.trim() };
-  return { emoji: m[0], text: str.slice(m[0].length).trim() || str.trim() };
-}
 const STRUCT_TYPE_GROUPS = [{ type: "Обов'язкова", label: "Обов'язкові" }, { type: 'Гнучка', label: 'Гнучкі' }, { type: 'Скорочувана', label: 'Скорочувані' }];
 // Групи за типом: «Обов'язкові», «Гнучкі», «Скорочувані»; порожні типи не повертаються; відносний порядок усередині типу зберігається.
 function groupCategoriesByType(cats){
@@ -15017,13 +14950,6 @@ function sheetOrPlaceholder(data, emptyMessage){
 // Rev 2.1.31 — за фінальним рішенням: просто "30.07.2026" (текст), без
 // експериментів з форматуванням клітинок Excel — найпростіший і найнадійніший
 // варіант, сумісний з основним файлом користувача.
-function isoToUaDateText(iso){
-  if(!iso) return '';
-  const parts = String(iso).split('-');
-  if(parts.length !== 3) return iso;
-  const [y,m,d] = parts;
-  return `${d}.${m}.${y}`;
-}
 function exportToExcel(){
   // Rev 2.11.1 (P1, PWA-аудит) — захист про всяк випадок: кнопка й так
   // задизейблена через updateExcelAvailabilityUI(), коли бібліотека
@@ -15108,16 +15034,6 @@ function excelDateToISO(val){
   }
   if(typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) return val.slice(0,10);
   return null;
-}
-function parseUaMonth(text){
-  if(!text) return null;
-  const parts = String(text).trim().toLowerCase().split(/\s+/);
-  if(parts.length < 2) return null;
-  const idx = UA_MONTHS.indexOf(parts[0]);
-  if(idx === -1) return null;
-  const year = parseInt(parts[1], 10);
-  if(!year) return null;
-  return `${year}-${String(idx+1).padStart(2,'0')}`;
 }
 // Rev #26.4 — Stage 5, п.26.4 (Відокремити Financial Logic, останній пункт
 // зі списку): чиста трансформація "рядок Excel (аркуш 'Витрати') →
@@ -15586,38 +15502,6 @@ function handleImportFile(event){
 // тощо). Той самий клас багу, що вже виправлявся в excelDateToISO і
 // shiftDate() — рішення те саме: рахувати рік/місяць/день з ЛОКАЛЬНИХ
 // getFullYear/getMonth/getDate поточного моменту, а не через toISOString().
-function localDateISO(d){
-  d = d || new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const day = String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
-}
-function monthKey(d){ return d ? d.slice(0,7) : ''; }
-function monthLabel(key){ const [y,m]=key.split('-'); return `${UA_MONTHS[parseInt(m,10)-1]} ${y}`; }
-function monthLabelShort(key){
-  const short=['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
-  const [y,m]=key.split('-'); return short[parseInt(m,10)-1];
-}
-function allMonths(){
-  // Rev #30 (6D.42/6D.43/6D.44) — activeExpenses()/activeIncomes()/activeDebts().
-  const set = new Set([...activeExpenses().map(e=>monthKey(e.date)), ...activeIncomes().map(e=>monthKey(e.date)), ...activeDebts().map(d=>d.month)].filter(Boolean));
-  const todayKey = monthKey(localDateISO());
-  // BugFix Rev 2.0.3: раніше в списку були лише місяці, де вже є хоч якийсь
-  // запис — а оскільки дохід/борги тепер вносяться через таблицю, прив'язану
-  // до обраного місяця, це буквально блокувало внесення даних за місяць, що
-  // ще жодного разу не торкались (напр. минулий місяць заднім числом).
-  // Додаємо ковзне вікно 12 місяців назад + 1 вперед від сьогодні завжди,
-  // незалежно від того, чи є там уже дані.
-  for(let i=-12; i<=1; i++) set.add(shiftMonth(todayKey, i));
-  return Array.from(set).sort();
-}
-function shiftMonth(key, delta){
-  let [y,m] = key.split('-').map(Number);
-  m += delta;
-  while(m<1){ m+=12; y--; } while(m>12){ m-=12; y++; }
-  return `${y}-${String(m).padStart(2,'0')}`;
-}
 function populateMonths(){
   const months = allMonths();
   const opts = months.map(m=>`<option value="${escapeAttr(m)}">${escapeHtml(monthLabel(m))}</option>`).join('');
@@ -15646,9 +15530,6 @@ function performMonthChange(val){
   renderAll();
 }
 
-/* ============ Форматування / рендер ============ */
-function fmt(n){ return new Intl.NumberFormat('uk-UA',{maximumFractionDigits:0}).format(n) + ' ₴'; }
-function fmtSigned(n){ return (n>=0?'+':'−') + new Intl.NumberFormat('uk-UA',{maximumFractionDigits:0}).format(Math.abs(n)) + ' ₴'; }
 // Rev 2.1.25 — розділювачі тисяч у полях ВВОДУ сум (не плутати з fmt()/
 // fmtSigned() вище — ті лише для показу готового тексту з "₴", а це для
 // значень <input>, куди символ валюти не підходить). Патерн "формат на blur,
@@ -15657,10 +15538,6 @@ function fmtSigned(n){ return (n>=0?'+':'−') + new Intl.NumberFormat('uk-UA',{
 // пробіли з'являються/зникають серед цифр, курсор постійно "втікає").
 // Гроші в застосунку завжди цілі (fmt() теж без копійок), тому дробову
 // частину тут спеціально не підтримуємо.
-function formatThousands(n){
-  if(n===''||n==null||isNaN(n)) return '';
-  return new Intl.NumberFormat('uk-UA',{maximumFractionDigits:0}).format(Math.round(Number(n)));
-}
 // Rev 2.10.3 (P1, аудит) — раніше parseAmount() пропускала дробову частину
 // (100.5 парсилось як 100.5, лише fmt()/formatThousands() округлювали ПРИ
 // ПОКАЗІ) — фінансові суми тихо втрачали копійки лише візуально, а фактично
@@ -15801,10 +15678,6 @@ document.addEventListener('paste', function(e){
   el.value = String(r.value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
 }, true);
-function safeCall(fn, label){
-  try{ fn(); }
-  catch(err){ console.error(`[Money Tree] Помилка в ${label}:`, err); }
-}
 // Rev 2.32.206 (KB-SYNC-RENDER): перемальовування, спричинене синхронізацією (pull чужих змін, злиття конфлікту), не має зсувати екран, поки відкрита клавіатура з полем у фокусі: його відкладено до закриття поля (focusout), одним викликом; поза клавіатурою — як раніше, зі збереженням прокручування документа.
 let renderAfterSyncPending = null;
 function keyboardFieldActive(){
@@ -16237,35 +16110,6 @@ function hideNameSuggestions(){
 // Rev 2.1.2 — заголовки груп журналу: "Сьогодні"/"Вчора" для двох останніх днів,
 // інакше "{день} {місяць у родовому відмінку}" (той самий monthGenitive, що й
 // у трендах KPI-карток), + скорочена назва дня тижня окремим підписом.
-// Rev 2.1.4 — BugFix: shiftDate() рахував результат через
-// `new Date(...).toISOString().slice(0,10)`, а toISOString() завжди повертає
-// дату в UTC. Дата будувалась у ЛОКАЛЬНОМУ часі (new Date(dateStr+'T00:00:00')),
-// тому в часовому поясі з позитивним зсувом (Київ, +2/+3) конвертація в UTC
-// відкушувала добу: "-1 день" фактично ставав "-2", а "+1 день" — компенсувався
-// назад до того самого числа. Той самий клас багу, що вже був знайдений і
-// виправлений в excelDateToISO (BugFix 1.5.2-01) — і те саме рішення: читати
-// рік/місяць/день напряму з локальних getFullYear/getMonth/getDate, а не
-// проганяти дату через toISOString().
-function shiftDate(dateStr, deltaDays){
-  const d = new Date(dateStr+'T00:00:00');
-  d.setDate(d.getDate()+deltaDays);
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const day = String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
-}
-function dayHeaderLabel(dateStr){
-  const todayKey = localDateISO();
-  if(dateStr===todayKey) return 'Сьогодні';
-  if(dateStr===shiftDate(todayKey,-1)) return 'Вчора';
-  const d = new Date(dateStr+'T00:00:00');
-  return `${d.getDate()} ${monthGenitive(monthKey(dateStr))}`;
-}
-function weekdayShort(dateStr){
-  const WD = ['нд','пн','вт','ср','чт','пт','сб'];
-  const d = new Date(dateStr+'T00:00:00');
-  return WD[d.getDay()];
-}
 // Rev 2.1.15/16 — тап-для-виділення + інлайн-редагування запису повністю
 // (назва/сума/дата/категорія/підкатегорія, не лише категорія — розширено в
 // Rev 2.1.16). selectedRecordKey — яка картка зараз підсвічена (показує
@@ -17555,12 +17399,6 @@ function reconcilePlan(localTombstones, cloudRows){
   });
   return plan;
 }
-// pluralizeRecords(n): "1 запис", "2-4 записи", "5-20 записів", "21 запис",
-// "22-24 записи", "25-30 записів"; виняток 11-14 (і всі n%100 у 11..14) — "записів".
-// pluralUa(n, forms) — ІСНУЮЧА функція (Rev #30, 6D.86, вище; forms=[1, 2-4, 5+]) — не дублюємо.
-function pluralizeRecords(n){
-  return n + ' ' + pluralUa(n, ['запис', 'записи', 'записів']);
-}
 // Примітка до категорії/підкатегорії: "Буде повернено: 2 підкатегорії і 3 слова".
 function trashCascadeNote(item){
   const parts = [];
@@ -18354,10 +18192,6 @@ function mandatoryPaymentsSummary(monthExp, totalIncome){
    витрати = expense (нейтральний графіт, НЕ червоний — червоний лише для проблем). */
 // Родовий відмінок назви місяця (той самий довідник, що й у setKpiTrend) - винесено
 // в окрему функцію, щоб використовувати і в блоці "Ключові показники місяця" (Rev 1.5.8).
-function monthGenitive(monthKey){
-  const forms = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
-  return forms[parseInt(monthKey.slice(5),10)-1];
-}
 // Підпис тренду для верхніх KPI-карток.
 function setKpiTrend(id, type, curr, prevVal, month, hasCurrentData){
   const el = document.getElementById(id);
@@ -18475,9 +18309,6 @@ function bankIcon(name, size, block, kind){
   }
 
   return `<span class="bank-badge bank-badge-generic" aria-hidden="true" style="width:${s}px; height:${s}px;">${EMPTY_STATE_ICONS[kind === 'installment' ? 'calendar' : 'card']}</span>`;
-}
-function stripLeadingEmoji(name){
-  return (name||'').replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F\s]+/gu, '').trim() || name;
 }
 
 // Заокруглений зверху прямокутник-колонка (Rev 1.5.10: GM використовує заокруглення лише
@@ -19811,11 +19642,6 @@ function renderDebtDonut(hasDebtData, startTotal, currTotal, change, debtStatus,
 // зайвий ".0" прибирається). Rev 1.5.6.1: знак "+" для позитивного сценарію прибрано за
 // вимогою — борг зменшився → просто "15%", борг зріс → лишається "-17.6%".
 // Довжина дуги в renderDebtDonut рахується окремо через Math.abs() і сюди не потрапляє.
-function fmtSignedPercent(rawPercent){
-  const abs = Math.round(Math.abs(rawPercent) * 10) / 10;
-  const str = Number.isInteger(abs) ? String(abs) : abs.toFixed(1);
-  return (rawPercent < 0 ? '-' : '') + str + '%';
-}
 
 function habitCountWord(n){
   const mod10=n%10, mod100=n%100;
@@ -19839,17 +19665,12 @@ function expenseCountWord(n){
   return 'витрат';
 }
 
-function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 // Rev 2.1.16 — escapeHtml() не екранує лапки (не потрібно було для текстового
 // вмісту), а тепер назву витрати вставляємо і в value="..." інпута для
 // редагування — там лапка в назві ("Пательня 32\"") зламала б розмітку.
-function escapeAttr(s){
-  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
 // Rev 2.32.19 (X, A1-5) — safeId(): id запису, що підставляється всередину JS-рядка в inline-обробнику (onclick="f('${id}')"). Справжні id — UUID/ключі з [0-9A-Za-z_-]; все інше (лапки, дужки, пробіли) відсікається, тож зовнішній текст не може вийти з рядка обробника. Альтернатива (data-* + делегований обробник) змінила б сотню місць розмітки — свідомо відкладено.
 // Rev 2.32.19 (X) — кількість місць розмітки, де значення з даних екрануються (для події xss-audit рекордера; значення не пишуться).
 const XSS_AUDITED_SITES = 25;
-function safeId(id){ return String(id==null?'':id).replace(/[^0-9A-Za-z_-]/g,''); }
 
 /* ============ Розгортання карток Row 4 (Категорії/Підкатегорії/Потенціал) ============ */
 // Rev 2.1.33 — прибрано механізм "стискання сусіда в тонку смужку" (ICONS,
@@ -20304,25 +20125,11 @@ function meetsMinTarget(w, h, min){
   const m = typeof min === 'number' ? min : 44;
   return Number(w) >= m && Number(h) >= m;
 }
-// Колір: 'rgb(r,g,b)' / 'rgba(r,g,b,a)' / '#rgb' / '#rrggbb' / [r,g,b(,a)] → [r,g,b,a].
-function parseCssColor(c){
-  if(Array.isArray(c)) return [c[0], c[1], c[2], c.length > 3 ? c[3] : 1];
-  const str = String(c || '').trim();
-  let m = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+%?))?\s*\)$/i.exec(str);
-  if(m){ let a = m[4] === undefined ? 1 : (m[4].slice(-1) === '%' ? parseFloat(m[4]) / 100 : parseFloat(m[4])); return [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]), a]; }
-  m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(str);
-  if(m){ let h = m[1]; if(h.length === 3) h = h.split('').map(x => x + x).join(''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), 1]; }
-  return null;
-}
 function compositeColor(fg, bg){
   const f = parseCssColor(fg), b = parseCssColor(bg);
   if(!f || !b) return null;
   const a = f[3];
   return [f[0] * a + b[0] * (1 - a), f[1] * a + b[1] * (1 - a), f[2] * a + b[2] * (1 - a), 1];
-}
-function relativeLuminance(rgb){
-  const ch = rgb.slice(0, 3).map(v => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
-  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
 }
 // WCAG-контраст двох кольорів; прозорий fg композититься поверх bg (bg має бути непрозорим або вже скомпонованим).
 function contrastRatio(fg, bg){
@@ -23015,11 +22822,6 @@ function groupInboxBatches(rows){
 function isDailyReminderRow(row){
   const type = row.type || (row.data && row.data.type) || '';
   return type === 'mono-inbox' && !!row.data && row.data.tag === 'daily-expense-reminder';
-}
-function kyivDateKey(iso){
-  const t = Date.parse(iso); if(isNaN(t)) return '';
-  const fmt = function(zone){ return new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t)); };
-  try{ return fmt('Europe/Kyiv'); }catch(e){ try{ return fmt('Europe/Kiev'); }catch(e2){ return ''; } } // запасна назва зони для старих ICU
 }
 // true/false: чи є нові операції в добі нагадування; null: невідомо (запит не вдався) → вважаємо, що є (веде у «Вхідні»).
 function reminderPending(row, pendingDays, pendingOk){

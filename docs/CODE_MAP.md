@@ -1,5 +1,12 @@
 # Карта коду Money Tree (`index.html`, Rev 2.32.248)
 
+**Допоміжні функції (Rev 2.32.345, STRUCT-2):** без стану, глобальні, підключені звичайними `<script src="./js/…?v=<APP_VERSION>">` перед основним `<script>` (мережа-спочатку в `sw.js`, у `APP_SHELL`; мітку перевіряє `pre-push-guard`). `tests/extract.js`: `SOURCE` = ці файли в порядку підключення + `index.html`.
+- `js/util-format.js` (6): `pluralUa`, `fmt`, `fmtSigned`, `formatThousands`, `pluralizeRecords`, `fmtSignedPercent`.
+- `js/util-date.js` (27): `monthStartISO`, `utcMicros`, `monthToDate`, `dateToMonth`, `ppPad`, `ppDaysInMonth`, `ppAddDays`, `ppDayDiff`, `ppNextMonth`, `ppClampDate`, `ppPrevMonth`, `kyivTodayISO`, `monthKey2`, `isoToUaDateText`, `parseUaMonth`, `localDateISO`, `monthKey`, `monthLabel`, `monthLabelShort`, `allMonths`, `shiftMonth`, `shiftDate`, `dayHeaderLabel`, `weekdayShort`, `monthGenitive`, `kyivDateKey`, `UA_MONTHS`.
+- `js/util-safe.js` (6): `escapeLikeExact`, `splitLeadingEmoji`, `stripLeadingEmoji`, `escapeHtml`, `escapeAttr`, `safeId`.
+- `js/util-misc.js` (5): `urlBase64ToUint8Array`, `ringBufferPush`, `safeCall`, `parseCssColor`, `relativeLuminance`.
+- Лишились в `index.html`: усе, що читає DOM, стан, сховище, мережу, клавіатурний модуль; чисті, але предметні функції (моделі рядків, `planSync`, `upcomingPayments`, `kb*` обчислення, `generateUUID` через `window.crypto`) — для STRUCT-3.
+
 **Стилі (Rev 2.32.333, STRUCT-1):** увесь CSS у `css/app.css` (колишній єдиний блок `<style>` дослівно; підключення `<link rel="stylesheet" href="./css/app.css">` у `<head>`); `sw.js`: у `APP_SHELL` і мережа-спочатку для `/css/*.css`. Тести читають стилі через `readAppCss()` / `readIndexWithCss()` (`tests/extract.js`); `readIndexWithCss()` підставляє css на місце `<link>`, тож перевірки порядку частин документа працюють як раніше.
 
 **Токени (Rev 2.32.334, DS-1):** `css/tokens.css` — блоки змінних `:root` / `:root[data-theme="dark"]` (дослівно з колишнього `app.css`) і нові назви DS-PLAN §1 як псевдоніми; підключається перед `css/app.css`, обидва посилання з `?v=<APP_VERSION>`. Лишився лише `:root{--motion-*}` у `@media (prefers-reduced-motion)` в `app.css` (свідомо: перевизначення). `readAppCss()` (`tests/extract.js`) читає обидва файли в порядку підключення.

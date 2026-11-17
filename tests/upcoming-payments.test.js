@@ -122,7 +122,7 @@ test('входи не мутуються; функція детермінова�
   const a = JSON.stringify(inst) + JSON.stringify(debts);
   const r1 = U({ installments: inst, debtsByMonth: debts }), r2 = U({ installments: inst, debtsByMonth: debts });
   assert.equal(a, JSON.stringify(inst) + JSON.stringify(debts)); assert.deepEqual(r1, r2);
-  const body = SRC.slice(SRC.indexOf('function upcomingPayments'), SRC.indexOf('function kyivTodayISO'));
+  const i0 = SRC.indexOf('function upcomingPayments'); const body = SRC.slice(i0, SRC.indexOf('\nfunction ', i0 + 10)); // Rev 2.32.345 (STRUCT-2): kyivTodayISO тепер у js/util-date.js — тіло до наступної функції
   assert.ok(!/Date\.now\(|new Date\(\)/.test(body), 'без Date.now/new Date() усередині');
 });
 test('kyivTodayISO: київська дата навколо опівночі (UTC 21:30 → вже наступний день у Києві взимку 22:30, влітку 00:30)', function(){

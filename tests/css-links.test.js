@@ -41,3 +41,15 @@ test('нові назви DS-PLAN §1: псевдоніми ведуть на з
   // DS-2 (Rev 2.32.335+): нові назви вже вживаються в app.css; --income/--expense/--debt/--inst свідомо ні (збіг лише за значенням, не за змістом)
   assert.ok(!/var\(--(income|expense|debt|inst)\)/.test(APP));
 });
+test('STRUCT-2 (Rev 2.32.345): js/util-*.js підключено звичайними <script src> з ?v=<APP_VERSION> перед основним <script>; у APP_SHELL sw.js; функцій у index.html більше немає', function(){
+  const tags = INDEX.match(/<script src="\.\/js\/[a-z0-9-]+\.js[^"]*"><\/script>/g) || [];
+  assert.deepEqual(tags.map(function(t){ return t.match(/js\/([a-z0-9-]+\.js)/)[1]; }), ['util-format.js', 'util-date.js', 'util-safe.js', 'util-misc.js']);
+  tags.forEach(function(t){ assert.ok(t.indexOf('?v=' + VERSION + '"') !== -1, t + ' має містити ?v=' + VERSION); });
+  const last = INDEX.lastIndexOf('<script src="./js/'); const main = INDEX.indexOf('\n<script>\n', last);
+  assert.ok(last !== -1 && main > last && !/\n<script>\n/.test(INDEX.slice(last, main)), 'основний <script> іде після util-скриптів');
+  tags.forEach(function(t){ const f = t.match(/js\/([a-z0-9-]+\.js)/)[1]; assert.match(SW, new RegExp("'\\./js/" + f.replace('.', '\\.') + "'")); assert.ok(fs.existsSync(path.join(root, 'js', f)), f); });
+  assert.ok(SW.indexOf(String.raw`\/(css|js)\/[^/]+\.(css|js)(\?|$)/.test(req.url)`) !== -1, 'sw.js: network-first і для js/*.js');
+  ['function fmt(', 'function escapeHtml(', 'function monthKey(', 'function localDateISO(', 'const UA_MONTHS', 'function safeId(', 'function parseCssColor('].forEach(function(m){ assert.equal(INDEX.indexOf(m), -1, m + ' має жити в js/util-*.js'); });
+  const util = tags.map(function(t){ return fs.readFileSync(path.join(root, 'js', t.match(/js\/([a-z0-9-]+\.js)/)[1]), 'utf8'); }).join('\n');
+  ['function fmt(', 'function escapeHtml(', 'function monthKey(', 'function localDateISO(', 'const UA_MONTHS', 'function safeId(', 'function parseCssColor('].forEach(function(m){ assert.ok(util.indexOf(m) !== -1, m); });
+});

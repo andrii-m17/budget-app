@@ -10,9 +10,12 @@ for(const f of fs.readdirSync(A).sort()){
     const a = JSON.parse(fs.readFileSync(path.join(A, f), 'utf8')), bf = path.join(B, f);
     if(!fs.existsSync(bf)){ console.log('НЕМАЄ', f); bad++; continue; }
     const b = JSON.parse(fs.readFileSync(bf, 'utf8')); styles++;
+    // <script> без впливу на вигляд (STRUCT-2 додає теги підключення): виключаємо з порівняння, щоб індекси елементів не зсувалися
+    const noScript = (x) => x.data.filter(r => !/^SCRIPT/.test(String(r[1])));
+    a.data = noScript(a); b.data = noScript(b);
     if(a.data.length !== b.data.length){ console.log(f, 'різна кількість елементів', a.data.length, b.data.length); bad++; continue; }
     let d = 0;
-    for(let i = 0; i < a.data.length; i++){ elems++; for(let k = 0; k < a.data[i].length; k++){ if(a.data[i][k] !== b.data[i][k]){ d++; if(d <= 5) console.log(f, 'елемент', a.data[i][1], a.props[k - 2] || 'ім\'я', JSON.stringify(a.data[i][k]), '→', JSON.stringify(b.data[i][k])); } } }
+    for(let i = 0; i < a.data.length; i++){ elems++; for(let k = 1; k < a.data[i].length; k++){ if(a.data[i][k] !== b.data[i][k]){ d++; if(d <= 5) console.log(f, 'елемент', a.data[i][1], a.props[k - 2] || 'ім\'я', JSON.stringify(a.data[i][k]), '→', JSON.stringify(b.data[i][k])); } } }
     if(d){ bad++; console.log(f, 'відмінностей', d); }
   }else if(/\.png$/.test(f) && PNG){
     const bf = path.join(B, f); if(!fs.existsSync(bf)){ console.log('НЕМАЄ', f); bad++; continue; }

@@ -53,7 +53,7 @@ if (!appVersion) {
   // 2б) Rev 2.32.334 (DS-1): мітка ?v= у посиланнях на стилі = APP_VERSION (інакше браузер/SW віддасть застарілий файл стилів)
   try {
     const idx = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-    const links = idx.match(/<link rel="stylesheet" href="\.\/css\/[a-z0-9-]+\.css[^"]*">/g) || [];
+    const links = (idx.match(/<link rel="stylesheet" href="\.\/css\/[a-z0-9-]+\.css[^"]*">/g) || []).concat(idx.match(/<script src="\.\/js\/[a-z0-9-]+\.js[^"]*"><\/script>/g) || []); // Rev 2.32.345 (STRUCT-2): і скрипти js/*.js
     links.forEach(function (l) {
       if (l.indexOf('?v=' + appVersion + '"') === -1) fail('Push заблоковано: у посиланні на стилі ' + l + ' мітка ?v= не дорівнює APP_VERSION (' + appVersion + '). Онови мітку в index.html (навичка rev-release).');
     });

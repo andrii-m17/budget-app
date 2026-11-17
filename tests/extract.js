@@ -19,7 +19,10 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const SOURCE_PATH = path.join(__dirname, '..', 'index.html');
-const SOURCE = fs.readFileSync(SOURCE_PATH, 'utf8');
+// Rev 2.32.345 (STRUCT-2): допоміжні функції винесено в js/util-*.js (звичайні скрипти, підключені перед основним <script>); SOURCE = їхній вміст у порядку підключення + index.html, тож extractFunctionSource/extractConstSource знаходять функції незалежно від файлу.
+const INDEX_TEXT = fs.readFileSync(SOURCE_PATH, 'utf8');
+const UTIL_FILES = Array.from(INDEX_TEXT.matchAll(/<script src="\.\/(js\/[a-z0-9-]+\.js)(?:\?v=[^"]*)?"><\/script>/g)).map(m => m[1]);
+const SOURCE = UTIL_FILES.map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n') + '\n' + INDEX_TEXT;
 
 // Повертає вихідний код однієї function-декларації (з тілом) за назвою.
 // Rev #28.B — тепер розпізнає й `async function NAME(...)`: без цього
