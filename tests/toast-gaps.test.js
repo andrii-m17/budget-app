@@ -18,7 +18,7 @@ test('toastFitWidth: ширина блоку = найдовший рядок; б
 });
 test('CSS: пілюля fit-content, відступи 17 px + рамка 1 px = 18, проміжок 12 px, без min-width і зайвих резервів', function(){
   const r = rule('.success-toast');
-  assert.match(r, /width:fit-content/); assert.match(r, /gap:12px/); assert.match(r, /padding:11px 17px/); assert.match(r, /border:1px solid/);
+  assert.match(r, /width:fit-content/); assert.match(r, /gap:var\(--sp-3\)/); assert.match(r, /padding:var\(--sp-3\) var\(--sp-4\)/); assert.match(r, /border:1px solid/);
   assert.ok(!/min-width|margin/.test(r));
   assert.ok(!/margin|padding/.test(rule('.success-toast-text')));
 });
@@ -39,6 +39,6 @@ test('Rev 2.32.181: коло галочки обертається навкол�
 });
 test('Rev 2.32.182: плашка «Доступне оновлення» — відступ 17 px + рамка 1 px = 18 px з обох боків, проміжок 12 px', function(){
   const r = rule('.update-banner');
-  assert.match(r, /gap:12px/); assert.match(r, /padding:9px 17px;/); assert.match(r, /border:1px solid/);
+  assert.match(r, /gap:var\(--sp-3\)/); assert.match(r, /padding:var\(--sp-2\) var\(--sp-4\);/); assert.match(r, /border:1px solid/);
   assert.ok(!/padding:9px 10px/.test(r));
 });

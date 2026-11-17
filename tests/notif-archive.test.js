@@ -30,7 +30,7 @@ test('V: значок лічильника поза кнопкою, ідеаль
   const wrap = SRC.slice(SRC.indexOf('<span class="notif-bell-wrap">'), SRC.indexOf('<!-- Rev 2.32.38 (B): дзвіночок зліва від шестерні -->'));
   assert.ok(wrap.indexOf('</button>') < wrap.indexOf('id="notif-bell-count"'), 'значок після закриття кнопки');
   const css = SRC.match(/\.notif-bell-count\{([^}]*)\}/)[1];
-  assert.match(css, /min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:var\(--r-xs\)/);
+  assert.match(css, /min-width:16px; height:16px; padding:0 var\(--sp-1\); box-sizing:border-box; border-radius:var\(--r-xs\)/);
   assert.match(css, /display:inline-flex; align-items:center; justify-content:center/); assert.match(css, /line-height:1;/);
   assert.match(css, /box-shadow:0 0 0 1\.5px var\(--bg\)/); assert.ok(!/border:/.test(css)); assert.match(css, /pointer-events:none/);
   assert.match(SRC, /--notif-muted:#7C8699/);

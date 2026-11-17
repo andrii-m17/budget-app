@@ -17,6 +17,11 @@ function variants(src){
   out.add(all);
   // 3) лише радіуси без назв (коли назви в тесті вже старі, а значення нові)
   out.add(src.replace(/(border(?:-(?:top|bottom)-(?:left|right))?-radius:)([^;}]*)/g, (a, p, v) => p + v.replace(/(?<![\w.#-])(12|18|22|28|999)px/g, (b, n) => 'var\\(--' + RAD[n] + '\\)')));
+  // 7) відступи DS-N4b: padding/margin/gap на --sp-*
+  const SPM = { 3: 4, 4: 4, 5: 4, 6: 8, 7: 8, 8: 8, 9: 8, 10: 12, 11: 12, 12: 12, 13: 12, 14: 16, 15: 16, 16: 16, 17: 16, 18: 20, 20: 20, 22: 24, 24: 24, 26: 24, 28: 24, 32: 32, 34: 32, 36: 32, 40: 40, 48: 48 };
+  const TK = { 4: 'sp-1', 8: 'sp-2', 12: 'sp-3', 16: 'sp-4', 20: 'sp-5', 24: 'sp-6', 32: 'sp-8', 40: 'sp-10', 48: 'sp-12' };
+  const sp = (t) => t.replace(/((?:padding|margin|gap|row-gap|column-gap)(?:-(?:top|right|bottom|left))?:)([^;}]*)/g, (a, p, v) => /calc|env|var\\\(/.test(v) ? a : p + v.replace(/(?<![\w.#\\-])(\d+)px/g, (b, n) => SPM[n] ? 'var\\(--' + TK[SPM[n]] + '\\)' : b));
+  out.add(sp(src)); out.add(sp(names)); out.add(sp(all));
   // 6) тривалості DS-N4a: найближчий токен
   const dm = (t) => t.replace(/(?<![\w.\\-])(\d*(?:\\\.)?\d+)(ms|s)(?![\w])/g, (a, n, u) => { const v = parseFloat(n.replace('\\.', '.')); const ms = u === 'ms' ? v : v * 1000; if(!ms || ms > 900) return a; const tok = ms <= 150 ? 't-micro' : ms <= 260 ? 't-s' : ms <= 400 ? 't-m' : ms <= 640 ? 't-l' : 't-count'; return 'var\\(--' + tok + '\\)'; });
   out.add(dm(src)); out.add(dm(names)); out.add(dm(all));

@@ -81,6 +81,29 @@ function transform(decl, text){
     if(why || long){ if(times.some(ms => ms > 0)) (globalThis.__durExceptions = globalThis.__durExceptions || []).push({ line: decl.line, sel: decl.sel.split(' ⟶ ').pop().slice(0, 70), prop, val: val.trim().slice(0, 80), why: why || '> 900 мс' }); }
     else val = val.replace(/(?<![\w.-])(\d*\.?\d+)(ms|s)(?![\w])/g, (all, n, u) => { const ms = u === 'ms' ? parseFloat(n) : parseFloat(n) * 1000; if(ms === 0) return all; const tok = ms <= 150 ? 't-micro' : ms <= 260 ? 't-s' : ms <= 400 ? 't-m' : ms <= 640 ? 't-l' : 't-count'; if(tok === 't-s' && ms === 200 || tok === 't-micro' && ms === 120 || tok === 't-m' && ms === 320 || tok === 't-l' && ms === 480 || tok === 't-count' && ms === 800) stats.durExact = (stats.durExact || 0) + 1; stats.durN4 = (stats.durN4 || 0) + 1; (stats.byVal = stats.byVal || {})[all] = ((stats.byVal || {})[all] || 0) + 1; return 'var(--' + tok + ')'; });
   }
+  // DS-N4b: відступи (padding/margin/gap) на сітку 4 pt: токени --sp-*; значення 1–2 px, від'ємні, дробові й поза правилами лишаються. Не чіпаємо: форми в шторках (.drawer*, .sf-*, .field, .och-*, mono-detail), kb-*, таббар; значення в calc()/var()/env() (лише верхній рівень)
+  if(has('--sp') && /^(padding|margin|gap|row-gap|column-gap)(-(top|right|bottom|left|inline|block)(-(start|end))?)?$/.test(prop) && !decl.keyframes && /px/.test(val)){
+    const why = kbRule ? 'kb-*' : /drawer|app-modal|\.sf-|\.field(?![\w-])|\.och-|mono-detail|struct-drawer|#installment-drawer/.test(decl.sel) ? 'форми шторок' : /tabbar|\.tb-/.test(decl.sel) ? 'таббар' : '';
+    if(why){ (globalThis.__spExceptions = globalThis.__spExceptions || []).push({ line: decl.line, sel: decl.sel.split(' ⟶ ').pop().slice(0, 70), prop, val: val.trim().slice(0, 70), why }); }
+    else {
+      const SPM = { 3: 4, 4: 4, 5: 4, 6: 8, 7: 8, 8: 8, 9: 8, 10: 12, 11: 12, 12: 12, 13: 12, 14: 16, 15: 16, 16: 16, 17: 16, 18: 20, 20: 20, 22: 24, 24: 24, 26: 24, 28: 24, 32: 32, 34: 32, 36: 32, 40: 40, 48: 48 };
+      const TOK = { 4: 'sp-1', 8: 'sp-2', 12: 'sp-3', 16: 'sp-4', 20: 'sp-5', 24: 'sp-6', 32: 'sp-8', 40: 'sp-10', 48: 'sp-12' };
+      let depth = 0, outv = '';
+      for(let i = 0; i < val.length; i++){
+        const ch = val[i];
+        if(ch === '(') depth++; if(ch === ')') depth--;
+        if(depth === 0 && /\d/.test(ch) && !/[\w.#-]/.test(val[i - 1] || ' ')){
+          const m = val.slice(i).match(/^(\d+(?:\.\d+)?)px(?![\w%])/);
+          if(m){ const n = Number(m[1]); const to = Number.isInteger(n) ? SPM[n] : undefined; if(to){ stats.spN4 = (stats.spN4 || 0) + 1; (stats.byVal = stats.byVal || {})[m[1]] = ((stats.byVal || {})[m[1]] || 0) + 1; if(n !== to) stats.spMoved = (stats.spMoved || 0) + 1; outv += 'var(--' + TOK[to] + ')'; i += m[0].length - 1; continue; } else { (globalThis.__spLeft = globalThis.__spLeft || {})[m[1]] = ((globalThis.__spLeft || {})[m[1]] || 0) + 1; } }
+        }
+        if(depth === 0 && ch === '-' && /\d/.test(val[i + 1] || '')){ // від'ємне значення: пропускаємо число
+          const m2 = val.slice(i + 1).match(/^\d+(?:\.\d+)?px/); if(m2){ (globalThis.__spLeft = globalThis.__spLeft || {})['-' + m2[0]] = ((globalThis.__spLeft || {})['-' + m2[0]] || 0) + 1; outv += val.slice(i, i + 1 + m2[0].length); i += m2[0].length; continue; }
+        }
+        outv += ch;
+      }
+      val = outv;
+    }
+  }
   if(has('--fs') && prop === 'font-size' && !kbRule && !decl.keyframes){
     if(isFieldSel(decl.sel)){ globalThis.__fsExceptions.push({ line: decl.line, sel: decl.sel, val: val.trim() }); }
     else val = val.replace(/(?<![\w.#-])(\d+(?:\.5)?)px(?![\w%])/g, (all, n) => { if(FS_MAP[n]){ stats.fs = (stats.fs || 0) + 1; return 'var(--fs-' + FS_MAP[n] + ')'; } return all; });
@@ -113,9 +136,10 @@ if(has('--count')){ console.log(JSON.stringify(counts(src))); process.exit(0); }
 if(has('--offscale')){ fs.writeSync(1, JSON.stringify({ decls: parse(src).map(d => ({ line: d.line, prop: d.prop, sel: d.sel, text: src.slice(d.start, d.end) })) })); process.exit(0); }
 const from = Number(arg('--from', 1)), to = Number(arg('--to', 1e9));
 const decls = parse(src).filter(d => d.line >= from && d.line <= to).sort((a, b) => b.start - a.start);
-let out = src; const tot = { names: 0, radius: 0, colors: 0, durations: 0, fs: 0, radiusN3: 0, durN4: 0, byVal: {} };
+let out = src; const tot = { names: 0, radius: 0, colors: 0, durations: 0, fs: 0, radiusN3: 0, durN4: 0, spN4: 0, spMoved: 0, byVal: {} };
 decls.forEach(d => { const orig = out.slice(d.start, d.end); const r = transform(d, orig); if(r.text !== orig){ out = out.slice(0, d.start) + r.text + out.slice(d.end); Object.keys(tot).forEach(k => { if(k === 'byVal'){ Object.keys(r.stats.byVal || {}).forEach(v => { tot.byVal[v] = (tot.byVal[v] || 0) + r.stats.byVal[v]; }); } else tot[k] += r.stats[k] || 0; }); } });
 console.log(JSON.stringify({ from, to, replaced: tot, before: counts(src), after: counts(out), lines: src.split('\n').length === out.split('\n').length }));
 if(has('--fs')) console.log(JSON.stringify({ fsExceptions: globalThis.__fsExceptions }));
 if(has('--dur')) console.log(JSON.stringify({ durExceptions: globalThis.__durExceptions || [] }));
+if(has('--sp')) console.log(JSON.stringify({ spExceptions: globalThis.__spExceptions || [], spLeft: globalThis.__spLeft || {} }));
 if(!has('--dry')) fs.writeFileSync(FILE, out);

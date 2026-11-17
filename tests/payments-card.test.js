@@ -72,8 +72,8 @@ test('охоронні: немає підзаголовка й рядка «Ус
   const cssStart = SRC.indexOf('.pay-card{ position:relative');
   const css = SRC.slice(cssStart, SRC.indexOf('.pay-done span.m{', cssStart));
   (css.match(/font-size:(\d+(?:\.\d+)?)px/g) || []).forEach(function(x){ assert.ok(parseFloat(x.slice(10)) >= 11, x); });
-  assert.match(css, /\.pay-card\{[^}]*border-radius:var\(--r-l\); padding:12px 14px 6px/);
-  assert.match(css, /\.pay-day\{[^}]*min-height:52px;[^}]*gap:1px; padding:4px 0;[^}]*border-radius:var\(--r-s\)/); assert.match(css, /\.pay-strip\{ display:flex; gap:3px;/);
+  assert.match(css, /\.pay-card\{[^}]*border-radius:var\(--r-l\); padding:var\(--sp-3\) var\(--sp-4\) var\(--sp-2\)/);
+  assert.match(css, /\.pay-day\{[^}]*min-height:52px;[^}]*gap:1px; padding:var\(--sp-1\) 0;[^}]*border-radius:var\(--r-s\)/); assert.match(css, /\.pay-strip\{ display:flex; gap:var\(--sp-1\);/);
   assert.match(css, /\.pay-line1\{[^}]*min-height:34px; font-size:var\(--fs-subhead\)/); assert.match(css, /\.pay-msg\{[^}]*min-height:34px; font-size:var\(--fs-footnote\)/);
 });
 test('тап по комірці з платежем відкриває «Платежі» на даті; уся картка — без дати; картка в renderAll; прихована без даних', function(){

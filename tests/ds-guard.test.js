@@ -49,3 +49,11 @@ test('DS-N4a: тривалості (transition/animation) у app.css на ток
   const ex = JSON.parse(lines[1]).durExceptions;
   assert.ok(ex.length <= 30, 'винятків не більше 30, зараз ' + ex.length);
 });
+test('DS-N4b: відступи (padding/margin/gap) у app.css на --sp-*, крім форм шторок, kb-*, таббару, значень 1–2 px, від\'ємних, дробових і поза правилами', function(){
+  const r = require('node:child_process').spawnSync('node', [path.join(__dirname, '..', 'scripts', 'ds2-apply.js'), '--sp', '--dry'], { encoding: 'utf8', maxBuffer: 1e9 });
+  const lines = r.stdout.trim().split('\n');
+  assert.equal(JSON.parse(lines[0]).replaced.spN4, 0, 'є відступ, який можна замінити на токен');
+  const j = JSON.parse(lines[1]);
+  assert.ok(j.spExceptions.length <= 137, 'винятків (форми шторок, kb-*, таббар) не більше 137, зараз ' + j.spExceptions.length);
+  ['--sp-1: 4px', '--sp-2: 8px', '--sp-3: 12px', '--sp-4: 16px', '--sp-5: 20px', '--sp-6: 24px', '--sp-8: 32px', '--sp-10: 40px', '--sp-12: 48px'].forEach(function(t){ assert.ok(TOK.indexOf(t) !== -1, t); });
+});

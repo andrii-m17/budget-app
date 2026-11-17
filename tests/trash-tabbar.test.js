@@ -13,7 +13,7 @@ test('T1: .trash-screen лежить під таббаром (z-index менши
   const tb = SRC.slice(SRC.indexOf('nav.tabbar{'), SRC.indexOf('}', SRC.indexOf('nav.tabbar{')));
   const zt = Number((tb.match(/z-index:(\d+)/) || [])[1]);
   assert.ok(z < zt, `trash ${z} < tabbar ${zt}`);
-  assert.match(r, /16px 112px;/, 'відступ як у .main-col (112px)');
+  assert.match(r, /var\(--sp-4\) 112px;/, 'відступ як у .main-col (112px)'); // Rev 2.32.344 (DS-N4b): 16px = --sp-4
   assert.match(SRC, /\.main-col\{[^}]*padding-bottom:112px/);
 });
 test('T1: шторки, модалки й тости лишаються над таббаром; клавіатура ховає таббар як і раніше', () => {

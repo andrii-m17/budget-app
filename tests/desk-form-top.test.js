@@ -7,7 +7,7 @@ const path = require('node:path');
 const SRC = require('./extract').readIndexWithCss();
 const media = (function(){ const i = SRC.indexOf('#vytraty-default-view{ display:grid;'); const st = SRC.lastIndexOf('@media (min-width:768px){', i); return SRC.slice(st, SRC.indexOf('#vytraty-default-view .vytraty-recent-col', i)); })();
 test('desktop (≥768px): колонка форми align-self:start, картка без margin:auto; сітка двоколонкова', function(){
-  assert.match(media, /#vytraty-default-view\{ display:grid; grid-template-columns:minmax\(280px,420px\) 1fr; gap:24px; align-items:stretch; \}/);
+  assert.match(media, /#vytraty-default-view\{ display:grid; grid-template-columns:minmax\(280px,420px\) 1fr; gap:var\(--sp-6\); align-items:stretch; \}/);
   assert.match(media, /#vytraty-default-view \.vytraty-form-col\{ display:flex; flex-direction:column; align-self:start; \}/);
   assert.match(media, /\.vytraty-form-col \.entry-card\{ margin-top:0; margin-bottom:0; \}/);
   assert.ok(!/entry-card\{ margin-top:auto/.test(media), 'розтягування/центрування по висоті прибрано');

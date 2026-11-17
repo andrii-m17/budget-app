@@ -55,12 +55,12 @@
   .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); padding-left:env(safe-area-inset-left,0px); padding-right:env(safe-area-inset-right,0px); }
   .side{ display:none; }
   .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding-bottom:112px; }
-  .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 20px; border-bottom:1px solid var(--line); position:relative; text-align:center; }
-  .page-header-buttons{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); right:20px; display:flex; gap:8px; z-index:2; }
+  .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) var(--sp-5) var(--sp-5); border-bottom:1px solid var(--line); position:relative; text-align:center; }
+  .page-header-buttons{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); right:20px; display:flex; gap:var(--sp-2); z-index:2; }
   /* Rev #30 (6D.8) — дзеркало .page-header-buttons (той самий .gear-btn,
      лише зліва) — природне місце для іконки профілю, той самий контейнер
      .top, що вже спільний для всіх вкладок (не по одному на вкладку). */
-  .page-header-buttons-left{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); left:20px; display:flex; gap:8px; z-index:2; }
+  .page-header-buttons-left{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); left:20px; display:flex; gap:var(--sp-2); z-index:2; }
   .page-header-text{ padding:0 76px; }
   /* Rev #30 (6D.10) — BugFix структурний: .avatar-badge раніше сам ніс і
      коло (border-radius:50%+overflow:hidden), і був контейнером
@@ -83,16 +83,16 @@
      .gear-btn.profile-header-btn — вища специфічність, не залежить від
      порядку правил. */
   .gear-btn.profile-header-btn{ border:none; padding:0; background:none; overflow:visible; }
-  .profile-preview-icon-wrap{ display:flex; justify-content:center; margin:6px 0 14px; }
+  .profile-preview-icon-wrap{ display:flex; justify-content:center; margin:var(--sp-2) 0 var(--sp-4); }
   /* Rev #30 (6D.89) — за референсом користувача: заголовок "Ви не увійшли"
      (жирний, по центру) над підписом — той самий двошаровий текст, що вже
      має залогінований стан (profile-head-name/profile-head-email), лише
      центрований для гостя. */
-  .profile-preview-title{ text-align:center; font-weight:700; font-size:var(--fs-callout); color:var(--text); margin-bottom:4px; }
+  .profile-preview-title{ text-align:center; font-weight:700; font-size:var(--fs-callout); color:var(--text); margin-bottom:var(--sp-1); }
   /* Rev #30 (6D.13) — margin-bottom додано: підпис впритул торкався
      розділювальної лінії (border-top наступного .profile-menu-item) —
      за словами користувача, "занадто близько". */
-  .profile-preview-hint{ text-align:center; font-size:var(--fs-footnote); color:var(--text-2); margin:0 0 18px; line-height:1.4; }
+  .profile-preview-hint{ text-align:center; font-size:var(--fs-footnote); color:var(--text-2); margin:0 0 var(--sp-5); line-height:1.4; }
   .avatar-status-dot{ position:absolute; bottom:-1px; right:-1px; width:11px; height:11px; border-radius:50%; border:2px solid var(--surface); background:var(--text-2); display:flex; align-items:center; justify-content:center; }
   .avatar-status-dot.online{ background:var(--color-success); }
   .avatar-status-dot.offline{ background:var(--color-error); }
@@ -135,19 +135,19 @@
      ("user@example.test") через `.profile-head-email` ellipsis;
      виміряно scrollWidth реального рядка (139px) проти доступного
      clientWidth (134px) — 230px дає запас. */
-  .profile-popover{ position:fixed; z-index:91; width:230px; max-width:calc(100vw - 32px); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:16px; display:none; }
+  .profile-popover{ position:fixed; z-index:91; width:230px; max-width:calc(100vw - 32px); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:var(--sp-4); display:none; }
   .profile-popover.open{ display:block; }
   .profile-popover-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
   .profile-popover-backdrop.open{ display:block; }
   /* Rev 2.32.25 (U) — ненав'язливе повідомлення про оновлення («Скло», над таббаром). Ховається при відкритій клавіатурі/шторці (див. shouldShowUpdateBanner). */
-  .update-banner{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:190; white-space:nowrap; display:none; align-items:center; gap:12px; padding:9px 17px; max-width:calc(100vw - 32px); background:var(--glass); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--glass-edge); border-radius:var(--r-l); box-shadow:var(--glass-shadow); font-size:var(--fs-subhead); color:var(--color-text); }
+  .update-banner{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:190; white-space:nowrap; display:none; align-items:center; gap:var(--sp-3); padding:var(--sp-2) var(--sp-4); max-width:calc(100vw - 32px); background:var(--glass); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--glass-edge); border-radius:var(--r-l); box-shadow:var(--glass-shadow); font-size:var(--fs-subhead); color:var(--color-text); }
   /* Rev 2.32.182 (UPDATE-GAPS): відступ 17 px + рамка 1 px = 18 px від краю плашки до тексту зліва й до кнопки справа (як у поп-апів), проміжок текст–кнопка 12 px. */
   .update-banner.show{ display:flex; }
   /* Rev 2.32.37 (T) — спливаюче підтвердження успіху («Скло», як «Доступне оновлення»): скляний контейнер, іконка (коло й галочка, що малюються) зліва, дія справа. Те саме місце над таббаром; коли показано «Доступне оновлення», піднімається над ним (стек). Анімуються лише opacity/transform і stroke-dashoffset — не розміри. */
   /* Rev 2.32.39 (T2) — підтвердження ЗВЕРХУ (було знизу над таббаром): top = safe-area + 8px, бічні 16px, поверх шапки й шторок; обгортка не перехоплює дотики (клікабельний лише контейнер), тому шапка поза ним працює. «Доступне оновлення» лишається внизу, без змін. */
   /* Rev 2.32.166 (TOAST-LAYOUT): поля 18 px з обох боків, однаково для всіх варіантів; верх — нижче заголовка сторінки (--toast-top ставить pumpSuccessToast за позицією .page-header-text), але не вище safe-area + 8; кольори, тривалості, логіку не змінено. */
   .success-toast-host{ position:fixed; top:max(calc(env(safe-area-inset-top, 0px) + 8px), var(--toast-top, 0px)); left:18px; right:18px; z-index:205; display:flex; justify-content:center; pointer-events:none; }
-  .success-toast{ pointer-events:auto; touch-action:pan-x; width:fit-content; max-width:100%; box-sizing:border-box; display:flex; align-items:center; gap:12px; padding:11px 17px; background:var(--glass); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--glass-edge); border-radius:var(--r-l); box-shadow:var(--glass-shadow); color:var(--color-text); animation:stIn var(--t-m) cubic-bezier(.2,.9,.3,1) both; }
+  .success-toast{ pointer-events:auto; touch-action:pan-x; width:fit-content; max-width:100%; box-sizing:border-box; display:flex; align-items:center; gap:var(--sp-3); padding:var(--sp-3) var(--sp-4); background:var(--glass); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--glass-edge); border-radius:var(--r-l); box-shadow:var(--glass-shadow); color:var(--color-text); animation:stIn var(--t-m) cubic-bezier(.2,.9,.3,1) both; }
   /* Rev 2.32.176 (TOAST-FIT): поп-ап — пілюля за розміром вмісту (width:fit-content) по центру екрана (хост — flex, justify-content:center), max-width = хост = 100% − 36 px; внутрішній відступ симетричний 18 px (кнопка праворуч має той самий відступ, що іконка ліворуч), зверху й знизу 11 px; довгий текст переноситься всередині. Розтягування на всю ширину (Rev 2.32.166) скасовано. */
   .success-toast.leaving{ opacity:0; transform:translateY(-16px); transition:opacity var(--t-s) ease, transform var(--t-s) ease; animation:none; }
   .success-toast-icon{ width:22px; height:22px; flex:none; color:var(--color-success, #1f9d55); }
@@ -163,24 +163,24 @@
   .success-toast-text{ min-width:0; display:flex; flex-direction:column; gap:1px; }
   .success-toast-title{ font-size:var(--fs-subhead); font-weight:600; line-height:1.3; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
   .success-toast-sub{ font-size:var(--fs-footnote); line-height:1.3; color:var(--text-2); white-space:normal; overflow-wrap:anywhere; }
-  .success-toast-action{ flex:none; border:0; background:var(--accent); color:#fff; font:inherit; font-size:var(--fs-subhead); font-weight:600; padding:7px 14px; border-radius:var(--r-m); cursor:pointer; }
+  .success-toast-action{ flex:none; border:0; background:var(--accent); color:#fff; font:inherit; font-size:var(--fs-subhead); font-weight:600; padding:var(--sp-2) var(--sp-4); border-radius:var(--r-m); cursor:pointer; }
   @keyframes stDraw{ to{ stroke-dashoffset:0; } }
   @keyframes stIn{ from{ opacity:0; transform:translateY(-16px); } to{ opacity:1; transform:translateY(0); } }
   @keyframes stFade{ from{ opacity:0; } to{ opacity:1; } }
   @media (prefers-reduced-motion: reduce){ .success-toast{ animation:stFade var(--t-s) ease both; } .success-toast.leaving{ transform:none; } .success-toast-icon circle, .success-toast-icon path{ animation:none; stroke-dashoffset:0; } }
-  .update-banner button{ border:0; background:var(--accent); color:#fff; font:inherit; font-weight:600; padding:7px 14px; border-radius:var(--r-m); cursor:pointer; }
+  .update-banner button{ border:0; background:var(--accent); color:#fff; font:inherit; font-weight:600; padding:var(--sp-2) var(--sp-4); border-radius:var(--r-m); cursor:pointer; }
   .page-header-text h1{ margin:0; font-size:var(--fs-title2); line-height:27px; font-weight:700; letter-spacing:-.01em; }
   /* Rev 2.32.48 (S1): підзаголовок в один рядок по центру екрана під рядом кнопок (ширина не обмежена відступами під кнопки шапки) */
   @media (max-width:1279px){ .page-header-text .page-subtitle{ margin-left:-60px; margin-right:-60px; white-space:nowrap; } }
-  .page-header-text .page-subtitle{ margin:3px 0 0; font-size:var(--fs-footnote); color:var(--text-2); line-height:1.4; }
+  .page-header-text .page-subtitle{ margin:var(--sp-1) 0 0; font-size:var(--fs-footnote); color:var(--text-2); line-height:1.4; }
   /* Rev 2.11.1 — офлайн-банер: приглушений warning-тон — навмисно НЕ
      error-колір: офлайн — це очікуваний, безпечний стан (дані й далі
      зберігаються локально), а не проблема, що вимагає тривоги. */
-  .status-banner{ display:flex; align-items:center; gap:8px; padding:9px 20px; font-size:var(--fs-caption1); font-weight:600; background:var(--color-warning-bg); color:var(--color-warning); border-bottom:1px solid var(--line); }
+  .status-banner{ display:flex; align-items:center; gap:var(--sp-2); padding:var(--sp-2) var(--sp-5); font-size:var(--fs-caption1); font-weight:600; background:var(--color-warning-bg); color:var(--color-warning); border-bottom:1px solid var(--line); }
   .status-banner svg{ flex-shrink:0; }
   .status-banner.hidden{ display:none; }
   /* Rev 2.32.75 (K3): позначка тестового середовища («Мок» / «Реальна база · лише читання»); на робочому origin прихована. Фіксована смужка по центру зверху, не зачіпає шапку (iPad/десктоп). */
-  .cloud-env-badge{ position:fixed; top:calc(env(safe-area-inset-top) + 2px); left:50%; transform:translateX(-50%); z-index:9999; padding:1px 8px; border-radius:var(--radius-pill, var(--r-pill)); font-size:var(--fs-caption2); line-height:14px; font-weight:600; letter-spacing:.02em; pointer-events:none; background:var(--surface-2); color:var(--text); border:1px solid var(--line, rgba(128,128,128,.4)); white-space:nowrap; }
+  .cloud-env-badge{ position:fixed; top:calc(env(safe-area-inset-top) + 2px); left:50%; transform:translateX(-50%); z-index:9999; padding:1px var(--sp-2); border-radius:var(--radius-pill, var(--r-pill)); font-size:var(--fs-caption2); line-height:14px; font-weight:600; letter-spacing:.02em; pointer-events:none; background:var(--surface-2); color:var(--text); border:1px solid var(--line, rgba(128,128,128,.4)); white-space:nowrap; }
   .cloud-env-badge.readonly{ background:#b45309; color:#fff; border-color:#b45309; }
   .cloud-env-badge.hidden{ display:none; }
   /* Rev #28.C — компонент .status-banner (раніше й плашка #offline-banner, прибрана в 2.32.210)
@@ -198,13 +198,13 @@
      іконка зліва і шеврон справа мальуються окремими SVG, не через
      background-image на самому select, бо тут потрібні ДВІ іконки одразу
      по краях, а не одна. */
-  .month-pill{ display:inline-flex; align-items:center; gap:7px; margin-top:14px; padding:9px 14px; background:var(--surface); border:1.5px solid var(--line-strong); border-radius:var(--r-pill); cursor:pointer; box-shadow:var(--shadow-sm); }
+  .month-pill{ display:inline-flex; align-items:center; gap:var(--sp-2); margin-top:var(--sp-4); padding:var(--sp-2) var(--sp-4); background:var(--surface); border:1.5px solid var(--line-strong); border-radius:var(--r-pill); cursor:pointer; box-shadow:var(--shadow-sm); }
   .month-pill svg{ width:16px; height:16px; color:var(--text-2); flex-shrink:0; }
   .month-pill svg.month-pill-chevron{ width:13px; height:13px; }
   .month-pill select{ appearance:none; -webkit-appearance:none; -moz-appearance:none; background:none; border:none; padding:0; margin:0; font:inherit; font-weight:700; font-size:14px; color:var(--text); cursor:pointer; }
   .month-pill select:focus{ outline:none; }
   .month-pill.hidden{ display:none; }
-  .brand-row{ display:flex; align-items:center; gap:8px; }
+  .brand-row{ display:flex; align-items:center; gap:var(--sp-2); }
   .brand-logo{ width:28px; height:28px; border-radius:var(--r-xs); overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .brand-logo img{ width:100%; height:100%; object-fit:cover; display:block; }
   .gear-btn{ width:36px; height:36px; border-radius:var(--r-s); border:1.5px solid var(--line-strong); background:var(--surface); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-2); flex-shrink:0; }
@@ -214,12 +214,12 @@
      тапу. Проходимось по всіх подібних правилах на тапабельних елементах і
      ховаємо їх за @media (hover:hover) and (pointer:fine), як тут. */
   @media (hover:hover) and (pointer:fine){ .gear-btn:hover{ background:var(--color-hover-overlay); } }
-  .month-picker{ display:flex; align-items:center; gap:8px; margin-top:16px; }
+  .month-picker{ display:flex; align-items:center; gap:var(--sp-2); margin-top:var(--sp-4); }
   .month-picker label{ font-size:var(--fs-caption1); color:var(--text-2); font-weight:600; }
-  .month-picker select{ border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); padding:8px 10px; font-size:14px; background:var(--surface); color:var(--text); font-weight:600; }
+  .month-picker select{ border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); padding:var(--sp-2) var(--sp-3); font-size:14px; background:var(--surface); color:var(--text); font-weight:600; }
   .month-picker select:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
 
-  .view{ padding:20px 20px 0; flex:1; } .view.hidden{ display:none; }
+  .view{ padding:var(--sp-5) var(--sp-5) 0; flex:1; } .view.hidden{ display:none; }
   /* Rev 2.24.0 (M1) — перехід між вкладками (WAAPI на .view, opacity+transform; усі fixed-шари — прямі діти <body>, тож transform на .view безпечний).
      На час переходу #main-col тимчасово position:relative (контейнер для вихідної вкладки, яку JS знімає з потоку position:absolute);
      класи ставляться/знімаються лише в beginTabTransition()/finishTabTransition(). */
@@ -227,8 +227,8 @@
   .main-col.tab-transitioning > .view{ pointer-events:none; }
   /* Rev 2.31.0 (M4c) — на час fade-out старого сегмента «Обліку» його панель — position:absolute у межах цього .view */
   .view.acct-seg-transition{ position:relative; }
-  .card{ background:var(--surface); border-radius:var(--radius-lg); padding:24px; box-shadow:var(--shadow-md); border:1px solid var(--line); }
-  .card + .card{ margin-top:24px; }
+  .card{ background:var(--surface); border-radius:var(--radius-lg); padding:var(--sp-6); box-shadow:var(--shadow-md); border:1px solid var(--line); }
+  .card + .card{ margin-top:var(--sp-6); }
   /* Rev 2.11.4 — за референс-скріном користувача: картки "Дохід за місяць",
      "Борги по картках", "Оплати частинами" й "Нова витрата" більше НЕ мають
      кольорової лінії зверху (раніше .expense-entry/.income-entry/.debt-entry
@@ -240,7 +240,7 @@
      тому зверху рамка виглядала відсутньою, хоча зліва/справа/знизу
      лишався звичний 1px контур. Просто прибираємо перевизначення border-top
      — картка успадковує суцільний 1px бордер з усіх чотирьох боків, як .card. */
-  .entry-title{ font-weight:600; font-size:var(--fs-subhead); line-height:20px; margin-bottom:14px; display:flex; align-items:center; gap:7px; }
+  .entry-title{ font-weight:600; font-size:var(--fs-subhead); line-height:20px; margin-bottom:var(--sp-4); display:flex; align-items:center; gap:var(--sp-2); }
   /* Rev 2.21.13 — "Нова витрата" винесено ЗА межі картки-рамки .entry-card
      (той самий принцип, що заголовки груп полів в iOS Settings — звичайний
      заголовок розділу над карткою, без власного фону/рамки, замість
@@ -248,14 +248,14 @@
      title+card, потрібна лише щоб вони разом становили ОДИН grid-child
      лівої колонки в 2-колонковому макеті ≥768px (Rev 2.21.3). */
   .vytraty-form-col{ min-width:0; }
-  .vytraty-form-title{ font-size:var(--fs-body); font-weight:800; margin-bottom:12px; padding:0 2px; }
+  .vytraty-form-title{ font-size:var(--fs-body); font-weight:800; margin-bottom:var(--sp-3); padding:0 2px; }
   /* Rev 2.11.4 — той самий узагальнений рядок підсумку, що вже
      використовувала лише картка ОЧ ("Разом на місяць") — перейменовано з
      .installment-total на .total-row, бо тепер його перевикористовують і
      "Борги по картках" ("Разом боргів"), і сама ОЧ ("Разом ОЧ"). Модифікатор
      .warning фарбує суму в той самий приглушений warning-тон, що й бейдж
      "станом на" — за референсом (амбер-колір для "Разом боргів"). */
-  .total-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 2px 4px; margin-bottom:14px; font-size:var(--fs-footnote); font-weight:600; color:var(--text); border-top:1.5px solid var(--line-strong); }
+  .total-row{ display:flex; align-items:center; justify-content:space-between; padding:var(--sp-3) 2px var(--sp-1); margin-bottom:var(--sp-4); font-size:var(--fs-footnote); font-weight:600; color:var(--text); border-top:1.5px solid var(--line-strong); }
   .total-row b{ font-family:'JetBrains Mono',monospace; font-size:var(--fs-subhead); }
   .total-row.warning b{ color:var(--color-warning); }
   /* Rev 2.11.4 — кнопки збереження на Обліку округлені за референс-скріном.
@@ -270,8 +270,8 @@
   /* Rev 2.0.2 — борги по картках: керований список банків (додати/перейменувати/
      видалити), природний ключ запису — банк+місяць, той самий upsert-підхід,
      що й для доходів. */
-  .bank-debt-table{ display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
-  .bank-debt-row{ display:flex; align-items:center; gap:10px; }
+  .bank-debt-table{ display:flex; flex-direction:column; gap:var(--sp-3); margin-bottom:var(--sp-4); }
+  .bank-debt-row{ display:flex; align-items:center; gap:var(--sp-3); }
   .bdr-actions{ display:flex; gap:2px; flex-shrink:0; }
   .bdr-icon-btn{ width:28px; height:28px; border:none; background:none; color:var(--color-muted); cursor:pointer; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
@@ -279,23 +279,23 @@
     .bdr-icon-btn:hover{ background:var(--color-hover-overlay); color:var(--text); }
     .bdr-icon-btn.danger:hover{ background:var(--color-error-bg); color:var(--color-error); }
   }
-  .add-bank-row{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
-  .add-bank-row input{ flex:1 1 auto; min-width:0; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--surface); color:var(--text); }
+  .add-bank-row{ display:flex; gap:var(--sp-2); margin-bottom:var(--sp-4); flex-wrap:wrap; }
+  .add-bank-row input{ flex:1 1 auto; min-width:0; padding:var(--sp-3) var(--sp-3); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--surface); color:var(--text); }
   .add-bank-row input.amount-input{ flex:0 1 140px; }
   .add-bank-row input:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
-  .add-bank-row .submit-btn{ flex:0 0 auto; width:auto; margin-top:0; padding:11px 16px; white-space:nowrap; }
+  .add-bank-row .submit-btn{ flex:0 0 auto; width:auto; margin-top:0; padding:var(--sp-3) var(--sp-4); white-space:nowrap; }
   /* Rev 2.1.24 — поля додавання нового банку/ОЧ прибрані з постійного вигляду
      картки (завжди видимі інпути захаращували форму) — тепер лише кнопка,
      яка відкриває вже наявну кастомну модалку. Пунктирна рамка (той самий
      прийом, що import-card) сигналізує "додати нове", а не "зберегти". */
-  .add-trigger-btn{ width:100%; padding:12px; margin-bottom:14px; border:1.5px solid var(--line-strong); background:var(--surface); color:var(--text-2); font-size:var(--fs-subhead); font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
+  .add-trigger-btn{ width:100%; padding:var(--sp-3); margin-bottom:var(--sp-4); border:1.5px solid var(--line-strong); background:var(--surface); color:var(--text-2); font-size:var(--fs-subhead); font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
   /* Rev 2.32.139 (EMPTY-1): порожній стан «Облік» → «Борги» / «ОЧ» за затвердженим макетом: іконка в колі, заголовок 16px/700, пояснення 13px приглушене (≈230px), кнопка на всю ширину; підсумкова картка, підпис розділу й нижня кнопка «Додати» у порожньому стані сховані. */
   .acct-panel.is-empty > .card-summary, .acct-panel.is-empty > .section-label, .acct-panel.is-empty > .add-trigger-btn{ display:none; }
-  .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:36px 0 8px; }
-  .empty-state-icon{ width:64px; height:64px; border-radius:50%; background:var(--surface-2); color:var(--text-2); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
+  .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:var(--sp-8) 0 var(--sp-2); }
+  .empty-state-icon{ width:64px; height:64px; border-radius:50%; background:var(--surface-2); color:var(--text-2); display:flex; align-items:center; justify-content:center; margin-bottom:var(--sp-4); }
   .empty-state-icon svg{ width:30px; height:30px; display:block; }
   .empty-state-title{ font-size:var(--fs-callout); font-weight:700; line-height:1.3; color:var(--text); }
-  .empty-state-text{ max-width:230px; margin:6px 0 20px; font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); }
+  .empty-state-text{ max-width:230px; margin:var(--sp-2) 0 var(--sp-5); font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); }
   .empty-state .add-trigger-btn{ margin-bottom:0; }
   .empty-state-actions{ align-self:stretch; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
@@ -303,11 +303,11 @@
   #banks-saved-hint{ color:var(--color-primary-hover); font-weight:600; }
   /* Rev 2.1.17 — підпис початкової суми ОЧ (потрібна для прогрес-бару на
      Аналітиці); якщо ще не вказана — приглушене попередження замість числа. */
-  .bdr-init-amount{ display:block; font-size:var(--fs-caption1); color:var(--text-2); margin:4px 0 8px; }
+  .bdr-init-amount{ display:block; font-size:var(--fs-caption1); color:var(--text-2); margin:var(--sp-1) 0 var(--sp-2); }
   .bdr-init-amount.missing{ color:var(--color-warning); }
   /* Rev 2.2.2 — попередження про розбіжність факт/очікування під полем
      "Залишок" ОЧ — приглушене, інформаційне (ніколи не блокує). */
-  .bdr-diff-warning{ display:none; font-size:var(--fs-caption2); color:var(--color-warning); margin-top:3px; }
+  .bdr-diff-warning{ display:none; font-size:var(--fs-caption2); color:var(--color-warning); margin-top:var(--sp-1); }
   .bdr-diff-warning.show{ display:block; }
   .bdr-diff-warning .bdr-diff-apply{ background:none; border:none; font:inherit; font-size:var(--fs-caption2); font-weight:700; color:var(--color-warning); cursor:pointer; padding:0; text-decoration:underline; text-underline-offset:2px; }
   /* Rev 2.16.4 — чекбокс "Мінімальний платіж внесено": простий прапорець без
@@ -315,7 +315,7 @@
      при відмітці — той самий success-колір, що прогрес-бари ОЧ на Аналітиці.
      Rev 2.16.5 — тепер живе всередині шторки редагування картки, не в
      інлайновому рядку (див. .card-debt-compact-row нижче). */
-  .bdr-minpay-check{ display:flex; align-items:center; gap:8px; font-size:var(--fs-footnote); color:var(--text-2); cursor:pointer; -webkit-tap-highlight-color:transparent; margin:2px 0 18px; background:var(--surface-2); border-radius:var(--radius-sm); padding:12px 14px; }
+  .bdr-minpay-check{ display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-footnote); color:var(--text-2); cursor:pointer; -webkit-tap-highlight-color:transparent; margin:2px 0 var(--sp-5); background:var(--surface-2); border-radius:var(--radius-sm); padding:var(--sp-3) var(--sp-4); }
   .bdr-minpay-check input[type="checkbox"]{ width:19px; height:19px; accent-color:var(--color-success); cursor:pointer; flex-shrink:0; }
   .bdr-minpay-check:has(input:checked){ color:var(--color-success); font-weight:600; background:var(--color-success-bg); }
   /* Rev 2.16.5 — Борги по картках: компактний список (схвалений "Варіант A"
@@ -323,13 +323,13 @@
      шторку (.drawer, той самий компонент, що Налаштування) з повним
      редагуванням. Підсумкова картка над списком — 2 суми (загальний борг +
      разом мін. платіж), той самий стиль картки, що .card{}. */
-  .card-summary{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); padding:16px 18px; margin-bottom:14px; }
-  .card-summary-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .card-summary-row + .card-summary-row{ margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+  .card-summary{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); padding:var(--sp-4) var(--sp-5); margin-bottom:var(--sp-4); }
+  .card-summary-row{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); }
+  .card-summary-row + .card-summary-row{ margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px solid var(--line); }
   .card-summary-label{ font-size:var(--fs-caption1); color:var(--text-2); font-weight:600; }
   .card-summary-value{ font-size:var(--fs-body); font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--text); }
   .card-summary-value.warn{ color:var(--color-warning); }
-  .card-debt-compact-row{ display:flex; align-items:center; gap:8px; width:100%; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-s); padding:11px 12px; cursor:pointer; text-align:left; font-family:inherit; box-shadow:var(--shadow-sm); -webkit-tap-highlight-color:transparent; transition:background var(--duration-fast) var(--easing-standard); }
+  .card-debt-compact-row{ display:flex; align-items:center; gap:var(--sp-2); width:100%; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-s); padding:var(--sp-3) var(--sp-3); cursor:pointer; text-align:left; font-family:inherit; box-shadow:var(--shadow-sm); -webkit-tap-highlight-color:transparent; transition:background var(--duration-fast) var(--easing-standard); }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .card-debt-compact-row:hover{ background:var(--surface-2); } }
   .cdr-avatar{ position:relative; flex-shrink:0; width:38px; height:38px; }
@@ -399,14 +399,14 @@
      відступу) — легко натиснути випадково відразу після Save. Відокремлено
      виразним відступом + верхньою лінією-розділювачем, щоб це читалось як
      окрема, свідома дія, а не продовження форми. */
-  .cdd-delete-link{ display:block; width:100%; text-align:center; background:none; border:none; border-top:1px solid var(--line); color:var(--color-error); font-size:var(--fs-footnote); font-weight:600; font-family:inherit; cursor:pointer; margin-top:18px; padding:16px 0 0; }
+  .cdd-delete-link{ display:block; width:100%; text-align:center; background:none; border:none; border-top:1px solid var(--line); color:var(--color-error); font-size:var(--fs-footnote); font-weight:600; font-family:inherit; cursor:pointer; margin-top:var(--sp-5); padding:var(--sp-4) 0 0; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .cdd-delete-link:hover{ text-decoration:underline; } }
   /* Rev 2.2.3 — кнопка швидкої оплати ОЧ (метод B, FINANCIAL_RULES §5):
      відкриває форму витрати з передзаповненими назвою/сумою і вже готовою
      прив'язкою. Фіолетовий акцент — той самий, що категорія "Оплати Частинами"
      і підказка автозв'язку (метод C), щоб візуально пов'язати ці елементи. */
-  .installment-pay-btn{ width:100%; margin-top:10px; margin-bottom:14px; padding:10px; border:1.5px solid var(--color-accent-purple); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font-size:var(--fs-footnote); font-weight:600; cursor:pointer; }
+  .installment-pay-btn{ width:100%; margin-top:var(--sp-3); margin-bottom:var(--sp-4); padding:var(--sp-3); border:1.5px solid var(--color-accent-purple); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font-size:var(--fs-footnote); font-weight:600; cursor:pointer; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .installment-pay-btn:hover{ filter:brightness(0.97); } }
   /* Rev 2.22.99 (6D.169.1) — той самий запит і той самий прийом, що
@@ -524,8 +524,8 @@
      el.style.borderColor, не залежить від <label> — безпечно. */
   .field-icon-wrap{ position:relative; }
   .field-icon-wrap > svg{ position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--text-2); pointer-events:none; }
-  .field-icon-wrap input{ padding-left:40px; }
-  .row-2{ display:flex; flex-wrap:wrap; gap:12px; }
+  .field-icon-wrap input{ padding-left:var(--sp-10); }
+  .row-2{ display:flex; flex-wrap:wrap; gap:var(--sp-3); }
   .row-2 > .field{ flex:1 1 130px; min-width:0; }
   .field.auto-hint{ font-size:var(--fs-caption1); color:var(--color-primary-hover); margin-top:6px; display:none; }
   .field.auto-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
@@ -539,11 +539,11 @@
      пристрій тестування, див. мобільні фікси нижче) в багатьох версіях
      взагалі не показує спадний список, тому нативний варіант ненадійний саме
      там, де це найбільше потрібно. */
-  .name-suggest-list{ display:none; position:absolute; left:0; right:0; top:100%; margin-top:4px; background:var(--surface); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:12; max-height:230px; overflow-y:auto; }
+  .name-suggest-list{ display:none; position:absolute; left:0; right:0; top:100%; margin-top:var(--sp-1); background:var(--surface); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:12; max-height:230px; overflow-y:auto; }
   .name-suggest-list.show{ display:block; }
   /* Rev 2.32.3 (E2): у редагуванні запису список нижчий і прокручується всередині власного max-height, щоб не перекривати «Зберегти»/«Скасувати» */
   .name-suggest-list.edit-suggest-list{ max-height:150px; overscroll-behavior:contain; }
-  .name-suggest-item{ padding:10px 12px; font-size:var(--fs-subhead); color:var(--text); cursor:pointer; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .name-suggest-item{ padding:var(--sp-3) var(--sp-3); font-size:var(--fs-subhead); color:var(--text); cursor:pointer; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); }
   .name-suggest-item:last-child{ border-bottom:none; }
   /* Rev 2.21.16 — розділено з .name-suggest-item.active: :hover-частину
      ховаємо за @media (hover:hover) and (pointer:fine) (той самий фікс, що .gear-btn вище),
@@ -565,8 +565,8 @@
      "ПУМБ ..."), показуємо всіх кандидатів чіпами замість мовчазного вибору
      першого-ліпшого в масиві. */
   .field.installment-link-hint.multi{ flex-direction:column; align-items:stretch; gap:8px; }
-  .installment-link-candidates{ display:flex; flex-wrap:wrap; gap:6px; }
-  .installment-link-candidates button{ text-decoration:none; background:var(--surface); border:1.5px solid var(--color-accent-purple); border-radius:var(--r-l); padding:4px 10px; font-size:var(--fs-caption2); font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }
+  .installment-link-candidates{ display:flex; flex-wrap:wrap; gap:var(--sp-2); }
+  .installment-link-candidates button{ text-decoration:none; background:var(--surface); border:1.5px solid var(--color-accent-purple); border-radius:var(--r-l); padding:var(--sp-1) var(--sp-3); font-size:var(--fs-caption2); font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .installment-link-candidates button:hover{ background:var(--color-accent-purple-bg); } }
   /* Rev 2.1.6 — за порадою поради ззовні спростили форму: категорія/підкатегорія
@@ -586,7 +586,7 @@
     text-align:center; text-align-last:center;
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
     background-repeat:no-repeat; background-position:right 12px center; background-size:16px 16px;
-    padding-right:34px;
+    padding-right:var(--sp-8);
     /* Rev 2.1.12 — BugFix: emoji-гліфи в назвах категорій рендеряться вищими
        за звичайний текст. Раніше нативний вигляд select сам компенсував це
        (браузер підбирав внутрішню верстку); після appearance:none ми взяли
@@ -595,14 +595,14 @@
        Даємо більше вертикального простору й точний line-height, що дорівнює
        висоті контентної області — надійний спосіб центрувати один рядок
        незалежно від фактичної висоти конкретного гліфа. */
-    height:50px; padding-top:8px; padding-bottom:8px; line-height:30px;
+    height:50px; padding-top:var(--sp-2); padding-bottom:var(--sp-2); line-height:30px;
   }
   .cat-fields-wrap.open{ display:block; }
   .auto-hint-edit-btn{ flex:0 0 auto; background:none; border:none; padding:0; font:inherit; font-size:var(--fs-caption1); font-weight:700; color:var(--text-2); cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .auto-hint-edit-btn:hover{ color:var(--text); } }
   .field select.manual-flag{ border-color:var(--color-warning); background:var(--color-warning-bg); }
-  .submit-btn{ width:100%; margin-top:6px; background:var(--accent); color:#fff; border:none; border-radius:var(--r-s); padding:14px; font-size:var(--fs-subhead); font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard); }
+  .submit-btn{ width:100%; margin-top:var(--sp-2); background:var(--accent); color:#fff; border:none; border-radius:var(--r-s); padding:var(--sp-4); font-size:var(--fs-subhead); font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard); }
   .submit-btn.income{ background:var(--color-success); }
   .submit-btn.debt{ background:var(--color-warning); }
   /* Rev 2.11.4 — окремий модифікатор саме для "Додати витрату" (за референс-
@@ -633,9 +633,9 @@
   .submit-btn.disabled-soon{ background:var(--color-disabled-bg); color:var(--color-disabled-text); cursor:not-allowed; }
 
   .import-card{ border:1.5px solid var(--line-strong); background:var(--surface-2); }
-  .import-card .import-title{ font-weight:700; font-size:var(--fs-subhead); margin-bottom:4px; }
-  .import-card .import-desc{ font-size:var(--fs-footnote); color:var(--text-2); line-height:1.5; margin-bottom:12px; }
-  .import-status{ font-size:var(--fs-footnote); margin-top:10px; color:var(--text); white-space:pre-line; }
+  .import-card .import-title{ font-weight:700; font-size:var(--fs-subhead); margin-bottom:var(--sp-1); }
+  .import-card .import-desc{ font-size:var(--fs-footnote); color:var(--text-2); line-height:1.5; margin-bottom:var(--sp-3); }
+  .import-status{ font-size:var(--fs-footnote); margin-top:var(--sp-3); color:var(--text); white-space:pre-line; }
   .import-status.hidden{ display:none; }
   /* Rev #30 — той самий скопований принцип, що решта .hidden у проєкті
      (див. коментар біля .journal-overlay.hidden): загального утилітарного
@@ -648,11 +648,11 @@
      рядок-кнопка з іконкою й текстом). Rev #30 (6D.90) — компактна картка
      в "Сервісі" (.cloud-service-card), що раніше теж відкривала це саме
      меню, прибрана — дублювала header/sidebar-іконку профілю. */
-  .profile-head{ display:flex; align-items:center; gap:12px; padding:4px 2px 18px; }
+  .profile-head{ display:flex; align-items:center; gap:var(--sp-3); padding:var(--sp-1) 2px var(--sp-5); }
   .profile-head-text{ min-width:0; }
   .profile-head-name{ font-weight:700; font-size:var(--fs-subhead); }
   .profile-head-email{ font-size:var(--fs-footnote); color:var(--text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .profile-status-line{ display:flex; align-items:center; gap:6px; font-size:var(--fs-caption1); color:var(--text-2); margin-top:2px; }
+  .profile-status-line{ display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-caption1); color:var(--text-2); margin-top:2px; }
   .profile-status-dot{ width:7px; height:7px; border-radius:50%; background:var(--text-2); flex-shrink:0; }
   .profile-status-dot.online{ background:var(--color-success); }
   .profile-status-dot.offline{ background:var(--color-error); }
@@ -663,8 +663,8 @@
      референс-макета "Варіант 1": той самий структурний принцип, що
      .service-tile/.service-wide-card нижче (icon+title+sub у рядку) +
      повноцінна .submit-btn.pill кнопка (не текстовий popover-пункт). */
-  .sync-card{ padding:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); margin-bottom:20px; }
-  .sync-card-row{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .sync-card{ padding:var(--sp-4); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); margin-bottom:var(--sp-5); }
+  .sync-card-row{ display:flex; align-items:center; gap:var(--sp-3); margin-bottom:var(--sp-4); }
   .sync-card-icon{ width:38px; height:38px; border-radius:var(--r-s); display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--color-success-bg); color:var(--color-success); }
   .sync-card-icon svg{ width:19px; height:19px; display:block; }
   .sync-card-icon.syncing{ background:var(--color-info-bg); color:var(--color-info); }
@@ -674,8 +674,8 @@
   .sync-card-text{ min-width:0; }
   .sync-card-title{ font-size:var(--fs-subhead); font-weight:600; color:var(--text); }
   .sync-card-sub{ font-size:var(--fs-footnote); color:var(--text-2); margin-top:2px; }
-  .sync-card-btn{ display:flex; align-items:center; justify-content:center; gap:8px; }
-  .profile-menu-item{ display:flex; align-items:center; gap:12px; width:100%; padding:13px 4px; border:none; background:none; border-top:1px solid var(--line); font-size:var(--fs-subhead); color:var(--text); cursor:pointer; text-align:left; font-family:inherit; }
+  .sync-card-btn{ display:flex; align-items:center; justify-content:center; gap:var(--sp-2); }
+  .profile-menu-item{ display:flex; align-items:center; gap:var(--sp-3); width:100%; padding:var(--sp-3) var(--sp-1); border:none; background:none; border-top:1px solid var(--line); font-size:var(--fs-subhead); color:var(--text); cursor:pointer; text-align:left; font-family:inherit; }
   .profile-menu-item svg{ flex-shrink:0; color:var(--text-2); }
   .profile-menu-item.danger{ color:var(--color-error); }
   .profile-menu-item.danger svg{ color:var(--color-error); }
@@ -687,10 +687,10 @@
   .profile-menu-item.hidden{ display:none; }
   @media (hover:hover) and (pointer:fine){ .profile-menu-item:hover{ background:var(--color-hover-overlay); } }
 
-  .section-label{ font-size:var(--fs-caption2); font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.6px; margin:26px 2px 10px; display:flex; align-items:center; gap:6px; }
+  .section-label{ font-size:var(--fs-caption2); font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.6px; margin:var(--sp-6) 2px var(--sp-3); display:flex; align-items:center; gap:var(--sp-2); }
   .section-label:first-child{ margin-top:2px; }
 
-  .badge{ display:inline-flex; align-items:center; gap:4px; font-size:var(--fs-caption2); font-weight:600; padding:3px 9px; border-radius:var(--radius-sm); }
+  .badge{ display:inline-flex; align-items:center; gap:var(--sp-1); font-size:var(--fs-caption2); font-weight:600; padding:var(--sp-1) var(--sp-2); border-radius:var(--radius-sm); }
   .badge.soon{ background:var(--color-disabled-bg); color:var(--color-muted); }
   .badge.role-obligatory{ background:var(--color-warning-bg); color:var(--color-warning); }
   .badge.role-flexible{ background:var(--color-info-bg); color:var(--color-info); }
@@ -710,27 +710,27 @@
   .data-status-dot{ width:34px; height:34px; margin:-13.5px; padding:0; border:none; background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; border-radius:50%; }
   .data-status-dot::after{ content:""; width:7px; height:7px; border-radius:50%; background:var(--color-info); flex-shrink:0; }
   .data-status.warning .data-status-dot::after{ background:var(--color-warning); }
-  .data-status-popover{ display:none; position:absolute; top:100%; right:0; margin-top:8px; width:220px; max-width:calc(100vw - 32px); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); padding:10px 12px; text-align:left; }
+  .data-status-popover{ display:none; position:absolute; top:100%; right:0; margin-top:var(--sp-2); width:220px; max-width:calc(100vw - 32px); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); padding:var(--sp-3) var(--sp-3); text-align:left; }
   .data-status.open .data-status-popover{ display:block; }
-  .dsp-title{ font-size:var(--fs-caption1); font-weight:700; color:var(--text); margin-bottom:3px; }
+  .dsp-title{ font-size:var(--fs-caption1); font-weight:700; color:var(--text); margin-bottom:var(--sp-1); }
   .dsp-text{ font-size:var(--fs-caption1); color:var(--text-2); line-height:1.4; }
   /* Rev #30 (6D.91) — за проханням користувача: попап "Стан даних" тепер
      дієвий (не лише інформативний) — назви карток у .dsp-text (для
      'incomplete') стають tappable-посиланнями, .dsp-hint — коротка
      підказка під списком, .dsp-action — кнопка переходу (для 'last-known'). */
   .dsp-link{ background:none; border:none; padding:0; margin:0; font:inherit; color:var(--color-primary-hover); text-decoration:underline; cursor:pointer; }
-  .dsp-hint{ font-size:var(--fs-caption2); color:var(--text-3); margin-top:5px; line-height:1.4; }
+  .dsp-hint{ font-size:var(--fs-caption2); color:var(--text-3); margin-top:var(--sp-1); line-height:1.4; }
   .dsp-hint.hidden{ display:none; }
-  .dsp-action{ display:block; width:100%; margin-top:8px; font-size:var(--fs-caption1); font-weight:600; padding:7px 10px; border-radius:var(--radius-sm); border:none; background:var(--accent); color:#fff; cursor:pointer; font-family:inherit; text-align:center; }
+  .dsp-action{ display:block; width:100%; margin-top:var(--sp-2); font-size:var(--fs-caption1); font-weight:600; padding:var(--sp-2) var(--sp-3); border-radius:var(--radius-sm); border:none; background:var(--accent); color:#fff; cursor:pointer; font-family:inherit; text-align:center; }
   .dsp-action.hidden{ display:none; }
 
   /* Rev 2.1.2 — журнал згруповано по днях замість плаского списку: дата тепер
      показується один раз у заголовку групи (разом з підсумком дня), а не в
      кожному окремому рядку — звільняє місце в рядку й прибирає повторення. */
-  .journal-day-group{ margin-bottom:20px; }
+  .journal-day-group{ margin-bottom:var(--sp-5); }
   .journal-day-group:last-child{ margin-bottom:0; }
-  .journal-day-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:0 2px 8px; margin-bottom:10px; border-bottom:1.5px solid var(--line-strong); }
-  .jdh-date{ display:flex; align-items:baseline; gap:7px; font-size:var(--fs-footnote); font-weight:700; color:var(--text); }
+  .journal-day-head{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-3); padding:0 2px var(--sp-2); margin-bottom:var(--sp-3); border-bottom:1.5px solid var(--line-strong); }
+  .jdh-date{ display:flex; align-items:baseline; gap:var(--sp-2); font-size:var(--fs-footnote); font-weight:700; color:var(--text); }
   .jdh-weekday{ font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.4px; }
   .jdh-net{ font-size:var(--fs-footnote); font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--text-2); white-space:nowrap; }
   .jdh-net.is-positive{ color:var(--color-success); }
@@ -739,7 +739,7 @@
      Той самий прийом рядка-переходу, що .add-trigger-btn (повна ширина,
      власна рамка), лише суцільна рамка (не пунктирна — це не "додати",
      а навігація) і акцентний колір тексту/іконки. */
-  .show-journal-link{ display:flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:14px; padding:12px; border:1.5px solid var(--line-strong); border-radius:var(--r-s); background:var(--surface); color:var(--color-primary-hover); font-size:var(--fs-footnote); font-weight:600; font-family:inherit; cursor:pointer; }
+  .show-journal-link{ display:flex; align-items:center; justify-content:center; gap:var(--sp-2); width:100%; margin-top:var(--sp-4); padding:var(--sp-3); border:1.5px solid var(--line-strong); border-radius:var(--r-s); background:var(--surface); color:var(--color-primary-hover); font-size:var(--fs-footnote); font-weight:600; font-family:inherit; cursor:pointer; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .show-journal-link:hover{ background:var(--surface-2); } }
   .show-journal-link.hidden{ display:none; }
@@ -763,13 +763,13 @@
      компонент (.view.hidden, .status-banner.hidden тощо), немає загального
      утилітарного правила — тому пара до .journal-overlay.hidden вище. */
   #vytraty-default-view.hidden{ display:none; }
-  .journal-overlay-top{ display:flex; align-items:center; gap:10px; padding:0 0 14px; border-bottom:1px solid var(--line); margin-bottom:16px; flex-shrink:0; }
+  .journal-overlay-top{ display:flex; align-items:center; gap:var(--sp-3); padding:0 0 var(--sp-4); border-bottom:1px solid var(--line); margin-bottom:var(--sp-4); flex-shrink:0; }
   .journal-back-btn{ flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1.5px solid var(--line-strong); background:var(--surface); color:var(--text-2); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .journal-back-btn:hover{ background:var(--surface-2); color:var(--text); } }
   .journal-overlay-title{ font-size:var(--fs-body); font-weight:800; color:var(--text); }
   .journal-body{ padding:0 0 calc(env(safe-area-inset-bottom,0px) + 24px); }
-  .journal-month-nav{ margin-bottom:18px; }
+  .journal-month-nav{ margin-bottom:var(--sp-5); }
   /* Rev 2.21.1 — перехід на дату: БУВ декоративною 48x48px кнопкою-іконкою з
      невидимим (opacity:0) #journal-date-input-оверлеєм поверх, окремо від
      ряду стрілок+підпису місяця (Rev 2.19.0-2.20.2, костиль, щоб зберегти
@@ -791,18 +791,18 @@
      input[type=date] нижче) — тепер поле й кнопки-стрілки використовують
      той самий border/border-radius/background/висоту, справді ідентичний
      вигляд, а не лише "той самий клас-обгортка". */
-  #journal-date-input{ width:1px; min-width:100%; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
-  .journal-month-label{ text-align:center; margin-top:6px; font-size:var(--fs-footnote); font-weight:600; color:var(--text-2); }
+  #journal-date-input{ width:1px; min-width:100%; max-width:100%; height:46px; padding:var(--sp-3) var(--sp-3); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .journal-month-label{ text-align:center; margin-top:var(--sp-2); font-size:var(--fs-footnote); font-weight:600; color:var(--text-2); }
   /* Rev 2.20.2 — пошук/фільтр Журналу: окремий рядок для поля пошуку (на всю
      ширину) і окремий рядок для двох select'ів (категорія/підкатегорія) —
      трьом контролам разом в одному рядку на 375px затісно. */
   /* Rev 2.23.33 (6D.202) — кнопка "Скинути · N" у ряду пошуку (з'являється лише при активних фільтрах; висоту шапки не збільшує). */
-  .journal-search-row{ margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .journal-search-row{ margin-bottom:var(--sp-2); display:flex; align-items:center; gap:var(--sp-2); }
   .journal-search-row .journal-search-input-wrap{ flex:1 1 auto; min-width:0; }
-  .journal-reset-btn{ flex:0 0 auto; min-height:44px; padding:0 14px; border:1.5px solid var(--line-strong); border-radius:var(--r-s); background:var(--surface); color:var(--text); font:inherit; font-size:var(--fs-footnote); font-weight:700; white-space:nowrap; cursor:pointer; touch-action:manipulation; }
+  .journal-reset-btn{ flex:0 0 auto; min-height:44px; padding:0 var(--sp-4); border:1.5px solid var(--line-strong); border-radius:var(--r-s); background:var(--surface); color:var(--text); font:inherit; font-size:var(--fs-footnote); font-weight:700; white-space:nowrap; cursor:pointer; touch-action:manipulation; }
   .journal-reset-btn.hidden{ display:none; }
   @media (hover:hover) and (pointer:fine){ .journal-reset-btn:hover{ background:var(--surface-2); } }
-  .journal-empty-reset{ margin-top:12px; }
+  .journal-empty-reset{ margin-top:var(--sp-3); }
   .journal-search-input-wrap{ position:relative; }
   /* Rev 2.21.13 BugFix — справжня причина зсуву іконки "×": цей селектор
      (задуманий лише для іконки-лупи, ПРЯМОГО нащадка .journal-search-input-wrap)
@@ -814,7 +814,7 @@
      ">" (лише прямий нащадок) — іконку "×" більше НЕ зачіпає, вона й далі
      центрується власним flex-правилом .journal-search-clear. */
   .journal-search-input-wrap > svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--color-muted); pointer-events:none; }
-  .journal-search-input-wrap input{ width:100%; height:44px; padding:0 34px 0 36px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); font-size:14px; box-sizing:border-box; }
+  .journal-search-input-wrap input{ width:100%; height:44px; padding:0 var(--sp-8) 0 var(--sp-8); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); font-size:14px; box-sizing:border-box; }
   .journal-search-input-wrap input[type="search"]{ -webkit-appearance:none; appearance:none; } /* Rev 2.32.222: type=search без рідного вигляду поля й хрестика (є власний ✕) */
   .journal-search-input-wrap input::-webkit-search-cancel-button, .journal-search-input-wrap input::-webkit-search-decoration{ -webkit-appearance:none; display:none; }
   .journal-search-input-wrap input:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
@@ -828,21 +828,21 @@
      відносно кнопки, а не даючи flex-центруванню тут спрацювати. */
   .journal-search-clear{ position:absolute; right:7px; top:50%; transform:translateY(-50%); width:22px; height:22px; padding:0; border:none; background:var(--surface-2); border-radius:50%; color:var(--text-2); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .journal-search-clear.hidden{ display:none; }
-  .journal-search-filters-row{ display:flex; gap:8px; margin-bottom:14px; }
-  .journal-search-category{ flex:1 1 0; min-width:0; height:44px; padding:0 8px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); font-size:var(--fs-footnote); }
+  .journal-search-filters-row{ display:flex; gap:var(--sp-2); margin-bottom:var(--sp-4); }
+  .journal-search-category{ flex:1 1 0; min-width:0; height:44px; padding:0 var(--sp-2); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); font-size:var(--fs-footnote); }
   .journal-search-category:focus{ outline:none; border-color:var(--accent); }
   /* Rev 2.20.0 — "Результати пошуку (N)": замінює .journal-month-label, поки
      активний пошук/фільтр (той самий момент, коли .journal-month-nav
      ховається нижче) — сигналізує, що список тепер по ВСІЙ історії, а не
      обраному місяцю. */
-  .journal-search-summary{ font-size:var(--fs-caption1); font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:14px; }
+  .journal-search-summary{ font-size:var(--fs-caption1); font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:var(--sp-4); }
   .journal-search-summary.hidden{ display:none; }
   .journal-month-nav.hidden{ display:none; }
   /* Rev 2.1.15 — тап по картці витрати виділяє її (з'являється олівець для
      редагування категорії); .expense-row тепер контейнер-картка (може містити
      інлайн-панель редагування знизу), а сам горизонтальний рядок (назва+сума+
      кнопки) переїхав у вкладений .exp-row-top, щоб не ламати існуючий вигляд. */
-  .expense-row{ background:var(--surface); border-radius:var(--r-s); padding:12px 14px; margin-bottom:0; box-shadow:var(--shadow-sm); border:1px solid var(--line); border-left:3px solid transparent; cursor:pointer; position:relative; touch-action:pan-y; transition:background var(--duration-fast) var(--easing-standard), transform var(--duration-fast) var(--easing-standard); }
+  .expense-row{ background:var(--surface); border-radius:var(--r-s); padding:var(--sp-3) var(--sp-4); margin-bottom:0; box-shadow:var(--shadow-sm); border:1px solid var(--line); border-left:3px solid transparent; cursor:pointer; position:relative; touch-action:pan-y; transition:background var(--duration-fast) var(--easing-standard), transform var(--duration-fast) var(--easing-standard); }
   /* Rev 2.24.0 (M1) — тінь виділення (колишній transition box-shadow) тепер ::after з opacity: shadow-md малюється один раз, анімується лише прозорість. border-color у transition прибрано: він ніде не змінюється. */
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .expense-row:hover{ background:var(--surface-2); } }
@@ -858,7 +858,7 @@
      hidden кліпає кнопки дій, доки .expense-row (усередині) не зсунутий
      translateX вліво власним JS-драгом (initExpenseRowSwipeActions нижче).
      Незалежний механізм від тап-виділення вище — працюють одночасно. */
-  .expense-row-swipe{ position:relative; overflow:hidden; border-radius:var(--r-s); margin-bottom:8px; }
+  .expense-row-swipe{ position:relative; overflow:hidden; border-radius:var(--r-s); margin-bottom:var(--sp-2); }
   .expense-row-swipe.dragging .expense-row{ transition:none; }
   /* Rev 2.22.54 (6D.124) BugFix — живий тест на iPhone: навіть у стані
      спокою (без жодного свайпу) крізь заокруглений кут картки прозирав
@@ -887,16 +887,16 @@
   .expense-row-actions button{ width:64px; border:none; display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; }
   .expense-row-actions .swipe-edit-btn{ background:var(--color-info); }
   .expense-row-actions .swipe-delete-btn{ background:var(--color-error); }
-  .exp-row-top{ display:flex; align-items:center; gap:12px; }
+  .exp-row-top{ display:flex; align-items:center; gap:var(--sp-3); }
   .expense-row[data-rec-kind]:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; } /* Rev 2.32.142 (DESK-EDIT): видимий фокус рядка при навігації з клавіатури */
   @media (hover:hover) and (pointer:fine){ .expense-row[data-rec-kind]{ cursor:pointer; } }
   .expense-row .exp-main{ flex:1; min-width:0; }
   .expense-row .exp-name{ font-weight:600; font-size:var(--fs-subhead); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .expense-row .exp-meta{ display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap; }
+  .expense-row .exp-meta{ display:flex; align-items:center; gap:var(--sp-2); margin-top:var(--sp-1); flex-wrap:wrap; }
   /* Rev 2.32.140 (JOURNAL-INST): позначка прив'язки витрати до ОЧ у Журналі: значок ланцюжка (ti-link, 13 px) + коротка назва ОЧ, приглушений фіолетовий акцент ОЧ (ті самі токени, що .mono-inst-label). Рядок лишається в одну лінію (nowrap, висота не змінюється): коли місця мало, назва обрізається (clip, без «…») аж до зникнення, значок лишається. */
   .expense-row .exp-meta.has-inst{ flex-wrap:nowrap; }
   .expense-row .exp-meta.has-inst > .chip, .expense-row .exp-meta.has-inst > svg{ flex:0 0 auto; }
-  .exp-inst-link{ display:inline-flex; align-items:center; gap:3px; flex:0 1 auto; min-width:13px; color:var(--color-accent-purple); font-size:var(--fs-caption2); font-weight:600; white-space:nowrap; overflow:hidden; }
+  .exp-inst-link{ display:inline-flex; align-items:center; gap:var(--sp-1); flex:0 1 auto; min-width:13px; color:var(--color-accent-purple); font-size:var(--fs-caption2); font-weight:600; white-space:nowrap; overflow:hidden; }
   .exp-inst-link svg{ flex:0 0 13px; width:13px; height:13px; }
   .exp-inst-link > span{ min-width:0; overflow:hidden; text-overflow:clip; }
   /* Rev #30 (6D.65) — заміна колишньої жовтої рамки "manual" (border-left)
@@ -928,14 +928,14 @@
   .sync-badge-icon svg{ display:block; width:12px; height:12px; }
   .sync-badge-icon.syncing{ color:var(--color-info); }
   .sync-badge-icon.done{ color:var(--color-success); }
-  .chip{ font-size:var(--fs-caption2); background:var(--color-primary-bg); color:var(--color-primary-hover); padding:2px 8px; border-radius:var(--r-l); font-weight:600; white-space:nowrap; }
+  .chip{ font-size:var(--fs-caption2); background:var(--color-primary-bg); color:var(--color-primary-hover); padding:2px var(--sp-2); border-radius:var(--r-l); font-weight:600; white-space:nowrap; }
   .chip.empty{ background:var(--color-warning-bg); color:var(--color-warning); }
   .chip.income{ background:var(--color-success-bg); color:var(--color-success); }
   .chip.debt{ background:var(--color-warning-bg); color:var(--color-warning); }
   .exp-date{ font-size:var(--fs-caption2); color:var(--color-muted); }
   .exp-amount{ font-weight:700; font-size:var(--fs-subhead); white-space:nowrap; font-family:'JetBrains Mono',monospace; }
   .exp-amount.income{ color:var(--color-success); }
-  .exp-del{ background:none; border:none; color:var(--color-muted); cursor:pointer; padding:6px; line-height:1; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm); flex-shrink:0; }
+  .exp-del{ background:none; border:none; color:var(--color-muted); cursor:pointer; padding:var(--sp-2); line-height:1; display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm); flex-shrink:0; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){
     .exp-del:hover{ background:var(--color-error-bg); color:var(--color-error); }
@@ -947,14 +947,14 @@
      лише категорія (перейменовано з .record-cat-edit). */
   /* Rev 2.32.5 (E1b): коротка підсвітка картки при поверненні до редагування — лише контур (без зміни розмірів), ~600 мс */
   .expense-row-swipe.edit-return-flash{ outline:2px solid var(--accent); outline-offset:-2px; transition:outline-color var(--t-m); }
-  .record-edit-panel{ margin-top:12px; padding-top:12px; border-top:1px solid var(--line-strong); display:flex; flex-direction:column; gap:10px; cursor:default; }
+  .record-edit-panel{ margin-top:var(--sp-3); padding-top:var(--sp-3); border-top:1px solid var(--line-strong); display:flex; flex-direction:column; gap:var(--sp-3); cursor:default; }
   .record-edit-panel .field{ margin-bottom:0; }
-  .record-edit-panel select{ width:100%; height:40px; padding:8px 10px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .record-edit-panel select{ width:100%; height:40px; padding:var(--sp-2) var(--sp-3); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--surface); color:var(--text); box-sizing:border-box; }
   .record-edit-panel select:focus{ outline:none; border-color:var(--accent); }
-  .record-edit-row{ display:flex; gap:10px; }
+  .record-edit-row{ display:flex; gap:var(--sp-3); }
   .record-edit-row .field{ flex:1; min-width:0; }
-  .record-edit-actions{ display:flex; gap:8px; }
-  .record-edit-actions button{ flex:1; padding:9px; font-size:var(--fs-footnote); font-weight:600; border-radius:var(--radius-sm); cursor:pointer; }
+  .record-edit-actions{ display:flex; gap:var(--sp-2); }
+  .record-edit-actions button{ flex:1; padding:var(--sp-2); font-size:var(--fs-footnote); font-weight:600; border-radius:var(--radius-sm); cursor:pointer; }
   .rce-save{ background:var(--accent); color:#fff; border:none; }
   /* Rev 2.32.144 (SAVE-DIRTY): «Зберегти» у формах редагування наявного запису неактивна, доки значення не змінено: приглушена (38%), без реакції на натискання, aria-disabled, поза Tab-порядком (tabindex=-1). Активний вигляд не змінюється. */
   html:root .save-gated[aria-disabled="true"]{ opacity:.38; pointer-events:none; transform:none; transition:none; box-shadow:none; cursor:default; }
@@ -964,14 +964,14 @@
     .rce-save:hover{ background:var(--color-primary-hover); }
     .rce-cancel:hover{ background:var(--surface-2); }
   }
-  .empty-state{ text-align:center; padding:40px 20px; color:var(--text-2); }
-  .empty-state .glyph{ margin-bottom:8px; display:flex; justify-content:center; color:var(--color-muted); }
-  .empty-state .es-title{ font-weight:700; font-size:var(--fs-subhead); color:var(--text); margin-bottom:4px; }
+  .empty-state{ text-align:center; padding:var(--sp-10) var(--sp-5); color:var(--text-2); }
+  .empty-state .glyph{ margin-bottom:var(--sp-2); display:flex; justify-content:center; color:var(--color-muted); }
+  .empty-state .es-title{ font-weight:700; font-size:var(--fs-subhead); color:var(--text); margin-bottom:var(--sp-1); }
   .empty-state .es-sub{ font-size:var(--fs-footnote); color:var(--color-muted); }
 
-  .analytics-empty{ text-align:center; padding:40px 20px; color:var(--text-2); }
-  .analytics-empty .glyph{ margin-bottom:10px; display:flex; justify-content:center; color:var(--color-muted); }
-  .analytics-empty .ae-title{ font-weight:700; font-size:var(--fs-subhead); color:var(--text); margin-bottom:4px; }
+  .analytics-empty{ text-align:center; padding:var(--sp-10) var(--sp-5); color:var(--text-2); }
+  .analytics-empty .glyph{ margin-bottom:var(--sp-3); display:flex; justify-content:center; color:var(--color-muted); }
+  .analytics-empty .ae-title{ font-weight:700; font-size:var(--fs-subhead); color:var(--text); margin-bottom:var(--sp-1); }
   .analytics-empty .ae-sub{ font-size:var(--fs-footnote); color:var(--color-muted); }
   .analytics-empty.hidden{ display:none; }
   .analytics-body.hidden{ display:none; }
@@ -988,10 +988,10 @@
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
   /* ---- Огляд / Аналітика ---- */
-  .ov-row1{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:0; }
+  .ov-row1{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-3); margin-bottom:0; }
   .ov-row1 .wide{ grid-column:span 2; }
-  .kpi-card.v2{ position:relative; min-width:0; height:180px; min-height:180px; padding:16px; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-s); box-shadow:none; }
-  .kpi-card-header{ display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .kpi-card.v2{ position:relative; min-width:0; height:180px; min-height:180px; padding:var(--sp-4); display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-s); box-shadow:none; }
+  .kpi-card-header{ display:flex; align-items:center; gap:var(--sp-2); margin-bottom:var(--sp-3); }
   .kpi-icon-circle{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-bottom:0; }
   .kpi-icon-circle svg{ width:20px; height:20px; }
   .kpi-card.v2.income .kpi-icon-circle{ background:var(--color-success-bg); color:var(--color-success); }
@@ -1004,9 +1004,9 @@
   .kpi-card.v2.income .kpi-value, .kpi-card.v2.expense .kpi-value, .kpi-card.v2.savings .kpi-value, .kpi-card.v2.debt .kpi-value{ font-size:var(--fs-title1); font-weight:700; line-height:30px; }
   .kpi-card.v2 .kpi-sub{ font-size:var(--fs-caption2); color:var(--color-muted); margin-top:2px; }
   .kpi-card.v2.savings.negative .kpi-value{ color:var(--color-error); }
-  .kpi-trend{ min-height:14px; font-size:var(--fs-caption2); font-weight:600; line-height:14px; margin-top:6px; padding-top:0; }
+  .kpi-trend{ min-height:14px; font-size:var(--fs-caption2); font-weight:600; line-height:14px; margin-top:var(--sp-2); padding-top:0; }
   .kpi-card.v2.income .kpi-trend, .kpi-card.v2.expense .kpi-trend, .kpi-card.v2.savings .kpi-trend, .kpi-card.v2.debt .kpi-trend{ min-height:28px; }
-  .kpi-card.v2.income .kpi-trend, .kpi-card.v2.expense .kpi-trend, .kpi-card.v2.savings .kpi-trend, .kpi-card.v2.debt .kpi-trend{ margin-top:8px; font-size:var(--fs-caption2); line-height:15px; }
+  .kpi-card.v2.income .kpi-trend, .kpi-card.v2.expense .kpi-trend, .kpi-card.v2.savings .kpi-trend, .kpi-card.v2.debt .kpi-trend{ margin-top:var(--sp-2); font-size:var(--fs-caption2); line-height:15px; }
   .kpi-trend.is-positive{ color:var(--color-success); } /* Rev 2.30.0 (M4b): !important прибрано (перевірено: конкуруючих правил кольору немає) */
   .kpi-trend.is-negative{ color:var(--color-error); }
   .kpi-trend .trend-main, .kpi-trend .trend-context{ display:block; }
@@ -1015,23 +1015,23 @@
   .kpi-card.v2.income .kpi-trend .trend-context, .kpi-card.v2.expense .kpi-trend .trend-context, .kpi-card.v2.savings .kpi-trend .trend-context, .kpi-card.v2.debt .kpi-trend .trend-context{ color:var(--color-muted); font-size:var(--fs-caption2); font-weight:500; line-height:15px; }
   .kpi-card.v2.income .kpi-spark, .kpi-card.v2.expense .kpi-spark, .kpi-card.v2.savings .kpi-spark, .kpi-card.v2.debt .kpi-spark{ width:100%; }
   .kpi-card.v2.savings .kpi-icon-circle{ background:var(--color-info-bg); color:var(--color-info); }
-  .kpi-spark{ height:31px; margin-top:auto; padding-top:6px; }
+  .kpi-spark{ height:31px; margin-top:auto; padding-top:var(--sp-2); }
   .kpi-card.v2.donutcard .kpi-label{ height:34px; display:flex; align-items:center; justify-content:center; text-align:center; flex-shrink:0; }
-  .donut-row{ flex:1; display:flex; align-items:center; justify-content:space-evenly; margin-top:6px; margin-inline:-16px; min-width:0; }
+  .donut-row{ flex:1; display:flex; align-items:center; justify-content:space-evenly; margin-top:var(--sp-2); margin-inline:-16px; min-width:0; }
   .kpi-card.v2.donutcard #debt-donut{ width:88px; height:88px; flex-shrink:0; }
-  .donut-metrics{ display:flex; flex-direction:column; justify-content:center; gap:8px; flex:0 0 auto; min-width:0; }
+  .donut-metrics{ display:flex; flex-direction:column; justify-content:center; gap:var(--sp-2); flex:0 0 auto; min-width:0; }
   .donut-metrics .dm-primary, .donut-metrics .dm-secondary{ display:flex; flex-direction:column; gap:2px; min-width:0; }
   .donut-metrics .dm-status{ font-size:var(--fs-caption2); font-weight:600; color:var(--text); line-height:13px; white-space:nowrap; }
   .donut-metrics .dm-amount{ font-size:var(--fs-subhead); font-weight:700; font-family:'JetBrains Mono',monospace; letter-spacing:-.03em; line-height:18px; white-space:nowrap; }
   .donut-metrics .dm-start-label{ font-size:var(--fs-caption2); color:var(--text-2); line-height:11px; white-space:nowrap; }
   .donut-metrics .dm-start-amount{ font-size:var(--fs-footnote); font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace; letter-spacing:-.02em; line-height:16px; white-space:nowrap; }
 
-  .ov-row2{ display:grid; grid-template-columns:1fr; gap:24px; margin:20px 0 24px; align-items:stretch; }
+  .ov-row2{ display:grid; grid-template-columns:1fr; gap:var(--sp-6); margin:var(--sp-5) 0 var(--sp-6); align-items:stretch; }
   .ov-row2 > .card{ margin-top:0; }
-  .gm-chart-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); padding:24px; box-shadow:0 1px 2px rgba(16,24,40,0.04); display:flex; flex-direction:column; min-width:0; height:100%; }
-  .gm-chart-title{ font-size:var(--fs-caption2); font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--text); line-height:14px; margin-bottom:8px; }
-  .gm-legend{ display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
-  .gm-legend span{ display:flex; align-items:center; gap:6px; font-size:var(--fs-subhead); font-weight:500; color:var(--text-2); }
+  .gm-chart-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); padding:var(--sp-6); box-shadow:0 1px 2px rgba(16,24,40,0.04); display:flex; flex-direction:column; min-width:0; height:100%; }
+  .gm-chart-title{ font-size:var(--fs-caption2); font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--text); line-height:14px; margin-bottom:var(--sp-2); }
+  .gm-legend{ display:flex; gap:var(--sp-4); margin-bottom:var(--sp-4); flex-wrap:wrap; }
+  .gm-legend span{ display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-subhead); font-weight:500; color:var(--text-2); }
   .gm-legend i{ width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
   .gm-chart-card > div[id^="chart-"]{ margin-top:auto; }
 
@@ -1042,7 +1042,7 @@
   /* Rev 2.1.18 — новий рядок "Борги по картках" + "Оплати частинами" (Block 5),
      виїхав з ov-row3 у власний простий 2-колонковий рядок (той самий патерн,
      що ov-row2 для графіків) — без спільної grid-логіки розгортання на 4. */
-  .ov-row3-secondary{ display:grid; grid-template-columns:1fr; gap:24px; margin-bottom:24px; align-items:start; }
+  .ov-row3-secondary{ display:grid; grid-template-columns:1fr; gap:var(--sp-6); margin-bottom:var(--sp-6); align-items:start; }
   /* Rev 2.1.20 — BugFix: картка ОЧ при розгортанні деталей "розпирала" рядок
      вправо на мобільному. Причина — класична пастка CSS Grid: елементи grid
      за замовчуванням мають min-width:auto (відмовляються стискатись нижче за
@@ -1054,14 +1054,14 @@
     .ov-row3-secondary{ grid-template-columns:repeat(2,1fr); }
   }
 
-  .ov-row3{ display:grid; grid-template-columns:1fr; gap:24px; margin-bottom:24px; align-items:stretch; }
-  .ov-row3 > .card{ height:100%; box-sizing:border-box; display:flex; flex-direction:column; margin-top:0; padding:20px; overflow:hidden; }
+  .ov-row3{ display:grid; grid-template-columns:1fr; gap:var(--sp-6); margin-bottom:var(--sp-6); align-items:stretch; }
+  .ov-row3 > .card{ height:100%; box-sizing:border-box; display:flex; flex-direction:column; margin-top:0; padding:var(--sp-5); overflow:hidden; }
   /* Rev 1.6.4 — переоформлення блоку "Топ-5 / Топ-10 / Скоротити / Борги" за GM:
      менші й компактніші шрифти, довші прогрес-бари (звужені фіксовані колонки
      назви/суми/%), без лінії-роздільника під заголовком колонок. */
-  .ov-row3 .table-card-title{ color:var(--text); font-size:var(--fs-footnote); font-weight:700; line-height:16px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:16px; }
-  .table-card-title{ font-weight:600; font-size:var(--fs-callout); line-height:24px; margin-bottom:12px; }
-  .table-header{ display:flex; align-items:center; gap:8px; font-size:var(--fs-caption1); font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-3); border-bottom:none; padding-bottom:0; margin-bottom:6px; }
+  .ov-row3 .table-card-title{ color:var(--text); font-size:var(--fs-footnote); font-weight:700; line-height:16px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:var(--sp-4); }
+  .table-card-title{ font-weight:600; font-size:var(--fs-callout); line-height:24px; margin-bottom:var(--sp-3); }
+  .table-header{ display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-caption1); font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-3); border-bottom:none; padding-bottom:0; margin-bottom:var(--sp-2); }
   /* BugFix Rev 1.7.1 — раніше .t-name мав ФІКСОВАНУ вузьку ширину (58px/108px),
      а .t-bar-h ріс (flex:1 1 auto): при розгортанні картки назва обрізалась
      ("Опл...", "Кра..."), а бар розтягувався на весь вільний простір. Міняємо
@@ -1073,10 +1073,10 @@
   .table-header .t-amt.narrow{ flex:0 0 62px; }
   .table-header .t-pct{ flex:0 0 34px; text-align:right; }
   .table-header .t-priority{ flex:0 0 58px; text-align:right; }
-  .t-row{ display:flex; align-items:center; gap:8px; padding:4.5px 0 4.5px 4px; margin-left:-4px; border-radius:var(--radius-sm); min-height:29px; transition:background var(--duration-fast) var(--easing-standard); }
+  .t-row{ display:flex; align-items:center; gap:var(--sp-2); padding:4.5px 0 4.5px var(--sp-1); margin-left:-4px; border-radius:var(--radius-sm); min-height:29px; transition:background var(--duration-fast) var(--easing-standard); }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .t-row:not(.summary):hover{ background:var(--color-hover-overlay); } }
-  .t-row.summary{ font-weight:700; border-top:1.5px solid var(--line-strong); margin-top:2px; padding-top:7px; }
+  .t-row.summary{ font-weight:700; border-top:1.5px solid var(--line-strong); margin-top:2px; padding-top:var(--sp-2); }
   .t-row .t-name{ flex:1 1 auto; min-width:0; font-size:var(--fs-footnote); font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .t-row .t-bar-h{ flex:0 0 64px; min-width:40px; }
   .t-row .t-bar-track{ height:6px; background:var(--color-track-bg); border-radius:var(--r-l); overflow:hidden; }
@@ -1089,19 +1089,19 @@
   .t-row .t-amt.narrow{ flex:0 0 62px; overflow:hidden; text-overflow:ellipsis; }
   .t-row .t-pct{ flex:0 0 34px; min-width:0; text-align:right; font-size:var(--fs-caption2); font-weight:500; color:var(--color-muted); font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; }
   .t-row .t-priority{ flex:0 0 58px; min-width:0; text-align:right; font-size:var(--fs-caption2); font-weight:600; white-space:nowrap; }
-  .t-footer-link{ display:block; width:100%; background:none; border:none; font-family:inherit; text-align:center; font-weight:600; font-size:var(--fs-footnote); color:var(--text); margin-top:auto; padding-top:14px; cursor:pointer; }
-  .t-footer-link .arrow{ margin-left:4px; }
+  .t-footer-link{ display:block; width:100%; background:none; border:none; font-family:inherit; text-align:center; font-weight:600; font-size:var(--fs-footnote); color:var(--text); margin-top:auto; padding-top:var(--sp-4); cursor:pointer; }
+  .t-footer-link .arrow{ margin-left:var(--sp-1); }
   /* BugFix Rev 1.7.1 — "Потенціал економії": .t-name мав flex-grow:0 всередині
      justify-content:space-between. Через це вільний простір розподілявся МІЖ
      елементами нерівномірно (по-різному в кожному рядку, залежно від довжини
      назви) — звідси "розкидані" суми, що не вишиковувались у стовпчик. Назва
      має РОСТИ (flex-grow:1), тоді сума/потенціал завжди на тому самому місці. */
-  .table-header.t-row-3col, .t-row.t-row-3col{ gap:10px; }
+  .table-header.t-row-3col, .t-row.t-row-3col{ gap:var(--sp-3); }
   .t-row-3col .t-name{ flex:1 1 auto; min-width:0; }
   /* Rev 1.6.5 — 2-колонкові рядки (назва + сума) для згорнутого вигляду карток
      "Витрати за категоріями" / "Деталізація витрат" / "Борги по картках": без
      прогрес-бару та % назва отримує гнучку ширину замість вузької фіксованої. */
-  .table-header.t-row-2col, .t-row.t-row-2col{ gap:10px; }
+  .table-header.t-row-2col, .t-row.t-row-2col{ gap:var(--sp-3); }
   .t-row-2col .t-name{ flex:1 1 auto; min-width:0; }
   .t-row-2col .t-amt{ flex:0 0 auto; min-width:0; overflow:visible; }
   /* BugFix: у "Потенціалі економії" та "Боргах по картках" середня колонка
@@ -1112,21 +1112,21 @@
      компенсуючи рівно на цю ж величину), а середня колонка зорово зміщується
      ближче до центру між 1-ю і 3-ю. Точково — лише ці дві картки, не займаємо
      "Витрати за категоріями"/"Деталізація витрат" (там такого запиту не було). */
-  #reducible-header .t-priority, #reducible-body .t-priority{ margin-left:28px; }
-  #debts-header:not(.t-row-2col) .t-amt, #debts-body .t-row:not(.t-row-2col) .t-amt{ margin-left:28px; }
+  #reducible-header .t-priority, #reducible-body .t-priority{ margin-left:var(--sp-6); }
+  #debts-header:not(.t-row-2col) .t-amt, #debts-body .t-row:not(.t-row-2col) .t-amt{ margin-left:var(--sp-6); }
 
   /* BugFix Rev 1.7.1 — окремий фіксовано-вузький @media override для .t-name
      на mobile/tablet більше не потрібен: тепер .t-name завжди flex:1 1 auto
      (росте) в усіх трьох варіантах рядка (звичайний/2col/3col), тому колонка
      сама підлаштовується під ширину екрана без спеціальних виключень. */
 
-  .ov-row4{ display:flex; flex-direction:column; gap:24px; }
-  .ov-kpistrip{ margin:20px 0 0; }
+  .ov-row4{ display:flex; flex-direction:column; gap:var(--sp-6); }
+  .ov-kpistrip{ margin:var(--sp-5) 0 0; }
   .kpi-strip{ display:grid; grid-template-columns:repeat(2,1fr); }
-  .kpi-strip-item{ display:flex; flex-direction:column; gap:3px; padding:12px 14px 0 0; border-top:1px solid var(--line); margin-top:12px; }
+  .kpi-strip-item{ display:flex; flex-direction:column; gap:var(--sp-1); padding:var(--sp-3) var(--sp-4) 0 0; border-top:1px solid var(--line); margin-top:var(--sp-3); }
   .kpi-strip-item:nth-child(-n+2){ border-top:none; margin-top:0; padding-top:0; }
-  .kpi-strip-item:nth-child(even){ border-left:1px solid var(--line); padding-left:14px; }
-  .ksi-head{ display:flex; align-items:flex-start; gap:6px; min-height:18px; }
+  .kpi-strip-item:nth-child(even){ border-left:1px solid var(--line); padding-left:var(--sp-4); }
+  .ksi-head{ display:flex; align-items:flex-start; gap:var(--sp-2); min-height:18px; }
   .ksi-icon{ width:13px; height:13px; flex-shrink:0; display:flex; }
   .ksi-icon svg{ width:13px; height:13px; display:block; }
   .ksi-icon.c-blue{ color:var(--color-info); }
@@ -1138,9 +1138,9 @@
   .ksi-sub{ font-size:var(--fs-caption2); color:var(--color-muted); min-height:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* Rev 1.7.3 — "Висновки місяця": рядок карток-інсайтів (іконка + заголовок +
      опис) замість списку буллітів з однорядковим текстом, за референс-скріном. */
-  .summary-card .table-card-title{ text-transform:uppercase; font-size:var(--fs-footnote); font-weight:700; letter-spacing:.4px; color:var(--text); margin-bottom:18px; }
-  .insights-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:22px 20px; }
-  .insight-item{ display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .summary-card .table-card-title{ text-transform:uppercase; font-size:var(--fs-footnote); font-weight:700; letter-spacing:.4px; color:var(--text); margin-bottom:var(--sp-5); }
+  .insights-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:var(--sp-6) var(--sp-5); }
+  .insight-item{ display:flex; flex-direction:column; gap:var(--sp-3); min-width:0; }
   .insight-icon{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .insight-icon svg{ width:15px; height:15px; display:block; }
   .insight-title{ font-size:var(--fs-footnote); font-weight:700; color:var(--text); line-height:17px; }
@@ -1149,7 +1149,7 @@
 
   /* ---- Верхні KPI-картки: тренд і спарклайн (Rev 1.4, за еталонним макетом) ---- */
   /* Rev 2.32.157 (ICON-NEUTRAL): нейтральне коло без логотипа банку: фон як у порожніх станів, приглушена іконка 58% розміру. */
-  .bank-badge.bank-badge-generic{ background:var(--surface-2); color:var(--text-2); border-radius:50%; margin-right:6px; } /* .bank-badge.…: специфічність вища за пізніше правило .bank-badge (border-radius:7px) */
+  .bank-badge.bank-badge-generic{ background:var(--surface-2); color:var(--text-2); border-radius:50%; margin-right:var(--sp-2); } /* .bank-badge.…: специфічність вища за пізніше правило .bank-badge (border-radius:7px) */
   .bank-badge-generic svg, .cdr-avatar .bank-badge-generic svg, #card-debt-drawer .drawer-head-icon .bank-badge-generic svg{ width:58%; height:58%; display:block; margin:0; }
   .cdr-avatar .bank-badge-generic, .drawer-head-icon .bank-badge-generic, #card-debt-drawer .drawer-head-icon .bank-badge-generic{ margin-right:0; display:inline-flex; align-items:center; justify-content:center; } /* перебиває display:block правил .cdr-avatar/.drawer-head-icon .bank-badge (центрування іконки в колі) */
   .bank-badge{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:var(--r-xs); font-size:var(--fs-caption2); font-weight:700; color:#fff; margin-right:2px; flex-shrink:0; }
@@ -1163,8 +1163,8 @@
   /* Rev 2.11.24 — сегментовані вкладки Категорії/Підкатегорії/Словник: та сама
      логіка карток лишається, лише розведена по трьох панелях замість одного
      суцільного списку — навігація стає простішою на маленькому екрані. */
-  .struct-tabs{ display:flex; gap:4px; background:var(--surface-2); border-radius:var(--r-l); padding:4px; margin-bottom:14px; }
-  .struct-tab-btn{ flex:1; padding:9px 4px; border:none; background:none; color:var(--text-2); font-size:var(--fs-footnote); font-weight:600; font-family:inherit; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
+  .struct-tabs{ display:flex; gap:var(--sp-1); background:var(--surface-2); border-radius:var(--r-l); padding:var(--sp-1); margin-bottom:var(--sp-4); }
+  .struct-tab-btn{ flex:1; padding:var(--sp-2) var(--sp-1); border:none; background:none; color:var(--text-2); font-size:var(--fs-footnote); font-weight:600; font-family:inherit; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .struct-tab-btn:hover{ color:var(--text); } }
   .struct-tab-btn.active{ background:var(--accent); color:#fff; }
@@ -1172,7 +1172,7 @@
   /* Rev 2.32.69 — тихий підпис погашеної ОЧ (акцентний колір) */
   .cdr-paidoff{ color:var(--color-primary-text, var(--accent)); font-weight:600; }
   /* Rev 2.32.68 (P4) — екран «Платежі» і шторка дій: групи в стилі «Налаштувань», рядок: плитка дати, назва + підпис, сума. */
-  .pay-line{ display:flex; align-items:center; gap:14px; width:100%; min-height:60px; padding:8px 16px; box-sizing:border-box; background:transparent; border:0; border-top:1px solid var(--line); font:inherit; text-align:left; color:var(--text); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .pay-line{ display:flex; align-items:center; gap:var(--sp-4); width:100%; min-height:60px; padding:var(--sp-2) var(--sp-4); box-sizing:border-box; background:transparent; border:0; border-top:1px solid var(--line); font:inherit; text-align:left; color:var(--text); cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .pay-line:first-child{ border-top:0; }
   .pay-line.is-pressed{ background:var(--surface-2); }
   .pay-line.flash{ background:var(--surface-2); }
@@ -1186,38 +1186,38 @@
   .pay-line.amber .pay-line-sub{ color:var(--color-warning); }
   .pay-line-amt{ flex:none; font-size:var(--fs-body); font-weight:600; font-variant-numeric:tabular-nums; }
   .pay-line-chev{ flex:none; display:flex; color:var(--text-2); }
-  .pay-action-btns{ display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .pay-action-btns{ display:flex; flex-direction:column; gap:var(--sp-2); margin-top:var(--sp-2); }
   .pay-action-btns .submit-btn{ min-height:50px; }
   html:root #pay-action-drawer .pay-action-btns .submit-btn.secondary{ background:transparent; border:1.5px solid var(--line-strong); color:var(--text); box-shadow:none; }
 
   /* Rev 2.32.71 — компактна картка «Найближчі платежі» (макет «Компакт»): заголовок в один рядок із сумою й ›, смуга 7 днів у два рядки, один найближчий платіж одним рядком, до двох тонких повідомлень; уся картка — одна кнопка (прозорий шар .pay-card-hit); комірки смуги — над ним. Токени застосунку (обидві теми), без емодзі, мін. шрифт 11 пт. */
-  .pay-card{ position:relative; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); padding:12px 14px 6px; margin-bottom:14px; color:var(--text); }
+  .pay-card{ position:relative; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); padding:var(--sp-3) var(--sp-4) var(--sp-2); margin-bottom:var(--sp-4); color:var(--text); }
   .pay-card.hidden{ display:none; }
   .pay-card.is-flat{ padding-bottom:0; }
   .pay-card:has(.pay-card-hit.is-pressed){ background:var(--surface-2); }
   .pay-card-hit{ position:absolute; inset:0; width:100%; height:100%; border:0; border-radius:inherit; background:transparent; padding:0; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .pay-card > *:not(.pay-card-hit){ position:relative; pointer-events:none; }
-  .pay-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:24px; }
-  .pay-head-left{ min-width:0; display:flex; align-items:baseline; gap:8px; }
+  .pay-head{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); min-height:24px; }
+  .pay-head-left{ min-width:0; display:flex; align-items:baseline; gap:var(--sp-2); }
   .pay-title{ font-size:var(--fs-subhead); font-weight:700; white-space:nowrap; }
   .pay-window{ font-size:var(--fs-footnote); color:var(--text-2); white-space:nowrap; }
-  .pay-head-right{ flex:none; display:flex; align-items:center; gap:6px; }
+  .pay-head-right{ flex:none; display:flex; align-items:center; gap:var(--sp-2); }
   .pay-total{ font-size:var(--fs-body); font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .pay-chev{ display:flex; color:var(--text-2); }
-  .pay-strip{ display:flex; gap:3px; margin:10px 0 4px; }
-  .pay-day{ pointer-events:auto; flex:1; min-width:0; min-height:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:4px 0; border-radius:var(--r-s); border:1px solid transparent; background:transparent; font:inherit; color:var(--text); cursor:default; }
+  .pay-strip{ display:flex; gap:var(--sp-1); margin:var(--sp-3) 0 var(--sp-1); }
+  .pay-day{ pointer-events:auto; flex:1; min-width:0; min-height:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:var(--sp-1) 0; border-radius:var(--r-s); border:1px solid transparent; background:transparent; font:inherit; color:var(--text); cursor:default; }
   /* Rev 2.32.170 (PAY-STRIP-REVERT): сьогодні — тонка нейтральна рамка, день із платежем — сіра заливка, найближчий платіж — тонка синя рамка (info ≈ 55%), без скла, градієнта, блика, сяйва й варіанта «скоро». */
   .pay-day.today{ border-color:var(--line-strong); }
   .pay-day.has{ background:var(--surface-2); cursor:pointer; }
   .pay-dow{ font-size:var(--fs-caption2); line-height:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--text-2); }
   .pay-num{ font-size:var(--fs-subhead); line-height:17px; font-weight:700; }
   .pay-sum{ font-size:var(--fs-caption2); height:12px; line-height:12px; font-variant-numeric:tabular-nums; }
-  .pay-line1{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:34px; font-size:var(--fs-subhead); }
+  .pay-line1{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); min-height:34px; font-size:var(--fs-subhead); }
   .pay-line1 .l{ min-width:0; color:var(--text-2); white-space:nowrap; } /* Rev 2.32.84 (CARD-1): без overflow:hidden і «…» — текст підбирається драбиною (fitPaymentsCard) */
   .pay-line1 .r{ flex:none; font-weight:700; font-variant-numeric:tabular-nums; }
-  .pay-calm{ font-size:var(--fs-subhead); font-weight:700; padding:6px 0 0; white-space:nowrap; }
+  .pay-calm{ font-size:var(--fs-subhead); font-weight:700; padding:var(--sp-2) 0 0; white-space:nowrap; }
   .pay-msgs{ border-top:1px solid var(--line); }
-  .pay-msg{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:34px; font-size:var(--fs-footnote); color:var(--text-2); }
+  .pay-msg{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); min-height:34px; font-size:var(--fs-footnote); color:var(--text-2); }
   .pay-msg + .pay-msg{ border-top:1px solid var(--line); }
   .pay-msg.amber{ color:var(--color-warning); }
   .pay-msg .l{ min-width:0; white-space:nowrap; }
@@ -1230,14 +1230,14 @@
   .pay-ico.warn svg{ width:55%; height:55%; }
   .pay-ico.plain{ width:16px; height:16px; color:var(--text-2); }
   .pay-ico.plain svg{ width:100%; height:100%; }
-  .pay-line1 .lw{ flex:1; min-width:0; display:flex; align-items:center; gap:8px; }
+  .pay-line1 .lw{ flex:1; min-width:0; display:flex; align-items:center; gap:var(--sp-2); }
   .pay-line1 .lw .l{ flex:1; }
-  .pay-msg{ gap:8px; }
+  .pay-msg{ gap:var(--sp-2); }
   .pay-msg .l{ flex:1; }
   .pay-msg .l .tail{ color:var(--text-3); }
   .pay-msg.amber .l .head{ color:var(--color-warning); }
   .pay-day.next{ border:1px solid color-mix(in srgb, var(--color-info) 55%, transparent); }
-  .pay-done{ display:flex; align-items:center; gap:10px; min-height:40px; padding-top:6px; font-size:var(--fs-subhead); }
+  .pay-done{ display:flex; align-items:center; gap:var(--sp-3); min-height:40px; padding-top:var(--sp-2); font-size:var(--fs-subhead); }
   .pay-done-ico{ flex:none; width:28px; height:28px; border-radius:50%; background:var(--color-success-bg); color:var(--color-success); display:flex; align-items:center; justify-content:center; }
   .pay-done b{ font-weight:700; white-space:nowrap; }
   .pay-done span.m{ color:var(--text-2); min-width:0; white-space:nowrap; }
@@ -1277,10 +1277,10 @@
   :is(#struct-drawer, #mono-detail-drawer) .sf-delete-wrap .struct-caption{ margin:2px 4px 0; text-align:center; }
 
   /* Rev 2.32.48 (S1) — «Структура»: групи в стилі «Налаштувань» (радіус 18, рядок ≥56px, роздільник від відступу плитки, заголовки груп 13px великими вторинним кольором); плитка з емодзі 32px; без олівця й хрестика. */
-  .struct-section{ margin-bottom:22px; }
-  .struct-group-label{ font-size:var(--fs-footnote); letter-spacing:.04em; text-transform:uppercase; color:var(--text-2); margin:0 16px 8px; }
+  .struct-section{ margin-bottom:var(--sp-6); }
+  .struct-group-label{ font-size:var(--fs-footnote); letter-spacing:.04em; text-transform:uppercase; color:var(--text-2); margin:0 var(--sp-4) var(--sp-2); }
   .struct-group{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); overflow:hidden; }
-  .struct-row{ position:relative; display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:0 16px; box-sizing:border-box; background:transparent; border:0; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .struct-row{ position:relative; display:flex; align-items:center; gap:var(--sp-3); width:100%; min-height:56px; padding:0 var(--sp-4); box-sizing:border-box; background:transparent; border:0; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .struct-row + .struct-row::before{ content:''; position:absolute; top:0; left:60px; right:0; height:1px; background:var(--line); }
   .struct-tile{ width:32px; height:32px; flex:none; border-radius:var(--r-s); background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:var(--fs-body); line-height:1; }
   .struct-tile.letter{ font-size:var(--fs-subhead); font-weight:700; color:var(--text-2); }
@@ -1291,18 +1291,18 @@
   .struct-row-side{ flex:none; color:var(--text-2); font-size:var(--fs-subhead); }
   .struct-row.accent{ color:var(--color-primary-text, var(--accent)); font-weight:600; }
   .struct-add-plus{ width:32px; height:32px; flex:none; display:flex; align-items:center; justify-content:center; font-size:var(--fs-title2); line-height:1; }
-  .struct-caption{ font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); margin:8px 16px 0; }
-  .struct-caption.center{ text-align:center; margin-top:10px; }
+  .struct-caption{ font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); margin:var(--sp-2) var(--sp-4) 0; }
+  .struct-caption.center{ text-align:center; margin-top:var(--sp-3); }
   .struct-empty{ display:flex; flex-direction:column; align-items:stretch; }
   .struct-empty > .submit-btn{ align-self:center; }
-  .struct-empty .struct-section{ margin-top:22px; margin-bottom:0; }
+  .struct-empty .struct-section{ margin-top:var(--sp-6); margin-bottom:0; }
   /* Rev 2.32.50 (S3) — «Словник»: групи-акордеон за категорією, пошук. Варіанти анімації (тест structure-accordion): b — шеврон 200мс + проявлення рядків 160мс, висота миттєво; c — анімована висота (grid-template-rows 240мс) лише як свідомий виняток тесту. */
-  .struct-search-wrap{ margin:0 0 14px; }
-  .struct-search{ width:100%; height:44px; box-sizing:border-box; padding:0 14px; border:1.5px solid var(--line-strong); border-radius:var(--r-m, var(--r-s)); background:var(--ui-glass, var(--surface)); color:var(--text); font-size:var(--fs-callout); -webkit-appearance:none; appearance:none; }
+  .struct-search-wrap{ margin:0 0 var(--sp-4); }
+  .struct-search{ width:100%; height:44px; box-sizing:border-box; padding:0 var(--sp-4); border:1.5px solid var(--line-strong); border-radius:var(--r-m, var(--r-s)); background:var(--ui-glass, var(--surface)); color:var(--text); font-size:var(--fs-callout); -webkit-appearance:none; appearance:none; }
   .struct-search:focus{ outline:none; border-color:var(--ui-accent, var(--accent)); }
   .struct-search::-webkit-search-cancel-button, .struct-search::-webkit-search-decoration{ -webkit-appearance:none; display:none; }
-  .struct-dict-group{ margin-bottom:10px; }
-  .struct-dict-head{ display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:0 16px; box-sizing:border-box; background:transparent; border:0; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .struct-dict-group{ margin-bottom:var(--sp-3); }
+  .struct-dict-head{ display:flex; align-items:center; gap:var(--sp-3); width:100%; min-height:56px; padding:0 var(--sp-4); box-sizing:border-box; background:transparent; border:0; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .struct-dict-title{ flex:1; min-width:0; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .struct-dict-chev{ flex:none; display:flex; color:var(--text-2); transition:transform var(--t-s) ease; }
   .struct-dict-group.open .struct-dict-chev{ transform:rotate(180deg); }
@@ -1310,7 +1310,7 @@
   .struct-dict-group.open .struct-dict-collapse{ display:block; }
   /* Rev 2.32.60 (W, варіант A): рядок слова — слово 17 пт; підкатегорія дрібним підписом під ним (13 пт, вторинний колір); слово без підкатегорії однорядкове (мін. 52 пт), з підписом — 64 пт; справа ›. Замінює підписи-значки з 2.32.56. */
   .struct-dict-inner .struct-row:has(.struct-word-sub){ min-height:64px; }
-  .struct-word-main{ flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px; padding:8px 0; }
+  .struct-word-main{ flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:2px; padding:var(--sp-2) 0; }
   .struct-word-text{ font-size:var(--fs-body); line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .struct-word-sub{ font-size:var(--fs-footnote); line-height:1.25; color:var(--text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .struct-dict-inner .struct-row{ min-height:52px; }
@@ -1329,28 +1329,28 @@
   @media (prefers-reduced-motion: reduce){ .struct-dict-chev{ transition:none; } .struct-dict-group.just-opened .struct-dict-inner{ animation:none; } }
   @media (hover:hover) and (pointer:fine) and (prefers-reduced-motion: reduce){ #struct-dictionary .struct-dict-collapse{ transition:opacity 80ms linear; } #struct-dictionary .struct-dict-chev{ transition:none; } }
 
-  .struct-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:var(--fs-footnote); }
+  .struct-item{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); padding:var(--sp-2) 0; border-bottom:1px solid var(--line); font-size:var(--fs-footnote); }
   .struct-item:last-child{ border-bottom:none; }
   .struct-item .s-name{ font-weight:600; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .struct-item .s-parent{ font-size:var(--fs-caption1); color:var(--color-muted); margin-left:4px; font-weight:400; }
+  .struct-item .s-parent{ font-size:var(--fs-caption1); color:var(--color-muted); margin-left:var(--sp-1); font-weight:400; }
   .struct-item .badge{ flex:0 0 auto; }
   .struct-item .bdr-actions{ flex:0 0 auto; }
   /* Rev 2.11.25 — уніфіковані інформаційні підказки: кружечок з іконкою "i"
      зліва + короткий текст користувацькою мовою (замість опису "що і чому
      змінено в коді", яким ці підказки були раніше). */
-  .info-note{ display:flex; align-items:center; gap:10px; font-size:var(--fs-footnote); color:var(--text-2); background:var(--surface-2); border-radius:var(--r-s); padding:12px 14px; margin-bottom:14px; line-height:1.5; }
+  .info-note{ display:flex; align-items:center; gap:var(--sp-3); font-size:var(--fs-footnote); color:var(--text-2); background:var(--surface-2); border-radius:var(--r-s); padding:var(--sp-3) var(--sp-4); margin-bottom:var(--sp-4); line-height:1.5; }
   /* Rev 2.11.26 — іконка "i" як текстовий гліф у колі замість тонкого SVG-контуру:
      на маленькому розмірі лінія SVG виглядала кривою й малопомітною, жирна
      курсивна літера в заповненому колі читається набагато чіткіше. */
   .info-note-icon{ flex:0 0 auto; width:22px; height:22px; border-radius:50%; background:var(--color-info-bg); border:1.5px solid var(--color-info); color:var(--color-info); display:flex; align-items:center; justify-content:center; font-size:var(--fs-footnote); font-weight:600; font-style:italic; font-family:Georgia,'Times New Roman',serif; line-height:1; }
-  .kw-row{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .kw-row{ display:flex; align-items:center; flex-wrap:wrap; gap:var(--sp-2); padding:var(--sp-2) 0; border-bottom:1px solid var(--line); }
   .kw-row:last-child{ border-bottom:none; }
-  .kw-tag{ font-size:var(--fs-caption2); background:var(--surface-2); color:var(--text-2); padding:3px 8px; border-radius:var(--r-l); font-family:'JetBrains Mono',monospace; }
+  .kw-tag{ font-size:var(--fs-caption2); background:var(--surface-2); color:var(--text-2); padding:var(--sp-1) var(--sp-2); border-radius:var(--r-l); font-family:'JetBrains Mono',monospace; }
   .kw-target{ font-size:var(--fs-footnote); color:var(--text); margin-left:auto; font-weight:600; }
 
   /* ---- Сервіс (Rev 2.10.0 — компактна сітка замість великих карток з описами) ---- */
-  .service-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; }
-  .service-tile{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; padding:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+  .service-grid{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3); margin-bottom:var(--sp-6); }
+  .service-tile{ display:flex; flex-direction:column; align-items:flex-start; gap:var(--sp-3); padding:var(--sp-4); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .service-tile:hover{ background:var(--surface-2); } }
   .service-tile:disabled{ opacity:.6; cursor:not-allowed; }
@@ -1359,23 +1359,23 @@
   .service-tile-icon.c-green{ background:var(--color-primary-bg); color:var(--color-primary-hover); }
   .service-tile-icon.c-blue{ background:var(--color-info-bg); color:var(--color-info); }
   .service-tile-label{ font-size:var(--fs-footnote); font-weight:600; color:var(--text); line-height:1.35; }
-  .service-danger-card{ display:flex; align-items:center; gap:14px; width:100%; padding:16px; margin-bottom:24px; background:var(--color-error-bg); border:1.5px solid var(--color-error); border-radius:var(--radius-lg); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+  .service-danger-card{ display:flex; align-items:center; gap:var(--sp-4); width:100%; padding:var(--sp-4); margin-bottom:var(--sp-6); background:var(--color-error-bg); border:1.5px solid var(--color-error); border-radius:var(--radius-lg); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .service-danger-card:hover{ filter:brightness(0.98); } }
   .service-danger-card .service-tile-icon{ background:none; color:var(--color-error); }
   .service-danger-text{ display:flex; flex-direction:column; gap:2px; }
   .service-danger-title{ font-size:var(--fs-subhead); font-weight:700; color:var(--color-error); }
   .service-danger-sub{ font-size:var(--fs-caption1); color:var(--text-2); }
-  .version-footer{ text-align:center; font-size:var(--fs-caption1); color:var(--color-muted); padding:20px 0 4px; font-family:'JetBrains Mono',monospace; }
+  .version-footer{ text-align:center; font-size:var(--fs-caption1); color:var(--color-muted); padding:var(--sp-5) 0 var(--sp-1); font-family:'JetBrains Mono',monospace; }
   /* Rev 2.16.1 — "Діагностика даних" стала повноширинною карткою (той самий
      розмір/раскладка, що .service-danger-card нижче), але зі звичайними
      (не error) кольорами — це не небезпечна дія, лише інша вага на екрані. */
-  .service-wide-card{ display:flex; align-items:center; gap:14px; width:100%; padding:16px; margin-bottom:24px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+  .service-wide-card{ display:flex; align-items:center; gap:var(--sp-4); width:100%; padding:var(--sp-4); margin-bottom:var(--sp-6); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); cursor:pointer; text-align:left; font-family:inherit; -webkit-tap-highlight-color:transparent; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .service-wide-card:hover{ background:var(--surface-2); } }
   /* Rev 2.32.260 (REC-1): щільне групування «Дані» і «Допомога» за макетом: картки в групі через 8 пт (було 24), підпис групи ближче до карток */
-  .section-label.compact{ margin:18px 2px 8px; }
-  .service-group{ display:flex; flex-direction:column; gap:8px; margin-bottom:6px; }
+  .section-label.compact{ margin:var(--sp-5) 2px var(--sp-2); }
+  .service-group{ display:flex; flex-direction:column; gap:var(--sp-2); margin-bottom:var(--sp-2); }
   .service-group > .service-wide-card{ margin-bottom:0; }
   .service-group > #checks-service-group{ margin:0; }
   .service-wide-card .service-tile-icon{ flex-shrink:0; }
@@ -1384,45 +1384,45 @@
   .service-wide-sub{ font-size:var(--fs-caption1); color:var(--text-2); }
   /* Rev 2.23.22 (6D.191) — "Тестування": нейтральний сірий бейдж справа в
      рядку Сервісу (без червоного/крапок) і картки тестових варіантів. */
-  .test-badge{ margin-left:auto; flex-shrink:0; min-width:22px; padding:2px 8px; border-radius:var(--r-pill); background:var(--surface-2); color:var(--text-2); font-size:var(--fs-caption1); font-weight:700; text-align:center; font-family:'JetBrains Mono',monospace; }
+  .test-badge{ margin-left:auto; flex-shrink:0; min-width:22px; padding:2px var(--sp-2); border-radius:var(--r-pill); background:var(--surface-2); color:var(--text-2); font-size:var(--fs-caption1); font-weight:700; text-align:center; font-family:'JetBrains Mono',monospace; }
   .test-badge.hidden{ display:none; }
   /* Rev 2.23.23 (6D.192, Ревізія D) — "Видалені дані": права частина рядка
      Сервісу (сірий бейдж + шеврон), повноекранний екран, чипи, рядки (ті
      самі .expense-row-swipe/.expense-row, що Журнал), дії свайпу. */
-  .service-wide-right{ margin-left:auto; display:flex; align-items:center; gap:8px; color:var(--text-2); flex-shrink:0; }
+  .service-wide-right{ margin-left:auto; display:flex; align-items:center; gap:var(--sp-2); color:var(--text-2); flex-shrink:0; }
   /* Rev 2.32.1 (T1) — таббар видно на «Видалених даних», як у Журналі: екран лежить ПІД таббаром (z-index 19 < 20 у nav.tabbar), а не над ним (було 60).
      Нижній відступ вмісту = 112px — той самий резерв під таббар + safe-area, що й .main-col. Шторки (.drawer, 91), модалки (96) і тости (200) лишаються над таббаром;
      при відкритій клавіатурі таббар ховається як і раніше (body.kb-open). Активна вкладка — «Сервіс» (екран відкривається лише звідти). Альтернатива (піднімати таббар над екраном класом на body) відкинута: зайвий стан. */
   /* Rev 2.32.27 (MB-3) — екран «Monobank» (підекран «Сервісу», повноекранний, за зразком «Видалених даних»). Група/рядки/перемикачі за макетом; кольори й радіуси — токени застосунку (обидві теми). */
-  .mono-screen{ position:fixed; inset:0; z-index:19; background:var(--bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) 16px 112px; touch-action:pan-y; }
+  .mono-screen{ position:fixed; inset:0; z-index:19; background:var(--bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) var(--sp-4) 112px; touch-action:pan-y; }
   .mono-screen.hidden{ display:none; }
   .mono-inner{ max-width:640px; margin:0 auto; }
-  .mono-top{ position:relative; display:flex; align-items:center; height:48px; margin-bottom:14px; }
-  .mono-back{ display:flex; align-items:center; gap:4px; min-height:44px; padding:0 10px 0 0; background:transparent; border:0; color:var(--color-primary-text, var(--accent)); font:inherit; font-size:var(--fs-callout); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mono-top{ position:relative; display:flex; align-items:center; height:48px; margin-bottom:var(--sp-4); }
+  .mono-back{ display:flex; align-items:center; gap:var(--sp-1); min-height:44px; padding:0 var(--sp-3) 0 0; background:transparent; border:0; color:var(--color-primary-text, var(--accent)); font:inherit; font-size:var(--fs-callout); cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .mono-title{ position:absolute; left:0; right:0; text-align:center; font-size:var(--fs-body); font-weight:700; color:var(--text); pointer-events:none; }
-  .mono-group-label{ font-size:var(--fs-caption1); letter-spacing:.04em; text-transform:uppercase; color:var(--text-2); margin:0 16px 8px; }
+  .mono-group-label{ font-size:var(--fs-caption1); letter-spacing:.04em; text-transform:uppercase; color:var(--text-2); margin:0 var(--sp-4) var(--sp-2); }
   .mono-group{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); overflow:hidden; }
   /* Rev 2.32.35 (K) — підказка підбору за ключовим словом: місце резервується завжди (min-height), тому шторка не «стрибає» по висоті; видимість — visibility. */
-  .mono-kw-hint{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:28px; font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); }
+  .mono-kw-hint{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); min-height:28px; font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); }
   .mono-kw-hint.off{ visibility:hidden; }
-  .mono-kw-undo{ background:none; border:0; padding:4px 0; font:inherit; font-weight:600; color:var(--ui-accent, var(--accent)); cursor:pointer; white-space:nowrap; }
-  .mono-group + .mono-hint, .mono-hint{ font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); margin:8px 16px 0; }
-  .mono-section{ margin-bottom:22px; }
-  .mono-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:52px; padding:0 16px; box-sizing:border-box; background:transparent; border:0; border-top:1px solid var(--line); font:inherit; font-size:var(--fs-callout); color:var(--text); text-align:left; }
+  .mono-kw-undo{ background:none; border:0; padding:var(--sp-1) 0; font:inherit; font-weight:600; color:var(--ui-accent, var(--accent)); cursor:pointer; white-space:nowrap; }
+  .mono-group + .mono-hint, .mono-hint{ font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); margin:var(--sp-2) var(--sp-4) 0; }
+  .mono-section{ margin-bottom:var(--sp-6); }
+  .mono-row{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); width:100%; min-height:52px; padding:0 var(--sp-4); box-sizing:border-box; background:transparent; border:0; border-top:1px solid var(--line); font:inherit; font-size:var(--fs-callout); color:var(--text); text-align:left; }
   .mono-row:first-child{ border-top:0; }
   button.mono-row{ cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .mono-row.dim{ opacity:.55; }
   .mono-row.danger{ color:var(--color-error); }
   .mono-row.link{ color:var(--color-primary-text, var(--accent)); }
-  .mono-row-side{ display:flex; align-items:center; gap:10px; color:var(--text-2); font-size:var(--fs-subhead); }
+  .mono-row-side{ display:flex; align-items:center; gap:var(--sp-3); color:var(--text-2); font-size:var(--fs-subhead); }
   .mono-dot{ width:8px; height:8px; border-radius:50%; background:var(--color-success); flex:none; }
   .mono-dot.err{ background:var(--color-error); }
-  .mono-badge{ min-width:22px; height:22px; padding:0 7px; box-sizing:border-box; border-radius:var(--r-s); background:var(--surface-2); color:var(--text); font-size:var(--fs-footnote); font-weight:700; line-height:22px; text-align:center; }
+  .mono-badge{ min-width:22px; height:22px; padding:0 var(--sp-2); box-sizing:border-box; border-radius:var(--r-s); background:var(--surface-2); color:var(--text); font-size:var(--fs-footnote); font-weight:700; line-height:22px; text-align:center; }
   .mono-badge.hidden{ display:none; }
   .mono-token-input{ flex:1; min-width:0; height:44px; background:transparent; border:0; outline:0; color:var(--text); font:inherit; font-size:16px; text-align:right; }
   .mono-token-input::placeholder{ color:var(--text-3); }
-  .mono-error{ font-size:var(--fs-footnote); line-height:1.35; color:var(--color-error); margin:8px 16px 0; }
-  .mono-primary{ width:100%; height:52px; margin-top:22px; border:0; border-radius:var(--radius-lg); background:var(--ui-success-strong, var(--accent)); color:#fff; font:inherit; font-size:var(--fs-callout); font-weight:700; cursor:pointer; }
+  .mono-error{ font-size:var(--fs-footnote); line-height:1.35; color:var(--color-error); margin:var(--sp-2) var(--sp-4) 0; }
+  .mono-primary{ width:100%; height:52px; margin-top:var(--sp-6); border:0; border-radius:var(--radius-lg); background:var(--ui-success-strong, var(--accent)); color:#fff; font:inherit; font-size:var(--fs-callout); font-weight:700; cursor:pointer; }
   .mono-primary:disabled{ opacity:.55; cursor:not-allowed; }
   .mono-switch{ position:relative; width:51px; height:31px; border-radius:var(--r-m); border:0; padding:0; flex:none; cursor:pointer; background:var(--line-strong); transition:background var(--t-s); -webkit-tap-highlight-color:transparent; }
   .mono-switch::before{ content:''; position:absolute; inset:-7px -4px; }
@@ -1439,12 +1439,12 @@
   .gear-btn.notif-bell-btn::after{ content:''; position:absolute; inset:-4px; } /* зона дотику 44×44 при візуальних 36×36, як у шестерні поруч */
   /* Rev 2.32.40 (V) — лічильник дзвіночка. Причина спотворення (Крок 0): значок був нащадком кнопки і мав border:2px при height:18px + line-height:18px у border-box → вміст 14px, рядок 18px: цифра зсунута вниз, а форма залежала від контексту кнопки. Тепер значок — сусід кнопки в обгортці .notif-bell-wrap (не нащадок), inline-flex по центру, line-height:1, обводка кольору шапки через box-shadow, не border. */
   .notif-bell-wrap{ position:relative; display:inline-flex; }
-  .notif-bell-count{ position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; padding:0 4px; box-sizing:border-box; border-radius:var(--r-xs); display:inline-flex; align-items:center; justify-content:center; background:var(--color-error); color:#fff; font-size:var(--fs-caption2); font-weight:700; line-height:1; letter-spacing:0; font-variant-numeric:tabular-nums; box-shadow:0 0 0 1.5px var(--bg); /* Rev 2.32.42 (V2): менший значок (16px, шрифт 10px) — «9+» виглядав завеликим */ pointer-events:none; }
+  .notif-bell-count{ position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; padding:0 var(--sp-1); box-sizing:border-box; border-radius:var(--r-xs); display:inline-flex; align-items:center; justify-content:center; background:var(--color-error); color:#fff; font-size:var(--fs-caption2); font-weight:700; line-height:1; letter-spacing:0; font-variant-numeric:tabular-nums; box-shadow:0 0 0 1.5px var(--bg); /* Rev 2.32.42 (V2): менший значок (16px, шрифт 10px) — «9+» виглядав завеликим */ pointer-events:none; }
   .notif-bell-count.hidden{ display:none; }
   .notif-archive-top-action{ position:absolute; right:0; top:0; height:48px; display:flex; align-items:center; }
-  .notif-readall{ background:none; border:0; font:inherit; font-size:var(--fs-subhead); font-weight:600; color:var(--color-primary-text, var(--accent)); cursor:pointer; min-height:44px; padding:0 4px; }
+  .notif-readall{ background:none; border:0; font:inherit; font-size:var(--fs-subhead); font-weight:600; color:var(--color-primary-text, var(--accent)); cursor:pointer; min-height:44px; padding:0 var(--sp-1); }
   .notif-readall:disabled{ opacity:.4; cursor:default; }
-  .notif-row{ display:flex; align-items:flex-start; gap:12px; width:100%; box-sizing:border-box; padding:12px 16px; background:transparent; border:0; border-top:1px solid var(--line); font:inherit; text-align:left; color:var(--text); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .notif-row{ display:flex; align-items:flex-start; gap:var(--sp-3); width:100%; box-sizing:border-box; padding:var(--sp-3) var(--sp-4); background:transparent; border:0; border-top:1px solid var(--line); font:inherit; text-align:left; color:var(--text); cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .notif-row:first-child{ border-top:0; }
   .notif-row-icon{ width:36px; height:36px; flex:none; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--text-2); }
   .notif-row-icon svg{ width:20px; height:20px; }
@@ -1465,7 +1465,7 @@
   .notif-swipe + .notif-swipe{ border-top:1px solid var(--line); }
   .notif-swipe .expense-row-actions{ top:0; bottom:0; }
   .notif-swipe .expense-row-actions button{ width:84px; }
-  .expense-row.notif-row{ display:flex; align-items:flex-start; gap:12px; border:0; border-left:0; border-radius:0; box-shadow:none; margin:0; padding:12px 16px; background:var(--surface); width:100%; box-sizing:border-box; }
+  .expense-row.notif-row{ display:flex; align-items:flex-start; gap:var(--sp-3); border:0; border-left:0; border-radius:0; box-shadow:none; margin:0; padding:var(--sp-3) var(--sp-4); background:var(--surface); width:100%; box-sizing:border-box; }
   .expense-row.notif-row.unread{ background-image:linear-gradient(var(--notif-unread-bg), var(--notif-unread-bg)); }
   .expense-row.notif-row.is-pressed{ background-color:var(--surface-2); background-image:none; } /* Rev 2.32.97: реакція на натискання (специфічність вища за .expense-row.notif-row) */
   /* Rev 2.32.143 (DESK-TRASH): кошик стоїть на місці часу (праворуч, у тій самій зоні), а не поверх нього: при наведенні/фокусі час плавно зникає (opacity), кошик плавно з'являється; обидва лишаються в потоці/абсолютно без зміни розмірів, тож рядок і текст не зсуваються і накладання немає. Фокус клавіатури на кнопці дає той самий стан (:has). */
@@ -1488,18 +1488,18 @@
   .notif-row-icon.ic-blue{ background:var(--color-info-bg); color:var(--color-info); }
   .notif-row-icon.ic-amber{ background:var(--color-warning-bg); color:var(--color-warning-hover); }
 
-  .mono-inbox-tabs{ margin-bottom:14px; }
-  .mono-day{ margin-bottom:18px; }
-  .mono-day .expense-row-swipe{ margin-bottom:8px; }
+  .mono-inbox-tabs{ margin-bottom:var(--sp-4); }
+  .mono-day{ margin-bottom:var(--sp-5); }
+  .mono-day .expense-row-swipe{ margin-bottom:var(--sp-2); }
   .chip.mono-chip-accent{ background:var(--ui-success-strong, var(--accent)); color:#fff; }
   .mono-meta{ font-size:var(--fs-caption1); color:var(--text-2); }
   /* Rev 2.32.128: мітка «🔗 Платіж за ОЧ «назва»» у «Нових» (тап перемикає на «Без ОЧ» і назад); той самий фіолетовий акцент ОЧ, що підказка автозв'язку у формі витрати. */
-  .mono-inst-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:6px; padding:4px 10px; border:0; border-radius:var(--r-l); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font:inherit; font-size:var(--fs-caption1); font-weight:600; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mono-inst-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:var(--sp-2); padding:var(--sp-1) var(--sp-3); border:0; border-radius:var(--r-l); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); font:inherit; font-size:var(--fs-caption1); font-weight:600; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   /* Rev 2.32.330 (MONO-REFUND), макет docs/ui/mockups/mono-refund-mockup.html: мітка повернення — форма .mono-inst-label, тло --color-info-bg, текст --color-info; стара сума закреслена 12 px secondary */
-  .mono-refund-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:6px; padding:4px 10px; border:0; border-radius:var(--r-l); background:var(--color-info-bg); color:var(--color-info); font:inherit; font-size:var(--fs-caption1); font-weight:600; -webkit-tap-highlight-color:transparent; }
+  .mono-refund-label{ display:inline-flex; align-items:center; max-width:100%; margin-top:var(--sp-2); padding:var(--sp-1) var(--sp-3); border:0; border-radius:var(--r-l); background:var(--color-info-bg); color:var(--color-info); font:inherit; font-size:var(--fs-caption1); font-weight:600; -webkit-tap-highlight-color:transparent; }
   button.mono-refund-label{ cursor:pointer; text-align:left; }
   .mono-refund-label > span{ min-width:0; white-space:normal; text-align:left; line-height:1.3; } /* як у макеті: текст переноситься, а не обрізається (сума списання в підказці має бути видна на 390 пт) */
-  .mono-old-amount{ display:block; margin-top:3px; font-size:var(--fs-caption1); font-weight:400; color:var(--text-2); text-decoration:line-through; }
+  .mono-old-amount{ display:block; margin-top:var(--sp-1); font-size:var(--fs-caption1); font-weight:400; color:var(--text-2); text-decoration:line-through; }
   .mono-inst-label > span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mono-inst-label.off{ background:var(--surface-2); color:var(--text-2); }
   .expense-row-actions .swipe-ignore-btn{ background:var(--text-3); width:96px; flex-direction:column; gap:2px; font-size:var(--fs-caption2); font-weight:700; font-family:inherit; }
@@ -1512,15 +1512,15 @@
   .notif-bell-count.mono-paw-count{ background:var(--color-info); }
   .mono-paw-dot{ position:absolute; top:-2px; right:-2px; width:8px; height:8px; border-radius:50%; background:var(--color-info); box-shadow:0 0 0 1.5px var(--bg); }
   .side-ico .mono-paw-dot{ top:-4px; right:-6px; }
-  .mono-auto-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:48px; padding:10px 14px; box-sizing:border-box; border:0; border-top:1px solid var(--line); background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mono-auto-row{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); width:100%; min-height:48px; padding:var(--sp-3) var(--sp-4); box-sizing:border-box; border:0; border-top:1px solid var(--line); background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .mono-auto-row:first-child{ border-top:0; }
   .mono-auto-row .mono-auto-name{ font-size:var(--fs-subhead); }
   .mono-auto-row .mono-auto-sub{ font-size:var(--fs-caption1); color:var(--text-2); margin-top:2px; }
   .mono-auto-row .mono-auto-amt{ font-family:'JetBrains Mono',ui-monospace,Menlo,monospace; font-size:var(--fs-subhead); white-space:nowrap; }
   .mono-auto-ok{ display:block; width:100%; height:44px; border:0; border-top:1px solid var(--line); background:transparent; color:var(--color-info); font:inherit; font-size:var(--fs-subhead); font-weight:600; cursor:pointer; }
-  .mono-auto-cats{ padding:0 14px 12px; }
-  .mono-cat-row{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-  .mono-cat-btn{ position:relative; height:32px; padding:0 12px; border-radius:var(--r-pill); border:1px solid var(--line); background:var(--surface-2); color:var(--text); font:inherit; font-size:var(--fs-footnote); display:inline-flex; align-items:center; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .mono-auto-cats{ padding:0 var(--sp-4) var(--sp-3); }
+  .mono-cat-row{ display:flex; flex-wrap:wrap; gap:var(--sp-2); margin-top:var(--sp-3); }
+  .mono-cat-btn{ position:relative; height:32px; padding:0 var(--sp-3); border-radius:var(--r-pill); border:1px solid var(--line); background:var(--surface-2); color:var(--text); font:inherit; font-size:var(--fs-footnote); display:inline-flex; align-items:center; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .mono-cat-btn::after{ content:''; position:absolute; left:50%; top:50%; width:100%; min-width:44px; height:44px; transform:translate(-50%,-50%); } /* зона дотику ≥ 44 pt при висоті 32 (як у .gear-btn::after); сусідні зони перекриваються лише в проміжку 6 pt */
   .mono-cat-btn.first{ background:var(--accent-bg, var(--color-primary-bg)); color:var(--accent-text, var(--color-primary-hover)); border-color:transparent; font-weight:600; }
   .mono-cat-btn.more{ color:var(--text-2); }
@@ -1532,42 +1532,42 @@
   #mono-detail-drawer .mono-detail-fields{ gap:0; margin-top:8px; }
   .mono-detail-fields{ display:flex; flex-direction:column; gap:12px; margin-top:12px; }
   /* Rev 2.32.59 (F2): рядки вибору/примітки у деталях Monobank — спільні .sf-* правила (див. «Структура», 2.32.58); колишнє виправлення обрізання з 2.32.34 більше не потрібне — select прозорий, текст значення окремо. */
-  .mono-note{ font-size:var(--fs-subhead); line-height:1.45; color:var(--text-2); text-align:center; padding:24px 16px; }
-  .trash-screen{ position:fixed; inset:0; z-index:19; background:var(--bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) 16px 112px; }
+  .mono-note{ font-size:var(--fs-subhead); line-height:1.45; color:var(--text-2); text-align:center; padding:var(--sp-6) var(--sp-4); }
+  .trash-screen{ position:fixed; inset:0; z-index:19; background:var(--bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) var(--sp-4) 112px; }
   .trash-screen.hidden{ display:none; }
   /* Rev 2.31.1 (C) — свайп із краю закриває екран (installEdgeSwipeClose): горизонтальні панування браузер не веде, вертикальна прокрутка лишається; рядки мають свій touch-action:pan-y */
   .trash-screen{ touch-action:pan-y; }
   .trash-inner{ max-width:640px; margin:0 auto; }
-  .trash-sub{ font-size:var(--fs-footnote); color:var(--text-2); margin:-6px 2px 14px; line-height:1.4; }
-  .trash-chips{ display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
-  .trash-chip{ min-height:44px; padding:0 16px; border-radius:var(--r-pill); border:1.5px solid var(--line-strong); background:var(--surface); color:var(--text-2); font-size:var(--fs-footnote); font-weight:600; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .trash-sub{ font-size:var(--fs-footnote); color:var(--text-2); margin:-6px 2px var(--sp-4); line-height:1.4; }
+  .trash-chips{ display:flex; gap:var(--sp-2); margin-bottom:var(--sp-3); flex-wrap:wrap; }
+  .trash-chip{ min-height:44px; padding:0 var(--sp-4); border-radius:var(--r-pill); border:1.5px solid var(--line-strong); background:var(--surface); color:var(--text-2); font-size:var(--fs-footnote); font-weight:600; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .trash-chip.active{ background:var(--text); color:var(--bg); border-color:var(--text); }
-  .trash-count{ font-size:var(--fs-caption1); color:var(--color-muted); margin:0 2px 10px; min-height:14px; }
+  .trash-count{ font-size:var(--fs-caption1); color:var(--color-muted); margin:0 2px var(--sp-3); min-height:14px; }
   .trash-row{ min-height:44px; border-left:3px solid var(--line-strong); }
   .trash-row .trash-ico{ flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--surface-2); color:var(--text-2); display:flex; align-items:center; justify-content:center; }
   .trash-row .trash-ico svg{ width:16px; height:16px; }
-  .trash-row .trash-line2{ font-size:var(--fs-caption1); color:var(--text-2); margin-top:3px; }
-  .trash-row .trash-note{ font-size:var(--fs-caption1); color:var(--text); margin-top:3px; }
-  .trash-row .trash-right{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .trash-row .trash-line2{ font-size:var(--fs-caption1); color:var(--text-2); margin-top:var(--sp-1); }
+  .trash-row .trash-note{ font-size:var(--fs-caption1); color:var(--text); margin-top:var(--sp-1); }
+  .trash-row .trash-right{ display:flex; flex-direction:column; align-items:flex-end; gap:var(--sp-2); flex-shrink:0; }
   .trash-row .trash-amount{ font-size:var(--fs-subhead); font-weight:700; }
   .trash-row .trash-amount.expense{ color:var(--color-error); }
   .trash-row .trash-amount.income{ color:var(--color-success); }
-  .trash-restore-btn{ min-height:44px; padding:0 14px; border:none; border-radius:var(--r-pill); background:var(--color-success-bg); color:var(--color-success); font-size:var(--fs-footnote); font-weight:700; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .trash-restore-btn{ min-height:44px; padding:0 var(--sp-4); border:none; border-radius:var(--r-pill); background:var(--color-success-bg); color:var(--color-success); font-size:var(--fs-footnote); font-weight:700; font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .trash-chevron{ flex-shrink:0; color:var(--color-muted); display:flex; }
   .expense-row-actions .swipe-restore-btn{ background:var(--color-success); width:88px; flex-direction:column; gap:2px; font-size:var(--fs-caption2); font-weight:700; font-family:inherit; }
-  .trash-detail-row{ display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--line); font-size:var(--fs-footnote); }
+  .trash-detail-row{ display:flex; justify-content:space-between; gap:var(--sp-3); padding:var(--sp-2) 0; border-bottom:1px solid var(--line); font-size:var(--fs-footnote); }
   .trash-detail-row span:first-child{ color:var(--text-2); flex-shrink:0; }
   .trash-detail-row span:last-child{ color:var(--text); font-weight:600; text-align:right; min-width:0; overflow-wrap:anywhere; }
   /* Rev 2.23.24 (6D.193, Ревізія E) — "Видалити назавжди": червона контурна кнопка (модалка, шторка деталей), свайп-кнопка, смужки "Перевіряю синхронізацію…" і офлайн-банер. Дизайн лише через наявні токени. */
   .submit-btn.danger-outline{ background:transparent; color:var(--color-error); border:1.5px solid var(--color-error); }
   .submit-btn.danger-outline.hidden{ display:none; }
   .submit-btn.danger-outline:disabled{ opacity:.45; cursor:not-allowed; }
-  .expense-row-actions .swipe-purge-btn{ background:var(--color-error); width:96px; flex-direction:column; gap:2px; font-size:var(--fs-caption2); font-weight:700; font-family:inherit; padding:0 6px; text-align:center; line-height:1.15; }
+  .expense-row-actions .swipe-purge-btn{ background:var(--color-error); width:96px; flex-direction:column; gap:2px; font-size:var(--fs-caption2); font-weight:700; font-family:inherit; padding:0 var(--sp-2); text-align:center; line-height:1.15; }
   .expense-row-actions .swipe-purge-btn:disabled{ opacity:.45; cursor:not-allowed; }
   /* Rev 2.23.29 (6D.198) — екран "Сповіщення" (iOS-стиль: згруповані списки, перемикачі, зони ≥44пт) і підсвітка ОЧ зі сповіщення. */
-  .n-section-label{ font-size:var(--fs-caption1); font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.04em; margin:16px 4px 6px; }
+  .n-section-label{ font-size:var(--fs-caption1); font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.04em; margin:var(--sp-4) var(--sp-1) var(--sp-2); }
   .n-group{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); overflow:hidden; }
-  .n-row{ display:flex; align-items:center; gap:12px; min-height:52px; padding:8px 14px; border-top:1px solid var(--line); cursor:pointer; }
+  .n-row{ display:flex; align-items:center; gap:var(--sp-3); min-height:52px; padding:var(--sp-2) var(--sp-4); border-top:1px solid var(--line); cursor:pointer; }
   .n-row:first-child{ border-top:none; }
   .n-row.disabled{ opacity:.5; pointer-events:none; }
   .n-row-text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
@@ -1577,22 +1577,22 @@
   .n-switch-input::after{ content:''; position:absolute; top:2px; left:2px; width:27px; height:27px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform var(--duration-fast) var(--easing-standard); }
   .n-switch-input:checked{ background:var(--color-success); }
   .n-switch-input:checked::after{ transform:translateX(20px); }
-  .n-days{ display:flex; gap:6px; padding:0 14px 10px; }
+  .n-days{ display:flex; gap:var(--sp-2); padding:0 var(--sp-4) var(--sp-3); }
   .n-days button{ flex:1; min-height:44px; border:1.5px solid var(--line-strong); border-radius:var(--r-s); background:var(--surface); color:var(--text); font-size:var(--fs-subhead); font-weight:600; cursor:pointer; }
   .n-days button.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
-  .n-time-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:52px; padding:8px 14px; border-top:1px solid var(--line); }
-  .n-time-row input[type="time"]{ min-height:44px; padding:0 10px; border:1.5px solid var(--line-strong); border-radius:var(--r-s); background:var(--surface); color:var(--text); font:inherit; }
-  .n-status{ border-radius:var(--radius-lg); padding:12px 14px; font-size:var(--fs-footnote); line-height:1.4; background:var(--surface); border:1px solid var(--line); color:var(--text); }
+  .n-time-row{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); min-height:52px; padding:var(--sp-2) var(--sp-4); border-top:1px solid var(--line); }
+  .n-time-row input[type="time"]{ min-height:44px; padding:0 var(--sp-3); border:1.5px solid var(--line-strong); border-radius:var(--r-s); background:var(--surface); color:var(--text); font:inherit; }
+  .n-status{ border-radius:var(--radius-lg); padding:var(--sp-3) var(--sp-4); font-size:var(--fs-footnote); line-height:1.4; background:var(--surface); border:1px solid var(--line); color:var(--text); }
   .n-status.ok{ border-left:3px solid var(--color-success); }
   .n-status.warn{ border-left:3px solid var(--color-error); background:var(--color-error-bg); }
-  .n-status-hint{ display:block; font-size:var(--fs-caption1); color:var(--text-2); margin-top:4px; }
+  .n-status-hint{ display:block; font-size:var(--fs-caption1); color:var(--text-2); margin-top:var(--sp-1); }
   /* Rev 2.23.30 (6D.199) — головний тумблер, приглушення груп, рядок-посилання в "Налаштуваннях", діагностика доставки. */
   button.n-row-link{ width:100%; border:none; background:none; font:inherit; color:inherit; text-align:left; border-top:none; }
   .n-row-state{ font-size:var(--fs-footnote); color:var(--text-2); white-space:nowrap; }
   .n-dimmed{ opacity:.45; pointer-events:none; }
-  .n-diag-toggle{ width:100%; display:flex; align-items:center; justify-content:space-between; min-height:44px; border:none; background:none; font:inherit; font-size:var(--fs-subhead); font-weight:600; color:var(--text); padding:0 4px; cursor:pointer; }
-  .n-diag-list{ margin:4px 0 10px; }
-  .n-diag-row{ display:flex; justify-content:space-between; gap:10px; padding:7px 14px; font-size:var(--fs-footnote); border-top:1px solid var(--line); }
+  .n-diag-toggle{ width:100%; display:flex; align-items:center; justify-content:space-between; min-height:44px; border:none; background:none; font:inherit; font-size:var(--fs-subhead); font-weight:600; color:var(--text); padding:0 var(--sp-1); cursor:pointer; }
+  .n-diag-list{ margin:var(--sp-1) 0 var(--sp-3); }
+  .n-diag-row{ display:flex; justify-content:space-between; gap:var(--sp-3); padding:var(--sp-2) var(--sp-4); font-size:var(--fs-footnote); border-top:1px solid var(--line); }
   .n-diag-row:first-child{ border-top:none; }
   .n-diag-row .ok{ color:var(--color-success); }
   .n-diag-row .bad{ color:var(--color-error); }
@@ -1620,36 +1620,36 @@
   @media (prefers-reduced-motion: reduce){ .sync-slot .sl-ring{ animation:none; } .expense-row.just-synced{ animation:none; } }
   /* ===== Rev 2.32.189 (CHECKS-1): «Перевірки» і «Діагностика» за макетом docs/ui/mockups/checks-mockup.html (кольори лише з токенів застосунку) ===== */
   .chk-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); overflow:hidden; }
-  .chk-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:48px; padding:0 14px; border:0; background:none; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; box-sizing:border-box; }
+  .chk-row{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); width:100%; min-height:48px; padding:0 var(--sp-4); border:0; background:none; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; box-sizing:border-box; }
   .chk-row + .chk-row, .chk-row + .chk-box:not(:empty), .chk-box:not(:empty) + .chk-row{ border-top:1px solid var(--line); }
   .chk-row.is-pressed{ background:var(--surface-2); }
   div.chk-row{ cursor:default; }
   .chk-mut{ color:var(--text-2); }
-  .chk-end{ display:flex; align-items:center; gap:8px; flex:none; }
+  .chk-end{ display:flex; align-items:center; gap:var(--sp-2); flex:none; }
   .chk-state{ font-size:var(--fs-footnote); }
-  .chk-badge{ min-width:24px; height:24px; border-radius:var(--r-s); background:var(--ui-success-strong, var(--accent)); color:#fff; font-size:var(--fs-footnote); display:inline-flex; align-items:center; justify-content:center; padding:0 6px; box-sizing:border-box; }
+  .chk-badge{ min-width:24px; height:24px; border-radius:var(--r-s); background:var(--ui-success-strong, var(--accent)); color:#fff; font-size:var(--fs-footnote); display:inline-flex; align-items:center; justify-content:center; padding:0 var(--sp-2); box-sizing:border-box; }
   .chk-badge.hidden{ display:none; }
-  .chk-label{ font-size:var(--fs-caption1); color:var(--text-2); margin:18px 4px 6px; }
+  .chk-label{ font-size:var(--fs-caption1); color:var(--text-2); margin:var(--sp-5) var(--sp-1) var(--sp-2); }
   .chk-box{ padding:0; }
-  .chk-box:not(:empty){ padding:10px 14px; }
+  .chk-box:not(:empty){ padding:var(--sp-3) var(--sp-4); }
   .chk-box.hidden{ display:none; }
   .chk-chev{ transition:transform var(--t-s); }
   .chk-row[aria-expanded="true"] .chk-chev, .chk-it.open .chk-chev{ transform:rotate(180deg); }
   .chk-it{ max-height:760px; overflow:hidden; border-top:1px solid var(--line); transition:max-height var(--t-m) ease, opacity var(--t-m) ease, visibility 0s; }
   .chk-it:first-child{ border-top:none; }
   .chk-it.gone{ max-height:0; opacity:0; border-top-width:0; visibility:hidden; transition:max-height var(--t-m) ease, opacity var(--t-m) ease, visibility 0s linear var(--t-m); }
-  .chk-it .chk-hd{ display:flex; align-items:center; gap:8px; min-height:50px; padding:0 16px; font-size:var(--fs-subhead); font-weight:500; color:var(--text); cursor:pointer; }
+  .chk-it .chk-hd{ display:flex; align-items:center; gap:var(--sp-2); min-height:50px; padding:0 var(--sp-4); font-size:var(--fs-subhead); font-weight:500; color:var(--text); cursor:pointer; }
   .chk-tag{ margin-left:auto; font-size:var(--fs-footnote); font-weight:400; color:var(--text-2); }
   .chk-it .chk-chev{ flex:none; }
-  .chk-it .chk-bd{ display:none; padding:0 16px 16px; }
+  .chk-it .chk-bd{ display:none; padding:0 var(--sp-4) var(--sp-4); }
   .chk-it.open .chk-bd{ display:block; }
   .chk-tt{ transition:color var(--t-s); }
   .chk-it.done .chk-tt{ text-decoration:line-through; color:var(--text-2); }
   .chk-steps{ font-size:var(--fs-subhead); line-height:1.55; color:var(--text); }
-  .chk-exp{ font-size:var(--fs-footnote); color:var(--text-2); margin:8px 0 14px; }
+  .chk-exp{ font-size:var(--fs-footnote); color:var(--text-2); margin:var(--sp-2) 0 var(--sp-4); }
   /* Rev 2.32.190 (CHECKS-2, макет v2): «Працює» / «Не працює» — дві плоскі кнопки 40/14 на всю ширину (без скла й тіней); «Не можу перевірити зараз» — пунктирна; причини — згрупований список (рядок 48, радіус 14); «Інше» — поле 34/12 і «Надіслати» 40/14. Зона дотику 44 — невидимим псевдоелементом. */
-  .chk-pair{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .chk-fl, .chk-sk, .chk-send{ position:relative; height:40px; border-radius:var(--r-s); border:none; font:inherit; font-size:var(--fs-subhead); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 12px; box-sizing:border-box; }
+  .chk-pair{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3); }
+  .chk-fl, .chk-sk, .chk-send{ position:relative; height:40px; border-radius:var(--r-s); border:none; font:inherit; font-size:var(--fs-subhead); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:var(--sp-2); padding:0 var(--sp-3); box-sizing:border-box; }
   .chk-fl::after, .chk-sk::after, .chk-send::after{ content:''; position:absolute; left:0; right:0; top:-2px; bottom:-2px; }
   .chk-fl{ transition:background var(--t-s) ease, color var(--t-s) ease; }
   .chk-fl.k, .chk-send{ background:var(--ui-accent-strong, var(--ui-success-strong, var(--accent))); color:#fff; }
@@ -1660,43 +1660,43 @@
   :root[data-theme="light"] .chk-it.st-no .chk-fl.k, :root[data-theme="light"] .chk-it.st-sk .chk-fl.k{ background:color-mix(in srgb, var(--ui-accent-strong, var(--accent)) 10%, transparent); }
   .chk-fl.k.sel{ outline:2px solid var(--ui-accent-strong, var(--accent)); outline-offset:2px; }
   .chk-fl:active, .chk-sk:active, .chk-send:active{ opacity:.7; }
-  .chk-sk{ width:100%; margin-top:10px; background:var(--surface-2); border:none; color:var(--text-2); font-size:var(--fs-subhead); }
+  .chk-sk{ width:100%; margin-top:var(--sp-3); background:var(--surface-2); border:none; color:var(--text-2); font-size:var(--fs-subhead); }
   .chk-sk.sel{ color:var(--text); outline:2px solid var(--text-2); outline-offset:2px; }
   .chk-rz{ overflow:hidden; max-height:0; opacity:0; visibility:hidden; transition:max-height var(--t-m) ease, opacity var(--t-s) ease, visibility 0s linear var(--t-m); }
   .chk-rz.open{ max-height:340px; opacity:1; visibility:visible; transition:max-height var(--t-m) ease, opacity var(--t-s) ease, visibility 0s; }
-  .chk-grp{ background:var(--surface-2); border-radius:var(--r-s); overflow:hidden; margin-top:10px; }
-  .chk-grp button{ display:flex; width:100%; align-items:center; justify-content:space-between; height:48px; padding:0 14px; border:none; background:transparent; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; border-radius:0; }
+  .chk-grp{ background:var(--surface-2); border-radius:var(--r-s); overflow:hidden; margin-top:var(--sp-3); }
+  .chk-grp button{ display:flex; width:100%; align-items:center; justify-content:space-between; height:48px; padding:0 var(--sp-4); border:none; background:transparent; font:inherit; font-size:var(--fs-subhead); color:var(--text); text-align:left; cursor:pointer; border-radius:0; }
   .chk-grp button + button{ border-top:1px solid var(--line); }
   .chk-grp button:active{ background:var(--line); }
   .chk-grp svg{ opacity:0; color:var(--ui-danger-text, var(--color-error)); }
   .chk-grp.chk-g2 svg{ color:var(--text-2); }
   .chk-grp button.sel svg{ opacity:1; }
-  .chk-oth{ display:none; margin-top:10px; }
+  .chk-oth{ display:none; margin-top:var(--sp-3); }
   .chk-oth.open{ display:block; }
-  .chk-fld{ width:100%; height:34px; box-sizing:border-box; border-radius:var(--r-s); border:1px solid var(--line); background:var(--surface-2); color:var(--text); font:inherit; font-size:14px; padding:0 12px; outline:none; }
+  .chk-fld{ width:100%; height:34px; box-sizing:border-box; border-radius:var(--r-s); border:1px solid var(--line); background:var(--surface-2); color:var(--text); font:inherit; font-size:14px; padding:0 var(--sp-3); outline:none; }
   .chk-fld:focus{ border-color:var(--ui-accent-strong, var(--accent)); }
-  .chk-err{ display:none; font-size:var(--fs-footnote); color:var(--ui-danger-text, var(--color-error)); margin-top:6px; }
-  .chk-send{ width:100%; margin-top:10px; }
-  .chk-empty{ display:none; text-align:center; padding:26px 14px; }
-  .chk-empty b{ display:block; font-size:var(--fs-callout); font-weight:500; margin-top:6px; color:var(--text); }
-  .chk-empty span{ display:block; font-size:var(--fs-footnote); color:var(--text-2); margin-top:4px; }
+  .chk-err{ display:none; font-size:var(--fs-footnote); color:var(--ui-danger-text, var(--color-error)); margin-top:var(--sp-2); }
+  .chk-send{ width:100%; margin-top:var(--sp-3); }
+  .chk-empty{ display:none; text-align:center; padding:var(--sp-6) var(--sp-4); }
+  .chk-empty b{ display:block; font-size:var(--fs-callout); font-weight:500; margin-top:var(--sp-2); color:var(--text); }
+  .chk-empty span{ display:block; font-size:var(--fs-footnote); color:var(--text-2); margin-top:var(--sp-1); }
   .chk-empty svg{ color:var(--color-success); }
   #checks-done-list.hidden{ display:none; } /* Rev 2.32.190: список «Пройдено» мав бути згорнутим за замовчуванням (глобального .hidden нема) */
-  .chk-done-it{ display:flex; justify-content:space-between; gap:10px; min-height:44px; align-items:center; padding:0 14px; border-top:1px solid var(--line); font-size:var(--fs-subhead); }
+  .chk-done-it{ display:flex; justify-content:space-between; gap:var(--sp-3); min-height:44px; align-items:center; padding:0 var(--sp-4); border-top:1px solid var(--line); font-size:var(--fs-subhead); }
   .chk-done-it span:last-child{ font-size:var(--fs-footnote); color:var(--text-2); text-align:right; }
   /* Rev 2.32.260 (REC-1): шторка «Повідомити про проблему» — стани sending/sent/offline, ті самі токени, що решта шторок */
-  .rec-state{ text-align:center; padding:18px 8px 16px; }
-  .rec-state-icon{ display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:var(--r-m); margin-bottom:12px; background:var(--color-primary-bg); color:var(--color-primary-hover); }
+  .rec-state{ text-align:center; padding:var(--sp-5) var(--sp-2) var(--sp-4); }
+  .rec-state-icon{ display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:var(--r-m); margin-bottom:var(--sp-3); background:var(--color-primary-bg); color:var(--color-primary-hover); }
   .rec-state.is-off .rec-state-icon{ background:var(--color-warning-bg); color:var(--color-warning); }
   .rec-state-title{ font-size:var(--fs-subhead); font-weight:600; color:var(--text); }
-  .rec-state-code{ margin-top:12px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:var(--fs-body); font-weight:500; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:var(--text); user-select:all; -webkit-user-select:all; }
-  .rec-state-hint{ margin-top:6px; font-size:var(--fs-subhead); color:var(--text-2); }
+  .rec-state-code{ margin-top:var(--sp-3); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:var(--fs-body); font-weight:500; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:var(--text); user-select:all; -webkit-user-select:all; }
+  .rec-state-hint{ margin-top:var(--sp-2); font-size:var(--fs-subhead); color:var(--text-2); }
   .rec-state.is-sending .rec-state-icon{ background:var(--color-info-bg); color:var(--color-info); }
-  .chk-sent{ text-align:center; font-size:var(--fs-footnote); color:var(--color-success); margin-top:10px; opacity:0; transition:opacity var(--t-m); height:16px; }
+  .chk-sent{ text-align:center; font-size:var(--fs-footnote); color:var(--color-success); margin-top:var(--sp-3); opacity:0; transition:opacity var(--t-m); height:16px; }
   .chk-sent.on{ opacity:1; }
   @media (prefers-reduced-motion: reduce){ .chk-it, .chk-it.gone, .chk-chev, .chk-tt, .chk-sent, .chk-fl, .chk-rz, .chk-rz.open{ transition:none; } }
-  .n-diag-empty{ padding:10px 14px; font-size:var(--fs-footnote); color:var(--text-2); }
-  #push-series-form{ border:1px solid var(--line); border-radius:var(--radius-sm); } #push-series-form .n-diag-row{ align-items:center; font-size:var(--fs-subhead); } #push-series-form select{ font-size:16px; min-height:36px; padding:4px 8px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); } /* Rev 2.32.104: форма серії без текстових полів; select ≥ 16 px (без масштабування iOS) */
+  .n-diag-empty{ padding:var(--sp-3) var(--sp-4); font-size:var(--fs-footnote); color:var(--text-2); }
+  #push-series-form{ border:1px solid var(--line); border-radius:var(--radius-sm); } #push-series-form .n-diag-row{ align-items:center; font-size:var(--fs-subhead); } #push-series-form select{ font-size:16px; min-height:36px; padding:var(--sp-1) var(--sp-2); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); } /* Rev 2.32.104: форма серії без текстових полів; select ≥ 16 px (без масштабування iOS) */
   /* ===== Rev 2.32.12 (R) — «Налаштування → Сповіщення»: inset-grouped список за макетом (рядок 52, групи 18, заголовки 13 пт, тумблер 51×31; значення з токенів --ui-*). Лише всередині #notifications-drawer — решта .n-* (список «Налаштування») без змін. ===== */
   #notifications-drawer .n-section-label{ font-size:var(--fs-footnote); font-weight:600; letter-spacing:.04em; margin:22px 16px 7px; }
   #notifications-drawer .nx-first{ margin-top:4px; }
@@ -1726,52 +1726,52 @@
   @keyframes nxAppear{ from{ opacity:0; transform:translateY(-8px); } to{ opacity:1; transform:none; } }
   #notifications-drawer .nx-appear{ animation:nxAppear var(--t-s) var(--ease-out) both; }
   @media (prefers-reduced-motion: reduce){ #notifications-drawer .nx-appear{ animation:none; } }
-  .n-readonly-note{ font-size:var(--fs-footnote); color:var(--text-2); padding:8px 4px 0; }
+  .n-readonly-note{ font-size:var(--fs-footnote); color:var(--text-2); padding:var(--sp-2) var(--sp-1) 0; }
   .service-tile.just-notified{ animation:cardBlink var(--t-count) ease-in-out 3; } /* Rev 2.32.15 (Z): підсвітка плитки експорту зі сповіщення (лише opacity) */
   .card-debt-compact-row.just-notified{ background:var(--color-info-bg); animation:cardBlink var(--t-count) ease-in-out 3; }
-  .trash-sync-line{ height:16px; margin:-2px 2px 6px; font-size:var(--fs-caption1); color:var(--text-2); opacity:0; transition:opacity var(--duration-fast) var(--easing-standard); }
+  .trash-sync-line{ height:16px; margin:-2px 2px var(--sp-2); font-size:var(--fs-caption1); color:var(--text-2); opacity:0; transition:opacity var(--duration-fast) var(--easing-standard); }
   .trash-sync-line.on{ opacity:1; }
-  .trash-offline-banner{ margin:0 0 12px; padding:10px 12px; border-radius:var(--r-s); background:var(--color-error-bg); color:var(--text); border-left:3px solid var(--color-error); font-size:var(--fs-footnote); line-height:1.4; }
+  .trash-offline-banner{ margin:0 0 var(--sp-3); padding:var(--sp-3) var(--sp-3); border-radius:var(--r-s); background:var(--color-error-bg); color:var(--text); border-left:3px solid var(--color-error); font-size:var(--fs-footnote); line-height:1.4; }
   .trash-offline-banner.hidden{ display:none; }
   #testing-drawer .drawer-head-sub{ font-size:var(--fs-caption1); color:var(--text-2); margin-top:2px; }
-  .test-section-sub{ font-size:var(--fs-caption1); color:var(--text-2); margin:-4px 2px 12px; }
-  .test-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); padding:14px; margin-bottom:12px; }
+  .test-section-sub{ font-size:var(--fs-caption1); color:var(--text-2); margin:-4px 2px var(--sp-3); }
+  .test-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); padding:var(--sp-4); margin-bottom:var(--sp-3); }
   .test-card-title{ font-size:var(--fs-subhead); font-weight:700; color:var(--text); }
-  .test-card-what{ font-size:var(--fs-footnote); color:var(--text-2); margin:4px 0 10px; }
-  .test-card-segments{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
-  .test-card select{ width:100%; margin-bottom:8px; }
-  .test-card-hint{ font-size:var(--fs-footnote); color:var(--text); margin-bottom:6px; }
-  .test-card-default{ display:inline-block; margin-left:6px; padding:1px 7px; border-radius:var(--r-pill); background:var(--surface-2); color:var(--text-2); font-size:var(--fs-caption2); font-weight:600; }
-  .test-card-meta{ font-size:var(--fs-caption2); color:var(--color-muted); margin-bottom:8px; }
-  .test-card details{ margin-bottom:10px; font-size:var(--fs-footnote); color:var(--text-2); }
-  .test-card details summary{ cursor:pointer; font-weight:600; color:var(--text); margin-bottom:4px; }
-  .test-card details ol{ margin:4px 0 0 18px; padding:0; }
-  .test-card-actions{ display:flex; flex-direction:column; gap:8px; }
+  .test-card-what{ font-size:var(--fs-footnote); color:var(--text-2); margin:var(--sp-1) 0 var(--sp-3); }
+  .test-card-segments{ display:flex; flex-wrap:wrap; gap:var(--sp-2); margin-bottom:var(--sp-2); }
+  .test-card select{ width:100%; margin-bottom:var(--sp-2); }
+  .test-card-hint{ font-size:var(--fs-footnote); color:var(--text); margin-bottom:var(--sp-2); }
+  .test-card-default{ display:inline-block; margin-left:var(--sp-2); padding:1px var(--sp-2); border-radius:var(--r-pill); background:var(--surface-2); color:var(--text-2); font-size:var(--fs-caption2); font-weight:600; }
+  .test-card-meta{ font-size:var(--fs-caption2); color:var(--color-muted); margin-bottom:var(--sp-2); }
+  .test-card details{ margin-bottom:var(--sp-3); font-size:var(--fs-footnote); color:var(--text-2); }
+  .test-card details summary{ cursor:pointer; font-weight:600; color:var(--text); margin-bottom:var(--sp-1); }
+  .test-card details ol{ margin:var(--sp-1) 0 0 var(--sp-5); padding:0; }
+  .test-card-actions{ display:flex; flex-direction:column; gap:var(--sp-2); }
   /* Rev 2.16.0 — Діагностика даних (ROADMAP п.20): той самий рядковий
      патерн, що .struct-item/.kw-row (заголовок перевірки + статус-бейдж),
      плюс список конкретних проблемних записів під ним, коли вони є.
      Rev 2.16.1 — звіт тепер живе в #app-modal (тимчасове повідомлення), і
      кожен .diag-issue — клікабельна кнопка "перейти до запису", не div. */
-  .diag-check{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); font-size:var(--fs-footnote); }
+  .diag-check{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); padding:var(--sp-3) 0; border-bottom:1px solid var(--line); font-size:var(--fs-footnote); }
   .diag-check:last-child{ border-bottom:none; }
   .diag-check-label{ font-weight:600; }
-  .diag-status{ flex:0 0 auto; font-size:var(--fs-caption2); font-weight:700; padding:3px 9px; border-radius:var(--r-l); }
+  .diag-status{ flex:0 0 auto; font-size:var(--fs-caption2); font-weight:700; padding:var(--sp-1) var(--sp-2); border-radius:var(--r-l); }
   .diag-status.ok{ background:var(--color-success-bg); color:var(--color-success); }
   .diag-status.bad{ background:var(--color-error-bg); color:var(--color-error); }
-  .diag-issue-list{ margin:0 0 12px; }
+  .diag-issue-list{ margin:0 0 var(--sp-3); }
   /* Rev 2.16.2 — .diag-issue-row обгортає кнопку-проблему й (для розбіжностей
      ОЧ) кнопку "Ігнорувати" поруч — раніше margin-bottom був на самій
      .diag-issue, тепер переїхав на обгортку, бо issue-кнопка стала flex:1. */
-  .diag-issue-row{ display:flex; align-items:stretch; gap:6px; margin-bottom:6px; }
-  .diag-issue{ display:block; flex:1 1 auto; min-width:0; font-size:var(--fs-caption1); color:var(--text-2); padding:7px 10px 7px 12px; line-height:1.45; font-family:inherit; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; background:var(--surface-2); border:none; border-left:2px solid var(--color-error); border-radius:0 var(--radius-sm) var(--radius-sm) 0; }
+  .diag-issue-row{ display:flex; align-items:stretch; gap:var(--sp-2); margin-bottom:var(--sp-2); }
+  .diag-issue{ display:block; flex:1 1 auto; min-width:0; font-size:var(--fs-caption1); color:var(--text-2); padding:var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-3); line-height:1.45; font-family:inherit; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; background:var(--surface-2); border:none; border-left:2px solid var(--color-error); border-radius:0 var(--radius-sm) var(--radius-sm) 0; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .diag-issue:hover{ background:var(--line); } }
   .diag-issue b{ color:var(--text); }
-  .diag-issue-ignore{ flex:0 0 auto; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); background:var(--surface-2); border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:0 10px; cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
+  .diag-issue-ignore{ flex:0 0 auto; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); background:var(--surface-2); border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:0 var(--sp-3); cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .diag-issue-ignore:hover{ background:var(--line); color:var(--text); } }
-  .diag-summary-ok{ text-align:center; padding:16px 6px; color:var(--color-success); font-weight:600; font-size:var(--fs-footnote); }
-  .diag-summary-meta{ text-align:center; font-size:var(--fs-caption1); color:var(--color-muted); margin-top:6px; }
+  .diag-summary-ok{ text-align:center; padding:var(--sp-4) var(--sp-2); color:var(--color-success); font-weight:600; font-size:var(--fs-footnote); }
+  .diag-summary-meta{ text-align:center; font-size:var(--fs-caption1); color:var(--color-muted); margin-top:var(--sp-2); }
   /* Rev 2.16.1 — коротке підсвічування запису, до якого перейшли з
      діагностики (Журнал/Облік) — щоб було видно, який саме рядок мався на
      увазі, а не лише проскролити екран. */
@@ -1974,8 +1974,8 @@
   .drawer-close{ width:32px; height:32px; border-radius:var(--r-s); border:none; background:var(--surface-2); cursor:pointer; color:var(--text-2); display:flex; align-items:center; justify-content:center; }
   .drawer-empty{ font-size:var(--fs-footnote); color:var(--text-2); line-height:1.6; background:var(--surface-2); border-radius:var(--r-s); padding:16px; }
   /* Rev 2.6.0 — сегментований перемикач теми (Системна/Світла/Темна) */
-  .theme-toggle{ display:flex; gap:4px; background:var(--surface-2); border-radius:var(--r-s); padding:4px; margin-bottom:20px; }
-  .theme-toggle-btn{ flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; padding:11px 4px; border:none; background:none; border-radius:var(--radius-sm); color:var(--text-2); font-size:var(--fs-caption2); font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
+  .theme-toggle{ display:flex; gap:var(--sp-1); background:var(--surface-2); border-radius:var(--r-s); padding:var(--sp-1); margin-bottom:var(--sp-5); }
+  .theme-toggle-btn{ flex:1; display:flex; flex-direction:column; align-items:center; gap:var(--sp-1); padding:var(--sp-3) var(--sp-1); border:none; background:none; border-radius:var(--radius-sm); color:var(--text-2); font-size:var(--fs-caption2); font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
   .theme-toggle-btn svg{ width:18px; height:18px; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .theme-toggle-btn:hover{ color:var(--text); } }
@@ -1989,12 +1989,12 @@
   .rs-layer.open{ display:block; }
   .rs-back{ position:absolute; inset:0; background:rgba(16,24,40,.45); opacity:0; transition:opacity var(--duration-base) var(--easing-standard); }
   .rs-layer.show .rs-back{ opacity:1; }
-  .rs-pane{ line-height:1.35; position:absolute; left:0; right:0; bottom:0; max-width:440px; margin:0 auto; padding:10px 10px max(10px, env(safe-area-inset-bottom)); opacity:0; transform:translateY(24px); transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
+  .rs-pane{ line-height:1.35; position:absolute; left:0; right:0; bottom:0; max-width:440px; margin:0 auto; padding:var(--sp-3) var(--sp-3) max(10px, env(safe-area-inset-bottom)); opacity:0; transform:translateY(24px); transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
   .rs-layer.show .rs-pane{ opacity:1; transform:none; }
-  .rs-pane.rs-center{ top:0; display:flex; align-items:center; justify-content:center; padding:28px; }
+  .rs-pane.rs-center{ top:0; display:flex; align-items:center; justify-content:center; padding:var(--sp-6); }
   .rs-grp{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); overflow:hidden; }
-  .rs-hd{ padding:14px 16px 8px; text-align:center; color:var(--text-2); font-size:var(--fs-footnote); }
-  .rs-rw{ line-height:1.35; display:flex; align-items:center; gap:12px; width:100%; min-height:56px; padding:8px 16px; border:0; border-top:1px solid var(--line); background:none; color:var(--text); font:inherit; font-size:var(--fs-callout); text-align:left; cursor:pointer; }
+  .rs-hd{ padding:var(--sp-4) var(--sp-4) var(--sp-2); text-align:center; color:var(--text-2); font-size:var(--fs-footnote); }
+  .rs-rw{ line-height:1.35; display:flex; align-items:center; gap:var(--sp-3); width:100%; min-height:56px; padding:var(--sp-2) var(--sp-4); border:0; border-top:1px solid var(--line); background:none; color:var(--text); font:inherit; font-size:var(--fs-callout); text-align:left; cursor:pointer; }
   .rs-rw:active{ background:var(--color-active-overlay); }
   .rs-t{ flex:1; min-width:0; }
   .rs-t small{ display:block; color:var(--text-2); font-size:var(--fs-footnote); margin-top:2px; }
@@ -2002,12 +2002,12 @@
   .rs-ri.g{ background:var(--color-primary-bg); color:var(--color-primary-hover); }
   .rs-ri.b{ background:var(--color-info-bg); color:var(--color-info); }
   .rs-ri.n{ background:var(--surface-2); color:var(--text-2); }
-  .rs-cancel{ display:block; width:100%; margin-top:8px; height:52px; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); color:var(--text); font:inherit; font-size:var(--fs-callout); font-weight:500; cursor:pointer; }
+  .rs-cancel{ display:block; width:100%; margin-top:var(--sp-2); height:52px; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); color:var(--text); font:inherit; font-size:var(--fs-callout); font-weight:500; cursor:pointer; }
   .rs-cancel:active{ background:var(--color-active-overlay); }
-  .rs-dlg{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); padding:18px; width:100%; max-width:360px; }
+  .rs-dlg{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); padding:var(--sp-5); width:100%; max-width:360px; }
   .rs-dlg b{ font-weight:500; font-size:var(--fs-body); display:block; text-align:center; }
-  .rs-dlg p{ margin:8px 0 16px; font-size:var(--fs-subhead); line-height:1.5; color:var(--text-2); text-align:center; }
-  .rs-dlg button{ display:block; width:100%; height:44px; border-radius:var(--r-s); border:none; background:var(--surface-2); color:var(--text); font:inherit; font-size:var(--fs-subhead); margin-top:8px; cursor:pointer; }
+  .rs-dlg p{ margin:var(--sp-2) 0 var(--sp-4); font-size:var(--fs-subhead); line-height:1.5; color:var(--text-2); text-align:center; }
+  .rs-dlg button{ display:block; width:100%; height:44px; border-radius:var(--r-s); border:none; background:var(--surface-2); color:var(--text); font:inherit; font-size:var(--fs-subhead); margin-top:var(--sp-2); cursor:pointer; }
   .rs-dlg button:active{ background:var(--color-active-overlay); }
   @media (prefers-reduced-motion:reduce){ .rs-back, .rs-pane{ transition:none; } }
   .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); max-height:80vh; overflow-y:auto; background:var(--surface); border-radius:var(--radius-xl); padding:22px 20px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
@@ -2027,8 +2027,8 @@
   /* Rev 2.32.130: модалка «Дані заповнені неповністю» — заголовок, підзаголовок, рядки «що бракує» (іконка попередження, підпис, значення справа). Розміри з токенів модалок (22px 20px, --color-border, --color-warning); рядки однакової висоти 44px, переноси лише по пробілах. */
   .inc-title{ font-size:var(--fs-callout); font-weight:700; line-height:1.3; overflow-wrap:break-word; }
   .inc-sub{ margin-top:2px; font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); }
-  .inc-list{ margin-top:12px; border-top:1px solid var(--line); } /* як у макеті: розділювач і над першим рядком */
-  .inc-row{ display:flex; align-items:center; gap:10px; min-height:44px; box-sizing:border-box; }
+  .inc-list{ margin-top:var(--sp-3); border-top:1px solid var(--line); } /* як у макеті: розділювач і над першим рядком */
+  .inc-row{ display:flex; align-items:center; gap:var(--sp-3); min-height:44px; box-sizing:border-box; }
   .inc-row + .inc-row{ border-top:1px solid var(--line); }
   .inc-icon{ flex:none; display:flex; color:var(--color-warning); }
   .inc-icon svg{ width:18px; height:18px; display:block; }
@@ -2052,9 +2052,9 @@
   .app-modal-actions{ display:flex; gap:10px; }
   .app-modal-actions .submit-btn{ margin-top:0; flex:1; }
 
-  .empty-hint{ font-size:var(--fs-footnote); color:var(--color-muted); text-align:center; padding:14px 6px; }
+  .empty-hint{ font-size:var(--fs-footnote); color:var(--color-muted); text-align:center; padding:var(--sp-4) var(--sp-2); }
   .summary-card{ background:var(--surface); }
-  .summary-card p{ margin:0 0 8px; font-size:var(--fs-footnote); line-height:1.6; } .summary-card p:last-child{ margin-bottom:0; }
+  .summary-card p{ margin:0 0 var(--sp-2); font-size:var(--fs-footnote); line-height:1.6; } .summary-card p:last-child{ margin-bottom:0; }
 
   /* Rev 2.4.4 — раніше весь візуальний вигляд (скло/padding/flex) висів
      безпосередньо на nav.tabbar (position:fixed). Тепер, коли додається ще й
@@ -2388,7 +2388,7 @@
      переходу на вкладку — та сама ідея, що бейдж непрочитаних повідомлень. */
   .tb-count-badge{ position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; padding:0 4px; border-radius:var(--r-xs); background:var(--surface); color:var(--color-primary-hover); font-size:var(--fs-caption2); font-weight:800; line-height:16px; text-align:center; box-shadow:0 0 0 1.5px var(--color-primary-hover); }
   .tb-count-badge.hidden{ display:none; }
-  .side-count-badge{ margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:var(--r-xs); background:var(--color-primary-bg); color:var(--color-primary-hover); font-size:var(--fs-caption2); font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .side-count-badge{ margin-left:auto; min-width:18px; height:18px; padding:0 var(--sp-1); border-radius:var(--r-xs); background:var(--color-primary-bg); color:var(--color-primary-hover); font-size:var(--fs-caption2); font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .side-count-badge.hidden{ display:none; }
   /* Rev 2.3.6 — кнопка "Доступне оновлення" (top header + sidebar): за
      замовчуванням прихована inline-стилем у розмітці, JS лише вмикає
@@ -2420,7 +2420,7 @@
        "опустився" далеко від картки, тоді як знизу до "Сьогодні" лишався
        стандартний 10px) — тепер однакові відступи зверху й знизу, підпис
        читається по центру проміжку між карткою й першим записом. */
-    #vytraty-default-view .vytraty-recent-col .section-label{ margin-top:20px; margin-bottom:20px; }
+    #vytraty-default-view .vytraty-recent-col .section-label{ margin-top:var(--sp-5); margin-bottom:var(--sp-5); }
   }
   /* BugFix Rev 2.0.7: справжня причина того, що <input type="date" autocomplete="off"> вилазив
      за межі картки — iOS Safari в певних версіях ІГНОРУЄ width:100% для цього
@@ -2436,7 +2436,7 @@
   /* Rev 2.1.3 — стрілочки ±1 день біля поля дати. Дата винесена з "Сума"
      у власний повноширинний рядок (замість row-2 пліч-о-пліч) — на 390px
      двом кнопкам + інпуту дати в спільному ряду з "Сумою" було б затісно. */
-  .date-nav-row{ display:flex; align-items:center; gap:8px; }
+  .date-nav-row{ display:flex; align-items:center; gap:var(--sp-2); }
   .date-nav-btn{ flex:0 0 auto; width:48px; height:48px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text-2); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .date-nav-btn:hover{ background:var(--color-hover-overlay); color:var(--text); } }
@@ -2447,13 +2447,13 @@
      це обійти оверлеєм ризикують зламати вже існуючий iOS-фікс вище. Замість
      цього — окремий підпис під полем з повною українською датою, який просто
      читається, а сам контрол лишається нативним і надійним. */
-  .date-caption{ margin-top:6px; font-size:var(--fs-footnote); font-weight:600; color:var(--text-2); text-align:center; }
+  .date-caption{ margin-top:var(--sp-2); font-size:var(--fs-footnote); font-weight:600; color:var(--text-2); text-align:center; }
   /* BugFix Rev 2.0.2: на вузькому екрані назва банку обрізалась ("Приват Б...")
      — 130px-поле суми + дві іконки з тими самими зазорами, що на desktop,
      забирали занадто багато місця. Звужуємо поле суми й іконки саме на mobile. */
   @media (max-width:479px){
-    .bank-debt-row{ gap:6px; }
-    .bank-debt-row input.bdr-amount{ flex-basis:88px; padding:9px 8px; font-size:14px; }
+    .bank-debt-row{ gap:var(--sp-2); }
+    .bank-debt-row input.bdr-amount{ flex-basis:88px; padding:var(--sp-2) var(--sp-2); font-size:14px; }
     .bdr-icon-btn{ width:24px; height:24px; }
     .bdr-icon-btn svg{ width:13px; height:13px; }
   }
@@ -2489,7 +2489,7 @@
      журнал" у Rev 2.21.10 (fallback), лише тепер для картки.
      Rev 2.32.153: ЗАМІНЕНО — колонка форми align-self:start, картка без margin:auto (див. правило нижче). */
   @media (min-width:768px){
-    #vytraty-default-view{ display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:24px; align-items:stretch; }
+    #vytraty-default-view{ display:grid; grid-template-columns:minmax(280px,420px) 1fr; gap:var(--sp-6); align-items:stretch; }
     /* Rev 2.32.153 (DESK-FORM-TOP): колонка «Нова витрата» не розтягується на висоту правої колонки (align-self:start) і картка не центрується в ній (було margin:auto): коли справа розгорнуто редагування витрати чи список довгий, форма лишається біля верхнього краю, а не з'їжджає вниз. Заголовок «Нова витрата» як і раніше зверху на одному рівні з «Останні записи». Лише ≥768px; мобільна розкладка (одна колонка) не змінена. Ризик: при короткому списку під формою порожнє місце (до Rev 2.21.14 було так само). */
     #vytraty-default-view .vytraty-form-col{ display:flex; flex-direction:column; align-self:start; }
     #vytraty-default-view .vytraty-form-col .entry-card{ margin-top:0; margin-bottom:0; }
@@ -2517,11 +2517,11 @@
        скільки вони забрали своєю новою шириною — той самий загальний
        розмір ряду, просто інший розподіл між стрілками й полем усередині. */
     #view-vytraty input[type="date"]{ text-align:center; }
-    #vytraty-default-view .vytraty-recent-col .journal-day-group{ margin-bottom:12px; }
-    #vytraty-default-view .vytraty-recent-col .journal-day-head{ padding:0 2px 6px; margin-bottom:8px; }
+    #vytraty-default-view .vytraty-recent-col .journal-day-group{ margin-bottom:var(--sp-3); }
+    #vytraty-default-view .vytraty-recent-col .journal-day-head{ padding:0 2px var(--sp-2); margin-bottom:var(--sp-2); }
     #vytraty-default-view .vytraty-recent-col .jdh-date{ font-size:var(--fs-footnote); }
     #vytraty-default-view .vytraty-recent-col .jdh-net{ font-size:var(--fs-caption1); }
-    #vytraty-default-view .vytraty-recent-col .expense-row{ padding:9px 12px; margin-bottom:6px; }
+    #vytraty-default-view .vytraty-recent-col .expense-row{ padding:var(--sp-2) var(--sp-3); margin-bottom:var(--sp-2); }
     #vytraty-default-view .vytraty-recent-col .expense-row .exp-name{ font-size:var(--fs-footnote); }
     /* .vytraty-form-spacious — Rev 2.21.12: символічне збільшення (не для
        підгонки під висоту списку — це тепер робить align-items:center вище)
@@ -2531,7 +2531,7 @@
        конкретний рядок прибрано звідси — відступ заголовка тепер керується
        .vytraty-form-title margin-bottom (теж нижче). */
     #vytraty-default-view .entry-card.vytraty-form-spacious .field{ margin-bottom:22px; }
-    #vytraty-default-view .entry-card.vytraty-form-spacious .submit-btn{ margin-top:10px; padding-top:15px; padding-bottom:15px; }
+    #vytraty-default-view .entry-card.vytraty-form-spacious .submit-btn{ margin-top:var(--sp-3); padding-top:var(--sp-4); padding-bottom:var(--sp-4); }
   }
   /* ---- Tablet (768–1279px): навігація як на mobile (нижня), але сітка на 2 колонки ---- */
   @media (min-width:768px) and (max-width:1279px){
@@ -2539,9 +2539,9 @@
     .ov-row1 .wide{ grid-column:span 2; }
     .ov-row3{ grid-template-columns:repeat(2,1fr); }
     .kpi-strip{ grid-template-columns:repeat(3,1fr); }
-    .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; border-left:1px solid var(--line); padding-left:14px; }
+    .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; border-left:1px solid var(--line); padding-left:var(--sp-4); }
     .kpi-strip-item:nth-child(3n+1){ border-left:none; padding-left:0; }
-    .kpi-strip-item:nth-child(n+4){ border-top:1px solid var(--line); margin-top:12px; padding-top:12px; }
+    .kpi-strip-item:nth-child(n+4){ border-top:1px solid var(--line); margin-top:var(--sp-3); padding-top:var(--sp-3); }
   }
 
   /* ---- Rev 2.32.162 (DESK-NAV): плаваюча навігаційна панель десктопа ----
@@ -2552,23 +2552,23 @@
     html{ --side-w:240px; }
     html.side-collapsed{ --side-w:62px; }
     .app-shell{ flex-direction:row; max-width:1440px; margin-left:0; }
-    .top{ display:block; text-align:left; padding:0 0 20px; border-bottom:none; }
+    .top{ display:block; text-align:left; padding:0 0 var(--sp-5); border-bottom:none; }
     .page-header-buttons{ display:none; }
     .page-header-buttons-left{ display:none; }
     .page-header-text{ padding:0; }
     .page-header-text h1{ font-size:var(--fs-title1); line-height:34px; }
-    .page-header-text .page-subtitle{ font-size:var(--fs-footnote); margin-top:5px; }
+    .page-header-text .page-subtitle{ font-size:var(--fs-footnote); margin-top:var(--sp-1); }
     .side{ display:block; flex:none; position:relative; width:calc(var(--side-w) + 24px); transition:width var(--t-s) ease; }
-    .side-panel{ position:fixed; z-index:20; top:12px; bottom:12px; left:12px; width:var(--side-w); box-sizing:border-box; display:flex; flex-direction:column; gap:4px; padding:12px 8px; border-radius:var(--r-l); background:var(--glass); -webkit-backdrop-filter:blur(14px) saturate(160%); backdrop-filter:blur(14px) saturate(160%); border:1px solid var(--glass-edge); box-shadow:var(--glass-shadow); transition:width var(--t-s) ease; }
+    .side-panel{ position:fixed; z-index:20; top:12px; bottom:12px; left:12px; width:var(--side-w); box-sizing:border-box; display:flex; flex-direction:column; gap:var(--sp-1); padding:var(--sp-3) var(--sp-2); border-radius:var(--r-l); background:var(--glass); -webkit-backdrop-filter:blur(14px) saturate(160%); backdrop-filter:blur(14px) saturate(160%); border:1px solid var(--glass-edge); box-shadow:var(--glass-shadow); transition:width var(--t-s) ease; }
     @media (max-height:559px){ .side-panel{ overflow-y:auto; } }
-    .side-head{ display:flex; align-items:center; gap:6px; padding:2px 4px 12px; min-height:40px; }
+    .side-head{ display:flex; align-items:center; gap:var(--sp-2); padding:2px var(--sp-1) var(--sp-3); min-height:40px; }
     .side .brand-side{ flex:1; min-width:0; }
     .side .brand-side h1{ font-size:var(--fs-body); margin:0; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .side-collapse-btn{ flex:none; width:32px; height:32px; border-radius:var(--r-s); border:1px solid var(--line); background:transparent; color:var(--text-2); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
     .side-collapse-btn svg{ width:16px; height:16px; transition:transform var(--t-s) ease; }
     .side-collapse-btn:focus-visible, .side button.side-tab:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
     @media (hover:hover) and (pointer:fine){ .side-collapse-btn:hover{ background:var(--surface-2); color:var(--text); } }
-    .side button.side-tab{ position:relative; text-align:left; background:none; border:1px solid transparent; padding:10px 12px; border-radius:var(--r-m); font-size:var(--fs-subhead); font-weight:600; color:var(--text-2); cursor:pointer; display:flex; align-items:center; gap:10px; min-height:44px; box-sizing:border-box; width:100%; }
+    .side button.side-tab{ position:relative; text-align:left; background:none; border:1px solid transparent; padding:var(--sp-3) var(--sp-3); border-radius:var(--r-m); font-size:var(--fs-subhead); font-weight:600; color:var(--text-2); cursor:pointer; display:flex; align-items:center; gap:var(--sp-3); min-height:44px; box-sizing:border-box; width:100%; }
     @media (hover:hover) and (pointer:fine){ .side button.side-tab:hover{ background:var(--surface-2); color:var(--text); } }
     /* активний пункт — скляна пілюля з рамкою акценту (ті самі значення, що .tabbar-bubble на мобільній) */
     .side button.side-tab.active{ background:var(--accent-bg); border-color:var(--accent-line); box-shadow:0 2px 8px rgba(34,197,94,.22); color:var(--color-primary-hover); }
@@ -2588,20 +2588,20 @@
     .side button.side-tab.tab-vytraty.active{ background:none; border-color:transparent; box-shadow:none; color:var(--color-primary-hover); }
     .side button.side-tab.tab-vytraty.active .side-plus{ background:var(--color-primary-hover); }
     .side-spacer{ flex:1; }
-    .side-divider{ border-top:1px solid var(--line); margin:8px 4px; }
+    .side-divider{ border-top:1px solid var(--line); margin:var(--sp-2) var(--sp-1); }
     /* нижній ряд: профіль, сповіщення, налаштування — три кнопки-іконки в рядок (у вузькій панелі стовпчиком) */
-    .side-bottom{ display:flex; gap:4px; }
+    .side-bottom{ display:flex; gap:var(--sp-1); }
     .side-bottom button.side-tab{ flex:1; justify-content:center; padding:0; min-height:40px; }
     .side-bottom .side-label{ display:none; }
     /* підказки: у вузькій панелі для всіх пунктів, у нижньому ряду — завжди; при наведенні й фокусі клавіатурою */
-    .side button.side-tab[data-tip]::after{ content:attr(data-tip); position:absolute; left:calc(100% + 12px); top:50%; transform:translateY(-50%); padding:6px 10px; border-radius:var(--r-s); background:var(--surface); color:var(--text); border:1px solid var(--line); box-shadow:var(--shadow-md, 0 6px 18px rgba(16,24,40,.18)); font-size:var(--fs-footnote); font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; visibility:hidden; transition:opacity var(--t-micro) ease; z-index:30; }
+    .side button.side-tab[data-tip]::after{ content:attr(data-tip); position:absolute; left:calc(100% + 12px); top:50%; transform:translateY(-50%); padding:var(--sp-2) var(--sp-3); border-radius:var(--r-s); background:var(--surface); color:var(--text); border:1px solid var(--line); box-shadow:var(--shadow-md, 0 6px 18px rgba(16,24,40,.18)); font-size:var(--fs-footnote); font-weight:600; white-space:nowrap; pointer-events:none; opacity:0; visibility:hidden; transition:opacity var(--t-micro) ease; z-index:30; }
     .side-bottom button.side-tab[data-tip]::after{ left:50%; top:auto; bottom:calc(100% + 8px); transform:translateX(-50%); }
     html.side-collapsed .side button.side-tab[data-tip]:hover::after, html.side-collapsed .side button.side-tab[data-tip]:focus-visible::after,
     .side-bottom button.side-tab[data-tip]:hover::after, .side-bottom button.side-tab[data-tip]:focus-visible::after{ opacity:1; visibility:visible; }
     html.side-collapsed .side-bottom button.side-tab[data-tip]::after{ left:calc(100% + 12px); top:50%; bottom:auto; transform:translateY(-50%); }
     /* вузька панель (62 px): лише іконки; назви й бейдж-лічильник «Витрати» ховаються (лічильник лишається доступним у розгорнутому вигляді) */
-    html.side-collapsed .side-panel{ padding:12px 6px; }
-    html.side-collapsed .side-head{ flex-direction:column; padding-bottom:8px; }
+    html.side-collapsed .side-panel{ padding:var(--sp-3) var(--sp-2); }
+    html.side-collapsed .side-head{ flex-direction:column; padding-bottom:var(--sp-2); }
     html.side-collapsed .side .brand-side h1, html.side-collapsed .side-label, html.side-collapsed .side-count-badge{ display:none; }
     html.side-collapsed .side .brand-row{ justify-content:center; }
     html.side-collapsed .side-collapse-btn svg{ transform:rotate(180deg); }
@@ -2610,7 +2610,7 @@
     html.side-collapsed .side-bottom{ flex-direction:column; }
     nav.tabbar{ display:none; }
     .scroll-top-btn{ bottom:24px; }
-    .main-col{ flex:1; min-width:0; padding:26px 28px 40px; }
+    .main-col{ flex:1; min-width:0; padding:var(--sp-6) var(--sp-6) var(--sp-10); }
     .view{ padding:0; }
   }
   @media ((min-width:1280px), (min-width:768px) and (hover:hover) and (pointer:fine)) and (prefers-reduced-motion:reduce){
@@ -2625,13 +2625,13 @@
        панеллю (не bottom sheet), тому свайп-хендл тут не потрібен і
        навіть шкодить — прибрати. */
     .drawer-handle{ display:none; }
-    .ov-row1{ grid-template-columns:repeat(5,minmax(0,1fr)); gap:16px; }
+    .ov-row1{ grid-template-columns:repeat(5,minmax(0,1fr)); gap:var(--sp-4); }
     .ov-row1 .wide{ grid-column:span 1; }
     .ov-row3{ grid-template-columns: var(--row3-col-1,1fr) var(--row3-col-2,1fr) var(--row3-col-3,1fr); /* Rev 2.24.0 (M1): transition grid-template-columns прибрано (layout щокадру); розгортання картки м'яко проявляється opacity-ефектом з JS (updateRow3GridColumns). */ }
     .ov-row4{ flex-direction:row; }
     .ov-row4 > .card{ flex:1; min-width:0; }
     .kpi-strip{ grid-template-columns:repeat(6,1fr); }
-    .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; padding-right:0; border-left:1px solid var(--line); padding-left:16px; }
+    .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; padding-right:0; border-left:1px solid var(--line); padding-left:var(--sp-4); }
     .kpi-strip-item:first-child{ border-left:none; padding-left:0; }
 
     /* Rev 2.1.2 — картка "Нова витрата" на desktop розтягувалась на всю
@@ -2644,16 +2644,16 @@
        grid-колонкою) — відкочено в Rev 2.21.11 за проханням користувача:
        420px мало лишатись оригінальним розміром форми, замість "чекати" на
        ширину списку. */
-    #view-vytraty .entry-card{ max-width:420px; padding:18px 20px; }
+    #view-vytraty .entry-card{ max-width:420px; padding:var(--sp-5) var(--sp-5); }
     #view-vytraty .vytraty-form-col{ max-width:420px; }
-    #view-vytraty .entry-title{ font-size:var(--fs-footnote); margin-bottom:10px; }
+    #view-vytraty .entry-title{ font-size:var(--fs-footnote); margin-bottom:var(--sp-3); }
     /* Rev 2.21.15 — .vytraty-form-title має лишатись ОДНАКОВОГО вигляду
        на mobile й desktop (17px/800, базове правило) — рядок ВИЩЕ
        (#view-vytraty .entry-title) з тією самою специфічністю (обидва
        #view-vytraty + один клас) інакше перекрив би font-size/margin-bottom
        на ≥1280px через порядок у файлі (та сама колізія класів, що вже
        задокументована при базовому правилі .vytraty-form-title). */
-    #view-vytraty .vytraty-form-title{ font-size:var(--fs-body); margin-bottom:12px; }
+    #view-vytraty .vytraty-form-title{ font-size:var(--fs-body); margin-bottom:var(--sp-3); }
     #view-vytraty .field{ margin-bottom:10px; }
     #view-vytraty .field label, #view-vytraty .field .fld-label-like{ font-size:var(--fs-caption2); margin-bottom:4px; }
     #view-vytraty .field input, #view-vytraty .field select{ height:38px; padding:8px 10px; font-size:13.5px; }
@@ -2662,9 +2662,9 @@
        перевизначення тут, інакше на ≥1280px лишався б 46px заввишки, поки
        #f-date/стрілки-.date-nav-btn (останні — вже й так спільні для обох,
        бо просто #view-vytraty .date-nav-btn) зменшуються до 38px. */
-    #view-vytraty #journal-date-input{ height:38px; padding:8px 10px; font-size:13.5px; }
-    #view-vytraty .cat-fields-wrap select{ height:42px; padding-top:6px; padding-bottom:6px; line-height:26px; }
-    #view-vytraty .row-2{ gap:8px; }
+    #view-vytraty #journal-date-input{ height:38px; padding:var(--sp-2) var(--sp-3); font-size:13.5px; }
+    #view-vytraty .cat-fields-wrap select{ height:42px; padding-top:var(--sp-2); padding-bottom:var(--sp-2); line-height:26px; }
+    #view-vytraty .row-2{ gap:var(--sp-2); }
     /* Rev 2.21.13 пробувало 44px — відкочено. Rev 2.21.14, за проханням:
        стрілки вдвічі ШИРШІ за початковий (до Rev 2.21.13) стан 38px → 76px.
        Висота НЕ чіпалась (лишається 38px, як і рядок/поле поруч) — саме
@@ -2674,9 +2674,9 @@
        всього ряду (стрілки+поле) лишається тією самою, що й решта 3 полів
        картки. */
     #view-vytraty .date-nav-btn{ width:76px; height:38px; }
-    #view-vytraty .date-caption{ font-size:var(--fs-caption2); margin-top:4px; }
+    #view-vytraty .date-caption{ font-size:var(--fs-caption2); margin-top:var(--sp-1); }
     #view-vytraty .field.auto-hint{ font-size:var(--fs-caption2); margin-top:4px; }
-    #view-vytraty .submit-btn{ padding:11px; font-size:var(--fs-footnote); margin-top:4px; }
+    #view-vytraty .submit-btn{ padding:var(--sp-3); font-size:var(--fs-footnote); margin-top:var(--sp-1); }
   }
   /* ---- Картка "Скорочення боргу" на mobile/tablet (<1280px) розтягнута на 2 колонки —
      масштабуємо донат і текст під ширшу картку (висота картки лишається 180px, як в інших) ---- */
@@ -2782,7 +2782,7 @@
 
     .service-tile-sub {
       display: block;
-      margin-top: 3px;
+      margin-top: var(--sp-1);
       font-size: var(--fs-caption1);
       line-height: 1.3;
       color: var(--text-2);
@@ -2793,7 +2793,7 @@
      живий тест користувача: "не можу додати мітку тоді, коли потрібно на
      100%" саме тому, що найважливіший момент для мітки — це й є момент із
      відкритою клавіатурою. */
-  #debug-record-indicator{ position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + var(--vv-offset-top, 0px)); right:12px; z-index:97; display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--line-strong); border-radius:var(--r-pill); padding:6px 10px; box-shadow:var(--shadow-md); font-size:var(--fs-caption1); font-family:'JetBrains Mono',monospace; }
+  #debug-record-indicator{ position:fixed; top:calc(max(12px, env(safe-area-inset-top)) + var(--vv-offset-top, 0px)); right:12px; z-index:97; display:flex; align-items:center; gap:var(--sp-2); background:var(--surface); border:1px solid var(--line-strong); border-radius:var(--r-pill); padding:var(--sp-2) var(--sp-3); box-shadow:var(--shadow-md); font-size:var(--fs-caption1); font-family:'JetBrains Mono',monospace; }
   /* Rev 2.22.91 (6D.164) BugFix — живий тест: у цьому файлі НЕМАЄ глобального
      .hidden{display:none} — кожен компонент визначає свій .hidden-варіант
      окремо (.view.hidden, .status-banner.hidden тощо, той самий принцип по
@@ -2802,13 +2802,13 @@
      не починався. */
   #debug-record-indicator.hidden{ display:none; }
   #debug-record-form.hidden, #debug-record-stop-actions.hidden{ display:none; }
-  #debug-record-indicator button{ border:none; background:var(--surface-2); color:var(--text); border-radius:var(--r-pill); padding:4px 10px; font-size:var(--fs-caption1); font-family:inherit; cursor:pointer; }
+  #debug-record-indicator button{ border:none; background:var(--surface-2); color:var(--text); border-radius:var(--r-pill); padding:var(--sp-1) var(--sp-3); font-size:var(--fs-caption1); font-family:inherit; cursor:pointer; }
   .debug-record-dot{ width:8px; height:8px; border-radius:50%; background:var(--color-error); flex:0 0 auto; }
 
   /* Rev 2.31.3 (B) — крапка «дані неповні» в рядку картки/ОЧ (7px, --color-warning — як .data-status-dot) і лічильник на сегментах «Борги»/«ОЧ» */
-  .cdr-dot{ position:relative; display:inline-flex; width:7px; height:7px; margin-left:7px; border-radius:50%; background:var(--color-warning); vertical-align:middle; flex-shrink:0; }
+  .cdr-dot{ position:relative; display:inline-flex; width:7px; height:7px; margin-left:var(--sp-2); border-radius:50%; background:var(--color-warning); vertical-align:middle; flex-shrink:0; }
   .cdr-dot::before{ content:''; position:absolute; inset:-14px; } /* невидима зона натискання ≈35pt; увесь рядок і так клікабельний */
-  .seg-badge{ display:inline-block; min-width:16px; height:16px; margin-left:6px; padding:0 4px; border-radius:var(--r-pill); background:var(--ui-warning-strong); color:#fff; font-size:var(--fs-caption2); font-weight:700; line-height:16px; text-align:center; vertical-align:middle; box-sizing:border-box; }
+  .seg-badge{ display:inline-block; min-width:16px; height:16px; margin-left:var(--sp-2); padding:0 var(--sp-1); border-radius:var(--r-pill); background:var(--ui-warning-strong); color:#fff; font-size:var(--fs-caption2); font-weight:700; line-height:16px; text-align:center; vertical-align:middle; box-sizing:border-box; }
   .seg-badge.hidden{ display:none; }
   /* Rev 2.24.0 (M1) — prefers-reduced-motion: лише швидкі затухання (≤80мс), без зсувів/масштабів/нескінченних відблисків.
      Шторки (.drawer, .drawer-backdrop) НЕ чіпаємо: їхня анімація зав'язана на логіку клавіатури (transitionend, sheet-anim). Спінери (syncSpin/spin) лишаються — це індикатор роботи, не декор. */

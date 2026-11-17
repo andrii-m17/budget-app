@@ -206,12 +206,12 @@ test('джерело: два рядки в «Сервісі», чекліста 
   ['qa.json?v=', 'toggleQaChecklist', 'copyQaResult', 'Скопіювати результат', 'Чекліст перевірки', 'budget-qa-state-v1', 'chk-gb', 'chk-ab', 'push-diag-errors-btn'].forEach(n => assert.equal(SRC.indexOf(n), -1, n));
   const checksCss = SRC.slice(SRC.indexOf('.chk-card{'), SRC.indexOf('.n-diag-empty{'));
   assert.ok(!/backdrop-filter|box-shadow/.test(checksCss), 'жодного скла й тіней у «Перевірках»');
-  [['.chk-it{ max-height:760px', 'max-height 760'], ['.chk-fl, .chk-sk, .chk-send{ position:relative; height:40px; border-radius:var(--r-s)', 'кнопки 40/14'], ['.chk-pair{ display:grid; grid-template-columns:1fr 1fr; gap:10px', 'пара, проміжок 10'],
+  [['.chk-it{ max-height:760px', 'max-height 760'], ['.chk-fl, .chk-sk, .chk-send{ position:relative; height:40px; border-radius:var(--r-s)', 'кнопки 40/14'], ['.chk-pair{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3)', 'пара, проміжок 10'],
     ['.chk-grp button{ display:flex; width:100%; align-items:center; justify-content:space-between; height:48px', 'рядок причин 48'], ['.chk-grp{ background:var(--surface-2); border-radius:var(--r-s)', 'група, радіус 14'],
-    ['.chk-fld{ width:100%; height:34px', 'поле 34'], ['border-radius:var(--r-s); border:1px solid var(--line)', 'поле радіус 12'], ['font:inherit; font-size:14px; padding:0 12px', 'поле 14'], ['background:var(--surface-2); border:none; color:var(--text-2); font-size:var(--fs-subhead)', 'суцільна сіра вторинна кнопка'],
+    ['.chk-fld{ width:100%; height:34px', 'поле 34'], ['border-radius:var(--r-s); border:1px solid var(--line)', 'поле радіус 12'], ['font:inherit; font-size:14px; padding:0 var(--sp-3)', 'поле 14'], ['background:var(--surface-2); border:none; color:var(--text-2); font-size:var(--fs-subhead)', 'суцільна сіра вторинна кнопка'],
     ['.chk-rz{ overflow:hidden; max-height:0; opacity:0', 'списки'], ['transition:max-height var(--t-m) ease, opacity var(--t-s) ease', 'анімація списків .28/.2'], ['.chk-it.done .chk-tt{ text-decoration:line-through', 'закреслення']]
     .forEach(([n, w]) => assert.ok(checksCss.indexOf(n) !== -1, w));
-  assert.match(SRC, /\.chk-it \.chk-bd\{ display:none; padding:0 16px 16px; \}/);
+  assert.match(SRC, /\.chk-it \.chk-bd\{ display:none; padding:0 var\(--sp-4\) var\(--sp-4\); \}/);
   assert.match(SRC, /reduce \? 50 : 600/); assert.match(SRC, /@media \(prefers-reduced-motion: reduce\)\{ \.chk-it, \.chk-it\.gone, \.chk-chev, \.chk-tt, \.chk-sent, \.chk-fl, \.chk-rz, \.chk-rz\.open\{ transition:none; \} \}/);
   assert.match(SRC, /#checks-done-list\.hidden\{ display:none; \}/, '«Пройдено» згорнуте за замовчуванням');
   assert.match(SRC, /flushChecksQueue\(\); \/\/ Rev 2\.32\.189 \(CHECKS-1\)/, 'повторна спроба при старті');
