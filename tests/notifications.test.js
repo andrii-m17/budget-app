@@ -376,7 +376,7 @@ test('R (пакет): R-3 і R-5 збережені в редизайні — з
   assert.ok(cr('#F59E0B', '#161B26') >= 4.5, 'темна');
   assert.match(SRC, /--ui-warning-text:#B45309/);
   assert.match(SRC, /--ui-warning-text:#F59E0B/);
-  assert.match(SRC, /#notifications-drawer \.nx-notice\{ font-size:13px; line-height:1\.4; color:var\(--ui-warning-text\)/);
+  assert.match(SRC, /#notifications-drawer \.nx-notice\{ font-size:var\(--fs-footnote\); line-height:1\.4; color:var\(--ui-warning-text\)/);
 });
 
 // ---------- Rev 2.32.29: сповіщення Monobank (mono-inbox) ----------

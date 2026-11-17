@@ -68,6 +68,10 @@ function transform(decl, text){
       val = val.replace(/(?<![\w.-])(120ms|200ms|320ms|480ms|0?\.12s|0?\.2s|0?\.32s|0?\.48s)(?![\w])/g, (all, v) => { stats.durations++; return DUR[v.replace(/^0/, '')]; });
     }
   }
+  if(has('--fs') && prop === 'font-size' && !kbRule && !decl.keyframes){
+    if(isFieldSel(decl.sel)){ globalThis.__fsExceptions.push({ line: decl.line, sel: decl.sel, val: val.trim() }); }
+    else val = val.replace(/(?<![\w.#-])(\d+(?:\.5)?)px(?![\w%])/g, (all, n) => { if(FS_MAP[n]){ stats.fs = (stats.fs || 0) + 1; return 'var(--fs-' + FS_MAP[n] + ')'; } return all; });
+  }
   return { text: m[1] + m[2] + val, stats };
 }
 function strip(s){ return s.replace(/\/\*[^]*?\*\//g, m => m.replace(/[^\n]/g, ' ')); }
@@ -78,13 +82,26 @@ function counts(src){
   const refs = (re) => (nc.match(re) || []).length;
   return { hex, rgba, radiusPx, refColor: refs(/var\(\s*--color-/g), refUi: refs(/var\(\s*--ui-/g), refRadius: refs(/var\(\s*--radius-/g) };
 }
+// DS-N2: шкала кеглів (docs/specs/DS-PLAN.md §1). Винятки (не змінюються): font-size полів вводу (input, textarea, select і їхні класи), правила html.kb-*, keyframes.
+const FS_MAP = { '9': 'caption2', '9.5': 'caption2', '10': 'caption2', '10.5': 'caption2', '11': 'caption2', '11.5': 'caption1', '12': 'caption1', '12.5': 'footnote', '13': 'footnote', '13.5': 'footnote', '14': 'subhead', '14.5': 'subhead', '15': 'subhead', '16': 'callout', '17': 'body', '18': 'body', '20': 'title3', '21': 'title2', '22': 'title2', '26': 'title1', '28': 'title1' };
+function splitTop(str){ const out = []; let d = 0, cur = ''; for(const ch of str){ if(ch === '(' || ch === '[') d++; if(ch === ')' || ch === ']') d--; if(ch === ',' && d === 0){ out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out.map(x => x.trim()).filter(Boolean); }
+function lastCompounds(part){
+  const m = part.match(/:(?:is|where)\(([^]*)\)\s*$/);
+  if(m) return splitTop(m[1]).flatMap(lastCompounds);
+  const t = part.replace(/::?[a-z-]+(\([^)]*\))?\s*$/i, (a) => /^::/.test(a) ? '' : a);
+  const mm = t.match(/([^\s>+~]+)\s*$/); return mm ? [mm[1]] : [];
+}
+const FIELD = /^(?:input|textarea|select)(?![\w-])|(?:^|\.)(?:sf-input|sf-select|mono-token-input|bdr-amount|chk-fld)(?![\w-])|^#journal-date-input$/;
+function isFieldSel(sel){ const rule = sel.split(' ⟶ ').pop(); return splitTop(rule).every(part => lastCompounds(part).every(c => FIELD.test(c))); }
+globalThis.__fsExceptions = [];
 const args = process.argv.slice(2); const has = (a) => args.includes(a); const arg = (a, d) => { const i = args.indexOf(a); return i < 0 ? d : args[i + 1]; };
 const src = fs.readFileSync(FILE, 'utf8');
 if(has('--count')){ console.log(JSON.stringify(counts(src))); process.exit(0); }
 if(has('--offscale')){ fs.writeSync(1, JSON.stringify({ decls: parse(src).map(d => ({ line: d.line, prop: d.prop, sel: d.sel, text: src.slice(d.start, d.end) })) })); process.exit(0); }
 const from = Number(arg('--from', 1)), to = Number(arg('--to', 1e9));
 const decls = parse(src).filter(d => d.line >= from && d.line <= to).sort((a, b) => b.start - a.start);
-let out = src; const tot = { names: 0, radius: 0, colors: 0, durations: 0 };
+let out = src; const tot = { names: 0, radius: 0, colors: 0, durations: 0, fs: 0 };
 decls.forEach(d => { const orig = out.slice(d.start, d.end); const r = transform(d, orig); if(r.text !== orig){ out = out.slice(0, d.start) + r.text + out.slice(d.end); Object.keys(tot).forEach(k => { tot[k] += r.stats[k] || 0; }); } });
 console.log(JSON.stringify({ from, to, replaced: tot, before: counts(src), after: counts(out), lines: src.split('\n').length === out.split('\n').length }));
+if(has('--fs')) console.log(JSON.stringify({ fsExceptions: globalThis.__fsExceptions }));
 if(!has('--dry')) fs.writeFileSync(FILE, out);

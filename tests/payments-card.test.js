@@ -74,7 +74,7 @@ test('охоронні: немає підзаголовка й рядка «Ус
   (css.match(/font-size:(\d+(?:\.\d+)?)px/g) || []).forEach(function(x){ assert.ok(parseFloat(x.slice(10)) >= 11, x); });
   assert.match(css, /\.pay-card\{[^}]*border-radius:20px; padding:12px 14px 6px/);
   assert.match(css, /\.pay-day\{[^}]*min-height:52px;[^}]*gap:1px; padding:4px 0;[^}]*border-radius:var\(--r-s\)/); assert.match(css, /\.pay-strip\{ display:flex; gap:3px;/);
-  assert.match(css, /\.pay-line1\{[^}]*min-height:34px; font-size:14px/); assert.match(css, /\.pay-msg\{[^}]*min-height:34px; font-size:13px/);
+  assert.match(css, /\.pay-line1\{[^}]*min-height:34px; font-size:var\(--fs-subhead\)/); assert.match(css, /\.pay-msg\{[^}]*min-height:34px; font-size:var\(--fs-footnote\)/);
 });
 test('тап по комірці з платежем відкриває «Платежі» на даті; уся картка — без дати; картка в renderAll; прихована без даних', function(){
   assert.match(SRC, /if\(d\.has\) b\.addEventListener\('click', function\(ev\)\{ ev\.stopPropagation\(\); openAll\(d\.date\); \}\);/);
@@ -86,7 +86,7 @@ test('2.32.72: комірка смуги — три окремі елемент�
   const a = fn.indexOf("b.appendChild(payEl('span', 'pay-dow', d.dow))"), b = fn.indexOf("b.appendChild(payEl('span', 'pay-num', String(d.day)))"), s2 = fn.indexOf("payEl('span', 'pay-sum',");
   assert.ok(a > 0 && a < b && b < s2, 'порядок: день тижня, число, сума');
   assert.ok(!/pay-dn/.test(SRC), 'обгортки «день тижня + число в одному рядку» немає');
-  assert.match(SRC, /\.pay-dow\{ font-size:11px; line-height:12px;/); assert.match(SRC, /\.pay-num\{ font-size:15px; line-height:17px;/); assert.match(SRC, /\.pay-sum\{ font-size:11px; height:12px; line-height:12px;/);
+  assert.match(SRC, /\.pay-dow\{ font-size:var\(--fs-caption2\); line-height:12px;/); assert.match(SRC, /\.pay-num\{ font-size:var\(--fs-subhead\); line-height:17px;/); assert.match(SRC, /\.pay-sum\{ font-size:var\(--fs-caption2\); height:12px; line-height:12px;/);
   assert.match(fn, /d\.sum != null \? new Intl\.NumberFormat\('uk-UA', \{ maximumFractionDigits: 0 \}\)\.format\(d\.sum\) : ''/);
   ['.pay-day{', '.pay-dow{', '.pay-num{', '.pay-sum{', '.pay-card{ position:relative', '.pay-line{'].forEach(function(sel){ assert.equal(SRC.split('  ' + sel).length - 1, 1, 'правило ' + sel + ' лише один раз (без дубліката/залишку попередньої картки)'); });
   assert.ok(!/\.pay-row\{|\.pay-all\{|\.pay-note\{/.test(SRC), 'правил старої картки (pay-row/pay-all/pay-note) немає');

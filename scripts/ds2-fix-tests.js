@@ -17,6 +17,10 @@ function variants(src){
   out.add(all);
   // 3) лише радіуси без назв (коли назви в тесті вже старі, а значення нові)
   out.add(src.replace(/(border(?:-(?:top|bottom)-(?:left|right))?-radius:)([^;}]*)/g, (a, p, v) => p + v.replace(/(?<![\w.#-])(12|18|22|28|999)px/g, (b, n) => 'var\\(--' + RAD[n] + '\\)')));
+  // 4) кеглі (DS-N2): font-size:13px → font-size:var\(--fs-footnote\) тощо
+  const FS = { '9': 'caption2', '9.5': 'caption2', '10': 'caption2', '10.5': 'caption2', '11': 'caption2', '11.5': 'caption1', '12': 'caption1', '12.5': 'footnote', '13': 'footnote', '13.5': 'footnote', '14': 'subhead', '14.5': 'subhead', '15': 'subhead', '16': 'callout', '17': 'body', '18': 'body', '20': 'title3', '21': 'title2', '22': 'title2', '26': 'title1', '28': 'title1' };
+  const fsv = (t) => t.replace(/(font-size:\s*)(\d+(?:\\\.\d)?)px/g, (a, p, n) => { const k = n.replace('\\.', '.'); return FS[k] ? p + 'var\\(--fs-' + FS[k] + '\\)' : a; });
+  out.add(fsv(src)); out.add(fsv(all)); out.add(fsv(names));
   return Array.from(out);
 }
 const FULL = readIndexWithCss();

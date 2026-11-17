@@ -208,7 +208,7 @@ test('джерело: два рядки в «Сервісі», чекліста 
   assert.ok(!/backdrop-filter|box-shadow/.test(checksCss), 'жодного скла й тіней у «Перевірках»');
   [['.chk-it{ max-height:760px', 'max-height 760'], ['.chk-fl, .chk-sk, .chk-send{ position:relative; height:40px; border-radius:14px', 'кнопки 40/14'], ['.chk-pair{ display:grid; grid-template-columns:1fr 1fr; gap:10px', 'пара, проміжок 10'],
     ['.chk-grp button{ display:flex; width:100%; align-items:center; justify-content:space-between; height:48px', 'рядок причин 48'], ['.chk-grp{ background:var(--surface-2); border-radius:14px', 'група, радіус 14'],
-    ['.chk-fld{ width:100%; height:34px', 'поле 34'], ['border-radius:var(--r-s); border:1px solid var(--line)', 'поле радіус 12'], ['font:inherit; font-size:14px; padding:0 12px', 'поле 14'], ['background:var(--surface-2); border:none; color:var(--text-2); font-size:14px', 'суцільна сіра вторинна кнопка'],
+    ['.chk-fld{ width:100%; height:34px', 'поле 34'], ['border-radius:var(--r-s); border:1px solid var(--line)', 'поле радіус 12'], ['font:inherit; font-size:14px; padding:0 12px', 'поле 14'], ['background:var(--surface-2); border:none; color:var(--text-2); font-size:var(--fs-subhead)', 'суцільна сіра вторинна кнопка'],
     ['.chk-rz{ overflow:hidden; max-height:0; opacity:0', 'списки'], ['transition:max-height .28s ease, opacity var(--t-s) ease', 'анімація списків .28/.2'], ['.chk-it.done .chk-tt{ text-decoration:line-through', 'закреслення']]
     .forEach(([n, w]) => assert.ok(checksCss.indexOf(n) !== -1, w));
   assert.match(SRC, /\.chk-it \.chk-bd\{ display:none; padding:0 16px 16px; \}/);

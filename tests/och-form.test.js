@@ -99,7 +99,7 @@ test('форма: розмітка — поля й сегменти за опи�
   assert.match(form, /<div class="och-actions">\s*(?:<!--[^]*?-->\s*)?<button type="button" class="och-delete-btn" aria-label="Видалити ОЧ"[^>]*><svg[^]*?<\/svg><\/button>\s*<button type="button" class="installment-pay-btn"[^>]*>Оплатити<\/button>\s*<button type="button" class="submit-btn debt pill"[^>]*>Зберегти<\/button>\s*<\/div>/);
   for(const id of ['iddfielda1', 'idd-initial', 'idd-term', 'idd-pay', 'idd-balance']) assert.match(form, new RegExp('id="' + id + '"[^>]*autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"'));
   assert.match(CSS, /#installment-drawer \.och-form \.field input\{ height:34px; padding:0 12px; \}/);
-  assert.match(CSS, /#installment-drawer \.och-form \.field label\{ font-size:10px;/);
+  assert.match(CSS, /#installment-drawer \.och-form \.field label\{ font-size:var\(--fs-caption2\);/);
   assert.match(CSS, /#installment-drawer \.och-actions\{ position:sticky; bottom:0;/);
 });
 test('«Зберегти» неактивна без змін (SAVE-DIRTY): у перелік полів додано нову модель (місяці, дата, платіж, сегменти); явний запис значень за замовчуванням лише після «Зберегти»', function(){
@@ -177,7 +177,7 @@ test('підказка про відхилення: лише коли введе
   assert.match(fn, /Відрізняється від розрахунку \(\$\{fmt\(diff\)\}\) · <button type="button" class="bdr-diff-apply"/);
   assert.ok(!/очікуван|на \$\{|більше|менше/.test(fn), 'слова «очікуване» й «на N% більше» прибрано');
   assert.match(SRC, /idd-balance'\)\.dataset\.expected = est\.calcBefore != null \? est\.calcBefore : ''/, 'порівняння з розрахунком без цієї опори');
-  assert.match(CSS, /\.bdr-diff-warning\{ display:none; font-size:10\.5px; color:var\(--color-warning\);/, 'тепле оформлення');
+  assert.match(CSS, /\.bdr-diff-warning\{ display:none; font-size:var\(--fs-caption2\); color:var\(--color-warning\);/, 'тепле оформлення');
 });
 
 // ---- Rev 2.32.173 (OCH-FORM-3): фінальний макет — розміри, скло, стани ----
@@ -186,13 +186,13 @@ test('фінальний макет: шторка r 28 зверху з відс�
   assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:var\(--r-xl\) var\(--r-xl\) var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
   assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:4px;/);
   assert.match(FINAL, /#installment-drawer \.drawer-head-icon\{ width:32px; height:32px; border-radius:8px;/);
-  assert.match(FINAL, /#installment-drawer \.drawer-head h2\{ font-size:15px; font-weight:500; \}/); assert.match(FINAL, /\.drawer-head-sub\{ font-size:11px; \}/);
+  assert.match(FINAL, /#installment-drawer \.drawer-head h2\{ font-size:var\(--fs-subhead\); font-weight:500; \}/); assert.match(FINAL, /\.drawer-head-sub\{ font-size:var\(--fs-caption2\); \}/);
   assert.match(FINAL, /#installment-drawer \.drawer-close\{ width:30px; height:30px; border-radius:50%; \}/);
   assert.match(SRC, /idd-icon'\)\.innerHTML = bankIcon\(name, 32, true, 'installment'\)/);
 });
 test('фінальний макет без скла: поле 34 / r 12 / текст 14 / підпис 10 px; «Умови» — звичайне поле (34 / r 12, токени поля); сегмент 32 / r 12, повзунок r 10 --color-success; кнопки 40 / r 14; футер із лінією; «Видалити ОЧ» 12 px', function(){
   assert.match(FINAL, /\.och-form \.field input\{ height:34px; padding:0 12px; border-radius:var\(--r-s\); font-size:14px; \}/);
-  assert.match(FINAL, /\.och-form \.field label\{ font-size:10px; letter-spacing:\.5px; margin-bottom:3px; \}/);
+  assert.match(FINAL, /\.och-form \.field label\{ font-size:var\(--fs-caption2\); letter-spacing:\.5px; margin-bottom:3px; \}/);
   assert.match(FINAL, /\.och-form \.field\{ margin-bottom:8px; \}/); assert.match(FINAL, /\.och-form \.row-2\{ gap:8px; \}/);
   assert.match(FINAL, /html:root \.och-cond-row\{ height:34px; border:1\.5px solid var\(--line-strong\); border-radius:var\(--r-s\); padding:0 12px; background-color:var\(--ui-glass, var\(--surface\)\); box-shadow:inset 0 1px 2px rgba\(16,24,40,\.05\);/);
   assert.match(FINAL, /\.och-seg\.struct-tabs\{ height:32px; box-sizing:border-box; padding:2px; gap:2px; margin:0; border-radius:var\(--r-s\); border:1\.5px solid var\(--line-strong\); \}/);
@@ -201,7 +201,7 @@ test('фінальний макет без скла: поле 34 / r 12 / тек
   assert.match(FINAL, /\.och-seg \.seg-indicator\{ border-radius:10px; background:var\(--color-success-bg\); border:1px solid var\(--color-success\); box-shadow:none; \}/);
   assert.match(FINAL, /\.och-actions\{ gap:8px;[^}]*border-top:1px solid var\(--line\);/); assert.match(FINAL, /\.och-actions > button\{ height:40px; border-radius:14px; \}/);
   assert.match(FINAL, /\.och-actions \.submit-btn\.debt\{ background:var\(--accent\); border:0; color:#fff; box-shadow:none; \}/);
-  assert.match(FINAL, /\.och-form \.cdd-delete-link\{ font-size:12px;/);
+  assert.match(FINAL, /\.och-form \.cdd-delete-link\{ font-size:var\(--fs-caption1\);/);
 });
 test('без скла: жодних --och-glass-*, градієнтів, блиску й backdrop-filter у блоці форми ОЧ; сегменти — наявний компонент (initSegments: .struct-tabs у SEGMENT_SELECTOR), без власного .och-seg button', function(){
   const block = FINAL.slice(0, FINAL.indexOf('#installment-drawer .och-form .cdd-delete-link{ font-size:12px') + 200);
@@ -215,7 +215,7 @@ test('фінальний макет: шторка r 28 зверху з відс�
   assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:var\(--r-xl\) var\(--r-xl\) var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
   assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:4px;/);
   assert.match(FINAL, /#installment-drawer \.drawer-head-icon\{ width:32px; height:32px; border-radius:8px;/);
-  assert.match(FINAL, /#installment-drawer \.drawer-head h2\{ font-size:15px; font-weight:500; \}/); assert.match(FINAL, /\.drawer-head-sub\{ font-size:11px; \}/);
+  assert.match(FINAL, /#installment-drawer \.drawer-head h2\{ font-size:var\(--fs-subhead\); font-weight:500; \}/); assert.match(FINAL, /\.drawer-head-sub\{ font-size:var\(--fs-caption2\); \}/);
   assert.match(FINAL, /#installment-drawer \.drawer-close\{ width:30px; height:30px; border-radius:50%; \}/);
   assert.match(SRC, /idd-icon'\)\.innerHTML = bankIcon\(name, 32, true, 'installment'\)/);
 });

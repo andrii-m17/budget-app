@@ -16,11 +16,13 @@ test('ds-shots: знімки й значення токенів', async ({ page 
   await page.waitForFunction(() => window.MockCloud && typeof cloudSession !== 'undefined' && cloudSession && cloudSession.user);
   await page.waitForFunction(() => !document.querySelector('.avatar-status-dot.syncing'), null, { timeout: 15000 }).catch(() => {}); await page.waitForTimeout(1500);
   await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}' });
-  const vars = {};
+  const vars = {}; const overflow = {};
+  // елементи, де текст не вміщується: обрізаний по ширині (overflow не visible, scrollWidth > clientWidth, не горизонтальна прокрутка) або line-clamp із прихованими рядками
+  const collectOverflow = () => { const out = []; document.querySelectorAll('body *').forEach(el => { if(!el.getClientRects().length || el.offsetWidth === 0) return; const cs = getComputedStyle(el); if(cs.visibility === 'hidden') return; const txt = (el.value != null && el.tagName === 'INPUT') ? '' : (Array.from(el.childNodes).filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim()); const clampedW = cs.overflowX !== 'visible' && cs.overflowX !== 'auto' && cs.overflowX !== 'scroll' && el.scrollWidth > el.clientWidth + 1; const clampedH = cs.webkitLineClamp && cs.webkitLineClamp !== 'none' && el.scrollHeight > el.clientHeight + 1; if((clampedW || clampedH) && (txt || el.tagName === 'INPUT')) out.push(el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (typeof el.className === 'string' && el.className ? '.' + el.className.trim().split(/\s+/).join('.') : '') + ' «' + txt.slice(0, 30) + '»' + (clampedH ? ' [clamp]' : '')); }); return out; };
   for (const theme of ['light', 'dark']){
     await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme); await page.waitForTimeout(300);
     vars[theme] = await page.evaluate((ns) => { const cs = getComputedStyle(document.documentElement); const o = {}; ns.forEach(n => { o[n] = cs.getPropertyValue(n).trim(); }); return o; }, names);
-    const shot = async (n) => { await page.waitForTimeout(700); await page.screenshot({ path: path.join(DIR, n + '-' + theme + '-' + SUF + '.png'), scale: 'css' }); };
+    const shot = async (n) => { await page.waitForTimeout(700); overflow[theme + '-' + n] = await page.evaluate(collectOverflow); await page.screenshot({ path: path.join(DIR, n + '-' + theme + '-' + SUF + '.png'), scale: 'css' }); };
     await page.evaluate(() => switchTab('analytics')); await page.waitForTimeout(2500); await shot('analytics');
     for (const tab of ['accounting', 'vytraty', 'structure', 'service']){ await page.evaluate((t) => switchTab(t), tab); await page.waitForTimeout(500); await shot(tab); }
     const overlays = [['settings', () => openSettings(), () => { const b = document.querySelector('.drawer.open .drawer-close, .app-modal.open .drawer-close'); if(b) b.click(); }], ['notif', () => openNotifArchive(), () => closeNotifArchive()], ['profile', () => openProfileMenu(), () => closeProfileMenu()], ['monoscreen', () => openMonoScreen(), () => closeMonoScreen()], ['inbox', () => openMonoInbox({ tab: 'new' }), () => closeMonoInbox()], ['trash', () => openTrashScreen(), () => closeTrashScreen()]];
@@ -33,4 +35,5 @@ test('ds-shots: знімки й значення токенів', async ({ page 
     await page.evaluate(() => switchTab('analytics'));
   }
   fs.writeFileSync(path.join(DIR, 'vars-' + SUF + '.json'), JSON.stringify(vars, null, 1));
+  fs.writeFileSync(path.join(DIR, 'overflow-' + SUF + '.json'), JSON.stringify(overflow, null, 1));
 });

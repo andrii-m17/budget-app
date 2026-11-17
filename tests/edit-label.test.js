@@ -14,7 +14,7 @@ test('підпис поля «Назва» в редагуванні: span бе�
   assert.ok(!/id: 'edit-label'/.test(SRC)); // Rev 2.32.47 (AG): реєстр тепер містить лише autofill-guard
 });
 test('розкладка однакова: .fld-label-like має ті самі стилі, що .field label (в обох правилах)', () => {
-  assert.match(SRC, /\.field label, \.field \.fld-label-like\{ display:block; font-size:11px;/);
+  assert.match(SRC, /\.field label, \.field \.fld-label-like\{ display:block; font-size:var\(--fs-caption2\);/);
   assert.match(SRC, /#view-vytraty \.field label, #view-vytraty \.field \.fld-label-like\{/);
 });
 test('id поля чистий; input-focus-audit лишає fieldLabelFor, без labelVariant', () => {

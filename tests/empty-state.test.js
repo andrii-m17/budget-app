@@ -29,8 +29,8 @@ test('порожній стан замінює старі тексти; пане
   assert.match(SRC, /\.acct-panel\.is-empty > \.card-summary, \.acct-panel\.is-empty > \.section-label, \.acct-panel\.is-empty > \.add-trigger-btn\{ display:none; \}/);
   assert.match(SRC, /<div class="struct-tab-panel acct-panel hidden" id="acct-tab-panel-debts">/);
   assert.match(SRC, /<div class="struct-tab-panel acct-panel hidden" id="acct-tab-panel-installments">/);
-  assert.match(SRC, /\.empty-state-title\{ font-size:16px; font-weight:700;/);
-  assert.match(SRC, /\.empty-state-text\{ max-width:230px;[^}]*font-size:13px;/);
+  assert.match(SRC, /\.empty-state-title\{ font-size:var\(--fs-callout\); font-weight:700;/);
+  assert.match(SRC, /\.empty-state-text\{ max-width:230px;[^}]*font-size:var\(--fs-footnote\);/);
 });
 test('є картки/ОЧ — списки без змін (порожній стан лише при visible.length===0); тексти без даних користувача', function(){
   assert.match(SRC, /setAcctPanelEmpty\('acct-tab-panel-debts', visible\.length===0\);[^\n]*\n  if\(visible\.length===0\)\{\n    el\.innerHTML = emptyStateHtml\('card'\);/);

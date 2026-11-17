@@ -29,3 +29,12 @@ test('DS-2d: радіуси 12/18/22/28/999 px у app.css записані то�
 test('DS-2d: сирі rgba(34,197,94,.16/.32) (точні --accent-bg/--accent-line) замінено токенами', function(){
   assert.equal((strip(APP).match(/rgba\(\s*34\s*,\s*197\s*,\s*94\s*,\s*0?\.(16|32)\s*\)/g) || []).length, 0);
 });
+test('DS-N2: сирих font-size у px поза винятками (поля вводу, kb-*) немає; усе на токени --fs-*', function(){
+  const r = require('node:child_process').spawnSync('node', [path.join(__dirname, '..', 'scripts', 'ds2-apply.js'), '--fs', '--dry'], { encoding: 'utf8', maxBuffer: 1e9 });
+  const lines = r.stdout.trim().split('\n');
+  assert.equal(JSON.parse(lines[0]).replaced.fs, 0, 'є font-size у px, який можна замінити на токен');
+  const ex = JSON.parse(lines[1]).fsExceptions;
+  assert.ok(ex.length <= 19, 'винятків (поля вводу) не більше 19, зараз ' + ex.length);
+  ex.forEach(function(e){ assert.ok(/input|select|textarea|sf-input|sf-select|mono-token-input|chk-fld|journal-date-input/.test(e.sel.split(' ⟶ ').pop()), 'виняток не поле вводу: ' + e.sel); });
+  ['--fs-large: 34px', '--fs-title1: 28px', '--fs-title2: 22px', '--fs-title3: 20px', '--fs-body: 17px', '--fs-callout: 16px', '--fs-subhead: 15px', '--fs-footnote: 13px', '--fs-caption1: 12px', '--fs-caption2: 11px'].forEach(function(t){ assert.ok(TOK.indexOf(t) !== -1, t); });
+});

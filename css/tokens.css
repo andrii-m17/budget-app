@@ -172,3 +172,8 @@
     --cat-bar: #FB923C; --sub-bar: #60A5FA;
     --k1: #F29A55; --k2: #6B9BF0; --k3: #A08AE6; --k4: #43BBA8; --k5: #E683A6; --k6: #7F8DA3;
   }
+  /* ===== Rev 2.32.341 (DS-N2): шкала кеглів (як в iOS; docs/specs/DS-PLAN.md §1). Усі font-size в app.css, крім полів вводу й правил kb-*, ведуть на ці токени. ===== */
+  :root{
+    --fs-large: 34px; --fs-title1: 28px; --fs-title2: 22px; --fs-title3: 20px; --fs-body: 17px;
+    --fs-callout: 16px; --fs-subhead: 15px; --fs-footnote: 13px; --fs-caption1: 12px; --fs-caption2: 11px;
+  }
