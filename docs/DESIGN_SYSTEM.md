@@ -259,4 +259,5 @@
 | `--glass`, `--glass-press`, `--glass-edge`, `--glass-edge-2`, `--glass-shadow` | `--color-glass-bg`, `--color-glass-pressed-bg`, `--color-glass-border`, `--color-glass-shimmer`, `--shadow-glass` | |
 | `--r-s`, `--r-m`, `--r-pill` | `--ui-r-small` (12), `--ui-r-control` (18), `--ui-r-pill` (999) | |
 | `--t-micro`, `--t-s`, `--t-m`, `--t-l`, `--t-count` | `--motion-micro`, `--motion-s`, `--motion-m`, `--motion-l`, `--motion-count` | `--t-count` у DS-PLAN 800 мс, зараз 1000 (`--motion-count`) |
+| (додано в DS-2a) `--r-s` також замінює `--radius-md` (теж 12 px) | `--radius-md` | усі посилання на `--radius-md` переведено на `--r-s` |
 | `--r-l` 22, `--r-xl` 28, `--stagger` 50 мс, `--cat-bar`, `--sub-bar`, `--k1…--k6` | значення DS-PLAN (темна й світла) | відповідників немає; ще ніде не вживаються |

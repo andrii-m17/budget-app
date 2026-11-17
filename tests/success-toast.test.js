@@ -73,5 +73,5 @@ test('Rev 2.32.176 (TOAST-FIT): пілюля за розміром вмісту,
   const body = SRC.slice(SRC.indexOf('function pumpSuccessToast'), SRC.indexOf('function openJournalFromToast'));
   assert.match(body, /host\.style\.setProperty\('--toast-top', topPx \+ 'px'\)/);
   assert.equal(c.toastDuration('error'), 5000); assert.equal(c.toastDuration('info'), 3500);
-  assert.match(SRC, /\.success-toast\.t-info \.success-toast-icon\{ color:var\(--color-info\); \}/); assert.match(SRC, /\.success-toast-action\{ flex:none; border:0; background:var\(--color-primary\);/);
+  assert.match(SRC, /\.success-toast\.t-info \.success-toast-icon\{ color:var\(--color-info\); \}/); assert.match(SRC, /\.success-toast-action\{ flex:none; border:0; background:var\(--accent\);/);
 });

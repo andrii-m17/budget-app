@@ -206,6 +206,6 @@ test('рядок ОЧ: для «½» використовується кільц
 
 test('контраст доріжки (Rev 2.32.156): світла тема — вторинний текст з низькою непрозорістю, темна тема — як було (--color-border-strong)', function(){
   assert.match(SRC, /\.ring-track\{ stroke:rgba\(100,116,139,\.4\); \}/);
-  assert.match(SRC, /:root\[data-theme="dark"\] \.ring-track\{ stroke:var\(--color-border-strong\); \}/);
+  assert.match(SRC, /:root\[data-theme="dark"\] \.ring-track\{ stroke:var\(--line-strong\); \}/); // Rev 2.32.335 (DS-2a): нова назва --line-strong = --color-border-strong
   assert.ok(!/class="ring-track"[^>]*stroke="/.test(c.installmentProgressRingHtml(0.5, 'x')), 'колір доріжки лише з CSS (інакше атрибут конфліктував би з темою)');
 });

@@ -13,14 +13,14 @@
      тій самій bottom-прив'язці) — ОДИН ефект, не три окремі баги.
      text-size-adjust:100% вимикає цю евристику повністю — застосунок сам
      керує власною типографікою, адаптивний авто-зум тексту тут зайвий. */
-  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; background:var(--color-bg); min-height:100%; }
-  html,body{ margin:0; padding:0; height:100%; overflow:hidden; position:fixed; inset:0; width:100%; overscroll-behavior:none; background:var(--color-bg); color:var(--color-text-primary); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; background:var(--bg); min-height:100%; }
+  html,body{ margin:0; padding:0; height:100%; overflow:hidden; position:fixed; inset:0; width:100%; overscroll-behavior:none; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
   .mono{ font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
   /* Rev 2.25.0 (M2) — стовпчики графіка ростуть знизу (scaleY у межах власного bbox); лічильники KPI з tabular-nums, щоб ширина не стрибала під час рахунку. */
   .dash-bar{ transform-box:fill-box; transform-origin:50% 100%; }
   .kpi-value, .ksi-value{ font-variant-numeric:tabular-nums; }
   button{ font-family:inherit; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); } input,select{ font-family:inherit; }
-  button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible{ outline:2px solid var(--color-primary); outline-offset:2px; }
+  button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   /* Rev 2.23.29 (6D.198) — фокус і активний стан кнопок: програмний focus() при відкритті екрана тепер іде на КОНТЕЙНЕР
      (tabindex=-1), а не на першу кнопку — на iOS він давав зелене кільце :focus-visible на "назад" після переходу зі
      сповіщення. Контейнер без видимого контуру; кнопки без затримки подвійного тапу. */
@@ -32,7 +32,7 @@
   .gear-btn, .exp-del, .struct-tab-btn{ position:relative; }
   .gear-btn::after, .exp-del::after{ content:''; position:absolute; left:50%; top:50%; width:44px; height:44px; transform:translate(-50%,-50%); } /* рівно 44×44 за центром кнопки незалежно від її бордюру */
   .struct-tab-btn::after{ content:''; position:absolute; left:0; right:0; top:50%; height:44px; transform:translateY(-50%); }
-  input:disabled, select:disabled{ background:var(--color-disabled-bg); color:var(--color-disabled-text); cursor:not-allowed; border-color:var(--color-border); }
+  input:disabled, select:disabled{ background:var(--color-disabled-bg); color:var(--color-disabled-text); cursor:not-allowed; border-color:var(--line); }
   button:disabled{ cursor:not-allowed; opacity:.7; }
   svg.icon{ width:18px; height:18px; flex-shrink:0; }
 
@@ -52,10 +52,10 @@
      Таббар (окрема історія — 1b/фікс клікабельності) свідомо НЕ чіпається
      тут: він поза .app-shell (сам собі position:fixed елемент), і вже має
      власний відступ через width:calc(100% - 28px); margin:0 auto. */
-  .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--color-bg); padding-left:env(safe-area-inset-left,0px); padding-right:env(safe-area-inset-right,0px); }
+  .app-shell{ max-width:980px; margin:0 auto; height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column; background:var(--bg); padding-left:env(safe-area-inset-left,0px); padding-right:env(safe-area-inset-right,0px); }
   .side{ display:none; }
   .main-col{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; padding-bottom:112px; }
-  .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 20px; border-bottom:1px solid var(--color-border); position:relative; text-align:center; }
+  .top{ padding:calc(env(safe-area-inset-top,0px) + 18px) 20px 20px; border-bottom:1px solid var(--line); position:relative; text-align:center; }
   .page-header-buttons{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 12px); right:20px; display:flex; gap:8px; z-index:2; }
   /* Rev #30 (6D.8) — дзеркало .page-header-buttons (той самий .gear-btn,
      лише зліва) — природне місце для іконки профілю, той самий контейнер
@@ -74,8 +74,8 @@
      .avatar-badge, поза межами обрізання. */
   .avatar-badge{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; flex-shrink:0; position:relative; }
   .avatar-face.slot-pending{ opacity:0; } /* Rev 2.32.119 (PRIV-1): аватар прихований, доки невідомий колір автора (перший запуск після оновлення) */
-  .avatar-face{ transition:opacity .25s ease; display:flex; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; border-radius:50%; overflow:hidden; background:var(--color-primary); color:#fff; font-size:14px; font-weight:700; }
-  .avatar-face.guest{ background:var(--color-surface); color:var(--color-text-secondary); border:1.5px solid var(--color-border-strong); }
+  .avatar-face{ transition:opacity .25s ease; display:flex; align-items:center; justify-content:center; width:100%; height:100%; box-sizing:border-box; border-radius:50%; overflow:hidden; background:var(--accent); color:#fff; font-size:14px; font-weight:700; }
+  .avatar-face.guest{ background:var(--surface); color:var(--text-2); border:1.5px solid var(--line-strong); }
   /* Rev #30 (6D.9→6D.10) — BugFix: #profile-btn-top обгортає .avatar-badge
      у .gear-btn (прямокутне border-radius:var(--radius-md)) — inline-стиль
      не перекривав його, бо .gear-btn у каскаді визначений НИЖЧЕ за файлом
@@ -88,12 +88,12 @@
      (жирний, по центру) над підписом — той самий двошаровий текст, що вже
      має залогінований стан (profile-head-name/profile-head-email), лише
      центрований для гостя. */
-  .profile-preview-title{ text-align:center; font-weight:700; font-size:16px; color:var(--color-text-primary); margin-bottom:4px; }
+  .profile-preview-title{ text-align:center; font-weight:700; font-size:16px; color:var(--text); margin-bottom:4px; }
   /* Rev #30 (6D.13) — margin-bottom додано: підпис впритул торкався
      розділювальної лінії (border-top наступного .profile-menu-item) —
      за словами користувача, "занадто близько". */
-  .profile-preview-hint{ text-align:center; font-size:12.5px; color:var(--color-text-secondary); margin:0 0 18px; line-height:1.4; }
-  .avatar-status-dot{ position:absolute; bottom:-1px; right:-1px; width:11px; height:11px; border-radius:50%; border:2px solid var(--color-surface); background:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; }
+  .profile-preview-hint{ text-align:center; font-size:12.5px; color:var(--text-2); margin:0 0 18px; line-height:1.4; }
+  .avatar-status-dot{ position:absolute; bottom:-1px; right:-1px; width:11px; height:11px; border-radius:50%; border:2px solid var(--surface); background:var(--text-2); display:flex; align-items:center; justify-content:center; }
   .avatar-status-dot.online{ background:var(--color-success); }
   .avatar-status-dot.offline{ background:var(--color-error); }
   .avatar-status-dot.hidden{ display:none; }
@@ -135,21 +135,21 @@
      ("user@example.test") через `.profile-head-email` ellipsis;
      виміряно scrollWidth реального рядка (139px) проти доступного
      clientWidth (134px) — 230px дає запас. */
-  .profile-popover{ position:fixed; z-index:91; width:230px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:16px; display:none; }
+  .profile-popover{ position:fixed; z-index:91; width:230px; max-width:calc(100vw - 32px); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:16px; display:none; }
   .profile-popover.open{ display:block; }
   .profile-popover-backdrop{ position:fixed; inset:0; background:rgba(16,24,40,.45); z-index:90; display:none; }
   .profile-popover-backdrop.open{ display:block; }
   /* Rev 2.32.25 (U) — ненав'язливе повідомлення про оновлення («Скло», над таббаром). Ховається при відкритій клавіатурі/шторці (див. shouldShowUpdateBanner). */
-  .update-banner{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:190; white-space:nowrap; display:none; align-items:center; gap:12px; padding:9px 17px; max-width:calc(100vw - 32px); background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); font-size:14px; color:var(--color-text); }
+  .update-banner{ position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 104px); transform:translateX(-50%); z-index:190; white-space:nowrap; display:none; align-items:center; gap:12px; padding:9px 17px; max-width:calc(100vw - 32px); background:var(--glass); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--glass-edge); border-radius:var(--r-l); box-shadow:var(--glass-shadow); font-size:14px; color:var(--color-text); }
   /* Rev 2.32.182 (UPDATE-GAPS): відступ 17 px + рамка 1 px = 18 px від краю плашки до тексту зліва й до кнопки справа (як у поп-апів), проміжок текст–кнопка 12 px. */
   .update-banner.show{ display:flex; }
   /* Rev 2.32.37 (T) — спливаюче підтвердження успіху («Скло», як «Доступне оновлення»): скляний контейнер, іконка (коло й галочка, що малюються) зліва, дія справа. Те саме місце над таббаром; коли показано «Доступне оновлення», піднімається над ним (стек). Анімуються лише opacity/transform і stroke-dashoffset — не розміри. */
   /* Rev 2.32.39 (T2) — підтвердження ЗВЕРХУ (було знизу над таббаром): top = safe-area + 8px, бічні 16px, поверх шапки й шторок; обгортка не перехоплює дотики (клікабельний лише контейнер), тому шапка поза ним працює. «Доступне оновлення» лишається внизу, без змін. */
   /* Rev 2.32.166 (TOAST-LAYOUT): поля 18 px з обох боків, однаково для всіх варіантів; верх — нижче заголовка сторінки (--toast-top ставить pumpSuccessToast за позицією .page-header-text), але не вище safe-area + 8; кольори, тривалості, логіку не змінено. */
   .success-toast-host{ position:fixed; top:max(calc(env(safe-area-inset-top, 0px) + 8px), var(--toast-top, 0px)); left:18px; right:18px; z-index:205; display:flex; justify-content:center; pointer-events:none; }
-  .success-toast{ pointer-events:auto; touch-action:pan-x; width:fit-content; max-width:100%; box-sizing:border-box; display:flex; align-items:center; gap:12px; padding:11px 17px; background:var(--color-glass-bg); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--color-glass-border); border-radius:22px; box-shadow:var(--shadow-glass); color:var(--color-text); animation:stIn var(--motion-m) cubic-bezier(.2,.9,.3,1) both; }
+  .success-toast{ pointer-events:auto; touch-action:pan-x; width:fit-content; max-width:100%; box-sizing:border-box; display:flex; align-items:center; gap:12px; padding:11px 17px; background:var(--glass); -webkit-backdrop-filter:blur(16px) saturate(180%); backdrop-filter:blur(16px) saturate(180%); border:1px solid var(--glass-edge); border-radius:var(--r-l); box-shadow:var(--glass-shadow); color:var(--color-text); animation:stIn var(--t-m) cubic-bezier(.2,.9,.3,1) both; }
   /* Rev 2.32.176 (TOAST-FIT): поп-ап — пілюля за розміром вмісту (width:fit-content) по центру екрана (хост — flex, justify-content:center), max-width = хост = 100% − 36 px; внутрішній відступ симетричний 18 px (кнопка праворуч має той самий відступ, що іконка ліворуч), зверху й знизу 11 px; довгий текст переноситься всередині. Розтягування на всю ширину (Rev 2.32.166) скасовано. */
-  .success-toast.leaving{ opacity:0; transform:translateY(-16px); transition:opacity var(--motion-s) ease, transform var(--motion-s) ease; animation:none; }
+  .success-toast.leaving{ opacity:0; transform:translateY(-16px); transition:opacity var(--t-s) ease, transform var(--t-s) ease; animation:none; }
   .success-toast-icon{ width:22px; height:22px; flex:none; color:var(--color-success, #1f9d55); }
   /* Rev 2.32.46 (TO): види — колір іконки за токенами; статичні іконки (info/warning/error/журнал) без малювання. */
   .success-toast.t-info .success-toast-icon{ color:var(--color-info); }
@@ -157,30 +157,30 @@
   .success-toast.t-error .success-toast-icon{ color:var(--color-error); }
   .success-toast-icon.static circle, .success-toast-icon.static path{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; animation:none; stroke-dasharray:none; stroke-dashoffset:0; }
   .success-toast-icon.static circle{ transform:none; }
-  .success-toast-icon circle{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-dasharray:63; stroke-dashoffset:63; animation:stDraw .38s var(--motion-m) ease-out forwards; transform:rotate(-90deg); transform-box:fill-box; transform-origin:center; }
-  .success-toast-icon path{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:16; stroke-dashoffset:16; animation:stDraw .26s calc(var(--motion-m) + .3s) ease-out forwards; }
+  .success-toast-icon circle{ fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-dasharray:63; stroke-dashoffset:63; animation:stDraw .38s var(--t-m) ease-out forwards; transform:rotate(-90deg); transform-box:fill-box; transform-origin:center; }
+  .success-toast-icon path{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:16; stroke-dashoffset:16; animation:stDraw .26s calc(var(--t-m) + .3s) ease-out forwards; }
   /* Rev 2.32.180 (TOAST-GAPS): іконка 22×22 без внутрішніх полів (viewBox обрізано до малюнка: раніше 4 px прозорого поля збільшували лівий відступ до ≈22); текстовий блок після показу підганяється під найдовший рядок (toastFitText), тож відступ праворуч до кінця тексту = лівому 18 px; проміжок іконка–текст і текст–кнопка 12 px (gap), зайвих зазорів нема. */
   .success-toast-text{ min-width:0; display:flex; flex-direction:column; gap:1px; }
   .success-toast-title{ font-size:14px; font-weight:600; line-height:1.3; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
-  .success-toast-sub{ font-size:12.5px; line-height:1.3; color:var(--color-text-secondary); white-space:normal; overflow-wrap:anywhere; }
-  .success-toast-action{ flex:none; border:0; background:var(--color-primary); color:#fff; font:inherit; font-size:14px; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
+  .success-toast-sub{ font-size:12.5px; line-height:1.3; color:var(--text-2); white-space:normal; overflow-wrap:anywhere; }
+  .success-toast-action{ flex:none; border:0; background:var(--accent); color:#fff; font:inherit; font-size:14px; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
   @keyframes stDraw{ to{ stroke-dashoffset:0; } }
   @keyframes stIn{ from{ opacity:0; transform:translateY(-16px); } to{ opacity:1; transform:translateY(0); } }
   @keyframes stFade{ from{ opacity:0; } to{ opacity:1; } }
-  @media (prefers-reduced-motion: reduce){ .success-toast{ animation:stFade var(--motion-s) ease both; } .success-toast.leaving{ transform:none; } .success-toast-icon circle, .success-toast-icon path{ animation:none; stroke-dashoffset:0; } }
-  .update-banner button{ border:0; background:var(--color-primary); color:#fff; font:inherit; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
+  @media (prefers-reduced-motion: reduce){ .success-toast{ animation:stFade var(--t-s) ease both; } .success-toast.leaving{ transform:none; } .success-toast-icon circle, .success-toast-icon path{ animation:none; stroke-dashoffset:0; } }
+  .update-banner button{ border:0; background:var(--accent); color:#fff; font:inherit; font-weight:600; padding:7px 14px; border-radius:16px; cursor:pointer; }
   .page-header-text h1{ margin:0; font-size:21px; line-height:27px; font-weight:700; letter-spacing:-.01em; }
   /* Rev 2.32.48 (S1): підзаголовок в один рядок по центру екрана під рядом кнопок (ширина не обмежена відступами під кнопки шапки) */
   @media (max-width:1279px){ .page-header-text .page-subtitle{ margin-left:-60px; margin-right:-60px; white-space:nowrap; } }
-  .page-header-text .page-subtitle{ margin:3px 0 0; font-size:12.5px; color:var(--color-text-secondary); line-height:1.4; }
+  .page-header-text .page-subtitle{ margin:3px 0 0; font-size:12.5px; color:var(--text-2); line-height:1.4; }
   /* Rev 2.11.1 — офлайн-банер: приглушений warning-тон — навмисно НЕ
      error-колір: офлайн — це очікуваний, безпечний стан (дані й далі
      зберігаються локально), а не проблема, що вимагає тривоги. */
-  .status-banner{ display:flex; align-items:center; gap:8px; padding:9px 20px; font-size:12px; font-weight:600; background:var(--color-warning-bg); color:var(--color-warning); border-bottom:1px solid var(--color-border); }
+  .status-banner{ display:flex; align-items:center; gap:8px; padding:9px 20px; font-size:12px; font-weight:600; background:var(--color-warning-bg); color:var(--color-warning); border-bottom:1px solid var(--line); }
   .status-banner svg{ flex-shrink:0; }
   .status-banner.hidden{ display:none; }
   /* Rev 2.32.75 (K3): позначка тестового середовища («Мок» / «Реальна база · лише читання»); на робочому origin прихована. Фіксована смужка по центру зверху, не зачіпає шапку (iPad/десктоп). */
-  .cloud-env-badge{ position:fixed; top:calc(env(safe-area-inset-top) + 2px); left:50%; transform:translateX(-50%); z-index:9999; padding:1px 8px; border-radius:var(--radius-pill, 999px); font-size:10px; line-height:14px; font-weight:600; letter-spacing:.02em; pointer-events:none; background:var(--color-surface-hover); color:var(--color-text-primary); border:1px solid var(--color-border, rgba(128,128,128,.4)); white-space:nowrap; }
+  .cloud-env-badge{ position:fixed; top:calc(env(safe-area-inset-top) + 2px); left:50%; transform:translateX(-50%); z-index:9999; padding:1px 8px; border-radius:var(--radius-pill, var(--r-pill)); font-size:10px; line-height:14px; font-weight:600; letter-spacing:.02em; pointer-events:none; background:var(--surface-2); color:var(--text); border:1px solid var(--line, rgba(128,128,128,.4)); white-space:nowrap; }
   .cloud-env-badge.readonly{ background:#b45309; color:#fff; border-color:#b45309; }
   .cloud-env-badge.hidden{ display:none; }
   /* Rev #28.C — компонент .status-banner (раніше й плашка #offline-banner, прибрана в 2.32.210)
@@ -198,16 +198,16 @@
      іконка зліва і шеврон справа мальуються окремими SVG, не через
      background-image на самому select, бо тут потрібні ДВІ іконки одразу
      по краях, а не одна. */
-  .month-pill{ display:inline-flex; align-items:center; gap:7px; margin-top:14px; padding:9px 14px; background:var(--color-surface); border:1.5px solid var(--color-border-strong); border-radius:999px; cursor:pointer; box-shadow:var(--shadow-sm); }
-  .month-pill svg{ width:16px; height:16px; color:var(--color-text-secondary); flex-shrink:0; }
+  .month-pill{ display:inline-flex; align-items:center; gap:7px; margin-top:14px; padding:9px 14px; background:var(--surface); border:1.5px solid var(--line-strong); border-radius:var(--r-pill); cursor:pointer; box-shadow:var(--shadow-sm); }
+  .month-pill svg{ width:16px; height:16px; color:var(--text-2); flex-shrink:0; }
   .month-pill svg.month-pill-chevron{ width:13px; height:13px; }
-  .month-pill select{ appearance:none; -webkit-appearance:none; -moz-appearance:none; background:none; border:none; padding:0; margin:0; font:inherit; font-weight:700; font-size:14px; color:var(--color-text-primary); cursor:pointer; }
+  .month-pill select{ appearance:none; -webkit-appearance:none; -moz-appearance:none; background:none; border:none; padding:0; margin:0; font:inherit; font-weight:700; font-size:14px; color:var(--text); cursor:pointer; }
   .month-pill select:focus{ outline:none; }
   .month-pill.hidden{ display:none; }
   .brand-row{ display:flex; align-items:center; gap:8px; }
   .brand-logo{ width:28px; height:28px; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .brand-logo img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .gear-btn{ width:36px; height:36px; border-radius:var(--radius-md); border:1.5px solid var(--color-border-strong); background:var(--color-surface); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--color-text-secondary); flex-shrink:0; }
+  .gear-btn{ width:36px; height:36px; border-radius:var(--r-s); border:1.5px solid var(--line-strong); background:var(--surface); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-2); flex-shrink:0; }
   /* Rev 2.21.16 — те саме "залипаюче :hover" на iOS Safari, що виправлено для
      .submit-btn у Rev 2.21.15 (див. коментар нижче), виявилось системним:
      будь-яка :hover-стилізація на тач-екрані лишається "приклеєною" після
@@ -215,9 +215,9 @@
      ховаємо їх за @media (hover:hover) and (pointer:fine), як тут. */
   @media (hover:hover) and (pointer:fine){ .gear-btn:hover{ background:var(--color-hover-overlay); } }
   .month-picker{ display:flex; align-items:center; gap:8px; margin-top:16px; }
-  .month-picker label{ font-size:12px; color:var(--color-text-secondary); font-weight:600; }
-  .month-picker select{ border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); padding:8px 10px; font-size:14px; background:var(--color-surface); color:var(--color-text-primary); font-weight:600; }
-  .month-picker select:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
+  .month-picker label{ font-size:12px; color:var(--text-2); font-weight:600; }
+  .month-picker select{ border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); padding:8px 10px; font-size:14px; background:var(--surface); color:var(--text); font-weight:600; }
+  .month-picker select:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
 
   .view{ padding:20px 20px 0; flex:1; } .view.hidden{ display:none; }
   /* Rev 2.24.0 (M1) — перехід між вкладками (WAAPI на .view, opacity+transform; усі fixed-шари — прямі діти <body>, тож transform на .view безпечний).
@@ -227,7 +227,7 @@
   .main-col.tab-transitioning > .view{ pointer-events:none; }
   /* Rev 2.31.0 (M4c) — на час fade-out старого сегмента «Обліку» його панель — position:absolute у межах цього .view */
   .view.acct-seg-transition{ position:relative; }
-  .card{ background:var(--color-surface); border-radius:var(--radius-lg); padding:24px; box-shadow:var(--shadow-md); border:1px solid var(--color-border); }
+  .card{ background:var(--surface); border-radius:var(--radius-lg); padding:24px; box-shadow:var(--shadow-md); border:1px solid var(--line); }
   .card + .card{ margin-top:24px; }
   /* Rev 2.11.4 — за референс-скріном користувача: картки "Дохід за місяць",
      "Борги по картках", "Оплати частинами" й "Нова витрата" більше НЕ мають
@@ -255,7 +255,7 @@
      "Борги по картках" ("Разом боргів"), і сама ОЧ ("Разом ОЧ"). Модифікатор
      .warning фарбує суму в той самий приглушений warning-тон, що й бейдж
      "станом на" — за референсом (амбер-колір для "Разом боргів"). */
-  .total-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 2px 4px; margin-bottom:14px; font-size:13px; font-weight:600; color:var(--color-text-primary); border-top:1.5px solid var(--color-border-strong); }
+  .total-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 2px 4px; margin-bottom:14px; font-size:13px; font-weight:600; color:var(--text); border-top:1.5px solid var(--line-strong); }
   .total-row b{ font-family:'JetBrains Mono',monospace; font-size:15px; }
   .total-row.warning b{ color:var(--color-warning); }
   /* Rev 2.11.4 — кнопки збереження на Обліку округлені за референс-скріном.
@@ -265,7 +265,7 @@
   .installment-pay-btn,
   .add-trigger-btn,
   .struct-tab-btn,
-  .submit-btn.pill {border-radius: 18px;}
+  .submit-btn.pill {border-radius: var(--r-m);}
   #income-saved-hint{ color:var(--color-primary-hover); font-weight:600; }
   /* Rev 2.0.2 — борги по картках: керований список банків (додати/перейменувати/
      видалити), природний ключ запису — банк+місяць, той самий upsert-підхід,
@@ -276,34 +276,34 @@
   .bdr-icon-btn{ width:28px; height:28px; border:none; background:none; color:var(--color-muted); cursor:pointer; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){
-    .bdr-icon-btn:hover{ background:var(--color-hover-overlay); color:var(--color-text-primary); }
+    .bdr-icon-btn:hover{ background:var(--color-hover-overlay); color:var(--text); }
     .bdr-icon-btn.danger:hover{ background:var(--color-error-bg); color:var(--color-error); }
   }
   .add-bank-row{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
-  .add-bank-row input{ flex:1 1 auto; min-width:0; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--color-surface); color:var(--color-text-primary); }
+  .add-bank-row input{ flex:1 1 auto; min-width:0; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--surface); color:var(--text); }
   .add-bank-row input.amount-input{ flex:0 1 140px; }
-  .add-bank-row input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
+  .add-bank-row input:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
   .add-bank-row .submit-btn{ flex:0 0 auto; width:auto; margin-top:0; padding:11px 16px; white-space:nowrap; }
   /* Rev 2.1.24 — поля додавання нового банку/ОЧ прибрані з постійного вигляду
      картки (завжди видимі інпути захаращували форму) — тепер лише кнопка,
      яка відкриває вже наявну кастомну модалку. Пунктирна рамка (той самий
      прийом, що import-card) сигналізує "додати нове", а не "зберегти". */
-  .add-trigger-btn{ width:100%; padding:12px; margin-bottom:14px; border:1.5px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); font-size:14px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
+  .add-trigger-btn{ width:100%; padding:12px; margin-bottom:14px; border:1.5px solid var(--line-strong); background:var(--surface); color:var(--text-2); font-size:14px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
   /* Rev 2.32.139 (EMPTY-1): порожній стан «Облік» → «Борги» / «ОЧ» за затвердженим макетом: іконка в колі, заголовок 16px/700, пояснення 13px приглушене (≈230px), кнопка на всю ширину; підсумкова картка, підпис розділу й нижня кнопка «Додати» у порожньому стані сховані. */
   .acct-panel.is-empty > .card-summary, .acct-panel.is-empty > .section-label, .acct-panel.is-empty > .add-trigger-btn{ display:none; }
   .empty-state{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:36px 0 8px; }
-  .empty-state-icon{ width:64px; height:64px; border-radius:50%; background:var(--color-surface-hover); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
+  .empty-state-icon{ width:64px; height:64px; border-radius:50%; background:var(--surface-2); color:var(--text-2); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
   .empty-state-icon svg{ width:30px; height:30px; display:block; }
-  .empty-state-title{ font-size:16px; font-weight:700; line-height:1.3; color:var(--color-text-primary); }
-  .empty-state-text{ max-width:230px; margin:6px 0 20px; font-size:13px; line-height:1.4; color:var(--color-text-secondary); }
+  .empty-state-title{ font-size:16px; font-weight:700; line-height:1.3; color:var(--text); }
+  .empty-state-text{ max-width:230px; margin:6px 0 20px; font-size:13px; line-height:1.4; color:var(--text-2); }
   .empty-state .add-trigger-btn{ margin-bottom:0; }
   .empty-state-actions{ align-self:stretch; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
-  @media (hover:hover) and (pointer:fine){ .add-trigger-btn:hover{ background:var(--color-surface-hover); border-color:var(--color-primary); color:var(--color-primary-hover); } }
+  @media (hover:hover) and (pointer:fine){ .add-trigger-btn:hover{ background:var(--surface-2); border-color:var(--accent); color:var(--color-primary-hover); } }
   #banks-saved-hint{ color:var(--color-primary-hover); font-weight:600; }
   /* Rev 2.1.17 — підпис початкової суми ОЧ (потрібна для прогрес-бару на
      Аналітиці); якщо ще не вказана — приглушене попередження замість числа. */
-  .bdr-init-amount{ display:block; font-size:11.5px; color:var(--color-text-secondary); margin:4px 0 8px; }
+  .bdr-init-amount{ display:block; font-size:11.5px; color:var(--text-2); margin:4px 0 8px; }
   .bdr-init-amount.missing{ color:var(--color-warning); }
   /* Rev 2.2.2 — попередження про розбіжність факт/очікування під полем
      "Залишок" ОЧ — приглушене, інформаційне (ніколи не блокує). */
@@ -315,7 +315,7 @@
      при відмітці — той самий success-колір, що прогрес-бари ОЧ на Аналітиці.
      Rev 2.16.5 — тепер живе всередині шторки редагування картки, не в
      інлайновому рядку (див. .card-debt-compact-row нижче). */
-  .bdr-minpay-check{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--color-text-secondary); cursor:pointer; -webkit-tap-highlight-color:transparent; margin:2px 0 18px; background:var(--color-surface-hover); border-radius:var(--radius-sm); padding:12px 14px; }
+  .bdr-minpay-check{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-2); cursor:pointer; -webkit-tap-highlight-color:transparent; margin:2px 0 18px; background:var(--surface-2); border-radius:var(--radius-sm); padding:12px 14px; }
   .bdr-minpay-check input[type="checkbox"]{ width:19px; height:19px; accent-color:var(--color-success); cursor:pointer; flex-shrink:0; }
   .bdr-minpay-check:has(input:checked){ color:var(--color-success); font-weight:600; background:var(--color-success-bg); }
   /* Rev 2.16.5 — Борги по картках: компактний список (схвалений "Варіант A"
@@ -323,32 +323,32 @@
      шторку (.drawer, той самий компонент, що Налаштування) з повним
      редагуванням. Підсумкова картка над списком — 2 суми (загальний борг +
      разом мін. платіж), той самий стиль картки, що .card{}. */
-  .card-summary{ background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); padding:16px 18px; margin-bottom:14px; }
+  .card-summary{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); padding:16px 18px; margin-bottom:14px; }
   .card-summary-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .card-summary-row + .card-summary-row{ margin-top:12px; padding-top:12px; border-top:1px solid var(--color-border); }
-  .card-summary-label{ font-size:12px; color:var(--color-text-secondary); font-weight:600; }
-  .card-summary-value{ font-size:18px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--color-text-primary); }
+  .card-summary-row + .card-summary-row{ margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+  .card-summary-label{ font-size:12px; color:var(--text-2); font-weight:600; }
+  .card-summary-value{ font-size:18px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--text); }
   .card-summary-value.warn{ color:var(--color-warning); }
-  .card-debt-compact-row{ display:flex; align-items:center; gap:8px; width:100%; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:11px 12px; cursor:pointer; text-align:left; font-family:inherit; box-shadow:var(--shadow-sm); -webkit-tap-highlight-color:transparent; transition:background var(--duration-fast) var(--easing-standard); }
+  .card-debt-compact-row{ display:flex; align-items:center; gap:8px; width:100%; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-s); padding:11px 12px; cursor:pointer; text-align:left; font-family:inherit; box-shadow:var(--shadow-sm); -webkit-tap-highlight-color:transparent; transition:background var(--duration-fast) var(--easing-standard); }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
-  @media (hover:hover) and (pointer:fine){ .card-debt-compact-row:hover{ background:var(--color-surface-hover); } }
+  @media (hover:hover) and (pointer:fine){ .card-debt-compact-row:hover{ background:var(--surface-2); } }
   .cdr-avatar{ position:relative; flex-shrink:0; width:38px; height:38px; }
   .cdr-avatar svg, .cdr-avatar .bank-badge{ margin-right:0; display:block; } /* Rev 2.30.0 (M4b): !important прибрано — inline-стилі bankIcon(…, true) не конфліктують */
-  .cdr-paid-badge{ position:absolute; right:-3px; bottom:-3px; width:16px; height:16px; border-radius:50%; background:var(--color-success); border:2px solid var(--color-surface); display:flex; align-items:center; justify-content:center; }
+  .cdr-paid-badge{ position:absolute; right:-3px; bottom:-3px; width:16px; height:16px; border-radius:50%; background:var(--color-success); border:2px solid var(--surface); display:flex; align-items:center; justify-content:center; }
   /* Rev 2.32.151 (OCH-STATE): ½ — спокійний жовтий (частково, до дати далеко), «!» — токен warning (прострочено), «скоро» — теплий акцент підпису й суми. */
   /* Rev 2.32.156 (OCH-RING-CONTRAST): доріжка кільця — у світлій темі --color-border-strong збігається з --color-border (#E6EAF2) і майже невидима на білому: беремо вторинний текст з низькою непрозорістю; темна тема без змін (--color-border-strong). */
   .ring-track{ stroke:rgba(100,116,139,.4); }
-  :root[data-theme="dark"] .ring-track{ stroke:var(--color-border-strong); }
-  .cdr-paid-badge.ring{ width:18px; height:18px; right:-4px; bottom:-4px; background:var(--color-surface); border:0; border-radius:50%; padding:0; } /* Rev 2.32.155 (OCH-RING): кільце прогресу замість «½» */
+  :root[data-theme="dark"] .ring-track{ stroke:var(--line-strong); }
+  .cdr-paid-badge.ring{ width:18px; height:18px; right:-4px; bottom:-4px; background:var(--surface); border:0; border-radius:50%; padding:0; } /* Rev 2.32.155 (OCH-RING): кільце прогресу замість «½» */
   .cdr-paid-badge.bang{ background:var(--color-warning); }
   .cdr-sub.warn{ color:var(--color-warning); }
   .cdr-minpay.soon{ color:var(--color-warning); font-weight:700; }
   .cdr-main{ flex:1 1 auto; min-width:0; }
-  .cdr-name{ display:block; font-size:14px; font-weight:700; color:var(--color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .cdr-sub{ display:block; font-size:11px; color:var(--color-text-secondary); margin-top:1px; }
+  .cdr-name{ display:block; font-size:14px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cdr-sub{ display:block; font-size:11px; color:var(--text-2); margin-top:1px; }
   .cdr-amounts{ flex-shrink:0; text-align:right; }
-  .cdr-balance{ display:block; font-size:14.5px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--color-text-primary); }
-  .cdr-minpay{ display:block; font-size:10.5px; color:var(--color-text-secondary); margin-top:2px; font-family:'JetBrains Mono',monospace; }
+  .cdr-balance{ display:block; font-size:14.5px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--text); }
+  .cdr-minpay{ display:block; font-size:10.5px; color:var(--text-2); margin-top:2px; font-family:'JetBrains Mono',monospace; }
   .cdr-minpay.paid{ color:var(--color-success); font-weight:700; }
   .cdr-chevron{ flex-shrink:0; color:var(--color-muted); }
   /* Rev 2.16.5 — шторка редагування однієї картки (.drawer вже стилізований
@@ -358,7 +358,7 @@
   #card-debt-drawer .drawer-head-icon svg, #card-debt-drawer .drawer-head-icon .bank-badge{ margin-right:0; display:block; width:34px; height:34px; }
   #card-debt-drawer .drawer-head-text{ flex:1 1 auto; min-width:0; }
   #card-debt-drawer .drawer-head-text h2{ font-size:16px; margin:0; }
-  #card-debt-drawer .drawer-head-sub{ font-size:11.5px; color:var(--color-text-secondary); margin-top:1px; }
+  #card-debt-drawer .drawer-head-sub{ font-size:11.5px; color:var(--text-2); margin-top:1px; }
   /* Rev 2.22.98 (6D.169) — ущільнення ЛИШЕ "Борги" (запит користувача: ця
      картка найвища з усіх шторок — 2 окремі поля + row-2 + чекбокс + 2
      кнопки — і на книжковій орієнтації з клавіатурою не вміщалась без
@@ -399,7 +399,7 @@
      відступу) — легко натиснути випадково відразу після Save. Відокремлено
      виразним відступом + верхньою лінією-розділювачем, щоб це читалось як
      окрема, свідома дія, а не продовження форми. */
-  .cdd-delete-link{ display:block; width:100%; text-align:center; background:none; border:none; border-top:1px solid var(--color-border); color:var(--color-error); font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer; margin-top:18px; padding:16px 0 0; }
+  .cdd-delete-link{ display:block; width:100%; text-align:center; background:none; border:none; border-top:1px solid var(--line); color:var(--color-error); font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer; margin-top:18px; padding:16px 0 0; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .cdd-delete-link:hover{ text-decoration:underline; } }
   /* Rev 2.2.3 — кнопка швидкої оплати ОЧ (метод B, FINANCIAL_RULES §5):
@@ -462,19 +462,19 @@
   #installment-drawer .och-form .field input{ height:34px; padding:0 12px; }
   #installment-drawer .och-form .row-2{ gap:10px; flex-wrap:nowrap; }
   #installment-drawer .och-form .row-2 > .field{ flex:1 1 0; }
-  .och-hint{ font-size:11px; color:var(--color-text-secondary); margin:-4px 0 6px; min-height:0; }
+  .och-hint{ font-size:11px; color:var(--text-2); margin:-4px 0 6px; min-height:0; }
   .och-hint:empty{ display:none; }
-  .och-cond-row{ display:flex; align-items:center; gap:8px; width:100%; height:34px; padding:0 10px; margin-bottom:8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:transparent; color:var(--color-text-primary); font:inherit; font-size:12px; cursor:pointer; text-align:left; }
-  .och-cond-title{ flex:none; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--color-text-secondary); }
-  .och-cond-val{ flex:1; min-width:0; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--color-text-primary); font-size:12px; }
-  .och-cond-chev{ flex:none; color:var(--color-text-secondary); transition:transform .18s ease; }
+  .och-cond-row{ display:flex; align-items:center; gap:8px; width:100%; height:34px; padding:0 10px; margin-bottom:8px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:transparent; color:var(--text); font:inherit; font-size:12px; cursor:pointer; text-align:left; }
+  .och-cond-title{ flex:none; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--text-2); }
+  .och-cond-val{ flex:1; min-width:0; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text); font-size:12px; }
+  .och-cond-chev{ flex:none; color:var(--text-2); transition:transform .18s ease; }
   .och-cond-row[aria-expanded="true"] .och-cond-chev{ transform:rotate(90deg); }
   .och-cond[hidden]{ display:none; }
   /* Rev 2.32.172 (FIELD-HINT): єдина підказка «заповніть це поле» — тонке тепле кільце (--color-warning ≈ 55%) лише на самому полі; знімається першим введенням або через 6 с. Синя .just-notified лишається для рядків списків після сповіщень. */
   html:root input.field-hint, html:root .field input.field-hint, html:root .field-hint{ border-color:var(--color-warning); box-shadow:0 0 0 2px color-mix(in srgb, var(--color-warning) 55%, transparent); }
   .och-seg-block{ margin-bottom:8px; }
-  .och-seg-label{ display:block; font-size:10px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
-  #installment-drawer .och-actions{ position:sticky; bottom:0; z-index:2; display:flex; gap:8px; padding:8px 0 4px; background:var(--color-surface); }
+  .och-seg-label{ display:block; font-size:10px; font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
+  #installment-drawer .och-actions{ position:sticky; bottom:0; z-index:2; display:flex; gap:8px; padding:8px 0 4px; background:var(--surface); }
   #installment-drawer .och-actions > button{ flex:1 1 0; min-width:0; margin:0; height:42px; padding:0 8px; }
   #installment-drawer .och-form .cdd-delete-link{ margin-top:6px; padding-top:8px; }
   /* овали таблиці «Оплати частинами» (Аналітика): однакова ширина ≈ 76 px на картці 360 px, висота 5 px, проміжок 2 px; овали розтягуються порівну (flex:1 1 0; min-width:0); > 24 місяців — суцільна смуга */
@@ -487,7 +487,7 @@
   .och-solid > i{ display:block; height:100%; border-radius:3px; background:var(--color-success); }
   /* Rev 2.32.173/174 (OCH-FORM-3, без скла): шторка r 28 зверху з відступом 14, ручка 36×4; заголовок: логотип 32 (r 8), назва 15/500, підзаголовок 11, закриття — коло 30; поле 34 / r 12 / текст 14 / підпис 10 px caps (підпис→поле 3, між рядками 8, між колонками 8). «Умови» — звичайне поле (токени поля, висота 34, r 12), сегменти — НАЯВНИЙ компонент (.struct-tabs + .seg-indicator + initSegments): контейнер 32 / r 12, повзунок r 10 (--color-success-bg / --color-success), решта приглушені; кнопки 40 / r 14: звичайна «Оплатити» й зелена «Зберегти»; закріплений футер із тонкою лінією; «Видалити ОЧ» 12 px. Без градієнтів, блиску й backdrop-filter. */
   @media (max-width:1279px){
-    #installment-drawer{ border-radius:28px 28px var(--radius-xl) var(--radius-xl); padding:14px 14px 12px; }
+    #installment-drawer{ border-radius:var(--r-xl) var(--r-xl) var(--radius-xl) var(--radius-xl); padding:14px 14px 12px; }
     #installment-drawer{ --sheet-pad-x:14px; } /* Rev 2.32.318 (SHEET-FOOTER-4): бічний відступ для панелі дій */
     #installment-drawer .drawer-handle{ margin:-6px -14px 2px; padding:6px 0 2px; }
   }
@@ -498,24 +498,24 @@
   #installment-drawer .drawer-close{ width:30px; height:30px; border-radius:50%; }
   #installment-drawer .och-form .field{ margin-bottom:8px; }
   #installment-drawer .och-form .field label{ font-size:10px; letter-spacing:.5px; margin-bottom:3px; }
-  #installment-drawer .och-form .field input{ height:34px; padding:0 12px; border-radius:12px; font-size:14px; }
+  #installment-drawer .och-form .field input{ height:34px; padding:0 12px; border-radius:var(--r-s); font-size:14px; }
   #installment-drawer .och-form .row-2{ gap:8px; }
-  html:root .och-cond-row{ height:34px; border:1.5px solid var(--color-border-strong); border-radius:12px; padding:0 12px; background-color:var(--ui-glass, var(--color-surface)); box-shadow:inset 0 1px 2px rgba(16,24,40,.05); font-size:13px; }
+  html:root .och-cond-row{ height:34px; border:1.5px solid var(--line-strong); border-radius:var(--r-s); padding:0 12px; background-color:var(--ui-glass, var(--surface)); box-shadow:inset 0 1px 2px rgba(16,24,40,.05); font-size:13px; }
   .och-cond-val{ font-size:13px; font-weight:600; }
-  #installment-drawer .och-seg.struct-tabs{ height:32px; box-sizing:border-box; padding:2px; gap:2px; margin:0; border-radius:12px; border:1.5px solid var(--color-border-strong); }
+  #installment-drawer .och-seg.struct-tabs{ height:32px; box-sizing:border-box; padding:2px; gap:2px; margin:0; border-radius:var(--r-s); border:1.5px solid var(--line-strong); }
   #installment-drawer .och-seg .struct-tab-btn{ height:100%; padding:0 4px; border-radius:10px; font-size:12.5px; font-weight:500; }
   #installment-drawer .och-seg .struct-tab-btn.active{ color:var(--color-success); font-weight:600; }
   #installment-drawer .och-seg .seg-indicator{ border-radius:10px; background:var(--color-success-bg); border:1px solid var(--color-success); box-shadow:none; }
-  #installment-drawer .och-actions{ gap:8px; padding:8px 0 6px; margin-top:4px; border-top:1px solid var(--color-border); }
+  #installment-drawer .och-actions{ gap:8px; padding:8px 0 6px; margin-top:4px; border-top:1px solid var(--line); }
   #installment-drawer .och-actions > button{ height:40px; border-radius:14px; }
-  #installment-drawer .och-actions .submit-btn.debt{ background:var(--color-primary); border:0; color:#fff; box-shadow:none; }
+  #installment-drawer .och-actions .submit-btn.debt{ background:var(--accent); border:0; color:#fff; box-shadow:none; }
   /* Rev 2.32.321 (SHEET-FOOTER-4, B): кнопка-кошик 40 × 40, r 14, сірий фон вторинних кнопок (--color-track-bg), червона іконка (--color-error) */
   #installment-drawer .och-actions > .och-delete-btn{ flex:0 0 40px; width:40px; min-width:40px; height:40px; padding:0; border:0; border-radius:14px; background:var(--color-track-bg); color:var(--color-error); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   #installment-drawer .och-form .cdd-delete-link{ font-size:12px; margin-top:2px; padding-top:6px; border-top:0; }
   /* Rev 2.32.6 (X): .fld-label-like — той самий вигляд підпису БЕЗ <label for> (варіант no-for тесту edit-label) */
-  .field label, .field .fld-label-like{ display:block; font-size:11px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
-  .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
-  .field input:focus, .field select:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
+  .field label, .field .fld-label-like{ display:block; font-size:11px; font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+  .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
   /* Rev #30 (6D.11) — форма входу: label над полем → іконка+placeholder
      усередині поля (референс). Той самий технічний прийом, що вже
      .journal-search-input-wrap (пошук у Журналі) — не новий патерн,
@@ -523,7 +523,7 @@
      кожна форма в застосунку). flashField() працює напряму через
      el.style.borderColor, не залежить від <label> — безпечно. */
   .field-icon-wrap{ position:relative; }
-  .field-icon-wrap > svg{ position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--color-text-secondary); pointer-events:none; }
+  .field-icon-wrap > svg{ position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--text-2); pointer-events:none; }
   .field-icon-wrap input{ padding-left:40px; }
   .row-2{ display:flex; flex-wrap:wrap; gap:12px; }
   .row-2 > .field{ flex:1 1 130px; min-width:0; }
@@ -532,27 +532,27 @@
   /* Rev 2.3.2 — підказка відновленої чернетки форми витрати: нейтральний тон
      (не зелений auto-hint і не фіолетовий installment-hint — це не про
      категорію/прив'язку, а про сам факт "тут є незбережене з минулого разу"). */
-  .field.draft-hint{ display:none; font-size:11.5px; color:var(--color-text-secondary); margin-bottom:14px; }
-  .field.draft-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--color-surface-hover); padding:8px 10px; border-radius:var(--radius-sm); }
+  .field.draft-hint{ display:none; font-size:11.5px; color:var(--text-2); margin-bottom:14px; }
+  .field.draft-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--surface-2); padding:8px 10px; border-radius:var(--radius-sm); }
   /* Rev 2.3.5 — автопідказка назви витрати за історією введень. Власний
      DOM-компонент замість нативного <datalist> — той на iOS Safari (основний
      пристрій тестування, див. мобільні фікси нижче) в багатьох версіях
      взагалі не показує спадний список, тому нативний варіант ненадійний саме
      там, де це найбільше потрібно. */
-  .name-suggest-list{ display:none; position:absolute; left:0; right:0; top:100%; margin-top:4px; background:var(--color-surface); border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:12; max-height:230px; overflow-y:auto; }
+  .name-suggest-list{ display:none; position:absolute; left:0; right:0; top:100%; margin-top:4px; background:var(--surface); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:12; max-height:230px; overflow-y:auto; }
   .name-suggest-list.show{ display:block; }
   /* Rev 2.32.3 (E2): у редагуванні запису список нижчий і прокручується всередині власного max-height, щоб не перекривати «Зберегти»/«Скасувати» */
   .name-suggest-list.edit-suggest-list{ max-height:150px; overscroll-behavior:contain; }
-  .name-suggest-item{ padding:10px 12px; font-size:14px; color:var(--color-text-primary); cursor:pointer; border-bottom:1px solid var(--color-border); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .name-suggest-item{ padding:10px 12px; font-size:14px; color:var(--text); cursor:pointer; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .name-suggest-item:last-child{ border-bottom:none; }
   /* Rev 2.21.16 — розділено з .name-suggest-item.active: :hover-частину
      ховаємо за @media (hover:hover) and (pointer:fine) (той самий фікс, що .gear-btn вище),
      .active (клас, який виставляє JS для клавіатурної навігації) лишається
      без умови — це не hover-стан, а звичайний вибір, він має діяти скрізь. */
-  .name-suggest-item.active{ background:var(--color-surface-hover); }
-  @media (hover:hover) and (pointer:fine){ .name-suggest-item:hover{ background:var(--color-surface-hover); } }
+  .name-suggest-item.active{ background:var(--surface-2); }
+  @media (hover:hover) and (pointer:fine){ .name-suggest-item:hover{ background:var(--surface-2); } }
   .name-suggest-item .nsi-name{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .name-suggest-item .nsi-meta{ font-size:11px; color:var(--color-text-secondary); flex-shrink:0; white-space:nowrap; }
+  .name-suggest-item .nsi-meta{ font-size:11px; color:var(--text-2); flex-shrink:0; white-space:nowrap; }
   .field.auto-hint.show #auto-hint-text{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   /* Rev 2.2.2 — підказка автозв'язку витрата↔ОЧ (метод C), той самий каркас, що
      .field.auto-hint вище, але окремий акцентний колір (фіолетовий, як і
@@ -566,7 +566,7 @@
      першого-ліпшого в масиві. */
   .field.installment-link-hint.multi{ flex-direction:column; align-items:stretch; gap:8px; }
   .installment-link-candidates{ display:flex; flex-wrap:wrap; gap:6px; }
-  .installment-link-candidates button{ text-decoration:none; background:var(--color-surface); border:1.5px solid var(--color-accent-purple); border-radius:20px; padding:4px 10px; font-size:11px; font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }
+  .installment-link-candidates button{ text-decoration:none; background:var(--surface); border:1.5px solid var(--color-accent-purple); border-radius:20px; padding:4px 10px; font-size:11px; font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .installment-link-candidates button:hover{ background:var(--color-accent-purple-bg); } }
   /* Rev 2.1.6 — за порадою поради ззовні спростили форму: категорія/підкатегорія
@@ -598,19 +598,19 @@
     height:50px; padding-top:8px; padding-bottom:8px; line-height:30px;
   }
   .cat-fields-wrap.open{ display:block; }
-  .auto-hint-edit-btn{ flex:0 0 auto; background:none; border:none; padding:0; font:inherit; font-size:11.5px; font-weight:700; color:var(--color-text-secondary); cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+  .auto-hint-edit-btn{ flex:0 0 auto; background:none; border:none; padding:0; font:inherit; font-size:11.5px; font-weight:700; color:var(--text-2); cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
-  @media (hover:hover) and (pointer:fine){ .auto-hint-edit-btn:hover{ color:var(--color-text-primary); } }
+  @media (hover:hover) and (pointer:fine){ .auto-hint-edit-btn:hover{ color:var(--text); } }
   .field select.manual-flag{ border-color:var(--color-warning); background:var(--color-warning-bg); }
-  .submit-btn{ width:100%; margin-top:6px; background:var(--color-primary); color:#fff; border:none; border-radius:var(--radius-md); padding:14px; font-size:15px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard); }
+  .submit-btn{ width:100%; margin-top:6px; background:var(--accent); color:#fff; border:none; border-radius:var(--r-s); padding:14px; font-size:15px; font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard); }
   .submit-btn.income{ background:var(--color-success); }
   .submit-btn.debt{ background:var(--color-warning); }
   /* Rev 2.11.4 — окремий модифікатор саме для "Додати витрату" (за референс-
      скріном): червоний колір + трохи більше округлення, ніж базовий
      .submit-btn (12px). НЕ чіпаємо сам .submit-btn — його ж використовують
      кнопки підтвердження в модалках і скрізь по застосунку. */
-  .submit-btn.expense{ background:var(--color-error); border-radius:18px; }
-  .submit-btn.secondary{ background:var(--color-surface); color:var(--color-text-primary); border:1.5px solid var(--color-border-strong); }
+  .submit-btn.expense{ background:var(--color-error); border-radius:var(--r-m); }
+  .submit-btn.secondary{ background:var(--surface); color:var(--text); border:1.5px solid var(--line-strong); }
   /* Rev 2.21.15 BugFix — "залипаючий :hover" на iOS Safari: після тапу по
      "Додати витрату" кнопка лишалась у світлішому :hover-кольорі, поки
      користувач не тапав деінде — задокументована примха WebKit: сенсорний
@@ -626,16 +626,16 @@
     .submit-btn.income:hover{ background:var(--color-primary-hover); }
     .submit-btn.debt:hover{ background:var(--color-warning-hover); }
     .submit-btn.expense:hover{ background:var(--color-error-hover); }
-    .submit-btn.secondary:hover{ background:var(--color-surface-hover); }
+    .submit-btn.secondary:hover{ background:var(--surface-2); }
     .submit-btn.danger:hover{ background:var(--color-error-hover); }
   }
   .submit-btn.danger{ background:var(--color-error); color:#fff; }
   .submit-btn.disabled-soon{ background:var(--color-disabled-bg); color:var(--color-disabled-text); cursor:not-allowed; }
 
-  .import-card{ border:1.5px solid var(--color-border-strong); background:var(--color-surface-hover); }
+  .import-card{ border:1.5px solid var(--line-strong); background:var(--surface-2); }
   .import-card .import-title{ font-weight:700; font-size:14.5px; margin-bottom:4px; }
-  .import-card .import-desc{ font-size:12.5px; color:var(--color-text-secondary); line-height:1.5; margin-bottom:12px; }
-  .import-status{ font-size:12.5px; margin-top:10px; color:var(--color-text-primary); white-space:pre-line; }
+  .import-card .import-desc{ font-size:12.5px; color:var(--text-2); line-height:1.5; margin-bottom:12px; }
+  .import-status{ font-size:12.5px; margin-top:10px; color:var(--text); white-space:pre-line; }
   .import-status.hidden{ display:none; }
   /* Rev #30 — той самий скопований принцип, що решта .hidden у проєкті
      (див. коментар біля .journal-overlay.hidden): загального утилітарного
@@ -651,9 +651,9 @@
   .profile-head{ display:flex; align-items:center; gap:12px; padding:4px 2px 18px; }
   .profile-head-text{ min-width:0; }
   .profile-head-name{ font-weight:700; font-size:15px; }
-  .profile-head-email{ font-size:12.5px; color:var(--color-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .profile-status-line{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--color-text-secondary); margin-top:2px; }
-  .profile-status-dot{ width:7px; height:7px; border-radius:50%; background:var(--color-text-secondary); flex-shrink:0; }
+  .profile-head-email{ font-size:12.5px; color:var(--text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .profile-status-line{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-2); margin-top:2px; }
+  .profile-status-dot{ width:7px; height:7px; border-radius:50%; background:var(--text-2); flex-shrink:0; }
   .profile-status-dot.online{ background:var(--color-success); }
   .profile-status-dot.offline{ background:var(--color-error); }
   .profile-status-dot.syncing{ background:var(--color-info); animation:syncPulse 1s ease-in-out infinite; }
@@ -663,20 +663,20 @@
      референс-макета "Варіант 1": той самий структурний принцип, що
      .service-tile/.service-wide-card нижче (icon+title+sub у рядку) +
      повноцінна .submit-btn.pill кнопка (не текстовий popover-пункт). */
-  .sync-card{ padding:16px; background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); margin-bottom:20px; }
+  .sync-card{ padding:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow-sm); margin-bottom:20px; }
   .sync-card-row{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
-  .sync-card-icon{ width:38px; height:38px; border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--color-success-bg); color:var(--color-success); }
+  .sync-card-icon{ width:38px; height:38px; border-radius:var(--r-s); display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--color-success-bg); color:var(--color-success); }
   .sync-card-icon svg{ width:19px; height:19px; display:block; }
   .sync-card-icon.syncing{ background:var(--color-info-bg); color:var(--color-info); }
   .sync-card-icon.syncing svg{ animation:syncSpin .9s linear infinite; }
   .sync-card-icon.error{ background:var(--color-error-bg); color:var(--color-error); }
-  .sync-card-icon.offline{ background:var(--color-surface-hover); color:var(--color-text-tertiary); }
+  .sync-card-icon.offline{ background:var(--surface-2); color:var(--text-3); }
   .sync-card-text{ min-width:0; }
-  .sync-card-title{ font-size:14.5px; font-weight:600; color:var(--color-text-primary); }
-  .sync-card-sub{ font-size:12.5px; color:var(--color-text-secondary); margin-top:2px; }
+  .sync-card-title{ font-size:14.5px; font-weight:600; color:var(--text); }
+  .sync-card-sub{ font-size:12.5px; color:var(--text-2); margin-top:2px; }
   .sync-card-btn{ display:flex; align-items:center; justify-content:center; gap:8px; }
-  .profile-menu-item{ display:flex; align-items:center; gap:12px; width:100%; padding:13px 4px; border:none; background:none; border-top:1px solid var(--color-border); font-size:14.5px; color:var(--color-text-primary); cursor:pointer; text-align:left; font-family:inherit; }
-  .profile-menu-item svg{ flex-shrink:0; color:var(--color-text-secondary); }
+  .profile-menu-item{ display:flex; align-items:center; gap:12px; width:100%; padding:13px 4px; border:none; background:none; border-top:1px solid var(--line); font-size:14.5px; color:var(--text); cursor:pointer; text-align:left; font-family:inherit; }
+  .profile-menu-item svg{ flex-shrink:0; color:var(--text-2); }
   .profile-menu-item.danger{ color:var(--color-error); }
   .profile-menu-item.danger svg{ color:var(--color-error); }
   /* Rev #30 (6D крок 9) — той самий "scoped .hidden" підхід, що вже
@@ -687,7 +687,7 @@
   .profile-menu-item.hidden{ display:none; }
   @media (hover:hover) and (pointer:fine){ .profile-menu-item:hover{ background:var(--color-hover-overlay); } }
 
-  .section-label{ font-size:11px; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.6px; margin:26px 2px 10px; display:flex; align-items:center; gap:6px; }
+  .section-label{ font-size:11px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.6px; margin:26px 2px 10px; display:flex; align-items:center; gap:6px; }
   .section-label:first-child{ margin-top:2px; }
 
   .badge{ display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:3px 9px; border-radius:var(--radius-sm); }
@@ -710,18 +710,18 @@
   .data-status-dot{ width:34px; height:34px; margin:-13.5px; padding:0; border:none; background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; border-radius:50%; }
   .data-status-dot::after{ content:""; width:7px; height:7px; border-radius:50%; background:var(--color-info); flex-shrink:0; }
   .data-status.warning .data-status-dot::after{ background:var(--color-warning); }
-  .data-status-popover{ display:none; position:absolute; top:100%; right:0; margin-top:8px; width:220px; max-width:calc(100vw - 32px); background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); padding:10px 12px; text-align:left; }
+  .data-status-popover{ display:none; position:absolute; top:100%; right:0; margin-top:8px; width:220px; max-width:calc(100vw - 32px); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); padding:10px 12px; text-align:left; }
   .data-status.open .data-status-popover{ display:block; }
-  .dsp-title{ font-size:12px; font-weight:700; color:var(--color-text-primary); margin-bottom:3px; }
-  .dsp-text{ font-size:11.5px; color:var(--color-text-secondary); line-height:1.4; }
+  .dsp-title{ font-size:12px; font-weight:700; color:var(--text); margin-bottom:3px; }
+  .dsp-text{ font-size:11.5px; color:var(--text-2); line-height:1.4; }
   /* Rev #30 (6D.91) — за проханням користувача: попап "Стан даних" тепер
      дієвий (не лише інформативний) — назви карток у .dsp-text (для
      'incomplete') стають tappable-посиланнями, .dsp-hint — коротка
      підказка під списком, .dsp-action — кнопка переходу (для 'last-known'). */
   .dsp-link{ background:none; border:none; padding:0; margin:0; font:inherit; color:var(--color-primary-hover); text-decoration:underline; cursor:pointer; }
-  .dsp-hint{ font-size:11px; color:var(--color-text-tertiary); margin-top:5px; line-height:1.4; }
+  .dsp-hint{ font-size:11px; color:var(--text-3); margin-top:5px; line-height:1.4; }
   .dsp-hint.hidden{ display:none; }
-  .dsp-action{ display:block; width:100%; margin-top:8px; font-size:11.5px; font-weight:600; padding:7px 10px; border-radius:var(--radius-sm); border:none; background:var(--color-primary); color:#fff; cursor:pointer; font-family:inherit; text-align:center; }
+  .dsp-action{ display:block; width:100%; margin-top:8px; font-size:11.5px; font-weight:600; padding:7px 10px; border-radius:var(--radius-sm); border:none; background:var(--accent); color:#fff; cursor:pointer; font-family:inherit; text-align:center; }
   .dsp-action.hidden{ display:none; }
 
   /* Rev 2.1.2 — журнал згруповано по днях замість плаского списку: дата тепер
@@ -729,19 +729,19 @@
      кожному окремому рядку — звільняє місце в рядку й прибирає повторення. */
   .journal-day-group{ margin-bottom:20px; }
   .journal-day-group:last-child{ margin-bottom:0; }
-  .journal-day-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:0 2px 8px; margin-bottom:10px; border-bottom:1.5px solid var(--color-border-strong); }
-  .jdh-date{ display:flex; align-items:baseline; gap:7px; font-size:13.5px; font-weight:700; color:var(--color-text-primary); }
-  .jdh-weekday{ font-size:10.5px; font-weight:600; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.4px; }
-  .jdh-net{ font-size:12.5px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--color-text-secondary); white-space:nowrap; }
+  .journal-day-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:0 2px 8px; margin-bottom:10px; border-bottom:1.5px solid var(--line-strong); }
+  .jdh-date{ display:flex; align-items:baseline; gap:7px; font-size:13.5px; font-weight:700; color:var(--text); }
+  .jdh-weekday{ font-size:10.5px; font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.4px; }
+  .jdh-net{ font-size:12.5px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--text-2); white-space:nowrap; }
   .jdh-net.is-positive{ color:var(--color-success); }
   .jdh-net.is-negative{ color:var(--color-error); }
   /* Rev 2.18.0 — "Показати весь журнал": веде до #journal-overlay нижче.
      Той самий прийом рядка-переходу, що .add-trigger-btn (повна ширина,
      власна рамка), лише суцільна рамка (не пунктирна — це не "додати",
      а навігація) і акцентний колір тексту/іконки. */
-  .show-journal-link{ display:flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:14px; padding:12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-primary-hover); font-size:13.5px; font-weight:600; font-family:inherit; cursor:pointer; }
+  .show-journal-link{ display:flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:14px; padding:12px; border:1.5px solid var(--line-strong); border-radius:var(--r-s); background:var(--surface); color:var(--color-primary-hover); font-size:13.5px; font-weight:600; font-family:inherit; cursor:pointer; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
-  @media (hover:hover) and (pointer:fine){ .show-journal-link:hover{ background:var(--color-surface-hover); } }
+  @media (hover:hover) and (pointer:fine){ .show-journal-link:hover{ background:var(--surface-2); } }
   .show-journal-link.hidden{ display:none; }
   /* Rev 2.18.0 — Журнал усіх записів (не нова вкладка bottom nav — їх і так
      5, і не новий елемент switchTab()'s фіксованого списку view'ів).
@@ -763,11 +763,11 @@
      компонент (.view.hidden, .status-banner.hidden тощо), немає загального
      утилітарного правила — тому пара до .journal-overlay.hidden вище. */
   #vytraty-default-view.hidden{ display:none; }
-  .journal-overlay-top{ display:flex; align-items:center; gap:10px; padding:0 0 14px; border-bottom:1px solid var(--color-border); margin-bottom:16px; flex-shrink:0; }
-  .journal-back-btn{ flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1.5px solid var(--color-border-strong); background:var(--color-surface); color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .journal-overlay-top{ display:flex; align-items:center; gap:10px; padding:0 0 14px; border-bottom:1px solid var(--line); margin-bottom:16px; flex-shrink:0; }
+  .journal-back-btn{ flex-shrink:0; width:36px; height:36px; border-radius:50%; border:1.5px solid var(--line-strong); background:var(--surface); color:var(--text-2); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
-  @media (hover:hover) and (pointer:fine){ .journal-back-btn:hover{ background:var(--color-surface-hover); color:var(--color-text-primary); } }
-  .journal-overlay-title{ font-size:17px; font-weight:800; color:var(--color-text-primary); }
+  @media (hover:hover) and (pointer:fine){ .journal-back-btn:hover{ background:var(--surface-2); color:var(--text); } }
+  .journal-overlay-title{ font-size:17px; font-weight:800; color:var(--text); }
   .journal-body{ padding:0 0 calc(env(safe-area-inset-bottom,0px) + 24px); }
   .journal-month-nav{ margin-bottom:18px; }
   /* Rev 2.21.1 — перехід на дату: БУВ декоративною 48x48px кнопкою-іконкою з
@@ -791,17 +791,17 @@
      input[type=date] нижче) — тепер поле й кнопки-стрілки використовують
      той самий border/border-radius/background/висоту, справді ідентичний
      вигляд, а не лише "той самий клас-обгортка". */
-  #journal-date-input{ width:1px; min-width:100%; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
-  .journal-month-label{ text-align:center; margin-top:6px; font-size:12.5px; font-weight:600; color:var(--color-text-secondary); }
+  #journal-date-input{ width:1px; min-width:100%; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .journal-month-label{ text-align:center; margin-top:6px; font-size:12.5px; font-weight:600; color:var(--text-2); }
   /* Rev 2.20.2 — пошук/фільтр Журналу: окремий рядок для поля пошуку (на всю
      ширину) і окремий рядок для двох select'ів (категорія/підкатегорія) —
      трьом контролам разом в одному рядку на 375px затісно. */
   /* Rev 2.23.33 (6D.202) — кнопка "Скинути · N" у ряду пошуку (з'являється лише при активних фільтрах; висоту шапки не збільшує). */
   .journal-search-row{ margin-bottom:8px; display:flex; align-items:center; gap:8px; }
   .journal-search-row .journal-search-input-wrap{ flex:1 1 auto; min-width:0; }
-  .journal-reset-btn{ flex:0 0 auto; min-height:44px; padding:0 14px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-md); background:var(--color-surface); color:var(--color-text-primary); font:inherit; font-size:13px; font-weight:700; white-space:nowrap; cursor:pointer; touch-action:manipulation; }
+  .journal-reset-btn{ flex:0 0 auto; min-height:44px; padding:0 14px; border:1.5px solid var(--line-strong); border-radius:var(--r-s); background:var(--surface); color:var(--text); font:inherit; font-size:13px; font-weight:700; white-space:nowrap; cursor:pointer; touch-action:manipulation; }
   .journal-reset-btn.hidden{ display:none; }
-  @media (hover:hover) and (pointer:fine){ .journal-reset-btn:hover{ background:var(--color-surface-hover); } }
+  @media (hover:hover) and (pointer:fine){ .journal-reset-btn:hover{ background:var(--surface-2); } }
   .journal-empty-reset{ margin-top:12px; }
   .journal-search-input-wrap{ position:relative; }
   /* Rev 2.21.13 BugFix — справжня причина зсуву іконки "×": цей селектор
@@ -814,10 +814,10 @@
      ">" (лише прямий нащадок) — іконку "×" більше НЕ зачіпає, вона й далі
      центрується власним flex-правилом .journal-search-clear. */
   .journal-search-input-wrap > svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--color-muted); pointer-events:none; }
-  .journal-search-input-wrap input{ width:100%; height:44px; padding:0 34px 0 36px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:14px; box-sizing:border-box; }
+  .journal-search-input-wrap input{ width:100%; height:44px; padding:0 34px 0 36px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); font-size:14px; box-sizing:border-box; }
   .journal-search-input-wrap input[type="search"]{ -webkit-appearance:none; appearance:none; } /* Rev 2.32.222: type=search без рідного вигляду поля й хрестика (є власний ✕) */
   .journal-search-input-wrap input::-webkit-search-cancel-button, .journal-search-input-wrap input::-webkit-search-decoration{ -webkit-appearance:none; display:none; }
-  .journal-search-input-wrap input:focus{ outline:none; border-color:var(--color-primary); box-shadow:var(--shadow-sm); }
+  .journal-search-input-wrap input:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
   /* Rev 2.21.13 BugFix — кнопка "×" вилазила за межі свого кола: базове
      button{...} правило (вище в файлі) не скидає padding, тому браузерний
      UA-default padding з'їдав частину border-box (22x22, з
@@ -826,26 +826,26 @@
      .journal-search-input-wrap svg вище виправлено на ">" (прямий нащадок):
      воно ловило і цю вкладену SVG, абсолютно позиціюючи її на left:12px
      відносно кнопки, а не даючи flex-центруванню тут спрацювати. */
-  .journal-search-clear{ position:absolute; right:7px; top:50%; transform:translateY(-50%); width:22px; height:22px; padding:0; border:none; background:var(--color-surface-hover); border-radius:50%; color:var(--color-text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .journal-search-clear{ position:absolute; right:7px; top:50%; transform:translateY(-50%); width:22px; height:22px; padding:0; border:none; background:var(--surface-2); border-radius:50%; color:var(--text-2); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   .journal-search-clear.hidden{ display:none; }
   .journal-search-filters-row{ display:flex; gap:8px; margin-bottom:14px; }
-  .journal-search-category{ flex:1 1 0; min-width:0; height:44px; padding:0 8px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-text-primary); font-size:12.5px; }
-  .journal-search-category:focus{ outline:none; border-color:var(--color-primary); }
+  .journal-search-category{ flex:1 1 0; min-width:0; height:44px; padding:0 8px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); font-size:12.5px; }
+  .journal-search-category:focus{ outline:none; border-color:var(--accent); }
   /* Rev 2.20.0 — "Результати пошуку (N)": замінює .journal-month-label, поки
      активний пошук/фільтр (той самий момент, коли .journal-month-nav
      ховається нижче) — сигналізує, що список тепер по ВСІЙ історії, а не
      обраному місяцю. */
-  .journal-search-summary{ font-size:12px; font-weight:700; color:var(--color-text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:14px; }
+  .journal-search-summary{ font-size:12px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:14px; }
   .journal-search-summary.hidden{ display:none; }
   .journal-month-nav.hidden{ display:none; }
   /* Rev 2.1.15 — тап по картці витрати виділяє її (з'являється олівець для
      редагування категорії); .expense-row тепер контейнер-картка (може містити
      інлайн-панель редагування знизу), а сам горизонтальний рядок (назва+сума+
      кнопки) переїхав у вкладений .exp-row-top, щоб не ламати існуючий вигляд. */
-  .expense-row{ background:var(--color-surface); border-radius:13px; padding:12px 14px; margin-bottom:0; box-shadow:var(--shadow-sm); border:1px solid var(--color-border); border-left:3px solid transparent; cursor:pointer; position:relative; touch-action:pan-y; transition:background var(--duration-fast) var(--easing-standard), transform var(--duration-fast) var(--easing-standard); }
+  .expense-row{ background:var(--surface); border-radius:13px; padding:12px 14px; margin-bottom:0; box-shadow:var(--shadow-sm); border:1px solid var(--line); border-left:3px solid transparent; cursor:pointer; position:relative; touch-action:pan-y; transition:background var(--duration-fast) var(--easing-standard), transform var(--duration-fast) var(--easing-standard); }
   /* Rev 2.24.0 (M1) — тінь виділення (колишній transition box-shadow) тепер ::after з opacity: shadow-md малюється один раз, анімується лише прозорість. border-color у transition прибрано: він ніде не змінюється. */
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
-  @media (hover:hover) and (pointer:fine){ .expense-row:hover{ background:var(--color-surface-hover); } }
+  @media (hover:hover) and (pointer:fine){ .expense-row:hover{ background:var(--surface-2); } }
   .expense-row.income-row{ border-left-color:var(--color-success); }
   /* Rev #30 (6D.123) — нове виділення при тапі (замінює колишню зелену
      рамку border-color+box-shadow-кільце): м'яке підсвічування фону + легке
@@ -888,7 +888,7 @@
   .expense-row-actions .swipe-edit-btn{ background:var(--color-info); }
   .expense-row-actions .swipe-delete-btn{ background:var(--color-error); }
   .exp-row-top{ display:flex; align-items:center; gap:12px; }
-  .expense-row[data-rec-kind]:focus-visible{ outline:2px solid var(--color-primary); outline-offset:-2px; } /* Rev 2.32.142 (DESK-EDIT): видимий фокус рядка при навігації з клавіатури */
+  .expense-row[data-rec-kind]:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; } /* Rev 2.32.142 (DESK-EDIT): видимий фокус рядка при навігації з клавіатури */
   @media (hover:hover) and (pointer:fine){ .expense-row[data-rec-kind]{ cursor:pointer; } }
   .expense-row .exp-main{ flex:1; min-width:0; }
   .expense-row .exp-name{ font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -904,7 +904,7 @@
      (created_by, inline style — колір бере authorInfoFor() напряму з
      токена, без нової CSS-класу на кожного члена родини), не статусом
      "відредаговано". */
-  .exp-edited-badge{ display:inline-flex; color:var(--color-text-tertiary); flex-shrink:0; }
+  .exp-edited-badge{ display:inline-flex; color:var(--text-3); flex-shrink:0; }
   .exp-edited-badge svg{ display:block; }
   /* Rev #30 (6D.69) — Cloud Sync UI, Крок 3 (2-ге уточнення користувача):
      картки, щойно ОТРИМАНІ через Cloud Pull —
@@ -946,45 +946,45 @@
   /* Rev 2.1.16 — панель редагування розширена: тепер і назва/сума/дата, не
      лише категорія (перейменовано з .record-cat-edit). */
   /* Rev 2.32.5 (E1b): коротка підсвітка картки при поверненні до редагування — лише контур (без зміни розмірів), ~600 мс */
-  .expense-row-swipe.edit-return-flash{ outline:2px solid var(--color-primary); outline-offset:-2px; transition:outline-color .3s; }
-  .record-edit-panel{ margin-top:12px; padding-top:12px; border-top:1px solid var(--color-border-strong); display:flex; flex-direction:column; gap:10px; cursor:default; }
+  .expense-row-swipe.edit-return-flash{ outline:2px solid var(--accent); outline-offset:-2px; transition:outline-color .3s; }
+  .record-edit-panel{ margin-top:12px; padding-top:12px; border-top:1px solid var(--line-strong); display:flex; flex-direction:column; gap:10px; cursor:default; }
   .record-edit-panel .field{ margin-bottom:0; }
-  .record-edit-panel select{ width:100%; height:40px; padding:8px 10px; border:1.5px solid var(--color-border-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--color-surface); color:var(--color-text-primary); box-sizing:border-box; }
-  .record-edit-panel select:focus{ outline:none; border-color:var(--color-primary); }
+  .record-edit-panel select{ width:100%; height:40px; padding:8px 10px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:14px; background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .record-edit-panel select:focus{ outline:none; border-color:var(--accent); }
   .record-edit-row{ display:flex; gap:10px; }
   .record-edit-row .field{ flex:1; min-width:0; }
   .record-edit-actions{ display:flex; gap:8px; }
   .record-edit-actions button{ flex:1; padding:9px; font-size:13px; font-weight:600; border-radius:var(--radius-sm); cursor:pointer; }
-  .rce-save{ background:var(--color-primary); color:#fff; border:none; }
+  .rce-save{ background:var(--accent); color:#fff; border:none; }
   /* Rev 2.32.144 (SAVE-DIRTY): «Зберегти» у формах редагування наявного запису неактивна, доки значення не змінено: приглушена (38%), без реакції на натискання, aria-disabled, поза Tab-порядком (tabindex=-1). Активний вигляд не змінюється. */
   html:root .save-gated[aria-disabled="true"]{ opacity:.38; pointer-events:none; transform:none; transition:none; box-shadow:none; cursor:default; }
-  .rce-cancel{ background:var(--color-surface); color:var(--color-text-secondary); border:1.5px solid var(--color-border-strong); }
+  .rce-cancel{ background:var(--surface); color:var(--text-2); border:1.5px solid var(--line-strong); }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){
     .rce-save:hover{ background:var(--color-primary-hover); }
-    .rce-cancel:hover{ background:var(--color-surface-hover); }
+    .rce-cancel:hover{ background:var(--surface-2); }
   }
-  .empty-state{ text-align:center; padding:40px 20px; color:var(--color-text-secondary); }
+  .empty-state{ text-align:center; padding:40px 20px; color:var(--text-2); }
   .empty-state .glyph{ margin-bottom:8px; display:flex; justify-content:center; color:var(--color-muted); }
-  .empty-state .es-title{ font-weight:700; font-size:15px; color:var(--color-text-primary); margin-bottom:4px; }
+  .empty-state .es-title{ font-weight:700; font-size:15px; color:var(--text); margin-bottom:4px; }
   .empty-state .es-sub{ font-size:12.5px; color:var(--color-muted); }
 
-  .analytics-empty{ text-align:center; padding:40px 20px; color:var(--color-text-secondary); }
+  .analytics-empty{ text-align:center; padding:40px 20px; color:var(--text-2); }
   .analytics-empty .glyph{ margin-bottom:10px; display:flex; justify-content:center; color:var(--color-muted); }
-  .analytics-empty .ae-title{ font-weight:700; font-size:15px; color:var(--color-text-primary); margin-bottom:4px; }
+  .analytics-empty .ae-title{ font-weight:700; font-size:15px; color:var(--text); margin-bottom:4px; }
   .analytics-empty .ae-sub{ font-size:12.5px; color:var(--color-muted); }
   .analytics-empty.hidden{ display:none; }
   .analytics-body.hidden{ display:none; }
 
   /* Rev 2.24.0 (M1) — скелетон: шиммер через transform псевдоелемента (400% ширини, зсув -75% → 0 = колишнє background-position 100% → 0), а не через background-position. */
-  .skeleton{ position:relative; overflow:hidden; background:var(--color-bg); border-radius:var(--radius-sm); }
-  .skeleton::after{ content:""; position:absolute; left:0; top:0; width:400%; height:100%; background:linear-gradient(90deg, var(--color-bg) 25%, var(--color-surface-hover) 37%, var(--color-bg) 63%); animation:shimmer 1.4s ease infinite; }
+  .skeleton{ position:relative; overflow:hidden; background:var(--bg); border-radius:var(--radius-sm); }
+  .skeleton::after{ content:""; position:absolute; left:0; top:0; width:400%; height:100%; background:linear-gradient(90deg, var(--bg) 25%, var(--surface-2) 37%, var(--bg) 63%); animation:shimmer 1.4s ease infinite; }
   @keyframes shimmer{ 0%{ transform:translateX(-75%); } 100%{ transform:translateX(0); } }
   /* Rev 2.30.0 (M4b): без !important — подвійний клас + html:root дають специфічність (0,3,1), вищу за будь-який колір кнопки (у т.ч. glass-правила (0,2,1)) */
   .btn-loading{ position:relative; color:transparent; pointer-events:none; }
   html:root .btn-loading.btn-loading{ color:transparent; }
   .btn-loading::after{ content:""; position:absolute; left:50%; top:50%; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; border:2px solid rgba(255,255,255,.5); border-top-color:#fff; animation:spin .7s linear infinite; }
-  .submit-btn.secondary.btn-loading::after{ border:2px solid rgba(16,24,40,.2); border-top-color:var(--color-text-primary); }
+  .submit-btn.secondary.btn-loading::after{ border:2px solid rgba(16,24,40,.2); border-top-color:var(--text); }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
   /* ---- Огляд / Аналітика ---- */

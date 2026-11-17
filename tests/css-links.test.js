@@ -35,5 +35,6 @@ test('нові назви DS-PLAN §1: псевдоніми ведуть на з
   const newNames = ['--bg', '--surface', '--surface-2', '--line', '--line-strong', '--text', '--text-2', '--text-3', '--accent', '--accent-text', '--accent-bg', '--accent-line', '--income', '--expense', '--debt', '--inst', '--glass', '--glass-press', '--glass-edge', '--glass-edge-2', '--glass-shadow', '--r-s', '--r-m', '--r-pill', '--t-micro', '--t-s', '--t-m', '--t-l', '--t-count'];
   newNames.forEach(function(n){ const a = aliases.filter(function(x){ return x[0] === n; })[0]; assert.ok(a, n + ': є псевдонім'); assert.ok(declared.has(a[1]), n + ' → ' + a[1] + ' існує'); });
   ['--r-l', '--r-xl', '--stagger', '--cat-bar', '--sub-bar', '--k1', '--k2', '--k3', '--k4', '--k5', '--k6'].forEach(function(n){ assert.ok(declared.has(n), n + ' оголошено'); });
-  assert.ok(!/var\(--(bg|surface|surface-2|line|line-strong|text|text-2|text-3|accent|income|expense|debt|inst|glass|r-s|r-m|r-l|r-xl|r-pill|t-micro|t-s|t-m|t-l|t-count|stagger|cat-bar|sub-bar|k[1-6])\)/.test(APP), 'DS-1: нові назви в app.css ще не вживаються (це DS-2)');
+  // DS-2 (Rev 2.32.335+): нові назви вже вживаються в app.css; --income/--expense/--debt/--inst свідомо ні (збіг лише за значенням, не за змістом)
+  assert.ok(!/var\(--(income|expense|debt|inst)\)/.test(APP));
 });

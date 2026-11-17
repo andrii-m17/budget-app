@@ -183,7 +183,7 @@ test('підказка про відхилення: лише коли введе
 // ---- Rev 2.32.173 (OCH-FORM-3): фінальний макет — розміри, скло, стани ----
 const FINAL = (function(){ const i = CSS.indexOf('Rev 2.32.173/174 (OCH-FORM-3'); const k = CSS.indexOf('*/', i) + 2; return CSS.slice(k, k + 5200); })();
 test('фінальний макет: шторка r 28 зверху з відступом 14, ручка 36×4, заголовок (логотип 32 r 8, назва 15/500, підзаголовок 11, закриття коло 30)', function(){
-  assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:28px 28px var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
+  assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:var\(--r-xl\) var\(--r-xl\) var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
   assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:4px;/);
   assert.match(FINAL, /#installment-drawer \.drawer-head-icon\{ width:32px; height:32px; border-radius:8px;/);
   assert.match(FINAL, /#installment-drawer \.drawer-head h2\{ font-size:15px; font-weight:500; \}/); assert.match(FINAL, /\.drawer-head-sub\{ font-size:11px; \}/);
@@ -191,16 +191,16 @@ test('фінальний макет: шторка r 28 зверху з відс�
   assert.match(SRC, /idd-icon'\)\.innerHTML = bankIcon\(name, 32, true, 'installment'\)/);
 });
 test('фінальний макет без скла: поле 34 / r 12 / текст 14 / підпис 10 px; «Умови» — звичайне поле (34 / r 12, токени поля); сегмент 32 / r 12, повзунок r 10 --color-success; кнопки 40 / r 14; футер із лінією; «Видалити ОЧ» 12 px', function(){
-  assert.match(FINAL, /\.och-form \.field input\{ height:34px; padding:0 12px; border-radius:12px; font-size:14px; \}/);
+  assert.match(FINAL, /\.och-form \.field input\{ height:34px; padding:0 12px; border-radius:var\(--r-s\); font-size:14px; \}/);
   assert.match(FINAL, /\.och-form \.field label\{ font-size:10px; letter-spacing:\.5px; margin-bottom:3px; \}/);
   assert.match(FINAL, /\.och-form \.field\{ margin-bottom:8px; \}/); assert.match(FINAL, /\.och-form \.row-2\{ gap:8px; \}/);
-  assert.match(FINAL, /html:root \.och-cond-row\{ height:34px; border:1\.5px solid var\(--color-border-strong\); border-radius:12px; padding:0 12px; background-color:var\(--ui-glass, var\(--color-surface\)\); box-shadow:inset 0 1px 2px rgba\(16,24,40,\.05\);/);
-  assert.match(FINAL, /\.och-seg\.struct-tabs\{ height:32px; box-sizing:border-box; padding:2px; gap:2px; margin:0; border-radius:12px; border:1\.5px solid var\(--color-border-strong\); \}/);
+  assert.match(FINAL, /html:root \.och-cond-row\{ height:34px; border:1\.5px solid var\(--line-strong\); border-radius:var\(--r-s\); padding:0 12px; background-color:var\(--ui-glass, var\(--surface\)\); box-shadow:inset 0 1px 2px rgba\(16,24,40,\.05\);/);
+  assert.match(FINAL, /\.och-seg\.struct-tabs\{ height:32px; box-sizing:border-box; padding:2px; gap:2px; margin:0; border-radius:var\(--r-s\); border:1\.5px solid var\(--line-strong\); \}/);
   assert.match(FINAL, /\.och-seg \.struct-tab-btn\{ height:100%; padding:0 4px; border-radius:10px;/);
   assert.match(FINAL, /\.och-seg \.struct-tab-btn\.active\{ color:var\(--color-success\);/);
   assert.match(FINAL, /\.och-seg \.seg-indicator\{ border-radius:10px; background:var\(--color-success-bg\); border:1px solid var\(--color-success\); box-shadow:none; \}/);
-  assert.match(FINAL, /\.och-actions\{ gap:8px;[^}]*border-top:1px solid var\(--color-border\);/); assert.match(FINAL, /\.och-actions > button\{ height:40px; border-radius:14px; \}/);
-  assert.match(FINAL, /\.och-actions \.submit-btn\.debt\{ background:var\(--color-primary\); border:0; color:#fff; box-shadow:none; \}/);
+  assert.match(FINAL, /\.och-actions\{ gap:8px;[^}]*border-top:1px solid var\(--line\);/); assert.match(FINAL, /\.och-actions > button\{ height:40px; border-radius:14px; \}/);
+  assert.match(FINAL, /\.och-actions \.submit-btn\.debt\{ background:var\(--accent\); border:0; color:#fff; box-shadow:none; \}/);
   assert.match(FINAL, /\.och-form \.cdd-delete-link\{ font-size:12px;/);
 });
 test('без скла: жодних --och-glass-*, градієнтів, блиску й backdrop-filter у блоці форми ОЧ; сегменти — наявний компонент (initSegments: .struct-tabs у SEGMENT_SELECTOR), без власного .och-seg button', function(){
@@ -212,7 +212,7 @@ test('без скла: жодних --och-glass-*, градієнтів, бли�
   assert.match(SRC, /b\.classList\.toggle\('active', on\);/);
 });
 test('фінальний макет: шторка r 28 зверху з відступом 14, ручка 36×4, заголовок (логотип 32 r 8, назва 15/500, підзаголовок 11, закриття коло 30)', function(){
-  assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:28px 28px var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
+  assert.match(FINAL, /@media \(max-width:1279px\)\{\s*#installment-drawer\{ border-radius:var\(--r-xl\) var\(--r-xl\) var\(--radius-xl\) var\(--radius-xl\); padding:14px 14px 12px; \}/);
   assert.match(CSS, /\.drawer-handle::before\{ content:''; width:36px; height:4px;/);
   assert.match(FINAL, /#installment-drawer \.drawer-head-icon\{ width:32px; height:32px; border-radius:8px;/);
   assert.match(FINAL, /#installment-drawer \.drawer-head h2\{ font-size:15px; font-weight:500; \}/); assert.match(FINAL, /\.drawer-head-sub\{ font-size:11px; \}/);
