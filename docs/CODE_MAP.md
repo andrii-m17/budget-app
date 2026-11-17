@@ -6,6 +6,8 @@
 
 **Область «analytics» (Rev 2.32.348, STRUCT-3):** `js/analytics.js` — 78 функцій, 21 const, 5 let. Оператори верхнього рівня (load/visibilitychange для дашбордів) лишились в index.html.
 
+**Область «shell» (Rev 2.32.349, STRUCT-3):** `js/shell.js` — 101 функцій, 38 const, 10 let. Оператори верхнього рівня (підписки, initSideNav, IIFE таббару/«вгору»/натискань) і keyboardFieldActive лишились в index.html. Додатково перевірено taps.spec.js і E2E таббару/вкладок.
+
 **Як тепер шукати код (STRUCT-3, Rev 2.32.345+):** код застосунку розкладається по `js/*.js` за областями (план і порядок підключення — `docs/reports/STRUCT-3-step0.md`; уже винесено `js/util-*.js`). Шукай функцію за назвою одразу в `index.html` і `js/`: `grep -rn "function name" index.html js/`. Оператори верхнього рівня й `initApp` лишаються в основному `<script>` `index.html`. Порядок підключення й цілісність перевіряє `node scripts/struct3-check-load.js` (також у перевірці перед пушем). Тести читають увесь код через `readIndexWithCss()` / `SOURCE` у `tests/extract.js`.
 
 **Допоміжні функції (Rev 2.32.345, STRUCT-2):** без стану, глобальні, підключені звичайними `<script src="./js/…?v=<APP_VERSION>">` перед основним `<script>` (мережа-спочатку в `sw.js`, у `APP_SHELL`; мітку перевіряє `pre-push-guard`). `tests/extract.js`: `SOURCE` = ці файли в порядку підключення + `index.html`.

@@ -22,12 +22,24 @@ if(args.includes('--dry')){ console.log(JSON.stringify(rep)); process.exit(0); }
 // початок власного коментаря над оголошенням (останній абзац «Rev …» блоку коментарів над ним, якщо називає ім'я або має ≤ 2 рядки)
 const abs = (it) => ({ s: best.start + it.start, e: best.start + it.end });
 function startWithComment(it){
-  const { s } = abs(it); let a = html.lastIndexOf('\n', s - 1) + 1; const lines = []; let q = a;
-  for(;;){ const prevEnd = q - 1; if(prevEnd < 0) break; const ps = html.lastIndexOf('\n', prevEnd - 1) + 1; const line = html.slice(ps, prevEnd); if(/^\s*(\/\/|\/\*|\*)/.test(line) || /\*\/\s*$/.test(line)){ lines.unshift({ ps, line }); q = ps; } else break; }
-  let startIdx = 0; lines.forEach((l, i) => { if(/^\s*(\/\/|\/\*)\s*(=+\s*)?Rev\b/.test(l.line) || /^\s*(\/\/|\/\*)\s*=+/.test(l.line)) startIdx = i; });
-  const own = lines.slice(startIdx); const txt = own.map(l => l.line).join('\n');
-  if(own.length && (own.length <= 2 || it.names.some(n => txt.indexOf(n) !== -1)) && !/^\s*\*\//.test(own[0].line)) a = own[0].ps;
-  return a;
+  // коментарі над оголошенням розбираємо цілими одиницями: рядок «//…» або повний блок «/* … */» (усі його рядки, навіть без «*» на початку)
+  const { s } = abs(it); const a0 = html.lastIndexOf('\n', s - 1) + 1; const units = []; let q = a0;
+  for(;;){
+    const prevEnd = q - 1; if(prevEnd < 0) break;
+    const ps = html.lastIndexOf('\n', prevEnd - 1) + 1; const line = html.slice(ps, prevEnd);
+    if(/^\s*\/\//.test(line)){ units.unshift({ ps, text: line }); q = ps; continue; }
+    if(/\*\/\s*$/.test(line)){ // кінець блочного коментаря: шукаємо рядок з «/*»
+      let ps2 = ps, ok = false;
+      for(;;){ const l2 = html.slice(ps2, html.indexOf('\n', ps2)); if(/\/\*/.test(l2)){ ok = true; break; } if(ps2 === 0) break; ps2 = html.lastIndexOf('\n', ps2 - 2) + 1; }
+      if(!ok) break;
+      units.unshift({ ps: ps2, text: html.slice(ps2, prevEnd) }); q = ps2; continue;
+    }
+    break;
+  }
+  let startIdx = 0; units.forEach((u, i) => { if(/^\s*(\/\/|\/\*)\s*(=+\s*)?Rev\b/.test(u.text) || /^\s*(\/\/|\/\*)\s*=+/.test(u.text)) startIdx = i; });
+  const own = units.slice(startIdx); const txt = own.map(u => u.text).join('\n'); const nLines = txt ? txt.split('\n').length : 0;
+  if(own.length && (nLines <= 2 || it.names.some(n => txt.indexOf(n) !== -1))) return own[0].ps;
+  return a0;
 }
 let body = ''; const removals = []; let pointerAt = null;
 { const selSet = new Set(sel); const runs = []; let cur = null;
