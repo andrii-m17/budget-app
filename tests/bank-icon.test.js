@@ -36,6 +36,6 @@ test('виклики: рядки й шторки передають вид (бо
   assert.equal((SRC.match(/bankIcon\([^)]*'installment'\)/g) || []).length, 4);
   assert.equal((SRC.match(/bankIcon\([^)]*'card'\)/g) || []).length, 4);
   assert.ok(!/bankIcon\(d\.name\)/.test(SRC) && !/bankIcon\(name, 3[48], true\)/.test(SRC));
-  assert.match(SRC, /\.bank-badge\.bank-badge-generic\{ background:var\(--color-surface-hover\); color:var\(--color-text-secondary\); border-radius:50%;/);
+  assert.match(SRC, /\.bank-badge\.bank-badge-generic\{ background:var\(--surface-2\); color:var\(--text-2\); border-radius:50%;/);
   assert.match(SRC, /width:58%; height:58%/);
 });

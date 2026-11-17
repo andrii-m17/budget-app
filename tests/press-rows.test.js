@@ -14,6 +14,6 @@ test('усі інтерактивні елементи «Структури», �
 test('рядки-списки мають фон на час .is-pressed (токен поверхні), без нових обробників', function(){
   const rule = SRC.match(/\.struct-row\.is-pressed, [^{]*\{([^}]*)\}/);
   assert.ok(rule); assert.match(rule[0], /\.struct-dict-head\.is-pressed/); assert.match(rule[0], /\.notif-row\.is-pressed/); assert.match(rule[0], /\.mono-row\.is-pressed/);
-  assert.match(rule[1], /background:var\(--color-surface-hover\)/);
+  assert.match(rule[1], /background:var\(--surface-2\)/);
   assert.equal((SRC.match(/function initPressFeedback/g) || []).length, 1);
 });

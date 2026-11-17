@@ -42,7 +42,7 @@ test('рядки 48 пт, підпис ліворуч і значення пра
   assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-input\{[^}]*height:48px/);
   assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-select\{ position:absolute; inset:0; width:100%; height:100%; opacity:0;/);
   assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-value\{[^}]*text-overflow:ellipsis/);
-  assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-group\{[^}]*border-radius:18px/);
+  assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-group\{[^}]*border-radius:var\(--r-m\)/);
   assert.ok(!/class="sf-label-top"|text-transform:uppercase[^}]*sf-/.test(SRC.slice(SRC.indexOf(':is(#struct-drawer, #mono-detail-drawer) .sf-title'), SRC.indexOf(':is(#struct-drawer, #mono-detail-drawer) .sf-delete-wrap .struct-caption'))), 'підписів зверху немає');
   assert.match(SRC, /sel\.addEventListener\('change', function\(\)\{ api\.refresh\(\);/);
   assert.match(SRC, /\{ value: '', label: 'Без підкатегорії' \}/);
@@ -55,7 +55,7 @@ test('плитка-перегляд оновлюється під час наб�
 test('кнопки знизу парою в один рядок; «Скасувати» обведена; «Видалити …» червоним текстом під парою лише при редагуванні, з підписом', function(){
   assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-actions\{ display:flex; gap:10px;/);
   assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-actions \.submit-btn\{ flex:1 1 0; min-height:50px; \}/);
-  assert.match(SRC, /submit-btn\.secondary\{ background:transparent; border:1\.5px solid var\(--color-border-strong\)/);
+  assert.match(SRC, /submit-btn\.secondary\{ background:transparent; border:1\.5px solid var\(--line-strong\)/);
   assert.match(SRC, /id="sf-delete" class|<button type="button" class="cdd-delete-link" id="sf-delete">/);
   assert.match(SRC, /if\(cfg\.del\)\{/); assert.match(SRC, /dw\.style\.display = 'none';/);
   assert.match(SRC, /Витрати цієї категорії не видаляються\. Видалена категорія потрапляє у «Видалені дані»\./);

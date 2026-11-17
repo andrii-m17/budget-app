@@ -73,7 +73,7 @@ test('охоронні: немає підзаголовка й рядка «Ус
   const css = SRC.slice(cssStart, SRC.indexOf('.pay-done span.m{', cssStart));
   (css.match(/font-size:(\d+(?:\.\d+)?)px/g) || []).forEach(function(x){ assert.ok(parseFloat(x.slice(10)) >= 11, x); });
   assert.match(css, /\.pay-card\{[^}]*border-radius:20px; padding:12px 14px 6px/);
-  assert.match(css, /\.pay-day\{[^}]*min-height:52px;[^}]*gap:1px; padding:4px 0;[^}]*border-radius:12px/); assert.match(css, /\.pay-strip\{ display:flex; gap:3px;/);
+  assert.match(css, /\.pay-day\{[^}]*min-height:52px;[^}]*gap:1px; padding:4px 0;[^}]*border-radius:var\(--r-s\)/); assert.match(css, /\.pay-strip\{ display:flex; gap:3px;/);
   assert.match(css, /\.pay-line1\{[^}]*min-height:34px; font-size:14px/); assert.match(css, /\.pay-msg\{[^}]*min-height:34px; font-size:13px/);
 });
 test('тап по комірці з платежем відкриває «Платежі» на даті; уся картка — без дати; картка в renderAll; прихована без даних', function(){

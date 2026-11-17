@@ -19,7 +19,7 @@ function model(o, remind){
 test('значки: календар (Наступний), жовте «!», нейтральні коло з календарем ₴ і з карткою; вбудовані SVG тих самих форм, що в bankIcon (EMPTY_STATE_ICONS)', function(){
   assert.match(SRC, /function payIconFor\(kind\)\{[\s\S]*?kind === 'unconfirmed' \? 'warn' : kind === 'next' \? 'plain' : 'neutral'/);
   assert.match(SRC, /kind === 'unconfirmed' \? PAY_BANG_SVG : kind === 'next' \? PAY_CAL_SVG : kind === 'cards' \? EMPTY_STATE_ICONS\.card : EMPTY_STATE_ICONS\.calendar/);
-  assert.match(SRC, /\.pay-ico\.neutral\{ background:var\(--color-surface-hover\); color:var\(--color-text-secondary\); \}/);
+  assert.match(SRC, /\.pay-ico\.neutral\{ background:var\(--surface-2\); color:var\(--text-2\); \}/);
   assert.match(SRC, /\.pay-ico\.warn\{ background:var\(--color-warning\); \}/);
   assert.match(SRC, /\.pay-ico svg\{ width:58%; height:58%/); // як .bank-badge-generic svg
   assert.match(SRC, /EMPTY_STATE_ICONS = \{[\s\S]*?calendar: '[^']*₴/); // календар із гривнею
@@ -28,7 +28,7 @@ test('значки: календар (Наступний), жовте «!», н�
 });
 test('кольори підписів: «N без позначки» warning, назви у приглушеному токені; токен існує', function(){
   assert.match(SRC, /\.pay-msg\.amber \.l \.head\{ color:var\(--color-warning\); \}/);
-  assert.match(SRC, /\.pay-msg \.l \.tail\{ color:var\(--color-text-tertiary\); \}/);
+  assert.match(SRC, /\.pay-msg \.l \.tail\{ color:var\(--text-3\); \}/);
   assert.ok(/--color-text-tertiary:#94A3B8/.test(SRC) && /--color-text-tertiary:#7C8BA3/.test(SRC));
 });
 test('«без позначки»: без дати, лише назви через кому; заголовок і перелік окремо', function(){
@@ -72,8 +72,8 @@ test('CSS смуги (Rev 2.32.170, відкат скла): сьогодні —
   assert.match(nx, /^ border:1px solid color-mix\(in srgb, var\(--color-info\) 55%, transparent\); $/);
   assert.ok(!/backdrop-filter|gradient|box-shadow|warning/.test(nx));
   assert.ok(!/\.pay-day\.next::(before|after)|\.pay-day\.today::after|\.pay-day\.next\.soon/.test(SRC), 'блика, крапки й «скоро» нема');
-  assert.match(SRC, /\.pay-day\.today\{ border-color:var\(--color-border-strong\); \}/);
-  assert.match(SRC, /\.pay-day\.has\{ background:var\(--color-surface-hover\); cursor:pointer; \}/);
+  assert.match(SRC, /\.pay-day\.today\{ border-color:var\(--line-strong\); \}/);
+  assert.match(SRC, /\.pay-day\.has\{ background:var\(--surface-2\); cursor:pointer; \}/);
   assert.ok(SRC.indexOf('.pay-day.has{') < SRC.indexOf('.pay-day.next{'));
 });
 
