@@ -1262,7 +1262,7 @@
   /* Rev 2.32.58 (F1) — форми «Структури» у компоненті .drawer: компактні рядки 48 пт (підпис ліворуч, значення праворуч), групи радіус 18, пара кнопок знизу (скасувати — обведена), «Видалити …» червоним текстом під парою; ✕ немає. Нативний select — прозорий поверх рядка, текст значення малюється окремо (обрізання знизу неможливе). */
   :is(#struct-drawer, #mono-detail-drawer) .sf-title{ margin:2px 0 var(--sp-3); font-size:var(--fs-body); font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-notice{ margin:0 0 var(--sp-3); padding:var(--sp-3) var(--sp-3); border-radius:var(--r-s); background:var(--color-warning-bg); color:var(--text); font-size:var(--fs-footnote); line-height:1.4; }
-  :is(#struct-drawer, #mono-detail-drawer) .sf-group{ background:var(--ui-glass, var(--surface-2)); border:1px solid var(--line); border-radius:var(--r-m); overflow:hidden; margin-bottom:var(--sp-3); }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-group{ background:var(--ui-glass, var(--surface-2)); border:1px solid var(--line); border-radius:var(--r-m); overflow:hidden; margin-bottom:10px; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-row{ position:relative; display:flex; align-items:center; gap:var(--sp-3); min-height:48px; padding:0 var(--sp-4); box-sizing:border-box; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-row + .sf-row::before{ content:''; position:absolute; top:0; left:14px; right:0; height:1px; background:var(--line); }
   :is(#struct-drawer, #mono-detail-drawer) .sf-label{ flex:none; font-size:var(--fs-subhead); color:var(--text); }
@@ -1286,7 +1286,7 @@
   :is(#struct-drawer, #mono-detail-drawer) .sf-seg .struct-tabs{ width:100%; margin:0; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-seg .struct-tab-btn{ padding:var(--sp-2) var(--sp-1); }
   :is(#struct-drawer, #mono-detail-drawer) .struct-caption{ margin:0 var(--sp-1) var(--sp-3); }
-  :is(#struct-drawer, #mono-detail-drawer) .sf-actions{ display:flex; gap:var(--sp-3); margin-top:var(--sp-2); }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-actions{ display:flex; gap:var(--sp-3); /* Rev 2.32.384 (DS-4d2): margin-top 6px і .sf-group margin-bottom 10px зв'язані з компенсацією kb-sheet (.sf-body margin-bottom −8, тест 50) — не на сітку */ margin-top:6px; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-actions .submit-btn{ flex:1 1 0; min-height:50px; }
   html:root #mono-detail-drawer .mono-detail-actions .submit-btn.secondary, html:root :is(#struct-drawer, #mono-detail-drawer) .sf-actions .submit-btn.secondary{ background:transparent; border:1.5px solid var(--line-strong); color:var(--text); box-shadow:none; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-delete-wrap{ text-align:center; }

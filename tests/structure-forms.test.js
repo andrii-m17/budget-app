@@ -54,7 +54,7 @@ test('плитка-перегляд оновлюється під час наб�
   assert.match(SRC, /'Тип категорії'/); assert.match(SRC, /state\.type = t;/);
 });
 test('кнопки знизу парою в один рядок; «Скасувати» обведена; «Видалити …» червоним текстом під парою лише при редагуванні, з підписом', function(){
-  assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-actions\{ display:flex; gap:10px;/);
+  assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-actions\{ display:flex; gap:var\(--sp-3\);/);
   assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-actions \.submit-btn\{ flex:1 1 0; min-height:50px; \}/);
   assert.match(SRC, /submit-btn\.secondary\{ background:transparent; border:1\.5px solid var\(--line-strong\)/);
   assert.match(SRC, /id="sf-delete" class|<button type="button" class="cdd-delete-link" id="sf-delete">/);

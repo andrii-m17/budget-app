@@ -13,3 +13,5 @@
 | 1289 | `:is(#struct-drawer, #mono-detail-drawer) .sf-actions` | gap | `10px` | `var(--sp-3)` |
 | 1293 | `:is(#struct-drawer, #mono-detail-drawer) .sf-delete-wrap .cdd-delete-link` | margin-top | `10px` | `var(--sp-3)` |
 | 1547 | `.mono-detail-actions` | gap | `10px` | `var(--sp-3)` |
+
+> Rev 2.32.384: рядки 1265 (`.sf-group` margin-bottom) і 1289 (`.sf-actions` margin-top) повернено до 10px і 6px: зв'язані з компенсацією kb-sheet (тест 50). Фактично змінено 9 з 11.

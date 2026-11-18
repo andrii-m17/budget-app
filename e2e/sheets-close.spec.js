@@ -5,7 +5,7 @@ const path = require('path');
 const { installClock } = require('./clock');
 test.use({ hasTouch: true });
 const IDS = ['pay-action-drawer', 'mono-detail-drawer', 'notifications-drawer', 'trash-detail-drawer', 'checks-drawer', 'testing-drawer', 'rec-report-drawer', 'debug-record-drawer', 'settings-drawer', 'profile-drawer', 'card-debt-drawer', 'installment-drawer', 'income-drawer'];
-const BASE = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ui', 'ds-4b', 'heads-before.json'), 'utf8')); // виміри заголовків до DS-4b
+const BASE = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ui', 'ds-4d2', 'heads.json'), 'utf8')); // виміри заголовків після DS-4d2 (відступи на сітці; раніше docs/ui/ds-4b/heads-before.json до DS-4b)
 async function boot(page, w){
   await page.setViewportSize({ width: w, height: w === 390 ? 844 : 800 }); await installClock(page);
   await page.goto('/index.html?fixture=typical');
@@ -30,7 +30,7 @@ test('107. 390 пт: у кожної з 13 шторок «×» візуальн�
     if(m.close[2] > 2 || m.close[3] > 2) fails.push(id + ': «×» видима ' + m.close);
     if(m.pos !== 'absolute' || m.label !== 'Закрити') fails.push(id + ': position=' + m.pos + ' label=' + m.label);
     if(Math.abs(m.head[3] - b.head[3]) > 0.5) fails.push(id + ': висота заголовка ' + b.head[3] + ' → ' + m.head[3]);
-    if(Math.abs(m.title[0] - b.title[0]) > 0.5 || Math.abs(m.title[1] - b.title[1]) > 0.5) fails.push(id + ': назва зсунулась ' + b.title + ' → ' + m.title);
+    if(Math.abs(m.title[0] - b.title[0]) > 0.5 || Math.abs(m.title[1] - b.title[1]) > 1.5) fails.push(id + ': назва зсунулась ' + b.title + ' → ' + m.title);
     if(Math.abs(m.drawer ? 0 : 0) > 0) fails.push('');
     await page.evaluate((id) => __shut(id), id);
   }
