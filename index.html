@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.387"><link rel="stylesheet" href="./css/app.css?v=2.32.387"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.388"><link rel="stylesheet" href="./css/app.css?v=2.32.388"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -291,6 +291,13 @@
         </div>
       </div>
 
+      <!-- Rev 2.32.388 (DS-5c-1): картка «Деталізація витрат» (макет analytics-ds v18, картка 4) замість таблиць «Витрати за категоріями» і «Деталізація витрат»; наповнює renderCatCard(); дотик до рядка відкриває шторку з кільцем -->
+      <section class="card bal-cat" id="bal-cat-card">
+        <div class="bal-chead"><span class="bal-h">Деталізація витрат</span><button type="button" class="bal-more" id="bal-cat-all" onclick="openCatsSheet()">Усі <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></div>
+        <div class="bal-seg2" id="bal-cat-seg"><div class="ind"></div><button type="button" aria-pressed="true" data-m="cat">Категорії</button><button type="button" aria-pressed="false" data-m="sub">Підкатегорії</button></div>
+        <div class="bal-clist" id="bal-cat-top"></div>
+      </section>
+
       <div class="ov-kpistrip">
         <div class="card kpi-strip-card">
           <div class="kpi-strip">
@@ -323,18 +330,6 @@
            сама (той самий простий патерн, що вже в рядку Борги/ОЧ), без
            спільного стану, що впливав на сусідні картки. -->
       <div class="ov-row3" id="ov-row3">
-        <div class="card table-card" id="card-categories">
-          <div class="table-card-title">Витрати за категоріями</div>
-          <div class="table-header t-row-2col" id="categories-header"><span class="t-name">Категорія</span><span class="t-amt">Сума</span></div>
-          <div id="categories-body"></div>
-          <button type="button" class="t-footer-link" id="categories-trigger" onclick="toggleCardExpand('categories')">Всі категорії <span class="arrow">→</span></button>
-        </div>
-        <div class="card table-card" id="card-subcategories">
-          <div class="table-card-title">Деталізація витрат</div>
-          <div class="table-header t-row-2col" id="subcategories-header"><span class="t-name">Підкатегорія</span><span class="t-amt">Сума</span></div>
-          <div id="subcategories-body"></div>
-          <button type="button" class="t-footer-link" id="subcategories-trigger" onclick="toggleCardExpand('subcategories')">Всі підкатегорії <span class="arrow">→</span></button>
-        </div>
         <div class="card table-card" id="card-reducible">
           <div class="table-card-title">Потенціал економії</div>
           <div class="table-header t-row-3col" id="reducible-header"><span class="t-name">Підкатегорія</span><span class="t-priority">Потенціал</span></div>
@@ -899,7 +894,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.387</div>
+  <div class="version-footer">Money Tree · Rev 2.32.388</div>
 </div>
   </div>
 </div>
@@ -1125,6 +1120,19 @@
     <button class="drawer-close" onclick="closeInstSheet()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
   </div>
   <div class="bal-sheet-body" id="bal-sheet-inst-body"></div>
+</div>
+<div class="drawer-backdrop" id="bal-sheet-cats-backdrop" onclick="closeCatsSheet()" inert></div>
+<div class="drawer bal-sheet" id="bal-sheet-cats" role="dialog" aria-label="Деталізація витрат" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-head">
+    <div class="drawer-head-main">
+      <div class="drawer-head-text">
+        <h2>Деталізація витрат</h2>
+      </div>
+    </div>
+    <button class="drawer-close" onclick="closeCatsSheet()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+  </div>
+  <div class="bal-sheet-body" id="bal-sheet-cats-body"></div>
 </div>
 <div class="drawer-backdrop" id="trash-detail-backdrop" onclick="closeTrashDetail()" inert></div>
 <div class="drawer" id="trash-detail-drawer" role="dialog" aria-label="Видалений запис" aria-modal="true" inert>
@@ -1671,16 +1679,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.387"></script>
-<script src="./js/util-date.js?v=2.32.387"></script>
-<script src="./js/util-safe.js?v=2.32.387"></script>
-<script src="./js/util-misc.js?v=2.32.387"></script>
-<script src="./js/diag.js?v=2.32.387"></script>
-<script src="./js/shell.js?v=2.32.387"></script>
-<script src="./js/structure.js?v=2.32.387"></script>
-<script src="./js/analytics.js?v=2.32.387"></script>
-<script src="./js/payments.js?v=2.32.387"></script>
-<script src="./js/sheets.js?v=2.32.387"></script>
+<script src="./js/util-format.js?v=2.32.388"></script>
+<script src="./js/util-date.js?v=2.32.388"></script>
+<script src="./js/util-safe.js?v=2.32.388"></script>
+<script src="./js/util-misc.js?v=2.32.388"></script>
+<script src="./js/diag.js?v=2.32.388"></script>
+<script src="./js/shell.js?v=2.32.388"></script>
+<script src="./js/structure.js?v=2.32.388"></script>
+<script src="./js/analytics.js?v=2.32.388"></script>
+<script src="./js/payments.js?v=2.32.388"></script>
+<script src="./js/sheets.js?v=2.32.388"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6775,7 +6783,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.387';
+const APP_VERSION = '2.32.388';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

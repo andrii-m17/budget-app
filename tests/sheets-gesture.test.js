@@ -49,9 +49,9 @@ test('DS-4b: «×» sr-only лише < 1280 (не display:none, видима п�
   assert.ok(!/display:\s*none|visibility:\s*hidden/.test(m[1]), 'не display:none (інакше focusFirstIn віддав би фокус полю)');
   assert.ok(/html:root #installment-drawer \.drawer-close:not\(:focus-visible\)\{ width:1px; height:1px; \}/.test(CSS));
 });
-test('DS-4b: усі 15 шторок із «×» мають aria-label «Закрити»; у «Структури» прихована кнопка .sr-close в кінці розмітки (порядок фокусу: першим лишається поле)', function(){
+test('DS-4b: усі 16 шторок із «×» мають aria-label «Закрити»; у «Структури» прихована кнопка .sr-close в кінці розмітки (порядок фокусу: першим лишається поле)', function(){
   const btns = SRC.match(/<button class="drawer-close"[^>]*>/g) || [];
-  assert.equal(btns.length, 15); // Rev 2.32.386 (DS-5b): + шторки «Борги по картках» і «Оплати частинами» btns.forEach(b => assert.ok(/aria-label="Закрити"/.test(b), b));
+  assert.equal(btns.length, 16); // Rev 2.32.386 (DS-5b): + шторки «Борги по картках» і «Оплати частинами» btns.forEach(b => assert.ok(/aria-label="Закрити"/.test(b), b));
   const s0 = SRC.indexOf('<div class="drawer struct-form" id="struct-drawer"'); const d = SRC.slice(s0, SRC.indexOf('id="card-debt-backdrop"', s0));
   assert.ok(/<button type="button" class="sr-close" onclick="closeStructForm\(\)" aria-label="Закрити">Закрити<\/button>[^]*<\/div>\s*$/.test(d.trim() + '\n') || d.indexOf('class="sr-close"') > d.indexOf('sf-delete-wrap'), 'sr-close після вмісту');
   assert.ok(/\.sr-close:not\(:focus-visible\)\{ position:absolute; width:1px; height:1px;/.test(CSS) && /\.sr-close:focus-visible\{ display:block;/.test(CSS));

@@ -2,7 +2,7 @@
 const { test, expect } = require('@playwright/test');
 const { installClock } = require('./clock');
 test.use({ hasTouch: true });
-const IDS = ['pay-action-drawer', 'mono-detail-drawer', 'notifications-drawer', 'trash-detail-drawer', 'checks-drawer', 'testing-drawer', 'rec-report-drawer', 'debug-record-drawer', 'settings-drawer', 'profile-drawer', 'struct-drawer', 'card-debt-drawer', 'installment-drawer', 'income-drawer', 'bal-sheet-debt', 'bal-sheet-inst']; // Rev 2.32.386 (DS-5b): + шторки плиток «Борг» і «ОЧ»
+const IDS = ['pay-action-drawer', 'mono-detail-drawer', 'notifications-drawer', 'trash-detail-drawer', 'checks-drawer', 'testing-drawer', 'rec-report-drawer', 'debug-record-drawer', 'settings-drawer', 'profile-drawer', 'struct-drawer', 'card-debt-drawer', 'installment-drawer', 'income-drawer', 'bal-sheet-debt', 'bal-sheet-inst', 'bal-sheet-cats']; // Rev 2.32.386 (DS-5b): + шторки плиток «Борг» і «ОЧ»
 async function boot(page, o){
   o = o || {};
   await page.setViewportSize({ width: o.w || 390, height: o.h || 844 }); await installClock(page);
@@ -46,7 +46,7 @@ test('94. для кожної з 14 шторок: повільний свайп 
     const moved = await page.evaluate(async (id) => { const d = document.getElementById(id); await __swipe(d, 150, 6, 30); return { open: __isOpen(id), drag: d.style.getPropertyValue('--sheet-drag') }; }, id);
     if(!moved.open || moved.drag) fails.push(id + ': свайп по вмісту подіяв ' + JSON.stringify(moved));
     // закрити для наступної
-    await page.evaluate((id) => { const n = ({ 'pay-action-drawer': 'closePayAction', 'mono-detail-drawer': 'closeMonoDetail', 'notifications-drawer': 'closeNotificationsDrawer', 'trash-detail-drawer': 'closeTrashDetail', 'checks-drawer': 'closeChecksDrawer', 'testing-drawer': 'closeTestingDrawer', 'rec-report-drawer': 'closeRecReport', 'debug-record-drawer': 'closeDebugRecordDrawer', 'settings-drawer': 'closeSettings', 'profile-drawer': 'closeProfileLoginDrawer', 'struct-drawer': 'closeStructForm', 'card-debt-drawer': 'closeCardDebtEditor', 'installment-drawer': 'closeInstallmentEditor', 'income-drawer': 'closeIncomeEditor' })[id]; window[n](); }, id);
+    await page.evaluate((id) => { const n = ({ 'pay-action-drawer': 'closePayAction', 'mono-detail-drawer': 'closeMonoDetail', 'notifications-drawer': 'closeNotificationsDrawer', 'trash-detail-drawer': 'closeTrashDetail', 'checks-drawer': 'closeChecksDrawer', 'testing-drawer': 'closeTestingDrawer', 'rec-report-drawer': 'closeRecReport', 'debug-record-drawer': 'closeDebugRecordDrawer', 'settings-drawer': 'closeSettings', 'profile-drawer': 'closeProfileLoginDrawer', 'struct-drawer': 'closeStructForm', 'card-debt-drawer': 'closeCardDebtEditor', 'installment-drawer': 'closeInstallmentEditor', 'income-drawer': 'closeIncomeEditor', 'bal-sheet-debt': 'closeDebtSheet', 'bal-sheet-inst': 'closeInstSheet', 'bal-sheet-cats': 'closeCatsSheet' })[id]; window[n](); }, id);
     await page.waitForTimeout(300);
   }
   expect(fails, fails.join('\n')).toEqual([]);

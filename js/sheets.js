@@ -18,7 +18,7 @@ const SHEET_CLOSERS = {
   'trash-detail-drawer': 'closeTrashDetail', 'checks-drawer': 'closeChecksDrawer', 'testing-drawer': 'closeTestingDrawer',
   'rec-report-drawer': 'closeRecReport', 'debug-record-drawer': 'closeDebugRecordDrawer', 'settings-drawer': 'closeSettings',
   'profile-drawer': 'closeProfileLoginDrawer', 'struct-drawer': 'closeStructForm', 'card-debt-drawer': 'closeCardDebtEditor',
-  'installment-drawer': 'closeInstallmentEditor', 'income-drawer': 'closeIncomeEditor', 'app-modal': 'closeAppModal', 'bal-sheet-debt': 'closeDebtSheet', 'bal-sheet-inst': 'closeInstSheet'
+  'installment-drawer': 'closeInstallmentEditor', 'income-drawer': 'closeIncomeEditor', 'app-modal': 'closeAppModal', 'bal-sheet-debt': 'closeDebtSheet', 'bal-sheet-inst': 'closeInstSheet', 'bal-sheet-cats': 'closeCatsSheet'
 };
 // Чиста функція: dy — зсув униз (pt), dt — тривалість жесту (мс) → { close, vel (px/мс) }
 function sheetSwipeDecision(dy, dt){

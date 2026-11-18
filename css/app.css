@@ -3082,8 +3082,48 @@
 .bal-mono small{ font-family:inherit; font-size:var(--fs-caption1); font-weight:500; color:var(--text-3); letter-spacing:0; }
 .bal-sheet .och-ovals{ gap:var(--sp-1); }
 .bal-sheet .och-oval{ height:8px; border-radius:var(--r-2xs); }
+/* ===== Rev 2.32.388 (DS-5c-1): картка «Деталізація витрат» і шторка з кільцями (макет analytics-ds v18). Лише токени; анімація довжини дуги (stroke-dasharray) — свідомий виняток із «лише transform/opacity», при «зменшити рух» вимкнена. ===== */
+#ov-row3 > .table-card:only-child{ grid-column:1 / -1; } /* Rev 2.32.388: на десктопі одинока картка «Потенціал» (до DS-5c-2) на всю ширину ряду */
+.bal-cat{ display:flex; flex-direction:column; gap:var(--sp-3); margin-top:0; padding:var(--sp-4); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); box-shadow:none; min-width:0; margin-bottom:var(--sp-3); }
+.bal-chead{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-2); }
+.bal-more{ display:inline-flex; align-items:center; gap:2px; margin:0; padding:0; border:0; background:none; font:inherit; font-size:var(--fs-subhead); line-height:20px; font-weight:500; color:var(--text-2); white-space:nowrap; cursor:pointer; }
+.bal-more svg{ color:var(--text-3); }
+.bal-more.hidden{ display:none; }
+.bal-seg2{ --n:2; position:relative; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; height:40px; padding:var(--sp-1); border-radius:var(--r-pill); background:var(--surface-2); }
+.bal-seg2 button{ position:relative; z-index:1; margin:0; padding:0; border:0; background:none; font:inherit; font-size:var(--fs-subhead); font-weight:600; color:var(--text-2); text-align:center; border-radius:var(--r-pill); cursor:pointer; transition:color var(--t-s) var(--ease-standard); }
+.bal-seg2 button[aria-pressed="true"]{ color:var(--accent-text); }
+.bal-seg2 .ind{ position:absolute; top:var(--sp-1); bottom:var(--sp-1); left:var(--sp-1); width:calc((100% - var(--sp-2)) / var(--n)); border-radius:var(--r-pill); background:var(--accent-bg); border:1px solid var(--accent-line); transform:translateX(calc(var(--p, 0) * 100%)); transition:transform var(--t-l) var(--ease-spring); }
+.bal-clist{ display:flex; flex-direction:column; }
+.bal-crow{ display:flex; flex-direction:column; gap:var(--sp-2); width:100%; margin:0; padding:var(--sp-2) 0; border:0; border-top:1px solid var(--line); background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.bal-clist .bal-crow:first-child, #bal-call .bal-crow:first-child{ border-top:0; }
+.bal-cli{ display:flex; align-items:center; gap:var(--sp-3); min-height:28px; }
+.bal-em{ display:grid; place-items:center; width:28px; height:28px; flex:none; border-radius:var(--r-xs); background:var(--surface-2); font-size:var(--fs-subhead); line-height:1; }
+.bal-cnm{ flex:1; min-width:0; font-size:var(--fs-callout); color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bal-csub{ margin-left:var(--sp-2); font-size:var(--fs-footnote); color:var(--text-3); }
+.bal-cam{ font-size:var(--fs-callout); font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--text); }
+.bal-cpc{ flex:none; width:40px; font-size:var(--fs-footnote); text-align:right; color:var(--text-3); }
+.bal-ctrack{ position:relative; display:block; height:4px; margin-left:var(--sp-10); overflow:hidden; border-radius:var(--r-2xs); background:var(--surface-2); }
+.bal-cfill{ position:absolute; inset:0; display:block; transform-origin:left; transform:scaleX(var(--v, 0)); animation:balGrow var(--t-count) var(--ease-out) backwards; background:var(--cat-bar); }
+.bal-cfill.sub{ background:var(--sub-bar); }
+.bal-sheet .bal-crow{ margin:0 calc(var(--sp-2) * -1); width:calc(100% + var(--sp-4)); padding:var(--sp-2); border-radius:var(--r-s); transition:background var(--t-micro) var(--ease-standard); }
+.bal-sheet .bal-crow.on{ background:var(--surface-2); border-top-color:transparent; }
+.bal-sheet .bal-crow.on + .bal-crow{ border-top-color:transparent; }
+.bal-sunwrap{ --bal-dl-step:40ms; --bal-dl-base:550ms; position:relative; width:208px; height:208px; margin:var(--sp-1) auto 0; }
+.bal-sunwrap svg{ width:100%; height:100%; overflow:visible; transform:rotate(-90deg); }
+.bal-sg{ fill:none; cursor:pointer; pointer-events:stroke; transition:stroke-dasharray var(--t-count) var(--ease-out), opacity var(--t-s) var(--ease-standard); }
+.bal-sg.dim{ opacity:.22; }
+.bal-suc{ position:absolute; left:50%; top:50%; width:112px; margin:0; padding:var(--sp-1) 0; border:0; background:none; color:inherit; font:inherit; transform:translate(-50%, -50%); display:flex; flex-direction:column; align-items:center; gap:1px; text-align:center; border-radius:50%; cursor:pointer; animation:balFade var(--t-s) var(--ease-standard); }
+.bal-suc b{ font-size:var(--fs-callout); line-height:20px; font-weight:700; white-space:nowrap; color:var(--text); font-variant-numeric:tabular-nums; }
+.bal-suc span{ max-width:104px; font-size:var(--fs-caption2); line-height:14px; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bal-suc .bal-ce{ font-size:var(--fs-title3); line-height:24px; }
+.bal-suc .bal-cpos{ color:var(--income-text); font-weight:600; }
+.bal-suc .bal-cpos.up{ color:var(--expense); }
+.bal-dl{ position:absolute; transform:translate(-50%, -50%); display:flex; flex-direction:column; align-items:center; font-size:var(--fs-caption2); line-height:11px; font-weight:700; color:var(--on-ring); text-shadow:0 1px 2px var(--on-ring-shadow); pointer-events:none; transition:opacity var(--t-s) var(--ease-standard); animation:balFade var(--t-m) var(--ease-standard) backwards; animation-delay:calc(var(--n) * var(--bal-dl-step) + var(--bal-dl-base)); }
+.bal-dl i{ font-style:normal; font-size:var(--fs-subhead); line-height:16px; text-shadow:none; }
+.bal-dl.dim{ opacity:.2; }
+.bal-hint{ margin-top:calc(var(--sp-2) * -1); font-size:var(--fs-caption1); line-height:16px; text-align:center; color:var(--text-3); }
 @media (max-width:359px){ .bal-kic{ display:none; } }
 @media (prefers-reduced-motion: reduce){
-  .bal-seg, .bal-dline, .bal-dtag, .bal-fill, .bal-chart .ln, .bal-chart circle{ animation:none; }
-  .bal-xp, .bal-xin, .bal-chev, .odc, .bal-chart circle, .bal-sum{ transition:none; }
+  .bal-seg, .bal-dline, .bal-dtag, .bal-fill, .bal-chart .ln, .bal-chart circle, .bal-cfill, .bal-dl, .bal-suc{ animation:none; }
+  .bal-xp, .bal-xin, .bal-chev, .odc, .bal-chart circle, .bal-sum, .bal-sg, .bal-seg2 .ind{ transition:none; }
 }

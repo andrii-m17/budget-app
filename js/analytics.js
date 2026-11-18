@@ -1032,38 +1032,9 @@ function renderDashboard(){
   monthExp.forEach(e=>{ const key = e.category || '🧾 Без категорії'; byCat[key] = (byCat[key]||0)+e.amount; });
   const allCatSorted = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
   const top5 = allCatSorted.slice(0,5);
-  const restCat = allCatSorted.slice(5).reduce((s,pair)=>s+pair[1],0);
-  const max5 = top5.length ? top5[0][1] : 1;
-  const maxCatAll = allCatSorted.length ? allCatSorted[0][1] : 1;
 
-  cardVariants.categories = {
-    triggerLabel: 'Всі категорії',
-    compactHeaderClass: 'table-header t-row-2col',
-    compactHeaderHtml: '<span class="t-name">Категорія</span><span class="t-amt">Сума</span>',
-    compactBodyHtml: (top5.length===0
-      ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
-      : top5.map(function(pair){ var name=pair[0], sum=pair[1]; return `
-        <div class="t-row t-row-2col">
-          <span class="t-name">${escapeHtml(name)}</span>
-          <span class="t-amt">${fmt(sum)}</span>
-        </div>`; }).join('')) +
-      (restCat>0 ? `<div class="t-row t-row-2col summary"><span class="t-name">Інші категорії</span><span class="t-amt">${fmt(restCat)}</span></div>` : ''),
-    detailHeaderClass: 'table-header',
-    detailHeaderHtml: '<span class="t-name">Категорія</span><span class="t-bar-h"></span><span class="t-amt">Сума</span><span class="t-pct">%</span>',
-    // BugFix Rev 1.7.1 (#8): "Всі категорії →" буквально мало показувати ВСІ
-    // категорії, а не той самий топ-5, що й у згорнутому вигляді — раніше
-    // detailBodyHtml помилково повторював top5. Тепер це allCatSorted цілком,
-    // тому рядка "Інші категорії" тут більше не потрібно (нема залишку).
-    detailBodyHtml: (allCatSorted.length===0
-      ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
-      : allCatSorted.map(function(pair){ var name=pair[0], sum=pair[1]; return `
-        <div class="t-row">
-          <span class="t-name">${escapeHtml(name)}</span>
-          <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(sum/maxCatAll*100).toFixed(0)}%; background:var(--color-warning);"></div></div></span>
-          <span class="t-amt">${fmt(sum)}</span>
-          <span class="t-pct">${totalIncome>0 ? ((sum/totalIncome)*100).toFixed(1)+'%' : '—'}</span>
-        </div>`; }).join(''))
-  };
+  // Rev 2.32.388 (DS-5c-1): таблиці «Витрати за категоріями» і «Деталізація витрат» замінено карткою «Деталізація витрат» з кільцями (renderCatCard); byCat/bySub лишаються для висновків і «Потенціалу».
+  renderCatCard(monthExp, month);
 
   /* --- Деталізація витрат (підкатегорії) ---
      Важливо: враховуємо лише записи з реальною підкатегорією. Раніше запис без
@@ -1071,37 +1042,6 @@ function renderDashboard(){
      підкатегорій (Rev 1.3.1, виправлення алгоритму вибірки). --- */
   const bySub = {};
   monthExp.forEach(e=>{ if(!e.subcategory) return; bySub[e.subcategory] = (bySub[e.subcategory]||0) + e.amount; });
-  const allSubSorted = Object.entries(bySub).sort((a,b)=>b[1]-a[1]);
-  const top10 = allSubSorted.slice(0,10);
-  const max10 = top10.length ? top10[0][1] : 1;
-  const collapsedSub = allSubSorted.slice(0,5);
-  const collapsedRestSub = allSubSorted.slice(5).reduce((s,pair)=>s+pair[1],0);
-
-  cardVariants.subcategories = {
-    triggerLabel: 'Всі підкатегорії',
-    compactHeaderClass: 'table-header t-row-2col',
-    compactHeaderHtml: '<span class="t-name">Підкатегорія</span><span class="t-amt">Сума</span>',
-    compactBodyHtml: (collapsedSub.length===0
-      ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
-      : collapsedSub.map(function(pair){ var name=pair[0], sum=pair[1]; return `
-        <div class="t-row t-row-2col">
-          <span class="t-name">${escapeHtml(name)}</span>
-          <span class="t-amt">${fmt(sum)}</span>
-        </div>`; }).join('')) +
-      (collapsedRestSub>0 ? `<div class="t-row t-row-2col summary"><span class="t-name">Інші підкатегорії</span><span class="t-amt">${fmt(collapsedRestSub)}</span></div>` : ''),
-    detailHeaderClass: 'table-header',
-    detailHeaderHtml: '<span class="t-name">Підкатегорія</span><span class="t-bar-h"></span><span class="t-amt">Сума</span><span class="t-pct">%</span>',
-    detailBodyHtml: (top10.length===0
-      ? `<div class="empty-hint">Немає витрат за цей місяць</div>`
-      : top10.map(function(pair){ var name=pair[0], sum=pair[1]; return `
-        <div class="t-row">
-          <span class="t-name">${escapeHtml(name)}</span>
-          <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(sum/max10*100).toFixed(0)}%; background:var(--color-info);"></div></div></span>
-          <span class="t-amt">${fmt(sum)}</span>
-          <span class="t-pct">${totalIncome>0 ? ((sum/totalIncome)*100).toFixed(1)+'%' : '—'}</span>
-        </div>`; }).join('')) +
-      (allSubSorted.length>10 ? `<div class="t-row summary"><span class="t-name">Інші підкатегорії</span><span class="t-bar-h"></span><span class="t-amt">${fmt(allSubSorted.slice(10).reduce((s,p)=>s+p[1],0))}</span><span class="t-pct">${totalIncome>0?((allSubSorted.slice(10).reduce((s,p)=>s+p[1],0)/totalIncome)*100).toFixed(1)+'%':'—'}</span></div>` : '')
-  };
 
   /* --- Потенціал економії: ТОП-5 підкатегорій за (сума × пріоритет) --- */
   const scored = Object.entries(bySub)
@@ -1138,7 +1078,7 @@ function renderDashboard(){
   };
 
   // Rev 2.32.386 (DS-5b): блок «Борги по картках» (compact/detail) прибрано — його замінила шторка плитки «Борг» (debtSheetHtml).
-  ['categories','subcategories','reducible'].forEach(applyCardExpandState);
+  ['reducible'].forEach(applyCardExpandState);
   updateRow3GridColumns();
 
   /* --- Ряд 4: "Ключові показники місяця" (Design-System-v2.0 §7) ---
@@ -1328,11 +1268,11 @@ function updateRow3GridColumns(){
   const row = document.getElementById('ov-row3');
   if(!row) return;
   const w = key => expandedRow4Key === key ? '1.5fr' : '1fr';
-  row.style.setProperty('--row3-col-1', w('categories'));
-  row.style.setProperty('--row3-col-2', w('subcategories'));
-  row.style.setProperty('--row3-col-3', w('reducible'));
+  row.style.setProperty('--row3-col-1', w('reducible')); // Rev 2.32.388 (DS-5c-1): таблиці категорій/підкатегорій замінено карткою «Деталізація витрат»; у ряду лишився «Потенціал» (DS-5c-2)
+  row.style.setProperty('--row3-col-2', '1fr');
+  row.style.setProperty('--row3-col-3', '1fr');
   // Rev 2.24.0 (M1) — замість анімації grid-template-columns (layout щокадру): короткий opacity-перехід при зміні розкладки.
-  const sig = [w('categories'), w('subcategories'), w('reducible')].join('|');
+  const sig = [w('reducible')].join('|');
   if(row.dataset.cols && row.dataset.cols !== sig && typeof row.animate === 'function' && !motionReduced()){
     row.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: motionDuration('s', motionK, false), easing: MOTION_EASE_OUT });
   }
@@ -1340,7 +1280,7 @@ function updateRow3GridColumns(){
 }
 function toggleCardExpand(key){
   expandedRow4Key = (expandedRow4Key === key) ? null : key;
-  ['categories','subcategories','reducible'].forEach(applyCardExpandState);
+  ['reducible'].forEach(applyCardExpandState);
   updateRow3GridColumns();
 }
 
@@ -1761,6 +1701,7 @@ function renderBalSheet(which){
 // Відкрита шторка перемальовується з нових даних (другий пристрій, зміна місяця під шторкою).
 function refreshBalSheets(){
   [['debt', 'bal-sheet-debt'], ['inst', 'bal-sheet-inst']].forEach(function(p){ const d = document.getElementById(p[1]); if(d && d.classList.contains('open')) renderBalSheet(p[0]); });
+  const cd = document.getElementById('bal-sheet-cats'); if(cd && cd.classList.contains('open')) renderCatsSheet(); // Rev 2.32.388 (DS-5c-1): шторка деталізації перемальовується з нових даних
 }
 function balSheetOpen(id){
   const b = document.getElementById(id + '-backdrop'), d = document.getElementById(id);
@@ -1784,4 +1725,205 @@ function openDebtSheet(){ renderBalSheet('debt'); balSheetOpen('bal-sheet-debt')
 function closeDebtSheet(){ balSheetClose('bal-sheet-debt'); }
 function openInstSheet(){ renderBalSheet('inst'); balSheetOpen('bal-sheet-inst'); }
 function closeInstSheet(){ balSheetClose('bal-sheet-inst'); }
+/* ===== Rev 2.32.388 (DS-5c-1): картка «Деталізація витрат» і шторка з кільцями (макет analytics-ds v18, картка 4; docs/reports/DS-5-step0.md, «Рішення 18.11») =====
+   F9: відсотки — частка суми витрат місяця (не доходу). Кільце: топ-5 + «Інші» (якщо в «Інших» одна позиція — лишається під власною назвою); список шторки — усі позиції; підкатегорії — з рядком «Без підкатегорії» (витрати без підкатегорії).
+   Колір: категорії --k1…--k5 за рангом, решта й «Без підкатегорії» --k6; підкатегорія — відтінок кольору категорії (100/64/42 % за рангом у ній). Анімація довжини дуги (stroke-dasharray) — свідомий виняток із «лише transform/opacity»; при «зменшити рух» вимкнена. */
+const DONUT_LABEL_MIN = 7;     // підпис (емодзі й %) на секторі від 7 % витрат
+const DONUT_R = 80.9;          // радіус підписів у кільці 208 pt
+const DONUT_SHADES = [100, 64, 42];
+// Початкові емодзі назви (категорії й підкатегорії з даних починаються з емодзі); '' якщо немає.
+function leadingEmoji(name){
+  const m = String(name == null ? '' : name).match(/^[\p{Extended_Pictographic}️‍⃣\p{Emoji_Modifier}]+/u);
+  return m ? m[0] : '';
+}
+// Розбивка витрат місяця: cats (усі категорії), subs (усі підкатегорії + «Без підкатегорії»); кожна позиція { key, name, sum, emoji, parent }; total — сума витрат. Записи з сумою ≤ 0 не рахуються.
+function catBreakdown(monthExp){
+  const byCat = {}, bySub = {}, subCat = {};
+  let total = 0, none = 0;
+  (monthExp || []).forEach(function(e){
+    const a = Number(e && e.amount);
+    if(!(a > 0)) return;
+    total += a;
+    const cat = e.category || '🧾 Без категорії';
+    byCat[cat] = (byCat[cat] || 0) + a;
+    if(e.subcategory){
+      bySub[e.subcategory] = (bySub[e.subcategory] || 0) + a;
+      (subCat[e.subcategory] = subCat[e.subcategory] || {})[cat] = ((subCat[e.subcategory] || {})[cat] || 0) + a;
+    }else none += a;
+  });
+  const desc = function(x, y){ return y.sum - x.sum || (x.name < y.name ? -1 : 1); };
+  const mk = function(raw, sum, kind, parent){ return { key: kind + ':' + raw, name: stripLeadingEmoji(raw) || raw, sum: sum, emoji: leadingEmoji(raw), parent: parent || '' }; };
+  const cats = Object.keys(byCat).map(function(k){ return mk(k, byCat[k], 'c', ''); }).sort(desc);
+  const subs = Object.keys(bySub).map(function(k){
+    const pc = subCat[k]; let best = '', bs = -1; Object.keys(pc).forEach(function(c){ if(pc[c] > bs){ bs = pc[c]; best = c; } }); // батько — категорія з більшою сумою
+    return mk(k, bySub[k], 's', best);
+  });
+  if(none > 0) subs.push({ key: 'n:', name: 'Без підкатегорії', sum: none, emoji: '', parent: '' });
+  subs.sort(desc);
+  return { total: total, cats: cats, subs: subs };
+}
+// Кільце: частки, «Інші», межа підпису, дуги. maxNamed = 5.
+function donutModel(items, maxNamed){
+  const mx = maxNamed || 5;
+  const list = (items || []).filter(function(i){ return i && Number(i.sum) > 0; }).slice().sort(function(a, b){ return b.sum - a.sum; });
+  const total = list.reduce(function(s, i){ return s + Number(i.sum); }, 0);
+  if(!(total > 0)) return { total: 0, count: 0, empty: true, segs: [] };
+  let head = list, rest = [];
+  if(list.length - mx > 1){ head = list.slice(0, mx); rest = list.slice(mx); } // «Інші» лише коли в них щонайменше дві позиції
+  const raw = head.map(function(i){ return { key: i.key, name: i.name, sum: Number(i.sum), emoji: i.emoji || '', parent: i.parent || '', other: false, restKeys: [] }; });
+  if(rest.length) raw.push({ key: '__other', name: 'Інші', sum: rest.reduce(function(s, i){ return s + Number(i.sum); }, 0), emoji: '📦', parent: '', other: true, restKeys: rest.map(function(i){ return i.key; }) });
+  let a = 0;
+  const segs = raw.map(function(s){
+    const share = s.sum / total * 100, mid = (a + share / 2) / 100 * 2 * Math.PI - Math.PI / 2, single = raw.length === 1;
+    const out = Object.assign({}, s, { share: share, pct: Math.round(share), label: share >= DONUT_LABEL_MIN,
+      dash: single ? 100 : Math.max(share - 0.8, 0.3), offset: single ? -a : -(a + 0.4), lx: 104 + DONUT_R * Math.cos(mid), ly: 104 + DONUT_R * Math.sin(mid) });
+    a += share;
+    return out;
+  });
+  return { total: total, count: list.length, empty: false, segs: segs };
+}
+function catPctText(sum, total){
+  if(!(total > 0)) return '';
+  const p = Math.round(sum / total * 100);
+  return (p === 0 && sum > 0) ? '<1%' : p + '%';
+}
+// Колір позиції: категорія — --k1…--k5 за рангом (решта --k6); підкатегорія — відтінок кольору категорії; без батька — --k6.
+function catColorIndex(rank){ return rank < 5 ? rank + 1 : 6; }
+function catColor(item, mode, cats, subs){
+  if(item.other || item.key === '__other') return 'var(--k6)';
+  if(mode === 'cat') return 'var(--k' + catColorIndex(cats.findIndex(function(c){ return c.key === item.key; })) + ')';
+  if(!item.parent) return 'var(--k6)';
+  const pr = cats.findIndex(function(c){ return c.key === 'c:' + item.parent; });
+  const sib = subs.filter(function(s){ return s.parent === item.parent; });
+  const r = Math.min(sib.findIndex(function(s){ return s.key === item.key; }), DONUT_SHADES.length - 1);
+  return 'color-mix(in srgb, var(--k' + catColorIndex(pr < 0 ? 5 : pr) + ') ' + DONUT_SHADES[Math.max(0, r)] + '%, var(--surface))';
+}
+
+let balCatMode = 'cat', balCatSel = null, balCatData = null, balCatSource = [], balCatMonth = null;
+function balCatItems(){ return balCatData ? (balCatMode === 'cat' ? balCatData.cats : balCatData.subs) : []; }
+function catRowHtml(item, max, mode, color, inSheet){
+  const w = max > 0 ? item.sum / max : 0;
+  const emoji = item.emoji ? escapeHtml(item.emoji) : '•';
+  return '<button type="button" class="bal-crow" data-k="' + escapeAttr(item.key) + '"><span class="bal-cli"><span class="bal-em" aria-hidden="true">' + emoji + '</span><span class="bal-cnm">' + escapeHtml(item.name) +
+    (mode === 'sub' && item.parent ? '<span class="bal-csub">' + escapeHtml(stripLeadingEmoji(item.parent)) + '</span>' : '') + '</span><span class="bal-cam">' + fmt(item.sum) + '</span><span class="bal-cpc">' + catPctText(item.sum, balCatData.total) + '</span></span>' +
+    '<span class="bal-ctrack"><span class="bal-cfill' + (inSheet ? '' : (mode === 'cat' ? ' cat' : ' sub')) + '" style="--v:' + Math.max(0, Math.min(1, w)).toFixed(4) + (inSheet ? ';background:' + color : '') + '"></span></span></button>';
+}
+function syncCatSegs(){
+  ['bal-cat-seg', 'bal-cat-seg-s'].forEach(function(id){
+    const seg = document.getElementById(id); if(!seg) return;
+    Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b, i){ const on = b.dataset.m === balCatMode; b.setAttribute('aria-pressed', on ? 'true' : 'false'); if(on) seg.style.setProperty('--p', String(i)); });
+  });
+}
+// Картка: сегмент + топ-4 позицій (емодзі, сума, %, смуга).
+function renderCatCard(monthExp, month){
+  const host = document.getElementById('bal-cat-top');
+  if(!host) return;
+  balCatSource = monthExp || [];
+  if(month !== undefined && month !== balCatMonth){ balCatMonth = month; balCatSel = null; } // інший місяць — вибір скидається
+  balCatData = catBreakdown(balCatSource);
+  if(balCatSel && balCatSel !== '__other' && !balCatData.cats.concat(balCatData.subs).some(function(i){ return i.key === balCatSel; })) balCatSel = null;
+  if(balCatSel === '__other' && !donutModel(balCatItems(), 5).segs.some(function(x){ return x.other; })) balCatSel = null; // «Інші» зникли — вибір скидається
+  const items = balCatItems(), top = items.slice(0, 4);
+  syncCatSegs();
+  host.innerHTML = top.length ? top.map(function(i){ return catRowHtml(i, top[0].sum, balCatMode, '', false); }).join('') : '<div class="empty-hint">Немає витрат за цей місяць</div>';
+  const all = document.getElementById('bal-cat-all'); if(all) all.classList.toggle('hidden', !items.length);
+  refreshBalSheets();
+}
+function setCatMode(mode){
+  if(mode !== 'cat' && mode !== 'sub') return;
+  balCatMode = mode; balCatSel = null;
+  renderCatCard(balCatSource);
+}
+function catCenterHtml(){
+  const items = balCatItems(), total = balCatData ? balCatData.total : 0;
+  if(!balCatSel){
+    let cmp = '';
+    const c = balLast;
+    if(c){
+      const lim = sameDayLimits(c.pos, c.prevMonth);
+      if(lim){
+        const pp = percentChange(sumUpToDay(c.curExp, c.month, lim.curDay), sumUpToDay(c.prevExp, c.prevMonth, lim.prevDay)), ab = monthGenitive(c.prevMonth).slice(0, 3);
+        if(pp !== null) cmp = '<span class="bal-cpos' + (pp > 0 ? ' up' : '') + '">' + (pp > 0 ? '+' : (pp < 0 ? '−' : '')) + Math.abs(pp) + '% до ' + (lim.full ? ab : lim.prevDay + ' ' + ab) + '</span>';
+      }
+    }
+    return '<b>' + fmt(total) + '</b><span>' + items.length + ' ' + (balCatMode === 'cat' ? (items.length === 1 ? 'категорія' : (items.length >= 2 && items.length <= 4 ? 'категорії' : 'категорій')) : (items.length === 1 ? 'підкатегорія' : (items.length >= 2 && items.length <= 4 ? 'підкатегорії' : 'підкатегорій'))) + '</span>' + cmp;
+  }
+  if(balCatSel === '__other'){
+    const m = donutModel(items, 5), o = m.segs.filter(function(s){ return s.other; })[0];
+    return o ? '<span class="bal-ce">' + o.emoji + '</span><b>' + fmt(o.sum) + '</b><span>Інші · ' + catPctText(o.sum, total) + '</span>' : '<b>' + fmt(total) + '</b>';
+  }
+  const it = items.filter(function(i){ return i.key === balCatSel; })[0];
+  if(!it) return '<b>' + fmt(total) + '</b>';
+  return '<span class="bal-ce">' + (it.emoji ? escapeHtml(it.emoji) : '•') + '</span><b>' + fmt(it.sum) + '</b><span>' + escapeHtml(it.name) + ' · ' + catPctText(it.sum, total) + '</span>';
+}
+function applyCatSel(){
+  const body = document.getElementById('bal-sheet-cats-body'); if(!body) return;
+  const model = donutModel(balCatItems(), 5), restKeys = {};
+  model.segs.forEach(function(s){ s.restKeys.forEach(function(k){ restKeys[k] = true; }); });
+  const segOf = function(k){ return restKeys[k] ? '__other' : k; };
+  const selSeg = balCatSel ? segOf(balCatSel) : null;
+  Array.prototype.forEach.call(body.querySelectorAll('.bal-sg, .bal-dl'), function(g){ g.classList.toggle('dim', !!selSeg && g.dataset.k !== selSeg); });
+  Array.prototype.forEach.call(body.querySelectorAll('.bal-crow'), function(r){ r.classList.toggle('on', !!balCatSel && (r.dataset.k === balCatSel || (balCatSel === '__other' && !!restKeys[r.dataset.k]))); });
+  const c = document.getElementById('bal-sunc'); if(c){ c.innerHTML = catCenterHtml(); c.setAttribute('aria-label', (balCatSel ? c.innerText.replace(/\s+/g, ' ') + '. ' : '') + 'Скинути вибір'); c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; }
+}
+function renderBalDonut(){
+  const wrap = document.getElementById('bal-sunwrap'); if(!wrap || !balCatData) return;
+  const items = balCatItems(), model = donutModel(items, 5);
+  if(model.empty){ wrap.innerHTML = '<svg viewBox="0 0 36 36" role="img" aria-label="Немає витрат"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--surface-2)" stroke-width="7.4"/></svg><button type="button" class="bal-suc" id="bal-sunc" aria-label="Скинути вибір"></button>'; applyCatSel(); return; }
+  let segs = '', labs = '';
+  model.segs.forEach(function(s, i){
+    const col = catColor(s, balCatMode, balCatData.cats, balCatData.subs);
+    segs += '<circle class="bal-sg" data-k="' + escapeAttr(s.key) + '" cx="18" cy="18" r="14" pathLength="100" stroke-width="7.4" stroke="' + col + '" stroke-dasharray="0 100" data-v="' + s.dash.toFixed(2) + '" stroke-dashoffset="' + s.offset.toFixed(2) + '"/>';
+    if(s.label) labs += '<span class="bal-dl" data-k="' + escapeAttr(s.key) + '" style="left:' + s.lx.toFixed(1) + 'px;top:' + s.ly.toFixed(1) + 'px;--n:' + i + '"><i>' + (s.emoji ? escapeHtml(s.emoji) : '') + '</i>' + s.pct + '%</span>';
+  });
+  wrap.innerHTML = '<svg viewBox="0 0 36 36" role="img" aria-label="' + (balCatMode === 'cat' ? 'Частки категорій' : 'Частки підкатегорій') + '">' + segs + '</svg>' + labs + '<button type="button" class="bal-suc" id="bal-sunc" aria-label="Скинути вибір"></button>';
+  applyCatSel();
+  const circles = wrap.querySelectorAll('.bal-sg');
+  const finish = function(){ Array.prototype.forEach.call(circles, function(c){ c.setAttribute('stroke-dasharray', c.dataset.v + ' ' + (100 - parseFloat(c.dataset.v))); }); };
+  if(motionReduced()) finish();
+  else requestAnimationFrame(function(){ requestAnimationFrame(function(){ Array.prototype.forEach.call(circles, function(c, i){ c.style.transitionDelay = (120 + i * 45) + 'ms, 0ms'; }); finish(); }); });
+}
+function catsSheetHtml(){
+  const items = balCatItems(), max = items.length ? items[0].sum : 0;
+  const rows = items.map(function(i){ return catRowHtml(i, max, balCatMode, catColor(i, balCatMode, balCatData.cats, balCatData.subs), true); }).join('');
+  return '<div class="bal-seg2" id="bal-cat-seg-s"><div class="ind"></div><button type="button" aria-pressed="true" data-m="cat">Категорії</button><button type="button" aria-pressed="false" data-m="sub">Підкатегорії</button></div>' +
+    '<div class="bal-sunwrap" id="bal-sunwrap"></div><div class="bal-hint">Сектор показує частку витрат місяця. Торкніться сектора або рядка.</div><div id="bal-call">' + (rows || '<div class="empty-hint">Немає витрат за цей місяць</div>') + '</div>';
+}
+let balCatSheetSig = null;
+function renderCatsSheet(force){
+  const body = document.getElementById('bal-sheet-cats-body');
+  if(!body || !balCatData) return;
+  const sig = chartSignature([balCatMode, balCatItems().map(function(i){ return [i.key, i.sum]; })]);
+  if(!force && sig === balCatSheetSig && body.firstElementChild){ applyCatSel(); return; } // дані не змінились: кільце не перемальовується й анімація не стартує знову
+  balCatSheetSig = sig;
+  const drawer = document.getElementById('bal-sheet-cats'), top = drawer ? drawer.scrollTop : 0;
+  body.innerHTML = catsSheetHtml();
+  syncCatSegs(); renderBalDonut();
+  if(drawer) drawer.scrollTop = top;
+}
+function selectCat(key){
+  balCatSel = (balCatSel === key) ? null : key;
+  applyCatSel();
+  if(balCatSel){ const r = document.querySelector('#bal-call .bal-crow.on'); if(r && r.scrollIntoView) r.scrollIntoView({ block: 'nearest', behavior: motionReduced() ? 'auto' : 'smooth' }); }
+}
+function openCatsSheet(key, mode){
+  if(mode === 'cat' || mode === 'sub') balCatMode = mode;
+  balCatSel = key || null;
+  renderCatsSheet(true); balSheetOpen('bal-sheet-cats');
+  if(balCatSel){ const r = document.querySelector('#bal-call .bal-crow.on'); if(r && r.scrollIntoView) r.scrollIntoView({ block: 'nearest' }); }
+}
+function closeCatsSheet(){ balSheetClose('bal-sheet-cats'); balCatSel = null; }
+(function(){
+  const top = document.getElementById('bal-cat-top');
+  if(top) top.addEventListener('click', function(e){ const b = e.target.closest('[data-k]'); if(b) openCatsSheet(b.dataset.k, balCatMode); });
+  const seg = document.getElementById('bal-cat-seg');
+  if(seg) seg.addEventListener('click', function(e){ const b = e.target.closest('button[data-m]'); if(b) setCatMode(b.dataset.m); });
+  const sheet = document.getElementById('bal-sheet-cats-body');
+  if(sheet) sheet.addEventListener('click', function(e){
+    const sb = e.target.closest('#bal-cat-seg-s button[data-m]');
+    if(sb){ if(sb.dataset.m !== balCatMode){ balCatMode = sb.dataset.m; balCatSel = null; renderCatCard(balCatSource); } return; } // renderCatCard перемальовує й відкриту шторку
+    if(e.target.closest('#bal-sunc')){ balCatSel = null; applyCatSel(); return; }
+    const k = e.target.closest('[data-k]'); if(k) selectCat(k.dataset.k);
+  });
+})();
 (window.__MT_FILES = window.__MT_FILES || []).push('analytics.js');
