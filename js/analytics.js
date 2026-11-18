@@ -961,6 +961,7 @@ function renderDashboard(){
   const month = selectedMonth;
   if(!month) return;
   const { monthExp, monthInc, totalIncome, totalExpense, savings } = monthAggregates(month);
+  lastDashSavings = savings; miniHeadPaint(); // Rev 2.32.365 (DS-3f): те саме значення «Баланс», що й #kpi-savings, для капсули при прокрутці
   const debtNow = debtTotalsForMonth(month);
   const debtPrev = debtTotalsForMonth(shiftMonth(month,-1));
   // Rev #30 (6D.44) — activeDebts(): якщо всі борги tombstoned, це логічно "немає даних", не "є дані".

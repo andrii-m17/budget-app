@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.364"><link rel="stylesheet" href="./css/app.css?v=2.32.364"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.365"><link rel="stylesheet" href="./css/app.css?v=2.32.365"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -948,7 +948,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.364</div>
+  <div class="version-footer">Money Tree · Rev 2.32.365</div>
 </div>
   </div>
 </div>
@@ -983,6 +983,8 @@
      з'являється лише коли #main-col проскрольовано вниз (updateScrollTopBtn,
      нижче), і зникає при поверненні нагору. Особливо корисна після переходу
      на конкретну дату в Журналі чи довгого догортання списку. -->
+<!-- Rev 2.32.365 (DS-3f): скляна капсула «Аналітика · місяць · залишок» при прокрутці понад 150 pt (лише «Аналітика»); дотик — плавно нагору. На «Аналітиці» замінює кнопку «вгору». Живиться від спільного слухача прокрутки (subscribeMainScroll). -->
+<button type="button" class="mini-head" id="mini-head" aria-label="Повернутися нагору" aria-hidden="true" tabindex="-1" onclick="miniHeadClick()"><span class="mh-t">Аналітика</span><span class="mh-m"> · <i id="mini-head-month"></i> ·</span><b id="mini-head-bal"></b></button>
 <button type="button" class="scroll-top-btn" id="scroll-top-btn" onclick="scrollTopBtnClick()" aria-label="Прокрутити до початку">
   <span class="stb-clip" aria-hidden="true"></span>
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>
@@ -1690,15 +1692,15 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.364"></script>
-<script src="./js/util-date.js?v=2.32.364"></script>
-<script src="./js/util-safe.js?v=2.32.364"></script>
-<script src="./js/util-misc.js?v=2.32.364"></script>
-<script src="./js/diag.js?v=2.32.364"></script>
-<script src="./js/shell.js?v=2.32.364"></script>
-<script src="./js/structure.js?v=2.32.364"></script>
-<script src="./js/analytics.js?v=2.32.364"></script>
-<script src="./js/payments.js?v=2.32.364"></script>
+<script src="./js/util-format.js?v=2.32.365"></script>
+<script src="./js/util-date.js?v=2.32.365"></script>
+<script src="./js/util-safe.js?v=2.32.365"></script>
+<script src="./js/util-misc.js?v=2.32.365"></script>
+<script src="./js/diag.js?v=2.32.365"></script>
+<script src="./js/shell.js?v=2.32.365"></script>
+<script src="./js/structure.js?v=2.32.365"></script>
+<script src="./js/analytics.js?v=2.32.365"></script>
+<script src="./js/payments.js?v=2.32.365"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6793,7 +6795,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.364';
+const APP_VERSION = '2.32.365';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15566,6 +15568,7 @@ document.addEventListener('focusin', onFieldAttrsFocusIn, true);
 initSideNav();
 initMonthSwitcher(); // Rev 2.32.356 (DS-3e)
 initTabbarMini(); // Rev 2.32.364 (DS-3c)
+initMiniHead(); // Rev 2.32.365 (DS-3f)
 window.addEventListener('resize', function(){ updateTabBubble(true); });
 
 /* Rev 2.4.0 — свайп по самій панелі таббару (не по всьому екрану — щоб не

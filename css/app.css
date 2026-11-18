@@ -2272,6 +2272,15 @@
      таббарі (.tabbar-bubble: rgba(34,197,94,...) фон/рамка/тінь), разом із
      ліквід-глас розмиттям, що вже було — "рідний" елемент таббару, а не
      просто прозоре скло без кольору. */
+  /* Rev 2.32.365 (DS-3f): капсула «Аналітика · місяць · залишок» (макет analytics-ds .mini-head: h40, відступи 0 16, --r-pill, gap 8). Закріплена зверху по центру основної колонки під safe-area; лише opacity/transform (перехід --t-s / --t-m); backdrop-filter лише у видимому стані (єдиний новий шар розмиття); .mh-noblur — запасний варіант без розмиття. Розмір тексту --fs-subhead (15; макет 14 → за шкалою DS). */
+  .mini-head{ position:fixed; z-index:18; top:calc(env(safe-area-inset-top, 0px) + 10px); left:50%; height:40px; box-sizing:border-box; padding:0 var(--sp-4); border:0; border-radius:var(--r-pill); display:flex; align-items:center; gap:var(--sp-2); font:inherit; font-size:var(--fs-subhead); font-weight:600; color:var(--text); white-space:nowrap; cursor:pointer; background:var(--glass); box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge), inset 0 -1px 0 var(--glass-edge-2), inset 0 0 0 1px var(--glass-edge-2); opacity:0; visibility:hidden; transform:translate(-50%, -14px) scale(.94); pointer-events:none; transition:opacity var(--t-s) var(--ease-standard), transform var(--t-m) var(--ease-out), visibility 0s linear var(--t-m); -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .mini-head.on{ opacity:1; visibility:visible; transform:translate(-50%, 0) scale(1); pointer-events:auto; transition:opacity var(--t-s) var(--ease-standard), transform var(--t-m) var(--ease-out), visibility 0s; }
+  .mini-head:not(.mh-noblur).on{ -webkit-backdrop-filter:blur(24px) saturate(180%); backdrop-filter:blur(24px) saturate(180%); }
+  .mini-head.mh-noblur{ background:var(--surface); } /* запасний варіант без розмиття (MINI_HEAD_BLUR = false у shell.js) */
+  .mini-head span{ color:var(--text-2); font-weight:500; }
+  .mini-head .mh-m i{ font-style:normal; }
+  .mini-head::after{ content:''; position:absolute; inset:-2px 0; } /* зона дотику ≥ 44 pt по висоті (40 + 2×2) */
+  @media (prefers-reduced-motion: reduce){ .mini-head, .mini-head.on{ transition:none; } }
   .scroll-top-btn{
     position:fixed; right:16px; z-index:19;
     bottom:calc(env(safe-area-inset-bottom,0px) + 78px);
@@ -2643,6 +2652,7 @@
     html.side-collapsed{ --side-w:62px; }
     .app-shell{ flex-direction:row; max-width:1440px; margin-left:0; }
     .top{ display:block; text-align:left; padding:0 0 var(--sp-5); border-bottom:none; }
+    .mini-head{ left:calc(50% + (var(--side-w) + var(--sp-6)) / 2); } /* Rev 2.32.365 (DS-3f): по центру основної колонки поряд із бічною панеллю */
     .month-menu{ left:0; transform:translateY(-6px) scale(.9); transform-origin:top left; } .month-menu.on{ transform:none; } .month-now{ padding-left:0; padding-right:0; }
     .page-header-buttons{ display:none; }
     .page-header-buttons-left{ display:none; }

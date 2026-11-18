@@ -610,7 +610,7 @@ const BUTTON_VARIANT_MAP = {
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip', 'mono-inst-label', 'mono-refund-label', 'mono-cat-btn'],
   row: ['rs-rw', 'mono-row', 'mono-auto-row', 'mono-auto-ok', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
-  reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn', 'och-cond-row']
+  reference: ['mini-head', 'tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn', 'och-cond-row']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
 const BUTTON_MODIFIER_CLASSES = ['on', 'hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated', 'chk-mut', 'k', 'first', 'more'];
@@ -1180,6 +1180,7 @@ function performSwitchTab(tab, opts){
   });
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   tabbarMiniExpand('tab'); // Rev 2.32.364 (DS-3c): зміна вкладки розгортає таббар (прокрутку скинуто)
+  requestAnimationFrame(runMainScroll); // Rev 2.32.365 (DS-3f): капсула/кнопка «вгору» за новою вкладкою
   { // Rev 2.32.355 (DS-3b); Rev 2.32.357 (DS-3b2): лише при зміні вкладки; Rev 2.32.360 (DS-3b3): причина й запис у самописець
     const via = tabPressVia; tabPressVia = 'other';
     let why = tabAnimBlockReason({ switching: switching, enabled: tabAnimEnabled, visible: document.visibilityState === 'visible', kbOpen: document.body.classList.contains('kb-open'), drawerOpen: !!document.querySelector('.drawer.open'), autofocus: willAutofocus, reduced: motionReduced() });
@@ -1370,7 +1371,41 @@ function updateScrollTopBtn(){
   const mainColEl = document.getElementById('main-col');
   const btn = document.getElementById('scroll-top-btn');
   if(!mainColEl || !btn) return;
-  btn.classList.toggle('visible', mainColEl.scrollTop > SCROLL_TOP_BTN_THRESHOLD);
+  // Rev 2.32.365 (DS-3f): на «Аналітиці» кнопку «вгору» замінює капсула #mini-head (дві не показуємо); на інших вкладках без змін
+  btn.classList.toggle('visible', mainColEl.scrollTop > SCROLL_TOP_BTN_THRESHOLD && lastActiveTab !== 'analytics');
+}
+// ===== Rev 2.32.365 (DS-3f): капсула «Аналітика · місяць · залишок» при прокрутці =====
+// Показується лише на «Аналітиці», коли прокрутили понад MINI_HEAD_SHOW_Y, без клавіатури/шторки, на сторінці не коротшій за екран. Анімуються лише opacity і transform (CSS). Скло з одним розмиттям (як у таббара); MINI_HEAD_BLUR = false вмикає запасний варіант без розмиття (непрозорий --surface) — одним рядком, якщо на iPhone буде мерехтіння.
+const MINI_HEAD_SHOW_Y = 150;
+const MINI_HEAD_BLUR = true;
+// Чиста функція: s = { tab, y, max, kb, drawer } → чи показувати капсулу
+function miniHeadShouldShow(s){
+  return !!s && s.tab === 'analytics' && s.y > MINI_HEAD_SHOW_Y && s.max > 48 && !s.kb && !s.drawer;
+}
+let lastDashSavings = null; // «Баланс» місяця — те саме значення, що renderDashboard показує в #kpi-savings (monthAggregates → savings); нових формул немає
+let miniHeadLast = { y: 0, max: 0 };
+function miniHeadPaint(){
+  const m = document.getElementById('mini-head-month'), b = document.getElementById('mini-head-bal'); if(!m || !b) return;
+  if(selectedMonth) m.textContent = monthShortName(selectedMonth, monthKey(localDateISO()));
+  b.textContent = (typeof lastDashSavings === 'number' && isFinite(lastDashSavings)) ? fmt(lastDashSavings) : '—';
+}
+function miniHeadRefresh(){
+  const el = document.getElementById('mini-head'); if(!el) return;
+  const on = miniHeadShouldShow({ tab: lastActiveTab, y: miniHeadLast.y, max: miniHeadLast.max, kb: document.body.classList.contains('kb-open'), drawer: !!document.querySelector('.drawer.open, .app-modal.open') });
+  if(el.classList.contains('on') !== on){ el.classList.toggle('on', on); el.setAttribute('aria-hidden', on ? 'false' : 'true'); el.tabIndex = on ? 0 : -1; }
+}
+function miniHeadOnScroll(s){ miniHeadLast = { y: s.y, max: s.max }; miniHeadRefresh(); }
+function miniHeadClick(){
+  const el = document.getElementById('main-col'); if(!el) return;
+  if(motionReduced()){ el.scrollTop = 0; return; }
+  smoothScrollToTop();
+}
+function initMiniHead(){
+  const el = document.getElementById('mini-head'); if(!el) return;
+  if(!MINI_HEAD_BLUR) el.classList.add('mh-noblur');
+  subscribeMainScroll(miniHeadOnScroll);
+  if(typeof MutationObserver !== 'undefined') new MutationObserver(miniHeadRefresh).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+  miniHeadPaint();
 }
 
 // Rev #26.3 — за проханням: "ховається" — це зсув ВНИЗ (translateY), а не
