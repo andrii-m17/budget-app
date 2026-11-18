@@ -45,7 +45,7 @@ test('CSS макета: .mini — translateY(8px) scale(.8), підписи opac
   assert.ok(!/nav\.tabbar\.mini[^{]*\{[^}]*translateY\(8px\)/.test(CSS));
   assert.ok(/nav\.tabbar\.mini \.lb\{ opacity:0; \}/.test(CSS));
   assert.ok(/nav\.tabbar\.mini button:not\(\.tab-vytraty\) \.tbx > svg\{ transform:translateY\(9px\) scale\(1\.14\); \}/.test(CSS));
-  assert.ok(!/nav\.tabbar\.mini button\.tab-vytraty \.tb-icon-wrap\{/.test(CSS), '«+» зменшується разом із панеллю, без власного зсуву');
+  assert.ok(/nav\.tabbar\.mini button\.tab-vytraty \.tb-icon-wrap\{ transform:translateY\(var\(--tb-mini-plus-dy\)\); \}/.test(CSS) && /--tb-mini-plus-dy:21px;/.test(CSS), 'Rev 2.32.369 (DS-3c3): «+» зменшується з панеллю й опускається в неї (центр на лінії іконок)');
   assert.ok(/nav\.tabbar\{ --tb-mini-t:420ms; transform-origin:50% 100%; transition:transform var\(--tb-mini-t\) var\(--ease-standard\); \}/.test(CSS), 'перехід 420 мс однією змінною, м\'яка крива');
   assert.ok(/nav\.tabbar, nav\.tabbar \.lb, nav\.tabbar button \.tbx > svg\{ transition:none; \}/.test(CSS));
   assert.ok(!/\.tabbar-glass\{[^}]*\bmin-height:\s*(?!75px)/.test(CSS), 'висоту капсули не змінено');

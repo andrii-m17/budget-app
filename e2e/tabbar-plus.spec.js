@@ -12,37 +12,41 @@ const tapTab = async (page, tab) => { await page.evaluate(async (t) => { const b
 const record = (page, ms) => page.evaluate((ms) => new Promise((res) => { const out = []; const w = document.querySelector('nav.tabbar .tb-icon-wrap'), s = w.querySelector('svg'); let t0 = null; (function f(ts){ if(t0 === null) t0 = ts; const cs = getComputedStyle(s).transform; const m = new DOMMatrix(cs === 'none' ? undefined : cs); out.push({ t: ts - t0, a: Math.atan2(m.b, m.a) * 180 / Math.PI, ring: +getComputedStyle(w, '::after').opacity, sc: (() => { const v = getComputedStyle(w).scale; return v === 'none' ? 1 : parseFloat(v); })() }); if(ts - t0 < ms) requestAnimationFrame(f); else res(out); })(performance.now()); }), ms);
 // крок кута, приведений до кадру 16,7 мс (rAF у headless інколи 20–25 мс)
 const stepMax = (fr) => { let mx = 0; for (let i = 1; i < fr.length; i++){ const dt = Math.max(1, fr[i].t - fr[i - 1].t); mx = Math.max(mx, Math.abs(fr[i].a - fr[i - 1].a) * 16.7 / Math.max(dt, 16.7)); } return Math.round(mx * 10) / 10; };
-test('62. вихід з «Витрат» на кожну з чотирьох вкладок (дотик): ≈ 900 мс, кут «+» 90→0 без кроку понад 30° між кадрами, стиснення до .9 і назад, кільце згасає до кінця', async ({ page }) => {
+test('62. вихід з «Витрат» на кожну з чотирьох вкладок (дотик): ≈ 680 мс; «Аналітика»/«Облік» — проти годинникової (90→0°), «Структура»/«Сервіс» — за годинниковою (90→180°, потім непомітне скидання на 0°); крок кута ≤ 30° між кадрами; стиснення до .9 і назад; кільце згасає до кінця', async ({ page }) => {
   test.setTimeout(150000);
   await boot(page);
   await tapTab(page, 'accounting'); await page.waitForTimeout(500); // перший жест вмикає анімації
-  for (const to of ['accounting', 'analytics', 'structure', 'service']){
+  for (const [to, cw] of [['accounting', false], ['analytics', false], ['structure', true], ['service', true]]){
     await page.evaluate(() => switchTab('vytraty', { noFocus: true })); await page.waitForTimeout(1200);
     expect(await page.evaluate(() => +getComputedStyle(document.querySelector('nav.tabbar .tb-icon-wrap'), '::after').opacity), 'на «Витратах» є кільце').toBe(1);
-    const rec = record(page, 1400); await tapTab(page, to); const fr = await rec;
+    const rec = record(page, 1300); await tapTab(page, to); const fr = await rec;
+    const target = cw ? 180 : 0;
     expect(Math.round(fr[0].a), to + ': старт 90°').toBe(90);
-    expect(Math.round(fr[fr.length - 1].a), to + ': кінець 0°').toBe(0);
-    expect(stepMax(fr), to + ': найбільший крок між кадрами, °').toBeLessThanOrEqual(30);
-    for (let i = 1; i < fr.length; i++) expect(fr[i].a, to + ': кут не росте').toBeLessThanOrEqual(fr[i - 1].a + 0.5);
-    // тривалість ≈ 900 мс: від початку руху (кут < 89,5°) до кінця (кут < 0,5°)
-    const t0 = fr.find(f => f.a < 89.5).t, t1 = fr.find(f => f.a < 0.5).t;
-    expect(t1 - t0, to + ': тривалість виходу, мс').toBeGreaterThan(700); expect(t1 - t0, to + ': тривалість виходу, мс').toBeLessThan(1000);
-    // стиснення: 1 → .9 → 1
+    // напрямок: кут рухається до цілі монотонно (CW — зростає, CCW — спадає)
+    const run = fr.filter(f => cw ? f.a >= 89.5 && f.a <= 180.5 : f.a >= -0.5 && f.a <= 90.5);
+    for (let i = 1; i < run.length; i++){ if(cw) expect(run[i].a, to + ': за годинниковою — кут зростає').toBeGreaterThanOrEqual(run[i - 1].a - 0.5); else expect(run[i].a, to + ': проти годинникової — кут спадає').toBeLessThanOrEqual(run[i - 1].a + 0.5); }
+    expect(Math.max(...fr.map(f => Math.abs(f.a - 90))) , to + ': кут пройшов 90°').toBeGreaterThan(80);
+    const t0 = fr.find(f => Math.abs(f.a - 90) > 0.5).t, t1 = fr.find(f => Math.abs(f.a - target) < 0.5).t;
+    expect(t1 - t0, to + ': тривалість виходу, мс').toBeGreaterThan(560); expect(t1 - t0, to + ': тривалість виходу, мс').toBeLessThan(760);
+    // крок між кадрами до досягнення цілі (непомітне скидання 180→0 не рахуємо)
+    expect(stepMax(fr.filter(f => f.t <= t1 + 1)), to + ': найбільший крок між кадрами, °').toBeLessThanOrEqual(30);
     const mn = Math.min(...fr.map(f => f.sc)); expect(mn, to + ': стиснення до .9').toBeLessThanOrEqual(0.915); expect(mn).toBeGreaterThan(0.85);
     expect(fr[fr.length - 1].sc, to + ': назад до 1').toBeCloseTo(1, 2);
-    // кільце: згасає в тому ж темпі (проміжні значення впродовж виходу), не росте, у кінці 0
-    expect(fr.filter(f => f.a > 5 && f.a < 85).some(f => f.ring > 0.02 && f.ring < 0.98), to + ': кільце згасає разом із поворотом').toBe(true);
+    expect(fr.filter(f => f.a > 5 && f.a < 175).some(f => f.ring > 0.02 && f.ring < 0.98), to + ': кільце згасає разом із поворотом').toBe(true);
     for (let i = 1; i < fr.length; i++) expect(fr[i].ring, to + ': кільце не з\'являється назад').toBeLessThanOrEqual(fr[i - 1].ring + 0.01);
     expect(fr[fr.length - 1].ring, to + ': кільця немає в кінці').toBe(0);
+    // скидання: наприкінці кут 0° (180° ≡ 0° — «+» симетричний), клас скидання знято
+    expect(Math.round(fr[fr.length - 1].a), to + ': наприкінці 0°').toBe(0);
+    expect(await page.locator('nav.tabbar button.tab-out-cw, nav.tabbar button.tb-out-cw, nav.tabbar button.tb-reset').count(), to + ': службові класи знято').toBe(0);
   }
 });
-test('63. вихід повільний (900 мс, стандартна крива), вхід і решта без змін (480 мс, --ease-out); ті самі змінні для кільця', async ({ page }) => {
+test('63. вихід ≈ 680 мс (стандартна крива), вхід і решта без змін (480 мс, --ease-out); ті самі змінні для кільця', async ({ page }) => {
   await boot(page);
   const read = () => page.evaluate(() => { const w = document.querySelector('nav.tabbar .tb-icon-wrap'), s = w.querySelector('svg'); const f = (c) => ({ p: c.transitionProperty, d: c.transitionDuration, e: c.transitionTimingFunction }); const nav = getComputedStyle(document.querySelector('nav.tabbar')); return { svg: f(getComputedStyle(s)), ring: f(getComputedStyle(w, '::after')), vars: [nav.getPropertyValue('--tb-plus-out').trim(), nav.getPropertyValue('--tb-plus-sq').trim()] }; });
   await page.evaluate(() => switchTab('accounting')); await page.waitForTimeout(700); const off = await read();
   await page.evaluate(() => switchTab('vytraty', { noFocus: true })); await page.waitForTimeout(1200); const on = await read();
-  expect(off.vars, 'темп і стиснення — змінні').toEqual(['900ms', '.9']);
-  expect(off.svg).toEqual({ p: 'transform', d: '0.9s', e: 'cubic-bezier(0.4, 0, 0.2, 1)' }); expect(off.ring).toEqual({ p: 'opacity', d: '0.9s', e: 'cubic-bezier(0.4, 0, 0.2, 1)' });
+  expect(off.vars, 'темп і стиснення — змінні').toEqual(['680ms', '.9']);
+  expect(off.svg).toEqual({ p: 'transform', d: '0.68s', e: 'cubic-bezier(0.4, 0, 0.2, 1)' }); expect(off.ring).toEqual({ p: 'opacity', d: '0.68s', e: 'cubic-bezier(0.4, 0, 0.2, 1)' });
   expect(on.svg, 'вхід без змін').toEqual({ p: 'transform', d: '0.48s', e: 'cubic-bezier(0.22, 1, 0.36, 1)' }); expect(on.ring, 'вхід кільця без змін').toEqual({ p: 'opacity', d: '0.48s', e: 'cubic-bezier(0.22, 1, 0.36, 1)' });
 });
 test('64. швидка серія «Витрати → Облік → Витрати» (перемикання до завершення): кут не стрибає (≤ 30° між кадрами) і приходить до 90°', async ({ page }) => {
@@ -94,5 +98,16 @@ test('66. лічильник над «+»: верхній елемент у це
       if(name === 'під час виходу' || name === 'стиснений таббар') continue; // кнопка «+» разом із лічильником стискається (.9 при виході; .8 × .9 у стиснутому таббарі) — розмір/місце перевіряємо в решті станів
       expect(s.h, theme + ' ' + name + ': висота лічильника').toBe(16); expect(s.w).toBeGreaterThanOrEqual(16); expect(s.dTop, 'зсув зверху −2').toBe(-2); expect(s.dRight, 'зсув праворуч +2').toBe(2);
     }
+  }
+});
+
+test('67. переривання виходу «Витрати → Сервіс» поверненням на «Витрати»: рух продовжується з поточного кута без стрибка (за годинниковою вихід), після всього кут 90°', async ({ page }) => {
+  await boot(page);
+  await tapTab(page, 'accounting'); await page.waitForTimeout(300);
+  await page.evaluate(() => switchTab('vytraty', { noFocus: true })); await page.waitForTimeout(1200);
+  for (const gap of [80, 200, 450]){
+    const rec = record(page, 1400); await tapTab(page, 'service'); await page.waitForTimeout(gap); await page.evaluate(() => switchTab('vytraty', { noFocus: true })); const fr = await rec;
+    expect(stepMax(fr), 'перерване (' + gap + ' мс): крок між кадрами, °').toBeLessThanOrEqual(30);
+    expect(Math.round(fr[fr.length - 1].a), 'повернувся на 90°').toBe(90); await page.waitForTimeout(300);
   }
 });

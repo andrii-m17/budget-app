@@ -2466,15 +2466,20 @@
   nav.tabbar .lb{ display:inline-block; transition:opacity var(--t-s) var(--ease-standard); }
   nav.tabbar.mini .lb{ opacity:0; }
   nav.tabbar button .tbx > svg{ transition:transform var(--tb-mini-t) var(--ease-standard); }
+  /* Rev 2.32.369 (DS-3c3): у стисненій панелі «+» опускається разом з іншими іконками (не виступає над капсулою): центр кола на одній лінії з центрами іконок; зменшується разом із панеллю */
+  nav.tabbar.mini button.tab-vytraty .tb-icon-wrap{ transform:translateY(var(--tb-mini-plus-dy)); }
   nav.tabbar.mini button:not(.tab-vytraty) .tbx > svg{ transform:translateY(9px) scale(1.14); }
   /* Rev 2.32.357 (DS-3b2): повторний дотик по вибраній вкладці (.tb-repeat ставить touchstart): повернення після натиску плавне, без пружного перельоту */
   nav.tabbar.tb-repeat button.active .tbx{ transition:scale var(--t-s) var(--ease-standard), opacity var(--t-s) var(--ease-standard); }
-  nav.tabbar{ --tb-plus-out:900ms; --tb-plus-sq:.9; } /* Rev 2.32.366 (DS-3b6): темп і стиснення виходу з «Витрат» — змінні (одним рядком) */
+  nav.tabbar{ --tb-plus-out:680ms; --tb-plus-sq:.9; --tb-mini-plus-dy:21px; } /* Rev 2.32.369 (DS-3c3): вихід 900 → 680 мс (−25 %); --tb-mini-plus-dy — зсув «+» у стисненій панелі (виміряно: центр кола збігається з центрами іконок на 320/390/430) */ /* Rev 2.32.366 (DS-3b6): темп і стиснення виходу з «Витрат» — змінні (одним рядком) */
   /* Вихід (цільовий стан — невибраний): «+» повертається ~900 мс плавною кривою без перельоту, кільце згасає в тому ж темпі; вхід (.active, нижче) лишається 480 мс --ease-out. Вхід на «Витрати» ховає клавіатура, тож вихід — єдине, що користувач бачить: темп повільніший і помітніший. */
   nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:transform var(--tb-plus-out) var(--ease-standard); }
   nav.tabbar button.tab-vytraty.active .tb-icon-wrap svg{ transition:transform var(--t-l) var(--ease-out); } /* вхід як у DS-3b3 (макет) */
+  /* Rev 2.32.369 (DS-3c3): напрямок виходу залежить від вкладки: на «Аналітику»/«Облік» «+» повертається проти годинникової (90° → 0°, як було), на «Структуру»/«Сервіс» за годинниковою (90° → 180°); «+» симетричний, тож наприкінці shell.js непомітно скидає 180° → 0° (.tb-reset: без переходу) */
+  nav.tabbar button.tab-vytraty.tb-out-cw:not(.active) .tb-icon-wrap svg{ transform:rotate(180deg); }
+  nav.tabbar button.tab-vytraty.tb-reset .tb-icon-wrap svg{ transition:none; transform:none; }
   /* «Витрати»: коло «+» під натиском стискається до .9 (макет .pressing .plus{scale:.9}) поверх .86 вмісту */
-  nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard), scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1); }
+  nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard), scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1), transform var(--tb-mini-t) var(--ease-standard); }
   /* Rev 2.32.363 (DS-3b5): кільце «Витрат» — окремий шар ::after, який змінює лише opacity з тією самою тривалістю й кривою, що й поворот «+» (--t-l, --ease-out) в обидва боки: на вході з'являється, при виході згасає разом із поворотом, а не зникає миттєво (різкий ривок). box-shadow не анімуємо (правило: лише transform/opacity). */
   nav.tabbar button.tab-vytraty .tb-icon-wrap::after{ content:''; position:absolute; inset:0; border-radius:50%; box-shadow:0 0 0 4px var(--accent-bg), 0 0 0 5px var(--accent-line); opacity:0; pointer-events:none; transition:opacity var(--tb-plus-out) var(--ease-standard); }
   nav.tabbar button.tab-vytraty.active .tb-icon-wrap::after{ opacity:1; transition:opacity var(--t-l) var(--ease-out); }

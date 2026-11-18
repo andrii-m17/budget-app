@@ -53,21 +53,24 @@ test('89. нижній край капсули у стисненому стан�
     expect(mn.top, w + ': стиснений нижчий угорі (капсула зменшилась)').toBeGreaterThan(ex.top + 5); expect(mn.navBottom).toBe(ex.navBottom);
   }
 });
-test('90. «+» у стисненому стані: діаметр менший, ≈ 36 px; частка виступу над верхнім краєм капсули та сама (±10 %); лічильник поверх; на 320/390/430', async ({ page }) => {
+test('90. «+» у стисненому стані (DS-3c3): менший (≈ 35 px), опущений у панель — центр кола на одній лінії з центрами інших іконок (±2 px), не виступає над капсулою, лічильник поверх; на 320/390/430', async ({ page }) => {
   test.setTimeout(150000);
   for (const w of [320, 390, 430]){
     await boot(page, { w, tab: 'structure' });
     const measure = () => page.evaluate(() => { const g = document.getElementById('tabbar-glass').getBoundingClientRect(), wr = document.querySelector('nav.tabbar .tb-icon-wrap'), r = wr.getBoundingClientRect(), b = wr.querySelector('.tb-count-badge');
+      const icons = Array.from(document.querySelectorAll('nav.tabbar button:not(.tab-vytraty) .tbx > svg')).map(e => { const q = e.getBoundingClientRect(); return q.y + q.height / 2; });
       const st = document.createElement('style'); st.textContent = 'nav.tabbar .tb-icon-wrap::after{pointer-events:auto!important}'; document.head.appendChild(st); let top = null; if(b && !b.classList.contains('hidden')){ const br = b.getBoundingClientRect(); const hit = document.elementFromPoint(br.x + br.width / 2, br.y + br.height / 2); top = !!(hit && hit.closest('.tb-count-badge')); } st.remove();
-      return { d: r.width, protr: (g.top - r.top) / r.height, shadow: getComputedStyle(wr).boxShadow !== 'none', badgeOnTop: top }; });
+      return { d: r.width, cy: r.y + r.height / 2, top: r.top, bottom: r.bottom, gTop: g.top, gBottom: g.bottom, icons: icons, shadow: getComputedStyle(wr).boxShadow !== 'none', badgeOnTop: top }; });
     const ex = await measure();
     await userScroll(page, Math.floor((await maxY(page)) / 2)); expect(await mini(page)).toBe(true); await page.waitForTimeout(800);
     const mn = await measure();
-    expect(Math.round(ex.d), w + ': розгорнутий 44').toBe(44);
-    expect(mn.d, w + ': стиснений менший').toBeLessThan(ex.d); expect(mn.d, w + ': ≈ 36 px (співмірно зі стисненими іконками)').toBeGreaterThan(32); expect(mn.d).toBeLessThan(40);
-    expect(Math.abs(mn.protr - ex.protr) / ex.protr, w + ': частка виступу (' + ex.protr.toFixed(2) + ' → ' + mn.protr.toFixed(2) + ')').toBeLessThanOrEqual(0.10);
-    expect(ex.protr, 'у розгорнутому «+» виступає над капсулою').toBeGreaterThan(0.05);
+    expect(Math.round(ex.d), w + ': розгорнутий 44').toBe(44); expect(ex.top, 'у розгорнутому «+» виступає над капсулою').toBeLessThan(ex.gTop);
+    expect(mn.d, w + ': стиснений менший').toBeLessThan(ex.d); expect(mn.d).toBeGreaterThan(32); expect(mn.d).toBeLessThan(40);
+    mn.icons.forEach((c, i) => expect(Math.abs(mn.cy - c), w + ': центр «+» (' + mn.cy.toFixed(1) + ') на одній лінії з іконкою ' + i + ' (' + c.toFixed(1) + ')').toBeLessThanOrEqual(2));
+    expect(mn.top, w + ': «+» не виступає над капсулою').toBeGreaterThanOrEqual(mn.gTop - 0.5); expect(mn.bottom, w + ': «+» у межах панелі').toBeLessThanOrEqual(mn.gBottom + 0.5);
     expect(mn.shadow).toBe(true); expect(mn.badgeOnTop, w + ': лічильник поверх кола').toBe(true);
+    // нижній край панелі не змінився
+    expect(mn.gBottom, w + ': нижній край').toBeLessThanOrEqual(ex.gBottom + 1);
   }
 });
 test('91. перехід між станами ≈ 420 мс, м\'яка крива без перельоту, в обидва боки; лише transform; reduced-motion — миттєво', async ({ page }) => {

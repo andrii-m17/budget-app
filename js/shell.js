@@ -1103,12 +1103,21 @@ function traceTabAnimStart(from, to, via){
 }
 // Rev 2.32.366 (DS-3b6): вихід з «Витрат» — «+» коротко стискається (1 → .9 → 1) у темпі повороту й кільця (змінні --tb-plus-out, --tb-plus-sq на nav.tabbar). Клас .tb-out знімаємо за таймером; повторний вихід перезапускає.
 let plusExitTimer = null;
-function playPlusExitAnim(){
+// Rev 2.32.369 (DS-3c3): toTab — вкладка, куди переходимо: «Структура»/«Сервіс» → поворот за годинниковою (.tb-out-cw, 90° → 180°), інакше проти (90° → 0°); наприкінці 180° скидається на 0° без переходу (+ симетричний).
+function plusExitClockwise(toTab){ return toTab === 'structure' || toTab === 'service'; }
+function playPlusExitAnim(toTab){
   const bar = document.querySelector('nav.tabbar'); const btn = bar && bar.querySelector('button.tab-vytraty'); if(!btn || motionReduced()) return;
-  const raw = getComputedStyle(bar).getPropertyValue('--tb-plus-out').trim(); let ms = parseFloat(raw); if(!isFinite(ms)) ms = 900; if(/[^m]s$/.test(raw)) ms *= 1000;
+  const raw = getComputedStyle(bar).getPropertyValue('--tb-plus-out').trim(); let ms = parseFloat(raw); if(!isFinite(ms)) ms = 680; if(/[^m]s$/.test(raw)) ms *= 1000;
+  btn.classList.remove('tb-reset'); btn.classList.toggle('tb-out-cw', plusExitClockwise(toTab));
   btn.classList.remove('tb-out'); void btn.getBoundingClientRect(); btn.classList.add('tb-out');
   if(plusExitTimer) clearTimeout(plusExitTimer);
-  plusExitTimer = setTimeout(function(){ btn.classList.remove('tb-out'); plusExitTimer = null; }, ms + 100);
+  plusExitTimer = setTimeout(function(){
+    plusExitTimer = null; btn.classList.remove('tb-out');
+    if(btn.classList.contains('tb-out-cw')){
+      if(!btn.classList.contains('active')){ btn.classList.add('tb-reset'); btn.classList.remove('tb-out-cw'); void btn.getBoundingClientRect(); btn.classList.remove('tb-reset'); } // 180° → 0° без переходу
+      else btn.classList.remove('tb-out-cw'); // повернулись на «Витрати» до кінця: рух до 90° уже йде з поточного кута
+    }
+  }, ms + 60);
 }
 let tabIconAnimTimer = null;
 // Rev 2.32.357 (DS-3b2): викликається ЛИШЕ при реальній зміні вкладки (switching). Раніше виклик ішов і при повторному performSwitchTab на ту саму вкладку (iOS: touchend не скасовується → слідом click → другий switchTab) із on=false, і той «порожній» виклик знімав .tb-anim щойно запущеної анімації — іконка «просто перемикалась». Тепер: on=true — анімація (із примусовим перезапуском, якщо клас уже стоїть, напр. A→B→A→B швидко); on=false — лише знімаємо анімацію попередньої вкладки (клавіатура, шторка, reduced-motion).
@@ -1190,7 +1199,7 @@ function performSwitchTab(tab, opts){
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   tabbarMiniExpand('tab'); // Rev 2.32.364 (DS-3c): зміна вкладки розгортає таббар (прокрутку скинуто)
   requestAnimationFrame(runMainScroll); // Rev 2.32.365 (DS-3f): капсула/кнопка «вгору» за новою вкладкою
-  if(switching && prevTab === 'vytraty' && tab !== 'vytraty' && tabAnimEnabled) playPlusExitAnim(); // Rev 2.32.366 (DS-3b6)
+  if(switching && prevTab === 'vytraty' && tab !== 'vytraty' && tabAnimEnabled) playPlusExitAnim(tab); // Rev 2.32.366 (DS-3b6)
   { // Rev 2.32.355 (DS-3b); Rev 2.32.357 (DS-3b2): лише при зміні вкладки; Rev 2.32.360 (DS-3b3): причина й запис у самописець
     const via = tabPressVia; tabPressVia = 'other';
     let why = tabAnimBlockReason({ switching: switching, enabled: tabAnimEnabled, visible: document.visibilityState === 'visible', kbOpen: document.body.classList.contains('kb-open'), drawerOpen: !!document.querySelector('.drawer.open'), autofocus: willAutofocus, reduced: motionReduced() });
