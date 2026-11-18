@@ -43,7 +43,7 @@ test('60. розміри на 320/390/430 пт: іконки 22, «+» 44, зо�
   for (const w of [320, 390, 430]){
     await boot(page, w);
     for (const tab of ['analytics', 'accounting', 'vytraty', 'structure', 'service']){
-      await page.evaluate((t) => switchTab(t, { noFocus: true }), tab); await page.waitForTimeout(700);
+      await page.evaluate((t) => switchTab(t, { noFocus: true }), tab); await page.waitForTimeout(1100); // вихід з «Витрат» ~ 900 мс (DS-3b6)
       const m = await page.evaluate(() => {
         const g = document.getElementById('tabbar-glass'), gr = g.getBoundingClientRect(), r = (e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };
         const bub = r(document.getElementById('tabbar-bubble'));

@@ -59,7 +59,7 @@ test('ds3b3-compare', async ({ page }) => {
         const d = await describe(page, kind);
         info[theme + '-' + kind + '-' + name] = d;
         // T = найдовша анімація МАКЕТА (для app беремо T з макета тієї ж теми/випадку)
-        if(kind === 'mock') info['T-' + name] = Math.max(1, ...d.map(x => x.delay + x.duration));
+        if(kind === 'mock') info['T-' + name] = process.env.DS_T_OVERRIDE ? Number(process.env.DS_T_OVERRIDE) : Math.max(1, ...d.map(x => x.delay + x.duration)); // DS-3b6: спільна шкала часу (напр. 900 мс), щоб повільніший вихід застосунку було видно повністю
         const T = info['T-' + name] || 1;
         await page.evaluate(() => { const root = document.querySelector('#tabbar, nav.tabbar'); window.__fr = root.getAnimations({ subtree: true }).filter(a => a.playState !== 'finished'); window.__fr.forEach(a => a.pause()); });
         for (let i = 0; i < STEPS; i++){

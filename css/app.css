@@ -2432,7 +2432,7 @@
   /* Rev 2.3.6 — бейдж кількості витрат, внесених СЬОГОДНІ, на кнопці "Витрати"
      (tabbar і sidebar): миттєво видно, чи вже щось внесено сьогодні, без
      переходу на вкладку — та сама ідея, що бейдж непрочитаних повідомлень. */
-  .tb-count-badge{ position:absolute; top:-2px; right:-2px; min-width:16px; height:16px; padding:0 4px; border-radius:var(--r-xs); background:var(--surface); color:var(--color-primary-hover); font-size:var(--fs-caption2); font-weight:800; line-height:16px; text-align:center; box-shadow:0 0 0 1.5px var(--color-primary-hover); }
+  .tb-count-badge{ position:absolute; z-index:2; top:-2px; right:-2px; min-width:16px; height:16px; padding:0 4px; border-radius:var(--r-xs); background:var(--surface); color:var(--color-primary-hover); font-size:var(--fs-caption2); font-weight:800; line-height:16px; text-align:center; box-shadow:0 0 0 1.5px var(--color-primary-hover); }
   .tb-count-badge.hidden{ display:none; }
   .side-count-badge{ margin-left:auto; min-width:18px; height:18px; padding:0 var(--sp-1); border-radius:var(--r-xs); background:var(--color-primary-bg); color:var(--color-primary-hover); font-size:var(--fs-caption2); font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .side-count-badge.hidden{ display:none; }
@@ -2469,12 +2469,18 @@
   nav.tabbar.mini button.tab-vytraty .tb-icon-wrap{ transform:translateY(20px) scale(.9); }
   /* Rev 2.32.357 (DS-3b2): повторний дотик по вибраній вкладці (.tb-repeat ставить touchstart): повернення після натиску плавне, без пружного перельоту */
   nav.tabbar.tb-repeat button.active .tbx{ transition:scale var(--t-s) var(--ease-standard), opacity var(--t-s) var(--ease-standard); }
-  nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:transform var(--t-l) var(--ease-out); } /* Rev 2.32.360 (DS-3b3): макет — --ease-out (.22,1,.36,1), була пружина */
+  nav.tabbar{ --tb-plus-out:900ms; --tb-plus-sq:.9; } /* Rev 2.32.366 (DS-3b6): темп і стиснення виходу з «Витрат» — змінні (одним рядком) */
+  /* Вихід (цільовий стан — невибраний): «+» повертається ~900 мс плавною кривою без перельоту, кільце згасає в тому ж темпі; вхід (.active, нижче) лишається 480 мс --ease-out. Вхід на «Витрати» ховає клавіатура, тож вихід — єдине, що користувач бачить: темп повільніший і помітніший. */
+  nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:transform var(--tb-plus-out) var(--ease-standard); }
+  nav.tabbar button.tab-vytraty.active .tb-icon-wrap svg{ transition:transform var(--t-l) var(--ease-out); } /* вхід як у DS-3b3 (макет) */
   /* «Витрати»: коло «+» під натиском стискається до .9 (макет .pressing .plus{scale:.9}) поверх .86 вмісту */
   nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard), scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1), transform var(--t-l) var(--ease-out); }
   /* Rev 2.32.363 (DS-3b5): кільце «Витрат» — окремий шар ::after, який змінює лише opacity з тією самою тривалістю й кривою, що й поворот «+» (--t-l, --ease-out) в обидва боки: на вході з'являється, при виході згасає разом із поворотом, а не зникає миттєво (різкий ривок). box-shadow не анімуємо (правило: лише transform/opacity). */
-  nav.tabbar button.tab-vytraty .tb-icon-wrap::after{ content:''; position:absolute; inset:0; border-radius:50%; box-shadow:0 0 0 4px var(--accent-bg), 0 0 0 5px var(--accent-line); opacity:0; pointer-events:none; transition:opacity var(--t-l) var(--ease-out); }
-  nav.tabbar button.tab-vytraty.active .tb-icon-wrap::after{ opacity:1; }
+  nav.tabbar button.tab-vytraty .tb-icon-wrap::after{ content:''; position:absolute; inset:0; border-radius:50%; box-shadow:0 0 0 4px var(--accent-bg), 0 0 0 5px var(--accent-line); opacity:0; pointer-events:none; transition:opacity var(--tb-plus-out) var(--ease-standard); }
+  nav.tabbar button.tab-vytraty.active .tb-icon-wrap::after{ opacity:1; transition:opacity var(--t-l) var(--ease-out); }
+  /* стиснення «+» при виході (1 → .9 → 1): клас .tb-out ставить shell.js лише при виході з «Витрат» */
+  nav.tabbar button.tab-vytraty.tb-out .tb-icon-wrap{ animation:tbPlusOut var(--tb-plus-out) var(--ease-standard); }
+  @keyframes tbPlusOut{ 0%{ scale:1; } 40%{ scale:var(--tb-plus-sq); } 100%{ scale:1; } }
   nav.tabbar.tb-down button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:.9; }
   /* «Витрати»: вибраний стан = м'яке кільце навколо кнопки й поворот «+» (макет) */
   nav.tabbar button.tab-vytraty.active .tb-icon-wrap{ box-shadow:0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent); }
@@ -2500,7 +2506,8 @@
     .tabbar-bubble{ transition:none; }
     nav.tabbar button .tbx{ transition:none; }
     nav.tabbar.tb-down button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:1; opacity:1; }
-    nav.tabbar button.tab-vytraty .tb-icon-wrap svg, nav.tabbar button.tab-vytraty .tb-icon-wrap::after{ transition:none; }
+    nav.tabbar button.tab-vytraty .tb-icon-wrap svg, nav.tabbar button.tab-vytraty .tb-icon-wrap::after, nav.tabbar button.tab-vytraty.active .tb-icon-wrap svg, nav.tabbar button.tab-vytraty.active .tb-icon-wrap::after{ transition:none; }
+    nav.tabbar button.tab-vytraty.tb-out .tb-icon-wrap{ animation:none; }
     nav.tabbar svg .f, nav.tabbar svg .in, nav.tabbar svg .o, nav.tabbar svg .s{ transition:none; }
     nav.tabbar, nav.tabbar .lb, nav.tabbar button .tbx > svg{ transition:none; } /* DS-3c: стиснення миттєве */
     nav.tabbar.tb-down button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:1; }

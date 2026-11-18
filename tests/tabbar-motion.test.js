@@ -54,7 +54,7 @@ test('reduced-motion: один блок вимикає бульбашку, на�
   const m = CSS.match(/@media \(prefers-reduced-motion: reduce\)\{\s*\.tabbar-bubble\{[^@]*?\n  \}/);
   assert.ok(m, 'блок не знайдено');
   const b = m[0];
-  assert.ok(/\.tabbar-bubble\{ transition:none; \}/.test(b) && /scale:1; opacity:1;/.test(b) && /animation:none;/.test(b) && /tb-icon-wrap svg, nav\.tabbar button\.tab-vytraty \.tb-icon-wrap::after\{ transition:none; \}/.test(b));
+  assert.ok(/\.tabbar-bubble\{ transition:none; \}/.test(b) && /scale:1; opacity:1;/.test(b) && /animation:none;/.test(b) && /tb-icon-wrap svg, nav\.tabbar button\.tab-vytraty \.tb-icon-wrap::after, nav\.tabbar button\.tab-vytraty\.active \.tb-icon-wrap svg, nav\.tabbar button\.tab-vytraty\.active \.tb-icon-wrap::after\{ transition:none; \}/.test(b));
   assert.ok(!/color/.test(b.replace(/animation[^;]*;/g, '')), 'зміну кольору не вимикаємо');
 });
 test('розмітка: кожна кнопка таббару має .tbx; нових полів вводу немає', function(){
