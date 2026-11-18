@@ -15,10 +15,11 @@ test('41. стрілки й список змінюють місяць так с
   test.setTimeout(180000);
   await boot(page);
   const s0 = await state(page);
-  expect(s0.list.length, 'у фікстурі кілька місяців').toBeGreaterThan(1);
-  expect(s0.sel).toBe(s0.today); expect(s0.nextDis, '› неактивна на поточному').toBe(true); expect(s0.prevDis).toBe(false);
+  const ti = s0.list.indexOf(s0.today);
+  expect(s0.list.length, 'у фікстурі кілька місяців').toBeGreaterThan(2); expect(ti).toBe(s0.list.length - 2);
+  expect(s0.sel).toBe(s0.today); expect(s0.nextDis, '› на поточному веде до наступного').toBe(false); expect(s0.prevDis).toBe(false);
   await page.click('#month-prev'); await page.waitForTimeout(2500); // лічильники KPI анімуються ~1 с
-  const target = (await state(page)).sel; expect(target).toBe(s0.list[s0.list.length - 2]);
+  const target = (await state(page)).sel; expect(target).toBe(s0.list[ti - 1]);
   const a1 = await viewText(page, 'analytics'); await page.click('.tabbar-glass button[data-tab="accounting"]'); await page.waitForTimeout(2500); const o1 = await viewText(page, 'accounting');
   // еталон: той самий місяць через onMonthChange на свіжому завантаженні
   await boot(page);
@@ -33,18 +34,20 @@ test('41. стрілки й список змінюють місяць так с
   expect((await state(page)).sel).toBe(target); expect(await viewText(page, 'analytics')).toBe(a1);
   expect(await page.locator('#month-menu.on').count(), 'вибір закриває список').toBe(0);
 });
-test('42. межі стрілок: від поточного до першого місяця з даними, назад і вперед; майбутніх немає', async ({ page }) => {
+test('42. межі стрілок: від наступного до першого місяця з даними й назад; далі за наступний місяців немає', async ({ page }) => {
   test.setTimeout(180000);
   await boot(page);
-  const s0 = await state(page); const n = s0.list.length;
+  const s0 = await state(page); const n = s0.list.length, ti = s0.list.indexOf(s0.today), nextKey = s0.list[n - 1];
+  expect(ti).toBe(n - 2);
+  await page.click('#month-next'); await page.waitForTimeout(150);
+  let s = await state(page); expect(s.sel, '› з поточного веде до наступного').toBe(nextKey); expect(s.nextDis, '› неактивна на наступному').toBe(true); expect(s.nowOn, 'на наступному рядка «минулий» немає').toBe(false);
   for (let i = 0; i < n - 1; i++){ await page.click('#month-prev'); await page.waitForTimeout(80); }
-  let s = await state(page); expect(s.sel).toBe(s0.list[0]); expect(s.prevDis, '‹ неактивна на першому').toBe(true); expect(s.nextDis).toBe(false);
-  await page.click('#month-prev', { force: true, timeout: 1000 }).catch(() => {}); expect((await state(page)).sel).toBe(s0.list[0]);
+  s = await state(page); expect(s.sel).toBe(s0.list[0]); expect(s.prevDis, '‹ неактивна на першому').toBe(true); expect(s.nextDis).toBe(false);
   for (let i = 0; i < n - 1; i++){ await page.click('#month-next'); await page.waitForTimeout(80); }
-  s = await state(page); expect(s.sel).toBe(s0.today); expect(s.nextDis).toBe(true);
+  s = await state(page); expect(s.sel).toBe(nextKey); expect(s.nextDis).toBe(true);
   await page.click('#month-name'); await page.waitForTimeout(400);
   const keys = await page.locator('#month-menu button[data-m]').evaluateAll(els => els.map(e => e.dataset.m));
-  expect(keys.length).toBe(n); expect(keys.every(k => k <= s0.today), 'майбутніх місяців немає').toBe(true); expect(keys[0]).toBe(s0.today);
+  expect(keys.length).toBe(n); expect(keys[0], 'угорі наступний місяць').toBe(nextKey); expect(keys[1]).toBe(s0.today); expect(keys.every(k => k <= nextKey), 'далі за наступний місяців немає').toBe(true);
   expect(keys).toEqual(s0.list.slice().reverse());
 });
 test('43. список: скляний, aria, галочка, «поточний», заголовки років, Esc і дотик поза списком закривають', async ({ page }) => {
@@ -55,7 +58,7 @@ test('43. список: скляний, aria, галочка, «поточний
   expect(await m.getAttribute('role')).toBe('menu'); expect(await page.locator('#month-name').getAttribute('aria-expanded')).toBe('true');
   expect(await page.locator('#month-menu button[role="menuitemradio"]').count()).toBe(s0.list.length);
   expect(await page.locator('#month-menu button[aria-checked="true"]').count()).toBe(1);
-  expect(await page.locator('#month-menu small').innerText()).toBe('поточний');
+  expect(await page.locator('#month-menu small').allInnerTexts(), 'підписи: наступний над поточним').toEqual(['наступний', 'поточний']);
   expect(await page.locator('#month-menu .yh').count()).toBeGreaterThan(0);
   const css = await m.evaluate(e => { const c = getComputedStyle(e); return { bf: c.backdropFilter || c.webkitBackdropFilter, bg: c.backgroundColor, w: e.offsetWidth, r: c.borderTopLeftRadius, mh: c.maxHeight }; });
   expect(css.bf).toMatch(/blur\(24px\)/); expect(css.w).toBe(224); expect(css.r).toBe('18px'); expect(css.mh).toBe('340px');
@@ -82,12 +85,14 @@ test('44. рядок «минулий місяць»: з\'являється н�
   await page.click('#month-now button'); await page.waitForTimeout(500);
   const s = await state(page); expect(s.sel).toBe(s.today); expect(s.nowOn).toBe(false);
 });
-test('45. без даних: лише поточний місяць, обидві стрілки неактивні', async ({ page }) => {
+test('45. без даних: поточний і наступний місяць, ‹ неактивна, › веде до наступного й там неактивна', async ({ page }) => {
   await boot(page, 'empty');
-  const s = await state(page);
-  expect(s.list).toEqual([s.today]); expect(s.prevDis).toBe(true); expect(s.nextDis).toBe(true); expect(s.nowOn).toBe(false);
+  const s = await state(page); const next = s.list[1];
+  expect(s.list).toEqual([s.today, next]); expect(s.prevDis).toBe(true); expect(s.nextDis).toBe(false); expect(s.nowOn).toBe(false);
+  await page.click('#month-next'); await page.waitForTimeout(300);
+  const s2 = await state(page); expect(s2.sel).toBe(next); expect(s2.nextDis).toBe(true); expect(s2.prevDis).toBe(false);
   await page.click('#month-name'); await page.waitForTimeout(400);
-  expect(await page.locator('#month-menu button[data-m]').count()).toBe(1);
+  expect(await page.locator('#month-menu button[data-m]').count()).toBe(2);
 });
 test('46. багато місяців (кілька років): список неперервний, заголовки років, прокручується всередині, вибір дальнього місяця', async ({ page }) => {
   test.setTimeout(120000);
@@ -100,7 +105,7 @@ test('46. багато місяців (кілька років): список н
   if(s.list.length > 8){ const sc = await page.locator('#month-menu').evaluate(e => ({ sh: e.scrollHeight, ch: e.clientHeight })); expect(sc.sh).toBeGreaterThan(sc.ch); }
   const first = s.list[0];
   await page.locator('#month-menu button[data-m="' + first + '"]').scrollIntoViewIfNeeded(); await page.locator('#month-menu button[data-m="' + first + '"]').click(); await page.waitForTimeout(500);
-  const s2 = await state(page); expect(s2.sel).toBe(first); expect(s2.prevDis).toBe(true); expect(s2.nowOn).toBe(true);
+  const s2 = await state(page); expect(s2.sel).toBe(first); expect(s2.prevDis).toBe(true); expect(s2.nowOn).toBe(true); expect(first, 'перший — місяць з даними, не раніше').toBe(s.list[0]);
 });
 test('47. iPad/десктоп: список відкривається під перемикачем і не виходить за вікно', async ({ page }) => {
   await boot(page, 'typical', 1024, 768);
@@ -113,9 +118,23 @@ test('48. офлайн: стрілки, список і рядок «минул�
   await context.setOffline(true); await page.evaluate(() => { window.dispatchEvent(new Event('offline')); });
   const s0 = await state(page);
   await page.click('#month-prev'); await page.waitForTimeout(500);
-  expect((await state(page)).sel).toBe(s0.list[s0.list.length - 2]); expect((await state(page)).nowOn).toBe(true);
+  expect((await state(page)).sel).toBe(s0.list[s0.list.indexOf(s0.today) - 1]); expect((await state(page)).nowOn).toBe(true);
   await page.click('#month-name'); await page.waitForTimeout(400);
   await page.click('#month-menu button[data-m="' + s0.today + '"]'); await page.waitForTimeout(500);
   expect((await state(page)).sel).toBe(s0.today);
   await context.setOffline(false);
+});
+test('54. рік на пігулці: місяць не поточного року показує «Місяць рік», поточного — лише назву; наступний місяць іншого року (грудень → січень) теж із роком', async ({ page }) => {
+  await boot(page);
+  const s0 = await state(page); const y0 = s0.today.slice(0, 4);
+  expect(s0.name, 'поточний рік: без року').not.toMatch(/\d{4}/);
+  await page.evaluate(() => onMonthChange(shiftMonth(monthKey(localDateISO()), -12))); await page.waitForTimeout(400);
+  const s1 = await state(page); expect(s1.name).toMatch(/^[А-ЯІЇЄҐ][а-яіїєґ'’ʼ]+ \d{4}$/); expect(s1.name.endsWith(String(Number(y0) - 1))).toBe(true);
+  await page.evaluate(() => onMonthChange(monthKey(localDateISO()))); await page.waitForTimeout(300);
+  await page.click('#month-next'); await page.waitForTimeout(400);
+  const s2 = await state(page); const ny = s2.sel.slice(0, 4);
+  if(ny !== y0) expect(s2.name, 'наступний місяць іншого року').toMatch(new RegExp(ny + '$')); else expect(s2.name).not.toMatch(/\d{4}/);
+  // у списку місяць іншого року під своїм заголовком
+  await page.click('#month-name'); await page.waitForTimeout(400);
+  const heads = await page.locator('#month-menu .yh').allInnerTexts(); expect(heads[0]).toBe(ny);
 });

@@ -1,14 +1,14 @@
 // Каркас UI: місяці, бейдж, оновлення PWA, вкладки, рух, натискання, таббар і свайп, тема, сегменти
 // Перенесено з index.html дослівно, без змін (Rev 2.32.349, STRUCT-3). Звичайний скрипт: функції й const/let лишаються глобальними; підключається в index.html перед основним <script>; оператори верхнього рівня цієї області лишились в основному скрипті.
 
-// Rev 2.32.356 (DS-3e): перелік місяців перемикача — від першого місяця з даними до поточного (майбутніх немає); без даних — лише поточний. Дані: ті самі активні витрати, доходи й борги, що в allMonths(), але БЕЗ ковзного вікна −12…+1 (allMonths() не змінено: ним користуються маршрути й ролловер). Чиста функція: dataMonths — масиви ключів 'YYYY-MM'.
+// Rev 2.32.356 (DS-3e): перелік місяців перемикача — від першого місяця з даними до поточного; без даних — поточний. Rev 2.32.358 (DS-3e2, рішення власника): над поточним додається НАСТУПНИЙ місяць (підпис «наступний»), далі майбутніх немає; порожні місяці до першого місяця з даними не додаються. Дані: ті самі активні витрати, доходи й борги, що в allMonths(), але БЕЗ ковзного вікна −12…+1 (allMonths() не змінено: ним користуються маршрути й ролловер). Чиста функція: dataMonths — масиви ключів 'YYYY-MM'.
 function monthPickerList(dataMonths, todayKey){
+  const nextKey = shiftMonth(todayKey, 1);
   const ok = (dataMonths || []).filter(function(m){ return typeof m === 'string' && /^\d{4}-\d{2}$/.test(m) && m <= todayKey; });
-  if(!ok.length) return [todayKey];
-  const first = ok.reduce(function(a, b){ return b < a ? b : a; });
+  const first = ok.length ? ok.reduce(function(a, b){ return b < a ? b : a; }) : todayKey;
   const out = []; let m = first, guard = 0;
-  while(m <= todayKey && guard++ < 1200){ out.push(m); m = shiftMonth(m, 1); }
-  if(out[out.length - 1] !== todayKey) out.push(todayKey);
+  while(m <= nextKey && guard++ < 1200){ out.push(m); m = shiftMonth(m, 1); }
+  if(out[out.length - 1] !== nextKey) out.push(nextKey);
   return out;
 }
 // Сусідній місяць списку для стрілок: delta -1/+1; null — межа (перший місяць з даними / поточний). Якщо вибраного місяця немає в списку (програмний перехід), шукаємо найближчий у потрібний бік.
@@ -29,7 +29,7 @@ function monthMenuHTML(list, selected, todayKey){
     const m = list[i], parts = m.split('-'), nm = UA_MONTHS[parseInt(parts[1], 10) - 1] || '';
     if(parts[0] !== y){ y = parts[0]; h += '<div class="yh" role="presentation">' + escapeHtml(y) + '</div>'; }
     const on = m === selected;
-    h += '<button type="button" role="menuitemradio" aria-checked="' + (on ? 'true' : 'false') + '" data-m="' + escapeAttr(m) + '"' + (on ? ' class="on"' : '') + '><span>' + escapeHtml(nm.charAt(0).toUpperCase() + nm.slice(1)) + (m === todayKey ? ' <small>поточний</small>' : '') + '</span>' + (on ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>' : '') + '</button>';
+    h += '<button type="button" role="menuitemradio" aria-checked="' + (on ? 'true' : 'false') + '" data-m="' + escapeAttr(m) + '"' + (on ? ' class="on"' : '') + '><span>' + escapeHtml(nm.charAt(0).toUpperCase() + nm.slice(1)) + (m === todayKey ? ' <small>поточний</small>' : (m === shiftMonth(todayKey, 1) ? ' <small>наступний</small>' : '')) + '</span>' + (on ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>' : '') + '</button>';
   }
   return h;
 }
