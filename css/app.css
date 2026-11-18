@@ -2450,11 +2450,19 @@
   nav.tabbar button .tbx{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; transition:scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1), opacity var(--tb-rel) var(--ease-standard); }
   /* натиск: іконка й підпис стискаються до .86, поки палець на кнопці (touch: preview-active під пальцем; миша: .pressing), і пружно повертаються; скло й кнопка не стискаються */
   nav.tabbar.tb-down button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:.86; opacity:.75; transition:scale var(--tb-press) var(--ease-standard), opacity var(--tb-press) var(--ease-standard); }
+  /* Rev 2.32.364 (DS-3c): стиснення таббару при прокрутці вниз (макет analytics-ds, .tabbar.mini). Клас .mini ставить shell.js (tabbarMiniOnScroll), лише transform і opacity. Висоту, відступ знизу й safe-area не чіпаємо; transform на самому nav (origin — низ), тож скло, його розмиття й прозорість без змін (.pressed на .tabbar-glass незалежний). Підписи ховаються opacity (.lb), іконки зсуваються й збільшуються, «+» зсувається й зменшується. */
+  nav.tabbar{ transform-origin:50% 100%; transition:transform var(--t-l) var(--ease-out); }
+  nav.tabbar.mini{ transform:translateY(8px) scale(.8); }
+  nav.tabbar .lb{ display:inline-block; transition:opacity var(--t-s) var(--ease-standard); }
+  nav.tabbar.mini .lb{ opacity:0; }
+  nav.tabbar button .tbx > svg{ transition:transform var(--t-l) var(--ease-out); }
+  nav.tabbar.mini button:not(.tab-vytraty) .tbx > svg{ transform:translateY(9px) scale(1.14); }
+  nav.tabbar.mini button.tab-vytraty .tb-icon-wrap{ transform:translateY(20px) scale(.9); }
   /* Rev 2.32.357 (DS-3b2): повторний дотик по вибраній вкладці (.tb-repeat ставить touchstart): повернення після натиску плавне, без пружного перельоту */
   nav.tabbar.tb-repeat button.active .tbx{ transition:scale var(--t-s) var(--ease-standard), opacity var(--t-s) var(--ease-standard); }
   nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:transform var(--t-l) var(--ease-out); } /* Rev 2.32.360 (DS-3b3): макет — --ease-out (.22,1,.36,1), була пружина */
   /* «Витрати»: коло «+» під натиском стискається до .9 (макет .pressing .plus{scale:.9}) поверх .86 вмісту */
-  nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard), scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1); }
+  nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard), scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1), transform var(--t-l) var(--ease-out); }
   /* Rev 2.32.363 (DS-3b5): кільце «Витрат» — окремий шар ::after, який змінює лише opacity з тією самою тривалістю й кривою, що й поворот «+» (--t-l, --ease-out) в обидва боки: на вході з'являється, при виході згасає разом із поворотом, а не зникає миттєво (різкий ривок). box-shadow не анімуємо (правило: лише transform/opacity). */
   nav.tabbar button.tab-vytraty .tb-icon-wrap::after{ content:''; position:absolute; inset:0; border-radius:50%; box-shadow:0 0 0 4px var(--accent-bg), 0 0 0 5px var(--accent-line); opacity:0; pointer-events:none; transition:opacity var(--t-l) var(--ease-out); }
   nav.tabbar button.tab-vytraty.active .tb-icon-wrap::after{ opacity:1; }
@@ -2485,6 +2493,7 @@
     nav.tabbar.tb-down button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:1; opacity:1; }
     nav.tabbar button.tab-vytraty .tb-icon-wrap svg, nav.tabbar button.tab-vytraty .tb-icon-wrap::after{ transition:none; }
     nav.tabbar svg .f, nav.tabbar svg .in, nav.tabbar svg .o, nav.tabbar svg .s{ transition:none; }
+    nav.tabbar, nav.tabbar .lb, nav.tabbar button .tbx > svg{ transition:none; } /* DS-3c: стиснення миттєве */
     nav.tabbar.tb-down button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:1; }
     nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard); }
     nav.tabbar button[data-tab].tb-anim.active .sl, nav.tabbar button[data-tab].tb-anim.active svg, nav.tabbar button[data-tab].tb-anim.active svg circle, nav.tabbar button[data-tab].tb-anim.active .rot, nav.tabbar button[data-tab].tb-anim.active .s > circle{ animation:none; }

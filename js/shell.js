@@ -1179,6 +1179,7 @@ function performSwitchTab(tab, opts){
     document.getElementById('view-'+t).classList.toggle('hidden', t!==tab);
   });
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  tabbarMiniExpand('tab'); // Rev 2.32.364 (DS-3c): зміна вкладки розгортає таббар (прокрутку скинуто)
   { // Rev 2.32.355 (DS-3b); Rev 2.32.357 (DS-3b2): лише при зміні вкладки; Rev 2.32.360 (DS-3b3): причина й запис у самописець
     const via = tabPressVia; tabPressVia = 'other';
     let why = tabAnimBlockReason({ switching: switching, enabled: tabAnimEnabled, visible: document.visibilityState === 'visible', kbOpen: document.body.classList.contains('kb-open'), drawerOpen: !!document.querySelector('.drawer.open'), autofocus: willAutofocus, reduced: motionReduced() });
@@ -1302,6 +1303,69 @@ function smoothScrollToTop(duration, onDone, onProgress){
 // Rev 2.7.0). Поріг 240px — щоб кнопка не блимала одразу при щонайменшому
 // скролі, лише коли реально є куди "повертатись".
 const SCROLL_TOP_BTN_THRESHOLD = 240;
+// ===== Rev 2.32.364 (DS-3c): спільний слухач прокрутки #main-col і стиснення таббару =====
+// Один passive-слухач (через rAF) обслуговує капсулу «вгору» (updateScrollTopBtn), стиснення таббару й підписників (DS-3f підключається через subscribeMainScroll). Пружний відскок iOS (scrollTop < 0 або > max) приводиться до межі.
+// Пороги з макета analytics-ds (onScroll): стиснути — крок вниз > 6 і від верху > 24; розгорнути — крок вгору > 6, < 24 від верху, < 24 до кінця.
+const TABBAR_MINI_STEP = 6;
+const TABBAR_MINI_EDGE = 24;
+// Чиста функція: s = { y, max, lastY, mini, blocked } → { mini, lastY, why } (why — причина зміни стану або '')
+function tabbarMiniNext(s){
+  const y = s.y, max = s.max;
+  if(s.blocked) return { mini: false, lastY: y, why: s.mini ? s.blocked : '' };
+  if(max <= TABBAR_MINI_EDGE * 2) return { mini: false, lastY: y, why: s.mini ? 'short' : '' };
+  const d = y - s.lastY; let mini = s.mini, why = '';
+  if(y < TABBAR_MINI_EDGE){ mini = false; why = 'top'; }
+  else if(y > max - TABBAR_MINI_EDGE){ mini = false; why = 'end'; }
+  else if(d > TABBAR_MINI_STEP){ mini = true; why = 'down'; }
+  else if(d < -TABBAR_MINI_STEP){ mini = false; why = 'up'; }
+  return { mini: mini, lastY: Math.abs(d) > TABBAR_MINI_STEP ? y : s.lastY, why: mini !== s.mini ? why : '' };
+}
+let tabbarMini = false, tabbarMiniLastY = 0;
+function recTabMini(ev){ try{ if(typeof pushDebugEvent === 'function') pushDebugEvent(Object.assign({ type: 'tab-mini' }, ev)); }catch(e){} }
+// Чому зараз не можна стискати: відкрита клавіатура / шторка / модалка / таббар сховано (iPad з бічною панеллю)
+function tabbarMiniBlocked(){
+  if(document.body.classList.contains('kb-open')) return 'kb';
+  if(document.querySelector('.drawer.open, .app-modal.open')) return 'drawer';
+  const bar = document.querySelector('nav.tabbar');
+  if(!bar || getComputedStyle(bar).display === 'none') return 'ipad';
+  return '';
+}
+function setTabbarMini(on, why, y){
+  const bar = document.querySelector('nav.tabbar'); if(!bar) return;
+  if(tabbarMini === on) return;
+  tabbarMini = on; bar.classList.toggle('mini', on);
+  recTabMini({ mini: on, why: why || '', scrollY: typeof y === 'number' ? Math.round(y) : null });
+}
+function tabbarMiniOnScroll(y, max){
+  const r = tabbarMiniNext({ y: y, max: max, lastY: tabbarMiniLastY, mini: tabbarMini, blocked: tabbarMiniBlocked() });
+  tabbarMiniLastY = r.lastY;
+  if(r.mini !== tabbarMini) setTabbarMini(r.mini, r.why, y);
+}
+// Розгорнути без прокрутки: дотик до таббару, зміна вкладки, клавіатура, шторка, iPad (виклик із відповідних місць і MutationObserver нижче)
+function tabbarMiniExpand(why){ tabbarMiniLastY = 0; setTabbarMini(false, why); }
+function tabbarMiniGuard(){ if(!tabbarMini) return; const b = tabbarMiniBlocked(); if(b) tabbarMiniExpand(b); }
+const mainScrollSubs = [];
+function subscribeMainScroll(fn){ if(typeof fn === 'function' && mainScrollSubs.indexOf(fn) === -1) mainScrollSubs.push(fn); }
+let mainScrollRaf = 0;
+function onMainColScroll(){
+  if(mainScrollRaf) return;
+  mainScrollRaf = requestAnimationFrame(function(){ mainScrollRaf = 0; runMainScroll(); });
+}
+function runMainScroll(){
+  const el = document.getElementById('main-col'); if(!el) return;
+  const max = Math.max(0, el.scrollHeight - el.clientHeight);
+  const y = Math.min(Math.max(el.scrollTop, 0), max);
+  updateScrollTopBtn();
+  tabbarMiniOnScroll(y, max);
+  mainScrollSubs.forEach(function(fn){ try{ fn({ y: y, max: max }); }catch(e){} });
+}
+function initTabbarMini(){
+  const bar = document.querySelector('nav.tabbar'); if(!bar) return;
+  bar.addEventListener('pointerdown', function(){ tabbarMiniExpand('touch'); }, { capture: true, passive: true });
+  bar.addEventListener('touchstart', function(){ tabbarMiniExpand('touch'); }, { capture: true, passive: true }); // на випадок, коли pointerdown не надійшов (синтетичні/старі події)
+  if(typeof MutationObserver !== 'undefined') new MutationObserver(tabbarMiniGuard).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+  window.addEventListener('resize', tabbarMiniGuard);
+}
 function updateScrollTopBtn(){
   const mainColEl = document.getElementById('main-col');
   const btn = document.getElementById('scroll-top-btn');

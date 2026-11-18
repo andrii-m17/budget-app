@@ -47,7 +47,7 @@ test('60. розміри на 320/390/430 пт: іконки 22, «+» 44, зо�
       const m = await page.evaluate(() => {
         const g = document.getElementById('tabbar-glass'), gr = g.getBoundingClientRect(), r = (e) => { const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };
         const bub = r(document.getElementById('tabbar-bubble'));
-        return { glass: r(g), svgs: Array.from(g.querySelectorAll('button[data-tab] > .tbx > svg')).map(e => r(e)), wrapSvg: r(g.querySelector('.tb-icon-wrap svg')), wrap: r(g.querySelector('.tb-icon-wrap')), btns: Array.from(g.querySelectorAll('button[data-tab]')).map(b => ({ t: b.dataset.tab, ...r(b), lab: (() => { const x = b.querySelector('.tbx'); const l = Array.from(x.childNodes).find(n => n.nodeType === 3 && n.textContent.trim()); const rng = document.createRange(); const tn = l || (x.querySelector('.tb-label') && x.querySelector('.tb-label').firstChild); rng.selectNodeContents(tn.parentNode === x && l ? x : x.querySelector('.tb-label')); return r(rng); })() })), bub, inside: bub.x >= gr.x - 0.5 && bub.x + bub.w <= gr.x + gr.width + 0.5 };
+        return { glass: r(g), svgs: Array.from(g.querySelectorAll('button[data-tab] > .tbx > svg')).map(e => r(e)), wrapSvg: r(g.querySelector('.tb-icon-wrap svg')), wrap: r(g.querySelector('.tb-icon-wrap')), btns: Array.from(g.querySelectorAll('button[data-tab]')).map(b => ({ t: b.dataset.tab, ...r(b), lab: (() => { const x = b.querySelector('.lb'); const rng = document.createRange(); rng.selectNodeContents(x); return r(rng); })() })), bub, inside: bub.x >= gr.x - 0.5 && bub.x + bub.w <= gr.x + gr.width + 0.5 };
       });
       const id = w + ' ' + tab;
       expect(m.glass.h, id + ': висота капсули').toBe(75);

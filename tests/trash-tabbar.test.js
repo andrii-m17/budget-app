@@ -25,7 +25,8 @@ test('T1: шторки, модалки й тости лишаються над �
 test('T1: тап по вкладці закриває екран (performSwitchTab → closeTrashScreen), екран відкривається лише з «Сервісу»; на таббар не вішається transform', () => {
   assert.match(SRC, /if\(isTrashOpen\) closeTrashScreen\(\);/);
   assert.match(SRC, /performSwitchTab\('service'\);\s*openTrashScreen\(\);/);
-  assert.ok(!/nav\.tabbar\s*\{[^}]*transform/.test(SRC));
+  // Rev 2.32.364 (DS-3c): у спокої transform на nav.tabbar немає (значення задає лише .mini); transform-origin і transition:transform у базовому правилі дозволено
+  assert.ok(!/nav\.tabbar\s*\{[^}]*(?:^|[;{\s])transform\s*:/.test(SRC));
 });
 test('T1: аудит повних екранів — єдиний position:fixed inset:0 екран під таббаром це .trash-screen; решта — бекдропи', () => {
   const fixedFull = (SRC.match(/^\s*\.[\w-]+\{ position:fixed; inset:0;[^}]*\}/gm) || []).map(l => l.trim().split('{')[0]);

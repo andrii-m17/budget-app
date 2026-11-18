@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.363"><link rel="stylesheet" href="./css/app.css?v=2.32.363"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.364"><link rel="stylesheet" href="./css/app.css?v=2.32.364"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -948,7 +948,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.363</div>
+  <div class="version-footer">Money Tree · Rev 2.32.364</div>
 </div>
   </div>
 </div>
@@ -958,24 +958,20 @@
   <div class="tabbar-glass" id="tabbar-glass">
     <div class="tabbar-bubble" id="tabbar-bubble"></div>
     <button class="active" data-tab="analytics" onclick="switchTab('analytics')">
-      <span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><g class="o"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g><g class="s" stroke="none" fill="currentColor"><path class="pie" d="M10.5 3.6A9.9 9.9 0 1 0 20.4 13.5H10.5Z"/><path class="sl" d="M12.5 1.6V11.5H22.4A9.9 9.9 0 0 0 12.5 1.6Z"/></g></svg>
-      Аналітика</span>
+      <span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><g class="o"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></g><g class="s" stroke="none" fill="currentColor"><path class="pie" d="M10.5 3.6A9.9 9.9 0 1 0 20.4 13.5H10.5Z"/><path class="sl" d="M12.5 1.6V11.5H22.4A9.9 9.9 0 0 0 12.5 1.6Z"/></g></svg><span class="lb">Аналітика</span></span>
     </button>
     <button data-tab="accounting" onclick="switchTab('accounting')">
-      <span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle class="f" cx="12" cy="12" r="9.5"/><path class="in" d="M8 12h8"/><path class="in" d="M12 8v8"/></svg>
-      Облік</span>
+      <span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle class="f" cx="12" cy="12" r="9.5"/><path class="in" d="M8 12h8"/><path class="in" d="M12 8v8"/></svg><span class="lb">Облік</span></span>
     </button>
     <button class="tab-vytraty" data-tab="vytraty" onclick="switchTab('vytraty')">
       <span class="tbx"><span class="tb-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span class="tb-count-badge hidden" id="tb-count-badge"></span></span>
-      <span class="tb-label">Витрати</span></span>
+      <span class="tb-label lb">Витрати</span></span>
     </button>
     <button data-tab="structure" onclick="switchTab('structure')">
-      <span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle class="f" cx="12" cy="4.5" r="2.5"/><circle class="f" cx="3" cy="19.5" r="2.5"/><circle class="f" cx="12" cy="19.5" r="2.5"/><circle class="f" cx="21" cy="19.5" r="2.5"/><path d="M12 7v3.5M3 17v-3.5h18V17M12 10.5V17"/></svg>
-      Структура</span>
+      <span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle class="f" cx="12" cy="4.5" r="2.5"/><circle class="f" cx="3" cy="19.5" r="2.5"/><circle class="f" cx="12" cy="19.5" r="2.5"/><circle class="f" cx="21" cy="19.5" r="2.5"/><path d="M12 7v3.5M3 17v-3.5h18V17M12 10.5V17"/></svg><span class="lb">Структура</span></span>
     </button>
     <button data-tab="service" onclick="switchTab('service')">
-      <span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="o"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></g><g class="s"><circle cx="12" cy="12" r="11.2" fill="currentColor" stroke="none"/><g class="rot"><g transform="translate(12 12) scale(.76) translate(-12 -12)" stroke="var(--surface)" stroke-width="2.5"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></g></g></g></svg>
-      Сервіс</span>
+      <span class="tbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="o"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></g><g class="s"><circle cx="12" cy="12" r="11.2" fill="currentColor" stroke="none"/><g class="rot"><g transform="translate(12 12) scale(.76) translate(-12 -12)" stroke="var(--surface)" stroke-width="2.5"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></g></g></g></svg><span class="lb">Сервіс</span></span>
     </button>
   </div>
 </nav>
@@ -1694,15 +1690,15 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.363"></script>
-<script src="./js/util-date.js?v=2.32.363"></script>
-<script src="./js/util-safe.js?v=2.32.363"></script>
-<script src="./js/util-misc.js?v=2.32.363"></script>
-<script src="./js/diag.js?v=2.32.363"></script>
-<script src="./js/shell.js?v=2.32.363"></script>
-<script src="./js/structure.js?v=2.32.363"></script>
-<script src="./js/analytics.js?v=2.32.363"></script>
-<script src="./js/payments.js?v=2.32.363"></script>
+<script src="./js/util-format.js?v=2.32.364"></script>
+<script src="./js/util-date.js?v=2.32.364"></script>
+<script src="./js/util-safe.js?v=2.32.364"></script>
+<script src="./js/util-misc.js?v=2.32.364"></script>
+<script src="./js/diag.js?v=2.32.364"></script>
+<script src="./js/shell.js?v=2.32.364"></script>
+<script src="./js/structure.js?v=2.32.364"></script>
+<script src="./js/analytics.js?v=2.32.364"></script>
+<script src="./js/payments.js?v=2.32.364"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6797,7 +6793,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.363';
+const APP_VERSION = '2.32.364';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15569,6 +15565,7 @@ document.addEventListener('visibilitychange', function(){ if(document.visibility
 document.addEventListener('focusin', onFieldAttrsFocusIn, true);
 initSideNav();
 initMonthSwitcher(); // Rev 2.32.356 (DS-3e)
+initTabbarMini(); // Rev 2.32.364 (DS-3c)
 window.addEventListener('resize', function(){ updateTabBubble(true); });
 
 /* Rev 2.4.0 — свайп по самій панелі таббару (не по всьому екрану — щоб не
@@ -15615,7 +15612,7 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
 (function initScrollTopBtn(){
   const mainColEl = document.getElementById('main-col');
   if(!mainColEl) return;
-  mainColEl.addEventListener('scroll', updateScrollTopBtn, {passive:true});
+  mainColEl.addEventListener('scroll', onMainColScroll, {passive:true}); // Rev 2.32.364 (DS-3c): один слухач (rAF) для капсули «вгору», стиснення таббару й підписників
   // Rev 2.21.13 — .pressed вмикає той самий shimmer+масштаб-ефект, що
   // nav.tabbar.pressed .tabbar-bubble (CSS вище) — тут проста pointerdown/
   // pointerup пара (одна кнопка, не драг-жест, тому повна логіка

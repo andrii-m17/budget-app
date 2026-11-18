@@ -38,7 +38,7 @@ test('натиск: .86 за 110 мс (макет) лише на .tbx, стан 
 });
 test('скло: ефект .pressed (збільшення, блиск бульбашки) лише при свайпі; простий дотик його не вмикає', function(){
   const SRC = require('./extract').readIndexWithCss();
-  const ts = SRC.slice(SRC.indexOf("bar.addEventListener('touchstart'"), SRC.indexOf("bar.addEventListener('touchmove'"));
+  const ts = SRC.slice(SRC.indexOf("bar.addEventListener('touchstart', function(e){"), SRC.indexOf("bar.addEventListener('touchmove'"));
   assert.ok(ts.indexOf("classList.add('tb-down')") !== -1 && ts.indexOf("classList.add('pressed')") === -1, 'touchstart: лише tb-down');
   const tm = SRC.slice(SRC.indexOf("bar.addEventListener('touchmove'"), SRC.indexOf("bar.addEventListener('touchmove'") + 900);
   assert.ok(/hasMoved = true;\n\s+bar\.classList\.add\('pressed'\)/.test(tm), 'pressed вмикається при досягненні порога руху');
