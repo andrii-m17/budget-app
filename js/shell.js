@@ -1319,11 +1319,16 @@ const SCROLL_TOP_BTN_THRESHOLD = 240;
 // Пороги з макета analytics-ds (onScroll): стиснути — крок вниз > 6 і від верху > 24; розгорнути — крок вгору > 6, < 24 від верху, < 24 до кінця.
 const TABBAR_MINI_STEP = 6;
 const TABBAR_MINI_EDGE = 24;
-// Чиста функція: s = { y, max, lastY, mini, blocked } → { mini, lastY, why } (why — причина зміни стану або '')
+// Чиста функція: s = { y, max, lastY, mini, blocked, user } → { mini, lastY, why } (why — причина зміни стану або '').
+// Rev 2.32.368 (DS-3c2): user — прокрутку почав користувач (дотик із рухом, колесо, клавіші). Програмна прокрутка (відновлення позиції вкладки, «вгору», scrollTo) стискати не може: точка відліку лише переставляється на нову позицію (lastY = y), розгортання біля верху/кінця лишається.
 function tabbarMiniNext(s){
   const y = s.y, max = s.max;
   if(s.blocked) return { mini: false, lastY: y, why: s.mini ? s.blocked : '' };
   if(max <= TABBAR_MINI_EDGE * 2) return { mini: false, lastY: y, why: s.mini ? 'short' : '' };
+  if(s.user === false){
+    const ex = s.mini && (y < TABBAR_MINI_EDGE || y > max - TABBAR_MINI_EDGE);
+    return { mini: ex ? false : s.mini, lastY: y, why: ex ? (y < TABBAR_MINI_EDGE ? 'top' : 'end') : '' };
+  }
   const d = y - s.lastY; let mini = s.mini, why = '';
   if(y < TABBAR_MINI_EDGE){ mini = false; why = 'top'; }
   else if(y > max - TABBAR_MINI_EDGE){ mini = false; why = 'end'; }
@@ -1332,6 +1337,12 @@ function tabbarMiniNext(s){
   return { mini: mini, lastY: Math.abs(d) > TABBAR_MINI_STEP ? y : s.lastY, why: mini !== s.mini ? why : '' };
 }
 let tabbarMini = false, tabbarMiniLastY = 0;
+// Rev 2.32.368 (DS-3c2): ознака прокрутки користувача. Дотик по #main-col із рухом > 4 px, колесо й клавіші прокрутки → «користувач» поки палець на екрані й ще MAIN_USER_SCROLL_MS після (інерція iOS). Зміна вкладки скидає ознаку.
+const MAIN_USER_SCROLL_MS = 3000;
+const MAIN_USER_MOVE_PX = 4;
+let mainUserAt = 0, mainTouchMoved = false, mainTouchY0 = 0;
+function mainUserScrolling(){ return mainTouchMoved || (mainUserAt > 0 && performance.now() - mainUserAt < MAIN_USER_SCROLL_MS); }
+function mainUserReset(){ mainUserAt = 0; mainTouchMoved = false; }
 function recTabMini(ev){ try{ if(typeof pushDebugEvent === 'function') pushDebugEvent(Object.assign({ type: 'tab-mini' }, ev)); }catch(e){} }
 // Чому зараз не можна стискати: відкрита клавіатура / шторка / модалка / таббар сховано (iPad з бічною панеллю)
 function tabbarMiniBlocked(){
@@ -1341,19 +1352,20 @@ function tabbarMiniBlocked(){
   if(!bar || getComputedStyle(bar).display === 'none') return 'ipad';
   return '';
 }
-function setTabbarMini(on, why, y){
+function setTabbarMini(on, why, y, byUser){
   const bar = document.querySelector('nav.tabbar'); if(!bar) return;
   if(tabbarMini === on) return;
   tabbarMini = on; bar.classList.toggle('mini', on);
-  recTabMini({ mini: on, why: why || '', scrollY: typeof y === 'number' ? Math.round(y) : null });
+  recTabMini({ mini: on, why: why || '', scrollY: typeof y === 'number' ? Math.round(y) : null, byUser: !!byUser });
 }
 function tabbarMiniOnScroll(y, max){
-  const r = tabbarMiniNext({ y: y, max: max, lastY: tabbarMiniLastY, mini: tabbarMini, blocked: tabbarMiniBlocked() });
+  const user = mainUserScrolling();
+  const r = tabbarMiniNext({ y: y, max: max, lastY: tabbarMiniLastY, mini: tabbarMini, blocked: tabbarMiniBlocked(), user: user });
   tabbarMiniLastY = r.lastY;
-  if(r.mini !== tabbarMini) setTabbarMini(r.mini, r.why, y);
+  if(r.mini !== tabbarMini) setTabbarMini(r.mini, r.why, y, user);
 }
 // Розгорнути без прокрутки: дотик до таббару, зміна вкладки, клавіатура, шторка, iPad (виклик із відповідних місць і MutationObserver нижче)
-function tabbarMiniExpand(why){ tabbarMiniLastY = 0; setTabbarMini(false, why); }
+function tabbarMiniExpand(why){ tabbarMiniLastY = 0; if(why === 'tab') mainUserReset(); setTabbarMini(false, why, undefined, false); }
 function tabbarMiniGuard(){ if(!tabbarMini) return; const b = tabbarMiniBlocked(); if(b) tabbarMiniExpand(b); }
 const mainScrollSubs = [];
 function subscribeMainScroll(fn){ if(typeof fn === 'function' && mainScrollSubs.indexOf(fn) === -1) mainScrollSubs.push(fn); }
@@ -1376,6 +1388,17 @@ function initTabbarMini(){
   bar.addEventListener('touchstart', function(){ tabbarMiniExpand('touch'); }, { capture: true, passive: true }); // на випадок, коли pointerdown не надійшов (синтетичні/старі події)
   if(typeof MutationObserver !== 'undefined') new MutationObserver(tabbarMiniGuard).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
   window.addEventListener('resize', tabbarMiniGuard);
+  // Rev 2.32.368 (DS-3c2): ввід користувача, що робить прокрутку «користувацькою»
+  const mc = document.getElementById('main-col');
+  if(mc){
+    const o = { capture: true, passive: true };
+    mc.addEventListener('touchstart', function(e){ mainTouchMoved = false; mainTouchY0 = e.touches && e.touches[0] ? e.touches[0].clientY : 0; }, o);
+    mc.addEventListener('touchmove', function(e){ const y = e.touches && e.touches[0] ? e.touches[0].clientY : mainTouchY0; if(Math.abs(y - mainTouchY0) > MAIN_USER_MOVE_PX){ mainTouchMoved = true; mainUserAt = performance.now(); } }, o);
+    const end = function(){ if(mainTouchMoved) mainUserAt = performance.now(); mainTouchMoved = false; };
+    mc.addEventListener('touchend', end, o); mc.addEventListener('touchcancel', end, o);
+    mc.addEventListener('wheel', function(){ mainUserAt = performance.now(); }, o);
+  }
+  document.addEventListener('keydown', function(e){ if(/^(ArrowUp|ArrowDown|PageUp|PageDown|Home|End| )$/.test(e.key) && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) mainUserAt = performance.now(); }, { capture: true, passive: true });
 }
 function updateScrollTopBtn(){
   const mainColEl = document.getElementById('main-col');

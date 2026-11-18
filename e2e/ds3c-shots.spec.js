@@ -23,7 +23,7 @@ test('ds3c-shots', async ({ page }) => {
       await setY(0); await page.waitForTimeout(900); await shot('normal');
       // кадри переходу: запускаємо стиснення й ставимо анімації nav на паузу
       await page.evaluate(() => { document.getAnimations().forEach(a => { try{ a.finish(); }catch(e){} }); });
-      await page.evaluate((y) => { document.getElementById('main-col').scrollTop = y; }, 400);
+      await page.evaluate(async (y) => { const el = document.getElementById('main-col'); const mk = (type, dy) => { const ev = new Event(type, { bubbles: true, cancelable: true }); const p = { identifier: 7, clientX: 200, clientY: 400 + dy, target: el }; ev.touches = type === 'touchend' ? [] : [p]; ev.changedTouches = [p]; el.dispatchEvent(ev); }; mk('touchstart', 0); mk('touchmove', -20); el.scrollTop = y; }, 400);
       await page.waitForFunction(() => document.querySelector('nav.tabbar').classList.contains('mini'));
       await page.evaluate(() => { const list = document.querySelector('nav.tabbar').getAnimations({ subtree: true }).filter(a => a.playState !== 'finished'); list.forEach(a => a.pause()); window.__fr = list; });
       for (const [i, p] of [[0, 0], [1, 25], [2, 50], [3, 75], [4, 100]]){

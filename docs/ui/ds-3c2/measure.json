@@ -1,0 +1,62 @@
+{
+ "390-light": {
+  "expanded": {
+   "bottom": 823,
+   "top": 748,
+   "plus": 44,
+   "plusTop": 742
+  },
+  "mini": {
+   "bottom": 823,
+   "top": 763,
+   "plus": 35.19999694824219,
+   "plusTop": 758.2000122070312
+  },
+  "lineY": 109
+ },
+ "390-dark": {
+  "expanded": {
+   "bottom": 823,
+   "top": 748,
+   "plus": 44,
+   "plusTop": 742
+  },
+  "mini": {
+   "bottom": 823,
+   "top": 763,
+   "plus": 35.19999694824219,
+   "plusTop": 758.2000122070312
+  },
+  "lineY": 109
+ },
+ "320-light": {
+  "expanded": {
+   "bottom": 823,
+   "top": 748,
+   "plus": 44,
+   "plusTop": 742
+  },
+  "mini": {
+   "bottom": 823,
+   "top": 763,
+   "plus": 35.19999694824219,
+   "plusTop": 758.2000122070312
+  },
+  "lineY": 109
+ },
+ "320-dark": {
+  "expanded": {
+   "bottom": 823,
+   "top": 748,
+   "plus": 44,
+   "plusTop": 742
+  },
+  "mini": {
+   "bottom": 823,
+   "top": 763,
+   "plus": 35.19999694824219,
+   "plusTop": 758.2000122070312
+  },
+  "lineY": 109
+ }
+}

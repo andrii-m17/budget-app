@@ -13,7 +13,8 @@ async function boot(page, o){
 const mini = (page) => page.evaluate(() => document.querySelector('nav.tabbar').classList.contains('mini'));
 const info = (page) => page.evaluate(() => { const el = document.getElementById('main-col'); return { max: el.scrollHeight - el.clientHeight, y: el.scrollTop }; });
 // прокрутка до y: scrollTop міняє #main-col, слухач виконується через rAF
-const scrollTo = async (page, y) => { await page.evaluate((y) => { document.getElementById('main-col').scrollTop = y; }, y); await page.waitForTimeout(140); };
+// Rev 2.32.368 (DS-3c2): прокрутка користувача (дотик із рухом по #main-col + зміна scrollTop), бо програмна прокрутка таббар не стискає
+const scrollTo = async (page, y) => { await page.evaluate(async (y) => { const el = document.getElementById('main-col'); const mk = (type, dy) => { const ev = new Event(type, { bubbles: true, cancelable: true }); const p = { identifier: 7, clientX: 200, clientY: 400 + dy, target: el }; ev.touches = type === 'touchend' ? [] : [p]; ev.changedTouches = [p]; el.dispatchEvent(ev); }; mk('touchstart', 0); mk('touchmove', -20); el.scrollTop = y; await new Promise(r => setTimeout(r, 60)); mk('touchend', -20); }, y); await page.waitForTimeout(140); };
 const half = async (page) => Math.floor((await info(page)).max / 2);
 const rec = (page) => page.evaluate(() => recBuf.filter(e => e.type === 'tab-mini').map(e => ({ mini: e.mini, why: e.why })));
 test('66. пороги в обидва боки: > 24 від верху й крок вниз > 6 стискає; крок вгору > 6 розгортає; ≤ 6 — ні; ближче 24 до верху — розгортає', async ({ page }) => {
@@ -38,12 +39,12 @@ test('67. кінець сторінки (< 24 до кінця) розгорта�
   await scrollTo(page, max); expect(await mini(page), 'у самому кінці').toBe(false);
   // відскок угорі: scrollTop поза діапазоном (негативний) → беремо межу 0 → верх: розгорнуто
   await scrollTo(page, 10); await scrollTo(page, 400); expect(await mini(page)).toBe(true);
-  await page.evaluate(() => { const el = document.getElementById('main-col'); Object.defineProperty(el, 'scrollTop', { configurable: true, get: () => -30, set: () => {} }); el.dispatchEvent(new Event('scroll')); }); await page.waitForTimeout(140);
+  await page.evaluate(() => { const el = document.getElementById('main-col'); Object.defineProperty(el, 'scrollTop', { configurable: true, get: () => -30, set: () => {} }); el.dispatchEvent(new WheelEvent('wheel', { bubbles: true })); el.dispatchEvent(new Event('scroll')); }); await page.waitForTimeout(140);
   expect(await mini(page), 'scrollTop < 0 (відскок угорі) = верх').toBe(false);
   await page.evaluate(() => { delete document.getElementById('main-col').scrollTop; });
   // відскок унизу: scrollTop > max → межа max → кінець
   await scrollTo(page, max - 300); expect(await mini(page)).toBe(true);
-  await page.evaluate((m) => { const el = document.getElementById('main-col'); Object.defineProperty(el, 'scrollTop', { configurable: true, get: () => m + 40, set: () => {} }); el.dispatchEvent(new Event('scroll')); }, max); await page.waitForTimeout(140);
+  await page.evaluate((m) => { const el = document.getElementById('main-col'); Object.defineProperty(el, 'scrollTop', { configurable: true, get: () => m + 40, set: () => {} }); el.dispatchEvent(new WheelEvent('wheel', { bubbles: true })); el.dispatchEvent(new Event('scroll')); }, max); await page.waitForTimeout(140);
   expect(await mini(page), 'scrollTop > max (відскок унизу) = кінець').toBe(false);
   await page.evaluate(() => { delete document.getElementById('main-col').scrollTop; });
 });
@@ -52,7 +53,7 @@ test('68. зміна вкладки розгортає таббар; дотик 
   await scrollTo(page, await half(page)); expect(await mini(page)).toBe(true);
   await page.evaluate(() => switchTab('accounting', { noFocus: true })); await page.waitForTimeout(300); expect(await mini(page), 'зміна вкладки').toBe(false);
   await page.evaluate(() => switchTab('structure', { noFocus: true })); await page.waitForTimeout(700);
-  await scrollTo(page, await half(page)); expect(await mini(page)).toBe(true);
+  await scrollTo(page, (await half(page)) + 100); expect(await mini(page), 'позицію вкладки відновлено; нове гортання користувача стискає').toBe(true);
   const r = await page.locator('nav.tabbar button[data-tab="service"]').boundingBox();
   await page.touchscreen.tap(r.x + r.width / 2, r.y + 4); await page.waitForTimeout(300);
   expect(await mini(page), 'дотик до таббару').toBe(false);
@@ -116,7 +117,7 @@ test('75. дотик пальцем по іконці в стиснутому с
   expect(await mini(page), 'таббар розгорнуто').toBe(false);
   expect(await page.evaluate(() => window.__anim), 'анімація іконки грає').toContain('tbPress');
   // свайп у стиснутому стані
-  await page.evaluate(() => switchTab('structure', { noFocus: true })); await page.waitForTimeout(700); await scrollTo(page, await half(page)); expect(await mini(page)).toBe(true);
+  await page.evaluate(() => switchTab('structure', { noFocus: true })); await page.waitForTimeout(700); await scrollTo(page, (await half(page)) + 100); expect(await mini(page)).toBe(true);
   const a = await page.evaluate(() => { const r = document.querySelector('nav.tabbar button[data-tab="structure"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
   const b2 = await page.evaluate(() => { const r = document.querySelector('nav.tabbar button[data-tab="service"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
   await page.evaluate(async ([A, B]) => { const bar = document.querySelector('nav.tabbar'); const fire = (type, p) => { const ev = new Event(type, { bubbles: true, cancelable: true }); const t = { identifier: 1, clientX: p.x, clientY: p.y, target: bar }; ev.touches = type === 'touchend' ? [] : [t]; ev.changedTouches = [t]; (document.elementFromPoint(p.x, p.y) || bar).dispatchEvent(ev); }; fire('touchstart', A); for (let i = 1; i <= 6; i++){ await new Promise(r => setTimeout(r, 20)); fire('touchmove', { x: A.x + (B.x - A.x) * i / 6, y: A.y }); } window.__pressed = bar.classList.contains('pressed'); fire('touchend', B); }, [a, b2]);
@@ -133,7 +134,7 @@ test('76. самописець: tab-mini записує лише зміну ст
   await scrollTo(page, 300);
   await page.evaluate(() => switchTab('accounting', { noFocus: true })); await page.waitForTimeout(200);
   await page.evaluate(() => switchTab('structure', { noFocus: true })); await page.waitForTimeout(700);
-  await scrollTo(page, 300); await page.evaluate(() => document.body.classList.add('kb-open')); await page.waitForTimeout(200); await page.evaluate(() => document.body.classList.remove('kb-open'));
+  await scrollTo(page, 420); await page.evaluate(() => document.body.classList.add('kb-open')); await page.waitForTimeout(200); await page.evaluate(() => document.body.classList.remove('kb-open'));
   const ev = await rec(page);
   expect(ev.map(e => (e.mini ? 'on:' : 'off:') + e.why), JSON.stringify(ev)).toEqual(['on:down', 'off:up', 'on:down', 'off:tab', 'on:down', 'off:kb']);
 });
