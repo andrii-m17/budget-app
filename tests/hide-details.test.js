@@ -51,5 +51,5 @@ test('джерело: поле в NOTIFICATION_SETTING_FIELDS; перемика�
   assert.match(r, /rows\.slice\(2\)\.forEach/);
   assert.ok(r.includes("setAttribute('aria-describedby', 'nx-hide-hint')") && r.includes("hideHint.id = 'nx-hide-hint'"), 'підказка зв\'язана з перемикачем (VoiceOver)');
   assert.ok(r.includes("if(master.value === false) hideHint.style.opacity = '0.5'"), 'підказка приглушена при вимкненому головному');
-  assert.ok(SRC.includes('#notifications-drawer .n-row.n-row-wrap{ padding-top:8px; padding-bottom:8px; }'), 'вертикальний відступ для багаторядкового підпису');
+  assert.ok(SRC.includes('#notifications-drawer .n-row.n-row-wrap{ padding-top:var(--sp-2); padding-bottom:var(--sp-2); }') /* Rev 2.32.374 (DS-4d1): 8px = --sp-2 */, 'вертикальний відступ для багаторядкового підпису');
 });

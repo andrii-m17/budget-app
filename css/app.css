@@ -409,7 +409,7 @@
      відступи, ЛИШЕ #card-debt-drawer): .drawer-handle (скопований) -6px,
      власний padding-bottom картки -4px — разом -10px, з запасом покриває
      7px дефіциту. */
-  #card-debt-drawer{ padding-bottom:16px; }
+  #card-debt-drawer{ padding-bottom:var(--sp-4); }
   #card-debt-drawer .drawer-handle{ margin:-8px -20px 3px; padding:8px 0 3px; }
   .cdd-amount-input{ text-align:right; }
   /* Rev 2.16.6 BugFix — "Видалити картку" стояла одразу під "Зберегти" (2px
@@ -545,12 +545,12 @@
   .row-2{ display:flex; flex-wrap:wrap; gap:var(--sp-3); }
   .row-2 > .field{ flex:1 1 130px; min-width:0; }
   .field.auto-hint{ font-size:var(--fs-caption1); color:var(--color-primary-hover); margin-top:6px; display:none; }
-  .field.auto-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .field.auto-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2); }
   /* Rev 2.3.2 — підказка відновленої чернетки форми витрати: нейтральний тон
      (не зелений auto-hint і не фіолетовий installment-hint — це не про
      категорію/прив'язку, а про сам факт "тут є незбережене з минулого разу"). */
   .field.draft-hint{ display:none; font-size:var(--fs-caption1); color:var(--text-2); margin-bottom:14px; }
-  .field.draft-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--surface-2); padding:8px 10px; border-radius:var(--radius-sm); }
+  .field.draft-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2); background:var(--surface-2); padding:8px 10px; border-radius:var(--radius-sm); }
   /* Rev 2.3.5 — автопідказка назви витрати за історією введень. Власний
      DOM-компонент замість нативного <datalist> — той на iOS Safari (основний
      пристрій тестування, див. мобільні фікси нижче) в багатьох версіях
@@ -1261,7 +1261,7 @@
 
   /* Rev 2.32.58 (F1) — форми «Структури» у компоненті .drawer: компактні рядки 48 пт (підпис ліворуч, значення праворуч), групи радіус 18, пара кнопок знизу (скасувати — обведена), «Видалити …» червоним текстом під парою; ✕ немає. Нативний select — прозорий поверх рядка, текст значення малюється окремо (обрізання знизу неможливе). */
   :is(#struct-drawer, #mono-detail-drawer) .sf-title{ margin:2px 0 12px; font-size:var(--fs-body); font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
-  :is(#struct-drawer, #mono-detail-drawer) .sf-notice{ margin:0 0 12px; padding:10px 12px; border-radius:var(--r-s); background:var(--color-warning-bg); color:var(--text); font-size:var(--fs-footnote); line-height:1.4; }
+  :is(#struct-drawer, #mono-detail-drawer) .sf-notice{ margin:0 0 var(--sp-3); padding:10px 12px; border-radius:var(--r-s); background:var(--color-warning-bg); color:var(--text); font-size:var(--fs-footnote); line-height:1.4; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-group{ background:var(--ui-glass, var(--surface-2)); border:1px solid var(--line); border-radius:var(--r-m); overflow:hidden; margin-bottom:10px; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-row{ position:relative; display:flex; align-items:center; gap:10px; min-height:48px; padding:0 14px; box-sizing:border-box; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-row + .sf-row::before{ content:''; position:absolute; top:0; left:14px; right:0; height:1px; background:var(--line); }
@@ -1285,7 +1285,7 @@
   :is(#struct-drawer, #mono-detail-drawer) .sf-seg{ padding:6px 8px; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-seg .struct-tabs{ width:100%; margin:0; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-seg .struct-tab-btn{ padding:7px 4px; }
-  :is(#struct-drawer, #mono-detail-drawer) .struct-caption{ margin:0 4px 12px; }
+  :is(#struct-drawer, #mono-detail-drawer) .struct-caption{ margin:0 var(--sp-1) var(--sp-3); }
   :is(#struct-drawer, #mono-detail-drawer) .sf-actions{ display:flex; gap:10px; margin-top:6px; }
   :is(#struct-drawer, #mono-detail-drawer) .sf-actions .submit-btn{ flex:1 1 0; min-height:50px; }
   html:root #mono-detail-drawer .mono-detail-actions .submit-btn.secondary, html:root :is(#struct-drawer, #mono-detail-drawer) .sf-actions .submit-btn.secondary{ background:transparent; border:1.5px solid var(--line-strong); color:var(--text); box-shadow:none; }
@@ -1544,10 +1544,10 @@
   /* Rev 2.32.36 (L) — значок Monobank замість тексту «з банку» (.exp-source). 18px, тонка рамка: світла на темній темі, ледь помітна на світлій. */
   .mono-bank-icon{ width:18px; height:18px; flex:none; border-radius:var(--r-2xs); vertical-align:middle; box-shadow:0 0 0 1px rgba(16,24,40,.10); }
   :root[data-theme="dark"] .mono-bank-icon{ box-shadow:0 0 0 1px rgba(255,255,255,.22); }
-  .mono-detail-actions{ display:flex; flex-direction:column; gap:10px; margin-top:8px; }
-  #mono-detail-drawer .sf-group{ margin-bottom:8px; }
-  #mono-detail-drawer .mono-detail-fields{ gap:0; margin-top:8px; }
-  .mono-detail-fields{ display:flex; flex-direction:column; gap:12px; margin-top:12px; }
+  .mono-detail-actions{ display:flex; flex-direction:column; gap:10px; margin-top:var(--sp-2); }
+  #mono-detail-drawer .sf-group{ margin-bottom:var(--sp-2); }
+  #mono-detail-drawer .mono-detail-fields{ gap:0; margin-top:var(--sp-2); }
+  .mono-detail-fields{ display:flex; flex-direction:column; gap:var(--sp-3); margin-top:var(--sp-3); }
   /* Rev 2.32.59 (F2): рядки вибору/примітки у деталях Monobank — спільні .sf-* правила (див. «Структура», 2.32.58); колишнє виправлення обрізання з 2.32.34 більше не потрібне — select прозорий, текст значення окремо. */
   .mono-note{ font-size:var(--fs-subhead); line-height:1.45; color:var(--text-2); text-align:center; padding:var(--sp-6) var(--sp-4); }
   .trash-screen{ position:fixed; inset:0; z-index:19; background:var(--bg); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; padding:max(12px, env(safe-area-inset-top)) var(--sp-4) 112px; }
@@ -1716,22 +1716,22 @@
   #push-series-form{ border:1px solid var(--line); border-radius:var(--radius-sm); } #push-series-form .n-diag-row{ align-items:center; font-size:var(--fs-subhead); } #push-series-form select{ font-size:16px; min-height:36px; padding:var(--sp-1) var(--sp-2); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); } /* Rev 2.32.104: форма серії без текстових полів; select ≥ 16 px (без масштабування iOS) */
   /* ===== Rev 2.32.12 (R) — «Налаштування → Сповіщення»: inset-grouped список за макетом (рядок 52, групи 18, заголовки 13 пт, тумблер 51×31; значення з токенів --ui-*). Лише всередині #notifications-drawer — решта .n-* (список «Налаштування») без змін. ===== */
   #notifications-drawer .n-section-label{ font-size:var(--fs-footnote); font-weight:600; letter-spacing:.04em; margin:22px 16px 7px; }
-  #notifications-drawer .nx-first{ margin-top:4px; }
+  #notifications-drawer .nx-first{ margin-top:var(--sp-1); }
   #notifications-drawer .n-group{ border-radius:var(--r-m); }
-  #notifications-drawer .n-row, #notifications-drawer .n-time-row{ position:relative; min-height:52px; padding:0 16px; border-top:none; gap:10px; }
+  #notifications-drawer .n-row, #notifications-drawer .n-time-row{ position:relative; min-height:52px; padding:0 var(--sp-4); border-top:none; gap:10px; }
   #notifications-drawer .n-switch-input{ flex-shrink:0; }
   #notifications-drawer .n-row + .n-row::before, #notifications-drawer .n-row + .n-time-row::before, #notifications-drawer .n-time-row + .n-time-row::before, #notifications-drawer .n-days + .n-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--line); }
   #notifications-drawer .n-row-title{ font-size:var(--fs-callout); }
   #notifications-drawer .nx-value{ font-size:var(--fs-footnote); color:var(--text-2); white-space:nowrap; }
   #notifications-drawer .n-row .n-row-title{ white-space:nowrap; }
-  #notifications-drawer .n-row.n-row-wrap{ padding-top:8px; padding-bottom:8px; } #notifications-drawer .n-row.n-row-wrap .n-row-title{ white-space:normal; } /* Rev 2.32.109 (HIDE-1): довгий підпис «Приховувати суми й назви на екрані блокування» переноситься на два рядки, а не ховається під перемикачем */
-  #notifications-drawer .n-row{ gap:8px; }
+  #notifications-drawer .n-row.n-row-wrap{ padding-top:var(--sp-2); padding-bottom:var(--sp-2); } #notifications-drawer .n-row.n-row-wrap .n-row-title{ white-space:normal; } /* Rev 2.32.109 (HIDE-1): довгий підпис «Приховувати суми й назви на екрані блокування» переноситься на два рядки, а не ховається під перемикачем */
+  #notifications-drawer .n-row{ gap:var(--sp-2); }
   #notifications-drawer .nx-seg-row{ position:relative; padding:10px 16px 12px; }
-  #notifications-drawer .nx-seg-row .n-row-title{ display:block; margin-bottom:8px; }
+  #notifications-drawer .nx-seg-row .n-row-title{ display:block; margin-bottom:var(--sp-2); }
   #notifications-drawer .nx-seg-row .n-days{ padding:0; }
   #notifications-drawer .nx-seg-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--line); }
-  #notifications-drawer .nx-hint{ font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); margin:8px 16px 0; }
-  #notifications-drawer .nx-notice{ font-size:var(--fs-footnote); line-height:1.4; color:var(--ui-warning-text); margin:8px 16px 0; }
+  #notifications-drawer .nx-hint{ font-size:var(--fs-footnote); line-height:1.4; color:var(--text-2); margin:var(--sp-2) var(--sp-4) 0; }
+  #notifications-drawer .nx-notice{ font-size:var(--fs-footnote); line-height:1.4; color:var(--ui-warning-text); margin:var(--sp-2) var(--sp-4) 0; }
   #notifications-drawer .n-dimmed{ opacity:.38; pointer-events:none; }
   /* Rev 2.32.14: коротка підсвітка жовтого рядка (лише opacity ~600 мс, без зміни розмірів) */
   @keyframes nxFlash{ 0%,100%{ opacity:1; } 30%{ opacity:.25; } 60%{ opacity:1; } }
@@ -1830,7 +1830,7 @@
        мимоволі закривалась) — "скрол обрізає картку". contain — стандартний
        спосіб зупинити це протікання скрол-жесту за межі самого елемента. */
     overscroll-behavior:contain;
-    border-radius:var(--radius-xl); padding:20px; --sheet-pad-x:20px; /* Rev 2.32.318: бічний відступ вмісту (панель дій розтягується на нього) */
+    border-radius:var(--radius-xl); padding:var(--sp-5); --sheet-pad-x:20px; /* Rev 2.32.318: бічний відступ вмісту (панель дій розтягується на нього) */
     /* BugFix (6D.11, знайдено живою перевіркою): translateY(100%) рахується
        від ВЛАСНОЇ висоти елемента, не від нового bottom-відступу картки —
        короткий drawer (напр. "Дохід") лишав видимий "хвостик" знизу
@@ -1990,7 +1990,7 @@
   .drawer-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .drawer-head h2{ margin:0; font-size:var(--fs-body); font-weight:700; }
   .drawer-close{ width:32px; height:32px; border-radius:var(--r-s); border:none; background:var(--surface-2); cursor:pointer; color:var(--text-2); display:flex; align-items:center; justify-content:center; }
-  .drawer-empty{ font-size:var(--fs-footnote); color:var(--text-2); line-height:1.6; background:var(--surface-2); border-radius:var(--r-s); padding:16px; }
+  .drawer-empty{ font-size:var(--fs-footnote); color:var(--text-2); line-height:1.6; background:var(--surface-2); border-radius:var(--r-s); padding:var(--sp-4); }
   /* Rev 2.6.0 — сегментований перемикач теми (Системна/Світла/Темна) */
   .theme-toggle{ display:flex; gap:var(--sp-1); background:var(--surface-2); border-radius:var(--r-s); padding:var(--sp-1); margin-bottom:var(--sp-5); }
   .theme-toggle-btn{ flex:1; display:flex; flex-direction:column; align-items:center; gap:var(--sp-1); padding:var(--sp-3) var(--sp-1); border:none; background:none; border-radius:var(--radius-sm); color:var(--text-2); font-size:var(--fs-caption2); font-weight:600; cursor:pointer; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); }
@@ -2052,18 +2052,18 @@
   .inc-icon svg{ width:18px; height:18px; display:block; }
   .inc-label{ flex:1 1 auto; min-width:0; font-size:var(--fs-subhead); line-height:1.3; word-break:normal; overflow-wrap:normal; }
   .inc-value{ flex:none; font-size:var(--fs-footnote); color:var(--text-2); white-space:nowrap; }
-  .app-modal-text{ font-size:var(--fs-subhead); line-height:1.5; color:var(--text); margin-bottom:16px; white-space:pre-line; }
-  .app-modal-input-wrap{ display:none; margin-bottom:16px; }
+  .app-modal-text{ font-size:var(--fs-subhead); line-height:1.5; color:var(--text); margin-bottom:var(--sp-4); white-space:pre-line; }
+  .app-modal-input-wrap{ display:none; margin-bottom:var(--sp-4); }
   .app-modal-input-wrap input{ width:100%; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
   .app-modal-input-wrap input:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
   /* Rev 2.1.0 — вибір місяця в модалі видалення картки/ОЧ ("Приховати з...") */
-  .app-modal-select-wrap{ display:none; margin-bottom:16px; }
+  .app-modal-select-wrap{ display:none; margin-bottom:var(--sp-4); }
   .app-modal-select-wrap label{ display:block; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .app-modal-select-wrap select{ width:100%; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:15px; background:var(--surface); color:var(--text); box-sizing:border-box; }
   /* Rev 2.1.17 — поле початкової суми ОЧ у спільній модалці (той самий стиль,
      що select-wrap вище) — приховане за замовчуванням, показується лише
      через showInstallmentModal(). */
-  .app-modal-amount-wrap{ display:none; margin-bottom:16px; }
+  .app-modal-amount-wrap{ display:none; margin-bottom:var(--sp-4); }
   .app-modal-amount-wrap label{ display:block; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
   .app-modal-amount-wrap input{ width:100%; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
   .app-modal-amount-wrap input:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
@@ -2769,7 +2769,7 @@
        задокументована при базовому правилі .vytraty-form-title). */
     #view-vytraty .vytraty-form-title{ font-size:var(--fs-body); margin-bottom:var(--sp-3); }
     #view-vytraty .field{ margin-bottom:10px; }
-    #view-vytraty .field label, #view-vytraty .field .fld-label-like{ font-size:var(--fs-caption2); margin-bottom:4px; }
+    #view-vytraty .field label, #view-vytraty .field .fld-label-like{ font-size:var(--fs-caption2); margin-bottom:var(--sp-1); }
     #view-vytraty .field input, #view-vytraty .field select{ height:38px; padding:8px 10px; font-size:13.5px; }
     /* Rev 2.21.11 — #journal-date-input не всередині .field (див. коментар
        біля основного правила вище), тому потребує окремого дзеркального
@@ -2789,7 +2789,7 @@
        картки. */
     #view-vytraty .date-nav-btn{ width:76px; height:38px; }
     #view-vytraty .date-caption{ font-size:var(--fs-caption2); margin-top:var(--sp-1); }
-    #view-vytraty .field.auto-hint{ font-size:var(--fs-caption2); margin-top:4px; }
+    #view-vytraty .field.auto-hint{ font-size:var(--fs-caption2); margin-top:var(--sp-1); }
     #view-vytraty .submit-btn{ padding:var(--sp-3); font-size:var(--fs-footnote); margin-top:var(--sp-1); }
   }
   /* ---- Картка "Скорочення боргу" на mobile/tablet (<1280px) розтягнута на 2 колонки —
