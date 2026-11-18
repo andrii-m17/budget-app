@@ -86,7 +86,7 @@ test('DS-5c-1 3. дотик до сектора (справжній клік п�
   expect(s.text).toContain('Без підкатегорії'); clean(s.text, 'підкатегорії');
 });
 
-test('DS-5c-1 4. стани: немає витрат, одна категорія, багато дрібних («Інші»), підкатегорії без значення; без NaN', async ({ page }) => {
+test('DS-5c-1 4. стани: немає витрат, одна категорія, багато дрібних («Решта»), підкатегорії без значення; без NaN', async ({ page }) => {
   test.setTimeout(150000);
   await boot(page);
   // одна категорія
@@ -99,7 +99,7 @@ test('DS-5c-1 4. стани: немає витрат, одна категорі�
   await page.click('#bal-cat-all'); await page.waitForTimeout(1200); s = await sheet(page);
   expect(s.segs.length).toBe(6); expect(s.segs[s.segs.length - 1].k).toBe('__other'); expect(s.rows.length, 'у списку всі категорії').toBe(13);
   await page.evaluate(() => { const c = document.querySelector('.bal-sg[data-k="__other"]'); c.dispatchEvent(new MouseEvent('click', { bubbles: true })); }); await page.waitForTimeout(300); s = await sheet(page);
-  expect(s.center).toContain('Інші'); expect(s.rows.filter(r => r.on).length, 'виділено рядки, що входять в «Інші» (13 − 5 з назвою)').toBe(8); await page.keyboard.press('Escape'); await page.waitForTimeout(500);
+  expect(s.center).toContain('Решта'); expect(s.rows.filter(r => r.on).length, 'виділено рядки, що входять в «Решта» (13 − 5 з назвою)').toBe(8); await page.keyboard.press('Escape'); await page.waitForTimeout(500);
   // немає витрат
   await page.evaluate(() => { expenses.forEach(e => { e.deletedAt = new Date().toISOString(); }); renderDashboard(); }); await page.waitForTimeout(500);
   expect(await page.locator('#bal-cat-top .empty-hint').count()).toBe(1); expect(await page.locator('#bal-cat-all.hidden').count(), '«Усі» прихована без витрат').toBe(1);

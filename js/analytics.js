@@ -1726,16 +1726,11 @@ function closeDebtSheet(){ balSheetClose('bal-sheet-debt'); }
 function openInstSheet(){ renderBalSheet('inst'); balSheetOpen('bal-sheet-inst'); }
 function closeInstSheet(){ balSheetClose('bal-sheet-inst'); }
 /* ===== Rev 2.32.388 (DS-5c-1): картка «Деталізація витрат» і шторка з кільцями (макет analytics-ds v18, картка 4; docs/reports/DS-5-step0.md, «Рішення 18.11») =====
-   F9: відсотки — частка суми витрат місяця (не доходу). Кільце: топ-5 + «Інші» (якщо в «Інших» одна позиція — лишається під власною назвою); список шторки — усі позиції; підкатегорії — з рядком «Без підкатегорії» (витрати без підкатегорії).
+   F9: відсотки — частка суми витрат місяця (не доходу). Кільце: топ-5 + «Решта» (якщо в «Інших» одна позиція — лишається під власною назвою); список шторки — усі позиції; підкатегорії — з рядком «Без підкатегорії» (витрати без підкатегорії).
    Колір: категорії --k1…--k5 за рангом, решта й «Без підкатегорії» --k6; підкатегорія — відтінок кольору категорії (100/64/42 % за рангом у ній). Анімація довжини дуги (stroke-dasharray) — свідомий виняток із «лише transform/opacity»; при «зменшити рух» вимкнена. */
 const DONUT_LABEL_MIN = 7;     // підпис (емодзі й %) на секторі від 7 % витрат
 const DONUT_R = 80.9;          // радіус підписів у кільці 208 pt
 const DONUT_SHADES = [100, 64, 42];
-// Початкові емодзі назви (категорії й підкатегорії з даних починаються з емодзі); '' якщо немає.
-function leadingEmoji(name){
-  const m = String(name == null ? '' : name).match(/^[\p{Extended_Pictographic}️‍⃣\p{Emoji_Modifier}]+/u);
-  return m ? m[0] : '';
-}
 // Розбивка витрат місяця: cats (усі категорії), subs (усі підкатегорії + «Без підкатегорії»); кожна позиція { key, name, sum, emoji, parent }; total — сума витрат. Записи з сумою ≤ 0 не рахуються.
 function catBreakdown(monthExp){
   const byCat = {}, bySub = {}, subCat = {};
@@ -1752,26 +1747,26 @@ function catBreakdown(monthExp){
     }else none += a;
   });
   const desc = function(x, y){ return y.sum - x.sum || (x.name < y.name ? -1 : 1); };
-  const mk = function(raw, sum, kind, parent){ return { key: kind + ':' + raw, name: stripLeadingEmoji(raw) || raw, sum: sum, emoji: leadingEmoji(raw), parent: parent || '' }; };
+  const mk = function(raw, sum, kind, parent){ return { key: kind + ':' + raw, name: stripLeadingEmoji(raw) || raw, sum: sum, icon: tileForName(raw).text, parent: parent || '' }; };
   const cats = Object.keys(byCat).map(function(k){ return mk(k, byCat[k], 'c', ''); }).sort(desc);
   const subs = Object.keys(bySub).map(function(k){
     const pc = subCat[k]; let best = '', bs = -1; Object.keys(pc).forEach(function(c){ if(pc[c] > bs){ bs = pc[c]; best = c; } }); // батько — категорія з більшою сумою
     return mk(k, bySub[k], 's', best);
   });
-  if(none > 0) subs.push({ key: 'n:', name: 'Без підкатегорії', sum: none, emoji: '', parent: '' });
+  if(none > 0) subs.push({ key: 'n:', name: 'Без підкатегорії', sum: none, icon: tileForName('Без підкатегорії').text, parent: '' });
   subs.sort(desc);
   return { total: total, cats: cats, subs: subs };
 }
-// Кільце: частки, «Інші», межа підпису, дуги. maxNamed = 5.
+// Кільце: частки, «Решта», межа підпису, дуги. maxNamed = 5.
 function donutModel(items, maxNamed){
   const mx = maxNamed || 5;
   const list = (items || []).filter(function(i){ return i && Number(i.sum) > 0; }).slice().sort(function(a, b){ return b.sum - a.sum; });
   const total = list.reduce(function(s, i){ return s + Number(i.sum); }, 0);
   if(!(total > 0)) return { total: 0, count: 0, empty: true, segs: [] };
   let head = list, rest = [];
-  if(list.length - mx > 1){ head = list.slice(0, mx); rest = list.slice(mx); } // «Інші» лише коли в них щонайменше дві позиції
-  const raw = head.map(function(i){ return { key: i.key, name: i.name, sum: Number(i.sum), emoji: i.emoji || '', parent: i.parent || '', other: false, restKeys: [] }; });
-  if(rest.length) raw.push({ key: '__other', name: 'Інші', sum: rest.reduce(function(s, i){ return s + Number(i.sum); }, 0), emoji: '📦', parent: '', other: true, restKeys: rest.map(function(i){ return i.key; }) });
+  if(list.length - mx > 1){ head = list.slice(0, mx); rest = list.slice(mx); } // «Решта» лише коли в них щонайменше дві позиції
+  const raw = head.map(function(i){ return { key: i.key, name: i.name, sum: Number(i.sum), icon: i.icon || '', parent: i.parent || '', other: false, restKeys: [] }; });
+  if(rest.length) raw.push({ key: '__other', name: 'Решта', sum: rest.reduce(function(s, i){ return s + Number(i.sum); }, 0), icon: '📦', parent: '', other: true, restKeys: rest.map(function(i){ return i.key; }) });
   let a = 0;
   const segs = raw.map(function(s){
     const share = s.sum / total * 100, mid = (a + share / 2) / 100 * 2 * Math.PI - Math.PI / 2, single = raw.length === 1;
@@ -1803,7 +1798,7 @@ let balCatMode = 'cat', balCatSel = null, balCatData = null, balCatSource = [], 
 function balCatItems(){ return balCatData ? (balCatMode === 'cat' ? balCatData.cats : balCatData.subs) : []; }
 function catRowHtml(item, max, mode, color, inSheet){
   const w = max > 0 ? item.sum / max : 0;
-  const emoji = item.emoji ? escapeHtml(item.emoji) : '•';
+  const emoji = escapeHtml(item.icon || '?'); // емодзі з початку назви, без емодзі — перша літера (як у «Структурі», tileForName); крапка зарезервована за неповними даними
   return '<button type="button" class="bal-crow" data-k="' + escapeAttr(item.key) + '"><span class="bal-cli"><span class="bal-em" aria-hidden="true">' + emoji + '</span><span class="bal-cnm">' + escapeHtml(item.name) +
     (mode === 'sub' && item.parent ? '<span class="bal-csub">' + escapeHtml(stripLeadingEmoji(item.parent)) + '</span>' : '') + '</span><span class="bal-cam">' + fmt(item.sum) + '</span><span class="bal-cpc">' + catPctText(item.sum, balCatData.total) + '</span></span>' +
     '<span class="bal-ctrack"><span class="bal-cfill' + (inSheet ? '' : (mode === 'cat' ? ' cat' : ' sub')) + '" style="--v:' + Math.max(0, Math.min(1, w)).toFixed(4) + (inSheet ? ';background:' + color : '') + '"></span></span></button>';
@@ -1822,7 +1817,7 @@ function renderCatCard(monthExp, month){
   if(month !== undefined && month !== balCatMonth){ balCatMonth = month; balCatSel = null; } // інший місяць — вибір скидається
   balCatData = catBreakdown(balCatSource);
   if(balCatSel && balCatSel !== '__other' && !balCatData.cats.concat(balCatData.subs).some(function(i){ return i.key === balCatSel; })) balCatSel = null;
-  if(balCatSel === '__other' && !donutModel(balCatItems(), 5).segs.some(function(x){ return x.other; })) balCatSel = null; // «Інші» зникли — вибір скидається
+  if(balCatSel === '__other' && !donutModel(balCatItems(), 5).segs.some(function(x){ return x.other; })) balCatSel = null; // «Решта» зникли — вибір скидається
   const items = balCatItems(), top = items.slice(0, 4);
   syncCatSegs();
   host.innerHTML = top.length ? top.map(function(i){ return catRowHtml(i, top[0].sum, balCatMode, '', false); }).join('') : '<div class="empty-hint">Немає витрат за цей місяць</div>';
@@ -1850,11 +1845,11 @@ function catCenterHtml(){
   }
   if(balCatSel === '__other'){
     const m = donutModel(items, 5), o = m.segs.filter(function(s){ return s.other; })[0];
-    return o ? '<span class="bal-ce">' + o.emoji + '</span><b>' + fmt(o.sum) + '</b><span>Інші · ' + catPctText(o.sum, total) + '</span>' : '<b>' + fmt(total) + '</b>';
+    return o ? '<span class="bal-ce">' + escapeHtml(o.icon) + '</span><b>' + fmt(o.sum) + '</b><span>Решта · ' + catPctText(o.sum, total) + '</span>' : '<b>' + fmt(total) + '</b>';
   }
   const it = items.filter(function(i){ return i.key === balCatSel; })[0];
   if(!it) return '<b>' + fmt(total) + '</b>';
-  return '<span class="bal-ce">' + (it.emoji ? escapeHtml(it.emoji) : '•') + '</span><b>' + fmt(it.sum) + '</b><span>' + escapeHtml(it.name) + ' · ' + catPctText(it.sum, total) + '</span>';
+  return '<span class="bal-ce">' + escapeHtml(it.icon || '?') + '</span><b>' + fmt(it.sum) + '</b><span>' + escapeHtml(it.name) + ' · ' + catPctText(it.sum, total) + '</span>';
 }
 function applyCatSel(){
   const body = document.getElementById('bal-sheet-cats-body'); if(!body) return;
@@ -1874,7 +1869,7 @@ function renderBalDonut(){
   model.segs.forEach(function(s, i){
     const col = catColor(s, balCatMode, balCatData.cats, balCatData.subs);
     segs += '<circle class="bal-sg" data-k="' + escapeAttr(s.key) + '" cx="18" cy="18" r="14" pathLength="100" stroke-width="7.4" stroke="' + col + '" stroke-dasharray="0 100" data-v="' + s.dash.toFixed(2) + '" stroke-dashoffset="' + s.offset.toFixed(2) + '"/>';
-    if(s.label) labs += '<span class="bal-dl" data-k="' + escapeAttr(s.key) + '" style="left:' + s.lx.toFixed(1) + 'px;top:' + s.ly.toFixed(1) + 'px;--n:' + i + '"><i>' + (s.emoji ? escapeHtml(s.emoji) : '') + '</i>' + s.pct + '%</span>';
+    if(s.label) labs += '<span class="bal-dl" data-k="' + escapeAttr(s.key) + '" style="left:' + s.lx.toFixed(1) + 'px;top:' + s.ly.toFixed(1) + 'px;--n:' + i + '"><i>' + escapeHtml(s.icon || '') + '</i>' + s.pct + '%</span>';
   });
   wrap.innerHTML = '<svg viewBox="0 0 36 36" role="img" aria-label="' + (balCatMode === 'cat' ? 'Частки категорій' : 'Частки підкатегорій') + '">' + segs + '</svg>' + labs + '<button type="button" class="bal-suc" id="bal-sunc" aria-label="Скинути вибір"></button>';
   applyCatSel();

@@ -8,16 +8,20 @@ const ex = require('./extract');
 const SRC = ex.readIndexWithCss();
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const ctx = ex.buildSandbox({ escapeHtml: esc, balCatData: null }, ['leadingEmoji', 'catBreakdown', 'donutModel', 'catPctText', 'catColorIndex', 'catColor', 'catRowHtml', 'stripLeadingEmoji', 'escapeAttr', 'fmt', 'DONUT_LABEL_MIN', 'DONUT_R', 'DONUT_SHADES']);
+const ctx = ex.buildSandbox({ escapeHtml: esc, balCatData: null }, ['tileForName', 'splitLeadingEmoji', 'catBreakdown', 'donutModel', 'catPctText', 'catColorIndex', 'catColor', 'catRowHtml', 'stripLeadingEmoji', 'escapeAttr', 'fmt', 'DONUT_LABEL_MIN', 'DONUT_R', 'DONUT_SHADES']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const exps = [
   { amount: 6900, category: '🛒 Продукти', subcategory: '' }, { amount: 4800, category: '🛒 Продукти', subcategory: '🏪 Супермаркет' }, { amount: 2100, category: '🛒 Продукти', subcategory: '🥬 Ринок' },
   { amount: 1900, category: '🍔 Харчування', subcategory: '☕️ Кафе' }, { amount: 1000, category: '🍔 Харчування', subcategory: '🍕 Доставка' }, { amount: 500, category: '🚌 Транспорт', subcategory: '' }
 ];
 
-test('leadingEmoji: початкові емодзі (з варіантним селектором), без емодзі — порожньо', () => {
-  assert.equal(j("leadingEmoji('🛒 Продукти')"), '🛒'); assert.equal(j("leadingEmoji('☕️ Кава')"), '☕️'); assert.equal(j("leadingEmoji('Без емодзі')"), '');
-  assert.equal(j("leadingEmoji('')"), ''); assert.equal(j('leadingEmoji(undefined)'), ''); assert.equal(j('leadingEmoji(null)'), '');
+test('іконка позиції — за правилом «Структури» (tileForName): емодзі з початку назви, без емодзі — перша літера; крапки «•» немає', () => {
+  const b = j('catBreakdown(' + JSON.stringify([{ amount: 100, category: '🛒 Продукти', subcategory: '☕️ Кафе' }, { amount: 90, category: 'Інше', subcategory: 'пальне' }, { amount: 80, category: '', subcategory: '' }]) + ')');
+  assert.equal(b.cats.find(c => c.name === 'Продукти').icon, '🛒'); assert.equal(b.cats.find(c => c.name === 'Інше').icon, 'І', 'без емодзі — перша літера (велика)');
+  assert.equal(b.subs.find(c => c.name === 'Кафе').icon, '☕️'); assert.equal(b.subs.find(c => c.name === 'пальне').icon, 'П');
+  assert.equal(b.subs.find(c => c.key === 'n:').icon, 'Б', '«Без підкатегорії» — літера Б'); assert.ok(b.cats.every(c => c.icon && c.icon !== '•') && b.subs.every(c => c.icon !== '•'));
+  const SRC_JS = SRC.slice(SRC.indexOf('===== Rev 2.32.388 (DS-5c-1)'));
+  assert.ok(!/'•'/.test(SRC_JS.slice(0, SRC_JS.indexOf("(window.__MT_FILES"))), 'символу «•» як іконки в коді картки немає');
 });
 
 test('catBreakdown: суми категорій і підкатегорій (разом із «Без підкатегорії») збігаються з сумою витрат; батько — категорія з більшою сумою', () => {
@@ -27,7 +31,7 @@ test('catBreakdown: суми категорій і підкатегорій (р�
   assert.equal(b.cats.reduce((s, c) => s + c.sum, 0), total); assert.equal(b.subs.reduce((s, c) => s + c.sum, 0), total, 'підкатегорії + «Без підкатегорії» = усі витрати');
   assert.deepEqual(b.cats.map(c => c.name), ['Продукти', 'Харчування', 'Транспорт']); assert.deepEqual(b.cats.map(c => c.sum), [13800, 2900, 500]);
   const none = b.subs.find(s => s.key === 'n:'); assert.equal(none.name, 'Без підкатегорії'); assert.equal(none.sum, 7400, '6 900 + 500 без підкатегорії');
-  assert.equal(b.subs.find(s => s.name === 'Кафе').parent, '🍔 Харчування'); assert.equal(b.subs.find(s => s.name === 'Кафе').emoji, '☕️');
+  assert.equal(b.subs.find(s => s.name === 'Кафе').parent, '🍔 Харчування'); assert.equal(b.subs.find(s => s.name === 'Кафе').icon, '☕️');
   // підкатегорія під двома категоріями: батько — та, де більше
   const two = j('catBreakdown(' + JSON.stringify([{ amount: 100, category: 'A', subcategory: 'X' }, { amount: 900, category: 'B', subcategory: 'X' }]) + ')');
   assert.equal(two.subs[0].parent, 'B');
@@ -52,14 +56,14 @@ test('donutModel: частки в сумі 100 %, відсортовано, ме
   assert.equal(edge.segs.find(s => s.key === 'x').label, false, '6,93 % < 7 %');
   assert.equal(j('donutModel([{key:"x",name:"x",sum:70},{key:"y",name:"y",sum:930}])').segs.find(s => s.key === 'x').label, true, 'рівно 7 %');
 });
-test('donutModel: топ-5 + «Інші» (у «Інших» щонайменше дві позиції); шоста сама лишається під назвою; частки = 100', () => {
+test('donutModel: топ-5 + «Решта» (у «Решті» щонайменше дві позиції); шоста сама лишається під назвою; частки = 100', () => {
   const mk = n => Array.from({ length: n }, (_, i) => ({ key: 'k' + i, name: 'n' + i, sum: 1000 - i * 10 }));
-  const six = j('donutModel(' + JSON.stringify(mk(6)) + ')'); assert.equal(six.segs.length, 6); assert.equal(six.segs.some(s => s.other), false, 'в «Інших» була б одна позиція — лишаємо назву');
+  const six = j('donutModel(' + JSON.stringify(mk(6)) + ')'); assert.equal(six.segs.length, 6); assert.equal(six.segs.some(s => s.other), false, 'в «Решті» була б одна позиція — лишаємо назву');
   const seven = j('donutModel(' + JSON.stringify(mk(7)) + ')'); assert.equal(seven.segs.length, 6); const o = seven.segs[5];
-  assert.equal(o.other, true); assert.equal(o.key, '__other'); assert.equal(o.name, 'Інші'); assert.deepEqual(o.restKeys, ['k5', 'k6']); assert.equal(o.sum, (1000 - 50) + (1000 - 60));
+  assert.equal(o.other, true); assert.equal(o.key, '__other'); assert.equal(o.name, 'Решта'); assert.deepEqual(o.restKeys, ['k5', 'k6']); assert.equal(o.sum, (1000 - 50) + (1000 - 60));
   assert.ok(Math.abs(seven.segs.reduce((s, x) => s + x.share, 0) - 100) < 1e-9); assert.equal(seven.count, 7);
   const many = j('donutModel(' + JSON.stringify(mk(40)) + ')'); assert.equal(many.segs.length, 6); assert.equal(many.segs[5].restKeys.length, 35);
-  // багато дрібних: усі дрібні в «Інші»
+  // багато дрібних: усі дрібні в «Решта»
   const tiny = j('donutModel(' + JSON.stringify([{ key: 'big', name: 'big', sum: 10000 }].concat(Array.from({ length: 8 }, (_, i) => ({ key: 't' + i, name: 't', sum: 10 })))) + ')');
   assert.equal(tiny.segs[0].key, 'big'); assert.ok(tiny.segs.some(s => s.other));
 });
@@ -76,7 +80,7 @@ test('catPctText: ціле, «<1%» для дуже малих, порожньо
   assert.ok(/catPctText\(item\.sum, balCatData\.total\)/.test(m) && !/totalIncome/.test(m));
 });
 
-test('колір: категорії --k1…--k5 за рангом, «Інші» й решта --k6; підкатегорія — відтінок кольору категорії 100/64/42 %; без батька --k6', () => {
+test('колір: категорії --k1…--k5 за рангом, «Решта» й решта --k6; підкатегорія — відтінок кольору категорії 100/64/42 %; без батька --k6', () => {
   assert.equal(j('catColorIndex(0)'), 1); assert.equal(j('catColorIndex(4)'), 5); assert.equal(j('catColorIndex(5)'), 6); assert.equal(j('catColorIndex(30)'), 6);
   const cats = [{ key: 'c:A' }, { key: 'c:B' }], subs = [{ key: 's:1', parent: 'A' }, { key: 's:2', parent: 'A' }, { key: 's:3', parent: 'A' }, { key: 's:4', parent: 'A' }, { key: 's:5', parent: 'B' }, { key: 's:6', parent: '' }];
   const c = (it, mode) => j('catColor(' + JSON.stringify(it) + ',"' + mode + '",' + JSON.stringify(cats) + ',' + JSON.stringify(subs) + ')');
@@ -88,7 +92,7 @@ test('колір: категорії --k1…--k5 за рангом, «Інші»
 });
 
 test('рядок: назви й ключі екрановано (HTML-подібний текст не потрапляє розміткою)', () => {
-  const out = ex.evalInSandbox(ctx, "balCatData = { total: 1000 }; catRowHtml({ key: 'c:<img src=x onerror=alert(1)>', name: '<script>x</script>', sum: 500, emoji: '<b>', parent: '' }, 500, 'cat', '', false)");
+  const out = ex.evalInSandbox(ctx, "balCatData = { total: 1000 }; catRowHtml({ key: 'c:<img src=x onerror=alert(1)>', name: '<script>x</script>', sum: 500, icon: '<b>', parent: '' }, 500, 'cat', '', false)");
   assert.ok(!/<script>|<img |<b>/.test(out), out); assert.ok(out.includes('&lt;script&gt;')); assert.ok(/data-k="c:&lt;img/.test(out));
 });
 
