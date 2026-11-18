@@ -2156,7 +2156,7 @@
      дотику більше немає — той самий клас .pressed, що вже вмикає ефекти
      бульбашки, керує і цим. */
   nav.tabbar.pressed .tabbar-glass{ transform:scale(1.035) translateZ(0); background:var(--glass-press); transition:transform .22s cubic-bezier(.22,1,.36,1), background .22s cubic-bezier(.22,1,.36,1); }
-  nav.tabbar button{ position:relative; z-index:1; background:none; border:none; color:var(--color-muted); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; font-size:var(--fs-caption2); font-weight:600; padding:8px 4px; border-radius:var(--r-m); flex-basis:20%; flex-grow:0; flex-shrink:0; min-width:44px; min-height:44px; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  nav.tabbar button{ position:relative; z-index:1; background:none; border:none; color:var(--text-2); /* Rev 2.32.362 (DS-3b4): колір невибраних іконок і підписів — --text-2, як у макеті (світла #475467), було --color-muted */ cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; font-size:var(--fs-caption2); font-weight:600; padding:8px 4px; border-radius:var(--r-m); flex-basis:20%; flex-grow:0; flex-shrink:0; min-width:44px; min-height:44px; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   /* Rev 2.4.0 — "бульбашка" вибору: один плаваючий елемент замість статичного
      background на кожній .active кнопці (як було раніше) — саме це дає ефект
      плавного КОВЗАННЯ між вкладками замість миттєвого перемикання кольору.
@@ -2390,7 +2390,7 @@
      пальцем — інакше видно два "вибори" одночасно. Поки триває жест,
      пригашуємо стару до нейтрального кольору; сама бульбашка вже й так
      переїхала до нової позиції. */
-  nav.tabbar.tb-down button.active:not(.preview-active){ color:var(--color-muted); }
+  nav.tabbar.tb-down button.active:not(.preview-active){ color:var(--text-2); }
   /* Rev 2.32.352 (DS-3a): залита іконка вибраної вкладки (SVG і правила з макета analytics-ds). Невибрані лишаються контурними. Без анімацій: рух (пружина, натиск) це DS-3b. Під час перетягування (.pressed) стара .active знову контурна, як і її колір. «Витрати» не змінено. */
   nav.tabbar svg .f, .side svg .f{ fill:currentColor; fill-opacity:0; }
   /* Rev 2.32.360 (DS-3b3): переходи заливки й кольору як у макеті (200 мс, стандартна крива); було миттєво / 120 мс */

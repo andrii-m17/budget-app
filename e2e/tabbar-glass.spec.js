@@ -75,6 +75,17 @@ test('61. контраст вибраної іконки до скла ≥ 3:1 �
         return { c: (Math.max(L1, L2) + .05) / (Math.min(L1, L2) + .05), color: getComputedStyle(b).color, at };
       }, tab);
       expect(r.c, theme + ' ' + tab + ' контраст').toBeGreaterThanOrEqual(3); expect(r.color, theme + ' ' + tab + ': колір вибраного').toBe(r.at);
+      // невибрані (Rev 2.32.362): колір --text-2, контраст ≥ 4,5:1 (дрібний підпис 11 px)
+      const other = await page.evaluate((t) => {
+        const parse = (s) => { const m = s.match(/[\d.]+/g).map(Number); return { r: m[0], g: m[1], b: m[2], a: m.length > 3 ? m[3] : 1 }; };
+        const lum = (c) => { const f = (v) => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }; return .2126 * f(c.r) + .7152 * f(c.g) + .0722 * f(c.b); };
+        const hex = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim().replace('#', ''); const pg = { r: parseInt(hex.substr(0, 2), 16), g: parseInt(hex.substr(2, 2), 16), b: parseInt(hex.substr(4, 2), 16) };
+        const gl = parse(getComputedStyle(document.getElementById('tabbar-glass')).backgroundColor); const bg = { r: gl.r * gl.a + pg.r * (1 - gl.a), g: gl.g * gl.a + pg.g * (1 - gl.a), b: gl.b * gl.a + pg.b * (1 - gl.a) };
+        const b = Array.from(document.querySelectorAll('nav.tabbar button[data-tab]')).find(x => x.dataset.tab !== t && x.dataset.tab !== 'vytraty'), fg = parse(getComputedStyle(b).color);
+        const probe = document.createElement('span'); probe.style.color = 'var(--text-2)'; document.body.appendChild(probe); const t2 = getComputedStyle(probe).color; probe.remove();
+        const L1 = lum(fg), L2 = lum(bg); return { c: (Math.max(L1, L2) + .05) / (Math.min(L1, L2) + .05), color: getComputedStyle(b).color, t2: t2 };
+      }, tab);
+      expect(other.color, theme + ' ' + tab + ': колір невибраних = --text-2').toBe(other.t2); expect(other.c, theme + ' ' + tab + ': контраст невибраних').toBeGreaterThanOrEqual(4.5);
     }
   }
 });

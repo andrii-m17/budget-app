@@ -48,6 +48,7 @@ test('іконки 22 px, «+» 44 px, колір вибраного --accent-te
   assert.ok(/nav\.tabbar svg\{ width:22px; height:22px; \}/.test(CSS));
   assert.ok(/\.tab-vytraty \.tb-icon-wrap\{ position:relative; width:44px; height:44px;[^}]*margin-top:-22px;/.test(CSS));
   assert.ok(/nav\.tabbar button\.active, nav\.tabbar button\.preview-active\{ color:var\(--accent-text\); \}/.test(CSS));
+  assert.ok(/nav\.tabbar button\{ position:relative; z-index:1; background:none; border:none; color:var\(--text-2\);/.test(CSS), 'невибрані: --text-2 (макет)');
 });
 test('reduced-motion: один блок вимикає бульбашку, натиск, анімації іконок і поворот «+», колір не чіпає', function(){
   const m = CSS.match(/@media \(prefers-reduced-motion: reduce\)\{\s*\.tabbar-bubble\{[^@]*?\n  \}/);
