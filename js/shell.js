@@ -1047,16 +1047,18 @@ function shouldAnimateTabIcon(ctx){
   return !!(c.switching && c.enabled && c.visible && !c.kbOpen && !c.drawerOpen && !c.autofocus && !c.reduced);
 }
 let tabIconAnimTimer = null;
+// Rev 2.32.357 (DS-3b2): викликається ЛИШЕ при реальній зміні вкладки (switching). Раніше виклик ішов і при повторному performSwitchTab на ту саму вкладку (iOS: touchend не скасовується → слідом click → другий switchTab) із on=false, і той «порожній» виклик знімав .tb-anim щойно запущеної анімації — іконка «просто перемикалась». Тепер: on=true — анімація (із примусовим перезапуском, якщо клас уже стоїть, напр. A→B→A→B швидко); on=false — лише знімаємо анімацію попередньої вкладки (клавіатура, шторка, reduced-motion).
 function playTabIconAnim(tab, on){
   const bar = document.querySelector('nav.tabbar');
   if(!bar) return;
-  bar.querySelectorAll('button.tb-anim').forEach(function(b){ b.classList.remove('tb-anim'); });
+  bar.querySelectorAll('button.tb-anim').forEach(function(b){ if(!(on && b.getAttribute('data-tab') === tab)) b.classList.remove('tb-anim'); });
   if(tabIconAnimTimer){ clearTimeout(tabIconAnimTimer); tabIconAnimTimer = null; }
   if(!on || getComputedStyle(bar).display === 'none') return; // на iPad/десктопі з бічною панеллю таббар сховано — анімацій немає
   const btn = bar.querySelector('button[data-tab="' + tab + '"]');
   if(!btn) return;
+  if(btn.classList.contains('tb-anim')){ btn.classList.remove('tb-anim'); void btn.getBoundingClientRect(); } // перезапуск: клас знімаємо, перераховуємо стилі, додаємо
   btn.classList.add('tb-anim');
-  tabIconAnimTimer = setTimeout(function(){ btn.classList.remove('tb-anim'); tabIconAnimTimer = null; }, 800); // найдовша анімація 620 мс + запас
+  tabIconAnimTimer = setTimeout(function(){ btn.classList.remove('tb-anim'); tabIconAnimTimer = null; }, 800); // найдовша анімація 650 мс (структура із затримками) + запас
 }
 function performSwitchTab(tab, opts){
   // Rev 2.24.0 (M1) — попередня вкладка (для переходу й збереження прокрутки); незавершений перехід дозавершуємо одразу.
@@ -1120,7 +1122,7 @@ function performSwitchTab(tab, opts){
     document.getElementById('view-'+t).classList.toggle('hidden', t!==tab);
   });
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
-  playTabIconAnim(tab, shouldAnimateTabIcon({ switching: switching, enabled: tabAnimEnabled, visible: document.visibilityState === 'visible', kbOpen: document.body.classList.contains('kb-open'), drawerOpen: !!document.querySelector('.drawer.open'), autofocus: willAutofocus, reduced: motionReduced() })); // Rev 2.32.355 (DS-3b)
+  if(switching) playTabIconAnim(tab, shouldAnimateTabIcon({ switching: switching, enabled: tabAnimEnabled, visible: document.visibilityState === 'visible', kbOpen: document.body.classList.contains('kb-open'), drawerOpen: !!document.querySelector('.drawer.open'), autofocus: willAutofocus, reduced: motionReduced() })); // Rev 2.32.355 (DS-3b); Rev 2.32.357 (DS-3b2): лише при зміні вкладки
   document.querySelectorAll('.side-tab[data-tab]').forEach(b=>{ const on = b.dataset.tab===tab; b.classList.toggle('active', on); if(on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); // Rev 2.32.162 (DESK-NAV): aria-current для активного пункту панелі
   updateTabBubble();
   // BugFix Rev 2.0.8, переписано в Rev 2.7.0: вкладки — це просто
