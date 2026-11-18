@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.385"><link rel="stylesheet" href="./css/app.css?v=2.32.385"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.386"><link rel="stylesheet" href="./css/app.css?v=2.32.386"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -251,67 +251,49 @@
         <div class="ae-sub">Додай перші записи в «Обліку» або імпортуй Excel у «Сервісі» — дашборд заповниться автоматично.</div>
       </div>
       <div class="analytics-body" id="analytics-body">
-      <div class="ov-row1">
-        <div class="kpi-card v2 debt">
-          <div class="data-status hidden" id="kpi-debt-asof">
+      <!-- Rev 2.32.386 (DS-5b): плитки «Борг» і «ОЧ» (макет analytics-ds v18, картка 3) замість старих KPI «Борг», кільця «Скорочення боргу», карток «Борги по картках» і «Оплати частинами»; наповнює renderDebtOchTiles(); крапки неповних даних — .data-status (renderDataStatusDot / renderInstDot) -->
+      <div class="bal-pair" id="bal-pair">
+        <div class="card bal-tile" id="bal-debt-tile">
+          <div class="data-status hidden" id="bal-debt-asof">
             <button type="button" class="data-status-dot" aria-haspopup="true" aria-expanded="false" aria-label="Стан даних"></button>
             <div class="data-status-popover" role="note">
               <div class="dsp-title"></div>
               <div class="dsp-text"></div>
-              <!-- Rev #30 (6D.91) — hint/action, наповнюються renderDataStatusDot(). -->
               <div class="dsp-hint hidden"></div>
               <button type="button" class="dsp-action hidden"></button>
             </div>
           </div>
-          <div class="kpi-card-header">
-            <div class="kpi-icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
-            <div class="kpi-label">Борг</div>
-          </div>
-          <div class="kpi-value mono" id="kpi-debt">—</div>
-          <div class="kpi-trend" id="trend-debt">—</div>
-          <div class="kpi-spark" id="spark-debt"></div>
+          <button type="button" class="bal-tile-btn" id="bal-debt-btn" aria-haspopup="dialog" onclick="openDebtSheet()">
+            <span class="bal-tlab"><span class="bal-kic c-debt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg></span><span class="bal-tl">Борг</span></span>
+            <span class="bal-tnum"><span class="odo" id="kpi-debt" role="img"></span></span>
+            <span class="bal-tcap" id="bal-debt-cap"></span>
+            <span class="bal-track"><span class="bal-fill income" id="bal-debt-fill"></span></span>
+            <span class="bal-tcap" id="bal-debt-cap2"></span>
+          </button>
         </div>
-        <div class="kpi-card v2 donutcard wide">
-          <div class="data-status hidden" id="debt-donut-asof">
+        <div class="card bal-tile" id="bal-inst-tile">
+          <div class="data-status hidden" id="bal-inst-asof">
             <button type="button" class="data-status-dot" aria-haspopup="true" aria-expanded="false" aria-label="Стан даних"></button>
             <div class="data-status-popover" role="note">
               <div class="dsp-title"></div>
               <div class="dsp-text"></div>
-              <!-- Rev #30 (6D.91) — hint/action, наповнюються renderDataStatusDot(). -->
               <div class="dsp-hint hidden"></div>
               <button type="button" class="dsp-action hidden"></button>
             </div>
           </div>
-          <div class="kpi-label" id="debt-donut-title">Скорочення боргу</div>
-          <div class="donut-row">
-            <svg width="100" height="100" viewBox="0 0 108 108" id="debt-donut" style="flex-shrink:0;"></svg>
-            <div class="donut-metrics">
-              <div class="dm-primary">
-                <span class="dm-status" id="debt-status-label">Погашено</span>
-                <b class="dm-amount" id="m-paid">—</b>
-              </div>
-              <div class="dm-secondary">
-                <span class="dm-start-label">Стартовий борг</span>
-                <b class="dm-start-amount" id="m-remaining">—</b>
-              </div>
-            </div>
-          </div>
+          <button type="button" class="bal-tile-btn" id="bal-inst-btn" aria-haspopup="dialog" onclick="openInstSheet()">
+            <span class="bal-tlab"><span class="bal-kic c-inst"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 5.5A8 8 0 1 0 18.5 13.5H10.5Z"/><path d="M13.5 2.5V10.5H21.5A8 8 0 0 0 13.5 2.5Z"/></svg></span><span class="bal-tl">ОЧ</span></span>
+            <span class="bal-tnum"><span class="odo" id="kpi-och" role="img"></span><small class="bal-tsmall" id="bal-inst-unit"> / міс</small></span>
+            <span class="bal-tcap" id="bal-inst-cap"></span>
+            <span class="bal-track"><span class="bal-fill income" id="bal-inst-fill"></span></span>
+            <span class="bal-tcap" id="bal-inst-cap2"></span>
+          </button>
         </div>
       </div>
 
       <div class="ov-kpistrip">
         <div class="card kpi-strip-card">
           <div class="kpi-strip">
-            <div class="kpi-strip-item">
-              <div class="ksi-head"><span class="ksi-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span><span class="ksi-label">Динаміка боргу</span></div>
-              <div class="ksi-value" id="kpi-debtchange">—</div>
-              <div class="ksi-sub" id="kpi-debtchange-sub"></div>
-            </div>
-            <div class="kpi-strip-item">
-              <div class="ksi-head"><span class="ksi-icon c-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span><span class="ksi-label">Платежі по ОЧ</span></div>
-              <div class="ksi-value" id="kpi-och">0 ₴</div>
-              <div class="ksi-sub" id="kpi-och-sub">—</div>
-            </div>
             <div class="kpi-strip-item">
               <div class="ksi-head"><span class="ksi-icon c-orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span><span class="ksi-label">Звичка місяця</span></div>
               <div class="ksi-value" id="kpi-habit">—</div>
@@ -358,36 +340,6 @@
           <div class="table-header t-row-3col" id="reducible-header"><span class="t-name">Підкатегорія</span><span class="t-priority">Потенціал</span></div>
           <div id="reducible-body"></div>
           <button type="button" class="t-footer-link" id="reducible-trigger" onclick="toggleCardExpand('reducible')">Всі рекомендації <span class="arrow">→</span></button>
-        </div>
-      </div>
-
-      <!-- Rev 2.1.18 — "Борги по картках" переїхав сюди з ov-row3 (тепер зі
-           своїм окремим простим тумблером, без спільної grid-системи
-           розгортання на 4 картки) + нова картка "Оплати частинами" з
-           прогрес-барами (Block 5). Обидві картки рівноправні, без ефекту
-           "стискання сусіда" — просто два окремі table-card в рядку. -->
-      <div class="ov-row3-secondary">
-        <div class="card table-card has-data-status">
-          <!-- Rev 2.31.5 (B2-lite) — та сама крапка-статус і попап, що біля KPI «Борг» (#kpi-debt-asof) і кільця (#debt-donut-asof): спільний статус debtUiStatusNow, наповнює renderDataStatusDot() без змін. -->
-          <div class="data-status hidden" id="debts-card-asof">
-            <button type="button" class="data-status-dot" aria-haspopup="true" aria-expanded="false" aria-label="Стан даних"></button>
-            <div class="data-status-popover" role="note">
-              <div class="dsp-title"></div>
-              <div class="dsp-text"></div>
-              <div class="dsp-hint hidden"></div>
-              <button type="button" class="dsp-action hidden"></button>
-            </div>
-          </div>
-          <div class="table-card-title">Борги по картках</div>
-          <div class="table-header t-row-2col" id="debts-header"><span class="t-name">Картка</span><span class="t-amt">Сума</span></div>
-          <div id="debts-body"></div>
-          <button type="button" class="t-footer-link" id="debts-trigger" onclick="toggleDebtsCardExpand()">Всі борги <span class="arrow">→</span></button>
-        </div>
-        <div class="card table-card">
-          <div class="table-card-title">Оплати частинами</div>
-          <div class="table-header t-row-2col" id="installments-header"><span class="t-name">Назва</span><span class="t-amt">Платіж/міс</span></div>
-          <div id="installments-body"></div>
-          <button type="button" class="t-footer-link" id="installments-trigger" onclick="toggleInstallmentsCardExpand()">Всі ОЧ <span class="arrow">→</span></button>
         </div>
       </div>
 
@@ -947,7 +899,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.385</div>
+  <div class="version-footer">Money Tree · Rev 2.32.386</div>
 </div>
   </div>
 </div>
@@ -1146,6 +1098,33 @@
     <button class="drawer-close" onclick="closeNotificationsDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
   <div id="notifications-body"></div>
+</div>
+<!-- Rev 2.32.386 (DS-5b): шторки плиток «Борг» і «ОЧ» (компонент .drawer, DS-4: свайп униз, Esc, затемнення; без полів вводу) -->
+<div class="drawer-backdrop" id="bal-sheet-debt-backdrop" onclick="closeDebtSheet()" inert></div>
+<div class="drawer bal-sheet" id="bal-sheet-debt" role="dialog" aria-label="Борги по картках" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-head">
+    <div class="drawer-head-main">
+      <div class="drawer-head-text">
+        <h2>Борги по картках</h2>
+      </div>
+    </div>
+    <button class="drawer-close" onclick="closeDebtSheet()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+  </div>
+  <div class="bal-sheet-body" id="bal-sheet-debt-body"></div>
+</div>
+<div class="drawer-backdrop" id="bal-sheet-inst-backdrop" onclick="closeInstSheet()" inert></div>
+<div class="drawer bal-sheet" id="bal-sheet-inst" role="dialog" aria-label="Оплати частинами" aria-modal="true" inert>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-head">
+    <div class="drawer-head-main">
+      <div class="drawer-head-text">
+        <h2>Оплати частинами</h2>
+      </div>
+    </div>
+    <button class="drawer-close" onclick="closeInstSheet()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+  </div>
+  <div class="bal-sheet-body" id="bal-sheet-inst-body"></div>
 </div>
 <div class="drawer-backdrop" id="trash-detail-backdrop" onclick="closeTrashDetail()" inert></div>
 <div class="drawer" id="trash-detail-drawer" role="dialog" aria-label="Видалений запис" aria-modal="true" inert>
@@ -1692,16 +1671,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.385"></script>
-<script src="./js/util-date.js?v=2.32.385"></script>
-<script src="./js/util-safe.js?v=2.32.385"></script>
-<script src="./js/util-misc.js?v=2.32.385"></script>
-<script src="./js/diag.js?v=2.32.385"></script>
-<script src="./js/shell.js?v=2.32.385"></script>
-<script src="./js/structure.js?v=2.32.385"></script>
-<script src="./js/analytics.js?v=2.32.385"></script>
-<script src="./js/payments.js?v=2.32.385"></script>
-<script src="./js/sheets.js?v=2.32.385"></script>
+<script src="./js/util-format.js?v=2.32.386"></script>
+<script src="./js/util-date.js?v=2.32.386"></script>
+<script src="./js/util-safe.js?v=2.32.386"></script>
+<script src="./js/util-misc.js?v=2.32.386"></script>
+<script src="./js/diag.js?v=2.32.386"></script>
+<script src="./js/shell.js?v=2.32.386"></script>
+<script src="./js/structure.js?v=2.32.386"></script>
+<script src="./js/analytics.js?v=2.32.386"></script>
+<script src="./js/payments.js?v=2.32.386"></script>
+<script src="./js/sheets.js?v=2.32.386"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6796,7 +6775,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.385';
+const APP_VERSION = '2.32.386';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

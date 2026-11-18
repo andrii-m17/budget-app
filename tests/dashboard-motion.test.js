@@ -117,18 +117,21 @@ test('сонячний рендер: data-final з тієї ж змінної, �
   // Rev 2.32.385 (DS-5a): kpi-income/-expense/-mandatory/-free прибрано (плитки картки «Сімейний баланс»), kpi-savings — одометр (data-final = savings, текст формує odoRender)
   assert.ok(SRC.includes("big.dataset.final = String(Math.round(ctx.savings))") && SRC.includes("odoRender(big,"), 'одометр балансу: data-final і текст з однієї змінної savings');
   ['kpi-income', 'kpi-expense', 'kpi-mandatory', 'kpi-free'].forEach(id => assert.ok(!SRC.includes(`getElementById('${id}')`), id + ' більше не пишеться'));
-  assert.ok(SRC.includes("setDashFinal('kpi-debt', hasDebtData ? debtNow.total : null)"));
+  // Rev 2.32.386 (DS-5b): «Борг» і «ОЧ» теж одометр (data-final = число, текст формує odoRender); лічильників M2 не лишилось
+  assert.ok(SRC.includes("debtEl.dataset.final = String(Math.round(c.debtNow.total))") && SRC.includes("odoRender(debtEl,") && SRC.includes("ochEl.dataset.final = String(Math.round(c.debtNow.totalMonthlyInstallment))"));
+  assert.deepEqual(j('DASH_COUNTER_IDS'), []);
   assert.ok(j('DASH_COUNTER_IDS').length <= j('DASH_MAX_COUNTERS'));
 });
 
 test('вузли графіків замінюються лише через setDashChart/clearDashChart/setDonutSvg (за підписом); прямих innerHTML для графіків нема', () => {
-  ['spark-debt', 'chart-income-expense'].forEach(id => { // Rev 2.32.385 (DS-5a): спарклайни доходів/витрат/балансу прибрано
+  ['chart-income-expense'].forEach(id => { // Rev 2.32.385–386 (DS-5a/5b): спарклайни доходів/витрат/балансу/боргу прибрано
     assert.ok(SRC.includes(`setDashChart('${id}'`), id);
     assert.ok(!new RegExp(`getElementById\\('${id}'\\)\\.innerHTML`).test(SRC), id + ' напряму через innerHTML');
   });
   assert.ok(SRC.includes("setDashChart('chart-debt-line'") && SRC.includes("clearDashChart('chart-debt-line'"));
   assert.ok(!/getElementById\('chart-debt-line'\)\.innerHTML/.test(SRC));
-  assert.match(SRC, /function setDonutSvg\(sig, html\)\{\s*if\(!shouldReplaceChart\(svg\.dataset\.sig, sig\)/);
+  // Rev 2.32.386 (DS-5b): кільце «Скорочення боргу» (setDonutSvg) прибрано — «погашено %» тепер смуга плитки «Борг»
+  assert.ok(!SRC.includes('function setDonutSvg'));
   // зміна під час анімації: finish() ДО заміни вузла
   assert.match(MODULE, /function setDashChart[\s\S]*?if\(dashState\.running\)\{ dashState\.updatePending = true; finishDashboard\(\); \}\s*el\.innerHTML = build\(\)/);
 });

@@ -3046,6 +3046,41 @@
 .bal-chart circle.on{ transform:scale(1.7); }
 .bal-chart .vl{ stroke:var(--text-3); stroke-width:1; opacity:0; transition:opacity var(--t-micro) var(--ease-standard); }
 .bal-chart .vl.on{ opacity:.8; }
+/* ===== Rev 2.32.386 (DS-5b): плитки «Борг» і «ОЧ» та їхні шторки (макет analytics-ds v18). Лише токени. ===== */
+.bal-pair{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3); margin-bottom:var(--sp-3); }
+.bal-pair > .bal-tile{ position:relative; margin-top:0; padding:0; border-radius:var(--r-l); background:var(--surface); border:1px solid var(--line); box-shadow:none; min-width:0; }
+.bal-tile-btn{ display:flex; flex-direction:column; gap:var(--sp-2); width:100%; margin:0; padding:var(--sp-4); border:0; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; border-radius:var(--r-l); transition:transform var(--t-s) var(--ease-out); }
+.bal-tile-btn:active{ transform:scale(.975); }
+.bal-tlab{ display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-footnote); line-height:18px; font-weight:500; color:var(--text-2); }
+.bal-kic.c-debt{ --c:var(--debt); }
+.bal-tnum{ display:block; font-size:var(--fs-title2); line-height:28px; font-weight:700; letter-spacing:-.2px; color:var(--text); } /* без nowrap: на 320 пт «/ міс» переноситься під суму */
+.bal-tsmall{ font-size:var(--fs-footnote); font-weight:500; color:var(--text-3); letter-spacing:0; white-space:nowrap; }
+.bal-tsmall.hidden{ display:none; }
+.bal-tcap{ display:block; min-height:18px; font-size:var(--fs-footnote); line-height:18px; color:var(--text-2); }
+.bal-tcap.pos, .bal-scap.pos{ color:var(--income-text); font-weight:600; }
+.bal-tcap.neg, .bal-scap.neg{ color:var(--expense); font-weight:600; }
+.bal-tile-btn .bal-track{ display:block; }
+.bal-fill.over{ background:var(--expense); }
+.bal-sheet-body{ display:flex; flex-direction:column; gap:var(--sp-4); padding-bottom:var(--sp-6); }
+.bal-sumbox{ display:flex; flex-direction:column; gap:var(--sp-2); }
+.bal-srow{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2); }
+.bal-stotal{ font-size:var(--fs-title1); line-height:34px; font-weight:700; letter-spacing:-.4px; white-space:nowrap; color:var(--text); }
+.bal-ssmall{ font-size:var(--fs-subhead); font-weight:400; color:var(--text-3); letter-spacing:0; }
+.bal-scap{ font-size:var(--fs-footnote); line-height:18px; color:var(--text-2); }
+.bal-scap3{ font-size:var(--fs-caption1); line-height:16px; color:var(--text-3); }
+.bal-strack{ position:relative; height:8px; overflow:hidden; border-radius:var(--r-2xs); background:var(--surface-2); }
+.bal-slist{ display:flex; flex-direction:column; }
+.bal-dr{ display:flex; flex-direction:column; gap:var(--sp-2); padding:var(--sp-3) 0; border-top:1px solid var(--line); }
+.bal-dr:first-child{ border-top:0; }
+.bal-top2{ display:flex; align-items:center; gap:var(--sp-3); }
+.bal-logo{ display:block; width:32px; height:32px; flex:none; overflow:hidden; border-radius:var(--r-xs); }
+.bal-nm{ flex:1; min-width:0; font-size:var(--fs-callout); font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bal-nsub{ display:block; font-size:var(--fs-caption1); line-height:16px; font-weight:400; color:var(--text-3); }
+.bal-mono{ font-family:'JetBrains Mono',monospace; font-size:var(--fs-subhead); font-weight:700; letter-spacing:-.04em; white-space:nowrap; text-align:right; color:var(--text); }
+.bal-mono.dim{ color:var(--text-3); }
+.bal-mono small{ font-family:inherit; font-size:var(--fs-caption1); font-weight:500; color:var(--text-3); letter-spacing:0; }
+.bal-sheet .och-ovals{ gap:var(--sp-1); }
+.bal-sheet .och-oval{ height:8px; border-radius:var(--r-2xs); }
 @media (max-width:359px){ .bal-kic{ display:none; } }
 @media (prefers-reduced-motion: reduce){
   .bal-seg, .bal-dline, .bal-dtag, .bal-fill, .bal-chart .ln, .bal-chart circle{ animation:none; }

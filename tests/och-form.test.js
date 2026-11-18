@@ -124,10 +124,11 @@ test('синхронізація: усі п\'ять полів у select pull, u
   assert.deepEqual(j(acc), { termMonths: 15, startDate: '2026-05-04', firstPayment: 'next_month', payMode: 'manual', payment: 1875 });
 });
 test('таблиця Аналітики: «Платіж/міс» = стандартний платіж (з ОЧ без моделі — платіж місяця); смуга лише з term_months; ланцюжок залишку не змінено', function(){
-  const card = SRC.slice(SRC.indexOf('function renderInstallmentsCard'), SRC.indexOf('function applyInstallmentsCardState'));
-  assert.match(card, /const payOf = function\(d\)\{.*installmentStandardPayment\(acc\); return std != null \? std : d\.monthlyPayment; \};/);
-  assert.match(card, /ochOvalsHtml\(ochOvalsModel\(acc \? acc\.termMonths : null, d\.balance, acc \? installmentStandardPayment\(acc\) : null\)\)/);
-  assert.match(card, /och-bar-h/); assert.ok(!/t-bar-track/.test(card), 'старого прогрес-бару нема');
+  // Rev 2.32.386 (DS-5b): картку «Оплати частинами» замінено шторкою плитки «ОЧ» (instSheetHtml): ті самі правила платежу й смуги
+  const card = SRC.slice(SRC.indexOf('function instSheetHtml'), SRC.indexOf('function renderBalSheet'));
+  assert.match(card, /pay = std != null \? std : d\.monthlyPayment;/);
+  assert.match(card, /ochOvalsModel\(acc \? acc\.termMonths : null, d\.balance, std\)/);
+  assert.match(card, /model\.mode === 'ovals' \? ochOvalsHtml\(model\) : ''/); assert.ok(!/t-bar-track/.test(card), 'старого прогрес-бару нема');
   assert.match(SRC, /Math\.max\(0, startBal - lk\)/, 'Rev 2.32.177: ланцюжок з опорними точками');
 });
 

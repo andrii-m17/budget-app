@@ -8,19 +8,19 @@ const path = require('node:path');
 const SRC = require('./extract').readIndexWithCss();
 const POP = id => { const a = SRC.indexOf('id="' + id + '"'); return SRC.slice(a, SRC.indexOf('</div>\n          </div>', a)); };
 
-test('картка «Борги по картках» має ту саму розмітку крапки й попапа, що KPI «Борг» і кільце (data-status + dot + popover + title/text/hint/action)', () => {
+test('плитки «Борг» і «ОЧ» мають ту саму розмітку крапки й попапа (data-status + dot + popover + title/text/hint/action), що колись KPI «Борг»', () => {
   const norm = h => h.replace(/id="[^"]+"/, '').replace(/<!--[\s\S]*?-->/g, '').replace(/\s+/g, ' ');
-  const kpi = norm(POP('kpi-debt-asof')), card = norm(POP('debts-card-asof'));
-  assert.equal(card, kpi, 'розмітка ідентична (різниться лише id)');
-  assert.match(SRC, /<div class="card table-card has-data-status">/);
-  assert.match(SRC, /\.table-card\.has-data-status\{ position:relative; \}/);
+  const a = norm(POP('bal-debt-asof')), b = norm(POP('bal-inst-asof'));
+  assert.equal(a, b, 'розмітка ідентична (різниться лише id)');
+  assert.match(a, /data-status-dot[\s\S]*data-status-popover[\s\S]*dsp-title[\s\S]*dsp-text[\s\S]*dsp-hint[\s\S]*dsp-action/);
+  ['kpi-debt-asof', 'debts-card-asof', 'debt-donut-asof'].forEach(id => assert.ok(!SRC.includes('id="' + id + '"'), id + ' прибрано разом зі старими картками'));
 });
 
-test('статус — спільний: debtUiStatusNow рендериться в три крапки тим самим renderDataStatusDot; наявні виклики KPI й кільця не змінились', () => {
-  assert.match(SRC, /renderDataStatusDot\('kpi-debt-asof', debtUiStatusNow, month\);/);
-  assert.match(SRC, /renderDataStatusDot\('debts-card-asof', debtUiStatusNow, month\);/);
-  assert.match(SRC, /renderDataStatusDot\('debt-donut-asof', debtUiStatusNow, month\);|renderDataStatusDot\('debt-donut-asof', debtStatus, month\);/);
-  assert.equal((SRC.match(/const debtUiStatusNow = debtUiStatus\(cardAsOf, month, 'card'\);/g) || []).length, 1, 'один розрахунок статусу на всі крапки');
+test('статус боргу — той самий renderDataStatusDot із єдиним debtUiStatusNow (Rev 2.32.386, DS-5b: одна крапка на плитці «Борг»); крапка «ОЧ» — renderInstDot', () => {
+  assert.match(SRC, /renderDataStatusDot\('bal-debt-asof', c\.status, c\.month\);/);
+  assert.match(SRC, /status: debtUiStatusNow \}\);/);
+  assert.equal((SRC.match(/const debtUiStatusNow = debtUiStatus\(cardAsOf, month, 'card'\);/g) || []).length, 1, 'один розрахунок статусу');
+  assert.match(SRC, /function renderInstDot\(\)\{[\s\S]*incompleteInstalmentsNow\(\)[\s\S]*goToInstallmentsTab/);
 });
 
 test('логіка статусу не змінювалась: debtUiStatus/missingCardDebtsForMonth/renderDataStatusDot — ті самі правила (none/actual → без крапки; прихована картка не рахується)', () => {
@@ -33,12 +33,7 @@ test('логіка статусу не змінювалась: debtUiStatus/miss
   assert.match(r, /if\(!uiStatus \|\| uiStatus\.status==='actual' \|\| uiStatus\.status==='none'\)\{\s*wrap\.classList\.add\('hidden'\);/, 'повні дані → крапка прихована');
 });
 
-test('числа й підписи картки «Борги по картках» не змінились (заголовок, шапка таблиці, тіло, футер)', () => {
-  assert.match(SRC, /<div class="table-card-title">Борги по картках<\/div>\s*<div class="table-header t-row-2col" id="debts-header"><span class="t-name">Картка<\/span><span class="t-amt">Сума<\/span><\/div>\s*<div id="debts-body"><\/div>/);
-  assert.ok(!/debts-body[^\n]*data-status/.test(SRC));
-});
-
-test('рекордер: status-dots (tab, dots, reasons) при відкритті «Аналітики», лише кількості/статус', () => {
+test('рекордер: status-dots (tab, dots, reasons) при відкритті «Аналітики», лише кількості/статус; крапки — bal-debt-asof, bal-inst-asof (DS-5b)', () => {
   assert.match(SRC, /function onDashboardVisit\(\)\{\s*dashRun\('visit', selectedMonth, dashIsActive\(\)\);\s*recordStatusDots\(\);\s*\}/);
   const a = SRC.indexOf('function recordStatusDots');
   const f = SRC.slice(a, SRC.indexOf('\nfunction ', a + 10));

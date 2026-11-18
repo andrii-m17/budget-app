@@ -33,8 +33,11 @@ test('без виду — за замовчуванням картка; поро
   });
 });
 test('виклики: рядки й шторки передають вид (борги — card, ОЧ — installment); CSS: фон і колір токенами, форма (25 %), іконка 58%', function(){
-  assert.equal((SRC.match(/bankIcon\([^)]*'installment'\)/g) || []).length, 4);
-  assert.equal((SRC.match(/bankIcon\([^)]*'card'\)/g) || []).length, 4);
+  // Rev 2.32.386 (DS-5b): старі картки «Борги по картках»/«Оплати частинами» (по 2 виклики) прибрано; шторки плиток мають один спільний виклик balLogoHtml(name, kind) — 'card' і 'installment'
+  assert.equal((SRC.match(/bankIcon\([^)]*'installment'\)/g) || []).length, 2);
+  assert.equal((SRC.match(/bankIcon\([^)]*'card'\)/g) || []).length, 2);
+  assert.ok(/balLogoHtml\(d\.name, 'card'\)/.test(SRC) && /balLogoHtml\(d\.name, 'installment'\)/.test(SRC), 'шторки боргу й ОЧ передають вид');
+  assert.ok(/function balLogoHtml\(name, kind\)\{ return '<span class="bal-logo">' \+ bankIcon\(name, 32, true, kind\)/.test(SRC));
   assert.ok(!/bankIcon\(d\.name\)/.test(SRC) && !/bankIcon\(name, 3[48], true\)/.test(SRC));
   // Rev 2.32.354 (DS-3d2): значок generic — квадрат із заокругленням 25 % (було коло 50 %)
   assert.match(SRC, /\.bank-badge\.bank-badge-generic\{ background:var\(--surface-2\); color:var\(--text-2\); border-radius:25%;/);

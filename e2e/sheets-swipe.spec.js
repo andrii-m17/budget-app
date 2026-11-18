@@ -2,7 +2,7 @@
 const { test, expect } = require('@playwright/test');
 const { installClock } = require('./clock');
 test.use({ hasTouch: true });
-const IDS = ['pay-action-drawer', 'mono-detail-drawer', 'notifications-drawer', 'trash-detail-drawer', 'checks-drawer', 'testing-drawer', 'rec-report-drawer', 'debug-record-drawer', 'settings-drawer', 'profile-drawer', 'struct-drawer', 'card-debt-drawer', 'installment-drawer', 'income-drawer'];
+const IDS = ['pay-action-drawer', 'mono-detail-drawer', 'notifications-drawer', 'trash-detail-drawer', 'checks-drawer', 'testing-drawer', 'rec-report-drawer', 'debug-record-drawer', 'settings-drawer', 'profile-drawer', 'struct-drawer', 'card-debt-drawer', 'installment-drawer', 'income-drawer', 'bal-sheet-debt', 'bal-sheet-inst']; // Rev 2.32.386 (DS-5b): + шторки плиток «Борг» і «ОЧ»
 async function boot(page, o){
   o = o || {};
   await page.setViewportSize({ width: o.w || 390, height: o.h || 844 }); await installClock(page);

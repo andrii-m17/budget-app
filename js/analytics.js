@@ -227,8 +227,8 @@ const DASH_MAX_TOTAL_MS = 2200;    // стеля хореографії
 const DASH_REPLAY_SCALE = 0.7;     // повтор: лічильники/графіки коротші, ніж у першому показі
 const DASH_UPDATE_SCALE = 0.4;     // оновлення змінених даних
 // Rev 2.32.385 (DS-5a): числа балансу (kpi-savings) рухає одометр (odoRender), а доходи/витрати/обов'язкові/вільні тепер плитки картки «Сімейний баланс» без лічильників; лишається лише «Борг» (до DS-5b).
-const DASH_COUNTER_IDS = ['kpi-debt'];
-const DASH_CHART_HOSTS = ['spark-debt', 'chart-income-expense', 'chart-debt-line', 'debt-donut'];
+const DASH_COUNTER_IDS = []; // Rev 2.32.386 (DS-5b): «Борг» і «ОЧ» теж одометр (renderDebtOchTiles), лічильників M2 не лишилось
+const DASH_CHART_HOSTS = ['chart-income-expense', 'chart-debt-line']; // Rev 2.32.386 (DS-5b): без спарклайна боргу й кільця
 // Rev 2.32.0 (F): тест card-reveal завершено — обрано «Стандартно»: тривалість появи однієї картки (d) і розсинхронізація між картками (s), мс при ×1.
 const CARD_REVEAL = { d: 420, s: 40 };
 function staggerDelay(i, k, max, step){
@@ -399,7 +399,7 @@ function onDashboardVisit(){
 // Rev 2.31.5 (B2-lite) — подія status-dots при відкритті «Аналітики»: скільки крапок-статусів видно (KPI «Борг», кільце, «Борги по картках») і яка причина (той самий debtUiStatus), без назв і сум.
 function recordStatusDots(){
   if(!debugRecordingActive || !selectedMonth) return;
-  const dots = ['kpi-debt-asof', 'debt-donut-asof', 'debts-card-asof'].filter(function(id){ const el = document.getElementById(id); return el && !el.classList.contains('hidden'); }).length;
+  const dots = ['bal-debt-asof', 'bal-inst-asof'].filter(function(id){ const el = document.getElementById(id); return el && !el.classList.contains('hidden'); }).length;
   const st = debtUiStatus(debtAsOfInfo(selectedMonth, 'card'), selectedMonth, 'card');
   pushDebugEvent({ t: Math.round(performance.now() - debugRecordingStartedAt), type: 'status-dots', tab: 'analytics', dots: dots, reasons: { status: st.status, missingCards: missingCardDebtsForMonth(selectedMonth).length } });
 }
@@ -981,7 +981,7 @@ function renderDashboard(){
   document.getElementById('analytics-empty').classList.toggle('hidden', !analyticsIsEmpty);
   document.getElementById('analytics-body').classList.toggle('hidden', analyticsIsEmpty);
   const balWrap = document.getElementById('analytics-bal-wrap'); if(balWrap) balWrap.classList.toggle('hidden', analyticsIsEmpty); // Rev 2.32.385 (DS-5a): картка балансу ховається разом з тілом при порожніх даних
-  if(analyticsIsEmpty){ expandedRow4Key = null; secondaryExpandedKey = null; return; } // немає сенсу рахувати картки/графіки по порожніх даних
+  if(analyticsIsEmpty){ expandedRow4Key = null; return; } // немає сенсу рахувати картки/графіки по порожніх даних
 
   /* --- 6-місячний тренд (потрібен і для спарклайнів у Ряду 1, і для великого графіка в Ряду 2) --- */
   const months6 = [];
@@ -991,33 +991,19 @@ function renderDashboard(){
   /* --- Ряд 1: KPI зі спарклайном і трендом (за еталонним макетом) --- */
   // Rev 2.32.385 (DS-5a): KPI «Доходи», «Витрати», «Баланс» замінено карткою «Сімейний баланс» (renderBalanceCard нижче); велике число — #kpi-savings (одометр), те саме значення savings, що й у капсулі (lastDashSavings).
   // Rev 2.25.0 (M2) — data-final: розрахункове число для лічильників (текст формує та сама fmt(), анімація лише добігає до нього).
-  document.getElementById('kpi-debt').textContent = hasDebtData ? fmt(debtNow.total) : '—';
-  setDashFinal('kpi-debt', hasDebtData ? debtNow.total : null);
 
   // Rev 2.27.0 (M2.1) — вузол графіка замінюється лише коли змінився підпис даних (фоновий рендер не обриває анімацію й не мерехтить).
-  { const debtSpark = months6.map(m=>debtTotalsForMonth(m).total); setDashChart('spark-debt', debtSpark, ()=>svgSparkline(debtSpark, '--color-warning')); }
   // Rev 2.1.0 — Debt Data Integrity: замість мовчазного carry-forward, честно
   // показуємо, чи це фактичні дані поточного місяця, чи "останнє відоме" —
   // тоді в тренд-рядку зʼявляється жовтий бейдж "Станом на [місяць]" замість
   // проценту зміни (сам проценти залишаємо тільки коли дані дійсно свіжі).
   const cardAsOf = debtAsOfInfo(month, 'card');
-  const trendDebtEl = document.getElementById('trend-debt');
-  trendDebtEl.classList.remove('is-positive','is-negative');
-  if(!hasDebtData || !cardAsOf.hasData){
-    trendDebtEl.textContent = 'Немає даних';
-  }else if(!cardAsOf.isCurrent){
-    trendDebtEl.textContent = '—';
-  }else{
-    setKpiTrend('trend-debt', 'debt', debtNow.total, debtPrev.total, month);
-  }
-  // Rev #21 + #23 — Unified Data Status: «Борг» і «Скорочення боргу»
-  // використовують ОДИН і той самий debtAsOfInfo(month,'card'), тому завжди
-  // показують однаковий статус — рахуємо його раз і застосовуємо до обох dots.
+  // Rev 2.32.386 (DS-5b): плитка «Борг» і висновки беруть дельту лише за фактом обох місяців (FINANCIAL_RULES §3.1)
+  const cardDeltaKnown = kindHasActualForMonth('card', month) && kindHasActualForMonth('card', prevMonth);
+  const cardDelta = debtPrev.total - debtNow.total; // позитивне = борг скоротився
+  // Rev #21 + #23 — Unified Data Status: єдиний debtAsOfInfo(month,'card') для плитки «Борг».
   const debtUiStatusNow = debtUiStatus(cardAsOf, month, 'card');
-  renderDataStatusDot('kpi-debt-asof', debtUiStatusNow, month);
-  renderDataStatusDot('debts-card-asof', debtUiStatusNow, month); // Rev 2.31.5 (B2-lite): той самий статус і попап на картці «Борги по картках»
-
-  renderDebtDonut(hasDebtData, debtStart.total, debtNow.total, paidSinceStart, debtUiStatusNow, month);
+  renderDebtOchTiles({ month: month, prevMonth: prevMonth, hasDebtData: hasDebtData, debtNow: debtNow, debtStart: debtStart, cardAsOf: cardAsOf, cardDeltaKnown: cardDeltaKnown, cardDelta: cardDelta, status: debtUiStatusNow });
 
   /* --- Ряд 2: графіки --- */
   // Дані завжди починаються зліва: беремо тільки ту частину 6-місячного вікна,
@@ -1151,59 +1137,9 @@ function renderDashboard(){
         `<div class="t-row t-row-3col summary"><span class="t-name">Потенціал економії</span><span class="t-amt">${fmt(reducibleTotal)}</span><span class="t-priority"></span></div>`)
   };
 
-  /* --- Борги по картках (мінімалістичні бейджі замість офіційних логотипів банків —
-     логотипи є торговою маркою й не відтворюються; бейдж лишається кольорово впізнаваним) --- */
-  const cardDebts = debtNow.list.filter(d=>d.kind==='card');
-  let debtsCompactBody, debtsDetailBody;
-  if(!hasDebtData){
-    debtsCompactBody = debtsDetailBody = `<div class="empty-hint">Ще немає даних. Додай борги на вкладці «Облік» або імпортуй з Excel у «Сервіс».</div>`;
-  }else if(cardDebts.length===0){
-    debtsCompactBody = debtsDetailBody = `<div class="empty-hint">Немає записів по картках станом на цей місяць.</div>`;
-  }else{
-    const maxDebt = Math.max(...cardDebts.map(d=>d.balance), 1);
-    const sortedCardDebts = cardDebts.sort((a,b)=>b.balance-a.balance);
-    // BugFix Rev 1.7.1 (#7): раніше компактний вигляд показував УСІ картки без
-    // обмеження — якщо їх було більше 5 (напр. "Оля"-варіанти), ця картка ставала
-    // вищою за інші три в звичайному (нерозгорнутому) ряду. Обмежуємо до топ-5 +
-    // рядок "Інші картки", так само як категорії/підкатегорії. Повний список
-    // лишається доступним у розгорнутому вигляді (detailBody, без обмеження).
-    const compactDebts = sortedCardDebts.slice(0,5);
-    const restDebtsSum = sortedCardDebts.slice(5).reduce((s,d)=>s+d.balance,0);
-    debtsCompactBody = compactDebts.map(function(d){ return `
-      <div class="t-row t-row-2col">
-        <span class="t-name">${bankIcon(d.name, 22, false, 'card')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
-        <span class="t-amt">${fmt(d.balance)}</span>
-      </div>`; }).join('') +
-      (restDebtsSum>0 ? `<div class="t-row t-row-2col summary"><span class="t-name">Інші картки</span><span class="t-amt">${fmt(restDebtsSum)}</span></div>` : '') +
-      `<div class="t-row t-row-2col summary"><span class="t-name">Загальний борг</span><span class="t-amt">${fmt(debtNow.total)}</span></div>`;
-    debtsDetailBody = sortedCardDebts.map(function(d){ return `
-      <div class="t-row">
-        <span class="t-name">${bankIcon(d.name, 22, false, 'card')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
-        <span class="t-bar-h"><div class="t-bar-track"><div class="t-bar-fill" style="width:${(d.balance/maxDebt*100).toFixed(0)}%; background:var(--color-success);"></div></div></span>
-        <span class="t-amt">${fmt(d.balance)}</span>
-      </div>`; }).join('') +
-      `<div class="t-row summary"><span class="t-name">Загальний борг</span><span class="t-bar-h"></span><span class="t-amt">${fmt(debtNow.total)}</span></div>`;
-  }
-  cardVariants.debts = {
-    triggerLabel: 'Всі борги',
-    compactHeaderClass: 'table-header t-row-2col',
-    compactHeaderHtml: '<span class="t-name">Картка</span><span class="t-amt">Сума</span>',
-    compactBodyHtml: debtsCompactBody,
-    detailHeaderClass: 'table-header',
-    detailHeaderHtml: '<span class="t-name">Картка</span><span class="t-bar-h"></span><span class="t-amt">Сума</span>',
-    detailBodyHtml: debtsDetailBody
-  };
-
+  // Rev 2.32.386 (DS-5b): блок «Борги по картках» (compact/detail) прибрано — його замінила шторка плитки «Борг» (debtSheetHtml).
   ['categories','subcategories','reducible'].forEach(applyCardExpandState);
   updateRow3GridColumns();
-  renderDebtsCard();
-
-  /* --- Оплати частинами (Block 5): картка з прогрес-баром по кожному ОЧ ---
-     Прогрес рахується від "Початкової суми" (installmentAccounts[].initialAmount,
-     Rev 2.1.17) — якщо вона ще не вказана для конкретного ОЧ, показуємо рядок
-     без бару (той самий принцип, що й для карток: "бар лише де є математична
-     база", інакше просто залишок). */
-  renderInstallmentsCard(debtNow, hasDebtData);
 
   /* --- Ряд 4: "Ключові показники місяця" (Design-System-v2.0 §7) ---
      Rev 2.32.385 (DS-5a): «Витрати / Дохід», «Обов'язкові платежі» і «Вільні гроші» прибрано з цього ряду: обов'язкові й вільні тепер плитки картки «Сімейний баланс» (mandatoryPaymentsSummary, формула без змін); «Динаміка боргу», «ОЧ» — до DS-5b, «Звичка місяця» — до DS-5e. */
@@ -1214,40 +1150,6 @@ function renderDashboard(){
   // дублювала б інформацію. Підпис перевикористовує вже наявний в застосунку
   // патерн "відносно [місяць]" (той самий, що в трендах Доходи/Витрати/
   // Заощадження) замість розбивки по компонентах.
-  const debtchangeValEl = document.getElementById('kpi-debtchange');
-  const debtchangeSubEl = document.getElementById('kpi-debtchange-sub');
-  debtchangeValEl.classList.remove('is-positive','is-negative');
-  const cardDeltaKnown = kindHasActualForMonth('card', month) && kindHasActualForMonth('card', prevMonth);
-  const cardDelta = debtPrev.total - debtNow.total; // позитивне = борг скоротився
-  if(!hasDebtData || !cardDeltaKnown){
-    debtchangeValEl.textContent = '—';
-    debtchangeSubEl.textContent = hasDebtData ? `Немає даних за ${UA_MONTHS[parseInt(month.slice(5),10)-1]}` : '';
-  }else{
-    if(cardDelta > 0){ debtchangeValEl.textContent = '↓ ' + fmt(cardDelta); debtchangeValEl.classList.add('is-positive'); }
-    else if(cardDelta < 0){ debtchangeValEl.textContent = '↑ ' + fmt(Math.abs(cardDelta)); debtchangeValEl.classList.add('is-negative'); }
-    else{ debtchangeValEl.textContent = '0 ₴ · без змін'; }
-    debtchangeSubEl.textContent = `Відносно ${monthGenitive(prevMonth)}`;
-  }
-
-  // 5. Оплати частинами (ОЧ) — фіксований пункт, не видаляється й не переноситься (DS §7)
-  // Rev 2.1.19 — раніше головним числом був загальний ЗАЛИШОК ОЧ, який тепер
-  // дублюється в картці Block 5 ("Разом"). Змінено на суму платежів ЦЬОГО
-  // МІСЯЦЯ — відповідає тематиці решти Row 2 (Обов'язкові платежі/Вільні
-  // гроші — теж місячні цифри, а не залишки боргу) і раніше взагалі ніде в
-  // Row 1/2 не показувалась.
-  // Rev 2.1.32 — підпис тепер показує динаміку боргу ОЧ (скільки погашено з
-  // минулого місяця) замість залишку — залишок і так видно в картці "Оплати
-  // частинами" нижче на дашборді, а тут натомість зʼявляється те, чого раніше
-  // не було ніде: власне динаміка саме ОЧ-частини боргу.
-  document.getElementById('kpi-och').textContent = hasDebtData ? fmt(debtNow.totalMonthlyInstallment) : '0 ₴';
-  const activeOch = hasDebtData ? debtNow.list.filter(d=>d.kind==='installment').length : 0;
-  const instDeltaKnown = kindHasActualForMonth('installment', month) && kindHasActualForMonth('installment', prevMonth);
-  const instDelta = debtPrev.totalInstallment - debtNow.totalInstallment; // позитивне = борг скоротився
-  function fmtOchDelta(d){ return d>0 ? '↓ '+fmt(d) : (d<0 ? '↑ '+fmt(Math.abs(d)) : '0 ₴ без змін'); }
-  const ochDeltaText = !hasDebtData ? '' : (instDeltaKnown ? fmtOchDelta(instDelta) : 'борг ОЧ: н/д');
-  document.getElementById('kpi-och-sub').textContent = hasDebtData
-    ? `${activeOch} ${activeOch===1?'активний':'активних'} · ${ochDeltaText}` : '—';
-
   /* --- Звичка місяця --- */
   // Rev 2.1.21 — BugFix: раніше ключем був "підкатегорія АБО категорія"
   // (фолбек), тому категорії без жодних підкатегорій (напр. "🛒 Продукти" —
@@ -1360,75 +1262,6 @@ function renderDashboard(){
   dashAfterRender(month); // Rev 2.25.0 (M2): хореографія появи (лише якщо вкладка активна; фонові ре-рендери статичні)
 }
 
-function renderDebtDonut(hasDebtData, startTotal, currTotal, change, debtStatus, month){
-  // startTotal — борг станом на найперший місяць обліку (не минулий місяць!);
-  // change — скільки погашено з того моменту. Разом дають прогрес "з початку обліку" (Rev 1.3).
-  // Rev 1.5.6: SVG-кільце завжди малюється НЕВІД'ЄМНОЮ довжиною дуги (stroke-dasharray не може
-  // бути від'ємним) — тому напрям (погашено/заборговано) керує лише кольором і знаком тексту,
-  // а довжина дуги завжди береться з Math.abs(відсоток). Це три незалежні змінні:
-  //   1) rawPercent   — підписане число для тексту (-17.6 / +15);
-  //   2) isPositive   — прапорець напряму, визначає колір (#FF7000 / червоний) і знак "+"/"-";
-  //   3) arcFraction  — Math.abs(rawPercent)/100, завжди 0..1, довжина дуги.
-  const svg = document.getElementById('debt-donut');
-  const titleEl = document.getElementById('debt-donut-title');
-  const statusLabelEl = document.getElementById('debt-status-label');
-  const amountEl = document.getElementById('m-paid');
-  const startAmountEl = document.getElementById('m-remaining');
-  const r = 45, cx = 54, cy = 54, circumference = 2 * Math.PI * r;
-  const ringWidth = 8; // BugFix/ревізія: було 14 — за проханням зробили кільце тоншим
-
-  // Rev 2.27.0 (M2.1) — вузол кільця замінюється лише при зміні підпису даних (див. setDashChart).
-  function setDonutSvg(sig, html){
-    if(!shouldReplaceChart(svg.dataset.sig, sig) && svg.firstElementChild) return;
-    if(dashState.running){ dashState.updatePending = true; finishDashboard(); }
-    svg.innerHTML = html;
-    svg.dataset.sig = sig;
-  }
-  if(!hasDebtData || startTotal <= 0){
-    setDonutSvg(chartSignature(['none']), `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--color-border)" stroke-width="${ringWidth}"/>
-      <text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="20" font-weight="700" fill="var(--color-text-primary)" font-family="Inter">—</text>`);
-    titleEl.textContent = 'Скорочення боргу';
-    statusLabelEl.textContent = 'Погашено';
-    amountEl.textContent = '—'; amountEl.style.color = '';
-    startAmountEl.textContent = '—';
-    renderDataStatusDot('debt-donut-asof', { status:'none' }, month);
-    return;
-  }
-  // Rev #21 + #23 — Unified Data Status: той самий статус, що вже показаний
-  // на картці «Борг» (debtStatus рахується один раз у caller, обидві картки
-  // завжди узгоджені між собою).
-  renderDataStatusDot('debt-donut-asof', debtStatus, month);
-
-  const isPositive = change >= 0; // борг зменшився (або без змін) = позитивний результат
-  const rawPercent = (change / startTotal) * 100; // підписане число, лише для форматування тексту
-  const arcFraction = Math.max(0, Math.min(1, Math.abs(rawPercent) / 100)); // довжина дуги — завжди >= 0
-  const arcLen = circumference * arcFraction;
-  const pctText = fmtSignedPercent(rawPercent);
-  const ringColor = isPositive ? '#FF7000' : 'var(--color-error)';
-  // За проханням: заголовок картки тепер відповідає напряму зміни — "Скорочення
-  // боргу", коли борг зменшується, "Збільшення боргу", коли зростає (замість
-  // завжди статичного "Скорочення боргу").
-  titleEl.textContent = isPositive ? 'Скорочення боргу' : 'Збільшення боргу';
-
-  setDonutSvg(chartSignature([startTotal, change, ringColor]), `
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--color-border)" stroke-width="${ringWidth}"/>
-    <circle data-ring cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ringColor}" stroke-width="${ringWidth}"
-      stroke-dasharray="${arcLen} ${circumference}" stroke-dashoffset="0" stroke-linecap="round"
-      transform="rotate(-90 ${cx} ${cy})"/>
-    <text data-late x="${cx}" y="${cy+8}" text-anchor="middle" font-size="24" font-weight="700" fill="var(--color-text-primary)" font-family="Inter">${pctText}</text>`);
-
-  statusLabelEl.textContent = isPositive ? 'Погашено' : 'Заборговано';
-  amountEl.textContent = (isPositive ? '' : '-') + fmt(Math.abs(change));
-  amountEl.style.color = isPositive ? 'var(--color-success)' : 'var(--color-error)';
-
-  startAmountEl.textContent = fmt(startTotal);
-}
-
-// Форматує відсоток для центру donut: 15% / -17.6% (максимум 1 знак після коми,
-// зайвий ".0" прибирається). Rev 1.5.6.1: знак "+" для позитивного сценарію прибрано за
-// вимогою — борг зменшився → просто "15%", борг зріс → лишається "-17.6%".
-// Довжина дуги в renderDebtDonut рахується окремо через Math.abs() і сюди не потрапляє.
-
 function habitCountWord(n){
   const mod10=n%10, mod100=n%100;
   if(mod10===1 && mod100!==11) return 'раз';
@@ -1511,116 +1344,6 @@ function toggleCardExpand(key){
   updateRow3GridColumns();
 }
 
-// Rev 2.1.18 — "Борги по картках" тепер поза спільною grid-системою Row 4
-// (окремий рядок ov-row3-secondary).
-// Rev 2.1.20 — за проханням: "Борги по картках" і "ОЧ" пов'язані між собою,
-// як і верхні 3 картки — розгортання однієї згортає іншу. З лише двома
-// картками повноцінний collapsedKeyFor тут не потрібен: просто один спільний
-// прапорець "яка зараз розгорнута" (або жодна).
-let secondaryExpandedKey = null; // 'debts' | 'installments' | null
-function renderDebtsCard(){
-  const v = cardVariants.debts;
-  const headerEl = document.getElementById('debts-header');
-  const bodyEl = document.getElementById('debts-body');
-  const triggerEl = document.getElementById('debts-trigger');
-  if(!v || !headerEl || !bodyEl || !triggerEl) return;
-  if(secondaryExpandedKey === 'debts'){
-    headerEl.className = v.detailHeaderClass;
-    headerEl.innerHTML = v.detailHeaderHtml;
-    bodyEl.innerHTML = v.detailBodyHtml;
-    triggerEl.innerHTML = 'Згорнути <span class="arrow">↑</span>';
-  }else{
-    headerEl.className = v.compactHeaderClass;
-    headerEl.innerHTML = v.compactHeaderHtml;
-    bodyEl.innerHTML = v.compactBodyHtml;
-    triggerEl.innerHTML = v.triggerLabel + ' <span class="arrow">→</span>';
-  }
-}
-function toggleDebtsCardExpand(){
-  secondaryExpandedKey = (secondaryExpandedKey === 'debts') ? null : 'debts';
-  renderDebtsCard();
-  applyInstallmentsCardState();
-}
-// Rev 2.1.18 — Block 5: картка "Оплати частинами" з прогрес-баром по кожному
-// ОЧ. Прогрес = (початкова сума − поточний залишок) / початкова сума, тільки
-// якщо початкова сума відома (installmentAccounts[].initialAmount, Rev 2.1.17);
-// інакше — рядок без бару, лише залишок (той самий принцип, що вже діє для
-// кредитних карток: "бар лише де є математична база для нього").
-// Rev 2.1.19 — картка ОЧ тепер компакт/деталі, як і решта карток Block 4/5:
-// за замовчуванням лише назва+платіж/міс (як "Всі категорії" в компактному
-// вигляді), по кліку на тригер розкриваються залишок і прогрес-бар. Обидва
-// варіанти рахуються один раз тут і кешуються в installmentsCardData —
-// applyInstallmentsCardState() лише перемикає, які з них показати, без
-// повторного рахування (той самий підхід, що cardVariants.* для Row 4).
-let installmentsCardData = null;
-function renderInstallmentsCard(debtNow, hasDebtData){
-  const instList = hasDebtData ? debtNow.list.filter(d=>d.kind==='installment') : [];
-  if(!hasDebtData || instList.length===0){
-    installmentsCardData = {
-      hasAny: false,
-      emptyHtml: !hasDebtData
-        ? `<div class="empty-hint">Ще немає даних. Додай ОЧ на вкладці «Облік» або імпортуй з Excel у «Сервіс».</div>`
-        : `<div class="empty-hint">Немає активних ОЧ станом на цей місяць.</div>`
-    };
-    applyInstallmentsCardState();
-    return;
-  }
-  const sorted = instList.slice().sort((a,b)=>b.balance-a.balance);
-  // Rev 2.32.171 (OCH-MODEL): «Платіж/міс» = стандартний платіж ОЧ (payment ?? сума ÷ місяці), для ОЧ без моделі — платіж місяця, як було; смуга овалів: кількість = term_months, зафарбовані = term_months − ceil(залишок ÷ стандартний платіж), без підпису; > 24 — суцільна смуга; без term_months смуги нема.
-  const payOf = function(d){ const acc = installmentAccounts.find(function(a){ return a.name === d.name; }); const std = installmentStandardPayment(acc); return std != null ? std : d.monthlyPayment; };
-  const fmtPlain = function(n){ return fmt(n).replace(/\s*₴$/, ''); }; // колонка «Платіж/міс» без знака валюти (місце під назви)
-  const totalPay = sorted.reduce(function(sum, d){ const v = payOf(d); return sum + (v != null ? v : 0); }, 0);
-  const compactBody = sorted.map(function(d){
-    const pv = payOf(d);
-    return `<div class="t-row t-row-2col">
-      <span class="t-name">${bankIcon(d.name, 22, false, 'installment')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
-      <span class="t-amt">${pv!=null ? fmt(pv) : '—'}</span>
-    </div>`;
-  }).join('') + `<div class="t-row t-row-2col summary"><span class="t-name">Разом на місяць</span><span class="t-amt">${fmt(totalPay)}</span></div>`;
-  const detailBody = sorted.map(function(d){
-    const acc = installmentAccounts.find(a=>a.name===d.name);
-    const pv = payOf(d);
-    const barHtml = ochOvalsHtml(ochOvalsModel(acc ? acc.termMonths : null, d.balance, acc ? installmentStandardPayment(acc) : null));
-    return `<div class="t-row">
-      <span class="t-name">${bankIcon(d.name, 22, false, 'installment')}${escapeHtml(stripLeadingEmoji(d.name))}</span>
-      <span class="t-bar-h och-bar-h">${barHtml}</span>
-      <span class="t-amt narrow">${fmt(d.balance)}</span>
-      <span class="t-amt narrow och-pay">${pv!=null ? fmtPlain(pv) : '—'}</span>
-    </div>`;
-  }).join('') + `<div class="t-row summary"><span class="t-name">Разом</span><span class="t-bar-h och-bar-h"></span><span class="t-amt narrow">${fmt(debtNow.totalInstallment)}</span><span class="t-amt narrow och-pay">${fmtPlain(totalPay)}</span></div>`;
-  installmentsCardData = { hasAny: true, compactBody, detailBody };
-  applyInstallmentsCardState();
-}
-function applyInstallmentsCardState(){
-  const headerEl = document.getElementById('installments-header');
-  const bodyEl = document.getElementById('installments-body');
-  const triggerEl = document.getElementById('installments-trigger');
-  if(!installmentsCardData || !headerEl || !bodyEl || !triggerEl) return;
-  if(!installmentsCardData.hasAny){
-    triggerEl.style.display = 'none';
-    headerEl.className = 'table-header t-row-2col';
-    headerEl.innerHTML = '<span class="t-name">Назва</span><span class="t-amt">Платіж/міс</span>';
-    bodyEl.innerHTML = installmentsCardData.emptyHtml;
-    return;
-  }
-  triggerEl.style.display = '';
-  if(secondaryExpandedKey === 'installments'){
-    headerEl.className = 'table-header';
-    headerEl.innerHTML = '<span class="t-name">Назва</span><span class="t-bar-h och-bar-h"></span><span class="t-amt narrow">Залишок</span><span class="t-amt narrow och-pay">Платіж/ міс</span>';
-    bodyEl.innerHTML = installmentsCardData.detailBody;
-    triggerEl.innerHTML = 'Згорнути <span class="arrow">↑</span>';
-  }else{
-    headerEl.className = 'table-header t-row-2col';
-    headerEl.innerHTML = '<span class="t-name">Назва</span><span class="t-amt">Платіж/міс</span>';
-    bodyEl.innerHTML = installmentsCardData.compactBody;
-    triggerEl.innerHTML = 'Всі ОЧ <span class="arrow">→</span>';
-  }
-}
-function toggleInstallmentsCardExpand(){
-  secondaryExpandedKey = (secondaryExpandedKey === 'installments') ? null : 'installments';
-  renderDebtsCard();
-  applyInstallmentsCardState();
-}
 /* ===== Rev 2.32.385 (DS-5a): картка «Сімейний баланс» (макет analytics-ds v18; docs/reports/DS-5-step0.md, «Рішення 18.11») =====
    Чисті функції (без DOM) — F1 смуга днів, F2 порівняння «на той самий день», F3 «≈ на день». Формули «Обов'язкові»/«Вільні» не змінено (mandatoryPaymentsSummary).
    Ризики/альтернативи: «сьогодні» береться з localDateISO() (локальна дата пристрою); майбутній місяць (перемикач дозволяє наступний) = T 0; одометр — лише transform; висота розгортання — grid-template-rows (виняток ДС-плану, як у «Словнику»). */
@@ -1878,9 +1601,187 @@ function toggleBalanceCard(){
   if(balOpen) requestAnimationFrame(drawBalCharts);
 }
 // Повторна поява (візит/зміна місяця): число котиться від нуля, смуга днів з'являється знову.
-function balReplay(){ if(balLast) renderBalanceCard(balLast, true); }
+function balReplay(){ if(balLast) renderBalanceCard(balLast, true); if(balTilesLast) renderDebtOchTiles(balTilesLast, true); }
 (function(){
   let t = null;
   window.addEventListener('resize', function(){ if(!balOpen) return; clearTimeout(t); t = setTimeout(function(){ const a = document.getElementById('bal-ch-inc'), b = document.getElementById('bal-ch-exp'); if(a) delete a.dataset.sig; if(b) delete b.dataset.sig; drawBalCharts(); }, 150); });
 })();
+/* ===== Rev 2.32.386 (DS-5b): плитки «Борг» і «ОЧ» та їхні шторки (макет analytics-ds v18, картка 3; docs/reports/DS-5-step0.md, «Рішення 18.11») =====
+   Формули (підтверджено): F5 частка ОЧ, F6 «% використано», «погашено %» — чинна формула кільця «Скорочення боргу» ((старт − зараз) / старт); дельта боргу лише з cardDeltaKnown (FINANCIAL_RULES §3.1).
+   Крапки неповних даних: на плитках — .data-status (борг: чинний debtUiStatus; ОЧ: renderInstDot), у шторках — .cdr-dot біля назви. Ризики/альтернативи: у шторках крапка без дії (деталі в «Обліку»); «активні» ОЧ = залишок > 0. */
+// F5: частка сплаченого = Σ(початкова − залишок) / Σ початкова по активних ОЧ (залишок > 0) із відомою початковою сумою; кожен внесок 0..початкова. fraction = null, якщо немає жодної такої ОЧ.
+function ochPaidFraction(items){
+  let paid = 0, base = 0, used = 0, skipped = 0, active = 0;
+  (items || []).forEach(function(it){
+    const b = Number(it && it.balance);
+    if(!(b > 0)) return;
+    active++;
+    const ini = Number(it.initial);
+    if(!(ini > 0)){ skipped++; return; }
+    base += ini; paid += Math.max(0, Math.min(ini, ini - b)); used++;
+  });
+  return { fraction: base > 0 ? paid / base : null, used: used, skipped: skipped, active: active, base: base };
+}
+// F6: «% використано» = борг / кредитний ліміт; смуга клампиться до 100 %, текст показує реальний відсоток (може бути > 100); ліміт не вказано → без смуги й відсотка.
+function cardUsageModel(balance, limit){
+  const b = Number(balance) || 0, l = Number(limit) || 0;
+  if(!(l > 0)) return { hasLimit: false, usage: null, pct: null, fill: 0, zero: !(b > 0), over: false };
+  const u = b / l;
+  return { hasLimit: true, usage: u, pct: Math.round(u * 100), fill: Math.max(0, Math.min(1, u)), zero: !(b > 0), over: u > 1 };
+}
+// «Погашено %» боргу: (старт − зараз) / старт (формула колишнього кільця «Скорочення боргу»); старт ≤ 0 → без відсотка; борг зріс → grew, смуга порожня.
+function debtPaidModel(startTotal, nowTotal){
+  const s = Number(startTotal) || 0, n = Number(nowTotal) || 0;
+  if(!(s > 0)) return { has: false, pct: null, fill: 0, grew: false };
+  const raw = (s - n) / s * 100;
+  return { has: true, pct: Math.round(raw), fill: Math.max(0, Math.min(1, raw / 100)), grew: raw < 0 };
+}
+// Підпис під сумою боргу: дельта лише за фактом обох місяців; перенесене значення — «Станом на …»; без боргів — «Боргів немає». tone: good | bad | ''.
+function debtDeltaCaption(o){
+  if(!o.hasDebtData || !o.hasData) return { text: 'Боргів немає', tone: '' };
+  if(!o.isCurrent) return { text: 'Станом на ' + monthLabel(o.asOfMonth), tone: '' };
+  if(!o.deltaKnown) return { text: 'немає даних за ' + UA_MONTHS[parseInt(o.prevMonth.slice(5, 7), 10) - 1], tone: '' };
+  const g = monthGenitive(o.prevMonth);
+  if(o.delta > 0) return { text: '−' + fmt(o.delta) + ' від ' + g, tone: 'good' };
+  if(o.delta < 0) return { text: '+' + fmt(-o.delta) + ' від ' + g, tone: 'bad' };
+  return { text: 'без змін від ' + g, tone: '' };
+}
+function activeWord(n){ const m10 = n % 10, m100 = n % 100; return (m10 === 1 && m100 !== 11) ? 'активна' : ((m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? 'активні' : 'активних'); }
+
+let balTilesLast = null;
+function installmentAccFor(d){ return installmentAccounts.find(function(a){ return a.name === d.name; }) || null; }
+function incompleteInstalmentsNow(){
+  return installmentAccounts.filter(function(a){ return isInstallmentVisibleForMonth(a, selectedMonth) && installmentIncompleteReasons(a).length > 0; });
+}
+// Крапка неповних даних плитки «ОЧ» (той самий .data-status і попап, що біля «Борг»): які ОЧ мають неповні дані; дія — перейти в «Облік → ОЧ».
+function renderInstDot(){
+  const wrap = document.getElementById('bal-inst-asof');
+  if(!wrap) return;
+  const list = incompleteInstalmentsNow();
+  if(!list.length){ wrap.classList.add('hidden'); closeDataStatusPopover(wrap); return; }
+  wrap.classList.remove('hidden'); wrap.classList.add('warning');
+  const btn = wrap.querySelector('.data-status-dot'), titleEl = wrap.querySelector('.dsp-title'), textEl = wrap.querySelector('.dsp-text'), hintEl = wrap.querySelector('.dsp-hint'), actionEl = wrap.querySelector('.dsp-action');
+  btn.setAttribute('aria-label', 'Стан даних: неповні дані ОЧ');
+  titleEl.textContent = 'Інформація неповна';
+  const names = list.slice(0, 4).map(function(a){ return stripLeadingEmoji(a.name); }).join(', ');
+  textEl.textContent = 'Не всі дані внесено для ' + list.length + ' ОЧ: ' + names + (list.length > 4 ? ', ще ' + (list.length - 4) : '') + '.';
+  hintEl.textContent = 'Найчастіше бракує початкової суми чи дня платежу.'; hintEl.classList.remove('hidden');
+  actionEl.classList.remove('hidden'); actionEl.textContent = 'Відкрити ОЧ в «Обліку»'; actionEl.onclick = goToInstallmentsTab;
+}
+function goToInstallmentsTab(){
+  closeAllDataStatusPopovers();
+  performSwitchTab('accounting');
+  switchAccountingTab('installments');
+}
+// c: { month, prevMonth, hasDebtData, debtNow, debtStart, cardAsOf, cardDeltaKnown, cardDelta, status }
+function renderDebtOchTiles(c, replay){
+  if(!c || !document.getElementById('bal-pair')) return;
+  balTilesLast = c;
+  const setText = function(id, t){ const el = document.getElementById(id); if(el) el.textContent = String(t).replace(/ ₴/g, '\u00a0₴'); }; // ₴ не відривається від суми на вузькій плитці
+  const setFill = function(id, v){ const el = document.getElementById(id); if(el) el.style.setProperty('--v', String(Math.max(0, Math.min(1, v)))); };
+  const instList = c.debtNow.list.filter(function(d){ return d.kind === 'installment'; });
+  // «Борг»
+  const hasCards = c.hasDebtData && c.cardAsOf.hasData;
+  const debtEl = document.getElementById('kpi-debt');
+  if(debtEl){ if(hasCards) debtEl.dataset.final = String(Math.round(c.debtNow.total)); else delete debtEl.dataset.final; odoRender(debtEl, hasCards ? fmt(c.debtNow.total) : '—', replay); }
+  const dc = debtDeltaCaption({ hasDebtData: c.hasDebtData, hasData: c.cardAsOf.hasData, isCurrent: c.cardAsOf.isCurrent, asOfMonth: c.cardAsOf.asOfMonth, deltaKnown: c.cardDeltaKnown, delta: c.cardDelta, month: c.month, prevMonth: c.prevMonth });
+  setText('bal-debt-cap', dc.text); const capEl = document.getElementById('bal-debt-cap'); if(capEl) capEl.className = 'bal-tcap' + (dc.tone === 'good' ? ' pos' : (dc.tone === 'bad' ? ' neg' : ''));
+  const pm = hasCards ? debtPaidModel(c.debtStart.total, c.debtNow.total) : { has: false, fill: 0 };
+  setFill('bal-debt-fill', pm.fill);
+  setText('bal-debt-cap2', !pm.has ? '' : (pm.grew ? 'борг зріс на ' + Math.abs(pm.pct) + '% від старту' : 'погашено ' + pm.pct + '%'));
+  renderDataStatusDot('bal-debt-asof', c.status, c.month);
+  // «ОЧ»
+  const hasInst = c.hasDebtData && instList.length > 0;
+  const items = instList.map(function(d){ const acc = installmentAccFor(d); return { initial: acc ? acc.initialAmount : null, balance: d.balance }; });
+  const fr = ochPaidFraction(items);
+  const ochEl = document.getElementById('kpi-och');
+  if(ochEl){ if(hasInst) ochEl.dataset.final = String(Math.round(c.debtNow.totalMonthlyInstallment)); else delete ochEl.dataset.final; odoRender(ochEl, hasInst ? fmt(c.debtNow.totalMonthlyInstallment) : '—', replay); }
+  const unit = document.getElementById('bal-inst-unit'); if(unit) unit.classList.toggle('hidden', !hasInst);
+  setText('bal-inst-cap', hasInst ? 'залишок ' + fmt(c.debtNow.totalInstallment) : (c.hasDebtData ? 'активних ОЧ немає' : 'ОЧ немає'));
+  setFill('bal-inst-fill', !hasInst ? 0 : (fr.active === 0 ? 1 : (fr.fraction === null ? 0 : fr.fraction)));
+  setText('bal-inst-cap2', !hasInst ? '' : (fr.active === 0 ? 'усі ОЧ сплачено' : (fr.fraction === null ? 'початкові суми не вказано' : 'сплачено ' + Math.round(fr.fraction * 100) + '%')));
+  renderInstDot();
+  refreshBalSheets();
+}
+
+// ---- шторки (компонент .drawer, DS-4) ----
+function balLogoHtml(name, kind){ return '<span class="bal-logo">' + bankIcon(name, 32, true, kind) + '</span>'; }
+function balDotHtml(){ return '<span class="cdr-dot" role="img" aria-label="Дані заповнені неповністю"></span>'; }
+function balStyleV(v){ return 'style="--v:' + Math.max(0, Math.min(1, Number(v) || 0)).toFixed(4) + '"'; }
+function debtSheetHtml(c){
+  const cards = c.debtNow.list.filter(function(d){ return d.kind === 'card'; }).slice().sort(function(a, b){ return b.balance - a.balance; });
+  if(!c.hasDebtData || !cards.length) return '<div class="empty-hint">' + (c.hasDebtData ? 'Немає записів по картках станом на цей місяць.' : 'Ще немає даних. Додай борги на вкладці «Облік» або імпортуй з Excel у «Сервіс».') + '</div>';
+  const pm = debtPaidModel(c.debtStart.total, c.debtNow.total);
+  const dc = debtDeltaCaption({ hasDebtData: c.hasDebtData, hasData: c.cardAsOf.hasData, isCurrent: c.cardAsOf.isCurrent, asOfMonth: c.cardAsOf.asOfMonth, deltaKnown: c.cardDeltaKnown, delta: c.cardDelta, month: c.month, prevMonth: c.prevMonth });
+  let h = '<div class="bal-sumbox"><div class="bal-srow"><span class="bal-stotal">' + fmt(c.debtNow.total) + '</span><span class="bal-scap' + (dc.tone === 'good' ? ' pos' : (dc.tone === 'bad' ? ' neg' : '')) + '">' + escapeHtml(dc.text) + '</span></div>' +
+    '<div class="bal-strack"><div class="bal-fill income" ' + balStyleV(pm.fill) + '></div></div>' +
+    '<div class="bal-srow"><span class="bal-scap">' + (!pm.has ? '' : (pm.grew ? 'Борг зріс на ' + Math.abs(pm.pct) + '% від стартового' : 'Погашено ' + pm.pct + '% стартового боргу')) + '</span><span class="bal-scap3">' + (pm.has ? 'старт ' + fmt(c.debtStart.total) : '') + '</span></div></div><div class="bal-slist">';
+  cards.forEach(function(d){
+    const acc = debtAccount(d), u = cardUsageModel(d.balance, acc ? acc.creditLimit : null);
+    const incomplete = acc ? cardIncompleteReasons(acc).length > 0 : false;
+    h += '<div class="bal-dr">' +
+      '<div class="bal-top2">' + balLogoHtml(d.name, 'card') + '<span class="bal-nm">' + escapeHtml(stripLeadingEmoji(d.name)) + (incomplete ? balDotHtml() : '') + '</span><span class="bal-mono' + (u.zero ? ' dim' : '') + '">' + fmt(d.balance) + '</span></div>' +
+      (u.hasLimit ? '<div class="bal-strack"><div class="bal-fill ' + (u.over ? 'over' : 'income') + '" ' + balStyleV(u.fill) + '></div></div>' : '') +
+      '<div class="bal-srow"><span class="bal-scap3">' + (u.hasLimit ? 'кредитний ліміт ' + fmt(acc.creditLimit) : 'кредитний ліміт не вказано') + '</span><span class="bal-scap3">' + (u.hasLimit ? (u.zero ? 'без боргу' : u.pct + '% використано') : '') + '</span></div></div>';
+  });
+  return h + '</div>';
+}
+function instSheetHtml(c){
+  const all = c.debtNow.list.filter(function(d){ return d.kind === 'installment'; });
+  if(!c.hasDebtData || !all.length) return '<div class="empty-hint">' + (c.hasDebtData ? 'Немає активних ОЧ станом на цей місяць.' : 'Ще немає даних. Додай ОЧ на вкладці «Облік» або імпортуй з Excel у «Сервіс».') + '</div>';
+  const act = all.filter(function(d){ return d.balance > 0; }).sort(function(a, b){ return b.balance - a.balance; });
+  const fr = ochPaidFraction(all.map(function(d){ const acc = installmentAccFor(d); return { initial: acc ? acc.initialAmount : null, balance: d.balance }; }));
+  let h = '<div class="bal-sumbox"><div class="bal-srow"><span class="bal-stotal">' + fmt(c.debtNow.totalMonthlyInstallment) + ' <small class="bal-ssmall">/ міс</small></span><span class="bal-scap">залишок ' + fmt(c.debtNow.totalInstallment) + '</span></div>' +
+    '<div class="bal-strack"><div class="bal-fill income" ' + balStyleV(act.length === 0 ? 1 : (fr.fraction === null ? 0 : fr.fraction)) + '></div></div>' +
+    '<div class="bal-srow"><span class="bal-scap">' + (act.length === 0 ? 'Усі ОЧ сплачено' : (fr.fraction === null ? 'Початкові суми не вказано' : 'Сплачено ' + Math.round(fr.fraction * 100) + '% · ' + act.length + ' ' + activeWord(act.length))) + '</span><span class="bal-scap3">' + (fr.base > 0 ? 'початкова ' + fmt(fr.base) : '') + '</span></div></div><div class="bal-slist">';
+  if(!act.length) return h + '</div>';
+  act.forEach(function(d){
+    const acc = installmentAccFor(d), std = acc ? installmentStandardPayment(acc) : null, pay = std != null ? std : d.monthlyPayment;
+    const model = ochOvalsModel(acc ? acc.termMonths : null, d.balance, std);
+    const k = model.mode === 'ovals' ? (model.paid !== undefined ? model.paid : model.done) : null, n = model.term || model.total;
+    const ini = acc && Number(acc.initialAmount) > 0 ? Number(acc.initialAmount) : null;
+    const incomplete = acc ? installmentIncompleteReasons(acc).length > 0 : false;
+    h += '<div class="bal-dr">' +
+      '<div class="bal-top2">' + balLogoHtml(d.name, 'installment') + '<span class="bal-nm">' + escapeHtml(stripLeadingEmoji(d.name)) + (incomplete ? balDotHtml() : '') + '<span class="bal-nsub">' + (ini !== null ? 'початкова сума ' + fmt(ini) : 'початкова сума не вказана') + '</span></span>' +
+      '<span class="bal-mono">' + (pay != null ? fmt(pay) : '—') + '<small> /міс</small></span></div>' +
+      (model.mode === 'ovals' ? ochOvalsHtml(model) : '') +
+      '<div class="bal-srow"><span class="bal-scap3">' + (k !== null ? k + ' з ' + n + ' платежів' : '') + '</span><span class="bal-scap3">залишок ' + fmt(d.balance) + '</span></div></div>';
+  });
+  return h + '</div>';
+}
+function renderBalSheet(which){
+  const c = balTilesLast;
+  const body = document.getElementById(which === 'debt' ? 'bal-sheet-debt-body' : 'bal-sheet-inst-body');
+  if(!body || !c) return;
+  const drawer = document.getElementById(which === 'debt' ? 'bal-sheet-debt' : 'bal-sheet-inst');
+  const top = drawer ? drawer.scrollTop : 0;
+  body.innerHTML = which === 'debt' ? debtSheetHtml(c) : instSheetHtml(c);
+  if(drawer) drawer.scrollTop = top;
+}
+// Відкрита шторка перемальовується з нових даних (другий пристрій, зміна місяця під шторкою).
+function refreshBalSheets(){
+  [['debt', 'bal-sheet-debt'], ['inst', 'bal-sheet-inst']].forEach(function(p){ const d = document.getElementById(p[1]); if(d && d.classList.contains('open')) renderBalSheet(p[0]); });
+}
+function balSheetOpen(id){
+  const b = document.getElementById(id + '-backdrop'), d = document.getElementById(id);
+  if(!d) return;
+  const was = d.classList.contains('open');
+  lastFocusedBeforeDialog = document.activeElement;
+  if(b){ b.removeAttribute('inert'); b.classList.add('open'); }
+  d.removeAttribute('inert'); d.classList.add('open'); focusFirstIn(d);
+  if(!was) lockBackgroundScroll();
+}
+function balSheetClose(id){
+  const b = document.getElementById(id + '-backdrop'), d = document.getElementById(id);
+  if(!d) return;
+  const was = d.classList.contains('open');
+  if(b){ b.classList.remove('open'); b.setAttribute('inert', ''); }
+  d.classList.remove('open'); d.setAttribute('inert', '');
+  restoreFocus();
+  if(was) unlockBackgroundScroll();
+}
+function openDebtSheet(){ renderBalSheet('debt'); balSheetOpen('bal-sheet-debt'); }
+function closeDebtSheet(){ balSheetClose('bal-sheet-debt'); }
+function openInstSheet(){ renderBalSheet('inst'); balSheetOpen('bal-sheet-inst'); }
+function closeInstSheet(){ balSheetClose('bal-sheet-inst'); }
 (window.__MT_FILES = window.__MT_FILES || []).push('analytics.js');
