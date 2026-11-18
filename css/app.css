@@ -3122,8 +3122,36 @@
 .bal-dl i{ font-style:normal; font-size:var(--fs-subhead); line-height:16px; text-shadow:none; }
 .bal-dl.dim{ opacity:.2; }
 .bal-hint{ margin-top:calc(var(--sp-2) * -1); font-size:var(--fs-caption1); line-height:16px; text-align:center; color:var(--text-3); }
+/* ===== Rev 2.32.390 (DS-5c-2): картка «Потенціал економії» (макет analytics-ds v18). Лише токени; розкриття — клас .bal-card (як у «Сімейному балансі»). ===== */
+.bal-pot{ margin-bottom:var(--sp-3); }
+.bal-prow{ display:flex; align-items:flex-end; justify-content:space-between; gap:var(--sp-3); }
+.bal-pcol{ display:flex; flex-direction:column; min-width:0; }
+.bal-pnum{ display:block; font-size:var(--fs-title2); line-height:28px; font-weight:700; letter-spacing:-.2px; white-space:nowrap; color:var(--text); }
+.bal-emst{ display:flex; padding-left:var(--sp-2); }
+.bal-emst span{ display:grid; place-items:center; width:32px; height:32px; margin-left:calc(var(--sp-2) * -1); border:2px solid var(--surface); border-radius:50%; background:var(--surface-2); font-size:var(--fs-subhead); font-weight:600; color:var(--text-2); }
+.bal-pbarwrap{ display:flex; flex-direction:column; gap:var(--sp-2); }
+.bal-potbar{ display:flex; gap:2px; height:10px; overflow:hidden; border-radius:var(--r-2xs); background:var(--surface-2); }
+.bal-potbar i{ display:block; height:100%; transform-origin:left; animation:balGrow var(--t-count) var(--ease-out) backwards; animation-delay:calc(var(--n) * var(--bal-pot-step) + var(--bal-pot-base)); }
+.bal-pot{ --bal-pot-step:80ms; --bal-pot-base:250ms; }
+.bal-prow2{ display:flex; justify-content:space-between; gap:var(--sp-2); }
+.bal-prow2 .pos{ color:var(--income-text); font-weight:600; }
+.bal-few{ color:var(--text-3); }
+.bal-prh{ display:flex; justify-content:space-between; font-size:var(--fs-footnote); line-height:18px; color:var(--text-2); padding-bottom:var(--sp-2); }
+.bal-plist{ display:flex; flex-direction:column; }
+.bal-pli{ display:flex; align-items:center; gap:var(--sp-3); min-height:44px; border-top:1px solid var(--line); font-size:var(--fs-callout); }
+.bal-pli:first-child{ border-top:0; }
+.bal-pnm{ flex:1; min-width:0; color:var(--text); overflow:hidden; text-overflow:ellipsis; }
+.bal-psub{ display:block; font-size:var(--fs-footnote); line-height:18px; color:var(--text-3); }
+.bal-plvl{ flex:none; font-size:var(--fs-subhead); font-weight:600; }
+.bal-plvl.high{ color:var(--income-text); }
+.bal-plvl.mid{ color:var(--debt-text); }
+.bal-plvl.low{ color:var(--text-3); }
+.bal-pempty-wrap{ display:none; flex-direction:column; gap:var(--sp-1); }
+.bal-pempty{ font-size:var(--fs-callout); font-weight:600; color:var(--text); }
+.bal-pot.is-empty .bal-pempty-wrap{ display:flex; }
+.bal-pot.is-empty .bal-prow, .bal-pot.is-empty .bal-pbarwrap, .bal-pot.is-empty .bal-chev, .bal-pot.is-empty .bal-xp{ display:none; }
 @media (max-width:359px){ .bal-kic{ display:none; } }
 @media (prefers-reduced-motion: reduce){
-  .bal-seg, .bal-dline, .bal-dtag, .bal-fill, .bal-chart .ln, .bal-chart circle, .bal-cfill, .bal-dl, .bal-suc{ animation:none; }
+  .bal-seg, .bal-dline, .bal-dtag, .bal-fill, .bal-chart .ln, .bal-chart circle, .bal-cfill, .bal-dl, .bal-suc, .bal-potbar i{ animation:none; }
   .bal-xp, .bal-xin, .bal-chev, .odc, .bal-chart circle, .bal-sum, .bal-sg, .bal-seg2 .ind{ transition:none; }
 }

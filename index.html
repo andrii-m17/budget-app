@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.389"><link rel="stylesheet" href="./css/app.css?v=2.32.389"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.390"><link rel="stylesheet" href="./css/app.css?v=2.32.390"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -298,6 +298,20 @@
         <div class="bal-clist" id="bal-cat-top"></div>
       </section>
 
+      <!-- Rev 2.32.390 (DS-5c-2): картка «Потенціал економії» (макет analytics-ds v18, картка 5) замість таблиці; наповнює renderPotentialCard(); число — одометр (#kpi-pot) -->
+      <section class="card bal-card bal-pot" id="bal-pot-card">
+        <button type="button" class="bal-sum" id="bal-pot-toggle" aria-expanded="false" aria-controls="bal-pot-more" onclick="togglePotCard()">
+          <span class="bal-top"><span class="bal-kic c-income"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></svg></span><span class="bal-ttl"><span class="bal-h">Потенціал економії</span></span><svg class="bal-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+          <span class="bal-pempty-wrap"><span class="bal-pempty" id="bal-pot-empty"></span><span class="bal-cap" id="bal-pot-hint"></span></span>
+          <span class="bal-prow"><span class="bal-pcol"><span class="bal-cap">Можна скоротити цього місяця</span><span class="bal-pnum"><span class="odo" id="kpi-pot" role="img"></span></span></span><span class="bal-emst" id="bal-pot-em"></span></span>
+          <span class="bal-pbarwrap"><span class="bal-potbar" id="bal-pot-bar" role="img"></span><span class="bal-prow2"><span class="bal-cap" id="bal-pot-share"></span><span class="bal-cap" id="bal-pot-year"></span></span></span>
+        </button>
+        <div class="bal-xp" id="bal-pot-more"><div><div class="bal-xin">
+          <div class="bal-prh"><span>Підкатегорія</span><span>Потенціал</span></div>
+          <div class="bal-plist" id="bal-pot-list"></div>
+        </div></div></div>
+      </section>
+
       <div class="ov-kpistrip">
         <div class="card kpi-strip-card">
           <div class="kpi-strip">
@@ -320,21 +334,6 @@
           <div class="gm-chart-title">Динаміка боргу</div>
           <div class="gm-legend"><span><i style="background:var(--color-warning)"></i>Борг</span></div>
           <div id="chart-debt-line"></div>
-        </div>
-      </div>
-
-      <!-- Rev 2.1.33 — прибрано механізм "стискання сусіда в тонку смужку":
-           з трьома картками (після переїзду "Борги по картках" в окремий
-           рядок, Rev 2.1.18) уся інформація й так поміщається без стискання
-           когось. Кожна картка тепер незалежно розгортається/згортається
-           сама (той самий простий патерн, що вже в рядку Борги/ОЧ), без
-           спільного стану, що впливав на сусідні картки. -->
-      <div class="ov-row3" id="ov-row3">
-        <div class="card table-card" id="card-reducible">
-          <div class="table-card-title">Потенціал економії</div>
-          <div class="table-header t-row-3col" id="reducible-header"><span class="t-name">Підкатегорія</span><span class="t-priority">Потенціал</span></div>
-          <div id="reducible-body"></div>
-          <button type="button" class="t-footer-link" id="reducible-trigger" onclick="toggleCardExpand('reducible')">Всі рекомендації <span class="arrow">→</span></button>
         </div>
       </div>
 
@@ -894,7 +893,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.389</div>
+  <div class="version-footer">Money Tree · Rev 2.32.390</div>
 </div>
   </div>
 </div>
@@ -1679,16 +1678,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.389"></script>
-<script src="./js/util-date.js?v=2.32.389"></script>
-<script src="./js/util-safe.js?v=2.32.389"></script>
-<script src="./js/util-misc.js?v=2.32.389"></script>
-<script src="./js/diag.js?v=2.32.389"></script>
-<script src="./js/shell.js?v=2.32.389"></script>
-<script src="./js/structure.js?v=2.32.389"></script>
-<script src="./js/analytics.js?v=2.32.389"></script>
-<script src="./js/payments.js?v=2.32.389"></script>
-<script src="./js/sheets.js?v=2.32.389"></script>
+<script src="./js/util-format.js?v=2.32.390"></script>
+<script src="./js/util-date.js?v=2.32.390"></script>
+<script src="./js/util-safe.js?v=2.32.390"></script>
+<script src="./js/util-misc.js?v=2.32.390"></script>
+<script src="./js/diag.js?v=2.32.390"></script>
+<script src="./js/shell.js?v=2.32.390"></script>
+<script src="./js/structure.js?v=2.32.390"></script>
+<script src="./js/analytics.js?v=2.32.390"></script>
+<script src="./js/payments.js?v=2.32.390"></script>
+<script src="./js/sheets.js?v=2.32.390"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -3712,10 +3711,6 @@ let installmentAccounts = []; // [{name:'iPhone', initialAmount:25000}, ...] —
 let hiddenFrom = {}; // Rev 2.1.0: {"card:🟩 Приват Банк": "2026-08", ...}
 let ignoredDivergences = {}; // Rev 2.16.2: {"ОЧ Приватбанк|2026-02": true, ...}
 let selectedMonth = null;
-// Rev 2.1.33 — кеш обох варіантів вмісту (компактний/детальний) кожної
-// картки Row 4, наповнюється заново при кожному renderDashboard(), щоб бути
-// завжди синхронним з місяцем. Прапорці розгорнутості — окремо, в
-// expandedRow4Key (див. нижче, біля toggleCardExpand) — одна на всі три картки.
 
 /* ============ Data Identity Foundation: UUID + schemaVersion (Rev 2.11.2) ============
    Підготовка до Family Bridge (обмін витратами між телефонами двох користувачів
@@ -4031,7 +4026,6 @@ function compareDictionaryForDisplay(a, b){
   if(byKw !== 0) return byKw;
   return (a.id || '').localeCompare(b.id || '');
 }
-let cardVariants = {};
 
 // Rev #28.D1 — bankAccounts/installmentAccounts/hiddenFrom/ignoredDivergences
 // тепер окремі Repository-функції (той самий патерн, що Stage C) —
@@ -6783,7 +6777,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.389';
+const APP_VERSION = '2.32.390';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова

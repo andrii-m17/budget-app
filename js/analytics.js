@@ -981,7 +981,7 @@ function renderDashboard(){
   document.getElementById('analytics-empty').classList.toggle('hidden', !analyticsIsEmpty);
   document.getElementById('analytics-body').classList.toggle('hidden', analyticsIsEmpty);
   const balWrap = document.getElementById('analytics-bal-wrap'); if(balWrap) balWrap.classList.toggle('hidden', analyticsIsEmpty); // Rev 2.32.385 (DS-5a): картка балансу ховається разом з тілом при порожніх даних
-  if(analyticsIsEmpty){ expandedRow4Key = null; return; } // немає сенсу рахувати картки/графіки по порожніх даних
+  if(analyticsIsEmpty){ return; } // немає сенсу рахувати картки/графіки по порожніх даних
 
   /* --- 6-місячний тренд (потрібен і для спарклайнів у Ряду 1, і для великого графіка в Ряду 2) --- */
   const months6 = [];
@@ -1023,11 +1023,7 @@ function renderDashboard(){
     clearDashChart('chart-debt-line', `<div class="empty-hint">Ще немає даних. Додай борги на вкладці «Облік» або імпортуй з Excel у «Сервіс».</div>`);
   }
 
-  /* --- Витрати за категоріями (з рядком "Інші категорії") ---
-     Для кожної картки будуємо ОБИДВА варіанти вмісту — компактний (назва+
-     сума) і детальний (+бар+%, показується при розгортанні) — і складаємо
-     їх у cardVariants, звідки applyCardExpandState() бере готовий HTML
-     залежно від поточного стану expandedRow4Key. */
+  /* --- Найбільша категорія для висновків (top5/byCat); рядки категорій малює renderCatCard --- */
   const byCat = {};
   monthExp.forEach(e=>{ const key = e.category || '🧾 Без категорії'; byCat[key] = (byCat[key]||0)+e.amount; });
   const allCatSorted = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
@@ -1036,60 +1032,11 @@ function renderDashboard(){
   // Rev 2.32.388 (DS-5c-1): таблиці «Витрати за категоріями» і «Деталізація витрат» замінено карткою «Деталізація витрат» з кільцями (renderCatCard); byCat/bySub лишаються для висновків і «Потенціалу».
   renderCatCard(monthExp, month);
 
-  /* --- Деталізація витрат (підкатегорії) ---
-     Важливо: враховуємо лише записи з реальною підкатегорією. Раніше запис без
-     підкатегорії підставляв назву КАТЕГОРІЇ — і категорії "протікали" у список
-     підкатегорій (Rev 1.3.1, виправлення алгоритму вибірки). --- */
-  const bySub = {};
-  monthExp.forEach(e=>{ if(!e.subcategory) return; bySub[e.subcategory] = (bySub[e.subcategory]||0) + e.amount; });
+  // Rev 2.32.390 (DS-5c-2): таблицю «Потенціал економії» замінено карткою (renderPotentialCard); формула та сама (savingsPotential), «≈ на рік» — typicalMonth за 6 місяців перед вибраним.
+  const potWindow = [];
+  for(let i = 1; i <= 6; i++){ const me = monthAggregates(shiftMonth(month, -i)).monthExp; if(me.length) potWindow.push(savingsPotential(me, SUBCATEGORY_PRIORITY).total); } // місяці без жодного запису витрат виключаються
+  renderPotentialCard({ month: month, pot: savingsPotential(monthExp, SUBCATEGORY_PRIORITY), totalExpense: totalExpense, typ: typicalMonth(potWindow) });
 
-  /* --- Потенціал економії: ТОП-5 підкатегорій за (сума × пріоритет) --- */
-  const scored = Object.entries(bySub)
-    .map(function(pair){ return { name: pair[0], sum: pair[1], priority: SUBCATEGORY_PRIORITY[pair[0]] }; })
-    .filter(function(r){ return !!r.priority; })
-    .map(function(r){ return Object.assign({}, r, { weighted: r.sum * r.priority.score }); })
-    .sort(function(a,b){ return b.weighted-a.weighted; })
-    .slice(0,5);
-  const reducibleTotal = scored.reduce((s,r)=>s+r.sum,0);
-
-  cardVariants.reducible = {
-    triggerLabel: 'Всі рекомендації',
-    compactHeaderClass: 'table-header t-row-3col',
-    compactHeaderHtml: '<span class="t-name">Підкатегорія</span><span class="t-priority">Потенціал</span>',
-    compactBodyHtml: (scored.length===0
-      ? `<div class="empty-hint">Немає підкатегорій для аналізу цього місяця</div>`
-      : scored.map(function(r){ return `
-        <div class="t-row t-row-3col">
-          <span class="t-name">${escapeHtml(r.name)}</span>
-          <span class="t-priority" style="color:var(--color-${r.priority.color});">${r.priority.label}</span>
-        </div>`; }).join('') +
-        `<div class="t-row t-row-2col summary"><span class="t-name">Потенціал економії</span><span class="t-amt">${fmt(reducibleTotal)}</span></div>`),
-    detailHeaderClass: 'table-header t-row-3col',
-    detailHeaderHtml: '<span class="t-name">Підкатегорія</span><span class="t-amt">Сума</span><span class="t-priority">Потенціал</span>',
-    detailBodyHtml: (scored.length===0
-      ? `<div class="empty-hint">Немає підкатегорій для аналізу цього місяця</div>`
-      : scored.map(function(r){ return `
-        <div class="t-row t-row-3col">
-          <span class="t-name">${escapeHtml(r.name)}</span>
-          <span class="t-amt">${fmt(r.sum)}</span>
-          <span class="t-priority" style="color:var(--color-${r.priority.color});">${r.priority.label}</span>
-        </div>`; }).join('') +
-        `<div class="t-row t-row-3col summary"><span class="t-name">Потенціал економії</span><span class="t-amt">${fmt(reducibleTotal)}</span><span class="t-priority"></span></div>`)
-  };
-
-  // Rev 2.32.386 (DS-5b): блок «Борги по картках» (compact/detail) прибрано — його замінила шторка плитки «Борг» (debtSheetHtml).
-  ['reducible'].forEach(applyCardExpandState);
-  updateRow3GridColumns();
-
-  /* --- Ряд 4: "Ключові показники місяця" (Design-System-v2.0 §7) ---
-     Rev 2.32.385 (DS-5a): «Витрати / Дохід», «Обов'язкові платежі» і «Вільні гроші» прибрано з цього ряду: обов'язкові й вільні тепер плитки картки «Сімейний баланс» (mandatoryPaymentsSummary, формула без змін); «Динаміка боргу», «ОЧ» — до DS-5b, «Звичка місяця» — до DS-5e. */
-
-  // Rev 2.1.32 — "Динаміка боргу" звужена до ЛИШЕ карток: розбивка "Картки Х ·
-  // ОЧ Y" переїхала в підпис картки "Платежі по ОЧ" нижче (там тепер весь
-  // контекст саме про ОЧ в одному місці) — тут вона більше не потрібна й лише
-  // дублювала б інформацію. Підпис перевикористовує вже наявний в застосунку
-  // патерн "відносно [місяць]" (той самий, що в трендах Доходи/Витрати/
-  // Заощадження) замість розбивки по компонентах.
   /* --- Звичка місяця --- */
   // Rev 2.1.21 — BugFix: раніше ключем був "підкатегорія АБО категорія"
   // (фолбек), тому категорії без жодних підкатегорій (напр. "🛒 Продукти" —
@@ -1230,59 +1177,6 @@ function expenseCountWord(n){
 // Rev 2.32.19 (X, A1-5) — safeId(): id запису, що підставляється всередину JS-рядка в inline-обробнику (onclick="f('${id}')"). Справжні id — UUID/ключі з [0-9A-Za-z_-]; все інше (лапки, дужки, пробіли) відсікається, тож зовнішній текст не може вийти з рядка обробника. Альтернатива (data-* + делегований обробник) змінила б сотню місць розмітки — свідомо відкладено.
 // Rev 2.32.19 (X) — кількість місць розмітки, де значення з даних екрануються (для події xss-audit рекордера; значення не пишуться).
 const XSS_AUDITED_SITES = 25;
-
-/* ============ Розгортання карток Row 4 (Категорії/Підкатегорії/Потенціал) ============ */
-// Rev 2.1.33 — прибрано механізм "стискання сусіда в тонку смужку" (ICONS,
-// collapsedKeyFor, applyCardStates, handleCardStripClick — усе видалено).
-// Rev 2.1.39 — за проханням картки знову пов'язані між собою (взаємовиключно,
-// як і Борги/ОЧ нижче): розгортання однієї автоматично згортає попередню
-// назад у компактний вигляд. Один спільний прапорець замість трьох
-// незалежних — БЕЗ "стискання в смужку" (просто помірне звуження ширини
-// сусідніх карток через updateRow3GridColumns(), як і раніше).
-let expandedRow4Key = null; // 'categories' | 'subcategories' | 'reducible' | null
-function applyCardExpandState(key){
-  const v = cardVariants[key];
-  const headerEl = document.getElementById(key+'-header');
-  const bodyEl = document.getElementById(key+'-body');
-  const triggerEl = document.getElementById(key+'-trigger');
-  if(!v || !headerEl || !bodyEl || !triggerEl) return;
-  if(expandedRow4Key === key){
-    headerEl.className = v.detailHeaderClass;
-    headerEl.innerHTML = v.detailHeaderHtml;
-    bodyEl.innerHTML = v.detailBodyHtml;
-    triggerEl.innerHTML = 'Згорнути <span class="arrow">↑</span>';
-  }else{
-    headerEl.className = v.compactHeaderClass;
-    headerEl.innerHTML = v.compactHeaderHtml;
-    bodyEl.innerHTML = v.compactBodyHtml;
-    triggerEl.innerHTML = v.triggerLabel + ' <span class="arrow">→</span>';
-  }
-}
-// Rev 2.1.34 — розгорнута картка отримує трохи більше ширини за рахунок
-// сусідніх (не тонка смужка, а помірне звуження — щоб увесь текст
-// розгорнутого вмісту поміщався). Реалізовано через CSS custom properties
-// (--row3-col-N), а не прямий inline grid-template-columns: властивість сама
-// по собі нічого не форсує на вузьких екранах, бо правило grid-template-
-// columns, яке її читає, живе лише всередині @media (min-width:1280px).
-function updateRow3GridColumns(){
-  const row = document.getElementById('ov-row3');
-  if(!row) return;
-  const w = key => expandedRow4Key === key ? '1.5fr' : '1fr';
-  row.style.setProperty('--row3-col-1', w('reducible')); // Rev 2.32.388 (DS-5c-1): таблиці категорій/підкатегорій замінено карткою «Деталізація витрат»; у ряду лишився «Потенціал» (DS-5c-2)
-  row.style.setProperty('--row3-col-2', '1fr');
-  row.style.setProperty('--row3-col-3', '1fr');
-  // Rev 2.24.0 (M1) — замість анімації grid-template-columns (layout щокадру): короткий opacity-перехід при зміні розкладки.
-  const sig = [w('reducible')].join('|');
-  if(row.dataset.cols && row.dataset.cols !== sig && typeof row.animate === 'function' && !motionReduced()){
-    row.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: motionDuration('s', motionK, false), easing: MOTION_EASE_OUT });
-  }
-  row.dataset.cols = sig;
-}
-function toggleCardExpand(key){
-  expandedRow4Key = (expandedRow4Key === key) ? null : key;
-  ['reducible'].forEach(applyCardExpandState);
-  updateRow3GridColumns();
-}
 
 /* ===== Rev 2.32.385 (DS-5a): картка «Сімейний баланс» (макет analytics-ds v18; docs/reports/DS-5-step0.md, «Рішення 18.11») =====
    Чисті функції (без DOM) — F1 смуга днів, F2 порівняння «на той самий день», F3 «≈ на день». Формули «Обов'язкові»/«Вільні» не змінено (mandatoryPaymentsSummary).
@@ -1541,7 +1435,7 @@ function toggleBalanceCard(){
   if(balOpen) requestAnimationFrame(drawBalCharts);
 }
 // Повторна поява (візит/зміна місяця): число котиться від нуля, смуга днів з'являється знову.
-function balReplay(){ if(balLast) renderBalanceCard(balLast, true); if(balTilesLast) renderDebtOchTiles(balTilesLast, true); }
+function balReplay(){ if(balLast) renderBalanceCard(balLast, true); if(balTilesLast) renderDebtOchTiles(balTilesLast, true); if(balPotLast) renderPotentialCard(balPotLast, true); }
 (function(){
   let t = null;
   window.addEventListener('resize', function(){ if(!balOpen) return; clearTimeout(t); t = setTimeout(function(){ const a = document.getElementById('bal-ch-inc'), b = document.getElementById('bal-ch-exp'); if(a) delete a.dataset.sig; if(b) delete b.dataset.sig; drawBalCharts(); }, 150); });
@@ -1921,4 +1815,88 @@ function closeCatsSheet(){ balSheetClose('bal-sheet-cats'); balCatSel = null; }
     const k = e.target.closest('[data-k]'); if(k) selectCat(k.dataset.k);
   });
 })();
+/* ===== Rev 2.32.390 (DS-5c-2): картка «Потенціал економії» (макет analytics-ds v18, картка 5; docs/reports/DS-5-step0.md, «Рішення 18.11») =====
+   F7: чинна формула без змін — топ-5 підкатегорій із позначкою рівня за (сума × коефіцієнт рівня 1 / 0,65 / 0,25, SUBCATEGORY_PRIORITY); «потенціал» = Σ сум цих п'яти (як у колишній таблиці), підпис «Можна скоротити цього місяця».
+   F8: «≈ на рік» = 12 × типовий місяць того самого показника: вікно — до 6 місяців перед вибраним; місяці без жодного запису витрат виключаються, місяць із записами без позначених підкатегорій дає 0; n ≥ 5 — без найбільшого й найменшого, 3–4 — просте середнє, < 3 — просте середнє з позначкою «мало даних»; без жодного місяця — «на рік» не показуємо; округлення до 100.
+   Пріоритети — поточні налаштування (перераховують і минулі місяці; свідомо). */
+const POT_SHADES = [100, 72, 50, 36, 24];
+// F7: топ-5 за (сума × коефіцієнт) і сума цих п'яти; дослівно колишня логіка renderDashboard (bySub лише з записів з підкатегорією).
+function savingsPotential(monthExp, prio){
+  const bySub = {};
+  (monthExp || []).forEach(function(e){ if(!e.subcategory) return; bySub[e.subcategory] = (bySub[e.subcategory] || 0) + e.amount; });
+  const P = prio || {};
+  const items = Object.entries(bySub)
+    .map(function(pair){ return { name: pair[0], sum: pair[1], priority: P[pair[0]] }; })
+    .filter(function(r){ return !!r.priority; })
+    .map(function(r){ return Object.assign({}, r, { weighted: r.sum * r.priority.score }); })
+    .sort(function(a, b){ return b.weighted - a.weighted; })
+    .slice(0, 5);
+  return { items: items, total: items.reduce(function(s, r){ return s + r.sum; }, 0) };
+}
+// Рівень за коефіцієнтом: ≥ 1 — високий, ≥ 0,5 — середній, інакше низький (кольори: зелений / бурштиновий / нейтральний).
+function potLevel(priority){
+  const sc = Number(priority && priority.score);
+  return sc >= 1 ? 'high' : (sc >= 0.5 ? 'mid' : 'low');
+}
+// F8: values — потенціал кожного з місяців вікна (лише місяці з записами). Повертає { typical, year, n, few, trimmed } або null (немає жодного місяця).
+function typicalMonth(values){
+  const v = (values || []).map(Number).filter(function(x){ return isFinite(x); });
+  const n = v.length;
+  if(n === 0) return null;
+  let base = v;
+  if(n >= 5){ base = v.slice().sort(function(a, b){ return a - b; }).slice(1, -1); } // без найбільшого й найменшого
+  const mean = base.reduce(function(a, b){ return a + b; }, 0) / base.length;
+  const typical = roundSym(mean, 100);
+  return { typical: typical, year: 12 * typical, n: n, few: n < 3, trimmed: n >= 5 };
+}
+let balPotOpen = false, balPotLast = null;
+// Помічені підкатегорії для підказки порожнього стану (з поточних налаштувань, без емодзі).
+function potMarkedHint(){
+  const names = Object.keys(SUBCATEGORY_PRIORITY || {}).slice(0, 3).map(function(n){ return stripLeadingEmoji(n); });
+  return 'Рівень потенціалу мають лише позначені підкатегорії' + (names.length ? ' (наприклад: ' + names.join(', ') + ')' : '') + '. Позначити: «Структура» → підкатегорія → «Потенціал економії».';
+}
+// ctx: { month, pot, totalExpense, typ }
+function renderPotentialCard(ctx, replay){
+  const card = document.getElementById('bal-pot-card');
+  if(!card || !ctx) return;
+  balPotLast = ctx;
+  const items = ctx.pot.items, empty = items.length === 0;
+  const get = function(id){ return document.getElementById(id); };
+  card.classList.toggle('is-empty', empty);
+  const showOpen = balPotOpen && !empty; // бажаний стан розгортання зберігається; у порожньому стані картка згорнута (клас і aria-expanded)
+  card.classList.toggle('open', showOpen);
+  const btn = get('bal-pot-toggle'); if(btn){ btn.setAttribute('aria-disabled', empty ? 'true' : 'false'); btn.setAttribute('aria-expanded', showOpen ? 'true' : 'false'); }
+  const emptyEl = get('bal-pot-empty'); if(emptyEl){ emptyEl.textContent = 'Немає підкатегорій для аналізу'; }
+  const hint = get('bal-pot-hint'); if(hint) hint.textContent = potMarkedHint();
+  const num = get('kpi-pot');
+  if(num){ if(empty) delete num.dataset.final; else num.dataset.final = String(Math.round(ctx.pot.total)); odoRender(num, empty ? '—' : fmt(ctx.pot.total), replay); }
+  // три найбільші позиції: емодзі або перша літера (правило «Структури»)
+  const em = get('bal-pot-em'); if(em) em.innerHTML = items.slice(0, 3).map(function(r){ return '<span aria-hidden="true">' + escapeHtml(tileForName(r.name).text) + '</span>'; }).join('');
+  // смуга частки від витрат місяця: сегмент на позицію
+  const bar = get('bal-pot-bar');
+  if(bar){
+    const te = Number(ctx.totalExpense) || 0;
+    bar.setAttribute('aria-label', te > 0 ? catPctText(ctx.pot.total, te) + ' витрат можна скоротити' : '');
+    bar.innerHTML = items.map(function(r, i){ return '<i style="width:' + (te > 0 ? Math.max(0, Math.min(100, r.sum / te * 100)).toFixed(2) : '0') + '%;background:color-mix(in srgb, var(--income) ' + POT_SHADES[i] + '%, var(--surface));--n:' + i + '"></i>'; }).join('');
+  }
+  const share = get('bal-pot-share'); if(share) share.textContent = ctx.totalExpense > 0 ? catPctText(ctx.pot.total, ctx.totalExpense) + ' із ' + fmt(ctx.totalExpense) + ' витрат' : '';
+  const yr = get('bal-pot-year');
+  if(yr){
+    if(!ctx.typ){ yr.innerHTML = ''; }
+    else yr.innerHTML = '<span class="pos">≈ ' + escapeHtml(fmt(ctx.typ.year)) + '</span> на рік' + (ctx.typ.few ? ' <span class="bal-few">· мало даних</span>' : '');
+  }
+  // розгорнутий список: рівень потенціалу, сума, внесок у потенціал
+  const list = get('bal-pot-list');
+  if(list) list.innerHTML = items.map(function(r){
+    const lv = potLevel(r.priority), label = lv === 'high' ? 'Високий' : (lv === 'mid' ? 'Середній' : 'Низький');
+    return '<div class="bal-pli"><span class="bal-em" aria-hidden="true">' + escapeHtml(tileForName(r.name).text) + '</span><span class="bal-pnm">' + escapeHtml(stripLeadingEmoji(r.name)) + '<span class="bal-psub">' + escapeHtml(fmt(r.sum)) + ' · внесок ' + catPctText(r.sum, ctx.pot.total) + '</span></span><span class="bal-plvl ' + lv + '">' + label + '</span></div>';
+  }).join('');
+}
+function togglePotCard(){
+  const card = document.getElementById('bal-pot-card'), btn = document.getElementById('bal-pot-toggle');
+  if(!card || card.classList.contains('is-empty')) return;
+  balPotOpen = !balPotOpen;
+  card.classList.toggle('open', balPotOpen);
+  if(btn) btn.setAttribute('aria-expanded', balPotOpen ? 'true' : 'false');
+}
 (window.__MT_FILES = window.__MT_FILES || []).push('analytics.js');
