@@ -37,8 +37,8 @@ test('вигляд: радіус 22 px, відступ 12 px, скло (backdrop
 });
 test('умова показу: ≥ 1280 px або ≥ 768 px з мишею; дотиковий планшет 768–1279 лишається з нижнім таб-баром', function(){
   assert.ok(navBlock.includes('nav.tabbar{ display:none; }'));
-  const t0 = CSS.indexOf('@media (min-width:768px) and (max-width:1279px){'); assert.ok(t0 > 0);
-  const tablet = CSS.slice(t0, CSS.indexOf('\n  }', t0)); assert.ok(!/\.side|tabbar/.test(tablet), 'планшетний блок навігації не чіпає');
+  const t0 = CSS.indexOf('@media (min-width:768px) and (max-width:1279px){'); // Rev 2.32.395 (DS-5e): планшетний блок містив лише правила старої «Аналітики» й прибраний; якщо з'явиться знову — навігації він не чіпає
+  if(t0 > 0){ const tablet = CSS.slice(t0, CSS.indexOf('\n  }', t0)); assert.ok(!/\.side|tabbar/.test(tablet), 'планшетний блок навігації не чіпає'); }
 });
 test('активний пункт: скляна пілюля з рамкою акценту (значення .tabbar-bubble), «Витрати» — зелене коло з плюсом без пілюлі', function(){
   assert.match(navBlock, /\.side button\.side-tab\.active\{ background:var\(--accent-bg\); border-color:var\(--accent-line\); box-shadow:0 2px 8px rgba\(34,197,94,\.22\); color:var\(--color-primary-hover\); \}/);

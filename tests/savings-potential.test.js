@@ -68,7 +68,7 @@ test('рівень за коефіцієнтом: ≥ 1 високий, ≥ 0,5 
 test('розмітка й охоронне: картка після деталізації, перед «Звичкою»; стара таблиця й розгортання рядів прибрано; екранування; кольори рівнів; «мало даних»; «≈ на рік» від typicalMonth', () => {
   ['card-reducible', 'reducible-body', 'reducible-trigger', 'reducible-header', 'ov-row3'].forEach(id => assert.ok(!HTML.includes('id="' + id + '"'), id));
   ['applyCardExpandState', 'updateRow3GridColumns', 'toggleCardExpand', 'expandedRow4Key'].forEach(n => assert.ok(!SRC.includes(n + '(') && !SRC.includes('let ' + n), n + ' прибрано'));
-  const iCat = HTML.indexOf('id="bal-cat-card"'), iPot = HTML.indexOf('id="bal-pot-card"'), iHab = HTML.indexOf('class="ov-kpistrip"');
+  const iCat = HTML.indexOf('id="bal-cat-card"'), iPot = HTML.indexOf('id="bal-pot-card"'), iHab = HTML.indexOf('id="bal-dyn-card"');
   assert.ok(iCat > 0 && iCat < iPot && iPot < iHab, 'порядок: Деталізація → Потенціал → решта');
   assert.ok(/id="kpi-pot" role="img"/.test(HTML) && /aria-expanded="false" aria-controls="bal-pot-more"/.test(HTML));
   const m = SRC.slice(SRC.indexOf('function renderPotentialCard'), SRC.indexOf('function togglePotCard'));

@@ -64,7 +64,7 @@ test('activeWord: відмінки', () => { [[1, 'активна'], [2, 'акт
 
 test('розмітка: плитки замість KPI «Борг», кільця й карток; старі id прибрано; крапки; шторки без полів і з «×» для фокуса', () => {
   ['debt-donut', 'debt-donut-asof', 'kpi-debt-asof', 'debts-card-asof', 'debts-body', 'installments-body', 'kpi-debtchange', 'trend-debt', 'spark-debt', 'ov-row3-secondary', 'debts-trigger', 'installments-trigger'].forEach(id => assert.ok(!HTML.includes('id="' + id + '"') && !HTML.includes("class=\"" + id + "\""), id));
-  const iPair = HTML.indexOf('id="bal-pair"'), iKpi = HTML.indexOf('class="ov-kpistrip"'), iPay = HTML.indexOf('id="payments-card"'), iBody = HTML.indexOf('id="analytics-body"');
+  const iPair = HTML.indexOf('id="bal-pair"'), iKpi = HTML.indexOf('id="bal-cat-card"'), iPay = HTML.indexOf('id="payments-card"'), iBody = HTML.indexOf('id="analytics-body"');
   assert.ok(iPay > 0 && iPay < iBody && iBody < iPair && iPair < iKpi, 'порядок: платежі → плитки → решта');
   ['kpi-debt', 'kpi-och', 'bal-debt-asof', 'bal-inst-asof', 'bal-debt-cap', 'bal-debt-fill', 'bal-inst-fill', 'bal-sheet-debt-body', 'bal-sheet-inst-body'].forEach(id => assert.ok(HTML.includes('id="' + id + '"'), id));
   assert.ok(/id="kpi-debt" role="img"/.test(HTML) && /id="kpi-och" role="img"/.test(HTML));

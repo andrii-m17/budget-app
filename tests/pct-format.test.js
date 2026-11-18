@@ -11,10 +11,9 @@ test('fmtPercent1: кома, нерозривний пробіл, ціле бе�
   [null, undefined, NaN, Infinity, '', 'x'].forEach(v => assert.equal(j('fmtPercent1(' + (typeof v === 'string' ? JSON.stringify(v) : String(v)) + ')'), '—', String(v)));
   assert.ok(!/\./.test(j('fmtPercent1(31.8)')), 'без крапки');
 });
-test('у «Аналітиці» дробових відсотків із крапкою немає: висновки й «Звичка місяця» ідуть через fmtPercent1', () => {
-  const a = SRC.slice(SRC.indexOf("document.getElementById('kpi-habit-sub')") - 200, SRC.indexOf("document.getElementById('kpi-habit-sub')") + 400);
-  assert.ok(/fmtPercent1\(habitEntries\[0\]\[1\]\.sum\/totalExpense\*100\)/.test(a));
+test('у «Аналітиці» дробових відсотків із крапкою немає: висновки ідуть через fmtPercent1 (KPI «Звичка місяця» прибрано в Rev 2.32.395)', () => {
   const m = SRC.slice(SRC.indexOf("const summaryEl = document.getElementById('summary-container')"), SRC.indexOf('dashAfterRender(month);'));
   assert.ok(/fmtPercent1\(savings\/totalIncome\*100\)/.test(m) && /fmtPercent1\(Math\.abs\(savings\)\/totalIncome\*100\)/.test(m));
   assert.ok(!/toFixed\(1\)\}?%/.test(m), 'у висновках немає toFixed(1) + «%»');
+  assert.ok(!SRC.includes('kpi-habit'), 'KPI «Звичка місяця» прибрано');
 });

@@ -7,21 +7,11 @@ const path = require('node:path');
 const ex = require('./extract');
 
 const SRC = require('./extract').readIndexWithCss();
-const NAMES = ['chartsBelowFold', 'revealDecision', 'shouldDeferChart', 'motionDuration', 'staggerDelay', 'countStep', 'chartSignature', 'cardRevealTiming', 'chartDuration', 'bezierEase', 'shouldReplaceChart', 'dashboardQueueSize', 'dashboardReplayMode'];
-const CONSTS = ['CHART_REVEAL_DWELL_MS', 'CHART_REVEAL_RATIO', 'MOTION_BASE_MS', 'MOTION_REDUCED_MAX_MS', 'DASH_MAX_QUEUE', 'DASH_STAGGER_MS', 'DASH_MAX_COUNTERS', 'DASH_MAX_TOTAL_MS', 'DASH_COUNTER_IDS', 'CARD_REVEAL', 'DASH_REPLAY_SCALE', 'DASH_UPDATE_SCALE'];
+const NAMES = ['chartsBelowFold', 'revealDecision', 'shouldDeferChart', 'motionDuration', 'countStep', 'chartSignature', 'cardRevealTiming', 'bezierEase', 'dashboardQueueSize', 'dashboardReplayMode'];
+const CONSTS = ['CHART_REVEAL_DWELL_MS', 'CHART_REVEAL_RATIO', 'MOTION_BASE_MS', 'MOTION_REDUCED_MAX_MS', 'DASH_MAX_QUEUE', 'DASH_MAX_COUNTERS', 'DASH_MAX_TOTAL_MS', 'CARD_REVEAL', 'DASH_REPLAY_SCALE', 'DASH_UPDATE_SCALE'];
 const ctx = ex.buildSandbox({}, CONSTS.concat(NAMES));
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 const MODULE = SRC.slice(SRC.indexOf('// ===== Rev 2.25.0 (M2) / Rev 2.27.0 (M2.1)'), SRC.indexOf('// ===== Rev 2.29.0 (A) — поява «Обліку»')); // лише «Аналітика»; «Облік» — tests/account-motion.test.js
-
-test('staggerDelay: крок × k, обмежено розміром черги; власний крок; хибні вхідні → безпечно', () => {
-  assert.equal(j('staggerDelay(0,1,8)'), 0);
-  assert.equal(j('staggerDelay(3,1,8)'), 120);
-  assert.equal(j('staggerDelay(20,1,8)'), 280, 'не далі за max-1');
-  assert.equal(j('staggerDelay(3,1.35,8)'), 162);
-  assert.equal(j('staggerDelay(4,1,12,30)'), 120, 'стовпчики 30 мс');
-  assert.equal(j('staggerDelay(-2,1,8)'), 0);
-  assert.equal(j('staggerDelay(2,undefined,0)'), 0);
-});
 
 test('countStep: завжди ціле, монотонне від from до to, t=1 дає точно to, t≤0 — from', () => {
   [[0, 123456], [0, -7890], [5000, 3210], [-300, 4000], [77, 77], [0, 1], [1000000, 0]].forEach(([from, to]) => {
@@ -42,13 +32,6 @@ test('chartSignature: той самий підпис для тих самих д
   assert.equal(j('chartSignature([[100,200.2],[300,400]])'), j('chartSignature([[100.4,200],[300.1,400.3]])'));
   assert.notEqual(j('chartSignature([["2026-09",1,2]])'), j('chartSignature([["2026-10",1,2]])'), 'інший місяць — інший підпис');
   assert.notEqual(j('chartSignature([[1,1],[2,0]])'), j('chartSignature([[1,1],[2,1]])'));
-});
-
-test('shouldReplaceChart: той самий підпис вузол НЕ замінює; нема підпису/змінився — замінює', () => {
-  assert.equal(j("shouldReplaceChart('[1,2]','[1,2]')"), false);
-  assert.equal(j("shouldReplaceChart('[1,2]','[1,3]')"), true);
-  assert.equal(j('shouldReplaceChart(undefined,"[1]")'), true);
-  assert.equal(j('shouldReplaceChart(null,"[1]")'), true);
 });
 
 test('cardRevealTiming: «Стандартно» 420/40 × k; хибний k → 1; значення в межах', () => {
@@ -100,38 +83,6 @@ test('M4c: dashboard-replay завершено — жодних гілок first
 });
 
 // ---------- охоронні ----------
-test('SVG лінії боргу: кожен сегмент — окремий path (pathLength="1"); розриви не з\'єднуються', () => {
-  const sb = ex.buildSandbox({ monthLabelShort: m => m }, ['svgLineChart']);
-  const run = data => ex.evalInSandbox(sb, 'svgLineChart(' + JSON.stringify(data) + ',6)');
-  const mk = arr => arr.map((a, i) => ({ m: '2026-0' + (i + 1), total: a[0], actual: !!a[1] }));
-  const svg = run(mk([[1000, 1], [900, 1], [0, 0], [700, 1], [600, 1], [500, 1]]));
-  const segs = [...svg.matchAll(/<path data-draw pathLength="1" d="([^"]+)"/g)].map(m => m[1]);
-  assert.equal(segs.length, 2);
-  segs.forEach(d => assert.equal((d.match(/M/g) || []).length, 1));
-  const xs = d => [...d.matchAll(/[ML]([\d.]+) /g)].map(m => parseFloat(m[1]));
-  assert.ok(Math.max(...xs(segs[0])) < Math.min(...xs(segs[1])));
-  assert.equal([...run(mk([[1000, 1], [0, 0], [800, 1], [0, 0], [600, 1], [500, 1]])).matchAll(/<path data-draw/g)].length, 1);
-});
-
-test('сонячний рендер: data-final з тієї ж змінної, що й текст; лічильників ≤ 6', () => {
-  // Rev 2.32.385 (DS-5a): kpi-income/-expense/-mandatory/-free прибрано (плитки картки «Сімейний баланс»), kpi-savings — одометр (data-final = savings, текст формує odoRender)
-  assert.ok(SRC.includes("big.dataset.final = String(Math.round(ctx.savings))") && SRC.includes("odoRender(big,"), 'одометр балансу: data-final і текст з однієї змінної savings');
-  ['kpi-income', 'kpi-expense', 'kpi-mandatory', 'kpi-free'].forEach(id => assert.ok(!SRC.includes(`getElementById('${id}')`), id + ' більше не пишеться'));
-  // Rev 2.32.386 (DS-5b): «Борг» і «ОЧ» теж одометр (data-final = число, текст формує odoRender); лічильників M2 не лишилось
-  assert.ok(SRC.includes("debtEl.dataset.final = String(Math.round(c.debtNow.total))") && SRC.includes("odoRender(debtEl,") && SRC.includes("ochEl.dataset.final = String(Math.round(c.debtNow.totalMonthlyInstallment))"));
-  assert.deepEqual(j('DASH_COUNTER_IDS'), []);
-  assert.ok(j('DASH_COUNTER_IDS').length <= j('DASH_MAX_COUNTERS'));
-});
-
-test('вузли графіків замінюються лише через setDashChart/clearDashChart/setDonutSvg (за підписом); прямих innerHTML для графіків нема', () => {
-  // Rev 2.32.392 (DS-5d-1): графіки ряду 2 замінено карткою «Динаміка» (renderDynCard, власний підпис даних); у M2 лишилась лише сама функція setDashChart (прибирається в DS-5e)
-  assert.ok(!SRC.includes("setDashChart('chart-") && !SRC.includes("clearDashChart('chart-")); assert.ok(!/getElementById\('chart-(income-expense|debt-line)'\)/.test(SRC));
-  // Rev 2.32.386 (DS-5b): кільце «Скорочення боргу» (setDonutSvg) прибрано — «погашено %» тепер смуга плитки «Борг»
-  assert.ok(!SRC.includes('function setDonutSvg'));
-  // зміна під час анімації: finish() ДО заміни вузла
-  assert.match(MODULE, /function setDashChart[\s\S]*?if\(dashState\.running\)\{ dashState\.updatePending = true; finishDashboard\(\); \}\s*el\.innerHTML = build\(\)/);
-});
-
 test('анімація не змінює дані: лічильник пише лише fmt(countStep) і фінальне fmt(data-final); без transform на body/html/nav.tabbar; без блокування дотиків і штучних затримок', () => {
   const i = MODULE.indexOf('function makeDashRunner');
   const code = MODULE.slice(i);
@@ -160,18 +111,11 @@ test('"перший показ" витрачається лише коли ан�
   assert.equal((MODULE.match(/dashState\.played = true/g) || []).length, 2);
 });
 
-test('фоновий рендер без змін даних не торкається анімації; зміна даних під час анімації → finish → update', () => {
-  assert.match(MODULE, /if\(!shouldReplaceChart\(el\.dataset\.sig, sig\) && el\.firstElementChild\) return;/);
-  const after = MODULE.slice(MODULE.indexOf('function dashAfterRender'), MODULE.indexOf('function onDashboardVisit'));
-  assert.match(after, /if\(dashState\.updatePending\)\{ trigger = 'update'/);
-});
-
-test('події: dashboard-enter пише mode/skipped/chartsAnimated/chartsSkipped/pathLenZero/pathLengthAttr; пропуск теж фіксується; allowlist', () => {
-  ['mode', 'skipped', 'chartsAnimated', 'chartsSkipped', 'pathLenZero', 'pathLengthAttr'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
+test('події: dashboard-enter пише mode/skipped/chartsAnimated/chartsSkipped; пропуск теж фіксується; allowlist', () => {
+  ['mode', 'skipped', 'chartsAnimated', 'chartsSkipped'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
   assert.match(MODULE, /function recordDashSkip\(reason, trigger\)\{\s*recordMotionPerf\(\{ kind: 'dashboard-enter'/);
   assert.match(MODULE, /if\(trigger !== 'render'\) recordDashSkip\(d\.skipped, trigger\)/);
   assert.equal((SRC.match(/dashAfterRender\(month\);/g) || []).length, 1);
-  assert.match(SRC, /\.kpi-value, \.ksi-value\{ font-variant-numeric:tabular-nums; \}/);
 });
 
 test('Rev 2.32.0 (F): реєстр порожній — card-reveal («Стандартно»), button-style (M4b) і dashboard-replay (M4c) завершені; поля cardVariant немає', () => {
@@ -219,7 +163,7 @@ test('відкладена картка: початковий стан лише 
   assert.ok(!/card\.style\.(height|display|visibility|margin|padding|position|top)/.test(MODULE), 'жодних змін розкладки');
   assert.match(play, /rootMargin: '0px 0px -10% 0px', threshold: \[0, CHART_REVEAL_RATIO\]/);
   assert.match(play, /root: document\.getElementById\('main-col'\)/);
-  assert.match(play, /if\(mode !== 'update'\)\{ dashClearDeferred\(\)/, 'новий візит/місяць скидає очікування і ставить його знову');
+  assert.match(play, /dashClearDeferred\(\); dashState\.enterAt = performance\.now\(\);/, 'новий візит/місяць скидає очікування і ставить його знову');
   assert.match(play, /shouldDeferChart\(mode, false, typeof IntersectionObserver === 'function'\)/);
   const reveal = MODULE.slice(MODULE.indexOf('function dashRevealCard'));
   assert.match(reveal, /d\.cards\.delete\(card\);\s*if\(d\.io\) d\.io\.unobserve\(card\)/, 'після малювання спостерігач знімається — раз на візит');
@@ -236,10 +180,3 @@ test('швидке проскакування не запускає анімац
   assert.match(MODULE, /function dashRevealCard[\s\S]*?if\(!st \|\| !st\.ok\) return;/);
 });
 
-test('події M2.2: chart-reveal пишеться для кожного відкладеного графіка (chart, fromEnterMs, frames, maxGapMs, durationMs); deferredCharts у dashboard-enter; allowlist', () => {
-  assert.match(MODULE, /recordMotionPerf\(\{ kind: 'chart-reveal', chart: id, fromEnterMs: enterMs, frames: r\.frames, maxGapMs: Math\.round\(r\.maxGap\), durationMs: Math\.round\(durationMs\)/);
-  assert.match(MODULE, /deferredCharts: deferredCharts/);
-  ['deferredCharts', 'chart', 'fromEnterMs'].forEach(f => assert.match(SRC, new RegExp("DEBUG_EVENT_ALLOWLIST = \\[[\\s\\S]*'" + f + "'")));
-  // нижче першого екрана більше не рахується як chartsSkipped
-  assert.ok(!/chartsSkipped\+\+[^\n]*below/.test(MODULE));
-});

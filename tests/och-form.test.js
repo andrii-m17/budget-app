@@ -54,7 +54,8 @@ test('овали: CSS — висота 5 px, проміжок 2 px, flex:1 1 0; 
   assert.match(CSS, /\.och-ovals\{ display:flex; gap:2px; width:100%; overflow:hidden;/);
   assert.match(CSS, /\.och-oval\{ display:block; flex:1 1 0; min-width:0; height:5px;/);
   assert.match(CSS, /\.och-solid\{ display:block; width:100%; height:5px;/);
-  assert.match(CSS, /\.t-bar-h\.och-bar-h[^{]*\{ flex:0 0 24%; min-width:48px; max-width:90px; overflow:hidden; \}/);
+  // Rev 2.32.395 (DS-5e): колонку .t-bar-h.och-bar-h старої таблиці «Оплати частинами» прибрано разом із таблицею; овали лишились у шторці плитки «ОЧ» (.bal-sheet .och-oval)
+  assert.ok(!/och-bar-h/.test(CSS) && /\.bal-sheet \.och-oval\{/.test(CSS));
   const names = [...CSS.matchAll(/\.(och-[a-z-]+)/g)].map(m => m[1]);
   names.forEach(n => assert.ok(!/^(field|row-2|drawer|t-|seg-)/.test(n)));
   // 3 овали розтягуються на всю смугу (flex:1 1 0 без фіксованої ширини)

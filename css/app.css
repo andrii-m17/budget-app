@@ -16,9 +16,6 @@
   html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; background:var(--bg); min-height:100%; }
   html,body{ margin:0; padding:0; height:100%; overflow:hidden; position:fixed; inset:0; width:100%; overscroll-behavior:none; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
   .mono{ font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
-  /* Rev 2.25.0 (M2) — стовпчики графіка ростуть знизу (scaleY у межах власного bbox); лічильники KPI з tabular-nums, щоб ширина не стрибала під час рахунку. */
-  .dash-bar{ transform-box:fill-box; transform-origin:50% 100%; }
-  .kpi-value, .ksi-value{ font-variant-numeric:tabular-nums; }
   button{ font-family:inherit; transition:background var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard); } input,select{ font-family:inherit; }
   button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   /* Rev 2.23.29 (6D.198) — фокус і активний стан кнопок: програмний focus() при відкритті екрана тепер іде на КОНТЕЙНЕР
@@ -493,10 +490,7 @@
   .och-seg-label{ display:block; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.4px; margin-bottom:3px; }
   #installment-drawer .och-actions{ position:sticky; bottom:0; z-index:2; display:flex; gap:8px; padding:8px 0 4px; background:var(--surface); }
   #installment-drawer .och-actions > button{ flex:1 1 0; min-width:0; margin:0; height:42px; padding:0 8px; }
-  #installment-drawer .och-form .cdd-delete-link{ margin-top:6px; padding-top:8px; }
-  /* овали таблиці «Оплати частинами» (Аналітика): однакова ширина ≈ 76 px на картці 360 px, висота 5 px, проміжок 2 px; овали розтягуються порівну (flex:1 1 0; min-width:0); > 24 місяців — суцільна смуга */
-  .t-row .t-bar-h.och-bar-h, .table-header .t-bar-h.och-bar-h{ flex:0 0 24%; min-width:48px; max-width:90px; overflow:hidden; } /* частка ширини рядка (однакова в усіх рядках): ≈ 76 px на картці 360 px */
-  .t-row .t-amt.narrow.och-pay, .table-header .t-amt.narrow.och-pay{ flex:0 0 46px; } /* колонка «Платіж/міс» без знака валюти — місце під назви */
+  #installment-drawer .och-form .cdd-delete-link{ margin-top:6px; padding-top:8px; } /* колонка «Платіж/міс» без знака валюти — місце під назви */
   .och-ovals{ display:flex; gap:2px; width:100%; overflow:hidden; align-items:center; }
   .och-oval{ display:block; flex:1 1 0; min-width:0; height:5px; border-radius:var(--r-2xs); background:var(--color-track-bg); }
   .och-oval.on{ background:var(--color-success); }
@@ -721,8 +715,7 @@
      значно більший за видиму крапку (7px), щоб не треба було влучати
      точно в неї на мобільному — сам wrap лишається розміру точки, тому
      layout картки не змінюється. */
-  .data-status{ position:absolute; top:12px; right:12px; z-index:3; }
-  .table-card.has-data-status{ position:relative; } /* Rev 2.31.5 (B2-lite): контейнер для .data-status (абсолютна крапка) на картці «Борги по картках» */
+  .data-status{ position:absolute; top:12px; right:12px; z-index:3; } /* Rev 2.31.5 (B2-lite): контейнер для .data-status (абсолютна крапка) на картці «Борги по картках» */
   .data-status.hidden{ display:none; }
   .data-status-dot{ width:34px; height:34px; margin:-13.5px; padding:0; border:none; background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; border-radius:50%; }
   .data-status-dot::after{ content:""; width:7px; height:7px; border-radius:50%; background:var(--color-info); flex-shrink:0; }
@@ -1003,166 +996,10 @@
   .btn-loading::after{ content:""; position:absolute; left:50%; top:50%; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; border:2px solid rgba(255,255,255,.5); border-top-color:#fff; animation:spin .7s linear infinite; }
   .submit-btn.secondary.btn-loading::after{ border:2px solid rgba(16,24,40,.2); border-top-color:var(--text); }
   @keyframes spin{ to{ transform:rotate(360deg); } }
-
-  /* ---- Огляд / Аналітика ---- */
-  .ov-row1{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--sp-3); margin-bottom:0; }
-  .ov-row1 .wide{ grid-column:span 2; }
-  .kpi-card.v2{ position:relative; min-width:0; height:180px; min-height:180px; padding:var(--sp-4); display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-s); box-shadow:none; }
-  .kpi-card-header{ display:flex; align-items:center; gap:var(--sp-2); margin-bottom:var(--sp-3); }
   .kpi-icon-circle{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-bottom:0; }
   .kpi-icon-circle svg{ width:20px; height:20px; }
-  .kpi-card.v2.income .kpi-icon-circle{ background:var(--color-success-bg); color:var(--color-success); }
-  .kpi-card.v2.expense .kpi-icon-circle{ background:var(--color-error-bg); color:var(--color-error); }
-  .kpi-card.v2.savings .kpi-icon-circle{ background:var(--color-info-bg); color:var(--color-info); }
-  .kpi-card.v2.debt .kpi-icon-circle{ background:var(--color-warning-bg); color:var(--color-warning); }
-  .kpi-card.v2 .kpi-label{ font-size:var(--fs-caption2); font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--text); line-height:14px; }
-  .kpi-card.v2 .kpi-value{ color:var(--text); font-family:'JetBrains Mono',monospace; letter-spacing:-.04em; white-space:nowrap; }
-  .kpi-card.v2.income .kpi-value, .kpi-card.v2.expense .kpi-value, .kpi-card.v2.savings .kpi-value, .kpi-card.v2.debt .kpi-value{ margin-left:0; text-align:center; }
-  .kpi-card.v2.income .kpi-value, .kpi-card.v2.expense .kpi-value, .kpi-card.v2.savings .kpi-value, .kpi-card.v2.debt .kpi-value{ font-size:var(--fs-title1); font-weight:700; line-height:30px; }
-  .kpi-card.v2 .kpi-sub{ font-size:var(--fs-caption2); color:var(--color-muted); margin-top:2px; }
-  .kpi-card.v2.savings.negative .kpi-value{ color:var(--color-error); }
-  .kpi-trend{ min-height:14px; font-size:var(--fs-caption2); font-weight:600; line-height:14px; margin-top:var(--sp-2); padding-top:0; }
-  .kpi-card.v2.income .kpi-trend, .kpi-card.v2.expense .kpi-trend, .kpi-card.v2.savings .kpi-trend, .kpi-card.v2.debt .kpi-trend{ min-height:28px; }
-  .kpi-card.v2.income .kpi-trend, .kpi-card.v2.expense .kpi-trend, .kpi-card.v2.savings .kpi-trend, .kpi-card.v2.debt .kpi-trend{ margin-top:var(--sp-2); font-size:var(--fs-caption2); line-height:15px; }
-  .kpi-trend.is-positive{ color:var(--color-success); } /* Rev 2.30.0 (M4b): !important прибрано (перевірено: конкуруючих правил кольору немає) */
-  .kpi-trend.is-negative{ color:var(--color-error); }
-  .kpi-trend .trend-main, .kpi-trend .trend-context{ display:block; }
-  .kpi-card.v2.income .kpi-trend, .kpi-card.v2.expense .kpi-trend, .kpi-card.v2.savings .kpi-trend, .kpi-card.v2.debt .kpi-trend{ text-align:center; }
-  .kpi-trend .trend-context{ color:var(--text-2); font-size:var(--fs-caption2); font-weight:500; line-height:14px; }
-  .kpi-card.v2.income .kpi-trend .trend-context, .kpi-card.v2.expense .kpi-trend .trend-context, .kpi-card.v2.savings .kpi-trend .trend-context, .kpi-card.v2.debt .kpi-trend .trend-context{ color:var(--color-muted); font-size:var(--fs-caption2); font-weight:500; line-height:15px; }
-  .kpi-card.v2.income .kpi-spark, .kpi-card.v2.expense .kpi-spark, .kpi-card.v2.savings .kpi-spark, .kpi-card.v2.debt .kpi-spark{ width:100%; }
-  .kpi-card.v2.savings .kpi-icon-circle{ background:var(--color-info-bg); color:var(--color-info); }
-  .kpi-spark{ height:31px; margin-top:auto; padding-top:var(--sp-2); }
-  .kpi-card.v2.donutcard .kpi-label{ height:34px; display:flex; align-items:center; justify-content:center; text-align:center; flex-shrink:0; }
-  .donut-row{ flex:1; display:flex; align-items:center; justify-content:space-evenly; margin-top:var(--sp-2); margin-inline:-16px; min-width:0; }
-  .kpi-card.v2.donutcard #debt-donut{ width:88px; height:88px; flex-shrink:0; }
-  .donut-metrics{ display:flex; flex-direction:column; justify-content:center; gap:var(--sp-2); flex:0 0 auto; min-width:0; }
-  .donut-metrics .dm-primary, .donut-metrics .dm-secondary{ display:flex; flex-direction:column; gap:2px; min-width:0; }
-  .donut-metrics .dm-status{ font-size:var(--fs-caption2); font-weight:600; color:var(--text); line-height:13px; white-space:nowrap; }
-  .donut-metrics .dm-amount{ font-size:var(--fs-subhead); font-weight:700; font-family:'JetBrains Mono',monospace; letter-spacing:-.03em; line-height:18px; white-space:nowrap; }
-  .donut-metrics .dm-start-label{ font-size:var(--fs-caption2); color:var(--text-2); line-height:11px; white-space:nowrap; }
-  .donut-metrics .dm-start-amount{ font-size:var(--fs-footnote); font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace; letter-spacing:-.02em; line-height:16px; white-space:nowrap; }
-
-  .ov-row2{ display:grid; grid-template-columns:1fr; gap:var(--sp-6); margin:var(--sp-5) 0 var(--sp-6); align-items:stretch; }
-  .ov-row2 > .card{ margin-top:0; }
-  .gm-chart-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); padding:var(--sp-6); box-shadow:0 1px 2px rgba(16,24,40,0.04); display:flex; flex-direction:column; min-width:0; height:100%; }
-  .gm-chart-title{ font-size:var(--fs-caption2); font-weight:700; text-transform:uppercase; letter-spacing:0; color:var(--text); line-height:14px; margin-bottom:var(--sp-2); }
-  .gm-legend{ display:flex; gap:var(--sp-4); margin-bottom:var(--sp-4); flex-wrap:wrap; }
-  .gm-legend span{ display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-subhead); font-weight:500; color:var(--text-2); }
-  .gm-legend i{ width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
-  .gm-chart-card > div[id^="chart-"]{ margin-top:auto; }
-
-  @media (min-width:768px){
-    .ov-row2{ grid-template-columns:repeat(2,1fr); }
-  }
-
-  /* Rev 2.1.18 — новий рядок "Борги по картках" + "Оплати частинами" (Block 5),
-     виїхав з ov-row3 у власний простий 2-колонковий рядок (той самий патерн,
-     що ov-row2 для графіків) — без спільної grid-логіки розгортання на 4. */
-  .ov-row3-secondary{ display:grid; grid-template-columns:1fr; gap:var(--sp-6); margin-bottom:var(--sp-6); align-items:start; }
-  /* Rev 2.1.20 — BugFix: картка ОЧ при розгортанні деталей "розпирала" рядок
-     вправо на мобільному. Причина — класична пастка CSS Grid: елементи grid
-     за замовчуванням мають min-width:auto (відмовляються стискатись нижче за
-     "природну" ширину вмісту), а довгий рядок з двома колонками сум перевищує
-     доступну ширину. .ov-row3 (сусідній, "верхній" рядок карток) від цього
-     захищений через overflow:hidden — тут додаємо той самий робочий патерн. */
-  .ov-row3-secondary > .card{ margin-top:0; min-width:0; overflow:hidden; }
-  @media (min-width:768px){
-    .ov-row3-secondary{ grid-template-columns:repeat(2,1fr); }
-  }
-
-  .ov-row3{ display:grid; grid-template-columns:1fr; gap:var(--sp-6); margin-bottom:var(--sp-6); align-items:stretch; }
-  .ov-row3 > .card{ height:100%; box-sizing:border-box; display:flex; flex-direction:column; margin-top:0; padding:var(--sp-5); overflow:hidden; }
-  /* Rev 1.6.4 — переоформлення блоку "Топ-5 / Топ-10 / Скоротити / Борги" за GM:
-     менші й компактніші шрифти, довші прогрес-бари (звужені фіксовані колонки
-     назви/суми/%), без лінії-роздільника під заголовком колонок. */
-  .ov-row3 .table-card-title{ color:var(--text); font-size:var(--fs-footnote); font-weight:700; line-height:16px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:var(--sp-4); }
-  .table-card-title{ font-weight:600; font-size:var(--fs-callout); line-height:24px; margin-bottom:var(--sp-3); }
-  .table-header{ display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-caption1); font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-3); border-bottom:none; padding-bottom:0; margin-bottom:var(--sp-2); }
-  /* BugFix Rev 1.7.1 — раніше .t-name мав ФІКСОВАНУ вузьку ширину (58px/108px),
-     а .t-bar-h ріс (flex:1 1 auto): при розгортанні картки назва обрізалась
-     ("Опл...", "Кра..."), а бар розтягувався на весь вільний простір. Міняємо
-     ролі: назва тепер росте й забирає собі весь вільний простір (flex:1 1 auto),
-     бар стає скромним фіксованим елементом збоку — саме так, як і мало бути. */
-  .table-header .t-name{ flex:1 1 auto; min-width:0; }
-  .table-header .t-bar-h{ flex:0 0 64px; min-width:0; }
-  .table-header .t-amt{ flex:0 0 72px; text-align:right; }
-  .table-header .t-amt.narrow{ flex:0 0 62px; }
-  .table-header .t-pct{ flex:0 0 34px; text-align:right; }
-  .table-header .t-priority{ flex:0 0 58px; text-align:right; }
-  .t-row{ display:flex; align-items:center; gap:var(--sp-2); padding:4.5px 0 4.5px var(--sp-1); margin-left:-4px; border-radius:var(--radius-sm); min-height:29px; transition:background var(--duration-fast) var(--easing-standard); }
-  /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
-  @media (hover:hover) and (pointer:fine){ .t-row:not(.summary):hover{ background:var(--color-hover-overlay); } }
-  .t-row.summary{ font-weight:700; border-top:1.5px solid var(--line-strong); margin-top:2px; padding-top:var(--sp-2); }
-  .t-row .t-name{ flex:1 1 auto; min-width:0; font-size:var(--fs-footnote); font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .t-row .t-bar-h{ flex:0 0 64px; min-width:40px; }
-  .t-row .t-bar-track{ height:6px; background:var(--color-track-bg); border-radius:var(--r-l); overflow:hidden; }
-  .t-row .t-bar-fill{ height:100%; border-radius:var(--r-l); }
-  .t-row .t-amt{ flex:0 0 72px; min-width:0; text-align:right; font-size:var(--fs-footnote); font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:visible; }
-  /* Rev 2.1.20 — у детальному вигляді картки ОЧ дві колонки сум (Залишок +
-     Платіж/міс) замість однієї (як у категорій/боргів) — за умови тісного
-     мобільного екрана звужуємо обидві й ховаємо, а не показуємо, переповнення
-     (overflow:visible було безпечним з однією колонкою, з двома вже ризиковано). */
-  .t-row .t-amt.narrow{ flex:0 0 62px; overflow:hidden; text-overflow:ellipsis; }
-  .t-row .t-pct{ flex:0 0 34px; min-width:0; text-align:right; font-size:var(--fs-caption2); font-weight:500; color:var(--color-muted); font-family:'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; }
-  .t-row .t-priority{ flex:0 0 58px; min-width:0; text-align:right; font-size:var(--fs-caption2); font-weight:600; white-space:nowrap; }
   .t-footer-link{ display:block; width:100%; background:none; border:none; font-family:inherit; text-align:center; font-weight:600; font-size:var(--fs-footnote); color:var(--text); margin-top:auto; padding-top:var(--sp-4); cursor:pointer; }
   .t-footer-link .arrow{ margin-left:var(--sp-1); }
-  /* BugFix Rev 1.7.1 — "Потенціал економії": .t-name мав flex-grow:0 всередині
-     justify-content:space-between. Через це вільний простір розподілявся МІЖ
-     елементами нерівномірно (по-різному в кожному рядку, залежно від довжини
-     назви) — звідси "розкидані" суми, що не вишиковувались у стовпчик. Назва
-     має РОСТИ (flex-grow:1), тоді сума/потенціал завжди на тому самому місці. */
-  .table-header.t-row-3col, .t-row.t-row-3col{ gap:var(--sp-3); }
-  .t-row-3col .t-name{ flex:1 1 auto; min-width:0; }
-  /* Rev 1.6.5 — 2-колонкові рядки (назва + сума) для згорнутого вигляду карток
-     "Витрати за категоріями" / "Деталізація витрат" / "Борги по картках": без
-     прогрес-бару та % назва отримує гнучку ширину замість вузької фіксованої. */
-  .table-header.t-row-2col, .t-row.t-row-2col{ gap:var(--sp-3); }
-  .t-row-2col .t-name{ flex:1 1 auto; min-width:0; }
-  .t-row-2col .t-amt{ flex:0 0 auto; min-width:0; overflow:visible; }
-  /* BugFix: у "Потенціалі економії" та "Боргах по картках" середня колонка
-     (сума / прогрес-бар) візуально тяжіла до останньої колонки (адже назва
-     забирає собі ВЕСЬ вільний простір, тому середня+остання колонки просто
-     "злипаються" при правому краї). Додаємо фіксований відступ ПЕРЕД останньою
-     колонкою — це не ламає вирівнювання рядок-в-рядок (бо назва й далі росте
-     компенсуючи рівно на цю ж величину), а середня колонка зорово зміщується
-     ближче до центру між 1-ю і 3-ю. Точково — лише ці дві картки, не займаємо
-     "Витрати за категоріями"/"Деталізація витрат" (там такого запиту не було). */
-  #reducible-header .t-priority, #reducible-body .t-priority{ margin-left:var(--sp-6); }
-  #debts-header:not(.t-row-2col) .t-amt, #debts-body .t-row:not(.t-row-2col) .t-amt{ margin-left:var(--sp-6); }
-
-  /* BugFix Rev 1.7.1 — окремий фіксовано-вузький @media override для .t-name
-     на mobile/tablet більше не потрібен: тепер .t-name завжди flex:1 1 auto
-     (росте) в усіх трьох варіантах рядка (звичайний/2col/3col), тому колонка
-     сама підлаштовується під ширину екрана без спеціальних виключень. */
-
-  .ov-row4{ display:flex; flex-direction:column; gap:var(--sp-6); }
-  .ov-kpistrip{ margin:var(--sp-5) 0 0; }
-  .kpi-strip{ display:grid; grid-template-columns:repeat(2,1fr); }
-  .kpi-strip-item{ display:flex; flex-direction:column; gap:var(--sp-1); padding:var(--sp-3) var(--sp-4) 0 0; border-top:1px solid var(--line); margin-top:var(--sp-3); }
-  .kpi-strip-item:nth-child(-n+2){ border-top:none; margin-top:0; padding-top:0; }
-  .kpi-strip-item:nth-child(even){ border-left:1px solid var(--line); padding-left:var(--sp-4); }
-  .ksi-head{ display:flex; align-items:flex-start; gap:var(--sp-2); min-height:18px; }
-  .ksi-icon{ width:13px; height:13px; flex-shrink:0; display:flex; }
-  .ksi-icon svg{ width:13px; height:13px; display:block; }
-  .ksi-icon.c-blue{ color:var(--color-info); }
-  .ksi-icon.c-green{ color:var(--color-success); }
-  .ksi-icon.c-red{ color:var(--color-error); }
-  .ksi-icon.c-orange{ color:var(--color-warning); }
-  .ksi-label{ font-size:var(--fs-caption2); font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--text-2); line-height:13px; }
-  .ksi-value{ font-size:var(--fs-body); font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace; letter-spacing:-.02em; line-height:1.15; }
-  .ksi-sub{ font-size:var(--fs-caption2); color:var(--color-muted); min-height:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  /* Rev 1.7.3 — "Висновки місяця": рядок карток-інсайтів (іконка + заголовок +
-     опис) замість списку буллітів з однорядковим текстом, за референс-скріном. */
-  .summary-card .table-card-title{ text-transform:uppercase; font-size:var(--fs-footnote); font-weight:700; letter-spacing:.4px; color:var(--text); margin-bottom:var(--sp-5); }
-  .insights-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:var(--sp-6) var(--sp-5); }
-  .insight-item{ display:flex; flex-direction:column; gap:var(--sp-3); min-width:0; }
-  .insight-icon{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .insight-icon svg{ width:15px; height:15px; display:block; }
-  .insight-title{ font-size:var(--fs-footnote); font-weight:700; color:var(--text); line-height:17px; }
-  .insight-desc{ font-size:var(--fs-footnote); color:var(--text-2); line-height:1.55; }
-  @media (min-width:1280px){ .insights-row{ grid-template-columns:repeat(5,1fr); } }
 
   /* ---- Верхні KPI-картки: тренд і спарклайн (Rev 1.4, за еталонним макетом) ---- */
   /* Rev 2.32.157 (ICON-NEUTRAL): нейтральне коло без логотипа банку: фон як у порожніх станів, приглушена іконка 58% розміру. */
@@ -2080,8 +1917,6 @@
   .app-modal-actions .submit-btn{ margin-top:0; flex:1; }
 
   .empty-hint{ font-size:var(--fs-footnote); color:var(--color-muted); text-align:center; padding:var(--sp-4) var(--sp-2); }
-  .summary-card{ background:var(--surface); }
-  .summary-card p{ margin:0 0 var(--sp-2); font-size:var(--fs-footnote); line-height:1.6; } .summary-card p:last-child{ margin-bottom:0; }
 
   /* Rev 2.4.4 — раніше весь візуальний вигляд (скло/padding/flex) висів
      безпосередньо на nav.tabbar (position:fixed). Тепер, коли додається ще й
@@ -2533,7 +2368,6 @@
   /* ---- Mobile (<768px): права колонка kpi-strip не потребує padding-right (вона й так
      має 24px padding від картки) - прибираємо, щоб "Обов'язкові платежі" влізло в один рядок ---- */
   @media (max-width:767px){
-    .kpi-strip-item:nth-child(even){ padding-right:0; }
     /* Rev 2.21.12 — на mobile (одна колонка) "ОСТАННІ ЗАПИСИ" йде одразу під
        карткою "Нова витрата" — стандартного margin-top:26px (.section-label)
        виявилось замало, підпис читався як "приклеєний" до картки над ним.
@@ -2654,16 +2488,6 @@
     #vytraty-default-view .entry-card.vytraty-form-spacious .field{ margin-bottom:var(--sp-6); }
     #vytraty-default-view .entry-card.vytraty-form-spacious .submit-btn{ margin-top:var(--sp-3); padding-top:var(--sp-4); padding-bottom:var(--sp-4); }
   }
-  /* ---- Tablet (768–1279px): навігація як на mobile (нижня), але сітка на 2 колонки ---- */
-  @media (min-width:768px) and (max-width:1279px){
-    .ov-row1{ grid-template-columns:repeat(2,1fr); }
-    .ov-row1 .wide{ grid-column:span 2; }
-    .ov-row3{ grid-template-columns:repeat(2,1fr); }
-    .kpi-strip{ grid-template-columns:repeat(3,1fr); }
-    .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; border-left:1px solid var(--line); padding-left:var(--sp-4); }
-    .kpi-strip-item:nth-child(3n+1){ border-left:none; padding-left:0; }
-    .kpi-strip-item:nth-child(n+4){ border-top:1px solid var(--line); margin-top:var(--sp-3); padding-top:var(--sp-3); }
-  }
 
   /* ---- Rev 2.32.162 (DESK-NAV): плаваюча навігаційна панель десктопа ----
      Умова: вікно ≥ 1280 px (як було) АБО ≥ 768 px із мишею (hover:hover + pointer:fine); дотиковий планшет 768–1279 px лишається з нижнім таб-баром.
@@ -2748,14 +2572,6 @@
        панеллю (не bottom sheet), тому свайп-хендл тут не потрібен і
        навіть шкодить — прибрати. */
     .drawer-handle{ display:none; }
-    .ov-row1{ grid-template-columns:repeat(5,minmax(0,1fr)); gap:var(--sp-4); }
-    .ov-row1 .wide{ grid-column:span 1; }
-    .ov-row3{ grid-template-columns: var(--row3-col-1,1fr) var(--row3-col-2,1fr) var(--row3-col-3,1fr); /* Rev 2.24.0 (M1): transition grid-template-columns прибрано (layout щокадру); розгортання картки м'яко проявляється opacity-ефектом з JS (updateRow3GridColumns). */ }
-    .ov-row4{ flex-direction:row; }
-    .ov-row4 > .card{ flex:1; min-width:0; }
-    .kpi-strip{ grid-template-columns:repeat(6,1fr); }
-    .kpi-strip-item{ border-top:none; margin-top:0; padding-top:0; padding-right:0; border-left:1px solid var(--line); padding-left:var(--sp-4); }
-    .kpi-strip-item:first-child{ border-left:none; padding-left:0; }
 
     /* Rev 2.1.2 — картка "Нова витрата" на desktop розтягувалась на всю
        ширину колонки (>1000px) — форма з 4-5 полів у такій ширині виглядає
@@ -2800,15 +2616,6 @@
     #view-vytraty .date-caption{ font-size:var(--fs-caption2); margin-top:var(--sp-1); }
     #view-vytraty .field.auto-hint{ font-size:var(--fs-caption2); margin-top:var(--sp-1); }
     #view-vytraty .submit-btn{ padding:var(--sp-3); font-size:var(--fs-footnote); margin-top:var(--sp-1); }
-  }
-  /* ---- Картка "Скорочення боргу" на mobile/tablet (<1280px) розтягнута на 2 колонки —
-     масштабуємо донат і текст під ширшу картку (висота картки лишається 180px, як в інших) ---- */
-  @media (max-width:1279px){
-    .kpi-card.v2.donutcard #debt-donut{ width:104px; height:104px; }
-    .donut-metrics .dm-status{ font-size:var(--fs-footnote); line-height:15px; }
-    .donut-metrics .dm-amount{ font-size:var(--fs-title3); line-height:24px; }
-    .donut-metrics .dm-start-label{ font-size:var(--fs-caption2); line-height:14px; }
-    .donut-metrics .dm-start-amount{ font-size:var(--fs-callout); line-height:19px; }
   }
 
   /* ===== Rev 2.26.0 (M3) — токени дизайн-системи --ui-* і "скляні" кнопки у стилі таббару =====
@@ -2879,11 +2686,11 @@
   /* ===== Rev 2.30.0 (M4b) — решта компонентів у стилі «Скло» (токени --ui-*) =====
      Без backdrop-filter (він лише на таббарі й scroll-top; на шапки шторок НЕ додано: ризик для sheet-anim/клавіатурної логіки). Поверхні лишаються непрозорими (колір тексту/контраст не змінюється),
      «скло» = єдиний радіус зі шкали, межа --ui-btn-border (лише верх/право/низ — ліва межа тостів/рядків несе семантичний колір), inset-відблиск і м'яка тінь. Розкладка не змінюється (радіус/тінь). */
-  html:root :is(.card, .card-summary, .kpi-card.v2, .service-tile, .service-wide-card, .card-debt-compact-row, .expense-row){
+  html:root :is(.card, .card-summary, .service-tile, .service-wide-card, .card-debt-compact-row, .expense-row){
     border-top-color:var(--ui-btn-border); border-right-color:var(--ui-btn-border); border-bottom-color:var(--ui-btn-border);
     box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--ui-btn-shadow);
   }
-  html:root :is(.card, .card-summary, .kpi-card.v2, .service-tile, .service-wide-card, .service-danger-card, .card-debt-compact-row){ border-radius:var(--r-m); }
+  html:root :is(.card, .card-summary, .service-tile, .service-wide-card, .service-danger-card, .card-debt-compact-row){ border-radius:var(--r-m); }
   html:root :is(.expense-row, .expense-row-swipe){ border-radius:var(--r-m); }
   html:root :is(.success-toast, .app-modal, .drawer){ box-shadow:inset 0 1px 0 var(--ui-btn-highlight), var(--shadow-lg); }
   html:root :is(.app-modal, .drawer){ border-radius:var(--ui-r-container); }
@@ -3081,9 +2888,7 @@
 .bal-mono.dim{ color:var(--text-3); }
 .bal-mono small{ font-family:inherit; font-size:var(--fs-caption1); font-weight:500; color:var(--text-3); letter-spacing:0; }
 .bal-sheet .och-ovals{ gap:var(--sp-1); }
-.bal-sheet .och-oval{ height:8px; border-radius:var(--r-2xs); }
-/* ===== Rev 2.32.388 (DS-5c-1): картка «Деталізація витрат» і шторка з кільцями (макет analytics-ds v18). Лише токени; анімація довжини дуги (stroke-dasharray) — свідомий виняток із «лише transform/opacity», при «зменшити рух» вимкнена. ===== */
-#ov-row3 > .table-card:only-child{ grid-column:1 / -1; } /* Rev 2.32.388: на десктопі одинока картка «Потенціал» (до DS-5c-2) на всю ширину ряду */
+.bal-sheet .och-oval{ height:8px; border-radius:var(--r-2xs); } /* Rev 2.32.388: на десктопі одинока картка «Потенціал» (до DS-5c-2) на всю ширину ряду */
 .bal-cat{ display:flex; flex-direction:column; gap:var(--sp-3); margin-top:0; padding:var(--sp-4); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); box-shadow:none; min-width:0; margin-bottom:var(--sp-3); }
 .bal-chead{ display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-2); }
 .bal-more{ display:inline-flex; align-items:center; gap:2px; margin:0; padding:0; border:0; background:none; font:inherit; font-size:var(--fs-subhead); line-height:20px; font-weight:500; color:var(--text-2); white-space:nowrap; cursor:pointer; }

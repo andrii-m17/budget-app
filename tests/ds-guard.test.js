@@ -15,7 +15,8 @@ function counts(src){
   return { hex: refs(/#[0-9a-fA-F]{3,8}\b/g), rgba: refs(/rgba?\(/g), radiusPx, refColor: refs(/var\(\s*--color-/g), refUi: refs(/var\(\s*--ui-/g), refRadius: refs(/var\(\s*--radius-/g) };
 }
 // Базові числа: стан після останньої ревізії DS-2 (Rev 2.32.342, DS-N3)
-const BASE = { hex: 31, rgba: 27, radiusPx: 0, refColor: 293, refUi: 65, refRadius: 50 };
+// Rev 2.32.395 (DS-5e): після прибирання правил старої «Аналітики» — rgba 27 → 25, refColor 293 → 263, refRadius 50 → 49
+const BASE = { hex: 31, rgba: 25, radiusPx: 0, refColor: 263, refUi: 65, refRadius: 49 };
 test('DS-2: сирі hex/rgba(, px у border-radius і посилання на старі назви не зростають', function(){
   const c = counts(APP);
   Object.keys(BASE).forEach(function(k){ assert.ok(c[k] <= BASE[k], k + ': ' + c[k] + ' > ' + BASE[k] + ' (число можна лише зменшувати; нові значення — через токени з css/tokens.css)'); });
@@ -34,7 +35,7 @@ test('DS-N2: сирих font-size у px поза винятками (поля в
   const lines = r.stdout.trim().split('\n');
   assert.equal(JSON.parse(lines[0]).replaced.fs, 0, 'є font-size у px, який можна замінити на токен');
   const ex = JSON.parse(lines[1]).fsExceptions;
-  assert.ok(ex.length <= 19, 'винятків (поля вводу) не більше 19, зараз ' + ex.length);
+  assert.ok(ex.length <= 18, 'винятків (поля вводу) не більше 18, зараз ' + ex.length);
   ex.forEach(function(e){ assert.ok(/input|select|textarea|sf-input|sf-select|mono-token-input|chk-fld|journal-date-input/.test(e.sel.split(' ⟶ ').pop()), 'виняток не поле вводу: ' + e.sel); });
   ['--fs-large: 34px', '--fs-title1: 28px', '--fs-title2: 22px', '--fs-title3: 20px', '--fs-body: 17px', '--fs-callout: 16px', '--fs-subhead: 15px', '--fs-footnote: 13px', '--fs-caption1: 12px', '--fs-caption2: 11px'].forEach(function(t){ assert.ok(TOK.indexOf(t) !== -1, t); });
 });
@@ -48,7 +49,7 @@ test('DS-N4a: тривалості (transition/animation) у app.css на ток
   assert.equal(JSON.parse(lines[0]).replaced.durN4, 0, 'є тривалість, яку можна замінити на токен');
   const ex = JSON.parse(lines[1]).durExceptions;
   // Rev 2.32.355 (DS-3b): ліміт 30 → 39: 9 значень руху таббару (520/380/560/440/620/420 мс і затримки 110/160/210 мс) взято дослівно з макета analytics-ds
-  assert.ok(ex.length <= 39, 'винятків не більше 39, зараз ' + ex.length);
+  assert.ok(ex.length <= 38, 'винятків не більше 38, зараз ' + ex.length);
 });
 test('DS-N4b: відступи (padding/margin/gap) у app.css на --sp-*, крім форм шторок, kb-*, таббару, значень 1–2 px, від\'ємних, дробових і поза правилами', function(){
   const r = require('node:child_process').spawnSync('node', [path.join(__dirname, '..', 'scripts', 'ds2-apply.js'), '--sp', '--dry'], { encoding: 'utf8', maxBuffer: 1e9 });

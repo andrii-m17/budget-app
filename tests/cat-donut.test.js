@@ -99,7 +99,7 @@ test('рядок: назви й ключі екрановано (HTML-подіб
 test('розмітка: картка після плиток і перед «Звичкою», старі таблиці категорій і підкатегорій прибрано; шторка без полів; сегмент і лінії', () => {
   ['card-categories', 'card-subcategories', 'categories-body', 'subcategories-body', 'categories-trigger', 'subcategories-trigger'].forEach(id => assert.ok(!HTML.includes('id="' + id + '"'), id));
   assert.ok(!HTML.includes('id="card-reducible"') && HTML.includes('id="bal-pot-card"'), 'Rev 2.32.390 (DS-5c-2): таблицю «Потенціал економії» замінено карткою');
-  const iPair = HTML.indexOf('id="bal-pair"'), iCat = HTML.indexOf('id="bal-cat-card"'), iHab = HTML.indexOf('class="ov-kpistrip"');
+  const iPair = HTML.indexOf('id="bal-pair"'), iCat = HTML.indexOf('id="bal-cat-card"'), iHab = HTML.indexOf('id="bal-pot-card"');
   assert.ok(iPair > 0 && iPair < iCat && iCat < iHab, 'порядок: Борг|ОЧ → Деталізація → решта');
   const a = HTML.indexOf('id="bal-sheet-cats" role="dialog"'); const d = HTML.slice(a, HTML.indexOf('</div>\n<', a + 10));
   assert.ok(/aria-modal="true" inert>/.test(d.slice(0, 200)) && !/<(input|textarea|select)\b/.test(d));
