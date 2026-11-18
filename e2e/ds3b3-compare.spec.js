@@ -17,6 +17,8 @@ const CASES = [
   ['press-in-accounting', 'structure', 'accounting', 'press'],
   ['press-out-accounting', 'structure', 'accounting', 'release'],
 ];
+// DS-3b5: DS_CASE_SET=b5 — вхід на «Витрати» і ВИХІД з них (кадри обрізаються по кнопці «Витрати», остання колонка кортежу)
+if(process.env.DS_CASE_SET === 'b5'){ CASES.length = 0; CASES.push(['vytraty-enter', 'accounting', 'vytraty', 'btn', 'vytraty'], ['vytraty-exit', 'vytraty', 'accounting', 'btn', 'vytraty']); }
 const STEPS = 11;
 async function openMock(page){ await page.setViewportSize({ width: 390, height: 844 }); await page.goto(MOCK); await page.waitForTimeout(1500); }
 async function openApp(page){
@@ -45,10 +47,10 @@ test('ds3b3-compare', async ({ page }) => {
       if(kind === 'mock') await openMock(page); else await openApp(page);
       if(kind === 'mock') await page.evaluate((t) => setTheme(t), theme); else await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
       await page.waitForTimeout(400);
-      for (const [name, from, to, mode] of CASES){
+      for (const [name, from, to, mode, clipTab] of CASES){
         await go(page, kind, from); await page.waitForTimeout(1200);
         await page.evaluate(() => { document.getAnimations().forEach(a => { try{ a.finish(); }catch(e){} }); });
-        const clip = await page.evaluate(([sel, scope, mode]) => { const e = mode === 'bar' ? document.querySelector(scope + ' .tabbar-glass, ' + scope + ' #tabbar-glass') || document.querySelector(scope) : document.querySelector(sel); const r = e.getBoundingClientRect(); return mode === 'bar' ? { x: Math.max(0, r.x - 4), y: r.y - 14, width: Math.min(390, r.width + 8), height: r.height + 28 } : { x: Math.max(0, r.x - 4), y: r.y - 26, width: r.width + 8, height: r.height + 38 }; }, [BTN(kind, to), SCOPE[kind], mode]);
+        const clip = await page.evaluate(([sel, scope, mode]) => { const e = mode === 'bar' ? document.querySelector(scope + ' .tabbar-glass, ' + scope + ' #tabbar-glass') || document.querySelector(scope) : document.querySelector(sel); const r = e.getBoundingClientRect(); return mode === 'bar' ? { x: Math.max(0, r.x - 4), y: r.y - 14, width: Math.min(390, r.width + 8), height: r.height + 28 } : { x: Math.max(0, r.x - 4), y: r.y - 26, width: r.width + 8, height: r.height + 38 }; }, [BTN(kind, clipTab || to), SCOPE[kind], mode]);
         if(mode === 'press' || mode === 'release'){
           const bb = await page.locator(BTN(kind, to)).boundingBox();
           await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.mouse.down();

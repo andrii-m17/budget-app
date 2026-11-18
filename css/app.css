@@ -2455,9 +2455,12 @@
   nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:transform var(--t-l) var(--ease-out); } /* Rev 2.32.360 (DS-3b3): макет — --ease-out (.22,1,.36,1), була пружина */
   /* «Витрати»: коло «+» під натиском стискається до .9 (макет .pressing .plus{scale:.9}) поверх .86 вмісту */
   nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard), scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1); }
+  /* Rev 2.32.363 (DS-3b5): кільце «Витрат» — окремий шар ::after, який змінює лише opacity з тією самою тривалістю й кривою, що й поворот «+» (--t-l, --ease-out) в обидва боки: на вході з'являється, при виході згасає разом із поворотом, а не зникає миттєво (різкий ривок). box-shadow не анімуємо (правило: лише transform/opacity). */
+  nav.tabbar button.tab-vytraty .tb-icon-wrap::after{ content:''; position:absolute; inset:0; border-radius:50%; box-shadow:0 0 0 4px var(--accent-bg), 0 0 0 5px var(--accent-line); opacity:0; pointer-events:none; transition:opacity var(--t-l) var(--ease-out); }
+  nav.tabbar button.tab-vytraty.active .tb-icon-wrap::after{ opacity:1; }
   nav.tabbar.tb-down button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:.9; }
   /* «Витрати»: вибраний стан = м'яке кільце навколо кнопки й поворот «+» (макет) */
-  nav.tabbar button.tab-vytraty.active .tb-icon-wrap{ box-shadow:0 0 0 4px var(--accent-bg), 0 0 0 5px var(--accent-line), 0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent); }
+  nav.tabbar button.tab-vytraty.active .tb-icon-wrap{ box-shadow:0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent); }
   nav.tabbar button.tab-vytraty.active .tb-icon-wrap svg{ transform:rotate(90deg); }
   nav.tabbar svg .pie, nav.tabbar svg .sl, nav.tabbar svg circle{ transform-box:fill-box; transform-origin:center; }
   nav.tabbar svg .sl{ transform-origin:0% 100%; }
@@ -2480,7 +2483,7 @@
     .tabbar-bubble{ transition:none; }
     nav.tabbar button .tbx{ transition:none; }
     nav.tabbar.tb-down button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:1; opacity:1; }
-    nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:none; }
+    nav.tabbar button.tab-vytraty .tb-icon-wrap svg, nav.tabbar button.tab-vytraty .tb-icon-wrap::after{ transition:none; }
     nav.tabbar svg .f, nav.tabbar svg .in, nav.tabbar svg .o, nav.tabbar svg .s{ transition:none; }
     nav.tabbar.tb-down button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:1; }
     nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard); }

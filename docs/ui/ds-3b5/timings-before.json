@@ -1,0 +1,924 @@
+{
+ "light-mock-vytraty-enter": [
+  {
+   "name": "transition:opacity",
+   "target": "div.bubble",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "opacity:1@0",
+    "opacity:0@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "div.bubble",
+   "duration": 520,
+   "delay": 0,
+   "easing": "cubic-bezier(0.3, 1.12, 0.5, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "transform:translateX(76px)@0",
+    "transform:translateX(146px)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(22, 101, 52)@0",
+    "color:rgb(71, 84, 103)@100"
+   ]
+  },
+  {
+   "name": "transition:fill-opacity",
+   "target": "circle.f",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "9.5px 9.5px",
+   "box": "fill-box",
+   "kf": [
+    "fillOpacity:1@0",
+    "fillOpacity:0@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(255, 255, 255)@0",
+    "stroke:rgb(22, 101, 52)@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(255, 255, 255)@0",
+    "stroke:rgb(22, 101, 52)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button.active",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(71, 84, 103)@0",
+    "color:rgb(22, 101, 52)@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "svg",
+   "duration": 480,
+   "delay": 0,
+   "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+   "fill": "backwards",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:none@0",
+    "transform:rotate(90deg)@100"
+   ]
+  }
+ ],
+ "T-vytraty-enter": 520,
+ "light-mock-vytraty-exit": [
+  {
+   "name": "transition:opacity",
+   "target": "div.bubble",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "opacity:0@0",
+    "opacity:1@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "div.bubble",
+   "duration": 520,
+   "delay": 0,
+   "easing": "cubic-bezier(0.3, 1.12, 0.5, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "transform:translateX(146px)@0",
+    "transform:translateX(76px)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button.active",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(71, 84, 103)@0",
+    "color:rgb(22, 101, 52)@100"
+   ]
+  },
+  {
+   "name": "transition:fill-opacity",
+   "target": "circle.f",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "9.5px 9.5px",
+   "box": "fill-box",
+   "kf": [
+    "fillOpacity:0@0",
+    "fillOpacity:1@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(71, 84, 103)@0",
+    "stroke:rgb(255, 255, 255)@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(71, 84, 103)@0",
+    "stroke:rgb(255, 255, 255)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(22, 101, 52)@0",
+    "color:rgb(71, 84, 103)@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "svg",
+   "duration": 480,
+   "delay": 0,
+   "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+   "fill": "backwards",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:rotate(90deg)@0",
+    "transform:none@100"
+   ]
+  },
+  {
+   "name": "tbPress",
+   "target": "svg",
+   "duration": 520,
+   "delay": 0,
+   "easing": "linear",
+   "fill": "none",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:scale(1)@0",
+    "transform:scale(0.86)@30",
+    "transform:scale(1.04)@70",
+    "transform:scale(1)@100"
+   ]
+  }
+ ],
+ "T-vytraty-exit": 520,
+ "light-app-vytraty-enter": [
+  {
+   "name": "transition:opacity",
+   "target": "div.tabbar-bubble",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "opacity:1@0",
+    "opacity:0@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "34.796875px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(22, 101, 52)@0",
+    "color:rgb(71, 84, 103)@100"
+   ]
+  },
+  {
+   "name": "transition:fill-opacity",
+   "target": "circle.f",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "9.5px 9.5px",
+   "box": "fill-box",
+   "kf": [
+    "fillOpacity:1@0",
+    "fillOpacity:0@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(255, 255, 255)@0",
+    "stroke:rgb(22, 101, 52)@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(255, 255, 255)@0",
+    "stroke:rgb(22, 101, 52)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button.tab-vytraty.active.tb-anim",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "34.796875px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(71, 84, 103)@0",
+    "color:rgb(22, 101, 52)@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "svg",
+   "duration": 480,
+   "delay": 0,
+   "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+   "fill": "backwards",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:none@0",
+    "transform:rotate(90deg)@100"
+   ]
+  }
+ ],
+ "light-app-vytraty-exit": [
+  {
+   "name": "transition:opacity",
+   "target": "div.tabbar-bubble",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "opacity:0@0",
+    "opacity:1@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button.active.tb-anim",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "34.796875px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(71, 84, 103)@0",
+    "color:rgb(22, 101, 52)@100"
+   ]
+  },
+  {
+   "name": "transition:fill-opacity",
+   "target": "circle.f",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "9.5px 9.5px",
+   "box": "fill-box",
+   "kf": [
+    "fillOpacity:0@0",
+    "fillOpacity:1@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(71, 84, 103)@0",
+    "stroke:rgb(255, 255, 255)@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(71, 84, 103)@0",
+    "stroke:rgb(255, 255, 255)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button.tab-vytraty",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "34.796875px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(22, 101, 52)@0",
+    "color:rgb(71, 84, 103)@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "svg",
+   "duration": 480,
+   "delay": 0,
+   "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+   "fill": "backwards",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:rotate(90deg)@0",
+    "transform:none@100"
+   ]
+  },
+  {
+   "name": "tbPress",
+   "target": "svg",
+   "duration": 520,
+   "delay": 0,
+   "easing": "linear",
+   "fill": "none",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:scale(1)@0",
+    "transform:scale(0.86)@30",
+    "transform:scale(1.04)@70",
+    "transform:scale(1)@100"
+   ]
+  }
+ ],
+ "dark-mock-vytraty-enter": [
+  {
+   "name": "transition:opacity",
+   "target": "div.bubble",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "opacity:1@0",
+    "opacity:0@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "div.bubble",
+   "duration": 520,
+   "delay": 0,
+   "easing": "cubic-bezier(0.3, 1.12, 0.5, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "transform:translateX(76px)@0",
+    "transform:translateX(146px)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(52, 214, 115)@0",
+    "color:rgb(163, 174, 192)@100"
+   ]
+  },
+  {
+   "name": "transition:fill-opacity",
+   "target": "circle.f",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "9.5px 9.5px",
+   "box": "fill-box",
+   "kf": [
+    "fillOpacity:1@0",
+    "fillOpacity:0@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(21, 27, 38)@0",
+    "stroke:rgb(52, 214, 115)@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(21, 27, 38)@0",
+    "stroke:rgb(52, 214, 115)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button.active",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(163, 174, 192)@0",
+    "color:rgb(52, 214, 115)@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "svg",
+   "duration": 480,
+   "delay": 0,
+   "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+   "fill": "backwards",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:none@0",
+    "transform:rotate(90deg)@100"
+   ]
+  }
+ ],
+ "dark-mock-vytraty-exit": [
+  {
+   "name": "transition:opacity",
+   "target": "div.bubble",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "opacity:0@0",
+    "opacity:1@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "div.bubble",
+   "duration": 520,
+   "delay": 0,
+   "easing": "cubic-bezier(0.3, 1.12, 0.5, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "transform:translateX(146px)@0",
+    "transform:translateX(76px)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button.active",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(163, 174, 192)@0",
+    "color:rgb(52, 214, 115)@100"
+   ]
+  },
+  {
+   "name": "transition:fill-opacity",
+   "target": "circle.f",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "9.5px 9.5px",
+   "box": "fill-box",
+   "kf": [
+    "fillOpacity:0@0",
+    "fillOpacity:1@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(163, 174, 192)@0",
+    "stroke:rgb(21, 27, 38)@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(163, 174, 192)@0",
+    "stroke:rgb(21, 27, 38)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 31px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(52, 214, 115)@0",
+    "color:rgb(163, 174, 192)@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "svg",
+   "duration": 480,
+   "delay": 0,
+   "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+   "fill": "backwards",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:rotate(90deg)@0",
+    "transform:none@100"
+   ]
+  },
+  {
+   "name": "tbPress",
+   "target": "svg",
+   "duration": 520,
+   "delay": 0,
+   "easing": "linear",
+   "fill": "none",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:scale(1)@0",
+    "transform:scale(0.86)@30",
+    "transform:scale(1.04)@70",
+    "transform:scale(1)@100"
+   ]
+  }
+ ],
+ "dark-app-vytraty-enter": [
+  {
+   "name": "transition:opacity",
+   "target": "div.tabbar-bubble",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "opacity:1@0",
+    "opacity:0@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "34.796875px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(52, 214, 115)@0",
+    "color:rgb(163, 174, 192)@100"
+   ]
+  },
+  {
+   "name": "transition:fill-opacity",
+   "target": "circle.f",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "9.5px 9.5px",
+   "box": "fill-box",
+   "kf": [
+    "fillOpacity:1@0",
+    "fillOpacity:0@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(21, 27, 38)@0",
+    "stroke:rgb(52, 214, 115)@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(21, 27, 38)@0",
+    "stroke:rgb(52, 214, 115)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button.tab-vytraty.active.tb-anim",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "34.796875px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(163, 174, 192)@0",
+    "color:rgb(52, 214, 115)@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "svg",
+   "duration": 480,
+   "delay": 0,
+   "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+   "fill": "backwards",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:none@0",
+    "transform:rotate(90deg)@100"
+   ]
+  }
+ ],
+ "dark-app-vytraty-exit": [
+  {
+   "name": "transition:opacity",
+   "target": "div.tabbar-bubble",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "35px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "opacity:0@0",
+    "opacity:1@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button.active.tb-anim",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "34.796875px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(163, 174, 192)@0",
+    "color:rgb(52, 214, 115)@100"
+   ]
+  },
+  {
+   "name": "transition:fill-opacity",
+   "target": "circle.f",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "9.5px 9.5px",
+   "box": "fill-box",
+   "kf": [
+    "fillOpacity:0@0",
+    "fillOpacity:1@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(163, 174, 192)@0",
+    "stroke:rgb(21, 27, 38)@100"
+   ]
+  },
+  {
+   "name": "transition:stroke",
+   "target": "path.in",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "0px 0px",
+   "box": "view-box",
+   "kf": [
+    "stroke:rgb(163, 174, 192)@0",
+    "stroke:rgb(21, 27, 38)@100"
+   ]
+  },
+  {
+   "name": "transition:color",
+   "target": "button.tab-vytraty",
+   "duration": 200,
+   "delay": 0,
+   "easing": "cubic-bezier(0.4, 0, 0.2, 1)",
+   "fill": "backwards",
+   "origin": "34.796875px 30.5px",
+   "box": "view-box",
+   "kf": [
+    "color:rgb(52, 214, 115)@0",
+    "color:rgb(163, 174, 192)@100"
+   ]
+  },
+  {
+   "name": "transition:transform",
+   "target": "svg",
+   "duration": 480,
+   "delay": 0,
+   "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+   "fill": "backwards",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:rotate(90deg)@0",
+    "transform:none@100"
+   ]
+  },
+  {
+   "name": "tbPress",
+   "target": "svg",
+   "duration": 520,
+   "delay": 0,
+   "easing": "linear",
+   "fill": "none",
+   "origin": "11px 11px",
+   "box": "view-box",
+   "kf": [
+    "transform:scale(1)@0",
+    "transform:scale(0.86)@30",
+    "transform:scale(1.04)@70",
+    "transform:scale(1)@100"
+   ]
+  }
+ ]
+}
