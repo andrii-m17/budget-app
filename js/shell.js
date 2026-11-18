@@ -51,7 +51,12 @@ function paintMonthSwitcher(){
   if(prev) prev.disabled = monthStepTarget(list, selectedMonth, -1) === null;
   if(next) next.disabled = monthStepTarget(list, selectedMonth, 1) === null;
   const now = document.getElementById('month-now'), pill = document.getElementById('month-pill');
-  if(now) now.classList.toggle('on', selectedMonth < todayKey && !!pill && !pill.classList.contains('hidden'));
+  // Rev 2.32.359 (DS-3e3): рядок і для наступного місяця (внесення наперед): той самий вигляд і дія «До поточного місяця», текст за напрямком
+  if(now){
+    const away = selectedMonth !== todayKey && !!pill && !pill.classList.contains('hidden');
+    now.classList.toggle('on', away);
+    const tx = document.getElementById('month-now-text'); if(tx) tx.textContent = selectedMonth > todayKey ? 'Ви дивитесь наступний місяць' : 'Ви дивитесь минулий місяць';
+  }
 }
 function stepMonth(delta){
   const t = monthStepTarget(currentMonthList(), selectedMonth, delta);

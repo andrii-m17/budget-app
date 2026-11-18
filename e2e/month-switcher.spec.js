@@ -40,7 +40,12 @@ test('42. межі стрілок: від наступного до першог
   const s0 = await state(page); const n = s0.list.length, ti = s0.list.indexOf(s0.today), nextKey = s0.list[n - 1];
   expect(ti).toBe(n - 2);
   await page.click('#month-next'); await page.waitForTimeout(150);
-  let s = await state(page); expect(s.sel, '› з поточного веде до наступного').toBe(nextKey); expect(s.nextDis, '› неактивна на наступному').toBe(true); expect(s.nowOn, 'на наступному рядка «минулий» немає').toBe(false);
+  let s = await state(page); expect(s.sel, '› з поточного веде до наступного').toBe(nextKey); expect(s.nextDis, '› неактивна на наступному').toBe(true); expect(s.nowOn, 'на наступному рядок є').toBe(true);
+  expect(await page.locator('#month-now').innerText()).toContain('Ви дивитесь наступний місяць'); expect(await page.locator('#month-now').innerText()).not.toContain('минулий'); expect(await page.locator('#month-now').innerText()).toContain('До поточного місяця');
+  await page.click('#month-now button'); await page.waitForTimeout(400);
+  s = await state(page); expect(s.sel, 'дотик повертає до поточного').toBe(s0.today); expect(s.nowOn).toBe(false);
+  await page.click('#month-prev'); await page.waitForTimeout(300); expect(await page.locator('#month-now').innerText(), 'на минулому текст «минулий»').toContain('Ви дивитесь минулий місяць');
+  await page.click('#month-now button'); await page.waitForTimeout(300); await page.click('#month-next'); await page.waitForTimeout(300);
   for (let i = 0; i < n - 1; i++){ await page.click('#month-prev'); await page.waitForTimeout(80); }
   s = await state(page); expect(s.sel).toBe(s0.list[0]); expect(s.prevDis, '‹ неактивна на першому').toBe(true); expect(s.nextDis).toBe(false);
   for (let i = 0; i < n - 1; i++){ await page.click('#month-next'); await page.waitForTimeout(80); }

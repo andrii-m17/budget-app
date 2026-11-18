@@ -28,6 +28,9 @@ test('ds3e-shots', async ({ page }) => {
         await page.screenshot({ path: out('current'), scale: 'css', clip });
         await page.evaluate(() => onMonthChange(shiftMonth(selectedMonth, -1))); await page.waitForTimeout(900);
         await page.screenshot({ path: out('past'), scale: 'css', clip });
+        // DS-3e3: наступний місяць — рядок «Ви дивитесь наступний місяць»
+        await page.evaluate(() => onMonthChange(shiftMonth(monthKey(localDateISO()), 1))); await page.waitForTimeout(900);
+        await page.screenshot({ path: out('next'), scale: 'css', clip });
         // DS-3e2: минулий рік — на пігулці «Місяць рік»
         await page.evaluate(() => onMonthChange(shiftMonth(monthKey(localDateISO()), -12))); await page.waitForTimeout(900);
         await page.screenshot({ path: out('pastyear'), scale: 'css', clip });
