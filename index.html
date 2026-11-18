@@ -11339,12 +11339,12 @@ function resolveInstallmentFact(name, month, existing){
   }
   return {
     balance: factHere ? factHere.balance : (est.balance != null ? est.balance : null),
-    // Rev 2.32.399 (FIX-PAY): платіж — лише з запису САМОГО місяця (як і залишок). Перенесений запис минулого місяця (його передає debtTotalsForMonth) давав плитці «ОЧ» на «Аналітиці» застарілий платіж замість очікуваного, яким «Облік» рахує місяць без запису. Ризик: плитка тепер збігається з «Обліком»; формули оцінки (est.pay) не змінено.
+    // Rev 2.32.396 (FIX-PAY): платіж — лише з запису САМОГО місяця (як і залишок). Перенесений запис минулого місяця (його передає debtTotalsForMonth) давав плитці «ОЧ» на «Аналітиці» застарілий платіж замість очікуваного, яким «Облік» рахує місяць без запису. Ризик: плитка тепер збігається з «Обліком»; формули оцінки (est.pay) не змінено.
     pay: (existing && existing.monthlyPayment != null && (existing.month == null || String(existing.month).slice(0, 7) === month)) ? existing.monthlyPayment : est.pay,
     linkedSum: est.linkedSum
   };
 }
-// Rev 2.32.399 (FIX-PAY): ЄДИНИЙ розрахунок «Разом на місяць» по ОЧ: «Облік» (updateInstallmentTotal) і плитка «ОЧ» на «Аналітиці» (debtTotalsForMonth) беруть суму звідси. Видимі за місяць ОЧ; платіж — resolveInstallmentFact із записом саме цього місяця.
+// Rev 2.32.396 (FIX-PAY): ЄДИНИЙ розрахунок «Разом на місяць» по ОЧ: «Облік» (updateInstallmentTotal) і плитка «ОЧ» на «Аналітиці» (debtTotalsForMonth) беруть суму звідси. Видимі за місяць ОЧ; платіж — resolveInstallmentFact із записом саме цього місяця.
 function installmentMonthPayTotal(month){
   let sum = 0;
   installmentAccounts.forEach(function(acc){
@@ -11360,7 +11360,7 @@ function installmentMonthPayTotal(month){
 function updateInstallmentTotal(){
   const totalEl = document.getElementById('installment-total-value');
   if(!totalEl || !selectedMonth) return;
-  const sum = installmentMonthPayTotal(selectedMonth); // Rev 2.32.399 (FIX-PAY): той самий розрахунок, що плитка «ОЧ»
+  const sum = installmentMonthPayTotal(selectedMonth); // Rev 2.32.396 (FIX-PAY): той самий розрахунок, що плитка «ОЧ»
   totalEl.textContent = fmt(sum);
   setDashFinal('installment-total-value', sum);
 }
@@ -11613,7 +11613,7 @@ function checkInstallmentDivergence(){
 // заодно синхронізує "Платіж/міс" (якщо для нього теж є очікуване значення) —
 // разом вони одна узгоджена пропозиція.
 // Rev 2.32.177 (OCH-ANCHOR): «Застосувати» робить внесений «Залишок за банком» опорною точкою — явне збереження факту (як «Зберегти»: запис місяця й решта змін форми).
-// Rev 2.32.399 (FIX-OCH-APPLY, рішення власника 18.11): «Застосувати» ПІДСТАВЛЯЄ розрахунковий залишок (dataset.expected) у поле, ховає підказку й робить «Зберегти» активною; нічого не зберігає й не закриває шторку (раніше викликало saveInstallmentDrawer: внесене значення збігалось із записом → «без змін», шторка закривалась, видимого результату не було). Фокус не ставимо (клавіатурну логіку не чіпаємо). Ризик: розрахунок стає фактом лише після явного «Зберегти».
+// Rev 2.32.397 (FIX-OCH-APPLY, рішення власника 18.11): «Застосувати» ПІДСТАВЛЯЄ розрахунковий залишок (dataset.expected) у поле, ховає підказку й робить «Зберегти» активною; нічого не зберігає й не закриває шторку (раніше викликало saveInstallmentDrawer: внесене значення збігалось із записом → «без змін», шторка закривалась, видимого результату не було). Фокус не ставимо (клавіатурну логіку не чіпаємо). Ризик: розрахунок стає фактом лише після явного «Зберегти».
 function applyEstimatedInstallmentValues(){
   const balInput = document.getElementById('idd-balance');
   if(!balInput) return;
@@ -12191,7 +12191,7 @@ function debtTotalsForMonth(month){
   const totalInstallment = list.filter(d=>d.kind==='installment').reduce((s,d)=>s+d.balance,0);
   // Rev 2.0.4 — окремо від залишку: скільки треба ВІДДАТИ грошима цього місяця
   // по всіх активних ОЧ (сума полів "Платіж/міс", той самий carry-forward).
-  const totalMonthlyInstallment = installmentMonthPayTotal(month); // Rev 2.32.399 (FIX-PAY): було сума по записах боргу (без ОЧ без записів); тепер той самий розрахунок, що «Разом на місяць» в «Обліку»
+  const totalMonthlyInstallment = installmentMonthPayTotal(month); // Rev 2.32.396 (FIX-PAY): було сума по записах боргу (без ОЧ без записів); тепер той самий розрахунок, що «Разом на місяць» в «Обліку»
   return { list, total: totalCard, totalInstallment, totalMonthlyInstallment };
 }
 // Rev 2.1.0 — Debt Data Integrity: чи є за "kind" ФАКТИЧНИЙ запис саме за цей
