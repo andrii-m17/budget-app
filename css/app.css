@@ -2946,3 +2946,108 @@
     .app-modal.leaving{ animation:appModalFadeOut 80ms linear both; } /* Rev 2.32.159: reduced-motion — лише затухання 0,08 с, без зсуву й масштабу */
     .app-modal:not(.open){ transform:translate(-50%,-50%) scale(1); } /* Rev 2.32.106: діалог з'являється затуханням (opacity), без масштабу .96 → 1; відкритий стан і клавіатурні правила html.kb-sheet не чіпаємо */
   }
+
+/* ===== Rev 2.32.385 (DS-5a): картка «Сімейний баланс» (макет docs/ui/mockups/analytics-ds, v18). Лише токени; рух — transform/opacity, висота розгортання — grid-template-rows (виняток ДС-плану, як у «Словнику»). Значення макета, що не лягають на шкалу токенів (відступи 6/10 px, шрифт 19 px), округлено до найближчого токена. ===== */
+.bal-wrap{ margin-bottom:var(--sp-3); }
+.bal-wrap.hidden{ display:none; }
+.bal-card{ --bal-seg-step:14ms; --bal-seg-base:150ms; --bal-late:650ms; --bal-dot-step:60ms; --bal-dot-base:250ms; --bal-inx:80ms; --bal-line:150ms; display:flex; flex-direction:column; gap:var(--sp-3); padding:var(--sp-4); margin-top:0; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); box-shadow:none; min-width:0; }
+.bal-sum{ display:flex; flex-direction:column; gap:var(--sp-3); width:100%; margin:0; padding:0; border:0; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; border-radius:var(--r-xs); transition:opacity var(--t-micro) var(--ease-standard); }
+.bal-sum:active{ opacity:.6; }
+.bal-top{ display:flex; align-items:center; gap:var(--sp-3); }
+.bal-ic{ width:36px; height:36px; flex:none; display:grid; place-items:center; border-radius:50%; background:color-mix(in srgb, var(--inst) 16%, transparent); }
+.bal-ic img{ width:22px; height:auto; display:block; }
+.bal-ttl{ display:flex; flex-direction:column; flex:1; min-width:0; }
+.bal-h{ font-size:var(--fs-body); line-height:22px; font-weight:600; color:var(--text); }
+.bal-cap{ font-size:var(--fs-footnote); line-height:18px; color:var(--text-2); }
+.bal-chev{ width:18px; height:18px; flex:none; color:var(--text-3); transition:transform var(--t-m) var(--ease-out); }
+.bal-card.open .bal-chev{ transform:rotate(180deg); }
+.bal-big{ display:block; font-size:var(--fs-large); line-height:40px; font-weight:700; letter-spacing:-.6px; white-space:nowrap; color:var(--text); }
+.bal-big.neg{ color:var(--expense); }
+/* одометр: стовпчик цифр, зсув translateY (transform) */
+.odo{ display:inline-flex; line-height:1.15; }
+.od{ display:inline-block; height:1.15em; overflow:hidden; }
+.odc{ display:block; white-space:pre; transition:transform var(--t-count) var(--ease-out); transform:translateY(calc(var(--d, 0) * -1.15em)); }
+.odc.z{ transition:none; }
+.odx{ white-space:pre; }
+/* смуга днів */
+.bal-dbar{ display:block; position:relative; }
+.bal-dwrap{ display:block; position:relative; padding-top:var(--sp-5); }
+.bal-dsegs{ display:flex; gap:2px; height:14px; }
+.bal-seg{ flex:1; position:relative; overflow:hidden; border-radius:var(--r-2xs); background:var(--surface-2); transform-origin:50% 100%; animation:balPop var(--t-m) var(--ease-out) backwards; animation-delay:calc(var(--n) * var(--bal-seg-step) + var(--bal-seg-base)); }
+.bal-seg.past{ background:color-mix(in srgb, var(--income) 22%, var(--surface-2)); }
+.bal-seg i{ position:absolute; left:0; top:0; bottom:0; }
+.bal-seg i.in{ background:var(--inst); }
+.bal-seg i.out{ background:var(--debt); }
+.bal-dline{ position:absolute; top:14px; bottom:-4px; width:2px; margin-left:-1px; border-radius:var(--r-2xs); background:var(--text); animation:balFade var(--t-m) var(--ease-standard) backwards; animation-delay:var(--bal-late); }
+.bal-dtag{ position:absolute; top:0; transform:translateX(-50%); font-size:var(--fs-caption2); line-height:12px; font-weight:700; color:var(--text); white-space:nowrap; animation:balFade var(--t-m) var(--ease-standard) backwards; animation-delay:var(--bal-late); }
+.bal-dtag.r{ transform:translateX(-100%); }
+.bal-dtag.l{ transform:none; }
+.bal-dax{ display:flex; justify-content:space-between; margin-top:var(--sp-2); font-size:var(--fs-caption2); line-height:14px; color:var(--text-3); }
+.bal-dsum{ display:flex; justify-content:space-between; gap:var(--sp-2); margin-top:var(--sp-2); font-size:var(--fs-footnote); line-height:18px; color:var(--text-2); }
+.bal-dsum b{ color:var(--text); font-weight:600; }
+.bal-dstate{ display:block; margin-top:var(--sp-1); font-size:var(--fs-footnote); line-height:18px; color:var(--text-2); }
+.bal-dstate b{ font-weight:700; }
+.bal-amber{ color:var(--debt-text); }
+.bal-good{ color:var(--income-text); }
+.bal-bad{ color:var(--expense); }
+@keyframes balPop{ from{ opacity:0; transform:scaleY(.2); } }
+@keyframes balFade{ from{ opacity:0; } }
+@keyframes balGrow{ from{ transform:scaleX(0); } }
+@keyframes balDraw{ from{ stroke-dashoffset:1; } }
+@keyframes balDot{ from{ opacity:0; transform:scale(.3); } }
+/* розкриття на місці: висота 320 мс, вміст із затримкою 80 мс */
+.bal-xp{ display:grid; grid-template-rows:0fr; margin-top:calc(var(--sp-3) * -1); transition:grid-template-rows var(--t-m) var(--ease-out); }
+.bal-xp > div{ overflow:hidden; min-height:0; }
+.bal-xin{ display:flex; flex-direction:column; gap:var(--sp-3); padding-top:var(--sp-3); opacity:0; transition:opacity var(--t-s) var(--ease-standard); }
+.bal-card.open > .bal-xp{ grid-template-rows:1fr; }
+.bal-card.open > .bal-xp .bal-xin{ opacity:1; transition-delay:var(--bal-inx); }
+.bal-xp.bal-inv{ grid-template-rows:1fr; }
+.bal-xp.bal-inv .bal-xin{ opacity:1; }
+.bal-card.open > .bal-xp.bal-inv{ grid-template-rows:0fr; }
+.bal-card.open > .bal-xp.bal-inv .bal-xin{ opacity:0; transition-delay:0ms; }
+.bal-divider{ height:1px; background:var(--line); }
+.bal-cols{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-4); }
+.bal-lab{ display:flex; align-items:center; gap:var(--sp-2); font-size:var(--fs-footnote); line-height:18px; font-weight:500; color:var(--text-2); }
+.bal-cv{ font-size:var(--fs-title3); line-height:26px; font-weight:600; white-space:nowrap; color:var(--text); }
+.bal-pill{ display:inline-block; padding:0 var(--sp-2); border-radius:var(--r-pill); background:var(--surface-2); color:var(--text-2); font-size:var(--fs-caption1); line-height:18px; font-weight:600; white-space:nowrap; text-transform:none; letter-spacing:0; }
+.bal-pill.good{ background:var(--accent-bg); color:var(--income-text); }
+.bal-pill.bad{ background:color-mix(in srgb, var(--expense) 16%, transparent); color:var(--expense); }
+.bal-pill.hidden{ display:none; }
+/* плитки 2×2 */
+.bal-kpis{ display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-3); }
+.bal-kpi{ display:flex; flex-direction:column; gap:var(--sp-1); min-width:0; padding:var(--sp-3); background:var(--surface-2); border-radius:var(--r-s); }
+.bal-khd{ display:flex; align-items:center; gap:var(--sp-2); min-height:28px; font-size:var(--fs-caption2); line-height:13px; font-weight:700; text-transform:uppercase; letter-spacing:.2px; color:var(--text); }
+.bal-kvrow{ display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--sp-1) var(--sp-2); min-width:0; }
+.bal-kvrow .bal-pill{ flex:none; padding:0; background:none; }
+.bal-kl{ flex:1; min-width:0; white-space:normal; overflow-wrap:break-word; }
+.bal-kic{ width:28px; height:28px; flex:none; display:grid; place-items:center; border-radius:50%; color:var(--c); background:color-mix(in srgb, var(--c) 16%, transparent); }
+.bal-kic svg{ width:15px; height:15px; }
+.bal-kic.c-income{ --c:var(--income); }
+.bal-kic.c-expense{ --c:var(--expense); }
+.bal-kic.c-inst{ --c:var(--inst); }
+.bal-kv{ font-family:'JetBrains Mono',monospace; font-size:var(--fs-body); line-height:24px; font-weight:700; letter-spacing:-.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text); }
+.bal-kfoot{ display:flex; flex-direction:column; justify-content:flex-end; gap:var(--sp-1); min-height:62px; }
+.bal-sel{ height:16px; font-size:var(--fs-caption1); line-height:16px; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bal-sel b{ color:var(--text); font-weight:600; }
+.bal-krow{ display:flex; align-items:center; justify-content:space-between; white-space:nowrap; }
+.bal-kcap{ font-size:var(--fs-caption1); line-height:16px; color:var(--text-2); }
+.bal-kcap3{ display:block; min-height:16px; font-size:var(--fs-caption1); line-height:16px; color:var(--text-3); }
+.bal-track{ position:relative; height:6px; overflow:hidden; border-radius:var(--r-2xs); background:var(--line-strong); }
+.bal-fill{ position:absolute; inset:0; transform-origin:left; transform:scaleX(var(--v, 0)); animation:balGrow var(--t-count) var(--ease-out) backwards; animation-delay:var(--t-s); }
+.bal-fill.inst{ background:var(--inst); }
+.bal-fill.income{ background:var(--income); }
+.bal-fill.income.over{ background:var(--expense); }
+.bal-kpi .bal-krow .bal-kcap{ white-space:normal; }
+/* міні-графік за місяці: дотик або проведення пальцем; вертикальна прокрутка лишається сторінці */
+.bal-chart{ position:relative; touch-action:pan-y; cursor:pointer; -webkit-user-select:none; user-select:none; }
+.bal-chart text{ font-size:var(--fs-caption2); fill:var(--text-3); }
+.bal-chart .ln{ fill:none; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1; animation:balDraw var(--t-count) var(--ease-out) backwards; animation-delay:var(--bal-line); }
+.bal-chart circle{ transform-box:fill-box; transform-origin:center; transition:transform var(--t-s) var(--ease-spring); animation:balDot var(--t-m) var(--ease-spring) backwards; animation-delay:calc(var(--n) * var(--bal-dot-step) + var(--bal-dot-base)); }
+.bal-chart circle.on{ transform:scale(1.7); }
+.bal-chart .vl{ stroke:var(--text-3); stroke-width:1; opacity:0; transition:opacity var(--t-micro) var(--ease-standard); }
+.bal-chart .vl.on{ opacity:.8; }
+@media (max-width:359px){ .bal-kic{ display:none; } }
+@media (prefers-reduced-motion: reduce){
+  .bal-seg, .bal-dline, .bal-dtag, .bal-fill, .bal-chart .ln, .bal-chart circle{ animation:none; }
+  .bal-xp, .bal-xin, .bal-chev, .odc, .bal-chart circle, .bal-sum{ transition:none; }
+}

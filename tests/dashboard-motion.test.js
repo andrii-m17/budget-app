@@ -114,17 +114,15 @@ test('SVG лінії боргу: кожен сегмент — окремий pa
 });
 
 test('сонячний рендер: data-final з тієї ж змінної, що й текст; лічильників ≤ 6', () => {
-  const pairs = { 'kpi-income': 'totalIncome', 'kpi-expense': 'totalExpense', 'kpi-savings': 'savings', 'kpi-mandatory': 'mandatory', 'kpi-free': 'freeMoney' };
-  Object.entries(pairs).forEach(([id, v]) => {
-    assert.ok(SRC.includes(`document.getElementById('${id}').textContent = fmt(${v});`));
-    assert.ok(SRC.includes(`setDashFinal('${id}', ${v})`));
-  });
+  // Rev 2.32.385 (DS-5a): kpi-income/-expense/-mandatory/-free прибрано (плитки картки «Сімейний баланс»), kpi-savings — одометр (data-final = savings, текст формує odoRender)
+  assert.ok(SRC.includes("big.dataset.final = String(Math.round(ctx.savings))") && SRC.includes("odoRender(big,"), 'одометр балансу: data-final і текст з однієї змінної savings');
+  ['kpi-income', 'kpi-expense', 'kpi-mandatory', 'kpi-free'].forEach(id => assert.ok(!SRC.includes(`getElementById('${id}')`), id + ' більше не пишеться'));
   assert.ok(SRC.includes("setDashFinal('kpi-debt', hasDebtData ? debtNow.total : null)"));
   assert.ok(j('DASH_COUNTER_IDS').length <= j('DASH_MAX_COUNTERS'));
 });
 
 test('вузли графіків замінюються лише через setDashChart/clearDashChart/setDonutSvg (за підписом); прямих innerHTML для графіків нема', () => {
-  ['spark-income', 'spark-expense', 'spark-savings', 'spark-debt', 'chart-income-expense'].forEach(id => {
+  ['spark-debt', 'chart-income-expense'].forEach(id => { // Rev 2.32.385 (DS-5a): спарклайни доходів/витрат/балансу прибрано
     assert.ok(SRC.includes(`setDashChart('${id}'`), id);
     assert.ok(!new RegExp(`getElementById\\('${id}'\\)\\.innerHTML`).test(SRC), id + ' напряму через innerHTML');
   });

@@ -19,7 +19,7 @@ test('капсула підключена до спільного слухача
   assert.equal((SRC.match(/mainColEl\.addEventListener\('scroll', /g) || []).length, 1);
   assert.ok(!/getElementById\('main-col'\)\.addEventListener\('scroll'/.test(SRC));
   assert.ok(/const \{ monthExp, monthInc, totalIncome, totalExpense, savings \} = monthAggregates\(month\);\n\s+lastDashSavings = savings; miniHeadPaint\(\);/.test(SRC), 'значення з monthAggregates(month).savings');
-  assert.ok(/document\.getElementById\('kpi-savings'\)\.textContent = fmt\(savings\);/.test(SRC) && /b\.textContent = \(typeof lastDashSavings === 'number' && isFinite\(lastDashSavings\)\) \? fmt\(lastDashSavings\)/.test(SRC), 'формат fmt() як у KPI');
+  assert.ok(/big\.dataset\.final = String\(Math\.round\(ctx\.savings\)\)/.test(SRC) && /odoRender\(big, ctx\.savings === 0 \? fmt\(0\) : fmtSigned\(ctx\.savings\)/.test(SRC) && /b\.textContent = \(typeof lastDashSavings === 'number' && isFinite\(lastDashSavings\)\) \? fmt\(lastDashSavings\)/.test(SRC), 'формат fmt() як у KPI');
   assert.ok(/monthShortName\(selectedMonth, monthKey\(localDateISO\(\)\)\)/.test(SRC), 'місяць із роком, як на пігулці');
 });
 test('на «Аналітиці» кнопку «вгору» замінює капсула; запасний варіант без розмиття — константа', function(){

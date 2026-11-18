@@ -41,7 +41,7 @@ test('79. вміст: «Аналітика · місяць · залишок» �
   const check = async (label, setup) => {
     await scrollTo(page, 0); await page.evaluate(setup); await page.waitForTimeout(2500);
     await scrollTo(page, 400); expect(await on(page), label).toBe(true);
-    const exp = await page.evaluate(() => ({ m: monthShortName(selectedMonth, monthKey(localDateISO())), bal: document.getElementById('kpi-savings').textContent.replace(/[\s\u00a0\u202f]+/g, ' ').trim() }));
+    const exp = await page.evaluate(() => ({ m: monthShortName(selectedMonth, monthKey(localDateISO())), bal: fmt(Number(document.getElementById('kpi-savings').dataset.final)).replace(/[\s\u00a0\u202f]+/g, ' ').trim() }));
     const s = (await txt(page)).replace(/[\s\u00a0\u202f]+/g, ' ');
     expect(s, label).toBe('Аналітика · ' + exp.m + ' · ' + exp.bal);
     return exp;

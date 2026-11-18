@@ -39,7 +39,8 @@ test('нові назви DS-PLAN §1: псевдоніми ведуть на з
   assert.ok(/--color-bg:var\(--bg\)/.test(TOK) && /--color-border-strong:var\(--line-strong\)/.test(TOK) && /--shadow-glass:var\(--glass-shadow\)/.test(TOK), 'старі назви ведуть на нові');
   ['--r-l', '--r-xl', '--stagger', '--cat-bar', '--sub-bar', '--k1', '--k2', '--k3', '--k4', '--k5', '--k6'].forEach(function(n){ assert.ok(declared.has(n), n + ' оголошено'); });
   // DS-2 (Rev 2.32.335+): нові назви вже вживаються в app.css; --income/--expense/--debt/--inst свідомо ні (збіг лише за значенням, не за змістом)
-  assert.ok(!/var\(--(income|expense|debt|inst)\)/.test(APP));
+  // Rev 2.32.385 (DS-5a): картка «Сімейний баланс» вперше вживає --income/--expense/--debt/--inst за змістом (DS-PLAN §1, «Зміст»); колишню заборону знято, лічильник DS-2 (hex/rgba/старі назви) лишається в ds-guard.
+  assert.ok(/var\(--income\)/.test(APP) && /var\(--inst\)/.test(APP), 'DS-5a: токени змісту вживаються');
 });
 test('STRUCT-2 (Rev 2.32.345): js/util-*.js підключено звичайними <script src> з ?v=<APP_VERSION> перед основним <script>; у APP_SHELL sw.js; функцій у index.html більше немає', function(){
   const tags = INDEX.match(/<script src="\.\/js\/[a-z0-9-]+\.js[^"]*"><\/script>/g) || [];

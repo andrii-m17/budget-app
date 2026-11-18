@@ -226,8 +226,9 @@ const DASH_MAX_COUNTERS = 6;
 const DASH_MAX_TOTAL_MS = 2200;    // стеля хореографії 
 const DASH_REPLAY_SCALE = 0.7;     // повтор: лічильники/графіки коротші, ніж у першому показі
 const DASH_UPDATE_SCALE = 0.4;     // оновлення змінених даних
-const DASH_COUNTER_IDS = ['kpi-income', 'kpi-expense', 'kpi-savings', 'kpi-debt', 'kpi-mandatory', 'kpi-free'];
-const DASH_CHART_HOSTS = ['spark-income', 'spark-expense', 'spark-savings', 'spark-debt', 'chart-income-expense', 'chart-debt-line', 'debt-donut'];
+// Rev 2.32.385 (DS-5a): числа балансу (kpi-savings) рухає одометр (odoRender), а доходи/витрати/обов'язкові/вільні тепер плитки картки «Сімейний баланс» без лічильників; лишається лише «Борг» (до DS-5b).
+const DASH_COUNTER_IDS = ['kpi-debt'];
+const DASH_CHART_HOSTS = ['spark-debt', 'chart-income-expense', 'chart-debt-line', 'debt-donut'];
 // Rev 2.32.0 (F): тест card-reveal завершено — обрано «Стандартно»: тривалість появи однієї картки (d) і розсинхронізація між картками (s), мс при ×1.
 const CARD_REVEAL = { d: 420, s: 40 };
 function staggerDelay(i, k, max, step){
@@ -489,6 +490,7 @@ function makeDashRunner(onFinish, tabName){
 function playDashboard(mode, trigger, month){
   finishDashboard();
   if(!dashStartupReady() || !dashIsActive()) return;
+  if(mode !== 'update') balReplay(); // Rev 2.32.385 (DS-5a): повторна поява картки «Сімейний баланс» (одометр від нуля, смуга днів)
   const body = document.getElementById('analytics-body');
   const k = motionK;
   const scale = mode === 'full' ? 1 : (mode === 'replay' ? DASH_REPLAY_SCALE : DASH_UPDATE_SCALE);
@@ -978,6 +980,7 @@ function renderDashboard(){
   const analyticsIsEmpty = activeExpenses().length===0 && activeIncomes().length===0 && activeDebts().length===0;
   document.getElementById('analytics-empty').classList.toggle('hidden', !analyticsIsEmpty);
   document.getElementById('analytics-body').classList.toggle('hidden', analyticsIsEmpty);
+  const balWrap = document.getElementById('analytics-bal-wrap'); if(balWrap) balWrap.classList.toggle('hidden', analyticsIsEmpty); // Rev 2.32.385 (DS-5a): картка балансу ховається разом з тілом при порожніх даних
   if(analyticsIsEmpty){ expandedRow4Key = null; secondaryExpandedKey = null; return; } // немає сенсу рахувати картки/графіки по порожніх даних
 
   /* --- 6-місячний тренд (потрібен і для спарклайнів у Ряду 1, і для великого графіка в Ряду 2) --- */
@@ -986,25 +989,13 @@ function renderDashboard(){
   const trendData = months6.map(m => ({ m, ...monthAggregates(m) }));
 
   /* --- Ряд 1: KPI зі спарклайном і трендом (за еталонним макетом) --- */
-  document.getElementById('kpi-income').textContent = fmt(totalIncome);
-  document.getElementById('kpi-expense').textContent = fmt(totalExpense);
-  document.getElementById('kpi-savings').textContent = fmt(savings);
+  // Rev 2.32.385 (DS-5a): KPI «Доходи», «Витрати», «Баланс» замінено карткою «Сімейний баланс» (renderBalanceCard нижче); велике число — #kpi-savings (одометр), те саме значення savings, що й у капсулі (lastDashSavings).
   // Rev 2.25.0 (M2) — data-final: розрахункове число для лічильників (текст формує та сама fmt(), анімація лише добігає до нього).
-  setDashFinal('kpi-income', totalIncome); setDashFinal('kpi-expense', totalExpense); setDashFinal('kpi-savings', savings);
-  document.getElementById('kpi-savings-card').classList.toggle('negative', savings < 0);
   document.getElementById('kpi-debt').textContent = hasDebtData ? fmt(debtNow.total) : '—';
   setDashFinal('kpi-debt', hasDebtData ? debtNow.total : null);
 
   // Rev 2.27.0 (M2.1) — вузол графіка замінюється лише коли змінився підпис даних (фоновий рендер не обриває анімацію й не мерехтить).
-  setDashChart('spark-income', trendData.map(t=>t.totalIncome), ()=>svgSparkline(trendData.map(t=>t.totalIncome), '--color-success'));
-  setDashChart('spark-expense', trendData.map(t=>t.totalExpense), ()=>svgSparkline(trendData.map(t=>t.totalExpense), '--color-error'));
-  setDashChart('spark-savings', trendData.map(t=>t.savings), ()=>svgSparkline(trendData.map(t=>t.savings), '--color-info'));
   { const debtSpark = months6.map(m=>debtTotalsForMonth(m).total); setDashChart('spark-debt', debtSpark, ()=>svgSparkline(debtSpark, '--color-warning')); }
-  const incHasData = monthInc.length > 0;
-  const expHasData = monthExp.length > 0;
-  setKpiTrend('trend-income', 'income', totalIncome, prev.totalIncome, month, incHasData);
-  setKpiTrend('trend-expense', 'expense', totalExpense, prev.totalExpense, month, expHasData);
-  setKpiTrend('trend-savings', 'savings', savings, prev.savings, month, incHasData || expHasData);
   // Rev 2.1.0 — Debt Data Integrity: замість мовчазного carry-forward, честно
   // показуємо, чи це фактичні дані поточного місяця, чи "останнє відоме" —
   // тоді в тренд-рядку зʼявляється жовтий бейдж "Станом на [місяць]" замість
@@ -1033,6 +1024,10 @@ function renderDashboard(){
   // яка йде від найпершого місяця з реальними записами (а не завжди останні 6).
   const earliestActivity = earliestActivityMonth();
   const availableTrendData = earliestActivity ? trendData.filter(t => t.m >= earliestActivity) : trendData;
+  // Rev 2.32.385 (DS-5a): картка «Сімейний баланс»; «Обов'язкові»/«Вільні» — та сама mandatoryPaymentsSummary, формула без змін.
+  const balSummary = mandatoryPaymentsSummary(monthExp, totalIncome);
+  renderBalanceCard({ month: month, pos: balancePosition(month, localDateISO()), totalIncome: totalIncome, totalExpense: totalExpense, savings: savings, mandatory: balSummary.mandatory, freeMoney: balSummary.freeMoney,
+    curInc: monthInc, curExp: monthExp, prevInc: prev.monthInc, prevExp: prev.monthExp, prevMonth: prevMonth, series: availableTrendData });
   setDashChart('chart-income-expense', availableTrendData.map(t=>[t.m, t.totalIncome, t.totalExpense]), ()=>svgBarChart(availableTrendData, 6));
   if(hasDebtData){
     const debtTrend = months6.map(m => ({ m, total: debtTotalsForMonth(m).total, actual: kindHasActualForMonth('card', m) }));
@@ -1210,31 +1205,8 @@ function renderDashboard(){
      база", інакше просто залишок). */
   renderInstallmentsCard(debtNow, hasDebtData);
 
-  /* --- Ряд 4: "Ключові показники місяця" — рівно 6, порядок фіксований (Design-System-v2.0 §7) --- */
-  // 1. Витрати / Дохід
-  if(totalIncome > 0){
-    const ratio = totalExpense / totalIncome;
-    document.getElementById('kpi-ratio-val').textContent = (ratio*100).toFixed(1) + '%';
-  }else{
-    document.getElementById('kpi-ratio-val').textContent = totalExpense > 0 ? '— (немає доходу)' : '—';
-  }
-  document.getElementById('kpi-ratio-sub').textContent = 'Норма: <80%';
-
-  // 2. Обов'язкові платежі
-  // Rev #26.3 — mandatory/freeMoney тепер рахує mandatoryPaymentsSummary()
-  // (index.html, поруч з monthAggregates) — renderDashboard() лише викликає
-  // і рендерить результат, формула не змінена.
-  const { mandatory, freeMoney } = mandatoryPaymentsSummary(monthExp, totalIncome);
-  document.getElementById('kpi-mandatory').textContent = fmt(mandatory);
-  setDashFinal('kpi-mandatory', mandatory);
-  document.getElementById('kpi-mandatory-sub').textContent = totalIncome>0 ? `${(mandatory/totalIncome*100).toFixed(1)}% від доходу` : '—';
-
-  // 3. Вільні гроші — Rev 1.5.7: підпис "Профіцит/Дефіцит/Баланс" прибрано за вимогою
-  // Golden Master, лишається лише відсоток від доходу. Значення лишається темним (як усі
-  // секції цього блоку) - кольорове кодування прибрано разом зі статусним текстом.
-  document.getElementById('kpi-free').textContent = fmt(freeMoney);
-  setDashFinal('kpi-free', freeMoney);
-  document.getElementById('kpi-free-sub').textContent = totalIncome>0 ? `${(freeMoney/totalIncome*100).toFixed(1)}% від доходу` : '—';
+  /* --- Ряд 4: "Ключові показники місяця" (Design-System-v2.0 §7) ---
+     Rev 2.32.385 (DS-5a): «Витрати / Дохід», «Обов'язкові платежі» і «Вільні гроші» прибрано з цього ряду: обов'язкові й вільні тепер плитки картки «Сімейний баланс» (mandatoryPaymentsSummary, формула без змін); «Динаміка боргу», «ОЧ» — до DS-5b, «Звичка місяця» — до DS-5e. */
 
   // Rev 2.1.32 — "Динаміка боргу" звужена до ЛИШЕ карток: розбивка "Картки Х ·
   // ОЧ Y" переїхала в підпис картки "Платежі по ОЧ" нижче (там тепер весь
@@ -1649,4 +1621,266 @@ function toggleInstallmentsCardExpand(){
   renderDebtsCard();
   applyInstallmentsCardState();
 }
+/* ===== Rev 2.32.385 (DS-5a): картка «Сімейний баланс» (макет analytics-ds v18; docs/reports/DS-5-step0.md, «Рішення 18.11») =====
+   Чисті функції (без DOM) — F1 смуга днів, F2 порівняння «на той самий день», F3 «≈ на день». Формули «Обов'язкові»/«Вільні» не змінено (mandatoryPaymentsSummary).
+   Ризики/альтернативи: «сьогодні» береться з localDateISO() (локальна дата пристрою); майбутній місяць (перемикач дозволяє наступний) = T 0; одометр — лише transform; висота розгортання — grid-template-rows (виняток ДС-плану, як у «Словнику»). */
+function daysInMonthKey(month){
+  const y = parseInt(String(month).slice(0, 4), 10), m = parseInt(String(month).slice(5, 7), 10);
+  return (y > 0 && m >= 1 && m <= 12) ? new Date(y, m, 0).getDate() : 30;
+}
+// Положення місяця відносно сьогодні: current (T = день сьогодні, 1..N), past (T = N), future (T = 0).
+function balancePosition(month, todayISO){
+  const N = daysInMonthKey(month), todayKey = String(todayISO).slice(0, 7);
+  if(month === todayKey){ const t = parseInt(String(todayISO).slice(8, 10), 10); return { N: N, T: Math.min(N, Math.max(1, isNaN(t) ? 1 : t)), phase: 'current' }; }
+  if(month < todayKey) return { N: N, T: N, phase: 'past' };
+  return { N: N, T: 0, phase: 'future' };
+}
+// Симетричне округлення до кроку (−1,5 і 1,5 — дзеркально; Math.round зсуває від'ємні до +∞); без «−0».
+function roundSym(x, step){
+  const r = Math.round(Math.abs(Number(x) || 0) / step) * step;
+  return r === 0 ? 0 : (x < 0 ? -r : r);
+}
+// F1: S = витрачено / дохід × N; заповнення сегмента d = clamp(S − (d−1), 0, 1); різниця з темпом = round100(витрачено − дохід × T / N) (алгебраїчно те саме, що (витрачено/дохід − T/N) × дохід, але без ділення на дохід).
+// tone: future | noincome | over | done | ahead | behind | even.
+function dayBarModel(spent, income, pos){
+  const N = pos.N, T = pos.T, phase = pos.phase;
+  const sp = Number(spent) || 0, inc = Number(income) || 0;
+  const hasIncome = inc > 0;
+  const fills = [];
+  for(let d = 0; d < N; d++) fills.push(0);
+  let S = 0, diff = null, spentPct = null;
+  if(hasIncome){
+    S = sp / inc * N;
+    if(phase !== 'future') for(let d = 1; d <= N; d++) fills[d - 1] = Math.max(0, Math.min(1, S - (d - 1)));
+    spentPct = Math.round(sp / inc * 100);
+    if(phase === 'current') diff = roundSym(sp - inc * T / N, 100);
+  }
+  let tone;
+  if(phase === 'future') tone = 'future';
+  else if(!hasIncome) tone = 'noincome';
+  else if(sp > inc) tone = 'over';
+  else if(phase === 'past') tone = 'done';
+  else tone = diff > 0 ? 'ahead' : (diff < 0 ? 'behind' : 'even');
+  return { N: N, T: T, phase: phase, hasIncome: hasIncome, S: S, fills: fills, diff: diff, spentPct: spentPct, tone: tone, over: (hasIncome && sp > inc) ? Math.round(sp - inc) : 0, lineFrac: phase === 'current' ? T / N : null };
+}
+// F2: сума записів місяця до дня включно (records: [{date:'YYYY-MM-DD', amount}], уже без надгробків).
+function sumUpToDay(records, month, day){
+  let s = 0;
+  for(let i = 0; i < records.length; i++){
+    const e = records[i], d = e && e.date;
+    if(!d || String(d).slice(0, 7) !== month) continue;
+    if(parseInt(String(d).slice(8, 10), 10) <= day) s += Number(e.amount) || 0;
+  }
+  return s;
+}
+// F2: до якого дня порівнювати: поточний — T і min(T, днів минулого); минулий обраний — повний з повним; майбутній — без порівняння (null).
+function sameDayLimits(pos, prevMonth){
+  if(pos.phase === 'future') return null;
+  const nPrev = daysInMonthKey(prevMonth);
+  if(pos.phase === 'past') return { curDay: pos.N, prevDay: nPrev, full: true };
+  return { curDay: pos.T, prevDay: Math.min(pos.T, nPrev), full: false };
+}
+// F2: зміна в % до минулого (ціле); минулий 0 або немає — null (без «нескінченного» відсотка).
+function percentChange(cur, prev){
+  const p = Number(prev) || 0;
+  return p > 0 ? Math.round(((Number(cur) || 0) - p) / p * 100) : null;
+}
+// F3 (виправлено 18.11): «решта» = вільні (дохід − обов'язкові) − уже витрачене на необов'язкове (витрати − обов'язкові). Обов'язкові вже входять у витрати й віднімаються один раз, тому решта = дохід − витрати.
+// «≈ на день» = решта / (N − T + 1) до 10 ₴: поточний місяць — з сьогодні; наступний — решта / N; минулий — без «на день»; решта ≤ 0 — без «на день» (картка пише «Перевищено на …»).
+// fill — частка вільних грошей, що вже витрачена (смуга), 0..1; при вільних ≤ 0 або перевитраті смуга повна.
+function balanceRest(income, spent, mandatory){
+  const inc = Number(income) || 0, sp = Number(spent) || 0, man = Number(mandatory) || 0;
+  const free = inc - man, nonMand = sp - man, rest = free - nonMand;
+  const fill = free > 0 ? Math.max(0, Math.min(1, nonMand / free)) : 1;
+  return { free: free, nonMand: nonMand, rest: rest, over: rest < 0 ? -rest : 0, fill: fill };
+}
+function daysLeftCount(pos){ return pos.phase === 'current' ? pos.N - pos.T + 1 : (pos.phase === 'future' ? pos.N : null); }
+function freePerDay(rest, pos){
+  if(pos.phase === 'past' || !(Number(rest) > 0)) return null;
+  return roundSym(Number(rest) / daysLeftCount(pos), 10);
+}
+function dayWord(n){
+  const m10 = n % 10, m100 = n % 100;
+  if(m10 === 1 && m100 !== 11) return 'день';
+  if(m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'дні';
+  return 'днів';
+}
+function monthsWord(n){ return n === 1 ? 'місяць' : ((n >= 2 && n <= 4) ? 'місяці' : 'місяців'); }
+
+// Одометр: стовпчик цифр 0..9 на кожну цифру, зсув translateY (transform); решта символів — звичайні. replay — від нуля; те саме число без replay — нічого не робимо; змінене число тієї ж форми — стовпчики докочуються.
+function odoRender(el, text, replay){
+  if(!el) return;
+  text = String(text);
+  const reduced = motionReduced();
+  const chars = Array.from(text);
+  const shape = chars.map(function(c){ return /\d/.test(c) ? 'd' : c; }).join('');
+  const sameShape = el.dataset.odoShape === shape && !!el.querySelector('.odc');
+  el.setAttribute('aria-label', text);
+  if(el.dataset.odoText === text && !replay && sameShape) return;
+  const digits = chars.filter(function(c){ return /\d/.test(c); });
+  if(sameShape && !replay){
+    Array.prototype.forEach.call(el.querySelectorAll('.odc'), function(col, i){
+      if(!reduced){ col.classList.remove('z'); col.style.transitionDelay = (80 + i * 45) + 'ms'; }
+      col.style.setProperty('--d', digits[i]);
+    });
+  }else{
+    let di = 0;
+    const start = (replay && !reduced);
+    el.innerHTML = chars.map(function(c){
+      if(/\d/.test(c)){ const d = digits[di++]; return '<span class="od"><span class="odc z" style="--d:' + (start ? 0 : d) + '">0\n1\n2\n3\n4\n5\n6\n7\n8\n9</span></span>'; }
+      return '<span class="odx">' + escapeHtml(c) + '</span>';
+    }).join('');
+    el.dataset.odoShape = shape;
+    if(start){
+      void el.offsetWidth; // зафіксувати «нулі» перед кочінням
+      Array.prototype.forEach.call(el.querySelectorAll('.odc'), function(col, i){ col.classList.remove('z'); col.style.transitionDelay = (120 + i * 45) + 'ms'; col.style.setProperty('--d', digits[i]); });
+    }
+  }
+  el.dataset.odoText = text;
+}
+
+// Дотик або проведення пальцем вибирає точку; touch-action: pan-y у CSS лишає вертикальну прокрутку сторінці.
+function chartScrub(el, pick, get, set){
+  let down = false, moved = false;
+  el.onpointerdown = function(e){ down = true; moved = false; const i = pick(e.clientX - el.getBoundingClientRect().left); if(i !== get()){ set(i); moved = true; } };
+  el.onpointermove = function(e){ if(!down) return; const i = pick(e.clientX - el.getBoundingClientRect().left); if(i !== get()){ set(i); moved = true; } };
+  el.onpointerup = el.onpointercancel = function(){ if(down && !moved) set(-1); down = false; };
+  el.onpointerleave = function(){ down = false; };
+}
+// Ламана за місяці для плитки «Доходи»/«Витрати» (макет: висота 38); ro(i) — підпис вибраного місяця, ro(-1) — стан за замовчуванням.
+function balLineChart(host, vals, color, label, ro){
+  const W = host.clientWidth || 128, H = 38, pl = 4, pr = 4, pt = 10, pb = 8, pad = 6, n = vals.length;
+  if(n === 0){ host.innerHTML = ''; ro(-1); return; }
+  const hi = Math.max.apply(null, vals), lo = Math.min.apply(null, vals), span = hi - lo, mn = lo - span * 0.15;
+  const X = function(i){ return n === 1 ? pl + (W - pl - pr) / 2 : pl + pad + i * (W - pl - pr - pad * 2) / (n - 1); };
+  const Y = function(v){ return span > 0 ? pt + (H - pt - pb) * (1 - (v - mn) / (hi - mn)) : (pt + H - pb) / 2; };
+  const path = vals.map(function(v, i){ return (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1); }).join(' ');
+  host.innerHTML = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + escapeAttr(label) + '">' +
+    '<line class="vl" y1="' + (pt - 6) + '" y2="' + (H - pb + 2) + '"/>' +
+    '<path class="ln" pathLength="1" stroke="' + color + '" stroke-width="2" d="' + path + '"/>' +
+    vals.map(function(v, i){ return '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="3.5" fill="' + color + '" stroke="var(--surface-2)" stroke-width="1.5" style="--n:' + i + '"/>'; }).join('') + '</svg>';
+  let sel = -1;
+  const vl = host.querySelector('.vl'), cs = host.querySelectorAll('circle');
+  const set = function(i){
+    sel = i;
+    Array.prototype.forEach.call(cs, function(c, j){ c.classList.toggle('on', j === i); });
+    vl.classList.toggle('on', i >= 0);
+    if(i >= 0){ vl.setAttribute('x1', X(i)); vl.setAttribute('x2', X(i)); }
+    ro(i);
+  };
+  chartScrub(host, function(x){ let b = 0; for(let i = 1; i < n; i++) if(Math.abs(X(i) - x) < Math.abs(X(b) - x)) b = i; return b; }, function(){ return sel; }, set);
+  ro(-1);
+}
+
+let balLast = null; // останній вхід картки: для повторної появи (replay) і перемальовування графіків при розгортанні
+let balOpen = false;
+function balCompareHtml(pct, goodWhenUp){
+  if(pct === null) return { text: '', cls: '' };
+  const good = goodWhenUp ? pct > 0 : pct < 0, bad = goodWhenUp ? pct < 0 : pct > 0;
+  return { text: (pct > 0 ? '+' : (pct < 0 ? '−' : '')) + Math.abs(pct) + '%', cls: good ? ' good' : (bad ? ' bad' : '') };
+}
+// ctx: { month, pos, totalIncome, totalExpense, savings, mandatory, freeMoney, curInc[], curExp[], prevInc[], prevExp[], prevMonth, series:[{m,totalIncome,totalExpense}] }
+function renderBalanceCard(ctx, replay){
+  const card = document.getElementById('bal-card');
+  if(!card || !ctx) return;
+  balLast = ctx;
+  const pos = ctx.pos, income = ctx.totalIncome, spent = ctx.totalExpense;
+  const setText = function(id, t){ const el = document.getElementById(id); if(el) el.textContent = t; };
+  const fmtPlain = function(n){ return fmt(n).replace(/\s*₴$/, ''); };
+  // шапка й велике число
+  const g = monthGenitive(ctx.month) + (ctx.month.slice(0, 4) !== localDateISO().slice(0, 4) ? ' ' + ctx.month.slice(0, 4) : '');
+  setText('bal-sub', 'залишок ' + g + (pos.phase === 'current' ? ' · день ' + pos.T + ' з ' + pos.N : (pos.phase === 'past' ? ' · місяць завершено' : ' · місяць ще не почався')));
+  const big = document.getElementById('kpi-savings');
+  if(big){ big.dataset.final = String(Math.round(ctx.savings)); big.classList.toggle('neg', ctx.savings < 0); odoRender(big, ctx.savings === 0 ? fmt(0) : fmtSigned(ctx.savings), replay); }
+  // смуга днів
+  const m = dayBarModel(spent, income, pos);
+  const abbr = monthGenitive(ctx.month).slice(0, 3);
+  const left = daysLeftCount(pos);
+  let stateHtml;
+  if(m.tone === 'future') stateHtml = '<span>Місяць ще не почався</span>';
+  else if(m.tone === 'noincome') stateHtml = '<span>Немає доходів за місяць: смуга з’явиться, коли вони будуть</span>';
+  else if(m.tone === 'over') stateHtml = '<span class="bal-bad">Витрати перевищили дохід на <b>' + fmt(m.over) + '</b></span>';
+  else if(m.tone === 'done') stateHtml = '<span>Місяць завершено: витрачено ' + m.spentPct + '% доходу</span>';
+  else if(m.tone === 'ahead') stateHtml = '<span class="bal-amber">Витрати на <b>' + fmt(m.diff) + '</b> випереджають дні</span>';
+  else if(m.tone === 'behind') stateHtml = '<span class="bal-good">Витрати на <b>' + fmt(-m.diff) + '</b> менші, ніж минуло днів</span>';
+  else stateHtml = '<span>Витрати йдуть у ногу з днями</span>';
+  const rightSum = pos.phase === 'current' ? (left + ' ' + dayWord(left) + ' лишилось') : (pos.phase === 'past' ? ('усі ' + pos.N + ' ' + dayWord(pos.N)) : (pos.N + ' ' + dayWord(pos.N)));
+  let segs = '';
+  for(let d = 1; d <= m.N; d++){
+    const f = m.fills[d - 1];
+    segs += '<span class="bal-seg' + (d <= m.T ? ' past' : '') + '" style="--n:' + d + '">' + (f > 0 ? '<i class="' + (d <= m.T ? 'in' : 'out') + '" style="width:' + (f * 100).toFixed(0) + '%"></i>' : '') + '</span>';
+  }
+  const x = m.lineFrac === null ? null : (m.lineFrac * 100);
+  const tagCls = x === null ? '' : (x > 88 ? ' r' : (x < 12 ? ' l' : ''));
+  const aria = m.hasIncome ? ('Минуло ' + m.T + ' з ' + m.N + ' днів, витрачено ' + m.spentPct + '% доходу') : ('Днів у місяці: ' + m.N + '; доходів немає');
+  const barHtml = '<span class="bal-dwrap">' + (x === null ? '' : '<span class="bal-dtag' + tagCls + '" style="left:' + x.toFixed(2) + '%">сьогодні</span><span class="bal-dline" style="left:' + x.toFixed(2) + '%"></span>') +
+    '<span class="bal-dsegs" role="img" aria-label="' + escapeAttr(aria) + '">' + segs + '</span></span>' +
+    '<span class="bal-dax"><span>1 ' + abbr + '</span><span>' + m.N + ' ' + abbr + '</span></span>' +
+    '<span class="bal-dsum"><span>Витрачено <b>' + fmtPlain(spent) + '</b> з ' + fmt(income) + '</span><span>' + rightSum + '</span></span>' +
+    '<span class="bal-dstate">' + stateHtml + '</span>';
+  const dbar = document.getElementById('bal-dbar');
+  const sig = chartSignature([m.N, m.T, m.phase, m.tone, m.diff, m.spentPct, spent, income, m.over, abbr, m.fills.map(function(f){ return Math.round(f * 100); })]);
+  if(dbar && (replay || dbar.dataset.sig !== sig)){ dbar.innerHTML = barHtml; dbar.dataset.sig = sig; }
+  // порівняння «на той самий день» (F2)
+  const lim = sameDayLimits(pos, ctx.prevMonth);
+  let incCmp = null, expCmp = null, incPrev = null, expPrev = null;
+  if(lim){
+    const curI = sumUpToDay(ctx.curInc, ctx.month, lim.curDay), curE = sumUpToDay(ctx.curExp, ctx.month, lim.curDay);
+    incPrev = sumUpToDay(ctx.prevInc, ctx.prevMonth, lim.prevDay); expPrev = sumUpToDay(ctx.prevExp, ctx.prevMonth, lim.prevDay);
+    incCmp = percentChange(curI, incPrev); expCmp = percentChange(curE, expPrev);
+  }
+  const prevLabel = !lim ? '' : (lim.full ? ('за ' + UA_MONTHS[parseInt(ctx.prevMonth.slice(5, 7), 10) - 1]) : ('на ' + lim.prevDay + ' ' + monthGenitive(ctx.prevMonth).slice(0, 3)));
+  const capOf = function(prevSum, hasRecs){ return !lim ? '' : (prevLabel + ': ' + ((prevSum > 0 || hasRecs) ? fmtPlain(prevSum) : '—')); };
+  setText('bal-c-inc-v', fmt(income)); setText('bal-c-exp-v', fmt(spent));
+  setText('bal-c-inc-cap', capOf(incPrev, ctx.prevInc.length > 0)); setText('bal-c-exp-cap', capOf(expPrev, ctx.prevExp.length > 0));
+  const dExp = balCompareHtml(expCmp, false), dInc = balCompareHtml(incCmp, true);
+  const setPill = function(id, d){ const el = document.getElementById(id); if(!el) return; el.textContent = d.text; el.className = 'bal-pill' + d.cls; el.classList.toggle('hidden', !d.text); };
+  setPill('bal-c-exp-pill', dExp); setPill('bal-tr-exp', dExp); setPill('bal-tr-inc', dInc);
+  // плитки 2×2
+  setText('bal-v-inc', fmt(income)); setText('bal-v-exp', fmt(spent));
+  setText('bal-v-man', fmt(ctx.mandatory)); setText('bal-v-free', fmt(ctx.freeMoney));
+  const hasInc = income > 0;
+  setText('bal-m-pct', hasInc ? Math.round(ctx.mandatory / income * 100) + '% доходу' : 'немає доходу');
+  const setFill = function(id, v){ const el = document.getElementById(id); if(el) el.style.setProperty('--v', String(Math.max(0, Math.min(1, v)))); };
+  setFill('bal-m-fill', hasInc ? ctx.mandatory / income : 0);
+  setText('bal-m-hint', '');
+  // «Після обов'язкових»: смуга = витрачене з вільних грошей, сірий залишок = решта (balanceRest)
+  const rb = balanceRest(income, spent, ctx.mandatory);
+  setFill('bal-f-fill', rb.fill);
+  const ff = document.getElementById('bal-f-fill'); if(ff) ff.classList.toggle('over', rb.rest < 0);
+  setText('bal-f-pct', rb.rest < 0 ? 'Перевищено на ' + fmt(rb.over) : 'решта ' + fmt(rb.rest));
+  const pd = freePerDay(rb.rest, pos);
+  setText('bal-f-hint', pd === null ? '' : (pd > 0 ? '≈ ' + fmt(pd) + ' на день' : 'менше 10 ₴ на день'));
+  if(balOpen) drawBalCharts();
+}
+function drawBalCharts(){
+  const ctx = balLast; if(!ctx) return;
+  const series = ctx.series || [];
+  [['inc', 'totalIncome', 'var(--income)', 'Доходи за останні місяці'], ['exp', 'totalExpense', 'var(--expense)', 'Витрати за останні місяці']].forEach(function(cfg){
+    const host = document.getElementById('bal-ch-' + cfg[0]), sel = document.getElementById('bal-sel-' + cfg[0]);
+    if(!host || !sel) return;
+    const vals = series.map(function(t){ return t[cfg[1]]; });
+    const def = vals.length ? 'за ' + vals.length + ' ' + monthsWord(vals.length) : 'немає даних';
+    const sig = chartSignature([vals, host.clientWidth]);
+    if(host.dataset.sig === sig && host.firstElementChild) return;
+    host.dataset.sig = sig;
+    balLineChart(host, vals, cfg[2], cfg[3], function(i){
+      sel.innerHTML = i < 0 ? def : (UA_MONTHS[parseInt(series[i].m.slice(5, 7), 10) - 1] + ': <b>' + fmt(vals[i]) + '</b>');
+    });
+  });
+}
+function toggleBalanceCard(){
+  const card = document.getElementById('bal-card'), btn = document.getElementById('bal-toggle');
+  if(!card) return;
+  balOpen = !balOpen;
+  card.classList.toggle('open', balOpen);
+  if(btn) btn.setAttribute('aria-expanded', balOpen ? 'true' : 'false');
+  if(balOpen) requestAnimationFrame(drawBalCharts);
+}
+// Повторна поява (візит/зміна місяця): число котиться від нуля, смуга днів з'являється знову.
+function balReplay(){ if(balLast) renderBalanceCard(balLast, true); }
+(function(){
+  let t = null;
+  window.addEventListener('resize', function(){ if(!balOpen) return; clearTimeout(t); t = setTimeout(function(){ const a = document.getElementById('bal-ch-inc'), b = document.getElementById('bal-ch-exp'); if(a) delete a.dataset.sig; if(b) delete b.dataset.sig; drawBalCharts(); }, 150); });
+})();
 (window.__MT_FILES = window.__MT_FILES || []).push('analytics.js');

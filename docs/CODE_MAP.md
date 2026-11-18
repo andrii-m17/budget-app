@@ -5,6 +5,7 @@
 **Область «Структура» (Rev 2.32.346, STRUCT-3b):** `js/structure.js` (24 функції, 8 const, 1 let): `renderStructure*`, `switchStructureTab`, словник (`dictionaryView`, `structDict*`, `toggleDictGroup`), `STRUCT_*`. Оператор `click` словника лишився в основному скрипті.
 
 **Область «analytics» (Rev 2.32.348, STRUCT-3):** `js/analytics.js` — 78 функцій, 21 const, 5 let. Оператори верхнього рівня (load/visibilitychange для дашбордів) лишились в index.html.
+**Картка «Сімейний баланс» (Rev 2.32.385, DS-5a):** кінець `js/analytics.js` — чисті функції F1–F3 (`dayBarModel`, `sameDayLimits`, `sumUpToDay`, `percentChange`, `freePerDay`, `balancePosition`), `odoRender` (одометр), `chartScrub` + `balLineChart` (дотик по графіку), `renderBalanceCard(ctx, replay)` (викликається з `renderDashboard` після `availableTrendData`), `toggleBalanceCard`, `balReplay` (з `playDashboard`). Розмітка `#analytics-bal-wrap` у `index.html` перед `#payments-card`; стилі `.bal-*` у кінці `css/app.css`.
 
 **Область «shell» (Rev 2.32.349, STRUCT-3):** `js/shell.js` — 101 функцій, 38 const, 10 let. Оператори верхнього рівня (підписки, initSideNav, IIFE таббару/«вгору»/натискань) і keyboardFieldActive лишились в index.html. Додатково перевірено taps.spec.js і E2E таббару/вкладок.
 

@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.384"><link rel="stylesheet" href="./css/app.css?v=2.32.384"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.385"><link rel="stylesheet" href="./css/app.css?v=2.32.385"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -202,6 +202,47 @@
 
     <!-- ================= АНАЛІТИКА (було "Огляд") ================= -->
     <div class="view" id="view-analytics">
+      <!-- Rev 2.32.385 (DS-5a): картка «Сімейний баланс» (макет analytics-ds v18) — перша на «Аналітиці»; наповнює renderBalanceCard(); велике число #kpi-savings — одометр (aria-label і data-final = значення; textContent не читати) -->
+      <div class="bal-wrap" id="analytics-bal-wrap">
+        <section class="card bal-card" id="bal-card">
+          <button type="button" class="bal-sum" id="bal-toggle" aria-expanded="false" aria-controls="bal-more" onclick="toggleBalanceCard()">
+            <span class="bal-top"><span class="bal-ic"><img src="data:image/png;base64,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" alt="" style="width:22px;height:auto;display:block;"></span><span class="bal-ttl"><span class="bal-h">Сімейний баланс</span><span class="bal-cap" id="bal-sub"></span></span><svg class="bal-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
+            <span class="bal-big odo" id="kpi-savings" role="img"></span>
+            <span class="bal-dbar" id="bal-dbar"></span>
+          </button>
+          <div class="bal-xp bal-inv"><div><div class="bal-xin">
+            <div class="bal-divider"></div>
+            <div class="bal-cols">
+              <div><div class="bal-lab">Доходи</div><div class="bal-cv" id="bal-c-inc-v"></div><div class="bal-cap" id="bal-c-inc-cap"></div></div>
+              <div><div class="bal-lab">Витрати <span class="bal-pill hidden" id="bal-c-exp-pill"></span></div><div class="bal-cv" id="bal-c-exp-v"></div><div class="bal-cap" id="bal-c-exp-cap"></div></div>
+            </div>
+          </div></div></div>
+          <div class="bal-xp" id="bal-more"><div><div class="bal-xin">
+            <div class="bal-kpis">
+            <div class="bal-kpi">
+              <div class="bal-khd"><span class="bal-kic c-income"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span><span class="bal-kl">Доходи</span></div>
+              <div class="bal-kvrow"><div class="bal-kv" id="bal-v-inc"></div><span class="bal-pill hidden" id="bal-tr-inc"></span></div>
+              <div class="bal-kfoot"><div class="bal-sel" id="bal-sel-inc">за 6 місяців</div><div class="bal-chart" id="bal-ch-inc"></div></div>
+            </div>
+            <div class="bal-kpi">
+              <div class="bal-khd"><span class="bal-kic c-expense"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg></span><span class="bal-kl">Витрати</span></div>
+              <div class="bal-kvrow"><div class="bal-kv" id="bal-v-exp"></div><span class="bal-pill hidden" id="bal-tr-exp"></span></div>
+              <div class="bal-kfoot"><div class="bal-sel" id="bal-sel-exp">за 6 місяців</div><div class="bal-chart" id="bal-ch-exp"></div></div>
+            </div>
+            <div class="bal-kpi">
+              <div class="bal-khd"><span class="bal-kic c-inst"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><span class="bal-kl">Обов'язкові платежі</span></div>
+              <div class="bal-kv" id="bal-v-man"></div>
+              <div class="bal-kfoot"><div class="bal-krow"><span class="bal-kcap" id="bal-m-pct"></span></div><div class="bal-track"><div class="bal-fill inst" id="bal-m-fill"></div></div><span class="bal-kcap3" id="bal-m-hint"></span></div>
+            </div>
+            <div class="bal-kpi">
+              <div class="bal-khd"><span class="bal-kic c-income"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg></span><span class="bal-kl">Після обов'язкових</span></div>
+              <div class="bal-kv" id="bal-v-free"></div>
+              <div class="bal-kfoot"><div class="bal-krow"><span class="bal-kcap" id="bal-f-pct"></span></div><div class="bal-track"><div class="bal-fill income" id="bal-f-fill"></div></div><span class="bal-kcap3" id="bal-f-hint"></span></div>
+            </div>
+            </div>
+          </div></div></div>
+        </section>
+      </div>
       <!-- Rev 2.32.67 (P3): картка «Найближчі платежі» (7 днів) — перша на «Аналітиці»; наповнюється renderPaymentsCard(); прихована, якщо немає жодної ОЧ і жодної картки -->
       <section class="pay-card hidden" id="payments-card"></section>
       <div class="analytics-empty hidden" id="analytics-empty">
@@ -211,33 +252,6 @@
       </div>
       <div class="analytics-body" id="analytics-body">
       <div class="ov-row1">
-        <div class="kpi-card v2 income">
-          <div class="kpi-card-header">
-            <div class="kpi-icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div>
-            <div class="kpi-label">Доходи</div>
-          </div>
-          <div class="kpi-value mono" id="kpi-income">0 ₴</div>
-          <div class="kpi-trend" id="trend-income">—</div>
-          <div class="kpi-spark" id="spark-income"></div>
-        </div>
-        <div class="kpi-card v2 expense">
-          <div class="kpi-card-header">
-            <div class="kpi-icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg></div>
-            <div class="kpi-label">Витрати</div>
-          </div>
-          <div class="kpi-value mono" id="kpi-expense">0 ₴</div>
-          <div class="kpi-trend" id="trend-expense">—</div>
-          <div class="kpi-spark" id="spark-expense"></div>
-        </div>
-        <div class="kpi-card v2 savings" id="kpi-savings-card">
-          <div class="kpi-card-header">
-            <div class="kpi-icon-circle"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFQAAABOCAYAAAC+JjE8AAAI1klEQVR4nO2cW29UVRTHf52htOUZg4gtRSU++CJiJMaPA5jIJ4BoKxYT+AJeIvIZ9FsQjNAnnwxS7hJ5lV6n9WHt5VmzZ+999plz5lb6TyYDp+f6P2utva4z9dnKKw7QHFqjvoH9hgNCG8YBoQ3j0KhvwKAFTAW27wG7Q76XvjEOhLaAw8Bx5H4sqXvADvAc2GICiB0loUrkCWABWEJItWZoFyHzGvAIeMqYEzsqQmfpJnLB/X86sO8icBMh1BK7MYwbrYpREDoHfISQo0QeJr5AtoFTbj8ldgm4B6wP+marYtir/BxwFrgBnEOImjX3sQt0zEdVu+X2O+WOu+HOMzesG8/FMAmdRUi47r6P0E3kBvAQ+Au4774fuu2W2CPeeWaHc/t5GJbKtxGVXUHU3UrWBmIT1UY+RwhsIYuUtbFKnpqNFeAisIZI9MgxLEKnEVIWgBmzfR2xhUsUi822+fsaQtgCQraVyBlzzqeMCaHDUPk2haSdcP8Hkcy7wGXgDvDAbbM2dMNt/80db4lTqffPW4YWA3zuYdnQGYRUdYs6iGovIxL6irhvqfb1kftYCbaSH3K5LHRhO+k+djFsDMMgdBohc8bbvomQuplxjg4inWpjQ1J6nLCUWg/hU8T1uun+rV5GYxi0DbXqbh94m3wyFXrMtrddX1hIQmMBBHT7tHdpKFAYNKEt4uruS1sOYmYhZBfLAohTwJvu7415CoNS+ZC9stgG/qZX2vrFNPCWu06bwleNBRD2HnNtcBaaJtS3Vz8B3yEPa+3bNCIdTTyEmpUV4BPgfbqjKRtAhI4ts8GV0JTKhzJHsTjd2tXziB3LVbUYMRqF3ULSfYfcNVQzdpFU4FTgHCkbXBlNEBoz/KmEh1352+QlkX1bHLqPk/QSt4HYaiVa782iMU2tS2jVzJGFEgCFCxWzqTMUoWZKNf3r2kjsBTAP/Oi+7Tkay6/WIVQzR9eRh/WNfkrN2ohd/YGCTBvHW2hMf81cx4dNnijWEXfoCkLqjttvyzt2GyG7kQWyX0ItmX4aTW+6TM0OU6joIoX92/P2m6LXJlqoSkNhEjYREq8gpK4jL9F/WR3gJfCz+67tNvVDaIpMP3OkavYdQpqvqipRbQpyQwhJORQqfdUd+yVwzF03JwndBo4CF4Db7v5rSWpVQmNkary9SnfmqINIyyPETZojbl/L7K6aEIWVwlV3rfPIM2lhLxT9+FI6jbz0d5EX9yRyXBaqEBojcwt4TBHGrdKdFH7qttuFq6qLomGnmgQt3vlS+BAhJeY16HkWEP8URErfBr6ngfLKVGZv0yzwMb1kdpCQ7RKSYY+9Xd+18qubKdjKpy5atrxcRZpiz6HX2aCQ+t8rnhvII7RNUXk8R/FmQdJud5BY2E+t+UjV31Ow5G172/txd8q8E/tMa1RcqHJUvizbvkxvpj0EWzfKJVPRZPeIulOXKczQPIUXYisBzxGCs1GmdrGsuGbb1S2pohp+ZTPn03Rjg5L6OWKuHtObY9X6V6V8aRmhoYy4Jns12z52tfFMqLbcR8yVzc3OUkRmuohm2fzUTjHp3KYoR1RJEI8TWhSO/jMK4bCapqr/HuJSZZVNUn+MSaeuuGNTaawIzSG8gzzbHuLq6VpgVX8eCY9/QSK50rJJKk8YqlRCeSJjnKEr/C3gV/d9FlkkQ0VADY9P012PinatpCQ0lC7rpxY0LpgBzlBk8W0i+kMklg9pnpqHUCtQj6Tm5CsVdWpBo0YbeAP4AviA7lLJGeBrJKZ/Qnpt0FagaCoxRGisUgnxyuO4owP8g9jDPwgTtku39/KKuNsWTXaXSah/wG7g5JOCTWTxUd/5X/dZBb5BBMU6/XeAPyma1vw8apC7VKTkHzCp0mlhCbvqtl2l22XSfTRzpanFUKa/B7nZpkm2nz5slAThBIsNkduIcPkSGkSV9N1+kFCFEgbpnioQs3eMzJRj1QTzpNrPEHKepY0kxr9y36V1+5QfGrrgwaBYCWIEhdS70YaACUEHaRn61n2Xrh0hQkMLUMo33e/YoUIfVsyGHkhoMSpZ1rHShdSiFLOhr4MdnaUIvbURLUszq67yKqVrTLYvmoJtL7Kk+omQoJeQUwtXvA521B9MO01vf6vWxp4RsKspCVU7ukhBXqxffj/AH0zz853aYqSdMcsEosaYhKYy86oC+4nU1GCaSuQDpF3novsEi5Mplbe1IxVt2y1cuSI4xrClYysoW/QSeZtipqoHKUJjoyx+RXDSbakdc7TP00HKy5eQRIolMhq2li1KsZJH7I1OGvx+Latx2uR2n94h3ihyfMrQgFatZoAxQaots2pXzP8oI9QfIbRNDZOs+mVk9tsVkyWhftuNJXXSVF+LbLlkVu6KyQ0jY28t5W6MG8p+EaI2mVAtLvftil31Uw7xOEBVPNao0AiZUD3RoSufX7tOrZajhr5wf0xR0RiZUJ1Qv/POGmzrz6VGrduZH02f5R6T6jFQk+SPKTZKJvQ3BaJt08tIb9ACBXmp3KGmxHK6l7Vr+SXS0VF2TKpFPJZ/aJxM6H9OKdUwFpIUPyWWk+V6gcwPXUCqjmX1r9AQQ+yeUp5LLdSZpEtFDaqmUIwVak97rnu1iPRlHiUvW76A2MmygYOUb10bdWc9Q6RqC6DCjhVW8QB0fDHXztsmLh2iiA2MDayLsA6hoXypneHcMdeIZbxDY4iWgFZkv9C+0N11rFJ9kt6xSL1+4+iXUJsv9RcmO8MJ4Qe3I9d2PyVfyfAHvgjsa6efbdexfaH+DyAMDE1IaEhtUmqqAcIS3dPHOnWsJRaITynbfXU6TzUg54UOrAOmrg3dRGor86TnOBXWVblH78tYo+h6g/DAl93X/uqYtdGp+xhoS3vuaGIMGoXkzHGGRq5DUIceyge+WhRZrxwvwt5DX6OHZahLKOTNcZb5iXWR4+cO+h6AZgiF8jnOfoddq6AsEhvGPTT2qzg5c5yD/rXvnDnSgf/ieNO/LDbq/tFRX/+16FMaKg4IbRj/AbSZ9nt8XWGeAAAAAElFTkSuQmCC" alt="" style="width:22px;height:auto;display:block;"></div>
-            <div class="kpi-label">Баланс</div>
-          </div>
-          <div class="kpi-value mono" id="kpi-savings">0 ₴</div>
-          <div class="kpi-trend" id="trend-savings">—</div>
-          <div class="kpi-spark" id="spark-savings"></div>
-        </div>
         <div class="kpi-card v2 debt">
           <div class="data-status hidden" id="kpi-debt-asof">
             <button type="button" class="data-status-dot" aria-haspopup="true" aria-expanded="false" aria-label="Стан даних"></button>
@@ -288,21 +302,6 @@
       <div class="ov-kpistrip">
         <div class="card kpi-strip-card">
           <div class="kpi-strip">
-            <div class="kpi-strip-item">
-              <div class="ksi-head"><span class="ksi-icon c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span><span class="ksi-label">Витрати / Доходи</span></div>
-              <div class="ksi-value" id="kpi-ratio-val">—</div>
-              <div class="ksi-sub" id="kpi-ratio-sub">—</div>
-            </div>
-            <div class="kpi-strip-item">
-              <div class="ksi-head"><span class="ksi-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span class="ksi-label">Обов'язкові платежі</span></div>
-              <div class="ksi-value" id="kpi-mandatory">0 ₴</div>
-              <div class="ksi-sub" id="kpi-mandatory-sub">—</div>
-            </div>
-            <div class="kpi-strip-item">
-              <div class="ksi-head"><span class="ksi-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span><span class="ksi-label">Після обов'язкових</span></div>
-              <div class="ksi-value" id="kpi-free">0 ₴</div>
-              <div class="ksi-sub" id="kpi-free-sub">—</div>
-            </div>
             <div class="kpi-strip-item">
               <div class="ksi-head"><span class="ksi-icon c-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span><span class="ksi-label">Динаміка боргу</span></div>
               <div class="ksi-value" id="kpi-debtchange">—</div>
@@ -948,7 +947,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.384</div>
+  <div class="version-footer">Money Tree · Rev 2.32.385</div>
 </div>
   </div>
 </div>
@@ -1693,16 +1692,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.384"></script>
-<script src="./js/util-date.js?v=2.32.384"></script>
-<script src="./js/util-safe.js?v=2.32.384"></script>
-<script src="./js/util-misc.js?v=2.32.384"></script>
-<script src="./js/diag.js?v=2.32.384"></script>
-<script src="./js/shell.js?v=2.32.384"></script>
-<script src="./js/structure.js?v=2.32.384"></script>
-<script src="./js/analytics.js?v=2.32.384"></script>
-<script src="./js/payments.js?v=2.32.384"></script>
-<script src="./js/sheets.js?v=2.32.384"></script>
+<script src="./js/util-format.js?v=2.32.385"></script>
+<script src="./js/util-date.js?v=2.32.385"></script>
+<script src="./js/util-safe.js?v=2.32.385"></script>
+<script src="./js/util-misc.js?v=2.32.385"></script>
+<script src="./js/diag.js?v=2.32.385"></script>
+<script src="./js/shell.js?v=2.32.385"></script>
+<script src="./js/structure.js?v=2.32.385"></script>
+<script src="./js/analytics.js?v=2.32.385"></script>
+<script src="./js/payments.js?v=2.32.385"></script>
+<script src="./js/sheets.js?v=2.32.385"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6797,7 +6796,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.384';
+const APP_VERSION = '2.32.385';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
