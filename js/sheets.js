@@ -178,7 +178,8 @@ function sheetSwipeBlockedWhy(drawer){
     }
     drawer.addEventListener('pointerup', end);
     drawer.addEventListener('pointercancel', end);
-    drawer.addEventListener('lostpointercapture', function(e){ if(st && st.dragging && e.pointerId === st.id) end(e); });
+    // Rev 2.32.377 (DS-4a2): лише власна втрата захоплення шторкою. На iOS дотик неявно захоплюється елементом під пальцем (смужкою/заголовком); коли наш setPointerCapture переносить захоплення на шторку, подія lostpointercapture від смужки спливає сюди й раніше завершувала жест із зсувом 0 (звіт MT-1118-1989, 40 подій delta 0). Синтетичні дотики Playwright цього не відтворюють.
+    drawer.addEventListener('lostpointercapture', function(e){ if(e.target !== drawer) return; if(st && st.dragging && e.pointerId === st.id) end(e); });
   });
 })();
 (window.__MT_FILES = window.__MT_FILES || []).push('sheets.js');

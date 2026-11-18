@@ -138,3 +138,36 @@ test('101. справжні функції відкриття: «Налашту�
   expect(await page.evaluate(() => document.getElementById('settings-backdrop').classList.contains('open'))).toBe(false);
   expect(locked || true).toBe(true);
 });
+// Rev 2.32.377 (DS-4a2): на iOS дотик неявно захоплюється смужкою; lostpointercapture від неї спливає до шторки. Синтетичні дотики цього не дають, тож подію імітуємо вручну.
+test('148. iOS: lostpointercapture від смужки (неявне захоплення) посеред жесту не завершує його; власна втрата захоплення шторкою завершує', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(() => __open('settings-drawer')); await page.waitForTimeout(450);
+  const r = await page.evaluate(async () => {
+    const d = document.getElementById('settings-drawer'), h = d.querySelector('.drawer-handle'), b = h.getBoundingClientRect(), x = b.x + b.width / 2, y0 = b.y + b.height / 2;
+    const f = (el, t, y) => el.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true, pointerId: 9, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, button: t === 'pointerdown' ? 0 : -1 }));
+    const lost = (el) => el.dispatchEvent(new PointerEvent('lostpointercapture', { bubbles: true, pointerId: 9, pointerType: 'touch' }));
+    f(h, 'pointerdown', y0); f(h, 'pointermove', y0 + 20); lost(h); // iOS: захоплення переходить зі смужки на шторку
+    f(h, 'pointermove', y0 + 80); f(h, 'pointermove', y0 + 150);
+    const mid = d.style.getPropertyValue('--sheet-drag'), openMid = d.classList.contains('open');
+    f(h, 'pointerup', y0 + 150); lost(d);
+    return { mid, openMid };
+  });
+  expect(r.openMid, 'шторка не закрита до відпускання').toBe(true);
+  expect(parseFloat(r.mid), 'зсув іде за пальцем: ' + r.mid).toBeGreaterThan(100);
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => __isOpen('settings-drawer')), 'після відпускання за порогом шторка закрилась').toBe(false);
+});
+test('149. охоронець: зона жесту має touch-action:none; обробник lostpointercapture ігнорує чужі цілі; pointercancel не закриває', async ({ page }) => {
+  await boot(page);
+  const ta = await page.evaluate(() => ['.drawer-handle', '.drawer-head', '.sf-title'].map((s) => { const e = document.querySelector(s); return s + ':' + (e ? getComputedStyle(e).touchAction : 'нема'); }));
+  expect(ta, JSON.stringify(ta)).toEqual(['.drawer-handle:none', '.drawer-head:none', '.sf-title:none']);
+  await page.evaluate(() => __open('settings-drawer')); await page.waitForTimeout(450);
+  const open = await page.evaluate(async () => {
+    const d = document.getElementById('settings-drawer'), h = d.querySelector('.drawer-handle'), b = h.getBoundingClientRect(), x = b.x + 5, y0 = b.y + 5;
+    const f = (t, y) => h.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true, pointerId: 4, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, button: t === 'pointerdown' ? 0 : -1 }));
+    f('pointerdown', y0); f('pointermove', y0 + 40); f('pointermove', y0 + 160); f('pointercancel', y0 + 160);
+    await new Promise((r) => setTimeout(r, 450));
+    return d.classList.contains('open') && d.style.getPropertyValue('--sheet-drag') === '';
+  });
+  expect(open, 'pointercancel (iOS забрав жест) не закриває шторку й чистить зсув').toBe(true);
+});
