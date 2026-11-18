@@ -1,0 +1,22 @@
+{
+ "nested": {
+  "light-analytics": [],
+  "dark-analytics": []
+ },
+ "radii": {
+  "light": {
+   "avatarFace": "50%",
+   "profileBtn": "50%",
+   "payCardHit": "21px",
+   "payCard": "22px",
+   "badgeGeneric": "6px"
+  },
+  "dark": {
+   "avatarFace": "50%",
+   "profileBtn": "50%",
+   "payCardHit": "21px",
+   "payCard": "22px",
+   "badgeGeneric": "6px"
+  }
+ }
+}

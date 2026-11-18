@@ -1,0 +1,32 @@
+{
+ "nested": {
+  "light-analytics": [
+   "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)",
+   "button.pay-card-hit (r 22) у section#payments-card.pay-card.is-flat (r 22, відступ 1)",
+   "span.bank-badge.bank-badge-generic (r 10.8) у div.t-row.t-row-2col (r 10, відступ 3.9)",
+   "span.bank-badge.bank-badge-generic (r 10.8) у div.t-row.t-row-2col (r 10, відступ 3.9)"
+  ],
+  "dark-analytics": [
+   "span.avatar-face (r 18) у button#profile-btn-top.gear-btn.profile-header-btn (r 12, відступ 0)",
+   "button.pay-card-hit (r 22) у section#payments-card.pay-card.is-flat (r 22, відступ 1)",
+   "span.bank-badge.bank-badge-generic (r 11) у div.t-row.t-row-2col (r 10, відступ 4)",
+   "span.bank-badge.bank-badge-generic (r 11) у div.t-row.t-row-2col (r 10, відступ 4)"
+  ]
+ },
+ "radii": {
+  "light": {
+   "avatarFace": "50%",
+   "profileBtn": "12px",
+   "payCardHit": "22px",
+   "payCard": "22px",
+   "badgeGeneric": "50%"
+  },
+  "dark": {
+   "avatarFace": "50%",
+   "profileBtn": "12px",
+   "payCardHit": "22px",
+   "payCard": "22px",
+   "badgeGeneric": "50%"
+  }
+ }
+}
