@@ -2651,7 +2651,7 @@
        2.21.13 — .entry-title винесено ЗА межі .entry-card (нижче), тому цей
        конкретний рядок прибрано звідси — відступ заголовка тепер керується
        .vytraty-form-title margin-bottom (теж нижче). */
-    #vytraty-default-view .entry-card.vytraty-form-spacious .field{ margin-bottom:22px; }
+    #vytraty-default-view .entry-card.vytraty-form-spacious .field{ margin-bottom:var(--sp-6); }
     #vytraty-default-view .entry-card.vytraty-form-spacious .submit-btn{ margin-top:var(--sp-3); padding-top:var(--sp-4); padding-bottom:var(--sp-4); }
   }
   /* ---- Tablet (768–1279px): навігація як на mobile (нижня), але сітка на 2 колонки ---- */
@@ -2777,9 +2777,9 @@
        на ≥1280px через порядок у файлі (та сама колізія класів, що вже
        задокументована при базовому правилі .vytraty-form-title). */
     #view-vytraty .vytraty-form-title{ font-size:var(--fs-body); margin-bottom:var(--sp-3); }
-    #view-vytraty .field{ margin-bottom:10px; }
+    #view-vytraty .field{ margin-bottom:var(--sp-3); }
     #view-vytraty .field label, #view-vytraty .field .fld-label-like{ font-size:var(--fs-caption2); margin-bottom:var(--sp-1); }
-    #view-vytraty .field input, #view-vytraty .field select{ height:38px; padding:8px 10px; font-size:13.5px; }
+    #view-vytraty .field input, #view-vytraty .field select{ height:38px; padding:var(--sp-2) var(--sp-3); font-size:13.5px; }
     /* Rev 2.21.11 — #journal-date-input не всередині .field (див. коментар
        біля основного правила вище), тому потребує окремого дзеркального
        перевизначення тут, інакше на ≥1280px лишався б 46px заввишки, поки
