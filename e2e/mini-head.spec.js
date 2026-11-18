@@ -92,7 +92,9 @@ test('84. розміри й положення: h40, зона дотику ≥ 4
   await scrollTo(page, 400); await page.waitForTimeout(500);
   const m = await page.evaluate(() => { const e = document.getElementById('mini-head'), r = e.getBoundingClientRect(), a = getComputedStyle(e, '::after'); const cs = getComputedStyle(e); return { h: r.height, cx: r.x + r.width / 2, top: r.y, hit: r.height + Math.abs(parseFloat(a.top)) + Math.abs(parseFloat(a.bottom)), bf: cs.backdropFilter, radius: cs.borderTopLeftRadius, padL: cs.paddingLeft, label: e.getAttribute('aria-label'), hidden: e.getAttribute('aria-hidden'), fs: cs.fontSize }; });
   expect(m.h).toBe(40); expect(Math.abs(m.cx - 195)).toBeLessThan(1); expect(m.top).toBeGreaterThanOrEqual(10); expect(m.hit, 'зона дотику').toBeGreaterThanOrEqual(44);
-  expect(m.bf).toMatch(/blur\(24px\)/); expect(m.padL).toBe('16px'); expect(Number.parseFloat(m.radius)).toBeGreaterThan(19); expect(m.label).toBe('Повернутися нагору'); expect(m.hidden).toBe('false');
+  expect(m.bf).toMatch(/blur\(24px\)/);
+  // щільність фону: альфа ≥ .9 в обох темах (--glass-press), цифри під капсулою не просвічують
+  for (const th of ['light', 'dark']){ await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), th); await page.waitForTimeout(200); const al = await page.evaluate(() => { const c = getComputedStyle(document.getElementById('mini-head')).backgroundColor.match(/[\d.]+/g).map(Number); return c.length > 3 ? c[3] : 1; }); expect(al, th + ': непрозорість фону капсули').toBeGreaterThanOrEqual(0.9); } expect(m.padL).toBe('16px'); expect(Number.parseFloat(m.radius)).toBeGreaterThan(19); expect(m.label).toBe('Повернутися нагору'); expect(m.hidden).toBe('false');
 });
 test('85. 1280 пт (бічна панель): капсула по центру основної колонки', async ({ page }) => {
   await boot(page, { w: 1280, h: 800 });

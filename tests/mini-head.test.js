@@ -36,6 +36,11 @@ test('CSS: розміри макета (h40, 0 16, pill, gap 8), fixed під sa
   assert.ok(/\.mini-head\.mh-noblur\{ background:var\(--surface\); \}/.test(CSS));
   assert.ok(/prefers-reduced-motion: reduce\)\{ \.mini-head, \.mini-head\.on\{ transition:none; \} \}/.test(CSS));
 });
+test('фон капсули щільніший за таббар: --glass-press (не --glass), розмиття лишилось (Rev 2.32.367)', function(){
+  const r = (CSS.match(/\.mini-head\{[^}]*\}/) || [''])[0];
+  assert.ok(/background:var\(--glass-press\);/.test(r) && !/background:var\(--glass\)/.test(r));
+  assert.ok(/\.mini-head:not\(\.mh-noblur\)\.on\{ -webkit-backdrop-filter:blur\(24px\) saturate\(180%\)/.test(CSS));
+});
 test('розмітка: кнопка з aria-label «Повернутися нагору»', function(){
   assert.ok(/<button type="button" class="mini-head" id="mini-head" aria-label="Повернутися нагору"/.test(SRC));
 });
