@@ -61,6 +61,7 @@ test('DS-N4b: відступи (padding/margin/gap) у app.css на --sp-*, кр
   // Rev 2.32.378 (DS-4d2, headers): ліміт 113 → 108 (7 оголошень переведено на токени --sp-*)
   // Rev 2.32.379 (DS-4d2, fields): ліміт 108 → 94 (15 оголошень переведено на токени --sp-*)
   // Rev 2.32.380 (DS-4d2, struct): ліміт 94 → 84 (11 оголошень переведено на токени --sp-*)
-  assert.ok(j.spExceptions.length <= 84, 'винятків (форми шторок, kb-*, таббар) не більше 84, зараз ' + j.spExceptions.length);
+  // Rev 2.32.381 (DS-4d2, appmodal): ліміт 84 → 77 (7 оголошень переведено на токени --sp-*)
+  assert.ok(j.spExceptions.length <= 77, 'винятків (форми шторок, kb-*, таббар) не більше 77, зараз ' + j.spExceptions.length);
   ['--sp-1: 4px', '--sp-2: 8px', '--sp-3: 12px', '--sp-4: 16px', '--sp-5: 20px', '--sp-6: 24px', '--sp-8: 32px', '--sp-10: 40px', '--sp-12: 48px'].forEach(function(t){ assert.ok(TOK.indexOf(t) !== -1, t); });
 });

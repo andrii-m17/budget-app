@@ -2037,7 +2037,7 @@
   .rs-dlg button{ display:block; width:100%; height:44px; border-radius:var(--r-s); border:none; background:var(--surface-2); color:var(--text); font:inherit; font-size:var(--fs-subhead); margin-top:var(--sp-2); cursor:pointer; }
   .rs-dlg button:active{ background:var(--color-active-overlay); }
   @media (prefers-reduced-motion:reduce){ .rs-back, .rs-pane{ transition:none; } }
-  .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); max-height:80vh; overflow-y:auto; background:var(--surface); border-radius:var(--radius-xl); padding:22px 20px; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
+  .app-modal{ position:fixed; z-index:96; left:50%; top:50%; transform:translate(-50%,-50%) scale(.96); width:min(360px, calc(100vw - 40px)); max-height:80vh; overflow-y:auto; background:var(--surface); border-radius:var(--radius-xl); padding:var(--sp-6) var(--sp-5); box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--duration-base) var(--easing-standard), transform var(--duration-base) var(--easing-standard); }
   .app-modal.open{ opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
   /* Rev 2.32.159 (DIALOG-MOTION): поява 0,24 с (opacity 0→1, translateY 14px→0, scale .98→1, cubic-bezier(.2,.8,.2,1)), зникнення 0,2 с (ease-in, opacity→0, translateY 16px, scale .98) у фазі .leaving (її знімає closeAppModal після animationend / запасних 300 мс). Зсув і масштаб через окремі властивості translate/scale, а не transform: transform належить центруванню й підйому клавіатурних карток (--sheet-lift), анімація їх не зачіпає. Ризик: iOS < 14.5 не знає translate/scale — там лише затухання. */
   @keyframes appModalIn{ from{ opacity:0; translate:0 14px; scale:.98; } to{ opacity:1; translate:0 0; scale:1; } }
@@ -2063,20 +2063,20 @@
   .inc-value{ flex:none; font-size:var(--fs-footnote); color:var(--text-2); white-space:nowrap; }
   .app-modal-text{ font-size:var(--fs-subhead); line-height:1.5; color:var(--text); margin-bottom:var(--sp-4); white-space:pre-line; }
   .app-modal-input-wrap{ display:none; margin-bottom:var(--sp-4); }
-  .app-modal-input-wrap input{ width:100%; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .app-modal-input-wrap input{ width:100%; padding:var(--sp-3) var(--sp-3); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
   .app-modal-input-wrap input:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
   /* Rev 2.1.0 — вибір місяця в модалі видалення картки/ОЧ ("Приховати з...") */
   .app-modal-select-wrap{ display:none; margin-bottom:var(--sp-4); }
-  .app-modal-select-wrap label{ display:block; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
-  .app-modal-select-wrap select{ width:100%; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:15px; background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .app-modal-select-wrap label{ display:block; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:var(--sp-2); }
+  .app-modal-select-wrap select{ width:100%; padding:var(--sp-3) var(--sp-3); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:15px; background:var(--surface); color:var(--text); box-sizing:border-box; }
   /* Rev 2.1.17 — поле початкової суми ОЧ у спільній модалці (той самий стиль,
      що select-wrap вище) — приховане за замовчуванням, показується лише
      через showInstallmentModal(). */
   .app-modal-amount-wrap{ display:none; margin-bottom:var(--sp-4); }
-  .app-modal-amount-wrap label{ display:block; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
-  .app-modal-amount-wrap input{ width:100%; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .app-modal-amount-wrap label{ display:block; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:var(--sp-2); }
+  .app-modal-amount-wrap input{ width:100%; padding:var(--sp-3) var(--sp-3); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
   .app-modal-amount-wrap input:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
-  .app-modal-actions{ display:flex; gap:10px; }
+  .app-modal-actions{ display:flex; gap:var(--sp-3); }
   .app-modal-actions .submit-btn{ margin-top:0; flex:1; }
 
   .empty-hint{ font-size:var(--fs-footnote); color:var(--color-muted); text-align:center; padding:var(--sp-4) var(--sp-2); }
