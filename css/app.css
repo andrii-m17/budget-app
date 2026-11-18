@@ -1715,10 +1715,10 @@
   .n-diag-empty{ padding:var(--sp-3) var(--sp-4); font-size:var(--fs-footnote); color:var(--text-2); }
   #push-series-form{ border:1px solid var(--line); border-radius:var(--radius-sm); } #push-series-form .n-diag-row{ align-items:center; font-size:var(--fs-subhead); } #push-series-form select{ font-size:16px; min-height:36px; padding:var(--sp-1) var(--sp-2); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); } /* Rev 2.32.104: форма серії без текстових полів; select ≥ 16 px (без масштабування iOS) */
   /* ===== Rev 2.32.12 (R) — «Налаштування → Сповіщення»: inset-grouped список за макетом (рядок 52, групи 18, заголовки 13 пт, тумблер 51×31; значення з токенів --ui-*). Лише всередині #notifications-drawer — решта .n-* (список «Налаштування») без змін. ===== */
-  #notifications-drawer .n-section-label{ font-size:var(--fs-footnote); font-weight:600; letter-spacing:.04em; margin:22px 16px 7px; }
+  #notifications-drawer .n-section-label{ font-size:var(--fs-footnote); font-weight:600; letter-spacing:.04em; margin:var(--sp-6) var(--sp-4) var(--sp-2); }
   #notifications-drawer .nx-first{ margin-top:var(--sp-1); }
   #notifications-drawer .n-group{ border-radius:var(--r-m); }
-  #notifications-drawer .n-row, #notifications-drawer .n-time-row{ position:relative; min-height:52px; padding:0 var(--sp-4); border-top:none; gap:10px; }
+  #notifications-drawer .n-row, #notifications-drawer .n-time-row{ position:relative; min-height:52px; padding:0 var(--sp-4); border-top:none; gap:var(--sp-3); }
   #notifications-drawer .n-switch-input{ flex-shrink:0; }
   #notifications-drawer .n-row + .n-row::before, #notifications-drawer .n-row + .n-time-row::before, #notifications-drawer .n-time-row + .n-time-row::before, #notifications-drawer .n-days + .n-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--line); }
   #notifications-drawer .n-row-title{ font-size:var(--fs-callout); }
@@ -1726,7 +1726,7 @@
   #notifications-drawer .n-row .n-row-title{ white-space:nowrap; }
   #notifications-drawer .n-row.n-row-wrap{ padding-top:var(--sp-2); padding-bottom:var(--sp-2); } #notifications-drawer .n-row.n-row-wrap .n-row-title{ white-space:normal; } /* Rev 2.32.109 (HIDE-1): довгий підпис «Приховувати суми й назви на екрані блокування» переноситься на два рядки, а не ховається під перемикачем */
   #notifications-drawer .n-row{ gap:var(--sp-2); }
-  #notifications-drawer .nx-seg-row{ position:relative; padding:10px 16px 12px; }
+  #notifications-drawer .nx-seg-row{ position:relative; padding:var(--sp-3) var(--sp-4) var(--sp-3); }
   #notifications-drawer .nx-seg-row .n-row-title{ display:block; margin-bottom:var(--sp-2); }
   #notifications-drawer .nx-seg-row .n-days{ padding:0; }
   #notifications-drawer .nx-seg-row::before{ content:''; position:absolute; top:0; left:16px; right:0; height:1px; background:var(--line); }
