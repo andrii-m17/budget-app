@@ -1047,23 +1047,75 @@ function shouldScrollExpenseTop(trigger, state){
   return trigger === 'tab' || trigger === 'repeat' || trigger === 'push';
 }
 // Rev 2.32.355 (DS-3b): чи програвати анімацію іконки вибраної вкладки таббару. Лише при реальній зміні вкладки після першого жесту користувача (не старт, не відновлення, не повторний дотик), видима сторінка, без клавіатури, шторки, автофокусу (клавіатура зараз відкриється) і reduced-motion. Чиста функція: ctx = { switching, enabled, visible, kbOpen, drawerOpen, autofocus, reduced }.
-function shouldAnimateTabIcon(ctx){
+// Rev 2.32.360 (DS-3b3): причина, чому анімацію не запущено ('' — можна): same-tab | start (до першого жесту) | hidden | kb | drawer | autofocus | reduced. Порядок = пріоритет. 'ipad' (таббар сховано бічною панеллю) визначає playTabIconAnim.
+function tabAnimBlockReason(ctx){
   const c = ctx || {};
-  return !!(c.switching && c.enabled && c.visible && !c.kbOpen && !c.drawerOpen && !c.autofocus && !c.reduced);
+  if(!c.switching) return 'same-tab';
+  if(!c.enabled) return 'start';
+  if(!c.visible) return 'hidden';
+  if(c.kbOpen) return 'kb';
+  if(c.drawerOpen) return 'drawer';
+  if(c.autofocus) return 'autofocus';
+  if(c.reduced) return 'reduced';
+  return '';
+}
+function shouldAnimateTabIcon(ctx){
+  return tabAnimBlockReason(ctx) === '';
+}
+// Rev 2.32.360 (DS-3b3): запис у самописець (тип 'tab-anim') на КОЖНЕ натискання вкладки: звідки-куди (from/to), як (via: touch | swipe | click | click-after-touch | other), чи запущено (started) і чому ні (why), чи анімація справді йшла (ran), дограла (finished) чи обірвана (cutAfterMs, cutBy), запізнення старту (lagMs), плавність (frames, maxGapMs). Без даних користувача: лише назви вкладок і числа.
+let tabPressVia = 'other', lastTabTouchEndAt = 0;
+function recTabAnim(ev){
+  try{ if(typeof pushDebugEvent === 'function') pushDebugEvent(Object.assign({ type: 'tab-anim' }, ev)); }catch(e){}
+}
+let tabAnimTrace = null;
+function endTabAnimTrace(cutBy){
+  const tr = tabAnimTrace; if(!tr || tr.done) return;
+  tr.done = true; tabAnimTrace = null;
+  const now = performance.now();
+  const ev = { from: tr.from, to: tr.to, via: tr.via, started: true, ran: tr.ran, finished: !cutBy, anims: tr.names, lagMs: tr.lag, frames: tr.frames, maxGapMs: Math.round(tr.maxGap) };
+  if(cutBy){ ev.cutAfterMs = Math.round(now - tr.t0); ev.cutBy = cutBy; } else { ev.ms = Math.round(now - tr.t0); }
+  recTabAnim(ev);
+}
+function traceTabAnimStart(from, to, via){
+  endTabAnimTrace('next-tab');
+  const t0 = performance.now();
+  const tr = { from: from, to: to, via: via, t0: t0, last: t0, frames: 0, maxGap: 0, ran: false, names: '', lag: null, done: false };
+  tabAnimTrace = tr;
+  (function tick(now){
+    if(tabAnimTrace !== tr) return;
+    tr.frames++; tr.maxGap = Math.max(tr.maxGap, now - tr.last); tr.last = now;
+    if(now - t0 < 1000) requestAnimationFrame(tick); else endTabAnimTrace('timeout');
+  })(t0);
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    if(tabAnimTrace !== tr) return;
+    const btn = document.querySelector('nav.tabbar button[data-tab="' + to + '"]');
+    const list = btn && btn.getAnimations ? btn.getAnimations({ subtree: true }).filter(function(a){ return /^tb/.test(a.animationName || ''); }) : [];
+    tr.ran = list.length > 0;
+    tr.names = Array.from(new Set(list.map(function(a){ return a.animationName; }))).join('+');
+    const st = list.map(function(a){ return a.startTime; }).filter(function(x){ return typeof x === 'number'; });
+    if(st.length) tr.lag = Math.round(Math.min.apply(null, st) - t0);
+    if(!list.length){ endTabAnimTrace('no-anim'); return; }
+    Promise.all(list.map(function(a){ return a.finished; })).then(function(){ if(tabAnimTrace === tr) endTabAnimTrace(''); }, function(){
+      if(tabAnimTrace !== tr) return;
+      endTabAnimTrace(document.body.classList.contains('kb-open') ? 'kb-open' : (getComputedStyle(document.querySelector('nav.tabbar')).display === 'none' ? 'hidden' : 'external'));
+    });
+  }); });
 }
 let tabIconAnimTimer = null;
 // Rev 2.32.357 (DS-3b2): викликається ЛИШЕ при реальній зміні вкладки (switching). Раніше виклик ішов і при повторному performSwitchTab на ту саму вкладку (iOS: touchend не скасовується → слідом click → другий switchTab) із on=false, і той «порожній» виклик знімав .tb-anim щойно запущеної анімації — іконка «просто перемикалась». Тепер: on=true — анімація (із примусовим перезапуском, якщо клас уже стоїть, напр. A→B→A→B швидко); on=false — лише знімаємо анімацію попередньої вкладки (клавіатура, шторка, reduced-motion).
 function playTabIconAnim(tab, on){
   const bar = document.querySelector('nav.tabbar');
-  if(!bar) return;
+  if(!bar) return false;
+  if(!on) endTabAnimTrace('switch-blocked'); // Rev 2.32.360 (DS-3b3): попередню анімацію обриває перемикання без анімації (клавіатура, шторка...)
   bar.querySelectorAll('button.tb-anim').forEach(function(b){ if(!(on && b.getAttribute('data-tab') === tab)) b.classList.remove('tb-anim'); });
   if(tabIconAnimTimer){ clearTimeout(tabIconAnimTimer); tabIconAnimTimer = null; }
-  if(!on || getComputedStyle(bar).display === 'none') return; // на iPad/десктопі з бічною панеллю таббар сховано — анімацій немає
+  if(!on || getComputedStyle(bar).display === 'none') return false; // на iPad/десктопі з бічною панеллю таббар сховано — анімацій немає
   const btn = bar.querySelector('button[data-tab="' + tab + '"]');
-  if(!btn) return;
+  if(!btn) return false;
   if(btn.classList.contains('tb-anim')){ btn.classList.remove('tb-anim'); void btn.getBoundingClientRect(); } // перезапуск: клас знімаємо, перераховуємо стилі, додаємо
   btn.classList.add('tb-anim');
-  tabIconAnimTimer = setTimeout(function(){ btn.classList.remove('tb-anim'); tabIconAnimTimer = null; }, 800); // найдовша анімація 650 мс (структура із затримками) + запас
+  tabIconAnimTimer = setTimeout(function(){ endTabAnimTrace('timer'); btn.classList.remove('tb-anim'); tabIconAnimTimer = null; }, 800); // найдовша анімація 650 мс (структура із затримками) + запас
+  return true;
 }
 function performSwitchTab(tab, opts){
   // Rev 2.24.0 (M1) — попередня вкладка (для переходу й збереження прокрутки); незавершений перехід дозавершуємо одразу.
@@ -1127,7 +1179,15 @@ function performSwitchTab(tab, opts){
     document.getElementById('view-'+t).classList.toggle('hidden', t!==tab);
   });
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
-  if(switching) playTabIconAnim(tab, shouldAnimateTabIcon({ switching: switching, enabled: tabAnimEnabled, visible: document.visibilityState === 'visible', kbOpen: document.body.classList.contains('kb-open'), drawerOpen: !!document.querySelector('.drawer.open'), autofocus: willAutofocus, reduced: motionReduced() })); // Rev 2.32.355 (DS-3b); Rev 2.32.357 (DS-3b2): лише при зміні вкладки
+  { // Rev 2.32.355 (DS-3b); Rev 2.32.357 (DS-3b2): лише при зміні вкладки; Rev 2.32.360 (DS-3b3): причина й запис у самописець
+    const via = tabPressVia; tabPressVia = 'other';
+    let why = tabAnimBlockReason({ switching: switching, enabled: tabAnimEnabled, visible: document.visibilityState === 'visible', kbOpen: document.body.classList.contains('kb-open'), drawerOpen: !!document.querySelector('.drawer.open'), autofocus: willAutofocus, reduced: motionReduced() });
+    if(switching){
+      const started = playTabIconAnim(tab, why === '');
+      if(started) traceTabAnimStart(prevTab, tab, via);
+      else { if(why === '') why = 'ipad'; recTabAnim({ from: prevTab, to: tab, via: via, started: false, why: why }); }
+    } else recTabAnim({ from: prevTab, to: tab, via: via, started: false, why: why });
+  }
   document.querySelectorAll('.side-tab[data-tab]').forEach(b=>{ const on = b.dataset.tab===tab; b.classList.toggle('active', on); if(on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); // Rev 2.32.162 (DESK-NAV): aria-current для активного пункту панелі
   updateTabBubble();
   // BugFix Rev 2.0.8, переписано в Rev 2.7.0: вкладки — це просто

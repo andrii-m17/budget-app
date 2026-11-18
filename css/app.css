@@ -2189,7 +2189,7 @@
        .6s (за проханням, .9s виявилось задовгим). */
     /* Rev 2.24.0 (M1) — width із transition прибрано (дорога властивість: layout щокадру). Кнопки таббару однакової ширини (flex-basis 20%), тож width міняється лише при resize/повороті й там миттєво; рух — лише transform. */
     /* Rev 2.32.355 (DS-3b): 520 мс, крива з макета analytics-ds (.3,1.12,.5,1): перельот ≈ 0,4 % шляху (≲ 1,2 px), у межах відступу капсули 6 px; було .6s (.34,1.56,.64,1) з перельотом ≈ 10 % і виходом за край. */
-    transition:transform 520ms cubic-bezier(.3,1.12,.5,1), opacity .22s ease;
+    transition:transform 520ms cubic-bezier(.3,1.12,.5,1), opacity var(--t-s) var(--ease-standard);
     overflow:hidden;
   }
   .tabbar-bubble.no-anim{ transition:none; }
@@ -2393,6 +2393,11 @@
   nav.tabbar.pressed button.active:not(.preview-active){ color:var(--color-muted); }
   /* Rev 2.32.352 (DS-3a): залита іконка вибраної вкладки (SVG і правила з макета analytics-ds). Невибрані лишаються контурними. Без анімацій: рух (пружина, натиск) це DS-3b. Під час перетягування (.pressed) стара .active знову контурна, як і її колір. «Витрати» не змінено. */
   nav.tabbar svg .f, .side svg .f{ fill:currentColor; fill-opacity:0; }
+  /* Rev 2.32.360 (DS-3b3): переходи заливки й кольору як у макеті (200 мс, стандартна крива); було миттєво / 120 мс */
+  nav.tabbar button{ transition:color var(--t-s) var(--ease-standard); }
+  nav.tabbar svg .f{ transition:fill-opacity var(--t-s) var(--ease-standard); }
+  nav.tabbar svg .in{ transition:stroke var(--t-s) var(--ease-standard); }
+  nav.tabbar svg .o, nav.tabbar svg .s{ transition:opacity var(--t-s) var(--ease-standard); }
   nav.tabbar svg .in, .side svg .in{ stroke:currentColor; }
   nav.tabbar svg .s, .side svg .s{ opacity:0; }
   nav.tabbar svg, .side svg{ overflow:visible; }
@@ -2440,12 +2445,16 @@
   nav.tabbar button.tab-vytraty.preview-active .tb-icon-wrap{ background:var(--color-primary-hover); }
   nav.tabbar button.tab-vytraty.preview-active .tb-label{ color:var(--color-primary-hover); }
   /* Rev 2.32.355 (DS-3b): рух таббару за макетом analytics-ds. Усе лише transform/opacity (і окрема властивість scale). Анімації вибору вмикає клас .tb-anim (його ставить performSwitchTab лише при реальній зміні вкладки після першого жесту, без клавіатури, шторки й reduced-motion); без нього — жодних анімацій (старт, відновлення, повторний дотик). Бічна панель не містить .tbx/.tb-anim → анімацій немає. */
-  nav.tabbar button .tbx{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; transition:scale 380ms cubic-bezier(.3,1.4,.5,1), opacity 380ms ease; }
+  nav.tabbar{ --tb-rel:380ms; } /* Rev 2.32.360 (DS-3b3): повернення після натиску (макет): 380 мс, пружина (.3,1.4,.5,1) для scale, стандартна крива для opacity */
+  nav.tabbar button .tbx{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; transition:scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1), opacity var(--tb-rel) var(--ease-standard); }
   /* натиск: іконка й підпис стискаються до .86, поки палець на кнопці (touch: preview-active під пальцем; миша: .pressing), і пружно повертаються; скло й кнопка не стискаються */
-  nav.tabbar.pressed button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:.86; opacity:.75; transition:scale var(--t-micro) ease, opacity var(--t-micro) ease; }
+  nav.tabbar.pressed button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:.86; opacity:.75; transition:scale var(--t-micro) var(--ease-standard), opacity var(--t-micro) var(--ease-standard); }
   /* Rev 2.32.357 (DS-3b2): повторний дотик по вибраній вкладці (.tb-repeat ставить touchstart): повернення після натиску плавне, без пружного перельоту */
-  nav.tabbar.tb-repeat button.active .tbx{ transition:scale var(--t-s) ease, opacity var(--t-s) ease; }
-  nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:transform var(--t-l) cubic-bezier(.34,1.56,.64,1); }
+  nav.tabbar.tb-repeat button.active .tbx{ transition:scale var(--t-s) var(--ease-standard), opacity var(--t-s) var(--ease-standard); }
+  nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:transform var(--t-l) var(--ease-out); } /* Rev 2.32.360 (DS-3b3): макет — --ease-out (.22,1,.36,1), була пружина */
+  /* «Витрати»: коло «+» під натиском стискається до .9 (макет .pressing .plus{scale:.9}) поверх .86 вмісту */
+  nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard), scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1); }
+  nav.tabbar.pressed button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:.9; }
   /* «Витрати»: вибраний стан = м'яке кільце навколо кнопки й поворот «+» (макет) */
   nav.tabbar button.tab-vytraty.active .tb-icon-wrap{ box-shadow:0 0 0 4px var(--accent-bg), 0 0 0 5px var(--accent-line), 0 4px 10px color-mix(in srgb, var(--accent) 35%, transparent); }
   nav.tabbar button.tab-vytraty.active .tb-icon-wrap svg{ transform:rotate(90deg); }
@@ -2471,6 +2480,9 @@
     nav.tabbar button .tbx{ transition:none; }
     nav.tabbar.pressed button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:1; opacity:1; }
     nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:none; }
+    nav.tabbar svg .f, nav.tabbar svg .in, nav.tabbar svg .o, nav.tabbar svg .s{ transition:none; }
+    nav.tabbar.pressed button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:1; }
+    nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard); }
     nav.tabbar button[data-tab].tb-anim.active .sl, nav.tabbar button[data-tab].tb-anim.active svg, nav.tabbar button[data-tab].tb-anim.active svg circle, nav.tabbar button[data-tab].tb-anim.active .rot, nav.tabbar button[data-tab].tb-anim.active .s > circle{ animation:none; }
   }
 

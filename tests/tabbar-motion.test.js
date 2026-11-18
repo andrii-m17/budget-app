@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { buildSandbox, readAppCss } = require('./extract');
 const CSS = readAppCss();
-const c = buildSandbox({}, ['shouldAnimateTabIcon']);
+const c = buildSandbox({}, ['shouldAnimateTabIcon', 'tabAnimBlockReason']);
 const ok = { switching: true, enabled: true, visible: true, kbOpen: false, drawerOpen: false, autofocus: false, reduced: false };
 test('shouldAnimateTabIcon: лише реальна зміна вкладки без перешкод', function(){
   assert.equal(c.shouldAnimateTabIcon(ok), true);
@@ -48,4 +48,19 @@ test('розмітка: кожна кнопка таббару має .tbx; но
   assert.equal((nav.match(/<button/g) || []).length, 5);
   assert.equal((nav.match(/class="tbx"/g) || []).length, 5);
   assert.ok(!/<input|<textarea|<select/.test(nav));
+});
+test('tabAnimBlockReason: причина відмови для самописця (DS-3b3), порядок пріоритету', function(){
+  const r = (o) => c.tabAnimBlockReason(Object.assign({}, ok, o));
+  assert.equal(r({}), '');
+  assert.equal(r({ switching: false }), 'same-tab'); assert.equal(r({ enabled: false }), 'start'); assert.equal(r({ visible: false }), 'hidden');
+  assert.equal(r({ kbOpen: true }), 'kb'); assert.equal(r({ drawerOpen: true }), 'drawer'); assert.equal(r({ autofocus: true }), 'autofocus'); assert.equal(r({ reduced: true }), 'reduced');
+  assert.equal(r({ switching: false, enabled: false, kbOpen: true }), 'same-tab', 'та сама вкладка важливіша за решту');
+  assert.equal(c.tabAnimBlockReason(), 'same-tab');
+});
+test('самописець: тип tab-anim і ключі трасування в білих списках (без заборонених імен ключів)', function(){
+  const SRC = require('./extract').readIndexWithCss();
+  const ti = SRC.indexOf('const REC_ALLOWED_TYPES = ['); const types = SRC.slice(ti, SRC.indexOf('];', ti));
+  assert.ok(types.indexOf("'tab-anim'") !== -1);
+  const ki = SRC.indexOf('const REC_ALLOWED_KEYS = ['); const keys = SRC.slice(ki, SRC.indexOf('];', ki));
+  ['via', 'started', 'ran', 'finished', 'why', 'cutAfterMs', 'cutBy', 'lagMs', 'anims', 'from', 'to', 'frames', 'maxGapMs', 'ms'].forEach(function(k){ assert.ok(keys.indexOf("'" + k + "'") !== -1, k); });
 });

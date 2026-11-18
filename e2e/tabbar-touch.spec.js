@@ -113,3 +113,60 @@ test('53. повторний дотик по вибраній: повернен�
   });
   expect(r2, 'дотик по невибраній: .tb-repeat немає').toBe(false);
 });
+// Rev 2.32.360 (DS-3b3): 20 натискань (зміни вкладок, серія швидше 300 мс, повторні дотики, touchend скасовується й ні): анімація запускається й доходить щоразу, повторний дотик не запускає, подія самописця tab-anim записується на кожне натискання
+const recTab = (page) => page.evaluate(() => recBuf.filter(e => e.type === 'tab-anim').map(e => Object.assign({}, e)));
+test('55. 20 натискань: подія tab-anim на кожне; зміни — started/ran, дограли або обірвані наступною; повторні — started=false, why=same-tab', async ({ page }) => {
+  test.setTimeout(180000);
+  await boot(page);
+  expect(await page.evaluate(() => recBgOn), 'бортовий самописець увімкнено').toBe(true);
+  await tap(page, 'accounting'); await page.waitForTimeout(1200); // перший жест
+  await page.evaluate(() => { recBuf.length = 0; });
+  // [вкладка, пауза після мс, параметри дотику]; пауза < 300 — серія швидше 300 мс
+  const plan = [['structure', 900, {}], ['structure', 900, {}], ['service', 900, { cancelable: false }], ['analytics', 250, {}], ['structure', 200, { cancelable: false }], ['service', 150, {}], ['accounting', 900, { jitter: 5 }],
+    ['accounting', 700, {}], ['structure', 900, {}], ['analytics', 120, { cancelable: false }], ['service', 100, {}], ['analytics', 900, {}], ['analytics', 500, { cancelable: false }], ['accounting', 280, {}], ['structure', 260, { cancelable: false }],
+    ['service', 900, {}], ['service', 600, {}], ['analytics', 900, {}], ['structure', 200, {}], ['accounting', 1000, {}]];
+  expect(plan.length).toBe(20);
+  let cur = 'accounting'; const exp = [];
+  for (const [tab, gap, o] of plan){ const change = tab !== cur; exp.push({ tab, from: cur, change, gap, click: o.cancelable === false }); await tap(page, tab, o); cur = tab; await page.waitForTimeout(gap); }
+  await page.waitForTimeout(1200);
+  const evs = await recTab(page);
+  const fails = [];
+  // події на дотик (via touch|swipe) — по одній на натискання; click-after-touch — додаткові (same-tab)
+  const main = evs.filter(e => e.via !== 'click-after-touch'), extra = evs.filter(e => e.via === 'click-after-touch');
+  expect(main.length, 'подія на кожне з 20 натискань: ' + JSON.stringify(evs.map(e => e.to + ':' + e.via))).toBe(20);
+  exp.forEach((x, i) => {
+    const e = main[i];
+    if(e.to !== x.tab || e.from !== x.from) { fails.push(i + ' ' + x.from + '→' + x.tab + ': в записі ' + e.from + '→' + e.to); return; }
+    if(x.change){
+      if(!e.started || !e.ran) fails.push(i + ' ' + x.tab + ': анімація не запущена/не йшла ' + JSON.stringify(e));
+      else if(x.gap >= 700 && !e.finished) fails.push(i + ' ' + x.tab + ': не догралась за ' + x.gap + ' мс ' + JSON.stringify(e));
+      else if(x.gap < 300 && !e.finished && e.cutBy !== 'next-tab') fails.push(i + ' ' + x.tab + ': обірвана не наступною вкладкою: ' + JSON.stringify(e));
+    } else if(e.started !== false || e.why !== 'same-tab') fails.push(i + ' ' + x.tab + ': повторний дотик має бути started=false, why=same-tab: ' + JSON.stringify(e));
+  });
+  extra.forEach(e => { if(e.started !== false || e.why !== 'same-tab') fails.push('click слідом за дотиком запустив анімацію: ' + JSON.stringify(e)); });
+  expect(fails, fails.join('\n')).toEqual([]);
+  // приватність: у записі лише дозволені ключі; жодних даних користувача
+  const keys = new Set(); evs.forEach(e => Object.keys(e).forEach(k => keys.add(k)));
+  const allowed = await page.evaluate(() => REC_ALLOWED_KEYS.concat(['type', 'wall']));
+  expect([...keys].filter(k => allowed.indexOf(k) === -1), 'ключі поза білим списком').toEqual([]);
+});
+test('56. причини, чому анімацію не запущено, потрапляють у запис: старт, клавіатура, шторка, reduced-motion', async ({ page }) => {
+  await boot(page);
+  // до першого жесту (старт): програмне перемикання
+  await page.evaluate(() => { recBuf.length = 0; switchTab('structure'); });
+  let evs = await recTab(page); expect(evs.map(e => e.why)).toEqual(['start']);
+  await tap(page, 'accounting'); await page.waitForTimeout(1200); await page.evaluate(() => { recBuf.length = 0; });
+  await page.evaluate(() => { document.body.classList.add('kb-open'); switchTab('service'); document.body.classList.remove('kb-open'); });
+  await page.evaluate(() => { const d = document.createElement('div'); d.className = 'drawer open'; d.id = 'zz-fake'; document.body.appendChild(d); switchTab('structure'); });
+  evs = await recTab(page); expect(evs.map(e => e.why)).toEqual(['kb', 'drawer']);
+  expect(evs.every(e => e.started === false && typeof e.from === 'string' && typeof e.to === 'string')).toBe(true);
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await page.evaluate(() => { document.getElementById('zz-fake').remove(); recBuf.length = 0; switchTab('analytics'); });
+  evs = await recTab(page); expect(evs.map(e => e.why)).toEqual(['reduced']);
+});
+test('57. iPad/десктоп із бічною панеллю: у записі why=ipad (таббар сховано)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await boot(page);
+  await page.click('.side-tab[data-tab="accounting"]'); await page.waitForTimeout(300);
+  await page.evaluate(() => { recBuf.length = 0; }); await page.click('.side-tab[data-tab="structure"]'); await page.waitForTimeout(300);
+  const evs = await recTab(page); expect(evs.map(e => e.why)).toEqual(['ipad']); expect(evs[0].from).toBe('accounting'); expect(evs[0].to).toBe('structure');
+});
