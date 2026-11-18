@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.375"><link rel="stylesheet" href="./css/app.css?v=2.32.375"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.376"><link rel="stylesheet" href="./css/app.css?v=2.32.376"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -948,7 +948,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.375</div>
+  <div class="version-footer">Money Tree · Rev 2.32.376</div>
 </div>
   </div>
 </div>
@@ -1065,7 +1065,7 @@
     <div id="mono-inbox-body"></div>
   </div>
 </div>
-<div class="drawer-backdrop" id="mono-detail-backdrop" onclick="closeMonoDetail()" inert></div>
+<div class="drawer-backdrop" id="mono-detail-backdrop" onclick="requestCloseSheet('mono-detail-drawer','backdrop')" inert></div>
 <div class="drawer" id="mono-detail-drawer" role="dialog" aria-label="Операція" aria-modal="true" inert>
   <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
@@ -1075,7 +1075,7 @@
         <div class="drawer-head-sub" id="mono-detail-sub"></div>
       </div>
     </div>
-    <button class="drawer-close" onclick="closeMonoDetail()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <button class="drawer-close" onclick="requestCloseSheet('mono-detail-drawer','close')" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
   <div id="mono-detail-body"></div>
   <div class="mono-detail-fields" id="mono-detail-fields">
@@ -1277,7 +1277,7 @@
      drawer-елементи. Плаваючий індикатор під час запису — ОКРЕМИЙ елемент
      (#debug-record-indicator, нижче, поза .drawer), бо має лишатись видимим
      і клікабельним, поки сама шторка закрита. -->
-<div class="drawer-backdrop" id="debug-record-backdrop" onclick="closeDebugRecordDrawer()" inert></div>
+<div class="drawer-backdrop" id="debug-record-backdrop" onclick="requestCloseSheet('debug-record-drawer','backdrop')" inert></div>
 <div class="drawer" id="debug-record-drawer" role="dialog" aria-label="Запис діагностики" aria-modal="true" inert>
   <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
@@ -1287,7 +1287,7 @@
         <div class="drawer-head-sub">Для пошуку проблем з екраном і клавіатурою</div>
       </div>
     </div>
-    <button class="drawer-close" onclick="closeDebugRecordDrawer()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <button class="drawer-close" onclick="requestCloseSheet('debug-record-drawer','close')" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
   <div id="debug-record-form">
     <div class="field">
@@ -1482,7 +1482,7 @@
 </div>
 
 <!-- ================= Форми «Структури» (Rev 2.32.58, F1): категорія, підкатегорія, слово — той самий компонент .drawer, що Дохід/Борг/ОЧ/картка (плаваюча картка, відступи 16, радіус --ui-r-container); компактні рядки по 48 пт, пара кнопок знизу, ✕ немає, «Видалити …» червоним текстом під парою. Розкладка полів наповнюється JS (openStructForm). -->
-<div class="drawer-backdrop" id="struct-backdrop" onclick="closeStructForm()" inert></div>
+<div class="drawer-backdrop" id="struct-backdrop" onclick="requestCloseSheet('struct-drawer','backdrop')" inert></div>
 <div class="drawer struct-form" id="struct-drawer" role="dialog" aria-label="Структура" aria-modal="true" inert>
   <div class="drawer-handle" aria-hidden="true"></div>
   <h2 class="sf-title" id="sf-title"></h2>
@@ -1496,7 +1496,7 @@
     <button type="button" class="cdd-delete-link" id="sf-delete"></button>
     <div class="struct-caption" id="sf-delete-note"></div>
   </div>
-  <button type="button" class="sr-close" onclick="closeStructForm()" aria-label="Закрити">Закрити</button><!-- Rev 2.32.375 (DS-4b): для читачів екрана й клавіатури; візуально прихована -->
+  <button type="button" class="sr-close" onclick="requestCloseSheet('struct-drawer','close')" aria-label="Закрити">Закрити</button><!-- Rev 2.32.375 (DS-4b): для читачів екрана й клавіатури; візуально прихована -->
 </div>
 
 <!-- ================= Редагування картки боргу (Drawer, Rev 2.16.5) =================
@@ -1504,7 +1504,7 @@
      рядку картки в "Борги по картках" відкриває цю шторку з повним набором
      полів; Зберегти тут одразу й підтверджує зміни за цей місяць (немає
      окремого глобального "Зберегти борги"). -->
-<div class="drawer-backdrop" id="card-debt-backdrop" onclick="closeCardDebtEditor()" inert></div>
+<div class="drawer-backdrop" id="card-debt-backdrop" onclick="requestCloseSheet('card-debt-drawer','backdrop')" inert></div>
 <div class="drawer" id="card-debt-drawer" role="dialog" aria-label="Картка" aria-modal="true" inert>
   <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
@@ -1515,7 +1515,7 @@
         <div class="drawer-head-sub">Кредитна картка</div>
       </div>
     </div>
-    <button class="drawer-close" onclick="closeCardDebtEditor()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <button class="drawer-close" onclick="requestCloseSheet('card-debt-drawer','close')" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
   <div class="field">
     <!-- Rev 2.23.1 (6D.171) — id БЕЗ підрядка "name" (було cdd-name): єдина
@@ -1559,7 +1559,7 @@
      розбіжності факт/очікування (checkInstallmentDivergence) і кнопка
      "Оплатити цю ОЧ" (payInstallmentQuick), обидві збережені за проханням
      користувача. -->
-<div class="drawer-backdrop" id="installment-backdrop" onclick="closeInstallmentEditor()" inert></div>
+<div class="drawer-backdrop" id="installment-backdrop" onclick="requestCloseSheet('installment-drawer','backdrop')" inert></div>
 <div class="drawer" id="installment-drawer" role="dialog" aria-label="ОЧ" aria-modal="true" inert>
   <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
@@ -1570,7 +1570,7 @@
         <div class="drawer-head-sub">Оплата частинами</div>
       </div>
     </div>
-    <button class="drawer-close" onclick="closeInstallmentEditor()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <button class="drawer-close" onclick="requestCloseSheet('installment-drawer','close')" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
   <!-- Rev 2.32.171 (OCH-MODEL): компактна форма ОЧ (поля 34 px, підписи 10 px): назва; «Загальна сума» і «Місяців»; «Дата створення» і «Платіж/міс»; два сегменти; необов'язковий «Залишок за банком»; «Оплатити» і «Зберегти» закріплені внизу; «Видалити ОЧ». Поле «Дата платежу» прибрано: день платежу = число дати створення (для ОЧ без дати створення dueDay лишається). -->
   <div class="och-form">
@@ -1639,7 +1639,7 @@
      Той самий патерн шторки, що картки/ОЧ вище — джерела доходу фіксовані
      (INCOME_SOURCES, немає додавання/перейменування/видалення), тому шторка
      має лише одне поле суми за обраний місяць. -->
-<div class="drawer-backdrop" id="income-backdrop" onclick="closeIncomeEditor()" inert></div>
+<div class="drawer-backdrop" id="income-backdrop" onclick="requestCloseSheet('income-drawer','backdrop')" inert></div>
 <div class="drawer" id="income-drawer" role="dialog" aria-label="Дохід" aria-modal="true" inert>
   <div class="drawer-handle" aria-hidden="true"></div>
   <div class="drawer-head">
@@ -1650,7 +1650,7 @@
         <div class="drawer-head-sub">Джерело доходу</div>
       </div>
     </div>
-    <button class="drawer-close" onclick="closeIncomeEditor()" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <button class="drawer-close" onclick="requestCloseSheet('income-drawer','close')" aria-label="Закрити"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
   <div class="field">
     <label for="ind-amount">Сума</label>
@@ -1693,16 +1693,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.375"></script>
-<script src="./js/util-date.js?v=2.32.375"></script>
-<script src="./js/util-safe.js?v=2.32.375"></script>
-<script src="./js/util-misc.js?v=2.32.375"></script>
-<script src="./js/diag.js?v=2.32.375"></script>
-<script src="./js/shell.js?v=2.32.375"></script>
-<script src="./js/structure.js?v=2.32.375"></script>
-<script src="./js/analytics.js?v=2.32.375"></script>
-<script src="./js/payments.js?v=2.32.375"></script>
-<script src="./js/sheets.js?v=2.32.375"></script>
+<script src="./js/util-format.js?v=2.32.376"></script>
+<script src="./js/util-date.js?v=2.32.376"></script>
+<script src="./js/util-safe.js?v=2.32.376"></script>
+<script src="./js/util-misc.js?v=2.32.376"></script>
+<script src="./js/diag.js?v=2.32.376"></script>
+<script src="./js/shell.js?v=2.32.376"></script>
+<script src="./js/structure.js?v=2.32.376"></script>
+<script src="./js/analytics.js?v=2.32.376"></script>
+<script src="./js/payments.js?v=2.32.376"></script>
+<script src="./js/sheets.js?v=2.32.376"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6797,7 +6797,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.375';
+const APP_VERSION = '2.32.376';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -17204,6 +17204,12 @@ async function runMonoAddAll(){
   await monoAfterChange();
 }
 // ----- шторка з деталями -----
+// Rev 2.32.376 (DS-4c): поля шторки операції (категорія, підкатегорія, примітка, ОЧ) для порівняння «змінено» (js/sheets.js)
+let monoDetailSnap = null;
+function monoDetailFieldsNow(){
+  const v = function(i){ const el = document.getElementById(i); return el ? String(el.value || '') : ''; };
+  return { cat: v('fldmono2'), sub: v('fldmono3'), note: v('fldmono4').trim(), inst: v('fldmono5') };
+}
 function openMonoDetail(id){
   const row = monoInbox.rows.concat(monoInbox.autoRows || []).filter(function(r){ return safeId(r.id) === id; })[0]; // Rev 2.32.331 (MONO-FLOW): і рядки групи «Додано автоматично»
   if(!row) return;
@@ -17253,6 +17259,7 @@ function openMonoDetail(id){
     document.getElementById('fldmono3').innerHTML = subcategoryOptionsHtml(cat.value, s0 || '');
     monoKwShowHint(null); monoInstFill(row, false); monoPickRefresh();
   }
+  monoDetailSnap = monoDetailFieldsNow(); // Rev 2.32.376 (DS-4c): початковий стан полів — для підтвердження закриття зміненої шторки
   const backdrop = document.getElementById('mono-detail-backdrop'), drawer = document.getElementById('mono-detail-drawer');
   const wasOpen = drawer.classList.contains('open');
   backdrop.removeAttribute('inert'); backdrop.classList.add('open');

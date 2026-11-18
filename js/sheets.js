@@ -42,8 +42,75 @@ function openSheetsTopFirst(){
 // Esc: закриває лише верхню шторку чи діалог (раніше — усі разом, а п'ять шторок не закривав зовсім); false — відкритих немає
 function closeTopSheet(){
   const ids = openSheetsTopFirst();
-  for(let k = 0; k < ids.length; k++){ if(closeSheetById(ids[k])) return true; }
+  for(let k = 0; k < ids.length; k++){ if(requestCloseSheet(ids[k], 'esc')) return true; } // Rev 2.32.376 (DS-4c): Esc теж через підтвердження для змінених форм
   return false;
+}
+// Rev 2.32.376 (DS-4c): підтвердження «Скасувати зміни?» при закритті зміненої форми. Один шлях для свайпу, затемнення, Esc і «Закрити»/«×»: requestCloseSheet(id, via).
+// Збереження кнопкою викликає власні функції закриття напряму (без діалогу). Не змінена форма закривається мовчки, як раніше. Форма входу (profile-drawer) і довідкові шторки не охоплені.
+// Ознака «змінено» — наявна saveFormChanged: порівняння з початковим станом без forceChange (відсутній запис за місяць не робить форму «зміненою» до першої правки).
+const SHEET_DISCARD_FORMS = { 'card-debt-drawer': 'card', 'installment-drawer': 'inst', 'income-drawer': 'income', 'struct-drawer': 'struct', 'mono-detail-drawer': 'mono', 'debug-record-drawer': 'debug' };
+function sheetIsDirty(id){
+  const kind = SHEET_DISCARD_FORMS[id]; if(!kind) return false;
+  const d = document.getElementById(id); if(!d || !d.classList.contains('open')) return false;
+  try{
+    if(kind === 'card' || kind === 'inst' || kind === 'income'){ const s = saveGateSnaps[kind]; return !!s && saveFormChanged(s.fields, readSaveGateFields(kind), false); }
+    if(kind === 'struct') return !!(structForm && structForm.snap && structForm.read && saveFormChanged(structForm.snap, structForm.read(), false));
+    if(kind === 'mono'){ if(!monoDetailSnap) return false; const cur = monoDetailFieldsNow(); return Object.keys(cur).some(function(k){ return cur[k] !== monoDetailSnap[k]; }); }
+    if(kind === 'debug'){ const f = document.getElementById('debug-record-form'); if(!f || f.classList.contains('hidden')) return false; const el = document.getElementById('debug-record-scenario'); return !!el && el.value.trim() !== debugRecordSnap; }
+  }catch(e){}
+  return false;
+}
+function sheetDiscardRec(id, via, choice){ try{ if(typeof pushDebugEvent === 'function') pushDebugEvent({ type: 'sheet-discard', drawerId: id, via: via, choice: choice }); }catch(e){} }
+// Клавіатура закривається штатно (blur → наявний конвеєр kb-*), діалог — коли лист опустився (без стрибка шторки). Стеля очікування 800 мс.
+function sheetWhenKeyboardSettled(drawer, cb){
+  const R = document.documentElement;
+  const busy = function(){ return R.classList.contains('kb-sheet') || R.classList.contains('kb-sheet-closing') || document.body.classList.contains('kb-open'); };
+  const a = document.activeElement;
+  if(a && drawer.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)){ try{ a.blur(); }catch(e){} }
+  if(!busy()){ cb(); return; }
+  const t0 = performance.now();
+  (function wait(){ if(!busy() || performance.now() - t0 > 800){ cb(); return; } setTimeout(wait, 40); })();
+}
+// Єдина точка закриття за дією користувача. true — подію оброблено (закрито або показано діалог); false — шторки з таким id нема
+function requestCloseSheet(id, via){
+  if(sheetIsDirty(id)){
+    const drawer = document.getElementById(id);
+    if(!document.getElementById('app-modal').classList.contains('open')) sheetWhenKeyboardSettled(drawer, function(){ if(sheetIsDirty(id)) showSheetDiscardConfirm(id, via); });
+    return true;
+  }
+  return closeSheetById(id);
+}
+// Діалог app-modal (не системний confirm): «Продовжити редагування» — основна, «Скасувати зміни» — червона. Фон, Esc і закриття діалогу = «Продовжити».
+function showSheetDiscardConfirm(id, via){
+  const drawer = document.getElementById(id);
+  const text = document.getElementById('app-modal-text'); text.textContent = '';
+  const title = document.createElement('div'); title.style.fontWeight = '700'; title.style.marginBottom = '6px'; title.id = 'app-modal-heading'; title.textContent = 'Скасувати зміни?';
+  const body = document.createElement('div'); body.textContent = 'Внесені зміни не буде збережено.';
+  text.appendChild(title); text.appendChild(body);
+  const modal = document.getElementById('app-modal'); modal.setAttribute('aria-labelledby', 'app-modal-heading'); // VoiceOver читає заголовок
+  const cancelBtn = document.getElementById('app-modal-cancel-btn'), confirmBtn = document.getElementById('app-modal-confirm-btn');
+  cancelBtn.classList.remove('secondary'); cancelBtn.textContent = 'Продовжити редагування';
+  confirmBtn.textContent = 'Скасувати зміни'; confirmBtn.className = 'submit-btn danger-outline';
+  const field = drawer ? drawer.querySelector('input:not([type=hidden]), textarea, select') : null;
+  confirmBtn.onclick = function(){
+    sheetDiscardRec(id, via, 'discard');
+    modal.removeAttribute('aria-labelledby');
+    closeAppModal();
+    lastFocusedBeforeDialog = null;
+    closeSheetById(id);
+  };
+  appModalPurgeStyled = true;
+  presentAppModal();
+  lastFocusedBeforeDialog = field || drawer || lastFocusedBeforeDialog;
+  sheetDiscardRec(id, via, 'ask');
+  sheetDiscardWatch(modal, id, via);
+}
+// Закриття діалогу будь-яким іншим шляхом (Esc, фон, «Продовжити») = «Продовжити редагування»; фіксуємо вибір один раз
+function sheetDiscardWatch(modal, id, via){
+  let done = false;
+  const fin = function(){ if(done) return; done = true; obs.disconnect(); modal.removeAttribute('aria-labelledby'); if(!(document.getElementById(id) && document.getElementById(id).classList.contains('open')) ) return; sheetDiscardRec(id, via, 'continue'); };
+  const obs = new MutationObserver(function(){ if(!modal.classList.contains('open')) fin(); });
+  obs.observe(modal, { attributes: true, attributeFilter: ['class'] });
 }
 function sheetSwipeRec(ev){ try{ if(typeof pushDebugEvent === 'function') pushDebugEvent(Object.assign({ type: 'sheet-swipe' }, ev)); }catch(e){} }
 // Чому жест зараз вимкнено: '' — можна; 'kb' (клавіатура), 'desktop' (бічна панель ≥ 1280)
@@ -92,8 +159,10 @@ function sheetSwipeBlockedWhy(drawer){
       if(!s.dragging) return;
       const dec = sheetSwipeDecision(s.dy, performance.now() - s.t0);
       const reduced = (typeof motionReduced === 'function') && motionReduced();
+      const askDiscard = dec.close && e && e.type !== 'pointercancel' && sheetIsDirty(drawer.id); // Rev 2.32.376 (DS-4c): змінена форма — пружне повернення, потім діалог
+      if(askDiscard) dec.close = false;
       if(e && e.type === 'pointercancel'){ dec.close = false; }
-      sheetSwipeRec({ drawerId: drawer.id, delta: Math.round(s.dy), vel: Math.round(dec.vel * 1000), closed: !!dec.close, why: '' });
+      sheetSwipeRec({ drawerId: drawer.id, delta: Math.round(s.dy), vel: Math.round(dec.vel * 1000), closed: !!dec.close, why: askDiscard ? 'dirty' : '' });
       if(dec.close){
         drawer.style.transition = ''; // закриття рухає наявний перехід .drawer від поточного положення до низу
         if(!closeSheetById(drawer.id)){ // запасний шлях: «×» шторки
@@ -104,6 +173,7 @@ function sheetSwipeBlockedWhy(drawer){
         drawer.style.transition = reduced ? 'none' : 'transform var(--t-m) var(--ease-spring)';
         clearDrag();
         setTimeout(function(){ drawer.style.transition = ''; }, reduced ? 0 : 380);
+        if(askDiscard) setTimeout(function(){ requestCloseSheet(drawer.id, 'swipe'); }, reduced ? 0 : 330);
       }
     }
     drawer.addEventListener('pointerup', end);

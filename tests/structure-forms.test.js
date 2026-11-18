@@ -34,7 +34,7 @@ test('заголовки в один рядок (без ✕ у формах «С
   assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-title\{[^}]*white-space:nowrap/);
   const s0 = SRC.indexOf('<div class="drawer struct-form" id="struct-drawer"'); const drawer = SRC.slice(s0, SRC.indexOf('id="card-debt-backdrop"', s0));
   assert.ok(!/drawer-close/.test(drawer), 'без ✕'); // Rev 2.32.375 (DS-4b): є лише візуально прихована «Закрити» (.sr-close)
-  assert.ok(/<button type="button" class="sr-close" onclick="closeStructForm\(\)" aria-label="Закрити">/.test(drawer));
+  assert.ok(/<button type="button" class="sr-close" onclick="requestCloseSheet\('struct-drawer','close'\)" aria-label="Закрити">/.test(drawer));
   assert.match(SRC, /category: \['Нова категорія', 'Категорія'\], subcategory: \['Нова підкатегорія', 'Підкатегорія'\], word: \['Нове слово', 'Слово'\]/);
   assert.match(SRC, /save\.textContent = cfg\.edit \? 'Зберегти' : 'Додати';/);
 });

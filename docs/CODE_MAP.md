@@ -83,3 +83,4 @@
 - Лапка: `monoHeaderModel`, `updateMonoBadges`, `monoLoadConnection` (виклики з `runSyncCheck` при повній звірці й `recordManualFullSync`), кеш `MONO_HEADER_KEY`; лічильники `planSync.counters.monoAutoReview`.
 - Автододані: `loadMonoInbox` (+ `autoRows`), `monoAutoGroupModel`, `monoAutoGroupHtml`, `monoAutoRpc`, `monoAutoFinish`, `monoAutoReviewAll`, `monoAutoRecat`, `monoAutoRevertStart`, `monoDetailRecategorize` (режим `isAuto` у `openMonoDetail`).
 - Категорії: `monoSuggestOptions`, `monoCatLabel`, `monoAcceptOption`, `addAllCandidates` (рівно один варіант). Налаштування: `onMonoToggleAutoAdd`.
+- Закриття шторок із підтвердженням (Rev 2.32.376, DS-4c): `js/sheets.js` — `requestCloseSheet`, `sheetIsDirty` (`SHEET_DISCARD_FORMS`: card/inst/income/struct/mono/debug), `showSheetDiscardConfirm` (app-modal), `sheetWhenKeyboardSettled`; знімки полів `monoDetailSnap` (index.html), `debugRecordSnap` (js/diag.js); подія `sheet-discard`.
