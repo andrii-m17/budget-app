@@ -1352,6 +1352,46 @@ const MAIN_USER_MOVE_PX = 4;
 let mainUserAt = 0, mainTouchMoved = false, mainTouchY0 = 0;
 function mainUserScrolling(){ return mainTouchMoved || (mainUserAt > 0 && performance.now() - mainUserAt < MAIN_USER_SCROLL_MS); }
 function mainUserReset(){ mainUserAt = 0; mainTouchMoved = false; }
+// ===== Rev 2.32.372 (DS-3c4): запис «tab-scroll» — одна подія на жест прокрутки #main-col (від першого кадру до тиші TAB_SCROLL_QUIET_MS), щоб у звіті було видно й ті моменти, коли таббар мав змінитися, але не змінився =====
+const TAB_SCROLL_QUIET_MS = 250;
+const TAB_SCROLL_MIN_PX = 20;
+// Чиста функція: чому таббар не змінив стан за жест; '' — змінив (або причину не визначено). s = { changed, byUser, dir, delta, y1, max, maxStep, miniAt0, blocked }
+function tabScrollWhy(s){
+  if(s.changed) return '';
+  if(s.blocked) return s.blocked; // kb | drawer | ipad
+  if(s.max <= TABBAR_MINI_EDGE * 2) return 'short';
+  if(!s.byUser) return 'not-user';
+  if(s.dir === 'down' && s.miniAt0) return 'same';
+  if(s.dir === 'up' && !s.miniAt0) return 'same';
+  if(s.y1 < TABBAR_MINI_EDGE) return 'top';
+  if(s.y1 > s.max - TABBAR_MINI_EDGE) return 'end';
+  if(s.maxStep <= TABBAR_MINI_STEP) return 'threshold';
+  return 'other';
+}
+let tabScrollG = null, tabScrollTimer = null, tabScrollEl = '';
+// Лише тег і перший клас (без даних користувача)
+function tabScrollDescribe(el){
+  if(!el || !el.tagName) return '';
+  const c = (typeof el.className === 'string' ? el.className : '').split(/\s+/)[0] || '';
+  return el.tagName.toLowerCase() + (c ? '.' + c.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 30) : '');
+}
+function tabScrollNote(y, max, user){
+  const now = performance.now();
+  if(!tabScrollG) tabScrollG = { t0: now, y0: y, lastY: y, lastT: now, maxV: 0, maxStep: 0, byUser: false, changed: false, miniAt0: tabbarMini, el: tabScrollEl || '?', max: max, y1: y };
+  const g = tabScrollG, dt = Math.max(1, now - g.lastT), step = Math.abs(y - g.lastY);
+  g.maxV = Math.max(g.maxV, step / dt * 1000); g.maxStep = Math.max(g.maxStep, step); if(user) g.byUser = true;
+  g.lastY = y; g.lastT = now; g.y1 = y; g.max = max;
+  if(tabScrollTimer) clearTimeout(tabScrollTimer);
+  tabScrollTimer = setTimeout(tabScrollFinish, TAB_SCROLL_QUIET_MS);
+}
+function tabScrollFinish(){
+  const g = tabScrollG; tabScrollG = null; tabScrollTimer = null; tabScrollEl = '';
+  if(!g) return;
+  const delta = g.y1 - g.y0; if(Math.abs(delta) < TAB_SCROLL_MIN_PX) return;
+  const dir = delta > 0 ? 'down' : 'up';
+  const why = tabScrollWhy({ changed: g.changed, byUser: g.byUser, dir: dir, delta: delta, y1: g.y1, max: g.max, maxStep: g.maxStep, miniAt0: g.miniAt0, blocked: tabbarMiniBlocked() });
+  try{ if(typeof pushDebugEvent === 'function') pushDebugEvent({ type: 'tab-scroll', dir: dir, delta: Math.round(Math.abs(delta)), vel: Math.round(g.maxV), startEl: g.el, byUser: g.byUser, changed: g.changed, why: why, scrollY: Math.round(g.y1), durationMs: Math.round(g.lastT - g.t0) }); }catch(e){}
+}
 function recTabMini(ev){ try{ if(typeof pushDebugEvent === 'function') pushDebugEvent(Object.assign({ type: 'tab-mini' }, ev)); }catch(e){} }
 // Чому зараз не можна стискати: відкрита клавіатура / шторка / модалка / таббар сховано (iPad з бічною панеллю)
 function tabbarMiniBlocked(){
@@ -1364,7 +1404,7 @@ function tabbarMiniBlocked(){
 function setTabbarMini(on, why, y, byUser){
   const bar = document.querySelector('nav.tabbar'); if(!bar) return;
   if(tabbarMini === on) return;
-  tabbarMini = on; bar.classList.toggle('mini', on);
+  tabbarMini = on; bar.classList.toggle('mini', on); if(tabScrollG) tabScrollG.changed = true;
   recTabMini({ mini: on, why: why || '', scrollY: typeof y === 'number' ? Math.round(y) : null, byUser: !!byUser });
 }
 function tabbarMiniOnScroll(y, max){
@@ -1388,6 +1428,7 @@ function runMainScroll(){
   const max = Math.max(0, el.scrollHeight - el.clientHeight);
   const y = Math.min(Math.max(el.scrollTop, 0), max);
   updateScrollTopBtn();
+  tabScrollNote(y, max, mainUserScrolling()); // Rev 2.32.372 (DS-3c4)
   tabbarMiniOnScroll(y, max);
   mainScrollSubs.forEach(function(fn){ try{ fn({ y: y, max: max }); }catch(e){} });
 }
@@ -1401,11 +1442,11 @@ function initTabbarMini(){
   const mc = document.getElementById('main-col');
   if(mc){
     const o = { capture: true, passive: true };
-    mc.addEventListener('touchstart', function(e){ mainTouchMoved = false; mainTouchY0 = e.touches && e.touches[0] ? e.touches[0].clientY : 0; }, o);
+    mc.addEventListener('touchstart', function(e){ mainTouchMoved = false; mainTouchY0 = e.touches && e.touches[0] ? e.touches[0].clientY : 0; tabScrollEl = tabScrollDescribe(e.target); }, o);
     mc.addEventListener('touchmove', function(e){ const y = e.touches && e.touches[0] ? e.touches[0].clientY : mainTouchY0; if(Math.abs(y - mainTouchY0) > MAIN_USER_MOVE_PX){ mainTouchMoved = true; mainUserAt = performance.now(); } }, o);
     const end = function(){ if(mainTouchMoved) mainUserAt = performance.now(); mainTouchMoved = false; };
     mc.addEventListener('touchend', end, o); mc.addEventListener('touchcancel', end, o);
-    mc.addEventListener('wheel', function(){ mainUserAt = performance.now(); }, o);
+    mc.addEventListener('wheel', function(){ mainUserAt = performance.now(); tabScrollEl = 'wheel'; }, o);
   }
   document.addEventListener('keydown', function(e){ if(/^(ArrowUp|ArrowDown|PageUp|PageDown|Home|End| )$/.test(e.key) && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) mainUserAt = performance.now(); }, { capture: true, passive: true });
 }

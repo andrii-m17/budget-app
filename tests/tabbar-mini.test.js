@@ -71,3 +71,21 @@ test('ознака користувача: дотик із рухом > 4 px, к
   assert.ok(/recTabMini\(\{ mini: on, why: why \|\| '', scrollY: [^}]*byUser: !!byUser \}\)/.test(SRC));
   const ki = SRC.indexOf('const REC_ALLOWED_KEYS = ['); assert.ok(SRC.slice(ki, SRC.indexOf('];', ki)).indexOf("'byUser'") !== -1);
 });
+
+// Rev 2.32.372 (DS-3c4): запис tab-scroll — причина, чому таббар не змінив стан за жест
+const cw = buildSandbox({}, ['tabScrollWhy', 'TABBAR_MINI_STEP', 'TABBAR_MINI_EDGE']);
+const w = (o) => cw.tabScrollWhy(Object.assign({ changed: false, byUser: true, dir: 'down', delta: 300, y1: 500, max: 2000, maxStep: 40, miniAt0: false, blocked: '' }, o));
+test('tabScrollWhy: порожньо, якщо стан змінився; інакше причина за пріоритетом', function(){
+  assert.equal(w({ changed: true }), '');
+  assert.equal(w({ blocked: 'kb' }), 'kb'); assert.equal(w({ blocked: 'drawer' }), 'drawer'); assert.equal(w({ blocked: 'ipad' }), 'ipad');
+  assert.equal(w({ max: 40 }), 'short');
+  assert.equal(w({ byUser: false }), 'not-user');
+  assert.equal(w({ miniAt0: true }), 'same', 'вниз, а вже стиснуто'); assert.equal(w({ dir: 'up', miniAt0: false }), 'same', 'вгору, а вже розгорнуто');
+  assert.equal(w({ dir: 'up', miniAt0: true, y1: 10 }), 'top'); assert.equal(w({ y1: 1990 }), 'end');
+  assert.equal(w({ maxStep: 4 }), 'threshold'); assert.equal(w({}), 'other');
+});
+test('tab-scroll: тип і ключі startEl, changed у білих списках; подія без даних користувача (лише тег і клас)', function(){
+  const ti = SRC.indexOf('const REC_ALLOWED_TYPES = ['); assert.ok(SRC.slice(ti, SRC.indexOf('];', ti)).indexOf("'tab-scroll'") !== -1);
+  const ki = SRC.indexOf('const REC_ALLOWED_KEYS = ['); const keys = SRC.slice(ki, SRC.indexOf('];', ki)); ['startEl', 'changed', 'dir', 'delta', 'vel', 'byUser', 'why', 'scrollY', 'durationMs'].forEach(k => assert.ok(keys.indexOf("'" + k + "'") !== -1, k));
+  assert.ok(/function tabScrollDescribe\(el\)/.test(SRC) && /replace\(\/\[\^A-Za-z0-9_-\]\/g, ''\)\.slice\(0, 30\)/.test(SRC));
+});
