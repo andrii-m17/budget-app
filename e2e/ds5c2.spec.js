@@ -93,6 +93,19 @@ test('DS-5c-2 4. минулий і наступний місяць: числа �
   s = await card(page); expect(digits(s.num)).toBe('2277'); expect(s.rows.length).toBe(2); expect(s.open).toBe(true);
 });
 
+test('DS-5c-2 6. наступний місяць: неповний поточний місяць не входить у «≈ на рік»', async ({ page }) => {
+  test.setTimeout(120000);
+  await boot(page);
+  const info = await page.evaluate(() => { const list = currentMonthList(), today = monthKey(localDateISO()); expenses.forEach(e => { if(monthKey(e.date) !== today) e.deletedAt = 'x'; }); return { today, next: list[list.length - 1] }; });
+  await page.evaluate(i => { __add(i.today, __nm('Таксі'), 90000, 'big'); // великий потенціал неповного поточного місяця
+    [4200, 5100, 7900, 4600, 4900].forEach((v, k) => __add(shiftMonth(i.next, -(k + 2)), __nm('Таксі'), v, 'w' + k)); // повні місяці −2…−6 відносно наступного
+    __add(i.next, __nm('Кава'), 1500, 'nx'); renderDashboard(); }, info);
+  await page.evaluate(m => onMonthChange(m), info.next); await page.waitForTimeout(1300);
+  const s = await card(page); expect(s.month).toBe(info.next); expect(s.empty).toBe(false);
+  expect(digits(s.year), 'типовий з 5 повних місяців (без найбільшого й найменшого): (4600+4900+5100)/3 = 4867 → 4900 → 58 800; 90 000 неповного місяця не входить').toBe('58800');
+  expect(s.year).not.toContain('мало даних');
+});
+
 test('DS-5c-2 5. «зменшити рух»: одометр без переходу; рядки й смуга без анімацій', async ({ page }) => {
   test.setTimeout(120000);
   await page.emulateMedia({ reducedMotion: 'reduce' });

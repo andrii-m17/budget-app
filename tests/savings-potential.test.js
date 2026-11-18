@@ -7,7 +7,7 @@ const path = require('node:path');
 const ex = require('./extract');
 const SRC = ex.readIndexWithCss();
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ctx = ex.buildSandbox({}, ['savingsPotential', 'potLevel', 'typicalMonth', 'roundSym', 'DEFAULT_SUBCATEGORY_PRIORITY', 'tileForName', 'splitLeadingEmoji', 'stripLeadingEmoji', 'catPctText']);
+const ctx = ex.buildSandbox({}, ['savingsPotential', 'potLevel', 'typicalMonth', 'potentialWindowMonths', 'shiftMonth', 'roundSym', 'DEFAULT_SUBCATEGORY_PRIORITY', 'tileForName', 'splitLeadingEmoji', 'stripLeadingEmoji', 'catPctText']);
 const j = code => JSON.parse(ex.evalInSandbox(ctx, 'JSON.stringify(' + code + ')'));
 
 test('F8: типовий місяць — приклад зі звіту: 6 місяців без найбільшого й найменшого → 5 000, на рік 60 000', () => {
@@ -75,7 +75,7 @@ test('розмітка й охоронне: картка після деталі
   assert.ok(/escapeHtml\(tileForName\(r\.name\)\.text\)/.test(m) && /escapeHtml\(stripLeadingEmoji\(r\.name\)\)/.test(m), 'назви й іконки екрановано');
   assert.ok(/· мало даних/.test(m) && /ctx\.typ\.few/.test(m) && /!ctx\.typ/.test(m), '«мало даних» і відсутність «на рік»');
   assert.ok(/typ: typicalMonth\(potWindow\)/.test(SRC) && /if\(me\.length\) potWindow\.push\(savingsPotential\(me, SUBCATEGORY_PRIORITY\)\.total\)/.test(SRC), 'вікно — місяці з записами, показник той самий');
-  assert.ok(/Можна скоротити цього місяця/.test(HTML));
+  assert.ok(/Необов’язкові витрати цього місяця/.test(HTML) && !/Можна скоротити/.test(HTML), 'підпис із погодженого макета (рішення 18.11)');
   const css = ex.readAppCss(); assert.ok(/\.bal-plvl\.high\{ color:var\(--income-text\); \}/.test(css) && /\.bal-plvl\.mid\{ color:var\(--debt-text\); \}/.test(css) && /\.bal-plvl\.low\{ color:var\(--text-3\); \}/.test(css));
 });
 
@@ -84,4 +84,16 @@ test('порожній стан: картка згорнута (клас і aria
   assert.ok(/const showOpen = balPotOpen && !empty;/.test(m) && /card\.classList\.toggle\('open', showOpen\)/.test(m) && /setAttribute\('aria-expanded', showOpen \? 'true' : 'false'\)/.test(m));
   assert.ok(!/if\(empty && balPotOpen\) togglePotCard\(\)/.test(m), 'без виклику, що нічого не робить');
   assert.ok(/«Структура» → підкатегорія → «Потенціал економії»/.test(SRC) && /label: 'Потенціал економії'/.test(SRC), 'підказка збігається з назвою поля форми підкатегорії');
+});
+
+test('вікно «на рік»: лише повні місяці — поточний неповний місяць не входить ніколи (зокрема коли вибрано наступний), майбутні теж; поточний/минулий вибраний — 6 місяців', () => {
+  assert.deepEqual(j("potentialWindowMonths('2026-11','2026-11')"), ['2026-10', '2026-09', '2026-08', '2026-07', '2026-06', '2026-05'], 'поточний вибраний: 6 повних перед ним');
+  assert.deepEqual(j("potentialWindowMonths('2026-12','2026-11')"), ['2026-10', '2026-09', '2026-08', '2026-07', '2026-06'], 'наступний вибраний: поточний неповний (2026-11) виключено');
+  assert.equal(j("potentialWindowMonths('2026-12','2026-11')").includes('2026-11'), false);
+  assert.deepEqual(j("potentialWindowMonths('2026-05','2026-11')"), ['2026-04', '2026-03', '2026-02', '2026-01', '2025-12', '2025-11'], 'минулий вибраний: 6 місяців, перехід року');
+  assert.deepEqual(j("potentialWindowMonths('2027-01','2026-12')"), ['2026-11', '2026-10', '2026-09', '2026-08', '2026-07'], 'наступний місяць іншого року: грудень (поточний) виключено');
+  assert.deepEqual(j("potentialWindowMonths('2027-02','2026-12')"), ['2026-11', '2026-10', '2026-09', '2026-08'], 'ще далі в майбутнє: без поточного (2026-12) і майбутніх (2027-01)');
+  // типовий місяць наступного не залежить від неповного поточного
+  const full = j('typicalMonth([4200,5100,7900,4600,4900])'); assert.equal(full.n, 5);
+  assert.ok(/potentialWindowMonths\(month, monthKey\(localDateISO\(\)\)\)\.forEach/.test(SRC), 'renderDashboard бере вікно з potentialWindowMonths');
 });

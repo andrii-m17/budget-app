@@ -1034,7 +1034,7 @@ function renderDashboard(){
 
   // Rev 2.32.390 (DS-5c-2): таблицю «Потенціал економії» замінено карткою (renderPotentialCard); формула та сама (savingsPotential), «≈ на рік» — typicalMonth за 6 місяців перед вибраним.
   const potWindow = [];
-  for(let i = 1; i <= 6; i++){ const me = monthAggregates(shiftMonth(month, -i)).monthExp; if(me.length) potWindow.push(savingsPotential(me, SUBCATEGORY_PRIORITY).total); } // місяці без жодного запису витрат виключаються
+  potentialWindowMonths(month, monthKey(localDateISO())).forEach(function(m){ const me = monthAggregates(m).monthExp; if(me.length) potWindow.push(savingsPotential(me, SUBCATEGORY_PRIORITY).total); }); // місяці без жодного запису витрат виключаються; поточний неповний місяць у вікно не входить
   renderPotentialCard({ month: month, pot: savingsPotential(monthExp, SUBCATEGORY_PRIORITY), totalExpense: totalExpense, typ: typicalMonth(potWindow) });
 
   /* --- Звичка місяця --- */
@@ -1849,6 +1849,12 @@ function typicalMonth(values){
   const typical = roundSym(mean, 100);
   return { typical: typical, year: 12 * typical, n: n, few: n < 3, trimmed: n >= 5 };
 }
+// Вікно F8: до 6 календарних місяців перед вибраним, але лише ПОВНІ: поточний (ще неповний) місяць і пізніші ніколи не входять — навіть коли вибрано наступний місяць (інакше неповний місяць занижує типовий).
+function potentialWindowMonths(month, todayKey){
+  const out = [];
+  for(let i = 1; i <= 6; i++){ const m = shiftMonth(month, -i); if(m < todayKey) out.push(m); }
+  return out;
+}
 let balPotOpen = false, balPotLast = null;
 // Помічені підкатегорії для підказки порожнього стану (з поточних налаштувань, без емодзі).
 function potMarkedHint(){
@@ -1876,7 +1882,7 @@ function renderPotentialCard(ctx, replay){
   const bar = get('bal-pot-bar');
   if(bar){
     const te = Number(ctx.totalExpense) || 0;
-    bar.setAttribute('aria-label', te > 0 ? catPctText(ctx.pot.total, te) + ' витрат можна скоротити' : '');
+    bar.setAttribute('aria-label', te > 0 ? catPctText(ctx.pot.total, te) + ' витрат — необов’язкові' : '');
     bar.innerHTML = items.map(function(r, i){ return '<i style="width:' + (te > 0 ? Math.max(0, Math.min(100, r.sum / te * 100)).toFixed(2) : '0') + '%;background:color-mix(in srgb, var(--income) ' + POT_SHADES[i] + '%, var(--surface));--n:' + i + '"></i>'; }).join('');
   }
   const share = get('bal-pot-share'); if(share) share.textContent = ctx.totalExpense > 0 ? catPctText(ctx.pot.total, ctx.totalExpense) + ' із ' + fmt(ctx.totalExpense) + ' витрат' : '';
