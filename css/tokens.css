@@ -147,6 +147,7 @@
     --text:#101828; --text-2:#475467; --text-3:#626B80;
     --accent:#22C55E; --accent-text:#166534; --accent-bg:rgba(34,197,94,.14); --accent-line:rgba(34,197,94,.34);
     --on-ring:#FFFFFF; --on-ring-shadow:rgba(0,0,0,.35); /* Rev 2.32.388 (DS-5c-1): підписи на секторах кільця */
+    --inst-text:#1D4ED8; --inst-bg:rgba(59,130,246,.10); --inst-line:rgba(59,130,246,.45); /* Rev 2.32.399 (DS-PAY): день із платежем у «Найближчих платежах» (макет analytics-ds v18, .day.pay) */
     --income-text:#15803D; --debt-text:#B45309; /* Rev 2.32.385 (DS-5a): текстові відтінки зеленого й бурштину з макета (контраст на --surface) */
     --glass:rgba(255,255,255,.82); --glass-press:rgba(255,255,255,.92); --glass-edge:rgba(255,255,255,.9); --glass-edge-2:rgba(16,24,40,.08); --glass-shimmer:rgba(255,255,255,.65);
     --glass-shadow:0 12px 34px rgba(16,24,40,.16), 0 2px 8px rgba(16,24,40,.06);
@@ -155,6 +156,7 @@
     --bg:#0B0F16; --surface:#151B26; --surface-2:#1E2530; --line:#252D3A; --line-strong:#333D4D;
     --text:#F1F4F8; --text-2:#A3AEC0; --text-3:#8391A7;
     --accent:#22C55E; --accent-text:#34D673; --accent-bg:rgba(34,197,94,.16); --accent-line:rgba(34,197,94,.32);
+    --inst-text:#7DB6FB; --inst-bg:rgba(96,165,250,.10); --inst-line:rgba(96,165,250,.42);
     --income-text:#34D673; --debt-text:#F5A524;
     --glass:rgba(22,28,40,.82); --glass-press:rgba(34,42,58,.9); --glass-edge:rgba(255,255,255,.16); --glass-edge-2:rgba(255,255,255,.04); --glass-shimmer:rgba(255,255,255,.22);
     --glass-shadow:0 12px 34px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3);

@@ -68,14 +68,13 @@ test('aria-label підсвіченого дня: «Наступний плат�
   assert.match(m.days.find(d => d.next).label, /^Наступний платіж: 17 жовтня, 5\s000\s₴$/);
   assert.match(SRC, /if\(d\.next && d\.label\)\{ b\.setAttribute\('aria-label', d\.label\); \} else b\.setAttribute\('aria-hidden', 'true'\)/);
 });
-test('CSS смуги (Rev 2.32.170, відкат скла): сьогодні — тонка нейтральна рамка; день із платежем — сіра заливка; найближчий — тонка синя рамка info ≈ 55% без скла, градієнта, блика, сяйва, «скоро»', function(){
-  const nx = SRC.match(/\.pay-day\.next\{([^}]*)\}/)[1];
-  assert.match(nx, /^ border:1px solid color-mix\(in srgb, var\(--color-info\) 55%, transparent\); $/);
-  assert.ok(!/backdrop-filter|gradient|box-shadow|warning/.test(nx));
-  assert.ok(!/\.pay-day\.next::(before|after)|\.pay-day\.today::after|\.pay-day\.next\.soon/.test(SRC), 'блика, крапки й «скоро» нема');
+test('CSS смуги (Rev 2.32.399, DS-PAY): сьогодні — нейтральна рамка; день із платежем — блакитна плитка (токени --inst-*); синьої рамки «найближчого» немає; без скла, градієнта, блика', function(){
+  assert.ok(!/\.pay-day\.next\{/.test(SRC), 'синя рамка найближчого прибрана');
+  assert.ok(!/\.pay-day\.next::(before|after)|\.pay-day\.today::after|\.pay-day\.next\.soon|backdrop-filter:[^;]*pay/.test(SRC), 'блика, крапки й «скоро» нема');
   assert.match(SRC, /\.pay-day\.today\{ border-color:var\(--line-strong\); \}/);
-  assert.match(SRC, /\.pay-day\.has\{ background:var\(--surface-2\); cursor:pointer; \}/);
-  assert.ok(SRC.indexOf('.pay-day.has{') < SRC.indexOf('.pay-day.next{'));
+  assert.match(SRC, /\.pay-day\.has\{ background:var\(--inst-bg\); border-color:var\(--inst-line\); cursor:pointer; \}/);
+  assert.match(SRC, /\.pay-sum\{[^}]*color:var\(--inst-text\)/);
+  assert.ok(SRC.indexOf('.pay-day.has{') < SRC.indexOf('.pay-day.today{', SRC.indexOf('.pay-day.has{')), 'сьогодні з платежем: нейтральна рамка поверх блакитної');
 });
 
 test('адаптивні рядки 320/390/440: спершу падає хвіст переліку з «+K», потім перелік, заголовок лишається; без «…»', function(){

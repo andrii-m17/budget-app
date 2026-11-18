@@ -1059,13 +1059,14 @@
   .pay-total{ font-size:var(--fs-body); font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .pay-chev{ display:flex; color:var(--text-2); }
   .pay-strip{ display:flex; gap:var(--sp-1); margin:var(--sp-3) 0 var(--sp-1); }
-  .pay-day{ pointer-events:auto; flex:1; min-width:0; min-height:52px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:var(--sp-1) 0; border-radius:var(--r-s); border:1px solid transparent; background:transparent; font:inherit; color:var(--text); cursor:default; }
-  /* Rev 2.32.170 (PAY-STRIP-REVERT): сьогодні — тонка нейтральна рамка, день із платежем — сіра заливка, найближчий платіж — тонка синя рамка (info ≈ 55%), без скла, градієнта, блика, сяйва й варіанта «скоро». */
+  .pay-day{ pointer-events:auto; flex:1; min-width:0; min-height:56px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:0; padding:var(--sp-1) 0 0; border-radius:var(--r-s); border:1px solid transparent; background:transparent; font:inherit; color:var(--text); cursor:default; }
+  /* Rev 2.32.399 (DS-PAY, макет analytics-ds v18): сьогодні — нейтральна рамка; день із платежем — блакитна плитка (рамка, заливка, сума синім); сьогодні з платежем — нейтральна рамка + блакитна заливка. Синя рамка «найближчого» (Rev 2.32.170) прибрана: вона робила сьогоднішній день «блакитним». Без скла, градієнта, блика й варіанта «скоро». */
   .pay-day.today{ border-color:var(--line-strong); }
-  .pay-day.has{ background:var(--surface-2); cursor:pointer; }
-  .pay-dow{ font-size:var(--fs-caption2); line-height:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--text-2); }
-  .pay-num{ font-size:var(--fs-subhead); line-height:17px; font-weight:700; }
-  .pay-sum{ font-size:var(--fs-caption2); height:12px; line-height:12px; font-variant-numeric:tabular-nums; }
+  .pay-day.has{ background:var(--inst-bg); border-color:var(--inst-line); cursor:pointer; }
+  .pay-day.today{ border-color:var(--line-strong); }
+  .pay-dow{ margin-top:1px; font-size:var(--fs-caption2); line-height:14px; font-weight:500; text-transform:uppercase; color:var(--text-3); }
+  .pay-num{ font-size:var(--fs-callout); line-height:20px; font-weight:600; }
+  .pay-sum{ font-size:var(--fs-caption2); height:14px; line-height:14px; font-weight:600; color:var(--inst-text); font-variant-numeric:tabular-nums; }
   .pay-line1{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); min-height:34px; font-size:var(--fs-subhead); }
   .pay-line1 .l{ min-width:0; color:var(--text-2); white-space:nowrap; } /* Rev 2.32.84 (CARD-1): без overflow:hidden і «…» — текст підбирається драбиною (fitPaymentsCard) */
   .pay-line1 .r{ flex:none; font-weight:700; font-variant-numeric:tabular-nums; }
@@ -1090,7 +1091,6 @@
   .pay-msg .l{ flex:1; }
   .pay-msg .l .tail{ color:var(--text-3); }
   .pay-msg.amber .l .head{ color:var(--color-warning); }
-  .pay-day.next{ border:1px solid color-mix(in srgb, var(--color-info) 55%, transparent); }
   .pay-done{ display:flex; align-items:center; gap:var(--sp-3); min-height:40px; padding-top:var(--sp-2); font-size:var(--fs-subhead); }
   .pay-done-ico{ flex:none; width:28px; height:28px; border-radius:50%; background:var(--color-success-bg); color:var(--color-success); display:flex; align-items:center; justify-content:center; }
   .pay-done b{ font-weight:700; white-space:nowrap; }
