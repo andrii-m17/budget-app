@@ -32,8 +32,9 @@ test('форми «Структури» відкриваються в .drawer і
 });
 test('заголовки в один рядок (без ✕ у формах «Структури»); назви за режимом', function(){
   assert.match(SRC, /:is\(#struct-drawer, #mono-detail-drawer\) \.sf-title\{[^}]*white-space:nowrap/);
-  const drawer = SRC.match(/<div class="drawer struct-form" id="struct-drawer"[\s\S]*?<\/div>\n<\/div>\n/)[0];
-  assert.ok(!/drawer-close/.test(drawer), 'без ✕');
+  const s0 = SRC.indexOf('<div class="drawer struct-form" id="struct-drawer"'); const drawer = SRC.slice(s0, SRC.indexOf('id="card-debt-backdrop"', s0));
+  assert.ok(!/drawer-close/.test(drawer), 'без ✕'); // Rev 2.32.375 (DS-4b): є лише візуально прихована «Закрити» (.sr-close)
+  assert.ok(/<button type="button" class="sr-close" onclick="closeStructForm\(\)" aria-label="Закрити">/.test(drawer));
   assert.match(SRC, /category: \['Нова категорія', 'Категорія'\], subcategory: \['Нова підкатегорія', 'Підкатегорія'\], word: \['Нове слово', 'Слово'\]/);
   assert.match(SRC, /save\.textContent = cfg\.edit \? 'Зберегти' : 'Додати';/);
 });

@@ -604,7 +604,7 @@ function pressEndAllTouch(e){
 const BUTTON_VARIANT_MAP = {
   primary: ['chk-fl', 'submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn', 'mono-primary'],
   secondary: ['rs-cancel', 'chk-sk', 'add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
-  text: ['mn', 'mono-back', 'notif-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
+  text: ['sr-close', 'mn', 'mono-back', 'notif-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
   icon: ['mb', 'och-delete-btn', 'drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],

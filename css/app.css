@@ -1988,6 +1988,15 @@
   .drawer-handle::before{ content:''; width:36px; height:5px; margin-bottom:-1px; border-radius:var(--r-2xs); background:var(--line); } /* Rev 2.32.371 (DS-4a): смужка 5 px (макет); margin-bottom −1 лишає висоту смужки 18 px, тож розкладка шторок не зсувається */
   .drawer-head, .sf-title{ touch-action:none; -webkit-user-select:none; user-select:none; } /* Rev 2.32.371 (DS-4a): заголовок — зона жесту закриття (дотики по «×» і кнопках лишаються кліками) */
   .drawer-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  /* Rev 2.32.375 (DS-4b): шторки без «×» на телефоні й iPad у портреті (< 1280 пт). Кнопка лишається в розмітці з aria-label="Закрити": візуально прихована (sr-only: 1×1 px, clip, поза потоком), але доступна читачам екрана, Switch Control і клавіатурі; при :focus-visible (Tab із зовнішньою клавіатурою) показується як звичайна «×». Висота заголовка не змінюється (min-height 32 = висота колишньої «×»). На ≥ 1280 (бічна панель без смужки, у т.ч. iPad Pro в альбомі) «×» лишається видимою до етапу десктопа. Дотик відкриття не дає :focus-visible (фокус іде на контейнер шторки, focusFirstIn). Закриття: свайп (DS-4a), затемнення, Esc, «Закрити» — одна функція закриття шторки. */
+  @media (max-width:1279px){
+    .drawer-head{ min-height:32px; }
+    html:root .drawer-close:not(:focus-visible){ position:absolute; width:1px; height:1px; min-width:0; padding:0; border:0; overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; }
+    html:root #installment-drawer .drawer-close:not(:focus-visible){ width:1px; height:1px; } /* у ОЧ власний розмір «×» (30 px) задано через #id */
+  }
+  /* «Закрити» для шторки «Структури» (у неї немає «×»; кнопка в кінці розмітки, щоб не змінити порядок фокусу — першим лишається поле): завжди sr-only, видима при :focus-visible */
+  .sr-close:not(:focus-visible){ position:absolute; width:1px; height:1px; padding:0; border:0; overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; }
+  .sr-close:focus-visible{ display:block; margin:var(--sp-3) auto 0; padding:var(--sp-2) var(--sp-4); border:0; border-radius:var(--r-pill); background:var(--surface-2); color:var(--text); font:inherit; font-size:var(--fs-subhead); font-weight:600; }
   .drawer-head h2{ margin:0; font-size:var(--fs-body); font-weight:700; }
   .drawer-close{ width:32px; height:32px; border-radius:var(--r-s); border:none; background:var(--surface-2); cursor:pointer; color:var(--text-2); display:flex; align-items:center; justify-content:center; }
   .drawer-empty{ font-size:var(--fs-footnote); color:var(--text-2); line-height:1.6; background:var(--surface-2); border-radius:var(--r-s); padding:var(--sp-4); }

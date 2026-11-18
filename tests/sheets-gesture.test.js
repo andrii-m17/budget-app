@@ -40,3 +40,19 @@ test('Esc закриває лише верхню шторку чи діалог 
   const ti = SRC.indexOf('const REC_ALLOWED_TYPES = ['); assert.ok(SRC.slice(ti, SRC.indexOf('];', ti)).indexOf("'sheet-swipe'") !== -1);
   const ki = SRC.indexOf('const REC_ALLOWED_KEYS = ['); const keys = SRC.slice(ki, SRC.indexOf('];', ki)); ['drawerId', 'delta', 'vel', 'closed', 'why'].forEach(k => assert.ok(keys.indexOf("'" + k + "'") !== -1, k));
 });
+
+// Rev 2.32.375 (DS-4b): шторки без видимої «×» (< 1280), видима на ≥ 1280; «Закрити» для «Структури»
+test('DS-4b: «×» sr-only лише < 1280 (не display:none, видима при :focus-visible); у ОЧ власний розмір перекрито; висота заголовка не змінюється', function(){
+  const m = CSS.match(/@media \(max-width:1279px\)\{\s*\.drawer-head\{ min-height:32px; \}\s*html:root \.drawer-close:not\(:focus-visible\)\{([^}]*)\}/);
+  assert.ok(m, 'правило sr-only у media (max-width:1279px)');
+  assert.ok(/position:absolute;/.test(m[1]) && /width:1px; height:1px;/.test(m[1]) && /clip:rect\(0 0 0 0\)/.test(m[1]) && /overflow:hidden;/.test(m[1]));
+  assert.ok(!/display:\s*none|visibility:\s*hidden/.test(m[1]), 'не display:none (інакше focusFirstIn віддав би фокус полю)');
+  assert.ok(/html:root #installment-drawer \.drawer-close:not\(:focus-visible\)\{ width:1px; height:1px; \}/.test(CSS));
+});
+test('DS-4b: усі 13 шторок із «×» мають aria-label «Закрити»; у «Структури» прихована кнопка .sr-close в кінці розмітки (порядок фокусу: першим лишається поле)', function(){
+  const btns = SRC.match(/<button class="drawer-close"[^>]*>/g) || [];
+  assert.equal(btns.length, 13); btns.forEach(b => assert.ok(/aria-label="Закрити"/.test(b), b));
+  const s0 = SRC.indexOf('<div class="drawer struct-form" id="struct-drawer"'); const d = SRC.slice(s0, SRC.indexOf('id="card-debt-backdrop"', s0));
+  assert.ok(/<button type="button" class="sr-close" onclick="closeStructForm\(\)" aria-label="Закрити">Закрити<\/button>[^]*<\/div>\s*$/.test(d.trim() + '\n') || d.indexOf('class="sr-close"') > d.indexOf('sf-delete-wrap'), 'sr-close після вмісту');
+  assert.ok(/\.sr-close:not\(:focus-visible\)\{ position:absolute; width:1px; height:1px;/.test(CSS) && /\.sr-close:focus-visible\{ display:block;/.test(CSS));
+});

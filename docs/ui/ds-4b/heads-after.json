@@ -1,0 +1,708 @@
+{
+ "390": {
+  "pay-action-drawer": {
+   "head": [
+    36,
+    538,
+    318,
+    32
+   ],
+   "title": [
+    36,
+    544,
+    60.9,
+    20
+   ],
+   "close": [
+    36,
+    553,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    502,
+    358,
+    242
+   ]
+  },
+  "mono-detail-drawer": {
+   "head": [
+    36,
+    357.4,
+    318,
+    32
+   ],
+   "title": [
+    36,
+    363.4,
+    80,
+    20
+   ],
+   "close": [
+    36,
+    372.4,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    321.4,
+    358,
+    423
+   ]
+  },
+  "notifications-drawer": {
+   "head": [
+    36,
+    678,
+    318,
+    32
+   ],
+   "title": [
+    36,
+    684,
+    103.7,
+    20
+   ],
+   "close": [
+    36,
+    693,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    642,
+    358,
+    102
+   ]
+  },
+  "trash-detail-drawer": {
+   "head": [
+    36,
+    613.3,
+    318,
+    32
+   ],
+   "title": [
+    36,
+    619.3,
+    148.8,
+    20
+   ],
+   "close": [
+    36,
+    628.3,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    577.3,
+    358,
+    167
+   ]
+  },
+  "checks-drawer": {
+   "head": [
+    36,
+    580,
+    318,
+    40
+   ],
+   "title": [
+    36,
+    580,
+    244.2,
+    20
+   ],
+   "close": [
+    36,
+    599,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    544,
+    358,
+    200
+   ]
+  },
+  "testing-drawer": {
+   "head": [
+    36,
+    155.5,
+    318,
+    37
+   ],
+   "title": [
+    36,
+    155.5,
+    233.2,
+    20
+   ],
+   "close": [
+    36,
+    173,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    119.5,
+    358,
+    624.5
+   ]
+  },
+  "rec-report-drawer": {
+   "head": [
+    36,
+    499.2,
+    318,
+    32
+   ],
+   "title": [
+    36,
+    505.2,
+    228.3,
+    20
+   ],
+   "close": [
+    36,
+    514.2,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    463.2,
+    358,
+    281.2
+   ]
+  },
+  "debug-record-drawer": {
+   "head": [
+    36,
+    361,
+    318,
+    60
+   ],
+   "title": [
+    36,
+    361,
+    318,
+    20
+   ],
+   "close": [
+    36,
+    390,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    325,
+    358,
+    419
+   ]
+  },
+  "settings-drawer": {
+   "head": [
+    36,
+    283,
+    318,
+    32
+   ],
+   "title": [
+    36,
+    289,
+    127.1,
+    20
+   ],
+   "close": [
+    36,
+    298,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    247,
+    358,
+    497
+   ]
+  },
+  "profile-drawer": {
+   "head": [
+    36,
+    441,
+    318,
+    32
+   ],
+   "title": [
+    36,
+    447,
+    37,
+    20
+   ],
+   "close": [
+    36,
+    456,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    405,
+    358,
+    339
+   ]
+  },
+  "card-debt-drawer": {
+   "head": [
+    36,
+    301.4,
+    318,
+    36
+   ],
+   "title": [
+    46,
+    301.4,
+    308,
+    20
+   ],
+   "close": [
+    36,
+    318.4,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    271.4,
+    358,
+    473
+   ]
+  },
+  "installment-drawer": {
+   "head": [
+    30,
+    417,
+    330,
+    33
+   ],
+   "title": [
+    72,
+    417,
+    100,
+    19
+   ],
+   "close": [
+    30,
+    432.5,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    395,
+    358,
+    349
+   ]
+  },
+  "income-drawer": {
+   "head": [
+    36,
+    531.3,
+    318,
+    40
+   ],
+   "title": [
+    46,
+    531.3,
+    132.7,
+    20
+   ],
+   "close": [
+    36,
+    550.3,
+    2,
+    2
+   ],
+   "closeVisible": false,
+   "drawer": [
+    16,
+    495.3,
+    358,
+    249
+   ]
+  }
+ },
+ "1280": {
+  "pay-action-drawer": {
+   "head": [
+    940,
+    20,
+    320,
+    32
+   ],
+   "title": [
+    940,
+    26,
+    60.9,
+    20
+   ],
+   "close": [
+    1228,
+    20,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920,
+    0,
+    360,
+    700
+   ]
+  },
+  "mono-detail-drawer": {
+   "head": [
+    940,
+    20,
+    320,
+    32
+   ],
+   "title": [
+    940,
+    26,
+    80,
+    20
+   ],
+   "close": [
+    1228,
+    20,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920,
+    0,
+    360,
+    700
+   ]
+  },
+  "notifications-drawer": {
+   "head": [
+    940.1,
+    20,
+    320,
+    32
+   ],
+   "title": [
+    940.1,
+    26,
+    103.7,
+    20
+   ],
+   "close": [
+    1228.1,
+    20,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920.1,
+    0,
+    360,
+    700
+   ]
+  },
+  "trash-detail-drawer": {
+   "head": [
+    940,
+    20,
+    320,
+    32
+   ],
+   "title": [
+    940,
+    26,
+    148.8,
+    20
+   ],
+   "close": [
+    1228,
+    20,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920,
+    0,
+    360,
+    700
+   ]
+  },
+  "checks-drawer": {
+   "head": [
+    940.2,
+    20,
+    320,
+    40
+   ],
+   "title": [
+    940.2,
+    20,
+    244.2,
+    20
+   ],
+   "close": [
+    1228.2,
+    24,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920.2,
+    0,
+    360,
+    700
+   ]
+  },
+  "testing-drawer": {
+   "head": [
+    940,
+    20,
+    320,
+    37
+   ],
+   "title": [
+    940,
+    20,
+    233.2,
+    20
+   ],
+   "close": [
+    1228,
+    22.5,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920,
+    0,
+    360,
+    700
+   ]
+  },
+  "rec-report-drawer": {
+   "head": [
+    940.1,
+    20,
+    320,
+    32
+   ],
+   "title": [
+    940.1,
+    26,
+    228.3,
+    20
+   ],
+   "close": [
+    1228.1,
+    20,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920.1,
+    0,
+    360,
+    700
+   ]
+  },
+  "debug-record-drawer": {
+   "head": [
+    940,
+    20,
+    320,
+    60
+   ],
+   "title": [
+    940,
+    20,
+    291,
+    20
+   ],
+   "close": [
+    1231,
+    34,
+    29,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920,
+    0,
+    360,
+    700
+   ]
+  },
+  "settings-drawer": {
+   "head": [
+    940.2,
+    20,
+    320,
+    32
+   ],
+   "title": [
+    940.2,
+    26,
+    127.1,
+    20
+   ],
+   "close": [
+    1228.2,
+    20,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920.2,
+    0,
+    360,
+    700
+   ]
+  },
+  "profile-drawer": {
+   "head": [
+    940,
+    20,
+    320,
+    32
+   ],
+   "title": [
+    940,
+    26,
+    37,
+    20
+   ],
+   "close": [
+    1228,
+    20,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920,
+    0,
+    360,
+    700
+   ]
+  },
+  "card-debt-drawer": {
+   "head": [
+    940.1,
+    20,
+    320,
+    36
+   ],
+   "title": [
+    950.1,
+    20,
+    278,
+    20
+   ],
+   "close": [
+    1228.1,
+    22,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920.1,
+    0,
+    360,
+    700
+   ]
+  },
+  "installment-drawer": {
+   "head": [
+    940.2,
+    20,
+    320,
+    33
+   ],
+   "title": [
+    982.2,
+    20,
+    100,
+    19
+   ],
+   "close": [
+    1230.2,
+    21.5,
+    30,
+    30
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920.2,
+    0,
+    360,
+    700
+   ]
+  },
+  "income-drawer": {
+   "head": [
+    940.2,
+    20,
+    320,
+    40
+   ],
+   "title": [
+    950.2,
+    20,
+    132.7,
+    20
+   ],
+   "close": [
+    1228.2,
+    24,
+    32,
+    32
+   ],
+   "closeVisible": true,
+   "drawer": [
+    920.2,
+    0,
+    360,
+    700
+   ]
+  }
+ }
+}

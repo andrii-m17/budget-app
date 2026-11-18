@@ -64,9 +64,9 @@ test('95. свайп за заголовок (не лише смужку) зак
   await page.evaluate(() => __open('settings-drawer')); await page.waitForTimeout(450);
   await page.evaluate(() => __swipe('#settings-drawer .drawer-handle', -120, 5, 30)); await page.waitForTimeout(300);
   expect(await page.evaluate(() => __isOpen('settings-drawer'))).toBe(true); expect(await drag(page, 'settings-drawer')).toBe('');
-  // дотик по «×»: закриває як звичайна кнопка (захоплення вказівника не перехоплює клік)
-  const x = await page.locator('#settings-drawer .drawer-close').boundingBox(); await page.touchscreen.tap(x.x + x.width / 2, x.y + x.height / 2); await page.waitForTimeout(500);
-  expect(await page.evaluate(() => __isOpen('settings-drawer')), '× закриває').toBe(false);
+  // «Закрити» (Rev 2.32.375, DS-4b: «×» візуально прихована, але лишається кнопкою): клік після жесту не перехоплюється захопленням вказівника
+  await page.evaluate(() => document.querySelector('#settings-drawer .drawer-close').click()); await page.waitForTimeout(500);
+  expect(await page.evaluate(() => __isOpen('settings-drawer')), '«Закрити» закриває').toBe(false);
 });
 test('96. шторка «Структури»: свайп за смужку тепер закриває (раніше — ні)', async ({ page }) => {
   await boot(page);
