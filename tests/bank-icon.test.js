@@ -32,10 +32,11 @@ test('без виду — за замовчуванням картка; поро
     assert.match(h, /bank-badge-generic/); assert.match(h, />₴<\/text>/);
   });
 });
-test('виклики: рядки й шторки передають вид (борги — card, ОЧ — installment); CSS: фон і колір токенами, коло, іконка 58%', function(){
+test('виклики: рядки й шторки передають вид (борги — card, ОЧ — installment); CSS: фон і колір токенами, форма (25 %), іконка 58%', function(){
   assert.equal((SRC.match(/bankIcon\([^)]*'installment'\)/g) || []).length, 4);
   assert.equal((SRC.match(/bankIcon\([^)]*'card'\)/g) || []).length, 4);
   assert.ok(!/bankIcon\(d\.name\)/.test(SRC) && !/bankIcon\(name, 3[48], true\)/.test(SRC));
-  assert.match(SRC, /\.bank-badge\.bank-badge-generic\{ background:var\(--surface-2\); color:var\(--text-2\); border-radius:50%;/);
+  // Rev 2.32.354 (DS-3d2): значок generic — квадрат із заокругленням 25 % (було коло 50 %)
+  assert.match(SRC, /\.bank-badge\.bank-badge-generic\{ background:var\(--surface-2\); color:var\(--text-2\); border-radius:25%;/);
   assert.match(SRC, /width:58%; height:58%/);
 });
