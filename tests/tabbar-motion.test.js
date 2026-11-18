@@ -31,9 +31,23 @@ test('keyframes макета дослівно й анімації лише за 
     (CSS.match(new RegExp('[^{}]*\\{[^}]*animation:' + n + '\\b', 'g')) || []).forEach(function(r){ assert.ok(/tb-anim\.active/.test(r), n + ' поза .tb-anim.active: ' + r.slice(0, 80)); });
   });
 });
-test('натиск: .86 за --t-micro лише на .tbx (не на склі й кнопці)', function(){
-  assert.ok(/nav\.tabbar\.pressed button\.preview-active \.tbx, nav\.tabbar button\.pressing \.tbx\{ scale:\.86; opacity:\.75; transition:scale var\(--t-micro\)/.test(CSS));
+test('натиск: .86 за 110 мс (макет) лише на .tbx, стан .tb-down; скло й кнопка не стискаються (Rev 2.32.361, DS-3b4)', function(){
+  assert.ok(/nav\.tabbar\.tb-down button\.preview-active \.tbx, nav\.tabbar button\.pressing \.tbx\{ scale:\.86; opacity:\.75; transition:scale var\(--tb-press\)/.test(CSS));
+  assert.ok(/nav\.tabbar\{ --tb-rel:380ms; --tb-press:110ms; \}/.test(CSS), 'натиск 110 мс (значення макета; змінна замість токена --t-micro 120 мс)');
   assert.ok(!/\.pressing\{[^}]*scale/.test(CSS));
+});
+test('скло: ефект .pressed (збільшення, блиск бульбашки) лише при свайпі; простий дотик його не вмикає', function(){
+  const SRC = require('./extract').readIndexWithCss();
+  const ts = SRC.slice(SRC.indexOf("bar.addEventListener('touchstart'"), SRC.indexOf("bar.addEventListener('touchmove'"));
+  assert.ok(ts.indexOf("classList.add('tb-down')") !== -1 && ts.indexOf("classList.add('pressed')") === -1, 'touchstart: лише tb-down');
+  const tm = SRC.slice(SRC.indexOf("bar.addEventListener('touchmove'"), SRC.indexOf("bar.addEventListener('touchmove'") + 900);
+  assert.ok(/hasMoved = true;\n\s+bar\.classList\.add\('pressed'\)/.test(tm), 'pressed вмикається при досягненні порога руху');
+  assert.ok(/nav\.tabbar\.pressed \.tabbar-glass\{ transform:scale\(1\.035\)/.test(CSS), 'ефект скла лишається за .pressed');
+});
+test('іконки 22 px, «+» 44 px, колір вибраного --accent-text (як у макеті)', function(){
+  assert.ok(/nav\.tabbar svg\{ width:22px; height:22px; \}/.test(CSS));
+  assert.ok(/\.tab-vytraty \.tb-icon-wrap\{ position:relative; width:44px; height:44px;[^}]*margin-top:-22px;/.test(CSS));
+  assert.ok(/nav\.tabbar button\.active, nav\.tabbar button\.preview-active\{ color:var\(--accent-text\); \}/.test(CSS));
 });
 test('reduced-motion: один блок вимикає бульбашку, натиск, анімації іконок і поворот «+», колір не чіпає', function(){
   const m = CSS.match(/@media \(prefers-reduced-motion: reduce\)\{\s*\.tabbar-bubble\{[^@]*?\n  \}/);

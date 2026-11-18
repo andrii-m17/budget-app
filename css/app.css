@@ -2384,13 +2384,13 @@
      ЧАС перетягування (до фактичного switchTab на touchend) — той самий
      колір, що й справжня .active, щоб live-прев'ю виглядало як реальний
      вибір, а не окремий незрозумілий стан. */
-  nav.tabbar button.active, nav.tabbar button.preview-active{ color:var(--color-primary-hover); }
+  nav.tabbar button.active, nav.tabbar button.preview-active{ color:var(--accent-text); } /* Rev 2.32.361 (DS-3b4): колір вибраного (заливка й підпис) — --accent-text, як у макеті (було --color-primary-hover) */
   /* Rev 2.4.3 — під час перетягування (.pressed) стара .active вкладка не
      повинна лишатись підсвіченою одночасно з новою .preview-active під
      пальцем — інакше видно два "вибори" одночасно. Поки триває жест,
      пригашуємо стару до нейтрального кольору; сама бульбашка вже й так
      переїхала до нової позиції. */
-  nav.tabbar.pressed button.active:not(.preview-active){ color:var(--color-muted); }
+  nav.tabbar.tb-down button.active:not(.preview-active){ color:var(--color-muted); }
   /* Rev 2.32.352 (DS-3a): залита іконка вибраної вкладки (SVG і правила з макета analytics-ds). Невибрані лишаються контурними. Без анімацій: рух (пружина, натиск) це DS-3b. Під час перетягування (.pressed) стара .active знову контурна, як і її колір. «Витрати» не змінено. */
   nav.tabbar svg .f, .side svg .f{ fill:currentColor; fill-opacity:0; }
   /* Rev 2.32.360 (DS-3b3): переходи заливки й кольору як у макеті (200 мс, стандартна крива); було миттєво / 120 мс */
@@ -2405,20 +2405,21 @@
   nav.tabbar button.active svg .in, nav.tabbar button.preview-active svg .in, .side button.side-tab.active svg .in{ stroke:var(--surface); }
   nav.tabbar button.active svg .s, nav.tabbar button.preview-active svg .s, .side button.side-tab.active svg .s{ opacity:1; }
   nav.tabbar button.active svg .o, nav.tabbar button.preview-active svg .o, .side button.side-tab.active svg .o{ opacity:0; }
-  nav.tabbar.pressed button.active:not(.preview-active) svg .f{ fill-opacity:0; }
-  nav.tabbar.pressed button.active:not(.preview-active) svg .in{ stroke:currentColor; }
-  nav.tabbar.pressed button.active:not(.preview-active) svg .s{ opacity:0; }
-  nav.tabbar.pressed button.active:not(.preview-active) svg .o{ opacity:1; }
-  nav.tabbar.pressed button.tab-vytraty.active:not(.preview-active) .tb-icon-wrap{ background:var(--accent); }
-  nav.tabbar.pressed button.tab-vytraty.active:not(.preview-active) .tb-label{ color:var(--text-2); }
-  nav.tabbar svg{ width:18px; height:18px; }
+  nav.tabbar.tb-down button.active:not(.preview-active) svg .f{ fill-opacity:0; }
+  nav.tabbar.tb-down button.active:not(.preview-active) svg .in{ stroke:currentColor; }
+  nav.tabbar.tb-down button.active:not(.preview-active) svg .s{ opacity:0; }
+  nav.tabbar.tb-down button.active:not(.preview-active) svg .o{ opacity:1; }
+  nav.tabbar.tb-down button.tab-vytraty.active:not(.preview-active) .tb-icon-wrap{ background:var(--accent); }
+  nav.tabbar.tb-down button.tab-vytraty.active:not(.preview-active) .tb-label{ color:var(--text-2); }
+  nav.tabbar svg{ width:22px; height:22px; } /* Rev 2.32.361 (DS-3b4): 22 px, як у макеті (було 18) */
+  nav.tabbar .tabbar-glass{ min-height:75px; } /* Rev 2.32.361 (DS-3b4): висота капсули лишається 75 px (раніше її визначала кнопка «Витрати» 40 px/−16; тепер 44 px/−22 дає на 2 px менше) — відступ знизу й safe-area (Баг 1a) не змінюються */
   /* "Витрати" — виділена кнопка по центру нижньої панелі (єдина щоденна дія,
      має бути одразу впізнавана, як "+" в Instagram/банківських застосунках).
      Свідомо ЛИШАЄТЬСЯ поза системою "бульбашки" — це не рівноправна вкладка
      серед інших, а окремий акцентний елемент (той самий патерн, що floating
      кнопка пошуку в референсі iOS 26 — плаваюча окремо від скляної капсули). */
   nav.tabbar button.tab-vytraty{ position:relative; }
-  nav.tabbar button.tab-vytraty .tb-icon-wrap{ position:relative; width:40px; height:40px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; margin-top:-16px; box-shadow:0 4px 10px rgba(34,197,94,.35); transition:background var(--duration-fast) var(--easing-standard); }
+  nav.tabbar button.tab-vytraty .tb-icon-wrap{ position:relative; width:44px; height:44px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; margin-top:-22px; box-shadow:0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent); transition:background var(--duration-fast) var(--easing-standard); }
   /* Rev 2.3.6 — бейдж кількості витрат, внесених СЬОГОДНІ, на кнопці "Витрати"
      (tabbar і sidebar): миттєво видно, чи вже щось внесено сьогодні, без
      переходу на вкладку — та сама ідея, що бейдж непрочитаних повідомлень. */
@@ -2435,28 +2436,28 @@
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
   @media (hover:hover) and (pointer:fine){ .gear-btn.update-btn:hover{ background:var(--color-primary-bg); } }
   .gear-btn.update-btn .update-dot{ position:absolute; top:-2px; right:-2px; width:9px; height:9px; border-radius:50%; background:var(--accent); border:2px solid var(--surface); }
-  nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ width:20px; height:20px; }
+  nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ width:22px; height:22px; }
   nav.tabbar button.tab-vytraty .tb-label{ margin-top:2px; color:var(--text-2); }
-  nav.tabbar button.tab-vytraty.active .tb-icon-wrap{ background:var(--color-primary-hover); }
-  nav.tabbar button.tab-vytraty.active .tb-label{ color:var(--color-primary-hover); }
+  nav.tabbar button.tab-vytraty.active .tb-icon-wrap{ background:var(--accent); } /* Rev 2.32.361 (DS-3b4): коло «+» не темнішає (макет) */
+  nav.tabbar button.tab-vytraty.active .tb-label{ color:var(--accent-text); }
   /* Rev 2.4.3 — той самий "потемнілий" стан і для preview (палець зараз над
      кнопкою під час перетягування, ще не відпущено) — інакше "Витрати"
      виглядала б неактивною під час наведення, хоча решта кнопок підсвічуються. */
-  nav.tabbar button.tab-vytraty.preview-active .tb-icon-wrap{ background:var(--color-primary-hover); }
-  nav.tabbar button.tab-vytraty.preview-active .tb-label{ color:var(--color-primary-hover); }
+  nav.tabbar button.tab-vytraty.preview-active .tb-icon-wrap{ background:var(--accent); }
+  nav.tabbar button.tab-vytraty.preview-active .tb-label{ color:var(--accent-text); }
   /* Rev 2.32.355 (DS-3b): рух таббару за макетом analytics-ds. Усе лише transform/opacity (і окрема властивість scale). Анімації вибору вмикає клас .tb-anim (його ставить performSwitchTab лише при реальній зміні вкладки після першого жесту, без клавіатури, шторки й reduced-motion); без нього — жодних анімацій (старт, відновлення, повторний дотик). Бічна панель не містить .tbx/.tb-anim → анімацій немає. */
-  nav.tabbar{ --tb-rel:380ms; } /* Rev 2.32.360 (DS-3b3): повернення після натиску (макет): 380 мс, пружина (.3,1.4,.5,1) для scale, стандартна крива для opacity */
+  nav.tabbar{ --tb-rel:380ms; --tb-press:110ms; } /* Rev 2.32.361 (DS-3b4): натиск 110 мс — значення макета (токен --t-micro = 120 мс), тримаємо змінною, а не токеном */ /* Rev 2.32.360 (DS-3b3): повернення після натиску (макет): 380 мс, пружина (.3,1.4,.5,1) для scale, стандартна крива для opacity */
   nav.tabbar button .tbx{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; transition:scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1), opacity var(--tb-rel) var(--ease-standard); }
   /* натиск: іконка й підпис стискаються до .86, поки палець на кнопці (touch: preview-active під пальцем; миша: .pressing), і пружно повертаються; скло й кнопка не стискаються */
-  nav.tabbar.pressed button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:.86; opacity:.75; transition:scale var(--t-micro) var(--ease-standard), opacity var(--t-micro) var(--ease-standard); }
+  nav.tabbar.tb-down button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:.86; opacity:.75; transition:scale var(--tb-press) var(--ease-standard), opacity var(--tb-press) var(--ease-standard); }
   /* Rev 2.32.357 (DS-3b2): повторний дотик по вибраній вкладці (.tb-repeat ставить touchstart): повернення після натиску плавне, без пружного перельоту */
   nav.tabbar.tb-repeat button.active .tbx{ transition:scale var(--t-s) var(--ease-standard), opacity var(--t-s) var(--ease-standard); }
   nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:transform var(--t-l) var(--ease-out); } /* Rev 2.32.360 (DS-3b3): макет — --ease-out (.22,1,.36,1), була пружина */
   /* «Витрати»: коло «+» під натиском стискається до .9 (макет .pressing .plus{scale:.9}) поверх .86 вмісту */
   nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard), scale var(--tb-rel) cubic-bezier(.3,1.4,.5,1); }
-  nav.tabbar.pressed button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:.9; }
+  nav.tabbar.tb-down button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:.9; }
   /* «Витрати»: вибраний стан = м'яке кільце навколо кнопки й поворот «+» (макет) */
-  nav.tabbar button.tab-vytraty.active .tb-icon-wrap{ box-shadow:0 0 0 4px var(--accent-bg), 0 0 0 5px var(--accent-line), 0 4px 10px color-mix(in srgb, var(--accent) 35%, transparent); }
+  nav.tabbar button.tab-vytraty.active .tb-icon-wrap{ box-shadow:0 0 0 4px var(--accent-bg), 0 0 0 5px var(--accent-line), 0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent); }
   nav.tabbar button.tab-vytraty.active .tb-icon-wrap svg{ transform:rotate(90deg); }
   nav.tabbar svg .pie, nav.tabbar svg .sl, nav.tabbar svg circle{ transform-box:fill-box; transform-origin:center; }
   nav.tabbar svg .sl{ transform-origin:0% 100%; }
@@ -2478,10 +2479,10 @@
   @media (prefers-reduced-motion: reduce){
     .tabbar-bubble{ transition:none; }
     nav.tabbar button .tbx{ transition:none; }
-    nav.tabbar.pressed button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:1; opacity:1; }
+    nav.tabbar.tb-down button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:1; opacity:1; }
     nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:none; }
     nav.tabbar svg .f, nav.tabbar svg .in, nav.tabbar svg .o, nav.tabbar svg .s{ transition:none; }
-    nav.tabbar.pressed button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:1; }
+    nav.tabbar.tb-down button.tab-vytraty.preview-active .tb-icon-wrap, nav.tabbar button.tab-vytraty.pressing .tb-icon-wrap{ scale:1; }
     nav.tabbar button.tab-vytraty .tb-icon-wrap{ transition:background var(--duration-fast) var(--easing-standard); }
     nav.tabbar button[data-tab].tb-anim.active .sl, nav.tabbar button[data-tab].tb-anim.active svg, nav.tabbar button[data-tab].tb-anim.active svg circle, nav.tabbar button[data-tab].tb-anim.active .rot, nav.tabbar button[data-tab].tb-anim.active .s > circle{ animation:none; }
   }

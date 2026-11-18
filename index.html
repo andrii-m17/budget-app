@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.360"><link rel="stylesheet" href="./css/app.css?v=2.32.360"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.361"><link rel="stylesheet" href="./css/app.css?v=2.32.361"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -948,7 +948,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.360</div>
+  <div class="version-footer">Money Tree · Rev 2.32.361</div>
 </div>
   </div>
 </div>
@@ -1694,15 +1694,15 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.360"></script>
-<script src="./js/util-date.js?v=2.32.360"></script>
-<script src="./js/util-safe.js?v=2.32.360"></script>
-<script src="./js/util-misc.js?v=2.32.360"></script>
-<script src="./js/diag.js?v=2.32.360"></script>
-<script src="./js/shell.js?v=2.32.360"></script>
-<script src="./js/structure.js?v=2.32.360"></script>
-<script src="./js/analytics.js?v=2.32.360"></script>
-<script src="./js/payments.js?v=2.32.360"></script>
+<script src="./js/util-format.js?v=2.32.361"></script>
+<script src="./js/util-date.js?v=2.32.361"></script>
+<script src="./js/util-safe.js?v=2.32.361"></script>
+<script src="./js/util-misc.js?v=2.32.361"></script>
+<script src="./js/diag.js?v=2.32.361"></script>
+<script src="./js/shell.js?v=2.32.361"></script>
+<script src="./js/structure.js?v=2.32.361"></script>
+<script src="./js/analytics.js?v=2.32.361"></script>
+<script src="./js/payments.js?v=2.32.361"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6797,7 +6797,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.360';
+const APP_VERSION = '2.32.361';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
@@ -15665,6 +15665,7 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
     dragging = false;
     clearPendingShrink(); // страховка: новий жест скасовує відкладене зменшення попереднього
     bar.classList.remove('pressed');
+    bar.classList.remove('tb-down');
     bubble.classList.remove('no-anim');
     clearPreview();
   }
@@ -15757,7 +15758,7 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
     hasMoved = false;
     gestureStartX = e.touches[0].clientX;
     gestureStartY = e.touches[0].clientY;
-    bar.classList.add('pressed');
+    bar.classList.add('tb-down'); // Rev 2.32.361 (DS-3b4): палець на таббарі (натиск іконки); ефект скла .pressed вмикається лише коли палець рушив (свайп)
     const btn = buttonAtLocalX(localFingerX(e.touches[0].clientX));
     setPreview(btn); // миттєва кольорова реакція на дотик; форма бульбашки — ще ні
     // Rev 2.32.357 (DS-3b2): дотик по вже вибраній вкладці — клас .tb-repeat: повернення іконки після натиску без пружного перельоту (інакше повторний дотик по залитій іконці виглядав як її «анімація»)
@@ -15771,6 +15772,7 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
       const dx = Math.abs(t.clientX - gestureStartX), dy = Math.abs(t.clientY - gestureStartY);
       if(Math.max(dx, dy) < TAP_MOVE_THRESHOLD) return; // ще в межах порогу тапу — не починаємо драг
       hasMoved = true;
+      bar.classList.add('pressed'); // Rev 2.32.361 (DS-3b4): скло збільшується й блищить лише при свайпі (поріг тапу/драгу той самий)
       bubble.classList.add('no-anim'); // щойно підтвердився реальний драг — вимикаємо transition для точного 1:1
     }
     e.preventDefault();
@@ -15795,6 +15797,7 @@ window.addEventListener('resize', function(){ updateTabBubble(true); });
     const finalBtn = previewBtn;
     const wasTap = !hasMoved;
     dragging = false;
+    bar.classList.remove('tb-down'); // Rev 2.32.361 (DS-3b4)
     clearPendingShrink();
     clearPreview();
     bubble.classList.remove('no-anim'); // вмикаємо transition ПЕРЕД остаточним позиціюванням

@@ -2,7 +2,7 @@
 'use strict';
 const fs = require('fs'), path = require('path');
 const dir = path.resolve(process.argv[2] || 'docs/ui/ds-3b3'), sub = process.argv[3] || 'frames', out = process.argv[4] || 'compare.png';
-const T = JSON.parse(fs.readFileSync(path.join(dir, sub === 'frames' ? 'timings.json' : 'timings-before.json'), 'utf8'));
+const T = JSON.parse(fs.readFileSync(path.join(dir, sub === "frames" ? "timings.json" : "timings-before.json"), 'utf8'));
 const names = ['tbSlice-analytics', 'tbPress-accounting', 'tbNode-structure', 'tbSpin-service', 'vytraty-ring-plus', 'bubble-520', 'press-in-accounting', 'press-out-accounting'];
 const label = { 'tbSlice-analytics': 'Аналітика · tbSlice', 'tbPress-accounting': 'Облік · tbPress', 'tbNode-structure': 'Структура · tbNode', 'tbSpin-service': 'Сервіс · tbSpin+tbPie', 'vytraty-ring-plus': 'Витрати · кільце, «+»', 'bubble-520': 'Бульбашка 520 мс', 'press-in-accounting': 'Натиск .86', 'press-out-accounting': 'Відпускання' };
 const S = 11, f = (n, th, k, i) => 'file://' + path.join(dir, sub, n + '-' + th + '-' + k + '-' + i + '.png');
