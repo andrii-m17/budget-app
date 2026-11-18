@@ -65,8 +65,15 @@ test('Rev 2.32.368 (DS-3c2): програмна прокрутка (user=false) 
   assert.equal(n({ y: 1230, lastY: 1211, user: true }).mini, true); assert.equal(n({ y: 1215, lastY: 1211, user: true }).mini, false);
 });
 test('ознака користувача: дотик із рухом > 4 px, колесо, клавіші; скидається при зміні вкладки; запис byUser', function(){
-  assert.ok(/const MAIN_USER_SCROLL_MS = 3000;/.test(SRC) && /const MAIN_USER_MOVE_PX = 4;/.test(SRC));
-  assert.ok(/mc\.addEventListener\('wheel'/.test(SRC) && /ArrowUp\|ArrowDown\|PageUp\|PageDown\|Home\|End/.test(SRC));
+  assert.ok(/const MAIN_USER_SCROLL_MS = 400;/.test(SRC) && /const MAIN_USER_MOVE_PX = 4;/.test(SRC), 'Rev 2.32.373: тиша 400 мс між кадрами ланцюжка (було 3 с від дотику)');
+  assert.ok(/document\.addEventListener\('wheel'/.test(SRC) && /ArrowUp\|ArrowDown\|PageUp\|PageDown\|Home\|End/.test(SRC));
+  // Rev 2.32.373 (DS-3c4): слухачі на document у фазі capture/passive; touchend із координатою (флік без touchmove); кадр прокрутки продовжує ланцюжок; програмна прокрутка скидає ознаку
+  const s0 = SRC.indexOf('function initTabbarMini()'); const blk = SRC.slice(s0, SRC.indexOf('\n}\n', s0));
+  assert.ok(/document\.addEventListener\('touchstart'/.test(blk) && /document\.addEventListener\('touchmove'/.test(blk) && /document\.addEventListener\('touchend', touchEnd, o\)/.test(blk) && /const o = \{ capture: true, passive: true \};/.test(blk));
+  assert.ok(!/mc\.addEventListener\('touch/.test(blk), 'жодних слухачів дотику лише на #main-col');
+  assert.ok(/c\.clientY - mainTouchY0\) > MAIN_USER_MOVE_PX\) mainUserAt = performance\.now\(\)/.test(blk), 'флік: рух з координати touchend');
+  assert.ok(/mainUserTouchChain\(\); \/\/ Rev 2\.32\.373/.test(SRC));
+  assert.ok(/function smoothScrollToTop\(duration, onDone, onProgress\)\{\n  if\(typeof mainUserReset === 'function'\) mainUserReset\(\);/.test(SRC));
   assert.ok(/function tabbarMiniExpand\(why\)\{ tabbarMiniLastY = 0; if\(why === 'tab'\) mainUserReset\(\);/.test(SRC));
   assert.ok(/recTabMini\(\{ mini: on, why: why \|\| '', scrollY: [^}]*byUser: !!byUser \}\)/.test(SRC));
   const ki = SRC.indexOf('const REC_ALLOWED_KEYS = ['); assert.ok(SRC.slice(ki, SRC.indexOf('];', ki)).indexOf("'byUser'") !== -1);

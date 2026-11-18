@@ -68,3 +68,20 @@ test('104. серія швидких змін напрямку: після ко�
   const seq = [['down', 300, true], ['up', 120, false], ['down', 200, true], ['up', 90, false], ['down', 150, true], ['up', 60, false]];
   for (const [dir, total, want] of seq){ await page.evaluate(([dir, total]) => __flick({ dir: dir, moves: 3, total: total, ms: 160 }), [dir, total]); await page.waitForTimeout(120); expect(await mini(page), dir + ' ' + total).toBe(want); }
 });
+test('105. швидкий «флік»: touchmove не надійшло, лише touchend з іншою координатою, далі інерція — таббар стискається', async ({ page }) => {
+  await boot(page, { tab: 'structure' });
+  await page.evaluate(() => __flick({ moves: 0, endDy: 80, total: 450, ms: 500 })); await settle(page);
+  expect(await mini(page), 'флік без touchmove').toBe(true);
+  const e = await evs(page); expect(e[e.length - 1]).toMatchObject({ byUser: true, changed: true });
+  // і назад (вгору) без touchmove
+  await page.evaluate(() => __flick({ dir: 'up', moves: 0, endDy: 80, total: 300, ms: 300 })); await settle(page);
+  expect(await mini(page), 'флік вгору розгортає').toBe(false);
+});
+test('106. довга інерція (> 3 с): прокрутка лишається користувацькою; після розгортання сторонньою дією інерція знову стискає', async ({ page }) => {
+  test.setTimeout(60000);
+  await boot(page, { tab: 'structure' });
+  await page.evaluate(() => { window.__hook = () => tabbarMiniExpand('touch'); });
+  // 4,5 с інерції; на 3,6 с хтось розгортає таббар (стороння дія), прокрутка триває
+  await page.evaluate(() => __flick({ moves: 3, total: 480, ms: 4500, midAt: 0.8, midHook: () => tabbarMiniExpand('touch') })); await page.waitForTimeout(500);
+  expect(await mini(page), 'інерція понад 3 с триває як користувацька: таббар стиснувся знову').toBe(true);
+});

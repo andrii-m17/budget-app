@@ -1300,6 +1300,7 @@ function updateTabBubble(skipAnimation){
 }
 
 function smoothScrollToTop(duration, onDone, onProgress){
+  if(typeof mainUserReset === 'function') mainUserReset(); // Rev 2.32.373 (DS-3c4): програмна прокрутка («вгору») не є користувацькою
   duration = duration || 380;
   const mainColEl = document.getElementById('main-col');
   if(!mainColEl){ if(onDone) onDone(); return; }
@@ -1347,10 +1348,12 @@ function tabbarMiniNext(s){
 }
 let tabbarMini = false, tabbarMiniLastY = 0;
 // Rev 2.32.368 (DS-3c2): ознака прокрутки користувача. Дотик по #main-col із рухом > 4 px, колесо й клавіші прокрутки → «користувач» поки палець на екрані й ще MAIN_USER_SCROLL_MS після (інерція iOS). Зміна вкладки скидає ознаку.
-const MAIN_USER_SCROLL_MS = 3000;
+const MAIN_USER_SCROLL_MS = 400; // Rev 2.32.373 (DS-3c4): тиша між кадрами прокрутки, після якої «користувацький» ланцюжок (дотик → інерція) вважається завершеним; кожен кадр прокрутки ланцюжка продовжує його (раніше жорсткі 3 с від дотику — довга інерція виходила за межу)
 const MAIN_USER_MOVE_PX = 4;
 let mainUserAt = 0, mainTouchMoved = false, mainTouchY0 = 0;
 function mainUserScrolling(){ return mainTouchMoved || (mainUserAt > 0 && performance.now() - mainUserAt < MAIN_USER_SCROLL_MS); }
+// Кадр прокрутки користувацького ланцюжка продовжує його (інерція iOS без обмеження 3 с)
+function mainUserTouchChain(){ if(mainUserScrolling()) mainUserAt = performance.now(); }
 function mainUserReset(){ mainUserAt = 0; mainTouchMoved = false; }
 // ===== Rev 2.32.372 (DS-3c4): запис «tab-scroll» — одна подія на жест прокрутки #main-col (від першого кадру до тиші TAB_SCROLL_QUIET_MS), щоб у звіті було видно й ті моменти, коли таббар мав змінитися, але не змінився =====
 const TAB_SCROLL_QUIET_MS = 250;
@@ -1430,6 +1433,7 @@ function runMainScroll(){
   updateScrollTopBtn();
   tabScrollNote(y, max, mainUserScrolling()); // Rev 2.32.372 (DS-3c4)
   tabbarMiniOnScroll(y, max);
+  mainUserTouchChain(); // Rev 2.32.373 (DS-3c4)
   mainScrollSubs.forEach(function(fn){ try{ fn({ y: y, max: max }); }catch(e){} });
 }
 function initTabbarMini(){
@@ -1438,17 +1442,29 @@ function initTabbarMini(){
   bar.addEventListener('touchstart', function(){ tabbarMiniExpand('touch'); }, { capture: true, passive: true }); // на випадок, коли pointerdown не надійшов (синтетичні/старі події)
   if(typeof MutationObserver !== 'undefined') new MutationObserver(tabbarMiniGuard).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
   window.addEventListener('resize', tabbarMiniGuard);
-  // Rev 2.32.368 (DS-3c2): ввід користувача, що робить прокрутку «користувацькою»
-  const mc = document.getElementById('main-col');
-  if(mc){
-    const o = { capture: true, passive: true };
-    mc.addEventListener('touchstart', function(e){ mainTouchMoved = false; mainTouchY0 = e.touches && e.touches[0] ? e.touches[0].clientY : 0; tabScrollEl = tabScrollDescribe(e.target); }, o);
-    mc.addEventListener('touchmove', function(e){ const y = e.touches && e.touches[0] ? e.touches[0].clientY : mainTouchY0; if(Math.abs(y - mainTouchY0) > MAIN_USER_MOVE_PX){ mainTouchMoved = true; mainUserAt = performance.now(); } }, o);
-    const end = function(){ if(mainTouchMoved) mainUserAt = performance.now(); mainTouchMoved = false; };
-    mc.addEventListener('touchend', end, o); mc.addEventListener('touchcancel', end, o);
-    mc.addEventListener('wheel', function(){ mainUserAt = performance.now(); tabScrollEl = 'wheel'; }, o);
-  }
-  document.addEventListener('keydown', function(e){ if(/^(ArrowUp|ArrowDown|PageUp|PageDown|Home|End| )$/.test(e.key) && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) mainUserAt = performance.now(); }, { capture: true, passive: true });
+  // Rev 2.32.368 (DS-3c2): ввід користувача, що робить прокрутку «користувацькою». Rev 2.32.373 (DS-3c4): слухачі на document у фазі capture (passive) і перевірка, що дотик усередині #main-col: ні один елемент сторінки не може перехопити дотик раніше; швидкий «флік» (лише touchstart → touchend, без touchmove) рахується за координатою touchend.
+  const o = { capture: true, passive: true };
+  const inMain = function(e){ const t = e.target; return !!(t && t.closest && t.closest('#main-col')); };
+  let touchInMain = false;
+  document.addEventListener('touchstart', function(e){
+    touchInMain = inMain(e); if(!touchInMain) return;
+    mainTouchMoved = false; mainTouchY0 = e.touches && e.touches[0] ? e.touches[0].clientY : 0; tabScrollEl = tabScrollDescribe(e.target);
+  }, o);
+  document.addEventListener('touchmove', function(e){
+    if(!touchInMain) return;
+    const y = e.touches && e.touches[0] ? e.touches[0].clientY : mainTouchY0;
+    if(Math.abs(y - mainTouchY0) > MAIN_USER_MOVE_PX){ mainTouchMoved = true; mainUserAt = performance.now(); }
+  }, o);
+  const touchEnd = function(e){
+    if(!touchInMain) return; touchInMain = false;
+    const c = e.changedTouches && e.changedTouches[0];
+    if(c && Math.abs(c.clientY - mainTouchY0) > MAIN_USER_MOVE_PX) mainUserAt = performance.now(); // флік без touchmove: рух видно з координати touchend
+    else if(mainTouchMoved) mainUserAt = performance.now();
+    mainTouchMoved = false;
+  };
+  document.addEventListener('touchend', touchEnd, o); document.addEventListener('touchcancel', touchEnd, o);
+  document.addEventListener('wheel', function(e){ if(inMain(e)){ mainUserAt = performance.now(); tabScrollEl = 'wheel'; } }, o);
+  document.addEventListener('keydown', function(e){ if(/^(ArrowUp|ArrowDown|PageUp|PageDown|Home|End| )$/.test(e.key) && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')){ mainUserAt = performance.now(); tabScrollEl = 'key'; } }, o);
 }
 function updateScrollTopBtn(){
   const mainColEl = document.getElementById('main-col');
@@ -1480,7 +1496,7 @@ function miniHeadRefresh(){
 function miniHeadOnScroll(s){ miniHeadLast = { y: s.y, max: s.max }; miniHeadRefresh(); }
 function miniHeadClick(){
   const el = document.getElementById('main-col'); if(!el) return;
-  if(motionReduced()){ el.scrollTop = 0; return; }
+  if(motionReduced()){ mainUserReset(); el.scrollTop = 0; return; }
   smoothScrollToTop();
 }
 function initMiniHead(){
