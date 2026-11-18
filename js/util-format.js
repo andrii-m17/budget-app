@@ -27,6 +27,13 @@ function pluralizeRecords(n){
   return n + ' ' + pluralUa(n, ['запис', 'записи', 'записів']);
 }
 
+// Rev 2.32.394: відсоток з десятковою комою й нерозривним пробілом перед «%» («31,8 %»); ціле — «31 %»; симетричне округлення до десятих; нечислове — «—». Для відсотків з дробовою частиною в «Аналітиці».
+function fmtPercent1(v){
+  const n = Number(v);
+  if(v === null || v === '' || !isFinite(n)) return '—';
+  const r = Math.sign(n) * Math.round(Math.abs(n) * 10) / 10;
+  return new Intl.NumberFormat('uk-UA', { maximumFractionDigits: 1 }).format(r === 0 ? 0 : r) + '\u00a0%';
+}
 function fmtSignedPercent(rawPercent){
   const abs = Math.round(Math.abs(rawPercent) * 10) / 10;
   const str = Number.isInteger(abs) ? String(abs) : abs.toFixed(1);

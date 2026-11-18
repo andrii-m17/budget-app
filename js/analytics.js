@@ -1055,7 +1055,7 @@ function renderDashboard(){
   // підписом картки "Платежі по ОЧ" ("N активних · залишок X ₴").
   document.getElementById('kpi-habit').textContent = habitEntries.length===0 ? '—' : habitEntries[0][0];
   document.getElementById('kpi-habit-sub').textContent = (habitEntries.length && totalExpense>0)
-    ? `${habitEntries[0][1].count} ${habitCountWord(habitEntries[0][1].count)} · ${(habitEntries[0][1].sum/totalExpense*100).toFixed(1)}% усіх витрат`
+    ? `${habitEntries[0][1].count} ${habitCountWord(habitEntries[0][1].count)} · ${fmtPercent1(habitEntries[0][1].sum/totalExpense*100)} усіх витрат`
     : '—';
 
   /* --- Висновки місяця: картки-інсайти (іконка + заголовок + опис) ---
@@ -1078,12 +1078,12 @@ function renderDashboard(){
     if(savings>=0){
       insights.push({icon:'check', color:'success', title:'Фінансовий результат',
         desc: totalIncome>0
-          ? `Цього місяця у вас профіцит ${fmtSigned(savings)} або ${(savings/totalIncome*100).toFixed(1)}% від доходу.`
+          ? `Цього місяця у вас профіцит ${fmtSigned(savings)} або ${fmtPercent1(savings/totalIncome*100)} від доходу.`
           : `Цього місяця у вас профіцит ${fmtSigned(savings)}.`});
     }else{
       insights.push({icon:'alert', color:'error', title:'Фінансовий результат',
         desc: totalIncome>0
-          ? `Витрати перевищили дохід на ${fmt(Math.abs(savings))} (${(Math.abs(savings)/totalIncome*100).toFixed(1)}% від доходу).`
+          ? `Витрати перевищили дохід на ${fmt(Math.abs(savings))} (${fmtPercent1(Math.abs(savings)/totalIncome*100)} від доходу).`
           : `Витрати перевищили дохід на ${fmt(Math.abs(savings))}.`});
     }
     // 2. Найбільша витрата
