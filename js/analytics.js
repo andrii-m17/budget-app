@@ -1721,7 +1721,7 @@ function debtSheetHtml(c){
     const incomplete = acc ? cardIncompleteReasons(acc).length > 0 : false;
     h += '<div class="bal-dr">' +
       '<div class="bal-top2">' + balLogoHtml(d.name, 'card') + '<span class="bal-nm">' + escapeHtml(stripLeadingEmoji(d.name)) + (incomplete ? balDotHtml() : '') + '</span><span class="bal-mono' + (u.zero ? ' dim' : '') + '">' + fmt(d.balance) + '</span></div>' +
-      (u.hasLimit ? '<div class="bal-strack"><div class="bal-fill ' + (u.over ? 'over' : 'income') + '" ' + balStyleV(u.fill) + '></div></div>' : '') +
+      (u.hasLimit ? '<div class="bal-strack"><div class="bal-fill ' + (u.over ? 'over' : 'debt') + '" ' + balStyleV(u.fill) + '></div></div>' : '') +
       '<div class="bal-srow"><span class="bal-scap3">' + (u.hasLimit ? 'кредитний ліміт ' + fmt(acc.creditLimit) : 'кредитний ліміт не вказано') + '</span><span class="bal-scap3">' + (u.hasLimit ? (u.zero ? 'без боргу' : u.pct + '% використано') : '') + '</span></div></div>';
   });
   return h + '</div>';

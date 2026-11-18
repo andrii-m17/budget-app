@@ -86,3 +86,12 @@ test('охоронне: у шторках усі дані екрановано; 
   assert.ok(/function refreshBalSheets\(\)/.test(SRC) && /refreshBalSheets\(\);\n\}/.test(SRC), 'renderDebtOchTiles оновлює відкриту шторку');
   assert.ok(/function openDebtSheet\(\)\{ renderBalSheet\('debt'\); balSheetOpen/.test(SRC));
 });
+
+test('Rev 2.32.387: смуга «борг / ліміт» — колір боргу, суми шторок — основним шрифтом з tabular-nums, не моноширинним', () => {
+  const m = SRC.slice(SRC.indexOf('function debtSheetHtml'), SRC.indexOf('function instSheetHtml'));
+  assert.ok(/u\.over \? 'over' : 'debt'/.test(m) && !/'income'/.test(m.replace(/bal-strack"><div class="bal-fill income"/, '')), 'смуги карток — debt/over; «погашено» в шапці лишається income');
+  const css = ex.readAppCss();
+  assert.ok(/\.bal-fill\.debt\{ background:var\(--debt\); \}/.test(css));
+  const mono = css.match(/\.bal-mono\{[^}]*\}/)[0];
+  assert.ok(/font-variant-numeric:tabular-nums/.test(mono) && !/JetBrains|monospace/.test(mono));
+});

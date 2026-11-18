@@ -3061,6 +3061,7 @@
 .bal-tcap.neg, .bal-scap.neg{ color:var(--expense); font-weight:600; }
 .bal-tile-btn .bal-track{ display:block; }
 .bal-fill.over{ background:var(--expense); }
+.bal-fill.debt{ background:var(--debt); } /* Rev 2.32.387 (DS-5b): смуга «борг / ліміт» — колір боргу; зелений лишається за доходами й погашенням */
 .bal-sheet-body{ display:flex; flex-direction:column; gap:var(--sp-4); padding-bottom:var(--sp-6); }
 .bal-sumbox{ display:flex; flex-direction:column; gap:var(--sp-2); }
 .bal-srow{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2); }
@@ -3076,7 +3077,7 @@
 .bal-logo{ display:block; width:32px; height:32px; flex:none; overflow:hidden; border-radius:var(--r-xs); }
 .bal-nm{ flex:1; min-width:0; font-size:var(--fs-callout); font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .bal-nsub{ display:block; font-size:var(--fs-caption1); line-height:16px; font-weight:400; color:var(--text-3); }
-.bal-mono{ font-family:'JetBrains Mono',monospace; font-size:var(--fs-subhead); font-weight:700; letter-spacing:-.04em; white-space:nowrap; text-align:right; color:var(--text); }
+.bal-mono{ font-size:var(--fs-subhead); font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; text-align:right; color:var(--text); } /* Rev 2.32.387 (DS-5b): суми шторок основним шрифтом з цифрами однакової ширини (без моноширинного) */
 .bal-mono.dim{ color:var(--text-3); }
 .bal-mono small{ font-family:inherit; font-size:var(--fs-caption1); font-weight:500; color:var(--text-3); letter-spacing:0; }
 .bal-sheet .och-ovals{ gap:var(--sp-1); }
