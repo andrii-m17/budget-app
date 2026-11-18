@@ -1,15 +1,95 @@
 // Каркас UI: місяці, бейдж, оновлення PWA, вкладки, рух, натискання, таббар і свайп, тема, сегменти
 // Перенесено з index.html дослівно, без змін (Rev 2.32.349, STRUCT-3). Звичайний скрипт: функції й const/let лишаються глобальними; підключається в index.html перед основним <script>; оператори верхнього рівня цієї області лишились в основному скрипті.
 
+// Rev 2.32.356 (DS-3e): перелік місяців перемикача — від першого місяця з даними до поточного (майбутніх немає); без даних — лише поточний. Дані: ті самі активні витрати, доходи й борги, що в allMonths(), але БЕЗ ковзного вікна −12…+1 (allMonths() не змінено: ним користуються маршрути й ролловер). Чиста функція: dataMonths — масиви ключів 'YYYY-MM'.
+function monthPickerList(dataMonths, todayKey){
+  const ok = (dataMonths || []).filter(function(m){ return typeof m === 'string' && /^\d{4}-\d{2}$/.test(m) && m <= todayKey; });
+  if(!ok.length) return [todayKey];
+  const first = ok.reduce(function(a, b){ return b < a ? b : a; });
+  const out = []; let m = first, guard = 0;
+  while(m <= todayKey && guard++ < 1200){ out.push(m); m = shiftMonth(m, 1); }
+  if(out[out.length - 1] !== todayKey) out.push(todayKey);
+  return out;
+}
+// Сусідній місяць списку для стрілок: delta -1/+1; null — межа (перший місяць з даними / поточний). Якщо вибраного місяця немає в списку (програмний перехід), шукаємо найближчий у потрібний бік.
+function monthStepTarget(list, selected, delta){
+  if(!list || !list.length) return null;
+  if(delta < 0){ for(let i = list.length - 1; i >= 0; i--){ if(list[i] < selected) return list[i]; } return null; }
+  for(let i = 0; i < list.length; i++){ if(list[i] > selected) return list[i]; }
+  return null;
+}
+function monthShortName(key, todayKey){
+  const parts = key.split('-'); const nm = UA_MONTHS[parseInt(parts[1], 10) - 1] || '';
+  return nm.charAt(0).toUpperCase() + nm.slice(1) + (parts[0] !== todayKey.split('-')[0] ? ' ' + parts[0] : '');
+}
+// Розмітка списку (дані екрануються): місяці від поточного назад, заголовки років, «поточний», галочка на вибраному.
+function monthMenuHTML(list, selected, todayKey){
+  let h = '', y = null;
+  for(let i = list.length - 1; i >= 0; i--){
+    const m = list[i], parts = m.split('-'), nm = UA_MONTHS[parseInt(parts[1], 10) - 1] || '';
+    if(parts[0] !== y){ y = parts[0]; h += '<div class="yh" role="presentation">' + escapeHtml(y) + '</div>'; }
+    const on = m === selected;
+    h += '<button type="button" role="menuitemradio" aria-checked="' + (on ? 'true' : 'false') + '" data-m="' + escapeAttr(m) + '"' + (on ? ' class="on"' : '') + '><span>' + escapeHtml(nm.charAt(0).toUpperCase() + nm.slice(1)) + (m === todayKey ? ' <small>поточний</small>' : '') + '</span>' + (on ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>' : '') + '</button>';
+  }
+  return h;
+}
+function dataMonthKeys(){
+  return Array.from(new Set([...activeExpenses().map(e=>monthKey(e.date)), ...activeIncomes().map(e=>monthKey(e.date)), ...activeDebts().map(d=>d.month)].filter(Boolean)));
+}
+function currentMonthList(){ return monthPickerList(dataMonthKeys(), monthKey(localDateISO())); }
+let monthPaintedKey = null;
+function paintMonthSwitcher(){
+  const nameEl = document.getElementById('month-name'); if(!nameEl || !selectedMonth) return;
+  const todayKey = monthKey(localDateISO()), list = currentMonthList();
+  const prev = document.getElementById('month-prev'), next = document.getElementById('month-next');
+  const label = monthShortName(selectedMonth, todayKey);
+  if(monthPaintedKey !== selectedMonth){
+    const dir = (monthPaintedKey && selectedMonth < monthPaintedKey) ? '-6px' : '6px';
+    nameEl.innerHTML = '<span style="--dy:' + dir + '">' + escapeHtml(label) + '</span>';
+    monthPaintedKey = selectedMonth;
+  }
+  if(prev) prev.disabled = monthStepTarget(list, selectedMonth, -1) === null;
+  if(next) next.disabled = monthStepTarget(list, selectedMonth, 1) === null;
+  const now = document.getElementById('month-now'), pill = document.getElementById('month-pill');
+  if(now) now.classList.toggle('on', selectedMonth < todayKey && !!pill && !pill.classList.contains('hidden'));
+}
+function stepMonth(delta){
+  const t = monthStepTarget(currentMonthList(), selectedMonth, delta);
+  if(t) onMonthChange(t);
+}
+function goCurrentMonth(){ onMonthChange(monthKey(localDateISO())); }
+function closeMonthMenu(){
+  const m = document.getElementById('month-menu'); if(!m || !m.classList.contains('on')) return;
+  m.classList.remove('on'); const n = document.getElementById('month-name'); if(n) n.setAttribute('aria-expanded', 'false');
+}
+function toggleMonthMenu(open){
+  const m = document.getElementById('month-menu'), n = document.getElementById('month-name'); if(!m || !n) return;
+  const o = typeof open === 'boolean' ? open : !m.classList.contains('on');
+  if(!o){ closeMonthMenu(); return; }
+  m.innerHTML = monthMenuHTML(currentMonthList(), selectedMonth, monthKey(localDateISO()));
+  m.classList.add('on'); n.setAttribute('aria-expanded', 'true');
+  const sel = m.querySelector('button.on'); if(sel && sel.scrollIntoView) sel.scrollIntoView({ block: 'nearest' });
+}
+function initMonthSwitcher(){
+  const m = document.getElementById('month-menu'); if(!m) return;
+  m.addEventListener('click', function(ev){
+    const b = ev.target.closest ? ev.target.closest('button[data-m]') : null; if(!b) return;
+    ev.stopPropagation(); closeMonthMenu(); onMonthChange(b.getAttribute('data-m'));
+  });
+  m.addEventListener('keydown', function(ev){
+    const items = Array.from(m.querySelectorAll('button[data-m]')); const i = items.indexOf(document.activeElement);
+    if(ev.key === 'ArrowDown'){ ev.preventDefault(); (items[i + 1] || items[0]).focus(); }
+    else if(ev.key === 'ArrowUp'){ ev.preventDefault(); (items[i - 1] || items[items.length - 1]).focus(); }
+  });
+  document.addEventListener('pointerdown', function(ev){ if(!(ev.target.closest && ev.target.closest('#month-pill'))) closeMonthMenu(); }, true);
+  document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape' && document.getElementById('month-menu').classList.contains('on')){ closeMonthMenu(); const n = document.getElementById('month-name'); if(n) n.focus(); } });
+  const mc = document.getElementById('main-col'); if(mc) mc.addEventListener('scroll', closeMonthMenu, { passive: true });
+}
 function populateMonths(){
   const months = allMonths();
-  const opts = months.map(m=>`<option value="${escapeAttr(m)}">${escapeHtml(monthLabel(m))}</option>`).join('');
   const todayKey = monthKey(localDateISO());
   if(!selectedMonth || !months.includes(selectedMonth)) selectedMonth = months.includes(todayKey) ? todayKey : months[months.length-1];
-  ['month-select-side','month-select-top'].forEach(id=>{
-    const el = document.getElementById(id); if(!el) return; // Rev 2.32.162 (DESK-NAV): окремого вибору місяця в бічній панелі більше немає — місяць у шапці сторінки
-    el.innerHTML = opts; el.value = selectedMonth;
-  });
+  paintMonthSwitcher(); // Rev 2.32.356 (DS-3e): замість заповнення <select>
 }
 // Rev 2.16.6 — захист від "незбережених змін" прибрано: і картки (Rev
 // 2.16.5), і ОЧ тепер редагуються виключно в ізольованій шторці з власним
@@ -23,9 +103,7 @@ function onMonthChange(val){
 }
 function performMonthChange(val){
   selectedMonth = val;
-  const sideMonth = document.getElementById('month-select-side'); if(sideMonth) sideMonth.value = val; // Rev 2.32.162: елемента в панелі вже немає
-  document.getElementById('month-select-top').value = val;
-  updatePageHeader(lastActiveTab);
+  updatePageHeader(lastActiveTab); // Rev 2.32.356 (DS-3e): updatePageHeader малює перемикач місяця (paintMonthSwitcher)
   renderAll();
 }
 
@@ -521,16 +599,16 @@ function pressEndAllTouch(e){
 const BUTTON_VARIANT_MAP = {
   primary: ['chk-fl', 'submit-btn', 'rce-save', 'dsp-action', 'sync-card-btn', 'trash-restore-btn', 'mono-primary'],
   secondary: ['rs-cancel', 'chk-sk', 'add-trigger-btn', 'show-journal-link', 'journal-reset-btn', 'rce-cancel', 'diag-issue-ignore', 'installment-pay-btn', 'dbg-rec-btn'],
-  text: ['mono-back', 'notif-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
+  text: ['mn', 'mono-back', 'notif-back', 't-footer-link', 'cdd-delete-link', 'dsp-link', 'auto-hint-edit-btn', 'n-diag-toggle', 'mono-kw-undo', 'struct-delete-row', 'notif-readall', 'bdr-diff-apply', 'journal-empty-reset'],
   danger: ['danger-outline'],
-  icon: ['och-delete-btn', 'drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
+  icon: ['mb', 'och-delete-btn', 'drawer-close', 'gear-btn', 'notif-bell-btn', 'profile-header-btn', 'update-btn', 'date-nav-btn', 'journal-back-btn', 'journal-search-clear', 'bdr-icon-btn', 'data-status-dot', 'exp-del', 'notif-row-trash'],
   segment: ['struct-tab-btn', 'theme-toggle-btn'],
   chip: ['trash-chip', 'mono-inst-label', 'mono-refund-label', 'mono-cat-btn'],
   row: ['rs-rw', 'mono-row', 'mono-auto-row', 'mono-auto-ok', 'notif-row', 'struct-row', 'struct-dict-head', 'pay-day', 'pay-card-hit', 'pay-line', 'mono-switch', 'chk-row', 'chk-hd', 'swipe-ignore-btn', 'card-debt-compact-row', 'service-tile', 'service-wide-card', 'service-danger-card', 'n-row', 'n-row-link', 'profile-menu-item', 'diag-issue', 'swipe-edit-btn', 'swipe-delete-btn', 'swipe-restore-btn', 'swipe-purge-btn'],
   reference: ['tab-vytraty', 'scroll-top-btn', 'side-tab', 'side-collapse-btn', 'och-cond-row']
 };
 // Класи-модифікатори (не визначають варіант самі): стани й кольорові різновиди.
-const BUTTON_MODIFIER_CLASSES = ['hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated', 'chk-mut', 'k', 'first', 'more'];
+const BUTTON_MODIFIER_CLASSES = ['on', 'hidden', 'active', 'link', 'pill', 'income', 'debt', 'expense', 'danger', 'secondary', 'btn-loading', 'journal-empty-reset-x', 'accent', 'save-gated', 'chk-mut', 'k', 'first', 'more'];
 // className → variant (або null). parentClassName — клас контейнера для безкласових кнопок (.n-days > button = chip; .tabbar-glass > button = reference).
 function buttonVariantOf(className, parentClassName){
   const cls = String(className || '').split(/\s+/).filter(Boolean);
@@ -956,6 +1034,7 @@ function updatePageHeader(tab){
   if(titleEl) titleEl.textContent = meta.title;
   if(subtitleEl) subtitleEl.textContent = meta.subtitle(selectedMonth ? monthLabel(selectedMonth) : '');
   if(monthPillEl) monthPillEl.classList.toggle('hidden', !meta.showMonthPill);
+  closeMonthMenu(); paintMonthSwitcher(); // Rev 2.32.356 (DS-3e)
 }
 // Rev 2.32.43 (SC): чиста функція — чи скидати прокрутку у верх при переході на «+Витрата». Тригери: тап по вкладці з іншої ('tab'), повторний тап по активній ('repeat'), перехід зі сповіщення/Журналу ('push'); інші вкладки — ні.
 function shouldScrollExpenseTop(trigger, state){

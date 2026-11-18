@@ -103,10 +103,10 @@ test('вузька панель: лише іконки, підказки при 
 
 test('місяць: пілюля в шапці сторінки на десктопі (не ховається), у панелі вибору місяця немає; вибір працює без елемента панелі', function(){
   assert.ok(!/\.month-pill\{ display:none; \}/.test(navBlock) && !/\.month-pill\{ display:none; \}/.test(CSS.slice(CSS.indexOf('Desktop (≥1280px)'))));
-  assert.match(NC, /<label class="month-pill" for="month-select-top">/);
+  assert.match(NC, /<div class="month-pill" id="month-pill" role="group" aria-label="Місяць">/); // Rev 2.32.356 (DS-3e): перемикач «‹ Місяць ›» замість <label>+<select>
   assert.match(SRC, /showMonthPill:true \},\n  accounting/); assert.match(SRC, /vytraty: \{[^}]*showMonthPill:false/);
-  assert.match(SRC, /const sideMonth = document\.getElementById\('month-select-side'\); if\(sideMonth\) sideMonth\.value = val;/);
-  assert.match(SRC, /const el = document\.getElementById\(id\); if\(!el\) return;/);
+  assert.ok(!/month-select-(side|top)/.test(SRC), 'рідного <select> місяця більше немає (Rev 2.32.356, DS-3e)');
+  assert.match(SRC, /function performMonthChange\(val\)\{\n  selectedMonth = val;\n  updatePageHeader\(lastActiveTab\);/);
 });
 test('бейдж сповіщень: той самий елемент і updateNotifBell; aria-label несе кількість', function(){
   assert.match(NC, /<span class="notif-bell-count hidden" id="notif-side-count" aria-hidden="true"><\/span>/);

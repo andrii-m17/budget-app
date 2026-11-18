@@ -75,7 +75,8 @@ test('backdrop-filter — лише таббар, scroll-top і банер оно
   const re = /([^{}]+)\{([^{}]*)\}/g; let m;
   while((m = re.exec(CSS))){ if(/(^|[;\s])(-webkit-)?backdrop-filter\s*:/.test(m[2])) sels.push(m[1].trim()); }
   assert.ok(sels.length >= 2);
-  sels.forEach(sel => assert.ok(/^(\.tabbar-glass|\.scroll-top-btn|\.update-banner|\.success-toast|\.side-panel)$/.test(sel), 'backdrop-filter на ' + sel));
+  // Rev 2.32.356 (DS-3e): + .month-menu.on — скляний список місяців (blur лише у відкритому стані)
+  sels.forEach(sel => assert.ok(/^(\.tabbar-glass|\.scroll-top-btn|\.update-banner|\.success-toast|\.side-panel|\.month-menu\.on)$/.test(sel), 'backdrop-filter на ' + sel));
   assert.ok(!/backdrop-filter/.test(M3), 'у блоці M3 немає backdrop-filter');
 });
 

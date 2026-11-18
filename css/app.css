@@ -198,12 +198,29 @@
      іконка зліва і шеврон справа мальуються окремими SVG, не через
      background-image на самому select, бо тут потрібні ДВІ іконки одразу
      по краях, а не одна. */
-  .month-pill{ display:inline-flex; align-items:center; gap:var(--sp-2); margin-top:var(--sp-4); padding:var(--sp-2) var(--sp-4); background:var(--surface); border:1.5px solid var(--line-strong); border-radius:var(--r-pill); cursor:pointer; box-shadow:var(--shadow-sm); }
-  .month-pill svg{ width:16px; height:16px; color:var(--text-2); flex-shrink:0; }
-  .month-pill svg.month-pill-chevron{ width:13px; height:13px; }
-  .month-pill select{ appearance:none; -webkit-appearance:none; -moz-appearance:none; background:none; border:none; padding:0; margin:0; font:inherit; font-weight:700; font-size:14px; color:var(--text); cursor:pointer; }
-  .month-pill select:focus{ outline:none; }
+  /* Rev 2.32.356 (DS-3e): перемикач місяця «‹ Місяць ›» (макет analytics-ds: .mstep) замість рідного <select>; список — скляний випадний .month-menu; рядок «минулий місяць» — .month-now. Розміри з макета: пігулка h38, стрілки 34×34, назва min-w 86, список w224 max-h340 r18. */
+  .month-pill{ position:relative; display:inline-flex; align-items:center; margin-top:var(--sp-4); height:38px; padding:0 2px; box-sizing:border-box; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-pill); box-shadow:var(--shadow-sm); text-align:left; }
+  .month-pill .mb{ width:34px; height:34px; border:0; padding:0; background:none; border-radius:50%; display:grid; place-items:center; color:var(--text-2); cursor:pointer; transition:transform var(--t-micro) ease, opacity var(--t-s) ease; }
+  .month-pill .mb:active{ transform:scale(.88); }
+  .month-pill .mb:disabled{ opacity:.28; cursor:default; }
+  .month-pill .mn{ min-width:86px; height:34px; padding:0 var(--sp-1); border:0; background:none; text-align:center; font:inherit; font-size:var(--fs-subhead); font-weight:600; color:var(--text); white-space:nowrap; cursor:pointer; }
+  .month-pill .mn span{ display:inline-block; animation:mfade var(--t-m) cubic-bezier(.22,1,.36,1); }
+  @keyframes mfade{ from{ opacity:0; transform:translateY(var(--dy, 6px)); } }
   .month-pill.hidden{ display:none; }
+  /* скляний список: backdrop-filter лише у відкритому стані (єдиний новий шар розмиття, тимчасовий); закритий — visibility:hidden, шару немає */
+  .month-menu{ position:absolute; top:calc(100% + var(--sp-2)); left:50%; z-index:30; width:224px; max-height:340px; overflow:auto; box-sizing:border-box; padding:calc(var(--sp-2) * .75); border-radius:var(--r-m); background:var(--glass); box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge), inset 0 -1px 0 var(--glass-edge-2), inset 0 0 0 1px var(--glass-edge-2); opacity:0; visibility:hidden; transform:translateX(-50%) scale(.9) translateY(-6px); transform-origin:top center; pointer-events:none; transition:opacity var(--t-s) ease, transform var(--t-m) cubic-bezier(.34,1.56,.64,1), visibility 0s linear var(--t-m); scrollbar-width:none; text-align:left; }
+  .month-menu::-webkit-scrollbar{ display:none; }
+  .month-menu.on{ opacity:1; visibility:visible; transform:translateX(-50%); pointer-events:auto; -webkit-backdrop-filter:blur(24px) saturate(180%); backdrop-filter:blur(24px) saturate(180%); transition:opacity var(--t-s) ease, transform var(--t-m) cubic-bezier(.34,1.56,.64,1), visibility 0s; }
+  .month-menu .yh{ padding:var(--sp-2) var(--sp-3) var(--sp-1); font-size:var(--fs-caption1); line-height:16px; font-weight:600; color:var(--text-3); }
+  .month-menu button{ width:100%; height:42px; padding:0 var(--sp-3); border:0; background:none; border-radius:var(--r-s); display:flex; align-items:center; justify-content:space-between; font:inherit; font-size:var(--fs-callout); color:var(--text); cursor:pointer; transition:background var(--t-micro) ease; }
+  .month-menu button:active{ background:var(--glass-press); }
+  .month-menu button.on{ font-weight:600; }
+  .month-menu button svg{ color:var(--accent-text); }
+  .month-menu button small{ font-size:var(--fs-caption1); color:var(--text-3); font-weight:500; }
+  .month-now{ display:none; align-items:center; justify-content:space-between; gap:var(--sp-3); padding:var(--sp-3) var(--sp-5) 0; font-size:var(--fs-footnote); line-height:18px; color:var(--text-2); }
+  .month-now.on{ display:flex; }
+  .month-now button{ border:0; background:none; padding:0; font:inherit; font-size:var(--fs-footnote); font-weight:600; color:var(--accent-text); cursor:pointer; }
+  @media (prefers-reduced-motion: reduce){ .month-pill .mn span{ animation:none; } .month-menu, .month-menu.on{ transition:none; transform:translateX(-50%); } .month-pill .mb{ transition:none; } }
   .brand-row{ display:flex; align-items:center; gap:var(--sp-2); }
   .brand-logo{ width:28px; height:28px; border-radius:var(--r-xs); overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .brand-logo img{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -2599,6 +2616,7 @@
     html.side-collapsed{ --side-w:62px; }
     .app-shell{ flex-direction:row; max-width:1440px; margin-left:0; }
     .top{ display:block; text-align:left; padding:0 0 var(--sp-5); border-bottom:none; }
+    .month-menu{ left:0; transform:translateY(-6px) scale(.9); transform-origin:top left; } .month-menu.on{ transform:none; } .month-now{ padding-left:0; padding-right:0; }
     .page-header-buttons{ display:none; }
     .page-header-buttons-left{ display:none; }
     .page-header-text{ padding:0; }
@@ -2739,12 +2757,12 @@
      Rev 2.30.0 (M4b): «Скло» — єдиний стиль (тест button-style завершено, гілки data-ui прибрано). Правила мають префікс `html:root` — він дає ту саму специфічність (0,1,1), що мав `html[data-ui="glass"]`, тож каскад лишився без змін.
      backdrop-filter на кнопках НЕ вживаємо (лише таббар, scroll-top і шапки шторок): "скло" = напівпрозорий фон + межа 1px + inset-відблиск + легка тінь. */
   /* Зона натискання ≥44: невидиме розширення ::after (--ui-hit) — розмір і розкладка не змінюються. position:relative через :where (0 специфічності): існуючі absolute/fixed лишаються. */
-  html:root :where(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link){ position:relative; }
+  html:root :where(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .data-status-dot, .exp-del, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link, .month-pill .mb, .month-pill .mn, .month-now button){ position:relative; }
   html:root :is(.struct-tab-btn, .add-trigger-btn, .show-journal-link, .t-footer-link, .cdd-delete-link, .installment-pay-btn, .gear-btn, .drawer-close, .journal-back-btn, .journal-search-clear, .exp-del, .diag-issue-ignore, .dsp-action, .bdr-icon-btn, .auto-hint-edit-btn, .bdr-diff-apply, .dsp-link)::after,
   html:root .data-status-dot::before{ content:''; position:absolute; inset:calc(-1 * var(--ui-hit-y, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-r, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-y, var(--ui-hit, 0px))) calc(-1 * var(--ui-hit-l, var(--ui-hit, 0px))); } /* --ui-hit-y — окремо по вертикалі (сегменти: по горизонталі сусіди впритул); --ui-hit-l/-r — по боках (Rev 2.30.0: пара іконок впритул) */
   /* Rev 2.32.88 (FIX-UI-1c): «✕» у пошуку журналу мусить лишатись absolute. Правило з html:root вище має специфічність 0,1,1 (не 0, попри :where) і перебивало `.journal-search-clear{position:absolute}` (0,1,0): кнопка ставала елементом потоку, обгортка росла 44 → 66 пт, «✕» опинявся внизу ліворуч, лупа й «Скинути · N» з'їжджали (центрування по 66). Тут специфічність 0,2,1 повертає absolute; решту розмірів і ::after не чіпаю. Ризик: інші елементи списку не мають власного absolute (перевірено в preview), тож зачеплено лише цю кнопку. */
   html:root .journal-search-clear{ position:absolute; }
-  html:root .gear-btn{ --ui-hit:4px; } html:root .drawer-close{ --ui-hit:7px; } html:root .journal-back-btn{ --ui-hit:4px; } html:root .journal-search-clear{ --ui-hit:11px; } html:root .data-status-dot{ --ui-hit:5px; }
+  html:root :is(.month-pill .mb, .month-pill .mn, .month-now button, .month-pill .mb, .month-pill .mn, .month-now button){ --ui-hit-y:5px; --ui-hit-l:0px; --ui-hit-r:0px; } html:root .gear-btn{ --ui-hit:4px; } html:root .drawer-close{ --ui-hit:7px; } html:root .journal-back-btn{ --ui-hit:4px; } html:root .journal-search-clear{ --ui-hit:11px; } html:root .data-status-dot{ --ui-hit:5px; }
   html:root :is(.exp-del, .diag-issue-ignore){ --ui-hit:9px; } html:root .dsp-action{ --ui-hit:7px; } /* Rev 2.30.0 (M4b): пара іконок «редагувати/видалити» стоїть впритул (проміжок 2pt), крок рядків 43pt. Зона розширюється АСИМЕТРИЧНО в бік вільного краю: «редагувати» — вліво (+20), «видалити» — вправо (+20) → 45pt по ширині без перекриття; по висоті 24+2×8.5 = 41pt = найменший крок рядків (Словник, 41pt; Категорії 43pt; більше перекривало б іконки сусідніх рядків) → по висоті 3pt до 44 лишається задокументований виняток (UI_AUDIT_SMALL_EXEMPT). */
   html:root .bdr-icon-btn{ --ui-hit-y:8.5px; --ui-hit-l:20px; --ui-hit-r:1px; }
   html:root .bdr-icon-btn.danger{ --ui-hit-l:1px; --ui-hit-r:20px; }
