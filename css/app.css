@@ -3150,8 +3150,49 @@
 .bal-pempty{ font-size:var(--fs-callout); font-weight:600; color:var(--text); }
 .bal-pot.is-empty .bal-pempty-wrap{ display:flex; }
 .bal-pot.is-empty .bal-prow, .bal-pot.is-empty .bal-pbarwrap, .bal-pot.is-empty .bal-chev, .bal-pot.is-empty .bal-xp{ display:none; }
+/* ===== Rev 2.32.392 (DS-5d-1): картка «Динаміка за 6 місяців» (макет analytics-ds v18). Лише токени; touch-action: pan-y — вертикальна прокрутка лишається сторінці. ===== */
+.bal-dyn{ display:flex; flex-direction:column; gap:var(--sp-3); margin-top:0; margin-bottom:var(--sp-3); padding:var(--sp-4); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); box-shadow:none; min-width:0; }
+.bal-dleg{ display:flex; gap:var(--sp-4); min-height:18px; font-size:var(--fs-footnote); line-height:18px; color:var(--text-2); white-space:nowrap; flex-wrap:wrap; }
+.bal-dleg span{ display:flex; align-items:center; gap:var(--sp-2); }
+.bal-dleg b{ color:var(--text); font-weight:600; }
+.bal-dleg .pos{ color:var(--income-text); font-weight:600; }
+.bal-dleg .neg{ color:var(--expense); font-weight:600; }
+.bal-dleg .sq{ display:inline-block; width:8px; height:8px; flex:none; border-radius:var(--r-2xs); }
+.bal-dleg .sw-ln{ display:inline-block; width:14px; height:3px; flex:none; border-radius:var(--r-2xs); }
+.bal-ac{ position:relative; min-height:212px; touch-action:pan-y; cursor:pointer; -webkit-user-select:none; user-select:none; }
+.bal-ac .empty-hint{ padding:var(--sp-6) 0; }
+.bal-ac text{ font-size:var(--fs-caption2); fill:var(--text-3); }
+.bal-ac .gridl{ stroke:var(--line); stroke-width:1; }
+.bal-ac .band{ fill:var(--surface-2); opacity:0; transition:opacity var(--t-micro) var(--ease-standard); }
+.bal-ac .band.on{ opacity:1; }
+.bal-ac .vl{ stroke:var(--text-3); stroke-width:1; opacity:0; transition:opacity var(--t-micro) var(--ease-standard); }
+.bal-ac .vl.on{ opacity:.8; }
+.bal-ac .grp{ transition:opacity var(--t-s) var(--ease-standard); }
+.bal-ac.has .grp:not(.on){ opacity:.32; }
+.bal-ac .bar{ transform-box:fill-box; transform-origin:50% 100%; animation:balGrowY var(--t-count) var(--ease-out) backwards; animation-delay:calc(var(--n) * var(--bal-ac-step) + var(--bal-ac-base)); }
+.bal-ac .bar.part{ opacity:.5; }
+.bal-dyn{ --bal-ac-step:45ms; --bal-ac-base:150ms; --bal-ac-late:650ms; }
+.bal-ac text.vt{ fill:var(--text-2); font-weight:600; letter-spacing:-.2px; animation:balFade var(--t-m) var(--ease-standard) backwards; animation-delay:calc(var(--n) * var(--bal-ac-step) + var(--bal-ac-late)); }
+.bal-ac .grp.on text.vt{ fill:var(--text); }
+.bal-ac text.xl.cur{ fill:var(--text); font-weight:600; }
+.bal-ac text.xl.off{ opacity:.45; }
+.bal-ac text.xl.on{ fill:var(--text); font-weight:600; }
+.bal-ac .ln{ fill:none; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1; animation:balDraw var(--t-count) var(--ease-out) backwards; animation-delay:var(--bal-ac-base); }
+.bal-ac circle{ transform-box:fill-box; transform-origin:center; transition:transform var(--t-s) var(--ease-spring); animation:balDot var(--t-m) var(--ease-spring) backwards; animation-delay:calc(var(--n) * var(--bal-ac-step) + var(--bal-ac-base)); }
+.bal-ac .grp.on circle{ transform:scale(1.5); }
+@keyframes balGrowY{ from{ transform:scaleY(0); } }
+/* ===== Rev 2.32.393 (DS-5d-2): картка «Висновки» (макет analytics-ds v18): контурні піктограми, без кольорових кружків. Лише токени. ===== */
+.bal-ins{ display:flex; flex-direction:column; gap:var(--sp-1); margin-top:0; margin-bottom:var(--sp-3); padding:var(--sp-4); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); box-shadow:none; min-width:0; }
+.bal-ilist{ display:flex; flex-direction:column; }
+.bal-ili{ display:flex; align-items:flex-start; gap:var(--sp-3); min-height:44px; padding:var(--sp-2) 0; border-top:1px solid var(--line); }
+.bal-ili:first-child{ border-top:0; }
+.bal-ii{ display:block; width:20px; height:20px; flex:none; color:var(--text-3); }
+.bal-ii svg{ display:block; width:20px; height:20px; }
+.bal-itx{ display:flex; flex-direction:column; min-width:0; font-size:var(--fs-subhead); line-height:20px; }
+.bal-itx b{ font-weight:600; color:var(--text); }
+.bal-itx span{ color:var(--text-2); }
 @media (max-width:359px){ .bal-kic{ display:none; } }
 @media (prefers-reduced-motion: reduce){
-  .bal-seg, .bal-dline, .bal-dtag, .bal-fill, .bal-chart .ln, .bal-chart circle, .bal-cfill, .bal-dl, .bal-suc, .bal-potbar i{ animation:none; }
+  .bal-seg, .bal-dline, .bal-dtag, .bal-fill, .bal-chart .ln, .bal-chart circle, .bal-cfill, .bal-dl, .bal-suc, .bal-potbar i, .bal-ac .bar, .bal-ac text.vt, .bal-ac .ln, .bal-ac circle{ animation:none; }
   .bal-xp, .bal-xin, .bal-chev, .odc, .bal-chart circle, .bal-sum, .bal-sg, .bal-seg2 .ind{ transition:none; }
 }

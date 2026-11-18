@@ -124,12 +124,8 @@ test('сонячний рендер: data-final з тієї ж змінної, �
 });
 
 test('вузли графіків замінюються лише через setDashChart/clearDashChart/setDonutSvg (за підписом); прямих innerHTML для графіків нема', () => {
-  ['chart-income-expense'].forEach(id => { // Rev 2.32.385–386 (DS-5a/5b): спарклайни доходів/витрат/балансу/боргу прибрано
-    assert.ok(SRC.includes(`setDashChart('${id}'`), id);
-    assert.ok(!new RegExp(`getElementById\\('${id}'\\)\\.innerHTML`).test(SRC), id + ' напряму через innerHTML');
-  });
-  assert.ok(SRC.includes("setDashChart('chart-debt-line'") && SRC.includes("clearDashChart('chart-debt-line'"));
-  assert.ok(!/getElementById\('chart-debt-line'\)\.innerHTML/.test(SRC));
+  // Rev 2.32.392 (DS-5d-1): графіки ряду 2 замінено карткою «Динаміка» (renderDynCard, власний підпис даних); у M2 лишилась лише сама функція setDashChart (прибирається в DS-5e)
+  assert.ok(!SRC.includes("setDashChart('chart-") && !SRC.includes("clearDashChart('chart-")); assert.ok(!/getElementById\('chart-(income-expense|debt-line)'\)/.test(SRC));
   // Rev 2.32.386 (DS-5b): кільце «Скорочення боргу» (setDonutSvg) прибрано — «погашено %» тепер смуга плитки «Борг»
   assert.ok(!SRC.includes('function setDonutSvg'));
   // зміна під час анімації: finish() ДО заміни вузла

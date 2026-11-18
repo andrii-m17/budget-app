@@ -228,7 +228,7 @@ const DASH_REPLAY_SCALE = 0.7;     // повтор: лічильники/гра�
 const DASH_UPDATE_SCALE = 0.4;     // оновлення змінених даних
 // Rev 2.32.385 (DS-5a): числа балансу (kpi-savings) рухає одометр (odoRender), а доходи/витрати/обов'язкові/вільні тепер плитки картки «Сімейний баланс» без лічильників; лишається лише «Борг» (до DS-5b).
 const DASH_COUNTER_IDS = []; // Rev 2.32.386 (DS-5b): «Борг» і «ОЧ» теж одометр (renderDebtOchTiles), лічильників M2 не лишилось
-const DASH_CHART_HOSTS = ['chart-income-expense', 'chart-debt-line']; // Rev 2.32.386 (DS-5b): без спарклайна боргу й кільця
+const DASH_CHART_HOSTS = []; // Rev 2.32.392 (DS-5d-1): графіки ряду 2 замінено карткою «Динаміка» (renderDynCard), хостів M2 не лишилось
 // Rev 2.32.0 (F): тест card-reveal завершено — обрано «Стандартно»: тривалість появи однієї картки (d) і розсинхронізація між картками (s), мс при ×1.
 const CARD_REVEAL = { d: 420, s: 40 };
 function staggerDelay(i, k, max, step){
@@ -1014,14 +1014,9 @@ function renderDashboard(){
   const balSummary = mandatoryPaymentsSummary(monthExp, totalIncome);
   renderBalanceCard({ month: month, pos: balancePosition(month, localDateISO()), totalIncome: totalIncome, totalExpense: totalExpense, savings: savings, mandatory: balSummary.mandatory, freeMoney: balSummary.freeMoney,
     curInc: monthInc, curExp: monthExp, prevInc: prev.monthInc, prevExp: prev.monthExp, prevMonth: prevMonth, series: availableTrendData });
-  setDashChart('chart-income-expense', availableTrendData.map(t=>[t.m, t.totalIncome, t.totalExpense]), ()=>svgBarChart(availableTrendData, 6));
-  if(hasDebtData){
-    const debtTrend = months6.map(m => ({ m, total: debtTotalsForMonth(m).total, actual: kindHasActualForMonth('card', m) }));
-    const availableDebtTrend = startMonth ? debtTrend.filter(t => t.m >= startMonth) : debtTrend;
-    setDashChart('chart-debt-line', availableDebtTrend.map(t=>[t.m, t.total, t.actual ? 1 : 0]), ()=>svgLineChart(availableDebtTrend, 6));
-  }else{
-    clearDashChart('chart-debt-line', `<div class="empty-hint">Ще немає даних. Додай борги на вкладці «Облік» або імпортуй з Excel у «Сервіс».</div>`);
-  }
+  // Rev 2.32.392 (DS-5d-1): графіки «Доходи vs Витрати» і «Динаміка боргу» замінено однією карткою «Динаміка за 6 місяців» (renderDynCard); борг — лише точки з фактом (kindHasActualForMonth), carry-forward не малюється.
+  renderDynCard({ month: month, todayKey: monthKey(localDateISO()), months: months6, incomes: trendData.map(t=>t.totalIncome), expenses: trendData.map(t=>t.totalExpense), earliest: earliestActivity, hasDebtData: hasDebtData, startMonth: startMonth,
+    debts: months6.map(m => hasDebtData ? { total: debtTotalsForMonth(m).total, actual: kindHasActualForMonth('card', m) } : { total: 0, actual: false }) });
 
   /* --- Найбільша категорія для висновків (top5/byCat); рядки категорій малює renderCatCard --- */
   const byCat = {};
@@ -1072,14 +1067,6 @@ function renderDashboard(){
     flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
     dot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>',
     alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
-  };
-  const INSIGHT_COLORS = {
-    success:{bg:'var(--color-success-bg)', fg:'var(--color-success)'},
-    warning:{bg:'var(--color-warning-bg)', fg:'var(--color-warning)'},
-    error:{bg:'var(--color-error-bg)', fg:'var(--color-error)'},
-    info:{bg:'var(--color-info-bg)', fg:'var(--color-info)'},
-    purple:{bg:'var(--color-accent-purple-bg)', fg:'var(--color-accent-purple)'},
-    muted:{bg:'#F2F4F7', fg:'#64748B'}
   };
   const summaryEl = document.getElementById('summary-container');
   let insights = [];
@@ -1138,14 +1125,10 @@ function renderDashboard(){
         : {icon:'alert', color:'error', title:'Борг зростає', desc:`Борг зріс на ${fmt(Math.abs(cardDelta))} у порівнянні з минулим місяцем.`});
     }
   }
-  summaryEl.innerHTML = insights.map(function(i){
-    const c = INSIGHT_COLORS[i.color];
-    return `<div class="insight-item">
-      <div class="insight-icon" style="background:${c.bg}; color:${c.fg};">${INSIGHT_ICONS[i.icon]}</div>
-      <div class="insight-title">${i.title}</div>
-      <div class="insight-desc">${i.desc}</div>
-    </div>`;
-  }).join('');
+  // Rev 2.32.393 (DS-5d-2): висновки — той самий набір і та сама логіка (insights вище без змін), новий вигляд за макетом: картка, контурна піктограма без кольорового кружка (нейтральний колір), заголовок і опис; порожньо — пояснення.
+  summaryEl.innerHTML = insights.length ? insights.map(function(i){
+    return `<div class="bal-ili"><span class="bal-ii">${INSIGHT_ICONS[i.icon]}</span><span class="bal-itx"><b>${i.title}</b><span>${i.desc}</span></span></div>`;
+  }).join('') : '<div class="empty-hint">Ще немає висновків за цей місяць.</div>';
   dashAfterRender(month); // Rev 2.25.0 (M2): хореографія появи (лише якщо вкладка активна; фонові ре-рендери статичні)
 }
 
@@ -1435,7 +1418,7 @@ function toggleBalanceCard(){
   if(balOpen) requestAnimationFrame(drawBalCharts);
 }
 // Повторна поява (візит/зміна місяця): число котиться від нуля, смуга днів з'являється знову.
-function balReplay(){ if(balLast) renderBalanceCard(balLast, true); if(balTilesLast) renderDebtOchTiles(balTilesLast, true); if(balPotLast) renderPotentialCard(balPotLast, true); }
+function balReplay(){ if(balLast) renderBalanceCard(balLast, true); if(balTilesLast) renderDebtOchTiles(balTilesLast, true); if(balPotLast) renderPotentialCard(balPotLast, true); dynReplay(); }
 (function(){
   let t = null;
   window.addEventListener('resize', function(){ if(!balOpen) return; clearTimeout(t); t = setTimeout(function(){ const a = document.getElementById('bal-ch-inc'), b = document.getElementById('bal-ch-exp'); if(a) delete a.dataset.sig; if(b) delete b.dataset.sig; drawBalCharts(); }, 150); });
@@ -1905,4 +1888,125 @@ function togglePotCard(){
   card.classList.toggle('open', balPotOpen);
   if(btn) btn.setAttribute('aria-expanded', balPotOpen ? 'true' : 'false');
 }
+/* ===== Rev 2.32.392 (DS-5d-1): картка «Динаміка за 6 місяців» (макет analytics-ds v18, картка 6; docs/reports/DS-5-step0.md, «Рішення 18.11») =====
+   Один сегмент «Доходи і витрати / Борг», обидва графіки 212 pt: шкала зліва (F10: крок 5k/10k/20k/25k/40k/50k, не більше 4 інтервалів — лише відображення), сітка, місяці знизу, «Nk» над стовпчиками/точками, поточний неповний місяць напівпрозорий,
+   дотик або ведення пальцем виділяє місяць (смуга, вертикальна лінія, решта приглушена, легенда з точними сумами), повторний дотик знімає вибір; touch-action: pan-y лишає вертикальну прокрутку.
+   Борг: лінія з розривами — точка лише за місяць із ФАКТОМ запису (kindHasActualForMonth; FINANCIAL_RULES §3.1), carry-forward не малюється. Порожні дані — пояснення замість осі з NaN. */
+const DYN_STEPS = [5000, 10000, 20000, 25000, 40000, 50000];
+// F10: найменший крок зі списку (далі ×10, ×100 …), при якому в осі не більше 4 інтервалів; нуль, від'ємне й нечислове → 5000.
+function niceAxisStep(max){
+  const m = Number(max);
+  if(!isFinite(m) || m <= 0) return 5000;
+  for(let p = 1; p <= 1e9; p *= 10){
+    for(let i = 0; i < DYN_STEPS.length; i++){ const st = DYN_STEPS[i] * p; if(m / st <= 4) return st; }
+  }
+  return DYN_STEPS[DYN_STEPS.length - 1] * 1e9;
+}
+// Вісь: step, верх (≥ одного кроку, кратний кроку) і поділки 0…верх.
+function axisModel(max){
+  const step = niceAxisStep(max), top = Math.max(step, Math.ceil((Number(max) > 0 ? Number(max) : 0) / step) * step), ticks = [];
+  for(let v = 0; v <= top; v += step) ticks.push(v);
+  return { step: step, top: top, ticks: ticks };
+}
+// Підпис «Nk»: від 1 000 — округлене до тисяч, менше — число як є (інакше 400 стало б «0k»).
+function axisLabel(v){
+  const n = Math.round(Number(v) || 0);
+  return n === 0 ? '0' : (Math.abs(n) >= 1000 ? (n < 0 ? '-' : '') + Math.round(Math.abs(n) / 1000) + 'k' : String(n)); // симетрично для від'ємних (Math.round(−2,5) = −2)
+}
+// Шлях стовпчика з округленими верхніми кутами.
+function dynBarPath(x, y, w, h, r){ x = +x; y = +y; w = +w; h = +h; r = Math.min(r, h); const f = function(v){ return Math.round(v * 10) / 10; }; x = f(x); y = f(y); w = f(w); h = f(h); return 'M' + x + ' ' + (y + h) + 'V' + (y + r) + 'Q' + x + ' ' + y + ' ' + (x + r) + ' ' + y + 'H' + (x + w - r) + 'Q' + (x + w) + ' ' + y + ' ' + (x + w) + ' ' + (y + r) + 'V' + (y + h) + 'Z'; }
+let dynMode = 'io', dynSel = -1, dynLast = null, dynMonth = null;
+// Графік у host. o = { type:'bars'|'line', slots:[{m, label, cur, partial, vals:[…], has:bool}], series:[{color}], ro(i), aria }. Дані місяців без значення (has=false) не малюються.
+function balAcChart(host, o){
+  const W = host.clientWidth || 310, H = 212, pl = 34, pr = 4, pt = 24, pb = 24, n = o.slots.length;
+  const all = [];
+  o.slots.forEach(function(s){ if(s.has) s.vals.forEach(function(v){ if(v !== null) all.push(v); }); });
+  const ax = axisModel(all.length ? Math.max.apply(null, all) : 0);
+  const gw = (W - pl - pr) / n, X = function(i){ return pl + gw * (i + 0.5); }, Y = function(v){ return pt + (H - pt - pb) * (1 - v / ax.top); }, base = Y(0);
+  let grid = '', body = '';
+  ax.ticks.forEach(function(v){ const y = Y(v).toFixed(1); grid += '<line class="gridl" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y + '" y2="' + y + '"/><text x="' + (pl - 6) + '" y="' + (Number(y) + 4).toFixed(1) + '" text-anchor="end">' + axisLabel(v) + '</text>'; });
+  if(o.type === 'bars'){
+    const bw = Math.min(13, gw * 0.28), gap = 8;
+    o.slots.forEach(function(s, i){
+      if(!s.has){ return; }
+      const x0 = X(i) - (2 * bw + gap) / 2;
+      body += '<g class="grp">' + s.vals.map(function(v, k){ const x = x0 + k * (bw + gap), y = Y(v);
+        return '<path class="bar' + (s.partial ? ' part' : '') + '" style="--n:' + (i * 2 + k) + '" fill="' + o.series[k].color + '" d="' + dynBarPath(x.toFixed(1), y.toFixed(1), bw.toFixed(1), (base - y).toFixed(1), 4) + '"/>' + (v > 0 ? '<text class="vt" style="--n:' + (i * 2 + k) + '" x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 5).toFixed(1) + '" text-anchor="middle">' + axisLabel(v) + '</text>' : ''); }).join('') + '</g>';
+    });
+  }else{
+    const col = o.series[0].color; let run = [], paths = '';
+    const flush = function(){ if(run.length > 1) paths += '<path class="ln" pathLength="1" stroke="' + col + '" stroke-width="2.5" d="' + run.map(function(p, j){ return (j ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ') + '"/>'; run = []; };
+    o.slots.forEach(function(s, i){ if(s.has && s.vals[0] !== null){ run.push([X(i), Y(s.vals[0])]); } else flush(); });
+    flush();
+    body = paths + o.slots.map(function(s, i){ if(!(s.has && s.vals[0] !== null)) return ''; const v = s.vals[0];
+      return '<g class="grp"><circle cx="' + X(i).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="4" fill="' + col + '" stroke="var(--surface)" stroke-width="1.5" style="--n:' + i + '"/>' + (v > 0 ? '<text class="vt" style="--n:' + i + '" x="' + X(i).toFixed(1) + '" y="' + (Y(v) - 10).toFixed(1) + '" text-anchor="middle">' + axisLabel(v) + '</text>' : '') + '</g>'; }).join('');
+  }
+  host.classList.remove('has'); // новий малюнок: залишок вибору попереднього графіка (інший режим/дані) не приглушує групи
+  host.innerHTML = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + escapeAttr(o.aria) + '"><rect class="band" y="' + (pt - 18) + '" height="' + (base - pt + 18) + '" width="' + (gw - 4).toFixed(1) + '" rx="8"/>' + grid + '<line class="vl" y1="' + (pt - 18) + '" y2="' + base.toFixed(1) + '"/>' + body +
+    o.slots.map(function(s, i){ return '<text class="xl' + (s.cur ? ' cur' : '') + (s.has ? '' : ' off') + '" x="' + X(i).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + escapeHtml(s.label) + '</text>'; }).join('') + '</svg>';
+  const svg = host.querySelector('svg'), band = host.querySelector('.band'), vl = host.querySelector('.vl'), gs = host.querySelectorAll('.grp'), xs = host.querySelectorAll('.xl');
+  // групи є лише для місяців із даними: відповідність слот → група
+  const grpIdx = []; o.slots.forEach(function(s, i){ if(s.has && s.vals.some(function(v){ return v !== null; })) grpIdx.push(i); });
+  let sel = -1;
+  const set = function(i){
+    sel = i; dynSel = i;
+    svg.classList.toggle('has', i >= 0); host.classList.toggle('has', i >= 0);
+    band.classList.toggle('on', i >= 0); vl.classList.toggle('on', i >= 0);
+    if(i >= 0){ band.setAttribute('x', X(i) - (gw - 4) / 2); vl.setAttribute('x1', X(i)); vl.setAttribute('x2', X(i)); }
+    Array.prototype.forEach.call(gs, function(g, k){ g.classList.toggle('on', grpIdx[k] === i); });
+    Array.prototype.forEach.call(xs, function(x, k){ x.classList.toggle('on', k === i); });
+    o.ro(i);
+  };
+  chartScrub(host, function(x){ return Math.max(0, Math.min(n - 1, Math.floor((x - pl) / gw))); }, function(){ return sel; }, set);
+  if(o.keep >= 0 && o.keep < n) set(o.keep); else o.ro(-1);
+}
+function dynLegendHtml(parts){ return parts.join(''); }
+// c: { month, todayKey, months:[6 ключів], incomes:[], expenses:[], earliest, hasDebtData, debts:[{total, actual}], startMonth, status }
+function renderDynCard(c, replay){
+  const host = document.getElementById('bal-dyn-chart');
+  if(!host) return;
+  if(c.month !== dynMonth){ dynMonth = c.month; dynSel = -1; } // інший місяць — вибір скидається
+  dynLast = c;
+  const leg = document.getElementById('bal-dyn-leg'), note = document.getElementById('bal-dyn-note'), seg = document.getElementById('bal-dyn-seg');
+  if(seg){ Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b, i){ const on = b.dataset.k === dynMode; b.setAttribute('aria-pressed', on ? 'true' : 'false'); if(on) seg.style.setProperty('--p', String(i)); }); }
+  const names = UA_MONTHS.map(function(x){ return x.charAt(0).toUpperCase() + x.slice(1); });
+  const mname = function(m){ return names[parseInt(m.slice(5, 7), 10) - 1]; };
+  let sig, draw = null;
+  if(dynMode === 'io'){
+    const slots = c.months.map(function(m, i){ return { m: m, label: monthLabelShort(m), cur: m === c.month, partial: m === c.todayKey, has: !!c.earliest && m >= c.earliest, vals: [c.incomes[i], c.expenses[i]] }; });
+    const any = slots.some(function(s){ return s.has && (s.vals[0] > 0 || s.vals[1] > 0); });
+    const def = '<span><i class="sq" style="background:var(--income)"></i>Доходи</span><span><i class="sq" style="background:var(--expense)"></i>Витрати</span>';
+    if(!any){ host.innerHTML = '<div class="empty-hint">Ще немає даних про доходи й витрати. Додай записи на вкладці «Облік».</div>'; host.dataset.sig = ''; if(leg) leg.innerHTML = ''; if(note) note.textContent = ''; dynSel = -1; return; }
+    sig = chartSignature(['io', slots.map(function(s){ return [s.m, s.has, s.vals, s.partial]; }), host.clientWidth]);
+    const part = slots.filter(function(s){ return s.partial && s.has; })[0];
+    if(note) note.textContent = part ? mname(part.m) + ' неповний: ' + balancePosition(part.m, localDateISO()).T + ' ' + dayWord(balancePosition(part.m, localDateISO()).T) + '. Торкніться місяця.' : 'Торкніться місяця або проведіть пальцем.';
+    draw = function(){ balAcChart(host, { type: 'bars', slots: slots, series: [{ color: 'var(--income)' }, { color: 'var(--expense)' }], aria: 'Доходи і витрати за шість місяців', keep: replay ? -1 : dynSel,
+      ro: function(i){ if(!leg) return; leg.innerHTML = i < 0 ? def : '<span><b>' + escapeHtml(mname(slots[i].m)) + '</b></span><span><i class="sq" style="background:var(--income)"></i><b>' + (slots[i].has ? fmt(slots[i].vals[0]) : '—') + '</b></span><span><i class="sq" style="background:var(--expense)"></i><b>' + (slots[i].has ? fmt(slots[i].vals[1]) : '—') + '</b></span>'; } }); };
+  }else{
+    if(!c.hasDebtData){ host.innerHTML = '<div class="empty-hint">Ще немає даних. Додай борги на вкладці «Облік» або імпортуй з Excel у «Сервіс».</div>'; host.dataset.sig = ''; if(leg) leg.innerHTML = ''; if(note) note.textContent = ''; dynSel = -1; return; }
+    const slots = c.months.map(function(m, i){ const d = c.debts[i], ok = !!c.startMonth && m >= c.startMonth && d.actual; return { m: m, label: monthLabelShort(m), cur: m === c.month, partial: false, has: true, vals: [ok ? d.total : null] }; });
+    if(!slots.some(function(s){ return s.vals[0] !== null; })){ host.innerHTML = '<div class="empty-hint">Немає фактичних записів боргу за ці місяці.</div>'; host.dataset.sig = ''; if(leg) leg.innerHTML = ''; if(note) note.textContent = ''; dynSel = -1; return; }
+    sig = chartSignature(['debt', slots.map(function(s){ return [s.m, s.vals]; }), host.clientWidth]);
+    if(note) note.textContent = 'Торкніться точки або проведіть пальцем. Розрив лінії — місяць без запису.';
+    draw = function(){ balAcChart(host, { type: 'line', slots: slots, series: [{ color: 'var(--debt)' }], aria: 'Динаміка боргу за шість місяців', keep: replay ? -1 : dynSel,
+      ro: function(i){ if(!leg) return;
+        if(i < 0){ leg.innerHTML = '<span><i class="sw-ln" style="background:var(--debt)"></i>Борг на кінець місяця</span>'; return; }
+        const v = slots[i].vals[0], pv = i > 0 ? slots[i - 1].vals[0] : null;
+        leg.innerHTML = '<span><b>' + escapeHtml(mname(slots[i].m)) + '</b></span>' + (v === null ? '<span>немає даних</span>' : '<span><b>' + fmt(v) + '</b></span>' + (pv !== null ? '<span class="' + (v - pv <= 0 ? 'pos' : 'neg') + '">' + escapeHtml(fmtSigned(v - pv)) + '</span>' : '')); } }); };
+  }
+  if(!replay && host.dataset.sig === sig && host.firstElementChild && !host.querySelector('.empty-hint')) return; // дані не змінились: графік не перемальовується й анімація не стартує знову
+  host.dataset.sig = sig; draw();
+}
+function setDynMode(k){
+  if(k !== 'io' && k !== 'debt' || k === dynMode) return;
+  dynMode = k; dynSel = -1;
+  if(dynLast) renderDynCard(dynLast, false);
+}
+function dynReplay(){ if(dynLast){ dynSel = -1; renderDynCard(dynLast, true); } }
+(function(){
+  const seg = document.getElementById('bal-dyn-seg');
+  if(seg) seg.addEventListener('click', function(e){ const b = e.target.closest('button[data-k]'); if(b) setDynMode(b.dataset.k); });
+  let t = null;
+  window.addEventListener('resize', function(){ clearTimeout(t); t = setTimeout(function(){ const h = document.getElementById('bal-dyn-chart'); if(h && dynLast){ delete h.dataset.sig; renderDynCard(dynLast, false); } }, 150); });
+})();
 (window.__MT_FILES = window.__MT_FILES || []).push('analytics.js');

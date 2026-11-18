@@ -71,7 +71,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="./css/tokens.css?v=2.32.391"><link rel="stylesheet" href="./css/app.css?v=2.32.391"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
+<link rel="stylesheet" href="./css/tokens.css?v=2.32.393"><link rel="stylesheet" href="./css/app.css?v=2.32.393"><!-- Rev 2.32.334 (DS-1): токени окремим файлом перед app.css; мітка ?v= = APP_VERSION (перевіряє pre-push-guard і tests/css-links.test.js); раніше (STRUCT-1) стилі були одним файлом css/app.css -->
 </head>
 <body>
 <!-- Rev 2.32.36 (L) — спрайт значка Monobank (надано користувачем; лише контури й градієнт, без скриптів і зовнішніх посилань). Один <symbol>, використовується через <use>, щоб градієнт і clipPath не дублювали id. Контейнер НЕ display:none (iOS Safari не малює градієнти з прихованого спрайта). -->
@@ -312,6 +312,15 @@
         </div></div></div>
       </section>
 
+      <!-- Rev 2.32.392 (DS-5d-1): картка «Динаміка за 6 місяців» (макет analytics-ds v18, картка 6) замість двох графіків; наповнює renderDynCard() -->
+      <section class="card bal-dyn" id="bal-dyn-card">
+        <div class="bal-h">Динаміка за 6 місяців</div>
+        <div class="bal-seg2" id="bal-dyn-seg"><div class="ind"></div><button type="button" aria-pressed="true" data-k="io">Доходи і витрати</button><button type="button" aria-pressed="false" data-k="debt">Борг</button></div>
+        <div class="bal-dleg" id="bal-dyn-leg"></div>
+        <div class="bal-ac" id="bal-dyn-chart"></div>
+        <div class="bal-cap" id="bal-dyn-note"></div>
+      </section>
+
       <div class="ov-kpistrip">
         <div class="card kpi-strip-card">
           <div class="kpi-strip">
@@ -324,25 +333,11 @@
         </div>
       </div>
 
-      <div class="ov-row2">
-        <div class="card gm-chart-card">
-          <div class="gm-chart-title">Доходи vs Витрати</div>
-          <div class="gm-legend"><span><i style="background:var(--color-success)"></i>Доходи</span><span><i style="background:var(--color-error)"></i>Витрати</span></div>
-          <div id="chart-income-expense"></div>
-        </div>
-        <div class="card gm-chart-card">
-          <div class="gm-chart-title">Динаміка боргу</div>
-          <div class="gm-legend"><span><i style="background:var(--color-warning)"></i>Борг</span></div>
-          <div id="chart-debt-line"></div>
-        </div>
-      </div>
-
-      <div class="ov-row4">
-        <div class="card summary-card">
-          <div class="table-card-title">Висновки місяця</div>
-          <div class="insights-row" id="summary-container"></div>
-        </div>
-      </div>
+      <!-- Rev 2.32.393 (DS-5d-2): картка «Висновки» (макет analytics-ds v18, картка 7); наповнює renderDashboard() (логіка висновків без змін) -->
+      <section class="card bal-ins" id="bal-ins-card">
+        <span class="bal-h">Висновки</span>
+        <div class="bal-ilist" id="summary-container"></div>
+      </section>
       </div><!-- /.analytics-body -->
     </div>
 
@@ -893,7 +888,7 @@
     </span>
   </button>
 
-  <div class="version-footer">Money Tree · Rev 2.32.391</div>
+  <div class="version-footer">Money Tree · Rev 2.32.393</div>
 </div>
   </div>
 </div>
@@ -1678,16 +1673,16 @@
 </div>
 
 <!-- Rev 2.32.344 (STRUCT-2): допоміжні функції без стану винесено дослівно в js/util-*.js (звичайні скрипти, глобальні функції; мітка ?v= = APP_VERSION) -->
-<script src="./js/util-format.js?v=2.32.391"></script>
-<script src="./js/util-date.js?v=2.32.391"></script>
-<script src="./js/util-safe.js?v=2.32.391"></script>
-<script src="./js/util-misc.js?v=2.32.391"></script>
-<script src="./js/diag.js?v=2.32.391"></script>
-<script src="./js/shell.js?v=2.32.391"></script>
-<script src="./js/structure.js?v=2.32.391"></script>
-<script src="./js/analytics.js?v=2.32.391"></script>
-<script src="./js/payments.js?v=2.32.391"></script>
-<script src="./js/sheets.js?v=2.32.391"></script>
+<script src="./js/util-format.js?v=2.32.393"></script>
+<script src="./js/util-date.js?v=2.32.393"></script>
+<script src="./js/util-safe.js?v=2.32.393"></script>
+<script src="./js/util-misc.js?v=2.32.393"></script>
+<script src="./js/diag.js?v=2.32.393"></script>
+<script src="./js/shell.js?v=2.32.393"></script>
+<script src="./js/structure.js?v=2.32.393"></script>
+<script src="./js/analytics.js?v=2.32.393"></script>
+<script src="./js/payments.js?v=2.32.393"></script>
+<script src="./js/sheets.js?v=2.32.393"></script>
 <script>
 /* ============ Захист від білого екрана (Rev 2.32.347, STRUCT-3a2) ============
    Допоміжні функції й області лежать у js/*.js; кожен файл останнім рядком пише свою назву в window.__MT_FILES. Якщо файл не завантажився
@@ -6777,7 +6772,7 @@ async function ensureInstallmentFirstMonth(){
    користувача. Версія і тег __budgetBackup потрібні, щоб при відновленні
    відрізнити свій файл від довільного чужого JSON і дати зрозумілу помилку
    замість тихого пошкодження даних. */
-const APP_VERSION = '2.32.391';
+const APP_VERSION = '2.32.393';
 // Rev #27.1 — Stage 5, п.27 (інвентаризація localStorage): НЕ повний список
 // усіх ключів localStorage застосунку. Свідомо (продуктове рішення,
 // підтверджене користувачем) відсутні LS_KEY_DRAFT (чернетка форми "Нова
