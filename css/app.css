@@ -2171,7 +2171,8 @@
     /* Rev 2.4.14 — тривалість переміщення бульбашки скоригована з .9s до
        .6s (за проханням, .9s виявилось задовгим). */
     /* Rev 2.24.0 (M1) — width із transition прибрано (дорога властивість: layout щокадру). Кнопки таббару однакової ширини (flex-basis 20%), тож width міняється лише при resize/повороті й там миттєво; рух — лише transform. */
-    transition:transform .6s cubic-bezier(.34,1.56,.64,1), opacity .22s ease;
+    /* Rev 2.32.355 (DS-3b): 520 мс, крива з макета analytics-ds (.3,1.12,.5,1): перельот ≈ 0,4 % шляху (≲ 1,2 px), у межах відступу капсули 6 px; було .6s (.34,1.56,.64,1) з перельотом ≈ 10 % і виходом за край. */
+    transition:transform 520ms cubic-bezier(.3,1.12,.5,1), opacity .22s ease;
     overflow:hidden;
   }
   .tabbar-bubble.no-anim{ transition:none; }
@@ -2421,6 +2422,38 @@
      виглядала б неактивною під час наведення, хоча решта кнопок підсвічуються. */
   nav.tabbar button.tab-vytraty.preview-active .tb-icon-wrap{ background:var(--color-primary-hover); }
   nav.tabbar button.tab-vytraty.preview-active .tb-label{ color:var(--color-primary-hover); }
+  /* Rev 2.32.355 (DS-3b): рух таббару за макетом analytics-ds. Усе лише transform/opacity (і окрема властивість scale). Анімації вибору вмикає клас .tb-anim (його ставить performSwitchTab лише при реальній зміні вкладки після першого жесту, без клавіатури, шторки й reduced-motion); без нього — жодних анімацій (старт, відновлення, повторний дотик). Бічна панель не містить .tbx/.tb-anim → анімацій немає. */
+  nav.tabbar button .tbx{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; transition:scale 380ms cubic-bezier(.3,1.4,.5,1), opacity 380ms ease; }
+  /* натиск: іконка й підпис стискаються до .86, поки палець на кнопці (touch: preview-active під пальцем; миша: .pressing), і пружно повертаються; скло й кнопка не стискаються */
+  nav.tabbar.pressed button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:.86; opacity:.75; transition:scale var(--t-micro) ease, opacity var(--t-micro) ease; }
+  nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:transform var(--t-l) cubic-bezier(.34,1.56,.64,1); }
+  /* «Витрати»: вибраний стан = м'яке кільце навколо кнопки й поворот «+» (макет) */
+  nav.tabbar button.tab-vytraty.active .tb-icon-wrap{ box-shadow:0 0 0 4px var(--accent-bg), 0 0 0 5px var(--accent-line), 0 4px 10px color-mix(in srgb, var(--accent) 35%, transparent); }
+  nav.tabbar button.tab-vytraty.active .tb-icon-wrap svg{ transform:rotate(90deg); }
+  nav.tabbar svg .pie, nav.tabbar svg .sl, nav.tabbar svg circle{ transform-box:fill-box; transform-origin:center; }
+  nav.tabbar svg .sl{ transform-origin:0% 100%; }
+  nav.tabbar svg .rot{ transform-box:view-box; transform-origin:12px 12px; }
+  nav.tabbar button[data-tab="analytics"].tb-anim.active .sl{ animation:tbSlice 560ms cubic-bezier(.3,1.35,.5,1); }
+  nav.tabbar button[data-tab="accounting"].tb-anim.active svg{ animation:tbPress 520ms cubic-bezier(.3,1.25,.5,1); }
+  nav.tabbar button[data-tab="structure"].tb-anim.active svg circle{ animation:tbNode 440ms cubic-bezier(.3,1.3,.5,1) backwards; }
+  nav.tabbar button[data-tab="structure"].tb-anim.active svg circle:nth-of-type(2){ animation-delay:110ms; }
+  nav.tabbar button[data-tab="structure"].tb-anim.active svg circle:nth-of-type(3){ animation-delay:160ms; }
+  nav.tabbar button[data-tab="structure"].tb-anim.active svg circle:nth-of-type(4){ animation-delay:210ms; }
+  nav.tabbar button[data-tab="service"].tb-anim.active .rot{ animation:tbSpin 620ms cubic-bezier(.3,1.15,.45,1); }
+  nav.tabbar button[data-tab="service"].tb-anim.active .s > circle{ animation:tbPie 420ms cubic-bezier(.22,1,.36,1); }
+  @keyframes tbSlice{ 0%{ transform:scale(1); } 45%{ transform:scale(1.16); } 100%{ transform:scale(1); } }
+  @keyframes tbPie{ 0%{ transform:scale(.86); } 100%{ transform:none; } }
+  @keyframes tbPress{ 0%{ transform:scale(1); } 30%{ transform:scale(.86); } 70%{ transform:scale(1.04); } 100%{ transform:scale(1); } }
+  @keyframes tbNode{ 0%{ transform:scale(.55); } 60%{ transform:scale(1.15); } 100%{ transform:none; } }
+  @keyframes tbSpin{ from{ transform:rotate(180deg); } to{ transform:none; } }
+  /* reduced-motion: бульбашка переходить миттєво, натиск і анімації іконок вимкнено; зміна кольору лишається */
+  @media (prefers-reduced-motion: reduce){
+    .tabbar-bubble{ transition:none; }
+    nav.tabbar button .tbx{ transition:none; }
+    nav.tabbar.pressed button.preview-active .tbx, nav.tabbar button.pressing .tbx{ scale:1; opacity:1; }
+    nav.tabbar button.tab-vytraty .tb-icon-wrap svg{ transition:none; }
+    nav.tabbar button[data-tab].tb-anim.active .sl, nav.tabbar button[data-tab].tb-anim.active svg, nav.tabbar button[data-tab].tb-anim.active svg circle, nav.tabbar button[data-tab].tb-anim.active .rot, nav.tabbar button[data-tab].tb-anim.active .s > circle{ animation:none; }
+  }
 
   /* ---- Mobile (<768px): права колонка kpi-strip не потребує padding-right (вона й так
      має 24px padding від картки) - прибираємо, щоб "Обов'язкові платежі" влізло в один рядок ---- */

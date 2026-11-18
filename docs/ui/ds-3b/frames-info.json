@@ -1,0 +1,58 @@
+{
+ "light-tbSlice-analytics": [
+  "tbSlice:560"
+ ],
+ "light-tbPress-accounting": [
+  "tbPress:520"
+ ],
+ "light-tbNode-structure": [
+  "tbNode:440",
+  "tbNode:550",
+  "tbNode:600",
+  "tbNode:650"
+ ],
+ "light-tbSpin-tbPie-service": [
+  "tbPie:420",
+  "tbSpin:620"
+ ],
+ "light-vytraty-ring-plus": [
+  "opacity:220",
+  "color:120",
+  "color:120",
+  "background-color:120",
+  "transform:480"
+ ],
+ "light-bubble-analytics-service": [
+  "transform:520",
+  "color:120",
+  "color:120"
+ ],
+ "dark-tbSlice-analytics": [
+  "tbSlice:560"
+ ],
+ "dark-tbPress-accounting": [
+  "tbPress:520"
+ ],
+ "dark-tbNode-structure": [
+  "tbNode:440",
+  "tbNode:550",
+  "tbNode:600",
+  "tbNode:650"
+ ],
+ "dark-tbSpin-tbPie-service": [
+  "tbPie:420",
+  "tbSpin:620"
+ ],
+ "dark-vytraty-ring-plus": [
+  "opacity:220",
+  "color:120",
+  "color:120",
+  "background-color:120",
+  "transform:480"
+ ],
+ "dark-bubble-analytics-service": [
+  "transform:520",
+  "color:120",
+  "color:120"
+ ]
+}
