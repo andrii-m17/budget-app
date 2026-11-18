@@ -1,0 +1,49 @@
+{
+ "cfg": "ipad-portrait",
+ "id": "struct-switch",
+ "title": "Структура: категорія: перемикання полів",
+ "why": [
+  "низ листа 8 пт проти еталона 100",
+  "запас поля 187.5 пт проти еталона 279.5"
+ ],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  187.5
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 187.5,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 811,
+  "vvTop": 0,
+  "vvBottom": 811,
+  "fieldBottom": 623.5,
+  "fieldTop": 575.5,
+  "sheetBottom": 803,
+  "sheetTop": 503.1,
+  "sheetH": 300,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "fldstr3",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-portrait-struct-switch-before.jpg",
+  "ipad-portrait-struct-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

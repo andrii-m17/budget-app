@@ -1,0 +1,46 @@
+{
+ "cfg": "iphone-landscape",
+ "id": "struct-switch",
+ "title": "Структура: категорія: перемикання полів",
+ "why": [],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  11.6
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 11.6,
+ "m": {
+  "innerH": 378,
+  "innerW": 956,
+  "vvH": 130,
+  "vvTop": 0,
+  "vvBottom": 130,
+  "fieldBottom": 118.4,
+  "fieldTop": 70.4,
+  "sheetBottom": 122,
+  "sheetTop": 0,
+  "sheetH": 122,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "fldstr3",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "iphone-landscape-struct-switch-before.jpg",
+  "iphone-landscape-struct-switch-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

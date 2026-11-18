@@ -1,0 +1,52 @@
+{
+ "cfg": "ipad-portrait",
+ "id": "service-installment-switch",
+ "title": "Додати ОЧ (модалка): перемикання полів",
+ "why": [
+  "клавіатура зникла під час перемикання",
+  "фокус у «BODY», очікувалось «app-modal-amount-input»"
+ ],
+ "note": "у еталоні сценарію немає",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  524.7
+ ],
+ "gapPerRun": [
+  437.7
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура зникла під час перемикання",
+   "фокус у «BODY», очікувалось «app-modal-amount-input»"
+  ]
+ ],
+ "gap": 437.7,
+ "fieldGap": 524.7,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 623.3,
+  "fieldTop": 578.3,
+  "sheetBottom": 710.3,
+  "sheetTop": 437.5,
+  "sheetH": 273,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "BODY",
+  "drawerOpen": false
+ },
+ "events": [],
+ "files": [
+  "ipad-portrait-service-installment-switch-before.jpg",
+  "ipad-portrait-service-installment-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

@@ -1,0 +1,46 @@
+{
+ "cfg": "iphone-portrait",
+ "id": "income-switch",
+ "title": "Дохід: перемикання полів",
+ "why": [],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  95
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 95,
+ "m": {
+  "innerH": 894,
+  "innerW": 440,
+  "vvH": 505,
+  "vvTop": 0,
+  "vvBottom": 505,
+  "fieldBottom": 410,
+  "fieldTop": 364,
+  "sheetBottom": 497,
+  "sheetTop": 252,
+  "sheetH": 245,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "ind-amount",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "iphone-portrait-income-switch-before.jpg",
+  "iphone-portrait-income-switch-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

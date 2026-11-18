@@ -1,0 +1,37 @@
+{
+ "cfg": "ipad-portrait",
+ "id": "struct-cold-open",
+ "title": "Структура: категорія: перше відкриття після запуску застосунку (холодна клавіатура)",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «struct-drawer», очікувалось «fldstr3»"
+ ],
+ "note": "",
+ "repeats": 1,
+ "anim": null,
+ "gap": 100,
+ "fieldGap": 279.5,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 868.5,
+  "fieldTop": 820.5,
+  "sheetBottom": 1048,
+  "sheetTop": 748.1,
+  "sheetH": 300,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "struct-drawer",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-portrait-struct-open-focus-before.jpg",
+  "ipad-portrait-struct-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

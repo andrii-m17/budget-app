@@ -1,0 +1,342 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "service-installment-close",
+ "title": "Додати ОЧ (модалка): закриття, клавіатура зникає, таб-бар на місці",
+ "why": [],
+ "note": "у еталоні сценарію немає",
+ "repeats": 2,
+ "anim": {
+  "frames": 22,
+  "maxGapMs": 17,
+  "durationMs": 717,
+  "jumpMaxPx": null
+ },
+ "animPerRun": [
+  {
+   "frames": 22,
+   "maxGapMs": 17,
+   "durationMs": 717
+  }
+ ],
+ "fieldGapPerRun": [
+  null
+ ],
+ "gapPerRun": [
+  null
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": null,
+ "fieldGap": null,
+ "m": {
+  "innerH": 788,
+  "innerW": 1180,
+  "vvH": 788,
+  "vvTop": 0,
+  "vvBottom": 788,
+  "fieldBottom": null,
+  "fieldTop": null,
+  "sheetBottom": 524.8,
+  "sheetTop": 263,
+  "sheetH": 262,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "BODY",
+  "drawerOpen": false
+ },
+ "events": [
+  {
+   "t": 7883,
+   "type": "sheet-close",
+   "innerW": 1180,
+   "innerH": 788,
+   "outerH": 820,
+   "vvW": 1180,
+   "vvH": 788,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 788,
+   "bodyClasses": "",
+   "kbInset": "422px",
+   "activeElementTag": "BODY",
+   "activeElementId": null,
+   "activeElementType": null,
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 0,
+   "safeBottom": 20,
+   "safeLeft": 0,
+   "drawerId": "sheet-account",
+   "drawerTop": null,
+   "drawerBottom": null,
+   "drawerLeft": null,
+   "drawerRight": null,
+   "drawerHeight": null,
+   "backdropId": null,
+   "backdropTop": null,
+   "backdropBottom": null,
+   "backdropHeight": null,
+   "drawerScrollHeight": null,
+   "drawerClientHeight": null,
+   "drawerMaxHeightPx": null,
+   "baseVh": "788px",
+   "mainColInert": false,
+   "mainColScrollTop": 0,
+   "activeRectTop": 0,
+   "activeRectBottom": 788,
+   "kbH": 422
+  },
+  {
+   "t": 7884,
+   "type": "vv-resize",
+   "innerW": 1180,
+   "innerH": 788,
+   "outerH": 820,
+   "vvW": 1180,
+   "vvH": 788,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 788,
+   "bodyClasses": "",
+   "kbInset": "422px",
+   "activeElementTag": "BODY",
+   "activeElementId": null,
+   "activeElementType": null,
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 0,
+   "safeBottom": 20,
+   "safeLeft": 0,
+   "drawerId": null,
+   "drawerTop": null,
+   "drawerBottom": null,
+   "drawerLeft": null,
+   "drawerRight": null,
+   "drawerHeight": null,
+   "backdropId": null,
+   "backdropTop": null,
+   "backdropBottom": null,
+   "backdropHeight": null,
+   "drawerScrollHeight": null,
+   "drawerClientHeight": null,
+   "drawerMaxHeightPx": null,
+   "baseVh": "788px",
+   "mainColInert": false,
+   "mainColScrollTop": 0,
+   "activeRectTop": 0,
+   "activeRectBottom": 788,
+   "kbH": 422
+  },
+  {
+   "t": 7884,
+   "type": "kb-geometry",
+   "innerW": 1180,
+   "innerH": 788,
+   "vvW": 1180,
+   "vvH": 788,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "422px",
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "kbgWhy": "vv",
+   "devClass": "iPad",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "kbHeightCalc": 0,
+   "sheetLiftCss": "0",
+   "sheetRestBottom": 530.4,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 8035,
+   "type": "kb-geometry",
+   "innerW": 1180,
+   "innerH": 788,
+   "vvW": 1180,
+   "vvH": 788,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "422px",
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "kbgWhy": "vv-settled",
+   "devClass": "iPad",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "kbHeightCalc": 0,
+   "sheetLiftCss": "0",
+   "sheetRestBottom": 530.4,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 8579,
+   "type": "sheet-anim",
+   "innerW": 1180,
+   "innerH": 788,
+   "outerH": 820,
+   "vvW": 1180,
+   "vvH": 788,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 788,
+   "bodyClasses": "",
+   "kbInset": "0px",
+   "activeElementTag": "BODY",
+   "activeElementId": null,
+   "activeElementType": null,
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 0,
+   "safeBottom": 20,
+   "safeLeft": 0,
+   "drawerId": null,
+   "drawerTop": null,
+   "drawerBottom": null,
+   "drawerLeft": null,
+   "drawerRight": null,
+   "drawerHeight": null,
+   "backdropId": null,
+   "backdropTop": null,
+   "backdropBottom": null,
+   "backdropHeight": null,
+   "drawerScrollHeight": null,
+   "drawerClientHeight": null,
+   "drawerMaxHeightPx": null,
+   "baseVh": "788px",
+   "mainColInert": false,
+   "mainColScrollTop": 0,
+   "activeRectTop": 0,
+   "activeRectBottom": 788,
+   "kbH": 0,
+   "frames": 20,
+   "maxGapMs": 34,
+   "durationMs": 700,
+   "samples": [
+    [
+     -1,
+     532
+    ],
+    [
+     33,
+     534
+    ],
+    [
+     49,
+     535
+    ],
+    [
+     66,
+     536
+    ],
+    [
+     83,
+     538
+    ],
+    [
+     99,
+     540
+    ],
+    [
+     116,
+     542
+    ],
+    [
+     133,
+     544
+    ],
+    [
+     149,
+     546
+    ],
+    [
+     166,
+     530
+    ],
+    [
+     183,
+     530
+    ],
+    [
+     199,
+     530
+    ],
+    [
+     216,
+     529
+    ],
+    [
+     233,
+     527
+    ],
+    [
+     249,
+     526
+    ],
+    [
+     266,
+     526
+    ],
+    [
+     283,
+     525
+    ],
+    [
+     299,
+     525
+    ],
+    [
+     316,
+     525
+    ],
+    [
+     333,
+     525
+    ]
+   ],
+   "phase": "close",
+   "jumpMaxPx": 16,
+   "gapNoLayoutMs": 34,
+   "drawerHeightRest": 273,
+   "drawerHeightKb": 262,
+   "firstOfKind": true,
+   "settledY": 525,
+   "settleDeltaPx": 0
+  }
+ ],
+ "files": [
+  "ipad-landscape-service-installment-close-before.jpg",
+  "ipad-landscape-service-installment-close-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

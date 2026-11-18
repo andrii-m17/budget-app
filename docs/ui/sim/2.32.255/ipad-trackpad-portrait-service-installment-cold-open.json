@@ -1,0 +1,37 @@
+{
+ "cfg": "ipad-trackpad-portrait",
+ "id": "service-installment-cold-open",
+ "title": "Додати ОЧ (модалка): перше відкриття після запуску застосунку (холодна клавіатура)",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «BODY», очікувалось «app-modal-input»"
+ ],
+ "note": "",
+ "repeats": 1,
+ "anim": null,
+ "gap": 437.7,
+ "fieldGap": 605.7,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 542.3,
+  "fieldTop": 497.3,
+  "sheetBottom": 710.3,
+  "sheetTop": 437.5,
+  "sheetH": 273,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "BODY",
+  "drawerOpen": false
+ },
+ "events": [],
+ "files": [
+  "ipad-trackpad-portrait-service-installment-open-focus-before.jpg",
+  "ipad-trackpad-portrait-service-installment-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

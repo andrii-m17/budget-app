@@ -1,0 +1,49 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "income-switch",
+ "title": "Дохід: перемикання полів",
+ "why": [
+  "низ листа 8 пт проти еталона 100",
+  "запас поля 95 пт проти еталона 187"
+ ],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  95
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 95,
+ "m": {
+  "innerH": 788,
+  "innerW": 1180,
+  "vvH": 366,
+  "vvTop": 0,
+  "vvBottom": 366,
+  "fieldBottom": 271,
+  "fieldTop": 225,
+  "sheetBottom": 358,
+  "sheetTop": 113,
+  "sheetH": 245,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "ind-amount",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-landscape-income-switch-before.jpg",
+  "ipad-landscape-income-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

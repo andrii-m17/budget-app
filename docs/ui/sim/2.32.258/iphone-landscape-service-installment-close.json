@@ -1,0 +1,46 @@
+{
+ "cfg": "iphone-landscape",
+ "id": "service-installment-close",
+ "title": "Додати ОЧ (модалка): закриття, клавіатура зникає, таб-бар на місці",
+ "why": [],
+ "note": "у еталоні сценарію немає",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  null
+ ],
+ "gapPerRun": [
+  null
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": null,
+ "fieldGap": null,
+ "m": {
+  "innerH": 378,
+  "innerW": 956,
+  "vvH": 139,
+  "vvTop": 0,
+  "vvBottom": 139,
+  "fieldBottom": null,
+  "fieldTop": null,
+  "sheetBottom": 131,
+  "sheetTop": 0,
+  "sheetH": 131,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "app-modal-amount-input",
+  "drawerOpen": false
+ },
+ "events": [],
+ "files": [
+  "iphone-landscape-service-installment-close-before.jpg",
+  "iphone-landscape-service-installment-close-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

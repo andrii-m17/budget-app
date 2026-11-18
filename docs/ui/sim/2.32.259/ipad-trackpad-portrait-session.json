@@ -1,0 +1,13 @@
+{
+ "cfg": "ipad-trackpad-portrait",
+ "id": "session",
+ "title": "сесія ipad-trackpad-portrait",
+ "why": [
+  "сесію не відкрито: режим клавіатури always:touch-only, очікувався resize"
+ ],
+ "files": [],
+ "events": [],
+ "anim": null,
+ "m": {},
+ "verdict": "впав"
+}

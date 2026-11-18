@@ -1,0 +1,46 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "struct-switch",
+ "title": "Структура: категорія: перемикання полів",
+ "why": [],
+ "note": "у еталоні сценарію немає",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  187.5
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 187.5,
+ "m": {
+  "innerH": 788,
+  "innerW": 1180,
+  "vvH": 366,
+  "vvTop": 0,
+  "vvBottom": 366,
+  "fieldBottom": 178.5,
+  "fieldTop": 130.5,
+  "sheetBottom": 358,
+  "sheetTop": 58.1,
+  "sheetH": 300,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "fldstr3",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-landscape-struct-switch-before.jpg",
+  "ipad-landscape-struct-switch-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

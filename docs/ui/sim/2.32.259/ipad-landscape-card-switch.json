@@ -1,0 +1,118 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "card-switch",
+ "title": "Картка боргу: перемикання полів",
+ "why": [
+  "низ листа 8 пт проти еталона 100",
+  "запас поля 164 пт проти еталона 274"
+ ],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  164
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 164,
+ "m": {
+  "innerH": 788,
+  "innerW": 1180,
+  "vvH": 366,
+  "vvTop": 0,
+  "vvBottom": 366,
+  "fieldBottom": 202,
+  "fieldTop": 156,
+  "sheetBottom": 358,
+  "sheetTop": 0,
+  "sheetH": 358,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "cdd-minpay",
+  "drawerOpen": true
+ },
+ "events": [
+  {
+   "t": 5499,
+   "type": "kb-geometry",
+   "innerW": 1180,
+   "innerH": 788,
+   "vvW": 1180,
+   "vvH": 366,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "422px",
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "kbgWhy": "focus",
+   "devClass": "iPad",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 0,
+   "sheetBottom": 358,
+   "sheetHeight": 358,
+   "fieldTop": 156,
+   "fieldBottom": 202,
+   "kbHeightCalc": 422,
+   "sheetLiftCss": "330",
+   "sheetRestBottom": 688,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 5650,
+   "type": "kb-geometry",
+   "innerW": 1180,
+   "innerH": 788,
+   "vvW": 1180,
+   "vvH": 366,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "422px",
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "kbgWhy": "focus-settled",
+   "devClass": "iPad",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 0,
+   "sheetBottom": 358,
+   "sheetHeight": 358,
+   "fieldTop": 156,
+   "fieldBottom": 202,
+   "kbHeightCalc": 422,
+   "sheetLiftCss": "330",
+   "sheetRestBottom": 688,
+   "safeTop": 0,
+   "safeBottom": 20
+  }
+ ],
+ "files": [
+  "ipad-landscape-card-switch-before.jpg",
+  "ipad-landscape-card-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

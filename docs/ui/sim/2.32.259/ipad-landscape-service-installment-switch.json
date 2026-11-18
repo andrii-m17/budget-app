@@ -1,0 +1,279 @@
+{
+ "cfg": "ipad-landscape",
+ "id": "service-installment-switch",
+ "title": "Додати ОЧ (модалка): перемикання полів",
+ "why": [],
+ "note": "у еталоні сценарію немає",
+ "repeats": 2,
+ "anim": {
+  "frames": 24,
+  "maxGapMs": 98,
+  "durationMs": 852,
+  "jumpMaxPx": 0
+ },
+ "animPerRun": [
+  {
+   "frames": 24,
+   "maxGapMs": 98,
+   "durationMs": 852,
+   "jumpMaxPx": 0
+  }
+ ],
+ "fieldGapPerRun": [
+  95.1
+ ],
+ "gapPerRun": [
+  8.1
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8.1,
+ "fieldGap": 95.1,
+ "m": {
+  "innerH": 788,
+  "innerW": 1180,
+  "vvH": 366,
+  "vvTop": 0,
+  "vvBottom": 366,
+  "fieldBottom": 270.9,
+  "fieldTop": 225.9,
+  "sheetBottom": 357.9,
+  "sheetTop": 85.1,
+  "sheetH": 273,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "app-modal-amount-input",
+  "drawerOpen": false
+ },
+ "events": [
+  {
+   "t": 5383,
+   "type": "kb-geometry",
+   "innerW": 1180,
+   "innerH": 788,
+   "vvW": 1180,
+   "vvH": 366,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "422px",
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "kbgWhy": "focus",
+   "devClass": "iPad",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 85.1,
+   "sheetBottom": 357.9,
+   "sheetHeight": 272.8,
+   "fieldTop": 225.9,
+   "fieldBottom": 270.9,
+   "kbHeightCalc": 422,
+   "sheetLiftCss": "172.4",
+   "sheetRestBottom": 530.4,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 5534,
+   "type": "kb-geometry",
+   "innerW": 1180,
+   "innerH": 788,
+   "vvW": 1180,
+   "vvH": 366,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "422px",
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "kbgWhy": "focus-settled",
+   "devClass": "iPad",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 85.1,
+   "sheetBottom": 357.9,
+   "sheetHeight": 272.8,
+   "fieldTop": 225.9,
+   "fieldBottom": 270.9,
+   "kbHeightCalc": 422,
+   "sheetLiftCss": "172.4",
+   "sheetRestBottom": 530.4,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 6236,
+   "type": "sheet-anim",
+   "innerW": 1180,
+   "innerH": 788,
+   "outerH": 820,
+   "vvW": 1180,
+   "vvH": 366,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "scrollY": 0,
+   "docClientH": 788,
+   "bodyClasses": "kb-open",
+   "kbInset": "422px",
+   "activeElementTag": "INPUT",
+   "activeElementId": "app-modal-amount-input",
+   "activeElementType": "text",
+   "orientation": "landscape",
+   "tabbarTop": 692,
+   "tabbarHeight": 75,
+   "safeTop": 0,
+   "safeRight": 0,
+   "safeBottom": 20,
+   "safeLeft": 0,
+   "drawerId": null,
+   "drawerTop": null,
+   "drawerBottom": null,
+   "drawerLeft": null,
+   "drawerRight": null,
+   "drawerHeight": null,
+   "backdropId": "modal-backdrop",
+   "backdropTop": 0,
+   "backdropBottom": 788,
+   "backdropHeight": 788,
+   "drawerScrollHeight": null,
+   "drawerClientHeight": null,
+   "drawerMaxHeightPx": null,
+   "baseVh": "788px",
+   "mainColInert": true,
+   "mainColScrollTop": 0,
+   "activeRectTop": 226,
+   "activeRectBottom": 271,
+   "kbH": 422,
+   "frames": 24,
+   "maxGapMs": 93,
+   "durationMs": 852,
+   "samples": [
+    [
+     0,
+     358
+    ],
+    [
+     93,
+     358
+    ],
+    [
+     127,
+     358
+    ],
+    [
+     160,
+     358
+    ],
+    [
+     177,
+     358
+    ],
+    [
+     193,
+     358
+    ],
+    [
+     210,
+     358
+    ],
+    [
+     227,
+     358
+    ],
+    [
+     243,
+     358
+    ],
+    [
+     260,
+     358
+    ],
+    [
+     277,
+     358
+    ],
+    [
+     293,
+     358
+    ],
+    [
+     310,
+     358
+    ],
+    [
+     327,
+     358
+    ],
+    [
+     343,
+     358
+    ],
+    [
+     360,
+     358
+    ],
+    [
+     377,
+     358
+    ],
+    [
+     393,
+     358
+    ],
+    [
+     410,
+     358
+    ],
+    [
+     427,
+     358
+    ],
+    [
+     444,
+     358
+    ],
+    [
+     460,
+     358
+    ],
+    [
+     477,
+     358
+    ],
+    [
+     494,
+     358
+    ]
+   ],
+   "phase": "switch",
+   "jumpMaxPx": 0,
+   "gapNoLayoutMs": 93,
+   "drawerHeightRest": null,
+   "drawerHeightKb": 273,
+   "firstOfKind": true,
+   "settledY": 358,
+   "settleDeltaPx": 0
+  }
+ ],
+ "files": [
+  "ipad-landscape-service-installment-switch-before.jpg",
+  "ipad-landscape-service-installment-switch-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

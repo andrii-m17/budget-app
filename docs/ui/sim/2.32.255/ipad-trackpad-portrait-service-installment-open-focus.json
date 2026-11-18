@@ -1,0 +1,52 @@
+{
+ "cfg": "ipad-trackpad-portrait",
+ "id": "service-installment-open-focus",
+ "title": "Додати ОЧ (модалка): відкриття листа, дотик у поле, клавіатура",
+ "why": [
+  "клавіатура не з'явилась (видима область 1148 з 1148)",
+  "фокус у «BODY», очікувалось «app-modal-input»"
+ ],
+ "note": "у еталоні сценарію немає",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  605.7
+ ],
+ "gapPerRun": [
+  437.7
+ ],
+ "whyPerRun": [
+  [
+   "клавіатура не з'явилась (видима область 1148 з 1148)",
+   "фокус у «BODY», очікувалось «app-modal-input»"
+  ]
+ ],
+ "gap": 437.7,
+ "fieldGap": 605.7,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 1148,
+  "vvTop": 0,
+  "vvBottom": 1148,
+  "fieldBottom": 542.3,
+  "fieldTop": 497.3,
+  "sheetBottom": 710.3,
+  "sheetTop": 437.5,
+  "sheetH": 273,
+  "tabbarGap": 21,
+  "tabbarVisible": true,
+  "kbOpenClass": false,
+  "active": "BODY",
+  "drawerOpen": false
+ },
+ "events": [],
+ "files": [
+  "ipad-trackpad-portrait-service-installment-open-focus-before.jpg",
+  "ipad-trackpad-portrait-service-installment-open-focus-after.jpg"
+ ],
+ "verdict": "впав"
+}

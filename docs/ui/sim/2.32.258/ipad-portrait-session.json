@@ -1,0 +1,13 @@
+{
+ "cfg": "ipad-portrait",
+ "id": "session",
+ "title": "сесія ipad-portrait",
+ "why": [
+  "сесію не відкрито: ЗУПИНКА: PWA відкрила не локальний сервер: about:blank"
+ ],
+ "files": [],
+ "events": [],
+ "anim": null,
+ "m": {},
+ "verdict": "впав"
+}

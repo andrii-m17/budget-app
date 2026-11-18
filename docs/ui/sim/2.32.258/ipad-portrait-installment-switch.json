@@ -1,0 +1,118 @@
+{
+ "cfg": "ipad-portrait",
+ "id": "installment-switch",
+ "title": "ОЧ: перемикання полів",
+ "why": [
+  "низ листа 8 пт проти еталона 100",
+  "запас поля 222 пт проти еталона 314"
+ ],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  222
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 222,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 811,
+  "vvTop": 0,
+  "vvBottom": 811,
+  "fieldBottom": 589,
+  "fieldTop": 555,
+  "sheetBottom": 803,
+  "sheetTop": 418,
+  "sheetH": 385,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "idd-term",
+  "drawerOpen": true
+ },
+ "events": [
+  {
+   "t": 4901,
+   "type": "kb-geometry",
+   "innerW": 820,
+   "innerH": 1148,
+   "vvW": 820,
+   "vvH": 811,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "337px",
+   "orientation": "portrait",
+   "tabbarTop": 1052,
+   "tabbarHeight": 75,
+   "kbgWhy": "focus",
+   "devClass": "iPad",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 418,
+   "sheetBottom": 803,
+   "sheetHeight": 385,
+   "fieldTop": 555,
+   "fieldBottom": 589,
+   "kbHeightCalc": 337,
+   "sheetLiftCss": "245",
+   "sheetRestBottom": 1048,
+   "safeTop": 0,
+   "safeBottom": 20
+  },
+  {
+   "t": 5052,
+   "type": "kb-geometry",
+   "innerW": 820,
+   "innerH": 1148,
+   "vvW": 820,
+   "vvH": 811,
+   "vvOffsetTop": 0,
+   "vvOffsetLeft": 0,
+   "vvScale": 1,
+   "kbInset": "337px",
+   "orientation": "portrait",
+   "tabbarTop": 1052,
+   "tabbarHeight": 75,
+   "kbgWhy": "focus-settled",
+   "devClass": "iPad",
+   "ptrCoarse": true,
+   "hoverHover": false,
+   "standaloneMode": true,
+   "vkPresent": false,
+   "vkOverlays": null,
+   "viewportMeta": "width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+   "tabbarGap": 21,
+   "sheetTop": 418,
+   "sheetBottom": 803,
+   "sheetHeight": 385,
+   "fieldTop": 555,
+   "fieldBottom": 589,
+   "kbHeightCalc": 337,
+   "sheetLiftCss": "245",
+   "sheetRestBottom": 1048,
+   "safeTop": 0,
+   "safeBottom": 20
+  }
+ ],
+ "files": [
+  "ipad-portrait-installment-switch-before.jpg",
+  "ipad-portrait-installment-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}

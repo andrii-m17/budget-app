@@ -1,0 +1,46 @@
+{
+ "cfg": "iphone-portrait",
+ "id": "mono-switch",
+ "title": "Вхідні Mono: операція: перемикання полів",
+ "why": [],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  163
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 163,
+ "m": {
+  "innerH": 894,
+  "innerW": 440,
+  "vvH": 506,
+  "vvTop": 0,
+  "vvBottom": 506,
+  "fieldBottom": 343,
+  "fieldTop": 295,
+  "sheetBottom": 498,
+  "sheetTop": 0,
+  "sheetH": 498,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "fldmono4",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "iphone-portrait-mono-switch-before.jpg",
+  "iphone-portrait-mono-switch-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

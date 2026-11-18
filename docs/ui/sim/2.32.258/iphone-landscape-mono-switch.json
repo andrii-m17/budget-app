@@ -1,0 +1,46 @@
+{
+ "cfg": "iphone-landscape",
+ "id": "mono-switch",
+ "title": "Вхідні Mono: операція: перемикання полів",
+ "why": [],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  12
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 12,
+ "m": {
+  "innerH": 378,
+  "innerW": 956,
+  "vvH": 130,
+  "vvTop": 0,
+  "vvBottom": 130,
+  "fieldBottom": 118,
+  "fieldTop": 70,
+  "sheetBottom": 122,
+  "sheetTop": 0,
+  "sheetH": 122,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "fldmono4",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "iphone-landscape-mono-switch-before.jpg",
+  "iphone-landscape-mono-switch-after.jpg"
+ ],
+ "verdict": "пройшов"
+}

@@ -1,0 +1,49 @@
+{
+ "cfg": "ipad-portrait",
+ "id": "mono-switch",
+ "title": "Вхідні Mono: операція: перемикання полів",
+ "why": [
+  "низ листа 8 пт проти еталона 100",
+  "запас поля 192 пт проти еталона 284"
+ ],
+ "note": "",
+ "repeats": 2,
+ "anim": null,
+ "animPerRun": [
+  null
+ ],
+ "fieldGapPerRun": [
+  192
+ ],
+ "gapPerRun": [
+  8
+ ],
+ "whyPerRun": [
+  []
+ ],
+ "gap": 8,
+ "fieldGap": 192,
+ "m": {
+  "innerH": 1148,
+  "innerW": 820,
+  "vvH": 811,
+  "vvTop": 0,
+  "vvBottom": 811,
+  "fieldBottom": 619,
+  "fieldTop": 571,
+  "sheetBottom": 803,
+  "sheetTop": 276,
+  "sheetH": 527,
+  "tabbarGap": 21,
+  "tabbarVisible": false,
+  "kbOpenClass": true,
+  "active": "fldmono4",
+  "drawerOpen": true
+ },
+ "events": [],
+ "files": [
+  "ipad-portrait-mono-switch-before.jpg",
+  "ipad-portrait-mono-switch-after.jpg"
+ ],
+ "verdict": "впав"
+}
