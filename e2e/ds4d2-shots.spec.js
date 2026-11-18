@@ -6,28 +6,7 @@ const { installClock } = require('./clock');
 const DIR = process.env.DS_SHOTS_DIR, SUF = process.env.DS_SHOTS_SUFFIX || 'after';
 test.skip(!DIR, 'потрібен DS_SHOTS_DIR');
 test.use({ hasTouch: true, deviceScaleFactor: 2 });
-// стан → { open у сторінці, що знімати (селектор) }
-const STATES = {
-  settings: { sel: '#settings-drawer', open: () => { openSettings(); } },
-  card: { sel: '#card-debt-drawer', open: () => { switchTab('accounting'); openCardDebtEditor(0); } },
-  income: { sel: '#income-drawer', open: () => { switchTab('accounting'); openIncomeEditor(0); } },
-  login: { sel: '#profile-drawer', open: () => { showProfileLoginForm(); } },
-  struct: { sel: '#struct-drawer', open: () => { switchTab('structure'); showCategoryModal('Категорія', 'Тест', CATEGORY_TYPES[0], function(){}, function(){}); } },
-  mono: { sel: '#mono-detail-drawer', open: async () => { await openMonoInbox(); monoInbox.rows = [{ id: 'sim1', status: 'new', tx_time: new Date().toISOString(), amount_uah: 120, description: 'Тест', suggested_category: '', suggested_subcategory: '', mono_account_id: 'x' }]; openMonoDetail('sim1'); } },
-  'modal-input': { sel: '#app-modal', open: () => { showInstallmentModal('Додати банк', '', '', function(){ return true; }, 'Ліміт'); } },
-  'modal-confirm': { sel: '#app-modal', open: () => { showConfirmModal('Видалити запис? Це не можна скасувати.', function(){}, 'Видалити'); } },
-  'modal-month': { sel: '#app-modal', open: () => { showMonthPickerModal('Приховати з місяця', ['2026-11', '2026-10'], '2026-11', function(){}); } },
-  notifications: { sel: '#notifications-drawer', open: async () => { await openNotificationsDrawer(); } },
-  expense: { sel: 'body', open: () => { switchTab('vytraty'); } }
-};
-const GROUPS = {
-  headers: ['settings', 'card', 'income'],
-  fields: ['card', 'income', 'login'],
-  struct: ['struct', 'mono'],
-  appmodal: ['modal-input', 'modal-confirm', 'modal-month'],
-  notifications: ['notifications'],
-  expense: ['expense']
-};
+const { STATES, GROUPS } = require('./ds4d2-states');
 test('ds4d2-shots', async ({ page }) => {
   test.setTimeout(400000);
   const want = (process.env.DS_GROUPS || Object.keys(GROUPS).join(',')).split(',');
