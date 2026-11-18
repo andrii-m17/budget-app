@@ -391,9 +391,9 @@
      ~38px (513→475 на desktop; на iPhone, де картка була 520px, очікувано
      ~482px — у межах 497px доступних із клавіатурою, 6D.168). */
   #card-debt-drawer .drawer-head{ margin-bottom:var(--sp-3); }
-  #card-debt-drawer .field{ margin-bottom:10px; }
-  #card-debt-drawer .bdr-minpay-check{ margin:2px 0 10px; padding:10px 14px; }
-  #card-debt-drawer .cdd-delete-link{ margin-top:10px; padding-top:10px; }
+  #card-debt-drawer .field{ margin-bottom:var(--sp-3); }
+  #card-debt-drawer .bdr-minpay-check{ margin:2px 0 var(--sp-3); padding:var(--sp-3) var(--sp-4); }
+  #card-debt-drawer .cdd-delete-link{ margin-top:var(--sp-3); padding-top:var(--sp-3); }
   /* Rev 2.23.6 (6D.175) — живий лог (name-field-check) довів точну причину,
      чому САМЕ поле "Назва" (на відміну від решти полів цієї картки) усе ще
      потребує internal-скролу (6D.168 фолбек, не 6D.169 недогляд): "Назва" —
@@ -472,7 +472,7 @@
   #installment-drawer{ padding-bottom:12px; }
   #installment-drawer .drawer-handle{ margin:-8px -20px 1px; padding:8px 0 1px; }
   #installment-drawer .installment-pay-btn{ margin-top:4px; margin-bottom:6px; }
-  .field{ margin-bottom:14px; min-width:0; } .field:last-child{ margin-bottom:0; }
+  .field{ margin-bottom:var(--sp-4); min-width:0; } .field:last-child{ margin-bottom:0; }
   /* Rev 2.32.171 (OCH-MODEL): компактна форма ОЧ — поля 34 px, підписи 10 px, текст поля як був (16 px); сегменти; закріплені кнопки; унікальні класи och-* (без конфліктів із класами форм). */
   #installment-drawer .och-form .field{ margin-bottom:8px; }
   #installment-drawer .och-form .field label{ font-size:var(--fs-caption2); letter-spacing:.4px; margin-bottom:3px; }
@@ -530,8 +530,8 @@
   #installment-drawer .och-actions > .och-delete-btn{ flex:0 0 40px; width:40px; min-width:40px; height:40px; padding:0; border:0; border-radius:var(--r-s); background:var(--color-track-bg); color:var(--color-error); display:flex; align-items:center; justify-content:center; cursor:pointer; }
   #installment-drawer .och-form .cdd-delete-link{ font-size:var(--fs-caption1); margin-top:2px; padding-top:6px; border-top:0; }
   /* Rev 2.32.6 (X): .fld-label-like — той самий вигляд підпису БЕЗ <label for> (варіант no-for тесту edit-label) */
-  .field label, .field .fld-label-like{ display:block; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
-  .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:11px 12px; border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
+  .field label, .field .fld-label-like{ display:block; font-size:var(--fs-caption2); font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:var(--sp-2); }
+  .field input, .field select{ width:100%; min-width:0; max-width:100%; height:46px; padding:var(--sp-3) var(--sp-3); border:1.5px solid var(--line-strong); border-radius:var(--radius-sm); font-size:16px; background:var(--surface); color:var(--text); box-sizing:border-box; }
   .field input:focus, .field select:focus{ outline:none; border-color:var(--accent); box-shadow:var(--shadow-sm); }
   /* Rev #30 (6D.11) — форма входу: label над полем → іконка+placeholder
      усередині поля (референс). Той самий технічний прийом, що вже
@@ -544,13 +544,13 @@
   .field-icon-wrap input{ padding-left:var(--sp-10); }
   .row-2{ display:flex; flex-wrap:wrap; gap:var(--sp-3); }
   .row-2 > .field{ flex:1 1 130px; min-width:0; }
-  .field.auto-hint{ font-size:var(--fs-caption1); color:var(--color-primary-hover); margin-top:6px; display:none; }
+  .field.auto-hint{ font-size:var(--fs-caption1); color:var(--color-primary-hover); margin-top:var(--sp-2); display:none; }
   .field.auto-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2); }
   /* Rev 2.3.2 — підказка відновленої чернетки форми витрати: нейтральний тон
      (не зелений auto-hint і не фіолетовий installment-hint — це не про
      категорію/прив'язку, а про сам факт "тут є незбережене з минулого разу"). */
-  .field.draft-hint{ display:none; font-size:var(--fs-caption1); color:var(--text-2); margin-bottom:14px; }
-  .field.draft-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2); background:var(--surface-2); padding:8px 10px; border-radius:var(--radius-sm); }
+  .field.draft-hint{ display:none; font-size:var(--fs-caption1); color:var(--text-2); margin-bottom:var(--sp-4); }
+  .field.draft-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2); background:var(--surface-2); padding:var(--sp-2) var(--sp-3); border-radius:var(--radius-sm); }
   /* Rev 2.3.5 — автопідказка назви витрати за історією введень. Власний
      DOM-компонент замість нативного <datalist> — той на iOS Safari (основний
      пристрій тестування, див. мобільні фікси нижче) в багатьох версіях
@@ -574,14 +574,14 @@
   /* Rev 2.2.2 — підказка автозв'язку витрата↔ОЧ (метод C), той самий каркас, що
      .field.auto-hint вище, але окремий акцентний колір (фіолетовий, як і
      категорія "Оплати Частинами") — щоб не плутати з підказкою категорії. */
-  .field.installment-link-hint{ display:none; margin-top:6px; font-size:var(--fs-caption1); }
-  .field.installment-link-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--color-accent-purple-bg); color:var(--color-accent-purple); padding:8px 10px; border-radius:var(--radius-sm); }
+  .field.installment-link-hint{ display:none; margin-top:var(--sp-2); font-size:var(--fs-caption1); }
+  .field.installment-link-hint.show{ display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2); background:var(--color-accent-purple-bg); color:var(--color-accent-purple); padding:var(--sp-2) var(--sp-3); border-radius:var(--radius-sm); }
   .field.installment-link-hint .ilh-text{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .field.installment-link-hint button{ flex:0 0 auto; background:none; border:none; font:inherit; font-size:var(--fs-caption2); font-weight:700; color:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; padding:0; }
   /* Rev 2.2.2 BugFix — коли декілька ОЧ дають частковий збіг (напр. 3 записи
      "ПУМБ ..."), показуємо всіх кандидатів чіпами замість мовчазного вибору
      першого-ліпшого в масиві. */
-  .field.installment-link-hint.multi{ flex-direction:column; align-items:stretch; gap:8px; }
+  .field.installment-link-hint.multi{ flex-direction:column; align-items:stretch; gap:var(--sp-2); }
   .installment-link-candidates{ display:flex; flex-wrap:wrap; gap:var(--sp-2); }
   .installment-link-candidates button{ text-decoration:none; background:var(--surface); border:1.5px solid var(--color-accent-purple); border-radius:var(--r-l); padding:var(--sp-1) var(--sp-3); font-size:var(--fs-caption2); font-weight:600; color:var(--color-accent-purple); cursor:pointer; white-space:nowrap; }
   /* Rev 2.21.16 — той самий фікс "залипаючого :hover", що .gear-btn вище. */
