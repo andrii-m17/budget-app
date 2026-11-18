@@ -83,7 +83,7 @@ test('DS-5c-1 3. дотик до сектора (справжній клік п�
   await page.click('#bal-cat-seg-s button[data-m="sub"]'); await page.waitForTimeout(1200); s = await sheet(page);
   expect(s.mode).toBe('sub'); expect(s.sel, 'вибір скидається при зміні режиму').toBe(null); expect(s.center).not.toBe(catCenter); expect(s.segs.map(c => c.k).every(k => /^(s|n):|^__other$/.test(k)), 'кільце підкатегорій окреме').toBe(true);
   expect(await page.evaluate(() => document.getElementById('bal-cat-seg').querySelector('button[data-m="sub"]').getAttribute('aria-pressed'))).toBe('true'); // сегменти синхронні
-  expect(s.text).toContain('Без підкатегорії'); clean(s.text, 'підкатегорії');
+  expect(s.text, 'Rev 2.32.398 (FIX-SUB): рядка «Без підкатегорії» немає').not.toContain('Без підкатегорії'); expect(s.text.replace(/\s+/g, ' '), 'центр: «з … витрат»').toMatch(/з [\d ]+₴ витрат/); clean(s.text, 'підкатегорії');
 });
 
 test('DS-5c-1 4. стани: немає витрат, одна категорія, багато дрібних («Решта»), підкатегорії без значення; без NaN', async ({ page }) => {

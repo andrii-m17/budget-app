@@ -19,7 +19,7 @@ test('іконка позиції — за правилом «Структури
   const b = j('catBreakdown(' + JSON.stringify([{ amount: 100, category: '🛒 Продукти', subcategory: '☕️ Кафе' }, { amount: 90, category: 'Інше', subcategory: 'пальне' }, { amount: 80, category: '', subcategory: '' }]) + ')');
   assert.equal(b.cats.find(c => c.name === 'Продукти').icon, '🛒'); assert.equal(b.cats.find(c => c.name === 'Інше').icon, 'І', 'без емодзі — перша літера (велика)');
   assert.equal(b.subs.find(c => c.name === 'Кафе').icon, '☕️'); assert.equal(b.subs.find(c => c.name === 'пальне').icon, 'П');
-  assert.equal(b.subs.find(c => c.key === 'n:').icon, 'Б', '«Без підкатегорії» — літера Б'); assert.ok(b.cats.every(c => c.icon && c.icon !== '•') && b.subs.every(c => c.icon !== '•'));
+  assert.equal(b.subs.find(c => c.key === 'n:'), undefined, 'Rev 2.32.398 (FIX-SUB): рядка «Без підкатегорії» немає'); assert.ok(b.cats.every(c => c.icon && c.icon !== '•') && b.subs.every(c => c.icon !== '•'));
   const SRC_JS = SRC.slice(SRC.indexOf('===== Rev 2.32.388 (DS-5c-1)'));
   assert.ok(!/'•'/.test(SRC_JS.slice(0, SRC_JS.indexOf("(window.__MT_FILES"))), 'символу «•» як іконки в коді картки немає');
 });
@@ -28,18 +28,18 @@ test('catBreakdown: суми категорій і підкатегорій (р�
   const b = j('catBreakdown(' + JSON.stringify(exps) + ')');
   const total = exps.reduce((s, e) => s + e.amount, 0);
   assert.equal(b.total, total);
-  assert.equal(b.cats.reduce((s, c) => s + c.sum, 0), total); assert.equal(b.subs.reduce((s, c) => s + c.sum, 0), total, 'підкатегорії + «Без підкатегорії» = усі витрати');
+  assert.equal(b.cats.reduce((s, c) => s + c.sum, 0), total); assert.equal(b.subs.reduce((s, c) => s + c.sum, 0), total - 7400, 'Rev 2.32.398: підкатегорії = витрати з підкатегорією (без «Без підкатегорії»)'); assert.equal(b.subTotal, total - 7400);
   assert.deepEqual(b.cats.map(c => c.name), ['Продукти', 'Харчування', 'Транспорт']); assert.deepEqual(b.cats.map(c => c.sum), [13800, 2900, 500]);
-  const none = b.subs.find(s => s.key === 'n:'); assert.equal(none.name, 'Без підкатегорії'); assert.equal(none.sum, 7400, '6 900 + 500 без підкатегорії');
+  assert.ok(!b.subs.some(s => s.key === 'n:' || s.name === 'Без підкатегорії'));
   assert.equal(b.subs.find(s => s.name === 'Кафе').parent, '🍔 Харчування'); assert.equal(b.subs.find(s => s.name === 'Кафе').icon, '☕️');
   // підкатегорія під двома категоріями: батько — та, де більше
   const two = j('catBreakdown(' + JSON.stringify([{ amount: 100, category: 'A', subcategory: 'X' }, { amount: 900, category: 'B', subcategory: 'X' }]) + ')');
   assert.equal(two.subs[0].parent, 'B');
 });
 test('catBreakdown: порожньо, суми ≤ 0 і нечислові ігноруються, без категорії — «Без категорії»', () => {
-  assert.deepEqual(j('catBreakdown([])'), { total: 0, cats: [], subs: [] }); assert.deepEqual(j('catBreakdown(undefined)'), { total: 0, cats: [], subs: [] });
+  assert.deepEqual(j('catBreakdown([])'), { total: 0, subTotal: 0, cats: [], subs: [] }); assert.deepEqual(j('catBreakdown(undefined)'), { total: 0, subTotal: 0, cats: [], subs: [] });
   const b = j('catBreakdown(' + JSON.stringify([{ amount: 0, category: 'A' }, { amount: -5, category: 'A' }, { amount: 'x', category: 'A' }, { amount: 700, category: '', subcategory: '' }]) + ')');
-  assert.equal(b.total, 700); assert.equal(b.cats.length, 1); assert.equal(b.cats[0].name, 'Без категорії'); assert.equal(b.subs.length, 1); assert.equal(b.subs[0].name, 'Без підкатегорії');
+  assert.equal(b.total, 700); assert.equal(b.cats.length, 1); assert.equal(b.cats[0].name, 'Без категорії'); assert.equal(b.subs.length, 0, 'без підкатегорій — порожній список підкатегорій'); assert.equal(b.subTotal, 0);
 });
 
 test('donutModel: частки в сумі 100 %, відсортовано, межа підпису 7 %, дуги без перекриття', () => {
@@ -68,7 +68,7 @@ test('donutModel: топ-5 + «Решта» (у «Решті» щонаймен�
   assert.equal(tiny.segs[0].key, 'big'); assert.ok(tiny.segs.some(s => s.other));
 });
 test('donutModel: порожньо, нульові й від\'ємні суми, одна категорія (суцільне кільце без зазору)', () => {
-  assert.deepEqual(j('donutModel([])'), { total: 0, count: 0, empty: true, segs: [] }); assert.equal(j('donutModel(undefined).empty'), true);
+  assert.deepEqual(j('donutModel([])'), { total: 0, covered: 0, count: 0, empty: true, segs: [] }); assert.equal(j('donutModel(undefined).empty'), true);
   assert.equal(j('donutModel([{key:"a",name:"a",sum:0},{key:"b",name:"b",sum:-5}]).empty'), true);
   const one = j('donutModel([{key:"a",name:"a",sum:1234}])'); assert.equal(one.segs.length, 1); assert.equal(one.segs[0].pct, 100); assert.equal(one.segs[0].dash, 100, 'без зазору'); assert.equal(one.segs[0].offset, 0); assert.equal(one.segs[0].label, true);
   const tinyOne = j('donutModel([{key:"a",name:"a",sum:99999},{key:"b",name:"b",sum:1}])'); assert.ok(tinyOne.segs[1].dash >= 0.3, 'мінімальна дуга 0,3');
@@ -110,5 +110,16 @@ test('охоронне: анімація дуги вимикається при 
   assert.ok(/if\(motionReduced\(\)\) finish\(\);/.test(SRC));
   const css = ex.readAppCss(); assert.ok(/@media \(prefers-reduced-motion: reduce\)\{[^]*\.bal-sg/.test(css.slice(css.indexOf('===== Rev 2.32.388'))) || /\.bal-sg, \.bal-seg2 \.ind\{ transition:none; \}/.test(css));
   const m = SRC.slice(SRC.indexOf('function catRowHtml'), SRC.indexOf('function syncCatSegs')); assert.ok(!/onclick=/.test(m), 'рядок без inline-обробника');
-  assert.ok(/const model = donutModel\(items, 5\)|const items = balCatItems\(\), model = donutModel\(items, 5\)/.test(SRC), 'кільце будується з позицій поточного режиму');
+  assert.ok(/const items = balCatItems\(\), model = donutModel\(items, 5, balCatBase\(\)\)/.test(SRC), 'кільце будується з позицій поточного режиму');
+});
+
+test('FIX-SUB: donutModel з базою — частки від усіх витрат, кільце заповнене частково (решта — доріжка), одна підкатегорія не стає повним колом', () => {
+  const items = [{ key: 's:a', name: 'a', sum: 2000 }, { key: 's:b', name: 'b', sum: 1000 }];
+  const m = j('donutModel(' + JSON.stringify(items) + ', 5, 10000)');
+  assert.equal(m.total, 10000); assert.equal(m.covered, 3000);
+  assert.deepEqual(m.segs.map(s => s.pct), [20, 10]); assert.ok(Math.abs(m.segs.reduce((s, x) => s + x.share, 0) - 30) < 1e-9, 'сектори займають 30 % кола');
+  const one = j('donutModel([{ key: "s:a", name: "a", sum: 2500 }], 5, 10000)');
+  assert.ok(one.segs[0].dash < 30, 'одна підкатегорія — частина кола, не 100');
+  const full = j('donutModel([{ key: "c:a", name: "a", sum: 2500 }], 5)');
+  assert.equal(full.segs[0].dash, 100, 'без бази поведінка незмінна');
 });

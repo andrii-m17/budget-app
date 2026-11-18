@@ -25,6 +25,7 @@ const chain = page => page.evaluate(() => {
   const own = activeExpenses().filter(e => monthKey(e.date) === m).reduce((s, e) => s + e.amount, 0);                      // незалежно від monthAggregates і catBreakdown
   const byCat = {}; activeExpenses().filter(e => monthKey(e.date) === m).forEach(e => { const k = e.category || '🧾 Без категорії'; byCat[k] = (byCat[k] || 0) + e.amount; });
   const maxCat = Math.max(0, ...Object.values(byCat));
+  const ownSub = activeExpenses().filter(e => monthKey(e.date) === m && e.subcategory).reduce((s, e) => s + e.amount, 0); // Rev 2.32.398 (FIX-SUB): лише витрати з підкатегорією
   const balanceCard = document.getElementById('bal-c-exp-v').textContent, balanceBar = document.querySelector('.bal-dsum b') ? document.querySelector('.bal-dsum b').textContent : '';
   openCatsSheet(); // кільце (категорії)
   const sheetCats = { center: document.getElementById('bal-sunc').innerText, rows: [...document.querySelectorAll('#bal-call .bal-cam')].map(e => e.textContent), cmp: (document.querySelector('#bal-sunc .bal-cpos') || {}).textContent || '' };
@@ -33,18 +34,18 @@ const chain = page => page.evaluate(() => {
   balCatMode = 'cat'; closeCatsSheet(); renderCatCard(balCatSource);
   const ins = [...document.querySelectorAll('#summary-container .bal-ili')].map(i => i.innerText.replace(/\s+/g, ' '));
   const big = ins.find(t => t.includes('Найбільша витрата')) || '';
-  return { m, own, aggregates: monthAggregates(m).totalExpense, balanceCard, balanceBar, ringTotal: balCatData.total, cats: balCatData.cats.reduce((s, c) => s + c.sum, 0), subs: balCatData.subs.reduce((s, c) => s + c.sum, 0), sheetCats, sheetSubs, big, maxCat, pill: (document.getElementById('bal-c-exp-pill') || {}).textContent || '' };
+  return { m, own, ownSub, aggregates: monthAggregates(m).totalExpense, balanceCard, balanceBar, ringTotal: balCatData.total, cats: balCatData.cats.reduce((s, c) => s + c.sum, 0), subs: balCatData.subs.reduce((s, c) => s + c.sum, 0), sheetCats, sheetSubs, big, maxCat, pill: (document.getElementById('bal-c-exp-pill') || {}).textContent || '' };
 });
 const digits = s => { const t = String(s).replace(/[\s\u00a0\u202f]/g, '').replace('−', '-'); const m = t.match(/-?\d+/); return m ? Number(m[0]) : NaN; }; // зі знаком: від'ємна сума не пройде непоміченою
 function expectChain(c, label, opts){
   expect(c.aggregates, label + ': monthAggregates = незалежна сума').toBe(c.own);
   expect(digits(c.balanceCard), label + ': «Витрати» у «Сімейному балансі»').toBe(c.own);
   expect(c.ringTotal, label + ': сума кільця (catBreakdown)').toBe(c.own);
-  expect(c.cats, label + ': Σ категорій').toBe(c.own); expect(c.subs, label + ': Σ підкатегорій + «Без підкатегорії»').toBe(c.own);
+  expect(c.cats, label + ': Σ категорій').toBe(c.own); expect(c.subs, label + ': Σ підкатегорій (лише витрати з підкатегорією; «Без підкатегорії» немає)').toBe(c.ownSub); expect(c.ownSub, label + ': підкатегорії не більші за всі витрати').toBeLessThanOrEqual(c.own);
   expect(digits(c.sheetCats.center.split('\n')[0]), label + ': центр кільця категорій').toBe(c.own);
   expect(c.sheetCats.rows.reduce((s, r) => s + digits(r), 0), label + ': Σ рядків списку шторки (категорії)').toBe(c.own);
-  expect(digits(c.sheetSubs.center.split('\n')[0]), label + ': центр кільця підкатегорій').toBe(c.own);
-  expect(c.sheetSubs.rows.reduce((s, r) => s + digits(r), 0), label + ': Σ рядків списку шторки (підкатегорії)').toBe(c.own);
+  expect(digits(c.sheetSubs.center.split('\n')[0]), label + ': центр кільця підкатегорій = сума підкатегорій').toBe(c.ownSub); expect(c.sheetSubs.center.replace(/\s+/g, ' '), label + ': підпис «з … витрат»').toContain('з ' + (c.sheetCats.center.split('\n')[0]).replace(/\s+/g, ' ') + ' витрат');
+  expect(c.sheetSubs.rows.reduce((s, r) => s + digits(r), 0), label + ': Σ рядків списку шторки (підкатегорії)').toBe(c.ownSub);
   if(c.own > 0 && c.big){ const m = c.big.match(/(\d+)(?:,\d+)?\u00a0?%/); expect(m, label + ': відсоток у висновку').toBeTruthy(); expect(Number(m[1]), label + ': знаменник висновку = та сама сума витрат').toBe(Math.round(c.maxCat / c.own * 100)); }
   // порівняння «на той самий день»: центр кільця й плитка «Витрати» в балансі — той самий відсоток
   const norm = t => (t || '').replace(/[\s ]/g, '').replace('−', '-');

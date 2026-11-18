@@ -1298,7 +1298,7 @@ const DONUT_SHADES = [100, 64, 42];
 // Розбивка витрат місяця: cats (усі категорії), subs (усі підкатегорії + «Без підкатегорії»); кожна позиція { key, name, sum, emoji, parent }; total — сума витрат. Записи з сумою ≤ 0 не рахуються.
 function catBreakdown(monthExp){
   const byCat = {}, bySub = {}, subCat = {};
-  let total = 0, none = 0;
+  let total = 0, subTotal = 0; // Rev 2.32.398 (FIX-SUB): витрати без підкатегорії окремим рядком більше не показуються; subTotal — сума витрат з підкатегорією
   (monthExp || []).forEach(function(e){
     const a = Number(e && e.amount);
     if(!(a > 0)) return;
@@ -1306,9 +1306,10 @@ function catBreakdown(monthExp){
     const cat = e.category || '🧾 Без категорії';
     byCat[cat] = (byCat[cat] || 0) + a;
     if(e.subcategory){
+      subTotal += a;
       bySub[e.subcategory] = (bySub[e.subcategory] || 0) + a;
       (subCat[e.subcategory] = subCat[e.subcategory] || {})[cat] = ((subCat[e.subcategory] || {})[cat] || 0) + a;
-    }else none += a;
+    }
   });
   const desc = function(x, y){ return y.sum - x.sum || (x.name < y.name ? -1 : 1); };
   const mk = function(raw, sum, kind, parent){ return { key: kind + ':' + raw, name: stripLeadingEmoji(raw) || raw, sum: sum, icon: tileForName(raw).text, parent: parent || '' }; };
@@ -1317,29 +1318,29 @@ function catBreakdown(monthExp){
     const pc = subCat[k]; let best = '', bs = -1; Object.keys(pc).forEach(function(c){ if(pc[c] > bs){ bs = pc[c]; best = c; } }); // батько — категорія з більшою сумою
     return mk(k, bySub[k], 's', best);
   });
-  if(none > 0) subs.push({ key: 'n:', name: 'Без підкатегорії', sum: none, icon: tileForName('Без підкатегорії').text, parent: '' });
   subs.sort(desc);
-  return { total: total, cats: cats, subs: subs };
+  return { total: total, subTotal: subTotal, cats: cats, subs: subs };
 }
 // Кільце: частки, «Решта», межа підпису, дуги. maxNamed = 5.
-function donutModel(items, maxNamed){
-  const mx = maxNamed || 5;
+function donutModel(items, maxNamed, base){
+  const mx = maxNamed || 5; // Rev 2.32.398 (FIX-SUB): base — знаменник часток (усі витрати місяця); якщо більший за суму позицій, кільце заповнене лише на їхню частку, решта — доріжка
   const list = (items || []).filter(function(i){ return i && Number(i.sum) > 0; }).slice().sort(function(a, b){ return b.sum - a.sum; });
-  const total = list.reduce(function(s, i){ return s + Number(i.sum); }, 0);
-  if(!(total > 0)) return { total: 0, count: 0, empty: true, segs: [] };
+  const covered = list.reduce(function(s, i){ return s + Number(i.sum); }, 0);
+  const total = Number(base) > covered ? Number(base) : covered;
+  if(!(covered > 0)) return { total: 0, covered: 0, count: 0, empty: true, segs: [] };
   let head = list, rest = [];
   if(list.length - mx > 1){ head = list.slice(0, mx); rest = list.slice(mx); } // «Решта» лише коли в них щонайменше дві позиції
   const raw = head.map(function(i){ return { key: i.key, name: i.name, sum: Number(i.sum), icon: i.icon || '', parent: i.parent || '', other: false, restKeys: [] }; });
   if(rest.length) raw.push({ key: '__other', name: 'Решта', sum: rest.reduce(function(s, i){ return s + Number(i.sum); }, 0), icon: '📦', parent: '', other: true, restKeys: rest.map(function(i){ return i.key; }) });
   let a = 0;
   const segs = raw.map(function(s){
-    const share = s.sum / total * 100, mid = (a + share / 2) / 100 * 2 * Math.PI - Math.PI / 2, single = raw.length === 1;
+    const share = s.sum / total * 100, mid = (a + share / 2) / 100 * 2 * Math.PI - Math.PI / 2, single = raw.length === 1 && total === covered;
     const out = Object.assign({}, s, { share: share, pct: Math.round(share), label: share >= DONUT_LABEL_MIN,
       dash: single ? 100 : Math.max(share - 0.8, 0.3), offset: single ? -a : -(a + 0.4), lx: 104 + DONUT_R * Math.cos(mid), ly: 104 + DONUT_R * Math.sin(mid) });
     a += share;
     return out;
   });
-  return { total: total, count: list.length, empty: false, segs: segs };
+  return { total: total, covered: covered, count: list.length, empty: false, segs: segs };
 }
 function catPctText(sum, total){
   if(!(total > 0)) return '';
@@ -1359,6 +1360,8 @@ function catColor(item, mode, cats, subs){
 }
 
 let balCatMode = 'cat', balCatSel = null, balCatData = null, balCatSource = [], balCatMonth = null;
+// Rev 2.32.398 (FIX-SUB): знаменник часток кільця: у «Підкатегоріях» — усі витрати місяця (F9), у «Категоріях» — теж усі (збігається з сумою позицій)
+function balCatBase(){ return balCatData ? balCatData.total : 0; }
 function balCatItems(){ return balCatData ? (balCatMode === 'cat' ? balCatData.cats : balCatData.subs) : []; }
 function catRowHtml(item, max, mode, color, inSheet){
   const w = max > 0 ? item.sum / max : 0;
@@ -1381,10 +1384,10 @@ function renderCatCard(monthExp, month){
   if(month !== undefined && month !== balCatMonth){ balCatMonth = month; balCatSel = null; } // інший місяць — вибір скидається
   balCatData = catBreakdown(balCatSource);
   if(balCatSel && balCatSel !== '__other' && !balCatData.cats.concat(balCatData.subs).some(function(i){ return i.key === balCatSel; })) balCatSel = null;
-  if(balCatSel === '__other' && !donutModel(balCatItems(), 5).segs.some(function(x){ return x.other; })) balCatSel = null; // «Решта» зникли — вибір скидається
+  if(balCatSel === '__other' && !donutModel(balCatItems(), 5, balCatBase()).segs.some(function(x){ return x.other; })) balCatSel = null; // «Решта» зникли — вибір скидається
   const items = balCatItems(), top = items.slice(0, 4);
   syncCatSegs();
-  host.innerHTML = top.length ? top.map(function(i){ return catRowHtml(i, top[0].sum, balCatMode, '', false); }).join('') : '<div class="empty-hint">Немає витрат за цей місяць</div>';
+  host.innerHTML = top.length ? top.map(function(i){ return catRowHtml(i, top[0].sum, balCatMode, '', false); }).join('') : '<div class="empty-hint">' + (balCatMode === 'sub' && balCatData && balCatData.total > 0 ? 'Немає витрат із підкатегоріями' : 'Немає витрат за цей місяць') + '</div>';
   const all = document.getElementById('bal-cat-all'); if(all) all.classList.toggle('hidden', !items.length);
   refreshBalSheets();
 }
@@ -1405,10 +1408,11 @@ function catCenterHtml(){
         if(pp !== null) cmp = '<span class="bal-cpos' + (pp > 0 ? ' up' : '') + '">' + (pp > 0 ? '+' : (pp < 0 ? '−' : '')) + Math.abs(pp) + '% до ' + (lim.full ? ab : lim.prevDay + ' ' + ab) + '</span>';
       }
     }
+    if(balCatMode === 'sub') return '<b>' + fmt(balCatData ? balCatData.subTotal : 0) + '</b><span>з ' + fmt(total) + ' витрат</span>';
     return '<b>' + fmt(total) + '</b><span>' + items.length + ' ' + (balCatMode === 'cat' ? (items.length === 1 ? 'категорія' : (items.length >= 2 && items.length <= 4 ? 'категорії' : 'категорій')) : (items.length === 1 ? 'підкатегорія' : (items.length >= 2 && items.length <= 4 ? 'підкатегорії' : 'підкатегорій'))) + '</span>' + cmp;
   }
   if(balCatSel === '__other'){
-    const m = donutModel(items, 5), o = m.segs.filter(function(s){ return s.other; })[0];
+    const m = donutModel(items, 5, balCatBase()), o = m.segs.filter(function(s){ return s.other; })[0];
     return o ? '<span class="bal-ce">' + escapeHtml(o.icon) + '</span><b>' + fmt(o.sum) + '</b><span>Решта · ' + catPctText(o.sum, total) + '</span>' : '<b>' + fmt(total) + '</b>';
   }
   const it = items.filter(function(i){ return i.key === balCatSel; })[0];
@@ -1417,7 +1421,7 @@ function catCenterHtml(){
 }
 function applyCatSel(){
   const body = document.getElementById('bal-sheet-cats-body'); if(!body) return;
-  const model = donutModel(balCatItems(), 5), restKeys = {};
+  const model = donutModel(balCatItems(), 5, balCatBase()), restKeys = {};
   model.segs.forEach(function(s){ s.restKeys.forEach(function(k){ restKeys[k] = true; }); });
   const segOf = function(k){ return restKeys[k] ? '__other' : k; };
   const selSeg = balCatSel ? segOf(balCatSel) : null;
@@ -1427,9 +1431,10 @@ function applyCatSel(){
 }
 function renderBalDonut(){
   const wrap = document.getElementById('bal-sunwrap'); if(!wrap || !balCatData) return;
-  const items = balCatItems(), model = donutModel(items, 5);
+  const items = balCatItems(), model = donutModel(items, 5, balCatBase());
   if(model.empty){ wrap.innerHTML = '<svg viewBox="0 0 36 36" role="img" aria-label="Немає витрат"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--surface-2)" stroke-width="7.4"/></svg><button type="button" class="bal-suc" id="bal-sunc" aria-label="Скинути вибір"></button>'; applyCatSel(); return; }
-  let segs = '', labs = '';
+  let segs = model.total > model.covered + 0.5 ? '<circle class="bal-track" cx="18" cy="18" r="14" fill="none" stroke="var(--surface-2)" stroke-width="7.4"/>' : ''; // Rev 2.32.398 (FIX-SUB): неохоплена частка витрат — нейтральна доріжка
+  let labs = '';
   model.segs.forEach(function(s, i){
     const col = catColor(s, balCatMode, balCatData.cats, balCatData.subs);
     segs += '<circle class="bal-sg" data-k="' + escapeAttr(s.key) + '" cx="18" cy="18" r="14" pathLength="100" stroke-width="7.4" stroke="' + col + '" stroke-dasharray="0 100" data-v="' + s.dash.toFixed(2) + '" stroke-dashoffset="' + s.offset.toFixed(2) + '"/>';
@@ -1446,7 +1451,7 @@ function catsSheetHtml(){
   const items = balCatItems(), max = items.length ? items[0].sum : 0;
   const rows = items.map(function(i){ return catRowHtml(i, max, balCatMode, catColor(i, balCatMode, balCatData.cats, balCatData.subs), true); }).join('');
   return '<div class="bal-seg2" id="bal-cat-seg-s"><div class="ind"></div><button type="button" aria-pressed="true" data-m="cat">Категорії</button><button type="button" aria-pressed="false" data-m="sub">Підкатегорії</button></div>' +
-    '<div class="bal-sunwrap" id="bal-sunwrap"></div><div class="bal-hint">Сектор показує частку витрат місяця. Торкніться сектора або рядка.</div><div id="bal-call">' + (rows || '<div class="empty-hint">Немає витрат за цей місяць</div>') + '</div>';
+    '<div class="bal-sunwrap" id="bal-sunwrap"></div><div class="bal-hint">Сектор показує частку витрат місяця. Торкніться сектора або рядка.</div><div id="bal-call">' + (rows || '<div class="empty-hint">' + (balCatMode === 'sub' && balCatData && balCatData.total > 0 ? 'Немає витрат із підкатегоріями' : 'Немає витрат за цей місяць') + '</div>') + '</div>';
 }
 let balCatSheetSig = null;
 function renderCatsSheet(force){
