@@ -370,7 +370,7 @@
   .cdr-chevron{ flex-shrink:0; color:var(--color-muted); }
   /* Rev 2.16.5 — шторка редагування однієї картки (.drawer вже стилізований
      для Налаштувань — тут просто інший вміст: поля картки замість теми). */
-  .drawer-head-main{ display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 auto; }
+  .drawer-head-main{ display:flex; align-items:center; gap:var(--sp-3); min-width:0; flex:1 1 auto; }
   #card-debt-drawer .drawer-head-icon{ flex-shrink:0; }
   #card-debt-drawer .drawer-head-icon svg, #card-debt-drawer .drawer-head-icon .bank-badge{ margin-right:0; display:block; width:34px; height:34px; }
   #card-debt-drawer .drawer-head-text{ flex:1 1 auto; min-width:0; }
@@ -390,7 +390,7 @@
      .cdd-delete-link margin-top 18→10 + padding-top 16→10 (-14) — разом
      ~38px (513→475 на desktop; на iPhone, де картка була 520px, очікувано
      ~482px — у межах 497px доступних із клавіатурою, 6D.168). */
-  #card-debt-drawer .drawer-head{ margin-bottom:10px; }
+  #card-debt-drawer .drawer-head{ margin-bottom:var(--sp-3); }
   #card-debt-drawer .field{ margin-bottom:10px; }
   #card-debt-drawer .bdr-minpay-check{ margin:2px 0 10px; padding:10px 14px; }
   #card-debt-drawer .cdd-delete-link{ margin-top:10px; padding-top:10px; }
@@ -410,7 +410,7 @@
      власний padding-bottom картки -4px — разом -10px, з запасом покриває
      7px дефіциту. */
   #card-debt-drawer{ padding-bottom:var(--sp-4); }
-  #card-debt-drawer .drawer-handle{ margin:-8px -20px 3px; padding:8px 0 3px; }
+  #card-debt-drawer .drawer-handle{ margin:-8px -20px var(--sp-1); padding:var(--sp-2) 0 var(--sp-1); }
   .cdd-amount-input{ text-align:right; }
   /* Rev 2.16.6 BugFix — "Видалити картку" стояла одразу під "Зберегти" (2px
      відступу) — легко натиснути випадково відразу після Save. Відокремлено
@@ -1984,10 +1984,10 @@
      (initDrawerSwipeToDismiss) на цей самий елемент за класом. Від'ємний
      верхній margin компенсує padding:20px самого .drawer, щоб рисочка не
      з'їдала зайвий простір над заголовком. */
-  .drawer-handle{ display:flex; justify-content:center; margin:-8px -20px 6px; padding:8px 0 6px; cursor:grab; touch-action:none; }
+  .drawer-handle{ display:flex; justify-content:center; margin:-8px -20px var(--sp-2); padding:var(--sp-2) 0 var(--sp-2); cursor:grab; touch-action:none; }
   .drawer-handle::before{ content:''; width:36px; height:5px; margin-bottom:-1px; border-radius:var(--r-2xs); background:var(--line); } /* Rev 2.32.371 (DS-4a): смужка 5 px (макет); margin-bottom −1 лишає висоту смужки 18 px, тож розкладка шторок не зсувається */
   .drawer-head, .sf-title{ touch-action:none; -webkit-user-select:none; user-select:none; } /* Rev 2.32.371 (DS-4a): заголовок — зона жесту закриття (дотики по «×» і кнопках лишаються кліками) */
-  .drawer-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .drawer-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--sp-4); }
   /* Rev 2.32.375 (DS-4b): шторки без «×» на телефоні й iPad у портреті (< 1280 пт). Кнопка лишається в розмітці з aria-label="Закрити": візуально прихована (sr-only: 1×1 px, clip, поза потоком), але доступна читачам екрана, Switch Control і клавіатурі; при :focus-visible (Tab із зовнішньою клавіатурою) показується як звичайна «×». Висота заголовка не змінюється (min-height 32 = висота колишньої «×»). На ≥ 1280 (бічна панель без смужки, у т.ч. iPad Pro в альбомі) «×» лишається видимою до етапу десктопа. Дотик відкриття не дає :focus-visible (фокус іде на контейнер шторки, focusFirstIn). Закриття: свайп (DS-4a), затемнення, Esc, «Закрити» — одна функція закриття шторки. */
   @media (max-width:1279px){
     .drawer-head{ min-height:32px; }
